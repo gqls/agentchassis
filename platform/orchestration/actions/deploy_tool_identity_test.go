@@ -30,7 +30,7 @@ func TestResolveToolPageIdentity_NewToolGetsCanonicalShape(t *testing.T) {
 		WithArgs(sqlmock.AnyArg(), "ab-test-calculator", "tool-ab-test-calculator").
 		WillReturnRows(sqlmock.NewRows([]string{"name", "url"})) // no existing row
 
-	name, url, err := resolveToolPageIdentity(context.Background(), db, uuid.New(), "tool-ab-test-calculator")
+	name, url, err := resolveToolPageIdentity(context.Background(), db, uuid.New(), "tool-ab-test-calculator", false)
 	if err != nil {
 		t.Fatalf("resolveToolPageIdentity: %v", err)
 	}
@@ -56,7 +56,7 @@ func TestResolveToolPageIdentity_ExistingLegacyRowKeepsItsIdentity(t *testing.T)
 		WillReturnRows(sqlmock.NewRows([]string{"name", "url"}).
 			AddRow("password-entropy", "/tools/password-entropy.html"))
 
-	name, url, err := resolveToolPageIdentity(context.Background(), db, uuid.New(), "tool-password-entropy")
+	name, url, err := resolveToolPageIdentity(context.Background(), db, uuid.New(), "tool-password-entropy", false)
 	if err != nil {
 		t.Fatalf("resolveToolPageIdentity: %v", err)
 	}
@@ -81,12 +81,55 @@ func TestResolveToolPageIdentity_ExistingDoublePrefixedURLIsNotMoved(t *testing.
 		WillReturnRows(sqlmock.NewRows([]string{"name", "url"}).
 			AddRow("tool-loot-table-balancer", "/tools/tool-loot-table-balancer.html"))
 
-	name, url, err := resolveToolPageIdentity(context.Background(), db, uuid.New(), "tool-loot-table-balancer")
+	name, url, err := resolveToolPageIdentity(context.Background(), db, uuid.New(), "tool-loot-table-balancer", false)
 	if err != nil {
 		t.Fatalf("resolveToolPageIdentity: %v", err)
 	}
 	if name != "tool-loot-table-balancer" || url != "/tools/tool-loot-table-balancer.html" {
 		t.Errorf("got (%q, %q), want the stored identity untouched", name, url)
+	}
+}
+
+func TestResolveToolPageIdentity_FlatSiteNewToolGetsFlatShape(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	mock.ExpectQuery("SELECT name, url FROM pages").
+		WithArgs(sqlmock.AnyArg(), "ab-test-calculator", "tool-ab-test-calculator").
+		WillReturnRows(sqlmock.NewRows([]string{"name", "url"})) // no existing row
+
+	name, url, err := resolveToolPageIdentity(context.Background(), db, uuid.New(), "tool-ab-test-calculator", true)
+	if err != nil {
+		t.Fatalf("resolveToolPageIdentity: %v", err)
+	}
+	if name != "tool-ab-test-calculator" || url != "/tools/ab-test-calculator.html" {
+		t.Errorf("got (%q, %q), want flat (tool-ab-test-calculator, /tools/ab-test-calculator.html)", name, url)
+	}
+}
+
+func TestResolveToolPageIdentity_FlagIrrelevantWhenRowExists(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	// An existing NESTED row on a site later flagged flat: the stored
+	// identity still wins — the flag shapes new synthesis only, it never
+	// moves a live page.
+	mock.ExpectQuery("SELECT name, url FROM pages").
+		WillReturnRows(sqlmock.NewRows([]string{"name", "url"}).
+			AddRow("tool-password-entropy", "/tools/password-entropy/index.html"))
+
+	name, url, err := resolveToolPageIdentity(context.Background(), db, uuid.New(), "tool-password-entropy", true)
+	if err != nil {
+		t.Fatalf("resolveToolPageIdentity: %v", err)
+	}
+	if name != "tool-password-entropy" || url != "/tools/password-entropy/index.html" {
+		t.Errorf("got (%q, %q), want the stored nested identity untouched by the flat flag", name, url)
 	}
 }
 
@@ -97,7 +140,7 @@ func TestResolveToolPageIdentity_EmptyFunctionRefused(t *testing.T) {
 	}
 	defer db.Close()
 
-	if _, _, err := resolveToolPageIdentity(context.Background(), db, uuid.New(), ""); err == nil {
+	if _, _, err := resolveToolPageIdentity(context.Background(), db, uuid.New(), "", false); err == nil {
 		t.Fatal("empty tool function must be refused, not hand-rolled")
 	}
 }

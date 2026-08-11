@@ -247,8 +247,9 @@ func CreateToolComponentAction(ctx context.Context, params ActionParams) (interf
 	// coupling (pages.name == content_components.function) holds.
 	pageID := uuid.New()
 	pageName, pageURL, _ := datahelpers.CanonicalisePage(datahelpers.PageDescriptor{
-		Role: "tool",
-		Slug: function,
+		Role:     "tool",
+		Slug:     function,
+		FlatURLs: siteUsesFlatURLs(ctx, params.DB, siteID, logger),
 	})
 	if pageName == "" {
 		// bugs_open/080: this used to fall back to the hand-rolled flat

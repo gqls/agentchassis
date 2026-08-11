@@ -312,8 +312,9 @@ func applyNewPage(ctx context.Context, db *sql.DB, plan map[string]interface{}, 
 	// so only the typed roles — the section-index family, tool/guide/game,
 	// blog-post, entity-page, and the home/index collapse — change shape.
 	pageName, url, pageType := datahelpers.CanonicalisePage(datahelpers.PageDescriptor{
-		Role: pageTypeRaw,
-		Slug: pageNameRaw,
+		Role:     pageTypeRaw,
+		Slug:     pageNameRaw,
+		FlatURLs: siteUsesFlatURLs(ctx, db, siteID, logger),
 	})
 	if pageName == "" {
 		return nil, fmt.Errorf("new_page name %q (page_type %q) failed canonicalisation", pageNameRaw, pageTypeRaw)

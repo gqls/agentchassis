@@ -106,27 +106,58 @@ func TestSiteUsesFlatURLsNilDB(t *testing.T) {
 // flag without the other re-opens the divergence that already shipped a
 // regression once (the ValidateRoles comment in SyncPagesToDBAction).
 //
+// The round-2 REVISE (corr 70256656) widened the pin to every URL-consuming
+// caller that operates on an existing site: apply_gap_plan's new_page,
+// create_tool_component, deploy_tool's resolveToolPageIdentity. Deliberately
+// NOT pinned, with the reason: create_blog_posts_action.go and deploy_tool's
+// companionGuideIdentity synthesise role=blog-post identities, which already
+// emit the flat shape — FlatURLs is a no-op for them by construction
+// (nestedOrFlatURL is only consulted for tool/guide/game); and
+// apply_adoption_plan_action.go's recreation path canonicalises to nested by
+// design while the structure spec is being written in the same transaction.
+//
 // The descriptor literal is extracted ANCHORED at the CanonicalisePage call,
 // not grepped bare, so a comment or another literal cannot satisfy it.
 func TestFlatURLFlagReachesBothCanonicalisationSurfaces(t *testing.T) {
 	descriptorCall := regexp.MustCompile(`(?s)CanonicalisePage\(datahelpers\.PageDescriptor\{([^}]*)\}`)
 
-	for _, file := range []string{"write_site_plan_action.go", "site_db_actions.go"} {
-		src, err := os.ReadFile(file)
+	// file -> how many CanonicalisePage descriptor literals must carry
+	// FlatURLs. deploy_tool_action.go has two descriptors and exactly one
+	// (resolveToolPageIdentity's) must carry it — companionGuideIdentity's
+	// blog-post descriptor must NOT be forced to, see above.
+	type pin struct {
+		file    string
+		flagged int
+		total   int
+	}
+	for _, p := range []pin{
+		{"write_site_plan_action.go", 1, 1},
+		{"site_db_actions.go", 1, 1},
+		{"apply_gap_plan_action.go", 1, 1},
+		{"create_tool_component_action.go", 1, 1},
+		{"deploy_tool_action.go", 1, 2},
+	} {
+		src, err := os.ReadFile(p.file)
 		if err != nil {
-			t.Fatalf("cannot read %s: %v", file, err)
+			t.Fatalf("cannot read %s: %v", p.file, err)
 		}
 		if !regexp.MustCompile(`siteUsesFlatURLs\(`).Match(src) {
-			t.Errorf("%s no longer calls siteUsesFlatURLs — the URL shape must come from the one shared reader", file)
+			t.Errorf("%s no longer calls siteUsesFlatURLs — the URL shape must come from the one shared reader", p.file)
 		}
 		matches := descriptorCall.FindAllSubmatch(src, -1)
-		if len(matches) == 0 {
-			t.Fatalf("%s: no CanonicalisePage(datahelpers.PageDescriptor{...}) literal found — if the call was restructured, re-pin this test", file)
+		if len(matches) != p.total {
+			t.Fatalf("%s: found %d CanonicalisePage descriptor literals, expected %d — a caller was added or restructured; re-pin this test deliberately",
+				p.file, len(matches), p.total)
 		}
+		flagged := 0
 		for _, m := range matches {
-			if !regexp.MustCompile(`FlatURLs:`).Match(m[1]) {
-				t.Errorf("%s: a CanonicalisePage descriptor omits FlatURLs — this surface would emit nested URLs while the other emits flat (descriptor body: %q)", file, string(m[1]))
+			if regexp.MustCompile(`FlatURLs:`).Match(m[1]) {
+				flagged++
 			}
+		}
+		if flagged != p.flagged {
+			t.Errorf("%s: %d of %d descriptors carry FlatURLs, expected %d — an unflagged surface emits nested URLs on a flat site",
+				p.file, flagged, p.total, p.flagged)
 		}
 	}
 }

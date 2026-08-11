@@ -334,7 +334,8 @@ func DeployToolToSiteAction(ctx context.Context, params ActionParams) (interface
 		pageURL = "/tools/" + pageName + ".html"
 	} else {
 		var err error
-		pageName, pageURL, err = resolveToolPageIdentity(ctx, params.DB, siteID, toolFunction)
+		pageName, pageURL, err = resolveToolPageIdentity(ctx, params.DB, siteID, toolFunction,
+			siteUsesFlatURLs(ctx, params.DB, siteID, params.Logger))
 		if err != nil {
 			return nil, err
 		}
@@ -661,11 +662,17 @@ func companionGuideIdentity(toolPageName string) (string, string, error) {
 //
 // If both names exist (a collision the page_canonical_collision discovery
 // check reports), the canonical row wins.
-func resolveToolPageIdentity(ctx context.Context, db *sql.DB, siteID uuid.UUID, toolFunction string) (string, string, error) {
+//
+// flatURLs is the site's url_shape flag (siteUsesFlatURLs) — the caller reads
+// it once per action run and threads it here rather than this helper querying
+// again, so the sqlmock tests keep their one-query expectation. It only shapes
+// the NEW-tool arm; an existing row keeps its stored identity regardless.
+func resolveToolPageIdentity(ctx context.Context, db *sql.DB, siteID uuid.UUID, toolFunction string, flatURLs bool) (string, string, error) {
 	legacyName := strings.TrimPrefix(toolFunction, "tool-")
 	canonicalName, canonicalURL, _ := datahelpers.CanonicalisePage(datahelpers.PageDescriptor{
-		Role: "tool",
-		Slug: toolFunction,
+		Role:     "tool",
+		Slug:     toolFunction,
+		FlatURLs: flatURLs,
 	})
 	if canonicalName == "" {
 		return "", "", fmt.Errorf("tool function %q failed canonicalisation", toolFunction)

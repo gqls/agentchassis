@@ -387,6 +387,20 @@ func ApplyAdoptionPlanAction(ctx context.Context, params ActionParams) (interfac
 		if data == nil {
 			continue
 		}
+		// The structure aspect carries operator-seeded opt-in keys this action
+		// knows nothing about — url_shape (BLD-018) and the identity-policy
+		// gates (PLAN-048). The fresh marshal below was silently dropping them
+		// on re-adoption (LANDMINES 2026-08-11, "Re-adopting a site silently
+		// drops the structure spec's opt-in flags"), so every key the current
+		// row holds that this write does not itself set is carried forward.
+		// Adoption's own keys (pages/source/adopted_from) win as before. The
+		// read runs before the supersede UPDATE below, inside the same tx.
+		// Other aspects are deliberately not carried: adoption re-derives them
+		// from the crawl wholesale, and only structure has the opt-in-flag
+		// convention.
+		if aspect == "structure" {
+			data = carryForwardStructureSpecKeys(ctx, tx, siteID, data, logger)
+		}
 		dataJSON, err := json.Marshal(data)
 		if err != nil {
 			continue
@@ -1079,4 +1093,48 @@ func countMapKeys(data map[string]interface{}, key string) int {
 		return len(m)
 	}
 	return 0
+}
+
+// carryForwardStructureSpecKeys merges the CURRENT structure spec's keys under
+// a fresh adoption write, so keys adoption does not itself set survive a
+// re-adoption. Fresh keys win. Fails open in every arm — no current row (first
+// adoption), unreadable JSON, or a non-map fresh value all return the fresh
+// data unchanged, which is exactly the pre-fix behaviour.
+//
+// Why this exists: adoption superseded-and-INSERTed a fresh marshal, so an
+// operator-seeded opt-in flag (url_shape, honour_realised_identity,
+// twin_identity_snap, stem_twin_snap — and whatever comes next) vanished on
+// re-adoption, and a vanished flag reads as false, which is indistinguishable
+// from "never seeded". The carry is deliberately for ALL unknown keys, not an
+// allow-list of today's four: an allow-list is this same landmine again one
+// flag later.
+func carryForwardStructureSpecKeys(ctx context.Context, tx *sql.Tx, siteID uuid.UUID, fresh interface{}, logger *zap.Logger) interface{} {
+	freshMap, ok := fresh.(map[string]interface{})
+	if !ok {
+		return fresh
+	}
+	var raw []byte
+	err := tx.QueryRowContext(ctx, `
+		SELECT data FROM site_specs
+		WHERE site_id = $1 AND aspect = 'structure' AND is_current = true
+	`, siteID).Scan(&raw)
+	if err != nil {
+		return fresh
+	}
+	var current map[string]interface{}
+	if err := json.Unmarshal(raw, &current); err != nil {
+		return fresh
+	}
+	carried := make([]string, 0, 4)
+	for k, v := range current {
+		if _, taken := freshMap[k]; !taken {
+			freshMap[k] = v
+			carried = append(carried, k)
+		}
+	}
+	if len(carried) > 0 {
+		logger.Info("ApplyAdoptionPlanAction: carried forward structure spec keys the adoption write does not set",
+			zap.Strings("carried_keys", carried))
+	}
+	return freshMap
 }
