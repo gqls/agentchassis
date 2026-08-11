@@ -474,3 +474,56 @@ three-`pages`-upsert-helpers landmine — only ONE of the two surfaces writes
 `pages` at all (`SyncPagesToDBAction` → `upsertPage`), `WriteSitePlanAction`
 writes the PLAN table, and `upsertPage` is the correct helper by that landmine's
 own rule (a role arriving from a plan belongs on the plan-sync path).
+
+---
+
+## 2026-08-11 (evening) — COUNCIL APPROVED round 3, and the quiet-mode fix is LIVE on chassis v1.0.1288 (artefact-verified). It is also INERT, deliberately
+
+**Verdict: APPROVED**, corr `56e13695-17cb-48ec-bc6b-0371fde8b717`, decided
+17:06:27Z after two REVISE rounds. The trail: revise (16:38) → revise (16:55) →
+approved (17:06).
+
+**Live, verified at the artefact on BOTH replicas** (`agent-chassis-596d84f6b-kmc2t`,
+`-tb8gd`, image `v1.0.1288`), not at git and not at the tag:
+
+```
+POSITIVE  "twin_identity_snap"                 -> present (both pods)
+POSITIVE  "PLAN_PAGE_IDENTITY_TWIN_OBSERVED"   -> present (both pods)
+POSITIVE  "stem_twin_snap"                     -> present (both pods)
+POSITIVE  "honour_realised_identity"           -> present (both pods)
+NEGATIVE  "twin_identity_snapp"  (one letter)  -> absent  (both pods)
+```
+
+`twin_identity_snap` is the load-bearing one: that literal entered the tree only
+in `038211dd8`, the REVISE response, so the running binary carries the FINAL
+gated design and not merely the earlier parts.
+
+> **Two notes on how this was verified, because the obvious routes both fail here.**
+> (1) The documented `logs -l app=agent-chassis | grep 'build provenance'` returned
+> **1.4MB of council payloads** quoting the phrase — the known false-match trap —
+> and the startup line itself had rotated out of both pods. (2) Probing
+> `/proc/1/exe` for my COMMIT SHAs returned absent for all of them **and** for the
+> fabricated control, i.e. no positive control, so it proved nothing. The literal
+> probe with a near-miss negative control is what actually settles it.
+
+**STATUS: the mechanism is fixed and shipped; NO SITE IS USING IT YET, by design.**
+All three gates default OFF, so `v1.0.1288` changes nothing for any site until a
+structure spec opts in. Baseline taken the moment the build landed:
+
+```
+PLAN_PAGE_IDENTITY_TWIN_OBSERVED  0
+PLAN_PAGE_STEM_TWIN_OBSERVED      0
+PLAN_PAGE_IDENTITY_SNAPPED        0
+PLAN_PAGE_MERGE_LOSSY             2   (the pre-existing pair, 08-11 10:21)
+```
+
+**Those three zeros are NOT evidence of anything yet** — no replan has run since
+the roll. The first replan of any site will move `*_OBSERVED` off zero while the
+gates are still off; that is the dark-launch evidence the enable decision rests
+on, and it is the first thing to read next session.
+
+**This bug stays OPEN**, for two reasons that are now clearly separable:
+1. the prevention is live but unproven in the wild (no replan through it yet) and
+   unenabled anywhere;
+2. the existing damage — 7 both-deployed twin pairs across 4 domains — is
+   untouched and needs an owner decision per pair (`RUNBOOK_2026-08-11_duplicate_page_identity_remediation.md`).
