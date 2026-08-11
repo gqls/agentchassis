@@ -105,6 +105,55 @@ roll**, self-healed. The reason it is worth filing anyway: with …6832 at 1.34 
 of headroom, the same event on two nodes at once during a roll would leave a
 deployment short for as long as the pressure lasts, and nothing alerts on it.
 
+## ⚠ STATE AS OF 2026-08-11 15:05Z — COMMITTED BUT **NOT APPLIED**
+
+`301161274` adds `ephemeral-storage` requests to both runner deployments (4Gi)
+and both ollama pods (1Gi). **Those manifests are inert.** A resource change to a
+Deployment's pod template only takes effect when the pods are recreated, and
+nothing has recreated them.
+
+**Why I did not apply it, and this is a judgement to re-make, not a blocker:**
+applying restarts the pods, and at 15:05Z the cluster was busy with other
+sessions' work — **38 in-flight orchestrations**, 27 LLM calls in the preceding 15
+minutes, and all three runner pods had completed CI `deploy` jobs within the last
+two minutes. Restarting `ollama-adapter` takes the eval path down for a few
+minutes (`OLLAMA_LOAD_TIMEOUT` is 10m and the models reload from the PVC), and
+restarting the runners kills whatever CI job is in flight. Many sessions share
+this cluster and none of them asked for that.
+
+**It does not need a special action.** The four overlays pin exactly the images
+and replica counts that are already running (verified 2026-08-11: runners
+`v1.0.948` / `v1.0.1126`, ollama `latest`, replicas 2/1/1/1), so the next ordinary
+roll of these deployments picks the requests up with no drift risk — which also
+means this is safe to include in a whole-fleet release rather than needing a
+one-service apply.
+
+**To apply deliberately at a quiet moment:**
+
+```bash
+for d in github-actions-runner github-actions-runner-vmsites ollama-adapter ollama-eval; do
+  kubectl apply -k deployments/kustomize/services/$d/overlays/production/uk_001
+done
+# then PROVE it, at the pod and not at the manifest:
+kubectl get pods -A -o json | python3 -c "
+import json,sys;d=json.load(sys.stdin)
+print([(p['metadata']['name'][:40], ((c.get('resources') or {}).get('requests') or {}).get('ephemeral-storage'))
+       for p in d['items'] if p['status'].get('phase')=='Running'
+       for c in p['spec']['containers']
+       if any(k in p['metadata']['name'] for k in ('github-actions-runner','ollama'))])"
+```
+
+The fleet-wide census is the real check — it must stop being 0:
+
+```bash
+kubectl get pods -A -o json | python3 -c "
+import json,sys;d=json.load(sys.stdin)
+print('containers requesting ephemeral-storage:', sum(1 for p in d['items'] if p['status'].get('phase') in ('Running','Pending') for c in p['spec']['containers'] if ((c.get('resources') or {}).get('requests') or {}).get('ephemeral-storage')))"
+```
+
+Expect **5** once applied (2 runner replicas + 1 vmsites + ollama-adapter +
+ollama-eval), not 4 — `github-actions-runner` runs two replicas.
+
 ## Fix candidates, ordered by what closes the door
 
 1. **Declare `ephemeral-storage` requests on the heavy tenants** (the two
