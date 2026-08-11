@@ -90,3 +90,60 @@ the Anthropic account hit its spend limit at about a quarter to four this
 afternoon and every AI step across the whole platform has failed since. That is
 now written up as its own bug by another thread. My submission is saved and can be
 re-sent unchanged the moment the limit lifts.
+
+## 2026-08-11, morning — a full night of checks, and the review is unblocked
+
+Overnight the availability check has been round-robining the whole fleet without
+anyone touching it. Every one of our twenty-two live sites has now been fetched
+from the public internet and found serving — twice over, the most recent pass
+running from about ten past seven to five past nine this morning. Nothing has
+raised a flag, which is correct, because nothing is down.
+
+A new platform build went out at twenty past ten. I re-checked that the new build
+still contains the availability check rather than assuming it — a new build is
+somebody else's work and knows nothing about this one — and it does. One of the
+three servers briefly ran out of disk during that changeover and had a copy
+evicted; by half past ten every server reported itself healthy again, so that was
+a passing squeeze rather than a problem, and the other two carried the load
+throughout.
+
+**The API spending limit has lifted.** It ended at about eleven o'clock last night,
+roughly seven hours after it started — not on the 1st of September, which is what
+the error message claimed. Everything AI-driven has been working normally since,
+including overnight. So the review council I could not use yesterday is available
+again, and my submission is still saved and ready to re-send.
+
+**That leaves you two decisions, and I have costed both rather than guessing.**
+
+The first is how to prove the alarm actually rings. There are two ways and they
+trade the same thing off in opposite directions. The safe one uses a spare
+placeholder site: they all have addresses ending `.internal`, which do not exist
+on the public internet at all, so pointing the checker at one produces a genuine
+failure that no customer could ever see. I measured what else in the platform would
+notice such a site being temporarily marked live, and the answer is: one extra row
+in the admin dashboard's list, and nothing else — every other place that looks at
+live sites has a second condition these placeholders fail. The other way is the one
+the original bug report suggested: briefly delete cookly.uk's routing, watch the
+alarm fire, then put it back. That is more faithful, because it is the exact
+failure that took lendzy down, but it means a real site is genuinely offline for a
+few minutes, and I have not yet confirmed our Cloudflare key is even allowed to
+delete a route.
+
+Worth knowing before you choose: I read the code again this morning, and the two
+routes produce **identical** behaviour inside the checker — a site that cannot be
+reached and a site that answers with an error go down exactly the same path, and
+differ only in one word recorded in the flag. So taking a live site down buys
+almost nothing in terms of testing our own code. What it would buy is confirmation
+of how Cloudflare behaves when a route is missing, which we already saw once, on
+lendzy.
+
+I also found something the earlier plan had missed: with the placeholder-site
+route, the alarm can be proven to *fire* but not to *clear itself*, because putting
+the placeholder back to its normal state stops the checker looking at it at all.
+So the clearing half needs proving separately, on a healthy site — which can be
+done with no risk at all, and I have written up how.
+
+The second decision is simply whether to spend on the review round now that the
+API works. It is ten reviewers and about half an hour. My recommendation is yes:
+this code is live on every site, and it went in without review through no fault of
+the process.

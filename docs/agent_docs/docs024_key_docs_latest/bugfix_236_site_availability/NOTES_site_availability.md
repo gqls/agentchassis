@@ -166,3 +166,76 @@
   and what settled it. An elapsed-time claim assembled from memory is an
   `[UNMEASURED]` figure wearing a measured one's clothes, and it would have sent
   the next session hunting a scheduler bug that does not exist.
+
+## 2026-08-11 09:26–10:30Z — the rotation has drained twice, and the cap has lifted
+
+- **Full-fleet coverage, twice over, 0 items.** `[MEASURED 2026-08-11 09:26Z]`
+  22 rows in `site_discovery_rotation` for `availability-discovery-agent`
+  (21 `deployed` + 1 `active` — the census is 21/17/1/1 deployed/pool/system/active,
+  so 22 IS the whole eligible set, not 21; the handoff's "expect 21" was one short).
+  Every stamp is from TODAY (06:07:46Z → 08:03:16Z), i.e. this is a *second* pass,
+  not the cold-start one — the 4-hour cooldown is cycling as designed.
+  `site_unreachable` items fleet-wide: **0**. All 22 sites serve.
+- **v1.0.1284 rolled at 09:23:20/45Z and the check survived it.** Re-greped rather
+  than assumed (a roll is not evidence your fix shipped): `site_unreachable` **7**,
+  invented negative `site_unreachabl3` **0**, pipeline control
+  `asset_reference_404` **13** — one exec each, on BOTH running replicas
+  (`7c9d5f74b9-6j5xn`, `-rvrdg`). This was worth doing: v1.0.1284 is somebody
+  else's build, and nothing in it knows about this lane.
+- **A third chassis pod (`-7w2ch`) was Evicted at that roll** — `Pod was rejected:
+  The node had condition: [DiskPressure]`. Not this lane's, and **transient**: at
+  09:27Z two of five nodes reported `DiskPressure=True`; by 10:29Z all five report
+  `False`, self-cleared. Recorded because reading it at 09:27 alone would have made
+  a passing node event look like a standing fleet condition — the same
+  one-instant-reading error as the 22:15Z near-miss below it in this file.
+- **THE ANTHROPIC CAP HAS LIFTED — the council round is unblocked.**
+  `[MEASURED 2026-08-11 09:26Z]` `llm_call_log` over 12h: 117 successes at 22:00Z
+  on 08-10, then 5 at 02:00Z, 1 at 03:00Z, 8 at 08:00Z, all `success=t`. The only
+  failure in 14 hours is an unrelated `ollama-adapter` EOF at 09:23:32Z (the roll).
+  So the cap that killed submission `7177fb02` ended ~22:00Z on 08-10, about seven
+  hours after it started — **not 2026-09-01 as the API error stated.** Anyone
+  carrying that date forward as fact should re-measure; it was the API's assertion
+  about a billing period, never an observation.
+
+### The drill: the handoff's "check with curl first" is answered, and it changes the shape
+
+- **All 17 pool domains are `.internal`** (`pool-web-tech.internal`, etc.).
+  `curl` → exit 6, HTTP `000`, could-not-resolve. So a pool site flipped into scope
+  yields `transport_error` — a TRUE finding on a domain no visitor can ever reach.
+  That is a better fixture than the handoff assumed it would have to hunt for.
+- **The blast-radius risk in the handoff is MEASURED and smaller than feared.**
+  Every `sites`-level reader of `status IN ('active','deployed')` in the tree, and
+  what each does with a pool row `[MEASURED 2026-08-11]`:
+  | reader | extra guard | pool site hits it? |
+  |---|---|---|
+  | `346` content rotations ×3 (quality/design/completeness) | `COALESCE(last_selected_at,'-infinity') < now() - 7 days` | **no, IF pre-stamped** — stamping is a hard WHERE exclusion for 7 days, not merely "sorts last" as the handoff put it |
+  | `check_duplicate_palette.go:76` (`JOIN sites b`) | inner `JOIN style_collections` | **no** — all 17 pool sites have `style_collection_id IS NULL` |
+  | `report_request_pull_action.go:127` | `deploy_config ? 'report_island'` | **no** — 0/17 |
+  | `intent_collector_actions.go:114` | `deploy_config->>'target'='vm'` | **no** — 0/17, target empty |
+  | `site_admin_handlers.go:51` (admin site list) | none | **yes** — one extra row in the dashboard for the drill's duration. Cosmetic |
+  So with pre-stamping, the entire cost is one row in an admin list. 14 of the 17
+  pool sites also have **0 pages**, so there is nothing for a content agent to act
+  on even in the branch where one somehow selected it.
+- **NEW: the pool variant CANNOT prove the self-clear, and the handoff did not
+  notice.** `Run()` returns early on `siteStatus != active|deployed` — so the moment
+  the drill reverts the site to `pool`, the check stops probing it and the
+  `Resolved`/`AllOfType` path can never fire on that item. Reverting the status is
+  what *prevents* the cleanup. The two halves therefore need two fixtures:
+  file on a pool site, clear on a healthy real one (a synthetic item of the exact
+  shape — `AllOfType` matches on `item_type`+`site_id`, so a hand-inserted row is
+  indistinguishable from a check-filed one to the resolver).
+- **What the cookly route-deletion drill would add over that, stated honestly:**
+  very little *code* coverage. `judgeSiteProbe` sends `transport_error` and
+  `http_522` down the **same** branch (`Unreachable: true` → identical filing
+  code); the difference between the two drills is one string in `reason`. What it
+  would add is a fact about Cloudflare — that removing a worker route really does
+  produce a non-2xx rather than a 200 parking page — and proof that file-then-clear
+  chains on ONE site. Cost: a genuinely live site down for the duration.
+- **Cloudflare feasibility, checked read-only:** the token in `~/.cloudflare/404-token.env`
+  is valid (expires 2026-09-01) and CAN read zones and worker routes — cookly.uk is
+  zone `ab126cfa3debc8e1cf33fe8b741130bb`, route `1e11858e5c1146229c3238351b394146`
+  = `cookly.uk/*` → `portfolio-sites-router`. It **cannot** read DNS records
+  (`success:false`), so its scope is workers-only and **route DELETE permission is
+  UNVERIFIED** `[UNMEASURED]` — the only way to find out is to attempt it, and a
+  403 is harmless. Do not assume the route drill is executable from this
+  workstation until that returns 200.
