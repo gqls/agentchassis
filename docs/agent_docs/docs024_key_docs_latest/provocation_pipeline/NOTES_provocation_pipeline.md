@@ -2345,3 +2345,48 @@ of the ruling and it is worth stating plainly: **the buffer is now shorter than 
 between rolls has sometimes been.** The readability work is committed and inert, so
 replacements in the new register need a roll before ~16 August or the site starts
 repeating itself.
+
+### 2026-08-11 evening — v1.0.1289: the register changed, and the rail passes 8/8
+
+**Deploy proven, both replicas.** Positives: `"NO SENTENCE OVER 20 WORDS"`,
+`"hard_to_read"`, `"SAY THE THING, DO NOT IMPLY IT"`,
+`"generating from the written rules alone"` — all 1. **Two negative controls, both 0:**
+`"A one-sided piece is rejected"` (removed 08-06) and **`"the corpus is the
+specification"` — the refusal message removed TODAY**, which is the stronger of the two
+because it dates the binary to this change rather than to any earlier one.
+
+**Two rounds, eight candidates, 8/8 gate-approved, and 8/8 PASS the readability rail.**
+
+The measurement could have come out otherwise, which is the whole point: **all 28
+pre-existing approved entries fail at least one threshold**, and the rail was written
+against the worst of them. Yesterday's prompt produced text that failed; today's passes;
+same rail, same thresholds, same model. Sample of the new register:
+
+> *"We tip to say thank you. But tipping does not make service better. It makes staff act
+> nice for a tip, not cook well or serve well. A waiter who smiles more does not make the
+> food taste better."*
+
+Compare what the owner rejected this morning, from the same pipeline:
+
+> *"If its meaning nonetheless arrives afterwards by way of a forty-minute video essay,
+> something was not delivered."*
+
+**The metaphor rule appears to be holding too, and that is the half nothing measures.**
+No riddles in any of the eight — no "it is the receipt" construction. `[UNMEASURED]`
+and it must stay that way: there is no arithmetic for it, so the only evidence is
+reading them, and eight is not many.
+
+### Should the rail be made fatal? NOT YET, and the reason is this lane's own standard
+
+8/8 across two rounds is the run my own code comment asks for before flipping. It is
+still **two rounds**, and *"two clean runs cannot establish stability"* is a lesson this
+lane paid for in August when a concurrent session's nine rounds found a 1-in-9 safety
+leak that two clean rounds had hidden. Two rounds of four cannot detect a 1-in-9 failure
+rate. **What flipping needs: enough rounds to bound the pass rate, not just observe it.**
+Left advisory; the test pinning that is deliberately loud.
+
+**Also owed before any flip:** the 8 older candidates awaiting the owner's stamp were
+written to the old bar. Their measured grades run 7.8–11.4 with sentence averages of
+16–26 words, so **most would fail the rail** — but they were gated before it existed, and
+the gate does not re-judge a row with `gated_at` set. Nobody should read their clean
+verdicts as rail-passing.
