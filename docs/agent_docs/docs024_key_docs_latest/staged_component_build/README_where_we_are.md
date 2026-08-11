@@ -1208,3 +1208,43 @@ site (where the better fix turns out to be teaching the tester to use the page's
 rather than renaming eight finished pages), the invisible-text defect (two sites failing,
 a shared component's assumption at fault), and the gas wholesalers' missing logo.
 Whichever way you call them, I'll carry the word to each lane's own paperwork.
+
+---
+
+**2026-08-11, afternoon — the same parallel chat, after you decided all five.** Everything
+you decided this morning is now either done or waiting only on the next release.
+
+**The invisible text is fixed and live.** Nine tool designs across eight sites shared the
+bad colour assumption; I changed all nine in one migration to a pairing each site itself
+guarantees — the colour its own body text uses — and re-published the affected pages. Every
+page now serves the fix except one: the gas wholesalers estimator, whose page is marked as
+owned by the tool pipeline, and the system correctly refused a generic overwrite. That page
+was never illegible (its colours happened to work), so nothing is broken there; the fixed
+design simply ships the next time the tool pipeline rebuilds it. Two things came out of the
+verification worth knowing. First, the platform already has a proper "text that goes on the
+brand colour" token — the tool designs just weren't using it. Second, on
+mortgagecalculator.co.uk that token is itself wrong: white text on their gold, below the
+accessibility floor, by the site's own declared palette. That is a one-token fix with
+site-wide effect, and it belongs to that site's lane — I have written it up in their
+directory with the numbers and how to undo my change if they prefer.
+
+**The eyes now have somewhere to report to.** The new piece reads the vision critique and,
+when it says it found something, files one work item addressed to a human — deduplicated,
+so a defect re-found every night updates one ticket rather than minting thirty. Two design
+choices you should know about: it can never touch the pass/fail verdict (the checks decide
+that; the eye only adds), and if the critique is garbled the system files anyway rather
+than staying quiet — after twenty-six silent losses, the failure mode we will accept is a
+human occasionally glancing at a non-issue, never silence again. The code is committed and
+before the council; it takes effect at the next release, plus one held config switch that
+must be applied after it (the file says exactly when and how).
+
+**The loan calculator tools are unblocked without renaming anything.** The missing config
+key is in: an acceptance run can now be told which page it is about instead of guessing
+from the name. Nothing changes for any existing run until someone actually passes a page
+address, so it is safe by construction. The renames are now a tidiness question for that
+site's lane, not a blocker — and one of their tools lives on the homepage, which no rename
+could ever have fixed.
+
+The other chat did the manual-trigger rework and the Firecrawl key this morning; both are
+recorded in their own right. Two council verdicts are outstanding and should be read by
+whoever is next in: theirs for the key, mine for the vision piece.
