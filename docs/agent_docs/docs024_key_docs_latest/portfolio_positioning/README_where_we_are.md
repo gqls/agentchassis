@@ -212,3 +212,18 @@ first place.
 
 **Full detail:** `SUMMARY_2026-08-11_where_things_stand.md` in this folder — five short
 sections, written to hand to someone else if you want to talk it through.
+
+---
+
+**2026-08-11, later the same evening.** You made both twin-pair calls yourself (health
+by England-vs-UK, landlord by portfolio size) rather than going pair-by-pair — both are
+now in the register. You picked A-track for the design lane over the offer-analyser, and
+picked how mortgagecalculator.co.uk's language bug should be fixed. Then you asked me to
+look at what a different session had been doing on mortgagecalculator.co.uk's copy voice
+tonight — it's a real, evidenced case of the same "looks AI-made" problem you raised about
+lendzy's design, except there the cause turned out to be the brief, not the model. You
+haven't seen or approved that site's new copy yet. You asked for the enforcement-gap work
+(the structural-checks/fact-discipline/fidelity-dial backlog) to happen first, and the
+mortgagecalculator copy review to happen after that, then asked for a handoff to carry all
+of this into a fresh chat. That handoff is `HANDOFF_2026-08-11_continue_here.md` in this
+folder.
