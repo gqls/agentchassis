@@ -612,7 +612,18 @@ func (p *MessageProcessor) sendWorkflowFailureResponse(ctx context.Context, msgC
 // and later fragments of one mangled send write nothing, and a failure to
 // record must never mask the refusal itself.
 func (p *MessageProcessor) recordDispatchFailureState(ctx context.Context, msgCtx *MessageContext, derr error) {
-	if p.sqlDB == nil || msgCtx.ExecutionContext == nil || msgCtx.ExecutionContext.OrchestrationID == "" {
+	// p.sqlDB is only non-nil when DATABASE_URL is set, and it is NOT set on the
+	// chassis pods — so keying on it alone made this whole function a no-op in
+	// production, which is where it matters. Found by running the post-roll
+	// verification on v1.0.1284: the refusal fired and the intake row recorded
+	// it, but no FAILED orchestration row was ever written. Same fallback the
+	// rest of this file uses (selectWorkflow's `db := p.db; if db == nil { db =
+	// p.sqlDB }`).
+	db := p.db
+	if db == nil {
+		db = p.sqlDB
+	}
+	if db == nil || msgCtx.ExecutionContext == nil || msgCtx.ExecutionContext.OrchestrationID == "" {
 		return
 	}
 	execCtx := msgCtx.ExecutionContext
@@ -638,7 +649,7 @@ func (p *MessageProcessor) recordDispatchFailureState(ctx context.Context, msgCt
 	}
 	rawBody = strings.ToValidUTF8(strings.ReplaceAll(rawBody, "\x00", ""), "")
 
-	repo := orchestration.NewStateRepository(p.sqlDB, msgCtx.Logger)
+	repo := orchestration.NewStateRepository(db, msgCtx.Logger)
 	state := &orchestration.OrchestrationState{
 		OrchestrationID:   execCtx.OrchestrationID,
 		OrchestrationName: name,

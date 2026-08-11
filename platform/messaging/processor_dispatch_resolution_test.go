@@ -426,3 +426,39 @@ func TestFixturesAreTheShapeProductionSends(t *testing.T) {
 		t.Fatalf("extractGroupInfo = %q on the canonical envelope", got)
 	}
 }
+
+// TestRecordDispatchFailureState_UsesTheDbTheChassisActuallyHas pins the gap the
+// post-roll verification found on v1.0.1284 (bugs_open/239).
+//
+// recordDispatchFailureState originally guarded on p.sqlDB, which is populated
+// ONLY when DATABASE_URL is set — and it is not set on the chassis pods. So in
+// production the guard returned early every time and the FAILED orchestration
+// row, the whole point of the function, was never written. The refusal still
+// worked and the intake row still recorded it, which is exactly why this was
+// invisible: two of the three traces were present.
+//
+// The test drives the shape production has — db set, sqlDB nil — and asserts the
+// INSERT is attempted. On the pre-fix code sqlmock reports the expectation
+// unmet, because nothing was executed at all.
+func TestRecordDispatchFailureState_UsesTheDbTheChassisActuallyHas(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+	mock.ExpectExec("INSERT INTO orchestration_states").
+		WillReturnResult(sqlmock.NewResult(0, 1))
+
+	p := dispatchTestProcessor(db) // db set, sqlDB nil — the production shape
+	if p.sqlDB != nil {
+		t.Fatal("fixture drifted: this test is only meaningful with sqlDB nil")
+	}
+	msgCtx := dispatchMsgCtx([]byte(`{"action":"orchestrate","config":{"agent_type":"no-such-agent-239"}}`), "orchestrate")
+	derr := p.dispatchUnresolvable(dispatchReasonTypeUnresolved, "no-such-agent-239", "orchestrate", nil)
+
+	p.recordDispatchFailureState(context.Background(), msgCtx, derr)
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("no FAILED orchestration row was written — the trace bugs_open/239 promises is a no-op in production: %v", err)
+	}
+}

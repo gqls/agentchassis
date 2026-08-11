@@ -468,3 +468,79 @@ correct and deliberate — the trailer should show what actually happened.
 - `platform/config/agent_config_loader.go` holds an unmutexed `map[string]*AgentConfig`
   cache keyed only on agent type, reached from the dead `processRequest` (no callers).
   Harmless today, a map race the day someone calls it.
+
+
+---
+
+# POST-ROLL VERIFICATION — 2026-08-11, v1.0.1284. The refusal is LIVE and PROVEN. One promised trace was a no-op in production, found by running the checks; fixed, awaiting the next roll.
+
+## Live at the artefact, both directions, both replicas
+
+```
+agent-chassis-7c9d5f74b9-6j5xn / -rvrdg   docker.io/aqls/agent-chassis:v1.0.1284
+  strings /app/agent-chassis | grep -c DISPATCH_FAIL_CLOSED        -> 8   (was 0 on v1.0.1280)
+  strings /app/agent-chassis | grep -c "didnt find it basically"   -> 0   (was 1 on v1.0.1280)
+```
+Positive control proves the pipeline; the negative proves it is THIS change and not a
+neighbouring one. Both were measured on the pre-fix binary first, so both could have come
+out otherwise.
+
+## Behavioural proof, on a target that cannot do damage
+
+Every test named a **non-existent** agent type (`no-such-agent-239`), so even a wrongly
+successful resolution could not have run anything — this file's §3 forbids bisecting
+against production data, and that constraint is now permanent.
+
+| test | result |
+|---|---|
+| 5 × byte-identical single-line dispatches (incl. `zzz_nonsense_key`, the correction's widest-net repro) | **5 of 5** intake rows `failed`, `DISPATCH_FAIL_CLOSED … agent_type_unresolved`, `attempts=1` — terminal, not retried, and **deterministic** |
+| 1 × deliberately fragmented multi-line heredoc (the original trigger) | fragment 1 `failed` with `parse_failure`; fragments 2–3 `done` by dedupe (the documented, accepted edge) |
+| orchestrations created by all 6 | **0** — pre-fix these were 6 `COMPLETED` `generic` no-ops |
+| natural fleet traffic since the roll | 22 dispatches (endpoint-health-checker, build-pipeline-trigger, index-orchestrator, directory-freshness…) all resolved to their REQUESTED type; **none** to `generic` |
+| intake events `failed` since the roll that are NOT these tests | **0** — no collateral damage |
+
+Also checked and cleared as a false alarm: no `generic`-owned orchestration appears after
+the roll, which looked like a regression in the scheduler ticks. It is not — those messages
+run about **once an hour**, not once per tick, and the pre-roll `generic` rows at 08:29–08:31
+were single-message **inline-workflow** envelopes (Priority 1, the 711 population), which
+still resolve exactly as before.
+
+## ⚠ THE GAP THIS FOUND IN MY OWN FIX — a promised trace that was a no-op in production
+
+**`recordDispatchFailureState` never wrote anything on the chassis, and the fix as shipped
+in v1.0.1284 still does not.** It guarded on `p.sqlDB`, which `NewMessageProcessor`
+populates **only when `DATABASE_URL` is set** — and it is **not set on the chassis pods**
+(`env | grep -c '^DATABASE_URL=' -> 0`). So the guard returned early every time, and the
+FAILED `orchestration_states` row owned by the REQUESTED type — the concept-register
+SYS-014 fix shape, the thing this bug file and RFC_023 both advertised as the queryable
+trace — has never been written in production.
+
+**Why it stayed invisible: two of the three traces WERE present.** The refusal fired (pod
+logs carry `DISPATCH_FAIL_CLOSED: requested agent type has no active definition`) and the
+intake row recorded it with the full reason. Only the third was missing, and nothing
+compared them. The unit test I wrote covered the function's logic while constructing the
+processor with `sqlDB` set — a shape production does not have.
+
+**Fixed in the tree** (`db := p.db; if db == nil { db = p.sqlDB }` — the idiom
+`selectWorkflow` already used twelve lines away) with a regression test built on the
+PRODUCTION shape (`db` set, `sqlDB` nil), mutation-verified: restoring the old guard makes
+it fail. **Rides the next roll.**
+
+**The transferable lesson, logged in WRONG_CALLS:** a guard keyed on a field production
+never populates is indistinguishable from a guard that passes, and a partially-present set
+of traces reads as a working one. When a fix promises N traces, verify N, not the first
+one that answers.
+
+## Status
+
+**OPEN — deliberately, and now for exactly one reason.** The refusal, the disposition and
+the determinism are proven live. The FAILED-row trace is not yet in a rolled image.
+
+**CLOSING CONDITION:** after the next chassis roll, re-run one unknown-agent dispatch and
+assert a row exists with `owner_agent_type='no-such-agent-239'` and `status='FAILED'`:
+
+```sql
+SELECT owner_agent_type, status, left(error,80) FROM orchestration_states
+WHERE correlation_id::text = '<corr>';
+```
+Then this file can close. Nothing else is outstanding.
