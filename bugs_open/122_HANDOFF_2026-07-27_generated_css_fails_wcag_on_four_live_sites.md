@@ -37,9 +37,20 @@ status block immediately below before anything else in this file.**
 > re-audit; fixed by 368 the same afternoon. **This is why the standing control matters
 > more than the repair:** migration **`369`** now runs the render audit **weekly per
 > site** automatically (VIZ-015), filing firm failures as `contrast_failure` work items.
-> It fired within 70s of apply and found **34 real failures on robot-hands' INTERIOR
-> pages** — which the 15-page homepage baseline had never looked at. Expect that scale
-> per site.
+> It fired within 70s of apply and found **171 firm failures on robot-hands' INTERIOR
+> pages** — which the 15-page homepage baseline had never looked at — filing 34 of them
+> (111 dropped by a `max_items` cap that reports itself; 6 of the site's 31 pages never
+> swept at all by a 25-page cap that does **not** — `bugs_open/242`).
+>
+> **UPDATE 2026-08-11: the rotation has now swept the whole fleet — 19 sites, one per
+> hour, exactly as designed — and filed 220 `contrast_failure` items. All 220 sit in
+> `detected`.** They are not blocked by type: `triage_detected_items` promotes every
+> detected item for a site with no type filter
+> (`triage_detect_items_action.go:162-173`, `WHERE site_id = $1 AND status = 'detected'`).
+> They are waiting on **`improvement-loop` running for their site at all** — and its
+> scheduled driver `improvement-sweep` has been `enabled = false` since **2026-05-02**.
+> 776 items across 20+ types are queued behind the same gate, oldest 2026-07-24.
+> **That is an owner decision, not a bug fix** — see the handoff's §7.
 >
 > **What this fix provably CANNOT reach, and the proof:** the ink companions are computed
 > against `pageGrounds = {background, surface}` only. An element sitting on a

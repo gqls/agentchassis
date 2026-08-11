@@ -175,3 +175,66 @@ the page visibly renders — it is an array of **plain strings**, not objects. I
 sizing 368 (MISSTEP 15 in NOTES). A zero-placement answer reads as "nothing uses this",
 which is the most dangerous wrong answer available when you are about to edit a shared
 component.
+
+---
+
+## 7. UPDATE 2026-08-11 — the cadence proved itself, and surfaced the OWNER DECISION
+
+**Engine re-proven on the fresh build, `v1.0.1284`**, both replicas, same five-symbol
+table as §1, negative control 0. VIZ-014 survived the roll. Do not carry this forward
+past the next one.
+
+**The rotation swept the entire fleet overnight — 19 sites, one per hour, 14:54 on 08-10
+through 09:02 on 08-11.** It now goes quiet until ~08-17 (7-day due window, stamped
+no-op when nothing is due). The mechanism works exactly as designed and needs nothing.
+
+**It filed 220 `contrast_failure` items. All 220 are in `detected`.** Top sites:
+vonc 38, robot-hands 34, idea.uk 27, mortgagecalculator 22, lendzy 18, aao 17,
+dartsonline 17.
+
+### The finding, and my two wrong turns getting to it
+
+> **MISSTEP 18 — I twice wrote down a cause that the next query refuted.**
+> **(a)** "Nothing promotes detected items; the promoter is disabled." Refuted:
+> **2,827 items have gone to `complete` since 08-04**, and `page_rerender` alone shows
+> 2,169 progressed. Promotion demonstrably works.
+> **(b)** "Then `contrast_failure` must be excluded by type — no dispatcher names it."
+> Refuted twice: `page_component_status_drift` is *also* named by no dispatcher and
+> progresses 98-to-20; and reading the action settles it —
+> **`triage_detected_items` has NO type filter at all**
+> (`triage_detect_items_action.go:162-173`: `WHERE site_id = $1 AND status = 'detected'`).
+> Both wrong causes were plausible, both were built on a query I had already run, and
+> **each took one further query to kill.** The check that would have saved both: before
+> asserting a selection excludes your rows, READ THE SELECTION — it is one file.
+
+**What is actually true:** triage is **site-scoped and type-blind**. Every detected item
+on a site is promoted the moment `improvement-loop` runs *for that site*. So
+`contrast_failure` is not blocked, it is **queued behind whatever makes improvement-loop
+run** — and `improvement-sweep`, the scheduled task that drives it, has been
+`enabled = false` since **2026-05-02**. Promotion today therefore happens only when some
+other lane happens to trigger the loop for a site, which is why the backlog is uneven:
+**776 detected items across 20+ types, oldest 2026-07-24.**
+
+`[UNVERIFIED]` — **what triggers improvement-loop when it does run.** I did not establish
+it. That is the one question to answer before acting, and it decides between the options
+below.
+
+### The decision (owner's, not this lane's)
+
+| option | what it does | cost / risk |
+|---|---|---|
+| **A. Re-enable `improvement-sweep`** | the designed path; promotes everything, everywhere | **releases all 776 detected items fleet-wide at once**, incl. 193 `page_rerender` and 86 `undeployed_asset`. Off for 3 months — nobody knows why. **Find out why before flipping it** |
+| **B. Targeted promoter for `contrast_failure`** | a scheduled task promoting only this type | contained and reversible, but it is a second promoter beside 286's "single owner" — a shared-mechanism change, so RFC/council territory |
+| **C. Leave it** | findings accumulate as a measured, honest backlog; repaired when a lane touches the site | costs nothing, decays nothing — the items are the record. **Defensible while `bugs_open/213` is open** |
+
+**The confound that makes C respectable rather than lazy: `bugs_open/213`.** The repair
+route these items feed can stamp `complete` without writing anything. Promoting 220 items
+into a verifier with a known false-complete defect converts an honest backlog into 220
+false closures — and a `complete` row is much harder to find later than a `detected` one.
+**Fix 213 before choosing A or B.** That ordering is the actual recommendation.
+
+### Also still true from yesterday, unchanged
+
+`bugs_open/242` (the sweep's silent 25-page cap) is unfixed — every one of those 19 sweeps
+measured at most 25 pages and none of them said whether that was all. The 220 findings are
+a floor, not a census.
