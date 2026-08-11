@@ -5430,3 +5430,15 @@ now live** — the LANDMINES entry's "no tell until the next roll" caveat is clo
 front built is now both configured (seeds 362/328/330) and running (v1.0.1283). What remains is
 measurement only: replan + rebuild + census — handed off to a fresh session, see
 `HANDOFF_2026-08-10b_fact_assignment_front_continue_here.md`.
+
+## 2026-08-11 (morning) — v1.0.1284 verified; the four follow-up rulings landed
+
+Fresh roll again (`agent-chassis-7c9d5f74b9-*`, 09:23Z, `v1.0.1284`): all three detection literals
+=1 both replicas, NEG spelling =0. Verified same-exec; the detections have now survived two rolls.
+
+Owner ruled the four follow-ups (full record: `DECISIONS_2026-08-11_four_follow_up_rulings.md`):
+(1) **replan NOW**, phantom cleanup accepted, sweep-front coordination still mandatory;
+(2) **012 scheduled immediately after the census**; (3) **platform ruling** — nested additions to
+a declared object input are register-named, not re-declared; applied to PBP-037 same commit (the
+seam's nested contract is now enumerated there); guidelines-corpus seed owed;
+(4) **invented-commitments clause approved** — one-line rule-5 extension, its own seed + round.

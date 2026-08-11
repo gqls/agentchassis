@@ -2184,3 +2184,11 @@ instructions are live. What remains is the payoff measurement: rebuild the flagg
 the facts land where they were assigned — I've deliberately left that for the next session, because
 it has to be coordinated with the other thread working this site, and the new alarms should be in
 the running system first so any disobedience is visible when we measure.
+
+**2026-08-11, morning.** You answered the four follow-ups: run the measurement now and accept the
+phantom-page cleanup as a known cost; give the redesign-field fix its slot straight after the
+census; settle the reviewers' contract question by requiring new nested fields to be named in the
+register entry for their seam (I've applied that to our own seam's entry today, so the rule starts
+enforced by example); and add the one-line ban on invented guarantees to the writer's rules —
+"we don't want these claims." The new build is verified again this morning. The census itself and
+the two small follow-on seeds are handed to a fresh session; the handoff has the exact steps.

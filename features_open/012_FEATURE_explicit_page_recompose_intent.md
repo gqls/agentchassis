@@ -193,3 +193,9 @@ this feature:
 
 Recorded by the fact-assignment front; rulings and evidence:
 `docs/agent_docs/docs024_key_docs_latest/brochure_component_library/DECISIONS_2026-08-10_owner_rulings_after_relook.md`.
+
+**SCHEDULED (owner, 2026-08-11): the field-based fix runs as the fact-assignment lane's next round,
+immediately after the fundamentallyai replan census.** This answers the council bug_historian's
+tracking ask on corr `a06ff850` ("worth a date, not indefinite deferral"). Until it lands, the
+operator rule above stands: redesign intent in BOTH the `recompose_pages` field AND the briefing,
+tell = `RECOMPOSE_INTENT_NOT_REALISED` (live in chassis v1.0.1283+).
