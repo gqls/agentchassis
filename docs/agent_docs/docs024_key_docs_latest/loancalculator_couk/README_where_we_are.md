@@ -1629,3 +1629,41 @@ So **the whole of this fault is now fixed and proved on both halves**. I've tidi
 myself: the imaginary experience I invented to bait the veto is deleted, and the one plan it
 produced is marked as a test artefact and is no longer official — I kept it rather than
 deleting it because it happens to be the evidence for the first half of the proof.
+
+## 2026-08-11 evening — the rebuild is unblocked; everything before the button is done
+
+The URL problem you asked us to fix first is fixed and running. The framework code that
+respects this site's flat web addresses went live this afternoon (it rode another thread's
+release, which saved us a deployment), and I've switched it on for this site and checked
+the switch took. So the thing that made a rebuild dangerous — the framework silently moving
+24 of the 26 page addresses — can no longer happen here.
+
+The reviewers looked at the work twice. First pass: approved, with the fair note that the
+code alone changes nothing until it's wired in and switched on — which is what I then did.
+Second pass caught something real: if this site were ever RE-imported through the adoption
+route, the import would silently wipe the switch I'd just set, and the bug would quietly
+come back. I've fixed that too (an import now keeps settings it didn't create), it's
+committed, and the third review round is in progress. That fix isn't needed for THIS
+rebuild — it protects the future.
+
+Everything on the runway before the rebuild is done and checked: the sixteen open
+maintenance jobs aimed at the calculators are parked (seventeen actually — one more was a
+job that creates such jobs); four separate backups exist, each one verified, including a
+snapshot that provably captured all twenty content locks; and the exact lock list is
+written down so it can be re-applied if we ever want it.
+
+Two things wait on you:
+
+1. **The mission brief** — the framework needs the site described to it as if this were any
+   fresh commission, and that description steers everything it writes. My draft is in
+   `MISSION_DRAFT_2026-08-11_for_owner_review.md`. The two sentences worth your attention:
+   the one that tells it to keep the existing pages and addresses, and the one that forbids
+   claiming a capability a calculator doesn't have — that second one exists because of the
+   two false claims that started all this.
+2. **The locks.** You said release everything, and I will — but I'm releasing them at the
+   moment we press the button, not before. There are twenty-one other open jobs (page
+   rewrites and re-renders) that would be free to alter the untouched baseline in the gap
+   between unlocking and rebuilding, and that would muddy the before/after comparison the
+   whole exercise is for.
+
+Say the word on the brief and I fire the rebuild.
