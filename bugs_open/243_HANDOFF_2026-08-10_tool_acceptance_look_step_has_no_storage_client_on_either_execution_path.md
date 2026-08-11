@@ -264,3 +264,35 @@ follow-queries carried a two-line id until `head -1` was applied.
 not yet written). The inline path is now unreachable from any documented trigger; a
 hand-built kcat dispatch would still lose the vision half — that residue is accepted
 and documented rather than defended.
+
+## UPDATE 2026-08-11 (parallel session, afternoon) — CANDIDATE 3 BUILT: the critique gets a reader
+
+Owner decision (in chat, same day): "wire up the vision findings." Implemented per the
+spec block the morning session left (mark the vision outcome distinctly; on a finding,
+raise something a reader will meet; never weaken no_auto_fix or the Tier-4 guarantee):
+
+- **Go half — commit `e6d1ac6dc`, `Council-Submitted: 310dee45-ab34-4246-a69b-ab2df818a80f`.**
+  New `record_vision_finding` action (+ registry entry, + tests incl. a sqlmock pin of the
+  dedup arbiter): parses a trailing `FINDINGS: none | reported` machine line the look
+  prompt gains, and files **ONE deduped `vision_finding` work item**
+  (`human-review` / `needs_human_review`, item_key `vision_finding:<function>:<site_id>`,
+  acceptance_stuck's ON CONFLICT arbiter with spec-MERGE). Direction of failure is the
+  designed part: only an explicit `none` stays quiet — an absent/mangled marker FILES with
+  `verdict_line: "unparsed"`, because this mechanism's failure mode must be a human seeing
+  too much, never the void again. The acceptance verdict is untouched (confirm-never-refute
+  stands; no RFC — TL-041 registers the producer set + key shape per the 08-02 ruling).
+- **Config half — `docs/agent_docs/sql_for_agents/383_tool_acceptance_vision_findings_visible_HOLD.sql`,
+  deliberately `_HOLD`**: prompt line + `record_look.next_step → file_vision_finding` +
+  the new step (`error_step: complete` — a filing failure cannot change the run outcome).
+  Apply by hand ONLY after a roll carries the action (pod-grep `record_vision_finding` ≥1,
+  both replicas), then `--record-only`. Image first, then seeds.
+- The run outcome surface: `complete` vs `complete_no_look` already distinguishes
+  green-with-eyes from green-without at the run level; the new step's output
+  (`collected_data->'vision_finding'`: filed / verdict_line) adds the finding half.
+
+**Status: all three candidates now have their answer.** c1 FIXED+LIVE+PROVEN (08-11
+morning). c2 done as the work-item wrapper (owner decision, same day, `3a91684bd`).
+c3 code committed + council-submitted; **inert until the next chassis roll, then 383_HOLD.**
+Proof owed after both halves land: a run whose critique says `FINDINGS: reported` produces
+exactly one `vision_finding` row, and a `FINDINGS: none` run produces none. The file stays
+in `bugs_open/` per owner practice until that behavioural proof.
