@@ -308,3 +308,85 @@ The cheaper instrument was available the whole time and I reached for it second,
 the image, and it is the *service's own statement* rather than my inference from its bytes.
 **For "what commit is this service running?", read the log line; keep the binary probe for the
 case where you doubt the logs.**
+
+---
+
+## 2026-08-11 (later) — the owner's four decisions, and what each cost
+
+Decisions taken: **(1)** pin the ref in `release`; **(2)** the local regression guard instead of
+the production induced-fault test; **(3)** yes to rewriting CLAUDE.md's build section;
+**(4)** builds and deploys stay manual — so no refusal mechanism in `push-*`/`deploy-*`, and
+this lane does not run releases.
+
+### The pin (BLD-020)
+
+`release` and `release-backend` were prerequisite lists, which is *why* the defect existed:
+prerequisites are made before the recipe runs, so nothing in the recipe can reach them. Both are
+now recipes calling `$(call pinned_sweep,<goals>)` — one `git rev-parse`, echoed, then each goal
+in order as `$(MAKE) <goal> REF=$$PINNED`.
+
+**A cost, not a bug, and I would rather it be found here than by a reader who thinks it broke:**
+`make -n release` now prints the sweep rather than the docker commands underneath it. The `+`
+recipe prefix would restore the old preview — it forces the sub-makes to execute under `-n` and
+relies on MAKEFLAGS carrying `-n` down. **Rejected deliberately.** The owner drives releases by
+hand; a preview command that performs a real release if that assumption ever fails is a far worse
+failure than untidy output is a gain. `make -n build-backend` is unchanged and is the real
+preview. Written into the makefile comment, BLD-020's landmine, and RUNBOOK R9d.
+
+### The regression guard — and what makes it evidence rather than decoration
+
+`make build-agent-chassis REF=d3c09cc74… IMAGE_TAG=scratch-153-guard` (scratch tag, never
+pushed, image and extracted binary removed):
+
+| probe | result | what it rules out |
+|---|---|---|
+| OCI label | `d3c09cc74…` | the label follows `REF`, not HEAD |
+| OLD sha in binary | present | the stamp got in |
+| **live HEAD `6235beb44…`** | **absent** | **the stamp is THIS ref's, not "some sha"** |
+| fabricated sha | absent | the grep is not matching everything |
+| `orchestration` | present | the probe can read this binary at all |
+
+**The load-bearing control is the HEAD one.** A fabricated sha only shows the grep is not
+promiscuous; a *real but different* commit is what distinguishes "built from the ref I asked for"
+from "contains a sha". Two of this lane's three false readings would have survived a fake-sha
+control, so this is not a pedantic distinction — it is the one that was missing each time.
+
+That guard also happens to prove the mechanism the pin depends on: `REF=` reaching the linker.
+One command, two purposes, which is why it was worth running even though the pin is inert until
+the owner's next release.
+
+### The council gate REFUSED this one, client-side, and it is right to
+
+```
+REFUSED: no edit touches the review scope (platform/, internal/, pkg/ — owner ruling 2026-07-17).
+```
+
+A makefile-only change is out of scope; no credits were spent. `FORCE=1` exists and **was not
+used** — spending council credits to override an owner's scope ruling is not a call this lane
+gets to make, particularly while `bugs_open/244` has the gate at 87.8% of the fleet's August
+spend. So this commit carries **neither trailer**, and that is the honest state: not reviewed,
+not submitted, out of scope.
+
+Worth noticing rather than acting on: the release path is plausibly the most shared mechanism on
+the estate, and it sits outside the review scope, while a one-line change inside `pkg/` draws a
+full round. **One lane is not a rate** — recorded here, not opened as an RFC, per the same rule
+this lane applied to the guardian's calibration in the last round.
+
+> Note for whoever reads `SUBMISSION_2026-08-11_release_ref_pin.json` later: it is a **written
+> and refused** submission, not a judged one. Nothing in this lane's history corresponds to a
+> verdict on it. Also, the schema takes `plan.risks` as a **prose string**, not an array — the
+> array form fails validation with a clear message, which is how I found out.
+
+### CLAUDE.md § "Building & deploying images", rewritten
+
+The `strings /app/<svc> | grep -c "<your symbol>"` recipe is gone. It was unsafe on the
+debian-slim image (no binutils → silent 0) and it is the marker-hunting practice that produced
+three false readings in one day. Replaced with: ask the service (`logs … | grep 'build
+provenance'`), then `git merge-base --is-ancestor` for "did my fix ship?", with the binary probe
+demoted to "if you doubt the logs" and carrying its controls. The old claim *"nothing downstream
+of the build records whether it came from a commit"* is struck through and dated rather than
+deleted — it was true when written and is the reason the section looked the way it did.
+
+**Also added there, because the correction would otherwise overclaim in the other direction:**
+the stamp answers "did my fix ship?" **per service**, not per fleet, until BLD-020 has a release
+under it.

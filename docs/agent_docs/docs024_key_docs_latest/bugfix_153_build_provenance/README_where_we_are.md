@@ -217,3 +217,47 @@ about a commit it *should* have, and one it shouldn't) to establish the answer w
 recording because it's the mirror image of yesterday: being burned by a false positive makes the
 next true positive easier to wave away, and the only thing that tells them apart is doing the
 control both times.
+
+---
+
+## 2026-08-11, later — your four decisions are done
+
+**The pin is in.** A release now decides once, at the very start, which commit it is building,
+and hands that same answer to all fourteen services. It prints the commit before it starts
+building, so you can see it. If you ever want a deliberately older release, that still works
+exactly as before. It's committed, and it takes effect the next time you run a release — I
+haven't run one, and won't.
+
+**One thing it cost, which you should know before it surprises you.** `make -n release` — the
+"show me what you'd do without doing it" command — now prints the release sweep rather than the
+list of docker commands underneath. There's a way to get the old output back, but it works by
+making the preview actually run the sub-commands and trusting them to stay in preview mode. On
+an estate where you drive releases by hand, a preview that performs a real release if that trust
+is ever misplaced isn't a trade worth taking for neater output. `make -n build-backend` still
+shows you everything, unchanged.
+
+**The regression guard passed.** I built the chassis from an older commit onto a throwaway tag,
+never pushed it, and checked the result: it carries the older commit, and — the part that
+actually matters — it does *not* carry the current one. That last check is what separates "built
+from the commit I asked for" from "has a commit in it somewhere". Then I deleted the image. So
+the mechanism the pin relies on is proven, and the production test you'd have had to run is no
+longer owed. I've written that decision down where the "still owed" list lives, so nobody
+re-files it in three weeks as an outstanding gap.
+
+**CLAUDE.md is rewritten.** The old instruction told every session to prove a fix had shipped by
+hunting for a chosen word inside the binary. That never worked properly and on one of our
+services it silently returns "not found" because the tool isn't installed. It now says: ask the
+service what commit it's running — it announces it at startup — and compare. The old sentence is
+struck through and dated rather than deleted, because it was true when it was written and
+explains why the section looked the way it did.
+
+**One thing didn't happen, and I want to flag it rather than let it pass.** I put the release
+change to the review council and it **refused to look at it** — automatically, before spending
+anything. Its remit is the three main code directories, and the makefile isn't one of them. That
+rule is yours, from July, so I left it alone rather than using the override. The observation
+worth keeping: the release command is arguably the most shared thing we own, and it falls outside
+review, while a one-line change inside the code directories gets a full round. I'm not proposing
+anything on the strength of one instance — just noting it where you'll see it.
+
+**So this commit is honestly un-reviewed** — no trailer claiming otherwise. Written up in the
+lane notes with the refusal message quoted.

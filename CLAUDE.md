@@ -466,13 +466,35 @@ Rules that make them worth the effort:
   is the deliberate escape hatch that builds the **working tree**, WIP and all —
   only when you actually want uncommitted code in the image.
 - `push-*` and `deploy-*` are git-blind: they ship whatever image is locally
-  tagged `IMAGE_TAG`. Nothing downstream of the build records whether it came
-  from a commit — one more reason the build itself must be the committed one,
-  and verified against the pod.
+  tagged `IMAGE_TAG`. ~~Nothing downstream of the build records whether it came
+  from a commit~~ — **CORRECTED 2026-08-11: the binary now says so itself.**
+  Every backend binary and image carries the commit it was built from
+  (`bugs_open/153`, register **BLD-019**, live since `v1.0.1283`). The build
+  must still be the committed one; you can now *check* rather than assume.
 - Bump `IMAGE_TAG` (makefile ~line 16) for every build — a same-tag rebuild
   ships the node's stale cached binary.
-- Verify a deploy against the **running pod**, never git, never the tag:
-  `kubectl exec -n ai-persona-system <pod> -- sh -c 'strings /app/agent-chassis | grep -c "<your symbol>"'`
+- **Ask the service what it is running. Do not hunt for markers, and do not use
+  `strings`** (rewritten 2026-08-11; the old `strings … | grep -c "<your symbol>"`
+  recipe that stood here produced three confidently wrong readings in one day):
+  ```bash
+  kubectl -n ai-persona-system logs -l app=<service> --tail=300 | grep -m1 'build provenance'
+  ```
+  That is the service's own statement of its commit — no exec, no binary path,
+  nothing to install. **"Did my fix ship?" is now a query, not an inference:**
+  `git merge-base --is-ancestor <your-commit> <the stamp>`. So you no longer need
+  to plant a string literal in your change in order to date it later.
+  - **Per SERVICE, not per fleet** (`bugs_open/249`). Until the pinning fix in
+    `release` has rolled, a release could straddle other sessions' commits and
+    ship several revisions under one tag — `v1.0.1284` shipped three. Read the
+    stamp of the service you actually mean.
+  - **If you doubt the logs, probe the binary — but verify a KNOWN value:**
+    `kubectl -n ai-persona-system exec <pod> -- grep -aq "<expected-sha>" /proc/1/exe`.
+    Never `strings` (absent from the debian-slim images, and behind the customary
+    `2>/dev/null` its failure is indistinguishable from "not stamped"), and never
+    a *discovery* grep for "some 40-hex string" (it matches Go's internal digit
+    table and returns the same wrong answer on every service). **Always run a
+    control in the same breath** — a sha that must be absent, and one that must
+    be present. Both traps are in `LANDMINES.md`.
 - Image first, then seeds (a seed naming an unregistered action fails at runtime).
   No orchestration dispatch within ~300s of a chassis pod (re)start — the spawn
   is silently dropped.

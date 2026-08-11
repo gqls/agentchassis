@@ -1,0 +1,40 @@
+{
+  "rationale": "`make release` does not ship one revision. It ships one TAG, and on this tree that is not the same thing. `ref_build` resolves $(REF) inside EVERY service's recipe (makefile:128), so with the default REF=HEAD each of the 14 backend builds asks git what HEAD is at the moment it starts. A full release takes ~6 minutes and roughly 40 sessions commit to this one shared tree. MEASURED 2026-08-11: v1.0.1284 shipped THREE source revisions under one tag - 5 services at 55fc8fc35, 1 at e2afedaaf, 8 at a41dec8e5 - with the cut points matching two other sessions' commit timestamps to the second (image OCI labels and the pods' own startup provenance lines agree). That instance was harmless (the drift was docs plus two _test.go files) but the general case is not: a platform commit landing mid-release reaches some services and not others, under one version number, with both halves reporting the same tag. This was undetectable before bugs_open/153 shipped the build stamp on 2026-08-10; it is the first thing that mechanism found, and it found it unprompted. The fix resolves the ref ONCE for the whole sweep and passes it down. It is the smallest change that makes the bad state unrepresentable rather than merely unlikely: the alternative on the table was a runbook line telling operators to pass REF= by hand, which this estate's own standing rule classes as a defect rather than a fix. Filed as bugs_open/249; registered as BLD-020. NOTE ON SCOPE, since this lane drew a scope veto eleven days' worth of precedent ago: this is ONE mechanism in ONE file, touching two targets that were already synonyms of each other. It deliberately does NOT add the companion assertion (fail when the 14 images at a tag disagree on revision) - that was offered to the owner and not taken, and is recorded as a decision in BLD-020 rather than left silent.",
+  "submitter": "bugfix_153_build_provenance (2026-08-11, follow-on from BLD-019)",
+  "plan": {
+    "summary": "Pin one commit for a whole release: convert `release` and `release-backend` from prerequisite lists into recipes that resolve $(REF) once via a new `pinned_sweep` macro, then run each goal in order with REF=<pinned sha>. No change to any build, push or deploy target; no change to the push/deploy contract; explicit REF=<sha> releases behave exactly as before.",
+    "edits": [
+      {
+        "file": "makefile",
+        "symbol": "pinned_sweep (new define)",
+        "operation": "add",
+        "rationale": "Resolve $(REF) to a single commit ONCE, fail the release up front if it is not a commit, echo the pinned sha before any building starts (cheapest possible witness), then run each goal in order as $(MAKE) <goal> REF=$$PINNED. A shell loop rather than a prerequisite list is what makes the single resolution possible - prerequisites are made before the recipe runs, so a variable set in the recipe cannot reach them.",
+        "sketch": "define pinned_sweep\n@PINNED=$$(git rev-parse --verify --quiet '$(REF)^{commit}'); \\\nif [ -z \"$$PINNED\" ]; then echo \"REF='$(REF)' is not a commit\"; exit 1; fi; \\\necho \"Release pinned to $$PINNED - every BACKEND service in this sweep builds from that one commit\"; \\\nfor goal in $(1); do $(MAKE) --no-print-directory $$goal REF=$$PINNED || exit 1; done\nendef"
+      },
+      {
+        "file": "makefile",
+        "symbol": "release",
+        "operation": "modify",
+        "rationale": "Was `release: build-backend push-backend deploy-core deploy-agents deploy-agent-cleanup release-dashboard`. Same goals, same order, now under one pinned ref.",
+        "sketch": "-release: build-backend push-backend deploy-core deploy-agents deploy-agent-cleanup release-dashboard\n+release:\n+\t$(call pinned_sweep,build-backend push-backend deploy-core deploy-agents deploy-agent-cleanup release-dashboard)"
+      },
+      {
+        "file": "makefile",
+        "symbol": "release-backend",
+        "operation": "modify",
+        "rationale": "Identical defect in the backend-only release path. Fixing one and not the other would leave a second door open that looks exactly like the fixed one.",
+        "sketch": "-release-backend: build-backend push-backend deploy-core deploy-agents deploy-agent-cleanup\n+release-backend:\n+\t$(call pinned_sweep,build-backend push-backend deploy-core deploy-agents deploy-agent-cleanup)"
+      }
+    ],
+    "grounded_in": [
+      "makefile:111 `REF ?= HEAD` and makefile:128 `GIT_COMMIT=$$(git rev-parse '$(REF)^{commit}')` - the rev-parse lives INSIDE ref_build, which is $(call)-ed once per service.",
+      "MEASURED 2026-08-11, docker image labels for v1.0.1284: 09:07:40Z auth-service 55fc8fc35 / 09:08:58Z agent-chassis 55fc8fc35 / 09:10:03Z content-creator-agent 55fc8fc35 / 09:10:22Z remote-job-spawner e2afedaaf / 09:10:58Z kafka-scheduler a41dec8e5 / 09:14:02Z browser-runner-adapter a41dec8e5. Monotone in build time; the two transitions bracket two other sessions' commit times.",
+      "MEASURED 2026-08-11, independent witness at the pods: `kubectl logs -l app=<svc> | grep 'build provenance'` returns the same three shas, agreeing with the labels on all 14 services.",
+      "MEASURED 2026-08-11, commit rate: the busiest 7-minute window that day (a release is 6m22s) held 13 commits; 23 landed in the 18 minutes while this fix was written. So the prior behaviour was not 'usually one revision' - it was 'one revision only if nobody commits for six minutes'.",
+      "MEASURED 2026-08-11, regression guard: `make build-agent-chassis REF=d3c09cc74... IMAGE_TAG=scratch-153-guard` produces an image labelled d3c09cc74... whose binary contains d3c09cc74..., does NOT contain live HEAD 6235beb44... (a real but different commit), does not contain a fabricated sha, and passes an `orchestration` positive control. So REF= genuinely reaches the linker - the mechanism this change relies on.",
+      "`make -n release` verified after the edit: one `git rev-parse` up front, then the goal loop passing REF=$PINNED.",
+      "bugs_open/249 (the bug, full timeline and ranked candidates); bugs_open/153 + register BLD-019 (the stamp that made it visible); register BLD-020 (this change)."
+    ],
+    "risks": "MEASURED, not a risk to be checked by the reviewer: `make -n release` no longer previews the docker commands, because the goals are reached through a shell loop rather than a prerequisite list. Confirmed by running it. The `+` recipe prefix would restore the old preview by executing the sub-makes under -n and relying on MAKEFLAGS to carry -n down; that was REJECTED deliberately - on an estate where the owner drives releases by hand, a preview command that performs a real release if that assumption ever fails is a worse failure than tidier output is a gain. Documented in the makefile comment, in BLD-020 as a landmine, and in RUNBOOK R9d.\n\nRecursive make inherits command-line variables (IMAGE_TAG, ENVIRONMENT, REGION) through MAKEFLAGS, so an operator's `make release IMAGE_TAG=v1.0.1285 ENVIRONMENT=production REGION=uk001` reaches every goal unchanged. Only REF is overridden, and only to the value $(REF) already resolved to.\n\nSCOPE, stated rather than left for the reviewer to find: the guarantee covers the 14 backend images built through ref_build. `release-dashboard` builds from frontends/admin-dashboard/ in the working tree with no ref and no stamp, exactly as before - frontends are outside BLD-019 and outside this guarantee. The echoed sha must not be read as covering them; that is said in the makefile comment and in BLD-020.\n\nInert until the owner's next release. Owner ruling 2026-08-11: builds and deploys are driven manually by the owner, so this lane will not exercise it. RUNBOOK R9b is the grading check, and it is disconfirmable - it returns three lines over v1.0.1284 and must return one over the next release."
+  }
+}

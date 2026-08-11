@@ -14,7 +14,7 @@ REGION ?= uk001
 REGION_PATH ?= uk_001
 REGISTRY ?= docker.io/aqls
 #IMAGE_TAG ?= latest
-IMAGE_TAG ?= v1.0.1283
+IMAGE_TAG ?= v1.0.1284
 
 # Paths
 TERRAFORM_DIR := deployments/terraform/environments/$(ENVIRONMENT)/$(REGION)
@@ -2352,14 +2352,61 @@ release-dashboard: build-dashboard push-dashboard deploy-dashboard ## Build, pus
 
 #################################
 # Full Release (single command)
+#
+# pinned_sweep,<goals> — resolve $(REF) to ONE commit for the WHOLE release,
+# then run <goals> in order underneath it.
+#
+# WHY THIS IS NOT JUST A PREREQUISITE LIST (bugs_open/249): `ref_build` resolves
+# $(REF) afresh inside EVERY service's recipe, so with the default REF=HEAD each
+# of the 14 builds asks git what HEAD is at the moment it starts. A release takes
+# ~6 minutes and ~40 sessions commit to this one tree, so a release straddles
+# whatever lands while it runs. Measured 2026-08-11: v1.0.1284 shipped THREE
+# revisions under one tag — 5 services at 55fc8fc35, 1 at e2afedaaf, 8 at
+# a41dec8e5, the cut points matching two other sessions' commit times to the
+# second. Nothing was broken and nothing looked wrong; the tag was identical
+# everywhere and each service's own provenance line was correct for itself.
+# Resolving once, here, is what makes "one tag, one revision" TRUE rather than
+# merely usual. An explicit REF=<sha> is resolved the same way, so a deliberate
+# older-ref release is unaffected.
+#
+# SCOPE, stated because the echo would otherwise overclaim: this pins the 14
+# BACKEND images (everything built through ref_build). `release-dashboard`
+# builds from frontends/admin-dashboard/ in the working tree with no ref and no
+# stamp, exactly as before — frontends are outside the provenance mechanism
+# (BLD-019) and outside this guarantee.
+#
+# COST, so nobody rediscovers it as a fault: `make -n release` now prints THIS
+# SWEEP rather than the docker commands underneath it, because the goals are
+# reached through a shell loop instead of a prerequisite list. For the real
+# preview use `make -n build-backend` (or `make -n build-<service>`), which is
+# unchanged. This is deliberate — the `+` prefix would restore the old preview
+# by making the sub-makes run under -n and rely on MAKEFLAGS carrying -n down.
+# On an estate where the owner drives releases by hand, a preview command that
+# performs a real release if that assumption ever fails is not a trade worth
+# taking for tidier output.
 #################################
+define pinned_sweep
+@PINNED=$$(git rev-parse --verify --quiet '$(REF)^{commit}'); \
+if [ -z "$$PINNED" ]; then \
+	echo "$(RED)REF='$(REF)' is not a commit — a release must name committed state.$(NC)"; \
+	exit 1; \
+fi; \
+echo "$(GREEN)Release pinned to $$PINNED — every BACKEND service in this sweep builds from that one commit (bugs_open/249).$(NC)"; \
+for goal in $(1); do \
+	echo "$(CYAN)→ make $$goal REF=$$PINNED$(NC)"; \
+	$(MAKE) --no-print-directory $$goal REF=$$PINNED || exit 1; \
+done
+endef
+
 .PHONY: release
-release: build-backend push-backend deploy-core deploy-agents deploy-agent-cleanup release-dashboard ## Full release: build, push, deploy everything
+release: ## Full release: build, push, deploy everything
+	$(call pinned_sweep,build-backend push-backend deploy-core deploy-agents deploy-agent-cleanup release-dashboard)
 	@echo "$(GREEN)Full release complete with image tag $(IMAGE_TAG)$(NC)"
 	@echo "$(YELLOW)Usage: make release IMAGE_TAG=v1.0.xxx ENVIRONMENT=production REGION=uk001$(NC)"
 
 .PHONY: release-backend
-release-backend: build-backend push-backend deploy-core deploy-agents deploy-agent-cleanup ## Release backend only (no dashboard)
+release-backend: ## Release backend only (no dashboard)
+	$(call pinned_sweep,build-backend push-backend deploy-core deploy-agents deploy-agent-cleanup)
 	@echo "$(GREEN)Backend release complete with image tag $(IMAGE_TAG)$(NC)"
 
 .PHONY: deploy-services

@@ -142,7 +142,19 @@ kubectl -n ai-persona-system logs deploy/agent-chassis --tail=200 | grep 'build 
 
 ---
 
-## R6 — The induced-fault test (the discriminating one; needs the owner)
+## R6 — The induced-fault test — **SUPERSEDED 2026-08-11 by owner decision; do not re-file it as owed**
+
+> **The production induced-fault test below was NOT run and is no longer owed.** Two things
+> changed on 2026-08-11. First, `v1.0.1284` produced a **real, un-induced divergence** — one tag,
+> three source revisions (`bugs_open/249`) — which demonstrated the stamp making an invisible
+> discrepancy visible, in production, without anyone having to lie to production to see it.
+> Second, the owner chose the **local regression guard** (below, and now R9) as the substitute.
+> What remains formally untested is narrow and close to tautological: that an image nobody
+> rebuilt keeps the sha baked into it at build time. **Recording the decision here because an
+> outstanding-proof item that quietly disappears is exactly how a lane's honesty rots** — this
+> one was closed by a choice, on a date, for stated reasons, not by being forgotten.
+
+The original specification, kept because it is still the right test if the question ever reopens:
 
 Everything in R5 passes if the mechanism works **and** the roll was honest. It does **not**
 prove the mechanism can catch a dishonest roll. That needs the fault induced:
@@ -231,3 +243,90 @@ GROUP BY 1 ORDER BY 2 DESC;
 > ```
 > No `provider` in that list answers it in one command. **Never trust a zero from a jsonb path
 > census until you have induced a non-zero from the same query shape.** In `LANDMINES.md`.
+
+---
+
+## R9 — The pinned release (`bugs_open/249` / BLD-020): what to run, and how to tell it worked
+
+### R9a — the regression guard, AS RUN on 2026-08-11 (this is R6's substitute)
+
+Proves `REF=` actually reaches the linker — which is both the guard the bug file asked for and
+the mechanism the release pin depends on. Local only: scratch tag, never pushed, image removed.
+
+```bash
+OLD=d3c09cc746e563b6339831cfb69576eb52135c43          # any commit that is NOT HEAD
+make build-agent-chassis REF=$OLD IMAGE_TAG=scratch-153-guard
+
+docker image inspect docker.io/aqls/agent-chassis:scratch-153-guard \
+  --format 'revision={{index .Config.Labels "org.opencontainers.image.revision"}}'   # must be $OLD
+
+CID=$(docker create docker.io/aqls/agent-chassis:scratch-153-guard)
+docker cp "$CID":/app/agent-chassis /tmp/guard-bin && docker rm "$CID"
+grep -aq "$OLD" /tmp/guard-bin                  && echo "OLD present  (expected)"
+grep -aq "$(git rev-parse HEAD)" /tmp/guard-bin || echo "HEAD absent  (expected)"   # THE control
+grep -aq deadbeefcafe1234567890abcdef1234567890ab /tmp/guard-bin || echo "fake absent (expected)"
+grep -aq orchestration /tmp/guard-bin           && echo "probe works (positive control)"
+
+docker rmi docker.io/aqls/agent-chassis:scratch-153-guard; rm -f /tmp/guard-bin
+```
+
+Measured 2026-08-11: label `d3c09cc74…`, OLD present, HEAD **absent**, fake absent, probe works.
+
+> **GOTCHA — the load-bearing control is the HEAD one, not the fabricated one.** A fabricated sha
+> proves only that the grep is not matching everything. **A real but different commit** is what
+> proves the stamp is *this ref's*, rather than "some sha that happens to be in there". Two of
+> this lane's three false readings would have survived a fake-sha control.
+>
+> **GOTCHA — use a scratch `IMAGE_TAG`, never a real one.** The build tags
+> `docker.io/aqls/agent-chassis:$IMAGE_TAG` locally. Running this at a live tag would leave a
+> deliberately-old image sitting under a name `push-*` will happily ship, since `push-*`/`deploy-*`
+> are git-blind. Remove the image afterwards.
+
+### R9b — after the owner's next `make release`: is it ONE revision?
+
+The pin is committed but **inert until a release runs under it**. This is the check that grades it:
+
+```bash
+for S in auth-service core-manager agent-chassis reasoning-agent web-search-adapter \
+         web-scrape-adapter git-adapter image-generator-adapter thunder-adapter \
+         analyser-adapter browser-runner-adapter content-creator-agent \
+         remote-job-spawner kafka-scheduler; do
+  docker image inspect docker.io/aqls/$S:$IMAGE_TAG \
+    --format '{{index .Config.Labels "org.opencontainers.image.revision"}}'
+done | sort -u                      # EXPECT exactly ONE line
+```
+
+`release` also now echoes the pinned sha up front — `Release pinned to <sha>` — which is the
+cheapest possible witness and appears before any building starts.
+
+> **This check is disconfirmable, which is why it is worth running.** Over `v1.0.1284` (built
+> before the pin) it returns **three** lines. If it returns one line on a tag built before the
+> pin existed, that is luck, not the fix.
+
+### R9c — at the cluster, per service (no exec, no binary path, nothing to install)
+
+```bash
+for D in agent-chassis auth-service core-manager reasoning-agent web-search-adapter \
+         web-scrape-adapter git-adapter image-generator-adapter thunder-adapter \
+         analyser-adapter browser-runner-adapter content-creator-agent remote-job-spawner; do
+  printf '%-26s ' "$D"
+  kubectl -n ai-persona-system logs -l app=$D --tail=300 2>/dev/null | grep -m1 -o '"git_commit":"[0-9a-f]*"' || echo '<none>'
+done
+```
+
+> **GOTCHA — reach for the log line BEFORE the binary probe, not after.** It is the service's own
+> statement rather than your inference from its bytes, and it cannot be defeated by a missing
+> tool, a wrong binary path or a permissions refusal. This lane ran the binary probe first on
+> 2026-08-11, got `NO MATCH` on eight services, and nearly dismissed a genuine finding as its own
+> instrument misbehaving — because the day before, that same probe *had* been the thing at fault.
+> Only a control on the same pod (its own sha → MATCH, another service's sha → no match)
+> separated the two. **Being burned by a false positive makes the next true positive easy to
+> wave away; the control is the only thing that tells them apart.**
+
+### R9d — the preview command changed
+
+`make -n release` now prints the **sweep** (the pinned-sha resolution and the loop), not the
+docker commands under it, because the goals are reached through a shell loop rather than a
+prerequisite list. For the real preview: `make -n build-backend`, or `make -n build-<service>`,
+both unchanged. This was a deliberate trade — see BLD-020's landmine for why the `+` prefix that
+would restore the old output was rejected.
