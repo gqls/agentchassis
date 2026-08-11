@@ -28307,3 +28307,23 @@ would be unavailable later — this bug's own 08-09 correction is that decision 
 record's fields, not its title.** One query.
 **The shape:** *code that claims to predict another component's behaviour must derive its input
 the same way that component does; "the same rule" is not the same as "the same inputs".*
+
+**3. WRONG CALL (same lane, same day): I filed a finding as a "distinct defect" without reading the
+owning lane's current handoff, which had predicted it in writing five hours earlier.**
+I measured two hand-archived pages acquiring `deployed_at` stamps and serving 200, wrote it into
+`bugs_open/215` as a separate defect, and fired a `090` diagnosis at it. The fundamentallyai sweep
+front's handoff — committed `c3b424c8e` at 12:47, against my 17:28 — already said the replan would
+re-plan all three archived pages, named the one that would auto-build and deploy, and noted it
+would need file retraction. The chain is PLAN-017's documented regeneration trap, not a new one.
+**What caught it:** opening that handoff in order to append a coordination note to it. The note I
+owed the other lane was the same document that would have corrected me, and I was writing my
+conclusion first and coordinating second.
+**The cheap check:** `ls -t` the owning lane's directory and read the NEWEST handoff before filing
+anything about that lane's site — not the one a search surfaced, and not the one an explorer
+summarised hours earlier. **A cold-start read is not current; on this tree a handoff can be five
+hours old and already superseded.**
+**The shape:** *"grep before you file" catches the duplicate BUG; it does not catch the duplicate
+OBSERVATION.* `who-owns` reads commits, my explorer read the 08-09 file, and both were right about
+what existed when they looked. The prediction lived in a file that had been rewritten since. The
+measurement was still worth taking — what was wrong was the word "distinct", and the implied claim
+that nobody knew.

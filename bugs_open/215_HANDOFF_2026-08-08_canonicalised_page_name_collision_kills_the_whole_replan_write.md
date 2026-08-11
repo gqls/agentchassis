@@ -406,6 +406,21 @@ exists.
    diagnosis loop rather than into an assertion here — **090 run correlation
    `38099787-c7f9-46d4-b75e-3a1867fcaf41`**. Open work items sit on archived pages
    across **8 domains**, so this is a class, not a fundamentallyai quirk.
+
+   > **CORRECTED, same day, before anyone relied on it: I called this a "distinct
+   > defect" as though it were undiscovered. It was not.** The fundamentallyai
+   > sweep front had written the mechanism into its own handoff at **12:47**,
+   > hours before I wrote this section at 17:28 — it PREDICTED the replan would
+   > re-plan all three archived pages, named `ai-readiness-checker-guide` as the
+   > one that would auto-build and deploy, and flagged that it would need file
+   > retraction this time. The chain (plan still names the page → reconcile emits
+   > `needs_page` → build → deploy) is the documented regeneration trap, PLAN-017's
+   > landmine, not a new one. **What caught it:** reading that handoff before
+   > writing my coordination note into it, which is the step that should have come
+   > first. The measurement stands and the 090 run is still worth its cost, but
+   > the question it actually asks is narrower and should be read that way:
+   > *should the build/deploy path refuse a page whose `status` is `archived`,
+   > rather than relying on the plan never naming it?*
 2. **The canonical layer must derive its key the way the write path does**
    (`firstNonEmpty(slug, name)`, not name alone). Caught by reading the actual
    `PLAN_PAGE_MERGE_LOSSY` rows rather than inferring from the names in them: the
