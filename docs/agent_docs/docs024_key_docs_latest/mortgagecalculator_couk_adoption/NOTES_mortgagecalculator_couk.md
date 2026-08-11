@@ -2381,3 +2381,37 @@ and is not a lane-local edit. **Owner decision needed** — see README.
    the new spec in place, which is the point, but the differentiation brief will
    still say "differentiate or die". The spec now contradicts it explicitly; which
    wins is **unmeasured**.
+
+### 19:06Z — the churn was still running, and one item is now PARKED
+
+The 17:41 sweep filed a THIRD item nobody had noticed: `needs_content_planning`
+(`content-gap-planner`), premise *"No FAQ or guidance content is detectable"* —
+false in the same way as the others (this site has four linked guide pages). It
+ran 19:00–19:06 and its output was a **new `content_rewrite` on `index`,
+priority 35** — i.e. queued AHEAD of everything else and about to rewrite the
+homepage again, unattended, through the path `bugs_open/253` measured today as
+keeping 84% of the words and **0% of the layout classes**.
+
+**Parked it** (`status='deferred'`, reason appended to `created_by`, flip back to
+`triaged` to release): `d1cd9757-7e70-4e76-895f-36033d1be2be`. Not cancelled —
+the owner is mid-decision on the voice, and the brief is worth re-reading once
+the card-title question is settled.
+
+`sites.locked_at` would have stopped all of it in one switch (RUNBOOK §9) and was
+**deliberately NOT used**: owner ruling §3 in force says this site stays
+unlocked. Parking one row is the narrow version of the same intent.
+
+**Queue after the park — no further copy rewrite is pending:** `page_rerender` ×16
+(re-renders from `content_data`, so it reproduces the existing words rather than
+writing new ones), `needs_internal_links` ×4, `needs_imagery` ×2,
+`acceptance_run` ×3 (ours, priority 90, behind the rerenders), `needs_rerender`
+×1, `audit_tool` ×2. **So the homepage copy is now stable** — the sweep is
+disabled, and nothing queued will rewrite it. That is the state the owner asked
+for while the voice is settled.
+
+**Also learned about the dispatcher** (extends RUNBOOK §15): the site-selection
+query skips any site holding a `claimed` item, and the per-site pickup is
+`priority ASC`. Two nudges appeared to do nothing because the planning item held
+the site's single-flight slot for 80 minutes; the third worked. **A nudge that
+"does nothing" may mean the site is busy, not that the publish dropped** — check
+for a `claimed` row before re-firing.
