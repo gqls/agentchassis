@@ -9086,6 +9086,12 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **source:** raised by the council gate's `guardian` seat, round 2 of
   `bugs_open/215`'s quiet-mode submission (corr `56e13695`), 2026-08-11; verified
   by reading both write paths
+- **FIX COMMITTED 2026-08-11 (`19acfc895`, 241 lane) — INERT UNTIL THE NEXT ROLL.**
+  `carryForwardStructureSpecKeys` in `apply_adoption_plan_action.go` now merges the
+  current structure row's unknown keys under adoption's fresh write (all unknown
+  keys, fresh wins; fails open). The check above stays the right one until a roll
+  carries the fix — and remains worth running after any adoption on an older image.
+  Do not re-fix; council trail corr `70256656`.
 - **added:** 2026-08-11, bugs_open/215 quiet-mode lane
 
 ### A `page_components` scan has NO site of its own — an asset-path query sweeps the whole fleet, and `/assets/images/<prefix>-` is a namespace every site shares
