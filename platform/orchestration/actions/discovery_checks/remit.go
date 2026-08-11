@@ -101,7 +101,8 @@ func PartitionByRemit(candidates []RemitCandidate, transform func(string) string
 }
 
 // Gap kinds. The distinction matters to whoever picks the item up: a remit gap is
-// a change to code that exists, a missing handler is a thing to build or seed.
+// a change to code that exists, a missing handler is a thing to build or seed,
+// and a rule gap is a DECISION nobody has taken yet.
 const (
 	// GapHandlerRemit — the handler exists and runs, but its transform provably
 	// cannot touch this part of the detector's population.
@@ -111,6 +112,20 @@ const (
 	// every item would be marked blocked at claim
 	// (claim_work_item_action.go:126-168). The whole population is residue.
 	GapHandlerMissing = "handler_missing"
+
+	// GapRuleMissing — the DETECTOR has no rule for this member of its
+	// population, so it examined nothing. Unlike the two above, nothing was
+	// found and no handler is implicated: what is missing is upstream of both.
+	// It exists because a detector that branches on a site's own recorded shape
+	// returns an empty result for a shape it has no branch for, and an empty
+	// result is indistinguishable from "examined and clean" — a silence that
+	// reads as a clean bill is worse than a finding.
+	//
+	// For this kind BuilderNeeded is NOT an agent (there is nothing to build);
+	// it is the triage grouping key naming the rule that is missing, so each
+	// unruled shape gets its own roadmap line. The sentence a human reads comes
+	// from Capability instead.
+	GapRuleMissing = "rule_missing"
 )
 
 // CapabilityGap describes work the platform can SEE and cannot ACT on. It is the
@@ -121,8 +136,8 @@ const (
 type CapabilityGap struct {
 	Check         string // the check that found it, e.g. "hardcoded_section_colors"
 	Pipeline      string // "design" / "build" — the check's own pipeline
-	BuilderNeeded string // agent that would have to exist, or widen, e.g. "color-variable-fixer"
-	GapKind       string // GapHandlerRemit | GapHandlerMissing
+	BuilderNeeded string // agent that would have to exist, or widen, e.g. "color-variable-fixer"; for GapRuleMissing, the missing RULE (see the const)
+	GapKind       string // GapHandlerRemit | GapHandlerMissing | GapRuleMissing
 	Capability    string // one line: what the handler would have to learn to do
 	Population    int    // everything the detector matched
 	Residue       int    // the part outside the handler's remit
@@ -238,15 +253,28 @@ func HandlerStepConfig(ctx context.Context, db *sql.DB, agentType, action string
 
 // capabilityGapSummary is the line a human or an agent reads in the backlog. It
 // has one job: make it impossible to read this row as "a fixer keeps failing".
+//
+// Every kind gets its own arm and the default arm NAMES the kind it did not
+// recognise, deliberately: a switch whose default quietly produces a plausible
+// sentence for an unmodelled value is the exact defect GapRuleMissing was added
+// to record, and this function is not exempt from it.
 func capabilityGapSummary(g CapabilityGap) string {
 	switch g.GapKind {
 	case GapHandlerMissing:
 		return fmt.Sprintf(
 			"%d finding(s) from %s need agent %s, which is not registered — nothing can be dispatched until it exists",
 			g.Residue, g.Check, g.BuilderNeeded)
-	default:
+	case GapRuleMissing:
+		return fmt.Sprintf(
+			"%s has no rule to apply here and examined nothing: %s (rule gap, not a handler failure — this check's silence on it is not a clean bill)",
+			g.Check, g.Capability)
+	case GapHandlerRemit:
 		return fmt.Sprintf(
 			"%d of %d finding(s) from %s are outside %s's remit — no handler run can clear them (capability gap, not a handler failure)",
 			g.Residue, g.Population, g.Check, g.BuilderNeeded)
+	default:
+		return fmt.Sprintf(
+			"%d of %d finding(s) from %s carry gap_kind %q, which has no summary arm — read the spec (capability gap, not a handler failure)",
+			g.Residue, g.Population, g.Check, g.GapKind)
 	}
 }

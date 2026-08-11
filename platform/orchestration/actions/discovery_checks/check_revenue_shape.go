@@ -32,11 +32,17 @@
 //	    no affiliate machinery exists on this platform (no link manager, no
 //	    disclosure block, no partner config) → ONE capability_gap
 //	    (GapHandlerMissing), never a dispatchable item.
-//	sponsored_listings —
-//	    no CTA rule stated in doc 028 and directory machinery exists; nothing
-//	    filed in v1, said here so the silence reads as a decision.
+//	sponsored_listings, and ANY model with no case above —
+//	    no rule is stated, so the check examines nothing. It files ONE
+//	    undispatchable capability_gap (GapRuleMissing) naming the model, because
+//	    an empty result reads downstream as "examined and clean" and this one is
+//	    not. v1 returned silence here and a council seat was right to call it a
+//	    swallow (round-3 objection, bug_historian, 2026-08-10). See
+//	    runNoRuleForModel for how to make a model permanently silent on purpose.
 //	absent / empty primary_model —
-//	    not this check's finding; check_premise_incomplete owns it. Skip.
+//	    not this check's finding; check_premise_incomplete owns it. Skip, and
+//	    file nothing: the gap arm above must never fire on a missing premise, or
+//	    two checks report one defect.
 //
 // LEXICON DISCIPLINE: anchor/button TEXT only, never prose — an article ABOUT
 // hiring an agency legitimately contains "hire a designer" in a sentence.
@@ -240,9 +246,49 @@ func (c *RevenueShapeCheck) Run(dctx DiscoveryCheckContext) (*CheckResult, error
 			})},
 		}, nil
 	default:
-		// sponsored_listings and any future model: no rule stated — silence is a
-		// decision (see header), not an oversight.
-		return &CheckResult{}, nil
+		return c.runNoRuleForModel(dctx, domain, primary), nil
+	}
+}
+
+// runNoRuleForModel is the arm for a recorded model this check states no rule
+// for. It files ONE undispatchable capability_gap rather than returning an empty
+// result, because the two are indistinguishable to every reader downstream: a
+// site whose shape was never examined looks exactly like a site examined and
+// found clean. sponsored_listings (vetcomparison.uk) hits this today — doc 028
+// states no CTA rule for it and directory machinery already exists, so v1
+// deliberately filed nothing, and the cost was a silence nobody could read.
+//
+// A model is examined by HAVING A CASE above; there is deliberately no parallel
+// list of "known models" here to drift out of step with the strategist prompt
+// that actually mints these values (six as of 2026-08-11, live
+// agent_definitions row for domain-strategist). So a seventh model, or a
+// hand-written strategy row carrying a typo, arrives as a gap row rather than as
+// silence — the runtime is the lockstep, not a mirror.
+//
+// TO MAKE A MODEL PERMANENTLY SILENT, give it its own case returning an empty
+// result with the reason written there. That is an explicit refusal, visible to
+// whoever reviews the diff; this arm is what an omission looks like instead.
+//
+// One capability_gap per site per check (remit.go's item_key shape), so a site
+// that changes from one unruled model to another keeps the first row's wording
+// until it is closed. Bounded and stale beats churning.
+func (c *RevenueShapeCheck) runNoRuleForModel(dctx DiscoveryCheckContext, domain, primary string) *CheckResult {
+	return &CheckResult{
+		WorkItems: []WorkItemSpec{CapabilityGapItem(dctx, CapabilityGap{
+			Check:         "revenue_shape",
+			Pipeline:      dctx.Pipeline,
+			BuilderNeeded: "revenue_shape rule for " + primary,
+			GapKind:       GapRuleMissing,
+			Capability: "state what shape a " + primary + " site must have (doc 028 states none), " +
+				"so revenue_shape can examine one instead of returning an empty result",
+			Population: 1,
+			Residue:    1,
+			Examples:   []RemitCandidate{{Key: domain + " (primary_model=" + primary + ")"}},
+			CodePointers: []map[string]string{{
+				"path": "platform/orchestration/actions/discovery_checks/check_revenue_shape.go",
+				"why":  "Run's primary_model switch has no case for " + primary + " — add one, or make the refusal explicit there",
+			}},
+		})},
 	}
 }
 

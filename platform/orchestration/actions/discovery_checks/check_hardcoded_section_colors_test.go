@@ -191,4 +191,29 @@ func TestCapabilityGapSummaryDistinguishesMissingFromNarrow(t *testing.T) {
 	if strings.Contains(narrow, "not registered") {
 		t.Errorf("a narrow remit must not be reported as a missing agent, got %q", narrow)
 	}
+
+	// A rule gap is neither: nothing was found and no handler is implicated.
+	// Reporting it with either of the sentences above would name an innocent
+	// agent and imply a population that was never examined.
+	rule := capabilityGapSummary(CapabilityGap{
+		GapKind: GapRuleMissing, Check: "revenue_shape",
+		BuilderNeeded: "revenue_shape rule for sponsored_listings",
+		Capability:    "state what shape a sponsored_listings site must have",
+	})
+	if strings.Contains(rule, "not registered") || strings.Contains(rule, "remit") {
+		t.Errorf("a missing rule is not a missing or narrow handler, got %q", rule)
+	}
+	if !strings.Contains(rule, "examined nothing") || !strings.Contains(rule, "sponsored_listings") {
+		t.Errorf("a rule gap must say nothing was examined, and name the shape, got %q", rule)
+	}
+
+	// The default arm is the one that swallowed an unmodelled value in the
+	// check this kind was added for. It must not do the same thing here: an
+	// unrecognised kind names itself rather than borrowing a plausible sentence.
+	unknown := capabilityGapSummary(CapabilityGap{
+		GapKind: "kind_invented_next_year", Check: "some_check", Residue: 1, Population: 1,
+	})
+	if !strings.Contains(unknown, "kind_invented_next_year") {
+		t.Errorf("an unhandled gap_kind must name itself rather than read as a remit gap, got %q", unknown)
+	}
 }

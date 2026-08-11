@@ -196,15 +196,46 @@ func TestRevenueShape_EmptyPrimaryModelIsSilent(t *testing.T) {
 	}
 }
 
-func TestRevenueShape_SponsoredListingsSilenceIsADecision(t *testing.T) {
-	dctx, mock := revenueCtx(t)
-	expectPrimaryModel(mock, "vonc.com", "sponsored_listings")
-	res, err := (&RevenueShapeCheck{}).Run(dctx)
-	if err != nil {
-		t.Fatalf("Run: %v", err)
-	}
-	if len(res.WorkItems) != 0 {
-		t.Errorf("no rule is stated for sponsored_listings in v1: %+v", res.WorkItems)
+// A model with no branch must FILE, not fall silent. The test this replaced
+// asserted zero work items, and it would have passed just as happily if the
+// sponsored_listings arm had never been thought about at all — a quiet test
+// cannot tell a decision from an omission, which is the same blindness in the
+// test that the default arm had in the code. So every assertion here is
+// positive: the row exists, names the model, and is undispatchable.
+func TestRevenueShape_ModelWithNoRuleFilesAGapNotSilence(t *testing.T) {
+	for _, model := range []string{
+		"sponsored_listings", // known to the strategist, no rule in doc 028
+		"subscription",       // a model that does not exist yet — the future case
+		"DIRECT_BUSINESS",    // a mis-cased hand-written row: not the direct_business branch
+	} {
+		dctx, mock := revenueCtx(t)
+		expectPrimaryModel(mock, "vetcomparison.uk", model)
+
+		res, err := (&RevenueShapeCheck{}).Run(dctx)
+		if err != nil {
+			t.Fatalf("%s: Run: %v", model, err)
+		}
+		if len(res.WorkItems) != 1 || res.WorkItems[0].ItemType != "capability_gap" {
+			t.Fatalf("%s: want exactly one capability_gap, got %+v", model, res.WorkItems)
+		}
+		item := res.WorkItems[0]
+		if !strings.Contains(item.SpecJSON, `"gap_kind":"rule_missing"`) {
+			t.Errorf("%s: gap must be a rule gap, not a handler gap: %s", model, item.SpecJSON)
+		}
+		if !strings.Contains(item.SpecJSON, model) {
+			t.Errorf("%s: the spec must name the model — it is the whole finding: %s", model, item.SpecJSON)
+		}
+		// Undispatchable, twice over (bugs_open/077). A rule gap is a decision
+		// for a human; promoting it dispatches work no handler can do.
+		if item.Status != "deferred" || item.HandlerAgent != "" {
+			t.Errorf("%s: status=%q handler=%q — a rule gap must not be dispatchable", model, item.Status, item.HandlerAgent)
+		}
+		if strings.Contains(item.Summary, "not registered") {
+			t.Errorf("%s: a missing RULE must not be reported as a missing agent: %q", model, item.Summary)
+		}
+		if len(res.Resolved) != 0 {
+			t.Errorf("%s: a check that examined nothing must retract nothing: %+v", model, res.Resolved)
+		}
 	}
 }
 
