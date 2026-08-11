@@ -231,13 +231,30 @@ def m_rate_forecaster(v, f):
 
 
 def m_equity_release(v, f):
+    # #erMaxCash IS modelled since 2026-08-11: the owner pinned the ORIGINAL's
+    # age->LTV step table (work item 97f4d0ab, spec contract) and the rebuild
+    # now carries it. CONVENTION, not law — the original states it as an
+    # industry-averages approximation. (The comment that stood here said
+    # "rebuild 124k vs original 120k" — figures SWAPPED, and that swap
+    # propagated into the 08-11 morning decision text; WRONG_CALLS 2026-08-11.
+    # The original's table gives 124k at 65 on 400k; 120k was the pre-08-11
+    # rebuild's linear formula.)
+    age, val = num(v["#erAge"]), num(v["#erValue"])
     P, apr = num(v["#erLoan"]), num(v["#erRate"])
-    return {"#debt10": (oracles.compound(P, apr, 10), DEF),
+    if age < 55:
+        # Minimum-age refusal is part of the pinned contract. The tool's
+        # terse markers, not the prose sentence (which dies on a copy edit).
+        dash = "—"
+        return {"#erMaxCash": ("N/A", CONV), "#debt10": (dash, CONV),
+                "#debt20": (dash, CONV), "#debt30": (dash, CONV)}
+    for floor, ltv in ((85, 0.52), (80, 0.47), (75, 0.42), (70, 0.36),
+                       (65, 0.31), (60, 0.25), (55, 0.20)):
+        if age >= floor:
+            break
+    return {"#erMaxCash": (val * ltv, CONV),
+            "#debt10": (oracles.compound(P, apr, 10), DEF),
             "#debt20": (oracles.compound(P, apr, 20), DEF),
             "#debt30": (oracles.compound(P, apr, 30), DEF)}
-    # #erMaxCash is deliberately NOT modelled: the age-to-release percentage is
-    # a lender policy choice, not a published identity. It is the known
-    # improvement-loop item (rebuild 124k vs original 120k).
 
 
 def m_bridging_loan(v, f):

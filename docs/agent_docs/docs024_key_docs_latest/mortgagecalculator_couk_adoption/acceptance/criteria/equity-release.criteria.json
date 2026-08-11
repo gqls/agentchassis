@@ -2,14 +2,20 @@
   "checks": [
     {
       "expect_values": {
-        "#debt10": "£168,942",
-        "#debt20": "£317,128",
-        "#debt30": "£595,293",
-        "#dispAge": "65",
-        "#erMaxCash": "£90,000"
+        "#debt10": "£187,714",
+        "#debt20": "£352,365",
+        "#debt30": "£661,437",
+        "#dispAge": "65 years",
+        "#erMaxCash": "£124,000",
+        "#limitResult": "Based on typical LTV for age 65 (31% of property value). Estimate only — not a quote or offer."
       },
       "id": "computes-defaults",
       "steps": [
+        {
+          "action": "fill",
+          "selector": "#erValue",
+          "value": "400000"
+        },
         {
           "action": "fill",
           "selector": "#erAge",
@@ -17,13 +23,8 @@
         },
         {
           "action": "fill",
-          "selector": "#erValue",
-          "value": "300000"
-        },
-        {
-          "action": "fill",
           "selector": "#erLoan",
-          "value": "90000"
+          "value": "100000"
         },
         {
           "action": "fill",
@@ -39,28 +40,29 @@
     },
     {
       "expect_values": {
-        "#debt10": "£611,022",
-        "#debt20": "£2,074,156",
-        "#debt30": "£7,040,862",
-        "#dispAge": "95",
-        "#erMaxCash": "£330,000"
+        "#debt10": "£678,913",
+        "#debt20": "£2,304,618",
+        "#debt30": "£7,823,180",
+        "#dispAge": "120 years",
+        "#erMaxCash": "£416,000",
+        "#limitResult": "Based on typical LTV for age 120 (52% of property value). Estimate only — not a quote or offer."
       },
       "id": "computes-double",
       "steps": [
         {
           "action": "fill",
-          "selector": "#erAge",
-          "value": "95"
+          "selector": "#erValue",
+          "value": "800000"
         },
         {
           "action": "fill",
-          "selector": "#erValue",
-          "value": "600000"
+          "selector": "#erAge",
+          "value": "120"
         },
         {
           "action": "fill",
           "selector": "#erLoan",
-          "value": "180000"
+          "value": "200000"
         },
         {
           "action": "fill",
@@ -76,28 +78,29 @@
     },
     {
       "expect_values": {
-        "#debt10": "£61,960",
-        "#debt20": "£85,313",
-        "#debt30": "£117,467",
-        "#dispAge": "55",
-        "#erMaxCash": "£30,000"
+        "#debt10": "—",
+        "#debt20": "—",
+        "#debt30": "—",
+        "#dispAge": "33 years",
+        "#erMaxCash": "N/A",
+        "#limitResult": "Equity release (a lifetime mortgage) has a minimum age of 55. No calculation can be made below this age."
       },
       "id": "computes-half",
       "steps": [
         {
           "action": "fill",
-          "selector": "#erAge",
-          "value": "55"
+          "selector": "#erValue",
+          "value": "200000"
         },
         {
           "action": "fill",
-          "selector": "#erValue",
-          "value": "150000"
+          "selector": "#erAge",
+          "value": "33"
         },
         {
           "action": "fill",
           "selector": "#erLoan",
-          "value": "45000"
+          "value": "50000"
         },
         {
           "action": "fill",
@@ -113,28 +116,29 @@
     },
     {
       "expect_values": {
-        "#debt10": "£412,945",
-        "#debt20": "£823,785",
-        "#debt30": "£1,643,371",
-        "#dispAge": "95",
-        "#erMaxCash": "£99,000"
+        "#debt10": "—",
+        "#debt20": "—",
+        "#debt30": "—",
+        "#dispAge": "39 years",
+        "#erMaxCash": "N/A",
+        "#limitResult": "Equity release (a lifetime mortgage) has a minimum age of 55. No calculation can be made below this age."
       },
       "id": "computes-asym",
       "steps": [
         {
           "action": "fill",
-          "selector": "#erAge",
-          "value": "95"
+          "selector": "#erValue",
+          "value": "680000"
         },
         {
           "action": "fill",
-          "selector": "#erValue",
-          "value": "180000"
+          "selector": "#erAge",
+          "value": "39"
         },
         {
           "action": "fill",
           "selector": "#erLoan",
-          "value": "207000"
+          "value": "230000"
         },
         {
           "action": "fill",
