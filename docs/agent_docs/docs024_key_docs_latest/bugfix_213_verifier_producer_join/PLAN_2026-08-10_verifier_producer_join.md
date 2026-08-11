@@ -137,3 +137,96 @@ by Half B — blocked loudly as `verifier_scope_mismatch`, not silently closed.
 > days the file sat open. The bug file's own warning stands and is reinforced — a
 > count of `complete` is not a count of false-completes, and each of the 11 still
 > needs grading against its own `acceptance_test`.
+
+---
+
+## OWNER DECISIONS 2026-08-11 — three rulings, taken after the fix went live
+
+Put to the owner once the instance fix was pod-proven, because all three are about
+what the fix does NOT cover. Recorded here as decisions with their reasoning, per the
+PLAN doc's remit.
+
+### D1 — `dark_section_audit`'s gap: **BUILD THE VERIFIER, AND SETTLE THE ROUTING**
+
+The problem put to the owner: Half A stops design-audit items being graded by the
+*wrong* predicate, but the new type has **no verifier of its own**, so those items now
+close **ungraded** rather than **mis-graded**. Both close clean. Half A moved the
+failure for that half rather than removing it — two council seats
+(`bug_historian`, `improvement_guardian`) said so independently, and they were right.
+
+**Ruled: do both halves of the remedy.**
+
+1. **A verifier over `spec.acceptance_test`**, via the `criteria_check` vocabulary
+   (RFC_002). This makes that field load-bearing for the first time — it is currently
+   read by **nothing** on the completion path (grepped: zero consumers outside the
+   `improve_tool` family). All 11 live acceptance tests are mechanical and
+   browser-checkable (computed background-colour, contrast ratio, absence of an inline
+   `<style>`), so the vocabulary fits without inventing anything.
+   - ⚠ **The hard constraint, and it is a real one:** this puts a browser/computed-style
+     evaluation on the **completion path**, which this estate has deliberately kept free
+     even of HTTP probes (`verifier_coverage_test.go:171` records the standing objection).
+     Do not smuggle that in as an implementation detail — it is the design question, it
+     needs its own council round, and `contrast_failure` is the precedent to argue from
+     (same posture, same browser dependency, currently answered by re-detection rather
+     than by a verifier).
+2. **Settle the handler routing.** `designRouting["dark_section"]` still points at
+   `color-variable-fixer`. **Do not assume that is wrong for all 11** — see the
+   correction below.
+
+> **CORRECTION 2026-08-11 to this lane's own earlier claim.** The bug file, WII-013 and
+> my own commit messages all say the fixer "provably cannot touch producer B's typical
+> defect". That is **verified for exactly one item** — gamesdesign's
+> `var(--color-primary, #1a1a2e)`, an already-`var()` fallback outside
+> `ReplaceHardcodedColors`' remit, which is *why* it passed. Reading the other ten
+> acceptance tests, several name inline `style` attributes and `rgba(0,0,0` literals
+> that may well be **inside** that remit. So "the handler cannot fix these" is
+> `[UNVERIFIED]` as a generalisation and must be measured per item before the routing
+> is changed. Generalising from the one worked instance is precisely the move this bug
+> exists to punish.
+
+### D2 — the 11 mis-closed items: **LET THE ROTATION RE-DETECT**
+
+**Ruled: do nothing bespoke.** Justified by a measurement taken the same day, which
+also corrects this lane's earlier assumption:
+
+> **CORRECTION 2026-08-11.** The handoff written yesterday implies re-detection is
+> doubtful, echoing `bugs_open/093`'s finding that `improvement-sweep` is disabled
+> (`enabled=f`, last fired 2026-05-02 — still true). **But `bugs_open/230`'s rotation
+> supersedes that for this producer.** `site_discovery_rotation` carries
+> **`design-discovery-agent` across 22 sites, last selected 2026-08-10** — live and
+> driving. So any still-present defect re-files itself on a ≤7-day period, now under
+> `dark_section_audit`, with a fresh dedup key (different `item_type` ⇒ no collision
+> with the old rows). Re-detection is real, not hypothetical.
+
+Consequences accepted with the ruling:
+- The historical `complete` rows stay as they are — they are the honest record of what
+  the machine did.
+- **This is only sound once D1 lands.** Until `dark_section_audit` has a verifier, a
+  re-detected item closes unverified, so the rotation regenerates the finding and then
+  loses it again. **D2 depends on D1; it is not independent.** If D1 slips, revisit.
+- We therefore never get a false-complete *count* for the original 11. That is
+  acceptable and should be stated rather than quietly dropped: "11 closed" remains an
+  upper bound on the damage, with 1 confirmed broken and 1 confirmed clean.
+
+### D3 — the class-level hole: **BUILD THE DETECTOR**
+
+**Ruled: build it.** The `architecture` seat's non-blocking objection, quoted because
+it is the sharpest framing available: *"`VerifierPolicy.Grades` is opt-in — the NEXT
+converging producer on any of the other 10 verified item_types reproduces this exact
+bug unless a human remembers to write a Grades function, which is precisely the
+discipline that already failed once here."*
+
+Shape (the seat's own suggestion, and it needs no new mechanism): a periodic check
+flagging any **verified** `item_type` accumulating rows with more than one
+spec-shape / `audit_source` and **no** `Grades`. The query already exists in this
+lane's RUNBOOK as the fleet check; the work is turning it into a scheduled check that
+files a work item rather than a query a session has to remember to run.
+
+Design notes for whoever builds it:
+- **Do not key it on `created_by`** (bottoms out at `generic`) or on a producer list
+  (refuted — `bugs_open/213` §5.3). Key it on the **spec shape**, the same principle
+  as `Grades` itself.
+- The predicate is disconfirmable today: it returns 2 for `hardcoded_section_colors`
+  and 1 for every other verified type, so it can distinguish and is not vacuous.
+- It must not fire on the type it is about to fix — once `Grades` is registered for a
+  type, that type is answered and should drop out of the finding.
