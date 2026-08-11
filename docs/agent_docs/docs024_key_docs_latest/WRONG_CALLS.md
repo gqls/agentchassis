@@ -28654,3 +28654,44 @@ exactly when you are reasoning about capacity.
 |---|---|
 | grep the consumer of `max_concurrent` before citing it | the threshold compares against a count that maxes at 3 — never binds |
 | heartbeat filter on the "running" census | 5 live chains, 1 zombie — not 8 workers |
+
+---
+
+## 2026-08-11 — three council rounds running, my submission omitted files I had changed (ideauk sec)
+
+**The claim.** Each RFC_015 submission's `plan.edits` listed "the files this change
+touches". Rounds 1–3 all understated it.
+
+**What was actually true.** Round 2: three seats (`editquality`,
+`tooling_provenance`, `prior_art_librarian`) objected that the verifier-registry
+edits were missing — they existed (`verifier_coverage_test.go`, `220`'s declared
+list) but were not listed. Round 3, worse: the edit list named the NEW file
+`save_sections_decision_gate.go` but **not `save_page_sections_action.go`**, the
+file where my change injects a predicate into the DELETE that runs on **every
+rebuild, fleet-wide**. Three seats objected, `reuse_agent` and `guardian` at
+**HIGH**, and both said the same thing — a new file cannot modify a DELETE in
+another file, so either the list is wrong or the design is.
+
+**Why it kept happening.** I wrote each edit list from memory of what I had
+*designed*, at the end of a long session, rather than from what I had *done*. The
+new file was salient because I had just authored it; the three-line wiring in a
+2,000-line shared action was not. Nothing in the submission path checks the list
+against the diff, and the council cannot: it reviews the plan, not the tree.
+
+**What it cost.** At least one full round (~30 min of fleet capacity plus the
+credits), and it corroded the signal — two HIGH objections spent on a
+bookkeeping error are two objections not spent on the code. It also produced a
+false impression in the opposite direction from the usual danger: the reviewers
+believed the change was *smaller* and *safer* than it was.
+
+**The cheap check, and it is embarrassingly cheap.** Derive the edit list from the
+tree, never from memory: `git diff --name-only <base>..HEAD` (or
+`git show --name-only <sha>`) and reconcile it against `plan.edits` before firing
+the trigger. One command. For a pre-commit submission, `git status --porcelain`
+serves the same purpose.
+
+**The shape, for the tally.** This is "a claim about the work is not the work",
+turned on my own reporting rather than on the system's. Every other entry in this
+file is about mis-measuring the platform; this one is about mis-describing myself
+to a reviewer whose only window is that description. **A review is only as good as
+the diff it was shown, and I am the one who chooses what it sees.**

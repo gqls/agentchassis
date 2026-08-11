@@ -203,6 +203,42 @@ without closing it: the specific resurrection route is fixed in BOTH readers
 and the `item_key` fix means a second page's regression under one decision can no
 longer be swallowed by dedup. Neither is the seam gate.
 
+## 5b-bis. ROUND 3 = REVISE; the arc ENDS here (owner ruling 2026-08-11)
+
+The gating objection **moved**: with the rebuild door built, `bug_historian` now
+objects that `page-content-writer` is unguarded. That is true, and it will be true
+of the next seam after that — each round names the next door. **Owner ruling: stop
+at 3.** Fix what is real, record the seam objection as open, submit no round 4.
+CLAUDE.md supports it (a scope veto is not answered by resubmitting) and the seats
+disagreed again — `architecture` APPROVED round 3, objecting only on the
+cited-write path, which was closed the day before.
+
+**Round 3 found nothing wrong with the code.** What it found was wrong with the
+SUBMISSION: the edit list named the new gate file but not
+`save_page_sections_action.go`, where the change injects a predicate into the
+fleet-wide rebuild DELETE. Three seats objected, two at HIGH, and they were right —
+a new file cannot modify a DELETE in another file, so either the list or the design
+had to be wrong. Third round running that my edit list understated what I touched;
+recorded in `WRONG_CALLS.md` with the one-command fix (`git diff --name-only`).
+
+### Two real defects the round did surface, both fixed 2026-08-11
+
+1. **D-004's fence over-reached (migration 394, applied).** `"slots":[]` means every
+   slot, so the gate froze all 27 sections across the nine guide pages — against
+   D-004's own text ("structure/styling may improve freely; COPY regeneration
+   requires superseding D-004"). The gate cannot tell copy from structure, so the
+   FENCE must: narrowed to `generic-text-block`. **Proven end to end** by a real
+   framework rerender of `guide-building-it`: `hero` and `call-to-action` replaced
+   (new `created_at` 18:40), `generic-text-block` kept its 2026-07-25 row identity
+   and byte length, no duplication, no new item (dedup suppressed a repeat), and the
+   served page still carries the hand-authored prose.
+2. **The matcher could DUPLICATE what it protects.** `bugs_open/189`'s mechanism
+   applies to this gate: a positionally-named stored slot never matches the incoming
+   resolved name, so the fresh copy is INSERTED while the protected row — excluded
+   from the DELETE by the gate itself — survives beside it. Now matches
+   `component_id` first. Not armed today (the 14 such sections are on two sites
+   with no decision rows); mutation-verified.
+
 ## 5c. What the two rounds fixed, and the one piece of evidence still owed
 
 Fixed in response to round 1 (commit `d644723b8`): the category filter tightened

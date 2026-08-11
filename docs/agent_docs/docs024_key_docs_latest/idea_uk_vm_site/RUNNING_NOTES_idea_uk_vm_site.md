@@ -4249,3 +4249,85 @@ independent re-reading — is absent, and I am not claiming it.
 **Do not re-file it hoping for a verdict.** The mechanism is fixed at HEAD, so a
 fresh run against a refreshed index would be diagnosing code that no longer has the
 defect. That is a different kind of useless from a timeout.
+
+---
+
+## §X.52 — 2026-08-11: the rebuild door is live and WORKING; its data over-reached; round 3 ends the council arc
+
+### 1. Post-roll verification, all [VERIFIED] read-only against v1.0.1288
+
+Pods `agent-chassis-596d84f6b-{kmc2t,tb8gd}` started 17:13Z.
+
+| claim | evidence |
+|---|---|
+| the gate SHIPPED | both replicas: `decision_blocked_change` ×2, `preserving decision-protected section` ×1, `build_status IS DISTINCT FROM` ×3, negative control **0** |
+| it WORKS on real traffic, unprompted | **five** `decision_blocked_change` items filed 08-11 13:13 + 13:45, one per page+slot — dedup holding |
+| it PRESERVES, not duplicates | `guide-building-it` still exactly 3 rows, all `created_at` 2026-07-25; `index` kept `brief-explanation` (08-10 identity) and `tool-list` (`removed`, len 0) while the four uncovered slots were replaced at 13:57 |
+| **the fleet-wide DELETE change did NOT break rebuilds** | 46 rows created across 15 pages since the roll; declared-vs-present census **10 pages, down from 11** |
+
+**The one scare, and how it was ruled out.** `webdesign.co.uk/index` showed
+`info-card-grid` ×2 created since the roll — the exact signature a broken DELETE
+produces. It is the *legitimate* repeated-slot case: **all four rows share one
+save's timestamp (17:36:16) and the two copies have DIFFERENT content hashes**
+(ee054d… / f48a75…). A broken DELETE leaves rows with **older** timestamps beside
+new ones, so timestamp identity is the discriminator, not the count.
+
+### 2. D-004's fence OVER-REACHED — narrowed (owner ruling, migration 394)
+
+The gate froze **all three** sections of `guide-building-it`, because D-004's
+```covers fence named the nine guide pages with `"slots":[]` — an empty list means
+EVERY slot. But D-004's own words are *"structure/styling may improve freely; COPY
+regeneration requires superseding D-004"*. **The gate cannot tell copy from
+structure — it preserves the whole row — so the fence has to carry the
+distinction.** Measured first: all nine guide pages carry the identical three
+slots (`hero`, `generic-text-block`, `call-to-action`). Narrowed to
+`generic-text-block`.
+
+Left as-is, 27 slots across 9 pages were frozen against improvement, which
+inverts the owner's whole intent ("changes should be allowed, but not regress").
+The two now-expected items were closed with the reason recorded; the
+`generic-text-block` one stays open as a genuine record.
+
+**ANSWERING THE PRE-COMMIT ARCHITECTURE SIGNAL on `ce7141541`** ("migration +
+platform code in one commit — needs a staged rollout order"): **it does not, and I
+am not inventing one.** The halves are independent in BOTH directions. Fence
+narrowed with the old matcher still live → the gate protects only
+`generic-text-block`, which is a component identity, so the name-only matcher is
+correct for it. Matcher rolled without the fence → guide pages stay frozen, the
+status quo. Neither order breaks anything. (The 2026-07-29 ruling retired the
+ordering-constraint claim precisely because threads cannot supply one on a shared
+HEAD; claiming one here would be exactly that error.) Point fix, not a shared
+contract change — the seam itself was RFC'd and owner-approved.
+
+### 3. The matcher could DUPLICATE what it protects — fixed
+
+Round 3's `prior_art_librarian` seat pointed at the `bugs_open/189` landmine and it
+lands on my gate: `extractSectionsFromMetadata` prefers `component_function` over
+`component_name` once a component resolves, so a positionally-named stored slot
+(`tool-2`) never matches the incoming resolved name (`tool-loan-vs-savings`), the
+match misses, **the fresh copy is INSERTED, and the protected row — excluded from
+the DELETE by my own gate — survives beside it.** Same `component_id` twice on one
+page, every step green.
+
+Now matches `component_id` FIRST, then exact, then normalised name, guarded on
+non-empty so an absent id is not a wildcard. **[MEASURED] Not armed today**: the 14
+positionally-named sections are on loancalculator.co.uk (12) and oufe.com (2),
+neither of which has decision rows. Mutation-verified — removing the id branch
+fails the new test. The sibling LOCK path still matches on name alone; that is
+189's territory, and the asymmetry is deliberate.
+
+### 4. Council: round 3 = REVISE, and the arc ENDS here (owner ruling)
+
+The gating objection **moved**: having built the rebuild-door gate, `bug_historian`
+now objects that `page-content-writer` is unguarded. Each round names the next
+seam. Owner ruling: **stop at 3** — fix what is real, record the seam objection as
+open, submit no round 4. CLAUDE.md supports it: a scope veto is not answered by
+resubmitting, and seats disagreed again (`architecture` approved).
+
+**Round 3's own lesson is about my SUBMISSIONS, not the code.** For the third round
+running, my edit list omitted files I had actually changed — this time
+`save_page_sections_action.go`, the file carrying the fleet-wide DELETE change.
+Three seats objected, two at HIGH, and they were right: a reviewer can only judge
+what is shown, and a fleet-wide DELETE change absent from the edit list is exactly
+what must be visible. **The cheap check I should have been using all along:
+derive the edit list from `git diff --name-only`, never from memory.**
