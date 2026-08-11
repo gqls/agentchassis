@@ -85,3 +85,53 @@ That needs the roll first.
 precisely because the question "where does `image_url` get lost?" is one whose
 evidence lives in the run-states table, and the loop couldn't address that table.
 Once this ships, that question is answerable by the tool instead of by hand.
+
+---
+
+## 2026-08-11 — the council approved it, and found one thing I'd skipped
+
+The review council came back **approved** on the first round. One medium-severity
+comment and five minor ones, none of them blocking, and two seats sat it out as
+outside their remit.
+
+I read the whole thing rather than just the verdict word, and I'm glad I did,
+because one reviewer caught something real. I'd written in the submission that if
+the new "how many tables exist" query ever fails, the code quietly drops the
+warning line rather than breaking the evidence pack. That was true — I'd written
+it that way deliberately — but I had **no test for it**, and the reviewer said so
+plainly. That's the right catch: the whole point of that line is that it's
+optional extra information, and it would be a poor trade if a failure to count
+tables took down the diagnosis it was meant to help. There's now a test that
+forces the count to fail and checks the pack still renders with the warning
+simply absent. I also broke the code deliberately to confirm the test notices.
+
+A second reviewer objected that my write-up never showed the new warning actually
+being connected to the output. It **is** connected, and a test already proved it —
+but my submission didn't show that line, so the reviewer couldn't tell "he forgot
+to wire it up" from "he forgot to mention it". Fair, and my fault for the
+write-up rather than the code.
+
+A third pointed out I hadn't recorded whether I'd checked for an existing helper
+before adding a small new one. I had checked, but I never wrote the result down,
+and an unrecorded check is indistinguishable from no check. I've now searched
+properly and written down what came back: nothing similar exists anywhere.
+
+One forward-looking note I want to flag to you rather than bury. The warning line
+I added is text an AI reads, and it tells it "you don't need a human for this, go
+and look it up yourself". The architecture reviewer was happy with it here,
+because it only points at a channel that already exists and is already read-only.
+But it noted that if we start writing that style of instruction into *other*
+parts of the diagnosis system, we'd drift into a shared house style that nobody
+ever formally reviewed. So I've written into the commission document that the
+**next** one of these needs a proper design review — this one is the precedent
+that makes it the second, not the first.
+
+**Still not live.** Approval doesn't ship anything. It needs the fleet roll, and
+then the real test on the hero/logo bug.
+
+**And a small thing that nearly fooled me.** I'd set a background job to watch for
+the verdict. It exited with an error, having concluded the run had vanished. It
+hadn't — the cluster briefly lost DNS, every query came back empty, and my
+watcher read "couldn't ask" as "nothing there". The verdict had actually landed
+the night before. Worth remembering: a monitor that fails tells you about the
+monitor, not about the thing it was watching.
