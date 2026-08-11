@@ -2693,3 +2693,36 @@ sentence no one would say out loud.* Both rejected phrases are grammatical,
 on-message, and things no person says. No banned-word list would have caught
 either; reading them aloud catches both instantly. The owner's two examples are in
 the spec as the worked case.
+
+### 21:0xZ — two rules of English the spec had wrong, both found by the owner reading the live page
+
+**Owner:** *"'and the guides go into the parts that aren't just arithmetic' could
+be less negative … also when using words like arithmetic — which aren't common
+even though it might be correct — we can't lead into it with a casual 'aren't', it
+would be more usual to say 'are not' in this case."*
+
+Both are rules, not preferences, and both were wrong in my spec:
+
+1. **A contraction must match the register of the words beside it.** My
+   `voice.formality` said contractions were "welcome and **preferred** in ordinary
+   sentences" — too blanket, and it is what produced the clash. An uncommon or
+   formal word lifts the register of its clause; a casual contraction next to it
+   jars. Either use the everyday word and contract freely, or keep the less common
+   word and write the full form, but **never mix the two in one clause**. The
+   owner's own pair is now the worked example in the spec.
+2. **Say what a thing IS, not what it is not.** A negative definition makes the
+   reader do subtraction and reads colder, because it withholds. Added to
+   `things_to_emulate`.
+
+Copy: *"…the parts that **are more judgement than arithmetic**."* — positive
+(names the thing as judgement), and no contraction beside the formal word.
+
+**A mechanical check now exists for rule 1** in the emit script: no contraction
+may sit in the same clause as a word from a formal list. It would have caught
+this one before it shipped. `[The list is short and hand-written, so it catches
+the shape rather than every instance.]`
+
+**Fourth correction of the evening where the defect was in a RULE I wrote, not in
+the sentence** — and every one was caught by the owner reading the live page,
+never by the rule itself. The rules improve because the page keeps testing them;
+the spec cannot test itself.
