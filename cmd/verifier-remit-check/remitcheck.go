@@ -58,7 +58,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"regexp"
 	"sort"
 	"strings"
 
@@ -147,31 +146,24 @@ func (a assessment) Suppressed() bool { return len(a.Families) > 1 && a.Declares
 // The census — one query, two fetch routes, ONE decoder.
 // ---------------------------------------------------------------------------
 
-// safeItemType refuses anything that is not a plain lower-snake identifier. The
-// item types come from the compiled-in registry and are therefore trusted, but a
-// query built by concatenation must PROVE that rather than assume it.
-var safeItemType = regexp.MustCompile(`^[a-z0-9_]+$`)
-
-// censusQuery builds the one SQL text both fetch routes run, so they cannot drift
-// in what they ask — only in how they connect (the fleetdb.go lesson: two
-// hand-written paths to the same data go blind in the same direction and then
-// agree with each other, bugs_open/144).
+// censusSQL is the one SQL text both fetch routes run, so they cannot drift in
+// what they ask — only in how they connect (the fleetdb.go lesson: two hand-written
+// paths to the same data go blind in the same direction and then agree with each
+// other, bugs_open/144).
 //
-// The key-set is computed in SQL because it collapses the whole table to one row
-// per (type, label, shape) — 17 rows for the 12 verified types on 2026-08-11 — so
-// the binary never holds the work-item corpus in memory.
-func censusQuery(itemTypes []string) (string, error) {
-	if len(itemTypes) == 0 {
-		return "", fmt.Errorf("no item types to census")
-	}
-	quoted := make([]string, 0, len(itemTypes))
-	for _, t := range itemTypes {
-		if !safeItemType.MatchString(t) {
-			return "", fmt.Errorf("refusing to build a query for item_type %q: not [a-z0-9_]+", t)
-		}
-		quoted = append(quoted, "'"+t+"'")
-	}
-	return `SELECT COALESCE(jsonb_agg(t), '[]'::jsonb)::text FROM (
+// IT TAKES NO PARAMETERS AND CONCATENATES NOTHING, which is the point. The first
+// version filtered `item_type IN (<the registry>)` by interpolating a
+// regex-validated list, because the kubectl route cannot bind `$1`. The council
+// (constitution seat, corr fc082c4a) called that what it is: regex-validating a
+// literal before interpolation is the classic workaround for parameterisation, not
+// parameterisation. Censusing EVERY item_type and filtering in Go removes the
+// question — assess() already iterates the registry, so the SQL-side filter was
+// redundant defence — and it costs nothing measurable: one GROUP BY over ~6.5k rows
+// returning ~150, against 17 before.
+//
+// The key-set is computed in SQL because it collapses the table to one row per
+// (type, label, shape), so the binary never holds the work-item corpus in memory.
+const censusSQL = `SELECT COALESCE(jsonb_agg(t), '[]'::jsonb)::text FROM (
   SELECT item_type,
          COALESCE(spec->>'audit_source','') AS label,
          COALESCE((SELECT string_agg(k, ',' ORDER BY k) FROM jsonb_object_keys(spec) k), '') AS keyset,
@@ -180,10 +172,8 @@ func censusQuery(itemTypes []string) (string, error) {
          max(created_at)::text AS last_seen,
          min(id::text) AS sample_id
   FROM site_work_items
-  WHERE item_type IN (` + strings.Join(quoted, ",") + `)
   GROUP BY 1,2,3
-) t;`, nil
-}
+) t;`
 
 func decodeCensus(raw []byte) ([]censusRow, error) {
 	var out []censusRow
@@ -701,11 +691,6 @@ func main() {
 		fmt.Fprintln(os.Stderr, "REFUSING: the verifier registry is empty — that is a linking accident, not a clean bill of health")
 		os.Exit(2)
 	}
-	query, err := censusQuery(registered)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "REFUSING: %v\n", err)
-		os.Exit(2)
-	}
 
 	db, err := dbConn()
 	if err != nil {
@@ -715,9 +700,13 @@ func main() {
 	if db != nil {
 		defer db.Close()
 	}
-	census, err := fetchCensus(db, query)
+	census, err := fetchCensus(db, censusSQL)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "REFUSING: %v\n", err)
+		os.Exit(2)
+	}
+	if len(census) == 0 {
+		fmt.Fprintln(os.Stderr, "REFUSING: the census returned no rows at all — site_work_items is never empty, so this is a broken read, not a clean fleet")
 		os.Exit(2)
 	}
 

@@ -517,3 +517,88 @@ as D2 predicted. But the type still has **no verifier**, so those 13 closed
 is now re-finding these defects and losing them again on a ≤7-day cycle, 13 items
 per cycle at the current rate. That is the strongest argument yet for D1, and it
 was not visible when the ruling was taken.
+
+### Council round 2: APPROVED, 8 advisory objections — checked, not waved through
+
+`decided_by: approved with 8 advisory objection(s) — none high-severity`,
+14 seats, 3 abstained, `gated_by_truncation: false`. What each turned out to be:
+
+**One changed the shipped code.** `constitution [medium]`: the census filtered
+`item_type IN (…)` by interpolating a regex-validated list, "the classic workaround
+for parameterization, not parameterization itself". It was right, and the fix is
+better than parameterising: the filter was **redundant** — `assess()` already
+iterates the registry — so the census now covers every item_type and the SQL is a
+**constant with no parameters and no concatenation at all**. Measured cost: ~150
+census rows instead of 17, over ~6.5k work items, no perceptible change in runtime.
+A test now pins the constant (re-adding "just one" interpolated filter is how it
+would come back), and a new refusal was added with it: an EMPTY census exits 2,
+because `site_work_items` is never empty and a broken read must not read as a clean
+fleet.
+
+**Four were already right in the code, and are recorded so nobody re-derives them:**
+
+- `editquality [medium]` — "the plan never states the item_key's granularity; a
+  coarse key would collapse distinct per-type findings into one row". The key is
+  `verifier-remit:<item_type>`, one per subject type, and `fileFinding` is called per
+  assessment. Plan-legibility gap, not a defect.
+- `guardian [medium]` — "is `system.internal` a real row in `sites`, or a fabricated
+  UUID? a dangling FK on insert". **CHECKED: it is a real row** (`domain
+  system.internal`, `status system`) and `site_work_items_site_id_fkey` really is a
+  FK to `sites(id)` — which the ROLLBACK probe had already proven by accepting the
+  insert.
+- `guardian [low]` — "does a `scheduled_tasks` pre_query treat deferred+empty
+  handler as anomalous?". **CHECKED: no.** Only two of the 30 pre_queries mention
+  either column: `feasibility-recheck` selects `status='blocked'` and requires an
+  `agent_definitions` row matching `handler_agent` (two reasons it cannot see this
+  row), and `claimed-item-timeout` works on claimed rows.
+- `bug_historian [medium]` — `bugs_closed/078`, a NULL `handler_agent` silently
+  livelocking the build dispatcher. **Two independent reasons it cannot recur here,
+  and the first is structural:** `handler_agent` is `NOT NULL DEFAULT ''`, so 078's
+  exact shape (a *Scan into string* failure on SQL NULL) is unrepresentable; and 078
+  bit rows at `status IN ('triaged','approved')`, which `deferred` is not.
+
+**One had exact prior art, and the prior art is the answer.** `guidelines [medium]`
+claimed a WORK-ITEM DEDUP rule of "DELETE+INSERT, not ON CONFLICT". The same seat
+raised the same objection against the `bugs_open/208` lane, which answered it by
+induction: a **bare** `ON CONFLICT DO NOTHING` names no conflict target, so there is
+no partial-index inference and no 42P10 — that hazard belongs to the *targeted*
+`ON CONFLICT … WHERE` form `insertWorkItem` uses. This check uses the bare form, and
+`triageInsertNeedsDiagnosis` — the existing producer of the sibling fleet-level type
+— uses it too. Ironically the objection fired *because* the submission mentioned
+proving "no 42P10": naming a hazard you avoided reads as using the risky shape.
+
+**Two are a standing signal rather than an objection to this change.**
+`reuse_agent`, `architecture` and `tooling_provenance` all say the same thing: this
+is the **fifth** standalone Go CronJob meta-check (component-render-check,
+single-owner-carriers-check, component-fallback-check, shared-output-fields-check),
+each re-implementing doc_notes-on-every-run, dedup and retraction. Three seats, two
+rounds, and my own risks block called it "recorded not actioned". Recording it a
+third time would be the same non-answer, so it is now filed as a proposal in
+`architecture_review/` naming the five and what they duplicate.
+
+**One is a limit of the reviewer, not of the change.** `improvement_guardian
+[medium]`: RUNNER OWNS INSERTION is bypassed, so `insertWorkItem`'s Go-level
+two-strike anti-churn does not apply. True. Accepted deliberately: two-strike
+suppresses an item that keeps being re-filed after terminal closes, and this check
+files at most one row per verified item_type per day, deduped, retracted only on a
+positive observation. The churn ceiling is one row per type — but it IS a real
+difference from the framework's contract and belongs in the register entry, not in
+a shrug.
+
+### Deployed, and proven at the artefact
+
+`make build-… IMAGE_TAG=v1.0.1288` (committed HEAD) → push → `deploy-…` (CronJob
+created, `25 7 * * *` UTC) → `verifier-remit-check-now`. The Job completed and its
+pod printed the same census my terminal run produced — **and with no "READ-ONLY RUN"
+banner, which is how the report says `PG_CLIENTS_HOST` was wired and the direct
+route was taken.** The artefact:
+
+```
+SELECT created_at, source, left(body,160) FROM doc_notes WHERE source='verifier-remit-check';
+-- 2026-08-11 18:45:16+00 | verifier-remit-check | "Verified item_types evaluated: **12**. Findings: **0**.
+--                                                  Multi-producer types answered by a declared remit: **1**."
+SELECT count(*) FROM site_work_items WHERE item_type='verifier_remit_gap';  -- 0, correctly
+```
+
+Re-rolled at **v1.0.1289** after the constitution-seat change, because a same-tag
+rebuild ships the node's cached binary.

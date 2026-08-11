@@ -276,24 +276,25 @@ func TestOverlap(t *testing.T) {
 	}
 }
 
-// TestCensusQueryRefusesAnUnsafeItemType — the query is built by concatenation
-// because both fetch routes must run the identical SQL text. That is only
-// acceptable if the identifiers are proven, not assumed.
-func TestCensusQueryRefusesAnUnsafeItemType(t *testing.T) {
-	if _, err := censusQuery([]string{"empty_section", "x'; DROP TABLE site_work_items; --"}); err == nil {
-		t.Fatal("censusQuery accepted an item_type that is not [a-z0-9_]+")
-	}
-	if _, err := censusQuery(nil); err == nil {
-		t.Fatal("censusQuery accepted an empty type list")
-	}
-	q, err := censusQuery(registeredOn20260811)
-	if err != nil {
-		t.Fatalf("censusQuery on the live registry: %v", err)
-	}
-	for _, want := range []string{"'hardcoded_section_colors'", "audit_source", "jsonb_object_keys"} {
-		if !strings.Contains(q, want) {
-			t.Errorf("census query is missing %q:\n%s", want, q)
+// TestCensusSQLIsAConstantWithNoInterpolation — the council's constitution seat
+// objected that the first version regex-validated item types and concatenated them
+// into the WHERE clause, which is the workaround for parameterisation rather than
+// parameterisation. The answer was to remove the filter: the census covers every
+// item_type and assess() filters by the registry in Go. This test pins that, because
+// re-adding "just one" interpolated filter is exactly how it would come back.
+func TestCensusSQLIsAConstantWithNoInterpolation(t *testing.T) {
+	for _, forbidden := range []string{"%s", "%q", "$1", "' +", "+ '"} {
+		if strings.Contains(censusSQL, forbidden) {
+			t.Errorf("census SQL contains %q — it must be a constant with no interpolation and no parameters", forbidden)
 		}
+	}
+	for _, want := range []string{"audit_source", "jsonb_object_keys", "FROM site_work_items", "GROUP BY 1,2,3"} {
+		if !strings.Contains(censusSQL, want) {
+			t.Errorf("census SQL is missing %q:\n%s", want, censusSQL)
+		}
+	}
+	if strings.Contains(censusSQL, "item_type IN") || strings.Contains(censusSQL, "item_type =") {
+		t.Error("census SQL filters by item_type — that filter belongs in assess(), against the live registry")
 	}
 }
 
