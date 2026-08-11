@@ -100,6 +100,12 @@ or A will faithfully reproduce the `/index.html` error into `og:url` as well.**
 Go, a chrome-level change would be overwritten; with option 3 it would not. Settle
 the mechanism first.
 
+> **OWNER DECISION 2026-08-11: option 3.** Put `lang` in the head component, stop
+> emitting `<html lang="en">` from Go. No schema change; behaviour unchanged on
+> three of the four affected sites (they'll get the same default via the head
+> component that Go emits today); the fourth needs its head component to actually
+> name a language once this lands. Mechanism now settled — B is unblocked.
+
 ## Scope note
 
 Shared render-path Go on the `page-rerender` path → **council gate**. Name the
