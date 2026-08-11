@@ -303,6 +303,32 @@ cheapest possible witness and appears before any building starts.
 > before the pin) it returns **three** lines. If it returns one line on a tag built before the
 > pin existed, that is luck, not the fix.
 
+**R9b(ii) — the half I left out, and it matters more than the check above.** One line is only
+*evidence the pin worked* if the release could have produced more than one. Take the build window
+from the image labels (first `created` → last `created`) and ask what landed inside it:
+
+```bash
+FIRST=<first image's created label>   # e.g. 2026-08-11T11:47:15Z
+LAST=<last image's created label>     #      2026-08-11T11:53:07Z
+git log --format='%h %ad %s' --date=format:'%H:%M:%S' --since="$FIRST" --until="$LAST"
+```
+
+- **Commits inside the window + one revision** → the pin worked, demonstrably.
+- **No commits inside the window + one revision** → **consistent with the pin and equally
+  consistent with the old code.** Record it as coherent, NOT as proof. Say which.
+
+Measured 2026-08-11 on `v1.0.1286`, the first release under the pin: one revision across 14/14
+(`c3b424c8e`), and **zero commits inside the 5m52s window** — the nearest landed 10 seconds
+*before* the first build started, which is what the release pinned to. So that release is
+coherent and **does not discriminate**. Contrast `v1.0.1284`: 6m22s, two commits inside, three
+revisions out. **Beware the timezone**: image labels are UTC (`Z`), `git log %ad` prints local
+(BST = UTC+1) unless you pass `--date=iso-strict-local` or convert.
+
+> **This is the whole reason the estate has a rule about it** — a `[MEASURED]` figure is only
+> evidence if the measurement could have come out otherwise. The first run of this check nearly
+> got written up as "the pin is proven"; it isn't, yet. The proof arrives free on the first busy
+> release, and until then the honest word is *coherent*.
+
 ### R9c — at the cluster, per service (no exec, no binary path, nothing to install)
 
 ```bash

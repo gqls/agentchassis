@@ -1,5 +1,33 @@
 # 249 — One `make release` ships THREE source revisions under ONE image tag
 
+> ## STATUS 2026-08-11 evening — **FIX COMMITTED AND EXERCISED; the first release under it came out COHERENT but does NOT yet PROVE it**
+>
+> Candidate 1 (pin the ref once per release) is built, committed and registered as **BLD-020**
+> (`21b9772a9`). `v1.0.1286` is the first release to run under it: **one revision, `c3b424c8e`,
+> across 14/14 backend services**, agreeing at both instruments — image labels on the build
+> machine and each service's own startup line at the pods (chassis needed the binary probe, with
+> controls; its startup line had already scrolled past `--tail=3000`).
+>
+> **Why that is not the close condition.** [MEASURED] **zero commits landed inside that 5m52s
+> build window** — the nearest was `c3b424c8e` itself, 10 seconds *before* the first build
+> started, which is simply what the release pinned to. The old unpinned code would have produced
+> the identical result, so the check could not have come out otherwise and is therefore not
+> evidence. Contrast the defect itself: `v1.0.1284`, 6m22s, **two** commits inside, **three**
+> revisions out.
+>
+> **This bug closes on the first release that straddles a commit and still ships one revision.**
+> That costs nothing and should be soon — the busiest 7-minute window on 2026-08-11 held 13
+> commits. Grade it with **RUNBOOK R9b(ii)** (lane dir), which asks what committed inside the
+> window *before* counting revisions. R9b as first written counted revisions only, and would have
+> called every quiet release a success — including the quiet ones from before the fix existed.
+>
+> Candidate 2 (the cross-service assertion) was offered to the owner and **not taken** — recorded
+> as a decision in BLD-020, not left silent. Candidate 3 (runbook-only) is moot.
+>
+> **Not council-reviewed:** the gate refused it client-side — a makefile-only change touches none
+> of `platform/`, `internal/`, `pkg/` (owner ruling 2026-07-17). No credits spent, `FORCE=1` not
+> used, and no commit carries a trailer claiming otherwise.
+
 **Filed:** 2026-08-11 · **Status:** OPEN, detected on the first release after the fix that made
 it visible · **Found by:** `bugfix_153_build_provenance`, verifying the `v1.0.1284` roll
 

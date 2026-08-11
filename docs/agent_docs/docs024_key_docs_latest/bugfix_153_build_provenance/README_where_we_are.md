@@ -261,3 +261,47 @@ anything on the strength of one instance — just noting it where you'll see it.
 
 **So this commit is honestly un-reviewed** — no trailer claiming otherwise. Written up in the
 lane notes with the refusal message quoted.
+
+---
+
+## 2026-08-11, evening — the new release came out clean, and I'm not going to call it proof
+
+Your `v1.0.1286` build went out and **all fourteen services are running the same code** — one
+commit, `c3b424c8e`, confirmed two independent ways: from the images on the build machine, and by
+asking each running service what it's running. Eighteen deployments are on the new version. That
+is exactly the state we wanted, and it's the first full release we can actually *say* that about.
+
+**But I don't think it proves the fix works yet, and I'd rather tell you that than let it stand.**
+
+The build took just under six minutes. **Nobody committed anything during those six minutes.** So
+the old, broken behaviour would have produced the identical result — fourteen builds each asking
+"what's the latest commit?" and each getting the same answer, because nothing changed while they
+ran. A test that can only come out one way isn't a test. The nearest commit landed ten seconds
+*before* the build started, which is simply the commit the release picked up.
+
+So the honest word for this release is **coherent**, not *proven*. The proof costs nothing and
+will arrive on its own: the first release that happens during a busy stretch will either come out
+with one commit (the fix works) or several (it doesn't). For scale, the busiest seven-minute
+window today held thirteen commits, so that won't take long.
+
+I've gone back and fixed the check itself, because as I first wrote it, it would have called this
+release a success. It now says: look at when the build started and finished, ask what got
+committed in between, and only *then* count. Counting alone would rubber-stamp every quiet
+release, including all the quiet ones from before the fix existed.
+
+**Two smaller things worth knowing.**
+
+Another session edited the makefile forty minutes after I did — harmlessly, they added a new build
+target. I checked rather than assumed, and our change is intact. Worth repeating that check after
+any makefile commit; it's the one file where two sessions' edits can't be kept apart.
+
+And that same new target quietly demonstrates a trap we'd written down in advance: its image gets
+a label saying which commit built it, but the program inside doesn't. It's the third one like
+that. Nothing is broken — it just means a label is not the same as a stamp, and if you ask the
+*image* you get an answer while asking the *program* gets you nothing. I've recorded it against
+the other lane's work rather than editing their files, since they're mid-review on it.
+
+One last note on the "ask the service what it's running" instruction I added to our house rules
+this morning: on the busiest service it doesn't work, because the announcement happens at startup
+and scrolls out of reach within hours. There's a fallback that does work, and I've added the
+caveat.

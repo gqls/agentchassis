@@ -390,3 +390,66 @@ deleted — it was true when written and is the reason the section looked the wa
 **Also added there, because the correction would otherwise overclaim in the other direction:**
 the stamp answers "did my fix ship?" **per service**, not per fleet, until BLD-020 has a release
 under it.
+
+---
+
+## 2026-08-11 (evening) — `v1.0.1286`, the first release under the pin: COHERENT, but not yet PROVEN
+
+**Result: one revision across all 14 backend services** — `c3b424c8e`, agreeing at both
+instruments (image labels on the build machine; the services' own startup lines at the pods).
+Build window 11:47:15Z → 11:53:07Z. Fleet is 18 deployments on `v1.0.1286`.
+
+Chassis needed the fallback: `logs --tail=300` (and `--tail=3000`) does **not** reach its startup
+line — it is a busy service and the line has scrolled. Binary probe with controls instead:
+both replicas carry `c3b424c8e` and **do not** carry the previous release's sha. 13 by log line,
+1 by probe, 14/14.
+
+### ⚠ I nearly wrote this up as "the pin is proven". It is not, and the reason is the estate's own rule
+
+**Zero commits landed inside that 5m52s window.** The nearest was `c3b424c8e` itself, 10 seconds
+*before* the first build started — which is precisely the commit the release pinned to, not a
+commit that arrived during it. So the old, unpinned code would have produced **exactly the same
+result**: fourteen builds each resolving HEAD independently, with HEAD not moving.
+
+One revision here is **consistent with the pin and equally consistent with its absence.** The
+measurement could not have come out otherwise, which by this estate's rule makes it not evidence.
+The honest word for `v1.0.1286` is **coherent**, not *proven*.
+
+The contrast is the whole point: `v1.0.1284` ran 6m22s with two commits inside it and produced
+three revisions; `v1.0.1286` ran 5m52s with zero inside and produced one. **The proof arrives
+free on the first busy release** — and today's own numbers say that is likely soon, since the
+busiest 7-minute window on 08-11 held 13 commits.
+
+**RUNBOOK R9b now carries the missing half** (R9b(ii)): take the window from the image labels and
+ask `git log` what landed inside it, *then* interpret the revision count. The check as I first
+wrote it counted revisions and stopped — it would have called every quiet release a success,
+including the quiet releases that happened before the pin existed. Watch the timezone: labels are
+UTC, `git log %ad` is local.
+
+### The pin survived another session's makefile edit
+
+`a9237f0c9` (11:42, another lane's council round 2) added `build-removed-config-keys-check` to the
+makefile. Checked rather than assumed: `pinned_sweep` is intact at HEAD and `release` still calls
+it. Pure addition, no conflict — but this is the same file two lanes edited within 40 minutes,
+which is exactly the same-file-passenger shape, and it is worth re-checking the pin after any
+makefile commit rather than trusting that it is still there.
+
+### A third labelled-but-unstamped image — BLD-019's landmine 3, exactly as predicted
+
+That new target builds `build/docker/backend/removed-config-keys-check.dockerfile`, which compiles
+`./cmd/config-key-audit` and contains **0** occurrences of `GIT_COMMIT` and **0** of `ldflags`
+(positive control: `agent-chassis.dockerfile` returns 2, so the grep spelling is sound). It calls
+`ref_build`, so its **image** gets the OCI `revision` label from the docker CLI while its
+**binary** stays unstamped. Third instance, joining `component-render-check` and
+`shared-output-fields-check`. **Do not read a labelled image as a stamped binary.**
+
+Recorded in BLD-019's landmine 3, **not fixed** — that lane is mid-council-round on it (`a9237f0c9`
+is its round-2 REVISE), and adding two lines to another session's dockerfile while they iterate is
+how two lanes end up fighting over one file.
+
+> **A misstep of my own, caught by its own output:** the first version of that check was
+> `ls "$D" && grep -c GIT_COMMIT "$D" || echo "no dockerfile"`. `grep -c` printed `0` and
+> **exited 1**, so the `||` fired and it printed *"no dockerfile"* under a file that plainly
+> exists. A measured zero wearing the costume of a missing file — the same shape as the
+> `strings` trap, in my own one-liner, one day after writing the landmine about it. The fix is
+> the boring one: separate the existence test from the count, and print the exit status.

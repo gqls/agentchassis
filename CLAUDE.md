@@ -518,7 +518,11 @@ Rules that make them worth the effort:
   kubectl -n ai-persona-system logs -l app=<service> --tail=300 | grep -m1 'build provenance'
   ```
   That is the service's own statement of its commit — no exec, no binary path,
-  nothing to install. **"Did my fix ship?" is now a query, not an inference:**
+  nothing to install. **But it is a STARTUP line, so it scrolls**: on a busy
+  service it is already out of reach hours later (`agent-chassis`, measured
+  2026-08-11: absent from `--tail=3000`). **An empty result there means "not in
+  range", not "unstamped"** — fall back to the binary probe below, which has no
+  shelf life. **"Did my fix ship?" is now a query, not an inference:**
   `git merge-base --is-ancestor <your-commit> <the stamp>`. So you no longer need
   to plant a string literal in your change in order to date it later.
   - **Per SERVICE, not per fleet** (`bugs_open/249`). Until the pinning fix in
