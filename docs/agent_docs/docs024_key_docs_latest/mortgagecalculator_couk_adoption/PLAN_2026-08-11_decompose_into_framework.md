@@ -80,3 +80,41 @@ The facts/tool-acceptance work (`PLAN_2026-08-09_facts_into_tool_acceptance.md`)
 sets**, so the two can proceed in parallel *provided* neither runs a site-wide replan or rerender.
 Check for live sessions before starting (`grep live transcripts, not who-owns` — it reads commits
 only).
+
+---
+
+## 2026-08-11 (afternoon) — both pre-decisions ANSWERED BY MEASUREMENT; one new finding the port must absorb
+
+**1. The scorecard pair is not a conflict.** `guide-mortgage-scorecard` (planned 07-31:
+hero / generic-text-block / call-to-action) is the plan matching the hand-written article at
+`guides/your-mortgage-scorecard.html` — it is the PORT target. `scorecard-simulator` (planned
+08-02: hero / mechanism-flow / info-card-grid / faq / call-to-action) is a distinct,
+never-built interactive page — it belongs to the REBUILD set. One file, one owner each.
+
+**2. The canonical path form is the FLAT `.html`, and the evidence is traffic, not taste:**
+- the homepage links to `guides/<name>.html` exclusively (8/8 links, measured on the live page);
+- the router does **not** resolve `/guides/<name>/` to its index — that URL 404s;
+- so the framework's directory-form deploys are reachable only by the full explicit
+  `/guides/<name>/index.html`, which nothing links to.
+
+**Which yields the new finding: the framework's four rebuilt guide pages
+(`guide-buy-to-let`, `guide-first-time-buyer`, `guide-negative-equity`, `guide-remortgaging` —
+deployed 08-04, 3 components each) have been shipping to URLs no visitor reaches.** All real
+traffic goes to the hand-written flat files. This is the `bugs_open/114` shape (deployed and
+never referenced) at page level. The port must therefore ALSO decide the deploy-path mapping:
+either the framework deploys this site's pages to flat paths (matching every existing link and
+every search-indexed URL — recommended), or the router grows directory-index resolution AND the
+links are rewritten. Until one of those happens, porting content into page rows whose deploys
+land at dir-form paths changes nothing a visitor sees.
+
+**3. Also absorbed today (context a fresh session needs):** the sites REPO is the source of
+truth for the bucket (`b2 sync --delete --skip-newer` per domain push; `--skip-newer` defeated
+by checkout mtimes — see the 08-11 LANDMINES entry). The port's "verify served bytes" step must
+therefore verify at the REPO as well as the bucket, and any port-time file moves happen in the
+repo, not the bucket. The corrected homepage and the rejected-image deletion are both now
+repo-side (`565733ac`, `a1963dc5`), so the two stores agree.
+
+**4. Hero status for the port to inherit:** a shippable-pending-owner-verdict hero exists
+(banana/gemini-3-pro-image-preview, 1408×768, asset row active-latest for purpose=hero) but is
+deployed at the bug-248 placeholder filename, NOT at `/assets/images/hero.jpg` where six pages
+reference it. When 248's filename fix lands, redeploy resolves it; the port does not depend on it.
