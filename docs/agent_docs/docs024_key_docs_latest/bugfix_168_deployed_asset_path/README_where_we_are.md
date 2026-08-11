@@ -1019,3 +1019,57 @@ tool applies, and committed. I have **not** fired it. A round is real money, and
 caching fix that landed yesterday makes it roughly 58% cheaper than the figure we were worried
 about, it's still your call rather than mine — the last time this lane fired one without asking was
 the day after the budget blew. Say the word and it goes.
+
+### It came back "revise" again — but this one is close, and there's a real decision in it
+
+Fifth round, fifth revise. I know how that reads. But the shape has changed completely and I don't
+want the headline to hide it: **fourteen of the sixteen reviewers approved.** Two objected. Last
+round it was the reviewers' inability to check us that sank it; that part is fixed and they said so.
+
+**The two we fixed stayed fixed.** The reviewer who blocked us last time — the one who couldn't
+verify our claims — approved, and said the records we handed over are "the kind of thing I'd want a
+future round to keep citing verbatim". The one who told us off for using a crude search instead of
+the proper tool approved too, and called our substitute "the right substitute". A third went out of
+its way to endorse the deploy check I rewrote this afternoon. So the work was the right work.
+
+**What's left is two things, and they're different in kind.**
+
+The first is embarrassing but easy, and it's ours. Two reviewers independently noticed that our
+submission describes eight changes as though we're *about to make them*, while simultaneously
+offering proof that they're *already running in production*. One of them put it plainly: if the code
+is already shipped, this edit is pointless; if it isn't, your evidence is impossible. I checked, and
+the code is indeed already live — it went out on the 9th. **Both of their conclusions are wrong, but
+only because the true answer isn't written anywhere in the form we submit.** Our own rules say
+reviews here happen *after* the change ships — that's deliberate, because on this shared setup you
+genuinely cannot hold code back. We just never said so on the form. Five rounds, and no reviewer has
+ever been told which of these edits already exist. That's one sentence, and it should have been
+there since round one.
+
+I also made a small new mess while cleaning up an old one. I'd caught myself getting a function's
+arguments in the wrong order, went and read the real code, fixed my bit — and left the neighbouring
+bit inconsistent with it. Same fault as the last four rounds, one level down. The reviewer spotted
+it. It's minor, but I'd rather write it down than let it look like a clean round.
+
+**The second is not a mistake, and it's the one I need you for.** The reviewer who blocked us is
+raising, for the third time, that our safeguard checks the wrong thing. You signed off on a gate that
+only closes a flagged claim if the page's copy has actually changed since we raised it. What it
+actually verifies is that *something on that page moved* — not that *the specific claim we flagged*
+was dealt with. So a typo fix, or a style tweak, could in principle satisfy it. The reviewer is
+explicit that it isn't blocking and hasn't seen this go wrong — nothing in the live data shows it —
+but says on a content-integrity check this sensitive, the gap deserves naming outright rather than
+being tucked into a "we'll do it next" line. And it offered the fix: compare the actual flagged
+wording, not the page's timestamp.
+
+That is exactly the job we'd already listed as next. So the question is really about order:
+
+- **Fix the paperwork and go again** — say plainly that the code is already live, tidy the
+  inconsistency, and name the gap explicitly. Cheap, and it's the round most likely to pass.
+- **Build the tighter check first, then submit.** More work, but it *answers* the objection instead
+  of documenting it — and it's work we've already agreed is worth doing.
+- **Stop submitting.** The code has been live and working for two days, every reviewer with a view on
+  the design approved it rounds ago, and the one open objection is a policy judgement you have
+  already ruled on once.
+
+My honest recommendation is the second, then the first — build the tighter gate, and let one final
+round carry both. The objection has now been raised three times by a seat that cannot veto, which
+usually means it's right and being politely persistent.

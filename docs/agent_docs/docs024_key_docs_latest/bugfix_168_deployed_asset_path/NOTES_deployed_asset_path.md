@@ -2819,3 +2819,87 @@ run on §2.4; that reason is void, though whether to file remains a judgement.
 
 Round 5 is validated against every client-side check (`edits` 8/8, all operations valid, in-scope,
 41,101 bytes of 65,536) and **committed but NOT fired** — see the handoff for the cost decision.
+
+### Round 5 verdict — REVISE (5th), but the shape changed: 14 of 16 APPROVE
+
+Landed **2026-08-11 19:54:45Z**, ~5 minutes after dispatch (polls showed `review_editquality` →
+`review_reuse_agent` → `review_adoption_guardian` → `review_render_guardian`). 16 reviewers, **1
+abstained, 0 unreadable, `gated_by_truncation: false`**. `decided_by`: **gating objection from
+`compliance`** (the `metadata.decided_by` column was empty — it is inside `body`).
+
+**The five repairs worked, and two seats flipped:**
+
+- **`prior_art_librarian`: gating objection → APPROVE.** "Those artefact tables (`diagnosis_artifacts`,
+  `doc_notes`) ARE in my schema, and the claimed row counts/decisions are the kind of thing I'd want
+  a future round to keep citing verbatim rather than re-deriving from memory." **Citing beat arguing,
+  exactly as the round-4 read-out predicted.**
+- **`tooling_provenance`: MEDIUM → APPROVE.** "cmd/bundle is shown to be contextkit's, unbuilt in this
+  module … and not shaped to answer a producer-count question anyway … That is the right substitute."
+- **`editquality`: MEDIUM → LOW**, and it now calls the plan "coherent", noting the 8-edit cap holds
+  "distinct, necessary work rather than padding".
+- **`debug_historian` endorsed the new deploy discipline by name**: the digest-uniformity retraction,
+  `/proc/1/exe` over `strings`, and "the exit-code capture alongside the grep result also correctly
+  avoids the documented `n=${n:-0}` trap".
+
+#### The finding that matters: the plan never says the code is ALREADY LIVE
+
+`guardian` (MEDIUM) and `debug_historian` (LOW) caught this independently, and they are right:
+
+> "Grounded_in claims the wiring 'has carried this wiring since commit 9a9fef332' and cites 8 live
+> closures as proof, while the plan simultaneously lists it as an edit still to be made. If the code
+> is already shipped, this plan edit is redundant/no-op; if it is not yet shipped, the cited live
+> evidence is impossible."
+
+**Settled, first-hand, this session** — the code is shipped:
+
+```
+platform/orchestration/actions/revalidate_review_queue_action.go
+  :141  CreatedAt time.Time          ← struct field, present
+  :441  created_at                   ← in the SELECT, present
+  :475  rows.Scan(…, &it.CreatedAt)  ← destination, present
+  git log -1 → 9a9fef332
+```
+
+**Both of the guardian's horns are wrong because the third option is never stated in the
+submission.** The edits are neither pending nor redundant: they are **shipped, and under review
+after the fact — which is the design**, per the owner ruling of 2026-07-29 §2 ("review here is after
+the fact, by design … do not claim an ordering constraint you do not have"). The `plan`/`edits`
+schema reads as forward-looking, so a submission that is honestly retrospective **looks like a
+contradiction to any seat reading it cold**. This is not a defect in the reviewers; it is a defect in
+how this lane fills the form, and it has been latent since round 1. **Round 6 must state the status
+of all 8 edits in one line at the top of the rationale.**
+
+#### And I introduced a fresh inconsistency while fixing one — fifth round, same fault, one level down
+
+`editquality` LOW, edit 4: the sketch's **first** loop still calls `unverifiedClaimsVerdict("p1", scan)`
+(2 args, the pre-gate shape) while **the block I added below** calls the 3-arg form. I caught my own
+argument-order error by opening the real code — and then fixed only my half, leaving the sketch
+internally inconsistent. **Reading the code told me the right signature; it did not make me re-read
+the rest of the field I was editing.**
+
+#### `compliance` HIGH — the gating objection, and it is the round-3 one again
+
+Component-granular, not claim-granular: a component edited for an unrelated reason (typo, CSS, an
+adjacent field) satisfies the gate provided the current scan finds no matching pattern, on "the
+platform's highest-stakes content-integrity type, designed HITL-terminal specifically because truth
+decisions are human". It compounds this with the register's **self-ratifying** property — which this
+submission's own `grounded_in` cites as an independent landmine. It is explicit that it is **not
+vetoing** ("per the seat's no-veto mandate") and gives a concrete tightening:
+
+> "require the specific finding's cited snippet (or its containing DOM/text node) to differ, not
+> merely the component's `updated_at` column, before granting `resolved`."
+
+That is **§2.1** — already this lane's named next job. The seat's ask is that the gap be "named
+explicitly rather than folded into a general 'named next step'". Owner sign-off exists and was
+conditional on *the gate*; compliance's point is that the gate as shipped verifies **that the page
+moved**, not **that the flagged claim was addressed**.
+
+#### Residual, not actionable by us
+
+`prior_art_librarian` LOW: the single-producer claim rests on a call-graph fact living in function
+**bodies**, and that seat's tier "holds declarations only", so it cannot verify it regardless of
+phrasing. Worth noting honestly: `code_symbols` **does** have a `body` column and this session's query
+used it — the ceiling is that seat's tooling tier, not the index.
+
+`guardian` LOW (edit 1): the SQL→Go locked-skip move "always risks widening what flows through if the
+`continue` is misplaced" — already risk 5 in the submission, restated rather than a new finding.

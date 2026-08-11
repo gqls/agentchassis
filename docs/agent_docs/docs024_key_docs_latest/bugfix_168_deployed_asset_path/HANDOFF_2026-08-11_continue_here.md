@@ -8,7 +8,51 @@ now opens with two correction banners; its §1–§4 reference material still ho
 
 ---
 
-> ## 🟡 ROUND 5 IS BUILT, VALIDATED AND COMMITTED — **NOT FIRED.** One decision open (2026-08-11, evening)
+> ## 🔵 ROUND 5 VERDICT: **REVISE** (2026-08-11 19:54:45Z) — but **14 of 16 seats APPROVE**. Read this before the block below, which is now history
+>
+> Fired at the owner's instruction; verdict in **~5 minutes**. 16 reviewers, **1 abstained, 0
+> unreadable, NOT truncation-gated**. `decided_by`: **gating objection from `compliance`** — note it
+> is inside `body`, the `metadata->>'decided_by'` column is **empty** this round.
+>
+> **THE FIVE REPAIRS WORKED — do not redo them.** `prior_art_librarian` went **gating objection →
+> APPROVE** ("those artefact tables ARE in my schema … the kind of thing I'd want a future round to
+> keep citing verbatim"). `tooling_provenance` went **MEDIUM → APPROVE** ("the right substitute").
+> `editquality` went **MEDIUM → LOW** and calls the plan coherent. `debug_historian` endorsed the new
+> deploy discipline by name (digest-uniformity, `/proc/1/exe` over `strings`, and the exit-code
+> capture that defeats the `n=${n:-0}` trap). **Citing beat arguing.**
+>
+> ### Round 6 needs THREE things — one is not paperwork
+>
+> 1. **STATE THAT ALL 8 EDITS ARE ALREADY LIVE, in one line at the top of the rationale.** `guardian`
+>    (MEDIUM) and `debug_historian` (LOW) independently read the plan as self-contradictory: it
+>    describes edits as pending while citing 8 live closures as proof they work. **Settled first-hand:
+>    the code IS shipped** — `revalidate_review_queue_action.go:141` (`CreatedAt` field), `:441`
+>    (`created_at` in the SELECT), `:475` (the Scan destination), all from **`9a9fef332`**. Both of the
+>    guardian's horns ("redundant" / "impossible") are wrong because the third option is never written
+>    down: **shipped, and reviewed after the fact, which is the design** (owner ruling 2026-07-29 §2).
+>    The `plan`/`edits` schema reads forward-looking, so an honestly retrospective submission looks
+>    like a contradiction to any seat reading it cold. **Latent since round 1.**
+> 2. **Fix edit 4's sketch signature — introduced by ME in round 5.** The first loop still calls
+>    `unverifiedClaimsVerdict("p1", scan)` (2-arg, pre-gate) while the block added below calls the
+>    3-arg form. I read the real code, fixed my half, and left the neighbour inconsistent. Same fault
+>    as rounds 1–4, one level down.
+> 3. **`compliance` HIGH, the gating one, raised for the THIRD time** — the gate is component-granular,
+>    not claim-granular, so an unrelated edit to the same slot satisfies it. **This is §2.1.** The seat
+>    is explicitly NOT vetoing ("per the seat's no-veto mandate") and names the fix: *"require the
+>    specific finding's cited snippet (or its containing DOM/text node) to differ, not merely the
+>    component's `updated_at`."* It asks that the gap be named **explicitly**, not folded into a
+>    general "named next step". ⚠ **Owner sign-off exists but was conditional on *the gate*, and the
+>    gate verifies THE PAGE MOVED, not THAT THE FLAGGED CLAIM WAS ADDRESSED.**
+>
+> **OPEN DECISION (owner's, recorded in `README_where_we_are.md`):** paperwork-only round 6 · build the
+> claim-granular gate first and let one round carry both (**the session's recommendation**) · or stop
+> submitting, since the code is live and every seat with design standing approved rounds ago.
+>
+> Residual, not actionable: `prior_art_librarian` LOW — the single-producer fact lives in function
+> **bodies** and its tier "holds declarations only", so it is unverifiable from that seat whatever we
+> write. (`code_symbols` *does* have a `body` column; the ceiling is the seat's tier, not the index.)
+>
+> ## 🟡 ROUND 5 WAS BUILT, VALIDATED AND COMMITTED — **and has since been FIRED** (history below)
 >
 > All five repairs the round-4 verdict asked for are in
 > `SUBMISSION_2026-08-09_claims_unverified_revalidator.json` (commit below). **The code is
