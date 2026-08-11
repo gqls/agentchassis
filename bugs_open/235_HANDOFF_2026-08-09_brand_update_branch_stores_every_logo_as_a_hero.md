@@ -408,3 +408,39 @@ Follow-ons executed the same hour:
 
 **What keeps this file OPEN:** the estate-wide logo.jpg reference audit before
 any deletion, and verification of the two rerenders at the served pages.
+
+### 2026-08-11 ~11:45Z — audit DONE, rerenders VERIFIED at the served pages; one site deferred to its owning lane; deletion now needs only the owner's word
+
+Estate-wide audit of renderable `/assets/images/logo.jpg` references (queries
+in RUNBOOK_209): **three sites only**, all now handled —
+
+- **relojistas.com**: chrome flipped by the site rerender; served homepage
+  verified `2× logo.png, 0× logo.jpg`.
+- **robot-hands.com**: chrome (head+header) still carried `.jpg` — its own
+  detector's `needs_rerender` (render_inputs_drift, `add3a661`) promoted to
+  triaged; chrome flipped 10:23Z; served homepage verified `2× logo.png, 0×
+  logo.jpg`; interior pages draining.
+- **webdesign.uk**: same — its `missing_structure` item (`58f88922`)
+  promoted; chrome flipped 10:25Z, 5 pages complete. Deliberate 302 — rows
+  are the evidence, both slots `png only`.
+- **fundamentallyai.com**: BOTH hot-links (relojistas + idea.uk, one
+  portfolio component) patched in content_data AND rendered_html; but the
+  site's index is under **active rebuild by the brochure_component_library
+  lane** (`needs_page:index:151census:20260811`, filed 10:27Z) — my assembly
+  item races their full rebuild benignly (both sources patched, and the
+  stale `.jpg` still serves at its origins). Served-page verification
+  deferred until their rebuild lands; do not fight over the page.
+- content_components templates: 0 references. No other site references any
+  logo.jpg, own or cross-site.
+
+**Deletion of the stale logo.jpg files is now gated only on (a) the owner's
+say-so and (b) fundamentallyai's index actually serving `.png` links after
+the brochure-lane rebuild.** Until both: delete nothing.
+
+> **SUPERSEDED same hour:** fundamentallyai's verification is no longer
+> deferred. The assembly item (`ffe2bd7e`) completed 11:21:36Z, the page
+> redeployed 11:21:48Z, and the served index now shows ALL THREE portfolio
+> logos as `.png` (relojistas, idea.uk, leopardess). Every affected site is
+> now verified at the served artefact. Deletion is gated on the owner's word
+> alone — though note the brochure lane's `needs_page:index` rebuild is still
+> queued and will regenerate this page again from the (patched) content_data.
