@@ -8879,3 +8879,23 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **the general form, worth carrying to any backup you did not watch work:** *a store that re-captures on every run is a LOG, not a SNAPSHOT.* A rollback source needs exactly **one generation per subject**, so its guard must key on the **subject** (`page_id`), never on the **row**. And prove it the only way that counts — apply, restore, assert the stored md5 equals a recorded baseline, re-apply. Believing an untested rollback is the whole of this entry.
 - **relations:** `bugs_open/250` (the case, with the close-out steps for the sibling lane), `bugs_open/204`/`189` (why a decomposed page must hold exactly one generation of rows), the memory entry *"a `complete` work item is not a repaired artefact"* (same family: the status is not the artefact), and the migration-verify landmine — the repair here uses `DO`/`RAISE`, because a verify block of bare `SELECT`s cannot stop the `COMMIT`
 - **added:** 2026-08-11, loanandmortgagecalculator_couk Track A lane
+
+### The council verdict note you read with `ORDER BY created_at DESC LIMIT 1` is very likely ANOTHER LANE'S — the gate is fleet-wide and rounds interleave
+
+- **footprint:** `SELECT body FROM doc_notes WHERE categories ? 'council-gate' ORDER BY created_at DESC LIMIT 1` (the query printed by `097_TRIGGER_council_review_v1.sh` and quoted in `RUNBOOK_council_gate.md`), `diagnosis_artifacts` kind=`council_report`, any "did my submission pass?" question
+- **fires when:** your round is still executing and you read the newest note. ~30 sessions share this gate and several submit per hour, so the newest `council-gate` note is whichever lane finished most recently — **not yours**. Measured 2026-08-11: with my round mid-flight at `review_architecture`, that exact query returned a confident **APPROVED** whose summary was about `build-dispatch-loop`'s `purpose?` input_mapping and migration 380 — a different lane's change entirely. The failure is silent and flattering: it hands you an APPROVED verdict with a plausible-looking summary, and the only tell is reading the summary carefully enough to notice it describes work you did not do.
+- **why the obvious guard is not enough:** the trigger tells you to save `SUBMISSION_CORR` and the note *contains* it — but the query it prints does not FILTER on it, so having the correlation saved does not protect you. On a resubmission the trap is worse: the correlation is REUSED across rounds, so even a correctly-filtered `LIMIT 1` can hand you the **previous round's** verdict (mine returned round 1's REJECTED while round 2 was still running) — which reads as "the resubmission failed" when it has not finished.
+- **the check:** filter by your correlation AND confirm your run is finished first, in that order:
+  ```sql
+  -- 1. is MY round actually done? (find the run by payload, per the runbook)
+  SELECT current_step, status FROM orchestration_states
+   WHERE collected_data->'input_data'->>'fix_correlation_id' = '<SUBMISSION_CORR>'
+   ORDER BY created_at DESC LIMIT 1;          -- must be COMPLETED, not EXECUTING_STEP
+  -- 2. only then, and always correlation-filtered:
+  SELECT created_at, body FROM doc_notes
+   WHERE categories ? 'council-gate' AND body LIKE '%<SUBMISSION_CORR>%'
+   ORDER BY created_at DESC LIMIT 3;          -- LIMIT 3, so a resubmission's rounds are visible as a series
+  ```
+  A `complete_invalid` run is a third state to recognise: the submission was refused by `diagnose_persist_fix_plan` before any seat ran, so it produces **no note at all** — and `error` is NULL with `execution_path` empty (the `bugs_open/099` shape). No note plus an empty execution path means *nothing was reviewed*, not *nothing was wrong*.
+- **relations:** `RUNBOOK_council_gate.md` (whose printed query this corrects), the memory entry *"a gate's 0 findings has TWO causes, opposite fixes"*, `bugs_open/099` (failed step reads COMPLETED with error NULL)
+- **added:** 2026-08-11, bugfix_234_dead_spec_key lane
