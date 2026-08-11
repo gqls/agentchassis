@@ -117,3 +117,41 @@ func TestHardcodedColourVerifierGradesItsOwnAggregate(t *testing.T) {
 			"detection would now block instead of being graded. why=%q", why)
 	}
 }
+
+// TestOnlyTheOptedInVerifierCarriesAScopeTest answers the council guardian seat's
+// medium objection on the round that approved this change (corr c9c7c83f): the scope
+// gate sits inside `verifyBeforeComplete`, which is the single choke point EVERY
+// work-item completion passes, across every pipeline — and the claim that a nil
+// `Grades` leaves those completions byte-identical was asserted by reading the diff,
+// not asserted by a test. Both of the change's other tests target only the one route
+// being fixed, so nothing covered the shared branch itself.
+//
+// This is the cheap half of that: prove the opt-in is actually opt-IN. If a later
+// edit gives another item_type a scope test — deliberately or by copying a
+// registration line — that type's completions start passing through a predicate
+// nobody reviewed for it, which is this bug's own shape reintroduced by the fix for
+// it. Exactly one type is licensed to carry one today.
+//
+// It does NOT prove the nil branch cannot panic; `if policy.Grades != nil` is a plain
+// nil check on a func field and there is no target.Spec access before it, so there is
+// no type assertion to slip. What it proves is that the branch is not TAKEN for the
+// other ten.
+func TestOnlyTheOptedInVerifierCarriesAScopeTest(t *testing.T) {
+	const optedIn = "hardcoded_section_colors"
+
+	for _, itemType := range checks.RegisteredVerifierItemTypes() {
+		_, policy := checks.GetVerifier(itemType)
+		switch {
+		case itemType == optedIn && policy.Grades == nil:
+			t.Errorf("%s is the one type that must carry a scope test and does not — "+
+				"the bugs_open/213 fix is unwired", itemType)
+		case itemType != optedIn && policy.Grades != nil:
+			t.Errorf("%s has acquired a scope test. Every completion of this item_type now "+
+				"passes through a predicate that was reviewed for a DIFFERENT type — which is "+
+				"bugs_open/213's own defect, reintroduced by its fix. If this is deliberate, "+
+				"the scope test needs its own measurement of which producers file this type "+
+				"(spec->>'audit_source', NOT item_type, NOT created_by) before it can be trusted.",
+				itemType)
+		}
+	}
+}
