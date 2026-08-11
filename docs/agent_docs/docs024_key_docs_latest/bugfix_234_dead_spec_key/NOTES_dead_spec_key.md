@@ -196,3 +196,61 @@ data half landed under me), and a filtered count leaking into its own denominato
 **`commit_from` is now 0 carriers fleet-wide** and is a RemovedConfigKeys candidate —
 deliberately NOT declared here: it belongs to the bugfix_136 lane, which was committing on
 it the same day. Noted in that lane's deferred-items file with the protocol it now needs.
+
+## 2026-08-11 — BOTH PROOFS LANDED. The lane's technical work is complete.
+
+Fleet resumed (last orchestration 42s before the check) and **v1.0.1284** is deployed
+carrying BOTH halves — `incr5=1` (increment #5's message), `bugs_open/234`=1, negative
+control 0, on **both** replicas.
+
+### Proof 1 — the STRICT CANARY fired, and the error names the fix
+
+`witness_234_fire.sh` (corr `2ae40cde…`). Chassis log, `processor.go:293`, 09:35:29.553Z:
+
+> `step 'file_witness_row' (action 'create_work_item') has unrecognised config keys
+> [zzz_strict_witness_234] — this action declares its config contract as complete, so an
+> unknown key is a definition error, not a no-op`
+
+Classified `error_unrecoverable` / `permanent:code:WORKFLOW_INVALID`, **not retried**
+("Validation error detected - NOT retrying to prevent infinite loop"), and recorded to
+`agent_error_log` via `VALIDATION_ERROR_DROPPED`. No work item filed. So the strict flip
+is not merely present in the binary — it **refuses live traffic, permanently, with the
+key named**.
+
+> **WHY THE FIRST THREE FIRINGS FOUND NOTHING, and it was never the fleet cap alone.**
+> Both pollers hunted for a pod named `strict-witness-234`. **No such pod is ever
+> created**: `ValidateWorkflow` runs in the CHASSIS processor (`processor.go:276`) BEFORE
+> any agent is spawned, so a rejected workflow leaves no witness pod, no orchestration
+> row, and its only trace is a chassis log line. The pollers were looking in a place the
+> evidence could never be. The fleet cap masked this — it gave a sufficient-looking reason
+> for silence, so I stopped looking. **A plausible external explanation for a null result
+> is exactly when to re-examine the instrument.** Logged in WRONG_CALLS.md.
+
+**The unplanned control that makes it airtight:** the spec witness below was fired minutes
+later down the *identical* path and **did** produce an orchestration row. Same dispatch,
+same lane, same minute — one ran, one was refused. The difference is the bogus key.
+
+### Proof 2 — SPEC DELIVERY, at a FILED ROW
+
+`witness_234_spec_fire.sh` (corr `5468a042…`), carrying improvement-loop's
+`insert_rerender_item` config **verbatim** on the spec key:
+
+```
+spec_witness_234_eac60db8 | {"refresh_site_components": true} | cancelled
+```
+
+**That is the bug fixed, observed at a row** — the thing 17 previous rows could not do.
+Disconfirmable by construction: `{}` would have meant migration 364 changed nothing.
+
+Written this way rather than waiting for improvement-loop because it **has filed nothing
+since 2026-08-09 14:56Z** — the step is conditional on an audit promoting findings, so
+"~1.8 rows/day" (my earlier figure, an average over 8 days) was never a rate you could
+wait on. Forcing it by dispatching improvement-loop at a real site would have run audits,
+fixes and a rerender on live customer pages to prove a one-key change. The residue this
+leaves is honest and small: the witness proves the MECHANISM delivers; that
+improvement-loop *reaches* the step is established by reading its live config (identical
+`spec_literal`, unchanged apart from this rename). The natural row will still appear.
+
+**Both witnesses DELETED afterwards** (definitions and the witness work item); census
+re-checked clean: 17 create_work_item steps, 0 unrecognised keys. A live witness carrying
+a bogus key would poison the very census the RFC_021 Q1 protocol depends on.
