@@ -38,6 +38,35 @@
 // nothing to carry — a first build whose source never resolved, or a rebuild of
 // a row that is already damaged. The two are complements, and after PBP-039 this
 // guard's population is the residue the carry cannot reach.
+//
+// ⚠ WHAT REMAINS UNGUARDED, measured 2026-08-11 rather than argued — the council's
+// bug_historian seat gated the submission on precisely this (corr 98852baa), and
+// it was right to: the "one call site guarded, siblings still exposed" shape is
+// bugs_closed/021 and bugs_open/093, and this estate keeps re-closing it.
+//
+// `RenderTemplate` (component_library.go) discards the report by construction.
+// Every remaining caller therefore has the identical silent-empty-URL exposure:
+//
+//	assemble_from_library.go:288   assembleComponents      — library assembly path
+//	section_editor_actions.go:805  applyContentEdit        — human/agent section edit
+//	section_editor_actions.go:895  applyComponentSwap      — component swap
+//	component_library.go:1943      RenderHeader            — chrome, but NOT the
+//	component_library.go:2012      RenderFooter              guarded render_site_
+//	component_library.go:2285      RenderHead                components path
+//	rerender_pages_actions.go:532  (head template)         — legacy whole-page
+//	rerender_pages_actions.go:721  RenderTemplateWithMap   — contact-info block
+//
+// Guarded today: RenderComponentAction (refuses, opt-in — below),
+// rerender_page_sections (records), render_site_components (drops + files).
+// So the score is 3 of 11, and the 8 above are stated so a human can size the
+// remainder rather than reading one patched step as "the class is closed".
+//
+// This was NOT widened to all eight in the same change, deliberately: the three
+// chrome renderers already have their own dead-control response one layer up
+// (DropDeadURLControls), the two section-editor paths edit a row a human is
+// holding rather than regenerating one, and turning `RenderTemplate` itself into
+// the reporting form fleet-wide is a change to the primitive every render in the
+// platform flows through — which is the RFC-shaped move, not a rider on a bug fix.
 package actions
 
 import (

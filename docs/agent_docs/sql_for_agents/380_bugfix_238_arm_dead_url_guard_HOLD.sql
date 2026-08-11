@@ -64,6 +64,15 @@ SELECT jsonb_pretty(jsonb_path_query_first(default_config, '$.**.steps.render_se
  WHERE type = 'page-content-writer' AND is_active
    AND COALESCE(is_snapshot, false) = false AND deleted_at IS NULL;
 
+-- ⚠ THE DUPLICATE-ROW GUARD, added 2026-08-11 after the council's debug_historian
+-- seat raised it (corr 98852baa). FOUR agent types on this estate carry TWO
+-- active definition rows, and only the HIGHER VERSION is ever loaded at runtime —
+-- so an `UPDATE ... WHERE type = '<x>'` can silently touch a stale duplicate, or
+-- touch both, while a verify block that re-reads "the row for this type" happily
+-- confirms whichever one it happens to find. Measured for THIS type 2026-08-11:
+-- exactly 1 active row (id 5946a27b-…, version 2). The guard below is therefore
+-- expected to pass today; it exists so that if a second row appears before this
+-- HOLD is lifted, the file refuses instead of half-applying.
 DO $$
 DECLARE
     v_rows int;
@@ -74,7 +83,7 @@ BEGIN
      WHERE type = 'page-content-writer' AND is_active
        AND COALESCE(is_snapshot, false) = false AND deleted_at IS NULL;
     IF v_rows <> 1 THEN
-        RAISE EXCEPTION '238/380: expected exactly 1 live page-content-writer row, found % — resolve before editing config', v_rows;
+        RAISE EXCEPTION '238/380: expected exactly 1 live page-content-writer row, found % — this type now carries duplicates and only the HIGHEST VERSION is loaded at runtime; target that row by id, do not update by type', v_rows;
     END IF;
 
     SELECT (jsonb_path_query_first(default_config,

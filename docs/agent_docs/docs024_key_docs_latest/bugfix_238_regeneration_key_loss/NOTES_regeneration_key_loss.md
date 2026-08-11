@@ -213,3 +213,58 @@ three things reviewers actually asked for — the alternative I had already rule
 out, the scoping value I had assumed, and the limit of what the fix can reach.
 **The risks block was full of what I had thought about; the gaps were in what I
 had checked and not written down.**
+
+### Council verdict B — REVISE, and the objection was the one I had argued around
+
+`98852baa`, 13 reviewers, gated by one high-severity objection from
+`bug_historian`: **I guarded one call site and called the class handled.**
+
+That is `bugs_closed/021` / `bugs_open/093`'s shape, and it is the seat's whole
+remit. My submission *named* `RenderTemplateWithMap` as "exempt and named" and
+stopped there — which is the move that reads as diligence and isn't one, because
+naming one exempt sibling implies the others were checked. They had not been.
+
+**Answered by audit, not argument. The score is 3 guarded of 11.** Unguarded:
+`assembleComponents`, `applyContentEdit`, `applyComponentSwap`, `RenderHeader`,
+`RenderFooter`, `RenderHead`, the legacy head template, and
+`RenderTemplateWithMap`. The list is now in `dead_url_guard.go`'s own header, so
+it is read where the guard is read rather than in a verdict artifact nobody opens.
+
+I still did not widen to all eight, and that is a defensible answer only because
+it is now a *stated* one with the reasoning attached — the three chrome renderers
+have their own response one layer up, the two editor paths edit a row a human
+holds, and making `RenderTemplate` itself the reporting form fleet-wide changes
+the primitive every render flows through.
+
+**Four seats objected that my censuses were unverifiable by them** — the tables
+are outside their schema access. Fair, and the fix is to attach the numbers, not
+to insist. All three re-run and attached: 26/12/2/2 by declared type, exactly one
+live `render_component` agent, and both squatting `empty-src` rows (finetuning
+`blocked` count 16 since 08-03, aao `detected` count 19). **Every one reproduced
+exactly.** The lesson is not that the numbers were wrong — it is that a number a
+reviewer cannot re-derive is an assertion to them however carefully I measured it.
+
+**`debug_historian` found a real hole in the migration**: it updates by `type`
+with no row tie-breaker, and four agent types here carry two active rows of which
+only the higher version loads. `page-content-writer` has exactly one today, so it
+does not bite — but the HOLD file now refuses rather than half-applying if a
+second appears before the flag is lifted. Cheap, and I should have written it
+that way first: the landmine exists precisely because "by type" looks total.
+
+**`reuse_agent` asked for a shared emit helper instead of a sibling.** Not done,
+with the reasoning recorded: the primitive that carries the semantics
+(`insertWorkItem`, and its dedup/two-strike behaviour) is already shared by both
+emitters; what differs is the item's shape and its response, which is per-surface.
+The `architecture` seat named the right trigger — **a third dead-control emitter
+is when this consolidates**, and that is now written where the next author will
+be standing.
+
+**Conceded outright:** record-only on the rerender path is worth more than
+discarding the finding and less than detection, and I should stop describing it
+as "the fleet's only live detection" while the rotations are paused. Nobody is
+watching the queue it writes to.
+
+The pattern across BOTH verdicts is the same and worth naming: my risks blocks
+were full of what I had *thought about*, and every objection that landed was
+about something I had *checked and not written down*, or *assumed and not
+checked*. Length is not coverage.
