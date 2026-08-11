@@ -315,3 +315,64 @@ council's own query shows `undeployed_asset` 86 (design), `phantom_internal_link
 `dca8b8084` repair queued + baseline · `0cd8404b0` no-op result + platform gap ·
 `5c7b115c5` **the code change** (Council-Submitted: b8e341b9) · `2c24ed5f0` addendum 2 ·
 `e1b8863e0` WRONG_CALLS · `a78640045` corrections to 113 + DES-082/083.
+
+---
+
+## ADDENDUM 4 (2026-08-11) — round 2 written and submitted. The repair is now ONE work item away
+
+**Verification method changed under us.** CLAUDE.md retired `strings` on 2026-08-11 ("three
+confidently wrong readings in one day"). Redone the sanctioned way and it holds:
+chassis stamps **`bb534864…`** (binary probe, both replicas, bogus-sha control absent), and
+`git merge-base --is-ancestor 5c7b115c5 bb534864` → **round 1 shipped.**
+
+**Round 2 (`a36cbc6cb`, committed, NOT yet rolled)** answers the council's objection.
+The flag is now read from **two** sources, both default false, both loud-fallback:
+step config (fleet-wide) **and the work item's `spec`** (per-request). Prefer the latter —
+setting the former on `site-design-planner` turns re-install on for every install.
+Two new tests; mutation nil-ing the spec lookup fails the per-request test **alone**.
+Council round 2 submitted under the same trail correlation **`b8e341b9-…`** — **verdict
+pending, still owed.**
+
+**RFC_022 scope check, enumerated not asserted:** `0` active agent definitions and `0` work
+items name `allow_reinstall`. Opt-in, unsafe side default, no live consumer → not
+architecture-scope under the 2026-08-11 ruling.
+
+### THE REPAIR — one work item, once `a36cbc6cb` is in a rolled build
+
+```sql
+INSERT INTO site_work_items
+  (site_id, source, item_type, item_key, severity, summary, spec,
+   priority, handler_agent, status, created_by, pipeline)
+SELECT s.id, 'manual-113-palette-repair', 'needs_composition', 'needs_composition', 'high',
+       'Re-compose ai-agent-orchestration.com off the shared LIGHT seed palette (bugs_open/113)',
+       jsonb_build_object('stage','composition','domain','ai-agent-orchestration.com',
+                          'reason','shared_light_collection_on_dark_site',
+                          'allow_reinstall', true),      -- <<< the per-request opt-in
+       7, 'site-design-planner', 'triaged', '<your-lane>', 'build'
+FROM sites s WHERE s.domain='ai-agent-orchestration.com';
+```
+
+- **status MUST be `triaged`** — `detected` is never claimed (`claim_work_item_action.go:102`).
+- **Rollback: `UPDATE sites SET style_collection_id='3196d966-24ef-4415-9dc8-1afbc02166ca'
+  WHERE domain='ai-agent-orchestration.com';`**
+- **Verify at the ARTEFACT, not the status.** `complete` already lied once on this site
+  (`f7ceba19`: 2 minutes, changed nothing). Check: a `palettes` row with
+  `source_domain='ai-agent-orchestration.com'` exists; `sites.style_collection_id` changed;
+  `styles.css` `last-modified` moved; served `--color-card-bg` is no longer `#ffffff`.
+- **AFTER measurement vs the pre-registered prediction:** BEFORE = 58 failures on 3 pages
+  (38 white-card, 4 second light literal, 14 primary-as-ink, 1 over-image).
+  **Expect ~42 fewer, ~15 left.** Near-zero means something else changed too.
+
+### `[UNMEASURED]` — the one thing that could make the repair a no-op
+
+`requestSpecFromCollected` handles `input_data.spec` and `input_data.body.spec`. **I have
+not observed a live `needs_composition` dispatch's `collected_data` shape.** A third shape
+means the flag silently does not arrive — the action then refuses (SAFE), but it will look
+like a broken flag. **Check this first if the repair refuses:** find the run and enumerate
+`jsonb_object_keys(collected_data->'input_data')`.
+
+### Commits (all on `087_towards_multiple_domains`)
+
+`4bd0fb519` · `cfb05757a` · `4b28bc1cf` · `dca8b8084` · `0cd8404b0` · **`5c7b115c5` r1 (LIVE)** ·
+`2c24ed5f0` · `e1b8863e0` WRONG_CALLS · `a78640045` corrections · `73e7bd3da` ·
+**`a36cbc6cb` r2 (awaiting roll)**.
