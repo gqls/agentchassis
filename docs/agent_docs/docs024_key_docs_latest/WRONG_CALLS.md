@@ -28265,3 +28265,45 @@ walked past both because I was thinking about pools, not about how I would later
 anything. This is the sibling of "verification depth is not verification COVERAGE" (08-11,
 above): that one was five checks on one side of a pipeline; this is careful reading of one
 noun-set and none of the other.
+
+---
+
+## 2026-08-11 — bugs_open/215 quiet-mode lane
+
+**1. WRONG CALL: I implemented a "the direction flips" invariant in ONE direction, and only a
+fixture copied from live data caught it.**
+The bug file states the invariant plainly — *"the invariant is **two identities for one page**,
+not a fixed prefix"* — and the risk review restated it. I wrote the stem-matching layer anyway
+so that it indexed prefixed realised names and required the PLAN name to be bare. That closes
+`ai-readiness-checker-guide` → `tool-ai-readiness-checker-guide` and is **silently inert** on
+`tool-tools` → `tools`, which is the shape that actually cost fundamentallyai a phantom page.
+No error, no log, no failing assertion: a layer that reports zero matches looks exactly like a
+layer with nothing to match.
+**What caught it:** the fixture, because I had built it from the live measurement rather than
+inventing one. I wrote the test with the plan side bare (matching my code) and it failed —
+against the real row, which has the plan side prefixed. Had I invented the fixture to suit the
+code, both would have been wrong in the same direction and the suite would have been green.
+**The cheap check:** when the source you are working from says a relation is **symmetric** or
+that a **direction flips**, write the assertion for BOTH directions before writing the code —
+and take each one's data from a different real row, not from the same row transposed.
+**The shape:** *a directional implementation of a bidirectional rule is invisible to a
+one-directional test, and fixtures invented alongside the code inherit its blind spot.* This is
+why "every fixture here is a shape measured on the fleet" is worth the extra queries: it is the
+only part of the suite that can disagree with me.
+
+**2. WRONG CALL: I inferred which two page spellings collided from the names in a log row,
+when the row itself carried the answer — the same wrong-key class this bug already recorded on 08-09.**
+Reading the two fresh `PLAN_PAGE_MERGE_LOSSY` rows, I was about to write that
+`tool-model-approach-selector-guide` collided with its bare twin because the canonicaliser
+strips the `tool-` prefix. It does not: that path returns the name still prefixed. The entry
+canonicalised to the BARE name because the write path uses `firstNonEmpty(slug, name)` and its
+**slug** disagreed with its name. My matching layer, written to "front-run the collapse the
+write path performs", derived its key from the name alone — so it modelled a collapse the
+writer does not perform, and would have been right only by luck.
+**What caught it:** querying `context->>'kept_raw_name'` / `dropped_raw_name` instead of
+reasoning from the two names in the summary line. The row was built to carry exactly this.
+**The cheap check:** when a durable record exists *because* someone decided the inference
+would be unavailable later — this bug's own 08-09 correction is that decision — **read the
+record's fields, not its title.** One query.
+**The shape:** *code that claims to predict another component's behaviour must derive its input
+the same way that component does; "the same rule" is not the same as "the same inputs".*

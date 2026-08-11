@@ -304,3 +304,120 @@ the re-look that reframed the condition:
 > the lane README 2026-08-11. The duplicate-page family itself (one page under two names,
 > both live) is the underlying condition — neither this bug's dedup nor the merge rule
 > resolves WHICH name should own the page.
+
+---
+
+## 2026-08-11 — QUIET MODE: fix built. Two coupled halves, because "it belongs in the reconciler" is right about the DECISION and insufficient on its own
+
+Taken up as the remaining scope, per the owner ruling of 2026-08-11 §1 ("the
+phantom-mode fix stays in `bugs_open/215`'s remaining scope on its own merits").
+Council submission `3cd9fd92-da62-46b9-9799-cb439574eff2`.
+
+### The correction this file needs
+
+This file says the reconciliation "belongs in the reconciler against realised
+pages under either spelling — not in `WriteSitePlanAction`". The first half is
+right and I have built it there. **The second half is incomplete, and a
+reconciler-only fix would have been INERT for exactly the pages this bug is
+about.** Both canonicalisation surfaces re-derive every page's identity
+unconditionally (`write_site_plan_action.go`, `site_db_actions.go`), and
+`CanonicalisePage` **cannot express a legacy identity** — a `tool`-typed page
+always comes back `tool-<bare>` at the role's default hub.
+
+> **[MEASURED] 2026-08-11, live DB: 71 live SHIPPED rows fleet-wide are not fixed
+> points of `CanonicalisePage`.** For every one of them, a reconciler that
+> correctly recognises the twin still hands the writer a page that is re-derived,
+> conflicts with nothing on `(site_id, name)`, and is INSERTed as a second row —
+> the phantom, re-minted by the very pass that spotted it.
+
+So: the reconciler decides, and the writers must be told to stop overruling it.
+That second half is the one genuinely new authority here, and it is the edit to
+distrust — it is opt-in, default OFF, and named in the submission as the thing
+the council should attack hardest.
+
+### What was built
+
+| piece | where | default |
+|---|---|---|
+| `PagePathKey` / `PageItemStem` / `PageCanonicalNameForRow` | `datahelpers/page_identity.go` (new) | n/a — extraction |
+| layer 1: normalised path key | `reconcilePlanWithRealised` | **ON** |
+| layer 2: predicted canonical identity | `reconcilePlanWithRealised` | **ON** |
+| layer 3: stem twin, both directions | `reconcilePlanWithRealised` | **OFF**, dark-launched |
+| writer honour guard | both canonicalisation surfaces, one shared reader | **OFF** |
+| `reconciled_from` imagery alias | `buildCanonicalPageNameMap` | ON (one line) |
+
+All four match routes (including the pre-existing exact-URL Pass B) now go
+through **one extracted arm**, so the `bugs_open/050` empty-page routing and the
+`bugs_open/151` fact-assignment carry cannot drift between them. Snap, never
+drop — dropping is what Pass C2 does, and it discards the plan-time fact
+assignments with the entry.
+
+Guards, all unconditional even when a layer is on: refuse a key two realised
+pages claim; refuse when the plan already carries the realised spelling; refuse a
+never-shipped stem twin; stem requires **exactly one** side prefixed.
+
+### Two things this fix deliberately does NOT do
+
+1. **It does not resolve the both-deployed pairs, and it must not.** When both
+   spellings are realised AND both are in the plan, the layers REFUSE. Snapping
+   would hand the writer two entries with one name, and richer-wins would then
+   resolve the pair by evicting a live page. Which name owns the page is a
+   remediation decision — which is precisely the question the 08-11 note above
+   raises about the two composed-vs-composed lossy merges. **My fix does not
+   answer it; the runbook below scopes it for the owner.**
+2. **It does not touch the archived-page rebuild.** See below — separate defect,
+   filed separately.
+
+### Measurements, all 2026-08-11, all able to have come out otherwise
+
+- **Would-merge survey** (current plans joined to realised pages, names differing):
+  normalised path matches **3** pairs, stem matches **11**; a human read **0** of
+  them as genuinely different pages. Confined to fundamentallyai and robot-hands.
+- **Both-deployed twin pairs: 7, across 4 domains** — duplicate LIVE content, not
+  just phantom 404s. All 14 URLs HTTP-tested 200, against a 404 control of 2697
+  bytes (so the 200s are content, not the error page). Component counts differ per
+  side (robot-hands 5/3/4 against 1 each), i.e. genuinely different builds.
+- **Today's replan (corr `e74974b3`) minted NO new page rows.** Its twins collapsed
+  in-plan instead — the two lossy merges in the note above. That is emission luck,
+  not protection: the same plan one spelling different mints a phantom.
+
+### Mutation evidence
+
+Pass-through of the whole function fails 5 tests · deleting the path-key layer
+fails its own test (and exposes the canonical layer catching the same fixture,
+which the assert-on-layer catches) · removing the exactly-one-prefix guard fails
+the `tool-pricing`/`guide-pricing` test · dropping the both-in-plan refusal fails
+the robot-hands test · not stripping the forged marker fails its test · **removing
+the writer guard from one surface leaves every unit test green and fails only
+`TestIdentityPolicyReachesBothCanonicalisationSurfaces`**, which is why that test
+exists.
+
+### Two defects found while doing this, both recorded rather than folded in
+
+1. **Archived pages are rebuilt and re-deployed by the work-item pipeline.**
+   `ai-readiness-checker-guide` and `tool-llm-cost-calculator` were hand-archived
+   on 08-08 with `deployed_at IS NULL` and zero components; on **2026-08-11 they
+   acquired `deployed_at` stamps (10:34:21 and 11:13:25) and now serve HTTP 200**
+   beside their live twins. So the sweep front's hand-archive is **not durable**
+   against the refile loop, and remediation cannot be assumed to stick.
+   `loadRealisedPages` (`reconcile_site_plan_action.go:458`) selects from `pages`
+   with **no status predicate**; where the archived status should have gated the
+   BUILD or the DEPLOY is not self-evident from a read, so it went to the
+   diagnosis loop rather than into an assertion here — **090 run correlation
+   `38099787-c7f9-46d4-b75e-3a1867fcaf41`**. Open work items sit on archived pages
+   across **8 domains**, so this is a class, not a fundamentallyai quirk.
+2. **The canonical layer must derive its key the way the write path does**
+   (`firstNonEmpty(slug, name)`, not name alone). Caught by reading the actual
+   `PLAN_PAGE_MERGE_LOSSY` rows rather than inferring from the names in them: the
+   entry NAMED `tool-model-approach-selector-guide` canonicalised to the BARE
+   name because its slug said so.
+
+### Status
+
+**Part 1 committed (`65c1984d0`)** — the shared keys and the policy helper, inert,
+building and testing green against a clean HEAD tree. **Part 2 (the wiring) is
+written, tested and NOT yet committed**: all three wiring files currently carry
+another lane's uncommitted work in the same hunks, and committing them would
+either ship that work under this message or leave HEAD unable to compile. Held
+rather than swept. This bug stays **OPEN** until the wiring lands, the chassis
+rolls, and a site opts in.
