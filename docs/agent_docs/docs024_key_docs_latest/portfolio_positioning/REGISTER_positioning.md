@@ -565,14 +565,14 @@ the seats, turning the defect into the asset.
 | `investmentloans.uk` | observer | the market overview of investment-lending products |
 | `healthinsurancerates.co.uk` | buyer | market tables (plural = the market) |
 | `healthinsurancerate.co.uk` | setter-facing-buyer | pricing factors: what moves YOUR premium — age curve, postcode, underwriting (singular = yours) |
-| `besthealthinsurancerates.co.uk` | buyer (verdicts) | ranked with methodology |
-| `besthealthinsurancerate.co.uk` | — residual | true twin of the two above even under seats; hold/301 ⚑OWNER |
+| `besthealthinsurancerates.co.uk` | buyer (verdicts) | ranked with methodology, whole-UK market |
+| `besthealthinsurancerate.co.uk` | buyer (verdicts), England-scoped | P8 (08-11): England-only — spine is NHS England waiting-list data by postcode/trust, England-only prescription-charge savings math, England hospital-network guides. NOT a relabelled national list: if a page's content would read the same with "UK" swapped in, it has drifted back into the twin |
 | `landlordinsurancerates.co.uk` | buyer | I5 unchanged — the tables |
 | `landlordinsurancerate.co.uk` | setter-facing-buyer | landlord pricing factors — tenant type, unoccupancy, claims history |
 | `landlordinsurancedeal.co.uk` | buyer (switching) | the switching playbook, singular = your move |
 | `landlordinsurancedeals.co.uk` | intermediary | commission transparency: how landlord policies are sold and who earns what |
-| `bestlandlordinsurancerates.co.uk` | buyer (verdicts) | ranked with methodology |
-| `bestlandlordinsurancerate.co.uk` | — residual | hold/301 ⚑OWNER |
+| `bestlandlordinsurancerates.co.uk` | buyer (verdicts) | ranked with methodology, the 1–10-property landlord I5 already targets |
+| `bestlandlordinsurancerate.co.uk` | buyer (verdicts), portfolio-scoped | P8 (08-11): the 3+/portfolio and HMO landlord — block/portfolio policies, HMO licensing-linked cover requirements, specialist unrated risks, rent-guarantee at scale. Different sophistication tier from I5's novice-on-policy-detail audience: competent-to-expert, treats insurance as a portfolio line item |
 | `bestinsurancerates.co.uk` | buyer (verdicts) | cross-line ranked tables |
 | `bestinsurancerate.co.uk` | setter-facing-buyer | cross-line pricing factors — what drives premiums in every line |
 | `bestinsurancedeal.co.uk` | buyer (switching) | the cross-line switching playbook |
@@ -584,11 +584,29 @@ the seats, turning the defect into the asset.
 | `banker.co.uk` | setter (trade title) | the industry-facing brand — the estate's trade voice and link engine; `banker.uk` per P5 |
 | `finance.org.uk` | referee/education hub | the .org trust weight spent deliberately: neutral consumer-finance education, the estate's citation anchor |
 
-**Honest residuals, still ⚑OWNER (hold or 301):** `besthealthinsurancerate.co.uk`,
-`bestlandlordinsurancerate.co.uk` — even five seats cannot make seven members of one
-phrase family distinct; two remain true twins. Plus the product holds (`savingsapp.*`,
-`insuranceapp.*`, `loansy`/`loanzy`, `sportsreviewinsurance.*`) and `bankingequipment.*`
-(different market). **No lane builds a residual without this register changing first.**
+**OWNER RULING 2026-08-11 (P8) — the last two "true twins" are resolved, by axes outside
+the seat framework rather than by hold/301.** Seats couldn't separate these two pairs
+because both residuals were the superlative ("best…") tier, where the singular/plural
+grammar that carried the rest of the framework stops meaning anything different. Two
+axes the framework hadn't used elsewhere close them instead:
+- **`besthealthinsurancerate.co.uk` — regional scope (England vs whole-UK).** Not used
+  anywhere else in this register. Genuinely thin unless the England site's spine is
+  region-specific data (NHS is devolved: separate waiting lists, prescription charges,
+  hospital networks) rather than a relabelled national page — the entry above names the
+  spine explicitly so a builder can't default to the lazy version.
+- **`bestlandlordinsurancerate.co.uk` — portfolio size (1–10 properties vs 3+/HMO).**
+  I5's own audience line already skews toward the smaller/accidental landlord; the
+  portfolio/HMO landlord is a real, different insurance product category (block
+  policies, HMO licensing-linked cover) and a different sophistication tier, not a
+  relabelling risk.
+Not a template for every remaining pair — regional scope and portfolio size were checked
+against the rest of the register for collisions (regional: unclaimed anywhere; portfolio
+size: I5's own family only, no other family claims a landlord portfolio-size axis) before
+being used. Two genuinely-nothing-left residuals remain, hold/301: the product holds
+(`savingsapp.*`, `insuranceapp.*`, `loansy`/`loanzy`, `sportsreviewinsurance.*`) and
+`bankingequipment.*` (different market) — these were never twins-with-an-axis, they're
+holds for other reasons and P8 does not touch them. **No lane builds a residual without
+this register changing first.**
 
 **Per-vertical casebooks (owner-chosen):** the referee seat is one substantial casebook
 per vertical — savings law at `savings-rates.co.uk`, the mortgage-side law living inside

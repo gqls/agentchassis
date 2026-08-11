@@ -235,3 +235,16 @@ concentrates. Cleanest spelling = buyer; awkward/hyphenated spellings take the s
 Referee = per-vertical casebooks (3–4 thick, never 15 thin). Full map + honest residuals:
 the register's seat-map table. Two domains remain true twins even under seats; they stay
 ⚑OWNER.
+
+**P8 (owner ruling, 2026-08-11) — the two seat-framework residuals are closed, by axes the
+seat framework doesn't reach.** Both were the superlative ("best…") tier, where the
+singular/plural grammar that carried the rest of the framework stops distinguishing
+anything. `besthealthinsurancerate.co.uk` splits from its plural sibling by **regional
+scope** (England vs whole-UK — NHS is devolved, so this is real content, not a relabelling,
+provided the England site's spine is region-specific data). `bestlandlordinsurancerate.co.uk`
+splits by **portfolio size** (1–10 properties, I5's existing audience, vs 3+/HMO portfolio
+landlords — a genuinely different insurance product and sophistication tier). Both axes were
+checked against the rest of the register for collisions before use (regional: unclaimed
+anywhere; portfolio size: I5's family only). Not a general licence — most residuals in this
+register were never twins-with-an-axis, they're holds for other reasons (product-app
+domains, a different market). Full text: register rollup.
