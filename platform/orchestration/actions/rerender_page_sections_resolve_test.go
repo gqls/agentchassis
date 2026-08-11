@@ -500,3 +500,73 @@ func TestSlotLabel_NamesPositionForDuplicateSlotNames(t *testing.T) {
 		t.Errorf("two sections sharing a slot_name must not produce the same label: %q", a)
 	}
 }
+
+// TestRerenderPageSections_StructuralCarryMakesANotReadySectionRerender pins the
+// one DELIBERATE behaviour change bugs_open/238's plan-time carry makes on this
+// path, in the direction that is easy to lose by accident.
+//
+// Before the carry, a section whose required non-llm field could not resolve
+// planned `deferred`, took the not-ready branch above, and had its STORED HTML
+// carried unchanged — which on a page already damaged means faithfully
+// re-shipping the damage, and on an undamaged page means a template fix silently
+// never lands. With the carry, the page's own stored content_data satisfies the
+// field, the section plans `ready`, and it genuinely re-renders.
+//
+// This is pinned rather than merely allowed because both outcomes report success
+// (`complete`, no error) and differ only in `carried` vs `rerendered` — the exact
+// pair of counters bugs_open/182 exists because nobody was reading.
+func TestRerenderPageSections_StructuralCarryMakesANotReadySectionRerender(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+	// planSection iterates the schema fields map, so query order is randomised.
+	mock.MatchExpectationsInOrder(false)
+
+	siteID := uuid.New()
+	pageID := uuid.New()
+	componentID := uuid.New().String()
+
+	// The stored row still holds the URL its declared source can no longer
+	// resolve — the finetuning shape, one section wide.
+	expectPageAndSections(mock, siteID, pageID, "index", "example.com",
+		*sqlmock.NewRows([]string{"component_id", "slot_name", "content_data", "rendered_html", "position"}).
+			AddRow(componentID, "case-studies-grid",
+				[]byte(`{"card1_image_url":"/assets/images/case-study-facilities.jpg"}`),
+				"<section>stale</section>", 0))
+
+	mock.ExpectQuery("FROM content_components").WillReturnRows(
+		emptyComponentRows().AddRow(
+			componentID, "case-studies-grid", "Case studies", "case-studies-grid", "", nil, nil,
+			`<img src="{{.card1_image_url}}" />`,
+			[]byte(`{"fields":{"card1_image_url":{"type":"url","source":"site_assets.image","required":true}}}`),
+			"template", nil, "section"))
+
+	// The declared source resolves to nothing: no plan imagery, no content_data
+	// hero. (No site_specs read — a site_assets.* source never reaches
+	// ensureSpecs, and sqlmock would fail on an expectation nothing satisfies.)
+	mock.ExpectQuery("site_plan_imagery").WillReturnRows(sqlmock.NewRows([]string{"key", "url", "scope", "scope_ref", "kind"}))
+	mock.ExpectQuery("FROM sites").WillReturnRows(sqlmock.NewRows([]string{"content_data"}))
+	// The carry preload — the page's own deployed row.
+	mock.ExpectQuery("build_status = 'deployed'").
+		WillReturnRows(sqlmock.NewRows([]string{"slot_name", "content_data"}).
+			AddRow("case-studies-grid", []byte(`{"card1_image_url":"/assets/images/case-study-facilities.jpg"}`)))
+	expectBaseSiteData(mock)
+
+	out, err := RerenderPageSectionsAction(context.Background(), rerenderParams(db, siteID, "index"))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	m := out.(map[string]interface{})
+	if got := m["rerendered"]; got != 1 {
+		t.Errorf("expected the carried key to make this section RE-RENDER (rerendered=1), got rerendered=%v carried=%v not_ready=%v",
+			got, m["carried"], m["carried_not_ready"])
+	}
+	if got := m["carried"]; got != 0 {
+		t.Errorf("expected carried=0 — carrying the stored HTML here re-ships whatever the stored HTML already had wrong; got %v", got)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("unmet sqlmock expectations: %v", err)
+	}
+}

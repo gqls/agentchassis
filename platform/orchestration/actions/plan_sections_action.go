@@ -31,6 +31,7 @@
 package actions
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"encoding/json"
@@ -102,6 +103,13 @@ type sourceResolver struct {
 	// build record shows which fields changed provenance, rather than that fact
 	// living only in a log line.
 	aliasesUsed map[string]string
+	// storedContent maps slot_name → the page's deployed page_components
+	// content_data. It is the carry-forward source for a non-llm field whose
+	// declared source resolves nothing (bugs_open/238): a regeneration must not
+	// silently lose a resolver-sourced value the live page already carries.
+	// Loaded lazily — a plan in which every source resolves never runs the query.
+	storedContent       map[string]map[string]interface{}
+	storedContentLoaded bool
 }
 
 // identityContainerAspects lists the site_specs aspects whose writers group
@@ -159,6 +167,111 @@ func newSourceResolver(siteID uuid.UUID, db *sql.DB, logger *zap.Logger, pageNam
 		pages:    make(map[string]string),
 		assets:   make(map[string]string),
 	}
+}
+
+// ensureStoredContent loads this page's deployed content_data rows, once, keyed
+// by slot_name (bugs_open/238).
+//
+// Scoped to `build_status = 'deployed'` deliberately: the carry's contract is
+// "what the live page already carries", not "anything ever written". A slot that
+// repeats with DIFFERENT content_data is dropped rather than resolved
+// arbitrarily — the same conflict rule loadPageSlotComponentIDs applies to slot
+// identity, for the same reason: an ambiguous carry source is no carry source.
+//
+// A query error is not fatal here. Unlike slot identity — where planning against
+// a silently-empty map files junk work items — an empty map costs only the carry,
+// leaving on_missing to behave exactly as it did before this existed.
+func (r *sourceResolver) ensureStoredContent(ctx context.Context) {
+	if r.storedContentLoaded {
+		return
+	}
+	r.storedContentLoaded = true
+	r.storedContent = make(map[string]map[string]interface{})
+
+	if r.pageName == "" {
+		return
+	}
+
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT COALESCE(pc.slot_name, ''), pc.content_data
+		FROM page_components pc
+		JOIN pages p ON p.id = pc.page_id
+		WHERE p.site_id = $1 AND p.name = $2
+		  AND pc.build_status = 'deployed'
+		  AND pc.content_data IS NOT NULL
+	`, r.siteID, r.pageName)
+	if err != nil {
+		r.logger.Warn("plan_sections: failed to load stored content_data for carry-forward",
+			zap.String("page", r.pageName),
+			zap.Error(err))
+		return
+	}
+	defer rows.Close()
+
+	seen := make(map[string][]byte)
+	conflicted := make(map[string]bool)
+	for rows.Next() {
+		var slot string
+		var dataJSON []byte
+		if err := rows.Scan(&slot, &dataJSON); err != nil {
+			continue
+		}
+		if slot == "" {
+			continue
+		}
+		if prior, ok := seen[slot]; ok {
+			if !bytes.Equal(prior, dataJSON) {
+				conflicted[slot] = true
+			}
+			continue
+		}
+		var data map[string]interface{}
+		if err := json.Unmarshal(dataJSON, &data); err != nil {
+			continue
+		}
+		seen[slot] = dataJSON
+		r.storedContent[slot] = data
+	}
+	if err := rows.Err(); err != nil {
+		r.logger.Warn("plan_sections: stored content_data rows ended early — carry-forward may be partial",
+			zap.String("page", r.pageName),
+			zap.Error(err))
+	}
+	for slot := range conflicted {
+		delete(r.storedContent, slot)
+		r.logger.Warn("plan_sections: slot_name repeats with different content_data — not a carry-forward source",
+			zap.String("page", r.pageName),
+			zap.String("slot", slot))
+	}
+}
+
+// storedFieldValue reports the stored value this page already carries for one
+// slot/field, and whether it is usable as a carry-forward source.
+//
+// Emptiness is judged by isEmptyContentValue — the render gate's own predicate —
+// because carrying an empty string would carry the defect: `src=""` renders
+// identically whether the key is absent or present-and-blank.
+func (r *sourceResolver) storedFieldValue(ctx context.Context, slot, field string) (interface{}, bool) {
+	r.ensureStoredContent(ctx)
+	if len(r.storedContent) == 0 {
+		return nil, false
+	}
+
+	data, ok := r.storedContent[slot]
+	if !ok {
+		// Strict fallback, never a rebind: the kebab-normalised form only, for
+		// the naming class bugs_open/041 covers.
+		data, ok = r.storedContent[NormalizeComponentFunction(slot)]
+	}
+	if !ok {
+		return nil, false
+	}
+
+	value, present := data[field]
+	if !present || isEmptyContentValue(value) {
+		return nil, false
+	}
+	return value, true
 }
 
 // loadSpecs loads all current site_specs for this site (once)
@@ -796,6 +909,18 @@ type sectionPlanItem struct {
 	FactsScoped         bool     `json:"facts_scoped,omitempty"`
 	AssignedFactIDs     []string `json:"assigned_fact_ids,omitempty"`
 	AssignedWriterBlock string   `json:"assigned_writer_block,omitempty"`
+	// CarriedFields names the non-llm fields whose declared source resolved
+	// nothing and which were satisfied from this page's own deployed
+	// content_data instead (bugs_open/238). StructuralMisses names the required
+	// non-llm fields that resolved NOWHERE — neither source nor stored row —
+	// and were then omitted under on_missing=skip_field.
+	//
+	// Both keys are additive and omitempty, so every existing consumer of a
+	// section plan entry (the writer prompt, persistSectionSkips, the rerender
+	// resolver) is unaffected: absence renders falsy under missingkey=zero and
+	// unmarshals to nil.
+	CarriedFields    []string       `json:"carried_fields,omitempty"`
+	StructuralMisses []missingField `json:"structural_misses,omitempty"`
 }
 
 type missingField struct {
@@ -1272,10 +1397,19 @@ func PlanSectionsAction(ctx context.Context, params ActionParams) (interface{}, 
 		}
 	}
 
+	// bugs_open/238 visibility. Both maps are built from the plan items, so they
+	// cover deferred and skipped sections too — a section that carried a key and
+	// was then deferred still carried it.
+	carriedBySection := collectCarriedFields(ready, deferred, skipped)
+	missesBySection := collectStructuralMisses(ready, deferred, skipped)
+	recordStructuralKeyCarryMisses(ctx, params, siteID.String(), pageName, missesBySection)
+
 	logger.Info("plan_sections: planning complete",
 		zap.Int("ready", len(ready)),
 		zap.Int("deferred", len(deferred)),
 		zap.Int("skipped", len(skipped)),
+		zap.Int("sections_with_carried_keys", len(carriedBySection)),
+		zap.Int("sections_with_structural_misses", len(missesBySection)),
 		zap.String("page", pageName))
 
 	return map[string]interface{}{
@@ -1295,7 +1429,107 @@ func PlanSectionsAction(ctx context.Context, params ActionParams) (interface{}, 
 		// from the payload entirely when nothing aliased, so its presence is the
 		// signal. Empty for every build on a site whose specs are populated.
 		"source_aliases_used": resolver.aliasesUsed,
+		// Which resolver-sourced keys this page's OWN stored content_data had to
+		// supply, and which resolved nowhere (bugs_open/238). Same reasoning as
+		// source_aliases_used above and the same shape: nil when nothing
+		// happened, which marshals to JSON null rather than an empty object — so
+		// a quiet build cannot be misread as "we looked and found none".
+		"structural_keys_carried": carriedBySection,
+		"structural_key_misses":   missesBySection,
 	}, nil
+}
+
+// collectCarriedFields maps section name → the non-llm fields that section had
+// to take from the page's own stored content_data (bugs_open/238). Nil when no
+// section carried anything, so a quiet build does not emit an empty object that
+// reads like "we looked and found none".
+func collectCarriedFields(groups ...[]sectionPlanItem) map[string][]string {
+	var out map[string][]string
+	for _, group := range groups {
+		for _, item := range group {
+			if len(item.CarriedFields) == 0 {
+				continue
+			}
+			if out == nil {
+				out = make(map[string][]string)
+			}
+			out[item.Name] = item.CarriedFields
+		}
+	}
+	return out
+}
+
+// collectStructuralMisses maps section name → the required non-llm fields that
+// resolved neither from their declared source nor from the stored row.
+func collectStructuralMisses(groups ...[]sectionPlanItem) map[string][]missingField {
+	var out map[string][]missingField
+	for _, group := range groups {
+		for _, item := range group {
+			if len(item.StructuralMisses) == 0 {
+				continue
+			}
+			if out == nil {
+				out = make(map[string][]missingField)
+			}
+			out[item.Name] = item.StructuralMisses
+		}
+	}
+	return out
+}
+
+// recordStructuralKeyCarryMisses persists one durable row per section holding a
+// REQUIRED non-llm field that resolved nowhere — not from its declared source,
+// and not from the page's own deployed content_data — and was then silently
+// omitted under on_missing=skip_field.
+//
+// Durable rather than a log line, for the reason recordFactCarryMisses gives one
+// feature over: a plan produced by this omission is byte-identical to a plan for
+// a component that never declared the field, so nothing downstream can tell the
+// two apart afterwards. bugs_open/238 served five empty <img src=""> and six
+// vanished controls for two days with no queryable record of why, while the Info
+// log naming the fields had long since rotated away. agent_error_log is the
+// channel this action already uses (FACT_SCOPING_EMPTY_COMPOSITION,
+// SKIP_PERSISTENCE_FAILED), so "did this page lose a structural key?" becomes one
+// error_code query.
+//
+// Best-effort by construction: a failed write must not change a plan the action
+// has already decided on.
+func recordStructuralKeyCarryMisses(ctx context.Context, params ActionParams, siteID, pageName string, misses map[string][]missingField) {
+	if len(misses) == 0 {
+		return
+	}
+	// Deterministic order: sections arrive from a map, and a findings batch whose
+	// row order changes run to run is needlessly hard to diff.
+	sections := make([]string, 0, len(misses))
+	for section := range misses {
+		sections = append(sections, section)
+	}
+	sort.Strings(sections)
+
+	findings := make([]agenterrors.Finding, 0, len(sections))
+	for _, section := range sections {
+		fields := misses[section]
+		names := make([]string, len(fields))
+		sources := make([]string, len(fields))
+		for i, f := range fields {
+			names[i] = f.Field
+			sources[i] = f.Source
+		}
+		findings = append(findings, agenterrors.Finding{
+			ErrorCode: "STRUCTURAL_KEY_CARRY_MISS",
+			Severity:  "warning",
+			Message: fmt.Sprintf("page %q section %q: %d required non-llm field(s) resolved from neither their declared source nor the page's stored content_data — omitted under on_missing=skip_field",
+				pageName, section, len(fields)),
+			Context: map[string]interface{}{
+				"page_name": pageName,
+				"section":   section,
+				"fields":    names,
+				"sources":   sources,
+				"remedy":    "the declared source resolves nothing for this site and no previously-built row held a value, so there was nothing to carry. Populate the source (the site_specs aspect, or the site_plan_imagery row behind site_assets.*) or gate the template on the field. The section built without it — an ungated {{.field}} inside src=/href= ships an empty attribute (bugs_open/238)",
+			},
+		})
+	}
+	LogActionFindings(ctx, params, siteID, "", "plan_sections", findings, params.Logger)
 }
 
 // ============================================================================
@@ -1829,6 +2063,13 @@ func planSection(ctx context.Context, sectionName string, comp componentInfo, re
 	var llmFields []string
 	var llmFieldSpecs []llmFieldSpec
 	var missingFields []missingField
+	// carriedFields and structuralMisses are the two halves of bugs_open/238's
+	// visibility: which resolver-sourced fields the page's own stored row had to
+	// supply, and which resolved nowhere at all. Both are surfaced on the plan
+	// item, because a carry that silently worked and a carry that silently found
+	// nothing produce identical plans otherwise.
+	var carriedFields []string
+	var structuralMisses []missingField
 	shouldSkip := false
 	shouldDefer := false
 
@@ -1855,6 +2096,48 @@ func planSection(ctx context.Context, sectionName string, comp componentInfo, re
 			fieldMinItems = int(mi)
 		}
 
+		// carryStored satisfies a non-llm field from the page's OWN deployed
+		// content_data when the declared source yielded nothing (bugs_open/238).
+		//
+		// Why this exists: a regeneration replaces the row wholesale
+		// (save_page_sections DELETEs and re-INSERTs), so a resolver-sourced key
+		// that fails to resolve on THIS run is destroyed rather than left alone —
+		// while the re-render path, which merges stored ⊕ fresh, has always kept
+		// it. That asymmetry is the bug: finetuning.uk's homepage lost all 11 of
+		// its non-llm URL keys to one tone_shift and served five <img src=""> plus
+		// six vanished controls, after the same values had survived every
+		// re-render since 2026-05-01.
+		//
+		// Live resolution always wins — this runs only after the literal path and
+		// every alias have missed — so a repaired source takes precedence on the
+		// next build and a carried value cannot outlive its source becoming
+		// resolvable. The carried value lands in resolvedData, which
+		// RenderComponentAction overlays onto the LLM output (merge_with), so it
+		// reaches the rendered HTML and the persisted row through machinery that
+		// already exists (PBP-014). No new seam downstream.
+		//
+		// LLM fields are deliberately NOT carried: a tone_shift rewriting the copy
+		// is the regeneration working, and an llm field missing from the writer's
+		// output is a different failure with its own guard
+		// (missingRequiredLLMFields refuses the render).
+		carryStored := func() bool {
+			if source == "" || source == "llm" {
+				return false
+			}
+			value, ok := resolver.storedFieldValue(ctx, sectionName, fieldName)
+			if !ok {
+				return false
+			}
+			resolvedData[fieldName] = value
+			carriedFields = append(carriedFields, fieldName)
+			logger.Info("plan_sections: non-llm field carried from stored content_data — declared source resolved nothing",
+				zap.String("field", fieldName),
+				zap.String("source", source),
+				zap.String("section", sectionName),
+				zap.String("page", resolver.pageName))
+			return true
+		}
+
 		// handleMissingField applies the field's declared on_missing policy when
 		// its source yielded no usable data — not found, nil, or (for a
 		// query-sourced list) an empty/short result that fails the field's
@@ -1862,6 +2145,12 @@ func planSection(ctx context.Context, sectionName string, comp componentInfo, re
 		// resolution paths share ONE policy implementation and cannot drift — the
 		// drift class bugs_closed/044 was closed for. See bugs_open/054.
 		handleMissingField := func() {
+			// The carry runs first, at the one point both resolution paths pass
+			// through, so it cannot drift from on_missing for the same reason
+			// on_missing cannot drift from itself.
+			if carryStored() {
+				return
+			}
 			if !required {
 				// Optional field missing — apply on_missing
 				switch onMissing {
@@ -1894,9 +2183,32 @@ func planSection(ctx context.Context, sectionName string, comp componentInfo, re
 				// Required-but-skippable: honour the schema's declared intent and
 				// omit the field instead of deferring the section (mirrors the
 				// optional branch; templates gate on the field).
+				//
+				// That premise is not always true — case-studies-grid renders
+				// `src="{{.card1_image_url}}"` at root scope with no gate, so
+				// omitting the field ships an empty attribute rather than nothing
+				// (bugs_open/238). The behaviour here is unchanged on purpose:
+				// deferring instead would be RFC_009's option A, which the owner
+				// did NOT take (~90% of fields declare no on_missing, so a
+				// declaration-driven gate would block sections fleet-wide while
+				// being inert for nine fields in ten). What changed is upstream —
+				// the field has already been offered the carry — so reaching here
+				// with a non-llm source means it resolved NOWHERE, and that is
+				// now recorded durably instead of evaporating into an Info log.
 				logger.Info("plan_sections: required field missing with on_missing=skip_field — omitting field",
 					zap.String("field", fieldName),
 					zap.String("source", source))
+				if source != "" && source != "llm" {
+					structuralMisses = append(structuralMisses, missingField{
+						Field:     fieldName,
+						Source:    source,
+						OnMissing: onMissing,
+						Reason:    missingReason,
+						Type:      fieldType,
+						Items:     fieldItems,
+						MinItems:  fieldMinItems,
+					})
+				}
 			case "use_fallback":
 				if fallback != nil {
 					resolvedData[fieldName] = fallback
@@ -2069,6 +2381,13 @@ func planSection(ctx context.Context, sectionName string, comp componentInfo, re
 		// (the drift class bugs_closed/044 was closed for).
 		handleMissingField()
 	}
+
+	// Set before the skip/defer branches, not after: a section that carried a
+	// key and was then deferred for an unrelated field still carried it, and a
+	// record that only survives the happy path is the kind of partial evidence
+	// this bug was hard to see through in the first place (bugs_open/238).
+	item.CarriedFields = carriedFields
+	item.StructuralMisses = structuralMisses
 
 	// Skip takes priority over defer
 	if shouldSkip {
@@ -2437,9 +2756,25 @@ func sanitiseSectionKey(s string) string {
 // `item_schema` (name->{type,...} map: info-card-grid). Returns nil for
 // non-array fields or fields with no declared element shape. Sorted because Go
 // map iteration is otherwise random and we want stable prompts and specs.
+//
+// A legacy JSON-Schema `items` ({"type":"object","required":[…],"properties":{…}})
+// reaches here verbatim: datahelpers.SchemaContentFields copies `items` through
+// unchanged when it projects the legacy dialect onto the v2 field shape. Read
+// naively as a flat map its keys are the JSON-Schema KEYWORDS, and those keywords
+// then travel into the writer's prompt as the field names to emit — which is how
+// mechanism-flow shipped steps keyed properties/required/type and rendered empty
+// (bugs_open/240). `properties` being a map is the discriminator: in the flat
+// convention a value is a type NAME, never a map.
 func extractArrayItemFields(fieldDef map[string]interface{}) []string {
 	var fields []string
 	if items, ok := fieldDef["items"].(map[string]interface{}); ok {
+		if props, isJSONSchema := items["properties"].(map[string]interface{}); isJSONSchema {
+			for k := range props {
+				fields = append(fields, k)
+			}
+			sort.Strings(fields)
+			return fields
+		}
 		for k := range items {
 			fields = append(fields, k)
 		}
