@@ -16,7 +16,13 @@ filed-row proof — first `improvement_rerender_*` row created after the 2026-08
 migration must carry the flag (§How to verify; ~1.8 rows/day); (2) post-roll pod-grep +
 strict canary. Lane docs: `docs/agent_docs/docs024_key_docs_latest/bugfix_234_dead_spec_key/`.
 
-**COUNCIL, round 1 (2026-08-10): REJECTED — hard veto from `guardian`, on SCOPE** (the
+**COUNCIL: APPROVED, round 4, 2026-08-11** (corr `3eb0d1f1-6929-4131-bbef-c636256aa667`; 13 approve, 2 advisory, none high). Four rounds, and each one changed the change rather than the argument:
+1. **REJECTED** — guardian scope veto → escalated to the owner → **RFC_021 ruled** (adoption protocol = census + the daily automated check; enforcement KEPT).
+2. **REVISE** — `reuse_agent` (HIGH): the scheduled check re-implemented the step walk in Python, a third copy of the traversal `bugs_open/144` burned us with. Answered by shipping the Go binary in an image; the mirror **and** the parity test that policed it deleted (−492/+174).
+3. **REVISE** — `prior_art_librarian` (HIGH) caught a **false claim of mine**: `commit_from`'s retirement message cited BLD-019's build stamp as its replacement. That stamps the CHASSIS BINARY's build commit; `commit_from` meant a PAGE's deploy commit (`page_deployed.commit_sha`). Unrelated, and still unimplemented. Corrected in code, message and submission; WRONG_CALLS.md.
+4. **APPROVED.** Guardian's residual ask — the full key inventory, not the zero-count — is answered in the lane RUNBOOK: 17 keys / 17 steps / 14 agents on `create_work_item`, nothing unrecognised.
+
+> Superseded verdict, kept because the trail is the record: **round 1 REJECTED — hard veto from `guardian`, on SCOPE** (the
 live hard-fail enforcement shipped inside a bug fix; contained alternative: offline audit
 only). `architecture` objected-but-approved; 7 approved; every evidence objection is
 answered on the record. Per the 124 precedent the code stayed and the seam was routed to
