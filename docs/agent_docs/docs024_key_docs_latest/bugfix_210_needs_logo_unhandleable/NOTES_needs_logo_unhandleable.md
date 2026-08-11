@@ -304,3 +304,27 @@ placeholder path (`input-data.asset-key.jpg`); the six pages keep their fallback
 filename fix, which is owned elsewhere. Image KEPT pending the owner's verdict.
 
 The staleness report line now reads total=2 defaulted items — the counter counting.
+
+## 16. 2026-08-11 — owner prefers the EXISTING site branding; the generated hero superseded, not deployed
+
+Owner: "the new logo is fine. Can we use the old one now anyway, I prefer it. The one that is
+already on the site." Investigated before acting, because "logo" is ambiguous here — this item
+was `needs_hero_image`, not `needs_logo`, and the two slots are different:
+
+- **The header logo** (`images/full-logo.png`, 812x844 PNG, gold roundel/key-and-house mark) is
+  a legacy static file — **not in the `assets` table at all**, untracked by the pipeline,
+  already in the sites repo (source of truth), already serving 200. Nothing to do; left alone.
+- **The generated image** was for the site's HERO slot (6 guide/tool pages reference
+  `/assets/images/hero.jpg`, 404). It visually reads as a logo (a monogram + icon row), which is
+  almost certainly why the owner called it that.
+
+Owner's stated preference ("prefer it") is not a quality rejection, so `assets.status='rejected'`
+would misrepresent it — used **`superseded`** instead (a value the schema already carries).
+Asset KEPT in storage (not deleted, unlike the SDXL reject), just no longer `active`, which
+matters mechanically: `hasActiveAssetForPurpose` only counts `active`, so leaving it `active`
+would have made `placeholder_image_in_use` silently stop flagging the hero gap even though
+nothing on the live pages changed. `superseded` re-arms correct detection.
+
+**Left genuinely open, not decided for the owner:** whether the 6-page hero.jpg gap should keep
+being pursued at all now that he's expressed a preference for the site's existing look. Asked
+rather than assumed — a design-taste call, not an engineering one.
