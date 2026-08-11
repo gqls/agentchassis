@@ -1,5 +1,11 @@
 # BUG 253 — `BestLabelMatch` scores by RAW overlap count, so a long marketing `nav_label` that incidentally contains another page's distinctive words ties with that page — and an alphabetical tie-break then picks the wrong one
 
+> **FIX HANDOFF (2026-08-11):** a fresh session should start from
+> `docs/agent_docs/docs024_key_docs_latest/bugfix_203_phantom_cta_cleanup/HANDOFF_2026-08-11_fix_bug_253_label_match_scoring.md`
+> — it carries the 2-minute local repro, the two-candidate-pool trap, worked scoring
+> numbers for the options below, the calibration method and baseline, and the process
+> steps. This file stays the case record.
+
 **Filed 2026-08-11** by the `bugfix_203_phantom_cta_cleanup` lane. Found while running
 detection manually to build a repair list — **this defect is why that repair list was not
 safe to act on**, and the rollout was halted. **Status: OPEN, not started.**

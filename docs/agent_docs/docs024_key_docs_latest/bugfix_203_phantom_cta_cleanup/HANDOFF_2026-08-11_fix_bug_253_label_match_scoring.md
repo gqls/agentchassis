@@ -147,7 +147,13 @@ unfaithful number.
 **Method that works** (from that entry, and it is the one to repeat):
 
 - A throwaway `cmd/ctacalibrate` importing the **real** `datahelpers` package — not a SQL
-  re-implementation of the scoring.
+  re-implementation of the scoring. **It does not exist in the tree and is not meant to** —
+  `pattern-check.py`'s `new-capability-surface` rule fires on this path, correctly, and the
+  answer is: it existed on 2026-08-08, produced
+  `CALIBRATION_2026-08-08_label_match_report.txt`, and was **deliberately deleted before
+  commit** per its own header comment. It is a measuring instrument, not a service — it
+  imports the package under test and reads live data, so a committed copy would rot against
+  the very code it exists to measure. Recreate it, use it, delete it again; keep the report.
 - `kubectl port-forward` to `postgres-clients`, run against live data.
 - **Calibrate against the SAME candidate pool the caller uses** — and now there are two
   pools (§3), so report them separately.
