@@ -1205,6 +1205,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Turn a browser run into acceptance-run/acceptance-fail doc_notes and an improve_tool item carrying the criteria as acceptance_test",
 		IsLocal:     true,
 	},
+	"record_vision_finding": {
+		Handler:     RecordVisionFindingAction,
+		Category:    "tools",
+		Description: "File a vision critique that reports defects as one deduped vision_finding work item for human review (bugs_open/243 c3); never touches the acceptance verdict",
+		IsLocal:     true,
+	},
 	"analyse_repo_local": {
 		Handler:     AnalyseRepoLocalAction,
 		Category:    "code",
