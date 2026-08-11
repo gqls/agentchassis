@@ -473,3 +473,35 @@ written is labelled `design-audit`.**
   sibling actions already use — four lines, one action); or (b) candidate 2.
   Not implemented here — needs its own round, and `write_audit_findings` is
   a file the `bugfix_213` lane is actively working.
+
+### Arm 2 completion (same session, later) — every diverging dotted binding assessed
+
+The 34 dotted_conditional findings where the config path differs from the
+default decompose completely:
+
+- **5** — `deploy_image_asset` `purpose` bindings: the 348/380 repairs
+  themselves, live-verified previously. Correctly-authored arm-2 shape.
+- **28** — the `*_field` indirection family (`append_doc_note`,
+  `write_doc_plan`, `write_experience_pattern`, `load_doc_context` via the
+  shared `docResolveSubject` helper at `write_doc_plan_action.go:148`, and the
+  diagnose `plan_field`/`loop_scope_field`/`changed_files_field` set): every
+  one verified at its read line to consume config DIRECTLY, so the extractor's
+  behaviour is irrelevant to them. Not arm-2 exposure.
+- **1** — `asset-deployer.derive_card_asset_step` binds
+  `entity_type: input_data.spec.entity_type` (default `page`), read via the
+  INPUTS path (`derive_card_asset_action.go:84`) on the same dispatch geometry
+  as the 380 face. Assessed BENIGN today by the action's own guard: v1
+  supports only `page` (`:89` errors loudly on anything else), so an
+  unresolvable path falls to the only value that works, and a resolved
+  non-page value cannot fail silently. **This row becomes the 380 shape the
+  day phases I5/I6 add `news`/`products`** — whoever builds those must give
+  the dispatch shape a top-level mapping or verify `input_data.spec.*`
+  arrives on every path that can reach the step. Recorded here so that
+  session finds it by grep.
+
+The 62 matching dotted bindings (config restates the default path) are no-ops
+by equality. **The census is closed: every live config entry bound to a
+defaulted field is now enumerated and classified, and every diverging one has
+a read-path verdict.** Remaining open on this file: candidate 2's decision
+(blast radius measured above), and the audit_source instance repair (owner /
+213-lane call).
