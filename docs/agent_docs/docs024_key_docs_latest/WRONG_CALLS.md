@@ -27962,3 +27962,51 @@ in-cluster with a doc_notes row to prove it.
 - **the cheap check that would have:** grep the stylesheets I ALREADY HAD in scratchpad for the concept's other spellings (`primary-text`, `on-primary`, `text-on`) before asserting vocabulary absence — the `a-grep-proves-absence-only-for-its-spelling` family, in its purest form: I never ran ANY grep for the concept, only inferred absence from the tokens I had extracted for a different question.
 - **the twist worth keeping:** measuring the "correct" token immediately showed it could NOT have been today's fix — mortgagecalculator's own `--color-primary-text` vs primary is 2.95:1, so convention-adherence would have shipped a worse page than the invert. The wrong claim, once corrected, produced the sharper finding (a palette-level defect on that site, now routed to its lane). Being wrong in a checkable way paid; asserting without the check is what nearly didn't.
 - **cost:** none shipped — the applied fix stands on its own measurement. The cost avoided was a plausible-sounding "framework change needed" line steering a future session away from a one-token harmonisation.
+
+## 2026-08-11 — "exactly ONE live agent has a render_component step, so one config key is full live coverage" — the query counted AGENTS and the question was STEPS (bugfix 238 slice B)
+
+- **the claim, made three times** — in the migration header, in the concept
+  register entry, and in the council submission's rationale: *"Measured
+  2026-08-10, exactly ONE live agent_definition has a `render_component` step
+  (`page-content-writer`), so this one key is full live coverage."* It was the
+  load-bearing justification for a one-key config change and for calling the
+  rollout complete.
+- **it is false.** There are **TWO** `render_component` steps — `render_section`
+  **and** `render_from_template` — and they are both inside that one agent. The
+  migration armed one of them. Had it been applied, half the render path would
+  have been unguarded while the file header, the register entry and the council
+  coverage report all said "armed" — the precise shape of a control that reports
+  success while protecting nothing.
+- **what caught it:** the council's `debug_historian` seat, and **it caught the
+  instrument, not the number.** Its objection was that
+  `default_config::text LIKE '%render_component%'` is the census shape the
+  landmines warn about, because `_` is a SQL wildcard. That is true and, here,
+  harmless. Re-measuring properly to answer it is what exposed the real defect:
+  **the query returns one row per AGENT, and the question was how many STEPS.**
+  No one — including the seat — spotted the actual error; the seat spotted that
+  the tool was wrong, and the right tool then answered a different, better question.
+- **the cheap check that would have:** count the thing you are about to act on,
+  in the units you will act in. The config change is per **step**, so the census
+  had to be per step:
+  `SELECT ad.type, k.key, k.value->>'action' FROM agent_definitions ad,
+   LATERAL jsonb_path_query(ad.default_config,'strict $.**.steps') s,
+   LATERAL jsonb_each(s) k WHERE k.value->>'action'='render_component';`
+  A `LIKE` over `jsonb::text` cannot answer a question about steps at all — it
+  can only tell you a string appears **somewhere** in a blob.
+- **the transferable bit, and why this is the sharpest row in this lane:** the
+  number was quoted three times, in three documents, each time in a sentence that
+  was carefully hedged about *other* things. **Repetition is not corroboration
+  when every instance shares one source, and prose quality is uncorrelated with
+  measurement quality** — the surrounding paragraphs were the most heavily
+  evidenced in the submission. The specific rule: **a coverage claim must be
+  counted in the unit of the change.** "One agent" and "one step" differ by
+  exactly the mistake that ships partial coverage under a complete label.
+- **the second-order lesson, for anyone reading a REVISE:** two of the three
+  gating objections across this lane's rounds were *methodological* — "your
+  instrument cannot answer that" — rather than substantive. Both times, answering
+  them properly changed a number I had already published. **Treat "your check is
+  the wrong shape" as higher-value than "your conclusion is wrong"**, because the
+  first predicts the second and arrives earlier.
+- **cost:** none realised — caught pre-application; the migration is `_HOLD`-named
+  and has never run. The verify block that now counts steps was mutation-proven
+  (armed one of two → raised and rolled back).
