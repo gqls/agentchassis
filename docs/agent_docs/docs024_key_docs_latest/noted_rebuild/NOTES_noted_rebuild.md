@@ -922,3 +922,81 @@ version kept at `/usr/local/bin/sitesync.bak-20260811`. Verified running as
 A second guard was added while generalising: **rsync into a web root that does
 not exist would create it and serve an empty site**, so a missing web root now
 means "this site is not set up here" rather than "make it".
+
+---
+
+## 2026-08-11 18:30 — why the build has not started, measured
+
+The build has **not** progressed 90 minutes after dispatch: still 0 pages, the
+`needs_domain_research` item still `triaged`, `attempt_count = 0`, never claimed.
+
+The previous session's note (handoff §2) read this as fleet queue depth —
+"the pump is alive and this is queue depth, a missing row is latency". The pump
+being alive is right; the mechanism is not queue depth in the sense implied, and
+the difference decides whether waiting is rational. **The reason it has not
+started is the shape of the dispatch selector.**
+
+`build-pipeline-trigger`'s `find_dispatchable_site` step (live agent config, read
+from `agent_definitions`, not from a seed) ends:
+
+```sql
+ORDER BY wi.created_at ASC, wi.priority ASC, wi.id ASC LIMIT 1
+```
+
+It picks **one site at a time, globally oldest work item first**, across every
+site in the estate. So this is not a per-site queue that noted is at the front
+of — it is one estate-wide line, and noted's item joined it at 17:00 today.
+
+`[MEASURED 2026-08-11 18:26]`
+
+| quantity | value |
+|---|---|
+| pending items older than ours (the true backlog ahead) | **589**, across **19 sites** |
+| drain rate, items older than ours completing | **~95/hour**, steady 13:00–17:00 (81/106/86/101/91) |
+| implied ETA | **~6 hours** |
+| trigger cadence | every ~2.5 min (`build-pipeline-trigger`, 195 runs) |
+
+Two things that make waiting the correct action rather than merely the passive one:
+
+- **The set ahead of us is closed to new arrivals.** Ordering is by `created_at`,
+  so every work item the estate files from now on sorts *behind* ours. The 589 can
+  only shrink. (Caveat, stated because it is not guaranteed: an item created
+  before 17:00 that is currently `deferred`/`blocked`/`detected` — 433 of those
+  exist — would join the queue *ahead* of us if it were moved to `triaged`.)
+- **Resubmitting cannot help, and this is now checked rather than assumed.**
+  Selection is on `created_at`; `refreshOpenWorkItemSQL()`
+  (`load_work_item_actions.go:1417`) sets `updated_at = NOW()` and **never touches
+  `created_at`**. So a resubmit either refreshes the existing row — no change to
+  position — or files a newer row that sorts further back. It cannot advance us
+  either way, and costs a duplicate round. The handoff's "DO NOT RESUBMIT" was the
+  right instruction with the wrong reason; it is now the right instruction with a
+  measured one.
+
+**Also correcting handoff §2's remedy:** "if the cascade has stalled rather than
+queued, the manual pump heartbeat is `076_trigger_build_pipeline.sh`". Firing that
+by hand does **nothing** for noted. It runs the same trigger with the same
+`ORDER BY`, so it selects the same globally-oldest site it would have selected
+anyway. It is a remedy for a pump that is not firing; ours fires every 2.5
+minutes. Reserve it for the case where `build-pipeline-trigger` shows no recent
+rows in `orchestration_states`.
+
+### A wrong turn on the way, recorded
+
+I first checked `kubectl get cronjobs`, found **no build-pipeline heartbeat
+CronJob** among the ten that exist, and had the mechanism half-written up as
+"nothing drives this type — the pump is undriven" (the trigger script's own header
+says "the CronJob heartbeat that *would* normally fire every 30 minutes", which
+reads as confirmation). That was wrong. `orchestration_states` shows
+`build-pipeline-trigger` with 195 runs, the most recent two minutes before I
+looked — it is driven by something that is not a k8s CronJob. **An absence in the
+CronJob list is not an absence of scheduling**, and the script comment describing
+a CronJob is documentation, not a live fact. What caught it: querying the run
+history instead of stopping at the config that should have explained it.
+
+Second, smaller: my first drain measurement counted *eligible* items (564 → 501 →
+419 in ten minutes, which looked like a ~20/min drain and a 21-minute ETA). That
+number oscillates for a reason unrelated to progress — the selector excludes a
+site entirely while any of its items is `claimed`, so a single claim drops that
+site's whole backlog out of the count and a release puts it back. The honest
+figure is the one above: pending items older than ours, which does not move when
+a claim is taken.

@@ -58,6 +58,35 @@ SELECT count(*) FROM pages p JOIN sites s ON s.id=p.site_id WHERE s.domain='note
 If the cascade has stalled rather than queued, the manual pump heartbeat is
 `scripts/initial_messages/020_build_pipeline/076_trigger_build_pipeline.sh`.
 
+> **CORRECTED 2026-08-11 18:30 — the instruction above stands; the reason was
+> wrong, and the remedy does not apply to us.** At 90 minutes the state was
+> unchanged (0 pages, still `triaged`, `attempt_count = 0`). It is **not** fleet
+> queue depth. `build-pipeline-trigger`'s `find_dispatchable_site` step ends
+> `ORDER BY wi.created_at ASC, wi.priority ASC, wi.id ASC LIMIT 1` — **one
+> estate-wide line, oldest work item first, one site at a time.** Our item joined
+> that line at 17:00 today.
+> `[MEASURED 18:26]` **589 pending items older than ours across 19 sites**,
+> draining at **~95/hour** (steady 13:00–17:00) ⇒ **ETA ~6 hours**. The trigger
+> fires every ~2.5 min and is healthy (195 runs).
+> - **Waiting is correct and the position can only improve**: ordering is by
+>   `created_at`, so all new estate work sorts *behind* us. (Not absolute — an
+>   older item currently `deferred`/`blocked`/`detected` would land ahead if
+>   triaged.)
+> - **Resubmitting cannot help** — now checked, not assumed:
+>   `refreshOpenWorkItemSQL()` (`load_work_item_actions.go:1417`) sets
+>   `updated_at` and **never `created_at`**, so a retry either no-ops or sorts
+>   further back.
+> - **Do NOT hand-fire `076` for this.** It runs the same trigger with the same
+>   `ORDER BY`, so it re-picks the same globally-oldest site regardless of who
+>   fires it. It is the remedy for a pump that is *not firing* — check
+>   `orchestration_states` for recent `build-pipeline-trigger` rows first.
+> - `wi.priority` is a **tiebreak within one `created_at`**, so it is not a lever
+>   for jumping the queue either.
+>
+> Full working, plus two wrong turns of mine (an absent k8s CronJob that did not
+> mean "unscheduled", and a drain figure that oscillated because a `claimed` item
+> hides its whole site from the count): `NOTES_noted_rebuild.md`, 2026-08-11 18:30.
+
 ## 3. What is LIVE
 
 ### noted.co.uk — the legacy app (repo `gqls/sites`, branch **`master`**)
