@@ -183,6 +183,14 @@ func buildCanonicalPageNameMap(pages []planPageRow, logger *zap.Logger) map[stri
 	for _, p := range pages {
 		addAlias(p.RawName, p.Name)
 		addAlias(p.Slug, p.Name)
+		// The planner's spelling for a page the reconciler snapped onto a
+		// realised identity (bugs_open/215). Without it, an imagery block keyed
+		// to the name the planner used resolves to nothing the moment the
+		// reconciler recognises that page as one already realised — the block
+		// falls to the miss path and is written verbatim as an orphan. The
+		// ambiguity rule above still applies, so a spelling two pages claim is
+		// refused rather than guessed.
+		addAlias(p.ReconciledFrom, p.Name)
 	}
 
 	return m

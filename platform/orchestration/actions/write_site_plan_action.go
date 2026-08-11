@@ -232,7 +232,13 @@ func nullableJSONB(b []byte) interface{} {
 // two emitted entries that collided, which is the only thing that makes a
 // collision diagnosable after the fact (see dedupePlanPageRows).
 type planPageRow struct {
-	RawName         string
+	RawName string
+	// ReconciledFrom is the spelling the PLANNER used for a page the reconciler
+	// then snapped onto a realised identity (bugs_open/215). Like RawName it is
+	// written to no column: it exists so the imagery scope map can still resolve
+	// a block keyed to the planner's spelling after the name changed under it
+	// (bugs_open/214's name-space mismatch).
+	ReconciledFrom  string
 	Name            string
 	Role            string
 	Slug            string
@@ -464,14 +470,41 @@ func WriteSitePlanAction(ctx context.Context, params ActionParams) (interface{},
 		}
 	}
 
+	// Site-level URL shape, read through the ONE shared helper — this and
+	// SyncPagesToDBAction must agree on it or site_plan_pages and pages carry
+	// different URLs for the same page (bugs_open/241).
+	flatURLs := siteUsesFlatURLs(ctx, params.DB, siteID, logger)
+	// Same rule, same reason: read through the ONE shared helper so this and
+	// SyncPagesToDBAction cannot disagree about who owns a page's identity
+	// (bugs_open/215).
+	identityPolicy := siteIdentityPolicyFor(ctx, params.DB, siteID, logger)
+
 	planRows := make([]planPageRow, 0, len(validated))
 
 	for i, v := range validated {
+		raw := rawPages[i]
+
 		canonicalName, canonicalURL, canonicalPageType := datahelpers.CanonicalisePage(datahelpers.PageDescriptor{
 			Role:          v.Role,
 			Slug:          firstNonEmpty(v.Slug, v.Name),
 			ParentSection: v.ParentSection,
+			FlatURLs:      flatURLs,
 		})
+		// A page the reconciler derived from a realised page keeps the identity
+		// that page is ACTUALLY serving under, instead of the one its role would
+		// synthesise (bugs_open/215). Opt-in per site; without it a legacy-shaped
+		// live page is re-derived here and re-minted as a twin.
+		if identityPolicy.HonourRealisedIdentity {
+			if rName, rURL, rType, ok := realisedIdentityOf(raw); ok {
+				if rName != canonicalName || rURL != canonicalURL {
+					logger.Info("WriteSitePlanAction: kept realised page identity over canonicalisation",
+						zap.String("realised_name", rName), zap.String("realised_url", rURL),
+						zap.String("would_have_been_name", canonicalName),
+						zap.String("would_have_been_url", canonicalURL))
+				}
+				canonicalName, canonicalURL, canonicalPageType = rName, rURL, rType
+			}
+		}
 		if canonicalName == "" || canonicalURL == "" {
 			logger.Warn("WriteSitePlanAction: page failed canonicalisation, skipping",
 				zap.String("raw_name", v.Name),
@@ -490,9 +523,9 @@ func WriteSitePlanAction(ctx context.Context, params ActionParams) (interface{},
 				zap.String("to", canonicalPageType))
 		}
 
-		raw := rawPages[i]
 		planRows = append(planRows, planPageRow{
 			RawName:         v.Name,
+			ReconciledFrom:  datahelpers.GetStringField(raw, "reconciled_from", ""),
 			Name:            canonicalName,
 			Role:            canonicalPageType, // canonicaliser's output is authoritative
 			Slug:            firstNonEmpty(v.Slug, v.Name),

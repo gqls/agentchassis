@@ -275,6 +275,18 @@ func SyncPagesToDBAction(ctx context.Context, params ActionParams) (interface{},
 	}
 	validated := datahelpers.ValidateRoles(llmPages)
 
+	// Site-level URL shape, read through the ONE shared helper — this and
+	// WriteSitePlanAction must agree on it or the plan and the pages table
+	// carry different URLs for the same page (bugs_open/241; the divergence
+	// comment above). Nil DB (the nav-from-plan-only path below) keeps the
+	// nested default.
+	flatURLs := siteUsesFlatURLs(ctx, params.DB, siteID, params.Logger)
+	// Who owns a page's identity — same helper, same reason as the URL shape
+	// above. This surface is where the phantom is actually INSERTed (upsertPage
+	// conflicts on (site_id, name) and nothing else), so a re-derivation here
+	// undoes the reconciler no matter what the plan says (bugs_open/215).
+	identityPolicy := siteIdentityPolicyFor(ctx, params.DB, siteID, params.Logger)
+
 	normalised := make([]map[string]interface{}, 0, len(pages))
 	for i, page := range pages {
 		v := validated[i]
@@ -282,7 +294,19 @@ func SyncPagesToDBAction(ctx context.Context, params ActionParams) (interface{},
 			Role:          v.Role,
 			Slug:          firstNonEmpty(v.Slug, v.Name),
 			ParentSection: v.ParentSection,
+			FlatURLs:      flatURLs,
 		})
+		if identityPolicy.HonourRealisedIdentity {
+			if rName, rURL, rType, ok := realisedIdentityOf(page); ok {
+				if rName != name || rURL != url {
+					params.Logger.Info("SyncPagesToDBAction: kept realised page identity over canonicalisation",
+						zap.String("realised_name", rName), zap.String("realised_url", rURL),
+						zap.String("would_have_been_name", name),
+						zap.String("would_have_been_url", url))
+				}
+				name, url, pageType = rName, rURL, rType
+			}
+		}
 		if name == "" {
 			params.Logger.Warn("SyncPagesToDBAction: page failed canonicalisation, skipping",
 				zap.String("raw_name", v.Name),
