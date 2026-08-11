@@ -28010,3 +28010,47 @@ in-cluster with a doc_notes row to prove it.
 - **cost:** none realised — caught pre-application; the migration is `_HOLD`-named
   and has never run. The verify block that now counts steps was mutation-proven
   (armed one of two → raised and rolled back).
+
+---
+
+## 2026-08-11 — I retired a config key and pointed its replacement at the wrong provenance entirely (bugfix_234 lane)
+
+**The claim.** Retiring `commit_from` on `update_page_status`, I wrote — in the code's
+`RemovedConfigKeys` message, in the commit message, and in a council submission — that its
+intent was *"now genuinely SERVED rather than merely deleted: the commit a build came from is
+stamped on the binary (bugs_open/153, register BLD-019)"*. I was pleased with that: a
+retirement that hands the reader a working alternative rather than a deletion.
+
+**Why it was false.** Two unrelated facts about two different artefacts. **BLD-019 stamps the
+CHASSIS BINARY with the commit it was BUILT from.** `commit_from`'s value was
+`page_deployed.commit_sha` (seed `000_agent_definitions_backup_070_refactor.sql:536`) — **the
+commit a PAGE's content was DEPLOYED in**, produced by the `git_commit` step immediately
+before it in the same loop. Knowing which build of the platform is running tells you nothing
+about which commit a given page was published in. `pages` still has no column for the latter
+(only `built_from_plan_version`, a plan version, not a git sha), so the intent is exactly as
+unimplemented as the two keys I retired alongside it — the ones I explicitly described as
+unimplemented, in the same comment.
+
+**What caught it.** The council's `prior_art_librarian` seat, gating on round 3. Its stated
+reason was narrower than the real defect — it argued the *reading recipe* for BLD-019 is
+inoperative on the chassis (true, and my own landmine from earlier the same day). Checking
+that objection is what made me open the seed and read what `commit_from`'s value actually
+was, which is where the real error was. **A reviewer being right for a partly-wrong reason
+still costs you nothing to check and can cost a lot to dismiss.**
+
+**The cheap check that would have.** Read the key's VALUE before claiming what its intent
+was. One grep — `grep -rn "commit_from" docs/agent_docs/sql_for_agents/` — returns the seed
+line with `"commit_from": "page_deployed.commit_sha"` in it. I had read migration 356's
+prose summary ("the value it names (a git commit sha) is never written to any column") and
+matched "git commit sha" to the freshest git-sha mechanism in my head, which happened to be
+the one I had been working with all morning. **Recency supplied the referent; the data was
+never consulted.**
+
+**Why it mattered more than a wrong sentence.** A retirement message is *instructions to the
+next author*. Pointing one at the wrong mechanism is worse than admitting there is no
+replacement: it sends them to build on something that cannot carry them, with a register
+entry and a bug number lending it false authority. The message now says plainly that the
+intent is unimplemented and warns against the exact confusion I made.
+
+**Cost.** Caught before the code shipped in a rolled image (it is in `v1.0.1285`, built but
+not deployed). Corrected in the code comment, the message, and the round-4 submission.

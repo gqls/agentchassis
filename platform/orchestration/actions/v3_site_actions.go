@@ -582,13 +582,25 @@ var UpdatePageStatusInputSpec = datahelpers.ActionInputSpec{
 	//     statement of consumption; the entry is gone, and this declaration is
 	//     what stops the key drifting back in on that same false authority.
 	//
-	// All three encoded an author's intent this action has never had. Deleting
-	// the keys does not erase it: notes_field/validation_issues_field's intent
-	// (recording WHY a page was flagged) is preserved in migrations 356/370's
-	// headers and in the messages below, and commit_from's (recording the git
-	// sha a page was built from) is now genuinely SERVED elsewhere — bugs_open/
-	// 153's build-provenance stamp, register BLD-019 — which is the honest
-	// outcome: a real feature, not a config key resolving to nowhere.
+	// All three encoded an author's intent this action has never had, and NONE
+	// of the three intents is implemented today. Deleting the keys does not
+	// erase them — they are recorded in migrations 356/370's headers and in the
+	// messages below.
+	//
+	// CORRECTED 2026-08-11, by the council's prior_art_librarian seat (round 3,
+	// corr 3eb0d1f1): an earlier version of this comment and of `commit_from`'s
+	// message claimed the intent was "now genuinely SERVED elsewhere —
+	// bugs_open/153's build-provenance stamp, BLD-019". THAT WAS FALSE, and
+	// wrong about which provenance. BLD-019 stamps the CHASSIS BINARY with the
+	// commit it was BUILT from. `commit_from`'s value was
+	// `page_deployed.commit_sha` — the commit a PAGE's content was DEPLOYED in,
+	// from the git_commit step beside it. Two unrelated facts about two
+	// different artefacts. `pages` still has no column for the second (only
+	// `built_from_plan_version`, which is a plan version, not a git sha), so
+	// this intent remains exactly as unimplemented as the other two.
+	// A retirement message that points at the wrong replacement is worse than
+	// one that admits there is none: it sends the next author to build on
+	// something that cannot carry them.
 	//
 	// Each adoption carried its own all-depths census at commit time, per the
 	// RFC_021 Q1 protocol. Do not re-derive those numbers from this comment;
@@ -602,8 +614,11 @@ var UpdatePageStatusInputSpec = datahelpers.ActionInputSpec{
 			"migration 370's header; implement it as a feature if wanted, do not re-add the key",
 		"commit_from": "never read by any version of this action — it wrote no column, and " +
 			"coordinator.go's dataRefKeys comment claiming otherwise was false (migration 356). " +
-			"If you want the commit a build came from, it is stamped on the binary now: " +
-			"bugs_open/153, register BLD-019",
+			"Its intent (recording which git commit a page's content was DEPLOYED in, from the " +
+			"git_commit step's output) is unimplemented — pages has no such column. Do NOT confuse " +
+			"it with the build-provenance stamp (bugs_open/153, BLD-019), which is a different " +
+			"fact about a different artefact: the commit the CHASSIS BINARY was built from. " +
+			"Implement it as a feature if wanted, do not re-add the key",
 	},
 
 	// Not StrictConfig yet: that is a separate adoption needing its own clean
