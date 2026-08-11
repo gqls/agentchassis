@@ -9,10 +9,27 @@
 Supersedes `HANDOFF_2026-08-10d_track_a_prose_decomposition.md` (that brief is
 **executed**, not pending) and is the entry point after `HANDOFF_2026-08-10c`.
 
-> **Do not start Track B on the strength of this file.** Track A was explicitly
-> authorised; **Track B still is not.** §D1's *measurement* was authorised and is
-> done — it removed a blocker, it did not grant a go-ahead. 10d's last line was
-> *"Then stop."* and that still stands until the owner says otherwise.
+> ~~**Do not start Track B on the strength of this file.**~~ **SUPERSEDED — OWNER
+> RULINGS, 2026-08-11 (evening), given to the lane session in chat:**
+> 1. **Track B: GO.** One page at a time, checks between, per §D1's procedure.
+> 2. **Bug 251 (canonical): FIX NOW.** Before 252's og: half, per the dependency.
+> 3. **Bug 252: lane session's discretion.** Plan of record: og: half via the
+>    `spliceMetaDescription` placeholder seam after 251 lands; lang half deferred
+>    (needs a per-site language field decision).
+> 4. **Site plans (D6): SEED.** Seed the site spec, let the planner plan, reseed
+>    until the plan is *reasonably close to where we are*. Owner's constraints,
+>    verbatim in effect: the exact combination/makeup of calculators and guides is
+>    NOT important; **keeping the overall size, density and complexity IS — the
+>    site must not shrink on rebuild**; the improvement loop growing it over time
+>    is welcome. (Site is new; no visitor-facing risk from URL churn.)
+> 5. **Complaint-deadline oracle + Track C: as recommended** — the oracle as its
+>    own small job, Track C after Track B.
+> 6. **Index rewrite: option B.** The agent's first output read like *a different
+>    site* — seed a `content_direction` (the cards are good and STAY), re-run,
+>    compare again.
+>
+> The lane session (this one's owner-facing thread) is executing; check
+> `TaskList`/NOTES before duplicating any of it.
 
 ---
 
