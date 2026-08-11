@@ -133,6 +133,15 @@ fences.
 > original `/equity-release.html` and pinned in the spec; then re-emit →
 > re-verify → re-install → re-run that one fence.
 >
+> **CORRECTED + EXECUTED 2026-08-11 (afternoon), item `97f4d0ab…`:** the
+> parenthetical figures above are SWAPPED — the ORIGINAL's step table gives
+> **£124,000** at 65 on £400k (`>=65 → 0.31`, wire-verified); **£120k is the
+> REBUILD's** linear formula. The routed action (pin the original's extracted
+> table) was unambiguous and is what was executed. If the owner meant the
+> £120k figure rather than "whatever the original does", the counter-action is
+> one cheap re-file — flagged in README_where_we_are. Evidence: NOTES 08-11
+> afternoon entry.
+>
 > **Third: the stamp-duty ORIGINAL was already fixed by the owner 08-09**
 > (bugs_open/225; re-verified on the wire 08-11). Old action 5 is closed.
 
@@ -186,8 +195,10 @@ one-line-per-tool update when paths move.
 
 ## 5. Next actions, in order
 
-1. **Execute the equity-release decision** (§4 second item — recreation re-file,
-   NOT improve_tool; extract the original's age table first).
+1. ~~**Execute the equity-release decision**~~ **DONE 2026-08-11 afternoon** —
+   item `97f4d0ab…`, the original's step table pinned in the spec (NOTE: §4's
+   £120k/£124k parenthetical was swapped; see the correction there). Fence
+   re-emit → re-install → re-run follows once the rebuild lands.
 2. **`portfolio` has no PLAN, and needs a hand-written one.** toolgolden derives
    vectors by scaling the page's own defaults; that form has none, so it drove
    `#mortgageTerm` to 1000/2000/500/450 years and the tool correctly refused all

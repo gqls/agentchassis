@@ -28119,3 +28119,27 @@ than filed as a new one.
 in flight, not yet landed" was already false when I committed it (the migration went live in
 between). Corrected visibly in place. **A coordination claim ages faster than the work it
 describes — re-read the shared handoff at commit time, not only at session start.**
+
+## 2026-08-11 — mortgagecalculator adoption: an owner decision was recorded with its two figures SWAPPED, and the wrong pair survived into a handoff and NOTES
+
+The morning session recorded decision 2 as "equity-release max cash MATCHES THE ORIGINAL
+(£120k, not the rebuild's £124k)" — in the handoff AND in NOTES. Both figures are real; both
+are attached to the wrong side. The ORIGINAL's step table gives £124,000 at 65 on £400k
+(`>=65 → 0.31`, read on the wire); £120,000 is the REBUILD's linear `0.20+(age−55)×0.01`.
+The afternoon session caught it before executing, because the routed action was "pin the
+table extracted from the live original" — extraction forced a re-read of the artefact.
+
+**What caught it:** re-deriving each figure from the artefact of the side it was attributed
+to, before repeating it. **The cheap check that would have caught it at write time:** the
+lane's own installed fence already pinned the rebuild's `#erMaxCash` at £90,000 for
+65/£300,000 — i.e. 30% — which contradicts "the rebuild's £124k" (31%) on sight; one grep of
+`equity-release.criteria.json`. A figure that names a side ("the original's X") is only
+evidence once recomputed from that side's artefact — the attribution is part of the claim,
+and it can be wrong while the number is right. Likely seed of the swap: the original page
+itself carries a comment saying "65: ~30%" while its code uses 0.31, so quoting its PROSE
+gives you the other side's number.
+
+**The shape, for the tally:** kin to `a-citation-is-not-a-read` (quote the deciding ARM) —
+here the deciding arm was the `if (age >= 65) ltv = 0.31` line, and the comment above it
+disagrees. The action survived the swap only because it named its own evidence path
+("extract from the live original") rather than the figure.

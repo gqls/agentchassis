@@ -1963,7 +1963,9 @@ handoff carries the check to add when that happens.]`
    cooldown skips them until ~08-17.
 2. **Equity-release max cash: MATCH THE ORIGINAL's table** (£120k, not the
    rebuild's £124k — lender policy, and the rebuild's table is the generator's
-   invention). **NOT executed this session, and the obvious mechanism is a
+   invention). **[CORRECTED 2026-08-11 afternoon, entry below: these two figures
+   are SWAPPED — the original gives £124k, the rebuild £120k. The routed action
+   is unaffected.]** **NOT executed this session, and the obvious mechanism is a
    trap:** an `improve_tool` item would carry `component_id` = the shared hero
    and hand a 252-page component to tool-improver. The safe route is §12's
    `needs_tool_recreation` re-file with the original's age→percentage table
@@ -1999,3 +2001,64 @@ patched). Consequences:
 - What does NOT survive: `acceptance/compare_rebuilt.py`'s `MAPPING` dict and
   the golden replay both hardcode dir-form URLs — one-line-per-tool update when
   the paths move.
+
+---
+
+## 2026-08-11 (afternoon) — equity-release re-file EXECUTED; the decision text's two figures were SWAPPED; the 366 prompt read before filing
+
+**The routed action from this morning's decision 2 is done**: work item
+`97f4d0ab-bd28-481e-9e31-c2f45a2c4b2f`, `needs_tool_recreation`,
+`item_key needs_page:tool-equity-release`, filed `triaged` at 14:24:31Z. Spec =
+the 08-08 item's two features verbatim (calculator + id contract) **plus a third
+contract pinning the original's age→LTV step table**, with the worked example
+(£400,000 at 65 → £124,000), the no-linear-formula prohibition, the roll-up
+formula, the minimum-age rule and the original's defaults all stated explicitly.
+Read back from the row after insert: 3 features, £ signs intact.
+
+> **CORRECTED 2026-08-11 (afternoon): the morning entry above and HANDOFF 10c §4
+> recorded the two figures attached to the wrong sides** — they call £120k "the
+> original" and £124k "the rebuild". Re-derived from both artefacts before
+> filing:
+>
+> - **Original** (`/equity-release.html`; bucket and live sha256-identical,
+>   `0befb538…`): a STEP table — `>=85: 0.52 · >=80: 0.47 · >=75: 0.42 ·
+>   >=70: 0.36 · >=65: 0.31 · >=60: 0.25 · else 0.20`. At 65 on £400,000 →
+>   **£124,000**. Its own comment says "65: ~30%" while the code uses 0.31 —
+>   the page is internally inconsistent, which is likely how the swap started.
+> - **Rebuild** (component `cfa17203…`, `maxLtvForAge`): LINEAR
+>   `0.20 + (age−55) × 0.01` clamped to 0.55 → 0.30 at 65 → **£120,000**. The
+>   installed fence corroborates: `computes-defaults` pins `#erMaxCash` £90,000
+>   at 65/£300,000 = 0.30, and it PASSED on 08-10.
+>
+> What caught it: re-deriving the figure from each side's artefact before
+> repeating it. The routed ACTION was unambiguous either way — "pin the table
+> extracted from the live original" — and that is what was executed. **If the
+> owner's intent was the £120,000 FIGURE rather than the original's table, the
+> counter-action is one cheap re-file keeping the linear table** — flagged in
+> README_where_we_are for the owner. Logged in `WRONG_CALLS.md`.
+
+**The CLM-021 landmine was read against this re-file before filing** (this is
+equity-release's FIRST rebuild under migration 366 — the 08-08 build predates
+it, and the register carries zero equity-release facts):
+
+- The live `recreate_tool` prompt routes unregistered thresholds to the SPEC:
+  *"Do NOT state a rule that is not in the register. If the tool needs a
+  threshold that is not listed, implement what the specification says…"* — and
+  `interactive_features` land in "Mandatory Behaviour Requirements", which
+  *"OVERRIDE anything implied by the original source code or the functional
+  specification"*. The stamp-duty floor was deleted because it lived only in
+  the reference-only original source; a table pinned as a spec contract is on
+  the protected side of that line.
+- **Handoff §5 action 4's constants sweep, discharged for THIS tool**: the
+  current component encodes the LTV rule, min-age 55, the compound projection
+  (N = 10/20/30) and input defaults. All are conventions/industry averages, none
+  is a citable published rule, so none belongs in the evidence register (whose
+  daily sweep needs a verbatim quote from an official source) — all four are now
+  pinned in the spec contract instead. The sweep for the OTHER tools before
+  their next rebuild remains open.
+
+**Coordination checked before filing**: no non-terminal `needs_tool_recreation`
+/ `improve_tool` on this page (and the dedup index would have rejected the
+INSERT if one had appeared in between); recently-active transcripts grepped for
+the symbols — the only other mentions are bugs 223/224 context and an enum
+listing, nobody mid-flight on this action.

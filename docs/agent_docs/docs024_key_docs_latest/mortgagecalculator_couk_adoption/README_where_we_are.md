@@ -992,3 +992,28 @@ Ours sets every field explicitly each time, so it can't inherit.
 The open question from the last entry stands unchanged: seven of the eight are
 invisible to the scheduler, so today they only run when someone asks. That's the
 one thing I'd like a steer on.
+
+**2026-08-11, afternoon — the equity release change you asked for is filed, with
+one correction to how it was written down this morning.**
+
+I've filed the rebuild request for the equity release calculator with the
+original page's age table written into the instructions, exactly as decided this
+morning. But one thing in this morning's note was recorded the wrong way round,
+and you should know about it: the two numbers were swapped. The ORIGINAL page
+gives £124,000 for a 65-year-old with a £400,000 home — its table says 31% at
+age 65. It's our REBUILT version that currently says £120,000, using a
+straight-line formula the generator made up. This morning's note had those
+figures attached to the opposite sides.
+
+"Match the original" therefore means the calculator will now show £124,000 in
+that example, not £120,000. I went ahead because the instruction itself was
+clear — use the original's table — and that's what has been filed. But if what
+you actually wanted was the £120,000 figure itself (say, because you know it to
+be closer to current lender policy), tell us and we'll put the straight-line
+version back; it's one small change and nothing else depends on it. Worth
+remembering: no visitor reaches these rebuilt pages yet anyway — the homepage
+still links to the original versions.
+
+One more small thing: the original page's own comment claims "about 30% at 65"
+while its code uses 31%, so the page disagrees with itself — that's probably
+where the mix-up started.
