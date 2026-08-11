@@ -2402,3 +2402,63 @@ Two things you should know, one ask:
   service. Later, under the ruled `upfront` payment timing, the chat intake
   will want to call order creation — that integration goes through your lane
   when the time comes, not around it.
+
+## 2026-08-11 (evening) — backlog throughput: my first analysis was wrong, and the re-check reversed the recommendation
+
+Owner asked for ways to raise throughput on the build backlog (407 items at
+first measure — **722** by the time the analysis finished; discovery is
+currently filing ~200/hr against ~100/hr completed, so the pile was growing
+while we discussed it).
+
+> **CORRECTED before acting — the recommendation I had already given the
+> owner was wrong.** I told the owner the dispatch lane was "saturated at
+> `max_concurrent: 8`" and recommended raising it to 13. Reading
+> `cmd/scheduler/main.go` (prompted by the owner asking for a second look)
+> refuted this on every point:
+> - `countInFlight` counts **`scheduled_tasks` ROWS** mid-flight, not
+>   orchestrations. The `dispatch` group has 3 task rows, so its in-flight
+>   count can never exceed 3 — the threshold of 8 **never binds**, and
+>   raising it to 13 would have been a pure no-op that read as "we acted".
+> - My "exactly 8 chains = saturation" evidence double-counted: re-measured,
+>   only 5 chains were alive (heartbeats < 2 min); the count fluctuates with
+>   chain lifetime. The famous "4-hour-old chain" is a **zombie** —
+>   `current_step='complete'`, status still EXECUTING_STEP, no heartbeat
+>   since 14:50 — an unreaped row, not a working chain, and not
+>   slot-consuming (slots aren't a thing at orchestration level).
+> - What ACTUALLY sets chain concurrency is emergent:
+>   `build-pipeline-trigger` fires every ~150s (measured: 12 evenly-spaced
+>   firings/30 min, never skipped — `last_triggered_at ==
+>   last_completed_at` to the microsecond, so the in-flight guard never
+>   engages), each firing starts at most one per-site chain, and a chain
+>   lives ~15 min (≈3.5 min/LLM item × max_items 5). Steady state ≈
+>   lifetime/spacing ≈ **6 chains** — which is what "8" really was.
+> The cheap check that would have caught it: read the consumer of the
+> config value before recommending a change to it. `max_concurrent` is
+> consumed in exactly one place and grep found it in seconds.
+
+**Lever actually applied: `interval_seconds` 120 → 60** on
+`build-pipeline-trigger` (the lever my first analysis ranked LEAST useful).
+Halving the spacing roughly doubles steady-state chains (~6 → ~12), which
+the per-site claim exclusivity then caps at the number of eligible sites
+(13) — the correct ceiling. Reversible one-field UPDATE; DB config, live
+immediately.
+
+**Deliberately NOT changed yet:**
+- `max_items` 5 → more (longer chains, fewer selector round-trips): second
+  lever, held back so the interval change's effect can be attributed
+  cleanly before compounding it.
+- Anything about the arrival side: if discovery's ~200/hr is a catch-up
+  burst from the sweep being off, doubled dispatch throughput (~200/hr at
+  13 chains × ~15-17 items/hr) drains the pile once arrivals subside; if
+  it is a standing rate, dispatch alone only breaks even and the next
+  conversation is about discovery cadence, not dispatch.
+
+**Watch items after the change** (checked before calling it a win):
+- 429s / `attempt_count` climbing from ~0 on waiting items — double the
+  chains is double the LLM call rate, and the Anthropic account cap was
+  hit once already today (RPM limits are separate from the spend cap that
+  was raised).
+- Steady-state chain count actually rising toward ~12 (same
+  `orchestration_states` query, `workflow_plan->'steps' ? 'process_item'`,
+  non-terminal, heartbeat-fresh — count LIVE chains, not rows; the zombie
+  taught that).

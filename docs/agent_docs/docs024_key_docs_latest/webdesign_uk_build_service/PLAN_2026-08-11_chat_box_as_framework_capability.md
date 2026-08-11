@@ -124,7 +124,7 @@ in this plan:
 
 | Option | What it is | Cost | Risk |
 |---|---|---|---|
-| **A — parameterize what's already proven** | The *same* Go binary as today's webdesign.uk chat-service, but reads a per-site **config file** (business facts, price, tone, contact fallback) the framework writes from `site_specs.evidence_base`, instead of Go constants. One binary can then serve several sites sharing a VM (`PLAN_2026-08-04…`'s own "our product sites" trust class already puts multiple sites on one box). | Smallest — mostly deleting the hardcoding this session's own landmine already flagged (`chat.go`'s `systemPromptFacts` has no code link to `evidence_base`), plus one small templated-config generator step. | Still one VM-hosted-sites-group per box; doesn't scale past that group without repeating deploy work. |
+| **A — parameterize what's already proven** | The *same* Go binary as today's webdesign.uk chat-service, but reads each site's facts (business facts, price, tone, contact fallback) **from the database — via a small in-cluster facts-relay endpoint backed by `site_specs.evidence_base`** — instead of Go constants. One binary can then serve several sites sharing a VM (`PLAN_2026-08-04…`'s own "our product sites" trust class already puts multiple sites on one box). **Why an endpoint and not a direct DB connection (owner correction 2026-08-11: "the site's facts should be read from a database table" — agreed on the source of truth; the network path is the design point):** `postgres-clients` is `ClusterIP`-only and its `NetworkPolicy` (`database-access-policy`) admits exactly three in-cluster pod labels (`core-manager`, `agent-chassis`, `component=initialization`) — the internet-facing VM has no path to it, deliberately, matching the isolation posture `tools-api` and `SAAS-001` both chose. A read-only HTTPS endpoint (in `core-manager` or its own tiny service) that returns one site's `evidence_base` as JSON gives the VM live DB-backed facts without opening the first-ever inbound DB rule from outside the cluster. Fetched at conversation start and cached briefly, it also removes the config-staleness failure mode entirely — the exact `systemPromptFacts` drift this lane hit on 2026-08-10 with the £75 deposit. | Smallest — mostly deleting the hardcoding this session's own landmine already flagged, plus one narrow read-only endpoint (no write path, no chat logic in it). | Still one VM-hosted-sites-group per box; doesn't scale past that group without repeating deploy work. |
 | **B — a shared multi-tenant chat relay** | One service, many sites, `site_id`-scoped config loaded per request — closer to `tools-api`'s proven shape (CORS-by-origin allowlist, per-caller rate limit, one Postgres) than to a bespoke binary. | Real new platform infrastructure — a genuine build, not a config change. | Directly collides with `SAAS-001`'s own warning, found in this session's earlier research: *"an anonymous, internet-triggered, token-spending pipeline must not run on core."* `tools-api` itself was deliberately kept **off** the k8s cluster for exactly this reason. Building B without the same isolation is repeating a mistake this codebase has already reasoned its way past once. |
 | **C — the full satellite (`SAAS-001` "Y-copy")** | A second, cut-down chassis instance handling all chat traffic, isolated from core. | Largest — this is the option that research already flagged as *"kept open, not committed."* | Correct long-term shape if chat becomes a genuine multi-tenant product; wrong first step for "make one component reusable." |
 
@@ -159,13 +159,14 @@ this plan; flagged so it isn't assumed to be covered by extension.
    this session's `LCO-008`.
 3. **Run `experience-planner` once** for "site chat intake" (§3) — produces
    the approved `EXPERIENCE_PLAN` every later per-site decision cites.
-4. **Fix the config-not-code landmine** (§4 Option A) — the config generator
-   step, sourced from `evidence_base`, closing the gap this session's own
-   NOTES already named.
-5. **Extend `tool-deployer`** to call that generator when deploying a
-   `requires-backend`-tagged tool, and prove it end to end on a **second**
-   real site sharing webdesign.uk's box — the actual test of "any site,
-   different parameters," not a hypothetical.
+4. **Fix the facts-not-code landmine** (§4 Option A) — the read-only
+   facts-relay endpoint backed by `site_specs.evidence_base`, and the chat
+   service fetching from it per conversation instead of compiling facts in,
+   closing the drift gap this session's own NOTES already named.
+5. **Extend `tool-deployer`** to register a site with that endpoint when
+   deploying a `requires-backend`-tagged tool, and prove it end to end on a
+   **second** real site sharing webdesign.uk's box — the actual test of
+   "any site, different parameters," not a hypothetical.
 6. **Wire `tool-suggester`** to recommend chat-input-box using the approved
    `EXPERIENCE_PLAN`'s criteria — only after step 5 has proven deployment
    works, so the suggestion path doesn't outrun what deployment can deliver.
