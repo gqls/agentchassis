@@ -818,3 +818,48 @@ readers of these rows (`diagnose_triage_action.go:361`, `fixloop_digest_action.g
 **What this does NOT do, said out loud:** it states no rule for `sponsored_listings`. It makes
 the *absence* of one legible. The rule is still an owner decision, and the row that now appears
 is the roadmap entry for taking it.
+
+### The verdict, and a wrong number it caught in my own submission
+
+**APPROVED, round 1, 11 reviewers, 6 abstained (relevance gate), zero objections above [low],
+`gated_by_truncation: false`** — corr `a46ff9a6-fcba-4ab4-a53d-130aae39f24b`, dispatched
+immediately (no queue), `complete_approved` at 18:07:01Z, about 6 minutes end to end. The
+commit already carried `Council-Submitted:`, so `098` credits it at report time; **no amend**
+(forward-only, and the trailer exists precisely so none is needed).
+
+Worth recording what the seats did with it, because this lane has spent three rounds arguing
+with them and this is the other outcome:
+
+- **architecture** returned `ARCHITECTURE_SIGNAL: point_fix` and made the case better than my
+  submission did: the switch pattern *is* the seam's extension point, so using it is design-as-
+  intended rather than a bolt-on; and the no-mirror decision "generalises to future revenue
+  models and to other detectors that branch on a site's own recorded shape". It also marked
+  `DEFLECTIONS: unknown` rather than zero — it could not confirm from `diagnosis_artifacts`
+  whether a past round sent this file up a layer, and said so instead of assuming.
+- **mission** read it as the anti-silent-override principle applied: surface what cannot be
+  handled, never substitute a default.
+
+**And the correction, which is the useful part.** Two seats — `guardian` [low] and
+`prior_art_librarian` [missing] — declined to take my `risks` claim *"the five other
+CapabilityGapItem callers are unaffected"* on trust: neither could enumerate Go call sites,
+and both said so rather than waving it through. **They were right to, and the claim was
+wrong.** Checking it:
+
+- There are **four** other callers, not five (`check_broken_nav_links`,
+  `check_component_standards`, `check_forced_text_colors`, `check_hardcoded_section_colors`).
+- **`check_content_duplication` is not a caller at all.** It hand-builds its `capability_gap`
+  WorkItemSpec (`check_content_duplication.go:236`) and never touches `capabilityGapSummary`
+  — and its item_key is `capability_gap:content_duplication_rewrite`, which does **not** follow
+  the helper's `capability_gap:<check>` shape. I had it in my head as a caller because the
+  register describes its residue behaviour in the helper's language.
+
+**My original check could not have found this**, and that is the transferable bit: I grepped
+`GapHandlerRemit|GapHandlerMissing`, which enumerates *users of the constants* — not *callers of
+the helper*, and not *anyone passing a bare string*. **A grep proves absence only for the
+spelling it searches.** The check that settles it is three greps, not one:
+`CapabilityGapItem(` for callers, `GapKind:` for struct-literal assignments, and
+`gapKind\s*:*=` for the variable form (`check_broken_nav_links.go:214,220` is the only variable
+case, and both arms hold a constant). Result: **no call site anywhere passes a string literal**,
+so nothing could have depended on the old default arm's wording — the guardian's objection is
+settled in the direction it hoped, but now by evidence rather than by my say-so. Corrected in
+WII-014 in place.
