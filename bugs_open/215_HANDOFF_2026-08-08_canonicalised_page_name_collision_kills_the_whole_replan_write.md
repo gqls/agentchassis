@@ -436,3 +436,41 @@ another lane's uncommitted work in the same hunks, and committing them would
 either ship that work under this message or leave HEAD unable to compile. Held
 rather than swept. This bug stays **OPEN** until the wiring lands, the chassis
 rolls, and a site opts in.
+
+### 2026-08-11 (later) — COUNCIL: REVISE round 1, and the objection that was worth the round
+
+Verdict REVISE on `56e13695`, gated by `editquality`. Resubmitted round 2 on the
+same trail id. Two things worth carrying forward whatever the verdict:
+
+**The design changed, and the seats were right.** `path_key` and `canonical_name`
+shipped **default ON**, on the argument that they ask the same question the
+exact-URL rename already asks unconditionally. The `guardian` and `architecture`
+seats independently objected: that changes matching behaviour for every existing
+caller fleet-wide on deploy, while the weaker stem layer got a dark launch, and
+*"behaviour changed for an existing caller"* is architecture-scope however sound
+the argument. **The inconsistency was mine — I demanded measured evidence before
+enabling the layer I distrusted and exempted the two I preferred.** All three
+layers are now gated (`twin_identity_snap`, `stem_twin_snap`), all default OFF,
+all counting while off. A side effect worth noting: the change is now entirely
+opt-in/default-OFF with no live consumer, which is RFC_022's carved-out shape, so
+the `needs_rfc` the architecture seat raised no longer applies.
+
+**The objection that could have made the whole fix dead code**, from
+`editquality`: does the `identity_authority` marker actually SURVIVE from the
+reconciler to the two write surfaces? `site_plan_pages` has no column to carry it,
+and if the surfaces reload from that table the guard silently never fires — *"the
+exact silent-guard-indistinguishable-from-a-dead-one failure mode the plan itself
+warns about elsewhere"*. It does survive, and **not** through `site_plan_pages`:
+`validate_plan`'s `output_field` is `site_plan`, and both surfaces read that key
+out of `collected_data` via `extractPagesFromPlan`, which appends each page map
+**whole**. That is now **proven rather than argued** —
+`TestReconcile_MarkerSurvivesTheStepBoundary` drives the real extractor over a
+validate-shaped payload, and is mutation-checked (stop stamping the marker and it
+goes red, naming the surviving keys).
+
+Answered with evidence, no code change: `resolveToolPageIdentity` exists
+(`deploy_tool_action.go:664`) and does what was cited; and on the
+three-`pages`-upsert-helpers landmine — only ONE of the two surfaces writes
+`pages` at all (`SyncPagesToDBAction` → `upsertPage`), `WriteSitePlanAction`
+writes the PLAN table, and `upsertPage` is the correct helper by that landmine's
+own rule (a role arriving from a plan belongs on the plan-sync path).
