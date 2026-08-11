@@ -20,7 +20,7 @@ path, live on `v1.0.1283`, and the 9 rescuable live rows are repaired.**
 
 | # | outstanding | why it is not done |
 |---|---|---|
-| 1 | **Council verdict** | ~~Round 2 RUNNING at time of writing.~~ **UPDATED 2026-08-11: round 2 returned REVISE** (gating: debug_historian, high — the backfill guard hardcodes its expected count). Every objection answered with evidence or discharged (decision record `doc_notes 0633aa2f…`; imagery lane told; see NOTES 2026-08-11); **round 3 resubmitted on the same correlation** (`COUNCIL_SUBMISSION_2026-08-11_round3.json`). Read the round-3 verdict and act on it. |
+| 1 | ~~**Council verdict**~~ | **RESOLVED 2026-08-11: round 2 REVISE → round 3 APPROVED** (10:07Z, corr `46a50b4c`, 2 advisory objections, none high). Objections answered with evidence; decision record `doc_notes 0633aa2f…`; imagery lane told; register IMG-070 updated + corrected. `c21af5eda`'s `Council-Submitted:` trailer now resolves via `098`. Full seat detail in NOTES 2026-08-11. Nothing left to do here. |
 | 2 | **The rewrite arm has not been OBSERVED firing in production** | Two induced runs were non-discriminating (below). Not a defect — it needs a plan containing a renamed page. |
 | 3 | **`mortgagecalculator.co.uk` `tools-index`** | Names a page existing under no spelling. Needs a human decision; deliberately left. |
 

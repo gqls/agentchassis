@@ -432,3 +432,46 @@ generated, so nothing is stuck. The reviewer's query applied no affected filter 
    `COUNCIL_SUBMISSION_2026-08-11_round3.json` — every objection answered with what is
    now fact (pod-grep, guard notice, rollback file's existence, the shipped Pass 2 hunk,
    today's censuses). Budget ~30 min; find the run by payload, not printed id.
+
+### Round 3: **APPROVED**, 2026-08-11 10:07:57Z — "2 advisory objection(s), none high-severity"
+
+Orch `2d30b2ec`, dispatched 4 minutes after publish (no 29-minute queue this time), ~14
+minutes wall clock. 13 seats reviewed, 4 abstained. What the report says, and what it asks:
+
+- **debug_historian DOWNGRADED its round-2 gating high to advisory medium** — the guard
+  "fails closed and was independently re-verified post-apply, but it is not fixed, only
+  defended and logged as a rule for next time." Exactly right, and exactly what NOTES
+  above records: **this lane's next migration derives its expected set at run time /
+  asserts row identity.** It also confirmed the rest of 373 "follows needle-gate
+  discipline well: separate verify/rollback files, RETURNING-captured pre-state".
+- **reuse_agent approved**, calling the withdrawal + declined-with-reasons "the
+  discipline working as intended", with one standing note: **a THIRD instance of the
+  raw-alias→canonical+dedupe pattern should trigger the shared `datahelpers` utility.**
+  Now recorded on IMG-070 as a follow-up line (making the submission's claim true —
+  it was not in the register until today).
+- **prior_art_librarian objected (advisory)** that three claims were asserted without
+  attached verification it could run from its schema tier. **All three were verified
+  first-hand this morning, before the submission, and here is the evidence on the
+  record:** (1) the ROLLBACK file exists — `ls sql_for_agents/ | grep 373` returns both
+  files; (2) `TestNormalisePageKey_MatchesTheNormalisationValidateRolesApplies` exists as
+  described — read at `write_site_plan_imagery_scope_test.go:73`, seven spellings plus
+  the `home`→`index` assertion; (3) the censuses (198/1, 13 pre-fix R3 rows, 25-vs-2
+  items, 3 plans >20 rows) were run live 2026-08-11 ~09:40Z, queries in this file and
+  the RUNBOOK. Its "no shared utility exists" concern is answered the same way: grep for
+  a raw→canonical helper in `datahelpers` finds none; the two named call sites are the
+  implementations.
+- **guardian approved**, noting the round-2 concerns were "answered with measurement and
+  a documented handoff to the owning lane rather than silently dropped". Its residual
+  ask — enumerate which `agent_definitions` call `write_site_plan` beyond
+  build-site-planner — is a fair small follow-up for whoever next touches block 2c.
+
+**Trailer state:** `c21af5eda` (the code) carries `Council-Submitted:` and is credited
+automatically by `098` now the correlation is approved — no amend, forward-only. The
+close-out docs commit carries `Council-Reviewed:` legitimately: the verdict was read
+before the trailer was written.
+
+**Register also corrected while recording this** (the bugfix-161 shape, caught in the
+act): IMG-070's "what" and sources claimed `datahelpers.NormaliseSlug` is exported —
+the round-2 plan, never the shipped code. Corrected visibly, with a warning not to
+"tidy" the routing into a bare export (the coupling test fails on the homepage
+collapse, by design).

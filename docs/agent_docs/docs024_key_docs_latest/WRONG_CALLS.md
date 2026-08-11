@@ -27853,3 +27853,29 @@ baseline BEFORE calling the post-change number anomalous.
   invites exactly the wrong value).
 - **cost:** two round trips, no damage. The `BEGIN` + `DO/RAISE` shape is what
   made it free rather than half-applied.
+
+## 2026-08-11 — the register entry described the PLAN, not the shipped code (bugfix 214, IMG-070)
+
+- **the claim:** IMG-070's "what" and sources said *"`datahelpers.NormaliseSlug`
+  is exported so the lookup key is normalised by the same function ValidateRoles
+  used"*. Written 2026-08-10 in the shipping commit — and false at write time:
+  the export was dropped during implementation (same-file passenger in
+  `page_canonical.go`) and the shipped code routes through the exported
+  `CanonicalisePage` instead. The register — the index sessions consult *to
+  learn what exists* — vouched for a symbol that never existed.
+- **what caught it:** answering the council's round-2 reuse objection forced a
+  side-by-side read of the shipped function and its coupling test, a day later.
+  Nothing about the register itself would ever have caught it.
+- **the cheap check that would have:** before registering a symbol, grep for its
+  declaration in the tree you are committing — `grep -rn "func NormaliseSlug"
+  platform/` returns nothing, one line, half a second. A register entry written
+  at plan time must be re-read against the DIFF, not the plan, before it ships.
+- **the transferable bit:** an entry authored alongside the plan and shipped
+  alongside the code inherits the plan's claims unless each one is re-checked —
+  and the register is trusted precisely because nobody re-checks it
+  (`bugfix 161`'s shape: the authority ratifies the claim). The correction is
+  visible in IMG-070 with a warning not to "tidy" the code into the shape the
+  entry used to describe (the coupling test fails a bare export, by design).
+- **cost:** one day of the register misdescribing a package surface; corrected
+  before any session acted on it (no caller reached for the phantom export —
+  checked: no `NormaliseSlug` reference exists outside the lane's own docs).

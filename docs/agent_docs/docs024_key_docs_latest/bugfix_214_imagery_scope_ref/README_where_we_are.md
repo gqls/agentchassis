@@ -252,3 +252,26 @@ Looking at it properly this morning, that tidy-up would actually break a deliber
 behaviour (the "home means the homepage" collapse) and the tests would catch it. So the
 right answer is: don't do it. The handoff was wrong; the note in the technical log says so
 in as many words.
+
+Later the same morning: **the review came back approved.** Third time round — the first
+attempt died with the fleet outage, the second said "revise", and this one passed with
+thirteen reviewers looking and only minor notes left standing. The reviewer who blocked us
+last night accepted the answer about the repair script's safety check (it fails safe, it
+worked, and the better pattern is written down for next time), though they were clear the
+underlying habit should change, not just be defended — noted. One reviewer reminded us that
+the plan-facts they cannot check themselves should be double-checked by a person with
+database access; as it happens every one of those facts was re-measured from scratch this
+morning before resubmitting, and the technical log now shows the receipts next to the asks.
+
+While recording the verdict in the catalogue entry I found the entry itself still described
+a small piece of last night's *plan* that never actually shipped that way. Fixed, marked
+visibly as a correction, with a warning to future readers not to "tidy" the code into the
+shape the entry used to describe. The catalogue vouching for something that was never true
+is precisely how one of our older bugs got started, so catching it the same morning felt
+worth the extra half hour.
+
+Where that leaves us: the fix is live, reviewed and approved, the paperwork agrees with
+reality, and only two things remain — waiting for the first genuine replan of a site with
+renamed pages to watch the repair arm actually fire (we are deliberately not forcing one),
+and the one odd mortgage-calculator row that still needs a human to decide what the page
+should be.
