@@ -294,3 +294,25 @@ SELECT purpose, left(origin_prompt,180), origin_model, url, created_at
 **Then look at the image.** If the wording needs tuning it is one string in
 `composeBrandImagePrompt` — cheap, and it decides ~2,000 logos. That judgement is the owner's,
 and it is the last open item on this lane.
+
+---
+
+# UPDATE 2026-08-11 — fresh-eyes pass: the wait has a DATE, and the 08-09 visit is explained
+
+Build `7c9d5f74b9` re-verified (markers 1/1, fabricated control 0). Nothing re-filed overnight,
+and the fresh-eyes question was: *will it ever?* Answered, with the mechanism read rather than
+assumed:
+
+- `placeholder_image_in_use` is run by **`design-discovery-agent` only**.
+- That agent is driven by the **bug-230 rota** (`site_discovery_rotation`), period **7 days per
+  site** (RUNBOOK_discovery_driver.md:59 — the interval lives inside each pre_query).
+- mortgagecalculator's design-discovery row: `last_selected_at = 2026-08-09 20:56:10` — which is
+  the visit that filed the `needs_human_review` row at 20:56:11, i.e. the rota already proved it
+  reaches this site and runs this check.
+- So the next NATURAL visit is **~2026-08-16 20:56**. The silence since is cadence, not a stall
+  (availability, on a shorter period, kept firing throughout).
+
+**The wait is ~5 days, not "soon".** Forcing it early is possible two ways (a one-off dispatch,
+or rewinding the rota row's `last_selected_at`) — but note what completion actually does: it
+**deploys a new hero image onto six live pages** of a site the adoption lane owns. That is an
+owner/lane call, not a lane-210 call. Decision put to the owner 2026-08-11.
