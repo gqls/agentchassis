@@ -103,6 +103,21 @@ second. **Do not resubmit this round. Do not revert.**
 
 ## Related work filed by this lane, unowned, NOT started
 
+> **STALE WITHIN HOURS — updated 2026-08-11 (afternoon): both filings were taken same day.**
+> - `bugs_open/246` is FIXED IN CODE at `039cfce84` (shared-pool-ownership lane; council
+>   submission `c94d73ac`, `Council-Submitted:` trailer), awaiting the next fleet roll. ⚠ Their
+>   message and the bug file first printed the sha as `039fcce84` — one c/f transposition,
+>   `git show` refuses it; corrected in the bug file. Note from that lane on the instrument
+>   this handoff prescribed: the pre-change `DISPATCH_LOOKUP_RETRYABLE` baseline reads **0,
+>   which is a NON-RESULT** — demand is 1–2 messages/minute, which cannot saturate even a
+>   4-connection pool — and any before/after comparison across the roll is not like-for-like
+>   (the pool becomes 12). Nothing surfaces `db.Stats().WaitCount`/`WaitDuration`, so pool
+>   saturation remains unmeasurable either way.
+> - `bugs_open/247` is FIXED at `8cb8938bb`, council APPROVED round 1 (recorded `a78853b52`),
+>   by a third session — including the `selectWorkflowOLD` deletion this section predicted.
+> - The nested-envelope `DISPATCH_OWN_DEFAULT` population (below) is the only item still
+>   genuinely unowned.
+
 - `bugs_open/246` — `NewMessageProcessor` re-shrinks the SHARED `*sql.DB` to 4 connections,
   silently undoing `CHASSIS_DB_MAX_OPEN_CONNS=12`. Now instrumented for the first time:
   a transient lookup fault logs `DISPATCH_LOOKUP_RETRYABLE`, so measure with that BEFORE

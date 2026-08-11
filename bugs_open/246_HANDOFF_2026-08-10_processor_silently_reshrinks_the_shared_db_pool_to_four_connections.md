@@ -72,7 +72,9 @@ milliseconds between the two constructors.**
 
 ## 2026-08-11 — FIXED IN CODE (candidate 1), awaiting a roll. Taken by the shared-pool-ownership lane.
 
-**Status: fix committed at `039fcce84`, NOT yet live** — Go changes are inert until the
+**Status: fix committed at `039cfce84` (⚠ first recorded here as `039fcce84` — a one-character
+c/f transposition that `git show` refuses; corrected 2026-08-11 by the filing lane, which hit
+the dead pointer while verifying), NOT yet live** — Go changes are inert until the
 next whole-fleet roll. Council submission `c94d73ac-2a15-40cb-98a9-1185a2b7435a`
 (`Council-Submitted:` trailer; verdict pending at commit time).
 Working docs: `docs/agent_docs/docs024_key_docs_latest/bugfix_246_shared_pool_ownership/`.
