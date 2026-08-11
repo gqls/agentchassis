@@ -1,5 +1,57 @@
 # RFC 022 — an opt-in, default-OFF field on a shared action is BOTH the owner's prescribed remedy AND the architecture seat's RFC trigger
 
+## STATUS: **DECIDED — OWNER RULING 2026-08-11: option (3), a BUDGET, with option (1) as the interim.**
+
+The owner took the recommendation in §"The three options, costed" as written. Both halves,
+and the ordering between them, matter:
+
+| half | what it means | state |
+|---|---|---|
+| **interim — option (1)** | An opt-in field whose unsafe default is **OFF** and which **no live consumer names** is **NOT architecture-scope**. The architecture seat should not raise `needs_rfc` on that shape alone. This makes the 2026-08-02 ruling self-consistent: the prescribed remedy stops being penalised. | **effective immediately** |
+| **destination — option (3)** | The trigger moves to the **accumulated count**, not the single addition: an RFC when a shared action's optional-key set grows past a threshold. Needs the mechanical counter over `RegisterActionInputSpec` declarations per action, which does not exist yet. | **to build** |
+
+**The interim is not a weaker version of the destination — it is the half that is safe to
+ship without the counter.** Option (1) alone deliberately gives up the *accumulation* signal,
+which is the real harm the seat named; option (3) is what gets it back, aimed at the tenth
+field instead of the first. **So (1) must not be allowed to become the settled answer by
+default.** Whoever builds the counter closes this RFC; until then the estate is running with
+a known, stated blind spot rather than an unknown one.
+
+**Answering the question in §"The question for the owner, in one line":** yes — an opt-in
+field with the unsafe default OFF, named by no live consumer, satisfies the 2026-08-02
+ruling and falls **outside** the trigger. Compliant work should **not** expect `needs_rfc`
+as routine.
+
+### What shipped, same day
+
+| file | target | state |
+|---|---|---|
+| `381_rfc022_narrow_the_architecture_seat_opt_in_default_off.sql` | `fix-proposer.review_architecture` | **APPLIED + recorded**, prompt 10,442 → 11,829 chars |
+| `383_rfc022_narrow_the_gate_architecture_seat_without_reverting_377.sql` | `council-gate.review_architecture` | **APPLIED + recorded**, 10,479 → 11,866 chars |
+
+Both insert a byte-identical clause at a verbatim anchor, so the two rosters cannot say
+different things about the same trigger. The clause states the exception, its three
+conditions, and — deliberately, inside the prompt — **what the seat is no longer watching**,
+so the accumulation blind spot is visible to the reviewer rather than silent. It also keeps
+a reduced form of the signal: if the plan shows an action already carrying several optional
+keys, report the observed count as `insufficient`. That is the most of (3) that can be had
+before the counter exists. Verified live in both rows: clause present, original trigger text
+intact, routing-signal contract intact.
+
+> **⚠ AND ONE THING THIS RULING FLUSHED OUT, which matters beyond RFC_022.**
+> `099_SYNC_gate_roster.py --apply` — the mirror CLAUDE.md tells you to run after any seat
+> change — **would have reverted migration 377** and destroyed the council-gate prompt
+> caching (**68% measured saving**, on ~85% of fleet LLM spend). Its transform predates 377
+> and rebuilds every gate prompt in the pre-hoist order with no `<!--CACHE_BREAKPOINT-->`.
+> Its dry run says `drift (steps that would change): [all 17]`, which reads as "mirror me"
+> and means "the gate is **ahead** of the mirror". That is why `383` exists as a surgical,
+> guarded migration instead of a mirror run — it asserts the breakpoint does not move and
+> that the shared prefix does not fragment. **`099 --apply` is suspended** (CLAUDE.md +
+> `LANDMINES.md`) until it learns about 377. **Fix `099` and both the suspension and `383`'s
+> hand-patch exception end.**
+
+---
+
 **Filed 2026-08-10 by the `bugfix_223_index_answerability` lane. For a human to break, not
 for a thread to argue.** Raised because the architecture seat signalled `needs_rfc` at
 MEDIUM on a change that was built to follow the owner's own ruling about how such changes

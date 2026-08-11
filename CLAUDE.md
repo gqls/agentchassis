@@ -130,6 +130,44 @@ per coherent task, not per iteration.
   hand-maintained rosters that must stay identical is exactly the drift class this
   council reviews for — the roster changed five times in 18 hours, so it is
   mechanical now.
+  > **⚠ `--apply` SUSPENDED 2026-08-11 — DRY RUN ONLY.** The mirror regenerates all
+  > 17 gate prompts and its transform **predates migration 377**, which hoisted the
+  > shared evidence block to the front of every `council-gate` seat and inserted
+  > `<!--CACHE_BREAKPOINT-->` so Anthropic prefix caching can fire. `--apply`
+  > reverts that on all 17 seats and takes with it a **measured 68% saving** on what
+  > was ~85% of fleet LLM spend. Its dry run prints
+  > `drift (steps that would change): [all 17]`, which reads as "the gate has
+  > drifted" and actually means **"the gate is AHEAD of the mirror"** — every
+  > untouched seat is exactly +37 chars, and that is 377's arithmetic, not
+  > divergence.
+  > **Until `099` learns about 377:** migrate `fix-proposer` as usual, then mirror
+  > into `council-gate` with a **second, surgical migration anchored on a verbatim
+  > line**, guarded to abort if the breakpoint moves or the shared prefix
+  > fragments. Worked pair: `381` + `383` (RFC_022's narrowing). Health check
+  > (**17 seats marked, 1 distinct prefix**) and the full trap: `LANDMINES.md`,
+  > footprint `099_SYNC_gate_roster.py`. **A documented exception, not a licence to
+  > hand-patch — fix `099` and it ends.**
+
+### RFC_022 — the architecture seat's trigger, narrowed (OWNER RULING, 2026-08-11)
+
+**An opt-in field whose unsafe default is OFF, and which no live consumer names, is
+NOT architecture-scope.** Do not expect `needs_rfc` for that shape, and do not treat
+it as one when you are the reviewer. This makes the 2026-08-02 §2 ruling below
+self-consistent: it *prescribes* opt-in-default-OFF as the way to ship new authority
+on a shared seam, and the seat's shape-based trigger was firing on exactly that
+remedy — so following the rule and ignoring it drew the same signal, which is how a
+signal stops discriminating. All three conditions must hold (opt-in; the **unsafe**
+side is the default; zero live consumers name it), and **enumerate the consumers —
+asserting it without the query is itself the objection**.
+
+**The ruling is option (3) with option (1) as the interim, and the interim is not the
+destination.** What (1) gives up is **accumulation**: ten individually inert opt-in
+fields are a shared action nobody understands, and this trigger was the only thing
+that would have noticed the tenth. (3) gets it back by triggering on the accumulated
+optional-key **count** — but that counter (a sweep over `RegisterActionInputSpec`
+declarations per action) **is not built**. Whoever builds it closes `RFC_022`; until
+then the estate runs with a stated blind spot. Live in both rosters via migrations
+`381` (fix-proposer) and `383` (council-gate).
 
 ### Platform seams and the ordering exemption (OWNER RULING, 2026-07-28)
 
