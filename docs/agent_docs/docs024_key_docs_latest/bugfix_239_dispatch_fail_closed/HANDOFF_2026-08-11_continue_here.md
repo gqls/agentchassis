@@ -110,8 +110,11 @@ second. **Do not resubmit this round. Do not revert.**
 >   that messaged from the 238 session's socket; forward-only forbids the amend, so this
 >   line is the correction for anyone chasing ownership through commit history. Council
 >   **APPROVED round 1** (`c94d73ac`, 3 advisory objections none high-severity, architecture
->   seat signalled point_fix; follow-ups committed at `6ba3fca28`), awaiting the next fleet
->   roll. ⚠ Their
+>   seat signalled point_fix; follow-ups committed at `6ba3fca28`). **The awaited roll
+>   arrived same day: v1.0.1288** (pods up 17:13 UTC, stamp `bb5348642` by single-pass
+>   binary probe with 24 absent-controls; `039cfce84` and `6ba3fca28` both ancestors —
+>   checked by this lane, but post-roll VERIFICATION is that lane's own, and for a pool
+>   size there is no behavioural witness: the stamp IS the proof it shipped). ⚠ Their
 >   message and the bug file first printed the sha as `039fcce84` — one c/f transposition,
 >   `git show` refuses it; corrected in the bug file. Note from that lane on the instrument
 >   this handoff prescribed: the pre-change `DISPATCH_LOOKUP_RETRYABLE` baseline reads **0,
@@ -121,6 +124,8 @@ second. **Do not resubmit this round. Do not revert.**
 >   saturation remains unmeasurable either way.
 > - `bugs_open/247` is FIXED at `8cb8938bb`, council APPROVED round 1 (recorded `a78853b52`),
 >   by a third session — including the `selectWorkflowOLD` deletion this section predicted.
+>   `8cb8938bb` is also an ancestor of the v1.0.1288 stamp, so the deletion is in the live
+>   image too.
 > - The nested-envelope `DISPATCH_OWN_DEFAULT` population (below) is the only item still
 >   genuinely unowned.
 
