@@ -86,6 +86,54 @@ returns to the owner.
 
 > **Owner:** *"2. yes."*
 
+> **STATUS 2026-08-11 (added by the lane that did it): BUILT, COUNCIL-APPROVED
+> (`c80ea1d7-ce1e-493f-8175-877501d895e6`, round 1, no high-severity objections),
+> COMMITTED, and INERT until a fleet roll.** Work, evidence and the standing five:
+> `docs024_key_docs_latest/silent_hero_logo_readers/`.
+>
+> **Four corrections to this section, all established by doing it:**
+>
+> 1. **The line numbers below are stale.** The hero/logo readers are at
+>    `v3_site_actions.go:1125` and `:1136`, not `:1020`/`:1031`. Grep the symbol.
+> 2. **A `Warn` is NOT sufficient, and this section's own verify note is wrong
+>    about it.** It says the change "will be greppable, because a log string is a
+>    real literal" — true, and irrelevant to whether the finding survives. It does
+>    not: `agent-chassis` does not retain the line (its own startup line was
+>    measured absent from `--tail=3000` hours after a roll), and the run record
+>    holding the shape is pruned after **4 hours**, because `AWAITING_RESPONSES` is
+>    the shortest-lived status in `orchestration_states` and is exactly the state
+>    these keys live in (measured first-hand off the live
+>    `scheduled_tasks.pre_query`; the repo seed says 24h and disagrees). So the
+>    change also writes an `agent_error_log` row via the existing `LogActionError`
+>    door — `error_code DEPLOYED_IMAGE_RESULT_MISSING_URL`. Declared as the review
+>    question in the submission rather than slipped in; every seat that examined it
+>    endorsed it.
+> 3. **The demand gate is the load-bearing part and this section does not mention
+>    it.** `BuildRenderContextAction` runs for every page build and most pages
+>    deploy no image, so an `else` on the outer guard files a row per page
+>    fleet-wide. Absence is silent; only present-but-unusable records.
+> 4. **"Three silent readers" is right, and "three of a larger silent class" is
+>    NOT.** The council's `bug_historian` seat pressed on exactly that. Censused:
+>    64 occurrences of the shape in `platform/orchestration/actions`, of which ~50
+>    are config/input reads, 5 are loaded records, and **all 4 genuine
+>    awaited-result readers were opened and none has this defect** — they either
+>    fail loudly (`generate_image_actions.go:777`) or fall through to a legitimate
+>    alternative (`call_agent.go:736`/`:375`, `spawn_actions.go:1804`). The
+>    discriminator is not "an `ok` guard with no `else`" but **"a miss whose only
+>    consequence is a quietly worse artefact"**. 4 dynamic-key readers stay
+>    `[UNVERIFIED]` — they resolve a key from step config.
+>
+> **The `precedent to copy` below (`f7111f4d8`) was read and is a `Warn`-only
+> pattern; it is the right shape for a terminal error and the wrong one here,
+> for reason 2.**
+>
+> **Item 1(a) now has a forward evidence path** that does not race the 4-hour
+> prune. See `bugs_open/236`'s 2026-08-11 contributions — including a **candidate**
+> for §5's open root cause (the park path writes a state re-loaded from the DB and
+> never copies `CollectedData` onto it), filed to the diagnosis loop as
+> `dbcc4259-ab84-494b-a48b-1df647209a40` rather than asserted. **Verdict not yet
+> read at the time of writing.**
+
 The three readers take a value they need, and when it is absent they do nothing at all — no log, no
 error, no work item. That is why a page shipping with no hero and no logo looked identical to a page
 that never wanted one, for weeks.
