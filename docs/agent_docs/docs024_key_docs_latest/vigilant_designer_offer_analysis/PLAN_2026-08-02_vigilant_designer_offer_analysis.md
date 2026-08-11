@@ -238,3 +238,17 @@ Marked here rather than edited into §B above, so the original text stays readab
   `REVIEW_2026-08-08_…`; the owner also directed the wider scope be written up as
   `features_open/030_FEATURE_offer_and_benefit_analyser.md`, which now holds the
   correspondence surface, the council question and the open questions.
+- **2026-08-11 — OWNER DECISION: A-track next, not B4.** Resolves the "B4 — the analyser
+  itself, or A-track. Owner's call, unchanged" fork carried in every handoff since 08-08.
+  Driven by an external ask, not this lane's own queue: `portfolio_positioning` wants
+  visual design diversity across the finance-domain estate (lendzy reads as generic
+  AI-designed; every site so far has run the same design model). Programme A's next step,
+  **Phase 2 (the `design-critique-agent` / "018 critic")**, is the machinery that ask
+  actually needs — Phase 1's vision seam (proven for both Gemini and Claude) is already
+  built. **Scope note for whoever picks this up:** Phase 2 as specced in this file critiques
+  a design against the site's OWN declared `design_intent` plus a fleet homepage-skeleton
+  summary — it does NOT reference external "well-designed" sites or named designers. If the
+  reject-and-retry loop is meant to judge against outside taste rather than internal
+  consistency, that's a scope addition to `load_design_context` (a reference corpus), not
+  existing plumbing — decide before building, don't discover it after. B3's stuck council
+  round and its four findings are UNCHANGED by this decision — still owed, separately.
