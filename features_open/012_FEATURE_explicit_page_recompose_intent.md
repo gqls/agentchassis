@@ -199,3 +199,13 @@ immediately after the fundamentallyai replan census.** This answers the council 
 tracking ask on corr `a06ff850` ("worth a date, not indefinite deferral"). Until it lands, the
 operator rule above stands: redesign intent in BOTH the `recompose_pages` field AND the briefing,
 tell = `RECOMPOSE_INTENT_NOT_REALISED` (live in chassis v1.0.1283+).
+
+**SUBMITTED (2026-08-11, the scheduled round): `Council-Submitted: 62d2463f-b269-41fb-8f25-078983ffceab`.**
+Seed `385_build_site_planner_recompose_pages_visible.sql` — the field-based fix as one config
+change (per-row REDESIGN REQUESTED marker via a nested range over
+`$.input_data.spec.recompose_pages`, plus flag semantics on the 362 paragraph; no
+input_fields change needed, `input_data` is already one). Opt-in proven empirically (absent
+field renders zero markers, full-template parse+render proof both ways); seed dry-run against
+the live row with ROLLBACK: guard passed, UPDATE 1, verify passed; drift guard induced.
+Application gated on the verdict. On a live recompose run proving the field: retire the prose
+escape's load-bearing status (follow-up seed), update the LANDMINES entry and this file.

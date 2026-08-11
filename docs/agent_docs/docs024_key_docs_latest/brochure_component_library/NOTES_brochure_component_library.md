@@ -5581,3 +5581,21 @@ Sweep front flagged in its handoff (phantom pages re-planned; one auto-built + d
 owner decision requested. `bugs_open/151` carries the measured-done note (stays in
 bugs_open per the 08-06 ruling). **Next for this lane: the `features_open/012` round
 (scheduled by ruling 2), then the two small seeds (commitments clause; guidelines corpus).**
+
+### 2026-08-11 (afternoon) — the 012 round built and SUBMITTED (corr `62d2463f`)
+
+The scheduled field-based fix, one config seed (`sql_for_agents/385_...recompose_pages_visible.sql`),
+derived byte-exact from the live row (19,685 B — matches the recorded post-362 size, no drift).
+Design proven before submission, all empirical: Go text/template treats absent deep chains as
+falsy (tested against RenderPromptTemplate's exact construction — plain Parse, no missingkey,
+its four funcs); the FULL post-seed template (20,445 B) parses and renders both ways — one
+marked row when flagged, zero markers and no `<no value>` in every absent shape (no spec, no
+key, `[]`, no input_data). Blast radius: 1 active planner row; 0 historical recompose items;
+0 RECOMPOSE_INTENT rows; the other existing_pages consumer (content-gap-planner) lists pages
+only and is untouched by the row-scoped UPDATE — named in the submission per ruling 3.
+Guards induced (drift guard fires on a mutated anchor) and the whole seed dry-run against the
+live row inside BEGIN..ROLLBACK (guard passed, UPDATE 1, verify incl. exact length passed).
+**Submitted with FORCE=1** — the path filter reads a pure-seed round as docs, but the edited
+artefact is the live agent_definitions row; precedent rounds carried seeds in-scope only via
+accompanying Go edits. Reason stated in the rationale, not hidden. **Apply is gated on the
+verdict** (field unused fleet-wide, so waiting costs nothing). Budget ~30 min for the round.
