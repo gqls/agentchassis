@@ -28054,3 +28054,9 @@ intent is unimplemented and warns against the exact confusion I made.
 
 **Cost.** Caught before the code shipped in a rolled image (it is in `v1.0.1285`, built but
 not deployed). Corrected in the code comment, the message, and the round-4 submission.
+
+## 2026-08-11 — named a tool as the safe propagation path; the same-morning landmine said it silently reverts a live migration
+- **the claim:** council submission corr `d1e8c36e` (brochure lane, seeds 386/387): "council-gate follows via 099_SYNC_gate_roster.py per CLAUDE.md ... the two rosters cannot drift from this seed."
+- **what caught it:** the council's editquality seat (gating HIGH), quoting the LANDMINES entry added hours earlier: `099 --apply` regenerates all 17 gate seats through a pre-377 transform and silently reverts the cache-breakpoint hoist.
+- **the cheap check skipped:** `grep -n "099_SYNC\|gate_roster" docs/agent_docs/docs024_key_docs_latest/LANDMINES.md` before writing a rationale that names the tool — the exact "grep LANDMINES for the SYMBOL you are about to trust" rule already in my memory index. The SessionStart hook cannot catch it: it matches DIRTY FILES, and the landmine's footprint is a script I never edited.
+- **cost:** one council round-trip (REVISE + resubmission).

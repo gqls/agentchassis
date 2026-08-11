@@ -5613,3 +5613,24 @@ passed, UPDATE 1, verify passed. FORCE=1 again (pure-seed round), reason in the 
 **Apply gated on the verdict; after applying 387, run
 `099_SYNC_gate_roster.py` (dry, then `--apply`) and re-verify both rosters.**
 Two rounds now in flight for this lane: 012/seed 385 (corr `62d2463f`) and this one.
+
+### 2026-08-11 (evening) — seeds round REVISE, and the catch was mine to own; answered same-session and RESUBMITTED
+
+The 386+387 round came back REVISE (gated HIGH, editquality): my rationale deferred the
+council-gate half to `099_SYNC_gate_roster.py` and claimed "the rosters cannot drift" —
+**without grepping LANDMINES for the symbol I was about to trust** (my own standing memory
+rule, walked past). The landmine had been added THE SAME MORNING by the council_gate_cost
+lane: 099 --apply regenerates all 17 gate seats through a transform that predates migration
+377 and silently reverts the cache-breakpoint hoist (68% measured saving). Five seats also
+raised the dual-active-row landmine against the anchored UPDATEs (their own checks measured
+1 active row per target — but a measurement is not a guard).
+
+Answered with shipped changes: **seed 388** — the gate half as a surgical anchored insert in
+the 383 pattern (guards: 1-active-row, not-applied, anchor-count-1, breakpoint PRESENT,
+breakpoint BEFORE anchor; verify: rule present + breakpoint still at char 174 + post-length
+8,732; measured pre-write: anchor 2015 / breakpoint 174 / gate seat = fix-proposer +37 chars,
+377's own arithmetic). **All three seeds** now carry an apply-time dual-active-row refusal
+guard. 387's header rewritten (the "cannot drift" claim withdrawn; 388 named as the mirror).
+All three re-dry-run with ROLLBACK: clean. Resubmitted with `RESUBMIT_CORR=d1e8c36e` —
+the trail accumulates. WRONG_CALLS-worthy: the cheap check that would have caught it is
+`grep -n "099_SYNC" LANDMINES.md` before writing the rationale; logged there.

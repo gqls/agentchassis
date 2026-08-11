@@ -1,5 +1,5 @@
 -- 387 - council guidelines seat: the nested-contract ruling becomes seat-visible
--- (fix-proposer seat; council-gate follows via 099_SYNC_gate_roster.py; DECISIONS_2026-08-11 ruling 3's "still owed" half).
+-- (fix-proposer seat; council-gate follows via SEED 388, not the 099 mirror; DECISIONS_2026-08-11 ruling 3's "still owed" half).
 --
 -- Why: the 2026-08-11 owner ruling resolved the guidelines seat's own flagged
 -- ambiguity (corr a06ff850) - nested additions to a declared object input are
@@ -9,8 +9,12 @@
 -- CONTRACTS rule it refines, by anchored replacement (never a whole-prompt
 -- rewrite - that is one drift behind live the moment it is written).
 --
--- CLAUDE.md: seat fix-proposer, then run the 099 mirror - never hand-patch the
--- gate. This file's council-gate half is applied BY THE MIRROR, not by hand.
+-- COUNCIL-GATE HALF: seed 388, a surgical anchored insert in the 383 pattern -
+-- NOT 099_SYNC_gate_roster.py. LANDMINE 2026-08-11: 099 --apply silently
+-- REVERTS migration 377 (its transform predates the cache-breakpoint hoist),
+-- so the CLAUDE.md mirror rule's documented exception applies until 099 is
+-- taught 377. Apply 387 then 388 in the same session; their clauses are
+-- byte-identical, which is what keeps the rosters in agreement this round.
 
 BEGIN;
 
@@ -30,6 +34,15 @@ BEGIN
       AND COALESCE(is_snapshot, false) = false AND deleted_at IS NULL;
     IF t IS NULL THEN
         RAISE EXCEPTION '387: fix-proposer review_guidelines prompt_template not found';
+    END IF;
+    -- Dual-active-row landmine guard (council round d1e8c36e objection): four
+    -- agent types carry TWO active rows and only the higher version loads.
+    -- Refuse unless fix-proposer has EXACTLY ONE active non-snapshot row, so
+    -- "UPDATE 1 + verify passed" cannot describe a row the loader never reads.
+    IF (SELECT count(*) FROM agent_definitions
+         WHERE type = 'fix-proposer' AND is_active
+           AND COALESCE(is_snapshot, false) = false AND deleted_at IS NULL) <> 1 THEN
+        RAISE EXCEPTION '387: fix-proposer does not have exactly one active row - resolve the duplicate before seeding';
     END IF;
     IF position('NESTED-FIELD ADDITIONS' in t) > 0 THEN
         RAISE EXCEPTION '387: already applied on fix-proposer';

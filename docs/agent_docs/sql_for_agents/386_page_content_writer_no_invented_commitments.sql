@@ -40,6 +40,15 @@ BEGIN
     IF t IS NULL THEN
         RAISE EXCEPTION '386: page-content-writer nested prompt_template not found';
     END IF;
+    -- Dual-active-row landmine guard (council round d1e8c36e objection): four
+    -- agent types carry TWO active rows and only the higher version loads.
+    -- Refuse unless page-content-writer has EXACTLY ONE active non-snapshot row, so
+    -- "UPDATE 1 + verify passed" cannot describe a row the loader never reads.
+    IF (SELECT count(*) FROM agent_definitions
+         WHERE type = 'page-content-writer' AND is_active
+           AND COALESCE(is_snapshot, false) = false AND deleted_at IS NULL) <> 1 THEN
+        RAISE EXCEPTION '386: page-content-writer does not have exactly one active row - resolve the duplicate before seeding';
+    END IF;
     IF position('invent commitments' in t) > 0 THEN
         RAISE EXCEPTION '386: already applied - the commitments ban is present';
     END IF;
