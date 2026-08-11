@@ -1,5 +1,67 @@
 # 244 — The council gate sends 15 near-identical 106k-token prompts per round, uses no prompt caching, and orders the prompt so caching could not work if it were switched on
 
+> # ✅ FIXED AND LIVE — 2026-08-10 evening, by another session, ~2 hours after this was filed
+>
+> **Do not build this fix. It exists.** Kept in `bugs_open/` per the owner ruling of 2026-08-06
+> (a finished bug stays here), and left open only for the adoption gap in §8.
+>
+> - `3d6851d9b` **perf(aiservice)** — opt-in `cache_control` breakpoint on the shared Anthropic
+>   client + the counters that make it falsifiable (migration 376 added
+>   `cache_creation_input_tokens` / `cache_read_input_tokens` to `llm_call_log`).
+> - `071adc44c` **perf(council-gate)** — hoisted the shared prefix in all 17 seats. Went through
+>   the council gate itself; the edit-quality seat caught a real defect on the way (the marker
+>   leaking into the prompt as content, correlation `b54f173e`).
+>
+> **Design is better than what §4 proposed.** Rather than a parameter, the split is a marker
+> (`<!--CACHE_BREAKPOINT-->`, `platform/aiservice/anthropic.go:125`) placed **in the DB-held
+> template**, so the shared/varying boundary lives where it is actually authored and visible to a
+> reviewer. **Opt-in by construction** per the owner ruling of 2026-08-02 §2 (RFC_010): this client
+> is the seam every agent calls, so the unsafe default is OFF — a caller that has never heard of
+> caching runs the identical code path as before, byte for byte.
+>
+> ## Measured on live traffic, 2026-08-11 [MEASURED]
+>
+> | per council round | before | after |
+> |---|---|---|
+> | full-price input tokens | **806,024** | **127,783** |
+> | cache reads | 0 | **973,554** |
+> | cache writes | 0 | **93,333** |
+> | rounds in sample | 221 | 17 |
+>
+> Effective cost (reads 0.1×, writes 1.25×): **806,024 → ~341,800 full-price-equivalent, a ~58%
+> reduction per round.** Total prompt volume per round actually *rose* ~37% over the sample, so
+> **per token of prompt the cost fell ~69%.** Cache hit rate on read-eligible seats: **157 of 170
+> = 92.4%**; seat 1 writes (17 calls, 15 writes, 0 reads) exactly as designed.
+>
+> ## Two things this file got WRONG, both corrected by the measurement
+>
+> 1. **My "≈76% reduction" was optimistic.** Real figure is ~58% per round / ~69% per token. I
+>    assumed only ~22,500 tokens per round would remain unshared; the true residue is ~127,783.
+>    The estimate was directionally right and quantitatively loose — **it was arithmetic on a
+>    measured input, never an observed bill, and it read as more precise than it was.**
+> 2. **My `ttl: "1h"` recommendation was unnecessary, and the implementer was right to omit it.**
+>    I reasoned that rounds run 459s mean / 1022s max, so a 5-minute TTL would expire mid-round.
+>    `cacheTTL = ""` (no field ⇒ 5-minute default) and the data **refutes my concern**: seats
+>    landing *past* 5 minutes have a **higher** hit rate (75/82 = 91%) than seats within it
+>    (82/105 = 78%, and the misses there are the writing seat). Reads keep the entry alive, so
+>    elapsed round time is not the variable I thought it was. The code comment invites exactly this
+>    evidence-led check before adding a TTL — **that check has now been run, and the answer is
+>    "leave it".**
+>
+> ## §8 — what is genuinely still open: ADOPTION
+>
+> The marker is opt-in, and **only `council-gate` has adopted it — 17 steps, zero other agent
+> types** [MEASURED 2026-08-11]:
+> ```sql
+> SELECT type, count(*) FROM agent_definitions, jsonb_each(default_config->'workflow'->'steps') AS s(n, step)
+> WHERE is_active AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL
+>   AND step::text LIKE '%CACHE_BREAKPOINT%' GROUP BY 1;
+> ```
+> That is the right first target (council was 87.8% of spend), but `page-content-writer` was 7.1%
+> and others follow. **Before adopting a template, check it actually has a stable prefix** — the
+> whole mechanism is a prefix match, so a per-call name, timestamp or id above the marker silently
+> costs the write and never reads.
+
 **Filed 2026-08-10 by the `bugfix_168_deployed_asset_path` lane**, after the fleet's
 Anthropic API usage limit was exhausted at **14:51:47Z on the 10th of the month**, with the
 stated reset **2026-09-01 00:00 UTC**.

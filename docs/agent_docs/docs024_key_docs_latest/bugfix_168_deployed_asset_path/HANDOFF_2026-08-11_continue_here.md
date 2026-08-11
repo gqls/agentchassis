@@ -8,6 +8,25 @@ now opens with two correction banners; its §1–§4 reference material still ho
 
 ---
 
+> ## ✅ UPDATE, later on 2026-08-11 — `bugs_open/244` IS ALREADY FIXED AND LIVE. DO NOT BUILD IT.
+>
+> Another session shipped both halves on 08-10 evening, ~2 hours after I filed it: `3d6851d9b`
+> (opt-in `cache_control` breakpoint on the shared client + the `llm_call_log` counters, migration
+> 376) and `071adc44c` (shared prefix hoisted in all 17 council seats). **I nearly rebuilt it** —
+> my grep was a day old on a tree that moves fast, and the owner stopped me.
+>
+> **Measured live:** full-price input per council round **806,024 → 127,783**, with 973,554 cache
+> reads and 93,333 writes ⇒ **~58% cheaper per round, ~69% cheaper per token**; hit rate **157/170
+> = 92.4%** on read-eligible seats.
+>
+> **Two of my recommendations were wrong and are corrected in `244`:** the "≈76%" was optimistic
+> (real ~58%), and `ttl: "1h"` was unnecessary — the data refutes my TTL concern, because reads
+> keep the entry alive and seats past 5 minutes hit *more* often, not less.
+>
+> **Still open in `244`: adoption.** Only `council-gate` carries the marker (17 steps, no other
+> agent type). That changes §0 below — a resubmitted round now costs ~58% less than the ~1.6M
+> figure quoted there.
+
 ## 0. THE ONE OPEN ITEM — council round 4, deliberately NOT resubmitted
 
 Round 4 died on infrastructure, not on content (see §2). The council is available again, so it
