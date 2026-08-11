@@ -338,3 +338,55 @@ to over-read: a low rate has two causes with opposite implications — a seat
 that rubber-stamps, or a seat guarding something that rarely goes wrong and
 matters enormously when it does. Counts alone cannot separate them, and
 `mission` at 1-in-494 could be either.
+
+## 2026-08-11 — FROM ANOTHER LANE: `099_SYNC_gate_roster.py --apply` will revert 377 and kill your caching
+
+Left here by the `bugfix_223_index_answerability` lane, implementing the RFC_022 owner
+ruling. **This is not a problem with 377 — 377 is intact and working. It is a live tripwire
+under it, and you are the lane that will care most.**
+
+**What I found.** RFC_022's ruling needed one line added to the `architecture` seat's prompt
+in both rosters. CLAUDE.md's instruction for any seat change is: migrate `fix-proposer`, then
+run `099_SYNC_gate_roster.py --apply` to mirror into `council-gate`, and **do not hand-patch
+the gate**. I ran the dry run first. It reported:
+
+```
+added:   (none)
+removed: (none)
+drift (steps that would change): [all 17 review_* steps]
+```
+
+That reads as "the gate has drifted badly, mirror it". **It means the opposite.** `099`'s
+`transform_step` predates 377: it rebuilds each gate prompt from `fix-proposer` in the
+**pre-hoist** order, with no `<!--CACHE_BREAKPOINT-->`. So `--apply` would have put the
+shared evidence block back into the middle of all 17 templates and dropped the marker —
+reverting your change and, because Anthropic caching is a **prefix** match, taking the
+measured **68%** saving with it.
+
+**How I confirmed it rather than assuming.** Diffed one seat nobody had touched
+(`review_mission`) between the two rosters: the only difference was 377's hoist — the block
+moved to the top plus the marker. And every untouched gate seat is **exactly +37 chars**
+against its `fix-proposer` twin, which is the marker plus two newlines. That is 377's own
+arithmetic, not divergence. So the "drift" the script reports is entirely your change.
+
+**What I did instead.** `381` migrates `fix-proposer` as normal; `383` mirrors the identical
+clause into `council-gate` as a **surgical insert at a verbatim anchor**, deliberately
+hand-written rather than mirrored. It is guarded so it cannot do to you what the mirror
+would: it aborts if the marker is absent, if the anchor precedes the marker, if the marker
+**moves**, or if the shared prefix **fragments**. The anchor sits at char 1103 and the marker
+at 174, so the cached prefix was never touched. Post-state asserted across all 17 seats and
+verified afterwards from the rows: **17 seats marked, 1 distinct prefix.**
+
+**What is yours to decide, and why I have not done it.** The real fix is to teach `099` about
+377 — hoist-and-mark inside `transform_step`, so the mirror produces the cached ordering and
+the drift report goes quiet. I have not written that, because it is your mechanism, the
+correct shape depends on whether the hoist should live in the script or be re-derived from
+377's own block definition, and a wrong guess here silently stops the caching paying while
+every seat still looks correctly marked. **Until then `099 --apply` is suspended** in
+CLAUDE.md and filed in `LANDMINES.md` (footprint `099_SYNC_gate_roster.py`) with the health
+check above.
+
+**One thing worth carrying into your own docs:** *every seat still carries a marker* is NOT
+the health check. A fragmented prefix passes that test and pays nothing. The count that
+discriminates is `count(DISTINCT md5(split_part(prompt,'<!--CACHE_BREAKPOINT-->',1)))` — it
+must be **1**.

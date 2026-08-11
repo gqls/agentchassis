@@ -604,3 +604,28 @@ code rather than of its own corpus.
 > mechanism above is first-hand verified, but "what the caveat should say and where it
 > should be computed" is a change to a shared seam and belongs in a `090` round, not in a
 > NOTES paragraph at the end of an acceptance. Recorded as a follow-up, not a diagnosis.
+
+#### [MEASURED] The owner pushed the branch, and the staleness mechanism is now proven both ways
+
+The push landed mid-session (remote tip `286884b65`, phase 2's source on it, 2 commits
+behind local). Re-indexed against it and re-fired **the same entry**, so this is a
+controlled before/after on the *staleness* claim specifically — nothing changed but which
+commit the corpus had seen:
+
+| | 10:00Z, index at `5a68d6caf` | 10:19Z, index at `286884b65` |
+|---|---|---|
+| verdict | `NEEDS_HUMAN_REVIEW` | **`STILL_VALID`** |
+| the reason | "`ValueDef` type, `valueDefs` identifier … **are of kinds not indexed**" | "the analyser files and types (`ValueDef`, `valueDefs`, `token.VAR`/`token.CONST` arm) **are present**" |
+| evidence line | 5 of 10 matched, **2 NOT ANSWERABLE**, 3 matched nothing | **9 of 10 matched, 0 NOT ANSWERABLE**, 1 matched nothing |
+
+And directly in the corpus: `ValueDef | struct | internal/analysis/types.go`,
+`valueDefs | func | internal/analysis/analyse.go`. **A `struct` and a `func` — the two
+best-represented kinds in the index.** The earlier "of kinds not indexed" was a manufactured
+reason, exactly as claimed, and the one thing the verifier still cannot check
+(`uq_code_symbols_identity`, an SQL constraint name) it now names honestly.
+
+This **strengthens** the finding rather than closing it. The gap was real, it produced a
+false explanation, and the only thing that fixed it was a human happening to push. Nothing in
+the lookup reported the staleness at the time, and nothing reports it now — the caveat still
+says only `kinds with NO rows: type`. **The remedy is still unbuilt and still belongs in a
+`090` round.** The landmine stands.
