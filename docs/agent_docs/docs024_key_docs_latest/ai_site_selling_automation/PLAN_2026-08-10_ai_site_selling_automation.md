@@ -41,6 +41,57 @@ framework-only builds, static-first + skip-list, isolation deferred to P3 with
 its named trigger, pricing (£1,200 / £75 deposit / 2 rounds / 14 days),
 P0–P7 sequencing.
 
+> **CORRECTED 2026-08-11: the pricing ruling above is SUPERSEDED** — see §1b.
+> £1,200/£75-deposit/2-rounds/14-days is replaced by the £149 queue model.
+> The live webdesign.uk copy and chat bot still carry the old model
+> everywhere; migrating them is a named task, not an accident to leave.
+
+## 1b. Owner rulings — 2026-08-11 (answers to the four open decisions)
+
+1. **Stripe surface: build out `auth-service/subscription`** ("set up the
+   subscription service even if we don't use it to start with"). The idea.uk
+   port loses. Vouchers (below) belong to this surface.
+2. **Pricing: £149 all-in per site, queue-limited — SUPERSEDES £1,200.**
+   A visible queue with a rough wait-time note; queue full (start at 3–4
+   sites) → submissions close. **Voucher codes** the owner can hand out:
+   one discounting to **£10 all-in**, another to **£55**. **No refunds. One
+   set of changes included** — in future agent-driven, not human.
+   *Open details for the build (owner has NOT ruled):* when payment is taken
+   (at submission, gating the queue, vs at preview-acceptance — the live
+   site currently promises "you only pay if you like it", which the
+   no-refunds model strains); where the queue counter lives; whether
+   vouchers are single-use.
+3. **Chat: brought INTO the framework** — framework-originated (seeded and
+   built like everything else), may still be deployed on the box. The bot's
+   knowledge must come from the framework (what we can actually build),
+   replacing the hand-maintained `systemPromptFacts` Go constant (the known
+   trap 3.1(b) of the start-here handoff). Later: the chat offers services
+   independent of a build — palette choice, layout choice, logo upload.
+4. **Customer domains: customers keep their own DNS.** Deliverable =
+   private preview + a downloadable ZIP of the completed site they host
+   themselves. Paid extras, clearly optional: hosting by us, manual domain
+   transfer; otherwise recommend a third-party host. Be explicit up front
+   about what they get. The owner is open to a foolproof "we do DNS" shape
+   (e.g. our own nameserver) but will NOT take responsibility for breaking
+   their email — note: NS delegation takes over ALL records including MX,
+   so the safer middle options are (a) hand them exactly two records to add
+   at their registrar, or (b) Cloudflare zone onboarding, which imports
+   existing records (incl. MX) before the cutover. To evaluate, not ruled.
+   **Registrar credentials state (verified 2026-08-11):** Nominet EPP
+   *password* held; still owed: the **TAG name** (the username matching that
+   password) and the five fixed cluster IPs added to Nominet's EPP allowlist
+   (134.213.168.26/.37/.44/.54/.56 — the office IP rotates and has already
+   gone stale once). Three registrar keys: later, owner-confirmed.
+5. **The domain/hosting FAQ must change** to match ruling 4. Located:
+   `/faq.html`, FAQ component `edfecdf2-c25a-4bbd-90c1-c26e644d86cf`,
+   question "What about the domain and hosting?" — current answer says "We
+   handle the setup as part of getting the site live". Content changes go
+   through the framework (owner ruling 2026-08-04), and the old-price/old-
+   promise copy fleet ("£1,200", "before any money changes hands") spans at
+   least index/faq/what-you-get — a coordinated content migration, with a
+   banned-claims-style sweep for the retired figures (the bugfix-161 lesson:
+   correcting the source does not arm detection).
+
 ## 2. Design
 
 ### 2.1 Client DB — extend `clients` [DONE 2026-08-10: migration 375 LIVE]

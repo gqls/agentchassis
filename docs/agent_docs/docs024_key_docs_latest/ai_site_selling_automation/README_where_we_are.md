@@ -70,3 +70,23 @@ domain switch-over gets your review and the dispatch bug is fixed. The
 decisions still needing you are listed at the end of tonight's handoff:
 which payment plumbing to grow, whether manual-only refunds stay acceptable,
 where the chat service lives long-term, and who registers customers' domains.
+
+**11 Aug 2026.** The advisory review of last night's platform change came back
+approved unanimously on the first round, so that work is fully closed out. You
+made the four outstanding decisions: we'll build out the subscription service
+that's already half-present in the platform (even if it idles at first); the
+price becomes £149 all-in with a small visible queue (3–4 slots, rough wait
+time shown, closed when full) plus voucher codes you can hand out for £10 and
+£55 sites; the chat gets rebuilt properly inside the framework so it knows
+what we can actually build, and can later sell smaller things on its own; and
+customers keep their own domain and DNS — they get a preview and a ZIP of
+their finished site to host wherever they like, with hosting by us as a
+clearly optional paid extra. No refunds, one round of changes. Worth saying
+plainly: the £149 model contradicts most of what the live site currently
+promises (£1,200, "you only pay if you like it", "we handle domain and
+hosting"), so the site's copy, the FAQ answer about domains, and the chat
+bot's price line all need changing together — that's the first job of the
+next session, alongside deciding exactly when the £149 is taken. On Nominet:
+we have the password you gave us, but still need the TAG name (the username
+that goes with it) and the five server addresses added to the allowlist —
+the registrar keys can wait, as you said.

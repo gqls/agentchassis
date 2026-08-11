@@ -120,3 +120,32 @@ session, untouched by this lane.
   098 forever; this NOTES entry + the verdict note are the audit trail. Do
   NOT stick the corr as a trailer on an unrelated docs commit — the trailer
   binds to the commit it is on.
+
+## 2026-08-11 — council APPROVED; four owner rulings land; EPP + FAQ facts grounded
+
+- **Council verdict for `371f8b7d-0835-4879-b48f-ad0176bf2058`: APPROVED,
+  round 1, all reviewers** (orchestration `complete_approved|COMPLETED`;
+  verdict note in doc_notes, full report in diagnosis_artifacts under the
+  corr). `fe6b99d05` still predates the corr — the 098 gap stands as
+  recorded; nothing to amend, nothing further owed on that change.
+- **Owner ruled the four open decisions** — recorded authoritatively in PLAN
+  §1b (subscription service builds out; £149 queue model SUPERSEDES £1,200;
+  chat into the framework; customers keep their own DNS, ZIP delivery,
+  no refunds). §1b also lists the sub-questions the owner has NOT ruled
+  (payment timing vs the live "only pay if you like it" promise; queue home;
+  voucher single-use).
+- **EPP question answered by measurement, not memory**: the domains lane
+  RUNBOOK lists Nominet credentials PENDING; its README (owner's own doc,
+  2026-08-04 entry) says the *password* was provided, the **TAG name is
+  still owed**, and the allowlist must move to the five fixed cluster IPs
+  because the office IP already rotated stale once.
+- **FAQ target located live**: `/faq.html` component
+  `edfecdf2-c25a-4bbd-90c1-c26e644d86cf`, Q "What about the domain and
+  hosting?", A begins "…We handle the setup as part of getting the site
+  live" — contradicts ruling 4; and the £1,200 copy footprint spans at least
+  index (hero subheadline, pricing block, FAQ block), faq, what-you-get,
+  plus the chat bot's facts (it quoted "£1,200, paid once" in last night's
+  live check). The webdesign.uk pages are the SIBLING lane's build — check
+  live sessions before editing; content changes go through the framework.
+- Handoff superseded: `HANDOFF_2026-08-11_continue_here.md` replaces 08-10b
+  as the cold-start.
