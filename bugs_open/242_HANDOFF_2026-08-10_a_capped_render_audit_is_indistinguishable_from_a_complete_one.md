@@ -220,3 +220,22 @@ its durable result — plus an `agenterrors` `RENDER_AUDIT_TRUNCATED` row before
 (the RFC_012-B door), plus candidate 3 as mitigation (rotation `max_pages` 25 → 60 by
 migration). Candidate 4 is out of scope by owner ruling, exactly as §5 suspected it
 would be.
+
+## 2026-08-11 STATUS — fix COMMITTED (502b6c194) + migration APPLIED; awaiting roll and council verdict
+
+- Code: request carries `pages_total`/`truncated` → adapter echoes into `summary` →
+  `findings_written` stamps them; `RENDER_AUDIT_TRUNCATED` `agent_error_log` row lands
+  BEFORE dispatch (order mutation-tested). All additive/omitempty — old consumers and
+  version skew see today's shape. Inert until the next CHASSIS and BROWSER-RUNNER images
+  roll (the render-audit pod runs the browser-runner image).
+- Migration 392 (rotation `max_pages` 25 → 60): **applied and verified live 2026-08-11**
+  (read back 60), recorded in the runner ledger. Takes effect on the next rotation fire —
+  so the next weekly sweep of the two known truncated sites is already complete-by-cap
+  even before the image rolls; the honesty fields need the roll.
+- Council: `Council-Submitted: 700da63e-6c39-4617-ace8-4e450addd472` (verdict to be read
+  and recorded here).
+- CLOSE CRITERION (per §7): a post-roll rotation run against a site whose page count
+  exceeds the configured cap must show `summary.pages_total > summary.pages` with
+  `truncated: true`, the stamp in `findings_written`, and the `agent_error_log` row. With
+  the cap at 60 nothing currently exceeds it — force the case with a step-config
+  `max_pages` below the site's page count, per the lane RUNBOOK.

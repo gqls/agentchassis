@@ -22,3 +22,11 @@ itself is raised from 25 to 60 so no current site is actually cut short — the 
 machinery is for the day one grows past it.
 
 Next: implement, test, put it through the review council, commit for the next build.
+
+2026-08-11 (later) — The fix is written, tested and committed, and the review council has
+it. One nice piece of rigour: we didn't just test that the permanent log entry gets
+written, we deliberately broke the code (moved the write to after the send) and watched
+the test catch it, then put it back. The page limit is already raised from 25 to 60 on the
+live system — that part took effect immediately, so next week's sweeps will cover every
+page of every current site. The "say so when cut short" machinery rides the next software
+release. Waiting on the council's verdict; if it asks for changes we'll make them.
