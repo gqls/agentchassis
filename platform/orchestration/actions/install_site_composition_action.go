@@ -45,6 +45,16 @@
 //     `previous_collection_id`; that is the rollback value and the only record
 //     of it, since the UPDATE overwrites the column in place.
 //
+//     TWO SOURCES, checked in this order, both defaulting to false:
+//       1. the step's own config        — an AGENT-DEFINITION edit, so it applies
+//                                         to EVERY install this agent performs
+//       2. the work item's `spec`       — PER-REQUEST; one dispatch opts in and
+//                                         nobody else's behaviour changes
+//     Prefer (2). (1) exists for a workflow whose every install is a re-install,
+//     and there is no such workflow today. Setting (1) on site-design-planner
+//     would turn re-install on fleet-wide, which is what this flag exists to
+//     prevent — see council b8e341b9 round 1, and `bugs_open/113`.
+//
 // The resolver outputs carried in collected_data also contribute to the
 // resolved_composition spec's lineage block. Read by path:
 //   - composition_palette.source    (e.g. "design_reference")
@@ -167,11 +177,32 @@ func InstallSiteCompositionAction(ctx context.Context, params ActionParams) (int
 	// NOT switch the unsafe direction on — it warns and falls back to false.
 	// For a flag whose permissive branch replaces a live site's stylesheet,
 	// "we could not parse it" must mean "do not do it".
+	//
+	// TWO SOURCES, and the second is the one that makes this usable (council
+	// b8e341b9, round 1, editquality: "safe but inert"). Step config alone is
+	// an AGENT-DEFINITION edit, so switching it on there turns re-install on for
+	// EVERY composition install fleet-wide — the exact unsafe-default-ON state
+	// this flag exists to prevent. Reading it per-request as well lets ONE
+	// work item opt in and changes nobody else's behaviour.
+	//
+	// Both default false and both go through the loud reader, so the widest
+	// branch still needs a well-formed, deliberate `true` from someone.
 	allowReinstall := datahelpers.GetBoolFieldLoud(
 		params.StepConfig.Config, "allow_reinstall", false, logger,
 		zap.String("action", "install_site_composition"),
+		zap.String("source", "step_config"),
 		zap.String("site_id", siteID.String()),
 	)
+	if !allowReinstall {
+		if spec := requestSpecFromCollected(params.CollectedData); spec != nil {
+			allowReinstall = datahelpers.GetBoolFieldLoud(
+				spec, "allow_reinstall", false, logger,
+				zap.String("action", "install_site_composition"),
+				zap.String("source", "work_item_spec"),
+				zap.String("site_id", siteID.String()),
+			)
+		}
+	}
 
 	// Idempotency guard. A site that already has a collection is only
 	// re-composed when the CALLER has explicitly asked for it.
@@ -627,4 +658,36 @@ func readTypographyNameInTx(ctx context.Context, tx *sql.Tx, id uuid.UUID) (stri
 	var name string
 	err := tx.QueryRowContext(ctx, `SELECT name FROM typography_sets WHERE id = $1`, id).Scan(&name)
 	return name, err
+}
+
+// requestSpecFromCollected returns the dispatching work item's `spec` object
+// from collected_data, or nil when there isn't one.
+//
+// Why this exists rather than a path in the step's config: the config map is
+// resolved as PATH REFERENCES into collected_data, so an author cannot put a
+// literal switch there without it being read as a lookup. The work item's spec
+// is the per-request channel, and it is the only one a single dispatch can set.
+//
+// Shape, in the order the dispatch loop actually produces it:
+//
+//	collected_data.input_data.spec        — the usual one
+//	collected_data.input_data.body.spec   — when the request arrived wrapped
+//
+// Returns nil rather than an empty map so the caller can tell "no spec" from
+// "a spec that says nothing"; both are treated as "did not ask", but only the
+// second is worth a reader's attention.
+func requestSpecFromCollected(collected map[string]interface{}) map[string]interface{} {
+	inputData, ok := collected["input_data"].(map[string]interface{})
+	if !ok {
+		return nil
+	}
+	if spec, ok := inputData["spec"].(map[string]interface{}); ok {
+		return spec
+	}
+	if body, ok := inputData["body"].(map[string]interface{}); ok {
+		if spec, ok := body["spec"].(map[string]interface{}); ok {
+			return spec
+		}
+	}
+	return nil
 }

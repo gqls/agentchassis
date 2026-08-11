@@ -65,6 +65,14 @@ const (
 // to the step config exactly as a workflow author would set it.
 func reinstallParams(t *testing.T, allowReinstall interface{}) (ActionParams, sqlmock.Sqlmock, func()) {
 	t.Helper()
+	return reinstallParamsFrom(t, allowReinstall, nil)
+}
+
+// reinstallParamsFrom is the same, but lets a test put the flag in the dispatching
+// work item's spec (the PER-REQUEST channel) instead of the step config.
+func reinstallParamsFrom(t *testing.T, stepCfgFlag interface{}, specFlag interface{}) (ActionParams, sqlmock.Sqlmock, func()) {
+	t.Helper()
+	allowReinstall := stepCfgFlag
 
 	db, mock, err := sqlmock.New()
 	if err != nil {
@@ -86,6 +94,12 @@ func reinstallParams(t *testing.T, allowReinstall interface{}) (ActionParams, sq
 		"selected_palette_id":        reinstallTestPaletteID,
 		"selected_layout_id":         reinstallTestLayoutID,
 		"selected_typography_set_id": reinstallTestTypoID,
+	}
+	// The per-request channel: the dispatching work item's spec.
+	if specFlag != nil {
+		collected["input_data"] = map[string]interface{}{
+			"spec": map[string]interface{}{"allow_reinstall": specFlag},
+		}
 	}
 	// The switch is an author literal and lives in step config.
 	// Absent means absent: the default-OFF case must not carry the key at all,
@@ -158,5 +172,34 @@ func TestInstallSiteComposition_MalformedFlagDoesNotEnableReinstall(t *testing.T
 	if err == nil || !strings.Contains(err.Error(), "re-resolve not requested") {
 		t.Fatalf(`a non-bool allow_reinstall="true" enabled the reinstall path; `+
 			`a malformed declaration must fall back to the SAFE branch, got: %v`, err)
+	}
+}
+
+// D — THE OBJECTION THE COUNCIL RAISED. Step config alone is an agent-definition
+// edit, so it turns re-install on for EVERY composition install fleet-wide. The
+// work item's spec is the only channel a SINGLE dispatch can set, and without it
+// the flag cannot repair one site — which is the case it was built for.
+func TestInstallSiteComposition_AllowReinstallFromWorkItemSpec(t *testing.T) {
+	params, _, done := reinstallParamsFrom(t, nil, true)
+	defer done()
+
+	_, err := InstallSiteCompositionAction(context.Background(), params)
+	if err != nil && strings.Contains(err.Error(), "re-resolve not requested") {
+		t.Fatalf("allow_reinstall=true in the work item spec was ignored — the flag is "+
+			"then only settable fleet-wide, which is the state it exists to prevent: %v", err)
+	}
+}
+
+// E — the per-request channel must be exactly as strict as the step-config one.
+// A malformed value here would be the easier mistake to make, because a work item
+// spec is assembled by whatever queued it.
+func TestInstallSiteComposition_MalformedSpecFlagDoesNotEnableReinstall(t *testing.T) {
+	params, _, done := reinstallParamsFrom(t, nil, "yes")
+	defer done()
+
+	_, err := InstallSiteCompositionAction(context.Background(), params)
+	if err == nil || !strings.Contains(err.Error(), "re-resolve not requested") {
+		t.Fatalf(`a non-bool allow_reinstall="yes" in the work item spec enabled the `+
+			`reinstall path; it must fall back to the SAFE branch: %v`, err)
 	}
 }

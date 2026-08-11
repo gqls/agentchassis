@@ -730,3 +730,19 @@ deduplication begins; the "raw extractions" count above and the per-concept
 > `phantom_internal_link` 18 (content), `unbuilt_internal_link` 17 (content),
 > `image_url_404` 16 (design). The "do not enable a fleet-wide sweep" conclusion is
 > unchanged and, if anything, stronger.
+
+> **DES-082 UPDATE 2026-08-11 — the round-1 defect above is FIXED in code (not yet rolled).**
+> `allow_reinstall` is now read from **two** sources, both defaulting false and both through
+> `GetBoolFieldLoud`: the step's own config (an agent-definition edit, therefore fleet-wide)
+> **and the dispatching work item's `spec`** (per-request — one dispatch opts in, nobody
+> else changes). Step config is checked first; the spec is consulted only if it did not opt
+> in. **Prefer the per-request source**; setting it on `site-design-planner`'s step would
+> turn re-install on for every install, which is what the flag exists to prevent.
+> Helper `requestSpecFromCollected` resolves `input_data.spec` and the `input_data.body.spec`
+> wrapper. Two new tests, proven load-bearing by mutation (nil-ing the spec lookup fails the
+> per-request test **alone**). **`[UNMEASURED]`: I have not observed a live
+> `needs_composition` dispatch's `collected_data` shape — if it produces a third shape the
+> flag silently will not arrive, which fails SAFE but looks like a broken flag.**
+> **Live consumers, enumerated per RFC_022 rather than asserted (2026-08-11): `0` active
+> agent definitions and `0` work items name `allow_reinstall`.** Council round 2 submitted
+> under the same trail correlation `b8e341b9-…`.
