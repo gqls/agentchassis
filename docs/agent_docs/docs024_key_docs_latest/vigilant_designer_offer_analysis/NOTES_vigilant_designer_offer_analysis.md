@@ -742,3 +742,79 @@ win my own round, is exactly the move a lane should not make unilaterally. Owner
   with ALL-CAPS declarative headers and self-vindicating rhetoric". It is: I wrote
   "HISTORICAL RECORD, NOT FORWARD EDITS", "THE ROUND-2 GATING GAP, NOW CLOSED", "ROUND 1'S
   ACTUAL VERDICT". Persuasion styling, on a plan whose substance did not need it.
+
+## 2026-08-11 — the swallowed default arm is closed, and the fix is smaller than the design decision inside it
+
+**Picked up from HANDOFF_2026-08-10. State re-checked live before acting on any of it:**
+
+- The four open findings are unchanged and unrouted (`needs_strategy` ×3, `missing_conversion_path`
+  ×1, all `detected`, newest 2026-08-10 15:50Z). No new offer-track rows overnight — correct, the
+  rotation is on a 7-day cadence and the estate was fully stamped on 08-10.
+- **A carried watch-out is now STALE, and I checked rather than repeating it:**
+  the handoff says `TestEveryCheckProducedItemTypeIsClassified` fails at clean HEAD on
+  `decision_regression` (RFC_015 lane). It **PASSES** at this tree —
+  `75 check-produced item types across 106 files, 5 computed sites acknowledged`. Someone
+  fixed it between 08-10 and now. Removed from the handoff rather than carried a third time.
+
+**What I built (commit `0ceb27a40`, council corr `a46ff9a6-fcba-4ab4-a53d-130aae39f24b`):**
+the round-3 `bug_historian [medium]` objection, discharged. `check_revenue_shape`'s `default:`
+arm returned `&CheckResult{}` for any `primary_model` with no branch, and an empty result is
+**byte-identical downstream to "examined and found clean"** — same zero findings, same zero work
+items. It now files ONE undispatchable `capability_gap` under a new remit.go kind,
+`GapRuleMissing` (registered WII-014, and BIZ-031's "deliberate silence" clause corrected
+in place — it had become a false statement in our own register entry).
+
+**The design decision is the part worth carrying, and it is a REJECTION:**
+
+- The obvious version distinguishes *known-but-unruled* (`sponsored_listings`) from
+  *unrecognised* (a future model, a typo). That needs a Go-side set of known models.
+- **The authority for that vocabulary is the LIVE `domain-strategist` prompt**, not this repo.
+  [MEASURED 2026-08-11] the active non-snapshot row names exactly six —
+  `lead_generation, affiliate, display_advertising, sponsored_listings, direct_business,
+  saas_tools` (regexp over `default_config`; each appears twice, once in the rating list and
+  once in the JSON template, `affiliate` five times because it is named elsewhere too).
+- So a Go constant mirroring it is **authoritative-looking and permanently one config edit
+  behind** — the drift class this council exists to catch, and the same shape as the
+  `099_SYNC_gate_roster` trap. **No list.** A model is examined by HAVING A CASE; everything
+  else files. The runtime is the lockstep, and it needs no test that reads the database.
+- Cost of that choice, stated: the row cannot say *how* unknown the model is. Cheap, and the
+  spec carries the value verbatim so a reader can tell in one look.
+
+**Mutation matrix — both directions, because a passing test proves nothing on its own:**
+
+| mutation | test | result |
+|---|---|---|
+| restore `return &CheckResult{}, nil` in the default arm | `TestRevenueShape_ModelWithNoRuleFilesAGapNotSilence` | **FAILS** — "sponsored_listings: want exactly one capability_gap, got []" |
+| delete the `primary == ""` early return | `TestRevenueShape_EmptyPrimaryModelIsSilent` | **FAILS** — prints the gap row it should never have filed |
+| neither (control) | both | pass |
+
+The second row is the one I would have skipped. The **no-op case** — a site with no premise at
+all — must stay `check_premise_incomplete`'s finding, and the gap arm firing there would put two
+checks on one defect. Nothing about the change *looks* like it touches that path; the mutation is
+what says so.
+
+**A misstep in my own test, caught by writing the mutation down.** The test I replaced was
+`TestRevenueShape_SponsoredListingsSilenceIsADecision`, asserting **zero** work items. It would
+have passed identically if the `sponsored_listings` arm had never been thought about — **a quiet
+test cannot tell a decision from an omission**, which is the exact blindness the code had. It was
+written by this lane, in the same session as the code, and it read as diligence. Every assertion
+in the replacement is positive (row exists, `gap_kind` reads `rule_missing`, spec names the
+model, `status=deferred`, `handler_agent=''`, summary does not say "not registered", `Resolved`
+is empty). Logged in WRONG_CALLS.
+
+**`capabilityGapSummary` was committing the same defect in the file that DEFINES the kinds** —
+its `default:` arm emitted the handler-remit sentence for any unrecognised kind. `GapHandlerRemit`
+moved into an explicit case with **byte-identical text** (so no existing row's wording changes)
+and the default now names the `gap_kind` it could not summarise.
+
+**Blast radius, measured rather than argued:** [MEASURED 2026-08-11] `gap_kind` has **no
+automated consumer** — `grep -rn "gap_kind"` over `platform/ internal/ cmd/ scripts/
+sql_for_agents/` returns **exactly one non-test hit**, the WRITE at `remit.go:160`. The two
+readers of these rows (`diagnose_triage_action.go:361`, `fixloop_digest_action.go:358`) select on
+`item_type='capability_gap' OR status='deferred'` and group by `spec->>'builder_needed'`, and
+`diagnose_triage_action.go:335` excludes the type from escalation. The other five
+`CapabilityGapItem` callers pass one of the two existing kinds and are untouched.
+
+**What this does NOT do, said out loud:** it states no rule for `sponsored_listings`. It makes
+the *absence* of one legible. The rule is still an owner decision, and the row that now appears
+is the roadmap entry for taking it.

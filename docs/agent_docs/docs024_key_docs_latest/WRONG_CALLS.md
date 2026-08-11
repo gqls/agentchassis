@@ -28401,3 +28401,68 @@ control — state the number, and distrust it when it is small.**
   this is the second time this week a check of mine returned a plausible number for
   a question I had not actually asked (the other: timing a discovery check by its
   own work item, whose `created_at` is the transaction's start).
+
+## 2026-08-11 — bugfix 122 lane: I wrote that the re-render drain DEPENDED on the sweep, and the stop decision nearly turned on it
+
+- **the claim / the act:** yesterday's handoff, describing `improvement-sweep`, recorded
+  that "the re-render drain is a *downstream* effect of it". Today that claim framed the
+  whole stop/continue question as a **trade-off** — stop the sweep and you stop the
+  repairs — so the instinct was to leave an expensive job running to protect throughput
+  it was not producing.
+- **why it was believable:** it is half-true in the right direction. The sweep's fires
+  genuinely *do* promote re-render items, and completions genuinely *did* rise during the
+  sweep hours (35 / 32 / 63 / 53 / 58). Every observation available *while the sweep ran*
+  is consistent with dependence, because the sweep and the drain were running at the same
+  time. Correlation with nothing to contrast it against.
+- **what caught it:** deciding to check what the drain did when the sweep was **off** —
+  before disabling, precisely because I would not be able to attribute the after-state
+  otherwise. Completions ran **49/h and 48/h at 10:00 and 11:00 today**, before the 12:31Z
+  re-enable, and **85 / 110 / 41** across 08-10 13:00–15:00 with the sweep disabled. Same
+  rate, no sweep. The drain is a separate always-on path at ~50/h; the sweep adds
+  discovery and promotion, **not execution**.
+- **the cheap check that would have:** one `GROUP BY date_trunc('hour', updated_at)` over
+  a window **when the suspected driver was disabled**. A dependency claim of the form "B
+  only happens because A drives it" is falsified by *any* period where A was off and B
+  continued — and on this estate those periods exist for free, because things get enabled
+  and disabled all the time. **Do not measure a driver only while it is driving.** The
+  general form: an attribution claim needs an interval where the two DISAGREE, the same
+  shape as "a comparative claim needs a case where the two differ".
+- **the second, compounding one:** the stop criterion I had written was **calls/hour**,
+  with "a few hundred is working, thousands is not". It never tripped — 93–184/h against a
+  no-sweep busy-hour baseline of 134 — while **input tokens ran 3.2x** the pre-sweep
+  average (~806k/h vs ~248k/h). A call count is not a spend when each call is a full site
+  pass. **A threshold on the cheap unit silently permits any per-unit cost.**
+- **cost:** none realised — the check ran before the decision rather than after, which is
+  the only reason this is a wrong call in a document and not a wrong call in the cluster.
+  Recorded because the false claim was **my own lane's**, carried a day inside a handoff's
+  settled-looking prose, and would have been inherited verbatim by the next thread.
+
+## 2026-08-11 — I wrote a test that could not tell a decision from an omission, and it read as diligence
+
+- **the claim, in test form:** `TestRevenueShape_SponsoredListingsSilenceIsADecision`
+  (vigilant_designer_offer_analysis, B3) asserted that `check_revenue_shape` files **zero**
+  work items for a `sponsored_listings` site. The name says the silence is a *decision*.
+  The assertion cannot see a decision at all.
+- **why it was believable:** the silence genuinely WAS deliberate at the time — doc 028
+  states no CTA rule for that model, the file header said so in a paragraph, and the
+  register entry said so too. Writing a test that pinned the documented behaviour felt
+  like exactly the right thing, and it passed, and it kept passing.
+- **what it actually asserted:** that the `default:` arm of a switch returns empty. It
+  would have passed **byte-identically had the `sponsored_listings` case never been thought
+  about**, had a seventh revenue model been added upstream, or had someone deleted the
+  reasoning comment. A quiet test cannot distinguish "we decided to say nothing" from "we
+  never looked" — and neither could the code it was testing, which is the whole defect.
+- **what caught it:** the council's own `bug_historian` seat, at [medium], in round 3 of an
+  unrelated review — "the `default:` arm silently swallows unmodelled revenue models". Not
+  my own re-reading. I had read that file four times.
+- **the cheap check that would have:** before writing an assertion of the form
+  `len(x) == 0`, ask **what else produces this same zero**. If the answer includes "the
+  code path never existing", the test is pinning an absence, not a behaviour. Assert
+  something POSITIVE instead — for a deliberate silence, that means the decision has to be
+  *represented* (a filed row, an explicit case, a named constant), because an assertion can
+  only see what exists. This is the test-side twin of the index's
+  `a-count-proves-the-damage-not-the-no-op` and `two-clean-runs-cannot-establish-stability`.
+- **cost:** one council round's objection to read, and about two hours to fix properly —
+  cheap. The real cost was the year-shaped one it nearly bought: the check went LIVE and
+  swept 21 sites with a silence on `vetcomparison.uk` that every downstream reader,
+  including this lane's own handoff table, had to be told in prose not to trust.
