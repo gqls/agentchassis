@@ -555,13 +555,6 @@ var UpdatePageStatusInputSpec = datahelpers.ActionInputSpec{
 		"page_component_id_field", // :799 — mirrors the deploy mark onto one page_component
 	},
 
-	// `commit_from` was the standing true positive here: six live steps
-	// (pageflow-builder, page-rebuild, page-rerender, report-builder,
-	// section-editor, site-work-orchestrator) carrying a key this action has
-	// never read, by any spelling. It looked live for months because
-	// coordinator.go's dataRefKeys carried a comment saying "Used by
-	// update_page_status", which was false — deleted in migration 356's commit.
-	//
 	// DO NOT WRITE A CENSUS COUNT IN THIS COMMENT. An earlier version of this
 	// block stated a carrier count as of a date; ~30 sessions share this tree
 	// and it was false within the hour (356's data half was applied by its own
@@ -569,22 +562,37 @@ var UpdatePageStatusInputSpec = datahelpers.ActionInputSpec{
 	// gets quoted as authority — the concept-register stale-status landmine,
 	// wearing a code comment. Ask the fleet instead:
 	//   scripts/audit-config-keys.sh   (or the removed-config-keys-check CronJob)
-	//
-	// `commit_from` is a RemovedConfigKeys candidate and is NOT declared here:
-	// it belongs to the bugfix_136 config-key lane, which was actively working
-	// it the same day, and adopting another lane's key mid-flight is what
-	// scripts/who-owns.py exists to prevent. Noted in that lane's
-	// deferred-items file instead.
 	CheckConfig: true,
 
-	// `notes_field` and `validation_issues_field` are RETIRED (RFC_021 Q3
-	// owner ruling, 2026-08-10; migration 370 removed the one live carrier,
-	// content-reviewer.mark_page_needs_attention, census-verified 0 at all
-	// depths before this declaration was committed). They were dead the same
-	// way `commit_from` is — read by nothing — but encoded an author's INTENT
-	// this action has never had: recording WHY a page was flagged. That intent
-	// is preserved in migrations 356/370's headers and in the messages below;
-	// the keys themselves must not quietly return and resolve to nowhere.
+	// Three RETIRED keys. This action reads exactly the five ConfigKeys above,
+	// established by reading the handler end to end (it indexes
+	// params.StepConfig.Config directly — no ResolveConfigSetting/GetStringField
+	// indirection, and no ExtractActionInputs call, so there is no second access
+	// pattern for a key to hide behind).
+	//
+	//   notes_field / validation_issues_field — retired under RFC_021 Q3
+	//     (owner ruling 2026-08-10). Migration 370 removed the one live carrier,
+	//     content-reviewer.mark_page_needs_attention.
+	//   commit_from — retired 2026-08-11 at the owner's direction. Six live
+	//     steps carried it for months; migration 356 (bugfix_136 lane) removed
+	//     them. It looked live because coordinator.go's dataRefKeys carried a
+	//     comment saying "Used by update_page_status", which was FALSE — that
+	//     list only names keys whose VALUE gets rewritten under loop expansion,
+	//     never what an action consumes. Three separate readers took it as a
+	//     statement of consumption; the entry is gone, and this declaration is
+	//     what stops the key drifting back in on that same false authority.
+	//
+	// All three encoded an author's intent this action has never had. Deleting
+	// the keys does not erase it: notes_field/validation_issues_field's intent
+	// (recording WHY a page was flagged) is preserved in migrations 356/370's
+	// headers and in the messages below, and commit_from's (recording the git
+	// sha a page was built from) is now genuinely SERVED elsewhere — bugs_open/
+	// 153's build-provenance stamp, register BLD-019 — which is the honest
+	// outcome: a real feature, not a config key resolving to nowhere.
+	//
+	// Each adoption carried its own all-depths census at commit time, per the
+	// RFC_021 Q1 protocol. Do not re-derive those numbers from this comment;
+	// run the audit.
 	RemovedConfigKeys: map[string]string{
 		"notes_field": "never read by any version of this action; the intent (recording why " +
 			"the page was flagged) is unimplemented — pages has no such column. See migration " +
@@ -592,12 +600,15 @@ var UpdatePageStatusInputSpec = datahelpers.ActionInputSpec{
 		"validation_issues_field": "never read by any version of this action; the intent " +
 			"(recording the validation issues that flagged the page) is unimplemented — see " +
 			"migration 370's header; implement it as a feature if wanted, do not re-add the key",
+		"commit_from": "never read by any version of this action — it wrote no column, and " +
+			"coordinator.go's dataRefKeys comment claiming otherwise was false (migration 356). " +
+			"If you want the commit a build came from, it is stamped on the binary now: " +
+			"bugs_open/153, register BLD-019",
 	},
 
 	// Not StrictConfig yet: that is a separate adoption needing its own clean
 	// census under the RFC_021 Q1 protocol (run scripts/audit-config-keys.sh —
-	// do not infer it from anything written here), and `commit_from` above is
-	// another lane's to declare first.
+	// do not infer it from anything written here).
 }
 
 func init() {

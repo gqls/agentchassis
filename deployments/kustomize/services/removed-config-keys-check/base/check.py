@@ -59,7 +59,7 @@ MAX_SUB_WORKFLOW_DEPTH = 8
 # automatic guard silently stop asking about it.
 DECLARED_REMOVED = {
     "create_work_item": ["spec"],
-    "update_page_status": ["notes_field", "validation_issues_field"],
+    "update_page_status": ["commit_from", "notes_field", "validation_issues_field"],
 }
 
 
