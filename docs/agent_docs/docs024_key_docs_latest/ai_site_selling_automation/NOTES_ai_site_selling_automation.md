@@ -302,3 +302,41 @@ session, untouched by this lane.
 - reuse seat's edit-1 medium (two payment concepts) remains a NAMED OWNER
   DECISION by design — recorded, recommended, not resolvable by this lane
   unilaterally deprecating a surface the owner ruled to build out.
+
+## 2026-08-11 (close of session) — council rounds 3+4 REVISE; stopped by design at four; the trail stands
+
+- **Round 3 gated by prior_art** (shipped-at-HEAD unverifiable from the SQL
+  tier), **round 4 by reuse_agent** (the two-client-stores question). Round 4
+  ran with the runbook's own remedy applied — the nine verification outputs
+  in a doc_notes row (id 22a7ee9e, subject 'decision'/
+  'council-submission-4ac1fe52') — and one seat read it and discounted it as
+  prose. Objecting seats GREW round over round (3 → 6, architecture newly
+  firing): fresh panels have no cross-round memory, and a shipped-code
+  submission's central claims all live outside their queryable schema.
+- **The reuse HIGH is answered by the owner's own ruling, on the record**:
+  migration 375's committed header — customer identity lives on
+  clients → networks → sites (ruling 2026-08-10, BIZ-014 shape); Stripe
+  linkage stays on clients.external_id; and clients_info is the tenant store
+  the OLD /admin/clients endpoints read (this lane's own landmine, synced).
+  billing_orders/vouchers FK against clients(id) is the ruled chain, not a
+  store mix-up. ADM-011 (the Customers surface) reads the same chain.
+- **Architecture seat's "deserves an RFC"**: per the 2026-07-29 ruling an RFC
+  triggers on a change to what a shared mechanism GUARANTEES; this adds a new
+  registered mechanism (PAY-009) with named consumers. Its objection to
+  after-the-fact review is an objection to the ruling that made review
+  after-the-fact the design — routed to the owner via this note, not
+  relitigated in rounds.
+- **Stopping at four rounds, per the estate's own norms**: the gate is
+  ADVISORY (owner 2026-07-24); "one council run per coherent task, not per
+  iteration"; and every real finding of the four rounds — three of them —
+  is landed and committed (b9bea5e1d, 895029d24, plus this note). The
+  Council-Submitted trailer stays honest: 098 lists the commit as
+  un-reviewed until an approval resolves it, which is the true state.
+  Editquality's round-4 note that 391's verify block does not assert the
+  vouchers/billing_orders columns is true and unfixable in place (editing an
+  applied+recorded migration breaks the ledger checksum); the
+  information_schema check in the RUNBOOK covers it, and a future 39x may
+  add a standing assertion if wanted.
+- Memory lesson filed: after-the-fact-council-review-of-shipped-code-loops
+  (cap such reviews at ~2 rounds once real findings are landed; submit
+  before-or-alongside the shipping commit to give seats a judgeable plan).
