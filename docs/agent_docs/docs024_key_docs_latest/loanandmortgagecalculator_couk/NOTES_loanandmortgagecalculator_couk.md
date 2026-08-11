@@ -1618,3 +1618,48 @@ passes against a prediction it does not correspond to. It now prefers `manifest.
 and falls back to the voiced file only if that is absent. No `--manifest` flag on
 purpose — this tool derives page names as "argv entries not starting with `--`", so a
 flag value would be parsed as a page name (the trap 10d §4.2 records for `load_lmc.py`).
+
+### 2026-08-11 (later) — why the deploys crawled: `deploy_pages.py` files at a priority that loses
+
+`legal` went from filed to `complete` in **5 minutes** at 10:02Z. The next 15 items
+sat `triaged` for **30+ minutes without one being claimed**, while the queue visibly
+worked — every completion in that window belonged to one other site.
+
+**Not a stall, and not the item shape.** The selector is
+`platform/orchestration/actions/load_work_item_actions.go:681`:
+
+```sql
+ORDER BY wi.priority ASC, wi.created_at ASC LIMIT $n
+```
+
+**Lower priority number is served FIRST.** `deploy_pages.py` hardcodes
+`priority, … 90`; the routine fleet batches file at **80**. So Track A's rerenders
+sort behind *every* 80 in the queue no matter how long they have waited, and a single
+`priority 100` item from 10:06Z was behind even those. `legal` was fast because it
+arrived at an almost-empty queue — **the 5 minutes was the empty queue, not the
+work**, and reading it as "a rerender takes ~5 minutes" is how the next session
+mis-plans a batch.
+
+Measured 10:41Z: 29 items at pri 80 (site `00ff3af5`), 5 at pri 80 (`1fcfa4f3`), my 15
+at pri 90, 1 at pri 100 — with `claimed = 1` fleet-wide, so the handler runs at
+**concurrency 1**. 34 items ahead of mine at ~2.5 min each ⇒ ~85 minutes before mine
+start.
+
+> **I did NOT re-prioritise, deliberately.** Setting mine to 80 would have sorted them
+> by `created_at` *ahead* of both waiting batches (mine were filed 10:09–10:30, theirs
+> 10:23–10:25), so "matching the fleet norm" and "jumping two other sessions' work"
+> are the same action here. Track A is not urgent and the queue is shared. Recording
+> the cause is the useful half; the fix is a one-word default, and it belongs to
+> whoever owns the tool's contract, not to a session in a hurry.
+
+**The transferable bit:** a hardcoded priority in a lane script is invisible until the
+queue is contended, and then it looks exactly like a stalled dispatcher. Before
+diagnosing a queue as broken, **group the pending set by `priority` and check which
+band is actually moving** — one query separates "nothing is running" from "everything
+ahead of me is running".
+
+```sql
+SELECT site_id, priority, count(*), min(created_at)::time(0)
+FROM site_work_items WHERE item_type='page_rerender' AND status='triaged'
+GROUP BY 1,2 ORDER BY 3 DESC;
+```
