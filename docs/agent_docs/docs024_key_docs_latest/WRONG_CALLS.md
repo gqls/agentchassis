@@ -27915,3 +27915,42 @@ was routing around it.
 
 **Cost.** One wasted council dispatch (credits + ~10 min), no damage. Round 2 resubmitted
 cleanly under the same correlation, so the trail still accumulates in one place.
+
+---
+
+## 2026-08-11 — a council seat named a risk, I shipped anyway, and it fired within four minutes (bugfix_234 lane)
+
+**The claim.** Round 2's `guardian` seat objected (medium): *"a CronJob that ImagePullBackOffs
+reports as still RUNNING, never FAILED, on this fleet ... a manual green run before rollout
+does not prove the SCHEDULED run will actually fire daily rather than silently sit in
+backoff."* My submission's own risk section had asked a reviewer to "check that the CronJob
+is genuinely deployed (it is: kubectl apply -k done, manual run green)". I treated that as
+settled.
+
+**Why it was false.** The manual green run had been on the OLD, public `postgres:16-alpine`
+image. When the same CronJob was repointed at the new **private** `docker.io/aqls/…` image,
+the very first job failed: `pull access denied ... insufficient_scope` → `ErrImagePull` →
+`ImagePullBackOff`. The spec was missing `imagePullSecrets: [docker-hub-creds]`, which both
+sibling check services carry. My "proven deployed" evidence could not transfer across the
+image change — and the image change was the whole revision.
+
+**What caught it.** Watching the pod's phase and waiting-reason in a loop instead of just
+reading logs afterwards, because the seat's objection had told me exactly what to watch for.
+Had I only tailed logs, the pod would have sat Pending and the job would have looked like it
+was still working — which is the seat's actual point.
+
+**The cheap check that would have.** `grep -n imagePullSecrets` across the sibling CronJobs
+before writing a new one — the two nearest neighbours both have it, and I copied everything
+from them EXCEPT the line that only matters for a private image. More generally: **when a
+change swaps the artefact a manifest points at, every "proven working" claim about that
+manifest expires.** The proof was about postgres:16-alpine; the deployment was now about
+something else.
+
+**And the general lesson, which is why this is logged rather than just fixed: a reviewer's
+advisory objection is a free prediction. Treating "medium severity, not gating" as "not
+worth acting on" wasted the prediction.** The seat could not check pod health and said so;
+that made it MY check to run, not a box already ticked.
+
+**Cost.** ~4 minutes and one failed job; no live impact (the check is advisory and had not
+yet reached a scheduled run). Fixed in the same session, and the corrected job now runs green
+in-cluster with a doc_notes row to prove it.
