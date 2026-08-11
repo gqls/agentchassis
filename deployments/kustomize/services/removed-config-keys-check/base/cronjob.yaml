@@ -55,6 +55,14 @@ spec:
             component: config-integrity
         spec:
           restartPolicy: Never
+          # REQUIRED the moment this stopped using a public image. The private
+          # repo returns "pull access denied ... insufficient_scope" without it,
+          # and the pod then sits in ImagePullBackOff — which this fleet reports
+          # as a Job still RUNNING, never FAILED (LANDMINES, ImagePullSecrets
+          # family). Observed here on the first rollout: the council's `guardian`
+          # seat raised exactly this risk in round 2 and it fired within minutes.
+          imagePullSecrets:
+            - name: docker-hub-creds
           containers:
             - name: check
               # Tag is set by the overlay, as every other service here does it.
