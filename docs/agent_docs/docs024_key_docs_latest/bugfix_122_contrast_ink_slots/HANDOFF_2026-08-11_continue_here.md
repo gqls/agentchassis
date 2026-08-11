@@ -28,6 +28,15 @@ SELECT status, count(*) FROM site_work_items
 own busy-hour shape.** A rise to a few hundred calls/hour is the mechanism working; a
 jump into the thousands is not, and the STOP is one UPDATE.
 
+**WHAT ONE FIRE ACTUALLY COSTS — read before judging the spend.** An `improvement-sweep`
+fire is *not* a cheap triage. Observed on the first fire (orchestration
+`04b26f88-5ee2-44a8-8ff9-3ce371e8e3b2`, 12:31:40Z): the loop's first step is
+`call_quality_discovery` — it runs **discovery agents against the site** before it ever
+reaches `triage_findings`. So each fire is an LLM-heavy site pass, and the re-render drain
+is a *downstream* effect of it, not the whole of it. That is why 180s was expensive and why
+900s was chosen. **Expect promotion to lag the fire by minutes**, and do not read "fired,
+but nothing triaged yet" as a failure — I did, three minutes in, and was simply early.
+
 **Starting point for the drain:** `page_rerender` = 193 `detected`, 2,017 `complete`,
 80 `unresolved`, 62 `failed` (12:31Z, at the moment of enabling).
 
