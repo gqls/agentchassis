@@ -422,3 +422,23 @@ that race window — do not "optimise" it as part of this fix).
   the owner or another session; whoever ran it, please record it here — an
   unattributed 1,130-topic deletion is exactly the kind of quiet fleet action
   the next diagnosis will trip over.
+
+### 2026-08-11 12:17 BST — C4's FIRST firing: REFUSED, diagnosed, fixed, proven under cron's own environment
+
+The 12:17 slot fired on schedule and **refused**: `job.* topics: ERR`. Cause
+was NOT the predicted token expiry — it was the cron environment: the crontab
+already carries a PATH line including `/snap/bin` (kubectl found), but **no
+KUBECONFIG**, and the interactive shells' `KUBECONFIG=~/.kube/config_production_uk001`
+never reaches cron, so every kubectl call read the nonexistent default
+`~/.kube/config`. The refuse-don't-delete design did exactly its job: loud
+ERR, nothing deleted.
+
+Fix: `KUBECONFIG=` inlined on the crontab entry itself (not top-of-file — the
+other lane's weekly entry is left untouched). Proven by running the sweep in a
+cron-identical environment (`env -i HOME PATH KUBECONFIG /bin/sh -c ...`,
+report mode): counted **478** job.* topics in-pod, 406 protected correlations,
+0 orphans outside the 6h protect window — a working count where cron's run
+said ERR. Next real APPLY firing: 00:17 (machine awake permitting) or 12:17.
+
+Topic clock: 106 at 09:45Z → 478 at 11:19Z (~250/h, the under-load rate).
+Scheduler at 10Mi throughout — C3 doing its job.
