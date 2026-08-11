@@ -1,0 +1,370 @@
+<title>Learned by correction — notes on writing site copy</title>
+<style>
+  :root {
+    --paper:      #FAF8F4;
+    --paper-sunk: #F2EFE8;
+    --ink:        #1C2733;
+    --ink-soft:   #4A5763;
+    --ink-faint:  #8A929B;
+    --rule:       #DED9CF;
+    --red:        #A8322D;
+    --blue:       #2E5A78;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper:      #14191F;
+      --paper-sunk: #1B222A;
+      --ink:        #E6E2D9;
+      --ink-soft:   #B3AFA6;
+      --ink-faint:  #7E8790;
+      --rule:       #2C343D;
+      --red:        #D9736C;
+      --blue:       #8FB4CE;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper:      #14191F;
+    --paper-sunk: #1B222A;
+    --ink:        #E6E2D9;
+    --ink-soft:   #B3AFA6;
+    --ink-faint:  #7E8790;
+    --rule:       #2C343D;
+    --red:        #D9736C;
+    --blue:       #8FB4CE;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: Georgia, "Iowan Old Style", "Palatino Linotype", Palatino, serif;
+    font-size: 1.0625rem;
+    line-height: 1.72;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .sheet {
+    max-width: 39rem;
+    margin: 0 auto;
+    padding: 5rem 1.5rem 7rem;
+  }
+
+  .label {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    font-size: 0.6875rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    font-weight: 600;
+  }
+
+  header { display: flex; flex-direction: column; gap: 1.25rem; }
+
+  h1 {
+    font-size: clamp(2.1rem, 6vw, 3rem);
+    line-height: 1.12;
+    font-weight: 400;
+    margin: 0;
+    text-wrap: balance;
+    letter-spacing: -0.015em;
+  }
+
+  .standfirst {
+    font-size: 1.1875rem;
+    line-height: 1.65;
+    color: var(--ink-soft);
+    margin: 0;
+    max-width: 32rem;
+  }
+
+  .rule-full {
+    border: 0;
+    border-top: 1px solid var(--rule);
+    margin: 3.5rem 0;
+  }
+
+  section { margin: 0 0 3.25rem; }
+
+  h2 {
+    font-size: 1.3125rem;
+    line-height: 1.3;
+    font-weight: 400;
+    font-style: italic;
+    margin: 0 0 0.85rem;
+    text-wrap: balance;
+  }
+
+  p { margin: 0 0 1rem; }
+  p:last-child { margin-bottom: 0; }
+
+  /* A correction: the rejected line struck through in proof red, the
+     accepted line set beneath it in editor's blue. */
+  .correction {
+    display: grid;
+    gap: 0.5rem;
+    margin: 1.35rem 0 1.35rem;
+    padding: 1.05rem 1.25rem;
+    background: var(--paper-sunk);
+    border-left: 2px solid var(--rule);
+  }
+  .correction p { margin: 0; }
+  .struck {
+    color: var(--red);
+    text-decoration: line-through;
+    text-decoration-thickness: 1px;
+    text-decoration-color: color-mix(in srgb, var(--red) 55%, transparent);
+  }
+  .set { color: var(--blue); }
+  .correction .label { display: block; margin-bottom: 0.15rem; }
+
+  blockquote {
+    margin: 1.35rem 0;
+    padding-left: 1.15rem;
+    border-left: 2px solid var(--red);
+    color: var(--ink-soft);
+    font-style: italic;
+  }
+  blockquote p { margin: 0; }
+
+  .closing {
+    margin-top: 4rem;
+    padding-top: 2.25rem;
+    border-top: 1px solid var(--rule);
+    color: var(--ink-soft);
+  }
+
+  footer {
+    margin-top: 4rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--rule);
+    color: var(--ink-faint);
+    font-size: 0.9375rem;
+  }
+
+  em.term { font-style: italic; }
+</style>
+
+<div class="sheet">
+
+  <header>
+    <span class="label">mortgagecalculator.co.uk &middot; 11 August 2026</span>
+    <h1>Learned by correction</h1>
+    <p class="standfirst">
+      An evening spent rewriting one homepage, and what each correction turned out
+      to be about. Almost none of it was about the writing model, and rather more
+      of it than I would like was about rules I had written myself.
+    </p>
+  </header>
+
+  <hr class="rule-full">
+
+  <section>
+    <h2>Look upstream of the writer before blaming the writer</h2>
+    <p>
+      The copy that started this had been commissioned, not merely written. An
+      automatic review had gone looking for the homepage, failed to find it, and
+      concluded that the site gave nobody a reason to choose it; the rewrite it
+      ordered carried a pass mark of &ldquo;claims a benefit other mortgage
+      calculators do not have&rdquo;, and named two competitors in the brief.
+    </p>
+    <p>
+      What arrived on the page was that instruction being obeyed exactly. Changing
+      the model would have produced differently worded competitive copy, because
+      the competitive claim was the acceptance test. When copy comes out wrong,
+      the brief is the first place to look and the writer is the last.
+    </p>
+    <div class="correction">
+      <span class="label">Commissioned</span>
+      <p class="struck">See What the Bank&rsquo;s Decision Engine Sees Before You Apply</p>
+      <p class="set">There&rsquo;s usually more to a mortgage than the rate</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>A voice is a written record, and it outlives everyone&rsquo;s memory of writing it</h2>
+    <p>
+      The register nobody wanted was not an accident of generation. It was recorded
+      in the site&rsquo;s own settings at adoption, in as many words: be challenging
+      rather than reassuring, never soften bad news, adopt the lender&rsquo;s voice
+      to sound like an insider, and put invented labels in quotation marks. Its own
+      examples were &ldquo;Flight Risk&rdquo; and &ldquo;The Inheritance
+      Destroyer&rdquo;. It also forbade a reassuring tone outright.
+    </p>
+    <p>
+      Every writer pointed at the site had been doing as it was told for weeks. A
+      voice that lives in a document will be obeyed long after the reason for it is
+      forgotten, so the document is the thing to change.
+    </p>
+  </section>
+
+  <section>
+    <h2>This is England</h2>
+    <p>
+      British copy runs to longer sentences and more complex grammar than American
+      copy, and it favours understatement and a claim made once. The difference is
+      structural rather than decorative: subordinate clauses are what make prose
+      sound considered, and a house style that forbids them produces something that
+      reads as impatient however warm the words are.
+    </p>
+    <blockquote>
+      <p>Americans like to be sold to; the British prefer to be persuaded.</p>
+    </blockquote>
+  </section>
+
+  <section>
+    <h2>Presumption is a matter of density, not of sentences</h2>
+    <p>
+      A heading that names the reader&rsquo;s situation reads warmly enough on its
+      own. What grates is the barrage, where every heading in turn tells the reader
+      what they came for, what they are deciding and what to do next. The same
+      sentence I had condemned as intrusive read perfectly well once the copy around
+      it stopped doing the same thing.
+    </p>
+    <p>
+      So the rule is frequency, not prohibition: at most one such heading on a page,
+      and rarely. Elsewhere, name the thing, observe something true, or use the
+      inclusive conditional that covers the cases instead of choosing one of them
+      for the reader.
+    </p>
+    <div class="correction">
+      <span class="label">Presuming the errand</span>
+      <p class="struck">The numbers you came to work out</p>
+      <p class="set">Calculators for the parts that are hard to picture</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Plain is not the opposite of clever</h2>
+    <p>
+      Told that the copy was trying too hard, I made it plain, and plain turned out
+      to be a different target altogether. &ldquo;Mortgage fee calculator&rdquo; is
+      informative, accurate and completely without character. The brief was never
+      for less character; it was for character that serves the reader rather than
+      the writer.
+    </p>
+    <div class="correction">
+      <span class="label">Over-corrected, then corrected again</span>
+      <p class="struck">Mortgage fee calculator</p>
+      <p class="set">Which deal works out cheaper</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Say what a thing is</h2>
+    <p>
+      A negative definition asks the reader to do subtraction, and it reads colder
+      because it withholds. Naming the thing directly is both warmer and more
+      informative, and it usually costs no more words.
+    </p>
+    <div class="correction">
+      <span class="label">Defined by what it is not</span>
+      <p class="struck">the guides go into the parts that aren&rsquo;t just arithmetic</p>
+      <p class="set">the guides go into the parts that are more judgement than arithmetic</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>A contraction keeps the company of its neighbours</h2>
+    <p>
+      Contractions make ordinary sentences friendlier, which is why my rule had
+      simply preferred them. That rule was too blanket. An uncommon or formal word
+      lifts the register of its clause, and a casual contraction beside it jars:
+      <em class="term">are not just arithmetic</em> is right where
+      <em class="term">aren&rsquo;t just arithmetic</em> is wrong, because arithmetic
+      is not an everyday word.
+    </p>
+    <p>
+      Either use the everyday word and contract freely, or keep the less common word
+      and write the full form. What does not work is mixing the two inside one
+      clause.
+    </p>
+  </section>
+
+  <section>
+    <h2>Read it aloud</h2>
+    <p>
+      This is the test that beats any list of banned words. Both phrases below are
+      grammatical, on-message and perfectly clear, and neither is a thing a person
+      says out loud. No vocabulary rule would have caught either; reading them aloud
+      catches both immediately.
+    </p>
+    <div class="correction">
+      <span class="label">Nobody says this</span>
+      <p class="struck">the questions a single number can&rsquo;t settle</p>
+      <p class="struck">nothing here is selling you a deal</p>
+      <p class="set">Everything&rsquo;s free to use, and you don&rsquo;t need to sign up for any of it.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Do not borrow a term you cannot pay for</h2>
+    <p>
+      Nobody outside the industry calls it a lender&rsquo;s decision engine. Borrowing
+      a term like that has to buy something &mdash; a joke, an angle, a genuine piece
+      of understanding &mdash; and where it buys nothing it simply sounds technical at
+      a reader who came for an answer about their own money.
+    </p>
+  </section>
+
+  <section>
+    <h2>A rule is a prompt for judgement, not a substitute for it</h2>
+    <p>
+      Three times in one evening I turned a sound observation into a hard rule, and
+      then let the rule write the copy. A borrowed sentence-length ceiling produced
+      the staccato. An outright ban on presumption produced flatness. A list of
+      forbidden phrases had me reporting four perfectly good card descriptions as
+      defects, on no better grounds than that they matched my own list.
+    </p>
+    <p>
+      Written rules are still worth having, because they are what stops a voice
+      drifting back. They earn that place by being written as guidance with a reason
+      attached, rather than as prohibitions a later reader will apply mechanically.
+    </p>
+  </section>
+
+  <section>
+    <h2>Provenance is not fitness</h2>
+    <p>
+      The staccato came from thresholds I had imported with some confidence: measured,
+      dated, owner-directed, and shipped that same morning by a capable team. They
+      were also drawn from Simplified Technical English, which exists to make
+      safety-critical maintenance instructions unambiguous for non-native readers.
+      Correct, well-sourced, and inapplicable.
+    </p>
+    <p>
+      Naming the corpus a borrowed number was measured on takes one sentence, and
+      that sentence is usually enough. &ldquo;Safety instructions for non-native
+      readers&rdquo; does not survive being set beside &ldquo;warm copy for British
+      homebuyers&rdquo;.
+    </p>
+  </section>
+
+  <section>
+    <h2>The page is the only test</h2>
+    <p>
+      Every correction above was caught by reading the live page, and not one was
+      caught by the rules, the checks or the specification &mdash; all of which I had
+      written from the same premises that produced the faults. A style guide cannot
+      test itself, and copy that passes every check you thought to write is only
+      evidence about what you thought to check.
+    </p>
+  </section>
+
+  <div class="closing">
+    <p>
+      Where it ended: <em class="term">There&rsquo;s usually more to a mortgage than
+      the rate</em> &mdash; which says something true, presumes nothing about why
+      anyone arrived, and leads on more than the price, because the price is rarely
+      all that is being decided.
+    </p>
+  </div>
+
+  <footer>
+    Written after the fact from the evening&rsquo;s corrections, and set in the voice
+    it argues for. Every rejected line quoted here was live on the site at some point
+    during the same evening.
+  </footer>
+
+</div>
