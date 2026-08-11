@@ -28555,3 +28555,35 @@ control — state the number, and distrust it when it is small.**
   for *not* spending a diagnosis run, so it suppressed work rather than causing any. It sat in two
   successive cold-start handoffs, which is exactly how a stranger inherits it. Whether that third
   run is worth filing is still an open judgement; it is no longer foreclosed by a fact.
+
+---
+
+## 2026-08-11 — "the rewrite is live and it kept the structure" — while shipping a homepage with ZERO design classes
+
+**The claim:** the option-B homepage rewrite was reported to the owner as a success
+— word count grown, all 12 calculator cards kept, headings restored — with a
+side-by-side comparison built from the *text*.
+
+**What was false by omission:** the page had lost its entire design. The old
+prose carried 44 class attributes over 11 distinct design-system classes
+(`hero`, `eyebrow`, `tool-grid`, `card`, `btn-primary`, `highlight-box`…); the
+new one carried exactly ONE (`ported-prose`, the wrapper). Every "card" was
+semantically present and visually a bare paragraph. The owner saw it in
+minutes: *"the site has substantially lost its design."*
+
+**Why the brief produced it:** my `content_direction.format` named the semantic
+structure (h1, sections, cards-as-h3+blurb+link) and never named the CSS
+vocabulary. The writer delivered exactly what was asked. **A brief that names
+structure but not the design vocabulary specifies an undesigned page.**
+
+**What would have caught it before the owner did:** comparing *class attributes*,
+not just words/links/headings — one line
+(`grep -c 'class="'` before vs after: 44 → 1), or opening the page in a browser
+rather than reading its text extract. My comparison pipeline stripped tags
+before diffing, so it was structurally blind to the loss — a checker that
+strips the thing it should have measured.
+
+**Transferable:** every decomposed page's `content_direction` must carry the
+site's design vocabulary in `format`, and every before/after content comparison
+must include the class-attribute count as a column. Applies to all of Track B
+and to loancash's Track C.
