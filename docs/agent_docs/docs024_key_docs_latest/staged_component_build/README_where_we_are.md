@@ -1099,3 +1099,36 @@ minutes — which is exactly the argument for committing early and often on a tr
 near-miss was worse than the mistake: the next step would have quietly replaced their finished
 work in the live database with a fresh copy of itself, destroying the evidence trail they had just
 written down. Both are written up.
+
+## 2026-08-11 — the acceptance tests got their eyes back, and the first thing they saw was real
+
+**The fresh build proved both of yesterday's fixes this morning, properly.** Rather than wait
+up to a week for the overnight scheduler to happen to pick a tool (it deliberately skips
+anything tested in the last seven days, and we tested everything on Sunday), I queued one
+acceptance run by hand for the darts setup-builder and watched it go through the machinery.
+A dedicated worker pod was spun up for it, exactly as the fix intended; that pod finally had
+the storage settings it has always been missing; and its credentials arrived as *references
+to the vault* rather than copied-out strings — which was the other fix. The run finished
+clean, all fifteen checks green.
+
+**The part worth saying out loud: the screenshot-judging half of acceptance ran for the very
+first time anywhere, and on its first look it found a genuine problem.** On the darts
+setup-builder page, several of the answer buttons — and the main "Get my recommendation"
+button — have text so low-contrast it is close to invisible, on desktop and mobile alike.
+Every one of our selector-based checks passes on that page, because the text is *there*; you
+just can't read it. This is precisely the class of defect we built the vision half for, and
+it justified itself in one run.
+
+**Two loose ends from that, one of which needs a decision.** First: the vision verdict is
+currently written into a database field nobody reads — the run stayed green and raised no
+follow-up work despite finding that defect. Making a vision finding visible (bug 243's
+candidate 3) now has a worked example arguing for it. Second: the darts page itself needs its
+contrast fixing — that belongs to the fixloop/darts lane, and it is written where they will
+find it.
+
+**Housekeeping completed while I was in there:** the chassis no longer holds the storage keys
+it could never use — the credential block came out of the deployment config once the new
+spawn path was proven end-to-end (the keys now live only in the vault and in the pods that
+genuinely need them). One straggler of the same shape was found and noted rather than fixed:
+the Firecrawl key still gets copied into worker pods as a string. Same disease, different
+key, deliberately left for its own decision rather than smuggled into this one.

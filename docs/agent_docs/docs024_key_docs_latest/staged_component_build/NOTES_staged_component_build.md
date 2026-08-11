@@ -3080,3 +3080,57 @@ landmine worth writing. No `improve_tool` item was created by any run today (che
 2. **I nearly superseded their live PLAN row** by running the generator over the merged manifest — it
    supersedes every entry it is given. Scope the manifest you APPLY to what you own.
 3. The false `InnerText` premise above, refuted by my own mutation run.
+
+## 2026-08-11 (morning session) — v1.0.1284 rolled; driving the 243/245 spawned-run proofs
+
+**Fleet re-verified at session start:** chassis v1.0.1284, pods up 09:26Z; browser-runner
+rolled 09:23Z, all three long markers 1 (§4 method). The whole-fleet tag bump sits
+uncommitted in the tree (`kustomization.yaml` × 19 services) — the owner's release, not
+this lane's to commit.
+
+**bugs_open/245 fix IS in the 1284 binary — pod-grep, both replicas:**
+`personae-storage-secrets` 1, `AGENT_STORAGE_SECRET` 1, and the true negative `has_aws`
+(removed logging key) 0. Misstep first: my initial negative control was
+`Injecting storage credentials`, which greps **1 on the fixed binary** because the new
+code logs `Injecting storage credentials (secretKeyRef)` — the old string survives as a
+SUBSTRING of its successor. A negative control must be a string the change removed IN
+FULL, not a prefix of what replaced it. Caught in-session by grepping the source before
+concluding the fix was absent.
+
+**bugs_open/243: the overnight sweep raised NOTHING, and that is designed, not a fault.**
+`check_tool_acceptance_due.go:92-102` suppresses any tool with an acceptance verdict
+`doc_note` in the last **7 days** — every batch-8 tool ran on 08-10, so the handoff's
+"check the overnight sweep's runs" could never have produced the spawned-run proof before
+~08-17. The only post-roll runs were session B's two manual re-runs (`f6494433`,
+`932f7487`, 22:08Z inline on chassis nodes) — non-probative for 243 by design.
+
+**So the proof is being driven, not waited for:** work item
+`ae33ed59-9a43-49b3-ae05-3a8a6177aa27` (`acceptance_run:tool-setup-builder:5fe8785b…`,
+raised 09:40Z, mirroring the A4 items' exact shape — those were claimed by
+`build-dispatch-loop` within 3 min on 08-10). Subject chosen because it is this lane's
+own, check-half green twice, page `active`+deployed on dartsonline (`generic` policy; a
+vision-half FAIL would raise at most ONE deduped `improve_tool` at the fixloop's own
+testbed — bounded, and the designed behaviour there). A pod-env watcher is armed to
+capture the spawned pod's four credential env vars (245's secretKeyRef check) while the
+pod lives. PASS criteria: `complete` not `complete_no_look`, empty `__step_error`,
+first-ever vision rows in `llm_call_log`, env vars `valueFrom: secretKeyRef`.
+
+**09:42:43Z — the spawned pod appeared and BOTH env-shape proofs PASS.**
+`agent-tool-acceptance-agent-649a6c11-q9mlk`, spec captured while it lived:
+
+- **243 (storage injection)**: `IMAGE_BUCKET`, `ASSETS_BUCKET`, `S3_ENDPOINT`,
+  `S3_REGION`, `S3_USE_PATH_STYLE` all present via `configMapKeyRef: storage-config` —
+  the `storageAgents` listing fired for this type for the first time.
+- **245 (credentials as references)**: all four of `AWS_ACCESS_KEY_ID`,
+  `AWS_SECRET_ACCESS_KEY`, `B2_APPLICATION_KEY_ID`, `B2_APPLICATION_KEY` are
+  `valueFrom: secretKeyRef → personae-storage-secrets`. No credential STRING in the pod
+  spec. This is §2b item 2 of the 08-10b handoff, done.
+
+**Observation while reading that spec — one value-copy of the 245 class remains:**
+`FIRECRAWL_API_KEY` rides the spawned pod spec as a plain `value:`
+(`spawn_actions.go:2649-2653`, same `os.Getenv`→Value shape, same silent skip-if-empty).
+Different key class (third-party SaaS, not the storage keys the owner's directive named),
+so recorded as a contribution to `bugs_open/245`, not acted on.
+
+Run still in flight at this point (item claimed by build-dispatch-loop 09:41Z);
+behavioural verdict recorded below when it lands.

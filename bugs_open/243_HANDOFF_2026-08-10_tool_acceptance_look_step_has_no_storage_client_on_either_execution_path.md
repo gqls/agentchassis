@@ -197,3 +197,42 @@ SELECT correlation_id, processing_node, current_step,
 PASS = a run on an `agent-tool-acceptance-agent-*` node reaching `complete` with no step
 error, plus the first-ever vision `llm_call_log` rows. `complete_no_look` on a POST-roll
 spawned run = the fix did not ship or did not work — re-open loudly.
+
+## UPDATE 2026-08-11 — CANDIDATE 1 PROVEN ON A SPAWNED RUN. The vision half ran for the first time ever — and found a real defect on its first look.
+
+The overnight sweep could never have produced this proof: `check_tool_acceptance_due.go:92-102`
+suppresses any tool with an acceptance verdict in the last 7 days, and every batch-8 tool ran
+on 08-10. So the proof was driven: work item `ae33ed59-9a43-49b3-ae05-3a8a6177aa27`
+(`acceptance_run:tool-setup-builder:5fe8785b…`, dartsonline — this lane's own subject, raised
+09:40Z mirroring the A4 items' shape), claimed by `build-dispatch-loop` within a minute.
+
+**Every PASS criterion met, on chassis v1.0.1284:**
+
+- Run `0ee53904-4c9f-475e-ab93-c2252c4e6a9d` on **`agent-tool-acceptance-agent-649a6c11-q9mlk`**
+  (a SPAWNED node) reached **`complete`** — not `complete_no_look` — with **no `__step_error`**.
+  Checks 15/0/9, matching the S6 greens.
+- **Pod env captured while it lived**: `IMAGE_BUCKET`, `ASSETS_BUCKET`, `S3_ENDPOINT`,
+  `S3_REGION`, `S3_USE_PATH_STYLE` present via `configMapKeyRef: storage-config` — the
+  `storageAgents` injection fired for this type for the first time. (Credentials arrived as
+  `secretKeyRef`, which is `bugs_open/245`'s half of the same spawn block.)
+- **The first-ever `llm_call_log` rows for `tool-acceptance-agent`** (0 all-history before):
+  step `look`, provider `anthropic`, model `claude-sonnet-5`, success, 2 images sent /
+  0 dropped, 5.7s. This also finally exercises MDL-040's provider path for vision.
+
+**And the opened eye saw something.** Its very first result reports a genuine visual defect on
+the dartsonline setup-builder page: several form options ("Beginner", "Smooth and fluid",
+"Pinch grip") and the "Get my recommendation" button render near-invisible against their dark
+backgrounds, consistently on desktop AND mobile — precisely the "present, correct and
+invisible" class the check half cannot see. Every selector check passed while this was true.
+
+**Candidate 3's case just made itself**: the run completed green, raised nothing, and that
+vision finding is recorded only inside `collected_data->'look'` where nobody looks. A vision
+result that names a defect should mark the verdict or raise something visible — as filed above.
+
+**Status: candidate 1 is FIXED + LIVE + PROVEN. The file stays in `bugs_open/` (owner practice
+2026-08-06) because candidates 2 and 3 are still undecided owner calls:**
+- **Candidate 2** — the manual/inline path still loses the vision half by design (08-08 ruling
+  keeps the standing chassis bucket-less). Options (a) accept and say so / (b) reshape the
+  manual trigger to the spawn path / (c) reopen the ruling.
+- **Candidate 3** — make a vision-skip or vision-finding visible in the verdict rather than
+  silent (today's run is the worked example: found a defect, run reads green, nothing raised).

@@ -200,3 +200,53 @@ pass that gate. Two things bound the risk:
 the code tests `== ""`, so set-to-empty and unset both fall back to
 `personae-storage-secrets`. **Low objection (stability tracking on spawn_actions.go)**:
 noted for the record; both of today's touches were single-block, pattern-mirroring edits.
+
+## UPDATE 2026-08-11 — rolled (v1.0.1284), proven at the spawned pod AND at the artefact; overlay credential lines REMOVED
+
+The remaining steps from the 08-10 night update, executed in order:
+
+- **(b) The roll**: fleet on v1.0.1284 (chassis pods up 09:26Z). Binary proof by pod-grep,
+  both replicas: `personae-storage-secrets` 1, `AGENT_STORAGE_SECRET` 1, and the true
+  negative `has_aws` (a logging key the commit removed) 0. *Method note: the first negative
+  control tried — `Injecting storage credentials` — greps 1 on the FIXED binary, because the
+  new code logs `Injecting storage credentials (secretKeyRef)`; a negative control must be a
+  string the change removed IN FULL, not a prefix of its replacement.*
+- **(c) The spawned-pod proof** (rode `bugs_open/243`'s proof run, work item `ae33ed59…`):
+  pod `agent-tool-acceptance-agent-649a6c11-q9mlk`, spec captured live — all four of
+  `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `B2_APPLICATION_KEY_ID`,
+  `B2_APPLICATION_KEY` are **`valueFrom: secretKeyRef → personae-storage-secrets`**; no
+  credential string anywhere in the spec. **And the storage OPERATION at the artefact**: the
+  run's `look` step downloaded both acceptance screenshots from B2 inside that pod (2 images
+  sent to the vision model, 0 dropped, run `complete` with no step error) — a real
+  authenticated B2 READ using the reference-resolved keys. The WRITE path was not separately
+  exercised this run; it uses the same client and the same key (`deploy_image_asset` remains
+  the canonical write proof if anyone wants belt-and-braces).
+- **(e) Both greps re-run at removal time**: direct `os.Getenv` of the four names across
+  `platform/ internal/ cmd/ pkg/` → **0**. `AccessKeyEnvVar` sites enumerated: `agentbase`
+  (gated on `IMAGE_BUCKET`, never fires on the chassis), `storage_actions.go` (client built
+  from step config), `platform/storage/s3.go` (the reader all of them funnel into) — and one
+  worth naming: **`prepare_training_data_action.go:88-93` builds a B2 client
+  UNCONDITIONALLY** (no bucket gate, hardcoded B2 env names, bucket `finetuning`). Its owning
+  agent `training-data-preparer` is already in `storageAgents` (spawned path gets
+  secretKeyRef), zero recorded orchestration runs; an inline run on a bare chassis would now
+  fail **visibly** at `NewS3Client` ("failed to construct") rather than silently — acceptable
+  and recorded.
+- **(d) The overlay edit**: lines 76–98 of
+  `deployments/kustomize/services/agent-chassis/overlays/production/uk_001/patch-deployment.yaml`
+  removed, replaced by a dated tombstone comment pointing here; the stale "credentials above"
+  note at the bottom of the 08-08 block corrected. `kubectl kustomize` over the overlay
+  builds clean with **0** occurrences of the four names. The change is committed config —
+  it reaches the standing deployment at the next `apply -k`/release; until then the running
+  chassis pods keep carrying credentials that nothing reads (the safe direction, as the
+  08-10b handoff noted).
+
+**Same-class leftover, observed while reading the spawned pod's spec — deliberately not
+acted on**: `FIRECRAWL_API_KEY` still travels as a plain `value:` copied from the spawner's
+env (`spawn_actions.go:2649-2653`) — the exact `os.Getenv`→Value shape this bug removed for
+storage keys, including the silent skip-if-empty. Different key class (third-party SaaS key,
+not the storage credentials the owner's directive named), so it is recorded here as scope
+for a follow-up decision rather than smuggled into this fix.
+
+**State: everything this file asked for is done and proven except the apply of the overlay
+removal, which rides the next release.** After that apply, run candidate 3's residual checks:
+`env | grep -c B2_` → 0 on each standing replica.

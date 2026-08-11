@@ -73,29 +73,16 @@ spec:
                   name: personae-platform-secrets
                   key: AUTH_DB_PASSWORD
 
-            # Storage secrets
-            - name: AWS_ACCESS_KEY_ID
-              valueFrom:
-                secretKeyRef:
-                  name: personae-storage-secrets
-                  key: AWS_ACCESS_KEY_ID
-            - name: AWS_SECRET_ACCESS_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: personae-storage-secrets
-                  key: AWS_SECRET_ACCESS_KEY
-
-            # B2 storage credentials (for spawning agents that need S3-compatible storage)
-            - name: B2_APPLICATION_KEY_ID
-              valueFrom:
-                secretKeyRef:
-                  name: personae-storage-secrets
-                  key: B2_APPLICATION_KEY_ID
-            - name: B2_APPLICATION_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: personae-storage-secrets
-                  key: B2_APPLICATION_KEY
+            # === Storage credentials: REMOVED 2026-08-11 (bugs_open/245) ===
+            # AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY / B2_APPLICATION_KEY_ID /
+            # B2_APPLICATION_KEY used to be set here (since 019cf8d94) because the
+            # spawn block copied their VALUES from the spawner's env into spawned
+            # pod specs. Since e7e3b4e3c the spawn block injects secretKeyRef
+            # references against personae-storage-secrets instead, so the standing
+            # chassis no longer needs — and must not hold — the keys. Proven on
+            # v1.0.1284 before this removal: spawned pod env all secretKeyRef, and
+            # a real B2 download (acceptance screenshots) succeeded in the spawned
+            # pod. Do not re-add without re-opening bugs_open/245.
 
             # === Storage bucket/endpoint: DELIBERATELY NOT SET (owner ruling 2026-08-08) ===
             # An earlier revision of this file set IMAGE_BUCKET/S3_ENDPOINT/S3_REGION
@@ -120,10 +107,10 @@ spec:
             #    S3_ENDPOINT and B2_APPLICATION_KEY_ID all ABSENT, and
             #    agentbase/agent.go:329 logged "Storage client not configured".
             #
-            # NOTE the AWS_*/B2_* credentials above are OLDER than all of this
-            # (019cf8d94) and are NOT part of that revert. Removing them is a
-            # separate question with a real blast radius — see WRONG_CALLS.md
-            # 2026-08-08 and the TL-035 (e) handoff section.
+            # NOTE the AWS_*/B2_* credentials that used to sit above were OLDER
+            # than all of this (019cf8d94) and NOT part of that revert; they were
+            # removed 2026-08-11 under bugs_open/245 (see the block above) once
+            # the spawn path stopped reading them.
 
             # default request and responses topics
             - name: RESPONSES_TOPIC
