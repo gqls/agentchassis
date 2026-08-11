@@ -48,6 +48,14 @@ mobile, while all 15 selector checks pass. Recorded in 243's update. Two consequ
    vision names a defect, the run reads green, nothing is raised, the text sits in
    `collected_data->'look'` where nobody looks. Recommend: build it (small chassis change,
    normal council gate).
+   > **MEASURED 2026-08-11 (parallel session) — the gap is total, not partial.**
+   > `grep -rn "render-critique" --include=*.go platform/ internal/ pkg/` → **0 hits**. The
+   > only match for `critique` in live `agent_definitions` is `tool-acceptance-agent`, the
+   > producer. And this run's note is the **first and only `render-critique` row in all
+   > history** (`min = max = 2026-08-11 09:43:14`). So it is not that the finding is filed
+   > somewhere unread — the category has no consumer at all, and the verdict
+   > `## Tier-4 acceptance PASSED` was written in the same second. Raises the priority of
+   > this candidate: the restored eyes currently write to a channel nothing reads.
 2. **243 candidate 2 — the manual/inline path** still loses the vision half by design
    (08-08 ruling keeps the standing chassis bucket-less). (a) accept + document / (b) route
    manual triggers through the spawn path / (c) reopen the ruling. The 08-10b handoff's
@@ -62,10 +70,30 @@ mobile, while all 15 selector checks pass. Recorded in 243's update. Two consequ
 
 **Routable to other lanes:**
 
-5. **dartsonline setup-builder contrast defect** → fixloop/darts. The vision text in run
-   `0ee53904…` names the elements. Possibly an instance of the known colour-churn landmine
-   (`generic_theme` misfires; pin via `design_intent.palette.reference_values`) — check that
-   first.
+5. ~~**dartsonline setup-builder contrast defect** → fixloop/darts. Possibly an instance of
+   the known colour-churn landmine (`generic_theme` misfires; pin via
+   `design_intent.palette.reference_values`) — check that first.~~
+   > **CORRECTED 2026-08-11 (parallel session) — measured, and both halves of that were
+   > wrong.** It is **not** colour churn, and it is **not** one site. NOTES
+   > `## 2026-08-11 (parallel session)` has the working; the short form:
+   > - **Mechanism**: the component's own rule
+   >   `.db-option input:checked + label { background: var(--color-primary); color: var(--color-surface); }`
+   >   uses `--color-surface` as its *text-on-primary* colour, i.e. it assumes surface always
+   >   contrasts with primary. There is no `.db-option label` base colour rule, which is why
+   >   exactly one option per group — the `checked` default — is affected. The palette is not
+   >   churned or misfired; **both tokens hold the values the site intends**. The component's
+   >   assumption about what they MEAN is what fails.
+   > - **dartsonline**: `--color-primary #1A1F2E` on `--color-surface #1E2436` = **1.06:1**
+   >   (AA needs 4.5:1; `--color-text` on primary would be 14.65:1).
+   > - **The idiom is fleet-wide**: 9 active components / 7 functions, live on 8 domains.
+   >   Contrast computed from each site's own served stylesheet: **6 of 8 are fine** — so the
+   >   idiom is not wrong, it is *unguarded*. The second casualty is
+   >   **mortgagecalculator.co.uk at 2.95:1** (`#b59230` on `#ffffff`), failing AA and even
+   >   AA-large, on `tool-bridging-compound` and `tool-rate-scenarios`.
+   > - **So the routing changes**: this is not a darts ticket. It is either a component-template
+   >   fix (use a token that means "on-primary", or state the contrast requirement) or a
+   >   palette-contract check at build time. It touches two lanes' sites, so it is an owner
+   >   call on scope — see the owner log entry of the same date.
 
 **This lane's next work:**
 

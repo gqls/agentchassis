@@ -1132,3 +1132,53 @@ spawn path was proven end-to-end (the keys now live only in the vault and in the
 genuinely need them). One straggler of the same shape was found and noted rather than fixed:
 the Firecrawl key still gets copied into worker pods as a string. Same disease, different
 key, deliberately left for its own decision rather than smuggled into this one.
+
+---
+
+**2026-08-11, later the same morning (a second chat, running in parallel).** Two of us were
+given the same handoff again and both drove the same proof — I got there about an hour
+behind and only found out when the other session's commit appeared in the log mid-way
+through my own measuring. Nothing was lost, and their write-up of the proof stands, so I
+deleted my duplicate version of it rather than leave two accounts of one event. But it is
+the second day running that this has happened, and it is worth saying plainly: the only
+thing that tells one chat what another is doing is a line written into a file, and a line
+written at 09:41 cannot mention a commit made at 10:48.
+
+What I did add is a measurement, and it changes two of the decisions in front of you.
+
+**First, the contrast defect the machine's restored eyesight found is worse than it looked,
+and it is not the site's fault.** The other session sensibly guessed this might be the
+palette bug we already know about — the one where a site's colours get churned by a generic
+theme. It isn't. The site's colours are exactly what they are meant to be. The fault is in
+the *tool component* itself: when you pick an option, the component paints the selected
+button with the site's "primary" colour and then writes the label on it in the site's
+"surface" colour — on the assumption that surface is always a pale background shade that
+will stand out against primary. On dartsonline both of those colours are near-identical
+dark navy. The measured contrast is **1.06 to 1**. The accessibility floor for readable text
+is 4.5 to 1. The correct pairing on that same page would have been 14.65 to 1. So the text
+is not "hard to read", it is invisible, and it has been for as long as the tool has existed.
+
+I then checked how far the pattern goes, because a component is shared. The same idiom is in
+**9 components across 7 tool types, live on 8 sites**. Six of the eight are perfectly
+legible — which is the real point: *the pattern is not wrong, it is unguarded*. It happens
+to work wherever a site's surface colour is pale, and fails silently wherever it isn't. The
+second casualty is **mortgagecalculator.co.uk**, at 2.95 to 1, on two of its calculators.
+That is below the floor too. So this is no longer a darts ticket to hand to one lane — it is
+either a fix to the shared component, or a check at build time that a site's palette
+actually satisfies what its components assume. **That is a scope decision, and it is yours,
+because it reaches into two lanes' sites.**
+
+**Second, and I think more important: the eyes we just restored are wired to nothing.**
+Yesterday's fix means the acceptance agent can finally look at screenshots, and on its very
+first look it found a genuine defect that all fifteen automated checks had passed. Then it
+wrote that finding into a note category that **no code in the entire platform reads** — I
+grepped for it and got zero hits — and, in the same second, stamped the page **PASSED**. No
+alarm, no work item, nothing for anyone to pick up. The finding only exists today because a
+human happened to be watching the run.
+
+So the decision the other session put to you as "should we build the thing that makes vision
+findings visible?" is sharper than it was. It isn't a nice-to-have on top of a working
+system. Until it is built, the honest description of what we fixed yesterday is: **we gave
+the acceptance tests their eyes back, and they are reporting into a void.** My
+recommendation is to build it next, ahead of finishing the remaining batch-8 tools, because
+every acceptance run between now and then produces findings nobody will ever see.

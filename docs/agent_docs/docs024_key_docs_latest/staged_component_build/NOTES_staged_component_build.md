@@ -3134,3 +3134,80 @@ so recorded as a contribution to `bugs_open/245`, not acted on.
 
 Run still in flight at this point (item claimed by build-dispatch-loop 09:41Z);
 behavioural verdict recorded below when it lands.
+
+## 2026-08-11 (parallel session) — the contrast defect MEASURED: not colour-churn, and not one site
+
+**Duplication first, because it is the lesson.** I was handed the 08-10b handoff and drove
+the same 243/245 proof as the morning session, independently and about an hour behind:
+same work item `ae33ed59…`, same spawned pod `649a6c11-q9mlk`, same run `0ee53904…`, same
+conclusions. Their commit `c2c9e6a18` (10:48 BST) landed while I was mid-measurement; my
+session-start `git log` (09:41Z) predated it and showed nothing. **The 08-10 ADDENDUM §C
+coordination trap fired again, in its pure form** — two sessions, one handoff, one
+work item raised twice over. Nothing was damaged (the second `acceptance_run` item was
+never raised — I found theirs already claimed), and their account of the proof stands as
+written; I have deleted my duplicate retelling of it rather than leave two.
+
+**What is NOT duplicated is below, and part of it corrects their routing.** Their handoff
+§3 item 5 routes the contrast defect to fixloop/darts as "possibly an instance of the
+known colour-churn landmine (`generic_theme` misfires; pin via
+`design_intent.palette.reference_values`) — check that first." **I checked. It is not
+colour churn, and it is not confined to dartsonline.**
+
+**The finding. The vision half's first output is a real defect that all 15 checks passed.**
+`doc_notes` category `render-critique`, 09:43:14: three option labels ("Beginner",
+"Smooth and fluid", "Pinch grip") and the "Get my recommendation" button render as
+near-invisible text, consistently on desktop AND mobile.
+
+I did not take that at face value — the served page and stylesheet say it is right, and
+say why:
+
+- `dartsonline.com/tools/setup-builder/index.html` → HTTP 200, 25,867 B, DOCTYPE present
+  (the loancalculator lane's B2-blob guard).
+- The rule is `.db-option input:checked + label { background: var(--color-primary);
+  color: var(--color-surface); }`. There is **no** `.db-option label` base colour rule —
+  only the checked state is coloured, which is why exactly ONE option per group is
+  affected. The three the critique named are the three `checked` defaults.
+- `/assets/css/styles.css` (HTTP 200, 24,210 B) resolves
+  `--color-primary: #1A1F2E`, `--color-surface: #1E2436`.
+- **Contrast = 1.06 : 1.** WCAG AA needs 4.5:1 for normal text. For reference the
+  intended-looking pairing `--color-text #F0F2F7` on `#1A1F2E` is 14.65:1.
+
+**Root cause is a token-semantics assumption, and it is NOT dartsonline-specific
+[MEASURED, and it could have come out otherwise]:** the component uses `--color-surface`
+as its "text on primary" colour, i.e. it assumes surface always contrasts with primary.
+That holds on a light-surface site and fails on a dark-surface one. Fleet extent of the
+idiom (`html_template LIKE` both halves, `is_active`): **9 components / 7 functions**,
+live on 8 domains. Contrast computed from each site's own served stylesheet:
+
+| site | primary | surface | ratio | |
+|---|---|---|---|---|
+| dartsonline.com | #1A1F2E | #1E2436 | **1.06:1** | ILLEGIBLE |
+| mortgagecalculator.co.uk | #b59230 | #ffffff | **2.95:1** | fails AA (and AA-large) |
+| fundamentallyai.com | #86ADDE | #0F1B2E | 7.44:1 | ok |
+| vetcomparison.uk | #2563eb | #ffffff | 5.17:1 | ok |
+| idea.uk | #1A1816 | #E8DFCC | 13.37:1 | ok |
+| finetuning.uk / gaswholesalers.com | #1A1A2E | #FFFFFF | 17.06:1 | ok |
+| leopardessconsulting.co.uk | #0D0D0D | #FFFFFF | 19.44:1 | ok |
+
+Six of eight are fine, which is the point: the idiom is not wrong, it is
+**unguarded**. Two sites are affected, and mortgagecalculator's two tools
+(`tool-bridging-compound`, `tool-rate-scenarios`) belong to another lane — so this is
+reported, not fixed here.
+
+**And the structural half, which matters more than the defect:** nothing consumes the
+critique. `grep -rn "render-critique" --include=*.go platform/ internal/ pkg/` → **0
+hits**; the only producer is the `tool-acceptance-agent` definition itself (the sole
+match in live `agent_definitions` for `critique`). The acceptance verdict was written
+`## Tier-4 acceptance PASSED` in the same second the critique was filed. So the eyes are
+back, they saw something true, the page was certified PASSED anyway, and no work item was
+raised. That is a design question for the owner, not a bug to patch here. It is the
+**measured** form of the morning session's handoff §3 item 1 (243 candidate 3, "make
+vision findings visible"): they recommended building it, and this is the evidence that
+the gap is total rather than partial — not "nobody looks at `collected_data->'look'`" but
+"no code path in `platform/`, `internal/` or `pkg/` reads the category at all, and this is
+the only such note that has ever existed."
+
+> This lane's own contract for setup-builder is **not** invalidated: the 15 checks assert
+> behaviour (compute, reveal, reasons), and they were right that the behaviour works. The
+> critique is about what a selector cannot see, which is exactly the half 243 restored.
+> Two instruments, two truths, and today is the first day both ran.
