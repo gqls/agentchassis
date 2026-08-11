@@ -1,6 +1,26 @@
 # 213 — two producers file under one `item_type`; the completion verifier implements only one of their predicates, so the other's items close `complete` untouched
 
-> ## STATUS 2026-08-10 — OWNED, FIX COMMITTED, NOT YET LIVE
+> ## STATUS 2026-08-11 — FIX **LIVE AND POD-PROVEN** on v1.0.1284, both replicas.
+> **Stays OPEN: the gate has not yet FIRED, and the 11 mis-closed items are unremediated.**
+>
+> Deployment proof (both pods, one exec each): `verifier_scope_mismatch` = 1 and
+> `dark_section_audit` = 1, with positive control `verification_unavailable` = 1.
+> The needles discriminate — `verifier_scope_mismatch` did not exist anywhere at
+> `2d151c41f^`, and `dark_section_audit`'s only pre-fix occurrence was in a `_test.go`
+> file, which Go never compiles into the binary. **No negative control exists and none
+> is claimed**: the change is purely additive and removes no string, so the positive
+> control is what proves the grep and the binary rather than my spelling.
+>
+> **DEPLOYED ≠ EXERCISED.** `SELECT count(*) … WHERE result->'_verification'->>'status'
+> ='out_of_scope'` returns **0**. Nothing has been disclaimed yet, because no
+> design-audit item has reached completion since the roll. Until one does, the
+> behavioural half is unproven.
+>
+> **Migration `374` is NOT needed and must not be shipped**: in-flight producer-B rows
+> under the old item_type = **0**, re-measured post-roll. An empty migration is worse
+> than none.
+
+> ## Superseded status line (2026-08-10) — OWNED, FIX COMMITTED, NOT YET LIVE
 >
 > Lane: `docs024_key_docs_latest/bugfix_213_verifier_producer_join/`. Fix committed
 > `2d151c41f`; **council APPROVED round 1** (corr

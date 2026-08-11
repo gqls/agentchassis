@@ -258,3 +258,63 @@ never stated plainly that the struct already existed.
 `guidelines` flagged that WII-013 was asserted in the rationale but not listed as an
 edit. Fair — it shipped in `3c72619fc`, a separate commit from the code, which the
 submission did not say.
+
+---
+
+## 2026-08-11 — LIVE on v1.0.1284, both replicas. Deployed is not exercised.
+
+Pod-grep, both replicas, one exec each:
+
+| needle | 6j5xn | rvrdg | what it proves |
+|---|---|---|---|
+| `verifier_scope_mismatch` | 1 | 1 | Half B (the gate) is in the binary |
+| `dark_section_audit` | 1 | 1 | Half A (the item_type split) is in the binary |
+| `verification_unavailable` *(positive control)* | 1 | 1 | the grep works and this is the binary I think it is |
+
+**The needles discriminate, checked rather than assumed.** `git grep` at `2d151c41f^`:
+`verifier_scope_mismatch` = **0 files**; `dark_section_audit` = 1 file, and that one is
+`verifier_coverage_test.go` — a `_test.go`, which Go does **not** compile into the
+production binary, so its presence in the pod can only come from
+`write_audit_findings_action.go`. (That pre-fix occurrence exists only because my
+coverage-guard edits were swept into `d644723b8` before I committed.)
+
+**No negative control exists, and I am not claiming one.** The change is purely
+additive — it removes no string — so there is nothing that should read 0 after the
+roll. `bugs_open/153`'s discipline is satisfied by the positive control instead; the
+honest statement is "the binary contains strings that only this change introduces",
+not "a removed string is gone".
+
+### DEPLOYED ≠ EXERCISED, and the difference matters here
+
+```sql
+SELECT count(*) FROM site_work_items WHERE result->'_verification'->>'status'='out_of_scope';
+-- 0
+```
+
+Nothing has been disclaimed yet. That is expected rather than worrying — the gate only
+fires when a `hardcoded_section_colors` item **without** `spec.check` reaches
+completion, and no design-audit item has completed since the roll. **The behavioural
+half is unproven and this file stays open until it fires.** WII-011 made exactly this
+mistake's mirror image (deployment proven, behaviour asserted) and had to correct
+itself the next day; not repeating it.
+
+### Migration 374: measured post-roll, and the answer is DO NOT SHIP IT
+
+In-flight producer-B rows under the old item_type: **0**. The guardian seat raised this
+as a state-transition side effect; the population is empty, so the migration would be
+an empty migration. Skipped deliberately, not forgotten.
+
+### The 11, enumerated for grading (9 sites)
+
+dartsonline.com ×2 (08-09) · finetuning.uk (08-09) · fundamentallyai.com (08-05) ·
+gamesdesign.co.uk (08-03) · gaswholesalers.com (08-04, **no page_id**) ·
+leopardessconsulting.co.uk (08-08) · relojistas.com (08-04) · vonc.com (08-03) ·
+webdesign.co.uk ×2 (08-04, 08-08).
+
+All 11 carry a real, mechanical `acceptance_test` — computed background-colour,
+contrast ratio, absence of an inline `<style>`. **They are not uniform**, and that
+matters for the routing question below: gamesdesign's is an already-`var()` fallback
+(outside `ReplaceHardcodedColors`' remit, which is *why* it passed), but several others
+name inline `style` attributes and `rgba(0,0,0` literals, which may well be **inside**
+it. So "the fixer cannot repair these" is true of the worked instance and
+**[UNVERIFIED] as a generalisation** — do not assume it of all 11 without checking each.
