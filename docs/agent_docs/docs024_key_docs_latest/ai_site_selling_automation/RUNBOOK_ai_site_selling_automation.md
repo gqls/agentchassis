@@ -68,3 +68,27 @@ WHERE collected_data->'input_data'->>'fix_correlation_id' = '<SUBMISSION_CORR>';
 Gotcha: don't pipe the 097 trigger through `tail`/`grep` when running it in
 the background — the pipe buffers until EOF, so the correlation banner
 (printed BEFORE the slow kcat step) stays invisible exactly when you want it.
+
+## Verify the billing surface after an auth-service roll (owed post-roll; council debug_historian ask)
+
+Ask the SERVICE, not git, and not `strings` (fleet practice, rewritten 08-11):
+
+```
+# 1. the pod runs a commit that contains the billing build
+kubectl -n ai-persona-system logs -l app=auth-service --tail=300 | grep -m1 'build provenance'
+git merge-base --is-ancestor 1834bd3c0 <the stamp> && echo billing-commit-shipped
+
+# 2. the billing mount line (startup, so it scrolls — check soon after the roll)
+kubectl -n ai-persona-system logs -l app=auth-service --tail=300 | grep -m1 'billing'
+#   "billing mounted without a payment provider" = mounted, keyless (expected until Stripe keys land)
+#   "clients_database not configured"            = the config edit did NOT ship — stop and look
+#   "clients database unreachable"               = mounted-code shipped but pool failed this run
+
+# 3. the route answers (in-cluster; 401 proves the route EXISTS behind auth — a
+#    missing route would 404)
+kubectl -n ai-persona-system exec deploy/core-manager -- \
+  curl -s -o /dev/null -w '%{http_code}' http://auth-service:8081/api/v1/admin/billing/settings   # expect 401
+```
+
+Gotcha: the degrade-to-unmounted design makes a silent non-deploy look like
+success from outside — which is exactly why step 2/3 exist. Do all three.

@@ -81,6 +81,11 @@ rulings create, roughly in order.
    land in `personae-platform-secrets` (owner task). Open: webhook public
    exposure (no Ingress exists — decide when keys arrive); admin FE voucher
    screen (follow-up). NOTES (08-11 night) has the full record.
+   **3b. Admin FE voucher screen** — issue/list vouchers + read orders +
+   flip payment timing, against `/api/v1/admin/billing/*` (auth-service
+   direct, not the core-manager proxy); PipelinesPage bolt-on precedent.
+   **3c. Post-roll verification (owed, do not skip)**: after the next
+   auth-service image rolls — RUNBOOK "Verify the billing surface".
 4. **ZIP delivery**: a completed site's objects live in B2 under
    `<host>/<path>` keys (worker §3.3 of start-here) — a "download your
    site" step is: pull prefix, zip, store as a deliverable asset, link it.
@@ -123,6 +128,22 @@ don't want our offering get (affiliate) links to Lovable, Durable, etc.
 domains** — the portfolio is the sales proof.
 
 ## 4. Owner asks outstanding (external, cheap to nag)
+
+- **Stripe keys** (when ready to sell): a restricted secret key (Checkout
+  Sessions:Write only, the PAY-001 least-privilege shape) +
+  the webhook signing secret → `personae-platform-secrets` as
+  `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET`. Until then billing answers
+  503 by design. With the keys comes one decision: how the webhook gets a
+  public URL (no Ingress exists in the cluster; options to be written up).
+- **DECIDE: unify or formally deprecate the old subscription scaffold**
+  (raised by the council's reuse seat, round 1 on PAY-009, 2026-08-11 — a
+  real gap, recorded not defended). Two mechanisms now describe "this client
+  has paid": the unwired `subscriptions` table (auth MySQL, `status=active`
+  means a row exists — PAY-007) and the real `billing_orders`/`vouchers`
+  path (clients_db, webhook-verified — PAY-009). Nothing reconciles
+  them. Recommendation: deprecate the scaffold's create/update surface once
+  the £149 flow is proven; a future recurring product builds on the PAY-002
+  plan against clients_db, not on the scaffold.
 
 - **Nominet: CLEARED 2026-08-11 evening.** TAG `DESIGNCONSULT` + password in
   `~/.config/nominet/credentials`; owner added the cluster IPs to the EPP
