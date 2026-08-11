@@ -842,3 +842,83 @@ rule`, the local origin curl) all passed and all were true, and the thing was
 still broken, because **every one of them tested the box and the fault was in
 front of it.** Passing checks bound the fault; they do not locate it. What found
 it was asking "what *else* returns exactly this response?"
+
+---
+
+## 2026-08-11 — framework build dispatched; experience patterns written first
+
+### Dispatched
+
+`082_submit_domain_unified.sh noted.co.uk --email hello@noted.co.uk
+--mission-file MISSION_2026-08-11_noted.txt`, correlation
+**`59397ca9-c1c4-4938-8d2a-e78ffd7e045b`**.
+
+Brief validated before dispatch rather than after a failure: single-lined, no
+double quotes, and **zero digits** (a number in a spec is a given and outranks
+every writer-side rule). Through `claimscan` with noted's own evidence base:
+**0 findings**.
+
+`[MEASURED 17:20]` Cascade so far — `submission` and `mission_brief` written by
+`domain-submitter` at 17:00:38. `needs_domain_research` sits **`triaged`** and
+has not been claimed after ~20 minutes.
+
+**That is queue depth, not a fault.** The pump is demonstrably alive fleet-wide:
+`607 triaged / 3 claimed / 70 completed in the last 30 minutes`. Our item is
+behind a large backlog. **Do not resubmit** — a missing row is latency, and a
+retry costs a duplicate round.
+
+Note three items dated `16:39:33`, i.e. **before** this dispatch —
+`needs_composition`, `needs_design`, `evaluate_tools`, all `detected`. They are
+from the discovery rotation picking the site up now that a `sites` row exists,
+not from this build. `detected` is not dispatchable, so nothing acts on them.
+
+### The experience patterns, written BEFORE the app
+
+| pattern | contract clauses | degraded states | checks |
+|---|---|---|---|
+| `authenticated-note-sync` | 3 | 2 | 12 |
+| `legacy-local-data-adoption` | 3 | 2 | 6 |
+
+Every check type verified against the runner's own table — **an unsupported type
+is INERT, not an error**, so a typo would produce a check that silently never
+runs and a template that looks thorough. The verify query in the SQL file is
+what catches it.
+
+**Written honestly about what cannot be checked, at the check it affects:**
+- `sign_in_round_trip` is **flaky by construction** — there is no
+  `expect_within_ms` and the runner asserts 300 ms after the step, while a
+  sign-in is a network round trip. A failure is not proof of a broken sign-in.
+  Do not promote it to a gate until the runner can wait.
+- `notes_survive_a_reload` **cannot be ordered** after it, so it only means
+  anything when the runner happens to arrive signed in. The real assertion —
+  the same notes in a second, independent session — is not expressible today and
+  lives in `box/smoke-test.sh` instead.
+- The legacy page's actual behaviour (a browser holding legacy data is shown the
+  right counts) is **not expressible at all**: the runner cannot seed IndexedDB
+  before a check. Covered by a Playwright probe, and flagged so a green criteria
+  run is never read as covering it.
+
+### A vocabulary that does not fit an app
+
+`experience_patterns.funnel_stage` is CHECK-constrained to
+`awareness|consideration|conversion`. Neither `retention` (what
+`authenticated-note-sync` actually is) nor `onboarding` (what
+`legacy-local-data-adoption` is) exists — the vocabulary was built for marketing
+funnels, and **a product behaviour that happens after someone converts has
+nowhere to sit**. Used `conversion` and said in the file that it is the least
+wrong rather than the right answer. If more app-shaped patterns land, that column
+needs widening; recorded rather than quietly fudged.
+
+### Delivery path extended
+
+`sitesync` on the box generalised from one hardcoded domain to a list, so
+`noted.co.uk` is pulled from `gqls/vm-sites` alongside `webdesign.uk`. The loop
+is the whole change — adding a third domain is one line, and no domain can now be
+added by editing another's `rsync` and getting its `--delete` target wrong. Old
+version kept at `/usr/local/bin/sitesync.bak-20260811`. Verified running as
+`www-data` exactly as the timer does, with the shopfront's web root untouched
+(6 files) and its served page byte-identical.
+
+A second guard was added while generalising: **rsync into a web root that does
+not exist would create it and serve an empty site**, so a missing web root now
+means "this site is not set up here" rather than "make it".
