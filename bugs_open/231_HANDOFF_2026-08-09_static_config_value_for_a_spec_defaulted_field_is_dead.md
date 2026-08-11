@@ -311,3 +311,51 @@ to the top level for `undeployed_asset` items. Either way, **231 candidate 3
 a static; it is an unresolvable dotted path. The census query needs a third arm:
 config dotted paths that cannot resolve against their dispatch shape, on
 actions whose spec carries a Default for the same field.
+
+---
+
+## 2026-08-11 — the dispatch-shape face is FIXED LIVE (migration 380), and the handoff's `purpose_field` candidate is REFUTED by this file's own mechanism section
+
+The 2026-08-10 specimen's candidate fix ("deploy_asset gains
+`purpose_field: input_data.spec.purpose` via the spec's Deprecated bridge")
+**could never have worked, and this file already said so**: the bridge is
+Strategy 3, which skips any populated field, and Defaults populate first —
+"the deprecated `*_field` bridge for it is equally inert" (The mechanism, §3),
+pinned by `TestPurposeFieldBridge_DeadForDefaultedField`. The candidate and
+its refutation sat in the same file, written for different readers. Caught by
+reading the resolver before implementing; logged in WRONG_CALLS.
+
+**What shipped instead — migration 380** (applied + recorded 2026-08-11
+~10:00Z, ROLLBACK sidecar alongside, council corr `a46a4421`):
+build-dispatch-loop's `call_handler.input_mapping` gains
+`"purpose?": "current_item.spec.purpose"`. Only a Strategy-0 dotted path on
+`purpose` itself can beat the Default, and the deploy step's existing binding
+(`input_data.purpose`) is already exactly that — it just had nothing to
+resolve against on the `undeployed_asset` dispatch shape. The mapping gives it
+something, on the same idiom site-work-orchestrator's `fix_items_loop` already
+carries (`"purpose?": "current_fix_item.spec.purpose"`) — which is the
+evidence the omission was never a design choice.
+
+Blast radius measured before applying (queries in RUNBOOK_209): exactly two
+live definitions bind `input_data.purpose` — asset-deployer (the fix target)
+and image-build-handler's `check_logo_or_hero`, whose `purpose == 'logo'` arm
+was half-dead on this shape and now activates (needs_imagery brand-update
+logo items route down the logo branch: the condition's stated intent, this
+family's 235 fix). The 11 no-mode favicon/og_card items flip from latent
+hero-deploys to clean 179-B refusals — the guard fires on the RESOLVED
+purpose. Items without spec.purpose: the `?` mapping skips silently.
+
+Behavioural proof, same hour: relojistas item `6084d849` re-dispatched
+through the repaired mapping committed **"Deploy logo image"** (pre-fix: two
+runs of "Deploy hero image" against identical row state), asset row restamped
+`logo.png`, served artefact `https://relojistas.com/assets/images/logo.png`
+200 `image/png` PNG 400×170 RGBA.
+
+**What keeps THIS file open, unchanged in kind:**
+- The fleet-class census, now with its three arms (shadowed static ·
+  unresolvable-dotted-path-with-Default · the original 61-spec sweep) — the
+  third arm has its first confirmed-and-fixed instance but has not been
+  enumerated.
+- Candidates 2 (config-static beats Defaults in the helper — needs the census
+  first) and 3 (CheckConfig flags shadowed statics — cheap, catches future
+  authors; would NOT have caught either live face, but still worth having).

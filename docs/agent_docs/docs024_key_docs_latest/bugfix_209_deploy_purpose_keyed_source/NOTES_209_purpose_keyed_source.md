@@ -724,3 +724,67 @@ Two things worth carrying forward:
   but the lock protects approved *artwork*; regenerating discards it. The defect
   is encoding and size, not subject. Correct repair is to re-deploy the existing
   source object at `purpose='logo'` — a different operation, and an owner call.
+
+## 2026-08-11 (morning) — migration 380: the dispatch mapping fix; the handoff's option 1 REFUTED before it was built
+
+Cold-start checks all pass (7 tests green; scheduler 10Mi on v1.0.1284 —
+**C3 is LIVE**, GOMEMLIMIT=192MiB visible in the deploy env, pod-verified).
+Topic count 106 at 09:45Z, down from 1,236 at 16:33Z — `[UNVERIFIED]` what
+swept; no sweep log exists, no commit touched the sweep script, so most likely
+a manual run by another session or the owner around the morning roll.
+
+**C4 has never fired.** The crontab entry is installed (RELOAD logged 18:05
+BST 08-10) but the journal has NO entries at all in the 00:15–00:20 window —
+the machine was asleep at 00:17 local. **User crontabs get no anacron
+catch-up**, so on a laptop that sleeps overnight the 00:17 slot silently
+misses every night; only the 12:17 slot is real. First actual firing due
+12:17 BST today — check `~/kafka-sweep-240.log` after that.
+
+### The handoff's preferred fix candidate could never have worked
+
+`HANDOFF_2026-08-10b` option 1: deploy_asset gains
+`"purpose_field": "input_data.spec.purpose"` via the spec's Deprecated bridge.
+**REFUTED by the resolver before implementation** (`action_inputs.go`): the
+bridge is Strategy 3, which skips any field already populated, and Defaults
+populate first — so for a Default-carrying field the bridge is structurally
+dead. `bugs_open/231`'s own mechanism section says exactly this, and
+`TestPurposeFieldBridge_DeadForDefaultedField` pins it. The handoff proposed,
+in preference order, a fix its own bug file's measurement notes refute — the
+precise LANDMINES shape ("a bug file's FIX CANDIDATE can be refuted by that
+same file's own MEASUREMENT NOTES"). Caught by reading the deciding arm first;
+logged in WRONG_CALLS.
+
+### What was actually done: migration 380, the dispatch-mapping fix
+
+Only a Strategy-0 dotted path on `purpose` itself can beat the Default, and
+that binding (`input_data.purpose`) is correct — it just has nothing to
+resolve against on the `undeployed_asset` dispatch shape. Re-pointing it at
+`input_data.spec.purpose` would break the image-build-handler path (maps
+purpose top-level via `call_asset_deployer`). So the fix is at the dispatch:
+**build-dispatch-loop `call_handler.input_mapping` gains
+`"purpose?": "current_item.spec.purpose"`** — the exact idiom
+site-work-orchestrator's `fix_items_loop` already carries
+(`"purpose?": "current_fix_item.spec.purpose"`), which is the evidence this
+was an omission, not a design choice.
+
+Blast radius `[MEASURED]`, queries in RUNBOOK: exactly two live definitions
+bind `input_data.purpose` — asset-deployer (fix target) and
+image-build-handler's `check_logo_or_hero`, whose `purpose == 'logo'` arm is
+half-dead today and ACTIVATES: needs_imagery brand-update logo items will now
+route down the logo-generation branch (the condition's stated intent; 235
+family). The 11 no-mode favicon/og_card items flip from latent hero-deploys
+to clean 179-B refusals (the guard fires on the RESOLVED purpose). Items
+without spec.purpose: `?` mapping skips silently, no-op. page-build-handler
+binds no input_data.purpose — inert.
+
+Execution: post-verify DO/RAISE induced first (raised "0 of 1"), scoped-dir
+dry-run, applied + recorded 380 ~10:15Z, live row re-read by content
+(`purpose?` present in the mapping). Council corr
+`a46a4421-244f-4869-9c75-1b73a870371a` submitted BEFORE the apply (FORCE=1 —
+single edit is a migration file; the scope filter only knows paths).
+ROLLBACK sidecar alongside. Relojistas item `6084d849` reset
+`complete`→`triaged` (the webdesign.uk-proven path) to re-trigger the deploy.
+
+Also noted: relojistas carries a second `detected` undeployed_asset item
+(`24c2fb3b`, purpose='icon', the phantom `input-data.asset-key.jpg` asset
+`d3138254`) — left alone, it is 235's estate-audit quarry, not this repair's.

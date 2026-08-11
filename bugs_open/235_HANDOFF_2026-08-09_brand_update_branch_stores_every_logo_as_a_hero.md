@@ -373,3 +373,38 @@ Owner answered the four open decisions in-session:
    (scheduled sweep stopgap); C1 (per-topic reaper) deliberately NOT taken.**
 4. **relojistas.com: attempt in this session**, including verifying the
    `vm-sites` deploy path first.
+
+### 2026-08-11 ~10:05Z — 11 of 11 DONE: relojistas repaired through migration 380, proven at the served artefact
+
+The last site is fixed, and by the class fix rather than a workaround. The
+shape mismatch that beat both correct values on 2026-08-10 (item spec AND
+asset row `purpose='logo'`, deploy still "hero") is closed by **migration
+380**: build-dispatch-loop's `call_handler.input_mapping` gains
+`"purpose?": "current_item.spec.purpose"`, the same idiom
+site-work-orchestrator's `fix_items_loop` already carried. Full mechanism and
+the refutation of the earlier `purpose_field` candidate: `bugs_open/231`
+(2026-08-11 contribution) and NOTES_209.
+
+Proof at the artefact, not the status: item `6084d849` reset to `triaged`,
+dispatched 10:00Z, committed **"Deploy logo image for relojistas.com"**
+(both pre-fix runs said "Deploy hero image"), asset row restamped
+`/assets/images/logo.png`, and the served object is
+`https://relojistas.com/assets/images/logo.png` → 200, `image/png`,
+**PNG 400×170 RGBA** (alpha restored), last-modified 10:00:50Z.
+
+Follow-ons executed the same hour:
+- relojistas site-level `needs_rerender` (`07051741`, refresh_site_components)
+  completed 10:05Z and fanned out its page_rerender items — homepage reference
+  flip to be verified at the served page once the fan-out drains.
+- fundamentallyai's portfolio hot-link: the `.jpg` URL lived in ONE
+  `page_components` row (index / portfolio-showcase, `28348227`), in BOTH
+  `content_data` and `rendered_html` — a rerender alone would have reproduced
+  it. content_data patched `.jpg`→`.png` (backup:
+  `page_components_bak_20260811_fundai_logolink`), then `page_rerender`
+  `ffe2bd7e` filed for its index.
+- The old `relojistas.com/assets/images/logo.jpg` is deliberately NOT deleted
+  — it still serves, and deletion waits on this file's estate-wide reference
+  audit (still open).
+
+**What keeps this file OPEN:** the estate-wide logo.jpg reference audit before
+any deletion, and verification of the two rerenders at the served pages.

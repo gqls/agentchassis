@@ -411,3 +411,42 @@ by one of those short lists, and it stopped only because of a safety check I'd
 added for an unrelated reason. That was luck. It's now a deliberate check.
 
 The logo work itself is unblocked and is the next thing.
+
+---
+
+2026-08-11, morning. The last logo is done — all eleven sites now serve a
+proper PNG logo, and relojistas was fixed the right way rather than by hand.
+
+The thing that was beating us on relojistas turned out to be one missing line
+of configuration. When the dispatcher hands work to the deploy agent, it
+passes the work order nested inside an envelope — and the deploy agent's
+"which kind of image is this?" setting was looking on the outside of the
+envelope. Finding nothing there, it fell back to its built-in default of
+"hero", which overrode the correct answer written plainly inside. The fix
+adds one line telling the dispatcher to also copy that answer onto the
+outside, where the agent already looks. The sister dispatcher elsewhere in
+the system already did exactly this, which is how we know it was an
+oversight and not a design decision.
+
+One thing worth owning: the plan I inherited from yesterday evening proposed
+a different fix first — and that fix could never have worked. The bug's own
+case file, three paragraphs earlier, explains why not, and there is even a
+test in the codebase whose name says so. Nobody had joined the two up. I
+checked the deciding code before building anything, so it cost nothing, but
+it is a sharp example of why we read before we write.
+
+Proof it works: the re-run deploy committed "Deploy logo image" where the
+two failed runs had said "Deploy hero image", and the live site now serves a
+400-wide PNG with transparency, seconds after the deploy. The site's pages
+are being re-rendered now to point at the new file, and the one other site
+that borrowed relojistas' logo for its portfolio has been corrected and
+queued for the same treatment. The old wrong file stays where it is until
+the estate-wide check for stragglers — deleting it early is how you break
+someone else's page.
+
+Also from this morning's checks: the memory-limit fix for the Kafka
+scheduler went out with the overnight release and the scheduler is healthy.
+The twice-daily topic-sweep cron I installed has a blind spot nobody
+mentioned: this machine sleeps overnight, and a slept-through slot is simply
+skipped, so only the lunchtime run is real. Worth knowing when we read its
+log.

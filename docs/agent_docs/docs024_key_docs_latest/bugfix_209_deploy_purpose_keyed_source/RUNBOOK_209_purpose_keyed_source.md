@@ -183,3 +183,40 @@ differ even when the wrong source is fetched. Assert instead:
 
 ⚠ The **hero** step is the one worth reading: it is the only deploy that runs with
 both assets in `collected_data`. The logo deploys before the hero exists.
+
+## 8. Migration 380 — blast-radius queries for a dispatch-mapping change, and the re-drive
+
+Who binds the top-level key you are about to inject (run BEFORE adding any
+`input_mapping` line — the whole blast radius is definitions that read it):
+
+```sql
+SELECT type FROM agent_definitions
+WHERE is_active AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL
+  AND default_config::text LIKE '%input_data.purpose%';
+-- 2026-08-11: exactly asset-deployer, image-build-handler
+```
+
+Which item types even carry the spec field (the population the mapping
+touches; `?` mapping skips the rest silently):
+
+```sql
+SELECT DISTINCT item_type, handler_agent FROM site_work_items WHERE spec ? 'purpose';
+```
+
+Gotcha: `workflow.steps` is a jsonb OBJECT keyed by step name, not an array —
+`jsonb_array_elements` fails with "cannot extract elements from an object";
+use `jsonb_each` or a `#>` path.
+
+Re-drive a completed undeployed_asset item (the webdesign.uk-proven path —
+the build-pipeline-trigger picks it up within ~2 min):
+
+```sql
+UPDATE site_work_items SET status='triaged', updated_at=now()
+WHERE id='<item>' AND status='complete';
+```
+
+Verify at the artefact, in this order: work item `result` →
+`commit_message` must name the right purpose ("Deploy logo image", not
+"Deploy hero image") · asset row `url`/`filename` restamped · served object
+(`curl -sI`) content-type + `file` on the bytes (the purpose's extension AND
+dimension class AND alpha channel for png).
