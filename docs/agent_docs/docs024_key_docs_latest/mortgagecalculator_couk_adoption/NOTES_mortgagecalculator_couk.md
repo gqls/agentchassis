@@ -2504,3 +2504,58 @@ the same question, answered by two mechanisms that do not talk.
 
 `migration_backups` holds every previous value under
 `titles_2026-08-11b_benefit_led_titles` and `homepage_copy_2026-08-11_benefit_led`.
+
+### 19:39–19:45Z — LIVE and verified, and the 253 check passed with a real baseline
+
+**The assemble-only rerender was the wrong tool and said `complete` anyway.**
+Item `c0ab25e1` finished with `rendered_html` untouched: an assemble job
+concatenates existing component HTML and re-reads `pages.title`, so the **`<title>`
+updated and the body did not**. A `complete` work item is not a repaired artefact
+— caught only because the monitor asserted on the HTML, not on the status.
+
+**The right tool was `apply_section_edit`** (`section_editor_actions.go:229`
+updates `rendered_html`; `buildRenderContextFromDB` reads `content_data` from the
+DB). Fired per slot via the 130 trigger's shape, `edit_type=content_edit`, four
+correlations (`778e011d`, `5ebbeee2`, `8103e980`, `d17de0c2`). `items[]` was
+deliberately NOT sent — the render context reads it from the DB, so the refreshed
+card titles arrived without pushing a large array through Kafka. All four slots
+re-rendered 19:39:28–19:39:55 and deployed themselves.
+
+**The `bugs_open/253` check, done properly.** My first attempt counted
+`class="card` and `tool-grid` in `rendered_html` and got **0 and 0** — which
+looks exactly like the flattening 253 describes. It was **my needles being wrong
+for this template** (it uses `tl-card`, `guide-card`), and I only knew because I
+baselined instead of reading the zeros. Same measurement both sides, live page
+before tonight's changes vs live page now:
+
+| | before | after |
+|---|---|---|
+| distinct classes | 48 | **48** |
+| total class attributes | 88 | **88** |
+| `href=` | 33 | **33** |
+| `tl-card` / `guide-card` | 6 / 4 | **6 / 4** |
+| bytes | 35,676 | 35,589 |
+| **classes that DECREASED** | — | **0** |
+
+`[MEASURED 2026-08-11 19:45Z. Disconfirmable: the same script reports per-class
+losses, and it was written before the result was known — it is the check that
+would have printed "<-- LOST" beside any class 253 predicts.]` The 87 fewer bytes
+are the new copy being shorter, not markup going missing.
+
+**Live copy now** (`grep -c "Decision Engine"` = **0** on the served page):
+
+- H1 "Know your numbers before you talk to a lender"
+- H2 "The numbers you came to work out"
+- H2 "Help with the decision you're facing"
+- H2 "Start with your own figures"
+- `<title>` "Work out what your mortgage will cost"
+- cards: "What stamp duty will cost you", "How much you could borrow", "Which deal
+  works out cheaper", "If your home is worth less than your loan", …
+
+**Still owed on this thread:** the other 30 pages' `<title>` tags are updated in
+`pages` but only reach their served HTML on each page's next assemble — the
+homepage got one because it was the page being re-rendered. Their card labels on
+the homepage are already correct (those come from `pages.title` via the refreshed
+`items`). A per-page assemble pass (§10b) or the queued `page_rerender` backlog
+will carry them; **the guide/tool pages themselves still serve their old
+`<title>` until then.**
