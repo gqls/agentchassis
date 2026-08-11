@@ -1248,3 +1248,31 @@ could ever have fixed.
 The other chat did the manual-trigger rework and the Firecrawl key this morning; both are
 recorded in their own right. Two council verdicts are outstanding and should be read by
 whoever is next in: theirs for the key, mine for the vision piece.
+
+---
+
+**2026-08-11, early afternoon — after the fresh build went out.** The new release carries
+the vision-findings piece, so I switched it on and put it through its first real run.
+Everything passed, and the run itself was quietly satisfying: the machine looked at the
+darts setup-builder page — the one whose invisible text started all this yesterday — wrote
+a short critique for a human, ended with the new machine-readable "nothing to report" line,
+and correctly filed nothing. Better still, its prose confirms the colour fix with fresh
+eyes: no contrast problems on the page that failed the measurement a day ago. So the whole
+chain now works: the eyes see, the verdict stays the checks' business, a clean look files
+nothing, and a defect (when one next occurs) files exactly one ticket for a person.
+
+The chassis credential question is also fully closed: the new build's standing pods carry
+zero storage keys — the last box on that bug is ticked.
+
+One piece of honest process news: the reviewer council asked for changes to the
+vision-findings design before approving it. Two of their three points made the work better
+and I have done them — if the system ever fails to file a finding, it now leaves a durable
+written trace rather than just a log line; and the paperwork gap they spotted is fixed.
+Their biggest point was fair in spirit: "you are filing tickets into a queue — does anyone
+actually look at that queue?" I checked: the dashboard does show these items with a proper
+review flow, and the old bug where the queue falsely displayed as empty is fixed. What
+nobody has yet built is a routine that brings the queue to a human on a schedule — that is
+a known, separate open item, and it affects every kind of ticket, not just these. My view,
+stated to the council: better to fix that once, for the one shared queue, than to invent a
+private notification channel per feature. Their second verdict is due shortly; whoever
+picks up next should read it.
