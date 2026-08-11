@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+# /usr/local/bin/sitesync — pull this box's built sites from gqls/vm-sites into
+# their web roots. Idempotent; safe to run by hand. Run every 5 minutes by
+# sitesync.timer as www-data. Adapted from idea.uk's (same repo, different
+# domain folder) — see idea_uk_vm_site/box/sitesync for the original.
+#
+# reset --hard to origin, never merge: the repo is the single source of truth
+# and the box must not accumulate local drift.
+#
+# 2026-08-11: generalised from one hardcoded domain to a LIST, because this box
+# now serves noted.co.uk alongside webdesign.uk. The loop is the whole change —
+# adding a third domain is one line, and no domain can be added by editing the
+# rsync of another and getting its --delete target wrong.
+set -euo pipefail
+
+# Each entry is "<repo folder>:<web root>". Both sites are pull-model: nothing
+# is pushed to this box and it holds no cluster credential.
+DOMAINS=(
+  "webdesign.uk:/var/www/webdesign.uk"
+  "noted.co.uk:/var/www/noted.co.uk"
+)
+
+# ssh expands `~` from the passwd entry (getpwuid), NOT $HOME — www-data's passwd
+# home is /var/www, so setting HOME in the unit is not enough. Name the identity
+# and known_hosts explicitly. See agentchassis bugs_open/016.
+export GIT_SSH_COMMAND="ssh -i /var/lib/sitesync/.ssh/id_ed25519 -o IdentitiesOnly=yes \
+-o UserKnownHostsFile=/var/lib/sitesync/.ssh/known_hosts -o StrictHostKeyChecking=yes"
+
+cd /var/lib/sitesync/repo
+git fetch --quiet origin main
+git reset --hard --quiet origin/main
+
+for entry in "${DOMAINS[@]}"; do
+  folder="${entry%%:*}"
+  webroot="${entry##*:}"
+
+  # A folder may not exist yet: the box is provisioned before the site's first
+  # page deploys. Absent is "nothing to sync", not an error — without this guard,
+  # set -e + rsync's exit 23 kills the timer unit and the failure mode is
+  # "sync silently stopped weeks ago".
+  #
+  # NOTE the second guard: rsync --delete into a web root that does not exist
+  # would create it and serve an empty site. If the web root is missing, the
+  # site was never set up here and syncing into it is not what anyone meant.
+  if [ -d "$folder" ] && [ -d "$webroot" ]; then
+    rsync -a --delete "$folder/" "$webroot/"
+  fi
+done
