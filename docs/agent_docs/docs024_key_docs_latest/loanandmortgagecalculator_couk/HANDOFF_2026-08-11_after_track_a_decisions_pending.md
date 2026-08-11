@@ -10,8 +10,9 @@ Supersedes `HANDOFF_2026-08-10d_track_a_prose_decomposition.md` (that brief is
 **executed**, not pending) and is the entry point after `HANDOFF_2026-08-10c`.
 
 > **Do not start Track B on the strength of this file.** Track A was explicitly
-> authorised by the owner; Track B is not, and §D1 is a live decision. 10d's own
-> last line was *"Then stop."*
+> authorised; **Track B still is not.** §D1's *measurement* was authorised and is
+> done — it removed a blocker, it did not grant a go-ahead. 10d's last line was
+> *"Then stop."* and that still stands until the owner says otherwise.
 
 ---
 
@@ -21,8 +22,9 @@ Supersedes `HANDOFF_2026-08-10d_track_a_prose_decomposition.md` (that brief is
 prediction.** Zero generic verbatim pages remain on this site: 18 pages on
 `["prose-0"]`, 22 owned verbatim (Track B), 1 owned decomposed (`loans-consolidation`).
 Arithmetic untouched (`oracle.py` 170 PASS / 0 FAIL, both controls fired in-session).
-Byte gate passes. Two bugs were filed on the way (`250`, `251`), one of them
-fleet-wide. Nothing is half-applied and nothing is waiting on a queue.
+Byte gate passes. **Three** bugs were filed on the way — `250` (both halves now
+fixed), `251` and `252`, the last two both fleet-wide platform defects. Nothing is
+half-applied and nothing is waiting on a queue.
 
 ## 1. Verified on v1.0.1286, this afternoon — not inherited
 
