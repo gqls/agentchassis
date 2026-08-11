@@ -59,6 +59,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 
@@ -161,6 +162,26 @@ the only kind that scales." Nobody outside software says "scales".
 The test is not "is this word simple" but "would this reader have said it
 themselves". Prefer the concrete over the abstract: a thing you can picture beats a
 category every time.
+
+WRITE IT SO A CHILD COULD READ IT ALOUD AND GET IT. This is the hardest rule here
+and the one most often failed. Follow Simplified Technical English:
+
+  - ONE IDEA PER SENTENCE. If a sentence has two ideas, make it two sentences.
+  - NO SENTENCE OVER 20 WORDS. Aim for an average nearer 12.
+  - Active voice. Someone does something. Not "it is done".
+  - Present tense wherever it works.
+  - Short words. If a word has three or more syllables, look for a shorter one.
+  - SAY THE THING, DO NOT IMPLY IT. No metaphor the reader has to decode, no irony,
+    no clever compression that leaves them to join it up. A real rejected example:
+    "The dashboard is not an input to the decision. It is the receipt." Every word
+    there is short and both sentences are brief — and a reader still has to work out
+    what a receipt has to do with anything. That is exactly what to avoid.
+  - Nothing rhetorical: no "not X, but Y" flourishes, no rhetorical questions, no
+    sentence whose job is to sound good rather than to say something.
+
+Test it like this: would a bright ten-year-old understand it on ONE reading, with
+nothing explained to them? If not, it is too clever. Simple is not the same as
+childish — a plain sentence can still be an argument someone wants to fight.
 
 BRITISH ENGLISH, always. Spelling and idiom both: theatre not theater, realise not
 realize, holiday not vacation, queue not line, autumn not fall. This is a British
@@ -336,7 +357,26 @@ func loadRecentTitles(ctx context.Context, db *sql.DB, domain string, limit int)
 //   - length-bounded to the range the rules ask for, so the examples cannot
 //     contradict the stated limits.
 //   - newest first: the most recent approvals are the best evidence of taste.
+//
+// > **CORRECTED 2026-08-11 — "newest first" MADE THIS A FEEDBACK LOOP POINTING
+// > DOWNHILL, and it took a day to bite.** Ordering by `publish_on DESC` means each
+// > round's own output becomes the next round's specification as soon as it is dated.
+// > Measured the morning after it shipped, the three exemplars this returned included
+// > `cooking-from-scratch-every-night-isnt-worth-it` — **the worst-written entry in
+// > the entire pool**, 34.5 words per sentence, and one the generator had itself
+// > produced. The model was being shown the pool's least readable text as the
+// > definition of good writing, and would have gone on drifting in that direction
+// > with every round.
+// >
+// > "Most recent is the best evidence of taste" was the wrong axis. Taste is not
+// > time-ordered, and nothing in the loop was pulling the other way. **Ordering is now
+// > by measured readability**, plainest first, and candidates that fail the bar are
+// > excluded rather than merely ranked last — so the loop pulls upward, and an entry
+// > can only teach if it is better than the bar it is teaching.
 func loadExemplars(ctx context.Context, db *sql.DB, domain string, limit int) ([]exemplar, error) {
+	// Candidates are read wider than `limit` and ranked in Go, because the ordering
+	// that matters is a readability measure the database cannot compute. Bounded so a
+	// large pool cannot turn this into a table scan of every provocation ever written.
 	rows, err := db.QueryContext(ctx, `
 		SELECT title, teaser, COALESCE(NULLIF(body, ''), COALESCE(detail_body, '')) AS resolved
 		  FROM provocations
@@ -345,20 +385,46 @@ func loadExemplars(ctx context.Context, db *sql.DB, domain string, limit int) ([
 		   AND human_approved_at IS NOT NULL
 		   AND length(COALESCE(NULLIF(body, ''), COALESCE(detail_body, ''))) BETWEEN 250 AND 900
 		 ORDER BY publish_on DESC NULLS LAST
-		 LIMIT $2`, domain, limit)
+		 LIMIT 60`, domain)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var out []exemplar
+	var all []exemplar
 	for rows.Next() {
 		var e exemplar
 		if err := rows.Scan(&e.Title, &e.Teaser, &e.Body); err != nil {
 			return nil, err
 		}
-		out = append(out, e)
+		all = append(all, e)
 	}
-	return out, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	// EXCLUDE, then rank. An entry that fails the readability bar must not teach,
+	// however plain it is relative to its neighbours — ranking alone would still
+	// return the best of a bad set, which is exactly the state the pool was in on
+	// 2026-08-11 when every one of its 28 entries failed.
+	type scored struct {
+		e     exemplar
+		grade float64
+	}
+	var ok []scored
+	for _, e := range all {
+		r := measureReadability(e.Body)
+		if len(r.Failures) > 0 {
+			continue
+		}
+		ok = append(ok, scored{e, r.Grade})
+	}
+	sort.Slice(ok, func(i, j int) bool { return ok[i].grade < ok[j].grade })
+
+	var out []exemplar
+	for i := 0; i < len(ok) && i < limit; i++ {
+		out = append(out, ok[i].e)
+	}
+	return out, nil
 }
 
 // loadCurrency returns recent ingested headlines for a site, or nothing.
@@ -438,21 +504,29 @@ func GenerateProvocationsAction(ctx context.Context, params ActionParams) (inter
 	if err != nil {
 		return nil, fmt.Errorf("load recent titles: %w", err)
 	}
-	// FAIL RATHER THAN GENERATE WITHOUT THE SPECIFICATION.
-	// The exemplars are not decoration — they are the only description of the
-	// shape that is not somebody's paraphrase. A batch generated with none would
-	// be the model's own idea of a provocation, and it would arrive looking
-	// exactly like a normal batch: gate-judged, drafted, waiting for approval,
-	// and off-corpus in a way only a careful reader would catch. Refusing is the
-	// cheaper failure, and it is loud.
+	// > **THE REFUSAL HERE WAS WRONG, AND THE OWNER'S 2026-08-11 RULING PROVED IT
+	// > WITHIN A DAY.** Shipped 2026-08-10 as "refuse rather than generate without a
+	// > specification", on the reasoning that a batch with no exemplars would be the
+	// > model's own idea of a provocation. The council's `guardian` seat objected that
+	// > a log-and-fallback would satisfy the same diagnosis with less operational
+	// > risk. I kept the refusal. Then the owner rejected the corpus itself — every
+	// > entry in the pool, including its plainest — which is precisely the case where
+	// > a hard refusal locks the pipeline shut at the moment it most needs to produce
+	// > something different from what it has.
+	// >
+	// > **A specification you have been told is wrong is worse than none.** The rules
+	// > above are a complete specification on their own; exemplars sharpen them when
+	// > good ones exist and mislead when they do not. So: generate without them, and
+	// > say so loudly enough that nobody reads a rules-only batch as a normal one.
 	exemplars, err := loadExemplars(ctx, params.DB, domain, 3)
 	if err != nil {
 		return nil, fmt.Errorf("load exemplars: %w", err)
 	}
 	if len(exemplars) == 0 {
-		return nil, fmt.Errorf("no usable exemplars for %q: the corpus is the specification "+
-			"(PLAN §4), so generating without one would produce the model's idea of a "+
-			"provocation rather than this site's — refusing", domain)
+		params.Logger.Warn("GenerateProvocations: no exemplar passes the readability bar — "+
+			"generating from the written rules alone. Output is unanchored to any published "+
+			"example; read this batch before approving any of it.",
+			zap.String("domain", domain))
 	}
 	currency, cerr := loadCurrency(ctx, params.DB, siteID, 15)
 	if cerr != nil {

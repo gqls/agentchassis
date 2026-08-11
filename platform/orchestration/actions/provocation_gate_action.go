@@ -648,6 +648,10 @@ func gateCandidate(ctx context.Context, c provocationCandidate, judge judgeFn, m
 	}
 
 	checkForm(c, &v)
+	// Deterministic readability (owner, 2026-08-11). ADVISORY — it can only add a
+	// note, so it cannot change any verdict today. See provocation_readability.go
+	// for why it ships recording-only and what would have to be true to flip it.
+	checkReadability(c, &v)
 	checkClaims(c, &v)
 
 	// Cheap layers already rejected it — do not spend a call to confirm.

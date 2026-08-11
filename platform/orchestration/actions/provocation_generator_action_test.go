@@ -541,3 +541,96 @@ func TestGeneratorPromptAsksForBritishEnglish(t *testing.T) {
 		t.Fatal("the prompt dropped the worked spelling example the rule came from")
 	}
 }
+
+// ---------------------------------------------------------------------------
+// Readability (owner, 2026-08-11: "readable by a 5 year old or something like that")
+// ---------------------------------------------------------------------------
+
+// TestReadabilityCatchesTheEntryThatPromptedTheRule uses the real text, because a
+// threshold tuned against invented prose is tuned against nothing.
+func TestReadabilityCatchesThePoolsWorstEntry(t *testing.T) {
+	// Verbatim from `cooking-from-scratch-every-night-isnt-worth-it`, the generator's
+	// own output and the worst-scoring body in the pool on 2026-08-11 (34.5 words
+	// per sentence). If the rail does not catch this, it catches nothing.
+	body := "The hour you spend chopping vegetables after work is an hour you are not " +
+		"spending with the people you did all of it for, and the meal that results is " +
+		"rarely so much better than the one you could have assembled in fifteen minutes " +
+		"that the difference repays what it cost you to make it."
+
+	r := measureReadability(body)
+	if len(r.Failures) == 0 {
+		t.Fatalf("the rail passed the pool's worst entry: grade %.1f, %.1f words/sentence, "+
+			"longest %d words", r.Grade, r.AvgWords, r.LongestWords)
+	}
+	if r.LongestWords <= maxSentenceWords {
+		t.Fatalf("longest sentence measured %d words, which is under the %d limit — "+
+			"the sentence splitter is breaking where it should not",
+			r.LongestWords, maxSentenceWords)
+	}
+}
+
+// The other direction, and the one that decides whether the rail is usable: short
+// plain sentences must PASS. A check that fails everything gets switched off, and
+// then it protects nothing.
+func TestReadabilityPassesPlainProse(t *testing.T) {
+	body := "You clean the bath when someone is coming. You do not clean it for you. " +
+		"That tells you who the house is for. It is not you. Think about that."
+
+	r := measureReadability(body)
+	if len(r.Failures) != 0 {
+		t.Fatalf("plain prose failed the rail: %v (grade %.1f, %.1f words/sentence)",
+			r.Failures, r.Grade, r.AvgWords)
+	}
+}
+
+// The rail is ADVISORY and this test says so out loud. If someone makes it fatal,
+// this fails and they have to come here and read why it shipped recording-only —
+// which is the whole mechanism, since the flip is a one-line change that would
+// otherwise be invisible in review.
+func TestReadabilityIsAdvisoryNotFatal(t *testing.T) {
+	v := gateVerdict{}
+	checkReadability(provocationCandidate{
+		Body: "This sentence is deliberately far longer than twenty words in order to " +
+			"trip the readability rail and prove that doing so produces a note rather " +
+			"than a rejection of the candidate under judgement here.",
+	}, &v)
+
+	if v.fatal() {
+		t.Fatal("checkReadability produced a FATAL reason. It ships advisory on purpose: " +
+			"on 2026-08-11 every one of the pool's 28 approved entries failed at least one " +
+			"threshold, so making it fatal on day one rejects every candidate and starves " +
+			"the site. Flip it only with a run showing the new prompt can pass it — then " +
+			"update this test.")
+	}
+	var found bool
+	for _, r := range v.Reasons {
+		if r.Rule == "hard_to_read" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatal("a 30-word sentence produced no hard_to_read note — the rail is not wired in")
+	}
+}
+
+// The exemplar loop must pull UPWARD. Ordering by date made this round's output the
+// next round's specification, and on 2026-08-11 that meant the pool's worst entry was
+// teaching the model. Excluding failures is what makes it a ratchet rather than a
+// ranking of a bad set.
+func TestExemplarSelectionExcludesRatherThanRanks(t *testing.T) {
+	src, err := os.ReadFile("provocation_generator_action.go")
+	if err != nil {
+		t.Fatalf("read source: %v", err)
+	}
+	s := string(src)
+	if strings.Contains(s, "ORDER BY publish_on DESC NULLS LAST\n\t\t LIMIT $2") {
+		t.Fatal("loadExemplars is selecting exemplars by DATE again. That makes each " +
+			"round's output the next round's specification with nothing pulling upward — " +
+			"measured 2026-08-11, it fed the model the worst-written entry in the pool.")
+	}
+	if !strings.Contains(s, "if len(r.Failures) > 0 {") {
+		t.Fatal("loadExemplars no longer EXCLUDES exemplars that fail the readability " +
+			"bar. Ranking alone returns the best of a bad set — which is exactly the " +
+			"state the pool was in when every one of its 28 entries failed.")
+	}
+}
