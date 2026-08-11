@@ -67,8 +67,28 @@ coming lockstep change in its header.
 3. Run the post-apply verification queries at the bottom of the seed file
    (17 steps; `review_fields` lists all three reviewers).
 4. Smoke-run: submit a small real change via 097, watch
-   `orchestration_state_audit`, read the verdict note
-   (`SELECT body FROM doc_notes WHERE categories ? 'council-gate' ORDER BY created_at DESC LIMIT 1`).
+   `orchestration_state_audit`, read the verdict note — **filtered by YOUR
+   correlation, and only after your run reads `COMPLETED`**:
+   ```sql
+   -- is MY round finished? (find the run by payload, never by a printed id)
+   SELECT current_step, status FROM orchestration_states
+    WHERE collected_data->'input_data'->>'fix_correlation_id' = '<SUBMISSION_CORR>'
+    ORDER BY created_at DESC LIMIT 1;     -- COMPLETED, not EXECUTING_STEP
+   -- then, and always correlation-filtered:
+   SELECT created_at, body FROM doc_notes
+    WHERE categories ? 'council-gate' AND body LIKE '%<SUBMISSION_CORR>%'
+    ORDER BY created_at DESC LIMIT 3;
+   ```
+   > **CORRECTED 2026-08-11 (bugfix_234 lane).** This step used to print
+   > `… WHERE categories ? 'council-gate' ORDER BY created_at DESC LIMIT 1` with no
+   > correlation filter. **That returns whichever lane finished most recently.** Caught
+   > live: with a round still executing, it handed back a confident APPROVED whose summary
+   > described a different lane's migration-380 change. Saving `SUBMISSION_CORR` does not
+   > protect you if the query does not use it. `LIMIT 3` because a resubmission REUSES the
+   > correlation, so its rounds must read as a series — otherwise `LIMIT 1` can hand you the
+   > previous round's verdict while the current one is still running. And a
+   > `complete_invalid` run produces **no note at all** (refused before any seat ran):
+   > absent note + empty `execution_path` means nothing was reviewed, not nothing was wrong.
 5. Announce in the digest/docs: threads submit before committing; approved
    commits carry the trailer.
 
