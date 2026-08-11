@@ -1663,3 +1663,95 @@ SELECT site_id, priority, count(*), min(created_at)::time(0)
 FROM site_work_items WHERE item_type='page_rerender' AND status='triaged'
 GROUP BY 1,2 ORDER BY 3 DESC;
 ```
+
+### 2026-08-11 — TRACK A COMPLETE: 17 of 17 live, every one byte-identical to prediction
+
+```
+17 / 17 served == predicted, byte for byte
+   legal 9,248 · guides-index 11,534 · 12 guides 11,681–15,387 · loans-index 10,284
+   · mortgages-index 10,526 · index (homepage) 13,514
+DB shape: 18 generic ["prose-0"] · 22 owned ["ported-page"] · 1 owned decomposed
+   ZERO generic verbatim pages remain on this site
+all 18 prose pages: exactly 1 component row, function ported-prose, none locked
+gate_component_bytes.py : GATE PASSES (22 verbatim exact, 21 assembled skipped)
+oracle.py               : PASS 170  FAIL 0  CONVENTION 6
+   controls in the SAME session: --selftest-parse PARSE CONTROL OK;
+   --mutate expectation -> 4 FAIL / 0 passed under mutation. CONTROL OK.
+verify_site.py          : 1 FAIL — see below, and it is a real find, not noise
+```
+
+Order run: `legal` (tight canary) → `guides-index` (hub canary) → the 12 tight guides
+→ `loans-index` + `mortgages-index` → `index` last and alone. The two shapes were
+canaried separately because `tight` is the one flag that changes what `load_lmc.py`
+writes (the `container-tight` wrapper), so `legal` passing said nothing about a hub
+page. Both shapes proved byte-exact live before the rest of their class went.
+
+> **CORRECTION to my own claim in the priority note above.** I wrote that with 34
+> items ahead at pri 80 and concurrency 1, mine would wait **~85 minutes**. They
+> started **4 minutes later** and all 16 finished inside 20. The *ordering* fact is
+> read from the code and stands (`priority ASC, created_at ASC`); the *waiting-time
+> prediction* I built on top of it was wrong, because I inferred a strict global
+> FIFO from one `claimed=1` sample without reading how the handler batches or
+> whether it interleaves by site. **A correct mechanism does not license a
+> throughput estimate** — that needed its own measurement and I did not take one.
+
+#### ⛔ The one verify_site failure is real, is fleet-wide, and is NOT ours — `bugs_open/251`
+
+```
+FAIL  canonical names another page: index.html -> https://…/index.html (expected /)
+```
+
+The assembled homepage declares `…/index.html` as its canonical; the hand-built one
+declared the bare `/`. Cause read directly:
+`rerender_single_page_action.go:1074`, `canonical := "https://" + page.Domain +
+page.URL`, with no directory-index normalisation.
+
+**Measured before asserting anything: 9 of 10 live fleet homepages already serve
+`…/index.html`.** So this is long-standing platform behaviour that Track A
+*surfaced*; LMC's homepage was in the correct minority only because nothing had ever
+rendered it. 23 sites have a homepage on this path.
+
+**And I refuted my own first explanation of the outlier.** `mortgagecalculator.co.uk`
+serves the correct `/`, and my theory was that its `head` component pre-declares a
+canonical (the injector returns early if one exists). One query killed it — **no**
+head component on any of four sites declares one, including three that DO get the
+wrong tag, which is the control that makes the negative mean something. The actual
+reason: that page has **no `page_components` rows** and `build_status='needs_rebuild'`
+— it has never been assembled. It is not an exception, it is a page the rule has not
+reached. Stopping at "9 of 10, near enough" would have filed a bug whose one
+disagreeing case was in fact its strongest confirmation.
+
+`injectPageJSONLD` is documented in the source as byte-identical in its URL
+construction, so the same wrong URL is likely the structured-data `@id` too.
+`[UNMEASURED — lead, not finding.]`
+
+#### The og:url check would have gone permanently red — fixed rather than tolerated
+
+`verify_site.py` hard-FAILed on missing `og:url`, which no assembled page can carry
+(shared `<head>`). That is the stated accepted loss (`PLAN_2026-08-05` §6), so the
+failure count would have been 2 on 08-06, **19 today** and 59 when both sites finish —
+and a permanently-red checker is one nobody reads, taking its real findings with it.
+It now hard-FAILs on a hand-built page and **counts** on an assembled one:
+`per-page og:* dropped (assembled)  19 page(s)`.
+
+Induced, because an exemption that silences its own detector is exactly the risk:
+against a scratch copy, the control counts 2 of 42 and passes, and stripping `og:url`
+from a **hand-built** page (`mortgages/stamp-duty`) still yields
+`FAIL missing og:url`. The marker is the shared header's skip target
+(`<span id="content" tabindex="-1">`), not a prose-specific string, so it will
+recognise a decomposed **tool** page in Track B too.
+
+#### What is NOT done, and is owed to Track B
+
+- **The re-slot question of 10c §6 is still `[INFERRED]`.** Track A has no locked
+  rows, so nothing here exercised `matchLockedRow`. It must be measured on ONE tool
+  page before Track B goes wide — check for a locked row landing at
+  `position = len(sections)+1` and for a `lock_blocked` work item, which is the only
+  non-silent half.
+- **`bugs_open/250` is half-open**: the sibling lane's `load_decomposition.py` still
+  carries both backup defects and one already-poisoned rollback.
+- The 40 `page_rerender:detected` rows on this site (from `discovery`, each carrying
+  a `spec.reason`, i.e. REBUILD mode not assemble) are still there. Nothing promotes
+  `detected`, so they are inert — but they are now pointed at 17 pages that will
+  rebuild from components rather than refuse, which is a different exposure from the
+  one they were filed under. Worth a decision before anything starts promoting them.

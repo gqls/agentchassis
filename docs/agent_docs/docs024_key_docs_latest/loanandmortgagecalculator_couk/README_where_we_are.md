@@ -815,3 +815,63 @@ rather than to this site, so it isn't part of this job.
 
 Fifteen pages to go — the twelve guides, the two section indexes, and the homepage
 last, on its own.
+
+## 2026-08-11 (midday) — Track A is done: all seventeen pages converted and live
+
+All seventeen are converted and serving, and every one of them came out
+**byte-for-byte identical** to what we predicted offline before touching the site.
+Not "looks right" — identical, to the character, on all seventeen. The site now has
+no old-style frozen pages left outside the calculators.
+
+I did them in a deliberate order rather than all at once. The legal page first,
+because it's the smallest and least visited. Then the guides index, because it's a
+different *shape* — thirteen of the pages are narrow-column guides and four are
+full-width hub pages, and the narrow ones passing told me nothing about the wide
+ones. Once each shape had proved itself on the live site, the rest of that shape
+followed. The homepage went last and on its own, as planned.
+
+**The arithmetic is untouched, and I checked rather than assumed.** None of these
+seventeen carries a calculator, so the sums should not have moved — 170 checks pass,
+none fail. More importantly I ran the two controls in the same sitting: one that
+proves the checker can read numbers off a page at all, and one that feeds it a
+deliberately wrong answer to confirm it actually fails when it should. A green run
+without those is just a green light with no bulb behind it.
+
+**One genuine problem found, and it isn't ours.** Our own site checker flagged that
+the homepage now tells search engines its official address is
+`loanandmortgagecalculator.co.uk/index.html` rather than plain
+`loanandmortgagecalculator.co.uk/`. Both show the same page, but that tag is exactly
+how you tell Google which of the two to treat as the real one — and it's now naming
+the version nobody links to.
+
+Before blaming our work I checked ten other sites of ours. **Nine of the ten already
+have the same problem**, and have done for a while. It comes from shared platform
+code that builds the address by gluing the page's filename on the end, with nothing
+to say "the front page is just a slash". Our homepage was in the correct minority
+only because nothing had ever rebuilt it — this work moved it onto the same path as
+everything else.
+
+I'll admit a wrong turn here, because it nearly became a wrong bug report. The tenth
+site was serving the correct address, and I assumed it must be doing something
+special. It isn't — I checked, and my explanation was simply wrong. The real reason
+is that its homepage has never been rebuilt at all, so it's still serving its old
+hand-made file. It wasn't an exception to the rule; it was a page the rule hadn't
+reached yet. Had I shrugged at "nine out of ten, close enough", I'd have filed a
+report whose one disagreeing case was actually the strongest thing supporting it.
+It's written up as a bug for the platform, with the fix and its blast radius.
+
+**One thing I fixed rather than tolerated.** Our site checker was set to fail
+whenever a page lacked those social-sharing tags I mentioned last time. Since no
+converted page can have them, that check was on course to be permanently red — two
+pages yesterday, nineteen today, all fifty-nine eventually. A checker that is always
+red is one everybody learns to ignore, and it takes its genuine findings down with
+it. It now reports the count as a known, accepted loss on converted pages, and still
+fails properly on a hand-built page that's genuinely missing them. I tested that by
+breaking a page on purpose to make sure it still complains.
+
+**What's next, and what I'd flag before Track B.** Track B is the twenty-two
+calculator pages, and it is a different risk class entirely — those pages do sums
+people rely on. There's one thing the last handoff marked as reasoned-but-unmeasured:
+what happens to a locked calculator when the page is rebuilt. Track A couldn't test
+it, because none of these pages has a locked component. It should be measured on a
+single calculator page before Track B goes anywhere near the rest.
