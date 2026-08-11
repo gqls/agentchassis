@@ -28143,3 +28143,23 @@ gives you the other side's number.
 here the deciding arm was the `if (age >= 65) ltv = 0.31` line, and the comment above it
 disagrees. The action survived the swap only because it named its own evidence path
 ("extract from the live original") rather than the figure.
+
+## 2026-08-11 — bugfix 242: re-derived an already-ruled mechanism and nearly filed it as a discovery
+
+Taking bug 242, I traced the [UNVERIFIED] §4 mechanism first-hand through four functions
+(`storeActionResult` → `persistAwaitingStateWithRetry`'s fresh-load discard → the callers'
+skipped persist → the reply-time merge with nothing to preserve) and was preparing to
+assert it as this lane's finding — with a fix aimed at the coordinator's persist path.
+**The mechanism was already established (RFC_012 addendum 2, 2026-08-04), owner-ruled
+(2026-08-06: option B, DB-backed), with the coordinator change explicitly owner-gated
+behind a reader census.** A fix written from my "discovery" would have taken a decided
+architecture question inside a bug patch — the exact shape the guardian vetoed in 124.
+
+**What caught it:** reading the RELATED section of the sibling bug (236) before writing
+anything down, which pointed at RFC_012. **The cheap check that would have caught it
+immediately:** grep `architecture_review/` and `LANDMINES.md` for the SYMBOL
+(`persistAwaitingStateWithRetry`, `applyResponseToState`) the moment it became the story —
+the same grep-before-you-file discipline the estate already has for bugs, applied to a
+mechanism. Note bug 242 §4 itself does not cite RFC_012 — a mechanism written up under a
+different vocabulary ("the await overwrite" vs "metadata not persisted") defeats a
+symptom-worded grep; the SYMBOL is the spelling that finds it.

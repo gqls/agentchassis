@@ -1,5 +1,10 @@
 # 242 — a render audit truncated by `max_pages` is indistinguishable from a complete one in the stored artefact
 
+> **TAKEN 2026-08-11** by the `bugfix_242_render_audit_truncation` lane
+> (`docs/agent_docs/docs024_key_docs_latest/bugfix_242_render_audit_truncation/`).
+> **§4 is ANSWERED — see the 2026-08-11 section at the end**: the mechanism is RFC_012
+> addendum 2's park-time discard, already owner-ruled; the fix follows that ruling.
+
 **Filed** 2026-08-10 from the `bugfix_122_contrast_ink_slots` lane, on the **second ever
 run** of the new weekly render-audit rotation (migration `369`, VIZ-015).
 **Severity** medium-high, and rising with adoption: the rotation now sweeps every site
@@ -167,3 +172,51 @@ known case. A run against a 10-page site cannot distinguish a fix from no fix.
   worth reading together, and a fix for either should check the other's case.
 - `bugs_open/213` — the repair route these findings drain into can stamp complete without
   writing. Detection under-measures; repair over-reports.
+
+---
+
+## 2026-08-11 — §4 ANSWERED: the mechanism was already established and RULED ON; it is RFC_012's park-time discard
+
+By the `bugfix_242_render_audit_truncation` lane. §4's hypothesis was close but named the
+wrong moment: the metadata is not *replaced at reply time* — it is **never persisted at
+dispatch time**.
+
+The chain, read in full (not grepped) and re-verified on live rows today:
+
+1. `storeActionResult` (`coordinator.go:1863-1892`, called at `:1795`) writes the action's
+   whole result — `Metadata` included — under the step key AND the output field, **in
+   memory only**.
+2. `processAwaitResponse` → `persistAwaitingStateWithRetry` (`coordinator.go:2067-2102`)
+   loads **fresh state from the DB** (which predates that write), copies onto it ONLY
+   `AwaitedRequests` + `Status`/`LastActivity`, and persists that. The in-memory result is
+   discarded.
+3. Both callers then skip their own persist — "state was already persisted"
+   (`coordinator.go:941-948`, `:1472-1476`).
+4. At reply time `applyResponseToState`'s branch for these steps is preserve-then-add
+   (`:2721-2748`, taken because `extractTargetAgentType` returns `"unknown"`, non-empty,
+   for adapter requests) — it preserves correctly, but there is nothing to preserve.
+   Result: exactly `{response, response_status, response_received_at}`.
+
+Live confirmation 2026-08-11: 7 of the last 8 rotation runs show that three-key shape under
+BOTH `audit` (step key) and `render_audit` (output field); the eighth was a no-await
+`skipped` run and keeps its full result — the control (query in the lane RUNBOOK).
+
+**§4's check 2 (is it general?) — YES, and it was already known.** This is **RFC_012 — "the
+await machinery destroys whatever an action computed"**, addendum 2 (2026-08-04, proven
+live on the 098 retraction audit), **owner-ruled 2026-08-06: option B** — durable findings
+from an awaiting action go through the shared `agenterrors` writer
+(`platform/orchestration/agenterrors/agenterrors.go`, built and live), written BEFORE
+dispatch; artefact-visible facts must ride the adapter's reply. The coordinator
+merge/persist change ((a)/(a′)) is explicitly open, gated behind the reader census
+(`CENSUS_2026-08-07_rfc012_await_step_readers.md`) — so §4's escalation clause ("belongs in
+architecture_review, not in a bug patch") is satisfied: it is *already there, decided*.
+`bugs_open/236` (hero/logo `image_url` lost) is the same mechanism; its §5 candidate
+directions contain this answer's first bullet.
+
+**Fix (this lane, per the PLAN):** candidates 1+2 implemented the framework way — the
+request carries `pages_total`/`truncated`, the adapter echoes them in `summary` (the reply
+is the only thing that survives the await), `write_render_audit_findings` stamps them into
+its durable result — plus an `agenterrors` `RENDER_AUDIT_TRUNCATED` row before dispatch
+(the RFC_012-B door), plus candidate 3 as mitigation (rotation `max_pages` 25 → 60 by
+migration). Candidate 4 is out of scope by owner ruling, exactly as §5 suspected it
+would be.
