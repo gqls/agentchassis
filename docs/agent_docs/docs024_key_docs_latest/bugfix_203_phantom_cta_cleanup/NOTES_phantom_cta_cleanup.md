@@ -950,3 +950,37 @@ are not, and are stopped** pending 248 and 253.
 > 08-10 verification was sound for the case it tested and did not license the generalisation
 > I drew from it. **Three defects in one 40-line function, found only by exercising it on
 > real pages — the unit tests pass on all three.**
+
+**2026-08-11 — bugs_open/253 fix shipped, commit `f1819861f`.** `BestLabelMatch` now ranks
+identity-token overlap (label tokens present in a candidate's own `name`/`title`) ahead of
+total overlap (name+title+`nav_label`, the old and only signal); interactive-preference and
+the alphabetical `Name` tie-break are unchanged. Council-Submitted:
+`ccef36de-6757-4777-91db-37864b018622` (submitted before commit, per the standing rule;
+verdict not yet read).
+
+**Wrong turn, worth keeping**: the first attempt at this fix added a fourth ranking key —
+smaller token-set size wins a tie, meant to replace the alphabetical final tie-break with
+something that at least looks principled ("the more precisely-named candidate should win a
+tie"). It passed its own unit tests and the first calibration pass looked like an
+improvement. Only a second, harder look at the live numbers caught it: on
+gaswholesalers.com it flipped all 9 already-correct CTA labels away from the right
+calculator, because "Break-Even" tokenises to two words where the correct page's own title
+uses the unhyphenated "breakeven" — one stray hyphen made the wrong candidate's token set one
+entry smaller, and the new key handed it the win. The same shape recurred on
+vetcomparison.uk (a shared generic word, "cma") and robot-hands.com (the word "run" sitting
+in an unrelated page's own title, absorbing labels like "Run Payload Calculation"). The key
+was dropped and the shipped ranking keeps the original alphabetical `Name` as the final
+tie-break, unchanged from before this fix — identity-overlap is the only new key. Full
+numbers and the regression traces:
+`docs/agent_docs/docs024_key_docs_latest/bugfix_203_phantom_cta_cleanup/CALIBRATION_2026-08-11_label_match_identity_report.txt`.
+
+Calibration (both candidate pools the shipping code actually uses, 784-row set): detector
+pool 784 examined / 697 matched / 347 newly-resolved / OVERRIDDEN 208->205, 18 changed picks
+(2.3%), each inspected individually; resolver pool 784/401/196/44, OVERRIDDEN unchanged
+at 44, 0 changed picks (its `contentHub` candidates have no `nav_label`, so identity==total
+there structurally — this fix cannot move that pool).
+
+`bugs_open/253` stays OPEN — fixed-and-committed is not fixed-and-live until the next
+fleet roll, per the standing bar. `bugs_open/248` (the recompute-destroys-authored-links
+defect in the repair path's excluded-area handling) is untouched by this fix and remains the
+other blocker on draining the `misdirected_cta` work-item queue.
