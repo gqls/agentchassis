@@ -1494,6 +1494,36 @@ Recorded with `--record-only` and the checks in the note. **Recording is part of
 file is fully guarded, so it probes as innocently pending for ever after a hand-apply, one scoped
 `--apply` away from a silent replay.
 
+### 2026-08-11 — the last verdict landed APPROVED, and both its objections were about MY absence claims
+
+`4739c992-74f6-4aa0-aa00-6cf8ffa4b720` (the registry-parity fixture skip): **APPROVED**, 1 advisory
+objection, none high. Both objections came from `prior_art_librarian` and both are the same good
+instinct — **an absence I asserted and used as load-bearing justification**:
+
+1. *(MEDIUM)* *"'there is no UnregisterActionInputSpec, no Reset, and no test hook' … is a
+   load-bearing absence claim (it justifies choosing the prefix-skip over a cleanup helper) that has
+   not been checked."* **Re-checked and it holds:** the registry is `actionInputSpecs`
+   (`action_inputs.go:794`) and the complete set of functions touching it is
+   `RegisterActionInputSpec` (:798), `GetActionInputSpec` (:803), `ListActionInputSpecNames` (:812),
+   `GenerateInputContract` (:822), plus unexported `checksConfig`. A tree-wide grep for
+   `Unregister|ResetActionInput|ClearActionInput|delete(actionInputSpecs` returns **nothing** —
+   its only hits are `checkUnregisteredNumbers`, an unrelated page-content check, which is a
+   false-positive on the string and worth knowing before someone greps `Unregister` and thinks they
+   found one.
+   ⚠ **My cited line numbers had already gone stale**: the submission said `:712`/`:726`, and they
+   are now `:798`/`:812` — another session edited that file between writing and review. The claim
+   survived; the coordinates did not. Cite the symbol, not the line, in a submission that a seat
+   will read hours later.
+2. *(LOW)* the `PROCESS` trigger claim. **Verified:** `PROCESS_architecture_review.md:19` reads
+   *"it adds, changes or removes an **exported symbol** other packages depend on"*, amended by
+   `8f31ef710` and confirmed by the owner on 2026-08-10 (*"your wording is fine"*).
+
+**The transferable bit:** three of this lane's four council rounds objected to something I had
+asserted rather than shown, and every time the assertion turned out to be true. That is not a reason
+to relax — the seats cannot tell a checked absence from an unchecked one, which is exactly why the
+burden is on the submission to show its work. An absence used to rule out an alternative is the
+highest-value thing to evidence, because it is the load-bearing half of a design argument.
+
 **Steady state to expect:** the detector, live since `v1.0.1279`, now warns on exactly **one** step —
 `content-reviewer.mark_page_needs_attention`, confirmed still carrying `notes_field` and
 `validation_issues_field`. That warning is the mechanism working. Anyone who silences it by

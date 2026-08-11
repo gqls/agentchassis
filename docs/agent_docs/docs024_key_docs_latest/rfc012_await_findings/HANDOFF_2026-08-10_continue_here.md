@@ -1,4 +1,30 @@
-# HANDOFF — RFC_012 lane · **START HERE** · written 2026-08-10
+# HANDOFF — RFC_012 lane · **START HERE** · written 2026-08-10, final status 2026-08-11
+
+> ## THE LANE IS CLOSED. NOTHING IS OWED. Updated 2026-08-11.
+>
+> Every piece of work, every council round and every verification this lane owned is finished.
+> **Do not pick this file up as a work queue** — it is kept as the record of how the work went and
+> as the source of the traps below, which are the part still worth reading.
+>
+> - **All five council rounds APPROVED**: `b0deddf7` (§7 backfill), `c88c0a84` (`decision`
+>   lockstep), `c961b79e` (array index), `501ef561` (dead keys), `4739c992` (registry-parity skip,
+>   landed 2026-08-11 — both its objections challenged absence claims of mine; both re-checked and
+>   both held, written up in NOTES).
+> - **All code LIVE and pod-verified on `v1.0.1284`**, both replicas (`fallback_url_field is
+>   configured but resolved to no URL` = 1, `commit_from` = 0, absent-needle = 0). Verified on
+>   1277, 1283 and 1284 — the fleet rolls often; re-verify rather than quoting these.
+> - **Migration 356 APPLIED and recorded** (2026-08-10). Config half done.
+> - **`RFC_019` is DECIDED** (owner: the shared ladder ships) and its acceptance evidence is
+>   discharged as far as it honestly can be — see §12 and Job 1 below for why "as far as it
+>   honestly can be" is the correct phrasing and not a hedge.
+>
+> **The live work moved to `COMMISSION_2026-08-10_owner_rulings_five_pieces.md`** — five owner
+> rulings, already started by another thread (item 5 is BUILT, `5f8a326fc`, inert until it rolls).
+> If you are here to do something, go there.
+>
+> **Still the owner's, not a thread's:** `bugs_open/236`'s design question (commission item 1) and
+> the `deploy_commit` scoping (item 3).
+
 
 **Supersedes `HANDOFF_2026-08-09_continue_here.md`**, which is now history: its two open items are
 both resolved (one by an owner ruling, one by a measurement that turned out to be unfalsifiable).
