@@ -25,14 +25,30 @@ Everything below is verified unless marked `[UNMEASURED]`.
    vocabulary (§8 below, mechanism proven both ways). A CONFIRMED verdict → implement on
    its cited seam (likely: surface `commit_sha`/`commit_time` in `codeIndexScope` and the
    evidence line). REFUTED → record the correction in NOTES + LANDMINES, visibly.
-2. **BUILD THE RFC_022 COUNTER — it is what closes the RFC** (owner ruling 2026-08-11:
-   option 3 with option 1 as interim; interim is LIVE via migrations `381`+`383`).
-   The counter: a sweep over `RegisterActionInputSpec` declarations per action reporting
-   each shared action's optional-key count, so the seat can trigger on ACCUMULATION
-   rather than on any single addition. Precedent shape: `cmd/config-key-audit` grew
-   `--single-owner-actions` for RFC_006 — extend that command rather than birthing a new
-   one. Until it exists the estate runs with a **stated** blind spot (the seat prompt
-   itself says what it no longer watches).
+2. **BUILD THE RFC_022 COUNTER — OWNER DECIDED 2026-08-11: extend `cmd/config-key-audit`.
+   A fresh session starts HERE.** (Ruling: option 3 with option 1 as interim; interim is
+   LIVE via migrations `381`+`383`.) The counter is what closes the RFC — it moves the
+   architecture seat's trigger from "any new reserved key" to the accumulated optional-key
+   COUNT per shared action, which is the harm the seat actually named (the tenth field,
+   not the first). Cold-start facts, verified 2026-08-11:
+   - **The command already reads what you need.** `cmd/config-key-audit` (14 files;
+     `main.go:176`-ish dispatches by `os.Args[1]`) links the real actions registry via an
+     init import, and its existing `--specs` mode already dumps each action's FULL
+     declared contract — including the `Optional` list — from the same
+     `RegisterActionInputSpec` data (195 call sites fleet-wide;
+     `datahelpers/action_inputs.go:18` = `ActionInputSpec`, `:798` = the registrar). So
+     the new mode is mostly a fold over data `--specs` already surfaces: optional-key
+     count per action, sorted, with a threshold flag.
+   - **Follow the RFC_006 shape end-to-end**, not just the flag: `--single-owner-actions`
+     came with `scripts/audit-single-owner-actions.sh` and a DAILY CronJob check, because
+     **a pre-commit hook cannot gate live config** (RFC_006's own lesson). Decide with
+     the owner whether the counter needs the cron half or starts report-only.
+   - **What "done" means:** counter merged + a threshold agreed with the owner + RFC_022's
+     STATUS updated from interim to closed + the `381`/`383` clause's "that counter is not
+     built yet" sentence updated **by a follow-up migration in both rosters** (anchored
+     insert, same pattern — mind item 4: no `099 --apply`).
+   - Platform code → council round; register the mechanism (concept register) in the same
+     commit; check `LANDMINES.md` for `config-key-audit` footprints before touching it.
 3. **`derive_checks` should not emit a bare `content` query for a footprint it can see is
    non-Go** — RFC_005's mechanism, route it, do not patch it here. (This is also what
    would make the never-fired `verify_unverifiable` gate reachable — §3a.)
