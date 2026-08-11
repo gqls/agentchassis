@@ -3250,3 +3250,38 @@ edit, proof item `4ef3c11a…`) — not touched here beyond the opinion the owne
 
 Update this entry when each lands; if you are a third session, take NONE of these three
 without checking `git log` on this file AND the live transcripts first.
+
+## 2026-08-11 (afternoon) — four owner decisions landed; three executed same-day
+
+Owner decisions (in chat): 243-c3 vision-visibility YES (build next, fresh session — spec
+in HANDOFF_2026-08-11 §3b); 243-c2 option (b) wrapper; FIRECRAWL convert to secretKeyRef;
+the three site problems (loancalculator url_field vs rename, contrast scope,
+gaswholesalers logo) presented for decision — notifications to those lanes follow the
+owner's calls, not yet written.
+
+**FIRECRAWL**: moved into `agentenv.providerKeyNames` (not another inline secretKeyRef
+block) — the allow-list is the one place BOTH spawners read, and the value-copy had the
+bugs_open/112 drift too: `cmd/remote-job-spawner` never injected the key at all. URL
+stays a pass-through (endpoint, not secret). Built against clean archive HEAD (agentenv +
+actions + remote-job-spawner packages). Commit `f56abaadf`, `Council-Submitted:
+6f13c5ce-91ae-4b4a-8c80-37e8b35436ec` — **verdict unread, next session reads it**.
+
+**Wrapper (243-c2b)**: `tool_acceptance_run.sh` rewritten to insert the due-sweep's exact
+work-item shape; preflights refuse unresolvable-page / no-PLAN / open-duplicate loudly.
+Foreground-tested the refusal path first (nonexistent function → clean REFUSED), then ran
+it for real: work item `4ef3c11a-2815-4dfd-b478-4d3cf2f319b9` → spawned pod
+`agent-tool-acceptance-agent-d3a4a56a-vtw9d` → `complete`, no step error, 15/0/9, vision
+2 images (llm_call_log now 2 rows all-history — one per spawned run, both today).
+
+Misstep, caught by the foreground test: psql `-t -A` still prints the `INSERT 0 1`
+command tag after a `RETURNING` row, so `$ITEM_ID` captured two lines and the printed
+follow-queries were malformed on the script's first run. Fixed with `head -1` + a comment
+at the capture site. The insert itself was always correct — only the echoed convenience
+queries were wrong, which is exactly the kind of error a dry read-through would have
+blessed.
+
+Dispatch observation worth keeping: `build-dispatch-loop` is fired PER SITE
+(`load_work_item_actions.go:651` — `WHERE wi.site_id = $1`, ORDER BY `priority ASC` so
+LOWER number wins) and rotates sites ~3 min apart; the wrapper's item waited ~15 min
+behind two other sites' rerender queues. A manual run's latency is queue-position, not
+failure — the script's follow-queries are the check.

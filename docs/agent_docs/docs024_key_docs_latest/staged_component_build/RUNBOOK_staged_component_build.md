@@ -341,6 +341,20 @@ COMMIT;
 Generic despite living in that lane's directory. Its own header names the three things that
 must line up; `CHECK_naming_contract.sh` checks the first two and `try_fence.go` the third.
 
+> **REWRITTEN 2026-08-11 (owner decision, `bugs_open/243` candidate 2b).** It no longer
+> kcats the generic topic — that ran the agent INLINE on a standing chassis pod, where the
+> vision half always failed (`no storage client`) while the check half read green. It now
+> inserts the due-sweep's own `acceptance_run` work item and `build-dispatch-loop` SPAWNS
+> a dedicated pod, which since v1.0.1284 gets storage config + secretKeyRef credentials —
+> so a manual run now exercises BOTH halves, same as the sweep. Consequences:
+> - **Asynchronous**: expect claim ≤ ~3 min, run ~3–5 min more. The script prints the
+>   follow queries (keyed on the work item id, not a correlation you invent).
+> - **Preflights refuse loudly** (page unresolvable / no current PLAN / open item exists)
+>   — the old quiet no-op modes of header items 1 and 2 now fail at submit time.
+> - A FAILING verdict on a fence without `no_auto_fix` raises ONE `improve_tool` at the
+>   page — ask the owning lane before firing at pages you do not own (§11 note stands).
+> - The 7-day verdict cooldown only gates the SWEEP; this script inserts regardless.
+
 ```sql
 -- state. NOTE: a FAILED run still reports status=COMPLETED, with current_step='complete_error'.
 SELECT current_step, status, round(extract(epoch from (updated_at-created_at))) AS secs

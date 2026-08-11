@@ -131,6 +131,34 @@ mobile, while all 15 selector checks pass. Recorded in 243's update. Two consequ
 7. **`tool-bayesian-ranking`** — needs the RUNBOOK §11 two-row rename first (restores
    gamesdesign's own `tool-` convention; 15 precedents on that site).
 
+## 3b. OWNER DECISIONS LANDED 2026-08-11 (in chat) — and what was done with them same-day
+
+1. **Vision findings visible (243 c3): YES, build it.** The parallel session's measurement
+   stands: `render-critique` has NO consumer anywhere in Go, and the PASSED stamp lands the
+   same second as the finding. **This is the next build for a fresh session** — spec:
+   - Read the judge end-to-end first (`tool_acceptance_actions.go` ~700–1060) — the
+     no_auto_fix branch, the improve_tool dedup, and the site-chrome comment at ~773 ("real,
+     user-visible defects that no tool edit can fix") are the constraints to respect.
+   - A vision result must (a) mark the run's SUMMARY distinctly — `vision: ok /
+     finding(<gist>) / skipped(<reason>)` — so a green-with-eyes is distinguishable from a
+     green-without; and (b) on a finding, raise something a reader will meet: given the
+     ~773 comment, a vision finding is usually a SITE/COMPONENT defect, so it should follow
+     the site-chrome path (visible item, not tool-improver), never weaken no_auto_fix.
+   - Platform code → council gate; if a new note category or consumer seam is added,
+     concept-register entry in the same commit and name the consumers (07-29 ruling).
+2. **Manual path (243 c2): option (b), an orchestrator wrapper. DONE.**
+   `tool_acceptance_run.sh` rewritten to insert the due-sweep's own work item so manual
+   runs SPAWN (both halves run); preflights refuse the old quiet no-ops loudly. RUNBOOK
+   §10 box has the mechanics. Proof run: work item `4ef3c11a…` (see NOTES for the result).
+3. **FIRECRAWL_API_KEY: convert. DONE** — moved into `agentenv.providerKeyNames`
+   (secretKeyRef, both spawners; also fixes the remote-spawner never injecting it — the
+   112 drift class). Commit `f56abaadf`, `Council-Submitted: 6f13c5ce…` — **read that
+   verdict** (session-start item). Inert until the next roll; verify by pod-spec capture.
+4. **loancalculator / dartsonline-contrast / gaswholesalers-logo**: owner is deciding in
+   chat off the lists presented there (the url_field reframe for loancalculator, the
+   two-option scope call for contrast, the logo-404 fix for gaswholesalers). Once decided,
+   notify each lane in ITS OWN docs dir — the written claim is the coordination channel.
+
 ## 4. Standing defect list
 
 Items 1–8 unchanged from `HANDOFF_2026-08-09` §4. Item 9 (243) → candidate 1 CLOSED-in-fact,

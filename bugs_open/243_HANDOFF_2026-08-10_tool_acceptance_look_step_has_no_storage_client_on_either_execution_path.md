@@ -236,3 +236,31 @@ result that names a defect should mark the verdict or raise something visible �
   manual trigger to the spawn path / (c) reopen the ruling.
 - **Candidate 3** — make a vision-skip or vision-finding visible in the verdict rather than
   silent (today's run is the worked example: found a defect, run reads green, nothing raised).
+
+## UPDATE 2026-08-11 (afternoon) — OWNER DECIDED both remaining candidates; candidate 2 (option b) is DONE and PROVEN
+
+Owner, in chat 2026-08-11: candidate 3 **YES — build it** (spec and constraints:
+`staged_component_build/HANDOFF_2026-08-11_continue_here.md` §3b item 1; the parallel
+session's measurement that `render-critique` has NO consumer raises its priority — the
+restored eyes currently write to a channel nothing reads). Candidate 2: **option (b),
+reshape the trigger with an orchestrator wrapper.**
+
+Candidate 2b implemented same-day: `docs/leopardessconsulting/scripts/tool_acceptance_run.sh`
+rewritten — it no longer kcats the generic topic (the inline path this bug documented);
+it inserts the due-sweep's own `acceptance_run` work item and `build-dispatch-loop`
+spawns the pod, so a manual run now exercises BOTH halves. Preflights refuse the two
+quiet no-op modes (unresolvable page, missing PLAN) and a duplicate open item, loudly,
+at submit time. RUNBOOK §10 box has the operational notes (async, ~3–10 min; per-site
+dispatch rotation; the 7-day cooldown gates only the sweep).
+
+**Proven end-to-end on its first real run**: work item `4ef3c11a…` → a SECOND
+independently spawned pod (`agent-tool-acceptance-agent-d3a4a56a-vtw9d`) → `complete`,
+no step error, 15/0/9, vision ran (2 images; `llm_call_log` now 2 rows all-history, one
+per spawned run). One capture bug found and fixed by foreground-testing the script:
+psql `-t -A` prints the `INSERT` command tag after a `RETURNING` row, so the printed
+follow-queries carried a two-line id until `head -1` was applied.
+
+**Remaining OPEN on this bug: candidate 3 only** (the build is specified and decided,
+not yet written). The inline path is now unreachable from any documented trigger; a
+hand-built kcat dispatch would still lose the vision half — that residue is accepted
+and documented rather than defended.

@@ -1182,3 +1182,29 @@ system. Until it is built, the honest description of what we fixed yesterday is:
 the acceptance tests their eyes back, and they are reporting into a void.** My
 recommendation is to build it next, ahead of finishing the remaining batch-8 tools, because
 every acceptance run between now and then produces findings nobody will ever see.
+
+## 2026-08-11 (later) — your decisions actioned: two done today, one specified for next time
+
+You made four calls this morning and three are already real. The Firecrawl key no longer
+travels as a copied-out string into worker pods — it joined the same vault-reference list
+as the other API keys, which as a bonus fixes a second, quieter bug: the *other* pod
+spawner had never been handing the key out at all. The change is committed and submitted
+for review; it takes effect at the next build roll.
+
+The manual test trigger is reshaped as you chose. Firing an acceptance test by hand now
+goes through exactly the same machinery as the overnight scheduler — a proper worker pod
+with working storage and eyes — instead of the shortcut path that silently skipped the
+screenshot check. I tested the rewritten trigger for real: it spun up a fresh worker,
+ran all fifteen checks green, and the screenshot pass ran too. It also now refuses
+politely up front if someone points it at a tool that can't be tested, instead of
+appearing to succeed while testing nothing.
+
+The third call — making the screenshot judge's findings visible instead of letting them
+vanish into an unread database field — is the biggest piece of work, so it's written up
+as a precise brief for a fresh session rather than squeezed in at the end of this one.
+
+The three site problems are laid out in the chat for your decisions: the loan calculator
+site (where the better fix turns out to be teaching the tester to use the page's address
+rather than renaming eight finished pages), the invisible-text defect (two sites failing,
+a shared component's assumption at fault), and the gas wholesalers' missing logo.
+Whichever way you call them, I'll carry the word to each lane's own paperwork.
