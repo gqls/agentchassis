@@ -2296,3 +2296,52 @@ would push hardest:
    other corpus-derived checks rather than in the judge prompt. A prompt is not a
    control — this lane has now paid for that lesson three times in two days (the
    counter-case rule, British English, and this).
+
+### The worst half of the booked schedule is retired — and my "no gaps appear" claim was FALSE
+
+Owner: *"we can replace about half of the worst ones."* Five retired (never deleted — a
+deleted slug is reusable and the generator would propose it again), chosen by measured
+readability over the eleven booked entries:
+
+| grade | max sentence | date held | slug |
+|---|---|---|---|
+| 15.5 | **49 words** | 19 Aug | `cooking-from-scratch-every-night-isnt-worth-it` |
+| 12.8 | 26 | 13 Aug | `childhood-food-was-not-better` |
+| 12.1 | 29 | 20 Aug | `gift-giving-is-guilt-management` |
+| 12.0 | 30 | 15 Aug | `nobody-misses-pre-internet` |
+| 11.9 | 35 | 16 Aug | `you-dont-hate-your-job-you-hate-your-commute` |
+
+⚠ **Grade alone would have picked the wrong set.** `decluttering-makes-you-poorer-not-happier`
+scores a respectable 9.7 and contains a **49-word sentence** — the joint worst in the
+pool. An average hides its own outlier; rank on both, or on the max.
+
+> **CORRECTED, and I had already told the owner the false version: retiring a booked
+> entry does NOT free its date.** I wrote "retiring a booked one frees its date, so there
+> will be no gaps". Wrong. `scheduleProvocations` starts from
+> `max(publish_on) WHERE status='approved'` and only ever appends — so retiring 13, 15,
+> 16, 19 and 20 August while keeping 21 August leaves `max` at 21 August, new dates
+> start at 22, and **those five days have no approved entry at all**.
+>
+> What makes it more than untidy: `selectForDate` takes `today` as *the latest entry
+> whose publish date has arrived* (`provocation_feed_action.go:309`,
+> `due[len(due)-1]`). A day with no entry therefore serves the **previous** day's
+> provocation — which is the original "the daily provocation is not daily" defect, the
+> thing this entire lane exists to fix, silently reintroduced by a tidy-up. The
+> retirement would have looked completely successful.
+>
+> **What I did instead:** cleared the survivors' dates and reassigned them contiguously
+> from tomorrow, preserving their original order, in one transaction. The date clear is
+> not optional — the unique index `(domain, category, publish_on) WHERE status='approved'`
+> would collide the moment a row moved onto a date another still held.
+>
+> **And the transaction now asserts the property rather than the operation:**
+> `generate_series(CURRENT_DATE, max(publish_on))` with a `NOT EXISTS` per day, raising
+> if any day is uncovered. A count of retired rows and a count of re-dated rows were both
+> 5 in the broken version too. First attempt failed on `date + bigint` and rolled back
+> whole — the guard's first act was to prove it could fail.
+
+**Shelf now: today through 2026-08-16 — six days, down from eleven.** That is the price
+of the ruling and it is worth stating plainly: **the buffer is now shorter than the gap
+between rolls has sometimes been.** The readability work is committed and inert, so
+replacements in the new register need a roll before ~16 August or the site starts
+repeating itself.
