@@ -1779,3 +1779,61 @@ New pods `agent-chassis-867b7cff84-{l2bwt,twzdn}`, both up 12:02–12:03Z on
   **Do this after every chassis roll before trusting a prediction file** — it is one
   rerender and one diff, and it is the difference between "the mirror predicted this
   in August" and "the mirror predicts what is running now".
+
+---
+
+## 2026-08-11 (~14:00–14:30 BST) — second-look pass over the 377 re-lock and the Track A aftermath (owner: "please look over this again")
+
+Re-verified rather than re-read. Everything below is from the live DB / live site /
+today's commits, not inherited.
+
+**The re-lock held.** All six `_mig377_relocked_tool_pages` rows still
+`owned` + `["ported-page"]` + `needs_rebuild` at 14:05 BST on v1.0.1286. Site
+totals: LMC 18 generic (all decomposed — zero generic verbatim remain), 22 owned
+verbatim, 1 owned decomposed; loancash 15/3 unchanged. Matches the Track A
+handoff's §0 exactly.
+
+**A near-miss worth one line: "migration 377" now names TWO migrations.** RFC_022's
+commit says `099_SYNC --apply` *"WOULD HAVE REVERTED MIGRATION 377"* — my first
+reading was that the re-lock had nearly been undone. It had not: that 377 is
+`377_council_gate_cache_breakpoint_reorder.sql` (the prompt-hoist, cut the same
+evening by another session). Measured before treating this as a new problem:
+**duplicate migration numbers are endemic — 60+ doubled numbers since 090**
+(090, 149, 151 … 370, 372, 373, 377, 380, 383). So: no LANDMINES entry filed — the
+runner is filename-keyed, CLAUDE.md's "resolve by slug, git log the FILE PATH"
+rule for bugs applies verbatim, and a landmine for a 60-case-old property would be
+noise. Recording the check here instead, because the disconfirming result (the
+collision being new/rare) is what would have made it worth filing.
+
+**The 2026-08-10c/RUNBOOK §6 re-slot correction is now TEST-PROVEN, not
+`[INFERRED]`.** `34cbf38eb` added
+`save_sections_positional_tool_slot_test.go`: positional `tool-1` matches on the
+exact branch AND survives the kebab branch (two guards in series — the first
+induction honestly failed by disabling only one). The trap needs a composition
+that OMITS the tool slot, i.e. a semantically-named seeded plan. My yesterday
+marker asked for exactly this measurement; the test answers the matching rule;
+the end-to-end writer run against a locked row remains unmeasured and D1's
+authorisation remains ungiven.
+
+**D5's execution is attributed in-row, not in any doc older than the updated
+handoff.** The 40 `page_rerender:detected` rows were cancelled in one transaction
+at `12:47:38Z` with `spec.cancelled_by='claude-session-lmc-track-a-20260811'` and a
+per-row `cancelled_reason` — found by grepping live session transcripts, confirmed
+in the rows. The updated handoff (`2bf405f49`/`384a73256`) now records the ruling,
+so nothing further owed.
+
+**My 08-10 closing recommendation's premise was REFUTED by the check I
+recommended.** I told the owner the loancash FCA caps were "the highest-value
+unstarted item", by analogy with SDLT. The loancash_couk_fca_validation lane
+verified all three caps against CONC 5A directly (`c77fad9ae`): correct,
+unamended since 02/01/2015, arithmetic sound. The analogy failed because SDLT
+moves with Budgets and this cap has not moved in eleven years — the *shape*
+(dated regulatory literal, no external check) transferred; the *risk rate* did
+not. The monitoring gap is real but carries none of 225's urgency; the live
+worry is `complaint-deadline-calculator.html` (FOS/limitation rules, which do
+move). Recording it here because the recommendation was mine and its premise did
+not survive.
+
+**Chassis roll status for the mirror rule:** pods started 12:03Z, before the
+13:26 BST mirror validation — so `predicted/` is still valid as of this pass. Any
+roll after this line invalidates it silently; §1's warning stands.

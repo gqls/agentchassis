@@ -875,3 +875,45 @@ people rely on. There's one thing the last handoff marked as reasoned-but-unmeas
 what happens to a locked calculator when the page is rebuilt. Track A couldn't test
 it, because none of these pages has a locked component. It should be measured on a
 single calculator page before Track B goes anywhere near the rest.
+
+---
+
+**2026-08-11, afternoon — you asked me to look over it all again. I did; it holds.**
+
+Three things checked, from the live system rather than from anyone's notes,
+including mine.
+
+First: the six calculator pages I re-protected yesterday evening are still
+protected, and the protection did what it was for — the seventeen prose pages got
+converted around them without any rebuild going near a calculator.
+
+Second: the conversion work itself. The counts on the live database match what the
+other thread reported exactly — every prose page on the calculator site is now in
+the new component form, no page was left half-done, and the calculators' arithmetic
+checks still pass. The one caveat in their report is right and worth keeping: their
+"the live page matches our prediction" proof is only valid until the next software
+roll, and has to be re-run after each one.
+
+Third: one scare that turned out to be nothing, worth explaining because of *why*
+it was nothing. A note elsewhere in the repo says a certain sync tool "would have
+reverted migration 377" — and 377 is my re-lock, so that read as a close call. It
+isn't: two different pieces of work were both numbered 377 on the same evening, and
+the note is about the other one. Duplicate numbers turn out to be common in that
+folder — sixty-odd cases going back months — so the rule we already use for bug
+numbers applies: trust the full filename, never the bare number.
+
+One correction of my own from last night: I'd called the loancash regulatory-cap
+check the most valuable unstarted job. Someone did it today, properly, against the
+regulator's own handbook — and the caps are fine: unchanged since 2015, correctly
+implemented. My reasoning-by-analogy with the stamp-duty bug didn't hold, because
+stamp duty rates move every Budget and this cap has moved once in eleven years. The
+genuinely unchecked thing on that site is now the complaint-deadline tool, whose
+rules do move.
+
+Where that leaves the decisions: the big one is still yours — whether to start on
+the twenty-two calculator pages. The measurement you authorised came back
+reassuring (a rebuilt page keeps its calculator in place as long as the rebuild is
+told the calculator's slot exists, which the normal path always is; the danger case
+is only the not-yet-seeded "site plan" route). Nothing in my pass argues for
+delay beyond what the other thread already said: one live end-to-end run on the
+already-converted consolidation page first, then one page at a time.
