@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>UK Loan and Mortgage Calculators | LoanAndMortgageCalculator.co.uk</title>
+<meta name="description" content="23 free UK calculators for loans and mortgages, plus guides on how your other borrowing changes what a mortgage lender will offer. No sign-up, no credit check.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="LoanAndMortgageCalculator.co.uk">
+<meta name="twitter:card" content="summary">
+<meta name="theme-color" content="#0A1222">
+<link rel="stylesheet" href="/assets/css/style.css">
+<link rel="icon" href="/favicon.ico" sizes="any">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<style>
+/* Assembled-layout shim. The hand-built pages wrapped each page's content in
+   ONE container element (three shapes: bare #content with an inner .container
+   on the 23 calculator pages; .container on the 4 hub pages;
+   .container.container-tight on the 13 guides + legal.html, which style.css
+   sizes at 780px). Decomposition splits the wrapper's children into separate
+   section rows, so the single wrapper is gone; making <main> the container
+   restores the original geometry with one set of margins however many
+   sections there are. Sections keep their page's own wrapper classes (id
+   stripped, margins neutralised below), so the tight pages keep their 740px
+   content box exactly: 780 max-width minus 2x20px padding == 740 with the
+   padding moved to main. The rules are ordered so .container-tight wins the
+   properties it sets at equal specificity.
+   Full reasoning: loanandmortgagecalculator_couk/PLAN_2026-08-05, and the
+   sibling pattern it adapts: loancalculator_couk/RUNBOOK, "Chrome for an
+   assembled site". */
+main { max-width: var(--maxw); margin: 40px auto; padding: 0 20px; }
+main .container { max-width: none; margin: 0; padding: 0; }
+main .container-tight { max-width: 740px; margin-left: auto; margin-right: auto; }
+</style>
+
+<script type="application/ld+json">{"@context":"https://schema.org","@id":"https://loanandmortgagecalculator.co.uk/index.html","@type":"WebPage","description":"23 free UK calculators for loans and mortgages, plus guides on how your other borrowing changes what a mortgage lender will offer. No sign-up, no credit check.","isPartOf":{"@type":"WebSite","name":"loanandmortgagecalculator.co.uk","url":"https://loanandmortgagecalculator.co.uk"},"name":"UK Loan and Mortgage Calculators | LoanAndMortgageCalculator.co.uk","url":"https://loanandmortgagecalculator.co.uk/index.html"}</script>
+
+<link rel="canonical" href="https://loanandmortgagecalculator.co.uk/index.html">
+</head>
+<body>
+<!-- Site header, lifted verbatim from the hand-built pages (identical on all
+     41; extracted from guides/jargon-buster.html at sites-repo b318a8fad).
+     Two deliberate changes, both stated:
+     - aria-current="page" is dropped: it marked the CURRENT section per page,
+       and a shared header cannot vary per page. .nav-links a[aria-current]
+       styling in style.css simply never matches now. Accepted loss, recorded
+       in the PLAN's list.
+     - the skip-link's target used to be the per-page id="content" wrapper
+       element, which decomposition removes. The target now lives HERE, as an
+       empty focusable span at the very end of the header — the exact document
+       position where <main> begins, so the skip lands where it always did.
+       Both the link and its target are in this one component; no per-page
+       knowledge required. -->
+<a class="skip-link" href="#content">Skip to content</a>
+<header>
+<nav class="site-nav">
+<div class="brand"><a href="/"><img src="/assets/img/logo.svg" alt="" width="34" height="34" aria-hidden="true">LoanAndMortgage<span class="brand-suffix">Calculator.co.uk</span></a></div>
+<button id="mobile-menu-btn" aria-expanded="false" aria-controls="nav-links-menu" aria-label="Open menu">&#9776;</button>
+<div class="nav-links" id="nav-links-menu">
+<a href="/mortgages/index.html">Mortgage tools</a>
+<a href="/loans/index.html">Loan tools</a>
+<a href="/guides/index.html">Guides</a>
+</div>
+</nav>
+</header>
+<span id="content" tabindex="-1"></span>
+<main>
+<section class="ported-prose" data-component="ported-prose">
+<div class="hero">
+<p class="eyebrow">Loans and mortgages, in one place</p>
+<h1>Your borrowing does not come in separate boxes. Neither do these calculators.</h1>
+<p>23 free UK calculators for loans <em>and</em> mortgages &mdash; because a car
+loan changes what a mortgage lender will offer you, and a remortgage changes what
+your other debt really costs. No sign-up, no credit check, nothing sent anywhere.</p>
+</div>
+
+<div class="highlight-box">
+<h3 class="mt-0">Start with the question most people get wrong</h3>
+<p>Almost every borrowing decision gets made on the <strong>monthly payment</strong>,
+because that is the number lenders advertise. It is the wrong number. A longer term
+lowers the monthly payment and raises the total cost, every single time.</p>
+<p><a href="/guides/how-loans-affect-mortgage-affordability.html">How your loans cut what you can borrow &rarr;</a>
+&nbsp;&middot;&nbsp;
+<a href="/guides/total-cost-of-borrowing.html">Why total cost beats monthly payment &rarr;</a></p>
+</div>
+
+<h2>Mortgage calculators</h2>
+<p>Repayments, affordability, Stamp Duty, overpayments, buy-to-let yields and the
+cost of the remortgage cliff.</p>
+<div class="tool-grid">
+<div class="card"><h3><a href="/mortgages/simple.html">Quick Mortgage Payment Check</a></h3><p>The fastest way to sanity-check a monthly payment before you look at anything else.</p><a class="btn-primary btn-block" href="/mortgages/simple.html">Open calculator</a></div>
+<div class="card"><h3><a href="/mortgages/repayment.html">Full Repayment and Amortisation Calculator</a></h3><p>The whole term, year by year — including how little of year one touches the capital.</p><a class="btn-primary btn-block" href="/mortgages/repayment.html">Open calculator</a></div>
+<div class="card"><h3><a href="/mortgages/affordability.html">How Much Could You Borrow?</a></h3><p>Income in, borrowing estimate out — and the effect of the debts you already have.</p><a class="btn-primary btn-block" href="/mortgages/affordability.html">Open calculator</a></div>
+<div class="card"><h3><a href="/mortgages/stamp-duty.html">Stamp Duty (SDLT) Calculator</a></h3><p>The tax bill on completion day, including the second-property surcharge.</p><a class="btn-primary btn-block" href="/mortgages/stamp-duty.html">Open calculator</a></div>
+<div class="card"><h3><a href="/mortgages/overpayment.html">Mortgage Overpayment Calculator</a></h3><p>How many years and how much interest a monthly overpayment actually removes.</p><a class="btn-primary btn-block" href="/mortgages/overpayment.html">Open calculator</a></div>
+<div class="card"><h3><a href="/mortgages/investor.html">Rental Yield and LTV Calculator</a></h3><p>Yield, LTV and cashflow for one property, on one screen.</p><a class="btn-primary btn-block" href="/mortgages/investor.html">Open calculator</a></div>
+</div>
+<p class="text-center mt-40"><a class="btn-primary" href="/mortgages/index.html">All 12 mortgage calculators</a></p>
+
+<h2>Loan and credit calculators</h2>
+<p>Personal loans, consolidation, car finance, early settlement, credit health and
+rate stress tests.</p>
+<div class="tool-grid">
+<div class="card"><h3><a href="/loans/standard-calc.html">Loan Repayment Calculator</a></h3><p>Monthly payment and the total cost of credit — the number the advert leaves out.</p><a class="btn-primary btn-block" href="/loans/standard-calc.html">Open calculator</a></div>
+<div class="card"><h3><a href="/loans/compare-loans.html">Compare Two Loans Side by Side</a></h3><p>Two offers, side by side, compared on what you actually repay.</p><a class="btn-primary btn-block" href="/loans/compare-loans.html">Open calculator</a></div>
+<div class="card"><h3><a href="/loans/consolidation.html">Debt Consolidation Calculator</a></h3><p>A lower monthly payment and a lower total cost are different things.</p><a class="btn-primary btn-block" href="/loans/consolidation.html">Open calculator</a></div>
+<div class="card"><h3><a href="/loans/car-finance-calculator.html">PCP vs HP Car Finance Calculator</a></h3><p>PCP against HP on total cost, with the final balloon payment in plain sight.</p><a class="btn-primary btn-block" href="/loans/car-finance-calculator.html">Open calculator</a></div>
+<div class="card"><h3><a href="/loans/credit-health-check.html">Credit Health Check</a></h3><p>What is actually on your file, and which parts a lender cares about.</p><a class="btn-primary btn-block" href="/loans/credit-health-check.html">Open calculator</a></div>
+<div class="card"><h3><a href="/loans/damage-checker.html">Car Finance Return Damage Checker</a></h3><p>What counts as fair wear and tear, and what gets charged for.</p><a class="btn-primary btn-block" href="/loans/damage-checker.html">Open calculator</a></div>
+</div>
+<p class="text-center mt-40"><a class="btn-primary" href="/loans/index.html">All 11 loan calculators</a></p>
+
+<h2>Guides that join the two up</h2>
+<p>Every guide here is about the point where unsecured borrowing meets a mortgage
+&mdash; the questions a single-subject site cannot answer.</p>
+<div class="tool-grid">
+<div class="card"><h3><a href="/guides/how-loans-affect-mortgage-affordability.html">How Your Loans Cut What You Can Borrow</a></h3><p>Every £100 a month of loan or card payments reduces your mortgage offer by roughly £5,000-£7,000. Here is the arithmetic lenders actually use, and what to do about it.</p></div>
+<div class="card"><h3><a href="/guides/consolidating-debt-into-your-mortgage.html">Consolidating Debt Into Your Mortgage</a></h3><p>Moving unsecured debt onto your mortgage cuts the monthly payment and usually raises the lifetime cost. It also turns debt you could not lose your home over into debt you can.</p></div>
+<div class="card"><h3><a href="/guides/total-cost-of-borrowing.html">Total Cost, Not Monthly Payment</a></h3><p>Why comparing borrowing on the monthly figure is the single most expensive habit in personal finance, and what to compare instead.</p></div>
+<div class="card"><h3><a href="/guides/deposit-or-clear-the-debt.html">Deposit, or Clear the Debt First?</a></h3><p>You have a lump sum and both a loan and a house deposit to think about. Which pound works harder depends on three things, and one of them is not the interest rate.</p></div>
+<div class="card"><h3><a href="/guides/credit-file-before-a-mortgage.html">Your Credit File Before a Mortgage Application</a></h3><p>What a mortgage underwriter reads that a loan underwriter does not, why timing your applications matters, and the searches that quietly count against you.</p></div>
+<div class="card"><h3><a href="/guides/secured-vs-unsecured-what-changes.html">Secured or Unsecured: What Actually Changes</a></h3><p>The rate difference is the obvious part. The part that matters more is what the lender can do if you stop paying.</p></div>
+</div>
+<p class="text-center mt-40"><a class="btn-primary" href="/guides/index.html">All guides</a></p>
+
+</section>
+
+</main>
+<!-- Site footer, lifted verbatim from the hand-built pages (identical on all
+     41; extracted from guides/jargon-buster.html at sites-repo b318a8fad).
+     site.js rides here because the original pages loaded it at the very end
+     of <body> on every page; it is chrome-only (mobile menu — its own header
+     comment says no calculator logic lives in it), so the footer is its
+     correct carrier under assembly. -->
+<footer>
+<div class="footer-inner">
+<div>
+<h4>Mortgage tools</h4>
+<ul>
+<li><a href="/mortgages/repayment.html">Repayment &amp; amortisation</a></li>
+<li><a href="/mortgages/affordability.html">Affordability</a></li>
+<li><a href="/mortgages/stamp-duty.html">Stamp Duty</a></li>
+<li><a href="/mortgages/index.html">All mortgage tools</a></li>
+</ul>
+</div>
+<div>
+<h4>Loan tools</h4>
+<ul>
+<li><a href="/loans/standard-calc.html">Loan repayments</a></li>
+<li><a href="/loans/consolidation.html">Debt consolidation</a></li>
+<li><a href="/loans/car-finance-calculator.html">PCP vs HP</a></li>
+<li><a href="/loans/index.html">All loan tools</a></li>
+</ul>
+</div>
+<div>
+<h4>Guides</h4>
+<ul>
+<li><a href="/guides/how-loans-affect-mortgage-affordability.html">Loans vs borrowing power</a></li>
+<li><a href="/guides/consolidating-debt-into-your-mortgage.html">Consolidating into a mortgage</a></li>
+<li><a href="/guides/when-repayments-are-a-struggle.html">If repayments are a struggle</a></li>
+<li><a href="/guides/index.html">All guides</a></li>
+</ul>
+</div>
+<div>
+<h4>About</h4>
+<ul>
+<li><a href="/legal.html">Legal &amp; privacy</a></li>
+</ul>
+</div>
+</div>
+<div class="footer-legal">
+<p><strong>LoanAndMortgageCalculator.co.uk</strong> provides calculators and general information only. Nothing here is financial advice, and no result is an offer of credit. Figures are estimates: a lender's own assessment will differ. Always check current rates and rules before making a decision, and take regulated advice for anything that matters.</p>
+<p>Free, impartial UK debt help: <a href="https://www.moneyhelper.org.uk">MoneyHelper</a>, <a href="https://www.citizensadvice.org.uk">Citizens Advice</a>, <a href="https://www.stepchange.org">StepChange</a>.</p>
+</div>
+</footer>
+<script src="/assets/js/site.js"></script>
+</body>
+</html>

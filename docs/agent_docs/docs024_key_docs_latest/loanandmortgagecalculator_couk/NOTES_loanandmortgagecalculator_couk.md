@@ -1837,3 +1837,58 @@ not survive.
 **Chassis roll status for the mirror rule:** pods started 12:03Z, before the
 13:26 BST mirror validation — so `predicted/` is still valid as of this pass. Any
 roll after this line invalidates it silently; §1's warning stands.
+
+---
+
+## 2026-08-11 (~15:00–16:45 BST) — owner ask: rewrite the index through the content agent + comparison. The agent ran; the shrink guard refused its output; live page UNCHANGED
+
+**Owner, verbatim intent:** index copy "doesn't read like a human" — put it back
+through the current content agent, and compare against what's live so the content
+prompt can be judged.
+
+**Route taken — existing machinery, no hand-crafted item.** `needs_page:index`
+already existed, failed 08-08 on the owned-refusal that mig 367 lifted. Backed up
+first (`_bak_index_rewrite_20260811`, guarded 1+1 rows, plus
+`acceptance/BEFORE_2026-08-11_index_prewrite_served.html`), then reset it to
+`triaged` with the owner request written into `spec.note`. Dispatch picked it up
+25 min later (the site-picker orders by **oldest item's `created_at` fleet-wide**,
+excluding locked sites and sites with a claimed item — LMC was 2nd eligible;
+`build-pipeline-trigger` fires every 120 s).
+
+**Result: FAILED at `save_sections`, and the failure is the finding.**
+
+> SECTION SHRINK REFUSED for page "index" — prose-0 3776→1334 chars (35% kept,
+> floor 50%) … Nothing was written (bugs_open/178).
+
+- **Not truncated** — checked before believing the short output:
+  `llm_call_log` 15:24:36Z, page-content-writer, claude-sonnet-5, **1,468 output
+  tokens of a 16,000 cap**. This is the agent's complete answer.
+- **The would-be copy was recovered without a second run** from the failed
+  orchestration's `collected_data->'page_content'` (orch `8ea1908f`), so the
+  owner's comparison cost nothing further and touched nothing live.
+- **Measured against the live copy:** 617→235 words · 35→3 links · 26→2 tool
+  links · 23→0 headings (h1 included). 18 destinations lose their only homepage
+  link, incl. stamp-duty, repayment, affordability. Voice is plainly more
+  conversational; structure is an essay, not a directory.
+- **Attribution of cause is split, and this is the part that feeds the
+  content-prompt question:** index has **no `content_direction` and no
+  `page_spec`** — nothing told the writer the homepage is a directory. It did
+  read the existing copy (the 23-calculators figure and no-sign-up promise
+  survive). So a fair prompt verdict needs a run WITH direction seeded first;
+  recommended to the owner as option B.
+- Comparison artifact (private):
+  https://claude.ai/code/artifact/ca0d8274-929b-42c0-95e1-18b982343cc7
+
+**State left behind:** work item `needs_page:index` = `failed`,
+`attempt_count 2 of 3` — one claim-eligible retry remains after a reset to
+`triaged`; the shrink guard will refuse identically unless either the output
+grows (option B) or `section_shrink_floor` is set in the step config (option A).
+Live page, stored rows, sites repo: all unchanged, re-verified after the failure.
+Backup table stays until the owner decides.
+
+**Two facts worth keeping:** (1) the 178 shrink floor did exactly what it exists
+for, on its first live firing on this site — it is the only thing that stood
+between a thin rewrite and the homepage, now that `rebuild_policy` is `generic`;
+(2) `page-build-handler`'s full path (plan → write → validate → save) is now
+observed live on this site up to `save_sections` — the first writer-path run
+since decomposition, which Track A never exercised.

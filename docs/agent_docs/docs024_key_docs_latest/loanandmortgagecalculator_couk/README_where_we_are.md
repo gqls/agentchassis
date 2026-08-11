@@ -917,3 +917,33 @@ told the calculator's slot exists, which the normal path always is; the danger c
 is only the not-yet-seeded "site plan" route). Nothing in my pass argues for
 delay beyond what the other thread already said: one live end-to-end run on the
 already-converted consolidation page first, then one page at a time.
+
+---
+
+**2026-08-11, late afternoon — you asked for the homepage to be rewritten by the
+content agent, with a before/after comparison. The agent ran; a safety rail
+stopped its version going live; here's the comparison.**
+
+The rewrite went through the framework's normal route, and the framework itself
+refused to save the result — a guard that stops a page losing more than half its
+text in one save. That refusal is good news twice over: the live homepage is
+untouched, and we still got the agent's full answer out of the failed run's
+records, so you can compare without anything having shipped.
+
+The short version of the comparison: the agent writes better *sentences* — its
+four paragraphs are plainer and more human than what's live, which speaks well of
+the recent voice work. But it wrote an *essay* where the homepage is also the
+site's *directory*: its version drops from 617 words to 235, from 35 links to 3,
+and loses every heading including the main one. Eighteen pages — the stamp duty,
+repayment and affordability calculators among them — would lose their only link
+from the front page.
+
+The likely reason isn't the prompt alone: this page has never been given a
+content brief in the database, so the agent had nothing telling it "this page is
+a directory — keep the calculator cards". My recommendation is to write that
+one-paragraph brief, run it again, and compare a second time. That tells us
+cleanly whether the prompt needs revisiting or whether it just needed to be told
+what the page is for.
+
+Side-by-side, with everything above laid out:
+https://claude.ai/code/artifact/ca0d8274-929b-42c0-95e1-18b982343cc7
