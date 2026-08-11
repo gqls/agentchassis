@@ -1,7 +1,7 @@
 -- FILE: docs/agent_docs/sql_for_agents/380_bugfix_238_arm_dead_url_guard_HOLD.sql
 --
--- bugs_open/238 — arm the dead-URL refusal on the one live consumer of
--- render_component.
+-- bugs_open/238 — arm the dead-URL refusal on BOTH render_component steps of
+-- page-content-writer (the only live agent that has any).
 --
 -- ⚠ _HOLD: ORDERING-CRITICAL, DO NOT LET THE RUNNER TAKE THIS.
 -- The Go half (`shouldRefuseDeadURLControls`, dead_url_guard.go) is committed
@@ -22,9 +22,19 @@
 -- REF, a single tag can straddle several revisions (v1.0.1284 shipped three).
 --
 -- WHAT IT DOES. Sets `refuse_dead_url_controls: true` on page-content-writer's
--- `render_section` step. Measured 2026-08-10, that agent is the ONLY live
--- definition with a render_component step, so this one key is full live
--- coverage — and reverting is the same key set back to false.
+-- `render_section` AND `render_from_template` steps.
+--
+-- ⚠ CORRECTED 2026-08-11 (council 98852baa round 2, debug_historian): this file
+-- originally armed ONE step and called it "full live coverage", on a census that
+-- asked `default_config::text LIKE '%render_component%'`. That question counts
+-- AGENTS (answer 1), not STEPS, and `_` is a SQL wildcard into the bargain. The
+-- honest count, from a jsonb path over `$.**.steps`, is TWO — so the original
+-- would have left `render_from_template` unguarded while the register and the
+-- coverage report both said "armed". The verify block now counts every
+-- render_component step and demands they ALL carry the flag, so a third step
+-- fails this file loudly instead of shipping silently unguarded.
+--
+-- Reverting is the same keys set back to false (the ROLLBACK sidecar).
 --
 -- WHAT IT COSTS, stated plainly because it is the point of the owner decision:
 -- with this armed, a section whose template has an UNGATED {{.field}} inside
@@ -97,13 +107,52 @@ BEGIN
     END IF;
 END $$;
 
+-- ⚠ PRE-FLIGHT: assert the paths EXIST and hold a render_component step, before
+-- any jsonb_set runs. `jsonb_set(..., create_missing := true)` on a wrong path
+-- inserts a whole new branch and reports success — arming nothing while every
+-- downstream reader says "armed". The council's editquality seat gated round 2
+-- on exactly this, and it was right that the original file asserted the nesting
+-- rather than checking it.
+DO $$
+DECLARE
+    v_a text;
+    v_b text;
+BEGIN
+    SELECT default_config #>> '{workflow,steps,process_sections_loop,config,sub_workflow,steps,render_section,action}',
+           default_config #>> '{workflow,steps,process_sections_loop,config,sub_workflow,steps,render_from_template,action}'
+      INTO v_a, v_b
+      FROM agent_definitions
+     WHERE type = 'page-content-writer' AND is_active
+       AND COALESCE(is_snapshot, false) = false AND deleted_at IS NULL;
+
+    IF v_a IS DISTINCT FROM 'render_component' THEN
+        RAISE EXCEPTION '238/380: render_section is % at the expected path (want render_component) — the workflow shape moved; re-derive the path before arming', COALESCE(v_a, '(absent)');
+    END IF;
+    IF v_b IS DISTINCT FROM 'render_component' THEN
+        RAISE EXCEPTION '238/380: render_from_template is % at the expected path (want render_component) — the workflow shape moved; re-derive the path before arming', COALESCE(v_b, '(absent)');
+    END IF;
+END $$;
+
+-- BOTH render_component steps, not one.
+--
+-- ⚠ THE ORIGINAL VERSION OF THIS FILE ARMED ONLY `render_section`, on a census
+-- that said "exactly one live agent has a render_component step". That census
+-- counted AGENTS with `default_config::text LIKE '%render_component%'` — which
+-- also treats `_` as a wildcard — and the honest question was how many STEPS.
+-- Re-measured with a jsonb path over `$.**.steps`: TWO, `render_section` and
+-- `render_from_template`. Arming one would have left the second render path
+-- unguarded while the coverage report and the register both said "armed".
 UPDATE agent_definitions
    SET default_config = jsonb_set(
-           default_config,
-           -- The step lives inside the process_sections_loop sub_workflow, not at
-           -- the top level: a top-level jsonb_each finds nothing here and reads as
-           -- "no such step" (the census trap this file's family keeps hitting).
-           '{workflow,steps,process_sections_loop,config,sub_workflow,steps,render_section,config,refuse_dead_url_controls}',
+           jsonb_set(
+               default_config,
+               -- The steps live inside the process_sections_loop sub_workflow, not
+               -- at the top level: a top-level jsonb_each finds nothing here and
+               -- reads as "no such step" (the census trap this family keeps hitting).
+               '{workflow,steps,process_sections_loop,config,sub_workflow,steps,render_section,config,refuse_dead_url_controls}',
+               'true'::jsonb,
+               true),
+           '{workflow,steps,process_sections_loop,config,sub_workflow,steps,render_from_template,config,refuse_dead_url_controls}',
            'true'::jsonb,
            true),
        updated_at = now()
@@ -116,27 +165,39 @@ SELECT jsonb_pretty(jsonb_path_query_first(default_config, '$.**.steps.render_se
  WHERE type = 'page-content-writer' AND is_active
    AND COALESCE(is_snapshot, false) = false AND deleted_at IS NULL;
 
+-- VERIFY BY COUNTING, not by reading one path back.
+--
+-- Two disciplines here, both learned the hard way and both flagged by the
+-- council's debug_historian seat. (1) A jsonb path compared with `=`/`<>` sits
+-- GREEN for ever when the key is ABSENT, because NULL <> 'true' is NULL, not
+-- TRUE — so every comparison below is `IS DISTINCT FROM` / `IS NOT TRUE`, which
+-- treat absence as failure. (2) Reading back the one path you just wrote proves
+-- only that you wrote it; it cannot see a render_component step you never armed.
+-- So this counts ALL render_component steps and asserts that ALL of them carry
+-- the flag — which means a future THIRD step fails this migration loudly instead
+-- of shipping silently unguarded.
 DO $$
 DECLARE
-    v_armed boolean;
-    v_action text;
+    v_steps  int;
+    v_armed  int;
 BEGIN
-    SELECT (jsonb_path_query_first(default_config,
-              '$.**.steps.render_section.config.refuse_dead_url_controls'))::text::boolean,
-           jsonb_path_query_first(default_config, '$.**.steps.render_section.action') #>> '{}'
-      INTO v_armed, v_action
-      FROM agent_definitions
-     WHERE type = 'page-content-writer' AND is_active
-       AND COALESCE(is_snapshot, false) = false AND deleted_at IS NULL;
+    SELECT count(*) FILTER (WHERE k.value->>'action' = 'render_component'),
+           count(*) FILTER (WHERE k.value->>'action' = 'render_component'
+                              AND (k.value->'config'->>'refuse_dead_url_controls')::boolean IS TRUE)
+      INTO v_steps, v_armed
+      FROM agent_definitions ad,
+           LATERAL jsonb_path_query(ad.default_config, 'strict $.**.steps') AS steps,
+           LATERAL jsonb_each(steps) AS k
+     WHERE ad.type = 'page-content-writer' AND ad.is_active
+       AND COALESCE(ad.is_snapshot, false) = false AND ad.deleted_at IS NULL;
 
-    IF v_armed IS NOT TRUE THEN
-        RAISE EXCEPTION '238/380: the key did not land — the jsonb path is wrong for this row shape; aborting rather than reporting a flip that did not happen';
+    IF v_steps = 0 THEN
+        RAISE EXCEPTION '238/380: found ZERO render_component steps — the traversal is wrong, so a green result here would mean nothing; aborting';
     END IF;
-    -- The key must sit on a render_component step or it guards nothing at all.
-    IF v_action IS DISTINCT FROM 'render_component' THEN
-        RAISE EXCEPTION '238/380: render_section.action is %, not render_component — the key landed on the wrong step; aborting', v_action;
+    IF v_armed <> v_steps THEN
+        RAISE EXCEPTION '238/380: % of % render_component step(s) armed — a step exists that this file does not know about; add it rather than shipping partial coverage the report will call complete', v_armed, v_steps;
     END IF;
-    RAISE NOTICE '238/380: dead-URL refusal ARMED on page-content-writer.render_section';
+    RAISE NOTICE '238/380: dead-URL refusal ARMED on ALL % render_component step(s) of page-content-writer', v_steps;
 END $$;
 
 COMMIT;

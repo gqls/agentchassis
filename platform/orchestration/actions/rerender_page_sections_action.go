@@ -502,10 +502,19 @@ func RerenderPageSectionsAction(ctx context.Context, params ActionParams) (inter
 		// would not undo. Second, this is the repair vehicle: a no-LLM re-render
 		// is how a fixed row reaches the artefact, and a re-render that refuses
 		// on the state it was dispatched to fix would deadlock its own remedy.
-		// The item is still worth filing: with the discovery rotations paused
-		// (bugs_open/230, owner 2026-08-10) this is the only live detection the
-		// fleet has for this class.
-		if len(deadURLFields) > 0 && !strings.Contains(rendered, "data-runtime-fill") {
+		//
+		// ⚠ AND IT IS OPT-IN, added in round 2 after THREE seats (guardian,
+		// architecture, render_guardian) independently made the same point about
+		// the first version: recording was unconditional while the refusal was
+		// gated, so this shared repair path would have gained a new DB write on
+		// every invocation, on every page, with no default-OFF protection — the
+		// exact thing the 2026-08-02 owner ruling asks a shared seam not to do,
+		// and inconsistent with my own safety framing one file over. The write
+		// is small, but "small and unconditional on a shared path" is how the
+		// volume questions this council could not size get answered by
+		// production instead of by measurement.
+		if recordDeadURLControls(params.StepConfig.Config) &&
+			len(deadURLFields) > 0 && !strings.Contains(rendered, "data-runtime-fill") {
 			resolution.DeadURLSlots = append(resolution.DeadURLSlots, slotLabel(s))
 			emitSectionDeadControlItem(ctx, params.DB, siteID, nil,
 				pageName, s.slotName, comp.Function, deadURLFields, false, logger)

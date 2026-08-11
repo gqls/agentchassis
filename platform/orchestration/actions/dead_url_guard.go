@@ -29,9 +29,18 @@
 // new authority on a shared seam ships as a field with the unsafe default OFF,
 // so the decision is visible where a reviewer of the CALLER can see it. With the
 // flag unset this file changes nothing — the Error log that already existed
-// still fires and the render proceeds byte-identically. Measured 2026-08-10,
-// exactly ONE live agent has a render_component step (page-content-writer), so
-// flipping one config value is full live coverage and is trivially reversible.
+// still fires and the render proceeds byte-identically.
+//
+// ⚠ COVERAGE, CORRECTED 2026-08-11 — my first measurement was wrong and the
+// council's debug_historian seat caught the METHOD before anyone caught the
+// number. I had counted with `default_config::text LIKE '%render_component%'`,
+// which counts AGENTS and returned 1, and in which `_` is a SQL wildcard anyway.
+// Re-measured with a jsonb path over `$.**.steps`, the answer is TWO steps, both
+// inside page-content-writer: `render_section` AND `render_from_template`. So
+// "one config key is full live coverage" was FALSE — arming one key would have
+// left the second render path unguarded while the coverage report said armed.
+// The HOLD migration arms both and asserts the count, so a future third step
+// fails loudly instead of being silently unguarded.
 //
 // WHAT IT IS NOT: it is not a carry, and it does not overlap PBP-039. The carry
 // re-supplies a value the page ALREADY HAD; this fires precisely where there is
@@ -61,12 +70,22 @@
 // So the score is 3 of 11, and the 8 above are stated so a human can size the
 // remainder rather than reading one patched step as "the class is closed".
 //
-// This was NOT widened to all eight in the same change, deliberately: the three
-// chrome renderers already have their own dead-control response one layer up
-// (DropDeadURLControls), the two section-editor paths edit a row a human is
-// holding rather than regenerating one, and turning `RenderTemplate` itself into
-// the reporting form fleet-wide is a change to the primitive every render in the
-// platform flows through — which is the RFC-shaped move, not a rider on a bug fix.
+// This was NOT widened to all eight in the same change, deliberately: the two
+// section-editor paths edit a row a human is holding rather than regenerating
+// one, and turning `RenderTemplate` itself into the reporting form fleet-wide is
+// a change to the primitive every render in the platform flows through — the
+// RFC-shaped move, not a rider on a bug fix.
+//
+// ⚠ ONE EXEMPTION I CLAIMED IS FALSE, and the council's bug_historian seat asked
+// the right question rather than accepting it. I wrote that the chrome renderers
+// "already have a dead-control response one layer up (DropDeadURLControls)".
+// That holds for `render_site_components_action.go`, which does guard. It does
+// NOT hold for `rerender_pages_actions.go:532`, which renders the head template
+// with a bare `RenderTemplate` call of its own and never routes through that
+// guard — so the legacy whole-page path builds head HTML with exactly the
+// exposure the exemption claimed it was covered against. Stated here rather than
+// quietly dropped: that path is unguarded, it is on the audit list above, and
+// the "chrome is covered" reasoning applies to one of the two chrome routes.
 package actions
 
 import (
@@ -83,6 +102,29 @@ import (
 // deadURLGuardConfigKey is the step-config field that arms the refusal. Unset or
 // false ⇒ pre-existing behaviour, byte for byte.
 const deadURLGuardConfigKey = "refuse_dead_url_controls"
+
+// deadURLRecordConfigKey arms the RECORD-ONLY emit on the re-render path. A
+// separate key from the refusal above, because they are different authorities on
+// different paths: one declines to ship, the other only files a note. Both
+// default OFF.
+//
+// Added in round 2 of council 98852baa. The first version recorded
+// unconditionally, on the reasoning that filing a work item is harmless — and
+// three seats (guardian, architecture, render_guardian) independently made the
+// same objection: an unconditional new DB write on a shared repair path is new
+// authority on a shared seam whatever its size, and the 2026-08-02 owner ruling
+// says that ships opt-in with the unsafe default off. They were right, and the
+// inconsistency was visible inside my own patch — the refusal was already gated.
+const deadURLRecordConfigKey = "record_dead_url_controls"
+
+// recordDeadURLControls reports whether the re-render path should file a
+// dead-control item. Same fail-OPEN-on-a-mis-typed-value semantics as
+// shouldRefuseDeadURLControls: a config value that is not a bool is a mistake,
+// and a mistake must not switch a fleet-wide behaviour on by accident.
+func recordDeadURLControls(config map[string]interface{}) bool {
+	armed, _ := config[deadURLRecordConfigKey].(bool)
+	return armed
+}
 
 // shouldRefuseDeadURLControls decides whether a rendered section must be refused
 // for shipping empty URL attributes. Pure, so the decision is testable without a

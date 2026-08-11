@@ -268,3 +268,61 @@ The pattern across BOTH verdicts is the same and worth naming: my risks blocks
 were full of what I had *thought about*, and every objection that landed was
 about something I had *checked and not written down*, or *assumed and not
 checked*. Length is not coverage.
+
+### Council round 2 — REVISE again, and this time it found a real defect
+
+`98852baa` round 2. Gated by `editquality` (HIGH) on the migration's `jsonb_set`
+path being **asserted rather than checked** — and with `create_missing := true`,
+a wrong path inserts a new branch and reports success, arming nothing while every
+reader says "armed". I checked: **the path was right.** But the objection was
+about process, not luck, and it was correct — so the file now asserts each path
+resolves to a `render_component` step *before* any write, which makes mis-nesting
+structurally impossible instead of verified-once-by-hand.
+
+**The find of the whole lane came from `debug_historian`, and it came via my
+METHOD rather than my number.** My coverage census was
+`default_config::text LIKE '%render_component%'`. The seat pointed out that `_`
+is a SQL wildcard — a fair but minor point. Re-measuring properly exposed the
+real problem: **that query counts AGENTS (answer: 1), and the question was how
+many STEPS. The answer is TWO** — `render_section` *and* `render_from_template`,
+both inside page-content-writer.
+
+So **"one config key is full live coverage" was false**, and my migration would
+have armed half the render path while the register, the file header and the
+coverage report all said "armed". Nothing in the surrounding prose — and there
+was a lot of it — could have caught that. **The wrong instrument concealed the
+number, and I quoted the number three times.**
+
+Fixed: the migration arms both, and the verify block now **counts** every
+`render_component` step and demands they all carry the flag, so a future third
+step fails loudly rather than shipping unguarded.
+
+**And I induced the failure to prove the block is not decorative.** Mutated the
+file to arm only `render_section` and ran it: it raised
+`1 of 2 render_component step(s) armed` and rolled back. A verify block that has
+never failed is a claim, not a control.
+
+**Three seats independently said the record-only emit should be gated** —
+unconditional DB writes on a shared repair path, while the refusal one file over
+was already opt-in. They were right and the inconsistency was inside my own
+patch. Now behind `record_dead_url_controls`, default OFF.
+
+**`bug_historian` also checked one of my exemptions and it was false.** I claimed
+the chrome renderers "already have a dead-control response one layer up". True
+for `render_site_components_action.go`; **false for `rerender_pages_actions.go:532`,
+which renders the head template with its own bare `RenderTemplate` and never
+routes through that guard.** Corrected in the header rather than dropped.
+
+**Not resubmitting a third time on the remainder.** 8 of 11 call sites stay
+unguarded; making `RenderTemplate` itself the reporting form is a change to the
+primitive every render flows through, and that is RFC-shaped. The seat's own
+phrase — "a documented remainder, not a closed exposure" — is the honest label,
+and re-arguing it would be answering a scope judgement with more evidence, which
+this repo has already ruled does not work.
+
+**The lane's real lesson, across three verdicts.** Every single objection that
+landed was one of two shapes: something I had **checked and not written down**, or
+something I had **assumed and not checked**. Not one was about the design. My
+risks blocks got longer each round and caught none of them — because they
+enumerated what I had considered, and the failures were all in what I had
+measured badly or not at all.
