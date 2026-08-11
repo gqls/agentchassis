@@ -2136,3 +2136,68 @@ staged_component_build session) **filed it automatically**:
 with the contrast machinery / owner review; noted here so nobody re-discovers
 it. Evidence screenshot in the acceptance note
 (`acceptance-evidence/…/equity-release/d81357a6…_desktop.png`).
+
+> **CORRECTED same day (below): "not this lane's fix" lasted two hours** — the
+> owner directed this lane to fix it, and the mechanism turned out to be ours
+> (the tool generator's own CSS idiom), not the contrast lane's 382 class.
+
+## 2026-08-11 (evening) — the ghost button diagnosed to a CSS self-cycle, fixed by migration 393 on THREE pages, redeployed, re-probed 15.39:1
+
+**Owner direction (in chat): fix the button in this lane; notify the contrast
+machinery lane.**
+
+**Diagnosis — computed styles, not source reading** (probe script in scratch;
+recipe: CDP `Runtime.evaluate` → `getComputedStyle`). The generator wrote the
+theme bridge as a SELF-REFERENCE:
+
+```css
+.tool-page { --primary-color: var(--primary-color, #0b2545); ... }
+```
+
+A custom property referencing itself is a dependency cycle → invalid at
+computed-value time; **the fallback cannot rescue its own cycle, and `:root`'s
+perfectly good definition is not consulted** (`:root` has
+`--primary-color: #b59230`; `.tool-page` computed **empty**). Probe results,
+before:
+
+| page | button bg (computed) | label contrast | bridge lines |
+|---|---|---|---|
+| equity-release | transparent | **1.05:1** | 9 |
+| stamp-duty | transparent | **1.05:1** | 8 |
+| rate-forecaster | transparent | **1.05:1** | 7 |
+| simple (control) | `#0a2540` | 15.54:1 | 0 (literal idiom) |
+
+So the vision finding's page was one of THREE — the whole bridge block
+(primary/accent/bg/panel/border/text/muted) inoperative on each. Same
+generator, two idioms; only the literal one can work. `content_data` is NULL on
+tool components — `rendered_html` is the stored source, so no rerender path
+regenerates this; the class fix belongs to the generator prompt (A3 territory)
+and the spec contracts.
+
+**Fix — migration `393` (+ ROLLBACK), the 382 shape**: backup to
+`migration_backups`, `regexp_replace` `--x: var(--x, <lit>)` → `--x: <lit>`
+(backreference in the PATTERN asserts self-reference; two-name bridges
+untouched), DO/RAISE verify incl. tool-simple as no-op control. **Both RAISE
+guards induced first in rolled-back txs** (389's discipline). Applied 18:13:55Z:
+self-refs 9/8/7 → 0, simple untouched. Recorded in `schema_migrations`
+(`record-only`, per today's estate practice — the runner is blocked by other
+threads' pending files, as 391 found). **Literals, deliberately not a
+re-bridge**: the site token is `#b59230` gold, whose white pairing is the
+contrast lane's open 2.95:1 finding — inheriting it would trade 1.05:1 for
+2.95:1.
+
+**Redeploy + verify**: §10b assemble-only deploys ×3 (corr `b7b91228…`,
+`354af892…`, `aa0b4d28…`); all three served pages carry the literal and zero
+self-refs (stamp-duty lagged one poll — edge cache, settled in <1 min).
+Re-probe: **all three buttons `#0b2545` on white, 15.39:1** (control run,
+same probe, same session as the 1.05 readings).
+
+**Notified**: `staged_component_build/CONTRIB_2026-08-11_from_mortgagecalculator_ghost_buttons_self_cycle.md`
+— distinct class from their 382, one-regex suggestion for their palette-contract
+check (`(--[A-Za-z-]+): *var\( *\1[,)]`). Fleet-wide LANDMINES entry added +
+synced + verifier fired (`5b2e812b…`).
+
+**Acceptance re-runs ×3 filed** (the pages changed): `e4473518` (equity),
+`0fd75a19` (stamp-duty), `0aae22cd` (rate-forecaster), plus the dispatch nudge
+(corr `6aa19208…`). Verdicts pending as of this entry; vision_finding
+resolution waits on them.
