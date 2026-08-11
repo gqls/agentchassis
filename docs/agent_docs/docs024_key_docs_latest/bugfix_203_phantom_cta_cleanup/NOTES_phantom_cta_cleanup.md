@@ -884,3 +884,69 @@ it changes no page), then repair **selectively**, excluding any component whose 
 url is in an excluded area unless a human has confirmed the label is not genuine contact
 copy. Do NOT run `TriageDetectedItemsAction` over a site to achieve this: it promotes
 every `detected` row for that site with no type filter (its own header says so).
+
+## 2026-08-11 — ran detection manually as agreed; it HALTED the repair rollout by exposing a third matcher defect
+
+Owner: *"file a bug for that landmine it needs to be fixed. please go ahead with your repair
+list."* Both done — `bugs_open/248` filed for the landmine, and the repair list was started
+and then **deliberately stopped at the canary**, which is the whole point of having one.
+
+**Bug 248 filed with a mechanical repro.** Took the package's own
+`TestApplyCTARecomputeFallsBackWhenLabelGeneric` and changed exactly ONE variable, the
+stored URL:
+```
+CONTROL  stored=/tools/password-entropy.html label="Get in Touch" -> resolved=map[]
+CASE     stored=/contact.html                label="Get in Touch" -> resolved=map[cta_url:/tools/tool-ai-data-risk-checker.html …]
+```
+Control kept, case clobbered. The repro test was **run and then deleted rather than
+committed** — it asserts a defect, and a passing test that enshrines wrong behaviour is how
+a bug becomes a spec. Also added to `016b` §9 (four transferable rules) and the §10 index.
+Prior art found: `bugs_closed/023:405-410` recorded this exact exclusion in its *benign*
+direction ("makes some correct pairings unreachable"), named the right fix ("an
+authored-intent escape hatch"), and closed without building it — the destructive direction
+went unnoticed for three weeks.
+
+**Detection, step 1 of the repair plan — dispatched ONE site first, robot-hands.com,
+deliberately chosen as a positive control** because I had just verified its CTAs were
+correct, so a clean result was the expected answer. Envelope: direct `orchestrate` at
+`completeness-discovery-agent` with `site_id`/`domain` (the scheduled task's own `pre_query`
+picks one site per 7-day rotation, so it cannot be used to target). Completed in ~3s.
+
+**It did not come back clean — 16 pages flagged, including the control page.** Two things
+came out of chasing that, and the second one stopped the rollout:
+
+1. **Zero work items were created.** The fresh findings deduped against the existing open
+   rows via `ON CONFLICT DO NOTHING` (`insertPageRerenderItem`). So the 192 `detected`
+   `misdirected_cta` rows are **not stale** — they are the current findings, already filed.
+   Re-running detection adds nothing while they stay open; there was never a fresh list to
+   build.
+2. **The control page's 3 findings are FALSE POSITIVES with a new, distinct mechanism —
+   now `bugs_open/253`.** The anchors read *"Gripper Safety Factor Calculator"* → 
+   `/tools/gripper-safety-factor-calculator/index.html`, which is the correct active tool
+   page at exactly that URL; the detector wants to re-point them at the **payload**
+   calculator. Reproduced with the real live rows:
+   ```
+   label tokens: [gripper safety factor calculator]
+     gripper-payload-calculator              interactive=false overlap=4
+     tool-gripper-payload-calculator         interactive=true  overlap=4
+     tool-gripper-safety-factor-calculator   interactive=true  overlap=4
+   BestLabelMatch -> tool-gripper-payload-calculator
+   ```
+   All three tie at 4, and `c.Name < bestPtr.Name` hands it to payload on the alphabet. The
+   payload page earns its 4 from a **nav_label** that happens to read *"…Validate Capacity
+   with Safety Factor…"*. `BestLabelMatch` counts how many of the LABEL's tokens a candidate
+   holds and never how much of the CANDIDATE that is, so a verbose nav_label competes for
+   every label on the site.
+
+**Why this halts the repair rollout rather than just annoying us**: the repair recomputes
+with this same function, so acting on those findings would have rewritten three *correct*
+links to the wrong tool. **Detection is safe (it writes no pages); promotion and dispatch
+are not, and are stopped** pending 248 and 253.
+
+> **CORRECTION to this file's 2026-08-10 entry.** I wrote there that the priority fix meant
+> "the matcher can produce the correct primary-CTA fix live". True, and too broad as I used
+> it — I then reasoned as if the matcher were now *trustworthy*. It is not: it had (and has)
+> two further defects, one of which I had already filed and one I had not yet found. The
+> 08-10 verification was sound for the case it tested and did not license the generalisation
+> I drew from it. **Three defects in one 40-line function, found only by exercising it on
+> real pages — the unit tests pass on all three.**
