@@ -94,3 +94,35 @@ kubectl -n ai-persona-system logs job/<name>
 # clean run still writes a doc_notes row: a MISSING row means the job did not run
 SELECT body FROM doc_notes WHERE subject_key='removed-config-keys' ORDER BY created_at DESC LIMIT 1;
 ```
+
+## Proving a build carries your change (the CORRECT method, learned the hard way)
+
+The chassis's own `build provenance` log line is a STARTUP line and rotates away within
+minutes — CLAUDE.md's "ask the service what it is running" recipe returns nothing on this
+service (see LANDMINES). And grepping a pod or image for **your** commit sha always fails:
+the binary carries **one** sha, its build point, not every ancestor.
+
+```bash
+# 1. extract the binary from the image (no cluster needed)
+CID=$(docker create docker.io/aqls/agent-chassis:<tag>)
+docker cp $CID:/app/agent-chassis /tmp/chassis-<tag>; docker rm $CID
+
+# 2. find the STAMP by testing recent commits — a bounded set, never a discovery grep
+for sha in $(git log --format=%H -12); do
+  grep -aq "$sha" /tmp/chassis-<tag> && echo "STAMP=$sha" && break
+done
+# 3. controls, same breath: one that must be absent
+grep -aq "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef" /tmp/chassis-<tag> && echo "UNRELIABLE"
+
+# 4. the actual question, as a query rather than an inference
+git merge-base --is-ancestor <your-commit> <STAMP> && echo "your change is in this image"
+```
+
+⚠ **`git rev-parse HEAD` is NOT the stamp**, even seconds after your own build: ~30 sessions
+share this tree and HEAD moves between the build and your check. Measured 2026-08-11 — the
+stamp was my makefile-bump commit, while HEAD had already advanced. Read the stamp from the
+binary; never assume it.
+
+⚠ **Prefer BEHAVIOUR where you can get it.** Provenance proves the code is *present*; a
+witness firing proves it is *running*. For this lane the strict canary and the spec witness
+did in one dispatch each what no amount of binary probing can establish.
