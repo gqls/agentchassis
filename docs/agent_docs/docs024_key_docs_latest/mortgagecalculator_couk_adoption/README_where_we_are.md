@@ -1102,3 +1102,28 @@ already a short plain label on every card ("Stamp Duty", "Buy-to-Let") that we c
 show instead. Switching to it is a change to a component shared by 252 pages across
 18 sites, so it isn't mine to make quietly. The alternative is to change those pages'
 titles, which affects how they appear in Google. Which would you prefer?
+
+**2026-08-11, late — where the evening ended.**
+
+Everything you asked for is live. The homepage reads the way you wanted it, the
+three invisible Calculate buttons are fixed and I've had that confirmed
+independently, and the automatic process that kept rewriting the homepage behind
+our backs is switched off with its leftover instructions closed.
+
+The one thing I'd flag as unfinished is small and mechanical: all thirty-one pages
+have their new titles stored, but a page only picks its title up when it's next
+rebuilt. The homepage has done that, so the cards you see are all correct. The
+individual tool and guide pages will still show their old title in the browser tab
+until each one is rebuilt, which is a routine pass I can run whenever you want it.
+
+I've also written the evening up properly for whoever picks this up next, because
+a fair amount of what we learned was about our own rules rather than about the
+site. Four times tonight the fault turned out to be in a rule I'd written, and each
+one was caught by you reading the live page rather than by any check I'd built. The
+one that surprised me most was your point about density: the presumptive heading
+wasn't wrong on its own, it was wrong six times in a row. That's a better rule than
+the one I had, and it's now written down the way you put it.
+
+The copywriting summary you asked for is saved in two places, one of them outside
+the repository, and it's also on a private web page you can share if it's useful to
+anyone else.
