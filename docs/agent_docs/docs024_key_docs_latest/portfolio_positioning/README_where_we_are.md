@@ -152,3 +152,63 @@ One process note worth saying out loud: I nearly registered the footer
 mechanism as brand new. Reading the register first showed it already existed —
 built on 30 July for the analytics tags — and my work is properly its second
 user, not an invention. The register did exactly what it is for.
+
+---
+
+**2026-08-11.** You said you want to start building all of them out, but not yet, and
+raised four things: you don't like lendzy's design (too obviously AI-made), you don't want
+to rule on the twin-pair domains one by one, you asked what's left on the enforcement gaps
+and the vigilant-designer work, and asked for this file to be brought up to date. Here's
+where each of those actually stands.
+
+**The twin-pair thing is already done — you just haven't seen it summarised.** Back on
+1 August you made two rulings (cross-TLD pairs both get built and split by depth;
+same-TLD spelling twins split by *seat* — buyer, setter, broker, analyst, compliance
+reader all read the same phrase differently) and the second one explicitly retired the
+need to decide each pair by hand. Of the ~40-odd twin pairs in the portfolio, only **two**
+genuinely can't be separated even with five seats available and still need a plain
+hold-or-build-it-anyway call from you: `besthealthinsurancerate.co.uk` and
+`bestlandlordinsurancerate.co.uk`. Everything else runs on the policy you already set.
+The register's prose still has old flags scattered through it from before that ruling —
+that's a tidy-up owed, not a decision owed.
+
+**On the design — you're right, and nobody's tried to fix it yet.** The site's visual
+design is a separate AI step from the one that writes the words, and every site so far has
+run that step on the same model (Claude). Nothing in any of these lanes has ever attempted
+visual variety across the estate — the "pin the palette" mechanism that exists is closer
+to a suggestion than a lock, so even re-running the same model can drift, let alone give
+you genuinely different design languages. My recommendation: build a second version of the
+design step pointed at Gemini and try it on a small number of sites as a real side-by-side,
+rather than flipping every site over to a new model and getting one uniform look instead of
+another. I haven't built this yet — just researched that the seam exists and is roughly the
+same shape as the writer's earlier model swap. Say the word and I'll set it up as an
+experiment on a couple of sites, not the whole portfolio.
+
+**Enforcement gaps: one bit of bad-good news.** Two brand new bugs were filed today,
+fleet-wide, in exactly the piece of this that had shipped — every assembled homepage's
+canonical link points at the wrong address, and page assembly is quietly dropping social
+preview tags and forcing every page to claim it's in English. Neither was there because of
+anything from this lane; they were just found today. The other gaps from the 2 August list
+are mostly still open: positioning only reaches specs for one hardcoded site, not
+generalised yet; there's still no standing check that a deployed site's links/sitemap/tags
+are actually correct (only a script you have to remember to run); nothing checks a
+generated calculator computes the right number; the "don't repeat unverified facts" guard
+is switched on for exactly one site; and the fidelity dial still does nothing. None of this
+blocks starting a build, but it does mean a build run today needs a human checking its
+output, not the pipeline policing itself yet.
+
+**Vigilant-designer / offer-analysis lane has moved further than last reported here.** It
+shipped the two premise-awareness fixes (the site reviewer now judges a site against its
+actual revenue model; a strategy refresh no longer silently triggers a full rebuild on a
+live site), and then went further than planned and built the two offer-completeness
+checks too — which have already swept the whole estate and found four real things needing
+attention (three sites need a strategy written, one 30-page site has no way to contact
+anyone). That's stuck behind a council-review technicality that needs your call, not more
+building. The piece that's genuinely not started is the analyser agent itself and the
+design-critique half of the visual-diversity work on that lane's side — which, worth
+noting, is a different design effort from the Gemini idea above: that one critiques a
+site's design against screenshots, this one is about generating more than one style in the
+first place.
+
+**Full detail:** `SUMMARY_2026-08-11_where_things_stand.md` in this folder — five short
+sections, written to hand to someone else if you want to talk it through.
