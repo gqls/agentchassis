@@ -650,3 +650,35 @@ fifth. This closes the follow-up-diagnosis thread from
 `HANDOFF_2026-08-12b_040_build_verified_diagnosis_rerunning.md`. Bug 040
 itself stays OPEN (§11.6/§11.7 — this only settles isolation, not root cause
 of the `refused` burst).
+
+## 2026-08-12, later again — another chassis roll (v1.0.1293); first post-fix `refused` read is silent but not yet meaningful
+
+Owner rolled again: `v1.0.1293`, git commit `7a1887e31`, both pods restarted
+~19:13Z. Fix (`e1f960ac2`) still an ancestor, confirmed. Waited out the ~300s
+no-dispatch window before doing anything else — didn't fire any orchestration
+this time, just PromQL, which isn't subject to that restriction.
+
+Bisected `sum(max_over_time(ai_persona_kafka_dial_total{outcome="refused"}[Xh]))`
+same way as §11.3: 0 at X=26, jumps to 19,616 at X=28, flat at 71,832 by X=72.
+Cross-checked the zero isn't blind — `outcome="ok"`/`"timeout"` both nonzero
+over the same window. So: genuinely zero `refused` events in the last ~26.5h.
+
+**Went looking for exactly when the fix started running, and it matters:**
+`kubectl get rs -l app=agent-chassis` still had the old (now-scaled-to-0)
+`v1.0.1291` replicaset, creation timestamp `2026-08-12T14:55:10Z` — so the
+fix has been continuously live since then. That's **22h08m after** the last
+`refused` sample (~08-11 16:47Z, matches the already-known episode-2 end).
+Of the ~26.5h of silence, only the last 4h24m happened with the fix actually
+running; the other 22h of quiet came for free, on the unfixed binary, before
+it ever shipped. **So this can't be read as the fix working yet** — the
+metric was already capable of a day of silence with the bug still live
+(that's exactly what the gap between episode 1 and episode 2 already showed,
+on a shorter scale). Wrote the honest version of this into `bugs_open/040`
+§11.8, including the explicit "what would actually be informative" note
+(re-read once the fix has been live for several multiples of the ~12h
+inter-episode gap already observed, not just once) so a future session
+doesn't mistake today's quiet for confirmation.
+
+Noted but flagged as weak, per `two-clean-runs-cannot-establish-stability`
+(memory): the current 26.5h gap already exceeds the one inter-episode gap
+observed so far (~12h). Two episodes is not a rate. Not relying on it.

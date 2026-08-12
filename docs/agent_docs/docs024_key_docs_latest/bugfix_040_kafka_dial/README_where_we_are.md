@@ -291,3 +291,20 @@ now settled is narrower: the fix that's shipped is the only place in the codebas
 with this particular flaw, so nothing was missed by only fixing the one spot.
 Whether it's actually the (or a) cause of that large a burst is still not proven
 either way.
+
+Another fresh build went out a little later the same day. Before doing anything
+else with it I checked the one thing that actually matters now: has the "refused"
+count moved at all since. It hasn't — completely flat for the last day or so. That
+sounds like good news, but I want to be honest about why it isn't proof yet: when I
+went and found the exact moment the fix started running, it turns out the count had
+already gone quiet a full 22 hours *before* the fix even shipped. So most of that
+quiet stretch happened on the old, broken code — it just hadn't misbehaved again
+yet, fix or no fix. Only the last four-and-a-bit hours of silence actually happened
+with the fix switched on, and that's not long enough to mean much given the older
+data already showed it can go quiet for the better part of a day between episodes.
+
+So: still no news either way on whether this fix is the cause. The right test is to
+let it run for a few days and see whether the count stays flat well past how long
+it's ever gone quiet before with the bug present. I've written down exactly when to
+check again and what a real answer would look like, so nobody — including me —
+mistakes today's silence for confirmation.

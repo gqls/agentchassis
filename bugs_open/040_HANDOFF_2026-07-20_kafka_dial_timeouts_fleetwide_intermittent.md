@@ -752,3 +752,59 @@ This closes the loop the two follow-up diagnosis runs were meant to close.
 The bug itself (§11's `refused` burst) stays OPEN per §11.6 — this subsection
 only answers "is the fixed pattern isolated", not "is this fix the confirmed
 cause of the burst".
+
+### 11.8 A fresh chassis roll (v1.0.1293), and the first post-fix `refused` read — silent, but not yet informative
+
+Another owner-initiated chassis roll landed 2026-08-12 ~19:13Z: `v1.0.1293`,
+git commit `7a1887e31`. `git merge-base --is-ancestor e1f960ac2 7a1887e31` →
+yes, so the §11.4 fix is still live (it is also an ancestor of current `HEAD`,
+5 commits further on — this tree moves fast, per usual). Both pods restarted,
+so per the standing rule no orchestration/council run was fired for ~5 minutes
+after.
+
+**Read the `refused` counter fleet-wide, bisecting the same way as §11.3:**
+
+```
+sum(max_over_time(ai_persona_kafka_dial_total{outcome="refused"}[Xh]))
+```
+gives `0` for X≤26, jumps to 19,616 at X=28, 33,056 at X=34, 51,577 at X=48,
+and flattens at 71,832 (the full known total) by X=72 — i.e. **the last
+`refused` sample fleet-wide landed between 26h and 28h before this read
+(2026-08-12 ~19:19Z), which lands inside the already-known episode 2 window
+(~16:47Z on 08-11).** Confirmed the read itself isn't blind: `outcome="ok"`
+and `outcome="timeout"` both carry real, nonzero counts over the same 12h/24h
+windows, and `count(ai_persona_kafka_dial_total)` shows live series — the zero
+is a genuine "no samples", not a broken query (the §11 runbook's own
+documented trap).
+
+**The honest reading of that zero, and why it is weaker than it looks:**
+`agent-chassis:v1.0.1291` (carrying the fix) has been running continuously
+since its replicaset was created at `2026-08-12T14:55:10Z` — confirmed via
+`kubectl get rs -l app=agent-chassis` (old RS still present, scaled to 0,
+timestamp intact even after the 1293 roll replaced it). **That is 22h08m
+*after* the last known `refused` event (~08-11 16:47Z).** So of the ~26.5
+hours this counter has now been silent, only the last **4h24m** of that
+silence happened while the fix was actually running — the other ~22 hours of
+quiet came *before* the fix ever shipped, on the unfixed binary. The metric
+was already capable of a day-long quiet stretch with the bug still present
+(episode 1 → episode 2 themselves were ~12h apart, but nothing says the gaps
+are regular): **this read cannot yet distinguish "the fix stopped it" from
+"it hadn't recurred yet regardless."** [UNVERIFIABLE-BY-THIS-METHOD, not
+REFUTED-nor-CONFIRMED]
+
+One weak, explicitly-flagged data point in the fix's favour: the current gap
+since the last `refused` event (~26.5h) already exceeds the only interval
+between two episodes observed so far (~12h, episode 1 end → episode 2 start).
+With only two prior episodes this is not a rate, and treating it as one is
+exactly the mistake named in `two-clean-runs-cannot-establish-stability`
+(memory) — noted, not relied on.
+
+**What would actually be informative:** a `refused` count taken once a
+meaningful multiple of the observed inter-episode gap has elapsed *with the
+fix continuously live* — say, re-read this same query no earlier than
+2026-08-13 ~15:00Z (24h into the fix's runtime) and again a few days out. If
+`refused` stays at 71,832 (no increase at all) across a span several times
+longer than any gap seen between episodes 1 and 2, that becomes real evidence
+the fix is the cause, not merely quiet timing. Recorded here so the next
+session re-reading this bug doesn't mistake today's silence for that
+evidence.
