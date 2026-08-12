@@ -2205,3 +2205,25 @@ sane shape is: apply in small batches, deploy with `--all-applied`, then one ful
 20 and hope** — the lane's "one at a time with a check between" rule was written
 because the failure mode is silent, and a batch is only compliant if every page's diff
 AND the arithmetic actually run.
+
+**Page 2 `mortgages-repayment` — PROVEN, same four gates:** served == predicted
+**IDENTICAL** (11,174 B) · oracle **PASS 12 / FAIL 0 / CONV 0** · control
+`PASS 0 / FAIL 12` OK in-session · links **26 → 26, none lost** · classes the same
+`container`→`ported-prose` swap as page 1 · **all 12 element ids preserved, none lost**
+(`loanAmount`, `interestRate`, `termYears`, `displayMonthly`, `displayTotalInterest`,
+`displayTotalRepayable`, `amortizationTable`, `btn-calculate` among them).
+
+⚠ **My first machinery check on this page was VACUOUS and I nearly recorded it as a
+pass.** I reused page 1's id list (`#amount`, `#rate`, `#term`) and got `0 before, 0
+after` — equal, and therefore "fine". This page uses `loanAmount`/`interestRate`/
+`termYears`. A check comparing two absences agrees with itself no matter what happened
+to the page. Fixed by diffing the id SETS rather than probing named ids, which is
+also page-agnostic and so cannot rot on page 3. Same error family as the
+`created_by IN ('design-audit-agent')` filter earlier today: **the check tested my
+assumption, not the property.**
+
+**Queue note, correcting the pace estimate above:** page 2 went filed → `complete` →
+CDN-verified in **under 4 minutes**, against ~65 for page 1. The 31-item backlog had
+drained. So the earlier "multi-session job" figure was one sample taken at the worst
+moment — the honest statement is that throughput is **queue-depth dependent and varies
+by more than 15x**, and neither number predicts the next page.
