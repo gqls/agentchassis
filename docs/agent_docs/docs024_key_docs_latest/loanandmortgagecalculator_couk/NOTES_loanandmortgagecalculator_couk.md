@@ -2227,3 +2227,45 @@ CDN-verified in **under 4 minutes**, against ~65 for page 1. The 31-item backlog
 drained. So the earlier "multi-session job" figure was one sample taken at the worst
 moment — the honest statement is that throughput is **queue-depth dependent and varies
 by more than 15x**, and neither number predicts the next page.
+
+### ⛔ CORRECTION — "the proving page passed every gate" was WRONG, and Track B is STOPPED
+
+> **CORRECTED 2026-08-12, same session.** The entry above records
+> `loans-standard-calc` as passing all four gates with *"18 class attrs before and
+> after"*. **It had lost the calculator's `.card` panel.** Filed as
+> `bugs_open/263_…dissolves_the_tool_blocks_own_wrapper…`. Page 1 and page 3 are
+> **restored and redeployed**; only `mortgages-repayment` remains decomposed, honestly.
+
+**What was lost, and it is visual not cosmetic:** the descent dissolves the
+calculator's own wrapper chain along with the page wrapper. `.card` is the panel
+(background, 30px padding, radius, shadow); `.calc-grid` is
+`grid-template-columns: 1fr 1fr` — the two-column input layout. `mortgages-overpayment`
+lost both; `loans-standard-calc` lost the panel. **20 of the 22 pages carry that shape**,
+so this was about to happen to nearly all of them.
+
+**Both of my gates certified it, and the reasons are different:**
+
+- `deploy_pages.py`'s byte diff compares the served page against a prediction built from
+  **the same manifest that dropped the wrapper**. It proves fidelity to the model, never
+  preservation of the original. **A prediction diff structurally cannot catch a
+  decomposition defect.** I treated it as the strongest gate; it is the weakest one for
+  this class.
+- My class check compared class **sets**, and the page has four `card`s — the
+  calculator's went, three prose cards stayed, set unchanged. Then the aggregate attr
+  count was **18 → 18** because two removals were offset by two `ported-prose`
+  additions. **An aggregate that nets to zero is not evidence, and I reported it to the
+  owner as proof.**
+
+Only a **per-class count diff** sees it: `card: 4 → 3`. That is now the acceptance test
+in 263, and it belongs in the tooling rather than in a session's head.
+
+**Third time today the same error shape:** `created_by IN ('design-audit-agent')` (a
+value that never existed), the vacuous `id="amount"` probe on a page using different ids
+(0 before, 0 after), and now a netting aggregate. Every one **compared two things that
+were equal for a reason unrelated to the property being tested.** The generalisable
+check: before believing a green, ask what value the measurement would take if the damage
+HAD occurred — if that value is the same as the one you just read, the check is inert.
+
+**State:** 2 restored + re-verified at the artefact (zero count drops vs the pre-Track-B
+original), 1 legitimately decomposed, 19 untouched, none flipped to `generic`. Next
+action is 263's fix candidate 1, not more pages.
