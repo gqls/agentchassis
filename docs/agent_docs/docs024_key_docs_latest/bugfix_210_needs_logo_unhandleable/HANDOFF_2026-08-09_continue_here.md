@@ -418,3 +418,38 @@ the first one on 08-11 (same reasoning: `hasActiveAssetForPurpose` only counts `
 - One isolated, unchased oddity: the 19:06 item's own `result` column holds unrelated JSON
   (checked against 8 clean siblings the same night — not systemic). Noted in the 248
   contribution; nobody's job right now.
+
+---
+
+# UPDATE 2026-08-12 (later) — DECIDED: owner approves the mechanism; a real bug found while verifying my own earlier claim, now fixed
+
+**The decision from the section above is resolved.** Owner: *"This is ok, but I prefer the old
+logo not as a standing rule but because it is much better. Please carry on with the original
+logo but we can approve this route for future attempts."* Second generated hero superseded
+(kept, not deleted) — same disposition and reasoning as the first. **Mechanism approved for
+fleet-wide use** (recorded in IMG-069); mortgagecalculator's own preference for its existing
+branding is a per-site aesthetic call, not a verdict on the design.
+
+**A real, separate bug was found and fixed while re-verifying my own earlier "keep it live"
+claim.** `check_placeholder_image_in_use`'s asset-existence gate used
+`hasActiveAssetForPurpose` (wrong granularity) instead of `hasActiveAssetForAssetKey`
+(canonical-slot-specific) — a page-named hero variant asset silently satisfied "a hero exists"
+and suppressed re-detection of the canonical gap. Fixed, mutation-proven, committed
+(`Council-Submitted: 7e839679-d87b-4c57-9419-ba1212f22a87` — **read this verdict before
+writing `Council-Reviewed:`**), LANDMINES entry added. Full writeup: NOTES §18.
+
+**Left deliberately alone: the two-strike counter is now at 2 for this item_key.** A third
+natural detection attempt on mortgagecalculator's hero would land `unresolved`, not
+auto-regenerate. Not fixed — the owner's own latest instruction reads as satisfied with two
+reviewed attempts, so this reads as the circuit-breaker doing its job, not a defect.
+
+## For a genuinely fresh session: what's actually left on this lane
+
+1. **Read the council verdict** for `7e839679-d87b-4c57-9419-ba1212f22a87` (submitted 08-12,
+   should be resolved within ~30 min of submission).
+2. That's it for THIS lane. Everything else — the refusal guard, the brand-identity default,
+   the silent-degrade fix, the anchoring fix, the chrome-scan fix, mig 390, the report line, and
+   now the variant-asset fix — is live, tested, and owner-validated.
+3. `bugs_open/248` and the mortgagecalculator decomposition remain exactly as before: not ours,
+   correctly parked. The decomposition plan's page inventory is now doubly stale (the sibling
+   lane has built more pages since the last check) — re-survey, don't trust the written table.
