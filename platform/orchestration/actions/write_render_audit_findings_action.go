@@ -48,6 +48,23 @@
 //     site-CSS patch aimed at a locked component's class changes the locked
 //     thing's appearance by the back door. Counted as skipped_locked.
 //
+// What it RETRACTS (2026-08-12). This action also CLOSES contrast_failure
+// items — including ones it did not file — when the audit it is draining
+// positively re-measured the page and no longer finds the pairing failing.
+// That authority is deliberately narrow and its rules are on
+// retractResolvedContrastFindings; the two that a reader must not lose are
+// that the scope is the pages the adapter SUCCESSFULLY MEASURED (never the
+// ones requested — an unreachable page measures nothing), and that the
+// still-failing set is built from the audit's findings and NOT from the items
+// this run filed, because a locked-culprit skip and a max_items drop are both
+// "still broken, not filed".
+//
+// It is why contrast_failure needs no completion-time verifier, and it
+// replaces the claim that used to stand in its place — "the NEXT render audit
+// is the verifier" — which was an inference from ABSENCE that nothing
+// implemented: verification never happened, it was merely re-detection that
+// failed to re-fire. asset_reference_404's posture, for its reasons.
+//
 // Items are born status='detected': promotion is improvement-loop's
 // triage_findings (the migration-286 single owner), so this action composes
 // with the drain rather than bypassing it.
@@ -93,6 +110,7 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+	checks "github.com/gqls/agentchassis/platform/orchestration/actions/discovery_checks"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"go.uber.org/zap"
 )
@@ -140,10 +158,16 @@ type renderAuditPayload struct {
 	// (bugs_open/242): when Truncated, the sweep measured a subset and its
 	// findings must not read as a whole-site verdict. Absent on old-shape
 	// replies — zero values then mean "not stated", never "not truncated".
+	//
+	// PagesAudited names the pages the adapter SUCCESSFULLY MEASURED, and is
+	// the entire scope of what this action may retract. Absent on an
+	// old-shape reply, which is why retraction is inert rather than wrong
+	// against an un-rolled adapter: an empty audited set retracts nothing.
 	Summary struct {
-		Pages      int  `json:"pages"`
-		PagesTotal int  `json:"pages_total"`
-		Truncated  bool `json:"truncated"`
+		Pages        int      `json:"pages"`
+		PagesTotal   int      `json:"pages_total"`
+		Truncated    bool     `json:"truncated"`
+		PagesAudited []string `json:"pages_audited"`
 	} `json:"summary"`
 }
 
@@ -175,6 +199,20 @@ func WriteRenderAuditFindingsAction(ctx context.Context, params ActionParams) (i
 		auditField = "render_audit"
 	}
 	maxItems := datahelpers.GetIntField(config, "max_items", 60)
+
+	// batchID groups the items THIS run files, and it is not bookkeeping: it is
+	// what makes resolveWorkItems' self-protection guard operative on the
+	// retraction path below. That guard is `batch_id IS DISTINCT FROM $batch`,
+	// so a run cannot close what it just raised — and `NULL IS DISTINCT FROM
+	// <uuid>` is TRUE, meaning a NULL batch_id silently disables it. Every
+	// contrast_failure row filed before this change carries NULL (measured
+	// 2026-08-12: 0 of 226, against 61/61 empty_section and 15/15
+	// hardcoded_section_colors filed through the discovery-check path), so the
+	// guard has never once been able to fire for this producer. The set logic
+	// in retractResolvedContrastFindings is the primary defence; this is the
+	// backstop the estate deliberately built, and a destructive operation
+	// should not rest on one loop alone.
+	batchID := uuid.New()
 
 	payload, err := extractRenderAuditPayload(params.CollectedData, auditField)
 	if err != nil {
@@ -264,6 +302,7 @@ func WriteRenderAuditFindingsAction(ctx context.Context, params ActionParams) (i
 			status:       "detected",
 			createdBy:    params.ExecutionContext.Sender.AgentType,
 			itemKey:      workItemKey("contrast_failure", pagePath+"#"+selector),
+			batchID:      batchID,
 			// recurrenceExpected stays FALSE: detected defect, not an action
 			// request — two-strike is the cycle-breaker (see file header).
 		}
@@ -325,6 +364,7 @@ func WriteRenderAuditFindingsAction(ctx context.Context, params ActionParams) (i
 			status:       "detected",
 			createdBy:    params.ExecutionContext.Sender.AgentType,
 			itemKey:      fmt.Sprintf("undeployed_asset:%s", assetID),
+			batchID:      batchID,
 		}
 		if pid, ok := pageIDs[urlPath(img.URL)]; ok {
 			p := pid
@@ -351,6 +391,12 @@ func WriteRenderAuditFindingsAction(ctx context.Context, params ActionParams) (i
 			deduped++
 		}
 	}
+	retracted, retractedParked, rErr := retractResolvedContrastFindings(
+		ctx, tx, siteID, batchID, payload, logger)
+	if rErr != nil {
+		return nil, fmt.Errorf("write_render_audit_findings: retract: %w", rErr)
+	}
+
 	if err := tx.Commit(); err != nil {
 		return nil, fmt.Errorf("write_render_audit_findings: commit: %w", err)
 	}
@@ -377,10 +423,203 @@ func WriteRenderAuditFindingsAction(ctx context.Context, params ActionParams) (i
 		result["pages_total"] = payload.Summary.PagesTotal
 		result["pages_audited"] = payload.Summary.Pages
 	}
+	// Retraction reports itself in three numbers, not one. `retracted` alone
+	// cannot distinguish "nothing needed closing" from "this adapter is too
+	// old to tell me what it measured" — and those want opposite responses, so
+	// the second is stated rather than inferred from a zero (the sibling of
+	// findings_capped's no-silent-caps rule). retracted_parked is the count
+	// this lane must be able to be WRONG about in public: it is how many of the
+	// 226 migration_389 rows this run closed, and a park draining silently is
+	// exactly what nobody would notice.
+	//
+	// ⚠ retraction_scope_pages is NOT the existing "pages_audited" result key
+	// above, and the two disagree on exactly the interesting runs. That key is
+	// bugs_open/242's, carries summary.Pages, and counts pages ATTEMPTED;
+	// this one counts pages successfully MEASURED. They differ by the
+	// unreachable pages — the very rows retraction must not touch. Renaming
+	// 242's key would break its consumers, so they are told apart by name here
+	// rather than left to be discovered.
+	result["retracted"] = retracted
+	result["retracted_parked"] = retractedParked
+	result["retraction_scope_pages"] = len(payload.Summary.PagesAudited)
+	if len(payload.Summary.PagesAudited) == 0 {
+		result["retraction_unavailable"] = true
+	}
 	logger.Info("write_render_audit_findings: complete",
 		zap.Int("inserted", inserted), zap.Int("deduped", deduped),
-		zap.Int("skipped_locked", skippedLocked), zap.Int("dropped", dropped))
+		zap.Int("skipped_locked", skippedLocked), zap.Int("dropped", dropped),
+		zap.Int("retracted", retracted), zap.Int("retracted_parked", retractedParked),
+		zap.Int("retraction_scope_pages", len(payload.Summary.PagesAudited)))
 	return result, nil
+}
+
+// retractResolvedContrastFindings closes contrast_failure items this run has
+// POSITIVELY OBSERVED to be fixed, and is the reason contrast_failure needs no
+// completion-time verifier: it takes the same measurement a verifier would
+// fetch, on the discovery path where the browser probe is already precedented
+// (asset_reference_404's posture, and the three standing objections in
+// verifier_coverage_test.go to putting an outbound probe on the completion
+// path).
+//
+// A row is retracted only when ALL THREE hold. Each exists because the obvious
+// version is wrong:
+//
+//  1. Its page is in Summary.PagesAudited — the pages the adapter SUCCESSFULLY
+//     MEASURED. Never the pages REQUESTED: an unreachable page measures
+//     nothing, and closing its tickets is precisely what RenderAuditResult.
+//     Unreachable was added to prevent ("it would let a dead page pass as
+//     clean"). It also cannot be derived from the findings, because a repaired
+//     page reports nothing and is indistinguishable from one never visited.
+//
+//  2. The pairing is absent from what this run observed. ⚠ THAT SET IS BUILT
+//     FROM payload.Contrast, NOT FROM THE ITEMS THIS RUN FILED, and the
+//     difference is the whole correctness of this function. A finding is
+//     measured-and-failing but NOT filed in two cases: its culprit class lives
+//     in a LOCKED component (skipped, counted as skipped_locked), and the
+//     max_items cap dropped it (counted as findings_dropped). Both are still
+//     broken. Scoping to the filed items would read "not filed" as "fixed" and
+//     close them — a false completion, which is the one outcome this lane's
+//     park of 226 items exists to prevent.
+//
+//     over_image approximations count as still-observed for the same reason.
+//     The adapter's own header calls that backdrop unknown; "I could not tell"
+//     is not a positive observation of health, and a pairing that has gone from
+//     firm to approximate has not been shown fixed. Erring here costs one
+//     ticket staying open a week; erring the other way closes a live defect.
+//
+//  3. It is not already settled — workItemClosedStatuses, applied by
+//     resolveWorkItems itself.
+//
+// ⚠ `deferred` IS NOT IN workItemClosedStatuses, SO THIS CLOSES PARKED ITEMS,
+// AND THAT IS A DECISION RATHER THAN A SIDE EFFECT. The 226 contrast_failure
+// rows parked by migration 389 are parked because PROMOTING them would mint
+// completions that are ungraded by construction — an unregistered item type
+// completes untouched. A retraction is the opposite of that: it closes on a
+// fresh positive measurement by the same instrument that filed the row, and
+// stamps result.resolved_by/reason as the evidence. That is the grading the
+// park was waiting for, so the park drains as each site's weekly audit
+// confirms a repair, and only the genuinely-still-broken remainder ever needs
+// a fixer. Reported as retracted_parked so the draining is visible.
+//
+// AllOfType is never set, and must not be: the wide branch would close every
+// open contrast ticket for the site, including pages this run never opened.
+func retractResolvedContrastFindings(
+	ctx context.Context,
+	tx *sql.Tx,
+	siteID uuid.UUID,
+	batchID uuid.UUID,
+	payload *renderAuditPayload,
+	logger *zap.Logger,
+) (retracted int, parked int, err error) {
+	// An old-shape reply (no pages_audited) degrades to today's behaviour
+	// exactly: no scope, no retraction. Version skew must be inert, never
+	// wrong — an empty audited set with a "retract what is absent" rule and no
+	// scope check would close everything.
+	if len(payload.Summary.PagesAudited) == 0 {
+		return 0, 0, nil
+	}
+
+	// One key prefix per audited page. Prefix-matching rather than parsing the
+	// key backwards keeps the '#' delimiter inside the comparison, so a page
+	// "/blog" can never match a key belonging to "/blog.html".
+	type auditedPage struct{ prefix, path string }
+	var audited []auditedPage
+	seenPath := map[string]bool{}
+	for _, u := range payload.Summary.PagesAudited {
+		p := urlPath(u)
+		if p == "" || seenPath[p] {
+			continue
+		}
+		seenPath[p] = true
+		audited = append(audited, auditedPage{
+			prefix: workItemKey("contrast_failure", p+"#"),
+			path:   p,
+		})
+	}
+	if len(audited) == 0 {
+		return 0, 0, nil
+	}
+
+	// Every pairing this run measured as failing — firm and over_image alike,
+	// before the locked-component skip and before the max_items cap. See (2).
+	stillFailing := map[string]bool{}
+	for _, c := range payload.Contrast {
+		stillFailing[workItemKey("contrast_failure",
+			urlPath(c.URL)+"#"+contrastSelector(c.Tag, c.Class))] = true
+	}
+
+	// Read the open rows fully and close the cursor BEFORE any UPDATE: a
+	// database/sql Tx is one connection, so retracting while this cursor is
+	// still streaming would deadlock against itself.
+	type openItem struct{ key, status string }
+	candidates, err := func() ([]openItem, error) {
+		rows, qErr := tx.QueryContext(ctx, fmt.Sprintf(`
+			SELECT COALESCE(item_key, ''), status
+			FROM site_work_items
+			WHERE site_id   = $1
+			  AND item_type = 'contrast_failure'
+			  AND status NOT IN (%s)
+		`, sqlInList(workItemClosedStatuses)), siteID)
+		if qErr != nil {
+			return nil, qErr
+		}
+		defer rows.Close()
+		var out []openItem
+		for rows.Next() {
+			var it openItem
+			if sErr := rows.Scan(&it.key, &it.status); sErr != nil {
+				return nil, sErr
+			}
+			out = append(out, it)
+		}
+		return out, rows.Err()
+	}()
+	if err != nil {
+		return 0, 0, fmt.Errorf("load open contrast items: %w", err)
+	}
+
+	done := map[string]bool{}
+	for _, it := range candidates {
+		if it.key == "" || done[it.key] || stillFailing[it.key] {
+			continue
+		}
+		page := ""
+		for _, ap := range audited {
+			if strings.HasPrefix(it.key, ap.prefix) {
+				page = ap.path
+				break
+			}
+		}
+		if page == "" {
+			continue // not a page this run measured — leave it alone
+		}
+		done[it.key] = true
+
+		reason := fmt.Sprintf(
+			"render audit re-measured %s and this pairing is no longer below its contrast threshold", page)
+		if payload.RunID != "" {
+			reason += fmt.Sprintf(" (run %s)", payload.RunID)
+		}
+		n, rErr := resolveWorkItems(ctx, tx, siteID, "render_audit", batchID, checks.ResolvedFinding{
+			ItemType: "contrast_failure",
+			ItemKey:  it.key,
+			Reason:   reason,
+		}, logger)
+		if rErr != nil {
+			return 0, 0, rErr
+		}
+		retracted += n
+		if n > 0 && it.status == "deferred" {
+			parked += n
+		}
+	}
+
+	if retracted > 0 {
+		logger.Info("write_render_audit_findings: retracted contrast findings no longer reproducing",
+			zap.Int("retracted", retracted), zap.Int("parked", parked),
+			zap.Int("pages_audited", len(audited)))
+	}
+	return retracted, parked, nil
 }
 
 // extractRenderAuditPayload unwraps collected_data[field], descending into the

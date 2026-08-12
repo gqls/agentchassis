@@ -153,7 +153,30 @@ var itemTypesWithoutVerifiers = map[string]verificationGap{
 	// verdict is "the HANDLER's transform is at a fixed point", never the
 	// detector's broader predicate.
 	"undeployed_asset": {catNoTarget, "site-scoped asset sweep; no per-item target id. Unblocked by VerifyTarget.SiteID — next in line; read the handler's remit first"},
-	"contrast_failure": {catMechanical, "minted by write_render_audit_findings (actions pkg, outside this sensor's glob); verification needs a browser — the dedup key contrast_failure:<page>#<selector> plus the NEXT render audit is the verifier, and the two-strike rule catches a persistent pairing"},
+	// contrast_failure's reason was REWRITTEN 2026-08-12, and the exemption kept.
+	// What stood here was: "the dedup key plus the NEXT render audit is the
+	// verifier, and the two-strike rule catches a persistent pairing". Three
+	// things were wrong with it, and they are worth keeping because the same
+	// sentence is still live one entry below:
+	//
+	//   - It is the argument RFC_017 REFUTED on 2026-08-08, six days after this
+	//     line was authored (f2a222964) and never revisited. Re-detection is not
+	//     verification: it grades the NEXT run's finding, not THIS row.
+	//   - It infers resolution from ABSENCE, which CheckResult.Resolved's own
+	//     contract forbids in writing — a pairing stops being re-filed when the
+	//     page is fixed, when it is unreachable, and when a cap dropped it.
+	//   - It had never once been exercised: 0 of 226 rows dispatched, completed
+	//     or re-detected, max(attempt_count)=0, measured 2026-08-12. An
+	//     unregistered type completes UNTOUCHED, so the claim was not merely
+	//     unproven, it described a mechanism that does not run.
+	//
+	// It is now true, by construction rather than by hope: since 2026-08-12
+	// write_render_audit_findings RETRACTS these rows on a positive
+	// re-observation — scoped to summary.pages_audited, the pages the adapter
+	// successfully measured — inside the transaction that files the run's
+	// findings. That is the same measurement a verifier would fetch, taken on
+	// the discovery path where the browser probe is already precedented.
+	"contrast_failure": {catMechanical, "minted by write_render_audit_findings (actions pkg, outside this sensor's glob). Deliberately NOT a verifier candidate — verification needs a browser, i.e. an outbound probe on the completion path, the same standing objection as image_url_404, backend_entry_orphaned and asset_reference_404. It does not NEED one: since 2026-08-12 the producer retracts its own findings on a positive re-observation, scoped to the pages the audit successfully measured (summary.pages_audited) and never to the pages it merely requested, stamping result.resolved_by/reason as the evidence. asset_reference_404's posture, for its reasons"},
 	// dark_section_audit: minted by write_audit_findings (actions pkg, outside this
 	// sensor's glob) — bugs_open/213 split it OUT of hardcoded_section_colors, whose
 	// verifier grades a different predicate entirely (the discovery check's site
@@ -162,11 +185,22 @@ var itemTypesWithoutVerifiers = map[string]verificationGap{
 	// sensor cannot see a type minted outside this package, so a new one is invisible
 	// until someone remembers, which is the failure mode this file exists to stop.
 	// Its pass condition is spec.acceptance_test — free text over computed styles —
-	// so verification needs a browser. Same posture as contrast_failure above: the
-	// NEXT design audit plus the dedup key is the re-detection and two-strike catches
-	// a persistent pairing. Candidate verifier: criteria_check (RFC_002) over
-	// acceptance_test, which nothing on the completion path reads today.
-	"dark_section_audit":           {catMechanical, "minted by write_audit_findings (actions pkg, outside this sensor's glob); verification needs a browser — pass condition is spec.acceptance_test free text over computed styles; the NEXT design audit plus the dedup key is the re-detection and two-strike escalates a persistent pairing (contrast_failure's posture); candidate verifier is criteria_check (RFC_002) over acceptance_test"},
+	// so verification needs a browser. Candidate verifier: criteria_check (RFC_002)
+	// over acceptance_test, which nothing on the completion path reads today.
+	//
+	// ⚠ ITS REASON IS THE ONE CONTRAST_FAILURE JUST RETIRED, AND IT NO LONGER HAS
+	// COMPANY (2026-08-12). This entry used to say "same posture as contrast_failure
+	// above" and inherit its argument; contrast_failure has since moved to
+	// retraction-on-positive-re-observation and this type has NOT, so the
+	// re-detection claim now stands here alone — including the part RFC_017 refuted
+	// on 2026-08-08 (re-detection grades the next run's finding, not this row) and
+	// the part that infers resolution from absence. The remedy that worked for
+	// contrast_failure is available in principle — write_audit_findings could
+	// retract on the design audit's own positive re-observation — but whether
+	// dark_section_audit should be verified at all is bugs_open/213's call or the
+	// owner's, NOT ESTABLISHED here, and this note deliberately decides nothing.
+	// It records that the citation moved out from under it.
+	"dark_section_audit":           {catMechanical, "minted by write_audit_findings (actions pkg, outside this sensor's glob); verification needs a browser — pass condition is spec.acceptance_test free text over computed styles; the NEXT design audit plus the dedup key is the re-detection and two-strike escalates a persistent pairing — an absence-inference RFC_017 refuted, and since 2026-08-12 NO LONGER contrast_failure's posture, which now retracts on positive re-observation; candidate verifier is criteria_check (RFC_002) over acceptance_test"},
 	"needs_rerender":               {catMechanical, "43 of 142 carry component_id; predicate is the section-drift check"},
 	"needs_component_regeneration": {catMechanical, "12 of 57 carry component_id"},
 	"phantom_internal_link":        {catMechanical, "all 65 carry page_id; predicate is check_phantom_internal_links"},

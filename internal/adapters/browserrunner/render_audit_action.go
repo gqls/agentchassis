@@ -147,6 +147,29 @@ type RenderAuditResult struct {
 		// behaviour, never to a wrong number.
 		PagesTotal int  `json:"pages_total,omitempty"`
 		Truncated  bool `json:"truncated,omitempty"`
+		// PagesAudited names the pages this run SUCCESSFULLY MEASURED. It is
+		// the identity half of Pages, and the two deliberately disagree:
+		// Pages counts every page ATTEMPTED (it increments before the
+		// reachability guard), so len(PagesAudited) < Pages exactly when a
+		// page is Unreachable. Read this, never Pages, before concluding
+		// anything about a page from this run.
+		//
+		// WHY IT EXISTS. A page that has been REPAIRED reports nothing — zero
+		// contrast findings — and is therefore indistinguishable from a page
+		// that was never visited. That is precisely the case a consumer needs
+		// to tell apart in order to close a ticket on positive evidence, so
+		// the audited set cannot be derived from the findings and has to be
+		// stated. write_render_audit_findings retracts against exactly this
+		// list; anything not named here it leaves alone.
+		//
+		// The success-only scoping is the load-bearing part, and it is the
+		// same rule Unreachable's own comment states ("it would let a dead
+		// page pass as clean"): a page that failed to load has measured
+		// NOTHING, and a retraction scoped to REQUESTED urls would close
+		// tickets on it. omitempty matches the PagesTotal/Truncated
+		// precedent — an old-shape reply degrades to today's behaviour (no
+		// retraction at all), never to a wrong closure.
+		PagesAudited []string `json:"pages_audited,omitempty"`
 	} `json:"summary"`
 }
 
@@ -276,6 +299,13 @@ func (a *RenderAuditAction) Execute(ctx context.Context, req RenderAuditRequest)
 			failedPages[url] = true
 			continue
 		}
+		// Past the reachability guard, so this page WAS measured. Recorded
+		// here rather than at the top of the loop so an unreachable page is
+		// excluded by construction rather than by a second condition someone
+		// can later forget to keep in step. A page WITH findings still belongs
+		// in the list: it was measured, and its findings are filed — which is
+		// what lets a consumer retract per selector rather than per page.
+		res.Summary.PagesAudited = append(res.Summary.PagesAudited, url)
 		if capture {
 			if ref, ok := a.saveRender(ctx, req, url, "desktop", urlIdx, desktopShot); ok {
 				res.Renders = append(res.Renders, ref)

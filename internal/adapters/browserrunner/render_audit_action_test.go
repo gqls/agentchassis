@@ -288,6 +288,89 @@ func TestOldShapeRequestKeepsOldSummaryShape(t *testing.T) {
 	}
 }
 
+// PagesAudited is the identity half of Pages, and the two DELIBERATELY
+// disagree: Pages counts pages ATTEMPTED, PagesAudited names those
+// successfully MEASURED. The gap is exactly the unreachable page — and a
+// consumer that retracts work items against the wrong one of these closes
+// tickets on a page that never loaded, which is the error Unreachable was
+// added to prevent ("it would let a dead page pass as clean").
+func TestPagesAuditedNamesOnlyPagesActuallyMeasured(t *testing.T) {
+	a := NewRenderAuditAction(zap.NewNop(), nil)
+	a.open = func(_ context.Context, url string, _ string, _ *zap.Logger) (browserPage, error) {
+		switch url {
+		case "https://dead.example/gone.html":
+			return nil, errors.New("dial tcp: connection refused")
+		case "https://ok.example/failing.html":
+			return &fakePage{status: 200, evalResult: probeJSON(t, `{
+			  "contrast":[{"cls":"card-title","tag":"H2","text":"Plans","fg":"rgb(17,17,17)",
+			               "bg":"rgb(15,15,15)","ratio":1.05,"need":4.5,"overImage":false,"px":20}],
+			  "images":[],"overflow":null}`)}, nil
+		default:
+			return &fakePage{status: 200, evalResult: probeJSON(t,
+				`{"contrast":[],"images":[],"overflow":null}`)}, nil
+		}
+	}
+
+	res, err := a.Execute(context.Background(), RenderAuditRequest{URLs: []string{
+		"https://ok.example/repaired.html",
+		"https://dead.example/gone.html",
+		"https://ok.example/failing.html",
+	}})
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+
+	// The repaired page reports NOTHING and must still be named — that is the
+	// entire reason this field exists, since a clean page is otherwise
+	// indistinguishable from one never visited. The failing page must be named
+	// too: it WAS measured, and per-selector retraction depends on saying so.
+	want := []string{"https://ok.example/repaired.html", "https://ok.example/failing.html"}
+	if len(res.Summary.PagesAudited) != len(want) {
+		t.Fatalf("want %d audited pages, got %v", len(want), res.Summary.PagesAudited)
+	}
+	for i, w := range want {
+		if res.Summary.PagesAudited[i] != w {
+			t.Errorf("audited[%d]: want %q, got %q", i, w, res.Summary.PagesAudited[i])
+		}
+	}
+	for _, got := range res.Summary.PagesAudited {
+		if got == "https://dead.example/gone.html" {
+			t.Fatal("an unreachable page must NEVER appear in pages_audited")
+		}
+	}
+	// The disagreement itself is the guarantee, so pin both numbers.
+	if res.Summary.Pages != 3 {
+		t.Errorf("Pages counts every attempt, want 3, got %d", res.Summary.Pages)
+	}
+	if len(res.Unreachable) != 1 {
+		t.Errorf("the dead page must still be reported unreachable, got %v", res.Unreachable)
+	}
+}
+
+// A run in which nothing loaded must produce an EMPTY audited set, not an
+// absent one that a consumer could read as "no scoping needed".
+func TestPagesAuditedIsEmptyWhenNothingLoaded(t *testing.T) {
+	a := NewRenderAuditAction(zap.NewNop(), nil)
+	a.open = func(context.Context, string, string, *zap.Logger) (browserPage, error) {
+		return nil, errors.New("dial tcp: connection refused")
+	}
+	res, err := a.Execute(context.Background(),
+		RenderAuditRequest{URLs: []string{"https://dead.example/a.html", "https://dead.example/b.html"}})
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if len(res.Summary.PagesAudited) != 0 {
+		t.Fatalf("nothing loaded, so nothing was audited: %v", res.Summary.PagesAudited)
+	}
+	buf, err := json.Marshal(res.Summary)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	if containsSubstring(string(buf), "pages_audited") {
+		t.Errorf("an empty audited set must omit the key (omitempty), got %s", buf)
+	}
+}
+
 func containsSubstring(s, sub string) bool {
 	for i := 0; i+len(sub) <= len(s); i++ {
 		if s[i:i+len(sub)] == sub {

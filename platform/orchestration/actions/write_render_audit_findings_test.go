@@ -427,6 +427,336 @@ func TestWriteRenderAuditFindings_TruncatedSweepIsStampedInResult(t *testing.T) 
 	}
 }
 
+// ── Retraction (2026-08-12) ─────────────────────────────────────────────────
+//
+// These pin a DESTRUCTIVE operation, so every one of them is written to fail if
+// the scope widens: the expectations name the exact item_key of each UPDATE, and
+// an unexpected retraction breaks ExpectationsWereMet rather than passing
+// quietly. The load-bearing half is the negatives — a retraction that only ever
+// confirms "the bad pairing is gone" would also close a page that never loaded.
+
+// The ordinary case and the three-way discrimination that makes it safe: on a
+// page this run MEASURED, a pairing it no longer sees is retracted, a pairing it
+// still sees is not, and a pairing on a page it never opened is untouched.
+func TestWriteRenderAuditFindings_RetractsOnlyAbsentPairingsOnAuditedPages(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+	siteID := uuid.New()
+
+	mock.ExpectQuery("locked_at IS NOT NULL").
+		WillReturnRows(sqlmock.NewRows([]string{"rendered_html"}))
+	mock.ExpectQuery("FROM pages").
+		WithArgs(siteID).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "url"}))
+	mock.ExpectBegin()
+	// The still-failing pairing is re-filed exactly as before; retraction does
+	// not change the filing half.
+	mock.ExpectQuery("INTERVAL '7 days'").
+		WithArgs(siteID, "contrast_failure:/pricing.html#h2.card-title").
+		WillReturnRows(sqlmock.NewRows([]string{"count", "age"}).AddRow(0, 999.0))
+	mock.ExpectExec("INSERT INTO site_work_items").
+		WillReturnResult(sqlmock.NewResult(0, 1))
+
+	mock.ExpectQuery("item_type = 'contrast_failure'").
+		WithArgs(siteID).
+		WillReturnRows(sqlmock.NewRows([]string{"item_key", "status"}).
+			AddRow("contrast_failure:/pricing.html#h2.card-title", "detected"). // still failing
+			AddRow("contrast_failure:/pricing.html#a.cta-link", "triaged").     // gone → retract
+			AddRow("contrast_failure:/pricing.html#h3.gone", "deferred").       // gone → retract (parked)
+			AddRow("contrast_failure:/about.html#h1.title", "detected"))        // page not audited
+	// EXACTLY TWO updates, each named. resolveWorkItems' args are
+	// (check, reason, site, item_type, item_key, batch).
+	mock.ExpectExec("UPDATE site_work_items").
+		WithArgs("render_audit", sqlmock.AnyArg(), siteID, "contrast_failure",
+			"contrast_failure:/pricing.html#a.cta-link", sqlmock.AnyArg()).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectExec("UPDATE site_work_items").
+		WithArgs("render_audit", sqlmock.AnyArg(), siteID, "contrast_failure",
+			"contrast_failure:/pricing.html#h3.gone", sqlmock.AnyArg()).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectCommit()
+
+	out, err := WriteRenderAuditFindingsAction(context.Background(), ActionParams{
+		DB:               db,
+		Logger:           zap.NewNop(),
+		ExecutionContext: &types.ExecutionContext{},
+		StepConfig:       models.Step{Config: map[string]interface{}{}},
+		CollectedData: renderAuditCollected(siteID, map[string]interface{}{
+			"run_id": "run-r",
+			"contrast": []map[string]interface{}{
+				{
+					"url": "https://example.com/pricing.html", "tag": "h2",
+					"class": "card-title", "fg": "#111111", "bg": "#0f0f0f",
+					"ratio": 1.2, "need": 4.5, "font_px": 20, "over_image": false,
+				},
+			},
+			"summary": map[string]interface{}{
+				"pages":         1,
+				"pages_audited": []string{"https://example.com/pricing.html"},
+			},
+		}),
+	})
+	if err != nil {
+		t.Fatalf("action failed: %v", err)
+	}
+	m := out.(map[string]interface{})
+	if m["retracted"] != 2 {
+		t.Fatalf("want retracted=2, got %#v", m)
+	}
+	// retracted_parked must DISCRIMINATE — a counter that merely echoed
+	// `retracted` would read 2 here, and the park draining unnoticed is the
+	// thing this number exists to make visible.
+	if m["retracted_parked"] != 1 {
+		t.Errorf("want retracted_parked=1 (only the deferred row), got %#v", m["retracted_parked"])
+	}
+	if m["retraction_scope_pages"] != 1 {
+		t.Errorf("want retraction_scope_pages=1, got %#v", m["retraction_scope_pages"])
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
+// THE LOAD-BEARING NEGATIVE. A page that failed to load measured NOTHING, so
+// its pairings are absent from the findings for a reason that has nothing to do
+// with repair. The adapter keeps it out of pages_audited; this pins that the
+// producer therefore leaves its tickets alone. Without this control, a
+// retraction that only ever confirms "the bad pairing is gone" passes.
+func TestWriteRenderAuditFindings_UnreachablePageRetractsNothing(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+	siteID := uuid.New()
+
+	mock.ExpectQuery("locked_at IS NOT NULL").
+		WillReturnRows(sqlmock.NewRows([]string{"rendered_html"}))
+	mock.ExpectQuery("FROM pages").
+		WithArgs(siteID).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "url"}))
+	mock.ExpectBegin()
+	mock.ExpectQuery("item_type = 'contrast_failure'").
+		WithArgs(siteID).
+		WillReturnRows(sqlmock.NewRows([]string{"item_key", "status"}).
+			AddRow("contrast_failure:/dead.html#h1.title", "detected"))
+	// No UPDATE may follow. An unexpected one fails ExpectationsWereMet.
+	mock.ExpectCommit()
+
+	out, err := WriteRenderAuditFindingsAction(context.Background(), ActionParams{
+		DB:               db,
+		Logger:           zap.NewNop(),
+		ExecutionContext: &types.ExecutionContext{},
+		StepConfig:       models.Step{Config: map[string]interface{}{}},
+		CollectedData: renderAuditCollected(siteID, map[string]interface{}{
+			"run_id":      "run-dead",
+			"contrast":    []map[string]interface{}{},
+			"unreachable": []string{"https://example.com/dead.html"},
+			"summary": map[string]interface{}{
+				"pages": 2,
+				// The dead page is ABSENT here even though it was requested.
+				"pages_audited": []string{"https://example.com/ok.html"},
+			},
+		}),
+	})
+	if err != nil {
+		t.Fatalf("action failed: %v", err)
+	}
+	if m := out.(map[string]interface{}); m["retracted"] != 0 {
+		t.Fatalf("a page that never loaded must not close its tickets, got %#v", m)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
+// A finding can be MEASURED-AND-FAILING yet never filed: its culprit class
+// lives in a locked component, or the max_items cap dropped it. Both are still
+// broken. Scoping the still-failing set to the items this run FILED would read
+// "not filed" as "fixed" and close them — a false completion, which is the one
+// outcome the park of 226 exists to prevent.
+func TestWriteRenderAuditFindings_MeasuredButUnfiledFindingsAreNotRetracted(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+	siteID := uuid.New()
+
+	mock.ExpectQuery("locked_at IS NOT NULL").
+		WillReturnRows(sqlmock.NewRows([]string{"rendered_html"}).
+			AddRow(`<section><h2 class="locked-title">Locked</h2></section>`))
+	mock.ExpectQuery("FROM pages").
+		WithArgs(siteID).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "url"}))
+	mock.ExpectBegin()
+	// max_items=1, worst-first: only p.body-text (1.10) is filed; a.cta-link
+	// (3.00) is dropped by the cap and h2.locked-title never reaches the cap.
+	mock.ExpectQuery("INTERVAL '7 days'").
+		WithArgs(siteID, "contrast_failure:/pricing.html#p.body-text").
+		WillReturnRows(sqlmock.NewRows([]string{"count", "age"}).AddRow(0, 999.0))
+	mock.ExpectExec("INSERT INTO site_work_items").
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectQuery("item_type = 'contrast_failure'").
+		WithArgs(siteID).
+		WillReturnRows(sqlmock.NewRows([]string{"item_key", "status"}).
+			AddRow("contrast_failure:/pricing.html#h2.locked-title", "detected"). // measured, locked
+			AddRow("contrast_failure:/pricing.html#p.body-text", "detected").     // measured, filed
+			AddRow("contrast_failure:/pricing.html#a.cta-link", "detected").      // measured, capped
+			AddRow("contrast_failure:/pricing.html#h3.repaired", "deferred"))     // genuinely gone
+	// EXACTLY ONE retraction: the pairing the audit did not measure at all.
+	mock.ExpectExec("UPDATE site_work_items").
+		WithArgs("render_audit", sqlmock.AnyArg(), siteID, "contrast_failure",
+			"contrast_failure:/pricing.html#h3.repaired", sqlmock.AnyArg()).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectCommit()
+
+	out, err := WriteRenderAuditFindingsAction(context.Background(), ActionParams{
+		DB:               db,
+		Logger:           zap.NewNop(),
+		ExecutionContext: &types.ExecutionContext{},
+		StepConfig:       models.Step{Config: map[string]interface{}{"max_items": 1}},
+		CollectedData: renderAuditCollected(siteID, map[string]interface{}{
+			"run_id": "run-unfiled",
+			"contrast": []map[string]interface{}{
+				{
+					"url": "https://example.com/pricing.html", "tag": "h2",
+					"class": "locked-title", "fg": "#222222", "bg": "#111111",
+					"ratio": 1.05, "need": 4.5, "over_image": false,
+				},
+				{
+					"url": "https://example.com/pricing.html", "tag": "p",
+					"class": "body-text", "fg": "#333333", "bg": "#222222",
+					"ratio": 1.10, "need": 4.5, "over_image": false,
+				},
+				{
+					"url": "https://example.com/pricing.html", "tag": "a",
+					"class": "cta-link", "fg": "#777777", "bg": "#ffffff",
+					"ratio": 3.00, "need": 4.5, "over_image": false,
+				},
+			},
+			"summary": map[string]interface{}{
+				"pages":         1,
+				"pages_audited": []string{"https://example.com/pricing.html"},
+			},
+		}),
+	})
+	if err != nil {
+		t.Fatalf("action failed: %v", err)
+	}
+	m := out.(map[string]interface{})
+	if m["skipped_locked"] != 1 || m["findings_dropped"] != 1 {
+		t.Fatalf("fixture must exercise BOTH unfiled paths, got %#v", m)
+	}
+	if m["retracted"] != 1 {
+		t.Fatalf("only the unmeasured pairing may be retracted, got %#v", m)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
+// An over_image reading is an APPROXIMATION over an unknown backdrop — "I could
+// not tell", never a positive observation of health. A pairing that has gone
+// from firm to approximate has not been shown fixed, so it must not retract.
+func TestWriteRenderAuditFindings_OverImageReadingDoesNotRetract(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+	siteID := uuid.New()
+
+	mock.ExpectQuery("locked_at IS NOT NULL").
+		WillReturnRows(sqlmock.NewRows([]string{"rendered_html"}))
+	mock.ExpectQuery("FROM pages").
+		WithArgs(siteID).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "url"}))
+	mock.ExpectBegin()
+	mock.ExpectQuery("item_type = 'contrast_failure'").
+		WithArgs(siteID).
+		WillReturnRows(sqlmock.NewRows([]string{"item_key", "status"}).
+			AddRow("contrast_failure:/index.html#p.hero-sub", "detected"))
+	mock.ExpectCommit()
+
+	out, err := WriteRenderAuditFindingsAction(context.Background(), ActionParams{
+		DB:               db,
+		Logger:           zap.NewNop(),
+		ExecutionContext: &types.ExecutionContext{},
+		StepConfig:       models.Step{Config: map[string]interface{}{}},
+		CollectedData: renderAuditCollected(siteID, map[string]interface{}{
+			"run_id": "run-oi",
+			"contrast": []map[string]interface{}{
+				{
+					"url": "https://example.com/index.html", "tag": "p",
+					"class": "hero-sub", "fg": "#ffffff", "bg": "#888888",
+					"ratio": 2.9, "need": 4.5, "over_image": true,
+				},
+			},
+			"summary": map[string]interface{}{
+				"pages":         1,
+				"pages_audited": []string{"https://example.com/index.html"},
+			},
+		}),
+	})
+	if err != nil {
+		t.Fatalf("action failed: %v", err)
+	}
+	m := out.(map[string]interface{})
+	if m["over_image_reported"] != 1 || m["retracted"] != 0 {
+		t.Fatalf("an unknown backdrop is not evidence of repair, got %#v", m)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
+// Version skew must degrade to INERT, never to a wrong closure: against an
+// un-rolled adapter there is no pages_audited, so there is no scope, so nothing
+// is even selected — and the result SAYS so rather than reporting a bare zero a
+// reader could mistake for "nothing needed closing".
+func TestWriteRenderAuditFindings_OldShapeReplyRetractsNothing(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+	siteID := uuid.New()
+
+	mock.ExpectQuery("locked_at IS NOT NULL").
+		WillReturnRows(sqlmock.NewRows([]string{"rendered_html"}))
+	mock.ExpectQuery("FROM pages").
+		WithArgs(siteID).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "url"}))
+	mock.ExpectBegin()
+	// No SELECT of open items at all, and no UPDATE — either would fail here.
+	mock.ExpectCommit()
+
+	out, err := WriteRenderAuditFindingsAction(context.Background(), ActionParams{
+		DB:               db,
+		Logger:           zap.NewNop(),
+		ExecutionContext: &types.ExecutionContext{},
+		StepConfig:       models.Step{Config: map[string]interface{}{}},
+		CollectedData: renderAuditCollected(siteID, map[string]interface{}{
+			"run_id":   "run-old",
+			"contrast": []map[string]interface{}{},
+		}),
+	})
+	if err != nil {
+		t.Fatalf("action failed: %v", err)
+	}
+	m := out.(map[string]interface{})
+	if m["retracted"] != 0 || m["retraction_unavailable"] != true {
+		t.Fatalf("an old-shape reply must be inert AND say so, got %#v", m)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
 // The control: an untruncated (or old-shape) summary leaves the result shape
 // unchanged for every existing consumer — no keys added.
 func TestWriteRenderAuditFindings_UntruncatedSweepAddsNoKeys(t *testing.T) {
