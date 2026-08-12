@@ -119,3 +119,52 @@ instead. I have logged that as an open loose end, not as done.
 only thing that will prove any of this works in anger. And separately, the lead I mentioned — I have
 put that to the automated diagnosis loop rather than write it up as fact, and its answer is still
 pending.
+
+---
+
+## 2026-08-12 — it's live, and the automated diagnosis told us something better than an answer
+
+**Item 2 is live.** The new build went out overnight and I checked the running service itself rather
+than trusting the version number — the new record type is compiled into both copies of the service,
+and I ran the check alongside a deliberately impossible search to prove the check isn't just saying
+yes to everything.
+
+**It has not fired yet, and I can tell you why that means nothing.** There are no records — but
+also **nothing has deployed a hero or a logo since the release**. So the path hasn't had a chance to
+run. That is the difference between "nothing broke" and "nothing was tried", and it is only visible
+because I asked the second question alongside the first. A quiet result here is not yet good news;
+it is not news at all. It still needs a real site build.
+
+**Now the part worth your attention.** That lead I put to the automated diagnosis loop came back
+"unverifiable" — but read what it could not do, because it is more useful than an answer would have
+been. It said, in effect: *I cannot see the code you are asking me about.* It was given one function's
+body and a single line of another, and nothing at all for the two that mattered.
+
+So I checked whether the code was missing from our searchable index. **It isn't.** All four functions
+are there in full, with correct line numbers. The index had everything; the evidence pack the loop
+actually reads passed on almost none of it.
+
+**That is the same fault I fixed last week, one layer over.** Last week's job was that the pack
+listed the columns of one database table while showing rows from six — and, crucially, never said it
+was showing you a filtered view, so "not there" and "not included" looked identical. This is that
+exact shape again, in the code half rather than the data half: it holds four functions and shows
+one, and the loop is instructed to abstain rather than guess when it cannot cite something. So it
+abstained. Correctly.
+
+**And I have to own a mistake here.** Last week I wrote in the bug file that this very blocker was
+"clear", and my evidence was that the index was fresh and carried the functions. That was true, and
+it was an answer to the wrong question — the loop had complained about the pack, not the index. A
+fresh index says "present" whether or not the pack passes it on, so my check could never have come
+out any other way. It has cost one diagnosis run to be told the same thing again. I have corrected
+the bug file and logged it in our wrong-calls log, including the check I should have run: read the
+pack itself, which was sitting in the database the whole time.
+
+**Where that leaves the lead:** neither proved nor disproved. It is still the best explanation we
+have for both halves of the original bug, and it is still marked unverified. Chasing it again through
+the same loop will fail the same way until the code half of the evidence pack is fixed — so that is
+now the thing standing in the way, and it is a fault in our own diagnosis tooling rather than in the
+image code.
+
+**What I'd suggest next**, though the choice is yours: fix the code tier of the evidence pack. It is
+the same shape as the fix that already went through review and worked, it unblocks this lead, and it
+unblocks every future question whose answer lives in a function body — which is most of them.

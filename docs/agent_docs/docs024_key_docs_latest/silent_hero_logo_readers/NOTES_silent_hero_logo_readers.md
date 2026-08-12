@@ -220,3 +220,66 @@ finding:
   as closed.**
 - **`editquality`** — `siteID`/`domain` looked unbound in the sketch. A sketch-elision artifact;
   the real helper resolves both (`deployedImageAuditSiteID`, `extractDomainFromParams`). No change.
+
+---
+
+## 2026-08-12 — LIVE on v1.0.1290, and the 090 came back UNVERIFIABLE for a reason worth more than the run
+
+### Item 2 is live, verified at the artefact
+
+`agent-chassis:v1.0.1290`, both replicas started 2026-08-11 21:53Z. Verified the way the RUNBOOK
+says, not by trusting the tag:
+
+```
+kubectl exec <pod> -- grep -aq "DEPLOYED_IMAGE_RESULT_MISSING_URL" /proc/1/exe   # PRESENT, both pods
+kubectl exec <pod> -- grep -aq "DEPLOYED_IMAGE_RESULT_MISSING_URL_NOT_REAL" ...  # absent (control)
+```
+
+The `error_code` is a compiled literal, so this change is datable without planting a marker — which
+is what the council's `debug_historian` seat asked for.
+
+### The behavioural proof has NOT happened, and the demand control is why I can say so
+
+| | |
+|---|---|
+| `agent_error_log` rows with the new code | **0** |
+| **demand control:** `hero_deployed` / `logo_deployed` in `orchestration_states` | **0 / 0** of 6,364 retained |
+
+**So the zero is unfalsifiable, not reassuring.** Nothing has deployed a hero or logo since the
+roll, so the path has had no opportunity to fire. Recording it this way because a bare "0 rows,
+looks quiet" is exactly the reading `bugs_open/236` §3 forbids — and the control is the only thing
+separating "nothing broke" from "nothing was tried".
+
+### The 090: UNVERIFIABLE — neither confirmed nor refuted
+
+`dbcc4259-…`, COMPLETED 18:42Z on 08-11, 4 iterations. It reached the same `next_scope` I did and
+could not read the code it needed. Its `needed_evidence` names the blocker exactly: the bundle
+rendered `storeActionResult`'s body and **a bare signature line** for `applyResponseToState`, and
+nothing for `persistAwaitingStateWithRetry` or `processAwaitResponse`.
+
+> **⚠ The verdict artifact is NOT in `diagnosis_artifacts`.** Only 4 `kind='bundle'` rows are there;
+> the verdict lives in `orchestration_states.collected_data->'verdict'` on the run's own row.
+> My first two polls queried `kind='diagnosis_report'` and `metadata->>'verdict'` and both returned
+> "NOT YET" on a run that had finished five hours earlier. Added to the RUNBOOK — a poll that looks
+> in the wrong place reports "still running" indefinitely, which is the same trap as this lane's
+> DNS-failure watcher, one layer up.
+
+### The finding that outlives this bug: the CODE tier has the SAME defect item 5 fixed in the SCHEMA tier
+
+All four bodies **are** in `code_symbols` — 2,058 / 5,619 / 4,746 / 970 chars, correct line ranges.
+The index held four; the bundle rendered one. So this is a **rendering/selection defect in the code
+tier**, and the verdict's cite-or-abstain rule then acts on the absence — precisely the mechanism
+item 5 fixed one tier over, where a filtered-out table and a non-existent table read identically.
+
+**Item 5's own PLAN §3 flagged this and I did not follow it up:** *"whether the code tier has an
+analogous blind spot is unexamined `[UNMEASURED]`"*. It is measured now.
+
+> **CORRECTION to `bugs_open/236` §5b, which I wrote.** It declared this blocker "clear" because
+> *"the index is fresh and carries all three… 4,746 chars"*. True, and an answer to the wrong
+> question — the loop had complained about the **bundle**, not the index. A fresh index returns
+> "present" whether or not the bundle renders it, so that check **could not have come out false**.
+> Corrected in place in 236, and logged in `WRONG_CALLS.md` with the cheap check that would have
+> caught it: read the bundle artefact, not the table it is built from.
+
+**Consequence:** a third `090` on the code-path question will fail identically until the code tier
+is fixed. It should be filed as a diagnosis-harness defect, not as another run on 236.

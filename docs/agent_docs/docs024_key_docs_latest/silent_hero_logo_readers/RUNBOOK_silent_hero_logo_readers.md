@@ -167,3 +167,52 @@ not retry. Find the run by payload, not by the printed id:
 SELECT current_step, status FROM orchestration_states
 WHERE collected_data->'input_data'->>'fix_correlation_id' = '<SUBMISSION_CORR>';
 ```
+
+## Read a 090 verdict — it is NOT in `diagnosis_artifacts`
+
+```sql
+-- the verdict lives on the RUN's own orchestration row
+SELECT jsonb_pretty(collected_data->'verdict') FROM orchestration_states
+WHERE correlation_id::text='<RUN_CORRELATION_ID>' AND collected_data ? 'verdict' LIMIT 1;
+
+-- status, and whether it really finished
+SELECT status, current_step, updated_at FROM orchestration_states
+WHERE correlation_id::text='<RUN_CORRELATION_ID>' ORDER BY updated_at DESC;
+```
+
+**Gotcha, and it cost two polls here:** `diagnosis_artifacts` for a 090 correlation holds only
+`kind='bundle'` rows — one per iteration. There is **no `diagnosis_report` row and no
+`metadata->>'verdict'`**, so a poll shaped like the council's reports `NOT YET` forever on a run
+that finished hours ago. A poll that looks in the wrong place is indistinguishable from a run still
+in flight; always print a **connectivity control** (`SELECT count(*) FROM orchestration_states`)
+beside it so "cannot see" cannot masquerade as "not there".
+
+**Gotcha:** the 090 row is found by `correlation_id`, **not** by
+`collected_data->'input_data'->>'fix_correlation_id'` — that path is the *council's* key shape.
+Using the council's predicate on a 090 returns zero rows and looks like a dropped dispatch.
+
+**Gotcha:** `status='COMPLETED'` is not success — per `bugs_open/099`, a failed step can show
+COMPLETED with `error` NULL. Read the verdict payload itself.
+
+## Is the code tier actually giving the loop what it needs?
+
+Before believing "the loop could not read function X", check which half is broken — the index or
+the bundle. They fail differently and only one of them is fixed by reindexing:
+
+```sql
+SELECT symbol, kind, length(COALESCE(body,'')) AS body_len, line_start, line_end
+FROM code_symbols WHERE symbol IN ('<yours>', '(*Receiver).<yours>');
+```
+
+**Gotcha:** a healthy row here proves **nothing** about what the bundle rendered — that was this
+lane's wrong call (`WRONG_CALLS.md`, 2026-08-12). The index held four bodies and the bundle rendered
+one. To see what the verdicter actually received, read the artefact:
+
+```sql
+SELECT left(body, 4000) FROM diagnosis_artifacts
+WHERE correlation_id='<RUN_CORRELATION_ID>' AND kind='bundle' ORDER BY created_at DESC LIMIT 1;
+```
+
+**Gotcha:** methods are stored **receiver-qualified** (`(*SagaCoordinator).applyResponseToState`),
+so a bare-name lookup returns 0 rows and no error — an existing LANDMINE, and the loop's
+cite-or-abstain rule acts on that absence.
