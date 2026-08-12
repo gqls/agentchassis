@@ -9902,3 +9902,24 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **relations:** the `a pathspec commit still takes a SAME-FILE passenger` entry (the mirror-image failure) · `WRONG_CALLS.md` 2026-08-12 (the incident: commit `12a7be0f8` claimed an extraction it did not contain, corrected forward-only by `7abafc76f`)
 - **source:** 2026-08-12, `finetuning_uk_service` lane, during the `bugs_open/259` council follow-up. Caught by reading the commit-scope report's file count against the pathspec — the hook is advisory and this is what it is for.
 - **added:** 2026-08-12, finetuning_uk_service lane
+
+---
+
+## A shared-tree `git stash` reverts the PRODUCTION MANIFESTS to a tag ~100 releases old, and the tree then looks clean — the next `apply -k` is a fleet rollback
+
+- **footprint:** `deployments/kustomize/services/*/overlays/production/uk_001/kustomization.yaml` · `make deploy-*` / `kubectl apply -k` / `make release` · `git stash` run by any session on this shared tree
+- **fires when:** any session runs a bare `git stash` while the release tag bump is still **uncommitted** — which is its normal state, because the bump is edited in the tree and committed later. The stash reverts every dirty tracked file to HEAD, and the overlays go back to whatever tag was last *committed*. Measured 2026-08-12 18:38:51 BST: one bare `git stash` swept **38 tracked files across ~10 lanes**, and **18 production overlays fell from `v1.0.1291` to their committed values of `v1.0.1188`–`v1.0.1245`**.
+- **why the wrong result looks exactly right:** afterwards `git status` is **clean** and the tree **matches HEAD** — the two things a session checks before deploying, both green. Nothing is missing, nothing conflicts, no hook fires; the manifests are simply *older*, and a tag is not a thing you re-read. The commit-scope report cannot help: there is no commit. The sibling entry above catches this at commit time via the file count, but this variant is only detectable **at deploy time, against the cluster** — and by then it has shipped.
+- **the check, and it is two commands — never compare the repo against itself:**
+  ```bash
+  kubectl -n ai-persona-system get deploy -o jsonpath='{range .items[*]}{.spec.template.spec.containers[0].image}{"\n"}{end}' | sed 's#.*:##' | sort -u
+  grep -h newTag deployments/kustomize/services/*/overlays/production/uk_001/kustomization.yaml | sort | uniq -c
+  ```
+  **If the repo's tags are BEHIND the cluster's, an apply is a rollback, not a deploy.** The live tag is the only ground truth here: HEAD is a statement about what was committed, not about what is running, and on this tree those diverge by design.
+- **recovery, and two traps inside the recovery:** the work is in the other session's stash — extract by path, never `git stash pop` (see the entry above).
+  1. **`git checkout 'stash@{0}' -- <path>` also STAGES the file**, which re-arms the same-file/passenger trap: a staged file is exactly what another session's bare `git commit -m` sweeps. Follow it with `git reset -q HEAD -- <paths>` to put the index back and leave the work as an ordinary unstaged modification, which is the state it was in.
+  2. **A multi-path `git checkout` from a stash ABORTS ENTIRELY if any one path is a DELETION in that stash** (`did not match any file(s) known to git`) — a stash records a deleted file as absent, not as empty. Restoring 25 files failed as a unit because two were the deletion-half of a `git mv`, and a loop that reported "restoring 27 files" from its own input list would have printed success having restored **nothing**. **Verify per file against the stash, do not trust the command's own count:** `diff -q <(git show "stash@{0}:$f") "$f"`.
+- **the second casualty, and it is quieter:** the same sweep reverted **`CLAUDE.md`**, removing the owner's own note of that morning. Every session that re-read the file afterwards would have loaded fleet instructions with a section silently absent — and sessions are told to re-read it from disk before acting on multi-session rules. **When you find a shared-tree stash, check `CLAUDE.md` and the append-only docs (`LANDMINES.md`, `WRONG_CALLS.md`) explicitly**; they are edited by many lanes and nobody owns noticing.
+- **relations:** the `git commit <paths> silently commits FEWER files` entry directly above (same cause, caught at commit time rather than deploy time) · `releases are WHOLE-FLEET, owner runs make release` · the standing CLAUDE.md rule that uncommitted work on this tree is shared, mutable state
+- **source:** 2026-08-12, concept-register lane, on cold-start. Found while re-checking a handoff's "still blocked by another session's dirty edit" line, which had become false four minutes earlier because the stash cleared it. The 38 files were restored from `stash@{0}` and verified per file; the stash was left in place.
+- **added:** 2026-08-12, concept_register lane
