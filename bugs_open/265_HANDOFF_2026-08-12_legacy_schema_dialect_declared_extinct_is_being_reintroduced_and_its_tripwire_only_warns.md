@@ -95,3 +95,76 @@ fixed producer look identical — which is this bug's whole subject.
 - ⚠ **`component_schema_fields.go`'s cited prior art is stale**: it points at
   `bugs_open/026`, which is CLOSED and is about news-listing hardcoded English. Do not
   follow that pointer expecting dialect history.
+
+---
+
+## ADDENDUM 2026-08-12 — the UNMEASURED severity question, MEASURED: Defect 2's sharp end is REFUTED, and the failure direction is the opposite of the one feared
+
+Contributed by the `brochure_component_library` fact-assignment front (`bugs_open/260`'s owner),
+answering §"Defect 2"'s `[UNMEASURED]` note. **Nothing below touches Defect 1** (the stale
+invariant and the growing count), which stands as filed.
+
+### 1. REFUTED — the two work-item-producing checks are NOT degraded
+
+The claim under test: *"a legacy-dialect component reaching `check_required_fields_missing`
+degrades a work-item-producing check silently … a check quietly doing less than it reports."*
+
+Two independent grounds, both read in code rather than inferred:
+
+- **Both checks read through the dialect-aware helper**, as this file already cites
+  (`check_required_fields_missing.go:100`, `check_image_source_unsatisfiable.go:124` call
+  `datahelpers.SchemaContentFields`), each with a comment stating that is why. So a legacy
+  component is *projected*, not skipped.
+- **The projection is LOSSLESS for these four components' actual key usage.** The helper copies
+  only `source`, `on_missing`, `fallback`, `missing_reason`, `items`, `min_items` (+ `type`,
+  and `llm_guidance`/`description`) and silently drops any other property-level key. Enumerating
+  **every** property-level key across all four legacy components — not grepping for expected
+  ones — returns exactly four keys:
+
+  | property key | occurrences | components | survives projection |
+  |---|---|---|---|
+  | `type` | 11 | evidence-timeseries, mechanism-flow, report-dossier | yes |
+  | `items` | 2 | evidence-timeseries, mechanism-flow | yes |
+  | `minItems` | 2 | evidence-timeseries, mechanism-flow | yes (remapped to `min_items`, helper `:92-96`) |
+  | `description` | 1 | report-dossier | yes (falls back to `llm_guidance`, helper `:105-107`) |
+
+  **All four survive. Nothing these components declare is dropped**, so the checks see the same
+  field set they would see from a v2 component.
+
+- **And the checks are live, not dormant** — so this is a real negative, not an untested path:
+  **111** `required_fields_missing` and **49** `image_source_unsatisfiable` work items exist,
+  most recent 2026-08-11.
+
+**Severity consequence: Defect 2's sharp end drops away.** The tripwire is still effectively
+silent (Defect 2's main claim, unaffected), but the two discovery checks are not doing less than
+they report. Fix candidate 2's urgency for *those two call sites specifically* is therefore lower
+than filed — nothing is being lost there today.
+
+### 2. The residual risk is real but points the OTHER way: over-report, not under-report
+
+**No property in any of the four declares `source`** (see the enumeration above — `source` does
+not appear). The helper therefore applies its documented default of `source: "llm"` to **every
+field of all four components** (`component_schema_fields.go:112-114`, with the reasoning in its
+own comment: *"A property with no explicit source is content the writer must supply"*).
+
+So any field of these four that is genuinely renderer- or query-supplied is presented to the
+checks as writer-authored. That biases toward **false positives** — a check demanding an
+LLM-authored value for a field nothing asks the writer for. That is the opposite failure
+direction from the one this bug feared, and it is worth stating explicitly because "the check is
+blind" and "the check over-reports" have different remedies and different queues.
+
+### 3. One genuine gap remains, and the dialect is not its cause
+
+`loans-consolidation` is the one of the four carrying **no top-level `required[]`** array. The
+projection folds `required` from that array, so **no field of that component is ever marked
+required**, and `check_required_fields_missing` can never fire for it. That is a real blind spot
+— but it is the component's own schema declaring nothing required, not a dialect-projection
+defect, and a v2 component with no `required` flags would be equally invisible.
+
+### 4. What this does NOT clear
+
+Defect 1 is untouched: four components in a dialect the estate's own comment calls extinct, all
+four created after the census that declared it so, the newest two days ago. Candidate 3 (refuse
+at creation) is unaffected by everything above and remains the only one that stops the count
+growing — arguably *strengthened*, since with the checks shown sound, the growing count is now
+the principal ongoing harm rather than one symptom among several.
