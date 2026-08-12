@@ -211,3 +211,97 @@ cd $LANE && python3 oracle.py --tools <tool> && python3 oracle.py --mutate expec
   the full Track B run, including the two instrument repairs that preceded this.
 - `WRONG_CALLS.md`, 2026-08-12 — the netting-out aggregate that let me report page 1 as
   proven.
+
+---
+
+## CONTRIBUTION 2026-08-12 22:0x (second thread, independent harness) — the fix is CONFIRMED, and the residual is **6 pages, not 1**
+
+I was asked to take this bug on and had a plan written when `71fb31a03` landed the fix
+underneath me. I stopped rather than compete, and spent the time re-measuring the landed
+fix with a **separately written** descent harness and per-class counter. Everything below
+is measured at the pin `decompose_lmc.py` currently names, over the 21 in-scope pages
+(`loans/consolidation` and `mortgages/repayment` have no `div#content` at the pin — already
+decomposed — and are skipped, which is why 21 and not 22).
+
+**The fix is right and I am not proposing to change it.** Independent corroboration:
+
+| | pages dropping a layout class | pages whose frozen-text share rises |
+|---|---|---|
+| before (`keep_widget_wrapper=False`) | **13** of 21 | — |
+| after (landed, `=True`) | **6** of 21 | **0** |
+
+"0 pages freeze prose" is the property that matters and it holds — the landed rule is
+purely additive against the old one. I also ran an *alternative* rule of my own that
+preserves three more panels, and rejected it: it buys those three by freezing 33%→69%,
+26%→37% and 58%→73% of those pages' visible text, and on two of them the frozen text
+includes the page's `<h1>`. Freezing an h1 is exactly what refuted whole-child marking on
+2026-08-05. **The landed trade-off is the better one.**
+
+### The correction: this file says the real cost is one page. The gate says six.
+
+`gate_wrapper_parity.py` on a 21-page manifest reports `21 page(s) checked, 6 failing` —
+and my independent counter names the same six. This file's amendment names only
+`loans/damage-checker`, because it characterises the surviving loss by the branch that
+causes it (`len(holders) > 1`, damage-checker's shape). **Five of the six fail through the
+other path**: the new single-holder guard descends whenever the holder has *any* non-holder
+child, and on these pages that child is the page's own heading and intro sitting inside
+the panel.
+
+| page | the panel | its direct children (`[…]` = holds machinery) | h1 inside |
+|---|---|---|---|
+| `mortgages/rate-forecaster` | `article.card` | `h1`, `p`, `[div.calc-grid]` | **YES** |
+| `mortgages/fee-analyser` | `article.card` | `h1`, `p`, `[div.calc-grid]` | **YES** |
+| `mortgages/equity-release` | `article.card` | `h1`, `p.intro`, `[div.calc-grid]` | **YES** |
+| `mortgages/bridging-loan` | `article.card` | `h1`, `div`, `p.intro`, `[div.calc-grid]` | **YES** |
+| `mortgages/simple` | `div.card` | `h2`, `[div.calc-grid]` | no |
+| `loans/damage-checker` | `div.card` | `h3`, `p`, `4× [div.checklist-item]`, `[div.results-box]` | no |
+
+So **all six are one shape, not two**: a panel that mixes the page's own copy with the
+widget's machinery. Single-holder or multi-holder is incidental.
+
+### What that changes about the choice this file offers
+
+The amendment offers, for `damage-checker`, "lose the panel, or freeze its `h3` + advisory
+paragraph", citing `mortgages/simple` as precedent. That reasoning transfers to `simple`
+(an `h2`) and to `damage-checker` (an `h3`). **It does not transfer to the other four,
+where the frozen text would be the page's `<h1>` and intro** — a materially different
+concession from "widget-internal text", and the one the 08-05 refutation was about.
+
+Measured, so the choice is costed rather than discovered:
+
+- **`bridging-loan`, `equity-release`, `damage-checker`** — a descent rule *can* keep these
+  panels (I ran one that does). Cost: frozen share 33%→69%, 26%→37%, 58%→73%, with the h1
+  frozen on the first two.
+- **`fee-analyser`, `rate-forecaster`, `simple`** — **no descent rule can keep these**,
+  whatever its stopping condition. Their `#content > .container` holds nothing but the
+  panel, so the panel is the first and only node with prose to separate: stop above it and
+  the whole page is one frozen row, descend into it and it dissolves. Preserving these
+  three needs the panel's own tags *re-emitted* around the tool block, which is the first
+  thing that would make a block something other than a byte slice of the source. That is a
+  real decision, not a tuning, and it should be taken deliberately or not at all.
+
+**Recommendation, offered not imposed:** leave all six refused by the gate and verbatim,
+which is what happens today, and take the six as one decision later. Nothing is lost by
+waiting — a refused page is untouched, and the other 15 can proceed now.
+
+### One hazard in `gate_wrapper_parity.py`, inert today
+
+`class_counts()` counts `class="…"` in raw HTML without stripping `<script>`/`<style>`.
+**Verified harmless for this lane right now**: zero of the 22 tool pages carry a `<script>`
+or `<style>` inside `div#content`, so both sides are code-free. It is a hazard on reuse:
+the sibling lane's `tools/consolidation.html` builds rows in a JS template literal, and
+counting it yields **five false drops** (`d-bal`, `d-months`, `d-name`, `d-rate`,
+`remove-btn`) — measured, and 0 once code is stripped. The same mechanism can also *hide* a
+real drop, exactly the way `ported-prose` hid one in this bug.
+
+A hardened, lane-agnostic version of the predicate now exists at
+**`scripts/class_count_delta.py`** (`6427f157f`): strips script/style/comments, refuses an
+empty side rather than reporting a confident number, exact-equality and
+additions-allowlisted modes, and a self-test containing its own induced failure. It
+**postdates `gate_wrapper_parity.py` and does not replace it** — offered for the served-page
+seam, for `bugs_open/253`, and for the `mortgagecalculator_couk_adoption` port, whose
+input is a bucket file of unknown shape.
+
+*Method, so this is checkable: separate descent implementation, separate class counter, same
+pin. The two agree on all 21 pages. Where I quote a frozen-text share it is
+`visible(strip_code(...))` over tool blocks ÷ over the whole `#content` subtree.*

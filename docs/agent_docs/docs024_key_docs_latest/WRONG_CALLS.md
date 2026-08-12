@@ -29947,3 +29947,92 @@ withdrawn claim never reached a durable doc — it was caught between the chat s
 and the file edit. The number that *did* go into the bug file tonight (headroom
 0.60 GB) comes from `stats/summary`, a different instrument, and was taken by the same
 method as the figures it is compared against, which was checked rather than assumed.
+
+---
+
+## 2026-08-12 — I read a sweep's run history off a column that only records the LAST run, and reported a skipped day that the data cannot speak to
+
+**Lane:** `bugfix_168_deployed_asset_path`, verifying `bugs_closed/262` live on `v1.0.1293`.
+
+**The claim.** Grouping `claims_unverified` items by `result #>> '{revalidation,at}'` returned exactly
+two timestamps — `2026-08-10T08:44:01Z` (8 rows) and `2026-08-12T08:44:34Z` (22 rows) — and I said in
+chat that "only two revalidation runs have ever happened" and that **08-11 is missing from the
+history**, treating the gap as a fact about the scheduler worth investigating.
+
+**Why it was wrong.** The sweep **overwrites** that stamp on every run, so the column is state, not
+history: it records the last run that touched each row. A run on 08-11 whose items were all
+re-examined on 08-12 leaves no trace at all. `scheduled_tasks` shows
+`review-queue-revalidate-daily` at `interval_seconds=86400`, `enabled=t` — a healthy daily task with
+nothing to explain.
+
+**What caught it.** My own next query, run to check something else: all 21 open items carried the
+*identical* `08-12T08:44:34Z`. Identical stamps across every open row is the tell that the column is
+overwritten, and it made the "two runs ever" reading impossible to sustain. Caught before it reached
+a durable doc, but it had already been stated as a finding and had already sent me looking for a
+scheduler fault that does not exist.
+
+**The aggravating detail.** The conclusion I was *actually* there to establish — that the two new
+gates have never been asked — is TRUE and is unaffected, because it rests on
+`max(stamp) < roll time`, which the overwrite does not break. That is the uncomfortable part:
+**a wrong reading of a column sat immediately beside a right one derived from the same column**, and
+what separated them was whether the question needed the maximum or the distribution. The maximum
+survives last-write-wins; every shape question does not. I did not notice the difference at the time.
+
+**The cheap check.** Before reading a cadence, a run count or a gap out of any data column, ask
+whether that column is **appended per run or overwritten per row** — one `GROUP BY` showing every
+open row sharing one value settles it in a second. Generalised: **a mechanism that writes its result
+into the row it processed is telling you "what happened last", never "what happened".** For cadence,
+go to the thing that schedules the work (`scheduled_tasks`), which is one query and cannot be
+ambiguous. Filed as a LANDMINE against `result->'revalidation'->>'at'` / `scheduled_tasks` /
+`review-queue-revalidate-daily`, carrying the second half that matters more: **a new gate's `0`
+refusals means "never asked" until you compare the stamp against the ROLL time.**
+
+---
+
+## 2026-08-12 22:0x — I read "0 occurrences" off a file that was never opened, and it was about to become a design decision
+
+**The claim.** While planning `bugs_open/263` I was deciding whether a per-class counter
+must strip `<script>` bodies before counting. A subagent had reported that the sibling
+lane's `tools/consolidation.html` builds table rows in a JS template literal, so `d-bal`,
+`d-months`, `d-name`, `d-rate` and `remove-btn` each appear once in real markup and once
+inside a script — five false drops for any counter that reads raw HTML. **I checked it and
+reported back "0 — the claim does not reproduce."** Had I stopped there, the gate would
+have shipped without stripping.
+
+**What was actually wrong.** I ran `git show 91ae3daa5:tools/consolidation.html` with the
+shell's cwd set to `~/projects/sites/loancalculator.co.uk`. `git show <ref>:<path>` takes a
+path **relative to the repository root**, not to the cwd, and the repo root is
+`~/projects/sites`. So the command failed, printed its error to stderr, returned an empty
+string on stdout — and my regex counted zero matches in an empty document. Exit status was
+never inspected because the read was inside a Python `subprocess.run(...).stdout`. The same
+mistake had already produced a misleading `wc -c` a moment earlier: `git show … 2>&1 | wc -c`
+reported "224 bytes", which was the length of the *error message*.
+
+**What caught it.** Not suspicion of the answer — I had already written the answer down. I
+re-ran the check over *all* the sibling's pages with `assert h, "EMPTY READ for "+p` in the
+loop, purely to widen the sample, and the assertion fired on the first file. With the paths
+corrected, the count is **5**, exactly as reported: the subagent was right and I had
+"refuted" it with an unopened file.
+
+**The cheap check, and why it is not "look at the exit code".** Exit codes are the obvious
+answer and they are the one I had already routed around twice. The check that works is
+**assert the input is non-empty before you measure it** — one line, at the point of read,
+where it cannot be forgotten by the next caller. `scripts/class_count_delta.py` now refuses
+an empty side with `NOT CHECKED` (exit 2) rather than returning a confident zero, and its
+error message names this specific trap.
+
+**The shape, which is the transferable part.** A measurement over an empty input does not
+look like a failure — it looks like a clean result, and a clean result is exactly what you
+are hoping for when you are checking whether some inconvenient hazard is real. **The
+direction of the error is not random: an empty input always says "no problem here."** That
+is the third instance in two days of a check whose value would have been the same whether
+or not the thing it looked for existed (the day's other two are the 18→18 aggregate and the
+`#amount`/`#rate` probe against a page using different ids). Same remedy each time: before
+believing a zero, induce a non-zero.
+
+**Not a near-miss on the outcome.** The corrected measurement changed the design — the
+shared predicate strips `<script>`, `<style>` and comments from both sides — and it also
+turned up a live instance in the landed lane gate (`gate_wrapper_parity.py`'s
+`class_counts()` does not strip, inert today because no in-scope page carries a script
+inside `div#content`, verified). Contributed to `bugs_open/263` rather than fixed there,
+because that file belongs to another thread's lane.
