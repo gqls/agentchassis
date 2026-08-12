@@ -236,5 +236,49 @@ SELECT count(*) FROM diagnosis_artifacts
 
 Then re-run §4b's `cap_only` query. **It should stop growing, not go to zero** — the 6 historical
 iterations stay in the table for ever, so a zero there would mean the query is wrong, not that the
-bug is fixed. Bound it on `created_at` after the roll's timestamp, and take that timestamp from the
-service's own build-provenance line rather than from the tag.
+bug is fixed. Bound it on `created_at` after the roll.
+
+> **CORRECTED 2026-08-12, and this is a WRONG_CALLS-grade error, not a tidy-up.** This paragraph
+> originally ended *"take that timestamp from the service's own build-provenance line rather than
+> from the tag"* — and I had also written that instruction into the council submission, using it to
+> dismiss the `debug_historian` seat's request for a deploy-verification step as "superseded lore".
+>
+> **That recipe is INOPERATIVE on `agent-chassis`, which is the service this fix ships in.** The
+> `build provenance` line is emitted once at startup and the chassis rotates its container log away
+> within minutes: measured 2026-08-11, pods started 09:23Z and by 10:07Z `logs --since=24h |
+> grep -c "build provenance"` returned **0 on both replicas** — rotated, not unstamped. The
+> `LANDMINES.md` entry saying so is dated 2026-08-11 and names this binary explicitly, in triplicate
+> across `bugs_open/153`, `cmd/agent-chassis/main.go:53` and register **BLD-019**.
+>
+> **What caught it:** the council's `debug_historian` and `prior_art_librarian` seats, both HIGH, in
+> round 2. The second one named the failure exactly — *"the claim needs the landmine body read
+> before it can be trusted, not asserted from memory"*. I had read CLAUDE.md's rewritten §"Building
+> & deploying images", quoted its first half, and skipped the sentence four lines later that names
+> `agent-chassis` as the measured exception. **I was correcting a reviewer while being wrong.**
+>
+> ⚠ **And the obvious fallback is worse, not better.** Probing `/proc/1/exe` for *your* commit's sha
+> returns absent on a binary that genuinely contains your change: the binary carries **one** commit —
+> the build point — not its ancestors. Three absents in a row reads as "my fix did not ship" and is
+> actually "wrong test".
+
+**So verify this fix by BEHAVIOUR, which the landmine prescribes for the chassis and which happens to
+be free here — the fix's whole output is a string only the new code can emit:**
+
+```sql
+-- (a) the witness: a phrase that exists in no previous binary
+SELECT count(*) AS new_code_fired
+  FROM diagnosis_artifacts
+ WHERE kind='bundle' AND created_at > '<roll>'
+   AND body LIKE '%NO next_scope can render this path%';
+
+-- (b) THE DEMAND CONTROL, without which (a) is unreadable
+SELECT count(*) AS bundles_since_roll,
+       count(*) FILTER (WHERE body LIKE '%did not fit%') AS omissions_since_roll
+  FROM diagnosis_artifacts WHERE kind='bundle' AND created_at > '<roll>';
+```
+
+**Read them as a pair.** `new_code_fired = 0` has two causes with opposite meanings: the code is not
+live, or nothing over-budget has been scoped since the roll. Only `omissions_since_roll > 0` with
+`new_code_fired = 0` means the fix did not ship. `omissions_since_roll = 0` means the test has not
+been run yet, and asserting anything from it would be the unfalsifiable check this estate has already
+logged itself doing.

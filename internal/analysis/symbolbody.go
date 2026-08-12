@@ -138,6 +138,36 @@ func SplitSymbol(symbol string) (path, name string) {
 	return symbol[:i], symbol[i+1:]
 }
 
+// CanonicalSymbolName renders a FuncDef as the symbol name that resolves in a
+// scope entry: the bare name for a plain function, and the parenthesised
+// receiver form "(*Recv).Name" for a method — which is what code_symbols writes,
+// what the bundle renders, and the one spelling splitReceiver above can use to
+// disambiguate two types sharing a method name in one file.
+//
+// It is the INVERSE of splitReceiver, and it exists because that pairing had
+// only one half. bugs_open/267's council round objected — four seats
+// independently (reuse_agent medium, constitution, tooling_provenance,
+// architecture) — that SymbolSizes was about to become a THIRD inline copy of
+// this construction, after code_symbols_actions.go's row builder and the reader
+// it must agree with. The reuse seat's phrasing is the one worth keeping: "the
+// plan names the exact prior collapse history (bugs_closed/189) as evidence
+// duplication is a known recurring failure on this codebase, then proceeds to
+// add a third copy anyway". This package's own header records that same
+// collapse happening twice already (SplitSymbol, SliceLines) — a builder with
+// no owner was the next instance queued up, and it is cheaper to own it now
+// than to file it.
+//
+// The remaining copy is code_symbols_actions.go:598, deliberately NOT converted
+// here: it sits in the live row-writing path and deserves its own review rather
+// than riding a bug patch. bugs_open/269 tracks it, and this function is what
+// that fix should call.
+func CanonicalSymbolName(fn FuncDef) string {
+	if fn.Receiver == nil {
+		return fn.Name
+	}
+	return "(" + fn.Receiver.Type + ")." + fn.Name
+}
+
 // SymbolSize is one addressable symbol and the length, in the SAME units the
 // consumer's caps count (Go's len over the body text), of what ReadSymbolBody
 // would return for it.
@@ -166,10 +196,9 @@ type SymbolSize struct {
 // reported as zero: a confident wrong size is worse than a missing row when the
 // number is the entire point of the row.
 //
-// Methods are keyed in the CANONICAL "(*Recv).Name" spelling that
-// code_symbols_actions.go writes and splitReceiver accepts, so a handle printed
-// from here still resolves when it comes back as next_scope — a bare method name
-// would be ambiguous in a file where two types share one.
+// Methods are keyed by CanonicalSymbolName above, so a handle printed from here
+// still resolves when it comes back as next_scope — a bare method name would be
+// ambiguous in a file where two types share one.
 func SymbolSizes(fi *FileInfo, src string) []SymbolSize {
 	if fi == nil {
 		return nil
@@ -184,11 +213,7 @@ func SymbolSizes(fi *FileInfo, src string) []SymbolSize {
 		out = append(out, SymbolSize{Symbol: fi.Path + ":" + name, Chars: len(body)})
 	}
 	for _, fn := range fi.Functions {
-		name := fn.Name
-		if fn.Receiver != nil {
-			name = "(" + fn.Receiver.Type + ")." + fn.Name
-		}
-		add(name, fn.StartLine, fn.EndLine)
+		add(CanonicalSymbolName(fn), fn.StartLine, fn.EndLine)
 	}
 	for _, td := range fi.Types {
 		add(td.Name, td.StartLine, td.EndLine)

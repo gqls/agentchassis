@@ -421,3 +421,77 @@ func handleList(sizes []SymbolSize) []string {
 	}
 	return out
 }
+
+// TestCanonicalSymbolName pins the builder half of the receiver grammar against
+// the READER half in the same file — splitReceiver, exercised here through
+// ReadSymbolBody. bugs_open/267 council round 2: four seats objected that a
+// third inline copy of this construction was about to be created, and the reason
+// a shared owner matters is precisely this round trip. A builder that agrees
+// with nothing is how the two producers drifted in bugs_closed/261.
+func TestCanonicalSymbolName(t *testing.T) {
+	dir := writeSymbolBodyFixture(t)
+	out, err := Analyse(dir)
+	if err != nil {
+		t.Fatalf("Analyse: %v", err)
+	}
+	fi := FindFile(out, "f.go")
+	if fi == nil {
+		t.Fatal("fixture: f.go not in analysis")
+	}
+
+	// THE LOAD-BEARING ASSERTION, and it must be a LITERAL. Pinning only the round
+	// trip through splitReceiver is too weak to be worth writing: that reader
+	// deliberately accepts BOTH "(*T).M" and the bare "T.M" (bugs_closed/261
+	// widened it on purpose), so a builder emitting the wrong one still round
+	// trips. Caught here by mutation — dropping the parentheses left this test
+	// green while TestSymbolSizes failed, which is the wrong way round for the
+	// test that claims to own the grammar.
+	//
+	// The spelling that matters is the one the OTHER producer writes:
+	// code_symbols_actions.go:598 builds every method as "(" + Receiver.Type +
+	// ")." + Name, and agreeing with that producer is the entire reason this
+	// helper exists. It cannot be imported from here (actions imports analysis,
+	// not the reverse), so the anchor is a literal quoting that format.
+	wantHandles := map[string]bool{
+		"(Greeter).Greet": false, // value receiver — no star
+		"(*Helper).Greet": false, // pointer receiver — star INSIDE the parens
+		"Hello":           false, // plain func — no parens at all
+	}
+
+	var methods, plain int
+	for _, fn := range fi.Functions {
+		name := CanonicalSymbolName(fn)
+		if _, expected := wantHandles[name]; expected {
+			wantHandles[name] = true
+		}
+		if fn.Receiver == nil {
+			if name != fn.Name {
+				t.Errorf("plain func %s rendered as %q — a receiver appeared from nowhere", fn.Name, name)
+			}
+			plain++
+			continue
+		}
+		methods++
+		// The builder's output must survive the reader: parse it back and the
+		// receiver must be the one we started from.
+		recv, sym := splitReceiver(name)
+		if sym != fn.Name || recv != receiverType(fn) {
+			t.Errorf("round trip broken: CanonicalSymbolName=%q -> splitReceiver=(%q,%q), want (%q,%q)",
+				name, recv, sym, receiverType(fn), fn.Name)
+		}
+		// And it must resolve to a body through the public reader.
+		if _, err := ReadSymbolBody(dir, out, "f.go:"+name); err != nil {
+			t.Errorf("ReadSymbolBody(%q) failed: %v — the builder emits a spelling the reader rejects", name, err)
+		}
+	}
+	// The fixture holds a deliberate method-name collision; without at least two
+	// methods this test cannot observe the thing it exists for.
+	if methods < 2 || plain < 1 {
+		t.Fatalf("fixture is wrong: need >=2 methods and >=1 plain func, got %d/%d", methods, plain)
+	}
+	for handle, seen := range wantHandles {
+		if !seen {
+			t.Errorf("no symbol rendered as %q — the builder no longer agrees with code_symbols_actions.go:598's format, which is the producer this helper exists to match", handle)
+		}
+	}
+}

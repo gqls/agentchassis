@@ -30085,3 +30085,56 @@ aggregate over a superset is not evidence about a member.
 fact nobody had recorded: `podmonitor.yaml` is **not in the kustomize build**
 (`base/kustomization.yaml` lists only `deployment.yaml`) — live, hand-applied, reconciled by
 nothing. Landmine filed; SYS-091 and the lane handoff corrected in place.
+
+---
+
+## 2026-08-12 — I told a council seat its deploy-verification lore was "superseded", quoting a recipe the estate has documented as INOPERATIVE on the very binary I was shipping into
+
+**Lane:** `silent_hero_logo_readers`, fixing `bugs_open/267`. **Caught by:** the council itself, round 2
+(`ac23f2f7-9230-403c-8f20-4e18623c1849`) — `debug_historian` and `prior_art_librarian`, both HIGH, independently.
+
+**The claim.** Round 1's `debug_historian` seat asked for a pod-grep deploy-verification step, citing the
+fleet rule. I answered that the recipe was **retired on 2026-08-11** and that "every backend binary now
+states the commit it was built from", so the check is `kubectl logs -l app=<svc> | grep 'build provenance'`
+then `git merge-base --is-ancestor`. I wrote the same instruction into `bugs_open/267` §7d as the way to
+date the roll, and into the round-2 submission as a correction *of the reviewer*.
+
+**Why it is wrong.** That recipe is **inoperative on `agent-chassis`** — the service this fix ships in.
+`build provenance` is a **startup** line, and the chassis rotates its container log away within minutes.
+Measured 2026-08-11: pods started 09:23Z; at 10:07Z `logs --since=24h | grep -c "build provenance"`
+returned **0 on both replicas**. Not unstamped — *rotated*.
+
+**What makes this worse than a stale fact: the document I was quoting says so, four lines further down.**
+CLAUDE.md's rewritten §"Building & deploying images" carries the recipe AND its exception in the same
+paragraph — *"But it is a STARTUP line, so it scrolls: on a busy service it is already out of reach hours
+later (`agent-chassis`, measured 2026-08-11: absent from `--tail=3000`)"*. I quoted the first half and
+skipped the sentence that names my own service. And `LANDMINES.md` carries a dedicated entry for it, dated
+the day before, footprinted on `cmd/agent-chassis/main.go:53`.
+
+**The cheap check that would have caught it — and I had already run its sibling in this same session:**
+```bash
+grep -n "agent-chassis" docs/agent_docs/docs024_key_docs_latest/LANDMINES.md | grep -i provenance
+```
+One command, one hit, entry dated yesterday. Earlier in the same session I *did* grep LANDMINES for the
+file I was about to edit (`diagnose_assemble_bundle`) — so the habit was live. **I applied it to the code I
+was changing and not to the claim I was making**, which is the actual gap: a landmine grep keyed on your
+edit footprint will never cover an assertion about a *different* subsystem that you make in passing.
+
+**The trap inside the trap, which I would have hit next.** The obvious fallback — probe `/proc/1/exe` for
+my commit's sha — returns **absent on a binary that genuinely contains the change**: the binary carries one
+commit, the build point, not its ancestors. Three absents in a row reads as "my fix did not ship". So the
+wrong recipe would have been followed by a wrong fallback producing a confident false negative.
+
+**The transferable shape, and it is not "check your facts".** It is: **a correction you offer to a reviewer
+is a durable claim, and it inherits none of the checking you did on your code.** Everything else in that
+submission was evidenced — caller censuses with line numbers, struct field lists, mutation results. The one
+unevidenced sentence was the one where I was telling someone else they were out of date, and confidence in
+*that* register is exactly what stops you opening the file. **A seat quoting older lore than yours is the
+cue to read the landmine, not to correct it from memory.**
+
+**Cost and disposition.** No production effect — it never left the submission and the bug file. It would
+have cost the next reader a stranded verification step in a bug's close-out, which is the shape this file
+already records under *"I wrote an unfalsifiable pod-grep into a closed bug file as the verification step"*
+— **the second instance of that, so it is now a class**. `bugs_open/267` §7d is corrected in place with the
+landmine's prescribed remedy (verify by BEHAVIOUR on the chassis) plus a demand control, because the
+witness string returning 0 has two causes and only one of them means the fix did not ship.
