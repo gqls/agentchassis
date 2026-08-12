@@ -12,14 +12,17 @@ for the commands.
 
 ## 1. State in one paragraph
 
-**Two things are done and neither is live.** Item 2 (durable rows when a deployed image arrives
-without a usable URL) is council-APPROVED, committed and **live on `agent-chassis:v1.0.1290`** — but
-its *behavioural* proof has not happened, because nothing has deployed a hero or logo since the roll.
-`bugs_open/261` (the diagnosis code tier could not resolve the symbol spellings its own index
-produces) is found, measured, fixed, **council-APPROVED in six minutes** and committed as
-`6911c2da4` — but it is Go, so it is **inert until the next fleet roll**, and the defect is still
-costing runs right now. **Nothing in this lane is blocked on me.** The one thing that would move it
-is a roll, which I cannot cause; the owner decisions in §5 are unchanged.
+> **UPDATED 2026-08-12 ~19:25Z — THE ROLL HAPPENED. `v1.0.1293` is live and carries the fix.**
+
+**Both pieces are now live; one behavioural proof is in flight and one is still waiting on demand.**
+Item 2 (durable rows when a deployed image arrives without a usable URL) is council-APPROVED and
+live — but its *behavioural* proof has not happened, because **nothing has deployed a hero or logo
+since it shipped**, and that is not something this lane can force. `bugs_open/261` (the diagnosis
+code tier could not resolve the symbol spellings its own index produces) is found, measured, fixed,
+**council-APPROVED in six minutes**, committed as `6911c2da4`, and **verified live on
+`agent-chassis:v1.0.1293`** (both replicas, build stamp `7a1887e3`, `merge-base --is-ancestor` YES,
+with a control that discriminates). **Its behavioural proof is RUNNING right now** — see §4.
+**Nothing in this lane is blocked on me.** The owner decisions in §5 are unchanged.
 
 ## 2. What shipped since the last handoff
 
@@ -51,25 +54,51 @@ cite-or-abstain rule acted on the absence. **335 lost bodies across 47 runs, all
 - **The test asserted a spelling no producer emits** (`Type.Method`). Test and code were blind in the
   same direction and agreed with each other. That is why it survived from the beginning.
 
-## 4. RECOMMENDED NEXT MOVE — and it needs a roll first
+## 4. THE VERIFICATION — step 1 DONE, step 2 IN FLIGHT. **Start here.**
 
-**Do not fire a third `090` at `bugs_open/236` before the fix is live.** It will fail identically;
-that is two runs' credits already spent learning the same thing.
+**Step 1 ✅ — the fix is in the running build.** Done 2026-08-12 ~19:20Z:
 
-**After the next fleet roll**, in this order:
+```bash
+kubectl -n ai-persona-system get pods -l app=agent-chassis   # v1.0.1293, 2 replicas, both Ready
+kubectl -n ai-persona-system logs -l app=agent-chassis --tail=3000 | grep -m3 'build provenance'
+#   -> git_commit 7a1887e3163af75ce5eb5c6cb67ba2c9be37d88e on BOTH pods
+git merge-base --is-ancestor 6911c2da4 7a1887e3   # YES
+git merge-base --is-ancestor 81c508bca 7a1887e3   # NOT an ancestor  <- the control
+```
 
-1. Confirm the fix is actually running, at the artefact:
-   ```bash
-   kubectl -n ai-persona-system logs -l app=agent-chassis --tail=300 | grep -m1 'build provenance'
-   git merge-base --is-ancestor 6911c2da4 <the stamp>
-   ```
-   ⚠ startup line, it scrolls — an empty result means "not in range", not "unstamped". Per SERVICE,
-   not per fleet.
-2. Re-run the `090` on `236` §5's question. Its scope names three methods, so it exercises exactly
-   what was broken.
-3. **Verify POSITIVELY.** The pass condition is a bundle that **renders**
-   `(*SagaCoordinator).applyResponseToState`'s body (4,746 chars) — *not* a falling failure count,
-   which also falls if nobody asked. `261` §6 has the queries.
+⚠ **Use a control from AFTER the build.** My first attempt used a commit from earlier the same day;
+since the build is from 19:57 BST and everything I committed that day precedes it, that control could
+not have come out false. `81c508bca` is post-build and correctly returns "not an ancestor".
+
+**Step 2 🔄 — the behavioural proof, dispatched and running.** The `090` on `236` §5 was re-run with
+the **symptom text verbatim from the run that failed**, so it is controlled: same question, same
+three methods in scope, fixed harness.
+
+- intake correlation `ab65485f-e00a-4dc2-90de-ba8ba9c275ef` — **not** the artefact key
+- **`RUN_CORRELATION_ID=eddaf1af-b44d-4bc0-8485-5885056042cd`** ← artefacts are under THIS
+- dispatched ~19:20Z. The prior run took ~19 minutes for 4 iterations; queue latency is on top.
+
+```sql
+SELECT iteration, length(body) AS len,
+       (body LIKE '%func (s *SagaCoordinator) applyResponseToState%') AS method_body_rendered,
+       (body LIKE '%ReadSymbolBody: symbol%not found%')              AS still_failing
+FROM diagnosis_artifacts
+WHERE correlation_id='eddaf1af-b44d-4bc0-8485-5885056042cd' AND kind='bundle' ORDER BY iteration;
+
+-- a 090 verdict is NOT in diagnosis_artifacts; it is on the run's own row, found by correlation_id
+SELECT collected_data->'verdict' FROM orchestration_states
+WHERE correlation_id='eddaf1af-b44d-4bc0-8485-5885056042cd';
+```
+
+**The pass condition is POSITIVE**: a bundle that renders `applyResponseToState`'s **body**, not
+merely its name. A falling failure count also falls if nobody asked.
+
+⚠ **Two ways to misread it.** (a) `UNVERIFIABLE` **for a different reason** is not a failure of this
+fix — read `needed_evidence` first. (b) A `CONFIRMED` on 236's mechanism is a bonus, not the test:
+this run exists to prove the harness can read method bodies, and it passes on that either way.
+
+**If it passes**, `bugs_open/261` moves to `bugs_closed/` (fixed AND live) — name **both** paths on
+the commit, or `git mv` + pathspec ships a copy.
 
 ## 5. Decisions waiting on the owner
 
