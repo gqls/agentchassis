@@ -1,6 +1,6 @@
 // FILE: platform/orchestration/actions/discovery_checks/check_site_structural_validity.go
 //
-// Four discovery checks that ask, of a LIVE deployed page, "is this actually
+// Five discovery checks that ask, of a LIVE deployed page, "is this actually
 // correct once served" — a standing, fleet-wide generalisation of the
 // single-lane `docs/agent_docs/docs024_key_docs_latest/loanandmortgagecalculator_couk/verify_site.py`,
 // whose --live mode caught bugs_open/251 (every assembled homepage's canonical
@@ -17,6 +17,11 @@
 //	                           separate, unbuilt concern here — see below).
 //	head_essentials_missing  — the served page has a non-empty <title>, a
 //	                           skip-link, and a <footer>.
+//	sitemap_entry_dead_live  — every URL a site's OWN /sitemap.xml lists resolves
+//	                           live, 404|410-only, confirmed. Deliberately NOT
+//	                           "every page appears in the sitemap" — see WHAT IS
+//	                           DELIBERATELY NOT GATED below for why that stays
+//	                           out. Silent no-op on a site with no sitemap.xml.
 //
 // ── WHY THIS FETCHES LIVE RATHER THAN READING page_components.rendered_html ──
 //
@@ -33,15 +38,19 @@
 //
 // ── WHAT IS DELIBERATELY NOT GATED ────────────────────────────────────────────
 //
-//   - "every page appears in the sitemap": sitemap generation is a manual,
-//     rarely-run script here, not a standing mechanism. Gating on it would be
-//     permanently red for almost every site and, per this estate's own recorded
-//     lesson (016b §9), a check that is always red is a check nobody reads.
-//     "Every URL the sitemap DOES list resolves live" would be a legitimate,
-//     narrower cousin of this file, but is left for a follow-up — it needs its
-//     own population (parse a fetched sitemap.xml) that these four checks do
-//     not share, and folding it in half-considered would be worse than not
-//     having it. Skip entirely, silently, on a site with no sitemap.
+//   - "every page appears in the sitemap": sitemap generation
+//     (scripts/site-discovery-files.py, register entry SEO-002) is a manual,
+//     rarely-run script here, not a standing mechanism — a site can be entirely
+//     healthy and simply never have had the script run against it. Gating on
+//     full completeness would be permanently red for almost every site and, per
+//     this estate's own recorded lesson (016b §9), a check that is always red is
+//     a check nobody reads. sitemap_entry_dead_live is the narrower, safe cousin
+//     this note used to defer: "every URL the sitemap DOES list resolves live"
+//     — presence in the sitemap is never asserted, only that whatever IS listed
+//     still resolves. Skip entirely, silently, on a site with no sitemap.xml (a
+//     404, a transport error confirmed on retry, or a body that does not parse
+//     as sitemap XML all take this same silent branch — none of them is
+//     evidence of a dead URL, only of "nothing this check can say").
 //   - og:* social-metadata presence: verify_site.py exempts assembled pages from
 //     its og:url check because the shared <head> cannot carry a per-page value
 //     (PLAN_2026-08-05 §6, an accepted, stated loss). This file's
@@ -74,7 +83,7 @@
 //
 // ── ROUTING: FLAG-ONLY, THIS PASS ─────────────────────────────────────────────
 //
-// All four register with HandlerAgent "" — the flag-only idiom check_asset_
+// All five register with HandlerAgent "" — the flag-only idiom check_asset_
 // reference_404 and check_site_unreachable also use: the finding surfaces as a
 // visible 'detected' work item, and is deliberately not dispatchable. No
 // auto-repair agent is wired in this pass. In particular, wiring a repair for
@@ -94,7 +103,7 @@
 // mechanism. Each check here retracts its OWN findings through
 // CheckResult.Resolved on a positive re-observation each run — the same
 // information a verifier would have to fetch, taken on the discovery path
-// where the probe is already precedented. See verifier_coverage_test.go's four
+// where the probe is already precedented. See verifier_coverage_test.go's five
 // new itemTypesWithoutVerifiers entries for the classification-on-the-way-in.
 //
 // ── WHY preferredStructuralURL DUPLICATES actions.preferredPageURL ───────────
@@ -111,20 +120,32 @@
 //
 // ── KNOWN, STATED COST ────────────────────────────────────────────────────────
 //
-// Each of the four checks independently fetches every shipped page live — they
-// do not share one fetch pass, because DiscoveryCheck.Run has no channel for
-// one check to hand another its results, and check_news_feed.go's own five
-// checks establish that independent, overlapping queries are this package's
-// accepted idiom. Enabling all four on one agent therefore costs four GETs per
-// page per discovery run, not one. A shared per-run page-fetch cache is a real
-// future optimisation, left for the dispatch-wiring follow-up along with
-// enabling these checks on a live discovery agent's `checks` array — NEITHER
-// is done in this pass; see the file's originating task for the reasoning.
+// The four PAGE-scoped checks (dead_internal_link_live, canonical_mismatch,
+// structured_data_invalid, head_essentials_missing) each independently fetch
+// every shipped page live — they do not share one fetch pass, because
+// DiscoveryCheck.Run has no channel for one check to hand another its results,
+// and check_news_feed.go's own five checks establish that independent,
+// overlapping queries are this package's accepted idiom. Enabling all four on
+// one agent therefore costs four GETs per page per discovery run, not one. A
+// shared per-run page-fetch cache is a real future optimisation, left for the
+// dispatch-wiring follow-up along with enabling these checks on a live
+// discovery agent's `checks` array — NEITHER is done in this pass; see the
+// file's originating task for the reasoning.
+//
+// sitemap_entry_dead_live has a DIFFERENT, smaller cost shape: one GET of
+// /sitemap.xml plus one GET per distinct on-domain <loc> it lists (bounded by
+// maxSitemapProbeURLs, capped and logged like the other per-site caps in this
+// file) — not one GET per shipped page. It shares no fetch pass with the four
+// above because its population is not "this site's pages", it is "whatever
+// this site's own sitemap.xml currently claims", which can be a different set
+// (a stale sitemap can list a page that has since been removed, or omit one
+// that exists) — see WHAT IS DELIBERATELY NOT GATED above.
 package discovery_checks
 
 import (
 	"context"
 	"encoding/json"
+	"encoding/xml"
 	"fmt"
 	"io"
 	"net/http"
@@ -146,6 +167,7 @@ func init() {
 	Register(&CanonicalMismatchCheck{})
 	Register(&StructuredDataInvalidCheck{})
 	Register(&HeadEssentialsMissingCheck{})
+	Register(&SitemapEntryDeadCheck{})
 }
 
 // ---------------------------------------------------------------------------
@@ -178,6 +200,13 @@ const (
 	// site — a different population from the pages above (a target need not be
 	// one of this site's own pages at all). Logged, not silent, when it bites.
 	maxDeadLinkProbeURLs = 80
+
+	// maxSitemapProbeURLs bounds distinct on-domain <loc> entries probed per
+	// site's sitemap.xml, same reasoning and same figure as maxDeadLinkProbeURLs
+	// above (a different population — this site's OWN claimed URL list, not its
+	// pages table — but the same "bound the outbound call count, log rather than
+	// silently drop" discipline). Logged, not silent, when it bites.
+	maxSitemapProbeURLs = 80
 )
 
 // structuralRetryWait before a confirming second attempt on a page fetch that
@@ -202,6 +231,20 @@ type pageFetch struct {
 	TransportErr string
 }
 
+// loadStructuralDomain returns the site's domain, "" if it has none. Split out
+// of loadStructuralPopulation below (rather than duplicated) because
+// SitemapEntryDeadCheck needs the domain but not the per-page population —
+// a sitemap is one fetch for the whole site, not one per page.
+func loadStructuralDomain(dctx DiscoveryCheckContext) (string, error) {
+	var domain string
+	if err := dctx.DB.QueryRowContext(dctx.Ctx,
+		`SELECT COALESCE(domain, '') FROM sites WHERE id = $1`, dctx.SiteID,
+	).Scan(&domain); err != nil {
+		return "", fmt.Errorf("check_site_structural_validity: site lookup failed: %w", err)
+	}
+	return domain, nil
+}
+
 // loadStructuralPopulation returns the site's domain and every page a live
 // probe should visit: shipped (PageHasShippedPredicateFor — NOT a hand-typed
 // build_status filter, per bugs_open/185: 28 live pages ship under a
@@ -210,10 +253,9 @@ type pageFetch struct {
 // exactly mirroring check_asset_reference_404.go's population query and cited
 // reasoning.
 func loadStructuralPopulation(dctx DiscoveryCheckContext) (domain string, pages []structuralPage, err error) {
-	if err = dctx.DB.QueryRowContext(dctx.Ctx,
-		`SELECT COALESCE(domain, '') FROM sites WHERE id = $1`, dctx.SiteID,
-	).Scan(&domain); err != nil {
-		return "", nil, fmt.Errorf("check_site_structural_validity: site lookup failed: %w", err)
+	domain, err = loadStructuralDomain(dctx)
+	if err != nil {
+		return "", nil, err
 	}
 	if domain == "" {
 		// No domain, no URL to probe against. Nothing this check can say.
@@ -452,6 +494,43 @@ func probeInternalLinkTargets(dctx DiscoveryCheckContext, urls []string) map[str
 // the DB believes is fine can still 404 live (deploy drift, the single-page
 // shape of bugs_open/236). The two failure profiles are opposite, which is the
 // argument for keeping both checks rather than merging them.
+//
+// NOR does this duplicate the platform's other BUILD-TIME and RENDER-TIME
+// internal-link machinery — same shape of distinction as above, extended to
+// four more mechanisms, every one of which answers "what does the DATABASE
+// believe about this link", never "what does a live GET of it actually
+// return":
+//
+//   - loadResolverPageSet (resolve_internal_links_action.go) builds the set of
+//     valid page URLs from `pages.url` for internal-link-resolver to resolve
+//     authored link tokens against WHILE A PAGE IS BEING BUILT. Runs once per
+//     build, reads the DB, issues no outbound request.
+//   - markStaleChromeLinkSlot (chrome_link_policy.go) tests a site_component's
+//     STORED rendered_html against a ChromeLinkPolicy and marks the slot
+//     build_status='pending' for a forced rerender when a stored href violates
+//     policy — a judgement about what is already IN the database, not about
+//     what is currently being served.
+//   - datahelpers.RepairPageLinks (link_repair.go) rewrites hrefs in HTML text
+//     in memory, against a DB-derived PageURLIndex, as content is saved. No
+//     network call.
+//   - datahelpers' content_data_links.go census (bugs_open/097) goes a step
+//     earlier still, over stored content_data before it is even rendered to
+//     HTML.
+//
+// And check_phantom_internal_links.go's unbuilt_internal_link /
+// phantom_internal_link findings — in THIS SAME PACKAGE — classify a link
+// purely by matching its target against the `pages` table (does a row exist;
+// has it ever been deployed), reading page_components.rendered_html /
+// site_components.rendered_html. Also never fetches the live URL.
+//
+// dead_internal_link_live is the only one of these six mechanisms that asks
+// the question none of them can: as this link is actually served RIGHT NOW,
+// does a real GET of its target return 200? That can diverge from every
+// DB-derived answer above in both directions — a page the DB believes is built
+// and deployed can still 404 live (deploy/CDN drift), and a link every
+// DB-only check would wave through as "resolves to a real, deployed page" is
+// exactly the class this check exists to catch when that belief turns out to
+// be stale.
 type DeadInternalLinkLiveCheck struct{}
 
 func (c *DeadInternalLinkLiveCheck) Name() string { return "dead_internal_link_live" }
@@ -915,6 +994,33 @@ func buildStructuredDataWorkItem(dctx DiscoveryCheckContext, p structuralPage, b
 // Checks exactly three things: <title> present and non-empty, a skip-link, a
 // <footer>. Deliberately NOT og:url or any other og:* tag.
 //
+// ── WHY THIS DOES NOT DUPLICATE check_missing_structure.go ───────────────────
+//
+// check_missing_structure.go's MissingStructureCheck asks a BUILD-TIME
+// completeness question, in the database: are pages.rendered_header,
+// pages.rendered_footer and pages.rendered_head NULL — i.e. was a
+// header/footer/head EVER rendered into this page's row at all. It reads no
+// live page, checks no <title> and no skip-link, and IS dispatchable
+// (HandlerAgent: "rerender-pages", which triggers a full reassembly).
+// head_essentials_missing asks a SERVE-TIME correctness question, over an HTTP
+// GET of the page as a visitor's browser would receive it: is <title>
+// non-empty, is a skip-link present, is a <footer> present in what is
+// ACTUALLY SERVED — flag-only, no handler, see the file header's ROUTING
+// section.
+//
+// These can and do diverge. A page whose DB row carries a non-NULL
+// rendered_footer (so MissingStructureCheck sees no gap) can still serve
+// without one live if something strips it after render — a CDN edge caching a
+// pre-fix version, an asset-pipeline step that runs after
+// MissingStructureCheck's own read, or the same class of drift
+// dead_internal_link_live's header above documents for links. Conversely a
+// page mid-deploy can carry a transient NULL rendered_header
+// (MissingStructureCheck flags it) while still serving a valid, previously
+// cached header live. Different question (build-time DB column vs live HTTP
+// GET), different substrate, different remedy (a forced full rerender vs a
+// flagged, undispatched finding for a human to triage) — genuinely
+// overlapping concerns, not the same check shipped twice.
+//
 // WHY THIS CHECK BUILDS NO "assembled page" EXEMPTION, though verify_site.py's
 // equivalent check has one. verify_site.py's exemption (ASSEMBLED_MARKER /
 // OG_PER_PAGE) fires ONLY for og:url — its own source shows title, skip-link
@@ -1049,6 +1155,197 @@ func buildHeadEssentialsWorkItem(dctx DiscoveryCheckContext, p structuralPage, m
 		Status:    "detected",
 		CreatedBy: dctx.AgentType,
 		ItemKey:   structuralItemKey("head_essentials_missing", p.ID),
+		BatchID:   dctx.BatchID,
+		// HandlerAgent intentionally empty — flag-only, see the file header.
+	}
+}
+
+// ===========================================================================
+// 5. sitemap_entry_dead_live
+// ===========================================================================
+//
+// The narrow, safe cousin of "every page appears in the sitemap" that the file
+// header's WHAT IS DELIBERATELY NOT GATED section names and explicitly defers.
+// The direction is the OPPOSITE of completeness: this never asks whether a
+// page is missing from the sitemap, only whether a URL the sitemap DOES list
+// still resolves. A site with no sitemap.xml (most of them — generation is
+// scripts/site-discovery-files.py, a manual script, not a standing mechanism)
+// produces zero findings, silently — see loadStructuralDomain/parseSitemapEntries
+// below for the exact silent-skip conditions.
+//
+// UNLIKE the four page-scoped checks above, this one has no per-page
+// population of its own: its population is "whatever this site's own
+// /sitemap.xml currently claims", fetched once per site, not once per page —
+// see the file header's KNOWN, STATED COST section for the cost-shape
+// distinction. It reuses loadStructuralDomain (not loadStructuralPopulation:
+// no pages query is needed), fetchStructuralPage for the sitemap.xml GET
+// itself, and probeInternalLinkTargets — UNCHANGED — for probing every entry,
+// so the confirm-before-file / 404|410-only discipline (rules (a) and (b) in
+// the file header) is the same code, not a re-implementation of it.
+//
+// Carries no page_id: a sitemap entry is the site's OWN stated URL, not a link
+// found ON a particular page the way dead_internal_link_live's targets are,
+// and mapping a <loc> back to a `pages` row would need a second DB query this
+// check does not otherwise require — left out on purpose, matching
+// undeployed_asset's "site-scoped, no per-item target id" shape in
+// verifier_coverage_test.go's itemTypesWithoutVerifiers map.
+type SitemapEntryDeadCheck struct{}
+
+func (c *SitemapEntryDeadCheck) Name() string { return "sitemap_entry_dead_live" }
+
+// sitemapURLSetXML is the sitemaps.org protocol shape — the exact shape
+// scripts/site-discovery-files.py's sitemap_xml() emits
+// (`<urlset xmlns="...">   <url><loc>...</loc><lastmod>...</lastmod></url>`).
+// Only <loc> is read; <lastmod> and any other sitemap extension element are
+// not this check's concern.
+type sitemapURLSetXML struct {
+	XMLName xml.Name `xml:"urlset"`
+	URLs    []struct {
+		Loc string `xml:"loc"`
+	} `xml:"url"`
+}
+
+// parseSitemapEntries parses a sitemap.xml body and returns every non-empty
+// <loc> value. ok is false when the body does not parse as XML at all — the
+// caller treats that identically to "no sitemap.xml found": a malformed file
+// is not evidence any URL is dead, it is evidence this check has nothing to
+// assert (WHAT IS DELIBERATELY NOT GATED, above — validating the sitemap's
+// own well-formedness is a different, unbuilt check).
+func parseSitemapEntries(body string) (locs []string, ok bool) {
+	var doc sitemapURLSetXML
+	if err := xml.Unmarshal([]byte(body), &doc); err != nil {
+		return nil, false
+	}
+	for _, u := range doc.URLs {
+		loc := strings.TrimSpace(u.Loc)
+		if loc != "" {
+			locs = append(locs, loc)
+		}
+	}
+	return locs, true
+}
+
+func (c *SitemapEntryDeadCheck) Run(dctx DiscoveryCheckContext) (*CheckResult, error) {
+	result := &CheckResult{}
+
+	domain, err := loadStructuralDomain(dctx)
+	if err != nil {
+		return nil, err
+	}
+	if domain == "" {
+		return result, nil
+	}
+
+	// Fetch sitemap.xml itself with the same confirm-before-conclude treatment
+	// fetchAllPagesLive gives the OUTER page fetch (file header, THE PROBE
+	// RULES): a single transient blip on the sitemap fetch must not be read as
+	// "this site has no sitemap".
+	sitemapURL := "https://" + domain + "/sitemap.xml"
+	status, body, ferr := fetchStructuralPage(dctx.Ctx, sitemapURL)
+	if ferr != nil || status < 200 || status > 299 {
+		time.Sleep(structuralRetryWait)
+		status, body, ferr = fetchStructuralPage(dctx.Ctx, sitemapURL)
+	}
+	if ferr != nil || status < 200 || status > 299 {
+		// No sitemap.xml (confirmed), or unreachable. Per the file header's own
+		// rule: this is "not listed", not "broken". Skip entirely, silently.
+		return result, nil
+	}
+
+	entries, ok := parseSitemapEntries(body)
+	if !ok || len(entries) == 0 {
+		// Present but not a valid/populated sitemap. Same silent skip —
+		// asserting anything about sitemap.xml's OWN well-formedness is a
+		// different, unbuilt check (see parseSitemapEntries's own doc comment).
+		return result, nil
+	}
+
+	seen := map[string]bool{}
+	var urls []string
+	for _, loc := range entries {
+		u, perr := url.Parse(loc)
+		if perr != nil || !u.IsAbs() {
+			continue // not a usable absolute URL; nothing to probe
+		}
+		if !sameHost(u.Host, domain) {
+			// A sitemap listing another site's URL is not this site's remit —
+			// same reasoning canonical_mismatch's off_domain branch uses.
+			continue
+		}
+		if seen[loc] {
+			continue
+		}
+		seen[loc] = true
+		urls = append(urls, loc)
+	}
+	sort.Strings(urls)
+
+	if len(urls) > maxSitemapProbeURLs {
+		dropped := urls[maxSitemapProbeURLs:]
+		dctx.Logger.Warn("sitemap_entry_dead_live: probe cap reached — these sitemap entries were NOT checked",
+			zap.String("site_id", dctx.SiteID.String()),
+			zap.Int("cap", maxSitemapProbeURLs),
+			zap.Int("dropped", len(dropped)))
+		urls = urls[:maxSitemapProbeURLs]
+	}
+
+	outcomes := probeInternalLinkTargets(dctx, urls)
+	for _, u := range urls {
+		o := outcomes[u]
+		switch {
+		case o.err != nil:
+			// A transport failure is not a status. Skip, never a finding.
+			continue
+
+		case o.code == http.StatusNotFound || o.code == http.StatusGone:
+			result.Findings = append(result.Findings, map[string]interface{}{
+				"check":       "sitemap_entry_dead_live",
+				"url":         u,
+				"http_status": o.code,
+			})
+			result.WorkItems = append(result.WorkItems, buildSitemapEntryWorkItem(dctx, u, o.code))
+
+		case o.code >= 200 && o.code < 400:
+			result.Resolved = append(result.Resolved, ResolvedFinding{
+				ItemType: "sitemap_entry_dead_live",
+				ItemKey:  "sitemap_entry_dead_live:" + u,
+				Reason:   fmt.Sprintf("re-probed %s: now returns HTTP %d", u, o.code),
+			})
+
+		default:
+			// 401/403/429/5xx and anything else. Rule (a): never a finding.
+			continue
+		}
+	}
+	return result, nil
+}
+
+func buildSitemapEntryWorkItem(dctx DiscoveryCheckContext, u string, status int) WorkItemSpec {
+	spec := map[string]interface{}{
+		"check":       "sitemap_entry_dead_live",
+		"url":         u,
+		"http_status": status,
+	}
+	specJSON, _ := json.Marshal(spec)
+
+	return WorkItemSpec{
+		SiteID:   dctx.SiteID,
+		Source:   "discovery",
+		Pipeline: dctx.Pipeline,
+		ItemType: "sitemap_entry_dead_live",
+		// An SEO correctness defect surfaced to CRAWLERS via a sitemap entry,
+		// not a user-facing link a visitor would actually click — the same
+		// grading canonical_mismatch uses for the same reason (bugs_open/251's
+		// own framing: "both URLs still serve the page" doesn't apply here
+		// verbatim, but the page is very often still reachable some other way;
+		// this misdirects the crawl rather than breaking a visit outright).
+		Severity:  "medium",
+		Summary:   fmt.Sprintf("Sitemap lists %s, which returns HTTP %d", u, status),
+		SpecJSON:  string(specJSON),
+		Priority:  55,
+		Status:    "detected",
+		CreatedBy: dctx.AgentType,
+		ItemKey:   "sitemap_entry_dead_live:" + u,
 		BatchID:   dctx.BatchID,
 		// HandlerAgent intentionally empty — flag-only, see the file header.
 	}

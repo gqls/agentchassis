@@ -1,8 +1,8 @@
 // FILE: platform/orchestration/actions/discovery_checks/check_site_structural_validity_test.go
 //
-// bugs_open/251-adjacent — pins the four checks in check_site_structural_validity.go.
+// bugs_open/251-adjacent — pins the five checks in check_site_structural_validity.go.
 //
-// Like asset_reference_404 and site_unreachable, none of these four checks has
+// Like asset_reference_404 and site_unreachable, none of these five checks has
 // a live positive to point at yet (they are not enabled on any discovery agent
 // in this pass — see the file header). The substitute is the same: an induced
 // fault per verdict branch, plus the probe discipline proven by breaking it and
@@ -17,7 +17,11 @@
 //	compare the canonical against ANY url, not THIS one TestJudgeCanonical_WrongTarget
 //	skip the on-domain check                            TestJudgeCanonical_OffDomain
 //	regex ld+json instead of parsing the DOM            TestExtractAndValidateLDJSON_ScriptMentionInsideCodeSample
-//	give any item a handler_agent                       TestAllFourChecksNeverRouteToAHandler
+//	give any item a handler_agent                       TestAllFiveChecksNeverRouteToAHandler
+//	treat a missing/unreachable sitemap.xml as a finding TestSitemapEntryDeadLive_NoSitemapXML_SkipsSilently
+//	skip the confirming retry on the sitemap fetch itself TestSitemapEntryDeadLive_TransientFetchErrorConfirmedBeforeSkipping
+//	probe an off-domain sitemap <loc> entry              TestSitemapEntryDeadLive_OffDomainEntrySkipped
+//	require the urlset root name (reject a 200 error page) TestParseSitemapEntries_WrongRootElementIsNotOK
 
 package discovery_checks
 
@@ -496,7 +500,7 @@ func TestCanonicalMismatchCheck_FixedHomepage_Retracts(t *testing.T) {
 // construction rather than the point of source-grep.
 // ---------------------------------------------------------------------------
 
-func TestAllFourChecksNeverRouteToAHandler(t *testing.T) {
+func TestAllFiveChecksNeverRouteToAHandler(t *testing.T) {
 	dctx := DiscoveryCheckContext{SiteID: uuid.New(), AgentType: "t", BatchID: uuid.New(), Pipeline: "build"}
 	page := structuralPage{ID: uuid.New(), Name: "x", URL: "/x.html"}
 
@@ -508,6 +512,7 @@ func TestAllFourChecksNeverRouteToAHandler(t *testing.T) {
 		{"canonical_mismatch", buildCanonicalWorkItem(dctx, page, canonicalVerdict{Reason: "missing"}, "https://e.com/x.html")},
 		{"structured_data_invalid", buildStructuredDataWorkItem(dctx, page, []map[string]interface{}{{"block_index": 0}}, 1)},
 		{"head_essentials_missing", buildHeadEssentialsWorkItem(dctx, page, []string{"title"}, false)},
+		{"sitemap_entry_dead_live", buildSitemapEntryWorkItem(dctx, "https://e.com/x.html", 404)},
 	}
 	for _, tc := range items {
 		if tc.wi.HandlerAgent != "" {
@@ -524,13 +529,231 @@ func TestAllFourChecksNeverRouteToAHandler(t *testing.T) {
 // discovery_checks_registration_test.go's registry lookup key on.
 // ---------------------------------------------------------------------------
 
-func TestFourChecksAreRegisteredUnderTheirDocumentedNames(t *testing.T) {
+func TestFiveChecksAreRegisteredUnderTheirDocumentedNames(t *testing.T) {
 	for _, name := range []string{
 		"dead_internal_link_live", "canonical_mismatch",
 		"structured_data_invalid", "head_essentials_missing",
+		"sitemap_entry_dead_live",
 	} {
 		if Get(name) == nil {
 			t.Errorf("check %q is not registered", name)
 		}
+	}
+}
+
+// ---------------------------------------------------------------------------
+// parseSitemapEntries
+// ---------------------------------------------------------------------------
+
+func TestParseSitemapEntries_ValidSitemap(t *testing.T) {
+	body := `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>https://example.com/</loc><lastmod>2026-08-01</lastmod></url>
+  <url><loc>https://example.com/legal.html</loc><lastmod>2026-08-01</lastmod></url>
+</urlset>`
+	locs, ok := parseSitemapEntries(body)
+	if !ok {
+		t.Fatalf("got ok=false for a well-formed sitemap")
+	}
+	if len(locs) != 2 || locs[0] != "https://example.com/" || locs[1] != "https://example.com/legal.html" {
+		t.Errorf("got %+v", locs)
+	}
+}
+
+func TestParseSitemapEntries_ZeroURLEntriesStillParses(t *testing.T) {
+	body := `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"></urlset>`
+	locs, ok := parseSitemapEntries(body)
+	if !ok {
+		t.Fatalf("got ok=false for a well-formed, empty urlset")
+	}
+	if len(locs) != 0 {
+		t.Errorf("got %+v, want zero entries", locs)
+	}
+}
+
+// The exact shape a mis-served /sitemap.xml can take: a 200 status carrying an
+// HTML error page (a catch-all route, a CDN's own error page, etc). The XML
+// itself is well-formed — one root element — so a check that only asked
+// "did this parse as XML" would wrongly proceed to treat <html> content as a
+// sitemap. The root element NAME must be checked too.
+func TestParseSitemapEntries_WrongRootElementIsNotOK(t *testing.T) {
+	_, ok := parseSitemapEntries(`<html><body>404 - not found</body></html>`)
+	if ok {
+		t.Errorf("got ok=true for a body whose root element is not <urlset>")
+	}
+}
+
+func TestParseSitemapEntries_MalformedXMLIsNotOK(t *testing.T) {
+	_, ok := parseSitemapEntries(`not xml at all <<<`)
+	if ok {
+		t.Errorf("got ok=true for unparseable input")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// SitemapEntryDeadCheck.Run — DB + fetch wired end to end.
+// ---------------------------------------------------------------------------
+
+// No /sitemap.xml (confirmed 404 on both the initial fetch and the retry):
+// per the file header's own rule this is "not listed", not "broken" — silent,
+// no findings, no work items, and — because this check has no per-page
+// population — no `pages` query at all (only the domain lookup mock is armed,
+// so an unmet-expectations check on `mock` would already catch an accidental
+// pages query being issued).
+func TestSitemapEntryDeadLive_NoSitemapXML_SkipsSilently(t *testing.T) {
+	dctx, mock := newStructuralCtx(t)
+	expectStructuralDomain(mock, dctx.SiteID, "example.com")
+
+	installStructuralPageFetch(t, map[string]struct {
+		status int
+		body   string
+		err    error
+	}{
+		"https://example.com/sitemap.xml": {status: 404, body: ""},
+	})
+
+	probe := newStubLinkProbe()
+	probe.install(t)
+
+	check := &SitemapEntryDeadCheck{}
+	result, err := check.Run(dctx)
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if len(result.Findings) != 0 || len(result.WorkItems) != 0 {
+		t.Errorf("got findings/work items for a site with no sitemap.xml, want none: %+v / %+v", result.Findings, result.WorkItems)
+	}
+	if len(probe.calls) != 0 {
+		t.Errorf("no sitemap.xml means no entries to probe, got calls: %v", probe.calls)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("unmet DB expectations (a pages query would mean this check queried a population it doesn't need): %v", err)
+	}
+}
+
+// A transient failure fetching sitemap.xml itself must be CONFIRMED before
+// this check concludes "no sitemap" — the same confirm-before-conclude
+// discipline fetchAllPagesLive applies to the outer page fetch, applied here
+// to the one-off sitemap fetch. installStructuralPageFetch's static URL->
+// response map can't express "fails once then succeeds", so this test installs
+// its own counting stub.
+func TestSitemapEntryDeadLive_TransientFetchErrorConfirmedBeforeSkipping(t *testing.T) {
+	dctx, mock := newStructuralCtx(t)
+	expectStructuralDomain(mock, dctx.SiteID, "example.com")
+
+	prevFetch := fetchStructuralPage
+	prevWait := structuralRetryWait
+	structuralRetryWait = 0
+	calls := 0
+	fetchStructuralPage = func(_ context.Context, absoluteURL string) (int, string, error) {
+		calls++
+		if calls == 1 {
+			return 0, "", context.DeadlineExceeded
+		}
+		return 200, `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">` +
+			`<url><loc>https://example.com/ok.html</loc></url></urlset>`, nil
+	}
+	t.Cleanup(func() {
+		fetchStructuralPage = prevFetch
+		structuralRetryWait = prevWait
+	})
+
+	probe := newStubLinkProbe()
+	probe.seq["https://example.com/ok.html"] = []int{200}
+	probe.install(t)
+
+	check := &SitemapEntryDeadCheck{}
+	result, err := check.Run(dctx)
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if calls != 2 {
+		t.Errorf("got %d sitemap.xml fetch attempts, want 2 (confirm before giving up)", calls)
+	}
+	if len(result.Findings) != 0 {
+		t.Errorf("got findings for an entry that resolves 200, want none: %+v", result.Findings)
+	}
+}
+
+// A sitemap entry naming another site's URL is out of this check's remit
+// (mirrors judgeCanonical's off_domain branch) and must never reach the
+// network prober.
+func TestSitemapEntryDeadLive_OffDomainEntrySkipped(t *testing.T) {
+	dctx, mock := newStructuralCtx(t)
+	expectStructuralDomain(mock, dctx.SiteID, "example.com")
+
+	installStructuralPageFetch(t, map[string]struct {
+		status int
+		body   string
+		err    error
+	}{
+		"https://example.com/sitemap.xml": {status: 200, body: `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">` +
+			`<url><loc>https://another-site.com/x.html</loc></url></urlset>`},
+	})
+
+	probe := newStubLinkProbe()
+	probe.install(t)
+
+	check := &SitemapEntryDeadCheck{}
+	result, err := check.Run(dctx)
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if len(probe.calls) != 0 {
+		t.Errorf("an off-domain sitemap entry reached the network prober: %v", probe.calls)
+	}
+	if len(result.Findings) != 0 || len(result.WorkItems) != 0 {
+		t.Errorf("got findings/work items for an off-domain entry, want none: %+v / %+v", result.Findings, result.WorkItems)
+	}
+}
+
+// The exact end-to-end shape: a sitemap listing one dead and one healthy URL
+// produces one flag-only finding and one retraction, keyed by URL (no page_id
+// — see the file header's own note on why this check carries none).
+func TestSitemapEntryDeadLive_FindsConfirmedDeadEntry_HandlerAgentEmpty(t *testing.T) {
+	dctx, mock := newStructuralCtx(t)
+	expectStructuralDomain(mock, dctx.SiteID, "example.com")
+
+	installStructuralPageFetch(t, map[string]struct {
+		status int
+		body   string
+		err    error
+	}{
+		"https://example.com/sitemap.xml": {status: 200, body: `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">` +
+			`<url><loc>https://example.com/dead.html</loc></url>` +
+			`<url><loc>https://example.com/alive.html</loc></url></urlset>`},
+	})
+
+	probe := newStubLinkProbe()
+	probe.seq["https://example.com/dead.html"] = []int{404, 404}
+	probe.seq["https://example.com/alive.html"] = []int{200}
+	probe.install(t)
+
+	check := &SitemapEntryDeadCheck{}
+	result, err := check.Run(dctx)
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if len(result.WorkItems) != 1 {
+		t.Fatalf("got %d work items, want 1: %+v", len(result.WorkItems), result.WorkItems)
+	}
+	wi := result.WorkItems[0]
+	if wi.ItemType != "sitemap_entry_dead_live" {
+		t.Errorf("ItemType = %q", wi.ItemType)
+	}
+	if wi.HandlerAgent != "" {
+		t.Errorf("HandlerAgent = %q, want empty (flag-only)", wi.HandlerAgent)
+	}
+	if wi.PageID != nil {
+		t.Errorf("PageID = %v, want nil — a sitemap entry carries no linking page", wi.PageID)
+	}
+	if wi.ItemKey != "sitemap_entry_dead_live:https://example.com/dead.html" {
+		t.Errorf("ItemKey = %q", wi.ItemKey)
+	}
+	if len(result.Resolved) != 1 || result.Resolved[0].ItemKey != "sitemap_entry_dead_live:https://example.com/alive.html" {
+		t.Errorf("Resolved = %+v, want one entry for the healthy alive.html entry", result.Resolved)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("unmet DB expectations: %v", err)
 	}
 }
