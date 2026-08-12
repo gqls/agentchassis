@@ -794,6 +794,54 @@ func UpdatePageStatusAction(ctx context.Context, params ActionParams) (interface
 		}
 	}
 
+	// Refuse to STAMP an archived page deployed (bugs_open/266).
+	//
+	// The commit-seam guard (git_deployer_actions.go) stops the file reaching the
+	// site; this stops the row claiming it did. Both are needed: they are
+	// different damage. Without this, a refused commit still leaves
+	// `build_status='deployed'` + a fresh `deployed_at`, which is the exact state
+	// 266 was filed about and is what every downstream selector reads.
+	//
+	// Asked of the DATABASE rather than of an upstream skip marker, because this
+	// guard's refusal travels through git_commit's output field rather than the
+	// assembly field `upstreamAssemblySkipped` reads — and because the page's own
+	// status is the authority here, whatever shape the collected data happens to
+	// have taken on the way in.
+	//
+	// NO STATUS FLIP, matching the OWNED branch above rather than the
+	// shortfall guards below: `needs_rebuild` would queue the page to be built
+	// again, which for an archived page is precisely the loop being closed.
+	if newStatus == "deployed" {
+		archived, checked := pageIsArchivedForGuard(ctx, params.DB, pageID, params.Logger)
+		if !checked {
+			LogActionError(ctx, params,
+				datahelpers.ExtractNestedFieldString(params.CollectedData, "site_record.site_id"),
+				datahelpers.ExtractNestedFieldString(params.CollectedData, "site_record.domain"),
+				"update_page_status", "ARCHIVED_PAGE_GUARD_UNCHECKED", "high",
+				fmt.Sprintf("status for page %s could not be read; deploy stamp proceeded without an archived check", pageID),
+				map[string]interface{}{"page_id": pageID.String()},
+				params.Logger)
+		}
+		if archived {
+			reason := fmt.Sprintf("%s: refused deploy stamp — page is status=archived", archivedPageSkipReasonPrefix)
+			params.Logger.Warn("UpdatePageStatusAction: ARCHIVED PAGE — refusing to stamp deployed",
+				zap.String("page_id", pageID.String()))
+			LogActionError(ctx, params,
+				datahelpers.ExtractNestedFieldString(params.CollectedData, "site_record.site_id"),
+				datahelpers.ExtractNestedFieldString(params.CollectedData, "site_record.domain"),
+				"update_page_status", "ARCHIVED_PAGE_DEPLOY_REFUSED", "warning",
+				reason,
+				map[string]interface{}{"page_id": pageID.String()},
+				params.Logger)
+			return map[string]interface{}{
+				"updated": false,
+				"page_id": pageID.String(),
+				"skipped": true,
+				"reason":  reason,
+			}, nil
+		}
+	}
+
 	if newStatus == "deployed" {
 		hasComponents, checkErr := pageHasComponents(ctx, params.DB, pageID)
 		switch {

@@ -50,6 +50,74 @@ func GitCommitAction(ctx context.Context, params ActionParams) (interface{}, err
 		}, nil
 	}
 
+	// 0b. Refuse to commit an ARCHIVED page (bugs_open/266).
+	//
+	// This seam rather than assemble_page, and this is the opposite choice to
+	// owned_page_guard's — see archived_page_guard.go for why the two states
+	// require opposite placements ("archived" has no legitimate deploy path; the
+	// exception that pushed the owned guard off git_commit does not exist here).
+	//
+	// Invisible to the many git_commit steps that deploy no page — CSS, JS
+	// snippets, RSS, reports, whole-site deploys — because resolveDeployTargetPage
+	// returns ok=false for them and the block is skipped entirely.
+	//
+	// Retraction is unaffected: it dispatches delete_file, not git_commit.
+	if pageID, pageName, ok := resolveDeployTargetPage(ctx, params.DB, params.CollectedData, params.Logger); ok {
+		archived, checked := pageIsArchivedForGuard(ctx, params.DB, pageID, params.Logger)
+
+		siteID := datahelpers.ExtractNestedFieldString(params.CollectedData, "site_record.site_id")
+		if siteID == "" {
+			siteID = datahelpers.ExtractNestedFieldString(params.CollectedData, "site_id")
+		}
+		domain := datahelpers.ExtractNestedFieldString(params.CollectedData, "site_record.domain")
+		if domain == "" {
+			domain = datahelpers.ExtractNestedFieldString(params.CollectedData, "domain")
+		}
+
+		// The fail-open window, made countable instead of silent — this page is
+		// about to be committed WITHOUT a status check having succeeded.
+		if !checked {
+			LogActionError(ctx, params, siteID, domain,
+				"git_commit", "ARCHIVED_PAGE_GUARD_UNCHECKED", "high",
+				fmt.Sprintf("status for page %s (%s) could not be read; deploy proceeded without an archived check",
+					pageName, pageID),
+				map[string]interface{}{"page_id": pageID.String(), "page_name": pageName},
+				params.Logger)
+		}
+
+		if archived {
+			reason := fmt.Sprintf(
+				"%s: page %s is status=archived; committing it would re-publish a retired page. "+
+					"Un-archive it deliberately if it should be live, or retract it "+
+					"(page-retraction) if its file is still served.",
+				archivedPageSkipReasonPrefix, pageName)
+
+			params.Logger.Warn("GitCommitAction: ARCHIVED PAGE — deploy refused before commit",
+				zap.String("page_name", pageName),
+				zap.String("page_id", pageID.String()),
+			)
+
+			// Durable, and written BEFORE we return so a refusal is countable even
+			// though this action dispatches nothing further.
+			LogActionError(ctx, params, siteID, domain,
+				"git_commit", "ARCHIVED_PAGE_DEPLOY_REFUSED", "warning",
+				reason,
+				map[string]interface{}{"page_id": pageID.String(), "page_name": pageName},
+				params.Logger)
+
+			return GitCommitResult{
+				Success:       true, // a refusal, not a failure — do not fail the loop
+				AwaitResponse: false,
+				Metadata: map[string]interface{}{
+					"status":      "skipped",
+					"skip_reason": reason,
+					"page_id":     pageID.String(),
+					"page_name":   pageName,
+				},
+			}, nil
+		}
+	}
+
 	// 1. Extract configuration
 	config := params.StepConfig.Config
 
