@@ -1549,3 +1549,56 @@ from every copy immediately. How much to disclose is a product decision. Written
 as an open question, not silently papered over — the alternative was a sentence that
 reads as a clean-erasure promise this product cannot honour, which is the exact
 class of claim the `evidence_base` exists to stop.
+
+### Owner approved the copy with one edit; it is now REGISTERED, and the page is not
+
+Owner: *"just change the word 'plainly' to something else otherwise go ahead."*
+Changed to **"we will spell it out"** — concrete, and it adds detail rather than
+restating the promise. Re-checked: still clean against all 7 bans, control still
+fires.
+
+**Registered in `evidence_base`** (`apply_privacy_copy.py`), which is the step that
+turns *"that copy is the owner's and will be supplied"* into supplied. Two
+properties of that script are the point:
+
+- the copy is **extracted from the draft file**, so doc and database cannot drift;
+- the new spec row is **derived from the live one** (`data || {...}`), so the seven
+  `banned_claims`, `facts`, `governing_rule`, `audit_doc` and `schema_notes` carry
+  across untouched. **Retyping the blob is how a ban silently disappears**, and
+  nothing downstream would report it.
+
+`[MEASURED]` after the write: **7 bans still present**; `supplied_copy.privacy`
+body **1582 chars, exactly matching the local draft**; `writer_block` now says the
+copy HAS BEEN SUPPLIED and must be used **verbatim**, while keeping the prohibition
+on inventing privacy wording anywhere else.
+
+Two guards fired on the way and both were right:
+
+1. The first run refused because `"spell it out"` was not found — the markdown is
+   hard-wrapped, so the owner's edit sits as `"spell it\nout"`. The fix was to
+   normalise whitespace **in the guard**, not to drop the check.
+2. Python `%`-formatting broke on the SQL's `RAISE ... %` placeholders. Switched to
+   an explicit token replace.
+
+### The page itself is NOT created, deliberately
+
+`[UNMEASURED]` there is no framework path I could find that adds ONE content page on
+demand. What exists: `build-site-planner` (created all five pages from a plan, and a
+re-run's blast radius on those five is unknown to me), `create_tool_component`
+(tool pages only, and forces the `tool-` prefix), `create_report_page` (forces
+`rebuild_policy='owned'`, which this lane forbids), and `needs_content_page` (writes
+content for a page that **already exists**). No `site_plan` or `structure` spec is
+stored for this site, so there is no planned-but-unbuilt privacy page to promote.
+The only discovery check that mentions privacy is `check_misdirected_cta`, which
+merely recognises the name.
+
+So the two available routes both have a real cost: re-run the planner and risk five
+working pages, or hand-create the `pages` row — **which is precisely the
+hand-rolled-identity mistake `bugs_open/080` is about and which I warned about in
+this same session when the tool page landed at `/tools/legacy-rescue/index.html`
+rather than `/legacy.html`.** Doing it now because the session is nearly over would
+be the shortcut this lane's docs exist to prevent. Left for the owner to choose.
+
+**What is true today:** the wording is approved, checked, and canonical in the
+framework — any agent writing a page that needs it is now instructed to use it
+verbatim and forbidden from inventing a rival version. That was the blocking half.
