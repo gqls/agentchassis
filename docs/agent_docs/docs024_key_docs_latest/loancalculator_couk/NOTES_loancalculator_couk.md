@@ -4926,3 +4926,62 @@ which is `declaring-a-key-silences-your-own-detector` in test form.
 still `diagnosing` at end of session. Verdict to be recorded either way, including if
 it refutes me; the code stands regardless as a convergence of two sibling guards, but
 the justification would need rewriting.
+
+### 2026-08-12 (evening) — the two false claims are DEAD on the live site
+
+Owner: "go ahead as you suggest" → wait for the planner half, cut the claims now.
+
+**The cut.** Deletions, not rewrites, so no hand-authored copy was added to a site whose
+product is framework-built pages:
+- footer (`site_components`, locked chrome): dropped " Every calculator on this site
+  shows its own arithmetic." leaving "Independent UK borrowing tools."
+- `guide-how-loans-are-calculated` prose-1: dropped " It shows the month-by-month
+  breakdown, so you can see how much of each payment goes to interest and how much chips
+  away at what you actually borrowed." leaving "…use our Main Loan Calculator. Like any
+  calculator, it can only work from the figures you give it…"
+
+Both edited in **`rendered_html` AND `content_data`** (the claim was in both — fixing only
+the HTML would have let any future regeneration restore it), inside one transaction with
+`DO`/`RAISE` guards that required the claim to be gone AND the surrounding prose to have
+joined up. Repo source `chrome/footer.html` fixed in the same task (`3d49ae8c2`).
+`rendered_html_digest` left NULL deliberately — stamping it would falsely assert
+"reproducible from content_data via the render path" and would corrupt the purity
+baseline (63 rows, digest NULL) that the rebuild audit uses as its control.
+
+**Why re-ASSEMBLE and not re-RENDER.** `assemblePage` (`rerender_single_page_action.go:560`)
+reads stored `rendered_html` from `page_components` and stored chrome from
+`site_components` — no content regeneration, no LLM call — and
+`rerender_single_page_action.go` performs **zero DB writes** (grepped: no
+ExecContext/UPDATE/INSERT anywhere in the file). So the purity baseline survives. A
+regeneration would have stamped digests and pulled in every framework change since these
+pages last rendered, contaminating the very before/after the rebuild exists to produce.
+Checked first that nothing else had drifted: exactly one page had components newer than
+its deploy — the guide I had just edited.
+
+**A wrong turn worth keeping.** I first hand-INSERTed 26 `page_rerender` rows. They sat
+`detected` with `attempt_count 0` and were never selected: real ones carry an `item_key`
+and a `batch_id` and arrive as `triaged`, because they are created BY the `rerender-pages`
+agent, not by hand. Then they vanished from the table entirely — not cancelled, deleted —
+and I could not find any Go path that deletes `site_work_items` (only ad-hoc scripts
+scoped to other domains). **Unexplained; recorded as unexplained rather than guessed at.**
+Everything else of mine survived (64 deferred, url_shape=flat, 20 locks, the claim fix),
+so it was targeted at those 26 rows. If a later session finds the cause, it belongs here.
+
+**Then I nearly re-fired a dispatch that had already worked** — see `WRONG_CALLS.md`
+2026-08-12: my poll used `now() - interval '15 minutes'` after a session interruption, so
+it missed the successful run by 47 minutes. Query by correlation, not by clock.
+
+**Verified at the artefact, all 26 live pages** [MEASURED 2026-08-12]: false-claim
+occurrences **0**; positive control "Independent UK borrowing tools" present on **26/26**
+(so the fetches were real and the footer is intact); pages under 2000 bytes **0** (no
+truncation/deploy-window blob). Calculators still carry their inline arithmetic
+(4 `<script>` blocks per tool page; `id="monthly-display"` on the homepage).
+
+**The 090 on the matchLockedRow mechanism FAILED — it did not verify anything.**
+`Request … failed: step verdict failed: … API request failed with status 529 overloaded_error`
+after 4 retries. Not a refutation: an outage (which also explains this evening's psql
+timeouts). So per the owner ruling of 2026-07-31 I state the substitute plainly: the
+mechanism rests on (1) first-hand reading of the deciding arms, (2) a mutation test I ran
+and restored, and (3) the loanandmortgagecalculator lane's independent 08-10 test, which
+reached the same conclusion from the other direction. Re-run the 090 when the API is
+healthy.
