@@ -9093,7 +9093,77 @@ code change owed at the next roll, tracked in RFC_015 §5.
   keys, fresh wins; fails open). The check above stays the right one until a roll
   carries the fix — and remains worth running after any adoption on an older image.
   Do not re-fix; council trail corr `70256656`.
+- > **NOW LIVE — verified 2026-08-12 ~04:00Z, chassis `v1.0.1290`.** The roll the
+  > line above was waiting for has happened. `carryForwardStructureSpecKeys` →
+  > **PRESENT on both replicas** (`8tjhm`, `vj2rt`), one-letter near-miss
+  > `carryForwardStructureSpecKeyz` → **absent on both**, and `19acfc895` is an
+  > ancestor of HEAD. **So the adoption path no longer drops the keys.** Keep the
+  > check anyway — it is still the right instrument for "did my flag take?", and it
+  > is the only thing that distinguishes ABSENT from set-to-off. Corrected by the
+  > 215 quiet-mode lane, which needed the answer to read its own gates and found
+  > the status one roll stale.
 - **added:** 2026-08-11, bugs_open/215 quiet-mode lane
+
+### The page-identity dark-launch counter is NOT a passive instrument — an `*_OBSERVED` row is a duplicate that WAS allowed through, and the count conflates two opposite events
+
+- **footprint:** `PLAN_PAGE_IDENTITY_TWIN_OBSERVED`, `PLAN_PAGE_STEM_TWIN_OBSERVED`,
+  `PLAN_PAGE_STEM_TWIN_REFUSED`, `PLAN_PAGE_IDENTITY_SNAPPED`, `agent_error_log`,
+  `observeOrSnap`, `eligible`, `recordIdentitySnaps`, `reconcilePlanWithRealised`,
+  `twin_identity_snap`, `stem_twin_snap`
+- **fires when:** you read the PLAN-048 dark-launch counters to decide whether to
+  enable a page-identity gate — the ordering `bugs_open/215`'s own handoff
+  prescribes — or you quote an `*_OBSERVED` count as a rate of anything
+- **the tell: none. The counter reads exactly like a camera and behaves like a
+  turnstile.** Nothing in the name, the severity or the row's shape says the
+  observation had a cost, and the natural reading of "observed" is "watched
+  without touching"
+- **why it happens:** with the gate off, `observeOrSnap`
+  (`v3_site_actions.go:5852-5868`) records the finding and **returns without
+  snapping**, so the plan keeps both identities and the name-keyed upsert proceeds.
+  The remedy string it writes says so outright — *"each of these is a second page
+  identity about to be written"* — but you only see that if you read a row, not a
+  `count(*)`
+- **the second half, which is the part that will actually mislead you:** an
+  `*_OBSERVED` row means one of **two opposite things**, and the counter cannot tell
+  them apart. If the plan entry's twin is **already realised**, it is pure
+  detection of damage you already have and nothing new is written. If it is **not**,
+  a fresh duplicate page row was just minted. Same code, same counter, same
+  severity
+- **the check:** never read the counter alone — join each row's `plan_name` context
+  back against `pages` and classify before quoting a total:
+  ```sql
+  SELECT e.error_code,
+         e.context->>'plan_name'     AS plan_name,
+         e.context->>'realised_name' AS realised_name,
+         EXISTS(SELECT 1 FROM pages p
+                WHERE p.name = e.context->>'plan_name'
+                  AND p.status NOT IN ('deleted','archived')) AS plan_name_already_realised
+  FROM agent_error_log e
+  WHERE e.error_code IN ('PLAN_PAGE_IDENTITY_TWIN_OBSERVED','PLAN_PAGE_STEM_TWIN_OBSERVED')
+  ORDER BY e.occurred_at DESC;
+  ```
+  `plan_name_already_realised = true` ⇒ harmless re-detection. `false` ⇒ that row
+  **is** a new duplicate. And before reading any zero as evidence, confirm demand
+  existed: a plan whose `pages` rows were created *after* the plan row is a FIRST
+  build, which cannot exercise the reconciler at all
+- **`*_REFUSED` is the safe one, and its silence is engineered:** where the plan
+  already carries both spellings, `eligible` (`:5834-5846`) returns false and the
+  path_key and canonical layers skip **recording nothing at all** — only the stem
+  layer logs a refusal. So a site whose duplicates are both in-plan
+  (robot-hands.com, all three pairs) is **invisible to the OBSERVED counters by
+  design**, and its zero says nothing about its duplicates
+- **consequence for the enable decision:** "read the population, then enable" is
+  only free where the duplicates already exist. Enabling on a site whose pairs are
+  both already realised (fundamentallyai.com) harvests the same evidence at zero
+  new damage; waiting for a counter to fill on a site whose next duplicate is
+  *new* buys the evidence with the defect
+- **source:** 2026-08-12, `bugs_open/215` quiet-mode lane, reading the counters for
+  the first time after the `v1.0.1290` roll. I first concluded the dark launch was
+  *inherently* self-harming and was wrong — the `eligible` arm is what
+  distinguishes the harmless case, and it had to be opened rather than inferred
+  from the counter's name. Full trace: `brochure_component_library/NOTES_*.md`
+  2026-08-12, and the per-pair prediction table in the `bugs_open/215` file
+- **added:** 2026-08-12, bugs_open/215 quiet-mode lane
 
 ### A `page_components` scan has NO site of its own — an asset-path query sweeps the whole fleet, and `/assets/images/<prefix>-` is a namespace every site shares
 

@@ -5706,3 +5706,66 @@ centralise in the migration tooling before a 5th copy.** Recorded on features_op
 LANDMINES' recompose entry deliberately NOT yet updated: the no-op trap stands until a live
 recompose run proves the marker moves the planner; that run is the arc's remaining item and
 it should ride the next genuine redesign need, not be manufactured.
+
+### 2026-08-12 (early) — 215 quiet mode: the dark-launch counter read, and it cannot be waited on
+
+Ran the previous handoff's §4 "DO THIS FIRST". **All four counters still 0** [MEASURED
+~03:50Z]. Established *why* rather than assuming: only one plan exists since the 21:53Z roll
+— `noted.co.uk` `185149a7` at 03:22:51 — and it is that site's **only plan ever**, with all 5
+`pages` rows created 0.65s AFTER the plan row (03:22:51.900 vs 03:22:51.254). Initial build,
+zero realised pages, nothing for `reconcilePlanWithRealised` to match. fundamentallyai's
+10:21 plan predates the roll. So the zeros are absence-of-demand, exactly as the handoff
+warned, and the demand control is the plan/pages timestamp ordering — not the plan count.
+
+**The fleet rolled again under me: `v1.0.1288` → `v1.0.1290`.** Re-verified rather than
+assumed (memory's "a ROLL IS NOT EVIDENCE" cuts both ways — a *newer* roll is not evidence
+either, given `bugs_open/249`'s per-service straddling). All four lane commits are ancestors
+of HEAD; literal probe re-run on both new replicas (`8tjhm`, `vj2rt`) with `PLAN_PAGE_MERGE_LOSSY`
+as a pre-lane positive control and two one-letter near-misses as negatives. Controls
+discriminated; lane literals present on both. The `logs | grep 'build provenance'` route
+failed again exactly as §6 predicted — rotated out of both pods ~6h after start, and I used
+`'"msg":"build provenance"'` to dodge the 1.4MB council-payload false match.
+
+**The real finding, and it corrects the handoff's framing.** The ordering "read the OBSERVED
+population, THEN enable" treats the counter as a passive instrument. It is not: with the gate
+off, `observeOrSnap` records and **returns without snapping** (`v3_site_actions.go:5852-5868`),
+so the twin proceeds to be written. Its own remedy string says "a second page identity about
+to be written". The counter fills only by letting the defect happen.
+
+> **My own near-miss, recorded because it is the interesting part.** I first concluded the
+> dark launch is *inherently* self-harming and was about to write that. It is not. Reading the
+> `eligible` arm (`:5834-5846`) shows the case that matters: where the plan entry's twin is
+> **already realised**, an OBSERVED row is pure detection and mints nothing. The known
+> population is precisely in that state. I had reasoned from the counter's name and the remedy
+> text; the discriminator was one arm I had not opened. Same shape as this lane's 08-11
+> one-directional-invariant miss — the fixture (here, the live plan membership) is what caught
+> it, not the reasoning.
+
+Consequence for reading the counter later: **`OBSERVED` conflates re-detection with fresh
+damage, and only the row's context fields separate them** — join `plan_name` back against
+`pages`. Mandatory before any OBSERVED count is quoted as a rate.
+
+Traced all 7 known pairs through the real layer order against `PageItemStem`'s actual prefix
+set (`tool-`/`guide-`/`game-`, **prefix only** — so `automation-savings-estimator-guide` is
+BARE despite ending in `-guide`; a genuine trap for the SQL approximation in the runbook,
+which happens to agree). Plan membership [MEASURED]: robot-hands ×3 carry **both** spellings
+(⇒ `eligible` false ⇒ path_key/canonical skip **silently**, only the stem layer records, as
+`STEM_TWIN_REFUSED`); fundamentallyai ×2 carry the **bare** side only (⇒ stem layer fires
+`STEM_TWIN_OBSERVED` against the unplanned `tool-` page — harmless, both already realised);
+ai-agent-orchestration and finetuning carry **neither** side, so their next plan is
+unpredictable.
+
+That makes the handoff's recommended pilot right for a reason it did not state: enabling
+`honour_realised_identity` + `twin_identity_snap` on fundamentallyai with `stem_twin_snap`
+OFF harvests the stem evidence at **zero new damage**, because both sides of both pairs
+already exist. And a caution the handoff also did not state: with `stem_twin_snap` ON there,
+the snap would rewrite each bare plan entry onto the matched **`tool-`** page
+(`snapPlanPageOntoRealised` → `normaliseRealisedToPlanPage(rp)`), moving future builds to the
+`tool-` side. Both pairs are 3 components vs 3 — so that is a **survivor decision made by
+machine**, which is O2's reserved owner call. Left for the owner; nothing enabled.
+
+Also re-checked: gates off on all 6 current `structure` specs (`data ? 'key'`, zero hits);
+damage population still 7 pairs / 4 domains with unchanged component counts; and the 090
+diagnosis `38099787` is **still verdict-less** (3 rows COMPLETED 08-11 13:33–34, zero
+`doc_notes` mentioning the corr), so the runbook's "an archive can be undone by the next
+build" finding still gates remediation step 5.

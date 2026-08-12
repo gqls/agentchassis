@@ -527,3 +527,102 @@ on, and it is the first thing to read next session.
    unenabled anywhere;
 2. the existing damage — 7 both-deployed twin pairs across 4 domains — is
    untouched and needs an owner decision per pair (`RUNBOOK_2026-08-11_duplicate_page_identity_remediation.md`).
+
+## 2026-08-12 — the dark-launch read, and why the counters cannot be waited on
+
+Re-measured the §4 population as the previous handoff instructed. **Still
+0/0/0/0** [MEASURED 2026-08-12 ~03:50Z]. The reason is the absence of demand, and
+it is now nailed down rather than assumed:
+
+- Only **one** plan has been written since the roll — `noted.co.uk`
+  (`185149a7`, 2026-08-12 03:22:51). It is that site's **only plan ever**, and its
+  5 `pages` rows were all created **0.65s AFTER** the plan row (min `created_at`
+  03:22:51.900 vs the plan's 03:22:51.254). Zero pre-existing realised pages, so
+  `reconcilePlanWithRealised` had nothing to reconcile against. An initial build,
+  not a replan.
+- fundamentallyai's `40a66d3a` (2026-08-11 10:21:47) **predates** the roll: both
+  chassis pods started **2026-08-11T21:53Z**.
+
+**The code survived a further roll and is still live.** The fleet moved on to
+`v1.0.1290` (not the `v1.0.1288` recorded above). All four lane commits
+(`65c1984d0`, `7a066dba1`, `b36163fb3`, `038211dd8`) are ancestors of `HEAD`, and
+the literal probe was re-run on **both** new replicas with a discriminating
+control pair:
+
+```
+POSITIVE  PLAN_PAGE_MERGE_LOSSY             -> PRESENT (both pods)   pre-dates the lane; proves the probe works
+POSITIVE  PLAN_PAGE_IDENTITY_TWIN_OBSERVED  -> PRESENT (both pods)
+POSITIVE  PLAN_PAGE_STEM_TWIN_REFUSED       -> PRESENT (both pods)
+POSITIVE  stem_twin_snap                    -> PRESENT (both pods)
+NEGATIVE  PLAN_PAGE_IDENTITY_TWIN_OBSERVEQ  -> absent  (both pods)   one-letter near-miss
+NEGATIVE  stem_twin_snup                    -> absent  (both pods)   one-letter near-miss
+```
+
+Gates re-checked with `data ? 'key'` (never `->>'key' = 'true'`) across all **6**
+current `structure` specs fleet-wide: **zero sites carry any of the three keys.**
+Damage population re-measured with the runbook's own query: **still 7 pairs, 4
+domains**, component counts unchanged (robot-hands 5/1, 3/1, 4/1 — matching the
+08-11 figures).
+
+### The finding: an OBSERVED row is not a free observation
+
+The previous handoff's ordering — "read the population, THEN enable" — treats the
+dark-launch counter as a passive instrument. Reading the code, it is not. With the
+gate off, `observeOrSnap` records the observation and **returns without snapping**
+(`v3_site_actions.go:5852-5868`), so the plan carries both identities and the
+name-keyed upsert proceeds. The remedy string says so in its own words: *"each of
+these is a second page identity about to be written."*
+
+So the counter the enable decision rests on populates **only** by letting the
+defect occur — with one important exception. Where the plan entry's twin is
+**already realised**, an OBSERVED row is pure detection of existing damage and no
+new row is minted. Where it is not, one is. **The counter does not distinguish
+these two cases; the row's context fields do** — join its `plan_name` back
+against `pages` to tell a re-detection from a fresh twin. That join is mandatory
+before any OBSERVED count is read as a rate.
+
+> Recorded because I nearly filed the stronger claim that the dark launch is
+> *inherently* self-harming. It is not: the harmless case is real, and it is the
+> case the known population is actually in. The `eligible` arm
+> (`v3_site_actions.go:5834-5846`) is what makes the difference, and I had to read
+> it rather than reason from the counter's name.
+
+### What each known pair would actually do on its next replan
+
+Traced through the real layer order (path_key → canonical_name → stem) against
+`PageItemStem`'s actual prefix set — `tool-`, `guide-`, `game-`, prefix-only, so
+a name *ending* `-guide` is bare (`page_identity.go:74-82`). Which side the
+current plan names [MEASURED 2026-08-12]:
+
+| domain | pair | in current plan | predicted signal |
+|---|---|---|---|
+| robot-hands.com (×3) | bare + `tool-` | **both sides** | `PLAN_PAGE_STEM_TWIN_REFUSED`, ~2 per pair (one per direction). `eligible` false ⇒ path_key/canonical skip **silently**; only the stem layer records |
+| fundamentallyai.com (×2) | bare + `tool-` | **bare only** | `PLAN_PAGE_STEM_TWIN_OBSERVED` — stem layer, `planIsBare` ⇒ `byStem` hits the unplanned `tool-` page. **Harmless: both twins already exist, so no new row** |
+| ai-agent-orchestration.com | bare + `tool-` | **neither side** | unpredictable — a fresh plan may name either or a third spelling |
+| finetuning.uk | bare + `tool-` | **neither side** | as above |
+
+**This validates the previous handoff's recommended pilot, for a reason it did not
+state.** Enabling `honour_realised_identity` + `twin_identity_snap` on
+fundamentallyai while leaving `stem_twin_snap` OFF yields ~2
+`PLAN_PAGE_STEM_TWIN_OBSERVED` rows on its next replan that are **pure
+detection** — the stem-layer evidence, at zero cost in new damage, because both
+sides of both pairs are already realised and deployed. The two enabled layers
+meanwhile guard against new twins. That is the cheap experiment; waiting for the
+counter to fill on its own is not, because nothing schedules a replan.
+
+**Also worth knowing before enabling on fundamentallyai:** were
+`stem_twin_snap` ON there, the snap would rewrite each bare plan entry onto the
+**`tool-` realised page it matched** (`snapPlanPageOntoRealised` returns
+`normaliseRealisedToPlanPage(rp)`), i.e. it would move future builds onto the
+`tool-` side. Both fundamentallyai pairs are 3 components against 3, so that is a
+**survivor choice made by machine** — exactly the per-pair owner call O2 reserves.
+Another reason `stem_twin_snap` stays off on that site until O2 is decided.
+
+### Unchanged loose end
+
+The 090 diagnosis `38099787-c7f9-46d4-b75e-3a1867fcaf41` (archived pages rebuilt
+and re-deployed) is **still verdict-less**: 3 orchestration rows all `COMPLETED`
+2026-08-11 13:33–13:34, and **zero** `doc_notes` rows mention the correlation.
+Nobody has read a root cause. Runbook finding 3 ("assume any archive can be
+undone by the next replan-triggered build") therefore still stands, and it gates
+step 5 of the remediation.

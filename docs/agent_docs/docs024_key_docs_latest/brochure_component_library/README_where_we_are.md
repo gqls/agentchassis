@@ -2262,3 +2262,61 @@ will see it, the writer can't invent guarantees, and the reviewers' rulebooks ca
 nested-fields ruling. The one thing left open on this front, deliberately: the next time we
 genuinely want a page redesigned, we do it through the new field and watch it work — that live
 proof, not today's plumbing, is what retires the old workaround.
+
+**2026-08-12, early morning — the duplicate-pages front, and a decision I need from you.**
+
+Background in one sentence, because this front has been quiet for a day: some of our sites have
+the same page existing twice under two different names, both live, and last week we built and
+shipped the machinery that stops new ones appearing. That machinery is switched off on every
+site, on purpose. The plan was: leave it off but let it keep a tally of how often it *would*
+have acted, read the tally, then switch it on where the tally justifies it.
+
+I went to read the tally this morning. **It is empty — and that is not a verdict, it is a
+non-event.** The tally only moves when a site's page list gets rebuilt, and no site has had one
+rebuilt since the machinery went live. Exactly one site got a page list at all overnight, and
+that was a brand-new site being built for the first time, so there was nothing to compare
+against. I checked that rather than guessed it: the site's pages were created two-thirds of a
+second *after* its page list, which is the signature of a first build rather than a rebuild.
+
+Then I found the thing worth telling you about. **The tally is not a free observation.** I had
+been assuming it works like a camera — watching without touching. It does not. When the
+machinery is switched off, it writes down what it would have done and then *lets the duplicate
+be created*. Its own internal note says so, in as many words. So "wait for the tally, then
+decide" quietly means "wait for more damage, then decide".
+
+That sounds worse than it is, and I want to be accurate rather than alarming, because I nearly
+told you the stronger version and it would have been wrong. There are two different situations
+the tally lumps together. If the duplicate it spots **already exists**, writing it down costs
+nothing — it is just noticing damage we already know about. Only if the duplicate is **new**
+does the observation come at the price of creating it. I had to go and read one specific piece
+of the code to find that distinction; I could not have got it from the tally itself, and the
+tally does not label which kind each entry is.
+
+The good news is that our known cases are all the harmless kind, and I checked each one
+individually rather than in aggregate. Seven duplicate pairs across four sites, unchanged from
+last week. For the three on robot-hands the page list already names both spellings, so the
+machinery deliberately refuses to touch them and merely logs a refusal. For the two on
+fundamentallyai the page list names only one spelling and the other page already exists — so
+noticing it creates nothing.
+
+**Which means the pilot we had already picked is the right one, for a better reason than we
+knew.** Switching on the two safer checks on fundamentallyai, and leaving the third off, would
+harvest exactly the evidence we wanted for that third check at no cost in new damage, because
+both halves of both pairs are already there to be noticed. Waiting instead gets us nothing,
+because nothing is scheduled to rebuild a page list.
+
+**The decision I need.** Do I switch those two checks on for fundamentallyai now? Turning them
+off again is safe — it does not move any live page, it simply returns us to today's behaviour.
+Two things you should know before you answer. First, nothing will happen until that site's page
+list is next rebuilt, so I would also need to know whether to trigger that or wait for it to
+happen naturally. Second, a caution the earlier handoff did not spell out: the *third* check —
+the one I am recommending we leave off — would, on this site, quietly move future builds onto
+the `tool-` named version of each page. Both versions have equal content, so that is the
+machine choosing which of the two survives, and you told us that choice is yours to make per
+pair. That is the main reason I am not proposing to enable it.
+
+One loose end unchanged and worth a mention: the investigation into why archived pages get
+rebuilt and re-published finished yesterday afternoon but produced no conclusion — three runs
+completed and not one of them wrote a verdict anywhere. Until someone reads that, we have to
+assume any page we archive can be resurrected by the next build, which is what stops us
+cleaning the seven pairs up by hand today.
