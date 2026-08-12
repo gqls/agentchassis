@@ -3135,3 +3135,41 @@ match.
 against the **rerender** paths (`rerender_page_sections`, `rerender_single_page`), not only against
 current call sites — 016b §9 case `093` is exactly that shape in exactly this area. **Not done.**
 Recorded in `262`'s related section rather than left in a verdict nobody re-reads.
+
+### `bugs_open/262` fixed — the published gate, and a session lost work to another session's `git stash`
+
+Owner: keep both gates, and take on 262 if nobody else has it. **Ownership checked three ways before
+starting** — `who-owns.py` clean, **0** open work items matching, and the three live transcripts
+naming the file were all incidental (two `ls bugs_open/` listings, one `git status`). A filename
+appearing in a transcript is not ownership.
+
+**Built** (`ce8733262`): `resolved` now also requires the page was **published after its copy last
+changed**. Four refusal arms, deliberately spelled differently — page row unreadable · never deployed
+· `deployed_at` precedes the newest examined component update · `build_status` not `deployed`.
+`build_status` and the timestamp are checked **separately** because neither implies the other, which
+is the trap the bug file itself warned about. **Equal timestamps RESOLVE** (same-instant publish is a
+real ordering) and that boundary has its own test. Placed **last** in the ladder so the more
+informative refusals answer first. Five mutations, five correct failures.
+
+#### ⚠ ANOTHER SESSION'S `git stash` DELETED MY UNCOMMITTED TESTS MID-RUN
+
+Halfway through mutation-testing, `go vet` failed with `not enough arguments in call to
+unverifiedClaimsVerdict` — against call sites I had updated ten minutes earlier and watched pass.
+`git status` showed the test file **clean**. `git stash list` named it:
+`stash@{0}: WIP on 087_towards_multiple_domains: 1ee940968 repair: restore the 14 CTA anchors…`.
+
+**A bare `git stash` takes the whole tree, not the stashing session's files.** It is worse than a
+`git add -A` sweep: that at least *commits* your work somewhere `git log` can find, whereas a stash
+leaves `git status` clean and the file silently back at HEAD.
+
+> **CORRECTION to what I reported minutes earlier in this session.** I ran five mutations and reported
+> A–C as failing correctly and **D–E as "build failed", attributing that to my own `sed`**. That was
+> wrong: the build failure was *this stash*, arriving mid-run. **D and E had never been tested at all.**
+> Re-run after committing: all five fail exactly the test written for them, including E (the
+> same-instant boundary). **A mutation loop is the worst place to be robbed, because it expects the
+> file to change under it and the restore step hides the theft.**
+
+The existing LANDMINES entry on `git stash` covers the *popper* being harmed by shared stash state;
+this is the *bystander* direction and is now appended to it. **The real defence is the one CLAUDE.md
+already states, and this is what it costs to ignore: commit the moment the work is coherent.** I did
+— immediately, before re-running the mutations.

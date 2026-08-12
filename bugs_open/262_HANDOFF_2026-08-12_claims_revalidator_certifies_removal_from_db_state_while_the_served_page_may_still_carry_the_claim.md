@@ -1,5 +1,28 @@
 # 262 — the claims revalidator certifies a claim REMOVED from DB state, while the served page may still carry it
 
+> ## ✅ FIXED 2026-08-12 — `ce8733262`. **OPEN until it rolls**, because the defect is reproducible until then.
+>
+> Fix candidate 1 was taken. `resolved` now also requires that the page was **published after its copy
+> last changed**. Four refusal arms, all non-terminal and all spelled differently, because *"I could
+> not look"* must never share a spelling with *"it has not shipped"*: the page row could not be read ·
+> the page has never been deployed · `deployed_at` precedes the newest examined component update ·
+> `build_status` is not `deployed`.
+>
+> **`build_status` and the timestamp are checked SEPARATELY** — neither implies the other, which is
+> the trap this file warned about. **Equal timestamps RESOLVE**: publishing in the same instant as the
+> edit is a real ordering, and refusing it would strand items whose clocks agree. That boundary has its
+> own test.
+>
+> Placed **last** in the ladder: *"the words are still there"* and *"the copy never moved"* are more
+> informative refusals, so this arm is reached only once the content evidence is otherwise sufficient.
+>
+> All five behaviours **mutation-tested** — disabling each of the four arms, plus making the comparison
+> exclusive — each fails exactly the test written for it. Every pre-262 test now passes a
+> `publishedAfterEdit()` fixture so it still isolates the arm it was written for.
+>
+> **Ownership was checked before starting:** `who-owns.py` clean, **0** open work items matching, and
+> the three live transcripts naming this file were all incidental (two `ls` listings, one `git status`).
+
 **Filed:** 2026-08-12 · **Lane:** `bugfix_168_deployed_asset_path` (retraction sweep)
 **Found by:** council `debug_historian` (MEDIUM, advisory) in the round that **APPROVED** the change —
 correlation `b67eb26a-14ef-45d7-b755-3e489fd57ef0`, verdict 2026-08-12 14:34:14Z.
