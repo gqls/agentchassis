@@ -1261,3 +1261,49 @@ I also tidied four places in the shared reference notes that had gone out of dat
 one that still asked you a question you'd already answered (whether to keep both of the earlier
 gates; you said keep them). Those notes get read by the automated reviewers as if they were current
 fact, so a stale question there isn't harmless.
+
+---
+
+**2026-08-12, still that night — I chased the last open review comment, and it paid off sideways.**
+
+The review that approved this work left one comment nobody had acted on: *go and check the claim that
+only one thing creates these findings — and check it against the page re-rendering code specifically,
+because that's where somebody previously made a confident guess and got it wrong.* So I did, by
+actually reading those two files rather than searching them, which is the mistake the note was warning
+about.
+
+**The claim was right.** The re-render code doesn't create these findings and doesn't even write to
+the table in question — it hands off to a different step that does the writing. One producer, as
+documented.
+
+**But the thing sitting next to it was not.** The first of our three safety gates works by asking
+"has any part of this page been edited since the complaint was filed?" — using a "last modified"
+timestamp. I went through every piece of code that writes to that table and found two that update the
+timestamp **without changing a single word of the page**: one repairs a status flag, the other stamps
+a review across every component on a page at once. So "last modified changed" does not actually mean
+"the wording changed", which is precisely what that gate assumes.
+
+**It isn't currently causing harm, and I checked that two independent ways** rather than reasoning it
+away. First, the *second* gate runs before the first one and asks a question those writes can't fool —
+"are the exact words we complained about still on the page?" Second, neither of those two bits of code
+has ever actually run: one appears zero times in five and a half thousand job records (against a
+control that appears 28 times, so I know the search works), and the other leaves a fingerprint that is
+absent from all 1,458 components.
+
+**Why this is worth telling you.** You decided earlier to keep both gates, on the grounds that
+removing one was the harder decision to undo. This gives you an actual reason rather than a cautious
+one: **the first gate could not have safely stood on its own**, because its central assumption is
+breakable. Your instinct was right and now there's a mechanism behind it.
+
+One honest gap: the nine findings already closed were all closed *before* the second gate existed, so
+they rest on the first one alone — and there's no way to go back and check them, because the timestamp
+gets overwritten and keeps no history. Given that neither of those two bits of code has ever run, it's
+almost certainly fine. "Almost certainly" is the accurate word and I'd rather use it than round up.
+
+**A pattern I want to flag about my own work tonight.** Three separate times I wrote a database query
+to check something, got a clean confident-looking answer, and the answer was meaningless — the query
+was built on a column that is empty for every row, so it could only ever have returned the answer it
+did. I caught two of them by deliberately testing whether the query was capable of returning anything
+else. I did not catch the third in time and had to correct it. It's a good argument for a habit we
+already have written down and that I'd been applying unevenly: before believing a zero, prove the
+question could have come back non-zero.

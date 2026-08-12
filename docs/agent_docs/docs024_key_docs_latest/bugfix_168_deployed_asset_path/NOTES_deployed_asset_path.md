@@ -3240,3 +3240,72 @@ CQ-021's *"Committed, NOT yet rolled"*, the *"live defect"* landmine (now struck
 the index row's *"both gates … v1.0.1291"*, and the **OPEN QUESTION FOR THE OWNER** on ANDing the
 gates — which the owner **answered** (keep both) and which a council seat would otherwise still read
 as unresolved.
+
+---
+
+## 2026-08-12 (night, cont.) — the `bug_historian` advisory ACTIONED: the producer claim holds, but the thing next to it does not
+
+Handoff item 3, the last unactioned objection from the approving round: *check the single-producer
+claim against the rerender paths, not only current call sites — 016b §9 case `093` is that exact
+shape in this exact area.* Case `093` is the forgotten-call-site / never-opened-the-function shape,
+and CLAUDE.md's own corrected section is about a thread that filed a confident structural claim about
+**these two rerender files** from grep hits alone. So I opened them.
+
+**The claim HOLDS.** `rerender_page_sections_action.go` and `rerender_single_page_action.go` contain
+**zero** occurrences of `UPDATE page_components`, `updated_at` or `content_hash`. They load stored
+sections and emit into `save_page_sections`, which is the real content writer — the pipeline is
+spelled out in the file's own header (`… -> save_sections -> render_page -> (check_skipped -> deploy
+-> status)`). Exactly one construction site for the item type: `check_unverified_claims.go:153`
+(pages) and `:179` (chrome), both inside `UnverifiedClaimsCheck`.
+
+⚠ **But the live rows cannot corroborate it.** `spec->>'audit_source'` is **NULL on all 30** rows, so
+`claims_unverified` carries no producer signature at all. The DB has no opinion on how many producers
+exist; the claim rests entirely on the code. Worth saying, because `bugs_open/213`'s landmine is
+precisely that `audit_source` is the only thing that names a producer where `item_type` hides a split.
+
+### The thing next to it, which is the actual finding
+
+Gate 1 reads *"an examined component's `updated_at` is later than the item's `created_at`"* as
+**the copy changed**. Enumerating every `UPDATE page_components` in the tree and opening each one,
+**two live writers bump that column with no copy change whatsoever**:
+
+- `fix_component_template_action.go:853` — `SET build_status='deployed', updated_at=NOW() WHERE id=$1`,
+  a pure metadata repair of a component whose `rendered_html` was already correct;
+- `v3_site_actions.go:4205` — `SET build_status, reviewed_at, reviewed_by, updated_at=NOW() WHERE
+  page_id=$4`, **page-wide**: one review write moves `updated_at` on every component of the page.
+
+**It is not a live defect, and for two reasons I could measure separately.** (a) The ladder puts the
+**claim-granular gate FIRST** — a status-only write leaves the cited text sitting in its slot, so the
+verdict is `still_holds` before gate 1 is ever consulted. Gate 2 is structurally immune. (b) Neither
+writer has ever fired: `repair_page_component_status` appears in **0** of 5,547 `orchestration_states`
+rows against a **control** literal (`fix_component_template`) appearing in **28**, and
+`reviewed_at IS NULL` on **all 1,458** components. Nil today, **not nil by construction** — both are
+reachable from an active agent (`component-template-fixer`, `content-reviewer`).
+
+**What this settles.** The owner kept both gates on reversibility grounds ("costs nothing
+observable"). This gives the mechanism-level version: **gate 1's premise is violable and gate 2's is
+not**, so the stand-in direction §3.3 asked about (claim check replacing timestamp) is the safe one
+and the reverse would not have been. Gate 1 could not have stood alone.
+
+⚠ **Residual, stated rather than glossed:** all 9 existing closures predate gate 2 and rest on gate 1
+alone, and whether any was granted by a status-only bump is **not retrospectively measurable** —
+`updated_at` is overwritten and keeps no history. Given (b) it is very likely nil, and "very likely
+nil" is exactly what it is. `content_hash` / `rendered_html_digest` are the columns that would answer
+it, if it ever needs answering.
+
+### Three INERT discriminators in one session, and only the control caught them
+
+The night's real methodological lesson. Each of these returned a clean, plausible, actionable-looking
+number that **could not have come out otherwise**:
+
+| discriminator | intended question | why it was inert |
+|---|---|---|
+| `abs(updated_at - reviewed_at) < 1` | did a status write land last on these pages? | `reviewed_at` is NULL on **all 1,458** components |
+| `workflow_plan->>'agent_type' = …` | has the fixer agent ever run? | that key is NULL on **all 5,547** rows |
+| `GROUP BY revalidation ->> 'at'` | how often does the sweep run? | the stamp is overwritten per run |
+
+I reported the third before checking it and had to withdraw it (`WRONG_CALLS.md`). The first two I
+caught **only because I ran a control before believing the zero** — and I ran the control only because
+CLAUDE.md says a `[MEASURED]` figure is evidence only if it could have come out otherwise. That rule
+earned its place three times in one evening. The measurement that finally answered the question
+(0 vs a control of 28) is the only one of the four that was ever capable of a different answer.

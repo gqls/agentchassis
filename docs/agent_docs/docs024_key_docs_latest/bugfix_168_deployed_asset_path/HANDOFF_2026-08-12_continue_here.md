@@ -1,5 +1,49 @@
 # HANDOFF — 2026-08-12 — council APPROVED, gates LIVE on v1.0.1291, and `262` is FIXED. Read this file only
 
+> ## 🟢 NIGHT UPDATE (2026-08-12, later) — `262` is CLOSED, and the gates are LIVE but UNASKED. Read this before §1
+>
+> **1. `262` verified live and CLOSED** → `bugs_closed/262…` (`d142fcd27`). Fleet on **v1.0.1293**,
+> 98 Running chassis pods, ONE digest `sha256:4717bcb3`, rolled 19:13:54Z.
+> `NEEDLE_262=1 rc=0 · NEEDLE_262b=1 rc=0 · NEGCONTROL_oldselect=0 rc=1 · CONTROL_pos=1 rc=0 ·
+> CONTROL_absent=0 rc=1`.
+> ⚠ **Stated limit:** `ce8733262`'s only deletions in the shipped file are two *function signatures*,
+> so **this commit has no removed-string control of its own**. `NEGCONTROL_oldselect` proves the
+> binary is newer than `ea18664f3`, **not** newer than `ce8733262`. A negative control does not
+> transfer forward to later commits — what proves this one shipped is the two present needles.
+>
+> **2. ⚠ ALL THREE GATES READ `0` REFUSALS, AND THE THREE ZEROES MEAN THREE DIFFERENT THINGS.**
+> The last sweep ran **08-12 at 08:44:34Z**. The claim-granular gate was committed **12:56Z** and the
+> published gate **17:42Z** — *both after it*. So **neither has ever been asked a single question**;
+> only the copy-changed gate has (30 item-decisions, never refused). Driver is
+> `scheduled_tasks.review-queue-revalidate-daily` (86400s, `enabled=t`).
+> **The next run, ~08-13 08:44Z, is the first that can exercise either**, against 21 open items.
+> **Do not quote either zero as "the gate approved" until then.**
+> ⚠ **`result->'revalidation'->>'at'` is LAST-WRITE-WINS, not a run log** — every open item carries the
+> identical stamp. I read a run history off it, said 08-11 was skipped, and **withdrew it**
+> (`WRONG_CALLS.md` + LANDMINE). `max(stamp)` vs the ROLL time is the question that survives.
+>
+> **3. §3.4's `bug_historian` advisory is ACTIONED — the producer claim HOLDS, the thing beside it
+> does not.** The rerender paths neither file these items nor write `page_components` at all (opened,
+> not grepped). **But gate 1's premise is violable:** `page_components.updated_at` is bumped with no
+> copy change by `fix_component_template_action.go:853` and, page-wide, by `v3_site_actions.go:4205`.
+> **Not a live defect** — the claim-granular gate answers FIRST and is immune, and neither writer has
+> ever fired (`repair_page_component_status` **0** of 5,547 orchestration rows against a control of
+> **28**; `reviewed_at` NULL on all 1,458 components). **This is the mechanism-level reason the
+> owner's KEEP-BOTH ruling is right, where the original argument was reversibility alone.** Full
+> entry in CQ-021 + `LANDMINES.md`.
+> ⚠ **Residual:** all 9 existing closures predate gate 2, so they rest on gate 1 alone, and that is
+> **not retrospectively measurable** — `updated_at` keeps no history.
+>
+> **4. Method warning for this area — RUN THE CONTROL BEFORE BELIEVING A ZERO.** Three discriminators
+> came out **inert** in one session: `reviewed_at ≈ updated_at` (NULL on all 1,458),
+> `workflow_plan->>'agent_type'` (NULL on all 5,547), and the revalidation stamp as a run log. Each
+> gave a clean, actionable-looking number that could not have come out otherwise.
+>
+> ### What is next now
+> 1. **~08-13 08:44Z: watch the first run that exercises gates 2 and 3.** Queries in §1.
+> 2. `features_open/032` — the shared helper. **Measure before building.** Still open.
+> 3. §3.5's leftovers; §3.4's remaining `editquality` LOW (before/after test for the SQL→Go move).
+
 > ## 🟢 EVENING UPDATE — the owner's decision is TAKEN, and `bugs_open/262` is FIXED. Start here
 >
 > **OWNER DECISION (2026-08-12): KEEP BOTH GATES.** The ANDed-gates question in §3.3 below is
