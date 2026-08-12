@@ -206,11 +206,17 @@ shown up as a mutation that passed, and none did.
 ### 7c. What is NOT fixed, and one thing this makes worse before it makes it better
 
 - **`siblingSignatures` still renders methods with a BARE name** while the new marker renders them
-  canonically, so a single bundle can now show **two spellings for one method**. This is
-  `bugs_closed/261` §8.1, already recorded there as a deliberate non-fold, and left there rather
-  than quietly widened into this fix. It is a real defect — a bare name silently resolves to the
-  *wrong* body on a method-name collision — and putting the two spellings side by side is the
-  strongest argument yet for closing it.
+  canonically, so a single bundle can now show **two spellings for one method**. It is a real defect
+  — a bare name silently resolves to the *wrong* body on a method-name collision — and this change
+  makes it MORE reachable, because a whole-file entry that used to be skipped now lists every
+  signature in the file.
+  > **CORRECTED 2026-08-12, after council round `ac23f2f7`.** This paragraph originally ended
+  > "already recorded in `bugs_closed/261` §8.1 … left there rather than quietly widened into this
+  > fix", and treated that as sufficient. The `bug_historian` seat objected that a defect living
+  > only in a CLOSED file's follow-up list is undiscoverable by any sweep of `bugs_open/`, and it
+  > was right: *not folding in the fix* and *not filing the bug* are two different decisions, and
+  > this lane made them as one. **Now filed as `bugs_open/269`**, still unfixed, and the non-fold
+  > decision stands unchanged.
 - **Bundles that hit the whole-file arm now carry MORE signature text** under a fair-shared
   6,000-char cap, which can push other scoped files toward their own "+N more" sooner. Judged worth
   it: the file being sub-divided is precisely the one the model must see, and DIAG-032's per-file

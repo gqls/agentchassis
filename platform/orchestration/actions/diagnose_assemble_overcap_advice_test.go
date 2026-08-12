@@ -314,3 +314,177 @@ func TestSiblingSignatures_BareFilePathOfferedOnlyWhenItCouldFit(t *testing.T) {
 		t.Errorf("an unknown file size must degrade to the existing advice, byte for byte.\n--- unknown ---\n%s\n--- fits ---\n%s", unknown, fits)
 	}
 }
+
+// ── Council round ac23f2f7 (REVISE) — three gaps the reviewers were right about ──
+//
+// The first two are branches that existed in the code and in NO test. The third
+// answers an objection that was factually wrong about Go, with a control rather
+// than with an argument.
+
+// GAP 1 (editquality, medium). The MIXED omission set — some omitted bodies would
+// fit if re-asked alone, others could never fit — is the summary line's most
+// nuanced arm and had no test. The reviewer read it as "unspecified, risks landing
+// as a no-op"; the arm is written, but an unasserted branch is one edit away from
+// being either of those things.
+func TestOverCapAdvice_SummarySeparatesTheRefitableFromTheUnaskable(t *testing.T) {
+	root, out := overCapFixture(t, "mixed.go", []fnSpec{
+		{name: "Aaa", lines: 400}, // larger than the whole budget: never askable
+		{name: "Mmm", lines: 60},  // renders
+		{name: "Zzz", lines: 60},  // omitted, but WOULD fit if re-asked alone
+	})
+	body := func(sym string) int {
+		t.Helper()
+		s, err := analysis.ReadSymbolBody(root, out, sym)
+		if err != nil {
+			t.Fatalf("fixture: %v", err)
+		}
+		return len(s)
+	}
+	aaa, mmm, zzz := body("mixed.go:Aaa"), body("mixed.go:Mmm"), body("mixed.go:Zzz")
+	budget := mmm + zzz - 100
+
+	// All three fixture conditions asserted, because this arm is reachable only
+	// when every one of them holds — and a fixture that missed any of them would
+	// quietly test one of the OTHER two arms while looking like this test.
+	if aaa <= budget {
+		t.Fatalf("fixture: Aaa (%d) must exceed the whole budget (%d)", aaa, budget)
+	}
+	if zzz > budget {
+		t.Fatalf("fixture: Zzz (%d) must fit the budget (%d) alone", zzz, budget)
+	}
+	if mmm+zzz <= budget {
+		t.Fatalf("fixture: Mmm+Zzz (%d) must not fit together under %d", mmm+zzz, budget)
+	}
+
+	section := inScopeSection(bodyCapRun(t, collectedFor(t, out),
+		[]string{"mixed.go:Aaa", "mixed.go:Mmm", "mixed.go:Zzz"}, budget)["bundle"].(string))
+
+	if !strings.Contains(section, "1 of them would fit if re-requested singly") {
+		t.Fatalf("the mixed arm did not fire — 2 omitted, exactly 1 refitable.\n--- section ---\n%s", section)
+	}
+	if !strings.Contains(section, "the other 1 are larger than the whole budget") {
+		t.Errorf("the mixed arm does not account for the unaskable half.\n--- section ---\n%s", section)
+	}
+	// It must be NEITHER of the two absolute claims, or the arm is not separating
+	// anything: those are the strings the all-fit and none-fit arms emit.
+	if strings.Contains(section, "re-request them singly in next_scope.") {
+		t.Errorf("the summary promises singly-re-requestable for the whole set when only 1 of 2 is.\n--- section ---\n%s", section)
+	}
+	if strings.Contains(section, "every one of them is larger than the whole budget") {
+		t.Errorf("the summary writes off a symbol that would fit if re-asked alone.\n--- section ---\n%s", section)
+	}
+}
+
+// GAP 2 (editquality, HIGH — and the sharpest objection of the round). Every test
+// of the '+N more' suppression called siblingSignatures DIRECTLY with a
+// hand-built bodyCapView. That proves the branch works; it proves nothing about
+// whether the real action ever CONSTRUCTS a bodyCapView that makes it fire. If
+// repoRoot were unreachable at bundle-assembly time, fitsBudget would return
+// known=false for ever, the suppression would never fire, and not one test would
+// notice — an inert fix, which is the very shape bugs_open/267 is about.
+//
+// So this drives the WHOLE action and asserts both directions on ONE fixture,
+// with only max_body_chars differing between the runs.
+func TestOverCapAdvice_BareFilePathSuppressionIsWiredThroughTheRealAction(t *testing.T) {
+	// Long path and long names: the sibling section's cap is a const 6000 and not
+	// reachable from an action config, so the fixture has to genuinely overflow it.
+	const path = "platform/orchestration/actions/a_long_fixture_file_for_the_sibling_cap.go"
+	var fns []fnSpec
+	for i := 0; i < 60; i++ {
+		fns = append(fns, fnSpec{name: fmt.Sprintf("helperNumberWithAQuiteLongDescriptiveName%02d", i), lines: 2})
+	}
+	root, out := overCapFixture(t, filepath.Base(path), fns)
+	// overCapFixture writes one flat file; re-key it to the long path so the
+	// signature lines are realistically long.
+	if err := os.Rename(filepath.Join(root, filepath.Base(path)), filepath.Join(root, "long.go")); err != nil {
+		t.Fatal(err)
+	}
+	out.Files[0].Path = "long.go"
+	fileChars := wholeFileSize(t, root, "long.go")
+	scope := []string{"long.go:" + fns[0].name}
+
+	// UNDER-budget run first, as the positive control: the advice is correct here
+	// and must appear, or the "suppressed" result below could be caused by
+	// anything at all.
+	fits := bodyCapRun(t, collectedFor(t, out), scope, fileChars+1_000)["bundle"].(string)
+	if !strings.Contains(fits, "more in this file") {
+		t.Fatalf("fixture is wrong: no +N-more marker, so neither direction is under test.\n--- bundle ---\n%s", fits)
+	}
+	if !strings.Contains(fits, "put the bare file path in next_scope to see it whole") {
+		t.Fatalf("a file that DOES fit lost its bare-path advice through the real action.\n--- bundle ---\n%s", fits)
+	}
+
+	// OVER-budget run: same fixture, same scope, only the budget moves.
+	over := bodyCapRun(t, collectedFor(t, out), scope, fileChars-1)["bundle"].(string)
+	if !strings.Contains(over, "more in this file") {
+		t.Fatalf("the +N-more marker vanished, so the assertion below is vacuous.\n--- bundle ---\n%s", over)
+	}
+	if strings.Contains(over, "put the bare file path in next_scope to see it whole") {
+		t.Fatalf("THE INERT-FIX CASE: the real action offered a %d-char file whole against a %d-char budget — bodyCapView is not reaching fitsBudget with a usable repoRoot.\n--- bundle ---\n%s", fileChars, fileChars-1, over)
+	}
+	if !strings.Contains(over, "the whole file exceeds the") {
+		t.Errorf("suppressed, but without saying why.\n--- bundle ---\n%s", over)
+	}
+	// The in-scope body still renders: the two caps are independent, and the
+	// suppression must not be a side effect of the body section failing.
+	if !strings.Contains(inScopeSection(over), "padding line 1") {
+		t.Errorf("the scoped symbol's body is missing — the fixture tripped the wrong cap.\n--- bundle ---\n%s", over)
+	}
+}
+
+// GAP 3 (debug_historian, raised as "missing"). The objection was that os.Stat's
+// size (bytes) could disagree with the cap's "char" comparison on multi-byte
+// UTF-8 — "a size comparison that silently mismatches its own budget", which
+// would indeed be this bug wearing a different hat.
+//
+// It is not so: Go's len() over a string counts BYTES, so st.Size() and
+// len(body) are the same quantity. The naming is what invites the doubt —
+// max_body_chars and "chars" throughout this file have always meant bytes. That
+// is an argument, though, and an argument is not a control. This is the control:
+// a file that is deliberately multi-byte-heavy, checked at the EXACT boundary in both
+// directions, where a byte/rune confusion could not stay hidden.
+func TestFitsBudget_AgreesWithTheCapOnAMultiByteFile(t *testing.T) {
+	root := t.TempDir()
+	var src strings.Builder
+	src.WriteString("package fixture\n\n")
+	for i := 0; i < 40; i++ {
+		// Accented Latin, em-dashes, CJK and an emoji: 2-, 3- and 4-byte runes, so
+		// byte length and rune count diverge by a wide margin.
+		fmt.Fprintf(&src, "// %d — références, größe, 診断バンドル, 🔍 padding line\n", i)
+	}
+	src.WriteString("func Target() {\n\t_ = 1\n}\n")
+	text := src.String()
+	if err := os.WriteFile(filepath.Join(root, "utf8.go"), []byte(text), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if len(text) == len([]rune(text)) {
+		t.Fatal("fixture is wrong: bytes and runes must differ or this test cannot detect the confusion it exists for")
+	}
+
+	// The cap's own quantity, taken through the reader the action actually uses.
+	out := analysis.Output{Root: root, Files: []analysis.FileInfo{{Path: "utf8.go", Package: "fixture"}}}
+	body, err := analysis.ReadSymbolBody(root, out, "utf8.go")
+	if err != nil {
+		t.Fatalf("fixture: %v", err)
+	}
+
+	// Both sides of the exact boundary. If fitsBudget counted anything other than
+	// what len(body) counts, one of these two flips.
+	for _, tc := range []struct {
+		budget int
+		want   bool
+	}{
+		{len(body), true},      // exactly equal: fits
+		{len(body) - 1, false}, // one short: does not
+		{len(body) + 1, true},
+	} {
+		got, known := bodyCapView{repoRoot: root, budget: tc.budget}.fitsBudget("utf8.go")
+		if !known {
+			t.Fatalf("budget %d: fitsBudget could not read a file that ReadSymbolBody just read", tc.budget)
+		}
+		if got != tc.want {
+			t.Errorf("budget %d vs a %d-byte / %d-rune body: fitsBudget=%v, want %v — os.Stat and len() have diverged",
+				tc.budget, len(body), len([]rune(body)), got, tc.want)
+		}
+	}
+}
