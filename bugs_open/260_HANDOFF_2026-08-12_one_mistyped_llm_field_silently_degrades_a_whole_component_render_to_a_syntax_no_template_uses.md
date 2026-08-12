@@ -185,6 +185,22 @@ Evidence run: orchestration `07983216-929b-4494-8131-87c523058ea5` (fundamentall
    > **Coverage honesty:** the **87** schema-less components are gated by nothing whatever this
    > candidate does, so a green result from it is NOT fleet coverage and must not be reported as
    > one.
+   > **AND THE LIMIT OF MY OWN PRESCRIPTION, added 2026-08-12 (the copy lane's second addendum
+   > named it; verified here).** "Call `SchemaContentFields`" is the right route for the *dialect*,
+   > but a gate built on it can only ever enforce what that helper carries forward. Its copy list
+   > is exactly six keys — `source`, `on_missing`, `fallback`, `missing_reason`, `items`,
+   > `min_items` (`component_schema_fields.go:87`) — plus `type`, `llm_guidance`/`description`,
+   > and a `minItems`→`min_items` remap at `:92-96`. **Everything else in a legacy property is
+   > dropped silently, and the asymmetry is unsignalled: `minItems` is remapped, `maxItems` does
+   > not appear anywhere in the file.** So `items` and `min_items` are enforceable (which is all
+   > the array-of-objects check in this bug needs), but any other JSON Schema constraint —
+   > `maxItems`, `enum`, `pattern` — is invisible to a gate written this way, for legacy
+   > components only. Do not let "SchemaContentFields is the dialect-safe route" harden into
+   > "SchemaContentFields sees the schema": it sees six keys of it.
+   > **This result also has an expiry date**, and it is the lane's point rather than mine: the
+   > "nothing is dropped" measurement in `bugs_open/265` holds for what **four** components
+   > declare **today**, and arrivals are still landing (newest 2026-08-10). Re-run the key
+   > enumeration before trusting it again.
 3. **Coerce at the boundary** (a string where an array-of-objects is declared becomes a
    one-element array with the string as `body`). Cheapest, and it would have rendered this page
    correctly — but it silently rewrites writer output, so it hides the contract violation
