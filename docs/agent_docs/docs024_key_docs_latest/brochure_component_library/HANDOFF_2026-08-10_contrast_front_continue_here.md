@@ -492,3 +492,79 @@ DES-083 from *"not yet observed emitting"* to **observed emitting and dispatchin
 discovery-produced pairs completed 2026-08-11). The `improvement_guardian`'s high-severity
 round-2 objection to DES-083 is recorded there as unsettled rather than closed by those runs:
 they show the change works, not that the gate it removed was unwanted.
+
+---
+
+## ADDENDUM 5 (2026-08-12) — four owner instructions. Two done, one answered, one routed
+
+### 1. "Make sure the repairs are done through the framework's own mechanism" — **DONE, verified at the artefact**
+
+`ai-agent-orchestration.com` now has **its own palette** (`palette-ai-agent-orchestration-com`,
+`origin=adopted`, `source_domain` stamped), it supplies **no `card_bg`**, and the served sheet
+reads `--color-card-bg: #0D1117` **byte-equal to `--color-surface`** — the
+`fillDarkSchemeSpecialisedSlots` signature. **The white cards are gone.** It went through
+`needs_composition` → `site-design-planner` → `install_site_composition` with the per-request
+flag; no hand-written SQL touched the site. Council trail `b8e341b9` reached **APPROVED** at
+round 3 (`Council-Reviewed:` on `9d4fbb4f7`).
+
+### 2. "Approval needed, but for now default that the human approves" — **BUILT** (`1fa86f5cc`, not yet rolled)
+
+Every composition **replace** now records `reinstall_approved_by`. Order: step config →
+work item spec `reinstall_approved_by` → spec `approved_by` (the column a real HITL flow
+already fills, so wiring one later needs no code change here) → the sentinel
+`default-grant/owner-2026-08-12`. Nothing blocks today — that is the "default that the human
+approves" half.
+
+**The sentinel is deliberately not a person-looking string**, because that is what makes the
+eventual tightening measurable rather than a leap:
+```sql
+SELECT result->>'reinstall_approved_by', count(*)
+  FROM site_work_items WHERE result ? 'reinstall_approved_by' GROUP BY 1;
+```
+**Do not reword the constant** — it is a stored value, so a tidy-up splits that population in
+two. Registered **DES-084** (+ index row). Three tests, mutation-proven.
+
+### 3. "Are these missing handlers?" — **NO. Measured, and the premise was wrong**
+
+Every one of the 11 item types still sitting at `detected` has a **live handler agent**
+(`agent_definitions` join, 11/11). And the handlers demonstrably work: `page_rerender` is
+**2811 complete**, `undeployed_asset` 187 complete, and **84 items completed in the last six
+hours**. The backlog I reported as 448 is now **21** fleet-wide.
+
+What actually happened, and it is not a defect:
+- The **driver** was the gap, not the handler. `TriageDetectedItemsAction` promotes
+  `detected → triaged`; its three callers have one scheduled task between them
+  (`improvement-sweep`), which is **`enabled=false`** on cost grounds and was run
+  deliberately on 2026-08-11 — that run is what drained the queue.
+- **226 `contrast_failure` items are `deferred` ON PURPOSE** (migration `389`, owner
+  decision 2026-08-11), because promoting them through `css-patch-agent` would produce false
+  closures. **0 have ever completed; `attempt_count = 0`.**
+
+**So there is nothing to fix here in the "missing handler" sense.** The queue is cost-gated
+by owner decision, and the one genuine blockage is (4) below. **The open question is a cost
+question, not an engineering one:** whether `improvement-sweep` runs on a schedule or stays
+a deliberate manual lever.
+
+### 4. "Fix the issue broadly" — **ROUTED, not fixed, and deliberately so**
+
+The broad contrast repair is gated on `bugs_open/213`, which `who-owns.py` reports **OWNED
+and active**. I traced the blocker precisely and contributed it there (`fbc77f081`) rather
+than starting a competing fix:
+
+**`css-patch-agent` has no verification step at all.** Its workflow is
+`ensure_site_record → load_current_css → check_has_css → plan_css_fix → save_css_to_db →
+check_saved → deploy_css → complete|complete_no_css|complete_error` — three
+`complete_workflow` terminals and **no `complete_work_item`/verification call**. So it is a
+*third* case, distinct from the two producers in 213's title: not "the verifier implements
+one predicate and not the other", but a handler that never enters the verification path, so
+`out_of_scope` cannot fire for it either.
+
+213's gate **is** working elsewhere — its `_verification` population grew 26 → 44 and is
+recording `defect_persists` 9 and `error` 9. It simply never sees this agent.
+
+**Nothing was unparked.** Releasing 226 items before `css-patch-agent` can be verified
+reproduces exactly what migration `389` exists to prevent.
+
+`[UNMEASURED]`, and it decides the size of the fix: what `check_saved` branches on. If a
+no-op patch already lands on `complete_no_css` the repair is reporting only; if it lands on
+`complete`, it is the false-closure defect itself.
