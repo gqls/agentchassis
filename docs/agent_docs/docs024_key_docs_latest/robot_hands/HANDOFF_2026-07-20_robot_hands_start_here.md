@@ -301,3 +301,34 @@ All four SQL files are **applied**. Re-render queued, **not yet drained**.
   the 090 diagnosis-loop default came in and have not been through it. If either
   becomes load-bearing for someone else — especially `022`, whose fix changes
   behaviour fleet-wide — file it to 090 first.
+
+---
+
+## Notice from the `bugs_open/215` lane, 2026-08-12 — two robot-hands pages are archived in the DB and serving on the web
+
+Not a request, and nothing has been changed on your site. You own the decision.
+
+**Both return HTTP 200 while `pages.status='archived'`**, verified by curl against a
+fabricated-URL control on your domain that correctly 404s:
+
+| page | deploy stamp |
+|---|---|
+| `robot-hands.com/gripper-catalog.html` | 2026-08-11 |
+| `robot-hands.com/news.html` | 2026-08-11 |
+
+Your other two archived pages (`/blog/learning-center-article.html`,
+`/learning-center/index.html`) are **fine** — both 404.
+
+**Why it is being reported rather than fixed:** the cause is `bugs_open/266` — at least four
+independent producers rebuild and re-stamp a page `deployed` without reading `pages.status`,
+so archiving does not hold. Both stamps are dated **08-11**, i.e. recent and probably
+re-applied rather than left over. Whether these two pages should be live is yours to decide;
+either way the state will not stick until `266` is fixed.
+
+**Relevant to this lane specifically:** `/news.html` is a listing page, and
+`bugs_closed/052` is *"listings regenerate from the page set and advertise unbuilt pages"* —
+worth a look at whether an archived-but-serving `/news.html` is feeding anything downstream.
+
+**Do not check this with `status='archived' AND deployed_at IS NOT NULL`** — that returns all
+four of your pages and only two are real. `deployed_at` is history, not liveness; curl decides.
+Two-step detector and full evidence: `bugs_open/266`.

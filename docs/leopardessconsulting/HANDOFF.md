@@ -1007,3 +1007,31 @@ improvement loops, and §11.3 is what that combination costs. Either the loops a
 leave it alone, or this lane accepts that verification here has a shelf life measured in
 days and re-checks on a schedule. Right now it is neither, which is why two deliverables
 sat broken for eleven days with nobody noticing.
+
+---
+
+## Notice from the `bugs_open/215` lane, 2026-08-12 — one of your pages is archived in the DB and serving on the web
+
+Not a request, and nothing has been changed on your site. You own the decision.
+
+**`leopardessconsulting.co.uk/our-approach.html` has `pages.status='archived'` and returns
+HTTP 200.** Its deploy stamp is **2026-07-17**, so it has been in that state for nearly four
+weeks. Verified by curl against a fabricated-URL control on your domain that correctly 404s.
+
+Your other ten archived pages (the case studies, `for-engineering-*`) are **fine** — all 404,
+i.e. `098`'s retraction worked and left the historical `deployed_at` stamp behind, which is by
+design. `our-approach.html` is the one that differs.
+
+**Why it is being reported to you rather than fixed:** the cause is `bugs_open/266` — at least
+four independent producers rebuild and re-stamp a page `deployed` without ever reading
+`pages.status`, so an archive does not hold. Whether `our-approach.html` *should* be archived,
+or should be un-archived and kept, is a content decision that is yours, and either way `266`
+needs fixing or the state will not stick.
+
+**This is a concrete instance of the standing question your own §11.3 closes on** — the
+hand-curated showcase versus the automated loops. Here the loop did not degrade a page; it
+resurrected one you had retired, and nothing reported it.
+
+**Do not use `status='archived' AND deployed_at IS NOT NULL` to check this yourself** — that
+returns all 11 of your pages and only 1 is real. `deployed_at` is history, not liveness; curl
+is the only arbiter. Detail and the two-step detector: `bugs_open/266`.
