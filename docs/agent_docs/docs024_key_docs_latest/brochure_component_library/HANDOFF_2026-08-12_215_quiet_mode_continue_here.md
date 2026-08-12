@@ -11,10 +11,10 @@ carried forward below where still live.
 
 | | |
 |---|---|
-| code | **LIVE on chassis `v1.0.1293`** (rolled 2026-08-12 19:13–19:14Z), **re-verified on BOTH replicas 2026-08-12 ~20:05Z by two independent methods.** (1) Literal probe of `/proc/1/exe`: `PLAN_PAGE_STEM_TWIN_REFUSED` **present**, one-letter near-miss `…REFUSEE` **absent** (so the probe can fail), pre-lane control `OWNED_PAGE_GUARD` **present** (so it works on this binary) — all three on each replica. (2) Provenance stamp, captured while still in log range: both replicas built from `7a1887e3163af75ce…`, and `git merge-base --is-ancestor` confirms `19acfc895` (the `carryForwardStructureSpecKeys` re-adoption fix) **is in the build**. Supersedes the `v1.0.1291` verification of ~16:00Z |
+| code | **LIVE on chassis `v1.0.1293`** (rolled 2026-08-12 19:13–19:14Z), **re-verified on BOTH replicas 2026-08-12 between the 19:13Z roll and commit `580af7ff0` (19:46Z) by two independent methods.** (1) Literal probe of `/proc/1/exe`: `PLAN_PAGE_STEM_TWIN_REFUSED` **present**, one-letter near-miss `…REFUSEE` **absent** (so the probe can fail), pre-lane control `OWNED_PAGE_GUARD` **present** (so it works on this binary) — all three on each replica. (2) Provenance stamp, captured while still in log range: both replicas built from `7a1887e3163af75ce…`, and `git merge-base --is-ancestor` confirms `19acfc895` (the `carryForwardStructureSpecKeys` re-adoption fix) **is in the build**. Supersedes the `v1.0.1291` verification of ~16:00Z |
 | council | **APPROVED** round 3, corr `56e13695-17cb-48ec-bc6b-0371fde8b717` |
 | enabled on | **fundamentallyai.com only** — `honour_realised_identity` + `twin_identity_snap`. `stem_twin_snap` absent by design |
-| dark-launch counters | **still 0/0/0/0** — re-read twice on 2026-08-12, at ~19:00Z and again at ~20:05Z **after** the `v1.0.1293` roll, both times with BOTH controls. Demand: **0 `site_plans` rows since the roll**, and the only post-1291 plan was noted.co.uk's first build (0 `pages` predating it, so it cannot exercise the reconciler). Instrument: `agent_error_log` took 3,503 rows in 24h and **13 since the roll**, so the query is not blind on the new binary either. **No replan has run through the new path yet — the zero is want of demand, not want of function** |
+| dark-launch counters | **still 0/0/0/0** — re-read twice on 2026-08-12 — once **before** the `v1.0.1293` roll and once **after** it, both times with BOTH controls. Demand: **0 `site_plans` rows since the roll**, and the only post-1291 plan was noted.co.uk's first build (0 `pages` predating it, so it cannot exercise the reconciler). Instrument: `agent_error_log` took 3,503 rows in 24h and **13 since the roll**, so the query is not blind on the new binary either. **No replan has run through the new path yet — the zero is want of demand, not want of function** |
 | damage remaining | **7 both-deployed twin pairs, 4 domains** — untouched, needs an owner call per pair (**O2, the only open decision**) |
 | bug file | stays **OPEN**; newest sections at the bottom of `bugs_open/215_HANDOFF_...md` |
 | register | **PLAN-048** in `docs026_concept_register/register/site-plan-and-reconciler.md` |
@@ -77,8 +77,7 @@ The counters live in `agent_error_log`, which the roll does **not** clear, so a 
 predate it: **bound the read with `occurred_at > '2026-08-12 19:13:00+00'`** if you are asking
 what the NEW binary did. And CLAUDE.md's standing rule applies before you try to induce a
 signal: **no orchestration dispatch within ~300s of a chassis pod (re)start** — the spawn is
-silently dropped, which reads exactly like "the gate did not fire". (That window is long past
-as of ~20:05Z; it will matter again on the next roll.)
+silently dropped, which reads exactly like "the gate did not fire". (That window closed long before this was written; it will matter again on the next roll.)
 
 **Expected first signal on fundamentallyai: ~2 `PLAN_PAGE_STEM_TWIN_OBSERVED` rows**,
 the harmless kind (both sides of both pairs already realised). That is the evidence

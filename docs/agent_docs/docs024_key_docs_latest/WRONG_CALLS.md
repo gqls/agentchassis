@@ -29869,3 +29869,35 @@ and being unwilling to write "nobody read it" a second time without knowing wher
 have appeared if one existed. Filed as a landmine (*A 090 diagnosis writes its findings to
 `diagnosis_artifacts`, NEVER to `doc_notes`*) because the wrong answer is indistinguishable from
 the right one and no symptom precedes it.
+
+## 2026-08-12 — I stamped UTC on BST clock readings, in the same lane that already has an entry for a mis-stamped measurement time
+
+**The claim.** Six timestamps across three documents: the post-roll artefact verification
+"~20:05Z", the population measurement "~20:20Z", the fix commit "~21:00Z", and others. All
+carried a `Z`. All were roughly an hour early — the real UTC times were ~19:35, ~19:25 and
+19:46.
+
+**What was true.** `now()` was **19:49 UTC** when I finally asked. My commits print
+`2026-08-12T20:46:06+01:00`; I had been reading the `20:46` and writing `20:46Z`, dropping
+the `+01:00` that is the entire difference. British Summer Time is UTC+1 and this estate
+timestamps in both — the DB answers in UTC, git logs in local.
+
+**Why it survived.** Every figure was internally consistent, so nothing looked odd: the
+"~20:05Z" verification really did precede the "~21:00Z" commit, in the right order, with
+plausible gaps. **A systematic offset does not produce a contradiction** — that is exactly
+what makes it survive a self-review, and it is why "the numbers hang together" is not a
+check. What caught it was a question about something else entirely: the council verdict
+had not landed, and I went to work out how long it had been.
+
+**The aggravating part is the tally, which is the point of this file.** This lane already
+has an entry from earlier today for *"a `WRONG_CALLS.md` entry against my own mis-stamped
+measurement time"* — recorded in the same handoff I was editing. Same lane, same class,
+same day, and I did not connect them until the offset was in front of me. One instance is
+an anecdote; two in a day in one lane says the practice is missing, not the attention.
+
+**The cheap check, and it is now the practice:** never write a `Z` time from a local clock
+or a git log. Take it from the source that keeps UTC — `SELECT now()` — or anchor the claim
+to an event whose time is independently verifiable and let the reader do the arithmetic.
+The corrections here do the latter: "between the 19:13Z roll and commit `580af7ff0`
+(19:46Z)" cannot drift, because both ends are checkable and neither is my recollection of a
+wall clock.

@@ -139,11 +139,11 @@ and it is not the same measurement. Run the query above before quoting a scope.
 - 090 diagnosis run `38099787-c7f9-46d4-b75e-3a1867fcaf41`; artefacts in
   `diagnosis_artifacts` (`kind='bundle'`, iterations 1–5), **expire 2026-09-10, unpinned**.
   Its findings are reproduced above so this file does not depend on them surviving.
-- Every table row quoted here was re-queried first-hand 2026-08-12 ~19:00Z.
+- Every table row quoted here was re-queried first-hand on 2026-08-12, in the hour before commit `f71019552`.
 
 ---
 
-## Population MEASURED, 2026-08-12 ~20:20Z — and the detector this file shipped an hour ago is BLIND
+## Population MEASURED, 2026-08-12 (shortly before the 19:46Z fix commit) — and the detector this file shipped is BLIND
 
 > **CORRECTION to my own "How to verify a fix" §3 above.** The query I filed
 > (`status='archived' AND deployed_at IS NOT NULL`) returns **18 rows across 5 domains**.
@@ -196,7 +196,7 @@ auto-retract, retraction removes the file and leaves the stamp). Do not "fix" th
 
 ---
 
-## FIX BUILT AND COMMITTED 2026-08-12 ~21:00Z — `580af7ff0`. **Still OPEN: inert until the chassis rolls, and the 5 live pages are untouched.**
+## FIX BUILT AND COMMITTED 2026-08-12 19:46Z — `580af7ff0`. **Still OPEN: inert until the chassis rolls, and the 5 live pages are untouched.**
 
 **What shipped** (register entry **PBP-042**, same commit per the 2026-07-28 ruling):
 two refusals and one shared read, Go only — no migration, no seed, no config key,
