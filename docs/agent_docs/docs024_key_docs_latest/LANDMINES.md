@@ -9681,3 +9681,28 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **relations:** the `negatedClaimMatch` entry above (trap 2's mechanism, and why the exclusion stays) · the `banned_claims` sweeps-content-prose-only entry (`<title>`/JSON-LD escape the sweep) · `bugs_open/161` (correcting a register does NOT arm detection — only a `banned_claims` pattern does) · CLM-004, CLM-017
 - **source:** 2026-08-12, `ai_site_selling_automation` lane, migrating webdesign.uk's register from the £1,200 offer to £149 (`87eebf7d5`). Trap 1 was hit for real and caught by `claimscan` on the first run, before the write.
 - **added:** 2026-08-12, ai_site_selling_automation lane
+
+---
+
+## A STRING in a workflow step's `config` is a REFERENCE, never a literal — write one and the action silently uses its DEFAULT
+
+- **footprint:** `platform/orchestration/datahelpers/action_inputs.go` (`ExtractActionInputs`, `WasDefaulted`) · any `datahelpers.ActionInputSpec` with a `Defaults` map · `agent_definitions.default_config->'workflow'->'steps'->…->'config'` · every seed migration or `psql` edit that sets a step config value
+- **fires when:** you author or edit an agent's step config and give a field a plain string value — `"audit_source": "content-quality-audit"`, `"mode": "strict"`, `"domain": "example.com"`. It looks like configuration. It reads like configuration in `psql`. **It is parsed as a reference to a key in `collectedData`, fails to resolve, and the action runs on its spec default** — with no error, no warning, and a row that looks deliberately configured.
+- **why the wrong result looks exactly right:** the default is usually a *sensible* value (`"design-audit"`), so the output is plausible everywhere it appears. Nothing downstream can tell a defaulted value from a configured one. And **the same file works for other fields**, which is the part that defeats suspicion: `"site_id": "site_record.site_id"` resolves perfectly, because Strategy 0 only resolves a config string **`if strings.Contains(pathStr, ".")`**. One dot is the entire difference between a config value that works and one that is silently discarded.
+- **this is DELIBERATE, so do not "fix" it locally.** Strategy 5 takes literals for non-string scalars only, and says why in its own comment: *"A string literal that fails to resolve is left alone on purpose: taking it as its own value would turn a broken reference into a silent literal and mask real wiring bugs."* `bugs_closed/042` fixed the numeric half and left this half open on that reasoning. Widening Strategy 5 to strings is an architecture-scope change, not a tidy-up.
+- **the check, before you trust any string you put in a step config:**
+  ```sql
+  -- 1. does the action even declare the field? (no spec entry => never read at all)
+  --    grep the Go: RegisterActionInputSpec("<action>", …) and its Required/Optional/Defaults
+  -- 2. does the value contain a dot? no dot => it is a single-segment KEY LOOKUP,
+  --    resolving only if collectedData has a top-level key of exactly that name.
+  -- 3. prove it landed, at the OUTPUT rather than at the config:
+  SELECT collected_data->'<output_field>' FROM orchestration_states
+  WHERE owner_agent_type='<agent>' ORDER BY created_at DESC LIMIT 1;
+  ```
+  **Read the run's own recorded output, not the config row.** The config row is what you asked for; only the output says what happened. In the worked case the config said `content-quality-audit` and the run's `findings_written.audit_source` said `design-audit`.
+- **`WasDefaulted(key)` already exists and is the signal nobody calls.** If you are writing or reviewing an action whose default is load-bearing, call it and log — a defaulted value is otherwise indistinguishable from a supplied one, which is stated in that function's own comment and is exactly how this went four agents deep.
+- **blast radius when it fired for real:** four separate auditors (`brief-fidelity-auditor`, `content-quality-auditor`, `site-review-agent`, `visual-design-auditor`) each configured a distinct `audit_source`; **zero of the four values has ever appeared on a work item**, all 265 carry the default. It also defeats `bugs_open/213`'s landmine, which names `spec->>'audit_source'` as the only field identifying a producer.
+- **relations:** `bugs_closed/042` (the mechanism, and why the string half stays open) · `bugs_open/264` (the measured consequence) · `bugs_open/213` (whose producer-naming landmine this invalidates for 4 of 5 producers)
+- **source:** 2026-08-12, `copy_quality_two_stage` lane. Found while checking why a copy auditor's findings were invisible; the lane had already concluded from that invisibility that the findings were never consumed, and drafted a build plan for a consumer that already existed.
+- **added:** 2026-08-12, copy_quality_two_stage lane
