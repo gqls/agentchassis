@@ -1,9 +1,24 @@
 # 261 — the diagnosis code tier could not read the symbol spellings its own index produces
 
 **Filed:** 2026-08-12, `silent_hero_logo_readers` lane (follow-on from commission item 2).
-**Status:** **FIXED + council-APPROVED + committed (`6911c2da4`); OPEN because it is not live** —
-the fix is Go, so it is inert until an image is rebuilt and rolled. The defect is still reproducible
-in production until then.
+**Status:** **FIXED + council-APPROVED + committed (`6911c2da4`) + LIVE on `agent-chassis:v1.0.1293`
+(2026-08-12 19:14Z, both replicas). OPEN pending the BEHAVIOURAL proof** — a post-roll bundle that
+actually renders a method body. Verification run in flight, see §6.
+
+**Live, verified at the artefact and NOT at the tag** (2026-08-12 ~20:15Z):
+
+```
+kubectl -n ai-persona-system get pods -l app=agent-chassis   # v1.0.1293, 2 replicas, both Ready
+kubectl -n ai-persona-system logs -l app=agent-chassis --tail=3000 | grep -m3 'build provenance'
+#   -> git_commit 7a1887e3163af75ce5eb5c6cb67ba2c9be37d88e, on BOTH pods
+git merge-base --is-ancestor 6911c2da4 7a1887e3   # -> YES, the fix is in the running build
+```
+
+⚠ **With a control that discriminates, because my first one did not.** I initially "controlled" with
+a commit from earlier the same day — but the build is from 19:57 BST and *everything* I committed
+today precedes it, so that control could not have come out false. The real control is a commit made
+**after** the build (`81c508bca`): `git merge-base --is-ancestor 81c508bca 7a1887e3` correctly
+returns NOT an ancestor. **A control drawn from the wrong side of the boundary is not a control.**
 
 **Council:** `6b0cc25b-1368-4fe2-87f0-bb3aa87019c0` — **APPROVED round 1**, submitted 14:26Z, decided
 14:32Z (six minutes), 12 seats, 4 abstained, *"1 advisory objection — none high-severity"*. The
@@ -170,20 +185,39 @@ this normalises a *symbol name* within an already-admitted file and cannot name 
   shared tree never held a mutation — this lane's own §7 lesson from `038211dd8`.
 - `go build ./...` clean; `go test ./internal/analysis/ ./platform/orchestration/actions/` green.
 
-## 6. How to verify it is fixed — NOT yet done
+## 6. Verification — step 1 DONE, step 2 IN FLIGHT
 
-The fix is Go, so it is **inert until rolled**. Per `bugs_open/236` §3's rule about unfalsifiable
-zeros, do not call the loop fixed on a quiet count.
+Per `bugs_open/236` §3's rule about unfalsifiable zeros, do not call the loop fixed on a quiet count.
 
-1. After the next fleet roll, confirm at the artefact, not the tag:
-   `kubectl -n ai-persona-system logs -l app=agent-chassis --tail=300 | grep -m1 'build provenance'`
-   then `git merge-base --is-ancestor 6911c2da4 <the stamp>`.
-2. **The demand control matters** — a bundle only exercises this if a scope entry names a method.
-   Re-run the 090 on `bugs_open/236`'s §5 question, whose scope names three of them:
-   `./docs/…/fixloop_eg_dartsonline/090_TRIGGER_needs_diagnosis_v1.sh "<symptom>"`
-3. The pass condition is **positive, not an absence**: a post-roll bundle that renders
-   `(*SagaCoordinator).applyResponseToState`'s body (4,746 chars). A drop in the failure count is
-   weaker evidence — it also falls if nobody asked.
+1. ✅ **Live in the running build** — done, with a discriminating control. See the status block above.
+2. 🔄 **The behavioural proof, in flight.** Re-ran the 090 on `236` §5 with the **symptom text
+   verbatim from the run that failed**, so this is a controlled re-run: same question, same three
+   methods in scope, fixed harness.
+   - intake correlation `ab65485f-e00a-4dc2-90de-ba8ba9c275ef`
+   - **`RUN_CORRELATION_ID=eddaf1af-b44d-4bc0-8485-5885056042cd`** ← the artefacts are under THIS
+   - dispatched 2026-08-12 ~20:20Z. Prior run took ~19 minutes for 4 iterations.
+3. **The pass condition is POSITIVE, not an absence**: a bundle under `eddaf1af-…` that renders
+   `(*SagaCoordinator).applyResponseToState`'s **body** (~4,746 chars), not merely its name. A drop
+   in the failure count is weaker evidence — it also falls if nobody asked.
+
+```sql
+-- did a method body actually render this time?
+SELECT iteration, length(body) AS len,
+       (body LIKE '%func (s *SagaCoordinator) applyResponseToState%') AS body_rendered,
+       (body LIKE '%ReadSymbolBody: symbol%not found%')              AS still_failing
+FROM diagnosis_artifacts
+WHERE correlation_id='eddaf1af-b44d-4bc0-8485-5885056042cd' AND kind='bundle'
+ORDER BY iteration;
+
+-- the verdict is NOT in diagnosis_artifacts for a 090 — it is on the run's own row
+SELECT collected_data->'verdict' FROM orchestration_states
+WHERE correlation_id='eddaf1af-b44d-4bc0-8485-5885056042cd';
+```
+
+⚠ **Two ways to misread the result.** (a) A verdict of `UNVERIFIABLE` **for a different reason** is
+not a failure of this fix — read `needed_evidence` before concluding anything. (b) A `CONFIRMED` on
+236's mechanism is a bonus, not the test: this run exists to prove *the harness can read method
+bodies*, and it passes on that even if the hypothesis about 236 turns out false.
 
 ```sql
 -- after the roll: failures should stop accruing on NEW bundles
