@@ -117,6 +117,57 @@ P0–P7 sequencing.
    banned-claims-style sweep for the retired figures (the bugfix-161 lesson:
    correcting the source does not arm detection).
 
+## 1d. Owner rulings — 2026-08-12 evening: the offer hardens, and the brand goes scrappy
+
+> **⚠ THIS SUPERSEDES §1b ruling 2 on changes.** That ruling said "One set of
+> changes included"; it was implemented in the register and shipped to all five
+> pages on 2026-08-12 afternoon, and it is now RETIRED. Kept above, unedited, as
+> the record of what we believed.
+
+1. **NO corrections at £149. It is a take-it-or-leave-it offer.**
+   ("At £149 we can't be doing corrections.") The included set of changes is
+   gone. The customer gets what they are given.
+2. **Two private remedies exist and NEITHER is advertised.** If a site is really
+   bad we can re-run it, or refund. **The copy states no refund and no changes,
+   full stop.** Both remedies stay discretionary and out of the copy — the
+   refund by the owner's explicit instruction ("I don't want to state that we'll
+   give them their money back"), the re-run by the same logic: printing it
+   reopens the negotiation the offer exists to close, and makes "bad" the
+   customer's word to define.
+3. **The copy must make this REALLY clear** — "that's the only way we'll make
+   £149 work". Stating the terms hard is not a tone choice, it is the mechanism:
+   the research is unambiguous that surprises are the main driver of complaints
+   and refund demands, so setting the expectation IS the cost control.
+4. **The brand goes scrappy — in the VOICE and the TERMS, never in the CRAFT.**
+   Owner: "We must always strive for utmost quality in the product as if we were
+   delivering for a corporate." The product is built to corporate standard; the
+   service is stripped to the bone, and the site says so plainly.
+5. **Imagery: one story, several motifs** — Heath Robinson contraptions and
+   marble runs (an unorthodox process with a fantastical result), a scruffy
+   goose with a golden egg, plain cardboard boxes and flat-pack, cash-and-carry
+   pallets, a trade counter. Different pages, same story. **The framework's
+   imagery pipeline generates from the guidelines; images are NOT to be made by
+   hand at the CLI** (owner, explicit). Live in `imagery_style_guide` as of
+   `f20ceedb9`.
+6. **Junkyard: reserved, not the base register.** The owner is happy to try it
+   as a hero. It is deliberately NOT the site-wide ground, because a junkyard
+   says the *goods* are scrap and the whole proposition is that they are not.
+7. **Stay on webdesign.uk for now.** A separate domain (e.g.
+   scrappywebsites.uk) is explicitly parked — "to start with let's do it here
+   and see how it goes".
+8. **Growth model: seed with vouchers, then word of mouth.** A couple of
+   customers at £10/£55, and hope they recommend it.
+
+**Research that informed 4 and 6** (2026-08-12, sources in NOTES): the
+no-frills mechanic works because promise and delivery match exactly, not
+because of the rudeness; nobody in cheap web design positions on "no
+revisions" (the category advertises unlimited and quietly caps it), so this is
+genuinely differentiating and has no proved copy to borrow; and the
+brutalist/anti-design risk is real and specific to us — ugly reads as broken
+(the Aesthetic-Usability Effect), and the failure mode is the rawness leaking
+out of the visual layer and into interaction. **Our site is the demo**, so the
+craft has to stay visibly high or it argues against its own product.
+
 ## 2. Design
 
 ### 2.1 Client DB — extend `clients` [DONE 2026-08-10: migration 375 LIVE]

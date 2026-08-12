@@ -819,3 +819,104 @@ looking.
 that the live rows were repaired at 17:23. Until then the cause of the CTA loss
 is **open**, and the corrections above have been made everywhere I asserted it
 (`HANDOFF` §3b, `LANDMINES.md`, `bugs_open/238` §9).
+
+
+---
+
+## 2026-08-12 (evening) — the offer hardens to take-it-or-leave-it, and the brand gets a visual system
+
+Owner ruling recorded in full as PLAN §1d. **It retires §1b ruling 2 — "one set
+of changes included" — which I implemented in the register and shipped to all
+five pages this afternoon.** That line is now live and false on every page. It
+is the same class of problem I spent today fixing, arriving from the other
+direction: not a stale claim I inherited, but a true one that a ruling made
+false four hours after it shipped.
+
+### What changed
+
+No corrections at £149. Two private remedies (re-run, refund), **neither
+advertised** — the refund by the owner's explicit instruction, the re-run by the
+same logic, since printing it reopens the negotiation the offer exists to close
+and lets the customer define "bad". The copy says no changes and no refund, hard
+and early, because that IS the cost control rather than a tone choice.
+
+### The research, and the one point that changed the owner's plan
+
+- **The no-frills mechanic works because promise and delivery match**, not
+  because of the rudeness. Ryanair's marketing set correct expectations rather
+  than flattering ones, so customers were not disappointed
+  ([case study](https://themarketingagency.ca/blog/ryanair-case-study/),
+  [Marketing Week](https://www.marketingweek.com/ryanair-cmo-brand-love/)).
+- **Surprises are the number one trigger of refund demands**, and stating terms
+  up front is the biggest single lever on them
+  ([Sentisum](https://www.sentisum.com/customer-complaints),
+  [CPD Online](https://cpdonline.co.uk/knowledge-base/business/customer-complaints-expectations-psychology/)).
+  So the hard copy is the mechanism, not the decoration.
+- **Nobody in cheap web design positions on "no revisions."** The category
+  advertises unlimited and then quietly caps it at the design stage or a fixed
+  number of rounds ([Feedbird](https://feedbird.com/blog/best-affordable-web-design-services/),
+  [ManyPixels](https://www.manypixels.co/blog/web-design/website-design-packages)).
+  Genuinely differentiating, and no proved copy to borrow.
+- **The anti-design risk is real and specific to us.** Ugly reads as broken (the
+  Aesthetic-Usability Effect), brands inherit the aesthetic's adjectives, and
+  the failure mode is rawness leaking out of the visual layer into interaction
+  ([Divimode](https://divimode.com/brutalism-web-design/),
+  [Toptal](https://www.toptal.com/designers/ux/minimalist-brutalist-web-design)).
+  **Our site is the demo**: a scrappy-LOOKING site undersells a product that is
+  actually clean and professional. Owner agreed and stated the rule himself —
+  utmost quality in the product, as if delivering for a corporate.
+
+### The visual system, and the constraint that makes it safe
+
+One idea, restated by every motif: **an unorthodox, scrappy PROCESS producing a
+genuinely good RESULT.** Heath Robinson contraptions and marble runs; a scruffy
+goose with one golden egg; plain cardboard boxes and flat-pack; cash-and-carry
+pallets; a trade counter. The owner's two additions are stronger than my
+cardboard-only pick, because the contraption makes the *process* the joke rather
+than the product — which is exactly what "built by AI" needs.
+
+**The governing rule is written into `avoid`, not into a comment: the cheapness
+is in the SERVICE, never in the PRODUCT.** `avoid` is the only field that
+reaches the negative prompt (`generate_image` composes medium/mood/palette as
+direction and sends `avoid` negatively), so a rule that lives anywhere else in
+the spec is decoration. It bans any suggestion the output is poor — no rust,
+refuse, decay, dereliction or broken objects — and that is also why the junkyard
+is NOT the base register: a junkyard says the goods are scrap.
+
+Medium is pen-and-ink line drawing with one flat wash — Heath Robinson's own
+hand. It carries a contraption, a goose and a box in one style; it reads as
+deliberate craft rather than a cheap photograph; and line art survives the
+card-size gate that photographic output kept failing (D14). Palette: kraft
+ground, near-black ink, one warm gold used only on the output element. Text
+stays banned — generated lettering garbles, and the shipping-label typography
+this brand wants belongs in HTML type over the image.
+
+Live as `f20ceedb9` (`SQL_2026-08-12f`), superseding the 08-04 studio guide.
+**Images are for the framework's imagery pipeline to generate from these
+guidelines — the owner explicitly does not want them made by hand at the CLI.**
+
+> **Misstep, recorded because the missteps are the point: backticks in a
+> `git commit -m` message EXECUTED.** The word `avoid`, wrapped in backticks in
+> three places, was command-substituted away, so `f20ceedb9`'s message reads
+> "written into , not into a comment, because / is the only field". The content
+> is unaffected and the SQL file carries the full explanation. **This is a
+> landmine already in my own memory index** ("backticks in `-m` execute") and I
+> hit it anyway — knowing a trap is not the same as having a habit that avoids
+> it. The habit: single-quote the message body, or write it to a file and use
+> `-F`. Forward-only forbids an amend, so the corrected sentence is here.
+
+### Owed next, and a sequencing hazard worth stating
+
+1. **The copy rewrite**: remove "one set of changes is included" from the
+   register and all five pages, and state the take-it-or-leave-it terms hard.
+   One pass, not two — every rewrite is another chance to lose the CTA buttons.
+2. **`design_intent` is now at odds with the imagery.** It still describes "a
+   well-printed document": near-white ground, forest-green accent, and
+   explicitly "No hero image, no full-viewport splash". A kraft-ground
+   contraption illustration on that page will look borrowed. The palette and
+   layout preference need to move with it.
+3. **⚠ A rebuild will delete the CTA buttons again.** Whatever triggers the copy
+   rewrite or a design change will rebuild these pages, and the button loss is
+   unfixed at platform level (§3b of the handoff). Re-apply `SQL_2026-08-12e`
+   and re-push the deployed files afterwards, and check the href counts as a
+   matched pair before and after.
