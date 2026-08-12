@@ -193,3 +193,75 @@ archived-and-serving. Their `/bugs_open/` reading will not surface it — the ro
 **What the 18 vs 5 gap does NOT mean.** The 13 non-serving rows are not evidence of a second
 defect; they are the expected residue of 098's deliberate design (archiving does not
 auto-retract, retraction removes the file and leaves the stamp). Do not "fix" them.
+
+---
+
+## FIX BUILT AND COMMITTED 2026-08-12 ~21:00Z — `580af7ff0`. **Still OPEN: inert until the chassis rolls, and the 5 live pages are untouched.**
+
+**What shipped** (register entry **PBP-042**, same commit per the 2026-07-28 ruling):
+two refusals and one shared read, Go only — no migration, no seed, no config key,
+no opt-in flag.
+
+| seam | file | stops |
+|---|---|---|
+| `GitCommitAction` (new step 0b) | `git_deployer_actions.go` | the page **serving** |
+| `UpdatePageStatusAction` (before the components check) | `v3_site_actions.go` | the row **claiming** a deploy |
+| `pageIsArchivedForGuard` / `resolveDeployTargetPage` | `archived_page_guard.go` (new) | — |
+
+Both seams are needed and that is not belt-and-braces: without the second, a refused
+commit still writes `build_status='deployed'` + a fresh `deployed_at`, which is the
+state every downstream selector reads.
+
+**Fix candidate 1 was taken, and candidate 2's trap was real.** Placing this at
+`assemble_page` — the neighbour's seam — would have been **inert, not merely
+partial**: measured against live, active, non-snapshot `agent_definitions`, **no
+workflow has a step whose action is `assemble_page`**. All four producers reach
+`git_commit` (page-rerender and section-editor each have their own
+`deploy_page`→`git_commit`; page-build-handler's `deploy_page` is a `call_agent` to
+`target_role: page_renderer`, i.e. into page-rerender's).
+
+**Retraction was checked, not reasoned about.** `page-retraction`'s step is
+`retract_page_deployment`, described as *"Audit the retraction graph, retire nav rows,
+dispatch delete_file"* — a different path from `git_commit`. Had the guard gone on the
+file-writing adapter instead, it would have made `098`'s remedy unusable.
+
+**Fails OPEN**, matching `owned_page_guard`'s posture and for its stated reason (failing
+closed would halt fleet-wide deployment on one transient DB error). The window is
+countable, not silent:
+
+```sql
+SELECT error_code, count(*), max(occurred_at) FROM agent_error_log
+WHERE error_code LIKE 'ARCHIVED_PAGE_%' GROUP BY 1;   -- _DEPLOY_REFUSED | _GUARD_UNCHECKED
+```
+
+**Tests proven in both directions**, not merely green: the refusal tests were re-run
+against a clean `git archive HEAD` overlay **with the guard file added but the two
+wirings left out**, isolating the wiring as load-bearing. Both fail there for the right
+reason — and `TestUpdatePageStatus_ArchivedPageIsNotStampedDeployed`'s failure output is
+sqlmock reporting the unexpected `UPDATE pages SET build_status=$2, deployed_at=NOW()`
+firing with `deployed` on an archived page, i.e. this bug, caught by its own test.
+`TestGitCommit_LivePageStillDeploys` is the control without which a guard that refused
+everything would satisfy every other assertion in the file.
+
+**The untouched-twin question** (raised by `pattern-check`, answered not waved through):
+`UpdatePageComponentsStatusAction` writes `UPDATE page_components …`
+(`v3_site_actions.go:4205`) and never touches `pages` — **not a fifth door**.
+
+**Council: submitted, verdict pending** — corr `2da9d905-25d8-4916-9b76-bc096679c6ab`,
+commit carries `Council-Submitted:`. **Still owed: read the verdict and act on a
+REVISE/REJECTED**, because the code is already on the shared branch.
+
+### What is still OPEN, and why this file does not close
+
+1. **Inert until the chassis image rolls.** Go changes do nothing until rebuilt and
+   deployed. The bar for `bugs_closed/` is fixed AND live.
+2. **The 5 archived-and-serving pages are untouched.** Whether each should be
+   un-archived or retracted is a content decision, and two of the three domains belong
+   to other lanes, which were told in their own handoffs. **The guard stops the state
+   RECURRING; it does not undo it** — and note the guard now also prevents an accidental
+   *repair-by-rebuild* of those five, which is correct but means retraction is the route.
+3. **Verification after the roll**, in this order: pod-probe the literal
+   `ARCHIVED_PAGE_GUARD` on both replicas → re-run the two-step population check (SQL
+   candidates, curl verdict, fabricated control) → confirm no NEW `deployed_at` on any
+   archived page. A zero on the counters needs a demand control, exactly as
+   `bugs_open/215` §4 does: no archived page has been dispatched at means nothing fired.
