@@ -29245,3 +29245,54 @@ would have failed loudly and I would have fixed it in seconds. `created_by IN
 ('a-name-nobody-uses')` is indistinguishable from a true negative, and it was load
 bearing for a build proposal. **Prefer `GROUP BY` over `WHERE … IN (guess)` whenever
 the question is "does anything do X".**
+
+---
+
+## 2026-08-12 — "not ONE was a genuinely absent symbol": I classified 20 symbols by reading their names, and wrote the 100% into a council submission before checking
+
+**The claim.** Diagnosing `bugs_open/261` (the diagnosis code tier could not resolve the symbol
+spellings its own index produces), I censused every symbol-read failure ever recorded: 321
+failures, 301 of them the receiver form `(*T).M`. I then looked at the remaining 20 names —
+`maxIngestBytes`, `workItemTerminalStatuses`, `templateBlockRegex`, `ErrWaitingForResponse`,
+`reviewRevalidators`, … — recognised them as package-level `var`/`const`, and wrote:
+
+> *"NOT ONE was a genuinely absent symbol. That is the disconfirming result this could have
+> produced and did not."*
+
+**Where it went.** Into the council submission's `grounded_in` block, and into the commit message
+of `6911c2da4`. Both are now immutable — forward-only forbids an amend — so the false 100% is on
+the permanent record and only a correction elsewhere can catch a reader.
+
+**What caught it.** Me, running the check about ten minutes later, for rigour rather than from
+suspicion: `SELECT kind FROM code_symbols WHERE (path,symbol) IN (…all 20…)`. It returned **19** —
+14 `var`, 5 `const`. The twentieth, `controllerAddress`, is a plain `func` at
+`platform/kafka/topic_manager.go:318`, missing from the analysed snapshot because the index sat at
+`46b507ed1` (2026-08-11 18:49) while the function arrived in `e1f960ac2` (2026-08-12 14:20). It is
+an index-staleness case, `bugs_closed/108`'s class, **and my fix does not cover it.** The honest
+figure is 334 of 335, not all of them.
+
+**The cheap check, and I want to be exact about why it is cheap:** it is the same query I had
+already written and run twice that hour, with a different `WHERE`. I was not short of the means. I
+wrote the sentence first and verified afterwards, and the verification happened only because the
+claim was strong enough to make me uneasy — which is not a mechanism.
+
+**The shape, for the tally: A NAME IS NOT A KIND.** Every one of the 20 *looked* like a value, and
+19 were; the failure mode of eyeballing a list is that it is right often enough to feel reliable.
+This is the same shape as the entry above (`grep -c` counts sites, it never says what they do) and
+as CLAUDE.md's own 2026-07-19 refutation — **a confident classification built from something that
+resembles evidence without being it.**
+
+**The aggravating half, which is the part I would want a future thread to read.** The stated
+purpose of that sentence was to be *disconfirmable*: I wrote it to satisfy the standing rule that a
+`[MEASURED]` figure only counts if it could have come out otherwise. **It could have come out
+otherwise — and it did — and I published it before letting it.** Dressing a claim in the language
+of falsifiability is not the same as falsifying it, and the rhetorical move ("here is the result
+that could have disconfirmed me") is worth *less* than nothing when the test has not actually been
+run, because it buys the reader's trust with the appearance of the very rigour it skipped.
+
+**A second, unrelated slip in the same hour, logged because the interval is the point.** I checked
+`bugs_open/260` was free, wrote ~2,000 words of bug file, and found another session had taken 260
+in the meantime. The commit, the submission and three source comments all cite `260` and mean the
+file now numbered `261`. **A number you checked is a number you checked at that instant** — on this
+tree, "I verified it was free" has a shelf life measured in tens of minutes. Resolve by slug, and
+`git log` the file path.

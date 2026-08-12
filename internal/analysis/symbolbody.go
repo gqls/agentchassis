@@ -48,7 +48,7 @@ import (
 // matching FuncDef. A receiver-qualified form disambiguates when two types share
 // a method name in one file, and BOTH spellings are accepted: the code index's
 // canonical "(*AnalysisCallGraph).Neighbourhood" (which is what actually reaches
-// this function — see splitReceiver and bugs_open/260) and the bare
+// this function — see splitReceiver and bugs_open/261) and the bare
 // "AnalysisCallGraph.Neighbourhood". Package-level var/const resolve by name.
 func ReadSymbolBody(root string, out Output, symbol string) (string, error) {
 	pathPart, namePart := SplitSymbol(symbol)
@@ -169,7 +169,7 @@ func spanOf(fi *FileInfo, name string) (start, end int, ok bool) {
 				return td.StartLine, td.EndLine, true
 			}
 		}
-		// bugs_open/260, second half. The analyser has recorded package-level
+		// bugs_open/261, second half. The analyser has recorded package-level
 		// var/const since bugs_open/223 phase 2 and the indexer writes them as
 		// rows, but this reader was never taught the kind, so every one of them
 		// answered "symbol not found" — 20 such failures fleet-wide, every one a
@@ -192,7 +192,7 @@ func spanOf(fi *FileInfo, name string) (start, end int, ok bool) {
 //	"*Helper.Greet" / "Helper.Greet"          -> ("Helper", "Greet")
 //	"Hello"                                   -> ("", "Hello")
 //
-// bugs_open/260. The parenthesised form is not an exotic input — it is the
+// bugs_open/261. The parenthesised form is not an exotic input — it is the
 // CANONICAL one: code_symbols_actions.go:598 writes every method as
 // "(" + Receiver.Type + ")." + Name, diagnose_assemble_bundle's
 // scopeFromCodeResults concatenates that column straight into a scope entry, and

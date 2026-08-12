@@ -239,7 +239,7 @@ func TestReadSymbolBodyRefusesUnanalysedPaths(t *testing.T) {
 	}
 }
 
-// TestReadSymbolBodyResolvesIndexSpellings is the bugs_open/260 regression: the
+// TestReadSymbolBodyResolvesIndexSpellings is the bugs_open/261 regression: the
 // symbol spellings the CODE INDEX produces must resolve here, because the index's
 // spelling is what reaches this function.
 //
