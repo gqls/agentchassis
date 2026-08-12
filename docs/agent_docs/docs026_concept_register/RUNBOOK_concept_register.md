@@ -358,6 +358,26 @@ Gotchas, all of which cost a wrong number first:
 - **The blocks live at the HEAD of the output and git's summary at the TAIL.**
   That asymmetry is the whole defect, and it is also why the commit-msg council
   nudge survives and makes the machinery look alive.
+- **⚠ THERE ARE TWO DELIVERY CHANNELS, and until 2026-08-12 this script read one**
+  (added 2026-08-12, after it printed 38% for a day that was 100%). The pre-commit
+  print lands in `toolUseResult.stdout`; **OPP-007's out-of-band delivery does not
+  land there at all** — the harness records `additionalContext` as a separate
+  transcript record, `type: "attachment"` / `attachment.type: "hook_success"`, text in
+  `attachment.stdout`. Read the **`REACHED … either channel`** line. If `oob` reads 0
+  on any day after 2026-08-11, suspect the parse before you believe the fix regressed:
+  the discriminator is the note's own wording (`commit you just made (<sha>)`), so a
+  reworded hook empties the column silently.
+- **Join on a PREFIX.** The hook quotes git's abbreviated sha (9 chars); the population
+  carries the full 40. A straight set-membership test matches nothing, and "the hook
+  never fired" is exactly what that looks like.
+- **Compare timestamps in UTC.** Transcripts are `…Z`; this estate writes BST. OPP-007
+  shipped 19:18 BST = 18:18 UTC and was **live in the working tree ~7 minutes before
+  its own commit** (earliest real delivery 18:11:38Z). A naive threshold of "19:00"
+  scores 24 legitimate deliveries as pre-ship impossibilities — that is a failed
+  control caused by the clock, not by the data.
+- **Test a verify-later against a KNOWN delivery, not only a known miss.** This script
+  had a positive control for the *old* channel and none for the new one, which is the
+  entire reason it shipped blind.
 
 ## C. What you should expect the agent to do (so you don't have to)
 - All verification, corrections, and register edits — grep/find/read against

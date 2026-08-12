@@ -1932,3 +1932,83 @@ the same question.
 > earlier, so the [UNVERIFIED] caveat above is retired rather than deferred), and
 > the de-duplication arm behaved — `05d8b379e`, committed without a pipe, printed
 > the block in its own output and drew no duplicate from the hook.
+
+---
+
+## 2026-08-12 — the verify-later I wrote yesterday could not verify, and it printed a regression
+
+**First act of this session was to run the verify-later `FINDINGS_2026-08-11` names:**
+`scripts/advisory-delivery-sweep.py --since 2026-08-12`. It printed **38.2% delivered**,
+against a documented pre-fix baseline of 55%. Taken at face value: OPP-007 made delivery
+worse.
+
+**It is the instrument.** The sweep decided "delivered" with
+`"commit scope:" in toolUseResult.stdout` (line 91 as written). OPP-007 delivers through
+`hookSpecificOutput.additionalContext`, which is **not in `toolUseResult` at all** — the
+harness writes a separate record:
+
+```
+type: "attachment", attachment.type: "hook_success",
+attachment.{hookEvent,hookName,command,stdout,stderr,exitCode,toolUseID}
+```
+
+with the hook's JSON in `attachment.stdout`. So the sweep scored **every** out-of-band
+delivery as a miss. It was blind to the only path the fix uses.
+
+**How the field was found, rather than guessed:** a recursive JSON-path dump over every
+transcript line containing the hook's own wording. That printed the answer directly —
+`.attachment.stdout` (51) and `.attachment.content[0]` (51), against 3 in
+`.message.content[tool_result].content` (which turned out to be yesterday's *manual control
+runs*, not deliveries). Guessing at `system-reminder` shapes would have cost an hour;
+enumerating paths cost one command.
+
+**Two slips inside the repair, both recorded because both looked like real failures:**
+
+1. **The join matched nothing at first.** The hook quotes git's **9-char** abbreviated sha;
+   the population carries the full 40. `sha in set` → 0 hits, which reads identically to
+   "the hook never fired". Fixed by bucketing the hook's shas by length and prefix-testing.
+2. **My pre-ship control failed: "24 deliveries before the hook shipped".** That reads as a
+   broken parse. It was **my threshold** — transcripts are UTC, this estate writes BST. The
+   hook shipped 19:18 BST = 18:18Z, and the earliest genuine delivery is **18:11:38Z**,
+   *seven minutes before its own commit*, because it was live in the working tree first
+   (`.claude/settings.json` and the script were wired, tested, then committed in
+   `05d8b379e`). Live and committed are independent facts, and here the gap was visible in
+   the data. Control restated in UTC: **0 before 18:11Z**, all time.
+
+**The patched sweep, and the true reading.** Channels reported separately (so the original
+`tail`-width mechanism claim stays falsifiable), plus a control that channel 2 cannot
+predate its own hook:
+
+```
+2026-08-12: 36 multi-file commits — REACHED 36 (100%): own output 13, out of band 23, missed 0
+controls: oob=0 on every day 08-05→08-10 · pre-fix 55–56% unchanged
+          channel-1 tail width still separates (1031 vs 131 at N<=8; 106 vs 474 at N>8)
+```
+
+**The second half of the verify-later is NOT answered, and I nearly reported that it was.**
+The register's leak signal looks perfect — **0 OPP-006 findings across all 17
+register-touching commits** since the hook went live, no entry-without-row at HEAD. But the
+demand is **4 entry-adding commits** (`7d2377149`, `3c962927d`, `ef1374426`, `05d8b379e`),
+and at OPP-006's measured 16% historical leak rate **P(zero | nothing improved) = 0.50**.
+Uninformative. **~14 entry-adding commits for 90% power, ~18 for 95%.** Also used the
+per-commit sweep rather than a HEAD count, because this lane's own landmine says a snapshot
+cannot see a leak repaired the same afternoon.
+
+**The transferable shape:** *when you move where a signal is delivered, the thing that
+measures delivery is the first thing to go stale — and it stays green while doing it.* This
+sweep had four controls (tail-width separation, exact-line arithmetic, foreign-sha filter,
+stated denominator); all four passed and **all four were on the old channel**. A verify-later
+needs a positive control on the **new** path. The one-line version:
+`grep -c additionalContext scripts/advisory-delivery-sweep.py` → **0**.
+
+Filed: patched sweep; corrected banner + new §"What the 100% does and does not buy" in
+`FINDINGS_2026-08-11`; `RUNBOOK` §B11 (five new gotchas); OPP-007's entry gains a fleet-wide
+status-evidence line, a landmine, and a verify-later split into PROVEN/OPEN halves;
+`WRONG_CALLS.md`; `LANDMINES.md` + `landmines-sync.py --apply` (2143 owned rows).
+
+**Not done, deliberately:** `rebuild-cascade.md`'s stored count is still owed, fourth session
+running — the file is still dirty in the shared tree with another session's REB-003 rewrite
+(mtime unchanged at 2026-08-08 20:41, 3 added / 3 deleted), so retiring the line would take a
+same-file passenger. The drift check's single HEAD finding is that stored count and nothing
+else. The three staleness signals (version lag 80, unresolvable citations 96, moved bug refs
+156) remain untouched.

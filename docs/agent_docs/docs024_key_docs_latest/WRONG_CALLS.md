@@ -29013,3 +29013,59 @@ worth handing to the owning lane — export `a8484922` records 1,957 rows and ac
 **0** (`146a9a12` is the good one at 1,958/1,958); both June blockers are verifiably gone on
 v1.0.1288; and **`model_lifecycle.artefacts` has no writer anywhere**, which I have not seen
 stated in their docs and which means a successful Phase 0 still records nothing.
+
+## 2026-08-12 — I shipped a verify-later that could not see the fix it verified, and it printed a number that read as a regression
+
+**The claim, written 2026-08-11 in `FINDINGS_2026-08-11_advisory_delivery.md` §"Reproducing
+the measurement" and in the script's own docstring:** run
+`scripts/advisory-delivery-sweep.py --since 2026-08-12` to check whether OPP-007 fixed the
+advisory-delivery defect. **That command could not answer the question.**
+
+The defect was that 45% of multi-file commits never showed the session the pre-commit advisory,
+because sessions pipe `git commit … | tail -N` and the advisory prints first. The fix (OPP-007)
+delivers the advisory *out of band*, through a `PostToolUse` hook's
+`hookSpecificOutput.additionalContext`. The sweep decided "delivered" with
+`"commit scope:" in toolUseResult.stdout` — **the command's own output, which is exactly the
+channel the fix deliberately abandoned.** `additionalContext` is recorded by the harness as a
+*separate* transcript record: `type: "attachment"`, `attachment.type: "hook_success"`, text in
+`attachment.stdout`. The sweep never read those records, so it scored every single out-of-band
+delivery as a MISS.
+
+**What it printed, run as documented the next morning: 38.2% delivered — below its own 55%
+baseline.** The true figure for that window is **100% (36/36, 23 of them out of band)**. So the
+instrument did not merely fail to confirm the fix; it produced a confident number pointing the
+opposite way, on a day the fix was working perfectly. Left unchallenged it argues either "the fix
+failed" or "OPP-006 needs teeth" — and the case against teeth is the thing the same document had
+just spent a day establishing.
+
+**What caught it:** running the documented command as the first act of the next session, and not
+believing the number. The mechanism could not produce it — a hook that delivers out of band
+cannot lower the rate at which anything is delivered — so the instrument was the suspect.
+
+**The cheap check that would have caught it at authoring time, in one line:**
+`grep -c additionalContext scripts/advisory-delivery-sweep.py` → **0**. The script never mentions
+the field the fix writes to. More generally: **a verify-later needs a positive control on the NEW
+channel.** This one had careful controls — `tail -N` width separation, exact-line-count
+arithmetic, a foreign-sha filter — all of them on the OLD channel, all of them passing, none of
+them able to notice that the new path was invisible. Five controls on the wrong surface.
+
+**Two secondary slips inside the repair, both worth the tally:**
+- **The join.** The hook quotes git's *abbreviated* sha (9 chars); the population carries the
+  full 40. A straight set-membership test matches nothing — and "the hook never fired" is exactly
+  what a silent zero looks like. Prefix-join, bucketed by length.
+- **The clock.** My first pre-ship control said *24 deliveries exist before the hook shipped*,
+  which reads as a broken parse. It was my threshold: transcripts are **UTC**, the estate writes
+  **BST**, the hook shipped 19:18 BST = 18:18 UTC — and it was live in the working tree ~7 minutes
+  before its own commit (earliest real delivery 18:11:38Z). A failed control caused by a timezone
+  looks precisely like a failed control caused by bad data.
+
+**The shape:** *when you change where a signal is delivered, the thing that measures delivery is
+the first thing that goes stale — and it goes stale silently, still passing all its old controls.*
+Kin to the standing lesson that a check must be measured **at the reader**: this is that lesson
+applied to the checker itself. The fix is registered on OPP-007 and the prospective form is in
+`LANDMINES.md`.
+
+**Not a total loss:** the same session found the second half of the verify-later is unanswerable
+today and would have been reported as answered — 0 leaks looks clean, but only **4** entry-adding
+commits landed in the window, where a 16% leak rate yields zero half the time. ~14 are needed for
+90% power. That is now written on the entry instead of a false all-clear.

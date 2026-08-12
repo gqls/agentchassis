@@ -1,5 +1,46 @@
 # FINDINGS — the pre-commit advisory reaches nobody about half the time, 2026-08-11
 
+> ## ✅ CORRECTED + ANSWERED 2026-08-12 — the verify-later at the bottom of this file could not verify
+>
+> **The finding below stands in full. The instrument it named to check the fix was
+> blind to the fix.** §"Reproducing the measurement" says to run
+> `scripts/advisory-delivery-sweep.py --since 2026-08-12`. That sweep decided
+> "delivered" by testing `"commit scope:" in toolUseResult.stdout` — the command's own
+> output. **OPP-007 does not deliver there.** `additionalContext` is recorded by the
+> harness as a *separate* transcript record (`type: "attachment"`,
+> `attachment.type: "hook_success"`, text in `attachment.stdout`), which the sweep
+> never read. So it scored every out-of-band delivery as a MISS.
+>
+> Run as documented this morning it printed **38.2% delivered — worse than the 55%
+> baseline** — on a day when the hook was in fact reaching every session. Left
+> standing, the number reads as "the fix failed", or worse as evidence for
+> enforcement: the exact conclusion this document's evidence had just weakened.
+>
+> **Fixed** — the sweep now reads both channels, reports them separately, and prints a
+> control that channel 2 cannot predate its own hook. **The true reading, 2026-08-12:**
+>
+> | multi-file commits today | 36 |
+> |---|---|
+> | reached the session, either channel | **36 (100%)** |
+> | in the command's own output | 13 |
+> | **out of band, by OPP-007** | **23** |
+> | reached by neither | **0** |
+>
+> Controls both pass: `oob = 0` on every day from 08-05 to 08-10 (the hook did not
+> exist), pre-fix rates unchanged at 55–56%, and the channel-1 `tail -N` separation
+> still holds (misses 1031 vs 131 at N≤8; 106 vs 474 at N>8).
+>
+> **What caught it:** running the documented verify-later command as the first act of
+> the next session, and disbelieving the number because the mechanism could not
+> produce it. **The cheap check that would have caught it at authoring time:** grep
+> the sweep for the field the fix writes to — `additionalContext` appears nowhere in
+> it. A verify-later must be tested against a KNOWN delivery, not only against a
+> known miss. Logged in `WRONG_CALLS.md`; the trap is in `LANDMINES.md`.
+>
+> **And the second half of the verify-later is NOT answered — see the new §"What the
+> 100% does and does not buy" below.** Delivery is proven; whether being told changes
+> anything is still open, and today's sample cannot speak to it.
+
 *`HANDOFF_2026-08-10b_continue_here.md` opens with a READ FIRST banner: OPP-006
 fired and was ignored within three hours of shipping, and — the useful part —
 **"the honest question to answer first is which of these it was"**: the session
@@ -153,14 +194,46 @@ it re-runs `commit-scope-report.sh --commit <sha>` and `pattern-check.py --commi
   shared tree (a false positive that blocks is a fleet-wide outage; a check that
   blocks on a bad day gets disabled for ever) stands entirely untouched.
 
+## What the 100% does and does not buy (added 2026-08-12)
+
+**Bought, and verified at the reader:** the advisory now arrives. 23 of today's 36
+multi-file commits were reached *only* because of OPP-007, and no commit was missed
+by both channels. That is delivery, measured where the model actually receives it.
+
+**NOT bought — and today's numbers cannot buy it.** The register's own leak signal
+looks clean: **0 OPP-006 findings across all 17 register-touching commits since the
+hook went live**, and the drift check at HEAD reports no entry-without-row. It is
+tempting to read that as "delivery was the binding constraint". It is not evidence:
+
+- **The demand is four.** Only **4 entry-adding commits** landed in the window
+  (`7d2377149`, `3c962927d`, `ef1374426`, `05d8b379e`), adding 4 entries.
+- **At OPP-006's measured historical leak rate of 16% per entry-adding commit,
+  P(zero leaks | nothing improved) = 0.50.** A coin flip. The zero is the *expected*
+  outcome whether the fix changed behaviour or not.
+- **What would discriminate:** ~14 entry-adding commits to see at least one leak with
+  90% probability if the rate is unchanged; ~18 for 95%. At the current cadence that
+  is days, not hours. **Do not close this on a snapshot** — and note this lane's own
+  landmine: a count at HEAD cannot see a leak that was repaired the same afternoon, so
+  the honest form is the per-commit sweep above, not the daily row.
+
+So the verify-later splits cleanly in two, and only the first half is done:
+**delivery — PROVEN 2026-08-12. Behaviour — OPEN, awaiting ~14 more entry-adding
+commits.** Until then, no case for teeth has been made out in either direction, and
+the argument in `pattern-check.py`'s docstring against blocking on a shared tree
+stands untouched.
+
 ## What this does not settle
 
 - **The residue.** 62 misses had no `tail` pipe and are unexplained here.
-- **Whether being told changes anything.** Delivery is necessary, not sufficient:
-  a session can read the block and still not act. The honest test is OPP-007's
-  verify-later — if the delivery rate rises and the daily watcher's missing-row
-  count does *not* fall, then delivery was never the binding constraint and the
-  enforcement question reopens on real evidence rather than on this artefact.
+- **Whether being told changes anything.** Delivery is necessary, not sufficient: a
+  session can read the block and still not act. Quantified above — the sample that
+  could answer this does not exist yet.
+- **Commits the sweep cannot see at all.** The population requires git's
+  `N files changed` line in stdout to establish multi-file status. A session piping to
+  `| tail -1`, or to `/dev/null`, removes it — those commits drop out of the
+  denominator rather than counting as misses, so the historical 45% is if anything an
+  under-count. OPP-007 has the same blind spot by construction: no summary line, no
+  sha, no delivery.
 - **The other three staleness signals** from `FINDINGS_2026-08-10` — version lag
   (80 entries 50+ versions behind), unresolvable citations (96), moved bug
   references (156) — are untouched and remain this lane's open work.
@@ -175,3 +248,11 @@ scripts/advisory-delivery-sweep.py --since 2026-08-12 # after the fix, for the v
 ~5s over 1.4 GB of transcripts. It reads only local transcript files and the local
 git object store; nothing touches the cluster. `RUNBOOK_concept_register.md` §B11
 carries the gotchas.
+
+> **CORRECTED 2026-08-12 — as written on 2026-08-11 the second command could not do
+> the job this section gives it.** It read only the command's own stdout, so it scored
+> OPP-007's out-of-band deliveries as misses and printed 38% on a day that was
+> actually 100%. The script now reads both channels and prints a control on the new
+> one; the commands above are correct **as of this correction**. Read the
+> `REACHED … either channel` line, not a single percentage — and if `oob` is 0 on a
+> day after 2026-08-11, suspect the parse before believing the fix regressed.

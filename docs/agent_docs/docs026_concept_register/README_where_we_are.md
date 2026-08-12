@@ -783,3 +783,53 @@ Still open, and untouched by any of this: the other three-quarters of the stalen
 picture from yesterday — eighty entries citing a platform version fifty or more
 rebuilds old, ninety-six citations pointing at deleted files, a hundred and
 fifty-six pointing at bugs that have moved.
+
+---
+
+**2026-08-12 — the thing I built to check yesterday's fix was measuring the wrong pipe**
+
+Yesterday I found that about half of all commits never showed the session its warnings, because
+people trim command output down to the last few lines and the warnings print at the top. I fixed
+it by having the warnings delivered separately, outside the command's output, where trimming
+can't reach them. And I wrote down a command to run the next day to check it had worked.
+
+I ran that command this morning. It said delivery had **fallen** — thirty-eight per cent, against
+the fifty-five per cent I started with. On the face of it my fix had made things worse.
+
+It hadn't. The checker was looking in the wrong place. It counted warnings that appeared in the
+command's own output — and the whole point of the fix was to stop sending them there. Everything
+the new route delivered was being counted as a failure. When I taught it to look at both routes,
+the real number for today is **thirty-six commits out of thirty-six, a hundred per cent** — and
+twenty-three of those thirty-six were reached *only* because of yesterday's fix. It is working
+exactly as intended.
+
+I want to be blunt about how bad that near-miss was. The wrong number didn't just fail to confirm
+the fix — it pointed confidently the other way, on a day the fix was flawless. If I hadn't
+happened to distrust it, the next person to look would have read "the fix failed", or worse,
+"we clearly need to start blocking people's commits" — which is the exact conclusion I spent
+yesterday arguing *against*, on good evidence. A broken instrument doesn't go quiet; it keeps
+producing numbers, and they keep looking like findings.
+
+What made it slip through is worth remembering. I had four separate safeguards on that checker,
+and every one of them passed. All four were checking the *old* delivery route. Nothing was
+watching the new one. The one-line version of the check I should have run takes a second: search
+the checker for the name of the thing the fix writes to. It wasn't in there at all.
+
+Two smaller stumbles inside the repair, both of which briefly looked like real problems. The
+first: the two halves of the data write the commit reference at different lengths, so my initial
+match found nothing — which looks identical to "the fix never ran". The second: one of my own
+safeguards reported twenty-four deliveries from *before* the fix existed, which reads as a broken
+count. That was me comparing British time against the recording's UTC. An hour's difference.
+
+One more thing I nearly got wrong, and this one is about honesty rather than plumbing. Now that
+delivery works, the obvious next question is whether being *told* actually changes behaviour. The
+signal looks perfect — not one missing register row across all seventeen relevant commits since
+the fix. I was about to report that as good news. It isn't news at all: only **four** commits in
+that window even added the kind of entry that could have gone wrong, and at our historical error
+rate you'd expect a clean sweep half the time by luck alone. It needs about fourteen before it
+means anything, which is days away. So: delivery is proven, and the behaviour question is open
+and stays open. I've written that on the record in place of the all-clear I nearly gave.
+
+Untouched, and still the real backlog: the eighty entries citing a platform version fifty or more
+rebuilds old, the ninety-six citations pointing at deleted files, and the hundred and fifty-six
+pointing at bugs that have moved.
