@@ -5824,3 +5824,59 @@ Re-verified rather than assumed, per this front's standing trap:**
    could not see. **Either result is worth having**; this is the strongest test left on this
    site. Census after it lands will reuse the SAME pinned evidence dump (`evidence_0812.json`)
    per the trap above.
+
+**Same-file passenger, outbound (2026-08-12 ~14:05):** my LANDMINES.md drift entry rode into
+`f8ca05594` (the 215 quiet-mode lane's own landmine-timestamp correction) between my append and
+my commit — so my pathspec commit found nothing left to take for that file and carried only
+NOTES. Nothing lost (the entry is at HEAD, `git show HEAD:…LANDMINES.md | grep -c` = 1, and the
+`doc_notes` rows are synced), recorded here because their message cannot declare a passenger
+its author never saw. Second time in three days this file has been the collision point — it is
+the fleet's most-appended file, so expect it.
+
+### 2026-08-12 (afternoon) — the factless-arm test was REFUSED BY THE CLAIMS/TEMPLATE GATE, and that refusal found a NEW fleet-wide defect (090 filed, corr `b885a92e`)
+
+**The test is INCONCLUSIVE and the reason is worth more than the test was.**
+`production-backend-engineering` rebuild (`needs_page:…:151census:20260812`) reached
+`validate_content` and was refused: **20 blockers, 0 errors, every one
+`unrendered_template`.** So the page's copy was never replaced — the 6 stale facts and the
+4 residual pairs they feed are still there, and the factless arm is still unproven on this
+page. **No live damage: the gate refused BEFORE persisting** — stored sections still dated
+08-09, no `{{` in any `content_data`, page still `needs_rebuild`, live page untouched (its
+08-11 20:49 deploy was another lane's assemble rerender, which does not regenerate copy).
+
+**What the blockers actually are.** The assembled `page_html` carries `mechanism-flow`'s Go
+template CONTROL structures verbatim while the field placeholders INSIDE them have been
+substituted: `{{if .eyebrow}}<span class="mech-flow__eyebrow">The build flow</span>{{end}}`,
+`{{range $s := .steps}}`, `{{$s.marker}}` — 13 × `{{end}}` and 7 others. That is the
+signature of a substitution that replaces `{{.field}}` but does not EXECUTE `{{if}}`/`{{range}}`.
+
+**Provenance, measured before blaming anything:**
+- All **four** `page-content-writer` LLM calls for this page (13:07:51 / 13:08:20 / 13:09:06 /
+  13:09:25) have `response_text NOT LIKE '%{{%'` — **the model did not emit this**. Their
+  `prompt_rendered` carries no `{{end}}`/`{{.label}}` either, so it is not the
+  rendered-prompt-contains-its-own-template trap.
+- `content_components.html_template` for `mechanism-flow` (active, 5,193 B) **does** contain
+  those exact tokens. So the leak is in whatever assembles
+  `collected_data->'page_content'->>'response'` (key `page_html`) INSIDE the writer, after
+  generation.
+- **The failure type is NEW and fleet-wide**: `CONTENT_VALIDATION_BLOCKER_DETAIL` has 157
+  rows since **2026-07-14** (a month-old recorder — checked precisely so the earliest
+  `unrendered_template` row could not be mistaken for the instrument's birth), and only
+  **6 of them carry `unrendered_template`, all since 2026-08-11 15:39, across 3 domains**.
+
+**My own seed is a chronological suspect and I am saying so rather than omitting it.**
+Seed 386 (writer prompt, rule 5) applied 08-11 **12:36Z**; first `unrendered_template` row
+**15:39Z**; the writer prompt is fleet-wide. Against that: 386 appended ONE prose sentence
+containing no braces, and a prose sentence cannot make a renderer skip a control structure —
+and the four clean model responses put the leak after generation. Seed 385 is exculpated by
+chronology (applied 16:32Z, after the first row). **I did not resolve it and did not guess:
+filed to the diagnosis loop** (`090`, `RUN_CORRELATION_ID=b885a92e-d308-4b9c-99ee-306ca2f6b373`),
+symptom stated as mechanism + table/symbol pointers with no counts asserted, and naming my own
+seed as a suspect to be refuted or confirmed. Queue and `bugs_open`/`bugs_closed` were checked
+first: nothing filed.
+
+**Adjacent fact worth carrying:** `bugs_open/149` §B1 records a registered discovery check
+`unrendered_templates` that is configured in NO agent and has **never run** — so the
+build-time validator is the only thing that catches this class, and nothing sweeps pages that
+already serve it. If the loop confirms a renderer defect, that unwired check is the detection
+half.
