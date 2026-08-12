@@ -626,3 +626,102 @@ webdesign_uk_build_service): hand-dispatching `build-dispatch-loop` with a bare
 `action=orchestrate` to skip the expensive loop **reports COMPLETED and processes
 nothing**. So re-firing the full 294 trigger is the supported route, not a
 convenience — the cheap-looking shortcut is a documented no-op.
+
+---
+
+## 2026-08-12 — OWNER RULING on the lane, the design audit RUN, and the first finding verified down
+
+### The lane, as the owner set it (2026-08-12)
+
+**This lane owns the DESIGN of finetuning.uk** — the site that was broken when the
+work started. **Everything else goes to `finetuning_uk_service/`**, which owns the
+paid fine-tuning service backend (Thunder, the run, the bundle) and has its own
+standing five. A third lane, `finetuning/`, holds the older service-thinking plus
+the site history; its `HANDOFF_2026-08-08` now opens with a banner naming all
+three. I planned a day of the service lane's Phase 0 before discovering it existed
+— `WRONG_CALLS.md` 2026-08-12; the check that would have caught it in a minute is
+`grep finetuning MEMORY_workstreams.md`.
+
+### Task B (the visual-designer pass) was genuinely DUE, and here is why
+
+The handoff gated it on "once the images are real". Two facts made it due rather
+than merely unblocked, both measured today:
+
+- `/index.html` was **deployed 2026-08-12 03:34:52Z** — the `bugs_open/238` repair,
+  by that lane. The homepage now carries all five `case-study-*.jpg` and **zero**
+  empty `src` (served-page check, with a fabricated sixth filename 404ing as the
+  control).
+- The **last design audit ran 2026-08-11 13:21** — *fourteen hours before* that
+  deploy — so every finding it holds was formed against the broken homepage. 98
+  `page_rerender` items also completed overnight. The audit was stale against the
+  artefact.
+
+### What I fired, and why not 294
+
+`295_TRIGGER_design_audit_detect_only_v1.sh` (new; register **IMP-054**), which
+dispatches `design-audit-agent` directly instead of the full improvement-loop.
+**294 would have run the audit AND `call_dispatch`**, and `call_dispatch` runs the
+content-REGENERATING handlers — the exact sequence that on 08-09 dropped the
+homepage's image URLs (`bugs_open/238`). We wanted the report, not a rewrite.
+
+Detect-only is a verified property, not an assumption: the live `design-audit-agent`
+workflow is six steps with **no triage**, neither child auditor contains one, and
+`write_audit_findings_action.go:677` hardcodes status `'detected'` while the
+dispatcher claims only `('triaged','approved')`. ⚠ The near-identical
+`081b_design_audit_agent_robot_hands.sh` claims in its comments that the agent
+triages and dispatch picks items up on the next 30s tick — **stale, from an older
+definition.** Copy its envelope, not its expectations.
+
+**Run:** ORCH `62889bbf-c9ac-4077-a74e-3f446b285a8a`, COMPLETED in ~60s from a
+baseline of **0 detected** items. Both auditors ran (`call_visual_auditor` and
+`call_content_auditor` both present in `collected_data`, each with a result).
+Visual: 5 findings → 4 items. Content: 5 findings → 1 item (4 deduped). **5 new
+`detected` items**, nothing claimable.
+
+| item_type | sev | the claim |
+|---|---|---|
+| `cta_improvement` | high | only conversion path is "Book a Discovery Call"; no intermediate CTA |
+| `dark_section_audit` | high | `case-studies-grid-section` defines its own inline `--section-*` vars in a `<style>` instead of inheriting shared dark-section tokens |
+| `needs_design_review` | high | hero uses hardcoded `rgba` overlay + hardcoded `--hero-btn-ink` hex instead of variables |
+| `needs_design_review` | high | body font is Merriweather serif in the theme, but the style collection specifies a system sans stack |
+| `spacing_fix` | med | CTA section padding uses `var(--spacing-section, 5rem 2rem)`, a two-value fallback |
+
+### ⚠ The font finding is REAL but its stated EFFECT is wrong — verify before promoting
+
+Worth writing down because it is the whole argument for detect-only. The claim is
+"body font **is** Merriweather serif". Checked at the served artefact:
+
+- the style collection (`professional-dark`) does specify
+  `-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif`;
+- the served HTML **does** contain `body { font-family: "Merriweather","Georgia",serif; }`
+  — so the conflict is real, and my first pass (grepping only the external
+  stylesheet, which has **0** Merriweather) wrongly read it as a hallucination;
+- **but it does not apply.** The served page has exactly **one** `body {`
+  declaration, in an inline `<style>` at lines 55–137. The external
+  `/assets/css/styles.css` loads at line **142 — after it** — and declares
+  `body { font-family: var(--font-body) }` with
+  `--font-body: 'Inter','DM Sans',system-ui,-apple-system,sans-serif`. Equal
+  specificity, later wins, and **no `body` font rule appears after line 142**.
+
+So the page renders **sans**, roughly as the collection intends. The defect is a
+**dead conflicting declaration** that will bite whoever reorders the stylesheets —
+not a visible font error. **A naive repair is actively dangerous here:** an agent
+told "the body font is wrong" could edit the *winning* external rule and change a
+page that currently looks right.
+
+> **[REASONED, not browser-measured]** — this is a complete cascade analysis
+> (one inline rule, one external rule, known order, no later override), not
+> `getComputedStyle`. `LANDMINES.md` warns that a CSS literal present in source
+> may never be applied; that warning is what prompted this check, and the same
+> caveat applies to my own conclusion. If a repair is ever dispatched here,
+> measure computed style first.
+
+### Where this leaves it
+
+Five findings sit `detected`. Nothing will act on them until someone promotes one
+with an explicit `UPDATE … status='triaged'`. **Recommended order once the owner
+chooses:** the two token/hardcoding findings (`dark_section_audit`,
+`needs_design_review` hero) are genuine structural drift and the safest to repair;
+`spacing_fix` is small; the font one should be repaired as *delete the dead
+declaration*, phrased so no agent touches the external rule; `cta_improvement` is
+a business decision about the funnel, not a design defect.
