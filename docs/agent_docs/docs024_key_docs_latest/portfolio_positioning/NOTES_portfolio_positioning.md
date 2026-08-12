@@ -634,3 +634,30 @@ WHERE correlation_id IN ('51cb66fb-e4bc-46ec-8bbd-a4a561da14a0','9fd94852-ff79-4
 ```
 then move to Phase B (finance/insurance directory producer) per
 `PLAN_2026-08-12_fleet_buildout.md`.
+
+**Both verdicts came back REVISE, 2026-08-12** — real, substantive findings, not
+process nitpicks. "Revise, don't defend" applied:
+
+- **A2/RFC_025 (corr `9fd94852...`)**: fixed and resubmitted (`RESUBMIT_CORR`, same corr,
+  trail preserved), commit `9652f4d52`. Three real defects closed: (1) [HIGH] the
+  `artifact_check` regex had no anchoring — a bare `10000` pattern would substring-match
+  `100000`, reproducing bugs_open/161's own documented landmine INSIDE the fix meant to
+  close it; refused at parse time now. (2) [MEDIUM, 4 reviewers independently] `component_id`
+  wasn't scoped to the fact's own site — a fact could "verify" against another site's
+  component; now joined through `pages` and site-scoped, fails closed on cross-site refs.
+  (3) [MEDIUM, architecture seat] the `changed`/stale_evidence-raise decoupling from the
+  first round touched the PRE-EXISTING citation branch, outside RFC_025's ratified scope —
+  reverted for citation/sql (exact prior behaviour restored), the new capability scoped to
+  a new `ArtifactCheckDrifted` counter via an extracted, unit-tested `shouldRaiseStaleEvidence`
+  predicate. One HIGH objection (guardian: does write-back silently delete untyped keys via
+  the typed struct?) was a **false alarm** — verified directly by reading
+  `writeRefreshedEvidenceBase`, which marshals the untyped map; the relevant LANDMINES.md
+  entry itself names this function as one of the two safe writers. Cited as evidence, not
+  argued from memory.
+- **A1 (structural-validity gate, corr `51cb66fb...`)**: revision dispatched to a background
+  agent (real findings: sitemap coverage promised in the rationale but not built — now being
+  added as a fifth narrow check; a genuine but not-fully-argued overlap with
+  `check_missing_structure.go` — that one checks the DB, this one checks the LIVE served
+  page, needs the distinction written up; one objection (claimed `preferredPageURL` doesn't
+  exist) already personally verified FALSE — it's real, at
+  `rerender_single_page_action.go:1050`, test-pinned). Not yet resubmitted as of this note.
