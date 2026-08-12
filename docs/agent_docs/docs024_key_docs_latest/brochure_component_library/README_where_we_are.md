@@ -2320,3 +2320,26 @@ rebuilt and re-published finished yesterday afternoon but produced no conclusion
 completed and not one of them wrote a verdict anywhere. Until someone reads that, we have to
 assume any page we archive can be resurrected by the next build, which is what stops us
 cleaning the seven pairs up by hand today.
+
+**2026-08-12.** A new build went out, so I re-checked rather than assumed: all four of
+yesterday's configuration changes are still in place, and the three alarms this workstream
+built still exist in the new binary — checked on both machines, with a deliberately misspelt
+control that must come back absent, and it did.
+
+Two things worth your attention. First, a measurement trap I walked into and have now written
+down for everyone: the "how many pages repeat the same facts" number **falls on its own** when
+one of our published figures changes. Four of them changed overnight (live sites went 21 → 22,
+and three counters moved), so any page still quoting the old number stops counting as a
+repeat — the score improves while nothing has been fixed. Yesterday's 34-to-9 result is safe
+because I happened to measure both halves against one frozen copy of the figures, which is now
+the written rule.
+
+Second, and this is the useful failure: I tried to finish the job by rebuilding the one page
+still carrying duplicated facts, and **the build refused itself** — the page came out with bits
+of our own template machinery visible in the text (`{{if …}}`, `{{end}}`), twenty of them, so
+the gate stopped it before anything was saved. Nothing is broken on the live site; the page
+simply stayed as it was. But that failure is new as of yesterday afternoon and it has happened
+on three different sites, so it is not about this page. I've handed it to the diagnosis loop
+rather than guess — including the honest possibility that my own writer-prompt change yesterday
+is involved, which the loop can confirm or clear. Until it reports, I would not rebuild pages
+anywhere. If my change is the cause, the undo is ready and verified.

@@ -122,3 +122,33 @@ submitted · `009aa7325` + follow-up seeds REVISE answered (388, guards) · `73d
 APPROVED+APPLIED · `d110da193` the reaped run · `e22ebe635` 012 REVISE answered (PBP-041,
 rollback file) · `fd8731043` 012 APPROVED+APPLIED · `10038434f` post-roll v1.0.1290 +
 the drift landmine (its LANDMINES half rode in `f8ca05594`) · this file's commit.
+
+---
+
+## UPDATE 2026-08-12 afternoon — §3 gains an item, and it is the urgent one
+
+I ran the factless arm's last available test (rebuild `production-backend-engineering`: all
+four sections `[]` in the plan, copy still stating 6 facts). **It was REFUSED at
+`validate_content` — 20 blockers, all `unrendered_template`** — so:
+
+- **The factless arm is still UNPROVEN on that page** and the 4 residual pairs it feeds are
+  still there. Nothing persisted; no damage (stored sections still 08-09, page still
+  `needs_rebuild`, live page untouched). Re-run the test once the defect below is fixed.
+- **A NEW fleet-wide defect was surfaced and FILED to the diagnosis loop:**
+  `RUN_CORRELATION_ID=b885a92e-d308-4b9c-99ee-306ca2f6b373`. The assembled `page_html`
+  carries `mechanism-flow`'s Go template control structures verbatim (`{{if .eyebrow}}…{{end}}`,
+  `{{range $s := .steps}}`) with the field placeholders inside them already substituted. All
+  four writer LLM responses are clean of `{{`, so the leak is AFTER generation, in whatever
+  assembles `collected_data->'page_content'->>'response'` inside `page-content-writer`. The
+  type is new since **08-11 15:39** across **3 domains**, against a recorder that has 157 rows
+  since 07-14 (so this is not the instrument's birth). **Read the loop's verdict before
+  rebuilding any page on any site.**
+- **Seed 386 is named in that filing as a chronological suspect** (applied 08-11 12:36Z; first
+  row 15:39Z; the writer prompt is fleet-wide) even though its mechanism does not fit (one
+  prose sentence, no braces; and the model output is clean). **If the loop CONFIRMS 386, the
+  rollback is ready:** `agent_definitions_bak_386` + the `agent_definitions_backup` snapshot,
+  both verified pre-update. Do not pre-emptively roll it back — that would remove an
+  owner-approved control on a guess.
+- Related, for whoever fixes it: `bugs_open/149` §B1 — the registered `unrendered_templates`
+  discovery check is configured in NO agent and has never run, so nothing sweeps pages that
+  already serve this. That is the detection half if the loop confirms a renderer defect.
