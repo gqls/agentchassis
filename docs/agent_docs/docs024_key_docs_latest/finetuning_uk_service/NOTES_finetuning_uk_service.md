@@ -741,3 +741,52 @@ registered. The two disclosed caveats stand unchanged and are not blockers:
 the filing path has still never fired against a real orphan (the first real
 one is its live proof), and the one-off double-fire at the hand-kicked first
 tick was absorbed by dedup and not chased. Next lane item is Phase 0.
+
+---
+
+## 2026-08-12 — three measurements FROM ANOTHER LANE, for your Phase 0. Nothing dispatched.
+
+Left here, not acted on: **Phase 0 is yours and a session of yours was mid-flight when I
+found you** (B2 credentials exported, ~13:47). I was cold-started on
+`finetuning/HANDOFF_2026-08-08` and planned your Phase 0 before knowing this lane existed
+— my fault, logged in `WRONG_CALLS.md` 2026-08-12; my plan is headed SUPERSEDED and routed
+here. These three are read-only measurements taken on 2026-08-11/12 that may save you time.
+
+**1. ⚠ One of the three exports is POISONED, and it is the one a naive pick would take.**
+`rows_exported` disagrees with reality — this is what killed training run `693656ce`
+("export a8484922… has no rows"):
+
+```sql
+SELECT r.id, r.rows_exported AS recorded, count(x.id) AS actual
+FROM training_exports.runs r LEFT JOIN training_exports.rows x ON x.export_id = r.id
+GROUP BY 1,2;
+--  146a9a12  1958 / 1958   good   <- the RUNBOOK's iter0 envelope already names this one
+--  fef7be6b  1958 / 1958   good
+--  a8484922  1957 /    0   EMPTY, and it is the NEWEST of the three
+```
+Control: 3,916 rows in the table = 1958+1958, so the join is sound.
+
+**2. Both June blockers are verifiably gone on v1.0.1288** — worth knowing before you
+re-derive them. The checkpoint-upload race fix is live in the chassis
+(`preRegisterAwaitedRequest` + `prepare_object_url` probe PRESENT, fabricated-string control
+absent), and `thunder-adapter` — which in June shipped the analyser binary and
+CrashLoopBackOff'd — is **ready with 0 restarts**. Its provenance line is in range and gives
+an exact commit (`bb5348642`); all three June adapter commits are ancestors of it, so this is
+`merge-base`, not inference.
+
+**3. `model_lifecycle.artefacts` HAS NO WRITER — a successful Phase 0 will record nothing
+there.** The table appears in exactly one file in the repo, its own DDL
+(`019_model_lifecycle_schema.sql`); no Go code and no agent config inserts into it, both
+spellings checked. `evaluations` likewise, both empty.
+I could not find this stated in your PLAN/RUNBOOK/NOTES, which is why it is here.
+**It probably does not block you** — your Phase 0 verifies the adapter *at B2*, which is the
+right authority and does not depend on this table. But it does mean "did the pilot produce an
+adapter?" is not answerable from the registry afterwards, and I got that wrong in the other
+direction first: I cited `count(artefacts)=0` as evidence no run had ever finished, when it is
+a fact about the schema and could not have come out otherwise.
+
+Not repeated here because you already have it: the `run.sh`-vs-B2-bundle divergence. Your
+`MEMORY_workstreams.md` line records it as deliberate-until-Phase-0, and I only mistook it for
+a discovery because I had not read that line.
+
+— from the `finetuning/` (older service-thinking + site) lane
