@@ -113,6 +113,46 @@ this run exists to prove the harness can read method bodies, and it passes on th
 **If it passes**, `bugs_open/261` moves to `bugs_closed/` (fixed AND live) — name **both** paths on
 the commit, or `git mv` + pathspec ships a copy.
 
+## 4b. AFTER THE PROOF — what three runs established, and where 236 actually stands now
+
+**Added 2026-08-12 ~20:45Z. Read this before firing anything at `236`.**
+
+`bugs_closed/261` is fixed, live and proven. **It is no longer what blocks `236`.** Two further runs
+say what does.
+
+**Run `eddaf1af` (unseeded)** — `UNVERIFIABLE`. Spent an iteration on a whole-file re-read the bundle
+advises and its own arithmetic refutes → filed as **`bugs_open/267`** (measured: 6 wholly-wasted
+iterations across 5 runs, all-history). Its final `next_scope` named exactly the right four
+functions, with no iteration left to spend it.
+
+**Run `36bd1b42` (seeded with those four via `SEED_SCOPE`)** — `UNVERIFIABLE`, **but with citations
+for the first time.** The seed arrived (no `bugs_open/174` confiscation — checked). Iteration 1
+rendered all four bodies.
+
+> **⚠ THE NEW BLOCKER: the loop re-scoped AWAY from its own key function.** Iteration 1 held all
+> four bodies; by iteration 5 `persistAwaitingStateWithRetry` and `processAwaitResponse` were **not
+> in scope at all** (18 symbols across 8 files, neither present). **The bundle does not accumulate
+> and the verdict reads only the LAST iteration** — so the seeded evidence was gone by the time the
+> verdict was written. **Seeding fixes iteration 1 and nothing after it.**
+
+> **⚠ AND `236` §5b — MY OWN HYPOTHESIS — IS NOW `[CONTESTED]`.** A cited fragment shows
+> `persistAwaitingStateWithRetry` **does** reference `freshState.CollectedData`, which is
+> inconsistent with §5b's claim that it "copies only AwaitedRequests, Status and LastActivity". That
+> wording was inherited from a comment in `agenterrors.go` and repeated without reading the
+> function. **One fragment is not a refutation** — but fix nothing on §5b's strength until it is
+> settled. Full contribution written into `bugs_open/236`.
+
+**The cheapest next move:** re-run seeded with **only** `persistAwaitingStateWithRetry` (2,058
+chars — no cap risk, and no room to re-scope away from it) and a symptom asking the narrow question
+*what does it copy onto freshState before UpdateState?* The broad symptom is what let the loop
+wander across eight files.
+
+⚠ **A monitoring error of mine, so you do not repeat it.** I watched with
+`body LIKE '%func persistAwaitingStateWithRetry%'` and read four iterations as "body rendered". That
+matches the string **anywhere** in the bundle, grep fragments included. To assert a body rendered,
+check the **`## In-scope code` section headings** and the absence of `body unavailable` / `body
+omitted` for that symbol — not a substring of the whole artefact.
+
 ## 5. Decisions waiting on the owner
 
 **None are blocked on me.** Unchanged from the predecessor except where noted.
