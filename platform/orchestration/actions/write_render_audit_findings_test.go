@@ -714,6 +714,72 @@ func TestWriteRenderAuditFindings_OverImageReadingDoesNotRetract(t *testing.T) {
 	}
 }
 
+// A stored item_key was written by whatever URL shape the audit produced AT
+// FILING TIME, which may not be the shape it produces today (trailing slash,
+// extension, query string). Two directions, and only one of them is dangerous:
+//
+//   - a key whose page shape no longer matches must simply not retract — it
+//     fails toward INERTNESS, which costs a ticket staying open;
+//   - but a SHORTER page must never prefix-match a LONGER one. "/pricing" must
+//     not match a key belonging to "/pricing.html", or the retraction closes a
+//     different page's tickets. That is what the '#' inside the prefix buys,
+//     and it is invisible until it is wrong.
+//
+// Council objection (bug_historian, corr a43b63d6): "a URL you can CONSTRUCT is
+// a contract nobody signed, three writers three shapes".
+func TestWriteRenderAuditFindings_ShorterPageDoesNotPrefixMatchALongerOne(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+	siteID := uuid.New()
+
+	mock.ExpectQuery("locked_at IS NOT NULL").
+		WillReturnRows(sqlmock.NewRows([]string{"rendered_html"}))
+	mock.ExpectQuery("FROM pages").
+		WithArgs(siteID).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "url"}))
+	mock.ExpectBegin()
+	mock.ExpectQuery("item_type = 'contrast_failure'").
+		WithArgs(siteID).
+		WillReturnRows(sqlmock.NewRows([]string{"item_key", "status"}).
+			// A DIFFERENT page that merely shares a prefix — must be untouched.
+			AddRow("contrast_failure:/pricing.html#h2.card-title", "detected").
+			// The audited page itself, absent from the findings — must retract.
+			AddRow("contrast_failure:/pricing#h2.card-title", "deferred"))
+	// EXACTLY ONE update, and it names the audited page's key.
+	mock.ExpectExec("UPDATE site_work_items").
+		WithArgs("render_audit", sqlmock.AnyArg(), siteID, "contrast_failure",
+			"contrast_failure:/pricing#h2.card-title", sqlmock.AnyArg()).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectCommit()
+
+	out, err := WriteRenderAuditFindingsAction(context.Background(), ActionParams{
+		DB:               db,
+		Logger:           zap.NewNop(),
+		ExecutionContext: &types.ExecutionContext{},
+		StepConfig:       models.Step{Config: map[string]interface{}{}},
+		CollectedData: renderAuditCollected(siteID, map[string]interface{}{
+			"run_id":   "run-shape",
+			"contrast": []map[string]interface{}{},
+			"summary": map[string]interface{}{
+				"pages":         1,
+				"pages_audited": []string{"https://example.com/pricing"},
+			},
+		}),
+	})
+	if err != nil {
+		t.Fatalf("action failed: %v", err)
+	}
+	if m := out.(map[string]interface{}); m["retracted"] != 1 {
+		t.Fatalf("exactly the audited page's key may retract, got %#v", m)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
 // Version skew must degrade to INERT, never to a wrong closure: against an
 // un-rolled adapter there is no pages_audited, so there is no scope, so nothing
 // is even selected — and the result SAYS so rather than reporting a bare zero a

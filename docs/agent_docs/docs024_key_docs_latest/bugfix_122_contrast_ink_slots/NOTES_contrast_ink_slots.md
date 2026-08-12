@@ -1475,3 +1475,55 @@ independent facts about one event.
 SAME commit 29 seconds apart, so a fleet release rolls the adapter with the chassis. The handoff's
 "roll both services" is **one release, not two** — which also means the version-skew branch I built
 is unlikely to be exercised in practice, and stays as the guard for the case where it is.
+
+### Council round 2: APPROVED — and the best objection found a gap in my evidence
+
+Round 2 completed 20:01:45Z. **APPROVED, 5 advisory objections, none high-severity.** The health
+fields matter as much as the decision and were checked rather than assumed: **13 reviewers, 4
+abstained (relevance-gated), `unreadable: 0`, `gated_by_truncation: false`.** An approval where
+seats were truncated or unreadable is not an approval on substance — this one is (relevant given
+this lane's own note that the architecture seat's first three reviews were 2/3 truncated).
+
+**`guardian`'s objection was right and I had missed it.** I enumerated CONSUMERS of the render-audit
+response with care — and never enumerated PRODUCERS of `contrast_failure`. The seam's own landmine
+is explicit that adopting retraction on a co-filed `item_type` silently closes the other producer's
+findings; that is exactly why `check_undeployed_assets` was rejected as WII-009's first adopter,
+and `undeployed_asset` is co-filed *by this very action*. So the risk was live and adjacent, not
+theoretical. Measured after the fact, with the controls the census can give:
+
+```
+audit_source | source       | created_by         | rows | distinct_key_sets
+(none)       | render-audit | render-audit-agent |  226 |                 1
+```
+
+One producer, one shape — plus a Go grep showing one file files the type. **The limit, stated:
+this census sees producers that have FILED. A producer that has never fired is invisible to it**
+(WII-015's own "not claimed", inherited here). Re-run before anything else files this type.
+
+**`bug_historian`'s URL-shape objection produced the one code change:** the retraction compares a
+key built from today's URL shape against one a PAST filing wrote, and nothing pinned which way a
+mismatch fails. Added `ShorterPageDoesNotPrefixMatchALongerOne`, pinning the dangerous direction —
+`/pricing` must never prefix-match a key belonging to `/pricing.html`. That is what the `#` inside
+the prefix buys; removing it makes the test RED (fifth mutation proof this session).
+
+**`reuse_agent` asked the Step-Zero question I had not shown:** why not extend
+`revalidate_review_queue` / `reviewRevalidators`, which already closes parked items on fresh
+positive evidence? Checked rather than argued, and decisive twice over: that action runs
+**in-chassis, which has no Chromium**, so it cannot take a contrast measurement at all — the very
+constraint that put this on the audit path; and its selector is `workItemRevalidatableStatuses` =
+{`needs_human_review`, `unresolved`}, which excludes `deferred`, and widening a shared selector is
+what that file's own comment warns against (it records `failed` being left out after measuring the
+blast radius). Right call, undocumented reasoning — now documented.
+
+Two accepted and NOT fixed: it is a symptom fix for one item_type while `GetVerifier` still
+completes any unregistered type untouched (`bugs_open/213`'s call), and `architecture` flagged that
+this is the **second** inline copy of "still-failing set before filters, retract via
+resolveWorkItems" — **a third must extract a helper.** Both written into WII-016.
+
+**Residual, unclosed:** concurrent render-audit runs on one site. `batch_id` guards a run against
+its own rows only, so run B can retract a row run A filed seconds earlier if B did not re-measure
+that pairing. Defensible, untested, recorded rather than solved.
+
+**Not amending `5639a1103` to say `Council-Reviewed:`.** Forward-only forbids it, and `098` credits
+the commit automatically from its `Council-Submitted:` trailer now the correlation is approved —
+which is precisely the hole that trailer was invented to close.

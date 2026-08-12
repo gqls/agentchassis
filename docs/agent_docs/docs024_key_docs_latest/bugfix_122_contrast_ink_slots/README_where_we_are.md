@@ -546,3 +546,26 @@ So the position is unchanged from earlier: built, committed, reviewed-pending, a
 goes live on the next release. The genuinely good news from looking is that the two services this
 needs both went out together on the same version, seconds apart — so it is one release that carries
 both halves, not two separate things to coordinate.
+
+**2026-08-12, end of the evening.** The reviewers approved it. Thirteen of them looked, and I
+checked that none of their reviews had been cut off or failed to render before I took the approval
+at face value — an approval from reviewers who couldn't read the submission would look identical
+from the outside.
+
+Five advisory notes came back, and **one of them caught a real gap in my homework.** I had been
+careful to list everything that READS the data this change produces. I never listed everything that
+WRITES the kind of ticket it closes. Those are different questions, and the second is the dangerous
+one: if some other part of the system also files contrast tickets, my change would have been
+closing their findings as well as its own. There is a written warning about exactly this trap, and
+it has bitten this seam before. I went and counted: all 226 tickets come from one place, one shape,
+and only one piece of code files them. So the answer is fine — but I didn't know that when I
+submitted, and I should have.
+
+A second note led to one extra test, guarding something genuinely easy to get wrong: making sure a
+page called "/pricing" can never be mistaken for a different page called "/pricing.html" when
+matching up tickets. Two notes I've accepted without fixing, and said so plainly: this solves the
+problem for one kind of ticket while the underlying gap stays open for others (that belongs to
+another workstream), and if a third part of the system ever needs this same trick, it should be
+pulled out into one shared piece rather than copied a third time.
+
+Still not live — that needs the next release. Nothing needs you.
