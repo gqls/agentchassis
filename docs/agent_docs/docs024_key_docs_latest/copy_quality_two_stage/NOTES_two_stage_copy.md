@@ -127,3 +127,89 @@ existence check as its control]`
 design vocabulary, (b) the framing/readability rules, and (c) an instruction not to
 introduce facts the site does not already state. (c) is new today and is the
 untested one.
+
+## 2026-08-12 — round 5: the spec reframe WORKED on the body and produced a fresh violation in the H1. Both halves matter.
+
+**The claim in `CONTRIB_2026-08-12` is now tested. Verdict: confirmed for the body,
+refuted as a sufficient control for headings.**
+
+Live and verified (stored prose serving, hero 1 / grids 2 / cards 12, 31 class attrs,
+668 words, 42 links — design untouched for the third round running):
+
+| check | round 4 | round 5 |
+|---|---|---|
+| `"sit apart"` | 1 | **0** |
+| `"only make(s) sense"` | 1 | **0** |
+| `"either way"` | 1 | **0** |
+| `"before you've even applied"` | 1 | **0** |
+
+**All four phrases banned by name in `say_it_aloud` are gone.** So banning specific
+constructions BY NAME works, where the round-4 general prohibition ("no loss framing
+first") had produced displacement instead. `[MEASURED]`
+
+**The lever flip took, and this is the substantive win.** Round 4's mechanism
+sentence was a subtraction; round 5's is:
+
+> *"If you're applying for a mortgage while a loan or car finance agreement is still
+> running, clearing roughly £100 a month of payments can bring back somewhere in the
+> region of £5,000 to £7,000 of borrowing power, because a lender assesses what's left
+> of your income once your other commitments are paid."*
+
+Same arithmetic as *"reduces that offer before you've even applied"*, stated as a
+lever, point at the front, mechanism after, in the owner's requested conditional
+shape. **That is `identity.key_differentiators[0]` rendered in its new direction** —
+the trace runs forward exactly as it ran backward.
+
+### ⛔ And the H1 is a NEW violation of the register the same edit installed
+
+> **"See how your borrowing fits together before a lender does"**
+
+*"before a lender does"* frames the reader as racing the lender — the adversarial
+register `identity.tone` was edited this afternoon to forbid (*"a lender is simply the
+party that decides, and its criteria are explained rather than exposed"*). The prose
+obeyed; the heading found a new way in.
+
+**And the sibling site had already banned this exact shape, by example, weeks of
+argument earlier.** `mortgagecalculator.co.uk`'s
+`content_direction.heading_style.headings_to_never_write` opens with:
+
+```
+See What the Bank's Decision Engine Sees Before You Apply
+Tools That Do the Bank's Maths for You
+Guides for what the bank won't tell you
+```
+
+Ours is *"See how your borrowing fits together **before a lender does**"* — the same
+construction (see-what-they-see-first), arrived at independently on a second site
+**within an hour of that site's own owner-approved fix existing in the same
+database.** `[MEASURED — both specs read live, 2026-08-12]`
+
+### The three conclusions for this lane's design
+
+1. **Prose-level rules do not reach headings.** `framing_direction` and
+   `say_it_aloud` both moved the body and neither moved the H1. Headings need their
+   own rules **with worked examples in both directions** — which is precisely the
+   shape the sibling's spec already has (`good_examples` +
+   `headings_to_never_write`) and ours does not.
+2. **A ban list is only as good as its examples, and examples do not generalise.**
+   Naming four phrases removed four phrases. It did not teach the underlying rule, so
+   the next sentence invented a fifth failure. This is the strongest argument yet
+   that stage 2 must be a JUDGEMENT pass and not a lint pass — and equally, that a
+   judgement pass needs the ban list, because the four named phrases went quietly.
+3. **The fleet is repeating findings across sites within the hour.** Two sites, two
+   sessions, the same banned construction, one of them already solved. **Nothing
+   shares a copy rule between sites today.** A cross-site register corpus — the
+   sibling's `headings_to_never_write` + `good_examples` as shared, not per-site —
+   would have caught this H1 before it shipped. Candidate P2.5 for the PLAN, and
+   cheaper than stage 2.
+
+### Not yet done, named so it is not mistaken for done
+
+- The H1 stands on the live page. Fixing it is another round, and the honest sequence
+  is: port the sibling's heading rules first (so the fix is a rule, not a retry),
+  then re-run once.
+- **The guide TITLES are still loss-framed and the homepage links them by title** —
+  *"See how your loans cut what you can borrow"* is a link on the new page because
+  that is the guide's own `pages.title`. The corpus is still pulling. The sibling lane
+  rewrote **31 titles** for exactly this reason; that is the next lever on this site
+  and it is not a copy edit either.
