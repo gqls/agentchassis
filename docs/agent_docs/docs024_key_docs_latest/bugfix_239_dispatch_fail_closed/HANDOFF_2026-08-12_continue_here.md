@@ -22,8 +22,48 @@ everything below supersedes it.
   Recorded in SYS-090.
 - **v1.0.1288 is live** (stamp `bb5348642`): carries 239's fix (unregressed), 246's fix
   (`039cfce84` + follow-ups `6ba3fca28`), and 247's deletions (`8cb8938bb`).
+- **v1.0.1291 rolled 2026-08-12 14:55 UTC** (stamp `da5a7eb8f`, found by single-pass probe).
+  Re-checked: 239's, 246's and 247's fixes are all still ancestors — no regression. It does
+  NOT carry D2 (committed after it).
 
-## TASK 1 — D2: surface `db.Stats()` so pool saturation is measurable at all
+## TASK 1 — D2 — ✅ BUILT 2026-08-12, committed `11abe7a41`, awaiting verdict + roll
+
+**Register entry SYS-091. Council submission `e3aa14c5-adcd-4472-b0ee-213ae043e378`
+(`Council-Submitted:` trailer — 098 credits it automatically once approved). STILL OWED:
+read that verdict and act on a REVISE/REJECTED, because the code is already on the shared
+branch.** Query it with:
+```sql
+SELECT created_at, metadata->>'decision' FROM diagnosis_artifacts
+WHERE correlation_id='e3aa14c5-adcd-4472-b0ee-213ae043e378' AND kind='council_report';
+```
+
+What shipped: `observability.RegisterDBPoolStats(reg, db, dbName)` wrapping the **stdlib**
+`collectors.NewDBStatsCollector`, registered by `agentbase` at the one place it opens the
+pool. Emits `go_sql_max_open_connections` (the configured size — 246's "you cannot observe
+the pool at 12" is answered), `go_sql_wait_count_total`, `go_sql_wait_duration_seconds_total`,
+plus open/in-use/idle. Stdlib rather than nine hand-rolled `ai_persona_*` gauges, citing the
+owner's bloat rider. 4 tests, **mutation-verified** (stub the registration → the size
+assertion fails with its exact message; restore → 4/4 pass).
+
+**The check worth copying: I verified the READER before building**, because a metric nobody
+scrapes is this platform's own documented failure mode (`bugs_open/040` — the fleet
+annotated a closed port and held zero `ai_persona_*` series for its entire life). Findings,
+all live 2026-08-12: PodMonitor `ai-persona-system/agent-chassis` selects
+`app in (agent-chassis, dynamic-agent)`, path `/metrics`, **`targetPort: 9090` numeric while
+the pod declares only containerPort 8080** — that numeric target is what makes the scrape
+work, so do not "tidy" it. Prometheus reports both chassis pods **`health:"up"`** on
+v1.0.1291 and already holds **19 `ai_persona_*` series**, so the 040 fix is genuinely live.
+
+**POST-ROLL CHECK (the one thing left):** after the next roll, confirm the series exists and
+reads 12 —
+```bash
+kubectl -n monitoring exec prometheus-kube-prometheus-stack-prometheus-0 -c prometheus -- \
+  wget -qO- 'http://localhost:9090/api/v1/query?query=go_sql_max_open_connections'
+```
+Expect `12` per chassis pod. **Absence of the series is the disconfirming result**, and it
+could come out that way: it is 0 today because the collector is not in a rolled image yet.
+
+### D2's original brief (kept for the record)
 
 **Ownership settled 2026-08-12:** this lane builds it; the shared-pool-ownership lane
 (messages from the "bugfix 238" socket) stood down on it at our confirmation and takes
