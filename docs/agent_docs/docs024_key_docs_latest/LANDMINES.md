@@ -9807,3 +9807,22 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **relations:** `bugs_open/265` (this defect) · `bugs_open/260` (the render failure whose gate it would make inert) · the `a hook that writes to stderr reaches nobody` class — measure a check at its READER
 - **source:** 2026-08-12, `copy_quality_two_stage` lane sizing 260's exposure; reintroduction dates surfaced by the `brochure_component_library` front.
 - **added:** 2026-08-12, copy_quality_two_stage lane
+## An `orchestration_states` status count is not a measure of cluster load — the filter matches EVERYTHING, and the rows it should match are mostly dead
+
+- **footprint:** `orchestration_states.status`, `orchestration_states.updated_at`, `llm_call_log`, and **any pre-flight of the form "is the cluster busy enough that I should not apply / restart / roll / dispatch right now?"**
+- **fires when:** you are about to do something mildly disruptive on shared infrastructure and you do the responsible thing — check whether other sessions are mid-flight first. The query is obvious, it returns a plausible number, and **both of its failure modes push the number UP**, so the answer is always "busier than it really is" and the safe-looking action is always "defer".
+- **trap 1 — the statuses are UPPERCASE, so the customary filter matches every row in the table.** `WHERE status NOT IN ('completed','failed','cancelled')` excludes nothing: the values are `COMPLETED`, `FAILED`, `CANCELLED`. No error, no empty result — you get the whole table wearing the label "in flight". Measured 2026-08-12 12:37Z: that filter returned all **6,311** rows (`COMPLETED` 6,109 + `FAILED` 130 + `RUNNING` 44 + `CANCELLED` 24 + `EXECUTING_STEP` 3 + `INITIALIZED` 1); the correctly-cased one returned **48**. Re-measure rather than quoting that total — the table is retention-clocked at roughly a day here, so only the **ratio** is the durable part.
+- **trap 2 — even correctly cased, most matching rows are not running.** `RUNNING` / `EXECUTING_STEP` / `INITIALIZED` linger long after the work stops. Of those 48 rows, **46 had not been touched in over 2 hours and only 2 were active within 15 minutes.** The reaper described in *"A chassis roll KILLS an in-flight council"* only sweeps `EXECUTING_STEP` past **4h**, so there is a wide band in which dead rows count as live ones.
+- **the wrong result, and it is a decision not a number:** "38 in-flight orchestrations — the cluster is busy, defer." That is exactly what happened in the `bugs_open/252` lane on 2026-08-11: a safe, request-only manifest change was held back overnight partly on that figure. Applied 2026-08-12 in a genuinely quiet window, it took **under three minutes** and disturbed nothing. The cost of this trap is not a wrong figure in a doc — it is work that does not happen.
+- **the check — bucket by `updated_at`, and never let this table answer alone:**
+  ```sql
+  SELECT CASE WHEN updated_at > now() - interval '15 minutes' THEN 'active'
+              WHEN updated_at > now() - interval '2 hours'    THEN 'recent'
+              ELSE 'stale' END AS age, count(*)
+  FROM orchestration_states
+  WHERE status IN ('RUNNING','EXECUTING_STEP','INITIALIZED') GROUP BY 1;
+  ```
+  Then **corroborate with a signal that cannot inherit the same blindness**, because a pile of stale rows and a busy fleet look identical in this table: `SELECT count(*) FROM llm_call_log WHERE created_at > now() - interval '15 minutes';` (**1** on the quiet day against **27** on the busy one — it discriminates, and it is one query), plus the logs of the specific thing you are about to disturb. Two readings off `orchestration_states` are not two checks.
+- **relations:** *"A chassis roll KILLS an in-flight council"* — same table, opposite question (is MY run dead vs is the FLEET busy), and its reaper is why trap 2 has a 4-hour band · `bugs_open/252` (the deferral this cost) · `bugs_open/029` hung spawns — `[UNVERIFIED]` whether the 46 stale rows are that defect, not investigated here · the *"a count you kept is not a census"* class.
+- **source:** 2026-08-12, `bugs_open/252` disk-pressure lane, deciding whether it was safe to apply `ephemeral-storage` requests.
+- **added:** 2026-08-12, bugs_open/252 disk-pressure lane
