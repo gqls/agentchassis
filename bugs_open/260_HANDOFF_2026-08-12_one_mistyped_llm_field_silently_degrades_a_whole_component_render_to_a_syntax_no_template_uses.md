@@ -115,7 +115,16 @@ Evidence run: orchestration `07983216-929b-4494-8131-87c523058ea5` (fundamentall
 
 - **Live damage: ZERO.** Of **1,452** stored `page_components`, **0** leak a control block and
   **1** leaks a `{{…}}` var — and that one is *not* this defect (webdesign.co.uk `ported-page`,
-  legitimate prompt-library copy containing `{{TONE}}`/`{{COLOR}}`).
+  component **`tool-blueprint-compiler`**, legitimate prompt-library copy containing
+  `{{TONE}}`/`{{COLOR}}`. **If anyone tightens the detector to a bare `{{`, this row is its first
+  false positive** — component name supplied by the `copy_quality_two_stage` lane, 2026-08-12).
+  > **DEMAND CONTROL, added 2026-08-12 (supplied by the `copy_quality_two_stage` lane — the zero
+  > was uncontrolled on the axis that matters).** On its own, "0 stored components carry the
+  > damage" is equally consistent with **"the exercising path never ran"**. It did run:
+  > `section-editor` has **132 orchestrations, all COMPLETED, most recent today**, against
+  > **0 of 1,454** stored components carrying `{{if|range|end|with}}`. So this is a real negative
+  > — "the guards hold", not "nothing has tried". This is the distinction that makes the zero
+  > evidence rather than an artefact.
   The block regex was positive-controlled in the same query (`{{if .eyebrow}}`, `{{end}}`,
   `{{range $s := .steps}}` → true; plain HTML → false), so the zero is real and not a silent
   non-match. **Note this also refutes `bugs_open/203`'s claim that
@@ -156,6 +165,26 @@ Evidence run: orchestration `07983216-929b-4494-8131-87c523058ea5` (fundamentall
    (`rerender_page_sections_action.go:333`) — so the page-**build** path has no schema gate at
    all. Extending it to validate declared types, and calling it on both paths, catches this
    class before any render. Reuse-first; complements (1) rather than competing.
+   > **⚠ CORRECTED 2026-08-12 (the `copy_quality_two_stage` lane's CONTRIB_…12c caught this, and
+   > it would have shipped inert).** As first written, "against `input_schema`" implied the JSON
+   > Schema shape `mechanism-flow` uses. **The library is overwhelmingly NOT that shape.** Of 255
+   > components: **4** use `properties`, **164** use the house v2 dialect
+   > `{"fields": {<name>: {"type": …}}}`, **87** declare neither. A gate written against
+   > `input_schema->'properties'` would cover **4 components and report a clean sweep over the
+   > other 251** — armed-but-inert, looking exactly like success. **I generalised from the one
+   > component in front of me, and it is the unrepresentative one.**
+   > **Their prescription needs one refinement, though: do NOT write the gate against the house
+   > dialect either.** A `fields`-only gate is blind to the 4 `properties` components — including
+   > `mechanism-flow`, the only component with a proven live failure. Call
+   > **`datahelpers.SchemaContentFields`** (`platform/orchestration/datahelpers/component_schema_fields.go:58`),
+   > which already normalises BOTH dialects onto the v2 field shape and preserves `items` /
+   > `min_items`, so a nested array-of-objects check is expressible. It is also already the
+   > helper the estate uses for exactly this question.
+   > **And match `type IN ('array','list')`** — `list` is a fifth declared type (5 fields across
+   > 2 components, 0 of them `source: llm`); an `'array'`-only filter never sees them.
+   > **Coverage honesty:** the **87** schema-less components are gated by nothing whatever this
+   > candidate does, so a green result from it is NOT fleet coverage and must not be reported as
+   > one.
 3. **Coerce at the boundary** (a string where an array-of-objects is declared becomes a
    one-element array with the string as `body`). Cheapest, and it would have rendered this page
    correctly — but it silently rewrites writer output, so it hides the contract violation
@@ -216,3 +245,91 @@ loop or a stated substitution. Both apply:
   rows — `validate_content` is a `page-build-handler` step), so re-running it on the same
   symptom text would likely land in the same place. **Where the loop's conclusion is supposed to
   be written remains an open defect in its own right** and is worth more than this bug.
+
+---
+
+## 9. ADDENDUM 2026-08-12 — the exchange with `copy_quality_two_stage`, and one adjacent defect it exposed
+
+Their reply is `copy_quality_two_stage/CONTRIB_2026-08-12c`. Three of their numbers are folded in
+above (candidate 2's dialect correction, §4's demand control, the benign `{{` row's component).
+Two further things came out of verifying them.
+
+### 9a. Sizing the acute set — better than my "33 ranging components"
+
+My §4 exposure figure counted components whose *template* ranges. The sharper population is
+components that **declare** an array field the **writer** is told to author, because that is the
+set where a type violation is reachable at all. Measured over all 255, house dialect:
+
+| declared type | fields | `source: llm` | components |
+|---|---|---|---|
+| `array` | 63 | **13** | 49 |
+| `list` | 5 | 0 | 2 |
+
+**The 13 `source: llm` array fields are the acute set** — declared as arrays, authored by the
+writer, checked by nothing. `mechanism-flow` is one of them and is **not** a special case. (The
+lane measured 49/12 over 191 *active* components; the delta is population, not method — and
+`list` accounts for a fifth type neither of us filtered for initially.)
+
+### 9b. ⚠ ADJACENT DEFECT — an "extinct" schema dialect has been reintroduced four times, and its tripwire fires into logs nobody reads
+
+`SchemaContentFields`'s own doc comment
+(`platform/orchestration/datahelpers/component_schema_fields.go:53-56`) states:
+
+> *"the legacy dialect is extinct fleet-wide (0 of 173 as at 2026-07-21), so a true here means a
+> regression reintroduced it"*
+
+**There are 4 today, and every one was created AFTER that census:** `report-dossier` (created
+07-27), `mechanism-flow` (07-28), `evidence-timeseries` (07-28), `loans-consolidation` (created
+**2026-08-10**). So the reintroduction is not a one-off — it is ongoing, most recently two days
+before this filing.
+
+The platform anticipated exactly this: `WarnIfLegacyDialect` is wired into the render/rerender
+paths for it. **It fires at `Warn`, and I measured that the entire `RenderTemplate` log family is
+absent from a 4,661-line 24h window on `agent-chassis`** (§7 of this file) — so the tripwire has
+been firing into a channel with a shelf life of hours. **A detector whose only output is a Warn
+on a busy service is not a detector.** (The comment cites `bugs_open/026`; that file is CLOSED and
+is about `news-listing` hardcoding English — a different case, so the citation is stale and should
+not be followed as prior art.)
+
+This is not the same bug as the fallback, and I have not filed it separately — bug numbers were
+colliding at a rate of one per few minutes on 2026-08-12 (my own 260 was claimed by another
+session 40s before I filed). Whoever picks it up: the component-creator path is the likely
+producer, and the check is one query —
+`SELECT function, created_at FROM content_components WHERE input_schema ? 'properties';`
+
+### 9c. Their stage-2 design constraint is TOO STRONG — `field_updates` does not put the hazard structurally out of reach
+
+The lane adopted, as a hard constraint, *"prefer `field_updates`, which puts the hazard
+structurally out of reach, over a gate"*. Read against the code, that is true only of fields the
+editor does **not** name:
+
+- Merge mode is `for k, v := range updates { existingContentData[k] = v }`
+  (`section_editor_actions.go:746-748`). **Any field the agent names is overwritten with whatever
+  it supplies** — so `field_updates: {"steps": "…prose…"}` retypes `steps` exactly as a full
+  replacement would.
+- The code comment they are reading (`:403-405`) says a merge *"carries type and result forward
+  **untouched**"* — `untouched` is the operative word, and it means untouched fields, not the
+  edited one.
+- **For this hazard that distinction collapses**, because the field a readability pass edits *is*
+  the array field. Preferring `field_updates` narrows the blast radius from "every field in the
+  component" to "the fields being edited" — worth having, but it is a mitigation, **not a
+  structural guarantee, and not a substitute for the gate.**
+
+### 9d. Their open question answered: the merge/replace mode is NOT recoverable from the DB
+
+They asked for a way to discriminate full-replace from field-update runs, having found that
+matching `collected_data` for the two key names returns 132/132 (the action's config echo carries
+both names regardless of use). The answer is that it cannot be done as the code stands:
+
+- The action's returned map (`section_editor_actions.go:504-514`) records `edit_type`
+  (`content_edit` / `component_swap`) and **not** the merge-vs-replace mode.
+- The mode exists only as two `logger.Info` lines (`:750`, `:758`, `:766`) — and those rotate.
+- Reading the *input value* rather than the key name is the only live route, and it has a trap the
+  code documents at `:729-732`: `ExtractActionInputs` does a **nested** lookup, and
+  `content_data` is aliased to `replacement_content_data` (`:60`), so it can false-positive on
+  `site_record.content_data` (the site plan). That is why `field_updates` is checked FIRST, and
+  why any measurement must apply the same precedence: **merge iff a non-empty `field_updates`
+  value resolves; only then consider replacement.**
+- **One-line fix if the split is needed repeatedly** (it is, for their Phase 4): add the mode and
+  the two field counts to the returned map, which lands in `collected_data` and makes the question
+  answerable retrospectively for ever after.
