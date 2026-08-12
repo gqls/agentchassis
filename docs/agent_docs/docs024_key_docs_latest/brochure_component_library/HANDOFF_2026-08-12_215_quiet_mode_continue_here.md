@@ -11,10 +11,10 @@ carried forward below where still live.
 
 | | |
 |---|---|
-| code | **LIVE on chassis `v1.0.1291`**, artefact-verified on BOTH replicas 2026-08-12 ~16:00Z (re-probed after the roll from 1290; positive control + one-letter near-miss both behaved). **⚠ STALE AS OF 2026-08-12 ~20:00Z — the owner has a fresh chassis building and about to deploy.** That verification described 1291 and says nothing about what replaces it. **Re-probe before relying on this row** (§6 has the only method that works), and read the stamp of `agent-chassis` specifically — a release can straddle other sessions' commits and ship several revisions under one tag, so a fleet-level tag is not an answer about this service. All four lane commits are ancestors of HEAD, so a build from HEAD carries them; that is an expectation, not a measurement |
+| code | **LIVE on chassis `v1.0.1293`** (rolled 2026-08-12 19:13–19:14Z), **re-verified on BOTH replicas 2026-08-12 ~20:05Z by two independent methods.** (1) Literal probe of `/proc/1/exe`: `PLAN_PAGE_STEM_TWIN_REFUSED` **present**, one-letter near-miss `…REFUSEE` **absent** (so the probe can fail), pre-lane control `OWNED_PAGE_GUARD` **present** (so it works on this binary) — all three on each replica. (2) Provenance stamp, captured while still in log range: both replicas built from `7a1887e3163af75ce…`, and `git merge-base --is-ancestor` confirms `19acfc895` (the `carryForwardStructureSpecKeys` re-adoption fix) **is in the build**. Supersedes the `v1.0.1291` verification of ~16:00Z |
 | council | **APPROVED** round 3, corr `56e13695-17cb-48ec-bc6b-0371fde8b717` |
 | enabled on | **fundamentallyai.com only** — `honour_realised_identity` + `twin_identity_snap`. `stem_twin_snap` absent by design |
-| dark-launch counters | **still 0/0/0/0** — re-read 2026-08-12 ~19:00Z with BOTH controls: demand control unchanged (only post-roll plan is noted.co.uk's first build, 0 `pages` predating it), and an instrument control proves the query is not blind (`agent_error_log` took 3,503 rows in 24h). No replan has run through the new path yet |
+| dark-launch counters | **still 0/0/0/0** — re-read twice on 2026-08-12, at ~19:00Z and again at ~20:05Z **after** the `v1.0.1293` roll, both times with BOTH controls. Demand: **0 `site_plans` rows since the roll**, and the only post-1291 plan was noted.co.uk's first build (0 `pages` predating it, so it cannot exercise the reconciler). Instrument: `agent_error_log` took 3,503 rows in 24h and **13 since the roll**, so the query is not blind on the new binary either. **No replan has run through the new path yet — the zero is want of demand, not want of function** |
 | damage remaining | **7 both-deployed twin pairs, 4 domains** — untouched, needs an owner call per pair (**O2, the only open decision**) |
 | bug file | stays **OPEN**; newest sections at the bottom of `bugs_open/215_HANDOFF_...md` |
 | register | **PLAN-048** in `docs026_concept_register/register/site-plan-and-reconciler.md` |
@@ -72,12 +72,13 @@ GROUP BY 1 ORDER BY 1;
    is in the LANDMINES entry "The page-identity dark-launch counter is NOT a passive
    instrument".
 
-**A roll is landing (owner, 2026-08-12 ~20:00Z) — two consequences for this query.** The
-counters live in `agent_error_log`, which the roll does not clear, so a non-zero after the
-roll may predate it: **bound the read with `occurred_at > '<roll time>'`** if you are asking
+**A roll LANDED at 2026-08-12 19:13–19:14Z (`v1.0.1293`) — two consequences for this query.**
+The counters live in `agent_error_log`, which the roll does **not** clear, so a non-zero may
+predate it: **bound the read with `occurred_at > '2026-08-12 19:13:00+00'`** if you are asking
 what the NEW binary did. And CLAUDE.md's standing rule applies before you try to induce a
 signal: **no orchestration dispatch within ~300s of a chassis pod (re)start** — the spawn is
-silently dropped, which reads exactly like "the gate did not fire".
+silently dropped, which reads exactly like "the gate did not fire". (That window is long past
+as of ~20:05Z; it will matter again on the next roll.)
 
 **Expected first signal on fundamentallyai: ~2 `PLAN_PAGE_STEM_TWIN_OBSERVED` rows**,
 the harmless kind (both sides of both pairs already realised). That is the evidence
@@ -118,6 +119,18 @@ interactive. Nothing has been executed.
   everything including a fabricated control — no positive control, proves nothing.
   **What works:** probe **added string literals**, with a **one-letter near-miss**
   negative control AND a pre-lane positive control, on **both** replicas.
+  > **AMENDED 2026-08-12 ~20:05Z — the provenance line IS usable if you catch it fresh,
+  > and it is strictly better than the literal probe when you can.** Two changes to the
+  > recipe make it work: name the **pod**, never `-l app=` (the label selector is what
+  > drags in the council payloads, and it reads one pod of N), and cap the read with
+  > `--limit-bytes=400000` so you get the head of the log where startup lives:
+  > `kubectl -n ai-persona-system logs <pod> --limit-bytes=400000 | grep -m2 -i 'build provenance'`
+  > Done ~50 min after the roll, that returned the stamp cleanly on both replicas. Then
+  > **"did my fix ship?" stops being an inference**:
+  > `git merge-base --is-ancestor <your-commit> <the stamped sha>`.
+  > **Its shelf life is the trap, not its accuracy** — run it in the first minutes after a
+  > roll and record the sha in this table, because an empty result later means "out of
+  > range", never "unstamped". The literal probe stays the fallback: it has no shelf life.
 - **The identity marker's route** travels through `collected_data.site_plan`, NOT
   `site_plan_pages`. `TestReconcile_MarkerSurvivesTheStepBoundary` fails loudly if a
   future change makes `extractPagesFromPlan` field-selective.
