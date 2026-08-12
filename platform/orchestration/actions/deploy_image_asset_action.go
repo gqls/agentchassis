@@ -9,6 +9,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
@@ -57,7 +58,17 @@ func init() {
 //     explicit dotted path so Strategy 0 resolves it — a bare field name is found
 //     by recursive search, which picks a sibling asset's value at random when the
 //     run holds more than one.
-//   - purpose (optional, default "hero"): image purpose — controls resize dimensions via ImagePurposes
+//   - purpose (optional, default "hero"): image purpose — controls resize
+//     dimensions via ImagePurposes. When the run states no purpose and asset_id
+//     names a row, the ROW's purpose wins over this default: a default is
+//     indistinguishable from a caller's choice without ActionInputs.WasDefaulted,
+//     and that is why every work-item-dispatched deploy shipped as a hero
+//     (bugs_open/248 finding (b)).
+//   - asset_key (optional): selects the per-variant filename. Resolved from
+//     input_fields, then config["asset_key_field"] as a JSONPath, then the asset
+//     row. There is deliberately NO literal-string rung: config["asset_key"]
+//     holds a dotted path on every live caller, and reading it as a filename
+//     published 150+ page-visible 404s (bugs_open/248 finding (a)).
 //   - deploy_path: NO LONGER HONOURED. An explicit value draws a refusal result
 //     (bugs_open/179 finding A) — see the guard below the brand-head one. The
 //     output path is derived from (asset_key, purpose) by the one function in
@@ -111,18 +122,72 @@ func DeployImageAssetAction(ctx context.Context, params ActionParams) (interface
 	// skipped and existing logo/hero deploys keep their default paths.
 	//
 	// Resolution priority:
-	//   1. inputs.Get("asset_key")   — via input_fields config
-	//   2. config["asset_key"]       — literal string
-	//   3. config["asset_key_field"] — JSONPath into collected_data
+	//   1. inputs.Get("asset_key")     — via input_fields config
+	//   2. config["asset_key_field"]   — JSONPath into collected_data
+	//   3. the asset row named by asset_id — authoritative, below
+	//
+	// THE LITERAL RUNG IS GONE (bugs_open/248 finding (a), removed 2026-08-12).
+	// It read config["asset_key"] as a filename whenever rung 1 resolved
+	// nothing. Every live caller sets that key to a dotted PATH — asset-deployer
+	// says "input_data.asset_key" — so the fallback published files named after
+	// the path EXPRESSION: `input-data.asset-key.jpg`, because AssetKeyFilename
+	// maps _ to -. 150+ rows across 16 sites, every one a page-visible 404,
+	// because the readers derive the real name from (asset_key, purpose) and no
+	// reader can ever guess this one. A config value that is a REFERENCE must
+	// never be usable as a VALUE; there is no caller-side discipline that makes
+	// that fallback safe, so it is deleted rather than gated.
 	assetKey := inputs.Get("asset_key")
-	if assetKey == "" {
-		if k, ok := config["asset_key"].(string); ok && k != "" {
-			assetKey = k
-		}
-	}
 	if assetKey == "" {
 		if kf, ok := config["asset_key_field"].(string); ok && kf != "" {
 			assetKey = datahelpers.ExtractNestedFieldString(params.CollectedData, kf)
+		}
+	}
+
+	// Guard the CLASS, not the one instance: an asset_key carrying a dot is an
+	// unresolved path expression whatever produced it — a future config with the
+	// same shape in a different key, a mapping typo, a spec that passes a path.
+	// No real key contains one (measured 2026-08-12: 478 asset rows, none empty,
+	// none with a dot), so discarding is safe, and publishing one is the defect.
+	if strings.Contains(assetKey, ".") {
+		logger.Warn("discarding an asset_key that is an unresolved path expression, not a key",
+			zap.String("asset_key", assetKey),
+			zap.String("purpose", purpose),
+			zap.String("bug", "bugs_open/248"))
+		assetKey = ""
+	}
+
+	// The asset row is the authority for BOTH of these, and the only source a
+	// dispatcher's input_mapping cannot silently drop. Consult it when asset_id
+	// names a row and the run has not actually stated a value:
+	//
+	//   - purpose: WasDefaulted distinguishes "the caller asked for hero" from
+	//     "nobody said anything, and hero is the default". Defaults are written
+	//     into the input map BEFORE the recursive search runs, and every later
+	//     strategy skips a field that already holds a value — so a defaulted
+	//     field is otherwise indistinguishable from a supplied one. That is why
+	//     every work-item-dispatched deploy shipped as a HERO, logos included:
+	//     the dispatcher's mapping carries no purpose key, so nothing could ever
+	//     beat the default (bugs_open/248 finding (b)).
+	//   - asset_key: the same mapping carries no asset_key either, so a repair
+	//     item cannot name one however correct its own spec is.
+	//
+	// This recovers a LOST input; it never overrides a stated one.
+	purposeUnstated := inputs.WasDefaulted("purpose") || !inputs.Has("purpose")
+	if assetID := inputs.Get("asset_id"); assetID != "" && params.DB != nil &&
+		(assetKey == "" || purposeUnstated) {
+		rowPurpose, rowAssetKey := assetRowIdentity(ctx, params.DB, assetID, logger)
+		if purposeUnstated && rowPurpose != "" && rowPurpose != purpose {
+			logger.Info("taking purpose from the asset row rather than the spec default",
+				zap.String("asset_id", assetID),
+				zap.String("defaulted_purpose", purpose),
+				zap.String("row_purpose", rowPurpose))
+			purpose = rowPurpose
+		}
+		if assetKey == "" && rowAssetKey != "" && !strings.Contains(rowAssetKey, ".") {
+			logger.Info("taking asset_key from the asset row — the run supplied none",
+				zap.String("asset_id", assetID),
+				zap.String("row_asset_key", rowAssetKey))
+			assetKey = rowAssetKey
 		}
 	}
 
@@ -462,6 +527,42 @@ func resolveStorageURIFromAsset(ctx context.Context, db *sql.DB, assetIDStr stri
 		zap.String("asset_id", assetIDStr),
 		zap.String("source_ref", ref))
 	return ref
+}
+
+// assetRowIdentity reads the (purpose, asset_key) an asset row declares for
+// itself. Those two are exactly what the shared derivation in platform/storage
+// keys the published path on, so the row is the one source of them that a
+// dispatcher's input_mapping cannot silently drop — and dropping them silently
+// is bugs_open/248: the build-dispatch-loop's mapping carries neither key, so a
+// repair item's own spec could not reach this action however correct it was.
+//
+// Kept separate from resolveStorageURIFromAsset rather than folded into it: that
+// one answers "where are the bytes", runs only when the caller named no s3_uri,
+// and must keep doing so. This answers "what IS this asset", and is needed even
+// when the source object was named explicitly.
+//
+// A missing or unreadable row is not an error — the caller keeps whatever it
+// already had. This exists to recover a LOST input, never to override a stated
+// one; the call site decides which is which.
+func assetRowIdentity(ctx context.Context, db *sql.DB, assetIDStr string, logger *zap.Logger) (purpose, assetKey string) {
+	assetUUID, err := uuid.Parse(assetIDStr)
+	if err != nil {
+		logger.Warn("assetRowIdentity: invalid asset_id",
+			zap.String("asset_id", assetIDStr),
+			zap.Error(err))
+		return "", ""
+	}
+
+	var p, k sql.NullString
+	if err := db.QueryRowContext(ctx,
+		`SELECT purpose, asset_key FROM assets WHERE id = $1`,
+		assetUUID).Scan(&p, &k); err != nil {
+		logger.Warn("assetRowIdentity: asset row lookup failed",
+			zap.String("asset_id", assetIDStr),
+			zap.Error(err))
+		return "", ""
+	}
+	return p.String, k.String
 }
 
 // findDomain extracts domain from collected data

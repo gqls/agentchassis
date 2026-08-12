@@ -110,10 +110,22 @@ func (c *UndeployedAssetsCheck) Run(dctx DiscoveryCheckContext) (*CheckResult, e
 			"assets": assets,
 		})
 		for _, asset := range assets {
+			// asset_key travels in the spec because the DEPLOYER keys the
+			// published path on (asset_key, purpose) and cannot otherwise learn
+			// it: the build-dispatch-loop's input_mapping passes neither field,
+			// so for months this item deployed under a placeholder name and the
+			// page it was raised for went on 404ing — a repair loop that
+			// re-fired every sweep and never converged (bugs_open/248).
+			//
+			// It is carried even though the deployer now also reads the row
+			// itself. Two independent routes to the same value is the point: the
+			// spec is what a reader of this ITEM can see, and an item whose spec
+			// omits the field its handler needs is unreviewable.
 			specJSON, _ := json.Marshal(map[string]interface{}{
 				"check":      "undeployed_assets",
 				"asset_id":   asset.AssetID,
 				"purpose":    asset.Purpose,
+				"asset_key":  asset.AssetKey,
 				"asset_type": asset.AssetType,
 				"url":        asset.URL,
 			})
@@ -238,6 +250,7 @@ func (c *UndeployedAssetsCheck) Run(dctx DiscoveryCheckContext) (*CheckResult, e
 type undeployedAssetFinding struct {
 	AssetID   string `json:"asset_id"`
 	Purpose   string `json:"purpose"`
+	AssetKey  string `json:"asset_key"`
 	AssetType string `json:"asset_type"`
 	URL       string `json:"url"`
 }
@@ -250,7 +263,7 @@ type undeployedAssetFinding struct {
 // LANDMINE section of the file header before changing it.
 func findUndeployedAssets(dctx DiscoveryCheckContext) ([]undeployedAssetFinding, error) {
 	rows, err := dctx.DB.QueryContext(dctx.Ctx, `
-		SELECT a.id, COALESCE(a.purpose, 'unknown'), a.asset_type, a.url
+		SELECT a.id, COALESCE(a.purpose, 'unknown'), COALESCE(a.asset_key, ''), a.asset_type, a.url
 		FROM assets a
 		WHERE a.site_id = $1
 		  AND NOT (COALESCE(a.purpose, '') = ANY($2::text[]))
@@ -274,7 +287,7 @@ func findUndeployedAssets(dctx DiscoveryCheckContext) ([]undeployedAssetFinding,
 	var findings []undeployedAssetFinding
 	for rows.Next() {
 		var f undeployedAssetFinding
-		if err := rows.Scan(&f.AssetID, &f.Purpose, &f.AssetType, &f.URL); err != nil {
+		if err := rows.Scan(&f.AssetID, &f.Purpose, &f.AssetKey, &f.AssetType, &f.URL); err != nil {
 			dctx.Logger.Warn("Failed to scan undeployed asset", zap.Error(err))
 			continue
 		}

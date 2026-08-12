@@ -472,6 +472,32 @@ type ActionInputs struct {
 
 	// Which required fields were missing (before error)
 	MissingRequired []string
+
+	// Defaulted records the fields whose value came from spec.Defaults and was
+	// never replaced by a caller-supplied one. Provenance only — no value in
+	// Values changes because of this map.
+	//
+	// WHY IT EXISTS (bugs_open/248 finding (b)). Defaults are written into Values
+	// BEFORE Strategy 1/2 run, and every later strategy skips a field that
+	// already has a value. So a field WITH a default can only ever be set by a
+	// Strategy 0 explicit dot-path that resolves; the recursive search that finds
+	// a nested `spec.<field>` for every other field never gets to run for it. A
+	// caller therefore cannot tell "the caller asked for hero" from "nobody said
+	// anything and hero is the default" — and deploy_image_asset shipped every
+	// asset as a hero for months because of exactly that.
+	//
+	// Consumers that must distinguish the two use WasDefaulted. Nothing is
+	// obliged to: the map is additive and ignoring it preserves today's
+	// behaviour precisely.
+	Defaulted map[string]bool
+}
+
+// WasDefaulted reports whether key's value came from spec.Defaults rather than
+// from the caller. Use it before treating a value as an instruction — see the
+// Defaulted field's comment for why a defaulted field is indistinguishable from
+// a supplied one without it.
+func (ai *ActionInputs) WasDefaulted(key string) bool {
+	return ai.Defaulted[key]
 }
 
 // Get retrieves a string value, returns empty string if not found
@@ -538,11 +564,13 @@ func ExtractActionInputs(
 	result := &ActionInputs{
 		Values:         make(map[string]interface{}),
 		DeprecatedUsed: []string{},
+		Defaulted:      make(map[string]bool),
 	}
 
 	// Apply defaults first
 	for k, v := range spec.Defaults {
 		result.Values[k] = v
+		result.Defaulted[k] = true
 	}
 
 	// Combine all fields we need to look for
@@ -565,6 +593,12 @@ func ExtractActionInputs(
 			value := ExtractNestedField(collectedData, pathStr)
 			if value != nil {
 				result.Values[field] = value
+				// Strategy 0 is the ONLY strategy that can overwrite a default:
+				// every later one skips a field that already has a value, and a
+				// default IS a value. So this is the only place provenance has to
+				// be cleared. If that invariant ever changes, clear it there too —
+				// TestDefaultedIsClearedWhenACallerSuppliesTheValue pins it.
+				delete(result.Defaulted, field)
 				logger.Info("Strategy 0: Resolved config path before ExtractFields",
 					zap.String("field", field),
 					zap.String("path", pathStr),
