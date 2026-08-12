@@ -555,3 +555,89 @@ happen is it sitting on the page with nothing behind it.
 The general form is worth carrying: **a claims register enforces its bans and
 merely hopes for its facts.** Anything you want *gone* has to be named in
 `banned_claims`; dropping the fact is necessary and never sufficient.
+
+---
+
+## 2026-08-12 (close) — all five pages MIGRATED, LIVE and CLEAN; one item says `failed` and is lying
+
+**The migration is done.** Final sweep over the five served pages, cache-busted,
+17:16Z: **zero** occurrences of £1,200 / £75 / deposit / 14 days / two rounds /
+"rounds of changes" / "we handle the setup" / "you only pay if you like" /
+"before any money changes hands" — and **£149 present on all five** (index 3,
+faq 4, how-it-works 1, what-you-get 3, guide 5). Every page scans **0 findings**
+against the live register, each with exactly one match suppressed by the
+negation guard, and in every case it is the writer's own "we do not offer
+refunds" sentence.
+
+| page | body bytes before → after | scan findings before → after | served |
+|---|---|---|---|
+| faq | 4,512 → 5,339 | 8 → 0 | 16:45:03Z |
+| index | 9,617 → 9,713 | 1 → 0 | 16:55:29Z |
+| how-it-works | 1,521 → 1,927 | 6 → 0 | 17:06:03Z |
+| guide (article-body) | 5,512 → 5,847 | 4 → 0 | 17:11:12Z |
+| what-you-get | 1,477 → 1,985 | 3 → 0 | 17:16:20Z |
+
+**Not one page shrank.** `edit_live` held on all five, including the two whose
+whole commercial paragraph had to be replaced.
+
+### The guide page's link set was preserved, and the gate that says so was proven able to fail
+
+`gate_page_links.py` (reused from the `loanandmortgagecalculator_couk` lane —
+it reads `pages.content_direction->'required_links'`, the PAGE-level column, so
+it does not collide with the fleet voice pass editing `site_specs`) reports
+**all 4 required links present** after the rewrite. That pass means something
+only because the same gate was run `--self-test` first and correctly FAILED on
+an impossible link. The set was declared as data before the rewrite was queued,
+and the insert transaction refuses to queue the guide's rewrite at all if
+`required_links` is missing — an undeclared set makes the gate pass vacuously,
+which is the failure mode that would look most like success.
+
+### `what-you-get` is marked `failed` and the page is CORRECT AND LIVE
+
+```
+step deploy_page failed: workflow completed but its result could not be
+delivered to the parent (failed_transient): message validation failed
+(code: CHILD_ORCHESTRATION_FAILED)
+```
+
+This is the **spawn→call handshake race** (memory: `spawn-call-handshake-races`),
+firing *after* the work was done. The evidence that the work landed, none of it
+the work item's own status: components written 17:13:23Z and all three
+`build_status='deployed'`; `pages.deployed_at` 17:13:58Z; **the deploy repo took
+the commit** (`Rerender: what-you-get.html`, 17:13:55Z); the served page updated
+at 17:16:20Z; and the content scans clean.
+
+**Left as `failed`, deliberately.** It is a truthful record that the
+orchestration's result delivery failed, and fabricating a `complete` would put a
+lie in the one place a future reader is most likely to trust. **It will not
+retry**: `find_dispatchable_site` selects only `triaged`/`approved`, and both
+sweeps that could re-triage it (`vet-sweep-continue`, `improvement-sweep`) are
+disabled — checked, not assumed. So the row is inert, not a pending rewrite of
+an already-correct page.
+
+> **The general shape, and it is the mirror of this estate's own rule.** "Trust
+> the artefact, not the status" is usually a warning that `complete` overstates.
+> Here `failed` UNDERSTATES: the page was written, deployed and served. A status
+> is a claim about work by the thing that did it, and the handshake that carries
+> that claim is a separate mechanism that can fail on its own. **Read the
+> artefact in both directions.**
+
+### Box sync lag, now with five samples rather than one
+
+`build_status='deployed'` leads the served file by **58s, 74s, 89s, 142s, 285s**
+(guide, faq, how-it-works, what-you-get, index). Same mechanism every time, so
+that spread is a **timer period with random phase**, not a variable delay — the
+box pulls on a schedule. I very nearly filed the 285s case as a broken deploy
+after checking 46 seconds in. The check that separates the two without waiting:
+ask the deploy repo whether it has the file
+(`gh api repos/gqls/vm-sites/contents/<domain>/<page>.html`). If the repo has it,
+the deploy worked and you are waiting on a timer.
+
+### Sibling lane, closed out
+
+Their `contact / chat-input-box` lock is untouched: exactly one row, still
+`lock_type=permanent`, `updated_at` unchanged from 2026-08-11 15:03, and present
+on the served contact page. Their NOTES carry the change notice (commit
+`7adce5896`), including that the register their in-flight facts relay serves has
+moved under them and that their bot's compiled-in `systemPromptFacts` are now
+the stale half.

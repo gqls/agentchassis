@@ -221,3 +221,64 @@ working on webdesign.uk today, but on the chat box's plumbing rather than the
 page copy, and the only thing they have locked is the chat box, which carries
 none of the old terms. So the collision risk that held this up last night has
 gone.
+
+---
+
+2026-08-12, early evening. It is done. All five pages now sell the £149 offer,
+and the old terms are gone from the live site.
+
+I did it in two goes rather than all at once: two pages first, chosen so they
+would disagree with each other. The FAQ was the hardest page on the site, with
+eight separate things wrong on it; the home page had exactly one. If the
+machinery could handle both ends of that range without damage, it could handle
+the middle. It did, so I released the other three about twenty minutes later.
+
+The thing I was most worried about was the writer quietly throwing work away.
+When you ask this system to rewrite a page, it can hand back something shorter
+and blander that technically satisfies the instruction. There is a setting that
+makes it edit the page it already has rather than start again, and I used it.
+The proof is in the sizes: not one of the five pages came back smaller in
+substance. The FAQ actually grew by a fifth, because the new offer needs more
+explaining than the old one did.
+
+The guide page worried me for a different reason. It is a long article with
+links out to four other pages, and this system has form for silently dropping
+links during a rewrite: another project measured it losing five of thirteen. So
+before touching it I wrote down the four links as data, and used a checker
+another session had already built for exactly this. It passes now. More to the
+point, I ran that checker against a deliberately impossible link first to watch
+it fail, because a green light you have never seen go red tells you nothing.
+
+Two things I want to flag rather than bury.
+
+The first is a small mess with a clean explanation. One of the five pages is
+recorded in the system as having **failed**, and the page is completely fine and
+live. What actually happened is that the work finished, the page was written,
+deployed and published, and then the message saying "I finished" got lost on its
+way back. I have left the failure recorded rather than tidying it to "done",
+because the record is true: something did fail. But I have written in three
+places that the page itself is correct, so nobody re-runs it and rewrites a page
+that is already right.
+
+The second is the one that needs you. The site says, on three pages, "anything
+that's our mistake, we fix at no cost". That was agreed back when the price was
+£1,200. I deliberately left it out of the new list of things the site is allowed
+to claim, because at £149 with no ongoing service it is an open-ended promise.
+But the rewrite kept the sentence, because it was already on the page and I only
+told the system to change the things that were wrong. Nothing objected, and
+nothing would have: the system enforces the things you forbid, and merely hopes
+for the things you leave out. So it is your call. Either you are happy to keep
+fixing our own mistakes free at £149, and I add it back properly, or you would
+rather it went, and I run one more short pass. It is not urgent and the site is
+not lying either way, but it should not sit there with nothing behind it.
+
+Same for "three to four days", which was also agreed at the old price and which
+nobody has re-confirmed at £149. It is on the site and flagged in my notes as
+carried over rather than re-agreed.
+
+One last practical note. The site now promises two things the machinery cannot
+yet do on its own: it says you get a ZIP of the finished site, and it says we
+only take a few jobs at a time and close when full. Both are true and both are
+currently manual. The ZIP would have to be assembled by hand today, and the
+queue is a promise rather than a mechanism. Neither is a problem while nobody
+can pay yet, but they move up the list the moment the Stripe keys go in.
