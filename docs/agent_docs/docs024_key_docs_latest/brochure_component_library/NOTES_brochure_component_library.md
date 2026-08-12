@@ -6041,3 +6041,97 @@ the documented "reviewers judge the sketch" trap. And the `prior_art_librarian` 
 ask whether the `allow_reinstall` census was queried: re-run today it has **changed** — 0
 agent definitions, but now **1** work item (my own repair), where round 2 claimed zero
 consumers. Stated in the submission rather than quietly carried forward.
+
+## 2026-08-12 late-afternoon — the template leak is DIAGNOSED. Root cause is a fallback, not an assembler; filed as `bugs_open/260`
+
+Picked up `HANDOFF_2026-08-12_fact_assignment_front_continue_here.md` cold. Went at the UPDATE-late
+item (the halt) because it blocked everything else on the front, including §3.1's recompose proof
+and the factless-arm re-test.
+
+**Root cause, proven.** `RenderTemplateReportingMissing` (`component_library.go:965`) executes the
+component template with Go `text/template` and **on ANY error falls back to a regex renderer
+written for handlebars** (`{{#each}}`, `{{#if}}`) which cannot see `{{if .x}}`, `{{range}}` or
+`{{end}}` but still substitutes `{{.field}}`. Hence the fingerprint: directives verbatim, values
+resolved. Trigger on the live case: `mechanism-flow`'s `steps[].branches` — declared in
+`input_schema` as an **array of objects** `{body,label}`, and the writer emitted a **prose
+string** on all four steps → `range can't iterate over …` → fallback → 29 leaked tokens →
+`validate_content` refused.
+
+Harness (scratchpad `realproof/`): real `html_template` from `content_components` + the real
+`content_data` from orchestration `07983216-929b-4494-8131-87c523058ea5`.
+- **A.** real + real → `EXECUTE ERROR: component:116:20 … <$s.branches>: range can't iterate over "Where a client already runs legacy APIs…"`
+- **B. CONTROL** — coerce `branches` to the declared array-of-objects, change nothing else → renders 8,347 bytes, no `{{`
+- **C.** regex fallback → 16 vars + 13 blocks leaked; first leak byte-identical to the live `page_content`
+
+B is the part that makes it a demonstration: one variable, the field's **type**, and the failure
+disappears.
+
+**A type table worth remembering, because it inverts the intuition** (`missingkey=zero`, as
+configured): key **absent** → renders; **nil** → renders; **empty array `[]`** → renders; a
+**string** → fails; **array of strings** → fails. I had gone in expecting the factless arm's
+all-`[]` sections to be the dangerous shape. They are the safe one.
+
+### Four things I got wrong or nearly wrong, in order
+
+1. **I built a component fingerprint out of the blocker counts and it named the wrong component.**
+   The six events all showed 9× `{{end}}`, 1× `{{.label}}`, 9× `{{if`, 1× `{{range}}`; I matched
+   that arithmetic against every template's directive counts and concluded `mechanism-flow` was
+   **excluded** (it has two `{{range}}`, not one) and that `swipeable-insight-carousel` fit.
+   Wrong: `checkUnrenderedTemplates` calls `FindAllString(html, 10)` — **both counts are a cap**.
+   The identical signature across four domains means only "both regexes saturated". Reading the
+   validator's source is what caught it, three steps after I had already acted on the number.
+   Now a LANDMINES entry.
+2. **My first log check was a blind zero.** `grep -c "regex fallback"` over 24h of chassis logs
+   returned 0 — and so did a grep for `RenderTemplate` at all, across 4,661 retained lines. The
+   Warn line exists in code and had rotated out. A zero with no positive control is not evidence;
+   the control is what told me the window, not the defect, was empty.
+3. **My "demand control" for the estate scan didn't control anything.** I scanned 1,452
+   `page_components` for leaked syntax, got 0 blocks / 1 var, and reached for `bugs_open/203`'s
+   claim that idea.uk stores a literal `{{.section_heading}}` as my known-present case. The one
+   hit was a *different* row (webdesign.co.uk `ported-page`, legitimate `{{TONE}}`/`{{COLOR}}`
+   prompt copy) — **203's row does not exist today**, so I had no control at all. Fixed by
+   controlling the regex itself in the same query (`{{if .eyebrow}}`/`{{end}}`/`{{range …}}` →
+   true, plain HTML → false). Only then is the 0/1,452 sound.
+4. **I nearly inherited the handoff's exculpation of seed 386 on a test that was void.** The
+   previous session cleared it with "no braces in the seed, and the model output is clean of
+   `{{`" — but the leak was never the model emitting braces, so clean model output is
+   *consistent* with the defect. 386 is still exculpated, on a sound basis: the defect needs a
+   nested field's **type** to be wrong, and 386 adds one claim-restriction sentence naming no
+   field, no shape and not `branches`. `agent_definitions_bak_386` stays unused.
+
+### What the measurements say (each controlled, 2026-08-12)
+
+- **Live damage zero**: 0 of 1,452 stored components leak a control block. The gate refuses
+  before persisting, so nothing ever shipped.
+- **Survivorship is why this is invisible**: of 5 stored `mechanism-flow` sections, 4 omit
+  `branches` and 1 holds a proper array. A string `branches` cannot be found in stored data
+  *because* it never gets stored. Any `content_data` census would have reported this as
+  non-existent.
+- **Exposure is broad**: 33 components with a `{{range}}` have stored sections (279 sections).
+- **Nothing depends on the fallback**: 0 of 255 components use `{{#` handlebars syntax; 0 use its
+  `{{nav_items_html}}`/`{{quick_links_html}}` placeholders. This is the measurement
+  `bugs_open/203` wanted when it called deleting the fallback "thinkable" — it is now measured,
+  not thinkable.
+- **The presence gate exists but is the wrong shape and on one path only**:
+  `missingRequiredLLMFields` (`json_envelope.go:451`) checks presence, not type, and has exactly
+  **one** production caller (`rerender_page_sections_action.go:333`) — the page-**build** path has
+  no schema gate at all.
+
+### `090` provenance
+
+The previous session's run `b885a92e` produced no locatable verdict; its bundle's in-scope list is
+what pointed at `AssemblePageAction`/`AssembleOutput`, and that lead is **refuted** — the
+assembler does execute Go templates correctly. Filed 260 under the owner's 2026-07-31 declared-
+substitution route (§8 of the bug file states it). Did not re-fire 090: its own read-out step had
+mis-attributed the symptom to `page-content-writer` when `validate_content` is a
+`page-build-handler` step, so the same symptom text would likely land in the same silent place.
+
+### Halt narrowed, not lifted
+
+Rebuilding is **safe** (no corruption; refusal precedes persistence, proven by the 0/1,452 scan).
+It may still be **refused** for any page whose plan includes one of the 33 ranging components if
+the writer mistypes a nested array. So: rebuild, but read the outcome, and treat an
+`unrendered_template` refusal as this cause rather than a new defect. The factless-arm re-test
+(handoff §3, UPDATE-afternoon) is unblocked on that basis but will keep failing on
+`production-backend-engineering` until 260 candidate 1 or 2 ships — its `branches` prose is
+regenerated by the writer each run.

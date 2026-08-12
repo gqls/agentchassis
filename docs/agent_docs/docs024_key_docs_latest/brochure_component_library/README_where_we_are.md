@@ -2438,3 +2438,76 @@ The code half went back to the reviewing council for a third round, with the obj
 round two answered by measurement rather than argument — including one where the reviewers were
 right to be suspicious and one where they were objecting to a check that was already in the
 code and simply had not been shown to them.
+
+## 2026-08-12, late afternoon — the thing that stopped page rebuilds yesterday is now understood, and it is smaller than it looked
+
+I picked this front up cold and went straight at the one item that was blocking everything else:
+since yesterday afternoon, page rebuilds across several sites were being refused, and nobody knew
+why. A diagnosis run had been fired at it and had come back with nothing anyone could find. The
+standing instruction was to stop rebuilding pages anywhere until someone worked out the cause.
+
+**The cause.** Our page sections are built from reusable templates. A template is a bit of HTML
+with instructions in it — "if there is a heading, print it here", "for each step in the list,
+print one of these". Those instructions are meant to be carried out and then disappear, leaving
+only finished HTML. What was happening is that they were surviving into the page, in plain sight,
+while the actual words around them were filled in correctly. So the page came out looking like
+half a set of building instructions.
+
+The reason is a fallback. When the proper template engine hits a problem, our code does not stop
+— it quietly hands the job to a much simpler, older piece of code and carries on. That older code
+understands a *different dialect* of instruction from the one all our templates are actually
+written in. So it fills in the words it recognises and leaves every instruction it does not
+understand sitting in the page. Nothing logs an error. The result is well-formed HTML, so nothing
+downstream notices until a final check refuses the page for containing template gibberish.
+
+**What made the engine stumble in the first place** was one field. The component in question has a
+step list, and each step can carry a small set of alternative outcomes — "if the client already
+has X we do this, if not we do that". That field is defined as a *list*. The writer wrote it as a
+*sentence*. Asking the engine to go through each item of a sentence is meaningless, so it gave up,
+and the fallback took over and wrecked the whole section — not just that one field.
+
+I proved this rather than argued it: I took the real template and the real text the writer
+produced, ran them together and watched it fail; then changed nothing except turning that one
+sentence into a list of one item, and it rendered perfectly, cleanly, 8,347 characters, no
+gibberish. One variable, and the failure appears and disappears on command.
+
+**The good news, and it is genuinely good.** Nothing broken ever reached a live page. I checked
+all 1,452 stored page sections on the estate: not one contains this damage. The final check did
+its job every single time — it refused the page before anything was saved. The cost was wasted
+build attempts and pages parked awaiting review, not damage to any site.
+
+So **I have narrowed the stop-work instruction rather than lifted it.** Rebuilding pages is safe
+— it cannot corrupt anything. But a page using one of the 33 components that has a list in it may
+still be refused, and if it is, this is the reason and not something new. Until we fix it
+properly, re-running the same build will fail the same way, because the writer re-writes that
+sentence each time.
+
+**Two things I want to flag, because both are the sort of mistake that repeats.**
+
+The first is that I got it wrong in the middle and caught myself. The refusal reports a count of
+problems, and all six failures across four different sites reported exactly the same numbers. I
+used those numbers to work out which component was at fault, and confidently ruled out the one
+that actually was. Then I read the code that produces the count and found it stops counting at
+ten. The number was a ceiling, not a measurement — which is also why all six looked identical.
+Any conclusion drawn from it was worthless. I have written that up as a trap for other sessions,
+because the number looks precise and reproducible and is neither.
+
+The second is about the previous session's suspicion. A change we made to the writer's
+instructions the day before was flagged as a possible culprit, and cleared on the grounds that
+the change contained no template syntax and the writer's output contained none either. That
+reasoning does not hold — the problem was never the writer producing template syntax, so clean
+output proves nothing. The change *is* in the clear, but for a different reason: it only adds one
+sentence telling the writer not to invent guarantees, and says nothing about the shape of any
+field. I have left the prepared rollback untouched.
+
+**What I would like a decision on eventually, not now.** The real fix is to stop the fallback
+existing. I measured whether anything needs it: of 255 components, **none** are written in the
+dialect it understands. It is a path nothing on the estate can actually be rendered by, and its
+only observable effect is to convert a clear error into a broken page. Removing it is a change to
+shared plumbing, so it wants its own review round — but the measurement that was missing for that
+argument now exists. The alternative, cheaper and complementary, is to check the writer's output
+against each component's declared field shapes before rendering; a check like that already exists
+but only tests whether fields are *present*, not whether they are the right *type*, and it runs on
+only one of the two build paths.
+
+Everything is written up in `bugs_open/260` with the evidence and the commands.

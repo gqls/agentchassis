@@ -155,6 +155,23 @@ four sections `[]` in the plan, copy still stating 6 facts). **It was REFUSED at
 
 ---
 
+> **⚠ SUPERSEDED 2026-08-12 late-afternoon — the cause IS now established and the halt is
+> NARROWED. Read `bugs_open/260` instead of the section below.** Root cause:
+> `RenderTemplateReportingMissing` (`component_library.go:965`) falls back to a **handlebars**
+> regex renderer on any Go-template error, which substitutes `{{.field}}` but leaves
+> `{{if}}`/`{{range}}`/`{{end}}` verbatim — hence "directives intact, values resolved". Trigger:
+> `mechanism-flow`'s `steps[].branches` is declared an array of objects and the writer emitted a
+> prose **string** → `range can't iterate over …`. Proven with an isolating control (coerce that
+> one field's type, nothing else → renders clean).
+> **The halt:** rebuilding is **SAFE** — 0 of 1,452 stored components carry the damage; the gate
+> refuses before persisting, every time. It may still be **REFUSED** for any page using one of
+> the 33 ranging components, so rebuild but read the outcome. **Seed 386 stays exculpated, but
+> the reason given below is void** — the leak was never the model emitting braces, so clean model
+> output was never exculpatory (`bugs_open/260` §3). Rollback still unused.
+> **The section's remaining live value:** its correction of my symptom attribution, and the
+> observation that a 090 conclusion may have nowhere to land — still an open defect worth more
+> than this bug.
+
 ## UPDATE 2026-08-12 late — the 090 run finished and produced NO locatable verdict. The halt STANDS.
 
 `b885a92e` completed (5 iterations, bundles only). **No conclusion exists that this session
