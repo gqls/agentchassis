@@ -1,5 +1,9 @@
 # bugfix 239 — dispatch fail-closed: HANDOFF, 2026-08-11
 
+> **SUPERSEDED 2026-08-12 by `HANDOFF_2026-08-12_continue_here.md` in this directory.**
+> 239 is CLOSED (moved to `bugs_closed/` at owner direction) and the lane continues with
+> D2 pool instrumentation + `bugs_open/259`. Start there, not here.
+
 **Read this first, then `bugs_open/239` (the shared account) and
 `architecture_review/RFC_023_*` (the open owner decision).** This lane opened
 2026-08-10, fixed the bug, shipped it, and proved it live on v1.0.1284. It is nearly done.

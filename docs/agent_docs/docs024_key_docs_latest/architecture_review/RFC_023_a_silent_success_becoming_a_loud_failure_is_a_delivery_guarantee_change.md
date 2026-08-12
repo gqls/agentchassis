@@ -280,3 +280,35 @@ next lane:
    the one caller, and that caller's one caller — i.e. a vertical slice, not four subsystems;
 2. whether an *inert* fleet-wide change (measurably 0 rows affected) may ride with the fix
    that motivated it, or must always be its own round.
+
+---
+
+# OWNER RULING — 2026-08-12: the trigger is BEHAVIOUR, with a standing bloat rider
+
+Given in the 239 lane's session; recorded the same day.
+
+1. **Behaviour is the stronger check.** The architecture-scope trigger is whether a
+   consumer's success path changes, not the diff's package/symbol count — expressly
+   because this change's four packages were one vertical slice (a leaf error type, its
+   classifier, the one caller, that caller's one caller). This answers sub-question (1):
+   a vertical slice does not count as "many packages at once".
+2. **The rider, stated as a strong factor in its own right:** the estate wants the code
+   kept from bloat, and streamlined where possible. A behaviour-based trigger must not
+   become a licence for sprawling diffs; reviewers should keep pressing on minimality (as
+   `editquality` did in this round) even where no architecture trigger fires. **The owner
+   is open to adding agents/seats for this if needed** — a streamlining/bloat-focused
+   reviewer is on the table if the existing seats do not hold that line.
+3. Consequence for the next lane fixing a silent-success bug: fix it, submit to the
+   ordinary gate, cite this ruling; no RFC unless a consumer's SUCCESS path changes.
+   Making a failure visible is a fix; making something that succeeded start failing is a
+   contract change (RFC_002's evaluator-gains-refute case stays architecture-scope under
+   this test).
+
+Sub-question (2) — whether an inert fleet-wide change may ride with its motivating fix —
+was not expressly ruled on. [INFERRED] the vertical-slice answer plus the bloat rider
+imply "yes, when measured inert and in the same vertical", but that is an inference, not
+the ruling.
+
+**Same session, related decisions:** the `DISPATCH_OWN_DEFAULT` nested-envelope branch is
+**left to accumulate real fleet data** (no refusal change until the population is
+measured; SYS-090 updated), and `bugs_closed/239` moved out of the open list the same day.
