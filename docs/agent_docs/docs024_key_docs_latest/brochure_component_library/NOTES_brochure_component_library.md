@@ -5880,3 +5880,35 @@ first: nothing filed.
 build-time validator is the only thing that catches this class, and nothing sweeps pages that
 already serve it. If the loop confirms a renderer defect, that unwired check is the detection
 half.
+
+### 2026-08-12 (late afternoon) — the 090 run COMPLETED WITHOUT A LOCATABLE VERDICT, and its own query corrects my symptom's attribution
+
+`b885a92e` reached `complete | COMPLETED` on all three orchestration rows after **five
+iterations** (bundles at 13:17:24 / 13:20:22 / 13:23:34 / 13:26:26 / 13:30:06, 52KB→103KB) and
+the work item is `complete`. **I could not find a conclusion anywhere.** Checked, all empty or
+irrelevant: `diagnosis_artifacts` for this correlation holds `kind='bundle'` ONLY (no
+`fix_plan`, no report kind); `orchestration_states.final_result` IS NULL for every row on the
+correlation; `doc_notes` has no row mentioning the correlation (`subject_type='pipeline'` rows
+in the window belong to two OTHER lanes' council reports); no `conclusion`/`verdict` column
+exists on any diagnosis table (`information_schema` — only `gauntlet_rounds.verdict`, unrelated);
+grepping the final bundle for `CONFIRMED|REFUTED|UNVERIFIABLE|verdict` returns **nothing**.
+So: **no verdict was produced, or it lands somewhere this session could not identify.** Stated
+as the unknown it is — I am NOT recording this as a refutation or a confirmation, and the halt
+on page rebuilds therefore STANDS. A next session should ask where a 090 conclusion is
+supposed to land (the fixloop docs' 090/091 read-out step) before re-firing, because a second
+run costs the same and may land in the same silent place.
+
+**The loop's own work did produce one thing worth keeping — a correction to MY symptom.** One
+of its model-written checks asked whether the `CONTENT_VALIDATION_BLOCKER_DETAIL` rows actually
+belong to `page-content-writer` runs and **got `(0 rows)`**. It is right to doubt it:
+`validate_content` is a **page-build-handler** step, so naming the writer as the row's owner in
+my symptom text was an inference I never verified, and it may have pointed the loop at the
+wrong agent for two of five iterations. The evidence that stands unchanged: the assembled
+`page_html` carries `mechanism-flow`'s `{{if}}`/`{{range}}` with field values substituted; all
+four writer LLM responses are clean of `{{`; the type is new since 08-11 15:39 across 3
+domains against a recorder with 157 rows since 07-14. The bundle's own in-scope list is the
+better starting point than my guess: `multipage_actions.go` (`AssemblePageAction`,
+`buildRenderContextFromCollectedData`, `extractFieldValue`, `cleanHTMLStructure`),
+`assemble_from_library.go:AssembleOutput`, `datahelpers.CleanHTMLString`. **A field-substituting
+assembler that never executes control structures is exactly the shape those names suggest** —
+but that is a hypothesis for the next session to test, not a finding, and it is unowned.
