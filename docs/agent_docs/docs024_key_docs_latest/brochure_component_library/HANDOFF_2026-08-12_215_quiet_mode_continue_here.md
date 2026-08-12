@@ -211,12 +211,20 @@ only — it does not touch the survivor decisions, which are still what is neede
 
 1. **Nothing is owed to the counters.** They need a replan, and §5 says the fundamentallyai
    sweep front owns that site's execution — do not force one to make a signal appear.
-2. **`266` needs a fix, and it is a shared seam** → council gate before/alongside the commit,
-   and a concept-register entry in the same commit (the 2026-07-28 ruling's condition 2).
-   Fix candidate 1 (refuse at the commit seam) is the one that makes the bad state
-   unrepresentable; read §8.2 trap 1 before writing a line.
-   **`266` is NOT owned by anyone yet** — `who-owns.py` will say nothing useful, as it reads
-   commits and the file is hours old.
+2. ~~**`266` needs a fix**~~ **DONE — built, tested and committed `580af7ff0` (19:46Z), register
+   `PBP-042` in the same commit, council submitted `2da9d905-25d8-4916-9b76-bc096679c6ab`
+   (`Council-Submitted:` trailer, verdict pending).** Two refusals: `GitCommitAction` (stops
+   the page serving) and `UpdatePageStatusAction` (stops the row claiming a deploy).
+   **Three things are still owed on it, and they are the next session's:**
+   - **Read the council verdict and act on a REVISE/REJECTED** — the code is already on the
+     shared branch, so a bad verdict is a live problem, not a queued one.
+   - **After the next roll, verify:** pod-probe the literal `ARCHIVED_PAGE_GUARD` on both
+     replicas, then re-run the two-step population check (SQL candidates → curl verdict →
+     fabricated control), then confirm no NEW `deployed_at` on any archived page. A zero in
+     `agent_error_log` for `ARCHIVED_PAGE_%` needs a demand control exactly as §4 does —
+     nothing has dispatched at an archived page means nothing fired.
+   - **The 5 live pages are UNTOUCHED and the guard does not undo them.** It stops recurrence.
+     Note it also now blocks repair-by-rebuild for those five, so **retraction is the route**.
 3. **The 090 diagnosis artefacts expire 2026-09-10, unpinned.** Its findings are copied into
    `266`, so this is not urgent; pin them only if you want the raw bundles.
 4. **O2 remains blocked on the owner.** Do not execute any pair.

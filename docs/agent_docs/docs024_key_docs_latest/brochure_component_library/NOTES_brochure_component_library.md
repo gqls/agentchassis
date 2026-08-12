@@ -6284,3 +6284,59 @@ but could not assert. Leopardess' `/our-approach.html` has been archived-and-ser
 handoffs, per the 2026-07-29 ruling that consumers must be told rather than merely measured.
 
 **Still not touched:** O2, the seven pairs, the pilot config, any site. No code changed.
+
+## 2026-08-12 (evening, third pass) — 266 fixed, and the seam was the whole question
+
+**Built, tested, committed `580af7ff0`, register PBP-042 in the same commit, council
+submitted `2da9d905`.** Two refusals: `GitCommitAction` (stops the page serving) and
+`UpdatePageStatusAction` (stops the row claiming a deploy). Both, because they are
+different damage — without the second, a refused commit still writes the `deployed_at`
+every downstream selector reads.
+
+**The whole difficulty was WHERE, and the neighbouring guard is a trap that reads as a
+template.** `owned_page_guard` sits at `assemble_page` and its header says why it avoids
+`git_commit`: git_commit is how owned pages *legitimately* deploy. Correct for owned;
+inverts for archived, which has no legitimate deploy path at all. Two states, opposite
+placements, same reasoning.
+
+Three things I checked rather than assumed, each of which could have sunk it:
+
+1. **Would guarding git_commit break retraction?** `bugs_closed/098`'s remedy deletes an
+   archived page's file, which is deploy-shaped. If it went through git_commit my guard
+   would have made the fix for the *previous* bug unusable. It does not — `page-retraction`
+   runs `retract_page_deployment`, which dispatches `delete_file`. Read from the live
+   workflow definition, not inferred from the Go.
+2. **Do all four producers actually reach git_commit?** Yes, measured against live
+   `agent_definitions`: page-rerender and section-editor each carry their own
+   `deploy_page`→`git_commit`, and page-build-handler's `deploy_page` is a `call_agent` to
+   `target_role: page_renderer` — into page-rerender's. Without this the fix would have
+   repeated the exact mistake I filed the bug about.
+3. **Would the neighbour's seam have worked?** No — and worse than I claimed. I had written
+   "closes only 2 of 4 doors". In fact **no live workflow has a step whose action is
+   `assemble_page` at all**, so it would have been fully inert. That also means PBP-036's
+   assemble-side arm currently has no driver; flagged to that entry rather than acted on,
+   since it is another bug's shipped fix and not mine to change.
+
+**`resolveDeployTargetPage` is a superset of `resolveGuardedPage`, not an edit to it** —
+the deploy seam sees a flat `page_id`/`page_name` dispatch shape the loop resolver does not
+match. Widening the shared one would have changed what reaches the OWNED guard, which is
+bugfix 149's lesson: widening what reaches a function is a behaviour change to it even when
+the function is untouched.
+
+**Tests proven in both directions**, in a `git archive HEAD` overlay with the guard file
+present and the wiring absent — which isolates the wiring rather than the symbols. Both
+refusal tests fail there, and the stamp test's failure output is sqlmock reporting the
+`UPDATE pages SET build_status=$2, deployed_at=NOW()` firing with `deployed` on an archived
+page: the bug itself, caught by its own test. `TestGitCommit_LivePageStillDeploys` is the
+control without which a guard that refused everything would pass the file.
+
+**Two advisories answered rather than waved through.** `pattern-check` flagged the untouched
+twin `UpdatePageComponentsStatusAction` — it writes `page_components`, never `pages`, so not
+a fifth door. Its second flag (a logged model output at `:6922`) is pre-existing and outside
+both my hunks, left for the file's owners.
+
+**And a mistake, the second of its class in this lane today:** I stamped `Z` on BST clock
+readings, so six timestamps across three docs were an hour early. git logs `+01:00`, the DB
+answers UTC. A systematic offset produces no internal contradiction, which is why reading it
+back could never catch it — corrected by anchoring to checkable events instead of a
+remembered clock. In `WRONG_CALLS.md`, with the tally point made.

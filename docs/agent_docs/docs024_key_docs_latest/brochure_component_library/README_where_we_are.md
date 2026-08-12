@@ -2687,3 +2687,43 @@ content decision, and it's yours, not mine.
 **What I still need from you is unchanged** — the survivor choice on the seven duplicate pairs.
 The only thing that's changed is the order: we should fix the "retirement doesn't stick"
 problem first, or we'll do the work on your seven pairs and watch it quietly undo itself.
+
+---
+
+**2026-08-12, late evening.** The "retired pages come back to life" problem is fixed in code.
+It's committed and under review; it starts working when the next build goes out.
+
+**What the fix does.** Two locks instead of one. The first stops a retired page's file being
+published to the website at all. The second stops our database recording a publication that
+didn't happen. Both were needed: with only the first, the page would stay off the web but our
+records would still claim it was live, and everything downstream reads those records.
+
+**The interesting part was deciding *where* to put the lock,** and it's worth explaining
+because the obvious answer was wrong. We already have a very similar guard protecting a
+different kind of page, and the natural move is to copy it. Reading its notes first showed why
+that would have failed: it was deliberately placed *away* from the publishing step, because for
+*its* kind of page some publishing is legitimate. For a retired page, none is. Same reasoning,
+opposite conclusion. Had I copied it, the fix would have looked right and done nothing — the
+guard's position would have been somewhere no current process even goes.
+
+**Three things I checked rather than assumed**, any of which could have caused real damage:
+whether the lock would break our existing ability to *remove* a retired page from the site (it
+doesn't — that runs down a different path); whether all four culprits actually pass through the
+place I locked (they do); and whether the copied approach would have worked (it wouldn't, and
+worse than I'd first written).
+
+**What I have not done, deliberately.** The five pages that are currently retired-but-live are
+untouched. Whether each should be brought back properly or taken down is your call, and two of
+the three sites belong to other workstreams. One consequence you should know: the new lock also
+prevents those five being fixed by rebuilding them, so taking them down is now the route.
+
+**Still outstanding:** the review verdict (it queues for about half an hour, so a later session
+picks it up), and the fix only takes effect on the next build. And your survivor choice on the
+seven duplicate pairs — that hasn't changed, and it's now unblocked in the sense that retiring
+a page will actually stick once this ships.
+
+**One correction on myself.** Several timestamps I wrote earlier tonight were an hour out — I
+was reading British Summer Time off the clock and labelling it UTC. Nothing about the findings
+changes; the times in the documents do, and they're now anchored to events you can check rather
+than to my reading of a clock. It's the second time today I've mis-stamped a time in this
+workstream, which is why I've logged it as a practice failure rather than a slip.
