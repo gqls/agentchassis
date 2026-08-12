@@ -24,7 +24,7 @@
 # firing them concurrently races two assemblies and two commits for the same file.
 # One at a time, each waited on.
 #
-# Usage:  ./074_section_editor_noted_cta_urls.sh [index-hero|all]
+all]|all]
 #         Run the single canary FIRST — the spawn->call handshake on this path is
 #         known-flaky (see memory `spawn-call-handshake-races`), and a failure is
 #         not evidence that the edit itself is wrong. Never cancel a failed row
@@ -34,18 +34,26 @@ set -euo pipefail
 
 DOMAIN="noted.co.uk"
 CLIENT_ID="demo_client"
-MODE="${1:-index-hero}"
+MODE="${1:-index|hero}"
 
 # page | slot | field_updates  — destinations match the copy the framework wrote.
-# migrate's PRIMARY is absent on purpose: "Save everything" is a local-data rescue
-# whose destination is the /legacy page that PLAN 4.3 has not built yet.
+#
+# ⚠ migrate's PRIMARY was originally OMITTED here, on the reasoning that a template
+# gating on `{{if and .cta_text .cta_url}}` would then render no button. THAT IS
+# FALSE (measured 2026-08-12): content_data kept no cta_url exactly as written, but
+# a RENDER-TIME resolver supplied one and the page shipped
+# `<a href="/contact.html">Save everything</a>` — the notes-rescue button pointing
+# at a contact form. Absence is NOT a way to suppress a CTA on this platform; only
+# an explicit destination (or removing the cta_text) is.
+# Owner decision 2026-08-12: build /legacy (PLAN §4 step 3) and point at it. The
+# explicit value below is what stops the resolver choosing for us in the meantime.
 EDITS=(
   'index|hero|{"cta_url":"https://app.noted.co.uk/","secondary_cta_url":"/how-it-works.html"}'
   'index|call-to-action|{"primary_cta_url":"https://app.noted.co.uk/","secondary_cta_url":"/how-it-works.html"}'
   'how-it-works|hero|{"cta_url":"https://app.noted.co.uk/","secondary_cta_url":"/migrate.html"}'
   'how-it-works|call-to-action|{"primary_cta_url":"https://app.noted.co.uk/","secondary_cta_url":"/migrate.html"}'
-  'migrate|hero|{"secondary_cta_url":"/how-it-works.html"}'
-  'migrate|call-to-action|{"secondary_cta_url":"/how-it-works.html"}'
+  'migrate|hero|{"cta_url":"/legacy.html","secondary_cta_url":"/how-it-works.html"}'
+  'migrate|call-to-action|{"primary_cta_url":"/legacy.html","secondary_cta_url":"/how-it-works.html"}'
 )
 
 PSQL=(kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -tA)
@@ -96,14 +104,20 @@ ENDKAFKA
   return 1
 }
 
-case "$MODE" in
-  index-hero) IFS='|' read -r p s u <<< "${EDITS[0]}"; fire_one "$p" "$s" "$u" ;;
-  all)
-    rc=0
-    for e in "${EDITS[@]}"; do
-      IFS='|' read -r p s u <<< "$e"
-      fire_one "$p" "$s" "$u" || rc=1
-    done
-    exit $rc ;;
-  *) echo "Usage: $0 [index-hero|all]"; exit 1 ;;
-esac
+# MODE is "all", or a substring matched against "<page>|<slot>" so a single
+# component can be re-fired without re-committing the other five:
+#   ./074… all            ./074… index|hero            ./074… migrate
+rc=0; matched=0
+for e in "${EDITS[@]}"; do
+  IFS='|' read -r p s u <<< "$e"
+  if [ "$MODE" = "all" ] || [[ "$p|$s" == *"$MODE"* ]]; then
+    matched=$((matched+1))
+    fire_one "$p" "$s" "$u" || rc=1
+  fi
+done
+if [ "$matched" -eq 0 ]; then
+  echo "No component matched '$MODE'. Known:"; printf '  %s\n' "${EDITS[@]%%|\{*}"
+  exit 1
+fi
+echo "fired $matched component(s)"
+exit $rc
