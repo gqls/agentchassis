@@ -59,17 +59,57 @@ func TestWrongOrMissingTokenIs401AndNeverTouchesTheDB(t *testing.T) {
 	defer db.Close()
 	t.Setenv("SITE_FACTS_TOKEN", "correct-token")
 
-	if w := factsGet(r, "webdesign.uk", ""); w.Code != http.StatusUnauthorized {
-		t.Errorf("missing token: want 401, got %d", w.Code)
+	// PROOF THAT NO QUERY RAN, without relying on ExpectationsWereMet() —
+	// which the go-sqlmock LANDMINE correctly flags as hollow here: with zero
+	// registered expectations it is satisfied whether or not a query ran, so
+	// it cannot distinguish "auth short-circuited" from "queried anyway".
+	//
+	// The real evidence is the STATUS CODE. This mock has NO expectation
+	// registered, and go-sqlmock returns an error for any unexpected query.
+	// So IF the handler reached its SELECT on the auth-fail path, that query
+	// would error and the handler would return 500 (its DB-error branch). A
+	// 401 is therefore only reachable by returning BEFORE the query — exactly
+	// the property under test. (The mutation that disables the token check
+	// makes both cases below return 500, not 401, confirming this is load-
+	// bearing, not incidental.)
+	for _, tc := range []struct {
+		name, token string
+	}{{"missing", ""}, {"wrong", "wrong-token"}} {
+		w := factsGet(r, "webdesign.uk", tc.token)
+		if w.Code != http.StatusUnauthorized {
+			t.Errorf("%s token: want 401 (500 would mean the SELECT ran against the unconfigured mock — i.e. auth was bypassed), got %d", tc.name, w.Code)
+		}
 	}
-	if w := factsGet(r, "webdesign.uk", "wrong-token"); w.Code != http.StatusUnauthorized {
-		t.Errorf("wrong token: want 401, got %d", w.Code)
-	}
-	// No SELECT may run before auth passes — the DB not being consulted is
-	// part of the contract, not an optimisation (a 401 that already queried
-	// leaks timing about which domains exist).
+	// Belt-and-braces, and now MEANINGFUL because a spurious query above would
+	// already have failed the status assertion: no unexpected call was logged.
 	if err := mock.ExpectationsWereMet(); err != nil {
-		t.Errorf("DB touched on unauthenticated request: %v", err)
+		t.Errorf("sqlmock recorded activity on an unauthenticated request: %v", err)
+	}
+}
+
+// The auth check must reject BEFORE reaching the DB even when a real query
+// WOULD have matched — the positive control that makes the 401-not-500 logic
+// above unambiguous. If auth ever regresses to "query first, then check", this
+// test still gets 401 (good) but the one above would flip to whatever the query
+// returned; keeping both pins the ordering.
+func TestValidQueryShapeStillRejectedWithoutToken(t *testing.T) {
+	r, mock, db := newFactsRouter(t)
+	defer db.Close()
+	t.Setenv("SITE_FACTS_TOKEN", "correct-token")
+
+	// A query that WOULD succeed if it ran — so a 401 here proves the code
+	// never got far enough to run it, not that the query happened to fail.
+	mock.ExpectQuery("SELECT s.id::text, ss.data->'facts'").
+		WithArgs("webdesign.uk").
+		WillReturnRows(sqlmock.NewRows([]string{"id", "facts"}).
+			AddRow("some-id", []byte(`[{"id":"x"}]`)))
+
+	if w := factsGet(r, "webdesign.uk", "wrong-token"); w.Code != http.StatusUnauthorized {
+		t.Errorf("want 401 even with a query ready to succeed, got %d", w.Code)
+	}
+	// The prepared query must NOT have been consumed — auth returned first.
+	if err := mock.ExpectationsWereMet(); err == nil {
+		t.Error("the prepared query was consumed on an unauthenticated request — auth did not short-circuit before the DB")
 	}
 }
 
@@ -108,6 +148,52 @@ func TestKnownDomainServesFactsOnly(t *testing.T) {
 	// whatever the DB row alongside the facts contains.
 	if _, present := parsed[0]["writer_block"]; present {
 		t.Error("writer_block leaked into the response")
+	}
+}
+
+// The route must be mounted OUTSIDE the JWT AuthMiddleware group — a headless
+// box service has a static token, not a JWT. This models server.go's mount
+// (facts route at top level; an auth-gated group alongside) and proves an
+// unauthenticated request reaches the FACTS handler's own token check rather
+// than being rejected by the group's middleware. If someone nested the route
+// under the auth group, a no-JWT request would be rejected by the middleware
+// (here: 403) before ever reaching the token check (401) — so the two codes
+// are distinguishable and this test would catch the move.
+//
+// (Corroborated live 2026-08-12: the box, carrying no JWT, reached the handler
+// over WireGuard and got a 404 from the pre-endpoint image — a JWT-gated route
+// would have 401'd at the middleware before routing.)
+func TestRouteIsOutsideTheAuthMiddlewareGroup(t *testing.T) {
+	db, _, err := sqlmock.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	gin.SetMode(gin.TestMode)
+
+	r := gin.New()
+	// An auth-gated group that rejects everything lacking a JWT, standing in
+	// for AuthMiddleware. The facts route must NOT be under it.
+	authGroup := r.Group("/api/v1")
+	authGroup.Use(func(c *gin.Context) {
+		c.AbortWithStatus(http.StatusForbidden) // no JWT -> 403, before any handler
+	})
+	authGroup.GET("/some-jwt-route", func(c *gin.Context) { c.Status(http.StatusOK) })
+
+	// Mounted at top level, exactly as server.go does it.
+	h := NewSiteFactsHandler(db, zap.NewNop())
+	r.GET("/api/v1/site-facts/:domain", h.HandleGetSiteFacts)
+
+	t.Setenv("SITE_FACTS_TOKEN", "correct-token")
+	w := factsGet(r, "webdesign.uk", "") // no token, no JWT
+
+	// 401 = reached the facts handler's own token check (correct: outside auth).
+	// 403 = the auth-group middleware caught it first (wrong: nested under auth).
+	if w.Code == http.StatusForbidden {
+		t.Fatal("facts route is under the AuthMiddleware group — a static-token box caller would be rejected as a missing-JWT request")
+	}
+	if w.Code != http.StatusUnauthorized {
+		t.Fatalf("want 401 from the handler's own token check, got %d", w.Code)
 	}
 }
 
