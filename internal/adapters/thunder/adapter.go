@@ -461,22 +461,7 @@ func (a *Adapter) handleProvisionInstance(
 
 	result, err := a.provisionAction.Execute(ctx, req)
 	if err != nil {
-		status := "error_unrecoverable"
-		errCode := "provision_failed"
-		switch {
-		case errors.Is(err, ErrProvisionDuplicate):
-			// MUST be tested before the infrastructure case and MUST stay
-			// unrecoverable: marking a duplicate refusal recoverable would ask
-			// the chassis to retry the very thing that builds the second
-			// billable GPU (bugs_open/259).
-			errCode = "provision_duplicate"
-		case isProvisionDenial(err):
-			errCode = "provision_denied"
-			// status stays error_unrecoverable — cap denial isn't retryable
-		case isInfrastructureError(err):
-			status = "error_recoverable"
-			errCode = "infrastructure_error"
-		}
+		errCode, status := classifyProvisionError(err)
 		a.sendErrorResponse(reqHeaders, replyToTopic, "provision_instance",
 			errCode, err.Error(), status, l,
 		)
@@ -665,6 +650,37 @@ func isProvisionDenial(err error) bool {
 	msg := err.Error()
 	return strings.Contains(msg, "provision denied") ||
 		strings.Contains(msg, "provisioning paused")
+}
+
+// classifyProvisionError maps a provision failure to its (error_code, status)
+// pair for the response envelope.
+//
+// EXTRACTED SO THE ORDERING CAN BE TESTED (council round 1 on bugs_open/259,
+// edit-quality + guardian seats, both medium). The duplicate arm's placement is
+// correctness-critical and was previously an untested inline switch: if a later
+// change let the isInfrastructureError arm match first, a duplicate refusal
+// would be answered `error_recoverable`, the chassis would retry, and the retry
+// is precisely what builds the second billable GPU. That regression would have
+// been silent — the idempotency test counts vendor creates and would still pass,
+// because the claim would still refuse. It is the *response classification*, not
+// the refusal, that this pins.
+//
+// Order is load-bearing: duplicate → denial → infrastructure → default.
+func classifyProvisionError(err error) (errCode, status string) {
+	status = "error_unrecoverable"
+	errCode = "provision_failed"
+	switch {
+	case errors.Is(err, ErrProvisionDuplicate):
+		// MUST stay unrecoverable — see above.
+		errCode = "provision_duplicate"
+	case isProvisionDenial(err):
+		errCode = "provision_denied"
+		// status stays error_unrecoverable — cap denial isn't retryable
+	case isInfrastructureError(err):
+		status = "error_recoverable"
+		errCode = "infrastructure_error"
+	}
+	return errCode, status
 }
 
 // isInfrastructureError detects transient failures — Thunder 5xx, rate limit,

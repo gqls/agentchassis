@@ -27,6 +27,7 @@ package thunder
 import (
 	"context"
 	"errors"
+	"fmt"
 	"regexp"
 	"testing"
 	"time"
@@ -259,5 +260,73 @@ func TestClaimStatementIsSingleRoundTrip(t *testing.T) {
 	if !re.MatchString(store.ClaimInsertSQL) {
 		t.Error("TakeProvisionClaim must claim and count in a single INSERT ... ON CONFLICT ... RETURNING; " +
 			"a read-then-write pair reopens the race this table exists to close")
+	}
+}
+
+// TestDuplicateRefusalIsAlwaysUnrecoverable pins the classification invariant
+// the council's edit-quality and guardian seats both flagged as untested.
+//
+// Why it needs its own test: the idempotency test above counts vendor creates,
+// and it would keep passing even if the duplicate refusal were answered
+// `error_recoverable` — the claim would still refuse that one attempt. What
+// would change is that the CHASSIS would retry, and the whole fix rests on the
+// chassis treating this as terminal. So the response classification has to be
+// pinned independently of the refusal.
+//
+// A wrapped error is used deliberately: Execute returns the sentinel wrapped in
+// context (%w), so a classifier written with == instead of errors.Is would pass
+// a bare-sentinel test and fail in production.
+func TestDuplicateRefusalIsAlwaysUnrecoverable(t *testing.T) {
+	wrapped := fmt.Errorf("%w: correlation corr-A already attempted a provision (attempt 2, status failed) — refusing to build a second billable instance",
+		ErrProvisionDuplicate)
+
+	errCode, status := classifyProvisionError(wrapped)
+
+	if status != "error_unrecoverable" {
+		t.Errorf("a duplicate refusal was classified %q — the chassis would RETRY it, and the retry is what builds the second billable GPU (bugs_open/259); want error_unrecoverable", status)
+	}
+	if errCode != "provision_duplicate" {
+		t.Errorf("errCode = %q, want provision_duplicate so an operator can see WHY it refused rather than a generic failure", errCode)
+	}
+}
+
+// TestProvisionErrorClassificationOrder guards the ordering itself. The
+// duplicate arm must win over the infrastructure arm, which is the specific
+// regression the extraction exists to make visible: a context.DeadlineExceeded
+// wrapped alongside the duplicate sentinel must still classify as a duplicate,
+// because isInfrastructureError would otherwise claim it and mark it retryable.
+func TestProvisionErrorClassificationOrder(t *testing.T) {
+	cases := []struct {
+		name       string
+		err        error
+		wantCode   string
+		wantStatus string
+	}{
+		{
+			name:       "duplicate beats infrastructure",
+			err:        fmt.Errorf("%w: and the ctx also died: %w", ErrProvisionDuplicate, context.DeadlineExceeded),
+			wantCode:   "provision_duplicate",
+			wantStatus: "error_unrecoverable",
+		},
+		{
+			name:       "paused is a denial, not retryable",
+			err:        errors.New("thunder provisioning paused: phase0 halt"),
+			wantCode:   "provision_denied",
+			wantStatus: "error_unrecoverable",
+		},
+		{
+			name:       "a genuine transient stays retryable",
+			err:        fmt.Errorf("wait for instance running: %w", context.DeadlineExceeded),
+			wantCode:   "infrastructure_error",
+			wantStatus: "error_recoverable",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			code, status := classifyProvisionError(tc.err)
+			if code != tc.wantCode || status != tc.wantStatus {
+				t.Errorf("got (%q, %q), want (%q, %q)", code, status, tc.wantCode, tc.wantStatus)
+			}
+		})
 	}
 }
