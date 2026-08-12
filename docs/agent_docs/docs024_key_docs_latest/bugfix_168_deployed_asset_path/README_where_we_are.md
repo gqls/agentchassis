@@ -1113,3 +1113,52 @@ timestamp only *claims* it did. So the new check could replace the old one rathe
 it. I haven't made that call, because tightening your gate needs no permission and loosening it does.
 The practical cost of keeping both is that a page fixed by an edit which didn't bump the timestamp
 will now sit unresolved. Happy either way — it's a one-line change.
+
+### The check you asked for worked — the reviewer who blocked us three times now approves outright
+
+Round six is back. Headline first: **the reviewer that blocked this in rounds three, four and five
+now approves with no objections at all.** That was the one raising a real concern about closing
+factual-claim items on weak evidence, it's the one you ruled on, and the check we just built answers
+it. So the thing we set out to do is done.
+
+The verdict is still "revise", and I want to be straight about why, because it isn't the same
+argument any more.
+
+**Eleven of sixteen approved, up against five objections — where last round it was fourteen and two.**
+More objections, and yet the substance improved. Looking at what the five actually say, none of them
+is about the design or the code behaving wrongly. **They are about the writing.** And specifically:
+almost every new objection lands on text I *added* in round six.
+
+That's the lesson of this round, and it's a bit humbling. The paragraph I wrote to fix the previous
+round's complaint attracted two new complaints of its own. **Answering a reviewer by adding an
+assertion just gives the next reviewer something new to doubt.** One of them says so almost in as many
+words — it objects that my rationale is heavy with dramatic capitals and self-congratulatory
+measurement claims rather than plainly describing the change. Reading it back, that's fair. So round
+seven needs to be *shorter and plainer*, not more thoroughly defended, which is the opposite of my
+instinct.
+
+**The thing that blocked it is already fixed, and it turned up something that affects everyone.** The
+reviewer objected that I justified the whole submission by citing one of your rulings — the one saying
+reviews here happen after the code ships, because on this shared setup nobody can hold code back — and
+that it had no way to check that ruling exists. It was right. The ruling is in our main instructions
+file, which the reviewers cannot read; and it had **no trace at all** in the database they *can* read.
+So we've been arguing from a rulebook our reviewers can't open. That will have been quietly hurting
+every submission that cites a rule. I've written it up as a fleet-wide trap and, in doing so, got the
+ruling into the database they read — so it's now checkable with one query.
+
+I also nearly fooled myself again, and it's the third time today, so I'll keep flagging it. My first
+check for that ruling searched for the *date* and returned 130 hits, which looked like plenty of
+evidence. Searching for the ruling's actual *words* returned zero. A search that can't come back
+empty isn't a check.
+
+**One reviewer found a genuine flaw in my code**, and it's a good catch: my new check searches the raw
+page source, while the original audit reads the extracted prose. Those should be the same text — that
+matching-predicates principle is the whole basis of this design. But I measured it before rushing to
+fix it, and on today's data the two give **identical** results. So it's worth correcting for
+correctness' sake, and I'm not going to present it as fixing anything.
+
+**Where that leaves the decision.** The most valuable thing on the list isn't about the council at all:
+two reviewers independently want a real safety check — not a comment — on a piece of shared plumbing
+that all six of these drainers depend on, where a mistake fails silently for every one of them. They
+also caught me arguing for exactly that principle and then not applying it. I'd build that regardless
+of whether we submit again.

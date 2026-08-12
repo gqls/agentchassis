@@ -8,7 +8,63 @@ now opens with two correction banners; its §1–§4 reference material still ho
 
 ---
 
-> ## 🟢 2026-08-12 — THE CLAIM-GRANULAR GATE IS BUILT (`58bede8d5`), AND ROUND 6 IS IN FLIGHT. Read this first
+> ## 🟣 ROUND 6 VERDICT: **REVISE** (2026-08-12 13:28:37Z) — **`compliance` APPROVES WITH ZERO OBJECTIONS.** The gate worked. Read this first
+>
+> `decided_by`: **gating objection from `prior_art_librarian`**. 16 reviewers, 1 abstained, 0
+> unreadable, not truncation-gated. Verdict saved: `VERDICT_2026-08-12_round6_*.json`.
+>
+> **THE SUBSTANTIVE OBJECTION IS CLOSED.** `compliance` gated rounds 3, 4 and 5 on the gate verifying
+> the wrong thing; the owner ruled; this lane built the claim-granular gate; **that seat now approves
+> with no objections at all**, as does `debug_historian`. That is what round 6 was for.
+>
+> **⚠ BUT THE OBJECTION SURFACE MOVED — from the design to the PROSE.** 11 approve / 5 object, where
+> round 5 was 14/2. **Every new objection lands on text round 6 added, not on code.** The status
+> paragraph written to fix `guardian`'s round-5 contradiction drew *two* fresh objections of its own.
+> **Answering a seat by adding an assertion creates a new surface for a different seat. Round 7 must
+> be SHORTER AND PLAINER, not better defended** — `constitution` (LOW) names the tone directly:
+> *"dramatic ALL-CAPS meta-narrative … self-congratulatory measurement claims"*, and it is right.
+>
+> ### The gating objection is ALREADY FIXED — do not re-argue it
+>
+> `prior_art_librarian` HIGH: the justification for submitting shipped code rests on *"the owner ruling
+> of 2026-07-29 §2"*, which it has no record of. **It was right on its own tooling.** The ruling is in
+> `CLAUDE.md` (verified, 1 grep hit) and had **ZERO** `doc_notes` trace. Filing the fleet landmine
+> *"CLAUDE.md's owner rulings are invisible to council seats"* and running `landmines-sync.py --apply`
+> **put it there**: `body ILIKE '%ordering exemption%'` now returns **5**, including the exact phrase.
+> Round 7 cites that query. ⚠ **My first check was `ILIKE '%2026-07-29%'` → 130 rows and I nearly
+> recorded it as reassurance — it matches the DATE STRING. Query a ruling's WORDS, never its date.**
+>
+> ### What round 7 needs, ranked by what is actually worth doing
+>
+> 1. **A MECHANICAL guard on the shared loader** — `editquality` MEDIUM + `guardian` MEDIUM, and they
+>    quote the submission against itself: risks §0a argues *"a comment is not a control"* and then
+>    offers a comment. A test asserting `loadParkedReviewItems`' SELECT column list matches
+>    `rows.Scan`'s destination order protects **all six** revalidators. **Strongest actionable item;
+>    worth building whatever happens with the council.**
+> 2. **Per-edit shipped evidence** — `editquality` MEDIUM: "EDITS 1-8 ARE ALREADY SHIPPED" was
+>    generalised from line-level verification of **edit 8 only** (`:141`, `:441`, `:475`). Verify each.
+> 3. **Mark the unverifiable AS unverifiable** — `prior_art_librarian` MEDIUM ×2 asks only for this,
+>    not for different facts: pod-grep and commit-ancestry claims are **UNVERIFIABLE FROM THAT SEAT'S
+>    TOOLING** (`code_symbols` is not in its schema either). Say so inline; it is the `[UNMEASURED]`
+>    discipline CLAUDE.md already requires.
+> 4. **Cut the rationale hard** (`constitution` LOW) — plain tone, no ALL-CAPS narrative, no round
+>    history it can already read in `diagnosis_artifacts`. This also shrinks items 1–3's surface.
+> 5. **A tracking artefact for the `voice_tells` asymmetry** — `bug_historian` MEDIUM + `reuse_agent`
+>    MEDIUM; 016b §9's "one call site gets the rigorous fix, the sibling stays heuristic".
+> 6. **A `doc_notes` NOTES entry** — `tooling_provenance` MEDIUM: the markdown register is a different
+>    mechanism and does not substitute.
+>
+> ### ⚠ ONE OBJECTION IS RIGHT ON PRINCIPLE AND WORTH NOTHING MEASURABLE — do not sell it as a fix
+>
+> `reuse_agent` LOW: the emit side scans `datahelpers.ExtractAssertionText(html)`
+> (`check_unverified_claims.go:527`) while `claimStillOnPage` searches **raw `html + contentJSON`** — a
+> real **predicate-parity** violation in the lane whose founding principle is exactly that parity, and
+> a bespoke matcher where `datahelpers/claims.go` already has one. **Measured before rewriting
+> anything:** tag-stripping as a proxy for `ExtractAssertionText` gives **2 false refusals vs 2**, and
+> **40/41 sensitivity vs 40/41** — *identical on both sides*. The two survivors (`5`, `97`) are in the
+> prose, not the markup. **Make the change for parity and reuse; do not claim it fixes false positives.**
+>
+> ## 🟢 2026-08-12 — THE CLAIM-GRANULAR GATE IS BUILT (`58bede8d5`). Round 6 has since returned — see above
 >
 > Owner chose *"build the tighter check first, then let one round carry both"*. Done. Orchestration
 > **`ec2b87a6-d695-4a78-9255-f488ab0fe859`**, same correlation `b67eb26a-…`.
