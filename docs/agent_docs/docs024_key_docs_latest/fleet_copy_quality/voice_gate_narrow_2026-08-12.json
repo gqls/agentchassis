@@ -1,0 +1,29 @@
+{
+  "voice_gate": {
+    "enabled": true,
+
+    "_note": "NARROW gate, installed 2026-08-12 on the owner's instruction. It enforces ONE banned phrase. The density thresholds below are PARKED DELIBERATELY at values that cannot trip — they are not tuned figures. Zero would mean 'use the default' (em-dash 3/1000, triads 4, long-sentence share 0.30, mean 22), which would impose leopardessconsulting's house style on a site that never asked for it. Raise this to a real voice audit only per-site, with thresholds chosen for THAT site's register.",
+
+    "banned_phrases": [
+      {
+        "pattern": "\\bhonest(ly|y)?\\b",
+        "reason": "owner 2026-07-18, restated fleet-wide 2026-08-12: overused; show the honesty, do not label it. One sanctioned exception exists: the idea.uk report hero ('the research, analysis, and honest assessment'). Do not substitute a synonym ('candid', 'frank', 'no-nonsense') — the point is that the site stops asserting its own character."
+      }
+    ],
+
+    "em_dash_per_1000_words": 100000,
+    "triads_per_page": 100000,
+    "long_sentence_share": 1.1,
+    "long_sentence_words": 10000,
+    "mean_sentence_words": 100000,
+
+    "expect_contractions": false,
+    "min_sentences_for_contraction_check": 100000,
+
+    "long_form": {
+      "em_dash_per_1000_words": 100000,
+      "triads_per_page": 100000,
+      "long_sentence_share": 1.1
+    }
+  }
+}

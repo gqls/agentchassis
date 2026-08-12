@@ -4591,3 +4591,104 @@ Post-sweep census: **4 rows left of 17**, and all four are the exclusions above.
 - **Other lanes own most of these sites.** Per the 2026-07-29 ruling their owners must be
   *told*, not merely measured — CONTRIB notes owed to finetuning, fundamentallyai,
   mortgagecalculator, noted, webdesign, dartsonline, cookly, vetcomparison, leopardess.
+
+---
+
+## §X.55 — 2026-08-12: the gate is BUILT, VERIFIED and ARMED on 7 sites — and RFC_015 caught ME
+
+### 1. RFC_015's citation gate refused MY OWN uncited edit, on live traffic
+
+The most useful thing that happened today. Four of the 78 copy edits were **refused** by
+the gate this lane built, naming D-004:
+
+> *"slot 'generic-text-block' on page 'guide-testing-it' is covered by decision(s)
+> D-004-guide-copy-hand-authored — re-submit with acknowledges_decision … naming the key"*
+
+I was mechanically stripping a word from **hand-authored guide prose the owner had
+specifically protected**, and the gate stopped me. Terminated cleanly as `complete` with
+`skipped:true` (migration 355B's terminus, working). Re-fired the four with
+`acknowledges_decision: D-004-guide-copy-hand-authored` — **`acknowledges`, not
+`supersedes`**, because D-004 still stands and this is a one-word change made in
+knowledge of it, not a copy regeneration. All four then landed; the guide pages are now
+clean at both `rendered_html` and `content_data`. `[VERIFIED]` — 0 rows.
+
+This is the second time the mechanism has fired unprompted on real traffic, and the
+first time it has fired **on this lane's own writer**. That is the design working:
+*you may change anything you can name.*
+
+### 2. The narrow gate — and the correction that "banned phrases only" is NOT achievable
+
+**I told the owner the gate could be armed with banned phrases only and the rest parked.
+Half right.** The five density checks *are* parkable (each is a `>` threshold, and
+`defaultF/defaultI` only substitute a default when the value is `<= 0`, so an explicit
+high value wins). **`strawman` and `flourish_ending` are NOT** — they fire
+unconditionally on every block whenever the gate is enabled, with no config to gate them
+(`voicetells.go:207-216`, `:242-248`).
+
+**That turned out to be a bonus, not a cost**, because those two are precisely items 3
+and 5 of the owner's 2026-08-12 critique:
+
+- `strawmanCommaRe` = `\bnot (just|merely|simply|about )?[^.;:]{2,50},\s*but\b` — the
+  antithesis. ⚠ **Narrower than the pattern the owner objected to**: it requires the
+  `, but`, so *"a thinking partner, not a verdict machine"* and *"is a feature, not a
+  weakness"* do **not** match. Do not claim this check covers the whole antithesis class.
+- `flourishRe` = a block's final sentence opening `that's why|and that's|ultimately|in
+  short|in summary|in essence|at its core|simply put` — the wistful closer, i.e. riddles.
+
+**Parked values, and why not zero:** zero means *inherit the defaults* (em-dash 3/1000,
+triads 4, long-share 0.30, long-words 25, mean 22) — which are **leopardessconsulting's
+house style**, and imposing one site's register on twenty-two others is how a checker
+starts reporting sound copy as defective. So they are set explicitly high, in both the
+top-level block **and** `long_form` (which overrides em-dash, triad and long-share only).
+
+**Verified against the REAL Go parser, not by inspection.** A scratch module with a
+`replace` onto the repo runs `datahelpers.ParseVoiceGate` + `ScanVoice` over nine cases
+chosen so the check *could* fail — banned word must fire, every parked check must stay
+quiet under deliberate abuse (ten em-dashes, five triads, a 45-word sentence, fifteen
+contraction-free sentences), strawman and flourish must fire. **9/9, normal and
+long-form.** Then re-run against the rows **as stored in the database**, which is the
+claim that matters: 7/7 `parsed OK, gate is enabled`, and a **control** —
+finetuning.uk, which has a `voice` spec but no gate — correctly returns *not opted in*.
+
+Config + arming script committed: `fleet_copy_quality/voice_gate_narrow_2026-08-12.json`
+and `arm_voice_gate.py` (refuses to clobber a site that already has a gate).
+
+### 3. Armed on 7 sites — the CLEAN ones only, deliberately
+
+webdesign.uk, noted.co.uk, relojistas.com, vetcomparison.uk, loancash.co.uk,
+lendzy.co.uk, gamesdesign.co.uk. All have **zero** `honest` pages, so the gate starts
+from a clean baseline and any item it ever files is a genuine regression. Four of them
+also have zero strawman; three carry 1–4 strawman pages, which will file once and are
+real findings.
+
+None had a `voice` aspect, so it was created. `[VERIFIED]` safe: the only Go reader is
+`LoadVoiceGate` (`check_voice_tells.go:234`, `SELECT data … aspect='voice' AND
+is_current`), and **no live agent config references `specs.voice`**.
+
+**Not armed** on the 14 sites still carrying the word — arming those first would file
+~62 items into `needs_human_review`, and the evidence against that is leopardess's own:
+**35 items since 17 July, 34 still unactioned — a 3% action rate.** A gate whose findings
+nobody works is a more precise way of not fixing something.
+
+### 4. The remaining residue is THREE classes, not one — and one of them is shared
+
+`[MEASURED 2026-08-12]`, fleet-wide, by cause:
+
+| class | components | pages | sites | fixable by |
+|---|---|---|---|---|
+| **A** — in `content_data` | 37 | 36 | 9 | `apply_section_edit`, the method already used |
+| **B** — `content_data` NULL, baked into `rendered_html` | 8 | 4 | 3 | **not** a section_edit; this is the leopardess trap (*"fabrications are partly baked into rendered_html with NULL content_data, so spec fixes alone can't remove them"*) |
+| **C** — from the component template / tool source | 18 | 18 | 9 | `content_components.html_template` / `js_content` — **15 active components, and they are SHARED** |
+
+**Class C is the one to be careful with.** `tool-ai-readiness-checker-fundamentallyai-com-finetuning-uk`
+serves two sites from one row; editing a template changes every site that renders it.
+That makes it a shared-mechanism change, not per-site copy, and it should be treated as
+such rather than swept up in a copy pass. Example of what lives there: idea.uk's
+`funding-fit` tool asks *"1. Where is the idea, honestly?"* — inside the tool's own
+markup, which no `field_updates` can reach.
+
+**My earlier extraction only ever saw class A**, because it filtered on
+`content_data ~* 'honest'`. That is why the three "cleaned" sites still showed residue
+afterwards, and it is worth stating as the general lesson: **the column you filter on
+defines the class of defect you can find.** A sweep that reads `content_data` cannot see
+copy that was baked into `rendered_html`, and reports itself complete.
