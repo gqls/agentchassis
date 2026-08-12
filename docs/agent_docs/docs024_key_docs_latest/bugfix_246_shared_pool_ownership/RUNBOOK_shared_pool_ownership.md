@@ -127,3 +127,74 @@ WHERE datname='clients_db' GROUP BY 1,2,3 ORDER BY 4 DESC;
 > connections you need pgbouncer's own `SHOW CLIENTS` / `SHOW POOLS`. And with
 > `MaxIdleConns(1)` the pods hold ~1 connection at rest regardless of the cap, so
 > an at-rest count cannot distinguish 4 from 12 either way.
+
+## 9. Activating the pgbouncer admin console (owner decision D1, wired 2026-08-12)
+
+**Why:** `SHOW POOLS` / `SHOW CLIENTS` are the ONLY way to see client-side pool queueing
+(`cl_waiting`, `maxwait`). §8 explains why `pg_stat_activity` cannot substitute.
+
+**The whole point of this section: the password lives in TWO places that must AGREE**, and
+Terraform owns only one of them.
+
+| half | where | managed by |
+|---|---|---|
+| what a client sends | `personae-platform-secrets.PGBOUNCER_ADMIN_PASSWORD` | **Terraform** — `047-base-configs` (`variables.tf` + `main.tf`, committed) |
+| what PgBouncer checks it against | `pgbouncer-userlist` secret → `/etc/pgbouncer/userlist.txt` | **not Terraform** — hand-applied `kustomize/services/pgbouncer/pgbouncer-secret.yaml`, whose repo copy is the literal placeholder `PGBOUNCER_ADMIN_PASSWORD_HERE` |
+
+### Step 1 — Terraform half (done; applies on the next roll)
+
+`pgbouncer_admin_password` is declared in `variables.tf`, wired into the
+`personae-platform-secrets` resource in `main.tf`, and a freshly generated 32-char value
+is in `terraform.tfvars.secret` (**gitignored and untracked — verified**).
+
+> **Checked before you apply, so you don't have to fear it:** the live secret holds
+> **exactly the 7 keys Terraform declares** — zero drift — so an apply ADDS the 8th and
+> deletes nothing. Re-check if time has passed, because `kubernetes_secret.data` is
+> authoritative and an apply WILL remove any key that has since been added out of band:
+> ```bash
+> kubectl -n ai-persona-system get secret personae-platform-secrets -o json \
+>   | python3 -c "import json,sys; print(sorted(json.load(sys.stdin)['data'].keys()))"
+> ```
+
+### Step 2 — the userlist half (NOT done; needs the owner)
+
+Terraform does not manage `pgbouncer-userlist`, so **step 1 alone does not make
+`SHOW POOLS` work.** The `pgbouncer_admin` line must carry the same password. Patch only
+that line — the `clients_user` and `templates_user` lines are live credentials and must
+not be regenerated or reordered.
+
+> **Not attempted by this lane, deliberately.** Reading the live userlist is a credential
+> read and was refused by the permission classifier — correctly. So the current value of
+> the `pgbouncer_admin` line is **[UNVERIFIED]**: it may still be the literal placeholder,
+> or a real value nobody has recorded. Whoever holds the credential should check before
+> overwriting, in case something else already authenticates with it.
+
+### Step 3 — make PgBouncer re-read it
+
+The userlist is read at startup. After patching the secret, either `RELOAD;` on the admin
+console (chicken-and-egg — only works if admin auth already succeeds) or restart the pod:
+`kubectl -n ai-persona-system rollout restart deploy/pgbouncer`. **A restart drops every
+pooled connection**, so do it deliberately, not during a build sweep.
+
+### Step 4 — the query this was all for
+
+```bash
+kubectl -n ai-persona-system exec <pgbouncer-pod> -- \
+  psql -h 127.0.0.1 -p 6432 -U pgbouncer_admin -d pgbouncer -c "SHOW POOLS;"
+```
+Read `cl_waiting` (clients queued for a server connection) and `maxwait` (how long the
+oldest has waited). **Sustained `cl_waiting > 0` or a climbing `maxwait` is the
+disconfirming observation for `bugs_open/246`'s pgbouncer risk** — the one measurement
+that change has never had. `cl_waiting = 0` with `maxwait = 0` means the client-side
+queue is empty, which is the result we expect and have never been able to confirm.
+
+> **Gotcha:** authenticate as `pgbouncer_admin`, not `clients_user`. `clients_user` is in
+> the userlist and connects fine to `clients_db`, but the admin console refuses it with
+> a bare `FATAL: not allowed` — which reads like a broken connection rather than a
+> permissions answer. Measured 2026-08-11.
+
+> **Known wart, recorded rather than hidden:** two owners of one value is the same defect
+> class as `bugs_open/246` itself. The structural fix is to have Terraform render the whole
+> userlist from the same variables that populate `personae-platform-secrets`, which would
+> make the mismatch unrepresentable. It needs the other two passwords moved into that
+> resource and was outside what decision D1 authorised.

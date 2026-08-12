@@ -17,6 +17,36 @@ variable "clients_db_user_password" {
   sensitive   = true
 }
 
+# PgBouncer admin console user (bugs_open/246, owner decision D1 2026-08-11).
+#
+# NOT a PostgreSQL user. `pgbouncer_admin` exists only inside PgBouncer, as its
+# `admin_users`/`stats_users` (pgbouncer-configmap.yaml:73-74), and it is what
+# `SHOW POOLS` / `SHOW CLIENTS` require. Without it, client-side pool queueing
+# (`cl_waiting`, `maxwait`) is unmeasurable by anything: `pg_stat_activity` cannot
+# substitute, because every row's client_addr is PgBouncer itself, so Postgres
+# sees the server pool and never the client queue.
+#
+# ⚠ THIS VALUE IS ONE HALF OF A PAIR THAT MUST AGREE.
+# PgBouncer authenticates the console against `/etc/pgbouncer/userlist.txt`
+# (`auth_type = md5`), mounted from the `pgbouncer-userlist` secret, which
+# Terraform does NOT manage — it is the hand-applied kustomize manifest
+# `deployments/kustomize/services/pgbouncer/pgbouncer-secret.yaml`, whose repo
+# copy carries the literal placeholder `PGBOUNCER_ADMIN_PASSWORD_HERE`.
+# Setting this variable alone does NOT make `SHOW POOLS` work; the userlist entry
+# must carry the same password. Activation runbook:
+#   docs/agent_docs/docs024_key_docs_latest/bugfix_246_shared_pool_ownership/RUNBOOK_shared_pool_ownership.md §9
+#
+# That two-owners-of-one-value shape is the same defect class as bugs_open/246
+# itself. Registered as a follow-up rather than fixed here: having Terraform
+# render the whole userlist would make the pair unrepresentable, but it needs the
+# clients_user/templates_user passwords moved into the same resource and is a
+# bigger change than this decision authorised.
+variable "pgbouncer_admin_password" {
+  description = "Password for the pgbouncer_admin console user (SHOW POOLS/SHOW CLIENTS). Must match the pgbouncer_admin line in the pgbouncer-userlist secret."
+  type        = string
+  sensitive   = true
+}
+
 # Platform keys
 variable "jwt_secret_key" {
   description = "JWT signing key for auth-service"

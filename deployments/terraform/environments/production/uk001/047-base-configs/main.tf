@@ -99,6 +99,13 @@ resource "kubernetes_secret" "personae_platform_secrets" {
     AUTH_DB_PASSWORD      = var.auth_db_user_password
     TEMPLATES_DB_PASSWORD = var.templates_db_user_password
     CLIENTS_DB_PASSWORD   = var.clients_db_user_password
+
+    # PgBouncer's own admin console user — NOT a PostgreSQL user (bugs_open/246 D1).
+    # Required for SHOW POOLS / SHOW CLIENTS, which are the only way to see
+    # client-side pool queueing (cl_waiting, maxwait). Must match the
+    # pgbouncer_admin line in the hand-applied `pgbouncer-userlist` secret;
+    # see variables.tf for why that pairing exists and why it is a known wart.
+    PGBOUNCER_ADMIN_PASSWORD = var.pgbouncer_admin_password
     GITHUB_TOKEN = var.github_personal_access_token
     GITHUB_READ_TOKEN = var.github_read_token
 
