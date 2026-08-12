@@ -132,21 +132,36 @@ pricing it.
 
 ## One loose end with a correlation to chase
 
-A LANDMINES entry was filed 2026-08-12 17:40Z — *"An `orchestration_states` status
-count is not a measure of cluster load"*, covering trap 5 above (commit `122cb945c`,
-synced to `doc_notes`). A `landmine-verifier` run was dispatched for it and **had
-not returned when this handoff was written**:
+Two LANDMINES entries were filed from this lane on 2026-08-12, both synced to
+`doc_notes`:
 
-- correlation `e3be27d4-4963-4809-89c6-24984b3f6909`, orchestration
-  `19851554-1dca-4bc9-bc32-84e1a0f6150a`, at `spawn_verifier` as of 17:34Z.
-- read the verdict with:
-  ```sql
-  SELECT subject_key, left(body,400), created_at FROM doc_notes
-  WHERE categories ? 'landmine-verification' ORDER BY created_at DESC LIMIT 3;
-  ```
-- **If it refutes any part of the entry, correct the entry visibly** (strike-through
-  + date), re-run `./scripts/landmines-sync.py --apply`, and log it in
-  `WRONG_CALLS.md`. A refutation here is a cheap success, not a problem.
+1. *"An `orchestration_states` status count is not a measure of cluster load"*
+   (`122cb945c`) — trap 5 above. Verifier **returned `STILL_VALID`** (corr
+   `e3be27d4`, 17:34Z).
+2. *"A `du` total is only a total if you could READ every subtree"* (`6aa6a57d7`) —
+   trap 7 above. Verifier dispatched, corr
+   `253cf06c-f9b6-4de2-9e3b-71bf183823a7`, **not returned when this was written**.
+
+```sql
+SELECT subject_key, left(body,600), created_at FROM doc_notes
+WHERE categories ? 'landmine-verification' ORDER BY created_at DESC LIMIT 3;
+```
+
+> **⚠ Do not read `STILL_VALID` here as "the claim was checked" — it was not, and the
+> verdict body says so if you read it.** `landmine-verifier` runs against a **Go-only
+> code index** (7,302 `.go` symbols). For entry 1 it confirmed the *tables* exist and
+> are queried, and reported the actual claims — the UPPERCASE status values, the
+> `updated_at` staleness — as **"NOT ANSWERABLE by this index" (2 of 4 checks)**. It
+> also describes indexed commit `46b507ed` from **2026-08-11 17:49Z**, "the last
+> pushed tip, not the present tree". So for a landmine about **DB behaviour, shell
+> tools or kubectl**, this verifier can confirm that the nouns exist and nothing more.
+> Entry 2 is about `du`, `kubectl debug` and file permissions and should be expected
+> to come back `NEEDS_HUMAN_REVIEW` for the same reason. **Both entries' substantive
+> claims were measured first-hand against the live cluster in this session — that is
+> the real evidence; the verifier is corroboration of vocabulary, not of mechanism.**
+> **If either verdict does refute something, correct the entry visibly**
+> (strike-through + date), re-run `./scripts/landmines-sync.py --apply`, and log it in
+> `WRONG_CALLS.md`. A refutation is a cheap success, not a problem.
 
 ## Everything else from the originating session is CLOSED — do not reopen
 
