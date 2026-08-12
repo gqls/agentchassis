@@ -548,3 +548,79 @@ still going as this was written. **236 is unblocked for the first time since it 
 was the point of the fix, not a result of it.** Reading a `CONFIRMED` on 236 as vindication of this
 fix, or an `UNVERIFIABLE` as its failure, would be the same conflation that produced the
 predecessor handoff's wrong mechanism.
+
+---
+
+## 2026-08-12 (evening) — `bugs_open/267` fixed in the tree: four unconditional invitations, not two
+
+Picked up 267 (the defect found *behind* 261) and implemented candidates 1 and 2. Ownership checked
+first (`scripts/who-owns.py 267` → the only two commits are this lane's own filing and its §4b
+measurement; nobody else in flight), and the working tree was clean on both target files.
+
+### The filing's census was incomplete, and finding that out was the useful part
+
+§2 named **two** places that advise a whole-file re-request. Grepping for the *shape* rather than
+the two known strings found **four**. The two extra ones:
+
+3. The coverage SUMMARY line — `"N did not fit … — re-request them singly in next_scope"` — said
+   that for the whole omitted set, when it is true only of the members that would fit singly.
+4. **`inScope[path]["*"] = true // whole file already included; no siblings to add`.** Not an advice
+   string at all. That comment is false exactly when the whole file did **not** render for size —
+   so the one file the model must sub-divide was also the one file whose symbol list the bundle
+   suppressed.
+
+**#4 is why candidate 1 alone would have been half a fix.** Refusing the request and then
+withholding the map moves the dead end; it does not close it. I would not have found it by looking
+for the string in the bug report, and I nearly didn't: it turned up because I asked "what does the
+model do *next* after we refuse it?" rather than "where else does this sentence appear?".
+
+### `SymbolSizes` computes sizes by CALLING `SliceLines`
+
+The marker now names the largest symbols that would fit, with sizes. The obvious implementation is
+prefix sums over the line offsets — faster, and wrong in the way that matters: it becomes a second
+copy of `SliceLines`' `[start,end]`-inclusive convention that must be kept in step for ever. If the
+two ever drift, the bundle advertises a size the cap will not honour, which is **this same bug with
+an extra indirection**. So it calls `SliceLines` per symbol and pays one split of the file each
+time. This runs only on the rare over-budget whole-file marker.
+
+`TestSymbolSizes` asserts the **round trip** — every offered handle resolves through
+`ReadSymbolBody`, and to a body of exactly the advertised length. Deriving the expected size from
+the fixture text would have let the test and the code agree with each other while both were wrong
+about the span convention. That is the same failure the README already records from yesterday (a
+test asserting a style nothing produces), so it was in front of me while writing this one.
+
+### Every guard mutation-verified, individually
+
+Four conditionals, four mutations, run one at a time:
+
+| mutation | tests that failed |
+|---|---|
+| `overCapAdvice` always returns the old sentence | the two over-cap tests, and only those |
+| summary always says "re-request them singly" | the summary test, and only that |
+| "+N more" always offers the bare path | the sibling test, and only that |
+| an omitted whole file still treated as "already included" | the sibling-listing assertion, and only that |
+| `SymbolSizes` emits bare method names | the collision assertion, and only that |
+
+One at a time on purpose — all four at once would not distinguish a guard that is load-bearing from
+one sitting in series behind another. None was in series.
+
+### What I did NOT do, deliberately
+
+`siblingSignatures` still renders methods with a **bare** name while the new marker renders them
+canonically, so one bundle can now show two spellings for one method. I nearly folded it in — it is
+one line, in a function I was already editing, and my own change makes the inconsistency visible.
+It is `bugs_closed/261` §8.1, already recorded there as a deliberate non-fold, so widening this
+change to cover it would have been me quietly re-deciding another file's call. Recorded in 267 §7c
+instead, with the observation that the two-spellings-in-one-bundle effect is the strongest argument
+yet for closing it.
+
+### Checks that were worth running
+
+- **Built and tested against `git archive HEAD` + only my five files**, not against this tree.
+  HEAD had already moved to `d142fcd27` under me while I worked. A green local build proves nothing
+  about what `make build-*` will produce, because the tree carries other sessions' WIP.
+- **Eyeballed the rendered bundle text**, which is the actual deliverable — it is prose an LLM
+  reads, and no assertion I wrote would have caught the one error I found that way: my new sentence
+  said the file's remaining symbols "are listed under Same-file signatures below", but that section
+  lists **functions only**, while my count spans functions, types and package-level values. A small
+  false claim in most files. Narrowed the wording.

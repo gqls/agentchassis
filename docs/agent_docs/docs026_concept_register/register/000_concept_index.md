@@ -295,6 +295,7 @@ an ID prefix, or a status word.
 | CTXA-009 | Codebase-conditional capabilities (degrade, don't break) | aspirational | Bundle capabilities rest on structural facts that may not hold elsewhere; degrade gracefully, don't break | context-assembly.md |
 | CTXA-003 | Three kinds of database data (definition / operational / content) | aspirational | Bundle distinguishes definition rows, operational telemetry, and gated content data | context-assembly.md |
 | DIAG-032 | Same-file sibling signatures + fair-share budgeting (F0.4c) | deployed | Bundle lists a scoped symbol's file-siblings too, with fair-share-per-file budgeting fixing starved small files | diagnosis-loop.md |
+| DIAG-043 | Budget-aware re-request advice, and analysis.SymbolSizes / analysis.FindFile | built | Bundle stops advising a whole-file re-read its own arithmetic refutes; names the symbols that would fit, with exact sizes | diagnosis-loop.md |
 | STY-028 | site-asset-renderer: deterministic per-site JS snippet bundling | deployed | Bundles js_snippets into assets/js/snippets.js per site, closing the loader gap | styling-render-pipeline.md |
 | DIAG-035 | Reasoning-state as a first-class handoff artefact | partial | Bundles lack persistent reasoning state across iterations; partially covered by the evidence trail today | diagnosis-loop.md |
 | DIAG-028 | Diagnosis persistence: diagnosis_artifacts write-through + persist_diagnosis_note | deployed | Bundles persisted per iteration; terminal diagnosis written as a NOTES row only when a subject is given | diagnosis-loop.md |

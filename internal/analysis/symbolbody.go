@@ -31,6 +31,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 )
 
@@ -80,7 +81,7 @@ func ReadSymbolBody(root string, out Output, symbol string) (string, error) {
 	//
 	// Side effect worth knowing: path traversal is closed too. `../../etc/passwd`
 	// cannot be in Output, so filepath.Join can no longer be walked out of `root`.
-	fi := findFile(out, pathPart)
+	fi := FindFile(out, pathPart)
 	if fi == nil {
 		return "", fmt.Errorf("ReadSymbolBody: %q not in analysis (no FileInfo for that path) — bodies are read only for files the analyser parsed", pathPart)
 	}
@@ -137,7 +138,88 @@ func SplitSymbol(symbol string) (path, name string) {
 	return symbol[:i], symbol[i+1:]
 }
 
-func findFile(out Output, slashRelPath string) *FileInfo {
+// SymbolSize is one addressable symbol and the length, in the SAME units the
+// consumer's caps count (Go's len over the body text), of what ReadSymbolBody
+// would return for it.
+type SymbolSize struct {
+	Symbol string // the "path:Name" handle, in the spelling next_scope resolves
+	Chars  int
+}
+
+// SymbolSizes ranks every symbol the analyser recorded for fi by body size,
+// LARGEST FIRST, slicing them out of `src` — the file text the caller already
+// holds. Ties break on the handle so the order is deterministic.
+//
+// bugs_open/267. A bundle that has just refused an over-budget whole file needs
+// to tell the model what it COULD ask for instead; without sizes that advice is
+// another guess, and a guess is what cost the loop an iteration in the first
+// place.
+//
+// Sizes are produced by calling SliceLines rather than by re-deriving its span
+// arithmetic, so an advertised size is BY CONSTRUCTION the number the consumer's
+// cap will later compare against and the two cannot drift. That costs one split
+// of the file per symbol; this runs once per over-budget whole-file marker, which
+// is rare by definition, and correctness-by-construction is worth more here than
+// the allocations.
+//
+// A symbol whose span does not slice (stale or zero span) is OMITTED rather than
+// reported as zero: a confident wrong size is worse than a missing row when the
+// number is the entire point of the row.
+//
+// Methods are keyed in the CANONICAL "(*Recv).Name" spelling that
+// code_symbols_actions.go writes and splitReceiver accepts, so a handle printed
+// from here still resolves when it comes back as next_scope — a bare method name
+// would be ambiguous in a file where two types share one.
+func SymbolSizes(fi *FileInfo, src string) []SymbolSize {
+	if fi == nil {
+		return nil
+	}
+	b := []byte(src)
+	var out []SymbolSize
+	add := func(name string, start, end int) {
+		body, err := SliceLines(b, start, end)
+		if err != nil {
+			return
+		}
+		out = append(out, SymbolSize{Symbol: fi.Path + ":" + name, Chars: len(body)})
+	}
+	for _, fn := range fi.Functions {
+		name := fn.Name
+		if fn.Receiver != nil {
+			name = "(" + fn.Receiver.Type + ")." + fn.Name
+		}
+		add(name, fn.StartLine, fn.EndLine)
+	}
+	for _, td := range fi.Types {
+		add(td.Name, td.StartLine, td.EndLine)
+	}
+	// Package-level var/const, addressable since bugs_open/223 phase 2 and
+	// resolvable by spanOf since bugs_open/261 — so they belong in a list whose
+	// purpose is "what you may name in next_scope".
+	for _, vd := range fi.Values {
+		add(vd.Name, vd.StartLine, vd.EndLine)
+	}
+	sort.SliceStable(out, func(i, j int) bool {
+		if out[i].Chars != out[j].Chars {
+			return out[i].Chars > out[j].Chars
+		}
+		return out[i].Symbol < out[j].Symbol
+	})
+	return out
+}
+
+// FindFile returns the analyser's FileInfo for a slash-relative path, or nil if
+// the analyser never parsed that file — which is also the READ BOUNDARY above,
+// so "nil" and "not readable here" are the same statement.
+//
+// EXPORTED 2026-08-12 for bugs_open/267, whose fix must reach a file's recorded
+// symbols in order to tell a model what it could ask for instead of an
+// over-budget whole file. Exported rather than re-walked out.Files at the call
+// site for the same reason SplitSymbol and SliceLines were: this package's own
+// header records that the path→FileInfo lookup has already been hand-rolled once
+// per consumer and drifted (bugs_closed/189), and a third inline copy is exactly
+// that shape again.
+func FindFile(out Output, slashRelPath string) *FileInfo {
 	for i := range out.Files {
 		if out.Files[i].Path == slashRelPath {
 			return &out.Files[i]

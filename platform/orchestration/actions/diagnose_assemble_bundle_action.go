@@ -49,6 +49,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -238,6 +240,15 @@ func DiagnoseAssembleBundleAction(ctx context.Context, params ActionParams) (int
 	// same file ("a defect signal must not render as 'coverage was capped'").
 	var omitted []string    // did not fit under the cap — COVERAGE
 	var unreadable []string // could not be read at all  — DEFECT
+	// bugs_open/267. Split the omitted by whether a re-request could EVER succeed:
+	// a body under the whole budget did not fit only alongside what was already
+	// spent (re-ask it alone and it renders), while a body over the whole budget
+	// cannot render under any arrangement of scope. The old summary line advised
+	// "re-request them singly" for both.
+	refitable := 0
+	// Bare-path scope entries whose whole-file body did NOT render, for the sibling
+	// section below: those files are the ones whose symbol list the model must have.
+	omittedWholeFiles := map[string]bool{}
 	for _, sym := range scope {
 		body, err := analysis.ReadSymbolBody(repoRoot, anaOut, sym) // slice the symbol's lines from the analyser spans
 		if err != nil {
@@ -264,8 +275,13 @@ func DiagnoseAssembleBundleAction(ctx context.Context, params ActionParams) (int
 		if total+len(body) > maxBodyChars {
 			truncated = true
 			omitted = append(omitted, sym)
-			fmt.Fprintf(&b, "### %s\n\n_(body omitted — %d chars, and %d of the %d-char body budget is already spent. It was found; it did not fit. Put THIS SYMBOL ALONE in next_scope to read it whole.)_\n\n",
-				sym, len(body), total, maxBodyChars)
+			if len(body) <= maxBodyChars {
+				refitable++
+			} else if p, n := analysis.SplitSymbol(sym); n == "" && p != "" {
+				omittedWholeFiles[p] = true
+			}
+			fmt.Fprintf(&b, "### %s\n\n_(body omitted — %d chars, and %d of the %d-char body budget is already spent. It was found; it did not fit.%s)_\n\n",
+				sym, len(body), total, maxBodyChars, overCapAdvice(anaOut, sym, body, maxBodyChars))
 			continue
 		}
 		fmt.Fprintf(&b, "### %s\n```go\n%s\n```\n\n", sym, body)
@@ -280,7 +296,19 @@ func DiagnoseAssembleBundleAction(ctx context.Context, params ActionParams) (int
 	if len(omitted) > 0 || len(unreadable) > 0 {
 		fmt.Fprintf(&b, "> **This section is INCOMPLETE.** %d of %d in-scope symbol(s) rendered with a body.", included, len(scope))
 		if len(omitted) > 0 {
-			fmt.Fprintf(&b, " %d did not fit under the %d-char cap (marked \"body omitted\" above) — re-request them singly in next_scope.", len(omitted), maxBodyChars)
+			fmt.Fprintf(&b, " %d did not fit under the %d-char cap (marked \"body omitted\" above)", len(omitted), maxBodyChars)
+			// bugs_open/267 again, at the summary. "Re-request them singly" is sound
+			// advice only for the ones that WOULD fit singly, and this line is read by
+			// a model that is choosing next_scope — so it must not promise for the
+			// whole set what is true of a subset.
+			switch {
+			case refitable == len(omitted):
+				b.WriteString(" — re-request them singly in next_scope.")
+			case refitable > 0:
+				fmt.Fprintf(&b, " — %d of them would fit if re-requested singly; the other %d are larger than the whole budget and cannot render under any scope (each marker says what to ask for instead).", refitable, len(omitted)-refitable)
+			default:
+				b.WriteString(" — every one of them is larger than the whole budget, so re-requesting them cannot help (each marker says what to ask for instead).")
+			}
 		}
 		if len(unreadable) > 0 {
 			fmt.Fprintf(&b, " %d could not be read (marked \"body unavailable\" above) — that is a tooling failure to report, not a finding.", len(unreadable))
@@ -294,7 +322,11 @@ func DiagnoseAssembleBundleAction(ctx context.Context, params ActionParams) (int
 	// same file, never seen). The signature list gives the verdict the map to
 	// name a sibling in next_scope. Parity with contextkit's Neighbourhood
 	// section, which this action's port dropped.
-	if sigs := siblingSignatures(anaOut, scope, siblingSigCap); sigs != "" {
+	if sigs := siblingSignatures(anaOut, scope, siblingSigCap, bodyCapView{
+		repoRoot:         repoRoot,
+		budget:           maxBodyChars,
+		wholeFileOmitted: omittedWholeFiles,
+	}); sigs != "" {
 		b.WriteString("## Same-file signatures (siblings of the in-scope symbols — name these in next_scope to read their bodies)\n\n")
 		b.WriteString(sigs)
 		b.WriteString("\n")
@@ -622,9 +654,113 @@ func renderWorkflowSteps(ctx context.Context, db *sql.DB, logger *zap.Logger, re
 	return b.String()
 }
 
+// overCapAdvice is the sentence that closes a "body omitted" marker, and it is
+// CONDITIONAL — because the unconditional version of it advised a request that
+// the marker's own arithmetic had already refuted.
+//
+// bugs_open/267. The marker used to end "Put THIS SYMBOL ALONE in next_scope to
+// read it whole." however large the body was. The worked case is diagnosis run
+// eddaf1af, iteration 3: platform/orchestration/coordinator.go, 169,139 chars
+// against a 60,000-char budget — 2.8x — advised by the very code holding both
+// numbers. Alone or not alone, it will not fit. Measured over all 486 bundles
+// ever assembled: 6 iterations across 5 runs rendered NO body at all because
+// everything in scope was over the cap; at 3 iterations per run that is a third
+// of the run's budget spent proving the advice impossible. The loop in the worked
+// case then named the four right symbols (~13,400 chars, four times inside the
+// budget) as next_scope with no iteration left to spend it.
+//
+// The branch turns on the ONE comparison that settles it — len(body) against the
+// WHOLE budget, not against the remaining budget. The remaining budget is what
+// the caller's cap tests, and it says nothing about whether a re-request could
+// succeed.
+func overCapAdvice(out analysis.Output, symbol, body string, budget int) string {
+	if len(body) <= budget {
+		// Achievable, and unchanged: it fits, it just did not fit ALONGSIDE what was
+		// already spent. Keeping this arm verbatim is what makes the fix conditional
+		// rather than a blanket removal of the advice (267 §4's stated guard).
+		return " Put THIS SYMBOL ALONE in next_scope to read it whole."
+	}
+
+	path, name := analysis.SplitSymbol(symbol)
+	if name != "" {
+		// One symbol, larger than the entire budget. A function does not subdivide,
+		// so there is nothing smaller to name: offer no remedy rather than an
+		// impossible one.
+		return fmt.Sprintf(" It is larger than the WHOLE %d-char budget on its own, so NO next_scope can render it — do not re-request it. Its signature and its callers are the evidence available here.", budget)
+	}
+
+	// A whole-file entry. This is the case that burned the iteration, and it is the
+	// one where the bundle can actually say what to ask for instead: the analyser
+	// already recorded every symbol in the file, and `body` IS the file text, so the
+	// sizes are exact rather than estimated.
+	sizes := analysis.SymbolSizes(analysis.FindFile(out, path), body)
+	var fits []analysis.SymbolSize
+	for _, s := range sizes {
+		if s.Chars <= budget {
+			fits = append(fits, s) // never suggest a symbol that repeats this bug
+		}
+	}
+	if len(fits) == 0 {
+		return fmt.Sprintf(" The whole file is larger than the %d-char budget, so NO next_scope can render this path — do not re-request it. Name individual symbols from this file instead.", budget)
+	}
+	const showTop = 6
+	shown := fits
+	if len(shown) > showTop {
+		shown = shown[:showTop]
+	}
+	parts := make([]string, 0, len(shown))
+	for _, s := range shown {
+		parts = append(parts, fmt.Sprintf("`%s` (%d chars)", s.Symbol, s.Chars))
+	}
+	// The cross-reference is deliberately narrow. siblingSignatures lists FUNCTIONS
+	// only, while the count above spans functions, types and package-level values —
+	// so "the rest are listed below" would be a small false claim in any file
+	// holding a type or a var, which is most of them.
+	return fmt.Sprintf(" That is larger than the WHOLE %d-char budget, so NO next_scope can render this path — do not re-request it. Name symbols instead; the largest that would fit are %s (%d symbols in this file; its function signatures are listed under \"Same-file signatures\" below, subject to that section's own cap).",
+		budget, strings.Join(parts, ", "), len(sizes))
+}
+
+// bodyCapView is what the sibling section needs to know about the BODY section it
+// sits under. bugs_open/267: neither fact was available here, and BOTH of this
+// file's re-request invitations were unconditional without them.
+type bodyCapView struct {
+	repoRoot string // the analysed checkout — the only place a file's real size is readable
+	budget   int    // max_body_chars: the number a whole-file request is measured against
+	// wholeFileOmitted holds bare-path scope entries whose whole-file body did NOT
+	// render because it was over the cap. For those, "the whole file is already
+	// included" is FALSE — and they are precisely the files whose symbol list the
+	// model needs in order to sub-divide its next_scope.
+	wholeFileOmitted map[string]bool
+}
+
+// fitsBudget reports whether path's whole-file body would fit the body budget,
+// and whether that is KNOWN at all.
+//
+// UNKNOWN (no root, no budget, unreadable, a directory) deliberately falls back
+// to the existing advice rather than suppressing it: a fix that goes quiet on a
+// failed stat would be worse than the bug it closes, and it is also what keeps
+// every pre-existing caller — the unit tests, which carry no repo root — rendering
+// byte-identically.
+//
+// os.Stat's size is the SAME quantity the cap compares: Go's len() over the file
+// text counts bytes, and so does st.Size(). This is exact, not an estimate.
+func (v bodyCapView) fitsBudget(path string) (fits, known bool) {
+	if v.repoRoot == "" || v.budget <= 0 {
+		return false, false
+	}
+	st, err := os.Stat(filepath.Join(v.repoRoot, filepath.FromSlash(path)))
+	if err != nil || st.IsDir() {
+		return false, false
+	}
+	return st.Size() <= int64(v.budget), true
+}
+
 // siblingSignatures renders the signatures of symbols that share a file with the
 // in-scope symbols but are NOT themselves in scope. Pure over the analyser
-// Output already in collected_data — no IO.
+// Output already in collected_data, with ONE exception since bugs_open/267: the
+// "+N more" marker below stats the file, because whether a bare-path request can
+// succeed is a fact about the file's size and there is nowhere else to read it.
+// One stat per scoped file, and a failure degrades to the old wording.
 //
 // The budget is FAIR-SHARED per scoped file, not first-come-first-served.
 // Benchmark forensics (runs dd1186b9/5120c0dc, 2026-07-10): every bundle's
@@ -634,7 +770,7 @@ func renderWorkflowSteps(ctx context.Context, db *sql.DB, logger *zap.Logger, re
 // mechanism no run ever reached (loadPagesForNav), NEVER got a line despite
 // its isLegalPage sitting in scope. Each file now gets capChars/n (floored),
 // with a per-file "+N more" marker telling the model how to see the rest.
-func siblingSignatures(out analysis.Output, scope []string, capChars int) string {
+func siblingSignatures(out analysis.Output, scope []string, capChars int, bodies bodyCapView) string {
 	inScope := map[string]map[string]bool{} // path -> symbol names in scope
 	for _, s := range scope {
 		// ONE owner of the path:Symbol grammar. This loop was its third
@@ -658,9 +794,16 @@ func siblingSignatures(out analysis.Output, scope []string, capChars int) string
 		if inScope[path] == nil {
 			inScope[path] = map[string]bool{}
 		}
-		if name != "" {
+		switch {
+		case name != "":
 			inScope[path][name] = true
-		} else {
+		case bodies.wholeFileOmitted[path]:
+			// bugs_open/267. The whole-file body did NOT render — it was over the body
+			// budget — so "already included" is false here, and this is exactly the
+			// file whose symbol list the model must have in order to sub-divide its
+			// next_scope. Leaving inScope[path] registered but EMPTY makes the file
+			// scoped with no symbol excluded, so every signature in it is listed.
+		default:
 			inScope[path]["*"] = true // whole file already included; no siblings to add
 		}
 	}
@@ -704,7 +847,16 @@ func siblingSignatures(out analysis.Output, scope []string, capChars int) string
 			continue
 		}
 		if skipped > 0 {
-			fmt.Fprintf(&fb, "- _(+%d more in this file — put the bare file path in next_scope to see it whole)_\n", skipped)
+			// bugs_open/267 candidate 2 — the same unconditional invitation, one
+			// section down. Offering the bare path for a file that cannot fit the body
+			// budget costs the loop an iteration to disprove, so it is offered only
+			// when the arithmetic permits it (and still offered whenever the size is
+			// unknown, see fitsBudget).
+			if fits, known := bodies.fitsBudget(f.Path); known && !fits {
+				fmt.Fprintf(&fb, "- _(+%d more in this file — not listed here, and the bare file path will NOT render: the whole file exceeds the %d-char body budget. Name symbols individually.)_\n", skipped, bodies.budget)
+			} else {
+				fmt.Fprintf(&fb, "- _(+%d more in this file — put the bare file path in next_scope to see it whole)_\n", skipped)
+			}
 		}
 		fb.WriteString("\n")
 		section := fb.String()

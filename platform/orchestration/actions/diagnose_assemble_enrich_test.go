@@ -59,7 +59,7 @@ func TestSiblingSignatures(t *testing.T) {
 	}}
 
 	// The benchmark gap: isLegalPage in scope, loadPagesForNav its unseen sibling.
-	got := siblingSignatures(out, []string{"platform/orchestration/actions/populate_nav_tables_action.go:isLegalPage"}, 6000)
+	got := siblingSignatures(out, []string{"platform/orchestration/actions/populate_nav_tables_action.go:isLegalPage"}, 6000, bodyCapView{})
 	if !strings.Contains(got, "loadPagesForNav") {
 		t.Fatalf("sibling loadPagesForNav must be listed, got:\n%s", got)
 	}
@@ -71,12 +71,12 @@ func TestSiblingSignatures(t *testing.T) {
 	}
 
 	// A whole-file scope entry has no siblings to add.
-	if got := siblingSignatures(out, []string{"platform/orchestration/actions/populate_nav_tables_action.go"}, 6000); got != "" {
+	if got := siblingSignatures(out, []string{"platform/orchestration/actions/populate_nav_tables_action.go"}, 6000, bodyCapView{}); got != "" {
 		t.Fatalf("whole-file scope should yield no sibling section, got:\n%s", got)
 	}
 
 	// The cap degrades to a truncation marker, not an oversized section.
-	if got := siblingSignatures(out, []string{"platform/orchestration/actions/populate_nav_tables_action.go:isLegalPage"}, 10); !strings.Contains(got, "omitted") {
+	if got := siblingSignatures(out, []string{"platform/orchestration/actions/populate_nav_tables_action.go:isLegalPage"}, 10, bodyCapView{}); !strings.Contains(got, "omitted") {
 		t.Fatalf("cap should leave a truncation marker, got:\n%s", got)
 	}
 }
@@ -101,7 +101,7 @@ func TestSiblingSignatures_FairShare(t *testing.T) {
 	}
 	out := analysis.Output{Files: []analysis.FileInfo{big, nav}}
 	got := siblingSignatures(out,
-		[]string{"a_giant_file.go:helperNumber00", "populate_nav_tables_action.go:isLegalPage"}, 3000)
+		[]string{"a_giant_file.go:helperNumber00", "populate_nav_tables_action.go:isLegalPage"}, 3000, bodyCapView{})
 	if !strings.Contains(got, "loadPagesForNav") {
 		t.Fatalf("fair share must reach the later file's siblings:\n%s", got)
 	}
@@ -196,7 +196,7 @@ func TestSiblingSignatures_ScopeEntryParsing(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			if got := siblingSignatures(out, tc.scope, 6000); got != tc.want {
+			if got := siblingSignatures(out, tc.scope, 6000, bodyCapView{}); got != tc.want {
 				t.Fatalf("scope %v\nwant %q\ngot  %q", tc.scope, tc.want, got)
 			}
 		})

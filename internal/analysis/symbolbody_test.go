@@ -186,12 +186,12 @@ func TestReadSymbolBodyRefusesUnanalysedPaths(t *testing.T) {
 	// Guard the premise: if the analyser ever starts including these, this test is
 	// asserting nothing and must be rewritten rather than left quietly passing.
 	for rel := range unanalysed {
-		if findFile(out, rel) != nil {
+		if FindFile(out, rel) != nil {
 			t.Fatalf("premise broken: analyser now includes %q in Output; "+
 				"this test no longer exercises the boundary", rel)
 		}
 	}
-	if findFile(out, "f.go") == nil {
+	if FindFile(out, "f.go") == nil {
 		t.Fatal("premise broken: analyser did not include f.go, so the positive control is meaningless")
 	}
 
@@ -271,7 +271,7 @@ func TestReadSymbolBodyResolvesIndexSpellings(t *testing.T) {
 	// Guard the premise for the values half: if the analyser ever stops recording
 	// package-level values, the value cases below would pass or fail for reasons
 	// that have nothing to do with spanOf, so fail loudly instead.
-	fi := findFile(out, "f.go")
+	fi := FindFile(out, "f.go")
 	if fi == nil {
 		t.Fatal("premise broken: f.go not in Output")
 	}
@@ -317,4 +317,107 @@ func TestReadSymbolBodyResolvesIndexSpellings(t *testing.T) {
 			t.Errorf("ReadSymbolBody(%q) should not resolve, got %d bytes:\n%s", bad, len(body), body)
 		}
 	}
+}
+
+// TestSymbolSizes is the bugs_open/267 round trip, and the round trip is the
+// whole point: the diagnosis bundle prints these handles and these numbers as
+// "ask for this instead", so a handle that does not resolve, or a size that is
+// not the size the cap will compare, reproduces the bug it was written to close —
+// an impossible request, arrived at more politely.
+//
+// So every assertion here goes back through ReadSymbolBody rather than through
+// the fixture's own text. Deriving the expected size from the fixture would make
+// the test agree with itself while both it and the code were wrong about the
+// span convention (doc comments in or out, EndLine inclusive or not).
+func TestSymbolSizes(t *testing.T) {
+	dir := writeSymbolBodyFixture(t)
+	out, err := Analyse(dir)
+	if err != nil {
+		t.Fatalf("Analyse: %v", err)
+	}
+	fi := FindFile(out, "f.go")
+	if fi == nil {
+		t.Fatal("fixture: f.go not in analysis")
+	}
+
+	src, err := os.ReadFile(filepath.Join(dir, "f.go"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	sizes := SymbolSizes(fi, string(src))
+	if len(sizes) == 0 {
+		t.Fatal("no symbols sized — every assertion below would be vacuous")
+	}
+
+	// (1) THE ROUND TRIP. Each handle must resolve, and to a body of exactly the
+	// advertised length.
+	byHandle := map[string]int{}
+	for _, s := range sizes {
+		body, err := ReadSymbolBody(dir, out, s.Symbol)
+		if err != nil {
+			t.Errorf("SymbolSizes offered %q, which ReadSymbolBody cannot resolve: %v", s.Symbol, err)
+			continue
+		}
+		if len(body) != s.Chars {
+			t.Errorf("%s: advertised %d chars, ReadSymbolBody returns %d — the bundle would size a request wrongly", s.Symbol, s.Chars, len(body))
+		}
+		byHandle[s.Symbol] = s.Chars
+	}
+
+	// (2) Largest first, or "the largest that would fit" means nothing.
+	for i := 1; i < len(sizes); i++ {
+		if sizes[i-1].Chars < sizes[i].Chars {
+			t.Fatalf("not sorted largest-first at %d: %v then %v", i, sizes[i-1], sizes[i])
+		}
+	}
+
+	// (3) The COLLISION. Both Greets must be present, receiver-qualified, and they
+	// must resolve to different bodies — which is what a bare "Greet" could not
+	// have done, and why the canonical spelling is the one printed.
+	greeter, okG := byHandle["f.go:(Greeter).Greet"]
+	helper, okH := byHandle["f.go:(*Helper).Greet"]
+	if !okG || !okH {
+		t.Fatalf("both colliding methods must be offered in the canonical spelling; got handles %v", handleList(sizes))
+	}
+	gBody, _ := ReadSymbolBody(dir, out, "f.go:(Greeter).Greet")
+	hBody, _ := ReadSymbolBody(dir, out, "f.go:(*Helper).Greet")
+	if gBody == hBody {
+		t.Fatalf("the two Greet handles resolve to the SAME body — the receiver is not disambiguating (%d/%d chars)", greeter, helper)
+	}
+
+	// (4) Types and package-level values are addressable in next_scope (223 phase 2
+	// / 261), so a list of "what you may ask for" that omitted them would send the
+	// model back for a second iteration to find them.
+	for _, want := range []string{"f.go:Greeter", "f.go:ErrFixture", "f.go:MaxFixture"} {
+		if _, ok := byHandle[want]; !ok {
+			t.Errorf("%s is resolvable by ReadSymbolBody but absent from SymbolSizes; got %v", want, handleList(sizes))
+		}
+	}
+}
+
+// A span that does not slice must produce NO row rather than a row saying 0.
+// A missing suggestion costs the model nothing; a confident "0 chars" invites a
+// request whose size is a fiction, which is this bug's own failure shape.
+func TestSymbolSizes_StaleSpanIsOmittedNotZeroed(t *testing.T) {
+	fi := &FileInfo{Path: "f.go", Functions: []FuncDef{
+		{Name: "Real", StartLine: 1, EndLine: 2},
+		{Name: "ZeroSpan", StartLine: 0, EndLine: 0},
+		{Name: "PastEOF", StartLine: 99, EndLine: 120},
+		{Name: "Inverted", StartLine: 3, EndLine: 1},
+	}}
+	sizes := SymbolSizes(fi, "line one\nline two\nline three\n")
+	if len(sizes) != 1 || sizes[0].Symbol != "f.go:Real" {
+		t.Fatalf("only the sliceable span should be reported, got %v", handleList(sizes))
+	}
+	if sizes[0].Chars == 0 {
+		t.Fatal("the surviving row must carry a real size")
+	}
+}
+
+func handleList(sizes []SymbolSize) []string {
+	out := make([]string, 0, len(sizes))
+	for _, s := range sizes {
+		out = append(out, s.Symbol)
+	}
+	return out
 }

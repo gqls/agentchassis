@@ -238,3 +238,62 @@ reserved; item 3 is the medium one that needs a routing call. Neither is blocked
 is that once this fix has rolled, the cheapest valuable next move is to re-run the diagnosis on the
 original hero-and-logo bug — it has failed twice for want of exactly the function bodies this fix
 restores, and it is the last unanswered question in that bug.
+
+---
+
+**2026-08-12, evening — the bug that was hiding behind yesterday's bug is now fixed too.**
+
+Quick recap of where this sits, because the chain matters. Bug 261 was that our diagnosis tool
+could not read function bodies when they were written in a particular style — it asked for them,
+got nothing back, and gave up. We fixed that. And the moment it could ask properly, it ran straight
+into a second problem that had been sitting behind the first one all along, invisible because
+nothing ever got far enough to reach it. That is bug 267, and it is the one I have just fixed.
+
+**What 267 actually is.** When the tool asks to read a file that is too big to fit in its working
+space, it says so — honestly, with the numbers. And then, in the same sentence, it tells the model
+to *ask for that file again on its own*. Which cannot work. The file was 169,000 characters and the
+space is 60,000. It does not matter how you ask; it will not fit. So the model does as it is told,
+spends one of its three attempts finding out, and by the time it has worked out the right thing to
+ask for, it has no attempts left. In the case that started this, it named exactly the four functions
+it needed — they would have fitted four times over — and had nowhere to put the request.
+
+Measured across every one of these bundles we have ever produced: six wasted attempts across five
+investigations that came back with **no code at all**.
+
+**What I changed.** The tool now checks the arithmetic it already had in front of it before it
+offers advice. If the thing genuinely would fit on its own, it still says so, in exactly the same
+words — that mattered to me, because the easy mistake here is to delete the sentence and quietly
+make the common case worse. If it would not fit, the tool says so plainly and then does something
+more useful: it names the largest pieces of that file that *would* fit, with their exact sizes, so
+the model can ask for those instead.
+
+**Two things I found that were not in the bug report, and one of them is the important half.**
+
+The report named two places that gave the impossible advice. There were four. The fourth is not a
+sentence at all — it is a piece of logic that says "we have already shown you this whole file, so
+there is nothing else to show you from it". Which is false in precisely the case where we could not
+show the file. So the one file the model most needed a map of was the one file we withheld the map
+for. Fixing the advice without fixing that would have moved the dead end rather than closed it.
+
+I found it by asking what the model does *next* after we turn it down, rather than by searching for
+where else the sentence appeared. Worth remembering — searching for the string finds the instances
+you already know about.
+
+**One mistake, caught by reading the output rather than by a test.** My new sentence told the model
+that the rest of the file's contents were listed further down the page. They are not, quite — that
+section lists functions only, and my count included a couple of other kinds of thing. Small, but it
+is a false statement in most files, and no test I had written would ever have caught it. I only saw
+it because I printed the finished text and read it as the model would. Narrowed the wording.
+
+**One thing I deliberately did not fix.** There is a related inconsistency — the same function can
+appear under two different names in one report — and my change makes it more visible than it was.
+It is one line, in a file I already had open, and I left it alone: it belongs to bug 261, which
+explicitly recorded it as a separate job. Folding it in would have been me overruling someone
+else's decision quietly, in a commit about something else. I have written down that my change
+strengthens the case for doing it.
+
+**Where this leaves us.** Same shape as yesterday: written, tested, committed, submitted for
+review. It is Go code, so it changes nothing in production until the next time we build and roll
+the images — the waste is still happening right now. And the same choice as before is still open on
+which piece of the commission to take next; nothing here has changed that, except that the
+diagnosis loop will be meaningfully less wasteful once both of these have rolled together.
