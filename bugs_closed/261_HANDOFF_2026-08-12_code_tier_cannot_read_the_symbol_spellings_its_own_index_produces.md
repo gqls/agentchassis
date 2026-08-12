@@ -1,11 +1,13 @@
 # 261 — the diagnosis code tier could not read the symbol spellings its own index produces
 
 **Filed:** 2026-08-12, `silent_hero_logo_readers` lane (follow-on from commission item 2).
-**Status:** **FIXED + council-APPROVED + committed (`6911c2da4`) + LIVE on `agent-chassis:v1.0.1293`
-(2026-08-12 19:14Z, both replicas). OPEN pending the BEHAVIOURAL proof** — a post-roll bundle that
-actually renders a method body. Verification run in flight, see §6.
+**Status:** **CLOSED 2026-08-12 — FIXED, council-APPROVED, LIVE, and PROVEN AT THE ARTEFACT.**
+Fixed in `6911c2da4`; live on `agent-chassis:v1.0.1293` (19:14Z, both replicas); behavioural proof on
+run `eddaf1af-…` iteration 1, a controlled A/B against the identical pre-fix scope — **12 of 12
+bodies rendered where 3 of 12 rendered before, and all 9 previously-unreadable symbols were
+receiver-form.** Full evidence in §6. Meets the `bugs_closed/` bar (fixed AND live), so it moves.
 
-**Live, verified at the artefact and NOT at the tag** (2026-08-12 ~20:15Z):
+**Live, verified at the artefact and NOT at the tag** (2026-08-12 ~19:20Z):
 
 ```
 kubectl -n ai-persona-system get pods -l app=agent-chassis   # v1.0.1293, 2 replicas, both Ready
@@ -185,7 +187,43 @@ this normalises a *symbol name* within an already-admitted file and cannot name 
   shared tree never held a mutation — this lane's own §7 lesson from `038211dd8`.
 - `go build ./...` clean; `go test ./internal/analysis/ ./platform/orchestration/actions/` green.
 
-## 6. Verification — step 1 DONE, step 2 IN FLIGHT
+## 6. Verification — BOTH STEPS DONE. **PROVEN AT THE ARTEFACT 2026-08-12 ~19:30Z.**
+
+> **The behavioural proof landed on iteration 1 of `eddaf1af-b44d-4bc0-8485-5885056042cd`, and it is
+> a controlled A/B: the SAME 12-symbol scope as the pre-fix run's iteration 1.**
+
+| | pre-fix `dbcc4259` iter 1 | post-fix `eddaf1af` iter 1 |
+|---|---|---|
+| in-scope symbols | 12 | **12 (identical list)** |
+| rendered with a body | 3 | **12** |
+| `_(body unavailable …)_` markers | 9 — **every one receiver-form** | **0** |
+| `**This section is INCOMPLETE.**` notice | present | **absent** |
+
+`(*SagaCoordinator).applyResponseToState` now renders its real body, starting at the `func` line
+exactly as the slicing convention requires:
+
+```go
+func (s *SagaCoordinator) applyResponseToState(state *OrchestrationState, stepName string, step models.Step, stepExists bool, normalisedData map[string]interface{}, awaitedReq *AwaitedRequest) {
+
+	// =========================================================================
+	// NEW: Check for output_mapping in step config
+```
+
+Rendered block 4,907 chars against the index's 4,746-char body — the difference is the heading and
+the ```go fence, which is what it should be. **This is a positive result, not an absent one**: the
+evidence is a body that is THERE, not an error that stopped appearing.
+
+The other eight symbols that used to fail — `(*StateRepository).UpdateState`, `.GetState`,
+`.CreateInitialState`, `.UpdateStateWithRetry`, `.UpdateAwaitedRequestRetry`,
+`(*SagaCoordinator).persistReportedConditions`, `.handleSpawnRetry`, `.saveStepResultWithRetry` —
+all render too. **Every receiver-form symbol in the scope resolved.**
+
+⚠ **What this proves and what it does not.** It proves the harness can now read method bodies. It
+says nothing yet about `bugs_open/236`'s own mechanism — that verdict is a separate question and the
+run was still going when this was written. A later iteration failing on some *other* symbol would
+not undo this: the pre-fix failure mode was 100% receiver-form, and that class is closed.
+
+### The original verification plan, for the record
 
 Per `bugs_open/236` §3's rule about unfalsifiable zeros, do not call the loop fixed on a quiet count.
 
