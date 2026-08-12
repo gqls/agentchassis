@@ -1740,3 +1740,40 @@ the site properly first time. I'd wait. The reason we kept those locks was to pr
 the calculators, and firing into a known twelve-page mess to save a day spends exactly
 what we were protecting. The cost of waiting is that the two false claims stay up a bit
 longer — so if we do wait, say the word and I'll cut those two half-sentences now.
+
+## 2026-08-12 evening — both false claims are gone from the live site
+
+Checked on all twenty-six pages just now: the footer sentence claiming every calculator
+shows its own arithmetic is gone, and the guide's promise of a month-by-month breakdown
+is gone. I also checked the opposite direction on every page — the rest of the footer is
+still there, and no page came back short or broken — because "I found nothing" is worth
+very little unless you can show the same check finding something.
+
+I did it as deletions rather than rewrites. The footer now reads "Independent UK
+borrowing tools." and stops; the guide now says use the calculator, and that like any
+calculator it only knows the figures you give it. Nothing new was written, which matters
+on a site whose whole point is that the framework writes the words.
+
+Two things I want to flag because they cost time and one of them nearly cost more.
+
+First, I fixed the sentences in two places each — the finished page and the underlying
+content record. The claim was sitting in both, and had I only fixed the visible one, the
+next time the framework rebuilt that page it would have written the false sentence
+straight back.
+
+Second, I got something wrong and caught it late. After triggering the rebuild of the
+pages I checked whether it had started, saw nothing, and concluded the instruction had
+been dropped. It hadn't — it had run perfectly, three quarters of an hour before I
+looked. My check asked "did anything happen in the last fifteen minutes", which was the
+wrong question after the session had been interrupted; the answer it gave was true and
+useless. I was one step from re-running a whole-site redeploy that had already succeeded.
+It's written up so the next person asks by name rather than by clock.
+
+One genuine unknown, recorded as unknown: an earlier batch of twenty-six queue entries I
+created by hand disappeared from the database outright. I can't find anything in the code
+that deletes those, and everything else of mine is untouched. They were the wrong shape
+and wouldn't have run anyway, so nothing was lost — but I'd rather write down that I
+don't know than invent a reason.
+
+The rebuild itself is still waiting on the planner work, as agreed. Nothing about today
+changes that.
