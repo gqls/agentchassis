@@ -227,3 +227,43 @@ haven't seen or approved that site's new copy yet. You asked for the enforcement
 mortgagecalculator copy review to happen after that, then asked for a handoff to carry all
 of this into a fresh chat. That handoff is `HANDOFF_2026-08-11_continue_here.md` in this
 folder.
+
+---
+
+**2026-08-12.** A fresh session picked up that handoff, and you asked it to go further:
+move toward all ~152 domains live, full-featured — 20-plus pages each, images, good copy,
+tools, guides, infographics/graphs where they fit, newsfeeds, and directory listings built
+from real web searches, not invented.
+
+Before building anything, it checked what's actually true today rather than trusting the
+handoff's own framing, and the picture is more basic than "148 domains left to build." Only
+four of the 152 domains have ever had a site built at all — and all four (the mortgage/loan
+calculators you already know) were either hand-written or copied from an existing site, not
+built by the automated pipeline. The pipeline itself has only been run for real once, on a
+throwaway domain deliberately kept outside the portfolio and never made public, specifically
+so nobody would mistake a test for a launch. That one run proved the machine can write copy
+that follows a brief, but it also came out capped at under 20 pages (a hard limit in the
+code, since raised), with several rough edges — wrong canonical links, missing page previews,
+tools it refused to build without a person unblocking them — most of which are still unfixed.
+
+You made five calls when this was put to you: don't start any new domain until both the
+broken-link/wrong-tag checking (which doesn't exist as a standing check yet, only a script
+someone has to remember to run) and the "wrong facts get written into pages and then
+defended" problem (bug 161 — genuinely needs a proper review, not a quick patch) are fixed.
+Newsfeeds and directory listings should be part of the very first sites, not bolted on later.
+Leave the generated calculators on manual review for now rather than trying to automate that
+away too. Use the one working chart type (bar charts built from facts a site has actually
+verified) rather than commissioning a general graphics tool the platform doesn't have. And
+keep any provider directories to facts that don't go stale fast — no rates or premiums
+attached to a named regulated firm, which is a compliance risk if it's even slightly wrong.
+
+One more thing worth recording: when asked to double-check the "graphs where appropriate"
+claim against a real example, the session went and looked at `oufe.com` directly rather than
+trusting its own research — found the claim held (a real chart is live on its Thames Water
+page, using exactly the mechanism described), but also noticed in passing that oufe's own
+"recovery waterfall" tool doesn't actually draw a waterfall chart despite the name — a small,
+separate thing worth fixing on that site sometime, not part of this plan.
+
+Full phased plan: `PLAN_2026-08-12_fleet_buildout.md` in this folder. Work is starting on
+the two blocking pieces (the link/tag checker, and bug 161's proper fix) — nothing else
+begins until both are live.

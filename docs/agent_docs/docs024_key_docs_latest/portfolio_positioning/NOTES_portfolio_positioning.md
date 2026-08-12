@@ -475,3 +475,74 @@ writers run — all 41 pages are rebuild_policy='owned' ported wholes; the
 whole-site rebuild (owner: "do the whole site — I'll check it then") is the
 handoff's task with hazards named there (owned-page route, decompose first,
 23 calculator pages = TL-001 clobber class, no --fidelity high).
+
+### 2026-08-12 — fleet build-out scoping: register-vs-DB gap, pipeline capability census, and the oufe.com graph double-check
+
+**[MEASURED, direct DB query]** Of the 152 domains in `PORTFOLIO_domains.txt`,
+exactly 4 have a `sites` row: `loanandmortgagecalculator.co.uk` (41 pages),
+`mortgagecalculator.co.uk` (31), `loancalculator.co.uk` (27), `loancash.co.uk` (22).
+All `status='deployed'`. The other 148 have no row at all. Cross-checked against the
+register's own status legend: only 4 of 43 propositions (M1, M2, L1, L10) carry any
+status tag — the register never claimed more than this, so "148 greenfield" is
+consistent with the register's own text, not a discovery that contradicts it.
+
+**[MEASURED, adoption-lane NOTES]** All 4 built sites are hand-written or adopted
+(byte-preserving crawl) from pre-existing live sites — none was produced by the
+generative pipeline end to end. The one real pipeline test is `lendzy.co.uk`,
+deliberately kept outside the portfolio/register precisely so the experiment
+couldn't be mistaken for a launch; it has no Cloudflare zone (not publicly
+reachable) and is currently 22 pages, up from "18 of 20 planned" on 2026-08-02.
+
+**[MEASURED, code read]** `platform/orchestration/actions/v3_site_actions.go:3226`,
+`validate_site_plan`: `maxPages := 20` — a ceiling the validator truncates DOWN to
+(preserving already-realised pages first), not a floor. Real runs land at 15-18.
+Config-only fix: `agent_definitions.default_config` for `build-site-planner`,
+`workflow.steps.validate_plan.config.max_pages`. Not exposed as a submit-time flag.
+
+**[MEASURED, code + doc read]** Capability census against the "tools, guides,
+infographics, graphs, newsfeeds, directory listings" ask:
+- Tools: pipeline genuinely generates working calculators (`tool-generator` ->
+  `create_tool_component_action.go`); arithmetic checked correct once against known
+  constants (0.8%/day, GBP 15 cap, DISP 1.6.2R) but no automated correctness gate
+  exists; defaults to parking in `needs_human_review` on first contact with a new
+  site.
+- Newsfeeds: fully wired, self-healing (`seed_content_sources_action.go` ->
+  `content-feed-orchestrator` -> `feed-ingester` -> `content_feed_items`, plus a 6h
+  heartbeat task and discovery-check backstop).
+- Directory listings from live web search: the verified-claim mechanism
+  (`directory_claims.go`, quote-must-be-present-in-fetched-source) is real and
+  proven, but wired to exactly two unrelated verticals (an AI-model directory, a
+  company adoption tracker) — zero wiring for finance/insurance. The other directory
+  mechanism (`entity-directory` page type / `directory-build-handler`) is a dead
+  end for this: `bugs_open/206` establishes it has never rendered on any live page
+  fleet-wide.
+- Graphs/infographics: `evidence-chart` (CSS bar chart, gated on a site's own cited
+  `evidence_base`) is the only real capability; a general infographic/multi-chart
+  generator is explicitly unbuilt, on the platform's own roadmap as future work
+  (`PLAN_imagery_loop_closure.md`).
+
+**[MEASURED, direct DB query, 2026-08-12]** Double-checked the graphs claim against
+`oufe.com` specifically (asked by the owner, not assumed): `/cases/thames-water.html`
+does render `evidence-chart` (confirmed via its CSS class in stored
+`rendered_html`). Its three tool pages have no chart/canvas/graph markup at all —
+an `<svg>` hit on `/tools/tool-recovery-waterfall.html` turned out to be a decorative
+icon, not a chart, on inspection of the actual markup (initial ILIKE '%svg%' screen
+was a false positive for "graph"; had to read the actual bytes to tell). Also found
+a second, genuinely separate chart mechanism, `report_charts.go`
+(`renderBarChartSVG`/`renderHeadroomChart`), but confirmed via its sole caller
+(`create_report_page_action.go`) that it's hardcoded to `page_type='report'` pages
+driven by `score_grippers` — a physics-scoring mechanism built for the unrelated
+robot-hands/gripper-dossier vertical. `oufe.com` doesn't use it (its case-study page
+is a plain content page). Net: the "evidence-chart only" claim holds; no counter-
+evidence found. Side finding, not part of this workstream: oufe's own "recovery
+waterfall" tool doesn't visually render a waterfall despite the name — flagged to
+the owner as a possible future fix on that site, out of scope here.
+
+**Enforcement-gap re-confirmation [MEASURED, 2026-08-12]:** structural-validity gate
+still has zero generalized implementation anywhere in `platform/`; bug 161's
+fleet-wide fix (72% of registered facts are prose-sourced and unverifiable by
+construction, figure unchanged since 2026-07-31) is still parked at "architecture
+review, RFC before code," unstarted; fidelity dial still only has `locked` wired.
+No activity on any of the three in the 24h preceding this session's start.
+
+Full phased plan from this session: `PLAN_2026-08-12_fleet_buildout.md`.
