@@ -568,3 +568,80 @@ reproduces exactly what migration `389` exists to prevent.
 `[UNMEASURED]`, and it decides the size of the fix: what `check_saved` branches on. If a
 no-op patch already lands on `complete_no_css` the repair is reporting only; if it lands on
 `complete`, it is the false-closure defect itself.
+
+---
+
+## ADDENDUM 6 (2026-08-12, late) — COLD-START POINT FOR A FRESH CHAT. Sweep run, ownership answered, "nothing to patch" answered, and a correction
+
+**Read this addendum and stop.** Addendums 1–5 are history; this is the state.
+
+### The sweep — RUN, and turned back OFF
+
+`improvement-sweep` was enabled at 16:15, fired **16:16:22**, and I disabled it again at
+once. **It is `enabled=false` now — verify that before assuming, it is a live cost.**
+
+What it did: **21 items promoted `detected` → `triaged`**, one improvement-loop
+orchestration dispatched (`c9cb0d76`). Discovery also filed *new* work, so `detected` went
+22 → 25 while `triaged` went to 24. **That is the sweep working, not failing** — the loop
+discovers and triages in the same pass.
+
+**Its gate is `LIMIT 1` — one site per 900s tick**, ordered by `sites.updated_at ASC`. So
+draining six sites is ~90 minutes of it being enabled. Budget that before turning it on.
+**The 226 parked `contrast_failure` rows are `deferred`, and triage promotes `detected`
+only — the park is safe from the sweep.** Confirmed, not assumed.
+
+### Which thread owns 213, and is it active — ANSWERED
+
+**`bugfix_122_contrast_ink_slots`.** `who-owns.py`: OWNED, **ACTIVE, 27 commits/14d**, 50
+mentions, handoff `HANDOFF_2026-08-12_continue_here.md` **dated today**. It committed on 213
+today. **It is ahead of us and should not be competed with.**
+
+Its `b2fca2f8f` (2026-08-12) is the thing to read: it costed the contrast_failure verifier
+fork and concluded (a) the standing objection is at `verifier_coverage_test.go:199-201`,
+three instances, and kills options 1–3; (b) `contrast_failure`'s exemption is **on the
+record** at `verifier_coverage_test.go:156`, justified by an argument **RFC_017 refuted on
+2026-08-08**, six days after it was written; (c) the answer is **discovery-path retraction**
+via `resolveWorkItems` (`work_items_common.go:249`), blocked only on the audit reporting
+*which* pages it covered, not how many.
+
+### The "nothing to patch" case — ANSWERED, and it is already honest
+
+`css-patch-agent`'s `save_css_to_db` is a guarded UPDATE (`length($2) BETWEEN 1 AND 8192`);
+`check_saved` branches on `css_saved.count >= 1`, else `complete_error` — the config's own
+description is *"Refuse to deploy unless the guarded append took a row (bugs_open/198)"*.
+**A no-op patch cannot reach `deploy_css`.** My earlier `[UNMEASURED]` flag on this is
+withdrawn.
+
+**And it is moot in practice: `css-patch-agent` has NEVER processed a work item.** Its whole
+footprint is the 226 `deferred` rows — 0 complete, 0 failed, `attempt_count = 0`.
+
+### CORRECTION — my Addendum 5 item 4 was wrong on the mechanism
+
+I wrote *"css-patch-agent has no verification step at all"*. **False.** Completion lives in
+`build-dispatch-loop`'s `process_item` → `sub_workflow.steps.mark_complete` =
+`complete_work_item`. I enumerated with `jsonb_each(default_config->'workflow'->'steps')`,
+which is **top-level only** — the exact query LANDMINES.md warns about, on the table it
+footprints. Corrected in `bugs_open/213` (`bd1ca99e4`) and logged (`71cdc11f3`).
+
+**What is true:** `contrast_failure` has **no registered verifier** (twelve types are
+registered; it is not one), so it reaches the verifying completion and finds no predicate —
+which is 213's original title case, not a new one.
+
+### Where this front now stands
+
+- **113's own mechanism: repaired fleet-wide**, ai-agent-orchestration.com included, verified
+  at served stylesheets. Council trail `b8e341b9` **APPROVED** at round 3.
+- **`allow_reinstall`** live (r1/r2) + **approval recording** built (`1fa86f5cc`, DES-084,
+  **not yet rolled** — pod-verify it after the next roll).
+- **Broad contrast work belongs to `bugfix_122_contrast_ink_slots`, not here.** Do not
+  unpark the 226; do not write a contrast verifier — that lane has costed it and chosen a
+  different shape.
+
+### If you pick this up cold, do these three things first
+
+1. `grep -n "<table|symbol>" docs/agent_docs/docs024_key_docs_latest/LANDMINES.md` before any
+   census — the SessionStart hook only matches **file** footprints, and the one that bit me
+   twice is footprinted on a **table**.
+2. `./scripts/who-owns.py <bug>` **before** filing a finding, not after. Mine duplicated a
+   worse version of work the owning lane had done that morning.
+3. Confirm `improvement-sweep` is still `enabled=false`.
