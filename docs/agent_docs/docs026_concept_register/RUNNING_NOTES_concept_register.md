@@ -2092,3 +2092,99 @@ and my commit. **Nothing is lost** — the correction is at HEAD, verified
 `git log` on that file now attributes the SYS-077 correction to a commit about owner rulings,
 and the only place that trail can be repaired is here. **The tell was arithmetic, not intuition:
 8 paths named, 7 files in the commit.** Count them.
+
+---
+
+## 2026-08-12b — signals 2 and 3 closed (`DOC-078`), and the field key does NOT transfer
+
+Picked up from `HANDOFF_2026-08-12_continue_here.md`. Took the carried question — *is there a
+key that does not require reading prose?* — into the two open staleness signals. Full account
+in `FINDINGS_2026-08-10_staleness_survey.md`'s **UPDATE 2026-08-12b**; this is the technical
+log.
+
+**Answer: no, not the same key.** Unresolved-citation rates by field run 10–37% with no break
+anywhere (`sources:` 19%, `what:` 25%, `verify-later:` 10%, `status-evidence:` 23%). The reason
+is structural: a citation's field predicts nothing about whether its target was renamed. What
+IS total and mechanical is **what git can say about the cited target** — at HEAD / moved /
+deleted / never — and the middle verdicts name their own repair. The field key returns as
+**severity**, not as a filter.
+
+**Built:** `scripts/report-register-citation-rot.py` (`DOC-078`, committed `b9b32ba92`).
+Read-only, ~1.5s, no cluster, no DB, not scheduled, not a checker. `--self-test` (10 cases,
+each naming the wrong answer it guards) · `--worklist` (every citation git can locate, with
+its target) · `--list <VERDICT>`.
+
+**The measurement** — 7,793 path citations / 1,767 entries: **75% resolve as written**, 286
+`MOVED-AT-HEAD` (target printed), 316 `BUG-MOVED`, 194 `DELETED`, 769 `MOVED-AMBIGUOUS` (a
+bare filename matching several files — under-specified, never wrong), 345 declared unjudgeable,
+**4 `NEVER-REPO-PATH`**. The four are listed in the FINDINGS update; `ADP-018`'s is the sharp
+one (right bug number, wrong directory, date and slug).
+
+### Misstep 1 — the instrument manufactured the headline, and I said it out loud first
+
+Stripping the `(N)` suffix unconditionally produced **27 of 34** "never existed" findings.
+`(N)` is an extraction-unit id in some citations and **part of the actual filename** in others
+(`002e_concept_spark(6).md`, `016b_debugging_guide_merged(3).md`). Caught by looking up what
+the file is called before writing the repair. Logged in `WRONG_CALLS.md` with the general
+check: **never report an absence without printing the near-miss git does have.**
+
+### Misstep 2 — the fix repeated it one level down, and the number never moved
+
+Resolving as-cited *and* stripped, I kept the **last** verdict rather than the **best**, so a
+citation that resolved exactly as written was overwritten by the stripped form's failure —
+same 15 entries, same wrong count, different bug. **A figure that reproduces across two runs of
+the same instrument is not corroborated**; both runs shared the instrument, not the world.
+
+### Misstep 3 — the first control failed, and that is the landmine
+
+`git rev-list --objects --all` **dedups by object**: 791 of 9,301 HEAD paths absent from its
+output, **791/791 content-identical duplicates**. A path-existence check built on it reports
+live files as never having existed. Enumerator that is actually total:
+`git log --all --no-renames --pretty=format: --name-only`. In `LANDMINES.md` (synced), and the
+script refuses to print if `HEAD ⊆ ever` fails.
+
+### Three more, cheap but worth the line
+
+- **The self-test caught a bug the full run could not show me.** A bare `NOTES.md` was
+  "resolving" to whichever file the index happened to list first — a basename with no directory
+  carries no evidence about which file it means. Fixed to require uniqueness; `MOVED-AMBIGUOUS`
+  went 81 → 769, i.e. **the honest number was nine times the flattering one**. A synthetic case
+  can fail in a way 7,793 real ones cannot, because in the real corpus the wrong answer still
+  looked like a path.
+- **`Council-Submitted: n/a` is REFUSED by the commit-msg gate**, correctly — the trailer is a
+  join key for the 098 report and a non-UUID value resolves to nothing. If your change is out of
+  the gate's scope (`platform/`, `internal/`, `pkg/`), **omit the trailer entirely** and say so
+  in prose. Cost: one blocked commit.
+- **`pattern-check` fires `new-capability-surface` on a doc that QUOTES a dead path.** The
+  FINDINGS table names `internal/gateway/hitl_handler.go` in order to say it does not exist, and
+  the checker read that as proposing a new `internal/gateway/`. Advisory, never blocks, and it
+  is the documented false-positive shape ("naming a path you have deliberately decided against
+  fires this too"). Recorded so the next reader of that commit does not chase it.
+
+### ⚠ A HARD RESET DESTROYED EVERY SESSION'S UNCOMMITTED WORK AT 18:38:52
+
+Between writing this lane's docs and committing them, another session ran a reset — reflog
+`1ee940968 HEAD@{2026-08-12 18:38:52 +0100}: reset: moving to HEAD`. It discarded **all
+uncommitted tracked-file changes across the whole repository**, not just this lane's.
+
+**What this lane lost and re-did:** the FINDINGS 08-12b update, this NOTES entry, and the
+`README_where_we_are` entry — all three re-appended from the session's own transcript, content
+unchanged (`724359d72` and this commit).
+
+**What the tree lost, measured rather than asserted** — files that were modified at session
+start, are clean now, and were NOT committed today, so their changes went with the reset:
+`CLAUDE.md` (last commit 08-11 13:30), `cmd/config-key-audit/main.go` (08-11 17:14),
+`internal/tools-api/clientip/clientip.go` (**07-30**), `platform/orchestration/actions/store_generated_component_action.go`
+(**08-03**), `check_endpoint_health_action.go`, and `register/rebuild-cascade.md` — the REB-003
+rewrite that four consecutive handoffs recorded as "stalled, do not touch", dirty since
+**2026-08-08 20:41**. Untracked files survived (a hard reset does not touch them), which is why
+`clearideas.bash`, `live.html` and `ctacalibrate` are still there and can mislead you into
+thinking nothing happened.
+
+**Two things follow.** First, the standing rule "commit each task the moment it is coherent,
+narrowly" is not merely about tidy history — the window between writing and committing is a
+window in which another session can delete your work outright, and here it was about ninety
+seconds. Second, **`rebuild-cascade.md`'s stored count is no longer owed**: the WIP that blocked
+it is gone, so the drift check's last HEAD finding is now removable by whoever next touches that
+file. That is a bad way to become unblocked and it should be said plainly to its owner rather
+than quietly banked.

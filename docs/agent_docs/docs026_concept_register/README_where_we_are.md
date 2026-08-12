@@ -885,3 +885,80 @@ right nine times out of nine. Show the evidence you actually tested.
 Two jobs left from the three: ninety-six citations pointing at deleted files, and a hundred and
 fifty-six pointing at bugs that have moved. The question I'll take into both is the one that
 worked here — is there something to key on that doesn't involve reading English?
+
+---
+
+**2026-08-12, later the same day — the last two jobs on the staleness list, and the answer was no.**
+
+The question I said I'd carry into these two was whether there's something to key on that
+doesn't involve reading English. For the version numbers, the answer was the register's own
+labelled parts: two of those labels are, by convention, claims about how things are right now,
+and keying on the label rather than the sentence is what made that check trustworthy.
+
+**It doesn't transfer, and the reason is simple once you say it out loud.** Whether an entry's
+citation still works has nothing to do with which part of the entry it sits in. A file gets
+renamed and every citation of it breaks, wherever it was written. The numbers say the same
+thing — between one in ten and one in four citations fail to resolve in every part of the
+entry, with no clean line anywhere.
+
+**What works instead is asking git, and it turns the whole picture around.** Instead of "does
+this file exist right now", ask "can git still find this file" — at its stated place, somewhere
+else today, deleted but recoverable, or never there at all. That's four answers, it needs no
+English, and two of them tell you exactly where the file went.
+
+Put that way, the register's citations are in far better shape than the survey suggested. Of
+nearly eight thousand, three quarters work exactly as written. Eight hundred point at something
+git can still find, usually because a big documentation folder was reorganised on the 4th and
+took a lot of citations with it. Another seven hundred and sixty-nine give only a filename with
+no folder — several files share that name, so the citation is vague rather than wrong. **And
+four — four in the whole register — name a file that has never existed under that name.** Three
+of those four are in the part of an entry that lists things to go and check later, which is the
+mildest place for it. The fourth cites a bug report by the right number but the wrong folder,
+date and title, which is the one I'd want its author to see.
+
+**Now the part I got wrong, because it is the more useful half.** Earlier today I told you two
+paths accounted for most of the dead citations, and that fifteen entries pointed at our
+most-read debugging document at an address that never existed. That was false, and my own tool
+invented it. These files have a number in brackets in their names — `(3)`, `(6)` — and in some
+citations that bracket is a reference marker rather than part of the name. I stripped it
+everywhere. So I took correct citations, altered them, found the altered version missing, and
+reported the register as broken. Because those findings came out sorted by how often they
+appeared, the invented ones went straight to the top.
+
+Then I fixed it and made the same mistake again one level down: the corrected code checked both
+spellings but kept the *second* answer instead of the *better* one, so the same fifteen entries
+came out wrong a second time. **The count didn't budge between two completely different bugs** —
+which is worth remembering, because a number that comes out the same twice feels confirmed, and
+both runs were only agreeing with my own instrument, not with the world.
+
+There was a third, caught earlier and more cheaply: the command I first used to ask git "has
+this path ever existed" quietly leaves out files whose contents are identical to another file's.
+Seven hundred and ninety-one files at the current version were missing from its answer, every
+one of them a duplicate. That one never reached a number, because I'd written a check that
+compared its answer against a list it should have contained — and the check failed on the first
+run. It's written up as a trap for anyone else asking git that question.
+
+**So the pattern in all three, and it is the same pattern as yesterday's blind checker.** Each
+time, the tool changed the thing it was checking before checking it, and the change is invisible
+in the output. Yesterday the instrument was looking at the wrong channel; today it was looking
+at a tidied-up version of the evidence. The defence is the same one that saved the version-lag
+report last time: show the evidence you actually tested, not your cleaned-up restatement of it.
+
+Both remaining jobs are now closed, and the tool that closed them says what it can't judge as
+loudly as what it can. What I have deliberately not done is repair the eight hundred fixable
+citations — an automatic rewrite of eight hundred lines across a hundred files is precisely the
+change nobody can review, and those citations were correct when they were written. If in a
+month nobody has repaired any of them by hand, then the honest answer isn't a louder report, it's
+a small rule at the point where citations are written: cite a path, not just a filename.
+
+**One thing you should know that isn't about the register.** While I was writing the three
+documents above, another session ran a command that throws away every unsaved change in the
+whole project at once, and it took them with it — along with everyone else's. I had my own text
+in front of me so I simply wrote it again, but the wider loss is real: half a dozen other files
+were being worked on, one of them since the 30th of July and another since the 3rd of August,
+and all of those edits are gone. There is no way to recover them, because they were never
+committed — that is exactly what "committed" buys you here. Nothing is broken and nothing needs
+undoing, and I'd rather you heard it from me than found a colleague's work missing tomorrow. The
+one silver lining is unpleasant: a file four handoffs in a row have described as "someone else's
+half-finished work, leave it alone" is now clean, so the last outstanding item on the register's
+own health check can finally be closed — by a route nobody would have chosen.
