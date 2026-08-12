@@ -328,3 +328,64 @@ nothing on the live pages changed. `superseded` re-arms correct detection.
 **Left genuinely open, not decided for the owner:** whether the 6-page hero.jpg gap should keep
 being pursued at all now that he's expressed a preference for the site's existing look. Asked
 rather than assumed — a design-taste call, not an engineering one.
+
+## 17. 2026-08-12 — the loop fired AUTONOMOUSLY (proving the design), and the fleet's own provenance recipe failed on the first try
+
+**The mechanism worked completely unforced.** At 19:06–19:08 on 08-11 — hours after we stopped
+touching this site — a `placeholder_image_in_use:hero` item filed by `design-discovery-agent`
+(NOT our paused rota; something else dispatched that agent for its own reasons, most likely the
+sibling lane's own audit/staleness work, given its commit trail from that window) ran through
+the exact path this lane built: `prompt_source=default_from_brand_identity`, routed through
+`image-build-handler`, generated on `banana/gemini-3-pro-image-preview` (mig 390's fix), stored.
+This is the "next design-discovery pass" the owner asked to wait for — it just arrived via
+someone else's dispatch rather than the 7-day rota tick, and the fix held up under a trigger we
+did not control or anticipate.
+
+**Verifying the fresh chassis build actually carries the fix hit the fleet's OWN documented
+landmine on the first attempt.** `kubectl logs -l app=agent-chassis --tail=300 | grep -m1
+'build provenance'` — the method CLAUDE.md itself now recommends — returned **nothing**, on a
+pod running ~15 hours. Before concluding "not shipped", checked: this exact failure is already
+in `LANDMINES.md` (added 08-11, `bugfix_234_dead_spec_key` lane) — the stamp logs once at
+startup and the chassis is noisy enough to rotate it out within minutes. Followed the entry's
+own recommended fallback (pull the image, read the OCI label, don't grep `/proc/1/exe` for your
+own commit — the landmine's "trap inside the trap" warns that only works for the exact build
+commit, not any ancestor):
+
+```
+docker pull docker.io/aqls/agent-chassis:v1.0.1290
+docker image inspect ... --format '{{index .Config.Labels "org.opencontainers.image.revision"}}'
+  → fa078ab3d4e8282f7f5f4b1f042515f1f96d2bd3
+git merge-base --is-ancestor ca6a03cce fa078ab3d... && echo shipped   # YES
+git merge-base --is-ancestor ebaf72729 fa078ab3d... && echo shipped   # YES
+git merge-base --is-ancestor 9425615bb fa078ab3d... && echo shipped   # YES
+# negative control: a commit made AFTER the stamp must NOT be an ancestor — confirmed absent
+```
+**Confirmed, authoritatively, not inferred.** All three of this lane's fix commits are ancestors
+of the exact commit the running image was built from. The landmine's remedy works as written.
+
+**Bug 248 struck again, on the SECOND independent hero generation, at a path already deleted
+from both stores that afternoon** — confirming the placeholder is *reconstructed* fresh by the
+deploy step, not a stale leftover. Contributed as fresh frequency evidence to `bugs_open/248`.
+
+**A NEW hero image exists, generated and stored, deployed to the (wrong) placeholder path, and
+the owner has NOT seen it** — a genuinely different generation from the one already superseded
+by owner preference on 08-11 (68,984 B vs 82,753 B; different content). Looked at it myself
+first, per the established discipline: dark navy/geometric background, five clean monochrome
+icons (savings, rate-protection shield, house+%+calculator, key, search), no artefacts, correct
+currency handling (uses % not a currency glyph, since this one is rate-themed rather than
+price-themed), reasonable clear space in the upper half. My own read: shippable, better composed
+than either prior attempt. **Not decided for the owner — presented, not superseded, pending his
+verdict**, since his 08-11 preference was stated about a specific prior image, not declared as
+standing policy against all future generations.
+
+**Two smaller variant assets also appeared** (`hero_about`, `hero_contact` — the page-named
+variant path, `check_unfulfilled_image_prompt`'s classification, not this lane's canonical-hero
+check) alongside `about-index` now built (4 components, deployed) and `contact-index` (2
+components, needs_rebuild) — the sibling lane has clearly been building out pages the
+decomposition plan listed as "never-built". Not reviewed individually; noted for the port plan's
+context, since the page inventory it was written against has already moved.
+
+**One isolated oddity, not chased:** this item's own `result` column holds unrelated
+content-planner JSON rather than the image outcome. Checked against 8 other same-night
+`image-build-handler` completions — all 8 clean. Isolated to this one row; cause unknown; noted
+in the 248 contribution in case anyone else reads this row's `result` as evidence.
