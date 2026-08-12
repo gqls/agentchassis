@@ -1,5 +1,12 @@
 # HANDOFF — bugfix 213, continue here
 
+> **SUPERSEDED 2026-08-12 for "what happens next" — read
+> `HANDOFF_2026-08-12_continue_here.md` first.** D3 is DONE (built, council-APPROVED,
+> deployed, proven at the artefact); D1 is the live work and now has measured urgency;
+> and this bug's closure criterion has become unsatisfiable, which the new handoff and
+> the bug file both explain. Everything below remains accurate about the INSTANCE fix
+> and about D3's original brief.
+
 > **UPDATED 2026-08-11.** The instance fix is **LIVE and PROVEN** on `v1.0.1284`, both
 > replicas, by the sanctioned binary probe with a two-sided control. The council
 > APPROVED it round 1. **Three owner rulings (D1–D3) were taken on 2026-08-11 and are
