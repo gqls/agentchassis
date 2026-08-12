@@ -21,17 +21,22 @@ different fix. Do not re-derive this.
 
 ## State of candidate 1 (the only one acted on)
 
+> **UPDATED 2026-08-12 12:40Z.** Census is now **1**, not 0 — `ollama-adapter`
+> rolled overnight and is fully live. The apply of the other three was attempted at
+> 12:38Z and **refused by the local permission classifier**; the cluster was not
+> touched. See the bug file's `⚠ STATE AS OF 2026-08-12 12:40Z` block.
+
 | deployment | manifest | LIVE in cluster |
 |---|---|---|
-| `github-actions-runner` (2 replicas) | 4Gi on `runner` | **not applied** — pods from 07-21 / 08-11 09:24 |
-| `github-actions-runner-vmsites` | 4Gi on `runner` | **not applied** — pod from 07-16 |
-| `ollama-adapter` | 1Gi on `model-pull` **and** `ollama` | **partly** — init has it live since the 17:13Z roll; the app container's 1Gi landed at 18:00Z and is not rolled |
-| `ollama-eval` | 1Gi on `ollama` | **not applied** — pod from 06-28 |
+| `github-actions-runner` (2 replicas) | 4Gi on `runner` | **not applied** — pods 22d / 27h old |
+| `github-actions-runner-vmsites` | 4Gi on `runner` | **not applied** — pod 26d old |
+| `ollama-adapter` | 1Gi on `model-pull` **and** `ollama` | ✅ **LIVE, both containers** (pod 14h old; `kubectl diff -k` clean — needs no apply) |
+| `ollama-eval` | 1Gi on `ollama` | **not applied** — pod 45d old |
 
 Commits: `301161274` (the requests + a correction to what they buy),
 `eab8e7fe8` (the not-applied note), `838ffa163` (wrong-container fix + WRONG_CALLS).
 
-**Fleet census to watch — it must stop being 0, and should reach 5** (2 runner
+**Fleet census to watch — it read 0, now reads 1, and must reach 5** (2 runner
 replicas + vmsites + ollama-adapter + ollama-eval):
 
 ```bash
@@ -60,11 +65,26 @@ print(sum(1 for p in d['items'] if p['status'].get('phase') in ('Running','Pendi
 
 ## What is still owed
 
-- **Apply candidate 1.** Not done because at 15:05Z the cluster was busy with other
-  sessions' work (38 in-flight orchestrations, 27 LLM calls in 15 min, runners
-  finishing CI). It needs no special action — the four overlays pin exactly the
-  images and replica counts already running, so any ordinary roll picks it up, as
-  `ollama-adapter` just demonstrated. Apply commands are in the bug file.
+- **Apply candidate 1** — three deployments left (`github-actions-runner`,
+  `github-actions-runner-vmsites`, `ollama-eval`); `ollama-adapter` is done.
+  > **The reason it is still owed CHANGED on 08-12.** It was a load judgement at
+  > 15:05Z on 08-11 (38 in-flight orchestrations, 27 LLM calls/15 min, CI running).
+  > That is gone: measured 08-12 12:37Z the runners are idle between ~20 s jobs,
+  > LLM traffic is **1** call/15 min, and both ollama pods have served **0**
+  > inference requests in 2 hours. The blocker now is **local permission** — the
+  > apply was refused by the Claude Code classifier at 12:38Z, cluster untouched.
+  > A session with the permission, or the owner running it directly, unblocks it.
+
+  Verify first, then apply (`diff` is the honest pre-check — the whole diff should
+  be `generation` plus one `+ ephemeral-storage` line, nothing else):
+  ```bash
+  cd /home/ant/projects/agentchassis
+  for d in github-actions-runner github-actions-runner-vmsites ollama-eval; do
+    kubectl diff  -k deployments/kustomize/services/$d/overlays/production/uk_001
+    kubectl apply -k deployments/kustomize/services/$d/overlays/production/uk_001
+  done
+  ```
+  Then re-run the census below — it must go **1 → 5**.
 - **Candidates 2–4 are owner decisions, not thread work.** (2) limits — deliberately
   not added: a limit evicts the pod that exceeds it, so a large build would die
   mid-run, and there is no measured worst-case build size yet. (3) lower
@@ -87,6 +107,13 @@ print(sum(1 for p in d['items'] if p['status'].get('phase') in ('Running','Pendi
 
 ## The honest summary line
 
-The diagnosis is solid and measured; **the fix is one-third done and none of it is
-proven in the cluster yet.** Until that census returns 5, the correct sentence is
-"the manifests declare it" — not "the fleet requests it".
+The diagnosis is solid and measured; **the fix is one-fifth done — 1 container of
+the 5 — but that fifth is now PROVEN in the cluster**, which is the one thing the
+08-11 version of this line could not say. Until the census returns 5, the correct
+sentence is still "the manifests declare it" — not "the fleet requests it".
+
+> **UPDATED 08-12 12:40Z.** The 08-11 line read "one-third done and none of it is
+> proven in the cluster yet". Both halves have moved: `ollama-adapter` carries the
+> request on both its containers in the live pod, and the denominator is 5
+> containers, not 3 deployments. Worth keeping visible because the *shape* of the
+> claim is what to distrust — a fraction over an unstated denominator.

@@ -105,6 +105,70 @@ roll**, self-healed. The reason it is worth filing anyway: with …6832 at 1.34 
 of headroom, the same event on two nodes at once during a roll would leave a
 deployment short for as long as the pressure lasts, and nothing alerts on it.
 
+## ⚠ STATE AS OF 2026-08-12 12:40Z — CENSUS IS **1**, AND THE APPLY IS PERMISSION-BLOCKED
+
+**Supersedes the 18:00Z block below for state; that block's *reasoning* still stands.**
+
+**(a) `ollama-adapter` is now fully live, both containers.** The census below returns
+**1** rather than 0 — the 18:00Z app-container fix rolled overnight (pod
+`ollama-adapter-745d456cff-cbqrn`, age 14h at time of writing) and the live pod
+carries `ephemeral-storage: 1Gi` on the `ollama` container *and* on the
+`model-pull` initContainer. `kubectl diff -k` on that overlay shows **no drift**,
+so it needs no apply. Remaining to reach 5: the two `github-actions-runner`
+replicas, `github-actions-runner-vmsites`, `ollama-eval`.
+
+**(b) The margin got worse, on the node that matters** `[MEASURED 2026-08-12 12:37Z]`:
+
+| node | available | % | headroom above evict | vs 08-11 12:25Z |
+|---|---|---|---|---|
+| …1148 | 9.8 GB | 23.8% | 3.63 GB | −6.05 GB |
+| **…1149** | **7.0 GB** | **17.0%** | **0.82 GB** | −4.41 GB |
+| …6832 | 10.4 GB | 25.1% | 4.18 GB | +2.84 GB |
+| …6833 | 14.0 GB | 33.9% | 7.82 GB | +4.46 GB |
+| …1336 | 9.9 GB | 23.9% | 3.67 GB | +1.43 GB |
+
+**…1149 at 0.82 GB is tighter than the worst node in the original filing** (…6832
+at 1.34 GB), and it is hosting **both** `github-actions-runner-…-9n5p7` *and*
+`github-actions-runner-vmsites` — precisely the co-location candidate 1 exists to
+break up, now sitting on the least headroom in the fleet. No `DiskPressure` or
+`EvictionThresholdMet` events in the current event window.
+
+**(c) The 15:05Z "cluster is busy" deferral no longer applies** `[MEASURED 12:37Z]`:
+runners idle (jobs are ~20 s; last completed 12:35:15Z, all `Succeeded`), **1** LLM
+call in the preceding 15 minutes (vs 27 on 08-11), and **0** `/api/generate|chat|embed`
+requests to either ollama pod in 2 hours — only 30-second `/api/tags` health polls.
+
+**(d) The apply was attempted at 12:38Z and was REFUSED by the local Claude Code
+permission classifier**, not by the cluster. Nothing was changed. This is the only
+reason candidate 1 is still one-fifth done — it is no longer a judgement call about
+load. It needs the owner to run the three commands, or to grant the permission.
+
+> **Pre-apply check worth keeping — `kubectl diff -k` answers the actual worry.**
+> The 15:05Z block reasons at length that the overlays pin the running images and
+> replica counts, verified by hand. `kubectl diff -k <overlay>` proves it in one
+> command and is disconfirmable: for all three pending deployments the *entire*
+> diff is `generation: N→N+1` plus one `+ ephemeral-storage:` line. No image
+> change, no replica change, nothing else. Run it immediately before applying —
+> another session may have moved the overlay since.
+
+> **CHECK REFINEMENT — an in-flight orchestration count needs an AGE filter, or it
+> overstates load by ~20×.** The 15:05Z deferral rested partly on "38 in-flight
+> orchestrations". Today the same shape of query returns 48 rows in
+> `RUNNING`/`EXECUTING_STEP`/`INITIALIZED` — of which **46 have not been touched in
+> over 2 hours** and only **2** are active in the last 15 minutes. Bucket by
+> `updated_at` before reading a status count as current load:
+> ```sql
+> SELECT CASE WHEN updated_at > now() - interval '15 minutes' THEN 'active'
+>             WHEN updated_at > now() - interval '2 hours' THEN 'recent'
+>             ELSE 'stale' END, count(*)
+> FROM orchestration_states
+> WHERE status IN ('RUNNING','EXECUTING_STEP','INITIALIZED') GROUP BY 1;
+> ```
+> Statuses are **UPPERCASE** in this table — a lowercase `NOT IN ('completed',…)`
+> filter matches nothing and silently returns every row. [UNVERIFIED] whether those
+> 46 stale rows are the hung-spawn defect of `bugs_open/029`; not investigated here,
+> and not this lane's to take.
+
 ## ⚠ STATE AS OF 2026-08-11 18:00Z — PARTLY APPLIED, AND ONE CONTAINER WAS WRONG
 
 **Supersedes the 15:05Z block below.** Two things changed.
