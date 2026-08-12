@@ -59,7 +59,17 @@ func (c *PlaceholderImageInUseCheck) Run(dctx DiscoveryCheckContext) (*CheckResu
 			continue
 		}
 
-		hasAsset, err := hasActiveAssetForPurpose(dctx, mapping.purpose)
+		// The CANONICAL asset, not "any asset of this purpose": asset_key ==
+		// purpose for the canonical logo/hero (classifyPromptKey, "logo"->"logo",
+		// "hero_home"->"hero"). hasActiveAssetForPurpose is the wrong granularity
+		// here and its own doc comment says so — post Phase 2D, a page-named
+		// variant (hero_about, hero_contact, ...) carries the SAME purpose="hero"
+		// as the canonical fallback, so it satisfies "any hero exists" without
+		// touching the fallback path this check exists to close. Found live
+		// 2026-08-12: superseding the canonical hero asset left hasAsset==true
+		// because hero_about/hero_contact were still active, silently defeating
+		// re-detection of a gap that was explicitly asked to stay live.
+		hasAsset, err := hasActiveAssetForAssetKey(dctx, mapping.purpose)
 		if err != nil {
 			dctx.Logger.Warn("placeholder_image_in_use: asset existence check failed",
 				zap.String("purpose", mapping.purpose),
@@ -67,8 +77,8 @@ func (c *PlaceholderImageInUseCheck) Run(dctx DiscoveryCheckContext) (*CheckResu
 			continue
 		}
 		if hasAsset {
-			continue // asset exists; this isn't a placeholder use, the deployed
-			// path just happens to match the canonical name for that purpose.
+			continue // the canonical asset exists; this isn't a placeholder use,
+			// the deployed path just happens to match the canonical name.
 		}
 
 		// Recover the planner's intent if it exists. IT USUALLY DOES NOT:

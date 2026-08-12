@@ -21,9 +21,14 @@
 package discovery_checks
 
 import (
+	"context"
 	"regexp"
 	"strings"
 	"testing"
+
+	sqlmock "github.com/DATA-DOG/go-sqlmock"
+	"github.com/google/uuid"
+	"go.uber.org/zap"
 )
 
 // The live markup that filed the false positive. fundamentallyai.com renders a
@@ -102,5 +107,80 @@ func TestPlaceholderImageInUse_PathIsRegexEscaped(t *testing.T) {
 	re := regexp.MustCompile(sameOriginPathPattern("/assets/images/logo.png"))
 	if re.MatchString(`<img src="/assets/images/logoXpng">`) {
 		t.Fatal("the '.' in the path was treated as a wildcard — the path must be quoted")
+	}
+}
+
+// TestPlaceholderImageInUse_VariantAssetDoesNotSuppressCanonicalDetection pins
+// the 2026-08-12 fix: the asset-existence gate must ask about the CANONICAL
+// asset (asset_key == purpose), not "any asset of this purpose". Found live
+// on mortgagecalculator.co.uk — superseding the canonical hero asset left
+// detection silently suppressed, because hero_about/hero_contact (page-named
+// variants, same purpose="hero", different asset_key) were still active.
+// hasActiveAssetForPurpose would have returned true here; the correct
+// hasActiveAssetForAssetKey must return false, and the check must proceed to
+// file a Finding rather than skip.
+//
+// sqlmock cannot verify the QUERY'S row-filtering semantics (it returns
+// whatever rows the test hands it — see this file's header), so it is used
+// here only to pin WHICH QUERY SHAPE the code issues (asset_key= , not
+// purpose= ); a regression back to hasActiveAssetForPurpose would ask sqlmock
+// a question it never expected and fail. The claim that the asset_key-scoped
+// query itself returns the right answer against real data is proven
+// separately in Postgres (NOTES §18): 2 (wrong, purpose-scoped) vs 0 (correct,
+// asset_key-scoped) against this exact live row set.
+func TestPlaceholderImageInUse_VariantAssetDoesNotSuppressCanonicalDetection(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	// 1. isPathReferencedInPages: the page renders the fallback.
+	mock.ExpectQuery("FROM page_components").
+		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(1))
+
+	// 2. hasActiveAssetForAssetKey: MUST be asset_key-scoped. A reversion to
+	// hasActiveAssetForPurpose issues a query with no "asset_key" predicate,
+	// which this expectation will not match, and the test fails on the
+	// resulting sqlmock "call to Query was not expected" error.
+	mock.ExpectQuery(`(?s)FROM assets.*asset_key\s*=\s*\$2`).
+		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(0))
+
+	// 3. loadImagePromptsForSite: no planned prompt (the ordinary case).
+	mock.ExpectQuery("aspect = 'site_plan'").
+		WillReturnRows(sqlmock.NewRows([]string{"data"}))
+
+	// 4-5. DefaultBrandImagePrompt's reads: degrade gracefully, both empty.
+	mock.ExpectQuery("FROM sites WHERE id").
+		WillReturnRows(sqlmock.NewRows([]string{"domain", "name", "company_name", "tagline"}))
+	mock.ExpectQuery("aspect = 'identity'").
+		WillReturnRows(sqlmock.NewRows([]string{"data"}))
+
+	res, err := (&PlaceholderImageInUseCheck{}).Run(DiscoveryCheckContext{
+		Ctx:       context.Background(),
+		DB:        db,
+		SiteID:    uuid.New(),
+		Pipeline:  "design",
+		AgentType: "test",
+		BatchID:   uuid.New(),
+		Logger:    zap.NewNop(),
+	})
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+
+	if len(res.Findings) != 1 {
+		t.Fatalf("want 1 finding (detection must proceed past the variant-asset false positive), got %d",
+			len(res.Findings))
+	}
+	if len(res.WorkItems) != 1 {
+		t.Fatalf("want 1 work item filed, got %d", len(res.WorkItems))
+	}
+	if res.WorkItems[0].HandlerAgent != "image-build-handler" {
+		t.Errorf("want the generation route, got handler %q", res.WorkItems[0].HandlerAgent)
+	}
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("unmet or unexpected query: %v", err)
 	}
 }
