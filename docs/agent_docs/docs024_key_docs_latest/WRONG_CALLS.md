@@ -28814,3 +28814,120 @@ to say which it is.**
 after reading the first card in the HTML. It is **1 of 6**. Counting all matches instead of
 reading one instance would have caught it, and did, once I bothered. Same family as
 `a-count-you-kept-is-not-a-census`, one rung more careless.
+
+## 2026-08-12 — bugfix 168 lane: I nearly reported "the new gate would have refused half our closures", and the number was my own method
+
+- **what I nearly wrote:** building the claim-granular gate, I searched each closed item's
+  flagged text against the whole page and found **7 of 18 cited texts still present**,
+  spanning **4 of the 8** items the timestamp gate had closed. Written up, that is a
+  striking sentence — *"compliance's objection is not theoretical; here are four live
+  closures where the flagged claim is still on the page"* — and it would have been quoted
+  into a council submission, the concept register and a handoff within the hour.
+- **what was actually true:** every one of the 7 hits was **1–4 characters long** (`5`,
+  `26`, `50`, `97`, `100%`, `362`, `51%`). A bare number matches almost anywhere in a
+  page's markup — a class name, an id, a price, a date, an unrelated figure. Every
+  *distinctive* flagged text was genuinely gone: `independently verified` (22 chars),
+  `90,790+`, `3,419`, `7843`. Scoped to the component the finding was actually raised in,
+  the count falls from **7 to 2**, and those 2 are `5` and `97`. **There was no defect in
+  those closures. There was a defect in my search.**
+- **what caught it:** printing the **strings** instead of the count. The tell was visible
+  in one glance at a `SELECT ... length(matched), left(matched,70)` — the still-present
+  column was all tiny tokens and the absent column was all real phrases. Nothing about the
+  aggregate `7 of 18` could have shown it.
+- **the cheap check that would have:** ask what the measurement would return **if the
+  claim were false**. A substring search for `5` returns "still present" on a page that
+  has been completely rewritten, so the check could not come out any other way — it was
+  `[MEASURED]`, dated, reproducible, and **incapable of disconfirming me**. The memory note
+  `a-count-proves-the-damage-not-the-no-op` prescribes exactly this (assert row IDENTITY,
+  never row COUNT); the sibling entry logged in this same file eight hours earlier is the
+  same failure with a different subject. **Twice in one session is not bad luck; it is the
+  default failure mode of a measurement written by the person who wants a result.**
+- **cost:** none externally — it was caught before it reached the submission, and the
+  corrected version (slot-scoped, with the strings inspected) is what shipped in
+  `58bede8d5`. Internally it cost one wrong design: the page-wide gate I would have built
+  on that evidence would have refused nearly every item while looking rigorous, which is
+  the armed-but-inert shape this lane keeps finding in *other people's* code.
+
+---
+
+## 2026-08-12 — I stamped a measurement with a time I inferred from the data instead of asking the clock (215 quiet-mode lane)
+
+**The claim:** `[MEASURED 2026-08-12 ~03:50Z]` on the `bugs_open/215` dark-launch counter
+read, written into the bug file, the lane NOTES and a LANDMINES entry — then committed.
+
+**What was actually true:** the measurement ran at **13:02Z**. Nine hours out.
+
+**How it happened:** the newest row in the data I was reading was noted.co.uk's plan at
+`2026-08-12 03:22:51`, and I was reasoning hard about whether that plan fell before or after
+the 21:53Z pod start. Having just handled two timestamps carefully, I wrote my own as though
+it were a third one I had checked. I never ran a clock.
+
+**What caught it:** an unrelated query minutes later — open work items on fundamentallyai —
+returned rows with `updated_at` of `09:03` and `08:44` **today**, which cannot be in the future
+of a 03:50 measurement. The contradiction was visible only because the second query happened
+to touch the same day.
+
+**The cheap check:** `SELECT now();` or `date -u`. Zero cost, and it is the *only* source for
+"what time is it" — every other timestamp in view answers a different question.
+
+**The shape, for the tally: a figure taken from what was in front of me rather than from the
+thing that knows it.** This is the same error as the session's own headline finding, one level
+down. There, a counter *named* `*_OBSERVED` led me to assume it observed passively, and only
+opening `observeOrSnap` showed it lets the defect through. Here, a *nearby number* led me to
+assume a measurement time, and only the clock knew. **In both cases the wrong source was the
+one already on screen, and the right one was one command away.** Kin to
+`a-print-statement-is-not-a-config-row` and to the standing rule about grounding every figure
+against the live system — but note what makes this one slip past that rule: I *did* write the
+`[MEASURED]` marker. The marker rule makes an unchecked claim *look* checked when the thing
+left unchecked is the marker's own metadata rather than its subject.
+
+**Cost:** low, and only because it was caught inside the same session — three files corrected
+and a re-commit. Had it survived, the bug file would have asserted a ~6h uptime window for the
+zeros when the true window was ~15h. That understates the evidence rather than overstating it,
+so no conclusion moves; the next reader trying to reconstruct the timeline would simply have
+found the plan/pod/measurement ordering incoherent and distrusted the section.
+
+---
+
+## 2026-08-12 — I declared a diagnosis blocker "clear" by checking the INDEX when the defect was in the BUNDLE
+
+- **the claim:** `bugs_open/236` §5b, written by me (the `diagnosis_schema_visibility` lane,
+  commit `e41342c89`). §5a had recorded that a `090` run could not read the bodies of
+  `storeActionResult` / `processAwaitResponse` / `applyResponseToState`. I closed that
+  blocker with: *"§5a's item 1 — the loop could not read the coordinator function bodies —
+  is also clear: the index is fresh and carries all three, including
+  `(*SagaCoordinator).applyResponseToState`, 4,746 chars."*
+- **what was wrong:** nothing about the sentence. Every figure in it was true, current, and
+  reproducible. **It was an answer to a different question.** The loop had not said "the
+  index lacks these bodies"; it said *the bundle did not render them*. Those are different
+  components, and I verified the one that was not broken.
+- **what caught it:** filing a **new** `090` on a code-path question 8 days later
+  (`dbcc4259-ab84-494b-a48b-1df647209a40`, 2026-08-11). It came back UNVERIFIABLE with the
+  *identical* blocker, stated more precisely: *"The bundle never renders the bodies of
+  `persistAwaitingStateWithRetry`, `processAwaitResponse`, or `applyResponseToState` — only
+  `storeActionResult`'s body and a bare signature line for `applyResponseToState` are
+  present."* I then re-queried `code_symbols`: all four bodies present (2,058 / 5,619 /
+  4,746 / 970 chars, correct line ranges). **The index held four and the bundle rendered
+  one.** So the blocker had never been cleared, and a second run's credits bought the same
+  refusal.
+- **the cheap check that would have:** ask what the measurement would return **if the claim
+  were false**. A fresh index returns "present, 4,746 chars" whether or not the bundle
+  renders it — so the check could not come out any other way. The disconfirming observation
+  was available and one step further on: **read the bundle**, not the table it is built
+  from. The artefact the consumer actually sees is the only place a rendering defect is
+  visible, and `diagnosis_artifacts.kind='bundle'` rows were sitting there for both runs.
+- **the shape, because this is the third variant of it in this file:** I checked the
+  UPSTREAM store and concluded about the DOWNSTREAM render. It is the same error as trusting
+  `content_data` about `rendered_html`, and the same as trusting a config row about a
+  running binary. **"The data exists" and "the consumer received it" are independent facts,
+  and the second one is always the claim.**
+- **the aggravating detail:** the lane that wrote §5b had *just shipped a fix for exactly
+  this defect class one tier over* — item 5 made the SCHEMA section stop hiding tables it
+  held. Its own PLAN §3 even flagged the neighbour as unexamined: *"whether the code tier
+  has an analogous blind spot is unexamined `[UNMEASURED]`"*. I wrote that caveat, then
+  eight days later treated the same tier as fine on an index check. **Writing down an open
+  question does not protect you from answering it wrongly by reflex later.**
+- **cost:** one wasted `090` run (credits + ~20 minutes), and a wrong belief published in a
+  bug file for 8 days, during which the "harness is fixed" line was available for any thread
+  to quote. Now corrected in place in `bugs_open/236` with the measurement, and the real
+  defect is routed as a diagnosis-harness bug rather than as another run on 236.

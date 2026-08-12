@@ -531,8 +531,16 @@ on, and it is the first thing to read next session.
 ## 2026-08-12 — the dark-launch read, and why the counters cannot be waited on
 
 Re-measured the §4 population as the previous handoff instructed. **Still
-0/0/0/0** [MEASURED 2026-08-12 ~03:50Z]. The reason is the absence of demand, and
-it is now nailed down rather than assumed:
+0/0/0/0** [MEASURED 2026-08-12 13:02Z, `SELECT now()`]. The reason is the absence
+of demand, and it is now nailed down rather than assumed:
+
+> **CORRECTED, same session:** this line first read `~03:50Z`. I had inferred my
+> own measurement time from the nearest timestamp in the data (noted.co.uk's
+> 03:22:51 plan) instead of asking the clock — wrong by nine hours. The cheap check
+> is `SELECT now()` / `date -u`, which is now what the stamp quotes. Nothing else
+> in this section moves: the pods still started 2026-08-11T21:53Z, so the uptime
+> the zeros cover is ~15h, not ~6h, which makes the absence of a replan a slightly
+> stronger observation rather than a weaker one.
 
 - Only **one** plan has been written since the roll — `noted.co.uk`
   (`185149a7`, 2026-08-12 03:22:51). It is that site's **only plan ever**, and its

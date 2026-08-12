@@ -5710,7 +5710,17 @@ it should ride the next genuine redesign need, not be manufactured.
 ### 2026-08-12 (early) — 215 quiet mode: the dark-launch counter read, and it cannot be waited on
 
 Ran the previous handoff's §4 "DO THIS FIRST". **All four counters still 0** [MEASURED
-~03:50Z]. Established *why* rather than assuming: only one plan exists since the 21:53Z roll
+2026-08-12 13:02Z per `SELECT now()`]. Established *why* rather than assuming:
+
+> **Wrong call, same session, corrected everywhere it was written:** I first stamped this
+> `~03:50Z`, inferring my own measurement time from the nearest timestamp in the *data*
+> (noted.co.uk's 03:22:51 plan row) rather than asking the clock. Nine hours out. `date -u` or
+> `SELECT now()` is the whole check and it costs nothing. The irony is not lost: this session's
+> headline finding is that a counter's *name* misled me into not reading its mechanism, and I
+> then let a nearby *number* mislead me into not reading the clock. Same shape both times —
+> taking a figure from what was in front of me instead of from the thing that knows. Logged in
+> `WRONG_CALLS.md`. It does not move any conclusion: pod start 2026-08-11T21:53Z means the
+> zeros cover ~15h of uptime rather than ~6h, which strengthens "no replan has run". only one plan exists since the 21:53Z roll
 — `noted.co.uk` `185149a7` at 03:22:51 — and it is that site's **only plan ever**, with all 5
 `pages` rows created 0.65s AFTER the plan row (03:22:51.900 vs 03:22:51.254). Initial build,
 zero realised pages, nothing for `reconcilePlanWithRealised` to match. fundamentallyai's
