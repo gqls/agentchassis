@@ -9786,3 +9786,24 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **source:** 2026-08-12, vigilant_designer_offer_analysis lane. The lane had reasoned about a single 7-day rotation in every document since 08-09; both facts above were measured while trying to predict when a newly shipped check would fire.
 - **⚠ verifier verdict is `NEEDS_HUMAN_REVIEW`, and that is a SCOPE limit, not a doubt about the entry.** The landmine-verifier's code index holds **`.go` files only** (7,302 symbols at commit `46b507ed`); it confirmed `scheduled_tasks` and the `discovery_checks/` directory and reported the rest — `site_discovery_rotation`, the `improvement-sweep` task row, `run_improvement_sweep_once.sh`, the dual-driver behaviour — as *"live in DB schema, config, or shell scripts outside the .go-only index and could not be checked"*. Correct and honest of it. **Every unverifiable claim here was measured first-hand against the live database on 2026-08-12 by the two queries above**, which is the right instrument for a footprint that is a TABLE and a CONFIG ROW. Read the verdict as "the wrong tool was asked", not as "unconfirmed" — and expect the same verdict on any landmine whose footprint is not Go.
 - **added:** 2026-08-12, vigilant_designer_offer_analysis lane
+
+---
+
+## `SchemaContentFields` tells you the legacy `properties` dialect is EXTINCT — it is not, and every instance postdates the census that says so
+
+- **footprint:** `platform/orchestration/datahelpers/component_schema_fields.go` (`SchemaContentFields`, `WarnLegacyDialect`, `WarnIfLegacyDialect`) · `content_components.input_schema` · any gate, audit or sweep that reads a component's declared fields
+- **fires when:** you write anything that reads `input_schema` — a type gate, a required-field check, a field-vocabulary sweep — and you decide which dialect(s) to support. The function's own header says the choice is already made for you: *"the legacy dialect is extinct fleet-wide (0 of 173 as at 2026-07-21)"*. **That sentence is now false and reads exactly like an invariant.**
+- **the trap, stated as the wrong result:** you support only the v2 `fields` dialect, your gate returns clean across the fleet, and it is **structurally blind to the four `properties` components — including `mechanism-flow`, the one component with a proven live render failure** (`bugs_open/260`). A gate that cannot see the only known victim reports success. This has already happened once: the `copy_quality_two_stage` lane specified exactly that gate on 2026-08-12 and corrected it the same day.
+- **the check, one query, and note the DATES not just the count:**
+  ```sql
+  SELECT function, created_at::date FROM content_components WHERE input_schema ? 'properties' ORDER BY created_at;
+  --  report-dossier 07-27 · mechanism-flow 07-28 · evidence-timeseries 07-28 · loans-consolidation 08-10
+  ```
+  **All four were created AFTER the 2026-07-21 census.** So this is not residue the census missed — the dialect is being **reintroduced**, most recently 2026-08-10. Expect the count to grow; re-run before trusting any number here, including this one.
+- **the remedy, and it is not "handle both dialects yourself":** call `SchemaContentFields` (`:58`). It normalises both onto the v2 shape, preserves `items`/`min_items` so nested array-of-objects survives, and returns `fromLegacy`. **Treat `fromLegacy` as a finding you REPORT, not a condition you tolerate** — see the next bullet for why silence is the default here.
+- **⚠ and do not expect the tripwire to have told you.** `WarnLegacyDialect` is wired into six call sites (both render gates, `plan_sections`, and two work-item-producing discovery checks) — the wiring is fine. **Its only output is a `Warn` log**, and the `RenderTemplate` log family was measured absent from a 4,661-line 24-hour window on `agent-chassis`. Four components passed six tripwires for up to 15 days with nothing surfacing.
+- **⚠ the file's cited prior art is stale:** it points at `bugs_open/026`, which is CLOSED and is about news-listing hardcoded English. Following it will not give you dialect history.
+- **also match `type IN ('array','list')`** when you scan declared types — `list` is a fifth type (5 fields, 2 components) that an `array`-only filter never sees.
+- **relations:** `bugs_open/265` (this defect) · `bugs_open/260` (the render failure whose gate it would make inert) · the `a hook that writes to stderr reaches nobody` class — measure a check at its READER
+- **source:** 2026-08-12, `copy_quality_two_stage` lane sizing 260's exposure; reintroduction dates surfaced by the `brochure_component_library` front.
+- **added:** 2026-08-12, copy_quality_two_stage lane
