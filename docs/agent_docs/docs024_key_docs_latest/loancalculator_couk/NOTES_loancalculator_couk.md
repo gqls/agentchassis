@@ -4880,3 +4880,49 @@ Round-3 code in NO image yet; probe carryForwardStructureSpecKeys at the next ro
 narrowed trigger. logged-model-output (adoption:269) and unrepaired-component-write
 (create_tool_component, deploy_tool) — pre-existing code in files my hunks touched
 elsewhere; bugs_open/136's list is the right home, not this lane.
+
+### 2026-08-12 — the four decisions answered, and decision 3 turned out to be two changes
+
+Owner: approve brief today · keep the pin · keep the 12 calculator locks AND fix the
+planner to see them · park the rest.
+
+**Decision 4 done — and a correction to my own count.** I told the owner "twenty-one
+other jobs". Wrong: 21 was the two types I happened to name (9 content_rewrite +
+12 page_rerender). The full `detected` set was **45** (add 16 page_component_status_drift,
+2 needs_brand_head_assets, and one each of needs_composition/needs_design/needs_rerender/
+hardcoded_section_colors/deactivated_component/capability_gap). All 45 parked; 64 deferred
+in total now. **The shape: I reported a filtered count as if it were the census** — the
+exact `a-filtered-count-can-ship-inside-a-denominator` failure, on my own reporting to
+the owner. Corrected to him in the same breath.
+
+**Decision 3 split into two changes once measured, and the second one is the big one.**
+- Half 1 (DONE, `f4820a877`, council `a625c326`): `matchLockedRow` gains the component
+  identity arm `matchDecisionProtectedRow` always had. Without it, fixing half 2 alone
+  would produce TWO calculators per page — plan's copy inserted in place, locked
+  original exiled to the foot.
+- Half 2 (DESIGNED, NOT APPLIED — `PLAN_2026-08-12_planner_sees_locked_tools.md`):
+  three traps stopped me doing it today. `content_components` has **no site_id** (the
+  library is GLOBAL — 81 tools, so a naive widening offers every planner another
+  site's calculators); **21 sites** already place tools, so even site-scoped it is a
+  fleet behaviour change; and `query_database` **hard-errors** on a nil param path, so
+  a bad site-id binding stops every site planning. Self-gating SQL + opt-in flag
+  designed; param path must be read from real planner runs, not guessed.
+
+**The thing that made me stop and read rather than assume:** `grep matchLockedRow`
+turned up `save_sections_positional_tool_slot_test.go` — the loanandmortgagecalculator
+lane had already settled this on 08-10, and their framing corrected mine. I had it as
+"positional names never match"; they proved a positional name matches FINE when the
+composition carries it, and that the trap is a composition that OMITS the slot — i.e.
+**"seeding a site plan is the dangerous act; rerendering is not."** My lane is the
+dangerous act. CONTRIB filed back to them.
+
+**Verified rather than asserted:** their mutation guarantee still fails under their own
+stated mutation after my change (applied + restored atomically, residue-checked). Their
+fixtures keep an empty `component_id` deliberately so they stay on the branch they test
+— giving them a matching id would have made them pass while silently testing nothing,
+which is `declaring-a-key-silences-your-own-detector` in test form.
+
+**090 filed BEFORE any code was written** (`69109208-7ae2-400e-a2b5-57b72003677b`) —
+still `diagnosing` at end of session. Verdict to be recorded either way, including if
+it refutes me; the code stands regardless as a convergence of two sibling guards, but
+the justification would need rewriting.
