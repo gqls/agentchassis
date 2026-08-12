@@ -365,9 +365,23 @@ a repaired artefact" class.**
 1. Chrome nav repair is one-directional — it can thin, never thicken (every site).
    **FILED 2026-08-12 — intake corr `853347f4-41f3-4d57-a016-8f0af0ba2763`,
    RUN corr `2aab9013-d049-4c3c-8db3-644b17952bfe`** (the run correlation is the key
-   the artifacts are written under; the intake one is not). Verdict not yet read —
-   **read it before repeating §11.2's mechanism as established**, and record it here
-   either way. A REFUTED verdict is the cheap outcome, not a wasted one.
+   the artifacts are written under; the intake one is not).
+   > **THAT RUN FAILED — recorded 2026-08-12 as this section instructs.** Not refuted,
+   > not confirmed: `CHILD_ORCHESTRATION_FAILED`, *"Request ed5b0d63-7e5b-4f8f-b89d-fdfb073e0499
+   > timed out after 3 retries"*, claimed 12:44:06Z. **`attempt_count 1` of
+   > `max_attempts 1`, so it will NOT retry itself** — a failed `090` is terminal and
+   > silently stays that way. **Infrastructure, not a judgement on the claim:** the
+   > loop was healthy the same day (2 `complete`, 2 `diagnosing`, 2 `failed`).
+   > ⚠ **The trap I fell into for one message: a `needs_diagnosis` row read by TIME
+   > rather than by correlation is probably someone else's.** I filtered
+   > `created_at > 13:00+00` and read a `diagnosing` row as mine — but the DB is UTC
+   > and the tree runs BST, so my 13:44 filing is `12:44Z` and was excluded by my own
+   > filter. **Always join on `spec->>'dispatch_correlation_id'`.**
+   >
+   > Re-fired 2026-08-12, run corr `044c0a54-baca-47be-9ef6-a61c84a2fa0b` — claimed. Check it with the query below, joining on the correlation, NOT on time.
+   
+   **Read the verdict before repeating §11.2's mechanism as established**, and record
+   it here either way. A REFUTED verdict is the cheap outcome, not a wasted one.
    ```sql
    SELECT current_step, status FROM orchestration_states WHERE
     collected_data->'input_data'->>'fix_correlation_id' = '2aab9013-d049-4c3c-8db3-644b17952bfe';
