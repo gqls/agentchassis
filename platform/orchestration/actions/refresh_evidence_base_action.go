@@ -36,6 +36,23 @@
 // absent or false the hand-written `writer_block` is left exactly as it is, and
 // any drift is reported in the work item so a human can update it.
 //
+// ── RFC_025: the other two source kinds ─────────────────────────────────────
+//
+// `sql` is not the only fact source this pass touches. `citation` facts
+// (V5, SPEC_V5_researched_citations) are re-fetched and their quote re-checked
+// — see refreshCitationFact. RFC_025 (ratified 2026-08-12, bugs_open/161's
+// generalisable fix) adds two more, both opt-in and additive to today's
+// behaviour for any fact that does not name them:
+//
+//   - `artifact` facts carrying the optional `artifact_check` key are re-proved
+//     against their named stored artefact (today: a page_components row's
+//     rendered_html) — see refreshArtifactCheckFact. An `artifact` fact with
+//     no `artifact_check` is checked for presence only, exactly as before.
+//   - `attested_by` facts get a staleness NUDGE on a ~180-day cadence — see
+//     checkAttestationStaleness. A human's word cannot be re-proved by design,
+//     so this only raises a `stale_attestation` item asking someone to re-look;
+//     it never flags a mismatch, because it never checks one.
+//
 // ── SQL safety ──────────────────────────────────────────────────────────────
 //
 // These queries live in a data column, so they are treated as untrusted input
@@ -69,6 +86,7 @@ import (
 	"math"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
@@ -88,15 +106,21 @@ func init() {
 
 // evidenceFactRefresh is one fact's outcome in a refresh pass.
 type evidenceFactRefresh struct {
-	FactID     string   `json:"fact_id"`
-	Claim      string   `json:"claim"`
-	StoredVal  *float64 `json:"stored_value,omitempty"`
-	LiveVal    *float64 `json:"live_value,omitempty"`
-	Tolerance  string   `json:"tolerance,omitempty"`
-	Direction  string   `json:"direction,omitempty"` // "up" | "down" | "unchanged"
-	Outcome    string   `json:"outcome"`             // fresh | updated | drifted | error
-	Detail     string   `json:"detail,omitempty"`
-	VerifiedAt string   `json:"verified_at,omitempty"`
+	FactID    string   `json:"fact_id"`
+	Claim     string   `json:"claim"`
+	StoredVal *float64 `json:"stored_value,omitempty"`
+	LiveVal   *float64 `json:"live_value,omitempty"`
+	Tolerance string   `json:"tolerance,omitempty"`
+	Direction string   `json:"direction,omitempty"` // "up" | "down" | "unchanged"
+	// Outcome: fresh | updated | drifted | error | attestation_due.
+	// attestation_due (RFC_025 stage 1) is deliberately its OWN outcome rather
+	// than reusing "drifted" — an attested_by fact going stale is not a detected
+	// mismatch, it is silence past a cadence, and conflating the two would make
+	// a human reading a stale_evidence item think something was found WRONG
+	// when nobody has re-checked it at all.
+	Outcome    string `json:"outcome"`
+	Detail     string `json:"detail,omitempty"`
+	VerifiedAt string `json:"verified_at,omitempty"`
 }
 
 // siteRefreshResult is one site's outcome.
@@ -114,6 +138,16 @@ type siteRefreshResult struct {
 	// bugs_open/091 is a reported field that meant something other than its name.
 	WorkItemRefreshed bool                  `json:"work_item_refreshed"`
 	Facts             []evidenceFactRefresh `json:"facts"`
+
+	// AttestationsDue counts attested_by facts RFC_025 stage 1's staleness nudge
+	// flagged this pass. Kept separate from Drifted/WorkItemCreated (below)
+	// rather than folded into them: an attestation going stale is not the same
+	// FINDING as a value drifting, and a reader must be able to tell "a human's
+	// word needs re-dating" from "a machine-checked value moved" without
+	// re-deriving it from the outcome strings inside Facts.
+	AttestationsDue              int  `json:"attestations_due"`
+	AttestationWorkItemCreated   bool `json:"attestation_work_item_created"`
+	AttestationWorkItemRefreshed bool `json:"attestation_work_item_refreshed"`
 }
 
 func RefreshEvidenceBaseAction(ctx context.Context, params ActionParams) (interface{}, error) {
@@ -264,11 +298,52 @@ func refreshOneSiteEvidence(
 				}
 				continue
 			}
+			// RFC_025 stage 2: an `artifact` fact carrying the optional
+			// `artifact_check` key is re-proved against its named stored
+			// artefact, the same shape refreshCitationFact re-proves a citation
+			// against its URL. Read straight off this untyped map — deliberately
+			// NOT a field on EvidenceSource/EvidenceFact (RFC_025 §9 Q2, the
+			// ratified constraint: the whole point of this design over the
+			// rejected typed-field alternative is to avoid touching an exported
+			// symbol other packages depend on).
+			if _, has := src["artifact_check"]; has {
+				entry := refreshArtifactCheckFact(ctx, db, fact, today)
+				if entry != nil {
+					res.FactsChecked++
+					switch entry.Outcome {
+					case "drifted":
+						res.Drifted++
+					case "error":
+						res.Errors++
+					}
+					if entry.Outcome == "fresh" && entry.VerifiedAt == today {
+						res.FactsUpdated++
+						changed = true
+					}
+					res.Facts = append(res.Facts, *entry)
+				}
+				continue
+			}
 		}
 
 		query := factSQLSource(fact)
 		if query == "" {
-			continue // artifact/attested facts are checked for presence, not re-proved
+			// artifact/attested facts with no artifact_check are checked for
+			// presence, not re-proved. RFC_025 stage 1: the attested_by subset
+			// gets a staleness NUDGE instead of a check — a human's word cannot
+			// be re-proved by design (claims.go's EvidenceSource doc comment),
+			// so this only turns long silence into a queue for a human, never a
+			// pass/fail verdict on the claim itself.
+			if src, ok := fact["source"].(map[string]interface{}); ok {
+				if _, has := src["attested_by"]; has {
+					if entry := checkAttestationStaleness(fact, today); entry != nil {
+						res.FactsChecked++
+						res.AttestationsDue++
+						res.Facts = append(res.Facts, *entry)
+					}
+				}
+			}
+			continue
 		}
 
 		res.FactsChecked++
@@ -359,12 +434,25 @@ func refreshOneSiteEvidence(
 		res.WriterBlock = "unmanaged"
 	}
 
-	if dryRun || !changed {
-		return res, nil
+	if dryRun {
+		return res, nil // report only — write nothing, raise nothing
 	}
 
-	if err := writeRefreshedEvidenceBase(ctx, db, siteID, specRowID, eb, pinned, res, logger); err != nil {
-		return nil, err
+	// The register write and the work-item raise are two SEPARATE decisions.
+	// `changed` governs only the first: whether there is a new register REVISION
+	// to persist. It must not gate the second too — a citation or artifact_check
+	// fact can go `drifted` with nothing to re-sync in the register (there is no
+	// live VALUE, unlike a sql fact), so `changed` can be false on exactly the
+	// pass that found something worth a human's attention. Before this, that
+	// combination (drift found, nothing else in the site changed) returned here
+	// silently and no stale_evidence item was ever raised for it — reachable
+	// only via citation/artifact_check drift, since a sql fact's drift always
+	// sets changed=true today (it rewrites `value`), so this is a real gap
+	// closed for those two sources, not a behaviour change for sql facts.
+	if changed {
+		if err := writeRefreshedEvidenceBase(ctx, db, siteID, specRowID, eb, pinned, res, logger); err != nil {
+			return nil, err
+		}
 	}
 
 	if res.Drifted > 0 {
@@ -396,6 +484,20 @@ func refreshOneSiteEvidence(
 				zap.Int("drifted", res.Drifted))
 		}
 	}
+
+	if res.AttestationsDue > 0 {
+		// RFC_025 stage 1. Modelled on the stale_evidence raise directly above,
+		// but a SEPARATE item_type (stale_attestation): this is a cadence nudge,
+		// not a detected mismatch, and folding it into stale_evidence would tell
+		// a human "drift was found" about a fact nobody has re-checked at all.
+		write, err := createStaleAttestationItem(ctx, db, siteID, domain, res, params.AgentType, logger)
+		if err != nil {
+			logger.Warn("refresh_evidence_base: failed to create stale_attestation item", zap.Error(err))
+		}
+		res.AttestationWorkItemCreated = write.Inserted
+		res.AttestationWorkItemRefreshed = write.Refreshed
+	}
+
 	return res, nil
 }
 
@@ -463,6 +565,194 @@ func refreshCitationFact(ctx context.Context, fact map[string]interface{}, today
 		entry.VerifiedAt = today
 	}
 	return entry
+}
+
+// ============================================================================
+// RFC_025 stage 2 — artifact_check
+// ============================================================================
+//
+// docs/agent_docs/docs024_key_docs_latest/architecture_review/RFC_025_artifact_sourced_facts_are_trusted_once_registered.md
+// (RATIFIED 2026-08-12; §9 Q2 is the constraint this file follows: the key is
+// read off the untyped `source` map, never added as a field on the exported
+// EvidenceSource/EvidenceFact structs in datahelpers/claims.go).
+//
+// The motivating case (bugs_open/161): gamesdesign.co.uk's `gd-trials` fact
+// cited "the figure is hard-coded in the shipped drop-rate tool JavaScript" for
+// a claim the artefact did not support — an `artifact` source is, today,
+// checked for presence in the register and never re-proved against the thing
+// it cites. artifact_check closes that for the facts whose author opts in.
+
+// artifactCheckSpec is source.artifact_check, parsed. Unexported and local to
+// this file: unlike Citation (datahelpers/citations.go), nothing outside
+// refreshOneSiteEvidence needs to know this shape today, so it stays out of
+// datahelpers rather than growing a second exported symbol for a shape with
+// one reader.
+type artifactCheckSpec struct {
+	ComponentID   string
+	Pattern       string
+	MustBePresent bool
+}
+
+// parseArtifactCheck reads source.artifact_check off the untyped map. Returns
+// an error for anything that would make the check unrunnable — a missing
+// component_id or pattern — so the caller can fail CLOSED (RFC_017) rather
+// than silently skip.
+func parseArtifactCheck(src map[string]interface{}) (*artifactCheckSpec, error) {
+	raw, ok := src["artifact_check"].(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("artifact_check is present but not an object")
+	}
+	spec := &artifactCheckSpec{
+		ComponentID:   strings.TrimSpace(datahelpers.GetStringField(raw, "component_id", "")),
+		Pattern:       datahelpers.GetStringField(raw, "pattern", ""),
+		MustBePresent: datahelpers.GetBoolField(raw, "must_be_present", true),
+	}
+	var missing []string
+	if spec.ComponentID == "" {
+		missing = append(missing, "component_id")
+	}
+	if spec.Pattern == "" {
+		missing = append(missing, "pattern")
+	}
+	if len(missing) > 0 {
+		return spec, fmt.Errorf("artifact_check missing required field(s): %s", strings.Join(missing, ", "))
+	}
+	return spec, nil
+}
+
+// refreshArtifactCheckFact re-proves one artifact_check fact against its named
+// stored artefact — today, a page_components row's rendered_html, addressed by
+// component_id. Outcomes:
+//
+//	fresh    — the pattern's presence matches must_be_present; verified_at bumped.
+//	drifted  — it does not: the artefact changed under a published claim about it,
+//	           or (must_be_present:false) the thing the claim says is ABSENT is
+//	           now present. Either way the published claim needs a human ruling —
+//	           the same shape as a citation losing its quote.
+//	error    — the check could not run at all: component_id does not resolve, the
+//	           pattern does not compile, or the read failed. RFC_017: a check that
+//	           cannot run must never be reported as a pass.
+//
+// db is passed explicitly (unlike refreshCitationFact, which only touches the
+// network) because the artefact this stage checks lives in Postgres, not on
+// the open web.
+func refreshArtifactCheckFact(ctx context.Context, db *sql.DB, fact map[string]interface{}, today string) *evidenceFactRefresh {
+	entry := &evidenceFactRefresh{
+		FactID:    datahelpers.GetStringField(fact, "id", ""),
+		Claim:     datahelpers.GetStringField(fact, "claim", ""),
+		Tolerance: "artifact_check",
+	}
+	src, _ := fact["source"].(map[string]interface{})
+	spec, err := parseArtifactCheck(src)
+	if err != nil {
+		entry.Outcome = "error"
+		entry.Detail = err.Error()
+		return entry
+	}
+
+	componentID, err := uuid.Parse(spec.ComponentID)
+	if err != nil {
+		entry.Outcome = "error"
+		entry.Detail = fmt.Sprintf("artifact_check.component_id %q is not a valid id: %v", spec.ComponentID, err)
+		return entry
+	}
+
+	re, err := regexp.Compile(spec.Pattern)
+	if err != nil {
+		entry.Outcome = "error"
+		entry.Detail = fmt.Sprintf("artifact_check.pattern %q does not compile: %v", spec.Pattern, err)
+		return entry
+	}
+
+	var rendered sql.NullString
+	err = db.QueryRowContext(ctx,
+		`SELECT rendered_html FROM page_components WHERE id = $1`, componentID,
+	).Scan(&rendered)
+	switch {
+	case err == sql.ErrNoRows:
+		entry.Outcome = "error"
+		entry.Detail = fmt.Sprintf("artifact_check.component_id %s does not resolve to a page_components row", componentID)
+		return entry
+	case err != nil:
+		entry.Outcome = "error"
+		entry.Detail = fmt.Sprintf("artifact_check: reading component %s failed: %v", componentID, err)
+		return entry
+	}
+
+	found := re.MatchString(rendered.String)
+	switch {
+	case found == spec.MustBePresent:
+		entry.Outcome = "fresh"
+		fact["verified_at"] = today
+		entry.VerifiedAt = today
+	case spec.MustBePresent:
+		entry.Outcome = "drifted"
+		entry.Detail = fmt.Sprintf(
+			"artifact_check: pattern %q no longer found in component %s — the artefact this fact cites may have changed; the published claim needs a human ruling",
+			spec.Pattern, componentID)
+	default:
+		entry.Outcome = "drifted"
+		entry.Detail = fmt.Sprintf(
+			"artifact_check: pattern %q is now PRESENT in component %s, but the fact asserts it must be absent — the published claim needs a human ruling",
+			spec.Pattern, componentID)
+	}
+	return entry
+}
+
+// ============================================================================
+// RFC_025 stage 1 — attestation staleness nudge
+// ============================================================================
+//
+// attested_by facts are a human's word, by design never machine-checkable
+// (datahelpers/claims.go's EvidenceSource doc comment). This does not check
+// anything — it turns long silence into a queue for a human, the same shape
+// stale_evidence already uses for sql facts and staleness_days already uses
+// for citations, just with no re-proof step at the end of it.
+
+// attestationStaleDays is the cadence RFC_025 §2.1 names (~180 days). It
+// governs the THRESHOLD, not the poll interval — this runs on the same daily
+// evidence-freshness sweep as everything else in this file, and only actually
+// flags a fact once it has gone this long without a human re-dating it. That
+// mirrors how citationDateStale's staleness_days already works inside the same
+// daily pass; no second scheduled_task is needed for a threshold this file
+// already knows how to apply on a cadence it already runs.
+const attestationStaleDays = 180
+
+// checkAttestationStaleness reports whether an attested_by fact is due for a
+// human to re-look at it, anchored on the fact's own verified_at — the last
+// time a human dated it. A fact with no usable verified_at is treated as due
+// immediately: an undated attestation is not evidence of freshness, it is the
+// absence of the one signal this check has.
+func checkAttestationStaleness(fact map[string]interface{}, today string) *evidenceFactRefresh {
+	now, ok := parseFlexibleDate(today)
+	if !ok {
+		return nil // no usable clock this pass — nothing to age from
+	}
+	verifiedAt := datahelpers.GetStringField(fact, "verified_at", "")
+	anchor, ok := parseFlexibleDate(verifiedAt)
+	due := !ok || now.Sub(anchor) > attestationStaleDays*24*time.Hour
+	if !due {
+		return nil
+	}
+
+	attestedBy := ""
+	if src, ok := fact["source"].(map[string]interface{}); ok {
+		attestedBy = datahelpers.GetStringField(src, "attested_by", "")
+	}
+	whenPhrase := "was never dated"
+	if verifiedAt != "" {
+		whenPhrase = "was last dated " + verifiedAt
+	}
+	return &evidenceFactRefresh{
+		FactID:     datahelpers.GetStringField(fact, "id", ""),
+		Claim:      datahelpers.GetStringField(fact, "claim", ""),
+		Tolerance:  "attestation",
+		Outcome:    "attestation_due",
+		VerifiedAt: "", // deliberately NOT bumped — a nudge is not a re-attestation
+		Detail: fmt.Sprintf(
+			"attested_by fact (%q) %s — more than %d days is the cadence this platform nudges on; a human should re-look and re-date it, or retire the claim",
+			attestedBy, whenPhrase, attestationStaleDays),
+	}
 }
 
 // factSQLSource returns the fact's SQL source, if it has one.
@@ -808,6 +1098,81 @@ func createStaleEvidenceItem(
 	logger.Warn("refresh_evidence_base: evidence drift raised for human review",
 		zap.String("site_id", siteID.String()),
 		zap.Int("drifted", len(drifted)),
+		zap.Bool("inserted", write.Inserted),
+		zap.Bool("refreshed", write.Refreshed))
+	return write, nil
+}
+
+// createStaleAttestationItem raises RFC_025 stage 1's staleness nudge for
+// human ruling. Modelled directly on createStaleEvidenceItem immediately
+// above — same keyed-per-site/refreshOnConflict shape, same honest
+// created/refreshed reporting — but a DIFFERENT item_type (stale_attestation)
+// and a different fix message, because this is not a detected defect: nothing
+// has been found WRONG, a human's word has simply gone unrefreshed past the
+// platform's cadence.
+func createStaleAttestationItem(
+	ctx context.Context, db *sql.DB, siteID uuid.UUID, domain string,
+	res *siteRefreshResult, agentType string, logger *zap.Logger,
+) (workItemWrite, error) {
+	due := make([]evidenceFactRefresh, 0, res.AttestationsDue)
+	for _, f := range res.Facts {
+		if f.Outcome == "attestation_due" {
+			due = append(due, f)
+		}
+	}
+
+	specJSON, err := json.Marshal(map[string]interface{}{
+		"check":  "attestation_freshness",
+		"domain": domain,
+		"due":    due,
+		"fix": fmt.Sprintf(
+			"Each listed fact is sourced from a human's word (source.attested_by) — nothing can "+
+				"re-prove it, by design (see EvidenceSource's doc comment in datahelpers/claims.go). "+
+				"It has gone more than %d days since it was last dated. Re-look at the claim: confirm it "+
+				"still holds and bump verified_at, reword it, or retire it. This is a NUDGE, not a "+
+				"detected defect — no mismatch was found, because none can be, machine-side.",
+			attestationStaleDays),
+	})
+	if err != nil {
+		return workItemWrite{}, fmt.Errorf("marshal stale_attestation spec: %w", err)
+	}
+
+	summary := fmt.Sprintf("Attestation staleness (%s): %d attested fact(s) due for human re-look", domain, len(due))
+
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		return workItemWrite{}, fmt.Errorf("begin tx: %w", err)
+	}
+	defer tx.Rollback()
+
+	// refreshOnConflict for the same reason as stale_evidence above: keyed per
+	// SITE, and a second pass finding a DIFFERENT (or additional) fact due must
+	// bring the open item's list up to date rather than be silently dropped
+	// while an earlier item sits open.
+	write, err := writeWorkItem(ctx, tx, workItem{
+		siteID:       siteID,
+		source:       "scheduled",
+		pipeline:     "content",
+		itemType:     "stale_attestation",
+		severity:     "low",
+		summary:      summary,
+		spec:         string(specJSON),
+		priority:     60,
+		handlerAgent: "human-review",
+		status:       "needs_human_review",
+		createdBy:    agentType,
+		itemKey:      "stale_attestation:" + siteID.String(),
+	}, refreshOnConflict, logger)
+	if err != nil {
+		return write, fmt.Errorf("insert stale_attestation item: %w", err)
+	}
+	if err := tx.Commit(); err != nil {
+		return workItemWrite{}, fmt.Errorf("commit stale_attestation item: %w", err)
+	}
+
+	logger.Info("refresh_evidence_base: attestation staleness raised for human review",
+		zap.String("site_id", siteID.String()),
+		zap.Int("due", len(due)),
 		zap.Bool("inserted", write.Inserted),
 		zap.Bool("refreshed", write.Refreshed))
 	return write, nil
