@@ -9907,7 +9907,7 @@ code change owed at the next roll, tracked in RFC_015 §5.
 
 ## A shared-tree `git stash` reverts the PRODUCTION MANIFESTS to a tag ~100 releases old, and the tree then looks clean — the next `apply -k` is a fleet rollback
 
-- **footprint:** `deployments/kustomize/services/*/overlays/production/uk_001/kustomization.yaml` · `make deploy-*` / `kubectl apply -k` / `make release` · `git stash` run by any session on this shared tree
+- **footprint:** `deployments/kustomize/services/`, `kustomization.yaml`, `make deploy-`, `kubectl apply -k`, `make release`, `git stash`
 - **fires when:** any session runs a bare `git stash` while the release tag bump is still **uncommitted** — which is its normal state, because the bump is edited in the tree and committed later. The stash reverts every dirty tracked file to HEAD, and the overlays go back to whatever tag was last *committed*. Measured 2026-08-12 18:38:51 BST: one bare `git stash` swept **38 tracked files across ~10 lanes**, and **18 production overlays fell from `v1.0.1291` to their committed values of `v1.0.1188`–`v1.0.1245`**.
 - **why the wrong result looks exactly right:** afterwards `git status` is **clean** and the tree **matches HEAD** — the two things a session checks before deploying, both green. Nothing is missing, nothing conflicts, no hook fires; the manifests are simply *older*, and a tag is not a thing you re-read. The commit-scope report cannot help: there is no commit. The sibling entry above catches this at commit time via the file count, but this variant is only detectable **at deploy time, against the cluster** — and by then it has shipped.
 - **the check, and it is two commands — never compare the repo against itself:**
@@ -9922,4 +9922,23 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **the second casualty, and it is quieter:** the same sweep reverted **`CLAUDE.md`**, removing the owner's own note of that morning. Every session that re-read the file afterwards would have loaded fleet instructions with a section silently absent — and sessions are told to re-read it from disk before acting on multi-session rules. **When you find a shared-tree stash, check `CLAUDE.md` and the append-only docs (`LANDMINES.md`, `WRONG_CALLS.md`) explicitly**; they are edited by many lanes and nobody owns noticing.
 - **relations:** the `git commit <paths> silently commits FEWER files` entry directly above (same cause, caught at commit time rather than deploy time) · `releases are WHOLE-FLEET, owner runs make release` · the standing CLAUDE.md rule that uncommitted work on this tree is shared, mutable state
 - **source:** 2026-08-12, concept-register lane, on cold-start. Found while re-checking a handoff's "still blocked by another session's dirty edit" line, which had become false four minutes earlier because the stash cleared it. The 38 files were restored from `stash@{0}` and verified per file; the stash was left in place.
+- **added:** 2026-08-12, concept_register lane
+
+---
+
+## Appending a landmine with this file's own `·` separator makes it SILENTLY INERT — 59 of 451 entries are already in that state
+
+- **footprint:** `docs/agent_docs/docs024_key_docs_latest/LANDMINES.md`, `scripts/landmines_lib.py`, `scripts/landmines-session-start.py`, `scripts/landmines-sync.py`, `split_footprints`
+- **fires when:** you write a multi-part footprint the way most of this file already does — `` `path/one` · `table_two` · `some command` `` — and `split_footprints` **splits only on commas and semicolons**, never on `·`. Your three footprints become **one** long string. Nothing errors; `--apply` reports success and prints `1 footprint(s)`.
+- **why the wrong result looks exactly right:** the entry is in the file, the sync writes its `doc_notes` row, and the row's body is your full text — so every "did it deliver?" check passes. What is broken is only the **key**. The SessionStart hook matches by substring in both directions (`fp in p or p in fp`), so a collapsed footprint — which contains spaces, `·`, and often a glob — **cannot match any real path, and the entry never fires at session start.** A later session grepping `doc_notes` for the exact table or path it is about to touch does not find the row either.
+- **the measurement, 2026-08-12:** 451 entries parsed, **59 carry an unsplit `·` inside a single footprint.** Comma-splitting also cuts *inside* parentheticals, so several entries' first footprint is a fragment rather than a target — `· rather than the characters`, `WasDefaulted) · any datahelpers.ActionInputSpec…`, `banned_claims[] — · platform/…`. Separately, `is_prose` (>4 words or a leading determiner) flags **433** footprints, which is most of them: a warning firing on the majority is one nobody reads, exactly as that function's own comment predicts.
+- **the check — assert your entry MATCHES, do not just confirm it synced:** a glob is never a substring of a real path, so lead with a plain directory prefix (`deployments/kustomize/services/`, not `deployments/kustomize/services/*/…/kustomization.yaml`), separate with **commas**, and keep each part ≤4 words. Then prove it against a path you know is dirty:
+  ```bash
+  python3 -c "import sys;sys.path.insert(0,'scripts');import landmines_lib;
+  e=[x for x in landmines_lib.parse() if 'YOUR TITLE WORDS' in x['title']][0];print(e['footprints'])"
+  # must print a LIST of short grep-able strings — one long string with '·' in it means INERT
+  ```
+  Running the hook and grepping its output is **not** this check: it displays only `MAX_ENTRIES = 6` of the matches, so a `grep -c` against its text tests *display*, not *matching*. That is how this was nearly missed here — the first grep returned 0 for both reasons at once.
+- **relations:** the two `git stash` entries above (this was found while filing the second of them, whose footprint was inert on arrival and is now fixed) · the register lane's advisory-delivery work, which is the same question one layer up: a warning that is delivered but unkeyed has not reached anyone
+- **source:** 2026-08-12, concept_register lane. Found by testing my own freshly-filed entry against the 18 dirty overlay paths it names, instead of assuming a successful `--apply` meant it worked.
 - **added:** 2026-08-12, concept_register lane
