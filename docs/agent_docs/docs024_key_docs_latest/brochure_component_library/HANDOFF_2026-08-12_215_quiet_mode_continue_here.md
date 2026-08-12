@@ -11,7 +11,7 @@ carried forward below where still live.
 
 | | |
 |---|---|
-| code | **LIVE on chassis `v1.0.1291`**, artefact-verified on BOTH replicas 2026-08-12 ~16:00Z (re-probed after the roll from 1290; positive control + one-letter near-miss both behaved) |
+| code | **LIVE on chassis `v1.0.1291`**, artefact-verified on BOTH replicas 2026-08-12 ~16:00Z (re-probed after the roll from 1290; positive control + one-letter near-miss both behaved). **⚠ STALE AS OF 2026-08-12 ~20:00Z — the owner has a fresh chassis building and about to deploy.** That verification described 1291 and says nothing about what replaces it. **Re-probe before relying on this row** (§6 has the only method that works), and read the stamp of `agent-chassis` specifically — a release can straddle other sessions' commits and ship several revisions under one tag, so a fleet-level tag is not an answer about this service. All four lane commits are ancestors of HEAD, so a build from HEAD carries them; that is an expectation, not a measurement |
 | council | **APPROVED** round 3, corr `56e13695-17cb-48ec-bc6b-0371fde8b717` |
 | enabled on | **fundamentallyai.com only** — `honour_realised_identity` + `twin_identity_snap`. `stem_twin_snap` absent by design |
 | dark-launch counters | **still 0/0/0/0** — re-read 2026-08-12 ~19:00Z with BOTH controls: demand control unchanged (only post-roll plan is noted.co.uk's first build, 0 `pages` predating it), and an instrument control proves the query is not blind (`agent_error_log` took 3,503 rows in 24h). No replan has run through the new path yet |
@@ -71,6 +71,13 @@ GROUP BY 1 ORDER BY 1;
    one. Join the row's `plan_name` back against `pages` to tell them apart. The query
    is in the LANDMINES entry "The page-identity dark-launch counter is NOT a passive
    instrument".
+
+**A roll is landing (owner, 2026-08-12 ~20:00Z) — two consequences for this query.** The
+counters live in `agent_error_log`, which the roll does not clear, so a non-zero after the
+roll may predate it: **bound the read with `occurred_at > '<roll time>'`** if you are asking
+what the NEW binary did. And CLAUDE.md's standing rule applies before you try to induce a
+signal: **no orchestration dispatch within ~300s of a chassis pod (re)start** — the spawn is
+silently dropped, which reads exactly like "the gate did not fire".
 
 **Expected first signal on fundamentallyai: ~2 `PLAN_PAGE_STEM_TWIN_OBSERVED` rows**,
 the harmless kind (both sides of both pairs already realised). That is the evidence
