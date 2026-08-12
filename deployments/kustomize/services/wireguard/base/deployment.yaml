@@ -30,6 +30,24 @@ spec:
       labels:
         app: wireguard
     spec:
+      # Explicitly assert IPv4 forwarding in the pod's network namespace before
+      # the wireguard container starts. The main container's comment below
+      # claims it sets net.ipv4.ip_forward itself, but it was observed at 0 on a
+      # live pod (2026-08-12) — peer traffic destined for cluster services was
+      # silently dropped while the crypto handshake still succeeded, so the
+      # tunnel looked up but forwarded nothing. This was never caught before
+      # because no peer's forwarded path had actually been exercised end to end
+      # (review_queue_drain HANDOFF 2026-07-28: the browser→dashboard route was
+      # left as an open "confirm end to end" TODO, only ever curl-tested from
+      # INSIDE the cluster). Containers in a pod share one netns, so a sysctl set
+      # here persists for the wireguard container. Privileged because
+      # net.ipv4.ip_forward is not in kubelet's default safe-sysctl set.
+      initContainers:
+        - name: enable-ip-forward
+          image: busybox:1.36
+          command: ["sh", "-c", "sysctl -w net.ipv4.ip_forward=1"]
+          securityContext:
+            privileged: true
       containers:
         - name: wireguard
           image: linuxserver/wireguard:latest
