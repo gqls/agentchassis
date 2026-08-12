@@ -1,4 +1,26 @@
-# HANDOFF — 2026-08-12 — continue here
+# HANDOFF — 2026-08-12 — ~~continue here~~ SUPERSEDED
+
+> **✅ CLOSED 2026-08-12 (afternoon). Its §4 recommendation was taken and is DONE.**
+> **Continue at `HANDOFF_2026-08-12b_continue_here.md`.**
+>
+> Closing this file rather than leaving it to be found: a handoff outlives the work it asks for, and
+> the stranger it is written for cannot tell that it shipped.
+>
+> **What happened to §4:** the code-tier defect was found, measured, fixed, council-APPROVED and
+> committed — `bugs_open/261`, commit `6911c2da4`, council `6b0cc25b`. **Not live** (Go, so inert
+> until rolled).
+>
+> **Two things in this file were WRONG and are corrected in `261` §9** — read them before trusting
+> anything else here:
+> 1. §3's *"The index held four bodies; the bundle rendered one"* is true of **iteration 4 only**.
+>    Iteration 3 rendered all 18 of its symbols including two of the three wanted; iteration 2
+>    rendered the third. The bundle does **not accumulate** — the verdict reads the last one.
+> 2. §4's *"the likely target is the code-tier gather/assemble path beside `gatherSchema`"* named the
+>    **wrong file and wrong package**. The defect was in `internal/analysis/symbolbody.go`. This file
+>    warned against assuming symmetry with the schema tier and then guessed symmetrically anyway.
+>
+> §5 (item 2's own outstanding behavioural proof) and §6 (the owner decisions) are **still current** —
+> they carry forward into the successor handoff unchanged.
 
 **Lane:** `silent_hero_logo_readers` — commission item 2, owner ruling 2026-08-10 (*"2. yes."*).
 **Read first:** `PLAN_2026-08-11_…` (design + the two decisions that depart from the commission's
