@@ -560,6 +560,16 @@ merely hopes for its facts.** Anything you want *gone* has to be named in
 
 ## 2026-08-12 (close) — all five pages MIGRATED, LIVE and CLEAN; one item says `failed` and is lying
 
+> **⚠ CORRECTED 2026-08-12 (later) — "CLEAN" IN THIS HEADING IS FALSE, and the
+> entry below is kept unedited as the original account.** The migration had also
+> deleted **every call-to-action button on the four offer pages** — 14 anchors
+> across 7 components, including both on the home page hero. All five checks
+> recorded below passed and not one of them could see a missing `href`. Found
+> ~20 minutes after this entry was written, while chasing an unrelated
+> `page_divergence_overwritten` item; repaired and verified live at 17:37Z.
+> The account, the mechanism and the check I should have run are in the entry
+> at the foot of this file and in `WRONG_CALLS.md` (2026-08-12).
+
 **The migration is done.** Final sweep over the five served pages, cache-busted,
 17:16Z: **zero** occurrences of £1,200 / £75 / deposit / 14 days / two rounds /
 "rounds of changes" / "we handle the setup" / "you only pay if you like" /
@@ -641,3 +651,101 @@ on the served contact page. Their NOTES carry the change notice (commit
 `7adce5896`), including that the register their in-flight facts relay serves has
 moved under them and that their bot's compiled-in `systemPromptFacts` are now
 the stale half.
+
+
+---
+
+## 2026-08-12 (later) — the migration deleted every CTA button on the site, and five green checks could not see it
+
+Found while reading a `page_divergence_overwritten` work item I had assumed was
+routine bookkeeping. It said a page rebuild had overwritten a **hand-patched**
+index hero — and the hand patch it destroyed was the sibling lane's own
+restoration of those buttons from their 08-11 incident.
+
+**The damage: 14 anchors across 7 components** — hero and call-to-action on
+`index`, `faq`, `how-it-works`, `what-you-get` (index's cta block excepted, see
+below). Every offer page lost its "Get in touch" / "Send us an email" buttons.
+
+### Mechanism, read from the code and then confirmed empirically
+
+The writer preserved the button **labels** (`cta_text`, `primary_cta`,
+`secondary_cta`) and dropped the **destinations** (`cta_url`,
+`primary_cta_url`, `secondary_cta_url`). Both templates gate the anchor on the
+URL, not the label — `{{if and .cta_text .cta_url}}` — so the button renders as
+**nothing at all**. No error, no missing text, no shrunken byte count.
+
+Those URL keys are declared in `content_components.input_schema` with
+`source: "renderer"`. In `plan_sections_action.go`, `sourceResolver.resolve`
+short-circuits that source: `if source == "" || source == "llm" || source ==
+"renderer" || source == "static" { return nil, true }` — value nil, **found
+true**. The field is therefore never "missing", `handleMissingField` never runs,
+and `carryStored` — the `bugs_open/238` carry (PBP-039) — never runs either,
+because it guards fields that FAIL to resolve and a renderer-sourced field
+always "succeeds" with nothing.
+
+> **The carry IS live in the running binary**, checked at the artefact rather
+> than inferred: agent-chassis `v1.0.1291` was built from `da5a7eb8f` (image
+> label `org.opencontainers.image.revision`), and
+> `git merge-base --is-ancestor d26c26a9a da5a7eb8f` passes, with controls in
+> both directions (the stamp is its own ancestor; my commit from 20 minutes
+> earlier is correctly NOT aboard). So this is a **gap in the carry's
+> coverage**, not an unshipped fix — and `bugs_open/238`'s file, whose banner
+> still says the fix is "inert until the next roll", is stale on that point.
+
+**One hypothesis of mine was refuted on the way**, which is why the mechanism
+above is filed rather than asserted: I first thought the URL keys were simply
+**undeclared** in the schema, so the carry's field loop never saw them. The
+schema query returned all four, declared, with `source: renderer`. Filed as
+`090` run `97ef39f0-19df-4935-834d-c80514fbc43e` for independent diagnosis.
+
+### Repair, in two parts, because the first was necessary and not sufficient
+
+1. `SQL_2026-08-12d` restored the URLs into `content_data` (recovered from the
+   pre-migration rendered HTML, not invented) and declared `required_links` on
+   all five pages so the next rewrite is gated mechanically.
+2. A `page_rerender` dispatched **after** that still rendered no buttons — the
+   render path re-resolves renderer-sourced fields to nothing rather than
+   reading the stored value. So `SQL_2026-08-12e` splices the anchors into
+   `rendered_html`, built from `content_data`'s own fields so no label is
+   retyped, refusing to write unless each insertion point matches exactly once.
+3. The deployed files were patched in `gqls/vm-sites` by the sibling lane's own
+   documented route for a verified deterministic edit (`b538295`), with the
+   markup copied byte-for-byte from the repaired component rows.
+
+**Live and verified 17:37Z**: index 2 buttons, faq 4, how-it-works 4,
+what-you-get 4 — and retired terms still 0 on all four.
+
+**Known cost, taken deliberately:** hand-patched `rendered_html` re-arms
+`bugs_open/229` — the next rebuild will overwrite these bytes and file a
+divergence item, exactly as it did to the sibling lane's patch this afternoon.
+The alternative was leaving a sales site with no call-to-action buttons. The
+durable fix is the platform change the `090` is for.
+
+**`index/call-to-action` deliberately NOT repaired.** It carried no URLs before
+the migration either. Repairing it here would improve the page and, in doing so,
+erase the boundary of what my migration actually broke.
+
+### Why five green checks missed it — the part worth carrying
+
+`claimscan` asks whether a banned **phrase** is present. Byte deltas ask whether
+the text was **truncated**. The retired-term grep asks about the terms **I
+named**. The served fetch asks whether the new **copy** arrived. And
+`gate_page_links.py` asks about the **one page I declared a link set for** —
+the guide, because that was the page I judged at risk. It passed 4/4, and the
+damage was on the four pages I had not declared a set for.
+
+**A gate covers what you point it at.** Its green light was load-bearing in my
+confidence, and it only ever meant "links are fine on one of five pages".
+
+**The check that would have caught it needed no new tool and used data I had
+already exported** — count `href="` per component as a matched before/after
+pair. I ran precisely that query twenty minutes after calling the work
+complete. Run against the first canary it would have failed loudly, before four
+more pages were queued.
+
+**The general form: I verified what the change was FOR, never what it might
+COST.** A verification suite assembled from your own intent is structurally
+blind to collateral damage, because every check was chosen by the same author
+with the same expectation. For any regeneration, diff the invariants — link
+count, image count, component count — and treat whatever you did not intend to
+change as the finding. Full entry in `WRONG_CALLS.md`.
