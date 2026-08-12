@@ -3085,3 +3085,53 @@ is buildable and protects **all six** revalidators, not just this one.
   rationale too. **Round 7 should be plainer and much shorter** — which happens to shrink the
   objection surface as well.
 - `guardian` LOW ×2, `bug_historian` LOW: the SQL→Go locked-skip widening, restated; already risk 5.
+
+### Round 7 — **APPROVED** (2026-08-12 14:34:14Z), after six REVISE rounds
+
+*"approved with 4 advisory objection(s) — none high-severity"*. 2 abstained, 0 unreadable, not
+truncation-gated. Verdict saved verbatim as `VERDICT_2026-08-12_round7_APPROVED_*.json`.
+Trailer now legitimate — **the verdict has been read in full**, which is the only thing that makes
+`Council-Reviewed:` honest.
+
+**What actually carried it, and it is not what six rounds of instinct suggested.** Round 7 was the
+*smallest* submission of the series — **57,989 → 45,943 bytes** — with the council narrative stripped
+out of the rationale, the risks, all eight edit rationales and the evidence list. Rounds 4, 5 and 6
+each answered a seat by *adding* material, and each drew fresh objections from a different seat on
+the material it added. **The submission's prose had become the objection surface.** Deleting it was
+worth more than defending it.
+
+The three fixes that closed the round-6 gates:
+
+- **`prior_art_librarian`** (which gated round 6 on an unverifiable ruling): the ruling is now in
+  `doc_notes` (5 rows, phrase verbatim) because filing the fleet landmine about it and running
+  `landmines-sync.py --apply` *put it there*. **The fix for "you cited something I cannot see" was to
+  make it visible, not to assert it harder.** Its remaining two objections are LOW/MEDIUM and say only
+  that pod-probe and `code_symbols` claims are unverifiable from its schema — which round 7 marks
+  explicitly rather than asserting. That is all it wanted.
+- **`editquality`**: per-edit `file:line` evidence replaced a generalisation from edit 8's fields.
+- **`constitution`**: tone. It approved with no objections this round.
+
+`compliance` approved again with none. Every seat's design objection is spent.
+
+#### The one advisory objection that is a real defect — filed as `bugs_open/262`
+
+**`debug_historian` MEDIUM**, and it is right: both gates judge **`page_components` — the database —**
+as ground truth for closing a finding about **what a live site asserts**, and neither the scan nor
+either gate reads `pages.build_status` or `pages.deployed_at`. Verified: `grep -c` for those columns
+returns **0** in both files, and both columns exist and are populated.
+
+Measured, and it is live: **2 of the 9 `complete` items sit on pages whose newest unlocked component
+update is LATER than `deployed_at`.** Stated precisely — that does **not** prove those pages still
+carry the claims; it proves the closure's evidence **cannot show they don't**. On a type whose whole
+subject is public assertions, "we cannot tell" is the finding.
+
+**Parity holds and that is exactly why it is worth filing:** the emit side is blind the same way, so
+the revalidator judges by the same predicate — the lane's founding rule. But the two ends are not
+symmetric in *consequence*: blindness that **files** a finding costs a human glance, blindness that
+**closes** one means nobody looks again. Fix the closing end only; do not "fix" the emit side to
+match.
+
+`bug_historian`'s MEDIUM is adjacent and unactioned: the single-producer claim should be checked
+against the **rerender** paths (`rerender_page_sections`, `rerender_single_page`), not only against
+current call sites — 016b §9 case `093` is exactly that shape in exactly this area. **Not done.**
+Recorded in `262`'s related section rather than left in a verdict nobody re-reads.
