@@ -846,3 +846,82 @@ before touching it I proved that all eighteen render byte-for-byte identically u
 explicitly ask for the carousel. None of them does. The arrows themselves reuse a carousel
 script we already had — which, it turns out, had never actually run on any site, ever. This
 is its first outing, which is another reason I insisted on clicking the arrows myself.
+
+---
+
+## 12 August 2026 — updating the handoff turned up three things on the services page that have quietly stopped working
+
+You asked me to bring the leopardess handoff document up to date. It was written on the
+30th of July, and the site has moved on since — but not, it turns out, only in the ways I
+expected. Checking the claims before I wrote them down is what found the rest of this.
+
+**First, the good news, because there is some.** The vendor trust checklist tool is live
+and linked from every page. The four-part trust article is intact — all four pages load,
+all five hand-built charts are still there, every citation still in place. The case studies
+page came through untouched, with its honest framing word for word. There are now seven
+tools and five guide pages on the site, all working, all linked from the footer. And the
+testing fault I found while building the checklist tool — the one that reported our
+tick-boxes were invisible when they plainly weren't — has been fixed and proven.
+
+**What I did not expect.** Since the 30th, this site has been worked on twice by our own
+automated machinery rather than by me. Once deliberately: you chose leopardess for the
+first supervised run of the improvement programme on the 8th. That run was honest about
+itself — it repaired ten things, found sixty-eight more, and published nothing, which the
+lane running it correctly reported as "the repairs are sane, but the loop never finishes".
+
+The second time was much bigger and nobody wrote it down. On the evening of the 11th and
+into the small hours of the 12th, roughly a hundred and ninety automated jobs ran across
+this site — re-rendering pages, deploying images, rewriting internal links, and in five
+cases handing a page to the automated writer. That is how the new guide pages appeared.
+It is also how three things I built for you on the 31st of July stopped working.
+
+**The services page has gone backwards in three ways.**
+
+The six images I generated for the first block — the ones I looked at individually and
+re-made two of because one drew a rejection cross and one had solid white panels — are no
+longer on the page. The page now serves exactly one image in total. The pictures still
+exist; the page's record of where they are has been emptied. The template is written to
+draw nothing rather than draw a broken image, which is the right behaviour and is also why
+nobody noticed for eleven days.
+
+The second block is no longer a carousel. The single setting that turned it into a
+scrolling row has been dropped from the page's data. The scrolling code itself is fine and
+the first block still scrolls — it is only that one switch that went.
+
+And one of the six card links now points at a page that does not exist. Our system has a
+sensible rule that strips a link pointing nowhere, which is what saved this page in July.
+It cannot help this time: the page exists as a record, it was simply never published, so
+the link passes the check and gives a visitor a 404.
+
+**There is also a claim back on the page that I removed as false.** The page again says a
+workflow step can call "Claude, Gemini, Mistral or another provider". I checked the code
+again today and it is still three: Anthropic, Google Gemini, and our own self-hosted
+option. Mistral is not one of them. The same wrong claim is also live on the cost
+calculator guide page.
+
+**And a stale one I had not looked at before.** The case studies page still says we have
+143 agent definitions with 56 active, 75,061 decision records, and eight live sites. The
+real figures today are 193 definitions with 187 active, and just under six thousand
+decision records — and that last number has the same flaw as the 90,790 one I corrected in
+July: it is counted from a table that gets emptied, so no running total belongs there at
+all. When I fixed that in July I only fixed the services page. I should have swept the
+whole site, and I did not.
+
+**The thing I think you should decide.** This site is now two things at once: a
+hand-curated showcase that I check by eye, and a target for the automated improvement
+loops that run across the whole estate. The three regressions above are what that
+combination costs. Either the loops are told to leave this site alone, or I accept that
+anything I verify here has a shelf life of days and re-check on a schedule. At the moment
+it is neither, which is exactly why work sat broken for eleven days with nobody noticing —
+not the loops' fault and not mine, but nobody's job.
+
+I have not changed anything on the site. The handoff document now records all of it, with
+the evidence, and a repair list in priority order for whoever picks it up.
+
+**One correction I owe on my own working.** I nearly wrote that the missing images were
+caused by the automated run on the 11th. They were not, or not entirely: six of the image
+records have been broken since the day I made them on the 31st of July, pointing at a
+placeholder filename rather than their own. That is a known fault elsewhere in the system,
+already investigated and confirmed by another lane two days before I looked. The neater
+story — "the robots broke my work" — was the one I had already started writing, and it was
+half wrong.

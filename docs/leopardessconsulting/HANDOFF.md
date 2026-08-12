@@ -4,11 +4,41 @@
 the single source of truth for state. The deeper detail lives in the four companion
 docs, but this file is enough to resume without them.
 
-**Last updated:** 2026-07-30 (see §10 below for everything since turn 25 — read that
-section first if you already know this file; it is the actual frontier, not this one)
+**Last updated:** 2026-08-12 — **the frontier is now §11, not §10.** If you already know
+this file, read §11 first: it covers 07-30 → 08-12, and it is the section that changes
+what you should do next. §10 is still accurate for 07-29/30 but is no longer the front.
 **Branch:** `087_towards_multiple_domains`
 **Site:** `leopardessconsulting.co.uk` · `site_id = 4851f6fc-71cf-4160-a270-e03d6d3e0732`
 **Plain-language status to show someone:** `SUMMARY_where_we_are.md` (this file is the technical resume point).
+
+---
+
+## 🔴 READ FIRST (2026-08-12) — this site is now inside the fleet's automated loops, and they have already changed it
+
+**The premise most of this file was written under has changed.** Between 2026-07-30 and
+2026-08-12 this site was worked on **twice by automated fleet machinery, not by this
+lane** — once deliberately (the owner picked leopardess for the D3 programme's first
+supervised improvement-loop run on 08-08) and once at much larger scale on 08-11/12
+(≈190 orchestrations: 97 `page-rerender`, 22 `asset-deployer`, 10 `internal-linker`,
+**5 `page-content-writer` + 5 `page-build-handler`**, 2 `tool-improver`, 2
+`section-editor`, 1 `webdesign-agent`). Details and figures: §11.
+
+Three consequences, all measured today, all in §11:
+
+1. **Hand-authored `content_data` is again at risk here — for a new reason.** Not
+   `bugs_open/001` (that is genuinely closed). The live mechanism is
+   `bugs_open/238`: a regeneration **replaces** `content_data` wholesale and drops
+   keys the generator never emits, and gated templates then hide the loss in silence.
+   **It has already fired on `/services.html`** — see §11.3.
+2. **Two of this lane's 2026-07-31 deliverables are no longer live** (the second
+   carousel; the six service images). Nobody reported it, because nothing on this
+   platform reports it: the template renders less, without erroring.
+3. **A verified-false claim came back onto a live page** after this lane removed it.
+
+**So the working rule for this site has changed.** "I hand-authored it and verified it
+live" is no longer a durable state — it is a state with a **date**. Before you build on
+anything in §10 or earlier, re-check it at the artefact. The `[MEASURED 2026-08-12]`
+table in §11.4 tells you what was still true today so you don't re-check it twice.
 
 ---
 
@@ -190,6 +220,8 @@ artifact (curl/DB/screenshot), never by a "complete" status.
 | `scripts/` | Reusable, documented SQL + kcat scripts (see §5). |
 | `brand/` | Logo masters, favicons, OG card, hero image. |
 | `specs/` | The rewritten site_specs JSON (identity, voice, design_intent, portfolio) + backups. |
+| `tools/ai-vendor-trust-checklist/` | The built tool: plan doc, template, JS, render harness, fence check. **Live** — see the §10.3 correction. |
+| `HANDOFF_vendor_trust_checklist_tool.md` | ⚠️ **HISTORICAL.** The brief for a tool that was built the same evening. Do not action it. |
 
 ---
 
@@ -293,6 +325,15 @@ cta bg `#C8A951` + cta text `#0D0D0D`, footer text `#B9B3A6`, hover `#A8843C`.
 | `deploy_brand_asset.sh …` | Single-asset variant. |
 | `L3_fork_palette.sql` | The palette fork (reference). |
 | `L5_homepage.sql`, `L5_pages.sql`, `L5_faq_hero.sql`, `L5_casestudies.sql` | The content rewrites (reference). |
+| **Added 2026-07-30/31 — read the header of each, the gotchas are in-file** | |
+| `refresh_owned_page_chrome.sh` | Chrome refresh for a **protected** page: lifts the no-rebuild flag, rebuilds, **restores the flag even if interrupted**. The only safe way to reach the 5 tool pages. |
+| `reconcile_footer_nav.sh` | The safe two-step footer/nav reconcile. ⚠️ Use this, **never the nav-updater agent** — it deletes every nav link under `/tools/`, `/blog/`, `/guides/` and reports success (§11.1). |
+| `orchestrate_safe.sh` | Kafka dispatch that **confirms it sent**. The old inline publish quietly lost ~4 in 5 attempts while discarding the output, so a lost publish looked identical to a slow one. |
+| `rerender_page_safe.sh` | Single-page rerender that takes the **page_id** (a page *name* is silently rejected — one existing script has the same fault). |
+| `commit_tool_asset.sh` | Commit a tool's JS bundle / assets to the git-adapter. |
+| `tool_acceptance_run.sh` | Fire browser acceptance at ONE tool (S6 of the staged ladder). **Rewritten 2026-08-11** — raises the work item rather than running inline; see §11.6 for why the old route failed silently. |
+| `prove_component_template_identity.go` | Renders every live instance of a shared component through old + new templates and asserts byte-identity, **with the control that the new arm differs**. Use before touching any shared component. |
+| `L9_services_carousels.sql`, `L9_info_card_grid_template_with_carousel.html` | The 07-31 services work (reference — and see §11.3, parts of it are no longer live). |
 
 **Trigger any agent** by producing to Kafka `system.agent.generic.requests` — copy the
 `kcat` block from `082_submit_domain_unified.sh`; only `agent_type` + `input_data` change.
@@ -665,19 +706,44 @@ in this style; they are the working, verified pattern (dollar-quoted `content_da
 noted in RUNNING_NOTES — do not sprinkle literal `%%` into an f-string SQL literal, it is
 not a printf format string and will land in the DB verbatim).
 
-### 10.3 — Considered and deliberately deferred: an AI-vendor-trust-checklist tool
+### 10.3 — ~~Considered and deliberately deferred~~ **BUILT AND LIVE — corrected 2026-08-12**
 
-Assessed as a good fit for the pillar article's "what trustworthy actually looks like"
-section and technically straightforward (deterministic client-side scoring, same shape as
-the site's existing calculators). **Not built** — it's a separate feature (new JS, new
-page, needs browser testing per this platform's own UI-work standard), not a content task,
-and was scoped rather than rushed. **Full standalone build handoff, self-contained, for a
-fresh thread: `HANDOFF_vendor_trust_checklist_tool.md`** (same directory as this file).
+> **CORRECTED 2026-08-12: the tool was built the same evening this section was written,
+> and it is live.** `/tools/ai-vendor-trust-checklist.html` — **HTTP 200 today**, twelve
+> checks in four sections, three plain-English verdicts, an N/A path that drops the
+> denominator to eleven, entirely client-side. Commit `0bfdf5b2e` (2026-07-30), built up
+> the S0–S7 staged ladder with each check written *before* the thing it checks. It is in
+> the footer of every page (see §11.1). **`HANDOFF_vendor_trust_checklist_tool.md` is
+> therefore a HISTORICAL brief, not a live to-do** — do not "pick it up".
+>
+> Two things that fell out of building it, both of which outlived the tool:
+> - **It found `bugs_open/157`** — `has_visible_area` measures 0 on any axis that is a
+>   whole number, so the acceptance run called 24px tick-boxes invisible while the same
+>   run had successfully *clicked* them. The tool was deliberately **left alone** rather
+>   than nudged to make the check go green. **157 is now CLOSED** (fixed, live in
+>   `v1.0.1216`, proven with a negative control — `bugs_closed/157_…`).
+> - **It found the tool-naming gate**: browser acceptance could only find a tool when
+>   three separate names agreed, which excluded 6 of 22 tools across 5 sites *including
+>   this site's own ROI estimator and cost calculator*. **That gate is now gone** — see
+>   §11.6.
 
-### 10.4 — What a fresh thread should actually do next, in order
+Original 2026-07-30 text, kept for the record: assessed as a good fit for the pillar
+article's "what trustworthy actually looks like" section and technically straightforward
+(deterministic client-side scoring, same shape as the site's existing calculators). **Not
+built** — it's a separate feature (new JS, new page, needs browser testing per this
+platform's own UI-work standard), not a content task, and was scoped rather than rushed.
+**Full standalone build handoff, self-contained, for a fresh thread:
+`HANDOFF_vendor_trust_checklist_tool.md`** (same directory as this file).
 
-1. If picking up the tool: go straight to `HANDOFF_vendor_trust_checklist_tool.md`, it is
-   self-contained.
+### 10.4 — ~~What a fresh thread should actually do next~~ **SUPERSEDED by §11.7 (2026-08-12)**
+
+> **This list is kept for the record. Item 1 is DONE (§10.3). Item 2 is partly OTBE — the
+> tool pages now carry card imagery, added by an automated pass on 08-11, though see
+> §11.3 for what else that pass did. Items 3–5 still stand. Read §11.7 for the current
+> ordering, which is different because two 07-31 deliverables need restoring first.**
+
+1. ~~If picking up the tool: go straight to `HANDOFF_vendor_trust_checklist_tool.md`, it is
+   self-contained.~~ **DONE 2026-07-30 — built, live, footer-linked. See §10.3.**
 2. If picking up general leopardess work: the blog index + 4 tool pages still have no
    image (§10.1) — lowest-risk next imagery item, same Route A recipe already proven
    working 6 times over on this site (see RUNNING_NOTES for the exact recipe and prompts).
@@ -694,3 +760,250 @@ fresh thread: `HANDOFF_vendor_trust_checklist_tool.md`** (same directory as this
    folded into the pillar as supporting evidence rather than becoming standalone pieces —
    if the owner wants any of those as their own deep-dive, the research is already done
    and cited in the pillar; it would need only expansion, not a fresh literature search.
+
+---
+
+## 11. STATE AS OF 2026-08-12 — the frontier
+
+Written by a session asked only to bring this file up to date. **Everything below marked
+`[MEASURED 2026-08-12]` was checked against the live DB or the served page today**, not
+carried forward from a status field or from another doc. Where I could not establish a
+cause I say so with `[UNVERIFIED]` rather than guessing — the attributions are the weakest
+part of this section and the measurements are the strong part.
+
+### 11.1 — What this lane shipped after §10 was written (2026-07-30 → 07-31)
+
+**The vendor trust checklist tool** — see the §10.3 correction. Built, live, and the two
+platform defects it found are both resolved (`bugs_closed/157`; the naming gate, §11.6).
+
+**It was then linked from the footer of all 34 pages, and the route there is the reusable
+part** (`a5b969f92`, `49639b68c`):
+
+- ⚠️ **Do NOT use the nav-updater agent on this site.** It rebuilds navigation from
+  scratch and **discards any link whose target lives in a sub-folder**. Every tool page
+  here is under `/tools/`, so it would have deleted all the tool links and put none back,
+  **on a run that reports success.** Measured blast radius at the time: 16 links across 7
+  sites are in that position. Landmine committed in `be9ce5314`.
+- The safe route is two smaller steps: refresh the shared header/footer from the nav list,
+  then rebuild each page in **ASSEMBLE** mode (reuses existing content, swaps only the
+  chrome). The other mode regenerates sections from stored data and **escalates any page
+  with a missing required field to the LLM writer** — 5 of 34 pages were in that state,
+  so the wrong mode would have had 5 pages rewritten.
+- The 5 tool pages are deliberately protected from rebuild, so the ordinary refresh cannot
+  reach them at all. `scripts/refresh_owned_page_chrome.sh` lifts the protection, rebuilds,
+  and **restores it even if interrupted** — an unprotected tool page can be overwritten by
+  anyone else's rebuild.
+
+**`/services.html`: both blocks made carousels, and six links that were never links**
+(`2e694bbe3`, 2026-07-31). Full account in `RUNNING_NOTES.md` under that date; the parts
+that matter to a future thread:
+
+- The six card links were not broken, they were **not links**. All six pointed under
+  `/services/`, which has never existed here. `datahelpers.RepairPageLinks`
+  (`link_repair.go:139`) strips an anchor whose target is not a real `pages.url` **and
+  keeps the inner text** — so the label shipped as dead prose. That is correct, deliberate
+  behaviour; it is what the safety net looks like when it fires.
+- Three further instances of the invented `/tools/tool-monitoring-coverage-gap-finder.html`
+  were still live **as prose**, which `RepairPageLinks` cannot touch and the phantom-link
+  detector cannot see. Removed. **Still 0 today** `[MEASURED 2026-08-12]`.
+- The `call-to-action` had labels but no `*_cta_url`, so the template drew **no buttons at
+  all** — a page that looks deliberately button-less. Fixed.
+- Block B's carousel was added as an **opt-in `carousel: true` flag on the shared
+  `info-card-grid`** (18 instances, 9 sites), not a fork — a section-component fork does
+  not survive rerender. Byte-identity proven 18/18 with a control that all 18 *differ*
+  when the flag is set. **⚠ That flag is gone as of today — §11.3.**
+- **`90,790` orchestration state records was a false claim**: a point-in-time count of a
+  table pruned hourly at 24h, published as a cumulative total with a durability promise.
+  Live count that day: 2,364. The claims layer had caught it on 07-26 and filed it at
+  `needs_human_review`; **nothing drained the queue**, so it stayed live 5 more days.
+
+**New operator scripts from these two days** (all in `scripts/`, all documented in-file):
+`refresh_owned_page_chrome.sh`, `reconcile_footer_nav.sh`, `orchestrate_safe.sh`,
+`rerender_page_safe.sh`, `commit_tool_asset.sh`, `tool_acceptance_run.sh`,
+`prove_component_template_identity.go` (the Go template byte-identity harness),
+`L9_services_carousels.sql`, `L9_info_card_grid_template_with_carousel.html`.
+
+### 11.2 — What happened to this site WITHOUT this lane (2026-08-08 → 08-12)
+
+**08-08, ~17:12Z — the D3 programme's first supervised improvement-loop run, fired at
+leopardess because the owner picked it** (option A of four). Account, with its pre-flight,
+in `docs/agent_docs/docs024_key_docs_latest/bugfix_179_deploy_path_override/NOTES_deploy_path_override.md`.
+
+- Reached `COMPLETED` in 9 minutes. **Drained 10 items, minted 68, deployed 0 pages.**
+  Open items went 189 → 248. `pages.deployed_at`, `updated_at` and `last_built_at` each
+  moved on **zero** rows here (positive control: the same query showed 614 pages fleet-wide
+  and a deploy inside the run window on another site — the column moves, it did not move
+  here).
+- That lane's own conclusion is worth carrying: **"the repairs that ran were sane; the
+  loop that runs them does not terminate."** At ~68 minted per ~10 drained, a per-site
+  supervised run cannot converge.
+- **Its pre-flight cleared the risk this lane had recorded** — that an improvement sweep
+  would clobber the hand-corrected specs. No step in the improvement chain has a
+  spec-write action (positive control: 9 live agents fleet-wide *do* have
+  `write_site_spec`, so the filter can match), and `content-gap-planner` is reachable by
+  nothing in that chain. The July-era hazard of fabrications baked into `rendered_html`
+  against NULL `content_data` **had also expired** — every `page_component` here has
+  `content_data`.
+- A real finding it surfaced: `acceptance_run` on `tool-process-automation-scorer`
+  returned **7 passed / 2 failed** — `submit-shows-error` failing at *both* `@desktop`
+  and `@mobile`, `fix_cycles_spent: 0`. Nobody has picked that up.
+
+**08-11 17:47Z → 08-12 02:07Z — a much larger unattended pass, undocumented in any lane's
+notes I could find** `[MEASURED 2026-08-12]`. By `owner_agent_type`: 97 `page-rerender`
+(+6 FAILED), 32 `build-dispatch-loop`, 22 `asset-deployer`, 10 `internal-linker`, **5
+`page-content-writer` + 5 `page-build-handler`**, 2 `tool-improver`, 2 `section-editor`,
+1 `webdesign-agent`, 1 `site-asset-renderer`, 1 `tool-auditor`, 1 `image-build-handler`.
+Work items completed in the same window: 220 `page_rerender`, 24 `undeployed_asset`, 20
+`needs_internal_links`, 8 `needs_rerender`, 7 `needs_imagery`, 6 `needs_content_image`,
+5 `improve_tool`, 4 `section_edit`, 3 `audit_tool`, 2 `generic_theme`.
+
+The writer targeted `llm-cost-calculator`, **`case-studies`**,
+`case-study-automated-intelligence-pipeline`, `ai-agent-roi-estimator` and
+`tool-automation-savings-estimator`. **`/case-studies.html` came through untouched** —
+its four components still read `updated_at = 2026-07-18 15:27:18` — so the audited honest
+framing survived. That is luck plus a failed run, not a guarantee.
+
+### 11.3 — ⚠ Two 07-31 deliverables are NO LONGER LIVE, and a false claim came back
+
+All three found by checking the artefact, not by any alert. Nothing on this platform
+reported them, because in each case the template renders **less** rather than erroring.
+
+**(a) The six service images do not render. `/services.html` has exactly ONE `<img>` tag
+on the whole page** `[MEASURED 2026-08-12]`. All six `teaser-reveal-panel` items carry
+`image_url` as an **empty string**, and item 6 has lost `image_url`, `image_alt` and
+`open_label` **entirely**. The template gates on the field, so six missing images render
+as no error, no empty box, nothing. This is the exact damage class of **`bugs_open/238`**
+(a regeneration replaces `content_data` wholesale and drops resolver-sourced `_url` keys;
+gated templates hide it). 238's fixes were committed 2026-08-11 and are **inert until the
+chassis image next rolls**. *Which* handler emptied these is `[UNVERIFIED]` — the
+components' `updated_at` is `2026-08-11 18:15:23`, inside the rerender wave.
+
+**(b) Block B is no longer a carousel.** The `carousel` key is **absent** from the
+`info-card-grid`'s `content_data` — it now holds only `cards`, `section_title`,
+`section_eyebrow`, `section_subtitle` — and the served page carries no `data-hcc-*`
+markup `[MEASURED 2026-08-12]`. Block A's carousel (`trp__track`) **does** still work, and
+`snippets.js` is still 13,781 bytes / 2 snippets, so the JS half is intact: this is purely
+the lost opt-in flag. Same class as (a).
+
+**(c) The six card links were repointed by the automated linker, and one of them 404s.**
+This lane set 3 × `/case-studies.html`, 2 × `/technical-architecture.html`, 1 ×
+`/how-it-works.html`, all verified 200 first. Live today: `/blog/hierarchical-multi-agent-orchestration-explained.html`,
+**`/case-study-automated-intelligence-pipeline.html`**, `/case-studies.html`,
+`/how-it-works.html`, `/technical-architecture.html`, `/use-cases.html`. The second one
+**returns 404** `[MEASURED 2026-08-12]`: its `pages` row was created 2026-08-11 16:21 with
+`build_status='planned'` and was never deployed. **`RepairPageLinks` cannot save you here**
+— the row exists, so the link is "real" by its test, and the visitor gets the 404 that the
+07-31 fix existed to eliminate. Only `/services.html` carries it.
+
+**(d) A verified-false provider claim is back on the live page.** `/services.html` item 5
+(`model-routing`) now reads *"A workflow step can call Claude, Gemini, **Mistral** or
+another provider…"*. On 2026-07-31 this lane drove `OpenAI|Mistral|xAI|Perplexity` to **0**
+on this page; today it is **1** `[MEASURED 2026-08-12]`, in a component updated
+2026-08-11 18:15:23. `platform/aiservice/factory.go:23-33` supports exactly **anthropic,
+ollama, gemini**; `openai` returns "not yet implemented" and everything else hits
+`default: unsupported AI provider`. Two other components still carry a Mistral claim:
+`/guides/llm-cost-calculator-guide.html` (**deployed and live**) and
+`/for-engineering-teams.html` (archived, harmless).
+
+### 11.4 — What I checked and found STILL GOOD, so you don't check it twice
+
+| Thing | `[MEASURED 2026-08-12]` |
+|---|---|
+| The 4-part trust series | All 4 pages 200. **All 5 inline SVG charts present** (2 on the pillar, 1 on each industry page). KPMG / Edelman / Cisco / Deloitte / Salesforce citations all still in the pillar |
+| `/case-studies.html` | Components untouched since 2026-07-18; the honest framing survives verbatim — *"Those eight are ours. They are not clients, and we would rather say so"* |
+| The `gap-finder` phantom | **0** occurrences on `/services.html` |
+| The `90,790` false claim | **0** occurrences; replaced by a durably-phrased "more than 2,000 orchestration state records" |
+| The hand-authored card copy | Intact on `/services.html` — the 07-31 prose was not rewritten |
+| Tools and guides | **7 tools + 5 guides, all deployed, all 200.** All 7 are in the footer |
+| Site size | **48 pages, 33 deployed.** Newest deploy 2026-08-12 02:07:13Z |
+| `snippets.js` | 13,781 bytes, still serving both snippets |
+
+New since §10: `/tools/automation-savings-estimator/index.html` (created 08-08) and five
+`/guides/*` pages, four of them deployed on 08-11. `/tools/llm-cost-calculator.html` no
+longer references the wrong `bayesian-ranking-hero-tool.js` bundle — it now carries 4
+inline `<script>` blocks, 9 inputs and 4 buttons. **Whether it actually computes is
+`[UNVERIFIED]`** — not driven in a browser this session; §6's "llm-cost-calculator is
+broken" should be treated as superseded-but-unproven, not as fixed.
+
+### 11.5 — Figures on the site that are stale or false RIGHT NOW
+
+The 07-31 re-measurement pass only covered `/services.html`. **It was never swept across
+the rest of the site, and `/case-studies.html` is still publishing the old numbers**
+`[MEASURED 2026-08-12]`:
+
+| Live on `/case-studies.html` | Actual today | Note |
+|---|---|---|
+| "143 agent definitions, 56 of them active" | **193 definitions, 187 active** | badly understated |
+| "75,061 orchestration state records" | `orchestration_states` holds **5,997 rows** | **the same defect class as `90,790`** — this table is pruned, so *no* cumulative total belongs on a page. Rephrase it durably or drop it |
+| "Eight live sites… Those eight are ours" | the `sites` table holds **40 rows** | ⚠ the 07-31 audit counted **15** by its own definition of "live". **Re-derive the definition before republishing any number here** — 40 is a row count, not a claim |
+
+The claims layer already knows about some of this: **3 `claims_unverified` items sit at
+`needs_human_review`**. That is the same queue nobody drained for five days in July.
+
+### 11.6 — Two platform changes since §10 that directly affect this site
+
+**The tool-naming gate is gone (owner decision 2026-08-11).** `url_field` is live on the
+acceptance `request_run` step (migration 384) and is checked **before** the name lookup, so
+a tool page is now resolved **by component placement** and its URL carried in
+`spec.page_url`. This site's ROI estimator and cost calculator are testable without being
+renamed. `scripts/tool_acceptance_run.sh` was rewritten to match (`3a91684bd`,
+`585e37dad`) — it now raises the same `site_work_items` row the due-sweep raises, so
+`build-dispatch-loop` spawns a dedicated pod. **The old kcat route ran the agent inline on
+a standing chassis pod that deliberately has no storage client, so the *vision* half of
+acceptance failed silently on every manual run while the check half read green.** Read the
+header of that script before firing it; three things must still line up and two fail
+quietly.
+
+**This site is 1 of only 2 sites fleet-wide that has opted into `voice_gate`** (14
+patterns; `oufe` has 10) — the mechanism is real and code-enforced, the adoption is the
+defect. The `fleet_copy_quality` lane's 2026-08-12 contribution notes two things owed
+here: **33 `voice_tells` items sitting unactioned**, and **~12 leopardess pages still
+carrying the banned word "honest"** (owner's 2026-07-18 ban, in this site's own spec for
+25 days). Its explicit ask is *"your site, your voice"* — the measurement and the method
+are in
+`docs/agent_docs/docs024_key_docs_latest/fleet_copy_quality/CONTRIB_2026-08-12_the_honest_ban_and_the_voice_gate_nobody_opted_into.md`.
+⚠ Its trap is worth repeating: a find-and-replace that removes the target word 100% of the
+time can still be wrong 100% of the time — assert on **shape** (double commas, dangling
+articles) afterwards, not just on the word being gone.
+
+### 11.7 — What to do next, in order (supersedes §10.4)
+
+1. **Restore the three `/services.html` regressions** (§11.3). Together they are one
+   session's work and they are the only items here where the site is *worse* than it was:
+   re-point the 404 card link; restore `carousel: true`; restore the six `image_url`
+   values; fix the Mistral claim (and the live `/guides/llm-cost-calculator-guide.html`
+   copy of it). ⚠ **Do this with the escalation guard pre-checked, as §10.2 describes, and
+   expect it to be undone again** until `bugs_open/238`'s fix rolls — so verify at the
+   served page afterwards, and re-verify after the next fleet roll.
+2. **Sweep the false and stale figures off `/case-studies.html`** (§11.5), and while you
+   are there decide whether any cumulative claim should exist at all against a pruned
+   table. Then drain the 3 `claims_unverified` items rather than leaving them.
+3. **Take the voice work** (§11.6): ~12 pages carrying "honest", 33 `voice_tells` items.
+   This is the largest owner-visible quality item outstanding and the other lane is
+   waiting on this site's owner-lane to do it.
+4. **`bugs_open/248` (the `undeployed_asset` slug — the number is shared with an unrelated
+   CTA bug, so resolve by slug) is firing on this site.** 15 asset rows here carry the
+   literal placeholder URL `/assets/images/input-data.asset-key.jpg` — six `icon_service_*`
+   rows from 07-31 and six `content_hero_tool_*` rows from 08-08 — so several distinct
+   images resolve to one file. Fleet-wide it is **76 rows across 12 sites, 2026-01-28 →
+   2026-08-11** `[MEASURED 2026-08-12]`, i.e. still producing new rows. The bug is filed,
+   CONFIRMED by a `090` run, and OPEN; **do not re-file it**, contribute the leopardess
+   numbers to it. This is the most likely cause of §11.3(a) but I did **not** establish the
+   link `[UNVERIFIED]`.
+5. **`bugs_open/152` is still open and still unowned** — `assets.url` never gets rewritten
+   off its presigned S3 form. Two rows here have already regressed to presigned URLs
+   (`hero_case_studies`, recreated 08-08 after the 07-29 session retired it, and
+   `content_hero_tool_automation_savings_estimator`, 08-11), so this recurs on every
+   image generation exactly as §10.4 predicted.
+6. **The `tool-process-automation-scorer` acceptance failure** (§11.2): 2 of 9 checks
+   failing at both viewports, `fix_cycles_spent: 0`, unlooked-at since 08-08.
+7. §10.4 items 3 and 5 still stand unchanged: the trust-series pages are still missing from
+   `sitemap.xml`, and the four unwritten industry deep-dives are still fully researched
+   inside the pillar if the owner wants them.
+
+**The standing question this section raises for the owner, which is not mine to answer:**
+this site is now both a hand-curated showcase *and* a target for the fleet's automated
+improvement loops, and §11.3 is what that combination costs. Either the loops are told to
+leave it alone, or this lane accepts that verification here has a shelf life measured in
+days and re-checks on a schedule. Right now it is neither, which is why two deliverables
+sat broken for eleven days with nobody noticing.

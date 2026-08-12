@@ -2152,3 +2152,79 @@ are not in that switch at all — the arms I found are in `feed_actions.go`, a s
 news-*search* path. A `case` arm is not a working provider, and **a grep that disproves part
 of a claim has not validated the rest**. RUNBOOK landmine 12 updated (Gemini added);
 `WRONG_CALLS.md` row written.
+
+## 2026-08-12 (session "leopardess") — HANDOFF.md brought up to date, and the update found three live regressions
+
+Task was narrow: "search the docs to update HANDOFF.md". The file's own frontier (§10) was
+dated 2026-07-30. Bringing it forward meant checking what was still true, and three of this
+lane's 2026-07-31 deliverables were not.
+
+### Method — what I read, in order
+
+`git log --since` on `docs/leopardessconsulting/` and fleet-wide for "leopardess"; the tails
+of `README_where_we_are.md` (which had two 07-30 entries the HANDOFF never absorbed) and
+`RUNNING_NOTES.md`; then the two lanes that touched this site without telling this one:
+`bugfix_179_deploy_path_override` (the D3 run) and `staged_component_build` (the tool
+ladder). Then the live DB and the served pages for everything I was about to write down.
+
+**The docs alone would have produced a wrong update.** README recorded the vendor-trust
+tool as built and live; the HANDOFF still said "deliberately deferred". Neither doc knew
+about 08-08 or 08-11 at all, because neither pass was run by this lane.
+
+### The three regressions, all found at the artefact
+
+1. **Six service images gone.** `/services.html` serves exactly **one** `<img>` tag. All
+   six `teaser-reveal-panel` items hold `image_url` as an empty string; item 6 has lost
+   `image_url`/`image_alt`/`open_label` entirely. The template gates on the field, so the
+   loss renders as nothing at all. Class = `bugs_open/238`.
+2. **Block B is no longer a carousel.** `carousel` is absent from the `info-card-grid`'s
+   `content_data` (keys are now `cards`, `section_title`, `section_eyebrow`,
+   `section_subtitle`); no `data-hcc-*` on the served page. Block A's `trp__track` still
+   works and `snippets.js` is still 13,781 bytes — the JS half is fine, the opt-in flag is
+   what went.
+3. **A card link now 404s.** The six links were repointed by the automated linker; one
+   points at `/case-study-automated-intelligence-pipeline.html`, whose `pages` row was
+   created 2026-08-11 16:21 as `build_status='planned'` and never deployed. **404 live.**
+   `RepairPageLinks` cannot catch this — the row exists, so the link passes its test. That
+   is a new hole in a safety net this lane documented on 07-31 as working.
+
+Plus **(d)**: `OpenAI|Mistral|xAI|Perplexity` on `/services.html` went 0 (07-31) → **1**.
+Item 5 now claims a step "can call Claude, Gemini, Mistral or another provider".
+`platform/aiservice/factory.go:23-33` supports **anthropic, ollama, gemini** and nothing
+else. Same false claim this lane removed twelve days ago, in a component whose `updated_at`
+is `2026-08-11 18:15:23`.
+
+### Missteps of mine, recorded because they are the useful part
+
+- **I nearly attributed the empty `image_url`s to the 08-11 pass and stopped there.**
+  Checking the asset rows showed all six `icon_service_*` assets — created **2026-07-31**,
+  by this lane's own run — carry the literal placeholder URL
+  `/assets/images/input-data.asset-key.jpg`. So part of this dates from the day the images
+  were made, not from 08-11. I have left the cause as `[UNVERIFIED]` in the HANDOFF rather
+  than pick the tidier story. **The tidier story was the one I had already half-written.**
+- **`grep -oc` counts LINES, not occurrences.** It told me the pillar article had 2 charts
+  where the record said 5. `grep -o … | wc -l` across all four pages gives 2+1+1+1 = 5, all
+  present. I had a "chart loss" paragraph drafted off a flag misuse.
+- **`grep -oE '.{0,120}(OpenAI|Mistral).{0,120}'` hung for 120s** on a long minified line
+  and had to be killed — catastrophic backtracking. Python's `re.finditer` with slicing
+  did it instantly. Worth remembering for any served-page context grep.
+- **I filed the placeholder-asset finding as new before grepping `bugs_open/`.** It is
+  already `bugs_open/248` (the `undeployed_asset` slug — **the number is shared with an
+  unrelated CTA bug**, so the CLAUDE.md rule about resolving by slug earned its keep here),
+  filed 08-10, CONFIRMED by a `090` run. Fleet-wide it is 76 rows across 12 sites,
+  2026-01-28 → 2026-08-11. Contribute the numbers, do not re-file.
+
+### Measurements taken today, for anyone repeating them
+
+48 pages / 33 deployed, newest deploy `2026-08-12 02:07:13Z`. 174 open work items of 515
+total (was 189/232 before the 08-08 D3 run, 248/300 after). 33 `voice_tells`, 21
+`cta_names_unknown_destination`, 19 `image_source_unsatisfiable`, 17 `needs_section_data`,
+13 `content_rewrite`, 3 `claims_unverified` — all at `needs_human_review`. 193 agent
+definitions (187 active), `orchestration_states` 5,997 rows, `sites` 40 rows. 7 tools + 5
+guides, all 200, all footer-linked.
+
+`/case-studies.html` is still publishing "143 agent definitions, 56 of them active",
+"75,061 orchestration state records" and "Eight live sites" — the 07-31 re-measurement pass
+covered `/services.html` only and was never swept across the site. The 75,061 figure is the
+**same defect class as the 90,790 one that was fixed**: a cumulative-sounding total read off
+a table that is pruned.
