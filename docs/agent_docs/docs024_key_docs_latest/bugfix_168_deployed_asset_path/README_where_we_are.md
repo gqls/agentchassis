@@ -1162,3 +1162,40 @@ two reviewers independently want a real safety check — not a comment — on a 
 that all six of these drainers depend on, where a mistake fails silently for every one of them. They
 also caught me arguing for exactly that principle and then not applying it. I'd build that regardless
 of whether we submit again.
+
+### Approved — and it went live on the build that just went out
+
+Round seven passed. After six rounds of "revise", the review board approved it, with four advisory
+notes and nothing serious. And the fresh build carries it, so both safeguards are now running on the
+live system.
+
+**The proof is better than anything we've had on this lane.** Until now, checking whether our code
+was actually deployed meant grepping for a string we'd added — which tells you the string is there,
+but not that the binary is newer than some other change. This time the loader work *removed* a
+distinctive line of code. So I could check for something that must be **absent**, and it is. That's a
+much stronger test, and it's the one our own bug notes have been asking for.
+
+**The lesson from seven rounds is not the one I expected, and it's worth telling you plainly.** The
+round that passed was the *shortest* submission of the whole series — I cut it by about a fifth,
+stripping out all the argument-by-argument history I'd been accumulating. Rounds four, five and six
+each answered a reviewer by *adding* an explanation, and each time a *different* reviewer objected to
+the thing I'd just added. One of them eventually said so outright: the writing had become the
+problem, not the change. **Defending it harder was making it worse.** I'll carry that into the next
+one of these.
+
+**The approving round also found a genuine flaw, and I've filed it rather than banking the win.** One
+reviewer pointed out that both our safeguards check what's in the *database*, while the whole point of
+this type of finding is what the *public website* says. A page can be corrected in the database and
+not yet republished — and in that window we'd close the item and declare the claim removed while the
+live site still shows it. I checked: the relevant columns exist and neither our scan nor either gate
+reads them. Then I measured: **two of the nine items we've already closed are on pages where the
+database is ahead of the last publish.** That doesn't prove those pages still carry the claims — it
+proves our evidence can't show they don't, which on this subject is the same problem. It's written up
+as bug 262 with the fix ranked.
+
+**One decision is still yours**, unchanged from yesterday: the two safeguards are both required, but
+the newer one is the stronger evidence, so it could replace the older rather than sit alongside it.
+Keeping both means a page fixed without touching a timestamp stays open. One line either way.
+
+I've written a fresh handover so this can be picked up cleanly in a new conversation — this one has
+got long.
