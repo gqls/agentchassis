@@ -264,3 +264,66 @@ rewriting of history. That mechanism did what it promised.
 So the watchdog is finished and I'm treating it as closed. Next is the paid
 rehearsal — the real end-to-end run on a rented GPU, a pound or two, and the
 one that wants you around when it happens.
+
+Tuesday afternoon. We tried the rehearsal. No model got trained, about ten
+pence got spent, and I'd call it one of the more useful afternoons this lane
+has had — because everything that stopped us would otherwise have stopped a
+paying customer instead, quietly, some weeks from now.
+
+I started by reading the training script we were about to run, rather than
+running it. Two things were wrong with it. Back in July we taught it to accept
+a choice of model, and recorded that as "ready for small models" — but the
+script also had the *conversation format* of the big Llama model hard-written
+into it in two places, and nobody had noticed those needed to change too. If
+we'd run it as planned, it would have finished happily and handed us a trained
+model that had been taught with the wrong punctuation, so to speak. It wouldn't
+have crashed. It would just have been subtly rubbish, and we'd have paid for it
+and possibly not spotted why. That's fixed, and I've added a check that refuses
+to start if the format and the model disagree — and I tested the check by
+proving it correctly rejects the old broken combination, because a safety check
+you haven't seen fail isn't a safety check.
+
+The second was smaller: our copy of a script had drifted from the live one in a
+way that would have made the big training runs save their progress five times
+less often. Also fixed.
+
+Then we tried to rent a GPU, and got three surprises in a row. First, the
+default number of processor cores we ask for is one the supplier no longer
+accepts for nine of the eleven machine types — including every cheap one. Only
+the most expensive machine works with our defaults, which is a slightly
+comical way to fail. Second, we only wait five minutes for a machine to boot,
+and the cheap machine we want for the playground takes longer than that — so
+we create it, pay for it, and then our own tidy-up deletes it right before it
+becomes useful. Twice.
+
+The third one is why I stopped. Renting a machine was creating *more machines
+than we asked for*. Two requests turned into three real, billing GPUs. The
+cause is that our system waits on the phone, so to speak, for five minutes
+while the machine boots — but the messaging layer behind it gives up after
+sixty seconds and hands the same request to someone else, who dutifully rents
+another one. Nothing in the code counts how many times this can happen; it's
+paced only by how slow the supplier is. On a machine that boots slightly
+faster, each duplicate would have been left running rather than cleaned up.
+
+So I hit the emergency stop — provisioning is paused across the whole system —
+and then checked that the stop actually works rather than assuming it: two more
+duplicate requests arrived in the next minute and a half and were both refused,
+nothing was created, and the supplier now shows no machines running at all. You
+chose to leave it paused until it's fixed, which I agree with. Nothing else has
+rented a GPU since June, so it costs us nothing to leave off.
+
+Two things I got wrong today and have corrected in the notes. I told you the
+playground machine's floor price was 43p an hour rather than 35p — that was me
+doing arithmetic on an assumption about core charges, not a measured price, and
+the truth is somewhere between the two until we see a real invoice. And I should
+be clear that the "no machine got left running" claim is from asking the supplier
+directly, not from our own records — our own records wouldn't have known, which
+is itself one of the findings.
+
+Where that leaves us: the training side is now in better shape than it was this
+morning and is ready. The renting side needs a code fix and a redeploy, which is
+your release to run, and I've written both bug reports with the fixes ranked. I
+also sent the duplicate-machine problem to the diagnosis system for an
+independent second opinion on the exact cause, because I'm confident about what
+happened and less confident about precisely which bit of the messaging layer
+does it, and that's a distinction worth keeping honest.

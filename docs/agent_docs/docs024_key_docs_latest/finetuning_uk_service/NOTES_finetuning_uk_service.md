@@ -790,3 +790,114 @@ Not repeated here because you already have it: the `run.sh`-vs-B2-bundle diverge
 a discovery because I had not read that line.
 
 — from the `finetuning/` (older service-thinking + site) lane
+
+---
+
+## 2026-08-12 — Phase 0 attempted. Did not train. Found five defects, one of them a money loop, and paused provisioning fleet-wide.
+
+**Outcome in one line: no fine-tune ran, nothing was lost, ~$0.10 spent, and the
+reason Phase 0 could not run is now written down in two bug files instead of
+being folklore.** The training scripts were the part we expected to be risky;
+they turned out fine after two fixes. The provisioning path underneath them
+cannot currently deliver a box.
+
+### Preflight — two defects found by READING, before any GPU existed
+
+**(1) `BASE_MODEL` alone could never have trained a small model.** `02_train`
+took `--base-model` (parameterised 2026-07-31) but line 201 imposed
+`get_chat_template(tokenizer, "llama-3.1")` and lines 276-280 passed
+`"<|start_header_id|>user<|end_header_id|>\n\n"` /
+`"...assistant..."` as **literal strings** to `train_on_responses_only`.
+SmolLM2 has none of those tokens. So the run this lane was about to pay for
+would have rendered training text out of tokens the model has never seen, then
+masked on markers that never occur — completing, and yielding a quietly wrong
+adapter. **The 07-31 NOTES claim "run.sh parameterised for small models
+(defaults preserve 70B behaviour exactly)" was true of the model NAME and of
+nothing else** — recorded here as a correction to this file's own earlier entry.
+Fixed (`270dbfd98`): `--chat-template` / `--instruction-part` / `--response-part`,
+forwarded by run.sh as `CHAT_TEMPLATE` / `INSTRUCTION_PART` / `RESPONSE_PART`,
+every default the previous literal. Verified byte-identical for the 70B path by
+assembling the args under `set -euo pipefail` both ways (8 args unset, 16 set).
+SmolLM2-1.7B-Instruct's real format read from its own `tokenizer_config.json`:
+ChatML, `<|im_start|>user\n` / `<|im_start|>assistant\n`. Licence read in the
+same repo we would actually download: **Apache 2.0** — the standing Phase 0
+licence obligation is discharged.
+Plus a **guard**, because this failure is silent by construction: the markers
+must occur in the first 25 rendered rows or the run exits before the trainer
+starts. Proven to discriminate offline against SmolLM2's verbatim template —
+old markers `False` (fires), corrected markers `True` (passes). A guard that
+could not have failed would have proven nothing.
+
+**(2) The bundle upload was not the no-op its own comment claimed.** Live B2
+`run.sh` hardcoded `SAVE_STEPS=10`; the git copy defaulted it to `50` under the
+comment "identical to before". Before was **10**. Restored to 10, so deploying
+did not quietly make a 70B run checkpoint 5× less often (~92 min of crash
+exposure instead of ~18). Nothing had failed because no 70B run has started
+since 2026-06-13.
+
+Bundle then deployed (re-upload IS the deploy, FTW-031), md5 round-trip verified
+both times. 300-row dataset uploaded at
+`finetuning/datasets/phase0-2026-08-12/training.jsonl` — a realistic customer
+size, and **every** row carries a user+assistant pair (checked: 0 of 300 lack
+one), so the guard cannot false-alarm on it. Presigned URLs minted by hand (the
+concierge equivalent of `prepare_object_url` + `assemble_upload_manifest`), and
+the PUT **proven with a real round-trip against a throwaway object** — that is
+the failure that would otherwise surface only after the GPU time was spent.
+
+### Then the GPU, and three more defects — see `bugs_open/258` and `bugs_open/259`
+
+- **`vcpus: 4` (the adapter default) is invalid for 9 of the 11 single-GPU
+  specs.** `POST /instances/create` → `400 invalid vCPU count 4; valid options:
+  [6 8]`. Thunder publishes the valid set as `vcpuOptions` on the free,
+  read-only `/v1/specs`, so this is measured, not guessed. Only h100 accepts 4
+  — i.e. **with defaults, the only provisionable GPU is the most expensive one.**
+  Workaround: pass `vcpus` explicitly (forwarded when `> 0`).
+- **`waitTimeout` is a hardcoded 5 min and an a6000 does not boot that fast** —
+  twice, 4m39s and 4m49s still `STARTING`. The compensating cleanup then
+  **deletes the box we just paid for** and returns an error. The cleanup itself
+  worked perfectly (first real firing of that saga path — worth knowing); the
+  defect is the deadline. Not in `thunder_config` (no such column) and not an
+  env var, so fixing it needs a build + roll.
+- **A failed provision leaves no durable record**: no `thunder_instances` row
+  (insert is post-wait), **no `agent_error_log` row** (not a quiet table — 8
+  other agents logged errors in the same window), a stuck `orchestration_states`
+  row, and rotating pod logs. So "how often does provisioning fail" is
+  unanswerable, including retrospectively for this bug.
+
+### The one that stopped the session: two requests → three billing GPUs
+
+Counting deliveries per `correlation_id`, one request was consumed **3×** and
+another **2×**, ~10 and ~13 minutes apart, each valid delivery issuing a fresh
+create. Cause, from code: the handler is synchronous in the consume loop
+(`adapter.go:257` — *"Sequential by design"*), blocks up to 5 min in
+`WaitForRunning`, while `SessionTimeout`/`RebalanceTimeout` are **60s**
+(`consumer.go:56,71-72`). ~5× its own deadlines, offset uncommitted, message
+comes back, another box gets built. **Which broker-side path fires is
+[UNVERIFIED]** — `090` filed, run correlation
+`8ee2eb1e-2c1d-4a69-9d1b-505895c4dbcb`; read the verdict before asserting a
+mechanism. The *behaviour* is counted from the log and needs no caveat.
+
+**Contained, and the containment is proven not assumed:** `is_paused = true`
+(RUNBOOK §1b emergency stop; checked at the top of `Execute`,
+`provision_action.go:156`). In the 90s after: **2 deliveries denied, 0 creates**,
+vendor list `{}`. Owner decision same day: **leave paused until fixed.**
+
+### Corrections to my own claims THIS session
+
+> **CORRECTED — I said the a6000 floor price was "$0.43/hr, not $0.35".**
+> That was an inference from the pricing page's "+$0.04/vCPU/hr beyond 4" rule
+> applied to the 6-vCPU minimum. But the a6000's **minimum is 6**, so the
+> advertised $0.35 may already assume 6 and the surcharge may not apply at all.
+> The honest figure is **$0.35–$0.43/hr, [UNVERIFIED], pending a real invoice** —
+> which is the only thing that can settle it. Stated as fact when it was
+> arithmetic on an assumption.
+
+### Ledger
+
+Spend: ~15 min of a6000 across three instances ≈ **$0.10**.
+`thunder_config` net change: `default_hourly_rate_usd` 1.80 → 0.35 → **1.80**
+(restored 14:12Z; no instance row was ever written, so nothing took the 0.35
+stamp). `is_paused` **left true, deliberately.**
+Estate state: `thunder_instances` back at 23 rows / 0 live, vendor `{}`.
+Left behind: three `orchestration_states` rows stuck in `AWAITING_RESPONSES` —
+harmless, non-billing, noted in 258 as the undiagnosed error-response observation.
