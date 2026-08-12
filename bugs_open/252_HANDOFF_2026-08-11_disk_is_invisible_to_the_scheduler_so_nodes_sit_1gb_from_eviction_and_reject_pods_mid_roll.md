@@ -110,6 +110,81 @@ roll**, self-healed. The reason it is worth filing anyway: with …6832 at 1.34 
 of headroom, the same event on two nodes at once during a roll would leave a
 deployment short for as long as the pressure lasts, and nothing alerts on it.
 
+## 🔎 STATE AS OF 2026-08-12 17:30Z — **THE DISK BUDGET, MEASURED BY CATEGORY. IT RE-RANKS THE CANDIDATES.**
+
+Taken after a fresh chassis build rolled (pods `agent-chassis-6588556967-{msvvv,wp74f}`,
+created ~14:55Z on …1149 and …6833).
+
+**The roll went clean.** No `Pod was rejected`, no `DiskPressure`, no
+`EvictionThresholdMet` in the event window — the failure that opened this lane did
+not recur on the first roll after candidate 1. **This is weak evidence and must not
+be quoted as proof.** The original was intermittent, one roll is a sample of one,
+and I did not establish the failure rate this sample could detect. (The one
+`FailedScheduling` present is `alertmanager-…-0`, an **unbound PVC** — a different
+mechanism, not ours, do not chase it.)
+
+### The measurement nobody in this lane had taken `[MEASURED 17:27Z]`
+
+Every node is 41.4 GB. `node.fs` and `node.runtime.imageFs` report **identical
+capacity and available**, so they are one filesystem and the subtraction below is
+valid (checked, not assumed):
+
+| node | images | pod writable layers | **other** | free | above evict |
+|---|---|---|---|---|---|
+| …1148 | 15.1 | 0.44 | **17.7** | 8.2 | 2.00 |
+| …1149 | 16.5 | 2.63 | **14.3** | 7.9 | **1.73** |
+| …6832 | 10.5 | 0.44 | **16.0** | 14.4 | 8.22 |
+| …6833 | 15.9 | 2.72 | **14.8** | 8.0 | **1.80** |
+| …1336 | 14.6 | 0.48 | **16.8** | 9.5 | 3.27 |
+
+**Total pod writable-layer usage across the WHOLE FLEET is 6.77 GB, over 138 pods.**
+Per node that is 0.44–2.72 GB. Meanwhile images are 10.5–16.5 GB per node, and
+**"other" — neither images nor pod writable layers — is 14.3–17.7 GB per node, the
+largest single category, 35–43% of every disk.**
+
+**What this does to the fix candidates:**
+
+- **Candidates 1 and 2 (requests, limits) govern the SMALLEST category.** Requests
+  and limits can only ever act on the 0.44–2.72 GB of pod writable layers. Candidate
+  1 was still right and still worth doing — it is what separates the two 2.3 GB
+  runners — but it can never be the answer to "the node is 1.7 GB from eviction".
+- **Candidate 3 (image GC) governs the middle category** and is now clearly the
+  highest-leverage *actionable* item: 10.5–16.5 GB per node is reclaimable in
+  principle, and at `imageGCHighThresholdPercent: 85` reclaim still cannot start
+  until the eviction line is already reached. **Re-verified 17:30Z, unchanged:**
+  `85/80`, `evictionHard.imagefs.available: 15%`, and `imageMinimumGCAge: 2m0s` —
+  so GC is *not* being held back by image age. It is held back only by the threshold.
+- **The largest category is addressed by NO candidate on file.** `[UNVERIFIED]` what
+  "other" is composed of — plausibly the node OS, container logs under
+  `/var/log/pods`, and containerd metadata, but **I did not open a node to look** and
+  nobody should repeat this as fact until someone does. **This is now the top open
+  question in this lane**, because if ~15 GB per node is structurally unavailable
+  then a 41.4 GB disk has only ~26 GB of usable budget, and candidate 4 (grow the
+  disks) is much stronger than "buys margin, closes no door" allowed.
+
+### Headroom is degrading again, and the distribution has tightened
+
+Fleet-worst headroom: **1.34 GB** at filing (08-11 12:25Z) → **0.82 GB** (08-12
+12:37Z) → **2.81 GB** after candidate 1 (13:00Z) → **1.73 GB** now (17:27Z).
+
+The more telling change is the spread. At filing, one node was under 2.24 GB. Now
+**three of five are under 2.0 GB** (…1149 1.73, …6833 1.80, …1148 2.00). Candidate 1
+redistributed the pod layers, but consumption fleet-wide is outpacing reclaim, which
+is exactly the shape candidate 3 exists to fix.
+
+### Candidate 1's sizing was right, and it is doing its job
+
+Actual usage of the tenants given requests: `github-actions-runner-…-nrssq` **2.33 GB**
+against a 4Gi request, `…-vmsites-…-tp44p` **2.15 GB** against 4Gi. They are the top
+two ephemeral consumers in the fleet by an order of magnitude (third place is
+0.216 GB). And they are now on **different nodes** — before, both sat on …1149,
+i.e. ~4.5 GB on the node that is today at 1.73 GB of headroom.
+
+> **Chassis tag churn is still NOT the problem — the filing's refutation holds at a
+> second measurement.** 8 distinct chassis tags cached fleet-wide (`v1.0.1283`
+> through `v1.0.1291`), 0.09 GB each, **2.1 GB total across all five nodes**. Do not
+> "fix" this by pruning chassis tags.
+
 ## ✅ STATE AS OF 2026-08-12 13:00Z — **CANDIDATE 1 IS APPLIED, LIVE AND PROVEN. CENSUS = 5.**
 
 The owner ran the apply at 12:55Z. All three deployments rolled successfully;
@@ -329,6 +404,15 @@ Expect **5** once applied (2 runner replicas + 1 vmsites + ollama-adapter +
 ollama-eval), not 4 — `github-actions-runner` runs two replicas.
 
 ## Fix candidates, ordered by what closes the door
+
+> **⚠ RE-RANKED 2026-08-12 17:30Z by the per-category measurement above — read that
+> block before acting on this list.** The order below was written when "images plus
+> system" was one undifferentiated 21–27 GB lump. Split, it becomes: pod writable
+> layers 0.44–2.72 GB/node (what 1 and 2 govern), images 10.5–16.5 GB/node (what 3
+> governs), and **"other" 14.3–17.7 GB/node, which no candidate here addresses.**
+> Working order now: **3** (highest actionable leverage) → **1b** (cheap, closes the
+> co-location door properly) → **4** (now stronger than stated below) → **2**
+> (smallest category, and it can evict a live build). **1 is DONE.**
 
 1. **Declare `ephemeral-storage` requests on the heavy tenants** (the two
    `github-actions-runner` deployments, `ollama-*`, `browser-runner-adapter`).

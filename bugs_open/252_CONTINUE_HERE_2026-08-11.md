@@ -1,45 +1,42 @@
-# CONTINUE HERE — the disk-pressure lane (`bugs_open/252`), 2026-08-11 18:05Z
+# CONTINUE HERE — the disk-pressure lane (`bugs_open/252`)
 
-Cold-start handoff for a new chat. The bug file itself
-(`252_HANDOFF_2026-08-11_disk_is_invisible_to_the_scheduler…`) holds the evidence
-and the fix candidates; **this file holds only what is still owed and what will
-mislead you.** Read the bug file's `⚠ STATE AS OF 2026-08-11 18:00Z` block first.
+**Last updated 2026-08-12 17:35Z.** Cold-start handoff for a new chat. The bug file
+(`252_HANDOFF_2026-08-11_disk_is_invisible_to_the_scheduler…`) holds the evidence and
+the fix candidates; **this file holds only what is still owed and what will mislead
+you.** Read the bug file's newest block — `🔎 STATE AS OF 2026-08-12 17:30Z` — first;
+it re-ranks the candidates and everything below assumes it.
 
 ## Where this came from
 
-The owner asked why a chassis pod was evicted during the 09:23Z roll, and whether
-it meant too few hosts or bad distribution. Answer: **neither.** CPU sits at 1–5%
-and memory at 7–42%, but **0 of 143 containers requested `ephemeral-storage`**, so
-the scheduler balanced CPU and memory and was blind to disk. That is why both
-2.3 GB CI runners were on one node. Compounded by `imageGCHighThresholdPercent: 85`
-being *exactly* the `imagefs.available < 15%` eviction line, so reclaim never runs
-before evictions. Filed as 252.
+The owner asked why a chassis pod was evicted during the 08-11 09:23Z roll, and
+whether it meant too few hosts or bad distribution. Answer: **neither.** CPU sits at
+1–5% and memory at 7–42%, but **0 of 143 containers requested `ephemeral-storage`**,
+so the scheduler balanced CPU and memory and was blind to disk. Compounded by
+`imageGCHighThresholdPercent: 85` being *exactly* the `imagefs.available < 15%`
+eviction line, so reclaim never runs before evictions. Filed as 252.
 
-Also note the pod was **not evicted** — `Pod was rejected` is the kubelet refusing
-to *admit* a newly-scheduled pod onto an already-tainted node. Different mechanism,
+Also: the pod was **not evicted** — `Pod was rejected` is the kubelet refusing to
+*admit* a newly-scheduled pod onto an already-tainted node. Different mechanism,
 different fix. Do not re-derive this.
 
-## State of candidate 1 (the only one acted on)
+## ✅ Candidate 1 is DONE — applied, live, proven. Do not redo it.
 
-> **✅ DONE 2026-08-12 13:00Z — the owner applied it; census is 5.** The table below
-> is history. Read the bug file's `✅ STATE AS OF 2026-08-12 13:00Z` block for the
-> outcome, the before/after headroom, and **candidate 1b**, which is what this lane
-> now owes.
+The owner applied it 2026-08-12 12:55Z. **Census went 0 → 5** and all four
+deployments carry their request in the live pod:
 
-| deployment | manifest | LIVE in cluster |
+| deployment | request | live |
 |---|---|---|
-| `github-actions-runner` (2 replicas) | 4Gi on `runner` | ✅ live 12:55Z — now on …1336 and …1149 |
-| `github-actions-runner-vmsites` | 4Gi on `runner` | ✅ live 12:55Z — **moved off …1149** to …6833 |
-| `ollama-adapter` | 1Gi on `model-pull` **and** `ollama` | ✅ live overnight, both containers |
-| `ollama-eval` | 1Gi on `ollama` | ✅ live 12:58Z, serving |
+| `github-actions-runner` ×2 | 4Gi on `runner` | ✅ …1336 and …1149 |
+| `github-actions-runner-vmsites` | 4Gi on `runner` | ✅ **moved off …1149** to …6833 |
+| `ollama-adapter` | 1Gi on `model-pull` + `ollama` | ✅ both containers |
+| `ollama-eval` | 1Gi on `ollama` | ✅ serving since 12:58Z |
 
-Commits: `301161274` (the requests + a correction to what they buy),
-`eab8e7fe8` (the not-applied note), `838ffa163` (wrong-container fix + WRONG_CALLS).
-
-**Fleet census to watch — it read 0, now reads 1, and must reach 5** (2 runner
-replicas + vmsites + ollama-adapter + ollama-eval):
+It worked: the two 2.3 GB runners had been co-located on …1149 and are now on
+separate nodes, and …1149 recovered 0.82 GB → 3.43 GB at the time. Sizing was right
+— measured actual usage is 2.33 GB and 2.15 GB against the 4Gi requests.
 
 ```bash
+# the census — must stay at 5
 kubectl get pods -A -o json | python3 -c "
 import json,sys;d=json.load(sys.stdin)
 print(sum(1 for p in d['items'] if p['status'].get('phase') in ('Running','Pending')
@@ -47,78 +44,93 @@ print(sum(1 for p in d['items'] if p['status'].get('phase') in ('Running','Pendi
       if ((c.get('resources') or {}).get('requests') or {}).get('ephemeral-storage')))"
 ```
 
-## The three traps in this lane
+## What is still owed, in the order the measurement now supports
+
+**Candidate 3 — lower `imageGCHighThresholdPercent` to ~70 (low ~60).** Highest
+actionable leverage: images are 10.5–16.5 GB per node and are reclaimable in
+principle, but at 85 the kubelet cannot start reclaiming until it is already at the
+eviction line. Re-verified 17:30Z as still `85/80` with
+`evictionHard.imagefs.available: 15%` and `imageMinimumGCAge: 2m0s` — so GC is held
+back **only** by the threshold, not by image age. **This is a kubelet/node-pool
+change, i.e. an owner action, not a thread's.**
+
+**Candidate 1b — give the runners a `topologySpreadConstraints` or `podAntiAffinity`.**
+Cheap, manifest-only, unowned, and nobody has started it. Today's good placement is a
+**scheduler score, not a rule**: measured 13:00Z, `github-actions-runner` has
+`affinity: None` and `topologySpreadConstraints: None`, and with 35.1 GB allocatable
+per node putting both 4Gi replicas back on one node stays entirely legal. The next
+roll may quietly undo candidate 1's main win and nothing would report it.
+
+**Open question, and it is now the biggest one — what is "other"?** Per node:
+images 10.5–16.5 GB, pod writable layers 0.44–2.72 GB, and **"other" 14.3–17.7 GB,
+the largest category, 35–43% of every disk.** `[UNVERIFIED]` composition — plausibly
+node OS, `/var/log/pods`, containerd metadata, but **I did not open a node to look
+and it must not be repeated as fact until someone does.** It matters because no
+candidate on file addresses it, and if ~15 GB/node is structurally unavailable then
+these 41.4 GB disks have only ~26 GB of usable budget and **candidate 4 (grow the
+disks) is much stronger than the filing's "buys margin, closes no door".**
+
+**Candidates 2 and 4 remain owner decisions.** (2) limits — deliberately not added: a
+limit evicts the pod that exceeds it, so a large build would die mid-run, and there
+is still no measured worst-case build size. It also governs the smallest category.
+(4) grow the 41.4 GB disks — costs money; see the "other" question above before
+pricing it.
+
+## The traps in this lane
 
 1. **`grep -c ephemeral-storage` on a rendered overlay is not validation.** It
-   returned `1` for all four services and I read four 1s as four successes; on
-   `ollama-adapter` the field was on the wrong container. **Parse the YAML and
-   print per container** — the one-liner is in the bug file's 18:00Z block.
-   A pod's effective request is `max(sum of containers, max of initContainers)`, so
-   the wrong placement still produces the right pod-level number and hides itself.
-2. **Requests do NOT stop pods landing on a nearly-full node**, and the bug file
-   originally said they did (corrected in place). `ephemeral-storage` is scheduled
-   against **allocatable** — 35.1 GB — while real free space is 7.6–14.1 GB. The
-   21–27 GB gap is images plus system, charged to no request. Requests only stop
-   the big writable-layer consumers being co-located.
-3. **`kubectl describe node` prints `ephemeral-storage 0 (0%)` whether nothing
-   requests it or nothing exists.** Those read identically. Use the census above.
+   returned `1` for all four services and the previous session read four 1s as four
+   successes; on `ollama-adapter` the field was on the wrong container. A pod's
+   effective request is `max(sum of containers, max of initContainers)`, so the wrong
+   placement still produces the right pod-level number and hides itself. **Parse the
+   YAML and print per container** — one-liner in the bug file's 18:00Z block.
+2. **Requests do NOT stop pods landing on a nearly-full node.** `ephemeral-storage`
+   is scheduled against **allocatable** — 35.1 GB — while real free space is
+   7.9–14.4 GB. The gap is images plus system, charged to no request. Requests only
+   stop the big writable-layer consumers being co-located.
+3. **`kubectl describe node` used to print `ephemeral-storage 0 (0%)` whether nothing
+   requested it or nothing existed** — those read identically. Since candidate 1 it
+   discriminates (4Gi/1Gi/4Gi/5Gi across four nodes), but prefer the census above.
+4. **`kubectl diff -k` is the honest pre-apply check.** For a request-only change the
+   entire diff should be `generation: N→N+1` plus one `+ ephemeral-storage` line. Run
+   it immediately before applying — another session may have moved the overlay.
+5. **An in-flight orchestration count needs an `updated_at` bucket, or it overstates
+   load ~20×.** On 08-12, 46 of 48 `RUNNING`/`EXECUTING_STEP`/`INITIALIZED` rows had
+   not been touched in over 2 hours. Statuses there are **UPPERCASE** — a lowercase
+   `NOT IN ('completed',…)` filter matches nothing and silently returns every row.
+   `[UNVERIFIED]` whether those stale rows are `bugs_open/029`'s hung spawns.
+6. **The `build provenance` line is a STARTUP line and scrolls.** Empty output from
+   `logs -l app=agent-chassis --tail=400 | grep 'build provenance'` means **"not in
+   range", not "unstamped"** — confirmed again 08-12 at 85 minutes of pod age. Fall
+   back to the binary probe, with a control, per CLAUDE.md.
+7. **One clean roll is not proof.** The 08-12 ~14:55Z chassis roll produced no
+   rejection and no `DiskPressure`, which is encouraging and nothing more — the
+   original failure was intermittent and no failure rate has been established. The
+   `FailedScheduling` on `alertmanager-…-0` is an **unbound PVC**, a different
+   mechanism — not ours.
 
-## What is still owed
+## Everything else from the originating session is CLOSED — do not reopen
 
-- **Apply candidate 1** — three deployments left (`github-actions-runner`,
-  `github-actions-runner-vmsites`, `ollama-eval`); `ollama-adapter` is done.
-  > **The reason it is still owed CHANGED on 08-12.** It was a load judgement at
-  > 15:05Z on 08-11 (38 in-flight orchestrations, 27 LLM calls/15 min, CI running).
-  > That is gone: measured 08-12 12:37Z the runners are idle between ~20 s jobs,
-  > LLM traffic is **1** call/15 min, and both ollama pods have served **0**
-  > inference requests in 2 hours. The blocker now is **local permission** — the
-  > apply was refused by the Claude Code classifier at 12:38Z, cluster untouched.
-  > A session with the permission, or the owner running it directly, unblocks it.
-
-  Verify first, then apply (`diff` is the honest pre-check — the whole diff should
-  be `generation` plus one `+ ephemeral-storage` line, nothing else):
-  ```bash
-  cd /home/ant/projects/agentchassis
-  for d in github-actions-runner github-actions-runner-vmsites ollama-eval; do
-    kubectl diff  -k deployments/kustomize/services/$d/overlays/production/uk_001
-    kubectl apply -k deployments/kustomize/services/$d/overlays/production/uk_001
-  done
-  ```
-  Then re-run the census below — it must go **1 → 5**.
-- **Candidates 2–4 are owner decisions, not thread work.** (2) limits — deliberately
-  not added: a limit evicts the pod that exceeds it, so a large build would die
-  mid-run, and there is no measured worst-case build size yet. (3) lower
-  `imageGCHighThresholdPercent` to ~70 so reclaim precedes eviction — a node-pool
-  change. (4) grow the 41.4 GB disks — costs money, closes no door, do it *with*
-  1–3 and never instead.
-
-## Everything else from this session is CLOSED — do not reopen
-
-- **`bugs_open/236` (522 half)** — fixed, live, drill-proven both halves (filed on a
-  real 90-second cookly.uk outage, self-cleared on restore), council **APPROVED**
-  `7177fb02`. Its handoff is closed and says so.
-- **`bugs_open/236` (hero/logo half)** — **owned by another lane, actively.** I only
-  contributed the retention finding: `AWAITING_RESPONSES` rows live **4 hours**,
+- **`bugs_open/236` (522 half)** — fixed, live, drill-proven both halves, council
+  **APPROVED** `7177fb02`. Its handoff is closed and says so.
+- **`bugs_open/236` (hero/logo half)** — **owned by another lane, actively.** Only
+  contribution was the retention finding: `AWAITING_RESPONSES` rows live **4 hours**,
   which is why its evidence keeps evaporating. Do not take it.
 - **Cloudflare lane** — notified in their NOTES (apex detector now exists; route
   changes lag both ways; the 404-token cannot read DNS).
-- **090 explainer** — written at the owner's request:
-  `docs024_key_docs_latest/fixloop_eg_dartsonline/SUMMARY_090_diagnosis_loop_what_it_is.md`.
+- **090 explainer** — `docs024_key_docs_latest/fixloop_eg_dartsonline/SUMMARY_090_diagnosis_loop_what_it_is.md`.
 
 ## The honest summary line
 
-**Candidate 1 is done, live and proven: the fleet requests disk (census 5), the two
-co-located runners are on separate nodes, and the 0.82 GB node is back to 3.43 GB.**
-That sentence is now earned at the pod, not at the manifest.
+**Candidate 1 is done, live and proven — the fleet requests disk, and the two big
+consumers are on separate nodes.** But the lane is not fixed and 252 stays OPEN:
+requests are scheduled against 35.1 GB allocatable while real free space is
+7.9–14.4 GB, fleet-worst headroom has drifted back to **1.73 GB with three of five
+nodes now under 2.0 GB**, and the per-category measurement shows the candidates on
+file govern the two smaller categories while the largest — ~15 GB/node of "other" —
+is unexplained and unaddressed.
 
-**What it does NOT mean, and this is the live trap in this lane:** the co-location
-cannot recur is **false**. There is no anti-affinity and no topology spread on the
-runners — today's good placement is a scheduler score, not a rule, and 2×4Gi on one
-35.1 GB-allocatable node remains entirely legal. **Candidate 1b** closes that; it is
-the cheapest remaining item and nobody owns it.
-
-> **The claim's history, kept because the shape is the lesson.** 08-11: "one-third
-> done and none of it proven in the cluster". 08-12 12:40Z: "one-fifth done, that
-> fifth proven" — the denominator changed from 3 deployments to 5 containers under a
-> fraction that never stated it. 08-12 13:00Z: done and proven. A fraction over an
-> unstated denominator is the shape to distrust in your own writing.
+> **Claim-shape lesson kept deliberately.** This line has read "one-third done",
+> then "one-fifth done", then "done" — the denominator changed from 3 deployments to
+> 5 containers under a fraction that never stated it. **A fraction over an unstated
+> denominator is the shape to distrust in your own writing.**
