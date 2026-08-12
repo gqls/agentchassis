@@ -453,3 +453,27 @@ reviewed attempts, so this reads as the circuit-breaker doing its job, not a def
 3. `bugs_open/248` and the mortgagecalculator decomposition remain exactly as before: not ours,
    correctly parked. The decomposition plan's page inventory is now doubly stale (the sibling
    lane has built more pages since the last check) — re-survey, don't trust the written table.
+
+---
+
+# UPDATE 2026-08-12 (final) — LANE CLOSED. Nothing outstanding.
+
+Variant-asset fix: **council APPROVED** (`7e839679-d87b-4c57-9419-ba1212f22a87`), its one
+objection answered with a wider grep (zero other call sites, fleet-wide, both named suspects
+cleared structurally — LANDMINES updated). Fresh build `v1.0.1291` confirmed carrying
+everything, via the reliable method (pull the image, read the OCI `image.revision` label,
+`git merge-base --is-ancestor` with a negative control — **not** the log-grep, which is known
+unreliable on this service).
+
+**Every piece of this lane is live, tested, council-approved, and owner-validated:**
+refusal guard · brand-identity default · silent-degrade fix · cross-origin anchoring · chrome
+scan · migration 390 (routing) · the variant-asset fix · the staleness-report line.
+
+**If picking this up fresh, there is nothing to do here.** The only threads that ever led
+outward from this lane remain exactly where they were left:
+- `bugs_open/248` — not ours, owned by `staged_component_build`.
+- The mortgagecalculator decomposition — parked pending the sibling lane, page inventory stale,
+  re-survey before acting.
+
+Read this file top to bottom for the full history if you need the *why* behind any of the
+above; there is no *what's left* to add to it.
