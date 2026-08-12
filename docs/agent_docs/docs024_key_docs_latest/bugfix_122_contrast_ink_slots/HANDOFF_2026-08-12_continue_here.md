@@ -155,6 +155,23 @@ runs in Go, in-process, on the completion path; the contrast tool this lane used
 **Recommendation: cost (1) against that standing objection first**, because if the objection
 holds, the fork collapses to (3) and the work is small. Do not start by writing the verifier.
 
+**Prior art checked, 2026-08-12 — and it argues for (1) over (2).** `cmd/contrastscan` named
+above **does not exist** (it is a recalled-path landmine, register VIZ-010); I name it only to
+kill it. `cmd/` does now carry three checkers that postdate this lane's earlier searches —
+`component-render-check`, `config-key-audit`, `verifier-remit-check`. **None measures contrast**:
+`component-render-check` is the output-level *empty-element* check (zero contrast, computed-style
+or luminance logic in it), and `verifier-remit-check` is 213's class detector, which by
+`verifiers.go:174` cannot see an unregistered type and so will not flag `contrast_failure`
+either. So there is no measurement to reuse and the fork stands as written.
+What **does** transfer is `component-render-check`'s governing decision, worth borrowing
+verbatim: it renders through **the production entry point (`actions.RenderTemplate`), explicitly
+"not a replica of its config"**. That is the same choice as option (1) versus option (2) here,
+already made once in this estate and documented — a second implementation of a measurement we
+already have is the thing it went out of its way to avoid. Its other transferable rule is the
+20/20 harness one: **the positive control is the load-bearing half.** A contrast verifier that
+only ever confirms "the bad pairing is gone" will also pass a page it failed to load, so it needs
+a case that must come back `defect_persists`.
+
 ### Process obligations for this change
 
 Platform code touching a **shared registry**, so:
