@@ -796,3 +796,12 @@ deduplication begins; the "raw extractions" count above and the per-concept
 > **Live consumers, enumerated per RFC_022 rather than asserted (2026-08-11): `0` active
 > agent definitions and `0` work items name `allow_reinstall`.** Council round 2 submitted
 > under the same trail correlation `b8e341b9-…`.
+
+### DES-084 — Re-compose approval: a recorded approver on every composition replace, defaulting to a GRANT
+- **status:** built 2026-08-12, **not rolled**. No live consumer names an approver yet, so every replace so far would record the sentinel.
+- **status-evidence:** three tests, proven load-bearing by mutation run before commit — returning a person-looking name instead of the sentinel fails the default test alone; skipping the spec lookup fails the named-approver test alone. `go build ./platform/...` clean.
+- **what:** `install_site_composition`'s replace path now always resolves and records **who approved it**, returned as `reinstall_approved_by`. Order: step config `reinstall_approved_by` → work item spec `reinstall_approved_by` → work item spec `approved_by` → the sentinel `reinstallDefaultApprover` (`"default-grant/owner-2026-08-12"`). `approved_by` is in the list on purpose: it is the column a real HITL approval flow already fills, so wiring one needs no change here. The replace Warn log carries `approved_by` and `approval_was_explicit`.
+- **the landmine:** **the sentinel is a STORED VALUE, so rewording the constant silently splits the audit population in two.** The whole point of a sentinel distinct from a name is that `SELECT result->>'reinstall_approved_by', count(*) … GROUP BY 1` separates "a human said yes" from "the standing default said yes for them" — which is the only thing that makes tightening the default a measurable change rather than a leap. Do not tidy the string.
+- **the open review question:** nothing BLOCKS on approval today — the ruling was "approval needed but for now default that the human approves", so this delivers the *record* and defers the *gate*. Tightening is one line (return `""`, have the caller refuse), but it should not be flipped until the query above shows who would have been refused.
+- **sources:** `platform/orchestration/actions/install_site_composition_action.go` (`resolveReinstallApprover`, `reinstallDefaultApprover`); `install_site_composition_reinstall_test.go` (tests G/H/I); owner ruling 2026-08-12
+- **relations:** DES-082 (`allow_reinstall`, the flag this approves); `bugs_open/113`

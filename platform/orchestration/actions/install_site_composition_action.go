@@ -74,7 +74,22 @@
 //     "installed":            true,
 //     "previous_collection_id": "uuid-string|\"\"", // rollback value; "" on first install
 //     "replaced_existing":      false,              // true only on an allow_reinstall swap
+//     "reinstall_approved_by":  "sentinel|name|\"\"", // who approved the replace; "" on first install
 //   }
+//
+// APPROVAL (owner ruling 2026-08-12: "yes approval needed but for now default
+// that the human approves"). A replace ALWAYS records an approver. Sources, in
+// order: step config `reinstall_approved_by`, then the work item spec's
+// `reinstall_approved_by` or `approved_by`, then the standing grant sentinel
+// `reinstallDefaultApprover`. The sentinel and a real name are deliberately
+// distinguishable, so the day the default is tightened, its blast radius is a
+// query rather than a guess:
+//
+//   SELECT result->>'reinstall_approved_by', count(*)
+//     FROM site_work_items WHERE result ? 'reinstall_approved_by' GROUP BY 1;
+//
+// Nothing BLOCKS on approval today — that is the "default that the human
+// approves" half, and tightening it is a one-line change in the resolver.
 //
 // Registration (add to registry.go):
 //
@@ -228,6 +243,10 @@ func InstallSiteCompositionAction(ctx context.Context, params ActionParams) (int
 		zap.String("domain", domain),
 	)
 
+	// Who approved the re-compose. Empty on a first install (nothing to
+	// approve); set only on the replace path.
+	reinstallApprover := ""
+
 	// Idempotency guard. A site that already has a collection is only
 	// re-composed when the CALLER has explicitly asked for it.
 	//
@@ -255,12 +274,19 @@ func InstallSiteCompositionAction(ctx context.Context, params ActionParams) (int
 				siteID, existingCollectionID.String,
 			)
 		}
+		// APPROVAL (owner ruling 2026-08-12). A re-compose is an approved act,
+		// not merely a requested one — but the default today is that approval is
+		// GRANTED, so this records an approver rather than blocking on one.
+		reinstallApprover = resolveReinstallApprover(params, logger, siteID, domain)
+
 		// Loud on the way through: this is a live site changing its whole
 		// look, and it must be greppable in the logs after the fact.
 		logger.Warn("InstallSiteCompositionAction: REPLACING an existing composition (allow_reinstall=true)",
 			zap.String("site_id", siteID.String()),
 			zap.String("domain", domain),
 			zap.String("previous_collection_id", existingCollectionID.String),
+			zap.String("approved_by", reinstallApprover),
+			zap.Bool("approval_was_explicit", reinstallApprover != reinstallDefaultApprover),
 			zap.String("rollback", "UPDATE sites SET style_collection_id='"+existingCollectionID.String+"' WHERE id='"+siteID.String()+"'"),
 		)
 	}
@@ -527,6 +553,11 @@ func InstallSiteCompositionAction(ctx context.Context, params ActionParams) (int
 		// since the UPDATE overwrites it in place.
 		"previous_collection_id": existingCollectionID.String,
 		"replaced_existing":      allowReinstall && existingCollectionID.Valid && existingCollectionID.String != "",
+		// Who approved the replacement. "" on a first install. On a replace it
+		// is either a named approver or reinstallDefaultApprover — and the two
+		// are deliberately distinguishable, so a later audit can separate
+		// "a human said yes" from "the standing default said yes for them".
+		"reinstall_approved_by": reinstallApprover,
 	}, nil
 }
 
@@ -736,4 +767,54 @@ func requestSpecFromCollected(collected map[string]interface{}) (map[string]inte
 		return nil, fmt.Sprintf("%s is present but is %T, not an object", requestSpecPath, value)
 	}
 	return spec, ""
+}
+
+// reinstallDefaultApprover is what a re-compose records when nobody named an
+// approver. It is a SENTINEL, not a person, and it is written into the result
+// so an audit can tell a real approval from an inherited one.
+//
+// OWNER RULING 2026-08-12: "yes approval needed but for now default that the
+// human approves." So approval is a first-class field on the replace path from
+// today, and the default is GRANT. Tightening later is a one-line change here —
+// return "" and have the caller refuse — and every call site already records
+// which of the two it got, so the blast radius of that flip is measurable
+// BEFORE it is made:
+//
+//	SELECT result->>'reinstall_approved_by', count(*)
+//	  FROM site_work_items WHERE result ? 'reinstall_approved_by' GROUP BY 1;
+//
+// Do NOT reword this constant casually — it is a stored value, so a changed
+// string silently splits that GROUP BY into two populations.
+const reinstallDefaultApprover = "default-grant/owner-2026-08-12"
+
+// resolveReinstallApprover names who approved replacing a live site's
+// composition. Checked in order, first non-empty wins:
+//
+//  1. step config      `reinstall_approved_by`  — an agent-definition edit
+//  2. work item spec   `reinstall_approved_by`  — per-request, the usual one
+//  3. work item spec   `approved_by`            — the generic field a HITL
+//     approval flow already writes
+//  4. reinstallDefaultApprover                  — the standing grant
+//
+// (3) exists so that when a real approval queue is wired, it needs no change
+// here: `site_work_items.approved_by` is the column that flow already fills.
+func resolveReinstallApprover(params ActionParams, logger *zap.Logger, siteID uuid.UUID, domain string) string {
+	if v := datahelpers.GetStringField(params.StepConfig.Config, "reinstall_approved_by", ""); v != "" {
+		return v
+	}
+	if spec, _ := requestSpecFromCollected(params.CollectedData); spec != nil {
+		for _, key := range []string{"reinstall_approved_by", "approved_by"} {
+			if v := datahelpers.GetStringField(spec, key, ""); v != "" {
+				return v
+			}
+		}
+	}
+	logger.Warn("InstallSiteCompositionAction: re-compose approved by the STANDING DEFAULT, not by a named approver",
+		zap.String("site_id", siteID.String()),
+		zap.String("domain", domain),
+		zap.String("approved_by", reinstallDefaultApprover),
+		zap.String("owner_ruling", "2026-08-12: approval required, default GRANTED"),
+		zap.String("to_name_one", "set reinstall_approved_by (or approved_by) in the work item spec"),
+	)
+	return reinstallDefaultApprover
 }

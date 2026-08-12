@@ -70,6 +70,7 @@ import (
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
+	"github.com/google/uuid"
 	"github.com/gqls/agentchassis/pkg/models"
 	orchtypes "github.com/gqls/agentchassis/platform/orchestration/types"
 	"go.uber.org/zap"
@@ -301,5 +302,76 @@ func TestInstallSiteComposition_ResolvedFromDistinguishesTheSilentNoOps(t *testi
 					got, tc.wantSubstr)
 			}
 		})
+	}
+}
+
+// ── approval (owner ruling 2026-08-12) ──────────────────────────────────────
+//
+// "yes approval needed but for now default that the human approves." So the
+// replace path always RECORDS an approver, and today the default is a grant.
+// These tests exercise the resolver directly rather than through the action,
+// because the action's later statements are unmocked and the result map — where
+// the approver is written — is never reached in this file's fixtures.
+//
+// G is the one that matters when the default is eventually tightened: it pins
+// that an un-approved re-compose is distinguishable from an approved one, which
+// is the only thing that makes the flip measurable before it is made.
+
+func approverParams(t *testing.T, stepCfg map[string]interface{}, spec map[string]interface{}) ActionParams {
+	t.Helper()
+	collected := map[string]interface{}{}
+	if spec != nil {
+		collected["input_data"] = map[string]interface{}{"spec": spec}
+	}
+	if stepCfg == nil {
+		stepCfg = map[string]interface{}{}
+	}
+	return ActionParams{
+		Context:       context.Background(),
+		Logger:        zap.NewNop(),
+		CollectedData: collected,
+		StepConfig:    models.Step{Config: stepCfg},
+	}
+}
+
+// G — nobody named an approver, so the standing default is recorded AS the
+// default, not as a person. If this ever returns "" or a human-looking name,
+// the audit query that separates real approvals from inherited ones breaks.
+func TestResolveReinstallApprover_DefaultsToTheStandingGrant(t *testing.T) {
+	got := resolveReinstallApprover(
+		approverParams(t, nil, nil), zap.NewNop(),
+		uuid.MustParse(reinstallTestSiteID), "ai-agent-orchestration.com")
+	if got != reinstallDefaultApprover {
+		t.Fatalf("expected the standing default %q, got %q", reinstallDefaultApprover, got)
+	}
+}
+
+// H — a named approver in the work item spec wins over the default. This is the
+// channel a real approval queue will use.
+func TestResolveReinstallApprover_NamedApproverWins(t *testing.T) {
+	for _, key := range []string{"reinstall_approved_by", "approved_by"} {
+		got := resolveReinstallApprover(
+			approverParams(t, nil, map[string]interface{}{key: "uk@websy.uk"}),
+			zap.NewNop(), uuid.MustParse(reinstallTestSiteID), "ai-agent-orchestration.com")
+		if got != "uk@websy.uk" {
+			t.Fatalf("spec key %q: expected the named approver, got %q", key, got)
+		}
+		if got == reinstallDefaultApprover {
+			t.Fatalf("spec key %q: a named approval was recorded as the standing default", key)
+		}
+	}
+}
+
+// I — step config can name one too, and it outranks the spec. That is the
+// "every install this agent does is pre-approved" case; it does not exist
+// today, and pinning the precedence stops it being invented by accident.
+func TestResolveReinstallApprover_StepConfigOutranksSpec(t *testing.T) {
+	got := resolveReinstallApprover(
+		approverParams(t,
+			map[string]interface{}{"reinstall_approved_by": "step-config-approver"},
+			map[string]interface{}{"approved_by": "spec-approver"}),
+		zap.NewNop(), uuid.MustParse(reinstallTestSiteID), "ai-agent-orchestration.com")
+	if got != "step-config-approver" {
+		t.Fatalf("expected step config to outrank the spec, got %q", got)
 	}
 }
