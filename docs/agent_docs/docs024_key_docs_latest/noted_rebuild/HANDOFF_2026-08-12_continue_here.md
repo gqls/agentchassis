@@ -37,10 +37,15 @@ WHERE s.domain='noted.co.uk' AND wi.status NOT IN ('complete','cancelled','rejec
 ORDER BY wi.updated_at DESC;
 ```
 
-**State at 17:10 on 2026-08-12:** five content pages `deployed`;
-`tool-legacy-rescue` and `tool-legacy-rescue-guide` **`planned`**.
+> **RESOLVED 17:12 — the tool page is BUILT AND SERVING. Blocker 1 is closed.**
+> Read this section for the trap it records, then go to §5 blocker 2, which is now
+> the top of the list.
 
-Two assemble items have been filed for the tool page:
+**State at 17:12 on 2026-08-12:** six pages `deployed` (five content pages +
+`tool-legacy-rescue`); `tool-legacy-rescue-guide` still **`planned`**, blocked on
+content validation (§5.2).
+
+Getting there took two attempts, and the first is the lesson:
 
 - **16:18:30 — `…_assemble`. Completed, and did the WRONG THING.** I built it by
   copying an existing `page_rerender` row and overriding only `spec`. The row
@@ -48,16 +53,30 @@ Two assemble items have been filed for the tool page:
   column, and it re-deployed `/contact.html` while reporting `"success": true`.
   Harmless (contact is byte-identical) but it is why the page was still `planned`
   after a "successful" run. See §6.
-- **17:07:12 — `…_assemble_v2`, `page_id` column correctly set to the tool page.**
-  `triaged` when this was written; **outcome unknown — check it first.**
+- **17:07:12 — `…_assemble_v2`, `page_id` column set correctly. Completed 17:10:09**
+  and the page flipped to `deployed` — which confirms the diagnosis rather than
+  working around it.
 
-If v2 completed, `/tools/legacy-rescue/index.html` should be in `gqls/vm-sites` and
-on the box within 5 minutes. **Verify at the artefact, not the status** (§7) — this
-lane has now been bitten three separate times by a `complete` item that changed
-nothing or changed the wrong thing.
+`[MEASURED 17:12]` verified at the artefact, not the status:
 
-If it **failed**, do not re-file blindly: read `__step_error` (§6), because a failed
-step shows `COMPLETED` with `error` NULL.
+| check | result |
+|---|---|
+| `gqls/vm-sites/noted.co.uk/tools/legacy-rescue/` | present |
+| box `/var/www/noted.co.uk/tools/legacy-rescue/index.html` | present, landed 17:11:46 (one sitesync tick) |
+| box-local `GET /tools/legacy-rescue/` | **`200 / 23425`** |
+| rescue markup / `indexedDB.open` in the served page | 12 / 1 — the tool is really there |
+| `tool-doc` header in the served page | **0 — stripped at deploy, exactly as the contract says** |
+| `migrate.html` on the box links to the tool | 2 (hero + call-to-action) |
+| shopfront control | `200 / 28075`, unharmed |
+| live apex still the legacy app | yes — "being refreshed" still served from B2 |
+
+**One deviation from PLAN §4.2, recorded not hidden:** the plan says a tool's JS
+"deploys as a real asset (`/tools/assets/{fn}.js`)". It did **not** — `tools/assets/`
+holds only `contact-form.js`, and the rescue JS is **inline in the page**. That is a
+consequence of how I supplied it: I put the JS inside `html_content`, so
+`content_components.js_content` is empty and there was nothing for the asset
+emitter to extract. The tool works as served; if a separate asset is wanted, the JS
+needs to go in `js_content`.
 
 ## 3. What is LIVE
 
@@ -132,7 +151,7 @@ Commits: `fc27a74e0`, `70732301c`, `e5d664f97`, `714c1d65c` (plus `23f1229f0`,
 
 | # | Blocker | What is known |
 |---|---|---|
-| 1 | **Tool page is `planned` ⇒ `/tools/legacy-rescue/index.html` 404s**, and migrate's "Save everything" button points at it | Assemble item filed 16:18:30, outcome pending. `page_rerender` normally files items only for pages already `deployed`, which is why nothing promoted it automatically |
+| ~~1~~ | ~~**Tool page is `planned`**~~ **CLOSED 17:12** — built, deployed, serving `200 / 23425` on the box, and migrate's button now resolves | Nothing promoted it automatically because `page_rerender` normally files items only for pages already `deployed`. Fixed by hand-filing one with the **`page_id` COLUMN** set — see §2 for the attempt that got that wrong |
 | 2 | **The companion guide failed content validation** | `step validate_content failed … 1 blockers, 0 errors`, escalated to `needs_human_review`, `will_retry: false`. `[INFERRED]` it hit the `evidence_base` — 7 banned claims, **0 registered facts**, and a `writer_block` that explicitly forbids an agent writing privacy wording for this product. The specific blocker text is **not** recorded in the orchestration row. If that inference is right, the gate worked as designed |
 | 3 | **The privacy copy is the owner's to write** (carried forward) | The old "no server" wording is banned in `evidence_base` so no agent copies it forward. A replacement I proposed previously was rejected — **do not reintroduce it.** Blocker 2 is probably a direct consequence of this gap |
 | 4 | **Degraded states unverified** (carried forward) | The platform cannot induce a failing dependency. "Save fails loudly, text survives" must be exercised **by hand** before launch. It is the clause protecting the unrecoverable thing |

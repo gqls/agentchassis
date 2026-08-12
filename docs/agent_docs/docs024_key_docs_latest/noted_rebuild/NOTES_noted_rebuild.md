@@ -1472,3 +1472,33 @@ about the runner, not about the artefact.**
 Filed `…_assemble_v2` at 17:07 with the column set; outcome pending at the time of
 writing. Handoff `HANDOFF_2026-08-12_continue_here.md` §2 and §6 carry both the
 state and the check.
+
+### 17:12 — it worked, and the fix confirms the diagnosis
+
+`…_assemble_v2` completed **17:10:09** and `tool-legacy-rescue` flipped to
+`deployed`. Same item type, same shape, one field different — the `page_id`
+**column** — so this is a confirmation of the cause rather than a workaround that
+happened to succeed.
+
+`[MEASURED 17:12]`, at the artefact: the page is in `gqls/vm-sites`, landed on the
+box at **17:11:46** (one sitesync tick after the commit — the delivery chain fixed
+this morning working unattended), serves **`200 / 23425`** box-locally, contains the
+rescue markup (12) and `indexedDB.open` (1), and `migrate.html` links to it twice.
+Shopfront `200 / 28075` unharmed; the live apex still serves the legacy app.
+
+**The `tool-doc` header is absent from the served page (0 occurrences) while present
+in the DB template** — the strip-at-deploy half of the contract, working. Worth
+recording because it is the kind of thing that looks like a bug from either end if
+you only check one.
+
+**Deviation from PLAN §4.2, stated rather than quietly accepted:** the plan says a
+tool's JS deploys as `/tools/assets/{fn}.js`. It did not — `tools/assets/` holds only
+`contact-form.js` and the rescue JS is inline in the page. Cause is mine: I passed
+the JS inside `html_content`, so `content_components.js_content` is empty and the
+asset emitter had nothing to extract. Works as served; if the separate asset is
+wanted, the JS belongs in `js_content`.
+
+Shopfront baseline drift, again unattributed: `28419` (previous handoff) → `28015`
+(this morning) → `28075` (now). Read-only session throughout; that lane ships
+continuously. This is why the handoff says to take the baseline yourself immediately
+before touching anything rather than trusting a recorded figure.
