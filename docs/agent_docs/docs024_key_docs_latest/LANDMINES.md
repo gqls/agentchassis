@@ -9619,3 +9619,65 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **relations:** `bugs_open/261` (this defect, fixed in `6911c2da4` — Go, so INERT until rolled), the receiver-qualified-`code_symbols` landmine above (**its remedy is the input this one rejected** — corrected in place 2026-08-12), `bugs_open/223` phase 2 (added the kinds the reader never learned), `bugs_closed/145` (the read BOUNDARY, untouched: that one is about which PATHS are readable, this one about which SYMBOL NAMES resolve inside an admitted file), `bugs_closed/164` (the honest "body unavailable" marker, which is the only reason this was diagnosable rather than silent)
 - **source:** 2026-08-12, `silent_hero_logo_readers` lane, chasing why the `090` on `bugs_open/236` (`dbcc4259-…`) returned UNVERIFIABLE with the evidence in the index the whole time
 - **added:** 2026-08-12, silent_hero_logo_readers lane
+
+---
+
+## A WireGuard handshake proves CRYPTO, not reachability — the tunnel can be "up" and forward nothing
+
+- **footprint:** `deployments/kustomize/services/wireguard/` · `wg show` · any
+  box↔cluster tunnel · `net.ipv4.ip_forward` · a peer reaching a ClusterIP
+  service through the `wireguard` NodePort
+- **fires when:** you bring up a WireGuard peer, `wg show wg0` reports a recent
+  `latest handshake` and non-zero transfer, and you conclude the tunnel works
+- **the tell:** **there is no tell in `wg`.** A completed handshake means the two
+  ends agreed keys — it says nothing about whether decrypted packets are
+  forwarded onward. The `wireguard` pod was found with `net.ipv4.ip_forward=0`
+  (2026-08-12): handshakes succeeded, `wg show` looked healthy, and every peer
+  packet destined for a cluster service was silently dropped by the kernel. Even
+  a ping to the pod's own tunnel gateway (`10.13.13.1`) got 100% loss. The
+  manifest's own comment CLAIMED the container sets `ip_forward` itself — it did
+  not, and nobody had noticed because no peer's *forwarded* path was ever
+  exercised end to end (the browser→dashboard route was only ever curl-tested
+  from INSIDE the cluster — `review_queue_drain` HANDOFF 2026-07-28 left "confirm
+  end to end" as an open TODO for a year)
+- **the check:** never trust `wg show`; make an actual forwarded request and
+  assert its RESPONSE — `curl --max-time 10 http://<clusterIP>:<port>/health`
+  from the peer and require a real body, not a timeout. If it times out while the
+  handshake is fresh, check `cat /proc/sys/net/ipv4/ip_forward` in the wireguard
+  pod (must be `1`) before anything else — the NAT/`FORWARD` rules can all be
+  present and correct and it still drops everything with forwarding off. Fix
+  durably with a privileged init container (`sysctl -w net.ipv4.ip_forward=1`);
+  a live `sysctl -w` in the running pod works but does not survive a roll, and
+  the classifier may (reasonably) gate a live change to shared networking
+- **also:** a runtime `wg set … endpoint …` on the SERVER side is lost when the
+  wireguard pod rolls; the peer re-learns the box only when the box next sends
+  traffic. Fine when the box always INITIATES (the facts-fetch case); set
+  `PersistentKeepalive` in the box's own `wg0.conf` (not just via `wg set`) if
+  you need the server to be able to reach the box unprompted
+- **source:** hit directly building the site-facts relay (CHAT-010),
+  webdesign_uk_build_service lane, 2026-08-12
+- **added:** 2026-08-12, webdesign_uk_build_service lane
+
+### Editing a site's `evidence_base` by hand: a non-numeric `value` DISARMS the whole claims layer for that site, silently — and a `refund`-shaped ban makes the honest sentence block the page
+
+- **footprint:** `site_specs` where `aspect='evidence_base'` — `facts[]` (`value`), `banned_claims[]` — · `platform/orchestration/datahelpers/claims.go` (`EvidenceFact`, `ParseEvidenceBase`, `negationCueRe`) · `cmd/claimscan` · any hand-written or SQL-applied register change
+- **fires when:** you author or edit an `evidence_base` row directly rather than letting `refresh_evidence_base` do it — a re-priced offer, a new attested fact, a ban added after a bad page. Both traps are in the authoring, not in the platform, so no code review sees them.
+- **trap 1, and it is the dangerous one: `EvidenceFact.Value` is `*float64`.** A fact whose value is naturally a string or an enum (`"value": "after_approval"`, `"value": "monthly"`) fails the **whole document's** unmarshal, `ParseEvidenceBase` returns nil, and **every claims check for that site switches off with no error anywhere** — the same silent-disarm shape this layer already documents for a `writer_block`-only row, reached by a different route. The row still looks perfect in `psql`: it is valid jsonb, `facts` is a well-formed array, `jsonb_array_length` counts it. Only Go disagrees, and Go says nothing. **A non-numeric attribute belongs in the `claim` prose and in `source.sql`, where it is still checkable; the `value` key is for numbers only.**
+- **trap 2: `negationCueRe` deliberately excludes a bare `no`** (it is an intensifier in marketing prose — the existing `negatedClaimMatch` entry above explains why, and says not to fix it locally). The authoring consequence is not obvious from that entry: **ban a word your own copy must deny, and the denial trips your own ban.** With `\brefunds?\b` banned, *"there is no refund"* is a FINDING and blocks the page, while *"we do not offer refunds"* is correctly suppressed. Same for any `no X` / `never X` pair. So when you ban a term the site still has to talk about, write the required phrasing into `writer_block` **and into the ban's own `reason`**, where the writer and the next editor actually meet it.
+- **the check, and it costs about two minutes — `cmd/claimscan` runs the platform's own engine over live data without deploying anything.** Export the components, then run the candidate register BEFORE writing it:
+  ```bash
+  kubectl exec -n ai-persona-system postgres-clients-0 -- psql -U clients_user -d clients_db -At -c \
+    "SELECT p.name||E'\t'||COALESCE(pc.slot_name,'')||E'\t'||
+            replace(encode(convert_to(pc.rendered_html,'UTF8'),'base64'),E'\n','')||E'\t'||COALESCE(p.page_type,'')
+     FROM page_components pc JOIN pages p ON p.id=pc.page_id
+     WHERE p.site_id='<site>' AND pc.rendered_html<>'' AND pc.locked_at IS NULL" > c.tsv
+  go build -o /tmp/claimscan ./cmd/claimscan
+  /tmp/claimscan -evidence candidate.json -components c.tsv            # must PARSE, and must find MORE than the old row
+  /tmp/claimscan -evidence candidate.json -components new_copy.tsv -show-suppressed   # your replacement copy must be clean
+  ```
+  A parse error is trap 1 — it is the ONLY place that failure is visible, because in production it is indistinguishable from a site with nothing to check.
+- **and make the run disconfirmable:** scan the OLD register over the same components first. A new ban set that returns the same finding count as the old one is decoration, and "0 findings" from an unparsed register looks exactly like "0 findings" from a clean site. Measured on webdesign.uk 2026-08-12: old register 3 findings, new register 36 over the same 25 components — the delta is the evidence the bans bite.
+- **if you are SUPERSEDING rather than editing in place:** copy `pinned` onto the new row (`COALESCE(pinned,false)` from the row you superseded — `refresh_evidence_base_action.go:719` does exactly this) or the register loses its protection from agent overwrite, and assert it in the same transaction. Prefer supersede: `site_specs` carries `is_current`/`superseded_at` history, and an in-place `UPDATE` destroys the previous register with no trace. webdesign.uk's pre-deposit register was lost that way on 2026-08-10.
+- **relations:** the `negatedClaimMatch` entry above (trap 2's mechanism, and why the exclusion stays) · the `banned_claims` sweeps-content-prose-only entry (`<title>`/JSON-LD escape the sweep) · `bugs_open/161` (correcting a register does NOT arm detection — only a `banned_claims` pattern does) · CLM-004, CLM-017
+- **source:** 2026-08-12, `ai_site_selling_automation` lane, migrating webdesign.uk's register from the £1,200 offer to £149 (`87eebf7d5`). Trap 1 was hit for real and caught by `claimscan` on the first run, before the write.
+- **added:** 2026-08-12, ai_site_selling_automation lane
