@@ -456,3 +456,39 @@ table committed **trap #4 of this front's own six** — reading a route off a va
    site** — it was repaired by re-composition rather than by changing the shared seed. The
    *class* question (nothing refuses a light theme palette on a dark site spec — D3) is
    untouched and still open.
+
+### ADDENDUM 5a (2026-08-12, later) — round 3 came back APPROVED. The front is closed except for one pod-verify
+
+**`b8e341b9` round 3: APPROVED**, 2026-08-12 14:17:57Z, ~20 minutes after submission. 12
+reviewers, `gated_by_truncation: false`, all 12 carrying a verdict, `decided_by` = *"approved
+with 2 advisory objection(s) — none high-severity"*. **The trail is REVISE → REVISE →
+APPROVED, and two of the three rounds found real defects** — which is the argument for
+submitting rather than defending.
+
+**The editquality advisory was right and is fixed (`9d4fbb4f7`).** My own round-3 code
+returned a bare nil for BOTH "nothing at that path" and "something at that path that is not
+an object", so the caller reported *"no `input_data.spec` in collected_data"* for a spec that
+was demonstrably present — **the diagnostic the entire round existed to add would have lied
+about the rarer case**, sending the next reader to the dispatch layer when the fault was
+whoever queued the item. It now returns the reason and names the type with `%T`. Third test
+sub-case added (the seat noted that gap too); mutation collapsing the two reasons fails that
+sub-case alone.
+
+**Two advisories deliberately NOT acted on, and they are the useful leftovers:**
+
+1. **`bug_historian`** — `extractContentWithFallbacks` and page-content-writer's
+   `extractSiteID` are the **sibling call sites on this same fault line** and still carry
+   heuristic two-branch readers. It named the recurring shape exactly: *"one call site of a
+   shared judgement gets the rigorous fix; the sibling stays heuristic."* Out of scope for a
+   bug patch, genuinely unowned, and a good small piece of work for someone.
+2. **`debug_historian`** — round 3 is committed, **not rolled**, so it is not pod-verified.
+   **Owed after the next fleet roll**, with the same discipline rounds 1 and 2 got: obtain
+   the stamp, `git merge-base --is-ancestor 9d4fbb4f7 <stamp>`, and grep the running binary
+   for `resolved_from` with a bogus-sha control. Note the production behaviour already
+   proven does NOT depend on this — the repair ran on round 2's code.
+
+**Register updated** — DES-082 goes from *"live but not safely usable"* to **live and used**,
+DES-083 from *"not yet observed emitting"* to **observed emitting and dispatching** (two
+discovery-produced pairs completed 2026-08-11). The `improvement_guardian`'s high-severity
+round-2 objection to DES-083 is recorded there as unsettled rather than closed by those runs:
+they show the change works, not that the gate it removed was unwanted.

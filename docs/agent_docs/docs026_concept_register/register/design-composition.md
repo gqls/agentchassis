@@ -743,6 +743,56 @@ deduplication begins; the "raw extractions" count above and the per-concept
 > per-request test **alone**). **`[UNMEASURED]`: I have not observed a live
 > `needs_composition` dispatch's `collected_data` shape — if it produces a third shape the
 > flag silently will not arrive, which fails SAFE but looks like a broken flag.**
+
+> **DES-082 / DES-083 UPDATE 2026-08-12 — BOTH ARE NOW EXERCISED IN PRODUCTION, and the
+> `[UNMEASURED]` above is settled. This supersedes the "not yet exercised" statuses.**
+>
+> **DES-082 status: LIVE and USED.** First production re-compose ran 2026-08-12 13:50:13Z —
+> work item `57b9b3ff` carrying `spec.allow_reinstall=true` moved
+> `ai-agent-orchestration.com` off the shared LIGHT seed collection `3196d966` to its own
+> `a0f1ac70`, and the served `--color-card-bg` went `#ffffff` → `#0D1117`
+> (`styles.css` last-modified 2026-08-11T16:22:21Z → 2026-08-12T13:56:26Z). Chassis
+> `v1.0.1290`, stamp `fa078ab3d`, binary-probed both replicas with a bogus-sha control.
+> **The per-request channel is proven BEHAVIOURALLY, which is stronger than the log line:**
+> the install refuses by default and `site-design-planner`'s install step config carries no
+> `allow_reinstall` key, so a successful install on an already-composed site is reachable
+> only via the work item spec.
+>
+> **The `[UNMEASURED]` shape worry is answered, and the answer removed code.** Over 30 days
+> of `orchestration_states` carrying `input_data` (n=6,397): `input_data.spec` present on
+> **2,363**, `input_data.body.spec` on **ZERO**. The `body.spec` wrapper branch named above
+> was dormant machinery and is **deleted**; `requestSpecFromCollected` now reads the one
+> measured path via `input_contracts.GetValueAtExactPath` — deliberately NOT
+> `datahelpers.ExtractNestedField`, which auto-unwraps through a `.response` envelope and
+> would make an AUTHORITY switch satisfiable by a `true` arriving inside another agent's
+> reply. It also returns a REASON on failure, so "no spec arrived" and "a spec arrived that
+> is not an object" are distinguishable in the log rather than both reporting the first.
+>
+> **⚠ THE REPAIR IS TWO WORK ITEMS, NOT ONE — this is the trap this entry most needs to
+> carry.** `install_site_composition` completes, changes the DB, and **queues nothing**;
+> `styles.css` is rendered by `webdesign-agent` off the *other* half of the pair
+> `MissingStyleCollectionCheck` emits. A hand-written repair copying only the
+> `needs_composition` half leaves every DB check green while the site serves the old
+> stylesheet indefinitely. Fire `needs_design` too (`status='triaged'`), and verify at
+> `curl -sI …/styles.css | grep last-modified`, never at the item status. Now in
+> `LANDMINES.md` with 12 footprint keys.
+>
+> **DES-083 status: OBSERVED EMITTING AND DISPATCHING.** Two discovery-produced
+> `needs_composition` items (`created_by=design-discovery-agent`, `source=discovery`) were
+> claimed and ran to `complete` on 2026-08-11 — `loancash.co.uk` (`fef16250`) and
+> `cookly.uk` (`da0b080d`). Before the change they would have sat at `detected`, which
+> nothing promotes. **Note the council's `improvement_guardian` seat objected to this change
+> at HIGH severity in round 2** (it reads `detected` as a deliberate human-triage gate and
+> wanted `emit_design_items` moved to `detected` instead). That objection is recorded and
+> not settled by these two runs: they show the change works, not that the gate it removed
+> was unwanted. The larger question — whether build-pipeline discovery findings should be
+> human-gated at all, and by what — is still open and is bigger than this entry.
+>
+> **Council trail complete: `b8e341b9-4709-49ad-8b7b-f4c8894ba551` — REVISE, REVISE,
+> APPROVED** (round 3, 2026-08-12, 12 reviewers, no high-severity objections). Two of the
+> three rounds found real defects. Round 3's own approved verdict carried an advisory that
+> was also correct and is fixed in `9d4fbb4f7`. **Still owed: a pod-verify of round 3 after
+> the next fleet roll** — it is committed, not rolled.
 > **Live consumers, enumerated per RFC_022 rather than asserted (2026-08-11): `0` active
 > agent definitions and `0` work items name `allow_reinstall`.** Council round 2 submitted
 > under the same trail correlation `b8e341b9-…`.
