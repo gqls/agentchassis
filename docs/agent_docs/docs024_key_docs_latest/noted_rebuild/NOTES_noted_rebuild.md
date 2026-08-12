@@ -1419,3 +1419,56 @@ one to "tidy".
   scheme+host+port, so a `www.` redirect silently invalidates all of this.
 - The "sign in and copy everything up" route is **not** built; the download route
   is, and it is the one §6 makes mandatory because it needs no account.
+
+---
+
+## 2026-08-12 17:10 — a hand-filed work item deployed the WRONG PAGE and reported success
+
+A fresh chassis build rolled at 14:55 (pods 0 restarts, well past the ~300s
+no-dispatch window by the time anything was sent). It changed nothing here: both new
+pages were still `planned` and the guide still `needs_human_review` at 16:16.
+
+To promote the tool page I hand-filed a `page_rerender` item, building it by copying
+an existing row's whole shape — the trick I'd just used to avoid guessing NOT NULL
+columns (`source`, `created_by`, … discovered one constraint violation at a time,
+which is the wrong method and cost three round trips).
+
+**`site_work_items` has a real `page_id` COLUMN** (plus `component_id`, and
+`idx_swi_page` over it). My template row was the **contact** page's. I overrode
+`spec` — including `spec->>'page_id'` — and never touched the column. The handler
+reads the **column**.
+
+`[MEASURED]` The item ran, reported `"success": true`, and deployed:
+
+```
+"files": ["/contact.html", "/tools/assets/contact-form.js"], "file_path": "/contact.html"
+```
+
+**Nothing anywhere said the target was wrong.** The summary said "Assemble and deploy
+the legacy rescue tool page". The spec said `page_name: tool-legacy-rescue`. The
+status said `complete`. Only the deploy result named the file, and only the join
+`LEFT JOIN pages p ON p.id = wi.page_id` shows it plainly:
+
+| item | page the COLUMN points at |
+|---|---|
+| `…_assemble` (16:18) | **contact** |
+| `…_assemble_v2` (17:07) | tool-legacy-rescue |
+
+No damage: contact.html re-deployed byte-identically. On a destructive item type the
+same mistake would not have been free.
+
+**The general shape, which is the bit worth keeping:** copying a row to inherit its
+column shape also inherits its *targeting*. The fields that make a work item point
+at something are not all in `spec` — and a spec-only override produces an item that
+reads correctly to every human check and executes against a different object. Reset
+the FK columns explicitly, and assert the target with a join before believing the
+summary.
+
+This is the third time this lane has been caught by a `complete` item that did not
+do what it said: five `page_rerender`s that changed zero bytes, the CTA re-render
+that needed the section editor instead, and now this. **`complete` is a statement
+about the runner, not about the artefact.**
+
+Filed `…_assemble_v2` at 17:07 with the column set; outcome pending at the time of
+writing. Handoff `HANDOFF_2026-08-12_continue_here.md` §2 and §6 carry both the
+state and the check.
