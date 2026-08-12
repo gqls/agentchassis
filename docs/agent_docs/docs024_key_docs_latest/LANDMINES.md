@@ -9706,3 +9706,29 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **relations:** `bugs_closed/042` (the mechanism, and why the string half stays open) · `bugs_open/264` (the measured consequence) · `bugs_open/213` (whose producer-naming landmine this invalidates for 4 of 5 producers)
 - **source:** 2026-08-12, `copy_quality_two_stage` lane. Found while checking why a copy auditor's findings were invisible; the lane had already concluded from that invisibility that the findings were never consumed, and drafted a build plan for a consumer that already existed.
 - **added:** 2026-08-12, copy_quality_two_stage lane
+
+---
+
+## A retried dispatch shares `correlation_id`, NOT `request_id` — so idempotency keyed on the id that LOOKS canonical never fires
+
+- **footprint:** `platform/orchestration/coordinator.go` (`retryExpiredAwaitedRequest`, the `RETRY_TICKER`) · `awaited_requests` · `platform/orchestration/actions/*_dispatch.go` (every one that does `uuid.NewString()` for `request_id`) · any adapter adding dedup/idempotency to a side-effecting action
+- **fires when:** you make a side-effecting adapter action idempotent and reach for a key. The dispatch action builds headers with both `correlation_id` and `request_id` right next to each other, and `request_id` is the one that reads as "this request" — it is per-message, it is a UUID, it is the `awaited_requests` primary key. **It is minted fresh on every dispatch (`uuid.NewString()`), including every automatic retry.** Key on it and your dedup can never fire; the duplicate work happens exactly as before, and every test you write will pass because a test naturally reuses one id.
+- **why the wrong result looks exactly right:** the guard is present, reviewed, unit-tested and green. Nothing is observably wrong until the *retry driver* fires in production — which needs an await to actually expire, i.e. a slow downstream, which is precisely the condition your local tests do not reproduce. The failure is silent and costs whatever the action costs; in the worked case that was billable GPUs.
+- **the mechanism to know about:** when a step's await passes `timeout_seconds`, the chassis **re-executes the step** (`retryExpiredAwaitedRequest`, budget `RetryVersion < 3` — so up to **four** executions). Each execution runs the dispatch action afresh: new `request_id`, new message, same `correlation_id`. **This is not Kafka redelivery** — redelivery replays identical bytes, so a redelivered message's `request_id` is *constant*. Distinct `request_id`s therefore prove re-dispatch and DISPROVE redelivery, which is the cheapest available way to tell the two apart.
+- **the check, before you pick a key:**
+  ```sql
+  -- Does the thing you are deduping actually arrive more than once, and what is
+  -- stable across the arrivals? Answer BOTH in one query.
+  SELECT correlation_id, count(*) AS arrivals,
+         count(DISTINCT request_id) AS distinct_request_ids
+  FROM awaited_requests
+  WHERE target_agent_type = '<your adapter>'
+  GROUP BY 1 HAVING count(*) > 1;
+  -- arrivals == distinct_request_ids  => RE-DISPATCH. correlation_id is your key.
+  -- arrivals >  distinct_request_ids  => genuine redelivery too; request_id also works.
+  ```
+  And note the timing tell that names the cause without any code reading: each row `processed_at` *exactly* at its own `timeout_at`, with the next row's `sent_at` ~1s later, is an await expiring — not a broker.
+- **the adjacent trap:** an adapter's error response that does not clear the await is what lets this run at all. If responses cleared awaits promptly, the step would fail after one attempt. Check `processed_at` vs `timeout_at` before assuming your error path is doing anything.
+- **relations:** `bugs_open/259_…_one_provision_request_builds_several_billable_gpus` (worked case; its original filing named Kafka redelivery and was corrected) · `bugs_open/258` defect 2 (the slow provision that made the await expire) · migration `396_thunder_provision_claims.sql`
+- **source:** 2026-08-12, `finetuning_uk_service` lane. The bug had already been filed, contained and handed off with "idempotency on `correlation_id`" as the recommended fix — and reading the dispatch code afresh made `request_id` look like the obviously-more-correct key. One query against `awaited_requests` settled it the other way.
+- **added:** 2026-08-12, finetuning_uk_service lane

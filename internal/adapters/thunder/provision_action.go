@@ -71,6 +71,22 @@ type ProvisionInstanceRequest struct {
 	// (extracted from sender_agent_type header by the caller).
 	RequestedBy string `json:"-"`
 
+	// CorrelationID is the idempotency key, taken from the message header by
+	// the caller. It is the ONLY identifier stable across the chassis retry
+	// driver's re-dispatches of an expired await — request_id is minted fresh
+	// on each one (thunder_provision_dispatch.go:99), so keying on that would
+	// never fire. See bugs_open/259_..._one_provision_request_builds_several_billable_gpus.
+	// Empty is refused, not defaulted: no key means no dedup, and this path
+	// spends money.
+	CorrelationID string `json:"-"`
+
+	// OrchestrationID is audit-only — which run asked for this box.
+	OrchestrationID string `json:"-"`
+
+	// RequestID is audit-only: the per-attempt id, recorded so a claim can be
+	// traced back to the attempt that won it. Deliberately NOT the dedup key.
+	RequestID string `json:"-"`
+
 	// Overrides — empty = use config defaults.
 	GPU        string `json:"gpu,omitempty"`          // "a100", "h100", "t4"
 	NumGPUs    int    `json:"num_gpus,omitempty"`     // default 1
@@ -158,7 +174,11 @@ func (p *ProvisionAction) Execute(ctx context.Context, req ProvisionInstanceRequ
 		if cfg.PauseReason.Valid {
 			reason = "thunder provisioning paused: " + cfg.PauseReason.String
 		}
-		return nil, fmt.Errorf(reason)
+		// errors.New, not fmt.Errorf: `reason` is runtime data (the operator's
+		// pause note), and passing it as a format string makes any '%' an
+		// operator types corrupt the message. vet flags this, which is why
+		// `go test ./internal/adapters/thunder/` could not build at all.
+		return nil, errors.New(reason)
 	}
 
 	allowed, denialReason, err := store.CheckCanProvision(ctx, p.db)
@@ -215,6 +235,40 @@ func (p *ProvisionAction) Execute(ctx context.Context, req ProvisionInstanceRequ
 		return nil, fmt.Errorf("generate keypair: %w", err)
 	}
 
+	// ── 3b. Claim the right to provision, BEFORE any vendor call ──
+	// This is the fix for bugs_open/259: the chassis retry driver re-executes
+	// dispatch_provision when its 600s await expires, and each re-execution
+	// publishes a fresh provision message. Without a claim, every one of those
+	// builds another billable GPU (measured: 4 attempts on one orchestration).
+	//
+	// The ordering is the mechanism. A claim taken after the create leaves the
+	// window open exactly where the money is spent, so this sits between the
+	// gate checks above and the CreateInstance below, and nothing side-effecting
+	// may be inserted between it and the create.
+	claim, err := store.TakeProvisionClaim(ctx, p.db, store.NewClaim{
+		CorrelationID:   req.CorrelationID,
+		OrchestrationID: req.OrchestrationID,
+		RequestID:       req.RequestID,
+		TrainingRunID:   req.TrainingRunID,
+		RequestedBy:     req.RequestedBy,
+	})
+	if err != nil {
+		if errors.Is(err, store.ErrClaimHeld) {
+			// A previous attempt for this correlation already reached the
+			// vendor. Refusing is the whole point — the caller's "retry" is a
+			// timeout firing, not a decision to spend again.
+			p.logger.Warn("Provision REFUSED — a claim is already held for this correlation",
+				zap.String("correlation_id", req.CorrelationID),
+				zap.Int("attempts", claim.Attempts),
+				zap.String("claim_status", claim.Status),
+				zap.String("thunder_instance_id", claim.ThunderInstanceID.String),
+			)
+			return nil, fmt.Errorf("%w: correlation %s already attempted a provision (attempt %d, status %s) — refusing to build a second billable instance",
+				ErrProvisionDuplicate, req.CorrelationID, claim.Attempts, claim.Status)
+		}
+		return nil, fmt.Errorf("provision claim: %w", err)
+	}
+
 	// ── 4. Call Thunder API to create the instance ──
 	createReq := api.CreateInstanceRequest{
 		GpuType:    req.GPU, // internal name kept; API field renamed (see api/types.go)
@@ -227,8 +281,21 @@ func (p *ProvisionAction) Execute(ctx context.Context, req ProvisionInstanceRequ
 	}
 	createResp, err := p.thunderAPI.CreateInstance(ctx, createReq)
 	if err != nil {
-		// Failure before any side-effect requiring cleanup.
+		// Failure before any side-effect requiring cleanup — but the claim
+		// stays held, and records why. Holding it after a failure is
+		// deliberate: see MarkClaimFailed.
+		p.markClaimFailed(ctx, req.CorrelationID, fmt.Sprintf("thunder create: %v", err))
 		return nil, fmt.Errorf("thunder create: %w", err)
+	}
+
+	// Record the vendor identifier the instant we have it, so a crash from
+	// here on still leaves the box attributable to the request that built it.
+	// Best-effort: a bookkeeping failure must not abandon a live instance.
+	if mErr := store.MarkClaimCreated(ctx, p.db, req.CorrelationID, strconv.Itoa(createResp.Identifier)); mErr != nil {
+		p.logger.Error("Failed to record vendor id on provision claim — instance is live but less traceable",
+			zap.String("correlation_id", req.CorrelationID),
+			zap.Int("thunder_identifier", createResp.Identifier),
+			zap.Error(mErr))
 	}
 
 	p.logger.Info("Thunder create accepted, starting cleanup-tracked phase",
@@ -246,6 +313,9 @@ func (p *ProvisionAction) Execute(ctx context.Context, req ProvisionInstanceRequ
 			return origErr
 		}
 		cleanupDone = true
+		// Every post-create failure funnels through here, so this is the one
+		// place the claim's failure record has to be written.
+		p.markClaimFailed(ctx, req.CorrelationID, fmt.Sprintf("%s: %v", reason, origErr))
 		p.logger.Warn("Compensating cleanup starting",
 			zap.String("reason", reason),
 			zap.Int("thunder_identifier", createResp.Identifier),
@@ -332,6 +402,12 @@ func (p *ProvisionAction) Execute(ctx context.Context, req ProvisionInstanceRequ
 	}); err != nil {
 		return nil, cleanup("DB INSERT failed after retries",
 			fmt.Errorf("insert thunder_instances: %w", err))
+	}
+
+	if mErr := store.MarkClaimSucceeded(ctx, p.db, req.CorrelationID, dbRowID.String()); mErr != nil {
+		p.logger.Error("Failed to close provision claim as succeeded — audit only, instance is fine",
+			zap.String("correlation_id", req.CorrelationID),
+			zap.Error(mErr))
 	}
 
 	p.logger.Info("Provision complete",
@@ -465,3 +541,27 @@ func nullableUUID(s string) sql.NullString {
 // request. Caller (the action dispatcher) can errors.Is to distinguish
 // this from infrastructure errors and choose response status accordingly.
 var ErrProvisionDenied = errors.New("provision denied")
+
+// ErrProvisionDuplicate is returned when a claim for this correlation is
+// already held — a repeat attempt at a request that has already reached the
+// vendor once. It is UNRECOVERABLE by design: the caller must not retry,
+// because retrying is what builds the second billable GPU (bugs_open/259).
+var ErrProvisionDuplicate = errors.New("provision duplicate")
+
+// markClaimFailed records a failure against the claim without ever letting a
+// bookkeeping error mask the real one. Audit is worth a log line, not a
+// changed outcome.
+func (p *ProvisionAction) markClaimFailed(ctx context.Context, correlationID, msg string) {
+	if correlationID == "" {
+		return
+	}
+	// A fresh context: the parent may already be cancelled on the very paths
+	// where recording the failure matters most.
+	recCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if err := store.MarkClaimFailed(recCtx, p.db, correlationID, msg); err != nil {
+		p.logger.Error("Failed to record provision failure on claim — this attempt will be unauditable",
+			zap.String("correlation_id", correlationID),
+			zap.Error(err))
+	}
+}

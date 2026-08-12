@@ -1,4 +1,69 @@
-# 259 — one provision request builds several billable GPUs (Kafka redelivers while the handler blocks)
+# 259 — one provision request builds several billable GPUs (~~Kafka redelivers while the handler blocks~~ the chassis retry driver re-dispatches an expired await)
+
+> ## ⚠ **CORRECTED 2026-08-12 (evening) — THE TRIGGER IN THIS FILE'S ORIGINAL TITLE AND "Why" SECTION WAS WRONG.**
+>
+> **It is not Kafka redelivery. It is the chassis's own retry driver.**
+>
+> The behaviour section below is unaffected — it was counted, and it stands. What
+> was wrong was the *mechanism*, which the original filing marked `[UNVERIFIED]`
+> for the broker-side path but nonetheless named in its title, so a reader would
+> reasonably have acted on it. The correction, with its evidence:
+>
+> ```sql
+> SELECT correlation_id, count(*) AS rows, count(DISTINCT request_id) AS req_ids
+> FROM awaited_requests WHERE target_agent_type='thunder-adapter'
+>   AND sent_at > now() - interval '2 days' GROUP BY 1;
+> -- the three problem correlations: 4 rows each, 4 DISTINCT request_ids each.
+> ```
+>
+> Detail for correlation `23c9bc6a`, one orchestration (`8c5bf926`), four `step_id`s:
+>
+> | request_id | step | sent | timeout_at | processed_at | status |
+> |---|---|---|---|---|---|
+> | `b40062fa` | dispatch_provision | 13:52:12 | 14:02:12 | 14:02:12 | processed |
+> | `da87c9c9` | dispatch_provision | 14:02:13 | 14:12:13 | 14:12:13 | processed |
+> | `6f7bda74` | dispatch_provision | 14:12:15 | 14:22:15 | 14:22:15 | processed |
+> | `641450c2` | dispatch_provision | 14:22:17 | 14:32:17 | 14:32:17 | **error** |
+>
+> **What that says.** Each row is `processed` at *exactly* its own `timeout_at`,
+> and the next dispatch leaves ~1 second later. That is an await expiring and
+> the retry driver firing — `coordinator.go` `retryExpiredAwaitedRequest`, budget
+> `RetryVersion < 3` (four attempts, then the orchestration FAILED at 14:32:17).
+> The step's `timeout_seconds` is **600**, which is the ~10-minute gap the
+> original filing read as a redelivery interval.
+>
+> **Redelivery is ruled out, not merely unproven.** A redelivered Kafka message
+> replays identical bytes, so `request_id` would be *constant* across the
+> attempts. It is different every time — because
+> `DispatchThunderProvisionAction` mints a fresh one per execution
+> (`thunder_provision_dispatch.go:99`). Four distinct ids = four distinct
+> publishes. Nor is there evidence of any *extra* delivery: the adapter saw
+> ≤ 4 deliveries per correlation, never more than the dispatch count.
+>
+> **A co-cause the original filing noted but did not connect.** Every await was
+> cleared by its own timeout, never by a response — the adapter had answered
+> ~5 minutes in (`Sent error response`) and the await sat `waiting` regardless.
+> Had the error response cleared the await, the step would have failed after
+> **one** attempt and only one GPU would ever have been built. So "does an error
+> response clear an await?" is not a side observation; it is *why the retry loop
+> ran at all*. Still undiagnosed — worth its own `090`.
+>
+> **What this changes for the fix (and what it does not).**
+> - Fix candidate 1 (idempotency on `correlation_id`) is **still correct, and now
+>   for a demonstrated reason**: across the four attempts `correlation_id` is the
+>   *only* stable identifier. Keying on `request_id` would never fire — and
+>   `request_id` is exactly what the dispatch code makes look canonical. That
+>   trap is now in `LANDMINES.md`.
+> - **Fix candidate 3 is RETIRED, not merely deprioritised.** Raising
+>   `KAFKA_SESSION_TIMEOUT` / `KAFKA_REBALANCE_TIMEOUT` addresses a mechanism
+>   that is not firing. It would have cost a build and changed nothing, while
+>   slowing dead-member detection for every consumer on that config.
+> - Candidate 2 (stop blocking the consumer) no longer removes the trigger
+>   either — the trigger is upstream of the adapter entirely.
+>
+> **FIXED — see "The fix, as shipped" at the foot of this file.** Status stays
+> **OPEN** until it is live (a fix committed but unrolled is still reproducible),
+> and provisioning stays **PAUSED** until then.
 
 > ⚠ **THE NUMBER 259 IS AMBIGUOUS — resolve this one by SLUG.** A concurrent
 > session filed `259_HANDOFF_2026-08-12_three_processor_paths_guard_on_a_handle_that_is_nil_in_production.md`
@@ -44,7 +109,14 @@ bound is luck, not design.** Nothing in this path counts attempts or dedupes on
 that boots *just* inside the wait deadline, each redelivery would instead leave
 a live box behind.
 
-## Why — the code facts
+## ~~Why — the code facts~~ (SUPERSEDED — see the correction at the head)
+
+> The three facts below are individually TRUE — they were read first-hand and
+> re-verified on 2026-08-12 — but they do **not** compose into the cause. A
+> handler that blocks for 5× its consumer's deadlines is a genuine latent
+> hazard, and it is worth fixing on its own merits; it simply is not what built
+> the extra GPUs. Kept as filed, because "true facts, wrong conclusion" is the
+> more instructive record.
 
 All three verified by reading, 2026-08-12:
 
@@ -167,3 +239,73 @@ kubectl -n ai-persona-system exec "$POD" -- sh -c \
 denied rather than acted on. Confirmed live rather than assumed: in the 90s
 after the pause, **2 further deliveries arrived and were denied, 0 creates were
 issued**, and the vendor list went to `{}` once the last box's cleanup ran.
+
+---
+
+## The fix, as shipped (2026-08-12 evening)
+
+**Shape: a claim taken before the vendor call, keyed on `correlation_id`,
+in its own table.**
+
+- **Migration `396_thunder_provision_claims.sql`** — `thunder_provision_claims`,
+  PK on `correlation_id`, plus `attempts`, `status`
+  (`claimed|created|succeeded|failed`), the vendor id, and `last_error`.
+- **`internal/adapters/thunder/store/claims.go`** — `TakeProvisionClaim` is a
+  single `INSERT ... ON CONFLICT (correlation_id) DO UPDATE SET attempts =
+  attempts + 1 RETURNING ..., (xmax = 0) AS inserted`. One statement, so the
+  claim and the count cannot race; `xmax = 0` is Postgres's own verdict on
+  whether this INSERT inserted, rather than a count we compute and could get
+  wrong.
+- **`provision_action.go`** — the claim sits between the gate checks and
+  `CreateInstance`, and nothing side-effecting may be placed between it and the
+  create. A held claim returns `ErrProvisionDuplicate`, which the adapter maps
+  to `provision_duplicate` / **`error_unrecoverable`** — deliberately, because
+  marking it recoverable would ask the chassis to retry the very thing that
+  builds the second GPU.
+
+**Three decisions worth challenging, stated plainly:**
+
+1. **A failed attempt KEEPS its claim.** On 2026-08-12 every attempt failed and
+   the cleanup deleted every box; if failure released the claim, the retry loop
+   would run exactly as before and this fix would be theatre. The cost is real:
+   a genuinely transient vendor failure now ends the workflow instead of
+   self-healing. That is the safer side of the trade on a path that spends
+   money, but it *is* a trade, and bounded-retry (`attempts <= N`) is the
+   obvious next iteration if it bites.
+2. **A request with no `correlation_id` is refused, not provisioned.** No key
+   means no dedup is possible. Fails closed.
+3. **A separate table, not a column on `thunder_instances`.** A pre-create
+   claim row in `thunder_instances` would carry no real vendor id, and
+   `reconcile_thunder_instances` classifies a live row absent at the vendor as
+   a `ghost_row` (`thunder_reconcile_action.go:204-219`) — so every in-flight
+   provision would file a spurious orphan-sweep finding against FTW-042, which
+   this same lane shipped and got council-approved on 2026-08-09.
+
+**Bonus, not scope creep:** the claims table is the durable record of a failed
+provision that **258 defect 3** says does not exist today. `status='failed'` +
+`last_error` + the vendor id survive pod-log rotation.
+
+**Regression test** — `provision_idempotency_test.go`,
+`TestRetryDriverRedispatchBuildsOnlyOneInstance`. It replays the real shape:
+same `correlation_id`, **different `request_id`**, as the retry driver produces.
+It asserts on **creates at the vendor**, not on rows or errors, because the
+vendor call is the thing that costs money.
+
+**It was proven able to fail.** With the refusal branch mutated out, the test
+reports `CreateInstance called 2 times for one logical request` and fails;
+restored, it passes. A guard whose test has never been seen red is not a
+verified guard.
+
+### Still owed before this can close
+1. **Not live.** Needs `make build-thunder-adapter` from committed HEAD and a
+   whole-fleet `make release`, **which the owner runs**.
+2. **Migration 396 must be applied before the new binary rolls.** The adapter
+   treats an absent table as a hard error and refuses to provision — fails
+   closed, but it *will* refuse.
+3. **Then unpause** (`UPDATE thunder_config SET is_paused=false, pause_reason=NULL;`)
+   and verify per "How to verify a fix" above — with the count taken per
+   **correlation**, not per request_id.
+4. **The `600s` await vs the adapter's `5min` wait is still a real mismatch**
+   (258 defect 2). This fix stops the duplicate *billing*; it does not make an
+   a6000 provision succeed. Expect the first unpaused a6000 run to fail once,
+   cleanly, and leave one claim row marked `failed`.

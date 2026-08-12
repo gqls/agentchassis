@@ -29487,3 +29487,52 @@ applied to time instead of traffic.
 I encoded "did something happen in the last 15 minutes", got a correct answer, and read
 it as "did it happen at all". A near-miss: I would have re-fired a successful whole-site
 redeploy, and 26 duplicate rerenders would have looked exactly like the first 26.
+
+---
+
+## 2026-08-12 — I filed a root cause in a bug's TITLE while marking it `[UNVERIFIED]` in the body, and it was wrong
+
+**The claim.** `bugs_open/259` was filed by this lane as *"one provision request builds
+several billable GPUs (**Kafka redelivers while the handler blocks**)"*. The body was
+scrupulous: it marked the broker-side trigger `[UNVERIFIED]`, listed three candidate
+paths, said plainly "I did not distinguish them", and recorded that two `090` runs had
+been spent without a verdict. It then recommended fix candidate 3 — raise
+`KAFKA_SESSION_TIMEOUT` / `KAFKA_REBALANCE_TIMEOUT` — as "a reasonable *interim*".
+
+**The truth.** There was no redelivery. The chassis's own retry driver
+(`retryExpiredAwaitedRequest`) re-executes a step whose await has passed its
+`timeout_seconds`, up to four times. Each execution re-runs the dispatch action, which
+mints a **new** `request_id` and publishes a **new** message. Four executions, four
+GPUs. The "~10 minute redelivery gap" the filing measured is the step's
+`timeout_seconds: 600`, read as a broker artefact.
+
+**What caught it.** One query, ~20 seconds: `SELECT correlation_id, count(*),
+count(DISTINCT request_id) FROM awaited_requests WHERE target_agent_type =
+'thunder-adapter' GROUP BY 1`. Four rows, four distinct `request_id`s, one
+`orchestration_id`. A redelivered Kafka message replays identical bytes, so
+`request_id` would have been constant — the distinctness disproves redelivery outright,
+it does not merely fail to support it.
+
+**The cheap check that would have.** The same one. The filing session reached for pod
+logs (which rotate, and were gone within two hours when the fleet rolled) and for the
+`090` loop (which cost two runs and returned no verdict), while the durable evidence sat
+in a table the chassis writes on every dispatch and never trims for days. **When a
+message arrives more than once, ask the table that records arrivals what is stable
+across them — before theorising about which layer duplicated it.**
+
+**Why the `[UNVERIFIED]` marker did not save us, and that is the lesson.** The marker
+rule was followed *exactly*: the uncertain claim was marked, in place, where it was
+made. It still failed, because **the title carried the unmarked version of the same
+claim** — and the title is what a reader acts on, what `git log` shows, and what the
+handoff repeated. A hedge in the body does not travel with a headline. The near-miss:
+fix candidate 3 was the cheapest option, needed no build, and would have been a
+defensible first move for the next session. It addresses a mechanism that is not
+firing — it would have cost a build cycle, changed nothing, and slowed dead-member
+detection for every consumer sharing that config, while GPUs kept being built.
+
+**The shape, for the tally.** "A claim about behaviour is NOT the behaviour" crossed
+with "your measurement answers the question you ENCODED": three true code facts
+(synchronous handler, 5-minute block, 60-second consumer deadlines) were composed into
+a mechanism nobody had observed, and the composition inherited none of the caveats of
+its parts. **Marking the parts uncertain does not make the conclusion uncertain — it
+has to be marked where it is stated, including in the title.**

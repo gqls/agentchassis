@@ -443,8 +443,15 @@ func (a *Adapter) handleProvisionInstance(
 		)
 		return
 	}
-	// Populate the non-JSON RequestedBy from the message header.
+	// Populate the non-JSON fields from the message headers.
 	req.RequestedBy = reqHeaders["sender_agent_type"]
+	// correlation_id is the idempotency key for the provision claim
+	// (bugs_open/259). It is the only header stable across the chassis retry
+	// driver's re-dispatches — request_id is minted fresh on each attempt, so
+	// it is recorded for audit but must NOT be used to dedupe.
+	req.CorrelationID = reqHeaders["correlation_id"]
+	req.OrchestrationID = reqHeaders["orchestration_id"]
+	req.RequestID = reqHeaders["request_id"]
 
 	// Use a generous ctx — provision can take up to ~5 min for WaitForRunning.
 	// The action itself wraps WaitForRunning with its own configured timeout;
@@ -457,6 +464,12 @@ func (a *Adapter) handleProvisionInstance(
 		status := "error_unrecoverable"
 		errCode := "provision_failed"
 		switch {
+		case errors.Is(err, ErrProvisionDuplicate):
+			// MUST be tested before the infrastructure case and MUST stay
+			// unrecoverable: marking a duplicate refusal recoverable would ask
+			// the chassis to retry the very thing that builds the second
+			// billable GPU (bugs_open/259).
+			errCode = "provision_duplicate"
 		case isProvisionDenial(err):
 			errCode = "provision_denied"
 			// status stays error_unrecoverable — cap denial isn't retryable
