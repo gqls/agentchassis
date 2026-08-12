@@ -290,16 +290,36 @@ func (tm *TopicManager) getController(ctx context.Context) (string, error) {
 		}
 
 		controller, err := conn.Controller()
+		conn.Close()
 		if err != nil {
-			conn.Close()
 			continue
 		}
 
-		conn.Close()
-		return fmt.Sprintf("%s:%d", controller.Host, controller.Port), nil
+		addr, err := controllerAddress(controller)
+		if err != nil {
+			// bugs_open/040-kafka-dial: an unvalidated empty Host used to become
+			// the literal dial target ":<port>", which resolves to the pod's own
+			// loopback and fails instantly with ECONNREFUSED -- counted by the
+			// dial metric but never logged, because nothing here treated it as
+			// an error worth reporting. Now it is both.
+			tm.logger.Warn("controller metadata invalid, trying next broker",
+				zap.String("broker", broker), zap.Error(err))
+			continue
+		}
+		return addr, nil
 	}
 
 	return "", fmt.Errorf("failed to find Kafka controller")
+}
+
+// controllerAddress formats a Kafka Broker returned by conn.Controller() into
+// a dial target, rejecting an empty Host rather than silently formatting it
+// into ":<port>" (bugs_open/040-kafka-dial).
+func controllerAddress(b kafka.Broker) (string, error) {
+	if b.Host == "" {
+		return "", fmt.Errorf("kafka: controller metadata returned an empty host (port %d)", b.Port)
+	}
+	return fmt.Sprintf("%s:%d", b.Host, b.Port), nil
 }
 
 // getTopicsForAgent returns the topics needed for a specific agent type
