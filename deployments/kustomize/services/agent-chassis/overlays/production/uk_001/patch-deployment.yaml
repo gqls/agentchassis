@@ -32,6 +32,32 @@ spec:
             - name: MIGRATION_PHASE
               value: "testing"
 
+            # Thin-ingest worker pool and its DB pool sizing
+            # (chassis_replica_scaling CS-2). Recorded here 2026-08-12 by the
+            # bugfix_246 lane: these three were LIVE ON THE DEPLOYMENT OBJECT
+            # AND IN NO FILE, so the repo could not tell you how the fleet was
+            # actually configured — which is how the pgbouncer configmap's own
+            # sizing comment ("3 chassis replicas x 4 conns") went stale on both
+            # numbers. Values transcribed verbatim from the live object; adding
+            # them changes nothing today and makes the next reader's answer true.
+            #
+            # ⚠ CHASSIS_INTAKE_MODE BELONGS HERE AND NOWHERE ELSE. It must never
+            # go into personae-prod-config: spawned pods inherit that configmap
+            # and would silently become intake workers (platform/agentbase/
+            # intake.go:20, emphatic; the code also refuses it for any agent that
+            # is not statically deployed, so this is belt and braces).
+            #
+            # CHASSIS_DB_MAX_OPEN_CONNS was INERT until v1.0.1288 — the message
+            # processor re-sized the shared pool back to 4 in its constructor
+            # (bugs_closed/246). It is in force now, so treat this number as
+            # load-bearing rather than decorative.
+            - name: CHASSIS_INTAKE_MODE
+              value: "worker_pool_all"
+            - name: CHASSIS_DB_MAX_OPEN_CONNS
+              value: "12"
+            - name: CHASSIS_RESPONSES_START_AT
+              value: "latest"
+
             # For spawning agents
             - name: AGENT_IMAGE_REPOSITORY
               value: "docker.io/aqls"
