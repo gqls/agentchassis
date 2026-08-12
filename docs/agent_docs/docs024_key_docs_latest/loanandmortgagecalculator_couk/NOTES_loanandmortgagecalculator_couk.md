@@ -2269,3 +2269,70 @@ HAD occurred — if that value is the same as the one you just read, the check i
 **State:** 2 restored + re-verified at the artefact (zero count drops vs the pre-Track-B
 original), 1 legitimately decomposed, 19 untouched, none flipped to `generic`. Next
 action is 263's fix candidate 1, not more pages.
+
+### 263 FIX IMPLEMENTED + GATED — cures 12 of 21 pages, and the gate now REFUSES the 6 it does not
+
+**Built the acceptance test first, then the fix, so the fix had something to prove
+itself against.** Both are committed; no page has been re-decomposed yet.
+
+**The fix** (`decompose_pages.split_ordered`, the SHARED helper): the loss was entirely
+in the `len(holders) == 1` branch, which recurses and so dissolves the wrapper it
+descends through. Now it stops and emits that wrapper whole **when every one of its
+children is a holder** — i.e. when there is no prose inside it to separate.
+
+**Shipped as an opt-in, `keep_widget_wrapper=False` by default**, per the owner ruling of
+2026-08-02 (new authority on a shared seam ships as an opt-in field with the unsafe
+default OFF). `decompose_pages.py` is the SIBLING lane's file: its 27 pages were
+decomposed under the old behaviour and their stored rows, goldens and byte gates all
+encode it, so flipping the default would silently change what a re-run there produces.
+`decompose_lmc.py` passes `True`.
+
+**Measured against the old manifest, page by page — the fix is purely additive:**
+
+```
+12 of 21 pages recover a wrapper   (card, calc-grid, input-grid, and fact-grid —
+                                    a NINTH vocabulary I had not censused)
+ 0 pages lose anything
+ 0 shapes change: every ptp stays ptp, every pt stays pt
+```
+
+That last line matters most: it means no prose was frozen into a tool row, which is the
+failure mode that refuted whole-child marking in 2026-08-05.
+
+**The gate** (`gate_wrapper_parity.py`): per-class COUNT of the pinned source's
+`#content` subtree vs the manifest's blocks, run BEFORE any row is written. Permitted
+losses are `container`/`container-tight` only, each with its compensation named in the
+file. Validated in both directions on real data, which is the best control available:
+
+```
+old manifest (the defect)  -> 13 of 22 FAIL     <- it catches what shipped
+fixed manifest             ->  6 of 21 FAIL     <- it still refuses the unresolved ones
+--self-test (induce a one-class shortfall) -> 21 of 21 FAIL, CONTROL OK
+```
+
+**The 6 it still refuses, and the decision they need.** All six have the same shape: a
+heading sits inside the panel next to the widget, so the panel is "mixed" and the descent
+enters it — `mortgages/simple`'s card is exactly `[h2, div.calc-grid]`. Also
+`bridging-loan`, `equity-release`, `fee-analyser`, `rate-forecaster`, `damage-checker`.
+The choice is explicit and it is the owner's, because it changes what copy is editable:
+
+- **(a) accept the panel loss** on those six — the calculator keeps working and loses its
+  card framing; or
+- **(b) treat an in-panel heading as widget-internal** and emit the card whole, which
+  freezes that `h2` into the locked tool row.
+
+**(b) is already this lane's stated position for one of them** — `decompose_lmc.py`'s own
+docstring says `mortgages/simple.html` *"is one card containing everything — its
+widget-internal text is out of the voice's scope by the 'copy zones only' rule"* — and the
+headings we have seen inside these panels are captions (*"Current Mortgage Details"*,
+*"Overpayment Strategy"*), not editorial copy. So (b) is defensible and narrow. It is
+still a judgement about editability, so it is not mine to make silently.
+
+**Until it is decided the gate blocks those 6, which is the point of having it.** The 15
+that pass can proceed; the 6 cannot be decomposed by accident.
+
+**Pin re-pointed TWICE today** (`b318a8fad` → `7e6b993ef` → `5cc277294`) and the guard
+refused both times. The second staleness was caused by **this lane's own restore
+deploys** — rerenders push to the sites repo continuously, so a pin goes stale within the
+hour you are working. The guard's instruction *"re-verify at the moment of use"* is
+literal, not cautious.

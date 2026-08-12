@@ -101,7 +101,7 @@ TOOL_FOR_PAGE = {
 }
 
 
-def split_ordered(node, src, ids, out, depth=0):
+def split_ordered(node, src, ids, out, depth=0, keep_widget_wrapper=False):
     """Descent, identical to the prover's, emitting into ONE ordered list.
 
     `out` receives ("prose", html) and ("tool", html) tuples in document order.
@@ -109,6 +109,42 @@ def split_ordered(node, src, ids, out, depth=0):
     another; the only change here is that both go to the same place, so a
     sibling that becomes prose keeps its position relative to the widget it
     sits beside.
+
+    `keep_widget_wrapper` (OPT-IN, default OFF — `bugs_open/263`)
+    ------------------------------------------------------------
+    OFF reproduces this function's behaviour exactly as the sibling lane has
+    relied on it since 2026-08-05. Callers that pass True get the 263 fix.
+
+    THE DEFECT IT FIXES. The single-holder branch below recurses, which DISSOLVES
+    the wrapper it descends through. That is right for a page-level wrapper
+    (`div#content`, `.container`) because the assembled-layout shim makes `<main>`
+    the container — and wrong for the widget's OWN presentation wrapper, for which
+    nothing compensates. Measured on loanandmortgagecalculator: a calculator lost
+    `.card` (background, 30px padding, radius, shadow) and `.calc-grid`
+    (`grid-template-columns: 1fr 1fr` — its two-column input layout), so the inputs
+    stacked and the panel vanished. 20 of that site's 22 tool pages carry the shape.
+
+    THE RULE. Descend into a single holder only while that holder still has a child
+    that is NOT a holder — i.e. only while there is prose inside it to separate.
+    Stop and emit it whole once its content is entirely widget machinery. This is
+    NOT the "whole-child marking" that was tried and refuted in 2026-08-05: that
+    marked the outermost mixed node (freezing a page's h1 and intro into the locked
+    row). This descends through mixed nodes exactly as before and stops one level
+    lower, at the boundary between prose and machinery.
+
+    WHY IT IS OPT-IN RATHER THAN JUST CORRECT. This function is shared: the
+    loancalculator lane's 27 pages were decomposed with the old behaviour and its
+    stored rows, goldens and byte gates all encode it. Flipping the default would
+    silently change what a re-run of that lane produces. Owner ruling 2026-08-02:
+    new authority on a shared seam ships as an opt-in field with the unsafe default
+    OFF, because "a comment is not a control on a tree this many sessions share".
+
+    KNOWN LIMIT, measured, not theoretical: a wrapper whose children are SEVERAL
+    holders plus prose (loans/damage-checker — h3 + advisory <p> + 4 checklist-items
+    + results-box) still dissolves, because the `len(holders) > 1` branch below emits
+    each holder separately. Preserving that panel means treating its prose as
+    widget-internal, which is a per-page judgement and is why the override table
+    further down this file exists. 263 records the trade-off.
     """
     kids = [c for c in node.children if c.tag not in RAWTEXT]
     holders = [c for c in kids if any_marked(c, ids)]
@@ -124,7 +160,16 @@ def split_ordered(node, src, ids, out, depth=0):
     for c in kids:
         if c in holders:
             if len(holders) == 1:
-                split_ordered(c, src, ids, out, depth + 1)
+                # 263: stop here when everything inside `c` is machinery, so `c`'s
+                # own wrapper element survives into the tool block.
+                if keep_widget_wrapper:
+                    c_kids = [k for k in c.children if k.tag not in RAWTEXT]
+                    if c_kids and all(any_marked(k, ids) for k in c_kids) \
+                            and not loose_text(c, src, c_kids):
+                        out.append(("tool", src[c.start:c.end]))
+                        continue
+                split_ordered(c, src, ids, out, depth + 1,
+                              keep_widget_wrapper=keep_widget_wrapper)
             else:
                 # Several siblings hold marked nodes (car-finance's input card
                 # and its results grid). The wrapper dissolves; each marked

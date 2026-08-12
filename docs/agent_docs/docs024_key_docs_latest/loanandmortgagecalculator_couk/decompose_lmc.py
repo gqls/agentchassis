@@ -85,7 +85,7 @@ from decompose_prover import (  # noqa: E402
 )
 from decompose_pages import collapse_runs, split_ordered  # noqa: E402
 
-PINNED_REF = "7e6b993ef"  # re-pointed 2026-08-12: b318a8fad was stale for 16 of 22 (rerenders push continuously)
+PINNED_REF = "5cc277294"  # re-pointed twice on 2026-08-12: this lane's OWN deploys move the repo, so re-verify immediately before use
 SITE_DIR = "loanandmortgagecalculator.co.uk"
 SITES_REPO = os.path.expanduser("~/projects/sites")
 # Same value as load_lmc.py's; needed here only by assert_pin_matches_live().
@@ -252,7 +252,11 @@ def decompose_page(relpath, html, chrome, calc_js_src, verbose=False):
     if ids or is_tool_page:
         for blk in croot.children:
             if any_marked(blk, ids):
-                split_ordered(blk, body_s, ids, ordered)
+                # 263: opt in to keeping the widget's own wrapper (.card/.calc-grid/
+                # .input-grid) inside the tool block. Default-OFF on the shared
+                # helper so the sibling lane's stored rows keep their meaning.
+                split_ordered(blk, body_s, ids, ordered,
+                              keep_widget_wrapper=True)
             else:
                 ordered.append(("prose", body_s[blk.start:blk.end]))
         # loose text directly inside #content (between children) would be lost

@@ -121,22 +121,44 @@ other drop is this bug.**
    calculator's `.card` from the three PROSE `.card`s **by content, not by class name** —
    which no name-based rule can do.
 
-   **Why the first wording failed:** two pages hold static advisory copy *inside* the
-   panel, so the panel is not "machinery only" —
-   `mortgages/overpayment`: *"Most UK lenders allow you to overpay up to 10% of your
-   outstanding balance per year without penalty…"*, and `loans/damage-checker`:
-   *"Lenders typically charge between £50 - £150 per panel…"*. Under the first wording
-   the descent would enter those cards and dissolve them again. Under the corrected
-   wording it stops at the card, because the card's parent holds prose siblings.
+   **THE IMPLEMENTABLE FORM, read off `split_ordered` itself** (`loancalculator_couk/
+   decompose_pages.py:104`). The existing code already emits a holder WHOLE when several
+   siblings hold marked ids (`len(holders) > 1`); the loss happens only in the
+   `len(holders) == 1` branch, which recurses and so dissolves that single wrapper:
 
-   **THE COST, STATED RATHER THAN DISCOVERED LATER:** that static copy travels into the
-   locked tool row and is therefore **not editable by the voice/content pass** — one
-   paragraph each on 2 of 22 pages. This is the lane's existing convention, not a new
-   concession: `decompose_lmc.py`'s own docstring already says `mortgages/simple.html`
-   *"is one card containing everything — its widget-internal text is out of the voice's
-   scope by the 'copy zones only' rule"*, and `loans-consolidation`'s proven shape works
-   the same way. If either paragraph later needs editing, it is a `section-editor` job
-   on a locked row, not a reason to split the panel.
+   ```python
+   if len(holders) == 1:
+       split_ordered(c, src, ids, out, depth + 1)   # <- dissolves c
+   ```
+
+   **Descend into a single holder only if that holder still has a child that is NOT a
+   holder** — i.e. only if there is prose inside it to separate. Otherwise emit it whole.
+   Traced against the skeletons: `#content > .container` descends (container holds h1, p
+   and a prose `<section>`); `.container > .card` stops (card's children are all
+   machinery); `article > .card` on stamp-duty stops, while the article itself still
+   descends. That is the whole fix, it is four lines, and it is vocabulary-agnostic.
+
+   > **⚠ CORRECTED AGAIN 2026-08-12, and the correction shrinks the cost from 2 pages to
+   > 1.** The amendment above originally claimed `mortgages/overpayment` AND
+   > `loans/damage-checker` both hold static copy inside the panel. **`overpayment` was a
+   > FALSE POSITIVE**: I measured a fixed 2,400-character window from `class="card"`
+   > instead of the element's real extent, and the window ran past the card's close. Walked
+   > properly, `div.card`'s only child is `div.calc-grid` — machinery-only, no cost.
+   > **Same error family as the day's other three** (a window/aggregate that answers a
+   > different question than the one asked); logged in `WRONG_CALLS.md`.
+
+   **THE REAL COST, one page.** `loans/damage-checker`'s card genuinely mixes: its direct
+   children are `h3`, a long advisory `<p>` (*"Lenders typically charge between £50 - £150
+   per panel…"*), four `div.checklist-item` (each holding controls) and a `results-box`.
+   Because several children hold marked ids, the EXISTING `len(holders) > 1` branch
+   dissolves that card today and will still dissolve it after this fix. So for this one
+   page the choice is explicit: **lose the panel, or freeze its `h3` + advisory paragraph
+   into the locked tool row.** Precedent for the latter is already in the lane —
+   `mortgages/simple.html` *"is one card containing everything — its widget-internal text
+   is out of the voice's scope by the 'copy zones only' rule"* — and
+   `decompose_pages.py` already carries a per-page override table for exactly this class
+   of exception. **Decide it per page, with the trade-off written down, and do
+   `damage-checker` last with `fact-finder` and `portfolio`.**
 2. ~~**Re-wrap on load.**~~ **REJECTED on evidence 2026-08-12.** It would hard-code a
    class vocabulary, and the census found **at least eight** wrapper vocabularies across
    the 22 pages — `card`, `calc-grid`, `input-grid`, `result-box`, `question-section`,
