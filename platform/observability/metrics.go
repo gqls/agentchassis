@@ -2,10 +2,14 @@
 package observability
 
 import (
+	"database/sql"
+	"errors"
+	"fmt"
 	"net/http"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
@@ -271,4 +275,46 @@ func CircuitBreakerStateValue(state string) float64 {
 	default:
 		return -1
 	}
+}
+
+// RegisterDBPoolStats surfaces database/sql's OWN pool counters for a pool the
+// caller opened. It is the instrument bugs_closed/246 could not be measured
+// with: that bug was a shared *sql.DB being silently re-sized from 12 back to
+// 4, and the honest answer to "did it matter?" was that nothing in this
+// platform could see a pool's size OR its contention — so every pool question
+// got answered "unmeasurable".
+//
+// The stdlib collector is used deliberately rather than nine hand-rolled
+// ai_persona_* gauges. It emits go_sql_* (labelled db_name), which is the name
+// dashboards and alert rules already recognise, and it carries the two
+// questions this platform actually needs answered:
+//
+//   - go_sql_max_open_connections — the CONFIGURED size, so "is the fleet
+//     really running the 12 the operator asked for?" stops being an inference
+//     from environment variables and becomes a reading.
+//   - go_sql_wait_count_total / go_sql_wait_duration_seconds_total — CUMULATIVE
+//     since process start, so read them as a rate. A raw value spanning a roll
+//     describes two different processes and misleads.
+//
+// Registration is idempotent: a second registration of the same pool is not an
+// error, so a caller need not track whether it has already instrumented.
+func RegisterDBPoolStats(reg prometheus.Registerer, db *sql.DB, dbName string) error {
+	if reg == nil {
+		return errors.New("observability: nil registerer")
+	}
+	// A nil *sql.DB reaches the collector as a typed nil and panics on the
+	// first scrape — i.e. long after the mistake, on the metrics goroutine.
+	// agentbase leaves its handle nil whenever DatabaseURL is empty, so this
+	// is reachable, not theoretical.
+	if db == nil {
+		return errors.New("observability: nil *sql.DB, nothing to instrument")
+	}
+	if err := reg.Register(collectors.NewDBStatsCollector(db, dbName)); err != nil {
+		var already prometheus.AlreadyRegisteredError
+		if errors.As(err, &already) {
+			return nil
+		}
+		return fmt.Errorf("registering db pool stats for %q: %w", dbName, err)
+	}
+	return nil
 }

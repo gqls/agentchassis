@@ -26,6 +26,7 @@ import (
 	"github.com/gqls/agentchassis/platform/validation"
 	_ "github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/jackc/pgx/v5/stdlib"
+	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 )
 
@@ -287,6 +288,17 @@ func (a *Agent) initializeComponents() error {
 
 		// Close connections after a while to force recycling
 		db.SetConnMaxLifetime(time.Minute * 10)
+
+		// You size what you OPEN — and you instrument it too. bugs_closed/246
+		// was a second owner silently re-sizing this pool, and it went unnoticed
+		// for weeks because no instrument in this platform could see either a
+		// pool's configured size or its contention. Registered here, at the one
+		// place the pool is created, so the two facts cannot drift apart.
+		// Never fatal: losing a metric must not stop an agent starting.
+		if err := observability.RegisterDBPoolStats(prometheus.DefaultRegisterer, db, "clients_db"); err != nil {
+			a.logger.Warn("Database pool metrics not registered — pool contention will be invisible",
+				zap.Error(err))
+		}
 
 		a.db = db
 		a.stateRepo = orchestration.NewStateRepository(db, a.logger)
