@@ -489,3 +489,65 @@ action's keys in the first place, because the loss happened one step earlier, at
 > ⚠ Unlike the two earlier `090` runs on this bug, this one does **not** depend on the 4-hour
 > evidence window: it asks a question about a **code path**, which is why it is worth its credits
 > where a third re-run of §5b's question would not be.
+
+### `090` VERDICT READ 2026-08-12 — UNVERIFIABLE. The candidate is NEITHER confirmed NOR refuted
+
+Run `dbcc4259-ab84-494b-a48b-1df647209a40`, COMPLETED 2026-08-11 18:42Z, 4 bundle iterations.
+**Do not quote this as a refutation** — and do not quote it as support either. Its own
+`needed_evidence`, verbatim:
+
+> *"The bundle never renders the bodies of `persistAwaitingStateWithRetry`, `processAwaitResponse`,
+> or `applyResponseToState` — only `storeActionResult`'s body and a bare signature line for
+> `applyResponseToState` are present. Without the actual copy logic inside
+> `persistAwaitingStateWithRetry` … there is no static evidence either confirming or refuting the
+> claimed field-list ('only AwaitedRequests, Status and LastActivity')."*
+
+Plus a state-tier miss: *"the diagnosis target correlation_id has no orchestration_states row at
+all"*, and its own `data_request` for a parked row carrying `image_url` returned unrelated rows —
+because **nothing has deployed a hero or logo since** (see the demand control below).
+
+It reached the same `next_scope` I did (`persistAwaitingStateWithRetry`, `processAwaitResponse`,
+`applyResponseToState`, `DeployImageAssetAction`) and cited `storeActionResult`'s
+`state.CollectedData[state.CurrentStep] = result`. So it agrees on where to look and could not look.
+
+### ⚠ THE BLOCKER IS THE BUNDLE, NOT THE INDEX — and §5b (mine) checked the wrong thing
+
+§5a item 1 recorded this same "could not read the function bodies" blocker. **§5b declared it
+clear**, on this evidence: *"the index is fresh and carries all three, including
+`(*SagaCoordinator).applyResponseToState`, 4,746 chars."* That was true, and it was **not an
+answer to the question that mattered.**
+
+Measured 2026-08-12 against `code_symbols` — every body the loop said it lacked **is present**:
+
+| symbol | kind | `length(body)` | lines |
+|---|---|---|---|
+| `persistAwaitingStateWithRetry` | func | **2,058** | 2067–2132 |
+| `processAwaitResponse` | func | **5,619** | 1914–2063 |
+| `(*SagaCoordinator).applyResponseToState` | method | **4,746** | 2650–2779 |
+| `storeActionResult` | func | **970** | 1863–1892 |
+
+**So the index held all four and the bundle rendered one.** The defect is in the code tier's
+selection/rendering, not in indexing — which means §5b's check *could not have come out false* for
+the loop's actual failure mode, the shape `WRONG_CALLS.md` exists to record. Logged there.
+
+**This closes an open question commission item 5 explicitly left.** That lane's PLAN §3 said:
+*"`code_symbols` is now described in the schema section, but whether the code tier has an analogous
+blind spot is unexamined. `[UNMEASURED]`"* — it is measured now, and the answer is **yes, the same
+shape**: item 5 fixed the SCHEMA tier's silent filtering; the CODE tier drops bodies it holds, and
+the verdict's cite-or-abstain rule then acts on that absence exactly as it did for the schema.
+
+**Consequence for this bug: a third `090` on the code-path question will fail the same way until the
+code tier is fixed.** Route it as a diagnosis-harness defect first, not as another run here.
+
+### What the roll changed, and what it did not
+
+| check | result | date |
+|---|---|---|
+| item 2 live on the chassis | **YES** — `v1.0.1290`, `DEPLOYED_IMAGE_RESULT_MISSING_URL` present in `/proc/1/exe` on **both** replicas, negative control absent | 2026-08-12 |
+| `agent_error_log` rows with that code | **0** | 2026-08-12 |
+| **DEMAND CONTROL** — anything deploying a hero/logo at all | **`hero_deployed` 0, `logo_deployed` 0** of 6,364 retained | 2026-08-12 |
+
+**The zero is therefore unfalsifiable, not reassuring.** There has been no demand on the path since
+the roll, so item 2 has not yet had an opportunity to fire. Per §3's own warning, do not read this
+count as an incidence rate in either direction. The behavioural proof still needs a site build that
+deploys a hero or logo.
