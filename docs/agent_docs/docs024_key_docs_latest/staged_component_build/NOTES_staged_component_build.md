@@ -3637,3 +3637,25 @@ finding, not just an absence of one:
 `HANDOFF_2026-08-12_continue_here.md`. This session's context is dominated by the monitoring
 narrative above; the authoring work (RUNBOOK §8–11, a fresh fence, a PLAN, testing, a likely
 council round) reads cleaner starting from a fresh thread than continuing this one.
+
+## 2026-08-12 (fresh session) — claim: 2b (`tool-llm-cost-calculator`); 2a already in flight elsewhere
+
+Ran the session-start checklist from the 2026-08-12 handoff before touching anything. Fleet:
+chassis + browser-runner both confirmed at `fa078ab3d` (provenance line scrolled out of range
+on chassis, confirmed instead by binary-probe with a present/absent control pair — full sha
+present, a fake sha absent). `CHECK_naming_contract.sh` re-run: PASS, 66 canonical tools,
+40 testable / 14 neither / 12 authoring-backlog, no broken class.
+
+**Live-transcript check caught something the handoff's own snapshot had already gone stale
+on**: `tool-bayesian-ranking`'s page rename (RUNBOOK §11) had *already happened* — `pages.id
+b3c2da23…` renamed `bayesian-ranking` → `tool-bayesian-ranking` at 12:54:15Z, eleven minutes
+**after** this handoff was committed (12:43:22Z). Session `48fb60ee` did it and, per its own
+transcript, moved straight into fence-authoring (fetching the live page at 12:55:57Z, reading
+RUNBOOK §4 and `WRITE_fence_into_plan.sql` at 13:03–13:04Z) — still active as of this check.
+**Not claiming 2a; it is owned and mid-flight.** (No `site_plan_pages` second row existed to
+update for this page either way — checked: on gamesdesign, 7 of 14 `/tools/*` pages have no
+`site_plan_pages` match under either name, a pre-existing gap unrelated to this rename, so
+`check_sectionless_pages`'s population is unaffected by it.)
+
+Claiming **2b, `tool-llm-cost-calculator`**, fork-aware per the handoff's §2b. Starting from
+RUNBOOK §8–11 and the fork census below.
