@@ -14,9 +14,52 @@ spec:
     metadata:
       labels:
         app: github-actions-runner
+        # bugs_open/252 candidate 1b. Shared across BOTH runner deployments
+        # (github-actions-runner and github-actions-runner-vmsites) so the
+        # spread constraint below can see them as one pool. `app:` cannot do
+        # this job: the two deployments carry different app values, so a
+        # constraint scoped to either one would have permitted the exact
+        # pairing that opened 252 — a github-actions-runner replica and the
+        # vmsites pod together on ...1149, ~4.5 GB of writable layer between
+        # them. Not in spec.selector, which is immutable after creation.
+        workload: gha-runner
     spec:
       serviceAccountName: ai-persona-app
       terminationGracePeriodSeconds: 60
+      # bugs_open/252 candidate 1b — make the good placement a RULE, not a score.
+      # The 4Gi requests above got the two big runners onto separate nodes, but
+      # only because the scheduler happened to score it that way: measured
+      # 2026-08-12, this deployment had `affinity: None` and
+      # `topologySpreadConstraints: None`, and with 35.1 GB allocatable per node
+      # putting both 4Gi replicas back on one node stayed entirely legal. The
+      # next roll could have quietly undone candidate 1's main win with nothing
+      # reporting it.
+      #
+      # maxSkew 1 over hostname, across the three pods in the pool, means at
+      # most one runner per node while any node is empty. Chosen over
+      # requiredDuringScheduling podAntiAffinity, which expresses the same
+      # intent but DEGRADES BADLY: anti-affinity is unsatisfiable once pods
+      # outnumber nodes and the pod hangs Pending for ever, whereas skew
+      # permits a second pod per node after every node holds one. At 3 pods and
+      # 5 schedulable nodes there is ample slack either way; this is about what
+      # happens when the cluster shrinks, not about today.
+      #
+      # DoNotSchedule, not ScheduleAnyway: ScheduleAnyway is another score, and
+      # a score is the thing that was already failing to bind. A stalled CI
+      # runner is a delayed build; a co-located pair is a node 0.6 GB from
+      # eviction rejecting chassis pods mid-roll.
+      #
+      # nodeTaintsPolicy: Honor (GA in 1.27; cluster is 1.31) so a cordoned or
+      # tainted node is not counted as an available domain — without it the
+      # constraint can reserve skew for a node nothing can actually land on.
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: DoNotSchedule
+          nodeTaintsPolicy: Honor
+          labelSelector:
+            matchLabels:
+              workload: gha-runner
       imagePullSecrets:
         - name: docker-hub-creds
       containers:

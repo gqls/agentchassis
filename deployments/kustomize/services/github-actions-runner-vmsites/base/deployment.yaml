@@ -16,9 +16,31 @@ spec:
     metadata:
       labels:
         app: github-actions-runner-vmsites
+        # bugs_open/252 candidate 1b — the SAME value as in
+        # services/github-actions-runner/base/deployment.yaml, deliberately.
+        # These two deployments are one disk-consumption pool sharing one
+        # image, and this label is the only thing that says so. The long
+        # rationale lives in that file; if you change the value, change it in
+        # both or the constraint silently stops spanning them and the pairing
+        # that opened 252 becomes legal again.
+        workload: gha-runner
     spec:
       serviceAccountName: ai-persona-app
       terminationGracePeriodSeconds: 60
+      # bugs_open/252 candidate 1b — identical constraint to the sibling
+      # deployment. It must be repeated here rather than inherited: a
+      # topologySpreadConstraint is a property of the pod, so a pod carrying no
+      # constraint is placed freely no matter what its neighbours ask for. This
+      # is the pod that was co-located with a github-actions-runner replica on
+      # ...1149, the node that hit DiskPressure at 12:08Z on 2026-08-11.
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: DoNotSchedule
+          nodeTaintsPolicy: Honor
+          labelSelector:
+            matchLabels:
+              workload: gha-runner
       imagePullSecrets:
         - name: docker-hub-creds
       containers:
