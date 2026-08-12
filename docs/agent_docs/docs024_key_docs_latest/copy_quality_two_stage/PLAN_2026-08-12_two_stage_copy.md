@@ -290,3 +290,60 @@ The three in §5 stand. These come from the sweep and are sharper:
    surface.
 3. **Do we opt the rest of the fleet into `evidence_base`, or only the finance sites?**
    17 sites in the pool carry no voice spec and no evidence base at all.
+
+---
+
+## 8. OWNER DECISIONS, 2026-08-12 (answering §7)
+
+Taken in chat after the prior-art sweep was presented. All three are the recommended
+option; recording the reasoning so a later thread does not reopen them cheaply.
+
+**D1. Voice H ships as a SHARED CARRIER, not seven edits.** One place all seven writer
+prompts read at prompt-assembly time. The argument that won it is measured, not
+aesthetic: the seven have already drifted apart from a common ancestor without anyone
+intending it, and this is the second time that drift has cost us. Seven edits would be
+live sooner and would guarantee a third occasion.
+
+- **This is a revision of a live fleet-wide default, so it goes through the council gate
+  as one** (`fleet_copy_quality`'s own conclusion, 2026-08-09), with both options written
+  up, a concept-register entry **in the same commit** (owner ruling 2026-07-28 condition
+  2, which still stands), and the other consumers **told, not merely counted** (owner
+  ruling 2026-07-29 §3). Six writer agents besides `page-content-writer` are consumers.
+- **The exemplars change with the rule, or the change is theatre.** Not a style
+  preference — the prior lane deleted a rule, left its three worked examples in place,
+  and the behaviour did not move. *"The example is the instruction; the rule is
+  commentary."*
+
+**D2. NO unreviewed auto-rewrite. Stage 2's output queues for human review.** This
+preserves the guarantee already written into `voice_tells` (`HandlerAgent: ""`, *"never
+an unreviewed auto-rewrite"*), which means **stage 2 is no longer an architecture-scope
+change** — it adds a producer to an existing HITL-terminal shape rather than changing
+what a shared mechanism guarantees. That materially lowers what it costs to build.
+
+> **⚠ THE KNOWN CONSEQUENCE, ACCEPTED WITH THE DECISION AND NOT DISCOVERED AFTER IT.**
+> `bugs_open/033` — *the human review queue has no working surface*. Today a
+> `needs_human_review` row is where work goes to park: `voice_tells` has **34 parked and
+> 1 ever closed**, and that one closed by machine revalidation rather than by anyone
+> reading it. **So D2 as stated routes stage 2's output into a queue nobody can read.**
+> Stage 2 is not worth building until that surface exists, and `bugs_open/033` therefore
+> moves from "a bug someone should fix" to **this lane's blocking dependency**. It is
+> named here so the next thread meets it in the plan rather than in the backlog.
+
+**D3. Review the three consumer-finance sites carrying `strategy.tone: "authoritative"`
+— `loancalculator.co.uk`, `loancash.co.uk`, `lendzy.co.uk` — and no others.** Read them
+before changing anything. The other five authoritative sites (`finetuning.uk`,
+`fundamentallyai.com`, `gaswholesalers.com`, `oufe.com`, `vetcomparison.uk`) are left
+alone: the mechanism argued for is specifically that "authoritative" turns adversarial
+where **the reader is the weaker party**, and that condition does not hold on a B2B or
+technical site. Reframing all eight would have edited eight specs on a theory
+demonstrated on one site.
+
+### Revised order of work, after these decisions
+
+1. **D1 — the shared carrier** (council submission + register entry + exemplars). The
+   only item that reaches every future page on every site.
+2. **The `audit_source` attribution fix** (§6 1b) — file as a bug, small and provable.
+3. **`evidence_base` for LMC** (§6 1c) — one row, turns on a shipped claims gate.
+4. **D3 — read the three finance sites.** Diagnosis, not a sweep.
+5. **`bugs_open/033`** — now blocking, per D2.
+6. **Stage 2**, page-scoped read / section-scoped write, only after 5.

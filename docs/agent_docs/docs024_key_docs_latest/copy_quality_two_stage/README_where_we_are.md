@@ -140,3 +140,48 @@ written into the machinery on purpose, so changing it is your call and not mine.
 we ship the voice change, do we make seven separate edits or build the one shared place
 they should all read from? Seven is quicker today; they have already drifted apart once
 without anyone meaning it, and they will again.
+
+---
+
+**2026-08-12, evening — you made three decisions, and one of them has a catch I want you
+to see now rather than in a fortnight.**
+
+You chose to build the shared carrier for the voice change rather than making seven
+separate edits. That is the more expensive route today and the right one: those seven
+prompts have already drifted apart from a common ancestor without anyone deciding they
+should, and doing it by hand a second time would guarantee a third. It goes through the
+review council as one change, because it revises a default that governs every site we
+will ever build.
+
+You chose that an editorial pass does not get to change live copy without a human reading
+it. That keeps the rule the system already has, and it makes the second stage a smaller
+and cheaper thing to build than it looked this morning — it is no longer changing what the
+machinery guarantees, just adding another thing that can raise a flag.
+
+**Here is the catch, and it is a real one.** The queue those flags go into does not have a
+working surface for a human to read them in. We have known this since July; it is written
+up as one of the open bugs. You can see what it does in practice on the voice checker we
+already run: thirty-four findings parked waiting for a human, exactly one ever closed, and
+that one was closed by a machine re-checking the page rather than by anyone reading it. So
+"queue it for a human" today means "park it where nobody looks."
+
+That does not change your decision — it is the right call, and building an unsupervised
+rewriter would have been the wrong one. It changes the **order**. The review surface stops
+being a bug somebody should get to and becomes the thing that has to exist before the
+second stage is worth building at all. I have written it into the plan as a blocking
+dependency so the next person meets it in the plan rather than discovering it.
+
+You also chose to look at the three lending sites that carry the same "authoritative"
+setting we have just traced to the adversarial tone on the calculator site, and to leave
+the other five alone. Agreed, and the reason is worth stating: the argument is that
+"authoritative" goes wrong specifically where the reader is the weaker party — someone
+asking to be lent money. That is not the situation on a gas-wholesale or an AI-consultancy
+site, so changing those would be applying a theory well past the evidence for it.
+
+**What happens next, in order.** The shared carrier first, since it is the only item that
+reaches every page on every future site. Then two small things that are nearly free: a
+one-field bug fix that makes copy findings visible as copy findings, and switching on the
+claims checker for the calculator site — it is built, live and approved, and that site
+simply never opted in, which is why nothing checked the new figure in yesterday's rewrite
+except a query I wrote by hand. Then read the three lending sites. Then the review
+surface. Then, and only then, the second stage.
