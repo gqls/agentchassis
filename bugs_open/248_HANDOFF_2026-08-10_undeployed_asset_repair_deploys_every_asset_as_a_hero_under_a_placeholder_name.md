@@ -290,3 +290,27 @@ can never converge") is running on this site too, on the `image-build-handler` r
 Nothing hand-fixed, per this file's own instruction and the owner's framework rule. Full
 trace: `docs/agent_docs/docs024_key_docs_latest/mortgagecalculator_couk_adoption/`
 `HANDOFF_2026-08-11_continue_here.md` §11.1.
+
+---
+
+## CONTRIBUTION 2026-08-12 — a SECOND independent instance, same placeholder, different content
+
+From the `bugfix_210_needs_logo_unhandleable` lane, in passing; no claim on the fix.
+
+A fresh `needs_hero_image`/`image-build-handler` run for mortgagecalculator.co.uk
+(item `68a4faf9-2868-487b-8e19-3fad4ef195c5`, `store_hero_asset` at 2026-08-11 19:08:27,
+`origin_model=banana/gemini-3-pro-image-preview`) deployed to the **same** placeholder this
+file diagnoses — `/assets/images/input-data.asset-key.jpg` — despite that exact path having
+been **deleted from both bucket and repo** the same afternoon (12:36–12:41 UTC) after an
+earlier, unrelated generation was rejected. So the placeholder isn't a stale leftover being
+repeatedly re-served; the deploy step **reconstructs it fresh, every time**, independent of
+prior state. Two independent hero generations for the same site, ~6.5 hours apart, both landed
+there — a frequency data point for whoever measures how often this fires.
+
+Also worth a line for the record: this run's `site_work_items.result` column does **not**
+contain the image-generation outcome — it holds an unrelated `content-gap-planner`-shaped JSON
+(`{"approach":"new_page","new_page":{"name":"guide-mortgage-affordability",...}}`). Checked
+against 8 other `image-build-handler` completions from the same night: all 8 show the expected
+`{"response":{"asset_stored":{...}}}` shape, so this is **not** the same defect —
+isolated to this one row, cause not investigated. Flagging in case anyone chasing 248 also
+reads `result` for evidence and gets a stale/wrong read from this row specifically.
