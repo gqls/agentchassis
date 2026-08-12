@@ -226,6 +226,22 @@ framework didn't do it.** Every finding below is first-hand, this session.
 
 ### 11.1 The hero image — GENERATED, DEPLOYED, and committed to the WRONG PATH
 
+> **CORRECTED 2026-08-12, hours after this section was first written and committed
+> (`f1f0d30b2`): this is `bugs_open/248_…undeployed_asset_repair_deploys_every_asset_as_a_hero_under_a_placeholder_name.md`
+> — ALREADY FILED on 08-10, already `090`-CONFIRMED, and its 08-11 contribution
+> ALREADY NAMES THIS SITE** (an earlier instance the same morning, 10:36Z, asset
+> `477838e3`). I wrote the section below as a fresh finding and only grepped
+> `/bugs_open/` afterwards, which is the wrong order and the rule's own example.
+> Logged in `WRONG_CALLS.md`. **Refer to that bug by SLUG — `248` is an ambiguous
+> number** (the other 248 is a CTA/contact-link case).
+> **What survives as this lane's own contribution** (now written into 248): the
+> fleet census `assets.filename LIKE '%asset-key%'` **cannot see this site at all**
+> — all five of its hero rows have `filename = ''` — so the 118/150-row figure is a
+> **floor, not a count**; the count re-measured on `updated_at` is **150 rows / 16
+> sites**, up from 118/10; and **rung 2 is still live today**
+> (`asset-deployer.deploy_asset config.asset_key = "input_data.asset_key"`), so the
+> `asset_key?` marker I flagged below as a possible fix is **not** one.
+
 Not a detection failure and not a dispatch failure. The framework did the whole job
 and filed the bytes under a template placeholder.
 
@@ -250,15 +266,19 @@ and filed the bytes under a template placeholder.
   (`bugs_open/168`) is not at fault — its input was a template that never resolved.
 - The item closed `complete` because every step returned success: generate ✓, store ✓,
   commit ✓. **A complete work item is not a repaired artefact** — again.
-- ⚠ The live config now reads `"asset_key?": "input_data.spec.asset_key"` (optional
-  marker, so a miss yields `""` → the correct base path), and BOTH
-  `image-build-handler` and `asset-deployer` rows were updated **2026-08-11
-  21:52:40Z — nine hours AFTER the bad deploy**. Note the failed literal was
-  `input_data.asset_key` and the config now names `input_data.spec.asset_key`, so
-  the shape that failed is **not** the shape now live. **[UNVERIFIED]** whether that
-  change is the fix, who made it, or whether it resolves correctly now: there is no
-  `schema_migrations` row after 20:00Z on 08-11, so I could not attribute it. Do not
-  repeat "it is fixed" without a fresh deploy proving it.
+- ⚠ ~~The live config now reads `"asset_key?": "input_data.spec.asset_key"` … **[UNVERIFIED]**
+  whether that change is the fix~~ — **RESOLVED 2026-08-12: it is NOT the fix.** That
+  optional marker sits on the **caller's** `input_mapping`
+  (`image-build-handler.call_asset_deployer`), while the literal that becomes the
+  filename comes from the deployer's own config, and
+  **`asset-deployer.deploy_asset config.asset_key = "input_data.asset_key"` is still
+  there today** — 248's rung 2, unchanged. Both rows were updated 2026-08-11
+  21:52:40Z (nine hours after the bad deploy) but not in the part that matters. The
+  trap that nearly fooled me: **two spellings of the same intent on one path** —
+  `input_data.asset_key` (the one that lands in filenames) and
+  `input_data.spec.asset_key` (everywhere newer) — so grepping for the newer spelling
+  finds it "fixed". `schema_migrations` still has no row after 20:00Z on 08-11, so who
+  changed it is **[UNVERIFIED]**.
 - **Also still true:** `image_url_404:hero.jpg` has been **`blocked`** since
   2026-08-05, and `image_source_unsatisfiable:…:hero` sits at
   `needs_human_review` priority **150** for 17 pages — every tool and guide hero.
@@ -341,12 +361,15 @@ was the framework missing a mechanism. **This is the "a silent mechanism is UNDR
 not missing" class, and 11.1's closing `complete` is the "a complete work item is not
 a repaired artefact" class.**
 
-**Three candidates for `090`, all cross-cutting and all outside the symptom:**
+**Candidates for `090` — TWO, not three (revised 2026-08-12):**
 1. Chrome nav repair is one-directional — it can thin, never thicken (every site).
-2. An unresolved dotted-path input is passed through as a LITERAL and becomes a
-   filename, with success reported at every step (every image deploy).
-3. `deferred` has no promotion path back to dispatch, while still holding the dedup
+2. `deferred` has no promotion path back to dispatch, while still holding the dedup
    slot that would let the finding be re-filed.
+3. ~~An unresolved dotted-path input becomes a filename~~ — **already filed AND
+   already `090`-CONFIRMED** as `bugs_open/248_…placeholder_name.md` (correlation
+   `b78e9a04-9a91-4261-af86-fb79f9316a4e`). Do not spend a run on it; contribute to
+   that file, which this lane has now done. **Grepping `/bugs_open/` first would have
+   saved this section from being written twice.**
 
 Per CLAUDE.md these are exactly the "cause lives outside the symptom / fix changes
 behaviour fleet-wide" cases that must go through the loop **before** being asserted

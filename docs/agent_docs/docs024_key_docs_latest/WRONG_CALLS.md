@@ -28762,3 +28762,55 @@ disconfirmable family: the marker discipline was followed in full, and the numbe
 correct, well-sourced, and inapplicable. Related: my `things_to_avoid` list also banned
 "a reassuring tone" in an earlier version of that same spec — I have now twice written a
 rule into this file that forbade the thing being asked for.
+
+---
+
+## 2026-08-12 — I wrote a durable root-cause section, committed it, and THEN grepped `/bugs_open/`
+
+**Lane:** `mortgagecalculator_couk_adoption`. **What I claimed:** that the site's missing
+hero image was explained by a defect I had traced first-hand — `asset_key` arriving as an
+unresolved dotted-path literal and becoming the filename
+`/assets/images/input-data.asset-key.jpg`. Wire-proven: 200 with real bytes at the wrong
+path, 404 at the path the page references.
+
+**The claim was CORRECT. The framing was wrong, and the framing is the error.** It is
+`bugs_open/248_…undeployed_asset_repair_deploys_every_asset_as_a_hero_under_a_placeholder_name.md`,
+filed **two days earlier**, already **`090`-CONFIRMED**, with a fleet measurement (118 asset
+rows across 10 sites), four ordered fix candidates, and — this is the part that stings — a
+**contribution from 2026-08-11 that already names this very site**, an earlier instance the
+same morning. I wrote ~145 lines of handoff, ~140 of NOTES and a fleet-wide LANDMINES entry
+presenting it as a fresh finding, **committed all of it** (`f1f0d30b2`), and only then ran
+the grep that CLAUDE.md names twice ("grep BOTH directories before filing", "Grep before you
+file").
+
+**What caught it:** the de-duplication check I ran *before firing a `090`* — the right check,
+in the wrong order. Ten minutes earlier it would have cost nothing; instead it cost a
+committed document that had to be corrected in three places and a landmine entry rewritten
+to cite the bug it duplicated.
+
+**The cheap check that would have caught it:** `grep -rln "<the mechanism>" bugs_open/ bugs_closed/`
+— **before writing, not before filing.** I had even read `chrome_link_policy.go`'s header
+comment naming this site for a sibling defect, which should have prompted "what else is
+already written down about this site's asset deploys?"
+
+**The shape, for the tally: I treated "I verified it myself" as licence to skip prior art.**
+First-hand wire evidence makes a claim TRUE; it says nothing about whether it is NEW, and
+novelty is the thing a handoff implicitly asserts by describing a mechanism at length. This
+is kin to `prior-art-search-goes-stale` but the inverse failure: that entry warns an absence
+expires, this one is not having looked at all. Also kin to the fleet's
+`reproducing-a-recorded-figure-is-corroboration-not-discovery` — I reproduced a recorded
+finding and wrote it up as a discovery.
+
+**What survived, and why the session was not wasted:** the re-measurement did find things
+248 did not have, and they are now contributed to it — the fleet census
+(`assets.filename LIKE '%asset-key%'`) **cannot see this site at all** (all five hero rows
+have `filename = ''`), so 118/150 is a **floor, not a count**; the count on the right clock
+(`updated_at`, not `created_at`) is **150 rows / 16 sites**; and **rung 2 is still live**,
+so the `asset_key?` marker that looked like the fix is not one. **Corroboration plus a
+sharper measurement is a real contribution — it is just not a finding, and the document has
+to say which it is.**
+
+**Second, smaller wrong call the same session:** I wrote "every card description is empty"
+after reading the first card in the HTML. It is **1 of 6**. Counting all matches instead of
+reading one instance would have caught it, and did, once I bothered. Same family as
+`a-count-you-kept-is-not-a-census`, one rung more careless.

@@ -215,3 +215,78 @@ Not hand-renamed in the bucket, deliberately: the owner's framework rule, and th
 "the repair reports success" loop, both argue against another hand-placed artefact. The pages
 404 on `hero.jpg` today exactly as they did before the run — nothing regressed; the image waits
 under the wrong name for this bug's fix to move it.
+
+---
+
+## CONTRIBUTION 2026-08-12 — the FLEET CENSUS UNDER-COUNTS this bug, and rung 2 is still live
+
+From the `mortgagecalculator_couk_adoption` lane, reached from the owner's report that
+"the hero image is no longer there". No claim on the fix. Extends the 08-11 contribution
+above, which already named this site.
+
+### 1. `assets.filename LIKE '%asset-key%'` is NOT a census of the defect
+
+It is a census of **the defect AND a successful `assets`-row update**, and those are
+independent. `deploy_image_asset_action.go:378-392` writes the local path onto the asset
+row **best-effort, after the git commit**, and only when `asset_id` is among its inputs —
+its own comment says a failure there "must not fail the deploy". So an instance where the
+commit went to the placeholder path but the row update did not take is **invisible to the
+census**.
+
+**This site is exactly that case, and it is wire-proven:**
+
+- `/assets/images/input-data.asset-key.jpg` → **200, 68,984 bytes, `image/jpeg`**
+- `/assets/images/hero.jpg` → **404** (still referenced by the served homepage's inline
+  `background-image`)
+- and yet **all five** of this site's `hero` asset rows have `filename = ''` and a
+  presigned S3 `url` — **none matches `%asset-key%`**.
+
+So `mortgagecalculator.co.uk` contributes **0 rows** to the 118/150-row figure while
+serving the 404 this bug is about. **Whatever number the fix is measured against, it is a
+floor, not a count** — and the discrepancy is not small: this one site had **five** hero
+generations on 2026-08-11 (`477838e3` 10:35, `d6ead260` 12:46, `9e94250d` 19:07,
+`0e11c818` 19:10, `2e2bea17` 19:11) and none of them reached `/assets/images/hero.jpg`.
+
+**A census that can only see instances whose bookkeeping succeeded cannot size a bug whose
+symptom is bookkeeping that didn't.** To count the rest you have to ask the site repo or
+the wire, not `assets`.
+
+### 2. Re-measured on the right clock: 150 rows / 16 sites, up from 118 / 10
+
+`created_at` is the wrong clock — the placeholder arrives via the post-commit UPDATE, so
+grouping by `created_at` shows only **1** row since this bug was filed and reads as "it
+stopped". By `updated_at`: **109 rows across 15 sites on 2026-08-11 alone**. Total now
+**150 across 16 sites** (2026-08-12), against this file's 118 across 10 on 08-10.
+[MEASURED] — the disconfirming result would have been a flat or falling count.
+
+### 3. Rung 2 is UNCHANGED and still live — the `asset_key?` marker is NOT this fix
+
+Both `asset-deployer` and `image-build-handler` rows were updated **2026-08-11 21:52:40Z**,
+which is easy to mistake for fix candidate 1 or 3 landing. It is not:
+
+```
+asset-deployer      / deploy_asset              config.asset_key       = input_data.asset_key   <-- STILL THE LITERAL
+image-build-handler / store_imagery_asset       config.asset_key_field = input_data.spec.asset_key
+image-build-handler / call_asset_deployer       input_mapping."asset_key?" = input_data.spec.asset_key
+```
+
+The `asset_key?` optional marker sits on the **caller's** `input_mapping`, not on the
+deployer's own `config`. `config.asset_key = "input_data.asset_key"` — the exact string this
+file's §(a) names as rung 2's source — **is still there today**. Fix candidate 1 ("delete
+rung 2", the one line that would have prevented all 118) is **not applied**.
+
+Note the shape difference that makes this confusing: the literal that lands in filenames is
+`input_data.asset_key` (from `asset-deployer`), while the newer mappings all say
+`input_data.spec.asset_key`. Two spellings of the same intent in one path — so grepping for
+the newer one and finding it "fixed" is a trap.
+
+### 4. Also on this site, and probably the same root
+
+`needs_hero_image` / `placeholder_image_in_use:hero` has been filed **five times** here
+(3 `cancelled`, 2 `complete`) and `image_url_404:hero.jpg` has been **`blocked` since
+2026-08-05**. The closed loop this file describes ("consumes a repair cycle per sweep and
+can never converge") is running on this site too, on the `image-build-handler` route.
+
+Nothing hand-fixed, per this file's own instruction and the owner's framework rule. Full
+trace: `docs/agent_docs/docs024_key_docs_latest/mortgagecalculator_couk_adoption/`
+`HANDOFF_2026-08-11_continue_here.md` §11.1.
