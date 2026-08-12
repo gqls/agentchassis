@@ -442,3 +442,25 @@ said ERR. Next real APPLY firing: 00:17 (machine awake permitting) or 12:17.
 
 Topic clock: 106 at 09:45Z → 478 at 11:19Z (~250/h, the under-load rate).
 Scheduler at 10Mi throughout — C3 doing its job.
+
+## 2026-08-12 — contribution from the 040 lane: the topic-storm window only partially overlaps 040's `refused` burst
+
+Routed here by the council gate reviewing a `bugs_open/040-kafka-dial` submission
+(`editquality` seat, correlation `af5f74bc-5e6c-4a6c-a3fc-7ac27eab4b6f`): it flagged
+this bug's `MetadataTopics` landmine as an uncovered candidate mechanism for 040's
+measured 71,832-event `refused` burst. Checked the timing before assuming a shared
+cause — this file's own timestamps make it a partial match, not a full one:
+
+- **040's first burst episode** (~2026-08-10 00:47Z–06:47Z, ~20,255 of the 71,832
+  `refused` events) **overlaps this incident's window** (OOM restarts running up to
+  the last one at `2026-08-10T11:45:56Z`, topic count still 24,131 through then).
+  Plausible shared contributor for this slice.
+- **040's second, larger episode** (~2026-08-10 18:47Z–2026-08-11 16:47Z, ~51,577 of
+  the 71,832 — **72% of the total**) starts **7 hours after** this incident's
+  `OUTCOME 12:02Z` resolution, with the topic count already down at 354. The
+  topic-storm mechanism cannot be the cause of the majority of 040's burst — it had
+  already been fixed by the time most of it happened.
+
+Not filed as a new bug, not claiming to resolve either case — leaving both open with
+this cross-check recorded so nobody re-derives it. Full account and the Prometheus
+figures: `bugs_open/040` §11.

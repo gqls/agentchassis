@@ -648,3 +648,23 @@ will say whether it came through `getController` (this fix's guard will fire and
 the pod will retry a *different* broker instead of dialing garbage) — settling
 mechanism (a) vs (b) the next time it happens, which the diagnosis loop could
 not settle from history alone.
+
+### 11.5 A third candidate the council surfaced, checked and only partially fits
+
+The council submission's `editquality` seat flagged a directly-relevant landmine
+this session had not checked: `platform/kafka/dialer.go`'s `producerTransport`
+leaves `MetadataTopics` blank, so every kafka-go client in the fleet fetches
+metadata for **every topic in the cluster** (~25,000 as of 2026-08-10) roughly
+every 3s — `bugs_open/240` (kafka-scheduler OOM), same transport. A metadata
+storm at that scale is a plausible contributor to broker-side load that could
+produce malformed/empty controller responses under pressure.
+
+**Checked the timing rather than assuming a shared cause.** 240's incident window
+runs through its last recorded OOM at `2026-08-10T11:45:56Z`, resolved by
+`12:02Z` (topic count 24,131 → 354). Burst episode 1 here (~00:47–06:47Z on
+08-10, ~20,255 of the 71,832 `refused`) **does overlap** — plausible partial
+contributor. Burst episode 2 (~18:47Z 08-10–16:47Z 08-11, ~51,577 events, **72%
+of the total**) **starts 7 hours after 240's incident was already resolved**,
+topic count already down at 354. The metadata-storm mechanism cannot explain
+the majority of this burst. Contribution recorded in `bugs_open/240` rather than
+duplicated here; both bugs stay open.
