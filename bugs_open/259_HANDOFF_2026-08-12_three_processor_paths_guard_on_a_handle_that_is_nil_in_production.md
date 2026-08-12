@@ -79,9 +79,57 @@ A concrete downstream effect, also from reading: `sendWorkflowResponseWithStatus
 `result.(map[string]interface{})` for a nested map to identify `lastActionResult`
 ("suppress premature responses"). The placeholder's single value is a **string**, so
 that scan finds nothing to inspect on every call.
-`[UNMEASURED]` — what a parent actually does with the stub, and whether any live
+~~`[UNMEASURED]` — what a parent actually does with the stub, and whether any live
 pipeline depends on the real `CollectedData` arriving by this route. **Measure before
-fixing:** turning this on changes what every parent receives.
+fixing:** turning this on changes what every parent receives.~~
+
+> ## CORRECTION 2026-08-12 (`bugfix_239` lane, on taking this bug): **B's containing function has NO CALLERS. Nothing ever receives the stub.**
+>
+> The `[UNMEASURED]` question above is not merely unanswered — it is **unaskable**, and the
+> answer is zero. Site B lives in `sendWorkflowSuccessResponse` (`processor.go:567`), and
+> that function is **called from nowhere in the repository**:
+>
+> ```
+> $ grep -rn "sendWorkflowSuccessResponse" --include=*.go .
+> platform/messaging/processor.go:567:func (p *MessageProcessor) sendWorkflowSuccessResponse(...)
+> platform/messaging/processor.go:572:	...Info("In file processor.go sendWorkflowSuccessResponse",   # its own log string
+> ```
+> Two hits: the definition and a log literal inside it. **Control** (so the method is known
+> to find callers when they exist): the same grep for the live sibling
+> `sendWorkflowFailureResponse` returns its definition *plus* a real call site at
+> `processor.go:~347`. Tests included in both greps; an unexported method can only satisfy
+> an interface within its own package, and the name appears in no interface.
+>
+> **The dead cluster is larger than one function.** `sendWorkflowResponse` (the inner one)
+> has exactly ONE non-test caller — line `:594`, inside the dead function — so it is dead
+> too. And the placeholder literal is built in exactly one place fleet-wide:
+> ```
+> $ grep -rn '"status": *"completed"' --include=*.go platform/ | grep -v _test.go
+> platform/messaging/processor.go:591          # inside the dead function
+> ```
+> **The live response path does not pass through any of it**: `sendWorkflowResponseWithStatus`
+> (`:804`) is reached directly from `:625` and `:2131`, never via B.
+>
+> **What this changes.** (1) The statement "every workflow response sent from this path
+> carries the placeholder" is true but **vacuous** — no response is ever sent from this
+> path. (2) The `sendWorkflowResponseWithStatus` `lastActionResult` scan finding nothing is
+> likewise never exercised. (3) B's remedy moves from *measure-then-fix* to **delete**, and
+> B joins `bugs_open/247`'s family rather than being the delicate one. (4) The stated risk
+> that motivated caution here — *"turning this on changes what every parent receives"* —
+> **does not exist**: there is nothing to turn on, because the caller does not exist. Do
+> NOT "fix" B by adding the `p.db` fallback; that would resurrect a dead path and *create*
+> the live-behaviour change the file warned about.
+>
+> **Why the filing said otherwise, recorded because the reasoning was sound:** the filer
+> read the control flow inside the function correctly and marked the downstream honestly as
+> `[UNMEASURED]`. The missing step is one every reader of this class owes — **a function's
+> internal certainty says nothing about whether the function runs.** Reachability is a
+> separate question from correctness, and it is one grep. That check is now the first thing
+> this file's "How to verify any fix" section asks for.
+>
+> **Unchanged by this correction:** A (live path, `process()`) and C (live path,
+> `ProcessMessage()`) are both genuinely reachable — confirmed by the same method — so the
+> file's central warning stands for them, and C's redundancy evidence is untouched.
 
 ### C — `~:1486`, the two-phase dedup claim → **REDUNDANT, and that is now evidenced**
 The whole `bugs_open/003` F3 two-phase claim in `ProcessMessage` sits behind
@@ -147,6 +195,14 @@ safety rested on the deleted calls being byte-identical to the defaults; do not 
 
 ## How to verify any fix
 
+- **FIRST, for each site: is the containing function REACHABLE?** One grep, before any
+  reasoning about what the code does — `grep -rn "<funcName>" --include=*.go .` — and read
+  the hit count against a **control** (a sibling known to be live, so you can tell a
+  working grep from a lucky one). This is now first because it was skipped on site B, whose
+  internal control flow was analysed correctly and whose function turned out to have no
+  callers at all: **a function's internal certainty says nothing about whether it runs.**
+  Result of that check, 2026-08-12: **A reachable** (`process()`), **B DEAD**
+  (`sendWorkflowSuccessResponse`, zero callers), **C reachable** (`ProcessMessage()`).
 - **Never build a fixture with `sqlDB` set** — that tests a shape production does not
   have (239's recorded trap; `processor_dispatch_resolution_test.go:433-454` exists
   precisely to pin the production shape `db` set / `sqlDB` nil).
