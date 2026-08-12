@@ -1,4 +1,18 @@
-# HANDOFF — bug 122 lane. START HERE. Written 2026-08-12 (afternoon), chassis `v1.0.1291`.
+# HANDOFF — bug 122 lane. Written 2026-08-12 (afternoon), chassis `v1.0.1291`.
+
+> **⚠ SUPERSEDED FOR STATE 2026-08-12 (evening) — START AT
+> `HANDOFF_2026-08-12c_continue_here.md` INSTEAD.** §3's task is **built and committed**
+> (`5639a1103`). This file remains the reference for **WHY the design is shaped this way** — §3.1's
+> two non-obvious constraints and §3.3's four hazards are all still true and still worth reading
+> before touching the code.
+> **One correction: §3.2 step 1 is WRONG where it says "exactly the keys already computed at
+> `:266`".** That line is reached only by findings surviving the locked-component skip and the
+> `max_items` cap, and a finding dropped by either was MEASURED AND IS STILL FAILING — so building
+> the still-failing set from the filed items would have CLOSED those tickets, which is the false
+> completion the park exists to prevent. The shipped code builds the set from `payload.Contrast`
+> before both filters. Proven by mutation, not argued: reverting it makes
+> `TestWriteRenderAuditFindings_MeasuredButUnfiledFindingsAreNotRetracted` go RED. Full record in
+> `HANDOFF_2026-08-12c` §2 and `NOTES_contrast_ink_slots.md` (2026-08-12 evening).
 
 Supersedes `HANDOFF_2026-08-12_continue_here.md` for **state**. That file stays the reference
 for the two owner decisions of 2026-08-12 (§2, the 08-16 rotation date) — **§2 is unchanged and

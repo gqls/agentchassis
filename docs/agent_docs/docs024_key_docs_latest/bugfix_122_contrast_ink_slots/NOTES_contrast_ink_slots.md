@@ -1341,3 +1341,103 @@ it. **Verified at HEAD, not at the tree** (`git show HEAD:… | grep -c`) → pr
 forward-only held. Recording it because the lane's standing-trap list already carries this trap
 and this is now its second occurrence in two days — the correct response is to expect it and
 verify at HEAD, not to hold work back.
+
+---
+
+## 2026-08-12 (evening) — the retraction is BUILT and COMMITTED (`5639a1103`), and implementing it found a defect in this lane's OWN spec
+
+Session task: the three edits of `HANDOFF_2026-08-12b` §3.2. All three done, plus tests, register
+entry `WII-016`, and council submission `a43b63d6-da35-4136-9471-88ec6ace799a`. Committed by
+pathspec, 8 files, scope block clean (no passengers this time).
+
+### CORRECTION TO THIS LANE'S OWN HANDOFF — §3.2 step 1 would have closed live defects
+
+`HANDOFF_2026-08-12b` §3.2 specified the still-failing set as:
+
+> Build the set of pairings this run **observed still failing**: `workItemKey(...)` for every firm
+> (`over_image=false`) contrast finding — i.e. exactly the keys already computed at `:266`.
+
+**The clause after the dash contradicts the clause before it, and the dash is where the defect is.**
+"Every firm contrast finding" is right. "Exactly the keys already computed at `:266`" is NOT the
+same set, because `:266` is reached only by findings that survive TWO filters that sit above it in
+the same loop:
+
+- `if htmlCorpusContainsClass(lockedHTML, c.Class) { skippedLocked++; continue }` — the culprit
+  class lives in a LOCKED component, so we deliberately do not file it;
+- and after the loop, `if len(toFile) > maxItems { ... toFile = toFile[:maxItems] }` — the
+  `max_items` cap (default 60), worst-ratio-first, dropping the remainder.
+
+A finding removed by either was **measured, and is still failing**. It is simply one we cannot act
+on. Building the retraction set from the filed items reads "not filed" as "fixed" and closes those
+tickets — a false completion, which is the precise outcome the park of 226 exists to prevent. The
+`undeployed_asset` items appended to `toFile` after the cap are a third reason the filed list is
+the wrong source.
+
+So the set is built from `payload.Contrast` directly, **before every filter that decides what to
+FILE**. `over_image` approximations are counted as still-observed for the same reason: the
+adapter's own header calls that backdrop unknown, so "I could not tell" is not a positive
+observation of health, and a pairing that has gone from firm to approximate has not been shown
+fixed. Erring here costs one ticket staying open a week; erring the other way closes a live defect.
+
+**How it was caught:** by reading the function before editing it, per the lane's own standing trap
+("a `file:line` in a handoff is a pointer, not a quotation" — the trap that fired on `:171`
+yesterday, now fired on `:266` today). The citation was accurate about the LINE and wrong about
+the SET. **Cheap check that would have caught it at authoring time:** ask what is between the top
+of the loop and the cited line. Two `continue`s were.
+
+### The four guards are proven by MUTATION, not by a green suite
+
+A passing sqlmock test proves nothing about a negative — the estate's own rule. Each guard was
+reverted to its plausible-but-wrong form, the suite re-run, and the corresponding test confirmed
+RED; the file was then restored and `diff`ed byte-identical.
+
+| mutation | test that must go RED | result |
+|---|---|---|
+| still-failing set built from the FILED items (the handoff's spec) | `MeasuredButUnfiledFindingsAreNotRetracted` | RED |
+| audited-page scope removed (retract anything absent) | `UnreachablePageRetractsNothing` | RED |
+| `over_image` treated as evidence of health | `OverImageReadingDoesNotRetract` | RED |
+| parked counter made indiscriminate (`n > 0` alone) | `RetractsOnlyAbsentPairingsOnAuditedPages` | RED |
+
+The first row is the load-bearing one: **the handoff's spec fails this lane's own test.**
+
+### Figures re-measured rather than carried forward
+
+Ran against `clients_db` before quoting the handoff's numbers, with sibling types as controls so
+the check could have come out otherwise:
+
+```
+item_type                | rows | deferred | with_batch_id | max_attempts | completed
+contrast_failure         |  226 |      226 |             0 |            0 |         0
+empty_section            |   61 |        0 |            61 |            3 |        10
+hardcoded_section_colors |   15 |        1 |            15 |            0 |         9
+asset_reference_404      |    1 |        0 |             1 |            0 |         0
+```
+
+All of `HANDOFF_2026-08-12b` §1's figures hold. The `batch_id` zero is real and the controls are
+what make it evidence rather than a broken query — hence the change also populates `batch_id`, so
+`resolveWorkItems`' `batch_id IS DISTINCT FROM $6` guard can fire here for the first time.
+
+### Consumers enumerated, not asserted (owner ruling 2026-07-29 §3)
+
+Live agents whose config references `render_audit`: exactly **one**, `render-audit-agent`, steps
+`ensure_site_record` / `request_render_audit` / `write_render_audit_findings` / `complete_workflow`
+— all in this lane. The only other Go reader of the same collected-data field is
+`execute_vision_prompt_action.go`, which resolves **only** `.renders` via `resolveVisionImageRefs`
+to feed the design critic and never touches `.summary`, so a new summary key cannot affect it.
+
+### Verified at HEAD, not at the working tree
+
+The shared tree carries four other sessions' modified Go files, so a green build in it is evidence
+of nothing. Extracted `git archive HEAD` into a clean directory: `go build ./...` clean, both
+suites green. This matters more than usual today — a fresh chassis is being built from committed
+HEAD while this was written, so the commit ships on someone else's roll.
+
+### What is NOT done, stated so nobody reads the above as more than it is
+
+- **Nothing has been retracted in production.** The mechanism is INERT until BOTH `agent-chassis`
+  and `browser-runner-adapter` carry it. A chassis-only roll does nothing, by design.
+- The council verdict is **unread** (`Council-Submitted:` trailer, not `Council-Reviewed:`).
+- The 226 stay parked. Do NOT unpark them: the order is ship → watch one weekly audit → then
+  unpark, and hazard (1) means a shipped retraction closes the genuinely-fixed subset on its own.
+- **226 is still a FLOOR, not a census** — the audit was capped at 25 pages until `v1.0.1288`, so
+  this closes tickets without discovering the ones that were never filed.

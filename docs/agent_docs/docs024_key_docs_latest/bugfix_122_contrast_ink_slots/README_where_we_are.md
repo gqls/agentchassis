@@ -491,3 +491,43 @@ Everything is written up and committed, and the handoff is deliberately detailed
 up cold in a fresh conversation — the design is settled, the traps are named, and the tests that
 matter are listed. Nothing is on fire and nothing needs you today. The one dated thing still in
 the diary is Saturday the 16th, when the discovery rota wakes up and we find out what it costs.
+
+---
+
+**2026-08-12 (evening).** The job we settled on this afternoon is built, tested and committed.
+Short version: the weekly check that finds unreadable text on our sites can now also **close its
+own tickets**. When it re-visits a page and the bad colour combination is gone, it closes the
+ticket then and there, recording what it saw and when. That is the piece we were missing, and it
+is why we no longer need the thing three separate reviewers had already refused to let us build.
+
+**One thing I want to flag, because I went against the written plan.** The plan I picked up this
+morning told me how to work out which problems are "still there": take the list of tickets the
+check files, and anything not on it has been fixed. That is wrong, and it took reading the actual
+code to see why. We deliberately **don't** file every problem we find. Two kinds get left out: ones
+whose cause sits in a part of a site somebody has locked (hands off — we can see the problem but
+we're not allowed to touch it), and ones that fall past a cap of sixty per run when a site has a
+lot wrong with it. Those problems are still there. They just aren't on the list. Had I followed the
+plan, the very first run would have closed those tickets and told us those faults were fixed when
+they were not — which is exactly the disaster the 226 parked tickets are parked to avoid. So I
+built it the other way round: work out what's still broken from what the check actually **measured**,
+before any of the filtering happens. I've written this up in three places and put it to the
+reviewers explicitly, because it is the kind of mistake that would have looked like success.
+
+**A decision I made that you should know about.** Once this is running, it will start closing the
+226 parked tickets on its own, a few at a time, as each site's weekly check confirms the fault is
+gone. I could have prevented that and didn't. The reason those tickets are parked is that closing
+them today would mark them "done" with nothing behind it — no evidence, no check, just a status
+change. But a closure that comes from the weekly check is the opposite of that: it happens because
+we went and looked, and it records what we saw. That is precisely the evidence the park was waiting
+for. So the pile drains itself as things genuinely get fixed, and only what is really still broken
+is left needing attention. The count is reported every run so it can't drain quietly without
+anyone noticing.
+
+**Nothing happens yet.** Two services have to be updated before any of this does anything, and if
+only one of them goes out it does nothing at all — deliberately, so a half-update can't produce
+wrong answers. I hear a fresh chassis is being built; that is one of the two. Until the other one
+(the part that drives the browser) goes with it, this is inert.
+
+**Nothing needs you today.** The reviewers' verdict is still pending and I'll act on it. The one
+dated thing in the diary is unchanged: Saturday the 16th, when the discovery rota wakes up and we
+find out what it costs.

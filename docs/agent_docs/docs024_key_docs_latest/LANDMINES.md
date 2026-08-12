@@ -9982,3 +9982,28 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **relations:** `a gate's 0 findings has TWO causes, opposite fixes` (same shape, one layer up) · `a grep proves absence only for the SPELLING it searches` · `WRONG_CALLS.md` 2026-08-12 (the incident: a lane handoff carried "nobody has read a root cause" for a run that had answered the question the day before)
 - **source:** 2026-08-12, `bugs_open/215` quiet-mode lane. Its handoff §7 recorded a 090 run as verdict-less on a `doc_notes` check. The run had completed with five bundles and a correct two-mechanism root cause; the finding became `bugs_open/266`. Caught by asking where a *successful* run puts its output before believing an unsuccessful-looking answer.
 - **added:** 2026-08-12, brochure_component_library lane (bugs_open/215)
+
+---
+
+## A PARKED (`deferred`) work item is retractable — `deferred` is NOT in `workItemClosedStatuses`, so a park drains itself and the count moving is not evidence anyone unparked it
+
+- **footprint:** `site_work_items`, `resolveWorkItems`, `workItemClosedStatuses`, `work_items_common.go`, `write_render_audit_findings_action.go`, `contrast_failure`, `parked_by`, migration `389`
+- **fires when:** you park rows at `status='deferred'` to hold them out of a pipeline — the estate's standard move, and what migration `389` did to 226 `contrast_failure` items — and then later reason about that population: "are they all still there?", "who released them?", "did my restore UPDATE run twice?". It also fires the other way, when you ADD a retraction to a producer and reason about its blast radius from the closed-status list without reading it.
+- **why the wrong result looks exactly right:** there are **two** status lists in `work_items_common.go` and they differ deliberately. `workItemTerminalStatuses` (dedup / `ON CONFLICT`) is `complete failed verified rejected wont_fix unresolved cancelled`. `workItemClosedStatuses` (retraction) is `complete verified rejected wont_fix cancelled`. **`deferred` is in NEITHER** — so a parked row is not terminal (it still holds its dedup slot) and not closed (any retraction may close it). Reading either list and generalising gives you the wrong answer with no error, and "deferred means nothing will touch this" is the natural, wrong, reading of the word.
+- **the second half, which is what makes it silent:** `resolveWorkItems`' self-protection guard is `batch_id IS DISTINCT FROM $6`, and **`NULL IS DISTINCT FROM <uuid>` is TRUE**. So on any producer that does not populate `batch_id`, the guard that exists to stop a run closing what it just raised **is inoperative and looks identical to a working one**. [MEASURED 2026-08-12] `contrast_failure` 0 of 226 rows carried one, against `empty_section` 61/61, `hardcoded_section_colors` 15/15 and `asset_reference_404` 1/1 — every type filed through the discovery-check path sets it; `insertWorkItem` writes it only from `workItem.batchID`, which most action-side producers never set.
+- **the check — ask what may close the rows, not what parked them:**
+  ```sql
+  -- 1. is the park intact, and is anything else closing into it?
+  SELECT status, count(*), count(*) FILTER (WHERE result ? 'resolved_at') AS retracted,
+         count(batch_id) AS with_batch_id
+  FROM site_work_items WHERE item_type = '<type>' GROUP BY status ORDER BY status;
+  -- 2. a row closed BY A RETRACTION says so; a hand-closed one does not
+  SELECT item_key, status, result->>'resolved_by', result->>'reason', result->>'resolved_at'
+  FROM site_work_items WHERE item_type='<type>' AND result ? 'resolved_at'
+  ORDER BY result->>'resolved_at' DESC LIMIT 10;
+  ```
+  `result->>'resolved_by'` is the discriminator that no status can give you: it names the mechanism that closed the row, so "the park shrank" separates into "a retraction closed it on positive evidence" and "a human or another lane moved it" without guesswork.
+- **do not 'fix' this by adding `deferred` to `workItemClosedStatuses`.** That list is the retraction predicate; adding `deferred` would make parked rows UNretractable everywhere, fleet-wide, and it sits one line from `workItemTerminalStatuses`, which is interpolated into `ON CONFLICT ... WHERE` and MUST match `idx_swi_dedup`'s predicate — editing the wrong one of the two raises SQLSTATE 42P10 on every keyed insert fleet-wide, which migration 157 already caused once. If a specific park must survive retraction, exclude it at the CALL SITE.
+- **relations:** `a count you kept is not a census` · `a complete work item is not a repaired artefact` · concept register WII-009 (the retraction seam) and WII-016 (the first action-side adopter, which populates `batch_id` precisely to make that guard fire)
+- **source:** 2026-08-12, `bugfix_122_contrast_ink_slots`. Building the render audit's own retraction (`5639a1103`), the shipped consequence was that the lane's 226 parked rows now close themselves as each site's weekly audit confirms a repair — correct, and a change in what the park MEANS that would otherwise have been discovered by someone finding the count lower than they left it.
+- **added:** 2026-08-12, bugfix_122_contrast_ink_slots lane
