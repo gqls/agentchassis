@@ -1007,3 +1007,72 @@ artefact of comparing two different page sets. **A sitemap is not a fixed popula
 intersect the URL sets before differencing, or a growing site will manufacture both
 regressions and improvements.** Same family as this file's own "grade per selector, never
 by the fleet total", one level down: grade per selector *on the same pages*.
+
+---
+
+## Contribution 2026-08-12 — a fourth consumer of `--color-primary`-as-ink, named: the shared `article-body` component's in-prose links, 91 instances / 17 sites
+
+Not from the `bugfix_122_contrast_ink_slots` lane — reported by the owner from a live
+screenshot of `dartsonline.com/guides/tool-dart-weight-comparator-guide.html` (in-prose
+links reading as invisible dark-on-dark). Contributing the diagnosis here rather than
+opening a parallel account, and **not touching the shared component** — that lane owns
+the renderer-level fix and is mid-deploy of the retraction mechanism (`5639a1103`,
+council-approved, not yet live per its own 2026-08-12c handoff).
+
+**Confirmed live, `scripts/render_audit.py`, 2026-08-12:**
+
+```
+FAIL dartsonline.com/guides/tool-dart-weight-comparator-guide.html contrast=5
+  1.11:1 need 4.5  rgb(26,31,46) on rgb(17,21,32)  .A  'Dart Weight Comparison Tool'
+  1.11:1 need 4.5  rgb(26,31,46) on rgb(17,21,32)  .A  'tungsten darts guide'
+  1.11:1 need 4.5  rgb(26,31,46) on rgb(17,21,32)  .A  'barrel weight guide'
+  1.11:1 need 4.5  rgb(26,31,46) on rgb(17,21,32)  .A  'Dart Setup Builder'
+```
+
+`rgb(26,31,46)` is dartsonline's `--color-primary` (`#1A1F2E`) — identical to its own
+`--color-surface`, so as an ink on `--color-background` (`#111520`) it is nearly invisible.
+This is a live-and-already-parked instance, not a new one: `site_work_items` already carries
+`d7044a72-b209-4d8b-9410-1032e4b7d52b`,
+`contrast_failure:/guides/tool-dart-weight-comparator-guide.html#A.A`, status `deferred` —
+i.e. this page is already inside the 226-row park the lane's 12c handoff describes, no new
+item needed.
+
+**The named cause is new: it is not `.info-card-grid__eyebrow`, `.tl-eyebrow`/`.tl-card-link`
+or `.news-list-tag`** (the three consumers this file has measured so far). It is the shared
+`article-body` component (`content_components.id = 5835b2e1-50d7-4f20-8a9c-8da4d270ae3d`),
+whose inline `<style>` block sets in-prose links unforked:
+
+```css
+.article-body-section .article-body__content a { color: var(--color-primary,#1e40af); text-decoration: underline; }
+```
+
+— the base site-wide rule (`a { color: var(--color-text); }`, high contrast on every site
+checked) is overridden inside every article body, on purpose, and this is the same
+double-duty mechanism sub-shape A already names: one palette slot asked to be both a fill
+(buttons, borders) and an ink (this rule), and no slot exists for "primary made legible as
+an ink" — this file's own `PLAN`'s `--color-primary-ink` proposal is exactly the fix that
+would close this consumer too, once it ships and `article-body` is repointed alongside
+`tool-list` and `image-hover-card-grid`.
+
+**Blast radius, and the honest limit of it: template reach is measured, failure reach is
+not.** The component renders **91 times across 17 sites** (`page_components` join, counted
+2026-08-12) — every one of them a blog or guide article, which is the single most common
+page type this platform generates, so this is plausibly the largest unmeasured consumer of
+the class. But **spot-checking two more sites that use the same component did NOT reproduce
+this failure**:
+
+```
+ok    ai-agent-orchestration.com/blog/why-most-ai-agent-frameworks-fail-at-the-orchestration-layer.html   contrast=0
+FAIL  finetuning.uk/blog/what-can-ai-actually-do-for-a-small-business.html   contrast=3   (all 3 are CTA buttons, none `.article-body__content a`)
+```
+
+So this is **not** "every site with this component is broken" — it reproduces only where a
+site's own `--color-primary` already sits close to its background/surface, i.e. sites that
+would already trip `warnUnusablePrimary` (the existing log-only check this file already
+names as detecting-but-not-acting). **Which of the 17 sites that is remains
+`[UNMEASURED]`** — a real render pass per site is needed before quoting a count, per this
+file's own repeated correction about mixing palette inference with rendered measurement.
+
+**Nothing applied.** No template edit, no DB write — flagging for whoever next repoints
+consumers onto `--color-primary-ink`, the same way `tool-list` and `image-hover-card-grid`
+were repointed by migrations 338/368.
