@@ -220,3 +220,48 @@ What's left: let it run a week. If no failures appear, the case closes. If some 
 the counter will say whether the stall is in the name lookup or the connection
 itself — and that single fact points at either DNS or the network fabric, which is
 the fork nobody has been able to get past.
+
+## 2026-08-12
+
+Nobody had come back to this in the 17 days since I wrote that last line — it sat
+right past its own one-week checkpoint. Picked it back up as part of a general
+sweep for unowned bugs (the ownership checker actually pointed at the *other* bug
+called 040, a false alarm from the number clash noted at the top of this file).
+
+The week of data is now in, and it does not close cleanly — but not for the reason
+I expected. The single rare timeout is still there (32 in the last week, not zero),
+so condition one of the close test fails outright either way. But there's a second,
+much bigger thing the metric caught that wasn't visible in the 22-hour snapshot I
+had before: **connection refused, 71,832 times in a single day**, spread across
+dozens of the temporary worker pods — two orders of magnitude bigger than every
+other kind of failure this metric has ever recorded, combined.
+
+I nearly wrote that number down wrong — my first pass used the wrong kind of
+average and undercounted it by 340 times. Caught it before it went anywhere.
+
+Here's what's interesting: the Kafka brokers themselves didn't restart or wobble
+during that day — they've been sitting untouched for 45 days. So it isn't the
+servers going away. And almost every one of these failures is missing the "which
+broker" label the metric is supposed to always carry — which, once I read the
+labelling code carefully, turns out to mean something specific: the program tried
+to connect to an address with *no server name at all*, just a bare port number.
+That kind of address quietly means "talk to yourself" on this kind of network
+connection — so something is asking these pods to connect to themselves, gets
+nobody answering, and fails instantly (which is why it can happen hundreds of times
+per pod — there's no ten-second wait dragging it out, like the rare timeout has).
+
+I found one piece of code that could produce exactly that: when a worker asks Kafka
+"who's in charge right now" (used when creating a topic), it builds the address to
+call back on from whatever Kafka's reply says the leader's name is — with no check
+that the name isn't blank. There's already a defensive line elsewhere in the
+codebase filtering out that exact blank-address string, which tells me someone
+else, at some point, already tripped over this same thing without connecting it to
+this bug.
+
+I did not go and rewrite that code today. It's the right shape of finding to hand
+to the diagnosis loop rather than guess at — it's fleet-wide, it isn't obviously
+where I first looked, and there's a real second candidate (something inside the
+Kafka client library itself, doing something similar when it looks up which
+"coordinator" to talk to for a group of workers) that I can't yet rule out without
+more digging than a quick read gives me. So I filed it and it's running now rather
+than shipping a patch aimed at a guess.

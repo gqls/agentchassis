@@ -12,6 +12,13 @@ applied); root cause still NOT established; awaiting 7 days of metric.
 **2026-07-27: the first timeout has been measured — §10.** One in ~22h, broker
 prod-2, on a spawned pod. §10 also corrects §9's close condition, which used
 `increase()` and returned **0** for that very event.
+**2026-08-12: the week of data is in and does NOT close the case — and a second,
+much bigger residual was found — see §11.** 32 `timeout` in 7d (condition 1 fails
+outright) plus **71,832 `refused` in a single ~38h burst**, invisible to
+`agent_error_log`, filed to the diagnosis loop (verdict **UNVERIFIABLE** — its
+tools cannot reach Prometheus or the vendored kafka-go internals). One narrowly
+scoped hardening shipped regardless (§11.4): `topic_manager.go`'s `getController`
+no longer builds a dial target from an empty `Host`.
 **Class:** was filed as cluster network infrastructure. **Reclassified 2026-07-26:**
 the infrastructure hypotheses are refuted; what is proven is an *observability*
 defect that made the bug unmeasurable. See §2.
@@ -532,3 +539,112 @@ about. **Say which population any figure covers.**
   is the chassis + spawned agents only.
 - **§4.2 (node-pinned `nc` probes) is still unexercised** and is still the most
   promising untried lead — now with a named broker to aim at.
+
+## 11. The week is in (2026-08-12): §9 does not close, and a much bigger residual — `refused` — was found alongside the rare `timeout`
+
+Picked up as an unowned, past-due bug (17 days since §10, past its own 7-day
+checkpoint; `who-owns.py 040` matches only the *other* 040, a false positive from
+the number collision at the top of this file). Re-ran §9's close condition live.
+
+### 11.1 §9 does not close — condition 1 fails outright
+
+```
+sum(max_over_time(ai_persona_kafka_dial_total{outcome="timeout"}[7d]))  -> 32
+```
+
+Non-zero. The rare, self-healing single-event stall §10 first caught is still
+happening (32 in the most recent week), so this alone means §9 cannot close on
+condition 1 and must fall to condition 2 (diagnose the residual).
+
+### 11.2 A second outcome, two orders of magnitude bigger, that did not exist in §10's snapshot
+
+[MEASURED 2026-08-12, Prometheus, `sum by (outcome)`, **not** `count by (outcome)`
+— see the misstep below]:
+
+| outcome | 17d total |
+|---|---|
+| `ok` | 1,129,512 |
+| `timeout` | 48 |
+| `dns_timeout` | 300 |
+| `dns` | 3 |
+| `error` | 1 |
+| **`refused`** | **71,832** |
+
+`refused` (`ECONNREFUSED`, per `classifyDialErr`) is empty in §10's 07-27
+snapshot — it is new. It dwarfs every other non-`ok` outcome combined.
+
+> **MISSTEP, caught same session before it was written down anywhere durable:**
+> the first pass used `count by (outcome)(max_over_time(...))`, which counts
+> DISTINCT SERIES (how many pods hit that outcome at least once), not the
+> summed counter value. It returned `refused: 212` — plausible-looking, wrong by
+> **340×**. Re-ran with `sum by (outcome)` before citing anything. Logged in
+> `WRONG_CALLS.md` and in the RUNBOOK (§10) so the next session reaches for
+> `sum` first.
+
+### 11.3 Bisected timing, and broker restarts ruled out first
+
+Widening `sum(max_over_time(...{outcome="refused"}[Nh]))` from the current time
+(RUNBOOK §11) shows: **zero in the last 20h**; all 71,832 accumulated between
+roughly **2026-08-10 00:47Z and 2026-08-11 16:47Z** (bursty, quiet
+06:47–18:47 on 08-10), then nothing since. All three broker pods are 45 days old
+with **0 recent restarts** — the brokers did not bounce during this window, so
+this is not "the broker went away mid-roll".
+
+### 11.4 The mechanism read from the code, and the fix that closes it regardless of whether it is THE cause
+
+Almost all of the 71,832 carry an **empty `broker` label**
+(`sum by (broker)` → `{}` 71,826 vs bootstrap-only 6). `brokerLabel()`
+(`dialer.go`) returns the address unchanged only when `net.SplitHostPort`
+**errors** — but `net.SplitHostPort(":9092")` succeeds with host=`""`. An empty
+label therefore means the dial's *address* was `:9092`, not that the label was
+missing.
+
+`platform/kafka/topic_manager.go`'s `getController()` (pre-fix, line 299) built
+its dial target as `fmt.Sprintf("%s:%d", controller.Host, controller.Port)`
+straight from kafka-go's `Controller()` metadata response with no validation. If
+`controller.Host` comes back empty, this produces the literal string `:9092`,
+which as a client-side TCP dial resolves to the pod's **own loopback**, where
+nothing listens — an instant `ECONNREFUSED` (no 10s wait, which is why a single
+pod can rack up 800–1,300 of them). `platform/orchestration/actions/spawn_actions.go:1032`
+already filters the literal string `:9092` out of a *different* broker list —
+someone already learned this string appears, without connecting it to this bug.
+
+**Filed to the diagnosis loop rather than shipped as a guessed fix** (per
+CLAUDE.md's diagnosis-before-debugging: cross-cutting, cause not obviously where
+the symptom is). `090_TRIGGER_needs_diagnosis_v1.sh`, intake correlation
+`04195fa7-28c2-410a-a8cb-15d42acf43c4`, run correlation
+`39bb6fe8-a55c-476e-8ffd-026bec4b57ca`. **Verdict: UNVERIFIABLE** — not a
+refutation. The loop independently confirmed, from real `agent_error_log` rows,
+that `getController`/`CreateTopic` genuinely does produce `failed to connect to
+controller: ... i/o timeout` failures fleet-wide (matching this bug's original,
+already-known signature) — but it has no tool to query Prometheus and no
+visibility into kafka-go's vendored internals, so it could not confirm or rule
+out either candidate mechanism for the *specific* `refused`/empty-broker burst:
+(a) `getController` itself, or (b) kafka-go's internal consumer-group
+coordinator lookup (used by `consumer.go`'s `Reader`, same `InstrumentedDialer`),
+which is not in this repo's code index. Full verdict JSON in the workstream
+`NOTES`.
+
+**Own follow-up check, first-hand:** searched `agent_error_log` for `refused`
+fleet-wide across the burst window, and for the exact pod names Prometheus named
+as top offenders. **Zero rows mention Kafka, dial, or connection-refused at
+all** — this failure is completely invisible to application logs; only the
+metric ever saw it. (The same pods' only log lines in that window are an
+unrelated `message validation failed` delivery error at 02:25–02:26Z on
+2026-08-10, inside the first burst episode — noted as a time correlation, not
+claimed as the same defect.)
+
+**Shipped anyway, narrowly scoped:** `getController` now rejects an empty
+`Host` (`controllerAddress` helper, unit-tested) instead of silently formatting
+it into `:9092`, and logs a `Warn` when it does — closing the "silent" half of
+this finding regardless of which candidate mechanism turns out to be the real
+one, and adding the log visibility that was missing either way. **This is not
+claimed to close the bug** — mechanism (b) is untouched and unconfirmed, and the
+burst has not recurred in 20h to test against. `go build`/`vet`/`test`/`test
+-race` all clean on `platform/kafka/...`. Commit: pending council submission.
+
+**Left for whoever picks this up next:** if `refused` recurs, the new `Warn` log
+will say whether it came through `getController` (this fix's guard will fire and
+the pod will retry a *different* broker instead of dialing garbage) — settling
+mechanism (a) vs (b) the next time it happens, which the diagnosis loop could
+not settle from history alone.

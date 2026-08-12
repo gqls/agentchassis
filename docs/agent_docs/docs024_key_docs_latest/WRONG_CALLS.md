@@ -28931,3 +28931,31 @@ found the plan/pod/measurement ordering incoherent and distrusted the section.
   bug file for 8 days, during which the "harness is fixed" line was available for any thread
   to quote. Now corrected in place in `bugs_open/236` with the measurement, and the real
   defect is routed as a diagnosis-harness bug rather than as another run on 236.
+
+---
+
+## 2026-08-12 — `count by (outcome)` read as a total, wrong by 340×
+
+- **the claim (never written down durably, caught in-session):** first pass at
+  `bugs_open/040-kafka-dial`'s 17-day residual, breaking down
+  `ai_persona_kafka_dial_total` by outcome, gave `refused: 212` and I nearly
+  treated that as the total count of `ECONNREFUSED` dials.
+- **what was wrong:** the query was `count by (outcome)(max_over_time(...))`.
+  `count` over a `by`-grouped vector counts the number of matching TIME SERIES
+  (here: distinct pods that hit that outcome at least once), not the summed
+  counter value. `212` was a real number and it was measuring something else
+  entirely — how many pods, not how many dials.
+- **what caught it:** re-deriving the same breakdown with `sum by (outcome)`
+  as a cross-check before writing anything into a durable file, purely out of
+  habit rather than suspicion. It returned `71,832` — **340× the first
+  figure**.
+- **the cheap check that would have:** ask what the query measures before
+  trusting a plausible-looking number — `count(vector)` and `sum(vector)` are
+  never interchangeable on a counter metric, and the difference is invisible
+  from the output alone (both return one number per label value, in the same
+  shape). Cross-checking a metric breakdown with the OTHER aggregator, once,
+  before citing it, is the same discipline as `a-count-you-kept-is-not-a-census`
+  one level down: at the PromQL layer, not the SQL layer.
+- **cost:** low — caught before anything durable was written, so no correction
+  trail needed. Would have understated a fleet-wide 6.4%-of-dials failure mode
+  by 340× in a bug file read by whoever picks the case up next.

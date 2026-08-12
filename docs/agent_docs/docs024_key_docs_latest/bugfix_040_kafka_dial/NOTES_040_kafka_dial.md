@@ -460,3 +460,86 @@ Two things follow, and they pull in opposite directions:
    it is a distinct, rare event. Part 2 can now pick a timeout from the histogram
    rather than from a remark in a bug file, which is exactly what the council's veto
    was protecting. The veto cost two rounds and bought a decision made on evidence.
+
+---
+
+## 2026-08-12 — session 2 (bug-backlog pickup)
+
+### Ownership check first
+
+`who-owns.py 040` returned OWNED, pointing at `bugfix_040_partial_build` —
+**that is the OTHER 040** (the closed one), a false positive from the number
+collision this file's own header warns about. The real workstream directory
+(`bugfix_040_kafka_dial/`) had not been touched since 2026-07-26, 17 days —
+past its own §9 "awaiting 7 days of metric" checkpoint and nobody had come back
+to read it. `site_work_items` queue check clear (no open kafka/dial/refused work).
+
+### The close condition does not close, and there is a second, bigger residual
+
+Re-ran §9's condition live. `sum(max_over_time(ai_persona_kafka_dial_total{outcome="timeout"}[7d]))`
+= **32** (not zero) — so condition 1 fails outright; the residual needs
+diagnosing per condition 2, same as §10 already found once.
+
+> **MISSTEP, caught within the session: `count by (outcome)(...)` is not
+> `sum by (outcome)(...)`.** My first read of the full-window breakdown used
+> `count by (outcome)`, which counts *distinct series* (i.e. how many pods hit
+> each outcome), not the summed counter value. It happened to look plausible
+> (`refused: 212`) and was wrong by 340x (`refused: 71,832`). Re-ran with `sum`
+> before writing anything down. This is the exact `count`-vs-`sum` shape already
+> named in the memory index (`a-count-you-kept-is-not-a-census.md` family) —
+> should have reached for `sum` first, not discovered the gap by luck.
+
+Corrected 17-day totals by outcome: `ok`=1,129,512 · `timeout`=48 ·
+`dns_timeout`=300 · `dns`=3 · `error`=1 · **`refused`=71,832**. `refused` is new
+since §10 (empty in the 07-27 snapshot) and is two orders of magnitude bigger
+than every other non-ok outcome combined. This is a different, bigger finding
+than the one-timeout-in-22h picture the bug file currently shows.
+
+**Bisected the timing** (`sum(max_over_time(...[Nh]))` at increasing N, see
+RUNBOOK for the loop): zero `refused` in the last 20h; all 71,832 accumulated
+between roughly 2026-08-10 00:47Z and 2026-08-11 16:47Z, in bursts (quiet
+06:47–18:47 on 08-10, otherwise fairly continuous), then nothing for the 20h
+since. Top-offending pods (`agent-content-feed-orchestrator`,
+`agent-feed-ingester`, `agent-tool-acceptance-agent`, `agent-feed-triage`,
+`agent-section-editor`, `agent-build-dispatch-loop`) each carried 850–1,300
+refused dials in that window alone.
+
+**Ruled out broker restarts as the cause first, before theorising code:** all
+three broker pods are 45 days old with 0 recent restarts (`prod-0`'s restart
+count of 6 is ancient, predates this metric entirely). So this is not "the
+broker bounced during a roll" — the brokers were up throughout.
+
+**Almost all of the 71,832 carry an EMPTY `broker` label**
+(`sum by (broker)(...{outcome="refused"}...)` → `{}` 71,826 vs bootstrap-only 6).
+Read `brokerLabel()` (dialer.go): it returns the input address unchanged when
+`net.SplitHostPort` errors, but `net.SplitHostPort(":9092")` does **not**
+error — it returns host="" successfully. So an empty broker label points at a
+dial address of literally `:9092`, not a missing/malformed one.
+
+**Found a live precedent for that exact string already in the code**:
+`spawn_actions.go:1032` filters `broker != ":9092"` when validating a configured
+broker list — i.e. someone already learned this string shows up and guarded one
+call site against it. `topic_manager.go:299`'s `getController()` builds its
+dial target as `fmt.Sprintf("%s:%d", controller.Host, controller.Port)` straight
+from kafka-go's `Controller()` metadata response with no validation — if
+`controller.Host` comes back empty, this produces exactly `:9092`, which as a
+client dial resolves to the pod's own loopback, where nothing listens →
+instant `ECONNREFUSED`, no timeout delay, matching both the outcome label and
+the volume (fast failures, no 10s wait, so a retrying pod can rack up hundreds
+in its lifetime).
+
+**Not yet established, and deliberately not asserted as fact:** whether
+`getController` is what actually runs inside a spawned *agent* pod (topic
+creation is normally the orchestrator's job, before spawn) versus kafka-go's
+internal consumer-group-coordinator lookup (used by `consumer.go`'s `Reader`,
+same `InstrumentedDialer`) hitting an analogous empty-Host response from the
+broker. Both are plausible from reading the code; neither is confirmed from a
+log line or a debugger. This is exactly the "cross-cutting, cause not
+obviously where the symptom is" shape CLAUDE.md's diagnosis-before-debugging
+section asks to file rather than guess at, so filed it instead of picking one
+and writing a patch:
+
+`090_TRIGGER_needs_diagnosis_v1.sh`, intake correlation
+`04195fa7-28c2-410a-a8cb-15d42acf43c4`, claimed by the live dispatch loop,
+run correlation `39bb6fe8-a55c-476e-8ffd-026bec4b57ca`. `site_work_items`
+queue check was clear before filing (no duplicate).

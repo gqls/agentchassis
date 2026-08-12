@@ -178,3 +178,21 @@ is zero fleet-wide — or, if non-zero, when the residual is diagnosed.
 7. **Owner's next image roll** is the gate for everything above becoming live.
 8. Post-roll: verify the metric is scraped (§2 of the RUNBOOK — a zero is
    meaningless until then), baseline it, then decide on the broker-side patches.
+
+## 8. 2026-08-12 — the week landed, and the plan branches (bug file §11 has the evidence)
+
+The close condition in §6 does not close (32 `timeout` in the latest week,
+non-zero), and a second residual — `refused`, 71,832 in a single ~38h burst —
+dwarfs it. **Decision: do not hold this fix for a fully-confirmed root cause.**
+Filed to the diagnosis loop first (verdict UNVERIFIABLE — its tools cannot
+reach Prometheus or kafka-go's vendored internals); rather than wait
+indefinitely for a confirmation the loop structurally cannot supply, shipped a
+narrowly-scoped hardening that is correct regardless of which candidate
+mechanism is the real one: `topic_manager.go`'s `getController` now rejects an
+empty `Host` instead of silently formatting it into a loopback-dialing `:9092`.
+**This is deliberately NOT presented as closing the case** — it addresses one
+of two candidate mechanisms; the other (kafka-go's internal coordinator lookup)
+is out of this repo's direct reach. Sequencing, unchanged in spirit from §6's
+"instrumentation now, judgement calls later" pattern: ship the unambiguously-safe
+part now, leave the uncertain part explicitly open, let the next occurrence (if
+any) settle it via the new log line rather than via more guessing.

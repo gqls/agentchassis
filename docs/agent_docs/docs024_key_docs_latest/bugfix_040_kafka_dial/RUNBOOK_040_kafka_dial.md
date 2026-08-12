@@ -324,3 +324,55 @@ SELECT body FROM doc_notes WHERE categories ? 'council-gate' ORDER BY created_at
 **A missing orchestration row is queue latency, not a dropped dispatch.** Do not
 re-fire; a duplicate spends the same credits and lands further back in the same
 lane. Check depth by re-running the trigger script.
+
+## 10. Re-checking the §9 close condition later — use `sum`, never `count`
+
+**Gotcha that cost 340x on this file, same day (2026-08-12): `count by (outcome)`
+counts distinct SERIES (how many pods hit that outcome at least once), not the
+summed counter value.** It looks like a real number and it is off by two orders
+of magnitude. Always `sum by (outcome)`, cross-checked against a second
+aggregation if the number surprises you:
+
+```
+promq 'sum by (outcome) (max_over_time(ai_persona_kafka_dial_total[17d]))'      # correct
+promq 'count by (outcome) (max_over_time(ai_persona_kafka_dial_total[17d]))'    # WRONG for a total — counts pods, not events
+```
+
+## 11. Bisecting WHEN a burst happened, using `max_over_time` at increasing widths
+
+Because these are per-pod ephemeral counters (§10's `max_over_time`-not-`increase`
+trap still applies), you cannot use `increase()` over a shifted window to find
+when an accumulation happened — a short-lived pod's counter can be "born" at its
+final value with no 0→N step inside your window at all. Instead widen a plain
+`max_over_time` window from the CURRENT time and read off where the total
+jumps:
+
+```bash
+for h in 6 8 10 12 14 16 18 20 22 24 30 36 42 48 54 60 66 72; do
+  echo -n "last ${h}h: "; promq "sum(max_over_time(ai_persona_kafka_dial_total{outcome=\"refused\"}[${h}h]))"
+done
+```
+
+A flat stretch between two widths means nothing happened in that slice; a jump
+means it did. This found two distinct episodes (2026-08-10 ~00:47–06:47Z, and
+~18:47 08-10 through ~16:47 08-11) inside what a single 7d query would have
+reported as one opaque total.
+
+**Gotcha: `offset` combined with a range vector goes empty, not zero, once you
+step past how far back the series exists** — `sum(max_over_time(X[1d] offset 3d))`
+returned nothing (not `0`) for this metric beyond ~2 days back, which is a
+genuine "no `refused` samples in that slice" and not a query error, but LOOKS
+identical to a broken query. Cross-check against a control label (`outcome="ok"`)
+at the same offset to confirm the metric itself has data there before trusting
+an empty result as "zero events".
+
+## 12. Finding a dial address's real host when the `broker` label is empty
+
+`brokerLabel()` (dialer.go) returns the address unchanged only when
+`net.SplitHostPort` **errors**. It does not error on a HOST-less address like
+`:9092` — it returns host=`""` successfully. So an empty `broker` label on this
+metric means the dial target's host component was itself empty, not "unlabelled"
+or "missing". Grep the codebase for anywhere a `%s:%d`-style address is built
+from a struct field with no validation on the host half (`topic_manager.go:299`'s
+`getController` is the one found so far) before assuming the label is a metrics
+bug rather than a real dial address.
