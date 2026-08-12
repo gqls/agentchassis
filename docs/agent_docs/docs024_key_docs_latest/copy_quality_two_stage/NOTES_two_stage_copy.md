@@ -655,3 +655,118 @@ Six guides on a live site have no homepage link until stage 2 exists. That is th
 owner's call, made with the cost named, and the site is new and quiet — but it is a
 real cost and it should not be discovered later as a surprise. If stage 2 slips, the
 repair is one `section-editor` dispatch and the gate says when it is done.
+
+## 2026-08-12 (evening) — the carrier's shape, and the finding that changes what D1 can promise
+
+Groundwork for **D1** (ship voice H as a shared carrier). Two results: one mechanical,
+one that constrains what the submission is allowed to claim.
+
+### Where the rule actually lives — and the drift is real but NOT what was reported
+
+`fleet_copy_quality` said the change is *"seven prompts, not one"* and that they *"have
+already drifted apart — no two identical"*. Located precisely `[MEASURED 2026-08-12]`:
+
+```sql
+SELECT a.type, s.step_name, k.key, length(k.val)
+FROM agent_definitions a
+CROSS JOIN LATERAL jsonb_each(a.default_config->'workflow'->'steps') AS s(step_name, step)
+CROSS JOIN LATERAL jsonb_each_text(s.step->'config') AS k(key, val)
+WHERE k.val ILIKE '%start with the fact%' AND a.is_active …;
+```
+
+| agent | step | key | len |
+|---|---|---|---|
+| content-creator-about | generate_about_content | `prompt_template` | 1,155 |
+| content-creator-hero | generate_hero_content | `prompt_template` | 1,170 |
+| content-creator-hero-without-research | generate_hero_content | `prompt_template` | 1,130 |
+| content-writer | generate_content | `prompt_template` | 3,462 |
+| grounded-explainer | compose_explainer | `prompt_template` | 4,094 |
+| **page-content-writer** | **process_sections_loop** | **`sub_workflow`** | **16,521** |
+| simple-content-writer-with-approval | generate_draft | `prompt_template` | 1,200 |
+
+⚠ **CORRECTION to the inherited claim: "no two identical" is FALSE.** Four of the seven
+carry the opening rule **byte-identical** (`content-creator-about`,
+`content-creator-hero`, `content-creator-hero-without-research`, `grounded-explainer`).
+The drift is in the *surrounding* rules, and in two outliers: `content-writer` adds *"Say
+the real point first"*, and `page-content-writer` is a different thing altogether. **The
+carrier is still right** — four-identical-of-seven is drift waiting to happen, and the
+2 outliers prove it already has — but the submission must not repeat "no two identical",
+because a reviewer who checks will find it wrong and discount the rest.
+
+⚠ **The structural finding for the carrier: `page-content-writer` is not shaped like the
+other six.** Its prompt is nested inside a `sub_workflow` under `process_sections_loop`,
+not in a step's `prompt_template`. Any carrier that assumes "one `prompt_template` per
+writer step" will silently miss **the single most important consumer** — the agent that
+writes every page and that wrote the copy the owner rejected. This is the shape that
+makes a mechanical sweep read as complete while skipping the one that matters.
+
+### THE FINDING — the prohibition D1 would ship is ALREADY THERE, spelled out, WITH worked examples, and it FAILED
+
+`page-content-writer`'s live rule, quoted in full from the DB:
+
+> *"Start with the fact. Never open by saying what something is NOT, or what it is not
+> about, before saying what it is. **"This isn't about the technology, it's about where
+> the record lives"** and **"Nothing here is unusual — one choice matters"** are the same
+> move wearing different grammar: a negative first, then the real point as a reveal. Say
+> the real point first. If a contrast genuinely helps, fold it in after the fact, as a
+> trailing clause. Two or three sentences built this way in one page means go back and
+> say things in the order a person would say them."*
+
+The round-3 H1 the owner rejected on 2026-08-11:
+
+> *"Your borrowing does not come in separate boxes. Neither do these calculators."*
+
+**That is a negative first and the real point as a reveal — the exact move the prompt
+bans by name, explains the mechanism of, illustrates with two worked examples, and even
+warns about at the page level.** The writer did it anyway, in a third grammatical costume
+neither example covers.
+
+**Three consequences, and they are not small:**
+
+1. **D1 cannot be sold as "this fixes the negativity".** It does not. The negation ban
+   already exists in the highest-traffic writer and already failed on the case that
+   started this lane. What H changes is a *different* rule — opening cold with a bare
+   assertion, and varying how sections open. Claiming more than that in the council
+   submission would be a false claim in exactly the place the gate checks hardest.
+2. **It is direct, independent confirmation of the prior lane's hardest finding**, on a
+   case they never saw: *"a rule can only name a form; what goes wrong is an instinct"* —
+   two costumes banned, a third shipped. Their evidence was the owner's style prompt over
+   three rounds; this is the same mechanism on a different prompt, a different site and a
+   different reviewer.
+3. **It qualifies "change the exemplars".** The prior lane proved *positive* exemplars
+   drive behaviour more reliably than rules. This case shows **negative exemplars did not
+   suppress the behaviour they depict** — arguably they kept the construction salient. So
+   D1's exemplar work is not "swap the examples for H's"; it is **"replace demonstrations
+   of the bad move with demonstrations of the good one"**, which is a different edit and
+   the only one the evidence actually supports.
+
+**What this does NOT license.** I have one case. It is consistent with the prior lane's
+independent evidence and with the owner's rejection, but a single H1 cannot establish that
+negative exemplars *cause* the construction — only that they did not prevent it. The
+disconfirming test is cheap and belongs in the submission rather than in a claim: put the
+same brief through a variant with the two negative examples replaced by positive ones, and
+see whether the negation-opening survives. **Until that runs, "negative exemplars keep the
+move salient" is `[INFERRED]`, not measured.**
+
+### Carrier design — reuse, not a new mechanism
+
+No fleet-level prompt-block table exists (`\dt` → nothing global; `site_specs` is per-site;
+`claims_global.go` and `voicetells.go`'s `globalTellPhrases()` hold their fleet-wide sets
+**in Go**, joined at scan time). Holding the house voice in Go would mirror that precedent
+and is **wrong here for one measured reason**: a Go-held block is inert until a chassis
+roll, and the owner iterates on voice text — H itself was corrected twice in three days.
+Voice text must stay DB-live.
+
+Recommended shape, all reuse:
+
+- **Store** the block as one DB row (an `agent_definitions` row used as a config holder is
+  the cheapest reuse — no new table, live immediately, already backed up by
+  `agent_definition_prompt_backups`).
+- **Inject** it into `CollectedData` as `house_voice` in `ExecuteLLMPromptAction`, before
+  `RenderPromptTemplate` runs — **one** Go site rather than seven workflow edits.
+- **Reference** it as `{{.house_voice}}` in each of the seven, deleting the inlined rule
+  and its exemplars in the same edit. `page-content-writer`'s lives in a `sub_workflow`,
+  so that edit is not the same shape as the other six.
+
+This keeps the iterated part (the words) in the DB where the owner can change it without a
+roll, and puts the plumbing in one place instead of seven.
