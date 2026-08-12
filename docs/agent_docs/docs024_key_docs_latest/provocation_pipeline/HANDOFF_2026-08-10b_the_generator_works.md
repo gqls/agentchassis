@@ -1,6 +1,35 @@
 # HANDOFF — provocation pipeline, 2026-08-10 (evening)
 
-> ## ⇢ DELTAS to 2026-08-11 ~17:00Z. Read the body as written; these override it.
+> ## ⇢ 2026-08-12: content is BOOKED TO 22 AUGUST. A DESIGN PASS is the owner's new ask.
+>
+> - **The owner has asked for a design pass on vonc.com** — *"the design of the site can
+>   still be a lot better."* It is a **different lane** and has its own cold start:
+>   **`gauntlet_dead_cta/HANDOFF_2026-08-12_design_pass_START_HERE.md`**. Do not run it
+>   from this lane, and **do not regenerate or re-date provocations from a design
+>   session** — content is booked through 22 Aug.
+> - **The register change is DONE and accepted.** v1.0.1289 live (two negative controls
+>   at 0, the stronger being the refusal message removed that day). Two rounds, 8/8
+>   gate-approved, **8/8 pass the readability rail** where all 28 pre-existing entries
+>   fail it. The owner: *"these new ones are ok"*.
+> - **The 8 pre-rail candidates are BINNED** (owner, 08-12) — `retired`, not `rejected`,
+>   because the gate approved them and filing an editorial decision as a gate rejection
+>   corrupts the only count of what the gate actually refuses.
+> - **Schedule: today through 2026-08-22.** Six dated 17–22 Aug; **two held in reserve**
+>   (`a-messy-desk…`, `umbrellas-are-not-worth-carrying`) — that is `max_assign 6`
+>   working as the owner's depth ruling specifies, not an oversight.
+> - **The rail is STILL ADVISORY and should stay so for now.** 8/8 over two rounds is
+>   the run its own comment asked for, but two rounds of four cannot detect a 1-in-9
+>   failure rate — the exact rate a concurrent session found in the safety judge after
+>   two clean rounds had hidden it. Flipping needs enough rounds to BOUND the pass rate.
+> - Note for whoever runs the next batch: a **permission-classifier outage** blocked all
+>   writes for ~20 minutes on 08-12. Read-only commands still worked. It failed CLOSED
+>   and cleared on its own; the cluster's own model calls were healthy throughout, so it
+>   was not a model outage or a usage cap. If it recurs, hand the owner the statement to
+>   run with `!` rather than loosening the permission mode.
+>
+> ---
+>
+> ## ⇢ Superseded delta from 2026-08-11 ~17:00Z, kept for the trail
 >
 > ### The owner has rejected the HOUSE REGISTER, not one entry — this is the live issue
 >
