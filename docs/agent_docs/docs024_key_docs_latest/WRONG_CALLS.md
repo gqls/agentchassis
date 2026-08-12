@@ -28959,3 +28959,57 @@ found the plan/pod/measurement ordering incoherent and distrusted the section.
 - **cost:** low — caught before anything durable was written, so no correction
   trail needed. Would have understated a fleet-wide 6.4%-of-dials failure mode
   by 340× in a bug file read by whoever picks the case up next.
+
+## 2026-08-12 — I planned, and got approval to spend money on, a day of another lane's work: there are TWO "finetuning" lanes and I only read the one I was handed
+
+Handed `finetuning/HANDOFF_2026-08-08_continue_here.md` as a cold start, I established that
+the pilot has never produced an adapter, wrote
+`PLAN_2026-08-11_first_end_to_end_training_run.md`, took the owner's approval for the model
+choice **and the GPU spend**, and began Phase 0.
+
+**`docs/.../finetuning_uk_service/` already owned all of it.** Its
+`HANDOFF_2026-08-09_continue_here.md` — one day newer than mine — carries the same work as its
+own **"Phase 0 — the measured rehearsal"**, costed at ~$1–2, with a RUNBOOK §2 for the bundle
+re-tar and md5 round-trip, candidate models named (SmolLM2-1.7B / Mistral 7B), and more in it
+than I planned (per-stage pricing, merge→GGUF, an a6000 playground rehearsal). **A session was
+executing it while I wrote my plan** — its last commands export `B2_APPLICATION_KEY` in its
+scratchpad, 2026-08-12 ~13:47. I found it only because I went to touch the scripts bundle and
+noticed `run.sh` was dirty in the tree, then asked whose the uncommitted change was.
+
+**The check I skipped is prescribed in my own auto-loaded index**, which says of
+`MEMORY_workstreams.md`: *"Read it when you are picking up or touching a named lane."* I was
+picking up a lane called finetuning. Line 72 names the owning lane, its cold-start file, its
+next step ("Phase 0"), **and the exact landmine I later reported as a discovery**: *"git
+`run.sh` and the live B2 bundle intentionally DIFFER until Phase 0 re-tars."* One grep for
+`finetuning` in that file, at minute one, replaces the whole detour.
+
+**Why the directory name did not save me:** I was in `finetuning/`, the other is
+`finetuning_uk_service/`, and there is a third, `finetuning_uk_repair/`. My handoff's §5
+"documents by question" table lists `../finetuning_uk_repair/` and `../webdesign_uk_build_service/`
+as siblings — it is a file that clearly knows about neighbouring lanes, which made its silence
+about `finetuning_uk_service` read as completeness. **An index that lists SOME siblings implies it
+lists ALL of them, and nothing in the file marks the difference.**
+
+**What makes this worse than a duplicate observation:** I did not just re-derive a finding, I
+**asked the owner to approve spending money** on work already planned, already costed lower, and
+already in flight. The approval was real and I would have acted on it. `who-owns.py` would not
+have helped — it reads commits and the other lane's Phase 0 has not produced one — but it is not
+the tool for this; the workstream index is, and it was current.
+
+**The cheap check, in order:** (1) `grep -n "<lane word>" MEMORY_workstreams.md` before reading
+the handoff you were handed; (2) `ls -td docs/agent_docs/docs024_key_docs_latest/*<lane word>*`
+— three directories would have shown up instantly; (3) when a tracked file in the lane is
+**dirty**, find out whose it is *before* planning around it, not after.
+
+**The shape:** *being handed a file is not being told which lane owns the work.* A cold-start
+pointer answers "where do I start reading", never "is this the current owner" — and the more
+complete and well-cross-referenced that file is, the more confidently it answers the wrong
+question. Related in kind to the 08-11 entry above about reading the owning lane's NEWEST
+handoff; that one was about a stale file within a known lane, this one is about a lane I never
+knew existed.
+
+**Salvage, so the detour is not a total loss:** three measurements in the plan stand and are
+worth handing to the owning lane — export `a8484922` records 1,957 rows and actually holds
+**0** (`146a9a12` is the good one at 1,958/1,958); both June blockers are verifiably gone on
+v1.0.1288; and **`model_lifecycle.artefacts` has no writer anywhere**, which I have not seen
+stated in their docs and which means a successful Phase 0 still records nothing.

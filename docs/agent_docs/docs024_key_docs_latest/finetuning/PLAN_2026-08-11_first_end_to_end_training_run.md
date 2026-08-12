@@ -1,5 +1,40 @@
 # PLAN — the first end-to-end training run (2026-08-11)
 
+> # ⚠ SUPERSEDED 2026-08-12 — DO NOT EXECUTE THIS. ANOTHER LANE OWNS IT.
+>
+> **`docs/.../finetuning_uk_service/` owns the service backend, and its
+> `HANDOFF_2026-08-09_continue_here.md` already carries this work as its own
+> "Phase 0 — the measured rehearsal", with a RUNBOOK (§2) for the bundle
+> re-tar/upload and the md5 round-trip.** A session was **actively executing it**
+> while I wrote this (B2 credentials exported in its scratchpad, 2026-08-12
+> ~13:47). I wrote this plan without knowing that lane existed.
+>
+> **Read theirs, not this.** Their Phase 0 is wider and better-founded: it prices
+> each stage, does merge→GGUF, adds a playground rehearsal on an a6000
+> ($0.35/hr — measured; there is no `l40s`), and only then enables
+> `thunder-training-monitor`. Their candidate models are **SmolLM2-1.7B or
+> Mistral 7B**.
+>
+> **What in here is still worth keeping** — all of it measurement, none of it
+> direction:
+> - the export-integrity finding (`a8484922` records 1957 rows and holds **0**;
+>   use `146a9a12`, 1958/1958) — §5.2;
+> - both June blockers verified gone on v1.0.1288 — §1;
+> - `thunder-training-monitor` has **never been triggered**, and
+>   `model_lifecycle.artefacts` has **no writer at all** — §2. The second is the
+>   one I have not seen stated in the other lane's docs and is worth carrying to
+>   them.
+>
+> **What was wrong beyond ownership:** §5.1 presents the stale B2 bundle as a trap
+> I uncovered. It is a **known, deliberate** state, recorded in
+> `MEMORY_workstreams.md`: *"git `run.sh` and the live B2 bundle intentionally
+> DIFFER until Phase 0 re-tars"*. The re-tar IS their Phase 0 step. Nothing was
+> discovered.
+>
+> Kept rather than deleted because the measurements are real and dated, and
+> because the routing failure is itself worth leaving visible. `WRONG_CALLS.md`
+> 2026-08-12.
+
 **Goal, stated so it can be failed:** one training run that reaches
 `RUN_SH_DONE` with a final adapter **durable in B2** and a `training_runs` row
 that carries real metrics — not a hand-flipped status.

@@ -553,6 +553,26 @@ works):
 
 ---
 
+> # ⚠ READ FIRST (2026-08-12) — THERE IS A SECOND FINETUNING LANE, AND IT OWNS THE SERVICE
+>
+> **`docs/.../finetuning_uk_service/`** — cold-start
+> `HANDOFF_2026-08-09_continue_here.md`, **newer than this file**. It owns the
+> **service backend**: the paid demo fine-tune, Thunder, the bundle, the run.
+> It has the full standing five plus a RUNBOOK of the actual commands.
+>
+> **This directory (`finetuning/`) is the older service-thinking + the site.**
+> §9.5 below correctly identifies "prove one run end-to-end" as the critical
+> path — **that is their Phase 0, it is planned in their handoff, and a session
+> was executing it on 2026-08-12.** Do not plan or fire it from here.
+>
+> The lane boundary they state: the site FRONT END belongs to
+> `finetuning_uk_repair`; their lane is service backend only. So this file's §9.1–9.4
+> and §9.6 (site) are the part that genuinely lives here.
+>
+> **Check `MEMORY_workstreams.md` before picking up anything called
+> "finetuning" — it names both lanes and their cold-starts.** I did not, and
+> planned a day of their work. `WRONG_CALLS.md` 2026-08-12.
+
 ## 9. SESSION 2026-08-11 — §8.4 re-grounded: four of its five items were already resolved, and task C is ANSWERED
 
 Everything below measured today against the live system. **Read this before
