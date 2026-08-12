@@ -219,6 +219,25 @@ var itemTypesWithoutVerifiers = map[string]verificationGap{
 	"unfulfilled_hero_variant":    {catMechanical, "imagery plan completeness"},
 	"silent_failure":              {catMechanical, "meta item; predicate is the silent-check sweep"},
 
+	// The four check_site_structural_validity.go checks (generalising
+	// bugs_open/251's verify_site.py --live catch fleet-wide). Classified on the
+	// way IN, before the first row exists, per this file's own 07-20 correction —
+	// none is enabled on a live discovery agent yet (that wiring is deliberate
+	// follow-up work, not this commit's job).
+	//
+	// All four are deliberately NOT verifier candidates, same posture and same
+	// reason as asset_reference_404/site_unreachable directly above/below in this
+	// map: each is itself a live-probe check (a GET of the served page, and for
+	// dead_internal_link_live a second GET of the link target), so a completion-time
+	// verifier would re-run an outbound HTTP call on the completion path — the
+	// exact thing those two entries decline. Each SELF-CLEARS through
+	// CheckResult.Resolved on a positive re-observation on its next run, which is
+	// the same information a verifier would have had to fetch.
+	"dead_internal_link_live": {catMechanical, "bugs_open/251-adjacent; live-probe check (GET a referenced <a href> target, 404|410 only, confirm-before-file — same discipline as asset_reference_404); carries page_id of the FIRST page observed to link there. Deliberately NOT a verifier candidate, same reason as asset_reference_404/backend_entry_orphaned above: verification would put an outbound HTTP probe on the completion path. Self-clears via CheckResult.Resolved on the next run's positive 2xx/3xx re-observation"},
+	"canonical_mismatch":      {catMechanical, "bugs_open/251 fleet-wide regression guard; live-probe check (GET the served page, compare its <link rel=canonical> against preferredStructuralURL's expected value, GET the canonical target itself). Deliberately NOT a verifier candidate — same outbound-HTTP-on-completion-path reason as its siblings in this map. Self-clears via CheckResult.Resolved when the next run's live re-probe finds the canonical correct"},
+	"structured_data_invalid": {catMechanical, "live-probe check (GET the served page, json.Unmarshal every <script type=application/ld+json> block). The parse itself is deterministic given the body, but obtaining the body is the same outbound GET the siblings above decline to repeat on the completion path. Self-clears via CheckResult.Resolved when the next run's re-probe finds every block parses (including the vacuous zero-block case)"},
+	"head_essentials_missing": {catMechanical, "live-probe check (GET the served page, assert non-empty <title>, a skip-link, a <footer>). Same outbound-HTTP-on-completion-path reason as its three siblings above. Self-clears via CheckResult.Resolved when the next run's re-probe finds all three present"},
+
 	// ---- FOUND BY THE SOURCE SCAN, not by the live-DB snapshot ----
 	//
 	// These 17 are declared by checks but have never appeared in site_work_items,
