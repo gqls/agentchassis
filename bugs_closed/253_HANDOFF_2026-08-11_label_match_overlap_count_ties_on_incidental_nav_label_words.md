@@ -23,12 +23,50 @@
 > in that pool structurally — 253's mechanism cannot regress it). Full numbers and the
 > gaswholesalers/vetcomparison/robot-hands regression traces:
 > `docs/agent_docs/docs024_key_docs_latest/bugfix_203_phantom_cta_cleanup/CALIBRATION_2026-08-11_label_match_identity_report.txt`.
-> Submitted to the council gate before commit: `Council-Submitted: ccef36de-6757-4777-91db-37864b018622`
-> (verdict not yet read at time of writing — see that correlation in `diagnosis_artifacts`
-> for the result). **STATUS STAYS OPEN**: fixed-and-committed is not fixed-and-live per the
-> standing bar (closed requires the fix to have shipped in a fleet roll); do not flip this to
-> CLOSED on the strength of the commit alone. `bugs_open/248` is unaffected by this fix and
-> remains the other blocker on draining the `misdirected_cta` repair queue.
+> Submitted to the council gate before commit: `Council-Submitted: ccef36de-6757-4777-91db-37864b018622`.
+> `bugs_open/248` is unaffected by this fix and remains the other blocker on draining the
+> `misdirected_cta` repair queue.
+
+> **FIXED AND LIVE — CLOSED 2026-08-12.** Moved to `bugs_closed/` per the restored fixed-AND-live
+> bar (owner, 2026-08-12: "if it is fixed and live it should be moved"). Both checks done
+> directly, not inferred from a roll announcement:
+> 1. **Build provenance, at the artefact, not git.** The startup "build provenance" log line
+>    had scrolled out of `--tail=3000` on both live `agent-chassis` pods (a known landmine —
+>    it is a startup-only line on a busy service). Fell back to the binary probe: extracted
+>    every 40-hex substring from `/proc/1/exe` (one bounded `grep -aoE`, not a blind
+>    single-string discovery grep, which the landmine warns matches Go's internal digit
+>    tables on every service) and cross-checked each candidate against real commit hashes in
+>    this repo's history with `git cat-file -e` — a spurious binary-table match cannot also be
+>    a real, existing commit sha in this specific repo. Exactly one candidate matched a real
+>    commit: `da5a7eb8ff12f78a3569d8474363445013a77557` (2026-08-12 15:37:47+01), which
+>    `git merge-base --is-ancestor f1819861f8316aea502364fb85a4cf006c24b9a5
+>    da5a7eb8ff12f78a3569d8474363445013a77557` confirms is a descendant of this fix's commit.
+>    Both `agent-chassis` pods started 2026-08-12 14:55Z, after that build. **The fix is live.**
+> 2. **Live control, dispatched directly** (the scheduled discovery rotation cannot be
+>    targeted): `completeness-discovery-agent` re-run against robot-hands.com
+>    (orchestration `c7d41ab0-cc65-42ea-a15b-c14a291fa7a0`, COMPLETED). Read from
+>    `collected_data->'discovery_result'->'findings'`, not `site_work_items` (the dedupe
+>    trap — fresh findings that match an existing `detected` row file nothing new there).
+>    **`how-to-specify-a-gripper` — the exact page this bug was filed against — carries ZERO
+>    `misdirected_cta` findings in this run**, down from the 3 that motivated filing this bug.
+>    17 `misdirected_cta` findings remain fleet-wide on this run, all a DIFFERENT, unrelated
+>    pattern (a `/matchmatrix.html` vs `/tools/matchmatrix/index.html` vs
+>    `/matchmatrix-methodology.html` vs `/how-it-works.html` naming confusion) — genuinely
+>    separate site content ambiguity, not a 253 recurrence; not investigated further here as
+>    out of this bug's scope.
+>
+> **Council verdict**: the first council run failed on infrastructure, not content — `error`
+> column read `reaper: stale EXECUTING_STEP for >4h; step=review_bug_historian`, i.e. one seat
+> hung and was reaped, no verdict was ever produced. Resubmitted under the SAME trail
+> correlation (`RESUBMIT_CORR=ccef36de-6757-4777-91db-37864b018622`), new run orchestration
+> `101c11d9-50d7-4499-98b2-894138213094`, still pending at time of writing. The commit's
+> existing `Council-Submitted:` trailer needs no amend — `098`'s report resolves by
+> correlation at report time, so approval on this resubmission credits the same commit
+> automatically. Whoever next touches this lane: check the verdict
+> (`SELECT created_at, metadata->>'decision' FROM diagnosis_artifacts WHERE
+> correlation_id='ccef36de-6757-4777-91db-37864b018622' AND kind='council_report' ORDER BY
+> created_at;`) and act on REVISE/REJECTED if it isn't APPROVED — closing this file does not
+> retire that obligation.
 
 **Filed 2026-08-11** by the `bugfix_203_phantom_cta_cleanup` lane. Found while running
 detection manually to build a repair list — **this defect is why that repair list was not
