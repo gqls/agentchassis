@@ -1131,3 +1131,111 @@ a deleted entry. Recorded here because a pathspec commit cannot exclude a
 same-file passenger (CLAUDE.md says so explicitly), my `git diff --numstat` check
 ran *before* their write landed, and the commit message is therefore the only
 place a bisecting reader would look and not find them.
+
+---
+
+## 2026-08-12 13:15 — delivery fixed and hardened; CTA destinations set
+
+Both on the owner's explicit decisions this session ("fix and harden";
+"primary CTAs → app.noted.co.uk").
+
+### 1. Delivery: sparse cone fixed, then the drift class closed
+
+`sudo -u www-data git -C /var/lib/sitesync/repo sparse-checkout add noted.co.uk`
+(needs `GIT_SSH_COMMAND` — it is a `--filter=blob:none` clone, so newly-included
+paths must fetch their blobs).
+
+`[MEASURED]` before → after, every figure taken in the same breath:
+
+| check | before | after |
+|---|---|---|
+| shopfront box-local (`Host: webdesign.uk`) | `200 / 28015` | **`200 / 28015`** |
+| `webdesign.uk` webroot files | 18 | **18** |
+| `webdesign.uk` checkout files | 18 | **18** |
+| `noted.co.uk` webroot files | **0** | **17** |
+| `noted.co.uk` box-local (`Host: noted.co.uk`) | **403 / 162** | **200 / 26402** |
+
+26402 B is exactly `index.html`'s size in the repo. The box now serves the
+framework build — `<title>Noted — Put a thought down quickly and find it again
+later</title>`, 54 sections, 3 `data-component`s, and no `NotedDB` (i.e. not the
+legacy app).
+
+**The live site is untouched, verified not assumed:** `https://noted.co.uk/` still
+returns the legacy app from B2 with the **same** `x-amz-version-id` as before the
+change, and still contains "being refreshed" and "Save everything".
+`app.noted.co.uk/api/health` still `{"status":"ok"}`. Cutover remains a separate
+deliberate step.
+
+**Then the hardening**, because the one-command fix leaves the defect in place:
+`sitesync` now **derives the sparse cone from `DOMAINS` on every run** and only
+calls `sparse-checkout set` when they differ (an unconditional set would re-run a
+checkout in the live shopfront's clone 288 times a day for nothing). The combined
+`if [ -d folder ] && [ -d webroot ]` guard is split into two, each with a **loud
+warning on stderr**, because the two skips mean opposite things and the silent
+version cost a day. Repo copy and box copy are identical; box backup at
+`/usr/local/bin/sitesync.bak-20260812`.
+
+Logic tested **both ways before shipping** — the no-op arm is the one that rots
+unnoticed, so it was exercised explicitly: matching cone (either sort order) →
+no-op; the actual bug state (`webdesign.uk` only) → sets both; empty cone → sets;
+a stray extra domain → converges back to `DOMAINS`. The manual run as `www-data`
+was silent and exited 0, which is now the *correct* meaning of silence.
+
+### 2. CTA destinations — `CTA_2026-08-12_noted_cta_destinations.sql`
+
+Read the **templates**, not the work-item summaries, for the field names
+(`content_components` `23f95f00…` hero, `0197e8d7…` call-to-action): both gate each
+button on `{{if and .cta_text .cta_url}}` / `{{if and .primary_cta .primary_cta_url}}`
+/ `{{if and .secondary_cta .secondary_cta_url}}`. The build wrote every CTA *text*
+and **no URL at all**, so all six slots rendered zero anchors.
+
+Destinations were chosen to match the copy the framework already wrote — no
+wording changed (owner ruling 2026-08-06):
+
+| page · slot | primary | secondary |
+|---|---|---|
+| index · hero / call-to-action | "Sign in" → `https://app.noted.co.uk/` | "See how it works" → `/how-it-works.html` |
+| how-it-works · hero | "Open Noted" → `https://app.noted.co.uk/` | "Bring your notes with you" → `/migrate.html` |
+| how-it-works · call-to-action | "Sign in" → `https://app.noted.co.uk/` | "Already have notes somewhere else? …" → `/migrate.html` |
+| migrate · hero / call-to-action | **"Save everything" → deliberately none** | "See how it works" → `/how-it-works.html` |
+
+**Why migrate's primary is left unresolved.** "Save everything" is a *local-data
+rescue*, not a sign-in: its true destination is the `/legacy` page that PLAN §4
+step 3 has not built yet. `app.noted.co.uk` would misdescribe the action, and
+`/legacy.html` would ship a 404 into a platform that actively detects unbuilt
+internal links. The template's designed degraded state — render no button — is the
+honest option. **Those two work items stay `needs_human_review` on purpose; set
+them when `/legacy` exists.** Four items closed, two open, asserted in-SQL.
+
+### A silent no-op I nearly shipped
+
+My first draft closed the work items by joining on `wi.spec->>'page_id'`. **That
+key does not exist** — the spec keys are `component`, `fix`, `missing`,
+`page_name`, `section_name`, `source`. It would have matched **zero rows, updated
+nothing, and committed successfully**, and the only visible result would have been
+four items still sitting in `needs_human_review` looking like the queue's fault
+rather than mine. Caught by enumerating the keys (`jsonb_object_keys`) instead of
+reading the one path I expected to be there — the standing rule about a jsonb path
+read being blind to the shape underneath it, which I had to apply to my own SQL.
+The file now asserts `ROW_COUNT = 4` and raises otherwise: a hand-written status
+change with no assertion is indistinguishable from a no-op.
+
+### 3. Rerender filed — and a correction to my own script's warning
+
+`scripts/initial_messages/001_assemble_all_pages_rerender/082_trigger_rerender_site_noted.sh`
+(new, adapted from the gaswholesalers one). A **rerender** is correct here and a
+regeneration would be actively wrong: a rerender merges `content_data`, so the
+hand-set `*_cta_url` keys survive, while a regeneration replaces it and would drop
+them (memory `bugfix 238`). `refresh_site_components=false` — only page bodies
+changed.
+
+Dispatch verified at the artefact, not at kcat's exit code: orchestration
+`fe51e8d7-8dff-4f0a-9ab8-d2ebf49ee644` COMPLETED 13:10:49 and **5 `page_rerender`
+items** are in `triaged`.
+
+> **CORRECTED within minutes of writing it:** that script's header warns "expect
+> hours, not minutes" from the estate-queue starvation. `[MEASURED 13:12]` the
+> backlog ahead of these items is **3 items across 1 site** — the 589-item queue of
+> yesterday has drained. The warning is right as a standing caution and wrong as a
+> description of now, which is exactly why the position is worth measuring rather
+> than inheriting from a doc. Left in the script as a caution, dated here.
