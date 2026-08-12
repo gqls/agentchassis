@@ -9468,3 +9468,118 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **⚠ and the stylesheet is still not the whole artefact.** A rebuilt `styles.css` repairs only what resolves through the palette. Values hard-coded in a component template (`.team-member { background: #fff }`) are inlined into each page's own `<style>` and are untouched by any palette change — 20 of 40 residual AA failures on that site, exact per-page counts. Before predicting what a palette repair will fix, split the target set by route: `curl -s <page> | grep -nE "^\s*background(-color)?:\s*(#fff|#ffffff|white)\s*;"`.
 - **source:** 2026-08-12, brochure_component_library / contrast front · `bugs_open/113` §2026-08-12 · `WRONG_CALLS.md` 2026-08-12
 - **added:** 2026-08-12, brochure_component_library contrast front
+
+### A work item's `summary` is what a HUMAN reads; `spec.suggestion` is what the AGENT executes — and they can disagree, so a defensible summary can hide a damaging fix
+
+- **footprint:** `site_work_items.spec`, `spec->>'suggestion'`, `spec->>'acceptance_test'`, promoting any `detected` item to `triaged`, design-audit / discovery findings generally
+- **the trap:** you triage from the summary — it is what a census prints, what a
+  handoff quotes, and what an operator skims. The handler does not read it. It
+  acts on `spec.suggestion` and is judged against `spec.acceptance_test`, both
+  written by the same LLM pass but **not constrained to agree with the summary**.
+  A finding can be true as stated and still carry a fix that is wrong, wider than
+  the finding, or premised on something false
+- **why the wrong result looks exactly like the right one:** nothing errors. The
+  item completes, the acceptance test passes *as written*, and the summary you
+  approved is still accurate. The damage is in the delta between them
+- **measured, 2026-08-12, finetuning.uk design audit — 3 of 4 promoted specs were
+  unsafe while every summary was defensible:**
+  - a `spacing_fix` whose summary said "the fallback is used" carried
+    *"Add `--spacing-section` to `:root`"* — the variable **already exists** there
+    (`styles.css:458`, a renderer-enforced compatibility alias), so the fix would
+    have overwritten a live alias and changed padding **site-wide**
+  - a font finding's `acceptance_test` was satisfiable by *adding a Google Fonts
+    link*, i.e. a render-blocking request for a font that is overridden and can
+    never display
+  - a `dark_section_audit` said *"remove the inline `<style>` and add a shared
+    class"* — correct architecturally, but a half-application leaves a live
+    homepage section unstyled
+- **the check:** before promoting, read the SPEC, not the summary —
+  ```sql
+  SELECT item_type, summary, spec->>'suggestion', spec->>'acceptance_test',
+         spec->>'current_value'
+  FROM site_work_items WHERE status='detected' AND site_id=$1;
+  ```
+  Then ask of `current_value` specifically: **is its factual claim true right
+  now?** Two of the three above asserted a false current state ("`--spacing-section`
+  is absent from `:root`", "Merriweather … falls back to Georgia"), and each false
+  premise is what made the fix dangerous. You may rewrite `spec` before promoting —
+  leave a `lane_note` key recording the original and why, so the edit is auditable
+- **related:** the `detected → triaged` promotion is the ONLY gate here; after it,
+  `build-dispatch-loop` claims within a tick and there is no second review. See
+  IMP-054 (detect-only audit trigger) for keeping findings unclaimable until read
+- **source:** 2026-08-12, finetuning.uk design lane · `docs024_key_docs_latest/finetuning_uk_repair/NOTES_finetuning_uk_repair.md` (2026-08-12)
+- **added:** 2026-08-12, finetuning.uk design lane
+
+### A component template that fails to execute is rendered ANYWAY by a weaker regex path — so a template error looks like a content problem, and a MISSING field is safe while a mistyped one is fatal
+
+- **footprint:** `platform/orchestration/actions/component_library.go` (`RenderTemplate`, `RenderTemplateReportingMissing`, `renderEachBlocks`, `renderIfBlocks`, `renderGoStyleSubstitutions`, `renderHandlebarsSubstitutions`, `contextToMap`), `platform/orchestration/actions/call_agent.go` (`executeGoTemplate`), `content_components.html_template` / `input_schema`, `bugs_open/260`, `bugs_open/203`, `bugs_open/085`
+- **fires when:** you author or edit a component template, add a field to an `input_schema`, debug why a section rendered oddly, or reason about what happens when content is incomplete. No symptom needed — the fallback never logs at Error and the page it produces is well-formed HTML.
+- **the tell:** control structures present in the output **with their field values already substituted** — `{{if .eyebrow}}<span …>The build flow</span>{{end}}`. That combination is diagnostic: values resolved means generation worked, directives surviving means a template engine did not do the rendering. `RenderTemplateReportingMissing` runs Go `text/template` and on ANY error falls back to a regex renderer written for **handlebars** (`{{#each}}`, `{{#if}}`) which cannot see `{{if .x}}`, `{{range}}` or `{{end}}` but still substitutes `{{.field}}`. The fallback logs at **Warn** ("Go template execution failed, using regex fallback") and those lines rotate out fast — measured 2026-08-12, **zero** `RenderTemplate` lines of any kind in a 4,661-line 24h window on `agent-chassis`, so a grep for it is a blind zero.
+- **the check — and it inverts the obvious intuition:** with `missingkey=zero` as the code configures it, an **absent** field, a **nil** and an **empty array `[]`** all render fine; the failures are **type** violations — a string, or an array of strings, where the template ranges over array-of-objects (`range can't iterate over …`). So do not reason about "what if the writer leaves this empty"; reason about "what if the writer fills it with prose". Verify offline against the real row rather than guessing: pull `html_template` from `content_components`, feed it the real `content_data`, `Parse` + `Execute` with `Option("missingkey=zero")`, and **keep a control that coerces the field to its declared shape** — if both fail you have changed the wrong thing (worked harness: `bugs_open/260` §2).
+- **why it is a landmine and not just a bug:** the blast radius of one wrong field is the **entire component**, not that field, and the failure surfaces downstream at a string-matching gate that can only report symptoms. Before "fixing" it by widening the fallback, measure whether the fallback has any constituency at all: **0 of 255 components use `{{#` handlebars syntax and 0 use its `{{nav_items_html}}`/`{{quick_links_html}}` placeholders** (2026-08-12), so it is a path nothing on the estate can be rendered by.
+- **source:** 2026-08-12, `bugs_open/260` (root cause proven with an isolating control), `brochure_component_library/NOTES_brochure_component_library.md` (08-12 entry)
+- **added:** 2026-08-12, brochure_component_library lane (fact-assignment front)
+
+### `validate_content`'s blocker COUNT is a regex cap, not a measurement — every instance of a template leak reports the same 9/1/9/1 signature however bad it is
+
+- **footprint:** `platform/orchestration/actions/validate_page_content.go` (`checkUnrenderedTemplates`, `templateVarRegex`, `templateBlockRegex`, lines 793 and 804), `agent_error_log` rows with `error_code='CONTENT_VALIDATION_BLOCKER_DETAIL'` (`context->'issues'`, `context->>'blocker_count'`), `bugs_open/260`
+- **fires when:** you read a validation refusal — sizing how broken a page is, comparing two refusals, or fingerprinting which component leaked from the counts of each leaked token. No symptom needed; the number is precise, stable and reproducible, and it is a ceiling.
+- **the tell:** `FindAllString(html, 10)` — **both** regexes cap at 10 matches, so a refusal saturates at 10 vars + 10 blocks = "20 blockers" no matter the true size. Measured 2026-08-12: the real leak was **29** (16 vars, 13 blocks) reported as 20. Because matches come back in document order, the *composition* is a ceiling too — the tenth match is wherever the cap happened to land, not the last leak on the page.
+- **the check:** treat any `blocker_count` at exactly 10, 20 or 21 as "≥", and count from the artefact rather than the report — re-run the two regexes over the actual HTML with a `-1` limit. **Never compute a fingerprint from these counts:** four domains and six events showing an identical 9× `{{end}}` / 1× `{{.label}}` / 9× `{{if` / 1× `{{range` looks like one repeating component and is only the cap saturating; a component census built on that arithmetic will confidently name the wrong component (it did — `bugs_open/260` §4).
+- **source:** 2026-08-12, `bugs_open/260` §4 (the miscount caught mid-diagnosis, after it had already produced one wrong attribution)
+- **added:** 2026-08-12, brochure_component_library lane (fact-assignment front)
+
+### ONE `provision_instance` request can build SEVERAL billable GPUs — the success you watch arrive is not evidence it happened once
+
+- **footprint:** `internal/adapters/thunder/adapter.go` (`handleMessage`, `handleProvisionInstance`), `internal/adapters/thunder/provision_action.go` (`NewProvisionAction` `waitTimeout`, `WaitForRunning`), `platform/kafka/consumer.go` (`SessionTimeout`, `RebalanceTimeout`), `gpu-provisioner`, `dispatch_thunder_provision`, `thunder_instances`, `bugs_open/259`
+- **fires when:** you provision a GPU from any lane and watch it come up. **No symptom needed, and this is the whole trap:** you fire one request, an instance appears, the row lands, it looks exactly like a clean provision. A *second* instance created from the same request minutes earlier — and deleted again by the compensating cleanup — leaves **no `thunder_instances` row and no `agent_error_log` row**, so every place you would naturally look agrees with you.
+- **why the wrong answer looks right:** the adapter handles Kafka messages **synchronously** (`adapter.go:257` says so: *"Sequential by design — no `go a.handleMessage(msg)`"*) and blocks up to `waitTimeout` (5 min, hardcoded) inside `WaitForRunning`, while the consumer's `SessionTimeout`/`RebalanceTimeout` are **60s**. The offset is not committed until the handler returns, so the message comes back and the handler's first act on a valid request is to create another instance. Measured 2026-08-12: one correlation delivered **3×**, another **2×** (~10 and ~13 min apart); two requests → **three** real GPUs.
+- **the check — count DELIVERIES, never creates, and never rows:** a create can 400 and a row is only written after the wait succeeds, so both undercount.
+  ```bash
+  POD=$(kubectl -n ai-persona-system get pods -l app=thunder-adapter -o jsonpath='{.items[0].metadata.name}')
+  kubectl -n ai-persona-system logs "$POD" --tail=3000 \
+    | grep '"action":"provision_instance"' | grep '"msg":"Received request"' \
+    | python3 -c "import sys,json,collections; c=collections.Counter(json.loads(l).get('correlation_id') for l in sys.stdin); [print(k,v) for k,v in c.items()]"
+  ```
+  Then ask the **vendor**, which is the only party that knows what it is charging for — `wget` `/v1/instances/list` from the adapter pod (RUNBOOK §1b). Our tables cannot see a box that has no row.
+- **while it is unfixed:** provisioning is **PAUSED** (`thunder_config.is_paused`, owner decision 2026-08-12). If a provision is denied and the reason names bug 259, that is deliberate — read 259 before clearing it.
+- **source:** 2026-08-12, `finetuning_uk_service` Phase 0 attempt · `bugs_open/259` · 090 run correlation `8ee2eb1e-2c1d-4a69-9d1b-505895c4dbcb`
+- **added:** 2026-08-12, finetuning_uk_service lane
+
+### The Thunder provision default `vcpus: 4` is invalid for 9 of the 11 single-GPU specs — only the DEAREST GPU works out of the box
+
+- **footprint:** `internal/adapters/thunder/provision_action.go` (`ProvisionInstanceRequest.VCPUs`), `platform/orchestration/actions/thunder_provision_dispatch.go` (`input_data.vcpus`), `gpu-provisioner`, `GET /v1/specs`, `bugs_open/258`
+- **fires when:** you provision any GPU without naming `vcpus`. You get `400 validation_error: invalid vCPU count 4; valid options: [6 8]` — which reads like a bad request you made, so the instinct is to doubt your `gpu` string, your token, or the adapter's health. All three are fine; the **default** is wrong.
+- **why the wrong answer looks right:** an h100 provisions perfectly with defaults, so "provisioning works, my request must be malformed" is the natural and incorrect conclusion. Measured 2026-08-12 from `vcpuOptions` on the free, read-only `/v1/specs`: `a6000 [6,8]` · `l40 [6,8,12]` · `a100xl [8,12,16]` · `h100 [4,8,12,16]` · every `*_production` variant a single odd value (`[15]`, `[10]`). **4 is valid for h100 only** — the $2.19/hr box.
+- **the check:** ask Thunder, do not trust this table (it is a snapshot of a vendor's config and will drift) —
+  ```bash
+  kubectl -n ai-persona-system exec "$POD" -- sh -c \
+    'wget -qO- --header "Authorization: Bearer $THUNDER_COMPUTE_API_KEY" \
+     https://api.thundercompute.com:8443/v1/specs' | python3 -m json.tool | grep -B4 vcpuOptions
+  ```
+  Workaround: pass `"vcpus": <valid>` in `input_data` — forwarded when `> 0` (`thunder_provision_dispatch.go:119`). ⚠ Do not "fix" this by picking a new constant: no single value is valid for all four families, which is why the fix is to read `vcpuOptions`.
+- **source:** 2026-08-12, `finetuning_uk_service` Phase 0 attempt · `bugs_open/258` defect 1
+- **added:** 2026-08-12, finetuning_uk_service lane
+
+### `spec.affected_component` is PROSE, not a key — joining it to `page_components.slot_name` drops a quarter of your targets and returns rows for the rest
+
+- **footprint:** `site_work_items.spec->>'affected_component'`, `page_components.slot_name`, `write_audit_findings_action.go` (design-audit findings: `dark_section_audit`, `needs_design_review`, `cta_improvement`), any census that joins a design-audit finding to the artefact it names
+- **fires when:** you resolve a design-audit work item to the component it is about — to measure it, verify it, or route it. The field looks like an identifier (`"cta-section"`, `"features-section"`), so the natural move is a join, possibly with a tidy-up rule stripping the `-section` suffix. **No symptom: the join returns rows, they are the right rows, and the ones it silently lost look exactly like items whose component does not exist.**
+- **why the wrong answer looks right:** the field is written per item by an LLM auditor, so it is *usually* close to the slot name — which is what makes the failures rare enough to read as data problems rather than method problems. Measured 2026-08-12 over the 15 live `dark_section_audit` items, a strip-`-section` join lost **4 of 16** targets, in two different ways that cannot both be fixed by one rule:
+  - `cta-section` → the slot is **`call-to-action`** (3 sites). Not a suffix relationship at all.
+  - `features-section, differentiators-section` (leopardessconsulting, **one item naming two components in one string**) → `features` **and** `differentiators-section` — that second slot is *literally* named with the suffix, so the strip rule breaks the exact case it was written for.
+- **the check — assert the resolution count before you use the result, and make the miss loud:**
+  ```sql
+  -- every named component, with the number of page_components it resolved to; expect 1, investigate 0 and >1
+  WITH named AS (SELECT w.id, w.site_id, w.spec->>'page_name' pn, btrim(t.c) raw
+                 FROM site_work_items w, LATERAL regexp_split_to_table(w.spec->>'affected_component', ',') t(c)
+                 WHERE w.item_type='dark_section_audit')
+  SELECT n.raw, (SELECT count(*) FROM pages p JOIN page_components pc ON pc.page_id=p.id
+                  WHERE p.site_id=n.site_id AND p.name=n.pn
+                    AND (pc.slot_name=n.raw OR pc.slot_name=regexp_replace(n.raw,'-section$','')))
+  FROM named n ORDER BY 2;
+  ```
+  Split on `,` first — a single item can name several — and treat a 0 as *your* join failing, not as a missing component, until you have listed that page's actual slots (`SELECT slot_name FROM page_components …`) and looked.
+- **the deeper point, if you are building on this field:** it cannot carry a verifier. It is prose with no vocabulary, and the same defect on the same component filed on consecutive days produced two different spellings. See `bugs_open/213` §E.
+- **source:** 2026-08-12, `bugfix_213_verifier_producer_join` lane, D1 remit measurement · `bugs_open/213` CONTRIBUTION 2026-08-12 (afternoon)
+- **added:** 2026-08-12, bugfix_213 lane

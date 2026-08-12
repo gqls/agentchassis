@@ -11878,3 +11878,87 @@ the page under test**.
 vision API (keep the stored evidence full-fidelity); cap or fall back to a viewport-only
 shot at capture time when the full-page height would exceed the cap; lower `mobileScale`
 fleet-wide. See `bugs_open/256` for the full measurement and citations.
+
+### An error path that DEGRADES instead of stopping turns one mistyped field into a whole broken component — and the fingerprint is "directives intact, values substituted" (`bugs_open/260`, 2026-08-12)
+
+**Symptom.** A page build is refused at `validate_content` with ~20 `unrendered_template` /
+`unrendered_template_block` blockers. The section HTML carries Go control structures verbatim
+while **the field values inside them are correctly substituted**:
+`{{if .eyebrow}}<span …>The build flow</span>{{end}}`.
+
+**Read that fingerprint precisely — it excludes the two obvious theories.** Values resolved
+means generation succeeded and something rendered; directives surviving means the thing that
+rendered was not a template engine. So it is neither "the LLM emitted braces" (check the model
+output — it will be clean) nor "the template is mis-authored". It is a **fallback**.
+
+**Diagnose.** `RenderTemplateReportingMissing` (`component_library.go:965`) runs Go
+`text/template`, and on ANY error drops silently to a regex renderer written for *handlebars*
+(`{{#each}}`, `{{#if}}`) that cannot see `{{if .x}}`, `{{range}}` or `{{end}}`, yet still
+substitutes `{{.field}}`. So the trigger is whatever made the real engine error — and with
+`missingkey=zero` that is **a field TYPE violation, never a missing field**: absent, nil and
+`[]` all render fine; a string or an array-of-strings where the template ranges over
+array-of-objects fails with `range can't iterate over …`. **The intuition is backwards — the
+empty section is safe and the populated one is fatal.**
+
+**The transferable rule.** When a shared helper handles failure by trying a *weaker* strategy
+instead of stopping, the blast radius of a small input error becomes the whole unit, and the
+damage surfaces far downstream at a string-matching gate that can only describe the symptom.
+Ask of any fallback: **is there any input the fallback handles that the primary does not?**
+Here the answer was measurable and it was no — 0 of 255 components use handlebars syntax, so
+the fallback is a path nothing on the estate can be rendered by. A fallback with no
+constituency is not resilience, it is a silent corruption channel; the fix that closes the door
+is deleting it so the real error stops the build.
+
+**Two measurement traps this bug also pays.** (1) `checkUnrenderedTemplates` caps each regex at
+10 matches (`validate_page_content.go:793,804`), so "20 blockers" is the CAP — every instance
+reports an identical 9/1/9/1 signature regardless of severity, which made four domains look
+like one repeating event and made a component fingerprint computed from those counts meaningless.
+(2) **Survivorship**: a mistyped field is never stored, *because* the gate refuses before
+persisting — so a census of stored `content_data` reports this defect as non-existent. The only
+durable record is `agent_error_log`; `orchestration_states` prunes ~24h.
+
+### A synchronous message handler that outlives its consumer's timeout gets REDELIVERED — and if its first act has an external side effect, one request buys several (`bugs_open/259`, 2026-08-12)
+
+**The pattern, stated so it transfers off Thunder:** any handler that (a) runs
+**synchronously** in a Kafka consume loop, (b) blocks longer than the consumer's
+`SessionTimeout`/`RebalanceTimeout`, and (c) performs a **non-idempotent external
+side effect** before returning, will perform that side effect once per redelivery. The
+offset cannot commit while the handler blocks, so the broker hands the message back and
+the handler does the whole thing again. Nothing errors. Each repetition looks, in
+isolation, like a correct first execution.
+
+Worked case: `internal/adapters/thunder/adapter.go:257` states *"Sequential by design — no
+`go a.handleMessage(msg)`"*; `handleProvisionInstance` blocks up to `waitTimeout` (5 min,
+hardcoded, `provision_action.go:141`) inside `WaitForRunning`; `platform/kafka/consumer.go:56,71-72`
+sets both consumer deadlines to **60s**. Measured 2026-08-12: one `correlation_id`
+delivered **3×**, another **2×** (~10 and ~13 min apart) — **two requests, three real
+billing GPUs**.
+
+**Why it is nearly invisible, which is the transferable half.** The duplicate's evidence
+is destroyed by the very error handling that makes the system look robust: each duplicate
+was cleaned up by a compensating saga, and the compensation writes **no** row to the
+domain table (the insert happens only on success) and **no** row to `agent_error_log`.
+So every table a reasonable person would query agrees that one request produced one
+instance. Only two sources disagree: the **pod log**, which rotates, and the **vendor's
+own API**, which is the sole party that knows what it is charging for. Generalise:
+*when a side effect is compensated, ask the external system, because your own records were
+written by the code you are doubting.*
+
+**The check that could come out either way:** count **deliveries per correlation**, not
+successes, not rows — a rejected attempt (HTTP 400) and a post-hoc-deleted instance both
+undercount, in opposite directions.
+```bash
+kubectl -n ai-persona-system logs "$POD" --tail=3000 \
+  | grep '"action":"<the action>"' | grep '"msg":"Received request"' \
+  | python3 -c "import sys,json,collections; c=collections.Counter(json.loads(l).get('correlation_id') for l in sys.stdin); [print(k,v) for k,v in c.items()]"
+```
+`>1` for any correlation is the finding, whether or not it cost anything that time.
+
+**Ranking the fixes — the ordering generalises too.** Raising the consumer deadlines is
+the cheapest (env-only, no roll) and the weakest: it moves the boundary rather than
+removing it, and any handler slower than the new value redelivers again. Making the side
+effect **idempotent on `correlation_id`** is the only fix that survives redelivery from a
+cause nobody predicted, which is the point — you are defending against "the message came
+back", not against one particular reason it did. ⚠ And note the trap in fixing the
+*other* bug first: lengthening the block (e.g. raising a wait timeout so slow boots
+succeed — `bugs_open/258` defect 2) makes redelivery **more** likely, not less.
