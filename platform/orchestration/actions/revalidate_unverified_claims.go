@@ -81,6 +81,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 	"time"
 
 	"go.uber.org/zap"
@@ -138,7 +139,66 @@ func revalidateUnverifiedClaims(ctx context.Context, db *sql.DB, item parkedRevi
 			break
 		}
 	}
-	return unverifiedClaimsVerdict(pageID, item.CreatedAt, scan)
+	return unverifiedClaimsVerdict(pageID, item.CreatedAt, flaggedClaimsFromSpec(item.Spec), scan)
+}
+
+// flaggedClaim is ONE entry from the work item's own spec.findings[] — the text
+// this finding actually cited, and the slot it cited it from. It is the item's
+// record of what was wrong, written by the producer at filing time, and it is
+// the only thing that makes a CLAIM-GRANULAR judgement possible: the scan can
+// say the page is clean now, but only the item can say what "unclean" meant.
+type flaggedClaim struct {
+	Check   string
+	Slot    string
+	Matched string
+}
+
+// flaggedClaimsFromSpec reads spec.findings[]. Every live claims_unverified item
+// carries it — 86 of 86 findings across the population on 2026-08-11 had a
+// non-empty `matched` AND `snippet` — but this returns whatever is there and
+// lets the ladder refuse, rather than assuming the shape.
+func flaggedClaimsFromSpec(spec map[string]interface{}) []flaggedClaim {
+	raw, _ := spec["findings"].([]interface{})
+	out := make([]flaggedClaim, 0, len(raw))
+	for _, r := range raw {
+		m, ok := r.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		str := func(k string) string {
+			s, _ := m[k].(string)
+			return s
+		}
+		out = append(out, flaggedClaim{Check: str("check"), Slot: str("slot_name"), Matched: str("matched")})
+	}
+	return out
+}
+
+// claimStillOnPage asks whether the exact text this finding cited is still
+// sitting in the component it was cited from.
+//
+// The second return is whether the question could be ANSWERED at all, and it is
+// separate from the answer on purpose: "the text is gone" and "I could not look"
+// are the same empty result, and collapsing them is the no-op-that-reads-as-
+// success shape this whole file exists to avoid.
+//
+// Unjudgeable when the finding carries no `matched` text, or when its slot is
+// absent from the examined set — a slot goes absent because the component was
+// deleted, renamed, or human-locked, and none of those is evidence the claim was
+// removed.
+//
+// Case-insensitive substring, scoped to the slot. Deliberately crude in the SAFE
+// direction: a token that matches something unrelated in its own slot produces a
+// refusal (non-terminal, a human still sees the item), never a closure.
+func claimStillOnPage(scan *checks.ClaimsPageScan, c flaggedClaim) (present, judgeable bool) {
+	if strings.TrimSpace(c.Matched) == "" {
+		return false, false
+	}
+	text, ok := scan.ExaminedTextBySlot[c.Slot]
+	if !ok {
+		return false, false
+	}
+	return strings.Contains(strings.ToLower(text), strings.ToLower(c.Matched)), true
 }
 
 // unverifiedClaimsVerdict is the decision ladder, split from the database glue
@@ -154,7 +214,7 @@ func revalidateUnverifiedClaims(ctx context.Context, db *sql.DB, item parkedRevi
 // below compares against. A zero filedAt makes that gate refuse, which is the
 // safe direction: an item whose filing date we cannot establish is one whose
 // "has the page moved since?" question has no answer.
-func unverifiedClaimsVerdict(pageID string, filedAt time.Time, scan *checks.ClaimsPageScan) revalidationVerdict {
+func unverifiedClaimsVerdict(pageID string, filedAt time.Time, flagged []flaggedClaim, scan *checks.ClaimsPageScan) revalidationVerdict {
 	if scan == nil {
 		// No row came back for this page: it was deleted, or it has no component
 		// carrying either rendered_html or content_data. Note this check has never
@@ -212,6 +272,92 @@ func unverifiedClaimsVerdict(pageID string, filedAt time.Time, scan *checks.Clai
 				"page_id":                   pageID,
 				"components_examined":       scan.ComponentsExamined,
 				"components_skipped_locked": scan.ComponentsSkippedLocked,
+			},
+		}
+	}
+
+	// THE CLAIM-GRANULAR GATE — council round 5, `compliance` HIGH, 2026-08-11.
+	//
+	// It NARROWS the owner's gate below; it does not replace it. Both must pass.
+	// That is a deliberate governance choice as much as an engineering one: adding
+	// a stricter condition in front of an owner-mandated control needs no new
+	// ruling, whereas removing the timestamp comparison would. If the flagged text
+	// being demonstrably gone should be allowed to STAND IN FOR the timestamp (it
+	// is the stronger evidence of the two — a token that has left the slot proves
+	// the copy moved, where a timestamp only asserts it), that is the owner's call
+	// and is recorded as an open question rather than taken here.
+	//
+	// WHAT compliance ACTUALLY OBJECTED TO, three rounds running: the gate below
+	// verifies THE PAGE MOVED, not THAT THE FLAGGED CLAIM WAS ADDRESSED. A typo
+	// fix, a CSS tweak or an edit to an adjacent field bumps page_components
+	// .updated_at, and the item then closes provided the current scan happens to
+	// find nothing — on the platform's highest-stakes content-integrity type,
+	// designed HITL-terminal because truth decisions are human.
+	//
+	// ⚠ THE SEAT'S OWN SUGGESTED FIX WAS MEASURED AND REJECTED, and this is the
+	// part worth reading. It proposed comparing "the specific finding's cited
+	// snippet". Measured against the live population on 2026-08-11: on items that
+	// STILL HOLD — where the claim is by definition still on the page — a
+	// slot-scoped SNIPPET comparison found the claim in only 18 of 41 cases, while
+	// the slot-scoped MATCHED token found it in 40 of 41. The snippet is long
+	// enough that any whitespace or markup churn breaks the match, and a broken
+	// match reads as "the copy changed" — which grants `resolved`. Shipping the
+	// seat's literal suggestion would have made the gate FAIL OPEN on roughly half
+	// of all claims, i.e. strictly worse than the timestamp it was meant to
+	// strengthen. The token is the version that discriminates, so the token is what
+	// ships, and the objection is answered rather than transcribed.
+	//
+	// Order: this sits after "still carries findings" (a page that still trips the
+	// check is reported as still holding, never as unreadable) and before the
+	// timestamp gate, because "the text you flagged is still there" is the more
+	// informative refusal of the two.
+	if len(flagged) == 0 {
+		return revalidationVerdict{
+			Verdict: revalidationUnknown,
+			Reason: fmt.Sprintf(
+				"page %s no longer trips the check, but this item records no finding text, so there is nothing to confirm was removed and a clean scan cannot be told from a moved standard",
+				scan.PageName),
+			Evidence: map[string]interface{}{
+				"page_id": pageID, "page_name": scan.PageName,
+				"components_examined": scan.ComponentsExamined,
+			},
+		}
+	}
+	var stillPresent, unjudgeable []string
+	for _, c := range flagged {
+		present, judgeable := claimStillOnPage(scan, c)
+		switch {
+		case !judgeable:
+			unjudgeable = append(unjudgeable, fmt.Sprintf("%s:%s", c.Check, c.Slot))
+		case present:
+			stillPresent = append(stillPresent, fmt.Sprintf("%s:%s", c.Check, c.Slot))
+		}
+	}
+	if len(stillPresent) > 0 {
+		return revalidationVerdict{
+			Verdict: revalidationStillHolds,
+			Reason: fmt.Sprintf(
+				"page %s no longer trips the check, but %d of the %d text(s) this finding cited are STILL in the component they were cited from — so the standard moved, not the copy; a claim that stopped being flagged while its words are untouched has not been addressed",
+				scan.PageName, len(stillPresent), len(flagged)),
+			Evidence: map[string]interface{}{
+				"page_id": pageID, "page_name": scan.PageName,
+				"components_examined":      scan.ComponentsExamined,
+				"flagged_texts":            len(flagged),
+				"flagged_texts_still_here": stillPresent,
+			},
+		}
+	}
+	if len(unjudgeable) > 0 {
+		return revalidationVerdict{
+			Verdict: revalidationUnknown,
+			Reason: fmt.Sprintf(
+				"page %s no longer trips the check, but %d of the %d text(s) this finding cited could not be re-checked — the slot they were cited from was not among the components examined (deleted, renamed or human-locked), and an absent component is not evidence the claim was removed",
+				scan.PageName, len(unjudgeable), len(flagged)),
+			Evidence: map[string]interface{}{
+				"page_id": pageID, "page_name": scan.PageName,
+				"components_examined":       scan.ComponentsExamined,
+				"flagged_texts":             len(flagged),
+				"flagged_texts_unjudgeable": unjudgeable,
 			},
 		}
 	}
@@ -277,13 +423,17 @@ func unverifiedClaimsVerdict(pageID string, filedAt time.Time, scan *checks.Clai
 
 	return revalidationVerdict{
 		Verdict: revalidationResolved,
-		Reason:  fmt.Sprintf("re-scanned all %d component(s) on page %s against this site's current evidence base and found no unsupported claim; the copy this item flagged has been edited since it was filed and no longer asserts one", scan.ComponentsExamined, scan.PageName),
+		Reason:  fmt.Sprintf("re-scanned all %d component(s) on page %s against this site's current evidence base and found no unsupported claim; all %d text(s) this finding cited have gone from the slots they were cited from, and the copy has been edited since the finding was filed", scan.ComponentsExamined, scan.PageName, len(flagged)),
 		Evidence: map[string]interface{}{
 			"page_id":                 pageID,
 			"page_name":               scan.PageName,
 			"components_examined":     scan.ComponentsExamined,
 			"item_filed_at":           filedAt,
 			"newest_component_update": scan.NewestComponentUpdate,
+			// Both gates are recorded, so a closure states which evidence it rests
+			// on rather than leaving a reader to infer it from the code version.
+			"flagged_texts":          len(flagged),
+			"flagged_texts_verified": "all absent from their own slot",
 		},
 	}
 }

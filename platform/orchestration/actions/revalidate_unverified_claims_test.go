@@ -31,6 +31,26 @@ var (
 	changedBefore = filedAt.Add(-48 * time.Hour)
 )
 
+// The CLAIM-GRANULAR gate's fixtures (council round 5, `compliance` HIGH).
+//
+// flaggedHero is what the work item recorded at filing time: this page asserted
+// "90,790" in the `hero` slot. heroCleaned is that slot AFTER the copy was fixed
+// — read, and the cited text gone. heroUntouched is the case the gate exists for:
+// the page stopped tripping the check (so the scan is clean) while the words the
+// finding cited are still sitting there, which means the STANDARD moved.
+//
+// Every test below that expects to reach the owner's timestamp gate must pass
+// heroCleaned, or it would refuse at the claim gate instead and pass for the
+// wrong reason — the failure mode that makes a green suite meaningless.
+var flaggedHero = []flaggedClaim{{Check: "unregistered_number", Slot: "hero", Matched: "90,790"}}
+
+func heroCleaned() map[string]string {
+	return map[string]string{"hero": "<p>We help small firms adopt AI.</p>"}
+}
+func heroUntouched() map[string]string {
+	return map[string]string{"hero": "<p>Trusted by 90,790 customers.</p>"}
+}
+
 func TestUnverifiedClaimsVerdictLadder(t *testing.T) {
 	finding := func(name string) checks.ClaimFinding {
 		return checks.ClaimFinding{Check: name}
@@ -81,7 +101,8 @@ func TestUnverifiedClaimsVerdictLadder(t *testing.T) {
 		{
 			name: "clean, but part of the page was locked and unread",
 			scan: &checks.ClaimsPageScan{PageID: "p1", PageName: "about", ComponentsExamined: 2,
-				ComponentsSkippedLocked: 1, NewestComponentUpdate: changedAfter},
+				ComponentsSkippedLocked: 1, NewestComponentUpdate: changedAfter,
+				ExaminedTextBySlot: heroCleaned()},
 			want:        revalidationUnknown,
 			reasonHas:   "were not read",
 			explanation: "the reported claims may live in the pinned components, so closing would assert something unchecked",
@@ -89,7 +110,7 @@ func TestUnverifiedClaimsVerdictLadder(t *testing.T) {
 		{
 			name: "clean and whole page read, but the COPY never changed - the register moved",
 			scan: &checks.ClaimsPageScan{PageID: "p1", PageName: "about", ComponentsExamined: 3,
-				NewestComponentUpdate: changedBefore},
+				NewestComponentUpdate: changedBefore, ExaminedTextBySlot: heroCleaned()},
 			want:        revalidationUnknown,
 			reasonHas:   "register moved, not the page",
 			explanation: "OWNER RULING 2026-08-09: a register edit alone must never retract a factual-claim finding",
@@ -97,7 +118,7 @@ func TestUnverifiedClaimsVerdictLadder(t *testing.T) {
 		{
 			name: "clean, whole page read, and the copy changed since filing",
 			scan: &checks.ClaimsPageScan{PageID: "p1", PageName: "about", ComponentsExamined: 3,
-				NewestComponentUpdate: changedAfter},
+				NewestComponentUpdate: changedAfter, ExaminedTextBySlot: heroCleaned()},
 			want:        revalidationResolved,
 			explanation: "the only state that licenses closing the item",
 		},
@@ -105,7 +126,7 @@ func TestUnverifiedClaimsVerdictLadder(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			got := unverifiedClaimsVerdict("p1", filedAt, tc.scan)
+			got := unverifiedClaimsVerdict("p1", filedAt, flaggedHero, tc.scan)
 			if got.Verdict != tc.want {
 				t.Errorf("verdict = %q, want %q (%s)", got.Verdict, tc.want, tc.explanation)
 			}
@@ -127,12 +148,12 @@ func TestUnverifiedClaimsVerdictLadder(t *testing.T) {
 func TestUnverifiedClaimsNeverResolvesWithoutReadingSomething(t *testing.T) {
 	unreadable := []*checks.ClaimsPageScan{
 		nil,
-		{PageID: "p1", NewestComponentUpdate: changedAfter},
-		{PageID: "p1", ComponentsSkippedLocked: 1, NewestComponentUpdate: changedAfter},
-		{PageID: "p1", ComponentsSkippedLocked: 9, NewestComponentUpdate: changedAfter},
+		{PageID: "p1", NewestComponentUpdate: changedAfter, ExaminedTextBySlot: heroCleaned()},
+		{PageID: "p1", ComponentsSkippedLocked: 1, NewestComponentUpdate: changedAfter, ExaminedTextBySlot: heroCleaned()},
+		{PageID: "p1", ComponentsSkippedLocked: 9, NewestComponentUpdate: changedAfter, ExaminedTextBySlot: heroCleaned()},
 	}
 	for _, scan := range unreadable {
-		got := unverifiedClaimsVerdict("p1", filedAt, scan)
+		got := unverifiedClaimsVerdict("p1", filedAt, flaggedHero, scan)
 		if got.Verdict == revalidationResolved {
 			t.Errorf("scan %+v produced `resolved` without examining a component — "+
 				"that closes a live human-review item on the strength of having read nothing", scan)
@@ -162,9 +183,9 @@ func TestUnverifiedClaimsNeverResolvesWhenOnlyTheRegisterMoved(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			got := unverifiedClaimsVerdict("p1", tc.filedAt, &checks.ClaimsPageScan{
+			got := unverifiedClaimsVerdict("p1", tc.filedAt, flaggedHero, &checks.ClaimsPageScan{
 				PageID: "p1", PageName: "about", ComponentsExamined: 3,
-				NewestComponentUpdate: tc.newest,
+				NewestComponentUpdate: tc.newest, ExaminedTextBySlot: heroCleaned(),
 			})
 			if got.Verdict == revalidationResolved {
 				t.Errorf("a clean page whose copy cannot be shown to have moved returned `resolved` — "+
@@ -180,8 +201,9 @@ func TestUnverifiedClaimsNeverResolvesWhenOnlyTheRegisterMoved(t *testing.T) {
 // still_holds is the armed-but-inert shape this lane keeps finding. The gate
 // above must narrow the close, not abolish it.
 func TestUnverifiedClaimsActuallyRetracts(t *testing.T) {
-	got := unverifiedClaimsVerdict("p1", filedAt, &checks.ClaimsPageScan{
+	got := unverifiedClaimsVerdict("p1", filedAt, flaggedHero, &checks.ClaimsPageScan{
 		PageID: "p1", PageName: "about", ComponentsExamined: 5, NewestComponentUpdate: changedAfter,
+		ExaminedTextBySlot: heroCleaned(),
 	})
 	if got.Verdict != revalidationResolved {
 		t.Fatalf("a fully-read, claim-free page whose copy changed after filing returned %q; if this "+
@@ -225,7 +247,7 @@ func TestUnverifiedClaimsRefusesAnItemWithNoPageID(t *testing.T) {
 // reviewable — and this is the map that would silently empty if ClaimFinding's
 // Check field were ever renamed.
 func TestUnverifiedClaimsStillHoldsNamesTheCheckClasses(t *testing.T) {
-	got := unverifiedClaimsVerdict("p1", filedAt, &checks.ClaimsPageScan{
+	got := unverifiedClaimsVerdict("p1", filedAt, flaggedHero, &checks.ClaimsPageScan{
 		PageID: "p1", PageName: "about", ComponentsExamined: 2, NewestComponentUpdate: changedAfter,
 		Findings: []checks.ClaimFinding{
 			{Check: "banned_claim"}, {Check: "banned_claim"}, {Check: "unregistered_number"},
@@ -237,5 +259,127 @@ func TestUnverifiedClaimsStillHoldsNamesTheCheckClasses(t *testing.T) {
 	}
 	if byCheck["banned_claim"] != 2 || byCheck["unregistered_number"] != 1 {
 		t.Errorf("by_check = %v, want banned_claim=2 unregistered_number=1", byCheck)
+	}
+}
+
+// THE CLAIM-GRANULAR GATE, stated as a property (council round 5, `compliance`
+// HIGH, raised in rounds 3, 4 and 5). The owner's gate above proves THE PAGE
+// MOVED; it cannot prove THE FLAGGED CLAIM WAS ADDRESSED, and an edit to an
+// unrelated slot satisfies it. So: a clean scan whose cited text is still sitting
+// in the slot it was cited from must never close, however recently the page was
+// touched.
+//
+// changedAfter is passed deliberately in every case — the owner's gate is
+// SATISFIED here. If this test ever passes because the timestamp refused instead,
+// it would be asserting nothing at all.
+func TestUnverifiedClaimsNeverResolvesWhenTheFlaggedTextIsStillThere(t *testing.T) {
+	got := unverifiedClaimsVerdict("p1", filedAt, flaggedHero, &checks.ClaimsPageScan{
+		PageID: "p1", PageName: "about", ComponentsExamined: 3,
+		NewestComponentUpdate: changedAfter, ExaminedTextBySlot: heroUntouched(),
+	})
+	if got.Verdict == revalidationResolved {
+		t.Fatalf("closed a factual-claim item while the text it cited (%q) is still in its slot — "+
+			"the page stopped tripping the check because the STANDARD moved, which is exactly what "+
+			"the compliance seat objected to in three successive council rounds", flaggedHero[0].Matched)
+	}
+	if got.Verdict != revalidationStillHolds {
+		t.Errorf("verdict = %q, want %q: the words are still on the page, so the finding still holds",
+			got.Verdict, revalidationStillHolds)
+	}
+	if !strings.Contains(got.Reason, "STILL in the component") {
+		t.Errorf("reason must say which side of the comparison failed, got %q", got.Reason)
+	}
+	if got.Evidence["flagged_texts"] != 1 {
+		t.Errorf("evidence must record how many cited texts were checked, got %v", got.Evidence["flagged_texts"])
+	}
+}
+
+// Case-insensitivity is not cosmetic: a rerender that changes only the casing of
+// surrounding markup must not read as the claim having been removed.
+func TestUnverifiedClaimsFlaggedTextMatchIsCaseInsensitive(t *testing.T) {
+	flagged := []flaggedClaim{{Check: "banned_claim", Slot: "hero", Matched: "Independently Verified"}}
+	got := unverifiedClaimsVerdict("p1", filedAt, flagged, &checks.ClaimsPageScan{
+		PageID: "p1", PageName: "about", ComponentsExamined: 3, NewestComponentUpdate: changedAfter,
+		ExaminedTextBySlot: map[string]string{"hero": "<p>our results are independently verified</p>"},
+	})
+	if got.Verdict == revalidationResolved {
+		t.Error("a casing difference was read as the claim having been removed")
+	}
+}
+
+// "I could not look" must not be spelled the same as "it is gone". A slot absent
+// from the examined set means the component was deleted, renamed or human-locked —
+// none of which is evidence the claim was withdrawn.
+func TestUnverifiedClaimsRefusesWhenTheFlaggedSlotWasNotExamined(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		slots map[string]string
+	}{
+		{"the slot is absent entirely", map[string]string{"footer": "unrelated copy"}},
+		{"nothing was recorded at all", map[string]string{}},
+		{"nil map", nil},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got := unverifiedClaimsVerdict("p1", filedAt, flaggedHero, &checks.ClaimsPageScan{
+				PageID: "p1", PageName: "about", ComponentsExamined: 3,
+				NewestComponentUpdate: changedAfter, ExaminedTextBySlot: tc.slots,
+			})
+			if got.Verdict != revalidationUnknown {
+				t.Errorf("verdict = %q, want %q: the cited slot was never read, so its claim "+
+					"cannot be confirmed gone", got.Verdict, revalidationUnknown)
+			}
+			if !strings.Contains(got.Reason, "could not be re-checked") {
+				t.Errorf("reason should say the check could not be made, got %q", got.Reason)
+			}
+		})
+	}
+}
+
+// An item carrying no finding text at all cannot be judged claim-granularly, and
+// the safe reading of "no recorded claim" is refusal — not a free close.
+func TestUnverifiedClaimsRefusesAnItemWithNoRecordedFindingText(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		flagged []flaggedClaim
+	}{
+		{"no findings recorded", nil},
+		{"a finding with empty matched text", []flaggedClaim{{Check: "banned_claim", Slot: "hero"}}},
+		{"matched is whitespace only", []flaggedClaim{{Check: "banned_claim", Slot: "hero", Matched: "   "}}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got := unverifiedClaimsVerdict("p1", filedAt, tc.flagged, &checks.ClaimsPageScan{
+				PageID: "p1", PageName: "about", ComponentsExamined: 3,
+				NewestComponentUpdate: changedAfter, ExaminedTextBySlot: heroCleaned(),
+			})
+			if got.Verdict == revalidationResolved {
+				t.Errorf("closed an item whose recorded claim text could not be checked (%s)", tc.name)
+			}
+		})
+	}
+}
+
+// flaggedClaimsFromSpec reads the producer's own shape. A spec whose findings[]
+// is missing, the wrong type, or holds junk must degrade to "nothing to check"
+// rather than panicking inside the sweep — one malformed row must not take the
+// whole scheduled run down with it.
+func TestFlaggedClaimsFromSpecToleratesJunk(t *testing.T) {
+	cases := []map[string]interface{}{
+		{},
+		{"findings": nil},
+		{"findings": "not an array"},
+		{"findings": []interface{}{"not an object", 42, nil}},
+	}
+	for i, spec := range cases {
+		if got := flaggedClaimsFromSpec(spec); len(got) != 0 {
+			t.Errorf("case %d: expected no usable claims, got %+v", i, got)
+		}
+	}
+	full := map[string]interface{}{"findings": []interface{}{
+		map[string]interface{}{"check": "banned_claim", "slot_name": "hero", "matched": "independently verified"},
+		map[string]interface{}{"check": "unregistered_number", "slot_name": "stats", "matched": "90,790"},
+	}}
+	got := flaggedClaimsFromSpec(full)
+	if len(got) != 2 || got[0].Matched != "independently verified" || got[1].Slot != "stats" {
+		t.Errorf("real spec shape misread: %+v", got)
 	}
 }

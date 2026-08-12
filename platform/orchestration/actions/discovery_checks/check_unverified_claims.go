@@ -258,6 +258,29 @@ type ClaimsPageScan struct {
 	// component carried a timestamp, which the ladder must treat as "cannot show
 	// the copy moved" — never as "it did".
 	NewestComponentUpdate time.Time
+	// ExaminedTextBySlot is the copy this scan ACTUALLY READ, keyed by slot_name,
+	// for EXAMINED components only — locked rows are absent by the same reasoning
+	// as NewestComponentUpdate: their content was not read, so nothing may be
+	// concluded from its presence or absence.
+	//
+	// It exists for the CLAIM-GRANULAR gate in the review-queue revalidator. The
+	// timestamp gate above answers "did the page move?"; it cannot answer "did the
+	// thing we flagged go away?", and an edit to an unrelated slot satisfies it.
+	// Holding the examined text per slot lets the revalidator ask whether the exact
+	// text a finding cited is still sitting in the component it was cited from —
+	// without a second query and without a second predicate.
+	//
+	// Keyed by slot rather than concatenated page-wide DELIBERATELY, and this is
+	// measured rather than assumed: page-wide, a bare `unregistered_number` token
+	// such as "5" or "26" matches somewhere in almost any page's markup. On the 8
+	// items closed to 2026-08-11 a page-wide search reported 7 of 18 flagged texts
+	// still present; scoped to the slot, 2. Every one of the 7 was 1-4 characters
+	// long. Slot scoping is what makes the token test discriminate rather than
+	// merely fire.
+	//
+	// Components sharing a slot_name are concatenated, so a finding is judged
+	// against everything read under its own slot.
+	ExaminedTextBySlot map[string]string
 }
 
 // LoadEvidenceBase reads the site's current evidence_base spec.
@@ -397,6 +420,13 @@ func ScanDeployedClaims(
 		if updatedAt.Valid && updatedAt.Time.After(pf.NewestComponentUpdate) {
 			pf.NewestComponentUpdate = updatedAt.Time
 		}
+		// Same rule, same reason: EXAMINED rows only. Recorded before the scans run
+		// so the text held is exactly the text the scans were given — if these two
+		// ever diverge, the revalidator is judging copy the emit side never read.
+		if pf.ExaminedTextBySlot == nil {
+			pf.ExaminedTextBySlot = map[string]string{}
+		}
+		pf.ExaminedTextBySlot[slotName] += html + contentJSON
 
 		findings := scanComponentClaims(html, slotName, eb,
 			datahelpers.ClaimSurface{PageType: pageType})
