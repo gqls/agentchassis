@@ -571,3 +571,34 @@ auto-repair (A1) can be enabled once bug 251 is confirmed live — it now is. Bu
 hard gate on Phase C per the plan's own text (informational/pacing only) but re-check its
 status nearer the pilot, since a fresh-built site with dropped `og:` tags on 503+ pages is
 exactly the kind of defect this build-out shouldn't multiply unnecessarily.
+
+**Phase A1 shipped [2026-08-12]:** `check_site_structural_validity.go`, four checks
+(`dead_internal_link_live`, `canonical_mismatch`, `structured_data_invalid`,
+`head_essentials_missing`), committed `c66a83e9e`. Flag-only, self-clearing, not yet
+enabled on any live discovery agent (deliberate follow-up). Council-submitted, corr
+`51cb66fb-e4bc-46ec-8bbd-a4a561da14a0` — **committed before the verdict landed and the
+commit carries no `Council-Submitted:` trailer**, because the submission went out after
+the commit; check the verdict by correlation, not by the commit message, before writing
+`Council-Reviewed:` anywhere (forward-only forbids amending the original commit to add
+the trailer now). Built by a background agent working in an isolated worktree — its
+finding along the way: **bug 251 is already fixed on this branch** (found via
+`preferred_page_url_test.go`/`preferredPageURL` existing), so `canonical_mismatch` is a
+regression guard, not groundwork for an open bug.
+
+**LANDMINE, self-inflicted, worth recording so nobody repeats it:** copying the agent's
+files into the main tree, then running `git stash -u` to isolate a test run, swept up
+EVERY other concurrent session's uncommitted WIP in this already-dirty shared tree
+(confirmed: `revalidate_unverified_claims.go`, `store_generated_component_action.go`,
+and more). A concurrent session then continued editing `revalidate_unverified_claims.go`
+WHILE it sat in my stash, so `git stash pop` correctly refused (local changes would be
+overwritten) rather than silently reverting their newer edit — git's own safety net held,
+but only because it refused rather than merged. Recovered by `git checkout stash@{0} --
+<untracked path>` (fails on untracked paths — use the saved patch file / re-copy from
+source instead) for my own two files and re-applying my saved `.patch` for the one edited
+file, **never touching the stash's copy of the other session's file** since a newer live
+version already superseded it. The stash (`stash@{0}`) is left in place, not dropped —
+its content is now redundant with the live tree, and dropping someone else's swept-up WIP
+is not this thread's call to make even when redundant. **Do not `git stash -u` on this
+tree without a narrow pathspec** (`git stash push -u -- <your paths>`) — the whole-tree
+form assumes a clean tree that this repo, by its own design (CLAUDE.md's opening
+paragraph), never has.
