@@ -2321,6 +2321,43 @@ completed and not one of them wrote a verdict anywhere. Until someone reads that
 assume any page we archive can be resurrected by the next build, which is what stops us
 cleaning the seven pairs up by hand today.
 
+**2026-08-12, afternoon — your decision, carried out.** You said enable the two safer checks on
+fundamentallyai, leave the third off, and wait for a natural rebuild rather than force one.
+That is done and verified: fundamentallyai is now the only site in the fleet with any of this
+switched on, the third check is genuinely absent rather than merely turned off, and no rebuild
+has been triggered.
+
+Two things I checked before writing anything, both of which would have been quiet disasters.
+The first: fundamentallyai turned out to have **no structure settings record at all** — every
+previous site of this kind had one to add a key to, and this one needed a record created from
+nothing. That is only safe if nothing else treats "a record with no setting" differently from
+"no record". One other part of the system reads that record to decide the shape of the site's
+web addresses, and I had to satisfy myself it treats both cases the same. It does, and it says
+so in its own notes. Had it not, creating that record to enable a duplicate-page check would
+have quietly rewritten the addresses of every page on the site — a consequence with no
+connection whatsoever to what I was changing.
+
+The second: both our own documents say "do not enable this on the five decomposed sites"
+without ever saying **which** five. I went and counted. It is **six**, not five — and one of
+them, finetuning.uk, is also one of the four sites with duplicate pages. Nothing anywhere
+records that overlap, and finetuning is the obvious next site to pilot on, so it was a trap
+waiting for whoever went second. It is written down now.
+
+**What to expect, and when.** Nothing at all until fundamentallyai's page list is next rebuilt,
+and nothing is scheduled to do that — which is exactly what you chose. When it happens, the two
+enabled checks should silently prevent new duplicates, and the third, still off, should file
+about two harmless notes recording what it *would* have done. Those notes are the evidence we
+need to decide about the third check. The one thing I want to flag for whoever reads the tally:
+an empty tally still means "no rebuild yet", not "no duplicates" — that distinction is the whole
+reason this front spent the morning on it, and it is now written into the trap file so nobody
+has to rediscover it.
+
+**Still waiting on you: the seven duplicate pairs.** That is the other half, and it needs a
+judgement per pair — which of the two versions survives, weighing content against web-address
+convention against what search engines have already indexed. I have not touched any of them. If
+you want, I can put the seven side by side with what each version actually contains so the
+choice is a short conversation rather than a research exercise.
+
 **2026-08-12.** A new build went out, so I re-checked rather than assumed: all four of
 yesterday's configuration changes are still in place, and the three alarms this workstream
 built still exist in the new binary — checked on both machines, with a deliberately misspelt

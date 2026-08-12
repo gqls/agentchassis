@@ -656,6 +656,48 @@ Two consequences for the enable decision:
   gates enabled, and its remediation is additionally constrained by 204. Neither
   document flags this overlap; it is now flagged.
 
+### 2026-08-12 14:13Z — O1 DECIDED AND EXECUTED: the pilot is live on fundamentallyai
+
+**Owner decision 2026-08-12:** enable the two safer gates on fundamentallyai, leave
+`stem_twin_snap` off, and **wait for a natural rebuild** rather than trigger one.
+
+Seeded and verified. `docs024_key_docs_latest/brochure_component_library/SEED_2026-08-12_fundamentallyai_identity_gates.sql`:
+
+```
+domain               fundamentallyai.com
+spec id              c4c6b829-8e70-4048-a8c2-a050112ff72d   (created_by brochure_215_quiet_mode_thread)
+honour_realised_identity  present, true
+twin_identity_snap        present, true
+stem_twin_snap            ABSENT  (asserted absent, not merely unset — see below)
+url_shape                 ABSENT  (so URL shaping is unchanged)
+current structure specs fleet-wide  6 -> 7; exactly ONE carries any gate
+```
+
+**This was an INSERT, not the carry-forward every sibling `SEED_*.sql` performs —
+fundamentallyai had no structure spec row at all.** Checked rather than assumed that
+creating one is inert for everything else: the only other reader of the aspect is
+`siteUsesFlatURLs`, whose contract is "absent spec, absent key … all mean false"
+(`site_url_shape.go:29-32`), so a row carrying neither `url_shape` nor the adoption
+keys is indistinguishable from the previous no-row state for every reader but mine.
+The site was framework-built, never adopted, which is why there was nothing to carry.
+
+The seed's verify block asserts the **no-op** as well as the change: it aborts if
+`stem_twin_snap` exists *at all*, even as `false`. Absent and false behave identically
+today, but an explicit `false` reads to the next operator as "someone considered and
+disabled this", which is a different fact from "never set" — and O2 is still open.
+
+**Nothing has happened yet, by design.** The gates bite only when fundamentallyai's
+page list is next rebuilt, and no rebuild is scheduled. **So a zero in the counters
+tomorrow still means "no replan yet", not "no twins"** — the demand control
+(`SELECT max(created_at) FROM site_plans`, and whether that plan's site had pages
+predating it) remains mandatory before reading any zero, and the classifying join in
+`LANDMINES.md` remains mandatory before reading any non-zero.
+
+Expected first signal, for whoever reads it: **~2 `PLAN_PAGE_STEM_TWIN_OBSERVED` rows**
+(the stem layer is the one that fires on this site's pairs, and it is off), plus
+whatever the two enabled layers prevent. Those two OBSERVED rows are the harmless
+kind — both sides of both pairs are already realised, so observing them mints nothing.
+
 ### Unchanged loose end
 
 The 090 diagnosis `38099787-c7f9-46d4-b75e-3a1867fcaf41` (archived pages rebuilt

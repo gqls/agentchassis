@@ -5780,6 +5780,38 @@ diagnosis `38099787` is **still verdict-less** (3 rows COMPLETED 08-11 13:33–3
 `doc_notes` mentioning the corr), so the runbook's "an archive can be undone by the next
 build" finding still gates remediation step 5.
 
+### 2026-08-12 14:13Z — O1 decided by the owner and EXECUTED: the pilot is live on fundamentallyai
+
+`honour_realised_identity` + `twin_identity_snap` ON; `stem_twin_snap` deliberately left
+**absent**; **no replan triggered** — the owner chose to wait for a natural one, which matters
+because that site has ~47 open work items and its sweep front owns its cleanup. Seed and verify
+block in `SEED_2026-08-12_fundamentallyai_identity_gates.sql`; spec row `c4c6b829`, structure
+specs 6 → 7, and exactly one site fleet-wide carries any gate (asserted by row identity, not by
+a count).
+
+Two things I checked rather than assumed, both of which could have bitten. **(1) This site had
+NO structure spec row at all**, so unlike every sibling `SEED_*.sql` this is an INSERT, not a
+carry-forward — and creating a row is only safe if no other reader distinguishes "row without
+key" from "no row". `siteUsesFlatURLs` states its own contract in a comment ("absent spec,
+absent key … all mean false", `site_url_shape.go:29-32`) and there are exactly three readers of
+the aspect fleet-wide, so it is safe. Had `url_shape` instead defaulted differently on a
+*present* row, seeding my two keys would have silently re-shaped this site's live URLs — a
+consequence with no connection to what I was changing. **(2) The decomposed-site exclusion**,
+which both the handoff and the runbook state without ever naming the sites. Re-ran 204's own
+census: it is **six sites, not five** (204's figure is stale), fundamentallyai is clear — and
+**finetuning.uk is BOTH decomposed AND one of the four twin domains**, an overlap no document
+mentions. That one was easy to walk into, because finetuning is otherwise the obvious second
+pilot.
+
+The seed asserts the **no-op** as well as the change: it aborts if `stem_twin_snap` exists at
+all, even as `false`. Absent and false are identical to the code; they read differently to the
+next operator, and O2 is still open.
+
+**Nothing happens until fundamentallyai is next replanned, and nothing schedules that.** So the
+demand control stays mandatory: a zero tomorrow still means "no replan yet", not "no twins".
+Expected first signal is ~2 `PLAN_PAGE_STEM_TWIN_OBSERVED` rows — the harmless kind, since both
+sides of both pairs are already realised.
+
 ## 2026-08-12 — post-roll re-verification on v1.0.1290, and a DRIFT TRAP that would have flattered any future census
 
 **Fresh chassis roll (`agent-chassis-cc7b7f7b8-8tjhm`/`-vj2rt`, image `v1.0.1290`, 15h old).

@@ -1,0 +1,125 @@
+# HANDOFF — `bugs_open/215` quiet mode, continue here (2026-08-12 afternoon)
+
+Supersedes `HANDOFF_2026-08-11_215_quiet_mode_continue_here.md`, whose §4 ("DO THIS
+FIRST — read the dark-launch population") is **done** and whose O1 is **decided and
+executed**. Read that file only for history; its §6 traps and §7 loose ends are
+carried forward below where still live.
+
+**The pilot is live and inert. Nothing is half-finished in the tree.**
+
+## 1. State
+
+| | |
+|---|---|
+| code | **LIVE on chassis `v1.0.1290`**, artefact-verified on BOTH replicas 2026-08-12 |
+| council | **APPROVED** round 3, corr `56e13695-17cb-48ec-bc6b-0371fde8b717` |
+| enabled on | **fundamentallyai.com only** — `honour_realised_identity` + `twin_identity_snap`. `stem_twin_snap` absent by design |
+| dark-launch counters | **still 0/0/0/0** — no replan has run through the new path yet |
+| damage remaining | **7 both-deployed twin pairs, 4 domains** — untouched, needs an owner call per pair (**O2, the only open decision**) |
+| bug file | stays **OPEN**; newest sections at the bottom of `bugs_open/215_HANDOFF_...md` |
+| register | **PLAN-048** in `docs026_concept_register/register/site-plan-and-reconciler.md` |
+
+## 2. What changed on 2026-08-12
+
+- Read the §4 population as instructed. **Zero, for want of demand** — the only plan
+  since the roll was noted.co.uk's FIRST build (its `pages` created 0.65s *after* the
+  plan row, so nothing to reconcile against); fundamentallyai's plan predates the
+  21:53Z roll.
+- **The fleet rolled `v1.0.1288` → `v1.0.1290` underneath this lane.** Re-verified:
+  all four lane commits are ancestors of HEAD, literal probe present on both new
+  replicas with a pre-lane positive control and two one-letter near-miss negatives.
+- **O1 decided by the owner and executed** — see §3.
+- Resolved the "five decomposed sites" exclusion to actual domains. **It is six**, and
+  **finetuning.uk is both decomposed AND a twin domain** — an overlap no document had.
+- Filed a LANDMINE on the counters' semantics (§4 below) and a `WRONG_CALLS.md` entry
+  against my own mis-stamped measurement time.
+
+## 3. The pilot, exactly as seeded
+
+`SEED_2026-08-12_fundamentallyai_identity_gates.sql` in this directory. Spec row
+`c4c6b829-8e70-4048-a8c2-a050112ff72d`, `created_by brochure_215_quiet_mode_thread`.
+
+**It was an INSERT, not the carry-forward every sibling `SEED_*.sql` does** —
+fundamentallyai had no `structure` spec row at all (framework-built, never adopted).
+Safe because the only other reader of the aspect, `siteUsesFlatURLs`, states its own
+contract as "absent spec, absent key … all mean false" (`site_url_shape.go:29-32`).
+**If you seed a third site, re-check that** — a present row with a differently
+defaulting key would re-shape live URLs as a side effect of enabling a page-identity gate.
+
+`stem_twin_snap` is asserted **ABSENT**, not false, and the seed aborts if the key
+exists at all. Absent and false are identical to the code and different to a human
+reader, and O2 is open.
+
+## 4. DO THIS FIRST next session — but read it correctly
+
+```sql
+SELECT error_code, count(*), min(occurred_at), max(occurred_at)
+FROM agent_error_log
+WHERE error_code IN ('PLAN_PAGE_IDENTITY_TWIN_OBSERVED','PLAN_PAGE_STEM_TWIN_OBSERVED',
+                     'PLAN_PAGE_STEM_TWIN_REFUSED','PLAN_PAGE_IDENTITY_SNAPPED')
+GROUP BY 1 ORDER BY 1;
+```
+
+**Two rules, both learned the hard way, both now in `LANDMINES.md`:**
+
+1. **A zero means "no replan yet" until you prove otherwise.** The demand control is
+   `SELECT max(created_at) FROM site_plans` **plus** checking whether that plan's site
+   had `pages` predating it — a first build cannot exercise the reconciler at all.
+2. **A non-zero must be classified before it is quoted.** With a gate off, the layer
+   records and then *lets the duplicate through*; and an `*_OBSERVED` row means one of
+   two opposite things — harmless re-detection of an existing twin, or a freshly minted
+   one. Join the row's `plan_name` back against `pages` to tell them apart. The query
+   is in the LANDMINES entry "The page-identity dark-launch counter is NOT a passive
+   instrument".
+
+**Expected first signal on fundamentallyai: ~2 `PLAN_PAGE_STEM_TWIN_OBSERVED` rows**,
+the harmless kind (both sides of both pairs already realised). That is the evidence
+`stem_twin_snap` is waiting on.
+
+## 5. The one open decision — O2, the 7 pairs
+
+Unchanged and owner's. Procedure, population and ordering:
+`RUNBOOK_2026-08-11_duplicate_page_identity_remediation.md`. Needs a survivor decision
+per pair before anything executes. Two constraints the runbook does not both state:
+
+- The fundamentallyai sweep front owns that site's execution — route through its handoff.
+- **finetuning.uk's pair carries the `bugs_open/204` constraint too** (it is decomposed).
+- **Do not enable `stem_twin_snap` on fundamentallyai as a shortcut**: it would snap
+  each bare plan entry onto the `tool-` page, i.e. pick the survivor by machine, and
+  both pairs are 3 components against 3.
+
+The owner has been offered a side-by-side of the seven with their contents, to make
+the decision a conversation rather than a research exercise. That is the natural next
+piece of work if you are picking this up cold.
+
+## 6. Traps still live (from the 08-11 handoff, plus new)
+
+- **Verifying the deploy.** `logs -l app=agent-chassis | grep 'build provenance'`
+  returns ~1.4MB of council payloads quoting the phrase, and the startup line rotates
+  out within hours. Probing `/proc/1/exe` for **commit SHAs** returns absent for
+  everything including a fabricated control — no positive control, proves nothing.
+  **What works:** probe **added string literals**, with a **one-letter near-miss**
+  negative control AND a pre-lane positive control, on **both** replicas.
+- **The identity marker's route** travels through `collected_data.site_plan`, NOT
+  `site_plan_pages`. `TestReconcile_MarkerSurvivesTheStepBoundary` fails loudly if a
+  future change makes `extractPagesFromPlan` field-selective.
+- **Re-adoption dropping the three flags is FIXED and LIVE** as of `v1.0.1290`
+  (`carryForwardStructureSpecKeys`, `19acfc895` — verified present on both replicas
+  with a near-miss control 2026-08-12). The LANDMINES entry said "INERT UNTIL THE NEXT
+  ROLL"; that is corrected. Still re-check the spec after any adoption run, with
+  `data ? 'key'`, never `->>'key' = 'true'`.
+- **Three `pages` upsert helpers with opposite policies.** Only `SyncPagesToDBAction`
+  → `upsertPage` writes `pages`; `WriteSitePlanAction` writes the PLAN table.
+
+## 7. Loose ends
+
+- **090 diagnosis `38099787-c7f9-46d4-b75e-3a1867fcaf41`** (archived pages rebuilt and
+  re-deployed) — re-checked 2026-08-12 and **still verdict-less**: 3 orchestration rows
+  `COMPLETED` 08-11 13:33–34, **zero** `doc_notes` mention the correlation. Nobody has
+  read a root cause. This gates remediation step 5, because until it is understood any
+  archive can be undone by the next build. The narrower question to read it as: *should
+  the build/deploy path refuse a page whose `status` is `archived`?*
+- **Two `PLAN_PAGE_MERGE_LOSSY` rows** from the 08-11 census replan tripped the
+  standing richer-wins revisit trigger — same underlying condition as O2.
+- **`bugs_open/204`'s own census figure is stale** (says 5 sites, measures 6). Not this
+  lane's bug; noted in the 215 file because the exclusion is consumed here.
