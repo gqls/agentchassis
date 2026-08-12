@@ -263,6 +263,43 @@ Every command here was hard to get right at least once; the gotcha is attached.
   099, then 100_CHECK. Model standard: claude-sonnet-5 @ 8000, temp 0.0,
   advisory-only (`approve|object`).
 
+## B12. Do the register's citations still resolve? (added 2026-08-12b)
+
+`./scripts/report-register-citation-rot.py` — `DOC-078`. Read-only, ~1.5s, no cluster,
+no DB. Says "this citation does not resolve as written" and where git says the file went;
+it never says an entry is wrong.
+
+```bash
+./scripts/report-register-citation-rot.py                # census + the dead citations
+./scripts/report-register-citation-rot.py --worklist     # every citation git can locate, with its target
+./scripts/report-register-citation-rot.py --list DELETED  # or MOVED-AT-HEAD, BUG-MOVED, MOVED-AMBIGUOUS…
+./scripts/report-register-citation-rot.py --self-test     # 10 cases, each naming the wrong answer it guards
+```
+
+Five gotchas, all of them paid for:
+
+1. **It reads the WORKING TREE, not a ref** — the opposite of the drift trio in B3. It sees
+   an entry you have not committed; they do not. Neither behaviour is wrong, but do not
+   quote one at the other.
+2. **`git rev-list --objects --all` CANNOT enumerate paths** and must never be substituted
+   for the `git log --name-only` call inside. It dedups by OBJECT: content-identical files
+   share one blob and only one path is printed — **791 of 9,301 HEAD paths absent, all
+   duplicates.** Each dropped path reads as a *finding*, not a gap. The script asserts
+   `HEAD ⊆ ever` and prints nothing if that fails; if you ever see that refusal, the
+   enumerator is wrong, not the register.
+3. **Do not "clean up" a citation before resolving it.** The `(N)` suffix is an
+   extraction-unit id in some citations and part of the real filename in others
+   (`002e_concept_spark(6).md`). Stripping it unconditionally manufactured 27 of 34
+   "never existed" findings. The script resolves as-cited FIRST and takes the BEST verdict
+   across variants — if you edit `variants()` or `RANK`, re-run `--self-test`, which pins
+   exactly this.
+4. **`MOVED-AMBIGUOUS` is not rot.** 769 of them, all bare filenames matching several files
+   at HEAD: the citation is under-specified, not wrong. Counting them as defects inflates
+   the headline ninefold.
+5. **`BUG-MOVED` is ONE-DIRECTIONAL** — the owner ruled 2026-08-06 that a fixed bug stays in
+   `bugs_open/`, so a bug that has NOT moved proves nothing. The report says so on every run;
+   do not quote the number without it.
+
 ## B3. The two guards on the register itself (added 2026-08-10)
 
 Same rule as B2 — every command here was hard to get right at least once, and the

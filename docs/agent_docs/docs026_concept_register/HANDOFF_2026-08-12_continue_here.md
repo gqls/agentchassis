@@ -1,5 +1,14 @@
 # HANDOFF — concept register — 2026-08-12
 
+> ## ⛔ SUPERSEDED 2026-08-12b — cold-start from `HANDOFF_2026-08-12b_continue_here.md` instead
+>
+> **Both remaining staleness signals are now closed** (`DOC-078`,
+> `scripts/report-register-citation-rot.py`, commit `b9b32ba92`), so this file's staleness
+> table sends a session to redo finished work — and its instruction to "try the field key on
+> the citation signal first" has been tried: **it does not transfer.** What survives verbatim
+> is the enforcement warning below (the clean OPP-006 signal is still not evidence) and the
+> lane's landmines, both carried into the new file.
+
 **Cold-start doc for the register lane. This SUPERSEDES
 `HANDOFF_2026-08-10b_continue_here.md`.** Two of its items are now closed and its
 READ-FIRST banner has been answered twice over — read this instead, not that.
