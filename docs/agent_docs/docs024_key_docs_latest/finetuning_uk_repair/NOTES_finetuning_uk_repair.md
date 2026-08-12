@@ -719,9 +719,31 @@ page that currently looks right.
 ### Where this leaves it
 
 Five findings sit `detected`. Nothing will act on them until someone promotes one
-with an explicit `UPDATE … status='triaged'`. **Recommended order once the owner
-chooses:** the two token/hardcoding findings (`dark_section_audit`,
-`needs_design_review` hero) are genuine structural drift and the safest to repair;
-`spacing_fix` is small; the font one should be repaired as *delete the dead
-declaration*, phrased so no agent touches the external rule; `cta_improvement` is
-a business decision about the funnel, not a design defect.
+with an explicit `UPDATE … status='triaged'`.
+
+### ALL FIVE VERIFIED at the served artefact — and only TWO are live defects
+
+Each checked against `https://finetuning.uk/index.html` and its stylesheet, with a
+control proving the grep discriminates (31 `--section-` / 10 `rgba(` occurrences).
+
+| # | finding | verdict | evidence |
+|---|---|---|---|
+| 2 | `dark_section_audit` — section defines its own vars | **REAL, LIVE** | three competing definitions: `--section-heading` is `var(--hero-ink)` in one place, `var(--color-cta-text,…)` in another, and **`#ffffff`** in a third; `--section-surface`/`--section-border` likewise, one set hardcoded `rgba(255,255,255,…)` while siblings derive from tokens |
+| 3 | hero hardcoded overlay + `--hero-btn-ink` | **REAL, LIVE** | `--hero-btn-ink: #0F1115` present verbatim; hardcoded `rgba(0,0,0,0.3)` ×2 alongside token-derived colours |
+| 4 | body font Merriweather vs collection sans | **REAL but INERT** | the declaration exists, but the external sheet loads after it and wins — page renders Inter/DM Sans (analysis above) |
+| 5 | `spacing_fix` two-value fallback | **REAL but INERT** | `padding: var(--spacing-section, 5rem 2rem)` exists — **but `--spacing-section: var(--section-pad-y, 4rem)` IS defined**, so the `5rem 2rem` fallback can never fire. Its sibling `padding: var(--spacing-section)` has no fallback: inconsistent source, identical result |
+| 1 | `cta_improvement` — one conversion path | **not a design defect** | a funnel/business judgement; nothing to verify at the artefact |
+
+**The headline: 2 of the 4 technical findings describe code that cannot affect a
+visitor today.** Both are real inconsistencies and worth tidying, but neither is
+the defect its summary implies — and #4's naive repair ("the body font is wrong")
+could edit the *winning* rule and break a page that currently renders correctly.
+
+**This is the argument for detect-only, made concrete.** Had this run through 294,
+`call_dispatch` could have claimed these and dispatched repairs for two non-problems
+against a live commercial site, with no human ever reading the summaries.
+
+**Recommended order, if the owner wants repairs:** `dark_section_audit` and the
+hero hardcoding first — genuine token drift, safe to fix, visible benefit.
+`spacing_fix` and the font one as *delete the dead declaration*, worded so no agent
+touches the winning rule. `cta_improvement` is the owner's call about the funnel.
