@@ -811,3 +811,95 @@ argued. §6 item 1b stands as written (fix the attribution) but is now **config 
 four agents, not a Go change**, and the fix that makes the bad state unrepresentable —
 dropping the default so a missing `audit_source` fails loudly — has to follow the four
 config fixes or it breaks four auditors. That ordering is in the bug file.
+
+## 2026-08-12 (evening) — D1 does not need building. The shared carrier ALREADY EXISTS, is live, and has one consumer.
+
+Third time today that "we need to build X" has turned out to be "X exists and nothing
+drives it". Recording it before writing a line of the council submission, which is now
+probably unnecessary.
+
+### The carrier
+
+`platform/voicestyle/voicestyle.go`, header line one: **"One source for the house voice."**
+Built 2026-07-27 for `bugs_open/121`, at the owner's directive — quoted in the file:
+*"one place for the prompt, and probably not in go by choice"*. It is exactly the design
+the 08-09 summary said we should choose between and exactly what I spent this evening
+designing from scratch:
+
+- **Store:** the `voice_style_block` row of `agent_default_configs` (migration 240).
+- **Inject:** `ai_actions.go:299-316`, inside `ExecuteLLMPromptAction`, before
+  `RenderPromptTemplate` — *"injected for EVERY prompt template rather than pasted into
+  each one"*.
+- **Opt-in:** *"A template opts in by writing `{{.voice_style}}`; one that does not
+  mention it is unaffected."*
+- **Cache:** 60s TTL, so DB-live is preserved *"at a human timescale"*.
+- **Degrades, never fails:** an empty block means generate without the house voice, and
+  that is deliberate — *"losing the voice on one page is recoverable, failing every
+  content build is not."*
+- **Step config outranks it**, deliberately, as a request-level override.
+
+My independently-derived design (NOTES, an hour earlier: DB row + inject into
+CollectedData in `ExecuteLLMPromptAction` + one reference per prompt) is the same design,
+down to the injection site. That is corroboration that the shape is right — and a reminder
+that arriving at a sound design is not evidence it needs building.
+
+### The measurement that turns D1 into a config change `[MEASURED 2026-08-12]`
+
+```sql
+SELECT a.type,
+  (a.default_config::text LIKE '%voice_style%')            AS uses_carrier,
+  (a.default_config::text ILIKE '%start with the fact%')   AS has_inlined_copy
+FROM agent_definitions a WHERE a.is_active AND …;
+```
+
+| agent | uses carrier | inlines its own copy |
+|---|---|---|
+| content-creator-about | **f** | t |
+| content-creator-hero | **f** | t |
+| content-creator-hero-without-research | **f** | t |
+| content-writer | **f** | t |
+| grounded-explainer | **f** | t |
+| simple-content-writer-with-approval | **f** | t |
+| **page-content-writer** | **t** | **t** |
+
+**Six of the seven writers never adopted the carrier. The seventh uses it AND keeps a
+duplicate.** Fleet-wide, `page-content-writer` is the **only** agent definition that
+references `{{.voice_style}}` at all.
+
+**And the carrier row carries the OLD rule.** 2,499 chars; `ILIKE '%start with the fact%'`
+→ **true**; `ILIKE '%never open a section cold%'` → **false**.
+
+So the house voice exists in **eight places**: the one row it was centralised into, plus
+seven inlined copies — which is precisely the drift `bugs_open/121` and this package were
+built to end, re-formed within a fortnight. **This is the "~0% adoption measures the
+mechanism" shape: the carrier is not missing, it is undriven.**
+
+### What D1 actually is now
+
+Not a build, not (probably) a council submission — **config, DB-live, no Go change**:
+
+1. **Put voice H in the `voice_style_block` row.** One `UPDATE`, live within 60s.
+2. **Add `{{.voice_style}}` to the six templates that lack it.**
+3. **Delete the inlined duplicate from all seven** — this is the load-bearing step, and
+   the one that carries the owner's exemplar decision, because `page-content-writer`'s
+   inlined block is where the two negative worked examples live.
+
+⚠ **Step 3 is not optional and step 1 alone is actively harmful.** Update the row without
+deleting the duplicates and `page-content-writer` receives H's prohibition *and* the old
+prescription **in the same prompt**, contradicting each other, while the other six change
+not at all. A partial application is worse than none.
+
+⚠ **The council gate would likely REFUSE this** — scope is `platform/`, `internal/`,
+`pkg/`, and on this shape there is no Go edit at all. That does not make it low-risk: it
+makes it **live the moment it is applied, with no gate and no roll**. Treat the 60s cache
+as the whole of the safety margin.
+
+### The other consumer, which must be TOLD and not merely counted
+
+`internal/agents/contentcreator/agent.go:522` reads the same row through the same package
+on a `pgxpool` driver — a **different service**, not an agent definition, so it is invisible
+to the query above. Changing `voice_style_block` changes what the content-creator service
+writes too. Under the owner ruling of 2026-07-29 §3 that consumer gets told what changed
+about its guarantee, not a list of new keys. `[UNMEASURED — I have not established what
+content-creator currently produces or whether H suits it; that is the next check, and it
+is a reason to sequence step 1 after step 2, not before.]`
