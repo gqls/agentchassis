@@ -29115,3 +29115,43 @@ at ~15 I would have credited the palette repair with 20 failures it cannot reach
 fully closed on this site, and left the `.team-member` family invisible — hidden precisely
 because the number matched. **A prediction that misses tells you more than one that lands**, and
 this one converted a wrong attribution into a newly-named defect family with an exact count.
+
+## 2026-08-12 — bugfix 246 lane: I wrote "every reader already falls back" into my own handoff, and three of them do not
+
+**6. WRONG CALL: I characterised a follow-up as a cosmetic tidy-up on the strength of a grep I never opened the hits of.**
+`bugs_open/246`'s handoff listed D5 as *"collapse `p.sqlDB` into `p.db`. It is nil in
+production and **all eight readers already carry a `db := p.db; if db == nil { db = p.sqlDB }`
+fallback**"* — and the bug file said the same. **Three of those eight sites do no such
+thing**: they are `if p.sqlDB != nil { … }` **guards**, so instead of falling back to a
+live handle they *skip the work entirely*. One of them sends every workflow response as
+the literal placeholder `{"status":"completed"}` in place of the orchestration's
+`CollectedData`; another is the whole two-phase dedup claim. Now `bugs_open/259`.
+
+**How I got it wrong:** I ran `grep -n "sqlDB" platform/messaging/*.go`, saw a cluster of
+hits around a fallback idiom I had just read at one site (the one the 239 lane fixed), and
+generalised from **one opened hit to eight counted hits**. The line count was right and the
+claim was wrong. I then wrote it into a bug file and a cold-start handoff, where it would
+have told the next session that a defect was a cleanup.
+
+**What caught it:** going to *do* the work. The first step of the refactor is opening every
+site, and the guards are obvious the moment you look at one. So it was caught by execution,
+not by review — which means it would have survived indefinitely had the follow-up stayed on
+the list, and it was already published in two places.
+
+**The cheap check:** a claim of the form "all N call sites do X" needs all N **opened**, not
+counted. `grep -c` establishes how many there are; it never establishes what they do. If
+opening all N is too expensive to be worth it, that is the signal to write "N sites, spot
+checked M" — the honest form — rather than to assert the generalisation.
+
+**The shape, for the tally:** *this is the same error as the 2026-07-19 refutation recorded
+at the top of CLAUDE.md's diagnosis section* — a confident structural claim built from grep
+hits whose functions were never opened. That one was refuted in 9.5 minutes by the loop
+reading the one function the thread had skipped. Mine was refuted by my own hands three
+weeks later. **The failure mode is not missing information; it is not looking**, and a
+grep's output is exactly the artefact that feels like looking.
+
+**Aggravating, and worth its own line:** I had *already written* the correct warning in the
+same lane's docs — the 239 lane's "p.db and p.sqlDB are NOT interchangeable" is quoted in my
+own RUNBOOK §3. Holding the caveat did not stop me generalising past it, because the caveat
+was filed under "which handle to use in a fixture" and the claim was about "what the call
+sites do". **A caveat only protects the question you filed it under.**
