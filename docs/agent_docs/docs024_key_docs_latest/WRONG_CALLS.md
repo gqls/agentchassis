@@ -24736,6 +24736,50 @@ spelling-negative control, and treat `Job`-owned stragglers as a reachability qu
 (`default_config::text LIKE '%<your action>%'`, with a row whose answer you know).
 Then write the tag and the date into the claim.
 
+---
+
+## 2026-08-12 — "the a6000 floor is $0.43/hr, not $0.35": a price stated as a correction, computed from an assumption, in the same breath as four measured findings
+
+**The claim.** Reporting Phase 0 preflight to the owner: *"an a6000 **cannot** be bought
+at 4 vCPU, and vCPUs beyond 4 are +$0.04/hr each. So the playground floor is **$0.43/hr,
+not $0.35** — a 2h window is ~$0.86 rather than ~$0.70."* Presented as a correction to the
+lane's recorded price, i.e. with more authority than a plain claim, because a correction
+implies the old figure was checked and found wrong.
+
+**What was actually true.** The vCPU *constraint* was measured (Thunder 400s a 4-vCPU
+a6000; `vcpuOptions` is `[6,8]`). The *price* was not measured at all. I took the pricing
+page's "+$0.04/vCPU/hr beyond 4" and applied it to the 6-vCPU minimum. But **6 is the
+minimum configuration a6000 sells in** — so the advertised $0.35/hr may already be the
+price *of* a 6-vCPU box, and the surcharge may not apply. The honest figure is
+**$0.35–$0.43/hr, unresolvable without an invoice.** No invoice exists yet: every instance
+this session was destroyed before `thunder_instances` was written, so nothing was even
+cost-stamped locally.
+
+**What caught it.** Writing the follow-up sentence. Having just told the owner the
+minimum was 6, I went to state the surcharge and noticed the surcharge rule is expressed
+*relative to 4* — a baseline that cannot exist on this GPU. The arithmetic quietly assumed
+a configuration Thunder does not sell.
+
+**The cheap check that would have.** The one I had already run for the other half:
+`/v1/specs` gives `vcpuOptions` per type, and it is free and read-only. It says the a6000
+*starts* at 6. Any surcharge expressed "beyond 4" therefore needs the vendor's own
+statement of what the advertised rate includes — a question, not a calculation. **The
+tell is the units: a measured constraint and an inferred price were carried in the same
+sentence, joined by "so".** That "so" is where the marker should have gone.
+
+**Why it is worth a row despite being small.** Three reasons, and the third is the one
+that generalises:
+1. It travelled as a **correction**, which is the highest-credibility form a claim has.
+2. It was the only unmeasured number in a report of otherwise-measured findings, so it
+   inherited their credibility — [INFERRED] next to it would have cost nothing and
+   was not written, in a session where I marked *other* claims [UNVERIFIED] correctly.
+   **Marking discipline is not a property of a session; it is per-claim.**
+3. **A vendor's surcharge rule is stated against a baseline configuration, and the
+   baseline may not be purchasable for the item you are pricing.** "Base price + published
+   per-unit extra × (minimum − baseline)" is a plausible-looking calculation that can be
+   wrong in either direction, and it is wrong invisibly, because every input is real.
+   Price the thing you can actually buy, or say you have not.
+
 ## 2026-08-09 (bugfix 226 lane) — "the rest fill in as the wave reaches them": I called a stalled queue a running wave, in a summary, from three data points that were all the OLD dispatch path
 
 **What I wrote**, in `bugfix_226_chrome_divergence/SUMMARY_2026-08-09`, committed
