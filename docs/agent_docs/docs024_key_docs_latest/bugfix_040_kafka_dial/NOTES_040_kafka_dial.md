@@ -543,3 +543,24 @@ and writing a patch:
 `04195fa7-28c2-410a-a8cb-15d42acf43c4`, claimed by the live dispatch loop,
 run correlation `39bb6fe8-a55c-476e-8ffd-026bec4b57ca`. `site_work_items`
 queue check was clear before filing (no duplicate).
+
+### Council verdict and one more cross-check
+
+Council: **APPROVED**, round 1, correlation `af5f74bc-5e6c-4a6c-a3fc-7ac27eab4b6f`
+— 2 advisory objections (editquality medium, guardian low+medium), none
+high-severity. Full review JSON archived below for reference; key point:
+`editquality` flagged `LANDMINES.md`'s blank-`MetadataTopics` entry
+(`bugs_open/240`) as an uncovered candidate mechanism. Checked the timing:
+burst episode 1 overlaps 240's OOM window (partial fit, ~20,255 events);
+episode 2 (72% of the burst) starts 7h after 240 resolved (does not fit).
+Written up in bug 040 §11.5 and contributed to `bugs_open/240` directly rather
+than duplicated. `guardian`'s two objections (name the 4th `getController`
+caller explicitly; confirm the fail-fast-on-total-failure behaviour change is
+intended) are noted here rather than actioned — both are advisory-only,
+correctly assessed as low/medium, not blocking, and the fail-fast behaviour
+*is* intended (stated in the submission's risk #4).
+
+Full verdict JSON: `kubectl -n ai-persona-system exec postgres-clients-0 --
+psql -U clients_user -d clients_db -c "SELECT body FROM diagnosis_artifacts
+WHERE correlation_id='af5f74bc-5e6c-4a6c-a3fc-7ac27eab4b6f' AND
+kind='council_report';"`
