@@ -21,17 +21,17 @@ different fix. Do not re-derive this.
 
 ## State of candidate 1 (the only one acted on)
 
-> **UPDATED 2026-08-12 12:40Z.** Census is now **1**, not 0 — `ollama-adapter`
-> rolled overnight and is fully live. The apply of the other three was attempted at
-> 12:38Z and **refused by the local permission classifier**; the cluster was not
-> touched. See the bug file's `⚠ STATE AS OF 2026-08-12 12:40Z` block.
+> **✅ DONE 2026-08-12 13:00Z — the owner applied it; census is 5.** The table below
+> is history. Read the bug file's `✅ STATE AS OF 2026-08-12 13:00Z` block for the
+> outcome, the before/after headroom, and **candidate 1b**, which is what this lane
+> now owes.
 
 | deployment | manifest | LIVE in cluster |
 |---|---|---|
-| `github-actions-runner` (2 replicas) | 4Gi on `runner` | **not applied** — pods 22d / 27h old |
-| `github-actions-runner-vmsites` | 4Gi on `runner` | **not applied** — pod 26d old |
-| `ollama-adapter` | 1Gi on `model-pull` **and** `ollama` | ✅ **LIVE, both containers** (pod 14h old; `kubectl diff -k` clean — needs no apply) |
-| `ollama-eval` | 1Gi on `ollama` | **not applied** — pod 45d old |
+| `github-actions-runner` (2 replicas) | 4Gi on `runner` | ✅ live 12:55Z — now on …1336 and …1149 |
+| `github-actions-runner-vmsites` | 4Gi on `runner` | ✅ live 12:55Z — **moved off …1149** to …6833 |
+| `ollama-adapter` | 1Gi on `model-pull` **and** `ollama` | ✅ live overnight, both containers |
+| `ollama-eval` | 1Gi on `ollama` | ✅ live 12:58Z, serving |
 
 Commits: `301161274` (the requests + a correction to what they buy),
 `eab8e7fe8` (the not-applied note), `838ffa163` (wrong-container fix + WRONG_CALLS).
@@ -107,13 +107,18 @@ print(sum(1 for p in d['items'] if p['status'].get('phase') in ('Running','Pendi
 
 ## The honest summary line
 
-The diagnosis is solid and measured; **the fix is one-fifth done — 1 container of
-the 5 — but that fifth is now PROVEN in the cluster**, which is the one thing the
-08-11 version of this line could not say. Until the census returns 5, the correct
-sentence is still "the manifests declare it" — not "the fleet requests it".
+**Candidate 1 is done, live and proven: the fleet requests disk (census 5), the two
+co-located runners are on separate nodes, and the 0.82 GB node is back to 3.43 GB.**
+That sentence is now earned at the pod, not at the manifest.
 
-> **UPDATED 08-12 12:40Z.** The 08-11 line read "one-third done and none of it is
-> proven in the cluster yet". Both halves have moved: `ollama-adapter` carries the
-> request on both its containers in the live pod, and the denominator is 5
-> containers, not 3 deployments. Worth keeping visible because the *shape* of the
-> claim is what to distrust — a fraction over an unstated denominator.
+**What it does NOT mean, and this is the live trap in this lane:** the co-location
+cannot recur is **false**. There is no anti-affinity and no topology spread on the
+runners — today's good placement is a scheduler score, not a rule, and 2×4Gi on one
+35.1 GB-allocatable node remains entirely legal. **Candidate 1b** closes that; it is
+the cheapest remaining item and nobody owns it.
+
+> **The claim's history, kept because the shape is the lesson.** 08-11: "one-third
+> done and none of it proven in the cluster". 08-12 12:40Z: "one-fifth done, that
+> fifth proven" — the denominator changed from 3 deployments to 5 containers under a
+> fraction that never stated it. 08-12 13:00Z: done and proven. A fraction over an
+> unstated denominator is the shape to distrust in your own writing.

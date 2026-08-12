@@ -4,7 +4,12 @@
 pod was rejected during the 09:23Z roll with
 `Pod was rejected: The node had condition: [DiskPressure]`, and the owner asked
 whether this was a host-count or a distribution problem.
-**Status:** OPEN, UNOWNED. **Severity:** medium — self-healing today, but it
+**Status:** **OPEN, UNOWNED — candidate 1 APPLIED, LIVE AND PROVEN 2026-08-12 13:00Z
+(census 0 → 5).** Still open because the root blindness remains: `ephemeral-storage`
+is scheduled against 35.1 GB allocatable while real free space is 2.8–9.3 GB, so the
+scheduler can still place onto a nearly-full node. Outstanding: **1b** (make the
+runner spread a rule, not an outcome — see the 13:00Z block), and **2–4** (owner
+decisions). **Severity:** medium — self-healing today, but it
 silently removes a replica during a roll and the margin is thin enough that it
 recurs several times a day.
 **Answer to the question that prompted it: neither.** It is not too few hosts, and
@@ -104,6 +109,65 @@ So the observable impact today is a **transient loss of one replica during a
 roll**, self-healed. The reason it is worth filing anyway: with …6832 at 1.34 GB
 of headroom, the same event on two nodes at once during a roll would leave a
 deployment short for as long as the pressure lasts, and nothing alerts on it.
+
+## ✅ STATE AS OF 2026-08-12 13:00Z — **CANDIDATE 1 IS APPLIED, LIVE AND PROVEN. CENSUS = 5.**
+
+The owner ran the apply at 12:55Z. All three deployments rolled successfully;
+`ollama-eval` came back at 12:58:36Z and is serving. **Supersedes every state block
+below.**
+
+```
+CENSUS (containers requesting ephemeral-storage) = 5     [MEASURED 2026-08-12 13:00Z]
+  github-actions-runner-cbb64d544-l4tqc          runner      4Gi   node …1336
+  github-actions-runner-cbb64d544-nrssq          runner      4Gi   node …1149
+  github-actions-runner-vmsites-6f897c7d8f-tp44p runner      4Gi   node …6833
+  ollama-adapter-745d456cff-cbqrn                ollama      1Gi   node …1336
+  ollama-eval-5bff8c445f-tqrq5                   ollama      1Gi   node …6832
+  (+ ollama-adapter model-pull initContainer, 1Gi)
+```
+
+**The co-location broke up, which is the specific thing candidate 1 was for.**
+Before: `…-9n5p7` **and** `…-vmsites` were both on …1149, the node with 0.82 GB of
+headroom. After: all three runner pods are on three different nodes — …1336, …1149,
+…6833.
+
+**And the tightest node recovered** `[MEASURED before 12:37Z → after 13:00Z]`:
+
+| node | before | after | Δ | note |
+|---|---|---|---|---|
+| **…1149** | **0.82 GB** | **3.43 GB** | **+2.61** | vmsites' writable layer left — attributable |
+| …6833 | 7.82 GB | 2.81 GB | −5.01 | took vmsites, pulled the runner image — attributable |
+| …6832 | 4.18 GB | 9.26 GB | +5.08 | [UNATTRIBUTED] plausibly the old eval pod's layer freed, not measured |
+| …1336 | 3.67 GB | 4.68 GB | +1.01 | [UNATTRIBUTED] |
+| …1148 | 3.63 GB | 3.08 GB | −0.55 | [UNATTRIBUTED] |
+
+**Fleet-worst headroom went 0.82 GB → 2.81 GB, a 3.4× improvement in the number
+that actually causes the bug.** Note the fleet did not gain disk — the improvement
+is redistribution, exactly as the 15:00Z correction predicted.
+
+`kubectl describe node` now discriminates, where the filing warned it could not:
+allocated `ephemeral-storage` reads 4Gi (12%) / 1Gi (3%) / 4Gi (12%) / 5Gi (15%)
+across four nodes, and `0 (0%)` on …1148 only. Disk is a scheduled resource here
+for the first time.
+
+### ⚠ NEW FINDING — the separation is NOT guaranteed, and candidate 1 does not make it so
+
+`[MEASURED 13:00Z]` `github-actions-runner` has **`affinity: None`** and
+**`topologySpreadConstraints: None`**. The scheduler spread the three runners by
+score, not by rule. With 35.1 GB allocatable per node and 4Gi requests, putting
+both runner replicas back on one node is **entirely representable** — the next roll
+may legally undo today's placement, and nothing would report it.
+
+So the correct sentence is: *candidate 1 made disk visible and today's placement is
+good*, **not** *the co-location cannot recur*. This is the same trap the 15:00Z
+correction caught, one level up — requests fixed the input to the decision, they did
+not constrain the decision.
+
+**Candidate 1b (new, unowned): add `topologySpreadConstraints` (or a
+`podAntiAffinity`) on the two runner deployments** so the spread is a rule rather
+than an outcome. Cheap, manifest-only, closes the door that candidate 1 only leans
+shut. Ranked above candidates 2–4 by the "what makes the bad state unrepresentable"
+test, and unlike 3 and 4 it needs no owner-level node-pool change or spend.
 
 ## ⚠ STATE AS OF 2026-08-12 12:40Z — CENSUS IS **1**, AND THE APPLY IS PERMISSION-BLOCKED
 
