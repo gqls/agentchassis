@@ -29691,3 +29691,52 @@ finding.
 here was measured, dated and disconfirmable, and several of them could have come out
 otherwise. The claims were individually true. **The word that was false was "clean" — a
 summary word, which quietly asserts the union of every check I did not run.**
+
+---
+
+## 2026-08-12 — my commit message described work the commit did not contain, and git reported success
+
+**The claim.** Commit `12a7be0f8` says, in terms, that `classifyProvisionError` was
+extracted and pinned by two new tests. I had done exactly that, verified it, and
+mutation-checked it. The commit does not contain it.
+
+**The truth.** Between my edit and my `git commit`, another session ran `git stash`
+on this shared branch (`stash@{0}`, `WIP on 087_towards_multiple_domains`). A stash
+reverts **every dirty tracked file** to HEAD, so my two uncommitted Go files went
+back to their committed state. My pathspec commit then named seven paths, found
+changes in five, and **committed those five without a word about the other two**.
+Git printed `5 files changed` and exited 0.
+
+**What caught it.** The commit-scope report's file count — `5 files across 2
+area(s)`, with no `internal/` area listed — against the seven paths I had just
+typed. Nothing else would have: the message was plausible, the tests passed in my
+working tree right up until they didn't exist, and HEAD compiled throughout
+(because the *pair* went together — had only the test file survived, HEAD would
+have broken for every session).
+
+**The cheap check.** **Count what you named against what the hook reports, every
+time.** `git commit a b c` does not warn that `b` had nothing to commit — a
+pathspec naming an unchanged file is silently a no-op, and that is
+indistinguishable from success. When it matters, assert at HEAD rather than at the
+tree: `git show HEAD:<path> | grep -c '<the symbol you just added>'`.
+
+**Why the usual protection did not apply.** The pathspec discipline in CLAUDE.md
+exists to stop *your* commit sweeping in *other sessions'* work. This is the
+mirror image and it is not covered: another session's ordinary, correct hygiene
+(`git stash`) silently removed *my* work from the tree. CLAUDE.md already says
+uncommitted work is not safe and to commit the moment it is coherent — I had a
+verified, coherent change and carried it through four more tool calls before
+committing. **The window is the whole exposure.**
+
+**Recovery, and the trap inside it.** The work was recoverable
+(`git show 'stash@{0}:<path>'`), but the obvious move — `git stash pop` — would
+have been damaging: that stash also held another session's `CLAUDE.md`,
+`cmd/config-key-audit/main.go` and twenty-odd kustomization overlays, and popping
+it would have dumped all of it into the tree to be committed under my name.
+**Extract by path, never pop a stash you did not create.**
+
+**The shape, for the tally.** "A claim about behaviour is NOT the behaviour" —
+applied to my own commit. I verified the code, then asserted the commit contained
+it, and those are two different facts separated by a shared mutable tree. Also
+"prove it at the artefact": the artefact for a commit is HEAD, not the working
+directory I was looking at.
