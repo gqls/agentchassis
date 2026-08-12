@@ -9732,3 +9732,55 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **relations:** `bugs_open/259_…_one_provision_request_builds_several_billable_gpus` (worked case; its original filing named Kafka redelivery and was corrected) · `bugs_open/258` defect 2 (the slow provision that made the await expire) · migration `396_thunder_provision_claims.sql`
 - **source:** 2026-08-12, `finetuning_uk_service` lane. The bug had already been filed, contained and handed off with "idempotency on `correlation_id`" as the recommended fix — and reading the dispatch code afresh made `request_id` look like the obviously-more-correct key. One query against `awaited_requests` settled it the other way.
 - **added:** 2026-08-12, finetuning_uk_service lane
+
+---
+
+## `status='complete'` cannot tell a RETRACTION from a repair — a check closing its own finding writes the same value a handler writes
+
+- **footprint:** `site_work_items` (`status`, `result`) · `platform/orchestration/actions/work_items_common.go` (`resolveWorkItems`) · `platform/orchestration/actions/discovery_checks/check_*.go` (any check populating `CheckResult.Resolved`) · every "did the fix land?" query over work items
+- **fires when:** you check whether a finding was dealt with, by reading `status`. `resolveWorkItems` — the one place a discovery check closes what it has POSITIVELY OBSERVED to be fixed — writes `status='complete', completed_at=now()`, byte-identical to what a handler writes when it actually did the work. **A retraction means "the defect is gone"; a drain means "an agent repaired it". Those are different claims and the column holds neither.**
+- **why the wrong result looks exactly right:** `complete` is the value everybody greps for, and it is a *settled* conclusion to every status query — nothing anywhere reads as odd. Worse, both readings are *plausible*: on a site where an agent really did run, "complete" invites you to credit the agent; on one where nothing ran, it invites you to conclude the queue drained. Neither the count nor the timestamps discriminate.
+- **the check, and it is one column:**
+  ```sql
+  SELECT status,
+         result->>'resolved_by' AS retracted_by,   -- the check's name, or NULL
+         left(result->>'reason', 80) AS why,
+         claimed_by                                 -- the handler, if one ran
+  FROM site_work_items
+  WHERE item_type = '<type>' ORDER BY updated_at DESC;
+  -- resolved_by NOT NULL  => a CHECK retracted it: the defect stopped reproducing.
+  -- resolved_by NULL      => a handler completed it (claimed_by names which).
+  ```
+  Worked control, 2026-08-12: all eight `needs_strategy` rows ever filed read `complete`, and **not one** carried `resolved_by` — which is how the vigilant_designer lane established its retraction arm had never fired, having previously "known" it worked because the unit tests were green.
+- **the adjacent trap, opposite direction:** a retraction is only as good as the observation behind it. `resolveWorkItems` refuses to guess (empty `ItemType`, empty `Reason`, or neither `ItemKey` nor `AllOfType` are hard errors) — but it cannot tell a defect that was FIXED from one whose evidence rows were DELETED. WII-015's entry records a live instance where a producer's rows vanished and a close-out would have fired on an absence.
+- **relations:** WII-009 (the retraction rule) · WII-014 / BIZ-031 (`check_premise_incomplete`, first live firing 2026-08-12) · RFC_010 Decision 2 (`unresolved` and `failed` are retractable on purpose, which widens what this touches) · MEMORY `a-complete-work-item-is-not-a-repaired-artefact` (the sibling: there `complete` did not mean the artefact was repaired; here it does not say WHO decided)
+- **source:** 2026-08-12, vigilant_designer_offer_analysis lane, verifying `premise_incomplete`'s retraction arm on loanandmortgagecalculator.co.uk. The prediction was written before firing precisely because "the item will go complete" is not a disconfirmable statement on its own.
+- **added:** 2026-08-12, vigilant_designer_offer_analysis lane
+
+---
+
+## `site_discovery_rotation` is NOT the meter for "when will my check next run on site X" — a second, unscheduled driver runs the same checks and never stamps it
+
+- **footprint:** `site_discovery_rotation` · `scheduled_tasks` (`site-discovery-rotation-*`, `improvement-sweep`) · `platform/orchestration/actions/discovery_checks/` (any check you are waiting to see fire) · `run_improvement_sweep_once.sh`
+- **fires when:** you have shipped a discovery check and want to know when it will next examine a site — or you are diagnosing why it has not. The rotation table is the obvious answer: one row per (site, agent_type) with `last_selected_at`, stamped by the rotation task's own pre_query. **It sees only one of the two things that run your check.** The improvement loop (`improvement-sweep`, `enabled=f`, hand-fired by sessions with `run_improvement_sweep_once.sh`) calls the same discovery agent as a CHILD orchestration and **does not touch this table at all** — and unlike the rotation it then triages and DISPATCHES what your check filed.
+- **why the wrong result looks exactly right:** the table is small, clean, and updates when you watch it, so it reads as complete. Both of its failure directions are quiet. *Stale-looking:* stamps that have not moved for days look like a wedged scheduler — measured 2026-08-12, quality stamps had not advanced since 08-10 16:39 and **that was arithmetic, not a wedge** (fires every 3h with `LIMIT 1`, selects on `last_selected_at < now() - interval '7 days'`, and all 22 sites were stamped inside that window, so the pre_query correctly returned zero rows for six days). *Under-counting:* in the same interval **eight** runs of the same agent, carrying the current check array, completed via the other driver. Both readings — "the scheduler is broken" and "my check has not run since the 10th" — were wrong from the same table.
+- **the check, and it needs both halves:**
+  ```sql
+  -- 1. what the rotation driver will do next, and when (arithmetic, not a symptom)
+  SELECT s.domain, r.last_selected_at,
+         r.last_selected_at + interval '7 days' AS next_eligible
+  FROM site_discovery_rotation r JOIN sites s ON s.id = r.site_id
+  WHERE r.agent_type = '<agent>' ORDER BY r.last_selected_at;
+  -- 2. what ACTUALLY ran, either driver — the agent config travels in the row
+  SELECT created_at, status,
+         initial_request_data->'input_data'->>'domain' AS domain,
+         parent_orchestration_id                        -- NOT NULL => improvement loop
+  FROM orchestration_states
+  WHERE initial_request_data->'agent_config'->'workflow'->'steps'->'run_checks' IS NOT NULL
+  ORDER BY created_at DESC;
+  ```
+  ⚠ **Query 2 has a ~24h horizon** — `orchestration_states` is pruned, so it cannot tell you who was examined last week. For older questions ask the WORK ITEMS instead: a check arm that files **unconditionally** and has produced no row has not run, and that inference has no retention limit.
+- **the adjacent trap:** `scheduled_tasks.last_triggered_at` on the rotation task keeps advancing whether or not the pre_query selected anything, so it is not the meter either — it means "the tick happened". And a stamp is written *inside* the pre_query, before the dispatch can fail (SCH-025, `bugfix_230`), so a stamp is not evidence of a run in the other direction too.
+- **relations:** SCH-025 / `bugfix_230` (the stamp-before-dispatch trade-off) · BIZ-031, WII-014 (the checks whose cadence this was being read for) · MEMORY `detection-works-schedule-and-dispatch-do-not` · MEMORY `a-quiet-git-log-is-not-silence` (same shape: a quiet meter that is not the only channel)
+- **source:** 2026-08-12, vigilant_designer_offer_analysis lane. The lane had reasoned about a single 7-day rotation in every document since 08-09; both facts above were measured while trying to predict when a newly shipped check would fire.
+- **added:** 2026-08-12, vigilant_designer_offer_analysis lane

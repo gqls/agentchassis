@@ -29536,3 +29536,57 @@ with "your measurement answers the question you ENCODED": three true code facts
 a mechanism nobody had observed, and the composition inherited none of the caveats of
 its parts. **Marking the parts uncertain does not make the conclusion uncertain — it
 has to be marked where it is stated, including in the title.**
+
+---
+
+## 2026-08-12 — a PREDICTED work item was recorded as an OBSERVED one, in a table whose other eleven rows were measured (vigilant_designer offer lane)
+
+**The claim.** The 08-10 estate-sweep table in
+`vigilant_designer_offer_analysis/NOTES` recorded, for one of twelve sites:
+
+| site | model | offer-check outcome | verified how |
+|---|---|---|---|
+| loancalculator.co.uk | affiliate | `capability_gap` (08-09) | affiliate machinery does not exist on this platform |
+
+and, above it, **"Estate sweep now COMPLETE — all 21 active/deployed sites examined by
+both offer checks."** The row travelled: into `HANDOFF_2026-08-11` as the **positive
+control** for verifying a brand-new code path (*"loancalculator.co.uk's existing
+`affiliate` row must still read `handler_missing`* — it is what proves the query and the
+roll rather than your spelling"), and into the general claim that the estate was swept.
+
+**It was false. No such row existed, and none ever had.** `check_revenue_shape` had
+filed **exactly one work item in its entire life** (a `missing_conversion_path` on
+mortgagecalculator.co.uk, 08-09 20:55). The site had never been examined by that check:
+its only `quality-discovery-agent` rotation stamp is 08-09 10:50, and the migration that
+added the check to the agent's array landed ~20:05Z the same day — nine hours later. The
+same NOTES file records that timing itself, two hundred lines above, in the entry that
+explains why a different site needed a oneshot.
+
+**What caught it.** Trying to USE the control. One query, no joins:
+`SELECT ... FROM site_work_items WHERE spec->>'check' = 'revenue_shape'` → 1 row, and it
+was the wrong site. Run with a control in the same breath —
+`WHERE spec->>'check'='broken_nav_links'` → 1 row — so the zero was a real absence and
+not a wrong key name.
+
+**The cheap check that would have.** The identical query, on 08-10, when the table was
+written. It would have returned one row then too, and the sweep would have been recorded
+as eleven sites and one gap.
+
+**The shape, for the tally.** This is NOT "a claim with no marker". The row HAS a
+"verified how" column and it is filled in. **The cell answers a different question from
+the one the column asks:** every other row answers with a measurement of the ESTATE (row
+counts, a word-bounded grep over shipped components, a deployed page opened and read);
+this one answers with a fact about the CODE — *affiliate machinery does not exist on this
+platform* — which is true, and is the reason the arm would file, and says nothing whatever
+about whether it ran. **A justification sitting in an evidence column reads as evidence.**
+The discipline that failed is not the marker rule; it is that "why this outcome is
+expected" and "how I observed this outcome" are different sentences, and only one of them
+belongs under "verified how".
+
+**Cost.** Low, and only because it was caught while being used. The wrong control was
+about to be the discriminator for verifying WII-014's first live firing — had the
+verification run against it, a *correct* result on vetcomparison.uk would have been
+accompanied by a missing control row, which reads exactly like a broken query. The
+generous outcome: firing the check at loancalculator.co.uk (17:15Z 08-12) produced the
+predicted `handler_missing` row within one second, so the control now exists, and a real
+hole in the sweep is closed.

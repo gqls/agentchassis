@@ -989,3 +989,235 @@ noticed I was making.
   to try again. The same file uses `blocked` deliberately elsewhere for this reason
   ("'complete' on an item whose defect is untouched is the false-green this estate keeps
   relearning"). That is the generalisable half.
+
+## 2026-08-12 — WII-014 is live, and the handoff's own positive control turned out never to have existed
+
+Session opened on `HANDOFF_2026-08-11`. Its four "what to do next" items, checked in order.
+
+**1. loancash.co.uk: RESOLVED, and the queue explanation held.** Item `complete` 08-11 22:37,
+and the artefact is there — `site_specs` current `strategy` row, written by `domain-strategist`
+22:37:19Z, `revenue_models.primary_model = display_advertising`. So it drained on its own about
+four hours after the handoff was written, exactly as the backlog reading predicted. **All three
+dispatched `needs_strategy` findings now have premises**, two of them repaired by the platform's
+own drain with no hand-holding (gaswholesalers 08-11 16:19, loancash 08-11 22:37).
+
+**2. WII-014's Go IS LIVE.** The fleet rolled to `v1.0.1291` at 14:55Z today. The chassis startup
+`build provenance` line had already scrolled out of `--tail=100000` on both replicas 80 minutes
+later (the CLAUDE.md landmine, observed again), so the fallback probe:
+`kubectl exec <pod> -- grep -aq "<sha>" /proc/1/exe`, both replicas, three shas:
+
+| sha | expectation | result |
+|---|---|---|
+| `da5a7eb8ff12…` (08-12 14:37Z, candidate build commit) | present if this is the build | **PRESENT** both pods |
+| `48dcd2edaf74…` (committed 16:05Z, AFTER pod start 14:55Z) | must be absent — future commit | absent both pods |
+| `0ceb27a4060f…` (WII-014's own commit, 08-11) | must be absent — a binary carries only its OWN build commit, not its ancestors | absent both pods |
+
+`git merge-base --is-ancestor 0ceb27a40 da5a7eb8f` → YES. So the code shipped.
+⚠ **Read per SERVICE:** the finetuning lane recorded `thunder-adapter` v1.0.1291 as `da5a7eb8f`
+too, and it agrees — but that agreement is a coincidence of this release, not a guarantee, and
+the chassis was probed on its own.
+
+**3. THE HANDOFF'S POSITIVE CONTROL DOES NOT EXIST — and that is the finding of the session.**
+Step 3 said: verify WII-014 by expecting a `rule_missing` row on vetcomparison.uk, with
+*"loancalculator.co.uk's existing `affiliate` row must still read `handler_missing`"* as the
+positive control that proves the query rather than my spelling. **There is no such row, and
+there never was.**
+
+```sql
+SELECT ... FROM site_work_items WHERE spec->>'check' = 'revenue_shape';   -- 1 row, fleet-wide, all history
+--  mortgagecalculator.co.uk | missing_conversion_path | wont_fix | 08-09 20:55
+SELECT count(*) FROM site_work_items WHERE spec->>'check'='broken_nav_links';  -- control: 1 (key is real and populated)
+```
+
+`check_revenue_shape` has filed **exactly one work item in its entire life**. The affiliate arm
+(`check_revenue_shape.go:235-247`) has no guard and no retraction — if it had ever run on
+loancalculator.co.uk while that site was `affiliate`, the row would exist. **So it has never run
+there.** The mechanism: loancalculator's only `quality-discovery-agent` rotation stamp is
+08-09 10:50, and the checks array update (migration 361) landed **~20:05Z on 08-09** — nine hours
+later. Corroborating: `revenue_shape`'s first output anywhere is mortgagecalculator at 20:55Z, and
+this file's own 08-09 entry records dartsonline being selected at 19:54 *"with the OLD 7-entry
+config"*, which is why that oneshot was fired.
+
+> **CORRECTION to this file, 08-12 — the 08-10 estate-sweep table above is wrong in one row, and
+> the way it is wrong is the lesson.** It records
+> `loancalculator.co.uk | affiliate | capability_gap (08-09) | affiliate machinery does not exist
+> on this platform`. Every other row in that table answers "verified how" with a **measurement**
+> (row counts, word-bounded greps, a deployed page checked). That row answers it with **the reason
+> the arm exists** — which is a statement about the code, not about the estate. A predicted
+> outcome was written in the same voice as the eleven observed ones, and then travelled: into the
+> handoff as a positive control, and into "**estate sweep now COMPLETE — all 21 active/deployed
+> sites examined by both offer checks**", which is false by at least this site.
+> `WRONG_CALLS.md` gets the entry. The cheap check that would have caught it is the one that
+> caught it now: `SELECT ... WHERE spec->>'check'='revenue_shape'` — one query, no joins, and it
+> would have returned one row on 08-10 just as it does today.
+
+**4. Two schedules drive our checks, not one — and the lane has only ever reasoned about one.**
+The rotation stamps for `quality-discovery-agent` have not advanced since 08-10 16:39, yet eight
+quality-discovery runs carrying the 9-check config completed in the last ~24h (relojistas 08-12
+16:16; vonc, mortgagecalculator, webdesign.co.uk, dartsonline, fundamentallyai, cookly, loancash
+on 08-11 17:0x–17:5x). Both facts are true and neither is a bug:
+
+- `site-discovery-rotation-quality` (enabled, fires every 3h, `LIMIT 1`) selects on
+  `last_selected_at < now() - interval '7 days'`. Every one of the 22 sites was stamped between
+  08-09 09:49 and 08-10 16:39, so the pre_query **correctly returns zero rows** until
+  **08-16 09:49** (robot-hands, the oldest stamp). The quiet is arithmetic, not a wedge.
+- The other driver is the **improvement loop** (`improvement-sweep`, `enabled=f`, hand-fired by
+  sessions): every one of those eight runs is a CHILD orchestration whose parent's workflow is
+  *"Improvement loop complete — fixes dispatched and deployed"*. It does **not** stamp
+  `site_discovery_rotation`, so the rotation table cannot see it.
+
+⚠ **So `site_discovery_rotation` is not the meter for "when will my check next run on site X"** —
+it answers only for the rotation driver. It undercounts by however many sweeps other sessions
+hand-fire, and those sweeps also **triage and dispatch** what our checks file. This is the
+08-11 "B3 is not observe-only" watch-out with its second half filled in: not only will our
+findings be promoted, the thing promoting them is fired by hand, by sessions who are not us, on
+no schedule we can read.
+
+### Fired two oneshots — PREDICTIONS RECORDED BEFORE FIRING
+
+Vehicle: the proven oneshot envelope (`target_agent_type='quality-discovery-agent'`,
+`target_topic='system.agent.scheduled.requests'`, `input_data={domain,site_id}`, `fire_message=true`,
+no pre_query), disabled immediately after firing. **NOT `run_improvement_sweep_once.sh`** — its
+triage promotes on every path. Waiting for the natural rotation would mean 08-16/08-17.
+
+Both are *predicted positives*, which is the point: a silent run is ambiguous, a run that files
+the predicted row proves scheduler and detector together.
+
+| site | recorded model | arm | PREDICTED row |
+|---|---|---|---|
+| vetcomparison.uk | `sponsored_listings` | `runNoRuleForModel` (WII-014, new today) | ONE `capability_gap`, `gap_kind=rule_missing`, `status=deferred`, `handler_agent` empty, `item_key=capability_gap:revenue_shape` |
+| loancalculator.co.uk | `affiliate` | affiliate arm (unchanged since v1) | ONE `capability_gap`, `gap_kind=handler_missing`, `status=deferred`, same item_key shape |
+
+Firing both is what restores the discrimination the handoff wanted: the two kinds come back in
+one query, so a result is attributable to the ROLL and not to my spelling — which is exactly what
+the non-existent loancalculator row was supposed to do, and could not.
+
+**Disconfirming outcomes, stated up front:** no row on vetcomparison → WII-014 did not ship or
+did not fire. A `rule_missing` row in any status other than `deferred` → remit.go's double lock
+was relaxed and `bugs_open/077` is back. A row on vetcomparison but none on loancalculator →
+something suppresses the affiliate arm and the 08-10 sweep row was wrong for a second reason.
+
+### RESULT — both predictions confirmed exactly, at the artefact
+
+Fired 17:15:03Z, both picked up within 20s, both orchestrations COMPLETED, both disabled 17:15:5xZ.
+
+```
+ domain               | item_type      | status   | handler | gap_kind        | item_key                     | created
+ loancalculator.co.uk | capability_gap | deferred | (empty) | handler_missing | capability_gap:revenue_shape | 17:15:24
+ vetcomparison.uk     | capability_gap | deferred | (empty) | rule_missing    | capability_gap:revenue_shape | 17:15:23
+```
+
+**WII-014 is verified at the artefact, not at the status.** The `rule_missing` spec names the
+model in every field it should — `builder_needed: "revenue_shape rule for sponsored_listings"`,
+`examples: ["vetcomparison.uk (primary_model=sponsored_listings)"]`, a code pointer to the switch,
+and `not_dispatchable` spelling out why `deferred` + empty handler is deliberate. Both rows
+`deferred` with empty `handler_agent`, so **remit.go's double lock holds and `bugs_open/077` has
+not regressed**. The two gap kinds came back distinguishable in ONE query, which is the control
+the handoff wanted and could not have had.
+
+**Side-effect check, because the 08-11 watch-out says to assume dispatch:** each run filed
+**exactly one** row, and both are undispatchable. Nine checks ran on each site and the other
+eight were silent — expected, since both sites were examined on 08-09 and their findings are
+already open, so dedup holds the keys. Measured, not assumed:
+`SELECT domain,item_type,status,count(*) … WHERE created_at > now() - interval '25 minutes'`
+returns only these two rows for these two sites (the other rows in that window are other lanes'
+work on idea.uk, noted.co.uk and webdesign.uk).
+
+### Third oneshot — loanandmortgagecalculator.co.uk, the retraction arm
+
+**A retraction is NOT distinguishable by status.** `resolveWorkItems`
+(`work_items_common.go:287-301`) sets `status='complete'` — the same value a handler's successful
+drain sets. The discriminator is `result->>'resolved_by' = '<check name>'` plus `reason`.
+Checked all eight `needs_strategy` rows ever filed: **not one carries `resolved_by`**, so every
+closure to date was a handler completing the work, and `premise_incomplete`'s retraction arm has
+genuinely never fired. The 08-11 handoff's `[STILL NOT EXERCISED]` is confirmed by the right
+column rather than by absence of memory.
+
+**Why fire at a site another lane is actively working, when the earlier judgement was to leave
+it alone: leaving it alone is the riskier option.** LMC's `needs_strategy` is still `detected`
+from 08-10 01:07 while TWO strategy rows now exist (ours 08-11 18:33, the LMC lane's 08-12
+13:55). `triage_detect_items_action.go:161-173` promotes every `detected` row on a site the
+improvement loop reaches, with no type filter — so the next sweep of LMC dispatches
+`domain-strategist` and writes a **third** superseding strategy row over the top of that lane's
+fresh one. Retracting by positive observation is what stops that. The vehicle is read-only
+(discovery oneshot, not `run_improvement_sweep_once.sh`), so it files `detected` rows and
+dispatches nothing.
+
+**Predictions, before firing:**
+1. `premise_incomplete` retracts `needs_strategy` → `status='complete'`,
+   `result->>'resolved_by'='premise_incomplete'`, a reason naming the positive observation.
+   **First live firing of the retraction arm on this estate.**
+2. `check_revenue_shape`'s affiliate arm files ONE `capability_gap`,
+   `item_key='capability_gap:revenue_shape'`, `gap_kind='handler_missing'`, `deferred`.
+   This is the 08-11 handoff's "repairing a premise converts one finding into another" —
+   expected, not a regression.
+
+**Disconfirming:** the premise exists and the item stays `detected` → a real bug in the
+retraction arm, which is the handoff's own stated criterion.
+
+**RESULT — both confirmed, 17:18:2xZ.** The retraction arm fired, for the first time on this
+estate:
+
+```
+ needs_strategy | complete | resolved_by=premise_incomplete
+   reason: 'premise positively observed complete: current strategy row with
+            revenue_models.primary_model="affiliate"'
+ capability_gap | deferred | gap_kind=handler_missing | capability_gap:revenue_shape
+```
+
+So `premise_incomplete` closes its own findings by positive observation, with a stated cause, and
+the conversion the 08-11 handoff predicted happened in the same run: **the premise was repaired,
+so the finding became a different finding** (affiliate → no machinery → `handler_missing`). Both
+halves of RFC_010's retraction design are now exercised live rather than only unit-tested.
+
+⚠ **Note for anyone verifying a retraction later: `status='complete'` is NOT the evidence.**
+A retraction and a successful handler drain both write `complete`. The discriminator is
+`result->>'resolved_by'`. Query it, or you will report a repair that never happened — and the
+reverse, which is what happened here in the good direction: all eight `needs_strategy` closures
+before today read `complete` and none was a retraction.
+
+## 2026-08-12 — answering the `copy_quality_two_stage` CONTRIB: the ordering artefact mostly EXISTS
+
+`CONTRIB_2026-08-12` asks whether the offer/benefit ordering their stage 2 needs — *"for this
+site and this page, what is the reader trying to achieve, and therefore which of the page's
+existing facts deserves to be first?"* — already exists under another name in our
+`revenue_models` / offer work. **Largely yes, at site level, and it has been there all along.**
+
+`site_specs` aspect `strategy` (22 current rows, one per site) carries sixteen top-level keys, of
+which four are that question in prose. LMC's own row, read live 08-12:
+
+- `satisfaction_condition` — *"A visitor has understood how their specific existing borrowing …
+  changes the mortgage amount a lender will offer them, or has run a consolidation or
+  deposit-versus-debt scenario and seen both sides of the trade-off with actual numbers."*
+  That IS "what the reader is trying to achieve".
+- `value_proposition` — *"The only UK calculator site built specifically for borrowers whose
+  loans and mortgage interact — showing what your existing debt does to your mortgage options,
+  and what your mortgage options do to your debt."* That IS the differentiated claim the owner
+  asked to be put first.
+- `trust_threshold` and `recurring_value` — why the reader is anxious, and why they return.
+- `search_intent.high_value_terms` — a ranked-ish list, but ranked for SEARCH, not for the page.
+
+**The uncomfortable observation, offered as evidence and not as blame.** The brief that produced
+the copy the owner rejected leads with the site inventory — *"23 free UK calculators covering
+loans AND mortgages together"* — while the site's own recorded `value_proposition` leads with
+the loan↔mortgage interaction, which is exactly the "most beneficial, most differentiated" thing
+the owner said should come first. **The two documents disagree, and the one that reached the
+writer is the one nothing checks.** So their diagnosis ("a brief that ordered the copy") is right
+and can be sharpened: the brief did not merely order bad copy, it ordered copy that contradicts
+a stored, owner-shaped premise on the same site.
+
+**What genuinely does NOT exist, and is B4's job:**
+1. **Any ORDERING.** These are four prose fields, not a ranked list. A human reads them and knows
+   what to lead with; a rewrite pass cannot mechanically sort by them.
+2. **Anything per-PAGE.** `strategy` is per-site. Their "per page-type if that is cheap" — not
+   cheap, does not exist. The per-page tail of `site_specs` is a 30-aspect sprawl of one-off rows
+   (`page_copy_briefs`, `per_page_hero_copy_direction`, `page_intent_directives`,
+   `cta_copy_differentiation` — one site each), which is the vocabulary drift a shared artefact
+   would have to replace, not join.
+3. **Any consumer.** Nothing reads these four fields today. `check_revenue_shape` reads
+   `revenue_models.primary_model` and nothing else from this row.
+
+So the answer to their request is: **do not specify a new artefact — B4 should emit the ORDERING
+over the fields that already exist**, and the first thing worth doing is cheaper than either:
+have something compare a page brief against its site's `value_proposition` before the writer sees
+it. Replied in `CONTRIB_2026-08-12_the_ordering_input_you_want_is_already_in_site_specs.md`.

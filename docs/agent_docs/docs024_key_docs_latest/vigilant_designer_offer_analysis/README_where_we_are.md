@@ -435,3 +435,83 @@ The second: **where next.** The offer track (B) has done what it was asked to do
 analyser itself — the thing that reads a site and says whether its offer is any good. The
 alternative is going back to the A track, the vigilant designer work, which has been parked
 while B ran ahead. Your call, and it is genuinely open.
+
+---
+
+## 2026-08-12 (evening) — everything we were waiting on came good, and one thing we had written down was never true
+
+Short version: the four things the last session left for this one are all done. The new
+piece of code shipped and works. The last untested mechanism fired for the first time. And
+one line in our own notes turned out to be a guess wearing a fact's clothes.
+
+**The three sites now all have a recorded business premise.** The last one, loancash, sorted
+itself out about four hours after the last session wrote "check this first" — it was simply
+queued behind the rest of the fleet, exactly as we thought. Two of the three were repaired
+by the platform entirely on its own: we detected a missing premise, and the machinery that
+already existed went and wrote one, without anybody steering it. That is the whole thesis of
+this track working end to end.
+
+**The new code shipped this afternoon and does what it says.** Yesterday I described a
+silence in one of our checks — for a kind of site we have no rule for, the check was
+returning "nothing found", which reads downstream exactly like "I looked and it is fine".
+The fix makes it say "I have no rule here, so I examined nothing". It went out with the
+fleet at about four o'clock, and I fired it at the one site it applies to. It filed exactly
+the row it should, saying exactly the right thing, and it is marked as something nobody can
+be sent to fix — because there is nothing to fix, there is a decision for you to take.
+
+**A mechanism we built weeks ago fired for the first time today.** When a finding of ours is
+genuinely repaired, our checks are supposed to notice and close their own complaint rather
+than leaving it lying around. That had never actually happened on a live site — it worked in
+tests, which is not the same thing. Today it did, on loanandmortgagecalculator: the check
+looked, saw the premise now exists, and closed its own finding with a note saying why.
+
+That one mattered for a reason beyond tidiness. Another team is working on that same site
+right now, and had that stale finding stayed open, the next routine sweep would have
+dispatched a job to write the site's strategy *again*, straight over the top of the version
+they wrote this afternoon. Closing it stopped that from happening.
+
+**Now the thing I got wrong — or rather, that we got wrong two days ago and only caught
+today.** Our notes from the 10th carry a table of twelve sites, saying what our checks found
+on each and how we verified it. Eleven of those rows record a real measurement. The twelfth
+says a particular site had produced a finding — and it had not. No such finding had ever
+existed. The site had never been examined at all: its turn in the rotation came nine hours
+before we switched the check on.
+
+What makes this worth writing down is not that a fact was wrong. It is *how* it was wrong.
+That table had a column headed "verified how", and the cell was filled in — with the reason
+the check *would* file something, which is a fact about our code, and says nothing whatever
+about whether it ran. **An explanation sitting in an evidence column reads as evidence.** It
+then travelled: into yesterday's handoff, where it was nominated as the control that would
+prove today's verification was real, and into a general claim that the whole estate had been
+swept. Both wrong, from one cell.
+
+It cost us nothing in the end, because it broke while being used rather than quietly — and
+the site in question has now been checked properly, which found the thing that was always
+there to find. But if the verification had gone the other way I would have spent the evening
+hunting a bug in working code. Logged in the fleet-wide mistakes file.
+
+**One genuinely new piece of understanding.** We have always talked about our checks running
+on a seven-day rotation, one site at a time. That is true, and it is only half the picture:
+they *also* run whenever any session anywhere hand-fires an improvement sweep on a site —
+and that path both runs our checks and immediately dispatches whatever they find. So the
+schedule we thought we were reasoning about is one of two, and the other one has no schedule
+at all. Nothing is broken; we were just watching the wrong clock.
+
+**What is next, and it is the thing you chose.** B4 — the offer analyser itself, the piece
+that reads a site and judges whether its offer is any good. It has picked up a customer while
+we were not looking: the team working on the copy problem asked us, independently, for
+exactly what B4 produces — a ranked answer to "what is this reader actually trying to do, so
+what should this page say first?"
+
+And a small, useful surprise in answering them: **most of that answer is already written
+down, on every site, and nothing reads it.** Each site's strategy record already contains,
+in plain English, what a satisfied visitor would have understood and what makes the site
+different from its competitors. On the site whose copy you rejected last night, that stored
+line says the site is for people whose loans and mortgage interact — while the brief that
+produced the copy led with "23 free calculators". Your complaint and the site's own recorded
+premise agree with each other, and disagree with the brief. Nobody had put those two
+documents side by side, because nothing ever does.
+
+So the cheapest useful thing on my list is no longer B4 at all: it is checking a page's brief
+against its own site's stored promise before the writer ever sees it. That is one comparison.
+It would have caught last night's copy.
