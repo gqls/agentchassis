@@ -205,10 +205,10 @@ func InstallSiteCompositionAction(ctx context.Context, params ActionParams) (int
 	if allowReinstall {
 		resolvedFrom = "step_config"
 	} else {
-		spec, specPath := requestSpecFromCollected(params.CollectedData)
+		spec, whyNoSpec := requestSpecFromCollected(params.CollectedData)
 		switch {
 		case spec == nil:
-			resolvedFrom = "default(false): no " + requestSpecPath + " in collected_data"
+			resolvedFrom = "default(false): " + whyNoSpec
 		case datahelpers.GetBoolFieldLoud(
 			spec, "allow_reinstall", false, logger,
 			zap.String("action", "install_site_composition"),
@@ -216,9 +216,9 @@ func InstallSiteCompositionAction(ctx context.Context, params ActionParams) (int
 			zap.String("site_id", siteID.String()),
 		):
 			allowReinstall = true
-			resolvedFrom = specPath
+			resolvedFrom = requestSpecPath
 		default:
-			resolvedFrom = "default(false): " + specPath + " present but declares no true allow_reinstall"
+			resolvedFrom = "default(false): " + requestSpecPath + " present but declares no true allow_reinstall"
 		}
 	}
 	logger.Info("InstallSiteCompositionAction: allow_reinstall resolved",
@@ -690,8 +690,16 @@ func readTypographyNameInTx(ctx context.Context, tx *sql.Tx, id uuid.UUID) (stri
 const requestSpecPath = "input_data.spec"
 
 // requestSpecFromCollected returns the dispatching work item's `spec` object
-// from collected_data plus the path it was found at, or (nil, "") when there
-// isn't one.
+// from collected_data, or (nil, reason) naming why there isn't one.
+//
+// IT RETURNS THE REASON, NOT JUST THE ABSENCE (council b8e341b9 round 3,
+// editquality): "nothing at that path" and "something at that path that is not
+// an object" are different failures with different fixes — a dispatch/shape
+// problem versus a malformed spec from whatever queued the item — and an earlier
+// draft collapsed both into one nil, so the caller reported "no input_data.spec
+// in collected_data" for a spec that was demonstrably present. A diagnostic that
+// lies about the rarer case is worse than none, because it sends the next reader
+// to the wrong half of the system.
 //
 // Why this exists rather than a path in the step's config: the config map is
 // resolved as PATH REFERENCES into collected_data, so an author cannot put a
@@ -719,11 +727,13 @@ const requestSpecPath = "input_data.spec"
 func requestSpecFromCollected(collected map[string]interface{}) (map[string]interface{}, string) {
 	value, found := input_contracts.GetValueAtExactPath(collected, requestSpecPath)
 	if !found {
-		return nil, ""
+		return nil, "no " + requestSpecPath + " in collected_data"
 	}
 	spec, isMap := value.(map[string]interface{})
 	if !isMap {
-		return nil, ""
+		// %T only — the TYPE, never the value. What arrived here is
+		// caller-supplied and can carry anything.
+		return nil, fmt.Sprintf("%s is present but is %T, not an object", requestSpecPath, value)
 	}
-	return spec, requestSpecPath
+	return spec, ""
 }

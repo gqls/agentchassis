@@ -52,6 +52,16 @@
 // channels — step config, work item spec, and the diagnostic that tells their
 // absences apart — are independently load-bearing rather than one check wearing
 // three names.
+//
+// F's THIRD sub-case exists because round 3's APPROVED verdict came with an
+// advisory objection that was correct: the first draft returned a bare nil for
+// both "nothing at that path" and "something at that path that is not an
+// object", so the diagnostic reported "no input_data.spec in collected_data"
+// for a spec that was demonstrably present. Mutation run after fixing it,
+// result observed: collapsing the two reasons back into one fails
+// F/spec_arrived_but_is_not_an_object ALONE. A diagnostic that lies about the
+// rarer case is worse than no diagnostic, because it sends the next reader to
+// the wrong half of the system with confidence.
 package actions
 
 import (
@@ -234,18 +244,30 @@ func TestInstallSiteComposition_MalformedSpecFlagDoesNotEnableReinstall(t *testi
 func TestInstallSiteComposition_ResolvedFromDistinguishesTheSilentNoOps(t *testing.T) {
 	for _, tc := range []struct {
 		name       string
-		specKeys   map[string]interface{} // nil = no input_data at all
+		spec       interface{} // nil = no input_data at all
 		wantSubstr string
 	}{
 		{
 			name:       "no spec reached the action",
-			specKeys:   nil,
+			spec:       nil,
 			wantSubstr: "no input_data.spec in collected_data",
 		},
 		{
 			name:       "spec arrived but declares nothing",
-			specKeys:   map[string]interface{}{"stage": "composition"},
+			spec:       map[string]interface{}{"stage": "composition"},
 			wantSubstr: "present but declares no true allow_reinstall",
+		},
+		{
+			// Council b8e341b9 round 3, editquality (medium, and it was right):
+			// an earlier draft returned a bare nil for BOTH "nothing at that
+			// path" and "something there that is not an object", so this case
+			// was reported as "no input_data.spec in collected_data" — a
+			// diagnostic actively lying about a spec that was present. The type
+			// must be named, because "who queued this item" is a different
+			// investigation from "why did the spec not arrive".
+			name:       "spec arrived but is not an object",
+			spec:       "allow_reinstall=true",
+			wantSubstr: "is present but is string, not an object",
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -254,8 +276,8 @@ func TestInstallSiteComposition_ResolvedFromDistinguishesTheSilentNoOps(t *testi
 
 			core, logs := observer.New(zap.InfoLevel)
 			params.Logger = zap.New(core)
-			if tc.specKeys != nil {
-				params.CollectedData["input_data"] = map[string]interface{}{"spec": tc.specKeys}
+			if tc.spec != nil {
+				params.CollectedData["input_data"] = map[string]interface{}{"spec": tc.spec}
 			}
 
 			_, err := InstallSiteCompositionAction(context.Background(), params)
