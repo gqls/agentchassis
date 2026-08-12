@@ -3729,3 +3729,70 @@ mid-fence-authoring on 2a) — correctly did not duplicate that work, per the sa
 live-transcript discipline it credits me with. **Not touching `tool-llm-cost-calculator`**;
 that PLAN does not yet exist in `doc_plans` (checked), so it is genuinely still open for
 whoever holds 2b. Batch-8 tail is now down to that one item.
+
+## 2026-08-12 (continued, same claiming session) — 2b DONE: fence authored, mutation-proven, PLAN committed, cluster run 16/16; one unrelated platform bug found and filed
+
+Completed the claim recorded above. Full chain, each half proven per RUNBOOK §8-10:
+
+- **Diffed all 5 placements' `html_template`** (canonical + 4 forks) before writing a
+  single check. Found the real fork hazard the handoff's §2b predicted in the abstract:
+  canonical/webdesign/fundamentallyai/leopardess format table currency with
+  `formatCurrencyFull()` (always 2dp); finetuning.uk uses its own `fmtMoney()` (drops a
+  trailing zero cent). A fence hand-calibrated on canonical's exact `"$X.XX"` text would
+  have gone quietly red the day finetuning.uk's page resolves. All 22 element ids and the
+  `breakeven-row`/`active`/`visible` class contract ARE common to all five, including
+  finetuning.uk despite it being the most heavily rewritten (~700 line diff).
+- **`fence_tool_llm_cost_calculator.json`** (12 checks): structural existence + visible-area
+  + no-horizontal-overflow, an arithmetic check asserting four provider costs as bare digit
+  substrings (not currency-formatted — the fork-safe form), an annual-toggle check, a
+  self-host/breakeven check, an error-state check, console-errors. The arithmetic golden
+  was **read off the live page, not hand-derived** — a hand-calculated $45.67 rendered
+  $45.68 live (`toLocaleString` rounds the shortest round-tripping decimal of the double,
+  not its exact binary value), so the chosen inputs (950/1150/950/27) were picked for a
+  >=0.05-cent margin from any `x.xx5` boundary and then verified empirically, twice.
+- **`try_fence.go` PASS on both currently-resolvable placements** (canonical AND the
+  webdesign.co.uk fork — 16/16 each, 8 profile-gated as designed) — the actual fork-awareness
+  proof, not just the design intent.
+- **`prove_fence_can_fail_tool_llm_cost_calculator.go`** (new sibling file, this lane's
+  established one-prover-per-subject pattern): baseline green, 12/12 mutants caught, 12/12
+  checks watched red. Mutant 9 (self-host fields losing their reveal) was caught by a
+  genuine Playwright actionability timeout, not a text mismatch — the right failure shape.
+- **PLAN written into `doc_plans`** (`tool`/`tool-llm-cost-calculator`) via a Python-generated
+  dollar-quoted transaction (dry-run ROLLBACK first, then `--apply` COMMIT), body-length and
+  single-`is_current` asserted inside the transaction. Read back out and re-ran `try_fence.go`
+  against the DB-extracted fence (byte-identical to the source file after JSON
+  normalisation) — the "writing is not reading" proof RUNBOOK §9 asks for.
+  `CHECK_naming_contract.sh`: testable-now 40->42, authoring-backlog 12->10 (both batch-8
+  tail items landed; PASS, no broken class).
+  The PLAN's own **Scope** section states explicitly it covers the fork set, names all 5
+  placements in a table, and states the one residual gap plainly: finetuning.uk's own page
+  cannot be driven through the live evaluator today (doesn't resolve), so its fork-coverage
+  claim rests on reading its template, not running it — re-run `try_fence.go` against it the
+  day its page is renamed to convention.
+- **Fired a cluster acceptance run** (`tool_acceptance_run.sh` against the canonical
+  placement, site `2a8ebf9c…`): work item `a8cc2fef-8dbf-44dc-a636-c7ffd55acdd4` claimed in
+  under a minute, completed in under 30s more. Read the verdict at the DB, not the status:
+  `summary` = **16 passed, 0 failed, 8 skipped** — exactly matching the offline proof. **The
+  fence is now proven in the cluster, not just locally** (the standing limitation
+  `try_fence.go`'s own header names).
+- **One unexpected, unrelated finding, filed rather than left as a chat aside**: the run
+  ended `current_step='complete_no_look'` — the vision half failed, but with a DIFFERENT
+  error than `bugs_open/243`'s signature (243 = no storage client; this run got past that,
+  so 243's fix is confirmed live). The actual Anthropic vision call 400'd on image
+  dimensions. Pulled the actual stored PNGs from their signed S3 URLs rather than trust the
+  row's `viewport` field: desktop landed 1366x2108 (fine), **mobile landed 1170x10059** —
+  both dimensions are the CSS viewport/page-height x the mobile context's
+  `DeviceScaleFactor=3` (`run_checks_action.go:267`). Filed as `bugs_open/256` (not folded
+  into 243 — genuinely different root cause under the same `complete_no_look` shape) plus a
+  016b §9 transferable-pattern entry, since the mechanism (any tall page x 3x mobile scale
+  can trip the API's 8000px cap) is platform-wide, not specific to this tool. Breadth across
+  other pages is `[UNMEASURED]` — this file measures one page's mechanism, not the fleet
+  count.
+
+**Batch-8 tail is now CLOSED** — both remaining items (2a `tool-bayesian-ranking`, done by
+session `48fb60ee`; 2b `tool-llm-cost-calculator`, this entry) landed the same session
+window, independently, with no collision (caught and avoided one near-collision via the
+live-transcript check before either side wrote anything). The one open thread this leaves
+behind is `bugs_open/256`, which is not this lane's tool-authoring job — it is a
+screenshot-capture/vision-API mismatch that belongs to whichever lane owns
+`run_checks_action.go`'s capture path.
