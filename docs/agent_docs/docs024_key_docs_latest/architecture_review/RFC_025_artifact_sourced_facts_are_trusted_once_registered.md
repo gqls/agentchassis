@@ -355,12 +355,32 @@ regressions. `go build`/`go vet` clean. Council-submitted, corr
 `Council-Submitted:` trailer on it; resolve the verdict by correlation, not by the commit
 message).
 
-**Not yet done, and this RFC stays short of `IMPLEMENTED` until it is**: no real fact
-anywhere has actually been retyped with a working `artifact_check` — everything above
-proves the mechanism, not its use on the motivating case (`gd-trials` itself is still a
-plain `artifact` fact in the live register; RFC_025 explicitly did not require migrating
-it, only the mechanism that COULD). The scope gap named in this session's council
-submission — `artifact_check.component_id` is not verified to belong to the fact's own
-site — is also unresolved; a reviewer's call is owed on whether that needs closing before
-any site actually uses this. Mark `IMPLEMENTED` once the council verdict lands and a real
-site's `artifact_check` (or a deliberate decision that none is needed yet) is in place.
+**Council round 1: REVISE** (2026-08-12 18:08). Real findings, not process nitpicks —
+addressed rather than argued around: [HIGH] the `artifact_check` regex had no anchoring,
+so a bare `10000` pattern would substring-match `100000` — the platform's own documented
+landmine, reproduced INSIDE the fix meant to close it; refused at parse time now.
+[MEDIUM, 4 reviewers independently] `component_id` wasn't scoped to the fact's own site —
+now joined through `pages` and site-scoped, fails closed on cross-site references.
+[MEDIUM, architecture seat] the `changed`/stale_evidence-raise decoupling touched the
+pre-existing citation branch, outside this RFC's ratified scope — reverted for
+citation/sql (exact prior behaviour restored), the new capability scoped to a dedicated,
+unit-tested `shouldRaiseStaleEvidence` predicate. One HIGH objection (does write-back
+silently delete untyped keys via the typed struct?) was a **false alarm**, verified
+directly by reading `writeRefreshedEvidenceBase` — cited as evidence rather than argued
+from memory. Commit `9652f4d52`.
+
+**Council round 2: APPROVED** (2026-08-12 20:42, corr `9fd94852-ff79-496b-96b5-78a8d3619162`).
+**Note on trailers**: both implementation commits (`3129cceea`, `9652f4d52`) were made
+*before* their respective council submissions, so neither carries a `Council-Submitted:`
+trailer — the automated `098` coverage report will not join them to this verdict
+automatically. This note is the durable, human-readable record of the actual approval;
+forward-only rules forbid retroactively amending either commit to add a trailer.
+
+**Still short of `IMPLEMENTED`**: the mechanism is built, tested, and council-approved, but
+no real fact anywhere has actually been retyped with a working `artifact_check` yet — the
+`gd-trials` fact itself is still a plain `artifact` fact in the live register (its false
+claim was already independently corrected; RFC_025 never required migrating it, only
+building the mechanism that could). This is deliberately left as future, site-by-site,
+human-paced work — not a blocker on the code being considered live. Mark `IMPLEMENTED`
+once the next chassis roll carries this code and at least one real fact uses either new
+mechanism.
