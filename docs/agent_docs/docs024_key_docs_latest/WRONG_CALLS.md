@@ -29631,3 +29631,63 @@ opening the file, but it is what makes being wrong cheap.
 second. **When a finding is one inferential step from the evidence, the step is where to look
 for the error**, and here the step crossed from "a warning fires" to "the caller is degraded"
 with nothing checked in between.
+
+
+---
+
+## 2026-08-12 — I declared a copy migration "complete and clean" in four documents while it had silently deleted every call-to-action button on the site
+
+I migrated webdesign.uk's five pages to the £149 offer, verified each one at the served
+artefact, and wrote **"all five pages MIGRATED, LIVE and CLEAN"** into NOTES, the owner's
+README, a milestone SUMMARY and four commit messages. It was false. The regeneration had
+dropped `cta_url` / `primary_cta_url` / `secondary_cta_url` from every hero and
+call-to-action block on the four offer pages — **14 anchors across 7 components**, including
+both buttons on the home page hero — and the templates gate the anchor on the URL rather
+than the label, so each one rendered as nothing at all.
+
+**Every check I ran passed, and each was answering a narrower question than the one I
+believed it was answering.**
+
+| what I ran | what it actually asked |
+|---|---|
+| `claimscan`, 0 findings on every page | is any *banned phrase* present in the prose |
+| body-byte deltas, not one page shrank | did the writer *truncate the text* |
+| grep for £1,200 / £75 / deposit / 14 days | did the *retired terms* survive |
+| `gate_page_links.py`, 4/4 present | did the *guide page* keep the links I declared |
+| served-artefact fetch, £149 on all five | did the *new copy* reach the box |
+
+Not one of them could see a missing `href`. The prose was correct, the byte counts were
+healthy, and the buttons were gone. **A clean sweep of five checks reads as "the page is
+fine" when it means "the page is fine in five specific respects".**
+
+**The link gate is the sharpest part, because I built it that day and it worked.** I armed
+`required_links` on the guide page — the page I judged at risk, being long-form prose full
+of links — proved the gate could fail by running its self-test, and it passed 4/4 afterwards.
+The damage happened on the four pages I had *not* declared a link set for. **A gate covers
+what you point it at, and I pointed it at the page I was worried about instead of at the
+pages being rewritten.** Worse, its pass was load-bearing in my confidence: I read "link gate
+green" as "links are fine", when it only ever meant "links are fine on one of five pages".
+
+**The check that would have caught it, and it is one line I already had the data for.** I
+exported every component before the migration in order to scan it. Counting `href="` in that
+same export, before and after, needs no new tool:
+`SELECT p.name, pc.slot_name, (SELECT count(*) FROM regexp_matches(pc.rendered_html,'href="','g')) FROM page_components pc JOIN pages p ON p.id=pc.page_id WHERE p.site_id='<site>';`
+I ran exactly this query — **twenty minutes after declaring the work complete**, and only
+because I was chasing an unrelated `page_divergence_overwritten` work item. Had I run it as a
+before/after pair it would have failed loudly on the first canary, before four more pages
+were queued.
+
+**The general form: I verified what the change was FOR, never what it might COST.** Every
+check I chose was aimed at the thing I set out to do — replace retired commercial terms.
+Nothing I ran asked "what else does a rewrite touch?", and a rewrite touches everything on
+the page. **When your verification suite is assembled from your intent, it is structurally
+blind to collateral damage** — the failure is not that a check was missing, but that every
+check was chosen by the same author with the same expectation. The counter-move is cheap and
+mechanical: for any regeneration, diff the *invariants* (link count, image count, component
+count) as a matched before/after pair, and treat the ones you did not intend to change as the
+finding.
+
+**Related but distinct from the entries above about markers and measurement:** every figure
+here was measured, dated and disconfirmable, and several of them could have come out
+otherwise. The claims were individually true. **The word that was false was "clean" — a
+summary word, which quietly asserts the union of every check I did not run.**
