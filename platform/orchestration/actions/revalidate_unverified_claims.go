@@ -140,7 +140,50 @@ func revalidateUnverifiedClaims(ctx context.Context, db *sql.DB, item parkedRevi
 			break
 		}
 	}
-	return unverifiedClaimsVerdict(pageID, item.CreatedAt, flaggedClaimsFromSpec(item.Spec), scan)
+	return unverifiedClaimsVerdict(pageID, item.CreatedAt, flaggedClaimsFromSpec(item.Spec), scan,
+		loadPageDeployState(ctx, db, pageID))
+}
+
+// pageDeployState is what the page row says about PUBLICATION, as distinct from
+// what page_components says about content. Those are two different clocks and
+// this type exists because the gates were reading only the second one.
+//
+// Known is false when the row could not be read at all. It is separate from the
+// values because "I could not look" and "it has not deployed" must not share a
+// spelling — the whole ladder is built on that distinction.
+type pageDeployState struct {
+	Known       bool
+	BuildStatus string
+	DeployedAt  time.Time // zero when the page has never been deployed
+}
+
+// loadPageDeployState reads the one row the two content gates never consulted.
+//
+// bugs_open/262: a claims_unverified finding is about what a LIVE SITE asserts,
+// and both gates judged page_components — the database — as ground truth. A
+// component edited in the DB but not yet rerendered satisfies both, so an item
+// could close while the served page still carried the claim. Measured on
+// 2026-08-12: 2 of 9 closed items sat on pages whose newest unlocked component
+// update was later than pages.deployed_at.
+//
+// Errors return Known:false, which refuses. A page row we cannot read is not
+// evidence that anything was published.
+func loadPageDeployState(ctx context.Context, db *sql.DB, pageID string) pageDeployState {
+	var st pageDeployState
+	var buildStatus sql.NullString
+	var deployedAt sql.NullTime
+	err := db.QueryRowContext(ctx,
+		`SELECT COALESCE(build_status, ''), deployed_at FROM pages WHERE id = $1::uuid`,
+		pageID).Scan(&buildStatus, &deployedAt)
+	if err != nil {
+		return st
+	}
+	st.Known = true
+	st.BuildStatus = buildStatus.String
+	if deployedAt.Valid {
+		st.DeployedAt = deployedAt.Time
+	}
+	return st
 }
 
 // flaggedClaim is ONE entry from the work item's own spec.findings[] — the text
@@ -237,7 +280,7 @@ func claimStillOnPage(scan *checks.ClaimsPageScan, c flaggedClaim) (present, jud
 // below compares against. A zero filedAt makes that gate refuse, which is the
 // safe direction: an item whose filing date we cannot establish is one whose
 // "has the page moved since?" question has no answer.
-func unverifiedClaimsVerdict(pageID string, filedAt time.Time, flagged []flaggedClaim, scan *checks.ClaimsPageScan) revalidationVerdict {
+func unverifiedClaimsVerdict(pageID string, filedAt time.Time, flagged []flaggedClaim, scan *checks.ClaimsPageScan, deploy pageDeployState) revalidationVerdict {
 	if scan == nil {
 		// No row came back for this page: it was deleted, or it has no component
 		// carrying either rendered_html or content_data. Note this check has never
@@ -444,6 +487,73 @@ func unverifiedClaimsVerdict(pageID string, filedAt time.Time, flagged []flagged
 		}
 	}
 
+	// THE PUBLISHED GATE — bugs_open/262, raised by the council's `debug_historian`
+	// seat as an advisory MEDIUM in the round that approved the other two.
+	//
+	// Everything above reads page_components: the DATABASE. This finding is about
+	// what the LIVE SITE asserts — the emit-side scan is even called
+	// ScanDeployedClaims. A component can be corrected in the DB and not yet
+	// rerendered, and both gates above are satisfied by that edit, so an item could
+	// close while the served page still carried the claim. [MEASURED 2026-08-12]
+	// 2 of the 9 items closed by then sat on pages whose newest unlocked component
+	// update was later than pages.deployed_at.
+	//
+	// Placed LAST deliberately. "The words are still there" and "the copy never
+	// moved" are more informative refusals, so they answer first; this arm is only
+	// reached once the content evidence is otherwise sufficient and the single
+	// remaining question is whether the public ever saw it.
+	//
+	// ⚠ build_status is checked SEPARATELY from the timestamp and neither implies
+	// the other: a page can be marked `deployed` while serving a build older than
+	// its last content edit, and a page mid-rebuild carries stale copy whatever its
+	// timestamp says. Both must hold.
+	if !deploy.Known {
+		return revalidationVerdict{
+			Verdict: revalidationUnknown,
+			Reason: fmt.Sprintf(
+				"page %s reads clean and its copy has moved, but this page's row could not be read, so whether the correction was ever published is unknown; an unreadable page row is not evidence that anything shipped",
+				scan.PageName),
+			Evidence: map[string]interface{}{"page_id": pageID, "page_name": scan.PageName},
+		}
+	}
+	if deploy.DeployedAt.IsZero() {
+		return revalidationVerdict{
+			Verdict: revalidationUnknown,
+			Reason: fmt.Sprintf(
+				"page %s reads clean and its copy has moved, but the page has never been deployed, so the claim this finding reports has never been withdrawn from anything the public can see",
+				scan.PageName),
+			Evidence: map[string]interface{}{
+				"page_id": pageID, "page_name": scan.PageName, "build_status": deploy.BuildStatus,
+			},
+		}
+	}
+	if deploy.DeployedAt.Before(scan.NewestComponentUpdate) {
+		return revalidationVerdict{
+			Verdict: revalidationUnknown,
+			Reason: fmt.Sprintf(
+				"page %s reads clean in the database, but it was last published before its copy was last edited, so the correction is sitting unpublished and the served page may still carry the claim; the database is not the website",
+				scan.PageName),
+			Evidence: map[string]interface{}{
+				"page_id": pageID, "page_name": scan.PageName,
+				"deployed_at":             deploy.DeployedAt,
+				"newest_component_update": scan.NewestComponentUpdate,
+				"build_status":            deploy.BuildStatus,
+			},
+		}
+	}
+	if deploy.BuildStatus != "deployed" {
+		return revalidationVerdict{
+			Verdict: revalidationUnknown,
+			Reason: fmt.Sprintf(
+				"page %s reads clean and was published after its last edit, but its build_status is %q rather than deployed, so what the site currently serves cannot be assumed to be what was scanned",
+				scan.PageName, deploy.BuildStatus),
+			Evidence: map[string]interface{}{
+				"page_id": pageID, "page_name": scan.PageName,
+				"build_status": deploy.BuildStatus, "deployed_at": deploy.DeployedAt,
+			},
+		}
+	}
+
 	return revalidationVerdict{
 		Verdict: revalidationResolved,
 		Reason:  fmt.Sprintf("re-scanned all %d component(s) on page %s against this site's current evidence base and found no unsupported claim; all %d text(s) this finding cited have gone from the slots they were cited from, and the copy has been edited since the finding was filed", scan.ComponentsExamined, scan.PageName, len(flagged)),
@@ -457,6 +567,8 @@ func unverifiedClaimsVerdict(pageID string, filedAt time.Time, flagged []flagged
 			// on rather than leaving a reader to infer it from the code version.
 			"flagged_texts":          len(flagged),
 			"flagged_texts_verified": "all absent from their own slot",
+			"deployed_at":            deploy.DeployedAt,
+			"build_status":           deploy.BuildStatus,
 		},
 	}
 }

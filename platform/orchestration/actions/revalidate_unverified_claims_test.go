@@ -44,6 +44,14 @@ var (
 // wrong reason — the failure mode that makes a green suite meaningless.
 var flaggedHero = []flaggedClaim{{Check: "unregistered_number", Slot: "hero", Matched: "90,790"}}
 
+// publishedAfterEdit is a page that HAS shipped its latest copy, so the published
+// gate (bugs_open/262) passes and the arm under test is the only one that can
+// refuse. Every pre-262 test passes this: without it they would refuse at the new
+// gate and go on passing for a reason they were never written to check.
+func publishedAfterEdit() pageDeployState {
+	return pageDeployState{Known: true, BuildStatus: "deployed", DeployedAt: changedAfter.Add(time.Hour)}
+}
+
 func heroCleaned() map[string]string {
 	return map[string]string{"hero": "<p>We help small firms adopt AI.</p>"}
 }
@@ -126,7 +134,7 @@ func TestUnverifiedClaimsVerdictLadder(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			got := unverifiedClaimsVerdict("p1", filedAt, flaggedHero, tc.scan)
+			got := unverifiedClaimsVerdict("p1", filedAt, flaggedHero, tc.scan, publishedAfterEdit())
 			if got.Verdict != tc.want {
 				t.Errorf("verdict = %q, want %q (%s)", got.Verdict, tc.want, tc.explanation)
 			}
@@ -153,7 +161,7 @@ func TestUnverifiedClaimsNeverResolvesWithoutReadingSomething(t *testing.T) {
 		{PageID: "p1", ComponentsSkippedLocked: 9, NewestComponentUpdate: changedAfter, ExaminedTextBySlot: heroCleaned()},
 	}
 	for _, scan := range unreadable {
-		got := unverifiedClaimsVerdict("p1", filedAt, flaggedHero, scan)
+		got := unverifiedClaimsVerdict("p1", filedAt, flaggedHero, scan, publishedAfterEdit())
 		if got.Verdict == revalidationResolved {
 			t.Errorf("scan %+v produced `resolved` without examining a component — "+
 				"that closes a live human-review item on the strength of having read nothing", scan)
@@ -186,7 +194,7 @@ func TestUnverifiedClaimsNeverResolvesWhenOnlyTheRegisterMoved(t *testing.T) {
 			got := unverifiedClaimsVerdict("p1", tc.filedAt, flaggedHero, &checks.ClaimsPageScan{
 				PageID: "p1", PageName: "about", ComponentsExamined: 3,
 				NewestComponentUpdate: tc.newest, ExaminedTextBySlot: heroCleaned(),
-			})
+			}, publishedAfterEdit())
 			if got.Verdict == revalidationResolved {
 				t.Errorf("a clean page whose copy cannot be shown to have moved returned `resolved` — "+
 					"that is a register edit closing a factual-claim review row, which the owner ruling of "+
@@ -204,7 +212,7 @@ func TestUnverifiedClaimsActuallyRetracts(t *testing.T) {
 	got := unverifiedClaimsVerdict("p1", filedAt, flaggedHero, &checks.ClaimsPageScan{
 		PageID: "p1", PageName: "about", ComponentsExamined: 5, NewestComponentUpdate: changedAfter,
 		ExaminedTextBySlot: heroCleaned(),
-	})
+	}, publishedAfterEdit())
 	if got.Verdict != revalidationResolved {
 		t.Fatalf("a fully-read, claim-free page whose copy changed after filing returned %q; if this "+
 			"cannot resolve, registering it only adds scan cost and the type stays parked for ever", got.Verdict)
@@ -252,7 +260,7 @@ func TestUnverifiedClaimsStillHoldsNamesTheCheckClasses(t *testing.T) {
 		Findings: []checks.ClaimFinding{
 			{Check: "banned_claim"}, {Check: "banned_claim"}, {Check: "unregistered_number"},
 		},
-	})
+	}, publishedAfterEdit())
 	byCheck, ok := got.Evidence["by_check"].(map[string]int)
 	if !ok {
 		t.Fatalf("by_check evidence missing or wrong type: %#v", got.Evidence["by_check"])
@@ -276,7 +284,7 @@ func TestUnverifiedClaimsNeverResolvesWhenTheFlaggedTextIsStillThere(t *testing.
 	got := unverifiedClaimsVerdict("p1", filedAt, flaggedHero, &checks.ClaimsPageScan{
 		PageID: "p1", PageName: "about", ComponentsExamined: 3,
 		NewestComponentUpdate: changedAfter, ExaminedTextBySlot: heroUntouched(),
-	})
+	}, publishedAfterEdit())
 	if got.Verdict == revalidationResolved {
 		t.Fatalf("closed a factual-claim item while the text it cited (%q) is still in its slot — "+
 			"the page stopped tripping the check because the STANDARD moved, which is exactly what "+
@@ -301,7 +309,7 @@ func TestUnverifiedClaimsFlaggedTextMatchIsCaseInsensitive(t *testing.T) {
 	got := unverifiedClaimsVerdict("p1", filedAt, flagged, &checks.ClaimsPageScan{
 		PageID: "p1", PageName: "about", ComponentsExamined: 3, NewestComponentUpdate: changedAfter,
 		ExaminedTextBySlot: map[string]string{"hero": "<p>our results are independently verified</p>"},
-	})
+	}, publishedAfterEdit())
 	if got.Verdict == revalidationResolved {
 		t.Error("a casing difference was read as the claim having been removed")
 	}
@@ -323,7 +331,7 @@ func TestUnverifiedClaimsRefusesWhenTheFlaggedSlotWasNotExamined(t *testing.T) {
 			got := unverifiedClaimsVerdict("p1", filedAt, flaggedHero, &checks.ClaimsPageScan{
 				PageID: "p1", PageName: "about", ComponentsExamined: 3,
 				NewestComponentUpdate: changedAfter, ExaminedTextBySlot: tc.slots,
-			})
+			}, publishedAfterEdit())
 			if got.Verdict != revalidationUnknown {
 				t.Errorf("verdict = %q, want %q: the cited slot was never read, so its claim "+
 					"cannot be confirmed gone", got.Verdict, revalidationUnknown)
@@ -350,7 +358,7 @@ func TestUnverifiedClaimsRefusesAnItemWithNoRecordedFindingText(t *testing.T) {
 			got := unverifiedClaimsVerdict("p1", filedAt, tc.flagged, &checks.ClaimsPageScan{
 				PageID: "p1", PageName: "about", ComponentsExamined: 3,
 				NewestComponentUpdate: changedAfter, ExaminedTextBySlot: heroCleaned(),
-			})
+			}, publishedAfterEdit())
 			if got.Verdict == revalidationResolved {
 				t.Errorf("closed an item whose recorded claim text could not be checked (%s)", tc.name)
 			}
@@ -471,5 +479,74 @@ func TestParkedReviewItemSelectAndScanAgree(t *testing.T) {
 	if !found {
 		t.Error("created_at is absent from the SELECT: filedAt would arrive as the zero value and the " +
 			"copy-changed gate could never reach `resolved` — the exact defect editquality predicted in round 3")
+	}
+}
+
+// THE PUBLISHED GATE (bugs_open/262), stated as a property. Both content gates
+// read page_components — the DATABASE — while the finding is about what the LIVE
+// SITE asserts. A page corrected in the DB but not yet rerendered satisfies both,
+// so an item could close while the served page still carried the claim.
+//
+// Every case passes heroCleaned() and changedAfter, so the claim gate and the
+// owner's copy-changed gate are BOTH satisfied and only the published gate can
+// refuse. A test that passed because an earlier arm refused would assert nothing.
+func TestUnverifiedClaimsNeverResolvesUntilThePageHasBeenPublished(t *testing.T) {
+	cleanAndMoved := func() *checks.ClaimsPageScan {
+		return &checks.ClaimsPageScan{
+			PageID: "p1", PageName: "about", ComponentsExamined: 3,
+			NewestComponentUpdate: changedAfter, ExaminedTextBySlot: heroCleaned(),
+		}
+	}
+	for _, tc := range []struct {
+		name      string
+		deploy    pageDeployState
+		reasonHas string
+		why       string
+	}{
+		{"page row could not be read", pageDeployState{},
+			"could not be read", "an unreadable page row is not evidence that anything shipped"},
+		{"page has never been deployed", pageDeployState{Known: true, BuildStatus: "planned"},
+			"never been deployed", "nothing was ever withdrawn from anything the public can see"},
+		{"published BEFORE the copy was edited - the fix is unpublished",
+			pageDeployState{Known: true, BuildStatus: "deployed", DeployedAt: changedAfter.Add(-time.Hour)},
+			"the database is not the website", "the correction is sitting in the DB; the served page may still carry the claim"},
+		{"published after the edit but a rebuild is pending",
+			pageDeployState{Known: true, BuildStatus: "needs_rebuild", DeployedAt: changedAfter.Add(time.Hour)},
+			"rather than deployed", "what the site currently serves cannot be assumed to be what was scanned"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got := unverifiedClaimsVerdict("p1", filedAt, flaggedHero, cleanAndMoved(), tc.deploy)
+			if got.Verdict == revalidationResolved {
+				t.Fatalf("closed a factual-claim item on unpublished evidence (%s)", tc.why)
+			}
+			if got.Verdict != revalidationUnknown {
+				t.Errorf("verdict = %q, want %q: publication state is unknown, not disproven", got.Verdict, revalidationUnknown)
+			}
+			if !strings.Contains(got.Reason, tc.reasonHas) {
+				t.Errorf("reason %q does not contain %q", got.Reason, tc.reasonHas)
+			}
+		})
+	}
+
+	// The gate must NARROW closure, not abolish it.
+	got := unverifiedClaimsVerdict("p1", filedAt, flaggedHero, cleanAndMoved(), publishedAfterEdit())
+	if got.Verdict != revalidationResolved {
+		t.Fatalf("a clean, corrected, PUBLISHED page returned %q; if this cannot resolve the type never drains", got.Verdict)
+	}
+	if got.Evidence["deployed_at"] == nil || got.Evidence["build_status"] == nil {
+		t.Errorf("a closure must record the publication evidence it rested on, got %v", got.Evidence)
+	}
+}
+
+// deployed_at exactly equal to the last edit must be ALLOWED: publishing in the
+// same instant as the edit is a real ordering, and refusing it would strand items
+// whose deploy and content timestamps agree.
+func TestUnverifiedClaimsPublishedAtTheSameInstantResolves(t *testing.T) {
+	got := unverifiedClaimsVerdict("p1", filedAt, flaggedHero, &checks.ClaimsPageScan{
+		PageID: "p1", PageName: "about", ComponentsExamined: 3,
+		NewestComponentUpdate: changedAfter, ExaminedTextBySlot: heroCleaned(),
+	}, pageDeployState{Known: true, BuildStatus: "deployed", DeployedAt: changedAfter})
+	if got.Verdict != revalidationResolved {
+		t.Errorf("verdict = %q: deployed_at == newest edit means the edit WAS published", got.Verdict)
 	}
 }
