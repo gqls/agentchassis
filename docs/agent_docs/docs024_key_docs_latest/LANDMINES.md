@@ -10081,3 +10081,60 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **relations:** `a grep proves absence only for the SPELLING it searches` and `A node's .status.images is CAPPED at 50` (same class — an answer bounded by an instrument's reach, presented as complete) · `logs deploy/X reads one pod of N` and `-l app=<subsystem> may be the WRONG SERVICE` (same class — a label that looks like the service is not the service) · `a post-fix ZERO needs a DEMAND control` · `A concept-register STATUS line is a snapshot that outlives its truth` (this is how one got written) · `bugs_open/040` (the metrics endpoint) · concept register SYS-091
 - **source:** 2026-08-12, dispatch/pool lane, D2's post-roll check (`bugs_closed/246` follow-up). The instrument was built, council-APPROVED, mutation-tested and confirmed serving `12` on both pods — and was unscraped the whole time. The check that caught it was filtering the query by pod name; the check that would have caught it a day earlier was reading the target list for the pod rather than for the job. The prior session's inverted claim ("the numeric target is what makes the scrape work, do not tidy it") is corrected in `podmonitor.yaml`, in SYS-091 and in the lane handoff.
 - **added:** 2026-08-12, dispatch/pool lane (bugfix_239 / D2)
+
+---
+
+## A per-row revalidation stamp is LAST-WRITE-WINS, so `GROUP BY` it reads exactly like a run log and is not one — and a new gate's `0` refusals means "never asked" until you compare that stamp against the ROLL time
+
+- **footprint:** `site_work_items`, `result->'revalidation'->>'at'`, `resolution_path='auto:revalidated'`, `scheduled_tasks`, `review-queue-revalidate-daily`, `revalidate_unverified_claims.go`, `revalidate_voice_tells.go`, `parkedReviewItem`
+- **fires when:** you ship a gate into the review-queue sweep and then ask the two questions everyone asks next — *"how often does this sweep actually run?"* and *"has my new gate ever refused anything?"* Both look answerable from the work-item rows alone, which is the trap: the sweep's own output is right there, and `scheduled_tasks` is a table you have no reason to think about.
+- **why the wrong result looks exactly right:** the sweep **overwrites** each item's revalidation stamp every run. So `SELECT result #>> '{revalidation,at}', count(*) … GROUP BY 1` returns a tidy descending list of distinct timestamps that is *the last run which touched each row*, not the set of runs. Runs whose items were all re-examined later are **invisible — not undercounted, absent.** The output has the exact shape of a run history, complete with plausible daily spacing and plausible gaps, and every closed item freezes its stamp at closure so the list even has believable stragglers. `[MEASURED 2026-08-12]` all 21 open `claims_unverified` items carried the identical `2026-08-12T08:44:34Z`, while the 9 closed ones carried `08-10` (×8) and `08-12` (×1) — read as "runs on 08-10 and 08-12, so 08-11 was skipped", which the data cannot support.
+- **the second half, and it is the one that matters:** a gate's **`0` refusals has two causes with opposite fixes** — it looked and approved, or it was never asked. A gate committed *after* the last sweep run cannot have been asked, however live the binary is, and a pod-probe proving the code shipped says nothing about this. The two facts are independent and both are cheap:
+  ```sql
+  -- 1. WHEN COULD it have run? cadence lives here, never in the row stamps
+  SELECT name, interval_seconds, enabled, last_triggered_at
+  FROM scheduled_tasks WHERE name = 'review-queue-revalidate-daily';
+  -- 2. has ANY run happened since the gate rolled? compare max(stamp) with the ROLL time,
+  --    not with the refusal count, and not with the commit time
+  SELECT max(result #>> '{revalidation,at}') FROM site_work_items
+  WHERE item_type = '<type>' AND result ? 'revalidation';
+  ```
+  Then: `git log -1 --format=%cI <your-gate-commit>` against that `max(stamp)`. If the commit is newer, **the gate has never been asked** and its zero is uninformative. Worked case: the claim-granular gate (committed 12:56Z) and published gate (17:42Z) both post-dated the 08:44:34Z run, so both read `0` while never having been consulted; the copy-changed gate's `0` from the same query was a real "asked 30 times, never refused".
+- **the general shape:** wherever a mechanism writes its result **into the row it processed**, that column is state, not history — it answers "what happened last" and silently declines "what happened". Any run log you build from it is bounded by how often rows get re-touched. **Before reading a cadence out of a data column, find the thing that actually schedules the work.**
+- **relations:** `a gate's 0 findings has TWO causes, opposite fixes` (this is that lesson with the specific column that produces it) · `a count you kept is not a census` · `detection works; SCHEDULE and DISPATCH do not` · `a silent mechanism is usually UNDRIVEN, not missing` · concept register CQ-021 / CQ-020 · `bugs_closed/262`
+- **source:** 2026-08-12, `bugfix_168_deployed_asset_path` lane. Verifying `bugs_closed/262` live on `v1.0.1293`, I grouped by the revalidation stamp to check the sweep's cadence and stated in chat that 08-11 was missing. Withdrawn minutes later on the follow-up query that showed all 21 open items sharing one stamp. Logged in `WRONG_CALLS.md`.
+- **added:** 2026-08-12, bugfix_168_deployed_asset_path lane
+
+### `git show <ref>:<path>` from a SUBDIRECTORY returns an empty document, and a count over it reads as a clean zero
+
+- **footprint:** `git show <ref>:<path>`, `git cat-file`, `~/projects/sites` (a repo whose
+  every site is a subdirectory, so this is the normal place to be standing), any
+  `subprocess.run([...]).stdout` that feeds a regex, census or diff
+- **fires when:** you are baselining against a pinned ref — the standard move for any
+  adoption, decomposition or rebuild lane — and you `cd` into the site directory first
+  because that is where the files are. `git ls-tree` from there prints paths **relative to
+  your cwd** (`tools/consolidation.html`), and those are exactly the paths `git show`
+  refuses: its argument is **repo-root-relative** (`loancalculator.co.uk/tools/consolidation.html`).
+  `./`-prefixing works; a bare relative path does not.
+- **why the wrong result looks exactly right:** the failure goes to **stderr** and stdout is
+  **empty**, so `subprocess.run(...).stdout` is `""` and every measurement over it succeeds
+  and returns zero — zero matches, zero classes, zero occurrences, no diff. Nothing raises.
+  And the error has a direction: **an empty input always reports "no problem here"**, which
+  is the answer you are usually hoping for when you are checking whether some inconvenient
+  hazard is real. Worse, the obvious size check lies too: `git show … 2>&1 | wc -c` prints
+  the length of the **error message** (measured: 224, which reads like a small file).
+- **the check:** assert the input is non-empty **at the point of read**, not at the point of
+  use — `assert h, "EMPTY READ for "+p` inside the loop — and when the answer is a zero you
+  are pleased with, induce a non-zero before believing it. If a whole set is being read,
+  count the successful reads and print it (`pages read: 29, empty: 0`); a run that silently
+  read nothing has the same output shape as a run that read everything and found nothing.
+- **relations:** `a grep proves absence only for the SPELLING it searches` (same family: the
+  measurement could not have come out otherwise) · `a post-fix ZERO needs a DEMAND control` ·
+  `two checks blind the SAME way AGREE` · `scripts/class_count_delta.py`, which refuses an
+  empty side with `NOT CHECKED` (exit 2) rather than returning a confident zero
+- **source:** 2026-08-12, `bugs_open/263` lane. I "refuted" a subagent's correct finding —
+  five `class=` occurrences inside a JS template literal, which would have made a per-class
+  gate report five false drops — by counting them in a file `git show` never opened. Caught
+  only because I widened the sample and put an assert in the loop; corrected, the count was
+  exactly the five reported. Logged in `WRONG_CALLS.md`.
+- **added:** 2026-08-12, bugs_open/263 lane

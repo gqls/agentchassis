@@ -66,6 +66,23 @@ spec:
     # By port NUMBER, not name: spawned pods declare a container port named
     # "metrics" (spawn_actions.go) but the static Deployment declares only 8080
     # and no name, so a name-based endpoint would silently miss it.
+    #
+    # >>> CORRECTED 2026-08-12 (dispatch/pool lane, D2's post-roll check).
+    # The diagnosis above was right that a NAME-based endpoint would miss the
+    # static Deployment. It was wrong that a NUMBER-based one avoids that: the
+    # operator compiles a numeric targetPort into
+    #     keep __meta_kubernetes_pod_container_port_number == "9090"
+    # (read verbatim out of /etc/prometheus/config_out on the live Prometheus),
+    # which keys on the port a pod DECLARES, not the port it serves. Both
+    # options missed the static Deployment; only the spawned pods were ever
+    # scraped, because spawn_actions.go declares 9090 for them.
+    # Measured 2026-08-12 on v1.0.1293: both chassis pods served
+    # go_sql_max_open_connections{db_name="clients_db"} 12 on :9090 while
+    # 0 of 141 active Prometheus targets was an agent-chassis-* pod.
+    # FIXED at the honest end — base/deployment.yaml now declares 9090 — so this
+    # numeric targetPort is correct as written and needs no change. Do not
+    # "simplify" it to a port NAME: the two pod shapes would then have to agree
+    # on the name for ever, which is the drift this selector was built to avoid.
     - targetPort: 9090
       path: /metrics
       interval: 30s

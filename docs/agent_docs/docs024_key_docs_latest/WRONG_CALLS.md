@@ -30036,3 +30036,52 @@ turned up a live instance in the landed lane gate (`gate_wrapper_parity.py`'s
 `class_counts()` does not strip, inert today because no in-scope page carries a script
 inside `div#content`, verified). Contributed to `bugs_open/263` rather than fixed there,
 because that file belongs to another thread's lane.
+
+---
+
+## 2026-08-12 — "the reader was checked first" — the check that was supposed to prevent an unscraped metric was itself blind, and it read as a clean pass
+
+**The claim, written into a handoff AND into the concept register (SYS-091), where council
+seats read it as ground truth:** *"PodMonitor `ai-persona-system/agent-chassis` selects
+`app in (agent-chassis, dynamic-agent)` … Prometheus reports both chassis pods
+`health: "up"` on v1.0.1291 … the pod declares only containerPort 8080 — the numeric
+`targetPort: 9090` is what makes the scrape work, so do not 'tidy' that away."*
+
+**Both conclusions were false.** `[MEASURED 2026-08-12, v1.0.1293]` 0 of **141** active
+Prometheus targets, across every scrape pool, had a pod name matching `agent-chassis-*`.
+The numeric `targetPort` does not rescue an undeclared port — it compiles to
+`keep __meta_kubernetes_pod_container_port_number == "9090"`, which matches the port a pod
+**declares**, so it was the very thing dropping the chassis. The metric shipped, was
+council-APPROVED, was mutation-tested, served `go_sql_max_open_connections 12` correctly on
+both pods — and was scraped from neither.
+
+**What made the wrong answer look right, and why it is not carelessness.** The lane did the
+right thing by its own standard: it checked the reader *before* building, precisely because
+`bugs_open/040` is this platform's documented "metric nobody scrapes" failure. The check
+returned a healthy-looking answer because **one selector covered two pod shapes**. The
+spawned agent pods declare 9090 (`spawn_actions.go`) and were scraped throughout, so
+`go_sql_max_open_connections` returned **108 up series** — real, plentiful, and containing
+zero rows from the two pods the instrument existed for. The `job` label is the
+**PodMonitor's name**, not the app's, so all 108 are labelled
+`job="ai-persona-system/agent-chassis"` and read as the chassis at a glance.
+
+**The cheap check that would have caught it, in both directions:**
+- Filter the query by the thing you mean, not by the job: `go_sql_max_open_connections{pod=~"agent-chassis-.*"}`. It returns an **empty vector** while the unfiltered query is healthy — and that empty vector is the finding, not a syntax problem.
+- Ask the **target list for the pod name**, never the metric for a health status:
+  `[x for x in activeTargets if x['labels']['pod'].startswith('agent-chassis-')]` → `0`.
+Either is one command. The second is the one the register entry claimed to have run.
+
+**The transferable shape — this is the fourth entry in a fortnight of the same class:** a
+check whose result is the same whether or not the hazard exists. Here the hazard was
+"the chassis is not scraped" and the instrument was a fleet-wide metric query that
+**cannot** distinguish "this pod is scraped" from "some pod matching this selector is
+scraped". Cousins already logged: the empty-input probe that always says "no problem",
+the 18→18 aggregate, the node image list silently cut at 50. **Before believing a healthy
+reading, name the population it actually covers and check your subject is in it** — an
+aggregate over a superset is not evidence about a member.
+
+**Not a near-miss.** The correction changed live config (`base/deployment.yaml` now declares
+`9090 name: metrics`) and is what makes D2 deliver anything at all. It also exposed a second
+fact nobody had recorded: `podmonitor.yaml` is **not in the kustomize build**
+(`base/kustomization.yaml` lists only `deployment.yaml`) — live, hand-applied, reconciled by
+nothing. Landmine filed; SYS-091 and the lane handoff corrected in place.
