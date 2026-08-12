@@ -348,6 +348,17 @@ func expectSaveSlotReads(mock sqlmock.Sqlmock, siteID, pageID uuid.UUID, pageNam
 	mock.ExpectQuery("FROM page_components").
 		WillReturnRows(sqlmock.NewRows([]string{"slot_name", "len"}))
 
+	// Per-slot component floor (bugs_open/253). A SECOND read of
+	// page_components, immediately after the shrink floor's. It must be
+	// expected separately even though the regexp above would also match it:
+	// expectations here are ORDERED (see this helper's comment), so the shrink
+	// query consumes the first and this one consumes the second. Omitting it
+	// does not merely leave a query unexpected — the guard fails CLOSED on a
+	// measurement error, so the whole save is refused and every assertion after
+	// the insert loop dies with a misleading "could not measure" error.
+	mock.ExpectQuery("FROM page_components").
+		WillReturnRows(sqlmock.NewRows([]string{"slot_name", "rendered_html"}))
+
 	// Interactivity regression guard
 	mock.ExpectQuery("SELECT COALESCE\\(bool_or").
 		WithArgs(pageID).

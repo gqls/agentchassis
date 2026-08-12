@@ -588,6 +588,17 @@ func SavePageSectionsAction(ctx context.Context, params ActionParams) (interface
 		return nil, shrinkErr
 	}
 
+	// --- Per-slot COMPONENT floor (bugs_open/253, framework_rewrite_...) ---
+	// The shrink guard above measures TEXT, and is blind to a rewrite that keeps
+	// the words and strips the layout. Measured on the LMC homepage: the save it
+	// let through kept 84% of the text and 2% of the class attributes, turning a
+	// styled calculator directory into a flat run of headings. Text volume and
+	// layout structure are independent quantities; this guards the second.
+	// See save_sections_component_floor.go for the calibration and escape hatch.
+	if flatErr := enforceSectionComponentFloor(ctx, params, siteID, pageID, pageName, sections); flatErr != nil {
+		return nil, flatErr
+	}
+
 	// --- Interactivity regression guard (Layer 1) ---
 	// The text guard above misses the loss of an interactive tool: the tool is
 	// mostly markup + JS, so tag-stripping leaves little text and a plain-
