@@ -309,3 +309,78 @@ committed — but they are Go, so they are **inert until the fleet next rolls**,
 the guard's config half is held behind that roll too. Per the standing bar a fix
 that has not shipped leaves the defect reproducible, and per the owner's 08-06
 ruling this file stays in `bugs_open/` regardless.
+
+
+---
+
+## 9. CONTRIBUTION 2026-08-12 (ai_site_selling_automation lane, not the 238 lane) — the fix HAS rolled, and a live case walked straight past it
+
+Two things this file does not yet know. Neither is a re-diagnosis: the mechanism
+claim in the second half is **filed for independent diagnosis, not asserted**
+(`090` run `97ef39f0-19df-4935-834d-c80514fbc43e`), because my first hypothesis
+about it was refuted within the hour.
+
+### 9.1 §8 is STALE: the carry is live, checked at the artefact
+
+§8 says both halves are "inert until the fleet next rolls". They have rolled.
+`agent-chassis` is on `v1.0.1291`, whose image label
+`org.opencontainers.image.revision` is `da5a7eb8f`, and
+`git merge-base --is-ancestor d26c26a9a da5a7eb8f` passes — with controls in
+both directions (the stamp is trivially its own ancestor; a commit made twenty
+minutes before the check is correctly NOT an ancestor). The provenance log line
+had already scrolled out of `--tail=3000` on that service, so the image label
+is the instrument that still works hours later.
+
+**This does not close the bug** — see 9.2 — but the reason it stays open has
+changed, and "inert until the roll" now reads as a reason it cannot have been
+tested, which is no longer true.
+
+### 9.2 A live regeneration lost resolver-sourced keys ANYWAY, on 2026-08-12, with the carry aboard
+
+**The case.** A `content_rewrite` (mode `edit_live`) across four pages of
+webdesign.uk dropped `cta_url`, `primary_cta_url` and `secondary_cta_url` from
+every `hero` and `call-to-action` component — **14 anchors over 7 components**.
+Both templates gate the anchor on the URL rather than the label
+(`{{if and .cta_text .cta_url}}`), so each button rendered as **nothing at
+all**: no error, no truncated prose, healthy byte counts (bodies GREW), and a
+clean `claimscan`. This is exactly §the-existing-landmine's "a gated field fails
+more quietly than an ungated one", one component family further on.
+
+**Why the carry did not fire — the part for the diagnosis loop to confirm or
+refute.** These fields are declared in `content_components.input_schema` with
+`source: "renderer"`. In `plan_sections_action.go`, `sourceResolver.resolve`
+short-circuits that source —
+`if source == "" || source == "llm" || source == "renderer" || source == "static" { return nil, true }`
+— returning value nil and **found true**. A renderer-sourced field is therefore
+never *missing*, so `handleMissingField` never runs, so `carryStored` never runs:
+the carry guards fields that FAIL to resolve, and this class always "succeeds"
+with nothing. The field loop's own renderer/static branch (~:2362) `continue`s
+after writing only a declared `fallback`, and these declare none.
+
+**Refuted on the way, recorded because it was the obvious reading:** I first
+concluded the URL keys were simply **not declared** in the schema, so the carry's
+loop never saw them. The schema query returned all four, declared, with
+`source: renderer`. A field being outside the carry's reach and a field being
+absent from the schema look identical from the symptom.
+
+**Repair applied on the affected site, and its shape is evidence too.** Restoring
+the URLs into `content_data` was **necessary and not sufficient**: a
+`page_rerender` dispatched afterwards still rendered no buttons, which is the
+observable that most directly contradicts "the stored value gets used". The
+buttons only came back once the anchors were spliced into `rendered_html`
+(`SQL_2026-08-12e`) and the deployed files patched (`gqls/vm-sites` `b538295`).
+That hand patch re-arms `bugs_open/229` on those components by construction — the
+next rebuild will overwrite it and file a divergence item, exactly as this
+afternoon's rebuild did to the sibling lane's own hand repair of the same
+buttons.
+
+**What this suggests for the fix, without prejudging the diagnosis:** if the
+carry is meant to be the backstop for "a key the live page already carries", the
+`renderer`/`static` short-circuit is a hole in it that no amount of `on_missing`
+handling can see, because those fields never reach the missing path at all.
+
+- **filed by:** `ai_site_selling_automation` lane, 2026-08-12, during the £149
+  copy migration of webdesign.uk (`87eebf7d5` … `1ee940968`)
+- **full account:** `docs/agent_docs/docs024_key_docs_latest/ai_site_selling_automation/NOTES_ai_site_selling_automation.md`
+  (2026-08-12 "later" entry) and `WRONG_CALLS.md` 2026-08-12 (why five green
+  checks could not see it)
