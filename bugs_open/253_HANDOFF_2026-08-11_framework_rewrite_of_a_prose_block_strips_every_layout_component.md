@@ -64,10 +64,15 @@ locked and are exactly what was rewritten here.** So Track B's expected outcome 
 the calculator keeps working and keeps its markup, while the cards, buttons and
 grid framing it are silently flattened on the next generic rebuild.
 
-**That is a materially different risk from the one Track B was authorised against.**
+**That was a materially different risk from the one Track B was authorised against.**
 Every brief to date framed the calculator page danger as "the widget gets replaced
-by prose or moved to the bottom". Both of those are now guarded. This one is not
-guarded, is not silent-but-harmless, and lands on 22 live consumer-finance pages.
+by prose or moved to the bottom". Both of those were already guarded; this one was
+not, and it lands on 22 live consumer-finance pages.
+**As of 2026-08-12 it is guarded** — see fix candidate 1 below — so Track B's
+per-page prose rows now refuse a flattening rather than absorb it silently. **The
+guard is not yet ROLLED**: it is committed, not running, until the next chassis
+build. Do not treat Track B as protected before a pod is serving it, and prove that
+the way this lane proves everything else — not by the tag.
 
 ## What is NOT wrong here
 
@@ -128,15 +133,13 @@ before anyone asserts it.** The observation above is solid; the cause is not.
 **Do not "fix" this by restoring the page and calling it done** — it will be rewritten
 again by the next rebuild, and the second occurrence will look like a new bug.
 
-## Immediate decision owed on the live page
+## ~~Immediate decision owed on the live page~~ — RESOLVED 2026-08-12
 
-The LMC homepage is currently serving the flattened version. Options: leave it (the
-framework's output stands, the site looks plainer), or repair `prose-0` with the
-original markup and accept that a future rebuild may flatten it again until (1) is
-in place. **`load_lmc.py --apply index` will REFUSE** — its pre-write guard checks the
-stored md5 against the 08-09 baseline and the row has legitimately moved, which is
-the guard doing its job. A repair therefore has to be deliberate and targeted, not a
-re-run of the lane tooling.
+~~The LMC homepage is currently serving the flattened version…~~ **No longer true.**
+The page was repaired by `content_direction` before the guard shipped (see the top of
+this file). `load_lmc.py --apply index` would still REFUSE — its pre-write guard sees
+the stored md5 has moved from the 08-09 baseline, which is that guard working, not a
+problem — but there is nothing left to repair.
 
 ## See also
 
