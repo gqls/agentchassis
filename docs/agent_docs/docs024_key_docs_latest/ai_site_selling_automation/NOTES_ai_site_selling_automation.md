@@ -490,3 +490,68 @@ point of use rather than at the point of failure.
   and served to nobody; there is already an open `claims_unverified` item for
   it. Pre-existing, not caused by this change, and not fixed here — but this
   change quadruples the noise, so it is worth someone's attention.
+
+---
+
+## 2026-08-12 — copy migration, half two: the `faq` canary is LIVE and correct, and it exposed a hole the ban set cannot see
+
+Two `content_rewrite` items with `spec.mode='edit_live'` (`SQL_2026-08-12b`,
+commit `0854162c6`). Dispatch was **fast, not queued**: created 16:37:47Z,
+claimed by `build-dispatch-loop` at 16:39:14Z, `faq` complete at 16:43:54Z.
+
+> **CORRECTED, and the correction was one query.** I read
+> `find_dispatchable_site` (it orders `wi.created_at ASC` before priority) and
+> concluded my items sat behind the fleet's ~700-item backlog, hours away. That
+> is wrong twice over: the 722 figure counts every status, and only **35**
+> items across **2 sites** were actually dispatchable and older than mine. The
+> selector takes one SITE per firing, so webdesign.uk came up within two
+> minutes. **A backlog figure quoted from another lane's note is not the
+> queue depth for your item** — the filter that matters is
+> `status IN ('triaged','approved') AND attempt_count < max_attempts`.
+
+- **`edit_live` did its job: the page GREW.** faq body 4,512 → 5,339 bytes
+  (+18%), hero 3,063 → 2,881, cta 2,389 → 2,200. Compare `bugs_open/178`'s
+  measured failure without it: 4,439 → 1,806, one paragraph in three surviving.
+  The mode is the difference between a migration and a quiet amputation.
+- **The rewritten page scans CLEAN** against the live register: 0 findings, 1
+  suppressed — and the suppressed match is the writer's own sentence, *"Once
+  you approve the site and pay, we do not offer refunds, so take the time you
+  need before you approve."* **This is the prediction I marked `[LIMIT]` above
+  coming out right on real output**: I could only show that my composed fixture
+  passed, not that the writer would choose the mandated phrasing. It did,
+  because the rule is in `writer_block` and in the ban's own `reason`, which is
+  where the writer meets it.
+- **Verified at the SERVED artefact, not the status**: `preview.webdesign.uk/faq.html`
+  returns 200 with £149 ×4, "we do not offer refunds", "built by AI", "ZIP",
+  and none of £75 / deposit / 14 days / two rounds / "we handle the setup".
+  `last-modified 16:45:03Z`, `cf-cache-status: DYNAMIC` (HTML is not edge
+  cached, so no purge is needed — unlike the `.js` bundle trap this lane hit on
+  08-10). Work item → writer → save → render → deploy → served, all of it.
+
+### The hole: `edit_live` PRESERVES claims the register no longer licenses, and nothing flags it
+
+The rewritten FAQ says **"Anything that's our mistake, we fix at no cost."**
+That is `changes_paid_defects_free` — the fact I deliberately did **not** carry
+into the £149 register, because it was attested on 2026-07-29 under the £1,200
+offer and is an open-ended liability at £149 (owner ask 2 above).
+
+It survived because `edit_live` keeps what it is not told to change, and
+**nothing mechanical objects**: it is not a banned pattern, it carries no
+number, and the `governing_rule` that says every commercial term must trace to
+a fact is prose the writer complies with, not a gate. So the asymmetry is:
+
+> **Removing a fact from the register does not remove the claim from the page.**
+> A ban catches a claim you named. A *missing* fact catches nothing at all —
+> the register's silence is invisible to every check we have.
+
+Not fixed here, deliberately, and it is not a regression: the sentence was
+already live before this migration on `what-you-get` and `how-it-works`.
+Stripping a customer-favourable promise without the owner's word is as much a
+decision as keeping it. **It is now owner ask 2 with a live example attached**:
+either re-attest it at £149 (and I put it back in the register) or say it goes
+(and I write it into the guidance for the remaining pages). What must not
+happen is it sitting on the page with nothing behind it.
+
+The general form is worth carrying: **a claims register enforces its bans and
+merely hopes for its facts.** Anything you want *gone* has to be named in
+`banned_claims`; dropping the fact is necessary and never sufficient.
