@@ -376,3 +376,83 @@ like a broken flag. **Check this first if the repair refuses:** find the run and
 `4bd0fb519` · `cfb05757a` · `4b28bc1cf` · `dca8b8084` · `0cd8404b0` · **`5c7b115c5` r1 (LIVE)** ·
 `2c24ed5f0` · `e1b8863e0` WRONG_CALLS · `a78640045` corrections · `73e7bd3da` ·
 **`a36cbc6cb` r2 (awaiting roll)**.
+
+---
+
+## ADDENDUM 5 (2026-08-12) — THE REPAIR IS DONE AND VERIFIED. Nothing on this front is owed except reading one verdict
+
+**Status in one line:** `ai-agent-orchestration.com` is repaired at the served artefact,
+113's mechanism has no known remaining live instance, and the only open item is council
+round 3's verdict.
+
+### What was owed, and where each item ended
+
+| owed (addendum 4) | outcome |
+|---|---|
+| read the round-2 verdict | **REVISE**, landed 2026-08-11 18:19:16Z, 8 objections. Answered in round 3 |
+| confirm `a36cbc6cb` rolled | **LIVE** — chassis `v1.0.1290`, stamp `fa078ab3d`, binary probe both replicas + bogus-sha control, `merge-base --is-ancestor` true |
+| fire the repair | **DONE** 13:48–13:56Z, verified at the artefact |
+| the AFTER measurement | **DONE** — 58 → 40 against a pre-registered ~15. The miss is the finding |
+
+### The repair, exactly
+
+```sql
+-- 1. composition  (item 57b9b3ff, complete in 103s)
+--    spec: {stage, domain, reason, allow_reinstall: true}, handler site-design-planner, status 'triaged'
+-- 2. render       (item ca5acb4b, complete in ~3m)   <<< NOT OPTIONAL, see below
+--    spec: {domain, reason, stage: 'design'},        handler webdesign-agent,      status 'triaged'
+```
+
+**Rollback, still valid:** `UPDATE sites SET style_collection_id='3196d966-24ef-4415-9dc8-1afbc02166ca' WHERE domain='ai-agent-orchestration.com';`
+
+**THE TRAP THIS FRONT PAID FOR (now a LANDMINE):** the `needs_composition` half completes,
+changes `sites.style_collection_id`, writes a site-specific `palettes` row — and **queues
+nothing**. Every DB check reads green while the site serves the old stylesheet for ever.
+`MissingStyleCollectionCheck` emits BOTH items for exactly this reason; a hand-written repair
+that copies only the first half silently drops the half users see. Verify at
+`curl -sI …/styles.css | grep last-modified`, never at the item status.
+
+### Verified at the artefact
+
+`--color-card-bg` `#ffffff` → **`#0D1117`** (byte-equal to `--color-surface`, on a palette that
+now supplies no `card_bg` — `fillDarkSchemeSpecialisedSlots`' signature, i.e. **113's own fix
+finally reaching this site**). `styles.css` last-modified 2026-08-11T16:22:21Z →
+2026-08-12T13:56:26Z. Collection `3196d966` (shared seed) → `a0f1ac70`; palette `origin=seed`
+→ `adopted` with `source_domain` set.
+
+### The prediction missed, and that is why it was worth recording
+
+**58 → 40**, predicted ~15. Two runs 25 min apart, identical. Attribution:
+
+- **18** of the 38 white-card failures went — this repair, working as designed.
+- **20** did not, and never could: `.team-member { background: #fff }`, a **hard-coded literal
+  in a component template**. Exact, not indicative — `about.html` 12 elements / 12 failures,
+  `index.html` 8 / 8. **This is a different defect** (D4's family / `features_open/026`).
+- **14** primary-as-ink on the dark grounds — `bugs_open/122`, exactly as predicted, untouched.
+- **4** on `rgb(248,249,250)` — **`[UNATTRIBUTED]`**. The cascade says `styles.css` (linked at
+  line 142) should beat the page's inline `:root` (line 68) and it demonstrably does not. Ask
+  `getComputedStyle` which declaration won; do not reason about it from the source order, which
+  is what I did and it gave the wrong answer.
+- **1** on the accent `rgb(240,165,0)` — new since the repair, unexamined.
+
+**Had it landed on ~15 I would have credited this fix with 20 failures it cannot reach** and
+the `.team-member` family would still be invisible. See `WRONG_CALLS.md` 2026-08-12: the BEFORE
+table committed **trap #4 of this front's own six** — reading a route off a value.
+
+### For a fresh session
+
+1. **The only thing owed: read council `b8e341b9` round 3** and act on REVISE/REJECTED — the
+   code is on the shared branch already.
+   `SELECT created_at, metadata->>'decision' FROM diagnosis_artifacts WHERE kind='council_report' AND correlation_id='b8e341b9-4709-49ad-8b7b-f4c8894ba551' ORDER BY created_at;`
+   Round 3's own answers to the 8 objections are in
+   `COUNCIL_SUBMISSION_113_reinstall_r3_2026-08-12.json` — read it before re-arguing any of them.
+2. **Do NOT re-open 113 for what remains on that site.** Two other families produce
+   similar-looking damage there; the per-selector attribution above is the thing to carry
+   forward, not the totals.
+3. **The `.team-member` literal is unowned.** It is the biggest single remaining block on this
+   site (20 of 40) and it is a component-template change, not a palette one. Same shape as D4,
+   which is also still unowned.
+4. **D2 (does the specialised-slot authority defect get its own bug file) is now moot for this
+   site** — it was repaired by re-composition rather than by changing the shared seed. The
+   *class* question (nothing refuses a light theme palette on a dark site spec — D3) is
+   untouched and still open.

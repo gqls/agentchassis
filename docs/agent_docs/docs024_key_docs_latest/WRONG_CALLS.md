@@ -29069,3 +29069,49 @@ applied to the checker itself. The fix is registered on OPP-007 and the prospect
 today and would have been reported as answered — 0 leaks looks clean, but only **4** entry-adding
 commits landed in the window, where a 16% leak rate yields zero half the time. ~14 are needed for
 90% power. That is now written on the entry instead of a false all-clear.
+
+---
+
+## 2026-08-12 — I wrote the trap "a colour's VALUE does not tell you its ROUTE", and then read a route off a value in the very next measurement I made
+
+**The claim:** the 113 BEFORE baseline for `ai-agent-orchestration.com` attributed all **38**
+`rgb(255,255,255)` contrast failures to "the `#ffffff` card — **this defect** — should this
+repair fix it? **yes**", and pre-registered a prediction of **~42 fewer, ~15 remaining**.
+
+**What caught it:** the paired AFTER run, which came in at **40, not 15**. Only **18** of the 38
+white-ground failures went. The other **20** are `.team-member { background: #fff; }` — a
+hard-coded literal in a component template, which no palette change can reach in any world.
+
+**The cheap check that would have caught it, before the prediction rather than after:**
+
+```bash
+curl -s https://<domain>/<page>.html | grep -nE "^\s*background(-color)?:\s*(#fff|#ffffff|white)\s*;"
+```
+
+One command. It returns the literals directly, and the count is *exact*, not indicative:
+`about.html` has 12 `.team-member` elements and 12 residual white failures; `index.html` has 8
+and 8. The split was 18 + 20 and it was sitting in the served markup the whole time.
+
+**Why this one is worth the tally rather than a shrug.** The trap is written down, by this
+front, in this front's own handoff, as trap #4 of 6: *"A colour's VALUE does not tell you its
+ROUTE, and only the route says whether a fix reaches it… `#ffffff` in a served stylesheet is
+equally consistent with a layout fallback, a theme-owned slot and a hand edit."* The 2026-08-09
+entry above records getting this wrong once. Knowing the trap, having just been burned by it,
+and having written the warning **did not prevent repeating it** — because the second time it
+did not look like a route question. It looked like an *attribution table*, which is a different
+activity with a different feel, and the value→route inference was buried inside a column called
+"what it is" rather than stated as a claim.
+
+**The shape:** *a trap you have written down is still live wherever it does not look like the
+trap.* The defence is not "remember trap #4"; it is the mechanical one — **before any row of an
+attribution table can carry "this defect", the row needs its own route evidence**, and a table
+column is exactly where that requirement disappears. Every other row of that table was correctly
+attributed; the two that were wrong were wrong because a table invites a verdict per row and
+supplies no space for how you know.
+
+**What saves it from being a total loss, and it is the reason to pre-register at all:** the
+prediction was recorded before the result and could come out wrong, so it *did*. Had it come in
+at ~15 I would have credited the palette repair with 20 failures it cannot reach, filed 113 as
+fully closed on this site, and left the `.team-member` family invisible — hidden precisely
+because the number matched. **A prediction that misses tells you more than one that lands**, and
+this one converted a wrong attribution into a newly-named defect family with an exact count.

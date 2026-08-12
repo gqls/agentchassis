@@ -5944,3 +5944,100 @@ better starting point than my guess: `multipage_actions.go` (`AssemblePageAction
 `assemble_from_library.go:AssembleOutput`, `datahelpers.CleanHTMLString`. **A field-substituting
 assembler that never executes control structures is exactly the shape those names suggest** —
 but that is a hypothesis for the next session to test, not a finding, and it is unowned.
+
+---
+
+## 2026-08-12 — contrast front: 113's last live instance repaired; the prediction missed and the miss was the finding
+
+Continues `HANDOFF_2026-08-10_contrast_front_continue_here.md` ADDENDUM 4. Three things were
+owed: read the round-2 council verdict, confirm `a36cbc6cb` had rolled, fire the repair.
+
+### 1. The verdict had been sitting unread for 19 hours
+
+`b8e341b9` round 2 completed **2026-08-11 18:19:16Z** — before the session that submitted it
+wrote its handoff at 19:12 local. **REVISE**, 12 reviewers, `unreadable: 0`, 8 objections.
+
+**Trap for anyone chasing a verdict on this trail:** `orchestration_states` filtered on
+`collected_data->'input_data'->>'fix_correlation_id'` returns **one** row for a two-round
+trail, not two — so "only one round ran" is the wrong reading. `diagnosis_artifacts` on
+`correlation_id` + `kind='council_report'` returns both, dated. Use that one.
+
+### 2. Round 2 was already live — established without a marker or a `strings` probe
+
+Chassis `v1.0.1290`, both replicas. `kubectl logs | grep 'build provenance'` returned nothing
+at `--tail=100000` — **that is "out of range", not "unstamped"**, exactly as CLAUDE.md warns;
+the pods had been up 16h. The stamp came from another lane's note (`idea_uk_vm_site` running
+notes: "v1.0.1290, built from `fa078ab3d`"), and I verified it rather than trusting it:
+`grep -aq fa078ab3d… /proc/1/exe` MATCH on both replicas, bogus-sha control absent on both.
+Then `git merge-base --is-ancestor a36cbc6cb fa078ab3d` → true.
+
+### 3. The objection that mattered, and why measurement beat argument
+
+Five seats objected to the same thing: `collected_data.input_data.spec` is a **shape guess**,
+`input_mapping` is an allow-list, so the per-request flag might never populate. The round-2
+submission had itself marked this `[UNMEASURED]`. Three measurements, each disconfirmable:
+
+| measurement | result | could it have come out otherwise? |
+|---|---|---|
+| 30d census of `orchestration_states` (n=6,397 with `input_data`) | `input_data.spec` **2,363**, `input_data.body.spec` **0** | yes — a non-zero body count would have kept the branch |
+| the exact dispatch path, live | 2 of 2 `needs_composition`→`site-design-planner` runs carry the item's spec **verbatim** | yes — a projected subset would have shown missing keys |
+| the repair itself | install succeeded on a site that already had a collection | yes — the default is refusal |
+
+The second one is the sharp one: the surviving **null-valued `planned_name`** is what rules
+out an allow-list projection. A filter that copies named fields drops a null; this one didn't.
+
+The third is stronger than the log line I went looking for and could not get (chassis log
+retention reached back only to 13:52; the install ran 13:50:13). **Refusal is the default and
+`site-design-planner`'s install step config carries no `allow_reinstall` key** — so a
+successful install on a composed site is only reachable via the work item spec. A behavioural
+proof survived where the log evidence had already rotated away.
+
+### 4. The repair — and the half the handoff did not mention
+
+`needs_composition` alone completed, changed the DB, and **left the served stylesheet
+untouched**. `install_site_composition` queues nothing; `styles.css` is rendered by
+`webdesign-agent` off the *other* half of the pair `MissingStyleCollectionCheck` emits. Fired
+`needs_design` by hand, copying that check's own emission shape, and the sheet moved 3 minutes
+later. Now a LANDMINE (12 footprint keys).
+
+**Sync gotcha found on the way:** `landmines-sync.py` splits footprints on **commas and
+semicolons only** (`landmines_lib.py:51-69`) — not on the `·` separator several recent entries
+use. My first version wrote one run-on `subject_key` containing four paths, which the
+SessionStart hook can never match against a dirty file. Re-wrote with commas → 12 individually
+matchable rows. **Worth someone checking the other `·`-separated entries.**
+
+### 5. The AFTER measurement, and the wrong call
+
+58 → **40**, against a pre-registered ~15. Two runs 25 minutes apart, identical, so not a
+propagation race.
+
+The BEFORE table attributed all 38 `rgb(255,255,255)` rows to "the `#ffffff` card — **this
+defect**". Only **18** were. The other **20** are `.team-member { background: #fff }`, a
+literal in a component template. Attribution is exact, not indicative: `about.html` 12
+elements / 12 failures, `index.html` 8 / 8.
+
+> **CORRECTION to my own front's record:** this is **trap #4 of the six this front wrote down**
+> (*"a colour's VALUE does not tell you its ROUTE"*), committed again by the same lane three
+> days later. It did not look like a route question the second time — it looked like an
+> attribution table, and a table invites a verdict per row while supplying nowhere to say how
+> you know. `WRONG_CALLS.md` 2026-08-12.
+
+`[UNATTRIBUTED]`: 4 failures on `rgb(248,249,250)`. The page declares `--color-background:
+#f8fafc` in an inline `:root` at line 68 and `styles.css` declares `#080B10` at line 142 —
+later, so the cascade says dark should win. It doesn't. **Reading the cascade did not settle
+it; ask `getComputedStyle` for the winning declaration.** Not chased further.
+
+### 6. Round 3 submitted
+
+`a36ce9410`, `Council-Submitted: b8e341b9-…` (same trail). Three edits, all narrowing: the
+bespoke unwrapper → `input_contracts.GetValueAtExactPath` (deliberately **not**
+`datahelpers.ExtractNestedField`, which auto-unwraps through `.response` — wrong for an
+authority switch); dormant `body.spec` branch deleted; `resolved_from` diagnostic + test F
+asserting it via `zaptest/observer`. Three mutations run, each failing exactly one test.
+
+**Two objections needed no code and were answered as such.** `bug_historian`'s RowsAffected
+check has been at `:394-409` since round 1 — round 2's *sketch* stopped short of it, which is
+the documented "reviewers judge the sketch" trap. And the `prior_art_librarian` was right to
+ask whether the `allow_reinstall` census was queried: re-run today it has **changed** — 0
+agent definitions, but now **1** work item (my own repair), where round 2 claimed zero
+consumers. Stated in the submission rather than quietly carried forward.

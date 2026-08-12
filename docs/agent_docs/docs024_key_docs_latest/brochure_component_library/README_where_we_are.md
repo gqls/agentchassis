@@ -2380,3 +2380,61 @@ on three different sites, so it is not about this page. I've handed it to the di
 rather than guess — including the honest possibility that my own writer-prompt change yesterday
 is involved, which the loop can confirm or clear. Until it reports, I would not rebuild pages
 anywhere. If my change is the cause, the undo is ready and verified.
+
+---
+
+**2026-08-12, afternoon — the dark site with white cards is fixed, and my prediction about it was wrong in a useful way.**
+
+Background, in plain terms. `ai-agent-orchestration.com` is a dark site — near-black
+background, pale text. But its "cards" (the boxes that hold a heading and a paragraph) were
+being painted **white**, with the site's pale text on top. Pale grey on white is essentially
+invisible: the worst of them measured 1.18 where 4.5 is the readable minimum. The cause was
+that the site was sharing a colour scheme with two other, genuinely light sites, and that
+shared scheme said "cards are white". It could not be changed for this site alone without
+changing the other two, which would have been correct for them and wrong here.
+
+Yesterday another session built the missing capability — a way to give one site its own
+colour scheme without disturbing anyone else's — and it turned out to already be running in
+production. So today it needed one instruction rather than any new code.
+
+**What I did, and what it cost.** Two queued jobs, about eight minutes end to end. The first
+gave the site its own scheme; the second rebuilt its stylesheet. The white card is now dark,
+and the page's stylesheet is stamped with today's date rather than yesterday's, so this is
+confirmed on the live site rather than in the database.
+
+**One thing worth knowing for next time:** the first job on its own reports "complete", changes
+the database, and **never touches what visitors see**. Every database check comes back green
+while the site serves the old appearance indefinitely. You need both jobs. I have written that
+down as a trap, because someone doing this again would have no reason to suspect it.
+
+**Now the part I got wrong.** Before starting, I recorded a prediction — that the site's 58
+readability failures would drop to about 15. That is the discipline: write the number down
+first so it can be wrong. It came out at **40**.
+
+The reason is worth understanding, because it is not a failure of the repair. There were 38
+failures on white backgrounds. I had assumed all 38 were the shared-scheme problem. In fact
+only 18 were. The other **20** are the words `background: #fff` typed directly into one
+component's design — the "team member" boxes — where no colour scheme can reach them. Twelve
+such boxes on the About page, eight on the home page: twenty boxes, twenty failures. Exact.
+
+So the repair did exactly what it should, on exactly the cases it could reach, and the
+prediction was measuring a bigger set than the repair was ever able to touch. **Had the number
+come in at 15 I would have declared this finished and never found the twenty.** That is the
+whole argument for writing predictions down in advance, and it is the first time on this
+workstream that the argument has actually paid.
+
+I have also been honest in the record about four failures I could not explain at all. They sit
+on a pale background that, by my reading of how the page is assembled, should not be there.
+Two runs half an hour apart gave identical results, so it is real and not a fluke. I have
+marked it unexplained rather than inventing a reason.
+
+**Where this leaves things.** The original defect — a dark site inheriting a light scheme's
+white — is repaired everywhere we know of, and this was the last site carrying it. What is left
+on this page set belongs to two other, already-known problems: colours typed directly into
+component designs, and a separate issue where the site's main brand colour is used both as a
+background and as text on that same background. Neither is this one, and both are larger.
+
+The code half went back to the reviewing council for a third round, with the objections from
+round two answered by measurement rather than argument — including one where the reviewers were
+right to be suspicious and one where they were objecting to a check that was already in the
+code and simply had not been shown to them.

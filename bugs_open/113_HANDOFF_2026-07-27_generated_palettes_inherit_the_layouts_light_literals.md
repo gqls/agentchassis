@@ -998,3 +998,114 @@ round 1. Logged in `WRONG_CALLS.md`; register entries DES-082/083 carry a correc
 rather than on an owner decision. The BEFORE baseline and the pre-registered prediction
 (58 failures on 3 pages → expect ~15 remaining) stand unused and still valid.
 **Rollback value if anyone does proceed: `3196d966-24ef-4415-9dc8-1afbc02166ca`.**
+
+---
+
+## 2026-08-12 — THE SITE IS REPAIRED, AND THE PRE-REGISTERED PREDICTION WAS WRONG
+
+`ai-agent-orchestration.com` — 113's last live instance — is repaired at the served
+artefact. The prediction recorded above (58 → ~15) **missed: the result is 40**, and the
+reason it missed is the more useful half of this entry.
+
+### What was done
+
+Round 2 of the `allow_reinstall` work (`a36cbc6cb`) turned out to be **already live** —
+chassis `v1.0.1290`, build stamp `fa078ab3d` (binary probe, both replicas, bogus-sha
+control absent), `git merge-base --is-ancestor a36cbc6cb fa078ab3d` → true. So the repair
+needed no further code, only the work item the addendum described.
+
+Two work items, in the pair `check_integrity.go` emits:
+
+| item | fired | result |
+|---|---|---|
+| `needs_composition` `57b9b3ff`, `spec.allow_reinstall=true` | 13:48:33Z | `complete` 13:50:16Z |
+| `needs_design` `ca5acb4b` → `webdesign-agent` | 13:53Z | `complete` 13:56Z |
+
+**The second one is not optional and the addendum did not mention it.** The composition
+install changes the DB and queues nothing; `styles.css` is rendered by the *other* half of
+the pair. Anyone repeating this on another site must fire both.
+
+### Verified at the artefact, not the status
+
+`complete` has lied on this site before (`f7ceba19`), so:
+
+| check | before | after |
+|---|---|---|
+| `sites.style_collection_id` | `3196d966` (shared seed) | `a0f1ac70` |
+| palette | `professional-dark`, `origin=seed`, `source_domain` NULL | `palette-ai-agent-orchestration-com`, `origin=adopted`, `source_domain` set |
+| palette supplies `card_bg`? | **yes**, `#ffffff` | **no** |
+| served `--color-card-bg` | `#ffffff` | **`#0D1117`** |
+| `styles.css` last-modified | 2026-08-11T16:22:21Z | 2026-08-12T13:56:26Z |
+
+The new value is **byte-equal to `--color-surface`** on a palette that defines no
+`card_bg` — `fillDarkSchemeSpecialisedSlots`' documented signature. **113's own fix now
+reaches this site**, because the palette stopped supplying the slot that was shadowing it.
+
+**Incidental proof for the platform half:** the install refuses by default, and
+`site-design-planner`'s install step config carries only four path references and no
+`allow_reinstall` key. A successful install on a site that already had a collection is
+therefore only reachable through the work item's `spec` — so the per-request channel is
+proven behaviourally, which is stronger than the log line would have been. (The log line
+was unavailable: chassis retention reached back only to 13:52 and the install ran at
+13:50:13.)
+
+### The AFTER measurement, and the miss
+
+Same three pages, same tool, run twice ~25 minutes apart with identical results:
+
+```
+index 33→17 · about 21→19 · contact 4→4      TOTAL 58 → 40   (predicted ~15)
+```
+
+Attributed by the ground the text actually lands on:
+
+| background | before | after | predicted after | what it is |
+|---|---|---|---|---|
+| `rgb(255,255,255)` | 38 | **20** | 0 | see below — **two different things** |
+| `rgb(248,249,250)` | 4 | **4** | 0 | `[UNATTRIBUTED]` |
+| `rgb(8,11,16)` page ground | 7 | 7 | 7 | `features_open/026`, not this |
+| `rgb(13,17,23)` surface | 7 | 7 | 7 | `features_open/026`, not this |
+| `rgb(128,128,128)` | 1 | 1 | 1 | over-image probe, discounted |
+| `rgb(239,239,239)` | 1 | 0 | — | gone |
+| `rgb(240,165,0)` accent | 0 | **1** | — | new, unexamined |
+
+**18 of the 38 white-card failures went. The other 20 were never reachable by any palette
+change**, and the BEFORE table asserted they were. They are `.team-member { background:
+#fff; }` — a **hard-coded literal in a component template**, inlined into the page. The
+attribution is exact rather than inferred: `about.html` has **12** `.team-member` elements
+and **12** remaining white failures; `index.html` has **8** and **8**. 12 + 8 = 20.
+
+> **This is trap #4 of this front's own list, committed again by the person who wrote it.**
+> *"A colour's VALUE does not tell you its ROUTE."* The BEFORE table read `rgb(255,255,255)`
+> and wrote "the `#ffffff` card — **this defect** — **yes**" against all 38. Two routes
+> produce that identical pixel: the palette slot (repairable here) and a literal in
+> component CSS (not). Grepping the served page for `background:\s*(#fff|#ffffff)` before
+> predicting would have cost one command and split 38 into 18 + 20.
+> Full account in `WRONG_CALLS.md` 2026-08-12.
+
+**The prediction failing is what makes the number interpretable.** Had it come in at ~15 I
+would have credited this fix with 20 failures it cannot reach, and the `.team-member`
+family would still be invisible.
+
+### What is left on this site, and who owns it
+
+- **20** — `.team-member { background: #fff }`, a hard-coded component literal. **NOT 113.**
+  Same family as D4 in `HANDOFF_2026-08-10_contrast_front_continue_here.md` (three
+  `tool-llm-cost-calculator` instances hard-coding `color: #fff`) and `features_open/026`.
+  Nothing in the palette layer can reach it; it needs the component template changed.
+- **14** — primary-as-ink on the two dark grounds. `bugs_open/122` / `features_open/026`,
+  exactly as predicted and deliberately untouched.
+- **4** on `rgb(248,249,250)` — **`[UNATTRIBUTED]`, and I could not explain it.** The page
+  declares `--color-background: #f8fafc` in an inline `:root` at line 68; `styles.css`
+  declares `#080B10` and is linked at line 142, i.e. LATER, so the cascade says the dark
+  value should win — yet 3 `H2` and 1 `P` compute to `#f8fafc`. Stable across both runs, so
+  not a race. **Reading the cascade did not settle it; ask `getComputedStyle` which
+  declaration actually won** before theorising further.
+- **1** on the accent `rgb(240,165,0)` — new since the repair, unexamined.
+
+### 113's status
+
+**The mechanism is repaired fleet-wide and this was its last known live instance.** What
+remains on this page set is two other families that happen to produce similar-looking
+damage — which is precisely why the per-selector attribution above matters more than the
+totals. Whoever closes 113 should close it on the mechanism, not on this site's total.
