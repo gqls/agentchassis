@@ -546,3 +546,14 @@ review, RFC before code," unstarted; fidelity dial still only has `locked` wired
 No activity on any of the three in the 24h preceding this session's start.
 
 Full phased plan from this session: `PLAN_2026-08-12_fleet_buildout.md`.
+
+> **CORRECTED 2026-08-12, same session, before acting on it.** Phase A4 of that plan ("raise
+> `max_pages` from 20 to ~24-25") is moot. Direct query of the LIVE `agent_definitions` row
+> for `build-site-planner` shows `validate_plan.config.max_pages = 80`, not 20 — some other
+> session already raised it (`docs/agent_docs/sql_for_agents/053_build_site_planner.sql`
+> carries the comment "raise validate_plan max_pages 20 -> 80 (don't truncate; 80-page
+> ceiling)"), unrelated to this build-out. The earlier research agent's `maxPages := 20` code
+> citation (`v3_site_actions.go:3226`) was accurate as a fallback default, but the live
+> config already overrides it. Caught by checking the live row myself before writing to it,
+> not by trusting the secondhand research figure — exactly the kind of drift CLAUDE.md warns
+> a session-start snapshot goes stale within minutes. No action needed for A4.
