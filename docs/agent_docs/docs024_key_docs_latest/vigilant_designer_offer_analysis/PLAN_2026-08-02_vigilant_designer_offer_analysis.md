@@ -252,3 +252,64 @@ Marked here rather than edited into §B above, so the original text stays readab
   consistency, that's a scope addition to `load_design_context` (a reference corpus), not
   existing plumbing — decide before building, don't discover it after. B3's stuck council
   round and its four findings are UNCHANGED by this decision — still owed, separately.
+- **2026-08-11 (evening) — OWNER DECISION REVERSED THE SAME DAY: B4 next, not A-track.**
+  Recorded here 2026-08-12, because the entry above was left standing and this file is
+  supposed to be where decisions live. The reversal is in
+  `HANDOFF_2026-08-11_continue_here.md` §"Owed": *"Next track: B4 — the offer analyser
+  itself. Not A-track. B1–B3 are live, the estate is swept, and the inputs the analyser
+  needs now exist on every deployed site."* Read the two entries together: the A-track
+  argument (portfolio_positioning's design-diversity ask needs the 018 critic) was not
+  withdrawn and still stands on its own merits — it was outranked, not refuted. **A reader
+  picking up the A track should treat the entry above as live scope, not as a dead decision.**
+- **2026-08-12 — the B4 premise that justified the reversal is 32% TRUE, measured.** The
+  handoff's *"the inputs the analyser needs now exist on every deployed site"* is right about
+  `revenue_models.primary_model` (22 of 22 current strategy rows carry one — that is what B3
+  drove to completion) and **wrong about the fields B4 actually needs to judge an offer**.
+  §5.4 of `features_open/030` calls these the Q-fields; B2 restored them; they are on **7 of
+  22 sites**, and the boundary is not a property of the sites:
+
+  | | sites | source of the current strategy row |
+  |---|---|---|
+  | HAS `satisfaction_condition` + `trust_threshold` + `recurring_value` | **7** | 6 `domain-strategist` (all written 08-08 or later) + 1 `operator` oneshot |
+  | lacks them | **15** | 13 `domain-strategist` (all written 08-02 or earlier) + **2 human-authored** |
+
+  **Every strategist-written row since B2 shipped carries the Q-fields; every one written
+  before it does not.** So the gap is a vintage, not a defect, and it closes by refreshing a
+  premise — which is exactly the operation B2 made safe on deployed sites (that was B2's
+  whole point, and it has not been used for it yet).
+
+  ⚠ **The refresh is NOT a blanket sweep, and the exclusion list is short and load-bearing.**
+  Two of the fifteen carry **human-authored** current specs — `mortgagecalculator.co.uk`
+  (`source='owner_direction'`, created_by *"owner direction 2026-08-11 (customer voice,
+  softer, no clever titles, not competitive)"*) and `leopardessconsulting.co.uk`
+  (`source='hitl'`). A `domain-strategist` refresh writes a new `is_current` row and
+  supersedes whatever is there, so a 15-site sweep would **overwrite the owner's own
+  direction on mortgagecalculator, one day after he gave it**. The 13 strategist-written rows
+  are safe; those two need his call, and it is a different question (re-elicit, hand-merge,
+  or leave un-analysable).
+
+  The query, so this is re-runnable rather than quoted:
+  ```sql
+  SELECT (sp.data ? 'satisfaction_condition') AS q_fields, sp.source, count(*),
+         string_agg(s.domain, ', ' ORDER BY s.domain)
+  FROM site_specs sp JOIN sites s ON s.id = sp.site_id
+  WHERE sp.aspect = 'strategy' AND sp.is_current
+  GROUP BY 1, 2 ORDER BY 1 DESC, 3 DESC;
+  ```
+
+  **What this changes for B4's design, before a line of it is written.** The analyser cannot
+  assume its richest inputs are present, and the two honest options are not equivalent:
+  (a) **refresh first** — 13 dispatches, then B4 sees a uniform estate, at the cost of 13
+  strategist runs and a week's latency; or (b) **B4 degrades explicitly** — judge on
+  `value_proposition` alone where the Q-fields are absent and SAY SO in the finding, which
+  keeps B4 unblocked but means its verdicts are not comparable across sites. **(b) has a trap
+  this lane has already been bitten by twice: a check that examines less on some sites and
+  does not say so produces a silence that reads as a clean bill** (WII-014 is the entire
+  fix for one instance of it, `bugs_open/255` the other). If B4 degrades, the degraded
+  verdict must be a stated field on the finding, not an absence.
+
+  **Recommendation for the owner: (a) for the 13, then B4.** It is the same shape of decision
+  he already took on 08-11 for the three sites with no premise at all, the machinery is
+  proven (three of three dispatches produced correct premises, two of them unattended), and
+  it means B4's first real verdicts are comparable across the estate instead of carrying an
+  asterisk per site. The two human-authored sites stay out until he says otherwise.

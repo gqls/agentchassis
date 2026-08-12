@@ -1221,3 +1221,59 @@ So the answer to their request is: **do not specify a new artefact — B4 should
 over the fields that already exist**, and the first thing worth doing is cheaper than either:
 have something compare a page brief against its site's `value_proposition` before the writer sees
 it. Replied in `CONTRIB_2026-08-12_the_ordering_input_you_want_is_already_in_site_specs.md`.
+
+## 2026-08-12 (late) — B4 groundwork: the premise that justified doing B4 next is 32% true
+
+Started B4 by measuring its inputs rather than by designing against them, on the strength of
+the memory lesson *the survey that sizes a feature usually falsifies it*. It did.
+
+The 08-11 handoff's reason for choosing B4 over the A-track was *"the inputs the analyser needs
+now exist on every deployed site"*. **Half right, and the half that is wrong is the half B4
+actually uses.** `revenue_models.primary_model` — what B3 drove to completion — is on 22 of 22.
+The **Q-fields** (`satisfaction_condition`, `trust_threshold`, `recurring_value`), which are
+what a judgement about an OFFER needs, are on **7**.
+
+```sql
+SELECT (sp.data ? 'satisfaction_condition') AS q_fields, sp.source, count(*),
+       string_agg(s.domain, ', ' ORDER BY s.domain)
+FROM site_specs sp JOIN sites s ON s.id = sp.site_id
+WHERE sp.aspect='strategy' AND sp.is_current GROUP BY 1,2 ORDER BY 1 DESC, 3 DESC;
+```
+
+| q_fields | source | n |
+|---|---|---|
+| yes | `domain-strategist` | 6 |
+| yes | `operator` (another lane's oneshot, LMC) | 1 |
+| no | `domain-strategist` | 13 |
+| no | `hitl` | 1 |
+| no | `owner_direction` | 1 |
+
+**The boundary is a vintage, not a property of the sites.** Every strategist-written row dated
+08-08 or later has them (6/6); every one dated 08-02 or earlier does not (13/13). 08-08 is when
+B2 shipped. So B2's restoration works and has simply not been applied to the back catalogue —
+and applying it is the operation B2 was built to make safe on deployed sites, which has still
+never been used for that.
+
+**The one row that looks like a counterexample is not.** mortgagecalculator.co.uk's current
+strategy row is dated 08-11 — after B2 — and lacks the Q-fields. `source='owner_direction'`,
+`source_agent='session'`: it was hand-written by the mortgagecalculator lane carrying the
+owner's voice direction, not produced by the strategist. **Checking `source` rather than the
+date is what turned a "B2 is leaky" theory into a two-site exclusion list**, and I nearly wrote
+the leak version down first.
+
+⚠ **That exclusion list is the load-bearing part of any refresh task.** A `domain-strategist`
+refresh writes a new `is_current` row and supersedes what is there. Two of the fifteen carry
+human-authored specs (`owner_direction`, `hitl`). A 15-site sweep would **overwrite the owner's
+own voice direction on mortgagecalculator, one day after he gave it** — the same class as the
+LMC third-strategy-row hazard caught earlier today, and I only saw it because the first query I
+wrote grouped by `source` for an unrelated reason. Filter by `source`, never by date.
+
+Options, costs and the recommendation (refresh the 13, then B4; the two human-authored sites
+need the owner) are in `PLAN_2026-08-02`'s decision log, 2026-08-12. `features_open/030` §5.4
+updated — its "16 sites / one worked example" counts are from before B2 and are now wrong in
+both directions.
+
+**Also corrected: the PLAN's decision log said "A-track next, not B4" and had been left
+standing** even though the owner reversed it the same evening (recorded only in the 08-11
+handoff). Both entries now sit together, with a note that the A-track argument was outranked
+rather than refuted — a reader picking up Programme A should treat it as live scope.

@@ -46,14 +46,28 @@ sitting in an evidence column reads as evidence.
 
 ## What the next session should do
 
-1. **B4 — the offer analyser. This is the work.** `features_open/030` §5.4 and `PLAN_2026-08-02`
-   §B4 are the brief, and B4 now has a **named external consumer**, which it did not have on
-   08-11: the `copy_quality_two_stage` lane needs a per-site ranked "what this reader wants,
-   most useful first" that a rewrite pass can read. Full reply, with what already exists and
-   what does not:
+1. **B4 — the offer analyser. This is the work, and it opens with an OWNER DECISION, not a
+   design.** `features_open/030` §5.4 and `PLAN_2026-08-02` §B4 are the brief.
+   **⚠ Do not start by designing: the premise that put B4 ahead of the A-track is 32% true.**
+   Measured 08-12 — the 08-11 handoff said *"the inputs the analyser needs now exist on every
+   deployed site"*, which is right for `revenue_models.primary_model` (22 of 22) and **wrong
+   for the fields a judgement about an offer actually needs**. `satisfaction_condition` /
+   `trust_threshold` / `recurring_value` are on **7 of 22**, split by vintage rather than by
+   site: every `domain-strategist` row written 08-08 or later has them (6/6), every one written
+   08-02 or earlier does not (13/13). 08-08 is when B2 shipped.
+   **The decision: refresh the 13 first (13 dispatches, ~a week, B4 then sees a uniform estate),
+   or have B4 degrade explicitly per site.** Costs, the trap in the second option, and the
+   recommendation (refresh first) are in `PLAN_2026-08-02`'s decision log, 2026-08-12.
+   **⚠ A refresh is NOT a blanket sweep — exclude by `source`, not by date.** Two of the 15
+   carry human-authored current specs (`mortgagecalculator.co.uk` = `owner_direction`, the
+   owner's own voice direction of 08-11; `leopardessconsulting.co.uk` = `hitl`), and a
+   strategist refresh writes a new `is_current` row straight over them.
+   B4 also now has a **named external consumer**, which it did not have on 08-11: the
+   `copy_quality_two_stage` lane needs a per-site ranked "what this reader wants, most useful
+   first" that a rewrite pass can read. Full reply, with what already exists and what does not:
    `copy_quality_two_stage/CONTRIB_2026-08-12_the_ordering_input_you_want_is_already_in_site_specs.md`.
    **Read that before designing anything** — three of the four inputs are already written on
-   every site and nothing reads them.
+   the 7 sites above, and nothing reads them.
    Two live acceptance fixtures still waiting, both from 08-11 dispatches and neither composed
    by us: gaswholesalers.com (strategist classified `generic_industry`, then chose
    `site_type: brochure` with a `money_flow` narrating a real gas-wholesale business — the shape

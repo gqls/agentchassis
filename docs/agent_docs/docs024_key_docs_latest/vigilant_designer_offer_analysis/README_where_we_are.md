@@ -515,3 +515,37 @@ documents side by side, because nothing ever does.
 So the cheapest useful thing on my list is no longer B4 at all: it is checking a page's brief
 against its own site's stored promise before the writer ever sees it. That is one comparison.
 It would have caught last night's copy.
+
+**A late addition, and it needs a decision from you before B4 starts.**
+
+I began B4 by measuring what it has to work with, rather than by designing against what I
+assumed was there. Good job I did. The reason B4 was chosen over the design track was
+"the inputs the analyser needs now exist on every deployed site". That is true of the one
+thing we spent the last week driving to completion — every site now records how it makes
+money. It is not true of the fields the analyser actually needs to judge whether an offer
+is any good: what a satisfied visitor would have understood, what earns their trust, why
+they would come back. **Those exist on seven of our twenty-two sites.**
+
+The reason is dull and good news: those fields were added in early August, and every site
+whose strategy has been written since then has them. Every site whose strategy was written
+before then does not. Nothing is broken — the back catalogue simply has not been refreshed,
+and refreshing it is precisely the operation we made safe a fortnight ago and have never
+actually used for that.
+
+So: **thirteen sites could be refreshed, one dispatch each, and then the analyser sees a
+consistent estate.** It is the same call you already took on the 11th for the three sites
+that had no premise at all, and that went well — three for three, two of them with nobody
+watching. The alternative is to let the analyser work with less on some sites and say so in
+its findings, which keeps it moving but means its verdicts are not comparable between sites.
+I would refresh first.
+
+**One warning attached to that, and it is not a small one.** Two of the fifteen sites do not
+have a machine-written strategy — they have yours. mortgagecalculator carries the voice
+direction you gave on the 11th, and leopardess carries a hand-written one. A refresh writes a
+new record over the top. A blanket "refresh everything" would delete your own direction a day
+after you gave it. So those two are excluded until you say otherwise, and they are a separate
+question: re-elicit, merge by hand, or leave them out of the analysis.
+
+I found that only because a query I had written for another reason happened to group by who
+wrote each record. The version of me that grouped by date would have written "B2 is leaky"
+in the notes and then run the sweep.

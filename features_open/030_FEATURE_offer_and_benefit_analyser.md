@@ -161,6 +161,23 @@ restoration of an abandoned shape, not an invention** — an easier argument, an
 live worked example to copy from rather than a blank page. This is the genuine plan
 correction (the `primary_model` one was not).
 
+> **UPDATED 2026-08-12 — B2 SHIPPED and the restoration is working; the counts above are
+> stale, and the new split is a decision for §7 rather than a finding for §5.**
+> `satisfaction_condition` + `trust_threshold` + `recurring_value` are now on **7 of 22**
+> current strategy rows, and the boundary is a **vintage, not a property of the sites**:
+> **every `domain-strategist` row written 08-08 or later carries them (6 of 6); every one
+> written 08-02 or earlier does not (13 of 13).** The 7th is loanandmortgagecalculator.co.uk,
+> written by another lane's oneshot. So "one live worked example to copy from" is superseded —
+> there are seven, all current, including gaswholesalers.com itself, which was re-written by
+> the strategist on 08-11 16:19 and now carries BOTH shapes.
+> ⚠ **The 15 without are not uniformly refreshable.** Thirteen carry strategist-written rows
+> and a refresh is the safe operation B2 exists to allow. **Two carry human-authored current
+> specs** — `mortgagecalculator.co.uk` (`source='owner_direction'`, 08-11, the owner's own
+> voice direction) and `leopardessconsulting.co.uk` (`source='hitl'`) — and a refresh writes a
+> new `is_current` row over the top. Any "refresh the estate" task must exclude those two by
+> `source`, not by hand. Measurement, options and the recommendation are in
+> `PLAN_2026-08-02_vigilant_designer_offer_analysis.md`, decision log 2026-08-12.
+
 ### 5.5 A live hazard blocks any premise-refresh automation
 `domain-strategist`'s workflow is `read_specs → analyze_strategy → write_strategy_spec →
 create_next_item → complete` with **no conditional anywhere**. `create_next_item`
