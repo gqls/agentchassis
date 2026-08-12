@@ -610,3 +610,48 @@ affect each other"* — no negation, no aphorism, no adversarial construction, n
 the banned phrases anywhere in the body. So the register fix has now held across three
 consecutive rounds (5, 6, 7) and three different H1s, which is the strongest evidence
 yet that the spec reframe — not the per-round prompting — is what moved it.
+
+## 2026-08-12 — OWNER RULING: the six missing links STAY. They are stage 2's proof case.
+
+**Owner, asked whether to repair the six orphaned guide links now via `section-editor`
+or leave them for stage 2:** *"leave it for stage 2 as proof"*.
+
+So the live homepage keeps a real, unrepaired defect on purpose, and stage 2's first
+job is to fix it. That is a better acceptance test than anything this lane could
+compose, for the reason the offer lane's HANDOFF already gives about its own fixtures:
+**we did not write this one to exercise a rule — three rewrite rounds produced it while
+trying not to.**
+
+### The proof case, stated as a contract stage 2 must satisfy
+
+| | |
+|---|---|
+| **page** | `loanandmortgagecalculator.co.uk` `/index.html`, component `prose-0` |
+| **defect** | 6 of 16 required links absent: `remortgaging-with-other-debt`, `the-fees-nobody-quotes`, `fixed-vs-variable-on-both`, `secured-vs-unsecured-what-changes`, `stress-testing-the-whole-budget`, `when-repayments-are-a-struggle` |
+| **pass condition** | `python3 gate_page_links.py` exits 0 |
+| **must NOT change** | H1 *"How your loans and your mortgage affect each other"*; 31 class attrs; 12 cards; 2 tool-grids; no banned phrase reappears; word count not below ~600 |
+| **route** | `section-editor` (one component, `content_data` then re-render). NOT a page rebuild — that is what caused every loss in rounds 4, 6 and 7 |
+
+### The fixture is committed, because a live page is not a stable subject
+
+Both halves preserved in this lane's sibling directory so the proof survives whatever
+happens to the live page next:
+
+- `loanandmortgagecalculator_couk/acceptance/BASELINE_2026-08-12_index_prose0_round7.html`
+  — the exact failing component (6,588 B)
+- `loanandmortgagecalculator_couk/acceptance/BASELINE_2026-08-12_index_link_gate_FAILING.txt`
+  — the gate's verdict at the moment of the ruling, exit 1
+
+**Why this mattered enough to do immediately:** the improvement sweep is enabled
+(`improvement-sweep`, 900 s) and any session or driver that raises a fresh
+`needs_page:index` will rewrite this component. A rewrite would either destroy the
+fixture or accidentally "fix" it — and an accidental fix is worse, because stage 2
+would then be graded against a page that had already passed. **A proof case on a live
+page has a shelf life; the committed copy does not.**
+
+### One consequence to state plainly
+
+Six guides on a live site have no homepage link until stage 2 exists. That is the
+owner's call, made with the cost named, and the site is new and quiet — but it is a
+real cost and it should not be discovered later as a surprise. If stage 2 slips, the
+repair is one `section-editor` dispatch and the gate says when it is done.

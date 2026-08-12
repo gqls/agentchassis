@@ -1,0 +1,9 @@
+FAIL index: 6 of 16 required link(s) absent from its own components
+       missing: /guides/remortgaging-with-other-debt.html
+       missing: /guides/the-fees-nobody-quotes.html
+       missing: /guides/fixed-vs-variable-on-both.html
+       missing: /guides/secured-vs-unsecured-what-changes.html
+       missing: /guides/stress-testing-the-whole-budget.html
+       missing: /guides/when-repayments-are-a-struggle.html
+
+1 page(s) checked, 1 failing.
