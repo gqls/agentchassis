@@ -338,3 +338,29 @@ untyped-map design) both implement against this ratified RFC. Each stage still g
 the normal council gate before shipping, per the process's own flow (§"The flow", step 4) —
 ratification is not a substitute for that, it is what makes stage 2's submission answerable
 without re-litigating whether it needed an RFC at all.
+
+## 10. Implementation status, 2026-08-12
+
+Both stages implemented and committed (`3129cceea`,
+`platform/orchestration/actions/refresh_evidence_base_action.go` +
+`refresh_evidence_base_rfc025_test.go`). Confirmed by direct inspection, not assumed:
+`datahelpers/claims.go` (`EvidenceSource`/`EvidenceFact`) is byte-for-byte unchanged —
+`git diff --stat` on that file is empty — satisfying §9 Q2. The §5.3/§7 induced-fault
+canary is in: `TestArtifactCheck_MismatchedPatternFlagsDrift` is the `gd-trials` shape (a
+fact whose cited pattern is no longer found in its named artefact flags `drifted`, not a
+silent pass), plus three explicit fail-closed cases (unresolved component, invalid id,
+invalid regex — RFC_017). Full existing evidence/citation/refresh suite re-run clean, no
+regressions. `go build`/`go vet` clean. Council-submitted, corr
+`9fd94852-ff79-496b-96b5-78a8d3619162` (submitted after the commit — no
+`Council-Submitted:` trailer on it; resolve the verdict by correlation, not by the commit
+message).
+
+**Not yet done, and this RFC stays short of `IMPLEMENTED` until it is**: no real fact
+anywhere has actually been retyped with a working `artifact_check` — everything above
+proves the mechanism, not its use on the motivating case (`gd-trials` itself is still a
+plain `artifact` fact in the live register; RFC_025 explicitly did not require migrating
+it, only the mechanism that COULD). The scope gap named in this session's council
+submission — `artifact_check.component_id` is not verified to belong to the fact's own
+site — is also unresolved; a reviewer's call is owed on whether that needs closing before
+any site actually uses this. Mark `IMPLEMENTED` once the council verdict lands and a real
+site's `artifact_check` (or a deliberate decision that none is needed yet) is in place.
