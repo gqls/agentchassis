@@ -2996,3 +2996,92 @@ The pod COUNT is churn; **the digest uniformity is the invariant worth citing.**
 >
 > **So: to find these entries, `git log` the FILE, not my commits.** LANDMINES + WRONG_CALLS →
 > `f8ca05594`; NOTES → `79d910a86`.
+
+### Round 6 verdict — REVISE (6th), and the objection surface has MOVED from the design to the prose
+
+Landed **2026-08-12 13:28:37Z**, ~24 minutes after dispatch (round 5 took 5; the submission grew
+41KB → 58KB and every seat reads all of it). 16 reviewers, 1 abstained, 0 unreadable, not
+truncation-gated. `decided_by`: **gating objection from `prior_art_librarian`**.
+
+**THE HEADLINE: `compliance` APPROVES WITH ZERO OBJECTIONS.** The objection that gated rounds 3, 4
+and 5 — the one the owner ruled on and the one this lane built the claim-granular gate for — is
+**resolved**. So is `debug_historian`'s. That is what the round was for, and it worked.
+
+**But 5 seats now object where 2 did**, and the change of composition is the finding:
+
+| round | approve | objecting | gated by | nature of the gate |
+|---|---|---|---|---|
+| 5 | 14 | 2 | `compliance` | **substantive** — the gate verified the wrong thing |
+| 6 | 11 | 5 | `prior_art_librarian` | **verifiability** — a cited ruling it cannot see |
+
+**Every new objection lands on prose I added in round 6, not on code.** The status paragraph written
+to fix guardian's round-5 contradiction drew *two* new objections of its own. **Answering a seat by
+adding an assertion creates a new surface for a different seat.** That is the dynamic to plan around,
+and it is why round 7 should be SHORTER, not better defended.
+
+#### `prior_art_librarian` HIGH is correct, and my first check nearly said otherwise
+
+Its objection: the whole justification for submitting shipped code as a "plan" rests on *"the owner
+ruling of 2026-07-29 §2 retired the ordering exemption's first condition"* — an **existence claim
+about policy** that the seat has no record of.
+
+I checked. `grep -c "CONDITION (1) OF THE ORDERING EXEMPTION IS RETIRED" CLAUDE.md` → **1**, so the
+ruling exists and says what I said. Then the seat's own corpus:
+
+```sql
+SELECT count(*) FROM doc_notes WHERE body ILIKE '%ordering exemption%';                        -- 0
+SELECT count(*) FROM doc_notes WHERE body ILIKE '%condition (1)%' AND body ILIKE '%retired%';  -- 0
+SELECT count(*) FROM doc_notes WHERE body ILIKE '%after the fact, by design%';                 -- 0
+```
+
+> ⚠ **My FIRST query returned 130 and I nearly wrote that down as reassurance.** It was
+> `body ILIKE '%2026-07-29%' OR …` — a match on *the date string*, which any note mentioning that day
+> satisfies. Third instance this session of a filter that could only agree with me. **The precise
+> queries return 0/0/0.**
+
+So the seat is right on its own terms: **the ruling is real and is invisible to it.** This is bigger
+than this lane — `landmines-sync.py` syncs LANDMINES into `doc_notes`, and **nothing syncs CLAUDE.md's
+owner rulings**, which submissions cite as authority constantly. Filed as a landmine.
+
+#### `reuse_agent`'s LOW is the best engineering finding of the round — and it buys nothing measurable
+
+The emit side scans **`datahelpers.ExtractAssertionText(html)`** (`check_unverified_claims.go:527`) —
+extracted prose blocks. My `claimStillOnPage` searches **raw `html + contentJSON`**. That is a
+**predicate-parity violation**, in the lane whose founding principle is that both ends of an item's
+life must judge by the same predicate; and `datahelpers/claims.go` already holds the matching
+machinery (`ExtractAssertionText`, `claimSnippet`, `negatedClaimMatch`, `ScanBannedClaims`) that a
+bespoke `strings.Contains` sidesteps.
+
+**Measured before rewriting anything** — tag-stripping as a proxy for `ExtractAssertionText`:
+
+| | false refusals on the 8 closed items (n=18) | sees a present claim (n=41) |
+|---|---|---|
+| raw html + content_data (shipped) | **2** | **40** |
+| prose only (proxy) | **2** | **40** |
+
+**Identical on both sides.** The two survivors (`5`, `97`) are in the prose, not the markup. So the
+parity fix is worth making **on principle and for reuse — and it fixes nothing observable today.**
+Recording that rather than shipping it as a false win: this lane's whole problem has been describing
+work as more than it was.
+
+#### The strongest actionable objection: a mechanical guard on the shared loader
+
+`editquality` (MEDIUM) and `guardian` (MEDIUM) independently want the `loadParkedReviewItems`
+SELECT ↔ `rows.Scan` contract protected by something other than a comment — and **they quote this
+submission against itself**: risks §0a argues *"a comment is not a control"* (owner ruling
+2026-08-02 §2) and then offers a comment as the mitigation. That is a fair hit and internally
+inconsistent of me. A test asserting the SELECT's column list matches the Scan's destination order
+is buildable and protects **all six** revalidators, not just this one.
+
+#### The rest
+
+- `bug_historian` MEDIUM + `reuse_agent` MEDIUM: the `voice_tells` asymmetry needs a **tracking
+  artefact** or a **shared helper**, not an accepted risk — 016b §9's "one call site gets the
+  rigorous fix, the sibling stays heuristic".
+- `tooling_provenance` MEDIUM: wants a `doc_notes` NOTES entry; the markdown concept register is a
+  **different mechanism** and does not substitute.
+- `constitution` LOW, and it is right: the rationale is *"heavy with dramatic ALL-CAPS meta-narrative
+  about council rounds and self-congratulatory measurement claims"*. The plain-tone rule governs plan
+  rationale too. **Round 7 should be plainer and much shorter** — which happens to shrink the
+  objection surface as well.
+- `guardian` LOW ×2, `bug_historian` LOW: the SQL→Go locked-skip widening, restated; already risk 5.
