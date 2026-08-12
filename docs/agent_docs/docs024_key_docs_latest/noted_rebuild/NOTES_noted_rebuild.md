@@ -1602,3 +1602,78 @@ be the shortcut this lane's docs exist to prevent. Left for the owner to choose.
 **What is true today:** the wording is approved, checked, and canonical in the
 framework — any agent writing a page that needs it is now instructed to use it
 verbatim and forbidden from inventing a rival version. That was the blocking half.
+
+---
+
+## 2026-08-12 18:45 — structure spec + site plan backfilled, and it produced the build path I said did not exist
+
+### First, a correction to what I wrote two hours ago
+
+I recorded that "no `site_plan` or `structure` spec is stored for this site". Half
+right, and the wrong half mattered: **the site plan is not a spec aspect, it is a
+set of TABLES** — `site_plans`, `site_plan_pages`, `site_plan_sections`,
+`site_plan_imagery`, `site_plan_directives`. I had queried `site_specs` aspects and
+concluded from an absence there. noted **did** have a current plan all along
+(`185149a7…`, `build-site-planner`, 03:22) listing the five content pages.
+
+That error is why I told the owner there was no framework path to add one content
+page. There was; I was looking in the wrong store.
+
+### What was actually missing
+
+| gap | consequence, measured |
+|---|---|
+| no `structure` spec | `siteUsesFlatURLs` treats absent spec / absent key / any non-`"flat"` value all as nested, so this site's URL shape **was never a decision**. It bit us the same day: the rescue tool canonicalised to `/tools/legacy-rescue/index.html` while every content page is flat |
+| plan missing 2 live pages | `create_tool_component` wrote `tool-legacy-rescue` and its guide **directly**, outside the plan |
+| no privacy page anywhere | the owner-approved copy had nowhere to live |
+
+### The backfill records reality; it does not change it
+
+`BACKFILL_2026-08-12_structure_spec_and_site_plan.sql`. `url_shape` is written as
+**`"nested"`** — what the site already does — because **a backfill that moves a live
+URL is not a backfill.** `site_url_shape.go` carries the measured warning for why
+that restraint matters: *"upsertPage overwrites pages.url unconditionally and the
+deployer takes the file path from it. Measured on loancalculator.co.uk 2026-08-10:
+24 of 26 live URLs would have moved."*
+
+Blast radius here is enumerated rather than asserted: `CanonicalisePage` routes only
+**tool/guide/game** roles through `nestedOrFlatURL`; content, landing and blog-post
+are flat on every shape. noted has exactly one tool page and its guide is
+`role=blog-post`, so flipping to `"flat"` would move **one** page. That migration is
+costed at the foot of the SQL file, unapplied, with the CTA re-point and the orphan
+cleanup it would require — and the note that it is cheapest **now**, while the build
+is not public.
+
+Applied clean: 8 planned pages, `url_shape=nested`, and an assertion that the tool
+page URL did not move.
+
+### Then the reconcile — the path that was there the whole time
+
+`reconcile_site_plan` (pure read-decide-write, **no LLM**) diffs `site_plan_pages`
+against realised pages and emits `needs_page` for the delta. It lives inside
+`build-site-planner`, which re-derives the plan first — so I called the action alone
+via an inline workflow (`081_reconcile_plan_noted.sh`) rather than re-planning five
+working pages to add one.
+
+`[MEASURED]` `pages_total 8, pages_emitted 2, pages_skipped_built 6,
+pages_review_emitted 0, rerender_emitted true` → `needs_page` for **privacy** and
+for **tool-legacy-rescue-guide**, plus the terminal `needs_rerender`.
+
+**And my prediction was wrong in an instructive way.** I expected
+`tool-legacy-rescue` to raise an `owned_page_review` (rule 3, role=tool, the guard
+against the generic builder clobbering an owned page). It did not: **rule 1 wins
+first** — deployed at the current plan version, so it is skipped as built before the
+role is even considered. Rule 3 fires on a tool page that is missing or not
+deployed, not on one that is fine. The script's comment now records the measurement
+instead of my guess, because the guess would have sent the next session hunting a
+human-review item that is never coming.
+
+### Also settled: the retraction risk I flagged was NOT real
+
+I wrote in the backfill header that a plan which does not list a live page is a
+retraction risk, marked `[INFERRED, not measured]`. Reading
+`reconcile_site_plan_action.go` settles it: **every decision is per PLAN page.** A
+page that exists but is absent from the plan is never considered, so it cannot be
+retired by this path. The inference was wrong and the marker is why it was cheap.
+Recording the two tool pages in the plan is still right — it is what makes them
+visible to the diff — but not for the reason I gave.
