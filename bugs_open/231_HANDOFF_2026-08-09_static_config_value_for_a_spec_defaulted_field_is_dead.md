@@ -505,3 +505,39 @@ defaulted field is now enumerated and classified, and every diverging one has
 a read-path verdict.** Remaining open on this file: candidate 2's decision
 (blast radius measured above), and the audit_source instance repair (owner /
 213-lane call).
+
+---
+
+## OWNER RULINGS 2026-08-11 (evening) — candidate 2 SHIPS; the instance fix goes first
+
+Three decisions put to the owner after the census closed (costing above):
+
+1. **The `audit_source` instance: option (a) NOW, option (b) LATER.** The
+   four-line direct-config read in `write_audit_findings` ships as its own
+   task, and candidate 2 still ships afterwards. The two are not alternatives.
+2. **Candidate 2: SHIP.** "An explicit config value beats a Default" becomes
+   the resolver's rule — `ExtractActionInputs` stops treating a spec Default
+   as though it were data. This is the fix that makes the whole class
+   unrepresentable rather than merely detectable.
+3. **The stale `logo.jpg` files: LEAVE.** Not deleted, off the work-list.
+   (Recorded here because a future reader will otherwise re-propose it: zero
+   renderable references remain, so this is a tidiness question the owner has
+   answered "no" to, not an open exposure.)
+
+**What ruling 2 means for this file's own pinned tests.** Candidate 2 inverts
+the behaviour that `TestLegacyLogoStep_StaticPurposeIsShadowedByDefault` and
+`TestPurposeFieldBridge_DeadForDefaultedField` exist to pin, and it changes
+what the detector's `static_string` / `non_string_literal` classes MEAN (they
+describe entries that are dead under the old rule and live under the new one).
+Both must flip in the SAME commit as the resolver change, citing this ruling —
+a resolver that beats Defaults while a detector still reports those entries as
+"dead" is a tool lying about production, which is the exact failure this lane
+spent two days measuring. Sequencing, design questions (composites, the
+explicit empty string, whether the Strategy-3 bridge also beats a Default) and
+the council requirement are in the handoff's Task B.
+
+**Re-measure before implementing.** The activation-set figure (4 entries)
+was measured 2026-08-11 and **goes to zero once option (a) ships** — which is
+the intended order. Re-run `scripts/audit-default-shadowed-keys.sh` plus the
+read-path check at implementation time rather than quoting the number from
+here; a census is a snapshot, and this one is deliberately about to change.

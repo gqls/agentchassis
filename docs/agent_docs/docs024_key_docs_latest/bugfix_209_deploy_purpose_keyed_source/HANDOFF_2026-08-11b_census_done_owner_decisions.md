@@ -1,4 +1,4 @@
-# HANDOFF — 2026-08-11b. 231 census CLOSED (all 3 arms). Detector live at HEAD. Three owner decisions pending. COLD-START HERE.
+# HANDOFF — 2026-08-11b. 231 census CLOSED (all 3 arms). Detector live at HEAD. **Owner decisions RULED (evening) — implementation is the next session's work.** COLD-START HERE.
 
 Supersedes `HANDOFF_2026-08-11_11_of_11_class_fix_approved.md` (the logo saga —
 still the right doc for 235/380 history). Evidence + missteps: `NOTES_209…`
@@ -36,43 +36,56 @@ their producer key is lying), `bugs_open/240` (kafka) — contribute INTO them.
   Filed in 231 · notified in 213's file · LANDMINES entry appended AND synced
   (5 doc_notes rows verified) · memory topic corrected.
 
-## The three OWNER DECISIONS (all costed in bugs_open/231, 08-11 sections)
+## OWNER RULINGS 2026-08-11 (evening) — all three decided; do not re-litigate
 
-1. **audit_source repair — route and who.** No config-only fix exists (231
-   explains why: a static can't be expressed against a Default, and removing
-   the Default alone doesn't help — the `==""` fallback re-imposes
-   design-audit). Option (a): four lines in `write_audit_findings` — read
-   `audit_source` from config directly, the idiom ~20 sibling actions use;
-   Go change, needs the next roll; **the file is the bugfix_213 lane's while
-   their round is open — coordinate via their file, already notified**.
-   Option (b): wait for candidate 2. Recommendation on record: (a) now —
-   every day adds mislabelled rows, and (b) can still land later.
-2. **Candidate 2 (config-static beats Default in ExtractActionInputs) — ship
-   or drop.** Blast radius MEASURED: activation set = the 4 audit_source
-   entries and NOTHING else (75 matching are no-ops by equality; the other 20
-   mismatched are no-ops because their actions never consult the inputs value
-   — re-verify the read-path table at implementation time). If decision 1(a)
-   ships first, the activation set is EMPTY and candidate 2 is pure
-   future-proofing — arguably the detector's exit-1 already guards new
-   authors. Genuine judgement call now, not a necessity. If shipped: council
-   round required (platform/), the three 231-pinned tests + 2 calibration
-   tests flip DELIBERATELY, and the composite/empty-string design questions
-   in 231 need answers.
-3. **Stale logo.jpg deletion** (carried from the morning handoff, unblocked).
-   Zero renderable references fleet-wide. fundamentallyai's index has a queued
-   `needs_page:index:151census` rebuild (brochure lane's) — it regenerates
-   from patched content_data; don't fight over that page.
+1. **audit_source repair: option (a) NOW, and (b) later** — i.e. the four-line
+   direct-config read in `write_audit_findings` ships first as its own task,
+   AND candidate 2 still ships afterwards on its own timetable.
+2. **Candidate 2: SHIP.** "An explicit config value beats a default" becomes
+   the resolver's rule. Full costing and design questions below.
+3. **Stale logo.jpg files: LEAVE for now.** Off the list; do not delete.
 
-## What remains, in order (after the decisions)
+## What remains, in order (the next session's work-list)
 
-1. Whichever of decisions 1/2 the owner picks — implementation + council (if
-   platform/) + roll + artefact proof (a new auditor run writing its OWN
-   label; re-run `audit-default-shadowed-keys.sh`, the 4 findings drop out).
-2. **240**: `tail ~/kafka-sweep-240.log` — the KUBECONFIG fix's first real
+1. **Task A — the audit_source fix (ruling 1a).** Four lines in
+   `write_audit_findings_action.go` (~:495): read `audit_source` from
+   `params.StepConfig.Config` first (the idiom ~20 sibling actions use, e.g.
+   `datahelpers.GetStringField(config, "audit_source", inputs.Get("audit_source"))`
+   — decide the exact fallback chain deliberately: config-static → resolved
+   inputs → the "design-audit" default). BEFORE touching the file:
+   `scripts/who-owns.py 213` AND grep live transcripts — that lane was
+   mid-round on this file 08-11; coordinate via `bugs_open/213` (already
+   notified, offer already on record there). Council round: platform/ — IN
+   scope this time. Then: commit, next roll, artefact proof = a fresh auditor
+   run writing its OWN label + `audit-default-shadowed-keys.sh` finding count
+   drops 4→0 dead-mismatched. Update `bugs_open/231` and the LANDMINES
+   `audit_source` entry (its "until the shadow is fixed" clause) when proven.
+2. **Task B — candidate 2 (ruling 2), its own council round.** Change
+   `ExtractActionInputs` so an explicit config value for a spec field beats
+   `spec.Defaults` ("config-static beats Default, Strategy 0 beats both").
+   Everything known is in `bugs_open/231`: blast radius measured 2026-08-11
+   (activation set = the 4 audit_source entries; EMPTY once Task A ships —
+   re-run the census + read-path check at implementation time, the table is a
+   point-in-time snapshot). Design questions that round must answer, on
+   record in 231: composites (Strategy 5 deliberately excludes them today) ·
+   explicit empty string (`changed_files_field: ''` live on
+   feature-implementer, authored as "disable") · whether the Deprecated
+   bridge (Strategy 3) also beats Defaults or keeps losing. **Tests flip
+   DELIBERATELY, citing the ruling:** the three 231-pinned tests in
+   `platform/orchestration/actions/deploy_image_asset_purpose_source_test.go`,
+   AND the detector must be re-specified in the SAME round —
+   `--default-shadowed-keys`' `static_string`/`non_string_literal` classes
+   describe the OLD resolver; after candidate 2 they become live config, so
+   the mode's dead classes shrink to `unextractable_field` (+ whatever the
+   bridge/composite decisions leave dead) and `defaultshadow_test.go`'s
+   calibration flips. Shipping the resolver change without the detector
+   update makes the detector lie — one round, one commit, both files.
+   Go change → inert until an image roll; DB config untouched.
+3. **240**: `tail ~/kafka-sweep-240.log` — the KUBECONFIG fix's first real
    APPLY run is the next 00:17/12:17 LOCAL slot the machine is awake for
    (crontab `17 */12 * * *`; the 11:17Z entry is the pre-fix refusal). Then
    C2 safe subset (scheduler-scoped transport) + the C1 question.
-3. 209 Phase 3 (retire dead writers) and 236 — open, unowned by this thread.
+4. 209 Phase 3 (retire dead writers) and 236 — open, unowned by this thread.
 
 ## Cold-start checks
 
@@ -87,6 +100,26 @@ their producer key is lying), `bugs_open/240` (kafka) — contribute INTO them.
    unchanged.
 5. Before touching `write_audit_findings_action.go`: `scripts/who-owns.py 213`
    AND grep live transcripts — that lane was mid-round on 08-11.
+
+## ⚠ `cmd/config-key-audit/` is CONTENDED — check before you edit it (added 08-12)
+
+Another lane is building **RFC_022's optional-key-budget counter** in the same
+package: `optionalbudget.go` + `optionalbudget_test.go` (untracked as of
+2026-08-12 morning) and a 13-line addition to `main.go`'s header + dispatch.
+Task B has to touch `main.go` and `defaultshadow*.go` in the same package.
+**Their 13 lines are pure additions and displace nothing of ours** (checked
+`git diff` before this handoff was committed) — but a pathspec commit CANNOT
+protect you from a same-file passenger, so:
+
+- Before editing `main.go`: `git diff cmd/config-key-audit/main.go` and read
+  whose lines are there. Commit only when the diff is yours, or say so in the
+  message if you deliberately carry theirs.
+- Their work was briefly absent from the tree and then back within minutes on
+  08-12 — treat any "their mode has vanished" reading as a stale snapshot,
+  not as a licence to re-add or delete it.
+- The two modes are independent: theirs counts optional keys per shared
+  action, ours classifies default-shadowed entries. No shared symbols beyond
+  `liveAgent`/`decodeLiveAgents`. Do not merge them.
 
 ## Traps for the next session (fuller list: LANDMINES.md, RUNBOOK §11)
 
