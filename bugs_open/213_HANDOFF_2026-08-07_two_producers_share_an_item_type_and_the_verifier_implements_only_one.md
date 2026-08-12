@@ -721,3 +721,49 @@ what `check_saved` actually branches on, so I cannot say whether a no-op patch a
 lands on `complete_no_css` (honest) or on `complete` (false). That distinction decides
 whether the repair is "add verification" or "the branch is already right and only the
 reporting is missing" — and they are very different amounts of work.
+
+### CORRECTION 2026-08-12 (same day, same contributor) — my section above got the MECHANISM wrong, and the 122 lane was already further ahead than it
+
+> **Retract this claim from the section immediately above:** *"`css-patch-agent` has no
+> verification step of any kind … a handler that never enters the verification path at
+> all."* **False.** Completion does not happen in a handler's own workflow. It happens in
+> **`build-dispatch-loop`'s `process_item` sub-workflow**, whose `mark_complete` step is
+> `complete_work_item` — the verifying action. Every build-pipeline handler routes through
+> it, `css-patch-agent` included.
+
+**How I got it wrong, and it is a landmine already written down.** I enumerated steps with
+`jsonb_each(default_config->'workflow'->'steps')`, which is **top-level only**, and the
+dispatch loop keeps its real work inside `process_item.config.sub_workflow.steps`. That is
+verbatim the LANDMINES entry *"a census of live step config written as workflow steps is
+top-level only"*, footprinted on `agent_definitions` / `sub_workflow` — I ran the exact
+query it warns about, on the exact table it names.
+
+**What is actually true**, and it lands on this file's original title case rather than
+beside it: `contrast_failure` has **no registered verifier**. `RegisterVerifier` is called
+for twelve item types (`content_duplication`, `dead_fragment_link`, `decision_regression`,
+`empty_section`, `hardcoded_section_colors`, `literal_markdown`, `missing_conversion_path`,
+`orphan_element_refs`, `page_canonical_collision`, `revenue_shape_cta`,
+`truncated_component`, `unbuilt_internal_link`) and `contrast_failure` is not among them. So
+the item reaches the verifying completion and finds nothing registered for it — which is
+"the verifier implements only one of their predicates", exactly as titled.
+
+**And the "nothing to patch" case is ALREADY HONEST**, which I had flagged `[UNMEASURED]`.
+`css-patch-agent`'s `save_css_to_db` is a guarded UPDATE (`length($2) BETWEEN 1 AND 8192`)
+and `check_saved` branches on `css_saved.count >= 1` to `complete_error`, described in the
+config as *"Refuse to deploy unless the guarded append took a row (bugs_open/198)"*. A
+no-op patch cannot reach `deploy_css`. **The residual risk is narrower than I implied**: the
+error terminal is still a `complete_workflow`, so whether the ITEM closes honestly depends
+on the loop's completion, not on the agent's branch.
+
+**Measured, and it makes all of the above theoretical:** `css-patch-agent` has **never
+processed a single work item**. Its entire footprint in `site_work_items` is the 226
+`deferred` `contrast_failure` rows — 0 complete, 0 failed, `attempt_count = 0`. Nothing has
+ever been mis-closed by it, because nothing has ever run through it.
+
+**Routing, corrected.** This belongs to **`bugfix_122_contrast_ink_slots`** (`who-owns.py`:
+OWNED, ACTIVE, 27 commits/14d, handoff dated today), and that lane has already gone
+past me — `b2fca2f8f` (2026-08-12) costed the contrast_failure verifier fork, found the
+exemption is **on the record** at `verifier_coverage_test.go:156` with a reason RFC_017
+refuted on 2026-08-08, and recommends **discovery-path retraction** rather than a
+completion-time check. **Read that commit before acting on anything I wrote here.** I am
+not taking this further; the park stands and I unparked nothing.
