@@ -1,0 +1,302 @@
+<section class="legacy-rescue" id="legacy-rescue">
+  <div class="legacy-rescue__inner">
+    <h2 class="legacy-rescue__title">Your notes from the old Noted</h2>
+
+    <p class="legacy-rescue__lead" id="lr-lead">
+      Checking this browser for notes from the previous version of Noted&hellip;
+    </p>
+
+    <div class="legacy-rescue__panel" id="lr-found" hidden>
+      <ul class="legacy-rescue__counts" id="lr-counts"></ul>
+      <p class="legacy-rescue__note">
+        Nothing here changes or removes anything. Your notes stay exactly where they
+        are in this browser until you choose otherwise.
+      </p>
+      <p>
+        <button type="button" class="btn btn-primary" id="lr-download">Save everything to a file</button>
+      </p>
+      <p class="legacy-rescue__small" id="lr-status" role="status" aria-live="polite"></p>
+      <p class="legacy-rescue__small">
+        You do not need an account to do this. The file is the same one the old
+        app produces, so it can be brought back in at any time.
+      </p>
+    </div>
+
+    <div class="legacy-rescue__panel" id="lr-empty" hidden>
+      <p>
+        There are no old Noted notes stored in this browser. That is what a new
+        visitor sees, and it is nothing to worry about.
+      </p>
+      <p class="legacy-rescue__small">
+        If you kept your notes in a different browser, on another device, or in a
+        private window, open this page there instead &mdash; notes are stored per
+        browser, not per person.
+      </p>
+    </div>
+
+    <div class="legacy-rescue__panel" id="lr-error" hidden>
+      <p id="lr-error-text">This browser would not let the page read its stored data.</p>
+      <p class="legacy-rescue__small">
+        Nothing has been changed. The old app still works, and its own
+        &ldquo;Save everything&rdquo; button will produce the same file.
+      </p>
+    </div>
+  </div>
+</section>
+
+<script>
+/* === tool-doc ===
+     Tool: Your notes from the old Noted
+     Function: tool-legacy-rescue
+     Page: /tools/legacy-rescue/index.html
+
+     Purpose: Reads the PREVIOUS version of Noted's browser storage (IndexedDB
+     `NotedDB`) and hands the person their notes, voice recordings, photos and
+     version history back as a file. IndexedDB is keyed by ORIGIN, so a different
+     page on noted.co.uk can read the database the old app wrote — which is what
+     makes this the migration path itself rather than a fallback. At cutover
+     everyone's notes are still sitting in their browser.
+
+     Behaviour:
+     - On load, attaches to an existing `NotedDB` and shows counts (notes,
+       recordings, photos, earlier versions) BEFORE asking the person for
+       anything. No account, no sign-in, no form.
+     - "Save everything to a file" downloads a JSON file byte-compatible with the
+       old app's own downloadFullBackup (js/app.js): same `format`
+       ("noted.co.uk/full-backup"), `version` 1, `exportedAt`, whole note records,
+       and history/audio/images maps keyed by note id, media inline as base64
+       data URLs. The engine's /api/import accepts exactly this shape.
+     - A browser with no old Noted data sees a plain "nothing here" message, not
+       an error. A database of the same name without a `notes` store is treated
+       the same way.
+
+     INVARIANTS — this tool touches what is, for many people, the ONLY copy of
+     their notes. Changing any of these three is a data-loss bug, not a style
+     choice, and each is covered by a mutation-verified test in
+     docs/.../noted_rebuild/legacy_tool/test_legacy_rescue.py:
+
+     1. OPEN WITHOUT A VERSION NUMBER. Naming a version runs `onupgradeneeded`,
+        i.e. a schema migration, against that only copy. We pass no version, so
+        we attach to whatever exists and never upgrade it.
+     2. NEVER WRITE, NEVER DELETE. Every transaction is 'readonly' and there is
+        no deleteDatabase call anywhere. Someone who reads this page and then
+        walks away must still find their notes here tomorrow.
+     3. LEAVE NOTHING BEHIND. Opening a database that does not exist CREATES an
+        empty one; `onupgradeneeded` then fires and we abort the versionchange
+        transaction so the creation is rolled back.
+
+     One more, easy to lose in a rewrite: the `audio`/`images` stores have TWO
+     record shapes — the current {noteId, items:[Blob]} and an earlier
+     {noteId, blob:Blob}. `mediaItems()` handles both, exactly as the old app's
+     Storage._getMediaArray does. A reader that understands only the current
+     shape silently drops every recording saved by the older version and looks
+     perfectly healthy doing it.
+=== /tool-doc === */
+(function () {
+  'use strict';
+
+  var DB_NAME = 'NotedDB';
+
+  var el = {
+    lead:    document.getElementById('lr-lead'),
+    found:   document.getElementById('lr-found'),
+    empty:   document.getElementById('lr-empty'),
+    error:   document.getElementById('lr-error'),
+    errText: document.getElementById('lr-error-text'),
+    counts:  document.getElementById('lr-counts'),
+    button:  document.getElementById('lr-download'),
+    status:  document.getElementById('lr-status')
+  };
+
+  function show(panel, leadText) {
+    if (leadText !== undefined) el.lead.textContent = leadText;
+    ['found', 'empty', 'error'].forEach(function (k) { el[k].hidden = (k !== panel); });
+  }
+
+  function plural(n, one, many) { return n + ' ' + (n === 1 ? one : many); }
+
+  /* Attach to an EXISTING database only. Resolves null when there is none. */
+  function openExisting() {
+    return new Promise(function (resolve, reject) {
+      if (!window.indexedDB) { resolve(null); return; }
+
+      var didNotExist = false;
+      var req;
+      try {
+        req = indexedDB.open(DB_NAME);          // deliberately no version — see rule 1
+      } catch (e) { reject(e); return; }
+
+      req.onupgradeneeded = function (event) {
+        // Reaching here means there was no such database and this call has just
+        // created one. Roll that back so we leave the browser as we found it.
+        didNotExist = true;
+        try { event.target.transaction.abort(); } catch (e) { /* nothing to undo */ }
+      };
+      req.onsuccess = function () {
+        var db = req.result;
+        if (didNotExist) { try { db.close(); } catch (e) {} resolve(null); return; }
+        resolve(db);
+      };
+      req.onerror = function () {
+        // An aborted creation surfaces here as AbortError; that is the expected
+        // path for "no database", not a failure.
+        if (didNotExist) { resolve(null); } else { reject(req.error); }
+      };
+      req.onblocked = function () { resolve(null); };
+    });
+  }
+
+  function getAll(db, storeName) {
+    return new Promise(function (resolve) {
+      if (!db.objectStoreNames.contains(storeName)) { resolve([]); return; }
+      var req;
+      try {
+        req = db.transaction(storeName, 'readonly').objectStore(storeName).getAll();
+      } catch (e) { resolve([]); return; }
+      req.onsuccess = function () { resolve(req.result || []); };
+      req.onerror = function () { resolve([]); };
+    });
+  }
+
+  /* Mirrors the old app's Storage._getMediaArray, INCLUDING its handling of the
+   * earlier single-blob record shape. A reader that only understood {items:[…]}
+   * would silently drop every recording saved by the older version. */
+  function mediaItems(record) {
+    if (!record) return [];
+    if (record.blob && !Array.isArray(record.items)) return [record.blob];
+    return record.items || [];
+  }
+
+  function byNoteId(records) {
+    var map = {};
+    records.forEach(function (r) { if (r && r.noteId) map[r.noteId] = r; });
+    return map;
+  }
+
+  function blobToDataUrl(blob) {
+    return new Promise(function (resolve, reject) {
+      var reader = new FileReader();
+      reader.onload = function () { resolve(reader.result); };
+      reader.onerror = function () { reject(reader.error); };
+      reader.readAsDataURL(blob);
+    });
+  }
+
+  var found = null;   // { db, notes, audioBy, imagesBy, history }
+
+  function describe(data) {
+    var recordings = 0, photos = 0;
+    Object.keys(data.audioBy).forEach(function (k) { recordings += mediaItems(data.audioBy[k]).length; });
+    Object.keys(data.imagesBy).forEach(function (k) { photos += mediaItems(data.imagesBy[k]).length; });
+
+    var rows = [plural(data.notes.length, 'note', 'notes')];
+    if (recordings) rows.push(plural(recordings, 'voice recording', 'voice recordings'));
+    if (photos) rows.push(plural(photos, 'photo', 'photos'));
+    if (data.history.length) rows.push(plural(data.history.length, 'saved earlier version', 'saved earlier versions'));
+
+    el.counts.innerHTML = '';
+    rows.forEach(function (text) {
+      var li = document.createElement('li');
+      li.textContent = text;
+      el.counts.appendChild(li);
+    });
+  }
+
+  function buildPayload(data) {
+    // Same shape and field order as the old app's downloadFullBackup.
+    var payload = {
+      format: 'noted.co.uk/full-backup',
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      notes: data.notes,
+      history: {},
+      audio: {},
+      images: {}
+    };
+
+    var historyByNote = {};
+    data.history.forEach(function (rev) {
+      if (!rev || !rev.noteId) return;
+      (historyByNote[rev.noteId] = historyByNote[rev.noteId] || []).push(rev);
+    });
+
+    var jobs = [];
+    data.notes.forEach(function (note) {
+      var id = note && note.id;
+      if (!id) return;
+
+      if (historyByNote[id] && historyByNote[id].length) payload.history[id] = historyByNote[id];
+
+      var audio = mediaItems(data.audioBy[id]);
+      if (audio.length) {
+        jobs.push(Promise.all(audio.map(blobToDataUrl)).then(function (urls) { payload.audio[id] = urls; }));
+      }
+      var images = mediaItems(data.imagesBy[id]);
+      if (images.length) {
+        jobs.push(Promise.all(images.map(blobToDataUrl)).then(function (urls) { payload.images[id] = urls; }));
+      }
+    });
+
+    return Promise.all(jobs).then(function () { return payload; });
+  }
+
+  function download() {
+    if (!found) return;
+    el.button.disabled = true;
+    var original = el.button.textContent;
+    el.button.textContent = 'Saving…';
+    el.status.textContent = 'Gathering your notes and media…';
+
+    buildPayload(found).then(function (payload) {
+      var blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url;
+      a.download = 'noted-full-backup-' + new Date().toISOString().slice(0, 10) + '.json';
+      a.click();
+      setTimeout(function () { URL.revokeObjectURL(url); }, 30000);
+
+      el.button.textContent = 'Saved ✓';
+      el.status.textContent = 'Saved to your downloads. Your notes are still here in this browser too.';
+    }).catch(function (err) {
+      el.button.disabled = false;
+      el.button.textContent = original;
+      el.status.textContent = 'That did not finish: ' + (err && err.message ? err.message : 'unknown error') +
+        '. Nothing has been changed — you can try again.';
+    });
+  }
+
+  function start() {
+    openExisting().then(function (db) {
+      if (!db) { show('empty', 'We looked for notes from the previous version of Noted in this browser.'); return null; }
+      if (!db.objectStoreNames.contains('notes')) {
+        try { db.close(); } catch (e) {}
+        show('empty', 'We looked for notes from the previous version of Noted in this browser.');
+        return null;
+      }
+      return Promise.all([
+        getAll(db, 'notes'), getAll(db, 'audio'), getAll(db, 'images'), getAll(db, 'history')
+      ]).then(function (res) {
+        found = { db: db, notes: res[0] || [], audioBy: byNoteId(res[1] || []), imagesBy: byNoteId(res[2] || []), history: res[3] || [] };
+        if (!found.notes.length) {
+          show('empty', 'We looked for notes from the previous version of Noted in this browser.');
+          return;
+        }
+        describe(found);
+        show('found', 'These notes are still in this browser, from the previous version of Noted.');
+      });
+    }).catch(function (err) {
+      el.errText.textContent = 'This browser would not let the page read its stored data' +
+        (err && err.name ? ' (' + err.name + ')' : '') + '.';
+      show('error', 'We could not check this browser for your old notes.');
+    });
+  }
+
+  if (el.button) el.button.addEventListener('click', download);
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', start);
+  } else {
+    start();
+  }
+})();
+</script>

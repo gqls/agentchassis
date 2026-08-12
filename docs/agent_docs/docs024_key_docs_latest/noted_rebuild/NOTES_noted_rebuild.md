@@ -1310,3 +1310,112 @@ product answer is "this button needs `/legacy`", and `/legacy` is PLAN §4 step 
 
 **No live impact:** noted.co.uk still serves the legacy app from B2, so nothing
 user-facing carries the wrong link. It must not survive cutover.
+
+---
+
+## 2026-08-12 14:05 — /legacy is BUILT: the rescue tool exists, tested against real data
+
+Owner decision: build `/legacy` (PLAN §4 step 3) and point migrate's button at it.
+
+### The facts I read before writing a line of it
+
+Every one of these came from source, not from the design doc, and two of them would
+have caused silent data loss if guessed:
+
+- **Legacy schema** (`gqls/sites` `noted.co.uk/js/storage.js`): `NotedDB` v4 —
+  `notes` (keyPath `id`), `history` (keyPath `revId`, autoIncrement, index
+  `noteId`), `audio` and `images` **both keyed by `noteId`**, one record per note.
+- **⚠ `audio`/`images` have TWO record shapes.** Current is
+  `{noteId, items:[Blob]}`; an earlier one is `{noteId, blob:Blob}`, and
+  `Storage._getMediaArray` handles both (`storage.js:55`). **A reader that knows
+  only the current shape silently drops every recording saved by the older version
+  and looks perfectly healthy.** I would not have invented this.
+- **Export shape** (`js/app.js downloadFullBackup`): `format:
+  "noted.co.uk/full-backup"`, `version: 1`, `exportedAt`, **whole note records**
+  (not id/title/content), plus `history`/`audio`/`images` maps keyed by note id
+  with media inline as base64 data URLs; filename
+  `noted-full-backup-YYYY-MM-DD.json`. The engine's `backupFile` (server.go:321)
+  decodes a subset of this and ignores `history` — so the file is a superset by
+  design and both halves are fixed by what is already on people's disks.
+
+### The tool
+
+`docs/.../noted_rebuild/legacy_tool/noted-legacy-rescue.html` — markup + inline JS.
+Three invariants, stated in its `tool-doc` header because this touches what is for
+many people the only copy of their notes:
+
+1. **Open with no version number** — naming one runs `onupgradeneeded`, a schema
+   migration against that only copy.
+2. **Never write, never delete** — every transaction is `readonly`; there is no
+   `deleteDatabase` anywhere.
+3. **Leave nothing behind** — opening a database that does not exist CREATES one,
+   so when `onupgradeneeded` fires we **abort the versionchange transaction**.
+
+### The probe, and the mutations that prove it can fail
+
+`legacy_tool/test_legacy_rescue.py` — Playwright, 24 checks, three cases (no
+database; a real database with notes + both media shapes + history; a same-named
+database without a `notes` store). This exists because **the platform's check runner
+cannot seed IndexedDB** (HANDOFF §5), so it is the only thing that exercises this
+code against data.
+
+**All 24 passed — which on its own is worth nothing, so both load-bearing guards
+were mutation-tested:**
+
+| mutation | result |
+|---|---|
+| remove the `abort()` in `onupgradeneeded` | **FAIL** "LEAVES NO DATABASE BEHIND — databases now: ['NotedDB']" |
+| make `mediaItems()` ignore the legacy `{blob}` shape | **FAIL** ×2: recording count 2 not 3, and `def-456` missing from the audio map |
+
+Both then passed again on restore. The stray-database one is the useful surprise:
+it confirms that opening a non-existent `NotedDB` really does create it, so guard 3
+is load-bearing rather than defensive decoration.
+
+### Into the framework, and what it refused first
+
+`scripts/initial_messages/140_tool_suggester/075_create_noted_legacy_rescue_tool.sh`
+dispatches `create_tool_component` — the framework path, not a hand-built page
+(owner ruling 2026-08-04), and it canonicalises the page identity, which is the
+whole point of `bugs_open/080`.
+
+**First attempt REFUSED**, correctly: *"generated tool HTML lacks the tool-doc
+header"*. Every new tool's `<script>` must open with a sentinel-delimited block
+(`/* === tool-doc ===` … `=== /tool-doc === */`, `platform/content/tool_doc_header.go`)
+carrying purpose + behavioural invariants; it is read by the tool auditor and
+**stripped at deploy** so it never ships. Nothing was created by the failed run.
+Added it in the house style and it went through.
+
+Also worth recording: the first dispatch never reached Kafka at all because an
+**unquoted heredoc** let bash try to execute the Python. Fixed by passing values
+through the environment and quoting the heredoc (`<<'PYEOF'`).
+
+### Result
+
+| thing | value |
+|---|---|
+| component | `tool-legacy-rescue`, `component_level='tool'`, 12,526 chars incl. the JS |
+| page | **`/tools/legacy-rescue/index.html`** — the framework's canonical shape |
+| companion guide | `/guides/tool-legacy-rescue-guide.html`, `needs_content_page` queued |
+| migrate's CTAs | now render **both** buttons, "Save everything" → the tool |
+
+**The URL is NOT `/legacy.html`.** `CanonicalisePage(role="tool")` yields
+`/tools/<bare>/index.html`, and nested rather than flat because `siteUsesFlatURLs`
+reads `site_specs` aspect `structure` — which **this site does not have** — and
+defaults to nested. So noted's content pages are flat (`/about.html`) while its
+tool page is nested. That is the framework's decision and I took it rather than
+hand-roll an identity; recorded because it looks like an inconsistency and is not
+one to "tidy".
+
+### Still open
+
+- **The tool page is `build_status='planned'`** — its component is rendered and
+  `deployed`, but the page has not been assembled and committed to `gqls/vm-sites`
+  yet, so `/tools/legacy-rescue/index.html` **404s today**. `page_rerender` will not
+  pick it up: that path files one item per page where `build_status='deployed'`.
+  `[UNMEASURED]` which mechanism promotes a `planned` tool page — find it before
+  assuming the queue will do it on its own.
+- The probe tests the file, **not the deployed page**. Re-run it against the real
+  URL once the page ships, and re-run the origin probe at cutover (§6) — origin is
+  scheme+host+port, so a `www.` redirect silently invalidates all of this.
+- The "sign in and copy everything up" route is **not** built; the download route
+  is, and it is the one §6 makes mandatory because it needs no account.

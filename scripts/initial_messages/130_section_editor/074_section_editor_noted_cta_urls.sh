@@ -52,8 +52,8 @@ EDITS=(
   'index|call-to-action|{"primary_cta_url":"https://app.noted.co.uk/","secondary_cta_url":"/how-it-works.html"}'
   'how-it-works|hero|{"cta_url":"https://app.noted.co.uk/","secondary_cta_url":"/migrate.html"}'
   'how-it-works|call-to-action|{"primary_cta_url":"https://app.noted.co.uk/","secondary_cta_url":"/migrate.html"}'
-  'migrate|hero|{"cta_url":"/legacy.html","secondary_cta_url":"/how-it-works.html"}'
-  'migrate|call-to-action|{"primary_cta_url":"/legacy.html","secondary_cta_url":"/how-it-works.html"}'
+  'migrate|hero|{"cta_url":"/tools/legacy-rescue/index.html","secondary_cta_url":"/how-it-works.html"}'
+  'migrate|call-to-action|{"primary_cta_url":"/tools/legacy-rescue/index.html","secondary_cta_url":"/how-it-works.html"}'
 )
 
 PSQL=(kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -tA)
