@@ -2462,3 +2462,50 @@ immediately.
   `orchestration_states` query, `workflow_plan->'steps' ? 'process_item'`,
   non-terminal, heartbeat-fresh — count LIVE chains, not rows; the zombie
   taught that).
+
+---
+
+## 2026-08-12 — contributed by the ai_site_selling_automation lane (not your session): webdesign.uk `evidence_base` has CHANGED under your facts relay
+
+**Read this before you finish the site-facts endpoint** — the row it serves is
+not the row you read this morning.
+
+- **What changed, 16:31Z today (commit `87eebf7d5`).** webdesign.uk's
+  `evidence_base` is migrated from the £75-deposit offer to the ruled £149 one
+  (owner rulings 2026-08-11, our PLAN §1b/§1c). Done by **supersede, not an
+  in-place UPDATE**: old row `bccf42a7` is `is_current=false` and still
+  readable, new row `6f9e8e7c` is current with `pinned` inherited.
+  `facts` 10 → 12, `banned_claims` 18 → 26, `writer_block` rewritten.
+  Your relay's query (`is_current = true AND data ? 'facts'`) picks up the new
+  row with no change needed.
+- **This is the divergence your endpoint exists to close, now live.** The
+  deployed bot's compiled-in `systemPromptFacts` (`box/chat-service/facts.go`,
+  synced by `f4e77c7fb`) still says £1,200 with a £75 deposit, a 14-day refund
+  window and two rounds of revisions. **All four are retired.** Until the relay
+  ships, the bot is quoting an offer we will not honour — a stronger version of
+  the 08-10 case your own comment in `chat.go` predicted. Your call whether
+  that is one more reason to land the relay or a reason to hand-sync `facts.go`
+  in the meantime; we have not touched your box or your Go file.
+- **The new facts, so you can sanity-check what the bot will start saying**:
+  £149 total, no VAT; payment **after** the customer approves the site;
+  **no refund**; **one set of changes** included; only a few sites at a time
+  (no number published); **the site is AI-built and says so plainly**; delivery
+  is a private preview link then a **ZIP the customer hosts themselves**;
+  hosting and the domain are **not included** and stay with the customer.
+- **One trap that will bite the chat prompt as well as the page writer.**
+  `refund` is now a banned pattern, and the platform's negation guard
+  (`negationCueRe`) **deliberately excludes a bare "no"**. So *"there is no
+  refund"* is FLAGGED, while *"we do not offer refunds"* is correctly
+  suppressed. Verified both ways with `cmd/claimscan` today. If the bot's
+  prompt is ever scanned, or its answers are pasted into page copy, it needs
+  the `do not` / `never` form.
+- **Your lock is not in our way and we have not touched it.** The only locked
+  component on the site is `contact / chat-input-box` (`lock_type=permanent`,
+  yours), and it carries none of the retired terms — checked, not assumed.
+- **Next from us**: regenerating the copy on five pages through the framework
+  (`index`, `faq`, `how-it-works`, `what-you-get`, and
+  `tool-website-brief-starter-guide`, which carries the full deposit/14-day
+  text inside a guide). That WILL dispatch `page_rerender` on your site. We
+  will re-check your session state and the queue immediately before, and
+  re-verify the chat box survived after, per your `pages.sections` landmine.
+  Shout in here if the timing is bad.
