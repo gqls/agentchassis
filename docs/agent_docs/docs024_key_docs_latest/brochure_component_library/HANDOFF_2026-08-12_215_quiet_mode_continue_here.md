@@ -11,7 +11,7 @@ carried forward below where still live.
 
 | | |
 |---|---|
-| code | **LIVE on chassis `v1.0.1290`**, artefact-verified on BOTH replicas 2026-08-12 |
+| code | **LIVE on chassis `v1.0.1291`**, artefact-verified on BOTH replicas 2026-08-12 ~16:00Z (re-probed after the roll from 1290; positive control + one-letter near-miss both behaved) |
 | council | **APPROVED** round 3, corr `56e13695-17cb-48ec-bc6b-0371fde8b717` |
 | enabled on | **fundamentallyai.com only** — `honour_realised_identity` + `twin_identity_snap`. `stem_twin_snap` absent by design |
 | dark-launch counters | **still 0/0/0/0** — no replan has run through the new path yet |
@@ -88,9 +88,20 @@ per pair before anything executes. Two constraints the runbook does not both sta
   each bare plan entry onto the `tool-` page, i.e. pick the survivor by machine, and
   both pairs are 3 components against 3.
 
-The owner has been offered a side-by-side of the seven with their contents, to make
-the decision a conversation rather than a research exercise. That is the natural next
-piece of work if you are picking this up cold.
+**The side-by-side is DONE and waiting on the owner:**
+`DECISION_INPUT_2026-08-12_seven_twin_pairs.md` in this directory — all seven pairs
+with what each version actually *serves* (inputs, forms, word counts, byte sizes
+against per-domain 404 controls), a recommendation and confidence per pair, and the
+one input I could not measure (search indexing).
+
+**Read its headline before you use any earlier figure about these pairs.** Component
+count — the runbook's step-1 "which side has content" input — is a **container** count
+and it points the WRONG WAY on 3 of the 7. On 4 of 7 the bare side serves **no
+interactive element at all** while its `tool-` twin is the working tool. Landmined.
+
+Six of the seven now have a defensible recommendation; the seventh
+(robot-hands `cycle-time-estimator`) is a genuine judgement call where both sides are
+interactive. Nothing has been executed.
 
 ## 6. Traps still live (from the 08-11 handoff, plus new)
 

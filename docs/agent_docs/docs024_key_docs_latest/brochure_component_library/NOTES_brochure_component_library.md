@@ -6146,3 +6146,44 @@ forward-only forbids an amend, so the message stands with this correction beside
 transferable bit: I checked for a passenger riding OUT with me and never considered the file being
 committed out from UNDER me — "verify at HEAD, not at the tree" cuts both ways, and the commit
 scope block is what showed it (4 files where I expected 6).**
+
+### 2026-08-12 (~16:30Z) — v1.0.1291 re-verified, pilot still inert, and the O2 side-by-side found the runbook's content heuristic backwards
+
+**Roll to `v1.0.1291`** (pods 14:55Z). Re-probed rather than assumed: `twin_identity_snap` and
+`PLAN_PAGE_MERGE_LOSSY` present on both replicas, `twin_identity_snapp` absent on both. Gates
+still set on fundamentallyai (`honour=t twin=t stem=f`) — DB config, unaffected by a roll, but
+checked because re-adoption is the thing that drops them.
+
+**Counters still 0/0/0/0, and still correctly so: no new `site_plan` exists.** Latest is still
+noted.co.uk 08-12 03:22. **But pages ARE being deployed** — fundamentallyai's four twin pages
+re-deployed today 14:26–14:48 (after my 14:13 seed, before the 14:55 roll), finetuning's two at
+04:01/04:10. That is the build/deploy path running without a replan, which is consistent with
+the reconciler living at plan time and with the runbook's finding 3. **Worth stating plainly:
+the duplication is not dormant — the pipeline is actively re-deploying BOTH copies of both
+fundamentallyai pairs, twenty minutes apart.**
+
+**The O2 side-by-side is built** (`DECISION_INPUT_2026-08-12_seven_twin_pairs.md`): all 14 URLs
+HTTP-tested against per-domain 404 controls (2685–2886 bytes; every real page 11 KB+, so no
+soft-404s), plus inputs/forms/word counts from the served HTML.
+
+**The finding, and it reverses what this lane has been assuming since 08-11.** The runbook
+offers **component count** as step 1's "which side has content" input and records robot-hands as
+"5/3/4 on the bare side against 1 each" — which reads as *the bare side is the substantial one*.
+Measured at the artefact, that is wrong on most pairs. **On 4 of 7 the bare side has ZERO
+`<input>` elements** — no calculator at all — while the `tool-` twin is the working tool. On
+**three of those four the component count pointed the opposite way**: payload-calculator 3-vs-1
+(0 inputs vs 4 + form), matchmatrix 4-vs-1 (0 vs 4 + form), finetuning's quiz 2-vs-1 (**0 vs
+32 inputs**). A component is a container; one holding a calculator outweighs four holding prose.
+
+What makes it a landmine rather than a mistake: **the count is accurate.** Nothing is malformed,
+and re-running it reproduces the same number for ever, so every check of the check passes. Only
+the artefact can refute the inference from container count to content. Filed, with the
+one-command probe and the reminder that byte size alone is also not enough (it tracked the
+component count on some pairs and inverted it on others, because a big inline script inflates a
+page with nothing to read).
+
+Also measured and worth having: **zero inbound `link_registry` rows** reference any of the 14
+pages, so nothing internal breaks whichever side goes. And the two fundamentallyai pairs turn
+out to be **prose guides with no tool on EITHER side** despite the `tool-` prefix — near
+identical in length, so their survivor choice is decided by loop-safety (which side the plan
+names), not by merit.

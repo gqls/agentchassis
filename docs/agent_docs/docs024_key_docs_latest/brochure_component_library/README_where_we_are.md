@@ -2563,3 +2563,37 @@ needs an explicit nudge, which is the first thing to do next.
 
 Everything is written up in a handoff so this can continue in a fresh conversation without
 losing any of it.
+
+**2026-08-12, late afternoon — the seven pairs are ready for your decision, and the obvious way to judge them was backwards.**
+
+New build went out (v1.0.1291). I re-checked that our duplicate-page machinery is still in it
+and that fundamentallyai's settings survived — both fine. Nothing has run through the new checks
+yet, which is expected: they only engage when a site's page list is rebuilt, and none has been.
+
+So I did the thing I offered: put all seven duplicate pairs side by side, and rather than trust
+the database I asked the live pages what they actually serve.
+
+**The result changed my recommendation on most of them.** We had been going on a count of
+"components" per page — the natural measure, and the one our own procedure recommends. Measured
+against the real pages, that count is misleading: it counts *containers*, not content. One
+container holding a working calculator beats four holding paragraphs. On four of the seven
+pairs, the version our count called "richer" turns out to have **no calculator on it at all**,
+while its twin is the actual working tool. The starkest is finetuning's readiness quiz: the
+version we'd have kept has zero input boxes, the one we'd have discarded has thirty-two.
+
+That would have been a genuinely bad outcome — we would have deleted the working tool and kept
+the page describing it, on three sites, and the count that told us to would have gone on
+reproducing the same confident number for ever. It is written up so nobody repeats it.
+
+**Where that leaves the seven.** Six now have a clear recommendation and one is a real judgement
+call (robot-hands' cycle-time estimator, where both versions work and the older one has twice
+the writing). Two of fundamentallyai's turn out not to be tools at all — two near-identical
+prose guides — so for those the choice is essentially free and I'd pick the one that avoids
+extra work. One, finetuning's, is clear on content but sits on a site with a separate known
+fault, so I'd decide it now and execute later.
+
+It's all in one document with the numbers per pair. **Nothing has been executed** — no page
+archived, no redirect written. I need your survivor choice per pair, and it should now be a
+short conversation rather than a research exercise. The one input I could not get is which
+versions search engines have indexed; if any of these matter commercially, that's worth a look
+at Search Console before we act.
