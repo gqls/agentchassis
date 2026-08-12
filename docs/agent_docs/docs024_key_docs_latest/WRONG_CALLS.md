@@ -29343,3 +29343,60 @@ measure, and is it the one that fails?* A check written for the common case ("on
 silently on the uncommon one ("four small ones"), and the landmine then reads as tested when it was
 merely not-triggered-by-the-proxy. `LANDMINES.md` entry corrected the same day with the
 budget-line check, which is the one that discriminates.
+
+---
+
+## 2026-08-12 (brochure contrast front) — I enumerated a workflow's steps with the query LANDMINES.md explicitly warns is top-level only, and filed the resulting absence as a structural finding
+
+**The claim**, filed into `bugs_open/213` and repeated in a handoff: *"`css-patch-agent` has
+no verification step of any kind — three `complete_workflow` terminals and no
+`complete_work_item`/verification call … a handler that never enters the verification path
+at all."* I called it "a third case, distinct from the two producers in 213's title".
+
+**False.** Completion does not live in a handler's own workflow at all. It lives in
+**`build-dispatch-loop`'s `process_item` → `config.sub_workflow.steps.mark_complete`**,
+which *is* `complete_work_item`. Every build-pipeline handler routes through it.
+
+**How.** I ran
+
+```sql
+SELECT k, v->>'action' FROM agent_definitions a, LATERAL jsonb_each(a.default_config->'workflow'->'steps') e(k,v) ...
+```
+
+which reads **top level only**. There is a LANDMINES.md entry for precisely this — *"a
+census of live step config written as workflow steps is top-level only"* — footprinted on
+`agent_definitions`, `default_config`, `jsonb_each(default_config->'workflow'->'steps')` and
+`sub_workflow`. **I ran the exact query it names, against the exact table it names, and did
+not grep the file.** The SessionStart hook only surfaces landmines matching files already
+dirty in the tree; this one is footprinted on a TABLE, so nothing volunteered it and the
+standing instruction is to grep it myself.
+
+**Why the wrong answer looked right.** An absence is the most persuasive possible result
+when you are already looking for a structural gap: I had a parked backlog, a stated blocker,
+and a query that returned exactly the shape that would explain both. It also *agreed* with
+the true fact underneath — `contrast_failure` genuinely has no registered verifier — so the
+conclusion survived a sanity check that the reasoning would not have.
+
+**Two things I asserted that were also softer than I made them sound**, both now measured:
+- *"the false-complete defect"* at that agent — **it has never processed a single work
+  item.** 226 deferred rows, 0 complete, `attempt_count = 0`. Nothing has ever been
+  mis-closed by it.
+- The `[UNMEASURED]` "nothing to patch" case — **already handled honestly**, and had been
+  since `bugs_open/198`: the save is length-guarded and the branch refuses to deploy on 0
+  rows. I flagged it as an open risk when reading two lines of step config would have closed it.
+
+**The cheap check, in order:**
+1. `grep -n "<table-or-symbol>" docs/agent_docs/docs024_key_docs_latest/LANDMINES.md` **before**
+   trusting a census — the hook cannot match a table-footprinted entry.
+2. When enumerating workflow steps, always also read `sub_workflow`:
+   `jsonb_pretty(v->'config'->'sub_workflow'->'steps')`.
+3. **Before filing an absence as a finding, run `who-owns.py`.** The owning lane
+   (`bugfix_122_contrast_ink_slots`) had already costed this exact question that same day
+   (`b2fca2f8f`), found the exemption is *on the record* at `verifier_coverage_test.go:156`,
+   and recommended a different fix entirely. My "finding" was a worse version of work that
+   already existed, filed into a bug file its author reads.
+
+*Generalisable:* **an absence produced by a query is a claim about the query first and the
+world second.** Two of my last three wrong calls are the same shape — asking the right table
+the wrong way (`palettes.source_domain`, 2026-08-10) and asking the right column at the
+wrong depth (here). Both returned zero rows. Neither zero was about the platform.
