@@ -9093,7 +9093,7 @@ code change owed at the next roll, tracked in RFC_015 §5.
   keys, fresh wins; fails open). The check above stays the right one until a roll
   carries the fix — and remains worth running after any adoption on an older image.
   Do not re-fix; council trail corr `70256656`.
-- > **NOW LIVE — verified 2026-08-12 13:0xZ, chassis `v1.0.1290`.** The roll the
+- > **NOW LIVE — verified 2026-08-12 ~13:00Z, chassis `v1.0.1290`.** The roll the
   > line above was waiting for has happened. `carryForwardStructureSpecKeys` →
   > **PRESENT on both replicas** (`8tjhm`, `vj2rt`), one-letter near-miss
   > `carryForwardStructureSpecKeyz` → **absent on both**, and `19acfc895` is an
