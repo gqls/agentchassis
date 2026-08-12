@@ -337,6 +337,26 @@ and filed the bytes under a template placeholder.
   parked the adoption-time build queue by hand — **I did not establish it, do not
   repeat it as fact.**
 
+> **UPDATE 2026-08-12 — the two handler-less types now HAVE handlers, and are still
+> not assigned.** Owner instruction: *"create the handlers that are missing and leave
+> the assignment until the rung 2 is fixed."* Migrations `397` + `398` seed
+> `image-url-404-handler` and `image-source-unsatisfiable-handler` — **routers, not
+> repairers**: each files a `needs_imagery` request where the answer is deterministic
+> and escalates via `checkpoint_for_review` where the code's own comments say a
+> generator must not decide. Register entry **IMG-071**.
+> **They are INERT and both migrations assert it** (0 work items routed; the guard
+> raises if that is ever untrue). **Do not assign until `bugs_open/248` rung 2 is
+> cut** — every generation branch ends at `image-build-handler`, so assigning today
+> turns 93 inert findings across 16 sites into 93 files named
+> `input-data.asset-key.jpg`. The assignment SQL is in `397`'s header, deliberately
+> not automated.
+> ⚠ Note the absence was **deliberate** (`check_image_url_404.go:274`,
+> `check_image_source_unsatisfiable.go:212`) and that reasoning is not overturned —
+> what these reject is only its consequence: 93 rows since 07-17, none ever handled,
+> none ever terminal. The 13 `deferred` `needs_imagery` rows above are a **separate**
+> dead end and are NOT addressed by this: they already have a working handler and are
+> simply in a status dispatch cannot select.
+
 ### 11.4 Two more defects on the same page, NOT yet named by the owner
 
 - **The hero CTA is bare text with no anchor.** The served `hero-content` holds
