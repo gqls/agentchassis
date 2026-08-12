@@ -54,9 +54,20 @@ deduplication begins; the "raw extractions" count above and the per-concept
 ### DES-005 — resolved_composition pointer spec + install_site_composition semantics
 - **status:** deployed
 - **status-evidence:** Verified live on idea.uk twice (dark install, then re-resolve, 2026-06); quote: "resolved_composition is a *pointer* — it carries palette_id/name/source, not the colour values."
+> **⚠ CORRECTED 2026-08-12 — the "errors rather than overwrites" half is SUPERSEDED and the workaround it implies is UNSAFE.**
+> `bugs_open/113`'s fix added an **`allow_reinstall`** step-config flag (default **false**); with it the swap happens
+> **inside the action's existing transaction**. Verified live in the running chassis v1.0.1289 (`allow_reinstall` = 6
+> occurrences, `replaced_existing` = 1). **Do NOT follow this entry's "clear it manually" recommendation:** nulling
+> `style_collection_id` leaves the site uncomposed until the re-resolve lands, and anything rendering in that window
+> hits the loader's emergency fallback (`render_css_composition_loader.go:144-158`) and can deploy a
+> `standard-brochure` stylesheet over a live site — see `install_site_composition_reinstall_test.go`.
+> **Cost of the stale line:** it was repeated verbatim into a design-pass handoff on 2026-08-12 as the recommended
+> route, and would have been followed. Caught by the LANDMINES entry *"a concept-register STATUS line is a snapshot
+> that outlives its truth"*, whose check is to grep the cited source instead of trusting the status.
+
 - **what:** The composition install contract: a `css_themes` row is created with all three FKs but empty `css_content` (webdesign-agent fills it at render); `style_collections` points at the theme; `sites.style_collection_id` is set only if NULL — install **errors rather than overwrites** an existing composition ("re-resolve not supported; clear it manually"). The `resolved_composition` spec aspect is a lineage/decision record (`lineage.{palette_source, typography_source, layout_source}`), not the CSS itself; the old spec is superseded and a new one inserted on re-resolve. Renderer resolution is strict: missing/NULL composition parts hard-error rather than silently default ("migration gaps are audit events, not silent fallbacks"), with a loud emergency fallback to standard-brochure as the last resort.
 - **sources:** idea.uk/DESIGN_PIPELINE_two_track_investigation(5).md (install + loader sections); idea.uk/RUNBOOK_idea_uk_chassis_site_and_vm_deploy(25).md (Stage A) — both U04
-- **relations:** DES-003 (composition pipeline); DES-047 (composition re-resolve procedure); DES-032 (renderer theme-resolution cascade / emergency fallback)
+- **relations:** DES-003 (composition pipeline); ~~DES-047 (composition re-resolve procedure)~~ **→ CORRECTED 2026-08-12: DES-047 is *Computed-styles extraction*, status aspirational, 0 repo-wide hits. The manual procedure is DES-049 — and DES-049 is itself now superseded, see the status note above.**; DES-032 (renderer theme-resolution cascade / emergency fallback)
 - **verify-later:** install_site_composition_action.go; render_css_composition_loader.go
 
 ### DES-006 — site-design-planner scope: "Choice B" (composition-only) and its declared spec aspects
@@ -406,7 +417,8 @@ deduplication begins; the "raw extractions" count above and the per-concept
 - **verify-later:** install_site_composition refusal; robot-hands css_themes.layout_id = tool-portal-dark
 
 ### DES-049 — Composition re-resolve procedure (gated, file-based, backup-first)
-- **status:** deployed
+- **status:** ~~deployed~~ **SUPERSEDED 2026-08-12 by `allow_reinstall` (`bugs_open/113`), and unsafe to follow on a live site**
+- **supersession-evidence:** `install_site_composition_action.go:214` reads `allow_reinstall` (default false) and swaps inside the existing transaction; live in v1.0.1289 (pod-grep: 6 occurrences). This procedure's detach-and-clear step opens the window that `render_css_composition_loader.go:144-158`'s emergency fallback fills with `standard-brochure`. Still the correct reference for the BACKUP and UNIQUENESS-CHECK steps, which the flag does not replace.
 - **status-evidence:** Steps 1–6 all marked DONE with results (2026-06-22→25); "RE-RESOLVE SUCCEEDED: idea.uk now on tool-portal-light (scheme fix proven end-to-end)."
 - **what:** The safe pattern for re-running composition on an already-built site, given that install refuses overwrites (DES-005): ordered SQL FILES — backup+inspect (four uniqueness checks that must all be 0), gated detach+clear (NULL `style_collection_id`; delete the site's own collection→theme→palette→typography chain only where `source_site_id` matches; supersede the old resolved_composition spec), state-check, kcat re-trigger of site-design-planner (`domain` required by `ensure_site_record`), verify. Two learned caveats are now doctrine: run SQL as files, never pasted (pasting mangled `\set`/blank lines and left an open transaction in one incident); a standalone-orchestrated planner run ends at install and emits NO `needs_design` — the styles.css render is a separate, explicit webdesign-agent orchestration. Distinct from the adoption teardown (bulk delete by source_domain), which must NOT be used on a fresh site.
 - **sources:** idea.uk/RUNBOOK_idea_uk_chassis_site_and_vm_deploy(25).md (re-resolve section); reresolve_idea_uk_01_backup_and_inspect.sql (+02/02b/03/04/05 series); running_notes(63).md (all U04)

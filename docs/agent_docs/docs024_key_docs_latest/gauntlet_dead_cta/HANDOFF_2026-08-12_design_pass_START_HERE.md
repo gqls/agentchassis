@@ -51,40 +51,64 @@ The render is a **separate, explicit** `webdesign-agent` orchestration. A sessio
 re-resolves and then looks at the site will see no change and conclude the pipeline
 failed.
 
-### 1.2 ⚠ THE TRAP THAT DECIDES YOUR WHOLE APPROACH: install REFUSES to overwrite
+### 1.2 ⚠ RE-RESOLVING: use `allow_reinstall`, NOT the manual procedure the register describes
 
-`install_site_composition` sets `sites.style_collection_id` **only if it is NULL**, and
-**errors rather than overwrites** an existing composition — *"re-resolve not supported;
-clear it manually"* (DES-005).
+> **CORRECTED 2026-08-12, hours after this file was first written, and the first
+> version was DANGEROUS.** It sent you to DES-049's manual procedure. That is
+> superseded, and following it can deploy a generic stylesheet over the live site.
 
-**vonc.com already has one** [MEASURED 2026-08-12]: `style_collection_id =
-e1d23bb0-8ef1-4e7a-9a25-6f4d902459fc`, with `design_intent` and `resolved_composition`
-specs both `is_current`, **dated 2026-06-22**. So the design was resolved once, seven
-weeks ago, and never revisited. **Firing `needs_composition` naively will fail.**
+`install_site_composition` sets `sites.style_collection_id` **only if it is NULL** and
+historically **errored rather than overwrote** an existing composition (DES-005), whose
+own recommendation was for an operator to null the column by hand.
 
-The supported path is **DES-049 — composition re-resolve procedure (gated, file-based,
-backup-first)**, `status: deployed`, proven end-to-end on idea.uk 2026-06-25. Ordered SQL
-**files**: backup + inspect (four uniqueness checks that must all come back 0) → gated
-detach and clear (NULL the `style_collection_id`; delete the site's own
-collection→theme→palette→typography chain **only where `source_site_id` matches**;
-supersede the old `resolved_composition` spec) → state check → kcat re-trigger of
-`site-design-planner` (`domain` is required by `ensure_site_record`) → verify.
+**That is no longer the route.** `bugs_open/113`'s fix added an **`allow_reinstall`**
+step-config flag — **default false**, and the swap then happens **inside the action's
+existing transaction**. Verified live in the running chassis (v1.0.1289, `allow_reinstall`
+= 6 occurrences, `replaced_existing` = 1).
 
-Two caveats from that procedure are doctrine:
+**Why the manual route is not merely old but unsafe**, quoted from
+`install_site_composition_reinstall_test.go`:
 
-- **Run the SQL as FILES, never pasted.** Pasting mangled `\set` and blank lines and left
-  an open transaction in a real incident.
-- **Do NOT use the adoption teardown** (bulk delete by `source_domain`) — it is a
-  different procedure and must not be used on a site like this.
+> *"Nulling the column leaves the site uncomposed until the re-resolve lands, and
+> anything that renders in that window hits the composition loader's emergency fallback
+> (`render_css_composition_loader.go:144-158`) and can deploy a `standard-brochure`
+> stylesheet over a live site. With `allow_reinstall` the swap happens inside the
+> action's existing transaction and the window never opens."*
 
-### 1.3 ⚠ The register's own pointer to that procedure is WRONG
+vonc.com renders on a schedule and on any rerender another lane fires, so that window is
+not theoretical here.
+
+**The flag's default-OFF is the safety property and it is tested as such** — the pair of
+tests exists because *"a flag verified only on its permissive branch is satisfied by
+deleting the check"*, and both mutations were run before the file was committed. **Do not
+"simplify" that guard.**
+
+**vonc.com's state** [MEASURED 2026-08-12]: `style_collection_id =
+e1d23bb0-8ef1-4e7a-9a25-6f4d902459fc`; `design_intent` and `resolved_composition` both
+`is_current`, **dated 2026-06-22** — resolved once, seven weeks ago, never revisited.
+
+### 1.2a The framework's own trigger, and why it will do nothing here
+
+`emit_design_items` is the plan-time action that queues `needs_composition` +
+`needs_design` — and per `registry.go:1038` it is **"guarded on `style_collection_id IS
+NULL`"**. Both item types are live and in current use (**9** and **11** items
+respectively, most recent **2026-08-12**), so this is the real, exercised path — not a
+register claim.
+
+**But it emits nothing for a site that already has a composition.** So "file the work
+item and let the pipeline run" is not available to you unmodified: either drive
+`site-design-planner` with `allow_reinstall: true`, or clear the composition first — and
+§1.2 says why you should not choose the second.
+
+### 1.3 ⚠ TWO register defects found while checking the above
 
 **DES-003's `relations` line says "DES-047 (composition re-resolve procedure)". It is
 not.** DES-047 is *Computed-styles extraction via browser JS injection*, `status:
 aspirational`, and its own stage-2 verification records **0 repo-wide hits** for the Go
-action it describes. **The re-resolve procedure is DES-049.** (DES-030's relations line
-has it right, which is how the discrepancy surfaced.) Follow DES-003's relations blindly
-and you land on an unimplemented entry while looking for the one thing that unblocks you.
+action it describes. **The manual re-resolve procedure is DES-049** (DES-030's relations line has it
+right, which is how the discrepancy surfaced) — and DES-049 is itself now superseded by
+§1.2's flag. Both defects are corrected in the register itself, dated, rather than only
+here: an entry a later session reads is the one that has to be right.
 
 ### 1.4 Framework-native ways to find out what is wrong — use these before your own eye
 
