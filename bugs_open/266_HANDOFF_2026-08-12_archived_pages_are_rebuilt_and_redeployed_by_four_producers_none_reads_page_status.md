@@ -140,3 +140,56 @@ and it is not the same measurement. Run the query above before quoting a scope.
   `diagnosis_artifacts` (`kind='bundle'`, iterations 1–5), **expire 2026-09-10, unpinned**.
   Its findings are reproduced above so this file does not depend on them surviving.
 - Every table row quoted here was re-queried first-hand 2026-08-12 ~19:00Z.
+
+---
+
+## Population MEASURED, 2026-08-12 ~20:20Z — and the detector this file shipped an hour ago is BLIND
+
+> **CORRECTION to my own "How to verify a fix" §3 above.** The query I filed
+> (`status='archived' AND deployed_at IS NOT NULL`) returns **18 rows across 5 domains**.
+> **Only 5 of those 18 are actually serving.** `deployed_at` is a *historical build stamp*
+> and retraction does not clear it — which is `016b`'s own standing rule, *build columns are
+> history, not liveness*, written by `bugs_closed/098`, the very bug I cross-referenced.
+> Thirteen of the eighteen are 404: mostly 098's ten retracted leopardess pages, still
+> carrying stamps from April and May. **A fix measured against my query would have looked
+> 3.6× worse than reality, and a "population reduced from 18 to 13" claim could be earned
+> without changing anything.**
+
+**The detector must be two-step: the SQL selects candidates, the HTTP decides.**
+
+```sql
+-- step 1: candidates only. This number is NOT the population.
+SELECT s.domain, p.url, p.deployed_at::date
+FROM pages p JOIN sites s ON s.id = p.site_id
+WHERE p.status = 'archived' AND p.deployed_at IS NOT NULL
+ORDER BY s.domain, p.url;
+```
+Then curl each one, **with a fabricated URL per domain as a control** (all five returned 404,
+so the check could come out negative). **A `000` is not a `404`** — one page returned `000`
+(connection failure) on the first pass and `200` on three straight retries; recording that
+row as "not serving" would have undercounted the live population by 20%.
+
+**The live population, verified at the artefact:**
+
+| domain | page | stamp |
+|---|---|---|
+| fundamentallyai.com | `/blog/ai-readiness-checker-guide.html` | 2026-08-12 |
+| fundamentallyai.com | `/tools/llm-cost-calculator/index.html` | 2026-08-11 |
+| leopardessconsulting.co.uk | `/our-approach.html` | 2026-07-17 |
+| robot-hands.com | `/gripper-catalog.html` | 2026-08-11 |
+| robot-hands.com | `/news.html` | 2026-08-11 |
+
+**5 pages, 3 domains — so it is NOT a fundamentallyai quirk**, which is what the filing above
+suspected but could not assert. Three of the five carry stamps from the last two days, so this
+is an active process, not a backlog. `leopardessconsulting.co.uk/our-approach.html` is the
+useful outlier: stamped 2026-07-17 and still serving while archived, which means the condition
+survives for weeks unnoticed and is not specific to the recent replan work.
+
+**Two consumers should be told** (RFC-style, per the 2026-07-29 ruling that a shared
+mechanism's other consumers must be told, not merely measured): the **leopardess** lane and
+the **robot-hands** lane each own one or two of these pages and neither knows the page is
+archived-and-serving. Their `/bugs_open/` reading will not surface it — the row looks retired.
+
+**What the 18 vs 5 gap does NOT mean.** The 13 non-serving rows are not evidence of a second
+defect; they are the expected residue of 098's deliberate design (archiving does not
+auto-retract, retraction removes the file and leaves the stamp). Do not "fix" them.
