@@ -75,3 +75,55 @@ three objections; design vocabulary preserved verbatim from round 3. Work item
 attempt counter reset from 3/3 to 0 **with the reason written into the row**,
 because the earlier attempts were spent on a different question (design loss).
 Result to be recorded below.
+
+## 2026-08-12 — round 4 result: a better BRIEF answered all three objections, with one caveat that matters for the design
+
+**Live and verified** (stored prose serving, 13:29Z deploy, class attrs 31 == round 3,
+hero 1 / tool-grid 2 / card 12, 660 words, 42 links — design untouched):
+
+| owner objection | round 3 | round 4 |
+|---|---|---|
+| title negatively framed / slop | *"Your borrowing does not come in separate boxes. Neither do these calculators."* | *"Your mortgage and your other borrowing move together"* |
+| negativity, clipped consequences | two consequences fired as separate short sentences | one connected conditional — *"If you have a personal loan, a card balance or a car finance agreement and you're also weighing up a mortgage…"* |
+| talks about the site | *"This site holds 23 calculators… no sign-up, no credit check"* | **gone** — zero site-inventory or policy sentences |
+| lead with the most beneficial/differentiated | (nothing leading) | *"Roughly £5,000 to £7,000 per £100 a month"* in the highlight box |
+
+**So P0's question is answered: a sufficiently specific brief CAN fix this.** That is
+a real result and it shrinks stage 2's job — but it does not remove it, for the
+reason in the PLAN: the brief that fixed it was written by someone who had just been
+handed a line-by-line critique by the owner. **Stage 2 exists for the case where no
+owner is in the room.** A brief author with no critique in hand writes round 3 again.
+
+**The caveat, and I checked it rather than reporting the win.** Round 4 leads with a
+NEW number for this page (£5,000–£7,000 of borrowing power per £100/month). A fresh
+figure on a consumer-finance homepage is exactly the shape of `bugs_open/225` (SDLT,
+16 months stale). Checked before calling it good:
+
+```sql
+SELECT p.name, substring(pc.rendered_html from '.{0,90}(?:5,000|6,000|7,000).{0,90}')
+FROM pages p JOIN page_components pc ON pc.page_id=p.id
+WHERE p.site_id='ed633ada-…' AND pc.rendered_html ~ '£(5|6|7),000';
+```
+
+**Not invented** — the figure is already stated on FOUR other pages of this site
+(`guides-index`, `guide-car-finance-and-your-mortgage`,
+`guide-deposit-or-clear-the-debt`, `guide-how-loans-affect-mortgage-affordability`),
+in consistent terms, all predating this rewrite. So the writer surfaced the site's
+own established fact to the homepage, which is what "lead with the differentiated
+thing" should mean. `[MEASURED 2026-08-12]`
+
+**But nothing automated checked that, and this is a finding for the design.**
+`evidence_base` and `banned_claims` do not exist as tables on this database
+(`to_regclass` → false for both), no claim/evidence work item was raised on this site
+in the three hours around the run, and `validation_result` was absent from the
+run's `collected_data`. CLAUDE.md describes claim gating as one of the controls a
+framework build applies; on this path, for this site, **it did not run**. My query is
+the only thing that corroborated the number. Stage 2's fact-inventory check (PLAN §3
+rule 1) is therefore not a nice-to-have — it is currently the ONLY proposed mechanism
+that would notice a stage-1 invention. `[MEASURED — the absence, with the table
+existence check as its control]`
+
+**Standing conclusion for Track B's 22 pages:** every page brief must carry (a) the
+design vocabulary, (b) the framing/readability rules, and (c) an instruction not to
+introduce facts the site does not already state. (c) is new today and is the
+untested one.
