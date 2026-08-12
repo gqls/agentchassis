@@ -392,6 +392,50 @@ out as a consequence: an out-of-root path cannot be in `Output`.
 `bugs_open/164` (the sibling silent-truncation defect in the same loop, filed at the
 council's request); the guard-only-guards-the-door-you-walk-through family.
 
+### The GUARD NEXT DOOR tells you where NOT to put yours — a seam chosen for a similar-sounding state is chosen for that state's exceptions, which your state may not have
+
+**Symptom.** A state that should stop a page/record from being acted on is ignored, and there
+is already a guard in the tree for a neighbouring state that looks like the obvious template.
+On `bugs_open/266`: `pages.status='archived'` pages were rebuilt and re-stamped `deployed` by
+**four** independent producers, none of which reads `status`. `owned_page_guard` sits right
+there, guarding `rebuild_policy='owned'`, and copying its placement is the natural move.
+
+**Diagnose.**
+
+1. **Enumerate the producers from the DATA, not from the symptom's file.** The symptom named
+   `loadRealisedPages` (no status predicate — true, and it explains **one** of four
+   re-deploys). Join every work item that completed within seconds of the damage stamp:
+   `created_by` + `spec->>'reason'` + `completed_at` against the row's own `deployed_at`. Here
+   that produced `reconcile_site_plan`/`not_built`, `image-build-handler`/`image_landed`,
+   `page-rerender`/`cta_links_stale`, and a `section-editor` edit — four actors, one of which
+   was another Claude session. **Filter by the right column:** a `needs_page` item has no
+   `page_id` (the page may not exist yet), so a `page_id` filter returns a confident, empty,
+   wrong answer; the page is named in `spec->>'page_name'`.
+2. **Read the neighbouring guard's RATIONALE before copying its position.** `owned_page_guard.go`
+   states in its header why it sits at `assemble_page` and deliberately **not** at `git_commit`:
+   git_commit "is also how owned pages LEGITIMATELY deploy", because `page-rerender` and
+   `section-editor` commit without passing through `assemble_page`. Those two are precisely the
+   producers behind the newest re-deploys — so the copied placement closes 2 of 4 doors and
+   misses the freshest ones.
+
+**Root cause of the near-miss.** `owned` and `archived` are both "don't touch this page" states
+and are not the same shape: **owned** means *not the generic pipeline's to rebuild* (so
+re-assembly of existing components is a legitimate deploy and must stay open); **archived** means
+*nothing may deploy this* (so no path is legitimate). The exception that determined the
+neighbour's seam does not exist for yours, and that difference **moves the seam** — for owned,
+away from the commit; for archived, onto it.
+
+**The general rule.** A guard's position encodes its state's *exceptions*, not its prohibition.
+Before reusing one, ask what it was allowed to let through and whether your state allows that
+too. The answer is usually written in the file you are about to copy from — which makes this one
+of the cheapest checks in this section, and one that looks unnecessary precisely when it is not.
+
+**Cross-references.** `bugs_open/266`; the `precondition parked in a CALLER` entry above (same
+family — that one loses a guard in a port, this one places a new guard by analogy); `bugs_open/208`
+(why owned_page_guard exists); `bugs_closed/098` (archiving does not auto-retract **by design** —
+so the durability failure is this bug, not that decision); the
+guard-only-guards-the-door-you-walk-through family.
+
 ### A checker's extraction contract and its lookup can be UNSATISFIABLE TOGETHER — and it will blame something falsifiable instead
 
 **Symptom.** An automated checker returns "cannot confirm" and offers a specific, plausible,
