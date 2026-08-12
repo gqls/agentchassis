@@ -54,8 +54,13 @@ spec:
             # Peer configs generated on first start, one per name. Adding a name
             # later generates that peer on the next restart; existing peers keep
             # their keys.
+            # webdesignbox (added 2026-08-12): the webdesign.uk VM, so its
+            # box-hosted services can reach in-cluster ClusterIP endpoints —
+            # first consumer is the chat service fetching live site facts from
+            # core-manager's site-facts relay. Split-tunnel ALLOWEDIPS below
+            # means the box's ordinary internet traffic is untouched.
             - name: PEERS
-              value: "laptop,phone"
+              value: "laptop,phone,webdesignbox"
             # What peers dial. Any node IP works — this is a NodePort service and
             # every node answers on it; the value here is only what gets baked
             # into the generated peer configs.
