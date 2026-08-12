@@ -1667,3 +1667,36 @@ Two things wait on you:
    whole exercise is for.
 
 Say the word on the brief and I fire the rebuild.
+
+## 2026-08-12 — the four decisions, written down
+
+Re-checked this morning, all still true: the flat-URL setting is on, all twenty locks are
+still held, the seventeen calculator jobs are still parked, and both false claims are still
+serving (I re-fetched the pages to be sure — the homepage still has no table of any kind,
+so the "month-by-month breakdown" claim is still false today).
+
+**1. The two false claims have now been live for three days.** The rebuild replaces them,
+but only when it runs. If you're approving the brief today, leave them. If the rebuild is
+going to sit any longer, I'd cut the false half-sentence from each — a deletion, not a
+rewrite, so nothing hand-authored gets added to a site whose whole point is that the
+framework writes it.
+
+**2. Does the brief tell the framework to keep the existing pages and addresses?** My draft
+says yes. That's the bigger of the two questions, because it decides what the exercise can
+teach. Keeping them means we learn how the framework WRITES; letting it choose freely means
+we also learn how it PLANS, at the cost of possible duplicate pages (a page it names
+differently doesn't move — it appears twice, which is a bug another thread is mid-fix on).
+I recommend keeping them, because both faults we're chasing are writing faults.
+
+**3. Something I've measured since you said "release everything".** The planner physically
+cannot see the calculators — it only reads section and element components, and calculators
+are a third kind. So unlocking them buys almost no extra purity: the planner was never
+going to rewrite them. What unlocking DOES do is let the page-save wipe them, and we know
+that's not theoretical, because the locks have already turned away ten such writes, five of
+them aimed straight at calculator slots. The arithmetic is recoverable either way, so this
+costs rework rather than the asset. Your call stands unless you want to narrow it; I'd keep
+the twelve calculator locks for the first pass and release the other eight.
+
+**4. One I'll just do unless you stop me:** park the twenty-one other queued jobs (page
+rewrites and re-renders) alongside the seventeen, so that anything different after the
+rebuild was done by the rebuild and not by the maintenance queue.
