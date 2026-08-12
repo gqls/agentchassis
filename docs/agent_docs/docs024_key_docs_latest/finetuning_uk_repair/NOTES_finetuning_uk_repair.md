@@ -747,3 +747,99 @@ against a live commercial site, with no human ever reading the summaries.
 hero hardcoding first — genuine token drift, safe to fix, visible benefit.
 `spacing_fix` and the font one as *delete the dead declaration*, worded so no agent
 touches the winning rule. `cta_improvement` is the owner's call about the funnel.
+
+### ⚠ THREE OF THE FOUR SPECS WOULD HAVE CAUSED DAMAGE AS WRITTEN — rewritten before promoting
+
+Owner chose (2026-08-12) to repair all four technical findings. **Reading the
+`spec` payloads, not just the summaries, changed what that meant.** The handler
+acts on `spec.suggestion` and `spec.acceptance_test`, and three were unsafe:
+
+| # | the spec said | what it would have done |
+|---|---|---|
+| `spacing_fix` | *"Add `--spacing-section: var(--spacing-xl) var(--spacing-md)` to `:root`"* | **`--spacing-section` already exists** in `:root` at `styles.css:458` as `var(--section-pad-y, 4rem)`, inside the renderer-enforced compatibility-alias block. This would have OVERWRITTEN a live alias and changed padding **site-wide** from `4rem` to `4rem 2rem` — a real visible change, from a premise ("not declared in `:root`") that is simply false |
+| `needs_design_review` (font) | acceptance test satisfiable by *"a `<link>` to Google Fonts for Merriweather exists"* | would have added a **render-blocking font request for a font that can never display**, since the rule is overridden. The audit was RIGHT that Merriweather is never loaded — only a `preconnect`, no `family=`, no `@font-face` — and still wrong that this affects the rendered font |
+| `dark_section_audit` | *"Remove the inline `<style>` block and add a shared `.section--dark` ruleset"* | architecturally correct, but a **partial application strips the dark treatment from the live homepage's case-studies grid**. Narrowed to: replace the hardcoded literals with token references **in place**, matching what the same page's other `--section-*` definitions already do (`var(--hero-ink)`, `color-mix(…)`) |
+
+Each rewritten `spec` carries a `lane_note` recording the original text and why it
+was changed, so this is auditable rather than quiet. `d480c265` (hero hardcoding)
+was promoted **unchanged** — its spec was accurate.
+
+**Promoted:** the four at `status='triaged', priority=1`, in one transaction whose
+`DO`/`RAISE` block asserted the end state (4 triaged@p1 · 1 left detected · **0
+claimable ahead**) — a verify block of bare `SELECT`s cannot stop a `COMMIT`.
+Priority 1 because triage mints low numbers itself; §7.4 of the finetuning handoff
+is the story of five items becoming positions 80–84 of a 95-item queue.
+
+**Left `detected` deliberately: `cta_improvement`.** Its fix is *"add a secondary
+CTA — a downloadable guide, a case study, or a newsletter"*. **Every one of those
+is a thing that does not exist**, and this site already carries five
+`phantom_internal_link` items for case-study pages that were linked before they
+were built. Dispatching it would have an LLM invent a lower-commitment offer and
+link to it. More importantly the answer is already being built elsewhere: the
+`finetuning_uk_service` lane's paid demo fine-tune (a few pounds, Stripe link) IS
+the intermediate step between "read the site" and "book a call" — and **that
+lane's Phase 1 is recorded as BLOCKED on coordinating with the site front-end
+thread, which is now this lane.** So this is a coordination point, not a design
+defect. Owner steer needed on the offer before any copy is written.
+
+> **The generalisable bit:** a work item's `summary` is what a human reads and its
+> `spec.suggestion` is what the agent executes, and **they can disagree.** All
+> three bad fixes here had defensible summaries. Read the spec before promoting.
+
+### ⛔ ALL FOUR REPAIRS REPORTED `complete` AND CHANGED NOTHING — measured, cause NOT asserted
+
+Dispatched cleanly and fast: claimed 14:21:31Z, all four `complete` by 14:27:24Z
+(`webdesign-agent` ×2, `component-template-fixer`, `color-variable-fixer`).
+**Not one of them altered anything.**
+
+**The artefact, which is the authority.** Re-fetched `https://finetuning.uk/index.html`
+after completion — every defect byte-identical to before:
+
+| check | before | after |
+|---|---|---|
+| `Merriweather` body rule | 1 | **1** |
+| `var(--spacing-section, 5rem 2rem)` | 3 | **3** |
+| `--hero-btn-ink: #0F1115` | 1 | **1** |
+| section `rgba()`/`#ffffff` literals | 3 | **3** |
+
+**And nothing was written to change.** `page_components` updated since 14:15Z:
+**one row**, `/about.html` `call-to-action` — *another lane's* "fleet voice"
+campaign (`c30a3ef2`, one of ~48 `section_edit` items), not mine.
+`content_components` (the shared templates) updated since 14:15Z: **zero rows**.
+So no per-page data and no template was touched.
+
+**What the handlers recorded instead of a repair.** Every `result` has exactly four
+top-level keys — `color_scheme, design_notes, spacing, typography` — a
+**design-token document**. No `_verification`, no `changes_made`, no `error`, no
+mention of the specific defect. The handler returned a description of the site's
+design system and the item was marked `complete`.
+
+**It is not new, and not caused by my spec rewrites.** The same token-blob result
+shape appears on `needs_design_review` items completed **2026-08-11** (`6a6c07a4`,
+`44552084`, `cd05deb6`). Corroborating from the other direction: the 08-09 audit
+filed `hardcoded_section_colors` on index, it completed — and **today's audit
+filed the hero hardcoding again**, because it was never fixed. (Note `spacing_fix`
+and `dark_section_audit` completed on 08-09/08-11 with a *different* shape,
+`response, response_received_at, response_status`, and returned the token blob
+today — so the behaviour is not uniform across time. Recorded, not explained.)
+
+**One orphan created:** `067b33a9` `needs_rerender` — *"Rerender after template
+fix"*, **spec `{}`**, priority 99, status **`detected`**. Nothing claims
+`detected`, so even had a template been fixed, the rerender that would ship it can
+never run. `/index.html` `deployed_at` is still `03:34:52Z`.
+
+> **[MEASURED] symptom; root cause NOT asserted.** I have not read the handler
+> code and I am not claiming why this happens — CLAUDE.md's rule is to file a
+> `090` before committing to a cross-cutting cause, and three distinct handlers
+> behaving this way is cross-cutting by definition. **The four rows are left
+> `complete` deliberately as evidence** — never destroy the failing row before the
+> diagnosis runs.
+>
+> Nearest prior art, not the same bug: `bugs_open/212` (components override
+> renderer-owned section tokens) is the *class* of the `dark_section_audit`
+> finding, and `bugs_open/198` (css patch agent clobbers whole stylesheet) is a
+> different failure of the same family of agents. No open bug covers
+> "design repair completes without repairing"; the `needs_diagnosis` queue is empty.
+
+**So the honest state of the design work: the audit is real and verified, and the
+repair path is not working.** The four findings are still true of the live page.
