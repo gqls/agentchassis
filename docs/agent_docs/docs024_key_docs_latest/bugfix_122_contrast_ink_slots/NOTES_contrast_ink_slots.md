@@ -1441,3 +1441,37 @@ HEAD while this was written, so the commit ships on someone else's roll.
   unpark, and hazard (1) means a shipped retraction closes the genuinely-fixed subset on its own.
 - **226 is still a FLOOR, not a census** — the audit was capped at 25 pages until `v1.0.1288`, so
   this closes tickets without discovering the ones that were never filed.
+
+### Same evening — the roll killed the council round, and the two facts about that roll are independent
+
+Round 1 (`a43b63d6`) stalled at `review_tooling_provenance`. Diagnosed rather than waited out, per
+the written remedy in `LANDMINES.md` (*"A chassis roll KILLS an in-flight council"*): last
+`updated_at` **19:13:18Z** against chassis pod `startTime` **19:13:54Z** / **19:14:16Z** — frozen
+36 seconds before the first new pod. Twelve days after that entry was written, same arithmetic.
+Resubmitted with `RESUBMIT_CORR=`, ~300s window already past.
+
+**Why the trail id matters more than usual here, and it is a general point:** the commit was
+ALREADY PUSHED carrying `Council-Submitted: a43b63d6`. A fresh correlation would have stranded
+that trailer on a run that can never produce a verdict, and forward-only forbids the amend that
+would fix it. `RESUBMIT_CORR` reuses the same `fix_correlation_id`
+(`FIX_CORR="${2:-${RESUBMIT_CORR:-}}"` in `097`), so the trailer stays honest and `098` will credit
+the commit when round 2 lands. **If you have already committed, resubmit on the trail, never
+fresh.**
+
+**The second fact, which I nearly conflated with the first: that roll did NOT ship this change.**
+Both services came up on `7a1887e31`; my commit `5639a1103` sits **3 commits after** that build
+point. Checked, with a control, rather than inferred:
+
+```
+git merge-base --is-ancestor 5639a1103 7a1887e31   -> false   (not in the build)
+git merge-base --is-ancestor 7a1887e31  HEAD       -> true    (control: the check works)
+```
+
+Watching a roll happen tells you nothing about whether your commit is in it — the build was cut
+before I committed, and the roll that killed my review is the same roll that missed my code. Two
+independent facts about one event.
+
+**One piece of good news, measured:** `agent-chassis` and `browser-runner-adapter` stamped the
+SAME commit 29 seconds apart, so a fleet release rolls the adapter with the chassis. The handoff's
+"roll both services" is **one release, not two** — which also means the version-skew branch I built
+is unlikely to be exercised in practice, and stays as the guard for the case where it is.

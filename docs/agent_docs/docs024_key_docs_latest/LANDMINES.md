@@ -1584,6 +1584,20 @@ source document and the entry points at it.
   run killed by the 23:10 roll, plus the 15:00 kill) — on this tree a >10-minute
   council has roughly coin-flip odds of surviving any given evening; budget the
   resubmit as normal cost, not an anomaly
+- **recurred 2026-08-12, twelve days later and with the same arithmetic** (bugfix_122 lane,
+  corr `a43b63d6`): last `updated_at` **19:13:18Z**, chassis pods `startTime` **19:13:54Z**
+  and **19:14:16Z** — frozen 36 seconds before the first new pod, stuck at
+  `review_tooling_provenance` for 25 minutes. The check and the remedy above both worked
+  unchanged (resubmitted on the same trail; ~300s window already past). Two additions worth
+  carrying: **(1) `RESUBMIT_CORR` preserving the trail id is what keeps an already-pushed
+  `Council-Submitted:` trailer honest** — the commit was made before the kill, so a fresh
+  correlation would have stranded it pointing at a run that can never produce a verdict, and
+  forward-only forbids the amend that would fix it. Resubmit on the trail, never fresh, if you
+  have already committed. **(2) The roll that kills your council is not necessarily the roll
+  that ships your fix.** Both `agent-chassis` and `browser-runner-adapter` came up on
+  `7a1887e31`, seconds apart (so a fleet release does roll the adapter with the chassis — one
+  release, not two); a commit made minutes later sat **3 commits ahead of the build point** and
+  was not in it. Read the stamp, do not infer it from the timing of a roll you watched happen.
 - **source:** 2026-07-31, gauntlet_dead_cta lane; killed runs `45d143e0` (re-fired as
   `e4f81e61`, approved) and `0be8c542` (re-fired as `afd50fd4`)
 - **added:** 2026-07-31, gauntlet_dead_cta lane

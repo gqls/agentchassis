@@ -17,8 +17,25 @@ and stable, and the code that just shipped **does nothing at all** until two ser
 | thing | state |
 |---|---|
 | the retraction | **BUILT + COMMITTED `5639a1103`**, 8 files, HEAD verified to build and test green in a clean `git archive` tree |
-| council | **SUBMITTED, verdict UNREAD** — corr `a43b63d6-da35-4136-9471-88ec6ace799a`, committed with `Council-Submitted:` |
-| is it live? | **NO, and a chassis-only roll will not make it live.** Needs BOTH `agent-chassis` (producer) and `browser-runner-adapter` (adapter). A fresh chassis was being built as this was written |
+| council | **round 1 KILLED BY A ROLL, RESUBMITTED on the same trail** — trail corr `a43b63d6-da35-4136-9471-88ec6ace799a` (unchanged, so the committed `Council-Submitted:` trailer stays honest), round-2 envelope `f9c66274`. Verdict UNREAD. See §1a |
+| is it live? | **NO — MEASURED, not assumed.** Both services rolled 19:13–19:14Z on `7a1887e31`; my commit `5639a1103` sits **3 commits AFTER** that build point, so neither half shipped. `git merge-base --is-ancestor 5639a1103 7a1887e31` → false, with a passing control |
+
+### 1a. The roll of 2026-08-12 19:13Z — what it did and did not do
+
+**It killed the council round.** Last `updated_at` **19:13:18Z**; chassis pods started
+**19:13:54Z** / **19:14:16Z** — frozen 36 seconds before the first new pod, then stuck at
+`review_tooling_provenance` for 25 minutes. This is a known trap with a written remedy
+(`LANDMINES.md`, *"A chassis roll KILLS an in-flight council"*), which was followed: compare
+`updated_at` to pod age, wait out the ~300s post-restart window, **resubmit with
+`RESUBMIT_CORR=`**. Resubmitting on the **trail** rather than fresh is not cosmetic — the commit
+was already pushed carrying `Council-Submitted: a43b63d6`, and a fresh correlation would strand
+that trailer on a run that can never produce a verdict, which forward-only forbids amending.
+
+**It did NOT ship this lane's change**, and the useful general lesson is that those are
+independent facts: the roll you watch happen is not evidence about your commit. Both
+`agent-chassis` and `browser-runner-adapter` came up on the same commit seconds apart — so **a
+fleet release does roll the adapter with the chassis, and step (b) below is ONE release, not two
+separate rolls.** That is measured, and it is the one piece of good news here.
 | 226 `contrast_failure` items | still **parked** `deferred`, `parked_by='migration_389'`, `max(attempt_count)=0`, **0 ever completed** — unchanged, and re-measured this session |
 | register | `WII-016` added (work-item-integrity), index row added. Nothing to drop from `102_coverage_ratchet.txt` |
 | `LANDMINES.md` | one entry added + synced: *a parked (`deferred`) work item is retractable* |
@@ -48,8 +65,13 @@ the handoff's spec makes that test RED — which is how it was proven rather tha
 
 ## 3. NEXT, in order. Do not skip to the unpark.
 
-**(a) Read the council verdict.** `a43b63d6-da35-4136-9471-88ec6ace799a`. The code is already on the
-shared branch, so a REVISE or REJECTED must be answered forward-only, in a new commit.
+**(a) Read the council verdict — round 2.** Trail `a43b63d6-da35-4136-9471-88ec6ace799a` (round 1
+was killed by the roll, not by a judgement — §1a). The code is already on the shared branch, so a
+REVISE or REJECTED must be answered forward-only, in a new commit. **If it has stalled again,
+diagnose before re-firing**: compare its last `updated_at` against
+`kubectl -n ai-persona-system get pods -l app=agent-chassis -o custom-columns='NAME:.metadata.name,START:.status.startTime'`,
+and note the zombie shape EXPIRES after ~4h into a `FAILED` row whose error names a reaper rather
+than the cause. Re-fire on the trail, never fresh.
 ```sql
 SELECT current_step, status FROM orchestration_states
  WHERE collected_data->'input_data'->>'fix_correlation_id' = 'a43b63d6-da35-4136-9471-88ec6ace799a'
@@ -61,8 +83,11 @@ Two things the submission asks the council to rule on explicitly, so read for th
 retraction closes PARKED rows, and **(2)** the §2 correction above. If the verdict turns APPROVED,
 `098` credits the commit automatically — **do not write a `Council-Reviewed:` trailer by hand.**
 
-**(b) Roll BOTH services, and check the stamp PER SERVICE.** Go is inert until rebuilt and rolled;
-`make build-*` builds from committed HEAD.
+**(b) Get it into a release, then check the stamp PER SERVICE.** Go is inert until rebuilt and
+rolled; `make build-*` builds from committed HEAD. **This is ONE fleet release, not two rolls** —
+measured 2026-08-12: `agent-chassis` and `browser-runner-adapter` came up on the same commit 29
+seconds apart. Releases are whole-fleet and the owner runs `make release`. You still check **per
+service**, because a release can straddle sessions' commits (`bugs_open/249`).
 ```bash
 kubectl -n ai-persona-system logs -l app=agent-chassis --tail=300 | grep -m1 'build provenance'
 kubectl -n ai-persona-system logs -l app=browser-runner-adapter --tail=300 | grep -m1 'build provenance'

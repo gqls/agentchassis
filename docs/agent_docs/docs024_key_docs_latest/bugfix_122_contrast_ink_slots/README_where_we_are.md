@@ -531,3 +531,18 @@ wrong answers. I hear a fresh chassis is being built; that is one of the two. Un
 **Nothing needs you today.** The reviewers' verdict is still pending and I'll act on it. The one
 dated thing in the diary is unchanged: Saturday the 16th, when the discovery rota wakes up and we
 find out what it costs.
+
+**2026-08-12, later.** Two things happened with the chassis that went out this evening, and they
+are worth keeping apart because I nearly ran them together. First, it **killed the review** that
+was running on this work — it was thirteen minutes in when the new version came up, and a review
+in progress does not survive that. This is a known hazard with a written remedy, which I followed;
+it is re-submitted and running again. Nothing was lost and it needed no code change. Second — and
+this is the one that matters — **that release does not contain this work.** The build was cut a
+few minutes before I committed, so it went out with three of my commits sitting just behind it. I
+checked that rather than assuming it, because "I watched the deployment happen" tells you nothing
+about whether your own change was in it.
+
+So the position is unchanged from earlier: built, committed, reviewed-pending, and **not live**. It
+goes live on the next release. The genuinely good news from looking is that the two services this
+needs both went out together on the same version, seconds apart — so it is one release that carries
+both halves, not two separate things to coordinate.
