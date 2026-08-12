@@ -3597,3 +3597,43 @@ is real design work — spun into its own pre-plan handoff so a fresh thread can
 without inheriting this lane's whole context:
 `docs/agent_docs/docs024_key_docs_latest/vision_finding_revalidator/HANDOFF_2026-08-11_pre_plan.md`.
 Not claimed by this lane; if this lane picks it up later, check who owns it first.
+
+## 2026-08-12 — ~18h of read-only monitoring confirms round 3's closure held and batch-8 tail is genuinely untouched
+
+Picked up `HANDOFF_2026-08-11_continue_here.md` independently (before finding the entry
+above); found round 2 already REVISE-again on my own DB read, then found — by grepping live
+`*.jsonl` transcripts, not just `git log` — that another session (the one whose entry is
+directly above) was already mid-way through answering the exact same objection. Did not
+duplicate it; ran a session-only 15-minute cron instead (`CronCreate`, job `630c054c`,
+read-only: `git log` diff + a `diagnosis_artifacts` correlation lookup) and reported each
+firing. Recording the outcome because a negative result sustained for this long **is** a
+finding, not just an absence of one:
+
+- **Round 3's approval and closure held for the full ~18h window**, no round 4, no
+  regression — corroborates the entry above from an independent instrument (DB queries run
+  from a separate session, not a re-read of their commit).
+- **Neither batch-8 tail item (`tool-llm-cost-calculator`, `tool-bayesian-ranking`) received
+  a single commit in that window**, despite both names surfacing repeatedly in *other*
+  sessions' live transcripts in the same period. Read that as: multiple sessions read the
+  handoff and considered the work, none committed to it — not as "someone else has it."
+- **Methodology note, logged here rather than left only in chat**: the broad
+  `orchestration_states WHERE collected_data->'input_data'->>'fix_correlation_id' LIKE …`
+  scan twice hit `statement timeout` under fleet load partway through this window. Switched
+  to `diagnosis_artifacts WHERE correlation_id = …` (has a real btree index — see `\d
+  diagnosis_artifacts`) for the same answer, fast, for the rest of the run. Prefer the
+  indexed table when checking a specific correlation's history; reserve the JSONB scan on
+  `orchestration_states` for genuinely unbounded queries.
+- **A second, independent confirmation of the ancestor-grep landmine**: before finding the
+  entry above, this session's first instinct on "is the fresh chassis build caught up" was
+  also to grep the running binary for a target commit's own hex string, got a clean-looking
+  false negative (control absent too), and only caught it by re-deriving the method in
+  `LANDMINES.md` — extract the binary's own 40-hex build stamp (`grep -aoE`, cross-referenced
+  against `git log --all --format=%H`), then `git merge-base --is-ancestor`. Two sessions hit
+  the same wrong turn independently on the same day; the landmine entry is earning its place.
+  Confirmed build `fa078ab3d` (chassis pods up ~21:53Z 08-11, still running at session end
+  ~12:37Z 08-12) is a descendant of `786bc6759` (round 3) and `585e37dad` (the wrapper).
+
+**Handing off rather than starting the batch-8 authoring in this session** — see
+`HANDOFF_2026-08-12_continue_here.md`. This session's context is dominated by the monitoring
+narrative above; the authoring work (RUNBOOK §8–11, a fresh fence, a PLAN, testing, a likely
+council round) reads cleaner starting from a fresh thread than continuing this one.

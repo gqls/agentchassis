@@ -1333,3 +1333,25 @@ it — especially since the note it was inventing turned out to share its filing
 with an unrelated, routine note, so a human could never have told the two apart. Fixed
 that properly rather than patching around it — small change, tested, resubmitted for
 review on the same review thread as before. Waiting on that verdict now.
+
+**2026-08-11/12, a separate session, picked up the same handoff independently.** Found
+the same round-2 rejection above, but by the time I'd worked out what it meant, another
+session (the one who wrote the entries just above) was already answering it. Rather than
+race them to a fix, I set up a simple watch — check every 15 minutes, read-only, no edits
+— and let it run. It paid off quickly: within the first check, that other session's fix
+went to review a third time and was approved and shipped. So the vision-findings feature
+is now properly finished, reviewed and live; nothing left open on it.
+
+After that the watch mostly reported quiet — many checks in a row with nothing new,
+across a long overnight stretch — until you told me a fresh build had gone out and asked
+me to pick back up. I checked: the new build does include everything from this lane, so
+nothing was lost or rolled back. But in that whole overnight stretch, the two remaining
+jobs on this lane's list — a calculator page and a ranking page that still need their
+"does this actually work" checks written — hadn't moved at all, even though several other
+sessions had clearly glanced at them along the way. So they're genuinely free to pick up,
+not secretly claimed by someone who just hasn't committed yet.
+
+Given how much of this session ended up being about the watching rather than the doing,
+I've written a fresh handoff for whoever (or whichever fresh version of me) picks this up
+next, with the two remaining jobs spelled out plainly enough to start straight away rather
+than having to re-read this whole story first.
