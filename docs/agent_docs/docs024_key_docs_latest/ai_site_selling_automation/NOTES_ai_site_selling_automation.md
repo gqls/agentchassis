@@ -749,3 +749,73 @@ blind to collateral damage, because every check was chosen by the same author
 with the same expectation. For any regeneration, diff the invariants — link
 count, image count, component count — and treat whatever you did not intend to
 change as the finding. Full entry in `WRONG_CALLS.md`.
+
+
+---
+
+## 2026-08-12 (close) — the 090 REFUTED my mechanism, and my run was authored so that it almost had to
+
+`090` run `97ef39f0-19df-4935-834d-c80514fbc43e` returned **REFUTED** on the
+claim that renderer-sourced fields fall outside `carryStored` and that is why
+the CTA keys were lost. **Recording it as a visible correction, per the standing
+rule — a refuted verdict is the cheapest place to be wrong, and this one cost
+one run.**
+
+### What still stands, and what does not
+
+- **The DAMAGE is not in question.** I measured it first-hand before any repair:
+  the live `page_components` rows for index/faq/how-it-works/what-you-get heroes
+  and CTA blocks had `cta_url` / `primary_cta_url` / `secondary_cta_url` **absent**
+  (`content_data ? 'cta_url'` → false), and all 7 components rendered **0**
+  anchors. `page_component_history` holds the outgoing rows that still carried
+  the keys. That is unchanged by this verdict.
+- **The MECHANISM is NOT established.** My reading of
+  `sourceResolver.resolve` returning `(nil, true)` for `source: "renderer"`,
+  and of `carryStored` therefore never running, is a plausible reading of the
+  code that the loop declined to accept as the cause here. Treat it as an open
+  question, not a finding.
+
+### The authoring error, which is the part worth carrying
+
+**I repaired the state and then asked the loop to find the damage in it.** The
+verdict's own citations are `page_components.content_data` rows carrying
+`"cta_url": "/contact.html"` — the values *I put back* at 17:23, four hours
+into the incident and sixteen minutes before the run started. Of course the key
+was present; I had restored it. The loop measured a repaired system and
+correctly reported that nothing was missing.
+
+My symptom text asked it to "determine whether a renderer-sourced field can be
+lost from `page_components.content_data`" — a question about the LIVE table,
+which by then no longer held the evidence. The evidence had moved to
+`page_component_history`, and I never pointed the run at it.
+
+> **The general form, and it is a specific one this estate already knows in
+> another costume: your own remedial action can silence the very check you then
+> commission.** The existing lessons are about a detector you disarm by
+> declaring a key, or by filing a row that bumps `updated_at`. This is the same
+> shape at a coarser grain: **fix first, ask second, and the answer is about the
+> fix.** Where a repair is urgent (it was — a live sales site had no buttons),
+> the run must be pointed at the *archive* of the broken state, and the symptom
+> must say plainly that the live table has since been repaired and when.
+
+### What the run DID give, and it is worth more than my hypothesis was
+
+The revised hypothesis corrects something I had wrong about the parent bug:
+**`bugs_open/238` as tracked in the codebase is the dead-URL-CONTROL defect** —
+a section that renders while leaving a URL attribute empty, recorded
+non-fatally on the rerender path — **not** a case of a renderer-sourced field
+being dropped from `content_data`. I had been reading 238 as the latter and
+filing my case under it on that basis.
+
+`next_scope` names where to look next: `dead_url_guard.go`,
+`emitSectionDeadControlItem`, `recordDeadURLControls`. Its cited comment is the
+tell I should have read first — *"DeadURLSlots names sections that RENDERED,
+but with a URL attribute left empty (bugs_open/238)"* — which is exactly the
+symptom I had, described in the codebase, one layer away from where I was
+looking.
+
+**Owed, and NOT done in this session:** a re-run authored against
+`page_component_history` for the 16:37–17:23 window, with the symptom stating
+that the live rows were repaired at 17:23. Until then the cause of the CTA loss
+is **open**, and the corrections above have been made everywhere I asserted it
+(`HANDOFF` §3b, `LANDMINES.md`, `bugs_open/238` §9).

@@ -384,3 +384,36 @@ handling can see, because those fields never reach the missing path at all.
 - **full account:** `docs/agent_docs/docs024_key_docs_latest/ai_site_selling_automation/NOTES_ai_site_selling_automation.md`
   (2026-08-12 "later" entry) and `WRONG_CALLS.md` 2026-08-12 (why five green
   checks could not see it)
+
+### 9.3 CORRECTION 2026-08-12, same day — the mechanism in 9.2 was REFUTED, and 9.2 mis-frames this bug
+
+`090` run `97ef39f0-19df-4935-834d-c80514fbc43e`: **REFUTED**.
+
+**Retract from 9.2:** the claim that `source: "renderer"` fields fall outside
+`carryStored` because `sourceResolver.resolve` returns `(nil, true)` for them.
+It is a plausible reading of the code and it is not established. Do not build a
+fix on it.
+
+**The run is not decisive either, and the reason is my error.** I repaired
+`content_data` at 17:23 and fired the run at 17:39, so its citations are the
+values I had just restored (`"cta_url": "/contact.html"`, sampled fresh). It
+measured a repaired system and correctly found nothing missing. The evidence of
+the loss had moved to `page_component_history`, and my symptom text pointed at
+the live table. **Owed: a re-run against that history for the 16:37–17:23
+window, whose symptom says the live rows were repaired at 17:23.**
+
+**What 9.2 gets wrong about THIS FILE, which matters more than my hypothesis:**
+the run's revised hypothesis is that **238 as tracked in the codebase is the
+dead-URL-CONTROL defect** — a section that RENDERS while leaving a URL attribute
+empty, recorded non-fatally by `recordDeadURLControls` / `emitSectionDeadControlItem`
+on the rerender path — **not** a case of a renderer-sourced key being dropped
+from `content_data`. Its cited tell is the code's own comment:
+*"DeadURLSlots names sections that RENDERED, but with a URL attribute left
+empty (bugs_open/238)"*. `next_scope`: `dead_url_guard.go`,
+`emitSectionDeadControlItem`, `recordDeadURLControls`.
+
+So 9.2 filed a real, measured incident under this number on a reading of the
+number that the loop disputes. **The damage stands; its home may not.** Whoever
+picks this up should decide whether the 08-12 CTA loss belongs here at all, or
+under a new number — and 9.1 (the carry has rolled, §8 is stale) is unaffected
+by any of this.

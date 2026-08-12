@@ -125,12 +125,25 @@ how-it-works 4, what-you-get 4).
   `page_divergence_overwritten` item, and look successful. `SQL_2026-08-12e`
   re-applies the anchors and is idempotent; the deployed files also need the
   same patch pushed to `gqls/vm-sites` (see `b538295` for the shape).
-- **The mechanism is filed for diagnosis, not asserted**: `090` run
-  `97ef39f0-19df-4935-834d-c80514fbc43e`. Read its verdict before building a
-  fix. `bugs_open/238` is the parent bug and its banner is **stale** — it says
-  the carry is "inert until the next roll"; the carry is live (agent-chassis
-  `v1.0.1291` ← `da5a7eb8f`, merge-base verified with controls). This is a gap
-  in the carry's coverage, not an unshipped fix.
+- **The mechanism is OPEN — my hypothesis was REFUTED and the re-run is owed.**
+  `090` run `97ef39f0-19df-4935-834d-c80514fbc43e` returned **REFUTED** on the
+  claim that renderer-sourced fields fall outside `carryStored`. **But the run
+  is not decisive either**, and the reason is my error: I repaired
+  `content_data` at 17:23 and started the run at 17:39, so its citations are
+  the values *I had put back*. It measured a repaired system. The evidence of
+  the loss is in `page_component_history`, and I never pointed it there.
+  **OWED: a re-run authored against that history for the 16:37–17:23 window,
+  whose symptom states plainly that the live rows were repaired at 17:23.**
+  Until then, treat the cause as unknown — the DAMAGE is measured and certain,
+  the MECHANISM is not.
+  What the run did give, and it corrects me: **`bugs_open/238` as tracked in
+  the codebase is the dead-URL-CONTROL defect** (a section that renders while
+  leaving a URL attribute empty, recorded non-fatally on the rerender path),
+  not a content_data key-loss case. `next_scope`: `dead_url_guard.go`,
+  `emitSectionDeadControlItem`, `recordDeadURLControls`. Start there.
+  Separately and still true: 238's §8 banner is **stale** — it says the carry
+  is "inert until the next roll"; the carry is live (agent-chassis `v1.0.1291`
+  ← `da5a7eb8f`, merge-base verified with controls both ways).
 - **`required_links` is now declared on all five pages**, so
   `gate_page_links.py --domain webdesign.uk` covers the whole site rather than
   the guide alone. Run it after any rewrite — and run its `--self-test` first.
