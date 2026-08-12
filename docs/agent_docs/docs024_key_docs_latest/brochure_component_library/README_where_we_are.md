@@ -2511,3 +2511,55 @@ but only tests whether fields are *present*, not whether they are the right *typ
 only one of the two build paths.
 
 Everything is written up in `bugs_open/260` with the evidence and the commands.
+
+---
+
+**2026-08-12, evening — the dark-site fix is confirmed on the new build, and I've looked at what you flagged on fundamentallyai.com.**
+
+The composition repair is now confirmed on the fresh chassis: I asked the running binary what it
+was built from, on both replicas, with a deliberate wrong answer as a control to prove the check
+can fail. It holds. That was the last thing owed on that piece of work, and the review council
+approved the code half earlier today after two rounds of sending it back. Two of those three
+rounds found real faults, including one in code I had written an hour before — so the rounds
+earned their cost.
+
+**On the copy.** You are right, and it is worth saying exactly how right, because the pattern is
+mechanical. On the Platform Log page there are seven places where something is defined by what
+it is not: "not a demo to admire", "not a guarantee", "rather than a verdict", "not a forecast",
+"not make it for you", "rather than the message", "not summarised after the fact". That is one
+in almost every entry. A reader does not consciously notice any single one, but seven of them in
+a column is the thing that reads as machine-written.
+
+**I did not invent a rule, because you had already made one.** On the 11th, reading the
+mortgage calculator site, you said defining the guides by what they are not was needlessly
+negative. That went into that site's spec as "say what a thing is, not what it is not". It
+simply never reached this site.
+
+**The cause is our own instructions, not the writing.** The spec for this site gives the writer
+four example sentences to imitate, and three of them use exactly this shape — "the decision
+record is real, not a log entry", "not a marketing story", "not a promise". The heading example
+does it too. So the writer is doing what it was shown. This is the same finding as the mortgage
+calculator evening: the fault was in a rule I wrote, not in the sentence it produced.
+
+One thing I want to protect while fixing it: those tool guides are being *honest*. Saying an
+estimator gives you a starting figure rather than a forecast is correct and should stay. The
+problem is only that the site has been taught one way to be honest, and it is the cold way.
+"Treat the result as a starting conversation" says the same thing warmly.
+
+I have **not** changed it yet, and I have stopped rather than start it half-finished, because
+there is a trap: the writer reads a single flattened copy of the spec, and editing the
+underlying fields without regenerating that copy would look like a fix and change nothing. That
+is the kind of thing to do at the start of a session, not the end of one.
+
+**On the tools.** Also right, and slightly worse than you said. The Platform Log has six guides
+explaining how to use six tools. Between them they link to **none** of the tools they describe.
+The only tools link on the whole page is in the footer, and it reads "Llm Cost Calculator" —
+something has title-cased an acronym. And there is no Tools entry in the top navigation, so a
+reader who wants to try one has no route from the site's own furniture.
+
+I have filed that with the experience loop with all three asks and the measurements. One honest
+caveat: filing it puts it in the queue but does not start it — that loop has no scheduler and
+needs an explicit nudge, which is the first thing to do next.
+
+Everything is written up in a handoff so this can continue in a fresh conversation without
+losing any of it.
