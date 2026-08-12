@@ -111,6 +111,122 @@ roll**, self-healed. The reason it is worth filing anyway: with …6832 at 1.34 
 of headroom, the same event on two nodes at once during a roll would leave a
 deployment short for as long as the pressure lasts, and nothing alerts on it.
 
+## 🚨 2026-08-12 20:45Z — **HEADROOM HAS MORE THAN HALVED IN 3.3 HOURS. CANDIDATE 1b IS BUILT AND COMMITTED. AND ONE MORE ONE-LINE OWNER LEVER EXISTS THAT NOBODY HAD FOUND.**
+
+### The number that matters: fleet-worst headroom is **0.60 GB**, down from 1.73
+
+`[MEASURED 20:45Z]` Same method as the 17:27Z block — kubelet `stats/summary`,
+`node.fs.availableBytes` minus 15% of capacity — so the two columns are directly
+comparable, checked not assumed.
+
+| node | above evict 17:27Z | **above evict 20:45Z** | Δ | images 17:27→20:45 |
+|---|---|---|---|---|
+| …1148 | 2.00 | **0.73** | −1.27 | 15.1 → 16.0 |
+| …1149 | 1.73 | **0.60** | −1.13 | 16.5 → 17.2 |
+| …6832 | 8.22 | 7.18 | −1.04 | 10.5 → 11.2 |
+| …6833 | 1.80 | **0.79** | −1.01 | 15.9 → 16.7 |
+| …1336 | 3.27 | 2.99 | −0.28 | 14.6 → 14.9 |
+
+**Fleet-worst is now WORSE than at filing** (1.34 GB on 08-11 12:25Z) and worse
+than the 0.82 GB low that prompted candidate 1. **Three of five nodes are under
+0.8 GB.** Every node lost ground and images grew on every node — this is not
+redistribution, it is accumulation. `DiskPressure` is still `False` everywhere and
+no pod has been rejected since; **the margin, not the symptom, is what has moved.**
+
+The trend across four measurements: 1.34 (08-11 12:25Z) → 0.82 (08-12 12:37Z) →
+2.81 (13:00Z, after candidate 1) → 1.73 (17:27Z) → **0.60 (20:45Z)**. Candidate 1's
+gain was real and has been entirely consumed by image growth in seven hours.
+
+### ✅ Candidate 1b is DONE as code — committed `85e8818dd`, NOT applied
+
+Both runner deployments now carry a shared pod label `workload: gha-runner` and an
+identical `maxSkew: 1` / `kubernetes.io/hostname` / `DoNotSchedule` /
+`nodeTaintsPolicy: Honor` spread constraint selecting it.
+
+**The shared label is the load-bearing part, and the CONTINUE_HERE brief did not
+say this.** The two deployments carry *different* `app:` values, so the obvious
+implementation — a constraint scoped to `app: github-actions-runner` — would have
+spread that deployment's two replicas and **still permitted the exact pairing that
+opened this bug**: a `github-actions-runner` replica co-located with the *vmsites*
+pod on …1149. A spread constraint is a property of the pod, so both deployments
+must carry it; neither inherits the other's.
+
+Design notes, so nobody re-litigates them: spread over
+`requiredDuringScheduling` anti-affinity because anti-affinity becomes
+unsatisfiable once pods outnumber nodes and hangs `Pending` for ever, where skew
+permits a second pod per node after every node holds one. `DoNotSchedule` over
+`ScheduleAnyway` because `ScheduleAnyway` is another score, and **a score is what
+was already failing to bind** — today's separation was luck, not a rule
+(`affinity: None`, `topologySpreadConstraints: None`, measured 08-12).
+
+Verified before commit: rendered YAML **parsed per container** (trap 1, not
+`grep -c`), `spec.selector` untouched so no immutable-field error, `kubectl diff -k`
+on both overlays is exactly `generation: N→N+1` + one label + one constraint, and
+a **deadlock check** — a 4Gi surge pod fits on all five nodes by request accounting
+(29.8–35.1 GB free against 35.1 allocatable), so `DoNotSchedule` cannot wedge the
+rolling update. Out of council-gate scope (`deployments/`, not `platform|internal|pkg`).
+
+**Applying rolls three CI runner pods, so it is the owner's call, not a thread's.**
+```bash
+kubectl diff  -k deployments/kustomize/services/github-actions-runner/overlays/production/uk_001
+kubectl apply -k deployments/kustomize/services/github-actions-runner/overlays/production/uk_001
+kubectl apply -k deployments/kustomize/services/github-actions-runner-vmsites/overlays/production/uk_001
+# prove it at the pod, not the manifest — the three runners must be on three nodes:
+kubectl -n ai-persona-system get pods -o wide -l workload=gha-runner
+```
+
+### 🆕 Candidate 3 has a SECOND lever, and it is gentler than lowering the threshold
+
+`[MEASURED 20:45Z, all five nodes via /proxy/configz]` **`imageMaximumGCAge: 0s`
+— age-based image GC is DISABLED fleet-wide.**
+
+The 17:30Z block checked `imageMinimumGCAge: 2m0s` and correctly concluded GC is
+not held back by image *age*. That is true and it is **not the whole setting**:
+`imageMaximumGCAge: 0s` means the kubelet will *never* reclaim an unused image on
+age alone. So there is exactly one reclaim trigger fleet-wide — crossing 85% — and
+85% **is** the eviction line. Two independent settings, both pointing the same way.
+
+This gives the owner a third option that the candidate list did not have:
+
+- **3a (on file)** lower `imageGCHighThresholdPercent` 85 → ~70. Reclaims a lot at
+  once, then churns; still only ever acts *under pressure*.
+- **3b (new)** set `imageMaximumGCAge` to e.g. `168h`. Continuously retires images
+  unused for a week **regardless of pressure**, which is the actual shape of the
+  problem here — stale tags accumulating between rolls. Requires the
+  `ImageMaximumGCAge` feature gate, **beta and on by default since 1.30; this
+  cluster is 1.31**, so it is available without enabling anything.
+- They compose, and 3b is the one that stops the margin decaying between rolls.
+
+### ⚠ A trap that bit me mid-session, and would bite anyone measuring images from `kubectl get nodes`
+
+**`.status.images` is CAPPED at `nodeStatusMaxImages`, which is 50 here (verified
+in `configz`), and the truncation is completely silent.** …1148, …1149 and …6833
+each report *exactly* 50 images — that equality is the only tell.
+
+> **CORRECTION — my own claim, made and withdrawn inside this session.** From that
+> truncated list I read "`browser-runner-adapter` caches 8 tags on …1148 and 0 on
+> …1149" and was about to file per-node tag concentration as a finding. **A zero
+> there may simply mean the repo fell off the end of a truncated list.** The
+> counts in the 17:30Z block's chassis-tag note come from the same field and
+> inherit the same blindness — truncation can only ever *hide* tags, so
+> "8 distinct chassis tags, 2.1 GB" is a **lower bound, not a census**. The
+> conclusion it supports ("chassis tag churn is not the problem", ~0.09 GB/tag)
+> survives comfortably at any plausible correction, but it is a bound and should
+> be written as one.
+
+Second, related: **summing `sizeBytes` does not give you disk usage in either
+direction.** Measured, the sum is *smaller* than the kubelet's own `imageFs`
+figure on every node (ratio 0.32–0.70×), because `sizeBytes` is compressed while
+the snapshotter holds layers unpacked — while *separately*, summing tags of one
+repo overstates their marginal cost because they share layers. Two errors pulling
+opposite ways, neither quantified. **A per-image disk census needs the node opened
+as root** (18:30Z block's method), not `kubectl get nodes -o json`.
+
+**Not done tonight, deliberately:** that census means a `kubectl debug node` pod,
+and the node worth opening (…1148) is 0.73 GB from the eviction line. Pulling a
+debug image onto it to measure it is the wrong trade at this margin. It is cheap
+and safe again once headroom is restored.
+
 ## 🔦 2026-08-12 18:30Z — **WE OPENED THE NODE. "OTHER" IS NAMED, AND IT CONTAINS A ONE-LINE FIX WORTH ~3.4 GiB PER NODE.**
 
 Read as root on **…1148 and …1149** via `kubectl debug node/… --profile=sysadmin`

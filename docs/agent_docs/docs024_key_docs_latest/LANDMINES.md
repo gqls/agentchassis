@@ -10021,3 +10021,63 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **relations:** `a count you kept is not a census` · `a complete work item is not a repaired artefact` · concept register WII-009 (the retraction seam) and WII-016 (the first action-side adopter, which populates `batch_id` precisely to make that guard fire)
 - **source:** 2026-08-12, `bugfix_122_contrast_ink_slots`. Building the render audit's own retraction (`5639a1103`), the shipped consequence was that the lane's 226 parked rows now close themselves as each site's weekly audit confirms a repair — correct, and a change in what the park MEANS that would otherwise have been discovered by someone finding the count lower than they left it.
 - **added:** 2026-08-12, bugfix_122_contrast_ink_slots lane
+
+---
+
+## A node's `.status.images` is CAPPED at 50 and truncates SILENTLY — so "that image is not on this node" is a claim `kubectl get nodes -o json` cannot make, and `sizeBytes` is not disk usage in either direction
+
+- **footprint:** `kubectl get nodes -o json`, `.status.images`, `sizeBytes`, `nodeStatusMaxImages`, `/proxy/configz`, `imageFs.usedBytes`, `kubectl get --raw /api/v1/nodes/<node>/proxy/stats/summary`
+- **fires when:** you answer any question of the form "which images / how many tags / how much disk is this repo taking on each node?" from `kubectl get nodes -o json` — the obvious tool, no cluster access beyond read, no pod to create. Typically while chasing disk pressure, tag churn, or "why is this node fuller than that one".
+- **why the wrong result looks exactly right:** the kubelet reports **at most `nodeStatusMaxImages` images, default 50**, and the list is simply cut — no marker, no count, no error. A repo that is genuinely on the node but ranks below the cut **reads as absent**, and absence is the shape of finding you act on ("tag churn is concentrated on node X, prune there"). The only tell is a node reporting *exactly* 50, which looks like an unremarkable round number.
+  Two further traps in the same field, pulling in **opposite directions**, so they do not cancel and neither is safe to ignore:
+  - `sizeBytes` is the **compressed** size while the containerd snapshotter holds layers **unpacked**, so summing it **understates** real disk. `[MEASURED 2026-08-12]` sum-of-`sizeBytes` against the kubelet's own `imageFs.usedBytes` was **0.32–0.70×** across five nodes — i.e. off by up to a factor of three, in the direction that makes a disk problem look smaller than it is.
+  - tags of one repo **share layers**, so summing a repo's tags **overstates** the marginal cost of each extra tag. Eight cached tags at 0.87 GB each is not 6.98 GB of reclaimable disk, and nothing in this field tells you what it actually is.
+- **the check — establish whether you were truncated, then use the right instrument:**
+  ```bash
+  # 1. is the list truncated? exactly-50 is the tell; confirm the cap rather than guessing
+  kubectl get nodes -o json | python3 -c "import json,sys;[print(n['metadata']['name'][-6:], len(n['status'].get('images',[]))) for n in json.load(sys.stdin)['items']]"
+  kubectl get --raw "/api/v1/nodes/<node>/proxy/configz" | python3 -c "import json,sys;print(json.load(sys.stdin)['kubeletconfig'].get('nodeStatusMaxImages'))"
+  # 2. for TOTAL image disk, ask the kubelet, not the image list
+  kubectl get --raw "/api/v1/nodes/<node>/proxy/stats/summary"   # .node.runtime.imageFs.usedBytes
+  ```
+  For a **per-image** census there is no read-only shortcut: open the node as root (`kubectl debug node/<node> --profile=sysadmin`) and measure `/var/lib/containerd`. And note `imageFs.usedBytes` is **exactly the overlayfs snapshotter** — it omits the content store's compressed blobs (5.2–5.7 GiB per node here), so an image costs ~1.4× what the kubelet reports.
+- **the general shape, which is why this is worth an entry:** a truncated list and a short list are the same JSON. Any API that caps a collection turns "not present" into "not present *in the window*", and every reader that does not check the cap inherits the error silently. Before concluding an absence from a collection field, **ask what bounds the collection.**
+- **relations:** `a grep proves absence only for the SPELLING it searches` (same class: an absence is only as good as the instrument's reach) · `a count you kept is not a census` · `a du total is only a total if you could READ every subtree` (the same lane, the same week, and the same lesson about totals that silently omit) · `bugs_open/252`
+- **source:** 2026-08-12, `bugs_open/252` disk-pressure lane. Read "`browser-runner-adapter`: 8 tags on …1148, 0 tags on …1149" off this field and was about to file per-node tag concentration as a finding; three of the five nodes were reporting exactly 50 images. Caught by noticing the round number, not by anything going wrong — which is the definition of the class. The withdrawn claim is logged in `WRONG_CALLS.md`.
+- **added:** 2026-08-12, bugs_open/252 disk-pressure lane
+
+---
+
+## A PodMonitor's numeric `targetPort` keys on the port a pod DECLARES, never the port it SERVES — so a healthy `/metrics` endpoint on an undeclared port is silently never scraped, and the metric still appears in Prometheus because its SIBLINGS carry it
+
+- **footprint:** any `PodMonitor`/`ServiceMonitor` `targetPort:`, `deployments/kustomize/services/agent-chassis/base/podmonitor.yaml`, `deployments/kustomize/services/agent-chassis/base/deployment.yaml`, `containerPort`, `__meta_kubernetes_pod_container_port_number`, `platform/orchestration/actions/spawn_actions.go` (the pod spec that DOES declare 9090), `platform/observability` registrations, `go_sql_*`, `ai_persona_*`
+- **fires when:** you ship a new metric and check that it is scraped — the exact "verify the READER before building" discipline this platform teaches (`bugs_open/040`). Also when you answer "is service X being scraped?" from a Prometheus query rather than from the target list.
+- **why the wrong result looks exactly right:** the operator compiles a numeric `targetPort: 9090` into
+  ```
+  - action: keep
+    source_labels: [__meta_kubernetes_pod_container_port_number]
+    regex: "9090"
+  ```
+  (read verbatim from `/etc/prometheus/config_out` on the live Prometheus, job `podMonitor/ai-persona-system/agent-chassis/0`). That arm matches the port the pod **declares in its spec**. A pod can serve `:9090` perfectly and never declare it — Kubernetes does not require the declaration, and nothing warns. The pod passes the `app` label arm, gets dropped at the port arm, and **never becomes a target at all**, so there is no DOWN target, no scrape error, and nothing to alert on.
+  The reason this is worth an entry rather than a footnote: **the metric is present in Prometheus anyway.** One selector covered two pod shapes here (`app in (agent-chassis, dynamic-agent)`); the spawned agents declare 9090 (`spawn_actions.go`) and were scraped throughout. So `go_sql_max_open_connections` returned **108 healthy series** — a confident, plentiful, entirely real answer that contained **zero** rows from the two pods the instrument was built for. `[MEASURED 2026-08-12, v1.0.1293]` 0 of **141** active targets across every scrape pool was an `agent-chassis-*` pod, while both chassis pods served `go_sql_max_open_connections{db_name="clients_db"} 12` when fetched directly.
+  The second trap sits on top: the `job` label is the **PodMonitor's name**, not the app's. Every one of those 108 spawned-agent series is labelled `job="ai-persona-system/agent-chassis"`. Reading the target list for `health:"up"` and seeing that job is how a prior session recorded "both chassis pods are up" into a handoff **and into the concept register**, where council seats read it as ground truth.
+- **the check — never ask the metric, ask the target list, and filter on the POD:**
+  ```bash
+  # 1. is the pod you mean actually a target? (the only question that matters)
+  kubectl -n monitoring exec prometheus-kube-prometheus-stack-prometheus-0 -c prometheus -- \
+    wget -qO- 'http://localhost:9090/api/v1/targets' \
+  | python3 -c "import json,sys;a=json.load(sys.stdin)['data']['activeTargets'];h=[x for x in a if x['labels'].get('pod','').startswith('agent-chassis-')];print('total',len(a),'matching',len(h));[print(x['scrapePool'],x['labels']['pod'],x['health']) for x in h]"
+  # 2. does the pod DECLARE the port? (the arm that drops it — compare the two shapes)
+  kubectl -n ai-persona-system get pod <pod> -o jsonpath='{.spec.containers[*].ports}{"\n"}'
+  # 3. does it SERVE the port? (proves it is discovery, not a closed port)
+  kubectl -n monitoring exec prometheus-kube-prometheus-stack-prometheus-0 -c prometheus -- \
+    wget -qO- --timeout=8 "http://<podIP>:9090/metrics" | grep -E '^go_sql_'
+  # 4. read the arm itself rather than reasoning about targetPort semantics
+  #    /etc/prometheus/config_out/prometheus.env.yaml -> the job's relabel_configs
+  ```
+  A query that returns series is **not** step 1. `count by (pod)` is the cheapest way to be sure your pod is in there — and if you filter by pod and get an empty vector while the unfiltered query is healthy, that empty vector IS the finding, not a syntax error to work around.
+- **do not 'fix' this by switching the endpoint to a port NAME.** That was the original author's rejected alternative and it fails the same way from the other side: the two pod shapes would then have to agree on the name for ever. Fix it at the honest end — **declare the port the container actually serves**, which is what `spawn_actions.go` already does for spawned pods. `deployment.yaml` now declares `9090 name: metrics` (2026-08-12).
+- **and note the object is live but UNMANAGED:** `base/kustomization.yaml` lists only `deployment.yaml`, so `podmonitor.yaml` is in git and in the cluster but **not in the kustomize build** — `kubectl kustomize …/overlays/production/uk_001` renders ConfigMap/Deployment/Role/RoleBinding and no PodMonitor. It was hand-applied per its own header. Nothing reconciles it, so file-vs-live drift here is silent in both directions.
+- **relations:** `a grep proves absence only for the SPELLING it searches` and `A node's .status.images is CAPPED at 50` (same class — an answer bounded by an instrument's reach, presented as complete) · `logs deploy/X reads one pod of N` and `-l app=<subsystem> may be the WRONG SERVICE` (same class — a label that looks like the service is not the service) · `a post-fix ZERO needs a DEMAND control` · `A concept-register STATUS line is a snapshot that outlives its truth` (this is how one got written) · `bugs_open/040` (the metrics endpoint) · concept register SYS-091
+- **source:** 2026-08-12, dispatch/pool lane, D2's post-roll check (`bugs_closed/246` follow-up). The instrument was built, council-APPROVED, mutation-tested and confirmed serving `12` on both pods — and was unscraped the whole time. The check that caught it was filtering the query by pod name; the check that would have caught it a day earlier was reading the target list for the pod rather than for the job. The prior session's inverted claim ("the numeric target is what makes the scrape work, do not tidy it") is corrected in `podmonitor.yaml`, in SYS-091 and in the lane handoff.
+- **added:** 2026-08-12, dispatch/pool lane (bugfix_239 / D2)

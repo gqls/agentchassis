@@ -29901,3 +29901,49 @@ to an event whose time is independently verifiable and let the reader do the ari
 The corrections here do the latter: "between the 19:13Z roll and commit `580af7ff0`
 (19:46Z)" cannot drift, because both ends are checkable and neither is my recollection of a
 wall clock.
+
+---
+
+## 2026-08-12 — `bugs_open/252` — "that image isn't cached on this node" read off a list that was silently cut at 50
+
+**The claim.** Chasing what had eaten a gigabyte of headroom per node in three hours, I
+measured per-repo image caching from `kubectl get nodes -o json` and stated, in chat,
+that `browser-runner-adapter` was **concentrated on one node — 8 cached tags on …1148,
+2 on …6833, 0 on the other three**. I was one edit away from filing per-node tag
+concentration as a new finding in the bug file, with "prune there" as the implied action.
+
+**Why it was false.** `.status.images` is capped at `nodeStatusMaxImages` — **50 by
+default, 50 here, verified in `configz`** — and the kubelet truncates the list with no
+marker and no error. Three of the five nodes were reporting *exactly* 50 images. A repo
+ranking below the cut reads as **absent**, which is precisely the shape of claim I made.
+The zeroes were not measurements of anything.
+
+**What caught it.** Not the claim itself — it was internally consistent and plausible
+(concentrated tag churn is a real thing that really does happen). I was computing
+something else entirely, the ratio of summed `sizeBytes` to the kubelet's `imageFs`
+figure, and printed the image count per node alongside it as a sanity column. Three
+nodes reading exactly 50 is a suspicious round number. **The finding was a side effect
+of a different question**, which is the second time this week in this lane that the
+check which mattered was not the check I set out to run.
+
+**The aggravating detail.** The 17:30Z block of the same bug file already carried a
+figure from this same field — "8 distinct chassis tags cached fleet-wide, 2.1 GB" — and
+I had re-measured it tonight and reported it as a *third* confirmation that chassis tag
+churn is not the problem. Three measurements, one instrument, the same blindness every
+time. The conclusion happens to survive (truncation can only hide tags, and at ~0.09 GB
+each the ranking does not move), but I recorded it as corroboration when it was the same
+measurement repeated. **Re-running a query is not re-measuring** — already in memory as
+a lesson, and I did it anyway while explicitly congratulating myself on the third check.
+
+**The cheap check.** Before reading an absence out of any collection field, ask what
+bounds the collection: `len(images)` per node against `nodeStatusMaxImages` from
+`/proxy/configz` — two commands, and an exactly-at-the-cap reading means the field
+cannot answer the question. Generalised: **a truncated list and a short list are the
+same JSON.** Filed as a LANDMINE against `.status.images` / `sizeBytes` /
+`nodeStatusMaxImages`, with the two `sizeBytes` errors that pull in opposite directions.
+
+**What did NOT go wrong, recorded because the near-miss makes it look lucky.** The
+withdrawn claim never reached a durable doc — it was caught between the chat statement
+and the file edit. The number that *did* go into the bug file tonight (headroom
+0.60 GB) comes from `stats/summary`, a different instrument, and was taken by the same
+method as the figures it is compared against, which was checked rather than assumed.

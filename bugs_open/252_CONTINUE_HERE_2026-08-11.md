@@ -1,10 +1,19 @@
 # CONTINUE HERE — the disk-pressure lane (`bugs_open/252`)
 
-**Last updated 2026-08-12 17:35Z.** Cold-start handoff for a new chat. The bug file
+**Last updated 2026-08-12 20:55Z.** Cold-start handoff for a new chat. The bug file
 (`252_HANDOFF_2026-08-11_disk_is_invisible_to_the_scheduler…`) holds the evidence and
 the fix candidates; **this file holds only what is still owed and what will mislead
-you.** Read the bug file's newest block — `🔎 STATE AS OF 2026-08-12 17:30Z` — first;
-it re-ranks the candidates and everything below assumes it.
+you.** Read the bug file's newest block — `🚨 2026-08-12 20:45Z` — first; it re-ranks
+the candidates again and everything below assumes it.
+
+> **⚠ THE MARGIN IS THE STORY NOW, AND IT IS GOING THE WRONG WAY.** Fleet-worst
+> headroom above the hard eviction line, same method each time: **1.34 GB** at filing
+> (08-11 12:25Z) → 0.82 (08-12 12:37Z) → 2.81 (13:00Z, after candidate 1) → 1.73
+> (17:27Z) → **0.60 GB (20:45Z)**. Three of five nodes are now under 0.8 GB, images
+> grew on all five, and **candidate 1's entire gain was consumed in seven hours.**
+> Nothing has failed yet — `DiskPressure` is `False` fleet-wide and no pod has been
+> rejected since 08-11 — but every remaining lever is an **owner action**, and the two
+> cheapest ones are each one line. That is the ask; see below.
 
 ## Where this came from
 
@@ -46,20 +55,42 @@ print(sum(1 for p in d['items'] if p['status'].get('phase') in ('Running','Pendi
 
 ## What is still owed, in the order the measurement now supports
 
-**Candidate 3 — lower `imageGCHighThresholdPercent` to ~70 (low ~60).** Highest
-actionable leverage: images are 10.5–16.5 GB per node and are reclaimable in
-principle, but at 85 the kubelet cannot start reclaiming until it is already at the
-eviction line. Re-verified 17:30Z as still `85/80` with
+**Candidate 3a — lower `imageGCHighThresholdPercent` to ~70 (low ~60).** Highest
+actionable leverage: images are **11.2–17.2 GB per node** (re-measured 20:45Z, up
+from 10.5–16.5 at 17:27Z) and are reclaimable in principle, but at 85 the kubelet
+cannot start reclaiming until it is already at the
+eviction line. Re-verified **20:45Z on all five nodes** as still `85/80` with
 `evictionHard.imagefs.available: 15%` and `imageMinimumGCAge: 2m0s` — so GC is held
 back **only** by the threshold, not by image age. **This is a kubelet/node-pool
 change, i.e. an owner action, not a thread's.**
 
-**Candidate 1b — give the runners a `topologySpreadConstraints` or `podAntiAffinity`.**
-Cheap, manifest-only, unowned, and nobody has started it. Today's good placement is a
-**scheduler score, not a rule**: measured 13:00Z, `github-actions-runner` has
-`affinity: None` and `topologySpreadConstraints: None`, and with 35.1 GB allocatable
-per node putting both 4Gi replicas back on one node stays entirely legal. The next
-roll may quietly undo candidate 1's main win and nothing would report it.
+**Candidate 3b — set `imageMaximumGCAge` (NEW, and it is the better half of 3).**
+`[MEASURED 20:45Z, all five nodes]` **`imageMaximumGCAge: 0s` — age-based image GC is
+DISABLED fleet-wide.** The 17:30Z block checked `imageMinimumGCAge` and rightly said
+age is not holding GC back; that is true and it is not the whole setting. With
+`maxAge` at 0 there is exactly **one** reclaim trigger — crossing 85% — and 85% *is*
+the eviction line. Setting it to e.g. `168h` retires week-old unused images
+**regardless of pressure**, which is the actual shape here: stale tags piling up
+between rolls. Needs the `ImageMaximumGCAge` gate — **beta and on by default since
+1.30, cluster is 1.31**, so nothing to enable. Composes with 3a; 3b is the one that
+stops the margin decaying between rolls. Owner action (kubelet config).
+
+**✅ Candidate 1b is DONE as code — committed `85e8818dd`, awaiting an apply.** Both
+runner deployments now carry a shared `workload: gha-runner` pod label and an
+identical `maxSkew: 1` / hostname / `DoNotSchedule` / `nodeTaintsPolicy: Honor`
+spread constraint. **The shared label is the load-bearing part and this brief got it
+wrong** — the two deployments have *different* `app:` values, so the obvious
+`app: github-actions-runner`-scoped constraint would have spread that deployment's
+replicas and **still allowed the pairing that opened 252** (a runner replica beside
+the *vmsites* pod). Verified by parsing the rendered YAML per container, `kubectl
+diff -k` clean (`generation` + label + constraint, nothing else), selector untouched,
+and a deadlock check — a 4Gi surge pod fits on all five nodes by request accounting.
+**Applying rolls three CI runner pods, so it is an owner action:**
+```bash
+kubectl apply -k deployments/kustomize/services/github-actions-runner/overlays/production/uk_001
+kubectl apply -k deployments/kustomize/services/github-actions-runner-vmsites/overlays/production/uk_001
+kubectl -n ai-persona-system get pods -o wide -l workload=gha-runner   # must be 3 pods, 3 nodes
+```
 
 **Candidate 5 — set `SystemMaxUse=512M` in `/etc/systemd/journald.conf`. NEW, and it
 is the cheapest and biggest item on the list.** `[MEASURED 08-12 18:30Z on …1148 and
@@ -68,8 +99,10 @@ consumer on both — because `journald.conf` contains nothing but `[Journal]` an
 default `SystemMaxUse` is *min(10% of filesystem, 4 GiB)*; 10% of 38.6 GiB = 3.86 GiB
 and both nodes sit on it to within 10 MiB. Capping at 512M returns **~3.4 GiB per
 node** (`[EXTRAPOLATED]` ~17 GiB fleet — three nodes were not opened), against
-current headroom of 1.7–2.0 GiB. It roughly **triples** the margin on the tight
-nodes, for one line. Owner's call (node config). Check `journalctl --disk-usage` and
+**current headroom of 0.60–0.79 GB on the three tight nodes** (re-measured 20:45Z;
+this line previously read 1.7–2.0 GiB and that is now badly out of date). At tonight's
+margin it does not triple the headroom — **it multiplies it by roughly five**, and it
+is still one line. Owner's call (node config). Check `journalctl --disk-usage` and
 the oldest retained entry first; reclaim with `journalctl --vacuum-size=512M`.
 
 > **The "what is other?" question is ANSWERED — do not re-open it.** On …1148, of
@@ -124,13 +157,44 @@ pricing it.
    --profile=sysadmin`, send stderr to **stdout, never `/dev/null`**, and
    **reconcile against `df` before believing any total.** The discrepancy is the only
    thing that catches it. Delete the debug pod afterwards.
-8. **One clean roll is not proof.** The 08-12 ~14:55Z chassis roll produced no
+8. **`kubectl get nodes -o json` CANNOT census images — `.status.images` is capped at
+   `nodeStatusMaxImages` (50 here) and truncates SILENTLY.** The only tell is a node
+   reporting *exactly* 50; three of ours do. A repo showing **0 copies on a node may
+   simply have fallen off the end**. This caught me mid-session: I read
+   "`browser-runner-adapter`: 8 tags on …1148, 0 on …1149" off that field and nearly
+   filed per-node tag concentration as a finding. Any tag count from this field is a
+   **lower bound**, never a census — including the 17:30Z chassis-tag figure, whose
+   conclusion survives but whose number is a bound.
+   Also: **summing `sizeBytes` is not disk usage in either direction.** The sum is
+   *smaller* than the kubelet's `imageFs` figure on every node (0.32–0.70×) because
+   `sizeBytes` is compressed and the snapshotter is unpacked — while separately,
+   summing one repo's tags overstates their marginal cost because they share layers.
+   **A real per-image census needs the node opened as root** (the 18:30Z method).
+   Deliberately not done tonight: it means a `kubectl debug node` pod, and the node
+   worth opening (…1148) is 0.73 GB from eviction — pulling a debug image onto it to
+   measure it is the wrong trade at this margin. Cheap again once headroom recovers.
+9. **One clean roll is not proof.** The 08-12 ~14:55Z chassis roll produced no
    rejection and no `DiskPressure`, which is encouraging and nothing more — the
    original failure was intermittent and no failure rate has been established. The
    `FailedScheduling` on `alertmanager-…-0` is an **unbound PVC**, a different
    mechanism — not ours.
 
-## One loose end with a correlation to chase
+## ✅ The loose end is CLOSED — both verifier verdicts are in, neither refutes anything
+
+`[CHECKED 20:45Z]` Entry 2 (the `du` landmine, corr `253cf06c`) returned
+**`NEEDS_HUMAN_REVIEW` at 18:50Z — exactly as predicted below**, and for exactly the
+predicted reason: "the entire footprint … lives outside the .go-only code index and
+could not be mechanically confirmed or contradicted; the entry is internally
+consistent but unverifiable from available evidence" (6 checks, 1 matched, 5 matched
+nothing in scope). Entry 1 stands at `STILL_VALID` with 2 of 4 checks NOT ANSWERABLE.
+
+**No refutation, so no entry needs correcting and nothing is owed to `WRONG_CALLS.md`
+from this.** Both entries' substantive claims rest on the first-hand cluster
+measurement, as the note below already says. The prediction landing is mild evidence
+the model of the verifier is right: **for a landmine about DB behaviour, shell tools
+or kubectl, this verifier confirms vocabulary and nothing more.** Do not re-dispatch.
+
+## The original note on that loose end (kept — its reasoning is the reusable part)
 
 Two LANDMINES entries were filed from this lane on 2026-08-12, both synced to
 `doc_notes`:
@@ -176,16 +240,22 @@ WHERE categories ? 'landmine-verification' ORDER BY created_at DESC LIMIT 3;
 
 ## The honest summary line
 
-**Candidate 1 is done, live and proven — the fleet requests disk, and the two big
-consumers are on separate nodes.** But the lane is not fixed and 252 stays OPEN:
-requests are scheduled against 35.1 GB allocatable while real free space is
-7.9–14.4 GB, and fleet-worst headroom has drifted back to **1.73 GB with three of
-five nodes now under 2.0 GB**.
+**Candidates 1 and 1b are done — 1 live and proven, 1b committed and awaiting an
+apply.** Between them the fleet requests disk and the two big consumers are separated
+by a rule rather than by luck. **That is the whole of what a thread can do here, and
+the lane is not fixed.** 252 stays OPEN.
 
-**The best remaining move is the cheapest one and nobody has made it yet:** journald
-is sitting at its default cap holding ~3.87 GiB on every node measured, and capping
-it returns more disk than candidates 1 and 2 could ever address combined. That is
-candidate 5, it is one line, and it needs the owner.
+**Every remaining lever is node configuration, i.e. the owner's.** And the margin is
+now the urgent part: fleet-worst headroom is **0.60 GB**, worse than at filing, with
+three of five nodes under 0.8 GB and images growing on all five. Candidate 1's gain
+was consumed in seven hours.
+
+**Two one-line owner changes would each return more disk than everything a thread can
+reach, combined:** candidate 5 (`SystemMaxUse=512M` — journald is sitting on its
+default cap at ~3.87 GiB per node) and candidate 3b (`imageMaximumGCAge=168h` —
+age-based image GC is **disabled fleet-wide**, so the only reclaim trigger is the
+eviction line itself). Neither has been made. **Nothing has failed yet; the margin
+protecting us from the next failure has.**
 
 > **Claim-shape lesson kept deliberately.** This line has read "one-third done",
 > then "one-fifth done", then "done" — the denominator changed from 3 deployments to
