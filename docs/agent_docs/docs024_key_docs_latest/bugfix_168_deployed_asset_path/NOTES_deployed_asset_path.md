@@ -2903,3 +2903,77 @@ used it — the ceiling is that seat's tooling tier, not the index.
 
 `guardian` LOW (edit 1): the SQL→Go locked-skip move "always risks widening what flows through if the
 `continue` is misplaced" — already risk 5 in the submission, restated rather than a new finding.
+
+### The claim-granular gate — built 2026-08-12, and the seat's own fix was the wrong one
+
+Owner chose "build the tighter check first, then let one round carry both". Built, committed
+**`58bede8d5`**, submitted as round 6 (orchestration `ec2b87a6-d695-4a78-9255-f488ab0fe859`).
+
+**What it does.** `resolved` now requires, on top of the owner's timestamp gate, that **every text
+the finding cited is absent from the slot it was cited from**. `ClaimsPageScan.ExaminedTextBySlot`
+holds the copy actually read (EXAMINED components only, keyed by `slot_name`, recorded *before* the
+scans run so the text held is the text the scans were given). The revalidator reads the item's own
+`spec.findings[].matched`. Three refusal arms, all non-terminal: still present → `still_holds`;
+cited slot not among the examined components → `unknown`; no usable finding text → `unknown`.
+
+#### The measurement that chose the mechanism — and refuted the seat's own proposal
+
+`compliance` asked for *"the specific finding's cited snippet (or its containing DOM/text node)"*.
+Before building it, I measured both candidates against the **demand control** — items whose verdict
+is `still_holds`, where the claim is *by definition* still on the page:
+
+| candidate | sees the claim when it IS there (n=41) |
+|---|---|
+| slot-scoped **`matched` token** | **40 / 41 — 97.6%** |
+| slot-scoped **`snippet`** | **18 / 41 — 43.9%** |
+
+A snippet is long enough that any whitespace or markup churn breaks the match — **and in this gate a
+missed match reads as "the copy changed", which GRANTS `resolved`.** Shipping the seat's literal
+suggestion would have made the gate **fail open on ~56% of claims: strictly worse than the timestamp
+it was meant to strengthen.** The token ships.
+
+**This is the general lesson and it is worth more than the fix:** an objection can be right about the
+*defect* and wrong about the *remedy*, and the remedy is the half you can measure. Answer the
+objection; do not transcribe it.
+
+#### ⚠ A reading I nearly filed, and had to retract
+
+My first pass searched for `matched` **page-wide** and found **7 of 18** cited texts still present on
+the 8 closed items. I was one step from writing up *"the new gate would have refused 4 of 8 closures,
+so compliance's objection is demonstrably live"* — a striking, quotable claim.
+
+It was an artefact of my method. Every one of the 7 was **1–4 characters** (`5`, `26`, `50`, `97`,
+`100%`, `362`, `51%`), and a bare number matches almost anywhere in a page's markup; every
+*distinctive* token (`independently verified` at 22 chars, `90,790+`, `3,419`, `7843`) was genuinely
+gone. Scoped to the slot the count falls to **2**. **The check I had written could not have come out
+any other way** — which is the `[MEASURED]`-but-not-disconfirmable trap, in the very session that
+logged another instance of it in `WRONG_CALLS.md` this morning. What caught it was looking at the
+*strings* rather than the count: **assert row identity, not row count.**
+
+#### Both gates AND, and that is a governance choice
+
+The claim check is the *stronger* evidence of the two — a token that has left its slot **proves** the
+copy moved, where a timestamp only asserts it. So it could reasonably *replace* the owner's gate. It
+does not, deliberately: **adding a condition in front of an owner-mandated control needs no new
+ruling; removing his comparison would.** Recorded as an open question for the owner in `risks` and in
+CQ-021, not decided by a thread.
+
+#### Mutation-tested, because a green suite is not evidence
+
+Three mutations, each against the real package: disabling the still-present arm, disabling the
+unjudgeable arm, and making the match case-sensitive. **Each fails exactly the test written to catch
+it**, and the restored code is green. Note also that `TestUnverifiedClaimsNeverResolvesWhenTheFlagged
+TextIsStillThere` passes `changedAfter` **deliberately**, so the owner's gate is *satisfied* and only
+the new gate can refuse — a test that passed because the timestamp refused would assert nothing.
+
+> **CORRECTION to §4 of the 08-11 handoff:** `platform/orchestration/actions` no longer has failing
+> tests. `TestEveryCheckProducedItemTypeIsClassified` passes at HEAD; another session fixed it. The
+> full package is green, so that caveat is retired rather than inherited.
+
+#### Deploy state, re-grounded immediately before firing (the fleet rolled TWICE since round 5)
+
+**v1.0.1290**, 23 of 23 Running pods, one digest `sha256:b69237df`. `ownergate=1` (edits 1–8 live),
+**`claimgate_NEW=0 rc=1`** — the new gate is *verified* absent from the running binary, not assumed,
+and the `rc=1` is what makes that zero mean "grep ran and found nothing". Round 5's figure
+(v1.0.1288, 41 pods, digest `d080ae14`) was **less than a day old and already wrong on all three**.
+The pod COUNT is churn; **the digest uniformity is the invariant worth citing.**
