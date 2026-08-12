@@ -5,6 +5,21 @@ Supersedes the open question in `brochure_component_library/HANDOFF_2026-08-12_f
 UPDATE-late ("the assembler lead named … Unowned"). That handoff's hypothesis is **refuted as
 stated** and replaced by the mechanism below; its page-rebuild halt is **narrowed**, see §6.
 
+**SPLIT OF OWNERSHIP (owner direction 2026-08-12 — language work lives in ONE thread).** This bug
+has two halves and they belong to different lanes:
+- **The renderer half — the silent fallback — stays here.** Shared rendering plumbing; candidate 1
+  below; wants its own council round.
+- **The writer-output half — that an LLM violated its component's declared field shape and nothing
+  checked — is handed to `copy_quality_two_stage`:**
+  `docs024_key_docs_latest/copy_quality_two_stage/CONTRIB_2026-08-12b_a_json_schema_is_also_just_an_instruction_and_stage_2_inherits_the_hazard.md`.
+  That lane already ruled that set preservation "is not achievable by instruction at all — prose or
+  data — and must be a mechanical check plus a repair step"; this case is the same finding at a
+  formal JSON Schema, so it refutes the "then give the writer the schema" remedy before anyone
+  spends a round on it. **Candidate 2 (type-check `content_data` against `input_schema`) is
+  therefore theirs, not mine** — and its third caller is their stage-2 executor, which supplies
+  agent-written `content_data` and re-renders through this same fallback
+  (`section_editor_actions.go:805,895`) on pages that are already live.
+
 ## 1. Symptom
 
 A page build is refused at `validate_content` with ~20 blockers, all `unrendered_template` /

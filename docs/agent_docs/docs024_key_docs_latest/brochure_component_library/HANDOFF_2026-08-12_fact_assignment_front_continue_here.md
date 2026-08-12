@@ -171,6 +171,16 @@ four sections `[]` in the plan, copy still stating 6 facts). **It was REFUSED at
 > **The section's remaining live value:** its correction of my symptom attribution, and the
 > observation that a 090 conclusion may have nowhere to land — still an open defect worth more
 > than this bug.
+>
+> **⚠ DO NOT work the writer half from this front (owner direction 2026-08-12: language work lives
+> in ONE thread).** `260`'s writer-output half — an LLM violating its component's declared field
+> shape with nothing checking — is handed to `copy_quality_two_stage`
+> (`CONTRIB_2026-08-12b_a_json_schema_is_also_just_an_instruction_and_stage_2_inherits_the_hazard.md`),
+> and that includes `260` candidate 2 (type-check `content_data` against `input_schema`). What stays
+> with this front is the renderer half only. **Practical consequence for §3's factless-arm re-test:**
+> it will keep being refused on `production-backend-engineering` until one of those halves ships,
+> because the writer regenerates the prose `branches` every run — so do not re-dispatch it as though
+> the last failure were transient.
 
 ## UPDATE 2026-08-12 late — the 090 run finished and produced NO locatable verdict. The halt STANDS.
 
