@@ -557,3 +557,17 @@ Full phased plan from this session: `PLAN_2026-08-12_fleet_buildout.md`.
 > config already overrides it. Caught by checking the live row myself before writing to it,
 > not by trusting the secondhand research figure — exactly the kind of drift CLAUDE.md warns
 > a session-start snapshot goes stale within minutes. No action needed for A4.
+
+**Phase A5 check [MEASURED, 2026-08-12]:** bug 251 (canonical) is FIXED, committed
+(`61abbdbd0`, 2026-08-11 16:50) **and confirmed LIVE** — `git merge-base --is-ancestor
+61abbdbd0 ef1374426` is true, `ef1374426` is the only `makefile` (IMAGE_TAG) commit in the
+window and bumped to `v1.0.1291`, and both running `agent-chassis` pods are on
+`v1.0.1291` (started 2026-08-12T14:55Z). Bug 252 (og:/lang) is NOT yet implemented — only
+the locale-mechanism decision has landed (`f666408ed`, "option 3"); no commit touches
+`rerender_single_page_action.go` for og:/lang since 251's fix. Owned and actively worked by
+`loanandmortgagecalculator_couk` (their own handoff: "`bugs_open/251` → then `252`. Order
+matters"), not something to compete with. **Consequence for this plan**: `canonical_mismatch`
+auto-repair (A1) can be enabled once bug 251 is confirmed live — it now is. Bug 252 is not a
+hard gate on Phase C per the plan's own text (informational/pacing only) but re-check its
+status nearer the pilot, since a fresh-built site with dropped `og:` tags on 503+ pages is
+exactly the kind of defect this build-out shouldn't multiply unnecessarily.
