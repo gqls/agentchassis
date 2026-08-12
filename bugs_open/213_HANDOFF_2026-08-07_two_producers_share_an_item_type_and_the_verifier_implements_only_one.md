@@ -663,3 +663,61 @@ symptom — (D) is the one place a cause would be needed and it is left explicit
 undiagnosed rather than asserted. The one generalisation that *was* filed on inference —
 "the fixer cannot repair these" — is the thing this contribution replaces with a
 measurement.
+
+---
+
+## CONTRIBUTION 2026-08-12 from the brochure contrast front (`bugs_open/113` lane) — `css-patch-agent` has NO verification step at all, and that is what is holding 226 parked items
+
+**Filed INTO this file per `who-owns.py`: OWNED. Not a competing fix — a measurement and a
+routing.** I was asked to fix the contrast problem broadly, traced the blocker here, and
+stopped at the boundary.
+
+### The chain, measured today
+
+Migration `389` parked **226 `contrast_failure` items** as `deferred` (owner decision
+2026-08-11) on the explicit ground that *"`bugs_open/213`'s false-complete defect is
+unfixed"* at `css-patch-agent`, and that promoting them would convert an honest backlog
+into 226 false closures. **The park is still in force and the ordering it states — 213
+first — is still correct.** Confirmed today: `contrast_failure` is 226 `deferred`, **0
+complete, ever**, `attempt_count = 0`, never claimed.
+
+### Why your gate does not cover them, specifically
+
+Your verifier is **being exercised now** — the `_verification` population has grown from 26
+rows to 44 since the 08-11 note, and it is catching real things:
+
+| item_type | handler | `_verification.status` | n |
+|---|---|---|---|
+| `unbuilt_internal_link` | `page-build-handler` | verified | 17 |
+| `hardcoded_section_colors` | `color-variable-fixer` | verified | 9 |
+| `literal_markdown` | `page-build-handler` | defect_persists | 9 |
+| `empty_section` | `page-build-handler` | error | 9 |
+
+**`css-patch-agent` appears nowhere in that table, and the reason is structural rather than
+a scope mismatch: its workflow has no verification step of any kind.** Its live steps are
+
+```
+ensure_site_record → load_current_css → check_has_css → plan_css_fix →
+save_css_to_db → check_saved → deploy_css → complete | complete_no_css | complete_error
+```
+
+— three `complete_workflow` terminals and **no `complete_work_item` / verification call**.
+So this is not "the verifier implements one producer's predicate and not the other's" (this
+file's title case). It is a handler that **never enters the verification path at all**, so
+`out_of_scope` cannot fire for it either — which is consistent with your standing note that
+the disclaim status still reads 0.
+
+### What this means for the two files
+
+- **For 213:** `css-patch-agent` is a third case, distinct from the two producers in the
+  title. Whatever shape the fix takes, "wire the verification step into `css-patch-agent`"
+  is the piece that unblocks the largest parked population on the estate.
+- **For 113/122's contrast work:** the broad contrast repair is **gated on exactly this**,
+  and I have deliberately NOT unparked anything. Unparking before `css-patch-agent` can be
+  verified reproduces precisely the failure migration `389` was written to prevent.
+
+**`[UNMEASURED]`, and worth someone checking before designing the fix:** I did not establish
+what `check_saved` actually branches on, so I cannot say whether a no-op patch already
+lands on `complete_no_css` (honest) or on `complete` (false). That distinction decides
+whether the repair is "add verification" or "the branch is already right and only the
+reporting is missing" — and they are very different amounts of work.
