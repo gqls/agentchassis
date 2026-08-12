@@ -660,4 +660,15 @@ process nitpicks. "Revise, don't defend" applied:
   `check_missing_structure.go` — that one checks the DB, this one checks the LIVE served
   page, needs the distinction written up; one objection (claimed `preferredPageURL` doesn't
   exist) already personally verified FALSE — it's real, at
-  `rerender_single_page_action.go:1050`, test-pinned). Not yet resubmitted as of this note.
+  `rerender_single_page_action.go:1050`, test-pinned).
+
+**A1 revision complete and resubmitted [2026-08-12]**: fifth check `sitemap_entry_dead_live`
+built (reuses `probeInternalLinkTargets` verbatim), header sections added distinguishing
+`head_essentials_missing` from `check_missing_structure.go` (DB vs live) and
+`dead_internal_link_live` from five existing DB-only link mechanisms. Commit `9e410ce85`.
+Resubmitted with `RESUBMIT_CORR=51cb66fb...`; verdict pending as of this note.
+
+**A2/RFC_025: APPROVED at round 2** (corr `9fd94852...`, 2026-08-12 20:42). Full detail in
+the RFC file itself (§10). **Phase A's blocking gate is therefore satisfied on the RFC_025
+side** — only A1's resubmitted verdict remains outstanding before Phase A can be called
+fully done.
