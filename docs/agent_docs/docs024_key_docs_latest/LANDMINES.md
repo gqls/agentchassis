@@ -10138,3 +10138,22 @@ code change owed at the next roll, tracked in RFC_015 §5.
   only because I widened the sample and put an assert in the loop; corrected, the count was
   exactly the five reported. Logged in `WRONG_CALLS.md`.
 - **added:** 2026-08-12, bugs_open/263 lane
+
+### Counting wasted diagnosis iterations by the "0 of N in-scope" marker silently folds TWO different bugs into one number — and the phrase that separated them stopped being printed on 2026-08-12
+
+- **footprint:** `diagnosis_artifacts` where `kind='bundle'`, the bundle marker strings `**This section is INCOMPLETE.** 0 of N in-scope` / `did not fit` / `could not be read` / `read it whole`, `platform/orchestration/actions/diagnose_assemble_bundle_action.go` (`overCapAdvice`, the omitted/unreadable summary), any query measuring how often the diagnosis loop got no code back
+- **fires when:** you size "how often does a diagnosis iteration return no code at all" — verifying `bugs_open/267`, or re-sizing the bundle's coverage later. There is no symptom: the obvious query returns a plausible number and nothing suggests it is two numbers added together
+- **the tell is absent, and the wrong answer is roughly double.** `**This section is INCOMPLETE.** 0 of N in-scope` is emitted for **both** discard paths, which are two unrelated bugs with opposite fixes: a body the cap dropped (`267`, still live until a roll) and a body the resolver could not read (`bugs_closed/261`, fixed 2026-08-12). Filtering only on that marker returns **13**; the real cap-only figure is **6 iterations across 5 runs**. 267's own filing session made this mistake first and read 13
+- **the check:** discriminate on the marker WORDS, never on the INCOMPLETE line alone, and always report both so a future divergence cannot hide —
+  ```sql
+  SELECT count(*) FILTER (WHERE body ~ '\*\*This section is INCOMPLETE\.\*\* 0 of [0-9]+ in-scope'
+                            AND body LIKE '%did not fit%' AND body NOT LIKE '%could not be read%') AS cap_only,
+         count(*) FILTER (WHERE body ~ '\*\*This section is INCOMPLETE\.\*\* 0 of [0-9]+ in-scope'
+                            AND body LIKE '%could not be read%' AND body NOT LIKE '%did not fit%') AS resolver_only,
+         min(created_at), max(created_at)
+  FROM diagnosis_artifacts WHERE kind='bundle';
+  ```
+  `did not fit` is the cap; `could not be read` is the resolver. Print the window with the figure — `diagnosis_artifacts` is retention-clocked at `bundle_retention_days` (default 30), so `count(*)` is "still retained", never a census
+- **⚠ AND DO NOT COUNT `read it whole` AT ALL — it means two different things either side of 2026-08-12.** Before 267's fix the phrase was printed unconditionally by the over-cap marker, so it co-occurs with an omitted body **by construction** and is not evidence of anything: it scores 44 where the real figure is 6. After the fix it is printed **only** when the body would genuinely fit on its own — so the same query, unchanged, silently changes meaning from "a body was dropped" to "a body was dropped and re-asking would work". A trend line spanning the roll compares two definitions. The post-fix phrase for the impossible case is `NO next_scope can render this path`, and its count is **0 until the chassis image carrying 267 has rolled** — an empty result there means "not deployed yet", not "never happens"
+- **source:** 2026-08-12, `silent_hero_logo_readers` lane. `bugs_open/267` §4b + §7d; sits alongside the `symbols_omitted_size` NULL entry above (same table, different trap: that one is about `metadata` keys, this one about `body` text)
+- **added:** 2026-08-12, silent_hero_logo_readers lane
