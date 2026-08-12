@@ -218,3 +218,46 @@ is the instrument. I tried the blind check first and rejected it; do not repeat 
 The chassis has rolled twice more since 246 shipped. Re-verified on **`v1.0.1290`**
 (revision `fa078ab3d`): `039cfce84` still an ancestor, negative control holds. The method
 is in §1 of this file — image label, never the pod log.
+
+---
+
+## UPDATE 2026-08-12 (later) — **LANE CLOSED.** 246 moved to `bugs_closed/`; D2 and 259 handed over
+
+### The bug is CLOSED and MOVED — the bar changed under us
+`bugs_closed/246_HANDOFF_2026-08-10_...`. **The owner restored the fixed-AND-live bar on
+2026-08-12**: *"if it is fixed and live it should be moved"* (`2aa3014a3`), superseding the
+08-06 direction that kept finished bugs in `bugs_open/`. Relayed by the 239 lane and
+**verified first-hand at the commit before acting** — a relayed owner ruling that
+contradicts a recorded one is not something to take on trust. Moved with **both paths named
+on the commit** and verified at HEAD (`git ls-tree` returns exactly one line), per the
+`git mv` pathspec landmine. The auto-memory entry still named after the old direction has
+had its `description` corrected; its index line was already fixed by another session.
+
+### D4 — DONE (`871c24665`)
+The three `CHASSIS_*` keys are now in the production overlay. **The safety argument is the
+diff, not care:** I rendered the overlay and diffed its `CHASSIS_*` env against the live
+object — **identical**, so an apply is a no-op for these three. Do the same if you ever
+touch them; a typo here CHANGES live configuration rather than documenting it.
+
+### D2 — HANDED OVER to the `bugfix_239` lane
+They have taken the `db.Stats()` instrumentation on their owner's direction. All five of
+my constraints are recorded verbatim in their cold-start
+(`bugfix_239_dispatch_fail_closed/HANDOFF_2026-08-12_continue_here.md`), including the
+register-not-ratchet obligation. **Do not start a parallel design.**
+
+### 259 — HANDED OVER to the same lane, as 239's continuation
+They re-verified all three sites at source before accepting and confirmed the control-flow
+claim on B. **Note the number is ambiguous** — an unrelated GPU-provisioning `259` was filed
+the same day; resolve by the `three_processor_paths...` slug.
+
+### Still open, and now the only things this lane leaves behind
+- **D1's second half** — the `pgbouncer-userlist` secret's `pgbouncer_admin` line still
+  needs the credential holder. Terraform half is done (`aee444a35`); Runbook §9 has the
+  sequence. Until then `SHOW POOLS` is unreachable and 246's one real risk stays unmeasured.
+- **D3** — `default_pool_size = 15`, gated on D1.
+
+### Worth carrying into any future submission from this lane
+The 239 lane relays that **RFC_023 is RULED: the architecture seat's trigger is BEHAVIOUR
+(the consumer's success path), not diff/package count**, with a standing rider on code
+bloat. That changes how a submission should argue scope — recorded here second-hand, so
+read the RFC before relying on it.
