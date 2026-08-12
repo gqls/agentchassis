@@ -373,3 +373,145 @@ scripts/report-register-version-lag.py --worklist    # + the oldest current-stat
 **The transferable question for the remaining two:** does the signal have a key that does not
 require reading prose? Version lag only became trustworthy when it stopped trying to understand
 sentences and started keying on structure the register already maintains.
+
+---
+
+# UPDATE 2026-08-12b — signals 2 and 3 closed, and the answer to the carried question is NO
+
+*Appended, not rewritten. The 08-10 survey and the 08-12 version-lag update above both
+stand. This settles the last two open signals, and the useful result is a **negative** one
+about the key that made the first signal work.*
+
+## The carried question, answered
+
+`DOC-077`'s own `verify-later` asked whether the two remaining signals "turn out to have a
+comparable field-keyed shape, or whether version lag was the only one with a clean
+mechanical key". **Version lag was the only one.**
+
+The field key does not transfer. Unresolved rates by field:
+
+| field | citations | unresolved |
+|---|---|---|
+| `sources:` | 4,595 | 19% |
+| `what:` | 609 | 25% |
+| `verify-later:` | 716 | 10% |
+| `status-evidence:` | 622 | 23% |
+| `relations:` | 544 | 15% |
+| `status:` | 102 | 12% |
+
+No break anywhere, and the reason is structural rather than statistical: **a citation's
+field says nothing about whether its target moved.** Version lag worked because
+`status:`/`status-evidence:` are current-state claims *by convention*, so the field
+predicted whether the number could expire. Nothing about `sources:` predicts whether a
+file was renamed on 2026-08-04.
+
+**What is total and mechanical here is a different structural key: what git can say about
+the cited target** — at HEAD / moved-but-present / deleted / never existed. It reads no
+prose, it classifies every citation, and the middle two verdicts **name their own repair**.
+
+**And the field key comes back, as SEVERITY rather than as a filter.** An unresolvable path
+means something different depending on where it sits: in `sources:` it is a grounding claim
+nobody can open; in `verify-later:` it is a to-do named wrongly, which is mild by design.
+That ordering is what the report prints, and it is why the four dead citations below are
+listed in that order.
+
+## The measurement — the shape inverts
+
+`scripts/report-register-citation-rot.py` (`DOC-078`), against HEAD `b9b32ba92`:
+
+| verdict | citations | what it means |
+|---|---|---|
+| `AT-HEAD` + `AT-HEAD-DIR` | **5,883 (75%)** | resolves as written |
+| `MOVED-AT-HEAD` | 286 | the file is at HEAD under another path — **printed** |
+| `BUG-MOVED` | 316 | signal 3, and ⚠ still ONE-DIRECTIONAL |
+| `DELETED` (+2 dirs, +3 moved-then-deleted) | 194 | recoverable through git |
+| `MOVED-AMBIGUOUS` | 769 | the file exists; the citation gives only a **bare filename** |
+| `UNJUDGED-DIRSHAPE` / `NEVER-UNROOTED` | 39 / 306 | declared unjudgeable, not counted as defects |
+| **`NEVER-REPO-PATH`** | **4** | **no file, ever, under that name** |
+
+**Four.** In 7,793 path citations across 1,767 entries, four name a repo-rooted file that
+has never existed — and three of those sit in `verify-later:`.
+
+| entry | field | cited | what is actually there |
+|---|---|---|---|
+| `ADP-018` | `sources:` | `bugs_open/158_HANDOFF_2026-08-01_reply_drop_sizing.md` | `bugs_closed/158_HANDOFF_2026-07-30_eight_reply_sites_still_drop_silently…` — right number, wrong directory, wrong date, wrong slug |
+| `VET-006` | `verify-later:` | `platform/orchestration/actions/med_export_json_action.go` | `vet_med_export_action.go` |
+| `SYS-004` | `verify-later:` | `platform/orchestration/sweeper.go` | no such file; the sweeper is a CronJob (`bugs-open-staleness-sweep`) |
+| `HITL-017` | `verify-later:` | `internal/gateway/hitl_handler.go` | no HITL Go file at HEAD at all |
+
+`ADP-018`'s is the one worth a lane's attention: it is precise-looking and wrong in three
+of its four parts, which is exactly the shape `CLAUDE.md` warns about when it says a bare
+bug number is ambiguous and you must resolve by slug.
+
+**So the 96 was not wrong — it answered a different question.** The 08-10 figure asked
+"does this path exist at HEAD?", which is the right question if you want to know what a
+reader can click. Asking instead "can git still find this file?" moves almost all of it:
+the unresolved mass is (a) a house style of abbreviating citations to a suffix or a bare
+filename, and (b) the numbered-docs tree moved on 2026-08-04, one rename from resolving.
+**The register's citations are not rotting. They are abbreviated, and one directory move
+made a lot of the abbreviations stop working at once.**
+
+## Three missteps, and the first two are the same mistake
+
+### 1. My own normalisation manufactured the headline
+
+The `(N)` suffix in citations is an **extraction-unit id** in some places
+(`PLAN_tool_widget_clobber(9).md` — the file is `PLAN_tool_widget_clobber.md`) and
+**genuinely part of the filename** in others (`002e_concept_spark(6).md` and
+`016b_debugging_guide_merged(3).md` are what those files are called on disk). I stripped it
+unconditionally. That converted correct citations into unresolvable ones and produced
+**27 of 34 "never existed" findings**, which arrived sorted by frequency and therefore
+*led the draft*:
+
+> ~~15 entries cite `docs/016b_debugging_guide_merged.md` — the estate's most-read
+> document — at a path that has never existed.~~ **FALSE.** They cite
+> `docs/016b_debugging_guide_merged(3).md`, git has exactly that path, and it was moved on
+> 2026-08-04. The citation was right when written.
+
+It was the most alarming number in the report and it was an artefact of the instrument. I
+had already stated it in chat before the check caught it.
+
+**What caught it:** looking up what the file is actually called before writing down the
+repair. **The cheap check that would have:** never report "no file, ever, under that name"
+without printing the near-miss git *does* have — an absence claim with no near-miss shown
+is unfalsifiable from the output.
+
+### 2. Then the fix had the same shape one level down
+
+Resolving as-cited *and* stripped, I kept the **last** variant's verdict instead of the
+**best** one. So a citation that resolved exactly as written was overwritten by the
+stripped form's failure, and the same 15 entries read as "never existed" for a second time,
+now with the correct logic underneath. Two different bugs, one wrong number, and the number
+never moved between them — which is precisely why a stable figure is not a corroborated one.
+
+### 3. `git rev-list --objects --all` cannot enumerate paths
+
+The first control I wrote — "every path at HEAD must appear in the set of paths that ever
+existed" — **failed**, with 791 of 9,301 HEAD paths missing. The cause is not history: the
+command dedups **by object**, so content-identical files share one blob and only one of
+their paths is ever printed. **791 of 791 of the missing were content-identical duplicates.**
+A path-existence check built on it reports live files as never having existed. Use
+`git log --all --no-renames --pretty=format: --name-only`. In `LANDMINES.md`, because
+nothing about the wrong output looks wrong.
+
+**All three were caught by controls, not by reading the output** — and the two that
+mattered were caught by a control I only wrote because this lane's own doctrine says a
+clean result means nothing unless a dirty one was reachable.
+
+## Where this leaves the survey
+
+| signal | state |
+|---|---|
+| status claims built to expire | settled 2026-08-10 via `BLD-019` build provenance |
+| version lag | **CLOSED 2026-08-12** — `DOC-077` |
+| unresolvable `sources:` citations | **CLOSED 2026-08-12b** — `DOC-078`; 4 dead, the rest abbreviation and one tree move |
+| moved bug references | **CLOSED 2026-08-12b** — `DOC-078` measures it (316 citations); ⚠ still one-directional, and the report says so every run |
+| features awaiting a non-roll condition | 5 — unchanged (`CQ-019`, `PLAN-047`, `PBP-025`, `TL-038`, `TL-040`) |
+
+**What is deliberately NOT done:** none of the 801 repairable citations were rewritten. An
+automated 801-line rewrite across 111 files is the change no reviewer can check, and the
+value of doing it by hand is low — the citations were correct when written and the reader
+can find the file. Whether anyone repairs them at all is `DOC-078`'s own `verify-later`,
+and if the answer in a month is "nobody did", the real fix is a `sources:` convention at
+authoring time (cite a path, not a bare filename), which is the same conclusion the sha
+rule reached: **put the check where the error is made.**
