@@ -1,4 +1,12 @@
-# HANDOFF — bug 122 lane. START HERE. Written 2026-08-12.
+# HANDOFF — bug 122 lane. Written 2026-08-12 (morning).
+
+> **⚠ SUPERSEDED FOR STATE 2026-08-12 (afternoon) — START AT
+> `HANDOFF_2026-08-12b_continue_here.md` INSTEAD.** This file remains the reference for **§2,
+> the owner's two decisions of 2026-08-12 and the 📅 2026-08-16 rotation-pricing action, which
+> is UNCHANGED and still owed.** Its **§3 fork is superseded**: the fork was costed, has no
+> survivor, and the answer is an option it does not list — see the correction banner on §3
+> below, and `HANDOFF_2026-08-12b` §3 for the settled design. Its **§5 row 2 was wrong**
+> (`bugs_open/242` had already shipped); corrected in place.
 
 Supersedes `HANDOFF_2026-08-11_continue_here.md` for **state**. That file stays the reference
 for the sweep episode (cost table, the two corrections, the guard arithmetic) and its banner is

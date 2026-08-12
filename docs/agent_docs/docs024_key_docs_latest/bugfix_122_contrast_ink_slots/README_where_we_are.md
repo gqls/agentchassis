@@ -455,3 +455,39 @@ unpark the 226. That way, if a fixer closes a contrast ticket without really fix
 week's audit catches it — which is the safety net we currently claim to have and don't. I have
 not written any of it; the next person can pick this up cold, and I'd want the review board to
 see it before it ships, because it changes something shared.
+
+---
+
+**12th August, after the new build went out.** The new build changes nothing here — I checked
+rather than assumed, because "a fresh deployment" invites you to think something moved. The 226
+tickets are exactly where they were, untouched, and no contrast ticket has still ever been sent
+to anyone.
+
+I've spent this stretch turning yesterday's recommendation into something the next person can
+just build, rather than starting it and leaving it half-done. Two things made that the right
+call: the change is small but it touches a shared boundary, so it needs the review board, and
+while writing it down I found four traps that would each have cost someone a day.
+
+The two that matter to you:
+
+**The first is that this fix would quietly start closing the parked tickets.** Not a bug — I
+think it's the right behaviour, and it's rather elegant: as each site gets its weekly look, any
+contrast problem that has genuinely been fixed since would close by itself, and only the ones
+still really broken would ever need sending to a fixer. That's better than the plan we had,
+which was to unpark all 226 and hope. But it does change what "parked" means, and that should be
+your call rather than something that just happens, so I've written it up as a decision for the
+review board rather than burying it.
+
+**The second is a safety catch that isn't working on our tickets.** The shared piece that closes
+tickets has a guard so a run can't close something it just created. It works by stamping each
+ticket with a run identifier — and our contrast tickets don't have one. None of them: nought out
+of 226, where three other kinds of ticket I checked as a comparison have one on every single row.
+So the guard silently does nothing for us. The fix is to start stamping them, which also brings
+them in line with everything else. I nearly wrote this down as a guess based on reading one file;
+the count is what turned it into a fact, and the comparison types are what proved the zero was
+real rather than my query being broken.
+
+Everything is written up and committed, and the handoff is deliberately detailed enough to pick
+up cold in a fresh conversation — the design is settled, the traps are named, and the tests that
+matter are listed. Nothing is on fire and nothing needs you today. The one dated thing still in
+the diary is Saturday the 16th, when the discovery rota wakes up and we find out what it costs.

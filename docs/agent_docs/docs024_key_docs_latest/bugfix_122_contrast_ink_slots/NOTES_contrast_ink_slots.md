@@ -1241,3 +1241,103 @@ and I could have quoted it from the handoff without opening the file. Opening it
 answer twice over: the objection is wider than described (three entries, not one) and its
 newest member does not merely object — it states the alternative, which is the recommendation
 above. A `file:line` in a handoff is a pointer, not a quotation, and line numbers drift.
+
+---
+
+## 2026-08-12 (after the v1.0.1291 roll) — the retraction design, and four hazards found while specifying it
+
+Carried on from the costing above. Design is now **fully settled**; implementation not started.
+Handoff: `HANDOFF_2026-08-12b_continue_here.md` §3. Recording the evidence here so the design is
+auditable rather than merely asserted.
+
+**State re-verified post-roll** [MEASURED]: chassis `v1.0.1291`, both replicas, started 14:55Z.
+226 items still `deferred`, `max(attempt_count)=0`, zero completions all-history. The roll
+changed nothing in this lane — worth stating, because "a fresh build" invites the assumption
+that it did.
+
+### The two constraints that fix the design's shape
+
+**(A) The requester's own result is DESTROYED by the await, so the data must travel in the
+adapter's response.** `request_render_audit_action.go` already computes `urls_audited` metadata.
+It never survives: *"an awaiting step's own result never survives the park
+(persistAwaitingStateWithRetry loads fresh state and keeps only the awaited-request entries —
+RFC_012 addendum 2, owner-ruled option B)"*. This is why `bugs_open/242` echoed
+`pages_total`/`truncated` **through the request into the response** instead of fixing it at the
+requester — a detour that looks redundant until you know this. Anyone who tries the "obvious"
+route will lose a session to it.
+
+**(B) The adapter already models the failure side, and it is a warning.**
+`RenderAuditResult.Unreachable []string` exists because *"it would let a dead page pass as
+clean"*. So "audited" must mean **successfully measured**, never "requested". Retraction scoped
+to the requested list would commit precisely the error that field was added to prevent.
+
+### HAZARD 1 — retraction will close the PARKED items, and that changes what the park means
+
+`workItemClosedStatuses` = `complete, verified, rejected, wont_fix, cancelled`
+(`work_items_common.go:83-89`). **`deferred` is not in it** — nor are `unresolved`/`failed`,
+which are retractable on purpose (owner ruling, Decision 2). So `resolveWorkItems` will close a
+parked row. Shipping retraction therefore starts closing the 226 as each site's weekly audit
+confirms them fixed, **with nobody unparking anything**.
+
+I think that is the RIGHT behaviour — a parked ticket whose defect is gone should close, and it
+leaves only the genuinely-still-broken remainder needing a fixer, which is a better outcome than
+the unpark-everything plan. But it is a **change in the park's meaning** and must be ruled on
+deliberately, not arrive as a side effect. Flagged for the council submission.
+
+### HAZARD 2 — the closer's self-protection guard is INOPERATIVE for our rows
+
+`resolveWorkItems` guards with `batch_id IS DISTINCT FROM $6` so a run cannot close what it just
+raised. `NULL IS DISTINCT FROM <uuid>` is TRUE, so a NULL-batch row is **not** protected.
+
+[MEASURED 2026-08-12, and the controls came out the other way, so the zero is real]:
+
+| item_type | rows | with batch_id |
+|---|---|---|
+| `contrast_failure` | 226 | **0** |
+| `empty_section` | 61 | 61 |
+| `hardcoded_section_colors` | 15 | 15 |
+| `asset_reference_404` | 1 | 1 |
+
+The three controls are filed through the discovery-check runner, which sets it;
+`contrast_failure` comes from the render-audit producer, and `insertWorkItem` never writes the
+column at all. **Preferred remedy: populate `batch_id` on rows this producer files** — it
+restores a guard the estate deliberately built rather than routing around it, and makes these
+rows consistent with every other type. Leaving it NULL rests a *destructive* operation entirely
+on one loop's set logic with no backstop.
+
+> **Method note, because this nearly went out as an inference.** I first concluded "no batch_id"
+> from `grep batch_id work_items_common.go` returning only the closer's own lines — a grep of one
+> file, which is an argument about that file, not about the column. The query above is what makes
+> it a finding, and the control types are what make the zero disconfirmable. A grep proves absence
+> only for the spelling it searches, in the file it searches.
+
+### HAZARD 3 — the audited set is NOT derivable from the findings
+
+A repaired page contributes **zero** findings, so it is indistinguishable from a page never
+visited — and that is exactly the case retraction exists to catch. This is the entire
+justification for adding `pages_audited` rather than deriving it from `payload.Contrast` URLs.
+Written down because "just derive it" is the obvious reviewer objection and it is wrong.
+
+### HAZARD 4 — do not compare colours as strings
+
+`fg`/`bg` are inconsistently formatted **within one row** (`"rgb(26, 31, 46)"` vs
+`"rgb(15,18,24)"`). The design keys on selector+page and never compares colour strings, so it
+sidesteps this. Any later refinement that compares recorded to computed colour must parse to
+numeric triples first.
+
+### One doc change the fix MUST carry
+
+`verifier_coverage_test.go:156`'s exemption becomes **true for the first time** once retraction
+ships — but its current wording describes the unsound absence-inference. It has to be rewritten
+to the `asset_reference_404` formulation in the same commit. Shipping the mechanism and keeping
+the false reason would leave the next reader inheriting the thing this session spent its time
+refuting.
+
+### MISSTEP 23 — my LANDMINES correction was swept, exactly as I predicted, and that was fine
+
+I left `LANDMINES.md` uncommitted because another session had an in-flight entry in the same
+file and I did not want their work under my message. Their commit `dbf74bc71` took my line with
+it. **Verified at HEAD, not at the tree** (`git show HEAD:… | grep -c`) → present. Nothing lost;
+forward-only held. Recording it because the lane's standing-trap list already carries this trap
+and this is now its second occurrence in two days — the correct response is to expect it and
+verify at HEAD, not to hold work back.
