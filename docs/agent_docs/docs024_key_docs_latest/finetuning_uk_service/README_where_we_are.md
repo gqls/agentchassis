@@ -327,3 +327,65 @@ also sent the duplicate-machine problem to the diagnosis system for an
 independent second opinion on the exact cause, because I'm confident about what
 happened and less confident about precisely which bit of the messaging layer
 does it, and that's a distinction worth keeping honest.
+
+---
+
+**2026-08-12, evening.** I picked this up to do the fix we'd queued: stop one
+request for a machine turning into several machines. It's done and committed,
+but the interesting part is that **the explanation we'd written down this
+morning was wrong**, and it was wrong in a way that would have cost us.
+
+This morning's account was: the messaging system delivered the same message
+several times while the handler was busy, so we built several machines. That is
+not what happened. What actually happens is this. When we ask for a machine, the
+step that asks is willing to wait **ten minutes** for an answer. If no answer
+arrives in ten minutes, the system does not give up — it **asks again**, from
+scratch, as a brand new request. It will do that up to four times. Nothing in
+the machine-renting code recognised the second, third and fourth asks as being
+the same original request, so each one rented another machine. Four asks, four
+machines.
+
+The ten-minute gaps we'd measured and read as "the message was redelivered" were
+simply that ten-minute patience running out, over and over.
+
+**How I caught it, and why I'm confident this time.** Every request we send is
+recorded in a table with its own id. If a message is genuinely delivered twice,
+both copies carry the *same* id — that's what redelivery means, the identical
+message arriving again. I looked, and the four attempts had **four different
+ids**. That rules the old explanation out rather than just failing to support
+it. The timings settle it beyond doubt: each attempt was closed off at precisely
+the moment its ten minutes expired, and the next one went out about a second
+later. That's a stopwatch running down, not a network hiccup.
+
+**Why it nearly cost us.** This morning's report suggested, as the cheap first
+move, changing some messaging timeouts — no rebuild needed, quick win. That would
+have done **nothing at all**, because it adjusts a mechanism that was never
+involved, and we'd have spent a build cycle discovering it while the underlying
+problem carried on. I've struck that recommendation out.
+
+I should be straight about my own part in this, because it's the same shape of
+error. Reading the code fresh, I decided this morning's suggested fix used the
+*wrong identifier* to spot duplicates and that I'd found a flaw in it. My
+reasoning was fine; it just rested on this morning's wrong story about what was
+happening. When I checked the story instead of acting on my objection, it turned
+out the original choice of identifier was right all along — for a reason nobody
+had written down. **Had I "corrected" it, we'd have shipped a safety guard that
+could never once have triggered, and every test would have passed.** I've written
+that trap up where the next person will hit it.
+
+**One more thing we now understand.** When the machine-renting service failed, it
+did send back an error, promptly — but that error never stopped the ten-minute
+clock. The system waited out the full ten minutes anyway and then asked again. If
+that error had been heard, we'd have failed once and built **one** machine, not
+four. So that loose end from this morning isn't a footnote; it's half the reason
+this happened. I haven't fixed it — it's a different part of the system and it
+deserves its own investigation rather than a guess.
+
+**Where that leaves us.** The fix is written, tested and committed, and I've put
+it through the review council. It is **not live**: it needs a rebuild and one of
+your fleet releases, and a small database change applied first. Renting stays
+switched off until then, which is right — a fix that isn't in the running program
+hasn't fixed anything. And this fix stops the *duplicate* machines; it does not
+yet make the machine we actually want start up in time. That's the other bug
+(258), still open, and now safer to fix because duplicates can't pile up while we
+do.

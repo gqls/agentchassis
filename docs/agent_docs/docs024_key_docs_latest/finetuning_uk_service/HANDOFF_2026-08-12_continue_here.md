@@ -1,5 +1,23 @@
 # HANDOFF 2026-08-12 — finetuning.uk service: training side READY, provisioning BROKEN and PAUSED
 
+> ## ⛔ SUPERSEDED by `HANDOFF_2026-08-12b_continue_here.md` — and one section of this file is WRONG
+>
+> Everything about the **training side**, the lane boundary, FTW-042 and the open
+> pricing questions remains accurate. But **"Next steps" item 1 and its
+> implementation notes rest on a root cause that has since been refuted.**
+>
+> 259 is **not** Kafka redelivery. The `dispatch_provision` step's 600s await
+> expires and the chassis retry driver re-executes the step, minting a fresh
+> `request_id` each time — four executions, four billable GPUs. Proof: the four
+> attempts carry **four DISTINCT `request_id`s**, and a redelivered message would
+> carry a constant one.
+>
+> In particular, this file's advice to treat raising `KAFKA_SESSION_TIMEOUT` /
+> `KAFKA_REBALANCE_TIMEOUT` as a cheap interim is **retired** — it addresses a
+> mechanism that is not firing.
+>
+> The fix shipped (`10659b419`, not yet live). Read the 12b handoff.
+
 **This is the COLD-START document for the lane** (supersedes
 `HANDOFF_2026-08-09_continue_here.md`, which remains accurate about FTW-042 and
 the council trail; the 08-08 one behind it carries the Phase −1 background).

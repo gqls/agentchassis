@@ -901,3 +901,106 @@ stamp). `is_paused` **left true, deliberately.**
 Estate state: `thunder_instances` back at 23 rows / 0 live, vendor `{}`.
 Left behind: three `orchestration_states` rows stuck in `AWAITING_RESPONSES` —
 harmless, non-billing, noted in 258 as the undiagnosed error-response observation.
+
+---
+
+## 2026-08-12, evening session — 259 fixed, and its filed root cause REFUTED
+
+### The misstep first, because it is the point of this entry
+
+I picked this lane up to do step 1 of the handoff: fix 259 by making the create
+idempotent on `correlation_id`. I read `thunder_provision_dispatch.go` and
+concluded the handoff and the bug file had picked the **wrong key** — `request_id`
+is minted per dispatch (`uuid.NewString()`, :99) and is stable across a Kafka
+redelivery, whereas `correlation_id` is the orchestration-run id shared by every
+message in the run. On that reading, keying on `correlation_id` would refuse a
+*legitimate* second provision in one run, and `request_id` was obviously more
+correct.
+
+**That reasoning was sound and the conclusion was wrong, because the premise it
+inherited — Kafka redelivery — was wrong.** I went to check it rather than act on
+it, which is the only reason this is a NOTES entry and not a defect.
+
+The log route was gone: the evidence pod died in the 14:55Z roll, so
+`kubectl logs` returned **0 provision deliveries** — an absence entirely
+explained by pod replacement (`startTime 14:55:33Z`, `restartCount 0`, 13 lines
+retained). Not evidence of anything. The durable evidence was in a table:
+
+```sql
+SELECT correlation_id, count(*) AS rows, count(DISTINCT request_id) AS req_ids
+FROM awaited_requests WHERE target_agent_type='thunder-adapter'
+  AND sent_at > now() - interval '2 days' GROUP BY 1;
+--   f17cccda | 4 | 4      23c9bc6a | 4 | 4      cd614594 | 4 | 4
+```
+
+Four rows, **four distinct `request_id`s**, per correlation. A redelivered Kafka
+message replays identical bytes, so `request_id` would be constant. It is not —
+so these are four separate publishes, and redelivery is **disproved**, not merely
+unsupported.
+
+The detail names the mechanism outright:
+
+| request_id | sent | timeout_at | processed_at | status |
+|---|---|---|---|---|
+| `b40062fa` | 13:52:12 | 14:02:12 | 14:02:12 | processed |
+| `da87c9c9` | 14:02:13 | 14:12:13 | 14:12:13 | processed |
+| `6f7bda74` | 14:12:15 | 14:22:15 | 14:22:15 | processed |
+| `641450c2` | 14:22:17 | 14:32:17 | 14:32:17 | error |
+
+One `orchestration_id` (`8c5bf926`), four `step_id`s. Every row `processed` at
+*exactly* its own `timeout_at`; every next dispatch ~1 second later. That is an
+await expiring and `retryExpiredAwaitedRequest` firing (budget `RetryVersion < 3`
+→ four executions, then FAILED at 14:32:17). `dispatch_provision`'s
+`timeout_seconds` is **600** — the "~10 minute redelivery gap" the original
+filing measured.
+
+**And the co-cause we had already observed without connecting it:** the adapter
+answered ~5 minutes in (`Sent error response`) and the await did not clear — it
+expired on its own clock, every time. Had the error response cleared the await,
+the step would have failed after ONE attempt and only one GPU would ever have
+been built. The "does an error response clear an await?" open question from this
+morning is not a curiosity; it is *why the retry loop ran*. Still undiagnosed.
+
+**So `correlation_id` was the right key after all** — for a reason neither the
+bug file nor my objection had: it is the only identifier stable across the four
+attempts. My `request_id` reasoning would have produced a guard that could never
+fire, with a green test suite, because a test naturally reuses one id.
+
+Filed to `WRONG_CALLS.md` (the marker rule was followed in the body and still
+failed, because the **title** carried the unmarked claim) and to `LANDMINES.md`
+(the `request_id`-looks-canonical trap, with the one-query check).
+
+### What shipped — `10659b419`, `Council-Submitted: 20d8b725`
+
+`thunder_provision_claims` (PK `correlation_id`), claimed **before** the vendor
+call. One statement — `ON CONFLICT (correlation_id) DO UPDATE SET attempts =
+attempts + 1 RETURNING …, (xmax = 0) AS inserted` — so claim and count cannot
+race, and Postgres decides the dedup verdict rather than a count we compute.
+`ErrProvisionDuplicate` → `provision_duplicate` / **`error_unrecoverable`**.
+
+Deliberate, and worth revisiting if it bites: **a failed attempt keeps its
+claim.** Every attempt on 2026-08-12 failed and was cleaned up, so a
+release-on-failure rule would leave the loop exactly as it was.
+
+Its own table, not a column on `thunder_instances`: a pre-create row there has no
+real vendor id, and `reconcile_thunder_instances` files a `ghost_row` for any
+live row absent at the vendor (`thunder_reconcile_action.go:204-219`) — every
+in-flight provision would raise a spurious finding against our own FTW-042.
+
+**The test was proven able to fail.** Mutating the refusal branch out:
+`CreateInstance called 2 times for one logical request`. Restored: green. A guard
+whose test has never been seen red is not a verified guard.
+
+Incidental find: `fmt.Errorf(reason)` (HEAD's line 161) is a non-constant format
+string, which **vet rejects — so `go test ./internal/adapters/thunder/` could not
+build at HEAD, and no test in that package has been running.** Now `errors.New`.
+Separately, `internal/adapters/thunder/api/client_test.go` does not compile at
+HEAD either (`unknown field Identifier in struct literal of type Instance`) —
+untouched, not mine, reported.
+
+### Ledger for this session
+
+No spend. No provision attempted, nothing unpaused, no cluster state changed
+beyond the council dispatch. `is_paused` **still true** — correctly, because the
+fix is committed but not built, and a fix that is not in the running binary has
+not fixed anything.
