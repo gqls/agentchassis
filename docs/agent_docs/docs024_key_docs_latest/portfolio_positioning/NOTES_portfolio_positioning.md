@@ -602,3 +602,35 @@ is not this thread's call to make even when redundant. **Do not `git stash -u` o
 tree without a narrow pathspec** (`git stash push -u -- <your paths>`) — the whole-tree
 form assumes a clean tree that this repo, by its own design (CLAUDE.md's opening
 paragraph), never has.
+
+**Phase A2 (RFC_025) shipped [2026-08-12]:** both stages committed `3129cceea`
+(`refresh_evidence_base_action.go` + new `refresh_evidence_base_rfc025_test.go`, 9 new
+tests incl. the `gd-trials`-shaped induced-fault canary and three RFC_017 fail-closed
+cases). `datahelpers/claims.go` confirmed byte-for-byte unchanged (empty `git diff --stat`)
+— the RFC's ratified §9 Q2 constraint holds. Council-submitted, corr
+`9fd94852-ff79-496b-96b5-78a8d3619162` (again committed before submission — same pattern as
+A1's `51cb66fb...`, no trailer on either commit; both need checking by correlation, not
+by commit message, before either gets a `Council-Reviewed:` trailer anywhere). RFC_025
+itself stays short of status `IMPLEMENTED`: the mechanism is proven but no real fact has
+been retyped to use `artifact_check` yet, and the submission flagged an unresolved scope
+gap (`artifact_check.component_id` isn't verified to belong to the fact's own site) for the
+reviewers to rule on.
+
+**Phase A is now code-complete, both pieces council-submitted, verdicts pending:**
+
+| item | commit | council corr | status |
+|---|---|---|---|
+| A1 structural-validity gate | `c66a83e9e` | `51cb66fb-e4bc-46ec-8bbd-a4a561da14a0` | submitted, verdict pending |
+| A2 / RFC_025 (bug 161 fix) | `3129cceea` | `9fd94852-ff79-496b-96b5-78a8d3619162` | submitted, verdict pending |
+| A3 fidelity dial | -- | -- | no action, already ruled acceptable |
+| A4 max_pages | -- | -- | moot, already 80 live |
+| A5 bugs 251/252 | -- | -- | 251 live-confirmed, 252 owned elsewhere |
+
+**Next session should check both verdicts before treating Phase A as done**:
+```sql
+SELECT correlation_id, created_at, metadata->>'decision' FROM diagnosis_artifacts
+WHERE correlation_id IN ('51cb66fb-e4bc-46ec-8bbd-a4a561da14a0','9fd94852-ff79-496b-96b5-78a8d3619162')
+  AND kind='council_report' ORDER BY created_at;
+```
+then move to Phase B (finance/insurance directory producer) per
+`PLAN_2026-08-12_fleet_buildout.md`.
