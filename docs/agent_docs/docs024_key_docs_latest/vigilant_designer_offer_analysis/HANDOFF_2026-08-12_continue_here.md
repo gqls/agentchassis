@@ -46,22 +46,22 @@ sitting in an evidence column reads as evidence.
 
 ## What the next session should do
 
-1. **B4 — the offer analyser. This is the work, and it opens with an OWNER DECISION, not a
-   design.** `features_open/030` §5.4 and `PLAN_2026-08-02` §B4 are the brief.
-   **⚠ Do not start by designing: the premise that put B4 ahead of the A-track is 32% true.**
-   Measured 08-12 — the 08-11 handoff said *"the inputs the analyser needs now exist on every
-   deployed site"*, which is right for `revenue_models.primary_model` (22 of 22) and **wrong
-   for the fields a judgement about an offer actually needs**. `satisfaction_condition` /
-   `trust_threshold` / `recurring_value` are on **7 of 22**, split by vintage rather than by
-   site: every `domain-strategist` row written 08-08 or later has them (6/6), every one written
-   08-02 or earlier does not (13/13). 08-08 is when B2 shipped.
-   **The decision: refresh the 13 first (13 dispatches, ~a week, B4 then sees a uniform estate),
-   or have B4 degrade explicitly per site.** Costs, the trap in the second option, and the
-   recommendation (refresh first) are in `PLAN_2026-08-02`'s decision log, 2026-08-12.
-   **⚠ A refresh is NOT a blanket sweep — exclude by `source`, not by date.** Two of the 15
-   carry human-authored current specs (`mortgagecalculator.co.uk` = `owner_direction`, the
-   owner's own voice direction of 08-11; `leopardessconsulting.co.uk` = `hitl`), and a
-   strategist refresh writes a new `is_current` row straight over them.
+1. **B4 — the offer analyser. This is the work, and its precondition is now MET.**
+   `features_open/030` §5.4 and `PLAN_2026-08-02` §B4 are the brief.
+   **The estate was refreshed on 08-12 (owner approved): Q-fields — `satisfaction_condition`,
+   `trust_threshold`, `recurring_value` — are on 20 of 22 sites.** They had been on 7; the gap
+   was a vintage (every `domain-strategist` row written since B2 shipped on 08-08 carries them,
+   none before), and 13 refreshes closed it. **So B4 may assume a uniform estate** — with two
+   stated exceptions, not a silent gap: `leopardessconsulting.co.uk` (`hitl`) and
+   `mortgagecalculator.co.uk` (`owner_direction`) carry human-authored specs and were
+   deliberately excluded; they are the owner's call.
+   **⚠ If you ever refresh again, exclude by `source`, never by date** — a strategist refresh
+   writes a new `is_current` row straight over a human-authored one, and on 08-12 that would
+   have deleted the owner's own voice direction a day after he gave it.
+   Two facts from that run worth having: B2's gate held **13 of 13** (zero `needs_briefing`,
+   zero `needs_site_plan`, zero work items of any type — with the day's greenfield build as the
+   control proving the other arm still fires), and a refresh is **stable**: 12 of 13 kept the
+   same `primary_model`, so this is a repeatable maintenance operation rather than a gamble.
    B4 also now has a **named external consumer**, which it did not have on 08-11: the
    `copy_quality_two_stage` lane needs a per-site ranked "what this reader wants, most useful
    first" that a rewrite pass can read. Full reply, with what already exists and what does not:
@@ -85,6 +85,14 @@ sitting in an evidence column reads as evidence.
 4. **Do NOT re-verify WII-014.** It is done, at the artefact, with both gap kinds
    distinguishable in one query. Re-running the check will pass again for the same correct
    reason.
+5. **One falsifiable prediction left open by the 08-12 refresh, cheap to check.**
+   dartsonline.com's premise changed `direct_business` → `affiliate` (the only one of 13 that
+   moved). `check_revenue_shape` branches on that value, so its next examination should file a
+   `capability_gap:revenue_shape` row, `gap_kind=handler_missing`, `deferred`, empty handler —
+   the affiliate arm, because this platform has no affiliate machinery. **Not due naturally
+   until dartsonline's next quality rotation (stamp 08-09 19:54, so ~08-16 19:54);** hand-fire
+   the discovery oneshot if you want it sooner. If it files anything else, the switch is not
+   reading what we think it reads.
 
 ## Watch-outs
 

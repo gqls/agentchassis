@@ -313,3 +313,26 @@ Marked here rather than edited into §B above, so the original text stays readab
   proven (three of three dispatches produced correct premises, two of them unattended), and
   it means B4's first real verdicts are comparable across the estate instead of carrying an
   asterisk per site. The two human-authored sites stay out until he says otherwise.
+- **2026-08-12 (evening) — OWNER SAID GO, and the refresh is DONE: 13 of 13, gate held, B4 is
+  unblocked.** Executes the recommendation in the entry above. **Q-fields now on 20 of 22
+  sites** (19 strategist-written + LMC's operator row); the only two without are exactly the two
+  excluded by the `source` filter — `leopardessconsulting.co.uk` (`hitl`) and
+  `mortgagecalculator.co.uk` (`owner_direction`), which remain the owner's call.
+  Vehicle: `domain-strategist` oneshot envelopes, canary → 6 → 5 → 1, each disabled immediately
+  after firing. Evidence and the two missteps are in NOTES (2026-08-12 evening).
+  **Three things this establishes that were previously assumed:**
+  1. **B2's gate works for the case it was built for.** It had only ever been exercised on
+     sites with NO premise; this is the first refresh of an existing one. Zero `needs_briefing`,
+     zero `needs_site_plan`, zero work items of any type across all 13 — with today's greenfield
+     build (noted.co.uk) as the control proving the `else` arm still fires when it should.
+  2. **A refresh is STABLE: 12 of 13 kept the same `primary_model`.** The strategist re-derives
+     the same commercial answer from the same site, so the operation adds the Q-fields without
+     churning the premise. **This is what makes it repeatable** — nobody had measured it, and a
+     third of the estate changing shape would have made this a one-off gamble rather than a
+     maintenance operation.
+  3. **The one change is informative, not a fault:** dartsonline.com `direct_business` →
+     `affiliate`, which re-points `check_revenue_shape` to the affiliate arm on its next
+     examination. Predicted consequence recorded in NOTES for the next session to verify.
+  **B4's precondition is now met.** The "refresh first or degrade explicitly" fork in the entry
+  above is closed in favour of the first, and B4 can assume a uniform estate on the 20 — with
+  the two human-authored sites as a stated, named exception rather than a silent gap.

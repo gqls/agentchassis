@@ -549,3 +549,36 @@ question: re-elicit, merge by hand, or leave them out of the analysis.
 I found that only because a query I had written for another reason happened to group by who
 wrote each record. The version of me that grouped by date would have written "B2 is leaky"
 in the notes and then run the sweep.
+
+**Done — and it went better than I expected in one specific way.**
+
+You said go ahead, so the thirteen sites have been refreshed. All thirteen now record the
+fuller premise: what a satisfied visitor would have understood, what earns their trust, why
+they would come back. Twenty of our twenty-two sites now have it. The two that don't are the
+two carrying your own words, left exactly as they were.
+
+The thing I was most worried about did not happen, and I checked it two ways. Refreshing a
+premise used to risk triggering a rebuild of a live site — that was the whole reason we built
+a safety gate a fortnight ago, and until today that gate had only ever been tested on sites
+that had no premise at all, never on a refresh, which is the case it exists for. It held
+thirteen times out of thirteen: not one site produced so much as a single new job. And I
+checked that the gate can still fire when it should, using this morning's new site as the
+control, so the zero means "it correctly did nothing" rather than "it is switched off".
+
+**The genuinely good news is something nobody had measured.** Twelve of the thirteen came back
+with the *same* answer about how the site makes money. The refresh added the missing detail
+without second-guessing the commercial premise. That matters more than it sounds: if a third of
+the estate had come back with a different answer, this would have been a one-off gamble we
+could never repeat. Instead it is now a maintenance operation we can run whenever the shape
+improves again.
+
+One site did change its mind. dartsonline now reads as an affiliate site rather than a direct
+business — which is probably more honest, and it means our checker will next flag that we have
+no affiliate machinery, exactly as it did for the loan calculator. That is the pattern we have
+seen twice before: fix a premise and the system finds the next real gap behind it. It is not a
+regression, and I have written down the prediction so the next session can confirm it rather
+than rediscover it.
+
+**So B4 is unblocked** — it can now assume a consistent estate instead of carrying an asterisk
+per site. The two sites with your wording stay outside it until you decide what to do with
+them: re-elicit, merge by hand, or leave them out of the analysis.

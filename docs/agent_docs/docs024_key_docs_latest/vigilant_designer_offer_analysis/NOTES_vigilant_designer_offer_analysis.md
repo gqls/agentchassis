@@ -1277,3 +1277,139 @@ both directions.
 standing** even though the owner reversed it the same evening (recorded only in the 08-11
 handoff). Both entries now sit together, with a note that the A-track argument was outranked
 rather than refuted — a reader picking up Programme A should treat it as live scope.
+
+## 2026-08-12 (evening) — OWNER SAID GO: the 13-site premise refresh, canary first
+
+Owner approved the PLAN's 2026-08-12 recommendation: refresh the 13 strategist-written
+pre-B2 premises, exclude the two human-authored ones, then B4.
+
+### Pre-flight, before any dispatch
+
+**1. The B2 gate is live and BOTH ARMS are already exercised on live data.** The hazard
+(`features_open/030` §5.5) is that `domain-strategist` chains
+`create_next_item → needs_briefing → build-briefing-agent → needs_site_plan →
+build-site-planner`, which re-plans a live site. Read the live workflow rather than trusting
+the migration:
+
+```
+read_specs → analyze_strategy → write_strategy_spec → check_site_deployed → gate_next_item
+gate_next_item: conditional_branch
+  condition: site_state.is_deployed == true
+  then_step: complete            ← deployed sites SKIP the chain
+  else_step: create_next_item    ← greenfield only
+check_site_deployed.query:
+  SELECT (COUNT(*) > 0) AS is_deployed FROM pages
+   WHERE site_id = $1 AND NOT (deployed_at IS NULL AND COALESCE(build_status,'') <> 'deployed')
+```
+
+Natural experiment already run, no dispatch needed to establish it: of the six
+strategist-written rows since B2 shipped, **four are deployed sites and none filed
+`needs_briefing`** (loancalculator 08-08, cookly 08-09, gaswholesalers 08-11, loancash 08-11);
+**the one greenfield site DID** (noted.co.uk, 08-12 02:22). So the `then` arm and the `else`
+arm are each proven on live data, in the right direction. [MEASURED 2026-08-12 —
+`SELECT domain, status, created_at FROM site_work_items WHERE item_type='needs_briefing'`
+returns exactly 4 rows: noted.co.uk ×1 and webdesign.uk ×3, the latter all 08-08/08-09 and
+predating migration 359.]
+
+**2. Ran the gate's OWN predicate against every candidate, rather than a proxy for it.**
+All 15 (13 targets + the 2 excluded) return `is_deployed = true`, pages 11–103. So every one
+takes the `complete` arm. This is the check that matters: not "are these sites deployed?" but
+"what does the branch that decides actually return for them?"
+
+**3. Queue check.** `relojistas.com` has an improvement sweep IN FLIGHT (13 `page_rerender`
+items, one claimed 18:41Z by build-dispatch-loop, from a sweep another session fired at
+16:16Z). **Held back to last** — not because a strategy write would corrupt a rerender, but
+because firing into a lane mid-dispatch is how the LMC near-miss happened this morning.
+ai-agent-orchestration.com carries 3 stale `triaged` content_rewrites from 08-11, unclaimed —
+noted, not a blocker.
+
+### Canary — gamesdesign.co.uk, PREDICTIONS BEFORE FIRING
+
+Chosen because it is deployed (36 pages), has no in-flight work items and no lane commits
+since 08-11, so a surprise is attributable to the refresh and not to somebody else.
+
+1. A NEW `site_specs` row, `aspect='strategy'`, `is_current=true`, `source_agent='domain-strategist'`,
+   carrying all three Q-fields; the 06-05 row flips to `is_current=false`.
+2. **NO new `needs_briefing` row, and no `needs_site_plan`.** This is the one that matters —
+   it is the whole reason B2 was built, and it has never been exercised on a site chosen for
+   a refresh rather than for having no premise at all.
+3. `primary_model` is currently `saas_tools`. It may legitimately change; a change is not a
+   failure. **What it would mean:** `check_revenue_shape` branches on that value, so a change
+   silently re-points which arm examines the site next rotation.
+
+**Disconfirming:** a `needs_briefing` row appears → the gate does not hold for a refresh and
+the remaining 12 do not go out. A new row without the Q-fields → B2's shape instruction is not
+in the prompt the strategist actually runs, and the whole premise of this task is wrong.
+
+### RESULT — canary confirmed, then 13 of 13 refreshed, gate held every time
+
+**Canary (gamesdesign.co.uk, 18:44:52Z → row at 18:46:15Z), all three predictions confirmed:**
+new `is_current` strategy row with all three Q-fields, the 06-05 row flipped to
+`is_current=false`, `primary_model` unchanged, and — the one that mattered — **ZERO work items
+created**. That is the first time B2's gate has been exercised on a site chosen for a REFRESH
+rather than for having no premise, which is the case it was actually built for.
+
+**Then two batches (6 at 18:47Z, 5 at 19:0xZ) and relojistas last.** Final state:
+
+| | sites | source |
+|---|---|---|
+| Q-fields present | **20** | 19 `domain-strategist` + 1 `operator` |
+| absent | **2** | `leopardessconsulting.co.uk` (`hitl`), `mortgagecalculator.co.uk` (`owner_direction`) |
+
+The only two without are exactly the two deliberately excluded. **B4's inputs now exist on
+every site whose premise is machine-written.**
+
+**The gate held 13 for 13, checked two ways.** Zero `needs_briefing` / `needs_site_plan` rows
+anywhere in the fleet after 18:40Z, and **zero work items of ANY type** created on the 13 sites
+during the refresh window. Control in the same query: today's only two chain items are
+noted.co.uk's at 02:22/03:04 — the greenfield build, i.e. the `else` arm firing correctly for
+the case that should have it. A count that could not have come out otherwise would be worthless
+here; this one could, and did not.
+
+**The most useful measurement, and it was not guaranteed: 12 of 13 kept the same
+`primary_model`.**
+
+```sql
+WITH cur AS (SELECT site_id, data->'revenue_models'->>'primary_model' AS model_new
+             FROM site_specs WHERE aspect='strategy' AND is_current),
+prev AS (SELECT DISTINCT ON (site_id) site_id, data->'revenue_models'->>'primary_model' AS model_old
+         FROM site_specs WHERE aspect='strategy' AND NOT is_current ORDER BY site_id, created_at DESC)
+SELECT s.domain, prev.model_old, cur.model_new FROM cur JOIN sites s ON s.id=cur.site_id
+LEFT JOIN prev ON prev.site_id=cur.site_id WHERE prev.model_old IS DISTINCT FROM cur.model_new;
+```
+
+So a refresh **adds the Q-fields without churning the premise** — the strategist re-derives the
+same commercial answer from the same site. That is the fact that makes this repeatable: had it
+re-rolled a third of the estate's revenue models, the operation would be too destabilising to
+run again, and nobody had measured it before today.
+
+⚠ **The one change is real and has a consequence: dartsonline.com `direct_business` →
+`affiliate`.** `check_revenue_shape` branches on that value, so on dartsonline's next
+examination it takes the affiliate arm and files a `capability_gap` (`handler_missing`, no
+affiliate machinery on this platform) instead of the conversion-path arm. **Prediction for the
+next session, falsifiable:** a `capability_gap:revenue_shape` row with `gap_kind=handler_missing`
+appears on dartsonline.com, `deferred`, empty handler. It has no open `revenue_shape` finding to
+strand (that check has filed 3 rows fleet-wide, none on dartsonline), so nothing goes stale.
+Third instance of *repairing a premise converts one finding into another* — and the first where
+the conversion was caused by us refreshing rather than by the site being repaired.
+
+**One misstep worth recording, because it cost four minutes and is the lesson I wrote up this
+morning.** Polling for batch 1, I filtered `created_at > '18:50:00'` — a cutoff I picked after
+firing, on the assumption the runs would take as long as the canary. They completed at
+18:48:4x, *before* my filter, so the query returned `0 / 6` four times running while every one
+of the six had already succeeded. **A poll whose window excludes the success looks exactly like
+a failure**, and I nearly went hunting for a broken dispatch. Asking `orchestration_states`
+whether the runs had happened — rather than asking the artefact whether it had changed inside a
+window I invented — settled it in one query. Same shape as the morning's correction: the filter
+described a small world and the conclusion was about that world.
+
+**And a caution I checked rather than obeyed.** I held relojistas.com back because it had an
+improvement sweep in flight, reasoning that a strategy change mid-rerender could produce a
+half-old, half-new site. **That concern was void, and the check took one query:** only three
+live agents read the `strategy` aspect at all — `domain-strategist` (writes it),
+`site-review-agent` (B1's widening, so B1 is confirmed live) and
+`vertical-exemplar-researcher`. **No render or writer agent reads it**, so a rerender cannot
+render against a premise. ⚠ Note the query needed BOTH spellings: `"strategy"` (JSON literal)
+finds two agents, `'strategy'` (SQL literal inside a `query_database` step) finds
+`site-review-agent` and nothing else — searching one spelling would have missed the very reader
+whose existence B1 was built to create.
