@@ -35,6 +35,8 @@ func newTestChatServer(t *testing.T, maxTurns int, dailyCeiling float64) *chatSe
 		maxTurns:        maxTurns,
 		dailyCeilingUSD: dailyCeiling,
 		contactLine:     "contact us at test@example.com",
+		// Legacy mode, exactly as main.go constructs it with FACTS_URL unset.
+		systemPrompt: func() string { return systemPromptFacts },
 	}
 }
 

@@ -61,6 +61,13 @@ type chatServer struct {
 	maxTurns        int
 	dailyCeilingUSD float64
 	contactLine     string // pre-built fail-closed message, checked non-empty at startup
+
+	// systemPrompt supplies the prompt per call. Defaults to the compiled-in
+	// systemPromptFacts (legacy mode, FACTS_URL unset); main.go swaps in a
+	// factsProvider's live-rendered prompt when the operator opts in. A
+	// function rather than a string so a background facts refresh reaches the
+	// NEXT call without any coordination here.
+	systemPrompt func() string
 }
 
 // claudeCaller indirects the Anthropic call so tests can substitute a fake
@@ -158,7 +165,11 @@ func (cs *chatServer) handleChat(w http.ResponseWriter, r *http.Request) {
 	wireMessages = append(wireMessages, claudeMessage{Role: "user", Content: req.Message})
 
 	start := time.Now()
-	result, callErr := claudeCaller(systemPromptFacts, wireMessages)
+	// cs.systemPrompt is set at construction: the compiled-in facts in legacy
+	// mode, a live-rendered prompt when FACTS_URL is configured. Never nil —
+	// main.go and tests both set it; a nil here is a construction bug and a
+	// panic is the honest report of one.
+	result, callErr := claudeCaller(cs.systemPrompt(), wireMessages)
 	latency := time.Since(start)
 
 	logEntry := RequestLogEntry{

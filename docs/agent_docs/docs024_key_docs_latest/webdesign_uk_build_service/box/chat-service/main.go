@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"time"
 )
 
 func env(key, fallback string) string {
@@ -68,12 +69,33 @@ func main() {
 		log.Fatalf("store init failed: %v", err)
 	}
 
+	// System prompt source. Legacy (FACTS_URL unset): the compiled-in
+	// systemPromptFacts, byte-identical behaviour to every build before the
+	// facts relay existed. Opted in (FACTS_URL + FACTS_TOKEN set): live facts
+	// from the cluster relay, refreshed every 5 minutes, last-good cache in
+	// DATA_DIR, and REFUSAL to start when neither is available — see facts.go
+	// for why falling back to the compiled copy is deliberately not offered.
+	systemPrompt := func() string { return systemPromptFacts }
+	if factsURL := os.Getenv("FACTS_URL"); factsURL != "" {
+		factsToken := os.Getenv("FACTS_TOKEN")
+		if factsToken == "" {
+			log.Fatal("FACTS_URL is set but FACTS_TOKEN is not — refusing to start half-configured")
+		}
+		provider, err := newFactsProvider(factsURL, factsToken, dataDir+"/facts-lastgood.json", 5*time.Minute)
+		if err != nil {
+			log.Fatalf("facts provider init failed (relay unreachable and no last-good cache): %v", err)
+		}
+		systemPrompt = provider.SystemPrompt
+		log.Printf("facts: live mode, relay=%s", factsURL)
+	}
+
 	cs := &chatServer{
 		store:           store,
 		ipLimiter:       newChatIPLimiter(),
 		maxTurns:        maxTurns,
 		dailyCeilingUSD: dailyCeiling,
 		contactLine:     contactLine,
+		systemPrompt:    systemPrompt,
 	}
 	hs := &healthServer{store: store}
 
