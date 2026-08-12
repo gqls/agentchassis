@@ -545,3 +545,68 @@ offers you"* — a plain temporal inside a lever sentence, not the banned injury
 sentence. **Same error class as my `created_by IN ('design-audit-agent')` filter: the
 check tested a spelling, not the property.** Ban lists need the failing SHAPE, not the
 failing string — which is another argument that stage 2 has to be a judgement pass.
+
+## 2026-08-12 — round 7 REFUTES my own prediction: enumerating the link set as data did NOT make the writer preserve it
+
+**I predicted, in the entry above, that enumerating the required links as data would fix
+the link loss, "the same lever the sweep found for register". That prediction is
+wrong and round 7 is the disconfirming run.**
+
+Brief carried all 16 required links as a jsonb array, each with its exact title, plus
+`required_links_rule` stating the list is exhaustive and mandatory and naming rounds 4
+and 6 as the reason. Result:
+
+| | round 6 (prose instruction) | round 7 (enumerated as data) |
+|---|---|---|
+| guide links present | 9 of 13 | **8 of 13** |
+| required links missing | 5 | **6** |
+| words | 675 | 629 |
+| design classes | 31 | 31 (intact) |
+
+It dropped a **different** six — it restored `jargon-buster` and `total-cost-of-borrowing`
+and lost `remortgaging-with-other-debt` and `stress-testing-the-whole-budget`, neither
+of which round 6 had lost. So this is not "closer"; it is the same failure resampled.
+
+**The finding, stated so it constrains the design:** *"examples beat rules"* holds for
+REGISTER — naming four bad phrases removed those four phrases, and replacing the
+heading examples fixed the heading in one round. It does **not** hold for SET
+PRESERVATION. A writer generating prose does not treat a 16-item list as a checklist to
+discharge; it treats it as material to draw on. **Set preservation is not achievable by
+instruction at all — prose or data — and must be a mechanical check plus a repair
+step.** Three rounds (4, 6, 7) with three different instructions and three different
+losses is enough to stop trying.
+
+This lands directly on PLAN §3 rule 1 (the fact/link inventory) and upgrades it from
+"acceptance test" to **the mechanism**: stage 2's value on this axis is not that it
+writes better, it is that it can be handed "these 6 links are missing, add them back
+without touching anything else" — which is a `section-editor` job with a machine-checkable
+exit condition.
+
+**Built the check, since nothing counted links:**
+`loanandmortgagecalculator_couk/gate_page_links.py`. Asserts that every URL in a page's
+own `content_direction.required_links` appears as an `href` in its own
+`page_components` rows. The required set is the page's own declaration, so the gate
+cannot drift from the brief. `--self-test` injects an unlinkable URL and the gate must
+fail; it does.
+
+**And the gate's first version was broken in the way this file keeps recording.** It
+shipped the component HTML back and split psql's tab-delimited output in Python.
+Component HTML contains tabs and newlines, so one logical row arrived as dozens of
+lines, a `len(parts) < 3: continue` guard silently dropped the continuation, and it
+reported **10** links missing from a page that demonstrably had 37 hrefs. The
+assertion now runs in Postgres and only the verdict crosses the wire. **A green run
+from the broken version would have been exactly as convincing as its false red.**
+
+**A timing trap the same run produced.** I ran the gate believing it was grading round
+6; round 7 had landed 24 seconds earlier and the gate graded round 7. The discrepancy
+(gate said 6 missing, my file analysis said 5) is what exposed it, and I chased it as a
+possible gate bug before checking the component's `updated_at`. **On a live page, a
+measurement and the thing it measures can be different revisions.** Read `updated_at`
+in the same breath as the content, which is why the gate now prints nothing it has not
+just read from the database.
+
+**Register verdict for round 7: still good.** H1 *"How your loans and your mortgage
+affect each other"* — no negation, no aphorism, no adversarial construction, none of
+the banned phrases anywhere in the body. So the register fix has now held across three
+consecutive rounds (5, 6, 7) and three different H1s, which is the strongest evidence
+yet that the spec reframe — not the per-round prompting — is what moved it.
