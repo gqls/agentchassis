@@ -2188,3 +2188,15 @@ seconds. Second, **`rebuild-cascade.md`'s stored count is no longer owed**: the 
 it is gone, so the drift check's last HEAD finding is now removable by whoever next touches that
 file. That is a bad way to become unblocked and it should be said plainly to its owner rather
 than quietly banked.
+
+**Addendum, same session — my own "did it land?" check was a false positive, in the day's own
+shape.** Verifying the restored files at HEAD, I grepped `LANDMINES.md` for
+`rev-list --objects` and got a match, so I recorded the landmine as safely committed. **It was
+not there at all** — the match was a pre-existing entry from another lane about the same
+command's `%(rest)` trap. A second, discriminating grep (for the entry's own heading) found
+nothing, and the entry had to be written a third time. **A verification pattern that a file
+could satisfy without your change is not a verification** — and this one was the same failure
+the whole session is about, committed while writing it up: I tested a tidied-up proxy for the
+claim rather than the claim. The `doc_notes` rows were fine throughout, because the sync ran
+before the reset — so `landmines-sync.py --check` reporting clean would ALSO have reassured me
+wrongly. Only the file is the system of record.

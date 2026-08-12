@@ -9838,3 +9838,23 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **relations:** the "one tree, one HEAD, many sessions" family in `CLAUDE.md`'s git section; `a-pathspec-commit-still-takes-a-same-file-passenger.md`-style same-file-collision landmines, same root cause (a shared dirty tree) applied to a different git command.
 - **source:** 2026-08-12, `portfolio_positioning` build-out session — swept up a concurrent session's in-progress edit to `revalidate_unverified_claims.go` while isolating a test run for an unrelated new file; recovered without loss, but only because git refused the pop rather than silently overwriting.
 - **added:** 2026-08-12, portfolio_positioning build-out session
+## `git rev-list --objects --all` DEDUPS BY OBJECT — it cannot enumerate paths, and the paths it drops are live ones
+
+- **footprint:** `git rev-list --objects`, and **any check of the form "has this path ever existed in this repo?"** — link auditors, citation checkers, dead-file sweeps, doc-tree migrations, anything that reasons about a path's history rather than its content.
+- **fires when:** you need the set of every path git has ever held. `git rev-list --objects --all` is the fast, obvious, widely-recommended way to get it (0.4s here against 4s for the honest command), it exits 0, and it returns tens of thousands of plausible paths. Nothing about the output looks partial.
+- **the trap:** it enumerates **objects**, not paths, and prints ONE path per object. Content-identical files share a single blob, so every duplicate after the first is silently absent. Measured 2026-08-12 on this repo: **791 of 9,301 paths at HEAD were missing from its output — 791 of 791 content-identical duplicates** (`build/scripts/build-images.sh`, `deployments/docker-compose/.env.example` and 789 more). This estate is full of them: an extraction-era documentation tree copied between directories, per-service kustomize overlays, duplicated seed files.
+- **the wrong result, and why it is worse than a wrong number:** every dropped path reads as **"this file has never existed"**, which in a citation or link check is not a missing row — it is a **finding**, complete with an entry to blame. They arrive sorted by frequency, so the most-duplicated files lead the report. The failure is silent in both directions and there is no error to notice.
+- **the check — assert the superset, and refuse to report if it fails:**
+  ```bash
+  git ls-tree -r --name-only HEAD | sort -u > /tmp/head.txt
+  git log --all --no-renames --pretty=format: --name-only | sort -u | sed '/^$/d' > /tmp/ever.txt
+  # HEAD must be a SUBSET of ever. Do the difference in python or awk, not `comm` —
+  # comm and sort disagree on collation and will report 0 differences either way.
+  python3 -c "h=set(open('/tmp/head.txt'));e=set(open('/tmp/ever.txt'));print(len(h-e),'HEAD paths absent — must be 0')"
+  ```
+  `git log --all --no-renames --pretty=format: --name-only` is the enumerator that is actually total: it lists both sides of every rename and every path of every duplicate. `scripts/report-register-citation-rot.py` runs this control on every invocation and prints nothing at all if it fails, because a path-existence report whose universe has holes is unfalsifiable from inside its own output.
+- **⚠ this file already contains a DIFFERENT `git rev-list --objects` entry** (the `%(rest)` trap in the oversized-blob census). They are unrelated, and that matters for more than tidiness: verifying "my landmine landed" with `grep 'rev-list --objects'` returns a **pre-existing match** and reads as success. It did exactly that here, on this entry, after a reset had wiped it. **Grep for words only YOUR entry contains.**
+- **the general shape, which is the transferable part:** a command that dedups on a key you are not asking about will answer a *different question* fluently. Ask what the tool's unit is — here, objects — before trusting a set it hands you.
+- **relations:** the `%(rest)` entry above (same command, different trap) · the *"ask git about git, not `comm`"* entry (its collation trap is why the check above is in python) · `DOC-078` `report-register-citation-rot`, whose first control failure this was · the *"a grep proves absence only for the SPELLING it searches"* class — this is that failure with the enumerator rather than the pattern.
+- **source:** 2026-08-12, concept-register lane, building the citation-rot report for staleness signals 2+3.
+- **added:** 2026-08-12, concept register lane
