@@ -626,6 +626,36 @@ counter to fill on its own is not, because nothing schedules a replan.
 **survivor choice made by machine** — exactly the per-pair owner call O2 reserves.
 Another reason `stem_twin_snap` stays off on that site until O2 is decided.
 
+### The decomposed-site exclusion, actually resolved to domains
+
+Both the handoff and the runbook say "do NOT enable on the five decomposed sites"
+without naming them, which makes the rule unusable at the moment you need it. Re-ran
+`bugs_open/204`'s own census [MEASURED 2026-08-12 ~13:10Z]:
+
+| domain | slot names | unresolvable |
+|---|---|---|
+| loancalculator.co.uk | 63 | 63 |
+| loanandmortgagecalculator.co.uk | 43 | 21 |
+| gaswholesalers.com | 125 | 11 |
+| **finetuning.uk** | 162 | **10** |
+| leopardessconsulting.co.uk | 172 | 6 |
+| oufe.com | 24 | 2 |
+
+**It is SIX sites now, not five** — 204's figure is stale, and this is recorded here
+rather than only in 204 because the exclusion list is consumed from *this* lane.
+
+Two consequences for the enable decision:
+
+- **fundamentallyai.com is NOT on the list**, so the recommended pilot is clear of
+  the `bugs_open/204` hazard. This was worth checking rather than assuming: the
+  pilot recommendation and the exclusion rule were written in the same handoff and
+  never reconciled against each other.
+- **finetuning.uk IS on the list, and it is also one of the four twin domains.**
+  Nothing in the handoff, the runbook or the remediation ordering says so. Its twin
+  pair (`ai-readiness-quiz` / `tool-ai-readiness-quiz`) must therefore **not** get
+  gates enabled, and its remediation is additionally constrained by 204. Neither
+  document flags this overlap; it is now flagged.
+
 ### Unchanged loose end
 
 The 090 diagnosis `38099787-c7f9-46d4-b75e-3a1867fcaf41` (archived pages rebuilt
