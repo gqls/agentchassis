@@ -4692,3 +4692,112 @@ markup, which no `field_updates` can reach.
 afterwards, and it is worth stating as the general lesson: **the column you filter on
 defines the class of defect you can find.** A sweep that reads `content_data` cannot see
 copy that was baked into `rendered_html`, and reports itself complete.
+
+---
+
+## §X.56 — 2026-08-12: the tail, done BY HAND — and three corrections to my own §X.55 figures
+
+### 1. The regex pass had to be abandoned, and here is the case that killed it
+
+Extending the automated rules to the remaining nine sites produced this on dartsonline:
+
+> `"the same weight as an 80% barrel"` → `"as a 80% barrel"`
+
+**My global a/an "fix" corrupted text that has nothing to do with the target word**, on a
+string that merely happened to contain `honest` somewhere else. `an 80%` is correct
+(*"an eighty"*), and the regex only sees a non-vowel character. The whitespace invariant
+I had just added could not catch it, because nothing structural moved.
+
+Eleven more were semantically broken rather than ungrammatical, so no shape check would
+have found them either: `"the rules stay that's why"`, `"can only be as as the inputs"`,
+`"An and comprehensive guide"`, `"Using the calculator "` (a heading), and — worst —
+cookly's `"What we're honest about"` → `"What we're about"`, which **inverts** a heading.
+
+**THE LESSON: a global cleanup regex applied to a whole string can damage text far from
+the edit site.** The first pass survived only because it was dominated by one clean
+family (`tell you honestly whether …`, ~20 of its variants). The tail is long and each
+occurrence needed a decision. Rewritten as **exact substring replacement** — no global
+rules, no a/an, nothing that can touch a character outside the phrase being replaced —
+and re-verified with a regression test asserting `an 80%` survives and `a 80%` never
+appears.
+
+### 2. The assertion that earned its keep: "this rule NEVER FIRED"
+
+50 phrases hand-written; the run reported **49 replacements and 1 occurrence left**. The
+culprit:
+
+```
+"See the\nhonest test above."      <- a newline mid-phrase
+```
+
+An exact-substring rule is blind to that. Without the *rule-never-fired* check I would
+have shipped 49 of 50 and reported the site clean — **a find-and-replace that removes the
+word every time it matches can still be wrong, and the failure is silent.** Pair the
+"nothing left behind" assertion with a "every rule fired" assertion; neither alone is
+enough.
+
+**Shipped:** 37 components across 9 sites, 50 replacements, 0 unmatched, 0 components
+still containing the word. Each replacement names the concrete property the label stood
+for — *"only as honest as the inputs"* → *"only as good as the inputs"*; *"the honest
+question"* → *"the real question"*; *"Be honest about which you are doing"* → *"Be clear
+about which you are doing"*.
+
+### 3. CORRECTION to §X.55 — class C is NOT the shared-mechanism risk I described
+
+I wrote that class C lives in *"15 active components, and they are SHARED"*, citing
+`tool-ai-readiness-checker-fundamentallyai-com-finetuning-uk` as one row serving two
+sites. **[MEASURED] Wrong — the name misled me.** Joining through `page_components`:
+
+> **14 of the 15 serve exactly ONE site and ONE page.** Only `contact-block` is genuinely
+> shared (2 sites, 3 pages).
+
+The double-domain suffix is a provenance artefact of how the component was cloned, not
+evidence of live sharing. **I asserted the blast radius from a NAME instead of a join**,
+which is the same error as reading a path from memory. A component's name is not its
+footprint; the join is.
+
+### 4. CORRECTION — most of class C is CODE COMMENTS, not copy
+
+Reading the templates rather than counting them:
+
+| component | the occurrence |
+|---|---|
+| `contact-block` | `// Three destination shapes, three DIFFERENT and honest outcomes:` — JS comment |
+| `gauntlet-interface` | `/* Status line — the honest channel for offline/errors */` — CSS comment |
+| `gauntlet-round-record-vonc-com` | `// what the honesty rail forbids` — names the compliance mechanism |
+| `Debt Consolidation Risk Checker` | `which is the honest one —` — template comment |
+| **`funding-fit`** | **`1. Where is the idea, honestly?` — genuinely visible** |
+
+The owner's instruction is about **copy a reader sees**. Stripping the word from source
+comments is churn, and one of them refers to `honesty_rails` by name. So class C is
+roughly one real fix, not eighteen.
+
+### 5. CORRECTION — the fleet counts were inflated by scripts and styles
+
+Every count in §X.53–§X.55 read raw `rendered_html`, which contains `<script>` and
+`<style>`. Stripping those first:
+
+> **53 pages are reader-visible, not 62.** The nine-page difference is entirely comments.
+
+Not a large error, but it is the same shape as the two above: **I measured the container
+rather than the thing.** The visible-text predicate is the one to reuse:
+`regexp_replace(regexp_replace(html,'(?is)<(script|style)[^>]*>.*?</\1>',' ','g'),'<[^>]+>',' ','g')`.
+
+### 6. Class B has NO framework path — filing rather than hand-rolling
+
+8 components, 3 sites, `content_data` **NULL** — and two have `component_id` NULL too, so
+there is no template to re-render from. `apply_section_edit` has no field to write. The
+copy is real and visible, including a page heading:
+
+- `finetuning.uk/our-position-on-ai` — **"Our Honest Position on AI"** (an `<h2>`)
+- three CTAs: *"Just an honest chat"*, *"Just an honest conversation"*, *"Just honest advice"*
+
+CLAUDE.md is explicit that when the framework cannot do something, **that is a bug to
+file, not a licence to hand-roll**, so these are recorded rather than surgically edited.
+The underlying defect is the one the leopardess lane already knows: *content baked into
+`rendered_html` with NULL `content_data` cannot be repaired by any spec or field edit*.
+
+### 7. State
+
+37 items `triaged` and dispatching. Gate armed on 7 clean sites (§X.55). Once these land,
+re-run the **visible-text** census and arm the gate on each site that reaches zero.
