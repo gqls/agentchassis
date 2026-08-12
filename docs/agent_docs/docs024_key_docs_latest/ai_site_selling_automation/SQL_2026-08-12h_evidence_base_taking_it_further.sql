@@ -2,8 +2,7 @@
 --
 -- webdesign.uk register: the customer who wants more than the offer contains.
 -- Owner, 2026-08-12: third-party services may be listed for people who want to
--- take their sites further; we could do that work but probably will not, for
--- lack of bandwidth ("at the moment I am on my own").
+-- take their sites further; we could do that work but probably will not.
 --
 -- WHAT THIS FACT DELIBERATELY DOES NOT DO. It does not say we never do paid
 -- follow-on work. The owner said "we could but probably won't" and that we may
@@ -23,10 +22,9 @@
 -- United Kingdom, UK), and which services get recommended is a commercial
 -- choice — possibly an affiliate one — not mine to invent.
 --
--- ALSO NOT DONE, deliberately: the owner told me he is working alone. That is
--- a fact about the business and it would explain every hard term on the site
--- in one line, but he told it to me in conversation; he did not ask for it to
--- be published. Asked rather than assumed.
+-- ALSO RULED OUT, 2026-08-12: a line explaining the terms by reference to the
+-- size of the operation. Proposed, and the owner declined it. Do not raise it
+-- again and do not reconstruct it from context.
 
 BEGIN;
 
