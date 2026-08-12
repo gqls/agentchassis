@@ -70,17 +70,43 @@ oversized file should **not** contain the string "read it whole". Confirm the ad
 for a file that *does* fit — otherwise the fix is a blanket removal rather than a conditional one,
 and that is the failure mode to guard against.
 
+## 4b. MEASURED 2026-08-12 (~20:05Z) — the `[UNMEASURED]` above is now discharged
+
+Over all **486** bundles ever assembled:
+
+| shape | iterations | runs |
+|---|---|---|
+| a body omitted for size (any) | 49 | 26 |
+| …and the bundle also says "read it whole" | 44 | — |
+| **zero bodies rendered, cause = CAP only** | **6** | **5** |
+| zero bodies rendered, cause = resolver only (`bugs_closed/261`'s class, now fixed) | 6 | — |
+| zero bodies rendered, both causes | 1 | — |
+
+**The load-bearing number is 6 iterations across 5 runs** — an iteration that returned *no code at
+all* because everything in scope was too big. At 3 iterations per run that is a third of the run's
+budget, spent on a request the bundle itself advised and its own arithmetic refuted.
+
+⚠ **Do NOT quote the 44.** That is co-occurrence — "read it whole" appears somewhere in the bundle
+and *a* body was omitted — and the phrase is printed by the over-cap marker itself, so the two are
+nearly the same event by construction. It is not 44 wasted iterations.
+
+⚠ **The separation matters and the naive query gets it wrong.** `**This section is INCOMPLETE.** 0 of
+N in-scope` is emitted for BOTH causes. Filtering only on that gives 13 iterations and silently
+folds `261`'s resolver failures into `267`'s cap failures — two different bugs, one of them already
+fixed. The discriminators are the marker words: `did not fit` (cap) versus `could not be read`
+(resolver). My first count made exactly this mistake and read 13.
+
 ```sql
--- how often has a whole-file scope entry been advised into an over-cap dead end?
-SELECT count(*) FILTER (WHERE body LIKE '%body omitted%' AND body LIKE '%read it whole%') AS advised_and_over_cap,
-       count(*) AS bundles
+SELECT count(*) FILTER (WHERE body ~ '\*\*This section is INCOMPLETE\.\*\* 0 of [0-9]+ in-scope'
+                          AND body LIKE '%did not fit%' AND body NOT LIKE '%could not be read%') AS cap_only,
+       count(*) FILTER (WHERE body ~ '\*\*This section is INCOMPLETE\.\*\* 0 of [0-9]+ in-scope'
+                          AND body LIKE '%could not be read%' AND body NOT LIKE '%did not fit%') AS resolver_only
 FROM diagnosis_artifacts WHERE kind='bundle';
 ```
 
-⚠ **`[UNMEASURED]`** — I have not run that count. It is one query and it belongs in the fixing
-thread's first ten minutes, because the fix's value is proportional to it and I would rather it were
-measured than assumed. A single occurrence would still be worth fixing on the cost-per-iteration
-argument, but do not quote a frequency that nobody has counted.
+**Live confirmation while this file was being written:** the seeded re-run
+`36bd1b42-29b5-4094-9264-94ea80c6194a` hit the cap on its **iteration 2**, having been given a
+perfectly-sized seed for iteration 1. So this is current behaviour, not history.
 
 ## 5. Why this was invisible until today
 
