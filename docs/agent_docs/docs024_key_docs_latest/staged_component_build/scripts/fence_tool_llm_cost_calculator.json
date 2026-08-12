@@ -1,0 +1,101 @@
+{
+  "profiles": ["desktop", "mobile"],
+  "container": ".tool-container",
+  "checks": [
+    {
+      "id": "page-serves-200",
+      "type": "page_status_ok"
+    },
+    {
+      "id": "tool-renders",
+      "type": "selector_exists",
+      "profiles": ["desktop"],
+      "selector": ".tool-container"
+    },
+    {
+      "id": "calc-button-present",
+      "type": "selector_exists",
+      "profiles": ["desktop"],
+      "selector": "#calc-btn"
+    },
+    {
+      "id": "results-table-present",
+      "type": "selector_exists",
+      "profiles": ["desktop"],
+      "selector": "#results-tbody"
+    },
+    {
+      "id": "self-host-panel-present",
+      "type": "selector_exists",
+      "profiles": ["desktop"],
+      "selector": "#self-host-params"
+    },
+    {
+      "id": "tool-has-visible-area",
+      "type": "has_visible_area",
+      "selector": ".tool-container"
+    },
+    {
+      "id": "no-horizontal-overflow",
+      "type": "no_horizontal_overflow"
+    },
+    {
+      "id": "computes-known-monthly-costs",
+      "type": "interaction",
+      "profiles": ["desktop"],
+      "steps": [
+        { "action": "fill", "selector": "#input-tokens", "value": "950" },
+        { "action": "fill", "selector": "#output-tokens", "value": "1150" },
+        { "action": "fill", "selector": "#calls-per-day", "value": "950" },
+        { "action": "fill", "selector": "#working-days", "value": "27" },
+        { "action": "click", "selector": "#calc-btn" }
+      ],
+      "expect": {
+        "selector": "#results-tbody",
+        "text_matches": "(?s)21\\.35.*177\\.95.*355\\.89.*515\\.56"
+      }
+    },
+    {
+      "id": "annual-toggle-switches-active-state",
+      "type": "interaction",
+      "profiles": ["desktop"],
+      "steps": [
+        { "action": "click", "selector": "#btn-annual" }
+      ],
+      "expect": {
+        "selector": "#btn-annual.active"
+      }
+    },
+    {
+      "id": "self-host-toggle-produces-breakeven-rows",
+      "type": "interaction",
+      "profiles": ["desktop"],
+      "steps": [
+        { "action": "click", "selector": "#include-self-host" },
+        { "action": "fill", "selector": "#gpu-count", "value": "4" },
+        { "action": "fill", "selector": "#gpu-cost-month", "value": "2000" },
+        { "action": "fill", "selector": "#ops-overhead", "value": "500" },
+        { "action": "click", "selector": "#calc-btn" }
+      ],
+      "expect": {
+        "selector": "#breakeven-rows .breakeven-row"
+      }
+    },
+    {
+      "id": "zero-tokens-shows-error",
+      "type": "interaction",
+      "profiles": ["desktop"],
+      "steps": [
+        { "action": "fill", "selector": "#input-tokens", "value": "0" },
+        { "action": "click", "selector": "#calc-btn" }
+      ],
+      "expect": {
+        "selector": ".error-msg.visible"
+      }
+    },
+    {
+      "id": "no-console-errors",
+      "type": "no_console_errors"
+    }
+  ]
+}
