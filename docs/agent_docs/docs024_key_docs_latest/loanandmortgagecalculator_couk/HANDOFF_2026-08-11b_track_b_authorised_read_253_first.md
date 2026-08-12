@@ -163,3 +163,66 @@ last: they have no external right answer and want `invariants.py`, not arithmeti
 - `loancash_couk_fca_validation/` — caps verified current; the worry moved to
   `complaint-deadline-calculator.html`, still unchecked.
 - Track C (loancash decomposition) needs `decompose_lmc.py` ported, not run.
+
+---
+
+# ADDENDUM 2026-08-12 — the component floor is BUILT (not rolled), and §0 needs correcting
+
+**Owner rulings taken this session:** *fix the component floor before Track B*, and
+*the live homepage can wait until 253 is fixed*. The first is done. **The second was
+already moot** — see below.
+
+## What changed since this file was written
+
+| | state |
+|---|---|
+| chassis | **v1.0.1291** (pods `6588556967-*`, up 14:55Z). `189`/`204` = `1 / 1 / 0` on both replicas |
+| the component floor | **COMMITTED `0c8e08ccb`**, `Council-Submitted: b30ac52c`. **NOT ROLLED** — committed is not running |
+| the flattened homepage | **already repaired**, 08-12 16:03, by the lane session seeding a `content_direction`. `card` 12, `tool-grid` 2, `btn-primary` 12, `hero` 1 |
+| Track B | one page converted by the lane session (`owned decomposed` 1 → 2, `owned verbatim` 22 → 21) |
+
+## ⛔ Three corrections to what this file says above
+
+1. **§0's "read 253 first" still stands, but its risk is now guarded** —
+   `save_sections_component_floor.go` refuses a save that keeps a slot's words and
+   strips its layout. **It is not rolled.** Track B is not protected by it until a
+   pod is serving it, and this lane proves that at the artefact, never at the tag.
+
+2. **`253` is an AMBIGUOUS NUMBER.** It names two unrelated bugs. The other is
+   `..._label_match_overlap_count_ties_on_incidental_nav_label_words`, and **its** fix
+   commits (`c6dcbcaa8`, `6ea633cea`, `9b7811d4b`) are what a `git log` by number
+   returns. Refer to this one by slug — `framework_rewrite_of_a_prose_block`.
+
+3. **The code fix is the SAFETY NET, not the remedy.** The page was repaired by
+   telling the writer its component vocabulary in `content_direction`, not by any
+   platform change. **The writer was uninstructed, not malfunctioning:** handed markup
+   with no description of what the markup means, it produced clean prose; told the
+   vocabulary, it kept it. So for each Track B page, the *first* move is a
+   `content_direction` that names the calculator page's vocabulary — the floor is
+   what catches the page where nobody thought to write one.
+
+## The floor, in one paragraph, so you can judge it
+
+Refuses a save where a same-named slot loses more than 50% of its **class
+attributes**. Calibrated on the real before/after — prose-0 went **43 → 1** on the
+flattening (0.02) and **43 → 31** on the good rewrite (0.72), so the two are **35×
+apart** and 0.25/0.34/0.50 all separate them. Slots under **10** class attributes are
+out of scope (fleet median is 5, p90 35, over 1,422 unlocked slots; ~31% in scope).
+Counts attributes not tokens; blind to *which* classes on purpose. Default **ON** at
+0.5, `section_component_floor` in step config tunes it, 0 disables. Fails closed,
+refusal writes nothing and raises a queue item.
+
+**Its stated weakness, which a reviewer should press on:** the safety evidence is
+**one** good rewrite. If Track B throws false refusals, that is the thing that was
+thin, and the escape hatch is the config key — not deleting the guard.
+
+## Still true, still owed
+
+- **The pin.** Unchanged and still the thing that would do real damage:
+  `PINNED_REF b318a8fad` matches only **6 of 22** Track B pages.
+  `decompose_lmc.py` now **REFUSES** on a stale pin (`feeb85acf`), so the tool will
+  stop you — but re-point it to a concrete SHA and re-verify at the moment of use.
+- `bugs_open/251` → then `252` (`og:url` must agree with the canonical).
+- `bugs_open/250`: round-trip the loancalculator `--restore`.
+- **Read the council verdict for `b30ac52c`** before anyone writes
+  `Council-Reviewed:` on the floor. `098` credits it automatically once approved.
