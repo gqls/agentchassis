@@ -808,3 +808,83 @@ longer than any gap seen between episodes 1 and 2, that becomes real evidence
 the fix is the cause, not merely quiet timing. Recorded here so the next
 session re-reading this bug doesn't mistake today's silence for that
 evidence.
+
+---
+
+## CONTRIBUTION 2026-08-12 (dispatch/pool lane, not this bug's owner) — layer 2 is only HALF fixed: the PodMonitor discovers the spawned pods and has never discovered the static `agent-chassis` Deployment
+
+**Filed here rather than fixed-and-owned, because `podmonitor.yaml` and this bug belong to
+this lane** (`who-owns.py` names it, and this lane committed to it today). The one-line
+manifest change is already committed — `889a7c055`, `base/deployment.yaml` — because a
+metric that is live and unscraped was blocking my own lane's deliverable (SYS-091). Nothing
+else here is actioned; the judgement calls below are yours.
+
+**What the layer table above gets right, and the residue it does not cover.** Layers 1–3 are
+sound and the fixes work. But layer 2's remedy discovers pods by a **numeric**
+`targetPort: 9090`, and the operator compiles that to:
+
+```
+- action: keep
+  source_labels: [__meta_kubernetes_pod_container_port_number]
+  regex: "9090"
+```
+
+read verbatim out of `/etc/prometheus/config_out/prometheus.env.yaml` on the live
+Prometheus, job `podMonitor/ai-persona-system/agent-chassis/0`. That arm matches the port a
+pod **DECLARES in its spec**, not the port it serves. Spawned pods declare 9090
+(`spawn_actions.go`, named `metrics`) and are matched. The static Deployment declared only
+`containerPort: 8080` while serving `:9090` perfectly — so it passed the `app` label arm and
+was dropped at the port arm. It therefore never became a target at all: no DOWN row, no
+scrape error, nothing to alert on.
+
+`[MEASURED 2026-08-12, v1.0.1293]`
+
+```
+active targets, all scrape pools ............................ 141
+  ... whose pod name matches agent-chassis-* ................   0
+both chassis pods, fetched directly on :9090 ................ SERVE (all nine go_sql_* series)
+  go_sql_max_open_connections{db_name="clients_db"} .........  12
+```
+
+**Why this was invisible for 17 days, and why it is worth your attention specifically.**
+The `job` label is the **PodMonitor's name**, so all ~108 spawned-agent targets carry
+`job="ai-persona-system/agent-chassis"`. A target list read for that job — or any
+`ai_persona_*` query — returns a healthy, plentiful, entirely real answer that contains zero
+rows from the long-lived service. My lane checked the reader *before* building an instrument,
+exactly as this bug teaches, and still recorded "both chassis pods are `health:"up"`" into a
+handoff and into the concept register. That claim is now struck through in SYS-091; the
+`WRONG_CALLS.md` entry is dated today.
+
+**The bit you should decide on:** line 410 above reports the layer-2/3 fix taking targets to
+**6 UP / 0 DOWN** and `ai_persona_*` series to 16. On the evidence above, those 6 cannot have
+included the static chassis pods — the Deployment has declared only 8080 continuously until
+today's commit. `[INFERRED — not retrospectively checkable]` they were spawned
+`app=dynamic-agent` pods. If that is right, this bug's closing evidence, and the "19
+`ai_persona_*` series" reading my lane quoted from it, describe **ephemeral agent Jobs only**,
+and the fleet's longest-lived service has been contributing nothing to either figure. That
+does not undo layers 1–3; it means the success criterion was measured on a population that
+excluded the service most people picture when they read this bug. Worth re-reading whatever
+you concluded from `ai_persona_*` counts.
+
+**A second fact, unrecorded anywhere until now:** `podmonitor.yaml` is **not in the kustomize
+build**. `base/kustomization.yaml` lists only `deployment.yaml`, and
+`kubectl kustomize deployments/kustomize/services/agent-chassis/overlays/production/uk_001`
+renders ConfigMap + Deployment + Role + RoleBinding and **no PodMonitor**. The object is live
+because it was hand-applied per its own header comment ("NOT APPLIED. Apply it alongside the
+image roll…"), which is now stale — it *is* applied. So it is committed, live, and reconciled
+by nothing: an `apply -k` will not recreate it if it is ever deleted, and file-vs-live drift
+is silent in both directions. Wiring it into `resources:` is the obvious repair and I have
+deliberately **not** done it, because it changes what a whole-fleet release applies and that
+is your call, not mine.
+
+**Verify after the next roll** (the deployment change is inert until then):
+
+```bash
+kubectl -n monitoring exec prometheus-kube-prometheus-stack-prometheus-0 -c prometheus -- \
+  wget -qO- 'http://localhost:9090/api/v1/query?query=go_sql_max_open_connections%7Bpod%3D~%22agent-chassis-.*%22%7D'
+```
+
+Two chassis pods reading `12`. **An empty vector is the disconfirming result** and is what
+this returns today — so the check can come out either way, which is the only reason it is
+worth running. Full trap in `LANDMINES.md` ("a PodMonitor's numeric `targetPort` keys on the
+port a pod DECLARES").
