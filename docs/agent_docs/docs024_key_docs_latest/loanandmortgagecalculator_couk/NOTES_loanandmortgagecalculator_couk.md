@@ -2162,3 +2162,46 @@ re-assembly of existing `page_components` un-gated on purpose, *"it is how owned
 deploy"*. The flip adds only **wholesale rebuildability**, which today means
 destructibility. Flip when 253 is fixed and link preservation is mechanical
 (`gate_page_links.py` + stage 2 are exactly that).
+
+### PROVING PAGE PASSED EVERY GATE — the Track B loop is proven end to end on a live calculator
+
+`loans-standard-calc`, deployed 17:26Z, all four gates measured after the deploy:
+
+| gate | result |
+|---|---|
+| served == offline prediction | **byte-for-byte IDENTICAL** (12,320 B, real page: DOCTYPE present, not the `NoSuchKey` blob) |
+| arithmetic, post-decomposition | **PASS 9 / FAIL 0 / CONVENTION 6 — identical to the pre-decomposition baseline** |
+| controls, same session | parse OK · expectation `PASS 0 / FAIL 12 / N/A 3` CONTROL OK |
+| design + navigation | 18 class attrs before **and** after, 15 distinct classes both, **29 links both, zero lost** |
+| calculator machinery | `calculators.js` 1→1, `#amount`/`#interest`/`#years`/`#monthly-display` all 1→1 |
+
+**The only class difference is `container` → `ported-prose`, and it is the intended
+one:** decomposition dissolves the single page wrapper, and the assembled-layout shim
+makes `<main>` the container instead (`PLAN_2026-08-05`). `<script>` 3→4 is assembly
+injecting its own JSON-LD. Both were predicted by the manifest, which is why the
+byte-identical diff is the strongest of the four gates — it means *nothing* happened
+that the offline model did not already know about.
+
+**So `bugs_open/253` did NOT bite here, and it is worth being precise about why:** 253
+fires when the GENERIC PIPELINE REWRITES a decomposed page. Decomposition itself is a
+byte-faithful transcription, and an assemble-only rerender re-emits what is stored. The
+page keeps `rebuild_policy='owned'`, so the rewrite path that strips classes is still
+closed on it. **That is the whole argument for deferring the flip** — the risk is not
+in decomposing, it is in what becomes permitted afterwards.
+
+### Page 2 applied: `mortgages-repayment`
+
+`prose-0` 201 b · `tool-1` **permanent** 3943 b · `prose-2` 439 b; predicted 11,174 B.
+Deploy filed under tag `trackb-p2`, graded by `deploy_pages.py` against its own
+prediction. 20 pages remain after it.
+
+**Pace, stated honestly for whoever picks this up:** the gate is not the work, the QUEUE
+is. The build queue had **31 items ahead** of the proving page and the rerender took
+~65 minutes from filing to `complete`. At one page per queue round this is a
+multi-session job. `deploy_pages.py --all-applied` exists to batch the deploys *without
+dropping any per-page check* (it diffs each page against its own prediction), so the
+sane shape is: apply in small batches, deploy with `--all-applied`, then one full
+`oracle.py` sweep plus controls. **Do not read the proving run as licence to apply all
+20 and hope** — the lane's "one at a time with a check between" rule was written
+because the failure mode is silent, and a batch is only compliant if every page's diff
+AND the arithmetic actually run.
