@@ -1378,3 +1378,79 @@ While doing this I noticed another session had, in the meantime, spotted my work
 progress and sensibly picked up the OTHER remaining job (the cost-calculator tool)
 instead of getting in my way — so both jobs are now moving, by two different sessions,
 without anyone duplicating anyone else's work. I've left that one alone entirely.
+
+---
+
+**12 August 2026 — the logo repair is fixed in code (not a handler, as it turned out), and two questions answered with a measurement rather than an opinion**
+
+**The repair machinery.** You asked whether we needed a handler. No — and that is the
+useful part of the answer. The thing that does the work already exists, already runs,
+already commits the file and already tells the truth about what it did. What was broken was
+what it got TOLD. Two separate pieces of information were going missing on the way in, and
+the machine had no way to notice either was absent, so it filled the gaps with guesses:
+it guessed the filename from a piece of its own configuration, and it guessed that every
+image was a large landscape photograph. Adding a handler would have given us a fourth thing
+to get the inputs wrong.
+
+Both gaps are now closed, and closed in a way that cannot come back: the filename guess is
+deleted rather than switched off, because there is no way for a caller to use it safely;
+and the machine now asks the database what an image actually IS when nobody has told it.
+There is also a new general safeguard: the system can now tell the difference between
+"someone chose this setting" and "nobody said anything so we used the default". That sounds
+small. It is the reason logos were being published as photographs for four months, and it
+almost certainly affects other things we have not looked at yet — I have written down that
+nobody has checked which.
+
+I proved each fix by deliberately breaking it again and watching the alarm go off. Three
+breakages, three alarms, all restored. **The change is committed but does nothing until the
+fleet is rebuilt and rolled — which is your command to run, not mine.** After that roll the
+gas wholesalers logo should appear, and I have written down the exact check, which is to
+look at the file extension rather than at any success message. One caveat worth having: the
+roll stops NEW files being misnamed; the 150-odd already sitting under wrong names do not
+repair themselves, and draining those is a separate job nobody has designed yet.
+
+One deliberate choice you may want to overrule. There was a faster route — a configuration
+change that would have fixed half of it immediately with no rebuild at all. I did not take
+it, because it meant widening a piece of shared plumbing that every job in the system passes
+through, in order to fix one job. Narrower and slower beat wider and faster. If you would
+rather have it working today than working safely, say so and I will make that change instead.
+
+**The tools API.** You asked me to open it up to the other sites "if we need that". We do
+not, and here is the measurement rather than my opinion: across the whole fleet exactly two
+things call that service, both on vonc.com — and vonc.com is already the one site allowed
+in. The permission list matches reality exactly. I also checked the thing that would have
+mattered for contact forms: there is no address on that service for a contact form to send
+to. I tried three plausible ones from the site that IS allowed in, and all three came back
+"no such thing". So opening the door would not have moved contact forms one step forward;
+it would only have handed two sites access to an expensive service they never call. I have
+left it alone.
+
+**The email sender — what I need from you.** Three things stand between us and working
+contact forms. Only one of them is code, and the other two are yours.
+
+*First, and this is the blocker: an email account for the system to send through.* There is
+no email credential anywhere in our cluster today — I checked all three of our secret
+stores. Our own notes from an earlier attempt say the ordinary route does not work here:
+our hosting provider blocks most outgoing mail, and shared mail relays filter this kind of
+message as spam. The recommendation on record is a dedicated Amazon SES sending account,
+with the sending domain properly signed so mail is trusted. That is an account to open and
+a couple of DNS records to add — a person's job, not a program's. There is one trap already
+written down from last time: the SES username is the access-key string, not the account
+name, and using the wrong one fails with an unhelpful error.
+
+*Second, a decision: where the form actually posts to.* Two options. Put it on the existing
+small service that already runs on its own machine — it already handles multiple sites and
+would need one database row per domain, no new infrastructure. Or build a new service
+inside the main cluster — cleaner in the long run, but it needs a build target, a
+deployment, a secret and a public address, none of which exist. I would take the first;
+it is days rather than weeks, and it is reversible.
+
+*Third, the code, which is ours and is small.* The sender itself is written, tested and
+used by absolutely nothing. It has one real defect I verified myself: it promises to give
+up quickly if a mail server stops responding, but that promise is only wired into one type
+of connection — and it is the type our hosting cannot use. On the type we must use, it
+would wait indefinitely, which on a live web form means the visitor's browser hangs. That
+is a small fix, but it must happen before this is put anywhere near a real form.
+
+The order matters: the credential first, because until that exists the rest cannot be
+tested against anything real.
