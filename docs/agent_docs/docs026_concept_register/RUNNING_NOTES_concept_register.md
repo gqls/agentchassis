@@ -2228,3 +2228,54 @@ wrongly. Only the file is the system of record.
 > The re-writing was not wasted (the content is committed and verified at HEAD), but it was not
 > necessary either, and the wrong diagnosis is the more expensive half: it is now in three
 > commit messages that cannot be amended.
+
+---
+
+## 2026-08-12c — "if clean, do it" fired on an ACCIDENT, and the owed line survives with a sharper check
+
+Picked up the lane from `HANDOFF_2026-08-12b_continue_here.md` at 18:37 BST, four minutes
+after it was written. Its owed bullet says `rebuild-cascade.md` is *"still owed, FIFTH
+session running … another session's REB-003 rewrite still dirty in the shared tree … mtime
+2026-08-08 20:41, 3 added / 3 deleted"*, and instructs: **"Re-check `git status` before
+assuming; if clean, retire this line."**
+
+**I re-checked, and it WAS clean** — `git status --short` empty, `git diff` empty, mtime
+changed to 18:38. By the instruction as written, the blocker had cleared and the owed work
+was mine to do.
+
+**It had not cleared. The file was clean because a session ran a bare `git stash` at
+18:38:51**, which reverted every dirty tracked file on this shared tree — 38 files across
+about ten lanes, that rewrite among them. Restored from `stash@{0}` and verified per file;
+the diff is back to the same 3 added / 3 deleted, and it is real work (a `what:` expansion
+for `REB-003`, a `bugs_open/182 → bugs_closed/182` citation, a `verify-later:` update). Had
+I followed the instruction I would have deleted `rebuild-cascade.md` from
+`KNOWN_STORED_COUNTS` on the strength of an accident, and reported the blocker gone.
+
+**The hole is that "clean" has two causes and the check cannot tell them apart:** the other
+session committed (the blocker really is gone), or the other session's work was swept out of
+the tree (the blocker is very much still there, and now invisible). On a tree this many
+sessions share, the second is not exotic — it happened within four minutes of the handoff
+being written.
+
+**The corrected check asserts the POSITIVE fact, not the absence of a diff:**
+
+```bash
+git status --short <path>                    # necessary, not sufficient
+git log --oneline -1 --date=iso --pretty='%h %ad %s' -- <path>   # did the work LAND?
+```
+
+Clean **and** a commit newer than the stall date means it landed. Clean **and** a last
+commit still older than the stall means the work has gone somewhere — look for a stash
+(`git stash list`) before concluding anything. The same asymmetry the lane already knows from
+elsewhere: an absence is only evidence when you have established what would have made it
+present.
+
+**So the owed line stands, unchanged in substance:** `rebuild-cascade.md`'s stored count is
+still owed, still same-file-blocked, and it remains the drift check's only HEAD finding
+(`./scripts/test-concept-register-drift-local.py`, run at HEAD `287cdffe2`: 1842 entries,
+1842 index rows, one finding — `rebuild-cascade.md` states 7, actual 7).
+
+Nothing else in this session touched the register. The two landmines filed
+(`b3aa8c45c`, `19eb8fdf8`) are fleet-wide, not lane work — though the second is the lane's
+own subject one layer up: an advisory that is delivered but keyed so that nothing can match
+it has not reached anyone.

@@ -108,6 +108,17 @@ have not committed and the drift harness does not. Full command set:
   same-file passenger. **Re-check `git status` before assuming; if clean, retire this line
   and delete `rebuild-cascade.md` from `KNOWN_STORED_COUNTS` in the local harness. Do NOT
   grow that set to silence findings.** It is the drift check's only HEAD finding.
+  > **UPDATE 2026-08-12, 18:45 — the 38 files have been RESTORED from `stash@{0}`** (all 25
+  > content files verified per file against the stash; the 2 deletions and the 11 already
+  > recovered were left alone; the stash was NOT popped and is still in place). **So this file
+  > is dirty again — 3 added / 3 deleted, the REB-003 rewrite — which is its TRUE state.**
+  > Still owed, still same-file-blocked; nothing about the item changed, only the reason.
+  > **And `git status` alone cannot decide this**, which is the transferable bit: "clean" has
+  > two causes — the other session committed, or their work was swept out of the tree — and
+  > only the second leaves the blocker in place while looking resolved. Assert the positive
+  > fact instead: `git log --oneline -1 -- <path>`, and treat a last-commit older than the
+  > stall as "the work has gone somewhere", not as "the work is done". Worked account:
+  > `RUNNING_NOTES_concept_register.md` § 2026-08-12c.
 - **A stray `register/model-infrastructure.md.tmp_check`** is still untracked — another
   session's, left alone.
 - **The branch is unpushed.** The watcher reads the **pushed** branch, so its morning row
