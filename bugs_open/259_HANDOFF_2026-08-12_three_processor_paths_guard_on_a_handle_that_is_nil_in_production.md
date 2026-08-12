@@ -1,5 +1,16 @@
 # 259 — three `MessageProcessor` paths guard on `p.sqlDB`, which is nil in production, so none of them has ever run
 
+> **⚠ 259 IS AN AMBIGUOUS NUMBER.** An unrelated `bugs_open/259` was filed the same day —
+> `259_HANDOFF_2026-08-12_one_provision_request_builds_several_billable_gpus.md` (GPU
+> provisioning). Numbers are never reassigned on this estate and duplicates are tolerated,
+> so **resolve this case by its slug** (`three_processor_paths_guard_on_a_handle...`) and
+> `git log` the FILE PATH, never the bare number. A commit message saying "259" may well
+> mean the other one.
+>
+> **OWNED BY THE `bugfix_239` LANE** as 239's continuation (accepted 2026-08-12; they
+> re-verified all three sites at source before accepting). Filed by the 246 lane, which is
+> not working it — contribute into that lane, do not start a parallel fix.
+
 **Filed 2026-08-12** by the `bugfix_246_shared_pool_ownership` lane, found while scoping
 246's follow-up D5 ("collapse `p.sqlDB` into `p.db`"). What looked like a cosmetic
 two-handles tidy-up is three production-dead code paths sharing one cause.
