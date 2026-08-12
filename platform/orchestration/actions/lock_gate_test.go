@@ -50,18 +50,18 @@ func TestMatchLockedRowExactAndKebab(t *testing.T) {
 		{id: uuid.New(), slot: "social_proof"},
 	}
 
-	if lr := matchLockedRow(rows, "hero-section"); lr == nil || lr.slot != "hero-section" {
+	if lr := matchLockedRow(rows, "hero-section", ""); lr == nil || lr.slot != "hero-section" {
 		t.Fatalf("exact match failed: %+v", lr)
 	}
 	// Kebab-normalised fallback (the 041 naming landmine): snake_case row,
 	// kebab-case incoming name.
-	if lr := matchLockedRow(rows, "social-proof"); lr == nil || lr.slot != "social_proof" {
+	if lr := matchLockedRow(rows, "social-proof", ""); lr == nil || lr.slot != "social_proof" {
 		t.Fatalf("kebab-normalised match failed: %+v", lr)
 	}
-	if lr := matchLockedRow(rows, "faq"); lr != nil {
+	if lr := matchLockedRow(rows, "faq", ""); lr != nil {
 		t.Fatalf("unrelated name must not match, got %+v", lr)
 	}
-	if lr := matchLockedRow(rows, ""); lr != nil {
+	if lr := matchLockedRow(rows, "", ""); lr != nil {
 		t.Fatalf("empty name must not match, got %+v", lr)
 	}
 }
@@ -69,7 +69,7 @@ func TestMatchLockedRowExactAndKebab(t *testing.T) {
 func TestMatchLockedRowConsumesOnce(t *testing.T) {
 	rows := []*lockedPageRow{{id: uuid.New(), slot: "content-block"}}
 
-	lr := matchLockedRow(rows, "content-block")
+	lr := matchLockedRow(rows, "content-block", "")
 	if lr == nil {
 		t.Fatal("first match failed")
 	}
@@ -77,7 +77,7 @@ func TestMatchLockedRowConsumesOnce(t *testing.T) {
 
 	// A page with duplicate slot names: one lock must not swallow the second
 	// incoming section of the same name.
-	if again := matchLockedRow(rows, "content-block"); again != nil {
+	if again := matchLockedRow(rows, "content-block", ""); again != nil {
 		t.Fatalf("consumed row matched again: %+v", again)
 	}
 }
@@ -244,10 +244,13 @@ func TestLoadActiveLockedRows(t *testing.T) {
 	defer db.Close()
 
 	idA, idB := uuid.New(), uuid.New()
+	// component_id is the 6th column the loader selects (identity arm of
+	// matchLockedRow, 2026-08-12); empty here because this test pins the SCAN,
+	// not the matching.
 	mock.ExpectQuery("SELECT id, COALESCE").
-		WillReturnRows(sqlmock.NewRows([]string{"id", "slot_name", "position", "locked_by", "lock_type"}).
-			AddRow(idA.String(), "hero-section", 1, "admin", "permanent").
-			AddRow(idB.String(), "cta-band", 4, "182_legal_pages", "permanent"))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "slot_name", "position", "locked_by", "lock_type", "component_id"}).
+			AddRow(idA.String(), "hero-section", 1, "admin", "permanent", "").
+			AddRow(idB.String(), "cta-band", 4, "182_legal_pages", "permanent", ""))
 
 	rows := loadActiveLockedRows(context.Background(), db, uuid.New(), zap.NewNop())
 	if len(rows) != 2 {

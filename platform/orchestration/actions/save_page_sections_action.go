@@ -821,7 +821,7 @@ func SavePageSectionsAction(ctx context.Context, params ActionParams) (interface
 		// fresh copy is discarded, and the block is surfaced as a work item —
 		// a silent skip would trade one silent failure for another. Only the
 		// row's position moves, so ordering follows the new composition.
-		if lr := matchLockedRow(lockedRows, section.ComponentName); lr != nil {
+		if lr := matchLockedRow(lockedRows, section.ComponentName, section.ComponentID); lr != nil {
 			lr.consumed = true
 			if _, posErr := params.DB.ExecContext(ctx, `
 				UPDATE page_components SET position = $2 WHERE id = $1
@@ -1085,7 +1085,13 @@ type lockedPageRow struct {
 	position int
 	lockedBy string
 	lockType string
-	consumed bool // matched (and thereby blocked) an incoming section this save
+	// componentID is the content_components row this locked section renders.
+	// Carried so matchLockedRow can pair on IDENTITY as well as slot name —
+	// the sibling guard (matchDecisionProtectedRow) always could, and the
+	// asymmetry is a real defect on any page whose slot names are positional
+	// rather than component functions. See matchLockedRow.
+	componentID string
+	consumed    bool // matched (and thereby blocked) an incoming section this save
 }
 
 // loadActiveLockedRows returns the page's rows automation may not overwrite,
@@ -1095,7 +1101,8 @@ type lockedPageRow struct {
 // a duplicate slot rather than destroy locked copy).
 func loadActiveLockedRows(ctx context.Context, db *sql.DB, pageID uuid.UUID, logger *zap.Logger) []*lockedPageRow {
 	rows, err := db.QueryContext(ctx, `
-		SELECT id, COALESCE(slot_name, ''), position, COALESCE(locked_by, ''), COALESCE(lock_type, '')
+		SELECT id, COALESCE(slot_name, ''), position, COALESCE(locked_by, ''), COALESCE(lock_type, ''),
+		       COALESCE(component_id::text, '')
 		FROM page_components
 		WHERE page_id = $1 AND NOT `+pageComponentAgentWritableSQL("")+`
 		ORDER BY position ASC
@@ -1109,7 +1116,7 @@ func loadActiveLockedRows(ctx context.Context, db *sql.DB, pageID uuid.UUID, log
 	var locked []*lockedPageRow
 	for rows.Next() {
 		lr := &lockedPageRow{}
-		if scanErr := rows.Scan(&lr.id, &lr.slot, &lr.position, &lr.lockedBy, &lr.lockType); scanErr != nil {
+		if scanErr := rows.Scan(&lr.id, &lr.slot, &lr.position, &lr.lockedBy, &lr.lockType, &lr.componentID); scanErr != nil {
 			logger.Warn("SavePageSectionsAction: locked-row scan failed", zap.Error(scanErr))
 			continue
 		}
@@ -1118,13 +1125,37 @@ func loadActiveLockedRows(ctx context.Context, db *sql.DB, pageID uuid.UUID, log
 	return locked
 }
 
-// matchLockedRow finds the first unconsumed locked row whose slot matches the
-// incoming section name — exact first, then kebab-normalised (the 041 naming
-// landmine: the library stores kebab-case but older rows/plans may carry
-// snake_case or CamelCase variants of the same slot). Each locked row matches
-// at most one incoming section, so a page with duplicate slot names cannot
-// have one lock swallow several sections.
-func matchLockedRow(lockedRows []*lockedPageRow, sectionName string) *lockedPageRow {
+// matchLockedRow finds the first unconsumed locked row matching the incoming
+// section — by component IDENTITY first, then slot name exact, then slot name
+// kebab-normalised (the 041 naming landmine: the library stores kebab-case but
+// older rows/plans may carry snake_case or CamelCase variants of the same
+// slot). Each locked row matches at most one incoming section, so a page with
+// duplicate slot names cannot have one lock swallow several sections.
+//
+// The identity arm mirrors matchDecisionProtectedRow, which has always had it
+// (save_sections_decision_gate.go: "Identity beats naming"), and its absence
+// here was a real defect rather than a deliberate difference. Slot-name-only
+// matching silently assumes slot names ARE component functions. On a page
+// decomposed into POSITIONAL slots — prose-0, tool-2, the shape adoption and
+// the decompose lane produce — a replan that names the very component a locked
+// row renders does not pair with it. The locked row then falls through to the
+// unconsumed tail pass below and is repositioned after the whole new set,
+// while the loop separately inserts a freshly composed section for the SAME
+// component: the page ends up with the automation's copy in place and the
+// human-locked original exiled to the foot. That is two defects at once —
+// a duplicate, and a lock that "held" while losing its position entirely.
+//
+// Guarded on non-empty exactly as the sibling is: sections often arrive before
+// enrichSectionsWithComponentIDs has resolved an id, and an empty-string match
+// would pair every unresolved section with the first idless locked row.
+func matchLockedRow(lockedRows []*lockedPageRow, sectionName, sectionComponentID string) *lockedPageRow {
+	if sectionComponentID != "" {
+		for _, lr := range lockedRows {
+			if !lr.consumed && lr.componentID != "" && lr.componentID == sectionComponentID {
+				return lr
+			}
+		}
+	}
 	if sectionName == "" {
 		return nil
 	}

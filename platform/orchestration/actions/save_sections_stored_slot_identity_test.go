@@ -178,7 +178,7 @@ func TestStoredSlotNameRestoresTheLockedRowMatch(t *testing.T) {
 	locked := []*lockedPageRow{{id: uuid.New(), slot: "tool-2", position: 3, lockedBy: "admin", lockType: "permanent"}}
 
 	s := onlySection(t, metaEntry("tool-2", "tool-loan-vs-savings", "tool-2", uuid.NewString()))
-	if lr := matchLockedRow(locked, s.ComponentName); lr == nil {
+	if lr := matchLockedRow(locked, s.ComponentName, ""); lr == nil {
 		t.Fatalf("the locked row must be matched by the stored slot name; section came through as %q", s.ComponentName)
 	}
 
@@ -188,7 +188,7 @@ func TestStoredSlotNameRestoresTheLockedRowMatch(t *testing.T) {
 	// the test above would pass against a matchLockedRow that matched anything.
 	locked[0].consumed = false
 	bare := onlySection(t, metaEntry("", "tool-loan-vs-savings", "tool-2", uuid.NewString()))
-	if lr := matchLockedRow(locked, bare.ComponentName); lr != nil {
+	if lr := matchLockedRow(locked, bare.ComponentName, ""); lr != nil {
 		t.Fatalf("control failed: %q should not match a row called tool-2 — the test above proves nothing", bare.ComponentName)
 	}
 }
@@ -379,8 +379,15 @@ func expectSaveSlotReads(mock sqlmock.Sqlmock, siteID, pageID uuid.UUID, pageNam
 	mock.ExpectExec("DELETE FROM page_components").WillReturnResult(sqlmock.NewResult(0, 0))
 }
 
+// component_id is the 6th column loadActiveLockedRows selects (the identity arm
+// of matchLockedRow, 2026-08-12). Callers of this helper AddRow five values and
+// so leave it empty, which is deliberate: these fixtures exist to exercise the
+// SLOT-NAME branch, and giving a locked row the same component id as the
+// incoming section would route them through the identity branch instead —
+// passing while silently no longer testing what their names claim. The identity
+// branch has its own fixtures in save_sections_locked_identity_test.go.
 func lockedRowSet() *sqlmock.Rows {
-	return sqlmock.NewRows([]string{"id", "slot_name", "position", "locked_by", "lock_type"})
+	return sqlmock.NewRows([]string{"id", "slot_name", "position", "locked_by", "lock_type", "component_id"})
 }
 
 // expectSectionInsert asserts the slot_name the INSERT actually receives — the
@@ -429,7 +436,7 @@ func TestSavePageSections_LockedPositionalSlotIsPreservedNotDuplicated(t *testin
 	// One locked row; nothing agent-writable. The floor's plan cohort therefore
 	// nets to zero planned sections, which is correct: a save whose only section
 	// is held by a lock writes nothing and must not be refused for it.
-	locked := lockedRowSet().AddRow(lockedID.String(), "tool-2", 3, "admin", "permanent")
+	locked := lockedRowSet().AddRow(lockedID.String(), "tool-2", 3, "admin", "permanent", "")
 	expectSaveSlotReads(mock, siteID, pageID, "tool-loan-vs-savings", locked, 0, 1, 1)
 
 	// The locked-slot branch: reposition to follow the new composition (position

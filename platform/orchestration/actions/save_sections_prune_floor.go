@@ -171,7 +171,10 @@ func projectedSectionInserts(sections []SectionData, lockedRows []*lockedPageRow
 
 	n := 0
 	for _, s := range sections {
-		if lr := matchLockedRow(sim, s.ComponentName); lr != nil {
+		// Same arguments the insert loop passes, identity included — a
+		// simulation that matches differently from the thing it simulates
+		// stops being a projection and starts being a second opinion.
+		if lr := matchLockedRow(sim, s.ComponentName, s.ComponentID); lr != nil {
 			lr.consumed = true
 			continue
 		}

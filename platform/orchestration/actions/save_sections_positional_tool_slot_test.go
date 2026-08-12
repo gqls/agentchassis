@@ -44,7 +44,7 @@ func TestMatchLockedRowPositionalToolSlot(t *testing.T) {
 	//    It MUST match, or every rebuild of a decomposed tool page would shunt
 	//    the calculator to the bottom.
 	rows := newRows()
-	if lr := matchLockedRow(rows, "tool-1"); lr == nil || lr.slot != "tool-1" {
+	if lr := matchLockedRow(rows, "tool-1", ""); lr == nil || lr.slot != "tool-1" {
 		t.Fatalf("positional tool slot must match its own name exactly, got %+v", lr)
 	}
 
@@ -53,7 +53,7 @@ func TestMatchLockedRowPositionalToolSlot(t *testing.T) {
 	//    path. Named semantic slots are what a seeded site_plan would produce.
 	rows = newRows()
 	for _, incoming := range []string{"hero", "calculator", "mortgage-tool", "prose-0", "tool", "tool-2"} {
-		if lr := matchLockedRow(rows, incoming); lr != nil {
+		if lr := matchLockedRow(rows, incoming, ""); lr != nil {
 			t.Fatalf("incoming %q must not match locked slot tool-1, got %+v", incoming, lr)
 		}
 	}
@@ -63,7 +63,7 @@ func TestMatchLockedRowPositionalToolSlot(t *testing.T) {
 	rows = newRows()
 	consumed := 0
 	for _, incoming := range []string{"prose-0", "tool-1", "prose-2"} {
-		if lr := matchLockedRow(rows, incoming); lr != nil {
+		if lr := matchLockedRow(rows, incoming, ""); lr != nil {
 			lr.consumed = true
 			consumed++
 			if incoming != "tool-1" {
@@ -80,7 +80,7 @@ func TestMatchLockedRowPositionalToolSlot(t *testing.T) {
 	//    to len(sections)+1 and the lock_blocked work item.
 	rows = newRows()
 	for _, incoming := range []string{"prose-0", "prose-2"} {
-		if lr := matchLockedRow(rows, incoming); lr != nil {
+		if lr := matchLockedRow(rows, incoming, ""); lr != nil {
 			lr.consumed = true
 		}
 	}
@@ -94,7 +94,7 @@ func TestMatchLockedRowPositionalToolSlot(t *testing.T) {
 // drops the calculator to the bottom of the page.
 func TestMatchLockedRowPositionalKebabEquivalence(t *testing.T) {
 	rows := []*lockedPageRow{{id: uuid.New(), slot: "tool_1"}}
-	if lr := matchLockedRow(rows, "tool-1"); lr == nil {
+	if lr := matchLockedRow(rows, "tool-1", ""); lr == nil {
 		t.Fatal("snake_case locked slot must match a kebab-case incoming name")
 	}
 }
