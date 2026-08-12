@@ -3796,3 +3796,71 @@ live-transcript check before either side wrote anything). The one open thread th
 behind is `bugs_open/256`, which is not this lane's tool-authoring job — it is a
 screenshot-capture/vision-API mismatch that belongs to whichever lane owns
 `run_checks_action.go`'s capture path.
+
+## 2026-08-12 — 248 fixed in code; the mailer costed; tools.apis.uk measured and NOT widened
+
+Fleet **v1.0.1290**. Three lanes had contributed to `bugs_open/248` since 08-10 and each
+explicitly disclaimed the fix, so it was unowned. Their contributions changed the shape of
+it and were read before any code was touched:
+
+- the placeholder fires on the **`image-build-handler`** path too, not only the
+  `undeployed_asset` repair (08-11) — so a fix that only mended the repair route would have
+  missed the path that ships every routine hero/logo;
+- the census **under-counts**: `assets.url` gets the placeholder from a best-effort
+  post-commit UPDATE, so an instance whose bookkeeping failed is invisible.
+  **150 rows / 16 sites by `updated_at`** (up from 118/10), and that is a floor;
+- **rung 2 was still live** — the `asset_key?` marker added 08-11 sits on the CALLER's
+  mapping, not the deployer's config. Easy to mistake for the fix landing.
+
+### The root of (b) is sharper than 248 first recorded, and it is a class
+
+`spec.Defaults` are written into `Values` **before** Strategy 1 runs, and Strategies 1–4
+all `continue` on a field that already holds a value. So **a field WITH a default is
+unreachable by the recursive search** — only a Strategy 0 explicit dot-path can set it.
+That is the whole asymmetry: `asset_key` (no default) was found at `spec.asset_key`;
+`purpose` (default `hero`) never could be. Not a fact about this action — a fact about
+every `ActionInputSpec` with a non-empty `Defaults` map, and **nobody has enumerated that
+population.** Recorded as CAP-002's open question.
+
+### Shipped — `930ace3bd`, INERT until the roll
+
+Rung 2 deleted; dotted-key guard for the class; `ActionInputs.WasDefaulted` (additive,
+CAP-002); `assetRowIdentity` so the ASSET ROW supplies purpose/asset_key when the run
+states neither — which is what makes one fix cover both producers without touching a
+shared mapping. Detector now emits `asset_key`.
+
+**Not a handler.** The owner asked. `asset-deployer` exists, dispatches, commits and
+reports honestly; both defects are input resolution plus one detector omission.
+
+**Rejected on purpose:** adding `purpose`/`asset_key` to `build-dispatch-loop`'s
+`input_mapping` would have fixed (b) LIVE with no roll. It widens a seam every handler
+dispatch passes through, to fix one action. Narrower beat faster.
+
+**Mutation-tested** (restore rung 2 → scan fails; disable the row-purpose branch → both
+behavioural tests fail; drop the provenance map → provenance test fails), tree restored,
+`git archive HEAD` builds and both suites pass from it.
+`Council-Submitted: 7f0c1535-25cb-4645-adba-f7429e357a79` — **verdict NOT yet read**
+(still at `review_constitution` when this was written). Owed.
+
+### tools.apis.uk — measured, and the answer is NO
+
+The owner said "if we need that". Fleet-wide, exactly **two components reference
+`tools.apis.uk`, both on vonc.com** (`gauntlet-interface`, `gauntlet-round-record`) — and
+vonc.com is already the single allowed origin. **The allowlist matches demand exactly.**
+
+Re-measured today with a positive control, so a 403 is a finding and not a broken probe:
+vonc.com → **204**; robot-hands.com, leopardessconsulting.co.uk and a nonsense origin →
+**403** identically. And the endpoint that would matter does not exist: `POST` to
+`/api/v1/tools/contact`, `/api/v1/contact` and `/contact` → **404 from the ALLOWED
+origin**. So CORS is not the blocker; there is nothing to POST to. Adding the two domains
+would grant LLM-backed rate-limited endpoints to sites that never call them, for zero
+function. **Not done.**
+
+### mailer — verified first-hand, not taken from the earlier briefing
+
+`platform/mailer` importers: **0** (positive control `platform/httpguard`: **1**, so the
+grep works). `mailer.go:226-227`: the non-465 branch is `return smtp.SendMail(...)` with no
+deadline and no `ctx` — the `dialTimeout`/`convTimeout` at :230-237 are inside the implicit-TLS
+branch only. EMAIL-002 says this estate can use **only** 587. So the bounded-send guarantee
+holds on the port we cannot use, and not on the one we must. No SMTP/mail/SES key exists in
+`personae-default-secrets`, `personae-platform-secrets` or `personae-storage-secrets`.
