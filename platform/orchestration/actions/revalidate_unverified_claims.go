@@ -87,6 +87,7 @@ import (
 	"go.uber.org/zap"
 
 	checks "github.com/gqls/agentchassis/platform/orchestration/actions/discovery_checks"
+	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 )
 
 func revalidateUnverifiedClaims(ctx context.Context, db *sql.DB, item parkedReviewItem, logger *zap.Logger) revalidationVerdict {
@@ -190,15 +191,37 @@ func flaggedClaimsFromSpec(spec map[string]interface{}) []flaggedClaim {
 // Case-insensitive substring, scoped to the slot. Deliberately crude in the SAFE
 // direction: a token that matches something unrelated in its own slot produces a
 // refusal (non-terminal, a human still sees the item), never a closure.
+//
+// PREDICATE PARITY (council round 6, `reuse_agent`): the search runs over
+// datahelpers.ExtractAssertionText, which is the SAME extraction the emit side
+// scans (check_unverified_claims.go's scanComponentClaims calls it before handing
+// blocks to ScanBannedClaims / ScanUnregisteredNumbers). Searching raw markup here
+// would mean the two ends of an item's life judge different text — the exact
+// divergence this lane's shared-scanner design exists to prevent — and it would
+// let a token match a class name, an id or a style value that no reader sees.
+//
+// ⚠ HONEST NOTE, so nobody re-litigates this as a fix: on the live population it
+// changes NOTHING. Measured 2026-08-12 against both sides — false refusals on the
+// 8 closed items 2 with raw markup and 2 with prose only; sensitivity on the
+// still-holding population 40/41 either way. The two survivors ("5", "97") sit in
+// the prose, not the markup. This is a correctness-and-reuse change, not a
+// measured improvement, and it is made because parity is the design rather than
+// because it moved a number.
 func claimStillOnPage(scan *checks.ClaimsPageScan, c flaggedClaim) (present, judgeable bool) {
 	if strings.TrimSpace(c.Matched) == "" {
 		return false, false
 	}
-	text, ok := scan.ExaminedTextBySlot[c.Slot]
+	raw, ok := scan.ExaminedTextBySlot[c.Slot]
 	if !ok {
 		return false, false
 	}
-	return strings.Contains(strings.ToLower(text), strings.ToLower(c.Matched)), true
+	needle := strings.ToLower(strings.TrimSpace(c.Matched))
+	for _, block := range datahelpers.ExtractAssertionText(raw) {
+		if strings.Contains(strings.ToLower(block), needle) {
+			return true, true
+		}
+	}
+	return false, true
 }
 
 // unverifiedClaimsVerdict is the decision ladder, split from the database glue

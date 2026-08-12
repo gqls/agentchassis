@@ -383,3 +383,93 @@ func TestFlaggedClaimsFromSpecToleratesJunk(t *testing.T) {
 		t.Errorf("real spec shape misread: %+v", got)
 	}
 }
+
+// PREDICATE PARITY, and the trap inside it (council round 6, `reuse_agent`).
+// claimStillOnPage now searches datahelpers.ExtractAssertionText, the same
+// extraction the emit side scans. That is right for rendered_html — but
+// ExaminedTextBySlot also carries content_data, which is JSON, not HTML. If the
+// extractor dropped non-HTML text, a claim living in stored content would read as
+// GONE, which GRANTS closure: the unsafe direction, and invisible without this test.
+func TestClaimStillOnPageSeesClaimsInNonHTMLStoredContent(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		text string
+	}{
+		{"plain prose, no markup at all", "Trusted by 90,790 customers across the UK."},
+		{"stored content_data JSON", `{"headline":"Trusted by 90,790 customers","cta":"Book"}`},
+		{"html and json concatenated, as the scan stores them", `<p>Our reach</p>{"stat":"90,790"}`},
+		{"claim inside ordinary markup", `<section><h2>Reach</h2><p>Trusted by 90,790 customers.</p></section>`},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			scan := &checks.ClaimsPageScan{PageID: "p1", ExaminedTextBySlot: map[string]string{"hero": tc.text}}
+			present, judgeable := claimStillOnPage(scan, flaggedHero[0])
+			if !judgeable {
+				t.Fatalf("the slot was examined, so the question is answerable; got judgeable=false")
+			}
+			if !present {
+				t.Errorf("claim %q not found in %q — a claim the extractor cannot see reads as REMOVED, "+
+					"which closes a live factual-claim item", flaggedHero[0].Matched, tc.text)
+			}
+		})
+	}
+}
+
+// The other half of parity: text that exists only in MARKUP is not an assertion
+// and must not hold an item open. This is what searching raw html got wrong.
+func TestClaimStillOnPageIgnoresMarkupOnlyMatches(t *testing.T) {
+	scan := &checks.ClaimsPageScan{PageID: "p1", ExaminedTextBySlot: map[string]string{
+		"hero": `<div class="grid-90,790" data-count="90,790"><p>We help small firms adopt AI.</p></div>`,
+	}}
+	present, judgeable := claimStillOnPage(scan, flaggedHero[0])
+	if !judgeable {
+		t.Fatal("slot was examined; expected an answerable question")
+	}
+	if present {
+		t.Error("a token appearing only in a class name and a data attribute was read as a live claim — " +
+			"no reader sees it, and holding the item open on that basis is a false refusal")
+	}
+}
+
+// THE SHARED-LOADER CONTRACT, made mechanical (council round 6, `editquality` and
+// `guardian` MEDIUM, independently).
+//
+// loadParkedReviewItems serves ALL covered item types, so a column added to its
+// SELECT without a matching rows.Scan destination is a runtime scan error that
+// fails the sweep for EVERY revalidator at once — not a compile error, and
+// invisible to any caller. The two halves were previously joined only by a
+// warning comment, in a change whose own submission argued that a comment is not
+// a control on a shared tree. This is that control.
+func TestParkedReviewItemSelectAndScanAgree(t *testing.T) {
+	var it parkedReviewItem
+	var specJSON []byte
+	dests := parkedReviewItemScanDests(&it, &specJSON)
+
+	if len(parkedReviewItemColumns) != len(dests) {
+		t.Fatalf("loadParkedReviewItems SELECT has %d column(s) but rows.Scan takes %d destination(s): "+
+			"%v.\nThese are ONE contract. A mismatch is `sql: expected %d destination arguments in Scan, "+
+			"not %d` at runtime, and it breaks the sweep for every covered item_type, not just yours.",
+			len(parkedReviewItemColumns), len(dests), parkedReviewItemColumns, len(parkedReviewItemColumns), len(dests))
+	}
+	if len(parkedReviewItemColumns) == 0 {
+		t.Fatal("the SELECT list is empty; the loader would select nothing and every revalidator would idle")
+	}
+	for i, d := range dests {
+		if d == nil {
+			t.Errorf("scan destination %d (%q) is nil — Scan would fail at runtime",
+				i, parkedReviewItemColumns[i])
+		}
+	}
+	// created_at is the newest member and the one the claims_unverified gates
+	// depend on; naming it here means dropping it fails a test rather than
+	// silently sending every item to the zero-value `unknown` arm for ever.
+	var found bool
+	for _, c := range parkedReviewItemColumns {
+		if c == "created_at" {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("created_at is absent from the SELECT: filedAt would arrive as the zero value and the " +
+			"copy-changed gate could never reach `resolved` — the exact defect editquality predicted in round 3")
+	}
+}

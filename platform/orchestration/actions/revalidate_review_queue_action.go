@@ -141,6 +141,42 @@ type parkedReviewItem struct {
 	CreatedAt time.Time
 }
 
+// parkedReviewItemColumns IS the SELECT list of loadParkedReviewItems, in the
+// order rows.Scan expects, and parkedReviewItemScanDests returns exactly one
+// destination per entry.
+//
+// WHY THESE EXIST RATHER THAN A COMMENT (council round 6, `editquality` and
+// `guardian` MEDIUM, independently). loadParkedReviewItems is the SHARED loader
+// for every covered item_type — six as of 2026-08-12 — so a column added to the
+// SELECT without a matching destination is a `sql: expected N destination
+// arguments in Scan, not M` at RUNTIME, and it fails the whole sweep for EVERY
+// revalidator at once, not just the one whose type prompted the edit. It is not
+// a compile error and no caller can see the risk.
+//
+// The two halves used to be joined only by a warning comment. Both seats pointed
+// out that the submission proposing that comment argued, three paragraphs
+// earlier, that "a comment is not a control on a tree this many sessions share"
+// (owner ruling 2026-08-02 §2) — and they were right that we had exempted
+// ourselves from our own rule. Splitting the contract into two adjacent,
+// countable values makes it mechanically checkable:
+// TestParkedReviewItemSelectAndScanAgree fails the moment they diverge.
+//
+// ⚠ ADD TO BOTH, IN THE SAME POSITION. The test catches a COUNT mismatch, which
+// is the failure that reaches production; it cannot catch two columns swapped
+// into each other's positions when their Go types happen to be compatible.
+var parkedReviewItemColumns = []string{
+	"id::text",
+	"site_id",
+	"item_type",
+	"COALESCE(item_key, '')",
+	"COALESCE(spec, '{}'::jsonb)",
+	"created_at",
+}
+
+func parkedReviewItemScanDests(it *parkedReviewItem, specJSON *[]byte) []interface{} {
+	return []interface{}{&it.ID, &it.SiteID, &it.ItemType, &it.ItemKey, specJSON, &it.CreatedAt}
+}
+
 // revalidationVerdict is one revalidator's answer about one parked item.
 type revalidationVerdict struct {
 	Verdict  string                 `json:"verdict"`
@@ -434,13 +470,14 @@ func loadParkedReviewItems(ctx context.Context, db *sql.DB, siteFilter, typeFilt
 	// growing in some unrelated type can no longer push this sweep's own work out
 	// of the batch. The uncovered rows are still reported, by reportUncoveredBacklog,
 	// which counts ALL of them rather than the subset that fell inside the cap.
-	// ⚠ THIS SELECT AND THE rows.Scan BELOW ARE ONE CONTRACT — add a column to one
-	// and you must add it to the other, in the same edit and the same position.
+	// ⚠ THIS SELECT AND THE rows.Scan BELOW ARE ONE CONTRACT. That used to be
+	// asserted only by this comment; it is now asserted by parkedReviewItemColumns
+	// and parkedReviewItemScanDests, which a test compares. See their doc comment.
 	query := fmt.Sprintf(`
-		SELECT id::text, site_id, item_type, COALESCE(item_key, ''), COALESCE(spec, '{}'::jsonb),
-		       created_at
+		SELECT %s
 		FROM site_work_items
 		WHERE status IN (%s) AND item_type IN (%s)`,
+		strings.Join(parkedReviewItemColumns, ", "),
 		sqlInList(workItemRevalidatableStatuses), sqlInList(coveredItemTypes()))
 	args := []interface{}{}
 	if strings.TrimSpace(siteFilter) != "" {
@@ -472,7 +509,7 @@ func loadParkedReviewItems(ctx context.Context, db *sql.DB, siteFilter, typeFilt
 	for rows.Next() {
 		var it parkedReviewItem
 		var specJSON []byte
-		if err := rows.Scan(&it.ID, &it.SiteID, &it.ItemType, &it.ItemKey, &specJSON, &it.CreatedAt); err != nil {
+		if err := rows.Scan(parkedReviewItemScanDests(&it, &specJSON)...); err != nil {
 			return nil, fmt.Errorf("scan parked review item: %w", err)
 		}
 		if len(specJSON) > 0 {
