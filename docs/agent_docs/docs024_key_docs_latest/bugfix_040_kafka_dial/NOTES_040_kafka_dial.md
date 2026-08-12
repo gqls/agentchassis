@@ -608,3 +608,45 @@ WHERE correlation_id = '58a0390c-33ec-4580-9697-3320b280475d'::uuid ORDER BY
 created_at DESC LIMIT 1;` (pipe through `psql -t -A` to a file, not straight to
 a pipeline — the payload is large enough that `kubectl exec -i` piped into
 `python3 -c` has truncated mid-stream at least once this session).
+
+## 2026-08-12, later still — re-fired run COMPLETED but UNVERIFIABLE; closed the loop by hand instead of firing a third run
+
+`58a0390c-33ec-4580-9697-3320b280475d` finished (`status='COMPLETED'`,
+`current_step='complete'`) — no third roll killed this one. Outcome:
+**`UNVERIFIABLE`**, not REFUTED and not a hit. Per
+`an-unverifiable-verdict-does-not-say-your-premise-was-false` (memory) this
+means "the search didn't finish", not "the premise was wrong" — and this
+verdict was unusually explicit about *why*: its `needed_evidence` field named
+the exact gap verbatim — the `fmt.Sprintf("%s:%d", ...)` content search was
+capped at 40 rows ordered by path and cut off before
+`platform/orchestration/actions/spawn_actions.go`, so absence there was
+UNKNOWN rather than confirmed, and `spawn_actions.go`'s own body (109,756
+chars) hadn't fit in-context to be read directly either.
+
+Rather than re-fire a third `090` run for two greps and two file reads, did
+it first-hand:
+- `grep -rn 'fmt.Sprintf("%s:%d"' --include=*.go platform/ internal/ cmd/` →
+  **one hit fleet-wide**, `topic_manager.go:322`, inside `controllerAddress`
+  — the already-fixed function. No sibling.
+- `grep -rn 'kafka.Broker{' ...` → **zero hits**.
+- Every `conn.Controller()` / `conn.Brokers()` call site read directly:
+  `Controller()` used once (the fixed `getController`); `Brokers()` used once
+  (`kafka_reachability.go:115`, `dialAny`) and its result is **discarded**
+  (`_, metaErr := conn.Brokers()`) — never turned into a dial string.
+- Read `CreateJobTopic` and `getConfiguredKafkaBrokers` in full: both
+  `:9092`-literal filters operate on **statically-configured** strings (a
+  function parameter and `os.Getenv`, respectively) — never on live kafka-go
+  metadata. Different mechanism, different bug class; nothing to reuse or
+  duplicate.
+
+**Both council objections now have a first-hand, uncapped answer, written up
+in `bugs_open/040` §11.7:** the unvalidated-Host-from-live-metadata pattern
+exists nowhere else in the fleet (`getController`/`controllerAddress` is the
+only site, already fixed), and the `:9092` filters `prior_art_librarian`
+pointed at are an unrelated static-config guard, not a sibling instance.
+`guardian`'s caller enumeration is confirmed exactly as the capped run had
+already found: `CreateTopic`, `DeleteTopic`, `ListTopics`, `TopicExists`, no
+fifth. This closes the follow-up-diagnosis thread from
+`HANDOFF_2026-08-12b_040_build_verified_diagnosis_rerunning.md`. Bug 040
+itself stays OPEN (§11.6/§11.7 — this only settles isolation, not root cause
+of the `refused` burst).

@@ -700,3 +700,55 @@ terminal state per `max_attempts=1`, consistent with the owning pod being
 replaced under it, not a content failure). **No verdict was produced; this is
 not evidence for or against the audit question.** Re-fired as a fresh intake,
 correlation recorded in the workstream NOTES once it lands.
+
+### 11.7 Re-fired run came back UNVERIFIABLE (search capped, not refuted); first-hand grep settles both objections
+
+The re-fire (correlation `58a0390c-33ec-4580-9697-3320b280475d`) completed
+this time, but with outcome `UNVERIFIABLE`. Its own `needed_evidence` field
+named the exact gap: the `fmt.Sprintf("%s:%d", ...)` content search that would
+surface a sibling instance was capped at 40 rows ordered by path and cut off
+before reaching `platform/orchestration/actions/spawn_actions.go`, so absence
+there was UNKNOWN, not confirmed — this is the class in
+`an-unverifiable-verdict-does-not-say-your-premise-was-false` (memory), and
+here the verdict was explicit enough about *why* that filling the gap
+first-hand was cheaper than a third diagnosis run.
+
+Ran the two follow-ups the verdict itself asked for, uncapped:
+
+- `grep -rn 'fmt.Sprintf("%s:%d"' --include=*.go platform/ internal/ cmd/` —
+  **one hit, fleet-wide**: `topic_manager.go:322`, inside `controllerAddress`
+  itself — the fixed function, which now rejects an empty `Host` (§11.4)
+  before this line ever runs. No sibling instance of the idiom exists.
+- `grep -rn 'kafka.Broker{' --include=*.go platform/ internal/ cmd/` — **zero
+  hits**. No struct-literal construction of a `kafka.Broker` anywhere.
+- Every live-metadata call site checked directly: `conn.Controller()` occurs
+  exactly once (`topic_manager.go:292`, inside `getController`, the fixed
+  path). `conn.Brokers()` occurs exactly once
+  (`platform/health/kafka_reachability.go:115`, inside `dialAny`), and its
+  result is **discarded** (`_, metaErr := conn.Brokers()`) — never formatted
+  into a dial target. Nothing here shares the vulnerability class.
+- Read both `:9092`-literal filters in full —
+  `topic_manager.go:CreateJobTopic` (lines 84-118) and
+  `spawn_actions.go:getConfiguredKafkaBrokers` (lines 1017-1057+). Both
+  operate on **statically-configured** broker strings (the `brokers []string`
+  function parameter and `os.Getenv(...)` respectively, split on `,`) — never
+  on a live kafka-go response. They guard a different failure (a phantom
+  hostname baked into a fallback list, per the comments already at those
+  sites) and do not participate in the Host-from-live-metadata pattern this
+  fix closes.
+
+**Answer to the council: no, the pattern does not exist anywhere else.**
+`getController` (via `controllerAddress`) is the only site in the fleet that
+builds a dial target from a live kafka-go `Controller`/`Brokers` response, and
+it is the one already fixed. The `:9092` filters are a distinct, unrelated
+mechanism (static-config hygiene, not live-metadata validation) — so
+`prior_art_librarian`'s reuse-vs-duplicate question dissolves: there is
+nothing of the same kind to reuse or duplicate. `guardian`'s caller
+enumeration is confirmed exactly as the capped run already found:
+`CreateTopic`, `DeleteTopic`, `ListTopics`, `TopicExists` — four call sites,
+no fifth.
+
+This closes the loop the two follow-up diagnosis runs were meant to close.
+The bug itself (§11's `refused` burst) stays OPEN per §11.6 — this subsection
+only answers "is the fixed pattern isolated", not "is this fix the confirmed
+cause of the burst".

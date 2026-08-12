@@ -265,3 +265,29 @@ Kafka client library itself, doing something similar when it looks up which
 "coordinator" to talk to for a group of workers) that I can't yet rule out without
 more digging than a quick read gives me. So I filed it and it's running now rather
 than shipping a patch aimed at a guess.
+
+Since that entry: the fix went in — the code that builds the callback address now
+refuses to build one from a blank name instead of quietly making one that talks to
+itself. It went through the review council and was approved, and a build carrying
+it has now actually rolled out and I've checked, directly, that the running program
+is the one with the fix in it (not just that I built it and hoped).
+
+Two follow-up checks — asking "does this same mistake exist anywhere else in the
+Kafka code" — didn't come back with an answer both times: the first got killed
+mid-run when a fresh build of the whole program restarted the pod it was running
+on, and the second ran to completion but reported it couldn't finish the search in
+the budget it had (it got partway through checking one particular file and stopped,
+which is not the same as checking it and finding nothing). Rather than spend a
+third automated run on what turned out to be two greps and reading two functions
+by hand, I did the check myself: no, it doesn't happen anywhere else. There are
+other places in the code that filter out a similarly bad-looking address, but they
+check something typed in by a person (an environment variable), not something a
+reply from Kafka handed back — different problem, already-existing code, nothing
+to change. That closes out the two questions the reviewers had raised as "worth
+checking but not blocking."
+
+The underlying bug — the 71,832 refused connections in a day — stays open. What's
+now settled is narrower: the fix that's shipped is the only place in the codebase
+with this particular flaw, so nothing was missed by only fixing the one spot.
+Whether it's actually the (or a) cause of that large a burst is still not proven
+either way.
