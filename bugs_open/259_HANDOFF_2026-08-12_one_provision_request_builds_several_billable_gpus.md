@@ -309,3 +309,64 @@ verified guard.
    (258 defect 2). This fix stops the duplicate *billing*; it does not make an
    a6000 provision succeed. Expect the first unpaused a6000 run to fail once,
    cleanly, and leave one claim row marked `failed`.
+
+---
+
+## Council verdict — APPROVED, and what the approving round found
+
+`20d8b725-f4fc-4b8b-ba58-37606ffddacd` — **approved**, 11 reviewers, 6 abstained,
+`unreadable: 0`, **`gated_by_truncation: false`** (so this is a real read, not a
+silent pass), `decided_by: "approved with 7 advisory objection(s) — none
+high-severity"`. Acted on, in order of what they were worth:
+
+1. **guardian, medium — "does `correlation_id` actually survive onto the message
+   the adapter consumes?"** The sharpest objection in the round: if it does not,
+   the fix refuses **every** provision and bricks the path. **Answered and it
+   holds** — `Produce` maps every header onto the Kafka message
+   (`platform/kafka/producer.go:76-78,85`), and `ValidateOutgoingMessage`
+   **requires a non-empty `correlation_id`** (`platform/validation/validator.go:53`),
+   so a request without one is never sent at all. The failure mode is
+   structurally unreachable on this path, not merely unlikely.
+2. **edit-quality + guardian, medium — the "MUST stay unrecoverable"
+   classification had no test.** Real gap, and a nasty one: the idempotency test
+   counts vendor creates, so it would keep passing if the refusal were answered
+   `error_recoverable` — the claim would still refuse *that* attempt, while the
+   chassis went on retrying. **Fixed:** the switch is extracted to
+   `classifyProvisionError` and pinned by two tests, including one that wraps the
+   duplicate sentinel *together with* `context.DeadlineExceeded` to prove the
+   duplicate arm beats the infrastructure arm. Mutation-checked: reordering the
+   arms fails the test.
+3. **architecture + reuse_agent, medium, raised independently — this defect class
+   is generic, and the fix is bespoke.** Both correct, including their point that
+   the submission cited no search for an existing generic mechanism. **Spun out
+   as `architecture_review/RFC_026`**, carrying the survey the submission should
+   have had. That survey also corrected my own first answer: filtering on
+   `dispatch_*` showed 3 exposed steps (all Thunder), but the retry driver does
+   not care what the action is called — widening to every awaiting step gives
+   **54 live `call_agent` steps across 33 agents**, an ~18× understatement.
+4. **tooling_provenance, medium — no travelling-docs write-back, and the
+   superseded theory is still live in `thunder_config.pause_reason`.** Fair.
+   The `LANDMINES.md` entry is synced into `doc_notes` under the
+   `coordinator.go` / `awaited_requests` / `*_dispatch.go` footprints, and
+   **`pause_reason` has been rewritten** to name the corrected cause and the
+   unpause precondition. `is_paused` stays `true`.
+5. **guardian, low — a held claim has no operator surface.** Right; it would have
+   become a manual DB edit under pressure. **RUNBOOK §5** added: how to see the
+   guard firing, how to spot a genuinely stuck claim, how to clear one, and the
+   warning not to clear a claim in order to "retry" (re-trigger for a new
+   correlation instead).
+6. **prior_art_librarian, medium — the `ghost_row` and FTW-042 claims are
+   load-bearing but unverified from the seat's position.** Both were read
+   first-hand before the design was chosen: `thunder_reconcile_action.go:204-219`
+   for the classification, and the migration-number check (`ls` showed 395 as the
+   max) that the same seat asked about.
+7. **debug_historian, low — recycled vendor identifiers (016 back-catalogue)
+   could collide.** They cannot here: `thunder_provision_claims.thunder_instance_id`
+   carries **no** unique constraint — the PK is `correlation_id` alone — so a
+   recycled vendor id is recorded, never rejected.
+
+**Still not acted on, deliberately:** edit-quality's success-path race (what the
+audit trail says when a *successful* first attempt's response lands after the
+coordinator has already moved on). It is real, it needs 258 defect 2 fixed to be
+observable, and it is recorded in RFC_026 §6 alongside the undiagnosed
+error-response-does-not-clear-the-await co-cause.

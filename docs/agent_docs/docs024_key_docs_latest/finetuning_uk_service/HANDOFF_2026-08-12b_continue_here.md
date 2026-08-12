@@ -91,7 +91,25 @@ Test proven able to fail: mutating the refusal out gives
 
 ## Next steps, in order
 
-1. **Read the council verdict** — it was still running when this was written:
+1. ~~**Read the council verdict**~~ **DONE — APPROVED** (`20d8b725-…`), 11
+   reviewers, 6 abstained, `unreadable: 0`, `gated_by_truncation: false`,
+   "approved with 7 advisory objection(s) — none high-severity". **All seven were
+   read and six acted on** — see the council section at the foot of
+   `bugs_open/259_…_billable_gpus`. What changed as a result:
+   - `classifyProvisionError` extracted + 2 tests pinning that a duplicate
+     refusal stays `error_unrecoverable` (mutation-checked).
+   - **`architecture_review/RFC_026`** filed — the retry driver re-executes
+     side-effecting actions fleet-wide; survey found **54 live `call_agent` steps
+     across 33 agents**, not the 3 a narrower query showed.
+   - **`thunder_config.pause_reason` rewritten** to name the corrected cause
+     (`is_paused` still `true`).
+   - **RUNBOOK §5** added: how to clear a stuck provision claim.
+   - Migration **396 APPLIED and recorded**, duplicate refusal induced against
+     the live table.
+   One objection is deliberately unactioned (the success-path race) — recorded in
+   RFC_026 §6.
+
+   The original polling queries, if you need them again:
    ```sql
    SELECT created_at, metadata->>'decision' FROM diagnosis_artifacts
    WHERE correlation_id='20d8b725-f4fc-4b8b-ba58-37606ffddacd' AND kind='council_report';

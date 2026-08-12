@@ -215,7 +215,14 @@ Sections, all required:
   rather than assuming full ratification is required. Blocks the portfolio-positioning
   fleet build-out per this session's owner ruling.
 
+- **RFC_026** — the retry driver re-executes side-effecting actions on await
+  expiry (fresh `request_id` each time), and idempotency is per-adapter bespoke.
+  Raised out of `bugs_open/259`'s council round by the `architecture` and
+  `reuse_agent` seats independently. Survey: **54 live `call_agent` steps across
+  33 agents** carry a timeout and are re-executed up to four times; how many are
+  side-effecting is the open question. OPEN, needs an owner ruling.
+
 Claim the next number by adding a line here in the same commit as the RFC —
 the same collision discipline as migrations, and this list is the ledger.
-**The next free number is `RFC_026`** — derived from the directory on 2026-08-12, not carried
+**The next free number is `RFC_027`** — derived from the directory on 2026-08-12, not carried
 forward. Re-derive it before you trust it; the line has been wrong by eight before.

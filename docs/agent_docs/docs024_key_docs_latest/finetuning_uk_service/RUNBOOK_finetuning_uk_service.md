@@ -268,3 +268,56 @@ SELECT count(*) FROM training_exports.rows WHERE export_id = '<uuid>';
 - Healthy run markers in `train.log`: `RUN_SH_START → step=setup → RUN_SH_SMOKE_OK
   → step=full_train → RUN_SH_FULL_OK → RUN_SH_DONE`. Failure signatures table:
   `finetuning/working/phase5/NOTES_phase5_training_launcher_running(45).md` §8.
+
+## 5. Provision claims — the duplicate guard, and how to clear a stuck one
+
+Added 2026-08-12 with the `bugs_open/259` fix (`10659b419`, migration **396**
+applied). The council's guardian seat objected — correctly — that a claim held
+after a failure has **no operator surface**, leaving a manual DB edit under
+production pressure. This is that surface.
+
+**What the guard does.** `thunder_provision_claims` holds one row per
+`correlation_id`, taken *before* the vendor call. A second provision under the
+same correlation is refused. That is deliberate: the chassis retry driver
+re-dispatches an expired await with a fresh `request_id`, and each re-dispatch
+used to build another billable GPU.
+
+**A failed attempt KEEPS its claim.** So after any failure, that correlation can
+never provision again without a human clearing it. That is the safe side of the
+trade, but it means a stuck claim looks exactly like a broken provisioner.
+
+```sql
+-- 1. Did the guard fire? attempts > 1 means the retry driver leaned on the door
+--    and the guard held. This is the bug staying fixed, not a new problem.
+SELECT correlation_id, attempts, status, thunder_instance_id,
+       left(last_error, 120) AS err, created_at
+FROM thunder_provision_claims
+WHERE attempts > 1 OR status = 'failed'
+ORDER BY created_at DESC LIMIT 20;
+
+-- 2. Claims stuck in 'claimed' — the adapter died between claim and create.
+--    Any box it built has NO thunder_instances row: check the vendor (§1b) and
+--    the FTW-042 orphan sweep before clearing, or you may clear a claim whose
+--    instance is still billing.
+SELECT correlation_id, created_at, requested_by
+FROM thunder_provision_claims
+WHERE status = 'claimed' AND created_at < now() - interval '30 minutes';
+
+-- 3. CLEAR one, deliberately, by correlation. Never bulk-delete: each row is the
+--    only durable record that a provision was attempted (bugs_open/258 defect 3).
+--    Confirm at the VENDOR first that nothing is billing for it.
+DELETE FROM thunder_provision_claims WHERE correlation_id = '<the correlation>';
+```
+
+⚠ **Do not clear a claim to "retry" a provision.** If the workflow needs another
+attempt, re-trigger it so it gets a **new** correlation — clearing the row
+removes the audit trail and re-opens the exact hole 259 closed. Clearing is for a
+claim that is genuinely orphaned (its attempt died and nothing is billing).
+
+**Before unpausing** (`thunder_config.is_paused`), confirm the fix is in the
+*running* binary — a committed fix is not a shipped fix:
+
+```bash
+kubectl -n ai-persona-system logs -l app=thunder-adapter --tail=300 | grep -m1 'build provenance'
+git merge-base --is-ancestor 10659b419 <the sha that prints>   # exit 0 = the fix is in
+```
