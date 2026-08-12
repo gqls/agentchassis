@@ -1115,3 +1115,19 @@ control on the shopfront is mandatory (§8), not optional.
    that site continuously, so the likeliest explanation is a legitimate change
    and a stale baseline. Recorded, **not** joined to anything else — handoff §9
    family 3 is exactly this mistake. Whoever owns that baseline should re-pin it.
+
+### Attribution note on commit `23f1229f0`
+
+That commit carries a **same-file passenger**: the `mortgagecalculator_couk_adoption`
+lane's in-place correction of its own `undeployed_asset` LANDMINES entry (an
+expanded `source:` line plus three bullets routing to
+`bugs_open/248_…undeployed_asset_repair_deploys_every_asset_as_a_hero…`). It
+arrived under my commit message, which describes only the noted lane's work.
+
+Nothing was lost and forward-only holds — their content is committed intact; the
+pre-commit pattern check flagged `1 line removed from an append-only ledger`,
+which on inspection was their old `source:` line superseded by their new one, not
+a deleted entry. Recorded here because a pathspec commit cannot exclude a
+same-file passenger (CLAUDE.md says so explicitly), my `git diff --numstat` check
+ran *before* their write landed, and the commit message is therefore the only
+place a bisecting reader would look and not find them.
