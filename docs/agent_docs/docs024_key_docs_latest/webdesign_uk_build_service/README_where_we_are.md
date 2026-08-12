@@ -1116,3 +1116,46 @@ which hints at a short wait. If the limit really does run to September,
 that's three weeks and the wording slightly oversells it. It's
 customer-facing copy so I'd rather you decide, same as we did with the
 deposit wording.
+
+## 2026-08-12 — the chat bot now reads its facts from the database (the small solution, built)
+
+You asked for the small version first: teach the existing chat program to read
+each site's facts from the database instead of having them baked into its code,
+so a fact you change in one place is the fact the bot states, with no rebuild.
+That's built and, apart from one owner-run deploy step, proven end to end.
+
+Why this matters concretely: two days ago the bot told visitors they'd get a
+"full refund" while the database already said "£1,200 minus a £75 deposit" —
+because the bot's facts were a copy, frozen at the moment its code was written,
+with nothing connecting it back to the real figures. This removes the copy.
+
+The wrinkle I had to design around: the database deliberately can't be reached
+from the outside world — it only answers to a handful of services inside the
+cluster, on purpose. So the chat computer doesn't talk to the database directly.
+Instead there's now a tiny, read-only, password-protected service inside the
+cluster whose only job is to hand out one site's facts, and the chat computer
+asks *that* over a private encrypted tunnel. The database stays as locked-down
+as it was; nothing new is exposed to the internet.
+
+Setting that private tunnel up turned up a real latent fault, worth telling you
+about because it had been sitting there unnoticed: the tunnel *looked* connected
+(the encryption handshake succeeded) but was silently dropping every packet,
+because a single system setting was switched off. It had never been caught
+because nobody had ever actually pushed real traffic through it end to end — the
+one time it was "tested" before, it was only checked from the wrong side. Found
+it, fixed it properly, and it's now proven with real traffic: the chat computer
+successfully reached a service inside the cluster.
+
+What's left is one deploy: the small facts service ships with the next
+whole-fleet release (it's harmless until then — it simply isn't there yet).
+Once that's out, one config value on each side switches the bot from its old
+baked-in facts to live database facts, and I've written the exact steps and an
+end-to-end proof (change a fact in the database, watch the bot's answer change
+with no redeploy) into the runbook. Until I flip that switch the bot runs
+exactly as it did, so there's no risk in the meantime.
+
+I put the cluster-side service through the council review as usual; that verdict
+is pending. And to be careful: the new service is built so that if it ever
+can't reach the database, the bot **refuses to start** rather than quietly fall
+back to the old baked-in facts — because those baked-in facts are exactly the
+stale copy this whole change exists to get rid of.

@@ -676,3 +676,50 @@ happened after a prior incident on the same file in the same session. Try
 the plain git workflow above once (not `gh api -X PUT`, not a raw `cp`) — if
 still refused, stop and ask rather than trying further mechanisms; see
 `HANDOFF_2026-08-10_continue_here.md` §2 for the full account.
+
+### Activating live facts on the chat bot (CHAT-010, after the core-manager image rolls)
+
+The endpoint (`GET /api/v1/site-facts/:domain`) ships in core-manager
+**v1.0.1292**. It 404s on any earlier image. The box binary already carries the
+consumer (deployed 2026-08-12, running in legacy/compiled-in mode). To switch
+the bot to live DB facts, once v1.0.1292 is rolled:
+
+1. **Set the shared token on core-manager** (its env; whole-fleet release owns
+   this, or set it directly and restart core-manager for a one-off):
+   `SITE_FACTS_TOKEN=<a long random string>` — with it UNSET the endpoint
+   fail-closes (401 to everyone), so this must be set for the endpoint to work.
+2. **Set the box unit's env** (`/etc/webdesign-chat.env`, 600 root:root):
+   ```
+   FACTS_URL=http://<core-manager ClusterIP>:8088/api/v1/site-facts/webdesign.uk
+   FACTS_TOKEN=<the same random string as step 1>
+   ```
+   The ClusterIP is stable per-service but not forever — resolve it fresh:
+   `kubectl -n ai-persona-system get svc core-manager -o jsonpath='{.spec.clusterIP}'`.
+   (A cluster-DNS name would be more durable but the box's split-tunnel only
+   routes the pod/service CIDRs, and CoreDNS is reachable at 10.21.0.10 over the
+   tunnel — `core-manager.ai-persona-system.svc.cluster.local:8088` also works
+   and survives a service-IP change; prefer it.)
+3. `systemctl restart webdesign-chat` and check the log: it should print
+   `facts: live mode, relay=…` then `facts: fetched N facts from relay`. If it
+   prints a fatal about the relay being unreachable + no cache, the endpoint
+   isn't rolled yet or the token/URL is wrong — the bot **refuses to start**
+   rather than serve stale compiled facts (by design).
+
+**Prove it end to end** — the whole point of the exercise:
+```bash
+# 1. change a fact in the DB (a harmless reversible one)
+kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -c \
+ "UPDATE site_specs SET data = jsonb_set(data,'{facts}', <...edited facts...>) WHERE site_id='1fcfa4f3-...' AND aspect='evidence_base' AND is_current;"
+# 2. wait up to 5 min (refresh timer) or restart the box unit, then ask the bot
+curl -s -X POST https://preview.webdesign.uk/api/chat -H 'Content-Type: application/json' \
+  -d '{"conversation_id":"","message":"what is the price?"}'
+# the reply reflects the DB change WITHOUT rebuilding or redeploying the box binary.
+```
+
+**Tunnel health** (`wg show` is not enough — see the LANDMINE):
+```bash
+ssh -i ~/.ssh/webdesign_box_ed25519 root@webdesign.vs.mythic-beasts.com \
+  'curl -s --max-time 10 http://10.21.0.10:53 >/dev/null; \
+   curl -s --max-time 10 http://<core-manager clusterIP>:8088/health'
+# a real /health body = the tunnel forwards; a timeout with a fresh wg handshake = ip_forward, check the pod.
+```
