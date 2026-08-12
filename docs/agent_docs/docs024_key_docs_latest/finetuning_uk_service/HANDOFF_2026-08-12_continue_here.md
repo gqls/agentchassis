@@ -8,6 +8,21 @@ evidence and every misstep, README the owner's plain-prose log.
 
 ## ⛔ READ FIRST — GPU provisioning is PAUSED fleet-wide
 
+> **A FLEET ROLL TO `v1.0.1291` LANDED 14:55Z 2026-08-12 AND CHANGES NOTHING HERE.
+> Do not re-check this; it is measured.** The roll is real (pods restarted), but
+> `thunder-adapter` v1.0.1291 is built from **`da5a7eb8f`** — its own build-provenance
+> line — which was HEAD *before* this session began, and in any case
+> `git diff da5a7eb8f HEAD -- internal/adapters/thunder/ platform/kafka/consumer.go`
+> is **empty**. Both defects are still in the running binary because **the fixes have
+> never been written** — this session filed them, it did not fix them. A newer tag is
+> not a fix. **Stay paused.**
+>
+> ⚠ And note what a build could never have carried: **this lane's training-script
+> changes are NOT in any binary.** `run.sh` / `02_train_llama_3_3_70b.py` ship in the
+> **B2 bundle**, so they deploy by re-upload and are unaffected by rolls in either
+> direction. Verified live at the artefact after the roll: bundle md5
+> `a19557ccf61ac951c28e81254a8d76f7`, unchanged. Do not go looking for them in a pod.
+
 ```sql
 -- current state, set 2026-08-12 ~14:05Z, OWNER DECISION: leave until fixed
 SELECT is_paused, pause_reason FROM thunder_config;   -- t | 'phase0 2026-08-12: kafka redelivery ...'
@@ -111,6 +126,36 @@ dies between create and insert, the box bills until a human looks.
    ```
    **You do not need it to fix this.** Fix candidate 1 (idempotency on
    `correlation_id`) is correct whichever trigger it turns out to be.
+   **Implementation notes for the 259 fix, so a fresh session need not re-derive
+   any of it** (full reasoning in the bug file; this is the short form):
+   - **Where.** `internal/adapters/thunder/provision_action.go` — `Execute` does
+     gate checks (`cfg.IsPaused` :156, `CheckCanProvision` :164) and then calls
+     `p.thunderAPI.CreateInstance` (:228). The idempotency check belongs
+     **between those**, i.e. after the gate and before the vendor call.
+   - **What.** The request already carries a correlation — the adapter reads
+     headers in `handleMessage`/`handleProvisionInstance` (`adapter.go` :294–:325)
+     and sets `req.RequestedBy` from `sender_agent_type` (:447), so plumbing one
+     more header field through is the same shape as an existing one. Persist it
+     **before** the create (a `correlation_id` column on `thunder_instances` with
+     a UNIQUE index is the smallest change that makes a duplicate
+     *unrepresentable* rather than merely detected), then treat a conflict as
+     "already provisioned — return the existing row".
+   - **Why not just widen the timeouts.** `KAFKA_SESSION_TIMEOUT` /
+     `KAFKA_REBALANCE_TIMEOUT` are env-tunable (`platform/kafka/consumer.go` :56)
+     and need no roll, so they are tempting. They move the boundary; they do not
+     remove it, and they slow genuine dead-member detection for **every** consumer
+     on that config. Fine as an interim, not as the fix.
+   - **Process.** This is `internal/` — **platform code, so put it through the
+     council gate** (`097_TRIGGER_council_review_v1.sh`, ~30 min, budget for it).
+     Then `make build-thunder-adapter` **from committed HEAD**, and the roll is a
+     whole-fleet `make release` which the **owner** runs.
+   - **Regression test that can fail.** The check must drive a provision slower
+     than the consumer deadline, which today is any provision at all: count
+     **deliveries per correlation** in the adapter log (query in the bug file),
+     and independently confirm at the vendor that one request left **at most one**
+     instance. Counting creates or rows instead will undercount in both
+     directions.
+
 3. **Unpause**, then re-run Phase 0 — the training half needs no further work.
    Everything is staged: bundle deployed, dataset uploaded, presign proven.
    Provision a6000 with `vcpus: 6`, drive `run.sh` over `ssh_exec` with the four
