@@ -5779,3 +5779,48 @@ damage population still 7 pairs / 4 domains with unchanged component counts; and
 diagnosis `38099787` is **still verdict-less** (3 rows COMPLETED 08-11 13:33–34, zero
 `doc_notes` mentioning the corr), so the runbook's "an archive can be undone by the next
 build" finding still gates remediation step 5.
+
+## 2026-08-12 — post-roll re-verification on v1.0.1290, and a DRIFT TRAP that would have flattered any future census
+
+**Fresh chassis roll (`agent-chassis-cc7b7f7b8-8tjhm`/`-vj2rt`, image `v1.0.1290`, 15h old).
+Re-verified rather than assumed, per this front's standing trap:**
+
+1. **The three detections survive a THIRD roll.** Binary probe on BOTH replicas:
+   `FACT_ASSIGNMENT_ABSENT` / `RECOMPOSE_INTENT_NOT_REALISED` / `PLAN_PAGE_MERGE_LOSSY` →1,
+   CTRL `FACT_CARRY_UNMATCHED_SECTION` →1, NEG spelling `RECOMPOSE_INTENT_UNREALISED` →0
+   (its non-match exit is the visible signal the zero is real, not a silent failure).
+   **The `build provenance` log line had ROTATED** — 15h-old pods, startup line long gone —
+   so CLAUDE.md's preferred "ask the service" route was unavailable and the binary probe with
+   controls was the honest fallback. Worth knowing: provenance is only readable for as long as
+   the startup line survives rotation; on a day-old pod it is not.
+2. **All four seeds intact at the row** (config is DB-side, but verified, not assumed):
+   385 planner marker (20,445), 386 writer commitments ban (13,974), 387 fix-proposer
+   (8,695), 388 council-gate (8,732) **with the 377 cache breakpoint still at char 174** —
+   nobody has run the 099 mirror over the gate seat since.
+
+3. **THE FINDING — the census number moves on its own, in the flattering direction.**
+   Re-ran the fact-overlap census 24h on: still **9 pairs**, so it looked stable — but the
+   COMPOSITION had shifted, `F1-live-sites` silently dropping out of every chart pair. Cause,
+   measured: the evidence base refreshed overnight and **four facts drifted** (F1 21→22,
+   F9 9545→9706, F10 8297→8468, F11 244→266, F12 264→283) while **not one page was rebuilt**.
+   The check assigns a fact to a section by finding the fact's CURRENT value in the section's
+   STORED text (`containsStandalone(section.Text, m.Value)`) — two different clocks. So a
+   chart still saying "21" stopped matching F1, and every pair it fed lost a fact. **A pair
+   sitting at exactly 3 shared facts leaves the count entirely on one drift, and the report
+   reads as repair.** This is now a LANDMINES entry (synced — rows verified in `doc_notes`
+   at 13:04Z; note `landmines-sync.py --check` reports all 426 entries stale, so trust the
+   DB rows, not the checker).
+   **Yesterday's 34→9 is UNAFFECTED and here is why, precisely:** both halves were measured
+   against ONE evidence dump pinned before any rebuild ran. That was luck of method, not
+   foresight — the practice is now written down. `stale_evidence` has sat at
+   `needs_human_review` on this site all week; that item is the standing warning that this
+   clock moves.
+
+4. **Dispatched the mechanism's remaining disconfirming test** (queue was empty; not a
+   replan, so no phantom risk): `production-backend-engineering` has all four sections `[]`
+   in plan `40a66d3a` yet its 08-07 copy still states 6 facts, because nothing had rebuilt it.
+   If the factless arm works, the rebuild empties them — and it drains 4 of the 9 residual
+   pairs. If it does NOT, the mechanism has a hole that yesterday's rebuilt-page evidence
+   could not see. **Either result is worth having**; this is the strongest test left on this
+   site. Census after it lands will reuse the SAME pinned evidence dump (`evidence_0812.json`)
+   per the trap above.
