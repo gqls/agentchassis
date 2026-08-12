@@ -5,6 +5,42 @@ matrices, then `PLAN…md` §"OWNER DECISIONS" for the rulings and their reasoni
 The 08-10 handoff is still accurate about the instance fix and about D3's brief; it is
 superseded only on "what happens next".
 
+> ## ⚠ UPDATE 2026-08-12 (afternoon) — TASK 1 BELOW IS DONE, AND TWO THINGS IN THIS FILE ARE NOW WRONG
+>
+> Evidence and queries: `bugs_open/213` § *CONTRIBUTION 2026-08-12 (afternoon)*; working
+> log and missteps in `NOTES…md`; plain prose in `README_where_we_are.md`.
+>
+> 1. **§"Do these two things in this order" item 1 is COMPLETE.** Re-routing
+>    `dark_section_audit` at `color-variable-fixer` is a **measured no-op: 0 of 61 live
+>    bodies change** under the handler's literal transform, two-sided controls passed.
+>    The `[UNVERIFIED]` generalisation is retired — and it was right, for a reason that
+>    generalises harder than the one worked instance: the transform's entire output
+>    alphabet is `var(--color-primary)` / `var(--color-secondary)`, and all 15 items ask
+>    for `--section-*` / `--color-cta-*`. Do not re-open re-routing.
+> 2. **"D1's council round decides both lanes" is STALE — the lanes decoupled the same
+>    afternoon.** `bugfix_122` costed its own fork, found the standing objection at
+>    `verifier_coverage_test.go:199-201` (three of them, not the one at `:171`) kills its
+>    options (1), (2) **and** (3), now recommends discovery-path retraction, and has
+>    withdrawn "the 226 unpark when 213 closes". **Do not submit one round for both.**
+> 3. **NEW, and it changes what D1 is for:** the gap is no longer only "closes
+>    unchecked" — there is a **worked FALSE completion**. `finetuning.uk` closed
+>    `complete` on 08-11 with the handler's own `total_fixed: 0` in the row, no component
+>    on that page changed either side of it, and the audit re-filed the same item_key on
+>    08-12. The re-detection loop this type's exemption relies on **does** fire here
+>    (unlike `contrast_failure`, 0 of 226) — and the first thing it caught was a bad green.
+> 4. **The named candidate verifier cannot be written as specified.** All 15
+>    `acceptance_test` values read: 10 name a computed property, 2 contain clauses no probe
+>    can assess, and the same defect filed twice produced two different spellings.
+>    `criteria_check over acceptance_test` is a **producer-side contract change**, not a
+>    verifier — price it as one.
+> 5. **A cheaper option exists that nobody had listed, and it needs no browser:** refuse a
+>    completion whose handler reports it changed nothing (*a fix that changed nothing is
+>    not a fix*). Bounded to 4 of 14 rows by an unexplained payload-shape split — see
+>    `bugs_open/213` §D, marked NOT ESTABLISHED, deliberately not diagnosed.
+>
+> **The open decision is now which posture, not whether.** Candidates ordered in
+> `bugs_open/213` §F. It is a shared-mechanism design choice: council round before code.
+
 ---
 
 ## THE ONE-PARAGRAPH STATE

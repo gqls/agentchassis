@@ -602,3 +602,102 @@ SELECT count(*) FROM site_work_items WHERE item_type='verifier_remit_gap';  -- 0
 
 Re-rolled at **v1.0.1289** after the constitution-seat change, because a same-tag
 rebuild ships the node's cached binary.
+
+---
+
+## 2026-08-12 (afternoon) — D1 task 1: the remit measurement, and what it turned up
+
+Full write-up with the evidence is the `CONTRIBUTION 2026-08-12 (afternoon)` section of
+`bugs_open/213`. This is the working log: what I ran, what went wrong on the way, and the
+three things I nearly got wrong.
+
+### The probe
+
+`git archive HEAD` into the scratchpad (RUNBOOK recipe — the live tree has four other
+sessions' `.go` edits in it), then `cmd/remitprobe/main.go` inside that tree importing
+`checks.ReplaceHardcodedColors` directly. Bodies exported from the live DB as
+`replace(encode(convert_to(col,'UTF8'),'base64'), E'\n','')` so nothing is mangled by psql
+or by the shell; one `id|domain|layer|key|b64` line per body. The binary decodes, applies
+the transform, prints CHANGED/UNCHANGED, and for UNCHANGED prints *why* — style-block
+count, inline-`style` count, and the colour vocabulary actually present in the CSS.
+
+Result: **0 changed out of 61** (16 named rendered, 16 named templates, 23 swept rendered,
+6 swept templates). Query and table in the bug file.
+
+### Misstep 1 — I nearly reported a 0 with no control, on a lane whose whole subject is bad greens
+
+The first run came back 0/61 and my instinct was that it was obviously right (the fixer
+had already swept these sites). That is the `a-post-fix-zero-needs-a-demand-control`
+shape exactly. I added two positive controls and one negative, pushed through the
+*identical* psql→base64→decode→transform path:
+
+```
+<style>.hero{background:#1a2b3c;}</style>                      → CHANGED  ✓
+<style>.cta{background:linear-gradient(135deg,#1e40af,#1e3a8a);}</style> → CHANGED  ✓
+<style>.hero{background:#ffffff;}</style>                      → UNCHANGED ✓
+```
+
+Only then is the 0 a zero that looked. **Cost: one minute. Do not skip it.**
+
+### Misstep 2 — I "found" a contradiction in my own output that was not there
+
+I read the diagnostic line *"the action's own SQL row filter does not match this body"* as
+appearing on rows the SQL filter had just selected, called it a mirror-regex bug, and went
+to debug it. It appears only on the `named_*` rows, which is correct and is in fact the
+point — the components these items name are bodies the fixer would **never even SELECT**.
+`grep -cP` on the decoded body (3 matches) and `od -c` on the bytes settled it in one
+command. Two lessons, and the second is the real one: read the output rows you are
+accusing before you accuse them; and a diagnostic that is *right* can still cost you ten
+minutes if you skim it.
+
+### Misstep 3 — my first slot resolution silently lost 4 of 16 targets
+
+`spec.affected_component` is prose, not a key. My first pass stripped a trailing
+`-section` and joined on `page_components.slot_name`; 4 of 16 resolved to nothing and I
+briefly took that as "the item names a section that does not exist". It does not:
+
+- `cta-section` → the slot is `call-to-action` (3 sites). Not a suffix rule at all.
+- `features-section, differentiators-section` (leopardess, ONE item naming two) →
+  `features` **and** `differentiators-section` — the second slot is *literally* named with
+  the suffix, so stripping it breaks the one case stripping was invented for.
+
+A join that quietly drops a quarter of its targets and returns rows for the rest looks
+exactly like a join that worked. Now in `LANDMINES.md` with the footprint
+`site_work_items.spec->>'affected_component'`.
+
+### The three findings, in the order they arrived
+
+1. **0/61** — the re-routing option is dead, and dead for a reason that generalises: the
+   transform's entire output alphabet is `var(--color-primary)` and `var(--color-secondary)`
+   and every one of the 15 items asks for `--section-*` / `--color-cta-*`. Vocabulary, not
+   regexes (`2210aaeea` said this for 077 and it transfers verbatim).
+2. **A false completion, caught by the re-detection loop.** `finetuning.uk` closed
+   `complete` on 08-11 with the handler's own `total_fixed: 0` in the row, nothing on the
+   page changed either side of it, and the audit re-filed the same item_key on 08-12. This
+   is the first completed re-detection cycle for the type and it contradicts the completion
+   it followed. It is also the strongest available answer to the coverage guard's stated
+   posture for this type — the re-detection *does* fire here, unlike `contrast_failure`.
+3. **The candidate verifier cannot be written as specified.** All 15 `acceptance_test`
+   values read: 10 name a computed property, 2 contain clauses no probe can assess ("no
+   visible seam", "visibly … or equivalent"), and the two filings of the same defect carry
+   differently-worded tests. `criteria_check over acceptance_test` is a producer-side
+   contract change, not a verifier.
+
+### Cross-lane: 122 has decoupled, and the 08-12 handoff's "one round decides both" is stale
+
+The `bugfix_122` lane costed the same fork on the same afternoon and reached option (4),
+retraction on the discovery path — its handoff §3 banner says the standing objection kills
+its options (1), (2) *and* (3), and §4 records that it has withdrawn "the 226 unpark when
+213 closes" in our file. So D1 is our decision alone. Their option (4) transfers here and
+is **cheaper here**: our re-detection loop demonstrably fires, our dedup key is page-level
+so no per-section identity is needed, and `resolveWorkItems` already lives in the
+producer's own package. Same precondition though — the audit must report which pages it
+examined.
+
+### Not chased, deliberately
+
+10 of the 14 completions carry a payload that is not the handler's (a design-system spec
+for 9, an unrelated child-page triage decision for 1). Recorded in the bug file as an
+OBSERVATION with the mechanism marked NOT ESTABLISHED. It bounds fix candidate (2) to 4 of
+14 rows, so whoever takes D1 needs to know it, but guessing at its cause here would be the
+exact move this lane exists to punish.

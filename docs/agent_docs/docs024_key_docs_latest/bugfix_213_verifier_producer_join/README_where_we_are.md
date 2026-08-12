@@ -151,3 +151,63 @@ items that this bug was originally about are **already being re-found**, 14 of t
 today, and 13 of those have already closed again — unchecked, because the new
 category still has no checker of its own. That is the next piece of work (D1), and
 it is no longer a theoretical gap: it is happening weekly, in the open.
+
+---
+
+**2026-08-12, afternoon.** The next piece of work (D1) had one instruction attached to it:
+*measure before you re-route*. The idea on the table was that these new colour findings
+might simply be handed to the fixer we already have. The honest position was that nobody
+had checked — we had one example where it obviously wouldn't work and had generalised from
+it, which is precisely the move this bug exists to punish.
+
+So I checked, by the only method that can't drift: I took the fixer's own repair function
+out of the codebase, pulled the actual page content out of the live database, and ran the
+one on the other. **It changes nothing. Not on any of the 15 findings, and not anywhere on
+those 15 sites** — 61 pieces of content tested, none of them altered. I ran three sanity
+cases through the identical pipeline first, two that had to come out "changed" and one that
+had to come out "unchanged", so we know the test can tell the difference.
+
+The reason is simple enough to say in one line, and it is the same reason a different bug
+found a fortnight ago: **the fixer only knows two words.** It can replace a colour with
+"the site's primary colour" or "the site's secondary colour", and that is the whole of its
+vocabulary. Every one of these 15 findings asks for something else — a text colour for a
+dark section, a heading colour, a muted variant. You cannot answer those with two words, on
+any page, ever. So re-routing is off the table, and now for a stated reason rather than an
+impression.
+
+**While measuring that, I found something worse than the gap we were describing.** We have
+been saying these items "close unchecked". One of them has now been caught closing
+*wrongly*. On finetuning.uk the fixer ran, reported in its own record that it had changed
+nothing at all, and the item was marked complete anyway — and the design audit came back
+the next day and filed the identical finding again. Nothing on that page had changed in
+between; I checked the timestamps. So this is not a theoretical hole any more: we have a
+worked instance of a green tick over a repair that provably did not happen, caught only
+because the audit happened to look again.
+
+Two smaller things fell out of the same afternoon, both of which change what D1 costs.
+
+The first: the plan of record was to build the checker by reading the "acceptance test"
+each finding carries. I read all 15 of them. Ten ask for something you can only see in a
+running browser; two ask for things no automated check could ever settle — one wants "no
+visible seam", another wants text that is "visibly #f0eeff **or equivalent**". And they are
+written fresh, in English, by the auditor each time: the same defect on the same component
+of the same site produced two differently-worded tests on consecutive days. You cannot
+write a checker against that. If we want it, the *auditor* has to start emitting a
+machine-readable criterion — which is a bigger and different job from writing a checker,
+and should be priced as one.
+
+The second: the other lane working the neighbouring problem (bug 122, the 226 parked
+contrast items) reached its own conclusion the same afternoon, and it is a good one — grade
+these things when the audit next comes round, rather than at the moment the item closes.
+That avoids the objection that has been blocking both of us, which is that nobody wants a
+web-browser fetch sitting on the completion path. Their approach transfers to our case and
+is actually cheaper for us than for them, because our re-detection loop demonstrably works
+(that is how we caught the false green) and theirs has never once fired. The two lanes are
+now formally independent, so we are not waiting on each other.
+
+**What I have not done, and why.** I have not built anything. The choice between "refuse
+the completion when the fixer says it changed nothing" (cheap, needs no browser, catches
+exactly the failure above) and "grade it at the next audit" (better answer, needs the audit
+to report which pages it looked at) is a design decision on a shared mechanism, and this
+estate's rule is that those go through review before they go in. The measurements above are
+what that review needs in front of it, and they are all written down now.

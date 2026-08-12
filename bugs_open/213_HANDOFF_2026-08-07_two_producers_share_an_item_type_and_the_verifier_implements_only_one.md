@@ -493,3 +493,173 @@ exists in code. Recorded because a row COUNT that quietly shrinks is a poor foun
 for any census — including my detector's, whose retraction rule closes a finding when a
 type falls back to one producer family. **If deletion can do that, retraction can fire
 for a reason that is not a fix.** I have written that up as a limitation in WII-015.
+
+---
+
+## CONTRIBUTION 2026-08-12 (afternoon), same lane — D1's first task is DONE, and the gap is no longer "unverified": the route is a measured no-op that has already produced a demonstrably FALSE completion
+
+The 08-12 handoff set two tasks for D1 and said the first was "still not done": **measure
+before re-routing** — check each live `acceptance_test` against `ReplaceHardcodedColors`'
+actual remit, because *"the fixer cannot repair these" is `[UNVERIFIED]` as a
+generalisation*. It is now measured. The generalisation holds, and while measuring it the
+lane found something stronger than a coverage gap.
+
+### A. Routing `dark_section_audit` at `color-variable-fixer` is a NO-OP — 0 of 61 live bodies [MEASURED 2026-08-12]
+
+Method, following `remit.go`'s own rule (*"pass the handler's LITERAL transform, not a
+re-implementation of it — a mirror drifts"*): a throwaway binary built inside a
+`git archive HEAD` tree imports `checks.ReplaceHardcodedColors` — the same function the
+action calls at `fix_harcoded_colours_action.go:174` and `:236` — and applies it to bodies
+pulled verbatim out of the live DB (base64 in transit, so nothing is mangled).
+
+| body set | what it is | transform CHANGES |
+|---|---|---|
+| named, rendered | `page_components.rendered_html` for the component each of the 15 items names | **0 / 16** |
+| named, template | `content_components.html_template` behind those components | **0 / 16** |
+| sweep, rendered | every `page_components` row the action's OWN SQL filter selects on these 15 sites | **0 / 23** |
+| sweep, template | every `content_components` row it selects for these sites | **0 / 6** |
+
+**The zero is disconfirmable.** Two controls through the identical psql→base64→transform
+pipeline: `<style>.hero{background:#1a2b3c;}</style>` → CHANGED (`var(--color-primary)`),
+and the gradient form → CHANGED; `background:#ffffff` → UNCHANGED. The harness can return
+both answers.
+
+**Mechanism, so the result does not have to be taken on trust.** `replaceCSSColors`
+(`check_hardcoded_section_colors.go:278-309`) has exactly three arms, all inside
+`<style>…</style>`: a two-stop `linear-gradient(Ndeg, #hex, #hex)`, `background: #hex` and
+`background-color: #hex`, the last two requiring **six** hex digits with the first in
+`[0-4]`. So an inline `style=""` attribute is structurally out of remit for *any* body, a
+3-digit hex is out, and `rgba()` has no arm at all (the source says so: overlay gradients
+are *"not brand colors"*, left alone deliberately). Every arm emits only
+`var(--color-primary)` or `var(--color-secondary)`.
+
+That last clause is the decisive one, and it is the same finding commit `2210aaeea` recorded
+for `bugs_closed/077` — **the fixer's limit is its VOCABULARY, not its regexes.** All 15
+items ask for properties it cannot write: `--section-text`, `--section-heading`,
+`--section-text-muted`, `--color-cta-bg`, `--color-cta-text`. A transform whose entire
+output alphabet is two tokens cannot satisfy a test that names five others, on any input.
+
+So the re-routing option is closed, on evidence rather than on the one worked instance the
+08-10 handoff generalised from.
+
+### B. This is not "closed unchecked". It is a FALSE completion, and it has already happened once [MEASURED 2026-08-12]
+
+`finetuning.uk`, item_key `design-audit_dark_section_audit_index_1368e337-…`:
+
+```
+764fe035  complete  created 2026-08-11 13:21:00  completed 2026-08-11 13:38:19
+          result.response.fix_result       = {total_fixed: 0, rendered_fixed: 0, templates_fixed: 0, needs_rerender: false}
+          result.response.text_color_result= {total_fixed: 0, …}
+          result ? '_verification'         = false
+b82b9f1f  detected  created 2026-08-12 13:39:51   ← same item_key, re-filed by the next design audit
+```
+
+Nothing on that page changed in between: every `page_components.updated_at` on
+`finetuning.uk/index` is `2026-08-11 09:37:58` — **before the item was even created** — and
+the backing template last moved on 08-08. So the chain is complete and first-hand: the
+handler ran, **reported in its own payload that it had changed nothing**, the item closed
+`complete` anyway because an unregistered type is untouched by construction
+(`complete_work_item_verification.go:16`), and the defect was still there when the audit
+came back the next day.
+
+This is the first re-detection cycle this type has completed, and it contradicts the
+completion it followed. Note the contrast with `contrast_failure`, whose exemption rests on
+the same "the next audit is the re-detection" argument: there, **0 of 226 rows have ever
+been dispatched, completed or re-detected** (`bugfix_122` lane, 08-12). Here the mechanism
+demonstrably fires — and what it caught was a false green.
+
+### C. `color-variable-fixer` has never reported fixing anything, on either of its types [MEASURED 2026-08-12]
+
+```sql
+SELECT item_type, status, count(*) AS rows,
+       count(*) FILTER (WHERE (result->'response'->'fix_result'->>'total_fixed')::int > 0) AS reported_nonzero,
+       count(*) FILTER (WHERE (result->'response'->'fix_result'->>'total_fixed')::int = 0) AS reported_zero,
+       count(*) FILTER (WHERE result->'response'->'fix_result' IS NULL)                    AS no_such_key
+FROM site_work_items WHERE handler_agent='color-variable-fixer' GROUP BY 1,2;
+--  dark_section_audit       | complete   | 14 | 0 | 4 | 10
+--  hardcoded_section_colors | complete   |  9 | 0 | 5 |  4
+--  (+ 1 deferred, 5 unresolved, 1 detected — none carry the key)
+```
+
+**0 non-zero across all 30 live rows of both types.** Consistent with (A): the transform
+would change nothing anywhere on these sites today. It also explains why the sibling type's
+9 verifications all read *"verified — no unlocked component carries a colour within the
+fixer's remit"*: that verdict is true when the fix worked **and** when there was never
+anything in remit to fix. Correct for a site-level aggregate item, and worth knowing before
+anyone cites those 9 greens as evidence the fixer works.
+
+### D. [OBSERVATION — mechanism NOT ESTABLISHED, and I am not going to guess] 10 of the 14 completions carry a payload that is not the handler's
+
+The 4 rows in (B)/(C) with `fix_result` are the fixer's response envelope
+(`response` / `response_status` / `response_received_at`). The other **10** have no
+`response` wrapper at all; their top-level keys are `color_scheme`, `typography`, `spacing`,
+`design_notes`, `approach`, `reasoning`, `not_actionable`, `add_to_page`, `new_page`,
+`retype_existing`, `update_spec` — a design-system spec for 9 of them, and for
+`leopardessconsulting.co.uk` a triage decision about *case-studies child pages*, which is a
+different finding entirely. Nothing in any of the 10 speaks to the dark-section defect.
+
+Recorded, not diagnosed. It matters to D1 because it bounds fix candidate (F) below: a
+verifier that grades the handler's self-report can only see **4 of 14** rows until this is
+understood. It may belong to a triage lane rather than here.
+
+### E. A verifier over `spec.acceptance_test` cannot be built from the CURRENT contract [MEASURED 2026-08-12 — all 15 read]
+
+The standing candidate (register WII-«dark_section», `verifier_coverage_test.go:169`) is
+*"`criteria_check` (RFC_002) over `acceptance_test`"*. Reading all 15 live values:
+
+- **10 of 15 name a COMPUTED property** — "computed background-color", "computed contrast
+  ratio", "luminance below 0.1", "when checked with a browser accessibility tool". No
+  source-level read settles these (`a-css-fallback-is-present-and-inoperative` landmine).
+- **3 of 15 are statically checkable** — e.g. finetuning's *"No `<style>` block scoped to
+  `.case-studies-grid-section` exists in the page HTML"* is a structural assertion about
+  the stored artefact.
+- **2 of 15 contain clauses NO probe can assess**: oufe's *"with no visible seam against
+  adjacent sections"*, vonc's *"body text within it is visibly #f0eeff **or equivalent**
+  high-contrast light colour"*.
+- **The field is free LLM prose, per item.** The two `finetuning.uk` filings of the *same
+  defect on the same component* carry differently-worded tests. There is no vocabulary to
+  parse, because the producer never emitted one.
+
+So `criteria_check over acceptance_test` is not a verifier that can be written; it is a
+**producer-side contract change** — `WriteAuditFindingsAction` would have to emit a
+structured criterion (selector + property + expectation) alongside the prose. That is a
+larger change than the 08-10 handoff's phrasing implies, and it should be priced as one.
+
+### F. What this leaves for D1 — one new option that dodges the standing objection
+
+The 08-12 handoff said D1's council round *"decides both lanes"*. **It no longer does:** the
+`bugfix_122` lane costed its own fork the same afternoon, found the standing objection to
+outbound probes on the completion path (`verifier_coverage_test.go:199-201`, three of them,
+not the one at `:171`) kills its options (1), (2) **and** (3), and now recommends
+**retraction on the DISCOVERY path** instead. It has also formally withdrawn its claim that
+the 226 unpark when 213 closes. The lanes are decoupled; do not submit one round for both.
+
+Given that, and given (B), the candidate order for `dark_section_audit`:
+
+1. **Retract on the discovery path** (122's option 4, `asset_reference_404`'s posture). Best
+   fit here, and *cheaper here than there*: the re-detection loop already fires (B), the
+   dedup key is page-level (`{audit_source}_{item_type}_{page_name}_{site_id}`,
+   `write_audit_findings_action.go:291`) so no per-section identity is needed, and the
+   closer already exists in the producer's own package (`resolveWorkItems`,
+   `work_items_common.go:249`). Same precondition as 122's: the audit must report WHICH
+   pages it examined, or a retraction cannot be scoped.
+2. **Refuse the no-op completion — no browser, no probe, no page fetch.** *A fix that
+   changed nothing is not a fix.* The handler states `total_fixed: 0` in the row itself, so
+   a verifier can return `defect_persists` on its own evidence and let two-strike escalate.
+   It can never confirm repair, but the damage in (B) is the false green, not the missing
+   green. Bounded by (D) to 4 of 14 rows as things stand.
+3. **Structured acceptance criteria at the producer** (E) — the only route to grading what
+   the item actually asserts, and the largest.
+
+(2) and (1) compose: (2) refuses the false close today, (1) grades the outcome later.
+Neither needs the browser the current exemption says it needs, which is the assumption
+worth putting in front of the council.
+
+### Method note (owner ruling 2026-07-31)
+
+No `090` run: every claim above is a re-runnable query against the live DB or the handler's
+own literal transform under two-sided control, and none of it asserts a cause outside the
+symptom — (D) is the one place a cause would be needed and it is left explicitly
+undiagnosed rather than asserted. The one generalisation that *was* filed on inference —
+"the fixer cannot repair these" — is the thing this contribution replaces with a
+measurement.
