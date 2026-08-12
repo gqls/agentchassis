@@ -490,3 +490,58 @@ them, and no mechanism in this platform ever reviews that decision again.** Ever
 rule downstream is arguing with it. That is the strongest argument this lane has produced
 for stage 2 being a judgement rather than a rule — and it also says stage 2 is not the
 first place to spend, because a spec fix costs one row and reaches every page at once.
+
+## 2026-08-12 — round 6: the heading rule fixed the heading, and the writer quietly dropped five guide links
+
+**Round 6 was the test of the heading_style replacement. It passed on the axis it was
+aimed at and exposed a second, unrelated defect that nothing was checking.**
+
+**H1 is clean.** *"Where a loan and a mortgage decision meet"* — names the thing, no
+negation, no aphorism, no race-with-a-lender, no correcting the reader. Checked
+against every construction in the new `never` clause and `headings_to_never_write`:
+all absent. Live and serving. Design intact for the fourth round running (31 class
+attrs, hero 1, tool-grid 2, card 12). Body register held from round 5: the mechanism
+sentence is now Nationwide-shaped — *"A lender working out how much you can borrow
+starts from your income and then subtracts your existing commitments"* — followed by
+the lever: *"Clearing a loan with a £100 monthly payment typically brings back
+somewhere between £5,000 and £7,000 of borrowing power."*
+
+**The two reframed guide titles that DID make the page came through as link text**
+(*What Clearing a Loan Does to What You Can Borrow*, *What Borrowing Costs in Total*),
+which confirms the corpus→homepage propagation runs both ways: fix a title and the
+homepage inherits the fix.
+
+### ⛔ The regression: five guides lost their only homepage link
+
+Component-level unique links **28 → 23**. Dropped: `fixed-vs-variable-on-both`,
+`jargon-buster`, `secured-vs-unsecured-what-changes`, `the-fees-nobody-quotes`,
+`when-repayments-are-a-struggle` (plus `settlement-calculator` and `fact-finder` off
+the cards, with `credit-health-check` and `fee-analyser` added in their place — a card
+swap, which is allowed). **9 of 13 guides linked, where round 5 had all 13.**
+
+The brief said, in prose, *"Keep every internal link that exists on the page today"*.
+It has said that since round 2. **Rounds 4 and 6 both dropped links anyway** — round 4
+swapped two cards, round 6 dropped five guides. So:
+
+> **A prose instruction to preserve a SET is not reliably followed. The set has to be
+> enumerated as data.** Round 7 puts all 16 required links in the brief as a list with
+> each guide's exact title, which is the same lever the sweep found for register: **the
+> writer obeys examples far more reliably than rules.** This is the second axis on
+> which that has now proved true, and the first where the failure is silently
+> destructive rather than merely ugly.
+
+**And nothing would have caught it.** No guard, gate or check counts links: the shrink
+floor measures text volume (675 words passed easily), `bugs_open/253`'s class-loss is
+about markup, and the claims checker is not opted in. Two rounds in a row lost
+navigation from a live homepage and both times **I found it by diffing by hand.** This
+is now measured evidence for PLAN §3 rule 1 (the fact/link inventory), and it upgrades
+it from "nice to have" to the only proposed mechanism that would notice.
+
+**My own checker also produced a false positive worth recording.** My banned-phrase
+scan flagged `"before you"` three times in round 6. Reading the context, the single
+prose occurrence is *"Clearing a debt before you apply can change how much a lender
+offers you"* — a plain temporal inside a lever sentence, not the banned injury framing
+(*"before you've even applied"*). A substring check would have convicted a correct
+sentence. **Same error class as my `created_by IN ('design-audit-agent')` filter: the
+check tested a spelling, not the property.** Ban lists need the failing SHAPE, not the
+failing string — which is another argument that stage 2 has to be a judgement pass.
