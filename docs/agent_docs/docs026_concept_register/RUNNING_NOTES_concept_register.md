@@ -2012,3 +2012,72 @@ running — the file is still dirty in the shared tree with another session's RE
 same-file passenger. The drift check's single HEAD finding is that stored count and nothing
 else. The three staleness signals (version lag 80, unresolvable citations 96, moved bug refs
 156) remain untouched.
+
+---
+
+## 2026-08-12 (second piece) — version lag: surveyed the premise, and it needed narrowing
+
+Handoff item: *"Cheapest next move, and it is not a checker: make version lag visible. 129
+entries already carry the number; the fleet's version is one kubectl call."* Did that, but
+measured the premise first, and the measurement changed the design.
+
+**The premise, tested:** *"the cleanest mechanical signal in the register; needs no prose
+parsing."* Extraction is clean. **Interpretation is not.** Classifying 315 citations by the
+words before them: **244 (77%) unclassified**. Cause — `"deployed in chassis v1.0.1029"`
+(permanent fact) and `"both replicas of v1.0.1218 return X"` (expiring verification) are
+indistinguishable by pattern. Raw lag flags 111 items, mostly permanent. That is the
+"report nobody reads" failure the 08-10 design conclusion names, reached from another
+direction.
+
+**What worked: the register's own field vocabulary, which is structure, not prose.**
+`status:`/`status-evidence:` = current-state claims by convention. 273 citations → **206
+across 139 entries**, 67 excluded (24% — the exclusion is itself the control that the key
+does work). `status-evidence` median lag **103** vs `status` **28**: status lines get
+updated, evidence does not get re-verified.
+
+**The sharp class, and it rests on a fleet fact rather than a linguistic one:**
+
+```sql
+-- control first: 187 live rows HAVE a tag, so a zero elsewhere is absence not blindness
+SELECT image_tag, count(*) FROM agent_definitions
+ WHERE is_active AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL GROUP BY 1;
+--  v1.0.1290 | 187      ← uniform. all of them.
+```
+
+So a tag read off a live row dates the observation. **`SYS-077`** claimed a row "still
+references `v1.0.407`" (883 behind) — the row's tag is `v1.0.1290`; corrected in place.
+**`HITL-020`** cites the same `v1.0.407` and is **NOT** stale: it describes the *seed file*,
+which still says it. Same version, same day, opposite verdicts.
+
+**Three wrong turns, all recorded because each looked like a result:**
+
+1. **`default_config::text LIKE '%v1.0.407%'` → 0, and my control also → 0.** The predicate
+   was blind: the image lives in dedicated columns `image_repository`/`image_tag`, not in
+   `default_config`. `\d agent_definitions` first, as the rule says. **The control is what
+   saved this** — a bare zero would have been written up as "the claim is false".
+2. **`type ILIKE '%hitl%' OR display_name ILIKE '%content-approval%'` → 0 rows, and I said so
+   in chat: "not in live config at all". WRONG.** The agent's type is
+   `simple-content-writer-with-approval` — no "hitl" in it — and the group is stored as
+   **"Content Approval with HITL"**, so the slug `content-approval-hitl` returns 0 as well.
+   Both are loaded. A grep proves absence only for the spelling it searches, and I searched
+   the spelling the *entry* used rather than the one the *rows* use.
+3. **My own detector: a proximity window, then a misleading display.** "`image` within 12
+   chars" gave **2 of 7** precision (it read "inert until an image roll" and
+   `IMAGE_TAG=v1.0.1190` as live evidence). Adjacency — strip the punctuation, require an
+   image token immediately before — is **9 of 9**. Then the worse one: the report printed each
+   hit's *line head*, truncated to 200 chars, so for multi-citation lines it showed a
+   different citation from the one that matched, and **three correct hits read as false
+   positives.** I was one step from loosening a 9-of-9 detector because its own output lied
+   about what it had tested. **Show the evidence you tested, windowed on the match.**
+
+**Shipped:** `scripts/report-register-version-lag.py`, registered **DOC-077** (entry + index
+row in the same commit; pairing verified in the working tree — the drift harness reads a
+**ref**, so it cannot see an uncommitted entry, and HEAD moved twice during this session).
+`SYS-077` and `HITL-020` corrected in place with the measurements inline. `HITL-020`'s
+verify-later answered.
+
+**Not done:** the two remaining signals (96 unresolvable `sources:` citations, 156 moved bug
+refs). The transferable question for both: **is there a key that does not require reading
+prose?** Version lag only became trustworthy when it stopped parsing sentences and keyed on
+structure the register already maintains. Also still not done: `rebuild-cascade.md`'s stored
+count, fourth session running, still dirty with another session's REB-003 rewrite.

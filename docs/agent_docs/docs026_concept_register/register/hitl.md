@@ -165,11 +165,12 @@ units U01, U15, U17a, U18, U19, U20, U21, U24a, U26.
 
 ### HITL-020 — HITL content-approval demo agent and group
 - **status:** deployed
-- **status-evidence:** Complete SQL seeds (agent + group, versioned, ON CONFLICT upsert) dated 2025-11-03, referencing chassis image v1.0.407 — a working, loadable demo.
+- **status-evidence:** Complete SQL seeds (agent + group, versioned, ON CONFLICT upsert) dated 2025-11-03, referencing chassis image v1.0.407 — a working, loadable demo. **UPDATED 2026-08-12 — the `v1.0.407` here is NOT stale, and the distinction is the useful part.** It describes what the *seed file* says, and `docs/humanintheloop/hitl_agent_definition.sql` still says it (unchanged since 2025-11-03), so it is a permanent fact about a repo artefact. Contrast `SYS-077`, which cited the same version as what a *live row* references — that one expired, because the release rewrites every row's tag. **Same version, same day, opposite verdicts, and only the artefact tells you which** — which is why `DOC-077` reports the class and refuses to judge it.
+- **status-evidence, and this ANSWERS the verify-later below (2026-08-12): both halves are LOADED, not merely loadable.** `agent_definitions` holds `simple-content-writer-with-approval` (created 2025-11-03, `is_active`, not deleted, `image_tag` now `v1.0.1290`), and `agent_group_definitions` holds the group as **"Content Approval with HITL"**. ⚠ **The group is stored under a DISPLAY NAME, not the slug this entry uses:** `WHERE name = 'content-approval-hitl'` returns **0** and reads as "the group was never loaded"; `ILIKE '%content-approval%'` finds it. A same-session check for `%hitl%` also missed the agent, whose type contains no "hitl" at all — so search this pair by its real names or not at all.
 - **what:** `simple-content-writer-with-approval` agent: generate_draft (execute_llm_prompt, Claude 3.5 Sonnet) → await_human_approval → process_approval (merges content with approval metadata) → complete. Wrapped by the `content-approval-hitl` group whose orchestration spawns the writer, calls it with business input data, and aggregates results. The canonical minimal HITL example for the platform.
 - **sources:** docs/humanintheloop/hitl_agent_definition.sql; hitl_agent_group_definition.sql
 - **relations:** await_approval / HITL pause-resume mechanism; agent groups; execute_llm_prompt
-- **verify-later:** whether these definitions are loaded in current DB
+- **verify-later:** ~~whether these definitions are loaded in current DB~~ **ANSWERED 2026-08-12 — yes, both.** See the status-evidence above for the rows and the name trap. What is still unverified is whether the demo has ever been *exercised* since; loaded is not run.
 
 ### HITL-021 — HITL kcat test harness
 - **status:** deployed

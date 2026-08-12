@@ -264,3 +264,112 @@ a non-problem for provenance.
 The other three signals — version lag (80 entries 50+ behind), unresolvable
 citations (96), moved bug references (156) — are **untouched by this roll** and
 remain the open work.
+
+---
+
+# UPDATE 2026-08-12 — version lag is built and visible, and the premise needed narrowing first
+
+*Appended, not rewritten: the 08-10 survey above stands. This settles the first of its
+three open signals and reports what surveying it changed about the plan.*
+
+## The handoff said "make version lag visible — it needs no prose parsing". Half right.
+
+Version lag is cleanly **extractable**. What a citation *means* is not, and that had to be
+measured before building anything:
+
+| classifying 315 citations by the words immediately before them | |
+|---|---|
+| **unclassified** | **244 (77%)** |
+| SHIPPED-IN (permanent) | 47 |
+| CONFIG-ROW VALUE (expiring) | 12 |
+| VERIFIED-ON (expiring) | 9 |
+| HISTORICAL/OLD (permanent) | 3 |
+
+Two opposite things wear identical clothes, and no pattern separates them:
+
+- `"deployed in chassis v1.0.1029"` — a permanent historical fact. **Never expires.**
+- `"both replicas of v1.0.1218 return X"` — a verification pinned to a version. **Expires.**
+
+So raw lag would have flagged 111 items of which most are permanent facts — the exact
+"report nobody reads" failure the 08-10 design conclusion warns about, arrived at from a
+different direction. **The survey did not confirm the plan; it resized it.**
+
+## What works instead, and it was already in the register: its own FIELD vocabulary
+
+`status:` and `status-evidence:` are claims about the **current state of the world** by the
+register's own convention. `what:`, `why it exists:`, `sources:` are description and history.
+Keying on the field needs no language understanding at all:
+
+```
+273 citations / 156 entries        → all fields
+206 citations / 139 entries        → status: + status-evidence: only   (111 are 50+ behind)
+   67 excluded (24%) — the key visibly does work, which is its own control
+```
+
+`status-evidence` is markedly staler than `status` — **median lag 103 versus 28**. Entries get
+their status line updated; their evidence is not re-verified.
+
+## The one class that CAN be called expired mechanically, and why
+
+A citation quoting a container image tag directly. The reason is a fact about the fleet, not
+about the prose: **all 187 live `agent_definitions` rows carry the live tag** (`v1.0.1290` on
+2026-08-12, uniformly — control: 187 rows have a tag, so a zero for any other tag is absence,
+not a blind predicate). A tag read off a live row therefore dates the *observation* and expires
+on the next release. [The uniformity is MEASURED; that the release rewrites them is INFERRED.]
+
+**Two entries corrected from that list, and the pair is the whole lesson:**
+
+- **`SYS-077` — STALE.** Claimed the HITL agent definition "still references image
+  `docker.io/aqls/agent-chassis:v1.0.407`", 883 versions behind. The row exists
+  (`simple-content-writer-with-approval`, created 2025-11-03, active) and its `image_tag` is
+  **`v1.0.1290`**. Corrected in place.
+- **`HITL-020` — NOT stale.** Cites the *same* `v1.0.407`, but about what the **seed file**
+  says — and `docs/humanintheloop/hitl_agent_definition.sql` still says exactly that,
+  unchanged since 2025-11-03. A permanent fact about a repo artefact.
+
+**Same version, same day, opposite verdicts, and only the artefact tells you which.** That is
+why `DOC-077` names the class and refuses to judge it, printing the one-line check instead.
+
+**A bonus answer:** `HITL-020`'s own `verify-later` asked "whether these definitions are loaded
+in current DB". They are — both halves. ⚠ **And the obvious queries say they are not:** the
+group is stored under the display name **"Content Approval with HITL"**, so
+`WHERE name = 'content-approval-hitl'` returns 0; and the agent's type contains no "hitl" at
+all, so a `%hitl%` search misses it too. This session made that exact mistake first and
+reported "0 rows, not in live config" before the `ILIKE` control corrected it.
+
+## Built: `DOC-077` — `scripts/report-register-version-lag.py`
+
+Read-only, ~0.3s, cluster-optional (falls back to `makefile IMAGE_TAG` and **says which source
+it used**, because a wrong live version biases every lag the same way and nothing inside the
+report could reveal it). **Deliberately not scheduled and not a checker** — it reports "this
+entry's evidence has expired", never "this entry is wrong".
+
+```bash
+scripts/report-register-version-lag.py               # summary + the 6 image-tag hits
+scripts/report-register-version-lag.py --worklist    # + the oldest current-state citations
+```
+
+**Two mistakes inside building it, both instructive:**
+
+1. **A proximity window is not an adjacency test.** "`image` within 12 characters of a version"
+   read `"inert until an image roll … v1.0.1276"` and `"make deploy-… IMAGE_TAG=v1.0.1190"` as
+   live image evidence — **2 of 7 precision**. Stripping the punctuation between the version and
+   what precedes it, then requiring an image token immediately before, is **9 of 9**.
+2. **The display can convict a correct detector.** The first draft printed each hit's *line
+   head*, truncated. A line can carry several versions, so the text shown was often a different
+   citation from the one that matched — and **three correct hits read as false positives**. I was
+   about to loosen a 9-of-9 detector on the strength of its own misleading output. **Show the
+   evidence you tested, windowed on the match.**
+
+## Where this leaves the three signals
+
+| signal | state |
+|---|---|
+| **version lag** | **DONE — visible, tooled (`DOC-077`), premise narrowed, 2 entries corrected** |
+| unresolvable `sources:` citations (96) | open — worth testing whether the same field key applies |
+| moved bug references (156) | open, and still ⚠ ONE-DIRECTIONAL (owner ruled 08-06 a fixed bug STAYS in `bugs_open/`, so a non-moved bug proves nothing) |
+| features awaiting a non-roll condition (5) | open |
+
+**The transferable question for the remaining two:** does the signal have a key that does not
+require reading prose? Version lag only became trustworthy when it stopped trying to understand
+sentences and started keying on structure the register already maintains.

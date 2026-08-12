@@ -833,3 +833,55 @@ and stays open. I've written that on the record in place of the all-clear I near
 Untouched, and still the real backlog: the eighty entries citing a platform version fifty or more
 rebuilds old, the ninety-six citations pointing at deleted files, and the hundred and fifty-six
 pointing at bugs that have moved.
+
+---
+
+**2026-08-12 (later) — the version-lag job, and why measuring it first saved building the wrong thing**
+
+Yesterday's note left three jobs. The cheapest was supposed to be this: lots of register entries
+say "this was true as of platform version 1283", the platform is now on 1290, so show me the
+entries whose number is old. Eighty of them are fifty or more versions behind. It sounds like a
+morning's work and an obviously useful list.
+
+I measured it before building it, and the obvious list would have been mostly noise. The problem
+is that a version in an entry means one of two opposite things, and they look identical. "Shipped
+in version 1029" is a fact about history — it will be true for ever. "Both servers on version
+1218 gave the right answer" is a *check*, and checks go out of date. I tried to tell them apart by
+the words around them and failed on three quarters of the cases. A list of a hundred and eleven
+"stale" entries where most are permanent facts is a list nobody reads twice.
+
+What worked was already sitting there. The register writes each entry in labelled parts, and two
+of those labels — the status, and the evidence for the status — are *by convention* claims about
+how things are right now. The rest is description and history. Keying on the label instead of the
+sentence needs no cleverness at all, and it cuts the list by a quarter straight away. It also
+turned up something I didn't expect: the *evidence* lines are far staler than the *status* lines.
+We update what we claim; we don't go back and re-check why we claimed it.
+
+Then one genuinely sharp result. Some entries quote a container version as proof — "this agent is
+running version X". I checked what the live system says: all 187 agent records carry the current
+version, uniformly. The release rewrites them. So quoting one of those numbers only ever records
+the day you looked; it expires at the next release, guaranteed. That gave me a short, precise list
+instead of a long vague one — and two entries got fixed off it the same afternoon.
+
+The nicest illustration is a pair. Two entries both cite version 407, from last November, which is
+883 releases ago. One is **wrong** — it says a live record "still references" that version, and
+that record now says 1290. The other is **perfectly fine** — it describes what a setup file in the
+repository says, and that file does still say 407. Same number, same day, opposite verdicts, and
+the only way to tell is to know which thing is being described. So the tool names the category and
+refuses to pass judgement, and prints the one-line check instead. I'd rather it stayed trusted
+than became clever.
+
+Three things I got wrong on the way, and the pattern in them is the same. First, I asked the
+database the wrong question and got a clean zero — the version isn't stored where I looked. My
+safety check also returned zero, which is the only reason I noticed. Second, I searched for the
+demo agent by the word "HITL" and reported here that it wasn't installed. It is installed; its
+name simply doesn't contain "HITL", and the group it belongs to is filed under a human-readable
+title rather than the code name. I searched for the name the *documentation* used instead of the
+name the *system* uses. Third, and the one I'd most like to remember: my own tool's output made me
+think it was broken. It was printing the start of each line rather than the bit it had actually
+tested, so three correct hits looked like mistakes, and I was about to loosen a detector that was
+right nine times out of nine. Show the evidence you actually tested.
+
+Two jobs left from the three: ninety-six citations pointing at deleted files, and a hundred and
+fifty-six pointing at bugs that have moved. The question I'll take into both is the one that
+worked here — is there something to key on that doesn't involve reading English?
