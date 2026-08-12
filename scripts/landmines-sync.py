@@ -59,17 +59,37 @@ def run_psql(sql, capture=True):
     path already wraps itself in explicit BEGIN;/COMMIT;, so atomicity is exactly
     what it was; only the transport moves. ON_ERROR_STOP=1 still aborts the
     transaction on the first failure.
+
+    BYTES, not `text=True` (2026-08-12). The same growth curve bit a second time,
+    one layer down: at ~2,155 owned rows `--apply` died with
+    `UnicodeDecodeError: 'utf-8' codec can't decode byte 0xe2 ... unexpected end
+    of data` — a multibyte character (0xe2 = the leading byte of our em-dashes)
+    left truncated at the end of the captured stream by the `kubectl exec`
+    transport. `text=True` decodes inside subprocess, so this raised BEFORE the
+    returncode check and the real psql message was never printed: the sync simply
+    crashed, and it crashed for no reason other than the corpus getting bigger.
+    Same failure shape as the 2026-07-30 argv-limit note above, same lesson.
+
+    So: capture bytes and decode with errors="replace". A truncated tail can now
+    at worst produce a replacement character in a message we are only going to
+    print. It cannot mask a real failure — the returncode check below is now
+    actually reachable, and the apply path's BEGIN;/COMMIT; with ON_ERROR_STOP=1
+    means a truncated *input* fails to commit and is reported rather than
+    half-applied.
     """
     cmd = PSQL.split()
     proc = subprocess.run(
         cmd + ["-v", "ON_ERROR_STOP=1", "-t", "-A"],
-        input=sql,
+        input=sql.encode("utf-8"),
         capture_output=capture,
-        text=True,
     )
+
+    def _dec(b):
+        return (b or b"").decode("utf-8", errors="replace")
+
     if proc.returncode != 0:
-        sys.exit(f"psql failed:\n{proc.stderr or proc.stdout}")
-    return (proc.stdout or "").strip()
+        sys.exit(f"psql failed:\n{_dec(proc.stderr) or _dec(proc.stdout)}")
+    return _dec(proc.stdout).strip()
 
 
 def existing_sources():
@@ -125,6 +145,14 @@ def main():
         "--verbose-warnings",
         action="store_true",
         help="also print the prose-footprint style advisories (~168 on the current corpus)",
+    )
+    ap.add_argument(
+        "--full",
+        action="store_true",
+        help="with --apply: rewrite EVERY entry instead of just the delta. The old "
+             "behaviour, kept as an escape hatch if the delta logic is ever suspected "
+             "of missing a case. Sends the whole corpus, which is what broke the "
+             "kubectl exec transport on 2026-08-12 — expect it to fail at scale.",
     )
     args = ap.parse_args()
 
@@ -214,13 +242,48 @@ def main():
               "threads (different `source`).")
         return 0
 
+    # DELTA apply (2026-08-12). This used to DELETE every owned row and reinsert
+    # all of them every run — ~4.6MB of statements once the corpus reached ~2,155
+    # rows, and `kubectl exec` stopped carrying it: "error reading from error
+    # stream: read message: unexpected EOF", i.e. THE THIRD TIME this sync has
+    # broken purely because the file it syncs got bigger (argv limit 2026-07-30,
+    # the decode crash above, now the stream). A full replace also had a nastier
+    # property: it deleted the whole corpus first, so a transport failure
+    # mid-apply is the one case that could leave doc_notes short of landmines.
+    #
+    # The script already knows exactly what moved, so send only that. Semantics
+    # are unchanged — this is still an idempotent upsert scoped by `source`, and
+    # another thread's rows (different `source`) remain structurally out of reach.
+    #
+    # `refootprinted` is the third case and is easy to miss: an entry can keep a
+    # byte-identical body while its FOOTPRINT LIST changes, which `changed`
+    # (body comparison) cannot see. `have` is source -> row count, and one row is
+    # written per footprint, so a count mismatch catches exactly that.
+    refootprinted = [
+        s for s in want
+        if s in have and have[s] != len(want[s]["footprints"]) and s not in changed
+    ]
+    touch = new + changed + refootprinted
+    if refootprinted:
+        print(f"  footprints changed (body identical): {len(refootprinted)}")
+        for s in refootprinted:
+            print(f"    refootprinted: {s}")
+
+    if args.full:
+        touch = list(want)
+        print("  --full: rewriting every entry, not just the delta")
+
+    if not touch and not gone:
+        print("\nnothing to apply — already in sync")
+        return 0
+
     stmts = ["BEGIN;"]
-    # Replace-in-place: delete only what this script owns, then reinsert. Scoped by
-    # `source`, so another thread's landmine rows are structurally out of reach.
-    stmts.append(
-        f"DELETE FROM doc_notes WHERE source LIKE {sql_lit(SOURCE_PREFIX + '%')};"
-    )
-    for src, e in want.items():
+    # Scoped by `source`: only this script's own rows, and only for the entries
+    # that actually moved.
+    for src in gone + touch:
+        stmts.append(f"DELETE FROM doc_notes WHERE source = {sql_lit(src)};")
+    for src in touch:
+        e = want[src]
         cats = json.dumps(["landmine", "synced-from-markdown"])
         for fp in e["footprints"]:
             stmts.append(
@@ -231,7 +294,10 @@ def main():
             )
     stmts.append("COMMIT;")
 
-    run_psql("\n".join(stmts), capture=True)
+    payload = "\n".join(stmts)
+    print(f"\napplying delta: {len(touch)} entr(ies) rewritten, {len(gone)} orphan(s) "
+          f"removed, {len(payload)} bytes on the wire")
+    run_psql(payload, capture=True)
     after = existing_sources()
     print(f"\napplied: {sum(after.values())} owned row(s) now present")
 
