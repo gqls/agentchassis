@@ -4484,3 +4484,110 @@ is one sanctioned use, none elsewhere. Implement it that way.
   staccato; absolute ban on presumption → flat headings; mechanical ban-list →
   sound copy reported as defective. **A style rule is a prompt for judgement, not a
   substitute for it.**
+
+---
+
+## §X.54 — 2026-08-12: report.html rewritten, and the fleet 'honest' sweep found the owner had already ruled
+
+### 1. The cause was the SPEC, not the model — same finding as the sibling site
+
+Every sentence the owner rejected traces to `site_specs.content_direction`, written by
+`domain-research-classifier` on **2026-06-21** and never revised. [MEASURED]:
+
+| owner's objection | where it was specified |
+|---|---|
+| "A thinking partner, not a verdict machine" | `terminology.key_terms[8]` — **verbatim** |
+| "That honesty is not a flaw…; it is the point of it" | `writing_rules[5]`: *"the site's honesty about limits is a feature, not a weakness"* — same frame, copied |
+| "We don't tell you it's great. We help you find out." | `example_phrases.characteristic[1]` + `voice.emotional_tone` |
+| "honest" everywhere | `formatted`, `cta_style.approach`, `writing_rules[5]`, `persuasion_approach.method` |
+| the negativity | 6 of 10 writing rules were prohibitions; `persuasion_approach.trust_building` read *"Trust is built by telling people when something won't help them"* |
+| the riddles | *"A thinking partner for the part of the process that usually happens alone"* was an example phrase, on the page word for word |
+
+External research corroborates the diagnosis rather than my taste: the **"not X, but Y"
+antithesis is the most-cited marker of machine-written prose**, and this spec
+*prescribed* it. So the model wrote what it was told; changing the model would have
+changed the wording and not the shape (the sibling lane's owner ruling of 08-11: **the
+model is NOT the lever**).
+
+### 2. What shipped, and the measurement that could have come out otherwise
+
+Spec superseded (13 aspects edited, `formatted` regenerated, array/blob agreement
+**16 of 16**). Five `apply_section_edit` items through the framework, targeted by
+**`page_component_id`** — *not* slot name, because positions 2 and 4 are BOTH called
+`generic-text-block` and a name-keyed edit is ambiguous on this page.
+
+**Verified at the served page, not at the item status** — one item reported `complete`
+while carrying *"workflow completed but its result could not be delivered"*, which is
+exactly the shape that is not a repaired artefact:
+
+| | before | after |
+|---|---|---|
+| antithesis constructions | 4 | **0** |
+| sentences carrying a negation | 20 / 54 (**37%**) | 8 / 48 (**16%**) |
+| "honest" | 2 | **1** (the hero clause the owner blessed) |
+
+⚠ **My local `vm-sites` clone is STALE** — its newest idea.uk commit is 08-11 — so the
+git log could not confirm this and I did not cite it. The served page did.
+
+### 3. THE FINDING — the owner already ruled this, 25 days ago, and it never propagated
+
+`leopardessconsulting.co.uk`'s `voice` spec carries:
+
+```
+voice_gate.banned_phrases[11].pattern  \bhonest(ly)?\b
+voice_gate.banned_phrases[11].reason   owner 2026-07-18: overused; show the honesty, do not label it
+banned_language[8]                     honest / honestly — demonstrate it, never label it
+```
+
+**There is a live, code-enforced mechanism for exactly this**: `check_voice_tells`
+(`platform/orchestration/actions/discovery_checks/check_voice_tells.go`), driven by
+`quality-discovery-agent`, reading `voice_gate.banned_phrases` as case-insensitive
+regexes and filing `voice_tells` items at `needs_human_review`, deduped `voice:<page_id>`.
+
+**It is opt-in with the unsafe default OFF — the 2026-08-02 §2 shape — and only 2 of 23
+sites have opted in** (leopardess 14 patterns, oufe 10). This is the
+[[zero-adoption-means-read-the-mechanism]] pattern exactly: the mechanism works, the
+adoption is the defect. The owner's ruling sat enforced on one site for 25 days while
+the same word spread across 14.
+
+### 4. The sweep: 39 strings across 15 specs, and four deliberate exclusions
+
+Applied the owner's own principle — **show it, do not label it** — so each replacement
+states the concrete behaviour the label stood for (*"Earns trust by being honest about
+what the tool cannot do"* → *"…by saying what the tool cannot do"*). The spec gets
+sharper, not merely shorter. **0 strings fell through without a rule** (asserted by the
+script, not assumed).
+
+Left alone ON PURPOSE, because a mechanical ban-list is the sibling lane's own recorded
+mistake (*"the filler list is a smell, not a crime"*):
+
+- **the ban regex itself** and the owner's reason line (removing them disarms the rule);
+- **`submission` / `mission_brief`** — the record of what was *asked for*; rewriting them
+  falsifies history (webdesign.co.uk's submission literally says "TONE AND HONESTY");
+- **`vertical_landscape`** — research findings about *other people's* sites;
+- **`briefing.honesty_rails`** (dartsonline) — a named truth-constraint mechanism
+  ("never claim to stock or ship products"), compliance rather than voice. **[VERIFIED]
+  no Go reader** (`grep -rn honesty_rails --include=*.go` → nothing), so renaming it was
+  possible and still wrong;
+- **`relojistas.com`** — Spanish *"honesto"*. The owner's reasoning was about his own
+  English speech; a different word for a different audience is an owner call, not mine.
+
+Post-sweep census: **4 rows left of 17**, and all four are the exclusions above.
+**Control: 26 specs still match `'%plain%'`**, so the zero is not a blind query.
+
+### 5. Still open — and the ordering matters
+
+- **108 pages across 14 sites still carry the word in served copy** (finetuning.uk 33,
+  fundamentallyai 17, leopardess 12, idea.uk 12). The specs now stop it being *written*;
+  they do not clean what exists.
+- **Do NOT arm the gate first.** Enabling `voice_gate` fleet-wide before remediation
+  files ~108 `voice_tells` items straight into `needs_human_review` — leopardess alone
+  already has **33 sitting there unactioned**. Clean the copy, then arm, so the gate
+  starts from a clean baseline and only ever reports regressions.
+- **Arm it NARROW when you do.** The gate also runs em-dash density, triads, long
+  sentences, contractions and flourish endings; those thresholds are `zero → default`,
+  so a minimal gate needs them set high deliberately, or 679 pages get a full voice audit
+  nobody asked for.
+- **Other lanes own most of these sites.** Per the 2026-07-29 ruling their owners must be
+  *told*, not merely measured — CONTRIB notes owed to finetuning, fundamentallyai,
+  mortgagecalculator, noted, webdesign, dartsonline, cookly, vetcomparison, leopardess.
