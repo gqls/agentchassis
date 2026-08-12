@@ -11596,7 +11596,7 @@ shape as `bugs_open/223` (a verifier that consults one index reports "does not e
 every class the index never ingested) and the `landmine-verifier` NEEDS_HUMAN_REVIEW caused
 by index staleness rather than by anything about the entry.
 
-### A dispatched orchestration can report `COMPLETED` having run ZERO steps of the named agent — the envelope arrived as fragments and the chassis silently ran its own no-op (`bugs_open/239`, filed 2026-08-09, root cause 2026-08-10)
+### A dispatched orchestration can report `COMPLETED` having run ZERO steps of the named agent — the envelope arrived as fragments and the chassis silently ran its own no-op (`bugs_closed/239`, filed 2026-08-09, root cause 2026-08-10, CLOSED 2026-08-12 — fixed and proven live on v1.0.1286)
 
 > **CORRECTED 2026-08-10.** This entry used to say the trigger was two `input_data` keys
 > (`source`+`spec`) co-occurring, and offered "omit `source`" as a confirmed workaround.

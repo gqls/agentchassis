@@ -576,5 +576,8 @@ RFC_023 stays open with the owner (recorded, not resubmitted); `bugs_open/246`,
 `bugs_open/247` and the nested-envelope case (`DISPATCH_OWN_DEFAULT` population) remain
 filed, unowned, and out of scope here.
 
-**This file STAYS in `bugs_open/` by owner direction (2026-08-06): closure evidence is
-recorded in the file; the move is the owner's call, not the fixing thread's.**
+~~**This file STAYS in `bugs_open/` by owner direction (2026-08-06): closure evidence is
+recorded in the file; the move is the owner's call, not the fixing thread's.**~~
+**SUPERSEDED 2026-08-12 — the owner directed the move: "if it is fixed and live it should
+be moved." Moved to `bugs_closed/` the same day.** The CLAUDE.md bar (fixed AND live)
+applies again; the 08-06 stay-direction no longer holds.
