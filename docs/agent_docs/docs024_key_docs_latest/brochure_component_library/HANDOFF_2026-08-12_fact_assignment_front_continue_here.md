@@ -152,3 +152,35 @@ four sections `[]` in the plan, copy still stating 6 facts). **It was REFUSED at
 - Related, for whoever fixes it: `bugs_open/149` §B1 — the registered `unrendered_templates`
   discovery check is configured in NO agent and has never run, so nothing sweeps pages that
   already serve this. That is the detection half if the loop confirms a renderer defect.
+
+---
+
+## UPDATE 2026-08-12 late — the 090 run finished and produced NO locatable verdict. The halt STANDS.
+
+`b885a92e` completed (5 iterations, bundles only). **No conclusion exists that this session
+could find** — no non-`bundle` artifact on the correlation, `final_result` NULL on all three
+rows, no `doc_notes` row for it, no `conclusion`/`verdict` column on any diagnosis table, and
+the final bundle contains no verdict language. **Do not read that as "refuted" or "no problem
+found".** Nothing has cleared seed 386 and nothing has named the cause, so:
+
+- **The page-rebuild halt stays in force** (any site, any page) until someone establishes the
+  cause. Rebuilding risks parking pages at `needs_human_review` — it does not corrupt anything,
+  because the gate refuses before persisting, but it wastes builds and buries the queue.
+- **Before re-firing 090, find out where its conclusion is supposed to land** (the fixloop
+  091/090 read-out step in `fixloop_eg_dartsonline/`). A second run costs the same and may
+  land in the same silent place. If a conclusion genuinely is not being written, that is its
+  own defect and worth more than this one bug.
+- **Correct my symptom before reusing it.** The loop's own check asked whether the
+  `CONTENT_VALIDATION_BLOCKER_DETAIL` rows belong to `page-content-writer` runs and got
+  **0 rows** — `validate_content` is a **page-build-handler** step, so my "inside
+  page-content-writer" phrasing was unverified inference and may have misdirected the run.
+- **The strongest lead is the bundle's own in-scope list, not my guess:**
+  `multipage_actions.go` (`AssemblePageAction`, `buildRenderContextFromCollectedData`,
+  `extractFieldValue`, `cleanHTMLStructure`), `assemble_from_library.go:AssembleOutput`,
+  `datahelpers.CleanHTMLString`. Hypothesis to TEST (not a finding): a field-substituting
+  assembler that never executes `{{if}}`/`{{range}}`. Unowned.
+- Evidence that stands regardless: assembled `page_html` carries `mechanism-flow`'s control
+  structures with field values substituted; all four writer LLM responses clean of `{{`;
+  the failure type is new since 08-11 15:39 on 3 domains against a recorder holding 157 rows
+  since 07-14; seed 386 remains a chronological suspect with a verified rollback ready
+  (`agent_definitions_bak_386`), NOT to be used on a guess.
