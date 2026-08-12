@@ -2081,3 +2081,14 @@ refs). The transferable question for both: **is there a key that does not requir
 prose?** Version lag only became trustworthy when it stopped parsing sentences and keyed on
 structure the register already maintains. Also still not done: `rebuild-cascade.md`'s stored
 count, fourth session running, still dirty with another session's REB-003 rewrite.
+
+**Postscript, same session — my `SYS-077` correction shipped under another session's commit.**
+I named 8 paths on the pathspec commit and 7 landed. `system-architecture.md` was gone from my
+working tree by then: commit `4a6e39c28` (15:24 BST, "owner rulings 08-12 recorded + fresh
+cold-start handoff…", an unrelated lane) had taken it as a same-file passenger between my edit
+and my commit. **Nothing is lost** — the correction is at HEAD, verified
+(`git grep -c "CORRECTED 2026-08-12: that was true when written and is false now" HEAD -- …` →
+1) — and forward-only forbids an amend, so it stays where it is. Recording it because
+`git log` on that file now attributes the SYS-077 correction to a commit about owner rulings,
+and the only place that trail can be repaired is here. **The tell was arithmetic, not intuition:
+8 paths named, 7 files in the commit.** Count them.

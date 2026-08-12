@@ -1,5 +1,14 @@
 # HANDOFF — concept register — 2026-08-10b (evening)
 
+> ## ⛔ SUPERSEDED 2026-08-12 — cold-start from `HANDOFF_2026-08-12_continue_here.md` instead
+>
+> Two of this file's items are closed and both of its banners are now answered. **Version lag
+> is built and tooled (`DOC-077`)** — starting it again is redoing finished work. And the
+> "watch the daily row for a week" instinct is doubly retired: delivery is **PROVEN at 100%**,
+> while the clean leak signal that looks like vindication is a **coin flip at n=4**. The
+> staleness worklist itself lives on in `FINDINGS_2026-08-10_staleness_survey.md`, whose
+> 2026-08-12 UPDATE section is current.
+
 **Cold-start doc for the register lane. This SUPERSEDES
 `HANDOFF_2026-08-10_continue_here.md`** (that one's items 1 and 3 are both done;
 its rate figure is corrected below). Written because the chat grew long, not
