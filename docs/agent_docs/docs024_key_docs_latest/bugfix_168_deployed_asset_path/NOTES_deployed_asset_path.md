@@ -2977,3 +2977,22 @@ the new gate can refuse — a test that passed because the timestamp refused wou
 and the `rc=1` is what makes that zero mean "grep ran and found nothing". Round 5's figure
 (v1.0.1288, 41 pods, digest `d080ae14`) was **less than a day old and already wrong on all three**.
 The pod COUNT is churn; **the digest uniformity is the invariant worth citing.**
+
+> **CORRECTION, minutes later — commit `79d910a86`'s message describes three files and contains
+> ONE.** It narrates the LANDMINES and WRONG_CALLS entries; both had already been committed by
+> **another lane's** commit `f8ca05594` ("215: make the readoption landmine's verification time
+> honest") in the ~90 seconds between my writing them and my `git commit`. **Nothing is lost — both
+> entries are at HEAD** — and forward-only forbids an amend, so this note is the correction.
+>
+> Two things worth carrying. **(1) This is CLAUDE.md's "your uncommitted work is not safe" happening
+> in the ordinary course, not as an accident**: committing per task protects others from *my* WIP; it
+> cannot protect *mine* from a session that commits a shared append-only file. The 215 lane did
+> nothing wrong — it was correcting its own timestamp on its own entry in the same file.
+> **(2) The `git diff --numstat` check earned its place twice in five minutes.** It showed `21 1` on
+> what should have been a pure append; the "1 deleted" was the 215 lane's in-flight edit to its own
+> line (`13:0xZ` → `~13:00Z`), which I then named as a passenger in a commit that, by the time it
+> ran, no longer carried it. **Read the numstat, then read the strings** — the same rule that saved
+> the gate measurement an hour earlier.
+>
+> **So: to find these entries, `git log` the FILE, not my commits.** LANDMINES + WRONG_CALLS →
+> `f8ca05594`; NOTES → `79d910a86`.
