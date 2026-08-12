@@ -6244,3 +6244,43 @@ difference moves the seam. Recorded in 266 as candidate 2, explicitly marked do-
 
 **Not touched:** O2 (still the owner's, still the only open decision), the seven pairs, the
 pilot config. No code changed.
+
+## 2026-08-12 (later) — post-roll verification, and I shipped a blind detector inside the bug that documents blind checks
+
+**Roll to `v1.0.1293` verified two ways**, both replicas: literal probe
+(`PLAN_PAGE_STEM_TWIN_REFUSED` present / one-letter `…REFUSEE` absent / pre-lane
+`OWNED_PAGE_GUARD` present) **and** the provenance stamp, which I had previously written off
+as unusable. It is usable — the fix is to name the **pod** rather than `-l app=` (the label
+selector is what drags in the 1.4MB of council payloads quoting the phrase) and to cap with
+`--limit-bytes=400000` so you land in the head of the log. Then
+`git merge-base --is-ancestor 19acfc895 7a1887e316…` answers "did it ship?" exactly. Amended
+§6 of the handoff, because the old entry told the next session not to bother.
+
+Counters re-read post-roll: still 0/0/0/0, 0 `site_plans` since the roll, 13 `agent_error_log`
+rows since the roll. Demand and instrument controls both present this time.
+
+**The misstep.** My `bugs_open/266` filing shipped a "standing detector for the class":
+`status='archived' AND deployed_at IS NOT NULL`. I then ran it: **18 rows.** Curled all 18 with
+a fabricated-URL control per domain: **only 5 serve.** Thirteen are 404 — mostly `098`'s ten
+retracted leopardess pages, still carrying April/May stamps. `deployed_at` is a historical
+build stamp and retraction does not clear it.
+
+That rule is **`016b`'s own** — *build columns are history, not liveness* — and it was written
+by `bugs_closed/098`, **which I had cross-referenced in the same file, in a section arguing
+that 098's acceptance test had been measured over the wrong population.** I made the
+neighbouring version of the error I was documenting, one screen further down. Had a fix been
+measured against my query, "population reduced from 18 to 13" was available for free, without
+changing anything.
+
+Corrected in place: the detector is now two-step (SQL selects candidates, curl decides). Also
+recorded that **a curl `000` is not a `404`** — `/tools/llm-cost-calculator/index.html` gave
+`000` on the first pass and `200` on three straight retries, so recording the first pass would
+have undercounted the live population by 20%.
+
+**Population, verified at the artefact: 5 pages, 3 domains** — fundamentallyai ×2,
+leopardess ×1, robot-hands ×2. So not a fundamentallyai quirk, which the filing had suspected
+but could not assert. Leopardess' `/our-approach.html` has been archived-and-serving since
+**2026-07-17**, so the condition survives weeks unnoticed. Told both lanes in their own
+handoffs, per the 2026-07-29 ruling that consumers must be told rather than merely measured.
+
+**Still not touched:** O2, the seven pairs, the pilot config, any site. No code changed.

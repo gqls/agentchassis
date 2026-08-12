@@ -2648,3 +2648,42 @@ only close two of the four doors — it was deliberately placed where two of our
 don't pass. Copying it would have looked like a fix and left the newest problem untouched. I've
 written the fix up with that trap flagged, but I haven't changed any code: it's a shared
 mechanism, so it needs review, and it isn't this lane's to rush.
+
+---
+
+**2026-08-12, later that evening.** Two updates: the new chassis is confirmed good, and the
+problem I reported earlier turns out to affect three of your sites, not one.
+
+**The deployment.** The fresh build is live on both servers and I've confirmed our safety
+gates are actually in it — not by assuming, but by asking the running program twice, in two
+different ways, including one check designed so it would fail if I were wrong. I also found
+that a check this lane had given up on as unusable actually works fine with two small
+adjustments, so the next person gets a much more direct way of answering "did my change
+ship?". The gates still haven't fired, which remains correct — nothing has asked them to.
+
+**The bigger news, and it includes a mistake of mine.** When I filed the problem about retired
+pages coming back to life, I included a query for finding others like them. I then ran it: 18
+pages. But when I actually visited all 18, **only 5 were really live.** The other 13 were false
+alarms — pages we retired properly months ago, where the database keeps a historical "last
+published" date that never gets cleared. My query was reading that old date as if it meant
+"live now".
+
+That is embarrassingly close to the exact mistake I had criticised in the same document a few
+paragraphs earlier. Worth being blunt about it: if we had "fixed" the problem and measured
+success with my query, we could have claimed we cut the number from 18 to 13 **without
+changing anything at all.** It's corrected — the check now visits the actual page rather than
+trusting the database, with a deliberately fake address mixed in each time so I can prove the
+test still works.
+
+**So the real number is 5 pages across 3 sites:** two on fundamentallyai, one on
+leopardessconsulting, two on robot-hands. That matters because it means this isn't a quirk of
+the one site we were looking at. The leopardess one is the most telling: it has been retired in
+our records and live on the web since **17 July** — nearly four weeks — and nothing noticed.
+
+I've written to both of those other workstreams in their own notes, so whoever picks them up
+sees it. I haven't changed anything on any site: whether those pages should be live is a
+content decision, and it's yours, not mine.
+
+**What I still need from you is unchanged** — the survivor choice on the seven duplicate pairs.
+The only thing that's changed is the order: we should fix the "retirement doesn't stick"
+problem first, or we'll do the work on your seven pairs and watch it quietly undo itself.
