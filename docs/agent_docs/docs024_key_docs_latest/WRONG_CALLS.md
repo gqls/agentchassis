@@ -29400,3 +29400,52 @@ conclusion survived a sanity check that the reasoning would not have.
 world second.** Two of my last three wrong calls are the same shape — asking the right table
 the wrong way (`palettes.source_domain`, 2026-08-10) and asking the right column at the
 wrong depth (here). Both returned zero rows. Neither zero was about the platform.
+
+---
+
+## 2026-08-12 — "the proving page passed every gate", reported on an aggregate that netted to zero. It had lost the calculator's panel.
+
+**The claim,** given to the owner as the milestone that unblocked 21 more pages:
+`loans-standard-calc` decomposed cleanly — *"served == predicted byte-for-byte,
+arithmetic identical to baseline, 18 class attrs before AND after, 29 links both, zero
+lost"*.
+
+**What was false:** the calculator's `.card` wrapper was dissolved — the panel's
+background, 30px padding, radius and shadow. Filed as `bugs_open/263`. Two of the three
+pages I decomposed had it; both are now restored.
+
+**Why two independent checks agreed with each other and both were wrong:**
+
+1. **The byte-for-byte prediction diff.** It compares the served page against a
+   prediction generated from **the same manifest that dropped the wrapper**. It can only
+   ever prove fidelity to the model. I called it *"the strongest of the four gates"* — for
+   this class of defect it is structurally incapable of failing.
+2. **My class check compared SETS.** The page carries four `card`s; the calculator's went
+   and three prose cards remained, so the set was identical. Then the aggregate attribute
+   count read **18 before, 18 after**, because two removals (`container`, one `card`) were
+   exactly offset by two `ported-prose` additions.
+
+Only a **per-class count** diff sees it: `card: 4 → 3`.
+
+**What caught it:** the NEXT page. `mortgages-overpayment` lost `card` AND `calc-grid`,
+and `calc-grid` existed exactly once, so a set diff could not hide it. I would not have
+looked again otherwise — page 1 was already reported and committed as proven.
+
+**The cheap check that would have:** count, don't compare sets, and never trust an
+aggregate that can net out. Stated as a rule: **before believing a green result, name the
+value the measurement would take if the damage HAD occurred. If that value equals the one
+you just read, the check is inert.**
+
+**THIRD INSTANCE OF ONE ERROR SHAPE IN A SINGLE DAY,** which is why this is a row and not
+a footnote:
+
+| claim | the equality that fooled me |
+|---|---|
+| "nothing consumes the copy auditor's findings" | `created_by IN ('design-audit-agent')` — a value that has never existed, so 0 rows |
+| "the calculator's machinery is intact" (page 2) | probed `#amount`/`#rate`/`#term` on a page using `loanAmount`/`interestRate`/`termYears` — **0 before, 0 after** |
+| "18 class attrs before and after" (page 1) | two losses offset by two additions |
+
+All three **compared two things that were equal for a reason unrelated to the property
+under test**, and all three returned the reassuring answer rather than an error. A
+mis-spelled column fails loudly; a mis-spelled *value*, an absent *id*, and a netting
+*aggregate* all come back green.
