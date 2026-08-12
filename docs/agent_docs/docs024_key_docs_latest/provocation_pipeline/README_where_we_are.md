@@ -1141,3 +1141,31 @@ is deliberate: none of this is running until the next rebuild, so regenerating n
 just produce more of the same. Once it is live I will run it, show you what comes out,
 and then we throw out as much of the old schedule as you want. Retiring a booked one
 frees its date, so there will be no gaps — except today's, which is already out.
+
+---
+
+## 2026-08-12 — the new writing is booked through the 22nd
+
+You binned the eight older ones and accepted the eight new ones, and both are done. The
+old batch is retired rather than deleted, with the reason recorded against each row: the
+judge had passed them, but it passed them before the readability check existed and it
+never looks at a provocation twice, so a clean verdict on those said nothing at all about
+whether they could be read.
+
+Six of the new eight now have dates, running from the 17th to the 22nd. Two are held
+back — *"A messy desk means you are getting things done"* and *"Umbrellas are not worth
+carrying"*. That is not an oversight. You said six days ahead was enough, so the
+scheduler dates six per run by design, and the rest wait. It means one bad batch can
+never fill a long stretch nobody is watching.
+
+**The site now has something different to say every day from today to the 22nd.** Eleven
+days. When you first raised this, it had five, and three of those were pieces you have
+since thrown out.
+
+One thing that held us up for twenty minutes and is worth knowing about, because it will
+happen again. The safety check that vets every command I run went down. It is a separate
+thing from the machinery we have been fixing, and I could not diagnose it — I checked
+that the cluster's own model calls were still working, which they were, so the model
+itself was fine and the fault was somewhere in my own plumbing that I cannot see. It
+failed in the safe direction: unable to decide whether something was safe, it ran
+nothing. You ran the statement yourself and it went through unchanged.
