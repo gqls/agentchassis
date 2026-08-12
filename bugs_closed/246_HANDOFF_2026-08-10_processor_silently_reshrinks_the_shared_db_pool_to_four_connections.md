@@ -274,3 +274,36 @@ nothing in the platform reports a pool's size, and nothing surfaces
 mutation-proven unit test; the evidence that it shipped is the ancestry check above.
 Those are the only two, and neither is a live reading of the pool. **Anyone who later
 writes "the pool was observed at 12" is describing something the platform cannot show.**
+
+---
+
+## CLOSED 2026-08-12 — fixed, council-approved, live and post-roll verified
+
+Moved to `bugs_closed/` under the owner direction of **2026-08-12**: *"if it is fixed and
+live it should be moved"* (commit `2aa3014a3`), which **supersedes the 2026-08-06
+stay-in-`bugs_open` direction** this file was previously kept under.
+
+**Closure evidence, all in this file above:** the mechanism proven in isolation with a
+control; the fix and its council follow-up both council-APPROVED at round 1
+(`c94d73ac-2a15-40cb-98a9-1185a2b7435a`); a mutation-proven regression test; and shipment
+proven by image-label ancestry on `v1.0.1288`, re-verified still shipped on `v1.0.1290`
+(revision `fa078ab3d`) with a valid negative control.
+
+**What is deliberately NOT claimed by this closure**, so nobody inherits a false sense of
+completeness:
+
+- **The pgbouncer risk remains UNMEASURED.** `SHOW POOLS` (`cl_waiting`, `maxwait`) needs
+  the `pgbouncer_admin` console user; the Terraform half was wired 2026-08-12
+  (`aee444a35`) but the `pgbouncer-userlist` half is not Terraform-managed and still needs
+  the credential holder. Runbook §9.
+- **There is no behavioural witness for this fix and there never could be** — nothing in
+  the platform reports a pool's size or its wait counters. Anyone later writing "the pool
+  was observed at 12" is describing something the platform cannot show.
+- **The follow-ups are live work, not loose ends**, and they are owned elsewhere now:
+  `db.Stats()` instrumentation (D2) is with the `bugfix_239` lane; the `p.sqlDB` collapse
+  (D5) turned out to be a defect and is **`bugs_open/259`** (the
+  `three_processor_paths...` one — the number is ambiguous), also with that lane.
+
+Remaining owner decisions live in
+`docs/agent_docs/docs024_key_docs_latest/bugfix_246_shared_pool_ownership/HANDOFF_2026-08-11_continue_here.md`
+— closing the bug does not close those.
