@@ -94,19 +94,63 @@ other drop is this bug.**
 
 ## Fix candidates, ordered by what closes the door
 
-1. **Keep the tool block's wrapper chain in the tool block.** When the descent decides a
-   node is widget machinery, emit the node ITSELF rather than its children — i.e. mark
-   the outermost element whose subtree is entirely widget machinery, instead of
-   recursing past it. This is the "whole-child marking" the docstring says was tried and
-   refuted — but it was refuted for a DIFFERENT reason (`mortgages/stamp-duty` froze an
-   intro paragraph into the locked tool row because prose and widget shared one
-   `<article>`). The correct rule is narrower than either: descend only while a node's
-   subtree contains BOTH prose and machinery; stop at the first node that is machinery
-   only, and emit it whole.
-2. **Re-wrap on load.** `load_lmc.py` reconstructs `<div class="card"><div
-   class="calc-grid">…` around the tool block's contents. Cheaper, but it hard-codes one
-   site's class vocabulary into the loader, and the loan side uses `input-grid` while the
-   mortgage side uses `calc-grid` — two vocabularies, per the stylesheet's own header.
+> **⚠ AMENDED 2026-08-12, before implementation, at the owner's request to check the
+> plan.** Candidate 1's rule as first written — *"stop at the first node that is
+> machinery only"* — **is underspecified and would still have dissolved 2 of the 22
+> pages.** Verified structurally against four real pages plus a wrapper census; the
+> corrected rule and its cost are below. Candidate 2 is now definitively rejected on
+> evidence. **The check in the "verify" section is unaffected and remains the first
+> thing to build.**
+
+1. **Keep the tool block's wrapper chain in the tool block** — emit the wrapper ITSELF
+   rather than recursing past it. This is *not* the "whole-child marking" the docstring
+   says was tried and refuted: that marked the whole `<article>` as tool, freezing
+   `stamp-duty`'s h1 and intro into the locked row. Verified skeletons:
+
+   ```
+   stamp-duty:  article > [h1, p, div.card > calc-grid > (inputs, result-box), h2, p]
+   standard-calc: container > [h1, p, div.card > (input-grid, results-box),
+                               section > (h2, 3× div.card of PROSE)]
+   overpayment: container > [p, div.card > calc-grid > (inputs+button, result-box)]
+   ```
+
+   **THE RULE, CORRECTED: the tool block is the OUTERMOST ancestor of the widget's
+   controls that still has at least one PROSE SIBLING.** Equivalently: never descend
+   past a node whose entire content lies within the widget's own subtree. On all three
+   skeletons that resolves to `div.card`, and on `standard-calc` it distinguishes the
+   calculator's `.card` from the three PROSE `.card`s **by content, not by class name** —
+   which no name-based rule can do.
+
+   **Why the first wording failed:** two pages hold static advisory copy *inside* the
+   panel, so the panel is not "machinery only" —
+   `mortgages/overpayment`: *"Most UK lenders allow you to overpay up to 10% of your
+   outstanding balance per year without penalty…"*, and `loans/damage-checker`:
+   *"Lenders typically charge between £50 - £150 per panel…"*. Under the first wording
+   the descent would enter those cards and dissolve them again. Under the corrected
+   wording it stops at the card, because the card's parent holds prose siblings.
+
+   **THE COST, STATED RATHER THAN DISCOVERED LATER:** that static copy travels into the
+   locked tool row and is therefore **not editable by the voice/content pass** — one
+   paragraph each on 2 of 22 pages. This is the lane's existing convention, not a new
+   concession: `decompose_lmc.py`'s own docstring already says `mortgages/simple.html`
+   *"is one card containing everything — its widget-internal text is out of the voice's
+   scope by the 'copy zones only' rule"*, and `loans-consolidation`'s proven shape works
+   the same way. If either paragraph later needs editing, it is a `section-editor` job
+   on a locked row, not a reason to split the panel.
+2. ~~**Re-wrap on load.**~~ **REJECTED on evidence 2026-08-12.** It would hard-code a
+   class vocabulary, and the census found **at least eight** wrapper vocabularies across
+   the 22 pages — `card`, `calc-grid`, `input-grid`, `result-box`, `question-section`,
+   `q-row`, `metric-card`, `table-container`. **Six of the 22 have no `card` at all**
+   (`bridging-loan`, `equity-release`, `fact-finder`, `fee-analyser`, `portfolio`,
+   `rate-forecaster`), and two of those are structurally unlike everything else:
+   `fact-finder` is 11 × `q-row` inside 4 × `question-section`, and `portfolio` is
+   4 × `metric-card` plus a `table-container`. Any name-based re-wrap would need all
+   eight and would still miss the ninth. **The corrected candidate 1 and the count gate
+   are both vocabulary-agnostic, which is the whole reason to prefer them.**
+
+   **Consequence for ordering:** `fact-finder` and `portfolio` are the most complex
+   shapes AND the two with no panel to preserve. **Do them LAST, not first** — the
+   earlier plan of "simplest first" accidentally had `fact-finder` in the early group.
 3. **Add the classes to the assembled-layout shim** (`section.ported-prose > .form-group`
    grid rules). Rejected: it makes every assembled section a calculator grid, and the
    shim is shared by 18 prose pages.
