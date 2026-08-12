@@ -158,3 +158,66 @@ the old one's write surface once a first real £149 sale has gone through.
 The website copy rewrite (removing £1,200 from the live site) is still
 queued behind the other session's lock-testing on webdesign.uk — they were
 still at it this evening. It is the first item for the next working session.
+
+---
+
+2026-08-12, afternoon. I started the copy rewrite, and the first thing to
+report is that the site was not saying what we thought it was saying.
+
+My own note from last night said the live site still quotes £1,200. It does
+not. The other session re-priced it on the 10th, so what is actually live is a
+£75 deposit, a fourteen-day money-back window, and two rounds of revisions.
+The price itself is not on the site at all any more: the home page says "one
+fixed price" and invites people to ask what it costs. So the job was never
+"delete £1,200" — it is "replace last week's terms, which are all wrong now",
+and that turned out to be a page bigger than we thought, because a guide page
+we had not counted repeats the deposit and the fourteen days in full.
+
+Worth knowing, and it caught me out for a few minutes: **webdesign.uk itself
+does not show the shop.** It has always redirected to webdesign.co.uk, which
+is a different site of tools and guides. The actual shopfront lives at
+preview.webdesign.uk. You confirmed the redirect was deliberate back on the
+10th; I mention it only because anyone checking "is the site right yet?" on
+the plain address will be looking at the wrong site entirely.
+
+What I have done today is the half that has to come first. Every site we build
+has a register of facts it is allowed to state, and a list of phrases it is
+forbidden to use. The site's writer reads the first; a checker enforces the
+second. Until that register says £149, asking the system to rewrite the pages
+would just produce last week's offer again, very fluently. So the register now
+describes the offer you ruled on the 11th: £149 all in, no VAT, paid after you
+approve the site, no refunds, one set of changes, only a few sites at a time,
+the site is AI-built and says so, and you get a preview link and then a ZIP
+you host yourself, with hosting and your domain staying yours.
+
+I also armed the other half, which is the part experience says gets forgotten:
+the retired phrases are now banned mechanically. Before switching over, I ran
+the platform's own checker against every page as it stands. Under the old
+rules it found 3 problems; under the new ones it finds 36, spread across five
+pages. That number is the point of the exercise — it is the proof the ban list
+actually bites, rather than sitting there looking responsible. I then ran the
+replacement wording through the same checker and it came back clean.
+
+Two things I got wrong and caught before they shipped, both by running the
+tool instead of trusting myself. One was a single wrong value type in the new
+register, which would have quietly switched the whole checker off for this
+site — no error, no warning, just a site with no guard. The other was a safety
+assertion of my own that would have blocked the change for the wrong reason.
+Both took seconds to find because the platform has a command-line version of
+the same checker that runs on live data without deploying anything.
+
+Five small things need a word from you, none urgent, all written up in full in
+the working notes. The two worth saying out loud: the "three to four days"
+promise was agreed for the £1,200 offer and nobody has re-confirmed it at
+£149, so it is carried over and flagged rather than quietly re-stated. And the
+payment-timing switch, which I described to you as yours to flip whenever you
+like, turns out not to be free after all: the pages will say "you pay after
+you approve it", so flipping it to up-front makes the site wrong until the
+copy is rewritten. Worth knowing before you flip it, not after.
+
+Next is the rewrite of the five pages themselves, through the framework, and
+then checking the result against the same list. The other session is still
+working on webdesign.uk today, but on the chat box's plumbing rather than the
+page copy, and the only thing they have locked is the chat box, which carries
+none of the old terms. So the collision risk that held this up last night has
+gone.

@@ -360,3 +360,133 @@ session, untouched by this lane.
   REAL rerender dispatches, a3240564a) — copy migration stays deferred.
 - `bugs_open/239` gained a fail-closed fix commit (a097e3e26, their lane) —
   re-check fixed-AND-LIVE state next session; it gates the trigger seam (P4).
+
+---
+
+## 2026-08-12 — copy migration, half one: the £149 register is LIVE and detection is ARMED
+
+The source-of-truth half of work item 1. `evidence_base` for webdesign.uk now
+describes the £149 offer; the page copy is regenerated separately, next.
+
+> **CORRECTED — the handoff's description of the live site was STALE, and I
+> checked before acting on it.** `HANDOFF_2026-08-11b` §2.1 says the live site
+> "still says '£1,200 is the total price', 'you only pay if you like it'".
+> Measured 2026-08-12 at the served artefact: **it says none of those things.**
+> The sibling lane re-priced the site to a £75-deposit model on 08-10
+> (`da5fb0d`, `f4e77c7fb`), and **no price at all now appears on the served
+> pages** — the homepage says "One fixed price" and "Tell us what you need.
+> We'll tell you what it costs". What IS live, and false under the 08-11
+> rulings, is the deposit/refund/window/two-rounds family. The retired £1,200
+> copy survives only on the **archived** `index-rejected-v1-20260806` page.
+> A handoff written on 08-11 evening was already describing an 08-10 state:
+> the cheap check was one curl, and I ran it because the DB disagreed.
+
+- **`webdesign.uk` 302s to `webdesign.co.uk` and always has (intentional,
+  owner-confirmed 2026-08-10, `47615b5e1`). The shopfront serves at
+  `preview.webdesign.uk`.** Every path on the apex collapses to the co.uk
+  homepage, which is a different site (tools and guides). Anyone verifying
+  "the live site" on the apex host measures the wrong site and sees no offer
+  copy at all. The `-L` follow is what makes it obvious; without it you get a
+  302 and 143 bytes.
+- **Scope is FIVE surfaces, not the four the handoff lists.** Scanning all 25
+  components rather than the pages I had in mind added
+  `tool-website-brief-starter-guide` (`article-body`), which carries the full
+  £75 / 14 days / two rounds terms inside a guide. Enumerating the pages I
+  knew about would have shipped a migration that left the old offer live in
+  prose nobody was looking at.
+- **Migrated by SUPERSEDE, not in-place UPDATE** (`SQL_2026-08-12_evidence_base_149.sql`).
+  The 08-10 deposit change was an in-place UPDATE and destroyed the row before
+  it; the owner ruled the £1,200 offer "archived restorably", and a superseded
+  row makes that true in the database and not only in a file snapshot. Old row
+  `bccf42a7` (`is_current=false`, 10 facts / 18 bans); new row `6f9e8e7c`
+  (12 facts / 26 bans / 4,774-char writer_block), `pinned` inherited.
+- **What the register now says**: £149 total with no VAT; payment after the
+  customer approves the site; **no refund**; **one set of changes**; only a few
+  sites at a time with no number published; **the site is AI-built, stated
+  plainly**; delivery is a private preview link then a ZIP the customer hosts;
+  hosting and the domain are not included and stay with the customer.
+
+### Two defects caught BEFORE this shipped, both by running the tool rather than reasoning
+
+- **`"value": "after_approval"` would have silently disarmed the claims checker
+  for the entire site.** `EvidenceFact.Value` is `*float64` in Go, so a string
+  there fails the whole `evidence_base` unmarshal, `ParseEvidenceBase` returns
+  nil, and the checker switches off **with no error anywhere** — this lane's
+  own documented landmine, which I walked straight into and `cmd/claimscan`
+  caught on the first run. The setting now lives in the claim text and in
+  `source.sql`, where it is checkable.
+- **My own verify block would have aborted the migration wrongly.** I wrote
+  "abort if £1,200 appears in the new document" — but the retired price
+  legitimately appears throughout the new `banned_claims` reasons, which is
+  where it is named as the thing not to say. The assertion now checks the
+  **facts** only, and is paired with a positive one (`price_total = 149`),
+  because a check that only forbids cannot tell a correct document from an
+  empty one.
+
+### The negation-guard trap, measured both ways
+
+`negationCueRe` **deliberately excludes a bare "no"** (it is an intensifier in
+marketing prose: "there are no exceptions: every claim is verified"). So under
+the new `refund` ban, **"there is no refund" IS flagged and would block the
+page**, while **"we do not offer refunds" is correctly suppressed**. The copy
+must use `do not` / `never` in the same clause. This is written into the ban's
+own `reason` field and into `writer_block`, so the next writer meets it at the
+point of use rather than at the point of failure.
+
+### The measurement, and what could have come out otherwise
+
+- **Ban set proven NON-INERT**: same 25 live components, same engine —
+  old register **3 findings**, new register **36** (faq 8, how-it-works 6,
+  brief-starter-guide 4, what-you-get 3, index 1, archived page 14). A ban set
+  that returned the same 3 would have been decoration.
+- **Intended replacement copy proven CLEAN**: 19 sentences built from the new
+  `writer_line`s plus the FAQ answers the offer must be able to give →
+  **0 findings, 1 suppressed** (the refund sentence above). `[LIMIT]` This is
+  a fixture I composed, so it proves the ban set does not block the phrasing I
+  intend; it does **not** predict what the writer will produce. That is what
+  the regeneration + a re-scan of the real output has to establish.
+- **Verify block proven to DISCRIMINATE**: both assertions were run against the
+  old row first and both raised (`facts: expected 12, got 10`;
+  `fact price_total is not 149`) — so a green run means the write landed, not
+  that the check was asleep.
+- **Checked at the READER, not the writer**: the row was pulled back out of the
+  DB and re-scanned through the platform's own parser, reproducing 36 / 0
+  exactly. A jsonb round-trip that had mangled anything would have shown here.
+
+### Owner asks this raises (none blocking; all in the handoff's ask list)
+
+1. **`build_duration` (three to four days) is CARRIED OVER unre-attested.** It
+   was attested on 08-04 for the £1,200 offer; the 08-11 rulings did not
+   restate it. It is in the register, flagged in its own `source`, and needs a
+   yes or a new number.
+2. **`changes_paid_defects_free` was DROPPED, not carried.** "Anything that is
+   our own mistake is fixed at no cost" was a 07-29 fee-boundary ruling under
+   the £1,200 offer; at £149 with no ongoing service it is an open-ended
+   liability, so it is not in the register and the site will not say it.
+   Silence is publishable; put it back if the owner wants it.
+3. **The payment-timing switch has a COPY dependency the ask list does not
+   record.** Handoff §1.4 calls it "yours to flip, no build needed". Flipping
+   `payment_timing` to `upfront` makes fact `payment_after_approval` false and
+   with it every page that states it. The fact now names
+   `billing_settings.payment_timing` as its source so the coupling is visible,
+   but nothing enforces it: flipping the switch is a copy migration, not a
+   one-field UPDATE.
+4. **No queue capacity number is published** (the ruling says start at 3–4, the
+   counter is not built). The copy says "only a few sites at a time".
+5. **ZIP delivery is promised in the register while work item 4 is unbuilt** —
+   fulfilment today is manual (pull the B2 prefix, zip it). Deliverable, but by
+   hand.
+
+### Two things for the fleet, not this lane
+
+- **The `honest` ban is now enforced MECHANICALLY on this site.** The
+  fleet-wide instruction of 2026-08-12 (`claude-ideauk-copy-20260812`, applied
+  to 14 sites' `content_direction`) is prompt-side and advisory; a
+  `banned_claims` pattern is the enforcing layer, exactly as this lane's own
+  superlative ban was on 08-06. Site-side only, deliberately: banning it
+  fleet-wide is that lane's call, not mine.
+- **The claims checker files work items against ARCHIVED pages.** 14 of the 36
+  findings are on `index-rejected-v1-20260806`, which is `status='archived'`
+  and served to nobody; there is already an open `claims_unverified` item for
+  it. Pre-existing, not caused by this change, and not fixed here — but this
+  change quadruples the noise, so it is worth someone's attention.
