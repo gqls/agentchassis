@@ -389,3 +389,51 @@ context, since the page inventory it was written against has already moved.
 content-planner JSON rather than the image outcome. Checked against 8 other same-night
 `image-build-handler` completions — all 8 clean. Isolated to this one row; cause unknown; noted
 in the 248 contribution in case anyone else reads this row's `result` as evidence.
+
+## 18. 2026-08-12 — owner reviews the second image, APPROVES the mechanism, and my own "re-arms detection" claim gets falsified live within the hour
+
+Owner: *"This is ok, but I prefer the old logo not as a standing rule but because it is much
+better. Please carry on with the original logo but we can approve this route for future
+attempts."* — Second generation superseded (kept, not deleted), same reasoning and same query
+as the first. **The mechanism itself is now owner-validated for fleet-wide use**; the per-site
+choice to keep existing branding is aesthetic, not a rejection.
+
+Immediately after superseding, re-ran the exact verification I'd previously told the user
+proved detection stayed armed — `hasActiveAssetForPurpose(site,'hero')` — and got **true**,
+not false. Investigated rather than restated the old claim: `hero_about` and `hero_contact`
+(page-named variant assets, `check_unfulfilled_image_prompt`'s classification, appeared
+autonomously the same day) share `purpose='hero'` with the canonical fallback but have a
+different `asset_key`, and `hasActiveAssetForPurpose` — confirmed via its OWN doc comment —
+answers "does ANY asset of this purpose exist", not "does the canonical one exist". So my
+earlier claim was **wrong as soon as a variant asset existed**, and I said so plainly rather
+than letting it stand.
+
+**Fixed at the source, not worked around.** `check_placeholder_image_in_use.go:62` swapped to
+`hasActiveAssetForAssetKey(dctx, mapping.purpose)` — exactly right for the canonical case
+(`asset_key == purpose` by the existing `classifyPromptKey` convention). Measured live before
+and after: purpose-scoped query on the exact row set = **2**; asset_key-scoped = **0**.
+Mutation-proven (`TestPlaceholderImageInUse_VariantAssetDoesNotSuppressCanonicalDetection`):
+reverting the one-line call makes it fail with "want 1 finding, got 0", reproducing the live
+bug exactly; restoring passes. Full package green at a pinned HEAD archive both before and
+after. LANDMINES entry added — the trap is a documented sibling function one read away, missed
+anyway. Submitted to council (`7e839679-d87b-4c57-9419-ba1212f22a87`) before committing,
+`Council-Submitted:` trailer (a placeholder trailer got correctly rejected by the commit-msg
+hook first — no valid UUID, no commit; nothing lost, forward-only held).
+
+**One thing deliberately NOT fixed: the two-strike counter.** `insertWorkItem`'s rule (2+
+terminal `complete`/`failed` rows for this item_key within 7 days → mark the next attempt
+`unresolved` rather than a normal disposition) now reads **2** for
+`placeholder_image_in_use:hero` on this site (the 08-11 12:42 and 19:06 completions, both
+genuine successes, not failures). A third natural detection attempt would land `unresolved`,
+not regenerate automatically. **Left as-is, deliberately** — the owner's own latest instruction
+("carry on with the original logo") reads as satisfied with two reviewed attempts, not asking
+for a third right now, so a circuit-breaker landing there is arguably the correct outcome, not
+a defect. Noted for the record rather than treated as a problem to solve.
+
+## 19. What "approved for future attempts" changes going forward
+
+Recorded in IMG-069 (register) as the durable validation: two independent generations,
+owner-reviewed, mechanism approved for fleet-wide use going forward — separate from the
+per-site preference for mortgagecalculator specifically. Any future lane relying on the
+default-prompt mechanism can cite this as owner sign-off on the DESIGN, not merely on the code
+shipping.
