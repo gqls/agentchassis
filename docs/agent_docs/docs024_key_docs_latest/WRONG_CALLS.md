@@ -29296,3 +29296,50 @@ in the meantime. The commit, the submission and three source comments all cite `
 file now numbered `261`. **A number you checked is a number you checked at that instant** — on this
 tree, "I verified it was free" has a shelf life measured in tens of minutes. Resolve by slug, and
 `git log` the file path.
+
+---
+
+## 2026-08-12 — "those files are all well under 60KB, so that known trap doesn't apply": I ran the documented check, got a clean answer, and it was measuring the wrong quantity
+
+**The claim.** Mid-session, deciding whether a `090` diagnosis run was worth waiting for:
+*"Files are all well under the 60KB threshold, so that known trap doesn't apply."* Said after
+actually running the check the landmine prescribes — `wc -c` on all three files named in my
+symptom (30,292 / 19,590 / 5,610 bytes). Every one clean, two by more than a factor of three.
+
+**What was actually true.** The trap applied, and the run produced **5 bundles and no verdict** —
+the exact outcome that landmine exists to predict. The budget is **cumulative across everything in
+scope**, not per file. The bundle's own line: `_(body omitted — 2024 chars, and 58853 of the
+60000-char body budget is already spent…)_`. **The dropped symbol was 2 KB.** It was dropped
+because the other three symbols I had helpfully named, to "give the diagnoser context", had eaten
+98% of the budget between them. Naming more context is what caused the omission.
+
+**What caught it.** Nothing, for about ten minutes — which is the problem, because this failure is
+indistinguishable from a run still in progress and I had just told myself it could not be
+happening. It surfaced only when five bundles struck me as too many and I went back and ran the
+landmine's *other* diagnostic, the one I had considered unnecessary. It fired instantly: 1 bundle
+omitted, 2 marked `INCOMPLETE`.
+
+**The cheap check that would have** — available ~2 min after the first bundle, and never run
+because the file-size check had already "cleared" it:
+```sql
+SELECT substring(body from '_\(body omitted[^)]*\)_') FROM diagnosis_artifacts
+WHERE correlation_id='<RUN_CORR>' AND kind='bundle' AND body LIKE '%body omitted%';
+```
+
+**Why it is worth a row.** Not "I skipped a check" — I ran it correctly and reported it
+accurately. The error is one step up:
+1. **I treated a proxy as the thing.** The landmine says "over ~60,000 bytes, expect no verdict":
+   that states what a *large* file implies and is **silent on what a small one implies**. I read
+   the silence as an all-clear. A one-directional check cleared me in the direction it cannot
+   speak about.
+2. **A clean check stopped me looking more effectively than no check would have**, because now I
+   had evidence. The ten minutes I then spent waiting, I spent confidently.
+3. The variable that actually mattered — cumulative scope — was **set by my own symptom text**, and
+   I had increased it on purpose believing more context was better. The input I controlled was the
+   input that broke it, and nothing I ran looked at it.
+
+**The generalisable form:** when a documented check clears you, ask *what quantity does this
+measure, and is it the one that fails?* A check written for the common case ("one big file") passes
+silently on the uncommon one ("four small ones"), and the landmine then reads as tested when it was
+merely not-triggered-by-the-proxy. `LANDMINES.md` entry corrected the same day with the
+budget-line check, which is the one that discriminates.

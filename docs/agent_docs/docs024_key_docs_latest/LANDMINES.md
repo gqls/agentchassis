@@ -2820,6 +2820,28 @@ stage-2 template as well, or the exposure returns silently on the next rebuild.
 
 ### A `090` diagnosis run on a symbol in a file over ~60KB returns bundles and NO verdict — and that looks exactly like a run still in progress
 
+> **⚠ CORRECTED 2026-08-12 — THE FILE-SIZE CHECK BELOW IS A PROXY, AND IT GIVES A FALSE ALL-CLEAR.**
+> The budget is **cumulative across everything in scope**, not per file and not per symbol.
+> Measured this date (`finetuning_uk_service`, run `b930e969-ad53-49fb-923c-2dbaa0ea333b`):
+> a symptom naming **four small symbols across three small files** — `adapter.go`
+> (30,292 B), `provision_action.go` (19,590 B), `consumer.go` (5,610 B), **every one far
+> under 60KB** — produced **5 bundles and no verdict**. The omission line reads
+> `_(body omitted — 2024 chars, and 58853 of the 60000-char body budget is already spent…)_`:
+> the dropped symbol was **2 KB**, and it was dropped because the *others had already eaten
+> the budget*. So `wc -c` on each named file can come back clean, in this case by a factor
+> of two, while the run is already doomed.
+> **The check that actually discriminates is the budget line itself, and it is only
+> readable AFTER the first bundle lands (~2 min), not before:**
+> ```sql
+> SELECT substring(body from '_\(body omitted[^)]*\)_')
+> FROM diagnosis_artifacts WHERE correlation_id='<RUN_CORR>' AND kind='bundle'
+>   AND body LIKE '%body omitted%';
+> ```
+> Non-empty ⇒ **stop waiting; no verdict is coming.** Re-file with ONE symbol in scope.
+> **And prefer one symbol per run from the start:** naming several to "give the diagnoser
+> context" is what spends the budget. The 2026-08-01 entry below is right about the
+> mechanism and wrong about how to predict it.
+
 - **footprint:** `docs024_key_docs_latest/fixloop_eg_dartsonline/090_TRIGGER_needs_diagnosis_v1.sh`, `diagnosis_artifacts` (`kind='bundle'`, `body`, `iteration`), `diagnose-agent`, `diagnose-dispatch-loop`, and any Go file large enough to matter — measured targets today include `platform/orchestration/actions/component_library.go` (**93,905 bytes**), `platform/orchestration/actions/v3_site_actions.go`, `platform/orchestration/actions/rerender_pages_actions.go`
 - **fires when:** you follow the standing rule — file a `090` before asserting a cross-cutting or structural root cause (CLAUDE.md "Diagnosis before debugging", and the owner ruling of 2026-07-31 that makes it the default for a `bugs_open/` file) — and the mechanism you are asking about lives in one of the platform's big action files. Which, for anything cross-cutting, is most of the time.
 - **the tell, and it is inverted from what you expect:** the run does not error, does not stall, and does not report a gap. `orchestration_states` goes `COMPLETED`, `diagnosis_artifacts` fills with `bundle` rows — and there is **no `iteration_note`, no `council_report`, no `doc_note`**. Several bundles and no verdict is indistinguishable from a run that has not finished yet, so the natural reading is "give it another twenty minutes", and twenty minutes later it looks the same. The bundle itself states the problem, but in the middle of a 22–88KB document: `_(body omitted — 75174 chars, and 0 of the 60000-char body budget is already spent. It was found; it did not fit. Put THIS SYMBOL ALONE in next_scope to read it whole.)_` followed by `**This section is INCOMPLETE.** 0 of 1 in-scope symbol(s) rendered with a body.`
@@ -9532,7 +9554,7 @@ code change owed at the next roll, tracked in RFC_015 §5.
 
 ### ONE `provision_instance` request can build SEVERAL billable GPUs — the success you watch arrive is not evidence it happened once
 
-- **footprint:** `internal/adapters/thunder/adapter.go` (`handleMessage`, `handleProvisionInstance`), `internal/adapters/thunder/provision_action.go` (`NewProvisionAction`; the `waitTimeout` field at :128/:141 and its use at :283; the `WaitForRunning` *interface* decl at :49 and *call* at :286), `internal/adapters/thunder/api/client.go` (`WaitForRunning` *implementation*, :163), `platform/kafka/consumer.go` (`SessionTimeout`, `RebalanceTimeout`), `gpu-provisioner`, `dispatch_thunder_provision`, `thunder_instances`, `bugs_open/259`
+- **footprint:** `internal/adapters/thunder/adapter.go` (`handleMessage`, `handleProvisionInstance`), `internal/adapters/thunder/provision_action.go` (`NewProvisionAction`; the `waitTimeout` field at :128/:141 and its use at :283; the `WaitForRunning` *interface* decl at :49 and *call* at :286), `internal/adapters/thunder/api/client.go` (`WaitForRunning` *implementation*, :163), `platform/kafka/consumer.go` (`SessionTimeout`, `RebalanceTimeout`), `gpu-provisioner`, `dispatch_thunder_provision`, `thunder_instances`, `bugs_open/259_…_billable_gpus`
 - **⚠ two symbol-search traps in this entry's own footprint** (caught by the landmine-verifier, 2026-08-12, which returned NEEDS_HUMAN_REVIEW on exactly these and was right to): (1) **`waitTimeout` is a STRUCT FIELD, not a top-level symbol** — a code-index symbol lookup returns **0 rows** for it, which reads as "this entry names something that does not exist". It exists; grep the file. (2) **`WaitForRunning` is DEFINED in `api/client.go` but the 5-minute deadline that matters is applied at the CALL SITE** in `provision_action.go:283-286` (`context.WithTimeout(ctx, p.waitTimeout)`). Open the definition and you will find no timeout at all and conclude the entry is wrong — the deadline is the caller's, not the callee's.
 - **fires when:** you provision a GPU from any lane and watch it come up. **No symptom needed, and this is the whole trap:** you fire one request, an instance appears, the row lands, it looks exactly like a clean provision. A *second* instance created from the same request minutes earlier — and deleted again by the compensating cleanup — leaves **no `thunder_instances` row and no `agent_error_log` row**, so every place you would naturally look agrees with you.
 - **why the wrong answer looks right:** the adapter handles Kafka messages **synchronously** (`adapter.go:257` says so: *"Sequential by design — no `go a.handleMessage(msg)`"*) and blocks up to `waitTimeout` (5 min, hardcoded) inside `WaitForRunning`, while the consumer's `SessionTimeout`/`RebalanceTimeout` are **60s**. The offset is not committed until the handler returns, so the message comes back and the handler's first act on a valid request is to create another instance. Measured 2026-08-12: one correlation delivered **3×**, another **2×** (~10 and ~13 min apart); two requests → **three** real GPUs.
@@ -9545,7 +9567,7 @@ code change owed at the next roll, tracked in RFC_015 §5.
   ```
   Then ask the **vendor**, which is the only party that knows what it is charging for — `wget` `/v1/instances/list` from the adapter pod (RUNBOOK §1b). Our tables cannot see a box that has no row.
 - **while it is unfixed:** provisioning is **PAUSED** (`thunder_config.is_paused`, owner decision 2026-08-12). If a provision is denied and the reason names bug 259, that is deliberate — read 259 before clearing it.
-- **source:** 2026-08-12, `finetuning_uk_service` Phase 0 attempt · `bugs_open/259` · 090 run correlation `8ee2eb1e-2c1d-4a69-9d1b-505895c4dbcb`
+- **source:** 2026-08-12, `finetuning_uk_service` Phase 0 attempt · `bugs_open/259_…_billable_gpus` · 090 run correlation `8ee2eb1e-2c1d-4a69-9d1b-505895c4dbcb`
 - **added:** 2026-08-12, finetuning_uk_service lane
 
 ### The Thunder provision default `vcpus: 4` is invalid for 9 of the 11 single-GPU specs — only the DEAREST GPU works out of the box

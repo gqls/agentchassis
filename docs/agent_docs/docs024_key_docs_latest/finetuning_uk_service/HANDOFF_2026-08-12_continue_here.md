@@ -16,7 +16,7 @@ UPDATE thunder_config SET is_paused = false, pause_reason = NULL;
 ```
 
 **This is not this lane's private setting — it blocks every lane** from
-provisioning a GPU. It is deliberate: `bugs_open/259` — **one provision request
+provisioning a GPU. It is deliberate: `bugs_open/259_…_billable_gpus` — **one provision request
 can build several billable GPUs**, with no bound in code. Containment verified
 live (2 redeliveries denied, 0 creates, vendor `{}`), not assumed.
 
@@ -63,7 +63,7 @@ the ssh_exec command with the env vars the launcher cannot yet supply); both are
 described in NOTES if they are gone.
 
 ### The provisioning side is BROKEN — four defects, two bug files
-- **`bugs_open/259` — one request, several billable GPUs.** THE BLOCKER.
+- **`bugs_open/259_…_billable_gpus` — one request, several billable GPUs.** THE BLOCKER.
   Synchronous handler blocks 5 min in `WaitForRunning`; consumer deadlines are
   60s; offset never commits; message redelivered; another box built. Measured:
   2 requests → 3 GPUs. **Fix idempotently on `correlation_id`** — raising the
@@ -93,16 +93,24 @@ dies between create and insert, the box bills until a human looks.
 
 ## Next steps, in order
 
-1. **Fix `bugs_open/259`** (idempotent create keyed on correlation), then 258.
+1. **Fix `bugs_open/259_…_billable_gpus`** (idempotent create keyed on correlation), then 258.
    Both need a thunder-adapter build + roll — **owner runs the fleet release.**
-2. **Read the 090 verdict** on 259's mechanism before asserting a cause in the
-   fix. First run FAILED on an API 529 (overloaded, fleet-wide — 8 in an hour,
-   not our question); rerun filed, run correlation
-   **`b930e969-ad53-49fb-923c-2dbaa0ea333b`**:
+2. **Do NOT wait for a 090 verdict on 259 — there isn't one, and two runs were
+   already spent.** Run 1 died on a fleet-wide API 529; run 2 completed with
+   **5 bundles and no verdict** (the body-budget trap, hit despite every named
+   file being well under the 60KB the landmine says to check — the budget is
+   cumulative, and `LANDMINES.md` is corrected). 259 records what was
+   substituted instead, per the 2026-07-31 escape hatch. **If you want the
+   broker-side trigger named, re-file with ONE symbol in scope**
+   (`handleProvisionInstance` alone), and read the budget line ~2 min in rather
+   than waiting 30:
    ```sql
-   SELECT created_at, kind, metadata->>'decision' FROM diagnosis_artifacts
-   WHERE correlation_id='b930e969-ad53-49fb-923c-2dbaa0ea333b' ORDER BY created_at;
+   SELECT substring(body from '_\(body omitted[^)]*\)_') FROM diagnosis_artifacts
+   WHERE correlation_id='<RUN_CORR>' AND kind='bundle' AND body LIKE '%body omitted%';
+   -- non-empty => no verdict is coming; re-file narrower.
    ```
+   **You do not need it to fix this.** Fix candidate 1 (idempotency on
+   `correlation_id`) is correct whichever trigger it turns out to be.
 3. **Unpause**, then re-run Phase 0 — the training half needs no further work.
    Everything is staged: bundle deployed, dataset uploaded, presign proven.
    Provision a6000 with `vcpus: 6`, drive `run.sh` over `ssh_exec` with the four
@@ -133,5 +141,5 @@ dies between create and insert, the box bills until a human looks.
   council JSONs · SUMMARYs.
 - **Code:** `internal/adapters/thunder/` · `platform/orchestration/actions/thunder_*.go`
   · training scripts in `docs/agent_docs/docs024_key_docs_latest/finetuning/working/scripts/`.
-- **Fleet-wide records written this session:** `bugs_open/258`, `bugs_open/259`,
+- **Fleet-wide records written this session:** `bugs_open/258`, `bugs_open/259_…_billable_gpus`,
   two `LANDMINES.md` entries (synced, verifier fired), one `016b` §9 pattern.
