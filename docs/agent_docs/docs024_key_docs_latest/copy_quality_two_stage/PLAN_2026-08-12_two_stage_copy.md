@@ -492,3 +492,39 @@ into six call sites — both render gates, `plan_sections`, and two discovery ch
 not a detector. **Consequence for this lane: Phase 4's gate must treat `fromLegacy` as a
 finding it reports, not as a condition it merely tolerates** — otherwise it inherits the
 same silence.
+
+### §10 addendum — the enforcement CEILING of the gate this plan specifies
+
+§10 tells Phase 4 to build its type gate on `datahelpers.SchemaContentFields`. That is still
+right — it is the only dialect-safe route — but it carries a limit that must be written down
+before it hardens into an assumption. **`SchemaContentFields` does not see the schema. It sees
+six keys of it.**
+
+The projection copies exactly `source`, `on_missing`, `fallback`, `missing_reason`, `items`,
+`min_items` (`component_schema_fields.go:87`), plus three special cases (`minItems`→`min_items`,
+`type` with `string`→`text`, `description`→`llm_guidance`). Everything else is dropped silently.
+`[MEASURED 2026-08-12]` `maxItems`, `max_items`, `enum` and `pattern` appear **zero times in
+the whole file**.
+
+**What that means for Phase 4, precisely:**
+
+- **Enforceable:** the field's `type`, and for arrays `items` and `min_items`. **That is
+  exactly what `bugs_open/260`'s failure needs** — "this field is declared an array of objects
+  and the writer sent a string" is fully expressible. The gate does its job.
+- **Not enforceable, for legacy-dialect components only:** `maxItems`, `enum`, `pattern`, and
+  any other JSON Schema constraint. A legacy component declaring them gets no enforcement and
+  **no signal that none was applied**.
+- ⚠ **The asymmetry with nothing to signal it:** `minItems` **is** remapped and `maxItems` is
+  not. Two adjacent keys, opposite treatment, silent. Do not assume a sibling key is handled
+  because its twin is.
+
+**So the gate's report must state its own coverage**, not just its findings — which fields it
+checked, and that a legacy component's non-carried constraints were not evaluated. A gate that
+reports "clean" while silently declining to evaluate half a declaration is the same
+armed-but-inert shape this lane has now hit twice: once in the dialect it was written against,
+once in the keys it can carry.
+
+**Sourced from the `brochure_component_library` front, who recorded it against their own
+prescription in `bugs_open/260` candidate 2 rather than only against this plan.** The
+expiry point travels with it: the losslessness result is measured against four components on
+one day, and re-running the key enumeration is a precondition for trusting it again.
