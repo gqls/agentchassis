@@ -29449,3 +29449,41 @@ All three **compared two things that were equal for a reason unrelated to the pr
 under test**, and all three returned the reassuring answer rather than an error. A
 mis-spelled column fails loudly; a mis-spelled *value*, an absent *id*, and a netting
 *aggregate* all come back green.
+
+---
+
+## 2026-08-12 — "nothing after three minutes means it was dropped" — my polling window excluded the answer by 47 minutes
+
+**The claim.** I fired the `rerender-pages` agent, polled for new work items with
+`created_at > now() - interval '15 minutes'`, got `none` six times over three minutes,
+and concluded from the trigger script's own note ("nothing there after a few minutes
+means the message was dropped") that the dispatch had been dropped. I was about to
+re-fire it.
+
+**The truth.** It had worked perfectly. The dispatch landed at **16:14:15 UTC**, the
+agent completed at 16:14:20, and it created 26 items — all of which ran to `complete`.
+My polling loop executed at **17:01–17:04 UTC**, so a 15-minute window missed the whole
+event by three quarters of an hour. Every `none` was true and every one was irrelevant.
+
+**What caught it.** Looking up the orchestration by correlation instead of by time. It
+was `COMPLETED`, which is when I noticed the created_at was *older* than the moment I
+thought I had fired.
+
+**Why the gap existed and why that is the real lesson.** The session was interrupted
+between firing and polling. I carried forward "I just fired this" as if no time had
+passed, and wrote a relative-time filter on that assumption. **A relative window
+(`now() - interval`) silently encodes a belief about when *you* acted** — and on a
+long-running session that belief is the thing most likely to be wrong. The absolute
+timestamp was available the whole time; I had even printed the correlation id.
+
+**The cheap check.** Query by the KEY, not by the clock: `WHERE correlation_id = '<the
+id the trigger printed>'`. If a time filter is genuinely needed, pin it to an absolute
+timestamp taken *before* firing, never to `now()` evaluated later. And when a poll
+returns nothing, confirm the window contains a known positive before believing the
+negative — the same demand-control rule this file already carries for post-fix zeroes,
+applied to time instead of traffic.
+
+**The shape, for the tally.** "Your measurement answers the question you ENCODED."
+I encoded "did something happen in the last 15 minutes", got a correct answer, and read
+it as "did it happen at all". A near-miss: I would have re-fired a successful whole-site
+redeploy, and 26 duplicate rerenders would have looked exactly like the first 26.
