@@ -590,6 +590,7 @@ an ID prefix, or a status word.
 | RSN-005 | Direction-of-travel (trajectory layer) | aspirational | Fast-churn heading layer, freshness-stamped, human-confirmed | reasoning.md |
 | CHAT-008 | Simple paid multi-domain chat (freemium + day-pass) | aspirational | Fast-lane paid chat: stateless signed entitlement token via Stripe guest-checkout | site-chatbot.md |
 | CHAT-009 | Chat lanes (fast/slow/job) + warm-adapter maturation | aspirational | Fast/slow/job lane split; spawned-agent-to-warm-adapter maturation path | site-chatbot.md |
+| CHAT-010 | Site-facts relay: live evidence_base facts to a box-hosted chatbot | built, unrolled | Read-only /api/v1/site-facts/:domain over WireGuard; chatbot renders facts from DB not compiled-in; opt-in, refuses-not-falls-back. First BUILT thing in the site-chatbot register. ⚠ a WireGuard handshake proves crypto, not reachability | site-chatbot.md |
 | IMG-029 | Lucide icon strategy and validator wiring | partial | Features grid uses Lucide webfont icons; validator written but not yet wired in. | imagery.md |
 | IMP-035 | Bidirectional ratchet (trust can be lost) | aspirational | Feedback is two-directional: success accrues evidence toward graduation; repeated/severe failure drops the trust... | improvement-loop.md |
 | FIX-028 | diagnose_read_repo_files action | deployed | Fetches plan's current file bodies; modify-404 is a hard error | fix-loop.md |
