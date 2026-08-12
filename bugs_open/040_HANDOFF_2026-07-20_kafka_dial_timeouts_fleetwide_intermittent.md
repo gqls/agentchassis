@@ -18,7 +18,10 @@ outright) plus **71,832 `refused` in a single ~38h burst**, invisible to
 `agent_error_log`, filed to the diagnosis loop (verdict **UNVERIFIABLE** — its
 tools cannot reach Prometheus or the vendored kafka-go internals). One narrowly
 scoped hardening shipped regardless (§11.4): `topic_manager.go`'s `getController`
-no longer builds a dial target from an empty `Host`.
+no longer builds a dial target from an empty `Host`. **Council APPROVED, and the
+fix is now PROVEN LIVE on `v1.0.1291`** (§11.6) — a follow-up diagnosis run
+auditing the rest of `platform/kafka` for the same pattern was killed mid-flight
+by that same chassis roll and produced no verdict; re-fired, see §11.6.
 **Class:** was filed as cluster network infrastructure. **Reclassified 2026-07-26:**
 the infrastructure hypotheses are refuted; what is proven is an *observability*
 defect that made the bug unmeasurable. See §2.
@@ -668,3 +671,32 @@ of the total**) **starts 7 hours after 240's incident was already resolved**,
 topic count already down at 354. The metadata-storm mechanism cannot explain
 the majority of this burst. Contribution recorded in `bugs_open/240` rather than
 duplicated here; both bugs stay open.
+
+### 11.6 Fix proven live on a fresh chassis build; the follow-up audit run was killed by that same roll
+
+`v1.0.1291` rolled (both `agent-chassis` pods, 2026-08-12). Proven live via the
+OCI revision label (image cached locally): `docker image inspect
+docker.io/aqls/agent-chassis:v1.0.1291 --format '{{index .Config.Labels
+"org.opencontainers.image.revision"}}'` → `da5a7eb8f`; `git merge-base
+--is-ancestor e1f960ac2 da5a7eb8f` → yes, zero intervening commits touched
+`topic_manager.go`. Cross-checked against the running binary with controls
+(`strings /app/agent-chassis`): the new log line `controller metadata invalid,
+trying next broker` and the new error text `controller metadata returned an
+empty host` both present (≥1); a nonsense negative control absent (0); a
+known-good pre-existing string present (≥1).
+
+A follow-up `090` diagnosis run was filed before the roll (correlation
+`e91d71d6-058a-4902-a852-c6d54bc7411c`), asking whether the same
+unvalidated-Host-from-a-kafka-go-response pattern this fix guards against
+exists anywhere else in `platform/kafka` or its callers — a direct answer to
+the council's `guardian` (enumerate `getController`'s callers exactly) and
+`prior_art_librarian` (reuse vs. duplicate validator) objections, both
+advisory and non-blocking on the APPROVED verdict. **That run was killed
+mid-flight by the same chassis roll** — it was cycling normally through
+several verdict rounds until ~14:38Z, then sat at `load_runtime` with no
+`last_activity` movement for 100+ minutes; its `site_work_items` row is now
+`status='failed'` (the documented 40-minute claim-timeout landing on a
+terminal state per `max_attempts=1`, consistent with the owning pod being
+replaced under it, not a content failure). **No verdict was produced; this is
+not evidence for or against the audit question.** Re-fired as a fresh intake,
+correlation recorded in the workstream NOTES once it lands.

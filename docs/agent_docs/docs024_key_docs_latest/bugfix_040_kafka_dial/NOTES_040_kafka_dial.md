@@ -564,3 +564,47 @@ Full verdict JSON: `kubectl -n ai-persona-system exec postgres-clients-0 --
 psql -U clients_user -d clients_db -c "SELECT body FROM diagnosis_artifacts
 WHERE correlation_id='af5f74bc-5e6c-4a6c-a3fc-7ac27eab4b6f' AND
 kind='council_report';"`
+
+## 2026-08-12, later — fresh chassis build verified; the follow-up diagnosis run was killed by that same roll
+
+**Fix proven live**, `v1.0.1291` (both `agent-chassis` pods, ~85min old at check
+time): OCI revision label `da5a7eb8f` (`docker image inspect ... .Config.Labels`,
+image cached locally so no log-tail or exact-match binary grep needed) —
+`git merge-base --is-ancestor e1f960ac2 da5a7eb8f` → yes, and zero intervening
+commits touched `topic_manager.go`. Cross-checked against the running binary
+with controls: `controller metadata invalid, trying next broker` and
+`controller metadata returned an empty host` both present (≥1), the nonsense
+negative control absent (0), a known-good pre-existing string present (≥1).
+
+**The follow-up `090` run (correlation `e91d71d6-058a-4902-a852-c6d54bc7411c`,
+"does the same unvalidated-Host pattern exist elsewhere in platform/kafka")
+did not complete — the chassis roll that shipped the build above killed it
+mid-flight.** It was cycling normally (route → load_runtime → assemble_bundle →
+verdict, multiple rounds) until ~14:38Z, then sat at `load_runtime` with zero
+`last_activity` movement for 100+ minutes. `site_work_items` for this intake
+is now `status='failed'` — the documented 40-minute claim-timeout landing on a
+terminal state (`max_attempts=1`, per `090_TRIGGER`'s header note 5) rather
+than resetting to retriable, which is consistent with the owning pod having
+been replaced out from under it by the roll, not a content/logic failure.
+**No verdict was produced; this is not evidence for or against the audit
+question.** Re-fired as a fresh intake rather than resumed (the old one is
+terminal and cannot be reclaimed).
+
+**Re-fired** (`FORCE=1`, since the coverage probe's `status NOT IN
+('complete','cancelled','rejected')` clause does not treat `failed` as
+terminal, so it correctly flagged the dead run and had to be overridden with
+the reason recorded above). New intake `needs_diagnosis:followup-controller-empty-host-audit-v2`,
+run correlation `58a0390c-33ec-4580-9697-3320b280475d`. Confirmed no new
+commits landed on `platform/kafka/` or `spawn_actions.go` since the push, so
+the run's view of those files is current. **Left running in the background —
+not polled to completion this session; check status with:**
+```sql
+SELECT status, current_step, EXTRACT(EPOCH FROM (NOW()-last_activity))::int AS since_s
+FROM orchestration_states WHERE correlation_id = '58a0390c-33ec-4580-9697-3320b280475d'::uuid
+ORDER BY created_at DESC LIMIT 1;
+```
+Verdict once done: `SELECT collected_data->'verdict' FROM orchestration_states
+WHERE correlation_id = '58a0390c-33ec-4580-9697-3320b280475d'::uuid ORDER BY
+created_at DESC LIMIT 1;` (pipe through `psql -t -A` to a file, not straight to
+a pipeline — the payload is large enough that `kubectl exec -i` piped into
+`python3 -c` has truncated mid-stream at least once this session).
