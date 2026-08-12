@@ -414,3 +414,81 @@ instructions failed, now hand the writer the schema"* has already been run on a 
 component and failed. **Do not spend a round on it.** The check belongs at the boundary,
 never in the prompt — which is the same conclusion this lane reached about set preservation
 from an entirely different direction.
+
+---
+
+## 10. ⚠ CORRECTION TO §9 — my "structural guarantee" was wrong, and the gate is not optional
+
+Raised by the `brochure_component_library` front hours after §9 was written, **verified in
+code before adopting**. §9 item 1 said preferring `field_updates` puts the hazard
+*"structurally out of reach — which is better than any gate."* **That is false. §9 item 1
+is downgraded from a guarantee to a mitigation, and item 2 stops being a fallback.**
+
+**The merge is not type-preserving for the field being edited.** `applyContentEdit`
+(`section_editor_actions.go:746-748`):
+
+```go
+for k, v := range updates {
+    existingContentData[k] = v
+}
+```
+
+Every field the agent **names** is overwritten wholesale with whatever it supplies. So
+`field_updates: {"steps": "…prose…"}` retypes `steps` exactly as a full replacement would.
+
+**And for this hazard the distinction collapses**, which is the part I got wrong rather
+than merely overstated: *the field a readability pass edits **is** the array field*. Stage 2
+is not editing around the array — rewriting the prose in `steps[].body` is the job. So the
+mode that looked like the safe one is the mode that walks straight into the failure.
+
+**What misled me** — worth recording, because the comment is accurate and I misread it. At
+`:403-405` the code says a `field_updates` merge *"carries type and result forward
+untouched"*. **"Untouched" means the fields not named in the update, not the field being
+edited.** I read a statement about the *untouched* fields as a statement about the
+*mechanism*. A correct sentence, read as a stronger one.
+
+**What survives:** `field_updates` still narrows the blast radius from *"every field in the
+component"* to *"the fields being edited"*, which is real and worth having — a mistyped
+`steps` no longer discards the correctly-written headline beside it. It is a mitigation.
+**It is not a substitute for the gate, and §9's "better than any gate" is withdrawn.**
+
+### Two further corrections to §9, same source, both verified
+
+1. **Do not write the gate against either dialect. Call
+   `datahelpers.SchemaContentFields`** (`component_schema_fields.go:58`). It already
+   normalises the legacy `properties` dialect and the house `fields` dialect onto one
+   shape, preserving `items`/`min_items` so a nested array-of-objects is still expressible,
+   and it returns a `fromLegacy` flag. My §9 prescription — *"it must read the house
+   dialect"* — would have been blind to the 4 `properties` components, **including
+   `mechanism-flow`, the only component with a proven live failure.** I corrected their
+   over-narrow gate and then proposed one narrow in the opposite direction; the helper is
+   the answer to both.
+2. **Match `type IN ('array','list')`, not `array` alone.** `list` is a fifth declared type
+   — 5 fields, 2 components, 0 LLM-authored — that an `array`-only filter never sees. My own
+   census printed it and my prescription still said "array".
+
+⚠ **Count reconciliation, so nobody treats these as contradictory:** they report array 63
+fields / 49 components / 13 llm over **all 255** components; §9 reports 49 / 45 / 12 over
+the **191 active, non-forked**. Same method, different denominator. For a gate that runs at
+build time the active set is the right one; for "how much of the library could be wrong",
+theirs is.
+
+### The stale invariant this sits on, which the gate must not inherit
+
+`SchemaContentFields`' own doc comment declares the legacy dialect *"extinct fleet-wide
+(0 of 173 as at 2026-07-21)"*. **There are four, and all four were created AFTER that
+census** `[MEASURED 2026-08-12]`:
+
+```
+report-dossier      2026-07-27      evidence-timeseries 2026-07-28
+mechanism-flow      2026-07-28      loans-consolidation 2026-08-10   ← two days ago
+```
+
+So the dialect is not extinct and is being **reintroduced steadily**, most recently two
+days ago. The tripwire the platform built for exactly this (`WarnLegacyDialect`) is wired
+into six call sites — both render gates, `plan_sections`, and two discovery checks — but
+**its only output is a `Warn` log**, which the sibling front measured absent from a
+4,661-line 24-hour window. A detector whose sole output is a warn line on a busy service is
+not a detector. **Consequence for this lane: Phase 4's gate must treat `fromLegacy` as a
+finding it reports, not as a condition it merely tolerates** — otherwise it inherits the
+same silence.
