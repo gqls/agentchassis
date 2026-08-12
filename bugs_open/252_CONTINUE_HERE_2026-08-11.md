@@ -61,14 +61,25 @@ Cheap, manifest-only, unowned, and nobody has started it. Today's good placement
 per node putting both 4Gi replicas back on one node stays entirely legal. The next
 roll may quietly undo candidate 1's main win and nothing would report it.
 
-**Open question, and it is now the biggest one — what is "other"?** Per node:
-images 10.5–16.5 GB, pod writable layers 0.44–2.72 GB, and **"other" 14.3–17.7 GB,
-the largest category, 35–43% of every disk.** `[UNVERIFIED]` composition — plausibly
-node OS, `/var/log/pods`, containerd metadata, but **I did not open a node to look
-and it must not be repeated as fact until someone does.** It matters because no
-candidate on file addresses it, and if ~15 GB/node is structurally unavailable then
-these 41.4 GB disks have only ~26 GB of usable budget and **candidate 4 (grow the
-disks) is much stronger than the filing's "buys margin, closes no door".**
+**Candidate 5 — set `SystemMaxUse=512M` in `/etc/systemd/journald.conf`. NEW, and it
+is the cheapest and biggest item on the list.** `[MEASURED 08-12 18:30Z on …1148 and
+…1149, root]` journald holds **3.87 and 3.85 GiB** — the largest non-container
+consumer on both — because `journald.conf` contains nothing but `[Journal]` and the
+default `SystemMaxUse` is *min(10% of filesystem, 4 GiB)*; 10% of 38.6 GiB = 3.86 GiB
+and both nodes sit on it to within 10 MiB. Capping at 512M returns **~3.4 GiB per
+node** (`[EXTRAPOLATED]` ~17 GiB fleet — three nodes were not opened), against
+current headroom of 1.7–2.0 GiB. It roughly **triples** the margin on the tight
+nodes, for one line. Owner's call (node config). Check `journalctl --disk-usage` and
+the oldest retained entry first; reclaim with `journalctl --vacuum-size=512M`.
+
+> **The "what is other?" question is ANSWERED — do not re-open it.** On …1148, of
+> 30.7 GiB used: containerd snapshots 14.07 (which **includes** container writable
+> layers), **containerd content store 5.70**, **journal 3.87**, `/usr` 4.17, `/boot`
+> 0.45, calico logs 0.32, `/opt` 0.20, `/var/log/pods` **0.18**. Total ~30.5 against
+> `df`'s 30.7 — it closes. Two consequences: the kubelet's `imageFs.usedBytes` is
+> **exactly** the snapshotter and omits the content store, so **an image costs ~1.4×
+> what the kubelet reports**; and **container log rotation is not worth touching** at
+> 0.18 GiB. Full table and the arithmetic: the bug file's `🔦 18:30Z` block.
 
 **Candidates 2 and 4 remain owner decisions.** (2) limits — deliberately not added: a
 limit evicts the pod that exceeds it, so a large build would die mid-run, and there
@@ -103,7 +114,17 @@ pricing it.
    `logs -l app=agent-chassis --tail=400 | grep 'build provenance'` means **"not in
    range", not "unstamped"** — confirmed again 08-12 at 85 minutes of pod age. Fall
    back to the binary probe, with a control, per CLAUDE.md.
-7. **One clean roll is not proof.** The 08-12 ~14:55Z chassis roll produced no
+7. **A `du` total is only a total if you can read every subtree — and the shortfall is
+   silent.** Investigating "what is other?" the first pass used the `node-exporter`
+   pod (mounts host `/` read-only at `/host/root`, no pod to create). It runs as
+   **nobody**, `/var/lib/containerd` is root-only, and the command ended
+   `2>/dev/null`. `du -xd1` returned a confident **10.8 GiB** for the whole
+   filesystem while `df` said **30.7 GiB used** — two thirds skipped, no error, a
+   perfectly plausible number. Use `kubectl debug node/<node>
+   --profile=sysadmin`, send stderr to **stdout, never `/dev/null`**, and
+   **reconcile against `df` before believing any total.** The discrepancy is the only
+   thing that catches it. Delete the debug pod afterwards.
+8. **One clean roll is not proof.** The 08-12 ~14:55Z chassis roll produced no
    rejection and no `DiskPressure`, which is encouraging and nothing more — the
    original failure was intermittent and no failure rate has been established. The
    `FailedScheduling` on `alertmanager-…-0` is an **unbound PVC**, a different
@@ -143,10 +164,13 @@ not returned when this handoff was written**:
 **Candidate 1 is done, live and proven — the fleet requests disk, and the two big
 consumers are on separate nodes.** But the lane is not fixed and 252 stays OPEN:
 requests are scheduled against 35.1 GB allocatable while real free space is
-7.9–14.4 GB, fleet-worst headroom has drifted back to **1.73 GB with three of five
-nodes now under 2.0 GB**, and the per-category measurement shows the candidates on
-file govern the two smaller categories while the largest — ~15 GB/node of "other" —
-is unexplained and unaddressed.
+7.9–14.4 GB, and fleet-worst headroom has drifted back to **1.73 GB with three of
+five nodes now under 2.0 GB**.
+
+**The best remaining move is the cheapest one and nobody has made it yet:** journald
+is sitting at its default cap holding ~3.87 GiB on every node measured, and capping
+it returns more disk than candidates 1 and 2 could ever address combined. That is
+candidate 5, it is one line, and it needs the owner.
 
 > **Claim-shape lesson kept deliberately.** This line has read "one-third done",
 > then "one-fifth done", then "done" — the denominator changed from 3 deployments to

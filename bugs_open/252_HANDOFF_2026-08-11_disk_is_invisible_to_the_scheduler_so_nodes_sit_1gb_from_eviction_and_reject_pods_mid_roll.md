@@ -7,9 +7,10 @@ whether this was a host-count or a distribution problem.
 **Status:** **OPEN, UNOWNED — candidate 1 APPLIED, LIVE AND PROVEN 2026-08-12 13:00Z
 (census 0 → 5).** Still open because the root blindness remains: `ephemeral-storage`
 is scheduled against 35.1 GB allocatable while real free space is 2.8–9.3 GB, so the
-scheduler can still place onto a nearly-full node. Outstanding: **1b** (make the
-runner spread a rule, not an outcome — see the 13:00Z block), and **2–4** (owner
-decisions). **Severity:** medium — self-healing today, but it
+scheduler can still place onto a nearly-full node. Outstanding: **5** (journald cap —
+new 08-12, cheapest and biggest, owner's call), **3** (image GC threshold, owner's),
+**1b** (make the runner spread a rule, not an outcome), **4** and **2**.
+**Severity:** medium — self-healing today, but it
 silently removes a replica during a roll and the margin is thin enough that it
 recurs several times a day.
 **Answer to the question that prompted it: neither.** It is not too few hosts, and
@@ -109,6 +110,98 @@ So the observable impact today is a **transient loss of one replica during a
 roll**, self-healed. The reason it is worth filing anyway: with …6832 at 1.34 GB
 of headroom, the same event on two nodes at once during a roll would leave a
 deployment short for as long as the pressure lasts, and nothing alerts on it.
+
+## 🔦 2026-08-12 18:30Z — **WE OPENED THE NODE. "OTHER" IS NAMED, AND IT CONTAINS A ONE-LINE FIX WORTH ~3.4 GiB PER NODE.**
+
+Read as root on **…1148 and …1149** via `kubectl debug node/… --profile=sysadmin`
+(both debug pods deleted afterwards). **Supersedes the 17:30Z block's "other" row,
+which was a subtraction and is now replaced by direct measurement.** Figures are
+**GiB** (`du -m`/`df -h` are 1024-based) — the blocks above are decimal GB, so do not
+compare the two columns without converting.
+
+### The full accounting for …1148 — and it closes
+
+`df`: 38.6 GiB capacity, **30.7 GiB used**, 7.8 GiB free.
+
+| what | GiB | |
+|---|---|---|
+| `/var/lib/containerd/…snapshotter.v1.overlayfs` | **14.07** | unpacked image layers **+ container writable layers** |
+| `/var/lib/containerd/…content.v1.content` | **5.70** | **compressed layer blobs — see below** |
+| `/var/log/journal` | **3.87** | **systemd journal — see below** |
+| `/usr` | 4.17 | OS |
+| `/boot` | 0.45 | OS |
+| `/var/log/calico` | 0.32 | |
+| `/opt` | 0.20 | |
+| `/var/log/pods` | 0.18 | container logs — **not** the problem |
+| containerd metadata, `/etc`, misc | ~0.2 | |
+| **total** | **~30.5** | against `df`'s 30.7 — **the accounting closes** |
+
+### Finding 1 — the kubelet's "images" figure EXCLUDES 5.2–5.7 GiB of compressed blobs
+
+`imageFs.usedBytes` is **exactly** the overlayfs snapshotter and nothing else:
+kubelet reported 15.1 GB decimal for …1148 = 14.06 GiB; measured snapshotter
+**14.07 GiB**. On …1149: kubelet 16.5 GB = 15.37 GiB, measured **15.39 GiB**.
+
+Containerd **also** keeps the original *compressed* layer blobs in its content store
+after unpacking them — **5.70 GiB on …1148, 5.18 GiB on …1149**, which no kubelet
+figure reports. So **an image really costs about 1.4× what the kubelet says it does**,
+and every "images are 10.5–16.5 GB" line in the blocks above understates the true
+image cost by roughly 35–40%.
+
+This is **good news for candidate 3**: lowering the GC threshold reclaims materially
+more than its own accounting predicts, because removing an image drops both the
+snapshot and the blob.
+
+> **CORRECTION to the 17:30Z block — my three-way split double-counted.** It read
+> images / pod writable layers / other as three disjoint categories. They are not:
+> **container writable layers live inside the overlayfs snapshotter**, i.e. inside the
+> figure labelled "images". The arithmetic shows it — images + pods would exceed the
+> measured snapshotter total. The 17:30Z conclusion (that requests and limits govern
+> the smallest category) **survives** and is if anything strengthened; the
+> bookkeeping behind it was wrong.
+
+### Finding 2 — journald is holding 3.87 GiB per node at its DEFAULT cap, and it is one line to fix
+
+`/var/log/journal` is **3.87 GiB on …1148 and 3.85 GiB on …1149** — the single
+largest non-container consumer on both. It is not a leak and not traffic: it is the
+default cap being hit exactly. `/etc/systemd/journald.conf` on …1149 contains
+**nothing but the `[Journal]` header** — every setting is at its default, and
+journald's default `SystemMaxUse` is *min(10% of the filesystem, 4 GiB)*. **10% of
+38.6 GiB = 3.86 GiB.** Both nodes sit on that number to within 10 MiB. That is the
+cap, not a coincidence.
+
+**Setting `SystemMaxUse=512M` returns ~3.4 GiB per node.** Extrapolated across five
+nodes that is **~17 GiB fleet-wide** — larger than everything candidates 1 and 2 can
+ever address put together (all pod writable layers fleet-wide total 6.77 GB), on
+nodes that currently have **1.7–2.0 GiB of headroom**. It roughly **triples** the
+margin on the three tight nodes.
+
+`[EXTRAPOLATED]` — the fleet figure assumes the other three nodes match the two
+measured. They share an image, an OS build and a disk size, so this is a reasonable
+inference, **but it is an inference and the remaining three were not opened.**
+
+**Before applying it, check what would be lost** — `journalctl --disk-usage` and the
+oldest retained entry — and note the reclaim is immediate via
+`journalctl --vacuum-size=512M`. This is a node-level config change, so it is the
+owner's action, like candidate 3.
+
+### Finding 3 — container logs are NOT the problem, contrary to the obvious guess
+
+`/var/log/pods` is **0.18 GiB**. The chatty pods are `konnectivity-agent` (37 MiB),
+`csi-cinder-nodeplugin` (33 MiB) and `calico-node` (30 MiB) — all infrastructure,
+none of ours. **Do not spend effort on container log rotation.** `/var/log/calico`
+(0.32 GiB) is larger than every pod log combined and is still small.
+
+> **⚠ THE TRAP THAT ALMOST PUT A WRONG NUMBER IN THIS FILE — read this before you
+> repeat the exercise.** The first pass used the `node-exporter` pod, which mounts
+> host `/` read-only at `/host/root`. It runs as **nobody**, `/var/lib/containerd` is
+> root-only, and the command ended in `2>/dev/null`. Result: `du -xd1` returned a
+> confident, well-formed **10.8 GiB** for the whole filesystem while `df` said
+> **30.7 GiB used** — it had silently skipped two thirds of the disk and reported no
+> error. **A `du` total is only a total if you can read every subtree.** Run it as
+> root (`--profile=sysadmin`), send stderr to **stdout not `/dev/null`**, and
+> **reconcile against `df` before believing the number** — the ~20 GiB discrepancy is
+> what exposed it, and nothing else would have.
 
 ## 🔎 STATE AS OF 2026-08-12 17:30Z — **THE DISK BUDGET, MEASURED BY CATEGORY. IT RE-RANKS THE CANDIDATES.**
 
@@ -405,14 +498,22 @@ ollama-eval), not 4 — `github-actions-runner` runs two replicas.
 
 ## Fix candidates, ordered by what closes the door
 
-> **⚠ RE-RANKED 2026-08-12 17:30Z by the per-category measurement above — read that
-> block before acting on this list.** The order below was written when "images plus
-> system" was one undifferentiated 21–27 GB lump. Split, it becomes: pod writable
-> layers 0.44–2.72 GB/node (what 1 and 2 govern), images 10.5–16.5 GB/node (what 3
-> governs), and **"other" 14.3–17.7 GB/node, which no candidate here addresses.**
-> Working order now: **3** (highest actionable leverage) → **1b** (cheap, closes the
-> co-location door properly) → **4** (now stronger than stated below) → **2**
-> (smallest category, and it can evict a live build). **1 is DONE.**
+> **⚠ RE-RANKED TWICE ON 2026-08-12 — read the 18:30Z block, then the 17:30Z block,
+> before acting on this list.** The order below was written when "images plus system"
+> was one undifferentiated 21–27 GB lump. Opening the node split it properly, and
+> **added a candidate that beats most of the list**:
+>
+> | # | what | size | whose call |
+> |---|---|---|---|
+> | **5** | **`SystemMaxUse=512M` in `journald.conf`** | **~3.4 GiB/node, ~17 GiB fleet** | owner (node config) |
+> | **3** | lower `imageGCHighThresholdPercent` to ~70 | governs 19.8 GiB/node of containerd | owner (node pool) |
+> | **1b** | topology spread on the runners | closes the co-location door properly | any thread, cheap |
+> | **4** | grow the 41.4 GB disks | unbounded | owner, costs money |
+> | **2** | ephemeral-storage limits | 6.77 GB fleet-wide total | owner; can evict a live build |
+>
+> **1 is DONE.** **5 is new, is the cheapest thing on the list, and returns more than
+> 1 and 2 combined ever could** — it roughly triples the headroom on the three tight
+> nodes for a one-line config change.
 
 1. **Declare `ephemeral-storage` requests on the heavy tenants** (the two
    `github-actions-runner` deployments, `ollama-*`, `browser-runner-adapter`).
