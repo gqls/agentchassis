@@ -165,6 +165,28 @@ _Concept count retired 2026-08-09 — derived, not stored; run the drift pair in
   OR a LIKE 'y'` — unparenthesised `OR` drops the time filter off the second branch,
   and it returned 7,167 + 4,056 all-time calls looking exactly like a 24h figure.
   Parenthesise, and run the same query without the filter as a positive control.
+- **2026-08-12 (bugfix_122_contrast_ink_slots) — "nearly free" was measured on an INERT
+  loop; a DRIVEN one is 3.2x. Both figures are right; they describe different states, and
+  only the second one prices a decision to turn it on.** The line above is sound as
+  written — with nothing in `triaged` the loop cost approximately nothing, and disabling it
+  saved approximately nothing. But it is the sentence a future session will quote when
+  arguing the sweep is cheap to re-enable, so: measured over the **5h29m the sweep actually
+  ran** (2026-08-11 12:31→18:00Z, migration `389`, 900s cadence, ~22 fires), input tokens ran
+  **~806k/h against a ~248k/h pre-sweep baseline**, output **~223k/h vs ~120k/h**. Calls/hour
+  stayed inside the fleet's own busy-hour shape (93–184 vs a no-sweep 134), so **a call count
+  does not price this loop** — each fire begins with `call_quality_discovery`, a full LLM site
+  pass, so the per-call cost is what moves. Yield over that window: 542 `page_rerender`
+  completions, but **526 newly filed items (~105/h) against ~48/h completed**, and the
+  `pre_query`'s `< 50` cap counts `triaged` as well as `detected`, so promotion does not
+  relieve it — **sites over the cap went 5 → 1 (a deliberate 226-row park) → 8**, i.e. the
+  loop re-locks the fleet with its own output. Two corrections to inherited claims fell out:
+  the re-render drain is **NOT** downstream of the sweep (it is a separate always-on path at
+  ~50/h — 49/48 completions in the two hours *before* the re-enable, 85/110/41 on 08-10 with
+  the sweep off), and the cap is **self-releasing**, not the permanent exit door the
+  `LANDMINES.md` entry describes: with arrivals stopped the queue drained `triaged` 446 → **0**
+  overnight and locked sites went **8 → 0 of 22**. Full evidence and the missteps:
+  `docs024_key_docs_latest/bugfix_122_contrast_ink_slots/NOTES_contrast_ink_slots.md`
+  (2026-08-11 evening + 2026-08-12).
 
 ### IMP-017 — needs_section_data semantics and the abandoned standalone handler
 - **status:** superseded
