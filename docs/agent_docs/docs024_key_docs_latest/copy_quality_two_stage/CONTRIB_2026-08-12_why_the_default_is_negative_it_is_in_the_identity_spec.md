@@ -9,6 +9,30 @@ Answer, in one line: **the site's own stated proposition was a subtraction, so e
 writer told "lead with what is most differentiated" was being told to lead with a
 loss.** It was never the model's default. It was ours, written down.
 
+> **⚠ CORRECTED 2026-08-12 (later the same day) — one claim I imported from the PLAN
+> was FALSE, and the lane session refuted it with better evidence.** §5 of the PLAN as
+> I wrote it said nothing consumes the copy auditor's findings ("0 rows, all-history").
+> **My query named `design-audit-agent`, a producer string that has never existed** —
+> the real value is `design-audit` — so I proved the absence of a spelling, not the
+> absence of a mechanism. `content-quality-auditor` has in fact run **34 times, all
+> COMPLETED**, `content_rewrite` holds **83 complete** items, and the copy applier
+> exists (`page-build-handler` via `write_audit_findings_action.go`). There is also a
+> whole earlier lane, `fleet_copy_quality`, plus two shipped Go scanners
+> (`ScanVoiceTells`, `ScanDeployedClaims`) that I did not find. **The real defect is
+> ATTRIBUTION** — the auditor stamps `audit_source: "content-quality-audit"` into a
+> field that defaults to `"design-audit"`, so copy findings are real, consumed, and
+> invisible to any query anyone would write.
+>
+> **What this does and does not change here.** It does not touch §1–§4 or §6: the trace
+> from `identity.key_differentiators[0]` to the rejected sentence, the corpus
+> measurement, the industry evidence and the overcorrection finding were all measured
+> directly and stand. It does change the *prescription*: stage 2 is a smaller,
+> narrower job than "build the missing applier", and anyone reading this CONTRIB for a
+> build plan should read the PLAN's corrected §2 first. **What caught it:** the lane
+> session ran a proper prior-art sweep instead of trusting my query. The cheap check I
+> skipped was `SELECT DISTINCT created_by FROM site_work_items` before filtering on a
+> guessed value.
+
 ---
 
 ## 1. The trace, from spec to slop

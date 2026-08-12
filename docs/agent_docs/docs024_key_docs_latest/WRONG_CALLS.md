@@ -29199,3 +29199,49 @@ same lane's docs — the 239 lane's "p.db and p.sqlDB are NOT interchangeable" i
 own RUNBOOK §3. Holding the caveat did not stop me generalising past it, because the caveat
 was filed under "which handle to use in a fixture" and the claim was about "what the call
 sites do". **A caveat only protects the question you filed it under.**
+
+---
+
+## 2026-08-12 — "nothing consumes the copy auditor's findings: 0 rows, all-history". The producer string I filtered on has never existed
+
+**The claim,** written into a PLAN, a CONTRIB and a commit message as the central
+justification for building a new mechanism:
+
+> `SELECT item_type,status,count(*) FROM site_work_items WHERE created_by IN
+> ('content-quality-auditor','design-audit-agent')` → **0 rows, all-history**
+> … "the audit half runs and dies."
+
+**What was false:** `design-audit-agent` is not a value that has ever appeared in
+`created_by`. The real producer is `design-audit`. So the zero was the absence of a
+spelling I invented, not the absence of a mechanism. Measured by the lane session
+afterwards: `content-quality-auditor` has run **34 times, all COMPLETED**, most
+recently that same day; `content_rewrite` holds **83 complete** work items (32 of
+them a voice rollout on 8–9 August); the copy-side applier exists and is
+`page-build-handler` via `write_audit_findings_action.go:375-386`. A whole prior lane
+(`fleet_copy_quality`, 12 files) and two shipped Go scanners (`ScanVoiceTells`,
+`ScanDeployedClaims`) also existed and I had not found them.
+
+**The real defect, which is narrower and stranger than the one I reported:** the
+auditor's step sets `audit_source: "content-quality-audit"`, but that field is
+Optional with `Defaults: {"audit_source": "design-audit"}`, so **no work item in all
+history carries the copy value.** Copy findings are produced, consumed and applied —
+and invisible as copy work to any query anyone would write. My query didn't just
+mis-spell a value; it landed inside the exact blind spot the attribution bug creates,
+and returned the answer the bug makes true.
+
+**What caught it:** the other session on the lane ran a prior-art sweep of the docs
+tree and the code instead of trusting my query — one day after I wrote, in this same
+file, that a claim needs a source that never read my SQL.
+
+**The cheap check that would have:** `SELECT DISTINCT created_by FROM site_work_items
+ORDER BY 1;` **before** filtering on a guessed value. One query. The general rule is
+already in MEMORY.md — *a grep proves absence only for the SPELLING it searches* — and
+I applied it to greps and not to SQL `IN` lists, which are the same instrument.
+
+**Second-order, and the reason this is worth a row rather than a footnote:** an
+invented-value filter is the *most dangerous* shape of this error, because a
+mis-spelled value returns **zero rows rather than an error**. A typo'd column name
+would have failed loudly and I would have fixed it in seconds. `created_by IN
+('a-name-nobody-uses')` is indistinguishable from a true negative, and it was load
+bearing for a build proposal. **Prefer `GROUP BY` over `WHERE … IN (guess)` whenever
+the question is "does anything do X".**
