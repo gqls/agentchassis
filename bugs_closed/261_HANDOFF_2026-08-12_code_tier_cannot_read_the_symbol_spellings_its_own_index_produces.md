@@ -342,6 +342,51 @@ details wrong. Both are recorded because the second one cost a search.
   already says "TOOLING failure"; what failed is *resolution*, upstream of it. Same consequence
   (the verdict abstains on an absence), different mechanism, different tier, different fix.
 
+## 9b. THE PRECEDENT CHECK — run after the close, and it found something
+
+Two seats (`bug_historian`, `debug_historian`) asked for a check against council history for this
+file. §8 recorded it as owed; here it is, and the result is not "no precedent".
+
+```sql
+SELECT created_at::date, correlation_id, metadata->>'decision'
+FROM diagnosis_artifacts WHERE kind='council_report'
+  AND (body LIKE '%symbolbody%' OR body LIKE '%spanOf%' OR body LIKE '%ReadSymbolBody%');
+--  7 prior rounds, 2026-07-27 .. 2026-08-04. ONE mentions "receiver" (da1d3a40, 08-04).
+--  NONE mentions the parenthesised form or Values.
+```
+
+**The receiver form was fixed 26 days earlier — on the OTHER path.** Commit `51e0776fb`
+(2026-07-17, *"Go-receiver-aware symbol match + dedup — both found by the first live run"*) taught
+`diagnose_code_lookup_action.go` about exactly this storage convention. Its own diff says so:
+
+> *"…but the index stores the receiver …"* · *"a clause that would match the stored `(*Type).Method`
+> receiver form"* · `func TestSymbolTokenClauseGoReceiver`
+
+It touched **two files** — `diagnose_code_lookup_action.go` and its test. **It did not touch
+`symbolbody.go`.** So from 2026-07-17 the estate knew the index stores `(*Type).Method`, fixed the
+**index-query** path for it, and left the **body-read** path unfixed — and nobody noticed the
+asymmetry for 26 days.
+
+**Worse, a council round looked straight at it and did not see it.** `da1d3a40` (2026-08-04, bug
+163's `SplitSymbol` export) reasoned explicitly about the earlier fix — *"explicitly preserves the
+`51e0776fb` receiver-form fix"*, *"receiver-form behaviour is explicitly pinned byte-identical via
+ported tests, guarding against regression"* — **while editing the very file that owns the other
+path.** The round was about not re-implementing a shared grammar. It preserved one half of that
+grammar carefully and never asked whether the other half had it.
+
+> **The transferable shape: "we fixed the receiver form" was TRUE and named the wrong path.** A
+> search of the record for this defect would have found a round asserting it was pinned and guarded
+> — and stopped. Prior art that is real, cited, and about a sibling code path is more misleading
+> than no prior art at all, because it answers the question you asked with a fact about something
+> else.
+
+> **A correction to my own reasoning, thirty seconds old.** On seeing *"colon-less (receiver-form)"*
+> in that round's constitution note I began forming the theory that "receiver-form" had meant
+> something else there — a vocabulary collision. I checked `51e0776fb` before writing it down, and
+> it is straightforwardly about Go receivers. **The theory was wrong and the check was one command.**
+> Recording it because the sequence — form theory, check, discard — is the only one of my three
+> false starts today that cost nothing, and the difference was purely that I checked first.
+
 ## 10. Relations
 
 - `bugs_open/236` — the case whose diagnosis this unblocks.
