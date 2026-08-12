@@ -61,6 +61,38 @@ fixed.
 
 ## 2. What already exists (measured 2026-08-12, do not rebuild these)
 
+> **⚠ CORRECTED 2026-08-12 (same day, later) — FOUR ROWS OF THIS TABLE ARE WRONG, and
+> the section's headline conclusion with them.** A prior-art sweep of the docs tree and
+> the code found a whole earlier lane (`fleet_copy_quality`, 12 files, 6–9 Aug) and two
+> shipped Go mechanisms (`ScanVoiceTells` CQ-020, `ScanDeployedClaims` CQ-021) that this
+> section did not know about. Full evidence and queries in NOTES under *"the prior-art
+> sweep"*. In short:
+>
+> - **"anything that CONSUMES that judgement → NO" is FALSE.** `content-quality-auditor`
+>   has run **34 times, all COMPLETED, most recently today**, and its runs' own
+>   `collected_data` shows findings being classified and items created. My query named
+>   a producer string (`design-audit-agent`) that has never existed — the real one is
+>   `design-audit`.
+> - **"stage 2 — the editorial rewrite → NO" is FALSE.** `content_rewrite` holds **83
+>   complete** items; 32 of them are `voiceh-rollout` rewriting a site's pages for voice
+>   on 8–9 August.
+> - **"the precedent for the missing piece"** — the copy equivalent of `css-patch-agent`
+>   already exists and is named `page-build-handler`
+>   (`write_audit_findings_action.go:375-386`).
+> - **The real defect is ATTRIBUTION, and it is much smaller than a missing mechanism.**
+>   The auditor's step sets `audit_source: "content-quality-audit"`; no work item in all
+>   history carries that value, because `audit_source` is Optional with
+>   `Defaults: {"audit_source": "design-audit"}` (`:43-44`). The copy auditor's output is
+>   real, consumed, and **invisible as copy work to any query anyone would write.**
+>
+> **So the gap is NOT "the audit half runs and dies".** It is narrower and stranger: the
+> findings that reach items are gap/CTA/differentiation-shaped — *what is missing* — while
+> the readability-and-register axis has no producer with reach (`voice_tells` is opt-in and
+> only leopardess has a gate; LMC has no `voice` spec at all) and, by deliberate design, no
+> permitted applier. **§3 and §4 below are left as originally written and are superseded in
+> the places NOTES names; they are kept because the reasoning in §1 and §3's rule 1 survives
+> intact and is this lane's real contribution.**
+
 | piece | exists? | state |
 |---|---|---|
 | stage 1 — write the facts | **yes** | `page-content-writer`, driven by `needs_page` |
@@ -118,6 +150,10 @@ itself. Hand-in written as `CONTRIB_2026-08-12` in their directory.
 
 ## 4. Phasing
 
+> **⚠ SUPERSEDED 2026-08-12 by §6 below.** P2 asks for wiring that already exists (see
+> the correction in §2). The revised phasing is §6; this list is kept as the record of
+> what we believed before the prior-art sweep.
+
 - **P0 (done, this session):** the LMC page brief rewritten against the owner's
   critique; round 4 run as the first fixture. Records whether a better BRIEF alone
   is sufficient — because if it is, stage 2 is a smaller job than it looks.
@@ -147,3 +183,110 @@ itself. Hand-in written as `CONTRIB_2026-08-12` in their directory.
 3. **Is "readable" gradeable at all, or does it stay a human call?** P1's fixtures
    are the cheapest way to find out, and the answer decides whether P3 has an
    acceptance test or only a reviewer.
+
+---
+
+## 6. REVISED PHASING (2026-08-12, after the prior-art sweep)
+
+Ordered by what closes the door, not by what is interesting. **Phase 1 builds nothing** —
+it delivers decisions already made and turns on mechanisms already shipped. On today's
+evidence it is most of the available value, and it has to happen first or Phase 2 is
+designed against a system nobody has actually seen working.
+
+### Phase 1 — deliver what is already decided (no new mechanism)
+
+**1a. Ship Voice H into the writer prompts. This is an undelivered owner decision, and
+it is the highest-value item in the lane.** `[MEASURED 2026-08-12]` all seven writer
+prompts still carry the old prescription *"Start with the fact"*; none carries H's
+prohibition. The owner ruled on 2026-08-09 that H becomes the fleet default and that its
+prohibition replaces that prescription. `page-content-writer` — the agent that wrote the
+copy the owner rejected on 08-11 — is one of the seven.
+
+Two things the fleet lane left open must be settled inside this, not around it:
+
+- **How it ships.** Seven separate edits, or one shared carrier read at prompt-assembly
+  time. The seven have already drifted from a common ancestor without anyone intending
+  it, so seven edits will drift again. This is a revision of a live fleet-wide default,
+  which makes it a council submission with both options written up, a concept-register
+  entry in the same commit, and the other consumers **told rather than counted**
+  (owner ruling 2026-07-29 §3).
+- **The exemplars must change with the rule.** The fleet lane's clearest experimental
+  result: they deleted a rule, left its three worked examples, and the behaviour did not
+  move. *"The example is the instruction; the rule is commentary."* A submission that
+  edits rule text and leaves the old exemplars in place is theatre, and we have direct
+  evidence of that rather than a suspicion.
+
+**1b. Fix the `audit_source` attribution defect.** The copy auditor's findings are
+stamped `design-audit` because the configured literal never lands and the action's
+default fires (`write_audit_findings_action.go:43-44`). Small, provable, and until it is
+fixed **no query can distinguish a copy finding from a design one** — which is how this
+lane came to believe the audit half was dead. File as a bug; it is a `bugs_open/` case,
+not a mechanism.
+
+**1c. Opt `loanandmortgagecalculator.co.uk` into `evidence_base`.** One `site_specs`
+row turns on `ScanDeployedClaims` — shipped, live in `v1.0.1283`, council-approved, with
+a claim-granular revalidation gate. NOTES records that the round-4 rewrite introduced a
+new figure to the homepage and **the only thing that checked it was a hand-written
+query**. This closes that hole today, for free, on a mechanism we already own. The same
+question should then be asked of every finance site: 12 of ~29 sites carry the spec;
+LMC, loancalculator and cookly do not.
+
+### Phase 2 — the actual gap: a judgement with PAGE scope
+
+The two-stage idea survives the sweep, but §3 rule 3 does not. **A section-scoped editor
+cannot do stage 2's job**, and the fleet lane has the proof rather than the worry: the
+arm test wrote "Amortisation" in one section and "amortization" in another, because *"each
+section is written separately, so a rule about the whole page has nothing holding it
+together between them."* Stage 2's whole remit — is the most useful thing first, does this
+talk about the site instead of the reader, is it one name per thing — is page-level.
+
+So the shape is **page-scoped READ, section-scoped WRITE**: stage 2 reads the entire
+rendered page plus the site voice spec plus the offer lane's ordering input, is **denied
+the stage-1 brief** (§1's corollary, which survives), and emits per-component edits
+applied through `section-editor` one at a time. That split is the new thing this lane
+would build, and it is the only part not already present somewhere in the estate.
+
+**Before any of it is built, two constraints must be resolved by a human:**
+
+- **An unsupervised copy rewriter changes a deliberate guarantee.** `voice_tells` was
+  designed HITL-terminal (`HandlerAgent: ""`; the spec defers auto-rewrite; *"never an
+  unreviewed auto-rewrite"*), and `bugs_open/033` cites that text as evidence it was
+  filed correctly. Under the owner ruling of 2026-07-29 §1 this is architecture-scope —
+  it changes what a shared mechanism guarantees — so it goes to an RFC or an owner
+  ruling, not a seed migration.
+- **Locks, not instructions, are what protect approved copy.** In the 08-09 arm test
+  *both* prompt versions tried to overwrite the owner's personally-approved opening and
+  were stopped only by the lock — *"not the instructions, not the care taken writing
+  them."* Stage 2 must treat a locked component as out of scope structurally, in the
+  selection, not by being told to leave it alone.
+
+### Phase 3 — the ordering input (hand-in, already written)
+
+The table-stakes/differentiator axis from `vigilant_designer_offer_analysis`
+(`CONTRIB_2026-08-08`). Stage 2 consumes this; it does not compute it. Nothing in the
+platform currently represents what a reader came for, and that is the axis the owner has
+now judged on three times (loancalculator 08-08, mortgagecalculator 08-11, LMC 08-11).
+
+### Phase 4 — acceptance checks, induced before they are trusted
+
+Fact-inventory diff (numbers, links, claims in vs out) and markup parity (class attrs and
+component boundaries in == out). **Induce a non-zero on both before believing a zero** —
+a markup-parity check that cannot fail is what `bugs_open/253` looks like from the
+inside, and the original §3 rule 2 was written after my own comparison missed it the same
+way.
+
+## 7. REVISED OPEN QUESTIONS FOR THE OWNER
+
+The three in §5 stand. These come from the sweep and are sharper:
+
+1. **Voice H shipped three days late — do we ship it now as seven edits, or build the
+   shared carrier?** Seven is faster today and drifts again; the carrier is the structural
+   fix and is a bigger council round. (Recommendation: the carrier, because the drift is
+   already measured and this is the second time it has cost us.)
+2. **Does an editorial pass get to change live copy without a human reading it?** The
+   estate's current answer is a deliberate no, written into `voice_tells`. Stage 2 is only
+   worth building if that answer changes, or if its output is queued for review — in which
+   case it competes with `bugs_open/033`, the human-review queue that has no working
+   surface.
+3. **Do we opt the rest of the fleet into `evidence_base`, or only the finance sites?**
+   17 sites in the pool carry no voice spec and no evidence base at all.

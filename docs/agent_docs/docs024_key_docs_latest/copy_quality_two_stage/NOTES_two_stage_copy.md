@@ -213,3 +213,209 @@ database.** `[MEASURED — both specs read live, 2026-08-12]`
   that is the guide's own `pages.title`. The corpus is still pulling. The sibling lane
   rewrote **31 titles** for exactly this reason; that is the next lever on this site
   and it is not a copy edit either.
+
+## 2026-08-12 (later) — the prior-art sweep, and it refutes three claims I made above
+
+I searched the docs tree and the code for earlier work on voice, tone and copy
+quality before building anything. There is a great deal of it, and it changes the
+shape of this lane. **Four of the claims in my own PLAN §2 table are wrong**, and the
+corrections are below with the evidence that produced them. All queries run live
+against `clients_db` today.
+
+### The prior art I had not read (none of it is cited in the PLAN)
+
+- **`docs024_key_docs_latest/fleet_copy_quality/`** — 12 files, 6–9 August. This is
+  the definitive prior investigation into exactly this problem and it ran a proper
+  controlled experiment. Its findings are summarised below; they constrain this
+  lane's design more than anything I wrote.
+- **`vigilant_designer_offer_analysis/CONTRIB_2026-08-08`** — the table-stakes /
+  differentiator axis, which is the ordering input stage 2 needs.
+- **Concept register `content-quality.md`** — CQ-017 (anti-hype voice spec), **CQ-020
+  `ScanVoiceTells`** and **CQ-021 `ScanDeployedClaims`**: both are *shipped, live Go*
+  in chassis `v1.0.1283`, with per-site opt-in gates, work-item types and
+  revalidators. I had treated the copy-audit surface as unbuilt; it is substantially
+  built.
+- `claims_verification/SPEC_voice_tells_check.md`; `docs/leopardessconsulting/specs/PLAIN_VOICE_v2.md`;
+  `mortgagecalculator_couk_adoption/` (the sister voice spec already noted).
+
+### CORRECTION 1 — "the audit half runs and dies" is FALSE. It runs and it is consumed.
+
+My PLAN §2 said *"anything that CONSUMES that judgement: **NO** — 0 rows,
+all-history"*. That query was blind twice over.
+
+```sql
+-- what I ran (PLAN §2 / NOTES above):
+WHERE created_by IN ('content-quality-auditor','design-audit-agent')   -- 0 rows
+-- the producer string that actually exists is 'design-audit'. There is no
+-- 'design-audit-agent' row anywhere in site_work_items, all-history.
+SELECT DISTINCT created_by FROM site_work_items WHERE created_by ILIKE '%audit%';
+--  design-audit | render-audit-agent | tool-auditor | quality-discovery-agent
+```
+
+`[MEASURED 2026-08-12]` The `content-quality-auditor` **has run 34 times, every one
+`COMPLETED`, the most recent today**, and it reaches `current_step='complete'`, which
+is past its `write_findings` step:
+
+```sql
+SELECT owner_agent_type, current_step, status, count(*), max(created_at)::date
+FROM orchestration_states WHERE owner_agent_type='content-quality-auditor' GROUP BY 1,2,3;
+--  content-quality-auditor | complete | COMPLETED | 34 | 2026-08-12
+```
+
+Its `write_findings` step is wired to the real action, and the run's own
+`collected_data` records the items being created:
+
+```
+"findings_written": { "audit_source": "design-audit", "total_findings": 5,
+                      "items_created": 1, "items_skipped": 0,
+                      "classification_stats": { "content_rewrite": 2,
+                                                "cta_improvement": 1,
+                                                "needs_content_page": 2 } }
+```
+
+So copy findings **do** become work items, and they **do** have a handler —
+`write_audit_findings_action.go:375-386` routes `content`/`differentiation`/
+`structure` to `content_rewrite` with `HandlerAgent: "page-build-handler"`, and
+`tone` to `tone_shift` with the same handler. Fleet-wide: `content_rewrite` has
+**83 complete**, 48 `needs_human_review`. **`page-build-handler` IS the copy
+equivalent of `css-patch-agent`.** PLAN §2's last two rows are wrong, and P2 ("wire
+the existing auditor's finding to an item") is asking for something already built.
+
+### CORRECTION 2 — the real defect is ATTRIBUTION, and it is small and provable
+
+The auditor's step config sets `"audit_source": "content-quality-audit"`. **No work
+item in the entire history carries that value.**
+
+```sql
+SELECT spec->>'audit_source', count(*) FROM site_work_items WHERE spec ? 'audit_source' GROUP BY 1;
+--  design-audit | 265     tool-acceptance-tier4 | 1        (no content-quality-audit row)
+```
+
+Mechanism, read in the code rather than guessed:
+`write_audit_findings_action.go:43-44` marks `audit_source` **Optional** with
+`Defaults: {"audit_source": "design-audit"}`. The configured literal is not landing,
+so every content-quality finding is stamped as design-audit's. This is the
+`bugs_open/213` shape exactly — `spec->>'audit_source'` is the only thing naming a
+producer, and here it names the wrong one. **Consequence for this lane: the copy
+auditor's output is invisible *as copy work* to every query anyone would write,
+including mine.** That is a candidate bug file, not a new mechanism.
+
+### CORRECTION 3 — a prose-rewrite path exists and was exercised three days ago
+
+PLAN §2: *"stage 2 — the editorial rewrite | **NO** | nothing rewrites prose for
+readability/order"*. `created_by='voiceh-rollout'` holds **32 `complete`
+`content_rewrite` items, dated 2026-08-08/09** — that is the Voice H rollout
+rewriting loancalculator's pages for voice. Whatever stage 2 becomes, it is a change
+to an exercised path, not a greenfield build.
+
+### CORRECTION 4 — `evidence_base` and `banned_claims` are not tables, and my check could not have failed
+
+Above I wrote that they *"do not exist as tables on this database (`to_regclass` →
+false for both)"* and used that to support "claim gating did not run". The
+table-existence check was the wrong instrument: **`evidence_base` is a `site_specs`
+aspect** (`check_unverified_claims.go:306-311`, `LoadEvidenceBase` selects
+`FROM site_specs WHERE aspect='evidence_base'`), and `banned_claims` is a **key
+inside that spec's JSON** (`datahelpers/claims.go:263`). `to_regclass` was always
+going to return false, for both, on every site, whether or not gating ran — a check
+that could not come out otherwise (`WRONG_CALLS` class).
+
+The conclusion survives, for a better reason. `[MEASURED 2026-08-12]` 12 sites carry
+a current `evidence_base` spec; **`loanandmortgagecalculator.co.uk` is not one of
+them**, and it has no `voice` spec either:
+
+```
+ domain                          | evidence_base | voice | content_direction
+ loanandmortgagecalculator.co.uk | f             | f     | t
+ loancalculator.co.uk            | f             | f     | t
+ mortgagecalculator.co.uk        | t             | f     | t
+ leopardessconsulting.co.uk      | t             | t     | t
+```
+
+Both `ScanDeployedClaims` and `ScanVoiceTells` are **opt-in on a per-site spec**. So
+on LMC neither can fire — not because they are unbuilt or broken, but because the
+site never opted in. **Adding an `evidence_base` spec to LMC is a one-row change that
+turns on a live, shipped, council-approved claims gate.** That is the cheapest real
+win available to this lane and it is not in the PLAN.
+
+### THE BIG ONE — the owner's 2026-08-09 decision was never delivered
+
+`fleet_copy_quality/SUMMARY_2026-08-09_h_becomes_the_default.md` records the owner
+deciding that **Voice H becomes the fleet default**, shipping in the writer's base
+prompt, and — decision 3 — that H's **prohibition** (*"never open a section cold with
+a bare assertion… vary how sections open"*) replaces the old **prescription**
+(*"Start with the fact"*). The summary states the change is "seven prompts, not one".
+
+`[MEASURED 2026-08-12]` **All seven still carry the old prescription. None carries H.**
+
+```sql
+SELECT type, (default_config::text ILIKE '%never open a section cold%') AS has_H,
+             (default_config::text ILIKE '%start with the fact%')       AS has_old
+FROM agent_definitions WHERE is_active AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL
+  AND (default_config::text ILIKE '%start with the fact%' OR default_config::text ILIKE '%never open a section cold%');
+--  content-creator-about                 | f | t
+--  content-creator-hero                  | f | t
+--  content-creator-hero-without-research  | f | t
+--  content-writer                        | f | t
+--  grounded-explainer                    | f | t
+--  page-content-writer                   | f | t
+--  simple-content-writer-with-approval   | f | t
+```
+
+`page-content-writer` — **the agent that wrote the LMC copy the owner rejected on
+2026-08-11** — is on that list. It was carrying a *prescription* about how to open,
+which the fleet lane's own evidence says is the rule form that produces identical
+openings across every section ("prescriptions become tics; prohibitions do not"). The
+owner ruled that rule should be replaced three days ago and it has not been.
+
+**This is an undelivered owner decision, not a new problem to design around**, and it
+outranks everything else in this lane on cost-to-value. `[MEASURED]`
+
+### What the fleet lane already established about rules (do not re-derive)
+
+From `SUMMARY_2026-08-08`, all evidenced by controlled experiment, not assertion:
+
+1. **A writer follows exemplars more reliably than rules.** They deleted a rule and
+   left its three worked examples; the behaviour continued unchanged. *"The example
+   is the instruction; the rule is commentary."* Any rule change that leaves the
+   exemplars alone is theatre.
+2. **A rule names a form; what goes wrong is an instinct.** Same instinct caught in
+   three different grammatical costumes across three rounds; two patches, still shipping.
+3. **Prescriptions become tics; prohibitions do not.**
+4. **Cheap-to-check rules crowd out judgement rules** — under pressure a model
+   satisfies "no em dashes" and drops "explain what deserves explanation".
+5. **Rules generate faults as well as failing to catch them** — two of the owner's
+   found faults were produced by rules working *correctly*, and arrived pre-authorised.
+6. **Some rules are load-bearing by accident** — a paragraph cap was the only thing
+   stopping independently-written sections duplicating each other.
+7. **Three mechanical measurements over 6 sites / ~900 sentences found nothing**, on a
+   corpus the owner then faulted in about a minute.
+
+**And the one that governs this lane's design:** *"the writer sees one section at a
+time and never its siblings"* — five instances deep, and the documented remedy
+(phrase the rule conditionally) leaked anyway; **what held was locking**. The
+08-09 arm test proved the same from the other side: both prompt versions tried to
+overwrite the owner's personally-approved opening paragraph and **the lock is the only
+thing that stopped them** — *"not the instructions, not the care taken writing them."*
+
+### Consequences for the design in PLAN §3 (unresolved — these are for the owner)
+
+- **§3 rule 3 ("one component at a time, through `section-editor`") re-creates the
+  exact blindness the fleet lane named as the root cause.** A section-scoped editor
+  cannot see its siblings, so it cannot fix ordering across a page, cannot enforce one
+  name per thing, and cannot judge "is the most useful thing first" — which is
+  stage 2's entire remit. The fleet lane has a live proof: the arm test wrote
+  "Amortisation" in one section and "amortization" in another, *"not carelessness:
+  each section is written separately, so a rule about the whole page has nothing
+  holding it together between them."* Stage 2 needs page scope to read and
+  section scope to write; the PLAN currently gives it section scope for both.
+- **An auto-applier for copy findings changes a deliberate guarantee.** `voice_tells`
+  was designed HITL-terminal (`HandlerAgent: ""`, spec §3c defers auto-rewrite,
+  *"never an unreviewed auto-rewrite"*), and `bugs_open/033` cites that text as
+  evidence it was filed correctly. Building stage 2 as an unsupervised rewriter is
+  therefore architecture-scope under the 2026-07-29 ruling — it changes what a shared
+  mechanism guarantees — and needs an RFC or an owner ruling, not just a seed.
+- **Stage 2 built as more rules inherits findings 1–6 above.** The fleet lane spent a
+  week establishing that rule-tuning is a weak instrument. Two stages is a genuinely
+  different instrument *only* if stage 2 is a judgement with page scope and no sight
+  of the brief — which is the part of the PLAN that survives this sweep intact, and is
+  its real contribution.
