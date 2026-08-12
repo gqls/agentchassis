@@ -1727,3 +1727,54 @@ blocker was never about privacy wording. Corrected here and in the handoff.
 - The blocker detail is in **`agent_error_log`**, keyed by `domain` + `action`,
   not in `orchestration_states`. I spent several queries hunting `collected_data`
   for something the platform had already written down in the place designed for it.
+
+### 19:06 — the sections were NOT the cause either. The real chain, mapped
+
+Second attempt, after part 2 added the section plan: **same signature** — item
+`complete` at 19:07, no `pages` row, `complete_error`, no `__step_error`.
+
+`[MEASURED]` the branch that decides it:
+
+```
+check_page_found = {"condition_met": false, "next_step_override": "complete_error"}
+```
+
+**`page-build-handler` LOADS a page record. It never creates one.** A plan page
+with no `pages` row cannot be built by it, and it says so only through a condition
+flag — no error, no log, and the work item still finishes `complete`.
+
+So the chain is longer than reconcile:
+
+```
+site_plan_pages + site_plan_sections   (the plan — what I backfilled)
+        │
+        ▼  sync_pages_to_db  ← THE STEP I SKIPPED; creates the `pages` rows
+        │                       (SyncPagesToDBAction, site_db_actions.go:218;
+        │                        run by build-site-planner, pageflow-builder,
+        │                        site-work-orchestrator)
+        ▼  reconcile_site_plan  → emits needs_page for the delta
+        ▼  page-build-handler   → requires the pages row to already exist
+```
+
+`reconcile_site_plan` emits `needs_page` for a plan page with no `pages` row, and
+the handler then refuses it for exactly that reason. **The two disagree about whose
+job it is to create the row**, and the disagreement is silent. That is worth a
+`bugs_open/` entry on its own; not filed here because this lane should not assert a
+platform-wide claim without the `090` loop (CLAUDE.md), and the claim is
+cross-cutting.
+
+**Why I stopped rather than pushing on.** `sync_pages_to_db` reads its pages from
+`page_plan`/`site_plan` **in collected_data**, not from `site_plan_pages` — it is
+built to run immediately after the planner, with the plan still in memory. Calling
+it standalone means synthesising that payload. It is an **upsert loop, no DELETE**
+(checked — a one-page payload would touch only that page and leave the other seven),
+so it is not dangerous, but constructing the input shape is guesswork and this
+session has already spent two wrong attempts on this page. The honest next step is
+`pageflow-builder` or `site-work-orchestrator` — both already run `sync_pages_to_db`
+— read one of their workflows and drive the whole plan→pages→build sequence the way
+it was designed, instead of hand-assembling the middle of it.
+
+**Corrected, again:** part 2's header says the missing sections were the cause of
+the 18:48 failure. They were **a** gap — a planned page does need both tables — but
+they were not the cause. The cause at 18:48 and at 19:06 is the same missing
+`pages` row.
