@@ -1199,3 +1199,32 @@ Keeping both means a page fixed without touching a timestamp stays open. One lin
 
 I've written a fresh handover so this can be picked up cleanly in a new conversation — this one has
 got long.
+
+### Kept both, built the third, and lost half an hour to another session
+
+Your call recorded: **both safeguards stay.** I've written it into the handover as closed, so nobody
+re-opens it as an open question in a fresh chat.
+
+**Bug 262 was unowned, so I took it on and it's fixed.** I checked three ways before starting —
+the ownership script, the work queue, and the live sessions — and the three sessions that mentioned
+the file had only ever seen its name in a directory listing. It's built, tested and committed, and it
+goes live on the next build. There are now three conditions before we'll close one of these findings:
+the copy changed, the specific words went, and **the page was actually published after the change**.
+That last one is the new bit, and it's the one that stops us certifying a fix that's still sitting
+unpublished in the database.
+
+Two details I was careful about, because both could have made it wrong: a page marked "deployed" can
+still be serving an older build, so I check the publish *time* separately from the *status*; and a
+page published in the same instant as its edit **does** count as published, otherwise we'd strand
+items whose clocks happen to agree.
+
+**And a genuine annoyance worth telling you about.** Halfway through testing, another session ran a
+plain `git stash` — which takes the *whole working tree*, not just their own files — and my
+uncommitted test changes vanished. The confusing part is that it leaves no trace: the file reads as
+unmodified, so it looks like your own edits never happened. It cost about half an hour, and it made me
+report two test results that had never actually run. I've corrected that in the record, written the
+trap up so the next person recognises it in seconds, and committed straight away before redoing the
+work. The lesson is one we already have written down and I'd been ignoring for ten minutes at a time:
+commit as soon as the work stands up on its own.
+
+Nothing is left in flight. The handover file is current and a new chat can pick up from it.

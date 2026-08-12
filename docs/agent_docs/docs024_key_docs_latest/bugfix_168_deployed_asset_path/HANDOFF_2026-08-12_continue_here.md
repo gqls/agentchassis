@@ -1,4 +1,59 @@
-# HANDOFF — 2026-08-12 — council APPROVED, both gates LIVE and PROVEN on v1.0.1291. Read this file only
+# HANDOFF — 2026-08-12 — council APPROVED, gates LIVE on v1.0.1291, and `262` is FIXED. Read this file only
+
+> ## 🟢 EVENING UPDATE — the owner's decision is TAKEN, and `bugs_open/262` is FIXED. Start here
+>
+> **OWNER DECISION (2026-08-12): KEEP BOTH GATES.** The ANDed-gates question in §3.3 below is
+> **CLOSED** — do not re-open it as an open item. The reasoning that settled it: `refused_by_gate` is
+> **0**, so the copy-changed gate has never actually blocked a closure; keeping it costs nothing
+> observable and is the reversible choice, while removing it could not un-close anything later.
+>
+> **THERE ARE NOW THREE GATES**, and `resolved` requires all three:
+> 1. **copy-changed** (owner, 08-09) — an examined component edited after the finding was filed;
+> 2. **claim-granular** (council r6) — every cited text gone from the slot it was cited from;
+> 3. **published** (`262`, 08-12) — the page was published *after* its copy last changed.
+>
+> ### `bugs_open/262` — taken on and fixed (`ce8733262`), OPEN until it rolls
+>
+> Owner said take it if unowned. **Ownership checked three ways first**: `who-owns.py` clean, **0**
+> open work items matching, and the three live transcripts naming the file were all incidental (two
+> `ls` listings, one `git status`). **A filename in a transcript is not ownership.**
+>
+> Four refusal arms, all non-terminal and deliberately spelled differently so *"I could not look"*
+> never shares a spelling with *"it has not shipped"*: page row unreadable · never deployed ·
+> `deployed_at` precedes the newest examined component update · `build_status` not `deployed`.
+> ⚠ **`build_status` and the timestamp are checked SEPARATELY — neither implies the other.**
+> ⚠ **Equal timestamps RESOLVE** — a same-instant publish is a real ordering, and refusing it would
+> strand items whose clocks agree. Placed **last** in the ladder so the more informative refusals
+> answer first. **Five mutations, five correct failures.**
+>
+> **Next roll must verify it.** New needle for the standing pod-probe:
+> `"the database is not the website"` — expect **1** once rolled, and it is currently **0**.
+>
+> ### ⚠ A BARE `git stash` BY ANOTHER SESSION DELETED MY UNCOMMITTED TESTS MID-RUN
+>
+> `go vet` failed against call sites updated ten minutes earlier and watched pass, while
+> `git status` showed the file **clean**. `git stash list` named it — `stash@{0}: WIP on
+> 087_towards_multiple_domains`. **A pathspec-less `git stash` takes the whole tree**, and unlike a
+> `git add -A` sweep — which at least *commits* your work where `git log` can find it — a stash
+> leaves status clean and the file back at HEAD. Recover with
+> `git checkout stash@{0} -- <your path>`, **never a bare `pop`** (it applies their whole stash).
+> Merged into the existing `git stash` LANDMINE entry, which covered only the *popper's* side.
+>
+> > **CORRECTION carried from earlier in that session:** I reported five mutation results where two
+> > ("build failed", blamed on my own `sed`) **had never run** — the build failure was the stash
+> > arriving mid-run. Re-run after committing: all five fail exactly the test written for them.
+> > **A mutation loop is the worst place to be robbed: it expects the file to change under it, and
+> > the restore step hides the theft.** Commit before mutating.
+>
+> ### What is actually next
+>
+> 1. **Verify `262` on the next roll** (needle above), then close it — the bar is fixed AND live.
+> 2. `features_open/032` — lift the copy-changed comparison into a shared helper before `voice_tells`
+>    gets a second bespoke gate. **Measure before building**; the claims answer may not transfer.
+> 3. Unactioned advisory from the approving round: check the single-producer claim against the
+>    **rerender** paths (`rerender_page_sections`, `rerender_single_page`) — 016b §9 case `093`.
+> 4. §3.5's leftovers, noting §2.1 is DONE and §2.4's stated blocker was FALSE.
+
 
 **Supersedes `HANDOFF_2026-08-11_continue_here.md` for state** (its banners are history; its §4 traps
 and §5 open-items list still hold except where corrected below). Working record:
