@@ -1073,3 +1073,43 @@ That is exactly the job we'd already listed as next. So the question is really a
 My honest recommendation is the second, then the first — build the tighter gate, and let one final
 round carry both. The objection has now been raised three times by a seat that cannot veto, which
 usually means it's right and being politely persistent.
+
+### Built the tighter check you asked for — and the reviewer's own suggested fix turned out to be the wrong one
+
+You picked "build it, then submit once". Done, committed, and round six is with the reviewers now.
+
+**What it does in plain terms.** Before, we'd close a flagged claim if the page was clean *and*
+something on that page had been edited since we raised it. Now we also require that **the actual
+words we objected to have gone from the actual box they were in**. If we flagged "90,790 customers"
+in the hero, and the hero still says "90,790 customers", the item stays open no matter how much else
+on the page moved.
+
+**The interesting part is that the reviewer's proposed fix would have made things worse, and I could
+only tell by measuring.** It suggested comparing the surrounding *snippet* of text we'd recorded.
+Sounds stricter. So before building it I tested both options against the cases where we already know
+the answer — the items where the claim is definitely still on the page. The snippet test spotted the
+claim **18 times out of 41**. The short-token test spotted it **40 times out of 41**.
+
+That gap matters enormously because of which way the failure falls. A snippet is a long piece of
+text, so any small change to spacing or markup breaks the match — and a broken match would read as
+"the copy changed", which *grants* the closure. In other words the reviewer's version would have
+waved through more than half of all claims. **It was right about the problem and wrong about the
+cure, and the cure is the half you can actually test.** That's now written into the code comments so
+nobody "improves" it back.
+
+**I also nearly told you something false, and I'd rather flag it than bury it.** My first attempt
+searched for the flagged text across the whole page, and found that 7 of 18 flagged texts were still
+present — which would have meant half our existing closures were wrong. I was about to write that up
+when I looked at the actual words instead of the count. Every one of those 7 was one to four
+characters long: "5", "26", "50", "97". Of course they still appear somewhere on a page — they're
+bare numbers, they turn up in dates, prices, style codes. The distinctive ones were genuinely gone.
+Searching within the right box drops it from 7 to 2. **My measurement couldn't have come out any
+other way, which is the definition of a useless check** — the second time in one session I've caught
+myself doing that, so both are now written up where the next person will trip over them.
+
+**One thing I've deliberately left for you.** The two checks are currently both required. But the new
+one is genuinely stronger evidence: if the words have gone, the copy demonstrably changed — the
+timestamp only *claims* it did. So the new check could replace the old one rather than sit alongside
+it. I haven't made that call, because tightening your gate needs no permission and loosening it does.
+The practical cost of keeping both is that a page fixed by an edit which didn't bump the timestamp
+will now sit unresolved. Happy either way — it's a one-line change.

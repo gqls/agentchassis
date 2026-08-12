@@ -8,7 +8,58 @@ now opens with two correction banners; its §1–§4 reference material still ho
 
 ---
 
-> ## 🔵 ROUND 5 VERDICT: **REVISE** (2026-08-11 19:54:45Z) — but **14 of 16 seats APPROVE**. Read this before the block below, which is now history
+> ## 🟢 2026-08-12 — THE CLAIM-GRANULAR GATE IS BUILT (`58bede8d5`), AND ROUND 6 IS IN FLIGHT. Read this first
+>
+> Owner chose *"build the tighter check first, then let one round carry both"*. Done. Orchestration
+> **`ec2b87a6-d695-4a78-9255-f488ab0fe859`**, same correlation `b67eb26a-…`.
+>
+> **What shipped.** `resolved` now requires, ON TOP of the owner's timestamp gate, that **every text
+> the finding cited is absent from the slot it was cited from**. `ClaimsPageScan.ExaminedTextBySlot`
+> holds the copy actually read (EXAMINED components only); the revalidator reads the item's own
+> `spec.findings[].matched`. Three refusal arms, all non-terminal. Register **CQ-021** updated in the
+> same commit. **Committed, NOT rolled** — verified, not assumed: `claimgate_NEW=0 rc=1` on the
+> running binary.
+>
+> ### ⚠ THE THING TO READ BEFORE TOUCHING THIS GATE — the seat's own suggested fix was WRONG
+>
+> `compliance` asked for the **snippet** to be compared. Measured against the demand control (items
+> whose verdict is `still_holds`, where the claim IS on the page by definition):
+>
+> | candidate | sees the claim when it IS there (n=41) |
+> |---|---|
+> | slot-scoped **`matched` token** (shipped) | **40/41 — 97.6%** |
+> | slot-scoped **`snippet`** (proposed) | **18/41 — 43.9%** |
+>
+> A snippet breaks on any markup churn, and **in a gate a missed match reads as "the copy changed",
+> which GRANTS closure** — it would have failed OPEN on ~56% of claims, strictly worse than the
+> timestamp it was meant to strengthen. **An objection can be right about the defect and wrong about
+> the remedy; the remedy is the half you can measure.**
+>
+> ⚠ **And scope to the SLOT, never page-wide.** Page-wide, a bare `unregistered_number` token (`5`,
+> `26`, `97`) matches almost any markup: 7 of 18 "still present" page-wide, **2** slot-scoped. I was
+> one step from filing that 7 as *"the gate would have refused 4 of 8 closures"* — an artefact of my
+> own method. Full trap in `LANDMINES.md`; the near-miss in `WRONG_CALLS.md`.
+>
+> ### Open question for the owner, deliberately NOT decided by this thread
+>
+> The two gates are **ANDed**. The claim check is the *stronger* evidence — a token that has left its
+> slot **proves** the copy moved, where a timestamp only asserts it — so it could **stand in for**
+> the timestamp rather than be added to it. Requiring both can refuse a genuinely-fixed page whose
+> `updated_at` was never bumped. Not taken here because **adding a condition in front of an
+> owner-mandated control needs no new ruling; removing his comparison would.**
+>
+> ### Housekeeping a cold start needs
+>
+> - **Deploy state re-grounded 2026-08-12 ~13:00Z: v1.0.1290, 23/23 Running pods, ONE digest
+>   `sha256:b69237df`.** Round 5's figure (v1.0.1288, 41 pods, `d080ae14`) was <24h old and **wrong on
+>   all three**. The pod COUNT is churn; the DIGEST UNIFORMITY is the invariant.
+> - **§4's "failing tests that are not this lane's" is RETIRED** —
+>   `TestEveryCheckProducedItemTypeIsClassified` passes at HEAD; another session fixed it. Full
+>   package green.
+> - **`git log` the FILE, not my commits**: the LANDMINES + WRONG_CALLS entries landed in the 215
+>   lane's `f8ca05594` (swept in the ~90s before my own commit); NOTES in `79d910a86` + `b182c0b15`.
+>
+> ## 🔵 ROUND 5 VERDICT: **REVISE** (2026-08-11 19:54:45Z) — but **14 of 16 seats APPROVE**. History below
 >
 > Fired at the owner's instruction; verdict in **~5 minutes**. 16 reviewers, **1 abstained, 0
 > unreadable, NOT truncation-gated**. `decided_by`: **gating objection from `compliance`** — note it
