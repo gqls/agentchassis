@@ -551,3 +551,68 @@ code tier is fixed.** Route it as a diagnosis-harness defect first, not as anoth
 the roll, so item 2 has not yet had an opportunity to fire. Per §3's own warning, do not read this
 count as an incidence rate in either direction. The behavioural proof still needs a site build that
 deploys a hero or logo.
+
+---
+
+## CONTRIBUTION 2026-08-12 (evening) — §5's harness blocker is GONE; the loop has read the code, and its first partial finding CONTRADICTS my §5b hypothesis
+
+**Three `090` runs on §5's question, and the third is the first to read any of the code.**
+
+`bugs_closed/261` (the code tier could not resolve receiver-qualified method names) is fixed and
+live on `v1.0.1293`. That was the thing making runs 1 and 2 useless. It is no longer the blocker.
+
+Run `36bd1b42-29b5-4094-9264-94ea80c6194a`, seeded with the four functions via `SEED_SCOPE`
+(the seed **arrived** — no `bugs_open/174` confiscation; checked, not assumed).
+**Iteration 1 rendered all four bodies.** Verdict still `UNVERIFIABLE`, but for the first time it
+carries **citations**:
+
+| tier | where | quote |
+|---|---|---|
+| static | `persistAwaitingStateWithRetry` | `if existingData, exists := freshState.CollectedData[state.AwaitedRequests[reqID].StepName].(map[string]interface{}); exists {` |
+| static | `persistAwaitingStateWithRetry` | `if freshState.AwaitedRequests == nil {` |
+| static | `(*SagaCoordinator).applyResponseToState` | `state.CollectedData[stepName] = normalisedData` |
+
+### ⚠ THE HYPOTHESIS IN §5b MAY BE WRONG, AND IT IS MINE
+
+The loop's own `needed_evidence`, verbatim:
+
+> *"one of them ('if existingData, exists := freshState.CollectedData[...]') already shows the
+> function DOES reference freshState.CollectedData, **which is inconsistent with the hypothesis's
+> literal claim that it 'copies only AwaitedRequests, Status and LastActivity onto it'** — but the
+> fragment is an existence-check inside a loop, not the assignment logic, so it's unclear whether
+> the in-memory state.CollectedData … is actually merged onto freshState before repo.UpdateState."*
+
+**This is not a refutation and must not be recorded as one.** It is one fragment, and the loop says
+so itself. But §5b's claim was inherited from `agenterrors.go`'s comment (*"copies only
+awaited-request entries across"*) and repeated by me without reading the function. The one line we
+now have suggests the real behaviour is a **merge**, not a wholesale replace — which would mean the
+mechanism §5 proposes for the lost keys is wrong, and the true cause is elsewhere.
+
+**Do not fix anything on the strength of §5b until this is settled.** Marked `[CONTESTED]`.
+
+### What still blocks it — and it is no longer the code tier
+
+1. **The loop RE-SCOPED AWAY from its own key function.** Iteration 1 held all four bodies; by
+   iteration 5 `persistAwaitingStateWithRetry` and `processAwaitResponse` were **not in scope at
+   all** (18 symbols across 8 files, neither of them present). **The bundle does not accumulate and
+   the verdict reads only the LAST iteration**, so the seeded evidence was gone by the time the
+   verdict was written. Seeding fixes iteration 1 and nothing after it. *This is now the biggest
+   single obstacle to answering §5.*
+2. **No state-tier evidence exists to be found.** The verdict needs a row parked mid
+   `deploy_image_asset` (`status='AWAITING_RESPONSES'`) and there is none — same demand drought that
+   makes item 2's zero unfalsifiable (§3). The three parked rows it did find were `run_triage`,
+   `process_sites_iter_3_call_orchestrator`, `call_dispatch`.
+3. `bugs_open/267` — an iteration can be spent on a whole-file re-read the bundle advises and its own
+   arithmetic refutes. Cost this run one of five iterations.
+4. One orchestration row **FAILED** at `call_diagnoser`: *"Request ee294db7-9c25-43ed-b45c-5c3e54cee8be
+   timed out after 3 retries"*, `__step_error` empty. Not investigated.
+
+### The cheapest next move
+
+**Re-run seeded with ONLY `persistAwaitingStateWithRetry`** (2,058 chars — no cap risk, no room to
+re-scope away from it) and a symptom that asks the narrow question: *what does it copy onto
+freshState before UpdateState?* One function, one question. The broad symptom is what let the loop
+wander across eight files.
+
+The state-tier half cannot be forced and should not be waited for: catch it opportunistically the
+next time anything deploys an image.
