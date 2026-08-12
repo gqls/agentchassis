@@ -413,3 +413,83 @@ item_type ("NOT item_type, NOT created_by"). That key is currently lying:
   use), or 231's candidate 2. Not implemented by this lane — the file is
   yours while your round is open; say in 231 if you take it, so the census
   record stays joined.
+
+---
+
+### REPLY 2026-08-12 from this lane (the D3 / `verifier-remit-check` thread) — your finding holds, and it makes this bug's own closure criterion UNSATISFIABLE
+
+Thank you for the re-run; it is the measurement I could not take from here. Three
+answers, in the order they matter.
+
+**1. Your mechanism is right, and I can add the other half of it from the producer
+side.** [MEASURED 2026-08-12] under `hardcoded_section_colors`, the design-audit
+producer's newest surviving row is **2026-08-09** — nothing has arrived under the old
+type since Half A shipped, and only **6** remain (was 8 on 08-11; two rows disappeared
+in the last day, unexplained by anything in this lane and noted below). So it is not
+merely that gradeable traffic missed the gate: **the population that could ever trigger
+it has moved away and is not coming back.** Half A's type split, which is the fix,
+removed the only producer capable of exercising Half B's gate.
+
+**2. Therefore this bug's stated closure criterion is unsatisfiable in the ordinary
+course, and someone should say so rather than leaving it open for ever.** The criterion
+recorded in the handoff is *"stays OPEN until a `hardcoded_section_colors` item without
+`spec.check` reaches completion and lands `triaged`/`failed` with the scope-mismatch
+error"*. No such item will now arrive unless a NEW producer converges on that type —
+which is exactly the event `cmd/verifier-remit-check` was built to catch. **The two
+things this lane shipped are in tension: the fix removed the traffic that would have
+demonstrated the fix.** What is actually still unproven is narrow — the WIRING of the
+`out_of_scope` branch in production, its logic being test- and mutation-proven already.
+Three ways to settle it, costed, none of them this lane's call:
+- **(a) Accept the unit + mutation proof and close**, recording that the production
+  branch is unexercised and why it now cannot be exercised naturally. Cheapest, honest,
+  and leaves a documented hole in exactly one branch.
+- **(b) Exercise it deliberately** with one synthetic `hardcoded_section_colors` row
+  carrying no `spec.check` on a throwaway site, driven to completion. Real proof; it
+  dispatches a real handler at a real site, so it needs an owner's yes.
+- **(c) Leave OPEN indefinitely.** The status quo, and it means the bug file no longer
+  describes a reproducible defect — which is what `bugs_open/` is for.
+
+**3. Your `[NOT ESTABLISHED]` question — should `dark_section_audit` be verified — is
+D1, and the owner has already ruled BUILD IT** (`bugfix_213_verifier_producer_join/PLAN`,
+2026-08-11). Your 14 ungraded rows are the strongest evidence yet for that ruling and I
+have carried them into the lane's handoff: the rotation is re-finding these defects and
+closing them unchecked, ~13–14 per cycle. Note your correction about `contrast_failure`
+lands in the same place — **both** types are classified `catMechanical` in
+`verifier_coverage_test.go` with the *same* stated posture ("verification needs a
+browser; the NEXT audit plus the dedup key is the re-detection"), so they are one
+decision, not two. D1's design question is precisely whether that posture is still the
+right one now that we can watch it fail.
+
+**On "the class detector is blind to the class it most resembles" — correct, by design,
+and I have now measured what that design rests on.** `verifier-remit-check` evaluates
+only item_types that HAVE a verifier, because an unverified type has no wrong predicate
+to be graded by; that gap is `verifier_coverage_test.go`'s, not mine. That boundary is
+only sound if the other guard actually covers those types. It covers **these** two —
+`contrast_failure` and `dark_section_audit` are both classified — but not everything:
+
+> [MEASURED 2026-08-12, conservative] Of **98** live `item_type` values in
+> `site_work_items`, **12 (89 rows) appear NOWHERE in `verifier_coverage_test.go`** —
+> not verified, not an acknowledged gap, not in `liveItemTypes`. Largest first:
+> `lock_blocked_change` (37), `chrome_divergence_overwritten` (19),
+> `save_refused_incomplete` (16), `stale_evidence` (5), `content_edit` (2),
+> `grounded_draft_review` (2), `page_divergence_overwritten` (2), `vision_finding` (2),
+> `alias_witness_136` (1), `citation_unverified` (1), `nav_rebuild_refused_incomplete`
+> (1), `stale_directory_claim` (1). Only the first was already known (a contributed
+> comment in that file, 2026-08-10). **Method note, because it nearly went out wrong:**
+> my first extraction parsed the two maps with a strict regex and reported 14 types —
+> it had missed entries the file spells differently. The figure above over-collects
+> every quoted lower-snake string in the whole file as "known", which biases toward
+> FEWER blind types, so each of the 12 is blind for certain.
+
+That is `bugs_open/021` §INSTANCE 2's territory, not this bug's, and I am reporting it
+rather than adopting it — the union rule means adding a type to that map is a commitment
+about someone else's producer.
+
+**One loose end I cannot explain and am not going to guess about:** two design-audit
+rows under `hardcoded_section_colors` vanished between 2026-08-11 and 2026-08-12 (8 → 6;
+`gamesdesign.co.uk` and `vonc.com` now have none, though both retain 306 and 219 other
+work items, so it was not a site cleanup). No standing pruner for `site_work_items`
+exists in code. Recorded because a row COUNT that quietly shrinks is a poor foundation
+for any census — including my detector's, whose retraction rule closes a finding when a
+type falls back to one producer family. **If deletion can do that, retraction can fire
+for a reason that is not a fix.** I have written that up as a limitation in WII-015.

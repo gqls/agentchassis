@@ -298,6 +298,33 @@ var itemTypesWithoutVerifiers = map[string]verificationGap{
 	// about someone else's producer. Measured: SELECT item_type, count(*) FROM
 	// site_work_items WHERE item_type='lock_blocked_change' → 37.
 
+	// ⚠ CONTRIBUTED CENSUS, 2026-08-12, from the bugs_open/213 D3 lane — not this
+	// lane's to adopt, for the same reason the lock_blocked_change note above says:
+	// adding a type here is a commitment about somebody else's producer.
+	//
+	// lock_blocked_change is NOT the only one. [MEASURED 2026-08-12, conservative] of
+	// the 98 live item_type values in site_work_items, TWELVE (89 rows) appear NOWHERE
+	// in this file — not verified, not an acknowledged gap, not in liveItemTypes — so
+	// their completions are taken on the handler's word with nothing recording that
+	// choice:
+	//
+	//	37  lock_blocked_change            (already known, see the note above)
+	//	19  chrome_divergence_overwritten   16  save_refused_incomplete
+	//	 5  stale_evidence                   2  content_edit
+	//	 2  grounded_draft_review            2  page_divergence_overwritten
+	//	 2  vision_finding                   1  alias_witness_136
+	//	 1  citation_unverified              1  nav_rebuild_refused_incomplete
+	//	 1  stale_directory_claim
+	//
+	// Every one is produced OUTSIDE this package, so the SENSOR half cannot see them
+	// and only a liveItemTypes refresh would. Refresh query:
+	//	SELECT item_type, count(*) FROM site_work_items GROUP BY 1 ORDER BY 1;
+	// then subtract what this file names. ⚠ METHOD, because it nearly went out wrong:
+	// a strict regex over the two maps reported FOURTEEN — it missed entries this file
+	// spells differently. The 12 above come from over-collecting every quoted
+	// lower-snake string in the whole file as "known", which biases toward FEWER blind
+	// types, so each of the 12 is blind for certain.
+
 	// decision_regression: GAP CLOSED 2026-08-10 by the RFC_015 lane, whose debt
 	// this was. VerifyDecisionRegressionResolved re-runs the guard predicate over
 	// the same stored assembly (both extracted into decisionGuardViolated /
