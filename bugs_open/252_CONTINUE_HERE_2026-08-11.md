@@ -109,6 +109,24 @@ pricing it.
    `FailedScheduling` on `alertmanager-…-0` is an **unbound PVC**, a different
    mechanism — not ours.
 
+## One loose end with a correlation to chase
+
+A LANDMINES entry was filed 2026-08-12 17:40Z — *"An `orchestration_states` status
+count is not a measure of cluster load"*, covering trap 5 above (commit `122cb945c`,
+synced to `doc_notes`). A `landmine-verifier` run was dispatched for it and **had
+not returned when this handoff was written**:
+
+- correlation `e3be27d4-4963-4809-89c6-24984b3f6909`, orchestration
+  `19851554-1dca-4bc9-bc32-84e1a0f6150a`, at `spawn_verifier` as of 17:34Z.
+- read the verdict with:
+  ```sql
+  SELECT subject_key, left(body,400), created_at FROM doc_notes
+  WHERE categories ? 'landmine-verification' ORDER BY created_at DESC LIMIT 3;
+  ```
+- **If it refutes any part of the entry, correct the entry visibly** (strike-through
+  + date), re-run `./scripts/landmines-sync.py --apply`, and log it in
+  `WRONG_CALLS.md`. A refutation here is a cheap success, not a problem.
+
 ## Everything else from the originating session is CLOSED — do not reopen
 
 - **`bugs_open/236` (522 half)** — fixed, live, drill-proven both halves, council
