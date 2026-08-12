@@ -12,7 +12,11 @@ for the commands.
 
 ## 1. State in one paragraph
 
-> **UPDATED 2026-08-12 ~19:25Z — THE ROLL HAPPENED. `v1.0.1293` is live and carries the fix.**
+> **UPDATED 2026-08-12 ~19:35Z — THE ROLL HAPPENED, AND `bugs_open/261` IS NOW `bugs_closed/261`:
+> fixed, council-APPROVED, live on `v1.0.1293`, and PROVEN at the artefact.** Iteration 1 of run
+> `eddaf1af-…` rendered **12 of 12** in-scope bodies where the pre-fix run rendered **3 of 12**, on
+> the identical scope. §4 carries the A/B. **This lane's remaining work is the owner choice in §5**,
+> plus item 2's own behavioural proof, which still waits on a site build that deploys an image.
 
 **Both pieces are now live; one behavioural proof is in flight and one is still waiting on demand.**
 Item 2 (durable rows when a deployed image arrives without a usable URL) is council-APPROVED and
@@ -70,13 +74,22 @@ git merge-base --is-ancestor 81c508bca 7a1887e3   # NOT an ancestor  <- the cont
 since the build is from 19:57 BST and everything I committed that day precedes it, that control could
 not have come out false. `81c508bca` is post-build and correctly returns "not an ancestor".
 
-**Step 2 🔄 — the behavioural proof, dispatched and running.** The `090` on `236` §5 was re-run with
-the **symptom text verbatim from the run that failed**, so it is controlled: same question, same
-three methods in scope, fixed harness.
+**Step 2 ✅ — the behavioural proof PASSED on iteration 1.** The `090` on `236` §5 was re-run with the
+**symptom text verbatim from the run that failed**, which is what makes it an A/B rather than a
+"looks better": same question in, so the loop assembled the **identical 12-symbol scope**.
+
+| | pre-fix `dbcc4259` iter 1 | post-fix `eddaf1af` iter 1 |
+|---|---|---|
+| rendered with a body | 3 of 12 | **12 of 12** |
+| `_(body unavailable …)_` | 9, every one receiver-form | **0** |
+| INCOMPLETE notice | present | **absent** |
+
+`(*SagaCoordinator).applyResponseToState` renders its real body from the `func` line — 4,907 chars of
+block against the index's 4,746-char body, the difference being heading and fence.
 
 - intake correlation `ab65485f-e00a-4dc2-90de-ba8ba9c275ef` — **not** the artefact key
 - **`RUN_CORRELATION_ID=eddaf1af-b44d-4bc0-8485-5885056042cd`** ← artefacts are under THIS
-- dispatched ~19:20Z. The prior run took ~19 minutes for 4 iterations; queue latency is on top.
+- **`bugs_open/261` → `bugs_closed/261`**, commit `b96a74cce`, both paths named.
 
 ```sql
 SELECT iteration, length(body) AS len,

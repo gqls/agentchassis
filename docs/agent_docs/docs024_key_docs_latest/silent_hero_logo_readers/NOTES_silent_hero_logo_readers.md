@@ -499,3 +499,52 @@ CLAUDE.md is explicit that `098` resolves the correlation at report time and cre
 automatically — forward-only forbids an amend, and writing `Council-Reviewed:` onto a later,
 unrelated commit would be a false join. The verdict has now been **read and acted on**, which is the
 part that was actually owed.
+
+---
+
+## 2026-08-12 (evening) — the roll landed, and the fix is PROVEN. 261 CLOSED.
+
+### Step 1 — live at the artefact, and my first control was worthless
+
+`v1.0.1293`, both replicas, both stamped `git_commit 7a1887e3163af75ce5eb5c6cb67ba2c9be37d88e`.
+`git merge-base --is-ancestor 6911c2da4 7a1887e3` → **YES**.
+
+> **The control is the part worth reading.** My first attempt used a commit from earlier the same
+> day. But the build was cut at 19:57 BST and **every commit I made that day precedes it**, so that
+> check would have returned YES no matter what was true — it could not have come out false. The real
+> control is a commit made **after** the build (`81c508bca`), which correctly returns NOT an
+> ancestor. **A control drawn from the wrong side of the boundary is not a control**, and this is the
+> second time in one day I have written a check that could only return the answer I wanted.
+
+### Step 2 — the behavioural proof, and it is an A/B rather than a "looks better"
+
+I re-fired the `090` with the **symptom text verbatim from the run that failed**. That was the whole
+design of the test: same question in, so the loop assembles the same scope, so the only variable is
+the harness. It worked — iteration 1 came back with the **identical 12-symbol scope**.
+
+| | pre-fix `dbcc4259` iter 1 | post-fix `eddaf1af` iter 1 |
+|---|---|---|
+| in-scope symbols | 12 | **12 — identical list** |
+| rendered with a body | 3 | **12** |
+| `_(body unavailable …)_` | 9, **every one receiver-form** | **0** |
+| `**This section is INCOMPLETE.**` | present | **absent** |
+
+`(*SagaCoordinator).applyResponseToState` renders its real body from the `func` line inside a ```go
+fence — 4,907 chars of block against the index's 4,746-char body, the difference being the heading
+and the fence. All eight other previously-unreadable receiver-form symbols resolve too.
+
+**The evidence is POSITIVE and that was deliberate.** The weak version of this test would have been
+"the failure count fell" — which also falls if nobody asks. Writing the pass condition as *a body
+that is THERE* before running it is what made the result mean something.
+
+`bugs_open/261` → `bugs_closed/261` on the fixed-AND-live bar, **both paths named on the commit**
+(`git mv` plus a single-path pathspec ships a copy and leaves the original at HEAD — the landmine
+this repo already carries). Verified at HEAD with `git ls-tree`, which returned exactly one line.
+
+### What is NOT claimed
+
+Nothing about `bugs_open/236`'s own mechanism. That verdict is a separate question and its run was
+still going as this was written. **236 is unblocked for the first time since it was filed — which
+was the point of the fix, not a result of it.** Reading a `CONFIRMED` on 236 as vindication of this
+fix, or an `UNVERIFIABLE` as its failure, would be the same conflation that produced the
+predecessor handoff's wrong mechanism.
