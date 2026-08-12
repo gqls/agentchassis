@@ -485,3 +485,29 @@ census says the general change would alter behaviour in exactly these four
 places and nowhere else, which makes it much less scary than it sounded;
 (2) the stale logo.jpg deletion from the last session is still waiting on
 your call.
+
+---
+
+2026-08-11, evening — your three decisions, recorded.
+
+You ruled: (1) fix the auditor signatures now with the small four-line change,
+and still do the general fix afterwards — not one or the other; (2) ship the
+general fix, so that from now on an explicit config value beats a built-in
+default everywhere, rather than only being detected; (3) leave the stale
+logo.jpg files alone.
+
+Worth saying plainly what (2) buys, because it is the bigger of the two. Today
+we can *detect* this class — the new audit fails loudly when someone writes a
+config value that a default will silently eat. After (2), that kind of mistake
+mostly stops being possible: the config wins, which is what everyone writing
+it already assumed. The one cost is that a handful of config values that have
+been quietly dead for months will come alive on the day it ships, so the next
+session re-runs the census immediately before implementing rather than
+trusting yesterday's count — and by then the auditor fix should have taken
+those four to zero anyway.
+
+Nothing is implemented yet: this session ended at the decision point. The next
+session picks up Task A (the four-line auditor fix, coordinating with the 213
+thread who own that file) and then Task B (the general fix, which needs a
+council round). Both are written out step-by-step in
+HANDOFF_2026-08-11b_census_done_owner_decisions.md.
