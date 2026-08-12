@@ -26,6 +26,7 @@ import (
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
+	"github.com/google/uuid"
 )
 
 // gdTrialsLikeFact builds a fact shaped like the real, ALREADY-CORRECTED
@@ -62,6 +63,17 @@ function clampAttempts(val) { return Math.min(val, 10000); }
 
 const gdTrialsComponentID = "b381f0db-0000-4000-8000-000000000001" // synthetic; real id per bugs_open/161 truncated in the bug file itself
 
+// gdTrialsSiteID is the synthetic site this component belongs to, for every
+// test below except the cross-site scoping test, which deliberately queries
+// with a DIFFERENT site id to prove the join refuses.
+var gdTrialsSiteID = uuid.MustParse("22222222-0000-4000-8000-000000000001")
+
+// artifactCheckQuery is the real query refreshArtifactCheckFact issues,
+// site-scoped via a join through pages (2026-08-12 council fix: the bare
+// `WHERE id = $1` this replaced let a fact "verify" against another site's
+// component).
+const artifactCheckQuery = `SELECT pc.rendered_html FROM page_components pc JOIN pages p ON p.id = pc.page_id WHERE pc.id = $1 AND p.site_id = $2`
+
 func TestArtifactCheck_MatchingPatternDoesNotFlag(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	if err != nil {
@@ -69,12 +81,12 @@ func TestArtifactCheck_MatchingPatternDoesNotFlag(t *testing.T) {
 	}
 	defer db.Close()
 
-	mock.ExpectQuery(regexp.QuoteMeta("SELECT rendered_html FROM page_components WHERE id = $1")).
-		WithArgs(gdTrialsComponentID).
+	mock.ExpectQuery(regexp.QuoteMeta(artifactCheckQuery)).
+		WithArgs(gdTrialsComponentID, gdTrialsSiteID).
 		WillReturnRows(sqlmock.NewRows([]string{"rendered_html"}).AddRow(syntheticDropRateSimulatorHTML))
 
 	fact := gdTrialsLikeFact(gdTrialsComponentID, `Math\.min\(val,\s*10000\)`, true)
-	entry := refreshArtifactCheckFact(context.Background(), db, fact, "2026-08-12")
+	entry := refreshArtifactCheckFact(context.Background(), db, gdTrialsSiteID, fact, "2026-08-12")
 
 	if entry.Outcome != "fresh" {
 		t.Fatalf("a pattern that DOES match the real artefact must not flag: got outcome %q, detail %q", entry.Outcome, entry.Detail)
@@ -102,15 +114,15 @@ func TestArtifactCheck_MismatchedPatternFlagsDrift(t *testing.T) {
 	}
 	defer db.Close()
 
-	mock.ExpectQuery(regexp.QuoteMeta("SELECT rendered_html FROM page_components WHERE id = $1")).
-		WithArgs(gdTrialsComponentID).
+	mock.ExpectQuery(regexp.QuoteMeta(artifactCheckQuery)).
+		WithArgs(gdTrialsComponentID, gdTrialsSiteID).
 		WillReturnRows(sqlmock.NewRows([]string{"rendered_html"}).AddRow(syntheticDropRateSimulatorHTML))
 
 	// must_be_present:true for Math.random — exactly the assertion "this tool
 	// uses randomness" that the original false claim implied and the real
 	// artefact never supported.
 	fact := gdTrialsLikeFact(gdTrialsComponentID, `Math\.random`, true)
-	entry := refreshArtifactCheckFact(context.Background(), db, fact, "2026-08-12")
+	entry := refreshArtifactCheckFact(context.Background(), db, gdTrialsSiteID, fact, "2026-08-12")
 
 	if entry.Outcome != "drifted" {
 		t.Fatalf("a pattern absent from the real artefact must flag as drifted: got outcome %q", entry.Outcome)
@@ -139,12 +151,12 @@ func TestArtifactCheck_MustBeAbsentButPresentFlagsDrift(t *testing.T) {
 	}
 	defer db.Close()
 
-	mock.ExpectQuery(regexp.QuoteMeta("SELECT rendered_html FROM page_components WHERE id = $1")).
-		WithArgs(gdTrialsComponentID).
+	mock.ExpectQuery(regexp.QuoteMeta(artifactCheckQuery)).
+		WithArgs(gdTrialsComponentID, gdTrialsSiteID).
 		WillReturnRows(sqlmock.NewRows([]string{"rendered_html"}).AddRow(syntheticDropRateSimulatorHTML))
 
 	fact := gdTrialsLikeFact(gdTrialsComponentID, `Math\.min`, false) // asserts Math.min is ABSENT — it is not
-	entry := refreshArtifactCheckFact(context.Background(), db, fact, "2026-08-12")
+	entry := refreshArtifactCheckFact(context.Background(), db, gdTrialsSiteID, fact, "2026-08-12")
 
 	if entry.Outcome != "drifted" {
 		t.Fatalf("must_be_present:false with the pattern actually present must drift: got %q", entry.Outcome)
@@ -162,12 +174,12 @@ func TestArtifactCheck_UnresolvedComponentFailsClosed(t *testing.T) {
 	defer db.Close()
 
 	missingID := "b381f0db-0000-4000-8000-0000000000ff"
-	mock.ExpectQuery(regexp.QuoteMeta("SELECT rendered_html FROM page_components WHERE id = $1")).
-		WithArgs(missingID).
+	mock.ExpectQuery(regexp.QuoteMeta(artifactCheckQuery)).
+		WithArgs(missingID, gdTrialsSiteID).
 		WillReturnError(sql.ErrNoRows)
 
 	fact := gdTrialsLikeFact(missingID, `Math\.min\(val,\s*10000\)`, true)
-	entry := refreshArtifactCheckFact(context.Background(), db, fact, "2026-08-12")
+	entry := refreshArtifactCheckFact(context.Background(), db, gdTrialsSiteID, fact, "2026-08-12")
 
 	if entry.Outcome != "error" {
 		t.Fatalf("an unresolved component_id must fail CLOSED (RFC_017), got outcome %q — a check that could not run must never silently pass", entry.Outcome)
@@ -183,7 +195,7 @@ func TestArtifactCheck_UnresolvedComponentFailsClosed(t *testing.T) {
 // proves that: a nil dereference would panic the test if the code tried.
 func TestArtifactCheck_InvalidComponentIDFailsClosedWithoutTouchingDB(t *testing.T) {
 	fact := gdTrialsLikeFact("not-a-uuid", `Math\.min\(val,\s*10000\)`, true)
-	entry := refreshArtifactCheckFact(context.Background(), nil, fact, "2026-08-12")
+	entry := refreshArtifactCheckFact(context.Background(), nil, gdTrialsSiteID, fact, "2026-08-12")
 
 	if entry.Outcome != "error" {
 		t.Fatalf("a malformed component_id must fail CLOSED, got outcome %q", entry.Outcome)
@@ -195,7 +207,7 @@ func TestArtifactCheck_InvalidComponentIDFailsClosedWithoutTouchingDB(t *testing
 // DB must not panic.
 func TestArtifactCheck_InvalidRegexFailsClosedWithoutTouchingDB(t *testing.T) {
 	fact := gdTrialsLikeFact(gdTrialsComponentID, `Math\.min(val,`, true) // unbalanced paren
-	entry := refreshArtifactCheckFact(context.Background(), nil, fact, "2026-08-12")
+	entry := refreshArtifactCheckFact(context.Background(), nil, gdTrialsSiteID, fact, "2026-08-12")
 
 	if entry.Outcome != "error" {
 		t.Fatalf("a pattern that fails to compile must fail CLOSED, got outcome %q", entry.Outcome)
@@ -232,6 +244,117 @@ func TestParseArtifactCheck_MissingFieldsRefused(t *testing.T) {
 	}
 	if !spec.MustBePresent {
 		t.Error("must_be_present should default to true when omitted")
+	}
+}
+
+// Council objection, 2026-08-12 (editquality, HIGH): a bare numeric pattern
+// substring-matches a larger number — the platform's own documented landmine
+// ("grepping a tool for 10000 matches 100000"), cited in bugs_open/161's own
+// "Traps this cost me" section, the motivating bug for this whole mechanism.
+// parseArtifactCheck must refuse a pattern that is nothing but digits.
+func TestParseArtifactCheck_BareNumericPatternRefused(t *testing.T) {
+	cases := []string{"10000", "0", "123456789"}
+	for _, pattern := range cases {
+		_, err := parseArtifactCheck(map[string]interface{}{
+			"artifact_check": map[string]interface{}{
+				"component_id": gdTrialsComponentID,
+				"pattern":      pattern,
+			},
+		})
+		if err == nil {
+			t.Errorf("bare numeric pattern %q must be refused — it would substring-match a larger number", pattern)
+		}
+	}
+
+	// The exact failure this guards against, made concrete: a bare "10000" DOES
+	// substring-match inside "100000" — this is what the parse-time refusal
+	// above stops from ever being evaluated against real component content.
+	if !regexp.MustCompile(`10000`).MatchString("100000") {
+		t.Fatal("test premise wrong: expected a bare 10000 pattern to substring-match 100000")
+	}
+
+	// Patterns WITH surrounding context — even minimal — must still be accepted;
+	// the guard is narrow on purpose (RFC_025's own worked example uses exactly
+	// this shape).
+	okPatterns := []string{`\b10000\b`, `Math\.min\(val,\s*10000\)`, `10000px`, `-10000`}
+	for _, pattern := range okPatterns {
+		if _, err := parseArtifactCheck(map[string]interface{}{
+			"artifact_check": map[string]interface{}{
+				"component_id": gdTrialsComponentID,
+				"pattern":      pattern,
+			},
+		}); err != nil {
+			t.Errorf("pattern with real surrounding context %q should NOT be refused, got: %v", pattern, err)
+		}
+	}
+}
+
+// Council objection, 2026-08-12 (editquality/guardian/compliance/debug_
+// historian — raised independently by four reviewers): component_id was
+// resolved with no check that it belongs to the fact's own site. A fact in
+// site A's register could "verify" against site B's component and report a
+// false PASS — the exact failure mode RFC_025 exists to close, reproduced
+// inside its own fix. The join must refuse (fail closed) rather than match.
+func TestArtifactCheck_CrossSiteComponentRefusedNotSilentlyMatched(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	otherSiteID := uuid.MustParse("33333333-0000-4000-8000-000000000002")
+
+	// The component genuinely exists and its content genuinely matches the
+	// pattern — but it belongs to a DIFFERENT site than the one asking. The
+	// join's WHERE clause means this query correctly returns no rows for the
+	// wrong site, exactly as it would for a component that does not exist at
+	// all — sqlmock proves the query is actually site-scoped, not just that
+	// the Go code claims to be.
+	mock.ExpectQuery(regexp.QuoteMeta(artifactCheckQuery)).
+		WithArgs(gdTrialsComponentID, otherSiteID).
+		WillReturnError(sql.ErrNoRows)
+
+	fact := gdTrialsLikeFact(gdTrialsComponentID, `Math\.min\(val,\s*10000\)`, true)
+	entry := refreshArtifactCheckFact(context.Background(), db, otherSiteID, fact, "2026-08-12")
+
+	if entry.Outcome != "error" {
+		t.Fatalf("a component belonging to a DIFFERENT site must fail CLOSED, not verify: got outcome %q", entry.Outcome)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("unmet DB expectations (the query must actually filter on site_id, not just accept any id): %v", err)
+	}
+}
+
+// ============================================================================
+// The stale_evidence gating decision (council objection, 2026-08-12:
+// bug_historian/debug_historian/architecture — verified only by manual code
+// reading, no test on the gating logic itself; also the architecture seat's
+// finding that decoupling the raise from `changed` for the PRE-EXISTING
+// citation branch was outside RFC_025's ratified scope, since fixed by
+// scoping the new behaviour to res.ArtifactCheckDrifted specifically).
+// ============================================================================
+
+func TestShouldRaiseStaleEvidence(t *testing.T) {
+	cases := []struct {
+		name                 string
+		drifted              int
+		changed              bool
+		artifactCheckDrifted int
+		want                 bool
+	}{
+		{"nothing drifted, register changed for an unrelated reason (e.g. writer_block regen) — no raise", 0, true, 0, false},
+		{"sql fact drifted, changed=true (sql drift always sets changed) — raises, exactly as always", 1, true, 0, true},
+		{"citation fact drifted ALONE, nothing else changed — must NOT raise: pre-existing behaviour, out of RFC_025's ratified scope to alter", 1, false, 0, false},
+		{"artifact_check fact drifted ALONE, nothing else changed — MUST raise: this is exactly the new capability RFC_025 was ratified for", 1, false, 1, true},
+		{"artifact_check drifted AND register also changed — raises (both conditions independently sufficient)", 1, true, 1, true},
+	}
+	for _, c := range cases {
+		res := &siteRefreshResult{Drifted: c.drifted, ArtifactCheckDrifted: c.artifactCheckDrifted}
+		got := shouldRaiseStaleEvidence(res, c.changed)
+		if got != c.want {
+			t.Errorf("%s: shouldRaiseStaleEvidence(Drifted=%d, changed=%v, ArtifactCheckDrifted=%d) = %v, want %v",
+				c.name, c.drifted, c.changed, c.artifactCheckDrifted, got, c.want)
+		}
 	}
 }
 

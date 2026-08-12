@@ -148,6 +148,19 @@ type siteRefreshResult struct {
 	AttestationsDue              int  `json:"attestations_due"`
 	AttestationWorkItemCreated   bool `json:"attestation_work_item_created"`
 	AttestationWorkItemRefreshed bool `json:"attestation_work_item_refreshed"`
+
+	// ArtifactCheckDrifted counts artifact_check facts that outcome=="drifted"
+	// this pass — a SUBSET of Drifted (which also counts pre-existing sql/
+	// citation drift), tracked separately for one reason only: GATING the
+	// stale_evidence raise below without changing when it fires for the
+	// pre-existing sql/citation branch (a council architecture objection,
+	// 2026-08-12 — decoupling that raise from `changed` for the EXISTING
+	// citation branch was flagged as a behaviour change outside what RFC_025
+	// was ratified to cover; this field is how that stays scoped to the NEW
+	// mechanism only). Not surfaced in the item body itself — createStale
+	// EvidenceItem scans res.Facts by Outcome=="drifted" directly, which
+	// already includes these facts regardless of this counter.
+	ArtifactCheckDrifted int `json:"artifact_check_drifted"`
 }
 
 func RefreshEvidenceBaseAction(ctx context.Context, params ActionParams) (interface{}, error) {
@@ -237,6 +250,23 @@ func resolveEvidenceSites(ctx context.Context, db *sql.DB, siteIDStr string, log
 	return ids, rows.Err()
 }
 
+// shouldRaiseStaleEvidence decides whether a pass's drift, if any, should
+// raise a stale_evidence work item — split out as a pure function (no DB, no
+// side effect) specifically so the gating decision itself is unit-testable
+// in isolation, per a council objection (2026-08-12) that the equivalent
+// inline condition was verified only by manual code-reading, not a test.
+//
+// The rule, stated plainly: raise if something drifted AND (the register was
+// also rewritten this pass OR the drift came from the NEW artifact_check
+// mechanism specifically). The second disjunct is deliberately narrow — it
+// must NOT let a pre-existing citation-only drift (changed=false,
+// ArtifactCheckDrifted=0) raise, because that would be a behaviour change
+// for an existing caller outside what RFC_025 was ratified to cover (see the
+// call site's comment for the full reasoning).
+func shouldRaiseStaleEvidence(res *siteRefreshResult, changed bool) bool {
+	return res.Drifted > 0 && (changed || res.ArtifactCheckDrifted > 0)
+}
+
 func refreshOneSiteEvidence(
 	ctx context.Context, params ActionParams, siteID uuid.UUID, dryRun bool, logger *zap.Logger,
 ) (*siteRefreshResult, error) {
@@ -307,12 +337,20 @@ func refreshOneSiteEvidence(
 			// rejected typed-field alternative is to avoid touching an exported
 			// symbol other packages depend on).
 			if _, has := src["artifact_check"]; has {
-				entry := refreshArtifactCheckFact(ctx, db, fact, today)
+				entry := refreshArtifactCheckFact(ctx, db, siteID, fact, today)
 				if entry != nil {
 					res.FactsChecked++
 					switch entry.Outcome {
 					case "drifted":
 						res.Drifted++
+						// Counted separately from res.Drifted (which also
+						// reports it, for the item body's sake — see
+						// createStaleEvidenceItem, which scans res.Facts by
+						// Outcome, not this counter). This one exists purely
+						// to GATE the raise below independently of `changed`
+						// — see the architecture council objection recorded
+						// at the gating site.
+						res.ArtifactCheckDrifted++
 					case "error":
 						res.Errors++
 					}
@@ -438,24 +476,31 @@ func refreshOneSiteEvidence(
 		return res, nil // report only — write nothing, raise nothing
 	}
 
-	// The register write and the work-item raise are two SEPARATE decisions.
-	// `changed` governs only the first: whether there is a new register REVISION
-	// to persist. It must not gate the second too — a citation or artifact_check
-	// fact can go `drifted` with nothing to re-sync in the register (there is no
-	// live VALUE, unlike a sql fact), so `changed` can be false on exactly the
-	// pass that found something worth a human's attention. Before this, that
-	// combination (drift found, nothing else in the site changed) returned here
-	// silently and no stale_evidence item was ever raised for it — reachable
-	// only via citation/artifact_check drift, since a sql fact's drift always
-	// sets changed=true today (it rewrites `value`), so this is a real gap
-	// closed for those two sources, not a behaviour change for sql facts.
 	if changed {
 		if err := writeRefreshedEvidenceBase(ctx, db, siteID, specRowID, eb, pinned, res, logger); err != nil {
 			return nil, err
 		}
 	}
 
-	if res.Drifted > 0 {
+	// The stale_evidence raise stays gated behind `changed`, EXACTLY as it
+	// always was, for the pre-existing sql/citation branch — a council
+	// architecture objection (2026-08-12) on an earlier version of this
+	// change found that decoupling this raise from `changed` altered
+	// runtime behaviour for the existing citation-fact caller (every site,
+	// not just new RFC_025 facts), which RFC_025's ratification never
+	// covered. So: a citation-only drift with nothing else auto-updating in
+	// the register still does NOT raise here — that is unchanged, ungated,
+	// pre-existing behaviour, and fixing it (if it should be fixed) is a
+	// separate, separately-reviewed change, not bundled into this one.
+	//
+	// The ONE new case this must still cover: an artifact_check-only fact
+	// that drifts with nothing else in the register changing (no live VALUE
+	// to re-sync, same shape as a citation drift) — RFC_025 was ratified
+	// specifically to let this new mechanism raise a finding, so
+	// res.ArtifactCheckDrifted (incremented ONLY for the new mechanism, see
+	// its own field comment) opens the gate for that case alone, leaving the
+	// old citation/sql behaviour's gate untouched.
+	if shouldRaiseStaleEvidence(res, changed) {
 		// bugs_open/091 candidate 2. This used to read `else { res.WorkItemCreated
 		// = true }`, so work_item_created meant "no error", not "a record exists".
 		// The item is keyed per SITE, and insertWorkItem dedups on that key while
@@ -581,6 +626,15 @@ func refreshCitationFact(ctx context.Context, fact map[string]interface{}, today
 // a claim the artefact did not support — an `artifact` source is, today,
 // checked for presence in the register and never re-proved against the thing
 // it cites. artifact_check closes that for the facts whose author opts in.
+//
+// Two safety properties added 2026-08-12 after council review, both closing
+// gaps that would have reproduced RFC_025's own motivating failure INSIDE its
+// fix: (1) parseArtifactCheck refuses a bare-numeric pattern (no surrounding
+// regex context at all) — the platform's own documented landmine, "grepping a
+// tool for 10000 matches 100000", is exactly a false PASS this mechanism could
+// otherwise produce; (2) refreshArtifactCheckFact resolves component_id
+// scoped to the fact's OWN site (joined through pages), refusing rather than
+// silently matching a component belonging to a different site.
 
 // artifactCheckSpec is source.artifact_check, parsed. Unexported and local to
 // this file: unlike Citation (datahelpers/citations.go), nothing outside
@@ -593,10 +647,24 @@ type artifactCheckSpec struct {
 	MustBePresent bool
 }
 
+// bareNumericPattern matches an artifact_check.pattern that is NOTHING but
+// digits — no surrounding regex structure, no word/context anchoring at all.
+// Refused by parseArtifactCheck: this is the exact shape of the platform's own
+// documented landmine ("grepping a tool for 10000 matches 100000", named in
+// bugs_open/161's own "Traps this cost me" section — the motivating bug for
+// this whole mechanism). A pattern this bare would let `10000` "verify" a fact
+// against a component whose only 10000-shaped substring is `100000`, silently
+// reporting fresh when the fact has actually drifted — reproducing, inside the
+// fix, the precise failure mode RFC_025 exists to close. Any pattern with
+// SOME surrounding structure (a word boundary, punctuation, surrounding code
+// context, as RFC_025's own worked example `Math\.min\(val,\s*10000\)` uses)
+// clears this — the guard only refuses the maximally naive case.
+var bareNumericPattern = regexp.MustCompile(`^[0-9]+$`)
+
 // parseArtifactCheck reads source.artifact_check off the untyped map. Returns
 // an error for anything that would make the check unrunnable — a missing
-// component_id or pattern — so the caller can fail CLOSED (RFC_017) rather
-// than silently skip.
+// component_id or pattern, or a pattern too bare to trust — so the caller can
+// fail CLOSED (RFC_017) rather than silently skip or silently mismatch.
 func parseArtifactCheck(src map[string]interface{}) (*artifactCheckSpec, error) {
 	raw, ok := src["artifact_check"].(map[string]interface{})
 	if !ok {
@@ -617,6 +685,13 @@ func parseArtifactCheck(src map[string]interface{}) (*artifactCheckSpec, error) 
 	if len(missing) > 0 {
 		return spec, fmt.Errorf("artifact_check missing required field(s): %s", strings.Join(missing, ", "))
 	}
+	if bareNumericPattern.MatchString(spec.Pattern) {
+		return spec, fmt.Errorf(
+			"artifact_check.pattern %q is bare digits with no surrounding context — this can substring-match a "+
+				"larger number (e.g. %q would match inside %q) and silently report a drifted fact as fresh; "+
+				"add surrounding context, e.g. word boundaries (\\b%s\\b) or the actual code shape "+
+				"(as in \"Math\\.min\\(val,\\s*%s\\)\")", spec.Pattern, spec.Pattern, spec.Pattern+"0", spec.Pattern, spec.Pattern)
+	}
 	return spec, nil
 }
 
@@ -635,8 +710,13 @@ func parseArtifactCheck(src map[string]interface{}) (*artifactCheckSpec, error) 
 //
 // db is passed explicitly (unlike refreshCitationFact, which only touches the
 // network) because the artefact this stage checks lives in Postgres, not on
-// the open web.
-func refreshArtifactCheckFact(ctx context.Context, db *sql.DB, fact map[string]interface{}, today string) *evidenceFactRefresh {
+// the open web. siteID scopes the component_id lookup to the fact's OWN site
+// (council objection, 2026-08-12, raised independently by four reviewers:
+// page_components has no site column of its own, so an unscoped `WHERE id =
+// $1` would let a fact "verify" against another site's component — a false
+// PASS on the exact re-verification machinery this RFC exists to strengthen).
+// Joined through pages, the one table that actually carries site_id.
+func refreshArtifactCheckFact(ctx context.Context, db *sql.DB, siteID uuid.UUID, fact map[string]interface{}, today string) *evidenceFactRefresh {
 	entry := &evidenceFactRefresh{
 		FactID:    datahelpers.GetStringField(fact, "id", ""),
 		Claim:     datahelpers.GetStringField(fact, "claim", ""),
@@ -665,13 +745,19 @@ func refreshArtifactCheckFact(ctx context.Context, db *sql.DB, fact map[string]i
 	}
 
 	var rendered sql.NullString
-	err = db.QueryRowContext(ctx,
-		`SELECT rendered_html FROM page_components WHERE id = $1`, componentID,
-	).Scan(&rendered)
+	err = db.QueryRowContext(ctx, `
+		SELECT pc.rendered_html
+		FROM page_components pc
+		JOIN pages p ON p.id = pc.page_id
+		WHERE pc.id = $1 AND p.site_id = $2
+	`, componentID, siteID).Scan(&rendered)
 	switch {
 	case err == sql.ErrNoRows:
 		entry.Outcome = "error"
-		entry.Detail = fmt.Sprintf("artifact_check.component_id %s does not resolve to a page_components row", componentID)
+		entry.Detail = fmt.Sprintf(
+			"artifact_check.component_id %s does not resolve to a page_components row on THIS site (%s) — "+
+				"either it does not exist, or it belongs to a different site and is refused rather than trusted",
+			componentID, siteID)
 		return entry
 	case err != nil:
 		entry.Outcome = "error"
