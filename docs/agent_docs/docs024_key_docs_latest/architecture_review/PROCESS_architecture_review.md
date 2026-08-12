@@ -205,7 +205,17 @@ Sections, all required:
   as such, given `RSH-008`'s one-week-old `point_fix` precedent was licensed by "stays inside
   `platform/orchestration/actions`" and this does not.
 
+- `RFC_020` … `RFC_024` — filed 2026-08-08 to 2026-08-12 (per the directory; not individually
+  claimed here — this ledger's own warning above proved itself again in the gap between
+  `RFC_019` and this line being fixed).
+- `RFC_025_artifact_sourced_facts_are_trusted_once_registered.md` — `bugs_open/161`'s
+  generalisable fix: an opt-in `source.artifact_check` key so an artifact-sourced evidence
+  fact can be re-verified like a SQL-sourced one, plus a staleness nudge for pure
+  attestation facts. Poses its own scope question in §8, following `RFC_002`'s pattern,
+  rather than assuming full ratification is required. Blocks the portfolio-positioning
+  fleet build-out per this session's owner ruling.
+
 Claim the next number by adding a line here in the same commit as the RFC —
 the same collision discipline as migrations, and this list is the ledger.
-**The next free number is `RFC_020`** — derived from the directory on 2026-08-08, not carried
-forward. Re-derive it before you trust it; twice now this line has been wrong by eight.
+**The next free number is `RFC_026`** — derived from the directory on 2026-08-12, not carried
+forward. Re-derive it before you trust it; the line has been wrong by eight before.
