@@ -363,6 +363,21 @@ a repaired artefact" class.**
 
 **Candidates for `090` — TWO, not three (revised 2026-08-12):**
 1. Chrome nav repair is one-directional — it can thin, never thicken (every site).
+   **FILED 2026-08-12 — intake corr `853347f4-41f3-4d57-a016-8f0af0ba2763`,
+   RUN corr `2aab9013-d049-4c3c-8db3-644b17952bfe`** (the run correlation is the key
+   the artifacts are written under; the intake one is not). Verdict not yet read —
+   **read it before repeating §11.2's mechanism as established**, and record it here
+   either way. A REFUTED verdict is the cheap outcome, not a wasted one.
+   ```sql
+   SELECT current_step, status FROM orchestration_states WHERE
+    collected_data->'input_data'->>'fix_correlation_id' = '2aab9013-d049-4c3c-8db3-644b17952bfe';
+   ```
+   Checked against prior art first: `bugs_closed/191` answered the **refused-href**
+   direction only (its council's item 1, `markStaleChromeLinkSlot`), and `191`'s own
+   item 2 establishes the useful half — `assemblePage` re-reads `site_components` on
+   **every** assembly, so chrome is never baked into a page. A corrected header would
+   propagate; nothing marks it for correction. `bugs_open/146` (orphan/nav_drift) and
+   `185` (detectors select `deployed`) are adjacent but neither states this mechanism.
 2. `deferred` has no promotion path back to dispatch, while still holding the dedup
    slot that would let the finding be re-filed.
 3. ~~An unresolved dotted-path input becomes a filename~~ — **already filed AND
