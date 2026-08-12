@@ -770,3 +770,44 @@ Recommended shape, all reuse:
 
 This keeps the iterated part (the words) in the DB where the owner can change it without a
 roll, and puts the plumbing in one place instead of seven.
+
+## 2026-08-12 (evening) — CORRECTION to my own attribution finding, and it is now filed as a bug
+
+Above, under *"CORRECTION 2 — the real defect is ATTRIBUTION"*, I wrote that the
+configured literal *"is not landing"* and treated it as a defect in
+`write_audit_findings`. **Two things were wrong with that, both found by reading the
+resolver instead of inferring from its output.**
+
+1. **It is not a platform defect. It is documented, deliberate behaviour.** Every string
+   in a step's `config` is a **reference** to resolve against `collectedData`, never a
+   literal. `ExtractActionInputs` Strategy 0 resolves a config string only
+   `if strings.Contains(pathStr, ".")`; Strategy 5 takes literals for non-string scalars
+   **only**, and its own comment gives the reason: *"A string literal that fails to
+   resolve is left alone on purpose: taking it as its own value would turn a broken
+   reference into a silent literal and mask real wiring bugs."* So the platform did
+   exactly what it says it does. **The defect is in the four agent configs.**
+   `bugs_closed/042` already carries the mechanism — its title even names it
+   (*"string literals are misread as references"*) and it states the string half is
+   deliberately unfixed. **I grepped `bugs_open/` and `bugs_closed/` before filing and
+   that is what stopped a duplicate**; the dedup rule earned its place here.
+2. **It is not one auditor, it is four.** `[MEASURED]` `brief-fidelity-auditor`,
+   `content-quality-auditor`, `site-review-agent` and `visual-design-auditor` each
+   configure a distinct `audit_source`; **none of the four values has ever reached a work
+   item.** All 265 rows carry the default. So every audit finding in the estate is
+   attributed to `design-audit` regardless of which of four auditors produced it.
+
+**Filed as `bugs_open/264`** — deliberately as the *consequence*, pointing at 042 for the
+mechanism rather than forking a second account of it. The consequence 042 could not have
+known is that `spec->>'audit_source'` is documented (`bugs_open/213`'s landmine) as the
+only field naming a producer, and it is wrong for four of the five.
+
+**Landmine written** (`LANDMINES.md`, synced): *a string in a step config is a reference,
+never a literal*. It earns an entry on the strict test — a config author has no symptom
+and no reason to suspect, and the trap is disguised by the fact that **the same file works
+for other fields**, because `"site_id": "site_record.site_id"` has a dot and resolves.
+
+**What this changes for the lane:** nothing in the plan, and one thing in how it is
+argued. §6 item 1b stands as written (fix the attribution) but is now **config work on
+four agents, not a Go change**, and the fix that makes the bad state unrepresentable —
+dropping the default so a missing `audit_source` fails loudly — has to follow the four
+config fixes or it breaks four auditors. That ordering is in the bug file.
