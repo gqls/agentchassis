@@ -419,3 +419,74 @@ thing that stopped them** — *"not the instructions, not the care taken writing
   different instrument *only* if stage 2 is a judgement with page scope and no sight
   of the brief — which is the part of the PLAN that survives this sweep intact, and is
   its real contribution.
+
+## 2026-08-12 (later still) — is the negativity fleet-wide? Measured. Mostly NO, with one exception that is.
+
+The sibling `CONTRIB_2026-08-12_why_the_default_is_negative…` traced LMC's negativity to
+its own `identity.key_differentiators[0]` and fixed it there, and stated — marked as a
+generalisation, not a measurement — *"This is the general rule for any site whose subject
+is a constraint… **The fleet has several.**"* That was the one load-bearing claim in it
+nobody had run a query against, so I did. **It does not generalise on the axis they fixed,
+and it does generalise on a different one.**
+
+**1. Loss-framed differentiators: LMC was the ONLY one.** `[MEASURED 2026-08-12]`
+
+```sql
+SELECT s.domain, left(ss.data->'key_differentiators'->>0,150)
+FROM sites s JOIN site_specs ss ON ss.site_id=s.id AND ss.is_current AND ss.aspect='identity'
+WHERE (ss.data->'key_differentiators'->>0) ~* '(reduce|cut|lose|fail|struggle|damage|hidden|nobody|…)';
+-- 0 rows
+```
+
+**With the control, because a zero from a regex I wrote is worth nothing without one.**
+Run against LMC's own superseded rows, the regex matches the pre-fix value (`t`) and not
+the post-fix one (`f`) — so the query can find the thing it is looking for, and the fleet
+zero is a real negative rather than a broken pattern.
+
+**2. The corpus effect is also LMC-specific, and strongly so.** Loss vs gain markers over
+active pages' `title + meta_description`:
+
+```
+ loanandmortgagecalculator.co.uk |  41 pages |  9 loss | 14 gain
+ mortgagecalculator.co.uk        |  31       |  3      |  2
+ loancalculator.co.uk            |  26       |  3      |  3
+ loancash.co.uk                  |  22       |  1      |  4
+ lendzy.co.uk                    |  20       |  0      |  0
+ vetcomparison.uk                |  15       |  0      |  0
+ gaswholesalers.com              |  35       |  0      |  0
+```
+
+`[MEASURED — crude, my marker lists, a page can match both. Direction only.]` ⚠ **My
+counts disagree with the CONTRIB's (it read 16 loss / 11 gain on the same 41 pages; I
+read 9 / 14).** Different marker lists, and several of those pages have been rewritten
+today, so this is not a contradiction to resolve — it is a reason to trust neither ratio.
+**What both agree on is the ranking, and that is the finding:** LMC carries three times
+the loss-marked share of any sibling site.
+
+**3. But `strategy.tone: "authoritative"` — the setting the CONTRIB names as pulling to
+the reveal-what-they-don't-tell-you register — is on 8 of 22 sites.** `[MEASURED]`
+
+```
+authoritative (8): finetuning.uk · fundamentallyai.com · gaswholesalers.com ·
+                   lendzy.co.uk · loancalculator.co.uk · loancash.co.uk ·
+                   oufe.com · vetcomparison.uk
+reframed (2):      loanandmortgagecalculator.co.uk (today) ·
+                   mortgagecalculator.co.uk ("warm, plain and helpful")
+other (12):        bold ×2 · editorial ×2 · friendly ×2 · technical ×5 · professional
+```
+
+**Three of the eight are consumer-finance sites where the reader is the weaker party**
+(`loancalculator`, `loancash`, `lendzy`) — the exact condition the CONTRIB argues turns
+"authoritative" adversarial. None has yet produced the LMC symptom, so this is a **latent
+setting, not an active fault**, and it should be treated as one: worth a look on the three
+finance sites, not a fleet-wide sweep, and certainly not an automated rewrite.
+
+**So the correction to the generalisation is in both directions.** The acute defect was
+one site's own spec, written at adoption and never revisited — genuinely local, now fixed,
+and NOT a fleet pattern. The contributing setting is on a third of the estate and nobody
+has looked at it. **The transferable finding is neither of those: it is that a site's
+copy register is decided in its identity and strategy specs at adoption, by whoever wrote
+them, and no mechanism in this platform ever reviews that decision again.** Every writing
+rule downstream is arguing with it. That is the strongest argument this lane has produced
+for stage 2 being a judgement rather than a rule — and it also says stage 2 is not the
+first place to spend, because a spec fix costs one row and reaches every page at once.
