@@ -1677,3 +1677,53 @@ page that exists but is absent from the plan is never considered, so it cannot b
 retired by this path. The inference was wrong and the marker is why it was cheap.
 Recording the two tool pages in the plan is still right — it is what makes them
 visible to the diff — but not for the reason I gave.
+
+### 18:48–19:05 — the reconcile emitted two builds; BOTH failed, in different ways, and my part-1 backfill was incomplete
+
+**`privacy` — `complete` work item, no page, total silence.** `[MEASURED]` the
+build reached `complete_error` at 18:48:32 with **no `__step_error` at all**, no
+`pages` row, nothing in `agent_error_log` — and the `needs_page` item was marked
+**`complete`**. Cause: **part 1 of my backfill added the page to
+`site_plan_pages` and not to `site_plan_sections`.** A planned page needs BOTH.
+Without sections the handler reaches `check_has_ready_sections` and stops, before
+the validator that would have logged anything. Fixed in
+`BACKFILL_2026-08-12b_privacy_page_sections.sql` (hero + generic-text-block,
+component names taken from this site's existing plan rather than invented).
+
+That failure signature is worth keeping: **a `complete` item, no page, and silence
+in every log.** It looks nothing like a validation failure, and "complete" is once
+again a statement about the runner.
+
+**`tool-legacy-rescue-guide` — a REAL blocker, and my inference about it was
+wrong.** I had told the owner the guide was very likely blocked on the missing
+privacy copy. It was not. `agent_error_log` (which is where
+`validate_page_content` persists its issue list, precisely so post-mortems do not
+need pod logs) names it exactly:
+
+```
+value:    "no server"
+location: "The old version of Noted had no account and no server. Every note you
+           wrote there stayed in that one browser, on"
+severity: blocker
+```
+
+The writer described the **old** app **truthfully** — it genuinely had no server —
+and the ban `(no|zero|without a)[ -]?(server|servers|cloud|backend)` cannot see
+tense or subject. **A migration guide's whole job is to describe the old
+architecture, so on this one page the ban fires on a true sentence.** That is the
+cost of a regex ban, not a defect in the writer.
+
+Registering the approved copy did **not** unblock it, and would not have: the
+blocker was never about privacy wording. Corrected here and in the handoff.
+
+**Two things I had also missed and should record:**
+
+- `validate_page_content` runs banned-claim patterns **FLEET-WIDE plus per-site**
+  (`datahelpers/claims_global.go`, `bugs_open/104`), on every site whether or not
+  it has an `evidence_base`. My `COPY_2026-08-12_privacy_check.py` tests only
+  noted's **seven per-site** patterns, so a clean run there is necessary and
+  **not sufficient**. The check is still worth having; its scope now needs saying
+  out loud.
+- The blocker detail is in **`agent_error_log`**, keyed by `domain` + `action`,
+  not in `orchestration_states`. I spent several queries hunting `collected_data`
+  for something the platform had already written down in the place designed for it.
