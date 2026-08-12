@@ -23,7 +23,16 @@ import (
 
 const symbolBodyFixture = `package fixture
 
-import "fmt"
+import (
+	"errors"
+	"fmt"
+)
+
+// ErrFixture is a package-level var (bugs_open/223 phase 2 records these).
+var ErrFixture = errors.New("fixture")
+
+// MaxFixture is a package-level const.
+const MaxFixture = 42
 
 // Greeter does things.
 type Greeter struct {
@@ -227,5 +236,85 @@ func TestReadSymbolBodyRefusesUnanalysedPaths(t *testing.T) {
 	}
 	if !strings.HasPrefix(sym, "func Hello(name string) string {") {
 		t.Errorf("positive control: symbol slice changed:\n%s", sym)
+	}
+}
+
+// TestReadSymbolBodyResolvesIndexSpellings is the bugs_open/260 regression: the
+// symbol spellings the CODE INDEX produces must resolve here, because the index's
+// spelling is what reaches this function.
+//
+// The two producers of a "path:Symbol" handle had drifted apart. code_symbols
+// writes a method as `(` + Receiver.Type + `).` + Name
+// (code_symbols_actions.go:598 — `(*SagaCoordinator).applyResponseToState`), and
+// diagnose_assemble_bundle's scopeFromCodeResults concatenates that column
+// verbatim into the scope; spanOf split on the last dot and compared the raw
+// prefix against receiverType(), so `(*SagaCoordinator)` was tested against
+// `SagaCoordinator` and never matched. Package-level values were a second, plainer
+// gap: the analyser has recorded them since bugs_open/223 phase 2 and spanOf
+// searched only Functions and Types.
+//
+// Measured before the fix, fleet-wide over all 460 bundles ever assembled: 321
+// symbol-read failures, of which 301 were the receiver form and 20 were
+// package-level values. NOT ONE was a genuinely absent symbol — so this is the
+// whole of what that error message has ever meant.
+//
+// Each case below is a spelling some real producer emits, and the collision pair
+// is what stops the fix being "ignore everything before the dot": Greeter.Greet
+// and Helper.Greet must still resolve to DIFFERENT bodies.
+func TestReadSymbolBodyResolvesIndexSpellings(t *testing.T) {
+	dir := writeSymbolBodyFixture(t)
+	out, err := Analyse(dir)
+	if err != nil {
+		t.Fatalf("Analyse: %v", err)
+	}
+
+	// Guard the premise for the values half: if the analyser ever stops recording
+	// package-level values, the value cases below would pass or fail for reasons
+	// that have nothing to do with spanOf, so fail loudly instead.
+	fi := findFile(out, "f.go")
+	if fi == nil {
+		t.Fatal("premise broken: f.go not in Output")
+	}
+	if len(fi.Values) == 0 {
+		t.Fatal("premise broken: analyser recorded no package-level values, so the var/const cases assert nothing")
+	}
+
+	cases := []struct {
+		symbol string // as some producer really spells it
+		want   string // a fragment unique to the RIGHT body
+		why    string
+	}{
+		{"f.go:(*Helper).Greet", `return "x"`, "index form, pointer receiver — code_symbols_actions.go:598"},
+		{"f.go:(Greeter).Greet", `"hello " + g.Name`, "index form, value receiver"},
+		{"f.go:Greeter.Greet", `"hello " + g.Name`, "dotted form — unchanged, the pre-existing convention"},
+		{"f.go:Helper.Greet", `return "x"`, "dotted form, pointer receiver — unchanged"},
+		{"f.go:*Helper.Greet", `return "x"`, "starred-dotted, as a human writes it from a call site"},
+		{"f.go:ErrFixture", "errors.New", "package-level var — bugs_open/223 phase 2 kinds"},
+		{"f.go:MaxFixture", "= 42", "package-level const"},
+	}
+	for _, c := range cases {
+		body, err := ReadSymbolBody(dir, out, c.symbol)
+		if err != nil {
+			t.Errorf("ReadSymbolBody(%q) [%s]: %v", c.symbol, c.why, err)
+			continue
+		}
+		if !strings.Contains(body, c.want) {
+			t.Errorf("ReadSymbolBody(%q) [%s] resolved to the WRONG body — want a fragment %q, got:\n%s",
+				c.symbol, c.why, c.want, body)
+		}
+	}
+
+	// NEGATIVE CONTROLS — the widening must not turn spanOf into "match anything".
+	// Without these, a fix that ignored the receiver entirely would pass every case
+	// above while silently returning the first Greet it found.
+	for _, bad := range []string{
+		"f.go:(*Nope).Greet",  // right method name, receiver that does not exist
+		"f.go:(*Helper).Nope", // right receiver, method that does not exist
+		"f.go:Nope",           // nothing of that name at all
+		"f.go:(*Helper).Name", // a struct FIELD is not a symbol
+	} {
+		if body, err := ReadSymbolBody(dir, out, bad); err == nil {
+			t.Errorf("ReadSymbolBody(%q) should not resolve, got %d bytes:\n%s", bad, len(body), body)
+		}
 	}
 }

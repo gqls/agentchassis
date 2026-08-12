@@ -45,8 +45,11 @@ import (
 // Output was produced from (out.Root); bodies are read from there.
 //
 // A method given as just its name ("Neighbourhood") resolves to the first
-// matching FuncDef. A receiver-qualified form ("AnalysisCallGraph.Neighbourhood")
-// disambiguates when two types share a method name in one file.
+// matching FuncDef. A receiver-qualified form disambiguates when two types share
+// a method name in one file, and BOTH spellings are accepted: the code index's
+// canonical "(*AnalysisCallGraph).Neighbourhood" (which is what actually reaches
+// this function — see splitReceiver and bugs_open/260) and the bare
+// "AnalysisCallGraph.Neighbourhood". Package-level var/const resolve by name.
 func ReadSymbolBody(root string, out Output, symbol string) (string, error) {
 	pathPart, namePart := SplitSymbol(symbol)
 	if pathPart == "" {
@@ -143,15 +146,14 @@ func findFile(out Output, slashRelPath string) *FileInfo {
 	return nil
 }
 
-// spanOf returns the StartLine/EndLine for a func/method/type named `name` in
-// fi. Functions are searched first, then types. `name` may be receiver-qualified
-// ("Type.Method") to disambiguate a method-name collision; a bare name matches
-// a func/method by name (first wins) or, failing that, a type.
+// spanOf returns the StartLine/EndLine for a func/method/type/package-level
+// value named `name` in fi. Functions are searched first, then types, then
+// values. `name` may be receiver-qualified — in EITHER the index's canonical
+// "(*Type).Method" spelling or the bare "Type.Method" one, see splitReceiver —
+// to disambiguate a method-name collision; a bare name matches a func/method by
+// name (first wins) or, failing that, a type or a package-level var/const.
 func spanOf(fi *FileInfo, name string) (start, end int, ok bool) {
-	wantRecv, wantName := "", name
-	if i := strings.LastIndex(name, "."); i >= 0 {
-		wantRecv, wantName = name[:i], name[i+1:]
-	}
+	wantRecv, wantName := splitReceiver(name)
 	for _, fn := range fi.Functions {
 		if fn.Name != wantName {
 			continue
@@ -161,14 +163,66 @@ func spanOf(fi *FileInfo, name string) (start, end int, ok bool) {
 		}
 		return fn.StartLine, fn.EndLine, true
 	}
-	if wantRecv == "" { // a bare name can also be a type
+	if wantRecv == "" { // a bare name can also be a type or a package-level value
 		for _, td := range fi.Types {
 			if td.Name == wantName {
 				return td.StartLine, td.EndLine, true
 			}
 		}
+		// bugs_open/260, second half. The analyser has recorded package-level
+		// var/const since bugs_open/223 phase 2 and the indexer writes them as
+		// rows, but this reader was never taught the kind, so every one of them
+		// answered "symbol not found" — 20 such failures fleet-wide, every one a
+		// var or const. Searched LAST so no existing func/type resolution moves.
+		for _, vd := range fi.Values {
+			if vd.Name == wantName {
+				return vd.StartLine, vd.EndLine, true
+			}
+		}
 	}
 	return 0, 0, false
+}
+
+// splitReceiver splits a possibly receiver-qualified symbol into the receiver's
+// BASE TYPE NAME and the method name, accepting every spelling this estate's
+// producers actually emit:
+//
+//	"(*SagaCoordinator).applyResponseToState" -> ("SagaCoordinator", "apply…")
+//	"(Greeter).Greet"                         -> ("Greeter", "Greet")
+//	"*Helper.Greet" / "Helper.Greet"          -> ("Helper", "Greet")
+//	"Hello"                                   -> ("", "Hello")
+//
+// bugs_open/260. The parenthesised form is not an exotic input — it is the
+// CANONICAL one: code_symbols_actions.go:598 writes every method as
+// "(" + Receiver.Type + ")." + Name, diagnose_assemble_bundle's
+// scopeFromCodeResults concatenates that column straight into a scope entry, and
+// the bundle then RENDERS index rows in that spelling and invites the model to
+// name them in next_scope. So the estate's own tooling and its own LANDMINES
+// entry ("name it `(*Receiver).Method`") both teach the one spelling this
+// function used to reject: the raw prefix "(*SagaCoordinator)" was compared
+// against receiverType()'s "SagaCoordinator" and could never match, which cost
+// 301 unreadable function bodies across 44 diagnosis runs.
+//
+// Normalising HERE rather than at the producers is deliberate: there are two
+// independent producers of a scope entry (the code-search fallback, and an LLM's
+// next_scope copied from whatever the bundle showed it), and only one of them is
+// code we can fix. This is the same "one function keeps owning the convention"
+// judgement that exported SplitSymbol and SliceLines rather than re-implementing
+// them — the grammar has one owner, and this is it.
+//
+// The receiver is REQUIRED to match once given (see receiverType's caller above):
+// widening the spelling must not widen the MATCH, or "(*Nope).Greet" would
+// silently return some other type's Greet.
+func splitReceiver(name string) (recv, sym string) {
+	i := strings.LastIndex(name, ".")
+	if i < 0 {
+		return "", name
+	}
+	recv, sym = name[:i], name[i+1:]
+	// Order matters: parentheses outside, pointer star inside — "(*T)" -> "T".
+	recv = strings.TrimSuffix(strings.TrimPrefix(recv, "("), ")")
+	recv = strings.TrimPrefix(recv, "*")
+	return recv, sym
 }
 
 // receiverType is the receiver's base type name: "*AnalysisCallGraph" ->
