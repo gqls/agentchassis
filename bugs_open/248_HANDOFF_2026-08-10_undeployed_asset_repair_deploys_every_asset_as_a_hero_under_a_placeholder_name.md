@@ -314,3 +314,90 @@ against 8 other `image-build-handler` completions from the same night: all 8 sho
 `{"response":{"asset_stored":{...}}}` shape, so this is **not** the same defect —
 isolated to this one row, cause not investigated. Flagging in case anyone chasing 248 also
 reads `result` for evidence and gets a stale/wrong read from this row specifically.
+
+---
+
+## FIX SHIPPED IN CODE 2026-08-12 — commit `930ace3bd`, INERT until the next chassis roll
+
+By the filing lane (`staged_component_build`), at the owner's instruction. The three
+contributing lanes above each disclaimed the fix, so it was unowned; nothing here
+overrides anyone's claim.
+
+**Answering the owner's question first — no, this is not a missing handler.** The handler
+exists (`asset-deployer`), dispatches correctly, commits to the right repo and reports
+honestly. Both defects are in how it RESOLVES ITS TWO INPUTS, plus one detector that omits
+a field. Adding a handler would have added a fourth thing to get the inputs wrong.
+
+### What changed
+
+1. **`deploy_image_asset_action.go` — rung 2 deleted.** `config["asset_key"]` is no longer
+   readable as a literal filename. Deleted rather than gated, for the same reason
+   `deploy_path` was: no caller-side discipline can make it safe, because the readers can
+   never see the caller's choice.
+2. **…and the CLASS guarded, not the instance.** An `asset_key` containing a dot is an
+   unresolved path expression whatever produced it — a future config with the same shape in
+   a different key, a mapping typo, a spec passing a path. Measured: 478 asset rows, none
+   empty, **none containing a dot**, so discarding cannot lose a real key.
+3. **`action_inputs.go` — `ActionInputs.WasDefaulted`.** The root of (b) is sharper than
+   this file first recorded: `spec.Defaults` are written into `Values` **before** Strategy 1
+   runs, and Strategy 1/2/3/4 all skip a field that already holds a value. So **any field
+   with a default is unreachable by the recursive search** — only a Strategy 0 dot-path can
+   set it. That is why `asset_key` (no default) could be found at `spec.asset_key` while
+   `purpose` (default `hero`) could not. Additive: no value in `Values` changes.
+   Registered as **CAP-002**.
+4. **The asset ROW is now the authority for both.** When the run states no purpose
+   (`WasDefaulted`) and/or no asset_key, and `asset_id` names a row, `assetRowIdentity`
+   supplies them. The row is the one source a dispatcher's `input_mapping` cannot drop —
+   which is what makes this fix cover the `image-build-handler` path (the 08-11
+   contribution) as well as the repair path, without touching a shared mapping.
+5. **`check_undeployed_assets.go` emits `asset_key`** in its spec. Carried even though the
+   deployer now reads the row too: the spec is what a reader of the ITEM can see, and an
+   item whose spec omits the field its handler needs is unreviewable.
+
+**Ordering matters and is pinned:** row identity resolves BEFORE the brand-head refusal,
+which reads `purpose`. Resolving it after would let a favicon dispatched with no stated
+purpose through the guard as a "hero" and overwrite the artefact `derive_brand_head_assets`
+owns — committed to git before any lock guard runs.
+`TestDeployImageAssetAppliesTheRowPurposeBeforeTheBrandHeadRefusal` fails if it moves.
+
+### Deliberately NOT done
+
+- **`build-dispatch-loop`'s `input_mapping` is untouched.** Adding `purpose`/`asset_key`
+  there would have fixed (b) live, with no roll — and that is exactly why it was rejected:
+  it widens a seam every handler dispatch in the fleet passes through, to fix one action.
+  Recovering the values inside the action is narrower and needs no shared-seam change.
+- **Nothing hand-renamed in any bucket or repo**, per this file's own instruction.
+- **The stray `/assets/images/logo.jpg`** I left on gaswholesalers.com on 08-10 is still
+  there, still unreferenced, still mine. After the roll the correct `logo.png` will deploy
+  alongside it; the stray should then be removed.
+
+### Proof, and its limits
+
+Mutation-tested — each fix watched to fail on its own mutant, tree restored, suite green:
+
+| mutant | test that failed |
+|---|---|
+| restore rung 2 | `TestDeployImageAssetNeverUsesConfigAssetKeyAsALiteralFilename` |
+| disable the row-purpose branch | `TakesPurposeFromTheAssetRow…` **and** `AppliesTheRowPurposeBeforeTheBrandHeadRefusal` |
+| drop the `Defaulted` population | `TestDefaultedMarksASpecDefault` |
+
+`git archive HEAD` builds clean and both packages' suites pass from it (shared-tree rule).
+Council: `Council-Submitted: 7f0c1535-25cb-4645-adba-f7429e357a79` — **verdict not yet read
+at the time of writing; a REVISE/REJECTED is still owed action, and the code is already on
+the shared branch.**
+
+**This bug stays OPEN.** The bar is fixed AND live, and a Go change is inert until the
+fleet rolls (`make release`, owner-run). **After the roll, verify at the ARTEFACT and by
+the EXTENSION, never the status** — a `logo` purpose must produce `logo.png` and the commit
+message "Deploy logo image". A run reporting `complete` having written `logo.jpg` is this
+bug, unfixed:
+
+```bash
+curl -s -o /dev/null -w '%{http_code}\n' https://gaswholesalers.com/assets/images/logo.png
+curl -s -o /dev/null -w '%{http_code}\n' https://mortgagecalculator.co.uk/assets/images/hero.jpg
+```
+
+And re-run the census on `updated_at`, not `created_at` (the 08-12 contribution's lesson):
+the count should stop rising. **It will not fall on its own** — 150+ existing rows point at
+files already committed under the placeholder name, and nothing re-deploys them. Draining
+that backlog is a separate, and still undesigned, piece of work.
