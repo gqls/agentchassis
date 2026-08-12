@@ -1,0 +1,80 @@
+{
+  "rationale": "ROUND 2. Round 1 came back REVISE and BOTH objections were correct; this answers them.\n\nOBJECTION 1 (editquality, medium): allow_reinstall was 'safe but inert -- no edit sets it true or wires any handler to it'. On checking it was worse than inert. The flag was read from StepConfig.Config ONLY, and site-design-planner's install step config holds nothing but path references, so the only way to switch it on was to edit the AGENT DEFINITION -- which turns re-install on for EVERY composition install fleet-wide, the exact unsafe-default-ON state the flag exists to prevent. There was no way to re-compose ONE site. FIXED: the flag is now also read per-request from the dispatching work item's spec (collected_data.input_data.spec, with the .body.spec wrapper handled), so a single needs_composition item can carry allow_reinstall=true and nobody else's behaviour changes. Both sources default false and both go through GetBoolFieldLoud, so a malformed declaration in EITHER falls back to the safe branch. New test D fails if the per-request branch is removed (mutation run, 2026-08-11); new test E proves the per-request channel is exactly as strict as the step-config one.\n\nOBJECTION 2 (bug_historian, gating): I cited work item 47ce091c as a needs_composition/needs_design blockage created 2026-08-06. The seat's own read-only query showed it is item_type needs_design_review, item_key shared_style_ai-agent-orchestration.com, created 2026-04-24 -- I had read updated_at as the creation date. The 'triaged' edit does NOT unblock it and never could. WITHDRAWN. The sites that edit actually unblocks are noted.co.uk, loanandmortgagecalculator.co.uk and loancalculator.co.uk -- three sites, six rows, none of them ai-agent-orchestration.com. The edit itself still stands on its own merits: emit_design_items_action.go:126,171 emits needs_composition/needs_design as 'triaged' and check_integrity.go emitted the SAME two item_keys as 'detected', while claim_work_item_action.go:102 claims only triaged/approved -- two producers of one item_key disagreeing. Only my evidence was wrong, and it is logged in WRONG_CALLS.md.\n\nALSO CORRECTED: I sized the mismatch pattern at 448 detected build-pipeline rows. The seat's query shows it spans other pipelines too (undeployed_asset 86 design, phantom_internal_link 18 content, unbuilt_internal_link 17 content, image_url_404 16 design). The conclusion is unchanged and stronger: do NOT fix this by enabling a fleet-wide triage sweep.\n\nSCOPE NOTE (owner ruling RFC_022, 2026-08-11): this is an opt-in field whose unsafe side is the default and which NO live consumer names -- enumerated, not asserted: zero rows in agent_definitions match 'allow_reinstall'. Per that ruling this shape is not architecture-scope.\n\nRound 1's code is already live (chassis stamp bb534864, my commit 5c7b115c5 is an ancestor, verified by binary probe with present/absent controls on both replicas). So this round is a revision of shipped code, not a proposal.",
+  "submitter": "brochure_component_library / contrast front (bugs_open/113)",
+  "plan": {
+    "summary": "ROUND 2. Round 1 shipped allow_reinstall but it was readable only from step config, making it settable only by an agent-definition edit that would turn re-install on fleet-wide -- so it could not repair the one site it was built for. This adds the per-request source (the work item's spec), keeps both defaults false and both reads loud-fallback, and withdraws the round-1 evidence claim about work item 47ce091c, which was a different item_type than I said and is not unblocked by the 'triaged' edit.",
+    "edits": [
+      {
+        "file": "platform/orchestration/actions/install_site_composition_action.go",
+        "operation": "modify",
+        "rationale": "Add allow_reinstall as an opt-in step-config literal, default FALSE, per the owner ruling of 2026-08-02 (RFC_010): new authority on a shared seam ships as an opt-in field with the unsafe default OFF, not as a documented contract. Read via GetBoolFieldLoud so a malformed declaration (string \"true\") warns and falls back to the SAFE branch rather than enabling the permissive one. Deliberately NOT added to the ActionInputSpec: ExtractActionInputs resolves config strings as PATH REFERENCES into collected_data, which is right for data inputs and wrong for an author's literal switch.",
+        "sketch": "allowReinstall := datahelpers.GetBoolFieldLoud(params.StepConfig.Config, \"allow_reinstall\", false, logger, ...)\nif existingCollectionID.Valid && existingCollectionID.String != \"\" {\n    if !allowReinstall {\n        // unchanged loud-fail, now naming the flag in its recommendation\n        return nil, fmt.Errorf(\"site %s already has style_collection_id=%s; re-resolve not requested (set allow_reinstall=true)\", siteID, existingCollectionID.String)\n    }\n    logger.Warn(\"REPLACING an existing composition (allow_reinstall=true)\", ..., zap.String(\"rollback\", \"UPDATE sites SET style_collection_id='...'\"))\n}",
+        "symbol": "InstallSiteCompositionAction"
+      },
+      {
+        "file": "platform/orchestration/actions/install_site_composition_action.go",
+        "operation": "modify",
+        "rationale": "Keep the concurrent-install race guard working in BOTH modes. The link UPDATE was guarded by 'AND style_collection_id IS NULL', which is exactly the condition the reinstall path violates. Dropping the guard would silently clobber a concurrent install; the reinstall path needs the race check MORE than the first-install path, not less. IS NOT DISTINCT FROM matches NULL to NULL on a first install and the observed id to itself on a reinstall.",
+        "sketch": "-  AND style_collection_id IS NULL\n+  AND style_collection_id IS NOT DISTINCT FROM $3::uuid\n`, collectionID, siteID, existingCollectionID)",
+        "symbol": "InstallSiteCompositionAction"
+      },
+      {
+        "file": "platform/orchestration/actions/install_site_composition_action.go",
+        "operation": "modify",
+        "rationale": "Return the displaced collection id. The UPDATE overwrites the column in place, so after the transaction this value exists nowhere else -- without it an operator cannot roll back a re-compose that went wrong.",
+        "sketch": "\"previous_collection_id\": existingCollectionID.String,   // \"\" on a first install\n\"replaced_existing\":      allowReinstall && existingCollectionID.Valid && existingCollectionID.String != \"\",",
+        "symbol": "InstallSiteCompositionAction"
+      },
+      {
+        "file": "platform/orchestration/actions/install_site_composition_reinstall_test.go",
+        "operation": "add",
+        "rationale": "Three tests, PROVEN load-bearing by mutation rather than asserted to be. A: an existing collection is refused when nothing asked for a reinstall (this is the test that keeps the unsafe direction off, and it is the important one). B: the flag gets execution past the guard. C: a non-bool declaration must NOT enable the permissive branch. Mutations were RUN before commit: 'if !allowReinstall' -> 'if false' fails A and C; hardcoding allowReinstall=false fails B. Tests stop at the guard rather than mocking the whole install, and the file says so -- claiming more than the mock can support is how a test becomes decoration.",
+        "sketch": "func TestInstallSiteComposition_RefusesExistingCollectionByDefault(t *testing.T)\nfunc TestInstallSiteComposition_AllowReinstallPassesTheGuard(t *testing.T)\nfunc TestInstallSiteComposition_MalformedFlagDoesNotEnableReinstall(t *testing.T)",
+        "symbol": "TestInstallSiteComposition_RefusesExistingCollectionByDefault"
+      },
+      {
+        "file": "platform/orchestration/actions/discovery_checks/check_integrity.go",
+        "operation": "modify",
+        "rationale": "MissingStyleCollectionCheck emits the composition pair as 'triaged' instead of 'detected', matching emit_design_items_action.go:126,171 -- which emits the SAME two item_keys, and which this check's own comment already claims parity with. Scoped to these two types on purpose: the defect is the disagreement between two producers of one item_key, so the repair belongs at the producer, NOT at a fleet-wide triage sweep that would promote all 448 detected build rows in one motion.",
+        "sketch": "-  Status:       \"detected\",\n+  // `triaged`, NOT `detected` -- see the note above this pair.\n+  Status:    \"triaged\",\n(twice: needs_composition and needs_design)",
+        "symbol": "MissingStyleCollectionCheck.Run"
+      },
+      {
+        "file": "docs/agent_docs/docs026_concept_register/register/design-composition.md",
+        "operation": "modify",
+        "rationale": "Register both seams in the SAME commit that ships them (owner ruling 2026-07-28, condition 2 -- the surviving half of the ordering exemption). DES-082 and DES-083 each carry status, the landmine, the open review question, and the other consumers to tell. Both are recorded as BUILT, NOT exercised -- no pod-grep exists because the binary carrying them has not been built.",
+        "sketch": "### DES-082 -- allow_reinstall: the opt-in that lets a site's composition be REPLACED\n### DES-083 -- Discovery's composition pair now emits `triaged`",
+        "symbol": "DES-082/DES-083"
+      },
+      {
+        "file": "platform/orchestration/actions/install_site_composition_action.go",
+        "symbol": "requestSpecFromCollected / InstallSiteCompositionAction",
+        "operation": "modify",
+        "rationale": "THE ROUND-1 FIX. Read allow_reinstall per-request from the dispatching work item's spec as well as from step config, so ONE site can be re-composed without turning re-install on fleet-wide. Step config is checked first and the spec only consulted when it did not opt in; both default false and both go through GetBoolFieldLoud, so a malformed value in either falls back to the SAFE branch. A new helper resolves input_data.spec and the input_data.body.spec wrapper, returning nil rather than an empty map so 'no spec' and 'a spec that says nothing' stay distinguishable in a reader's eyes.",
+        "sketch": "allowReinstall := datahelpers.GetBoolFieldLoud(params.StepConfig.Config, \"allow_reinstall\", false, logger, ...)\nif !allowReinstall {\n    if spec := requestSpecFromCollected(params.CollectedData); spec != nil {\n        allowReinstall = datahelpers.GetBoolFieldLoud(spec, \"allow_reinstall\", false, logger, ...)\n    }\n}\n\nfunc requestSpecFromCollected(collected map[string]interface{}) map[string]interface{} {\n    inputData, ok := collected[\"input_data\"].(map[string]interface{}); if !ok { return nil }\n    if spec, ok := inputData[\"spec\"].(map[string]interface{}); ok { return spec }\n    if body, ok := inputData[\"body\"].(map[string]interface{}); ok { ... }\n    return nil\n}"
+      },
+      {
+        "file": "platform/orchestration/actions/install_site_composition_reinstall_test.go",
+        "symbol": "TestInstallSiteComposition_AllowReinstallFromWorkItemSpec",
+        "operation": "modify",
+        "rationale": "Two tests for the per-request channel, both proven load-bearing by mutation run 2026-08-11: making the spec lookup return nil fails D ALONE, leaving A/B/C/E passing. D asserts a work-item spec can opt in; E asserts a malformed value there falls back to the safe branch, because a work item spec is assembled by whatever queued it and is the easier place to get this wrong.",
+        "sketch": "func TestInstallSiteComposition_AllowReinstallFromWorkItemSpec(t *testing.T)\nfunc TestInstallSiteComposition_MalformedSpecFlagDoesNotEnableReinstall(t *testing.T)"
+      }
+    ],
+    "grounded_in": [
+      "install_site_composition_action.go:150-154 (pre-change): logger.Error(\"site already has style_collection_id -- re-resolve is not supported\", ..., zap.String(\"recommendation\", \"clear sites.style_collection_id manually to force re-install\"))",
+      "render_css_composition_loader.go:150-154: logger.Error(\"loadThemeComposition: no theme resolution path succeeded -- using emergency fallback\") -- this is what a render hits while the column is NULL",
+      "fork_theme_from_site_action.go:11-19: \"The site's own style_collection_id is NOT modified\" and \"Composition installation is owned exclusively by site-design-planner via the install_site_composition action\"",
+      "claim_work_item_action.go:102: AND status IN ('triaged', 'approved')",
+      "emit_design_items_action.go:126,171: status: \"triaged\" -- for the SAME needs_composition/needs_design item_keys the discovery check emitted as 'detected'",
+      "check_integrity.go:70-74 (pre-change): 'item_keys are \"needs_composition\"/\"needs_design\" -- identical to emit_design_items' -- the parity claim the status disagreed with",
+      "check_missing_css.go:41-43: 'Routing composition here would fail the install guard (install_site_composition refuses when style_collection_id is set)' -- a second consumer shaped by the constraint being lifted",
+      "MEASURED 2026-08-10, live DB: 448 rows WHERE status='detected' AND pipeline='build' fleet-wide (193 page_rerender, 79 contrast_failure, 23 audit_tool) -- the reason a fleet-wide triage sweep was rejected as the fix",
+      "MEASURED 2026-08-10, live DB: site_work_items 47ce091c, item_type needs_design_review, status 'unresolved after 2 attempts', created 2026-08-06, summary 'Site ai-agent-orchestration.com shares its style collection with 3 other site(s) -- needs its own collection'",
+      "MEASURED 2026-08-10, served artefact: https://ai-agent-orchestration.com/assets/css/styles.css carries --color-card-bg: #ffffff with --color-background: #080B10; render_audit.py over 3 pages = 58 failures, 38 of them on rgb(255,255,255)",
+      "MEASURED 2026-08-10, live DB: palettes 'professional-dark' colours->>'card_bg' = '#ffffff', background '#f8fafc'; sites sharing collection 3196d966 = ai-agent-orchestration.com, finetuning.uk, gaswholesalers.com -- the latter two serve #ffffff correctly as LIGHT sites",
+      "MUTATION-TESTED 2026-08-10 before commit: 'if !allowReinstall' -> 'if false' => tests A and C FAIL, B passes; 'allowReinstall := false' hardcoded => test B FAILS, A and C pass"
+    ],
+    "risks": "(1) The flag now has TWO sources. Check the precedence is harmless: step config is read first and the spec is consulted only if it did not opt in, so the two cannot disagree into a surprising result -- but confirm you agree that EITHER saying true is sufficient. (2) requestSpecFromCollected guesses at two shapes (input_data.spec, input_data.body.spec). If the dispatch loop produces a third, the flag silently does not arrive and the caller gets the refusal -- which is the SAFE direction, but it will look like the flag is broken. I have NOT observed a live needs_composition dispatch's collected_data shape; that is unmeasured. (3) Still no live consumer sets the flag -- deliberate. The repair for ai-agent-orchestration.com is a work item carrying spec.allow_reinstall=true, queued AFTER this rolls. (4) Round 1's code is already live, so a REJECTED here means reverting shipped behaviour, not declining a proposal. (5) The orphaned old css_theme / style_collection rows after a re-compose are still not reaped; unchanged from round 1 and still unmeasured."
+  }
+}
