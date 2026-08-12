@@ -47,6 +47,11 @@ Their constraints, all verified or credible, carried here so you need not re-der
 - **Register entry owed in the same commit** (the 246 ratchet names D2 as REGISTRABLE,
   not ratchetable). Platform code → council gate submission, one round, cite RFC_023's
   ruling if scope is questioned.
+- **Framing (from the other lane, 08-12, and they are right): the first readings are a
+  BASELINE, not a result.** The before/after window closed at the v1.0.1288 roll
+  (17:13 UTC 2026-08-11) — every `WaitCount` captured now describes the 12-connection
+  pool, and there is no comparable "before" against the old 4. Do not present early
+  numbers as evidence the 246 fix changed anything.
 
 ## TASK 2 — `bugs_open/259` (slug `three_processor_paths…`): three more dead `p.sqlDB` guards
 
@@ -107,5 +112,12 @@ closed-and-live bug entries move to `MEMORY_closed.md`; count is the binding axi
 - Register `SYS-090` (system-architecture.md) — the seam, its consumers, the open
   own-default question with the owner's accumulate decision.
 - `bugfix_246_shared_pool_ownership/` — the other lane's standing five (D1–D5, traps).
-- `bugs_open/246` (still open pending their post-roll verification) · `bugs_open/259`
-  (three_processor_paths slug).
+- `bugs_closed/246` — CLOSED and moved 2026-08-12 (`036481a93`) under the restored bar.
+  **Closed on the defect being fixed and proven live, NOT on the risk being cleared**: the
+  pgbouncer-side check (`SHOW POOLS`, `cl_waiting`/`maxwait`) stays unmeasurable until the
+  `pgbouncer-userlist` secret's `pgbouncer_admin` line matches the Terraform value from
+  `aee444a35` — that half is not Terraform-managed and **needs the credential holder (the
+  owner)**. Sequence in that lane's RUNBOOK §9. Their D4 also landed (`871c24665`): the
+  three `CHASSIS_*` keys now render in the production overlay — which means a typo there
+  now CHANGES live config rather than documenting it.
+- `bugs_open/259` (three_processor_paths slug — ambiguous number, resolve by slug).
