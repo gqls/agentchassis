@@ -398,7 +398,18 @@ a repaired artefact" class.**
    > and the tree runs BST, so my 13:44 filing is `12:44Z` and was excluded by my own
    > filter. **Always join on `spec->>'dispatch_correlation_id'`.**
    >
-   > Re-fired 2026-08-12, run corr `044c0a54-baca-47be-9ef6-a61c84a2fa0b` — claimed. Check it with the query below, joining on the correlation, NOT on time.
+   > Re-fired 2026-08-12, run corr `044c0a54-baca-47be-9ef6-a61c84a2fa0b`.
+   > **THAT FAILED TOO — stop re-firing and read this first.** Same step, fuller
+   > error: *"step verdict failed: failed to execute action execute_llm_prompt: AI
+   > call failed … Post https://api.anthropic.com/v1/messages: context canceled"*.
+   > **It is the LOOP, not this symptom:** needs_diagnosis outcomes for 2026-08-12
+   > were **4 complete / 5 failed / 1 diagnosing** — roughly half the fleet's runs
+   > died the same way, on runs belonging to other lanes and other symptoms. A third
+   > firing would buy another coin-flip, so I stopped at two. **Whoever picks this up:
+   > check the loop's health before re-firing** (`SELECT status, count(*) FROM
+   > site_work_items WHERE item_type='needs_diagnosis' AND created_at::date = CURRENT_DATE
+   > GROUP BY 1;`) — if `failed` is still ~half, fix or wait for the loop rather than
+   > spending runs. §11.2's mechanism stays unverified either way.
    
    **Read the verdict before repeating §11.2's mechanism as established**, and record
    it here either way. A REFUTED verdict is the cheap outcome, not a wasted one.
