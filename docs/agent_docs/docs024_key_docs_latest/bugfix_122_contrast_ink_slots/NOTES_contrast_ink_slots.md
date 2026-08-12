@@ -1042,3 +1042,67 @@ either** — filed at `write_render_audit_findings_action.go:258`, absent from e
 construction**, which 213 closing does not change. The trigger is now "`contrast_failure` has
 a verifier, or someone rules it needs none" — and 213 is **no longer blocking this lane**,
 which they have been told so they do not hold their closure for my 226.
+
+## 2026-08-12 — migration 395: the quality rotation is ENABLED and will do NOTHING until 2026-08-16
+
+Owner decision, after reading the cost and lock-out evidence: **"enable the discovery
+rotations, slowly"** — not raise the sweep's guard, not make its discovery step conditional.
+Executed as migration `395`, scoped to **one** rotation (`quality`; `design` and
+`completeness` stay off), `enabled=true`, cadence `3600s → 10800s`.
+
+**Read the pre_query before reasoning about the rate — the interval is NOT the cost dial.**
+`site-discovery-rotation-quality` is `LIMIT 1` per fire against a **7-day** due window, and it
+**stamps `last_selected_at = now()` in the same statement that selects the site**. So the work
+rate is bounded by the rotation period: 22 active sites / 7 days ≈ **3.1 site passes per day**
+however often it polls. The interval only sizes the initial ramp (3600s → whole fleet in ~22h;
+10800s → ~8/day, ~3-day ramp). That stamp-on-selection is also the fix for the sweep's
+`ORDER BY sites.updated_at ASC` starvation (IMP-010) — nothing the sweep does advances its own
+sort key, whereas this cannot re-pick a site it just examined.
+
+> **The post-check earned its place: it printed `0 site(s) due for the initial ramp`.**
+> **All 22 sites are ALREADY stamped** for `quality-discovery-agent`, from 2026-08-09 09:49Z →
+> 2026-08-10 16:39Z — the window when this rotation was briefly enabled before the owner
+> switched it off on 08-10. Stamps are per `agent_type`, so the still-enabled
+> `availability` rotation's stamps are irrelevant. **First site comes due 2026-08-16 09:49Z**
+> (robot-hands.com), the rest over roughly the following 31 hours at the cadence they were
+> originally stamped.
+>
+> So the honest state is: **enabled, correct, and inert for four more days.** Had I not put a
+> due-count in the post-check, `enabled=true` plus an advancing `last_triggered_at` would have
+> read as "running" for four days — a fire with no due site dispatches nothing, costs nothing,
+> and logs like success. This is the `enabled` + fresh tick ≠ ever RUN shape, and the thing
+> that caught it was asserting a **row count I could be wrong about** rather than asserting
+> the UPDATE succeeded.
+
+**I considered backdating one stamp to price a single pass now, and decided against it.** The
+reasoning is worth recording because the first instinct was wrong: the 08-16 ramp delivers the
+*same* single-pass measurement for free, four days later, so a probe buys lead time only — and
+buying lead time with an unrequested LLM spend, four days after a 3.2x cost surprise, is not a
+call to make on the owner's behalf. What waiting genuinely costs is **visibility**, not data:
+the risk is that on 08-16 the ramp starts with nobody watching and 22 passes run over ~3 days.
+That is a docs problem, so it is written down here, in the handoff, and at the foot of `395`
+rather than solved by spending.
+
+**📅 2026-08-16 — the dated action this lane now owns.** When the ramp starts, take the spend
+per hour (calls AND tokens — calls/hour did not discriminate the sweep's 3.2x) against the
+~248k input tokens/h no-rotation baseline, and confirm the rotation is actually fair
+(every site acquires a stamp; none re-selected inside 7 days). Both queries, plus the
+one-UPDATE stop and the statement to add the other two rotations, are at the foot of
+`docs/agent_docs/sql_for_agents/395_enable_quality_discovery_rotation_slow_ramp.sql`.
+
+**⚠ This restores DETECTION, not repair — deliberately.** SCH-025 findings are born
+`detected` and `improvement-sweep` (the only triage carrier) stays disabled, so findings will
+accumulate unconsumed. Two consequences, written down now rather than discovered later:
+`detected` rows **count toward the sweep's ≥50 guard**, so anyone re-enabling it must re-read
+the guard census knowing this rotation has been raising the numbers it reads; and this lane's
+226 parked `contrast_failure` rows are unaffected, because `deferred` is not `detected`.
+
+**MISSTEP 21 — I nearly ran `run-migrations.sh --apply`.** The dry run listed **12 pending
+files belonging to other threads**, including `324_asset_deployer_passes_asset_id.sql`, whose
+own guard refuses without a marker because *"on an older binary this config deploys the WRONG
+asset bytes (bugs_open/155)"*, plus two probe-inconclusive files and one containing its own
+`ROLLBACK`. `--apply` takes **every** pending file in order — my one-line config change would
+have shipped all of them. Correct path, which the runner supports directly: apply the single
+file by hand (`psql -v ON_ERROR_STOP=1 -f -`), then `--record-only <file> --note "<why>"`.
+The dry run is not a formality on a tree this many sessions share; it is the only thing
+standing between a scoped intent and an unscoped action.

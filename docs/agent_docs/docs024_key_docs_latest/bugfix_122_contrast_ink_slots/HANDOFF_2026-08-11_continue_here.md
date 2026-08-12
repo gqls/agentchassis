@@ -1,4 +1,10 @@
-# HANDOFF — bug 122 lane. START HERE. Written 2026-08-11.
+# HANDOFF — bug 122 lane. Written 2026-08-11.
+
+> **⚠ SUPERSEDED FOR STATE 2026-08-12 — START AT
+> `HANDOFF_2026-08-12_continue_here.md` INSTEAD.** This file stays the reference for the
+> improvement-sweep episode: the cost table, the guard arithmetic, and the two corrections it
+> forced. Its banner below is RESOLVED, and its NEXT list has been overtaken — the contrast
+> park's trigger changed, and detection is now driven by a rotation, not the sweep.
 
 Supersedes `HANDOFF_2026-08-10_continue_here.md` for **state**. That file is still the
 reference for the delivery evidence (§1–§4a: what shipped, the 10 closures, the two caps)

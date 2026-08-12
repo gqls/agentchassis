@@ -336,3 +336,47 @@ account.
 So the honest position: yesterday's cleanup worked and is finished; and the reason we're
 holding 226 items is now better understood and slightly worse than I thought — not "waiting
 for someone else's fix" but "we haven't written the check yet".
+
+---
+
+**Later, on your two decisions.** You asked for the automatic checking to come back slowly
+rather than by widening the limit, so I've switched on one of the three purpose-built rotas —
+the quality one — and slowed its polling from hourly to three-hourly.
+
+Two things about it are worth knowing, and the second is the sort of thing that quietly
+embarrasses people a week later.
+
+First, the rota is self-limiting by design, in a way the sweep wasn't. It looks at one site per
+poll, and it stamps a site the moment it picks it, so that site can't be picked again for seven
+days. That means the *rate* is set by the seven-day cycle, not by how often it polls: 22 sites
+over seven days is about three site checks a day, no matter what the interval says. The interval
+only controls how quickly it works through the fleet the first time.
+
+Second — and this is the useful bit — **it is switched on and it will do absolutely nothing until
+Saturday 16th.** All 22 sites still carry stamps from the day and a half it ran back on the 9th
+and 10th before you switched it off, and those stamps have another four days to run. I only know
+this because I had the migration count how many sites were actually due and print the answer; it
+said zero. Without that, it would have sat there for four days looking busy — polling on
+schedule, logging normally, doing nothing — and someone would eventually have "fixed" a rota
+that was working correctly.
+
+I considered nudging one site's stamp so we'd get a real cost figure today rather than on
+Saturday. I decided not to. The figure arrives on Saturday for free, and spending your credits
+to get it four days earlier — four days after a cost surprise — isn't my call to make. What we
+lose by waiting isn't the number, it's someone remembering to look, so I've written the date and
+the exact queries into the handoff and into the migration itself.
+
+On the second decision, writing the missing check for contrast problems: I've done the
+groundwork rather than the work, because there's one genuine choice in it that I don't think
+should be made quietly. Measuring contrast properly means measuring what the browser actually
+renders, not reading the stylesheet — a colour can be written in the file and never applied. Our
+contrast tool is a separate Python program, and this check has to run inside the main Go service
+at the moment a ticket closes. So it's either route it through the same browser machinery that
+found the problem (most accurate, but there's an existing recorded objection to doing browser
+work at that moment, which I haven't yet read), rebuild the measurement in Go (a second version
+of a thing we already have, which could disagree with the first and nobody would see), or write
+a narrower check that just confirms the exact bad colour pairing is gone. I've written all three
+up with the trade-offs and recommended reading that objection first, because if it stands the
+choice makes itself.
+
+Everything is committed and the handoff is current, so this can be picked up cold.
