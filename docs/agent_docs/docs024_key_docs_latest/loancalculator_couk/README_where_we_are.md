@@ -1700,3 +1700,43 @@ the twelve calculator locks for the first pass and release the other eight.
 **4. One I'll just do unless you stop me:** park the twenty-one other queued jobs (page
 rewrites and re-renders) alongside the seventeen, so that anything different after the
 rebuild was done by the rebuild and not by the maintenance queue.
+
+## 2026-08-12 later — all four done except one, and the last one turned out to be two jobs
+
+Parked the maintenance queue (and a correction: I told you twenty-one jobs, it was
+actually forty-five — twenty-one was just the two kinds I'd named. All parked, all
+reversible).
+
+Your instruction to fix the planner turned out to be two separate changes, and finding
+that out was the useful part of the day.
+
+The first one is done and reviewed: when a rebuild composes a page, the code that
+protects a locked calculator was only recognising it **by the name of its slot**. Our
+calculators sit in slots called things like "tool-2", while a fresh plan describes pages
+in proper component names — so the protection would have missed them. It now recognises
+them by which component they actually are, which is how the neighbouring piece of code
+has always worked. Without this, fixing the second half alone would have put **two**
+calculators on every page: the new one in place, the protected original pushed to the
+bottom.
+
+I found this partly because another thread had already worked it out on the 10th and
+left a test explaining it — their conclusion was sharper than mine, and it says plainly
+that seeding a fresh plan is the dangerous act, which is exactly what we're about to do.
+I've written back to them.
+
+The second one — making the planner actually see the calculators — I have designed but
+deliberately **not** done, because three measurements say it isn't a one-line change.
+The component library is shared across the whole platform with no per-site column, so
+the obvious edit would offer every site all eighty-one calculators, including other
+sites'. Twenty-one sites already use tool components, so even a careful version changes
+behaviour beyond us. And the step fails hard if its site lookup ever comes back empty,
+which on a single shared setting means no site anywhere can plan. That is a change to
+make carefully with a review, not one to slip in before pressing a button.
+
+**So there's one decision left, and it's a timing one.** If we fire today, the twelve
+calculators survive — the locks do hold — but each lands at the *bottom* of its page
+until I put it back. If we wait a day or so for the second half, the rebuild produces
+the site properly first time. I'd wait. The reason we kept those locks was to protect
+the calculators, and firing into a known twelve-page mess to save a day spends exactly
+what we were protecting. The cost of waiting is that the two false claims stay up a bit
+longer — so if we do wait, say the word and I'll cut those two half-sentences now.
