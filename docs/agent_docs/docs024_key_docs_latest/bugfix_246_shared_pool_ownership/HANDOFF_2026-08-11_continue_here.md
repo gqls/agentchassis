@@ -162,3 +162,59 @@ platform cannot show.** That gap is D2.
 - Missteps: `WRONG_CALLS.md`, two 2026-08-11 sections from this lane (5 rows)
 - Ratchet: `docs026_concept_register/102_coverage_ratchet.txt`, `bugfix_246_shared_pool_ownership`
   — **names D2 and D5 as the follow-ups that would be REGISTRABLE, not ratchetable**
+
+---
+
+## UPDATE 2026-08-12 — D1 wired; D2 collided; **D5 was not a tidy-up and is now `bugs_open/259`**
+
+### D1 — half done, half needs the credential holder
+Committed `aee444a35`. `pgbouncer_admin_password` is declared in
+`047-base-configs/variables.tf`, wired into `personae-platform-secrets` in `main.tf`, and
+its value is in `terraform.tfvars.secret` (gitignored, **verified untracked**).
+**Checked so nobody has to fear the apply:** the live secret holds exactly the 7 keys
+Terraform declares — zero drift — so an apply adds the 8th and deletes nothing
+(`kubernetes_secret.data` is authoritative, so re-check if time passes).
+**Still needed:** the `pgbouncer-userlist` secret is NOT Terraform-managed, so step 1
+alone does not make `SHOW POOLS` work. Its `pgbouncer_admin` line must carry the same
+password. Reading it is a credential read and was refused by the permission classifier,
+so its current value is **[UNVERIFIED]**. Runbook §9 has the whole sequence.
+
+### D2 — STOPPED, not abandoned: the 239 lane is already in it
+Greping live transcripts before starting showed that session hitting `db.Stats`,
+`WaitCount`, `WaitDuration` and `bugs_open/246` heavily, active within the hour, nothing
+committed. Messaged them offering three ways to split it and handed over what I hold
+(the pool that matters is the one **agentbase** opens; `p.sqlDB` is nil so instrumenting
+it measures nothing; the counters are **cumulative since process start**, so a raw gauge
+misleads across a roll; my pre-roll baselines are against the OLD 4-connection pool and
+are not like-for-like). **Awaiting their answer — do not start a second design.**
+
+### D5 — REDEFINED. It is a defect, not a cleanup. See `bugs_open/259`.
+
+D5 was written here as "collapse `p.sqlDB` into `p.db`, every reader already falls back".
+**That description was wrong**, and I am correcting it rather than editing it away: not
+every reader falls back. **Three sites GUARD on `p.sqlDB != nil`**, and since the handle
+is nil on every chassis pod, none has ever executed in production.
+
+- **A** (`~:351`) child-workflow completion early-return — **[UNASSESSED]**.
+- **B** (`~:582`) the workflow's final result — **always the literal placeholder
+  `{"status":"completed"}` instead of the orchestration's `CollectedData`.** A
+  control-flow certainty. Downstream effect `[UNMEASURED]`.
+- **C** (`~:1486`) the entire `bugs_open/003` two-phase dedup claim — **redundant, NOT a
+  hole**: `agentbase` does the same claim on a live handle, evidenced by 449 rows / 82
+  distinct writers in one hour in `processed_messages` with the lifecycle visible.
+
+**The trap for whoever takes it:** mechanically applying 239's
+`db := p.db; if db == nil { db = p.sqlDB }` to all three READS as consistency and is the
+dangerous option — on C it switches on a second dedup layer that has never run, and on
+A and B it changes live behaviour. **246's "this is a no-op everywhere" safety argument
+does NOT transfer to 259.** That was the whole basis of 246's confidence and it is absent
+here.
+
+Also worth carrying: the log markers (`Duplicate message ignored`, `DEDUPE_CLAIM_LOST`)
+read **zero** and that means nothing — they fire only when a duplicate occurs. The table
+is the instrument. I tried the blind check first and rejected it; do not repeat it.
+
+### Standing verification note
+The chassis has rolled twice more since 246 shipped. Re-verified on **`v1.0.1290`**
+(revision `fa078ab3d`): `039cfce84` still an ancestor, negative control holds. The method
+is in §1 of this file — image label, never the pod log.
