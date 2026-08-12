@@ -11853,3 +11853,28 @@ the row becomes indistinguishable from a decision — and because terminal statu
 dedup slot, the system is then guaranteed to try again. **"Refused because unreadable" needs a
 non-terminal status** (`blocked` is what the same file uses elsewhere, deliberately: *"'complete'
 on an item whose defect is untouched is the false-green this estate keeps relearning"*).
+
+### A tall page's mobile screenshot silently loses its vision pass — the checks stay green, only `look` fails
+
+**Symptom.** `tool-acceptance-agent` (or any acceptance run with `capture_renders`) ends
+`complete_no_look` with `step look failed: … vision call failed: API request failed with
+status 400: … image dimensions exceed max allowed size: 8000 pixels`. The check results
+(`request_run`) are unaffected and can read a clean pass — `complete_no_look` looks like
+`bugs_open/243`'s signature but is a DIFFERENT failure inside the same step: 243 never
+reaches the API call (`no storage client`); this one does, and the API itself rejects the
+image.
+
+**Diagnose.** Don't trust the row's own `viewport` field — it states the requested
+viewport, not the full-page screenshot's actual output size. Pull the actual PNG from its
+signed S3 URL (`collected_data->'request_run'->'response'->'renders'`) and read its header
+dimensions directly. `bugs_open/256`: desktop landed at 1366x2108 (fine); mobile landed at
+1170x10059 — both dimensions are the CSS viewport (390) and page height multiplied by
+`mobileScale=3` (`run_checks_action.go:267`, `DeviceScaleFactor` for the mobile context).
+Any page whose mobile-width CSS height exceeds ~2667px (8000÷3) will trip this regardless
+of which tool or component is on it — **the cause lives in the screenshot config, not in
+the page under test**.
+
+**Fix candidates**, not yet evaluated against each other: downscale the copy sent to the
+vision API (keep the stored evidence full-fidelity); cap or fall back to a viewport-only
+shot at capture time when the full-page height would exceed the cap; lower `mobileScale`
+fleet-wide. See `bugs_open/256` for the full measurement and citations.
