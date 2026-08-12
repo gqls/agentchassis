@@ -347,3 +347,70 @@ demonstrated on one site.
 4. **D3 — read the three finance sites.** Diagnosis, not a sweep.
 5. **`bugs_open/033`** — now blocking, per D2.
 6. **Stage 2**, page-scoped read / section-scoped write, only after 5.
+
+---
+
+## 9. CONSTRAINT ON STAGE 2 FROM `bugs_open/260` (verified in code, 2026-08-12)
+
+Handed in by the `brochure_component_library` front as `CONTRIB_2026-08-12b`; verified
+independently and sized in `CONTRIB_2026-08-12c`. **This changes what §6 Phase 2 may
+build, and it is not a risk note — it is a gate.**
+
+**The mechanism.** A component declares a field as an array. The writer emits a prose
+string instead. `range` over a string errors, the renderer silently falls back to a regex
+renderer for a different dialect, and the component renders with `{{if}}`/`{{range}}`/
+`{{end}}` verbatim in the page. The whole component is destroyed — every other field in it,
+correctly written, goes with it.
+
+**Why it lands here.** §6 Phase 2's executor is `section-editor`, and
+`ApplySectionEditAction` has **three pre-persist guards, none of which is a type check**:
+the link repair rewrites rather than refuses, the envelope normaliser refuses on envelope
+*shape* only, and the artefact classifier is explicitly advisory. The single render-side
+check is `if rendered == ""`, which non-empty template gibberish passes. **And this path
+writes to pages that are already live**, where stage 1 is protected by `validate_content`
+refusing before it persists.
+
+**A readability pass is the likeliest thing in the estate to flatten a nested array into
+prose.** That is literally the trigger in 260. So stage 2 is not merely exposed to this
+hazard — it is the best candidate to cause it.
+
+**D2's human review cannot catch it.** The failure is at render, downstream of the words a
+reviewer reads. Approved copy and a destroyed component are the same artefact at review
+time.
+
+### The measured exposure `[MEASURED 2026-08-12]`
+
+- **45 of 191 active components declare at least one `array` field** (49 fields), and
+  **12 of those fields are `source: llm`** — authored by the writer, checked by nothing.
+- The path has **132 completed `section-editor` runs and 0 of 1,454 stored components
+  carrying directives**, so the hazard has not yet fired here — a real negative, since the
+  path is heavily used, not idle.
+- ⚠ **The library is not JSON Schema.** 4 of 191 components use `properties`; **140 use
+  the house dialect `{"fields": {<name>: {"type": …}}}`**; 47 declare nothing at all. A
+  gate written against `properties` would cover **4 components and report a clean sweep
+  over the other 187.**
+
+### What Phase 2 must therefore do
+
+1. **Prefer `field_updates` over `replacement_content_data`.** `applyContentEdit` seeds its
+   map from the existing row, so a field-scoped update preserves the types of every field
+   it does not touch. Only a full replacement can retype one. If stage 2 can express its
+   edit as field updates, the hazard is structurally out of reach — which is better than
+   any gate.
+2. **If a full replacement is unavoidable, a type gate stands in front of the write** — and
+   it reads the **house dialect**, not JSON Schema, or it is inert on 187 of 191 components.
+3. **The 47 schema-less components are not covered by either.** A green gate is not fleet
+   coverage, and Phase 4 must say so where the result is reported.
+
+**Phase 4 gains this as a third acceptance check**, and it is the same shape as the other
+two: assert against the component's **own declaration**, which — like the required-link set
+— cannot drift from the brief.
+
+### Adopted from 12b §2, because it forecloses a round
+
+The writer in 260 was given a **formal JSON Schema** (`type: array`,
+`items: {type: object, required: [body]}`) and answered with a sentence. So *"prose
+instructions failed, now hand the writer the schema"* has already been run on a live
+component and failed. **Do not spend a round on it.** The check belongs at the boundary,
+never in the prompt — which is the same conclusion this lane reached about set preservation
+from an entirely different direction.
