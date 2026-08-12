@@ -29590,3 +29590,44 @@ accompanied by a missing control row, which reads exactly like a broken query. T
 generous outcome: firing the check at loancalculator.co.uk (17:15Z 08-12) produced the
 predicted `handler_missing` row within one second, so the control now exists, and a real
 hole in the sweep is closed.
+
+---
+
+## 2026-08-12 — I called a consequence "the sharp end" with the refuting line five rows above it in my own terminal output
+
+**The claim** (`bugs_open/265` Defect 2, as filed): *"The two discovery checks are the sharp
+end. They produce work items. A legacy-dialect component reaching
+`check_required_fields_missing` degrades a work-item-producing check silently, so the failure
+is not merely unlogged — it is a check quietly doing less than it reports."*
+
+**False.** Both checks read through `datahelpers.SchemaContentFields`, which projects the
+legacy dialect onto the v2 shape; a legacy component is **projected, not skipped**. And the
+projection is lossless for all four components in question — only four property-level keys
+exist across them (`type`, `items`, `minItems`, `description`) and every one survives.
+
+**What caught it:** the `brochure_component_library` front ran the measurement I had named as
+the one that would decide severity, and refuted it. I then reproduced it blind and got the
+same answer.
+
+**The cheap check that would have — and this is why it earns a row.** I had already run
+`grep -rn "WarnIfLegacyDialect\|WarnLegacyDialect"` and **printed the call sites**, including
+`check_required_fields_missing.go:105`. The `SchemaContentFields` call that refutes my claim
+is at **line 100 of that same file** — five lines above a line number that was on my screen.
+I treated the grep hit as the answer to "is the detector wired here?" and never opened the
+function to ask "what does this check do with a legacy component?" **A grep tells you a
+symbol is present; it cannot tell you what the surrounding code already handles.** One
+`sed -n '96,116p'` on a file I had already located would have killed the claim before filing.
+
+**The mitigating half, recorded because it is the part worth repeating.** I marked the claim
+`[UNMEASURED]` inline, named the exact measurement that would settle it, and said it decided
+the bug's severity. So it was refuted for the cost of one query, by a reader who could see
+precisely what to run, before anyone routed work at it. **The marker did its job; the grep
+did not.** Both halves are the lesson: hedging a claim correctly is not a substitute for
+opening the file, but it is what makes being wrong cheap.
+
+**Second-order, and the reason this is not just "read more carefully".** My claim was about a
+*consequence* — "this check does less than it reports" — reached from a fact about *wiring*
+("the detector is called here"). Those are different questions and the grep only answered the
+second. **When a finding is one inferential step from the evidence, the step is where to look
+for the error**, and here the step crossed from "a warning fires" to "the caller is degraded"
+with nothing checked in between.
