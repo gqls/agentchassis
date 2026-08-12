@@ -437,3 +437,27 @@ owner-reviewed, mechanism approved for fleet-wide use going forward — separate
 per-site preference for mortgagecalculator specifically. Any future lane relying on the
 default-prompt mechanism can cite this as owner sign-off on the DESIGN, not merely on the code
 shipping.
+
+## 20. 2026-08-12 — variant-asset fix APPROVED; the one objection answered with a wider grep; fresh build confirmed carrying everything
+
+Council `7e839679-d87b-4c57-9419-ba1212f22a87` — **APPROVED**, 1 advisory objection (medium),
+verdict read in full. `bug_historian` objected that the sibling-call audit ("residual, not
+re-audited") was scoped to `discovery_checks/` only, naming `image-build-handler` and
+`check_undeployed_assets.go` by name as unchecked. Answered rather than argued: widened the
+grep to `platform/ internal/ pkg/ cmd/` — **zero remaining callers anywhere**. Both named
+suspects cleared **structurally**, not just empirically: `hasActiveAssetForPurpose` takes
+`DiscoveryCheckContext`, a type private to `discovery_checks`, so a different package cannot
+call it at all; `check_undeployed_assets.go` has no bare purpose-only `assets` query. Also
+swept all five `discovery_checks/*.go` files querying `FROM assets` for the same *pattern*
+under a different name — none found. LANDMINES entry updated in place with this evidence.
+
+**Fresh build confirmed the correct way this time.** `v1.0.1291`, pulled directly, OCI label
+read (`da5a7eb8ff12f78a3569d8474363445013a77557`, built 2026-08-12 15:37:47+01:00),
+`git merge-base --is-ancestor` run against the variant-asset fix commit AND all three original
+bug-210 commits — all confirmed ancestors — with a negative control (a later commit, correctly
+NOT an ancestor). No log-grep attempted this time; went straight to the reliable method.
+
+**This closes the lane.** Every fix — the refusal guard, the brand-identity default, the
+silent-degrade correction, the anchoring fix, the chrome-scan fix, migration 390, the report
+line, and the variant-asset fix — is live, tested, council-approved, and owner-validated. No
+open threads remain on `bugfix_210_needs_logo_unhandleable` itself.
