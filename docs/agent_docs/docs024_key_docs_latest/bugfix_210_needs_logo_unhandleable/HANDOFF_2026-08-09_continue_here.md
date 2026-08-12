@@ -344,3 +344,77 @@ owner/lane call, not a lane-210 call. Decision put to the owner 2026-08-11.
 **For a successor:** the only open work is (a) read the hero item's outcome and LOOK at the
 image (queries above), and (b) the decomposition plan in the adoption lane. Everything else on
 this lane is closed.
+
+---
+
+# UPDATE 2026-08-12 — the loop fired ON ITS OWN; build confirmed shipped; ONE decision is genuinely live
+
+**STEP 0 for a cold start: read this section first, the rest of the file is settled history.**
+
+## Build status — CONFIRMED, not inferred
+
+Fresh chassis `v1.0.1290`. `kubectl logs | grep 'build provenance'` returns nothing on this
+pod — that's the already-documented LANDMINES entry (stamp logs once at startup, rotates out
+within minutes on this noisy service), **not** evidence of anything missing. Verified instead
+via the image's OCI label + git ancestry, with a negative control:
+```
+docker pull docker.io/aqls/agent-chassis:v1.0.1290
+docker image inspect docker.io/aqls/agent-chassis:v1.0.1290 \
+  --format '{{index .Config.Labels "org.opencontainers.image.revision"}}'
+  → fa078ab3d4e8282f7f5f4b1f042515f1f96d2bd3
+git merge-base --is-ancestor <commit> fa078ab3d4e8282f7f5f4b1f042515f1f96d2bd3
+```
+All three of this lane's fix commits (`ca6a03cce`, `ebaf72729`, `9425615bb`) confirmed
+ancestors. **All of bug 210's fix — refusal guard, brand-identity default, silent-degrade
+correction — is live on the running fleet.**
+
+## The mechanism fired autonomously — this is the proof the design was waiting for
+
+At 19:06–19:08 on 08-11, hours after we stopped, `design-discovery-agent` ran against
+mortgagecalculator.co.uk (dispatched by something other than our still-paused rota — most
+likely the sibling lane's own audit work) and the whole chain fired exactly as built: item
+filed with `prompt_source=default_from_brand_identity`, routed to Banana/Nano Banana Pro via
+migration 390's fix, generated, stored. **No forcing, no owner decision, no manual dispatch —
+the loop is genuinely load-bearing now.**
+
+## THE ONE LIVE DECISION: a new hero image exists, and the owner has not seen it
+
+```sql
+SELECT purpose, asset_key, origin_model, left(origin_prompt,100), created_at
+  FROM assets WHERE site_id=(SELECT id FROM sites WHERE domain='mortgagecalculator.co.uk')
+   AND purpose='hero' AND status='active' ORDER BY created_at DESC LIMIT 1;
+-- id 9e94250d-21b2-413a-8292-c01205e78b50, asset_key='hero', banana/gemini-3-pro-image-preview
+```
+Fetch it (still deployed to the bug-248 placeholder, not the real path):
+```bash
+curl -o hero_v2.jpg https://mortgagecalculator.co.uk/assets/images/input-data.asset-key.jpg
+```
+**My own read, for context, not as a substitute for the owner's:** dark navy/geometric
+background, five clean monochrome icons (savings, rate-protection shield, house+%+calculator,
+key, search), no artefacts, correct currency handling, reasonable clear space. Shippable,
+better than either prior attempt. **This is a genuinely different image from the one the owner
+already reviewed and superseded on 08-11** (different bytes, different content) — his earlier
+"I prefer the old one" was about *that* specific image, not declared as a standing rule against
+every future generation. **Show it to him and ask**, same as before. If he likes it: it's
+already `active`, nothing to change there; the only remaining blocker to it actually *appearing*
+on the six pages is `bugs_open/248` (still open, owned by `staged_component_build`, not ours to
+fix). If he prefers the existing branding again: mark `status='superseded'` exactly as done for
+the first one on 08-11 (same reasoning: `hasActiveAssetForPurpose` only counts `active`, so
+`superseded` correctly re-arms detection rather than silently masking the gap).
+
+## Everything else is unchanged from the 08-11 entries below
+
+- `bugs_open/248` — still open, not ours; now has a second independent instance as evidence
+  (contributed 08-12: the placeholder is *reconstructed* fresh each time, not a stale leftover).
+- Decomposition plan (`mortgagecalculator_couk_adoption/PLAN_2026-08-11_decompose_into_framework.md`)
+  — still correctly parked. The sibling lane is **more** active than when we last checked (18+
+  commits since 08-11 13:00, several live sessions still touching the site as of this check).
+  It has already built out two of the four "never-built" pages this plan named
+  (`about-index` now deployed, `contact-index` in progress) — **the plan's page inventory is
+  stale; re-survey before acting on it**, don't trust the 08-11 table as current.
+- Rota: `site-discovery-rotation-design` still `enabled=false` (the 08-10 cost pause, untouched
+  by us). Its own natural next tick for this site is still 08-18, but as demonstrated above, that
+  date is not actually load-bearing — something else can and did trigger it sooner.
+- One isolated, unchased oddity: the 19:06 item's own `result` column holds unrelated JSON
+  (checked against 8 clean siblings the same night — not systemic). Noted in the 248
+  contribution; nobody's job right now.
