@@ -4331,3 +4331,156 @@ Three seats objected, two at HIGH, and they were right: a reviewer can only judg
 what is shown, and a fleet-wide DELETE change absent from the edit list is exactly
 what must be visible. **The cheap check I should have been using all along:
 derive the edit list from `git diff --name-only`, never from memory.**
+
+---
+
+## §X.53 — 2026-08-12: the 08-04/08-05 dispatch rows are GONE, and the owner's copy critique
+
+### 1. Cold-start re-verification (all [MEASURED] 2026-08-12, read-only)
+
+RFC_015 is intact. The seven decision items read exactly as `HANDOFF_2026-08-11`
+left them. Both guarded decisions still hold **at the served page**, not merely in
+the store: D-002 → `tool-list` markers **0**; D-001 → free-check links **3**, report
+links **5**; eyebrow "How it works"; index 51,737 bytes.
+
+**The fleet has rolled past the handoff: v1.0.1290, built from `fa078ab3d`** (the
+handoff records 1289 / `f914ec81d`). Forward roll — `f914ec81d` is an ancestor, and
+the handoff's own commit `7fb97ff82` is in the build. Control: `cdf12eb84`, made
+after the build, returns NOT-IN, so the test could come out false.
+
+> **The handoff's §2/§7 provenance recipe is sound on THIS image, and CLAUDE.md's
+> "never `strings`" is about a different one.** `strings` exists in the chassis
+> image (busybox/Alpine; CLAUDE.md's "absent" note names debian-slim), the anchored
+> `^[0-9a-f]{40}$` grep returns exactly one match, and that match is a real commit
+> in our log. Meanwhile **CLAUDE.md's sanctioned method FAILED here**: the
+> `build provenance` startup line had already scrolled out of `--tail=3000` after
+> ~14h, exactly as CLAUDE.md predicts for a busy service.
+> **One correction to the handoff's framing:** running the recipe on a second
+> service is **not** a control. Whole-fleet release makes agent-chassis and
+> core-manager legitimately identical (both returned `fa078ab3d…`), so agreement
+> there says nothing. The control that discriminates is the after-the-build
+> ancestry test.
+
+### 2. The 08-04/08-05 dispatch rows do not exist — and the news half never ran
+
+Chasing the owed news item (`/data/latest-news.json` still a live 404) turned into a
+bookkeeping finding about this lane's own record.
+
+**What is measured:**
+
+- `idea.uk` has **0** rows in `content_sources`; 9 of 23 sites have any (49 rows
+  fleet-wide). `/data/latest-news.json`, `/favicon.ico` and
+  `/assets/images/og-card.png` are all **live 404s** today.
+- There is **no `missing_news_sources` row for idea.uk**. Only two exist fleet-wide
+  (mortgagecalculator.co.uk, fundamentallyai.com), both `complete`, both created by
+  `completeness-discovery-agent`, neither ours.
+- **All four IDs §X.43/§X.44 record as dispatched resolve to nothing** — `442effd4`
+  (news), `f5521eb0` (logo v2), `bc7751e6` (imagery), `a007f0ff` (section_edit) —
+  and so does the improvement-loop `3d5c6256`. Not as work-item ids, not as
+  orchestration ids, not as correlation ids.
+- **`site_work_items` is never purged**: no `deleted_at` column, oldest row
+  **2026-03-15**, 6,466 rows, every day populated including 08-05 (163 fleet-wide).
+  So absence is not retention.
+- **But §X.43's UPDATE survives exactly.** The "UPDATE 14" to `deferred` is still
+  there and still adds up: 12 `undeployed_asset` + 1 `deactivated_component` +
+  1 `needs_rerender`. The same sessions' UPDATEs persisted; their INSERTs did not.
+- **And the batch demonstrably RAN.** vm-sites carries
+  `569cc28 Section edit via section-editor` at 2026-08-05 **10:28:11Z** and
+  `85bfcab Deploy logo image for idea.uk` at 10:29:32Z. A fleet-wide sweep of
+  `site_work_items` over 08:00–13:00 that day returns **no idea.uk row at all**, and
+  no `section_edit` for any site. So the rows were not misfiled to another site.
+
+**Two zeros I had to throw away, both mine, both the same shape** — a filter that
+encoded the wrong question and could only ever return nothing:
+
+1. `WHERE client_id ILIKE '%idea%'` on `orchestration_states`. `client_id` only ever
+   holds `system` / `demo_client` / a null uuid — never a domain. The query was
+   blind by construction.
+2. The `442effd4` jsonb scan over `orchestration_states`, and the absence of
+   `3d5c6256`. **`orchestration_states` keeps roughly the last two days**: 08-11 has
+   3,887 rows and 08-12 has 2,341, while *every* earlier day has **≤7**. An 08-05
+   row would have been pruned long before I looked. Neither absence is evidence.
+
+**What I am NOT claiming.** I have not established a mechanism, and I will not
+assert one here: no purge path exists in Go (`grep -rn "DELETE FROM site_work_items"`
+finds only tests, seeds and scoped scripts — this lane's own `054_chrome_verify`
+deleter is scoped to `scratch-054-verify.invalid` and is ruled out). "Rows that drove
+real work are absent from a table with no delete path" is a durable structural claim,
+so per the 2026-07-31 ruling it needs a `090` before it goes into `bugs_open/`.
+**[UNVERIFIED] who or what removed them.**
+
+**What IS safe to act on, independent of the mystery:** idea.uk's news feed was never
+configured and still is not. That is a site defect with a framework route
+(`missing_news_sources` → `content-feed-orchestrator`, the shape that seeded
+fundamentallyai.com with `seeded: 5`), and it does not depend on explaining the rows.
+
+> **Correction to §X.44/§X.45.** Those sections record the 08-05 batch as dispatched
+> under `created_by='claude-ideauk-sec-20260805'` with those four ids, and §X.45
+> reports it "VERIFIED SERVED". The *serving* is still true — the artefacts are live
+> and I re-checked them today. The *ids and the created_by are not*: nothing in the
+> database has ever carried them. Anyone auditing this lane from those ids will find
+> nothing and should not conclude the work did not happen.
+
+### 3. OWNER'S COPY CRITIQUE — 2026-08-12, the list as given
+
+Recorded verbatim in substance, because the wording is the brief.
+
+1. **tools.html: only one card has an image.** (Already the handoff's owed
+   "card images into `items[].image`" — now owner-raised, so it is live work.)
+2. **report.html does not say what the report is worth RELATIVE TO a single agent
+   call the reader could make themselves.** A positioning gap, not a style one:
+   the page never answers "why not just ask an AI myself?"
+3. **report.html reads as AI-written, and is very negatively based.** The owner's
+   own four examples:
+   - *"That honesty is not a flaw in the service; it is the point of it."*
+   - *"We don't tell you it's great. We help you find out."*
+   - *"A thinking partner, not a verdict machine."*
+   - *"…because that is the only way the report is genuinely useful to you."*
+4. **Ban "honest" across ALL sites — with one blessed exception.** The hero line
+   *"The Verified Idea Report gives you the research, analysis, and honest assessment
+   to think your idea through properly"* is **good and stays**. Everywhere else it is
+   overuse: *"I would very seldom use honest in my speech if ever as it's such a
+   strong word, yet the copy uses it spattered all over the place."*
+5. **Fewer "riddles"** — the owner's word: *slightly obscure follow-on text that you
+   have to think hard to understand.*
+6. **Mine the mortgagecalculator.co.uk lane** for method, explicitly including its
+   **external research** step.
+
+**Why item 4 is a density rule wearing a ban's clothes, and the sibling lane already
+paid for this lesson.** The owner's own framing — good in the hero, overused
+elsewhere — is exactly the shape of that lane's 08-11 finding: *"presumption is a
+DENSITY property, not a property of the sentence"*, where an outright ban produced
+flatness and the owner later said the condemned device *"reads fine as a one-off …
+it was the barrage"*. So the instruction here is **not** "delete every instance": it
+is one sanctioned use, none elsewhere. Implement it that way.
+
+**Transferable method from `mortgagecalculator_couk_adoption` (read its
+`HANDOFF_2026-08-11` §3/§7 and `NOTES` ~L2585 before writing a word):**
+
+- **The writer reads ONE field**, `site_specs.content_direction.formatted`. SQL that
+  updates the arrays and not `formatted` looks applied and steers nothing.
+- **The model is NOT the lever** (owner ruling, 08-11) — do not change the writer
+  model.
+- **`apply_section_edit` is the only action that rewrites `rendered_html`.** An
+  assemble-only rerender reports `complete` with the body untouched, and
+  **`content_rewrite` must not be used for copy** — `bugs_open/253`: kept 84% of the
+  words and **0%** of the layout classes, and the shrink guard passed it because it
+  measures text volume and is blind to markup.
+- **The external research that lane did**, and the registers it produced: Nationwide
+  (the inclusive conditional — *"Whether you're a first time buyer or looking for a
+  better deal…"* — covers the cases instead of asserting which one the reader is);
+  Which? (nominal headings — *"First-time buyers"*, *"Home movers"* — cannot presume
+  because they never address the reader); MoneyHelper/GOV.UK (public-guidance
+  impartiality). Four registers were put to the owner — building-society warmth,
+  broadsheet explainer, quiet editorial, reference/almanac — and the answer was
+  **"a mix"**.
+- **The one rule worth more than every list:** *do not write a sentence no one would
+  say out loud.* Both phrases that owner rejected on that site were grammatical and
+  on-message; no vocabulary rule caught either, and reading aloud caught both. The
+  owner's "riddles" item above is the same test from the other side — a riddle is a
+  sentence you have to decode rather than hear.
+- **The three over-corrections to not repeat**, all one shape (turn an observation
+  into a hard rule, then let the rule write the copy): borrowed ASD-STE100 ceilings →
+  staccato; absolute ban on presumption → flat headings; mechanical ban-list →
+  sound copy reported as defective. **A style rule is a prompt for judgement, not a
+  substitute for it.**
