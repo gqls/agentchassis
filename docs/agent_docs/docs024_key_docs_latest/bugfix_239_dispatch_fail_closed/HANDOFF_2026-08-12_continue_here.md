@@ -93,7 +93,38 @@ Their constraints, all verified or credible, carried here so you need not re-der
   pool, and there is no comparable "before" against the old 4. Do not present early
   numbers as evidence the 246 fix changed anything.
 
-## TASK 2 — `bugs_open/259` (slug `three_processor_paths…`): three more dead `p.sqlDB` guards
+## TASK 2 — `bugs_open/259` (slug `three_processor_paths…`) — IN PROGRESS: B resolved, A next
+
+**Progress 2026-08-12 (`287cdffe2`): site B is DEAD CODE, and that is now recorded in the
+bug file as a visible correction.** `sendWorkflowSuccessResponse` (`processor.go:567`) has
+**zero callers repo-wide** — proven by grep with a live-sibling control, tests included —
+and the inner `sendWorkflowResponse` is dead with it (its only non-test caller is inside
+the dead function). The placeholder literal `{"status":"completed"}` exists in exactly one
+place fleet-wide, inside that cluster. The live response path reaches
+`sendWorkflowResponseWithStatus` (`:804`) directly from `:625`/`:2131` and never passes
+through any of it.
+
+**So B's `[UNMEASURED]` downstream question is answered: zero.** Nothing ever receives the
+stub. B's remedy moves from *measure-then-fix* to **delete**, joining `bugs_open/247`'s
+family. ⚠ **Do NOT add the `p.db` fallback to B** — that would resurrect a dead path and
+CREATE the live-behaviour change the filing was rightly cautious about.
+
+**What remains on 259, in order:**
+1. **Site A** (`process()`, genuinely reachable) — the open question is whether the dead
+   early-return causes a duplicate parent response or is belt-and-braces over a guard
+   elsewhere. Needs a live behavioural measurement; `[UNMEASURED]` and untouched.
+2. **Sites B and C: delete.** C is redundant (agentbase does the same two-phase claim on a
+   live handle, evidenced: 449 rows/82 writers in one hour). B is unreachable. Candidate 1
+   in the file — delete `p.sqlDB` entirely — makes the bad state unrepresentable and takes
+   B and C with it, but **A must be assessed first** because removing the handle turns A's
+   guard into an ordinary `p.db` read, which is a live-behaviour change.
+3. Council + register duties as usual; it is platform code.
+
+**The transferable lesson, now the FIRST item in that file's verify section:** a function's
+internal certainty says nothing about whether the function runs. Reachability is one grep
+and it belongs before the analysis, not after.
+
+### The filing's original account of the three sites
 
 ⚠ **259 is an AMBIGUOUS NUMBER** — an unrelated `259_…one_provision_request…gpus` was
 filed the same day. Resolve by slug, `git log` the file path.
@@ -121,6 +152,21 @@ before choosing between fix-and-enable and delete. A diagnosis (`090`) run is wa
 for B if its consumer set is not quickly enumerable — but note the landmine the other
 lane filed: **the diagnosis loop cannot see Deployment env vars** (no kubectl), so
 env-dependent questions must be answered by hand first.
+
+## THE TWO THINGS OWED RIGHT NOW (start here in a new chat)
+
+1. **Read D2's council verdict** — `e3aa14c5-adcd-4472-b0ee-213ae043e378`. Not yet landed
+   when this was written (submitted ~15:5x UTC 2026-08-12; budget ~30 min, the queue is the
+   latency, not a dropped dispatch — do NOT resubmit on an empty result). The code is
+   already on the shared branch, so a REVISE/REJECTED must be acted on, not filed.
+   ```sql
+   SELECT created_at, metadata->>'decision' FROM diagnosis_artifacts
+   WHERE correlation_id='e3aa14c5-adcd-4472-b0ee-213ae043e378' AND kind='council_report';
+   SELECT body FROM doc_notes WHERE categories ? 'council-gate' ORDER BY created_at DESC LIMIT 1;
+   ```
+2. **After the next roll, assert D2 at the artefact** — the query is in TASK 1 above.
+   `go_sql_max_open_connections` should read **12** per chassis pod; its ABSENCE is the
+   disconfirming result and is what you would see today.
 
 ## TASK 3 (small) — memory-index compaction is due
 
