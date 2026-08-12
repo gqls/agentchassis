@@ -213,3 +213,148 @@ Migrations: `393_fix_self_referential_css_vars_three_tool_components.sql` (+ROLL
 Backups: `migration_backups` under `titles_2026-08-11b_benefit_led_titles`,
 `homepage_copy_2026-08-11_benefit_led`, `393_…`.
 Bugs: `bugs_open/218`, `222`, `225`, `178`, `253` (sibling lane's, governs §7).
+
+## 11. OWNER OBSERVATIONS 2026-08-12, and why the FRAMEWORK didn't do it
+
+Owner, looking at the live homepage: **the hero image is no longer there · the top
+nav says just "Home" · the cards have no imagery but should have some.** Plus one
+copy line: **"and you don't need to sign up for any of it."** is bad copy (§3's
+rule — do not write a sentence no one would say out loud).
+
+The owner's instruction was explicit: **do not fix these by hand — find out why the
+framework didn't do it.** Every finding below is first-hand, this session.
+
+### 11.1 The hero image — GENERATED, DEPLOYED, and committed to the WRONG PATH
+
+Not a detection failure and not a dispatch failure. The framework did the whole job
+and filed the bytes under a template placeholder.
+
+- `check_placeholder_image_in_use` filed `needs_hero_image` **five times**
+  (`placeholder_image_in_use:hero`, priority 65/95): 3 `cancelled`, 2 `complete`.
+- The `complete` one at **2026-08-11 12:46:30Z** generated the image
+  (`banana/gemini-3-pro-image-preview`, 12:45:53Z), stored it, and git-committed it
+  to `gqls/sites`. Its own `result` records both halves of the defect:
+  `"hero_url": "/assets/images/hero.jpg"` alongside
+  `"file_path": "/assets/images/input-data.asset-key.jpg"`.
+- **`input-data.asset-key` is the slugified form of the literal string
+  `input_data.asset_key`** — a dotted-path INPUT that was never resolved, shipped as
+  a value.
+- **Proven on the wire, 2026-08-12:**
+  `/assets/images/input-data.asset-key.jpg` → **200, 68,984 bytes, `image/jpeg`**.
+  `/assets/images/hero.jpg` → **404**. The hero's inline
+  `background-image: …url('/assets/images/hero.jpg')` is still in the served HTML,
+  so the section renders its dark gradient over nothing.
+- `storage.DeployedAssetPath(assetKey, purpose)` (`platform/storage/url_helpers.go:317`)
+  returns the correct `hero.jpg` **only** when `assetKey == "" || assetKey == purpose`;
+  handed a literal it faithfully builds a filename from it. The shared derivation
+  (`bugs_open/168`) is not at fault — its input was a template that never resolved.
+- The item closed `complete` because every step returned success: generate ✓, store ✓,
+  commit ✓. **A complete work item is not a repaired artefact** — again.
+- ⚠ The live config now reads `"asset_key?": "input_data.spec.asset_key"` (optional
+  marker, so a miss yields `""` → the correct base path), and BOTH
+  `image-build-handler` and `asset-deployer` rows were updated **2026-08-11
+  21:52:40Z — nine hours AFTER the bad deploy**. Note the failed literal was
+  `input_data.asset_key` and the config now names `input_data.spec.asset_key`, so
+  the shape that failed is **not** the shape now live. **[UNVERIFIED]** whether that
+  change is the fix, who made it, or whether it resolves correctly now: there is no
+  `schema_migrations` row after 20:00Z on 08-11, so I could not attribute it. Do not
+  repeat "it is fixed" without a fresh deploy proving it.
+- **Also still true:** `image_url_404:hero.jpg` has been **`blocked`** since
+  2026-08-05, and `image_source_unsatisfiable:…:hero` sits at
+  `needs_human_review` priority **150** for 17 pages — every tool and guide hero.
+
+### 11.2 The top nav — the data is FINE; chrome can only THIN, never THICKEN
+
+- `site_nav_items` holds **16 items** for this site: 5 `primary`, 11 `utility`, all
+  `active`, all with a `page_id`. Nothing is missing from the nav tables.
+- The header renders **`primary` only** (`InjectHeader`, `component_library.go:2106`);
+  the footer renders primary+utility. Hence the served page carries **16 footer links
+  and 1 header link** — same site, same tables, same render pool. That contrast is
+  the whole tell.
+- Of the 5 primary items, **3 target pages have never deployed** —
+  `/guides/index.html` (`planned`), `/investor/index.html` (`needs_rebuild`,
+  `deployed_at` NULL), `/scorecard-simulator.html` (`planned`). `ChromeLinkPolicy`
+  drops them so chrome cannot ship a site-wide 404. **That is correct behaviour.**
+- The 4th, `/about/index.html`, deployed **19:38:18Z**. The stored header chrome was
+  last written **18:06:39Z** — it predates it by 92 minutes.
+- `loadFetchablePageSet` **always injects the site root**, so a "Home" item survives
+  every filter. That is why the failure looks like "just Home" rather than an empty bar.
+- **THE DURABLE, CROSS-CUTTING FINDING.** Chrome is written **once** behind an
+  idempotence gate (`render_site_components_action.go:656`, the EXISTS probe), and the
+  only repair channel — `markStaleChromeLinkSlot` (`chrome_link_policy.go:142`) —
+  fires when stored chrome contains a link the policy now **REFUSES**. A nav that is
+  **MISSING** an item contains no offending href, so **nothing ever marks the slot
+  stale**. The repair is one-directional: a nav thins when a target stops being
+  fetchable and never thickens when one starts. `chrome_link_policy.go:15-18` already
+  names THIS SITE for the mirror-image case (a dead CTA beside a filtered nav); the
+  omission direction has no channel at all.
+- So the header's five slots are spent on hub pages the framework planned and never
+  built, and the one that did build arrived 92 minutes too late to be seen.
+
+### 11.3 The cards — the right work items exist and are in a status DISPATCH CANNOT SEE
+
+- Every card item carries **`"image": ""`** — the field exists, the template supports
+  it, the value was never filled. **Zero `<img>` in any card** on the page; all cards
+  render a generic inline SVG glyph.
+- The framework filed exactly the right work:
+  `needs_imagery:section:index:1:icon_stamp_duty`, `…:icon_affordability`,
+  `…:icon_repayment`, `…:icon_scorecard` (+ `…:infographic_decision_engine`),
+  **priority 98**, handler `image-build-handler`, created by `build-site-planner` at
+  **2026-08-02 23:30:20Z**.
+- **72 seconds later all 13 `needs_imagery` rows were set to `deferred`**
+  (23:31:32.884181Z), in one batch with 3 `needs_page` + 1 `needs_rerender`.
+  `handled_by` NULL, `attempt_count` **0**, `error` empty — **never attempted**.
+- Dispatch claims only `status IN ('triaged','approved')`
+  (`claim_work_item_action.go:102`). `TriageDetectedItemsAction` promotes
+  **`detected` → `triaged`** only. **Nothing promotes `deferred`.** So these rows are
+  structurally invisible to dispatch and have sat for **10 days**.
+- **`deferred` is a black hole**: not terminal (so it still holds the dedup slot in
+  `idx_swi_dedup`, blocking a re-file of the same `item_key`), yet unreachable by
+  dispatch. Four bulk-deferral batches exist on this site: 07-31 23:24, 08-02 23:31,
+  08-03 11:02, 08-05 13:35.
+- **[UNVERIFIED]** what set them. No Go path writes `deferred` for these item types
+  (only migration `389` does, for `contrast_failure`, on 08-11). Most likely a session
+  parked the adoption-time build queue by hand — **I did not establish it, do not
+  repeat it as fact.**
+
+### 11.4 Two more defects on the same page, NOT yet named by the owner
+
+- **The hero CTA is bare text with no anchor.** The served `hero-content` holds
+  `Work out your payments` as a raw text node — no `<a>`, no `href`, no class. The
+  hero has no working call to action at all. (Distinct from the §4 ghost-button
+  contrast fix, which was about a poisoned CSS var; this element has no link element.)
+- **One tool card renders an empty description.** `<p class="tl-card-desc"></p>` on
+  stamp-duty, because its `pages.meta_description` is empty; **9 of 31 pages** have
+  none. The other 5 tool cards and all 4 guide cards are populated.
+  > **CORRECTED in-session:** my first read said *every* card description was empty —
+  > I generalised from the first card in the HTML. It is **1 of 6**. The check that
+  > caught it was counting all matches instead of reading one
+  > (`empty=1` of `tl-card-desc: 6`), i.e. the "a count you kept is not a census" trap.
+
+### 11.5 What these three share, and what is OWED
+
+All three symptoms are the **same shape, three times**: detection worked, the right
+item was filed, and the artefact never arrived — once because the deploy path was an
+unresolved template, once because the repair channel only runs in the thinning
+direction, once because the item sits in a status dispatch cannot select. In no case
+was the framework missing a mechanism. **This is the "a silent mechanism is UNDRIVEN,
+not missing" class, and 11.1's closing `complete` is the "a complete work item is not
+a repaired artefact" class.**
+
+**Three candidates for `090`, all cross-cutting and all outside the symptom:**
+1. Chrome nav repair is one-directional — it can thin, never thicken (every site).
+2. An unresolved dotted-path input is passed through as a LITERAL and becomes a
+   filename, with success reported at every step (every image deploy).
+3. `deferred` has no promotion path back to dispatch, while still holding the dedup
+   slot that would let the finding be re-filed.
+
+Per CLAUDE.md these are exactly the "cause lives outside the symptom / fix changes
+behaviour fleet-wide" cases that must go through the loop **before** being asserted
+durably. §2's audit-blindness `090` is **still owed** as well. Nothing above has been
+through it, so treat 11.2's mechanism and 11.3's black-hole claim as **this session's
+first-hand reading, not established findings** — the wire evidence in 11.1
+(200 at the wrong path, 404 at the right one) is the one item that stands on its own.
+
+**Do NOT hand-fix any of it** (owner, this session). In particular: do not
+`git mv` the stranded JPEG into place and do not hand-write nav rows — that
+converts a diagnosable framework defect into an invisible one.

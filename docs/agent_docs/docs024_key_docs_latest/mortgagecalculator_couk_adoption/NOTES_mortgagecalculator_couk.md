@@ -2726,3 +2726,145 @@ the shape rather than every instance.]`
 the sentence** — and every one was caught by the owner reading the live page,
 never by the rule itself. The rules improve because the page keeps testing them;
 the spec cannot test itself.
+
+---
+
+## 2026-08-12 — three owner observations, traced to three framework defects
+
+Owner on the live homepage: **hero image gone · top nav says just "Home" · cards
+have no imagery.** Then, explicitly: *"The point is not to do that manually but to
+figure out why the framework didn't do it."* Also flagged as bad copy: *"and you
+don't need to sign up for any of it."*
+
+Full write-up in `HANDOFF_2026-08-11_continue_here.md` §11. Evidence trail here.
+
+### The hero — generated, deployed, filed under a template placeholder
+
+The work item's own `result` carries both halves:
+
+```
+"hero_url":  "/assets/images/hero.jpg"                    <- what the page asks for
+"file_path": "/assets/images/input-data.asset-key.jpg"     <- where the bytes went
+```
+
+`input-data.asset-key` is the slugified form of the literal `input_data.asset_key`
+— a dotted-path INPUT shipped as a value. Wire test, the decisive one:
+
+```bash
+curl -sS -o /dev/null -w '%{http_code} %{size_download} %{content_type}\n' \
+  https://mortgagecalculator.co.uk/assets/images/input-data.asset-key.jpg
+# 200 68984 image/jpeg          <- the hero image, live, at the wrong URL
+curl … /assets/images/hero.jpg
+# 404 1151 text/html            <- what the served CSS references
+```
+
+**The control matters here**: both URLs in the same breath, one that must be present
+and one that must be absent. A 404 alone would only have said "no hero"; the pair
+says "the hero exists and the path is wrong", which is a different bug with a
+different fix.
+
+`storage.DeployedAssetPath` (`url_helpers.go:317`) returns `hero.jpg` only when
+`assetKey == "" || assetKey == purpose`. Given a literal it builds a filename from
+it, correctly. The shared derivation (`bugs_open/168`) is sound — its input was a
+template that never resolved. Every step reported success, so the item closed
+`complete`.
+
+⚠ `image-build-handler` and `asset-deployer` were both updated **2026-08-11
+21:52:40Z**, nine hours after the bad deploy, and the config now reads
+`"asset_key?": "input_data.spec.asset_key"` — optional marker, different path shape
+from the literal that failed (`input_data.asset_key`). **[UNVERIFIED]** whether
+that is the fix: `schema_migrations` has no row after 20:00Z on 08-11, so I could
+not attribute the change. Resisted the temptation to call it fixed.
+
+### The nav — the data was never the problem
+
+```sql
+-- 16 rows: 5 primary, 11 utility, all active, all with a page_id
+SELECT g.group_key, i.label, i.url FROM site_nav_items i
+JOIN site_nav_groups g ON g.id=i.group_id WHERE i.site_id=<sid>;
+```
+
+**MISSTEP, recorded because it nearly ended the investigation early:** my first
+hypothesis was "the nav tables are empty and `GetNavItems` fell back to the
+hardcoded Home/About/Services/Contact default" (`multipage_actions.go:368`). The
+query above refuted it in one shot — 16 rows. Had I trusted the hypothesis and
+gone looking for *why the tables were empty*, I would have spent the session in
+`PopulateNavTablesAction`, which is entirely innocent here.
+
+What actually discriminated: the **footer carries 16 links and the header carries
+1**, same page, same tables. Header renders `primary` only; footer renders
+primary+utility. A single-cause theory cannot produce that asymmetry.
+
+Then the per-item join to `pages`:
+
+| primary item | url | build_status | deployed_at |
+|---|---|---|---|
+| Home | /index.html | deployed | 08-11 20:28 |
+| Guides | /guides/index.html | planned | — |
+| Investor Tools | /investor/index.html | needs_rebuild | — |
+| About | /about/index.html | deployed | 08-11 **19:38** |
+| Scorecard | /scorecard-simulator.html | planned | — |
+
+Three never deployed → `ChromeLinkPolicy` drops them rather than ship a site-wide
+404, which is right. About deployed at 19:38; the stored header chrome was written
+**18:06** — 92 minutes earlier. `loadFetchablePageSet` always injects the site
+root, which is why "Home" survives and the bar isn't empty.
+
+**The finding worth more than this site:** chrome is written once behind the
+idempotence gate (`render_site_components_action.go:656`), and the only repair
+channel, `markStaleChromeLinkSlot`, fires when stored chrome holds a link the
+policy **refuses**. A nav *missing* an item has no offending href, so nothing marks
+the slot stale. **The nav thins and never thickens.** `chrome_link_policy.go:15-18`
+names this very site for the opposite case (a dead CTA); the omission direction has
+no channel.
+
+### The cards — right items, wrong status
+
+Every card item holds `"image": ""` — field present, template willing, value never
+filled. Zero `<img>` in any card.
+
+```
+needs_imagery:section:index:1:icon_stamp_duty        priority 98  deferred
+needs_imagery:section:index:1:icon_affordability     priority 98  deferred
+needs_imagery:section:index:1:icon_repayment         priority 98  deferred
+needs_imagery:section:index:1:icon_scorecard         priority 98  deferred
+```
+
+Created by `build-site-planner` **2026-08-02 23:30:20Z**, all 13 `needs_imagery`
+rows set `deferred` at **23:31:32.884181Z** — 72 seconds later, one batch,
+`handled_by` NULL, `attempt_count` **0**. Never attempted.
+
+Dispatch claims `status IN ('triaged','approved')`
+(`claim_work_item_action.go:102`); `TriageDetectedItemsAction` promotes
+`detected` → `triaged` only. **Nothing promotes `deferred`.** And `deferred` is not
+in `workItemTerminalStatuses`, so it still occupies the `idx_swi_dedup` slot — the
+finding cannot even be re-filed under the same `item_key`. Undispatchable and
+un-refilable at once.
+
+**[UNVERIFIED]** what deferred them: no Go path writes `deferred` for these types
+(only migration `389`, for `contrast_failure`, on 08-11). Four bulk batches exist
+(07-31, 08-02, 08-03, 08-05); a hand-park at adoption is the obvious guess and I
+did not establish it.
+
+### Misstep 2 — I generalised a card defect from one card
+
+Wrote that "every card description is empty" after reading the first `tl-card` in
+the HTML. Counting says **1 of 6** (`tl-card-desc: 6 found, empty=1`) — stamp-duty
+only, whose page has no `meta_description`; 9 of 31 pages have none. Corrected in
+the handoff where the claim was made. The cheap check that would have caught it is
+the one I eventually ran: count all matches, don't read the first.
+
+### Found while looking, not yet named by the owner
+
+**The hero CTA is bare text.** `hero-content` holds `Work out your payments` as a
+raw text node — no `<a>`, no `href`. The hero has no working call to action. This
+is NOT the §4 ghost-button case (a poisoned CSS var on a real button); here there
+is no link element at all.
+
+### Shape of all three
+
+Detection worked every time. The right item was filed every time. The artefact
+never arrived — once because the deploy path was an unresolved template, once
+because the repair channel only runs one way, once because the item sits where
+dispatch cannot select it. **No missing mechanism anywhere.** Three candidates for
+`090` are listed in handoff §11.5, alongside §2's still-owed audit-blindness run.
