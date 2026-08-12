@@ -1000,3 +1000,118 @@ site entirely while any of its items is `claimed`, so a single claim drops that
 site's whole backlog out of the count and a release puts it back. The honest
 figure is the one above: pending items older than ours, which does not move when
 a claim is taken.
+
+---
+
+## 2026-08-12 12:40 — the build landed; delivery to the box is silently NOT happening
+
+**The queue reached us, and the ~6h estimate held.** `needs_domain_research` was
+claimed and completed at **23:55:19** on 08-11 — **6h55m** after filing at 17:00,
+against the `[MEASURED]` prediction of ~6h from 589 items at ~95/hour. Recorded
+because the estimate was falsifiable and could have been wrong: no bypass was
+fired, so the queue drained on its own and the arithmetic is what it was tested on.
+
+The whole cascade then ran unattended overnight:
+
+| spec / stage | by | at |
+|---|---|---|
+| identity, classification, content_direction, design_intent | domain-research-classifier | 23:54 |
+| vertical_landscape | vertical-exemplar-researcher | 01:40 |
+| strategy | domain-strategist | 02:22 |
+| briefing | build-briefing-agent | 03:04 |
+| site plan → pages → imagery → rerender | build-site-planner, page-build-handler, image-build-handler | 03:22–04:37 |
+
+**5 pages, 16 components, zero empty renders**: `index` (landing), `how-it-works`,
+`migrate` (landing), `about`, `contact`. `rebuild_policy` is not a `pages` column
+on this schema — the decomposition check (§4.4, "no `owned` pages") still needs
+doing wherever it does live.
+
+One `needs_page` shows `failed` ("Re-render index after its image asset landed",
+attempt 1 of 3). **It self-resolved** — five `page_rerender` items filed at
+04:12 all completed 04:17–04:24, index included, so the artefact is current. Left
+`failed` rather than retried; `failed` is not in the dispatcher's
+`status IN ('triaged','approved')`, so it will never be re-picked. Harmless here,
+but it is a dead row that looks like an open failure.
+
+### The pages ARE in the repo and are NOT on the box
+
+`[MEASURED 2026-08-12 12:35]` Framework → repo works: `gqls/vm-sites/noted.co.uk/`
+holds all five files (17.9–26.4 KB) plus `assets/` and `tools/`, committed
+04:19–04:37. The box's checkout is at the right commit (`15d11f095`, "Rerender:
+migrate.html", branch `main`, correct remote).
+
+`/var/www/noted.co.uk/` is **empty**, and box-local nginx returns **403 / 162 B**
+for `Host: noted.co.uk`.
+
+**Root cause, verified first-hand end to end** — the box's clone is a **cone-mode
+sparse checkout whose cone contains only `webdesign.uk`**:
+
+```
+$ git -C /var/lib/sitesync/repo sparse-checkout list
+webdesign.uk
+$ cat .git/info/sparse-checkout        # /*  !/*/  /webdesign.uk/
+$ git -C … ls-tree --name-only origin/main   # noted.co.uk IS in the tree
+$ ls /var/lib/sitesync/repo/           # …but no noted.co.uk/ directory
+```
+
+So `git fetch`/`reset --hard origin/main` succeed and materialise nothing for
+noted; the folder never appears; and **sitesync's own safety guard then skips it
+silently**:
+
+```bash
+if [ -d "$folder" ] && [ -d "$webroot" ]; then rsync -a --delete "$folder/" "$webroot/"; fi
+```
+
+That guard is correct for the case it was written for ("the box is provisioned
+before the site's first page deploys — absent is nothing to sync, not an error"),
+but it **cannot distinguish "not deployed yet" from "sparse cone excludes it"**.
+Result: `sitesync.service` exits **0/SUCCESS** every 5 minutes, the timer looks
+healthy, and nothing is ever delivered. Verified: last run 12:33:20, `status=0`.
+
+**Where the drift comes from.** The 2026-08-11 generalisation added
+`noted.co.uk:/var/www/noted.co.uk` to `DOMAINS` in `/usr/local/bin/sitesync`. The
+sparse cone is set in a *different* file that only ever runs once —
+`webdesign_uk_build_service/box/setup-webdesignbox.sh:70`,
+`git sparse-checkout set webdesign.uk` (idea.uk's original does the same at
+`provision-pullsync.sh:119`, commented "this box fetches ONLY idea.uk/"). **Two
+lists that must agree, in two scripts, one of which is never run again.** The
+NOTES entry of 08-11 called the loop "the whole change" — it was not; that claim
+is corrected here.
+
+### Why fixing it is safe, checked rather than assumed
+
+`noted.co.uk` apex is served **from B2**, not from the box: response carries
+`x-amz-*` + `server: cloudflare`, and the body still contains "being refreshed"
+and "Save everything" — the legacy app and its wind-down notice, intact. So
+populating `/var/www/noted.co.uk` takes the box from 403 to serving the framework
+build and **cannot change what any user sees**; cutover remains the separate
+deliberate step (§4.5). `rsync --delete` is scoped to that web root, so
+`webdesign.uk` is not a target.
+
+Residual risk to state plainly: `sparse-checkout add` re-runs a checkout in the
+repo that also feeds the **live commercial shopfront**. If `webdesign.uk`
+materialised *partially*, the next `rsync --delete` would damage it. Before/after
+control on the shopfront is mandatory (§8), not optional.
+
+### Two things NOT actioned, flagged
+
+1. **Six `unresolved_cta` items in `needs_human_review`** — and confirmed at the
+   artefact, not just from the summaries: **every `hero` and `call-to-action`
+   slot renders zero `<a>` anchors** (index, how-it-works, migrate; plus the
+   about/contact heroes), and **no component anywhere links to
+   `app.noted.co.uk`**. Body content does link internally (index
+   `info-card-grid` 6 anchors, `about-content` 3, both referencing `/migrate`).
+   The items' own fix note: *"No real page exists to serve as this CTA's
+   destination (no eligible content hub). The gated template renders no button."*
+   So the site has no call to action and no route to the product at all.
+   `[INFERRED, not verified]` the resolver looks for an internal content hub and
+   this product's CTA target is a different origin (`app.noted.co.uk`), which is
+   why nothing resolved — that is a guess about the resolver, not a read of it.
+   **Do not "fix" this by writing `rendered_html`**: a CTA fix written only there
+   is invisible to the template and dies on the next content change.
+2. **Shopfront byte drift, unattributed.** Handoff §8 records the box-local
+   baseline as `200 / 28419 B`; it now reads `200 / 28015 B` (−404). This session
+   ran read-only commands only and did not touch it; the webdesign lane updates
+   that site continuously, so the likeliest explanation is a legitimate change
+   and a stale baseline. Recorded, **not** joined to anything else — handoff §9
+   family 3 is exactly this mistake. Whoever owns that baseline should re-pin it.
