@@ -168,3 +168,63 @@ four created after the census that declared it so, the newest two days ago. Cand
 at creation) is unaffected by everything above and remains the only one that stops the count
 growing — arguably *strengthened*, since with the checks shown sound, the growing count is now
 the principal ongoing harm rather than one symptom among several.
+
+## ADDENDUM 2 (filing session, 2026-08-12) — refutation INDEPENDENTLY REPRODUCED, and the one thing it leaves contingent
+
+**The refutation above is correct and I am not taking it on trust — I re-ran the load-bearing
+measurement myself, blind to their method, and got the same answer.** Every property-level key
+across all four components:
+
+```sql
+SELECT k.key, count(*) FROM content_components c
+CROSS JOIN LATERAL jsonb_each(c.input_schema->'properties') AS p(key,value)
+CROSS JOIN LATERAL jsonb_each(p.value) AS k(key,val)
+WHERE c.input_schema ? 'properties' GROUP BY 1 ORDER BY 2 DESC;
+--  type 11 · items 2 · minItems 2 · description 1
+```
+
+Four keys, nothing else. And the three survival paths are in the code as described:
+`minItems` → `min_items` (`:92-96`), `description` → `llm_guidance` (`:105-107`), and the
+`source: "llm"` default (`:112-114`). Both checks do call the helper
+(`check_required_fields_missing.go:100`). **So my "a check quietly doing less than it
+reports" claim is REFUTED. Struck, not softened.**
+
+> **This is what the `[UNMEASURED]` marker is for.** I flagged that claim as unmeasured and
+> named it as the measurement that would decide severity, rather than asserting it in the same
+> voice as the rest of the file. It was wrong, it cost one query to find out, and it was
+> refuted before anyone routed work at it. Recording that here because the marker earning its
+> keep is worth more than the claim was.
+
+**The sharpening the refutation opens, which changes nothing today and dates the result.**
+The projection copies **exactly six** property keys — `source`, `on_missing`, `fallback`,
+`missing_reason`, `items`, `min_items` (`:87`) — plus the three special cases above.
+**Everything else in a legacy property is silently dropped.** So "lossless" is not a property
+of the projection; it is a property of *what these four components happen to declare today*.
+A fifth legacy component using any ordinary JSON Schema key outside that set — `maxItems`,
+`enum`, `pattern`, `format`, `default` — loses it silently. `maxItems` is the sharpest
+example, because `minItems` **is** remapped and its twin is not, so the two adjacent keys
+behave differently with nothing to signal it.
+
+**And the count is growing** — most recent arrival 2026-08-10, six days after the census that
+called the dialect extinct. **So this is a clean result with an expiry date**, and re-running
+the enumeration is a precondition for trusting it again, not a one-off. That is an argument
+for **fix candidate 3 (refuse the dialect at creation)** and against treating the checks'
+soundness as a reason to relax: today's soundness is luck about declaration style, and the
+population producing it is still being added to.
+
+⚠ **Do not read "the checks are sound" as "the dialect is harmless."** The two claims have
+different lifetimes: the first is measured against four specific rows on 2026-08-12; the
+second would need to hold for every legacy component anyone creates from here.
+
+**Adopted from the refutation, unchanged:** the residual risk points at **false positives**,
+not blindness — no property of the four declares `source`, so the helper presents every field
+of all four as writer-authored. Any that is really renderer- or query-supplied is over-reported.
+Different remedy, different queue, and worth carrying in the file rather than folding into the
+severity note. And `loans-consolidation`'s invisibility to `check_required_fields_missing` is
+its own missing `required[]`, not the projection's doing — a v2 component with no required
+flags is equally invisible.
+
+**Net effect on this file:** Defect 1 stands unchanged and is now the whole of the bug's
+urgency. Defect 2's *silence* claim stands (the tripwire's only output is still a `Warn` that
+nobody reads); Defect 2's *consequence* claim is refuted. Fix candidate 2's urgency drops for
+those two call sites specifically; candidate 3 is strengthened.
