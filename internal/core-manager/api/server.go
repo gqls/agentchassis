@@ -105,6 +105,14 @@ func (s *Server) setupRoutes(authConfig *middleware.AuthMiddlewareConfig) {
 	// This endpoint is for agents to register with a bootstrap key, not a JWT.
 	s.router.POST("/api/v1/agents/bootstrap", bootstrapHandler.HandleAgentBootstrap)
 
+	// Site-facts relay (Special Authentication, bypasses AuthMiddleware —
+	// same rationale as bootstrap: the caller is a headless box service with
+	// a static token, not a user with a JWT). Read-only; serves evidence_base
+	// FACTS by domain so box-hosted tools hold live DB truth instead of
+	// compiled-in copies. Reached over WireGuard; ClusterIP only, no ingress.
+	siteFactsHandler := handlers.NewSiteFactsHandler(personaRepoImpl.ClientsDB(), s.logger)
+	s.router.GET("/api/v1/site-facts/:domain", siteFactsHandler.HandleGetSiteFacts)
+
 	// API v1 group with authentication
 	apiV1 := s.router.Group("/api/v1")
 	apiV1.Use(middleware.AuthMiddleware(authConfig))
