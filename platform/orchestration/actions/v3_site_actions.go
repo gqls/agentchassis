@@ -621,9 +621,19 @@ var UpdatePageStatusInputSpec = datahelpers.ActionInputSpec{
 			"Implement it as a feature if wanted, do not re-add the key",
 	},
 
-	// Not StrictConfig yet: that is a separate adoption needing its own clean
-	// census under the RFC_021 Q1 protocol (run scripts/audit-config-keys.sh —
-	// do not infer it from anything written here).
+	// Strict as of bugs_open/234's follow-on (owner decision 2026-08-12), under
+	// the RFC_021 Q1 protocol: a fresh all-depths census at adoption, recorded
+	// in the adopting commit, plus the standing daily removed-config-keys-check
+	// as the ongoing guard — no per-adoption council round or producer
+	// inventory required (that question was settled once, by RFC_021 itself).
+	// Census at adoption: 9 live steps carry this action (default_config only —
+	// task_workflow/orchestrator_workflow/orchestration_workflow carry none),
+	// and every key they set is one of the five ConfigKeys above. Zero
+	// unrecognised. From here an unrecognised key on this action is a
+	// definition error caught at validation, not a silent no-op found by
+	// archaeology months later — the exact shape that cost bugs_open/234 and
+	// this action's own three retired keys.
+	StrictConfig: true,
 }
 
 func init() {
