@@ -108,6 +108,41 @@ way round but worth knowing.
   (`is_current=false`) — one UPDATE from being live again; its copy is in
   `snapshot_2026-08-11_gbp1200_offer/`.
 
+## 3b. ⚠ THE MIGRATION BROKE THE CTA BUTTONS, AND THE REPAIR IS A HAND PATCH
+
+Read this before any rebuild of webdesign.uk. The regeneration dropped
+`cta_url` / `primary_cta_url` / `secondary_cta_url` from every hero and
+call-to-action block on the four offer pages — **14 anchors, 7 components** —
+because both templates gate the anchor on the URL rather than the label, so
+each button rendered as nothing. Repaired and live at 17:37Z (index 2, faq 4,
+how-it-works 4, what-you-get 4).
+
+- **The repair is in `rendered_html` as well as `content_data`, by necessity.**
+  A `page_rerender` dispatched after the `content_data` fix still produced no
+  buttons: these fields are `source: "renderer"`, and the render path
+  re-resolves them to nothing rather than reading the stored value.
+- **So the next rebuild of these pages will delete the buttons again**, file a
+  `page_divergence_overwritten` item, and look successful. `SQL_2026-08-12e`
+  re-applies the anchors and is idempotent; the deployed files also need the
+  same patch pushed to `gqls/vm-sites` (see `b538295` for the shape).
+- **The mechanism is filed for diagnosis, not asserted**: `090` run
+  `97ef39f0-19df-4935-834d-c80514fbc43e`. Read its verdict before building a
+  fix. `bugs_open/238` is the parent bug and its banner is **stale** — it says
+  the carry is "inert until the next roll"; the carry is live (agent-chassis
+  `v1.0.1291` ← `da5a7eb8f`, merge-base verified with controls). This is a gap
+  in the carry's coverage, not an unshipped fix.
+- **`required_links` is now declared on all five pages**, so
+  `gate_page_links.py --domain webdesign.uk` covers the whole site rather than
+  the guide alone. Run it after any rewrite — and run its `--self-test` first.
+- **The invariant check that would have caught this**, and should precede and
+  follow any regeneration:
+  ```sql
+  SELECT p.name, pc.slot_name,
+         (SELECT count(*) FROM regexp_matches(pc.rendered_html,'href="','g')) AS links
+  FROM page_components pc JOIN pages p ON p.id=pc.page_id
+  WHERE p.site_id='1fcfa4f3-ec80-4010-878b-b971cd46711f' ORDER BY p.name, pc.position;
+  ```
+
 ## 4. Landmines for this work (08-11 §5 still holds; these are new)
 
 - **`EvidenceFact.Value` is `*float64`.** A non-numeric `value` in any fact
@@ -120,6 +155,12 @@ way round but worth knowing.
 - **A register enforces its BANS and merely hopes for its FACTS.** Removing a
   fact does not remove the claim from the page — see §1.5. Anything you want
   gone must be named in `banned_claims`.
+- **A regeneration silently deletes what it was not asked about.** The claims
+  scan, the byte-delta check, the retired-term grep and the served fetch all
+  passed while every CTA button on the site was gone — each answers a narrower
+  question than "is the page still right". Diff the INVARIANTS (link count,
+  image count, component count) as a matched before/after pair, and treat what
+  you did not intend to change as the finding. §3b, and `WRONG_CALLS.md`.
 - **`mode=edit_live` is load-bearing** on `content_rewrite` items
   (`bugs_open/178`). Without it the writer never sees the page's current prose
   and fabricates a replacement.

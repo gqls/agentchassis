@@ -282,3 +282,54 @@ only take a few jobs at a time and close when full. Both are true and both are
 currently manual. The ZIP would have to be assembled by hand today, and the
 queue is a promise rather than a mechanism. Neither is a problem while nobody
 can pay yet, but they move up the list the moment the Stripe keys go in.
+
+
+---
+
+2026-08-12, later. I need to correct what I told you an hour ago, because it was
+wrong in a way that mattered.
+
+I said the migration was done and clean. It was done, and it was not clean: it
+had **deleted every "Get in touch" and "Send us an email" button on all four
+selling pages**, including both buttons on the home page. On a site whose whole
+job is to get someone to make contact, those buttons are the point. They are
+back now, and I checked them on the live site rather than taking anything's word
+for it.
+
+What happened is worth explaining, because it is the kind of failure this system
+produces and it is nearly invisible. When the writer rewrote each page it kept
+the button **text** and dropped the button **link**. The page template only
+draws a button when it has somewhere to send you, so a button with no link is
+not a broken button, it is no button at all. Nothing errored. The text was
+right, the length was right, the price was right, and the buttons had simply
+ceased to exist.
+
+The part I am least comfortable about is that I had five checks and all five
+passed. One checked for forbidden phrases. One checked the pages had not been
+shortened. One checked the old prices were gone. One checked the new pages had
+reached the live site. And one — which I had built that same afternoon
+specifically to stop the system quietly dropping links — checked the links on
+the long guide page, because that was the page I thought was at risk. It passed.
+The damage was on the four pages I had not pointed it at.
+
+So the honest lesson is not "I should have checked more carefully". It is that
+every check I ran was aimed at the thing I was trying to do, and none of them
+asked what else the rewrite might have touched. A rewrite touches the whole
+page. I have written the one-line check that would have caught it into the
+handover notes, so it runs before and after every future rewrite, and I have
+recorded the mistake in the fleet-wide log where we keep these.
+
+Two practical things follow. First, I found it by accident: I was reading what
+looked like a routine bookkeeping message and it turned out to be the system
+telling me a rebuild had overwritten a hand-repair the other session made
+yesterday — the same buttons, wiped the same way. That message was the only
+thing standing between this and going unnoticed. Second, the fix I have applied
+is a patch rather than a cure. The underlying fault is in shared platform code,
+so I have submitted it to the diagnosis system rather than guess at it — I had
+one theory today that turned out to be wrong, and I would rather have it checked
+than be confidently wrong twice. Until that is fixed, **the next time anyone
+rebuilds those pages the buttons will disappear again**, and the handover notes
+say so in bold.
+
+The migration itself stands. All five pages sell the £149 offer, none of the old
+terms survive anywhere on the live site, and the buttons work.
