@@ -96,6 +96,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
+	"github.com/gqls/agentchassis/platform/orchestration/input_contracts"
 	"go.uber.org/zap"
 )
 
@@ -187,22 +188,45 @@ func InstallSiteCompositionAction(ctx context.Context, params ActionParams) (int
 	//
 	// Both default false and both go through the loud reader, so the widest
 	// branch still needs a well-formed, deliberate `true` from someone.
+	// `resolvedFrom` exists because a SILENT no-op and a SAFE refusal look
+	// identical from outside (council b8e341b9, round 2, guardian: "ship this
+	// with a log line naming which branch resolved the flag so a silent no-op is
+	// diagnosable, not just safe"). GetBoolFieldLoud is deliberately quiet when
+	// a key is ABSENT — correct for it, but it means "the spec never arrived"
+	// and "the spec arrived without the key" are indistinguishable in the log,
+	// and those two have completely different fixes.
+	resolvedFrom := "default(false): no declaration in step config or work item spec"
 	allowReinstall := datahelpers.GetBoolFieldLoud(
 		params.StepConfig.Config, "allow_reinstall", false, logger,
 		zap.String("action", "install_site_composition"),
 		zap.String("source", "step_config"),
 		zap.String("site_id", siteID.String()),
 	)
-	if !allowReinstall {
-		if spec := requestSpecFromCollected(params.CollectedData); spec != nil {
-			allowReinstall = datahelpers.GetBoolFieldLoud(
-				spec, "allow_reinstall", false, logger,
-				zap.String("action", "install_site_composition"),
-				zap.String("source", "work_item_spec"),
-				zap.String("site_id", siteID.String()),
-			)
+	if allowReinstall {
+		resolvedFrom = "step_config"
+	} else {
+		spec, specPath := requestSpecFromCollected(params.CollectedData)
+		switch {
+		case spec == nil:
+			resolvedFrom = "default(false): no " + requestSpecPath + " in collected_data"
+		case datahelpers.GetBoolFieldLoud(
+			spec, "allow_reinstall", false, logger,
+			zap.String("action", "install_site_composition"),
+			zap.String("source", "work_item_spec"),
+			zap.String("site_id", siteID.String()),
+		):
+			allowReinstall = true
+			resolvedFrom = specPath
+		default:
+			resolvedFrom = "default(false): " + specPath + " present but declares no true allow_reinstall"
 		}
 	}
+	logger.Info("InstallSiteCompositionAction: allow_reinstall resolved",
+		zap.Bool("allow_reinstall", allowReinstall),
+		zap.String("resolved_from", resolvedFrom),
+		zap.String("site_id", siteID.String()),
+		zap.String("domain", domain),
+	)
 
 	// Idempotency guard. A site that already has a collection is only
 	// re-composed when the CALLER has explicitly asked for it.
@@ -660,34 +684,46 @@ func readTypographyNameInTx(ctx context.Context, tx *sql.Tx, id uuid.UUID) (stri
 	return name, err
 }
 
+// requestSpecPath is the ONE collected_data path the dispatching work item's
+// `spec` arrives at. Named so the "we did not find it" log line can quote the
+// path it looked at, rather than leaving a reader to grep for it.
+const requestSpecPath = "input_data.spec"
+
 // requestSpecFromCollected returns the dispatching work item's `spec` object
-// from collected_data, or nil when there isn't one.
+// from collected_data plus the path it was found at, or (nil, "") when there
+// isn't one.
 //
 // Why this exists rather than a path in the step's config: the config map is
 // resolved as PATH REFERENCES into collected_data, so an author cannot put a
 // literal switch there without it being read as a lookup. The work item's spec
 // is the per-request channel, and it is the only one a single dispatch can set.
 //
-// Shape, in the order the dispatch loop actually produces it:
+// THE SHAPE IS MEASURED, NOT GUESSED (2026-08-12). Round 2 of council
+// b8e341b9 objected — five seats, on the documented envelope-unwrap fault line —
+// that this was a shape guess that could silently never populate. Over 30 days
+// of orchestration_states carrying input_data: `input_data.spec` is present on
+// 2,363 runs and `input_data.body.spec` on ZERO. Two live
+// needs_composition → site-design-planner dispatches carry the work item's spec
+// VERBATIM under input_data.spec — null-valued keys included, which is what
+// shows the dispatcher passes the spec whole rather than projecting a subset.
+// The `body.spec` branch this function used to carry was dormant machinery and
+// has been removed; if a third shape ever appears the action refuses (safe) AND
+// the caller's `resolved_from` log line names the path it looked at, so the
+// diagnosis is one grep rather than a code read.
 //
-//	collected_data.input_data.spec        — the usual one
-//	collected_data.input_data.body.spec   — when the request arrived wrapped
-//
-// Returns nil rather than an empty map so the caller can tell "no spec" from
-// "a spec that says nothing"; both are treated as "did not ask", but only the
-// second is worth a reader's attention.
-func requestSpecFromCollected(collected map[string]interface{}) map[string]interface{} {
-	inputData, ok := collected["input_data"].(map[string]interface{})
-	if !ok {
-		return nil
+// Uses input_contracts.GetValueAtExactPath — the platform's existing exact-path
+// reader — rather than datahelpers.ExtractNestedField, which auto-unwraps
+// through a `.response` envelope. That auto-unwrap is right for reading data and
+// wrong here: this is an AUTHORITY switch, and it must not be satisfiable by a
+// `true` that arrived inside some other agent's reply.
+func requestSpecFromCollected(collected map[string]interface{}) (map[string]interface{}, string) {
+	value, found := input_contracts.GetValueAtExactPath(collected, requestSpecPath)
+	if !found {
+		return nil, ""
 	}
-	if spec, ok := inputData["spec"].(map[string]interface{}); ok {
-		return spec
+	spec, isMap := value.(map[string]interface{})
+	if !isMap {
+		return nil, ""
 	}
-	if body, ok := inputData["body"].(map[string]interface{}); ok {
-		if spec, ok := body["spec"].(map[string]interface{}); ok {
-			return spec
-		}
-	}
-	return nil
+	return spec, requestSpecPath
 }

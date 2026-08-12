@@ -39,6 +39,19 @@
 // The first mutation failing C as well as A is the useful part: C is what stops
 // a malformed declaration switching the unsafe direction on, so it has to be
 // sensitive to the same check.
+//
+// ROUND 3 (2026-08-12) added F and reworked the spec read onto the platform's
+// exact-path helper. Three more mutations RUN before commit, results observed:
+//   - spec path → "input_data.NOPE"          → D FAILS alone
+//   - `allowReinstall = false` after the
+//     step-config read                       → B FAILS alone
+//   - both silent-no-op strings collapsed
+//     to "default(false)"                    → F FAILS alone (both sub-cases)
+//
+// Each mutation failing exactly ONE test is the point: it says the three
+// channels — step config, work item spec, and the diagnostic that tells their
+// absences apart — are independently load-bearing rather than one check wearing
+// three names.
 package actions
 
 import (
@@ -50,6 +63,7 @@ import (
 	"github.com/gqls/agentchassis/pkg/models"
 	orchtypes "github.com/gqls/agentchassis/platform/orchestration/types"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest/observer"
 )
 
 const (
@@ -201,5 +215,69 @@ func TestInstallSiteComposition_MalformedSpecFlagDoesNotEnableReinstall(t *testi
 	if err == nil || !strings.Contains(err.Error(), "re-resolve not requested") {
 		t.Fatalf(`a non-bool allow_reinstall="yes" in the work item spec enabled the `+
 			`reinstall path; it must fall back to the SAFE branch: %v`, err)
+	}
+}
+
+// F — the council's round-2 guardian objection, made ENFORCED rather than
+// merely present: "ship this with a log line naming which branch resolved the
+// flag so a silent no-op is diagnosable, not just safe."
+//
+// The two failure modes below both end in the same refusal and the same absent
+// flag, and they have completely different fixes — "the spec never arrived"
+// (dispatch/shape problem) versus "the spec arrived without the key" (whoever
+// queued the item forgot it). GetBoolFieldLoud is deliberately silent on an
+// ABSENT key, so without `resolved_from` nothing in the log tells them apart.
+//
+// Asserting the substrings is what stops the line rotting into decoration: a
+// future edit that drops the distinction fails here rather than being noticed
+// months later by someone debugging a flag that "does nothing".
+func TestInstallSiteComposition_ResolvedFromDistinguishesTheSilentNoOps(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		specKeys   map[string]interface{} // nil = no input_data at all
+		wantSubstr string
+	}{
+		{
+			name:       "no spec reached the action",
+			specKeys:   nil,
+			wantSubstr: "no input_data.spec in collected_data",
+		},
+		{
+			name:       "spec arrived but declares nothing",
+			specKeys:   map[string]interface{}{"stage": "composition"},
+			wantSubstr: "present but declares no true allow_reinstall",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			params, _, done := reinstallParamsFrom(t, nil, nil)
+			defer done()
+
+			core, logs := observer.New(zap.InfoLevel)
+			params.Logger = zap.New(core)
+			if tc.specKeys != nil {
+				params.CollectedData["input_data"] = map[string]interface{}{"spec": tc.specKeys}
+			}
+
+			_, err := InstallSiteCompositionAction(context.Background(), params)
+			if err == nil || !strings.Contains(err.Error(), "re-resolve not requested") {
+				t.Fatalf("premise broken — this case must still refuse: %v", err)
+			}
+
+			var got string
+			for _, entry := range logs.FilterMessage(
+				"InstallSiteCompositionAction: allow_reinstall resolved").All() {
+				if v, ok := entry.ContextMap()["resolved_from"].(string); ok {
+					got = v
+				}
+			}
+			if got == "" {
+				t.Fatalf("no allow_reinstall resolution was logged at all; a silent " +
+					"no-op is then indistinguishable from a safe refusal")
+			}
+			if !strings.Contains(got, tc.wantSubstr) {
+				t.Errorf("resolved_from does not identify this case:\n  got:  %q\n  want substring: %q",
+					got, tc.wantSubstr)
+			}
+		})
 	}
 }
