@@ -13,6 +13,13 @@ and is not repeated here. **§7 of it is superseded by this file.**
 > (~105/h) against ~48/h completed, open work ~273 → **544** — and the guard counts
 > `triaged`, so **sites over the guard went 5 → 1 (park) → 8 (now)**, worse than the state
 > the park was done to fix. **Do not re-enable without reading that entry.**
+>
+> **RESOLVED 2026-08-12 12:39Z (v1.0.1290): the queue cleared overnight exactly as
+> predicted, and the prediction could have come out otherwise.** `triaged` **446 → 0**,
+> `complete` +542 (2,803), `failed` 66 → 15, and the guard census is **0 of 22 sites locked
+> out** (from 8). Sweep still `enabled=false`; 226 contrast rows still `deferred`. This is
+> the behavioural confirmation of MISSTEP 20(a): had the drain depended on the sweep,
+> `triaged` would have sat at 446 all night.
 
 **`improvement-sweep` is RUNNING and nobody has scheduled its stop.** The owner asked for
 "a short while"; nothing expires on its own. Re-enabled 2026-08-11 12:31Z at 900s.
@@ -136,9 +143,18 @@ revisions under one tag** (`bugs_open/249`), so a tag is not a revision.
    `pages_total` into the summary the adapter returns, so a capped sweep cannot read as a
    complete one. Every one of the 19 overnight sweeps measured **at most 25 pages** and
    none said whether that was all; **226 is a floor, not a census.**
-3. **Unpark the contrast items when 213 closes** — one UPDATE, written out at the foot of
-   migration `389`, predicated on `spec->>'parked_by' = 'migration_389'` so it cannot
-   disturb anyone else's deferred rows. Row-level backup:
+3. ~~**Unpark the contrast items when 213 closes**~~ — **TRIGGER CORRECTED 2026-08-12: 213 is
+   NOT the gate, and closing it changes nothing here.** `contrast_failure` has **no
+   registered verifier** (filed at `write_render_audit_findings_action.go:258`; absent from
+   every `RegisterVerifier*` call site, of which there are 12), so unparking mints 226 rows
+   that complete **ungraded by construction** — not merely at risk from 213's predicate
+   mismatch. **The real trigger: `contrast_failure` gets a verifier, or someone rules it
+   needs none.** That is now the lane's cheapest high-value code task, and it is smaller
+   than 242: one `RegisterVerifier` plus a predicate that re-measures the selector's
+   contrast, which this lane already has the tooling for (VIZ-010, the Python contrast
+   tool). 213's lane has been told they are no longer blocking us. The restore itself is
+   still one UPDATE at the foot of migration `389`, predicated on
+   `spec->>'parked_by' = 'migration_389'`; row-level backup
    `scratchpad/backups/backup_park_contrast_failure_20260811.tsv`.
 4. **Free cross-check, if a lane re-renders robot-hands `/selection-guide.html`:** the
    audit filed `info-card-grid__card-link` + `__eyebrow` failures there, and migration

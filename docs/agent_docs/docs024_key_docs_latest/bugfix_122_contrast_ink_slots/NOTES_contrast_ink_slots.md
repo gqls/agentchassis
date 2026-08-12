@@ -999,3 +999,46 @@ into `bugs_open/213`'s path while the sweep ran.
 **Where this leaves the lane:** 544 open re-render items draining at ~50/h with arrivals now
 stopped ⇒ **~11h to clear**, after which the guard releases the locked sites by itself. That
 outcome needs *not* doing, not doing.
+
+## 2026-08-12 — the overnight prediction held, and the park's REASON changed
+
+Measured 12:39Z on **v1.0.1290** (both chassis replicas, started 2026-08-11 21:53Z; the
+`build provenance` startup line had already rotated out of `--tail=3000`, as CLAUDE.md warns).
+
+**The stop was the right call and the prediction was disconfirmable, which is why it is worth
+recording.** `page_rerender`: `triaged` **446 → 0**, `complete` 2,261 → **2,803 (+542)**,
+`failed` 66 → **15**, `detected` 12. Guard census: **0 of 22 sites locked out**, from 8 at the
+moment of stopping. Sweep still `enabled=false`, untouched by any other session; 226
+`contrast_failure` rows still `deferred`. Had the drain in fact depended on the sweep — the
+claim MISSTEP 20(a) refuted — `triaged` would have sat at 446 all night. It went to zero.
+
+**The 213 re-run I promised them.** `_verification` population **26 → 44**, and rows now
+**postdate** the roll (latest `completed_at` 2026-08-11 18:57Z vs 08-09 the day before), so
+the "nothing gradeable has completed" explanation for `out_of_scope = 0` is dead. But
+`out_of_scope` is **still 0**, and the reason is not their bug:
+
+- **14 `dark_section_audit` items**, all `audit_source='design-audit'`, all created
+  12:49–17:56Z (the sweep's own output) and completed 12:56–21:35Z — **all post-roll** — and
+  **0 of 14 carry a `_verification` key at all.** Same window, `hardcoded_section_colors` is
+  **9 of 9**.
+- Mechanism read, not inferred: `verifyBeforeComplete` resolves via
+  `checks.GetVerifier(itemType)` (`complete_work_item_verification.go:70`) and an
+  **unregistered** type completes untouched, documented at `:16`. The `out_of_scope` branch
+  (`:112`) needs a *registered* verifier that declines. `dark_section_audit` is at no
+  `RegisterVerifier*` call site (12 types are; it is not one).
+
+> **This is the "a gate's 0 findings has TWO causes" trap, and I recorded the reassuring
+> cause yesterday.** Yesterday's contribution read `out_of_scope = 0` as **idle, not blind**
+> and said so in their bug file. That was right *for the evidence then* — every row predated
+> the roll — but I stated it as a property of the gate rather than of the traffic, and the
+> caveat I attached ("re-run tomorrow") is the only reason it did not harden into a false
+> reassurance. **A verdict about a silent mechanism expires when the traffic changes**, and
+> the check is the one I nearly skipped because the answer was already written down.
+
+**The park STAYS, and my previous reason for it was wrong.** I had told 213's lane "they
+unpark when you close this". Withdrawn: **`contrast_failure` has no registered verifier
+either** — filed at `write_render_audit_findings_action.go:258`, absent from every
+`RegisterVerifier*` site. So unparking the 226 mints rows that complete **ungraded by
+construction**, which 213 closing does not change. The trigger is now "`contrast_failure` has
+a verifier, or someone rules it needs none" — and 213 is **no longer blocking this lane**,
+which they have been told so they do not hold their closure for my 226.

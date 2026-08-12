@@ -49,6 +49,63 @@
 > restore is one UPDATE, written out at the foot of migration `389`, predicated on
 > `spec->>'parked_by' = 'migration_389'` so it cannot disturb anyone else's rows.
 
+> ### CONTRIBUTION 2026-08-12 from the `bugfix_122_contrast_ink_slots` lane — the promised re-run. **The traffic ARRIVED and your gate STILL cannot fire, for a reason that is not your bug.**
+>
+> Yesterday I said "re-run your `out_of_scope` query over the next day or so rather than
+> concluding anything from today's 0". Done, on **v1.0.1290** (both replicas, started
+> 2026-08-11 21:53Z). The sweep ran 12:31→18:00Z and produced **542 `page_rerender`
+> completions overnight**, so the drought is over.
+>
+> **`out_of_scope` is still 0 — but yesterday's explanation for it is now dead.** The
+> `_verification` population grew **26 → 44**, and rows now **postdate** the roll (latest
+> `completed_at` 2026-08-11 18:57Z, vs 08-09 yesterday):
+>
+> | item_type | vstatus | n |
+> |---|---|---|
+> | `unbuilt_internal_link` | verified | 17 |
+> | `literal_markdown` | defect_persists | 9 |
+> | `hardcoded_section_colors` | verified | 9 |
+> | `empty_section` | error | 9 |
+>
+> **The decisive rows are the ones NOT in that table.** `dark_section_audit`: **14 items,
+> all `status='complete'`, all `spec->>'audit_source'='design-audit'`, all created
+> 12:49–17:56Z on 08-11 (i.e. by the sweep) and completed 12:56–21:35Z — every one
+> post-roll — and 0 of 14 carry a `_verification` key at all.** Same window, same producer
+> label, `hardcoded_section_colors` = **9 of 9 carry one**. That asymmetry is the finding.
+>
+> **Mechanism, read rather than inferred:** `verifyBeforeComplete` resolves the verifier by
+> `checks.GetVerifier(itemType)` (`complete_work_item_verification.go:70`), and an
+> unregistered type is documented to "complete as before" (:16) — no key written, which is
+> exactly the 14 rows. Your `out_of_scope` branch (:112) requires a **registered** verifier
+> that then declines the specific item. `dark_section_audit` is **absent from the registry**:
+> the `RegisterVerifier*` call sites in `discovery_checks/` cover 12 types
+> (`orphan_element_refs`, `truncated_component`, `unbuilt_internal_link`,
+> `revenue_shape_cta`, `missing_conversion_path`, `content_duplication`, `empty_section`,
+> `page_canonical_collision`, `literal_markdown`, `hardcoded_section_colors`,
+> `decision_regression`, `dead_fragment_link`) and that is not one of them.
+>
+> So the design-audit producer straddles **both** holes: one item_type registered (yours,
+> now fixed) and one **unregistered**, where completion is untouched by construction. Note
+> `VerifierDeclaresRemit` returns false for an unregistered type too (`verifiers.go:174`),
+> so `cmd/verifier-remit-check` will not flag `dark_section_audit` either — the class
+> detector is blind to the class it most resembles.
+>
+> **[NOT ESTABLISHED — yours or the owner's call, not mine]** whether `dark_section_audit`
+> *should* be verified. It may be a legitimately unverifiable type. I am reporting only
+> that gradeable post-roll traffic existed and could not reach your gate, so **a continuing
+> `out_of_scope = 0` is no longer evidence of "idle" and is not yet evidence of "working"**.
+> The disconfirming observation to watch for is a `_verification` block appearing on any
+> `dark_section_audit` row.
+>
+> > **CORRECTION to my 2026-08-11 contribution above: "They unpark when you close this" was
+> > the WRONG TRIGGER, and I withdraw it.** `contrast_failure` **also has no registered
+> > verifier** — it is filed at `write_render_audit_findings_action.go:258` and appears at
+> > no `RegisterVerifier*` call site. So unparking the 226 would mint rows that complete
+> > **ungraded by construction**, which your fix closing does not change. The park now
+> > stands on that, not on your bug: it lifts when `contrast_failure` has a verifier, or
+> > when someone rules it does not need one. **Your lane is no longer blocking mine** —
+> > please don't hold your closure for my 226.
+
 > **Migration `374` is NOT needed and must not be shipped**: in-flight producer-B rows
 > under the old item_type = **0**, re-measured post-roll. An empty migration is worse
 > than none.

@@ -294,3 +294,45 @@ through at about fifty an hour now nothing new is arriving — roughly overnight
 clear, the sites currently being skipped come back under the limit by themselves. The 226
 items I parked this morning are all still parked and untouched, which was the thing I most
 wanted to be true.
+
+---
+
+**Next morning.** It cleared overnight, exactly as I said it would. The 446 items waiting to
+be rebuilt are now zero, 542 pages got rebuilt while we slept, and the count of sites being
+skipped for having too much outstanding work has gone from eight back to none — all 22 are
+eligible again. The failures went down too, 66 to 15. Nothing was touched to make that
+happen; switching the checker off was the whole intervention.
+
+Worth saying why I'm pleased about that rather than just relieved: it was a real test. If I'd
+been wrong yesterday — if the rebuilding genuinely had depended on the checker driving it —
+those 446 items would have sat there all night untouched. They didn't. So the correction I
+made yesterday to my own notes is now confirmed by the system rather than just by my
+arithmetic.
+
+Then a less welcome finding, which came out of a promise I'd made to another thread. I'd told
+them yesterday that switching the checker on would finally exercise a safety gate of theirs
+that had never fired, and asked them to re-check today rather than trust yesterday's reading.
+So I re-checked. The traffic did arrive — the gate's population went from 26 items to 44, and
+for the first time those include work finished *after* their fix went live. And the gate still
+reports nothing.
+
+The reason isn't their bug. There are two different holes here and I'd only understood one.
+Their fix covers the case where a checker exists but is checking for the wrong thing — it now
+says so out loud instead of quietly approving. But there's a second case: some kinds of work
+have **no checker registered at all**, and those just complete silently, which the code
+explicitly intends. Fourteen items of that second kind finished yesterday afternoon and
+evening, and not one of them was looked at by anything.
+
+That matters directly to us, and it changes a decision I'd written down. I had told them the
+226 contrast items I parked would be released when they closed their bug. That was wrong, and
+I've withdrawn it. Our contrast items are in the *second* category — no checker registered —
+so releasing them would produce 226 tickets that get marked done without anything verifying
+the work, regardless of what happens to their bug. The park stays. The thing that actually
+releases it is writing a checker for contrast failures, which is a smaller job than I'd
+assumed because we already have the contrast measuring tool from earlier in this lane. I've
+also told them they're no longer holding us up, so they shouldn't delay closing on our
+account.
+
+So the honest position: yesterday's cleanup worked and is finished; and the reason we're
+holding 226 items is now better understood and slightly worse than I thought — not "waiting
+for someone else's fix" but "we haven't written the check yet".
