@@ -1,8 +1,35 @@
 # 253 — a framework rewrite of a decomposed prose block strips every layout component
 
-**Filed 2026-08-11.** Observed live on `loanandmortgagecalculator.co.uk/index.html`
-within four hours of that page being decomposed. **This is the finding that governs
-Track B**, and it was not predicted by any of the decomposition briefs.
+**Filed 2026-08-11. GUARD SHIPPED 2026-08-12** (`0c8e08ccb`,
+`Council-Submitted: b30ac52c`); **the live page was already repaired by then, by a
+different route — see "Two remedies" below.** Observed live on
+`loanandmortgagecalculator.co.uk/index.html` within four hours of that page being
+decomposed. **This is the finding that governs Track B**, and it was not predicted
+by any of the decomposition briefs.
+
+> ### ⚠ NUMBER COLLISION — `253` names TWO unrelated bugs
+> The other is `253_..._label_match_overlap_count_ties_on_incidental_nav_label_words`.
+> Its fix commits (`c6dcbcaa8`, `6ea633cea`, `9b7811d4b`) are **not** this bug's, and
+> a `git log` by number will hand you the wrong case. **Refer to this one by slug.**
+
+## Two remedies, and the one that actually repaired the page was not the code
+
+**The live homepage is no longer flattened.** Re-measured 2026-08-12: `class="card"`
+**12**, `tool-grid` **2**, `btn-primary` **12**, `highlight-box` **1**, `hero` **1**
+(prose-0 rewritten 16:03). It was repaired by the lane session seeding a
+`content_direction` telling the writer the cards are good and stay, then re-running —
+**not** by any change to the platform.
+
+That is the important lesson and it should not be lost in the fix: **the writer was
+not malfunctioning, it was uninstructed.** Handed a block of markup with no
+description of what the markup means, it produced clean prose. Told what the page's
+vocabulary was, it kept it. So the primary remedy for a flattening is
+`content_direction`, and the guard below is the **safety net for the case where
+nobody thought to write one** — which is exactly the case that occurred here, and
+will occur again on the next site decomposed by someone who does not know to.
+
+The guard's own refusal sentence says this, deliberately: it directs the reader to
+give the writer the component vocabulary rather than to lower the floor.
 
 ---
 
@@ -67,6 +94,23 @@ write — but **that is a hypothesis, not a diagnosis, and it should go through 
 before anyone asserts it.** The observation above is solid; the cause is not.
 
 ## Fix candidates, ordered by what closes the door
+
+> **(1) IMPLEMENTED 2026-08-12** — `platform/orchestration/actions/save_sections_component_floor.go`,
+> commit `0c8e08ccb`, `Council-Submitted: b30ac52c-e42d-4110-bd22-fce5598b3bf7`
+> (verdict not yet read — do **not** upgrade that trailer to `Council-Reviewed:`
+> without reading it). Calibrated on the real before/after rather than invented:
+> prose-0 class attributes **43 before → 1 flattened (0.02) → 31 on the good rewrite
+> (0.72)**, i.e. the bad and good cases are **35× apart**, so 0.25/0.34/0.50 all
+> separate them. Default 0.5 mirrors the text floor. Scope threshold 10 class
+> attributes, from a fleet distribution of median 5 / p90 35 over 1,422 unlocked
+> slots (~31% of slots in scope). Counts class ATTRIBUTES, not tokens, and is
+> deliberately blind to WHICH classes — a rewrite swapping one valid vocabulary for
+> another passes.
+>
+> **Stated weakness:** the safety evidence is **one** good rewrite. The floor is
+> DEFAULT ON, so it changes behaviour for every `save_page_sections` caller on the
+> first roll; that call is flagged for the council explicitly rather than buried,
+> and its sibling shipping default-on at the same 0.5 is the precedent relied on.
 
 1. **A markup-preservation floor beside the text floor.** The shrink guard already
    exists and already raises a human-reviewable item; it is the natural home. Assert
