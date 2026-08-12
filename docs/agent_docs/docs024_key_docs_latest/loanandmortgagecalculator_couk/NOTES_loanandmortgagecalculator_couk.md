@@ -2061,3 +2061,104 @@ ca0d8274 URL is stale at round 2 and cannot be updated from here.
 page needs an attempt-count reset with a stated reason. Backup table
 `_bak_index_rewrite_20260811` retained (now two generations behind the live page:
 restore = old bytes back via row write + assemble-only rerender).
+
+---
+
+## 2026-08-12 (late) — TRACK B STARTED: proving page decomposed, and both blockers were guards doing their job
+
+Owner authorised Track B on 2026-08-11 and said "continue as you suggested" today.
+Proving page chosen from the manifest's own shapes rather than from memory:
+**`loans-standard-calc`** — `prose-tool-prose` (the shape `loans-consolidation` proved),
+class A oracle coverage, and NOT the regulatory page (`mortgages-stamp-duty` goes last).
+
+### Blocker 1 — THE PINNED REF WAS STALE FOR 16 OF 22, and the tool refused
+
+`decompose_lmc.py` stopped dead:
+
+```
+REFUSING: PINNED_REF b318a8fad is STALE for 16 of 22 verbatim page(s) in scope
+Decomposing these would write the PINNED bytes over the LIVE ones.
+```
+
+**That refusal prevented silently reverting the `bugs_open/224`/`225` fixes** — the
+0% APR fix and the SDLT correction both landed in the sites repo AFTER b318a8fad.
+My local sites clone was **1,407 commits behind origin/master**; the remote branch is
+`master`, per the standing landmine. Re-pointed `PINNED_REF` to the concrete SHA
+`7e6b993ef` (never a branch name — the guard's own instruction) and its check then
+reported `pin 7e6b993ef matches the live stored rows for all 22`.
+
+**The general lesson, and it is the tool's not mine:** a decomposition source is a
+BASELINE, and a baseline that names a moving thing stops being a control. The guard
+that compares the pin against the live rows before writing anything is the reason this
+lane has not corrupted a page yet.
+
+### Blocker 2 — the oracle's own control was crying wolf, and it blocked the page
+
+`oracle.py --mutate expectation --tools standard-calc` reported:
+
+> CONTROL DID NOT FAIL — 3 checks PASSED under a mutation that makes every answer
+> wrong. The checker is inert.
+
+**The checker was not inert.** The three survivors were all
+`run_determinism`'s *"same inputs by two routes"* checks, which compare the page
+against **itself** — its docstring says so: *"needs no oracle, no formula and no sight
+of the page's source"*. Corrupting EXPECTATIONS cannot move them, by construction, so
+they passed, and the verdict rule is a blanket `counts["PASS"] > 0 → inert`.
+
+Fixed: under `--mutate expectation` and `--mutate crosstool`, determinism records are
+now **N/A with the reason stated in the record**, so the criterion "no check may PASS"
+stays exact. `--mutate parse` deliberately excluded — it corrupts the INPUT, which a
+determinism check genuinely should notice.
+
+```
+before: PASS 3  FAIL 12  N/A 0   -> "the checker is inert"   (false alarm)
+after:  PASS 0  FAIL 12  N/A 3   -> CONTROL OK
+```
+
+**Why this is worth more than the ten minutes it cost:** a control that fires on a
+healthy instrument is worse than no control, because the next session learns to wave it
+through — and this one sat directly across Track B's first page. The RUNBOOK already
+carved out exactly this nuance for `--mutate parse` ("the criterion is *no check may
+PASS*, not *some check must FAIL*"); the carve-out was simply incomplete.
+
+### Blocker 3 (minor) — a stale assertion firing on the lane's own CSS
+
+`decompose_lmc.py` refused on `guides/car-finance-and-your-mortgage.html`:
+*"page-local `<style>` — censused ZERO site-wide"*. The census was 2026-07-31,
+**before decomposition existed**; the block is Track A's own deliberate
+assembled-layout shim from `load_chrome.py` (reasoning in `PLAN_2026-08-05`). Widened
+to permit exactly that shim in `<head>`, still refusing any other head style and ANY
+body style. Re-censused at the new pin: **zero of the 22 tool pages carry a page-local
+style at all**, so the widening changes nothing for Track B.
+
+### The proving page, verified in the DB
+
+```
+prose-0   pos 0            636 b
+tool-1    pos 1  permanent 2443 b   <- script + calculators.js tag + 3 inputs + 3 outputs all present
+prose-2   pos 2           2689 b
+pages.sections = ["prose-0","tool-1","prose-2"]   rebuild_policy = owned (UNCHANGED)
+```
+
+Baseline oracle for the tool, taken BEFORE the apply with its controls in the same
+session: **PASS 9 / FAIL 0 / CONVENTION 6**, parse control OK, expectation control OK
+(after the fix above). Backup: `page_components_bak_20260805_lmc` (41 rows/41 pages) plus
+`load_lmc.py --restore loans-standard-calc`, proven 2026-08-11.
+
+### ⚠ STEP 4 (the flip to `generic`) IS DELIBERATELY NOT DONE — stated, not skipped
+
+The procedure's last step flips the page to `rebuild_policy='generic'`. **Deferred, with
+the reason, and the owner has been told rather than presented with a fait accompli.**
+Evidence that arrived AFTER the authorisation:
+
+- `bugs_open/253_…strips_every_layout_component`: a generic rebuild of a decomposed page
+  strips every layout class from its **prose** rows. Track B's shape is
+  `[prose, LOCKED tool, prose]` — the tool is safe, the prose either side is not.
+- Rounds 4, 6 and 7 on the homepage today: every rebuild also **dropped links**, under
+  three different instructions, losing three different sets.
+
+Decomposition alone already delivers component-level editing — migration 164 leaves
+re-assembly of existing `page_components` un-gated on purpose, *"it is how owned pages
+deploy"*. The flip adds only **wholesale rebuildability**, which today means
+destructibility. Flip when 253 is fixed and link preservation is mechanical
+(`gate_page_links.py` + stage 2 are exactly that).

@@ -616,7 +616,7 @@ def build_tools():
 # ---------------------------------------------------------------------------
 
 
-def run_determinism(d, url, spec):
+def run_determinism(d, url, spec, mutate=None):
     """Is the tool's output a FUNCTION OF ITS INPUTS, or of how you got there?
 
     Drive the SAME final vector twice, reached by two different routes, and
@@ -654,6 +654,28 @@ def run_determinism(d, url, spec):
         a, b = readings[0][s], readings[1][s]
         rec = {"vector": spec["name"], "what": "same inputs by two routes: %s" % s,
                "sel": s, "shown": "%r vs %r" % (a, b)}
+        # OUT OF SCOPE for the expectation-corrupting controls, and it must be
+        # reported as such rather than as a PASS (fixed 2026-08-12, Track B).
+        #
+        # This check compares the page against ITSELF — see the docstring: "needs no
+        # oracle, no formula and no sight of the page's source". So corrupting the
+        # EXPECTATIONS cannot make it fail, by construction. It was still counted as a
+        # PASS, and the control's rule is "no check may PASS", so `--mutate expectation
+        # --tools standard-calc` reported *"3 checks PASSED … the checker is inert"* on
+        # a checker that was working correctly — the 12 expectation-based checks all
+        # failed exactly as they should. A control that cries wolf gets ignored, and
+        # this one blocked Track B's first page until it was read.
+        #
+        # `--mutate parse` is deliberately NOT in this list: it corrupts the INPUT, so
+        # a determinism check genuinely should notice, and its existing refusal path
+        # already handles it.
+        if mutate in ("expectation", "crosstool"):
+            rec.update(status="N/A",
+                       note="out of scope for --mutate %s: this check reads no "
+                            "expectation, so corrupting expectations cannot move it. "
+                            "It is NOT evidence either way in a control run." % mutate)
+            out.append(rec)
+            continue
         if a == b:
             rec["status"] = "PASS"
         else:
@@ -936,7 +958,7 @@ def main():
                                  "status": "N/A", "note": str(e)})
             for spec in tool.get("determinism", []):
                 try:
-                    recs += run_determinism(d, url, spec)
+                    recs += run_determinism(d, url, spec, mutate=a.mutate)
                 except (PageLoadError, DriveError) as e:
                     recs.append({"vector": spec["name"], "what": "(determinism)",
                                  "status": "N/A", "note": str(e)})

@@ -85,7 +85,7 @@ from decompose_prover import (  # noqa: E402
 )
 from decompose_pages import collapse_runs, split_ordered  # noqa: E402
 
-PINNED_REF = "b318a8fad"
+PINNED_REF = "7e6b993ef"  # re-pointed 2026-08-12: b318a8fad was stale for 16 of 22 (rerenders push continuously)
 SITE_DIR = "loanandmortgagecalculator.co.uk"
 SITES_REPO = os.path.expanduser("~/projects/sites")
 # Same value as load_lmc.py's; needed here only by assert_pin_matches_live().
@@ -154,9 +154,30 @@ def decompose_page(relpath, html, chrome, calc_js_src, verbose=False):
         if "application/ld+json" not in s[:80]:
             raise SystemExit("%s: executable <script> in <head> — believed to "
                              "carry none; widen the rule" % relpath)
-    if re.search(r"<style\b", body_s, re.I) or re.search(r"<style\b", head_s, re.I):
-        raise SystemExit("%s: page-local <style> — censused ZERO site-wide; "
-                         "widen the rule" % relpath)
+    # WIDENED 2026-08-12, exactly as the old message asked. The ZERO census was taken
+    # 2026-07-31, BEFORE this lane's own decomposition existed. Track A then installed
+    # the assembled-layout shim into the shared chrome head (load_chrome.py, reasoning
+    # in PLAN_2026-08-05), so every assembled page now carries one page-local <style>
+    # and the assertion fired on the lane's own intended CSS —
+    # guides/car-finance-and-your-mortgage.html, which blocked Track B until this.
+    #
+    # A style block in the BODY is still a stop-the-line surprise, and so is any HEAD
+    # block that is not the shim: the head is discarded at decomposition, so anything
+    # load-bearing in it would be silently lost. Identified by the shim's own comment
+    # marker rather than by byte equality, because its --maxw value is site-scoped.
+    # Re-censused at pin 7e6b993ef: ZERO of the 22 tool pages in scope carry any
+    # page-local <style> at all, so this widening changes nothing for Track B and only
+    # unblocks the already-decomposed pages the script walks past.
+    if re.search(r"<style\b", body_s, re.I):
+        raise SystemExit("%s: page-local <style> in <body> — still censused ZERO; "
+                         "a body style survives decomposition unpredictably, so stop "
+                         "and look" % relpath)
+    for st in raw_blocks("style", head_s):
+        if "Assembled-layout shim" not in st:
+            raise SystemExit("%s: page-local <style> in <head> that is NOT the "
+                             "assembled-layout shim — the head is discarded at "
+                             "decomposition, so this would be lost silently. Widen the "
+                             "rule only after reading what it styles." % relpath)
 
     title_m = re.search(r"<title>(.*?)</title>", head_s, re.S | re.I)
     desc_m = re.search(r'<meta\s+name=["\']description["\']\s+content=["\'](.*?)["\']',
