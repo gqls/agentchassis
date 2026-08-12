@@ -984,3 +984,29 @@ there structurally — this fix cannot move that pool).
 fleet roll, per the standing bar. `bugs_open/248` (the recompute-destroys-authored-links
 defect in the repair path's excluded-area handling) is untouched by this fix and remains the
 other blocker on draining the `misdirected_cta` work-item queue.
+
+**2026-08-12 — fleet rolled; 253 confirmed FIXED AND LIVE and CLOSED
+(`bugs_closed/253_HANDOFF_...md`, commit `d9664e4dc`).** Two direct checks, neither inferred
+from the roll announcement itself: (1) build provenance — the startup log line had scrolled
+out of `--tail=3000` on both live pods, so fell back to probing `/proc/1/exe` directly:
+extracted every 40-hex substring in one bounded `grep -aoE` (not a blind single-string
+discovery grep — that lands on Go's internal digit tables and returns the same wrong answer
+on every service, per the standing landmine) and cross-checked each candidate against real
+commit hashes with `git cat-file -e`, since a spurious binary-table match cannot also be a
+real, existing commit in this repo. Found `da5a7eb8f`, confirmed a descendant of the fix
+commit `f1819861f` via `merge-base --is-ancestor`. (2) Live control — re-ran
+`completeness-discovery-agent` on robot-hands.com directly (the scheduled rotation can't be
+targeted); `how-to-specify-a-gripper` now carries zero `misdirected_cta` findings, down from
+the 3 that opened this bug. 17 `misdirected_cta` findings remain fleet-wide on that run, but
+all a different, unrelated site-content ambiguity (matchmatrix/matchmatrix-methodology/
+how-it-works naming) — not a 253 recurrence, not chased further here.
+
+First council run **failed on infrastructure, not content**: the top-level `error` column
+(not `collected_data`, which held nothing — a second landmine-shaped trap, distinct from the
+`__step_error`-vs-`error` one already on file, since here `__step_error` was itself empty and
+the real message lived in the table's own `error` text column) read `reaper: stale
+EXECUTING_STEP for >4h; step=review_bug_historian` — one seat hung and was reaped, no verdict
+ever produced. Resubmitted under the same trail correlation
+(`ccef36de-6757-4777-91db-37864b018622`, new run `101c11d9-50d7-4499-98b2-894138213094`);
+verdict still pending when this entry was written — check it before treating this lane as
+fully clear, closing the bug file does not retire that obligation.
