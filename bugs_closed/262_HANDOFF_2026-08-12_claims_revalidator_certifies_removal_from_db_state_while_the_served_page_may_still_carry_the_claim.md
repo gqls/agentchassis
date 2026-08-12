@@ -1,6 +1,41 @@
 # 262 — the claims revalidator certifies a claim REMOVED from DB state, while the served page may still carry it
 
-> ## ✅ FIXED 2026-08-12 — `ce8733262`. **OPEN until it rolls**, because the defect is reproducible until then.
+> ## ✅ CLOSED 2026-08-12 (evening) — `ce8733262`, **LIVE on `v1.0.1293`**. Bar met: fixed AND live.
+>
+> **Probed at the artefact, not at git, the tag or a status.** 98 Running `agent-chassis` pods on ONE
+> digest `sha256:4717bcb3`, tag `v1.0.1293`, rolled 2026-08-12T19:13:54Z. `grep -a` on `/proc/1/exe`,
+> exit code captured beside every count:
+>
+> ```
+> NEEDLE_262=1 rc=0   ("…the database is not the website")
+> NEEDLE_262b=1 rc=0  ("an unreadable page row is not evidence that anything shipped")
+> NEGCONTROL_oldselect=0 rc=1   (a string ea18664f3 REMOVED — proves the binary is NEWER than it)
+> CONTROL_pos=1 rc=0            ("register moved, not the page" — the owner's gate)
+> CONTROL_absent=0 rc=1         (fabricated — proves grep can return 0)
+> ```
+>
+> ⚠ **This commit has no removed-string control of its own.** Its only deletions in the shipped file
+> are two function signatures, which leave no greppable literal. `NEGCONTROL_oldselect` therefore
+> proves the binary is newer than `ea18664f3`, **not** newer than `ce8733262`; what proves *this*
+> commit shipped is the two present needles, both unique to it (`grep -rn` over non-test Go → 1 hit).
+> Say it that way rather than letting a borrowed negative control vouch for a later commit.
+>
+> ### ⚠ The gate is LIVE but has NEVER BEEN ASKED — and that is not the same as "it approved"
+>
+> **The sweep has not run since the roll.** `review-queue-revalidate-daily` (daily, enabled) last
+> fired **2026-08-12T08:44:33Z**; the published gate was committed at **17:42Z** and rolled at
+> **19:13Z**. So its `0` refusals is *"never asked"*, structurally — not *"asked and found nothing"*.
+> The same holds for the claim-granular gate (committed 12:56Z, also after that run).
+> **The next daily run, ~2026-08-13 08:44Z, is the first that can exercise either.**
+> 21 open items will be re-examined then.
+>
+> ⚠ **Do not read the run history off the revalidation stamp.** `result->'revalidation'->>'at'` is
+> **last-write-wins** — every open item carries the SAME `2026-08-12T08:44:34Z`, because each run
+> overwrites it. Grouping by it looks like a run log and is not one; it shows the last run that
+> touched each row, so a run whose items were all re-examined later is invisible. I inferred
+> "08-11 was skipped" from exactly that and it was **unsupported** — `scheduled_tasks` is where the
+> cadence lives. To ask *"has my gate ever been asked?"*, compare `max(stamp)` against the ROLL time,
+> never against the refusal count.
 >
 > Fix candidate 1 was taken. `resolved` now also requires that the page was **published after its copy
 > last changed**. Four refusal arms, all non-terminal and all spelled differently, because *"I could

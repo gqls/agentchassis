@@ -1228,3 +1228,36 @@ work. The lesson is one we already have written down and I'd been ignoring for t
 commit as soon as the work stands up on its own.
 
 Nothing is left in flight. The handover file is current and a new chat can pick up from it.
+
+---
+
+**2026-08-12, later that night — the fix shipped, the bug is closed, and one honest caveat.**
+
+The roll went out. The published gate is live on the fleet: 98 running copies of the service, all the
+same build, and I asked the running program directly whether it contains the new code rather than
+trusting the version number. It does. So `262` is now fixed *and* live, which is the bar for closing
+a bug here, and I've moved it into the closed pile with the evidence written inside it.
+
+**The caveat, and it's the useful part of tonight.** The gate is switched on, but it has not yet been
+*asked anything*. This job runs once a day, and today's run happened at 8:44 in the morning — hours
+before either of the two newest gates existed. So when the tally says "this gate has refused nothing",
+that currently means "nobody has put a question to it", not "it looked and was happy". Those two read
+identically in the numbers and they are completely different situations. The first real test is
+tomorrow morning's run, against the 21 items still open. I've written that down in three places so
+nobody quotes the zero as a clean bill of health in the meantime.
+
+**Where I got something wrong.** I tried to work out how often this sweep runs by looking at the
+timestamps it leaves on each item, and concluded it had only ever run twice, skipping a day. That was
+wrong — the sweep *overwrites* that timestamp each time it looks at an item, so what I was reading was
+"when was each item last touched", not "when did the job run". A missed day would be invisible. I
+caught it a minute later because every still-open item had exactly the same timestamp, which can't
+happen if those values are a history. The awkward bit is that the conclusion I actually needed — that
+the new gates haven't been exercised — is still correct, and comes from the *same* column; it just
+happens to ask a question that survives the overwriting. A right answer and a wrong answer one query
+apart, with nothing in the output to tell them apart. Written up properly so the next person spots it
+in seconds.
+
+I also tidied four places in the shared reference notes that had gone out of date tonight — including
+one that still asked you a question you'd already answered (whether to keep both of the earlier
+gates; you said keep them). Those notes get read by the automated reviewers as if they were current
+fact, so a stale question there isn't harmless.

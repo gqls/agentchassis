@@ -3173,3 +3173,70 @@ The existing LANDMINES entry on `git stash` covers the *popper* being harmed by 
 this is the *bystander* direction and is now appended to it. **The real defence is the one CLAUDE.md
 already states, and this is what it costs to ignore: commit the moment the work is coherent.** I did
 — immediately, before re-running the mutations.
+
+---
+
+## 2026-08-12 (night) — `262` verified live on `v1.0.1293` and CLOSED; and the three gates' three zeroes mean three different things
+
+**The roll landed.** `IMAGE_TAG` had moved 1291 → **v1.0.1293** and the chassis rolled at
+**2026-08-12T19:13:54Z**. Fleet is one binary: **98 Running pods on one digest `sha256:4717bcb3`**
+(counted across the whole namespace, 133 Running pods total — *not* off `-l app=agent-chassis`, which
+again returned only 2, exactly as the standing trap says).
+
+Probe of `/proc/1/exe`, `grep -a`, exit code beside every count:
+
+```
+NEEDLE_262=1            rc=0   "…the database is not the website"
+NEEDLE_262b=1           rc=0   "an unreadable page row is not evidence that anything shipped"
+NEGCONTROL_oldselect=0  rc=1   a string ea18664f3 REMOVED
+CONTROL_pos=1           rc=0   "register moved, not the page"
+CONTROL_absent=0        rc=1   fabricated
+```
+
+⚠ **Honest limit on that negative control, and I nearly overstated it.** `ce8733262`'s only deletions
+in the shipped file are two *function signatures* — no string literal — so **this commit has no
+removed-string control of its own**. `NEGCONTROL_oldselect` proves the binary is newer than
+`ea18664f3`, **not** newer than `ce8733262`. What proves *this* commit shipped is the two present
+needles, each verified unique to the shipped file (`grep -rn … | grep -v _test.go` → 1 hit). The
+lane's §1 boast about "a TRUE negative control" is real but it is `ea18664f3`'s, and it does not
+transfer forward to every later commit for free.
+
+**Standing measurement, re-run:** `refused_by_gate=0 · refused_claimgate=0 · refused_published=0 ·
+resolved=9 · still_holds=18 · unknown=3`, total 30. Invariant `copy_actually_changed` = `t` for
+**9/9**. (The handoff's headline said 8; its own parenthetical already said 9. Same population.)
+
+### The finding that actually matters tonight: two of the three gates have NEVER BEEN ASKED
+
+All three read `0` refusals. **The three zeroes are not the same fact:**
+
+| gate | committed | asked? |
+|---|---|---|
+| copy-changed (owner, 08-09) | `9a9fef332` 08-09 | **yes** — 30 item-decisions, never refused |
+| claim-granular (council r6) | `58bede8d5` **12:56Z** 08-12 | **no** |
+| published (`262`) | `ce8733262` **17:42Z** 08-12 | **no** |
+
+Because the last sweep ran at **08:44:34Z on 08-12** — *before both commits*. Driver is
+`scheduled_tasks.review-queue-revalidate-daily`, `interval_seconds=86400`, `enabled=t`,
+`last_triggered_at=2026-08-12T08:44:33Z`. **The next run, ~2026-08-13 08:44Z, is the first that can
+exercise either gate**, against the 21 open items. Until then, quoting either zero as "the gate
+approved" would be quoting a question never asked.
+
+> **MISSTEP, and it is the one worth carrying.** I derived the sweep's run history by grouping on
+> `result #>> '{revalidation,at}'`, got two timestamps (08-10 ×8, 08-12 ×22), and **stated that only
+> two runs had ever happened and that 08-11 was skipped** — then went looking for a scheduler fault.
+> Wrong: **the stamp is overwritten every run**, so that column is *state*, not history. My own next
+> query killed it — all 21 open items carry the **identical** `08-12T08:44:34Z`, which is impossible
+> if the values were a run log. The 9 closed rows keep theirs only because closure froze them.
+>
+> The uncomfortable part: **the reading I was actually there to make is TRUE and rests on the same
+> column** — `max(stamp) < roll time` survives last-write-wins, while every *shape* question over it
+> does not. A right answer and a wrong one, one query apart, and nothing in the output distinguishes
+> them. Filed as a LANDMINE (footprint `result->'revalidation'->>'at'`, `scheduled_tasks`,
+> `review-queue-revalidate-daily`) and logged in `WRONG_CALLS.md`.
+
+**`262` closed** on the fixed-AND-live bar — `git mv` into `bugs_closed/`, closure evidence written
+into the file first, both paths named on the commit. Register updated where it had gone stale:
+CQ-021's *"Committed, NOT yet rolled"*, the *"live defect"* landmine (now struck, reasoning kept),
+the index row's *"both gates … v1.0.1291"*, and the **OPEN QUESTION FOR THE OWNER** on ANDing the
+gates — which the owner **answered** (keep both) and which a council seat would otherwise still read
+as unresolved.
