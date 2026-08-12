@@ -97,9 +97,14 @@ have not committed and the drift harness does not. Full command set:
 
 ## Owed / blocked
 
-- **`rebuild-cascade.md`'s stored count — still owed, FIFTH session running.** Unchanged:
-  mtime **2026-08-08 20:41**, 3 added / 3 deleted, another session's REB-003 rewrite still
-  dirty in the shared tree. Stalled, not abandoned; a pathspec commit would take it as a
+- **`rebuild-cascade.md`'s stored count — still owed, FIFTH session running, and the reason
+  CHANGED on 2026-08-12b.** It is no longer dirty in the tree: a session ran `git stash` at
+  18:38:52, sweeping 38 files' uncommitted work — **including this one's REB-003 rewrite** —
+  into `stash@{0}`. So `git status` now reads clean and the file looks free to edit. **It is
+  not.** The owning session can restore that stash at any time, and editing the file now sets
+  up a conflict they will have to resolve. ⚠ **Do NOT `git stash pop`** to inspect it — that
+  drops all 38 files into the shared tree. `git stash show --name-only stash@{0}` is read-only
+  and answers the question. Stalled, not abandoned; a pathspec commit would take it as a
   same-file passenger. **Re-check `git status` before assuming; if clean, retire this line
   and delete `rebuild-cascade.md` from `KNOWN_STORED_COUNTS` in the local harness. Do NOT
   grow that set to silence findings.** It is the drift check's only HEAD finding.

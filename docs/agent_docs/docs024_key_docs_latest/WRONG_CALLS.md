@@ -29805,3 +29805,21 @@ loose grep worthless and is exactly where it feels safest. **Verify with a strin
 change contains**, and on an append-only shared file, prefer the heading you just wrote. Three
 writings of one entry, and the third only happened because a later check used a discriminating
 pattern.
+
+### Second postscript, same day — and this one is a wrong call in its own right
+
+The postscript above says a `git reset` by another session "wiped" the entries. **It was a
+`git stash`, and nothing was destroyed.** `git stash` runs a `git reset --hard` internally and
+writes precisely the reflog line I treated as evidence — `reset: moving to HEAD`. All 38 files
+are in `stash@{0}`, recoverable by their owners.
+
+I put "destroyed", "no way to recover" and "gone" into three documents and three commit
+messages — which cannot be amended — on the strength of one reflog line, having never run
+`git stash list`. **A reflog line names the OPERATION git performed, not the PORCELAIN COMMAND
+that asked for it, and several commands share this one.** The distinguishing check is a single
+read-only command and I did not run it before escalating an inference into a fact.
+
+What caught it: another session had already diagnosed it correctly and filed a landmine
+(`4e0de34ec`), whose subject line I read in `git log` while verifying my own commits. **I was
+corrected by a colleague's commit message, not by any check of my own** — and my re-writing of
+five documents was work that a one-word command would have made unnecessary.

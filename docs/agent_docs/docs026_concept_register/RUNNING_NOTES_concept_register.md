@@ -2200,3 +2200,31 @@ the whole session is about, committed while writing it up: I tested a tidied-up 
 claim rather than the claim. The `doc_notes` rows were fine throughout, because the sync ran
 before the reset — so `landmines-sync.py --check` reporting clean would ALSO have reassured me
 wrongly. Only the file is the system of record.
+
+> **CORRECTED 2026-08-12, same session — it was a `git stash`, not a hard reset, and NOTHING
+> WAS DESTROYED.** The entry above says another session's reset "discarded" every uncommitted
+> change and that the losses are unrecoverable. **Both halves are false.** `git stash` performs
+> a `git reset --hard` internally and writes exactly the reflog line I read as evidence —
+> `reset: moving to HEAD`. The work is in **`stash@{0}`** ("WIP on 087_towards_multiple_domains:
+> 1ee940968"), 38 files, including all five of the documents I re-wrote **and**
+> `register/rebuild-cascade.md`'s REB-003 changes.
+>
+> **What caught it:** another session had already diagnosed it correctly and committed a
+> landmine about it (`4e0de34ec`, "a bare `git stash` by another session deletes YOUR
+> uncommitted work, and git status reads clean") — I saw the subject line in `git log` while
+> checking my own commits had landed. **The check that would have cost one command: `git stash
+> list`.** I inferred a destructive mechanism from a reflog line, escalated it to
+> "unrecoverable", and put it in three documents and a commit message, without running the one
+> command that distinguishes the two mechanisms. A reflog line names an OPERATION, not an
+> INTENT, and several porcelain commands share this one.
+>
+> **Two consequences.** (1) `rebuild-cascade.md`'s stored count is **still owed** — the WIP that
+> blocks it is stashed, not gone, and its owning session can restore it, so the "do not touch"
+> instruction in every handoff still stands. My note above that it is "no longer owed" is
+> withdrawn. (2) **Do not `git stash pop`** to check any of this: that would drop 38 files into
+> a shared tree, five of them files I have since committed, and the conflict would be mine to
+> explain. `git stash show --name-only stash@{0}` answers the question read-only.
+>
+> The re-writing was not wasted (the content is committed and verified at HEAD), but it was not
+> necessary either, and the wrong diagnosis is the more expensive half: it is now in three
+> commit messages that cannot be amended.

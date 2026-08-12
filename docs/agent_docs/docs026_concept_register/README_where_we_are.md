@@ -962,3 +962,22 @@ undoing, and I'd rather you heard it from me than found a colleague's work missi
 one silver lining is unpleasant: a file four handoffs in a row have described as "someone else's
 half-finished work, leave it alone" is now clean, so the last outstanding item on the register's
 own health check can finally be closed — by a route nobody would have chosen.
+
+> **Correction, 2026-08-12, an hour later — I was wrong about the lost work, and it is not lost.**
+> I told you above that another session threw away everyone's unsaved changes and that there was
+> no way to get them back. What actually happened is that a session ran `git stash`, which is the
+> command for *setting work aside safely* — it clears the desk but keeps everything in a drawer.
+> All of it is still there: thirty-eight files, including the ones I rewrote and the one file
+> four handoffs have described as someone else's half-finished work. Nobody has lost anything,
+> and the colleague whose work it is can take it back whenever they return.
+>
+> Why I got it wrong is worth a sentence, because it is the same failure as the rest of today.
+> Git keeps a log of what happened to the project, and stashing writes a line in that log which
+> is indistinguishable from the line written by the genuinely destructive command. I read the
+> line, recognised the destructive meaning, and reported it — without running the one command
+> that would have shown me the drawer was full. Another session had already worked it out
+> correctly and written it down; I saw their note in passing while checking my own work had
+> saved.
+>
+> So: nothing to worry about, nobody to apologise to, and one more instance of the thing I keep
+> saying today — I checked a proxy for the claim instead of the claim.
