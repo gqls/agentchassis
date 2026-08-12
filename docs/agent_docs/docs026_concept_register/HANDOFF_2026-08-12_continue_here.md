@@ -4,7 +4,8 @@
 `HANDOFF_2026-08-10b_continue_here.md`.** Two of its items are now closed and its
 READ-FIRST banner has been answered twice over — read this instead, not that.
 
-Read after this: `FINDINGS_2026-08-10_staleness_survey.md` (**still the live worklist —
+Read after this: `SUMMARY_where_we_are_2026-08-12.md` (the milestone read-out, covering
+both the 11th and the 12th), then `FINDINGS_2026-08-10_staleness_survey.md` (**still the live worklist —
 its 2026-08-12 UPDATE section closes signal 1 of 3**), then
 `FINDINGS_2026-08-11_advisory_delivery.md` (read its corrected banner first), then
 `RUNNING_NOTES_concept_register.md` (technical log, newest at the bottom) and
@@ -132,9 +133,12 @@ pairing by grepping the working tree. Full command set: `RUNBOOK_concept_registe
 
 ## Things deliberately NOT done
 
-- **No SUMMARY written.** By the five-headings test, "where we are now" would read
-  substantially as 2026-08-10's did — the register's overall state is unchanged. Rarity is part
-  of that document's design; the material is in `FINDINGS`, `NOTES` and the owner log.
+- ~~**No SUMMARY written.** By the five-headings test, "where we are now" would read
+  substantially as 2026-08-10's did — the register's overall state is unchanged.~~
+  **SUPERSEDED same day, at the owner's request: `SUMMARY_where_we_are_2026-08-12.md`.** My
+  five-headings call was wrong on two counts — 2026-08-11's inaudibility finding never got a
+  read-out at all, and both questions the 08-10 summary closed on are now answered, one of them
+  by being retired as the wrong question. That is an inflection, not a repetition.
 - **No entry's prose was re-verified for truth** beyond `SYS-077` and `HITL-020`.
 - **The 13 sha-less entries were not "fixed"** by looking up their commits — the authoring rule
   is the real fix.
