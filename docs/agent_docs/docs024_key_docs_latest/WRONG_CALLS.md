@@ -29740,3 +29740,68 @@ applied to my own commit. I verified the code, then asserted the commit containe
 it, and those are two different facts separated by a shared mutable tree. Also
 "prove it at the artefact": the artefact for a commit is HEAD, not the working
 directory I was looking at.
+
+---
+
+## 2026-08-12 — my own normaliser manufactured the finding, and it manufactured the headline (concept register, staleness signal 2)
+
+**The claim, stated in chat before any check:** *"15 entries cite
+`docs/016b_debugging_guide_merged.md` — the estate's most-read document — at a path that has
+never existed, and 12 more cite `docs/social001_vonc_tiktok_social/002e_concept_spark.md`.
+Two paths account for 27 of the 34 dead citations."*
+
+**False, and the register was innocent on both counts.** The entries cite
+`016b_debugging_guide_merged(3).md` and `002e_concept_spark(6).md`, which are what those
+files are **actually called**. Git holds the first at exactly the cited path (deleted in the
+2026-08-04 tree move) and the second at HEAD today. My extractor stripped the `(N)` suffix as
+an extraction-unit id — which it is in *other* citations, e.g. `PLAN_tool_widget_clobber(9).md`
+— and thereby turned correct citations into unresolvable ones. **27 of 34 findings were made
+by the instrument**, and because they arrived sorted by frequency they led the report.
+
+**What caught it:** looking up what the file is actually called before writing down the
+repair. Two greps.
+
+**The cheap check that would have, and it generalises:** never report *"no file, ever, under
+that name"* without printing the **near-miss git does have**. An absence claim with no
+near-miss shown cannot be falsified from the output — the reader sees a confident path and
+nothing to compare it against. The report now prints the located target on every verdict that
+has one, and a `--self-test` case pins this exact token.
+
+**Then the same mistake one level down, which is the part I would otherwise not have
+recorded.** The fix — resolve as-cited *and* stripped — kept the **last** variant's verdict
+instead of the **best**, so a citation that resolved exactly as written was overwritten by the
+stripped form's failure. The same 15 entries read as "never existed" a second time, now with
+correct logic underneath. **The number did not move between two unrelated bugs**, which is
+exactly why a figure that reproduces is not thereby corroborated: both runs shared the
+instrument, not the world. Cross-checking it against git — a different instrument — is what
+separated them.
+
+**Third, and it is a landmine rather than a wrong call:** the first control I wrote ("every
+path at HEAD must be in the set of paths that ever existed") **failed**, 791 of 9,301 missing,
+because `git rev-list --objects --all` dedups by object and drops content-identical duplicates.
+That one I caught before it reached a number, and only because the control existed.
+
+**The pattern across all three: an instrument that transforms its input can produce the defect
+it reports, and the transformation is invisible in the output.** Every check here was of the
+form "does the world agree with my normalised version of the claim?" — and the normalisation
+was the thing that needed testing. The general defence is the one this lane already uses for
+detectors: **show the evidence you tested, windowed on the match**, not a cleaned-up
+restatement of it.
+
+### Postscript — I then made the SAME mistake twice more while writing this up, on this file
+
+A `git reset` by another session (18:38:52) wiped this entry, the landmine and three lane
+documents out of the working tree before they were committed. Restoring them, I verified each
+had landed with a loose grep:
+
+- `grep "rev-list --objects" LANDMINES.md` → **1 match, and it was another lane's entry** about
+  the same command's `%(rest)` trap. Recorded as "at HEAD ✓". It was not there at all.
+- `grep -c "manufactured" WRONG_CALLS.md` → **10 matches**, none of them this entry. Recorded as
+  "at HEAD ✓". Also not there.
+
+Both times the pattern was one the file could satisfy **without my change**, on a file that is
+30,000 lines of other people's near-identical material — which is the condition that makes a
+loose grep worthless and is exactly where it feels safest. **Verify with a string only your own
+change contains**, and on an append-only shared file, prefer the heading you just wrote. Three
+writings of one entry, and the third only happened because a later check used a discriminating
+pattern.
