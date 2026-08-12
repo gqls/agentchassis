@@ -1502,3 +1502,50 @@ Shopfront baseline drift, again unattributed: `28419` (previous handoff) → `28
 (this morning) → `28075` (now). Read-only session throughout; that lane ships
 continuously. This is why the handoff says to take the baseline yourself immediately
 before touching anything rather than trusting a recorded figure.
+
+---
+
+## 2026-08-12 — privacy copy DRAFTED at the owner's direct request
+
+This copy was reserved to the owner (`evidence_base.writer_block`: *"that copy is
+the owner's and will be supplied"*), and a 2026-08-10 proposal was rejected and
+scrubbed. **He asked for it directly today, which supersedes the reservation** — a
+delegation is his to make. The scrub did its job: I could not see the rejected
+wording, so this is not a reheat of it. The surviving guidance is the 08-11 steer —
+**avoid where anything is stored, focus on what the site does for people.**
+
+Draft: `COPY_2026-08-12_privacy_DRAFT_for_owner.md`. **Not published.** No page, no
+seed, `evidence_base` untouched.
+
+**The `writer_block` and the owner's steer pull against each other** — the block
+says *describe the mechanism plainly (where something is stored…)*, the steer says
+*avoid where anything is stored*. Threaded by describing what a person
+**experiences** ("there when you sign in on a computer you have borrowed for ten
+minutes") and letting the reader draw the conclusion, which is what the block
+actually asks for. Recorded because the next writer will hit the same tension.
+
+`[MEASURED]` Checked with `COPY_2026-08-12_privacy_check.py`: **clean against all 7
+live patterns**, no `writer_block` style words, no figures. Three properties make it
+a check rather than a gesture:
+
+1. patterns read from the **live DB**, not copied into the script — a ban added
+   tomorrow is enforced tomorrow with no edit;
+2. it tests **only** the section after `## THE DRAFT`, because the commentary
+   deliberately quotes banned phrases while explaining why they are banned, and a
+   whole-file checker would fail on its own explanation;
+3. a **positive control** runs first — the old site's real sentence, which MUST be
+   caught. It was, by pattern 1. A zero from a checker that has never fired is not
+   evidence, and this file exists partly so that stays true after edits.
+
+**Three commitments are flagged at the top of the draft** rather than buried in it —
+don't sell, don't advertise, won't train on it, plus "we will say what changed". They
+are promises about future behaviour that only the owner can make, so they are listed
+where he must consciously accept or strike them.
+
+**One question I refused to answer for him:** deletion vs backups. The draft says
+deleting takes a note out of your account, which is true; it does not mention that
+encrypted nightly backups carry a 30-day object lock, so a deleted note is not gone
+from every copy immediately. How much to disclose is a product decision. Written up
+as an open question, not silently papered over — the alternative was a sentence that
+reads as a clean-erasure promise this product cannot honour, which is the exact
+class of claim the `evidence_base` exists to stop.
