@@ -614,8 +614,12 @@ three things I nearly got wrong.
 ### The probe
 
 `git archive HEAD` into the scratchpad (RUNBOOK recipe — the live tree has four other
-sessions' `.go` edits in it), then `cmd/remitprobe/main.go` inside that tree importing
-`checks.ReplaceHardcodedColors` directly. Bodies exported from the live DB as
+sessions' `.go` edits in it), then a throwaway `cmd/remitprobe/main.go` inside **that
+extracted copy** importing `checks.ReplaceHardcodedColors` directly. **It is not in the
+repo and must not be** — it is a measurement, run once, with no reason to become a
+sixth standalone Go checker (`RFC_024` exists because we already have five). If the
+measurement needs repeating, re-extract and re-write it; the durable artefact is the
+number and the method, both here. Bodies exported from the live DB as
 `replace(encode(convert_to(col,'UTF8'),'base64'), E'\n','')` so nothing is mangled by psql
 or by the shell; one `id|domain|layer|key|b64` line per body. The binary decodes, applies
 the transform, prints CHANGED/UNCHANGED, and for UNCHANGED prints *why* — style-block
