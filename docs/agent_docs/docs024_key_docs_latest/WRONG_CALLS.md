@@ -29823,3 +29823,49 @@ What caught it: another session had already diagnosed it correctly and filed a l
 (`4e0de34ec`), whose subject line I read in `git log` while verifying my own commits. **I was
 corrected by a colleague's commit message, not by any check of my own** — and my re-writing of
 five documents was work that a one-word command would have made unnecessary.
+
+## 2026-08-12 — I recorded a diagnosis run as "verdict-less, nobody has read a root cause" on a check that returns the same answer for a run that succeeded
+
+**The claim.** `HANDOFF_2026-08-12_215_quiet_mode_continue_here.md` §7, written by me the same
+day, carried this as a live loose end: *"090 diagnosis `38099787…` — re-checked 2026-08-12 and
+**still verdict-less**: 3 orchestration rows `COMPLETED` 08-11 13:33–34, **zero** `doc_notes`
+mention the correlation. Nobody has read a root cause."* It gated remediation step 5 of the
+duplicate-page runbook on that basis.
+
+**What was true.** The run had completed the day before with **five diagnosis bundles** and a
+correct, well-evidenced root cause — one I then re-verified first-hand row by row and filed as
+`bugs_open/266`. It had answered the exact question §7 said nobody had answered.
+
+**The defect in the check.** A `needs_diagnosis` run does not write to `doc_notes` at all. Its
+output goes to `diagnosis_artifacts`. `doc_notes` has no diagnosis category — so **every**
+diagnosis run in the estate is "verdict-less" by that query, including the ones that worked. My
+check could not have come out any other way. This is the exact shape the standing rule in
+CLAUDE.md's working-docs section names — *a `[MEASURED]` figure is only evidence if the
+measurement could have come out otherwise* — and I had marked the claim as re-checked, with its
+counts, which made it read as unusually well evidenced.
+
+**The compounding error.** I searched by the wrong key as well. The work item carries **two**
+correlations, `correlation_id` and `dispatch_correlation_id`, and the artefacts are keyed by the
+dispatch one. So even against the right table I would have got zero. Two independent blindnesses
+agreeing on `0` felt like corroboration.
+
+**The cheap check that would have caught it.** Ask where a *successful* run puts its output
+before believing an unsuccessful-looking answer — one query against a known-complete
+`needs_diagnosis` item. It returns 0 from `doc_notes` too, which is the tell. Instead I re-ran my
+own query from the previous day and recorded that it still said zero. **Re-running a query is not
+re-measuring it** — a lesson already in my own memory index, applied to someone else's SQL and
+not to mine.
+
+**What it cost, and what it nearly cost.** The run's credits were spent and its answer sat unread
+for a day while the handoff told every future reader not to look. Worse, the finding turned out to
+be materially bigger than the lane assumed: the 215 file had *narrowed* the defect to "the
+documented regeneration trap, not a new one", and the unread diagnosis showed that trap accounts
+for one of the two pages while three other producers explain the rest — including two re-deploys
+that happened after the diagnosis ran, the most recent four hours before I found it. The
+narrowing was wrong in the direction that stops people looking.
+
+**What caught it.** Following the handoff's own §7 pointer with the intent to close the loose end,
+and being unwilling to write "nobody read it" a second time without knowing where a verdict would
+have appeared if one existed. Filed as a landmine (*A 090 diagnosis writes its findings to
+`diagnosis_artifacts`, NEVER to `doc_notes`*) because the wrong answer is indistinguishable from
+the right one and no symptom precedes it.

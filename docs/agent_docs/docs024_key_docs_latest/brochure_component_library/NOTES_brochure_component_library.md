@@ -6187,3 +6187,60 @@ pages, so nothing internal breaks whichever side goes. And the two fundamentally
 out to be **prose guides with no tool on EITHER side** despite the `tool-` prefix — near
 identical in length, so their survivor choice is decided by loop-safety (which side the plan
 names), not by merit.
+
+---
+
+## 2026-08-12 (evening) — the counters are still zero, and the loose end I filed was an artefact of my own blind check
+
+**§4 done, result: unchanged.** All four dark-launch codes still `0`. This time I ran two
+controls rather than one. Demand control as specified (newest `site_plans` row is still
+noted.co.uk 08-12 03:22, `pages_predating = 0`, so a first build that cannot exercise the
+reconciler). New: an **instrument control** — `agent_error_log` took 3,503 rows in the last
+24h, newest 18:37Z. Without it, "0" and "the table is dead" are the same reading, and I had
+been quoting the zero for two days without ever proving the query could return anything.
+
+**Then §7, and this is the misstep worth recording.** I wrote in yesterday's handoff that the
+090 run was *"still verdict-less — zero `doc_notes` mention the correlation. Nobody has read a
+root cause."* Every word of the query was correct and the conclusion was false. Diagnosis runs
+do not write to `doc_notes` **at all** — there is no diagnosis category in that table; the
+output lives in `diagnosis_artifacts`. So my check returns `0` for a *successful* run, which
+means it could not have come out otherwise. I compounded it by searching the wrong one of the
+work item's **two** correlations (`correlation_id` vs `dispatch_correlation_id`; artefacts are
+keyed by the dispatch one). Two blind checks agreeing on zero read as corroboration.
+
+What actually broke the loop: instead of re-running my own query a third time, I asked **where
+a run that succeeded puts its output** — took a `needs_diagnosis` item I knew had completed,
+queried it the same way, and got `0` from `doc_notes` for that one too. That control is the
+whole lesson. Filed as a landmine and in `WRONG_CALLS.md`.
+
+**What the diagnosis had actually found** (five bundles, 08-11 13:03–13:25), re-verified by me
+row by row before I recorded any of it — the loop's bundle is a *hypothesis under test*, not a
+verdict, so I did not take it on trust:
+
+- `ai-readiness-checker-guide` was rebuilt via `reconcile_site_plan` → `needs_page`
+  (`not_built`) — the documented PLAN-017 regeneration trap, as the 215 file assumed.
+- `tool-llm-cost-calculator` **was not.** Reconcile withheld it correctly
+  (`owned_page_review` / `needs_human_review`, still uncompleted). `image-build-handler`
+  rebuilt and deployed it 16 minutes later via `needs_page` (`image_landed`).
+
+My first verification attempt failed and that is instructive too: I filtered `site_work_items`
+by `page_id` and got two irrelevant rows. A `needs_page` item is for a page that may not exist
+yet, so it carries no `page_id` — the page is named in `spec`. My filter encoded the wrong
+world. Re-queried by `spec->>'page_name'` and all three claims landed exactly.
+
+**The part nobody had:** the damage is **live and recurring**. The `deployed_at` stamps in the
+215 file (08-11 10:34 / 11:13) are stale — both pages have been re-deployed since, by two
+*further* producers (`page-rerender` at 08-11 19:05, `section-editor` at **08-12 14:25**, four
+hours before I looked). Both still `status='archived'`, both serving 200 against a fabricated
+404 control. Four producers, none reading `pages.status`. Filed as `bugs_open/266`.
+
+**The design trap I nearly walked into.** The obvious fix is to copy `owned_page_guard`, which
+sits at `assemble_page`. Reading its header comment first showed why that would close only two
+of the four doors: it chose `assemble_page` *because* `git_commit` "is also how owned pages
+LEGITIMATELY deploy" — `page-rerender` and `section-editor` commit without it. Those are the
+exact two producers behind the newest re-deploys. `archived` is not `owned`: owned means "not
+the generic pipeline's to rebuild", archived means "nothing may deploy this", and that
+difference moves the seam. Recorded in 266 as candidate 2, explicitly marked do-not-do.
+
+**Not touched:** O2 (still the owner's, still the only open decision), the seven pairs, the
+pilot config. No code changed.

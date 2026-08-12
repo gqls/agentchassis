@@ -2597,3 +2597,54 @@ archived, no redirect written. I need your survivor choice per pair, and it shou
 short conversation rather than a research exercise. The one input I could not get is which
 versions search engines have indexed; if any of these matter commercially, that's worth a look
 at Search Console before we act.
+
+---
+
+**2026-08-12, evening.** Two things to report: the pilot is still quiet, as expected, and I found
+a real problem — one I had previously written off, on a check of mine that turned out to be
+worthless.
+
+**The pilot first.** Still nothing to see. The safety gates we switched on for fundamentallyai
+haven't fired once, because nothing has asked them to — the site's page list hasn't been rebuilt
+since we turned them on. That's the expected reading, not a disappointment. This time I also
+checked that my *instrument* works, which I hadn't before: the log table those counters live in
+took 3,503 entries in the last day, so when it tells me zero, that's a real zero and not a broken
+query. That distinction matters more than it sounds — see below.
+
+**Now the problem.** Back on 08-11 I sent a question to our automated diagnosis system: *why did
+two pages we deliberately retired come back to life?* Yesterday I recorded that it had never
+answered. That was wrong. It had answered, thoroughly, within half an hour — I was looking in the
+wrong place. I checked a table that diagnosis runs never write to, so my query returned "nothing
+here" for a run that had in fact produced five detailed reports. The uncomfortable part is that
+this check would have returned "nothing here" no matter what, including for a run that worked
+perfectly. It looked like evidence and it was incapable of being evidence. I've written that up
+as a trap for other sessions, because the wrong answer is indistinguishable from the right one.
+
+**What the answer was, and it's worse than we thought.** We had assumed a single known
+mechanism was resurrecting these pages, and that we understood it. In fact there are **four
+different parts of the system** that can rebuild and republish a retired page, and none of them
+checks whether the page was retired. One of them is genuinely alarming: for one of the two pages,
+the part we suspected actually behaved *correctly* — it stopped and asked for a human to review.
+Sixteen minutes later a completely unrelated part rebuilt and published the page anyway. So the
+one safeguard we had did its job and was simply walked around.
+
+**And this is happening now, not in the past.** I had recorded these as a historical incident
+from 08-11. Checking the current state, both pages have been republished again since — the most
+recent **this afternoon at 15:25 our time**, about four hours before I found it. Both pages are
+still marked retired in our records and both are live on the internet right now. I verified that
+by actually fetching them, alongside a made-up address that correctly returned "not found", so
+the test could have failed.
+
+**Why it matters for the decision I'm waiting on.** You have seven duplicate page pairs to rule
+on. The plan for each was: keep one, retire the other. What this shows is that **retiring a page
+doesn't currently stick** — four separate mechanisms will quietly bring it back. So we should fix
+that before we execute your decisions, or we'll do the work and watch it undo itself. That's a
+change to the order of work, not to the decisions themselves, and your survivor choices are still
+the thing I need.
+
+**One thing I was careful about.** The obvious fix is to copy a guard we already have elsewhere
+in the system for a similar-sounding case. Reading that guard's own notes first showed it would
+only close two of the four doors — it was deliberately placed where two of our four culprits
+don't pass. Copying it would have looked like a fix and left the newest problem untouched. I've
+written the fix up with that trap flagged, but I haven't changed any code: it's a shared
+mechanism, so it needs review, and it isn't this lane's to rush.

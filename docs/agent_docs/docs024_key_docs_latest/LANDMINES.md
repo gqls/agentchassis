@@ -9960,3 +9960,25 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **relations:** the two `git stash` entries above (this was found while filing the second of them, whose footprint was inert on arrival and is now fixed) · the register lane's advisory-delivery work, which is the same question one layer up: a warning that is delivered but unkeyed has not reached anyone
 - **source:** 2026-08-12, concept_register lane. Found by testing my own freshly-filed entry against the 18 dirty overlay paths it names, instead of assuming a successful `--apply` meant it worked.
 - **added:** 2026-08-12, concept_register lane
+
+---
+
+## A 090 diagnosis writes its findings to `diagnosis_artifacts`, NEVER to `doc_notes` — so "I checked doc_notes and the run is verdict-less" is a sentence that a fully successful run also produces
+
+- **footprint:** `diagnosis_artifacts`, `doc_notes`, `090_TRIGGER_needs_diagnosis_v1.sh`, `needs_diagnosis`, `site_work_items`
+- **fires when:** you go looking for the result of a `needs_diagnosis` run — yours or a handoff's — and reach for `doc_notes`, because that IS where the neighbouring mechanism puts its output. CLAUDE.md's council-gate section tells you in terms to read a verdict with `SELECT body FROM doc_notes WHERE categories ? 'council-gate'`, and the diagnosis loop is described two sections later. The habit transfers; the storage does not.
+- **why the wrong result looks exactly right:** the query is well-formed, the table exists, the correlation is a real correlation, and the answer is `0`. Nothing distinguishes that from the true negative. **Measured 2026-08-12: `doc_notes` contains no diagnosis category at all** — `landmine`, `council-gate`, `verdict`, `fix`, `acceptance-run` and ~15 others, and nothing for diagnosis — so *every* diagnosis run in the estate reads as verdict-less by this check, including ones that completed perfectly. A run that never started reads identically to one that produced five iterations and a root cause.
+- **the second trap, which is what actually sends you to the wrong key:** a `needs_diagnosis` work item carries **two** correlations — `spec->>'correlation_id'` and `spec->>'dispatch_correlation_id'` — and they are different UUIDs. The artefacts and the orchestration rows are keyed by the **dispatch** one; `090`'s own script calls it `run_corr`. Searching either table by the other id returns 0 rows, again with no error.
+- **the check — go to the table that actually holds them, and run a KNOWN-GOOD control in the same breath:**
+  ```sql
+  -- findings live here. iteration 5 is the last; the body carries the hypothesis under test.
+  SELECT iteration, kind, length(body), created_at, pinned, expires_at
+  FROM diagnosis_artifacts
+  WHERE correlation_id = '<the DISPATCH correlation>' ORDER BY iteration;
+  ```
+  If it returns nothing, before concluding the run produced nothing, run the same query against a `needs_diagnosis` item you know completed (`SELECT id, spec->>'dispatch_correlation_id' FROM site_work_items WHERE item_type='needs_diagnosis' AND status='complete' ORDER BY created_at DESC LIMIT 1`). A control that also returns nothing means your key or your table is wrong, not that the loop is silent.
+- **and they EXPIRE:** `diagnosis_artifacts` has `expires_at` (~30 days) and `pinned` (default false). The run that motivated this entry expires 2026-09-10 unpinned. **A root cause that exists only as an artefact row has a shelf life** — copy the finding into the bug file, or `pinned = true` it, or it is gone and the next thread pays for the run again.
+- **the standing rule this sharpens:** CLAUDE.md says a REFUTED verdict is a success because it is the cheapest place to be wrong. That only holds if the verdict is *findable*. An unread verdict is worse than no run: the run's cost is spent, and the "nobody diagnosed this" note it produces actively discourages the next thread from looking.
+- **relations:** `a gate's 0 findings has TWO causes, opposite fixes` (same shape, one layer up) · `a grep proves absence only for the SPELLING it searches` · `WRONG_CALLS.md` 2026-08-12 (the incident: a lane handoff carried "nobody has read a root cause" for a run that had answered the question the day before)
+- **source:** 2026-08-12, `bugs_open/215` quiet-mode lane. Its handoff §7 recorded a 090 run as verdict-less on a `doc_notes` check. The run had completed with five bundles and a correct two-mechanism root cause; the finding became `bugs_open/266`. Caught by asking where a *successful* run puts its output before believing an unsuccessful-looking answer.
+- **added:** 2026-08-12, brochure_component_library lane (bugs_open/215)

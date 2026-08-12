@@ -14,7 +14,7 @@ carried forward below where still live.
 | code | **LIVE on chassis `v1.0.1291`**, artefact-verified on BOTH replicas 2026-08-12 ~16:00Z (re-probed after the roll from 1290; positive control + one-letter near-miss both behaved) |
 | council | **APPROVED** round 3, corr `56e13695-17cb-48ec-bc6b-0371fde8b717` |
 | enabled on | **fundamentallyai.com only** — `honour_realised_identity` + `twin_identity_snap`. `stem_twin_snap` absent by design |
-| dark-launch counters | **still 0/0/0/0** — no replan has run through the new path yet |
+| dark-launch counters | **still 0/0/0/0** — re-read 2026-08-12 ~19:00Z with BOTH controls: demand control unchanged (only post-roll plan is noted.co.uk's first build, 0 `pages` predating it), and an instrument control proves the query is not blind (`agent_error_log` took 3,503 rows in 24h). No replan has run through the new path yet |
 | damage remaining | **7 both-deployed twin pairs, 4 domains** — untouched, needs an owner call per pair (**O2, the only open decision**) |
 | bug file | stays **OPEN**; newest sections at the bottom of `bugs_open/215_HANDOFF_...md` |
 | register | **PLAN-048** in `docs026_concept_register/register/site-plan-and-reconciler.md` |
@@ -124,12 +124,20 @@ interactive. Nothing has been executed.
 
 ## 7. Loose ends
 
-- **090 diagnosis `38099787-c7f9-46d4-b75e-3a1867fcaf41`** (archived pages rebuilt and
-  re-deployed) — re-checked 2026-08-12 and **still verdict-less**: 3 orchestration rows
-  `COMPLETED` 08-11 13:33–34, **zero** `doc_notes` mention the correlation. Nobody has
-  read a root cause. This gates remediation step 5, because until it is understood any
-  archive can be undone by the next build. The narrower question to read it as: *should
-  the build/deploy path refuse a page whose `status` is `archived`?*
+- ~~**090 diagnosis `38099787-…`** — re-checked 2026-08-12 and **still verdict-less**:
+  zero `doc_notes` mention the correlation. Nobody has read a root cause.~~
+  **RESOLVED 2026-08-12 evening, and the loose end was never real.** The run completed on
+  08-11 with **five `diagnosis_artifacts` bundles** and a correct root cause. My
+  "verdict-less" reading came from querying `doc_notes`, **where no diagnosis run has ever
+  written anything** — that check returns `0` for a successful run too — and from searching
+  the wrong one of the item's two correlations. Landmine + `WRONG_CALLS.md` entry filed.
+  **Read `bugs_open/266`**, which carries the verified root cause; the answer to *"should
+  the build/deploy path refuse an archived page?"* is **yes, and not at the seam you would
+  copy from the neighbouring guard** — `owned_page_guard` sits at `assemble_page`, which
+  `page-rerender` and `section-editor` bypass, and those two produced the most recent
+  re-deploys. **This no longer gates remediation step 5; `266` does**, and it is a live
+  recurring defect (latest re-deploy 08-12 14:25Z), not the historical residue this file
+  assumed.
 - **Two `PLAN_PAGE_MERGE_LOSSY` rows** from the 08-11 census replan tripped the
   standing richer-wins revisit trigger — same underlying condition as O2.
 - **`bugs_open/204`'s own census figure is stale** (says 5 sites, measures 6). Not this

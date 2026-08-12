@@ -706,3 +706,41 @@ and re-deployed) is **still verdict-less**: 3 orchestration rows all `COMPLETED`
 Nobody has read a root cause. Runbook finding 3 ("assume any archive can be
 undone by the next replan-triggered build") therefore still stands, and it gates
 step 5 of the remediation.
+
+### 2026-08-12 (evening) — the counters are still 0/0/0/0, and the "unchanged loose end" above was WRONG
+
+**Counters, re-read with both controls.** Still `0` on all four codes. The demand control
+explains it and the instrument control proves the query can see anything at all:
+`agent_error_log` took **3,503 rows in the last 24h** (newest 18:37Z), so the zeros are real
+absence, not a dead table. The only plan since the roll is still noted.co.uk's first build
+(0 `pages` predating its plan row — it cannot exercise the reconciler). **No replan has run
+through the new path yet. Nothing to classify, nothing to conclude.**
+
+> **CORRECTED — the "Unchanged loose end" section immediately above is false, and I wrote it.**
+> The 090 run `38099787…` was **not** verdict-less. It completed on 08-11 with **five
+> `diagnosis_artifacts` bundles** and a correct root cause. My check looked in `doc_notes`,
+> where **no diagnosis run has ever written anything** — that query returns `0` for a healthy
+> run too, so it could not have come out otherwise. I also searched by the wrong one of the
+> item's **two** correlations. Both errors point the same way, which is why `0` felt confirmed.
+> Landmine filed (*A 090 diagnosis writes its findings to `diagnosis_artifacts`, NEVER to
+> `doc_notes`*); incident in `WRONG_CALLS.md`.
+
+**The diagnosis is now read, verified first-hand and filed as `bugs_open/266`.** It is not
+restated here. What matters for *this* file is that it **corrects item 1 of "Two defects found
+while doing this" above** — including that item's own correction:
+
+- That item talked itself down from "distinct defect" to "PLAN-017's documented regeneration
+  trap, not a new one". **The regeneration trap accounts for one of the two pages.** For
+  `tool-llm-cost-calculator`, `reconcile_site_plan` correctly withheld the build
+  (`owned_page_review` / `needs_human_review`, still uncompleted today) and
+  **`image-build-handler` rebuilt and deployed it anyway, sixteen minutes later**, by an
+  unrelated path. Two further producers (`page-rerender`, `section-editor`) have re-deployed
+  these pages since.
+- **The damage is live and recurring, not historical.** The `deployed_at` stamps this file
+  records (08-11 10:34 / 11:13) are already superseded: 08-11 19:05 and **08-12 14:25**, the
+  latter four hours before this note. Both pages are still `status='archived'` and both serve
+  HTTP 200 (verified against a fabricated-URL 404 control).
+- **Consequence for this lane's O2:** runbook finding 3 stands and gets stronger — an archive
+  is not durable against **four** producers, so remediating a twin pair by archiving one side
+  will be undone. `266` is the blocker to fix; `215`'s own remediation should not assume
+  archiving holds until it is.
