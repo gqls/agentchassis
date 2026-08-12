@@ -162,3 +162,76 @@ interactive. Nothing has been executed.
   standing richer-wins revisit trigger — same underlying condition as O2.
 - **`bugs_open/204`'s own census figure is stale** (says 5 sites, measures 6). Not this
   lane's bug; noted in the 215 file because the exclusion is consumed here.
+
+---
+
+# 8. Session log — 2026-08-12 evening. READ THIS FIRST if you are picking up cold
+
+§§1–7 above have been edited in place and are current. This section says what changed
+tonight, what is now true, and what to do next. **Nothing is half-finished in the tree; six
+commits, all docs, no code.**
+
+## 8.1 What is now settled (do not re-do)
+
+| | |
+|---|---|
+| chassis | **`v1.0.1293`**, rolled 19:13–19:14Z. Lane code re-verified on **both** replicas two ways — see §1. Provenance sha `7a1887e316…`; `19acfc895` confirmed in the build by `merge-base` |
+| counters | **0/0/0/0**, read twice (pre- and post-roll), both times with a demand control **and** an instrument control. **0 `site_plans` since the roll.** The zero is want of demand |
+| §7's 090 loose end | **RESOLVED — it was never real.** My `doc_notes` check was blind; the run had answered on 08-11. See §7 |
+| the archived-page defect | **filed as `bugs_open/266`**, root cause verified first-hand, population measured, two consumer lanes told |
+| O2 (seven pairs) | **UNCHANGED — still the owner's, still the only open decision.** `DECISION_INPUT_2026-08-12_seven_twin_pairs.md` is ready and waiting |
+
+## 8.2 `bugs_open/266` — the substantive find, in one paragraph
+
+An `archived` page is rebuilt and re-stamped `deployed` by **at least four independent
+producers**, none of which reads `pages.status`. The sharpest evidence: for
+`tool-llm-cost-calculator`, `reconcile_site_plan` **correctly withheld** the build
+(`owned_page_review`/`needs_human_review`, still uncompleted) and `image-build-handler`
+rebuilt and deployed it **16 minutes later** by an unrelated path. **Live population: 5 pages
+across 3 domains** (fundamentallyai ×2, leopardess ×1, robot-hands ×2), verified by curl with
+per-domain 404 controls. Leopardess' has been archived-and-serving since **2026-07-17**.
+
+**Two traps recorded in that file, both of which I nearly walked into:**
+1. **Do not copy `owned_page_guard`'s placement.** It sits at `assemble_page` *deliberately
+   not* at `git_commit`, because git_commit is how owned pages legitimately deploy — via
+   `page-rerender` and `section-editor`, which are exactly two of the four producers here.
+   Copying it closes 2 of 4 doors. `owned` ≠ `archived`.
+2. **`status='archived' AND deployed_at IS NOT NULL` is a BLIND detector** — 18 rows, only 5
+   serving. `deployed_at` is history, not liveness (098's retracted pages keep their stamps).
+   Two-step only: SQL selects candidates, curl decides. And **a curl `000` is not a `404`** —
+   one page gave 000 then 200 on three retries.
+
+## 8.3 Why this matters to O2, which is the whole point
+
+The remediation plan for the seven twin pairs is "keep one side, archive the other".
+**`266` says an archive does not hold.** So the ordering changes: **fix `266` before executing
+O2**, or the pairs will be remediated and quietly un-remediated. This is a sequencing change
+only — it does not touch the survivor decisions, which are still what is needed from the owner.
+
+## 8.4 DO THIS NEXT, in this order
+
+1. **Nothing is owed to the counters.** They need a replan, and §5 says the fundamentallyai
+   sweep front owns that site's execution — do not force one to make a signal appear.
+2. **`266` needs a fix, and it is a shared seam** → council gate before/alongside the commit,
+   and a concept-register entry in the same commit (the 2026-07-28 ruling's condition 2).
+   Fix candidate 1 (refuse at the commit seam) is the one that makes the bad state
+   unrepresentable; read §8.2 trap 1 before writing a line.
+   **`266` is NOT owned by anyone yet** — `who-owns.py` will say nothing useful, as it reads
+   commits and the file is hours old.
+3. **The 090 diagnosis artefacts expire 2026-09-10, unpinned.** Its findings are copied into
+   `266`, so this is not urgent; pin them only if you want the raw bundles.
+4. **O2 remains blocked on the owner.** Do not execute any pair.
+
+## 8.5 Method notes worth carrying (they cost real time tonight)
+
+- **Prove your instrument before believing a zero.** Both counter reads carry an instrument
+  control now. This is what caught nothing — but the *absence* of one is what let §7's false
+  claim stand for a day.
+- **Ask where a SUCCESSFUL run puts its output before believing an unsuccessful-looking
+  answer.** One control query against a known-complete run is what broke the `doc_notes`
+  mistake. Landmine filed; incident in `WRONG_CALLS.md`.
+- **A `needs_page` work item has no `page_id`** (the page may not exist yet) — filtering by
+  `page_id` returns a confident, empty, wrong answer. Filter `spec->>'page_name'`.
+- **The provenance line is usable if you catch it fresh** — per-pod, `--limit-bytes`, then
+  `git merge-base --is-ancestor`. §6 has the amended recipe. Record the sha while it is in
+  range, because later an empty result means "out of range", not "unstamped".
