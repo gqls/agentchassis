@@ -9831,6 +9831,24 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **relations:** *"A chassis roll KILLS an in-flight council"* — same table, opposite question (is MY run dead vs is the FLEET busy), and its reaper is why trap 2 has a 4-hour band · `bugs_open/252` (the deferral this cost) · `bugs_open/029` hung spawns — `[UNVERIFIED]` whether the 46 stale rows are that defect, not investigated here · the *"a count you kept is not a census"* class.
 - **source:** 2026-08-12, `bugs_open/252` disk-pressure lane, deciding whether it was safe to apply `ephemeral-storage` requests.
 - **added:** 2026-08-12, bugs_open/252 disk-pressure lane
+## A `du` total is only a total if you could READ every subtree — and the shortfall is silent, well-formed and plausible
+
+- **footprint:** `du`, `kubectl debug node/…`, `kube-prometheus-stack-prometheus-node-exporter` (mounts host `/` read-only at **`/host/root`**), `/var/lib/containerd`, `/var/log/journal`, any "where has the disk gone on this node?" investigation
+- **fires when:** you investigate host disk usage from inside the cluster. The convenient route is the pod that **already** mounts host `/` — `node-exporter` — because it needs nothing created. **It runs as `nobody` (uid 65534)**, and the two directories that hold most of a Kubernetes node's disk (`/var/lib/containerd`, `/var/log/journal`) are root-only.
+- **the trap, stated as the wrong result:** `du -xd1 -m /host/root 2>/dev/null | sort -rn` returns a clean, well-formed, entirely plausible tree that **sums to a third of the real usage**, with **exit 0 and not one error line**. Measured 2026-08-12 on `…1148`: `du` said **10.8 GiB**, `df` said **30.7 GiB used**. `/var/lib/containerd` alone was 19.8 GiB and had been skipped in silence. The customary `2>/dev/null` is what converts "permission denied" into "this directory is empty".
+- **why it is a landmine and not just a bug:** the number is not obviously wrong. It has the right shape, the directories you expect, sensible proportions, and it invites exactly the conclusion the investigation was looking for — in this case it would have shipped "the node OS is the problem" into `bugs_open/252` as a measured finding, when the real answers were containerd's content store (**5.70 GiB**, invisible to every kubelet figure) and journald sitting on its default cap (**3.87 GiB**).
+- **the check, and it is one line:** **reconcile against `df` before believing any `du` total.** Nothing else catches it — the ~20 GiB discrepancy was the entire tell.
+  ```bash
+  # read as ROOT, stderr to STDOUT, and diff the total against df
+  kubectl debug node/<node> --image=busybox:1.36 --profile=sysadmin --attach=false -q \
+    -- sh -c 'df -h /host | tail -1; du -xd1 -m /host 2>&1 | sort -rn | head -20'
+  kubectl logs -n default <the node-debugger pod>   # then DELETE it
+  ```
+  `--profile=sysadmin` is what gives root; `2>&1` (never `2>/dev/null`) is what makes a denied subtree *visible*; `-x` keeps you on the one filesystem. **Delete the debug pod when done** — it persists, and you are usually doing this because the node is short of disk.
+- **the sibling trap, same investigation:** `node-exporter` mounts host root at **`/host/root`**, not `/host`. `ls /host/var/lib` returns *"No such file or directory"*, which reads as "the host is not mounted" when it is. Check `ls /host` first.
+- **relations:** `bugs_open/252` (where this was caught) · the *"a count you kept is not a census"* and *"your measurement answers the question you ENCODED"* classes · every `2>/dev/null` entry in this file — the shell-traps family exists because silent failure is the house speciality.
+- **source:** 2026-08-12, `bugs_open/252` disk-pressure lane, answering "what is the 15 GB/node of 'other'?"
+- **added:** 2026-08-12, bugs_open/252 disk-pressure lane
 
 ---
 
