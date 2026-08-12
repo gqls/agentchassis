@@ -1,6 +1,7 @@
 # RFC 025 — Artifact- and attestation-sourced evidence facts are trusted once registered, and 72% of the fleet's facts are in that class
 
-**Status: DRAFT**, opened 2026-08-12 by the `portfolio_positioning` build-out session,
+**Status: RATIFIED 2026-08-12** (owner; answers in §9) · opened 2026-08-12 by the
+`portfolio_positioning` build-out session,
 per the explicit self-classification in `bugs_open/161_HANDOFF_2026-07-31_the_evidence_register_ratifies_the_claim_it_was_built_to_catch.md`
 ("a new shared vocabulary key on a shared mechanism — architecture scope under CLAUDE.md's
 seam rules, RFC before code") and per this session's owner ruling that the whole ~150-domain
@@ -305,3 +306,35 @@ verifiers, which stage 2's acceptance evidence must satisfy); concept register
 `claims-verification.md` (`CLM-003`/`CLM-014`/`CLM-018`); this session's build-out plan,
 `portfolio_positioning/PLAN_2026-08-12_fleet_buildout.md`, which is blocked on this RFC's
 resolution per this session's owner ruling.
+
+---
+
+## 9. RATIFIED — the owner's two answers, 2026-08-12
+
+Asked as the two plain questions in §8, directly, the same way `RFC_002`'s owner questions
+were put and answered.
+
+**Q1 (§8.1) — does `artifact_check` need full ratification, or does the `citation` precedent
+let it take the cheap, normal-council-gate path? → FULL ARCHITECTURE-REVIEW RATIFICATION.**
+The owner chose the more cautious path over this RFC's own argued reading (that it's
+structurally closer to `citation` than to RFC_002's `attribute_absent`/`attribute_matches`
+case). **This RFC's ratification, right now, IS that full review** — the process
+(`PROCESS_architecture_review.md`) does not require a separate second round once the owner
+has read and ruled on the design in front of them; §§1-7 above are the review. Stage 2
+implementation may proceed under this ratified design. Unlike `RFC_002`, this is not
+retrospective — no code exists yet, so there is nothing to reconcile after the fact.
+
+**Q2 (§8.2) — untyped map key (matches `citation`) or a typed `EvidenceSource` field? →
+UNTYPED, MATCHING `citation`.** Design 2.2 as proposed: `artifact_check` is read off the raw
+`map[string]interface{}` inside `refreshOneSiteEvidence`, the same way `citation` already
+is; the exported `EvidenceSource`/`EvidenceFact` Go structs gain no new field. Alternative C
+(a typed field) is not built.
+
+**Q3 (§8.3, stage 1) was not separately asked** — it has no dependency on §8.1's answer and
+proceeds as ordinary council-gate work regardless.
+
+**What proceeds now**: stage 1 (attestation staleness nudge) and stage 2 (`artifact_check`,
+untyped-map design) both implement against this ratified RFC. Each stage still goes through
+the normal council gate before shipping, per the process's own flow (§"The flow", step 4) —
+ratification is not a substitute for that, it is what makes stage 2's submission answerable
+without re-litigating whether it needed an RFC at all.
