@@ -1,9 +1,17 @@
 # 261 — the diagnosis code tier could not read the symbol spellings its own index produces
 
 **Filed:** 2026-08-12, `silent_hero_logo_readers` lane (follow-on from commission item 2).
-**Status:** **FIXED + council-submitted + committed (`6911c2da4`); OPEN because it is not live** —
+**Status:** **FIXED + council-APPROVED + committed (`6911c2da4`); OPEN because it is not live** —
 the fix is Go, so it is inert until an image is rebuilt and rolled. The defect is still reproducible
 in production until then.
+
+**Council:** `6b0cc25b-1368-4fe2-87f0-bb3aa87019c0` — **APPROVED round 1**, submitted 14:26Z, decided
+14:32Z (six minutes), 12 seats, 4 abstained, *"1 advisory objection — none high-severity"*. The
+`architecture` seat signalled `point_fix`: *"existing architecture being made to work as designed,
+not new architecture being added under cover of a fix"* — which answers the RFC question in the
+negative. **The one medium objection was right about something and is what produced §7b below.**
+The commit carries `Council-Submitted:` because it predated the verdict; `098` credits it at report
+time and forward-only forbids an amend.
 
 > ⚠ **NUMBER COLLISION, and it happened during this filing.** The commit `6911c2da4`, the submission
 > JSON and three comments inside `internal/analysis/symbolbody.go` all say **`bugs_open/260`**. They
@@ -196,9 +204,35 @@ GROUP BY 1 ORDER BY 1 DESC LIMIT 12;
   measured now, and the answer is yes — though the mechanism is **not** the one item 5 fixed in the
   schema tier (see §9).
 
+## 7b. THREE producers, not two — and the middle one rewrites a working entry into a broken one
+
+Added 2026-08-12 after the council's `prior_art_librarian` seat objected that the submission audited
+only two producers of a `path:Symbol` handle. It was right, and the third one matters:
+
+- `knownScopeIdentities` (`diagnose_route_action.go:541`) builds the "already exact, pass through
+  untouched" set from the **analyser Output**'s `functions` and `types`, as **BARE** names
+  (`syms[path+":"+name] = true`).
+- So an entry written in the **index** spelling — the spelling the bundle's own index-results
+  section shows the model — is **not recognised as exact**, and falls through to the fuzzy resolver.
+- `resolveScopeEntries` (`:651`) searches `code_symbols` and re-emits `add(path + ":" + symbol)`
+  at `:700` — **the index spelling again** — logging `"diagnose_route: resolved fuzzy scope entry"`.
+
+> **The enrichment step converts a scope entry into the one spelling the body reader could not read,
+> and reports it as resolved.** A model that wrote the bare name — which worked — could have it
+> rewritten into the failing form by the step whose stated contract is *"no worse than not
+> resolving"*.
+
+**This is why the fix belongs at the reader.** Three producers emit the failing spelling and only
+two are code we control; `spanOf` is the only place that sees all three.
+
+**Same drift, fourth instance:** `knownScopeIdentities` iterates `{"functions", "types"}` and not
+`values` — the identical omission `spanOf` had. Post-fix its only cost is a wasted embedding call
+and `code_symbols` read per package-level `var`/`const` entry, since the body resolves either way.
+Follow-up, not a defect. See §8.
+
 ## 8. Follow-ups deliberately NOT folded in
 
-Both are real, both are separate, neither is fixed:
+All real, all separate, none fixed:
 
 1. **`siblingSignatures` renders `fn.Name` bare** (`diagnose_assemble_bundle_action.go:695`), so the
    same method appears under a *different* spelling from the one the index section shows. The model
@@ -208,6 +242,13 @@ Both are real, both are separate, neither is fixed:
 2. **The per-file sibling cap of ~10 signatures** hid the three functions this run needed behind
    `_(+79 more in this file — put the bare file path in next_scope to see it whole)_`. Iteration 4's
    scope had collapsed to five symbols, three of them copies of a trivial `getMapKeys`.
+3. **`knownScopeIdentities` omits `values`** (`diagnose_route_action.go:541`, see §7b) — a
+   package-level `var`/`const` entry is never recognised as exact, so every one costs a needless
+   embedding call and `code_symbols` read. Cosmetic once this fix rolls; it loses no evidence.
+4. **A precedent check against council history for `symbolbody.go`/`spanOf` was asked for by two
+   seats and not run.** The two prior council rounds on this file (`bugs_closed/163`, `189`) are
+   both *reuse* rulings, not this defect, but that is from the bug files rather than from
+   `diagnosis_artifacts`. Owed.
 
 ## 9. Corrections to the handoff that routed this work
 

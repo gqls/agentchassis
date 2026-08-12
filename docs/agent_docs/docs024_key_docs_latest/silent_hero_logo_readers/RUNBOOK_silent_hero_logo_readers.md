@@ -216,3 +216,94 @@ WHERE correlation_id='<RUN_CORRELATION_ID>' AND kind='bundle' ORDER BY created_a
 **Gotcha:** methods are stored **receiver-qualified** (`(*SagaCoordinator).applyResponseToState`),
 so a bare-name lookup returns 0 rows and no error — an existing LANDMINE, and the loop's
 cite-or-abstain rule acts on that absence.
+
+---
+
+## The code tier (`bugs_open/261`) — commands, each with the thing that catches you
+
+### 1. Read the BUNDLE, never the index, when the loop says it could not read something
+
+The index answering "present" tells you nothing about whether the bundle passed it on. That
+mistake cost this lane a diagnosis run (see NOTES, 08-12). **Dump all iterations, not just the
+last** — the bundle does NOT accumulate, and the one the verdict read may be the thinnest:
+
+```bash
+for i in 1 2 3 4; do
+  kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db \
+    -tAc "SELECT body FROM diagnosis_artifacts WHERE correlation_id='<corr>' AND kind='bundle' AND iteration=$i;" \
+    > bundle_$i.txt
+done
+# the section that matters, and whether anything was dropped:
+for i in 1 2 3 4; do echo "== $i =="; awk '/^## In-scope code/,/^## Same-file signatures|^## Schema/' bundle_$i.txt \
+  | grep -E "^### |INCOMPLETE|body unavailable"; done
+```
+
+⚠ **`kind` is constrained to `bundle|iteration_note|fix_plan|council_report|escalation`** — there is
+no `diagnosis_report`. A poll on a non-existent `kind` returns "not yet" for ever.
+
+### 2. Classify the failures — and ask the index for the KIND, never infer it from the name
+
+```sql
+WITH f AS (SELECT correlation_id,
+       (regexp_matches(body,'ReadSymbolBody: symbol "([^"]+)" not found','g'))[1] AS sym
+       FROM diagnosis_artifacts WHERE kind='bundle')
+SELECT count(*) AS failures, count(DISTINCT correlation_id) AS runs,
+       count(*) FILTER (WHERE sym ~ '^\(\*?[A-Za-z0-9_]+\)\.') AS receiver_form
+FROM f;
+```
+
+⚠ **This is where I got it wrong.** Having found the non-receiver remainder, I classified those
+names by *reading* them and asserted 100%. Ask the database instead — it returned 19 of 20:
+
+```sql
+SELECT kind, count(*), string_agg(symbol, ', ' ORDER BY symbol)
+FROM code_symbols WHERE (path,symbol) IN (('<path>','<sym>'), …) GROUP BY kind;
+```
+
+**A symbol missing from that answer entirely is the interesting one** — it means index staleness,
+not a spelling fault. Check with `git log -1 -S"func <name>" -- <path>` against the index's
+`commit_sha`.
+
+⚠ **Re-run rather than quoting.** The count moved 321 → 335 in forty minutes while I wrote it up.
+
+### 3. Prove a resolver defect WITHOUT touching the shared tree
+
+This lane's `038211dd8` lesson, made routine. Never mutate a file in the working tree across a tool
+call you do not control:
+
+```bash
+SCRATCH=<your scratchpad>
+rm -rf $SCRATCH/head && mkdir -p $SCRATCH/head
+git archive HEAD | tar -x -C $SCRATCH/head          # clean checkout of committed HEAD
+# write the failing test there, run it, see it FAIL against unmodified code
+cd $SCRATCH/head && go test ./internal/analysis/ -run <NewTest> -v
+```
+
+Then apply the fix in the same throwaway checkout, re-run for the pass, and only afterwards edit the
+real tree — **and commit within minutes.**
+
+### 4. Prove the negative controls can actually fail (mutation), and restore in the SAME command
+
+```bash
+cp internal/analysis/symbolbody.go /tmp/sb_$$.go
+sed -i 's|if wantRecv != "" && receiverType(fn) != wantRecv {|if false \&\& wantRecv != "" \&\& receiverType(fn) != wantRecv {|' internal/analysis/symbolbody.go
+go test ./internal/analysis/ -run <NewTest>                     # MUST fail
+cp /tmp/sb_$$.go internal/analysis/symbolbody.go && diff /tmp/sb_$$.go internal/analysis/symbolbody.go && echo RESTORED
+```
+
+⚠ **Restore and `diff` in the same shell command as the mutation.** A mutation left across a tool
+call is a mutation another session can publish under their own commit message.
+
+### 5. After the roll — verify POSITIVELY
+
+A falling failure count is weak evidence: it also falls if nobody asked. The pass condition is a
+bundle that **renders a method body**.
+
+```bash
+kubectl -n ai-persona-system logs -l app=agent-chassis --tail=300 | grep -m1 'build provenance'
+git merge-base --is-ancestor 6911c2da4 <the stamp>   # "did my fix ship?" is a query, not a guess
+```
+
+⚠ That log line is a **startup** line and scrolls out of reach within hours on `agent-chassis`. An
+empty result means "not in range", not "unstamped" — fall back to the binary probe, always with
+both a must-be-present and a must-be-absent control.

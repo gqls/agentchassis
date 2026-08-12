@@ -168,3 +168,73 @@ image code.
 **What I'd suggest next**, though the choice is yours: fix the code tier of the evidence pack. It is
 the same shape as the fix that already went through review and worked, it unblocks this lead, and it
 unblocks every future question whose answer lives in a function body — which is most of them.
+
+---
+
+## 2026-08-12, afternoon — I fixed the evidence pack, and it was a spelling mistake between two halves of our own tooling
+
+I said yesterday that the thing standing in the way was the code half of the evidence pack. I have
+now found out why it was broken, fixed it, and put the fix through review. Here is what it turned
+out to be, because it is simpler and sillier than I expected.
+
+**Two parts of our system write down the name of a function in two different ways, and nobody had
+ever checked they agreed.**
+
+When we index the codebase, a function that belongs to a type gets written down in the style Go
+programmers use in documentation — with the type in brackets in front of it, like
+`(*SagaCoordinator).applyResponseToState`. That is the name that goes in the index, and it is the
+name the evidence pack shows you when it lists search results.
+
+But the piece of code that actually goes and fetches the text of a function expected the name
+written a different way, without the brackets. So when the diagnosis loop asked for a function using
+the only name it had ever been shown, the fetcher looked for it, did not recognise the form,
+and reported "symbol not found" — which reads exactly like "that function does not exist".
+
+The loop is built to abstain rather than guess when it cannot cite evidence. So it abstained. The
+function was in the index the whole time, all 4,746 characters of it.
+
+**The scale of it surprised me.** I counted every diagnosis run we have ever done: 335 function
+bodies lost this way, across 47 separate runs. Every indexed method in the codebase — 1,170 of
+them — was unfetchable by its own official name. There was a second, smaller version of the same
+fault too: package-level values (things like limits and error messages) have been in the index since
+a change in July, but the fetcher was never taught to look for them, so all 1,238 of those were
+invisible as well.
+
+**The detail I found most uncomfortable is that our own written guidance caused it.** We keep a file
+of traps for the team, and yesterday somebody added an entry saying, in effect, "when you ask about a
+method, be sure to use the bracketed name, or you will be told it does not exist." That advice is
+correct for searching the index. It is exactly wrong for fetching a function body, because those are
+two different pieces of code that never shared a rulebook. Following our own instructions was what
+walked into the fault. I have corrected that entry and written the plain rule underneath it.
+
+**Why it survived so long:** the test we had did check this, but it checked the name written in the
+style *nothing in the system actually produces*. So the test and the code were wrong in the same
+direction, and passed each other. That is the failure I want us to notice more than the bug itself.
+
+**Two things I got wrong today, in the open.**
+
+The first is that I wrote a claim into the review submission before I had checked it. I said all
+twenty of the odd cases were of one type. I had recognised them by looking at their names. When I
+ran the actual query ten minutes later, nineteen were — one was a different problem entirely (a
+function too new for the snapshot we had indexed), and my fix does not cover it. So the honest
+figure is 334 of 335, not all of them. The annoying part is that the whole point of that sentence
+was to be the one that could have proved me wrong, and I published it before letting it. I have
+logged it.
+
+The second is smaller but says something about how we work: I checked that bug number 260 was free,
+spent half an hour writing the file, and by the time I saved it another session had taken 260 for
+something else. So the fix's commit message points at a bug number that now belongs to a different
+problem. Ours is 261. On a tree this busy, "I checked it was free" has a shelf life of about half an
+hour.
+
+**Where this leaves us.** The fix is written, tested, committed and submitted for review. It is Go
+code, which means it does nothing until the next time we build and roll the images — so the fault is
+still live in production right now, and still costing us: fourteen more function bodies were lost in
+the forty minutes it took me to write this up.
+
+**What I need from you is the same choice as yesterday, now better informed:** which piece of the
+commission to take next. Item 1 is the big investigative one whose design decision you have
+reserved; item 3 is the medium one that needs a routing call. Neither is blocked. My own suggestion
+is that once this fix has rolled, the cheapest valuable next move is to re-run the diagnosis on the
+original hero-and-logo bug — it has failed twice for want of exactly the function bodies this fix
+restores, and it is the last unanswered question in that bug.
