@@ -380,3 +380,78 @@ up with the trade-offs and recommended reading that objection first, because if 
 choice makes itself.
 
 Everything is committed and the handoff is current, so this can be picked up cold.
+
+---
+
+**12th August, later.** I went and read that objection, as I said I would. It stands, and reading
+it changed the answer more than I expected — so the choice I was about to put to you isn't the
+choice any more. Nothing is broken and nothing needs doing today; this is a direction note.
+
+Three things, in order.
+
+**First, the objection is bigger than I described it.** I'd said there was "an existing recorded
+objection" to doing browser work at the moment a ticket closes. There are three, side by side,
+and they're firm: we have deliberately refused to build this kind of check twice before, both
+times for the same reason — closing a ticket shouldn't require reaching out to the network. That
+rules out my option one. It also rules out options two and three, which I had not expected. All
+three of my options measure the page, and measuring a page means fetching it; the third was
+narrower in *what it asks*, not in *how it asks*, so it draws exactly the same objection. So the
+choice I was going to hand you had no surviving option in it. That's my error, and reading the
+file rather than trusting my note about the file is what caught it.
+
+**Second, and more important: we have already decided this, and the reason we wrote down is
+wrong.** Contrast problems aren't an oversight waiting for a ruling. There's a line in our code
+that says, in effect, "this type doesn't need a closing check, because if the problem is still
+there the next weekly audit will find it again, and if it isn't, it won't." That sounds
+reasonable. Three things say it isn't.
+
+The first is that it's the same argument you already overturned. On the 8th we found that this
+exact reasoning — "we don't need to check now, re-detection will catch it later" — had been
+tested and failed: the two cases it was ever asked to catch both slipped through, and five days
+later nothing had re-detected them even though the problem was still plainly there. That's what
+led to the rule change you approved. The contrast line was written on the 2nd, six days before
+that, and nobody went back to it.
+
+The second is that "it won't be found again" isn't an observation, it's a silence. Our audit
+files problems; it has no ability to *close* one. So "the next audit didn't mention it" and "the
+next audit never looked at that page" produce the identical result, and we can't tell them apart.
+We have a written rule about this, in the very file that line leans on: you're not allowed to
+conclude something is fixed from the fact that nobody mentioned it. The comparable check we point
+to as the good example doesn't rely on silence — it actively re-checks and closes the ticket
+itself. Ours copied the exemption without copying the thing that earns it.
+
+The third is simply that it has never happened. Not once. Of the 226 contrast tickets sitting
+parked, not one has ever been sent to a fixer, completed, or re-found — no contrast ticket ever
+has, in the platform's whole history. So the safety net we're relying on has never been tested;
+it's a plan, not a net. For contrast, by comparison, the one problem type that *does* have a
+proper closing check has nine completions and all nine carry the evidence.
+
+**Third, there's a cheaper and better option none of us had listed.** Don't check at closing time
+at all — instead let the weekly audit close its own tickets. It's already out there every week
+with a browser, looking at every page; it's already allowed to do that. It just never learned to
+say "this one's fixed now." We already built the shared piece that does the closing, for exactly
+this purpose, back on the 2nd — it's careful, it refuses to guess, and it won't close anything
+the current run just raised. It sits in the same part of the code as the audit, so it can be
+called directly.
+
+There's one genuine gap and it's small. To close a ticket safely you have to know the audit
+actually looked at that page this time. Right now the audit reports *how many* pages it covered
+but not *which ones*, and you can't work it out from the results, because a page that's been
+fixed reports nothing — which is indistinguishable from a page that was skipped. That's the one
+case we need. So it needs the audit to list the pages it visited, not just count them. That's the
+same small fix another lane made last night for the count, extended from "how many" to "which" —
+so the hard half is already done and approved.
+
+**One correction to what I told you yesterday.** I listed the "silent 25-page cap" as still open
+and unstarted. It isn't — another lane fixed it on the 11th, it's live, it's been proven with a
+deliberately truncated run, and it went through the review board. I had it in our list as a
+lesser job to get to later. It's actually the thing that makes the option above possible at all:
+before it, we couldn't tell a partial audit from a complete one, so we could never have closed a
+ticket safely on the strength of one.
+
+**So the order is now clear, and nothing needs your decision this minute:** teach the audit to
+report which pages it visited, teach it to close tickets it confirms are fixed, and only then
+unpark the 226. That way, if a fixer closes a contrast ticket without really fixing it, the next
+week's audit catches it — which is the safety net we currently claim to have and don't. I have
+not written any of it; the next person can pick this up cold, and I'd want the review board to
+see it before it ships, because it changes something shared.

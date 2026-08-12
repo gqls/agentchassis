@@ -1106,3 +1106,138 @@ have shipped all of them. Correct path, which the runner supports directly: appl
 file by hand (`psql -v ON_ERROR_STOP=1 -f -`), then `--record-only <file> --note "<why>"`.
 The dry run is not a formality on a tree this many sessions share; it is the only thing
 standing between a scoped intent and an unscoped action.
+
+---
+
+## 2026-08-12 (afternoon) — the verifier fork was costed, and it collapses differently than §3 expected
+
+Task taken from `HANDOFF_2026-08-12_continue_here.md` §3: *"cost (1) against that standing
+objection first … Do not start by writing the verifier."* Done. The objection holds, it is
+wider than the handoff knew, and it kills **all three** listed options — but a **fourth**
+option exists that the handoff did not list, and the estate has already built its plumbing.
+
+### (a) The standing objection is at `:199–201`, not `:171` — and there are THREE of them
+
+`verifier_coverage_test.go:171` today is `needs_component_regeneration`, an unrelated entry.
+The objection actually lives in three consecutive gap entries [MEASURED — read the file]:
+
+- `:199` `image_url_404` — *"deliberately NOT a verifier candidate: verification would add an
+  outbound HTTP call to the completion path"*
+- `:200` `backend_entry_orphaned` — *"same reason as image_url_404"*
+- `:201` `asset_reference_404` — same, **plus the constructive half**: *"It does not NEED one:
+  the check retracts its own findings through `CheckResult.Resolved` on a positive 2xx/3xx
+  re-observation, which is the same information a verifier would fetch, taken on the discovery
+  path where the probe is already precedented."*
+
+⚠ **The stale `:171` citation is also in `LANDMINES.md`** (the `assets`-table entry), which is
+the system of record. Both point at the right file and the wrong line. Fixing that is a
+separate small task; noted here so the next reader does not conclude the objection was moved
+or withdrawn.
+
+### (b) The objection kills options (1), (2) AND (3)
+
+The handoff expected (3) to survive. It does not: **every option that computes contrast needs
+an outbound fetch on the completion path**, because a source-level read cannot settle contrast
+(our own `var(--x,#fallback)` landmine). (3) is narrower in *predicate*, not in *mechanism*, so
+it draws the identical objection. The fork as written has no survivor.
+
+### (c) `contrast_failure` is ALREADY an on-record decision — and its reason is unsound
+
+Not a gap awaiting a ruling. `verifier_coverage_test.go:156` classifies it, and the guard
+`TestEveryItemTypeIsVerifiedOrAnAcknowledgedGap` refuses to let a type be both verified and
+listed — so its presence there is machine-checked proof it has no verifier [MEASURED: `go test`
+passes; 12 verified types, `contrast_failure` absent]. Its stated reason:
+
+> *"verification needs a browser — the dedup key `contrast_failure:<page>#<selector>` plus the
+> NEXT render audit is the verifier, and the two-strike rule catches a persistent pairing"*
+
+Three independent findings say that reason does not hold:
+
+1. **It is the argument the owner overturned.** `complete_work_item_verification.go:26–34`:
+   the old fail-open policy was justified by *"discovery re-detection + two-strike is the
+   backstop"*, and on 2026-08-08 that was **measured and failed** — the error path had fired
+   twice, both items completed at `attempt_count` 0, and *"five days later no re-detection had
+   followed although the detector's own predicate still matched. The backstop did not catch the
+   only two cases it was ever asked to catch."* That measurement is what produced RFC_017's
+   fail-closed flip. **Dates** [MEASURED, `git log -S`]: the `contrast_failure` reason was
+   authored `f2a222964`, **2026-08-02**; the ruling that refuted its argument landed
+   `1c5d9ceb5`, **2026-08-08**. The entry was never revisited. `[INFERRED]` — and marked as
+   such — is the *transfer*: RFC_017 measured the argument on a different item type's error
+   path, not on `contrast_failure`. The form is identical; the measurement is not ours.
+2. **The producer has no retraction at all.** `grep -n "Resolved\|retract"
+   write_render_audit_findings_action.go` → **zero hits** [MEASURED]. So what the entry calls
+   "the de-facto verifier" is the **absence of a re-file**, never a positive observation. That
+   is the precise inference the estate's own contract forbids, stated in the file the entry is
+   leaning on — `check_asset_reference_404.go:~150`: *"inferring 'resolved' from absence is
+   exactly what `CheckResult.Resolved`'s contract forbids."* `asset_reference_404` earns its
+   exemption **because it retracts**; `contrast_failure` copies the exemption without the thing
+   that justifies it.
+3. **The mechanism has never run once.** [MEASURED, live DB]: 226 rows, **all** `deferred`,
+   **all** `parked_by='migration_389'`, `max(attempt_count)=0`, created 08-10→08-11 across 16
+   sites / 203 distinct keys. **Zero `contrast_failure` items have ever been dispatched,
+   completed, or re-detected in the platform's whole history.** The two-strike backstop has
+   never fired for this type; it is an untested design claim. Compare
+   `hardcoded_section_colors` — the type that HAS a verifier — 9 complete / **9 carrying
+   `_verification`**, plus 5 `unresolved` the verifier actually blocked.
+
+**Disconfirmation check, because a zero is cheap:** the same query returns non-zero for three
+sibling types in the same breath (`dark_section_audit` 14 complete, `hardcoded_section_colors`
+9 complete, `asset_reference_404` 1 cancelled), so the instrument is not blind — the zero is
+about `contrast_failure`, not about the query.
+
+### (d) Option (4), which the handoff did not list: retract on the DISCOVERY path
+
+This is `asset_reference_404`'s posture, done properly, and it is what the gap entry was
+reaching for and got wrong. The render audit **already** runs a browser over every page weekly,
+already outbound, already precedented. What is missing is only the closing half.
+
+The plumbing exists and is shared, not new: **`resolveWorkItems`**
+(`work_items_common.go:249–300`) is the runner-side half of `checks.CheckResult.Resolved`
+(RFC_010, owner ruling 2026-08-02) — *"One implementation, called from one place, deliberately
+… It never infers. It closes what it is told to close, and only that."* It validates as a
+**refusal** (empty `ItemType`/`Reason`, or neither `ItemKey` nor `AllOfType` → error, not a
+guess) and it will not close what the current run just raised (`batch_id IS DISTINCT FROM`).
+It is **unexported but in package `actions`** — the same package as
+`write_render_audit_findings_action.go` — so it is directly callable, and that file already
+opens a `tx` at `:336` and loops filings at `:343`.
+
+**The one real blocker, and it is small and precedented.** Retraction must be scoped to pages
+the run actually measured. The payload carries `Summary{Pages, PagesTotal, Truncated}` —
+**counts, not identities** (`:143-147`). The audited set cannot be derived from
+`payload.Contrast`, because **a page that is now clean produces zero findings and is therefore
+indistinguishable from a page never audited** — and that is exactly the repaired case we need
+to retract. So option (4) needs `pages_audited: []string` (URL identities) in the adapter's
+summary: the same one-step-downstream parity fix `bugs_open/242` just made for the counts,
+extended from *how many* to *which*.
+
+⚠ **`bugs_open/242` is NOT "open, unstarted"** as `HANDOFF_2026-08-12` §5 row 2 and
+`HANDOFF_2026-08-11` NEXT item 2 both state. It was **done 2026-08-11, live on v1.0.1288,
+council APPROVED, behaviourally proven** by the `bugfix_242_render_audit_truncation` lane
+(forced-truncation run on loancalculator, cap 5 vs 26 pages). Our handoff was written today and
+is wrong about it. **And the relationship is the opposite of what §5 implies:** 242 is not a
+lower-priority sibling, it is the **enabling precondition** — before it, a capped run was
+indistinguishable from a complete one, so no retraction could ever have been scoped safely.
+That half is already paid for.
+
+### What this changes
+
+The park's trigger, as `HANDOFF_2026-08-12` §4 states it, is *"a `contrast_failure` verifier
+exists, or someone rules the type needs none"*. Both branches are now better specified:
+
+- "Needs none" **cannot be ruled on the current reason** — that reason is refuted above. It
+  could still be ruled on the strength of option (4), but only once (4) exists.
+- The cheapest sound path is **(4), not a completion-time verifier**: no completion-path probe,
+  no second implementation of a measurement we already have, reuses the shared closer, and it
+  converts "absence of a re-file" into a positive observation — which is the only version the
+  `Resolved` contract permits.
+
+Unparking still comes last, and its order is now determined: **build the retraction, then
+unpark.** With retraction live, a `contrast_failure` that completes ungraded is *corrected* by
+the next weekly audit rather than merely unnoticed — the backstop the gap entry claimed we
+already had.
+
+**MISSTEP 22 — I nearly took the handoff's `:171` citation as read.** It names a real objection
+and I could have quoted it from the handoff without opening the file. Opening it changed the
+answer twice over: the objection is wider than described (three entries, not one) and its
+newest member does not merely object — it states the alternative, which is the recommendation
+above. A `file:line` in a handoff is a pointer, not a quotation, and line numbers drift.

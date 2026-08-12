@@ -81,6 +81,31 @@ spending.
 
 ## 3. NEXT: the `contrast_failure` verifier (unblocks the 226)
 
+> **⚠ COSTED 2026-08-12 (afternoon) — THE FORK BELOW HAS NO SURVIVOR, AND THE ANSWER IS AN
+> OPTION IT DOES NOT LIST.** The instruction at the foot of this section ("cost (1) against
+> that standing objection first") was carried out. Findings, with evidence, in
+> `NOTES_contrast_ink_slots.md` → *"the verifier fork was costed"*. In short:
+> 1. **The objection is at `:199–201`, not `:171`** (that line is now an unrelated entry), and
+>    there are **three** of them, not one. It stands.
+> 2. **It kills (1), (2) AND (3)** — not just (1). Every option that computes contrast fetches
+>    the page, so (3) is narrower in *predicate*, not in *mechanism*, and draws the same
+>    objection. Do not read (3) below as the safe fallback; it is not.
+> 3. **`contrast_failure` is already an on-record decision, and its reason is unsound** —
+>    `verifier_coverage_test.go:156` exempts it because "the next render audit is the verifier",
+>    which is (a) the argument RFC_017 refuted on 2026-08-08, six days *after* that line was
+>    written, (b) an inference from **absence**, which `CheckResult.Resolved`'s own contract
+>    forbids in writing, and (c) never once exercised — **0 of 226 rows have ever been
+>    dispatched, completed or re-detected**, `max(attempt_count)=0`.
+> 4. **Option (4), the recommendation: retract on the DISCOVERY path, not at completion.**
+>    `asset_reference_404`'s posture. The shared closer already exists (`resolveWorkItems`,
+>    `work_items_common.go:249`, same package as the producer, which already has a `tx`). The
+>    only blocker is small: the audit reports *how many* pages it covered, not *which*, and a
+>    repaired page reports nothing — so the audited set cannot be derived. Needs
+>    `pages_audited` identities in the adapter summary: `bugs_open/242`'s fix, extended from
+>    count to identity.
+>
+> **Order: teach the audit which pages it visited → let it retract → then unpark the 226.**
+
 **Why this and not `bugs_open/242`:** it is the only thing standing between the 226 parked items
 and release, and the reason the park exists changed on 2026-08-12. It is *not* waiting on
 `bugs_open/213` any more — see §4.
@@ -215,7 +240,7 @@ their call or the owner's, not ours.
 | | item | status |
 |---|---|---|
 | 1 | `bugs_open/212` §8 — component-painted grounds (~24 failures) | **Owner's.** Architecture, not a bug patch. Unchanged |
-| 2 | `bugs_open/242` — the silent 25-page cap | **Open, unstarted.** Cheapest fix is parity with the drain one step downstream: put `pages_total` into the summary the adapter returns, so a capped sweep cannot read as a complete one. All 19 overnight sweeps measured **at most 25 pages** and none said whether that was all — **226 is a floor, not a census** |
+| 2 | `bugs_open/242` — the silent 25-page cap | ~~**Open, unstarted.**~~ **CORRECTED 2026-08-12 (afternoon): DONE, LIVE on `v1.0.1288`, council APPROVED, behaviourally proven** by the `bugfix_242_render_audit_truncation` lane on 2026-08-11 (forced-truncation run, cap 5 vs 26 pages; summary now carries `pages`/`pages_total`/`truncated`). This row was wrong the day it was written — I did not check the bug file. **And it is not a lesser sibling of §3: it is the PRECONDITION for §3's option (4)**, because before it a capped audit was indistinguishable from a complete one, so no retraction could ever be scoped safely. What §3 still needs is the *identities* (`pages_audited`), which 242 did not add — it added the counts. **226 is still a floor, not a census** |
 | 3 | Free cross-check | if a lane re-renders robot-hands `/selection-guide.html`, the audit filed `info-card-grid__card-link` + `__eyebrow` failures there and migration `368` should close both. **Grade at the next audit, never at the item status** |
 
 ---
