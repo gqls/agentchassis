@@ -56,6 +56,23 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--upload-manifest", default="",
                    help="path to a JSON file of presigned URLs for checkpoint + final-adapter "
                         "upload and (optionally) resume. Absent = no uploads, no resume.")
+    # ---- Prompt format: must MOVE TOGETHER with --base-model -------------------
+    # Added 2026-08-11 (finetuning_uk_service Phase 0). --base-model alone was NOT
+    # enough to train a non-Llama model: the chat template and the two
+    # response-only masking markers were hardcoded Llama-3.1 literals, so pointing
+    # --base-model at e.g. SmolLM2 built training text out of
+    # <|start_header_id|> tokens that model has never seen. Defaults below are the
+    # exact previous literals, so a 70B run is byte-identical to before.
+    p.add_argument("--chat-template", default="llama-3.1",
+                   help="unsloth chat_templates name to IMPOSE on the tokenizer. "
+                        "Use 'auto' to keep the tokenizer's own template — correct "
+                        "for any *-Instruct repo that ships one (e.g. SmolLM2).")
+    p.add_argument("--instruction-part", default="<|start_header_id|>user<|end_header_id|>\n\n",
+                   help="literal string that opens a USER turn, for "
+                        "train_on_responses_only masking. MUST match the template "
+                        "actually in use, or masking silently misfires.")
+    p.add_argument("--response-part", default="<|start_header_id|>assistant<|end_header_id|>\n\n",
+                   help="literal string that opens an ASSISTANT turn. See --instruction-part.")
     return p.parse_args()
 
 
@@ -197,8 +214,21 @@ def main() -> None:
         dtype=None,   # Unsloth picks bf16 on A100/H100, fp16 elsewhere
     )
 
-    # Llama 3.3 uses the same chat template as 3.1
-    tokenizer = get_chat_template(tokenizer, chat_template="llama-3.1")
+    # Llama 3.3 uses the same chat template as 3.1. 'auto' keeps whatever the
+    # repo's tokenizer_config.json ships, which is what any non-Llama *-Instruct
+    # model needs — imposing llama-3.1 on it would emit tokens absent from its
+    # vocabulary. Verified for SmolLM2-1.7B-Instruct 2026-08-11: its own template
+    # is ChatML (<|im_start|>/<|im_end|>).
+    if args.chat_template != "auto":
+        tokenizer = get_chat_template(tokenizer, chat_template=args.chat_template)
+        print(f"Chat template imposed: {args.chat_template}")
+    else:
+        if not getattr(tokenizer, "chat_template", None):
+            raise SystemExit(
+                "--chat-template auto, but this tokenizer ships no chat_template. "
+                "Pass an explicit template name."
+            )
+        print("Chat template: using the tokenizer's own (auto)")
 
     # ---- LoRA adapters -------------------------------------------------------
     print(f"Adding LoRA adapters (r={args.lora_r}, alpha={args.lora_alpha})")
@@ -235,6 +265,31 @@ def main() -> None:
         }
 
     ds = ds.map(to_text, num_proc=2, remove_columns=ds.column_names)
+
+    # ---- Guard: the masking markers must actually OCCUR in the rendered text ---
+    # train_on_responses_only masks by literal string search. If the markers do
+    # not match the template in use, the wrong thing (or everything) is trained on
+    # and NOTHING errors — the run completes and the adapter is quietly wrong.
+    # So assert on a real rendered row before spending GPU hours. Added 2026-08-11
+    # after finding --base-model parameterised while these two literals were not.
+    # Scan the first N rows, not just row 0: one atypical row (e.g. no assistant
+    # turn) would otherwise false-alarm and waste a GPU boot. A marker absent from
+    # ALL of them is a genuine template/marker mismatch.
+    _probe_n = min(25, len(ds))
+    _probe_rows = [ds[i]["text"] for i in range(_probe_n)]
+    for _label, _marker in (("--instruction-part", args.instruction_part),
+                            ("--response-part", args.response_part)):
+        _hits = sum(1 for _t in _probe_rows if _marker in _t)
+        if _hits == 0:
+            raise SystemExit(
+                f"{_label} {_marker!r} occurs in NONE of the first {_probe_n} "
+                f"rendered rows. The chat template in use ({args.chat_template}) "
+                f"and the masking markers disagree, so response-only masking would "
+                f"silently mistrain. First 400 chars of rendered row 0:\n"
+                f"{_probe_rows[0][:400]}"
+            )
+        print(f"  masking marker {_label}: present in {_hits}/{_probe_n} probe rows")
+    print("Masking markers verified against the rendered training text")
 
     # ---- Trainer -------------------------------------------------------------
     print("Configuring trainer")
@@ -275,8 +330,8 @@ def main() -> None:
     # loss. This is what makes finetuning on chat data behave well.
     trainer = train_on_responses_only(
         trainer,
-        instruction_part="<|start_header_id|>user<|end_header_id|>\n\n",
-        response_part="<|start_header_id|>assistant<|end_header_id|>\n\n",
+        instruction_part=args.instruction_part,
+        response_part=args.response_part,
     )
 
     # ---- Phase A: stage a resume checkpoint, attach the uploader -------------
