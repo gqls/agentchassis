@@ -1355,3 +1355,26 @@ Given how much of this session ended up being about the watching rather than the
 I've written a fresh handoff for whoever (or whichever fresh version of me) picks this up
 next, with the two remaining jobs spelled out plainly enough to start straight away rather
 than having to re-read this whole story first.
+
+**2026-08-12, one of those two jobs got finished.** The ranking-page tool on the games
+site had never once been checkable, for a small and slightly silly reason: the page was
+called "bayesian-ranking" but the checking system was looking for a page called
+"tool-bayesian-ranking" — one word short of matching, so every attempt to test it had been
+quietly finding nothing to test rather than failing loudly. Renamed the page (a one-line
+change that doesn't affect what visitors see — checked the page byte-for-byte before and
+after, identical), then wrote a proper contract for what the tool should do: two products
+being compared, a slider for how much you trust small sample sizes, and a score that
+should flip which product "wins" once the underpowered one gets enough data behind it.
+Proved the contract by deliberately breaking the page seven different ways and checking
+that each break got caught by the right test — including one break I invented on purpose
+where a "winner" badge should have gone away after a recalculation but I made the code
+forget to clear it, which is exactly the kind of subtle bug this whole exercise exists to
+catch. Then, rather than stop at "it works on my machine", I fired the real test off at
+the actual live cluster and watched it come back a minute later: fifteen checks run,
+fifteen passed, nothing failed. That page is now genuinely, provably working, not just
+believed to be.
+
+While doing this I noticed another session had, in the meantime, spotted my work in
+progress and sensibly picked up the OTHER remaining job (the cost-calculator tool)
+instead of getting in my way — so both jobs are now moving, by two different sessions,
+without anyone duplicating anyone else's work. I've left that one alone entirely.

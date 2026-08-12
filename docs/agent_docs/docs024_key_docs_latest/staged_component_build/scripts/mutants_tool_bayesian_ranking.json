@@ -1,0 +1,43 @@
+[
+  {
+    "name": "the page stops being served (404)",
+    "serve_status": 404,
+    "expect_fail": ["page-serves-200"]
+  },
+  {
+    "name": "the calculator's own container is renamed — the fence's anchor selector goes",
+    "from": "<main class=\"container\" style=\"padding-top: var(--space-lg);\">",
+    "to": "<main class=\"kontainer\" style=\"padding-top: var(--space-lg);\">",
+    "expect_fail": ["tool-renders", "tool-has-visible-area", "heading-names-the-tool"]
+  },
+  {
+    "name": "the global average constant is quietly changed — every computed score moves",
+    "from": "const M = 3.5;",
+    "to": "const M = 4.5;",
+    "expect_fail": ["computes-the-default-vector-on-load", "recomputes-when-a-gains-volume"]
+  },
+  {
+    "name": "the winning comparison is inverted — the outlier is declared the winner from the start",
+    "from": "if (scoreA > scoreB) { display.cardA.classList.add('winner'); }",
+    "to": "if (scoreA < scoreB) { display.cardA.classList.add('winner'); }",
+    "expect_fail": ["veteran-wins-by-default", "outlier-not-winner-by-default", "outlier-overtakes-once-it-has-volume"]
+  },
+  {
+    "name": "the winner class stops being cleared for the veteran — a stale verdict survives the next calculation",
+    "from": "display.cardA.classList.remove('winner'); display.cardB.classList.remove('winner');",
+    "to": "display.cardA.classList.remove('winner');",
+    "expect_fail": ["veteran-no-longer-winner"]
+  },
+  {
+    "name": "a throwing script is injected ahead of the tool",
+    "from": "<main class=\"container\" style=\"padding-top: var(--space-lg);\">",
+    "to": "<script>window.__deliberate_mutant_probe.boom();</script><main class=\"container\" style=\"padding-top: var(--space-lg);\">",
+    "expect_fail": ["no-console-errors"]
+  },
+  {
+    "name": "the tool is forced wider than any viewport",
+    "from": "<main class=\"container\" style=\"padding-top: var(--space-lg);\">",
+    "to": "<main class=\"container\" style=\"padding-top: var(--space-lg); width:3000px; max-width:3000px;\">",
+    "expect_fail": ["no-horizontal-overflow"]
+  }
+]

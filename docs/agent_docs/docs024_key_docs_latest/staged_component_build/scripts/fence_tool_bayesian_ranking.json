@@ -1,0 +1,95 @@
+{
+  "profiles": ["desktop", "mobile"],
+  "container": "main.container",
+  "checks": [
+    {
+      "id": "page-serves-200",
+      "type": "page_status_ok"
+    },
+    {
+      "id": "tool-renders",
+      "type": "selector_exists",
+      "profiles": ["desktop"],
+      "selector": "main.container #ratingA"
+    },
+    {
+      "id": "tool-has-visible-area",
+      "type": "has_visible_area",
+      "profiles": ["desktop"],
+      "selector": "main.container"
+    },
+    {
+      "id": "heading-names-the-tool",
+      "type": "interaction",
+      "profiles": ["desktop"],
+      "expect": {
+        "selector": "main.container h1",
+        "text_matches": "^Bayesian Ranking Calculator$"
+      }
+    },
+    {
+      "id": "computes-the-default-vector-on-load",
+      "type": "computed_values",
+      "profiles": ["desktop"],
+      "expect_values": {
+        "#bayesA": "3.636",
+        "#bayesB": "4.682"
+      }
+    },
+    {
+      "id": "veteran-wins-by-default",
+      "type": "interaction",
+      "profiles": ["desktop"],
+      "expect": {
+        "selector": "#cardB.winner"
+      }
+    },
+    {
+      "id": "outlier-not-winner-by-default",
+      "type": "interaction",
+      "profiles": ["desktop"],
+      "expect": {
+        "selector": "#cardA:not(.winner)"
+      }
+    },
+    {
+      "id": "recomputes-when-a-gains-volume",
+      "type": "computed_values",
+      "profiles": ["desktop"],
+      "steps": [
+        { "action": "fill", "selector": "#ratingA", "value": "4.9" },
+        { "action": "fill", "selector": "#countA", "value": "500" }
+      ],
+      "expect_values": {
+        "#bayesA": "4.873",
+        "#bayesB": "4.682",
+        "#txtRatingA": "4.9",
+        "#txtCountA": "500"
+      }
+    },
+    {
+      "id": "outlier-overtakes-once-it-has-volume",
+      "type": "interaction",
+      "profiles": ["desktop"],
+      "expect": {
+        "selector": "#cardA.winner"
+      }
+    },
+    {
+      "id": "veteran-no-longer-winner",
+      "type": "interaction",
+      "profiles": ["desktop"],
+      "expect": {
+        "selector": "#cardB:not(.winner)"
+      }
+    },
+    {
+      "id": "no-horizontal-overflow",
+      "type": "no_horizontal_overflow"
+    },
+    {
+      "id": "no-console-errors",
+      "type": "no_console_errors"
+    }
+  ]
+}
