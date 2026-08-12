@@ -86,10 +86,29 @@ returns to the owner.
 
 > **Owner:** *"2. yes."*
 
-> **STATUS 2026-08-11 (added by the lane that did it): BUILT, COUNCIL-APPROVED
-> (`c80ea1d7-ce1e-493f-8175-877501d895e6`, round 1, no high-severity objections),
-> COMMITTED, and INERT until a fleet roll.** Work, evidence and the standing five:
-> `docs024_key_docs_latest/silent_hero_logo_readers/`.
+> **STATUS 2026-08-12 — ~~INERT until a fleet roll~~ NOW LIVE on
+> `agent-chassis:v1.0.1290`**, both replicas, verified at the binary
+> (`DEPLOYED_IMAGE_RESULT_MISSING_URL` in `/proc/1/exe`) with a negative control.
+> **BUILT, COUNCIL-APPROVED** (`c80ea1d7-ce1e-493f-8175-877501d895e6`, round 1, no
+> high-severity objections), **COMMITTED, LIVE.** Work, evidence and the standing
+> five: `docs024_key_docs_latest/silent_hero_logo_readers/` — start at
+> `HANDOFF_2026-08-12_continue_here.md`.
+>
+> ⚠ **Live is not proven.** Rows with the new code: 0 — and the demand control says
+> `hero_deployed`/`logo_deployed` are **0 of 6,364** retained states, so the path
+> has had no opportunity to fire. The zero is unfalsifiable, not reassuring; the
+> proof needs a site build that deploys an image, read within the 4-hour window.
+>
+> 🔴 **NEW BLOCKER FOR ITEM 1, and it is in our own tooling.** The `090` filed on
+> item 1(a)'s root cause (`dbcc4259-ab84-494b-a48b-1df647209a40`) came back
+> UNVERIFIABLE because **the diagnosis bundle's CODE tier withheld the function
+> bodies it holds**: `code_symbols` carries all four coordinator symbols in full
+> (2,058 / 5,619 / 4,746 / 970 chars) and the bundle rendered **one**. That is the
+> same defect item 5 fixed in the SCHEMA tier, and it closes item 5's own
+> `PLAN` §3 note (*"whether the code tier has an analogous blind spot is unexamined
+> `[UNMEASURED]`"*). **A third `090` on item 1(a) will fail identically until this
+> is fixed** — so the code-tier fix, though not a commission item, now gates item 1.
+> Recommended next move with its scope-routing trap: that handoff §4.
 >
 > **Four corrections to this section, all established by doing it:**
 >
