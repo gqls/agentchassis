@@ -1239,3 +1239,74 @@ items** are in `triaged`.
 > yesterday has drained. The warning is right as a standing caution and wrong as a
 > description of now, which is exactly why the position is worth measuring rather
 > than inheriting from a doc. Left in the script as a caution, dated here.
+
+---
+
+## 2026-08-12 13:30 — the CTAs are live in rendered_html, and two of my claims were wrong
+
+### `page_rerender` does NOT re-render a component from `content_data`
+
+`[MEASURED]` After `CTA_…destinations.sql` set the URLs, I fired `rerender-pages`.
+All **5 `page_rerender` items completed with `"success": true`**, each carrying a
+`deploy_result` naming a commit ("Rerender: about.html", files_count 1) — and
+`page_components.rendered_html` did not change **by one byte**: same `updated_at`
+(04:15/04:33/04:37), still zero anchors. The repo has **no commit after 04:37**
+either, because the re-assembled page was byte-identical so git had nothing to
+commit and the adapter reported success anyway.
+
+**`page_rerender` re-assembles a page from its EXISTING component HTML.** It does
+not re-render a component from `content_data`. This corrects the assumption behind
+the 082 trigger I wrote an hour earlier, and it is a textbook case of "a `complete`
+work item is not a repaired artefact" — five of them, all green, all inert.
+
+The action that *does* re-render from `content_data` is the **section editor's
+`content_edit`** (`section_editor_actions.go:215`): update `content_data` →
+re-render the component template with site context → `UPDATE
+page_components.rendered_html` → reassemble the page → commit. New trigger:
+`scripts/initial_messages/130_section_editor/074_section_editor_noted_cta_urls.sh`,
+sequential by design (two slots on one page would otherwise race two page
+assemblies and two commits for the same file), canaried on one component before
+firing all six because the spawn→call handshake on that path is known-flaky.
+
+Result, verified at the artefact — all six re-rendered 13:22–13:27:
+
+| page · slot | anchors | destinations |
+|---|---|---|
+| index · hero, call-to-action | 2, 2 | `app.noted.co.uk` + `/how-it-works.html` |
+| how-it-works · hero, call-to-action | 2, 2 | `app.noted.co.uk` + `/migrate.html` |
+| migrate · hero | 2 | **`/contact.html`** + `/how-it-works.html` |
+| migrate · call-to-action | 1 | `/how-it-works.html` |
+
+### "Leave `cta_url` unset and the template renders no button" — WRONG, and it
+### produced exactly the misleading thing I was trying to avoid
+
+`migrate · hero` now renders:
+
+```html
+<a href="/contact.html" class="btn btn-primary">Save everything</a>
+```
+
+**I never set that.** `content_data` for that component still has **no `cta_url`**
+— my deliberate omission persisted exactly as written. The `/contact.html` is
+supplied by a **RENDER-TIME resolver**, so the gate `{{if and .cta_text .cta_url}}`
+is satisfied by a value that never appears in the source of truth. My reasoning in
+`CTA_…destinations.sql`'s header — "the template's designed degraded state is
+render no button, which is honest" — **is false**, and it failed in the one
+direction I said I was protecting against: a button labelled "Save everything",
+the action that rescues someone's only copy of their notes, pointing at a contact
+form.
+
+Note the earlier evidence pointed the other way and I over-read it: at the 04:15
+build the same component rendered **zero** anchors and the work item said "no
+eligible content hub". So the resolver's behaviour differs between the build path
+and the section-editor render path (or its eligibility changed once pages existed)
+— `[UNMEASURED]` which, and I am not asserting a cause without reading it.
+
+**Consequence for the fix candidates:** "leave it absent" is not available as a way
+to suppress a CTA on this platform. Suppressing one requires either removing the
+`cta_text` (a content change, and content is the framework's job) or setting an
+explicit destination. Raised with the owner rather than guessed, because the
+product answer is "this button needs `/legacy`", and `/legacy` is PLAN §4 step 3.
+
+**No live impact:** noted.co.uk still serves the legacy app from B2, so nothing
+user-facing carries the wrong link. It must not survive cutover.
