@@ -2,7 +2,8 @@
 
 **Filed:** 2026-08-12, `silent_hero_logo_readers` lane. Found by the run that verified
 `bugs_closed/261` — this is the defect that was **behind** it.
-**Status:** ~~OPEN, not started~~ → **FIXED IN THE TREE, NOT YET LIVE** (2026-08-12 evening).
+**Status:** ~~OPEN, not started~~ → ~~FIXED IN THE TREE, NOT YET LIVE~~ → **CLOSED: FIXED AND LIVE**,
+proven at the artefact 2026-08-13 14:00Z on chassis `v1.0.1295` (see §9).
 Candidates 1 and 2 both implemented, plus two neighbouring instances of the same shape that
 the filing did not name (see §7). Go changes are inert until a chassis image is rebuilt and
 rolled, so this file stays in `/bugs_open/` — the defect is still reproducible in production.
@@ -322,3 +323,58 @@ asserted):
 **The transferable lesson is not "the council is useful".** It is narrower: *the objection that
 mattered most was about a test I had not thought to write, on a branch I had already written.* Every
 guard was mutation-verified; the gap was that one guard's INPUT was only ever supplied by hand.
+
+
+---
+
+## 9. LIVE 2026-08-13 — proven at the deployed binary, and the check that did it was NOT the one §7d prescribes
+
+Chassis rolled to `v1.0.1295`, pods started `13:53:19Z`. Verified at `14:00:23Z`, **seven minutes
+after start** — and that number is the whole story of how this was proven.
+
+**What worked: the provenance stamp, because the pod was young enough.** The landmine's own precheck
+first — does the log even reach back to startup — then the stamp:
+
+    $ kubectl logs agent-chassis-68ddcf9655-87bq2 --tail=100000 | head -1
+    {"ts":"2026-08-13T13:53:30.122Z","msg":"Logger initialized successfully"}   <- reaches startup
+    $ kubectl logs agent-chassis-68ddcf9655-87bq2 --tail=100000 | grep -m1 'build provenance'
+    {"caller":"agent-chassis/main.go:53","msg":"build provenance",
+     "git_commit":"69612d692a4a07d61eea3f648e1152e0fd36fd0a"}
+
+Then the comparison the landmine insists on — **the stamp is ONE commit, the build point, never your
+own** — so you obtain it and test ancestry with `git merge-base --is-ancestor`:
+
+| commit | in the binary | what it is |
+|---|---|---|
+| `139dcc3ca` | **yes** | the fix |
+| `aade2842e` | yes | the landmine |
+| `24f83ba90` | yes | round-2 revision (the two untested branches) |
+| `17734b699` | yes | round-3 revision (`CanonicalSymbolName`) |
+| `978a62be2` | yes | 269 update |
+| `34cf44e2b` | yes | approval record |
+| `65efa25e3` | **no** — CONTROL | a descendant of the stamp: must read absent, and does |
+
+> **CORRECTION to §7d above and to `WRONG_CALLS.md`, in the direction of precision.** Both say the
+> provenance recipe is *inoperative* on `agent-chassis`. **It is TIME-LIMITED, not inoperative** — and
+> the landmine's own precheck is what tells you which case you are in: `logs <pod> | head -1`. If that
+> shows a startup line, the stamp is in range and the recipe is exact. The landmine measured 0 hits at
+> **44 minutes**; this worked at **7**. So the honest rule is: *ask immediately after a roll, and prove
+> the window with `head -1` before believing either a hit or a miss.* Yesterday's framing was right
+> about the failure and wrong about its shape — which would have stopped a future reader using a check
+> that works perfectly well if you are quick.
+
+**What did NOT work, exactly as designed: §7d's behaviour witness.**
+
+    witness_new_code | bundles_since_roll | omissions_since_roll
+                   0 |                  0 |                    0
+
+**The demand control earned its place on its first outing.** Taken alone, `witness_new_code = 0` reads
+as "the fix did not ship". With the control beside it the reading is unambiguous and completely
+different: **no diagnosis bundle has been assembled at all** since the roll, so the witness could not
+have fired. That is not a weak result — it is the difference between an inconclusive check that says
+so and an unfalsifiable one that says "verified".
+
+**So: closed on the stamp, with the behaviour witness still pending real traffic.** The next diagnosis
+run that scopes an over-budget file will populate it. §4b's `cap_only` count should stop growing from
+`2026-08-13 13:53:19+00` onward, and must NOT go to zero — the 6 historical iterations stay in the
+table for ever.
