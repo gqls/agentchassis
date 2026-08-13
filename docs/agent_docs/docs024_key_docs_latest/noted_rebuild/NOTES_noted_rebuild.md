@@ -1851,3 +1851,29 @@ baselines fresh), apex still the legacy app. Nothing here is public.
 still `needs_human_review` on the true-sentence "no server" blocker — the ban is
 the owner's to narrow or not. And the first `unresolved_cta` pair on the guide
 page will resolve when its content builds.
+
+### Owner ruling: "we don't want to say no server" — the ban stays; the INSTRUCTION was the defect
+
+The decision was already implicit in the ruling: nothing gets narrowed. What
+remained was mechanical, plus one finding worth the entry on its own:
+
+**The writer's instructions modelled the banned phrase.** `writer_block` said *"The
+old site had no server at all"* — so a writer describing the old version in the
+migration guide echoed its own instructions' framing and was blocked by the
+validator. The gate and the guidance disagreed, and the writer obeyed the guidance.
+The general shape: **a rule that quotes the forbidden phrasing while forbidding it
+teaches the phrasing** — prompt text is training data for the very model reading it
+(kin to memory `prompt-text-poisons-its-own-detector`, different failure surface:
+there it poisoned the detector, here it poisoned the writer).
+
+Fixed by `reword_old_app_instruction.py` (exact-sentinel replace, derived row):
+the clause now reads "describe it by what it DID: the old Noted kept everything in
+the browser you wrote it in, on that one device, and nowhere else. Never describe
+it by what it lacked…" `[MEASURED]` after the write: 7 bans intact, approved copy
+still inline, and the banned-shape regex finds **zero** matches anywhere in the
+new writer_block — the check that could have come out otherwise.
+
+Guide item requeued (`needs_human_review` → `triaged`) with the ruling recorded in
+its spec. Poll running. If the writer still produces a banned shape, the validator
+will catch it again and the fallback is a section-editor `content_edit` on the
+offending sentence — not a ban change.
