@@ -1066,3 +1066,28 @@ My read, for your consideration, not a ruling:
 - **So the owner's instinct ("take money first") is, I think, the right one
   for the automated path specifically** — but it's your switch and your copy,
   so I'm recording it, not flipping it.
+
+
+---
+
+## 2026-08-13 (midday) — canary VERIFIED BY EYE; round 3 of the FAQ services failed and is PARKED; fresh build v1.0.1295
+
+- **The imagery canary is live and on-brief, verified at the artefact by
+  looking at it**: pen-and-ink Heath Robinson contraption on kraft ground,
+  machine drawn as if it works, gold used ONLY on the immaculate web page
+  rolling out of it. Deployed to `hero-home.jpg` IN PLACE (same asset_key ⇒
+  same path), served `last-modified 2026-08-13 10:45:02Z` — so the locked hero
+  component was never touched, exactly as designed. The pipeline even filed and
+  completed its own "Re-render index after its image asset landed" item.
+- **gapfill3_faq FAILED with the names in the wire** — the answer is unchanged
+  , no services named, three rounds total. Rounds 1–2 were my
+  facts-vs-wire defect; round 3's cause is UNKNOWN and I am not running a
+  round 4 blind. PARKED with three options in the handoff (§2.2): section-data
+  insertion, read the rendered prompt from `llm_call_log` (the 08-09 method),
+  or the owner drops the ask.
+- **Fresh chassis build `v1.0.1295`** (image label ← `69612d692`, pods started
+  13:53Z). My 268 filing is aboard; the 268 fix paths (`plan_sections`,
+  `save_page_sections`, `link_repair`) show no commits today, so the fleet
+  defect is unchanged and the locks stay on.
+- SUMMARY_2026-08-13 written (offer hardened + brand landed + fleet defect
+  found); HANDOFF_2026-08-13_continue_here supersedes 08-12's.
