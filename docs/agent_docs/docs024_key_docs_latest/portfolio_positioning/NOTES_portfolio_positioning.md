@@ -701,6 +701,14 @@ NOT yet enabled on any live discovery agent, and the RFC_025 code has not yet ro
 enablement migration + a chassis roll are Phase-B-adjacent follow-ups, not blockers on
 starting B's own build.
 
+**PHASE A LIVE [MEASURED 2026-08-13 ~16:45Z]:** chassis `v1.0.1295` (rolled ~13:53Z by the
+D2/observability lane) carries all six Phase A commits — verified at the artefact per the
+standing recipe: stamp `69612d692` probed in `/proc/1/exe` on BOTH replicas (control sha
+absent), each commit confirmed via `git merge-base --is-ancestor`. The log-line half of
+the recipe was unavailable (startup line rotated out — the TIME-LIMITED landmine another
+session filed today as `6ceeaba1b`). Owner's Phase A gate is fully satisfied. Phase B
+approved and planned; cold-start = `HANDOFF_2026-08-13_continue_here.md`.
+
 **Side finding while double-checking the round-2 correction (owner asked for one more
 check): bug 270 filed.** `check_missing_structure.go` — the very check the council
 objections forced a comparison against — turned out to be LIVE and firing on a predicate

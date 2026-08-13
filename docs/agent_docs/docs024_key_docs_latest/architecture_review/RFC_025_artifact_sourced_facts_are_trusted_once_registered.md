@@ -384,3 +384,13 @@ building the mechanism that could). This is deliberately left as future, site-by
 human-paced work — not a blocker on the code being considered live. Mark `IMPLEMENTED`
 once the next chassis roll carries this code and at least one real fact uses either new
 mechanism.
+
+**LIVE 2026-08-13**: chassis `v1.0.1295` (rolled by another lane ~13:53Z) carries this
+code — verified per the standing recipe at the artefact, not the tag: build-provenance
+stamp `69612d692` probed present in `/proc/1/exe` on BOTH replicas with an absent-sha
+control, and both implementation commits (`3129cceea`, `9652f4d52`) confirmed ancestors
+of the stamp via `git merge-base --is-ancestor`. The one remaining condition for
+`IMPLEMENTED` is a real fact using `artifact_check` or the attestation nudge firing on a
+real register (the daily evidence sweep will now exercise stage 1 automatically —
+attested facts older than 180 days will begin raising `stale_attestation` items without
+further action).
