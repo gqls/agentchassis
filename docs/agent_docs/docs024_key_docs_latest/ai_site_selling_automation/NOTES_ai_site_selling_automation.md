@@ -1091,3 +1091,37 @@ My read, for your consideration, not a ruling:
   defect is unchanged and the locks stay on.
 - SUMMARY_2026-08-13 written (offer hardened + brand landed + fleet defect
   found); HANDOFF_2026-08-13_continue_here supersedes 08-12's.
+
+
+---
+
+## 2026-08-13 (afternoon) — the brand is LIVE on every hero; the FAQ services item fails a FOURTH round; the cluster token expired mid-session
+
+- **All five heroes generated and verified BY EYE at the served artefact**:
+  contraption (home, the canary), marble run (how-it-works), open cardboard box
+  with the framed page (what-you-get), trade counter with the gold page on it
+  (faq), scruffy goose beside the golden egg (contact). One hand, one kraft
+  ground, gold only on the output — a coherent set.
+- **En route: four heroes painted `/assets/images/hero.jpg`, which 404s**, while
+  their per-page files had existed since 08-08. References fixed in
+  content_data AND rendered_html through my own locks (the verify assertion
+  caught the guide as a fourth case my page-list missed). what-you-get and faq
+  converged via pipeline redeploys; **how-it-works and the guide were pushed
+  directly to vm-sites (`c075a6c`)** because the cluster token expired before a
+  rerender could be dispatched — the DB already carried the fix, so the push
+  CONVERGES file and DB rather than diverging them.
+- **`gapfill4_faq` FAILED — four rounds now.** Round 4 ran with the six names
+  in writer_block AND in the whitelist ENUMERATION (SQL_2026-08-13b, committed
+  ~16:46Z, item ran 16:53–16:59Z). The round-3 diagnosis (enumeration excluded
+  them) was read from the rendered prompt and was true, but fixing it did not
+  suffice. **PARKED HARD. Do not run a round 5 on guidance changes.** Next
+  moves when the cluster returns: read round 4's rendered prompt
+  (`llm_call_log`, ~16:53–16:59Z, page-content-writer iter for the faq
+  section) to confirm the enumeration edit reached the call; then either
+  section-data insertion or an owner drop. Buttons and hero background on faq
+  are intact (verified at the served page — note `grep -c` counts LINES not
+  matches; the four anchors sit on two lines).
+- **The kubeconfig token expired ~17:00Z** (fleet-wide Unauthorized; the known
+  3-day expiry, owner refreshes). Everything after that point was done at the
+  served artefact and the deploy repo; DB-side verification of the last hour
+  is OWED once access returns.
