@@ -270,3 +270,65 @@ only — it does not touch the survivor decisions, which are still what is neede
   does not undo them, and it now also blocks repair-by-rebuild, so **retraction
   (`page-retraction`, which dispatches `delete_file` and is unaffected by the guard) is the
   route.** Two of the three domains belong to other lanes, both told in their own handoffs.
+
+---
+
+# 10. EXECUTION PLAN — O2 is DECIDED (owner, 2026-08-13). This is now work, not a question.
+
+Decisions recorded verbatim in `DECISION_INPUT_2026-08-12_seven_twin_pairs.md` §"OWNER
+RULING 2026-08-13". Procedure is the runbook's 8 steps per pair, unchanged. **Nothing has
+been executed.**
+
+## What the owner's choices changed about the procedure
+
+- **Pairs 3+4 (fundamentallyai guides): he chose `/guides/`, which is the side I did NOT
+  recommend — and he is right on merit; my recommendation was on execution cost.** The
+  consequence is exactly the one the decision doc predicted: the loser (`/blog/`) is **IN
+  PLAN**, so **runbook step 3 (remove the loser from the current plan) is now MANDATORY,
+  not optional.** Archive it while its plan entry stands and the refile chain re-creates it.
+- **Pair 7 (robot-hands `cycle-time-estimator`): he chose MERGE, not retire.** The bare page
+  carries ~1,700 more words than the `tool-` page. **Retiring it before merging destroys
+  them.** This is the only pair whose execution includes writing — and per CLAUDE.md's
+  2026-08-06 ruling **the FRAMEWORK writes the content, not the session**: route the merge
+  through the pipeline (`section_edit` / content_direction), do not hand-author it.
+- **Pair 2 (finetuning): decided (`tool-`), execution HELD on `bugs_open/204`.**
+
+## Suggested order, and why
+
+1. **Pair 1 — ai-agent-orch `llm-cost-calculator`. Do this FIRST as the canary.** It is the
+   only pair needing **no plan edit** (neither side is in the plan), and it is the clearest
+   case. It exercises all 8 runbook steps on the lowest-risk pair before any plan surgery.
+2. **Pairs 3+4 — fundamentallyai.** Plan edit first (step 3), then 4–8. **Route through the
+   fundamentallyai sweep front**, which owns that site's execution (§5).
+3. **Pairs 5+6 — robot-hands `payload-calculator`, `matchmatrix`.** Both sides in plan, so
+   step 3 first for each.
+4. **Pair 7 — robot-hands `cycle-time-estimator`.** Content merge through the framework
+   FIRST, verify the merged tool page serves the prose, only then steps 3–8 on the bare side.
+5. **Pair 2 — finetuning.** Blocked. Do not execute until `204` is fixed.
+
+## Three things that are true now and were not when the runbook was written
+
+- **Step 5 (archive) is DURABLE.** `bugs_open/266` is fixed, council-approved and live on
+  `v1.0.1295`. The runbook's warning 3 ("archiving is not durable on its own") is
+  **discharged for the rebuild path**.
+- **Step 6 (retract) is still REQUIRED and is unaffected by the new guard.** Archiving stops
+  a page being *re-built*; it has never removed the already-deployed *file*. Retraction
+  dispatches `delete_file`, a different path from `git_commit`, deliberately not guarded.
+- **A bonus falls out of step 5: this is how `266` gets its behavioural proof.** If anything
+  tries to rebuild a freshly archived loser, the guard refuses and writes
+  `ARCHIVED_PAGE_DEPLOY_REFUSED`. That is the evidence `266` is waiting on, and it needs no
+  contrived test —
+  `SELECT * FROM agent_error_log WHERE error_code LIKE 'ARCHIVED_PAGE_%' ORDER BY occurred_at DESC;`
+
+## The five archived-and-serving pages — NOT this lane's
+
+Owner: **"leave them for their own lanes."** leopardess and robot-hands were told in their
+own handoffs. **fundamentallyai's two still need a call from its sweep front.** Separate
+population from the seven pairs — no page is in both lists; do not conflate them.
+
+## Still unmeasured, and the owner has not asked for it
+
+**Search-engine indexing.** Named in the runbook as an input, no data source. On age alone
+the flat URLs are older on 5 of 7 pairs and likelier indexed — **an inference, not a
+measurement.** Pairs 3+4 now retire the flat `/blog/` side, which is the direction where
+this matters most. **A redirect (step 7) is what makes it safe, so do not skip step 7.**
