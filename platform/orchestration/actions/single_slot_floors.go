@@ -48,14 +48,26 @@ import (
 //	           changes component_id AND slot_name AND html: the markup is SUPPOSED
 //	           to change because the component is a different one. A floor here
 //	           would refuse the operation for doing its job.
-//	DOES NOT   adopt_verbatim, create_report_page, create_tool_component,
-//	           deploy_tool — these CREATE rows or write first content; there is no
-//	           prior prose to flatten, and the floors compare against a prior.
-//	OPEN       rebuild_blog_listing, fix_forced_text_colours,
-//	           fix_harcoded_colours — these rewrite existing rows and are NOT yet
-//	           covered. The colour fixers are narrow (attribute-level) and are
-//	           unlikely to strip structure, but "unlikely" is not measured. Stated
-//	           as residual exposure rather than silently omitted.
+//	N/A        create_tool_component, deploy_tool — INSERT only, ZERO
+//	           `UPDATE ... SET rendered_html` sites (measured 2026-08-13). Not
+//	           rewriters at all, so out of scope by CONSTRUCTION, not by
+//	           exemption — they never appear before the coverage test.
+//	EXEMPT     adopt_verbatim — writes the ORIGINAL adopted document, i.e. it
+//	           creates the prior that everything else is measured against.
+//	EXEMPT     create_report_page — ⚠ CORRECTED: an earlier draft of this comment
+//	           filed it as create-only. It is NOT: it looks up its report row by
+//	           (page_id, slot_name) and OVERWRITES it. The coverage test caught
+//	           that, the manual audit had not. Exempt for a different reason —
+//	           the row is a machine-rendered dossier this action owns and
+//	           regenerates wholesale, never a decomposed prose block.
+//	EXEMPT     rebuild_blog_listing — machine-generated listing, same reasoning.
+//	EXEMPT     fix_forced_text_colours, fix_harcoded_colours — attribute-level
+//	           colour rewrites believed structure-preserving. `[UNMEASURED]`: that
+//	           is a code reading, not an experiment. Residual exposure, stated.
+//
+// Every one of the nine writers now has a disposition. The exemptions live in
+// page_component_writer_coverage_test.go's exemptWriters, where a reason is
+// mandatory and a stale entry fails a second test.
 func enforceSingleSlotFloors(ctx context.Context, params ActionParams, siteID, pageID uuid.UUID,
 	pageName, slot, existingHTML, incomingHTML string) error {
 
