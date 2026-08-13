@@ -2336,3 +2336,55 @@ refused both times. The second staleness was caused by **this lane's own restore
 deploys** — rerenders push to the sites repo continuously, so a pin goes stale within the
 hour you are working. The guard's instruction *"re-verify at the moment of use"* is
 literal, not cautious.
+
+---
+
+## 2026-08-13 — TRACK B2 PROVEN on `mortgages-simple`: machinery in the template, copy as fields, and a framework field-edit reached the live page
+
+**Context:** owner ruled all text and widgets must be editable and reusable
+(*"with their own slightly different copy or mechanism"*), and asked for a
+re-evaluation after the model change. The re-evaluation found yesterday's design
+self-contradictory — `ApplySectionEditAction` REFUSES human-locked components
+(`section_editor_actions.go:305`), so "editable fields on a permanently locked row"
+was never a thing. Corrected design in `bugs_open/263` (2026-08-13 entry): protection
+moves from the row-lock to the TEMPLATE. Machinery in `content_components.html_template`
+(writers can only fill fields); copy as `input_schema` fields; row UNLOCKED; page stays
+`owned`; the `no_auto_fix` fences stay armed.
+
+**The proving run, every step measured:**
+
+1. **Template authored by byte-slicing the source** (pin `eb4c96303`) — 7 copy fields
+   (heading, 3 input labels, button text, result label, crosslink text), each
+   `required` with the original copy as `fallback` (the bug-238 class), labels carrying
+   the load-bearing-copy warning from the copy lane. Rendered with **Go's own
+   `text/template` engine, `missingkey=zero`** (a scratch `go run`, not a python
+   approximation): **render == source block, byte for byte** (md5 `5e81de43…`, 3,248 B).
+2. **Seeded in one guarded transaction**: `content_components` row
+   (`function='mortgages-simple'` == `pages.name`, so the acceptance fence still
+   resolves — the consolidation precedent), page row `tool-0` with `component_id`,
+   `content_data` = fields + provenance, `rendered_html` = the block, **no lock**;
+   `sections=["tool-0"]` (the docstring's own "one card containing everything" page).
+   DO/RAISE asserted: backup row exists, exactly 1 row, md5 matches, 0 locked, 7 fields.
+3. **Deployed** (assemble-only rerender, RUNBOOK §8 shape): served page carries the
+   block **verbatim**, class-count drops vs the pre-B2 page **NONE** (container exempt),
+   ids lost **NONE**.
+4. **Oracle after B2: PASS 4 / FAIL 0**, expectation control fired correctly
+   (PASS 0 / FAIL 4) in the same session.
+5. **THE CAPABILITY ITSELF, through the real pipeline** — a `section_edit` work item
+   (`edit_type='content_edit'`, `field_updates={"heading": …}`, the same shape another
+   session used for fleet voice edits yesterday): item `complete`,
+   `content_data.heading` updated, `rendered_html` re-rendered through the template
+   (+2 B — exactly the heading length difference), machinery intact, **and the live
+   page served the new `<h2>` with no separate rerender** — the editor deploys its own
+   change. Revert item filed to close the round trip; must end md5-identical to the
+   source block. Result recorded below when it lands.
+
+**What this proves for the owner's requirement:** copy on a calculator page is now a
+field a framework agent can edit without being able to touch the widget — and reuse is
+`content_data`-per-page against the same component. What it does NOT yet prove: reuse
+on a second page (needs a second `page_components` row with different field values —
+cheap to demonstrate when wanted), and behaviour under a full generic rebuild (page is
+`owned`; that path stays closed until the flip decision).
+
+**Rollback inventory for this page:** `page_components_bak_20260805_lmc` (original
+verbatim row) + `load_lmc.py --restore mortgages-simple` + the BEFORE served capture.
