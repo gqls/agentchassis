@@ -1121,7 +1121,7 @@ ink == fill on both slots, so they contribute no divergence either way.
 third colour — a tinted primary, `text_muted`, `#ffffff` — would have falsified it. Fourteen sites
 with fourteen different palettes, two slots each, and the answer is the same value every time.
 
-### 2. The cause is one line, and it makes four of five branches unreachable
+### 2. The cause is one line, and on every site in the fleet it makes `text` win
 
 `platform/orchestration/actions/palette_specialised_slots.go:350`:
 
@@ -1131,9 +1131,22 @@ with fourteen different palettes, two slots each, and the answer is the same val
 
 `legibleInkFor` returns the **first** palette colour that clears 4.5:1 against every ground, and
 `text` is first. `text` is by construction the palette slot chosen to be read on `background` — so
-it clears the grounds whenever anything does. **It always wins. `accent`, `text_muted`, `secondary`
-and `primary` are unreachable in production**, and the fleet measurement above is what that looks
-like from outside.
+it clears the grounds whenever anything does. **It wins on every site in the fleet**, and §1's
+measurement is what that looks like from outside.
+
+> **CORRECTED 2026-08-13, within hours, by a reviewer from the `bugfix_122_contrast_ink_slots` lane —
+> and the correction is worth more than the sentence it fixes.** I first wrote that `accent`,
+> `text_muted`, `secondary` and `primary` are "unreachable in production". **That is a measured fleet
+> fact, not a logical necessity.** The walk *would* return `accent` on a site where `text` failed one
+> ground and `accent` cleared them all — `text` is chosen to be legible on `background`, `grounds` is
+> `{background, surface}`, and the two can come apart. **No such site exists in the fleet.**
+>
+> Why it matters that I got this wrong: stating it as a necessity converts a **disconfirmable
+> measurement into an unfalsifiable claim** — and §1 exists precisely because the measurement could
+> have come out otherwise. The mechanism explains the result; it does not license a stronger version
+> of it. The part that IS necessary is narrower and sufficient for everything below: the walk can
+> never return a colour related to `<x>`, because `<x>` is last in the list and is the one colour
+> already known to have failed.
 
 ### 3. So the mechanism's stated purpose is not what it does
 
@@ -1341,3 +1354,49 @@ instance: **a delegated measurement arrives in the same voice as a first-hand on
 system cannot tell them apart.** `[MEASURED]` records that a number came from a query, not that the
 writer ran it. A borrowed number needs its own marker, and re-running it is usually one command.
 Logged in `WRONG_CALLS.md`.
+
+### 11. A sibling defect the derivation fix will NOT close: a `var(--x, fallback)` whose `--x` is DEFINED BUT OF THE WRONG TYPE
+
+**Contributed 2026-08-13 by the `bugfix_122_contrast_ink_slots` lane (the render-audit retraction
+half), carried here at their request to avoid a same-file passenger while I held 181 uncommitted
+lines. Their evidence, their finding — recorded under their name, not mine.** Full working in
+`NOTES_contrast_ink_slots.md`, 2026-08-13 §5.
+
+On `robot-hands.com`, `.cta-btn-primary` sets:
+
+```css
+color: var(--color-cta-bg, var(--color-primary));
+```
+
+and that site's `--color-cta-bg` holds **`linear-gradient(135deg,#3b82f6,#2563eb)`**. A gradient is
+not a valid `<color>`. Because the variable **is** defined, the sane-looking fallback
+(`var(--color-primary)`, itself falling back to `#1A1F2E`) is **never reached** — the declaration is
+invalid at computed-value time, `color` inherits `#ffffff` from `.cta-section`, and the button paints
+white on white.
+
+Measured across 8 sites by the contributing lane: the *consumer* shape is fleet-wide — **8 of 8 use
+`--color-cta-bg` in a `color` slot** — but the gradient is only on **3 of 8** (`robot-hands.com`,
+`finetuning.uk`, `gaswholesalers.com`), and all three pair it with `--color-cta-text: #ffffff`, which
+is why it has survived unnoticed. The other 5 hold a plain hex there and are fine.
+
+**`[INFERRED]`, and left inferred deliberately** — the inheritance step is reasoned, not observed:
+the contributing lane had no local Playwright and an expired kubectl token, same as me. **The cheap
+disconfirming check for whoever next has a live token:** the filed `contrast_failure` row's spec
+should carry the audit's measured fg/bg/ratio for that selector. `fg ≈ bg ≈ #ffffff` at ≈1.0:1
+confirms it; anything else refutes it.
+
+**Why it belongs on this bug and why my §7 fix does not touch it.** It is the same family — a palette
+slot used in a role it was not authored for — but the failure is a *type* error, not a contrast one,
+so making `--color-primary-ink` a legible tint does nothing for it. And it is worse than the case
+this bug started with:
+
+> **A `var(--x, fallback)` whose `--x` is defined but of the wrong TYPE is strictly worse than one
+> whose `--x` is undefined, because the fallback is dead code while the source reads as though it has
+> a safety net.**
+
+That generalisation is the contributing lane's, and it is the most transferable thing on this page
+today. Note it cuts *toward* the §7 fix rather than against it: `buildLegibleInkDefaults` emits only
+hex, and `TestBuildLegibleInkDefaults_NeverEmitsAnEmptyOrIndirectValue` already pins that, so the ink
+companions cannot themselves become a dead-fallback trap. **Anything that later teaches the renderer
+to emit a gradient into an ink slot would create exactly this defect**, and that test is what stops
+it. Filed as its own trap in `LANDMINES.md`; a separate bug number is the contributing lane's call.

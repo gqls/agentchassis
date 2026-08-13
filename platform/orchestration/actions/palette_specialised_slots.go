@@ -324,9 +324,16 @@ func pickInkOn(bgHex string, palette map[string]string) (hex, source string) {
 // `background` — so it clears the grounds whenever any candidate does, and it
 // always won. MEASURED 2026-08-13 at the served artefact across all 18
 // palette-driven live sites: all 16 divergences between an ink companion and its
-// source slot resolved to that site's own --color-text. Zero exceptions. So
-// `accent`, `text_muted`, `secondary` and `primary` were unreachable in
-// production, and --color-primary-ink was --color-text under another name —
+// source slot resolved to that site's own --color-text. Zero exceptions.
+//
+// ⚠ STATE THAT PRECISELY, because the loose version is wrong and was corrected by
+// a reviewer: `accent`, `text_muted`, `secondary` and `primary` are NOT
+// unreachable as a matter of logic. The walk WOULD return `accent` on a site where
+// `text` failed one ground and `accent` cleared them all — `text` is chosen to be
+// legible on `background`, and `grounds` is {background, surface}, so the two can
+// come apart. **No such site exists in the fleet.** The measurement is the
+// evidence; the mechanism only explains why it came out that way. So
+// --color-primary-ink was --color-text under another name on every site we have —
 // while this function's own doc comment, the register entry (VIZ-014) and the
 // approved plan all said it "prefers a palette colour so the site keeps its
 // character".
