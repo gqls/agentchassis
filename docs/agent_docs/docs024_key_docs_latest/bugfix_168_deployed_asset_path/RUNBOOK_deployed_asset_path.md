@@ -261,3 +261,43 @@ means the exec/grep is unusable on that pod — report it as *unverifiable*, nev
 
 ⚠ Do not run two `strings` passes in one `exec` across many pods — it times out around 2 minutes
 on a fleet this size. One pass per pod, or rely on the digest check above.
+
+---
+
+## Has a late-ladder GATE actually been reached? (added 2026-08-13 — the day a run answered "no")
+
+**Do NOT answer this from the refusal counters.** All three gates read `0` while the code ran 21
+times, because every item was decided by an arm *above* them. The counters cannot distinguish
+"approved", "never asked", and "the ladder stopped above it". **Read the reasons.**
+
+```sql
+-- what actually DECIDED each item on a given run? this is the query that settles it
+SELECT result #>> '{revalidation,verdict}' AS verdict,
+       left(result #>> '{revalidation,reason}', 95) AS reason_prefix,
+       count(*)
+FROM site_work_items
+WHERE item_type='claims_unverified' AND result #>> '{revalidation,at}' LIKE '2026-08-13%'
+GROUP BY 1,2 ORDER BY 3 DESC;
+```
+
+Reasons that mean **the gates were never reached**: *"still carries N claim(s) the register does not
+support"* (scan still trips) · *"page is absent, or has no component carrying rendered html or stored
+content"* · *"site has no current evidence_base spec"*. All three gates sit **downstream of a clean
+scan**, so anything that stops the ladder earlier makes their zero uninformative.
+
+**Did a run happen at all, and against which binary?** Two independent facts, both cheap:
+
+```sql
+SELECT name, interval_seconds, enabled, last_triggered_at, last_completed_at
+FROM scheduled_tasks WHERE name = 'review-queue-revalidate-daily';
+```
+```sh
+# which binary was live at that instant? compare the run time against pod start times,
+# NOT against the tag in the makefile (which moves ahead of the fleet)
+kubectl -n ai-persona-system get pods -l app=agent-chassis \
+  --field-selector=status.phase=Running \
+  -o jsonpath='{range .items[*]}{.spec.containers[0].image}{" "}{.status.startTime}{"\n"}{end}'
+```
+⚠ **The `date LIKE` filter above is the only reliable way to scope to one run**, because
+`result->'revalidation'->>'at'` is **last-write-wins** — grouping it without a date filter returns
+"the last run that touched each row", which reads exactly like a run history and is not one.
