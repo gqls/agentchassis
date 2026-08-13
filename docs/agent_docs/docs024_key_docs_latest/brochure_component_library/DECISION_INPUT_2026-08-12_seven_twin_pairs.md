@@ -137,5 +137,15 @@ is re-created. This is the one site where the plan edit is not optional.
 
 **Nothing here has been executed. No page archived, no plan edited, no redirect
 written.** Execution needs your survivor decision per pair, and then the runbook's
-eight steps in order — including the standing warning that until the archived-pages
-diagnosis (corr `38099787`) is read, **any archive can be undone by the next build**.
+eight steps in order.
+
+> **UPDATED 2026-08-13 — the blocker in the original last line is DISCHARGED.** That line
+> read: *"until the archived-pages diagnosis (corr `38099787`) is read, any archive can be
+> undone by the next build."* The diagnosis was read, the cause was **four** independent
+> producers none of which checked `pages.status`, and the fix is **live and council-approved**
+> (`bugs_open/266`, PBP-042, chassis `v1.0.1295`, artefact-verified on both replicas).
+> **An archive now holds.** Two caveats, neither of which changes a recommendation above:
+> the guard is **not yet behaviourally exercised** (nothing has dispatched a build at an
+> archived page since it went live), and it **stops recurrence without undoing** the pages
+> already archived-and-serving — for those, retraction is the route, and retraction is
+> deliberately unaffected by the guard.
