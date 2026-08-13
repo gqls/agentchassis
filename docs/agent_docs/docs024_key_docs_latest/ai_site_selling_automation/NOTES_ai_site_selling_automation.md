@@ -1015,3 +1015,54 @@ this; not dispatching a round 3 for index.
 brand; the `design_intent` palette/layout pass (still describes the
 "well-printed document" brand and says "no hero image"); owner look at the
 canary before the fleet of five.
+
+## 2026-08-13 — CROSS-LANE NOTE from the webdesign_uk_build_service lane (not this thread; your words above are untouched)
+
+Two things you flagged as falsifiers/blockers are now resolved or connectable.
+
+**1. The site-facts relay SHIPPED and is LIVE (your §5 falsifier).** CHAT-010
+is on core-manager `v1.0.1294`. The webdesign.uk chat bot now reads its facts
+from THIS register's `evidence_base` over the WireGuard tunnel, refreshed every
+5 min. Proven at the artefact 2026-08-13: the bot answers **"£149, one-off, you
+approve before you pay, no refund"** with zero retired £1,200/£75/14-day terms.
+**Before this, the bot was still quoting £1,200 while your five pages said £149**
+— a live contradiction a visitor would have hit. It's gone. Net effect for you:
+**the register's `facts` are now the single source of truth the bot speaks
+from — change a fact, the bot changes within one refresh, no redeploy.** (The
+`writer_block` is deliberately NOT served to the bot; only `facts[].claim`.)
+
+**2. Your webhook-exposure decision #2 recommends "proxy from the webdesign.uk
+box over the existing tunnel — needs the sibling lane." That tunnel now
+EXISTS.** WireGuard peer `webdesignbox` is up and proven (box → in-cluster
+ClusterIP, real forwarded traffic, `ip_forward` latent fault found and fixed —
+see the CHAT-010 register entry + the LANDMINE). Today it carries box→cluster
+*outbound* (the facts fetch). For a Stripe webhook you need the reverse
+direction — the box receives the public HTTPS POST and proxies it *inbound* to
+auth-service over the same tunnel. The tunnel is bidirectional once up; the box
+would need a small nginx `location /stripe/webhook { proxy_pass
+http://<auth-service ClusterIP>:<port>; }`. That's box config, small, and it
+avoids standing up an Ingress or a second Cloudflare tunnel. Whoever picks up
+your decision #2 should talk to this lane's RUNBOOK for the tunnel details.
+
+**3. The owner's live question (2026-08-13), recorded here because it lands on
+your `payment_timing` switch:** *"What do we need to make it create the site
+after taking money. Perhaps we should take money first, I don't know yet."*
+My read, for your consideration, not a ruling:
+- Your current design is `after_approval` (build → preview → approve → pay),
+  and the copy now states it. That has **zero refund risk and zero
+  chargeback-for-copying-then-walking risk in the sense that they haven't paid**
+  — but it means every build is speculative (built before any money), and for
+  an AUTOMATED flow that is exactly the "anonymous internet-triggered,
+  token-spending build" SAAS-001 warns about. Automation removes the human gate
+  that makes a speculative build safe today.
+- **Pay-first fits the £149 "no refund" terms MORE cleanly than pay-after
+  does** — "pay £149, we build it, you get the files, no refund" is a product
+  purchase; "pay after approval, no refund" is slightly odd (why name a refund
+  you'd never need?). Pay-first also makes payment its own rate-limiter and
+  abuse guard: no paid order, no build.
+- The catch you already documented (decision #4): the five pages now SAY
+  pay-after-approval, so flipping `payment_timing` to `upfront` is a copy
+  migration, not a one-field UPDATE.
+- **So the owner's instinct ("take money first") is, I think, the right one
+  for the automated path specifically** — but it's your switch and your copy,
+  so I'm recording it, not flipping it.
