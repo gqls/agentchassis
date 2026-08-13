@@ -205,3 +205,45 @@ fundamentallyai was repaired — you have the merge-order finding and the LLM-fr
 recipe, and I do not want to compete with a session that has that context. Flagging it
 because your repair note reads as complete for the site it names, and a reader could
 reasonably take "fundamentallyai only" as "the rest are fine".
+
+---
+
+## Contribution 2026-08-13 — a fresh instance, dartsonline.com's `flight-shapes.html`, both class (c)/(d) shapes present at once
+
+From an owner conversation about adding explanatory images to `dartsonline.com`'s guides —
+not from this bug's own workstream, contributing rather than opening a parallel account.
+
+**The page is not imageless — its one image is invisible to an `<img>` scan, which is worth
+restating because it nearly produced a false "zero images" claim of my own.** The hero is a
+CSS `background-image` (`content-hero-flight-shapes.jpg`, confirmed **200**), exactly the
+trap this file's ADDENDUM already names ("CSS `background-image: url()` references are
+invisible to href/img-src censuses").
+
+**The real finding: an illustration that would answer the owner's actual request — a
+comparison diagram of the flight shapes the article discusses — already exists, generated
+2026-08-05, and is wired to nothing:**
+
+```
+asset_key                                 purpose        url
+illustration_flight_shapes_comparison     icon           /assets/images/input-data.asset-key.jpg   (class (d) — the literal template artefact, confirmed live at 200, i.e. really deployed under its broken name)
+illustration_flight_shapes_comparison_lg  content_hero   <real signed S3 URL>
+```
+
+Neither `asset_key` appears in any page's `rendered_html`, fleet-wide (checked by direct
+`ILIKE` scan, 0 rows) — an orphan by this file's own definition, not inferred from silence
+elsewhere. `entity_type`/`entity_id` are both null on both rows, so nothing ever linked them
+to the page they were generated for. No `site_plan_imagery` row names `flight-shapes` at all
+(0 rows) — consistent with class (c): these were generated outside the planner path (matching
+naming convention `illustration_<page>_comparison`, not `content_hero_<page>` alone), so the
+planner-driven resolvers this file already names had nothing to find.
+
+**Class (d) is not just a stored artefact this time — the broken path is live-serving.**
+`input-data.asset-key.jpg` returns **200** (control: a genuinely nonexistent filename on the
+same site returns 404), so at some point something actually wrote a file to that literal,
+unrendered-template name and it has been sitting there, referenced by nothing, ever since.
+
+**Nothing applied** — no page edit, no asset rewrite. Left for whoever next works this bug or
+the imagery pipeline generally: the cheap win is wiring `illustration_flight_shapes_comparison_lg`
+onto this one page (it is exactly the image the content needs); the fix that closes the door
+for the *next* orphan is still candidate 2 in this file (drain or stop filing the queue that
+was supposed to catch this).
