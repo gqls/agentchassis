@@ -198,3 +198,64 @@ queue is empty, which is the result we expect and have never been able to confir
 > userlist from the same variables that populate `personae-platform-secrets`, which would
 > make the mismatch unrepresentable. It needs the other two passwords moved into that
 > resource and was outside what decision D1 authorised.
+
+### §9 CORRECTED 2026-08-13 — the Terraform half landed, the console still fails, and the plan was wrong
+
+**State:** `PGBOUNCER_ADMIN_PASSWORD` **is now in `personae-platform-secrets`** (8 keys —
+the apply happened). The console still refuses:
+
+```
+psql -h 127.0.0.1 -p 6432 -U pgbouncer_admin -d pgbouncer -c "SHOW POOLS;"
+FATAL:  password authentication failed
+```
+
+**That error is informative and worth distinguishing from the earlier one.** As
+`clients_user` the console answers `FATAL: not allowed` — authentication *succeeded* and
+the admin check refused. As `pgbouncer_admin` it answers `password authentication failed` —
+the user is an admin, the password is wrong. So the roster is right and only the value is
+out of step.
+
+**Why:** pgbouncer's userlist stores **plaintext** (no `auth_query`/`auth_user` is
+configured — `auth_type = md5`, `auth_file` only, so the userlist is the sole authority).
+The existing `pgbouncer_admin` entry is **20 characters**; the value Terraform generated is
+**32**. A length comparison is enough — they cannot be the same string.
+
+> **MY ERROR, corrected here rather than quietly.** I wired D1 by **generating a fresh
+> password** for an account that **already had a working one**. I did flag the existing
+> value as `[UNVERIFIED]` and wrote "check before overwriting" — the right instinct — and
+> then generated anyway, which guaranteed a mismatch. The console was never going to work
+> after step 1 alone, and not for the reason §9 originally gave.
+>
+> **A second, worse error, retracted.** I first compared the userlist's `clients_user`
+> entry against `CLIENTS_DB_PASSWORD` **as whole lines** — including quoting and
+> whitespace — got "DIFFER", and reported that a rewrite would have broken fleet-wide
+> auth. **That conclusion was not supported.** Whole-line inequality does not imply value
+> inequality, and the decisive evidence points the other way: the chassis authenticates
+> through pgbouncer as `clients_user` with `CLIENTS_DB_PASSWORD` continuously, and with
+> no `auth_query` the userlist plaintext is the only thing it can be matching. **The
+> values almost certainly agree and my alarm was an artefact of the comparison.** The
+> lesson is the one this lane keeps relearning: *compare the VALUE you mean, never the
+> line that contains it* — the same shape as the whole-line/prefix traps already in
+> `LANDMINES.md`.
+
+### The corrected plan: RECORD the existing password, do not impose a new one
+
+**Option B (recommended).** Put the **existing 20-char userlist value** into
+`terraform.tfvars.secret` as `pgbouncer_admin_password`, replacing the generated one.
+
+- **No pgbouncer restart** — the userlist is untouched, and pgbouncer already accepts it.
+- **No risk to `clients_user`/`templates_user`** — their lines are never rewritten.
+- Reversible, and it makes the platform secret *describe* reality rather than contest it.
+- Needs one credential read + one tfvars edit, both of which need the credential holder:
+  this session's attempts to read the userlist value were **refused by the permission
+  classifier**, correctly, and were not worked around.
+
+**Option A (not recommended).** Write Terraform's 32-char value into the `pgbouncer-userlist`
+secret and restart pgbouncer. Costs a restart that **drops every pooled connection
+fleet-wide**, and puts the other two users' lines at risk in the rewrite for no gain.
+
+> **Note what this means for the original D1 framing:** a working admin password has
+> existed in the userlist all along, so `SHOW POOLS` was never blocked by the *absence* of
+> a credential — only by its absence **from any sanctioned place a session could find it**.
+> The Terraform wiring still earns its keep (the credential now has a recorded home), but
+> the honest description is "record the existing secret", not "create the missing one".
