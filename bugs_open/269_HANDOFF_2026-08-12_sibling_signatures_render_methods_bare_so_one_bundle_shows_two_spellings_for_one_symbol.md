@@ -89,17 +89,36 @@ and it is why this got filed today rather than surviving another month inside a 
 
 ## 4. Fix candidates, ordered by what makes the bad state unrepresentable
 
-1. **Render the canonical handle, and de-duplicate on it.** Build the name the way
-   `code_symbols_actions.go:598` and `analysis.SymbolSizes` already do —
-   `"(" + fn.Receiver.Type + ")." + fn.Name` when `fn.Receiver != nil` — and key `named[]` on the
-   same string. The ambiguity stops being representable rather than being warned about.
-2. **Better: give the grammar ONE owner.** This would be the **third** hand-rolled copy of the
-   canonical method spelling (`code_symbols_actions.go`, `analysis.SymbolSizes`, and this). That is
-   exactly the drift `internal/analysis`'s own header records for `SplitSymbol`, `SliceLines` and
-   `findFile`, each of which was collapsed onto one owner after diverging. A
-   `analysis.CanonicalSymbolName(fn FuncDef) string` used by all three closes the class, not the
-   instance. **Note the ordering trap:** changing `code_symbols_actions.go` touches the live
-   row-writing path, so that half wants its own review even though it is behaviour-identical.
+1. **Render the canonical handle, and de-duplicate on it.** Call
+   `analysis.CanonicalSymbolName(fn)` — which exists as of `17734b699`, see candidate 2 — and key
+   `named[]` on the same string. Do NOT re-inline `"(" + fn.Receiver.Type + ")." + fn.Name` here;
+   that is the copy the council objected to, and a fourth one would be worse than the defect.
+   The ambiguity stops being representable rather than being warned about.
+2. **Better: give the grammar ONE owner — and HALF OF THIS IS ALREADY DONE.**
+   > **UPDATED 2026-08-12, later the same evening (council round 2 of `ac23f2f7`).** Four seats
+   > independently — `reuse_agent` (medium), `constitution`, `tooling_provenance`, `architecture` —
+   > objected that this was being *filed* when it should have been *extracted*, and they were right.
+   > `reuse_agent`'s phrasing is the one to keep: *"the plan names the exact prior collapse history
+   > (`bugs_closed/189`) as evidence duplication is a known recurring failure on this codebase, then
+   > proceeds to add a third copy anyway … a smaller, cheaper reuse fix than most of what gets
+   > deferred to a bug number."* The deferral reason did not survive contact either: "the third copy
+   > is in the live row-writing path" argues against changing `code_symbols_actions.go`, **not**
+   > against giving the grammar an owner.
+   >
+   > **`analysis.CanonicalSymbolName(fn FuncDef) string` now exists** (commit `17734b699`) — the
+   > inverse of `splitReceiver`, which had only one half. `SymbolSizes` calls it, so there is no
+   > third copy and never was one in a shipped tree.
+
+   **So what remains for THIS bug is two call sites, not three:**
+   - `code_symbols_actions.go:598` — the live row-writing path. Behaviour-identical to convert, and
+     it still wants its own review rather than riding a bug patch. **It should call
+     `analysis.CanonicalSymbolName`.**
+   - `siblingSignatures`' `fmt.Sprintf("- \`%s:%s\` — …", f.Path, fn.Name)` — §2 above, the actual
+     defect this file is about, which is a *missing* call rather than a divergent copy.
+
+   ⚠ **Do not read "the helper exists" as "the bug is half fixed".** The helper closes the DRIFT
+   risk; the defect in §2 is that this writer does not call it, and a bundle still offers ambiguous
+   bare handles today.
 3. Weaker: leave the writer alone and make `spanOf` refuse an ambiguous bare name instead of taking
    the first hit. Turns a silent wrong answer into a loud one — genuinely better than today — but it
    breaks every legitimate bare-name lookup in a file that happens to have a collision, and it
@@ -151,4 +170,16 @@ this estate has a standing landmine about exactly that.
 - `bugs_open/093` — the indexed case of the "one call site guarded, the sibling unpatched" shape.
 - `016b` §9 — the transferable pattern.
 - Council round `ac23f2f7-9230-403c-8f20-4e18623c1849` — the `bug_historian` objection that produced
-  this file.
+  this file (round 1), and the four-seat reuse objection that extracted `CanonicalSymbolName` out of
+  it (round 2).
+- **The `architecture` seat's wider reading, recorded here because it asked to be visible to whoever
+  schedules RFC work:** this is *at minimum the fourth* bug against one underlying mechanism — an
+  ad-hoc grammar for `path:Symbol` handles and receiver-qualified method spelling, spread across
+  `internal/analysis` and `code_symbols_actions.go`. The four: `bugs_closed/189` (the split
+  hand-rolled three times), `bugs_closed/261` (the reader could not parse what the writer produced),
+  `bugs_open/267` (whose own fix illuminated it a fourth time), and this file. Its verdict was
+  `ARCHITECTURE_SIGNAL: insufficient` for the point fix — correctly — with the debt noted anyway:
+  *"each of these bugs is being closed as an isolated point fix rather than as evidence that the
+  handle grammar needs ONE authoritative implementation the whole estate calls … the debt is not
+  created by it, only illuminated by it a fourth time."* **`CanonicalSymbolName` is the first
+  instalment of that authoritative implementation, not a substitute for the RFC.**
