@@ -961,3 +961,15 @@ adversarial shape its own corrections banned — so even the source spec is mixe
 and v2 draws only from the sections the corrections rewrote (voice, sentence_style,
 heading_style, persuasion_approach, things_to_avoid/emulate tails). That stale fragment is
 worth reporting to the mc lane rather than fixing from here.
+
+> **CORRECTED 2026-08-13, by the owner, same day:** the entry above calls mc's
+> `paragraph_style` fragment (*"may open with... a short declarative statement that
+> contradicts conventional wisdom"*) "the exact adversarial shape its own corrections
+> banned" and labels the spec mixed-vintage on that evidence. **The owner's reading is
+> right and mine was wrong: "may" is permissive, one option in a list of four opening
+> patterns, which is exactly the corrections' own density principle** (occasional use is
+> fine; the barrage is the fault; an outright ban produces flatness). Phrased in a way
+> that could be read as endorsement, but not a contradiction. Not reported to the mc lane
+> — there is nothing to fix. What caught it: the owner read the claim; the check I skipped
+> was reading "may" as the rule's own force rather than as my expectation of what the
+> corrections implied.
