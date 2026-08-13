@@ -321,3 +321,73 @@ claim that is genuinely orphaned (its attempt died and nothing is billing).
 kubectl -n ai-persona-system logs -l app=thunder-adapter --tail=300 | grep -m1 'build provenance'
 git merge-base --is-ancestor 10659b419 <the sha that prints>   # exit 0 = the fix is in
 ```
+
+## 6. Provision sizing and the wait deadline (258 fixes — LIVE from the roll after `236810e4e`)
+
+### The vCPU count is no longer ours to choose
+
+You do **not** need to pass `vcpus` any more. The adapter reads
+`GET /v1/specs` and picks the lowest count Thunder publishes for the spec. The old
+workaround (`"vcpus": 6` for a6000) still works and is still honoured verbatim —
+and an explicit value **skips the catalogue lookup entirely**, so it is the thing
+to reach for if `/specs` is ever down.
+
+Check what it resolved, at the adapter rather than by inference:
+
+```bash
+kubectl -n ai-persona-system logs -l app=thunder-adapter --tail=500 \
+  | grep 'Resolved vCPU count from Thunder specs'
+# spec_key=a6000_x1_prototyping vcpus=6 vcpu_options=[6,8]
+```
+
+The catalogue itself, when you want to see the menu (read-only, free):
+
+```bash
+POD=$(kubectl -n ai-persona-system get pods -l app=thunder-adapter -o jsonpath='{.items[0].metadata.name}')
+kubectl -n ai-persona-system exec "$POD" -- sh -c \
+  'wget -qO- --header "Authorization: Bearer $THUNDER_COMPUTE_API_KEY" \
+   https://api.thundercompute.com:8443/v1/specs' \
+  | python3 -c "import sys,json;d=json.load(sys.stdin)['specs'];[print(f\"{k:30} {d[k].get('vcpuOptions')}\") for k in sorted(d) if d[k].get('gpuCount')==1]"
+```
+
+Measured 2026-08-13: a6000 `[6,8]` · a100xl `[8,12,16]` · l40 `[6,8,12]` · h100
+`[4,8,12,16]` · every `*_production` spec wants exactly one value (15, or 10 for
+l40). Note `l40s` is a GPU constant in our source with **no** live single-GPU
+spec — asking for it now refuses rather than 400s.
+
+### Tuning the wait deadline — read the coupling first
+
+```sql
+SELECT provision_wait_timeout_seconds FROM thunder_config;   -- 540 by default
+UPDATE thunder_config SET provision_wait_timeout_seconds = 570;  -- live, no build
+```
+
+⚠ **`adapter wait` MUST stay BELOW `dispatch_provision`'s `timeout_seconds`.**
+
+```sql
+SELECT default_config->'workflow'->'steps'->'dispatch_provision'->'config'->>'timeout_seconds'
+FROM agent_definitions WHERE type='gpu-provisioner' AND is_active
+  AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL;   -- 600
+```
+
+Going above that does **not** give you a longer wait — it gives you a *quiet
+success*. The await expires first, the chassis retry driver re-dispatches, the
+259 claim guard refuses the duplicate (correctly), and **the workflow reports
+FAILED while a real, billed instance keeps running with nobody watching it.**
+The bad outcome of raising this carelessly is a provision that worked and that
+nobody knows about.
+
+**So, to raise it: raise the STEP's `timeout_seconds` FIRST, then the column.**
+In that order, so the invariant never inverts even briefly. The column's CHECK
+allows up to 1800 — that is a bound on absurdity, not permission.
+
+If a run reports a timeout, check which deadline actually applied before changing
+anything — a silently-defaulted one logs a warning:
+
+```bash
+kubectl -n ai-persona-system logs -l app=thunder-adapter --tail=500 \
+  | grep -E 'Provision wait deadline from live config|using compiled-in default'
+```
+
+`using compiled-in default (is migration 397 applied?)` means the binary has the
+fix but the database does not.

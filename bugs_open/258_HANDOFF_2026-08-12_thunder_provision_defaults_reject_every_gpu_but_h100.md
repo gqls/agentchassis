@@ -1,8 +1,27 @@
 # 258 — the Thunder provision path rejects every GPU but h100, and a slow boot destroys the box it just paid for
 
 **Filed** 2026-08-12 by the `finetuning_uk_service` lane, from a live Phase 0
-attempt. **Status: OPEN.** Three defects in one code path, found together;
+attempt. Three defects in one code path, found together;
 a fixer should take them together. None is site-specific.
+
+> ## STATUS 2026-08-13 — all three now have fixes; **OPEN until they are LIVE**
+>
+> | defect | state |
+> |---|---|
+> | **1** — default `vcpus: 4` invalid for 9 of 11 specs | **FIXED, committed `236810e4e`, NOT live.** Derived from `GET /v1/specs` (fix candidate 1, the ranked-best one). |
+> | **2** — `waitTimeout` hardcoded 5 min, cleanup deletes the box | **FIXED, committed `236810e4e`, NOT live.** Now `thunder_config.provision_wait_timeout_seconds` (migration **397**), default 540s. Fix candidate 1. |
+> | **3** — a failed provision leaves no durable record | **FIXED and LIVE** since thunder-adapter `v1.0.1295` — as a side effect of `bugs_open/259`'s claims table (migration 396), which keeps `status='failed'`, `last_error` and the vendor id beyond pod-log rotation. |
+>
+> **Still owed:** migration 397 applied · a council round (submission written:
+> `finetuning_uk_service/council_submission_258_provision_defaults.json`) · a
+> `make build-thunder-adapter` and a whole-fleet release the **owner** runs.
+> Both blocked 2026-08-13 evening on an expired kubeconfig token (fleet-wide
+> `Unauthorized`; expired 18:05Z — the owner refreshes it).
+>
+> ⚠ **Defects 1 and 2 were only safe to fix in this order.** Raising the wait
+> deadline makes the handler block longer, and a longer block used to mean *more*
+> duplicate billing. `bugs_open/259`'s claim guard had to be live first — it is,
+> verified by ancestry against the running pod's build stamp (`69612d692`).
 
 **How this was found:** trying to provision the cheapest GPU on the menu
 (a6000, the playground's chosen box) through `gpu-provisioner`, for the paid
@@ -165,3 +184,104 @@ Pass an explicit valid `vcpus` in `input_data` (it is forwarded when `> 0` —
 `thunder_provision_dispatch.go:119`). `{"gpu":"a6000",...,"vcpus":6}` gets past
 defect 1. Nothing works around defect 2 except a GPU that boots inside 5
 minutes.
+
+---
+
+## The fixes, as committed (2026-08-13, `236810e4e`)
+
+### Defect 1 — derive the count, never assume it
+
+`api.Client.GetSpecs` + `Spec.LowestValidVCPUs`, called from
+`ProvisionAction.Execute` **only when the caller supplied no `vcpus`**.
+
+- **Re-measured `/v1/specs` live before writing anything**, independently of this
+  file's original table. It matches exactly — 9 of 11 single-GPU specs reject 4,
+  and the two that accept it are h100. Worth stating because a fix built on a
+  day-old measurement of a vendor catalogue is a fix built on an assumption.
+- **Derived, not tabulated.** A lookup table in our source is the same defect
+  with a longer fuse: it drifts the moment Thunder changes, and nothing tells us.
+- **Order of resolution changed.** GPU name and mode are normalised *before* the
+  vCPU derivation, because the spec key is `<gpu>_x<count>[_<mode>]` — deriving
+  first would look up an empty or wrong key. This is the sort of ordering that
+  works by accident until someone reorders the block, so it is commented in place.
+- **Key fallback:** `<gpu>_x<n>_<mode>` first, then the bare `<gpu>_x<n>`, which
+  exists, carries no `mode` field, and matches the prototyping options.
+- **It REFUSES rather than falling back.** No catalogue, no known-valid count, no
+  provision. Falling back to a constant is the bug being fixed; and an explicit
+  `vcpus` never consults the catalogue at all, so a `/specs` outage cannot block
+  a caller who already knows what it wants.
+
+### Defect 2 — the deadline is live config now
+
+`thunder_config.provision_wait_timeout_seconds`, migration **397**, default
+**540s**, `CHECK BETWEEN 60 AND 1800`, plus a 30-minute ceiling enforced again in
+Go so a hand-edited row cannot hand the adapter an absurd deadline.
+
+⚠ **THE COUPLING — this is the part to read before changing the value.**
+
+```
+adapter wait timeout   MUST STAY BELOW   dispatch_provision's timeout_seconds (600s)
+```
+
+Raising the adapter's wait past the step's await does **not** produce a timeout;
+it produces something worse and quieter. The await expires first → the chassis
+retry driver re-executes the step → 259's claim guard refuses the duplicate
+(correctly, no second box) → **the workflow reports FAILED while a real, running,
+billed instance carries on with nobody watching it.** The failure mode of raising
+this carelessly is a *successful* provision that nobody knows about.
+
+Hence 540s: well above the 5 minutes that demonstrably was not enough, ~60s below
+the await, leaving room for the create, keypair, secret and INSERT either side.
+**To go higher, raise the STEP's `timeout_seconds` first, then this.**
+
+The adapter cannot see that step's config, so this is a **stated invariant, not a
+mechanical one** — recorded in the migration header, the column `COMMENT`, a test,
+and flagged in the council submission's risks as the thing a reviewer should push
+back on. If it needs mechanising, the honest options are a startup check that
+reads the `gpu-provisioner` row, or moving the await timeout into `thunder_config`
+as well.
+
+### The config read is deliberately not a column reference
+
+`(to_jsonb(t)->>'provision_wait_timeout_seconds')::int`. A bare column reference
+would make `LoadConfig` — and therefore **every** provision, decommission and
+reaper run — fail outright anywhere migration 397 has not been applied, coupling
+the binary to the migration in the direction that breaks production. `to_jsonb` of
+a missing key is just NULL, so an unmigrated database degrades to the compiled-in
+default. Same row, same round trip.
+
+### The tests, and that they can fail
+
+`provision_defaults_test.go`. They assert on **`cpu_cores` as sent to Thunder**
+across the whole real catalogue — the 400 came from the wire, so the wire is where
+the assertion belongs — with today's live `/v1/specs` data as the fixture.
+
+**Mutation-proven:** restoring `req.VCPUs = api.DefaultCPUCores` fails **7 of 8**
+cases, and the only survivor is `h100_x1_prototyping`. That single pass is the
+whole bug in miniature: the one spec that accepts 4 is the expensive one, which is
+why testing "a provision" never caught this.
+
+Also pinned: an explicit `vcpus` does not consult the catalogue; an unresolvable
+spec refuses **without reaching the vendor**; the wait deadline comes from config
+and falls back safely when absent, zero or absurd; and the 397 default stays under
+the dispatch await.
+
+## How to verify once it is live (supersedes the section above for defect 1)
+
+The original recipe said "provision the cheapest box with NO vcpus override — today
+this 400s". That is still the right test, but the interesting evidence is now in
+the adapter's own log, before any money is spent:
+
+```bash
+# the adapter states what it resolved, and from which spec key
+kubectl -n ai-persona-system logs -l app=thunder-adapter --tail=500 \
+  | grep 'Resolved vCPU count from Thunder specs'
+# expect e.g. spec_key=a6000_x1_prototyping vcpus=6 vcpu_options=[6,8]
+
+# and the deadline it is actually using — a silently-defaulted one logs a WARNING
+kubectl -n ai-persona-system logs -l app=thunder-adapter --tail=500 \
+  | grep -E 'Provision wait deadline from live config|not available — using compiled-in default'
+```
+
+A `WARN ... using compiled-in default (is migration 397 applied?)` means the
+column is missing — the fix is in the binary but not in the database.

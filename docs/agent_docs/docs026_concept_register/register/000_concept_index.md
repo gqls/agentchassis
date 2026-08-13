@@ -436,6 +436,7 @@ an ID prefix, or a status word.
 | FTW-041 | Text LoRA — veterinary knowledge extractor | aspirational | Deferred recipe to fine-tune a local 7-8B knowledge-extractor model | finetuning-flywheel.md |
 | FTW-042 | Thunder orphan scan (vendor-truth reconcile) | built | 6h reconcile of Thunder's own instance list vs thunder_instances; files thunder_orphan work items for boxes billing invisibly | finetuning-flywheel.md |
 | FTW-043 | Provision claim (correlation-keyed idempotency) | built | Claim taken before the vendor call so one provision request cannot build several billable GPUs; also the durable record of a failed provision | finetuning-flywheel.md |
+| FTW-044 | Vendor-derived provisioning defaults + tunable wait deadline | built | vCPU count read from Thunder /v1/specs instead of a constant 9 of 11 specs reject; wait-for-RUNNING deadline moved into thunder_config | finetuning-flywheel.md |
 | STY-037 | Content/structure separation: JSON content + html-assembler | superseded | Defined the modern content/template split; taxonomy ancestor of current pipeline | styling-render-pipeline.md |
 | DBG-012 | Open problem: nav-updater never spawns | unknown | Definition/topics exist but no pod ever starts; nav_drift items always claim-timeout | debugging.md |
 | CQ-012 | Prompt composition asymmetry (text cascade vs image) | aspirational | Deliberate choice to keep single-prepend image cascade separate from text composition | content-quality.md |
