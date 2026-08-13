@@ -1076,3 +1076,268 @@ file's own repeated correction about mixing palette inference with rendered meas
 **Nothing applied.** No template edit, no DB write — flagging for whoever next repoints
 consumers onto `--color-primary-ink`, the same way `tool-list` and `image-hover-card-grid`
 were repointed by migrations 338/368.
+
+---
+
+## Contribution 2026-08-13 — `--color-primary-ink` IS `--color-text`. The ink companion cannot preserve brand character, and 16 of 16 sites prove it
+
+Not from the `bugfix_122_contrast_ink_slots` lane. I picked up the 08-12 contribution above — the
+`article-body` consumer it named and explicitly did not fix — intending to repoint it and then the
+other 167 components carrying the same shape. **I did not apply the repoint, because measuring the
+thing it repoints onto refuted the premise.** Recording that here rather than opening a parallel
+account. No template edit, no DB write, no migration.
+
+### 1. The measurement, and it could have come out otherwise
+
+`curl` of all 22 live domains' served stylesheets, 2026-08-13. 18 are palette-driven (three
+calculator sites carry no `--color-*` vocabulary at all — `loancalculator.co.uk`,
+`loanandmortgagecalculator.co.uk`, `noted.co.uk`; `webdesign.uk` 302s). For every site where an ink
+companion **differs** from its source slot, I compared it against that site's own `--color-text`:
+
+| site | `--color-text` | primary → primary-ink | accent → accent-ink |
+|---|---|---|---|
+| dartsonline.com | `#F0F2F7` | `#1A1F2E` → `#F0F2F7` ✓text | `#E8311A` → `#F0F2F7` ✓text |
+| robot-hands.com | `#E2E8F0` | `#1A1F2E` → `#E2E8F0` ✓text | `#E8500A` → `#E2E8F0` ✓text |
+| loancash.co.uk | `#1a1a1a` | `#e8f5ee` → `#1a1a1a` ✓text | `#b7791f` → `#1a1a1a` ✓text |
+| mortgagecalculator.co.uk | `#334155` | `#b59230` → `#334155` ✓text | `#b59230` → `#334155` ✓text |
+| ai-agent-orchestration.com | `#E6EDF3` | `#0D1117` → `#E6EDF3` ✓text | *(same)* |
+| oufe.com | `#E8E2D9` | `#1B2A3B` → `#E8E2D9` ✓text | *(same)* |
+| vonc.com | `#f0eeff` | `#7c3cff` → `#f0eeff` ✓text | *(same)* |
+| cookly.uk | `#2C2C27` | *(same)* | `#C8502A` → `#2C2C27` ✓text |
+| finetuning.uk | `#1A1A2E` | *(same)* | `#C8873A` → `#1A1A2E` ✓text |
+| gaswholesalers.com | `#1C1C1C` | *(same)* | `#E8A020` → `#1C1C1C` ✓text |
+| lendzy.co.uk | `#1A1A1A` | *(same)* | `#E8700A` → `#1A1A1A` ✓text |
+| relojistas.com | `#1a1a1a` | *(same)* | `#b8952a` → `#1a1a1a` ✓text |
+| vetcomparison.uk | `#0f172a` | *(same)* | `#10b981` → `#0f172a` ✓text |
+| webdesign.co.uk | `#2b2b2b` | *(same)* | `#d4a373` → `#2b2b2b` ✓text |
+
+`[MEASURED 2026-08-13, at the served artefact]` — **16 divergences, 16 of them equal that site's
+own `--color-text`. Zero exceptions.** No site in the fleet receives `accent`, `text_muted`,
+`secondary`, or an achromatic fallback. The remaining 4 palette-driven sites
+(`fundamentallyai.com`, `gamesdesign.co.uk`, `idea.uk`, `leopardessconsulting.co.uk`) have
+ink == fill on both slots, so they contribute no divergence either way.
+
+**This could have come out otherwise, which is what makes it evidence.** Any single site returning a
+third colour — a tinted primary, `text_muted`, `#ffffff` — would have falsified it. Fourteen sites
+with fourteen different palettes, two slots each, and the answer is the same value every time.
+
+### 2. The cause is one line, and it makes four of five branches unreachable
+
+`platform/orchestration/actions/palette_specialised_slots.go:350`:
+
+```go
+	for _, key := range []string{"text", "accent", "text_muted", "secondary", "primary"} {
+```
+
+`legibleInkFor` returns the **first** palette colour that clears 4.5:1 against every ground, and
+`text` is first. `text` is by construction the palette slot chosen to be read on `background` — so
+it clears the grounds whenever anything does. **It always wins. `accent`, `text_muted`, `secondary`
+and `primary` are unreachable in production**, and the fleet measurement above is what that looks
+like from outside.
+
+### 3. So the mechanism's stated purpose is not what it does
+
+`PLAN_2026-08-06_contrast_ink_slots.md:189-195` describes candidate 1 as:
+
+> "Value = the colour itself when it clears AA against the background, else **the palette colour
+> that does (the existing `pickInkOn` walk, which prefers a palette colour so the site keeps its
+> character)**."
+
+and `palette_specialised_slots.go:401` names the slot:
+
+> `--color-<x>-ink    <x> ITSELF, made legible as an ink on the page.`
+
+> **CORRECTED 2026-08-13: `--color-<x>-ink` is not `<x>` made legible. It is `--color-text` under
+> another name, on every site in the fleet.** The "keeps its character" clause is false as built —
+> not aspirational, not partly true: the walk cannot return a colour related to `<x>` at all. The
+> half of the description that IS true is the first clause: where the source already clears AA it is
+> returned unchanged, which is why the opt-in is a genuine no-op on the 4 healthy sites.
+
+Nothing about the four shipped repoints (migrations 338, 368) is wrong — those elements were
+**invisible** at 1.06–1.14:1 and now read at 13–16:1, which is strictly better and was measured at
+the artefact. What is wrong is the belief that repointing a consumer *preserves the brand colour*.
+It replaces it with body text.
+
+### 4. Why this stopped a fleet-wide repoint that was otherwise ready
+
+The corpus, `[MEASURED 2026-08-13]` by regex over `content_components.html_template` with a
+property-boundary anchor (`(^|[;{\s])color:`, so `background-color:`/`border-color:` cannot match):
+
+> **Two notes on the anchor, both `[MEASURED 2026-08-13]` and both corrections to what I first
+> wrote here.** (a) **The anchor loses nothing.** `[;{ ]` and a whitespace-inclusive
+> `(^|[;{[:space:]])` return the **identical** 168 components / 453 declarations, so the missing
+> `\n` in the character class — which I expected to cause an undercount — does not. (b) **The
+> 11-component gap between anchored (168) and unanchored (179) is compound colour properties
+> GENERALLY, not `background-color`.** I first wrote "the gap is `background-color`", inheriting it
+> from a subagent; only **5** components carry `background-color: var(--color-primary|accent…)`. All
+> 11 gap rows score 0 on the anchored pattern and ≥1 on `[a-z-]color:`, i.e. `border-color`,
+> `text-decoration-color`, `-webkit-text-fill-color` and friends. The anchor is still doing exactly
+> its job; the *reason* I gave for it was wrong.
+
+- **168 components (135 active)** carry `color: var(--color-primary|accent…)` — **423 in-block
+  occurrences** (259 primary / 164 accent).
+- Of those, **~347 sit in blocks that paint no background of their own**, which was to be the
+  eligibility rule.
+- Only **4** components have ever been repointed, by hand, in the 6 days since the mechanism
+  shipped. The 5th was found by the owner's eye on a screenshot. That ratio is the argument for
+  automating it.
+
+Had it been automated on the rule above, it would have written the equivalent of
+`color: var(--color-text)` onto the rendered placements of those components on the 14 sites whose
+served ink diverges. On light sites that turns every brand-accent link near-black — on the lane
+whose product is web design among them.
+
+> **`[UNVERIFIED — inherited, do not quote]`** The specific figures "~224 rendered placements across
+> 13 sites" and "`webdesign.co.uk` alone has 49" came from a subagent and **I did not re-run them**
+> (token expiry, as §5). What I did measure myself is the containing figure:
+> `page_components.rendered_html` carries the anchored pattern on **461 of 1,485 rows**
+> `[MEASURED 2026-08-13]`. The per-site split, and therefore the blast radius on the diverging
+> sites specifically, is **owed** — §9 has the query. Note also that the divergence count is **14
+> sites** by my own §1 table, not 13; I have not reconciled that against the inherited 13.
+
+**And `scripts/render_audit.py` would have scored the result a clean pass**, because near-black text
+on a light ground has excellent contrast. This is the shape this file keeps recording: the wrong
+result and the right result are indistinguishable at the instrument.
+
+### 5. A second, independent defect — in the eligibility rule, not the derivation
+
+The rule "skip any declaration block that sets its own background" is wrong, and the ground truth
+refutes it in one query. There are exactly **6 hand-repointed rules** in the corpus. Five use
+`--color-primary-ink`. The only `--color-accent-ink` consumer is:
+
+```css
+/* content_components: system-stats */
+.system-stats-section .stats-eyebrow {
+  ... color: var(--color-accent-ink, var(--color-accent, #7dd3fc));
+  border: 1px solid var(--section-border);
+  background: var(--section-surface);          /* <- self-painted */
+}
+```
+
+**That block sets a background, so the rule skips it** — i.e. the rule refuses the one repoint a
+human made from the owner's own evidence. 1 of 6 ground-truth rules, and 1 of 1 on accent.
+
+The reason is that `--section-surface` is `rgba(255,255,255,0.05)` (`color_util.go:220`) — a
+translucent overlay. The element *is* on the page ground. **"Sets a background" is not "the ink
+lands on a different ground"** — and the `system-stats` row above is a first-hand, sufficient
+counter-example on its own: one ground-truth rule that the eligibility rule provably refuses.
+
+> **`[UNVERIFIED — inherited, do not quote]`** A supporting figure of "38 of the 75 self-painted
+> blocks (51%) paint a translucent, `transparent` or `--section-*` background" was produced by a
+> subagent and **I did not re-run it myself** — the kubeconfig token expired mid-verification
+> (2026-08-13 ~15:30, the routine 3-day expiry). The query is written out in §9 below; run it
+> before repeating the number. The §5 conclusion does not depend on it: it rests on the
+> `system-stats` counter-example, which I read from the live corpus myself.
+
+Prior art that already solved this properly and must be reused rather than re-derived:
+`fix_forced_text_colours_action.go:164-188` carries a **calibrated four-way** `paintClass`
+classifier (`paintAmbient` / `paintPair` / `paintInk` / `paintPaletteBand`) over the same corpus,
+already council-reviewed, and it deliberately classifies from the CSS over the **whole template**
+rather than per block. `bugs_open/122:205-206` already names that file as "worth reading before
+writing a new one". It was right.
+
+### 6. Population, stated honestly: this defect lives on FIVE surfaces, not one
+
+A `content_components`-only transform would be canonical for about one fifth of the corpus, and
+saying otherwise is the claim that would not survive review:
+
+| surface | rows carrying the pattern |
+|---|---|
+| `content_components.html_template` | 168 components / 423 in-block **+ 30 in inline `style="…"` attributes** (16 tool components) — the 30 have no enclosing block, so any block-walking transform is blind to them |
+| `layouts.css_template` | **17 of 18** — and these ship into every site's `styles.css` |
+| `css_snippets.css_content` | 2 of 21 |
+| `site_components.rendered_html` (stored chrome) | **33 of 66 rows** — no page re-render rebuilds chrome (`bugs_open/117`). The "19 sites" I first wrote here is `[UNVERIFIED]`; the row count is mine |
+| `page_components.rendered_html` (stored artefacts) | **461 of 1,485 rows** (I first wrote 460, inherited; 461 is my own count). The "378 pages" is `[UNVERIFIED]` |
+
+All four non-`content_components` rows `[MEASURED 2026-08-13]` by me, same anchored pattern, one
+query per surface. The `content_components` row reconciles exactly and that is worth stating,
+because it is the arithmetic that makes the block scan trustworthy: **423 in-block + 30 inline =
+453 total declarations**, and 453 is what the anchored pattern returns fleet-wide. Every occurrence
+is accounted for in exactly one bucket, which is the property a transform over this corpus needs.
+
+### 7. What is now the actual fix, and what must not be done first
+
+**The repair belongs in the derivation, not in 347 consumers.** `legibleInkFor` should try to make
+the source colour *itself* legible — step its lightness toward whichever achromatic extreme gains
+contrast until it clears `inkMinContrast` against **every** ground — and only then fall through to
+the existing palette walk and achromatic fallback. That makes `--color-<x>-ink` mean what its own
+doc comment says, retroactively improves all four shipped repoints, and is what makes a fleet-wide
+repoint a legibility fix instead of a de-branding.
+
+Constraints that must survive any such edit, already recorded on this bug: `grounds` stays a
+**slice** (R8), no `isDarkHex` narrowing (R7), and the already-clears-AA branch must still return
+the source unchanged.
+
+**Do not repoint more consumers before that lands.** Every repoint applied today is a consumer
+permanently pointed at `--color-text`; fixing the derivation afterwards repairs them all at once,
+whereas repointing first spends the brand on 13 sites to buy contrast that the derivation fix would
+have delivered without it.
+
+**Disconfirming test for whoever does it** (Control D): after the change, dartsonline's
+`--color-primary-ink` must be a **navy** — a lightened relative of `#1A1F2E`. If it is still
+`#F0F2F7`, the derivation fix did not land and the repoint must not run.
+
+### 8. Method note — the 090 substitution, declared
+
+The claim in §2 is structural, concerns shared infrastructure, and is the kind this repo's
+2026-07-31 ruling says should go through `090` before being asserted. It has **not** been through
+`090`. Substituted first-hand verification, declared rather than omitted: 16 served stylesheets
+fetched and compared at the artefact (§1, disconfirmable and nearly disconfirmed by any single row),
+plus the deciding line read in the source (§2), plus the ground-truth counter-example queried from
+the live corpus (§5). A `090` run on "the preference walk cannot return anything but `text`" remains
+cheap and welcome; it is not owed for the *damage*, which is measured.
+
+### 9. Owed measurements, with their queries — and why they are listed rather than quoted
+
+The kubeconfig token expired part-way through my verification pass (routine 3-day expiry; the owner
+refreshes it). Three figures that a subagent produced were therefore **never re-run by me**, and are
+marked `[UNVERIFIED — inherited]` where they appear above rather than left wearing a `[MEASURED]`
+badge. **None of the section conclusions rests on them** — each section's load-bearing evidence is
+first-hand — but do not quote these three onward until someone runs the queries.
+
+```sql
+-- (a) §5's translucent-ground share of the self-painted blocks.
+--     Inherited claim: 38 of 75 (51%).
+WITH blocks AS (
+  SELECT cc.id, m[1] AS blk
+  FROM content_components cc,
+       LATERAL regexp_matches(coalesce(cc.html_template,''), '\{[^{}]*\}', 'g') AS m)
+SELECT count(*) FILTER (WHERE blk ~ '[;{ ]color[ ]*:[ ]*var\(--color-(primary|accent)[,)]'
+                          AND blk ~ 'background')                              AS self_painted,
+       count(*) FILTER (WHERE blk ~ '[;{ ]color[ ]*:[ ]*var\(--color-(primary|accent)[,)]'
+                          AND blk ~ 'background'
+                          AND blk ~ 'background[^;]*(rgba|transparent|--section-)') AS translucent
+FROM blocks;
+
+-- (b) §4's blast radius, per site. Inherited claim: ~224 placements across 13 sites,
+--     webdesign.co.uk 49. My own containing figure is 461 of 1,485 rows fleet-wide.
+SELECT s.domain, count(*) AS placements
+FROM page_components pc
+JOIN pages pg ON pg.id = pc.page_id
+JOIN sites s  ON s.id  = pg.site_id
+WHERE pc.rendered_html ~ '[;{ ]color[ ]*:[ ]*var\(--color-(primary|accent)[,)]'
+GROUP BY 1 ORDER BY 2 DESC;
+
+-- (c) §6's site/page spreads for the two rendered surfaces.
+SELECT count(DISTINCT site_id) AS sites
+FROM site_components
+WHERE rendered_html ~ '[;{ ]color[ ]*:[ ]*var\(--color-(primary|accent)[,)]';
+```
+
+**Read (b) against §1's table, not against the inherited count.** §1 lists **14** diverging sites;
+the inherited figure says 13. That discrepancy is unreconciled and is exactly the kind that turns
+into a quoted fleet number if nobody notices — the join in (b) settles it.
+
+### 10. The trap that produced §9, recorded because it is cheap to repeat
+
+I ran three subagents to map this mechanism, and one of them was tasked with attacking my own plan.
+It did, correctly and decisively — §1's finding is downstream of its challenge. **Then I wrote its
+supporting figures into this file marked `[MEASURED]` without re-running them.** They were measured;
+they were not measured *by me*, and one of the two I did re-check turned out to be wrong (the
+`background-color` claim in §4, actual 5 components not 102).
+
+The general shape, which this file has recorded in other forms and which now has a subagent-specific
+instance: **a delegated measurement arrives in the same voice as a first-hand one, and the marker
+system cannot tell them apart.** `[MEASURED]` records that a number came from a query, not that the
+writer ran it. A borrowed number needs its own marker, and re-running it is usually one command.
+Logged in `WRONG_CALLS.md`.
