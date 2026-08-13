@@ -919,3 +919,45 @@ the merged opening rule quoted in the 08-13 chat.
 Work continues on the items the hold does not touch: `bugs_open/264` (audit_source config
 route), D3 (read-only finance-site review). LMC `evidence_base` stays queued behind its
 coordination check.
+
+## 2026-08-13 — the hold explained: H is superseded by the mortgagecalculator corrections, and the carrier text is re-assembled from them
+
+**Owner, on the held v1 text:** *"I think we have advanced from this... H was a starting
+point. See the mortgagecalculator thread."* He is right, and v1 carried at least two rules
+that thread has since **corrected**:
+
+1. **Blanket contractions.** v1: *"Use contractions in ordinary sentences."* The mc
+   correction (`REFERENCE_2026-08-11_learned_by_correction_house_voice.html`, now also in
+   mc's live `voice.formality`): **a contraction keeps the company of its neighbours** —
+   *"are not just arithmetic"* is right where *"aren't just arithmetic"* is wrong, because
+   the register of the clause is set by its least everyday word.
+2. **The staccato-leaning sentence rules.** v1 kept "One idea per sentence, USUALLY". The mc
+   thread reversed the emphasis: **considered sentences, 25–40 words when the thought needs
+   it, carried by subordinate clauses**; three short clauses in a row is a machine gun; a
+   short sentence is earned at most once a section. And it named the provenance failure
+   that produced the staccato: thresholds imported from **Simplified Technical English** —
+   *"correct, well-sourced, and inapplicable"* (their words). v1 was assembled partly from
+   blocks descending from those same thresholds.
+
+And v1 **missed** the whole British-register finding: *"British copy runs to longer
+sentences and more complex grammar... subordinate clauses are what make prose sound
+considered, and a house style that forbids them produces something that reads as impatient
+however warm the words are."* Plus: positive definition ("say what a thing is"), the
+read-aloud test as the closing rule, don't-borrow-a-term-you-cannot-pay-for, presumption as
+a density property (headings), and "a rule is a prompt for judgement, not a substitute".
+
+**v2 assembled** (`new_voice_block_v2.txt`, scratchpad): the mc-corrected craft rules,
+generalised, replacing v1's superseded ones; the surviving carrier rules (em-dash,
+word-weight, why-it-matters, name-the-action, don't-restate, cut-list now carrying its
+reason, blunt-phrase) kept; the H opening rule and its two positive exemplars kept; a
+compact heading rule added (density of presumption); the read-aloud test closes the block.
+
+**Deliberately NOT imported from mc, because it is site voice not house voice:** the
+kitchen-table register and reassuring emotional tone (that is mc's audience);
+`competitive_framing: none` (persuasion is per-site — a portfolio shopfront may want it);
+scope rules; social-proof rules. **Also noted:** mc's own `paragraph_style` still carries
+*"a short declarative statement that contradicts conventional wisdom"* — the exact
+adversarial shape its own corrections banned — so even the source spec is mixed-vintage,
+and v2 draws only from the sections the corrections rewrote (voice, sentence_style,
+heading_style, persuasion_approach, things_to_avoid/emulate tails). That stale fragment is
+worth reporting to the mc lane rather than fixing from here.
