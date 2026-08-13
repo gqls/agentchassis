@@ -226,3 +226,72 @@ thin, and the escape hatch is the config key — not deleting the guard.
 - `bugs_open/250`: round-trip the loancalculator `--restore`.
 - **Read the council verdict for `b30ac52c`** before anyone writes
   `Council-Reviewed:` on the floor. `098` credits it automatically once approved.
+
+---
+
+# ADDENDUM 2026-08-13 — floor is LIVE, council said REVISE, and Track B is nearly done
+
+## Verified this session, on v1.0.1295 (pods `68ddcf9655-*`, up 13:53Z)
+
+| check | result |
+|---|---|
+| component floor **in the running binary** | `section_component_floor` **3** on both replicas; positive control `SECTION SHRINK REFUSED` **1**, negative control **0** |
+| `189`/`204` | `1 / 1` both replicas |
+| Track B | **owned decomposed 18, owned verbatim 5** — the lane session has converted 17 of 22 |
+| floor refusals, fleet, 24h | **0** (shrink refusals also 0 — quiet, not proven working in production) |
+
+**So the owner's precondition is met: the floor is live, and Track B is unblocked
+on that ground.** It is NOT proven in production — zero refusals is consistent both
+with "nothing tried to flatten" and with "it is not being reached", and the second is
+now known to be true for most writers (below).
+
+## ⛔ COUNCIL VERDICT: REVISE — and it found a real defect
+
+`b30ac52c`, round 1, 11 reviewers, gating objection from `bug_historian` (HIGH).
+Objecting seats: `bug_historian`, `guardian`, `debug_historian`, `constitution`,
+`architecture`. Full working in `bugs_open/253_..._framework_rewrite...`.
+
+**The finding: both floors guard 1 door of 9.** Nine Go writers touch
+`page_components.rendered_html`; only `save_page_sections` is guarded. The one that
+matters is **`ApplySectionEditAction`** — live via the `section-editor` agent, three
+direct `UPDATE … SET rendered_html` sites, and **it is the per-component edit path
+decomposition exists to enable**. The guard covers the door the incident came
+through and misses the one the design steers people toward. `rerender-pages`,
+`report-builder` and `tool-generator` are also live and unguarded.
+
+**And it is inherited**: the `bugs_open/178` TEXT floor has the same single-call-site
+wiring, so both floors have protected one door since 2026-08-02.
+
+### The revision (NOT done — this is the next task)
+
+1. Extend **both** floors to `ApplySectionEditAction` first. It updates a single row
+   by id, so the comparison is simpler than the save path's — read that row's
+   existing `rendered_html`, compare, refuse on the same terms.
+2. Then decide, per remaining writer, whether it can replace an existing prose slot
+   at all (`adopt_verbatim`, `create_report_page`, `create_tool_component`,
+   `deploy_tool`, `fix_*_colours`, `rebuild_blog_listing`). Several plausibly cannot;
+   say which and why rather than wiring all nine reflexively.
+3. Resubmit on the SAME correlation: `RESUBMIT_CORR=b30ac52c` so the trail accumulates.
+4. Also answer the low-severity objections, both fair:
+   - `editquality`: does the guard issue one query per save or per slot? **Per save**
+     — one `page_components` read, so the single added `ExpectQuery` is correct. Say
+     so; it was a reasonable question the plan did not answer.
+   - `bug_historian`: `minComponentGuardClasses=10` leaves a flattening just under
+     the threshold silently unrefused. State it as residual exposure.
+
+## What this means for Track B
+
+Track B's prose rows are protected **only** against a flattening arriving via
+`save_page_sections`. A flattening arriving via `section-editor` — the tool most
+likely to be pointed at a decomposed prose block — is still silent. With 18 pages
+already decomposed, that exposure is live now, not hypothetical.
+
+**Recommendation:** finish the revision before the remaining 5 pages, or at minimum
+before anyone runs `section-editor` at an LMC prose row.
+
+## Unchanged and still owed
+
+- The pin: `b318a8fad` matched 6 of 22. `decompose_lmc.py` REFUSES on a stale pin
+  (`feeb85acf`), so the tool stops you — re-point to a concrete SHA and re-verify at
+  the moment of use.
+- `bugs_open/251` → then `252`. `bugs_open/250`: round-trip the loancalculator restore.
