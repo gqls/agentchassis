@@ -903,3 +903,19 @@ writes too. Under the owner ruling of 2026-07-29 §3 that consumer gets told wha
 about its guarantee, not a list of new keys. `[UNMEASURED — I have not established what
 content-creator currently produces or whether H suits it; that is the next check, and it
 is a reason to sequence step 1 after step 2, not before.]`
+
+## 2026-08-13 — D1 carrier text assembled, presented, and HELD by the owner
+
+The full carrier text was assembled per the plan (union of the current block + the seven
+inline blocks + the 08-09 opening-rule decision, negative specimens dropped, two positive
+opening exemplars from loancalculator's owner-corrected H text) and posted for sign-off.
+**Owner: hold.** Nothing applied — the carrier row, the seven prompts and the live fleet are
+untouched. The assembled text is preserved at the session scratchpad
+(`new_voice_block.txt`, 4.3KB) and its provenance is recorded in the sign-off message; if
+this session ends before the hold lifts, the text is reproducible from this file's own
+description: current block verbatim + framing line + pcw's cut-list/rhythm/beat rules +
+the merged opening rule quoted in the 08-13 chat.
+
+Work continues on the items the hold does not touch: `bugs_open/264` (audit_source config
+route), D3 (read-only finance-site review). LMC `evidence_base` stays queued behind its
+coordination check.
