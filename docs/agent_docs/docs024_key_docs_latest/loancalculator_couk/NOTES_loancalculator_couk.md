@@ -4985,3 +4985,39 @@ mechanism rests on (1) first-hand reading of the deciding arms, (2) a mutation t
 and restored, and (3) the loanandmortgagecalculator lane's independent 08-10 test, which
 reached the same conclusion from the other direction. Re-run the 090 when the API is
 healthy.
+
+### 2026-08-13 — plan re-review before half 2; two premises verified, one new puzzle; handoff cut
+
+Owner: "look over the plan once more and then carry on" → then "fresh chassis deployed,
+update docs, handoff if heavy". Context heavy → handoff written:
+**HANDOFF_2026-08-13_planner_half_continue_here.md** is now the continue-point.
+
+**Deploy verifications (both at the artefact, with controls):** v1.0.1294 (09:48Z) and
+v1.0.1295 (13:53Z, built from `69612d692a4a…`) BOTH carry `f4820a877` (identity arm) and
+`19acfc895` (adoption carry-forward) — revision-label ancestry + stamp in `/proc/1/exe`
+(3 hits, off-by-one control 0) + `carryForwardStructureSpecKeys` literal (2, near-miss 0).
+LANDMINES addendum corrected to LIVE; synced.
+
+**Council a625c326 (identity arm): APPROVED** round 1 — had landed 08-12 13:53Z; the 529
+overload had hidden it from my queries. 10 advisories, none high, dispositioned in
+bugs_open/241 (notable: bug_historian correctly matched the mechanism to CLOSED 058 —
+same failure resurfacing through the identity gap; recorded so 058 isn't reopened).
+
+**Plan re-review verdicts:**
+1. Identity chain SOUND, measured: 12/12 locked tool rows point at MASTER components,
+   each function exactly one active row fleet-wide, and enrichSectionsWithComponentIDs
+   resolves `WHERE function=$1 AND is_active` with NO component_level filter. So a
+   planned tool section resolves to exactly the locked row's id. (This was the review's
+   biggest open risk — a fork/master mismatch would have made half 1 dead code.)
+2. `$ctx.` namespace has NO site_id (execution_context_params.go:70-79) — the param
+   must come from collected_data.
+3. **NEW PUZZLE**: zero `build-site-planner` orchestrations retained ALL-TIME, zero
+   retained workflow_plans mentioning load_components — while site_plans keep being
+   written (noted.co.uk 08-12). Suspect short retention on completed orchestration_states
+   (noted's 08-13 rows are only page-rerender/build-dispatch-loop; its 08-12 planner run
+   already gone). Resolution steps written into the PLAN file; `site_record.site_id` is
+   the likeliest param key but MUST be confirmed on a live run (trap 3: nil path =
+   fleet-wide planner outage).
+
+Half 2 NOT built this session — deliberately: the param-path evidence the plan requires
+does not exist yet, and guessing it is the one forbidden move.

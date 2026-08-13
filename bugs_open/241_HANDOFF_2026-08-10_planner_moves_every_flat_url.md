@@ -181,3 +181,25 @@ Advisory dispositions (none gates):
 probe `carryForwardStructureSpecKeys` + near-miss control when any roll ships it. The
 bug itself is FIXED AND LIVE for the planner path (v1.0.1288 + seeded flag); per the
 owner's 08-06 ruling, the file stays in `bugs_open/`.
+
+## STATUS 2026-08-13 — EVERYTHING COMMITTED IS NOW LIVE; the planner half is the only code left
+
+- **v1.0.1294 (and 1295) carry the full 241 stack**, verified at the artefact each
+  time (revision-label ancestry + binary stamp with off-by-one control + literal
+  probes): the FlatURLs field, the plumbing, the adoption carry-forward
+  (`19acfc895`), AND the matchLockedRow identity arm (`f4820a877`).
+- **Council `a625c326` (identity arm): APPROVED**, round 1, 10 advisories none high.
+  Dispositions: all-callers concern — settled by the compiler (signature change,
+  package builds); sibling-lane-file concern — coordinated via the CONTRIB file and
+  their mutation guarantee re-run; "inert claim rests on an asserted absence" —
+  the load_components query was read live, and is re-verified in the PLAN file;
+  bug_historian's match to closed 058 — correct, this IS 058's mechanism resurfacing
+  through the identity gap, noted here so 058 is not reopened separately; two-locks-
+  same-component ordering — documented in the code comment, position-ASC pairing.
+- **The identity chain for the planner half is measured sound** (see the PLAN file):
+  12/12 locked tool rows are masters, functions unique fleet-wide, enrichment lookup
+  has no level filter.
+- **Open puzzle blocking the planner half's param choice**: build-site-planner has
+  ZERO retained orchestrations all-time while site_plans keep being written — the
+  PLAN file carries the two-step resolution for the next session. Trap 3 (nil param
+  path = fleet-wide planner outage) stands; do not guess the path.

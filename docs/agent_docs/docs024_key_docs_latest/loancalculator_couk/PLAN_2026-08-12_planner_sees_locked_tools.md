@@ -7,9 +7,22 @@ That is TWO changes, and only the second one is small.
 
 ## Half 1 — "doesn't delete them" — DONE, committed `f4820a877`
 
-`matchLockedRow` now pairs a locked row by component identity, not slot name alone
-(council `a625c326`). Full reasoning in the commit and the bug file. **Inert until
-half 2 lands**, because nothing can name a tool component today.
+`matchLockedRow` now pairs a locked row by component identity, not slot name alone.
+Full reasoning in the commit and the bug file. **Inert until half 2 lands**, because
+nothing can name a tool component today.
+
+> **UPDATED 2026-08-13:** Half 1 is **LIVE** — `v1.0.1294` (and `1295`) built from a
+> commit with `f4820a877` in its ancestry, verified at the running binary (revision
+> stamp + controls). Council `a625c326`: **APPROVED**, round 1, 10 advisories none
+> high — all dispositioned in `bugs_open/241`. The plan's sequencing gate
+> ("roll half 1 first") is satisfied.
+>
+> **The identity chain half 2 depends on is MEASURED SOUND** (2026-08-13): all 12
+> locked tool rows point at MASTER components (`forked_from IS NULL`), each function
+> has exactly one active row fleet-wide, and `enrichSectionsWithComponentIDs`'
+> lookup (`WHERE function = $1 AND is_active`) has **no component_level filter** —
+> so an incoming planned tool section resolves to precisely the id the locked row
+> holds, and the identity arm pairs them.
 
 ## Half 2 — "looks at them" — DESIGNED, NOT APPLIED
 
@@ -68,6 +81,24 @@ today's, which is a property a reviewer can check rather than take on trust.
 - **The param path.** Read a real recent `build-site-planner` orchestration's
   `collected_data` and find a site-id key present in *every* one. Do not guess.
   Verify against several runs, including a fresh-build run and a replan.
+  > **2026-08-13, partly settled and partly a PUZZLE:** `$ctx.` is NOT an option —
+  > `executionContextParam` exposes correlation/orchestration/parent/name/client/
+  > request/step/group only, no site id. And the instruction above cannot currently
+  > be followed as written: `orchestration_states` holds **ZERO rows for
+  > owner_agent_type='build-site-planner', all-time**, and zero retained rows whose
+  > `workflow_plan` mentions `load_components` — yet `site_plans` rows ARE being
+  > written (noted.co.uk 2026-08-12, `created_by='write_site_plan'`), and noted's
+  > retained orchestrations for 08-13 are only page-rerender/build-dispatch-loop.
+  > So either orchestration_states retention is shorter than a day for completed
+  > runs, or write_site_plan runs inside an orchestration whose owner type and
+  > workflow_plan don't look like the planner. **Next session: resolve which**, by
+  > (a) `SELECT jsonb_pretty(workflow_plan) FROM agent_definitions WHERE
+  > type='build-site-planner'` to read load_components' declared input shape and
+  > which step feeds `target_site_id` (write_site_plan's own spec names it — its
+  > input_mapping example is `"target_site_id": "site_record.site_id"`, so
+  > `site_record.site_id` is the likeliest universal key), and (b) catching ONE live
+  > planner run during the noted/fundamentallyai builds and dumping its
+  > collected_data keys. Do not bind a path on inference alone — trap 3 stands.
 - **A control run.** Confirm the new query returns an identical row set to the old
   one for a site without the flag, executed against the live DB, before it goes in
   the agent definition.

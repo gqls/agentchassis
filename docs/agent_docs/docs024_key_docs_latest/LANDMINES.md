@@ -9130,12 +9130,14 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **source:** raised by the council gate's `guardian` seat, round 2 of
   `bugs_open/215`'s quiet-mode submission (corr `56e13695`), 2026-08-11; verified
   by reading both write paths
-- **FIX COMMITTED 2026-08-11 (`19acfc895`, 241 lane) — INERT UNTIL THE NEXT ROLL.**
-  `carryForwardStructureSpecKeys` in `apply_adoption_plan_action.go` now merges the
-  current structure row's unknown keys under adoption's fresh write (all unknown
-  keys, fresh wins; fails open). The check above stays the right one until a roll
-  carries the fix — and remains worth running after any adoption on an older image.
-  Do not re-fix; council trail corr `70256656`.
+- **FIX COMMITTED 2026-08-11 (`19acfc895`, 241 lane) — ~~INERT UNTIL THE NEXT ROLL~~
+  LIVE since `v1.0.1294` (2026-08-13, artefact-verified: revision label ancestry +
+  literal `carryForwardStructureSpecKeys` in `/proc/1/exe` with near-miss control 0;
+  re-verified on `v1.0.1295`).** `carryForwardStructureSpecKeys` in
+  `apply_adoption_plan_action.go` merges the current structure row's unknown keys
+  under adoption's fresh write (all unknown keys, fresh wins; fails open). The check
+  above remains worth running after an adoption only if the pod predates 1294.
+  Do not re-fix; council trail corr `70256656` (APPROVED).
 - > **NOW LIVE — verified 2026-08-12 ~13:00Z, chassis `v1.0.1290`.** The roll the
   > line above was waiting for has happened. `carryForwardStructureSpecKeys` →
   > **PRESENT on both replicas** (`8tjhm`, `vj2rt`), one-letter near-miss
@@ -10045,6 +10047,27 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **relations:** `a grep proves absence only for the SPELLING it searches` (same class: an absence is only as good as the instrument's reach) · `a count you kept is not a census` · `a du total is only a total if you could READ every subtree` (the same lane, the same week, and the same lesson about totals that silently omit) · `bugs_open/252`
 - **source:** 2026-08-12, `bugs_open/252` disk-pressure lane. Read "`browser-runner-adapter`: 8 tags on …1148, 0 tags on …1149" off this field and was about to file per-node tag concentration as a finding; three of the five nodes were reporting exactly 50 images. Caught by noticing the round number, not by anything going wrong — which is the definition of the class. The withdrawn claim is logged in `WRONG_CALLS.md`.
 - **added:** 2026-08-12, bugs_open/252 disk-pressure lane
+- **update 2026-08-13:** the "8 tags on …1148" half was later shown **correct** — image GC removed 6 of them and that node's list is now complete at 49, below the cap. The "0 on the other nodes" half **stays withdrawn**: …1149 and …6832 are still truncated at exactly 50. Being later shown directionally right does not retroactively make a truncated list a census, and the withdrawal was correct on the evidence available at the time.
+
+---
+
+## Node disk headroom is a SAWTOOTH driven by image GC — a low reading is a phase of a cycle, not a position on a slide, and two samples cannot tell you which
+
+- **footprint:** `stats/summary`, `imageFs`, `availableBytes`, `nodefs.available`, `imageGCHighThresholdPercent`, `imageGCLowThresholdPercent`, `evictionHard`, `kubectl describe node`, `DiskPressure`, `bugs_open/252`
+- **fires when:** you measure disk headroom on a node, get a small number, and reason about where it is *heading* — sizing an incident, justifying bigger disks, deciding whether something is urgent, or writing "we are N GB from eviction" into a handoff. Also fires on the happy version: measuring a healthy node and concluding there is no problem.
+- **why the wrong result looks exactly right:** the kubelet's image GC is a **threshold-and-reclaim controller**. Usage climbs to `imageGCHighThresholdPercent` (85 here), the kubelet reclaims down to `imageGCLowThresholdPercent` (80), and it climbs again. **Every reading is a phase of that oscillation.** Two readings taken hours apart look exactly like a linear trend, in whichever direction you happened to sample — and a *falling* pair looks like an impending outage while a *rising* pair looks like a fix that worked. `[MEASURED 2026-08-12→13]` the same three nodes read 0.73 / 0.60 / 0.79 GB above the eviction line one evening and **9.28 / 4.81 / 5.88 GB** seventeen hours later with **nothing changed** — GC had fired. Nodes that were *not* near the threshold grew over the same window instead of shrinking.
+- **the check — establish the period before you call it a trend:**
+  ```bash
+  # what governs the cycle on THIS cluster (per node — do not assume uniformity)
+  kubectl get --raw "/api/v1/nodes/<node>/proxy/configz" | python3 -c "import json,sys;d=json.load(sys.stdin)['kubeletconfig'];print({k:d.get(k) for k in ['imageGCHighThresholdPercent','imageGCLowThresholdPercent','imageMinimumGCAge','imageMaximumGCAge']}, d.get('evictionHard'))"
+  # then take a third sample at least one plausible period later, having changed NOTHING
+  ```
+  The cheapest disconfirming evidence is **hold still and re-measure**. A second, free control: compare a pressured node against one that is *not* under pressure over the same window — if reclaim is driving your series, only the pressured ones fall.
+- **the inference rule, which is the transferable part:** for anything governed by a threshold-and-reclaim controller — image GC, log rotation, cache eviction, autoscaler churn, connection pools — **oscillation is the DEFAULT expectation and monotonic decline is the extraordinary claim.** Reverse the burden of proof: a decline needs evidence that reclaim is not keeping up, not merely two decreasing samples. And read your own series before charting it — a sequence that goes down, up, then down is a cycle no matter how alarming its last value is.
+- **what remains true regardless of phase:** the reason `bugs_open/252` is open at all is that on this cluster the GC high threshold (85% used) **equals** the hard eviction line (`imagefs.available: 15%`), so the cycle's trough sits *against* the eviction threshold. The oscillation is normal; **the trough's position is the defect.** Consumers that image GC never touches — journald at ~3.87 GiB/node here — lower the whole waveform and are unaffected by any of this.
+- **relations:** `two clean runs cannot establish STABILITY — name the failure rate your sample could DETECT` (same family: a sample too small to see the dynamics) · `a daily report is not a RATE` · `WRONG_CALLS.md` 2026-08-13 (the incident: a 🚨 alarm and an "accumulation, not redistribution" claim written into two docs off the downstroke)
+- **source:** 2026-08-13, `bugs_open/252` disk-pressure lane. Watched image GC fire for the first time in the lane's history and it corrected the lane's own freshly-written alarm. The five-point series that was called a trend already contained the turn.
+- **added:** 2026-08-13, bugs_open/252 disk-pressure lane
 
 ---
 
