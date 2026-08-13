@@ -705,3 +705,115 @@ for 9, an unrelated child-page triage decision for 1). Recorded in the bug file 
 OBSERVATION with the mechanism marked NOT ESTABLISHED. It bounds fix candidate (2) to 4 of
 14 rows, so whoever takes D1 needs to know it, but guessing at its cause here would be the
 exact move this lane exists to punish.
+
+---
+
+## 2026-08-13 — gate 1b built and committed; and why option (2) is NOT ready to build
+
+### What shipped (committed `96c53bc18`, INERT until the next chassis roll)
+
+Completion gate 1b — `platform/orchestration/actions/complete_work_item_no_change.go`.
+An opt-in, per-`item_type` gate that refuses to stamp `complete` when the handler's own
+result payload reports it changed nothing. `dark_section_audit` is the only type on the
+roster. Every other type takes a map miss and is byte-identically unaffected.
+
+**The design turned on one fact that killed the obvious implementation.** I started to
+write this as a verifier and it cannot be one: `VerifyTarget` carries the **spec**, not
+the result, and `load_work_item_actions.go:871` reads the handler's report as an ACTION
+INPUT which is marshalled into `site_work_items.result` at `:918` — *after* the gates run.
+A verifier querying that column would have graded **the row's previous value** and looked
+like it worked. The question "did the handler change anything?" can only be asked beside
+`handlerReportedFailure`, which reads the same payload at the same moment for the same
+reason. That is where it now lives, as gate 1b.
+
+Three properties worth keeping in mind if you touch it:
+
+- **No verifier is registered**, so `RegisteredVerifierItemTypes`, the coverage guard and
+  the `sql_for_agents/220` claim-timeout exclusion are all untouched. That is a real
+  advantage of doing this at gate 1b rather than as a verifier — no registry lockstep to
+  keep.
+- **The third arm ABSTAINS rather than guessing.** If the declared counters cannot be
+  resolved, the item completes (an unreadable payload is not evidence of a no-op) and the
+  abstention is recorded to `agent_error_log`. This arm is *live today*, not defensive
+  boilerplate: 10 of the 14 completed rows carry a payload that is not this handler's.
+  Instrumenting that split is what §D of the bug file said to do instead of theorising.
+- **`lookupNumericPath` accepts `float64|float32|int|int32|int64|json.Number`** and that
+  breadth is load-bearing, not defensive. A missing arm reads "counter absent" for a
+  counter that is present and zero — i.e. reports *unknown shape* where the data supports
+  *block*. Both numeric arms are mutation-proven below for exactly that reason.
+
+### Mutation matrix (one at a time, and the first attempt was worthless)
+
+| mutation | result |
+|---|---|
+| delete the `dark_section_audit` roster entry | **RED** |
+| remove the any-non-zero early return | **RED** |
+| break the `json.Number` arm | **RED**, on exactly that case |
+| break the `int` arm | **RED**, on exactly that case |
+| restored | GREEN |
+
+**The misstep, and it is the same class the RUNBOOK already warns about.** My first attempt
+at the `json.Number` mutation *deleted* the case arm — which made `encoding/json` an unused
+import, so the package failed to **compile**. `FAIL` appeared, I nearly recorded it as a
+pass, and it proved nothing at all: a build error is not a test detecting anything. Redone
+so the arm still compiles but returns `(0, false)`, it goes red on precisely the one case.
+**A mutation must leave the program buildable or it tests the compiler, not your test.**
+
+**NOT PROVEN, stated because nothing else will say it:** no test asserts that
+`verifyBeforeComplete` actually *calls* the gate. The wiring needs a `*sql.DB` for the
+item_type lookup, and a source-scanning test would make comments load-bearing (own
+landmine). The behavioural check owed after the roll is in the RUNBOOK.
+
+### The council submission did NOT dispatch — kubeconfig expiry
+
+Authored, validated and fired. The script printed
+`SUBMISSION_CORR=4c2028f6-c3c6-4dbf-9113-5ebc8705c7b2`, then its `kubectl -n kafka run …
+kcat -P` publish (line 170) returned **`Unauthorized`**. The token has expired fleet-wide;
+`kubectl get pods` fails the same way. **So no council run exists**, and the printed
+correlation names nothing.
+
+I committed with **no trailer at all**. `Council-Submitted:` asserts that a submission was
+made; this one was not, so writing it would be the same false claim the `Council-Reviewed:`
+rule forbids, one rung down. The payload is ready at
+`scratchpad/213_d1_gate1b_submission.json` — re-fire it verbatim once the owner refreshes
+the token, and record the *new* correlation here.
+
+Two schema notes for whoever re-fires (neither is in the RUNBOOK's list):
+`.plan.risks` must be a **STRING**, not an array — the script refuses an array outright
+(`must be a STRING (Go: string) … join the risks into one prose block`). And the
+correlation is printed **before** the publish, so **a printed `SUBMISSION_CORR` is not
+evidence of a dispatch.**
+
+### Option (2), the discovery-path retraction: a SECOND precondition, specific to this type
+
+The 08-12 note recorded that 122's option (4) transfers here and is "cheaper here than
+there". The first half stands; the second half was **too quick, and I am correcting it
+before anyone builds on it.**
+
+`WriteAuditFindingsAction` (`:509-545`) takes its findings from an **LLM response**
+(`audit_result.result`, parsed out of JSON, ````json` fences and all). It records no set of
+pages examined; `loadSitePages` loads the site's page inventory for *classification*, which
+is a different thing.
+
+So this type has the 122 blocker **and one 122 does not have**:
+
+> `contrast_failure` retracts on the silence of a **measurement** — a browser computed a
+> contrast ratio and the bad pairing is gone. `dark_section_audit` would retract on the
+> silence of an **LLM**. A model that does not mention a defect on run N+1 has not
+> established that the defect is gone; it may simply not have said so this time.
+
+Direct evidence that this audit's output is not stable text: the two `finetuning.uk`
+filings of the **same defect on the same component**, one day apart, carry differently
+worded `description` and `acceptance_test` values. That proves the *wording* varies. It
+does **not** prove the *finding set* varies, and I am not asserting that it does.
+
+**[UNVERIFIED — needs the DB, blocked on the token]** On 08-11 the audit filed 14 items
+across 14 sites; on 08-12 exactly **one** was re-filed, although nothing repaired any of
+the other 13 (0 of 61 bodies changed). Two candidate explanations and I cannot presently
+separate them: the rotation visited only one site that day (likely — the quality rotation
+runs ~3 site passes/day), or the audit's finding set is unstable. **Separating them is the
+first task of option (2)**, and the measurement is cheap: group the `dark_section_audit`
+rows by `batch_id` and `site_id` over consecutive runs, and check whether a site the audit
+demonstrably re-visited re-filed its finding. If the finding set turns out to be unstable
+on an unchanged site, retraction here would close real defects on model variance, and
+option (2) needs a different design — not a `pages_audited` list.

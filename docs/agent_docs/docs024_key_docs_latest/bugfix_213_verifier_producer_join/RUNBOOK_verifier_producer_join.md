@@ -280,3 +280,69 @@ Commit → image label → registry digest → running pod, each link checked. *
 also removes the stale-cache hazard by construction** (the node cannot have cached a
 tag that has never existed), which is why the same-tag rebuild rule bites re-rolls and
 not first deploys — but say which one you are relying on.
+
+## Gate 1b — the behavioural check owed AFTER the next chassis roll
+
+No unit test proves the wiring (it needs a `*sql.DB`), so this is the only thing that
+establishes gate 1b actually fires. Do it on the first roll carrying `96c53bc18`.
+
+```bash
+# 1. the gate is in the binary you are running (per SERVICE, not per fleet)
+kubectl -n ai-persona-system logs -l app=agent-chassis --tail=300 | grep -m1 'build provenance'
+git merge-base --is-ancestor 96c53bc18 <the stamp>   # exit 0 = your commit is in it
+```
+
+```sql
+-- 2. the behavioural half. A dark_section_audit completion whose handler reported
+--    total_fixed 0 must now land triaged/failed, NOT complete.
+SELECT id, status, attempt_count, left(error, 120) AS error,
+       result->'_verification'->>'status' AS gate_status
+FROM site_work_items
+WHERE item_type='dark_section_audit' AND created_at > '2026-08-13'
+ORDER BY updated_at DESC;
+-- expect error LIKE 'completion blocked: the handler reported it changed nothing%'
+--        gate_status = 'handler_reported_no_change'
+```
+
+**⚠ The control that makes that meaningful, and it is the load-bearing half.** A gate
+that never fires and a gate that is not wired look identical in that query. So assert
+BOTH directions in the same window:
+
+```sql
+-- must be NON-ZERO once any dark_section_audit item completes at all:
+SELECT count(*) FILTER (WHERE result->'_verification'->>'status'='handler_reported_no_change') AS blocked,
+       count(*) FILTER (WHERE status='complete')                                               AS still_completing,
+       count(*)                                                                                AS total
+FROM site_work_items WHERE item_type='dark_section_audit' AND updated_at > '2026-08-13';
+```
+
+```sql
+-- 3. the ABSTAIN arm, which is expected to fire for ~10 of every 14 on current data
+SELECT created_at, error_message, context->>'item_type', context->>'declared_counters'
+FROM agent_error_log WHERE error_code='NO_CHANGE_GATE_UNREADABLE_RESULT'
+ORDER BY created_at DESC LIMIT 20;
+```
+
+If (3) is busy and (2) is empty, the gate is working and the 10-of-14 payload split
+(`bugs_open/213` §D) is the norm rather than an anomaly — which is the answer to a
+question this lane deliberately did not guess at.
+
+## Re-firing the council submission (it did NOT dispatch on 2026-08-13)
+
+Payload is complete and validated at `scratchpad/213_d1_gate1b_submission.json`.
+
+```bash
+kubectl -n ai-persona-system get pods >/dev/null || echo "TOKEN EXPIRED — owner must refresh; do not re-fire yet"
+./docs/agent_docs/docs024_key_docs_latest/fixloop_eg_dartsonline/097_TRIGGER_council_review_v1.sh \
+  <scratchpad>/213_d1_gate1b_submission.json
+```
+
+Two schema gotchas beyond the ones listed above, both paid for on 2026-08-13:
+
+- **`.plan.risks` must be a STRING, not an array.** The script refuses an array outright:
+  `ERROR: .plan.risks must be a STRING (Go: string) — join the risks into one prose block.`
+- **⚠ A printed `SUBMISSION_CORR` is NOT evidence of a dispatch.** The script prints the
+  correlation block *before* it publishes, so an expired kubeconfig produces a complete,
+  convincing correlation printout followed by `Unauthorized` — and nothing is queued. Check
+  for the run by payload before believing you have submitted anything, and **never write a
+  `Council-Submitted:` trailer for a correlation you have not seen dispatch.**

@@ -211,3 +211,50 @@ exactly the failure above) and "grade it at the next audit" (better answer, need
 to report which pages it looked at) is a design decision on a shared mechanism, and this
 estate's rule is that those go through review before they go in. The measurements above are
 what that review needs in front of it, and they are all written down now.
+
+---
+
+**2026-08-13.** Built the first of the two things I described yesterday, and stopped short
+of the second on purpose — for a reason I did not see yesterday and want to put on record.
+
+**What is built.** A completion gate that refuses to mark one of these colour items "done"
+when the fixer's own report says it changed nothing. *A fix that changed nothing is not a
+fix.* It is small, it needs no web browser and no page fetch, and it is switched on for
+this one kind of item only — every other kind of work item in the fleet is untouched by
+construction, which is the estate's standing rule for anything that alters a shared
+mechanism. It is committed and will start working at the next fleet build.
+
+One thing was nearly a wasted day. I began writing this as a "verifier", which is the
+obvious home for it, and it cannot live there: the verifier is asked its question *before*
+the fixer's report is saved, so it would have read the previous run's numbers and looked
+like it was working. I found that by reading the order of two lines rather than by
+assuming. It now sits next to an existing check that reads the same report at the right
+moment — which was the correct home all along.
+
+I also mutated the code four different ways to confirm the tests actually catch a break,
+and the first attempt was worthless: I deleted a block in a way that stopped the program
+compiling, saw "FAIL", and nearly recorded that as proof. A build error is not a test
+catching anything. Redone properly, all four come out red as they should.
+
+**What I could not do, and it needs you.** The cluster login token has expired — everything
+that talks to the live system is refused. That blocked the council review: the script
+printed a convincing submission reference and then failed to send anything, so no review
+exists. I did not write a "submitted for review" note on the commit, because it wasn't. The
+submission is written and ready; it needs one command once the token is back.
+
+**Why I did not build the second thing.** The plan was to grade these items when the design
+audit next comes round — if it does not re-report the fault, the fault is gone. The
+neighbouring lane reached the same conclusion for their problem and they are right for
+theirs. But their audit is a **measurement**: a browser computes a contrast ratio, and
+silence means the number came out fine. Ours is a **language model reading the page and
+writing prose**. Its silence is not the same thing. A model that does not mention a
+problem on Tuesday has not established the problem was fixed on Monday night — it may
+simply not have said so this time.
+
+I have direct evidence the wording varies: the same fault on the same site, filed one day
+apart, came back described in different words both times. What I do not yet know is whether
+the *set of faults it finds* varies, and that is the question that decides whether this
+approach is safe. It is a cheap thing to measure and I could not run it today, because it
+needs the database. **So the second piece is specified and not started, deliberately** —
+building retraction on top of an unstable detector would close real faults on nothing more
+than the model's mood, which is a worse failure than the one we are fixing.
