@@ -150,3 +150,14 @@ the repair here had to do exactly that) · `bugs_open/058` (the component lock
 this leans on) · `bugs_open/178` (`mode=edit_live`, without which the rewrite
 also guts the prose) · `WRONG_CALLS.md` 2026-08-12 (why the five green checks
 missed it) · `LANDMINES.md`, the `save_page_sections` REPLACES entry.
+
+
+---
+
+## 10. FIX WORKSTREAM OPENED 2026-08-13
+
+Cold-start for the fleet fix:
+`docs/agent_docs/docs024_key_docs_latest/bugfix_268_cta_buttons_fleet/HANDOFF_2026-08-13_start_here.md`
+(also in MEMORY_workstreams). Contributions to the evidence go HERE; the fix
+thread's own working docs go in that directory. Check `who-owns.py 268` and
+live transcripts before routing work at it.

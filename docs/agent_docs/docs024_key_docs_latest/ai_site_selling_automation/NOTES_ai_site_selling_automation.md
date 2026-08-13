@@ -920,3 +920,30 @@ guidelines — the owner explicitly does not want them made by hand at the CLI.*
    unfixed at platform level (§3b of the handoff). Re-apply `SQL_2026-08-12e`
    and re-push the deployed files afterwards, and check the href counts as a
    matched pair before and after.
+
+
+---
+
+## 2026-08-13 (morning) — the fleet-fix handoff exists, and round one of the gap-fills failed in the known way
+
+- **The fleet fix is now another thread's to start**:
+  `bugfix_268_cta_buttons_fleet/HANDOFF_2026-08-13_start_here.md` (commit
+  `a99e95efd`), registered in MEMORY_workstreams. It front-loads the two
+  refuted hypotheses, specifies the 090 re-run against `page_component_history`
+  (windows 16:37–17:23Z and 20:20–20:45Z, repair times stated), ranks the fix
+  candidates, separates FIX from REPAIR (fix first — repairing first re-armed
+  the loss once already), and says plainly that webdesign.uk is locked and
+  handled: leave it out of sweeps, unlock it last.
+- **Overnight state, verified at the served artefact**: buttons held (index 2,
+  faq 4, how-it-works 4, what-you-get 4), no refund promise anywhere, the
+  no-changes term stated on faq/how-it-works/what-you-get.
+- **Round one of the two gap-fills failed in the documented way.** Both items
+  wrote (`updated_at` 21:14/21:17) and neither did its additive job: the faq
+  answer named zero of the six services, index's summary still omits the
+  no-changes term. A prose instruction to INCLUDE a set inside a larger brief
+  is not followed — same class as the guide-links loss, from the insertion
+  side. `gapfill_index` also drew the handshake-race `failed` (work landed,
+  delivery lost), second sighting.
+- Round two dispatched (`gapfill2_*`), one job per item, each phrased as THE
+  TEST THIS PAGE MUST PASS. **Capped at two rounds** per the council lesson —
+  if round two misses, it goes to the owner as a parked item, not a loop.
