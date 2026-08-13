@@ -1807,3 +1807,47 @@ relies on — makes it idempotent. Verified:
 Reconcile re-run (corr `829f3e7a…`). If the handler builds it this time, the chain
 mapped at 19:06 yesterday is confirmed end to end: plan tables + pages row →
 reconcile emits → handler builds. Poll running.
+
+### 10:21–10:30 — the page BUILT, the writer ignored the copy, and both halves are now fixed
+
+**The chain is confirmed end to end.** With the `pages` row present (adoption-style
+upsert), reconcile emitted `needs_page`, the handler built it, and
+`/privacy.html` went `deployed` at 10:21. So yesterday's map holds: plan tables +
+pages row → reconcile → handler.
+
+**Then the verbatim check failed completely: 0 of 22 sentences.** The writer wrote
+its own privacy prose — honest, but not the owner's, and it names where things are
+stored, the exact thing his steer avoided.
+
+Root cause, read from the live prompt template, not guessed:
+`page-content-writer` injects **only the `writer_block` STRING**
+(`{{.site_specs.specs.evidence_base.writer_block}}`). My 08-12 registration told
+the writer to use copy "under `supplied_copy.privacy`" — **a JSON path that never
+travels to the prompt.** The writer was instructed to use copy it was never given.
+An instruction pointing at data outside the reader's context is wired to nothing —
+the same class as "a doc comment is not an enforcement mechanism", and I wrote one
+the day after quoting that rule.
+
+**Fix, both halves:**
+
+1. **Immediate** — `074b_section_editor_noted_privacy_copy.sh`: section-editor
+   `content_edit` sets hero subheadline (= the copy's intro) and the text block
+   (= the rest, `<strong>` lead-ins, mailto link; heading "What that means in
+   practice", a fragment of the copy's own sentence, because the template's
+   `<h2>` is unconditional and an empty one draws audits). The copy is EXTRACTED
+   FROM THE DRAFT at run time — no second copy to drift. `[MEASURED]` **22/22
+   sentences verbatim** in rendered_html; on the box at 10:29 (`200/18060`,
+   "spell it out" present). ⚠ Re-run 074b after any REGENERATION of the page —
+   rerender merges, regeneration replaces (bugfix 238).
+2. **Durable** — `embed_privacy_copy_in_writer_block.py`: the copy now travels
+   **inline in writer_block itself**, so any future regeneration has the text in
+   its prompt, not a pointer. Verified: 7 bans intact, copy present in the block,
+   `supplied_copy` kept as the canonical store.
+
+Controls at the end: shopfront `200/28286` (that lane ships continuously — take
+baselines fresh), apex still the legacy app. Nothing here is public.
+
+**What remains open on this thread:** the guide (`tool-legacy-rescue-guide`) is
+still `needs_human_review` on the true-sentence "no server" blocker — the ban is
+the owner's to narrow or not. And the first `unresolved_cta` pair on the guide
+page will resolve when its content builds.
