@@ -30463,3 +30463,54 @@ property the number is about and check it is the same property as the claim.
 **Cost.** Low, and only because the next day's task happened to be the one that could not
 tolerate it. Had leopardess not been protected, the fabrication would have merged silently into
 a record that `site-review-agent` reads today and B4 will grade against tomorrow.
+
+---
+
+## 2026-08-13 — bug 122, same session: I deleted two lines of another session's LANDMINES entry with the Edit tool, from a stale read, and the hook is the only reason I know
+
+Correcting one sentence of **my own** landmine entry, I used a targeted string edit. The
+tool warned me, in the result, that *"the file had been modified on disk since you last
+read it — the edit applied cleanly, but the file contains other changes not in your
+context."* **I read that as reassurance and carried on.** It is the opposite.
+
+Between my read and my write, the `bugfix_122_contrast_ink_slots` lane had appended its own
+entry to the same file. My write went out from the stale content, and my `git commit
+<pathspec>` — the very discipline that protects other sessions' work — then committed the
+file *from the working tree*, removing two continuation lines of **their** check bullet:
+
+```
+  `curl -s https://<domain>/assets/css/styles.css | grep -oE -- '--color-[a-z-]+ *: *[^;]+;' | grep -i gradient`
+  then grep the page for those names inside `color:`. Any overlap is this bug
+```
+
+Their bullet line survived; the command under it did not. **A landmine whose check has been
+truncated is worse than one that was never written** — it reads as complete, ends at "or
+read", and the next reader has no way to know two lines are missing. That is the exact
+damage class the file exists to prevent.
+
+**What caught it: nothing I did.** The `pre-commit` hook's `shared-ledger-not-appended`
+check reported *"5 line(s) removed from LANDMINES.md, a fleet-wide append-only ledger"*. I
+had already read the commit-scope block above it and moved on; the pattern block is what
+made me look. Advisory, never blocks, and it was the only thing standing between a silent
+deletion and the record.
+
+**Outcome:** no repair needed in the end. A later declared `sweep:` commit (`eb07f1fc9`)
+restored that check, and the lane had meanwhile improved it into a two-source comparison. I
+verified at HEAD, not at the working tree, with `git diff --numstat` — the count no content
+can fool. **But the recovery was luck, not process.**
+
+**The transferable rules:**
+1. **"The file contains other changes not in your context" is a STOP, not a footnote.** On
+   an append-only ledger every other session writes to, it means: re-read before you write,
+   or your write is a partial revert. I treated a warning about lost content as confirmation
+   of success.
+2. **A pathspec commit protects others from your staged files; it does nothing about your
+   stale file.** CLAUDE.md already says a pathspec cannot stop a *same-file* passenger. This
+   is the mirror case and it is worse, because the passenger is a **deletion** — and
+   `git diff | grep '^-[^-]'` on markdown bullets is exactly the check LANDMINES itself
+   warns is blind. Gate on `--numstat` first.
+3. **Correct your own line in a shared ledger by APPENDING a dated note, not by rewriting
+   the line.** A rewrite needs the whole file to be current; an append does not. The file's
+   own convention already said this and I did not follow it for my own entry.
+4. **Read the pattern-check block, not just the commit-scope block.** Two advisory blocks
+   print on every commit and I had trained myself to skim past both.
