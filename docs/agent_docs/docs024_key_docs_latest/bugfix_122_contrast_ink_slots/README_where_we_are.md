@@ -569,3 +569,26 @@ another workstream), and if a third part of the system ever needs this same tric
 pulled out into one shared piece rather than copied a third time.
 
 Still not live — that needs the next release. Nothing needs you.
+
+**2026-08-13.** This evening's release carries the work, so it is **live** — both halves, checked
+properly rather than assumed. Two things went wrong in the checking and both were my own fault in an
+interesting way. The standard command for asking a service which version it is running now returns
+rubbish, because our own written warnings *about* that command have been fed into the system's
+prompts and get logged, so searching the logs for the phrase finds the warning instead of the
+answer. And when I looked inside the running program for my own change, it said it wasn't there —
+which is correct and misleading at once: the program records only the single version it was built
+from, not every change inside it. Both are now written down for whoever hits them next.
+
+**It has not actually done anything yet, and it can't until Monday the 17th.** The weekly check
+visits each site once every seven days, and every site was visited on the 10th — so nothing is due.
+The rota still ticks every hour and looks busy while dispatching nothing, which is exactly the sort
+of thing that gets mistaken for a fault. It isn't one. I have deliberately not forced a run.
+
+**What I did instead was write down, in advance, what should happen** — because a prediction that
+can be wrong is worth more than a report written afterwards. Monday, robot-hands.com goes first. It
+has 34 open tickets across 21 pages, so it cannot close more than 34. On one page in particular
+there are three tickets, and I know a previous fix addressed two of them and not the third. So two
+must close and one must stay open. If all three close, the thing is closing tickets too eagerly and
+we stop and look — and that is a distinction you simply cannot draw from counting how many closed.
+
+Nothing needs you. The next real moment is Monday.

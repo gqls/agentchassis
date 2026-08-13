@@ -10201,3 +10201,26 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **relations:** `writes the field is not reads the field` · `a computed result cannot name the declaration` · `a per-row revalidation stamp is LAST-WRITE-WINS` (same lane, same night) · `a check answers the question you ENCODED` · concept register CQ-021 (the copy-changed gate that rests on this column) · `bugs_closed/262`
 - **source:** 2026-08-12, `bugfix_168_deployed_asset_path` lane, actioning the council's `bug_historian` advisory to check the single-producer claim against the rerender paths. The producer claim held; **this was the thing next to it.** Not a live defect, because the claim-granular gate answers first in the ladder and is immune to a status write — which is a mechanism-level reason the owner's "keep both gates" ruling is right, where the original argument was reversibility alone.
 - **added:** 2026-08-12, bugfix_168_deployed_asset_path lane
+
+---
+
+## `logs | grep 'build provenance'` now matches LANDMINE TEXT about build provenance — the recipe CLAUDE.md prescribes returns a hit on a service that never printed the line
+
+- **footprint:** `kubectl logs`, `build provenance`, `agent-chassis`, `doc_notes`, `scripts/landmines-sync.py`, `LANDMINES.md`, `MEMORY.md`, CLAUDE.md § "Building & deploying images"
+- **fires when:** you check which commit a service is running with the command CLAUDE.md gives you verbatim: `kubectl -n ai-persona-system logs -l app=<service> --tail=300 | grep -m1 'build provenance'`. It fired on me 2026-08-13 checking whether a roll carried my own commit.
+- **why the wrong result looks exactly right — and this one is self-inflicted, estate-wide:** landmine and memory entries ABOUT build provenance are synced into `doc_notes` by `landmines-sync.py`, `doc_notes` rows are injected into agent prompts, and the chassis logs its prompts. So the phrase "build provenance" now appears in ordinary chassis log lines as **documentation text**, not as a startup stamp. `grep -m1` stops at the first match and hands you a line that is not the stamp — and because those log lines are enormous (whole landmine corpora inline), the output can be **megabytes**, which is itself the tell if you are watching. A service that has NOT printed its startup line in range will still "match".
+- **the direction of the error is the bad one:** the CLAUDE.md fallback rule says an empty result means *"not in range, never unstamped"*. That protects you against a false NEGATIVE. This is a false POSITIVE, which that rule does not cover: you get a hit, you stop looking, and you may read a commit id out of quoted documentation text.
+- **the check — match the LOG LINE's structure, not the phrase, and never trust an unstructured hit:**
+  ```bash
+  # the stamp is a zap entry from main.go with the field alongside; the caller pins it
+  kubectl -n ai-persona-system logs -l app=<service> --tail=400 2>/dev/null \
+    | grep -oE '"caller":"[a-z-]+/main\.go:[0-9]+","msg":"build provenance","git_commit":"[a-f0-9]{40}"' | head -2
+  ```
+  If that returns nothing the startup line really is out of range — then use the binary probe, which has no shelf life, **with both controls in the same breath** (a sha that must be PRESENT and one that must be ABSENT):
+  ```bash
+  kubectl -n ai-persona-system exec <pod> -- grep -aq "<sha>" /proc/1/exe   # never `strings`
+  ```
+- **⚠ and the probe's OWN trap, which cost me a moment of alarm:** only the BUILD's own commit is stamped, so grepping the binary for YOUR commit returns *absent* even when your change shipped. "My sha is not in the binary" is **not** evidence your fix is missing. The real question is ancestry, and it is a git query, not a grep: `git merge-base --is-ancestor <your-commit> <the stamped commit>`.
+- **relations:** `prompt text scores as the behaviour it describes` and `declaring a key silences your own detector` (same shape: our own writing entering the data the detector reads) · `a grep proves absence only for the SPELLING it searches` (this is its inverse — presence for a spelling that is not the thing) · the `prove-a-deploy-at-the-artefact` family
+- **source:** 2026-08-13, `bugfix_122_contrast_ink_slots`, verifying whether a fresh roll carried `5639a1103`. The chassis grep returned 1.1MB of landmine prose; the adapter's returned the real stamp, so the two services looked inconsistent when only the QUERY was.
+- **added:** 2026-08-13, bugfix_122_contrast_ink_slots lane

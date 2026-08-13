@@ -1,4 +1,11 @@
-# HANDOFF — bug 122 lane. START HERE. Written 2026-08-12 (evening).
+# HANDOFF — bug 122 lane. START HERE. Written 2026-08-12 (evening), updated 2026-08-13.
+
+> **STATUS IN ONE PARAGRAPH.** The retraction is **built, council-APPROVED, and LIVE on both
+> services** since the 2026-08-13 roll. It has **never run**, and cannot until **2026-08-17
+> ~14:54Z**, because the render-audit rotation has a 7-day per-site window and the fleet was
+> stamped 08-10 — that is correct, do not force it. Everything owed is now a **dated
+> verification**, not a build: on 08-17, `robot-hands.com` is first up, and §1c states exactly
+> which rows must close and which must stay open. Read §1c, then §2 (the one correction), then §3.
 
 Supersedes `HANDOFF_2026-08-12b_continue_here.md` for **state**: its §3 task is **DONE and
 committed** (`5639a1103`). That file stays the reference for **why the design is shaped this way**
@@ -18,7 +25,7 @@ and stable, and the code that just shipped **does nothing at all** until two ser
 |---|---|
 | the retraction | **BUILT + COMMITTED `5639a1103`**, 8 files, HEAD verified to build and test green in a clean `git archive` tree |
 | council | **APPROVED** — trail corr `a43b63d6-da35-4136-9471-88ec6ace799a` (round 1 killed by a roll, §1a; round 2 approved 20:01Z). **13 reviewers, 4 abstained, `unreadable: 0`, `gated_by_truncation: false`** — the approval is on substance, not on seats that failed to render. 5 advisory objections, none high, all checked — §1b |
-| is it live? | **NO — MEASURED, not assumed.** Both services rolled 19:13–19:14Z on `7a1887e31`; my commit `5639a1103` sits **3 commits AFTER** that build point, so neither half shipped. `git merge-base --is-ancestor 5639a1103 7a1887e31` → false, with a passing control |
+| is it live? | **YES, BOTH HALVES, as of the 2026-08-13 roll — but NOT YET EXERCISED, and it cannot be until 08-17.** Both services stamped `69612d692`, which carries `5639a1103`. See §1c |
 
 ### 1a. The roll of 2026-08-12 19:13Z — what it did and did not do
 
@@ -84,6 +91,51 @@ looked and did not find it") but untested and unmeasured.
 
 ---
 
+### 1c. 2026-08-13 — IT IS LIVE, and the first exercise is a dated, falsifiable prediction
+
+**Live, verified at the artefact with controls** (not at the tag, not at git). Both `agent-chassis`
+and `browser-runner-adapter` are stamped `69612d692a4a07d61eea3f648e1152e0fd36fd0a`, and
+`git merge-base --is-ancestor 5639a11036752603dc0cfb036ff83e947fd11a44 69612d692…` → **true**, with
+a positive and a negative control both behaving. Chassis startup line had scrolled, so it was the
+binary probe: `69612d692` PRESENT, yesterday's `7a1887e31` ABSENT (so the probe discriminates).
+⚠ **Grepping the binary for MY OWN commit returns `absent` and that is CORRECT** — only the build's
+own sha is stamped, never every ancestor. Ancestry is a git query, not a grep. Both traps are now
+in `LANDMINES.md`.
+
+**⚠ IT CANNOT FIRE UNTIL 2026-08-17 ~14:54Z, AND THAT IS THE MECHANISM WORKING.** Measured
+2026-08-13 14:10Z: `site-render-audit-rotation` is enabled, hourly, `last_triggered_at` 13:27Z —
+and **0 sites are due.** Its `pre_query` selects sites whose `last_selected_at` is older than
+**7 days**, and the whole active fleet was stamped 08-10 by the audits that produced our 226
+findings. A fire with no due site dispatches nothing and advances `last_triggered_at` exactly like
+a working one (`enabled` + a fresh tick ≠ ever ran — there are **no** `render-audit-agent`
+orchestrations in 10 hours). **Do not "fix" this. Do not force a run to see it work.**
+
+**THE CANARY IS FREE, so debug_historian's "count before you write" gate costs nothing.** The
+`pre_query` is `LIMIT 1`, so the first exercise IS a single-site run by construction. Baseline
+captured 2026-08-13 **before** any pass: `retracted_so_far` = **0**, all 226 still `deferred`, 0
+carrying `batch_id`.
+
+**The prediction — write the outcome against this, and treat a mismatch as a scope bug:**
+
+| | |
+|---|---|
+| first site up | **`robot-hands.com`**, last audited 2026-08-10 14:54:23Z, **due 2026-08-17 14:54:23Z** |
+| its ceiling | **34** open contrast rows across **21** pages. A first pass may close AT MOST 34, and only on pages it measured |
+| next two | `loancalculator.co.uk` (08-17 15:54Z, **0** open rows — a pass that retracts anything there is wrong) · `cookly.uk` (08-17 16:55Z, 7 rows / 3 pages) |
+
+**And the single sharpest test, which is free and comes with its own control.** `/selection-guide.html`
+on that site holds exactly **three** open rows:
+
+- `contrast_failure:/selection-guide.html#A.info-card-grid__card-link` → **must RETRACT** if migration `368` fixed it
+- `contrast_failure:/selection-guide.html#SPAN.info-card-grid__eyebrow` → **must RETRACT**, same reason
+- `contrast_failure:/selection-guide.html#A.cta-btn` → **must STAY OPEN.** `368` did not touch it
+
+Same page, same run, opposite required outcomes. That distinguishes "retraction works" from
+"retraction closes everything on any page it looked at" — which no count of closures alone can do.
+If all three close, the scope is wrong: read §1b(1) and stop.
+
+---
+
 ## 2. ⚠ THE ONE CORRECTION TO `12b` §3.2 — read this before editing the retraction
 
 `12b` §3.2 step 1 said to build the still-failing set from *"exactly the keys already computed at
@@ -120,11 +172,10 @@ Two things the submission asks the council to rule on explicitly, so read for th
 retraction closes PARKED rows, and **(2)** the §2 correction above. If the verdict turns APPROVED,
 `098` credits the commit automatically — **do not write a `Council-Reviewed:` trailer by hand.**
 
-**(b) Get it into a release, then check the stamp PER SERVICE.** Go is inert until rebuilt and
-rolled; `make build-*` builds from committed HEAD. **This is ONE fleet release, not two rolls** —
-measured 2026-08-12: `agent-chassis` and `browser-runner-adapter` came up on the same commit 29
-seconds apart. Releases are whole-fleet and the owner runs `make release`. You still check **per
-service**, because a release can straddle sessions' commits (`bugs_open/249`).
+**(b) ~~Get it into a release~~ DONE 2026-08-13 — both services live on `69612d692`.** Nothing owed.
+Confirmed twice over that a fleet release rolls the adapter with the chassis (08-12: same commit 29
+seconds apart; 08-13: same commit again). Recorded because the pre-08-13 version of this handoff
+treated "roll both services" as two things to coordinate, and it is one.
 ```bash
 kubectl -n ai-persona-system logs -l app=agent-chassis --tail=300 | grep -m1 'build provenance'
 kubectl -n ai-persona-system logs -l app=browser-runner-adapter --tail=300 | grep -m1 'build provenance'
@@ -134,10 +185,11 @@ An empty grep means **"not in range"** (it is a startup line and scrolls), never
 back to the binary probe with a known-present and a known-absent control. A release can straddle
 sessions' commits, so read the stamp of the service you actually mean (`bugs_open/249`).
 
-**(c) COUNT BEFORE YOU LET IT WRITE — the pre-cutover rehearsal.** Raised by the `debug_historian`
-seat and it is right: this closes 226 already-parked production rows, and the plan had no read-only
-count of what the first pass would take. **Do this before the first live audit, not after.** The
-upper bound is knowable today:
+**(c) COUNT BEFORE YOU LET IT WRITE — DONE for the first pass; re-run it if 08-17 slips.** Raised by
+the `debug_historian` seat and it was right: this closes 226 already-parked production rows and the
+plan had no read-only count of what the first pass would take. **Baseline and per-site prediction
+are captured in §1c**, taken before the mechanism could fire. Re-run the query below if you arrive
+after 08-17 and want the ceiling as it then stands:
 ```sql
 -- the ceiling: open contrast rows, by site and by how many distinct pages they span.
 -- A retraction can only ever touch rows whose page the run actually measured, so

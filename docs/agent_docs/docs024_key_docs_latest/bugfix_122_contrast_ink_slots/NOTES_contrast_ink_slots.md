@@ -1527,3 +1527,62 @@ that pairing. Defensible, untested, recorded rather than solved.
 **Not amending `5639a1103` to say `Council-Reviewed:`.** Forward-only forbids it, and `098` credits
 the commit automatically from its `Council-Submitted:` trailer now the correlation is approved —
 which is precisely the hole that trailer was invented to close.
+
+---
+
+## 2026-08-13 — LIVE on both services, and the first exercise is four days away by design
+
+The 08-13 roll carries it. **Verified at the artefact with controls, and the verification itself hit
+two traps worth more than the result.**
+
+Both services are stamped `69612d692a4a07d61eea3f648e1152e0fd36fd0a`, and
+`git merge-base --is-ancestor 5639a1103 69612d692` → **true** (controls: yesterday's build IS an
+ancestor of it; HEAD is NOT). The chassis startup line had scrolled, so binary probe with both
+controls: `69612d692` PRESENT, `7a1887e31` ABSENT.
+
+**Trap 1 — my own documentation poisoned my own detector.** CLAUDE.md's recipe
+(`logs | grep -m1 'build provenance'`) returned **1.1MB** on the chassis. Landmine entries ABOUT
+build provenance are synced into `doc_notes`, injected into prompts, and logged — so the phrase now
+occurs in ordinary log lines as documentation text. `grep -m1` stopped on one of those and handed me
+something that was not the stamp. The CLAUDE.md fallback rule only covers the false NEGATIVE
+("empty means not in range, never unstamped"); this is a false POSITIVE, which it does not cover.
+Fix: match the log line's structure (`"caller":"…/main.go:N","msg":"build provenance","git_commit":"<40 hex>"`),
+never the phrase. Filed as a landmine, since CLAUDE.md prescribes the command that misfires.
+
+**Trap 2 — grepping the binary for MY OWN commit returns `absent`, and that is CORRECT.** Only the
+BUILD's commit is stamped, never every ancestor. For a moment that read as "my change did not ship".
+It is an ancestry question, which is a git query, not a grep. Also filed.
+
+### It cannot fire until 2026-08-17, and that is the mechanism working
+
+`site-render-audit-rotation`: enabled, hourly, `last_triggered_at` 13:27Z — and **0 sites due.** Its
+`pre_query` window is **7 days** per site and the active fleet was stamped 08-10 by the very audits
+that produced our 226. So the hourly tick dispatches nothing and advances `last_triggered_at`
+exactly like a working fire — `enabled` + a fresh tick ≠ ever ran, and there are **no**
+`render-audit-agent` orchestrations in 10 hours to confirm it. Same shape as the
+`site-discovery-rotation-quality` trap this lane already documented, arrived at from a different
+direction. **Do not force a run to watch it work.**
+
+### The gate debug_historian asked for turned out to be free, and I made it falsifiable
+
+Its `pre_query` is `LIMIT 1`, so the first exercise IS a one-site canary by construction — no
+engineering needed. Baseline taken BEFORE any pass could run: `retracted_so_far` **0**, 226
+`deferred`, 0 with `batch_id`.
+
+Then, rather than record a bound and wait, I named the outcome. First site up is `robot-hands.com`
+(due 08-17 14:54:23Z), ceiling **34 rows / 21 pages**. And `/selection-guide.html` there holds
+exactly three open rows, which is the sharpest test available and it came with its own control:
+
+| key | required outcome | why |
+|---|---|---|
+| `…#A.info-card-grid__card-link` | **RETRACT** | migration `368` fixed it |
+| `…#SPAN.info-card-grid__eyebrow` | **RETRACT** | same |
+| `…#A.cta-btn` | **STAY OPEN** | `368` did not touch it |
+
+Same page, same run, opposite required outcomes — so the run distinguishes "retraction works" from
+"retraction closes everything on a page it looked at", which no closure COUNT can do. This is the
+lane's own standing rule applied to my own verification: a measurement that could not come out
+otherwise is not evidence. If all three close, the scope is wrong.
+
+`loancalculator.co.uk` is second up with **0** open rows — a pass that retracts anything there is
+also a scope bug.
