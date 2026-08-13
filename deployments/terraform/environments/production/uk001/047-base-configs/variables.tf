@@ -41,8 +41,34 @@ variable "clients_db_user_password" {
 # render the whole userlist would make the pair unrepresentable, but it needs the
 # clients_user/templates_user passwords moved into the same resource and is a
 # bigger change than this decision authorised.
+# ⚠⚠ THE VALUE CURRENTLY IN terraform.tfvars.secret DOES NOT WORK. Corrected 2026-08-13.
+#
+# When this variable was added (2026-08-12) I GENERATED a fresh 32-character password.
+# That was the wrong move: `pgbouncer_admin` **already had a working 20-character password**
+# in the `pgbouncer-userlist` secret, and pgbouncer authenticates against that file alone
+# (`auth_type = md5`, `auth_file` only — there is no `auth_query`/`auth_user`). So the two
+# halves now hold different strings and the console refuses:
+#
+#     psql -U pgbouncer_admin -d pgbouncer -c "SHOW POOLS;"
+#     FATAL:  password authentication failed
+#
+# (Distinguish that from `FATAL: not allowed`, which is what a NON-admin such as
+# clients_user gets. "not allowed" = wrong user; "password authentication failed" = right
+# user, wrong password. Only the value is out of step; the admin roster is correct.)
+#
+# THE FIX IS TO RECORD, NOT TO IMPOSE — replace the generated value in
+# terraform.tfvars.secret with the EXISTING userlist value and re-apply. That needs no
+# pgbouncer restart (the userlist is untouched, and pgbouncer already accepts it) and puts
+# nothing at risk for clients_user/templates_user, whose lines are never rewritten. The
+# alternative — writing this value INTO the userlist — costs a restart that drops every
+# pooled connection fleet-wide, to no benefit.
+#
+# UNTIL THAT HAPPENS: the `PGBOUNCER_ADMIN_PASSWORD` key in `personae-platform-secrets` is
+# LIVE AND WRONG. Do not read it and conclude you hold the admin password — you hold a
+# string that authenticates nothing. Full account and both wrong calls:
+#   docs/agent_docs/docs024_key_docs_latest/bugfix_246_shared_pool_ownership/RUNBOOK_shared_pool_ownership.md §9
 variable "pgbouncer_admin_password" {
-  description = "Password for the pgbouncer_admin console user (SHOW POOLS/SHOW CLIENTS). Must match the pgbouncer_admin line in the pgbouncer-userlist secret."
+  description = "Password for the pgbouncer_admin console user (SHOW POOLS/SHOW CLIENTS). MUST be the EXISTING value from the pgbouncer-userlist secret — record it, do not generate one. As of 2026-08-13 the value in tfvars is a generated string that does NOT authenticate; see RUNBOOK §9."
   type        = string
   sensitive   = true
 }

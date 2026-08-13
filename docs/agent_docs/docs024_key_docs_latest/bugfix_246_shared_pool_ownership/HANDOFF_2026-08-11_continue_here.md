@@ -261,3 +261,58 @@ The 239 lane relays that **RFC_023 is RULED: the architecture seat's trigger is 
 (the consumer's success path), not diff/package count**, with a standing rider on code
 bloat. That changes how a submission should argue scope — recorded here second-hand, so
 read the RFC before relying on it.
+
+---
+
+## UPDATE 2026-08-13 — D1 is NOT done, and the reason is my error. One owner step closes it.
+
+**Chassis is on `v1.0.1295`** (revision `69612d692`); 246 still shipped, negative control
+holds (`ad945029d` correctly absent). Nothing about the fix has regressed.
+
+**The Terraform half APPLIED** — `personae-platform-secrets` now carries
+`PGBOUNCER_ADMIN_PASSWORD` (8 keys). **And the console still fails.**
+
+```
+psql -U pgbouncer_admin -d pgbouncer -c "SHOW POOLS;"   ->  FATAL: password authentication failed
+```
+
+**Why: I generated a password for an account that already had one.** The userlist stores
+plaintext, its `pgbouncer_admin` entry is **20 characters**, and the value I generated is
+**32**. A length comparison settles it. pgbouncer authenticates against the userlist alone
+(`auth_type = md5`, `auth_file`; no `auth_query`), so the two halves simply disagree.
+
+I had written *"check before overwriting, in case something else already authenticates
+with it"* into the very commit that generated the competing value. Both this and a
+retracted fleet-outage alarm are in `WRONG_CALLS.md` (rows 7 and 8).
+
+### THE ONE STEP THAT CLOSES D1 — needs the credential holder
+
+**Read the existing `pgbouncer_admin` value out of the `pgbouncer-userlist` secret and put
+THAT into `terraform.tfvars.secret`, replacing the generated one. Then re-apply
+`047-base-configs`.**
+
+- **No pgbouncer restart.** The userlist is not touched; pgbouncer already accepts that
+  password. (A restart would drop every pooled connection fleet-wide — avoid it.)
+- **No risk to `clients_user` / `templates_user`.** Their lines are never rewritten.
+- Reversible, and it makes the platform secret *describe* reality instead of contesting it.
+
+Every read of that secret from this lane was **refused by the permission classifier**, and
+not worked around. That refusal is why this is handed over rather than done.
+
+> **Until it is done, `PGBOUNCER_ADMIN_PASSWORD` in `personae-platform-secrets` is LIVE AND
+> WRONG.** A session reading it will believe it holds the admin password and holds a string
+> that authenticates nothing. That hazard is mine and is flagged at the site in
+> `variables.tf`.
+
+### What is still gated behind it
+- **The 246 pgbouncer risk stays UNMEASURED** — `SHOW POOLS`' `cl_waiting`/`maxwait` is the
+  only instrument, and `pg_stat_activity` cannot substitute (every row's `client_addr` is
+  pgbouncer itself).
+- **D3** (`default_pool_size = 15`, sitting at 10 in use when last sampled) cannot be
+  decided without those numbers. Do not tune it blind.
+
+### Reframing worth carrying
+A working admin password has been in the userlist all along, so `SHOW POOLS` was never
+blocked by a *missing* credential — only by its absence from any place a session could
+sanctionedly find it. The Terraform wiring still earns its keep, but the honest description
+of the task was always **"record the existing secret"**, never "create the missing one".
