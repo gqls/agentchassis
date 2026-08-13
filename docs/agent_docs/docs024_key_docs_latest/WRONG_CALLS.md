@@ -30193,6 +30193,18 @@ unevidenced sentence was the one where I was telling someone else they were out 
 *that* register is exactly what stops you opening the file. **A seat quoting older lore than yours is the
 cue to read the landmine, not to correct it from memory.**
 
+**NARROWED 2026-08-13, and the narrowing is itself a small wrong call.** I wrote above that the recipe
+"is **inoperative** on `agent-chassis`". Verified on the next roll (`v1.0.1295`): it is **time-limited,
+not inoperative** — at **7 minutes** after pod start the stamp read cleanly, and every one of this lane's
+commits was confirmed present in the binary by ancestry, with a must-be-absent control. The landmine's
+0-hit measurement was at **44** minutes. So I over-corrected: having been wrong that the recipe always
+works, I recorded that it never does. **Both errors have the same shape** — one measurement of a
+time-dependent check, generalised into a property of the service. The discriminator was in the landmine
+all along and I failed to carry it into my own note: `logs <pod> | head -1`, which says whether the log
+still reaches startup. **The lesson survives the narrowing unchanged:** that sentence was unevidenced
+because I was correcting someone. What changes is the remedy — *read the landmine and carry its
+precheck*, not *distrust the recipe*.
+
 **Cost and disposition.** No production effect — it never left the submission and the bug file. It would
 have cost the next reader a stranded verification step in a bug's close-out, which is the shape this file
 already records under *"I wrote an unfalsifiable pod-grep into a closed bug file as the verification step"*
