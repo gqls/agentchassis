@@ -1127,3 +1127,29 @@ the one I had, and it's now written down the way you put it.
 The copywriting summary you asked for is saved in two places, one of them outside
 the repository, and it's also on a private web page you can share if it's useful to
 anyone else.
+
+---
+
+**2026-08-13 (agent).** You asked why the framework didn't put the hero, nav and
+card images right, told us to build the missing handlers but not switch them on,
+and this morning said to carry on — noting the site has no hero or logo at all.
+That last observation checks out, and it is worse than it looks: every single
+brand file the pages ask for — hero, logo, favicon, the social-share card — comes
+back "not found", even though the system's own records say the favicon and share
+card jobs finished successfully, twice. The pattern from the whole investigation
+holds: the machinery keeps reporting success while the thing it was supposed to
+deliver never arrives where the pages look for it.
+
+Where we are: the root cause for the hero (a one-line configuration slip that
+files images under a garbled name) is diagnosed and still live; the fix is written
+up and is the very next step. The hero image itself already exists and looks fine —
+it is just filed under the wrong name, so putting it right costs nothing new. The
+logo is a decision rather than a repair: you rejected the two machine-made logos
+last week and preferred the old one, but we can't yet find where the old one
+lives — that needs a quick hunt, and if nothing turns up it is your call whether
+the machine tries again. The two new handler agents you asked for exist and are
+switched off, exactly as you instructed, until that configuration slip is fixed.
+
+This chat was getting too long to work well, so the full technical
+continuation plan is written down for a fresh session to pick up without losing
+anything.

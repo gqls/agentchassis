@@ -2868,3 +2868,39 @@ never arrived — once because the deploy path was an unresolved template, once
 because the repair channel only runs one way, once because the item sits where
 dispatch cannot select it. **No missing mechanism anywhere.** Three candidates for
 `090` are listed in handoff §11.5, alongside §2's still-owed audit-blindness run.
+
+---
+
+## 2026-08-13 — brand-asset census, and a handoff cut mid-task at the owner's instruction
+
+Owner: *"carry on. And also the site currently has no hero image or logo etc."* Then,
+mid-turn: fresh chassis build deployed; update docs; hand off if token load is high.
+It was — `HANDOFF_2026-08-13_continue_here.md` is the continuation state. Facts
+gathered this morning before the cut:
+
+**Every brand asset 404s** (measured in one pass, 2026-08-13):
+hero.jpg, logo.png, logo.jpg, favicon.png, /favicon.ico, og-card.png — all 404.
+`sites.logo_url` NULL, `logo_text` NULL, `brand_assets = {}`. So "etc." was right:
+it is not just the hero — the site serves NO brand imagery at all, while
+`needs_brand_head_assets` items for favicon and og_card are `complete` TWICE
+(08-05, 08-11). A `complete` work item is not a deployed artefact, again — the
+next session should read those items' `result` for the committed file_path.
+
+**The asset rows moved under us** — the owner has been curating: `477838e3` is now
+`rejected`, `d6ead260` (the placeholder-path deploy from §11.1) and `9e94250d` are
+`superseded`, and TWO heroes are `active` (`0e11c818`, `2e2bea17`, both generated
+19:10–19:11Z on 08-11). Any redeploy should ship an ACTIVE row, not d6ead260 —
+yesterday's §11.1 trace names d6ead260 and is now stale on that point.
+
+**Chassis v1.0.1294** rolled 09:48/09:49Z both replicas. The provenance startup
+line is already out of `--tail=300` on agent-chassis (busy service — the LANDMINES
+rotation case, confirmed again). Tag read from the pod spec instead; next session
+uses the OCI-label fallback if it needs the commit.
+
+**Not done, in order** (full detail in the handoff §2): migration 399 cutting
+248's rung 2 (READ the three-rung ladder code first — my paraphrase is unverified);
+maybe 400 (dispatcher purpose mapping); hero live via redeploy-existing or
+detection-refile; logo — find what "the old existing logo" is before generating
+(owner rejected two generated candidates on 08-11); favicon/og-card diagnosis;
+router assignment (site-first, then fleet); card icons only after confirming the
+render path consumes them.
