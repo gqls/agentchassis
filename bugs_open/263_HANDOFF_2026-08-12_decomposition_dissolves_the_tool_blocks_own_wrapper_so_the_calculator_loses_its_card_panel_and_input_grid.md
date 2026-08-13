@@ -284,6 +284,13 @@ Measured, so the choice is costed rather than discovered:
 which is what happens today, and take the six as one decision later. Nothing is lost by
 waiting — a refused page is untouched, and the other 15 can proceed now.
 
+> **⚠ THIS RECOMMENDATION IS SUPERSEDED — see the 2026-08-13 owner-direction section
+> below.** Track B2 (machinery in `html_template`, copy as `input_schema` fields, row
+> UNLOCKED) dissolves the dilemma rather than deciding it: the in-panel heading is neither
+> frozen nor lost, it becomes a field. **The measurement above stands and is what the
+> dilemma was sized from** — the residual is 6 pages and not 1, all six are one shape, and
+> four hold the page's `<h1>`. Only the "wait and decide later" conclusion is retired.
+
 ### One hazard in `gate_wrapper_parity.py`, inert today
 
 `class_counts()` counts `class="…"` in raw HTML without stripping `<script>`/`<style>`.
