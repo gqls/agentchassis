@@ -153,3 +153,40 @@ acting on this** — this handoff does not know whether that gate has passed.
 - `docs/agent_docs/docs024_key_docs_latest/bug_backlog_clearing/` — this file
 
 No `bugs_closed/` move yet — verification (§ B above) has not run.
+
+## UPDATE (same day, later) — round 1 REVISE, answered; round 2 blocked by expired kubeconfig
+
+Read the council verdict per §A above: **REVISE**, not APPROVED — gated by
+`editquality`, with `guardian`/`debug_historian`/`prior_art_librarian` also
+objecting. Full detail is in `bugs_open/264` §13, not repeated here; short
+version: two of the three HIGH-severity objections (a "duplicate active
+row/wrong version" landmine) were already refuted by the same review round's
+own embedded checks, and the rest (fallback claim ungrounded, no full-caller
+inventory, no owning-pipeline naming, migration not ledger-recorded, no
+automated test) were real gaps, all closed with fresh evidence — see
+`bugs_open/264` §13 for exactly what was checked and how.
+
+**The round-2 resubmission did NOT actually dispatch.** Mid-session the prod
+kubeconfig token expired (`2026-08-13 19:05:20` — confirmed by decoding it, see
+`~/.claude/…/memory/kubeconfig-token-expires-every-3-days.md`), which broke the
+council trigger script's kafka-publish step (`kubectl -n kafka run ... kcat -P`)
+with `Unauthorized`. The script prints `SAVE: SUBMISSION_CORR=...` **before**
+that publish step, so the correlation it echoed was never real — nothing
+reached the council. `kubectl -n ai-persona-system get pods` fails the same
+way, confirming total auth loss, not a scoped issue.
+
+**This blocks everything cluster/DB-side**, not just the resubmission: the
+live audit-run verification in §B above, re-reading any verdict, and any
+further `psql`/`kubectl` work on `040` or any other backlog item. **Nothing
+code-side is blocked** — this is a credentials outage, not a defect.
+
+**Only the owner can clear it** (download a fresh kubeconfig from the Rackspace
+Spot console — no self-refresh mechanism is configured; `kubectl oidc-login`
+would work but the `kubelogin` plugin isn't installed). Once refreshed, re-fire
+the round-2 submission with the saved JSON:
+```bash
+RESUBMIT_CORR=50ee4b26-2303-4304-b437-7320e1368a1d \
+  ./docs/agent_docs/docs024_key_docs_latest/fixloop_eg_dartsonline/097_TRIGGER_council_review_v1.sh \
+  docs/agent_docs/docs024_key_docs_latest/fixloop_eg_dartsonline/submission_264_audit_source_round2.json
+```
+then run the §B live verification, then decide on `bugs_closed/`.
