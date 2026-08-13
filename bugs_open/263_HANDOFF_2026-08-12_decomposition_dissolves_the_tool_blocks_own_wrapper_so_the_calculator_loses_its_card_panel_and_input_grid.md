@@ -305,3 +305,47 @@ input is a bucket file of unknown shape.
 *Method, so this is checkable: separate descent implementation, separate class counter, same
 pin. The two agree on all 21 pages. Where I quote a frozen-text share it is
 `visible(strip_code(...))` over tool blocks ÷ over the whole `#content` subtree.*
+
+---
+
+## 2026-08-13 — OWNER DIRECTION SUPERSEDES THE (a)/(b) CHOICE, and a mechanism check corrects the plan
+
+**Owner:** *"All text and widgets need to be editable so in future we can reuse them
+with their own slightly different copy or mechanism. So we need to decompose these —
+is that a viable route?"*
+
+Viable, and the mechanism exists — but re-verification at the code found a
+contradiction in the design as this file (and the lane NOTES) stated it:
+
+1. **"Editable fields on a permanently locked row" is not a thing.**
+   `ApplySectionEditAction` refuses any human-locked component
+   (`section_editor_actions.go:305-320` — `lock.IsLocked → lock_blocked item, refuse`),
+   and `lock_helpers.go` classifies `permanent` as hard: only a human unlock releases
+   it. So the earlier note *"if the paragraph later needs editing, it is a
+   section-editor job on a locked row"* was WRONG — that job is refused by design.
+2. **The edit mechanism is real for unlocked rows**: `content_edit` accepts
+   `field_updates`, merges into `content_data`, re-renders through
+   `content_components.html_template`, writes `rendered_html`. Assembly concatenates
+   stored `rendered_html`, so the edit reaches the page at the next rerender.
+
+**The corrected end-state (Track B2): protection moves from the ROW LOCK to the
+TEMPLATE.** Machinery (panel markup, grid, ids, `<script>`) lives in `html_template`,
+which no content writer can touch — writers only fill `input_schema` fields. Copy
+(in-panel heading, labels, captions, advisory notes) becomes fields, each with
+`llm_guidance`. The tool row is **NOT locked**; the page stays `rebuild_policy='owned'`
+as the second guard, and the `no_auto_fix` acceptance fences remain the behavioural
+alarm. This is how the framework's native script-bearing components
+(`model-directory` etc., 5 fields each) already survive rebuilds fleet-wide.
+
+**This also dissolves the 6-page (a)/(b) dilemma**: `mortgages/simple`'s in-panel `h2`
+is neither frozen nor lost — it is a field. And it retires the split_ordered opt-in as
+the LONG-TERM answer for tool pages (it remains correct for byte-faithful decomposition,
+which stays the right first step for prose rows and as the source of the template's
+markup).
+
+**Known risk, named:** the `bugfix 238` class — regeneration REPLACES `content_data`,
+so every field must be `required` with the original copy as `fallback`, and label
+fields carry the copy lane's warning verbatim (labels are load-bearing arithmetic on
+these sites). Proving run: `mortgages-simple` — template+fields must reproduce the
+source card byte-for-byte with initial field values, then a `field_updates` edit must
+round-trip to the live page and back, with the oracle green on both sides.
