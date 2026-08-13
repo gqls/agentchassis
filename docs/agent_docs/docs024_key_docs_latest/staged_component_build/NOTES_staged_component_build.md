@@ -3864,3 +3864,113 @@ deadline and no `ctx` — the `dialTimeout`/`convTimeout` at :230-237 are inside
 branch only. EMAIL-002 says this estate can use **only** 587. So the bounded-send guarantee
 holds on the port we cannot use, and not on the one we must. No SMTP/mail/SES key exists in
 `personae-default-secrets`, `personae-platform-secrets` or `personae-storage-secrets`.
+
+## 2026-08-13 (session `48fb60ee`) — 248's REVISE objection answered with a live config fix; verification cut short by kubeconfig expiry
+
+Asked to pick up an open item. Investigated the "mailer" item first and found it was a dead
+end: `bugs_open/228`'s contact-form delivery is already fixed and live (mailto branch proven
+end-to-end), and the fence gap the bug file's last line called "not yet made" turned out to
+already exist — `doc_plans` shows the current `contact-block` PLAN was written at
+**13:16:18Z on 2026-08-09, one minute after** the bug file's "has not yet made the edit" note
+(13:15Z) — a stale claim, not open work. Corrected understanding recorded here rather than in
+the bug file itself, since the bug file already carries the (now superseded) accurate-at-the-
+time note and re-editing someone else's dated entry isn't this session's call.
+
+Picked up **`bugs_open/248`'s unread council verdict** instead (the OTHER 248 — this bug
+number collides between two unrelated files; the one this lane owns is
+`248_HANDOFF_2026-08-10_undeployed_asset_repair_deploys_every_asset_as_a_hero_under_a_placeholder_name.md`).
+
+**Verdict: REVISE, round 1** (`orchestration_states.current_step='complete_revise'`, decided
+by a gating HIGH objection from `editquality`). Two objections:
+
+1. **HIGH (gating):** `assetRowIdentity` recovers `purpose`/`asset_key` by keying off
+   `inputs.Get("asset_id")`. If `asset_id` itself isn't resolved via explicit `input_fields`
+   (rather than the landmined `findFieldRecursive` aggressive search), the recovery could
+   silently pull an unrelated asset's row. The reviewer named the exact disconfirming SQL.
+2. **MEDIUM:** edit 4 (`check_undeployed_assets.go` emitting `asset_key`) is justified in the
+   submission by an uncited "cause (c)" that doesn't appear anywhere in the diagnosis text —
+   scope creep against the plan's own stated minimality claim.
+
+**Ran the reviewer's own check first** (their proposed read-only SQL, per the council
+protocol): `asset-deployer`'s `deploy_asset` step DOES declare `input_fields` including
+`asset_id` explicitly. That answers the check as literally posed, but tracing
+`ExtractActionInputs` -> Strategy 1 -> `ExtractFields` -> `extractSingleField` (both
+`platform/orchestration/datahelpers/action_inputs.go` and `unified_extractor.go`) shows
+declaring a field in `input_fields` does NOT itself avoid the aggressive recursive search —
+Strategy 1 calls the exact same `ExtractFields` as the no-`input_fields` case, over a
+different field list. **The objection's real target is narrower than its own proposed check
+answers**: whether `asset_id` reaches `deploy_asset`'s `collected_data` via an EXPLICIT
+mapping (Strategy 0, deterministic) or falls through to the aggressive search (Strategy 4,
+depends on `collectedData` shape) depends on the CALLER, not the callee's declared
+`input_fields`.
+
+Checked both callers:
+- `check_undeployed_assets`'s repair-item dispatch already carries `asset_id` in the item's
+  `spec` (unchanged since before this bug was even filed) — safe, single-asset context, no
+  sibling ambiguity plausible.
+- **`image-build-handler`'s `call_asset_deployer` step (`action: call_agent`) does NOT map
+  `asset_id` at all** in its `input_mapping` (`{domain, s3_uri, purpose, asset_key?}` only) —
+  confirmed by reading the live `agent_definitions` row directly. `call_agent`'s
+  `extractDataForAgent` -> `ResolveInputMapping` builds the CHILD orchestration's `input_data`
+  from ONLY the mapped keys (`platform/orchestration/actions/call_agent.go:987-1018` and
+  `input_contracts/input_mapping.go`), so the child's own `collected_data` starts fresh — it
+  does not inherit the parent's full tree. So `asset_id` genuinely does reach `deploy_asset`
+  via the aggressive search on this path, exactly as the objection fears, though the
+  "wrong sibling" risk needs a second candidate to actually bite (a fresh per-call child
+  orchestration has no obvious sibling to confuse it with, unlike a shared-state loop) —
+  **[UNVERIFIED]** whether it has ever actually misfired; not chased further once the fix
+  made the question moot.
+
+**Fixed the caller, not the callee — narrower still.** `store_imagery_asset`
+(`action: store_asset`, `output_field: asset_stored`) already returns `asset_id` in its
+result (`StoreAssetAction`, `platform/orchestration/actions/v3_site_actions.go:3076`,
+`"asset_id": returnedID.String()`) — sitting right beside `asset_stored.image_uri` and
+`asset_stored.purpose`, which the SAME mapping already reads. So the fix is a one-key,
+config-only addition, no Go change, no roll needed:
+
+```sql
+SELECT snapshot_agent('image-build-handler', 'pre-update: bugs_open/248 R1 editquality objection -- explicit asset_id mapping into call_asset_deployer to avoid the aggressive-recursive-search path in deploy_image_asset_action.go');
+UPDATE agent_definitions SET default_config = jsonb_set(default_config,
+  '{workflow,steps,call_asset_deployer,config,input_mapping,asset_id?}',
+  '"asset_stored.asset_id"'::jsonb), updated_at = now()
+ WHERE type='image-build-handler' AND is_active AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL;
+```
+
+Dry-run with `ROLLBACK` first (before/after `jsonb_pretty` of the mapping, matched exactly
+what was intended), then applied for real with the snapshot taken first — mirroring
+`099_SYNC_gate_roster.py`'s pattern exactly (`snapshot_agent()` then `UPDATE`, one
+transaction). **Confirmed committed**: the `UPDATE ... RETURNING`-equivalent verify inside
+the same transaction showed the new key present before `COMMIT`. `asset_id?` uses the same
+optional-marker convention already live on `asset_key?` in the same mapping
+(`input_contracts/input_mapping.go:102-103`, `strings.HasSuffix(destField, "?")`) — safe for
+the `locked`/`no-asset-URL` refusal branches of `store_asset`, which return no `asset_id` at
+all and must not turn a soft refusal into a hard `input_mapping failed` error.
+
+**This is a genuinely LIVE fix, not a code change awaiting a roll** — `agent_definitions`
+config is read live by the running `call_agent` action. The next `image-build-handler` run
+already resolves `asset_id` explicitly.
+
+**⚠ CUT SHORT BY KUBECONFIG EXPIRY** (`LANDMINES`/`MEMORY.md`'s "fleet-wide `Unauthorized` =
+expiry" entry — hit live, not from memory). Was mid-way through pulling a recent, real,
+PRE-fix `image-build-handler` -> `asset-deployer` orchestration's resolved `input_data` to
+document what `asset_id` actually held before the fix (several completed today,
+`owner_agent_type='asset-deployer'`, e.g. `30990973…`/`fe362a98…`/`fe4a94e8…`/`25de67c7…`, all
+parented by an `image-build-handler` orchestration, all from the last few hours) — that
+before/after comparison, and the resubmission to council (`RESUBMIT_CORR` off
+`7f0c1535-25cb-4645-adba-f7429e357a79`, plus a corrected rationale for objection 2's edit 4,
+which doesn't need a fictional "cause (c)" — "an item whose spec omits a field its handler
+needs is unreviewable" stands on its own), are **owed, not done**.
+
+**What is verified, and what is not:**
+- `[VERIFIED]` the config change is live (read back inside the committing transaction).
+- `[VERIFIED]` the mechanism reasoning (Strategy 0 vs Strategy 1/4, the two callers' shapes).
+- `[UNVERIFIED]` whether the pre-fix aggressive search ever actually resolved a WRONG
+  `asset_id` in production (vs. simply an empty one) — the historical-row comparison that
+  would settle this was cut off mid-query by the auth expiry.
+- **Not done: resubmission to council.** The fix is live but the REVISE has not been
+  answered on the record yet.
+
+Next session: re-run kubectl once the token is refreshed, pull one of the named pre-fix
+orchestration rows' `collected_data` for the `asset-deployer` child (search
+`collected_data` for the resolved `asset_id` the `deploy_asset` step actually saw), record
+it, then resubmit with `RESUBMIT_CORR=7f0c1535-25cb-4645-adba-f7429e357a79`.

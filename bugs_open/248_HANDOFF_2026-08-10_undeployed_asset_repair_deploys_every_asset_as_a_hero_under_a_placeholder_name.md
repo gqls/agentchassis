@@ -401,3 +401,59 @@ And re-run the census on `updated_at`, not `created_at` (the 08-12 contribution'
 the count should stop rising. **It will not fall on its own** — 150+ existing rows point at
 files already committed under the placeholder name, and nothing re-deploys them. Draining
 that backlog is a separate, and still undesigned, piece of work.
+
+---
+
+## CONTRIBUTION 2026-08-13 — R1 REVISE, HIGH objection answered with a live config fix; resubmission still owed
+
+By the filing lane (`staged_component_build`). `Council-Submitted: 7f0c1535-25cb-4645-adba-f7429e357a79`
+came back **REVISE, round 1**, decided by a gating HIGH objection from `editquality`:
+`assetRowIdentity` recovers `purpose`/`asset_key` via `inputs.Get("asset_id")`, and if
+`asset_id` itself isn't explicitly mapped, it resolves through the landmined
+`findFieldRecursive` aggressive search — a new failure mode able to silently pull an
+unrelated asset's row. The reviewer's own proposed check (does `deploy_asset` declare
+`input_fields` for `asset_id`?) came back yes, but that doesn't settle it: declaring a field
+in `input_fields` still routes through the same aggressive `ExtractFields` search
+(`action_inputs.go` Strategy 1 calls the identical function as the no-`input_fields` Strategy
+2) — whether `asset_id` is actually resolved explicitly depends on the CALLER, not the
+callee's declared fields.
+
+Traced both callers: `check_undeployed_assets`'s repair-item dispatch already carries
+`asset_id` in the item's `spec` — safe. **`image-build-handler`'s `call_asset_deployer` step
+does not map `asset_id` at all** (`input_mapping: {domain, s3_uri, purpose, asset_key?}`),
+and `call_agent`'s `ResolveInputMapping` builds the child orchestration's `input_data` from
+ONLY the mapped keys, so the aggressive search is genuinely reachable on this path — the
+objection's fear is real for this caller, whether or not it has yet misfired in production
+`[UNVERIFIED]`.
+
+**Fixed the caller, narrower still — one config key, no Go change, no roll needed:**
+`store_imagery_asset` (the step immediately before `call_asset_deployer`) already returns
+`asset_id` in its result (`asset_stored.asset_id`, `StoreAssetAction`,
+`v3_site_actions.go:3076`), right beside `asset_stored.image_uri`/`asset_stored.purpose`,
+which the mapping already reads. Added the fourth key, mirroring the existing `asset_key?`
+optional-marker convention (safe for the `locked`/`no-URL` refusal branches, which return no
+`asset_id`):
+
+```sql
+SELECT snapshot_agent('image-build-handler', '...');
+UPDATE agent_definitions SET default_config = jsonb_set(default_config,
+  '{workflow,steps,call_asset_deployer,config,input_mapping,asset_id?}',
+  '"asset_stored.asset_id"'::jsonb), updated_at = now()
+ WHERE type='image-build-handler' AND is_active AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL;
+```
+
+Snapshot taken first (`099_SYNC_gate_roster.py`'s pattern), dry-run with `ROLLBACK` matched
+the intended before/after, applied and **confirmed committed** live — `agent_definitions`
+config is read live, so this needs no roll.
+
+**Objection 2 (MEDIUM, edit 4's uncited "cause (c)")**: agreed the rationale overstates it —
+"an item whose spec omits a field its handler needs is unreviewable" stands on its own
+without inventing a third diagnosed cause. Resubmission should say so plainly rather than
+defend the original wording.
+
+**⚠ Cut short by kubeconfig expiry (fleet-wide, session-scoped, not this bug).** Still owed:
+pulling a real PRE-fix `image-build-handler`→`asset-deployer` run's resolved `input_data` to
+document what `asset_id` actually held before this fix (several completed 2026-08-13, all
+`owner_agent_type='asset-deployer'` parented by `image-build-handler` — ids in NOTES), and
+**resubmitting to council** with `RESUBMIT_CORR=7f0c1535-25cb-4645-adba-f7429e357a79`. Full
+reasoning: NOTES, `## 2026-08-13 (session 48fb60ee)`.
