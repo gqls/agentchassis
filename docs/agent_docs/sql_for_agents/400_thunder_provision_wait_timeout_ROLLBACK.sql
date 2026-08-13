@@ -1,4 +1,4 @@
--- ROLLBACK for 397_thunder_provision_wait_timeout.sql
+-- ROLLBACK for 400_thunder_provision_wait_timeout.sql
 --
 -- Run BY HAND, deliberately. The migration runner never executes an
 -- UPPERCASE-suffixed sidecar.
@@ -21,7 +21,7 @@ BEGIN
     SELECT 1 FROM information_schema.columns
     WHERE table_name='thunder_config' AND column_name='provision_wait_timeout_seconds'
   ) THEN
-    RAISE EXCEPTION '397 ROLLBACK: column still present';
+    RAISE EXCEPTION '400 ROLLBACK: column still present';
   END IF;
 END $$;
 

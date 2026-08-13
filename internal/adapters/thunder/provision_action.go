@@ -369,7 +369,7 @@ func (p *ProvisionAction) Execute(ctx context.Context, req ProvisionInstanceRequ
 
 	// ── 6. Poll until instance is RUNNING (or hits terminal state / timeout) ──
 	//
-	// The deadline is live config (bugs_open/258 defect 2, migration 397): the
+	// The deadline is live config (bugs_open/258 defect 2, migration 400): the
 	// old hardcoded 5 minutes DELETED any instance slower than that to boot,
 	// which is every a6000 measured. p.waitTimeout remains the fallback for an
 	// unmigrated database and for tests.
@@ -378,7 +378,7 @@ func (p *ProvisionAction) Execute(ctx context.Context, req ProvisionInstanceRequ
 	// exceeds it, a slow-but-successful provision is the bad case: the await
 	// expires, the retry driver re-dispatches, the 259 claim guard refuses the
 	// duplicate (correctly), and the workflow reports FAILED while a real billed
-	// instance runs on unwatched. The 397 migration states the arithmetic.
+	// instance runs on unwatched. The 400 migration states the arithmetic.
 	waitTimeout := p.resolveWaitTimeout(cfg)
 	waitCtx, cancelWait := context.WithTimeout(ctx, waitTimeout)
 	defer cancelWait()
@@ -459,7 +459,7 @@ func (p *ProvisionAction) Execute(ctx context.Context, req ProvisionInstanceRequ
 }
 
 // provisionWaitTimeoutCeiling bounds what the config may ask for, mirroring
-// migration 397's CHECK. Belt and braces: the CHECK guards the column, this
+// migration 400's CHECK. Belt and braces: the CHECK guards the column, this
 // guards the value actually used, so a hand-edited row or a future migration
 // that drops the constraint cannot hand the adapter an absurd deadline.
 const provisionWaitTimeoutCeiling = 30 * time.Minute
@@ -473,7 +473,7 @@ const provisionWaitTimeoutCeiling = 30 * time.Minute
 // hardcoded 5 minutes go unnoticed until it deleted a box we had paid for.
 func (p *ProvisionAction) resolveWaitTimeout(cfg *store.Config) time.Duration {
 	if cfg == nil || !cfg.ProvisionWaitTimeoutSeconds.Valid {
-		p.logger.Warn("provision_wait_timeout_seconds not available — using compiled-in default (is migration 397 applied?)",
+		p.logger.Warn("provision_wait_timeout_seconds not available — using compiled-in default (is migration 400 applied?)",
 			zap.Duration("wait_timeout", p.waitTimeout))
 		return p.waitTimeout
 	}

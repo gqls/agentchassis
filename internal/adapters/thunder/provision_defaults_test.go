@@ -184,7 +184,7 @@ func TestWaitTimeoutComesFromLiveConfig(t *testing.T) {
 			want: 540 * time.Second,
 		},
 		{
-			name: "column absent (migration 397 not applied) falls back",
+			name: "column absent (migration 400 not applied) falls back",
 			cfg:  &store.Config{},
 			want: 5 * time.Minute,
 		},
@@ -209,7 +209,7 @@ func TestWaitTimeoutComesFromLiveConfig(t *testing.T) {
 }
 
 // TestWaitDeadlineStaysUnderTheDispatchAwait pins the coupling that migration
-// 397 documents, because it is the one that bites in the wrong direction.
+// 400 documents, because it is the one that bites in the wrong direction.
 //
 // If the adapter's wait EXCEEDS the dispatching step's timeout_seconds, a
 // slow-but-SUCCESSFUL provision becomes the bad case: the await expires, the
@@ -221,17 +221,17 @@ func TestWaitDeadlineStaysUnderTheDispatchAwait(t *testing.T) {
 	// If someone raises the migration default past this without also raising the
 	// step, this test is the thing that says so.
 	const dispatchAwaitSeconds = 600
-	const migration397Default = 540
+	const migration400Default = 540
 
-	if migration397Default >= dispatchAwaitSeconds {
-		t.Fatalf("the 397 default (%ds) must stay below the dispatch_provision await (%ds): "+
-			"raise the STEP timeout first, then the column — see 397's coupling note",
-			migration397Default, dispatchAwaitSeconds)
+	if migration400Default >= dispatchAwaitSeconds {
+		t.Fatalf("the 400 default (%ds) must stay below the dispatch_provision await (%ds): "+
+			"raise the STEP timeout first, then the column — see 400's coupling note",
+			migration400Default, dispatchAwaitSeconds)
 	}
 	// And leave real headroom for the create, keypair, secret and INSERT either
 	// side of the wait, not just a nominal margin.
-	if dispatchAwaitSeconds-migration397Default < 30 {
+	if dispatchAwaitSeconds-migration400Default < 30 {
 		t.Errorf("only %ds of headroom between the wait deadline and the await; the surrounding "+
-			"create/secret/insert work needs more", dispatchAwaitSeconds-migration397Default)
+			"create/secret/insert work needs more", dispatchAwaitSeconds-migration400Default)
 	}
 }

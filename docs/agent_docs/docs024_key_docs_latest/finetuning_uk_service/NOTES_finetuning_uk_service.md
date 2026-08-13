@@ -1095,7 +1095,7 @@ in miniature: testing "a provision" with the expensive box never catches it.
 The kubeconfig token **expired 18:05:20Z** (checked by decoding the JWT `exp` in
 `~/.kube/config_production_uk001`; fleet-wide `Unauthorized`). So, still owed and
 NOT done:
-- migration **397** not applied (not ordering-critical — the `to_jsonb` read means
+- migration **400** not applied (not ordering-critical — the `to_jsonb` read means
   an unmigrated DB degrades to the compiled default rather than failing)
 - the **council round** for 258 — submission written and committed, never sent
 - `./scripts/landmines-sync.py --apply` — two entries added today are file-only,

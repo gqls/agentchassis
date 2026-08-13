@@ -1,4 +1,4 @@
--- 397: thunder_config.provision_wait_timeout_seconds — stop destroying the box
+-- 400: thunder_config.provision_wait_timeout_seconds — stop destroying the box
 --      we just paid for, and make the deadline tunable without a build
 --
 -- Closes bugs_open/258 defect 2.
@@ -72,16 +72,16 @@ DECLARE
 BEGIN
   SELECT provision_wait_timeout_seconds INTO v FROM thunder_config LIMIT 1;
   IF v IS NULL THEN
-    RAISE EXCEPTION '397: column missing or thunder_config has no row';
+    RAISE EXCEPTION '400: column missing or thunder_config has no row';
   END IF;
   IF v > 600 THEN
-    RAISE EXCEPTION '397: default % exceeds the 600s dispatch_provision await — see the coupling note in this file', v;
+    RAISE EXCEPTION '400: default % exceeds the 600s dispatch_provision await — see the coupling note in this file', v;
   END IF;
 
   -- the bound must actually refuse an absurd value
   BEGIN
     UPDATE thunder_config SET provision_wait_timeout_seconds = 5;
-    RAISE EXCEPTION '397: the CHECK accepted 5 seconds — the bound does not work';
+    RAISE EXCEPTION '400: the CHECK accepted 5 seconds — the bound does not work';
   EXCEPTION
     WHEN check_violation THEN
       NULL;  -- expected

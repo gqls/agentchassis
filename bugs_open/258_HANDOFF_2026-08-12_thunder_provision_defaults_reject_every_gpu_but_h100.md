@@ -9,10 +9,10 @@ a fixer should take them together. None is site-specific.
 > | defect | state |
 > |---|---|
 > | **1** — default `vcpus: 4` invalid for 9 of 11 specs | **FIXED, committed `236810e4e`, NOT live.** Derived from `GET /v1/specs` (fix candidate 1, the ranked-best one). |
-> | **2** — `waitTimeout` hardcoded 5 min, cleanup deletes the box | **FIXED, committed `236810e4e`, NOT live.** Now `thunder_config.provision_wait_timeout_seconds` (migration **397**), default 540s. Fix candidate 1. |
+> | **2** — `waitTimeout` hardcoded 5 min, cleanup deletes the box | **FIXED, committed `236810e4e`, NOT live.** Now `thunder_config.provision_wait_timeout_seconds` (migration **400**), default 540s. Fix candidate 1. |
 > | **3** — a failed provision leaves no durable record | **FIXED and LIVE** since thunder-adapter `v1.0.1295` — as a side effect of `bugs_open/259`'s claims table (migration 396), which keeps `status='failed'`, `last_error` and the vendor id beyond pod-log rotation. |
 >
-> **Still owed:** migration 397 applied · a council round (submission written:
+> **Still owed:** migration 400 applied · a council round (submission written:
 > `finetuning_uk_service/council_submission_258_provision_defaults.json`) · a
 > `make build-thunder-adapter` and a whole-fleet release the **owner** runs.
 > Both blocked 2026-08-13 evening on an expired kubeconfig token (fleet-wide
@@ -213,7 +213,7 @@ minutes.
 
 ### Defect 2 — the deadline is live config now
 
-`thunder_config.provision_wait_timeout_seconds`, migration **397**, default
+`thunder_config.provision_wait_timeout_seconds`, migration **400**, default
 **540s**, `CHECK BETWEEN 60 AND 1800`, plus a 30-minute ceiling enforced again in
 Go so a hand-edited row cannot hand the adapter an absurd deadline.
 
@@ -245,7 +245,7 @@ as well.
 
 `(to_jsonb(t)->>'provision_wait_timeout_seconds')::int`. A bare column reference
 would make `LoadConfig` — and therefore **every** provision, decommission and
-reaper run — fail outright anywhere migration 397 has not been applied, coupling
+reaper run — fail outright anywhere migration 400 has not been applied, coupling
 the binary to the migration in the direction that breaks production. `to_jsonb` of
 a missing key is just NULL, so an unmigrated database degrades to the compiled-in
 default. Same row, same round trip.
@@ -263,7 +263,7 @@ why testing "a provision" never caught this.
 
 Also pinned: an explicit `vcpus` does not consult the catalogue; an unresolvable
 spec refuses **without reaching the vendor**; the wait deadline comes from config
-and falls back safely when absent, zero or absurd; and the 397 default stays under
+and falls back safely when absent, zero or absurd; and the 400 default stays under
 the dispatch await.
 
 ## How to verify once it is live (supersedes the section above for defect 1)
@@ -283,5 +283,5 @@ kubectl -n ai-persona-system logs -l app=thunder-adapter --tail=500 \
   | grep -E 'Provision wait deadline from live config|not available — using compiled-in default'
 ```
 
-A `WARN ... using compiled-in default (is migration 397 applied?)` means the
+A `WARN ... using compiled-in default (is migration 400 applied?)` means the
 column is missing — the fix is in the binary but not in the database.

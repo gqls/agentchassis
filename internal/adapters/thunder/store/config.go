@@ -28,7 +28,7 @@ type Config struct {
 	PauseReason            sql.NullString
 
 	// ProvisionWaitTimeoutSeconds is how long to wait for a new instance to
-	// reach RUNNING before compensating (bugs_open/258 defect 2, migration 397).
+	// reach RUNNING before compensating (bugs_open/258 defect 2, migration 400).
 	// NULL/invalid means "column not present or unset" — the caller uses its
 	// compiled-in default. It is deliberately nullable so the binary does not
 	// depend on the migration having been applied.
@@ -51,7 +51,7 @@ func LoadConfig(ctx context.Context, db *sql.DB) (*Config, error) {
 	// provision_wait_timeout_seconds is read through to_jsonb DELIBERATELY, not
 	// as a bare column. A bare column reference makes this query — and so every
 	// provision, decommission and reaper run — fail outright on any deployment
-	// where migration 397 has not been applied yet, coupling the binary to the
+	// where migration 400 has not been applied yet, coupling the binary to the
 	// migration in the direction that breaks things. `to_jsonb(t)->>'missing'`
 	// is simply NULL, so an unmigrated database degrades to the compiled-in
 	// default instead of failing. Costs nothing: same row, same round trip.

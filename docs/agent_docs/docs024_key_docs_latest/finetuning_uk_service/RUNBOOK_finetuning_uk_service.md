@@ -389,5 +389,5 @@ kubectl -n ai-persona-system logs -l app=thunder-adapter --tail=500 \
   | grep -E 'Provision wait deadline from live config|using compiled-in default'
 ```
 
-`using compiled-in default (is migration 397 applied?)` means the binary has the
+`using compiled-in default (is migration 400 applied?)` means the binary has the
 fix but the database does not.

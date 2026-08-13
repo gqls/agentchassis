@@ -30356,3 +30356,45 @@ Same family as `git diff | grep '^-[^-]'` and the whole-line traps already in
 a number attached (`8156623c` vs `551a1b58`) and *felt* measured. **A hash comparison is
 only as good as what you fed it**, and two hex strings disagreeing is exactly the kind of
 output that stops you asking what was hashed.
+
+---
+
+## 2026-08-13 — I took migration number 397 that another session had taken the day before, by trusting my own yesterday
+
+**The claim.** Implicit, and never written down anywhere, which is part of why it
+slipped: that `397` was the next free migration number. I had checked the
+directory on 2026-08-12 (395 was the highest), taken 396 for the claims table,
+and today reached for 397 by incrementing that remembered figure.
+
+**The truth.** `397_image_flag_only_routers.sql` was committed by another session
+(`5ce785e50`, IMG-071) on 2026-08-12 at 18:44 — *before* mine, so theirs has
+priority. 398 and 399 had also been taken since. The real next free number was
+**400**. Renumbered; nothing was applied under the wrong number, so the only cost
+was the renumber and 22 lines of cross-references across twelve files.
+
+**What caught it.** Not the check I should have run. A verification `ls` printed
+`migration 397: 4` where I expected 2 — I was counting my own files to confirm
+they were at HEAD, and the count was double. Had I written `ls .../397_thunder*`
+instead of `ls .../397*`, the collision would have been invisible and two
+unrelated migrations would have shared a number in the ledger.
+
+**The cheap check.** `ls docs/agent_docs/sql_for_agents/ | grep -oE '^[0-9]+' |
+sort -n | tail -3` — one command, immediately before writing the file, every
+time. **The number is not a fact you can carry between sessions on this tree**:
+~1,500 commits a week and several sessions adding migrations means yesterday's
+maximum is stale within hours, not days.
+
+**Why it is the same error twice in two days.** Yesterday I recorded a wrong call
+about another session's `git stash` silently removing my work. Both are the same
+shape: **a fact about shared mutable state, established at time T, used at time
+T+n as if it were still true.** The estate already has this written down in two
+places, and I walked into it anyway — `architecture_review/PROCESS_architecture_review.md`
+says of its own RFC-number line, in terms, *"derived from the directory … not
+carried forward. Re-derive it before you trust it; the line has been wrong by
+eight before."* That warning is about RFC numbers; migration numbers have the
+identical hazard and no equivalent note. The transferable rule: **any "next free
+N" is a query, never a memory** — and if you find yourself incrementing a number
+you learned earlier, that is the moment to re-run the query.
+
+**The shape, for the tally.** "A record goes stale faster than its reader can
+tell", applied to my own working memory rather than to a doc.

@@ -19,7 +19,7 @@ paused until **258's** fixes are live too — see "Next steps".
 | | state |
 |---|---|
 | **259** — one request, several billable GPUs | **FIXED AND LIVE.** thunder-adapter `v1.0.1295`, stamp `69612d692`; `git merge-base --is-ancestor 10659b419 69612d692` passes. Council **APPROVED** (`20d8b725`). Migration 396 applied. **No live behavioural proof yet** — needs a real provision, so the file stays OPEN. |
-| **258** defect 1 (vcpus) + defect 2 (wait deadline) | **FIXED, NOT LIVE** (`236810e4e`). Needs migration 397 applied, a council round, a build and a fleet release. |
+| **258** defect 1 (vcpus) + defect 2 (wait deadline) | **FIXED, NOT LIVE** (`236810e4e`). Needs migration 400 applied, a council round, a build and a fleet release. |
 | **258** defect 3 (no record of a failed provision) | **FIXED AND LIVE** — a side effect of 259's claims table. |
 
 ## Next steps, in order
@@ -27,14 +27,14 @@ paused until **258's** fixes are live too — see "Next steps".
 1. **OWNER: refresh the kubeconfig token.** It expired **2026-08-13 18:05:20Z**
    (decoded from the JWT `exp` in `~/.kube/config_production_uk001`; every
    `kubectl` returns `Unauthorized`). Everything below needs it.
-2. **Apply migration 397** (`provision_wait_timeout_seconds`). Not
+2. **Apply migration 400** (`provision_wait_timeout_seconds`). Not
    ordering-critical — the column is read via `to_jsonb`, so an unmigrated
    database degrades to the compiled-in default rather than failing. Scope the
    runner to the one file:
    ```bash
-   mkdir -p /tmp/m397 && cp docs/agent_docs/sql_for_agents/397_thunder_provision_wait_timeout.sql /tmp/m397/
-   MIGRATIONS_DIR=/tmp/m397 ./scripts/migration/run-migrations.sh            # dry run first
-   MIGRATIONS_DIR=/tmp/m397 ./scripts/migration/run-migrations.sh --apply
+   mkdir -p /tmp/m400 && cp docs/agent_docs/sql_for_agents/400_thunder_provision_wait_timeout.sql /tmp/m400/
+   MIGRATIONS_DIR=/tmp/m400 ./scripts/migration/run-migrations.sh            # dry run first
+   MIGRATIONS_DIR=/tmp/m400 ./scripts/migration/run-migrations.sh --apply
    ```
 3. **Submit 258 to the council.** The submission is written and committed:
    ```bash
@@ -80,7 +80,7 @@ success.** The await expires first, the retry driver re-dispatches, 259's guard
 refuses the duplicate *correctly*, and the workflow reports **FAILED while a real
 billed instance runs on with nobody watching it.** Default is 540s for that
 reason. **To go higher, raise the STEP first, then the column.** In `LANDMINES.md`,
-RUNBOOK §6, migration 397's header, the column `COMMENT`, and a test.
+RUNBOOK §6, migration 400's header, the column `COMMENT`, and a test.
 
 The tell, if it has already happened:
 ```sql
@@ -108,7 +108,7 @@ WHERE o.status='FAILED' AND c.status IN ('created','succeeded');
 (the retry driver re-executes side-effecting actions — 54 live `call_agent` steps
 across 33 agents; needs an owner ruling) · register **FTW-043**, **FTW-044** ·
 four `LANDMINES.md` entries (two unsynced) · two `WRONG_CALLS.md` entries ·
-migrations **396** (applied), **397** (not applied).
+migrations **396** (applied), **400** (not applied).
 
 ## Two pre-existing problems, neither this lane's
 
