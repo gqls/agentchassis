@@ -672,3 +672,19 @@ Resubmitted with `RESUBMIT_CORR=51cb66fb...`; verdict pending as of this note.
 the RFC file itself (§10). **Phase A's blocking gate is therefore satisfied on the RFC_025
 side** — only A1's resubmitted verdict remains outstanding before Phase A can be called
 fully done.
+
+**A1 round 2: REVISE again, but much lighter — 10 of 12 reviewers approved outright**
+(2026-08-12 20:53). The one real, gating finding (editquality + prior_art_librarian,
+independently, same underlying issue): a header comment added in round 2 claimed
+`check_missing_structure.go`'s DB predicate was a meaningful discriminator — this collided
+with a standing landmine (`pages.rendered_header/rendered_footer/rendered_head` are
+VESTIGIAL fleet-wide). **Verified live, not just cited**: `SELECT count(*), count(*)
+FILTER (WHERE length(rendered_header)>0), count(*) FILTER (WHERE length(rendered_footer)>0)
+FROM pages` → 683/0/0 — the landmine holds, ten days on and 121 more pages later. Corrected
+the comment in place (commit `a86dd0349`) — the honest differentiation is actually
+*stronger* than the retracted one: a DB predicate that fires identically on every page
+provides no signal to overlap with at all. Also independently verified (not just re-cited)
+reuse_agent's two LOW notes: `check_phantom_internal_links.go`'s `phantom_internal_link`/
+`unbuilt_internal_link` item types are real, and `loadStructuralDomain` has exactly one
+caller inside `loadStructuralPopulation`, no duplicate loader. Resubmitted (round 3), queue
+was clear, verdict pending.
