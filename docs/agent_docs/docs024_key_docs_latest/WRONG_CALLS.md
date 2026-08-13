@@ -30211,3 +30211,45 @@ already records under *"I wrote an unfalsifiable pod-grep into a closed bug file
 — **the second instance of that, so it is now a class**. `bugs_open/267` §7d is corrected in place with the
 landmine's prescribed remedy (verify by BEHAVIOUR on the chassis) plus a demand control, because the
 witness string returning 0 has two causes and only one of them means the fix did not ship.
+
+---
+
+## 2026-08-13 — Track B2 batch 1: I shipped 15 calculators without their scripts, then verified 14 of them as "ok" — twice, with two different blind checks
+
+**Claim 1: "14 of 15 verified — block verbatim, no class drops, no ids lost."** All 15
+were broken. `b2_build.py` read the manifest's `b["html"]` and never read
+`b["scripts"]` — the separate key where `decompose_lmc` puts body-level inline scripts
+and the `calculators.js` tag, which `load_lmc.py:240` appends at write time. My
+verification checked classes, ids and block-verbatim; **scripts were not on the list**
+because the byte-proof (render==block) felt total, and it was — for the bytes I had
+kept. The check I did run answered "did what I wrote arrive?" not "did everything the
+page needs arrive?".
+
+**Claim 2 (same hour): "5 pages passed the script check."** The script-count check I
+then added compared inline `<script>` counts source-vs-live and read 1→1 on five
+pages. **Equal by coincidence:** assembly injects a JSON-LD `<script>` per page, which
+replaced the missing calculator script one-for-one in the count. The fifth
+equal-for-an-unrelated-reason error in two days (the `IN`-list value, the absent-id
+probe, the netting aggregate, the stale-pin window, now count-masking by an injected
+element of the same tag type).
+
+**What caught each:** claim 1 fell to a WHOLE-PAGE class count (portfolio's
+`action-btn` lives in a JS template literal, so the class census reached where the
+`#content`-scoped gate could not); claim 2 fell to an md5 comparison against corrected
+seeds — identity, not counts.
+
+**The costs:** 15 live consumer-finance calculators served dead or partially dead JS
+for roughly an hour (the site is new and quiet — the owner's earlier judgement — but
+that is luck, not control). Restored from backup, reseeded from corrected seeds.
+
+**The transferable rules, in strength order:**
+1. **A byte-proof is scoped to the bytes you selected.** "render == block, byte for
+   byte" proved template fidelity and said nothing about whether `block` was the whole
+   artefact. Every byte-identity claim needs a companion completeness claim: WHAT set
+   of bytes, chosen by WHOM.
+2. **Counting elements of a type that something else also injects is not a check.**
+   Compare identities (md5, distinctive function names) or subtract the known
+   injection explicitly.
+3. **The oracle was the one check that could not have been fooled, and I ran it
+   NEITHER time before reporting.** It drives the calculator; a dead calculator cannot
+   pass. It is now the mandatory last gate of every B2 batch, before any report.

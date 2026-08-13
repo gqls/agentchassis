@@ -158,13 +158,25 @@ def main():
     for name, entry in sorted(man["pages"].items()):
         if only and name not in only:
             continue
-        tools = [b["html"] for b in entry["blocks"] if b["kind"] == "tool"]
+        tools = [b for b in entry["blocks"] if b["kind"] == "tool"]
         if len(tools) != 1:
             print("REFUSE %-36s %d tool blocks (expected 1)" % (name, len(tools)))
             failures += 1
             continue
-        block = tools[0]
-        tmpl, fields, schema, skipped = extract(block)
+        # THE SCRIPTS KEY IS LOAD-BEARING AND THE FIRST VERSION OF THIS FILE DROPPED IT.
+        # decompose_lmc puts body-level inline scripts and the calculators.js tag in a
+        # separate b["scripts"], and load_lmc.py:240 appends it to the row's html. This
+        # file read only b["html"], so 10 of 15 batch-1 pages shipped WITHOUT their
+        # scripts — dead calculators live (2026-08-13, restored same hour). Scripts are
+        # machinery: they join the template LITERALLY, after field extraction, exactly
+        # as load_lmc joins them ("\n" separator), and the render check below now
+        # asserts against html+scripts so this cannot silently regress.
+        block = tools[0]["html"]
+        if tools[0].get("scripts"):
+            block = block + "\n" + tools[0]["scripts"]
+        html_only_len = len(tools[0]["html"])
+        tmpl_head, fields, schema, skipped = extract(block[:html_only_len])
+        tmpl = tmpl_head + block[html_only_len:]
         rendered, err = go_render(tmpl, fields, work)
         if err or rendered != block:
             print("FAIL   %-36s render check: %s" % (name, err or "differs from block"))
