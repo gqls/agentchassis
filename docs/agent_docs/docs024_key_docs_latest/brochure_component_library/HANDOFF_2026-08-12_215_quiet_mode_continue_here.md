@@ -11,7 +11,7 @@ carried forward below where still live.
 
 | | |
 |---|---|
-| code | **LIVE on chassis `v1.0.1293`** (rolled 2026-08-12 19:13–19:14Z), **re-verified on BOTH replicas 2026-08-12 between the 19:13Z roll and commit `580af7ff0` (19:46Z) by two independent methods.** (1) Literal probe of `/proc/1/exe`: `PLAN_PAGE_STEM_TWIN_REFUSED` **present**, one-letter near-miss `…REFUSEE` **absent** (so the probe can fail), pre-lane control `OWNED_PAGE_GUARD` **present** (so it works on this binary) — all three on each replica. (2) Provenance stamp, captured while still in log range: both replicas built from `7a1887e3163af75ce…`, and `git merge-base --is-ancestor` confirms `19acfc895` (the `carryForwardStructureSpecKeys` re-adoption fix) **is in the build**. Supersedes the `v1.0.1291` verification of ~16:00Z |
+| code | **LIVE on chassis `v1.0.1295`** (rolled 2026-08-13 13:53Z; lane literal + `ARCHIVED_PAGE_GUARD` both artefact-verified on BOTH replicas with a one-letter near-miss and a pre-lane control; provenance `69612d692a4a…`). Superseded the 1293 verification below, which read: **LIVE on chassis `v1.0.1293`** (rolled 2026-08-12 19:13–19:14Z), **re-verified on BOTH replicas 2026-08-12 between the 19:13Z roll and commit `580af7ff0` (19:46Z) by two independent methods.** (1) Literal probe of `/proc/1/exe`: `PLAN_PAGE_STEM_TWIN_REFUSED` **present**, one-letter near-miss `…REFUSEE` **absent** (so the probe can fail), pre-lane control `OWNED_PAGE_GUARD` **present** (so it works on this binary) — all three on each replica. (2) Provenance stamp, captured while still in log range: both replicas built from `7a1887e3163af75ce…`, and `git merge-base --is-ancestor` confirms `19acfc895` (the `carryForwardStructureSpecKeys` re-adoption fix) **is in the build**. Supersedes the `v1.0.1291` verification of ~16:00Z |
 | council | **APPROVED** round 3, corr `56e13695-17cb-48ec-bc6b-0371fde8b717` |
 | enabled on | **fundamentallyai.com only** — `honour_realised_identity` + `twin_identity_snap`. `stem_twin_snap` absent by design |
 | dark-launch counters | **still 0/0/0/0** — re-read twice on 2026-08-12 — once **before** the `v1.0.1293` roll and once **after** it, both times with BOTH controls. Demand: **0 `site_plans` rows since the roll**, and the only post-1291 plan was noted.co.uk's first build (0 `pages` predating it, so it cannot exercise the reconciler). Instrument: `agent_error_log` took 3,503 rows in 24h and **13 since the roll**, so the query is not blind on the new binary either. **No replan has run through the new path yet — the zero is want of demand, not want of function** |
@@ -242,3 +242,31 @@ only — it does not touch the survivor decisions, which are still what is neede
 - **The provenance line is usable if you catch it fresh** — per-pod, `--limit-bytes`, then
   `git merge-base --is-ancestor`. §6 has the amended recipe. Record the sha while it is in
   range, because later an empty result means "out of range", not "unstamped".
+
+---
+
+# 9. 2026-08-13 — `266` is APPROVED and LIVE. What is left is O2, which is the owner's.
+
+- **`266` council APPROVED** round 1 (corr `2da9d905…`, 4 advisory, none high) and the fix
+  is **LIVE on `v1.0.1295`**, artefact-verified on both replicas with controls.
+  **Behaviourally unexercised** — `ARCHIVED_PAGE_%` counters are `0`, and that is want of
+  demand, proven: **zero work items have targeted an archived page since the roll.**
+  `266` stays OPEN until a build is dispatched at an archived page and the guard refuses it.
+- **The objections were worth the round** — full answers in `bugs_open/266`. Two things
+  they found: my sole-writer claim came from a literal grep (it survived for `deployed_at`,
+  and would NOT have for `build_status`, which `UpsertPageForRole` writes via
+  `Col("build_status", …)` — invisible to that grep); and a multi-page `git_commit`
+  bypasses the guard, though the only such path is unexercised and names an unregistered
+  action. `deployed_at` is now in `reservedPageColumns`, so the property is enforced.
+- **Two named residuals stand** (neither closed, both in `266`): the multi-page commit
+  path, and `deployer-agent`'s `index.html` commit which carries no page identity.
+- **DARK-LAUNCH COUNTERS (§4) unchanged: still 0/0/0/0.** The demand control is unchanged
+  too — no replan has run. §4's reading rules stand as written.
+- **O2 is now the ONLY thing blocking this lane, and it is a decision, not work.** The
+  sequencing argument that put `266` first is discharged: an archive now holds, so
+  remediating a twin pair by archiving one side will stick once a build is dispatched.
+  **`DECISION_INPUT_2026-08-12_seven_twin_pairs.md` is ready and unchanged.**
+- **The 5 archived-and-serving pages are still serving.** The guard stops recurrence; it
+  does not undo them, and it now also blocks repair-by-rebuild, so **retraction
+  (`page-retraction`, which dispatches `delete_file` and is unaffected by the guard) is the
+  route.** Two of the three domains belong to other lanes, both told in their own handoffs.
