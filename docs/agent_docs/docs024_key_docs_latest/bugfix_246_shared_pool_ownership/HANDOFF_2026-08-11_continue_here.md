@@ -316,3 +316,31 @@ A working admin password has been in the userlist all along, so `SHOW POOLS` was
 blocked by a *missing* credential — only by its absence from any place a session could
 sanctionedly find it. The Terraform wiring still earns its keep, but the honest description
 of the task was always **"record the existing secret"**, never "create the missing one".
+
+### ⚠ TWO THINGS LEFT DANGLING BY A TOKEN EXPIRY (2026-08-13)
+
+**The kubeconfig token expired mid-session** (`error: You must be logged in to the server
+(Unauthorized)`, fleet-wide — the owner refreshes it; ~3-day cycle). Everything recorded
+above was read BEFORE the expiry and stands. Two follow-ups did not complete:
+
+1. **`./scripts/landmines-sync.py --apply` FAILED** after the new pgbouncer landmine was
+   appended to `LANDMINES.md` — so the markdown has the entry and **`doc_notes` does not**.
+   Council seats and agents read `doc_notes`, not the file. **Re-run it after the token is
+   refreshed**, and `--check` to confirm: `./scripts/landmines-sync.py --check` exits 1 on drift.
+2. Nothing else was pending; no cluster mutation was attempted or half-applied.
+
+### Corroboration for RUNBOOK §9's apply warning — it bit another lane the same day
+
+§9 warns that `kubernetes_secret.data` is authoritative, so a `047-base-configs` apply
+**deletes any key not declared in the map**, and tells you to re-check the live key list
+before applying. Another session has since added `SITE_FACTS_TOKEN` to that resource with
+this comment:
+
+> *"Must live HERE, not as a kubectl-additive key: this resource reconciles the whole secret
+> on every `make release` (deploy-047-base-configs), so any key not in this map is deleted
+> by the next release — **which took the relay down on 2026-08-13**."*
+
+So the hazard is not theoretical and the drift check is not ceremony: a live relay went down
+for exactly this reason today. Note also what it tells you about the release path — **047
+applies as part of `make release`**, which is how `PGBOUNCER_ADMIN_PASSWORD` reached the
+live secret without anyone running terraform by hand.
