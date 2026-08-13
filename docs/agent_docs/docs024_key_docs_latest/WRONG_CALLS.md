@@ -30253,3 +30253,62 @@ that is luck, not control). Restored from backup, reseeded from corrected seeds.
 3. **The oracle was the one check that could not have been fooled, and I ran it
    NEITHER time before reporting.** It drives the calculator; a dead calculator cannot
    pass. It is now the mandatory last gate of every B2 batch, before any report.
+
+---
+
+## 2026-08-13 — bug 122: I marked a subagent's figures `[MEASURED]` in a bug file, and one of the two I bothered to re-check was wrong by a factor of 20
+
+**The setup was, I think, right.** Working `bugs_open/122`, I ran a subagent whose whole
+brief was to attack my own plan. It did, decisively: I was about to repoint 347 CSS
+declarations onto `--color-primary-ink`, and it argued the ink slot resolves to
+`--color-text` on every site — so the change would de-brand 14 sites rather than make
+their brand colour legible. **I verified that claim myself** (16 served stylesheets, 16
+of 16), and it killed my plan. That part worked as intended.
+
+**Then I wrote its SUPPORTING figures into `bugs_open/122` marked `[MEASURED]` without
+re-running them.** Six or seven numbers: "102 components carry `background-color:
+var(--color-primary|accent)`", "the 11-row gap is `background-color`", "~224 rendered
+placements across 13 sites", "38 of 75 self-painted blocks are translucent", "460
+`page_components` rows", "webdesign.co.uk alone has 49".
+
+**Of the two I later re-checked, one was wrong and one was wrong-for-the-stated-reason:**
+
+| claim as I wrote it | measured myself |
+|---|---|
+| 102 components carry `background-color: var(--color-…)` | **5** |
+| the anchored/unanchored gap "is `background-color`" | it is compound colour properties generally — `border-color`, `text-decoration-color`, `-webkit-text-fill-color`. All 11 gap rows score 0 anchored |
+| 460 `page_components` rows | **461** |
+
+The rest I never got to: the kubeconfig token hit its routine 3-day expiry mid-pass, so
+three figures are now in that file marked `[UNVERIFIED — inherited]` with their queries
+written out (§9), which is where they should have started.
+
+**Why `[MEASURED]` failed here, and it is not the marker's fault.** The marker records
+that a number came out of a query. It says nothing about **whose hands ran the query**.
+Every rule in CLAUDE.md about grounding figures was written for the case where the
+alternative to measuring is *guessing* — and a subagent's number is not a guess, which is
+exactly why it slips through. It arrives with a file:line, in the same voice, often with
+better provenance prose than my own. **A delegated measurement is a citation, not an
+observation**, and the existing marker vocabulary has no word for it.
+
+**The cheap check that would have caught it:** re-run it. Each of these was one `psql`
+line, and the two I ran took under a minute *and immediately found the error*. There was
+no cost barrier — I just did not think of a subagent's output as a claim needing a check.
+
+**The transferable rules:**
+1. **Re-run a delegated measurement before it crosses into a durable doc, or mark it as
+   borrowed.** "A subagent measured it" is `[UNVERIFIED]` from the writer's point of view.
+   The tell is that you cannot say which command produced it.
+2. **Use the adversary for JUDGEMENT and re-measure its ARITHMETIC.** The split here was
+   perfect and inverted: its structural argument was sound and saved a bad change; its
+   supporting counts were the part that was wrong. Trust the reasoning, check the numbers
+   — the opposite of how I actually treated it.
+3. **Distrust the figures that are decorative.** The ones I got wrong were all
+   *supporting* colour, not load-bearing — which is precisely why I did not check them,
+   and precisely why they will be the ones quoted onward by someone skimming.
+4. Related, same session, and the reason I caught any of it: my binary-provenance probe
+   used 40 zeros as the "must be ABSENT" control sha and it **matched** — Go's internal
+   tables contain runs of zeros. A control that cannot fail is not a control. Re-ran with
+   yesterday's real build sha, which correctly came out absent. CLAUDE.md already warns
+   against a *discovery* grep for "some 40-hex string"; this is the same trap wearing a
+   control's clothing.
