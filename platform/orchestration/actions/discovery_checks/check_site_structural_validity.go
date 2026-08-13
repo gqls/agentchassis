@@ -1016,11 +1016,13 @@ func buildStructuredDataWorkItem(dctx DiscoveryCheckContext, p structuralPage, b
 // an HTTP GET of the live served page, non-empty <title>, a skip-link, a
 // <footer> genuinely present in the response body — which is real, current
 // information regardless of what MissingStructureCheck's own columns say.
-// Whether MissingStructureCheck itself is dead code worth retiring, or
-// whether it is quietly not enabled on any live agent (this file's own four
-// siblings share that "written but not yet wired" posture, so it would not be
-// unprecedented), is NOT this file's question to answer — flagging it here,
-// corrected in place rather than silently, is as far as this change goes.
+// MissingStructureCheck is NOT dormant, and this was measured rather than
+// hedged (2026-08-13): it is named in completeness-discovery-agent's live
+// checks config and has filed 43 needs_rerender items since 2026-04-24
+// (25 completed — i.e. ~25 full-site rerenders dispatched fleet-wide on a
+// predicate that cannot be false). That is its own defect, filed as
+// bugs_open/270 with the full census — repairing or retiring it is that
+// bug's question, not this file's.
 //
 // WHY THIS CHECK BUILDS NO "assembled page" EXEMPTION, though verify_site.py's
 // equivalent check has one. verify_site.py's exemption (ASSEMBLED_MARKER /
