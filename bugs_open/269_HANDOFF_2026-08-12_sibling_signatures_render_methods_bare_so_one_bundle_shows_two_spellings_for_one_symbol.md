@@ -2,7 +2,10 @@
 
 **Filed:** 2026-08-12, `silent_hero_logo_readers` lane, **at the council's direction**
 (round `ac23f2f7-9230-403c-8f20-4e18623c1849`, `bug_historian` seat, reviewing `bugs_open/267`).
-**Status:** OPEN, not started. No code written.
+**Status:** **FIXED IN THE TREE 2026-08-13, NOT YET LIVE.** All three halves done (rendered handle,
+canonical de-duplication, first-wins exactness). Go changes are inert until the next chassis roll, so
+this stays in `/bugs_open/` — a bundle assembled right now still offers ambiguous bare handles.
+Council: submitted, see §8. **§6's `[UNMEASURED]` is discharged — 48 of 1,175 methods, see §6b.**
 
 > **Numbering:** 268 was taken by another session the same day. Checked 269 free at filing.
 > Resolve by slug, not by number.
@@ -139,7 +142,7 @@ two types sharing a method name, both listed as siblings:
 **A test with no collision in the fixture asserts nothing here** — every spelling resolves when only
 one candidate exists, which is why this survived: it is invisible on ordinary input.
 
-## 6. Blast radius — [UNMEASURED], and here is the query that would settle it
+## 6. Blast radius — ~~[UNMEASURED]~~ MEASURED, see §6b. Original note kept below for the caveat it carried
 
 Not measured at filing. What matters is not how many methods are rendered bare (all of them) but how
 many are rendered bare **in a file that contains a name collision**, since only those can resolve
@@ -183,3 +186,90 @@ this estate has a standing landmine about exactly that.
   handle grammar needs ONE authoritative implementation the whole estate calls … the debt is not
   created by it, only illuminated by it a fourth time."* **`CanonicalSymbolName` is the first
   instalment of that authoritative implementation, not a substitute for the RFC.**
+
+## 6b. MEASURED 2026-08-13 — 17 collision groups, 48 methods, and one of them is the diagnosis loop's own file
+
+**The control ran first, because without it the whole measurement is unreadable.** The query strips a
+`(Recv).` prefix to get a bare name; if `code_symbols` did not actually store the parenthesised
+spelling, the regex would strip nothing and every answer would be wrong in a way that still looks
+like an answer:
+
+| | count |
+|---|---|
+| `kind='method'` rows total | **1,175** |
+| …stored parenthesised (`(%).%`) | **1,175** |
+| …stored unparenthesised | **0** |
+
+So the spelling assumption holds exactly, and the strip is doing real work.
+
+**The population where a bare handle can return the wrong body:**
+
+| | count |
+|---|---|
+| collision groups (same file, same bare name, ≥2 receivers) | **17** |
+| methods inside them | **48** of 1,175 = **4.1%** |
+
+```sql
+SELECT count(*) AS colliding_name_groups, sum(n) AS methods_affected
+FROM (SELECT count(*) AS n FROM code_symbols WHERE kind='method'
+      GROUP BY repo, path, regexp_replace(symbol,'^\(.*\)\.','')
+      HAVING count(*) > 1) x;
+```
+
+⚠ **4.1% is the FLOOR of the harm, not the rate of it.** For a group of `n` receivers, a bare handle
+resolves to the first and is wrong for the other `n−1`. The worst groups here are **six-way**, so a
+bare handle in them is wrong **5 times in 6**:
+
+| file | bare name | receivers |
+|---|---|---|
+| `discovery_checks/check_integrity.go` | `Name` | **6** |
+| `discovery_checks/check_integrity.go` | `Run` | **6** |
+| `discovery_checks/check_news_feed.go` | `Run` | 5 |
+| `discovery_checks/check_news_feed.go` | `Name` | 5 |
+| **`pkg/diagnose/loop.go`** | **`String`** | **2** — `(Outcome).String` / `(Tier).String` |
+| `platform/errors/errors.go` | `Error` | 2 — `(*AgentError).Error` / `(*DomainError).Error` |
+| `platform/orchestration/actions/query_agent_definitions_actions.go` | `Next`/`Close`/`Err` | 2 each |
+
+**Read that fifth row twice.** `pkg/diagnose/loop.go` is the diagnosis loop's own source. A diagnosis
+*of the diagnosis loop* — which is what `bugs_open/267` and `bugs_closed/261` both were — could be
+handed `(Tier).String`'s body while asking about `(Outcome).String`, and nothing in the bundle would
+say so. The interface-implementation pattern that produces these groups (`Name`/`Run` across sibling
+check types, `Error`/`Unwrap` across error types) is *exactly* the shape a diagnosis reaches for when
+it is following a dispatch path.
+
+**What this does NOT say.** It does not say 48 wrong bodies have been served. It says 48 methods are
+in the population where the defect can fire, and nothing measures how often the bundle actually
+offered one of them — the sibling section's per-file cap means many were never listed at all. The
+honest claim is the population and the per-group odds; the incidence is unmeasured and would need a
+scan of `diagnosis_artifacts.body` for bare-handle lines, which is a different query and not one this
+fix needs.
+
+## 7b. FIXED 2026-08-13 — three halves, each mutation-verified alone
+
+Candidate 1 as filed, calling `analysis.CanonicalSymbolName` rather than re-inlining the grammar
+(candidate 2's helper, extracted in `17734b699` at four council seats' request).
+
+| # | what | mutation that proves it load-bearing |
+|---|---|---|
+| 1 | the rendered handle is canonical — `` `path:(*Beta).Handle` `` not `` `path:Handle` `` | revert to `fn.Name` → all three new tests fail |
+| 2 | de-duplication keys on the canonical name too (§2a: a method in scope canonically was listed as its own sibling) | disable the `named[canon]` arm → the §2a test fails, alone |
+| 3 | **first-wins exactness** — a BARE scope entry resolves the way `spanOf` does, so only the FIRST same-named method is suppressed and the other is still listed | suppress every same-named method → the exactness test fails, alone |
+
+**Half 3 is the one that is easy to get wrong in the safe-looking direction.** Suppressing every
+method sharing the bare name is conservative and it *hides a sibling the model has not seen* — which
+inverts the purpose of a section that exists to show what retrieval missed. The fix tracks first-wins
+in `fi.Functions` order, which is the same order `spanOf` scans, so the de-duplication is exact
+rather than merely cautious.
+
+**The fixture carries a real collision and asserts it before anything else** (§5's requirement): two
+types with a `Handle` method, built by running the **real analyser** over a temp checkout rather than
+hand-describing spans. The load-bearing assertion is not a string match — it **resolves both offered
+handles through `ReadSymbolBody` and requires different bodies**, which is precisely what the bare
+spelling could never satisfy.
+
+## 8. Council
+
+Submitted 2026-08-13 — see the commit trailer for the correlation. `RFC_027` (the handle grammar's
+missing owner) is unaffected: this fix makes `siblingSignatures` a *caller* of
+`CanonicalSymbolName`, which leaves **`code_symbols_actions.go:598` as the one remaining independent
+producer**. That is the RFC's whole question and this fix narrows it rather than answering it.

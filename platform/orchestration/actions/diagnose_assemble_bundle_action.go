@@ -831,11 +831,42 @@ func siblingSignatures(out analysis.Output, scope []string, capChars int, bodies
 		var fb strings.Builder
 		fmt.Fprintf(&fb, "**%s**\n", f.Path)
 		listed, skipped := 0, 0
+		// bugs_open/269. This loop rendered `fn.Name` BARE and de-duplicated on it,
+		// and both halves were wrong for a method.
+		//
+		// The section's own heading tells the model these are handles it may put in
+		// next_scope. A bare method name is AMBIGUOUS: analysis.spanOf matches it
+		// against fi.Functions and takes the FIRST hit, so in a file where two types
+		// share a method name the bundle offered one handle for two different bodies
+		// and the model got whichever the analyser listed first. It does not error —
+		// it returns the wrong function's source, labelled as the right one, inside a
+		// section the verdict model treats as ground truth. That is worse than the
+		// loud failure bugs_closed/261 fixed on the READER side; 261 taught
+		// splitReceiver to accept the canonical spelling precisely so a handle could
+		// disambiguate, and this writer never learned to produce one.
+		//
+		// A bare scope entry resolves the way spanOf does — first match in
+		// fi.Functions order — so only the FIRST function carrying that bare name is
+		// genuinely in scope. Tracking that as we go, in the same order, is what makes
+		// the de-duplication exact instead of merely conservative: suppressing every
+		// same-named method would hide a sibling the model has NOT seen, which is the
+		// opposite of this section's purpose.
+		bareClaimed := map[string]bool{}
 		for _, fn := range f.Functions {
-			if named[fn.Name] {
+			canon := analysis.CanonicalSymbolName(fn)
+			// In scope under its canonical handle — the common case now, since
+			// scopeFromCodeResults concatenates the code_symbols spelling straight in.
+			// Keying only on fn.Name missed this, so a method already in scope was
+			// listed as a sibling of itself (bugs_open/269 §2a).
+			if named[canon] {
 				continue
 			}
-			line := fmt.Sprintf("- `%s:%s` — `%s`\n", f.Path, fn.Name, fn.Signature)
+			// In scope under a BARE handle, and this is the one it resolves to.
+			if named[fn.Name] && !bareClaimed[fn.Name] {
+				bareClaimed[fn.Name] = true
+				continue
+			}
+			line := fmt.Sprintf("- `%s:%s` — `%s`\n", f.Path, canon, fn.Signature)
 			if fb.Len()+len(line) > perFile {
 				skipped++
 				continue
