@@ -1413,3 +1413,98 @@ render against a premise. ⚠ Note the query needed BOTH spellings: `"strategy"`
 finds two agents, `'strategy'` (SQL literal inside a `query_database` step) finds
 `site-review-agent` and nothing else — searching one spelling would have missed the very reader
 whose existence B1 was built to create.
+
+## 2026-08-13 — the two hand-written premises: one merged, one REFUSED, and a correction I owe on yesterday's claim
+
+Owner approved both decisions: (1) add the three Q-fields to the two human-authored specs;
+(2) support affiliate properly, using dartsonline as the worked example over the coming days.
+
+### The method, and why it is not "write the three fields"
+
+The obvious implementation — hand-author `satisfaction_condition` / `trust_threshold` /
+`recurring_value` for the two sites — is **wrong under the owner's 2026-08-06 ruling**, and
+wrong for a second reason that bites harder here: **B4 will grade each site against these
+fields.** A field I write becomes a standard I invented, and the analyser then measures the
+site against my judgement rather than the platform's. That is
+`the-framework-writes-the-content-not-you`'s "a fixture you compose to exercise a rule will
+exercise the rule", one level up.
+
+So: **the strategist writes, and I merge only the three fields, discarding the rest of its
+output.** Sequence per site — fire a `domain-strategist` oneshot (the "donor run"); it writes a
+full new row and supersedes the protected one; then one atomic `DO` block demotes the donor and
+inserts a merged row = protected data + the three donor fields, preserving `source`,
+`source_agent`, `pinned` and the existing `notes`.
+
+**The merge REFUSES rather than trusting itself.** `ON_ERROR_STOP=1` plus `RAISE EXCEPTION`,
+because a verify block of bare `SELECT`s cannot stop a `COMMIT` (the migration landmine). Three
+guards: the protected row's md5 must still equal the value pinned before the session touched
+anything; all three donor fields must be present; and — the load-bearing one —
+**`md5(merged - the three added keys)` must equal the protected row's md5 exactly.** That last
+is the proof that nothing existing was reworded or dropped, and it is mechanical rather than a
+promise in a commit message.
+
+### mortgagecalculator.co.uk — MERGED, owner's wording provably untouched
+
+Current row is `source='owner_direction'`, carries all three Q-fields, and
+`md5(data - the three keys)` = `ba598ea87f0915568b08bccb963363f4` — **byte-identical to the
+pinned before-state**. `primary_model` still `lead_generation`. Donor row demoted, kept in
+history. The owner's voice direction of 08-11 stands exactly as he gave it.
+
+### leopardessconsulting.co.uk — REFUSED, and this is why that site was protected
+
+Its `hitl` spec exists because of a **claims ruling on 2026-07-16** which stripped fabricated
+claims ("70+", "8 departments", "managing agent", least-privilege) out of the strategy
+narrative and five other places. So the donor's prose was screened before merging.
+
+**Regex screen passed — no banned term, no "department", no numerals at all. Reading it
+failed.** `recurring_value` asserts:
+
+> *"The engineering insights blog publishes **two technically deep articles per week** on
+> production concerns (**agent failure modes, Kafka consumer group design, Postgres schema
+> patterns**)…"*
+
+Checked against the site: **6 blog posts in about four months** (2 created 04-23, 4 created
+07-29 — bursts, not a cadence), and their subjects are AI-data-trust pieces for healthcare, HR
+and financial services. Neither the frequency nor the named topics exist. That is a fresh,
+flatly checkable fabrication of exactly the class the ruling removed — invented specificity,
+arriving in the one spec on the estate that exists to be free of it.
+
+**So: not merged.** The donor row had already superseded the protected one (that is how the
+donor mechanism works), so it was demoted and the `hitl` row restored as current — md5 back to
+`cf500fcf23b8fb09b8e380dc088c0208`, the pinned value. Exposure window ~3 minutes; checked and
+**nothing consumed it**: one orchestration on that site in the last 30 minutes (the donor run
+itself) and zero work items created. Both rows kept; the restore is recorded in the spec's own
+`notes` so the next reader sees why a donor row sits demoted beside it.
+
+⚠ **The screen that passed is the lesson.** `~* '70\+|[0-9]+ departments|managing agent|least.privilege'`
+returned false on prose containing a false claim, because it was written to catch **last
+month's** fabrications. A banned-term list is a record of what was already caught; it cannot
+catch the next invention, which will use different words. Only reading it, and then checking
+the checkable sentence against the database, found this.
+
+> **CORRECTION to my own claim of 2026-08-12, which went into three places.** I wrote that
+> **"12 of 13 kept the same `primary_model` … so this is repeatable, not a gamble"** — in the
+> PLAN decision log, in `README_where_we_are`, and in commit `52e42e5dd`'s message. The
+> measurement is true and the conclusion overreaches. **Classification stability is not prose
+> accuracy.** I measured whether the strategist re-derives the same commercial answer; I did not
+> measure whether the sentences it newly wrote are TRUE, and leopardess shows that they can be
+> flatly false. The refresh may be safe in the sense I measured and still have imported invented
+> specifics into 13 premise records. Same family as the morning's error: the filter described a
+> small world and the conclusion was about a larger one.
+>
+> **What I actually know**, stated at its real strength: a 3-site sample of the 13
+> (dartsonline, gamesdesign, finetuning) has `recurring_value` written in a vaguer,
+> forward-looking register — *"players return for three reasons…"*, *"the tool inventory
+> expands…"* — with no flatly checkable falsehood of the leopardess kind. **That is a sample of
+> three, read by eye, not a claim check.** The 13 refreshed premise records have never been
+> claim-checked, and nothing on this estate claim-checks a `site_specs` row. Open item in the
+> handoff.
+
+### What this means for B4, and it is not a small thing
+
+`site-review-agent` reads these rows (B1) and B4 will grade against them. A premise carrying an
+invented fact means the review judges a site against something that was never true — which is
+`bugs_open/161`'s shape exactly (*the register is both the writer's instruction set and the
+gate's authority: a false fact causes a claim and then vouches for it*), one layer up. **B4's
+design should assume its inputs are unverified prose**, and the estate's existing claims
+machinery (`evidence_base`, `banned_claims`) does not cover `site_specs`.

@@ -49,19 +49,26 @@ sitting in an evidence column reads as evidence.
 1. **B4 — the offer analyser. This is the work, and its precondition is now MET.**
    `features_open/030` §5.4 and `PLAN_2026-08-02` §B4 are the brief.
    **The estate was refreshed on 08-12 (owner approved): Q-fields — `satisfaction_condition`,
-   `trust_threshold`, `recurring_value` — are on 20 of 22 sites.** They had been on 7; the gap
+   `trust_threshold`, `recurring_value` — are on 21 of 22 sites.** They had been on 7; the gap
    was a vintage (every `domain-strategist` row written since B2 shipped on 08-08 carries them,
-   none before), and 13 refreshes closed it. **So B4 may assume a uniform estate** — with two
-   stated exceptions, not a silent gap: `leopardessconsulting.co.uk` (`hitl`) and
-   `mortgagecalculator.co.uk` (`owner_direction`) carry human-authored specs and were
-   deliberately excluded; they are the owner's call.
+   none before), and 13 refreshes closed it. **mortgagecalculator.co.uk was merged on 08-13**
+   (owner approved) — its `owner_direction` row now carries all three, with
+   `md5(data − the three keys)` proving the owner's wording byte-identical to before.
+   **The one remaining gap is `leopardessconsulting.co.uk`, and it is a REFUSAL, not an
+   oversight** — its donor prose invented a checkable falsehood (item 7). B4 should carry it as
+   a stated exception until the owner rules.
    **⚠ If you ever refresh again, exclude by `source`, never by date** — a strategist refresh
    writes a new `is_current` row straight over a human-authored one, and on 08-12 that would
    have deleted the owner's own voice direction a day after he gave it.
    Two facts from that run worth having: B2's gate held **13 of 13** (zero `needs_briefing`,
    zero `needs_site_plan`, zero work items of any type — with the day's greenfield build as the
-   control proving the other arm still fires), and a refresh is **stable**: 12 of 13 kept the
-   same `primary_model`, so this is a repeatable maintenance operation rather than a gamble.
+   control proving the other arm still fires), and 12 of 13 kept the same `primary_model`.
+   > ⚠ **CORRECTED 2026-08-13 — that second fact means LESS than this handoff first claimed.**
+   > It established that a refresh does not re-roll a site's revenue model. It did **not**
+   > establish that the prose the strategist newly wrote is TRUE, and on 08-13 a donor run
+   > produced a `recurring_value` asserting a twice-weekly technical blog that does not exist.
+   > **Classification stability is not prose accuracy.** The 13 refreshed premise records have
+   > never been claim-checked (see item 6).
    B4 also now has a **named external consumer**, which it did not have on 08-11: the
    `copy_quality_two_stage` lane needs a per-site ranked "what this reader wants, most useful
    first" that a rewrite pass can read. Full reply, with what already exists and what does not:
@@ -85,7 +92,32 @@ sitting in an evidence column reads as evidence.
 4. **Do NOT re-verify WII-014.** It is done, at the artefact, with both gap kinds
    distinguishable in one query. Re-running the check will pass again for the same correct
    reason.
-5. **One falsifiable prediction left open by the 08-12 refresh, cheap to check.**
+5. **AFFILIATE IS NOW AN OWNER-APPROVED TRACK (2026-08-13), with dartsonline.com as the worked
+   example.** Scope is the **platform capability**, not which retailers to link to (that is
+   dartsonline's own lane, briefed separately by the owner): link management, disclosure blocks,
+   partner config, and a shape definition so `check_revenue_shape` can examine an affiliate site
+   instead of filing *"I have no way to check or fix this"*. **The requirement list already
+   exists as three filed rows** — `capability_gap:revenue_shape`, `gap_kind=handler_missing`, on
+   dartsonline.com, loancalculator.co.uk and loanandmortgagecalculator.co.uk. Closing the
+   capability is what retracts them. **Not started, and B4 remains the stated next track** unless
+   the owner reorders.
+6. **The 13 refreshed premise records have NEVER been claim-checked, and nothing on this estate
+   claim-checks a `site_specs` row.** `evidence_base` and `banned_claims` do not cover them.
+   This matters because `site-review-agent` reads these rows (B1) and B4 will grade against them:
+   a premise carrying an invented fact makes the review judge a site against something that was
+   never true — `bugs_open/161`'s shape one layer up. A 3-site eyeball (dartsonline, gamesdesign,
+   finetuning) found their `recurring_value` written in a vaguer forward-looking register with no
+   leopardess-class falsehood; **that is a sample of three read by eye, not a check of thirteen.**
+   **B4's design should assume its inputs are unverified prose.**
+7. **leopardessconsulting.co.uk still lacks the three Q-fields, by decision — the owner has a
+   choice open.** Its donor run's `recurring_value` asserted a twice-weekly technical blog on
+   named topics; the site has 6 posts in ~4 months on entirely different subjects. Not merged;
+   `hitl` row restored to its pinned md5, donor demoted and retained, ~3-minute exposure window
+   verified clean. **`satisfaction_condition` and `trust_threshold` from that donor read clean** —
+   so the options are merge those two and leave `recurring_value` absent, or leave all three.
+   ⚠ **Do not "just re-run the donor until one passes"** — same generator, and cherry-picking
+   runs until one clears the gate is how you launder a fabrication into the record.
+8. **One falsifiable prediction left open by the 08-12 refresh, cheap to check.**
    dartsonline.com's premise changed `direct_business` → `affiliate` (the only one of 13 that
    moved). `check_revenue_shape` branches on that value, so its next examination should file a
    `capability_gap:revenue_shape` row, `gap_kind=handler_missing`, `deferred`, empty handler —

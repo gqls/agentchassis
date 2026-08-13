@@ -582,3 +582,53 @@ than rediscover it.
 **So B4 is unblocked** — it can now assume a consistent estate instead of carrying an asterisk
 per site. The two sites with your wording stay outside it until you decide what to do with
 them: re-elicit, merge by hand, or leave them out of the analysis.
+
+**2026-08-13 — one of the two records is done, the other I stopped, and I owe you a correction.**
+
+**mortgagecalculator is done.** It now carries the three extra fields and your wording from the
+11th is untouched — not "as far as I can tell", but provably: I take the finished record, strip
+out the three fields I added, and check it still matches the original character for character
+before the change is allowed to save. It does. Nothing you wrote was reworded or removed.
+
+**How I wrote those three fields matters, and I want to be explicit about it.** I did not write
+them. You have told me the framework writes content, not me — and there is a sharper reason here
+too: the analyser we are building will judge each site against these very fields. If I write
+them, it ends up marking the site against my opinion of what its visitors want, dressed up as
+the platform's. So I ran the normal strategist to produce a full record, took only the three
+fields, and threw the rest of its output away.
+
+**Leopardess I stopped, and I think you will agree with the reason.** That site's record is
+hand-written because of a ruling back in July, when invented claims — "70+", "8 departments",
+and so on — were stripped out of it. So before importing anything, I checked the new text
+against that list. It passed. Then I read it, and it says the site publishes *"two technically
+deep articles per week"* on agent failure modes, Kafka consumer design and Postgres schema
+patterns.
+
+None of that is true. The blog has six posts in about four months, published in two bursts, and
+they are about AI and data trust in healthcare, HR and financial services. So the machine had
+invented a brand-new specific claim, in the one record on the estate that exists precisely
+because we removed invented claims from it.
+
+I did not merge it. The record is back exactly as it was, and I checked that nothing read the
+temporary version during the three minutes it was live. **Leopardess therefore still lacks those
+three fields** — your call whether to take the two that read cleanly and leave out the false one,
+or leave all three and let the analyser note that site as an exception.
+
+The wider point: **the list of banned phrases passed this text.** It was built from what we
+caught in July, and the machine simply invented something new using different words. A list of
+past lies cannot catch the next one.
+
+**And the correction.** Yesterday I told you the refresh was safe and repeatable, on the grounds
+that twelve of thirteen sites came back with the same answer about how they make money. That
+measurement was right, but the conclusion I drew from it was wider than the measurement. Coming
+back with the same *classification* says nothing about whether the new *sentences* are true —
+and leopardess has just shown they can be flatly false. I have not checked the thirteen records
+I refreshed for invented claims. I looked at three of them by eye and saw nothing of that kind,
+but three eyeballed is not thirteen checked, and I should not have said "repeatable" on the
+evidence I had.
+
+**Affiliate: noted, and it is the bigger of the two things you decided.** Three sites are waiting
+on it, and each is already carrying a filed note saying our checker cannot examine it. Those
+three notes are effectively the requirement list, and building the capability is what clears
+them. Using dartsonline as the worked example is the right choice — it is the newest of the
+three and has no legacy to unpick.

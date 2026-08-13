@@ -336,3 +336,49 @@ Marked here rather than edited into §B above, so the original text stays readab
   **B4's precondition is now met.** The "refresh first or degrade explicitly" fork in the entry
   above is closed in favour of the first, and B4 can assume a uniform estate on the 20 — with
   the two human-authored sites as a stated, named exception rather than a silent gap.
+- **2026-08-13 — CORRECTION to the entry above, and it is a correction to my reasoning, not to a
+  number.** That entry says *"a refresh is STABLE: 12 of 13 kept the same `primary_model` … **this
+  is what makes it repeatable**"*. The measurement stands; the inference does not.
+  **Classification stability is not prose accuracy.** I measured whether the strategist re-derives
+  the same commercial answer for a site. I did not measure whether the sentences it newly wrote
+  are true — and on 08-13 a donor run for leopardessconsulting.co.uk produced a
+  `recurring_value` asserting a **twice-weekly technical blog that does not exist** (6 posts in
+  ~4 months, on entirely different subjects). So the refresh can be stable in the sense measured
+  and still import invented specifics. **Read that entry as "the refresh does not re-roll a
+  site's revenue model", which is what it actually established, and not as "the refresh is
+  safe".** The 13 refreshed premise records have never been claim-checked; a 3-site eyeball
+  found no leopardess-class falsehood, which is a sample, not a check.
+- **2026-08-13 — the two hand-written premises: ONE MERGED, ONE REFUSED (owner approved the
+  merge).** Method: the **strategist writes and this lane merges only the three Q-fields**,
+  discarding the rest of the donor run — because hand-authoring them would breach the 2026-08-06
+  content ruling AND, more to the point, would make B4 grade each site against a standard a
+  session invented. The merge is one atomic `DO` block with `RAISE EXCEPTION` guards (a verify
+  block of bare `SELECT`s cannot stop a `COMMIT`), the load-bearing one being
+  **`md5(merged − the three added keys) = md5(protected row)`** — mechanical proof that nothing
+  existing was reworded or removed.
+  - **mortgagecalculator.co.uk — merged.** Current row still `source='owner_direction'`, now
+    carries all three fields, and the stripped-back md5 equals the pinned before-state exactly.
+    The owner's voice direction of 08-11 is untouched.
+  - **leopardessconsulting.co.uk — refused, restored, and the refusal is the point.** Its donor
+    prose failed the claims gate (above). The `hitl` row is current again at its pinned md5;
+    donor demoted and retained; ~3-minute exposure window checked clean (one orchestration on
+    that site — the donor run itself — and zero work items). **Its Q-fields remain absent, by
+    decision.** Options for the owner: merge only the two clean fields
+    (`satisfaction_condition`, `trust_threshold` read clean) and leave `recurring_value` absent;
+    or leave all three out and let B4 carry a stated exception for that one site.
+  - ⚠ **A banned-term screen is not a claims check.** The regex built from the 2026-07-16 ruling
+    (`70+`, `N departments`, `managing agent`, least-privilege) passed this prose cleanly. A
+    banned-term list records what was already caught; the next invention uses different words.
+    Reading it, then checking the one checkable sentence against `pages`, is what found it.
+- **2026-08-13 — OWNER DECISION: yes, support affiliate properly, with dartsonline.com as the
+  worked example over the coming days.** Answers the largest open item from the 08-12 read-out.
+  Scope is **not** "which retailers to link to" (that is dartsonline's own lane, and the owner is
+  asking them separately) — it is the platform capability the estate currently lacks and which
+  `check_revenue_shape`'s affiliate arm has been filing against since 08-09: link management,
+  disclosure blocks, partner config, and enough of a shape definition that the offer checker can
+  examine an affiliate site instead of filing *"I have no way to check or fix this"*. **Three
+  sites are waiting on it** — dartsonline.com, loancalculator.co.uk,
+  loanandmortgagecalculator.co.uk — each currently carrying an undispatchable
+  `capability_gap:revenue_shape` row (`gap_kind=handler_missing`). Those three rows are the
+  requirement list, and closing the capability is what retracts them. Not started; not this
+  lane's next action unless the owner says so (B4 remains the stated next track).
