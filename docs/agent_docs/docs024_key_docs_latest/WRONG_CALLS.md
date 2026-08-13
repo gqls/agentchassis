@@ -30398,3 +30398,68 @@ you learned earlier, that is the moment to re-run the query.
 
 **The shape, for the tally.** "A record goes stale faster than its reader can
 tell", applied to my own working memory rather than to a doc.
+
+## 2026-08-13 — webdesign chat lane: the durability note ranked the wrong link as fragile — the "real secret" was an additive patch to a terraform-owned object, and the next release deleted it in 4 hours
+
+The facts-relay activation notes flagged one durability risk (the hardcoded
+ClusterIP) and reassured on the other: *"`SITE_FACTS_TOKEN` now lives in
+`personae-platform-secrets` alongside the DB passwords and JWT secret — a real
+secret, additive."* **Not durable.** The secret is a terraform resource
+(047-base-configs) whose entire `data` map is reconciled by every
+`make release`; the additive `kubectl patch` was deleted by the very next one,
+~4 hours later. The relay returned 401 from 13:55Z and the live chat bot
+survived only on last-good facts held in memory — one restart from dead chat.
+**The cheap check:** before calling an additive kubectl write durable,
+`grep -rn "<object-name>" deployments/terraform/` — one grep, and it names the
+resource block that will eat your key. The estate already knew this trap as
+"imperative `kubectl scale` is undone by the next deploy"; same shape,
+different declarative owner, slower fuse — a release cadence, so every
+same-day verification passes and the note reads as checked.
+**What caught it:** the next session's cold-start falsifier sweep — the handoff
+told its reader how to disprove its own claims, and the reader did. A real
+control, but a *lagging* one: it fired three hours into the outage. The
+*leading* control is the LANDMINES entry added today (grep terraform before
+trusting an additive write).
+
+---
+
+## 2026-08-13 — "12 of 13 kept the same revenue model, so the refresh is repeatable, not a gamble" — the measurement was right and the conclusion was wider than it (vigilant_designer offer lane)
+
+**The claim.** After refreshing 13 sites' premise records, I measured that 12 of 13 came back
+with the same `primary_model` and wrote: *"a refresh **adds the Q-fields without churning the
+premise** … **this is what makes it repeatable** — nobody had measured it, and a third of the
+estate changing shape would have made this a one-off gamble rather than a maintenance
+operation."* It went into the PLAN decision log, into the owner's `README_where_we_are`, and
+into commit `52e42e5dd`'s **message** — three places, one of them a headline.
+
+**What was wrong.** Nothing about the number. **The property I measured was classification
+stability; the property I asserted was safety.** A refresh re-runs an LLM that rewrites every
+prose field in the record. Whether it re-derives the same *category* for how a site earns says
+nothing whatever about whether the *sentences* it newly wrote are true.
+
+**What caught it.** Doing the same operation the next day on a site that could not tolerate a
+false sentence. leopardessconsulting.co.uk's record is hand-written because a claims ruling on
+2026-07-16 stripped fabrications out of it, so its donor run was screened before merging. The
+new `recurring_value` asserted *"two technically deep articles per week"* on named topics
+(agent failure modes, Kafka consumer design, Postgres schema patterns). The site has **6 blog
+posts in about four months**, published in two bursts, about AI and data trust in healthcare,
+HR and financial services. One query against `pages` settled it.
+
+**The cheap check that would have.** The same one, on any of the 13, the day I made the claim:
+take the single most checkable sentence in a newly written field and check it. I had 13 fresh
+records in front of me and checked the classification column of every one of them because it
+was easy to check, then generalised from it. **13 rows measured on the easy axis produced more
+confidence than 1 row read on the hard axis would have — and the hard axis was the one the
+claim was about.**
+
+**The shape, for the tally.** "Your measurement answers the question you ENCODED" — second
+entry from this lane in two days, and the pair is the useful part. The 08-12 entry was a
+*prediction* recorded in an evidence column; this one is a *real measurement* generalised past
+its axis. Both passed every marker discipline: dated, `[MEASURED]`, query inline, re-runnable.
+**A figure can be measured, disconfirmable, correctly reported — and still not be evidence for
+the sentence built on top of it.** Before writing "so X is safe/repeatable/proven", name the
+property the number is about and check it is the same property as the claim.
+
+**Cost.** Low, and only because the next day's task happened to be the one that could not
+tolerate it. Had leopardess not been protected, the fabrication would have merged silently into
+a record that `site-review-agent` reads today and B4 will grade against tomorrow.

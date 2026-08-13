@@ -10330,3 +10330,25 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **the check (before trusting any additive write to a cluster object):** `grep -rn "<object-name>" deployments/terraform/ deployments/kustomize/` — a hit inside a terraform `resource` block means terraform owns the WHOLE data map and your key must be declared there (`variables.tf` + `terraform.tfvars.secret` + `main.tf`), never kubectl-patched. Same family as "imperative `kubectl scale` is undone by the next deploy"; this is the secret-shaped member, on a release cadence, so every same-day verification passes.
 - **source:** 2026-08-13, webdesign_uk_build_service lane (facts-relay outage; NOTES evening entry). Closed durably the same day: `site_facts_token` is now declared in 047-base-configs.
 - **added:** 2026-08-13, webdesign_uk_build_service lane
+
+---
+
+## A banned-term screen is not a claims check — it encodes the fabrications you already caught, and the next one uses different words
+
+- **footprint:** `site_specs` (any aspect whose row was hand-written after a claims ruling) · `banned_claims` · `evidence_base` · `platform/orchestration/actions/discovery_checks/check_unverified_claims.go` · any session importing generated prose into a record that exists because false claims were removed from it
+- **fires when:** you are about to accept LLM-written prose into an artefact that a claims ruling has previously cleaned, and you screen it first — sensibly — against the terms that ruling named. **The screen passes, and it proves nothing.** A banned-term list is a record of what was *already* caught; a fresh generation invents fresh specifics, in different words, and sails through.
+- **why the wrong result looks exactly right:** the screen is real, it runs, it is derived from the actual ruling, and a clean pass is the same output it gives on genuinely clean prose. It feels like a control because it *is* a control — for last month's problem. Worked case, 2026-08-13: `~* '70\+|[0-9]+ departments|managing agent|least.privilege'` (built from leopardessconsulting.co.uk's 2026-07-16 ruling) returned **false** — no banned term, no "department", **no numerals at all** — on a `recurring_value` asserting *"two technically deep articles per week"* on three named technical topics. The site has 6 blog posts in ~4 months, on entirely different subjects.
+- **the check, and it is a READ followed by ONE query:**
+  ```sql
+  -- 1. read the prose. Find every sentence that could be FALSE — a frequency, a count,
+  --    a named feature, a topic list. Vague/aspirational prose ("visitors return for X")
+  --    carries no such sentence; specifics do.
+  -- 2. check the most specific one against the database it describes. Cadence claim:
+  SELECT count(*) AS posts, min(created_at)::date, max(created_at)::date
+  FROM pages WHERE site_id = $1 AND (url ILIKE '%blog%' OR name ILIKE '%blog%');
+  ```
+  **Invented specificity is the signal, not banned wording.** The tell is a sentence precise enough to be checked — a number, a rate, a named topic — in a field nobody supplied source material for.
+- **the adjacent trap:** having caught one, do NOT re-run the generator hoping for cleaner prose. Same generator, same failure rate; cherry-picking runs until one clears the gate launders a fabrication into the record and leaves no trace that the earlier ones failed.
+- **relations:** `bugs_open/161` (the register is both the writer's instruction set and the gate's authority — a false fact causes a claim, then vouches for it; this is that shape one layer up, in the PREMISE rather than the register) · MEMORY `the-framework-writes-the-content-not-you` (why the prose must come from the generator at all) · MEMORY `a-grep-proves-absence-only-for-its-spelling` (the same blindness, without the false sense of a ruling behind it) · `WRONG_CALLS.md` 2026-08-13
+- **source:** 2026-08-13, vigilant_designer_offer_analysis lane, merging generated fields into two hand-written premise records. The screen passed; reading the text did not. Nothing on this estate claim-checks a `site_specs` row — `evidence_base` and `banned_claims` do not cover them — so the only control is a person reading it before it lands.
+- **added:** 2026-08-13, vigilant_designer_offer_analysis lane
