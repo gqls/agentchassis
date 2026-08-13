@@ -1777,3 +1777,22 @@ don't know than invent a reason.
 
 The rebuild itself is still waiting on the planner work, as agreed. Nothing about today
 changes that.
+
+## 2026-08-13 — everything shipped is now running; one measurement left before the button
+
+Today's build carries both protection fixes — I checked the running programs themselves,
+not just the version number, both times it rolled. The reviewers approved the lock fix
+with notes but no objections of substance. And the deeper worry from my review turned
+out fine when measured: the protected calculators and the components a fresh plan would
+name are literally the same records, so the pairing fix will catch them.
+
+The one thing I refused to do today is the last one: pointing the planner at the
+calculators requires telling it where to find the site's identity, and the place I was
+told to look — records of past planner runs — turns out to be empty, all-time, even
+though plans are visibly being written. I know the likeliest answer, but a wrong guess
+here stops every site on the platform from planning, so I'm not guessing. The next
+session catches one live planner run, reads the answer off it, and then it's a small
+reviewed change followed by the rebuild itself.
+
+Handed over cleanly: HANDOFF_2026-08-13_planner_half_continue_here.md has the whole
+state, what's proven, and the exact next steps.
