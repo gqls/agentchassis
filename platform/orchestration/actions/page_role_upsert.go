@@ -235,8 +235,27 @@ var columnNamePattern = regexp.MustCompile(`^[a-z][a-z0-9_]*$`)
 
 // reservedPageColumns are owned by the helper and rejected in Columns, so a
 // caller cannot re-introduce the bug by passing its own page_type.
+//
+// deployed_at was added 2026-08-13 (bugs_open/266, PBP-042), on the council's
+// objection rather than from a live failure. This helper writes a caller-supplied
+// column list into `UPDATE pages SET %s`, so it is the one page writer whose
+// columns a literal grep cannot enumerate — 266's load-bearing claim that
+// UpdatePageStatusAction is the SOLE writer of pages.deployed_at is only true
+// while nothing passes it here. No caller does; reserving it means none can start
+// to without this line failing loudly first. That is the difference between the
+// claim being true and it being ENFORCED.
+//
+// build_status is deliberately NOT reserved: live callers legitimately pass
+// `Col("build_status", "planned")` (deploy_tool, create_tool_component,
+// create_report_page), and reserving it breaks them — proven by three failing
+// tests when it was tried. That is safe for 266's purposes because those callers
+// only ever write 'planned', never 'deployed', so this helper cannot stamp a page
+// deployed. **If you add a caller that writes build_status='deployed' here, it
+// bypasses the archived-page guard entirely — guard it or route it through
+// UpdatePageStatusAction.**
 var reservedPageColumns = map[string]bool{
 	"site_id": true, "name": true, "page_type": true, "id": true, "updated_at": true,
+	"deployed_at": true,
 }
 
 // UpsertPageForRole writes a page for an arm that owns a constant role, and

@@ -265,3 +265,77 @@ REVISE/REJECTED**, because the code is already on the shared branch.
    candidates, curl verdict, fabricated control) → confirm no NEW `deployed_at` on any
    archived page. A zero on the counters needs a demand control, exactly as
    `bugs_open/215` §4 does: no archived page has been dispatched at means nothing fired.
+
+---
+
+## 2026-08-13 — council **APPROVED**, fix is **LIVE on `v1.0.1295`**, and the objections found two real things
+
+**Verdict:** APPROVED round 1, corr `2da9d905-25d8-4916-9b76-bc096679c6ab`, 4 advisory
+objections, **none high-severity**. Landed 10 minutes after submission, not the ~30 the
+runbook budgets.
+
+**LIVE, artefact-verified 2026-08-13 on chassis `v1.0.1295`** (rolled 13:53Z): literal
+`ARCHIVED_PAGE_GUARD` **present on both replicas**, one-letter near-miss `…GUARE`
+**absent**, pre-lane control `OWNED_PAGE_GUARD` present; provenance stamp
+`69612d692a4a…` on both, and `git merge-base --is-ancestor 580af7ff0` confirms the fix
+is in the build. This answers `debug_historian`'s objection, which was that the plan
+named no pod-verification step.
+
+**Behaviourally UNEXERCISED, and the bug stays OPEN.** `ARCHIVED_PAGE_%` counters are
+`0` — and that zero is want of demand, not evidence of function: **zero work items
+targeting any archived page have run since the roll** (`site_work_items` joined to
+`pages` on `status='archived'`, `updated_at > 13:53Z`). Neither fundamentallyai page has
+been re-deployed since. **Do not read the zero as "the guard works" until a build is
+dispatched at an archived page.**
+
+### The objections, answered with queries rather than with my own word
+
+1. **"The sole-writer claim rests on a literal grep"** (`bug_historian`, `guardian`,
+   `prior_art_librarian`, all medium). **Fair, and the method was wrong even though the
+   claim survived.** Re-audited structurally — every `UPDATE pages` in `platform/` and
+   `internal/`, not the string `deployed_at = NOW()`:
+   - **`deployed_at`: the claim HOLDS.** No other statement writes it. Every other
+     `UPDATE pages` writes `needs_rebuild`, `page_type`, `sections`,
+     `suppressed_sections` or `built_from_plan_version`.
+   - **`build_status`: the claim would NOT have held**, and I never had to make it.
+     `UpsertPageForRole` writes it via `Col("build_status", …)` — **a helper-constructed
+     column name that no literal grep for `build_status` in a SQL string can find.** It
+     is safe for this bug only because those callers write `'planned'`, never
+     `'deployed'`.
+   - **Hardened:** `deployed_at` added to `reservedPageColumns` (`page_role_upsert.go`),
+     so the sole-writer property is now **enforced** rather than merely true. Reserving
+     `build_status` too was tried and **reverted — it broke three live callers' tests**,
+     which is exactly why the distinction above matters.
+2. **"A git_commit that batches multiple pages bypasses the guard"** (`editquality`,
+   `guardian`, medium). **Such a path EXISTS and the guard is blind to it — but it is
+   unexercised.** Census of all **19** live `git_commit` steps: the only multi-page one is
+   `site-deployer / deploy_to_git`, `files_field=input_data.site_files.wrap_multipage.files`.
+   Its producer `multipage-wrapper` names action `wrap_multipage`, which **is not in the
+   Go action registry** (the registered name is `assemble_multipage_site`), and
+   **neither agent has any orchestration row** — against a control in the same query
+   showing `page-rerender` 214, `section-editor` 130, `deployer-agent` 126, all with runs
+   today. Recorded as a **named residual, not a closed hole**: if anyone wires
+   `wrap_multipage` up, this guard does not see it.
+3. **A second residual found by the same census, which no seat named:**
+   `deployer-agent / commit_to_git` commits a single `index.html` by filename with **no
+   page identity in its payload**, so `resolveDeployTargetPage` returns `ok=false` and the
+   guard is silent. It ran 126 times, most recently today. An archived `index` is
+   pathological, so this is not a fix candidate — but it is the honest edge of the
+   guard's coverage and it is now written down rather than implied.
+4. **"You didn't check the existing status-predicate family"** (`reuse_agent`,
+   `prior_art_librarian`, medium/low). Checked now. The family is
+   `linkablePageStatusPredicate` (`status NOT IN ('deleted','archived')`) and
+   `PageWantedLivePredicateFor` (`status = 'active'`) — **SQL fragments for filtering a
+   SET inside a WHERE clause.** This guard asks a different question: is THIS one
+   already-identified page archived. Reusing `linkablePageStatusPredicate` would also
+   annex `'deleted'`, which this fix **deliberately scopes out** and pins with a test.
+   The divergence stands; the criticism that the submission never showed the family was
+   considered is accepted.
+5. **"The fail-open window is unmeasured going forward"** (`bug_historian`, medium).
+   Accepted, unclosed. There is a count but no sweep. **Follow-up, unowned:**
+   `SELECT count(*), max(occurred_at) FROM agent_error_log WHERE error_code = 'ARCHIVED_PAGE_GUARD_UNCHECKED';`
+6. **`architecture` (approve, `point_fix`)** flagged for the record that `git_commit` now
+   hosts two independent guards with a third deliberately excluded one function away —
+   *"a second guard on the same seam in two bug-fix cycles is a trend worth someone
+   tracking before a third one lands"*. Not actioned; recorded here and in PBP-042 as the
+   cross-reference that mitigates it.
