@@ -1884,3 +1884,29 @@ same function on both sides** (`:548` uses `contrastSelector` exactly as `:252` 
 retracts only when no element sharing that key still fails — conservative, i.e. it errs toward
 leaving tickets open. The residual is cosmetic rather than dangerous: one row can stand for two
 elements, so the 226 is a floor for the *element* count as well as for the reasons already recorded.
+
+### 7. Two corrections to my own commit message, and the cross-thread loop closing
+
+**`5baecdfe1`'s last paragraph is wrong in one respect and cannot be amended** (forward-only), so it
+is corrected here. It says the commit "unavoidably takes two passengers … in that append-only file".
+**It does not — `LANDMINES.md` is not in that commit at all.** Between the `git diff --numstat` I
+based that sentence on and the `commit` itself, session `581eb30a` committed `2009b9243`, which
+carried my landmine correction as *its* passenger. My pathspec therefore found nothing left to take,
+and the two entries I named (`site_work_items.item_key` re-type; the `kubectl patch` /
+`047-base-configs` trap) remain uncommitted in the tree, still their authors' to commit. Nothing was
+lost and nothing of mine is missing — the claim was simply stale by the time it was written.
+
+**The general lesson, which is the reason this is worth a paragraph rather than a shrug:** a
+same-file passenger census goes stale between the measurement and the commit, on exactly the file
+most likely to be written concurrently. I described the tree as it had been a minute earlier and
+stated it in the present tense. `git show --stat <sha>` after the fact is the only account of what a
+commit contains that cannot be overtaken.
+
+**And the cross-thread loop closed within the session, which is the part worth keeping.** The
+message I sent to `581eb30a` came back as commit `2009b9243`: it took the "unreachable" wording
+correction and propagated it to four places I could not see from here (the bug file and its heading,
+`LANDMINES`, register entry **VIZ-014**, and the Go doc comment), and it carried the gradient-type
+finding into `bugs_open/122` under its own name — which is what I asked for, and avoided the
+same-file collision that filing it myself would have caused. Contributing into another thread's open
+file by *message* rather than by edit cost one tool call and produced a better result than either
+competing for the file or waiting for it.
