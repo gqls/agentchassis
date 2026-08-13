@@ -14,7 +14,7 @@ REGION ?= uk001
 REGION_PATH ?= uk_001
 REGISTRY ?= docker.io/aqls
 #IMAGE_TAG ?= latest
-IMAGE_TAG ?= v1.0.1292
+IMAGE_TAG ?= v1.0.1295
 
 # Paths
 TERRAFORM_DIR := deployments/terraform/environments/$(ENVIRONMENT)/$(REGION)
@@ -1104,6 +1104,11 @@ deploy-agents: ## Deploy all agent services with dynamic image tag
 		KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k $(KUSTOMIZE_DIR)/services/ollama-adapter/overlays/$(OVERLAY_PATH); \
 	fi
 
+	# Deploy BOTH github runners' manifests (own image lineage — NOT retagged to
+	# IMAGE_TAG; see the deploy-github-runners comment). Manifest-only, so a
+	# release ships pod-spec changes — requests, spread constraints — without
+	# touching which runner image is pinned.
+	@$(MAKE) --no-print-directory deploy-github-runners
 
 	# Update database agent definitions
 	@$(MAKE) update-agent-images-v2 IMAGE_TAG=$(IMAGE_TAG)
@@ -1201,9 +1206,6 @@ redeploy-agents:  ## Forces a rolling restart of all agent deployments
 	kubectl rollout restart deployment thunder-adapter -n ai-persona-system 2>/dev/null || true
 	kubectl rollout restart deployment analyser-adapter -n ai-persona-system 2>/dev/null || true
 	kubectl rollout restart deployment browser-runner-adapter -n ai-persona-system 2>/dev/null || true
-	# Shares the browser-runner IMAGE, so a restart here picks up whatever tag its
-	# own overlay pins — restart both or the audit path keeps serving the old
-	# binary while the browser-runner pod proves the fix live (bugs_open/237).
 	kubectl rollout restart deployment render-audit-adapter -n ai-persona-system 2>/dev/null || true
 
 .PHONY: deploy-frontends
@@ -2485,6 +2487,65 @@ deploy-github-runner: ## Deploy github-actions-runner
 
 .PHONY: release-github-runner
 release-github-runner: build-github-runner push-github-runner deploy-github-runner ## Build, push and deploy github-actions-runner
+
+# deploy-github-runners (PLURAL) — apply BOTH runners' manifests, WITHOUT touching
+# their image tags. This is what `deploy-agents` calls, so `make release` ships
+# runner pod-spec changes the same way it ships every other service's.
+#
+# Why it does not sed newTag, when every other block in deploy-agents does:
+# the runners do NOT share the platform's image lineage. `build-backend` and
+# `push-backend` never build or push `github-actions-runner` (it has its own
+# build-/push-/release-github-runner targets), and the two overlays are pinned
+# to DIFFERENT tags on purpose — measured 2026-08-13, live: github-actions-runner
+# on v1.0.948 and github-actions-runner-vmsites on v1.0.1126, against a platform
+# IMAGE_TAG of v1.0.1295. Retagging them to IMAGE_TAG on release would point both
+# at an image that was never built and never pushed, and they would
+# ImagePullBackOff together — the same all-or-nothing trap documented under
+# "Single-service deploy" below deploy-agents, which is why this mirrors the
+# ollama-adapter block (apply, no sed) rather than the twelve above it.
+#
+# To move a runner to a new image, use `make release-github-runner`, which builds
+# and pushes at IMAGE_TAG BEFORE deploy-github-runner (singular) rewrites the tag.
+# That ordering is what makes the singular target safe and this one unnecessary
+# for image changes.
+#
+# No rollout restart on purpose: kubectl apply already rolls a Deployment whose
+# pod template changed, and a forced restart would interrupt an in-flight CI job
+# on every release for no gain.
+#
+# Missing-overlay handling is deliberately asymmetric, because the two cases mean
+# opposite things. The runners are PRODUCTION-ONLY — unlike core-manager,
+# reasoning-agent and others, they have no overlays/development — so under
+# ENVIRONMENT=development a missing overlay is normal and must not fail the
+# deploy. In production it is not normal: it means a release is about to report
+# success while shipping none of the manifests it claims to, which is the exact
+# failure this target exists to end. So: skip LOUDLY off-production, fail in
+# production. A failed `kubectl apply` is always fatal — swallowing that would
+# recreate the same silence one layer down.
+.PHONY: deploy-github-runners
+deploy-github-runners: ## Apply both github runner manifests (pod spec only; image tags left pinned)
+	@echo "$(YELLOW)Applying github runner manifests (image tags left as pinned)...$(NC)"
+	@APPLIED=0; SKIPPED=0; \
+	for svc in github-actions-runner github-actions-runner-vmsites; do \
+		OVERLAY="$(KUSTOMIZE_DIR)/services/$$svc/overlays/$(OVERLAY_PATH)"; \
+		if [ -d "$$OVERLAY" ]; then \
+			echo "  $$svc"; \
+			KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k "$$OVERLAY" || exit 1; \
+			APPLIED=$$((APPLIED+1)); \
+		elif [ "$(ENVIRONMENT)" = "production" ]; then \
+			echo "$(RED)  MISSING in production: $$OVERLAY$(NC)"; \
+			echo "$(RED)  Refusing to report a release that did not ship these manifests.$(NC)"; \
+			exit 1; \
+		else \
+			echo "$(YELLOW)  skipping $$svc — no $(ENVIRONMENT) overlay (runners are production-only)$(NC)"; \
+			SKIPPED=$$((SKIPPED+1)); \
+		fi; \
+	done; \
+	if [ "$$APPLIED" -gt 0 ]; then \
+		echo "$(GREEN)Runner manifests applied: $$APPLIED (skipped $$SKIPPED)$(NC)"; \
+	else \
+		echo "$(YELLOW)No runner manifests applied — all $$SKIPPED skipped for ENVIRONMENT=$(ENVIRONMENT)$(NC)"; \
+	fi
 
 .PHONY: github-runner-logs
 github-runner-logs: ## Tail github-actions-runner logs
