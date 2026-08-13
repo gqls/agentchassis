@@ -12,6 +12,63 @@ by any of the decomposition briefs.
 > Its fix commits (`c6dcbcaa8`, `6ea633cea`, `9b7811d4b`) are **not** this bug's, and
 > a `git log` by number will hand you the wrong case. **Refer to this one by slug.**
 
+## ⛔ COUNCIL: REVISE (round 1, `b30ac52c`) — and the objection is RIGHT
+
+**Gating objection, `bug_historian`, severity HIGH, on the wiring edit:**
+
+> *"The guard is wired only into SavePageSectionsAction… several OTHER writers of
+> `page_components.rendered_html` … are documented as capable of writing this column
+> without going through save_page_sections. This is the '016b §9' pattern 'one call
+> site of a shared judgement gets the rigorous fix; the sibling stays heuristic' — if
+> any of those paths bypass SavePageSectionsAction, they bypass BOTH the pre-existing
+> text shrink floor and this new component floor, and a flattening save through one
+> of them will fail exactly as silently as the bug this plan fixes."*
+
+**Audited 2026-08-13, as the seat asked. It is worse than the objection states.**
+
+Nine Go writers touch `page_components.rendered_html`; **one is guarded**:
+
+```
+adopt_verbatim · create_report_page · create_tool_component · deploy_tool
+fix_forced_text_colours · fix_harcoded_colours · rebuild_blog_listing
+section_editor_actions (ApplySectionEditAction)   ← 3 UPDATE sites
+save_page_sections                                ← the ONLY guarded one
+```
+
+**The one that matters is `ApplySectionEditAction`**, and the reason is not its row
+count. It is **live** (`section-editor` agent definition), it does
+`UPDATE page_components SET rendered_html = $2` directly, and **it is precisely the
+per-component edit path that decomposition exists to enable** — 10c §3's stated
+benefit is *"after decomposition you can rewrite one prose block without touching the
+calculator"*, and that is this action. So the guard covers the door the observed
+incident happened to come through, and misses the one the whole design steers future
+edits toward. Also live and unguarded: `rerender-pages`, `report-builder`,
+`tool-generator`.
+
+**The seat also identified something neither of us can close from here**, and it is
+correct: *"Whether the existing text shrink guard is wired into every
+page_components writer, or only into save_page_sections_action — this plan's
+coverage question is inherited wholesale from that guard."* It is inherited. The
+`bugs_open/178` floor has exactly the same single-call-site coverage, so **both
+floors have been protecting one door of nine since 08-02**, and nobody noticed
+because the incident that motivated each of them came through the guarded one.
+
+**This is the same defect I filed against other people's code in `251`/`252`** — the
+landmine that `injectCanonicalLink`/`injectPageJSONLD`/`injectRobotsNoindex` live on
+one head producer only. I cited it, then reproduced it. The memory entry for it is
+literally *"a guard only guards the door you walk through"*.
+
+**What the revision needs** (not yet done, see the handoff): extend both floors to
+`ApplySectionEditAction` first — single-row, so the comparison is simpler than the
+save path's — then decide per remaining writer whether it can replace an existing
+prose slot at all. Resubmit on the SAME correlation (`RESUBMIT_CORR=b30ac52c`) so
+the trail accumulates.
+
+The seat's second, low-severity objection is also fair and is now stated as residual
+exposure rather than left implicit: `minComponentGuardClasses=10` means a flattening
+of a slot just under the threshold produces the same silent no-refusal this bug
+exists to close.
+
 ## Two remedies, and the one that actually repaired the page was not the code
 
 **The live homepage is no longer flattened.** Re-measured 2026-08-12: `class="card"`
