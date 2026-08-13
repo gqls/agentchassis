@@ -267,3 +267,35 @@ separate thing worth fixing on that site sometime, not part of this plan.
 Full phased plan: `PLAN_2026-08-12_fleet_buildout.md` in this folder. Work is starting on
 the two blocking pieces (the link/tag checker, and bug 161's proper fix) — nothing else
 begins until both are live.
+
+---
+
+**2026-08-13.** Both blocking pieces are now built, tested, and approved by the review
+council — the gate you asked for before any new domain gets built is satisfied.
+
+Neither went through on the first try, and that's worth saying plainly because the review
+process earned its keep. The fact-checking fix went through two rounds: the reviewers
+caught, among other things, that the new checker could be fooled by a number appearing
+inside a bigger number (exactly the mistake that caused the original bug it was built to
+fix), and that a fact could accidentally be "verified" against a different website's page.
+Both were real, both got fixed with tests proving the fix. The link-and-tag checker took
+three rounds: the reviewers caught that we'd promised a sitemap check in the description
+but hadn't built one (now built), and then caught that a comparison I'd written against an
+older check rested on a false assumption about how that older check works.
+
+Chasing down that last point, at your "check it once more" prompt, uncovered something
+nobody was looking for: that older check — which is switched on and has been running since
+April — can never say "all clear". The columns it reads have been empty on every page of
+every site for months, so it fires every time, and each time it fires it orders a full
+rebuild of the site's pages. Roughly twenty-five of those pointless rebuilds have actually
+run. Nothing visibly broke, which is why nobody noticed for four months. It's now written
+up as bug 270 with the evidence and two candidate fixes; it isn't part of this build-out's
+critical path, but whoever picks it up will save the fleet a steady drip of wasted work —
+and it muddies the water for anyone investigating why pages rebuild when they shouldn't.
+
+What's next, in order: the new checks are approved but not yet switched on (deliberate —
+switching on is its own small, separate step), and the fact-checking code needs the next
+routine deployment to reach the live system. Then Phase B: building the machinery that
+gives each finance site a directory of real providers, sourced from live web searches with
+every claim verified against its source — the last new capability needed before the pilot
+site and then the fleet build-out proper.

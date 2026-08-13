@@ -688,3 +688,25 @@ reuse_agent's two LOW notes: `check_phantom_internal_links.go`'s `phantom_intern
 `unbuilt_internal_link` item types are real, and `loadStructuralDomain` has exactly one
 caller inside `loadStructuralPopulation`, no duplicate loader. Resubmitted (round 3), queue
 was clear, verdict pending.
+
+**A1: APPROVED at round 3** (2026-08-13 10:26, corr `51cb66fb-e4bc-46ec-8bbd-a4a561da14a0`).
+Neither implementation commit carries a trailer (all predate their submissions) — this
+note and the parallel one in the RFC/commit trail are the durable record; resolve by
+correlation, never by commit message.
+
+**PHASE A IS NOW FULLY DONE — both blocking pieces implemented AND council-approved.**
+Per the owner's sequencing ruling and `PLAN_2026-08-12_fleet_buildout.md`, Phase B
+(finance/insurance directory producer) is unblocked. Note the checks are approved but
+NOT yet enabled on any live discovery agent, and the RFC_025 code has not yet rolled —
+enablement migration + a chassis roll are Phase-B-adjacent follow-ups, not blockers on
+starting B's own build.
+
+**Side finding while double-checking the round-2 correction (owner asked for one more
+check): bug 270 filed.** `check_missing_structure.go` — the very check the council
+objections forced a comparison against — turned out to be LIVE and firing on a predicate
+that cannot be false (vestigial columns, empty on all 683 pages): 43 `needs_rerender`
+items since April, ~25 completed full-site rerenders dispatched for nothing,
+`dartsonline.com` 3-for-3, fired again 2026-08-12. Full census + fix candidates in
+`bugs_open/270_HANDOFF_2026-08-13_missing_structure_check_fires_on_vestigial_columns...md`.
+Unowned; candidate 1 (retype predicate onto `site_components`) is the door-closer.
+Also a standing confounder for any rerender-churn investigation (bugfix 117's class).
