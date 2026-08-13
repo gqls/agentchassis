@@ -228,3 +228,55 @@ problem — but there is nothing left to repair.
   including that a `predicted/` file is only valid until the framework next writes
   the page. That is how this was caught: a post-roll mirror check flagged the
   homepage as differing, and the difference turned out not to be the roll at all.
+
+---
+
+## CONTRIBUTION 2026-08-13 (263 lane) — the component floor CAN net to zero, and this is a measured shape rather than a worry
+
+`save_sections_component_floor.go` is the guard this bug earned, and its decision to
+count **class attributes in aggregate** is explicit and reasoned
+(`save_sections_component_floor.go:75-86`):
+
+> *"It deliberately ignores WHICH classes: the site vocabulary is per-site…"*
+
+**That property has now been observed producing a false pass at a different seam.** In
+`bugs_open/263`, decomposition dissolved a calculator's `.card` panel and its
+`.calc-grid`, and the aggregate class-attribute count read **18 before and 18 after** —
+because two removals (`container`, one `card`) were exactly offset by two `ported-prose`
+additions. Three checks certified that page; the aggregate was one of them. A class **set**
+diff also passed (the page has four `card`s and only one went). Only a per-class count —
+`card: 4 → 3` — saw it.
+
+**What this does and does not say about 253's guard.** It does *not* say the guard is
+broken: 253's own case was `card 18→0`, `tool-grid 3→0`, `btn-primary 15→0`, which any
+aggregate catches easily, and the floor is calibrated for exactly that collapse. What it
+says is that **the guard's blind spot is not hypothetical**: a save that removes layout
+elements while adding a comparable number of other class-bearing elements passes at any
+floor ratio, because the ratio is computed on a quantity that did not move. A rewrite that
+swaps a `card`/`btn-primary` vocabulary for a flat `<section class="…">` per paragraph is
+precisely that shape, and it is a plausible LLM rewrite rather than an adversarial one.
+
+**The cheap upgrade, already built and registered.** `scripts/class_count_delta.py`
+(concept register **ADO-041**) is the per-class form of the same measurement: a
+`{class: count}` map diff with an explicit permitted-delta allowlist, code-stripped on both
+sides. Porting its predicate into `evaluateComponentLoss` is a map comparison rather than an
+int comparison; the floor semantics, the `minComponentGuardClasses` scope threshold and the
+fail-closed behaviour need not change. **Two cautions for whoever does it**, both learned the
+expensive way in 263:
+
+1. **Strip `<script>`/`<style>` before counting.** `class=` inside a JS template literal is
+   not markup. Measured on a real page (`loancalculator.co.uk/tools/consolidation.html`):
+   five false drops without stripping, zero with — and the same mechanism can *hide* a real
+   drop by offsetting it, which is the failure above wearing different clothes.
+2. **A per-class map makes the allowlist load-bearing**, where the aggregate needed none.
+   Get it wrong in the permissive direction and the upgrade is inert; wrong in the strict
+   direction and it refuses honest saves. The rule that worked: *a permitted delta is one for
+   which a named, live compensating rule exists* — not one that looked harmless.
+
+**Not filed as a separate bug** because it is a stated limitation of a guard that is doing
+its job, not a defect in it; and **not implemented here** because this file's fix is another
+thread's live work. Raised so the decision is explicit rather than inherited.
+
+*Evidence: `bugs_open/263` (the 18→18 measurement and the three checks that passed);
+`WRONG_CALLS.md` 2026-08-12; `scripts/class_count_delta.py --selftest`, whose own induced
+failure is the netting-out case.*
