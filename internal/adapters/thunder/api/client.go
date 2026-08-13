@@ -101,6 +101,24 @@ func (c *Client) ListInstances(ctx context.Context) ([]Instance, error) {
 	return out, nil
 }
 
+// GetSpecs fetches Thunder's catalogue — the authority on valid vCPU counts
+// per GPU spec (bugs_open/258 defect 1). Read-only and free.
+//
+// Note the "specs" wrapper is real (verified live 2026-08-13): decoding this
+// endpoint straight into a map[string]Spec compiles, succeeds, and returns an
+// EMPTY map, which would look exactly like "Thunder sells nothing" — hence the
+// explicit envelope type.
+func (c *Client) GetSpecs(ctx context.Context) (map[string]Spec, error) {
+	var resp SpecsResponse
+	if err := c.do(ctx, http.MethodGet, "/specs", nil, &resp); err != nil {
+		return nil, fmt.Errorf("thunder get specs: %w", err)
+	}
+	if len(resp.Specs) == 0 {
+		return nil, fmt.Errorf("thunder get specs: catalogue is empty — refusing to guess a vCPU count")
+	}
+	return resp.Specs, nil
+}
+
 // GetInstance fetches a single instance by numeric identifier.
 //
 // VERIFIED 2026-05-21: Thunder has NO GET /instances/{id} endpoint — it 404s.

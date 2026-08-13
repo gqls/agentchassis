@@ -12,6 +12,7 @@
 package api
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 	"time"
@@ -164,4 +165,85 @@ func IsTerminalStatus(status string) bool {
 	return s == InstanceStatusRunning ||
 		s == InstanceStatusFailed ||
 		s == InstanceStatusDeleted
+}
+
+// ─── Specs (GET /v1/specs) ──────────────────────────────────────────────────
+//
+// The catalogue of what Thunder will actually sell you, and the ONLY authority
+// on valid vCPU counts. Read-only and free.
+//
+// WHY THIS EXISTS (bugs_open/258 defect 1): the adapter used to send a constant
+// cpu_cores: 4 whenever the caller said nothing, and Thunder rejects that for
+// 9 of the 11 single-GPU specs — including every cheap one. The two it accepts
+// are h100, the dearest GPU on the menu, so "provision with defaults" meant
+// "provision the most expensive box or nothing". A constant cannot be right
+// here: a6000 needs 6+, a100xl needs 8+, and the *_production specs want
+// exactly one value (15, or 10 for l40). That is why this is derived, not
+// tabulated — a table in our source drifts the moment Thunder changes.
+//
+// SHAPE, verified live 2026-08-13: {"specs": {"<key>": {...}}} — an object
+// under a "specs" wrapper, keyed by a COMPOSITE key, not an array.
+// Key form: "<gpu>_x<gpuCount>" optionally suffixed "_<mode>", e.g.
+// "a6000_x1", "a6000_x1_prototyping", "h100_x1_production". The bare
+// "<gpu>_x<n>" key carries no "mode" field and matches the prototyping
+// vcpuOptions; the gpu segment alone is NOT a spec key.
+
+// Spec is one entry of GET /v1/specs.
+type Spec struct {
+	DisplayName   string `json:"displayName"`
+	VRAMGB        int    `json:"vramGB"`
+	GPUCount      int    `json:"gpuCount"`
+	Mode          string `json:"mode,omitempty"` // absent on the bare "<gpu>_x<n>" key
+	VCPUOptions   []int  `json:"vcpuOptions"`
+	RAMPerVCPUGiB int    `json:"ramPerVCPUGiB"`
+	StorageGB     struct {
+		Min int `json:"min"`
+		Max int `json:"max"`
+	} `json:"storageGB"`
+}
+
+// SpecsResponse is the /v1/specs envelope. The "specs" wrapper is real —
+// decoding straight into a map silently yields nothing.
+type SpecsResponse struct {
+	Specs map[string]Spec `json:"specs"`
+}
+
+// SpecKey builds the composite key for a (gpu, count, mode) triple, matching
+// Thunder's own naming. Mode is appended only when non-empty, so the caller can
+// ask for the bare key deliberately.
+func SpecKey(gpu string, numGPUs int, mode string) string {
+	if numGPUs < 1 {
+		numGPUs = 1
+	}
+	k := fmt.Sprintf("%s_x%d", strings.ToLower(strings.TrimSpace(gpu)), numGPUs)
+	if mode != "" {
+		k += "_" + strings.ToLower(strings.TrimSpace(mode))
+	}
+	return k
+}
+
+// LowestValidVCPUs returns the cheapest vCPU count Thunder will accept for this
+// spec. Cheapest because vCPUs are billed above the included allowance, so the
+// lowest valid option is the one a caller who expressed no preference wants.
+//
+// Returns 0 if the spec publishes no options — which the caller must treat as
+// "cannot determine", never as "use a default": defaulting is the bug.
+func (s Spec) LowestValidVCPUs() int {
+	lowest := 0
+	for _, v := range s.VCPUOptions {
+		if v > 0 && (lowest == 0 || v < lowest) {
+			lowest = v
+		}
+	}
+	return lowest
+}
+
+// AcceptsVCPUs reports whether n is in this spec's published option set.
+func (s Spec) AcceptsVCPUs(n int) bool {
+	for _, v := range s.VCPUOptions {
+		if v == n {
+			return true
+		}
+	}
+	return false
 }

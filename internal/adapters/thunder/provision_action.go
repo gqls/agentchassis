@@ -48,6 +48,10 @@ type thunderAPI interface {
 	CreateInstance(ctx context.Context, req api.CreateInstanceRequest) (*api.CreateInstanceResponse, error)
 	WaitForRunning(ctx context.Context, identifier int, pollInterval time.Duration) (*api.Instance, error)
 	DeleteInstance(ctx context.Context, identifier int) error
+	// GetSpecs is the authority on valid vCPU counts per GPU (bugs_open/258
+	// defect 1). Called only when the caller supplied no vcpus, so an explicit
+	// request is never blocked by a specs outage.
+	GetSpecs(ctx context.Context) (map[string]api.Spec, error)
 }
 
 // secretManager is the subset of *ssh.SecretManager this action calls.
@@ -192,11 +196,12 @@ func (p *ProvisionAction) Execute(ctx context.Context, req ProvisionInstanceRequ
 	}
 
 	// ── 2. Resolve config defaults for any unset request fields ──
+	//
+	// ORDER MATTERS: the GPU name and mode are normalised BEFORE vCPUs, because
+	// the vCPU count is now derived from the resolved spec (bugs_open/258
+	// defect 1) and the spec key is built from gpu + count + mode.
 	if req.NumGPUs == 0 {
 		req.NumGPUs = 1
-	}
-	if req.VCPUs == 0 {
-		req.VCPUs = api.DefaultCPUCores
 	}
 	if req.DiskSizeGB == 0 {
 		req.DiskSizeGB = api.DefaultDiskSizeGB
@@ -214,6 +219,19 @@ func (p *ProvisionAction) Execute(ctx context.Context, req ProvisionInstanceRequ
 	req.GPU = strings.ToLower(strings.TrimSpace(req.GPU))
 	if req.GPU == "" || req.GPU == "a100" {
 		req.GPU = api.GPUTypeA100XL // "a100xl" — the only A100 Thunder offers (80GB)
+	}
+
+	// vCPUs: ASK THUNDER, never assume (bugs_open/258 defect 1). The old
+	// constant 4 is invalid for 9 of the 11 single-GPU specs — every cheap one —
+	// so "provision with defaults" meant "provision an h100 or get a 400".
+	// Only fetched when the caller expressed no preference, so an explicit
+	// request is never blocked by a specs outage.
+	if req.VCPUs == 0 {
+		vcpus, err := p.lowestValidVCPUs(ctx, req.GPU, req.NumGPUs, req.Mode)
+		if err != nil {
+			return nil, err
+		}
+		req.VCPUs = vcpus
 	}
 
 	instanceType := deriveInstanceType(req.GPU, req.NumGPUs)
@@ -350,7 +368,19 @@ func (p *ProvisionAction) Execute(ctx context.Context, req ProvisionInstanceRequ
 	}
 
 	// ── 6. Poll until instance is RUNNING (or hits terminal state / timeout) ──
-	waitCtx, cancelWait := context.WithTimeout(ctx, p.waitTimeout)
+	//
+	// The deadline is live config (bugs_open/258 defect 2, migration 397): the
+	// old hardcoded 5 minutes DELETED any instance slower than that to boot,
+	// which is every a6000 measured. p.waitTimeout remains the fallback for an
+	// unmigrated database and for tests.
+	//
+	// ⚠ This must stay BELOW the dispatching step's timeout_seconds. If it
+	// exceeds it, a slow-but-successful provision is the bad case: the await
+	// expires, the retry driver re-dispatches, the 259 claim guard refuses the
+	// duplicate (correctly), and the workflow reports FAILED while a real billed
+	// instance runs on unwatched. The 397 migration states the arithmetic.
+	waitTimeout := p.resolveWaitTimeout(cfg)
+	waitCtx, cancelWait := context.WithTimeout(ctx, waitTimeout)
 	defer cancelWait()
 
 	inst, err := p.thunderAPI.WaitForRunning(waitCtx, createResp.Identifier, p.pollInterval)
@@ -426,6 +456,82 @@ func (p *ProvisionAction) Execute(ctx context.Context, req ProvisionInstanceRequ
 		ThunderIdentifier: createResp.Identifier,
 		ProvisionedAt:     provisionedAt,
 	}, nil
+}
+
+// provisionWaitTimeoutCeiling bounds what the config may ask for, mirroring
+// migration 397's CHECK. Belt and braces: the CHECK guards the column, this
+// guards the value actually used, so a hand-edited row or a future migration
+// that drops the constraint cannot hand the adapter an absurd deadline.
+const provisionWaitTimeoutCeiling = 30 * time.Minute
+
+// resolveWaitTimeout returns the live configured wait deadline, falling back to
+// the compiled-in default when the column is absent (unmigrated database),
+// unset, or out of range. bugs_open/258 defect 2.
+//
+// It logs whenever it uses the fallback, because a silently-defaulted deadline
+// is indistinguishable from a configured one — the exact shape that let the
+// hardcoded 5 minutes go unnoticed until it deleted a box we had paid for.
+func (p *ProvisionAction) resolveWaitTimeout(cfg *store.Config) time.Duration {
+	if cfg == nil || !cfg.ProvisionWaitTimeoutSeconds.Valid {
+		p.logger.Warn("provision_wait_timeout_seconds not available — using compiled-in default (is migration 397 applied?)",
+			zap.Duration("wait_timeout", p.waitTimeout))
+		return p.waitTimeout
+	}
+	secs := cfg.ProvisionWaitTimeoutSeconds.Int64
+	d := time.Duration(secs) * time.Second
+	if d <= 0 || d > provisionWaitTimeoutCeiling {
+		p.logger.Error("provision_wait_timeout_seconds out of range — ignoring it and using the compiled-in default",
+			zap.Int64("configured_seconds", secs),
+			zap.Duration("ceiling", provisionWaitTimeoutCeiling),
+			zap.Duration("wait_timeout", p.waitTimeout))
+		return p.waitTimeout
+	}
+	p.logger.Info("Provision wait deadline from live config",
+		zap.Duration("wait_timeout", d))
+	return d
+}
+
+// lowestValidVCPUs asks Thunder what it will accept for this spec and returns
+// the cheapest option (vCPUs are billed above the included allowance, so the
+// lowest valid count is what a caller expressing no preference wants).
+//
+// bugs_open/258 defect 1. It REFUSES rather than falling back to a constant:
+// falling back is the bug this replaces, and a wrong count costs a round trip
+// and a confusing 400 rather than anything worse. The error names the spec key
+// so an operator can check it against GET /v1/specs directly.
+func (p *ProvisionAction) lowestValidVCPUs(ctx context.Context, gpu string, numGPUs int, mode string) (int, error) {
+	specs, err := p.thunderAPI.GetSpecs(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("resolve vcpus for %s: %w", api.SpecKey(gpu, numGPUs, mode), err)
+	}
+
+	// Primary key carries the mode; the bare "<gpu>_x<n>" key is the documented
+	// fallback (it exists, carries no mode field, and matches the prototyping
+	// options — verified live 2026-08-13).
+	key := api.SpecKey(gpu, numGPUs, mode)
+	spec, ok := specs[key]
+	if !ok {
+		bare := api.SpecKey(gpu, numGPUs, "")
+		if spec, ok = specs[bare]; ok {
+			key = bare
+		}
+	}
+	if !ok {
+		return 0, fmt.Errorf("resolve vcpus: Thunder publishes no spec %q (nor %q) — check GET /v1/specs; a gpu type alone is not a spec key",
+			api.SpecKey(gpu, numGPUs, mode), api.SpecKey(gpu, numGPUs, ""))
+	}
+
+	vcpus := spec.LowestValidVCPUs()
+	if vcpus == 0 {
+		return 0, fmt.Errorf("resolve vcpus: spec %q publishes no vcpuOptions — refusing to guess", key)
+	}
+
+	p.logger.Info("Resolved vCPU count from Thunder specs",
+		zap.String("spec_key", key),
+		zap.Int("vcpus", vcpus),
+		zap.Ints("vcpu_options", spec.VCPUOptions),
+	)
+	return vcpus, nil
 }
 
 // ─────────────────────────────────────────────────────────────────────────

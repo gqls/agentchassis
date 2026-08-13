@@ -26,6 +26,13 @@ type Config struct {
 	EstimatedNewRunCostUSD float64
 	IsPaused               bool
 	PauseReason            sql.NullString
+
+	// ProvisionWaitTimeoutSeconds is how long to wait for a new instance to
+	// reach RUNNING before compensating (bugs_open/258 defect 2, migration 397).
+	// NULL/invalid means "column not present or unset" — the caller uses its
+	// compiled-in default. It is deliberately nullable so the binary does not
+	// depend on the migration having been applied.
+	ProvisionWaitTimeoutSeconds sql.NullInt64
 }
 
 // ProvisionCheck mirrors thunder_provision_check view shape.
@@ -41,11 +48,19 @@ type ProvisionCheck struct {
 // LoadConfig returns the (singleton) row from thunder_config.
 // Errors if the row is missing — that indicates migration 025 wasn't applied.
 func LoadConfig(ctx context.Context, db *sql.DB) (*Config, error) {
+	// provision_wait_timeout_seconds is read through to_jsonb DELIBERATELY, not
+	// as a bare column. A bare column reference makes this query — and so every
+	// provision, decommission and reaper run — fail outright on any deployment
+	// where migration 397 has not been applied yet, coupling the binary to the
+	// migration in the direction that breaks things. `to_jsonb(t)->>'missing'`
+	// is simply NULL, so an unmigrated database degrades to the compiled-in
+	// default instead of failing. Costs nothing: same row, same round trip.
 	const q = `
 		SELECT daily_cap_usd, max_concurrent_instances,
 		       default_hard_uptime_hours, default_hourly_rate_usd,
-		       estimated_new_run_cost_usd, is_paused, pause_reason
-		FROM thunder_config
+		       estimated_new_run_cost_usd, is_paused, pause_reason,
+		       (to_jsonb(t)->>'provision_wait_timeout_seconds')::int
+		FROM thunder_config t
 		LIMIT 1
 	`
 	var c Config
@@ -57,6 +72,7 @@ func LoadConfig(ctx context.Context, db *sql.DB) (*Config, error) {
 		&c.EstimatedNewRunCostUSD,
 		&c.IsPaused,
 		&c.PauseReason,
+		&c.ProvisionWaitTimeoutSeconds,
 	)
 	if err == sql.ErrNoRows {
 		return nil, fmt.Errorf("thunder_config row missing — migration 025 not applied?")

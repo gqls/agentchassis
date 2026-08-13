@@ -49,10 +49,15 @@ type countingThunderAPI struct {
 	nextID   int
 	waitErr  error // if set, WaitForRunning fails — the real 258-defect-2 shape
 	returnIP string
+
+	specCalls  int                       // how many times the catalogue was consulted
+	specsErr   error                     // if set, GetSpecs fails
+	lastCreate api.CreateInstanceRequest // what we actually asked Thunder for
 }
 
-func (c *countingThunderAPI) CreateInstance(_ context.Context, _ api.CreateInstanceRequest) (*api.CreateInstanceResponse, error) {
+func (c *countingThunderAPI) CreateInstance(_ context.Context, req api.CreateInstanceRequest) (*api.CreateInstanceResponse, error) {
 	c.creates++
+	c.lastCreate = req
 	c.nextID++
 	return &api.CreateInstanceResponse{Identifier: c.nextID, UUID: "uuid-stub"}, nil
 }
@@ -67,6 +72,33 @@ func (c *countingThunderAPI) WaitForRunning(_ context.Context, id int, _ time.Du
 func (c *countingThunderAPI) DeleteInstance(_ context.Context, _ int) error {
 	c.deletes++
 	return nil
+}
+
+// GetSpecs returns the REAL catalogue, measured live from GET /v1/specs on
+// 2026-08-13 (single-GPU entries). Invented numbers would defeat the purpose:
+// bugs_open/258 defect 1 is precisely a case where a plausible-looking constant
+// was wrong, so the fixture has to be what Thunder actually publishes.
+func (c *countingThunderAPI) GetSpecs(_ context.Context) (map[string]api.Spec, error) {
+	c.specCalls++
+	if c.specsErr != nil {
+		return nil, c.specsErr
+	}
+	mk := func(mode string, opts ...int) api.Spec {
+		return api.Spec{GPUCount: 1, Mode: mode, VCPUOptions: opts}
+	}
+	return map[string]api.Spec{
+		"a100xl_x1":             mk("", 8, 12, 16),
+		"a100xl_x1_prototyping": mk("prototyping", 8, 12, 16),
+		"a100xl_x1_production":  mk("production", 15),
+		"a6000_x1":              mk("", 6, 8),
+		"a6000_x1_prototyping":  mk("prototyping", 6, 8),
+		"h100_x1":               mk("", 4, 8, 12, 16),
+		"h100_x1_prototyping":   mk("prototyping", 4, 8, 12, 16),
+		"h100_x1_production":    mk("production", 15),
+		"l40_x1":                mk("", 6, 8, 12),
+		"l40_x1_prototyping":    mk("prototyping", 6, 8, 12),
+		"l40_x1_production":     mk("production", 10),
+	}, nil
 }
 
 type stubSecretManager struct{}
@@ -85,7 +117,8 @@ func expectGates(mock sqlmock.Sqlmock) {
 		sqlmock.NewRows([]string{
 			"daily_cap_usd", "max_concurrent_instances", "default_hard_uptime_hours",
 			"default_hourly_rate_usd", "estimated_new_run_cost_usd", "is_paused", "pause_reason",
-		}).AddRow(100.0, 4, 18, 0.43, 5.0, false, nil))
+			"provision_wait_timeout_seconds",
+		}).AddRow(100.0, 4, 18, 0.43, 5.0, false, nil, 540))
 
 	mock.ExpectQuery(`FROM thunder_provision_check`).WillReturnRows(
 		sqlmock.NewRows([]string{
