@@ -149,6 +149,20 @@ Commits: `fc27a74e0`, `70732301c`, `e5d664f97`, `714c1d65c` (plus `23f1229f0`,
 
 ## 5. THE BLOCKERS, in priority order
 
+> **UPDATE 2026-08-13 evening — blockers 2, 3 and 5 are CLOSED; 4 remains.**
+> The privacy copy is written (owner-approved), registered, and live on
+> `/privacy.html` **verbatim — 22/22 sentences** (the writer only receives the
+> `writer_block` STRING, so the copy now travels inline in it; `supplied_copy`
+> alone reaches nobody). The guide's blocker was never the copy: it was the ban
+> firing on a TRUE sentence about the old app — and the deeper defect was that
+> `writer_block` itself said "The old site had no server at all", teaching the
+> phrase it banned. Reworded (owner ruling: describe what the old app DID);
+> the guide rebuilt clean first try and its CTAs point at the tool. The site's
+> queue is EMPTY bar the three inert `detected` rows. Still genuinely open:
+> **blocker 4** (degraded states by hand, pre-launch), the owner's
+> deletion-vs-backup-retention disclosure decision, and cutover.
+> Full trail: NOTES 2026-08-13.
+
 | # | Blocker | What is known |
 |---|---|---|
 | ~~1~~ | ~~**Tool page is `planned`**~~ **CLOSED 17:12** — built, deployed, serving `200 / 23425` on the box, and migrate's button now resolves | Nothing promoted it automatically because `page_rerender` normally files items only for pages already `deployed`. Fixed by hand-filing one with the **`page_id` COLUMN** set — see §2 for the attempt that got that wrong |
