@@ -5,7 +5,7 @@
 **Status:** **FIXED IN THE TREE 2026-08-13, NOT YET LIVE.** All three halves done (rendered handle,
 canonical de-duplication, first-wins exactness). Go changes are inert until the next chassis roll, so
 this stays in `/bugs_open/` — a bundle assembled right now still offers ambiguous bare handles.
-Council: submitted, see §8. **§6's `[UNMEASURED]` is discharged — 48 of 1,175 methods, see §6b.**
+Council: **APPROVED first round 2026-08-13**, `Council-Reviewed: e5809ca9-d718-44f6-8d27-6d8cd656dd28` — 13 seats approve, 2 advisory objections, none high-severity (both answered in §8). **§6's `[UNMEASURED]` is discharged — 48 of 1,175 methods, see §6b.**
 
 > **Numbering:** 268 was taken by another session the same day. Checked 269 free at filing.
 > Resolve by slug, not by number.
@@ -267,9 +267,108 @@ hand-describing spans. The load-bearing assertion is not a string match — it *
 handles through `ReadSymbolBody` and requires different bodies**, which is precisely what the bare
 spelling could never satisfy.
 
-## 8. Council
+## 8. Council — APPROVED first round, and the two objections were both worth answering
 
-Submitted 2026-08-13 — see the commit trailer for the correlation. `RFC_027` (the handle grammar's
-missing owner) is unaffected: this fix makes `siblingSignatures` a *caller* of
-`CanonicalSymbolName`, which leaves **`code_symbols_actions.go:598` as the one remaining independent
-producer**. That is the RFC's whole question and this fix narrows it rather than answering it.
+`e5809ca9-d718-44f6-8d27-6d8cd656dd28`, 2026-08-13. **13 seats approve, 2 advisory objections
+(`bug_historian` and `prior_art_librarian`, both medium), none high-severity.** Neither blocks; both are
+answered here rather than waved at.
+
+### 8a. `bug_historian`: *"the plan asserts `code_symbols_actions.go:598` is 'independent' but does not establish it is SAFE"*
+
+**A fair hit, and the answer was already sitting in my own control measurement — I ran that census to
+validate the blast-radius query and did not notice it doubled as the safety proof for the other
+producer.**
+
+`code_symbols_actions.go:594-598` reads:
+
+```go
+kind := "func"
+name := fn.Name
+if fn.Receiver != nil {
+    kind = "method"
+    name = "(" + fn.Receiver.Type + ")." + fn.Name
+}
+```
+
+It emits the **canonical** form unconditionally for every method. And that is not just what the source
+says — it is what the data says: **1,175 of 1,175 `kind='method'` rows are stored parenthesised, 0 are
+not** (§6b's control). So the indexer **cannot** produce the collision-driven wrong answer this fix
+removes: it has never written a bare method handle.
+
+**So the honest statement is stronger than "independent": it is independent AND provably correct on this
+defect, measured, not inferred.** The residual risk is *drift* — two producers of one grammar can
+diverge later — which is a different failure from the *ambiguity* fixed here, and is exactly
+`architecture_review/RFC_027`'s question. The seat is right that "independent" alone did not establish
+this; it does now.
+
+### 8b. `prior_art_librarian`: *"the landmine on the two grammars was not read"*
+
+**Correct, and it is this lane's own landmine** (added 2026-08-12, footprint
+`code_symbols_actions.go ~:593-640` + `spanOf`/`splitReceiver` + `siblingSignatures`). Read now, and it
+turns out to prescribe exactly what mutation testing made me do independently:
+
+> *"assert it with a fixture that uses **the spelling the producer really emits** — not the one the
+> function already implements. That is how this survived: `symbolbody_test.go` asserted the dotted
+> `Type.Method` form, a spelling **no producer has ever written**, so the test and the code were blind in
+> the same direction and agreed with each other."*
+
+That is the same failure I hit in the 267 round: `TestCanonicalSymbolName`'s first draft asserted only a
+round trip through `splitReceiver`, which accepts *both* spellings, so it passed on the wrong one. The
+mutation caught it and the fix was to anchor on **literal handles quoting what the producer emits**. Two
+independent routes to one rule — worth noting because the landmine would have got me there for free had
+I grepped it by symbol rather than by the file I was editing.
+
+Also from the same entry, checked against this fix: *"the trap inside the fix — widening the accepted
+SPELLING must not widen the MATCH."* This change moves in the opposite direction (it **narrows what is
+EMITTED**, and touches no matching rule), so that trap is not in play.
+
+Its second point — whether `CanonicalSymbolName`, `spanOf` and `splitReceiver` exist as the rationale
+assumes — verified: `symbolbody.go:164`, `:262`, `:323`, with `CanonicalSymbolName` added in
+`17734b699`.
+
+### 8c. `debug_historian` (low): no stated pod-verification step
+
+Now stated, and with the recipe corrected by this lane's own 2026-08-13 experience — see §9. The seat
+cited the pre-2026-08-11 `strings`-the-binary lore; the current method is the build stamp plus an
+ancestry test, **with the log-range precheck first**, because on `agent-chassis` the stamp is a startup
+line and the recipe is TIME-LIMITED rather than inoperative (`bugs_closed/267` §9).
+
+## 9. Verification when it rolls — and it needs a COLLISION file or it proves nothing
+
+**① Is the code live?** Immediately after the roll (the window is minutes, not hours):
+
+```bash
+POD=$(kubectl -n ai-persona-system get pods -l app=agent-chassis -o name | head -1 | cut -d/ -f2)
+kubectl -n ai-persona-system logs $POD --tail=100000 | head -1              # PRECHECK: a startup line?
+kubectl -n ai-persona-system logs $POD --tail=100000 | grep -m1 'build provenance'
+git merge-base --is-ancestor a3fee59b8 <the git_commit from that line> && echo "269 IS IN THE BINARY"
+```
+Plus a control: any descendant of the stamp must read ABSENT.
+
+**② Has the behaviour changed?** A bare method handle should stop appearing in NEW bundles:
+
+```sql
+SELECT count(*) FILTER (WHERE body ~ '- `[^`]+\.go:[A-Z][A-Za-z0-9_]*` — `func \(') AS bare_method_handles,
+       count(*)                                                                       AS bundles_in_window
+FROM diagnosis_artifacts WHERE kind='bundle' AND created_at > '<roll>';
+```
+
+⚠ **`bare_method_handles = 0` is only evidence if `bundles_in_window > 0`.** The demand control is not
+optional — `bugs_closed/267` §9 records this exact zero being unreadable without it on 2026-08-13.
+
+⚠ **And the bundle must have scoped a COLLISION file** for the fix's point to be exercised at all;
+§6b names them (`discovery_checks/check_integrity.go` is the richest, six-way). A clean result from a
+bundle over a collision-free file demonstrates nothing — which is precisely how this defect survived
+`bugs_closed/261`'s fix.
+
+## 10. Relations
+
+- `bugs_closed/261` — where this was first recorded (§8 follow-up 1) and where the READER half was fixed.
+- **`LANDMINES.md`, "The code index and the body reader are TWO grammars for one `path:Symbol` handle"** —
+  this lane's own entry, footprinted on both producers. Cited at `prior_art_librarian`'s objection; its
+  fixture rule is the one mutation testing rediscovered here.
+- `bugs_closed/267` — increased this defect's reach, and §9 there is where the deploy-proof recipe was
+  learned.
+- `architecture_review/RFC_027` — the open owner question. This fix narrows it from three producers of
+  the spelling to two; §8a establishes the remaining one is currently correct, so the RFC is about drift,
+  not a live defect.

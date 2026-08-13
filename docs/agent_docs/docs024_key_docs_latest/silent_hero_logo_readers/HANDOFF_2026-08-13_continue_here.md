@@ -14,12 +14,14 @@
 |---|---|---|
 | `bugs_closed/261` — code tier could not read its own index's spellings | **CLOSED, live** | nothing |
 | `bugs_closed/267` — bundle advised an impossible whole-file re-read | **CLOSED, live on `v1.0.1295`**, council APPROVED `ac23f2f7` | nothing, except the §4b trend below when traffic resumes |
-| `bugs_open/269` — sibling section offered bare method handles → **wrong body, silently** | **FIXED IN TREE, NOT LIVE.** Council submitted `e5809ca9-d718-44f6-8d27-6d8cd656dd28` | ① read the verdict ② next chassis roll ③ then close |
+| `bugs_open/269` — sibling section offered bare method handles → **wrong body, silently** | **FIXED IN TREE, NOT LIVE. Council APPROVED first round** `e5809ca9-d718-44f6-8d27-6d8cd656dd28` (13/15, 2 advisory, both answered in its §8) | ① next chassis roll ② verify per its §9 — **needs a COLLISION file or it proves nothing** ③ then close |
 | `architecture_review/RFC_027` — the handle grammar has no owner | **OPEN, needs an OWNER RULING** | a decision; "four bugs on something this small is acceptable" is a legitimate one |
 | `bugs_open/236` — the case all of this was unblocking | **UNTOUCHED by this lane today** | someone to actually re-run the diagnosis now the tooling works |
 
-**The one thing to do first if you pick this up cold:** read the 269 verdict (§3), because the code is
-already on the shared branch and a REVISE/REJECTED needs answering.
+**The one thing to do first if you pick this up cold:** nothing on the council side — 269 was **approved
+first round** and both advisory objections are answered in its §8. **The next action is a chassis roll**,
+then 269's §9 verification, then close it. If you want new work instead, go to §6: `bugs_open/236` has
+never been re-run and both of its blockers are now live.
 
 ## 2. What shipped, and how to prove it rather than assume it
 
@@ -50,7 +52,10 @@ git merge-base --is-ancestor <your-commit> <the git_commit from the stamp> && ec
 
 ## 3. 269 — what to do next, in order
 
-**① Read the verdict.** Correlation `e5809ca9-d718-44f6-8d27-6d8cd656dd28`.
+**① The verdict is read and recorded — APPROVED, no action owed.** Correlation
+`e5809ca9-d718-44f6-8d27-6d8cd656dd28`, 13 seats approve, 2 advisory objections (`bug_historian`,
+`prior_art_librarian`, both medium), answered in `bugs_open/269` §8a/§8b. The queries below are only if
+you want to re-read it.
 
 ```sql
 SELECT current_step, status FROM orchestration_states
@@ -66,17 +71,14 @@ Submission file to revise from: `<scratchpad>/269_submission.json`; resubmit wit
 ⚠ **Filter by YOUR correlation.** `ORDER BY created_at DESC LIMIT 1` on `doc_notes` gets another lane's
 verdict — there is a landmine for exactly that.
 
-**② After the next roll, close it.** The bar is fixed AND live. Verification needs a **collision file**
-or it proves nothing:
-
-```sql
--- bare method handles still being offered? (should stop appearing in NEW bundles)
-SELECT count(*) FROM diagnosis_artifacts
- WHERE kind='bundle' AND created_at > '<roll>'
-   AND body ~ '- `[^`]+\.go:[A-Z][A-Za-z0-9_]*` — `func \(';   -- a bare handle whose signature has a receiver
-```
-**Pair it with a demand control** (`count(*)` of bundles in the same window). Zero with no bundles means
-nothing — that trap cost me a false read today and the control is the only reason it didn't land.
+**② After the next roll, close it — the full recipe is `bugs_open/269` §9**, which carries the live-code
+check (stamp + ancestry + precheck + control) and the behaviour check with its demand control. Two things
+from it that are easy to skip and fatal to skip:
+- **`bare_method_handles = 0` is evidence only if `bundles_in_window > 0`.** `bugs_closed/267` §9 records
+  that exact zero being unreadable without its control, on 2026-08-13.
+- **the bundle must have scoped a COLLISION file** or nothing was exercised. §6b names them;
+  `discovery_checks/check_integrity.go` is the richest at six-way. A clean result over a collision-free
+  file demonstrates nothing — which is exactly how this defect survived `bugs_closed/261`'s fix.
 
 **③ `git mv` needs BOTH paths on the commit** — `git commit <old> <new>`. A single-path pathspec ships a
 copy and leaves the original at HEAD. Verify with `git ls-tree -r --name-only HEAD | grep <slug>` → one line.
