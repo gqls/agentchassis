@@ -2509,3 +2509,50 @@ not the row you read this morning.
   will re-check your session state and the queue immediately before, and
   re-verify the chat box survived after, per your `pages.sections` landmine.
   Shout in here if the timing is bad.
+
+## 2026-08-13 — facts relay ACTIVATED; it caught a live £1,200-vs-£149 contradiction
+
+Core-manager rolled to **v1.0.1294** (owner's fresh build), which carries the
+CHAT-010 site-facts endpoint. Verified live before trusting it: the no-token
+probe over the tunnel returned **401** (endpoint present, fail-closed), not 404
+(old image) — the endpoint shipped.
+
+**Found a live customer-facing bug on the way in.** The sibling
+`ai_site_selling_automation` lane retired the £1,200 offer and moved the whole
+site to **£149** (register + all 5 pages) on 2026-08-12. But my chat bot was
+still in legacy mode with £1,200/£75-deposit/14-day compiled in — so a visitor
+read £149 on every page and then the bot said **"£1,200 total"**. Exactly the
+drift the relay was built to kill, now proven real a second time.
+
+**Activated the relay to fix it, carefully:**
+1. Added `SITE_FACTS_TOKEN` (40-char random) to `personae-platform-secrets`
+   (additive JSON patch), rolling-restarted core-manager. The token is in the
+   cluster secret; the same value is in the box's `/etc/webdesign-chat.env` as
+   `FACTS_TOKEN`.
+2. **Inspected the endpoint output BEFORE flipping the live bot** — fetched with
+   the token over the tunnel and confirmed 15 clean £149 facts (price £149, no
+   VAT, pay-after-approval, no refund, no revisions, ZIP delivery,
+   queue-limited, AI-built, contact). Coherent and current.
+3. Set `FACTS_URL` (`http://10.21.127.41:8088/api/v1/site-facts/webdesign.uk`)
+   + `FACTS_TOKEN` on the box env, restarted. Startup log:
+   `facts: fetched 15 facts from relay` → `facts: live mode`.
+4. Proven at the artefact: the bot now answers "£149 as a one-off payment...
+   you approve the finished site before you pay", and a retired-term grep on
+   its replies (`1,?200|£75|deposit|14.day`) returns **zero**.
+
+**Now: the bot's facts are the DATABASE, live.** Change a fact in
+`evidence_base` and the bot reflects it within one refresh (5 min) or a
+restart, no redeploy. The compiled-in £1,200 constant is now dead weight —
+inert while the relay is up, and if the relay ever fails the bot **refuses to
+start** rather than revive it (by design).
+
+⚠ **Two durability notes for the next session:**
+- **`FACTS_URL` uses the ClusterIP `10.21.127.41`, not cluster DNS**, because
+  `getent hosts core-manager.ai-persona-system.svc.cluster.local` failed from
+  the box (the wg0 `DNS=10.21.0.10` line isn't making cluster names resolve —
+  unresolved). The ClusterIP is stable across pod restarts but NOT across a
+  Service delete/recreate. If the bot ever starts failing to fetch, re-check
+  the core-manager Service ClusterIP first. Fixing box DNS would make this
+  durable.
+- **`SITE_FACTS_TOKEN` now lives in `personae-platform-secrets`** alongside the
+  DB passwords and JWT secret — a real secret, additive. It is NOT in git.
