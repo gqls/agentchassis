@@ -592,3 +592,63 @@ must close and one must stay open. If all three close, the thing is closing tick
 we stop and look — and that is a distinction you simply cannot draw from counting how many closed.
 
 Nothing needs you. The next real moment is Monday.
+
+---
+
+## 2026-08-13 (evening) — from a different thread, not this lane: the thing we've been pointing components at doesn't do what we said it does
+
+You reported the invisible links on the darts guide page yesterday. Another thread diagnosed it,
+found it was a component we'd never fixed before, and handed the repair on rather than doing it. I
+picked that up, and the intention was straightforward: do what we did before, but properly this time
+— stop fixing these one at a time by hand and fix all of them at once. There turned out to be **168
+components** with the same flaw, and we had fixed **four** in six days. You found the fifth by eye.
+That ratio was the whole argument for automating it.
+
+**I didn't do it, because I checked what we'd be pointing them at and it isn't what we thought.**
+
+The way this fix works: a site's palette has a "primary" colour. Some components use it for text.
+On a few sites that colour is nearly the same as the page background, so the text is invisible —
+that's your darts page. Our repair was to invent a second variable, `primary-ink`, described as
+"primary, adjusted until you can read it", and point the text at that instead. The plan said, in as
+many words, that it "prefers a palette colour so the site keeps its character".
+
+**It doesn't keep any character. `primary-ink` is just the body-text colour.** I downloaded the
+stylesheet of every live site and checked: on all 16 places where that variable differs from the
+colour it's meant to be adjusting, it is **exactly the site's ordinary body-text colour**. Not once
+is it a lighter version of the brand colour. Never anything else at all.
+
+It's one line of code. It tries a list of colours in order and takes the first readable one, and
+body text is first in the list — and body text is the colour we *chose* to be readable on the
+background, so it always wins. The other four options can never be reached.
+
+**Why that mattered more than it sounds.** Had I gone ahead, on 14 sites I'd have quietly replaced
+brand-coloured links with plain body text. On webdesign.co.uk — the site whose entire pitch is that
+we do design — that means the warm tan links all go near-black. And here's the part I want you to
+notice: **our contrast checker would have called that a perfect pass**, because near-black text on a
+pale background is extremely readable. The tool measures readability. It has no opinion about
+whether the page still looks like your brand. So the bug would have been marked fixed, the numbers
+would all have been green, and the only thing that would ever have caught it is you opening a page
+and thinking it looked wrong — which is exactly how this bug got found in the first place.
+
+The four fixes we already shipped are still good, and I want to be fair about that: those elements
+were **invisible**, and now they're readable. That's a real improvement and it was measured. What's
+wrong is only our belief that the brand colour survived. It didn't.
+
+**What I think we should do**, and it's cheaper than what I was about to do: fix the one line
+instead of the 347 places. Make it try *darkening or lightening the brand colour itself* until it's
+readable, and only fall back to body text if that can't be done. Then the four fixes we've already
+shipped improve on their own, with no further edits, and the big sweep becomes safe to do. Doing the
+sweep first would spend the brand on 14 sites to buy readability that the one-line fix gives us for
+free.
+
+**One honest admission.** I used a second AI to attack my own plan, which is what caught this. Its
+argument was right and I checked it myself. But it also handed me a pile of supporting numbers and I
+wrote several of them down as if I'd measured them. Two I later checked: one was wrong by a factor
+of twenty. I've corrected them in place, marked the ones I couldn't re-check, and written the lesson
+down — a number someone else measured is a quotation, not a measurement, and our notation had no way
+to tell those apart.
+
+**Nothing here needs you tonight, and I've changed nothing on any site.** Two things for when you're
+next at a keyboard: the cluster login expired mid-session, so a few figures are still unverified and
+one bookkeeping sync didn't run. And the decision about whether to fix the one line is worth your
+view, because it changes how every site's links will look.

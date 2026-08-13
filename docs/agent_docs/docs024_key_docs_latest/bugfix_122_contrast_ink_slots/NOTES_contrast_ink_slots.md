@@ -1586,3 +1586,105 @@ otherwise is not evidence. If all three close, the scope is wrong.
 
 `loancalculator.co.uk` is second up with **0** open rows — a pass that retracts anything there is
 also a scope bug.
+
+---
+
+## 2026-08-13 (evening) — CONTRIBUTED FROM OUTSIDE THIS LANE: `legibleInkFor`'s preference walk cannot return anything but `text`, so `--color-<x>-ink` is `--color-text` renamed
+
+Not this lane's session. I took the `article-body` consumer named in `bugs_open/122`'s 08-12
+contribution (which deliberately applied nothing and handed the renderer-level repair here),
+intending to repoint it plus the other 167 components carrying the same shape. **Nothing was
+applied.** Recording here because the finding falsifies a claim in this lane's own `PLAN` and
+`VIZ-014`, and because it changes what this lane should do next. Full write-up: `bugs_open/122`
+contribution 2026-08-13 §§1–10. Landmine filed same date. `WRONG_CALLS.md` entry same date.
+
+### The finding
+
+`palette_specialised_slots.go:350` — `for _, key := range []string{"text", "accent", "text_muted",
+"secondary", "primary"}`. First match wins; `text` is first; `text` is by construction the slot
+chosen to be legible on `background`, so it clears the grounds whenever any candidate does.
+**`accent`, `text_muted`, `secondary`, `primary` are unreachable in production.**
+
+`[MEASURED 2026-08-13, served stylesheets, all 22 live domains — 18 palette-driven]`: every
+divergence between an ink companion and its source slot equals that site's own `--color-text`.
+**16 of 16, zero exceptions.** Table in the bug file. Any one row returning a third colour would
+have falsified it, and 14 palettes × 2 slots is a wide enough net that this is evidence rather than
+coincidence.
+
+So `PLAN_2026-08-06:189-195`'s *"the first palette colour that does (the existing `pickInkOn` walk,
+which prefers a palette colour so the site keeps its character)"* is **false as built**, and so is
+the slot description at `palette_specialised_slots.go:401`. VIZ-014 corrected in place.
+
+**What is NOT wrong:** the four shipped repoints (338, 368). Those elements were at 1.06–1.14:1 —
+invisible — and now measure 13–16:1. That was measured at the artefact and it stands. The error is
+confined to the belief that the repoint preserves the brand colour.
+
+### Why it stopped the sweep this lane was heading toward
+
+Corpus `[MEASURED 2026-08-13]`: **168 components (135 active)**, **453 declarations** = 423 in-block
++ 30 in inline `style="…"` attributes (16 tool components, invisible to any block-walking
+transform). Block-scoped: 259 primary blocks (51 self-painting) + 164 accent (25) → ~347 eligible.
+The defect also lives on four further surfaces — `layouts.css_template` **17 of 18**,
+`css_snippets` 2/21, `site_components.rendered_html` 33/66, `page_components.rendered_html`
+461/1485 — so a `content_components`-only transform is canonical for about a fifth of it.
+
+Automating the repoint on that eligibility rule would have written the equivalent of
+`color: var(--color-text)` across those components' placements on the 14 diverging sites. **And
+`render_audit.py` scores that a clean pass** — it measures contrast, and near-black on a light
+ground has excellent contrast. This lane's own grading discipline ("grade per selector, at the
+artefact") would not have caught it either: the selector would genuinely have improved.
+
+### A second defect, in the eligibility rule, refuted by this lane's own ground truth
+
+The rule "skip any declaration block that paints its own background" **refuses `system-stats
+.stats-eyebrow`** — the only hand-made `--color-accent-ink` repoint in the corpus, made from the
+owner's evidence — because its background is `var(--section-surface)` = `rgba(255,255,255,0.05)`
+(`color_util.go:220`), a translucent overlay whose element sits on the page ground. 1 of 6
+ground-truth rules, 1 of 1 on accent. **"Sets a background" ≠ "the ink lands on a different
+ground."**
+
+Reuse rather than re-derive: `fix_forced_text_colours_action.go:164-188` already carries a
+calibrated **four-way** `paintClass` classifier over this same corpus, council-reviewed, and it
+classifies from the whole template rather than per block — i.e. the prior art already decided that
+per-block is the wrong granularity. `bugs_open/122:205-206` names that file as worth reading first.
+It was right and I found it late.
+
+### Proposed next step for this lane (not taken — it is yours)
+
+Fix the derivation, not the consumers: in `legibleInkFor`, try stepping the source colour's
+lightness toward whichever achromatic extreme gains contrast until it clears `inkMinContrast`
+against **every** ground, *before* falling through to the palette walk. Retroactively improves all
+four shipped repoints with no further config edits. Constraints already recorded here that must
+survive: `grounds` stays a slice (R8), no `isDarkHex` narrowing (R7), the already-clears-AA branch
+still returns the source unchanged. Go, so it needs a roll; architecture-scope on the 2026-07-29 §1
+test (it changes what the shared mechanism guarantees), so council-gate it.
+
+**Control D, the disconfirming test:** after the change, dartsonline's `--color-primary-ink` must be
+a **navy** — a lightened relative of `#1A1F2E`. If it is still `#F0F2F7`, the fix did not land and no
+repoint should run.
+
+### Missteps this session, in full
+
+1. **I marked a subagent's figures `[MEASURED]`.** I ran an adversarial reviewer against my own
+   plan; its structural argument was sound and produced the finding above, which I then verified
+   myself. But I wrote its *supporting* counts into the bug file as though I had measured them. Of
+   the two I re-checked, one was wrong by 20× ("102 components carry `background-color:
+   var(--color-…)`" — actual **5**) and one was right-for-the-wrong-reason (the 11-component
+   anchored/unanchored gap is compound colour properties generally, not `background-color`). Three
+   more are now marked `[UNVERIFIED — inherited]` with their queries in the bug file §9, because the
+   kubeconfig token expired before I reached them. **Trust an adversary's judgement; re-measure its
+   arithmetic.** `WRONG_CALLS.md`.
+2. **A control that could not fail.** Probing the chassis binary for provenance I used 40 zeros as
+   the must-be-ABSENT sha; it **matched** (Go's internal tables carry zero runs). Re-ran with
+   yesterday's real build sha, correctly absent. Same family as CLAUDE.md's warning against a
+   *discovery* grep for "some 40-hex string" — here wearing a control's clothing.
+3. **I expected my own anchor to undercount and it does not.** `[;{ ]color:` omits `\n` from the
+   class, which I assumed would miss pretty-printed declarations. Measured: `[;{ ]` and
+   `(^|[;{[:space:]])` return the **identical** 168 components / 453 declarations. Worth recording
+   because the check took one query and I nearly rewrote the census on the assumption.
+
+### Owed, blocked on the cluster login
+
+- `./scripts/landmines-sync.py --apply` — the file entry is committed (D10: the file is the system
+  of record) but the `doc_notes` rows did not write; `--check` will report drift until re-run.
+- The three `[UNVERIFIED — inherited]` figures in `bugs_open/122` §9, queries written out there.
