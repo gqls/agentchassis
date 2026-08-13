@@ -6,7 +6,9 @@
 Candidates 1 and 2 both implemented, plus two neighbouring instances of the same shape that
 the filing did not name (see §7). Go changes are inert until a chassis image is rebuilt and
 rolled, so this file stays in `/bugs_open/` — the defect is still reproducible in production.
-Council gate: `Council-Submitted: ac23f2f7-9230-403c-8f20-4e18623c1849` (verdict not yet read).
+Council gate: **APPROVED 2026-08-13** on round 3, `Council-Reviewed: ac23f2f7-9230-403c-8f20-4e18623c1849`
+— 12 seats approve, one advisory objection, none high-severity. Two REVISE rounds first, and they
+earned their cost: see §8.
 
 > **Numbering:** 262–266 were all taken by other sessions while `261` was being closed **this
 > afternoon**. Checked 267 free at filing. Resolve by slug.
@@ -282,3 +284,41 @@ live, or nothing over-budget has been scoped since the roll. Only `omissions_sin
 `new_code_fired = 0` means the fix did not ship. `omissions_since_roll = 0` means the test has not
 been run yet, and asserting anything from it would be the unfalsifiable check this estate has already
 logged itself doing.
+
+
+---
+
+## 8. Council trail — two REVISE rounds, four real findings, and what each one cost
+
+Round 1 `revise` (gated `editquality`) → round 2 `revise` (gated `editquality`) → round 3
+**`approved`**, 12/13 seats, one advisory objection. The trail is worth reading because **three of the
+four findings were things no test of mine would ever have caught, and one was a false claim of mine.**
+
+| round | seat | what it found | was it real |
+|---|---|---|---|
+| 1 | `editquality` HIGH | the `+N more` suppression's WIRING was untested — every test called `siblingSignatures` directly with a hand-built `bodyCapView`, so if `repoRoot` never arrived the fix would be **inert and silent** | **YES.** Mutation-verified after the fact: blanking `repoRoot` at the call site fails the new end-to-end test and nothing else. Nothing before it would have noticed |
+| 1 | `editquality` med | the mixed-omission summary arm had no test at all | **YES** — an unasserted branch |
+| 1 | `bug_historian` med | the bare-vs-canonical spelling lived only in a CLOSED file's follow-up list, *"undiscoverable by any future sweep of `bugs_open/`"* | **YES** → `bugs_open/269` |
+| 2 | `debug_historian` + `prior_art_librarian`, both HIGH | I dismissed round 1's deploy-verification request by asserting a provenance recipe that is **inoperative on `agent-chassis`** | **YES, and it was mine.** §7d rewritten; logged in `WRONG_CALLS.md` |
+| 2 | `reuse_agent` med + 3 seats | the third copy of the method-spelling grammar should be a two-line **extraction**, not a bug ticket | **YES** → `analysis.CanonicalSymbolName` |
+| 2 | `editquality` HIGH ×2 | my SKETCHES elided the disputed lines — twice, including in the edit I claimed to have fixed | **YES as a submission defect**, not a code one. Round 3 showed them verbatim |
+
+**The one advisory objection left standing** is `architecture` (medium): `code_symbols_actions.go:598`
+remains a second live producer of the canonical spelling, and the seat asked — in rounds 2 *and* 3 —
+for an explicit RFC-scheduling flag rather than a `bugs_open/` cross-reference. Filed as
+**`architecture_review/RFC_027`**. It blocks nothing; the seat was explicit that *"the debt is not
+created by [this fix], only illuminated by it a fourth time."*
+
+**Two checks two seats asked for twice, finally run** (both clean, both now evidenced rather than
+asserted):
+- **No pre-existing canonicalisation helper** — `prior_art_librarian` noted it *"would be ironic if a
+  fourth copy already existed"*. It does not. Three sites touch `Receiver.Type`: the two handle
+  producers, and `analyse.go:377` which builds the rendered **signature**, a different grammar.
+- **No conflicting council precedent** — 18 prior rounds name this file, one REJECTED (`fca1071b`),
+  and that veto is about dispatch resolution across four packages. It *names* this file as a sibling
+  missing a `deleted_at`/`is_snapshot` guard, **which this file already carries**
+  (`renderWorkflowSteps` has `COALESCE(is_snapshot,false)=false AND deleted_at IS NULL`).
+
+**The transferable lesson is not "the council is useful".** It is narrower: *the objection that
+mattered most was about a test I had not thought to write, on a branch I had already written.* Every
+guard was mutation-verified; the gap was that one guard's INPUT was only ever supplied by hand.

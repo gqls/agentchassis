@@ -297,3 +297,54 @@ review. It is Go code, so it changes nothing in production until the next time w
 the images — the waste is still happening right now. And the same choice as before is still open on
 which piece of the commission to take next; nothing here has changed that, except that the
 diagnosis loop will be meaningfully less wasteful once both of these have rolled together.
+
+---
+
+**2026-08-13 — the review came back approved, but it took three goes and it caught me out twice.**
+
+The 267 fix is through the council gate: approved, twelve of thirteen reviewers, one advisory note
+left over. That took three rounds and I think the two rejections were worth more than the approval.
+
+**What the reviewers found that I had missed.** The sharpest one first. My fix has two halves, and the
+second half only works if one piece of information reaches it. Every test I had written checked that
+half by handing it that information *directly* — which proves the half works and proves nothing about
+whether the real system ever hands it over. A reviewer asked the obvious question I hadn't: what if it
+doesn't arrive? The honest answer was that the fix would quietly do nothing, and **not one of my tests
+would have noticed** — which is the exact failure this bug is about, reproduced inside my own fix. I
+wrote the missing test, then deliberately broke the wiring to confirm the test bites. It does.
+
+That is the second time in two days something on this lane has been wrong in the shape of "the test
+and the code agreed with each other and both were wrong". I am starting to think the useful question
+isn't "does my test pass" but "what would this test do if the thing it checks were never wired up".
+
+**The one I got wrong myself, and it was worse because of how I got it wrong.** A reviewer asked me
+to say how we'd confirm this fix was actually live once we ship it. I told it its information was out
+of date and quoted the newer method: ask the running service which version of itself it's running.
+That method does not work on this particular service — it announces its version once when it starts
+up, and this service is so chatty that the announcement scrolls out of the log within minutes. We have
+a written warning about exactly that, dated the day before, naming this service. And the document I
+was quoting says so itself, four lines below the bit I quoted.
+
+So I read half a paragraph, skipped the half that named my own service, and used it to correct
+somebody. Two reviewers caught it independently. Everything else in that submission was carefully
+evidenced — the one unchecked sentence was the one where I was telling someone else they were behind.
+**Confidence in that particular register is what stopped me opening the file.** I've logged it, and
+I've rewritten how we verify this fix: instead of asking the service what it is, we look for something
+in its output that only the new code could possibly produce — plus a second check that tells us
+whether the situation even arose, because "we saw none of the new behaviour" means nothing if nothing
+triggered it.
+
+**One thing four reviewers agreed on and I had got wrong in judgement rather than fact.** I had
+noticed that my change added a third copy of a small piece of naming logic, and I filed it as a future
+job. Four separate reviewers said the same thing: it's two lines, extract it now, don't file it. They
+were right, and my reason for deferring didn't survive being said out loud — it was an argument for not
+touching *someone else's* code, which I'd stretched into an argument for not tidying my own. Done now.
+
+**What's left, and it isn't nothing.** The remaining reviewer note says this is the fourth bug in a row
+against one small underlying mechanism, and asked for that to be visible to whoever plans the bigger
+pieces of work rather than sitting as a cross-reference in a bug file. I've written it up as RFC_027.
+It needs a decision from you eventually, and the decision might well be "four bugs on something this
+small is acceptable, stop filing it" — that's a legitimate answer and I've said so in the file.
+
+**And the caveat that has not changed since yesterday.** All of this is Go code. It does nothing in
+production until we next build and roll the images. The waste is still happening right now.
