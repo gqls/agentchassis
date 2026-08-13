@@ -1,10 +1,18 @@
 # CONTINUE HERE — the disk-pressure lane (`bugs_open/252`)
 
-**Last updated 2026-08-12 20:55Z.** Cold-start handoff for a new chat. The bug file
+**Last updated 2026-08-13 14:15Z.** Cold-start handoff for a new chat. The bug file
 (`252_HANDOFF_2026-08-11_disk_is_invisible_to_the_scheduler…`) holds the evidence and
 the fix candidates; **this file holds only what is still owed and what will mislead
-you.** Read the bug file's newest block — `🚨 2026-08-12 20:45Z` — first; it re-ranks
-the candidates again and everything below assumes it.
+you.** Read the bug file's newest block — **`🔄 2026-08-13 14:05Z`** — first; it
+confirms the root cause by direct observation and **corrects the 20:45Z block below
+it**, which is kept struck-through rather than deleted. Everything here assumes it.
+
+**The one-paragraph version.** Disk was invisible to the scheduler; candidate 1 fixed
+that and is live. What remains is that **image GC's trigger and the eviction trigger
+are the same line**, so the reclaim cycle's trough sits against the eviction threshold
+and a roll landing in that trough gets its pod rejected. Every remaining lever is node
+config — the owner's. **One thread-side change is built, committed and waiting on an
+apply: candidate 1b (`85e8818dd`).**
 
 > **✅ THE MARGIN IS A SAWTOOTH, NOT A DECLINE — AND WE HAVE NOW WATCHED THE TEETH.**
 > `[MEASURED 2026-08-13 14:01Z]` Fleet-worst headroom is **2.42 GB** and …1148 sits at
