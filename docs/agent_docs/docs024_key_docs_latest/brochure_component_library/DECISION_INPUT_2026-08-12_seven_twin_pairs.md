@@ -149,3 +149,47 @@ eight steps in order.
 > archived page since it went live), and it **stops recurrence without undoing** the pages
 > already archived-and-serving — for those, retraction is the route, and retraction is
 > deliberately unaffected by the guard.
+
+---
+
+# OWNER RULING 2026-08-13 — all seven decided. Recorded verbatim; nothing executed yet.
+
+| # | pair | **OWNER'S CALL** | vs my recommendation | execution gate |
+|---|---|---|---|---|
+| 1 | ai-agent-orch `llm-cost-calculator` | **keep `tool-`** | as recommended | none — neither side in plan |
+| 2 | finetuning `ai-readiness-quiz` | **keep `tool-`, HOLD execution** | as recommended | **`bugs_open/204`** — decided now, executed later |
+| 3 | fai `automation-savings-…-guide` | **keep `/guides/`** | **DIFFERS** — I recommended `/blog/` | **plan edit MANDATORY** |
+| 4 | fai `model-approach-selector-guide` | **keep `/guides/`** | **DIFFERS** — I recommended `/blog/` | **plan edit MANDATORY** |
+| 5 | robot-hands `payload-calculator` | **keep `tool-`** | as recommended | plan carries both |
+| 6 | robot-hands `matchmatrix` | **keep `tool-`** | as recommended | plan carries both |
+| 7 | robot-hands `cycle-time-estimator` | **MERGE the bare page's prose into `tool-`, then retire bare** | I offered this as the best-outcome option | plan carries both |
+
+**On 3 and 4 the owner took the option I did not recommend, and he is right about the
+merit — my recommendation was explicitly on execution cost, not quality.** `/guides/` is
+the better home for a guide and those pages are fuller (+2% and +30% words). The cost is
+exactly what this document said it would be: **the `/blog/` side is IN PLAN, so it must be
+removed from the plan BEFORE it is archived** (runbook step 3, now mandatory rather than
+optional). Skipping that re-arms the refile loop and the retired page comes straight back.
+
+**Pair 7 is not a retire-one-side job, it is a content merge first.** The bare page carries
+~1,700 more words than the tool page. Retiring it before merging loses them. This is the
+only pair whose execution includes writing.
+
+## The five archived-and-serving pages — OWNER: **"leave them for their own lanes"**
+
+Not this lane's to execute. Each owning lane decides its own:
+
+- **leopardessconsulting.co.uk** `/our-approach.html` — told in `docs/leopardessconsulting/HANDOFF.md`
+- **robot-hands.com** `/gripper-catalog.html`, `/news.html` — told in that lane's handoff
+- **fundamentallyai.com** `/blog/ai-readiness-checker-guide.html`,
+  `/tools/llm-cost-calculator/index.html` — **still needs a call from the fundamentallyai
+  sweep front**, which owns that site's execution (handoff §5). Routed there, not decided here.
+
+**These five are a SEPARATE population from the seven pairs above** — no page appears in
+both lists. Do not conflate them when executing.
+
+## What is now unblocked, and what is not
+
+`bugs_open/266` is fixed, council-approved and live (`v1.0.1295`), so **an archive holds** —
+the standing "any archive can be undone by the next build" warning is discharged. Remaining
+gates are per-pair and listed in the table: `204` for pair 2, and a plan edit for pairs 3–7.
