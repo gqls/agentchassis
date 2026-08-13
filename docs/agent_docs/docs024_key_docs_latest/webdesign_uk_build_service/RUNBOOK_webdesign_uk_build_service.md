@@ -723,3 +723,35 @@ ssh -i ~/.ssh/webdesign_box_ed25519 root@webdesign.vs.mythic-beasts.com \
    curl -s --max-time 10 http://<core-manager clusterIP>:8088/health'
 # a real /health body = the tunnel forwards; a timeout with a fresh wg handshake = ip_forward, check the pod.
 ```
+
+## Restoring or rotating the facts-relay token (2026-08-13)
+
+The token lives in TWO places that must hold the same value: `SITE_FACTS_TOKEN`
+in `personae-platform-secrets` (cluster side) and `FACTS_TOKEN` in
+`/etc/webdesign-chat.env` (box side). **The cluster copy is terraform-managed —
+never `kubectl patch` it**: `make release` re-applies
+`047-base-configs/main.tf` and deletes any key not declared there (that is
+exactly how the 2026-08-13 outage happened). The value belongs in
+`deployments/terraform/environments/production/uk001/047-base-configs/terraform.tfvars.secret`
+as `site_facts_token = "..."` (gitignored); `main.tf` maps it into the secret.
+
+```bash
+# 1. set/replace site_facts_token in terraform.tfvars.secret, then:
+cd deployments/terraform/environments/production/uk001/047-base-configs
+terraform init -input=false && terraform apply -auto-approve -var-file=terraform.tfvars.secret
+# gotcha: a bare "Error: Unauthorized" from plan/apply usually means the dir
+# was never re-inited (run init) — only after that suspect the 3-day kubeconfig token.
+
+# 2. env vars are read at pod start, so the new value needs a restart:
+kubectl -n ai-persona-system rollout restart deploy/core-manager
+kubectl -n ai-persona-system rollout status deploy/core-manager
+
+# 3. only if the box-side value changed too: edit FACTS_TOKEN in
+#    /etc/webdesign-chat.env on the box, then
+ssh -i ~/.ssh/webdesign_box_ed25519 root@webdesign.vs.mythic-beasts.com 'systemctl restart webdesign-chat'
+
+# 4. verify at the artefact (the refresh timer is 5 min):
+ssh -i ~/.ssh/webdesign_box_ed25519 root@webdesign.vs.mythic-beasts.com \
+  'journalctl -u webdesign-chat -n 20 --no-pager | grep facts'
+# expect "facts: fetched 15 facts from relay" (+ "facts: live mode" after a bot restart)
+```

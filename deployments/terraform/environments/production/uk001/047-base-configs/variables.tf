@@ -86,6 +86,12 @@ variable "agent_bootstrap_key" {
   sensitive   = true
 }
 
+variable "site_facts_token" {
+  description = "Token for core-manager's site-facts relay (CHAT-010); the webdesign.uk chat bot presents it as X-Facts-Token. Paired copy lives on the box in /etc/webdesign-chat.env"
+  type        = string
+  sensitive   = true
+}
+
 # Default API keys (temporary until per-user keys)
 variable "default_anthropic_api_key" {
   description = "Default Anthropic API key"

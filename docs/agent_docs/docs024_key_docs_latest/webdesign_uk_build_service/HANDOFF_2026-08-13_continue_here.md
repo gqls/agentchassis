@@ -31,6 +31,17 @@ is now fixed+live. The missing links are named in §3.
   - Change any fact in `evidence_base` → bot reflects it within 5 min or a
     restart, **no redeploy**. If the relay ever fails the bot **refuses to
     start** rather than revive the compiled-in £1,200 constant.
+  - > **CORRECTED 2026-08-13 (evening), same day:** the 13:53Z `v1.0.1295`
+    > fleet release **wiped `SITE_FACTS_TOKEN` out of
+    > `personae-platform-secrets`** — that secret is terraform-managed
+    > (047-base-configs) and every `make release` reconciles its whole data
+    > map, so the morning's additive `kubectl patch` could never survive one.
+    > Relay 401 from 13:55Z; the bot is alive on last-good facts but ONE
+    > RESTART from dead chat. Durable fix committed (the key is now declared
+    > IN terraform); the `terraform apply` + core-manager restart are
+    > owner-gated — see NOTES (evening entry) and RUNBOOK § "Restoring or
+    > rotating the facts-relay token". The "within 5 min, no redeploy" claim
+    > above holds only once that lands.
 - **WireGuard tunnel** box↔cluster: up, proven, `ip_forward` fault fixed
   (LANDMINE + CHAT-010 register). Carries box→cluster today; can carry the
   Stripe webhook inbound (see §3.2).

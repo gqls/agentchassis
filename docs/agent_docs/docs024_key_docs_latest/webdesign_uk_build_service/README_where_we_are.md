@@ -1159,3 +1159,27 @@ is pending. And to be careful: the new service is built so that if it ever
 can't reach the database, the bot **refuses to start** rather than quietly fall
 back to the old baked-in facts — because those baked-in facts are exactly the
 stale copy this whole change exists to get rid of.
+
+---
+
+2026-08-13, evening — the bot's live facts feed broke this afternoon, and the
+fix needs one command from you.
+
+This morning's win (the chat bot reading live £149 facts from the database) got
+knocked over by this afternoon's fleet release, in a way nobody had spotted:
+the secret token the bot uses to authenticate was added to the cluster by hand,
+but that particular store is rebuilt from a fixed list every time the fleet is
+released — and the token wasn't on the list, so the release deleted it. The bot
+has carried on with the facts it fetched this morning (visitors still hear £149
+and the right terms), but if it restarts for any reason before the fix lands,
+the chat on webdesign.uk goes down entirely. It has been in that fragile state
+since about 2pm.
+
+I've now put the token on the fixed list properly, so a release can never
+delete it again — but actually writing secrets into the cluster is (rightly)
+something my permissions don't allow me to do alone. You need to run one
+terraform apply and one restart; the exact commands are in the runbook under
+"Restoring or rotating the facts-relay token", and the recommended variant
+reuses the token already on the box so nothing else needs touching. Until then
+the bot works but is fragile; after it, we're back to "change a fact in the
+database, the bot follows within five minutes".

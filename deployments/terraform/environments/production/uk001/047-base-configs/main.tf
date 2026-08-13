@@ -114,6 +114,14 @@ resource "kubernetes_secret" "personae_platform_secrets" {
 
     # Platform agent bootstrap key
     agent-bootstrap-key = var.agent_bootstrap_key
+
+    # Bearer token for core-manager's site-facts relay (CHAT-010). Must live
+    # HERE, not as a kubectl-additive key: this resource reconciles the whole
+    # secret on every `make release` (deploy-047-base-configs), so any key not
+    # in this map is deleted by the next release — which took the relay down
+    # on 2026-08-13. The same value sits on the webdesign.uk box in
+    # /etc/webdesign-chat.env as FACTS_TOKEN; rotate both together.
+    SITE_FACTS_TOKEN = var.site_facts_token
   }
 }
 

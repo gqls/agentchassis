@@ -2556,3 +2556,53 @@ start** rather than revive it (by design).
   durable.
 - **`SITE_FACTS_TOKEN` now lives in `personae-platform-secrets`** alongside the
   DB passwords and JWT secret — a real secret, additive. It is NOT in git.
+
+> **CORRECTED 2026-08-13 (evening), by the next session:** "additive" was the
+> defect, not the reassurance — see the entry below. The secret is
+> terraform-owned and the very next fleet release deleted the key.
+
+## 2026-08-13 (evening) — the 13:53Z fleet release WIPED `SITE_FACTS_TOKEN`; relay 401 since 13:55Z; the key now lives IN terraform (owner apply pending)
+
+The morning entry above ranked the ClusterIP as the fragile link and called the
+secret copy safe. **Wrong link ranked first.** What actually broke, caught by
+this session's cold-start falsifier sweep:
+
+- Box journal: `facts: refresh failed, keeping last-good: facts relay returned
+  401` every 5 min since **13:55:33** (last good fetch 13:45:33). The bot is
+  serving last-good £149 facts from memory, so visitors are unaffected SO FAR —
+  but it is **one restart from dead chat** (fail-closed startup, by design),
+  and has been since 13:55Z.
+- Evidence chain, each link checked: core-manager pods restarted ~13:53Z (the
+  `v1.0.1295` whole-fleet release; pod age 178m at ~16:50Z) → new pods log
+  `site-facts request refused: SITE_FACTS_TOKEN not configured`
+  (`sitefacts.go:74`) → pod env probe says the var is ABSENT → the secret's
+  `.data.SITE_FACTS_TOKEN` is 0 bytes.
+- Mechanism: `personae-platform-secrets` is **terraform-managed**
+  (`deployments/terraform/environments/production/uk001/047-base-configs/main.tf`,
+  the `kubernetes_secret` resource). `make release` → `deploy-core` →
+  `deploy-047-base-configs` → `terraform apply`, which reconciles the whole
+  `data` map and deletes every key not declared in it. The morning's additive
+  `kubectl patch` was structurally guaranteed to die at the next release; it
+  lived ~4 hours. LANDMINES + WRONG_CALLS entries added today.
+- **Durable fix staged and committed**: `site_facts_token` variable
+  (`variables.tf`) + `SITE_FACTS_TOKEN` data entry (`main.tf`) in
+  047-base-configs; a NEW 40-hex value appended to the local gitignored
+  `terraform.tfvars.secret` (the permission classifier — correctly — refused to
+  let me read the old token off the box, so I generated a fresh one instead).
+  `terraform plan` verified: exactly `Plan: 0 to add, 1 to change, 0 to
+  destroy`, the one change being the secret updated in place.
+- **Blocked for this session** (auto-mode classifier; all owner-gated):
+  `terraform apply`, any `kubectl` write to the secret, and writing the box
+  env. Full procedure: RUNBOOK § "Restoring or rotating the facts-relay token".
+
+**Two ways for the owner to finish it — B is fewer moving parts:**
+- **Option B (recommended): reuse the box's working token.** Read `FACTS_TOKEN`
+  from `/etc/webdesign-chat.env` on the box, put that value into
+  `site_facts_token` in `047-base-configs/terraform.tfvars.secret` (replacing
+  my generated one), `terraform apply`, rollout-restart core-manager. The
+  running bot heals itself at its next 5-minute refresh — **no box change, no
+  bot restart, nothing else handled**.
+- **Option A: keep the generated token.** `terraform apply`, rollout-restart
+  core-manager, then set `FACTS_TOKEN` in `/etc/webdesign-chat.env` to the
+  tfvars value and `systemctl restart webdesign-chat`; expect
+  `fetched 15 facts` + `live mode` in the journal.
