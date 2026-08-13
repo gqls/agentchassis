@@ -164,3 +164,184 @@ func (p Pair) Check() (ratio float64, ok bool, err error) {
 	}
 	return ratio, ratio >= p.Threshold(), nil
 }
+
+// ============================================================================
+// Hue-preserving legibility — HSL lightness search
+// ============================================================================
+//
+// WHY THIS EXISTS, and it is a correction to a shipped mechanism rather than a
+// new capability.
+//
+// `legibleInkFor` (actions/palette_specialised_slots.go) answers "can this
+// colour be READ on these grounds", and when the answer is no it substitutes
+// the first palette colour that can. Its documented intent was that the
+// substitution "prefers a palette colour so the site keeps its character".
+//
+// MEASURED 2026-08-13, at the served artefact, across all 18 palette-driven
+// live sites: it never keeps any character. The walk is
+// {text, accent, text_muted, secondary, primary} and `text` is first — and
+// `text` is BY CONSTRUCTION the slot chosen to be legible on `background`, so
+// it clears the grounds whenever any candidate does. All 16 divergences between
+// an ink companion and its source slot resolved to that site's own
+// --color-text. Zero exceptions. The other four candidates are unreachable in
+// production, and --color-<x>-ink was --color-text under another name.
+//
+// That mattered because repointing a component onto the ink companion was
+// therefore equivalent to writing `color: var(--color-text)`, and the fleet's
+// only contrast instrument (scripts/render_audit.py) scores that a CLEAN PASS —
+// near-black text on a pale ground has excellent contrast. A change that
+// stripped a brand colour from every affected element would have graded green.
+// See bugs_open/122 contribution 2026-08-13, and the LANDMINES entry of the
+// same date.
+//
+// THE REPAIR: before substituting a different colour, try to make the source
+// colour itself legible by moving ONLY its HSL lightness. Hue and saturation
+// are preserved exactly, so #1A1F2E becomes a lighter navy rather than becoming
+// body text, and the smallest sufficient change wins.
+//
+// WHY LIGHTNESS AND NOT A BLEND TOWARD WHITE/BLACK. Blending desaturates: it
+// pulls the colour toward grey on the way, so a brand colour rescued by
+// blending arrives visibly washed out. An HSL lightness move keeps S intact, so
+// what comes back reads as the same colour at a different level. That is the
+// whole point of the exercise — a legible colour nobody recognises is the
+// failure this function exists to stop.
+
+// rgbToHSL converts 8-bit sRGB to HSL with h in [0,360) and s,l in [0,1].
+func rgbToHSL(r, g, b uint8) (h, s, l float64) {
+	rf, gf, bf := float64(r)/255, float64(g)/255, float64(b)/255
+	max := math.Max(rf, math.Max(gf, bf))
+	min := math.Min(rf, math.Min(gf, bf))
+	l = (max + min) / 2
+	if max == min {
+		return 0, 0, l // achromatic: hue is undefined, saturation is zero
+	}
+	d := max - min
+	if l > 0.5 {
+		s = d / (2 - max - min)
+	} else {
+		s = d / (max + min)
+	}
+	switch max {
+	case rf:
+		h = (gf - bf) / d
+		if gf < bf {
+			h += 6
+		}
+	case gf:
+		h = (bf-rf)/d + 2
+	default:
+		h = (rf-gf)/d + 4
+	}
+	return h * 60, s, l
+}
+
+// hslToRGB is the inverse of rgbToHSL. h is taken modulo 360.
+func hslToRGB(h, s, l float64) (r, g, b uint8) {
+	h = math.Mod(math.Mod(h, 360)+360, 360) / 360
+	if s == 0 {
+		v := uint8(math.Round(l * 255))
+		return v, v, v
+	}
+	var q float64
+	if l < 0.5 {
+		q = l * (1 + s)
+	} else {
+		q = l + s - l*s
+	}
+	p := 2*l - q
+	channel := func(t float64) uint8 {
+		if t < 0 {
+			t++
+		}
+		if t > 1 {
+			t--
+		}
+		switch {
+		case t < 1.0/6.0:
+			return uint8(math.Round((p + (q-p)*6*t) * 255))
+		case t < 1.0/2.0:
+			return uint8(math.Round(q * 255))
+		case t < 2.0/3.0:
+			return uint8(math.Round((p + (q-p)*(2.0/3.0-t)*6) * 255))
+		default:
+			return uint8(math.Round(p * 255))
+		}
+	}
+	return channel(h + 1.0/3.0), channel(h), channel(h - 1.0/3.0)
+}
+
+// ToHex formats an 8-bit sRGB triple as #rrggbb, lower case.
+func ToHex(r, g, b uint8) string {
+	return fmt.Sprintf("#%02x%02x%02x", r, g, b)
+}
+
+// lightnessSearchStep is the HSL lightness increment the search walks. 0.01 is
+// ~2.55 levels per 8-bit channel, so every reachable rounded value is visited
+// without testing the same hex twice more than a couple of times. Coarser steps
+// overshoot and return a colour further from the brand than necessary; finer
+// steps cost iterations and cannot find anything new after rounding.
+const lightnessSearchStep = 0.01
+
+// LegibleVariant returns srcHex moved in HSL LIGHTNESS ONLY — hue and
+// saturation preserved exactly — until it clears minRatio against EVERY ground,
+// and returns the variant needing the SMALLEST lightness change. ok is false
+// when no lightness whatsoever makes srcHex legible on all grounds, which is
+// the caller's signal to fall back to substituting a different colour.
+//
+// GROUNDS IS A SLICE, and that is load-bearing for the same reason it is in
+// legibleInkFor: one variable serving two grounds is only right if it is right
+// for the WORSE of them. A component may place one ink on the page and on a
+// card. Narrowing this to a single ground produces a value that looks correct
+// on whichever surface the reviewer happens to open.
+//
+// An empty or wholly unmeasurable grounds slice returns ok=false rather than a
+// vacuous pass: a colour certified against nothing has not been checked, and
+// reporting success there is how an untested value reaches a stylesheet looking
+// tested.
+func LegibleVariant(srcHex string, grounds []string, minRatio float64) (hex string, ok bool) {
+	r, g, b, err := ParseHex(srcHex)
+	if err != nil {
+		return "", false
+	}
+	h, s, l0 := rgbToHSL(r, g, b)
+
+	// A colour with zero saturation has no hue to preserve, so there is nothing
+	// this function can offer that the caller's achromatic fallback does not
+	// already do better. Declining keeps the two mechanisms from both claiming
+	// the same case.
+	if s == 0 {
+		return "", false
+	}
+
+	clearsAll := func(candidate string) bool {
+		measured := false
+		for _, ground := range grounds {
+			if ground == "" {
+				continue
+			}
+			ratio, err := ContrastRatio(candidate, ground)
+			if err != nil || ratio < minRatio {
+				return false
+			}
+			measured = true
+		}
+		return measured
+	}
+
+	// Walk outward from the source lightness, testing both directions at each
+	// distance, so the FIRST hit is by construction the smallest change. Trying
+	// one direction to exhaustion first would return a heavily darkened colour
+	// when a slight lightening would have done.
+	for delta := lightnessSearchStep; delta <= 1.0; delta += lightnessSearchStep {
+		for _, l := range []float64{l0 + delta, l0 - delta} {
+			if l < 0 || l > 1 {
+				continue
+			}
+			candidate := ToHex(hslToRGB(h, s, l))
+			if clearsAll(candidate) {
+				return candidate, true
+			}
+		}
+	}
+	return "", false
+}

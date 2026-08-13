@@ -44,6 +44,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/gqls/agentchassis/platform/colour"
 	"go.uber.org/zap"
 )
 
@@ -310,8 +311,40 @@ func pickInkOn(bgHex string, palette map[string]string) (hex, source string) {
 // legibleInkFor answers "can this colour be READ on these grounds", which is
 // the inverse of the question pickInkOn answers ("what can be read ON this
 // fill"). It returns srcHex unchanged when srcHex already clears minRatio
-// against EVERY ground, otherwise the first palette colour that does,
-// otherwise whichever achromatic extreme has the better worst case.
+// against EVERY ground; otherwise srcHex moved in HSL LIGHTNESS ONLY until it
+// does; otherwise the first palette colour that does; otherwise whichever
+// achromatic extreme has the better worst case.
+//
+// ⚠ THE LIGHTNESS STEP WAS ADDED 2026-08-13 AND IT IS A CORRECTION, NOT A
+// REFINEMENT. Without it this function's substitution branch was unreachable
+// except at `text`, and the slot it feeds was a lie.
+//
+// The walk below is {text, accent, text_muted, secondary, primary} and `text`
+// is FIRST. `text` is by construction the palette slot chosen to be legible on
+// `background` — so it clears the grounds whenever any candidate does, and it
+// always won. MEASURED 2026-08-13 at the served artefact across all 18
+// palette-driven live sites: all 16 divergences between an ink companion and its
+// source slot resolved to that site's own --color-text. Zero exceptions. So
+// `accent`, `text_muted`, `secondary` and `primary` were unreachable in
+// production, and --color-primary-ink was --color-text under another name —
+// while this function's own doc comment, the register entry (VIZ-014) and the
+// approved plan all said it "prefers a palette colour so the site keeps its
+// character".
+//
+// That was not a cosmetic error. Repointing a component onto the ink companion
+// was equivalent to writing `color: var(--color-text)`, and the fleet's only
+// contrast instrument (scripts/render_audit.py) scores that a CLEAN PASS,
+// because near-black text on a pale ground has excellent contrast. A sweep that
+// stripped the brand colour from every affected element would have graded green
+// on every check we run. bugs_open/122, contribution 2026-08-13; LANDMINES entry
+// of the same date.
+//
+// colour.LegibleVariant now gets first refusal, preserving hue and saturation
+// exactly and returning the SMALLEST sufficient lightness change. The palette
+// walk is kept as the fallback for the cases it genuinely owns — an achromatic
+// source (no hue to preserve) and a source no lightness can rescue on all
+// grounds at once. TestLegibleInkFor_PrefersATintOfTheSourceOverSubstitution
+// goes RED if the lightness step is removed or reordered after the walk.
 //
 // WHY grounds IS A SLICE AND NOT A COLOUR. A component may place one ink on
 // the page and on a card. dartsonline.com does exactly that with
@@ -346,6 +379,15 @@ func legibleInkFor(srcHex string, grounds []string, palette map[string]string, m
 
 	if srcHex != "" && clearsAll(srcHex) {
 		return srcHex, "source:unchanged"
+	}
+	// Try to rescue the source colour itself before substituting a different
+	// one. MUST stay ahead of the palette walk: `text` below clears the grounds
+	// whenever anything does, so any ordering that reaches it first makes this
+	// branch dead code — which is exactly the defect being repaired here.
+	if srcHex != "" {
+		if tinted, ok := colour.LegibleVariant(srcHex, grounds, minRatio); ok {
+			return tinted, "source:lightness"
+		}
 	}
 	for _, key := range []string{"text", "accent", "text_muted", "secondary", "primary"} {
 		v, ok := palette[key]
