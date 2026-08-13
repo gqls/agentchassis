@@ -52,7 +52,31 @@ reader-check:** an aggregate over a superset is not evidence about a member. The
 the instrument existed for. **Filter by the thing you mean** (`{pod=~"agent-chassis-.*"}`),
 and ask the **target list for the pod name**, never the metric for a health status.
 
-## 3. THE ONE THING OWED NOW
+## 3. ~~THE ONE THING OWED NOW~~ — ✅ DISCHARGED 2026-08-13 on v1.0.1295
+
+**D2 is now proven end-to-end. Nothing is owed on it; this section is kept for the method.**
+`[MEASURED 2026-08-13 14:07Z]` the roll applied the manifest change — both chassis pods
+declare `8080,9090` — and:
+
+```
+active targets: 35   |   agent-chassis-* targets: 2   (both health:"up", :9090/metrics)
+go_sql_max_open_connections{pod=~"agent-chassis-.*"} -> 12, 12
+go_sql_wait_count_total -> 0, 0      go_sql_open_connections -> 2, 2   in_use -> 1, 1
+```
+
+The empty vector was genuinely available — it is what this query returned the day before —
+so the check could have come out either way. **Read the two zero wait-counters as a
+BASELINE, not a result** (they are cumulative since process start, and these pods were 14
+minutes old); and note the target denominator moves with fleet load, 141 → 35 in a day, so
+never state a chassis finding as "N of M targets" without the date.
+
+⚠ **One trap re-confirmed while doing this:** grepping the full chassis log for
+`build provenance` **false-matched a council-gate payload quoting the phrase** — exactly as
+warned in §5. The stamp was not needed: the declared ports prove the manifest applied and
+the scraped `12` proves the code is live, which is artefact-level evidence and stronger than
+a stamp.
+
+### The original instruction, kept for the method
 
 **After the next roll, assert D2 at the artefact.** The manifest change is inert until a
 roll applies it (owner runs `make release`; whole-fleet).
