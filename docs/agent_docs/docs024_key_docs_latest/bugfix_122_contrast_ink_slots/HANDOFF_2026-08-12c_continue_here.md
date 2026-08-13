@@ -57,6 +57,13 @@ work, and one of those was a genuine gap in my own evidence.
    `created_by='render-audit-agent'`, **one** distinct spec key-set, no `audit_source` label; one Go
    file files the type. ⚠ **The census sees producers that have FILED — a never-fired producer is
    invisible to it. Re-run it before anything else starts filing `contrast_failure`.**
+   > **2026-08-13 — FULLY RE-RUN, both halves, and nothing has changed.** Code side at HEAD: still
+   > exactly one minting file, `write_render_audit_findings_action.go` (`:296`, `:304`, `:535`,
+   > `:547`, `:604`). Row side over all 226: **one** `source` (`render-audit`), **one** `created_by`
+   > (`render-audit-agent`), `spec ? 'audit_source'` **false** on every row, and exactly **one**
+   > distinct spec key-set. No second producer has appeared in code or in the rows. Re-run it again
+   > before anything else starts filing `contrast_failure` — a never-fired producer stays invisible
+   > to the row half, which is the whole reason the caveat exists.
 2. **`bug_historian` — the URL-shape contract.** A key built from today's URL shape is compared
    against one a PAST filing wrote, and nothing pinned which way a mismatch fails. **Fixed in code:**
    `TestWriteRenderAuditFindings_ShorterPageDoesNotPrefixMatchALongerOne` pins that `/pricing` never
@@ -102,6 +109,15 @@ binary probe: `69612d692` PRESENT, yesterday's `7a1887e31` ABSENT (so the probe 
 own sha is stamped, never every ancestor. Ancestry is a git query, not a grep. Both traps are now
 in `LANDMINES.md`.
 
+> **RE-VERIFIED 2026-08-13 evening, on the v1.0.1295 pods — and this needed redoing, it was not
+> paranoia.** The fleet was released again at 13:53Z, *after* the check above, and a release rolls
+> every service — so the morning's verification had expired as evidence. Re-probed the running
+> chassis binary (`/proc/1/exe`): `69612d692…` **PRESENT**, `7a1887e31` **absent** (the control, so
+> the probe still discriminates); `browser-runner-adapter` and `render-audit-adapter` both print
+> `69612d692…` in their own provenance line; `git merge-base --is-ancestor 5639a1103 69612d692…` →
+> **true**. **A newer release did not displace the retraction.** Re-run this after any roll — "it
+> was live this morning" is a claim about this morning.
+
 **⚠ IT CANNOT FIRE UNTIL 2026-08-17 ~14:54Z, AND THAT IS THE MECHANISM WORKING.** Measured
 2026-08-13 14:10Z: `site-render-audit-rotation` is enabled, hourly, `last_triggered_at` 13:27Z —
 and **0 sites are due.** Its `pre_query` selects sites whose `last_selected_at` is older than
@@ -133,6 +149,61 @@ on that site holds exactly **three** open rows:
 Same page, same run, opposite required outcomes. That distinguishes "retraction works" from
 "retraction closes everything on any page it looked at" — which no count of closures alone can do.
 If all three close, the scope is wrong: read §1b(1) and stop.
+
+**⚠ READ THIS BEFORE YOU GRADE THE CANARY (added 2026-08-13 evening).** Two of those three rows
+are `--color-primary-ink` consumers, and **another live thread is changing what that variable
+computes to.** Verified in the served page, not the template:
+
+```
+robot-hands.com/selection-guide.html
+  :554  .info-card-grid__eyebrow    color: var(--color-primary-ink, …)   <- ink consumer
+  :648  .info-card-grid__card-link  color: var(--color-primary-ink, …)   <- ink consumer
+  :805  .cta-btn-primary            color: var(--color-cta-bg, …)        <- NOT an ink consumer
+```
+
+Session `581eb30a` has an uncommitted contribution in `bugs_open/122` proposing to repair
+`legibleInkFor` so the ink becomes a lightened relative of the source instead of `--color-text`
+(verified real: 3 of its 16 sites re-measured at the artefact, plus the deciding line
+`palette_specialised_slots.go:350` — see `NOTES` 2026-08-13 §3). **If that lands AND robot-hands
+re-renders before 14:54:23Z on 08-17, the two "must RETRACT" rows stop testing retraction and start
+testing the new derivation** — and a mismatch would read as "retraction is broken" when nothing of
+ours moved. It takes BOTH a roll and a per-site re-render, so it is not likely; it is just silent
+if it happens.
+
+- **The `A.cta-btn` control is immune** — different variable — so the over-closure half of the test
+  survives either way. Grade that one with full confidence regardless.
+- **If robot-hands has re-rendered:** re-fetch `/selection-guide.html`, re-read the two `-ink`
+  declarations and the value `--color-primary-ink` now resolves to, and re-state the two positive
+  predictions against what is actually served **before** the audit fires. Do not grade them against
+  this table.
+- Check cheaply: `curl -s https://robot-hands.com/assets/css/styles.css | grep -- '--color-primary-ink'`
+  → `#E2E8F0` (== `--color-text`) is the **unchanged** state this table assumes. A navy means the
+  derivation fix landed.
+
+**And `A.cta-btn` now has a mechanism, not just "368 did not touch it"** (`NOTES` 2026-08-13 §5).
+`.cta-btn-primary` sets `color: var(--color-cta-bg, var(--color-primary))`, and `--color-cta-bg` on
+that site is a **`linear-gradient(...)`** — not a valid `<color>`. The variable *is* defined, so the
+sane fallback (`--color-primary`, `#1A1F2E`) is **never reached**; the declaration is invalid at
+computed-value time and `color` **inherits** `#ffffff` from `.cta-section`, over a `#ffffff` button.
+**CONFIRMED at the instrument, not inferred** — the token came back mid-session and the row's own
+spec says `fg: "rgb(255, 255, 255)"`, `bg: "rgb(255,255,255)"`, `ratio: 1`, `text_sample:
+"Run MatchMatrix"` (which is the **primary** button's `href`, so it is the right element). Any other
+colour pair would have refuted it.
+
+`[MEASURED]` **16 of 17** filed `%cta-btn%` rows fleet-wide are this exact defect — robot-hands 10,
+finetuning.uk 4, ai-agent-orchestration.com 2 — and the 17th is the control: leopardess's
+`A.tool-cta-btn-primary` at **2.27:1**, a valid token used validly and simply too pale. The
+effective `--color-cta-bg` is a gradient on **5 of 10** sites sampled, which is why it survived.
+
+⚠ **Resolve that token at the layer that WINS, not the one that is easy to `curl`.** My first pass
+read only `/assets/css/styles.css`, reported "3 of 8", and was then apparently refuted by
+ai-agent-orchestration.com (site-level `#0D1117`, yet white-on-white rows). The refutation was my
+measurement: that site's **page `<style>` block** redefines the token to the gradient. Same literal
+`linear-gradient(135deg,#1e40af,#1e3a8a)` appears page-level on 4 unrelated sites — a shared
+template default, `bugs_open/113`'s shape, not this lane's to chase. Full working: `NOTES` §5/§5a.
+
+No ink-slot fix and no repoint can close this row; it needs the consumer to stop reading a
+background-typed token into a colour slot.
 
 ---
 

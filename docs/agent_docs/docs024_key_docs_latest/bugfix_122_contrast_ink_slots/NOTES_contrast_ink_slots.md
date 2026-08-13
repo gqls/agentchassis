@@ -1688,3 +1688,199 @@ repoint should run.
 - `./scripts/landmines-sync.py --apply` — the file entry is committed (D10: the file is the system
   of record) but the `doc_notes` rows did not write; `--check` will report drift until re-run.
 - The three `[UNVERIFIED — inherited]` figures in `bugs_open/122` §9, queries written out there.
+
+---
+
+## 2026-08-13 (evening) — lane picked up, state re-verified, and the third canary row's root cause found
+
+Session goal was to pick the lane up from `HANDOFF_2026-08-12c` and check other threads first. The
+lane itself is date-gated and nothing was owed today, so the work is verification plus one finding.
+
+### 1. Nothing has drifted — the §1c prediction still holds exactly
+
+```
+status   |  n  | retracted | max_att
+deferred | 226 |         0 |       0        -- unchanged since 08-11
+```
+`site-render-audit-rotation` enabled, `last_triggered_at` 16:28Z, and **0 sites due**
+(`count(*) WHERE last_selected_at < now() - interval '7 days'` → `0`). Due order is unchanged:
+`robot-hands.com` **2026-08-17 14:54:23Z**, `loancalculator.co.uk` 15:54:31Z, `cookly.uk` 16:55:01Z.
+
+Live-ness re-proved at the artefact rather than assumed, with both controls, on the **v1.0.1295**
+pods (started 13:53Z — a newer release than the one §1c verified, so this needed redoing):
+`grep -aq` on `/proc/1/exe` → `69612d692…` **PRESENT**, `7a1887e31` **absent** (so the probe
+discriminates); `git merge-base --is-ancestor 5639a1103 69612d692…` → **true**.
+`browser-runner-adapter` and `render-audit-adapter` both print `69612d692…` in their own startup
+provenance line. **A newer fleet release did not displace the retraction** — that was the thing
+worth checking, and it is checked, not inferred.
+
+### 2. kubectl expired mid-session — one item is half-done and owed
+
+Fleet-wide `Unauthorized` at ~16:52Z, i.e. the 3-day token expiry (owner refreshes). It landed
+between the queries above and the producer census, so **§1b(1)'s standing caveat is HALF re-run**:
+
+- **done, at HEAD:** exactly one Go file mints the type — `write_render_audit_findings_action.go`
+  (`:296`, `:304`, `:535`, `:547`, `:604`). No second producer has appeared in code.
+- **owed, needs a live token:** the row-side half (`source` / `created_by` / `spec ? 'audit_source'`
+  / distinct spec key-sets over the 226). Re-run it before anything else starts filing
+  `contrast_failure` — the census cannot see a producer that has never fired, which is the whole
+  point of the caveat.
+
+### 3. Another thread is live inside this bug, and its finding is real — I checked three of its sixteen
+
+Session `581eb30a` (autonomous "take the next unworked bug", started 08-12 20:48Z, **still running**)
+has **181 uncommitted lines** in `bugs_open/122`. I did not touch that file. Its claim:
+`--color-<x>-ink` is `--color-text` under another name on every site, so the "keeps its character"
+promise in this lane's own `PLAN_2026-08-06:189-195` is false as built.
+
+**Verified independently before recording it**, because an uncommitted claim in another session's
+working tree is not evidence:
+
+- the deciding line, read at HEAD — `palette_specialised_slots.go:350` walks
+  `{"text","accent","text_muted","secondary","primary"}` and returns the **first** candidate that
+  clears every ground. `text` is by construction the slot picked to be read on the page ground.
+- three of their sixteen sites, re-fetched at the served artefact:
+
+| site | `--color-text` | `--color-primary-ink` | `--color-accent-ink` |
+|---|---|---|---|
+| robot-hands.com | `#E2E8F0` | `#E2E8F0` | `#E2E8F0` |
+| dartsonline.com | `#F0F2F7` | `#F0F2F7` | `#F0F2F7` |
+| cookly.uk | `#2C2C27` | `#2C2C27` | `#2C2C27` |
+
+Ink == text, exactly, 3 for 3. One caveat on their §2 wording, recorded because this lane cares
+about the difference: *"`accent`/`text_muted`/`secondary`/`primary` are unreachable"* is a
+**[MEASURED]** fleet fact, not a logical necessity — the walk would return `accent` on a site where
+`text` failed one of the grounds and `accent` cleared them all. Nothing in the fleet is such a site.
+The measurement is the evidence; the mechanism only explains why it came out that way.
+
+### 4. ⚠ That thread's proposed fix would land on top of this lane's 08-17 canary
+
+Not a conflict of edits — a conflict of **experiments**, which is harder to see and was worth the
+check. Two of the three canary rows are `--color-primary-ink` consumers. Verified in the **served
+page**, not in the template:
+
+```
+robot-hands.com/selection-guide.html
+  :554  .info-card-grid__eyebrow    color: var(--color-primary-ink, var(--color-primary));
+  :648  .info-card-grid__card-link  color: var(--color-primary-ink, var(--color-primary));
+  :805  .cta-btn-primary            color: var(--color-cta-bg,     var(--color-primary));   <- NOT an ink consumer
+```
+
+So if a derivation fix lands **and** robot-hands re-renders before 08-17 14:54:23Z, the two
+"must RETRACT" rows are no longer testing retraction — they are testing whatever the new ink
+computes to. The run could then read as "retraction is broken" when the derivation simply moved.
+**The `A.cta-btn` control is immune** (different variable), so the over-closure half of the test
+survives intact either way — which is a piece of luck worth knowing rather than discovering on the
+day. Mitigation is free: either nobody re-renders robot-hands before Monday, or whoever does
+re-states the two predictions against the served page first.
+
+### 5. NEW FINDING — why `A.cta-btn` fails, and it is a defect class this bug has not recorded
+
+§1c predicted this row must stay open on the sound but shallow ground that "`368` did not touch it".
+It now has a mechanism, and the mechanism is **not** an ink-slot problem at all:
+
+```css
+:root (styles.css:43-44)   --color-cta-bg:   linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+                           --color-cta-text: #ffffff;
+
+.cta-section    (page:765) background: var(--color-cta-bg,   …);   /* gradient — VALID for background */
+                    (:766) color:      var(--color-cta-text, …);   /* #ffffff  — correct, intentional */
+
+.cta-btn-primary(page:804) background: var(--color-cta-text, …);   /* #ffffff  — a white pill, intentional */
+                    (:805) color:      var(--color-cta-bg,   …);   /* A GRADIENT IN A COLOUR SLOT */
+```
+
+The intent is obvious and sane: a white button whose label is the CTA's brand blue. But
+`--color-cta-bg` holds a **gradient**, which is not a valid `<color>`. The variable **is** defined,
+so `var()`'s fallback `var(--color-primary)` — which is `#1A1F2E` and would have been fine — is
+**never reached**. The declaration is invalid at computed-value time, `color` therefore **inherits**
+from `.cta-section` (`#ffffff`), and the result is `#ffffff` on `#ffffff`. That is the invisible
+text this bug is about, arriving by a route no ink slot and no repoint can fix.
+
+**CONFIRMED AT THE INSTRUMENT — this is no longer inference.** The token came back mid-session, so
+the disconfirming check I had written down for someone else got run here. The audit's own filed row
+carries what it measured, and it is exactly what the mechanism predicts:
+
+```
+contrast_failure:/selection-guide.html#A.cta-btn
+  fg: "rgb(255, 255, 255)"   bg: "rgb(255,255,255)"   ratio: 1   need: 4.5
+  text_sample: "Run MatchMatrix"
+```
+
+`text_sample` settles which of the two buttons it is: "Run MatchMatrix" is the `href` on
+`<a class="cta-btn cta-btn-primary">`, so the failing element is the **primary** button, the one
+carrying the gradient-in-a-colour-slot. Any other `fg`/`bg` pair would have refuted the mechanism
+outright; `#ffffff` on `#ffffff` at exactly 1.00 is the only reading consistent with "the
+declaration was discarded and `color` inherited from `.cta-section`".
+
+**Blast radius, from the filed rows rather than a curl sample** — 17 rows across 4 sites match
+`spec->>'selector' LIKE '%cta-btn%'`:
+
+| site | rows | fg == bg at 1.00:1 |
+|---|---|---|
+| robot-hands.com | 10 | **10** |
+| finetuning.uk | 4 | **4** |
+| ai-agent-orchestration.com | 2 | **2** |
+| leopardessconsulting.co.uk | 1 | 0 — min ratio **2.27** |
+
+**16 of 17 are the type error. The 17th is the control and it is a different defect on a different
+selector** (`A.tool-cta-btn-primary`, `fg` `rgb(200,169,81)` on white = the site's `--color-cta-bg`
+`#C8A951` used as a label *validly*, and simply too pale). Same token, valid value, declaration
+applies, ordinary low contrast. That is the contrast between the two failure modes in one query.
+
+### 5a. MISSTEP — I measured the token at the wrong layer and briefly refuted myself
+
+Worth recording because the wrong answer looked exactly like a right one, and the *check* was what
+was broken, not the claim.
+
+First pass sampled `--color-cta-bg` from `https://<domain>/assets/css/styles.css` only, and reported
+**"gradient on 3 of 8 sites"**. Then `ai-agent-orchestration.com` turned up with 2 white-on-white
+rows and a site-level `--color-cta-bg: #0D1117` — a perfectly valid colour. That is a genuine
+refutation of the mechanism as I had stated it, and I treated it as one.
+
+It was the measurement. **The page's own `<style>` block redefines the token** — `aao/about.html:76`
+sets `--color-cta-bg: linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%)`, overriding the stylesheet.
+Reading the site stylesheet alone yields a **false negative** on exactly the sites where a page-level
+override introduces the defect.
+
+Re-measured at the **effective** layer (page `<style>` if present, else the stylesheet), 10 sites:
+
+| effective `--color-cta-bg` | sites |
+|---|---|
+| **GRADIENT** | `robot-hands.com` (site), `finetuning.uk` (page), `gaswholesalers.com` (page), `ai-agent-orchestration.com` (page), `leopardessconsulting.co.uk` (page) — **5** |
+| plain colour | `dartsonline.com`, `cookly.uk`, `vetcomparison.uk`, `oufe.com`, `lendzy.co.uk` — **5** |
+
+So **5 of 10, not 3 of 8** — and every white-on-white row in the table above sits on a gradient site
+once the right layer is read. The corrected figure is also the more alarming one, which is the
+direction a measurement error is least likely to be caught in.
+
+**And the page-level gradient is the SAME LITERAL on 4 of the 5** —
+`linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%)`, a blue that belongs to no site's palette,
+appearing verbatim on four unrelated sites. That points at a shared page/layout template default
+rather than anything the palette generator computed, and it is the same shape as `bugs_open/113`
+(generated palettes inheriting the layout's light literals). `[UNVERIFIED]` as to which template
+emits it — I did not chase it, and it is 113's territory rather than this lane's.
+
+**The transferable check: resolve a custom property at the layer that actually wins, never at the
+one that is convenient to `curl`.** A page `<style>` block beats the site stylesheet, and this
+estate uses page-level palette blocks routinely.
+
+The general shape is one this lane keeps meeting from new directions and should name:
+**a `var(--x, fallback)` whose `--x` is DEFINED BUT OF THE WRONG TYPE is strictly worse than an
+undefined one** — the sane-looking fallback in the source is dead code, and an inherited-value
+failure looks in the template exactly like a working declaration.
+
+### 6. The selector is lossy — checked, and it does NOT threaten the canary
+
+Chased this as a possible false-closure route and it came out clean, so recording the negative.
+`contrastSelector` (`write_render_audit_findings_action.go:777-786`) keeps **`tokens[0]` only**, so
+`class="cta-btn cta-btn-primary"` and `class="cta-btn cta-btn-secondary"` **both** key to
+`A.cta-btn` — and the served page carries exactly one of each. The browser-side dedup
+(`render_audit_action.go:222`) keys on the *full* class string, so the two are distinct there and
+collapse only at the filing layer.
+
+**The retraction is nevertheless sound here, because it derives its still-failing keys with the
+same function on both sides** (`:548` uses `contrastSelector` exactly as `:252` does). The row
+retracts only when no element sharing that key still fails — conservative, i.e. it errs toward
+leaving tickets open. The residual is cosmetic rather than dangerous: one row can stand for two
+elements, so the 226 is a floor for the *element* count as well as for the reasons already recorded.

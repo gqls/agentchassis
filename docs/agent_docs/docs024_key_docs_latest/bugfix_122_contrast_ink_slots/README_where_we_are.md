@@ -652,3 +652,69 @@ to tell those apart.
 next at a keyboard: the cluster login expired mid-session, so a few figures are still unverified and
 one bookkeeping sync didn't run. And the decision about whether to fix the one line is worth your
 view, because it changes how every site's links will look.
+
+---
+
+**2026-08-13, evening.** Picked the lane back up and checked on the other threads first, as asked.
+Nothing here needs you, and Monday is still the date. But three things came out of the check that
+are worth knowing.
+
+First, I re-proved that the thing we shipped is still running. That sounds like paranoia, but the
+fleet was released again this afternoon (v1.0.1295) after our verification this morning, and a
+release rolls everything — so "it was live at lunchtime" is not the same claim as "it is live now".
+It is live now: I asked the running program which commit built it, with a control to prove the
+question was capable of answering "no", and ours is in there. The 226 parked tickets are untouched,
+nothing has retracted, and the audit rota still has Monday 14:54 as the first site due. Everything
+the last note predicted is still exactly on track.
+
+Second — the more interesting one — another session is inside the same bug right now, working the
+half of it we did not take. It found something that contradicts a claim in our own plan: the
+"legible ink" colours we introduced do not, as we wrote at the time, preserve the site's brand
+colour. They come out as the site's ordinary body-text colour, on every site. I checked three of
+their sixteen sites myself before believing it, and they are right. That does not undo anything we
+shipped — the elements we repaired were genuinely invisible before and are genuinely readable now —
+but the reason we gave for why it was safe was wrong, and I have recorded that as a correction
+rather than quietly moving on.
+
+It also creates a subtle collision that I would not have spotted without looking, and it is the real
+reason checking other threads was worth the time. Two of the three tickets in our Monday test are on
+elements that use exactly the colour they are about to change. If their fix lands and that site gets
+rebuilt before Monday, our test stops measuring the thing we built it to measure — it would be
+measuring their new colour instead, and a confusing result could easily be misread as "the ticket
+closing is broken". The third ticket is untouched by their work, so the half of the test that
+guards against closing too much survives either way. The fix is free: either nobody rebuilds that
+one site before Monday, or whoever does tells us and we re-state the prediction first. I have
+written it into the handoff and messaged the other session.
+
+Third, I now know why that third ticket fails, and it is a different kind of fault from everything
+else in this bug. The button is meant to be a white pill with the brand blue as its label. But the
+"brand blue" it reaches for is stored as a gradient — two blues fading into each other — and a
+gradient is not a colour. A browser cannot use it as text colour, so it throws the whole instruction
+away and the text falls back to inheriting white from the panel behind it. White text on a white
+button. The safety net written into that line, which would have produced a perfectly good dark
+colour, never runs, because it only helps when the value is *missing*, not when it is *present and
+of the wrong sort*. That is a nasty one, because reading the code shows you a sensible-looking
+safety net that does nothing.
+
+The login came back before the end of the session, so I could finish this properly rather than
+leaving it as a theory, and the answer is not a guess: the audit records what it actually measured
+on each ticket, and for this button it recorded white text on a white background at the worst
+possible score. Sixteen of the seventeen tickets of this kind across the whole estate are that exact
+fault. The seventeenth is a genuinely different problem — a real colour that is simply too pale —
+which is a useful thing to have, because it shows the two faults can be told apart at a glance.
+
+I should own a mistake in the middle of this, because it nearly sent me the wrong way. My first
+count said the problem hit three sites out of eight. Then a site turned up with the broken button
+but, apparently, none of the cause — which looked like my explanation was simply wrong. It wasn't:
+I had been reading the site's main stylesheet, and that particular site overrides the colour further
+down, inside the page itself. The convenient place to look was the wrong place to look. Once I read
+the value that actually wins, it is five sites in ten, not three in eight — so my easy check had been
+quietly under-reporting the damage rather than over-reporting it, which is the direction you least
+want to be wrong in. I have written that down as the check to use in future, because anyone
+investigating this would reach for the same convenient command I did.
+
+One more thing worth your attention, though it belongs to a different bug and I have not chased it:
+on four unrelated sites, that gradient is the *identical* blue, and it is not a colour from any of
+their palettes. That smells like a shared template quietly supplying a default nobody chose, which
+is the same shape as the bug about generated palettes inheriting a layout's stray light colours.
+I have flagged it rather than pulled the thread.
