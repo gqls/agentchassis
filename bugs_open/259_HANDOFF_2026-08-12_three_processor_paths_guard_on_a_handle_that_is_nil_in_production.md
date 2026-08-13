@@ -15,9 +15,21 @@
 246's follow-up D5 ("collapse `p.sqlDB` into `p.db`"). What looked like a cosmetic
 two-handles tidy-up is three production-dead code paths sharing one cause.
 
-**Status: OPEN, not fixed.** Severity is **not uniform across the three** — one is
-harmless redundancy, one substitutes a placeholder for real data, one is unassessed.
-Do not fix them as a batch. See "why this is not a sweep" below.
+**Status: OPEN, not fixed — but as of 2026-08-13 fully DIAGNOSED and ready to fix.** All
+three sites are now assessed and all three are **deletions**, each on its own separate
+proof: **C** redundant (agentbase runs the same claim on a live handle), **B** unreachable
+(zero callers), **A** inert (both branches `return nil`, one log line between them).
+Recommended fix is **candidate 1** — drop `p.sqlDB` and all three sites together — with care
+reserved for the two `bugs_open/239` fallback readers (`:649-658`, `:1192`), which are live
+and must be simplified to `p.db` rather than removed. Platform code: council gate + register
+touch owed.
+
+~~Severity is **not uniform across the three** — one is harmless redundancy, one substitutes
+a placeholder for real data, one is unassessed. Do not fix them as a batch.~~ **The
+"placeholder for real data" severity on B was withdrawn 2026-08-12** (the function that
+builds it has no callers), and **A's "unassessed" was resolved 2026-08-13**. "Do not fix as
+a batch" still holds for the *reasoning* — see "why this is not a sweep" below — but the
+three conclusions have converged on delete.
 
 ## The mechanism (same one `bugs_open/239` already fixed once)
 
@@ -39,7 +51,7 @@ production lacks."* **Nobody swept the remaining sites.** That sweep is this bug
 
 ## The three sites (line numbers at `039cfce84`+; re-locate before editing)
 
-### A — `~:351`, child-workflow completion check → **[UNASSESSED]**
+### A — `~:351`, child-workflow completion check → ~~**[UNASSESSED]**~~ **RESOLVED 2026-08-13: DEAD *and* INERT — the early return suppresses nothing, and no treatment of A can change a response**
 ```go
 if msgCtx.IsChildOrchestration() {
     if p.sqlDB != nil {
@@ -51,9 +63,73 @@ if msgCtx.IsChildOrchestration() {
     }
 }
 ```
-Dead ⇒ the early return never fires ⇒ a completed child's response is never suppressed.
+~~Dead ⇒ the early return never fires ⇒ a completed child's response is never suppressed.
 Whether that produces a duplicate parent response, or is merely belt-and-braces over a
-guard elsewhere, is **not established**. Do not assume either way.
+guard elsewhere, is **not established**. Do not assume either way.~~
+
+> **RESOLVED 2026-08-13 (dispatch/pool lane). The answer is NEITHER, and it needed no live
+> measurement — the question dissolves on reading the fifteen lines around it.**
+>
+> **The premise was false at source.** That `return nil` does not "suppress the response to
+> the parent", because there is no response-sending code for it to skip. Look at what
+> actually sits between the guard and the end of the function (`processor.go:350-364`,
+> v. HEAD `8ac5e9cce`):
+>
+> ```go
+>     if msgCtx.IsChildOrchestration() {
+>         if p.sqlDB != nil {
+>             ...
+>             if state != nil && state.Status == orchestration.StatusCompleted {
+>                 msgCtx.Logger.Info("Child workflow completed, sending response to parent")
+>                 return nil          // <-- the "suppressing" return
+>             }
+>         }
+>     }
+>
+>     msgCtx.Logger.Info("Workflow successfully handed off to the orchestrator")
+>     return nil                      // <-- the fall-through
+> }
+> ```
+>
+> **Both paths `return nil`, and the entire skipped region is one log statement.** So the
+> early return is indistinguishable from the fall-through by anything outside the function:
+> - `process()` is declared `func (p *MessageProcessor) process(ctx context.Context, msgCtx *MessageContext) error` at `:141` — an **unnamed** `error` return, so no `defer` can rewrite it;
+> - there is **no `defer` anywhere in `process()`** (`:141`–`:364`, checked as a range, not as a guess);
+> - the two returns carry the **identical value**, so the caller cannot tell them apart.
+>
+> **Therefore, for each of the three possible treatments of A:**
+> | treatment | behavioural effect |
+> |---|---|
+> | leave it (today) | branch never entered; logs `:362`, returns nil |
+> | **delete the block** | identical — logs `:362`, returns nil. **A provable no-op, not a live-behaviour change.** |
+> | activate it on `p.db` | one `GetState` read per child message, and *which* of two log lines is emitted. Still cannot suppress or emit any response. |
+>
+> **What this changes for the fix.** The ordering constraint in "Fix candidates" — *"A must be
+> assessed first, because removing the handle turns A's guard into an ordinary `p.db` read,
+> which is a live-behaviour change"* — **dissolves.** Deleting A alters no behaviour, so
+> **all three sites are now deletes** and candidate 1 (drop `p.sqlDB` entirely) is unblocked
+> on A's account. The remaining care belongs to the `db := p.db; if db == nil { db = p.sqlDB }`
+> fallback readers (`:649-658`, `:1192`) left by `bugs_open/239`, which must be simplified
+> rather than deleted.
+>
+> **The premise it rested on, re-grounded rather than inherited** — `[MEASURED 2026-08-13,
+> v1.0.1295]` `DATABASE_URL` is **empty** on both live chassis pods while
+> `CLIENTS_DATABASE_URL` is set, so `p.sqlDB` is nil in production as the filing said.
+>
+> **Also worth fixing while deleting: the log line lies.** `"Child workflow completed,
+> sending response to parent"` sits on a path that sends nothing and returns nil. If A is
+> ever revived instead of deleted, that string is the next reader's trap — it is the only
+> reason this site reads as response-handling at all, and it is what made the question look
+> like it needed a cluster measurement.
+>
+> **Why no `090` run and no live behavioural measurement, stated rather than skipped** (owner
+> ruling 2026-07-31): the claim here is a **negative about fifteen contiguous lines with no
+> indirection** — no interface dispatch, no goroutine, no `defer`, no named return, and a
+> fully-enclosed skip region. The disconfirming evidence would have to be *inside* the quoted
+> block, so it is exhibited above in full for the next reader to re-check in one screen
+> rather than take on trust. This is the "local and self-evidencing" exemption, used
+> deliberately and narrowly: it does **not** extend to the deletion itself, which is platform
+> code and owes the council gate and a register touch.
 
 ### B — `~:582`, the workflow's final result → **the one with a visible consequence**
 ```go
@@ -173,22 +249,41 @@ to all three — is **wrong**, and dangerously so, because it reads as consisten
 - On **A** and **B** it **changes live behaviour** — what parents receive, and whether
   responses are suppressed. Neither has a measured blast radius yet.
 
-**None of these three is a no-op fix.** That is the opposite of `bugs_open/246`, whose
+~~**None of these three is a no-op fix.** That is the opposite of `bugs_open/246`, whose
 safety rested on the deleted calls being byte-identical to the defaults; do not carry
-246's confidence across to this bug.
+246's confidence across to this bug.~~
+
+> **CORRECTED 2026-08-13: all three ARE no-op deletions, established site by site — but the
+> reasoning that gets you there is nothing like 246's, so the warning's *spirit* stands.**
+> C is redundant (agentbase does the same claim on a live handle, evidenced). B is
+> unreachable (`sendWorkflowSuccessResponse` has zero callers). A is inert (both paths
+> `return nil`; the skipped region is one log line). 246's safety came from a **symmetry
+> argument** — deleted calls being byte-identical to defaults. Here it comes from **three
+> different, individually-exhibited proofs**, which is why the file was right to refuse the
+> mechanical sweep in candidate 3: the *conclusion* converged, the *justifications* did not,
+> and a sweep would have asserted the conclusion without any of them.
 
 ## Fix candidates, ordered by what closes the door
 
 1. **Delete `p.sqlDB` entirely, and with it C.** The handle is nil in production, every
    remaining reader already falls back to `p.db`, and the field's only effect is to make
    three paths unreachable and mislead readers. Removing it makes the bad state
-   **unrepresentable** — there is no second handle to guard on. A and B then become
+   **unrepresentable** — there is no second handle to guard on. ~~A and B then become
    ordinary `p.db` reads and must be assessed on their own merits (below) before their
-   guards are removed.
-2. **Assess A and B individually, with a measurement each, and fix them separately.**
+   guards are removed.~~ **2026-08-13: A and B are now both assessed and both are deletes,
+   so this candidate is UNBLOCKED and is the recommended fix.** Delete all three sites with
+   the field. The one place needing care is not A, B or C but the two fallback readers
+   `bugs_open/239` left behind — `:649-658` and `:1192` (`db := p.db; if db == nil { db = p.sqlDB }`)
+   — which must be **simplified to `p.db`**, not deleted, since they are the live paths.
+2. ~~**Assess A and B individually, with a measurement each, and fix them separately.**
    B first: it has a certain, describable defect (a placeholder where real data belongs)
    and needs a live measurement of what consumes the response. A needs the duplicate
-   question answered.
+   question answered.~~ **SUPERSEDED 2026-08-13 — both assessments are done and neither
+   needed the live measurement this candidate budgeted for.** B's consumer set is empty
+   because the function has no callers; A's duplicate question is void because both of its
+   paths return the same nil. Kept on the record because the candidate was correctly
+   ordered at filing time: it was right to demand the assessments, and wrong only in
+   expecting them to require cluster evidence.
 3. Fix the guards mechanically across all three. **Rejected** — see above.
 4. Document and leave. **Rejected**: a comment is not a control, and the 239 lane already
    proved this class bites for real.
