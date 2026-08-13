@@ -122,7 +122,13 @@ bare-handle lines. Nothing in this lane's files claims otherwise; keep it that w
 4. **A council `REVISE` gated on your SKETCHES is not a code problem.** `editquality` raised HIGH twice
    on lines I had written but elided from the submission. Show disputed hunks verbatim; "a test asserts
    it" is not an answer to "show me the edit".
-5. **A correction you offer a reviewer is a durable claim** and inherits none of the checking you did on
+5. **Put `Council-Submitted:` on the commit even when you are about to submit seconds later.** The 269
+   fix commit `a3fee59b8` lists as UNREVIEWED in the `098` coverage report for ever: I committed, then
+   built the submission, so there was no correlation to write down. Forward-only forbids an amend and a
+   cosmetic follow-up touch just to attach a trailer would be gaming the report. The code IS approved
+   (`e5809ca9-…`, `bugs_open/269` §8d) — the report just cannot join it. The 267 commits all carry it and
+   are all credited.
+6. **A correction you offer a reviewer is a durable claim** and inherits none of the checking you did on
    your code. Both of my provenance claims were one measurement of a time-dependent check generalised
    into a property of the service — see `WRONG_CALLS.md` 2026-08-12, and its 08-13 narrowing.
 

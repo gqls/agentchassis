@@ -326,6 +326,25 @@ Its second point — whether `CanonicalSymbolName`, `spanOf` and `splitReceiver`
 assumes — verified: `symbolbody.go:164`, `:262`, `:323`, with `CanonicalSymbolName` added in
 `17734b699`.
 
+### 8d. A BOOKKEEPING MISS OF MINE, recorded because the report cannot be corrected
+
+**`a3fee59b8` — the fix commit — lists as UNREVIEWED in `098`, and it cannot be fixed.** It carries no
+trailer at all, because I committed the code and *then* built the submission. Forward-only forbids an
+amend, and adding a cosmetic follow-up touch to a platform file purely to attach a trailer would be
+gaming the report, so it stays as it is.
+
+**The code IS reviewed** — approved first round, correlation `e5809ca9-d718-44f6-8d27-6d8cd656dd28`,
+recorded above and on `ad832eb28`. The report simply cannot join it, and `098`'s own honest-limits note
+covers this class.
+
+**The lesson is a sequencing one and it is small and avoidable.** For `bugs_open/267` I submitted first,
+which is why all four of those commits are credited "via submitted". For this one I reversed the order
+out of habit — commit the moment it is coherent — and lost the join. **`Council-Submitted:` costs nothing
+and asserts nothing, so put it on the commit even when the submission is seconds away**; that is the
+precise hole it was invented for (see `RUNBOOK_council_gate.md` §2a). Do not let "commit the moment it is
+coherent" and "submit first" fight — they do not conflict if you write the correlation down before you
+commit, and if you truly cannot, the trailer-less commit is a permanent gap in the coverage report.
+
 ### 8c. `debug_historian` (low): no stated pod-verification step
 
 Now stated, and with the recipe corrected by this lane's own 2026-08-13 experience — see §9. The seat
