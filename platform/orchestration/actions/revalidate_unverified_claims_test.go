@@ -562,10 +562,12 @@ func TestUnverifiedClaimsPublishedAtTheSameInstantResolves(t *testing.T) {
 // fails on a copy-pasted arm name that no list-against-itself check could see.
 //
 //  1. every arm is reachable — a name no fixture can produce is a dead label;
+//
 //  2. the 14 arms are pairwise DISTINCT — two rungs sharing a name silently merge
 //     into one bucket in every `GROUP BY arm`, and the merged count still looks
 //     perfectly plausible, which is the whole failure mode this field exists to
 //     end;
+//
 //  3. the REACH PREDICATE — `gate_` prefix OR the terminal resolved arm — is true
 //     for exactly the arms downstream of a clean scan. That predicate is what the
 //     "has a gate ever been reached?" query runs, so a new gate arm named without
