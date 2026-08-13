@@ -272,3 +272,39 @@ visitors to someone else's domain — and right now no such check is switched on
 anywhere in the fleet. The code exists; its configuration is deliberately held.
 Fixing it that way turns one broken shopfront into a check that watches all of
 them. I'll follow it through in this thread.
+
+---
+
+## 2026-08-13, evening — the new site exists, end to end (written by the assistant)
+
+Three days compressed: the framework built the whole site, and everything it
+built is now on our own machine, though nobody can see it yet — noted.co.uk still
+shows the old app with its notice, exactly as before.
+
+What happened, in order. The build you dispatched on the 11th sat in a queue for
+seven hours behind other sites' work — nothing was wrong, we were simply last in
+line — and then ran by itself overnight: five pages, images, the lot. Then we
+found the pages weren't reaching our server even though every check said success;
+the sync job had been told to fetch only the shopfront's folder and skipped ours
+without saying so. Fixed so it can't happen to the next site either.
+
+The buttons were missing from every page — the framework wrote "Sign in" but
+didn't know where signing in happens, since our app lives on its own subdomain.
+Pointed them at it. Built the rescue page: it reads the notes still sitting in
+people's browsers from the old app and hands them back as a file, without an
+account. That's the migration. It's tested against real browser data, including
+proof it can't create, change or delete anything.
+
+You wrote the privacy copy (via the draft you approved, with your one edit) and
+it's now on a privacy page word for word — after a false start where the writing
+agent quietly wrote its own version because my instruction pointed at text it
+couldn't see. And your "we don't want to say no server" ruling exposed something
+odd: the instruction telling writers not to use the old wording was itself phrased
+"the old site had no server", so the writer copied its instructions and got
+blocked by your own ban. Reworded to say what the old app *did* — kept everything
+in one browser — and the guide rebuilt cleanly first try.
+
+Waiting on you: whether the privacy page should mention that deleted notes
+survive in encrypted backups for up to thirty days (I left it unsaid — your
+call); the by-hand test that a failed save shouts instead of losing text; and,
+when you're ready, the cutover itself.

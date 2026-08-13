@@ -1877,3 +1877,25 @@ Guide item requeued (`needs_human_review` → `triaged`) with the ruling recorde
 its spec. Poll running. If the writer still produces a banned shape, the validator
 will catch it again and the fallback is a section-editor `content_edit` on the
 offending sentence — not a ban change.
+
+### 16:50–22:07 — guide rebuilt CLEAN under the corrected instruction; queue emptied
+
+The requeued guide deployed at 16:50. `[MEASURED]` at the artefact: **zero
+banned-shape hits** in the rendered text (the same regex the ban uses), 1,150
+words, and the old app described affirmatively throughout — the lead sentence is
+"The old Noted kept everything in the browser you wrote it in, on that one device,
+and nowhere else", which is the corrected writer_block's framing almost verbatim.
+So the instruction was the defect: same writer, same page, same ban; only the
+guidance changed.
+
+Guide CTAs then set via section editor (texts chose their own destinations: hero
+"Find your notes from the old Noted" and primary "Save everything" → the tool;
+secondary → /how-it-works.html). Verified rendered (hero 1 anchor, cta 2, both
+linking the tool) and on the box at 22:07 (`200/24164`, 3 tool links).
+
+Closed with asserted row counts: the guide's 2 `unresolved_cta` (resolved), the
+privacy `unresolved_cta` (**no CTA by design** — the hero carries no cta_text and
+the approved copy has its own contact route), and the original 08-12
+`needs_content_page` (superseded by the reconcile-emitted rebuild). **The work
+queue for this site is now empty** except the three inert `detected`
+discovery-rotation rows from 08-10, which nothing dispatches.
