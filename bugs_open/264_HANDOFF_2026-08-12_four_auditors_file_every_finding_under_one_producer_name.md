@@ -136,3 +136,83 @@ completely unfixed system produces.
   signal. That landmine needs the caveat this file supplies.
 - `docs024_key_docs_latest/copy_quality_two_stage/NOTES_two_stage_copy.md` — the
   misdiagnosis this caused, recorded as a correction.
+
+## §12 — Fix applied 2026-08-13, both ordered candidates, verification pending
+
+**Candidate 1 (config-only, no roll) — APPLIED AND VERIFIED LIVE.** Migration
+`399_four_auditors_audit_source_resolves_to_a_real_value.sql` (+ `_ROLLBACK.sql`
+sidecar), applied against `clients_db` 2026-08-13. Adds one `query_database` step
+per agent with no `FROM` clause (`SELECT '<name>'::text AS audit_source`), whose
+`output_format:"object"` flattens the literal into a new `collected_data` field
+(`audit_source_literal`). The write step's `audit_source` config becomes the
+genuine two-segment dot-path `audit_source_literal.audit_source`, which Strategy 0
+resolves via `ExtractNestedField` — the same mechanism every correctly-wired
+config value in this fleet already uses. `query_database` has no registered
+`ActionInputSpec` (confirmed by grep — it reads `query`/`output_format` straight
+off `StepConfig.Config`), so the new step needed no input-contract registration.
+
+**`[MEASURED]` live re-check straight after applying, before any audit had run
+under the new config:**
+```sql
+SELECT a.type, s.step_name, s.step->'config'->>'audit_source'
+FROM agent_definitions a
+CROSS JOIN LATERAL jsonb_each(a.default_config->'workflow'->'steps') AS s(step_name, step)
+WHERE a.is_active AND COALESCE(a.is_snapshot,false)=false AND a.deleted_at IS NULL
+  AND (s.step->>'action'='write_audit_findings' OR s.step_name='set_audit_source');
+```
+All four `write_findings`/`write_strategic_findings` steps now show
+`audit_source_literal.audit_source`; all four `set_audit_source` steps present
+with the correct literal, `next_step` and `output_field`. The migration's own
+guard (a `DO` block asserting the new step, the rewired `next_step`, the updated
+`audit_source`, AND that each write step's `site_id`/`findings_field` and each
+predecessor's `output_field` survived untouched) passed on both a rollback-wrapped
+dry run and the real apply.
+
+**Candidate 2 (make the field non-defaultable) — APPLIED, COMMITTED, INERT UNTIL
+THE NEXT ROLL.** `write_audit_findings_action.go`: `WriteAuditFindingsInputSpec`
+moves `audit_source` from `Optional` (with `Defaults: {"audit_source":
+"design-audit"}`) to `Required`, with no default. The action body's own
+`if auditSource == "" { auditSource = "design-audit" }` fallback — a second,
+code-level default that would have silently defeated the `Required` change for
+any caller extracting an empty string — is removed as dead/misleading code.
+`go build ./platform/orchestration/...` and `go test ./platform/orchestration/...`
+both green.
+
+**ORDERING, stated explicitly so nobody flips it on a future revert or replay:**
+candidate 1 (config) had to be live BEFORE candidate 2 (code) ships, because an
+older binary resolves the new dot-path unconditionally (Strategy 0 does not
+depend on the Go change), but rolling the stricter binary FIRST — before all four
+configs were fixed — would hard-fail every auditor's `write_audit_findings` step
+at "missing required fields: [audit_source]" the moment it rolled. Candidate 1 was
+applied and verified live first; candidate 2 was committed after. Candidate 3
+(`bugs_closed/042`'s general string-literal-as-reference mechanism) remains
+explicitly out of scope, per this file's own original fix-candidate ordering.
+
+**Confirmed candidate-2 does not affect the fifth producer.** `tool-acceptance-tier4`
+(the one non-`design-audit` value already landing correctly) sets `audit_source`
+directly in a Go-constructed `spec` map in `tool_acceptance_actions.go`'s
+`routeChromeFailures`, bypassing `WriteAuditFindingsAction` and
+`ExtractActionInputs` entirely — read at the call site, not inferred.
+
+**Submitted to the advisory council-review gate** (touches `platform/`):
+`SUBMISSION_CORR=50ee4b26-2303-4304-b437-7320e1368a1d`. Verdict not yet read as of
+this write-up; committing under `Council-Submitted:` per the standing norm rather
+than holding the code for the ~30-minute queue.
+
+**`[UNVERIFIED]` — the one thing still open.** Per this file's own "How to
+verify a fix" section: nobody has yet run one audit per auditor and confirmed all
+four now write their own name. Do this before closing:
+```sql
+SELECT spec->>'audit_source', count(*) FROM site_work_items
+WHERE created_at > '2026-08-13T00:00:00Z' AND spec ? 'audit_source' GROUP BY 1;
+```
+must show four distinct values, not a single `design-audit` row (which is also
+what a fully unfixed system would show if no audit has run since). Trigger one
+run of each of `brief-fidelity-auditor`, `content-quality-auditor`,
+`site-review-agent`, `visual-design-auditor` against any live site and re-run the
+query. Also re-read the council verdict once queued:
+```sql
+SELECT created_at, metadata->>'decision' FROM diagnosis_artifacts
+WHERE correlation_id='50ee4b26-2303-4304-b437-7320e1368a1d' AND kind='council_report'
+ORDER BY created_at;
+```

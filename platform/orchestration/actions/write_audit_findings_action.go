@@ -39,9 +39,8 @@ import (
 
 var WriteAuditFindingsInputSpec = datahelpers.ActionInputSpec{
 	CheckConfig: true,
-	Required:    []string{"site_id"},
-	Optional:    []string{"findings_field", "audit_source"},
-	Defaults:    map[string]interface{}{"audit_source": "design-audit"},
+	Required:    []string{"site_id", "audit_source"},
+	Optional:    []string{"findings_field"},
 	Deprecated:  map[string]string{},
 }
 
@@ -492,10 +491,10 @@ func WriteAuditFindingsAction(ctx context.Context, params ActionParams) (interfa
 		return nil, fmt.Errorf("invalid site_id: %w", err)
 	}
 
+	// audit_source is Required with no Default (bugs_open/264): a config that
+	// fails to resolve now fails ExtractActionInputs outright instead of
+	// silently landing every producer's findings under "design-audit".
 	auditSource := inputs.Get("audit_source")
-	if auditSource == "" {
-		auditSource = "design-audit"
-	}
 
 	// ── Load existing pages for classification ──
 	pages, err := loadSitePages(ctx, params.DB, siteID)
