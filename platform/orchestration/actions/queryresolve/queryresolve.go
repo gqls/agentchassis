@@ -134,6 +134,28 @@ func Resolve(ctx context.Context, db *sql.DB, req QueryRequest, logger *zap.Logg
 	case "protocol_tracker_full":
 		return resolveDirectoryKind(ctx, db, "protocol", req.Limit, 50, logger)
 
+	case "mortgage_lender_directory":
+		// Phase B finance kinds (2026-08-13): three more register kinds on the
+		// same global directory_entities/directory_claims registry — the same
+		// resolveDirectoryKind the adoption/protocol trackers use, never the
+		// bespoke model_* functions. Not site-scoped, like every directory arm.
+		return resolveDirectoryKind(ctx, db, "mortgage-lender", req.Limit, 12, logger)
+
+	case "mortgage_lender_directory_full":
+		return resolveDirectoryKind(ctx, db, "mortgage-lender", req.Limit, 50, logger)
+
+	case "savings_provider_directory":
+		return resolveDirectoryKind(ctx, db, "savings-provider", req.Limit, 12, logger)
+
+	case "savings_provider_directory_full":
+		return resolveDirectoryKind(ctx, db, "savings-provider", req.Limit, 50, logger)
+
+	case "health_insurer_directory":
+		return resolveDirectoryKind(ctx, db, "health-insurer", req.Limit, 12, logger)
+
+	case "health_insurer_directory_full":
+		return resolveDirectoryKind(ctx, db, "health-insurer", req.Limit, 50, logger)
+
 	case "business_directory":
 		// A site's own verified business_intel directory (bugs_open/206).
 		// No arg: the vertical is looked up from the site's own

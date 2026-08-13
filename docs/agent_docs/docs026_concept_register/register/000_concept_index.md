@@ -104,6 +104,7 @@ an ID prefix, or a status word.
 | VONC-005 | lobby-grid arena component (six-room grid) | deployed | 6-card Arena grid runtime-filled from `arena`; reference loader-builder implementation | vonc.md |
 | SOC-007 | Provocation engine — layered content production architecture | aspirational | 6-layer pipeline: raw feed → framing → curation → mashup → serialisation → niche | social-media.md |
 | NEWS-001 | News feed pipeline (sources -> async ingest -> triage -> JSON render -> commit) | deployed | 6h heartbeat -> orchestrator -> ingesters -> triage -> render_news_section -> git commit | news-feed-pipeline.md |
+| DIR-001 | Global verified-claim provider/entity directory (one kind = one fleet-wide list) | deployed | Quote-verified claims registry; kinds model/company/protocol live, 3 finance kinds built-awaiting-roll (Phase B); kind-scoped HITL keys | directory-pipeline.md |
 | IDEA-002 | Operator-risk column: hazard scored separately from fitness, with gates | deployed | 6th scored dimension for consequence-of-being-wrong; paused the SFI assessment | idea-product.md |
 | CASE-012 | Risk-as-hazard scoring dimension | deployed | 6th scoring factor for consequence-of-being-wrong, kept separate from fitness | site-case-studies.md |
 | CANB-001 | Canine biology knowledge tree (1M-agent demo) | aspirational | 7-level, ~1M-agent swarm building a citable Labrador knowledge tree; demoted to showcase | canine-biology.md |

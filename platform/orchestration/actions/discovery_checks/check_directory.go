@@ -106,6 +106,46 @@ var directoryCheckProfiles = []directoryCheckProfile{
 		PageItemType:     "missing_protocol_tracker_page",
 		PageTitle:        "a cited tracker of agent communication protocols and their uptake",
 	},
+	// Phase B finance/insurance kinds (2026-08-13). Same machinery, three more
+	// profiles. Owner ruling: these directories carry NON-PRICE facts only
+	// (regulator status, product types, underwriter, established year — never
+	// APR/rates/premiums), which is why no PageTitle below mentions prices.
+	{
+		Kind:             "mortgage-lender",
+		SpecKey:          "mortgage_lender_directory",
+		Label:            "mortgage lender directory",
+		SnippetComponent: "mortgage-lender-directory",
+		ListingComponent: "mortgage-lender-directory-listing",
+		PageType:         "mortgage-lenders",
+		PageName:         "mortgage-lenders",
+		SectionItemType:  "missing_mortgage_lender_directory_section",
+		PageItemType:     "missing_mortgage_lender_directory_page",
+		PageTitle:        "a cited directory of UK mortgage lenders with verified facts: regulator status, product types, and lender history",
+	},
+	{
+		Kind:             "savings-provider",
+		SpecKey:          "savings_provider_directory",
+		Label:            "savings provider directory",
+		SnippetComponent: "savings-provider-directory",
+		ListingComponent: "savings-provider-directory-listing",
+		PageType:         "savings-providers",
+		PageName:         "savings-providers",
+		SectionItemType:  "missing_savings_provider_directory_section",
+		PageItemType:     "missing_savings_provider_directory_page",
+		PageTitle:        "a cited directory of UK savings providers with verified facts: regulator status, protection scheme membership, and product types",
+	},
+	{
+		Kind:             "health-insurer",
+		SpecKey:          "health_insurer_directory",
+		Label:            "health insurer directory",
+		SnippetComponent: "health-insurer-directory",
+		ListingComponent: "health-insurer-directory-listing",
+		PageType:         "health-insurers",
+		PageName:         "health-insurers",
+		SectionItemType:  "missing_health_insurer_directory_section",
+		PageItemType:     "missing_health_insurer_directory_page",
+		PageTitle:        "a cited directory of UK health insurers with verified facts: regulator status, underwriter, and cover types",
+	},
 }
 
 func init() {

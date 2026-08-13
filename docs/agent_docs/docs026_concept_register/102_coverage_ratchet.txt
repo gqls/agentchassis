@@ -30,7 +30,6 @@ gauntlet_dead_cta
 hero_tool_component_045
 idea_uk_section_data_missing
 idea_uk_vm_site
-model_directory_pipeline
 news_feed_pooling
 per_site_ai
 reasoning_dataset

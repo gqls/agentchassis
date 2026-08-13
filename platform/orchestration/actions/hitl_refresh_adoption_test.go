@@ -38,13 +38,20 @@ import (
 // is exactly what makes this test able to fail.
 func expectConflictThenRefresh(mock sqlmock.Sqlmock) {
 	mock.ExpectBegin()
+	expectConflictThenRefreshNoTx(mock)
+	mock.ExpectCommit()
+}
+
+// expectConflictThenRefreshNoTx is the same script without the transaction
+// bracket, so multi-kind tests can compose several write cycles inside ONE
+// Begin/Commit (Phase B: the emitters loop kinds within a single txn).
+func expectConflictThenRefreshNoTx(mock sqlmock.Sqlmock) {
 	mock.ExpectQuery(regexp.QuoteMeta("SELECT COUNT(*),")).
 		WillReturnRows(sqlmock.NewRows([]string{"count", "age"}).AddRow(0, 999.0))
 	mock.ExpectExec("INSERT INTO site_work_items").
 		WillReturnResult(sqlmock.NewResult(0, 0)) // an OPEN row already holds the key
 	mock.ExpectQuery(regexp.QuoteMeta("UPDATE site_work_items")).
 		WillReturnRows(sqlmock.NewRows([]string{"status"}).AddRow("needs_human_review"))
-	mock.ExpectCommit()
 }
 
 // evidence_citations.go — key is per SITE, finding is a list of rejected
@@ -108,6 +115,74 @@ func TestCreateStaleDirectoryClaimItem_RefreshesTheOpenRow(t *testing.T) {
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Errorf("the finding was dropped instead of refreshing the open row "+
 			"(bugs_open/184): %v", err)
+	}
+}
+
+// expectFreshInsert scripts one emitter's write where the INSERT lands (1 row):
+// no refresh UPDATE may follow. Paired with expectConflictThenRefresh inside
+// one transaction, it proves each KIND gets its own complete, independent
+// write cycle — the Phase B kind-scoping contract.
+func expectFreshInsert(mock sqlmock.Sqlmock) {
+	mock.ExpectQuery(regexp.QuoteMeta("SELECT COUNT(*),")).
+		WillReturnRows(sqlmock.NewRows([]string{"count", "age"}).AddRow(0, 999.0))
+	mock.ExpectExec("INSERT INTO site_work_items").
+		WillReturnResult(sqlmock.NewResult(0, 1))
+}
+
+// Phase B (2026-08-13): a MIXED-kind reject batch files one item per kind, in
+// sorted kind order ("" legacy first, then kinds lexicographically), inside one
+// transaction. sqlmock expectations are ordered, so the script below fails if
+// the emitter collapses kinds into one item (only one INSERT would fire), emits
+// them unsorted (the conflict/fresh pattern below would land on the wrong
+// cycle), or opens a transaction per kind (only one Begin/Commit is scripted).
+func TestCreateDirectoryCitationFailuresItem_MixedKindsFileOnePerKind(t *testing.T) {
+	db, mock := newInsertMock(t)
+	defer db.Close()
+
+	mock.ExpectBegin()
+	expectFreshInsert(mock)             // "" (legacy, kind unrecorded) — sorts first
+	expectConflictThenRefreshNoTx(mock) // "model" — open row held, must refresh
+	expectFreshInsert(mock)             // "mortgage-lender"
+	mock.ExpectCommit()
+
+	params := ActionParams{DB: db, AgentType: "finance-directory-researcher"}
+	err := createDirectoryCitationFailuresItem(context.Background(), params,
+		[]rejectedDirectoryClaim{
+			{Kind: "mortgage-lender", Slug: "a"},
+			{Kind: "model", Slug: "b"},
+			{Kind: "", Slug: "c"}, // must group under the legacy key, never be dropped
+			{Kind: "model", Slug: "d"},
+		}, zap.NewNop())
+	if err != nil {
+		t.Fatalf("createDirectoryCitationFailuresItem: %v", err)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("mixed-kind batch must emit one item per kind, sorted, in one txn: %v", err)
+	}
+}
+
+// Same contract for the freshness sibling.
+func TestCreateStaleDirectoryClaimItem_MixedKindsFileOnePerKind(t *testing.T) {
+	db, mock := newInsertMock(t)
+	defer db.Close()
+
+	mock.ExpectBegin()
+	expectFreshInsert(mock)             // "health-insurer"
+	expectConflictThenRefreshNoTx(mock) // "model"
+	mock.ExpectCommit()
+
+	params := ActionParams{DB: db, AgentType: "directory-freshness"}
+	err := createStaleDirectoryClaimItem(context.Background(), params,
+		[]directoryClaimRefresh{
+			{Kind: "model", Slug: "a", Outcome: "citation_lost"},
+			{Kind: "health-insurer", Slug: "b", Outcome: "fetch_error"},
+			{Kind: "model", Slug: "c", Outcome: "fresh"}, // fresh: excluded entirely
+		}, zap.NewNop())
+	if err != nil {
+		t.Fatalf("createStaleDirectoryClaimItem: %v", err)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("mixed-kind flip batch must emit one item per kind, sorted, in one txn: %v", err)
 	}
 }
 

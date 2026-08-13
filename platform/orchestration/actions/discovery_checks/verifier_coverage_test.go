@@ -319,14 +319,29 @@ var itemTypesWithoutVerifiers = map[string]verificationGap{
 	"missing_adoption_tracker_page":    {catMechanical, "page existence by page_type (adoption-tracker); profile sibling of missing_model_directory_page; registered, not yet in the discovery checks array"},
 	"missing_protocol_tracker_section": {catMechanical, "page_component existence by function (protocol-tracker); profile sibling of missing_model_directory_section; registered, not yet in the discovery checks array"},
 	"missing_protocol_tracker_page":    {catMechanical, "page existence by page_type (protocol-tracker); profile sibling of missing_model_directory_page; registered, not yet in the discovery checks array"},
-	"unrendered_template":              {catMechanical, "[INFERRED] check_integrity; never observed live"},
-	"cross_site_contamination":         {catMechanical, "[INFERRED] check_integrity; never observed live"},
-	"forced_text_colors":               {catMechanical, "[INFERRED] check_forced_text_colors — sibling of bugs_open/017's action; never observed live"},
-	"duplicate_palette":                {catMechanical, "[INFERRED] check_duplicate_palette; never observed live"},
-	"placeholder_contact":              {catMechanical, "[INFERRED] check_placeholder_contact; never observed live"},
-	"broken_nav_links":                 {catMechanical, "[INFERRED] check_broken_nav_links; never observed live"},
-	"backend_unreachable":              {catMechanical, "[INFERRED] check_backend_unreachable, which already SELF-CLEARS on a live health probe — a verifier may be redundant here; check before writing one"},
-	"site_unreachable":                 {catMechanical, "check_site_unreachable (bugs_open/236, 522 half) SELF-CLEARS via Resolved{AllOfType} on a serving probe — the same posture as backend_unreachable, decided at birth rather than inferred later; a completion verifier would re-run the identical probe the check already re-runs every rotation pass"},
+
+	// Phase B finance directories (2026-08-13) — the SAME two checks again,
+	// instantiated from three further directoryCheckProfiles entries
+	// (mortgage-lender, savings-provider, health-insurer). Not a new mechanism:
+	// existence checks against page_components.function / pages.page_type,
+	// handled by content-gap-planner. Registered but not in any discovery
+	// agent's checks array yet (enablement is Phase B3f, ordered after the
+	// image roll), so never observed live — a statement about the config, not
+	// a claim that they work.
+	"missing_mortgage_lender_directory_section":  {catMechanical, "page_component existence by function (mortgage-lender-directory); profile sibling of missing_model_directory_section; registered, not yet in the discovery checks array"},
+	"missing_mortgage_lender_directory_page":     {catMechanical, "page existence by page_type (mortgage-lenders); profile sibling of missing_model_directory_page; registered, not yet in the discovery checks array"},
+	"missing_savings_provider_directory_section": {catMechanical, "page_component existence by function (savings-provider-directory); profile sibling of missing_model_directory_section; registered, not yet in the discovery checks array"},
+	"missing_savings_provider_directory_page":    {catMechanical, "page existence by page_type (savings-providers); profile sibling of missing_model_directory_page; registered, not yet in the discovery checks array"},
+	"missing_health_insurer_directory_section":   {catMechanical, "page_component existence by function (health-insurer-directory); profile sibling of missing_model_directory_section; registered, not yet in the discovery checks array"},
+	"missing_health_insurer_directory_page":      {catMechanical, "page existence by page_type (health-insurers); profile sibling of missing_model_directory_page; registered, not yet in the discovery checks array"},
+	"unrendered_template":                        {catMechanical, "[INFERRED] check_integrity; never observed live"},
+	"cross_site_contamination":                   {catMechanical, "[INFERRED] check_integrity; never observed live"},
+	"forced_text_colors":                         {catMechanical, "[INFERRED] check_forced_text_colors — sibling of bugs_open/017's action; never observed live"},
+	"duplicate_palette":                          {catMechanical, "[INFERRED] check_duplicate_palette; never observed live"},
+	"placeholder_contact":                        {catMechanical, "[INFERRED] check_placeholder_contact; never observed live"},
+	"broken_nav_links":                           {catMechanical, "[INFERRED] check_broken_nav_links; never observed live"},
+	"backend_unreachable":                        {catMechanical, "[INFERRED] check_backend_unreachable, which already SELF-CLEARS on a live health probe — a verifier may be redundant here; check before writing one"},
+	"site_unreachable":                           {catMechanical, "check_site_unreachable (bugs_open/236, 522 half) SELF-CLEARS via Resolved{AllOfType} on a serving probe — the same posture as backend_unreachable, decided at birth rather than inferred later; a completion verifier would re-run the identical probe the check already re-runs every rotation pass"},
 	// decision_blocked_change (RFC_015 §5b, save_sections_decision_gate.go): a
 	// rebuild tried to overwrite a decision-protected slot without citing the
 	// decision; the stored content was kept and this records it. Classified on the
@@ -528,13 +543,15 @@ var computedItemTypeSites = map[string]string{
 	"check_placeholder_image_in_use.go": "mapping.itemType — per-surface mapping table",
 	"check_unfulfilled_image_prompt.go": "itemType — computed from the prompt's surface",
 	// p.SectionItemType / p.PageItemType, one profile per register kind:
-	// missing_{model_directory,adoption_tracker,protocol_tracker}_{section,page}.
+	// missing_{model_directory,adoption_tracker,protocol_tracker,
+	// mortgage_lender_directory,savings_provider_directory,
+	// health_insurer_directory}_{section,page}.
 	// Note the scan is NOT blind here by luck — directoryCheckProfiles spells
 	// each type as a literal in a field whose name ends "ItemType:", so
-	// itemTypeLiteralRe picks all six up anyway and they are classified below.
-	// Adding a seventh profile therefore still fails this guard until it is
-	// classified, which is the behaviour we want.
-	"check_directory.go": "p.SectionItemType / p.PageItemType — one profile per register kind (model, company, protocol)",
+	// itemTypeLiteralRe picks all twelve up anyway and they are classified
+	// below. Adding a further profile therefore still fails this guard until
+	// it is classified, which is the behaviour we want.
+	"check_directory.go": "p.SectionItemType / p.PageItemType — one profile per register kind (model, company, protocol, mortgage-lender, savings-provider, health-insurer)",
 }
 
 // TestEveryCheckProducedItemTypeIsClassified is the SENSOR half of the guard.

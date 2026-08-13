@@ -123,6 +123,35 @@ var directoryPublishProfiles = map[string]directoryPublishProfile{
 		ListingComponent: "protocol-tracker-listing",
 		BrowseLabel:      "See every tracked protocol →",
 	},
+	// Phase B finance/insurance kinds (2026-08-13). Non-price facts only
+	// (owner ruling): the headlines say "verified facts", never rates.
+	"mortgage-lender": {
+		Kind:             "mortgage-lender",
+		Headline:         "UK mortgage lenders, with verified facts",
+		SnippetFile:      "data/mortgage-lender-directory.json",
+		FullFile:         "data/mortgage-lender-directory-full.json",
+		SnippetComponent: "mortgage-lender-directory",
+		ListingComponent: "mortgage-lender-directory-listing",
+		BrowseLabel:      "Browse every listed lender →",
+	},
+	"savings-provider": {
+		Kind:             "savings-provider",
+		Headline:         "UK savings providers, with verified facts",
+		SnippetFile:      "data/savings-provider-directory.json",
+		FullFile:         "data/savings-provider-directory-full.json",
+		SnippetComponent: "savings-provider-directory",
+		ListingComponent: "savings-provider-directory-listing",
+		BrowseLabel:      "Browse every listed provider →",
+	},
+	"health-insurer": {
+		Kind:             "health-insurer",
+		Headline:         "UK health insurers, with verified facts",
+		SnippetFile:      "data/health-insurer-directory.json",
+		FullFile:         "data/health-insurer-directory-full.json",
+		SnippetComponent: "health-insurer-directory",
+		ListingComponent: "health-insurer-directory-listing",
+		BrowseLabel:      "Browse every listed insurer →",
+	},
 }
 
 // modelDirectoryJSONOutput is the shape of /data/model-directory.json and
@@ -192,7 +221,7 @@ func RenderDirectoryAction(ctx context.Context, params ActionParams) (interface{
 	}
 	profile, ok := directoryPublishProfiles[kind]
 	if !ok {
-		return nil, fmt.Errorf("render_directory: unknown register kind %q (known: model, company, protocol)", kind)
+		return nil, fmt.Errorf("render_directory: unknown register kind %q (known: model, company, protocol, mortgage-lender, savings-provider, health-insurer)", kind)
 	}
 	logger = logger.With(zap.String("kind", kind))
 

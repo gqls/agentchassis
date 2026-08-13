@@ -45,6 +45,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/google/uuid"
@@ -80,6 +81,12 @@ func init() {
 }
 
 type rejectedDirectoryClaim struct {
+	// Kind is the register kind the candidate named (entity_kind, default
+	// "model"). It scopes the review item's key — one HITL item per kind, not
+	// one for the whole register (Phase B, 2026-08-13). Empty only if a
+	// candidate explicitly carried entity_kind: ""; those group under the
+	// legacy unscoped key rather than being dropped.
+	Kind   string `json:"kind,omitempty"`
 	Slug   string `json:"slug,omitempty"`
 	Field  string `json:"field,omitempty"`
 	URL    string `json:"url,omitempty"`
@@ -122,7 +129,7 @@ func VerifyAndRegisterDirectoryClaimsAction(ctx context.Context, params ActionPa
 		slug := strings.TrimSpace(datahelpers.GetStringField(cand, "entity_slug", ""))
 		field := strings.TrimSpace(datahelpers.GetStringField(cand, "field", ""))
 		if slug == "" || field == "" {
-			failures = append(failures, rejectedDirectoryClaim{Slug: slug, Field: field,
+			failures = append(failures, rejectedDirectoryClaim{Kind: kind, Slug: slug, Field: field,
 				Class: "citation_invalid", Detail: "candidate missing entity_slug or field"})
 			continue
 		}
@@ -136,7 +143,7 @@ func VerifyAndRegisterDirectoryClaimsAction(ctx context.Context, params ActionPa
 			if cerr != nil {
 				detail = cerr.Error()
 			}
-			failures = append(failures, rejectedDirectoryClaim{Slug: slug, Field: field,
+			failures = append(failures, rejectedDirectoryClaim{Kind: kind, Slug: slug, Field: field,
 				URL: datahelpers.GetStringField(cand, "url", ""), Class: "citation_invalid", Detail: detail})
 			continue
 		}
@@ -144,7 +151,7 @@ func VerifyAndRegisterDirectoryClaimsAction(ctx context.Context, params ActionPa
 		// The disposal step: the model proposed this; the source must confirm it.
 		outcome := verifyCitationLive(ctx, cit)
 		if !outcome.Found {
-			failures = append(failures, rejectedDirectoryClaim{Slug: slug, Field: field,
+			failures = append(failures, rejectedDirectoryClaim{Kind: kind, Slug: slug, Field: field,
 				URL: cit.URL, Class: outcome.FailClass, Detail: outcome.FailDetail})
 			continue
 		}
@@ -158,7 +165,7 @@ func VerifyAndRegisterDirectoryClaimsAction(ctx context.Context, params ActionPa
 		if err != nil {
 			logger.Warn("verify_and_register_directory_claims: entity upsert failed",
 				zap.String("slug", slug), zap.Error(err))
-			failures = append(failures, rejectedDirectoryClaim{Slug: slug, Field: field,
+			failures = append(failures, rejectedDirectoryClaim{Kind: kind, Slug: slug, Field: field,
 				URL: cit.URL, Class: "citation_invalid", Detail: "entity upsert: " + err.Error()})
 			continue
 		}
@@ -176,7 +183,7 @@ func VerifyAndRegisterDirectoryClaimsAction(ctx context.Context, params ActionPa
 			citationJSON, "found", staleness, params.AgentType); err != nil {
 			logger.Warn("verify_and_register_directory_claims: claim write failed",
 				zap.String("slug", slug), zap.String("field", field), zap.Error(err))
-			failures = append(failures, rejectedDirectoryClaim{Slug: slug, Field: field,
+			failures = append(failures, rejectedDirectoryClaim{Kind: kind, Slug: slug, Field: field,
 				URL: cit.URL, Class: "citation_invalid", Detail: "claim write: " + err.Error()})
 			continue
 		}
@@ -292,71 +299,107 @@ func writeCurrentDirectoryClaim(
 // createDirectoryCitationFailuresItem raises the rejects for a human.
 // HITL-terminal, matching citation_unverified: a citation the machine could
 // not verify is a decision for a person, never a silent drop and never a
-// fact. itemKey is static (no per-batch suffix) — same as
-// evidence_citations.go's citation_unverified key — so a second rejection
-// while an item is still open does not create item churn.
+// fact.
+//
+// KIND-SCOPED KEYS (Phase B, 2026-08-13). The key used to be one CONSTANT for
+// the whole register, so a mortgage-lender batch and a model batch fought
+// over one row and whichever refreshed last owned the record. Now the
+// failures are grouped by Kind and ONE item is emitted per kind under
+// "directory_citation_unverified:<kind>" — still no per-batch suffix, same as
+// evidence_citations.go's citation_unverified key, so a second rejection of
+// the same kind while its item is open refreshes rather than churns
+// (refreshOnConflict below is unchanged; this change is key GRANULARITY only,
+// per register/batch-processing.md's BATCH-005 note). A failure whose Kind is
+// empty groups under the literal legacy key "directory_citation_unverified"
+// so nothing is ever silently dropped.
 func createDirectoryCitationFailuresItem(
 	ctx context.Context, params ActionParams, failures []rejectedDirectoryClaim, logger *zap.Logger,
 ) error {
-	specJSON, err := json.Marshal(map[string]interface{}{
-		"check":    "directory_citation_verification",
-		"rejected": failures,
-		"fix": "Each rejected candidate either cited a source that does not contain its quote " +
-			"(citation_lost / possible hallucination — discard or re-research), could not be fetched " +
-			"(fetch_error — retry later, or mark reverifiable:false with a human attestation), or was " +
-			"structurally incomplete (citation_invalid). None was registered.",
-	})
-	if err != nil {
-		return err
-	}
 	siteID, err := uuid.Parse(directorySystemSiteID)
 	if err != nil {
 		return err
 	}
+
+	byKind := map[string][]rejectedDirectoryClaim{}
+	for _, f := range failures {
+		byKind[f.Kind] = append(byKind[f.Kind], f)
+	}
+	kinds := make([]string, 0, len(byKind))
+	for kind := range byKind {
+		kinds = append(kinds, kind)
+	}
+	// Deterministic emission order: humans read these in a queue, and the
+	// tests script the writer's statements in order.
+	sort.Strings(kinds)
+
 	tx, err := params.DB.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback()
-	// refreshOnConflict (bugs_open/184). This key is not merely per-site — it is
-	// CONSTANT, and `siteID` is the directory's own system site, so ONE row stands for
-	// the entire model directory. That makes it the coarsest instance of the
-	// bugs_closed/091 class in the tree: every discovery pass after the first writes
-	// nothing while the row is open. The live row has listed the same 15 rejected
-	// candidates since 2026-07-24, across every weekly `model-directory-discovery`
-	// sweep since.
-	//
-	// [UNMEASURED, and it cannot be recovered]: whether the 2026-07-31 sweep found a
-	// different set. `orchestration_states` retains ~24h and a rejected CANDIDATE never
-	// reaches `directory_claims`, so a dropped finding here leaves no trace anywhere.
-	// That is the argument for the refresh rather than against it — it is what makes
-	// the next one observable.
-	w, err := writeWorkItem(ctx, tx, workItem{
-		siteID:       siteID,
-		source:       "research",
-		pipeline:     "content",
-		itemType:     "directory_citation_unverified",
-		severity:     "medium",
-		summary:      "Model directory: candidate claims failed live verification and need a human ruling",
-		spec:         string(specJSON),
-		priority:     35,
-		handlerAgent: "human-review",
-		status:       "needs_human_review",
-		createdBy:    params.AgentType,
-		itemKey:      "directory_citation_unverified",
-	}, refreshOnConflict, logger)
-	if err != nil {
-		return err
+
+	for _, kind := range kinds {
+		group := byKind[kind]
+		specJSON, err := json.Marshal(map[string]interface{}{
+			"check":          "directory_citation_verification",
+			"directory_kind": kind,
+			"rejected":       group,
+			"fix": "Each rejected candidate either cited a source that does not contain its quote " +
+				"(citation_lost / possible hallucination — discard or re-research), could not be fetched " +
+				"(fetch_error — retry later, or mark reverifiable:false with a human attestation), or was " +
+				"structurally incomplete (citation_invalid). None was registered.",
+		})
+		if err != nil {
+			return err
+		}
+
+		itemKey := "directory_citation_unverified"
+		summary := "Directory (kind unrecorded): candidate claims failed live verification and need a human ruling"
+		if kind != "" {
+			itemKey = "directory_citation_unverified:" + kind
+			summary = fmt.Sprintf("Directory (%s): candidate claims failed live verification and need a human ruling", kind)
+		}
+
+		// refreshOnConflict (bugs_open/184). The key is still per-KIND, not
+		// per-batch, and `siteID` is the directory's own system site — so one
+		// row stands for a whole kind's queue, and every pass after the first
+		// while that row is open must REFRESH it or the finding is silently
+		// dropped (the pre-184 row listed the same 15 rejected candidates for
+		// weeks). A rejected CANDIDATE never reaches directory_claims and
+		// orchestration_states retains ~24h, so a dropped finding here leaves
+		// no trace anywhere — the refresh is what makes the next one observable.
+		w, err := writeWorkItem(ctx, tx, workItem{
+			siteID:       siteID,
+			source:       "research",
+			pipeline:     "content",
+			itemType:     "directory_citation_unverified",
+			severity:     "medium",
+			summary:      summary,
+			spec:         string(specJSON),
+			priority:     35,
+			handlerAgent: "human-review",
+			status:       "needs_human_review",
+			createdBy:    params.AgentType,
+			itemKey:      itemKey,
+		}, refreshOnConflict, logger)
+		if err != nil {
+			return err
+		}
+		// A DELIBERATE STRING LITERAL, and a NEW one — distinct from the
+		// pre-Phase-B "HITL directory-reject item written (bugs_open/184)" —
+		// because this log line is the only pod-greppable evidence of WHICH
+		// emitter version a running binary carries: a Go comment cannot be
+		// grepped in a pod, and the row itself looks the same either way on the
+		// happy path. It is also the only record this emitter makes of its own
+		// outcome.
+		logger.Info("HITL directory-reject item written per kind (Phase B kind-scoped keys)",
+			zap.String("item_type", "directory_citation_unverified"),
+			zap.String("item_key", itemKey),
+			zap.String("directory_kind", kind),
+			zap.Int("rejected_in_kind", len(group)),
+			zap.Bool("inserted", w.Inserted),
+			zap.Bool("refreshed", w.Refreshed))
 	}
-	// A DELIBERATE STRING LITERAL, because a Go COMMENT cannot be pod-grepped and
-	// this change adds no other literal — the council's debug_historian seat asked
-	// how the new wiring would be confirmed in a running binary and the honest answer
-	// was "it cannot". It is also the only record this emitter makes of its own
-	// outcome: the row is otherwise the sole evidence it ran.
-	logger.Info("HITL directory-reject item written (bugs_open/184)",
-		zap.String("item_type", "directory_citation_unverified"),
-		zap.Bool("inserted", w.Inserted),
-		zap.Bool("refreshed", w.Refreshed))
 	return tx.Commit()
 }
 
@@ -382,15 +425,21 @@ func init() {
 
 type directoryClaimRefresh struct {
 	EntityID string `json:"entity_id"`
-	Slug     string `json:"slug"`
-	Field    string `json:"field"`
-	Outcome  string `json:"outcome"` // fresh | citation_lost | fetch_error | recovered | error
-	Detail   string `json:"detail,omitempty"`
+	// Kind is the entity's register kind, joined from directory_entities in
+	// loadDueDirectoryClaims — so it is recoverable per claim even when the
+	// sweep itself ran kindless (no `kind` config filter). It scopes the
+	// stale_directory_claim item's key (Phase B, 2026-08-13).
+	Kind    string `json:"kind,omitempty"`
+	Slug    string `json:"slug"`
+	Field   string `json:"field"`
+	Outcome string `json:"outcome"` // fresh | citation_lost | fetch_error | recovered | error
+	Detail  string `json:"detail,omitempty"`
 }
 
 type dueDirectoryClaim struct {
 	id            uuid.UUID
 	entityID      uuid.UUID
+	kind          string
 	slug, field   string
 	value, unit   string
 	citationJSON  []byte
@@ -429,7 +478,7 @@ func RefreshDirectoryClaimsAction(ctx context.Context, params ActionParams) (int
 	flipped := 0
 
 	for _, c := range due {
-		entry := directoryClaimRefresh{EntityID: c.entityID.String(), Slug: c.slug, Field: c.field}
+		entry := directoryClaimRefresh{EntityID: c.entityID.String(), Kind: c.kind, Slug: c.slug, Field: c.field}
 
 		cit, cerr := datahelpers.ParseCitation(map[string]interface{}{"citation": unmarshalJSONObject(c.citationJSON)})
 		if cerr != nil || cit == nil {
@@ -523,7 +572,7 @@ func classifyDirectoryClaimOutcome(prevStatus string, outcome citationVerifyOutc
 // site: only check what is actually due, never the whole table every tick.
 func loadDueDirectoryClaims(ctx context.Context, db *sql.DB, kind string) ([]dueDirectoryClaim, error) {
 	rows, err := db.QueryContext(ctx, `
-		SELECT dc.id, dc.entity_id, de.slug, dc.field, dc.value, dc.unit, dc.citation, dc.status, dc.staleness_days
+		SELECT dc.id, dc.entity_id, de.kind, de.slug, dc.field, dc.value, dc.unit, dc.citation, dc.status, dc.staleness_days
 		FROM directory_claims dc
 		JOIN directory_entities de ON de.id = dc.entity_id
 		WHERE dc.is_current
@@ -539,7 +588,7 @@ func loadDueDirectoryClaims(ctx context.Context, db *sql.DB, kind string) ([]due
 	for rows.Next() {
 		var c dueDirectoryClaim
 		var valueN, unitN sql.NullString
-		if err := rows.Scan(&c.id, &c.entityID, &c.slug, &c.field, &valueN, &unitN,
+		if err := rows.Scan(&c.id, &c.entityID, &c.kind, &c.slug, &c.field, &valueN, &unitN,
 			&c.citationJSON, &c.status, &c.stalenessDays); err != nil {
 			return nil, fmt.Errorf("scan due claim: %w", err)
 		}
@@ -553,26 +602,30 @@ func loadDueDirectoryClaims(ctx context.Context, db *sql.DB, kind string) ([]due
 // matching stale_evidence: a claim's verification status changing is a fact
 // about the world, but acting on it (re-research, retire, accept) is a
 // human decision.
+//
+// KIND-SCOPED KEYS (Phase B, 2026-08-13), matching
+// createDirectoryCitationFailuresItem above and for the same reason: the key
+// used to be one CONSTANT for the whole register, so a mortgage-lender sweep
+// and a model sweep fought over one row. Kind is recoverable per claim here
+// (loadDueDirectoryClaims joins it from directory_entities), so flipped
+// claims group by kind and ONE item is emitted per kind under
+// "stale_directory_claim:<kind>". refreshOnConflict is unchanged — this is
+// key GRANULARITY only.
 func createStaleDirectoryClaimItem(
 	ctx context.Context, params ActionParams, results []directoryClaimRefresh, logger *zap.Logger,
 ) error {
-	var flipped []directoryClaimRefresh
+	byKind := map[string][]directoryClaimRefresh{}
 	for _, r := range results {
 		if r.Outcome != "fresh" {
-			flipped = append(flipped, r)
+			byKind[r.Kind] = append(byKind[r.Kind], r)
 		}
 	}
-	specJSON, err := json.Marshal(map[string]interface{}{
-		"check":   "directory_claim_freshness",
-		"flipped": flipped,
-		"fix": "A directory claim's cited source no longer supports it (citation_lost), could not be " +
-			"reached (fetch_error — often transient, self-heals if the source recovers), or recovered " +
-			"after a prior failure. Review the affected entity/field: re-research a lost claim, leave a " +
-			"fetch_error to retry, or note a recovery.",
-	})
-	if err != nil {
-		return err
+	kinds := make([]string, 0, len(byKind))
+	for kind := range byKind {
+		kinds = append(kinds, kind)
 	}
+	sort.Strings(kinds) // deterministic emission order, same as the citation emitter
+
 	siteID, err := uuid.Parse(directorySystemSiteID)
 	if err != nil {
 		return err
@@ -582,46 +635,66 @@ func createStaleDirectoryClaimItem(
 		return err
 	}
 	defer tx.Rollback()
-	// refreshOnConflict (bugs_open/184), and this is the sharpest of the three because
-	// the SUMMARY STATES A COUNT: "%d claim(s) changed verification status". Under the
-	// default policy that sentence froze at whatever the first pass saw, so the row has
-	// read "1 claim(s)" since 2026-07-25 — a number that was true once, attached to a
-	// list that would not grow. A count is the one thing a human reads without opening
-	// the spec, which makes a stale one worse than no summary at all.
-	//
-	// THE EXPOSURE HERE IS DATED, NOT CONTINUOUS, AND THAT IS THE ARGUMENT FOR FIXING IT
-	// NOW. `model-directory-freshness` runs daily and checks ZERO claims today —
-	// measured 2026-08-03: 97 current claims, none due, `min(verified_at + staleness)`
-	// = **2026-08-23**. So nothing is being dropped this week; a batch falls due in three
-	// weeks, and the July row will still be sitting on the key when it does, because
-	// nothing works the human-review queue (bugs_open/033). Waiting for the symptom
-	// means waiting for the one run that matters and then losing it.
-	w, err := writeWorkItem(ctx, tx, workItem{
-		siteID:       siteID,
-		source:       "scheduled",
-		pipeline:     "content",
-		itemType:     "stale_directory_claim",
-		severity:     "medium",
-		summary:      fmt.Sprintf("Model directory freshness: %d claim(s) changed verification status", len(flipped)),
-		spec:         string(specJSON),
-		priority:     35,
-		handlerAgent: "human-review",
-		status:       "needs_human_review",
-		createdBy:    params.AgentType,
-		itemKey:      "stale_directory_claim",
-	}, refreshOnConflict, logger)
-	if err != nil {
-		return err
+
+	for _, kind := range kinds {
+		flipped := byKind[kind]
+		specJSON, err := json.Marshal(map[string]interface{}{
+			"check":          "directory_claim_freshness",
+			"directory_kind": kind,
+			"flipped":        flipped,
+			"fix": "A directory claim's cited source no longer supports it (citation_lost), could not be " +
+				"reached (fetch_error — often transient, self-heals if the source recovers), or recovered " +
+				"after a prior failure. Review the affected entity/field: re-research a lost claim, leave a " +
+				"fetch_error to retry, or note a recovery.",
+		})
+		if err != nil {
+			return err
+		}
+
+		itemKey := "stale_directory_claim"
+		summary := fmt.Sprintf("Directory freshness (kind unrecorded): %d claim(s) changed verification status", len(flipped))
+		if kind != "" {
+			itemKey = "stale_directory_claim:" + kind
+			summary = fmt.Sprintf("Directory freshness (%s): %d claim(s) changed verification status", kind, len(flipped))
+		}
+
+		// refreshOnConflict (bugs_open/184), and this is the sharpest of the three
+		// emitters because the SUMMARY STATES A COUNT. Under the default policy that
+		// sentence froze at whatever the first pass saw (the pre-184 row read
+		// "1 claim(s)" for weeks) — a count is the one thing a human reads without
+		// opening the spec, which makes a stale one worse than no summary at all.
+		// The refresh policy keeps the count current; the per-kind key keeps one
+		// kind's sweep from owning every other kind's record.
+		w, err := writeWorkItem(ctx, tx, workItem{
+			siteID:       siteID,
+			source:       "scheduled",
+			pipeline:     "content",
+			itemType:     "stale_directory_claim",
+			severity:     "medium",
+			summary:      summary,
+			spec:         string(specJSON),
+			priority:     35,
+			handlerAgent: "human-review",
+			status:       "needs_human_review",
+			createdBy:    params.AgentType,
+			itemKey:      itemKey,
+		}, refreshOnConflict, logger)
+		if err != nil {
+			return err
+		}
+		// A DELIBERATE STRING LITERAL, and a NEW one — distinct from the pre-Phase-B
+		// "HITL directory-freshness item written (bugs_open/184)" — because this log
+		// line is the only pod-greppable evidence of WHICH emitter version a running
+		// binary carries. It is also the only record this emitter makes of its own
+		// outcome: the row is otherwise the sole evidence it ran.
+		logger.Info("HITL directory-freshness item written per kind (Phase B kind-scoped keys)",
+			zap.String("item_type", "stale_directory_claim"),
+			zap.String("item_key", itemKey),
+			zap.String("directory_kind", kind),
+			zap.Int("flipped_in_kind", len(flipped)),
+			zap.Bool("inserted", w.Inserted),
+			zap.Bool("refreshed", w.Refreshed))
 	}
-	// A DELIBERATE STRING LITERAL, because a Go COMMENT cannot be pod-grepped and
-	// this change adds no other literal — the council's debug_historian seat asked
-	// how the new wiring would be confirmed in a running binary and the honest answer
-	// was "it cannot". It is also the only record this emitter makes of its own
-	// outcome: the row is otherwise the sole evidence it ran.
-	logger.Info("HITL directory-freshness item written (bugs_open/184)",
-		zap.String("item_type", "stale_directory_claim"),
-		zap.Bool("inserted", w.Inserted),
-		zap.Bool("refreshed", w.Refreshed))
 	return tx.Commit()
 }
 

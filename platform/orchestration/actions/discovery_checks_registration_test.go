@@ -111,14 +111,21 @@ func TestEveryLiveConfiguredCheckResolves(t *testing.T) {
 
 // TestDynamicallyRegisteredDirectoryChecksResolve pins the near-miss recorded in
 // bugs_open/149's Group B specifically, because it is the one class this file's
-// whole approach could get wrong. These six are invisible to a grep for literal
-// Name() returns; they exist only because check_directory.go's init() registers
-// two checks per profile.
+// whole approach could get wrong. These names are invisible to a grep for
+// literal Name() returns; they exist only because check_directory.go's init()
+// registers two checks per profile.
 func TestDynamicallyRegisteredDirectoryChecksResolve(t *testing.T) {
 	dynamic := []string{
 		"missing_model_directory_section", "missing_model_directory_page",
 		"missing_adoption_tracker_section", "missing_adoption_tracker_page",
 		"missing_protocol_tracker_section", "missing_protocol_tracker_page",
+		// Phase B finance kinds (2026-08-13) — same dynamic registration, three
+		// more profiles. NOT added to liveConfiguredChecks above: that list
+		// mirrors what the live agents are configured with, and enablement is
+		// Phase B3f, after the image roll.
+		"missing_mortgage_lender_directory_section", "missing_mortgage_lender_directory_page",
+		"missing_savings_provider_directory_section", "missing_savings_provider_directory_page",
+		"missing_health_insurer_directory_section", "missing_health_insurer_directory_page",
 	}
 	for _, name := range dynamic {
 		if checks.Get(name) == nil {

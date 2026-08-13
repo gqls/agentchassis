@@ -1540,6 +1540,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Post-classification enrichment: determine if site should have news feed",
 		IsLocal:     true,
 	},
+	"evaluate_directory_features": {
+		Handler:     EvaluateDirectoryFeaturesAction,
+		Category:    "feed",
+		Description: "Post-classification enrichment: determine if site's vertical should carry a provider directory (Phase B)",
+		IsLocal:     true,
+	},
 	"seed_content_sources": {
 		Handler:     SeedContentSourcesAction,
 		Category:    "feed",
