@@ -624,3 +624,86 @@ yet for closing it.
   said the file's remaining symbols "are listed under Same-file signatures below", but that section
   lists **functions only**, while my count spans functions, types and package-level values. A small
   false claim in most files. Narrowed the wording.
+
+---
+
+## 2026-08-13 — 267 verified live and closed; 269 fixed and measured
+
+### The deploy verification worked, and by the method I had told the council was retired
+
+Chassis rolled to `v1.0.1295`, pods up `13:53:19Z`. I checked at `14:00:23Z` — **7 minutes** — and the
+`build provenance` stamp was **there**, cleanly, on the first try. All six of this lane's commits are
+ancestors of the stamp `69612d692`, with a descendant commit as a must-be-absent control.
+
+**So yesterday's WRONG_CALLS entry was itself an over-correction, and I have narrowed it.** Yesterday I
+claimed the recipe worked and was wrong; my correction said it is *inoperative on agent-chassis*, and
+that is also wrong. It is **time-limited**. The landmine measured 0 hits at 44 minutes; I got a clean
+hit at 7. **Both errors are the same error**: one measurement of a time-dependent check, generalised
+into a property of the service.
+
+The discriminator was in the landmine the whole time and I did not carry it into my own note:
+`kubectl logs <pod> | head -1`. If that shows a startup line, the log still reaches back and the stamp
+is in range. I ran it this time *before* the grep, which is the only reason I trust the hit rather than
+merely enjoying it. Landmine refined in place (its own precheck now leads instead of trailing);
+WRONG_CALLS narrowed with the over-correction logged as a wrong call in its own right.
+
+**Why the over-correction is worth its own line:** "it never works here" would have sent the next
+reader to the `strings` / `/proc/1/exe` probe, which the same landmine documents as returning **absent
+on a binary that genuinely contains your change** — because the binary carries one commit, the build
+point, not its ancestors. My tidy correction pointed at a worse instrument than the one it condemned.
+
+### §7d's behaviour witness returned 0, and its demand control is why that was readable
+
+```
+witness_new_code | bundles_since_roll | omissions_since_roll
+               0 |                  0 |                    0
+```
+
+`bundles_since_roll = 0` — no diagnosis bundle has been assembled at all since the roll, so the
+witness could not have fired. **Alone, that zero reads as "the fix did not ship".** I wrote the demand
+control into §7d yesterday on principle and it paid on its first outing. 267 is therefore closed on
+the **stamp**, with the behaviour witness explicitly recorded as pending traffic — not quietly counted
+as a pass.
+
+### 269: the fix, and what the measurement actually says
+
+Three halves, each mutation-verified alone (revert the rendered handle → all three tests fail; disable
+the canonical de-dup → only the §2a test; suppress every same-named method → only the exactness test).
+
+**The half I nearly got wrong is the third.** Suppressing every method that shares a bare name is the
+conservative-looking choice, and it **hides a sibling the model has not seen** — inverting the purpose
+of a section that exists to show what retrieval missed. A bare scope entry resolves the way `spanOf`
+does, first match in `fi.Functions` order, so exactly one of a colliding pair is in scope. Tracking
+that *observes* the order rather than re-deciding it, which also avoids adding a second copy of the
+resolution rule.
+
+**The measurement, control first.** The query derives a bare name by stripping a `(Recv).` prefix. If
+`code_symbols` did not store the parenthesised spelling, the strip would be a no-op and every answer
+would still look like an answer. Of **1,175** method rows, **1,175** are parenthesised and **0** are
+not. So the strip does real work.
+
+**17 collision groups, 48 methods, 4.1%** — and 4.1% is the **floor of the harm, not its rate**. In an
+n-way group a bare handle resolves to the first and is wrong for the other n−1; the worst groups here
+are **six-way** (`discovery_checks/check_integrity.go`, `Name` and `Run`), so a bare handle there is
+wrong 5 times in 6.
+
+**`pkg/diagnose/loop.go` is in the list** — `(Outcome).String` against `(Tier).String`. The diagnosis
+loop's own source. A diagnosis *of the diagnosis loop*, which is exactly what 267 and 261 both were,
+could have been handed the wrong `String` body with nothing in the bundle saying so.
+
+**What the measurement does NOT say**, stated because the temptation to round it up is real: not that
+48 wrong bodies were served. The population where the defect can fire, and the per-group odds.
+Incidence is unmeasured — the sibling section's per-file cap means many were never listed at all.
+
+### Two shell traps hit in one session, both from the same root
+
+1. **An unquoted heredoc (`<<PY`) executed the backticks in my markdown.** I used it because I wanted
+   `$OLD` interpolated; the price was every `` `commit` `` in the document body running as a command.
+   Clean failure — nothing written, nothing committed — but only by luck. The fix is a **quoted**
+   heredoc plus the variable passed through the environment (`OLD=… python3 script.py`).
+2. **`git commit -F -` with a heredoc containing `Council-Submitted:.`** in prose tripped the trailer
+   gate, which read the sentence as a trailer with the value `.`. Blocked the commit, which is the
+   gate working. **Do not write the trailer tokens in prose**; refer to them descriptively.
+
+Same root in both: **a commit message and a markdown document are DATA, and I kept handing them to
+the shell as CODE.**

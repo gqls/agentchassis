@@ -348,3 +348,55 @@ small is acceptable, stop filing it" — that's a legitimate answer and I've sai
 
 **And the caveat that has not changed since yesterday.** All of this is Go code. It does nothing in
 production until we next build and roll the images. The waste is still happening right now.
+
+---
+
+**2026-08-13, afternoon — the first fix is live and closed, the second one is written, and I caught
+myself over-correcting yesterday's mistake.**
+
+**267 is done.** The new build went out, I checked whether our fix was actually in it, and it is. That
+sounds routine and it wasn't, because of what happened yesterday.
+
+Yesterday I told a reviewer that the way to check "is my code actually running" — ask the service which
+version of itself it's running — was the current method, and I was wrong: on this particular service the
+announcement scrolls out of the log within minutes. I logged that as a mistake and wrote down that the
+method **doesn't work here**.
+
+Today it worked, first try. The pods were seven minutes old and the announcement was still there. **So
+my correction was also wrong**, in the opposite direction. The truth is narrower than either version:
+the method works if you ask soon after a deployment, and there is a one-line check that tells you
+whether you're still inside that window. I had read that check yesterday and not carried it into my own
+note.
+
+I've written this up as a second mistake rather than quietly fixing the first, because the shape is the
+interesting part: **both times I took a single measurement of something time-dependent and turned it into
+a permanent property of the service.** And the over-correction was the more expensive one — "it never
+works here" would have sent the next person to a different check that the same warning describes as
+returning "not found" even when your code *is* in the binary. My tidy-up pointed at a worse tool than the
+one it dismissed.
+
+**One thing that worked exactly as intended.** Yesterday I paired the "is it live" check with a second
+check asking "did the situation even arise?". Today the first check came back empty — and the second
+explained why: no diagnosis has run at all since the deployment, so there was nothing for it to see.
+Without the pair, that empty result would have read as "the fix didn't ship". That distinction is the
+whole difference between an honest inconclusive answer and a confident wrong one, and it cost about two
+lines to build in.
+
+**269 is written, and the measurement turned out to matter more than I expected.** This is the one where
+our tool could hand the model the *wrong function* — not an error, just quietly the wrong piece of code,
+labelled as the right one. I said yesterday it was unmeasured, so I measured it.
+
+Of the 1,175 methods in our codebase, **48 sit in a position where this could fire** — that's 4.1%. But
+4.1% understates it, because in the worst spots *six* different types share one method name, and there a
+wrong answer is five times more likely than a right one. And the file I'd most want to be reliable is on
+the list: **the diagnosis tool's own source code.** Both of the investigations we ran this week were
+investigations *of that file*. Either could have been handed the wrong function and we'd never have known.
+
+I checked one thing before believing any of it: that the data actually stores names in the format my
+query assumes. It does — all 1,175 of them, none otherwise. If it hadn't, the query would have produced a
+confident number that meant nothing.
+
+**Where things stand.** 267: live, verified, closed. 269: fixed, tested, committed, in review — and like
+everything else it does nothing until the next build and roll. The remaining piece is RFC_027, which asks
+whether the underlying naming machinery deserves one proper owner rather than four bug fixes; that's a
+decision for you and "no, four is acceptable" is a fine answer.
