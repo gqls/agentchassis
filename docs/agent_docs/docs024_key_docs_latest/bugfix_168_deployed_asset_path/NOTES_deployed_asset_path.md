@@ -3309,3 +3309,46 @@ caught **only because I ran a control before believing the zero** — and I ran 
 CLAUDE.md says a `[MEASURED]` figure is evidence only if it could have come out otherwise. That rule
 earned its place three times in one evening. The measurement that finally answered the question
 (0 vs a control of 28) is the only one of the four that was ever capable of a different answer.
+
+---
+
+## 2026-08-13 — the predicted run HAPPENED, and it refuted my own framing: running the code is not reaching the gate
+
+Yesterday I wrote that the next daily run "is the first that can exercise" gates 2 and 3. It fired
+**2026-08-13T08:44:39Z** and **decided 21 items**. Every refusal counter is **still 0**, `resolved`
+still **9**, invariant `t` for 9/9.
+
+**Ordering check first, because the whole reading depends on it.** The run must have executed against
+`v1.0.1293` — the binary with all three gates — since 1293 rolled 08-12 19:13:54Z and 1295 did not
+arrive until 08-13 13:53:19Z (current pod start time). 08:44:39Z falls inside that window. Verified,
+not assumed. The fresh `v1.0.1295` build still carries the gate: `NEEDLE_262=1 rc=0`. (Positive
+needle only this time — a regression check, not the full control set of yesterday.)
+
+**Why the counters are still zero, from the verdicts' own reasons rather than from inference:**
+
+| verdict | reason | n |
+|---|---|---|
+| `still_holds` | *page X still carries N claim(s) the register does not support* | **18** |
+| `unknown` | *page is absent, or has no component carrying rendered html or stored content* | 2 |
+| `unknown` | *site has no current evidence_base spec* | 1 |
+
+**Not one of the 21 reached a gate.** All three gates sit *downstream of a clean scan* — they only
+engage once the page no longer trips the check — and a clean scan happened **0 times in 21**.
+
+> **CORRECTION to my own 08-12 framing.** I called the coming run "the first that can exercise either
+> gate" and treated the run as the thing to wait for. **The run is necessary and nowhere near
+> sufficient.** What a late-ladder arm needs is not a sweep, it is *an item whose page has actually
+> been cleaned* — and nothing produced one. So the zero has now had **four** distinct meanings in two
+> days: never shipped · shipped but never asked · asked and approved (never true yet) · **the code ran
+> and the ladder stopped above it**. Only reading the reasons distinguishes them; no count can.
+> **Do not count sweep runs as exercises of a late-ladder arm.** Instrument the arm, or read reasons.
+
+**What this means for the lane, said plainly:** the three gates are **armed but inert**, which is the
+shape this register entry already warns about elsewhere (a page-wide claim gate "would refuse almost
+everything and look like diligence"). The population is dominated by items whose claims are genuinely
+still on the page — which is the sweep working correctly at the scan level, and is also why the gates
+may stay unobserved for a long time. Every closure to date predates gate 2.
+
+⚠ One incidental confirmation of a known landmine: `page index-rejected-v1-20260806 still carries 14
+claim(s)`. `ScanDeployedClaims` has **no page-status filter**, so a rejected/archived page is still
+being judged — the asymmetry already recorded in this entry, now visible in live output.

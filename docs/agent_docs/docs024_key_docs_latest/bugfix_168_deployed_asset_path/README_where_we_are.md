@@ -1307,3 +1307,31 @@ did. I caught two of them by deliberately testing whether the query was capable 
 else. I did not catch the third in time and had to correct it. It's a good argument for a habit we
 already have written down and that I'd been applying unevenly: before believing a zero, prove the
 question could have come back non-zero.
+
+---
+
+**2026-08-13 — the test I was waiting for ran, and it showed I'd framed it wrongly.**
+
+Yesterday I told you the next morning's automatic run would be the first real test of the two new
+safety gates. It ran on time, and it looked at 21 outstanding findings. None of the three gates
+refused anything — and the reason is more interesting than "they were happy".
+
+I read back what the system actually said about each of those 21 decisions. Eighteen of them came back
+"this page still carries claims the register doesn't support" — meaning the complaint is simply still
+true, so the check stops right there. Two were "the page is gone or has no content to read", one was
+"this site no longer has a register to measure against". **Not one of the 21 ever got as far as the
+gates.**
+
+That's because the gates sit at the *end* of the process. They only come into play once a page reads
+clean, and no page read clean. So the run happening is not the same as the gates being tested — which
+is exactly what I assumed yesterday and shouldn't have. The honest position is that these gates are
+built, switched on, verified present in the running software, and **still never actually consulted**.
+They may stay that way for a while, because what they need is a page somebody has genuinely fixed.
+
+I've also confirmed the timing properly rather than trusting it: the run happened while the software
+containing all three gates was live, and the newer build deployed this afternoon still contains the
+gate. So the result is a real result, not an artefact of the wrong version being loaded.
+
+Nothing is broken here. The daily check is working correctly and refusing to close 18 findings whose
+claims are still on the page — that is the system doing its job. The caveat is only about what we can
+*claim* to have proven.

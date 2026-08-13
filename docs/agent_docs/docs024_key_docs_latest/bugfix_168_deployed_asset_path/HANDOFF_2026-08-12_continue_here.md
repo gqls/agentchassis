@@ -1,5 +1,42 @@
 # HANDOFF — 2026-08-12 — council APPROVED, gates LIVE on v1.0.1291, and `262` is FIXED. Read this file only
 
+> ## 🔵 2026-08-13 UPDATE — the predicted run HAPPENED and REACHED NO GATE. Read this first; it supersedes item 2 of the night banner below
+>
+> **Nothing is in flight. Nothing is half-applied. Everything below this banner is committed.**
+> Fleet: **v1.0.1295** (`IMAGE_TAG` line 17), needle re-probed `NEEDLE_262=1 rc=0` — the fix survives
+> the fresh build. (Positive needle only; regression check, not yesterday's full control set.)
+>
+> **THE RESULT.** The daily sweep fired **2026-08-13T08:44:39Z** and decided **21** items. Every
+> refusal counter is **still 0**; `resolved` still **9**; invariant `t` for 9/9. **Not one of the 21
+> reached any gate.** From the verdicts' own reasons: **18 `still_holds`** = *"page X still carries N
+> claim(s) the register does not support"* (the scan itself still trips), **2 `unknown`** = page absent
+> or no readable content, **1 `unknown`** = site has no `evidence_base` spec.
+>
+> ⚠ **ORDERING VERIFIED, not assumed:** the run executed against **v1.0.1293**, which carries all three
+> gates — 1293 rolled 08-12 19:13:54Z, 1295 only at 08-13 13:53:19Z, so 08:44:39Z sits inside 1293's
+> window. The result is real, not an artefact of an old binary.
+>
+> > **CORRECTION to my own 08-12 wording.** I called this run *"the first that can exercise either
+> > gate"*. **The run is necessary and nowhere near sufficient.** All three gates sit **downstream of a
+> > clean scan**; a clean scan happened **0 times in 21**. The zero has now had **four** meanings in two
+> > days: never shipped · shipped but never asked · asked-and-approved (never true yet) · **the code ran
+> > and the ladder stopped above it.** Only reading the REASONS distinguishes them — no count can.
+> > **Never count sweep runs as exercises of a late-ladder arm.**
+>
+> **STANDING STATE: the three gates are ARMED BUT INERT and remain UNOBSERVED.** What will ever reach
+> them is an item whose page has genuinely been cleaned; the population is dominated by findings whose
+> claims are still on the page (the sweep working correctly). Every closure to date predates gate 2.
+> **Do not describe any gate as having prevented anything.**
+>
+> ### What is next (unchanged from the night banner except item 1)
+> 1. ~~Watch the 08-13 run~~ **DONE, above.** The open question it leaves: **how would we ever observe
+>    these gates?** Either instrument the arms (count reaching, not just refusing) or find or construct a
+>    cleaned page. Worth a decision before more gates get built on the same pattern.
+> 2. `features_open/032` — the shared helper. **Measure before building.** Still open, untouched.
+> 3. §3.5's leftovers; §3.4's remaining `editquality` LOW (before/after test for the SQL→Go move).
+> 4. Incidental live confirmation of a known landmine: `page index-rejected-v1-20260806 still carries
+>    14 claim(s)` — `ScanDeployedClaims` has **no page-status filter**, so archived pages are judged.
+
 > ## 🟢 NIGHT UPDATE (2026-08-12, later) — `262` is CLOSED, and the gates are LIVE but UNASKED. Read this before §1
 >
 > **1. `262` verified live and CLOSED** → `bugs_closed/262…` (`d142fcd27`). Fleet on **v1.0.1293**,
