@@ -58,11 +58,32 @@ landmine that `injectCanonicalLink`/`injectPageJSONLD`/`injectRobotsNoindex` liv
 one head producer only. I cited it, then reproduced it. The memory entry for it is
 literally *"a guard only guards the door you walk through"*.
 
-**What the revision needs** (not yet done, see the handoff): extend both floors to
-`ApplySectionEditAction` first — single-row, so the comparison is simpler than the
-save path's — then decide per remaining writer whether it can replace an existing
-prose slot at all. Resubmit on the SAME correlation (`RESUBMIT_CORR=b30ac52c`) so
-the trail accumulates.
+### ✅ ROUND 2 DONE AND RESUBMITTED (2026-08-13, same correlation `b30ac52c`)
+
+- **`enforceSingleSlotFloors`** (`single_slot_floors.go`) — the single-row form of
+  **both** floors, wired into `ApplySectionEditAction`'s `content_edit` branch.
+  **One function composing the two existing pure decisions, not a second copy**:
+  pasting the logic into a second call site would reproduce the very defect
+  objected to, with an extra copy to drift. `component_swap` deliberately NOT
+  guarded — it changes `component_id`, `slot_name` and `html` together, so its
+  markup is *supposed* to differ.
+- **⛔ The part that matters, and it came from an induction that FAILED.** After
+  wiring the second call site I deleted that wiring again to check something would
+  catch it. **Nothing did** — the whole package still passed, because the unit tests
+  exercise the decision functions and are blind to whether anyone calls them. *A
+  guard nothing proves is reached is the same defect one level up.* So the class is
+  now a test (`page_component_writer_coverage_test.go`): every file that `UPDATE`s
+  `rendered_html` must enforce a floor or sit in `exemptWriters` **with a reason**,
+  and a tenth writer fails it until its author decides in writing. Re-induced —
+  unwiring the section editor now fails it **by name**.
+- **It earned its keep immediately**: it caught `create_report_page_action.go`,
+  which my *manual* audit had filed as create-only and which in fact looks up and
+  **overwrites** its own report row. Classified, not waved through.
+- Exemptions are decisions with reasons; two are marked `[UNMEASURED]` (the colour
+  fixers are believed structure-preserving on a code reading, not an experiment).
+- **Stated weakness**: the coverage test reads SOURCE, so it proves wiring EXISTS,
+  not that it EXECUTES. Strictly more than the zero we had; the behavioural half
+  belongs in each action's own test.
 
 The seat's second, low-severity objection is also fair and is now stated as residual
 exposure rather than left implicit: `minComponentGuardClasses=10` means a flattening
