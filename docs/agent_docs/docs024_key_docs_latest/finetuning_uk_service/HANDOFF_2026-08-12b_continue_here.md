@@ -1,5 +1,11 @@
 # HANDOFF 2026-08-12b — 259 FIXED (not live), and its filed root cause was REFUTED
 
+> ## ⛔ SUPERSEDED by `HANDOFF_2026-08-13_continue_here.md`
+> Still accurate — and the refutation in §1 is the important part of this lane's
+> record, so read it. What changed: **259's fix is now LIVE** (thunder-adapter
+> `v1.0.1295`, stamp `69612d692`), and **258 defects 1 and 2 are fixed but not
+> live** (`236810e4e`). Its "next steps" are done or moved on.
+
 **This is the COLD-START document for the lane.** It supersedes
 `HANDOFF_2026-08-12_continue_here.md`, which is accurate about the training side
 and the lane's shape but **states the wrong root cause for 259** — do not act on

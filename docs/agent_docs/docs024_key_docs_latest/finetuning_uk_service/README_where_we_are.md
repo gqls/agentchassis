@@ -389,3 +389,57 @@ hasn't fixed anything. And this fix stops the *duplicate* machines; it does not
 yet make the machine we actually want start up in time. That's the other bug
 (258), still open, and now safer to fix because duplicates can't pile up while we
 do.
+
+---
+
+**2026-08-13.** You said the new chassis probably included the thunder adapter. It
+did — I checked rather than assumed, because a fleet release can straddle several
+commits and ship different code per service. The adapter is running v1.0.1295,
+built from a commit that contains yesterday's duplicate-machine fix, 154 commits
+back. So **the fix that stops one request renting four machines is live.**
+
+Before doing anything with that, I checked one more thing: is the *other* problem
+still there — the one where we give a machine only five minutes to start up and
+then delete it for being slow? It is. I checked it in the exact code that was
+deployed, not in my own working copy. Which meant that if we'd switched renting
+back on this evening, we would have rented a machine, waited five minutes,
+destroyed it, and reported a failure. Money for nothing, on a run we already knew
+would fail. That's why I asked you rather than just proceeding, and you chose to
+fix that first. I think that was right.
+
+So that's what I did. Two changes:
+
+**The machine size is no longer our guess.** We were asking for 4 CPUs by default,
+and the supplier rejects 4 for nine of its eleven single-GPU machines — every
+cheap one. The only ones that accepted it were the most expensive box on the menu.
+So "rent a machine with our defaults" effectively meant "rent the dearest one, or
+fail". That's also why nobody noticed for so long: anyone who tested with the
+expensive machine saw it work fine. Now we ask the supplier what it will accept
+and take the cheapest valid option. I re-checked their published list myself
+rather than trusting yesterday's note about it, since it's their menu and they can
+change it.
+
+**The startup deadline is now a setting, not baked into the program.** You can
+change how long we wait without me rebuilding anything. Default is nine minutes,
+up from five.
+
+**And I found a trap in my own change, which is the part I want to flag.** I asked
+what happens if someone sets that waiting time *too high* — expecting the answer
+to be "we wait too long". It isn't. Past about ten minutes, the surrounding system
+gives up first and asks again; the new duplicate guard correctly refuses the
+second request; and the result is that **the job reports failure while a real,
+running, billed machine carries on with nobody watching it.** So being more
+patient produces a machine we've rented and forgotten. I've set the default safely
+below that line, written down the order to change things in if you ever need it
+higher, and put the warning in five places including the operator's runbook —
+because it's one database command away from anyone trying to be helpful.
+
+**Where we are.** Both fixes are written, tested and committed. Neither is live:
+they need a rebuild and one of your releases. Renting stays switched off until
+then. Nothing was spent today.
+
+**One snag, and it needs you.** The cluster login token expired at seven past
+seven this evening, so for the last few hours I've had no access. Two things are
+waiting on that, neither urgent: the small database change that carries the new
+setting, and sending the change to the review council. Both are written and ready.
+When you refresh the token they'll take a couple of minutes.

@@ -10257,3 +10257,36 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **and do NOT verify by diffing whole LINES.** Comparing a stored `"user" "value"` line against a reconstructed one includes quoting and whitespace, so it reports `DIFFER` on formatting alone. I did exactly that, and reported to the owner that a rewrite would have broken fleet-wide auth — **retracted**: the chassis authenticates through pgbouncer with that password continuously, so the values agree. **Extract the VALUE and compare that.** Note the false alarm arrived with two hex hashes attached and felt measured; a hash is only as good as what you fed it.
 - **relations:** `bugs_closed/246` D1 (why the console was wanted at all — `pg_stat_activity` cannot substitute, since every row's `client_addr` is pgbouncer itself), `WRONG_CALLS.md` rows 7-8 (2026-08-13), RUNBOOK §9 in `bugfix_246_shared_pool_ownership`
 - **added:** 2026-08-13, bugfix 246 shared-pool-ownership lane
+
+---
+
+## Raising a provision wait timeout above the dispatching step's await turns a SLOW SUCCESS into a reported FAILURE with a live billed instance behind it
+
+- **footprint:** `thunder_config.provision_wait_timeout_seconds` · `internal/adapters/thunder/provision_action.go` (`resolveWaitTimeout`, `waitTimeout`) · `agent_definitions` `gpu-provisioner` → `workflow.steps.dispatch_provision.config.timeout_seconds` · `docs/agent_docs/sql_for_agents/397_thunder_provision_wait_timeout.sql`
+- **fires when:** a provision times out, you conclude the box needs longer, and you raise the adapter's wait deadline. It is now live config precisely so you *can* (migration 397) — which is what makes this reachable by a single `UPDATE` from anyone with psql and good intentions.
+- **why the wrong result looks exactly right:** you are raising a timeout to be *more* patient, so the expected worst case is "waits too long". The actual worst case is the **opposite of a timeout**. Once the adapter's wait exceeds the dispatching step's `timeout_seconds` (600s on `dispatch_provision`), the *await* expires first. The chassis retry driver re-executes the step, `bugs_open/259`'s claim guard refuses the duplicate — **correctly**, so nothing looks broken and no second box is built — and the workflow reports **FAILED** while the original provision goes on to succeed. You end up with a real, running, billed GPU that has a `thunder_instances` row and that **no workflow believes exists**. The reaper's uptime cap is then the only thing that stops it, hours later.
+- **the arithmetic, and the ORDER:**
+  ```
+  adapter wait  <  dispatch step timeout_seconds  (with headroom for create/keypair/secret/INSERT)
+  ```
+  **Raise the STEP first, then the column** — in that order, so the invariant never inverts even briefly. Default is 540 against a 600 await; the column's `CHECK` permits 1800, which is a bound on absurdity, not permission to use it.
+- **the check, before you change either number:**
+  ```sql
+  SELECT provision_wait_timeout_seconds FROM thunder_config;
+  SELECT default_config->'workflow'->'steps'->'dispatch_provision'->'config'->>'timeout_seconds'
+  FROM agent_definitions WHERE type='gpu-provisioner' AND is_active
+    AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL;
+  -- the first MUST be comfortably less than the second
+  ```
+  And to catch it after the fact — the tell is a FAILED provisioning orchestration whose correlation has a **succeeded** claim:
+  ```sql
+  SELECT c.correlation_id, c.attempts, c.status, c.thunder_instance_id
+  FROM thunder_provision_claims c
+  JOIN orchestration_states o ON o.correlation_id = c.correlation_id
+  WHERE o.status = 'FAILED' AND c.status IN ('created','succeeded');
+  -- any row = a box nobody is watching. Check the vendor, not just our tables.
+  ```
+- **this generalises past Thunder.** Any adapter whose handler blocks while a chassis step awaits it has the same invariant: **the inner deadline must be shorter than the outer await, or a slow success is indistinguishable from a failure.** The adapter cannot see the step's config, so nothing enforces it — see `architecture_review/RFC_026`, which asks whether the retry driver should know about side effects at all.
+- **relations:** `bugs_open/258` defect 2 (why the deadline became configurable) · `bugs_open/259` (the claim guard whose *correct* refusal is what makes this quiet) · FTW-043, FTW-044 · `RFC_026` §6 (the success-path race, raised on record by the council's edit-quality seat and deliberately not fixed) · RUNBOOK `finetuning_uk_service` §6
+- **source:** 2026-08-13, `finetuning_uk_service` lane, while fixing 258 defect 2. Found by asking what the *good* case looks like if the new value is too large, rather than only what the bad case looks like — the failure mode is on the success path, which is where nobody looks.
+- **added:** 2026-08-13, finetuning_uk_service lane

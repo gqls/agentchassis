@@ -1004,3 +1004,102 @@ No spend. No provision attempted, nothing unpaused, no cluster state changed
 beyond the council dispatch. `is_paused` **still true** — correctly, because the
 fix is committed but not built, and a fix that is not in the running binary has
 not fixed anything.
+
+---
+
+## 2026-08-13 — 259's fix confirmed LIVE, and 258 defects 1+2 fixed behind it
+
+### The deploy check, done properly rather than accepted
+
+The owner reported "a new chassis has been deployed which included the thunder
+adapter I think". Verified rather than taken:
+
+```
+pod    thunder-adapter-5c7c698ffd-b67nc   started 2026-08-13T13:53:44Z, 0 restarts
+image  docker.io/aqls/thunder-adapter:v1.0.1295
+stamp  {"msg":"build provenance","git_commit":"69612d692a4a07d61eea3f648e1152e0fd36fd0a"}
+git merge-base --is-ancestor 10659b419 69612d692   -> 0  (IN the build)
+git merge-base --is-ancestor 7abafc76f 69612d692   -> 0  (IN the build)
+rev-list --count 10659b419..69612d692             -> 154
+```
+
+So **259's claim guard is live**, and migration 396 was already applied, so there
+was no fail-closed risk. `thunder_provision_claims`: present, 0 rows.
+`is_paused`: still true. Live instances: 0. Adapter error lines since the roll: 0.
+
+**Read the stamp per SERVICE, not per fleet** — `bugs_open/249`. And note the
+provenance line is a *startup* line: it was in `--tail=300` here only because the
+pod was 20 minutes old. On a busy service it scrolls out and an empty grep means
+"not in range", not "unstamped".
+
+### The check I made sure to run: is 258 defect 2 still there?
+
+Asked the **deployed commit**, not my working tree:
+
+```
+git show 69612d692:internal/adapters/thunder/provision_action.go | grep -n 'waitTimeout:'
+157:    waitTimeout:      5 * time.Minute,
+```
+
+Still hardcoded. So unpausing would have provisioned an a6000, waited 5 minutes,
+and deleted it — spending money for a guaranteed failure. That is what turned the
+next step into an owner decision rather than a task, and the owner chose: **fix
+258 first, stay paused, spend nothing.**
+
+### 258 defect 1 — I re-measured the catalogue before trusting the bug file
+
+The bug's table was a day old and describes a *vendor's* menu, so I re-ran
+`GET /v1/specs` myself. It matched exactly: 9 of 11 single-GPU specs reject 4;
+the two that accept it are h100. Also learned two things the table did not carry:
+
+- the envelope is `{"specs": {...}}` — decoding straight into `map[string]Spec`
+  compiles, succeeds, and yields an **empty map**, which would read as "Thunder
+  sells nothing" rather than as a decode bug. Hence an explicit envelope type
+  that errors on empty.
+- `l40s` is a GPU constant in our source with **no live single-GPU spec**. Asking
+  for it now refuses instead of 400ing.
+
+**A subtlety worth recording:** the fix had to *reorder* the default-resolution
+block. The spec key is `<gpu>_x<count>[_<mode>]`, so deriving vCPUs before
+normalising the GPU alias and mode looks up an empty key. That is the kind of
+ordering that works by accident until someone tidies the block, so it is
+commented in place.
+
+### The trap I went looking for, and found
+
+I asked what the *good* case looks like if the new wait timeout is set too large —
+not just what the bad case looks like. The answer is the interesting one:
+
+**above the step's 600s await, raising the wait produces a quiet SUCCESS, not a
+timeout.** The await expires first, the retry driver re-dispatches, 259's guard
+refuses the duplicate *correctly*, and the workflow reports FAILED while a real
+billed instance runs on with a row and no watcher. The failure mode of being more
+patient is a provision that worked and that nobody knows about.
+
+Hence 540s against the 600s await, and the order-of-change rule (**step first,
+column second**). Recorded in the migration header, the column COMMENT, a test,
+RUNBOOK §6 and `LANDMINES.md` — five places, because the number is a single
+`UPDATE` away from anyone with psql and good intentions. It is a **stated**
+invariant, not a mechanical one: the adapter cannot see the step's config. Flagged
+in the council submission's risks as the thing to push back on.
+
+### Mutation evidence
+
+Restoring `req.VCPUs = api.DefaultCPUCores` fails **7 of 8** cases in
+`TestDefaultVCPUsAreValidForEveryGPU`. The sole survivor is
+`h100_x1_prototyping` — the one spec that accepts 4. That single pass *is* the bug
+in miniature: testing "a provision" with the expensive box never catches it.
+
+### Blocked, and on what
+
+The kubeconfig token **expired 18:05:20Z** (checked by decoding the JWT `exp` in
+`~/.kube/config_production_uk001`; fleet-wide `Unauthorized`). So, still owed and
+NOT done:
+- migration **397** not applied (not ordering-critical — the `to_jsonb` read means
+  an unmigrated DB degrades to the compiled default rather than failing)
+- the **council round** for 258 — submission written and committed, never sent
+- `./scripts/landmines-sync.py --apply` — two entries added today are file-only,
+  so seats and agents cannot yet read them
+
+No spend this session. Nothing unpaused. No cluster state changed at all — the
+`pause_reason` rewrite and migration 396 were yesterday, before the token died.
