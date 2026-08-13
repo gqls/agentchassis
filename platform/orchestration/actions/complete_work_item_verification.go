@@ -49,10 +49,21 @@ import (
 	"github.com/gqls/agentchassis/platform/orchestration/agenterrors"
 )
 
-// verifyBeforeComplete runs the registered verifier for the item, if any.
-// Returns a map to embed at result._verification (nil when no verifier is
-// registered) and whether completion may proceed.
-func verifyBeforeComplete(ctx context.Context, db *sql.DB, itemID uuid.UUID, logger *zap.Logger) (map[string]interface{}, bool) {
+// verifyBeforeComplete runs the item-type-scoped completion gates: the no-change
+// gate (1b, complete_work_item_no_change.go) and then the registered verifier (2),
+// if any.
+//
+// Returns a map to embed at result._verification (nil when neither gate has
+// anything to say), whether completion may proceed, and a non-nil abstention when
+// the no-change gate could not read the handler's payload — which the CALLER must
+// record, exactly as it does for handlerReportedFailure's unknown verdict.
+//
+// handlerResult is the payload the handler returned, passed in rather than read
+// back from site_work_items.result because at this point it has not been stored:
+// load_work_item_actions.go marshals it only after these gates run. A gate that
+// re-read the column would judge the row's previous value.
+func verifyBeforeComplete(ctx context.Context, db *sql.DB, itemID uuid.UUID,
+	handlerResult map[string]interface{}, logger *zap.Logger) (map[string]interface{}, bool, *noChangeAbstention) {
 	var itemType string
 	var specJSON []byte
 	var siteID uuid.UUID
@@ -64,13 +75,44 @@ func verifyBeforeComplete(ctx context.Context, db *sql.DB, itemID uuid.UUID, log
 	if err != nil {
 		// Row missing or unreadable — the completion UPDATE will no-op or
 		// fail on its own; nothing to verify here.
-		return nil, true
+		return nil, true, nil
+	}
+
+	// Completion gate 1b (bugs_open/213 D1): opt-in per item_type, inert for every
+	// type that has not asked for it. Placed BEFORE the verifier for the same reason
+	// gate 1 is: a handler that reports it changed nothing is not worth grading, and
+	// for the one type opted in today there is no verifier to grade it with.
+	var abstained *noChangeAbstention
+	if detail, noChange, unknownShape := handlerReportedNoChange(itemType, handlerResult); noChange {
+		logger.Warn("verifyBeforeComplete: handler reported it changed nothing — blocking completion",
+			zap.String("item_id", itemID.String()),
+			zap.String("item_type", itemType),
+			zap.String("detail", detail))
+		return map[string]interface{}{
+			"status":    "handler_reported_no_change",
+			"item_type": itemType,
+			"detail":    detail,
+		}, false, nil
+	} else if unknownShape != "" {
+		// Completes, but the caller records why this gate abstained. Gate 2 still
+		// runs: abstaining from ONE gate must not skip the other.
+		abstained = &noChangeAbstention{ItemType: itemType, Shape: unknownShape}
 	}
 
 	verifier, policy := checks.GetVerifier(itemType)
 	if verifier == nil {
-		return nil, true
+		return nil, true, abstained
 	}
+	payload, mayComplete := runRegisteredVerifier(ctx, db, itemID, itemType, specJSON, siteID, pageID, verifier, policy, logger)
+	return payload, mayComplete, abstained
+}
+
+// runRegisteredVerifier is completion gate 2, split out of verifyBeforeComplete so
+// the no-change gate above can abstain-and-continue without duplicating any of it.
+// Behaviour is unchanged from when this was inline.
+func runRegisteredVerifier(ctx context.Context, db *sql.DB, itemID uuid.UUID, itemType string,
+	specJSON []byte, siteID uuid.UUID, pageID uuid.NullUUID,
+	verifier checks.ItemVerifier, policy checks.VerifierPolicy, logger *zap.Logger) (map[string]interface{}, bool) {
 
 	var spec map[string]interface{}
 	if err := json.Unmarshal(specJSON, &spec); err != nil {
@@ -210,6 +252,16 @@ func blockedCompletionReason(v map[string]interface{}) (string, string) {
 		detail, _ := v["detail"].(string)
 		return "completion blocked: the verifier registered for this item_type does not grade this item, so nothing checked it (bugs_open/213): " + detail,
 			"verifier_scope_mismatch"
+	}
+	// Fourth cause, and again a distinct claim: no verifier ran and none needed to.
+	// The HANDLER's own report says it changed nothing, so there is no repair to
+	// verify. An operator reading "the defect is still present" would be told the
+	// truth by accident and for the wrong reason — what is owed here is a handler
+	// whose remit covers this item, not another attempt by one whose does not.
+	if status, _ := v["status"].(string); status == "handler_reported_no_change" {
+		detail, _ := v["detail"].(string)
+		return "completion blocked: the handler reported it changed nothing, so this cannot be a repair (bugs_open/213 D1): " + detail,
+			"handler_reported_no_change"
 	}
 	detail, _ := v["detail"].(string)
 	return "completion blocked: post-fix verification found the defect still present: " + detail,

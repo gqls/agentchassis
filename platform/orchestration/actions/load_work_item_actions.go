@@ -905,14 +905,28 @@ func CompleteWorkItemAction(ctx context.Context, params ActionParams) (interface
 			"handler_reported_failure", logger)
 	}
 
-	// Completion gate 2: for item types with a registered verifier, confirm the
-	// defect is actually gone before stamping 'complete'. A handler saga can
-	// return success without touching the defect (no-op paths exit through
-	// success-labelled complete_workflow steps) — see
-	// complete_work_item_verification.go for the policy.
-	verification, mayComplete := verifyBeforeComplete(ctx, params.DB, itemID, logger)
+	// Completion gates 1b and 2, both keyed on the item's TYPE so they share one
+	// lookup (see verifyBeforeComplete):
+	//   1b — the handler reported it changed nothing, for the item types that have
+	//        opted in. A saga that altered no artefact cannot have repaired one, and
+	//        for the type opted in today the route provably cannot repair it at all
+	//        (bugs_open/213 D1, complete_work_item_no_change.go).
+	//   2  — for item types with a registered verifier, confirm the defect is
+	//        actually gone. A handler saga can return success without touching the
+	//        defect (no-op paths exit through success-labelled complete_workflow
+	//        steps) — see complete_work_item_verification.go for the policy.
+	// resultData is passed in because the handler's own report is not yet stored:
+	// this function marshals it below, AFTER the gates.
+	verification, mayComplete, abstained := verifyBeforeComplete(ctx, params.DB, itemID, resultData, logger)
 	if verification != nil {
 		resultData["_verification"] = verification
+	}
+	if abstained != nil {
+		// Gate 1b opted in for this type but could not read the payload. The item
+		// still completes — an unreadable payload is not evidence of a no-op — so
+		// this is recorded on a queryable surface rather than only logged, for the
+		// same reason recordUnknownVerdict is (a pod log does not survive a roll).
+		recordUnknownNoChangeShape(ctx, params, itemID, *abstained, logger)
 	}
 
 	resultJSON, err := json.Marshal(resultData)
