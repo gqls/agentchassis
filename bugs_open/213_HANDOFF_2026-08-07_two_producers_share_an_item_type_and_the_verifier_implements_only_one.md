@@ -767,3 +767,52 @@ exemption is **on the record** at `verifier_coverage_test.go:156` with a reason 
 refuted on 2026-08-08, and recommends **discovery-path retraction** rather than a
 completion-time check. **Read that commit before acting on anything I wrote here.** I am
 not taking this further; the park stands and I unparked nothing.
+
+---
+
+## CONTRIBUTION 2026-08-13, same lane — D1 half one SHIPPED (gate 1b), and the retraction question is measured
+
+**Gate 1b is committed (`96c53bc18`), INERT until the next chassis roll.** It refuses to
+stamp `complete` on a `dark_section_audit` item when the handler's own payload reports it
+changed nothing. Opt-in per `item_type` with the unsafe default OFF; **no verifier is
+registered**, so `RegisteredVerifierItemTypes`, `verifier_coverage_test.go` and the
+`sql_for_agents/220` claim-timeout exclusion are all untouched.
+
+**The design fact that decides where this can live, and it is not obvious:** a verifier
+CANNOT do this. `VerifyTarget` carries the spec, not the result, and
+`load_work_item_actions.go:871` reads the handler's report as an ACTION INPUT which is
+marshalled into `site_work_items.result` at `:918` — *after* the gates run. A verifier
+querying that column grades **the row's previous value** and looks like it works. The
+question belongs beside `handlerReportedFailure` (`:894`), which reads the same payload at
+the same moment for the same reason.
+
+Council: `0c8e7f5b-e510-4d24-893d-e3abb0bbb7b6`, dispatch confirmed in
+`orchestration_states`. ⚠ An earlier attempt printed a full correlation block and dispatched
+NOTHING (expired kubeconfig; the trigger prints before it publishes), which is why the
+commit carries no trailer — forward-only forbids the amend that would add one.
+
+### The retraction question (D1 half two) is answered, and the answer is a CONSTRAINT
+
+[MEASURED 2026-08-13] The design audit re-reported the colour defect on **7 of 7**
+post-closure re-visits across 4 sites (dartsonline, finetuning ×3, leopardess,
+webdesign.co.uk). Dedup confound handled — every prior row was `complete`, so a re-file was
+possible — and these are findings independently known **not** to have been repaired (0 of 61
+bodies change under the handler's transform), so a silence would have been a true miss.
+
+**So the detector is not unstable, and retraction is viable — but 0 misses in 7 bounds the
+miss rate at ~35% (95% upper), not at zero.** Licensing retraction on a single quiet audit
+would need roughly **60** consecutive clean re-detections. **Whoever builds half two must
+trigger on N consecutive silences, not one.**
+
+⚠ **A trap for anyone re-running this.** Joining on `item_key` reports
+`hardcoded_section_colors` as 0-refiled-of-6 — the exact opposite of the truth. `item_key`
+embeds the `item_type`, and Half A of THIS bug's fix renamed the producer's output, so a
+perfect re-detection under the new name cannot match the old key and reads as a silence.
+Match on site + page + either type. A join key containing a value your own change renamed
+will read as absence, and absence is the finding.
+
+⚠ **Do not generalise the 7-of-7 to the producer.** Other `design-audit` types go quiet
+often (`needs_content_planning` 0 of 5, `tone_shift` 0 of 2, `cta_improvement` 6 of 11)
+and for those I cannot separate "genuinely repaired" from "not re-reported", because unlike
+the colour findings there is no independent evidence the defect survived. Extending
+retraction to another type owes that type its own measurement.

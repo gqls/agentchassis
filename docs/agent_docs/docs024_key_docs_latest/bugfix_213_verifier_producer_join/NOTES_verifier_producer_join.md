@@ -817,3 +817,100 @@ rows by `batch_id` and `site_id` over consecutive runs, and check whether a site
 demonstrably re-visited re-filed its finding. If the finding set turns out to be unstable
 on an unchanged site, retraction here would close real defects on model variance, and
 option (2) needs a different design — not a `pages_audited` list.
+
+---
+
+## 2026-08-13 (evening, token restored) — the stability measurement, and the two ways I got it wrong first
+
+### The result [MEASURED 2026-08-13]
+
+**The design audit re-reported the colour defect on 7 of 7 post-closure re-visits, across
+4 sites. Zero silences.**
+
+```sql
+-- pairs a CLOSED colour finding with a LATER audit day on the same site, and asks
+-- whether the colour finding came back. Matched on site + page, NOT on item_key.
+WITH colour AS (
+  SELECT site_id, spec->>'page_name' AS pg, item_type, created_at, completed_at
+  FROM site_work_items
+  WHERE spec->>'audit_source'='design-audit'
+    AND item_type IN ('dark_section_audit','hardcoded_section_colors')
+), visit_days AS (
+  SELECT DISTINCT site_id, created_at::date AS d
+  FROM site_work_items WHERE spec->>'audit_source'='design-audit'
+)
+SELECT s.domain, c.completed_at::date, v.d,
+       EXISTS (SELECT 1 FROM colour r WHERE r.site_id=c.site_id
+                AND COALESCE(r.pg,'')=COALESCE(c.pg,'') AND r.created_at::date >= v.d)
+FROM colour c JOIN visit_days v ON v.site_id=c.site_id AND v.d > c.completed_at::date
+JOIN sites s ON s.id=c.site_id WHERE c.completed_at IS NOT NULL ORDER BY 1,2;
+-- dartsonline 08-09→08-11 (×2) · finetuning 08-09→08-11, 08-09→08-12, 08-11→08-12
+-- · leopardess 08-08→08-11 · webdesign.co.uk 08-08→08-11 — all TRUE
+```
+
+The dedup confound is handled: every earlier row is `complete`, so a re-file was not
+suppressed by `idx_swi_dedup`. And these are findings we independently know were **never
+repaired** — 0 of 61 bodies change under the handler's literal transform — so a silence
+would have been a true miss, not a true retraction.
+
+### What 7 of 7 actually licenses, which is less than it looks
+
+**Zero misses in 7 bounds the miss rate at ~35% (95% upper), not at zero.** For a single
+silent run to be adequate evidence at a ≤5% miss rate you would need roughly **60**
+consecutive clean re-detections. So:
+
+> The detector is **not** unstable in the way I feared on 08-13 morning — the design
+> question is not blocked. But 7 observations do **not** license retracting a finding on
+> ONE quiet audit. Item 2 must require **N consecutive silences**, or pair the silence with
+> a deterministic check. A single-silence design would be building on a bound of 35%.
+
+This supersedes the 08-13 morning note, which said the measurement had to be run before
+the design could proceed. It has been run; the design proceeds, with the trigger changed
+from "the audit did not re-report it" to "the audit did not re-report it N times running".
+
+### MISSTEP 1 — my widened query said 62% silence and it was junk
+
+First attempt widened to the whole `design-audit` producer and returned **209 re-visit
+pairs, 80 refiled, 129 silent**. I nearly wrote that down as "the auditor forgets 62% of
+the time". It is an artefact, twice over:
+
+- **Batch granularity.** Each site gets a burst of 2–3 `batch_id`s within ~2 minutes
+  (finetuning: 13:21:00, 13:21:55, 13:23:10). Those are steps of one pass, not three
+  visits, and the later ones are different audit steps that would never re-file the first
+  one's finding. Treating each as a "visit" multiplied every finding by 2–3.
+- **Only 5 sites and 46 distinct findings** produced those 209 pairs. A big-looking N built
+  from a small population.
+
+Collapsing visits to distinct DAYS is what makes the number mean anything.
+
+### MISSTEP 2 — the fixed query then told me the OPPOSITE of the truth for my own item type
+
+The day-granularity version, matched on `item_key`, reported:
+
+```
+ hardcoded_section_colors |  6 revisit_days |  0 refiled |  6 went_silent
+ dark_section_audit       |  1              |  1         |  0
+```
+
+Read literally: the colour finding goes silent every single time. **That is exactly
+backwards**, and the cause is my own lane's Half A: the fix RENAMED this producer's output
+from `hardcoded_section_colors` to `dark_section_audit`, and `item_key` embeds the
+item_type. So a re-file under the new name cannot match the old key, and a perfect
+re-detection reads as a silence.
+
+**The lesson, which is more general than this bug: a join key that contains a value your
+own change renamed will read as absence, and absence is the finding.** I caught it only
+because I had the by-hand pairing from the earlier query to contradict it. Matching on the
+DEFECT (site + page + either type) is what the question actually asks.
+
+### Recorded, not resolved: other design-audit types DO go silent
+
+At day granularity, matched on item_key (sound for types this lane did not rename):
+`needs_content_planning` 0 refiled of 5, `tone_shift` 0 of 2, `cta_improvement` 6 of 11,
+`responsive_fix` 1 of 3, against `needs_design_review` 12 of 15 and `content_rewrite` 6 of 8.
+
+**I cannot separate "genuinely repaired" from "not re-reported" for any of those**, because
+unlike the colour findings I have no independent evidence that the defect survived. So this
+is not evidence of instability — it is evidence that **the 7-of-7 result is specific to the
+colour findings and must not be generalised to the producer.** Anyone extending retraction
+to another design-audit type owes the same measurement for that type.

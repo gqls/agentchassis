@@ -22,6 +22,22 @@ closure criterion is still unsatisfiable (three costed options, unchanged from 0
 
 ---
 
+> ## ✅ UPDATE 2026-08-13 (evening) — TOKEN RESTORED; THE TWO BLOCKED ITEMS ARE DONE
+>
+> 1. **Council submission DISPATCHED**, correlation **`0c8e7f5b-e510-4d24-893d-e3abb0bbb7b6`**
+>    — and confirmed live in `orchestration_states`, not merely printed. The section below
+>    on the failed first attempt stays as the record of why `96c53bc18` carries no trailer;
+>    forward-only forbids an amend, so that commit will list as un-reviewed in the `098`
+>    report and this correlation is the join a human needs.
+> 2. **The stability question is ANSWERED, and item 2 is unblocked:** the audit re-reported
+>    the colour defect on **7 of 7** post-closure re-visits across 4 sites, on findings
+>    independently known not to have been repaired. **But 0 misses in 7 bounds the miss rate
+>    at ~35%, not at zero** — so item 2 must trigger on **N consecutive silences**, never on
+>    one. Full working, and the two ways I got the query wrong first, in `NOTES`
+>    (§"the stability measurement"). ⚠ **The `item_key` join reads 0-of-6 for
+>    `hardcoded_section_colors` and that is an artefact of our own Half A rename** — match
+>    on site+page, not on item_key.
+
 ## ⚠ BLOCKED ON THE OWNER — read before doing anything at the cluster
 
 **The kubeconfig token has expired.** `kubectl -n ai-persona-system get pods` returns
