@@ -426,6 +426,17 @@ func ApplySectionEditAction(ctx context.Context, params ActionParams) (interface
 	// --- Persist the page_components row ---
 	switch editType {
 	case "content_edit":
+		// Per-slot floors, SAME rules as a whole-page save (council round 1 on
+		// b30ac52c: both floors were wired only into SavePageSectionsAction, so
+		// this path — the one decomposition exists to enable — bypassed them
+		// and a flattening here would have failed as silently as the bug they
+		// fix). Only content_edit: a component_swap deliberately changes the
+		// component, so its markup is SUPPOSED to change.
+		existingHTML, _ := pcData["rendered_html"].(string)
+		if floorErr := enforceSingleSlotFloors(ctx, params, siteID, pageID,
+			pageName, slotName, existingHTML, outcome.HTML); floorErr != nil {
+			return nil, floorErr
+		}
 		err = updatePageComponentAfterEdit(ctx, params.DB, pcID, outcome.HTML, outcome.ContentData)
 	case "component_swap":
 		err = updatePageComponentSwap(ctx, params.DB, pcID,

@@ -1,0 +1,114 @@
+package actions
+
+import (
+	"context"
+	"fmt"
+	"strings"
+
+	"github.com/google/uuid"
+	"go.uber.org/zap"
+)
+
+// The SINGLE-ROW form of both per-slot floors, for writers that update ONE
+// page_components row directly instead of composing a whole page.
+//
+// WHY THIS EXISTS (council round 1 on b30ac52c, gating objection from
+// bug_historian, severity high). Both floors — the text shrink floor
+// (bugs_open/178) and the component floor (bugs_open/253) — were wired only into
+// SavePageSectionsAction. Audited 2026-08-13: NINE Go call sites write
+// page_components.rendered_html and exactly one was guarded. The seat's words:
+// "if any of those paths bypass SavePageSectionsAction, they bypass BOTH the
+// pre-existing text shrink floor and this new component floor, and a flattening
+// save through one of them will fail exactly as silently as the bug this plan
+// fixes."
+//
+// It was right, and worse than stated. The unguarded writer that matters is
+// ApplySectionEditAction: it is LIVE (the `section-editor` agent definition), it
+// UPDATEs rendered_html directly, and it is PRECISELY the per-component edit path
+// decomposition exists to enable — HANDOFF_2026-08-10c §3's stated benefit is
+// "after decomposition you can rewrite one prose block without touching the
+// calculator", and that is this action. So the guards covered the door the
+// observed incident came through and missed the one the design steers edits
+// toward.
+//
+// ONE FUNCTION, NOT A COPY, on purpose. The defect being fixed is literally "one
+// call site of a shared judgement gets the rigorous fix; the sibling stays
+// heuristic" (016b §9). Fixing it by pasting the floor logic into a second call
+// site would reproduce the defect with an extra copy to drift. Both decisions
+// stay in their own files as pure functions (evaluateSectionShrink,
+// evaluateComponentLoss); this composes them for the single-row case, so a THIRD
+// writer adopts both floors in one call.
+//
+// SCOPE — which writers should call this, decided per writer rather than wiring
+// all nine reflexively (the audit is in bugs_open/253):
+//
+//	CALLS IT   ApplySectionEditAction, editType "content_edit" — replaces an
+//	           existing slot's HTML with rewritten content. The exact shape.
+//	DOES NOT   ApplySectionEditAction, editType "component_swap" — deliberately
+//	           changes component_id AND slot_name AND html: the markup is SUPPOSED
+//	           to change because the component is a different one. A floor here
+//	           would refuse the operation for doing its job.
+//	DOES NOT   adopt_verbatim, create_report_page, create_tool_component,
+//	           deploy_tool — these CREATE rows or write first content; there is no
+//	           prior prose to flatten, and the floors compare against a prior.
+//	OPEN       rebuild_blog_listing, fix_forced_text_colours,
+//	           fix_harcoded_colours — these rewrite existing rows and are NOT yet
+//	           covered. The colour fixers are narrow (attribute-level) and are
+//	           unlikely to strip structure, but "unlikely" is not measured. Stated
+//	           as residual exposure rather than silently omitted.
+func enforceSingleSlotFloors(ctx context.Context, params ActionParams, siteID, pageID uuid.UUID,
+	pageName, slot, existingHTML, incomingHTML string) error {
+
+	// Same config keys as the whole-page path, so a step that has already opted
+	// out of a floor is not surprised by it reappearing on a different writer.
+	componentFloor, _ := pruneFloorFromConfig(params.StepConfig.Config, sectionComponentFloorKey, defaultSectionComponentFloor)
+	textFloor, _ := pruneFloorFromConfig(params.StepConfig.Config, sectionShrinkFloorKey, defaultSectionShrinkFloor)
+
+	// An empty existing row is a first write, not a shrink — nothing to compare.
+	if strings.TrimSpace(existingHTML) == "" {
+		return nil
+	}
+
+	existingText := map[string]int{slot: len(strings.TrimSpace(shrinkGuardTagStripper.ReplaceAllString(existingHTML, "")))}
+	incomingText := map[string]int{slot: len(strings.TrimSpace(shrinkGuardTagStripper.ReplaceAllString(incomingHTML, "")))}
+	existingComp := map[string]int{slot: countComponentClasses(existingHTML)}
+	incomingComp := map[string]int{slot: countComponentClasses(incomingHTML)}
+
+	var reasons []string
+	for _, v := range evaluateSectionShrink(textFloor, existingText, incomingText) {
+		reasons = append(reasons, fmt.Sprintf("%s %d→%d chars of text (%.0f%% kept, floor %.0f%%)",
+			v.Slot, v.Existing, v.Incoming, v.ratio()*100, textFloor*100))
+	}
+	for _, v := range evaluateComponentLoss(componentFloor, existingComp, incomingComp) {
+		reasons = append(reasons, fmt.Sprintf("%s %d→%d class attributes (%.0f%% kept, floor %.0f%%)",
+			v.Slot, v.Existing, v.Incoming, v.ratio()*100, componentFloor*100))
+	}
+	if len(reasons) == 0 {
+		return nil
+	}
+
+	reason := fmt.Sprintf(
+		"apply_section_edit: SLOT FLOOR REFUSED for page %q slot %q — %s. Nothing was written and the existing component still stands. A single-component edit is held to the same floors as a whole-page save (bugs_open/178 text, bugs_open/253 components); set %s or %s on this step to change them (0 disables).",
+		pageName, slot, strings.Join(reasons, "; "), sectionShrinkFloorKey, sectionComponentFloorKey)
+
+	params.Logger.Warn("ApplySectionEditAction: SLOT FLOOR BLOCKED",
+		zap.String("page_name", pageName),
+		zap.String("slot_name", slot),
+		zap.Int("violations", len(reasons)))
+	_ = emitPruneRefusalWorkItem(ctx, params.DB, savePageSectionsRefusal(siteID, pageID, pageName, reason,
+		fmt.Sprintf("Section edit refused: %q would lose too much of its text or layout", slot),
+		singleSlotFloorFix), params.Logger)
+	return fmt.Errorf("%s", reason)
+}
+
+// singleSlotFloorFix is this path's OWN aftermath sentence. The whole-page
+// guards' remedies name save_page_sections and its step config, which is the
+// wrong step to go and edit when the refusal came from the section editor.
+const singleSlotFloorFix = "A single-component edit would have removed more of a section's text or its layout " +
+	"components (cards, grids, buttons) than the floors allow, so NOTHING was written and the existing " +
+	"component still stands. This is the section editor, not a page rebuild — check the edit instruction " +
+	"that was given: an instruction to 'simplify' or 'rewrite' a slot that carries layout markup will " +
+	"produce clean prose and lose the structure, because the writer is not told what the markup means. " +
+	"Giving it the component vocabulary in content_direction is what fixed the motivating page " +
+	"(bugs_open/253); lowering section_shrink_floor / section_component_floor on this step is the " +
+	"deliberate escape hatch when the simplification is genuinely intended."
