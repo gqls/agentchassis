@@ -6,14 +6,24 @@ the fix candidates; **this file holds only what is still owed and what will misl
 you.** Read the bug file's newest block — `🚨 2026-08-12 20:45Z` — first; it re-ranks
 the candidates again and everything below assumes it.
 
-> **⚠ THE MARGIN IS THE STORY NOW, AND IT IS GOING THE WRONG WAY.** Fleet-worst
-> headroom above the hard eviction line, same method each time: **1.34 GB** at filing
-> (08-11 12:25Z) → 0.82 (08-12 12:37Z) → 2.81 (13:00Z, after candidate 1) → 1.73
-> (17:27Z) → **0.60 GB (20:45Z)**. Three of five nodes are now under 0.8 GB, images
-> grew on all five, and **candidate 1's entire gain was consumed in seven hours.**
-> Nothing has failed yet — `DiskPressure` is `False` fleet-wide and no pod has been
-> rejected since 08-11 — but every remaining lever is an **owner action**, and the two
-> cheapest ones are each one line. That is the ask; see below.
+> **✅ THE MARGIN IS A SAWTOOTH, NOT A DECLINE — AND WE HAVE NOW WATCHED THE TEETH.**
+> `[MEASURED 2026-08-13 14:01Z]` Fleet-worst headroom is **2.42 GB** and …1148 sits at
+> **9.28 GB**, recovered from **0.73 GB** 17 hours earlier. Image GC fired on exactly
+> the three pressured nodes (…1148's cached chassis tags went 9 → 3, its image list
+> dropped below the 50 cap, imageFs 16.0 → 10.1 GB) while the two unpressured nodes
+> grew instead. `DiskPressure` False fleet-wide, no rejections in the window.
+>
+> **⛔ This banner previously read "THE MARGIN IS GOING THE WRONG WAY" and that was
+> WRONG — I had sampled the trough of a cycle twice and drawn a trend through it.**
+> The disconfirming check was to hold still and re-measure. See the bug file's
+> `🔄 2026-08-13 14:05Z` block and `WRONG_CALLS.md`.
+>
+> **The bug is CONFIRMED and is better stated than before:** GC works, but its
+> trigger (85% used) *is* the eviction line (15% available), so the cycle's trough
+> sits against the eviction threshold — and a roll landing in that trough is exactly
+> the admission rejection that opened this lane on 08-11. Nothing is hours from
+> failure. **Every remaining lever is still an owner action**, and candidate 3a is now
+> evidenced rather than theoretical: its whole effect is to raise the trough.
 
 ## Where this came from
 
@@ -240,22 +250,30 @@ WHERE categories ? 'landmine-verification' ORDER BY created_at DESC LIMIT 3;
 
 ## The honest summary line
 
-**Candidates 1 and 1b are done — 1 live and proven, 1b committed and awaiting an
-apply.** Between them the fleet requests disk and the two big consumers are separated
-by a rule rather than by luck. **That is the whole of what a thread can do here, and
-the lane is not fixed.** 252 stays OPEN.
+**Candidate 1 is live and proven. Candidate 1b is committed (`85e8818dd`) and awaiting
+an apply** — it is a kustomize change, so the 08-13 chassis roll did **not** deliver
+it even though the deployed commit contains it. Between them the fleet requests disk
+and the two big consumers would be separated by a rule rather than by luck. **That is
+the whole of what a thread can do here, and the lane is not fixed.** 252 stays OPEN.
 
-**Every remaining lever is node configuration, i.e. the owner's.** And the margin is
-now the urgent part: fleet-worst headroom is **0.60 GB**, worse than at filing, with
-three of five nodes under 0.8 GB and images growing on all five. Candidate 1's gain
-was consumed in seven hours.
+**The bug is confirmed, and the 08-13 measurement states it better than the filing
+did:** image GC works, but `imageGCHighThresholdPercent: 85` *is* the
+`imagefs.available < 15%` eviction line, so the reclaim cycle's **trough sits against
+the eviction threshold**. A roll landing in that trough is the admission rejection of
+08-11. Not a slow drain to failure — a recurring window of exposure.
 
-**Two one-line owner changes would each return more disk than everything a thread can
-reach, combined:** candidate 5 (`SystemMaxUse=512M` — journald is sitting on its
-default cap at ~3.87 GiB per node) and candidate 3b (`imageMaximumGCAge=168h` —
-age-based image GC is **disabled fleet-wide**, so the only reclaim trigger is the
-eviction line itself). Neither has been made. **Nothing has failed yet; the margin
-protecting us from the next failure has.**
+**Every remaining lever is node configuration, i.e. the owner's**, and the two
+cheapest are each one line:
+
+- **Candidate 3a — `imageGCHighThresholdPercent` 85 → ~70.** Now evidenced rather
+  than theoretical: its entire effect is to **raise the trough** so the cycle never
+  approaches the eviction line. This is the fix for the mechanism as understood.
+- **Candidate 5 — `SystemMaxUse=512M`.** Journald's ~3.87 GiB per node is **never
+  touched by image GC** — a permanent tax that lowers the whole sawtooth. Freeing it
+  raises every point in the cycle. Unaffected by the correction above.
+
+Neither has been made. **The margin is healthy at this instant (2.42–9.28 GB) and
+that is not the point** — it was 0.60 GB seventeen hours ago and will be again.
 
 > **Claim-shape lesson kept deliberately.** This line has read "one-third done",
 > then "one-fifth done", then "done" — the denominator changed from 3 deployments to

@@ -111,7 +111,101 @@ roll**, self-healed. The reason it is worth filing anyway: with …6832 at 1.34 
 of headroom, the same event on two nodes at once during a roll would leave a
 deployment short for as long as the pressure lasts, and nothing alerts on it.
 
-## 🚨 2026-08-12 20:45Z — **HEADROOM HAS MORE THAN HALVED IN 3.3 HOURS. CANDIDATE 1b IS BUILT AND COMMITTED. AND ONE MORE ONE-LINE OWNER LEVER EXISTS THAT NOBODY HAD FOUND.**
+## 🔄 2026-08-13 14:05Z — **WE FINALLY WATCHED IMAGE GC FIRE. IT CONFIRMS THE ROOT CAUSE AND IT CORRECTS MY OWN ALARM FROM LAST NIGHT.**
+
+`[MEASURED 14:01Z, clock taken from `SELECT now()`]` A fresh chassis build
+(`69612d692`) rolled at 13:53Z. **17h16m** after the 20:45Z block below.
+
+### Headroom did not fall off the cliff — it recovered, sharply
+
+| node | 08-12 20:45Z | **08-13 14:01Z** | Δ | images 20:45Z → now |
+|---|---|---|---|---|
+| …1148 | **0.73** | **9.28** | **+8.55** | 16.0 → **10.1** |
+| …1149 | **0.60** | 4.81 | +4.21 | 17.2 → **14.2** |
+| …6832 | 7.18 | 2.97 | −4.21 | 11.2 → 14.2 |
+| …6833 | **0.79** | 5.88 | +5.09 | 16.7 → **13.3** |
+| …1336 | 2.99 | 2.42 | −0.57 | 14.9 → 15.3 |
+
+`DiskPressure` is `False` fleet-wide and **no rejection, eviction or
+`DiskPressure` event exists in the window** (the one `FailedScheduling` is
+`alertmanager-…-0`'s unbound PVC again — still not ours).
+
+### The mechanism, evidenced directly for the first time in this lane
+
+Image GC **ran on exactly the three pressured nodes** and left fingerprints that
+are not ambiguous:
+
+- **…1148 went from 50 images (i.e. TRUNCATED at the cap) to 49 (complete)** —
+  chassis tags **9 → 3**, `browser-runner-adapter` **8 → 2**, imageFs 16.0 → 10.1 GB.
+- **…6833: 50 (truncated) → 45 (complete)**, chassis 6 → 3, imageFs 16.7 → 13.3 GB.
+- **…1149:** chassis 7 → 5, imageFs 17.2 → 14.2 GB.
+- **…6832 and …1336 — the two nodes that were NOT under pressure — GREW instead**
+  (11.2 → 14.2 and 14.9 → 15.3), because they were nowhere near 85% and had no
+  reason to reclaim. That contrast is the control: reclaim tracked pressure, not
+  the roll.
+
+> **⛔ CORRECTION TO THE 20:45Z BLOCK BELOW — the alarm was the wrong shape, and I
+> wrote it into this file and into `CONTINUE_HERE`.** It read "headroom has more
+> than halved", "this is not redistribution, it is accumulation", and "candidate 1's
+> entire gain was consumed in seven hours" — presenting a decline toward failure.
+> **What I had actually measured was one downstroke of a SAWTOOTH.** Consumption
+> runs up to the 85% GC threshold, the kubelet reclaims to the 80% low mark, and the
+> margin restores. I sampled the trough twice and drew a line through it.
+> **The four-point series I quoted (1.34 → 0.82 → 2.81 → 1.73 → 0.60) is not a
+> trend; it is a cycle, and the 2.81 in the middle should have told me so.**
+> The disconfirming check I never ran: **hold still and re-measure**. That is all it
+> took. Logged in `WRONG_CALLS.md`.
+
+### What this does to the diagnosis: the root cause is CONFIRMED, and stated better
+
+The filing's original claim — `imageGCHighThresholdPercent: 85` is *exactly* the
+`imagefs.available < 15%` eviction line, so reclaim cannot run before evictions —
+is now **observed**, not inferred. GC works. It works **late by construction**.
+
+So the bug is not "disk drains away until we fall over". It is: **the reclaim
+trigger and the eviction trigger are the same line, so the cycle's trough sits
+against the eviction threshold, and every roll that lands while a node is in that
+trough risks the admission rejection that opened this lane.** That is a narrower,
+truer and more defensible statement than either the original filing or last night's
+alarm, and it is the one to carry forward.
+
+**Consequences for the candidates:**
+
+- **3a (lower the high threshold to ~70) is now evidenced rather than theoretical.**
+  Its effect is precisely to **raise the trough** so the cycle never approaches the
+  eviction line. That is the fix for the mechanism as now understood.
+- **5 (journald `SystemMaxUse=512M`) SURVIVES INTACT and is arguably strengthened.**
+  Journald's ~3.87 GiB is *never* reclaimed by image GC — it is a permanent tax that
+  lowers the entire sawtooth, trough and peak alike. Freeing it raises every point
+  in the cycle.
+- **3b (`imageMaximumGCAge=168h`) stands**, still measured `0s` fleet-wide at 14:01Z.
+  It would retire stale tags *between* peaks instead of only at them.
+- **The urgency drops; the case does not.** Nothing is hours from failure. But the
+  system spends part of every cycle at ~0.6 GB, and that is where the 08-11 failure
+  happened.
+
+### Partial vindication of the withdrawn tag-concentration claim — and the half that stays withdrawn
+
+Last night I withdrew "`browser-runner-adapter`: 8 tags on …1148, 0 elsewhere"
+because `.status.images` truncates at 50. **The 8-tags-on-…1148 half turns out to
+have been real** — GC removed 6 of them and the node's list is now complete at 49,
+below the cap. **The "0 on other nodes" half remains unsafe and stays withdrawn**:
+…1149 and …6832 are *still* truncated at 50, so their zero still cannot be read.
+The withdrawal was correct on the evidence available; being later shown
+directionally right does not retroactively make a truncated list a census.
+
+### Status of candidate 1b after the roll
+
+**Still NOT applied** — `kubectl get pods -l workload=gha-runner` returns nothing.
+The deployed chassis commit `69612d692` *does* contain commit `85e8818dd`
+(`git merge-base --is-ancestor` says so), and **that is irrelevant**: 1b is a
+kustomize manifest change, and manifests ship via `kubectl apply`, never via a
+binary build. Do not read the roll as having delivered it.
+
+The three runners are still on three distinct nodes and survived the roll — **still
+by scheduler score, not by rule**, which is exactly what 1b exists to fix.
+
+## 🚨 2026-08-12 20:45Z — ~~HEADROOM HAS MORE THAN HALVED IN 3.3 HOURS~~ **(SEE THE CORRECTION IN THE 08-13 BLOCK ABOVE — THIS WAS ONE ARM OF A SAWTOOTH, NOT A TREND).** CANDIDATE 1b IS BUILT AND COMMITTED. AND ONE MORE ONE-LINE OWNER LEVER EXISTS THAT NOBODY HAD FOUND.
 
 ### The number that matters: fleet-worst headroom is **0.60 GB**, down from 1.73
 

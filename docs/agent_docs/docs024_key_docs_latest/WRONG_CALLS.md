@@ -29948,6 +29948,67 @@ and the file edit. The number that *did* go into the bug file tonight (headroom
 0.60 GB) comes from `stats/summary`, a different instrument, and was taken by the same
 method as the figures it is compared against, which was checked rather than assumed.
 
+> **POSTSCRIPT 2026-08-13.** That last paragraph is the part that aged badly. The
+> number was fine; **the story I wrapped around it was not** — see the entry
+> immediately below, written 17 hours later. I audited the *instrument* and signed
+> it off, and the error was in the *inference*. Congratulating yourself on the
+> measurement is not a check on the conclusion.
+
+---
+
+## 2026-08-13 — `bugs_open/252` — I sampled the trough of a cycle twice and drew a trend through it
+
+**The claim.** On 08-12 20:45Z I wrote, into the bug file *and* the lane's cold-start
+handoff, that disk headroom was "going the wrong way": fleet-worst **1.34 → 0.82 →
+2.81 → 1.73 → 0.60 GB**, "three of five nodes under 0.8 GB", "images grew on all five
+— this is not redistribution, it is **accumulation**", "candidate 1's entire gain was
+**consumed in seven hours**". I set the block's heading to 🚨 and told the owner the
+two outstanding one-line changes were now urgent.
+
+**Why it was false.** It is a **sawtooth, not a decline.** Consumption rises to
+`imageGCHighThresholdPercent: 85`, the kubelet reclaims to the 80% low mark, and the
+margin restores. Re-measured 17h16m later with nothing done in between: …1148 had gone
+**0.73 → 9.28 GB**, …6833 **0.79 → 5.88**, …1149 **0.60 → 4.81**. Image GC had fired
+on precisely the three pressured nodes (…1148's cached chassis tags 9 → 3, its image
+list falling below the 50 cap, imageFs 16.0 → 10.1 GB) while the two nodes that were
+*not* under pressure grew instead — the contrast being the control I had not thought
+to look for.
+
+**The tell was inside my own evidence.** The series I quoted contains a **2.81** in
+the middle. A number that goes down, up, and down again is a cycle, and I printed it,
+formatted it into a table, and called it a trend. **I did not need new data to catch
+this — I needed to read the data I already had.** The "+2.81 after candidate 1" I had
+attributed entirely to our own fix was substantially GC doing what it does.
+
+**What actually caught it.** Nothing I did. The owner rolled a fresh build and asked
+me to carry on; I re-measured because a roll is the event this bug fires on. **Had
+nobody rolled, the alarm would still be sitting in the handoff**, and the next session
+would have cold-started on "the margin is collapsing" as settled context.
+
+**The cheap check, and it is embarrassingly cheap: hold still and re-measure.** Before
+characterising any series over time as a trend, ask **what would make it a cycle**,
+and take one more sample at least one plausible period later. For anything governed by
+a threshold-and-reclaim controller — image GC, log rotation, cache eviction, autoscaler
+churn — **oscillation is the default expectation and monotonic decline is the
+extraordinary claim.** Two samples cannot distinguish them, and I had five samples
+that already showed the turn.
+
+**The damage, and what survived.** The root cause was never wrong — it is now
+*better* stated, and confirmed by direct observation for the first time in the lane:
+GC works, but its trigger *is* the eviction line, so the cycle's trough sits against
+the eviction threshold and a roll landing there gets its pod rejected. Candidate 5
+(journald, ~3.87 GiB never reclaimed by image GC) survives untouched. What was wrong
+was the **urgency and the shape**, which are exactly what an owner reads a 🚨 heading
+for. Corrected visibly in both docs with the old heading struck through, not edited
+away.
+
+**Relation to the entry above it, same lane, one day apart.** That one was an
+instrument error caught before it reached a doc. This one is an inference error that
+reached two docs and an owner summary. **The instrument discipline in this estate is
+now considerably better than the inference discipline** — every rule in CLAUDE.md's
+working-docs section is about marking and grounding *figures*, and both of my figures
+here were measured, dated, marked and correct.
+
 ---
 
 ## 2026-08-12 — I read a sweep's run history off a column that only records the LAST run, and reported a skipped day that the data cannot speak to
