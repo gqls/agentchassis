@@ -996,30 +996,31 @@ func buildStructuredDataWorkItem(dctx DiscoveryCheckContext, p structuralPage, b
 //
 // ── WHY THIS DOES NOT DUPLICATE check_missing_structure.go ───────────────────
 //
-// check_missing_structure.go's MissingStructureCheck asks a BUILD-TIME
-// completeness question, in the database: are pages.rendered_header,
-// pages.rendered_footer and pages.rendered_head NULL — i.e. was a
-// header/footer/head EVER rendered into this page's row at all. It reads no
-// live page, checks no <title> and no skip-link, and IS dispatchable
-// (HandlerAgent: "rerender-pages", which triggers a full reassembly).
-// head_essentials_missing asks a SERVE-TIME correctness question, over an HTTP
-// GET of the page as a visitor's browser would receive it: is <title>
-// non-empty, is a skip-link present, is a <footer> present in what is
-// ACTUALLY SERVED — flag-only, no handler, see the file header's ROUTING
-// section.
-//
-// These can and do diverge. A page whose DB row carries a non-NULL
-// rendered_footer (so MissingStructureCheck sees no gap) can still serve
-// without one live if something strips it after render — a CDN edge caching a
-// pre-fix version, an asset-pipeline step that runs after
-// MissingStructureCheck's own read, or the same class of drift
-// dead_internal_link_live's header above documents for links. Conversely a
-// page mid-deploy can carry a transient NULL rendered_header
-// (MissingStructureCheck flags it) while still serving a valid, previously
-// cached header live. Different question (build-time DB column vs live HTTP
-// GET), different substrate, different remedy (a forced full rerender vs a
-// flagged, undispatched finding for a human to triage) — genuinely
-// overlapping concerns, not the same check shipped twice.
+// CORRECTED 2026-08-12 (council round 2): this section originally claimed
+// check_missing_structure.go's `pages.rendered_header/rendered_footer IS NULL`
+// predicate was a meaningful "was a header/footer ever rendered" signal. It is
+// not — per a standing landmine (LANDMINES.md, "pages.rendered_header /
+// rendered_footer / rendered_head are VESTIGIAL") those three columns are
+// EMPTY ON EVERY PAGE FLEET-WIDE (re-verified live 2026-08-13: 0 of 683 pages
+// have a non-empty rendered_header or rendered_footer). Chrome is written to
+// `site_components`, not these `pages` columns, and has been for some time;
+// `findPagesWithMissingStructure`'s only other filter is `p.status IN
+// ('active','deployed')`, which — per the OTHER landmine on this same
+// file, `pages.status` never actually taking the value 'deployed' —
+// matches nearly every non-archived page. So MissingStructureCheck's
+// predicate is not a discriminating "build-time completeness" question at
+// all; it is, on the evidence, universally true, which is a DIFFERENT and
+// more fundamental reason this is not a duplicate: a check that (on the
+// available evidence) cannot discriminate provides no real signal to overlap
+// WITH. head_essentials_missing checks the actual thing a visitor receives —
+// an HTTP GET of the live served page, non-empty <title>, a skip-link, a
+// <footer> genuinely present in the response body — which is real, current
+// information regardless of what MissingStructureCheck's own columns say.
+// Whether MissingStructureCheck itself is dead code worth retiring, or
+// whether it is quietly not enabled on any live agent (this file's own four
+// siblings share that "written but not yet wired" posture, so it would not be
+// unprecedented), is NOT this file's question to answer — flagging it here,
+// corrected in place rather than silently, is as far as this change goes.
 //
 // WHY THIS CHECK BUILDS NO "assembled page" EXEMPTION, though verify_site.py's
 // equivalent check has one. verify_site.py's exemption (ASSEMBLED_MARKER /
