@@ -1778,3 +1778,32 @@ it was designed, instead of hand-assembling the middle of it.
 the 18:48 failure. They were **a** gap — a planned page does need both tables — but
 they were not the cause. The cause at 18:48 and at 19:06 is the same missing
 `pages` row.
+
+---
+
+## 2026-08-13 — the owner's question answered: how the two real routes create `pages` rows, and the adoption route is reproducible here
+
+Owner declined `pageflow-builder` and asked what routes `domain-submitter` and the
+adoption orchestrator use. Read from source, not recalled:
+
+| route | how `pages` rows are born |
+|---|---|
+| **domain-submitter** → … → `build-site-planner` | `plan_site` (LLM) → `write_site_plan` → **`sync_pages` (`sync_pages_to_db`)** → `populate_nav` → `reconcile_site_plan`. The sync runs with the plan **still in collected data**, which is why the action reads memory, not tables, and cannot be cleanly called standalone |
+| **adoption** (`site-adoption-agent`, `apply_adoption_plan_action.go:541`) | **plain SQL, itself**: `INSERT INTO pages (…) VALUES (…, 'planned', …) ON CONFLICT (site_id, name) DO UPDATE …` — no `sync_pages_to_db` anywhere, then one relay item |
+
+**This reframes yesterday's caution.** I had treated a hand-created `pages` row as
+"the bugs_open/080 mistake". Reading adoption shows the platform itself creates
+pages by direct upsert; 080's defect is hand-rolling the **identity**, not the
+insert. Our identity was canonicalised when the plan row was written
+(`role=content` → `/privacy.html` on any url_shape).
+
+So: mirrored adoption's upsert for the one page, **every value read from the
+current plan** (`site_plan_pages` for name/url/title/role/meta/nav flags;
+`site_plan_sections` in plan order for `pages.sections`, which is rebuild
+membership). `ON CONFLICT (site_id, name)` — the same conflict target adoption
+relies on — makes it idempotent. Verified:
+`/privacy.html · content · planned · ["hero","generic-text-block"] · footer-only`.
+
+Reconcile re-run (corr `829f3e7a…`). If the handler builds it this time, the chain
+mapped at 19:06 yesterday is confirmed end to end: plan tables + pages row →
+reconcile emits → handler builds. Poll running.
