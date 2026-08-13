@@ -973,3 +973,47 @@ worth reporting to the mc lane rather than fixing from here.
 > — there is nothing to fix. What caught it: the owner read the claim; the check I skipped
 > was reading "may" as the rule's own force rather than as my expectation of what the
 > corrections implied.
+
+## 2026-08-13 — the v2 arm test: a real writer run under the v2 house voice, capture-only, and what it produced
+
+**Owner asked to read v1, v2, and copy written under v2.** Run through the 08-09 arm-test
+harness, same page (loancalculator index), so the output is comparable with arms 2–4:
+
+- carrier item `970b2361` (status `cancelled`, spec holds the v2 block inside the canary's
+  fact/link/style-preservation suggestion); dispatched item `6fe74646` via
+  `voiceh_rewrite_v3.sh` with `SRC_ITEM` override; parent orch `ecd84474`, **child
+  `1ac635d6`** (the id that logs).
+- **Capture-only held:** all five components locked under the production predicate
+  (verified pre-dispatch, `agent_writable=f` on all 5); after the run all five
+  byte-identical to `page_components_bak_20260813_v2arm` on `content_data`,
+  `rendered_html` AND `updated_at`. Locks: prose-1/2/4 timed 24h (self-clearing),
+  prose-0/tool-3 already permanent. Dispatched item cancelled post-capture with the
+  capture note, so no sweep can promote it.
+- **No truncation:** 4 writer calls, largest 3,727 of 16,000 tokens, `error_message` clean.
+
+**Register observations (the copy is in `llm_call_log` under child `1ac635d6`):**
+
+- The considered-sentence rule is visible in the output. prose-2's added explanation:
+  *"Stretch the term and the monthly payment usually drops, but you're paying interest for
+  more months, so the total cost often climbs even as the monthly figure looks
+  friendlier."* — 29 words, subordinate clauses, one thought with parts. Under the old
+  carrier this shape did not occur (arms 2–4 max sentence 27, mean ~13).
+- prose-4's card 1 opens with the plain fact then folds the negative in afterwards,
+  matching the opening rule; the live page's *"But that monthly payment isn't just…"*
+  (flagged by the fleet lane on 08-09 as the rule's own violation, live) is gone in the
+  proposal.
+- The writer again proposed rewriting the owner's personally-approved prose-0 (lock
+  refused it) — third occurrence of "instructions do not protect approved copy, locks do".
+
+**⛔ The caveat, mechanical link-set diff live vs proposed:**
+
+```
+prose-0: 0 → 0 SAME · prose-2: 0 → 0 SAME · prose-4: 2 → 2 SAME (identical URLs)
+prose-1: 0 → 2 ADDED (/guides/how-loans-are-calculated.html, /guides/jargon-buster.html)
+```
+
+The suggestion said *"do not add or remove a single link"*. **Fourth reproduction of the
+set-preservation failure (rounds 4, 6, 7, now this), first in the ADDING direction on this
+harness** — and consistent with the 08-09 arm test, where arm 4 also added two links to a
+section that had none. No voice text fixes this; the mechanical gate (PLAN §3 rule 1 /
+round-7 ruling) remains the only remedy on this axis.
