@@ -216,3 +216,69 @@ SELECT created_at, metadata->>'decision' FROM diagnosis_artifacts
 WHERE correlation_id='50ee4b26-2303-4304-b437-7320e1368a1d' AND kind='council_report'
 ORDER BY created_at;
 ```
+
+## §13 — Round 1 verdict was REVISE, answered; round 2 resubmission did NOT dispatch (kubeconfig expired mid-attempt)
+
+**Council round 1 read (2026-08-13, same day as §12): REVISE**, gated by
+`editquality`, with `guardian`/`debug_historian`/`prior_art_librarian` also
+objecting (full report: `diagnosis_artifacts` kind=`council_report`, correlation
+`50ee4b26-2303-4304-b437-7320e1368a1d`). Two of the three HIGH-severity
+objections (the "duplicate active row / wrong version" landmine, raised by
+`editquality` and `guardian` independently) were **already refuted by the
+round's own embedded read-only checks** — for all four agent types,
+`active_rows=1, max_version=1, min_version=1`, so the landmine's precondition
+does not hold here. The other objections (fallback claim ungrounded, no
+full-caller inventory, no owning-pipeline naming, migration not ledger-recorded,
+no automated test) were real gaps, not refutations of the fix itself — every
+reviewer who voted `object` still called the core direction sound.
+
+**All objections answered with fresh evidence before resubmitting:**
+- Removed fallback grounded: `git show 3621ca7cf~1:platform/orchestration/actions/write_audit_findings_action.go`
+  shows the real pre-fix lines.
+- **Full, unfiltered inventory** (no `is_active`/`is_snapshot`/`deleted_at`
+  filter at all) of every `agent_definitions` row with a `write_audit_findings`
+  step: still exactly the same four rows, each `version=1`, each `is_active=true`.
+  No fifth caller anywhere, active or not.
+- **Owning pipeline named, honestly, including a real gap it surfaced**:
+  `improvement-loop` → `site-review-agent` → `content-quality-auditor`;
+  `design-audit-agent` → `visual-design-auditor` and → `content-quality-auditor`.
+  **`brief-fidelity-auditor` has NO live caller anywhere** — not in any active
+  agent's workflow, no `scheduled_tasks` row, 0 orchestrations all-history. This
+  fix is correct for it but currently inert — a pre-existing wiring gap this bug
+  did not create and does not need to solve, but worth its own note if anyone
+  goes looking for why brief-fidelity findings never appear at all.
+- Migration 399 had been applied by hand (`psql -f -`) and was **not in the
+  `schema_migrations` ledger** — recorded this session via
+  `./scripts/migration/run-migrations.sh --record-only 399_four_auditors_audit_source_resolves_to_a_real_value.sql --note '...'`.
+- New unit test added and committed (`29ae07500`,
+  `write_audit_findings_input_spec_test.go`): reproduces the exact pre-fix
+  unresolvable-string shape and asserts it now errors naming `audit_source`,
+  plus a no-op-case companion confirming migration 399's actual dot-path shape
+  still resolves.
+
+**Round 2 resubmission (`RESUBMIT_CORR=50ee4b26-...`) DID NOT ACTUALLY DISPATCH.**
+The trigger script prints `SAVE: SUBMISSION_CORR=... RUN_ORCH_ID=...` **before**
+the kafka publish step (a `kubectl -n kafka run ... kcat -P` — confirmed by
+reading the script, `097_TRIGGER_council_review_v1.sh` lines 167 vs 170-173), and
+that publish failed with `error: You must be logged in to the server
+(Unauthorized)`. **This is the known kubeconfig-token-expiry landmine, not a
+submission-content problem**: the prod token expired at `2026-08-13 19:05:20`
+(confirmed by decoding it — see `~/.claude/…/memory/kubeconfig-token-expires-every-3-days.md`
+for the exact check), and only the owner can refresh it. `kubectl -n
+ai-persona-system get pods` fails the same way, confirming it's total auth
+loss, not a scoped permission issue. **Do not treat the printed
+SUBMISSION_CORR/RUN_ORCH_ID from that attempt as real** — they were generated
+client-side and never reached the council. The round-2 submission JSON is saved
+at `docs/agent_docs/docs024_key_docs_latest/fixloop_eg_dartsonline/submission_264_audit_source_round2.json`,
+ready to fire once kubectl auth is restored:
+```bash
+RESUBMIT_CORR=50ee4b26-2303-4304-b437-7320e1368a1d \
+  ./docs/agent_docs/docs024_key_docs_latest/fixloop_eg_dartsonline/097_TRIGGER_council_review_v1.sh \
+  docs/agent_docs/docs024_key_docs_latest/fixloop_eg_dartsonline/submission_264_audit_source_round2.json
+```
+
+**Everything requiring cluster/DB access is blocked until the token is
+refreshed**, including: actually dispatching round 2, re-reading any verdict,
+and the §12/original "How to verify a fix" live audit-run check above. Nothing
+code-side is blocked — the fix itself is unaffected by this outage; it is
+purely a review/verification-tooling gap.
