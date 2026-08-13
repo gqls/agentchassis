@@ -550,3 +550,188 @@ func TestUnverifiedClaimsPublishedAtTheSameInstantResolves(t *testing.T) {
 		t.Errorf("verdict = %q: deployed_at == newest edit means the edit WAS published", got.Verdict)
 	}
 }
+
+// EVERY LADDER ARM IS REACHABLE, DISTINCTLY NAMED, AND THE GATE ARMS SAY SO.
+//
+// result.revalidation.arm exists because the three verdict counters could not
+// tell "the gate approved" from "the ladder stopped six rungs above the gate" —
+// on 2026-08-13 a sweep decided 21 items with every gate counter at 0, and the
+// real cause was that a clean scan happened 0 times in 21. So the arm is queried,
+// which makes it a contract, and this test pins the three properties a query
+// depends on. It drives REAL fixtures rather than listing the constants, so it
+// fails on a copy-pasted arm name that no list-against-itself check could see.
+//
+//  1. every arm is reachable — a name no fixture can produce is a dead label;
+//  2. the 14 arms are pairwise DISTINCT — two rungs sharing a name silently merge
+//     into one bucket in every `GROUP BY arm`, and the merged count still looks
+//     perfectly plausible, which is the whole failure mode this field exists to
+//     end;
+//  3. the REACH PREDICATE — `gate_` prefix OR the terminal resolved arm — is true
+//     for exactly the arms downstream of a clean scan. That predicate is what the
+//     "has a gate ever been reached?" query runs, so a new gate arm named without
+//     the prefix makes it silently under-report: the same shape as the reason-prose
+//     matching this field replaced.
+//
+//     ⚠ The first version of this test asserted the PREFIX rather than the
+//     predicate and failed on `resolved_all_gates_passed` — the one arm that proves
+//     all three gates were reached AND passed, while deliberately being named for
+//     the closure rather than for a gate. A prefix-only reach query would therefore
+//     have missed every closure, counting reaches only where a gate REFUSED. That
+//     is precisely the "an absence has two opposite causes" trap this whole field
+//     exists to close, reproduced inside the instrument on its first run.
+//
+// The four arms in revalidateUnverifiedClaims itself (spec_no_page_id,
+// evidence_base_unreadable, evidence_base_absent, rescan_failed) need a database
+// and are NOT covered here. Stated rather than left to be inferred from a passing
+// test: 14 of the 18 arms are exercised.
+func TestUnverifiedClaimsEveryLadderArmIsNamedAndDistinct(t *testing.T) {
+	clean := func(mutate func(*checks.ClaimsPageScan)) *checks.ClaimsPageScan {
+		s := &checks.ClaimsPageScan{
+			PageID: "p1", PageName: "about", ComponentsExamined: 3,
+			NewestComponentUpdate: changedAfter, ExaminedTextBySlot: heroCleaned(),
+		}
+		if mutate != nil {
+			mutate(s)
+		}
+		return s
+	}
+
+	cases := []struct {
+		name    string
+		filedAt time.Time
+		flagged []flaggedClaim
+		scan    *checks.ClaimsPageScan
+		deploy  pageDeployState
+		wantArm string
+		isGate  bool
+	}{
+		{
+			name: "page absent", filedAt: filedAt, flagged: flaggedHero, scan: nil,
+			deploy: publishedAfterEdit(), wantArm: armPageAbsent,
+		},
+		{
+			name: "every component locked", filedAt: filedAt, flagged: flaggedHero,
+			scan:   &checks.ClaimsPageScan{PageID: "p1", ComponentsExamined: 0, ComponentsSkippedLocked: 3},
+			deploy: publishedAfterEdit(), wantArm: armAllComponentsLocked,
+		},
+		{
+			name: "scan still trips", filedAt: filedAt, flagged: flaggedHero,
+			scan: clean(func(s *checks.ClaimsPageScan) {
+				s.Findings = []checks.ClaimFinding{{Check: "banned_claim"}}
+			}),
+			deploy: publishedAfterEdit(), wantArm: armScanStillTrips,
+		},
+		{
+			name: "clean but part of the page was locked", filedAt: filedAt, flagged: flaggedHero,
+			scan:   clean(func(s *checks.ClaimsPageScan) { s.ComponentsSkippedLocked = 1 }),
+			deploy: publishedAfterEdit(), wantArm: armCleanButPartlyLocked,
+		},
+		{
+			name: "clean but the item records no finding text", filedAt: filedAt, flagged: nil,
+			scan: clean(nil), deploy: publishedAfterEdit(), wantArm: armNoRecordedFindingText,
+		},
+		{
+			name: "GATE claims: the cited text is still in its slot", filedAt: filedAt, flagged: flaggedHero,
+			scan:   clean(func(s *checks.ClaimsPageScan) { s.ExaminedTextBySlot = heroUntouched() }),
+			deploy: publishedAfterEdit(), wantArm: armGateClaimsStillPresent, isGate: true,
+		},
+		{
+			name: "GATE claims: the cited slot was not among those examined", filedAt: filedAt, flagged: flaggedHero,
+			scan: clean(func(s *checks.ClaimsPageScan) {
+				s.ExaminedTextBySlot = map[string]string{"footer": "<p>Registered in England.</p>"}
+			}),
+			deploy: publishedAfterEdit(), wantArm: armGateClaimsUnjudgeable, isGate: true,
+		},
+		{
+			name: "GATE copy: the item carries no filing date", filedAt: time.Time{}, flagged: flaggedHero,
+			scan: clean(nil), deploy: publishedAfterEdit(), wantArm: armGateCopyNoFilingDate, isGate: true,
+		},
+		{
+			name: "GATE copy: no component moved since filing", filedAt: filedAt, flagged: flaggedHero,
+			scan:   clean(func(s *checks.ClaimsPageScan) { s.NewestComponentUpdate = changedBefore }),
+			deploy: publishedAfterEdit(), wantArm: armGateCopyUnchanged, isGate: true,
+		},
+		{
+			name: "GATE published: the page row could not be read", filedAt: filedAt, flagged: flaggedHero,
+			scan: clean(nil), deploy: pageDeployState{}, wantArm: armGatePublishedRowUnreadable, isGate: true,
+		},
+		{
+			name: "GATE published: never deployed", filedAt: filedAt, flagged: flaggedHero, scan: clean(nil),
+			deploy:  pageDeployState{Known: true, BuildStatus: "planned"},
+			wantArm: armGatePublishedNeverDeployed, isGate: true,
+		},
+		{
+			name: "GATE published: the correction is unpublished", filedAt: filedAt, flagged: flaggedHero, scan: clean(nil),
+			deploy:  pageDeployState{Known: true, BuildStatus: "deployed", DeployedAt: changedAfter.Add(-time.Hour)},
+			wantArm: armGatePublishedUnpublished, isGate: true,
+		},
+		{
+			name: "GATE published: build_status is not deployed", filedAt: filedAt, flagged: flaggedHero, scan: clean(nil),
+			deploy:  pageDeployState{Known: true, BuildStatus: "needs_rebuild", DeployedAt: changedAfter.Add(time.Hour)},
+			wantArm: armGatePublishedBuildStatus, isGate: true,
+		},
+		{
+			name: "all three gates passed", filedAt: filedAt, flagged: flaggedHero, scan: clean(nil),
+			deploy: publishedAfterEdit(), wantArm: armResolvedAllGatesPassed, isGate: true,
+		},
+	}
+
+	seen := map[string]string{}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := unverifiedClaimsVerdict("p1", tc.filedAt, tc.flagged, tc.scan, tc.deploy)
+			if got.Arm != tc.wantArm {
+				t.Fatalf("arm = %q, want %q — the fixture reached a different rung than the one it was\n"+
+					"written for, so whatever this case was meant to pin is unpinned", got.Arm, tc.wantArm)
+			}
+			if got.Arm == "" {
+				t.Fatal("an unnamed arm is recorded as unreported:<item_type> and reads as an\n" +
+					"uninstrumented revalidator rather than as this rung")
+			}
+			// Property 3: the reach predicate, stated exactly as the SQL runs it.
+			// Keep these two in step with the query in the arm-name const block.
+			reachedAGate := strings.HasPrefix(got.Arm, "gate_") || got.Arm == armResolvedAllGatesPassed
+			if reachedAGate != tc.isGate {
+				t.Errorf("arm %q: reached-a-gate = %v, want %v — this predicate IS the observation\n"+
+					"(`arm LIKE 'gate_%%' OR arm = 'resolved_all_gates_passed'`). Every rung downstream\n"+
+					"of a clean scan must satisfy it, refusal or closure, and no rung above the scan may,\n"+
+					"or the reach count silently mixes rungs that never asked a gate with ones that did",
+					got.Arm, reachedAGate, tc.isGate)
+			}
+		})
+		// Property 2: distinctness, across the whole table.
+		if prev, dup := seen[tc.wantArm]; dup {
+			t.Errorf("arm %q is returned by two different rungs (%q and %q) — they will merge into one\n"+
+				"bucket in every GROUP BY arm and the merged count will look entirely plausible",
+				tc.wantArm, prev, tc.name)
+		}
+		seen[tc.wantArm] = tc.name
+	}
+
+	// resolved is the one terminal arm, and it must carry the gate prefix's promise:
+	// a closure states that all three gates passed, not merely that nothing refused.
+	if !strings.HasPrefix(armResolvedAllGatesPassed, "resolved") {
+		t.Errorf("the terminal arm is named %q; a closure's arm must be recognisable as one",
+			armResolvedAllGatesPassed)
+	}
+}
+
+// An uninstrumented revalidator must NAME ITSELF, never write an empty arm.
+//
+// The distinction this preserves is the one the whole ladder is built on: "no arm
+// was reached" and "this revalidator does not report arms" are different facts,
+// and an empty string in the column makes them the same query result. Four of the
+// five registered revalidators are uninstrumented today, so this is the common
+// case, not an edge one.
+func TestRecordedArmNamesAnUninstrumentedRevalidator(t *testing.T) {
+	got := recordedArm(revalidationVerdict{Verdict: revalidationUnknown}, "voice_tells")
+	if got != "unreported:voice_tells" {
+		t.Errorf("recordedArm on an unset arm = %q, want %q — an empty arm would be read as\n"+
+			"'no rung reached' when it means 'nobody wrote one'", got, "unreported:voice_tells")
+	}
+
+	// And it must not overwrite an arm a revalidator DID report.
+	if got := recordedArm(revalidationVerdict{Arm: armScanStillTrips}, "claims_unverified"); got != armScanStillTrips {
+		t.Errorf("recordedArm overwrote a reported arm: got %q, want %q", got, armScanStillTrips)
+	}
+}

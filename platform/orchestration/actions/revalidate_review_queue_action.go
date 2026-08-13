@@ -178,10 +178,66 @@ func parkedReviewItemScanDests(it *parkedReviewItem, specJSON *[]byte) []interfa
 }
 
 // revalidationVerdict is one revalidator's answer about one parked item.
+//
+// ARM NAMES WHICH RUNG OF THE LADDER DECIDED, and it exists because the verdict
+// alone cannot say how far the decision got (2026-08-13).
+//
+// A revalidator is a ladder: several arms return the same `unknown` for
+// completely different reasons, and the arms that matter most — the gates that
+// stand between a clean scan and a closed item — sit at the BOTTOM. So the three
+// counters (`resolved` / `still_holds` / `unknown`) cannot distinguish "the gate
+// approved" from "the ladder stopped six rungs above the gate", and on
+// claims_unverified those two states were confused for two days running. From
+// the 2026-08-13 sweep: 21 items decided, every gate counter 0, and the true
+// cause was that a clean scan happened 0 times in 21 — the gates were never
+// reached at all. Reading it required LIKE-matching the prose of `reason`, which
+// is the same fragility this lane's own landmine warns about (a grep proves
+// absence only for the spelling it searches): reword a reason and every such
+// query goes silently to zero.
+//
+// So the arm is a STABLE KEY, not prose. `GROUP BY arm` answers "where does the
+// ladder actually stop?", and because the gate arms are named `gateN_*`, a
+// prefix match answers "has gate N ever been REACHED?" — which no refusal
+// counter can, since an arm that refuses and an arm that is never consulted both
+// report nothing. Reaching is the observation; refusing is only one of its two
+// outcomes.
+//
+// ⚠ IT IS AN OBSERVATION, NOT A CONTROL. Nothing branches on Arm and nothing may
+// start to: an instrument that changes the outcome it measures cannot then be
+// used as evidence about that outcome. Its whole value is that it is inert.
+//
+// COVERAGE IS PARTIAL AND SAYS SO. Only revalidateUnverifiedClaims sets it
+// today. An empty Arm is therefore NOT recorded as absent — the sweep writes
+// `unreported:<item_type>` instead (see the record built in Run), because "this
+// revalidator has not been instrumented" and "no arm was recorded" must not
+// share a spelling. That is the same rule the ladders themselves are built on,
+// applied to the instrument that watches them.
 type revalidationVerdict struct {
 	Verdict  string                 `json:"verdict"`
 	Reason   string                 `json:"reason"`
+	Arm      string                 `json:"arm,omitempty"`
 	Evidence map[string]interface{} `json:"evidence,omitempty"`
+}
+
+// armUnreportedPrefix marks a verdict from a revalidator that does not yet name
+// its arms. It is deliberately ugly and deliberately not empty: a NULL in the
+// data would be read as "no arm" when it means "nobody wrote one", and the whole
+// point of the field is to stop those two being the same query result.
+const armUnreportedPrefix = "unreported:"
+
+// recordedArm is the arm as WRITTEN to the item, which is not always the arm as
+// returned: an uninstrumented revalidator returns "" and is recorded as
+// `unreported:<item_type>`.
+//
+// It is a function rather than three lines inside Run for the same reason
+// unverifiedClaimsVerdict is split from its query glue — the rule is then
+// testable without a database, and a rule that is only stated in a comment is
+// not enforced by anything.
+func recordedArm(v revalidationVerdict, itemType string) string {
+	if v.Arm == "" {
+		return armUnreportedPrefix + itemType
+	}
+	return v.Arm
 }
 
 // reviewRevalidator re-evaluates one parked item against currently-deployed state.
@@ -364,9 +420,14 @@ func RevalidateReviewQueueAction(ctx context.Context, params ActionParams) (inte
 			verdict = revalidator(ctx, params.DB, item, logger)
 		}
 
+		// An uninstrumented revalidator names itself rather than writing a NULL that
+		// a reader would take for "no arm was reached". See revalidationVerdict.Arm.
+		arm := recordedArm(verdict, item.ItemType)
+
 		record := map[string]interface{}{
 			"verdict":   verdict.Verdict,
 			"reason":    verdict.Reason,
+			"arm":       arm,
 			"at":        sweptAt,
 			"item_type": item.ItemType,
 		}
@@ -381,6 +442,7 @@ func RevalidateReviewQueueAction(ctx context.Context, params ActionParams) (inte
 			"item_type": item.ItemType,
 			"verdict":   verdict.Verdict,
 			"reason":    verdict.Reason,
+			"arm":       arm,
 			"evidence":  verdict.Evidence,
 		})
 

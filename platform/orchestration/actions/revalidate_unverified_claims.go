@@ -90,6 +90,59 @@ import (
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 )
 
+// THE ARM NAMES. One per return site below, and they are a stable vocabulary:
+// they are written into result.revalidation.arm and queried, so renaming one
+// silently zeroes whatever was counting it. Add, don't rename.
+//
+// WHY THE `gate_` PREFIX IS THE LOAD-BEARING PART. The three gates are the arms
+// nobody could observe: they sit at the FOOT of the ladder, so an item that never
+// gets a clean scan never consults them, and a refusal counter reads 0 in exactly
+// the same way whether the gate approved, refused nothing, or was never asked at
+// all. Any arm whose name starts `gate_` proves the scan came back CLEAN and the
+// gates were consulted — that is the observation the counters could not give:
+//
+//	-- has any gate ever actually been REACHED, refusal or not?
+//	WHERE result #>> '{revalidation,arm}' LIKE 'gate_%'
+//	   OR result #>> '{revalidation,arm}' = 'resolved_all_gates_passed'
+//
+// ⚠ THE PREFIX IS THE GATE'S NAME, NOT ITS LADDER POSITION. The ladder consults
+// them in the order claims → copy → published, which is NOT the order they were
+// built in (copy-changed was the owner's, first; claims-granular came from
+// council round 5; published came from bugs_open/262). Numbering them would have
+// encoded one of those two orders and misled about the other, so they carry the
+// name of what they check and no number at all.
+const (
+	// Above the ladder: the glue could not get far enough to judge anything.
+	armSpecNoPageID           = "spec_no_page_id"
+	armEvidenceBaseUnreadable = "evidence_base_unreadable"
+	armEvidenceBaseAbsent     = "evidence_base_absent"
+	armRescanFailed           = "rescan_failed"
+
+	// The scan-level arms: what the page itself says, before any gate is asked.
+	armPageAbsent            = "page_absent"
+	armAllComponentsLocked   = "all_components_locked"
+	armScanStillTrips        = "scan_still_trips"
+	armCleanButPartlyLocked  = "clean_but_partly_locked"
+	armNoRecordedFindingText = "no_recorded_finding_text"
+
+	// GATE: claim-granular (council round 5). Reached only on a clean scan.
+	armGateClaimsStillPresent = "gate_claims_still_present"
+	armGateClaimsUnjudgeable  = "gate_claims_unjudgeable"
+
+	// GATE: copy-changed (OWNER RULING 2026-08-09).
+	armGateCopyNoFilingDate = "gate_copy_no_filing_date"
+	armGateCopyUnchanged    = "gate_copy_unchanged"
+
+	// GATE: published (bugs_open/262).
+	armGatePublishedRowUnreadable = "gate_published_row_unreadable"
+	armGatePublishedNeverDeployed = "gate_published_never_deployed"
+	armGatePublishedUnpublished   = "gate_published_correction_unpublished"
+	armGatePublishedBuildStatus   = "gate_published_build_status"
+
+	// The only terminal arm. Named for what it asserts: all three gates passed.
+	armResolvedAllGatesPassed = "resolved_all_gates_passed"
+)
+
 func revalidateUnverifiedClaims(ctx context.Context, db *sql.DB, item parkedReviewItem, logger *zap.Logger) revalidationVerdict {
 	// spec.page_id only. The item_key is `claims:<page_id>` and would parse, but
 	// reading it would make the verdict depend on a prefix convention rather than
@@ -100,6 +153,7 @@ func revalidateUnverifiedClaims(ctx context.Context, db *sql.DB, item parkedRevi
 	if pageID == "" {
 		return revalidationVerdict{
 			Verdict: revalidationUnknown,
+			Arm:     armSpecNoPageID,
 			Reason:  "spec names no page_id, so the page this finding describes cannot be located; the item_key prefix is deliberately not parsed for it, and on the grouped site-chrome item that key is the literal claims:site_components",
 		}
 	}
@@ -108,6 +162,7 @@ func revalidateUnverifiedClaims(ctx context.Context, db *sql.DB, item parkedRevi
 	if err != nil {
 		return revalidationVerdict{
 			Verdict: revalidationUnknown,
+			Arm:     armEvidenceBaseUnreadable,
 			Reason:  fmt.Sprintf("could not load this site's evidence base, so the finding cannot be re-judged: %v", err),
 		}
 	}
@@ -121,6 +176,7 @@ func revalidateUnverifiedClaims(ctx context.Context, db *sql.DB, item parkedRevi
 		// close a live finding when it is wrong.
 		return revalidationVerdict{
 			Verdict: revalidationUnknown,
+			Arm:     armEvidenceBaseAbsent,
 			Reason:  "site has no current evidence_base spec, so the register these claims were measured against no longer exists; withdrawing the register is not evidence the claims were substantiated",
 		}
 	}
@@ -129,6 +185,7 @@ func revalidateUnverifiedClaims(ctx context.Context, db *sql.DB, item parkedRevi
 	if err != nil {
 		return revalidationVerdict{
 			Verdict: revalidationUnknown,
+			Arm:     armRescanFailed,
 			Reason:  fmt.Sprintf("re-scan of the page failed, so the finding cannot be re-judged: %v", err),
 		}
 	}
@@ -289,6 +346,7 @@ func unverifiedClaimsVerdict(pageID string, filedAt time.Time, flagged []flagged
 		// cannot be read as copy that was corrected.
 		return revalidationVerdict{
 			Verdict: revalidationUnknown,
+			Arm:     armPageAbsent,
 			Reason:  "page is absent, or has no component carrying rendered html or stored content, so there is no copy to re-judge; an unbuilt page is not evidence the claims were removed",
 			Evidence: map[string]interface{}{
 				"page_id": pageID,
@@ -301,6 +359,7 @@ func unverifiedClaimsVerdict(pageID string, filedAt time.Time, flagged []flagged
 		// makes "no findings" mean "nothing was read".
 		return revalidationVerdict{
 			Verdict: revalidationUnknown,
+			Arm:     armAllComponentsLocked,
 			Reason:  fmt.Sprintf("every rendered component on this page is human-locked (%d), so no claim was re-read; an empty finding list here means the audit examined nothing", scan.ComponentsSkippedLocked),
 			Evidence: map[string]interface{}{
 				"page_id":                   pageID,
@@ -316,6 +375,7 @@ func unverifiedClaimsVerdict(pageID string, filedAt time.Time, flagged []flagged
 		}
 		return revalidationVerdict{
 			Verdict: revalidationStillHolds,
+			Arm:     armScanStillTrips,
 			Reason:  fmt.Sprintf("page %s still carries %d claim(s) the register does not support, across %d examined component(s)", scan.PageName, len(scan.Findings), scan.ComponentsExamined),
 			Evidence: map[string]interface{}{
 				"page_id":             pageID,
@@ -333,6 +393,7 @@ func unverifiedClaimsVerdict(pageID string, filedAt time.Time, flagged []flagged
 		// close here would be asserting something the scan did not check.
 		return revalidationVerdict{
 			Verdict: revalidationUnknown,
+			Arm:     armCleanButPartlyLocked,
 			Reason:  fmt.Sprintf("the %d component(s) scanned are clean, but %d human-locked component(s) were not read, and the reported claims may sit in those", scan.ComponentsExamined, scan.ComponentsSkippedLocked),
 			Evidence: map[string]interface{}{
 				"page_id":                   pageID,
@@ -380,6 +441,7 @@ func unverifiedClaimsVerdict(pageID string, filedAt time.Time, flagged []flagged
 	if len(flagged) == 0 {
 		return revalidationVerdict{
 			Verdict: revalidationUnknown,
+			Arm:     armNoRecordedFindingText,
 			Reason: fmt.Sprintf(
 				"page %s no longer trips the check, but this item records no finding text, so there is nothing to confirm was removed and a clean scan cannot be told from a moved standard",
 				scan.PageName),
@@ -402,6 +464,7 @@ func unverifiedClaimsVerdict(pageID string, filedAt time.Time, flagged []flagged
 	if len(stillPresent) > 0 {
 		return revalidationVerdict{
 			Verdict: revalidationStillHolds,
+			Arm:     armGateClaimsStillPresent,
 			Reason: fmt.Sprintf(
 				"page %s no longer trips the check, but %d of the %d text(s) this finding cited are STILL in the component they were cited from — so the standard moved, not the copy; a claim that stopped being flagged while its words are untouched has not been addressed",
 				scan.PageName, len(stillPresent), len(flagged)),
@@ -416,6 +479,7 @@ func unverifiedClaimsVerdict(pageID string, filedAt time.Time, flagged []flagged
 	if len(unjudgeable) > 0 {
 		return revalidationVerdict{
 			Verdict: revalidationUnknown,
+			Arm:     armGateClaimsUnjudgeable,
 			Reason: fmt.Sprintf(
 				"page %s no longer trips the check, but %d of the %d text(s) this finding cited could not be re-checked — the slot they were cited from was not among the components examined (deleted, renamed or human-locked), and an absent component is not evidence the claim was removed",
 				scan.PageName, len(unjudgeable), len(flagged)),
@@ -460,6 +524,7 @@ func unverifiedClaimsVerdict(pageID string, filedAt time.Time, flagged []flagged
 	if filedAt.IsZero() {
 		return revalidationVerdict{
 			Verdict: revalidationUnknown,
+			Arm:     armGateCopyNoFilingDate,
 			Reason: fmt.Sprintf(
 				"page %s no longer trips the check, but this finding carries no filing date, so there is nothing to compare the page's last edit against and no way to tell a fixed page from a moved register",
 				scan.PageName),
@@ -474,6 +539,7 @@ func unverifiedClaimsVerdict(pageID string, filedAt time.Time, flagged []flagged
 	if !scan.NewestComponentUpdate.After(filedAt) {
 		return revalidationVerdict{
 			Verdict: revalidationUnknown,
+			Arm:     armGateCopyUnchanged,
 			Reason: fmt.Sprintf(
 				"page %s no longer trips the check, but no component on it has changed since this finding was filed — so the site's evidence register moved, not the page; a register entry proves a claim was registered, never that it is true",
 				scan.PageName),
@@ -510,6 +576,7 @@ func unverifiedClaimsVerdict(pageID string, filedAt time.Time, flagged []flagged
 	if !deploy.Known {
 		return revalidationVerdict{
 			Verdict: revalidationUnknown,
+			Arm:     armGatePublishedRowUnreadable,
 			Reason: fmt.Sprintf(
 				"page %s reads clean and its copy has moved, but this page's row could not be read, so whether the correction was ever published is unknown; an unreadable page row is not evidence that anything shipped",
 				scan.PageName),
@@ -519,6 +586,7 @@ func unverifiedClaimsVerdict(pageID string, filedAt time.Time, flagged []flagged
 	if deploy.DeployedAt.IsZero() {
 		return revalidationVerdict{
 			Verdict: revalidationUnknown,
+			Arm:     armGatePublishedNeverDeployed,
 			Reason: fmt.Sprintf(
 				"page %s reads clean and its copy has moved, but the page has never been deployed, so the claim this finding reports has never been withdrawn from anything the public can see",
 				scan.PageName),
@@ -530,6 +598,7 @@ func unverifiedClaimsVerdict(pageID string, filedAt time.Time, flagged []flagged
 	if deploy.DeployedAt.Before(scan.NewestComponentUpdate) {
 		return revalidationVerdict{
 			Verdict: revalidationUnknown,
+			Arm:     armGatePublishedUnpublished,
 			Reason: fmt.Sprintf(
 				"page %s reads clean in the database, but it was last published before its copy was last edited, so the correction is sitting unpublished and the served page may still carry the claim; the database is not the website",
 				scan.PageName),
@@ -544,6 +613,7 @@ func unverifiedClaimsVerdict(pageID string, filedAt time.Time, flagged []flagged
 	if deploy.BuildStatus != "deployed" {
 		return revalidationVerdict{
 			Verdict: revalidationUnknown,
+			Arm:     armGatePublishedBuildStatus,
 			Reason: fmt.Sprintf(
 				"page %s reads clean and was published after its last edit, but its build_status is %q rather than deployed, so what the site currently serves cannot be assumed to be what was scanned",
 				scan.PageName, deploy.BuildStatus),
@@ -556,6 +626,7 @@ func unverifiedClaimsVerdict(pageID string, filedAt time.Time, flagged []flagged
 
 	return revalidationVerdict{
 		Verdict: revalidationResolved,
+		Arm:     armResolvedAllGatesPassed,
 		Reason:  fmt.Sprintf("re-scanned all %d component(s) on page %s against this site's current evidence base and found no unsupported claim; all %d text(s) this finding cited have gone from the slots they were cited from, and the copy has been edited since the finding was filed", scan.ComponentsExamined, scan.PageName, len(flagged)),
 		Evidence: map[string]interface{}{
 			"page_id":                 pageID,
