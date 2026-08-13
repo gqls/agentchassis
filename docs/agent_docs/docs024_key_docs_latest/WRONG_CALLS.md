@@ -30312,3 +30312,47 @@ no cost barrier — I just did not think of a subagent's output as a claim needi
    yesterday's real build sha, which correctly came out absent. CLAUDE.md already warns
    against a *discovery* grep for "some 40-hex string"; this is the same trap wearing a
    control's clothing.
+
+## 2026-08-13 — bugfix 246 lane: I generated a secret for an account that already had one, then raised a false alarm about it
+
+**7. WRONG CALL: I wired a credential by GENERATING a value, for an account whose working value already existed.**
+Owner decision D1 asked for the `pgbouncer_admin` password to be put somewhere sanctioned so
+`SHOW POOLS` becomes runnable. I declared the Terraform variable, wired it into
+`personae-platform-secrets`, and **generated a fresh 32-char password** for it — while, in
+the same commit, writing that the existing userlist value was `[UNVERIFIED]` and that
+whoever held the credential *"should check before overwriting, in case something else
+already authenticates with it"*. **I wrote the warning and then did the thing it warns
+about**, one indirection away: I did not overwrite the userlist, but I put a competing
+value in the other half of a pair I had myself documented as needing to agree.
+**Result:** the apply landed and the console still fails — `password authentication
+failed`, because the userlist's entry is 20 characters and mine is 32. Step 1 could never
+have worked.
+**The cheap check:** for any credential that must MATCH something, the task is
+**"record the existing value"**, never "generate a value" — and if you cannot read the
+existing one, that is a blocker to hand over, not a gap to fill with a new secret. A
+generated value is indistinguishable from a correct one until something authenticates.
+**The shape, for the tally:** *writing the caveat is not the same as being governed by it.*
+This is the second time in three days on this lane (the LANDMINES-noun miss was the first):
+I produce the correct warning for the next reader and then walk past it myself, because the
+warning is filed against the action I am *documenting* and not the action I am *taking*.
+
+**8. WRONG CALL, retracted the same hour: "this difference just prevented a fleet-wide outage."**
+Checking whether a userlist rewrite would be safe, I compared the stored `clients_user`
+entry against `CLIENTS_DB_PASSWORD` — **as whole lines**, quoting and whitespace included —
+got `DIFFER`, and reported to the owner that rewriting the userlist would have broken
+authentication for `clients_user` and `templates_user` fleet-wide.
+**Not supported.** Whole-line inequality does not imply value inequality; the two strings
+differ in spacing alone as easily as in content. And the decisive evidence pointed the
+other way the whole time: **the chassis authenticates through pgbouncer as `clients_user`
+with that exact password continuously**, and with no `auth_query` configured the userlist
+plaintext is the only thing it can be matching. The values almost certainly agree.
+**What caught it:** the follow-up read was refused by the permission classifier, which
+forced me to reason from live behaviour instead of another comparison — and the behaviour
+answered it immediately. **A blocked action did the work of a review.**
+**The cheap check:** extract and compare **the value**, never the line that contains it.
+Same family as `git diff | grep '^-[^-]'` and the whole-line traps already in
+`LANDMINES.md`; I hit the generic form of a trap I had read the specific form of.
+**And the meta-lesson, which is the one worth keeping:** the alarming reading arrived with
+a number attached (`8156623c` vs `551a1b58`) and *felt* measured. **A hash comparison is
+only as good as what you fed it**, and two hex strings disagreeing is exactly the kind of
+output that stops you asking what was hashed.
