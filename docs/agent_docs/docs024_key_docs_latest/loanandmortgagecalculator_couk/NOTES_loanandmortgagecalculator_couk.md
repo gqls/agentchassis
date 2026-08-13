@@ -2388,3 +2388,10 @@ cheap to demonstrate when wanted), and behaviour under a full generic rebuild (p
 
 **Rollback inventory for this page:** `page_components_bak_20260805_lmc` (original
 verbatim row) + `load_lmc.py --restore mortgages-simple` + the BEFORE served capture.
+
+**Round trip CLOSED (same day):** revert item `complete`, stored row
+**md5-identical to the source block** (`5e81de43…`), live page serving the original
+`<h2>Quick Repayment Calculator</h2>`. Edit → live → revert → byte-identity, all four
+legs through the framework. Track B2 is proven end to end on one page; 21 remain
+(damage-checker, fact-finder, portfolio last), each needing its own template + field
+extraction plus the same five gates.

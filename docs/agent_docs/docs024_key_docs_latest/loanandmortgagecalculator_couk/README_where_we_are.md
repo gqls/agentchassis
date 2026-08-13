@@ -1000,3 +1000,33 @@ words.
 One admin note: the side-by-side page has moved to a new link (the old one got
 stranded by an account-context change): 
 https://claude.ai/code/artifact/70514218-28e4-44ce-936b-07a012c74330
+
+---
+
+**2026-08-13 — your "everything editable and reusable" question, answered with a
+working page.**
+
+You asked whether decomposing the shared page shapes so all text and widgets stay
+editable was a viable route. It is, and it's now proven rather than argued: the
+Quick Mortgage Payment Check page has been rebuilt the new way and is live.
+
+How it works, in plain terms: the calculator's machinery — the panel, the input
+grid, the working parts — now lives in a template that the writing agents simply
+cannot touch. Every piece of visible text on it (the heading, the three input
+labels, the button, the result caption, the link text) is a named field with its
+own guidance, including a warning on the labels that they are load-bearing: renaming
+what a number means silently changes what people believe they're calculating.
+
+The proof was a full round trip through the real machinery, not a claim: I changed
+the heading field through the framework's own editor, watched the live page update
+— with the calculator untouched and its arithmetic re-checked — then reverted it,
+and the page came back byte-for-byte identical to where it started. That's the
+whole requirement demonstrated: text editable, widget safe, and reuse comes free
+because a second page can use the same component with its own words in the fields.
+
+One design correction along the way, worth knowing: the "permanent lock" we'd been
+putting on calculator components turns out to be incompatible with editing — the
+editor refuses locked components, by design. So on the new shape nothing is locked;
+the protection is that the template holds the machinery and the writers can only
+fill in the words. Twenty-one calculator pages remain to convert, the three odd-
+shaped ones last.
