@@ -1125,3 +1125,31 @@ My read, for your consideration, not a ruling:
   3-day expiry, owner refreshes). Everything after that point was done at the
   served artefact and the deploy repo; DB-side verification of the last hour
   is OWED once access returns.
+
+
+---
+
+## 2026-08-14 (morning) — round FIVE lands the services; the dead channel is proven by discrimination; bug 271 filed
+
+- **The FAQ names all six services, live and well-phrased** ("A few names
+  worth knowing, if you want to look further…"), buttons 4, retired terms 0.
+  What worked: the instruction as an IMPERATIVE in writer_block
+  (`SQL_2026-08-13c`) — standing content, so it survives future rewrites with
+  no per-item brief.
+- **Root cause of all five rounds, proven twice over**: `content_guidance` has
+  four writers and NO reader (grep at HEAD; independently observed in
+  `bugs_closed/177`'s close-out footnote on 08-02, where it sank), and the
+  guidance strings are absent from all six probed writer prompts while
+  writer_block appears verbatim. Round 5 was the discriminating experiment:
+  guidance inert, wire carries the ask → names appear. **Filed as
+  `bugs_open/271`** with the blast radius (every content_rewrite brief
+  fleet-wide, including the platform's own gap-planner) and two fix candidates.
+- **My rounds 1–4 post-mortem, honestly**: three register defects were real
+  and worth fixing (pointer-not-copy; enumeration exclusion) but INCIDENTAL —
+  the channel was never connected. The tell I missed for a day: every ask that
+  "worked" via guidance was also in writer_block.
+- `gapfill5_faq` reads `failed` with the page deployed and correct — handshake
+  race, fourth sighting.
+- **Remaining on this front: the palette pass** (design_intent still the old
+  white brand under kraft heroes) — values proposed to the owner in chat, not
+  applied.
