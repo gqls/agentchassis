@@ -1,9 +1,13 @@
 # 223 — the landmine-verifier reports every NON-Go footprint as non-existent, because the code index holds only Go — and 284 of 288 entries have one
 
-> ## ⚠ STATUS FIRST, BECAUSE READERS TRUNCATE — updated 2026-08-11
+> ## ⚠ STATUS FIRST, BECAUSE READERS TRUNCATE — updated 2026-08-14
+>
+> **CLOSED — moved to `bugs_closed/` 2026-08-14 at the owner's direction**, under his
+> 2026-08-12 restoration of the fixed-AND-live bar (superseding the 2026-08-06
+> keep-in-place direction the previous banner cited). Both phases live and proven since
+> v1.0.1284/1286; its residual finding became `bugs_closed/254` (also closed and live).
 >
 > **BOTH PHASES ARE LIVE AND BEHAVIOURALLY PROVEN. Nothing technical remains owed.**
-> Kept in `bugs_open/` per the owner ruling of 2026-08-06 (a finished bug stays here).
 >
 > **PHASE 2 LIVE on `v1.0.1284`, proven 2026-08-11 09:55Z** (`027bf28a0` + `c7c9dd87f`,
 > council APPROVED all reviewers, `3af67677-601e-4181-ad09-17c7a789f995`). The index now
