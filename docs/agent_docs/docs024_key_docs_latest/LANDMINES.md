@@ -10439,3 +10439,27 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **relations:** 016b §9 #16 (the gofmt pattern) · the `commit scope` advisory block, which the same `tail` swallows · a `PostToolUse` hook now re-prints the scope report when this happens, but it does **not** re-print the pattern check
 - **source:** 2026-08-14, dispatch/pool lane. `e37f79b65` landed un-gofmt'd; caught on reading the hook output, fixed forward in `f894b1a38`.
 - **added:** 2026-08-14, bugfix_239_dispatch_fail_closed lane
+
+---
+
+## A restore from a dated backup is a TIME MACHINE — it reverts every fix since the backup, and the pin-matches-live guard then BLESSES the poison
+
+- **footprint:** `page_components_bak_20260805_lmc` · `load_lmc.py --restore` · `decompose_lmc.py` `PINNED_REF` / `assert_pin_matches_live` · any `*_bak_<date>*` table used as a rollback source
+- **the trap, in the order it fired (2026-08-12/14, loanandmortgagecalculator):**
+  1. `load_lmc.py --restore <page>` restores the row from a backup **named with its date** (`20260805`) — which nobody reads as a warranty expiry. The `bugs_open/224` 0% APR fix landed **08-08**, three days after the backup. So a "safe rollback" on 08-12 quietly **reverted a shipped arithmetic fix** on a live consumer-finance calculator, and a second page lost its `btn-calculate` id (an 08-09 change).
+  2. The restore was then **deployed**, so the sites repo's tip carried the pre-fix bytes.
+  3. The next morning's `PINNED_REF` was taken from that tip, and `assert_pin_matches_live` **passed** — correctly, because live and pin agreed. **The guard's premise is "live is truth"; a restore makes live the lie, and the guard then certifies it.** Every seed built from that pin faithfully propagated the regression.
+- **why no alarm fired:** the oracle is the only check that sees behaviour, and it is run per-task, not continuously. The regression was found **two days later** by a full sweep (6 FAILs, all `standard-calc` 0% APR — 224's exact signature). Byte gates, class counts, id sets and render proofs all passed throughout, because every one of them checks *consistency with a chosen source*, and the chosen source was the poison.
+- **the check, before ANY restore from a dated backup:**
+  ```bash
+  # what did this page legitimately gain since the backup date? EMPTY output = safe.
+  git -C ~/projects/sites log --oneline --since=2026-08-05 origin/master -- \
+      loanandmortgagecalculator.co.uk/<page>.html
+  ```
+  A non-empty answer means the restore needs a **newer source** (the sites repo at the
+  last clean commit — the rows and the repo are byte-identical on this site), not the
+  backup table. And after ANY restore that got deployed: re-run the oracle for that
+  tool the same hour, and treat the next `PINNED_REF` you take as suspect — pin from a
+  commit that PRE-DATES your restores, not from the tip they wrote.
+- **source:** the 2026-08-14 repair in `loanandmortgagecalculator_couk/NOTES`; `bugs_open/224` (the reverted fix); `bugs_open/263` (the Track B/B2 arc this happened inside).
+- **added:** 2026-08-14, loanandmortgagecalculator lane
