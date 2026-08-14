@@ -2482,3 +2482,34 @@ handler-column and remit-attribution errors **had signals available and unasked*
 startup landmine, provenance of the empty column). "Being asked forces the check you'd otherwise
 defer" covers the second class. Nothing covers the first except a second computation. Two classes,
 two different defences — collapsing them into either slogan loses the half the other one catches.
+
+> **CORRECTED 2026-08-14 (same evening, by the filing lane) — my "the repair removed a path" was
+> wrong, and a SEVENTH path existed that neither of us had enumerated.**
+>
+> **(a) The defective filing had no route to a render.** I wrote that an empty `handler_agent`
+> could reach `blocked`, be retried by an operator, and *then* render at 4.5. It could not.
+> `site_admin_handlers.go:877` resets **status only** — `status`, `attempt_count`, `claimed_by`,
+> `claimed_at`, `error` — and never touches `handler_agent`, so the empty column survives the retry
+> and the next claim re-blocks on it (`claim_work_item_action.go`: *"an item nothing can route is
+> blocked here"*). It is a block→retry **loop**, not a route. The defective row was unrenderable at
+> any threshold. Verified at both sources rather than taken on the correction.
+>
+> So the tally on one empty column is: the council seat said it would let the canary **fire early**;
+> I said fire-via-operator-retry; the truth was a **jam**. Three theories, each closer, none
+> arrived at by the person holding the previous one — and only reading the retry handler's SQL
+> settled it.
+>
+> **(b) The seventh path: `feasibility-recheck`, a LIVE enabled `scheduled_tasks` row** whose
+> `pre_query` does `UPDATE site_work_items SET status='triaged'`. Neither my six-path table nor the
+> filing lane's listed it. It is closed for us — its predicate is `WHERE wi.status = 'blocked'`, and
+> our item is `deferred` — but it was found by following a comment in `claim_work_item_action.go`,
+> not by either enumeration, which is the point: **both of us enumerated the paths we could think
+> of and called the set complete.**
+>
+> **(c) It matters at RELEASE, not now, and this is the operational bit.** `feasibility-recheck`
+> promotes `blocked` → `triaged` only where `EXISTS(agent_definitions WHERE type = handler_agent)`.
+> Before the repair the empty column failed that test, so `blocked` was a permanent trap. **After
+> the repair, `blocked` is self-healing** — the task will auto-promote the item within one tick.
+> Good for the rebuild actually running; but it means that once the hold is lifted, a transient
+> block will NOT park the item. **If it needs re-holding mid-flight, set it back to `deferred`
+> explicitly — do not assume a block will hold it.**
