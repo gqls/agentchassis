@@ -17,8 +17,10 @@ clauses updated to the ruled form by migrations `404`/`405` (the "N is not yet r
 sentence 402/403 shipped was falsified by this ruling).
 
 **Still open, operational not architectural:** whether the counter runs on a daily
-CronJob or stays on-demand — the owner is weighing a Go-native job (the CGV-030
-`component-render-check` precedent) against the RFC_006 Python-mirror shape.
+CronJob or stays on-demand. The owner ruled the language half (2026-08-14, "we can keep
+the python"): the RFC_006 check's Python mirror STAYS — no Go-native rework — and a
+counter CronJob, if built, may follow that same shape. Whether to build it at all is
+the remaining choice; until then the counter is run-on-demand with N=10 as its default.
 
 *The section below is the 2026-08-11 ruling as it stood before N was set, kept as the record.*
 

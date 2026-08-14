@@ -10,19 +10,23 @@ Everything below is verified unless marked otherwise.
 ## 0. WHAT IS ACTUALLY LEFT (read this and you can stop)
 
 **Nothing in this lane is executable by a fresh session without an owner ruling.**
-The lane's two bugs (`223`, `254`) are both CLOSED and live. What remains is owner
-decisions plus two watch-items:
+The lane's two bugs (`223`, `254`) are both CLOSED and live. What remains:
 
-1. **OWNER: the RFC_022 budget N.** The counter is built and the sizing data is in the
-   RFC's STATUS block: 118 actions declare optional keys, 21 shared; N=10 flags exactly
+1. ~~**OWNER: the RFC_022 budget N.**~~ **RULED 2026-08-14: N = 10** — wired as the
+   wrapper's default (`--census` keeps the no-budget mode), both rosters updated
+   (migrations 404/405, applied + recorded), RFC_022 STATUS → CLOSED. **The owner also
+   corrected the framing, now binding:** sharing is estate design (agents deliberately
+   reusable across workflows); a finding means accumulated SURFACE owes one review,
+   never that reuse is the problem. Auto-memory: `shared-actions-are-estate-design…`.
+   **Follow-through nobody has scheduled yet:** the standing stock at N=10 is exactly
    `analyse_repo_local` (12), `append_doc_note` (11, 8 carriers),
-   `diagnose_prepare_fix_commit` (11); N=12 flags none. RFC_022 stays open until ruled.
-   When ruled: wire N into `scripts/audit-optional-key-budget.sh`'s default, decide the
-   cron half (item 2), and update RFC_022 STATUS to closed.
-2. **OWNER: does the counter get the RFC_006-style daily CronJob, or stay report-only?**
-   If cron: follow `single-owner-carriers-check`'s shape (same image/secret/doc_notes
-   convention, one row per run including clean) — but note its landmine: that CronJob
-   carries a PYTHON MIRROR of the Go logic with a parity test; budget the same.
+   `diagnose_prepare_fix_commit` (11) — each owes ONE ordinary architecture review of
+   its accumulated surface, then its acknowledged level is the baseline.
+2. **OWNER (half-ruled): the counter CronJob.** Ruled 2026-08-14: the RFC_006 check's
+   Python mirror STAYS (no Go-native rework), and a counter CronJob, if built, may use
+   that same shape (mind its landmine: the mirror needs a parity test pinning it to the
+   Go source). Whether to BUILD one at all is still open; until then the counter is
+   run-on-demand with N=10 default.
 3. **WATCH: the as-of note's first live rendering.** 254's fix is live and the persisted
    evidence-line clause is proven end-to-end, but the answer-site as-of note renders only
    on EMPTY answers and none has occurred live yet (build-time it is mutation-proven on

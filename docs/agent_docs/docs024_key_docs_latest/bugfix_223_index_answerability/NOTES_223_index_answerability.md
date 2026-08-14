@@ -791,3 +791,11 @@ surface, then its acknowledged level is the baseline. Not scheduled by this lane
 owner/lanes route those. The cron-half decision stays open (owner is weighing Go-native
 per CGV-030 vs the RFC_006 Python-mirror shape — explanation given in chat and in
 README_where_we_are).
+
+**Same day, after the explanation:** owner ruled *"we can keep the python"* — the
+RFC_006 check's Python mirror stays as-is (no Go-native rework), and a counter CronJob,
+if built, may follow the same shape. Whether to BUILD one at all remains the open
+choice; recorded in RFC_022's closing status and WFA-013. Bare-run exit-1-on-findings
+re-verified cleanly (`--json >/dev/null; $?` → 1) after an earlier read of exit=0 turned
+out to be `head`'s exit status in a pipeline, not the script's — the small trap noted so
+nobody re-measures it wrong. SUMMARY_2026-08-14 written (third in the series).
