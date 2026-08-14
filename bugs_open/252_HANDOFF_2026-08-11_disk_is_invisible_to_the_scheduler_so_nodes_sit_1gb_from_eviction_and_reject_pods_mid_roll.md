@@ -111,6 +111,54 @@ roll**, self-healed. The reason it is worth filing anyway: with …6832 at 1.34 
 of headroom, the same event on two nodes at once during a roll would leave a
 deployment short for as long as the pressure lasts, and nothing alerts on it.
 
+## 🔧 2026-08-14 14:15Z — **3a+3b ARE BUILT AND COMMITTED — AS A DAEMONSET, BECAUSE THE ConfigMap ROUTE IS PROVIDER-LOCKED. ONE CLAIM FROM THE WALKTHROUGH WITHDRAWN.**
+
+The owner authorised the kubelet-config ConfigMap edit (candidates 3a+3b:
+`imageGCHighThresholdPercent` 85→70, low 80→60, `imageMaximumGCAge` 0s→168h) and
+asked for it to deploy via the makefile.
+
+### ⛔ The ConfigMap is PROVIDER-PROTECTED — the walkthrough's "it's a kubectl edit" claim is WITHDRAWN
+
+`[MEASURED 14:00Z]` The patch was prepared surgically (three lines, verified
+matched-exactly-once, full diff clean) and **the API accepted it and discarded it**:
+`kubectl patch` returned `configmap/kubelet-config patched`, `resourceVersion`
+bumped, and the very next quorum read showed the OLD values. Three write shapes
+tested — the data merge patch, a brand-new data key, an annotation — **all
+accepted, all reverted before the next read**, and zero mutating webhooks touch
+configmaps. This is the hosted control plane (Rackspace ngpc; note the `vcp-proxy`
+DaemonSet) protecting kubeadm system objects from tenant writes.
+
+**The tell that caught it: verify the write by reading it back, never by the
+API's success message.** "patched" + RV bump + old values is three green signals
+and a silent no-op. Filed in `LANDMINES.md` and `WRONG_CALLS.md`.
+
+### ✅ The fix ships anyway — `node-config` DaemonSet, registered as BLD-021
+
+The nodes themselves are tenant-root (proven all week via debug pods), so the
+change ships at the node file, and the only durable carrier on SPOT nodes is a
+DaemonSet: `deployments/kustomize/services/node-config/` — privileged + `hostPID`,
+edits `/var/lib/kubelet/config.yaml` via `chroot /proc/1/root`, restarts kubelet
+only when the file changed (a kubelet restart does not restart running pods),
+verifies after the edit, and restores its backup + CrashLoops on any mismatch —
+a loud failure, never a half-edit. Mechanism verified on …1148 before building:
+`systemctl` reachable via `/proc/1/root` (a hostPath bind of `/` fails — empty
+`/run`), the three lines present verbatim, kubelet running with `--config`
+pointing at the file.
+
+**Deploy = the owner's normal flow:** `make release` (wired into `deploy-agents`)
+or `make deploy-node-config` alone. **Prove it at the kubelets, not at the DS:**
+`make node-config-status` — five nodes must read `high 70 low 60 maxAge 168h`.
+Expect immediate reclaim on first rollout: nodes run at ~75–83% used, above the
+new threshold, so GC will prune unused images at once — deletion, not disruption.
+
+Candidate 5 (journald) is deliberately NOT in the DS yet — it trades ~70 days of
+node-log retention (measured: oldest entry 2026-06-05, ~55 MiB/day write rate,
+top writer containerd) for ~10 days, and that is the owner's call. When taken, it
+is a second block in the same script.
+
+Summary for reading aloud:
+`docs024_key_docs_latest/bugfix_252_disk_scheduler_blind/SUMMARY_2026-08-14_disk_pressure_lane.md`
+
 ## ✅ 2026-08-14 ~07:50Z — **CANDIDATE 1b IS LIVE AND PROVEN. THE RUNNERS' SEPARATION IS NOW A RULE. THREAD-SIDE WORK ON THIS LANE IS COMPLETE.**
 
 `[MEASURED at the pods]` The owner's release (chassis now `v1.0.1297`, runner pods

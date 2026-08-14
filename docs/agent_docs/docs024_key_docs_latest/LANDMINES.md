@@ -10087,6 +10087,25 @@ code change owed at the next roll, tracked in RFC_015 §5.
 
 ---
 
+## A write to `kube-system/kubelet-config` returns 200 "patched" and is SILENTLY REVERTED — this hosted control plane discards tenant writes to kubeadm system objects, and every success signal still fires
+
+- **footprint:** `kube-system/kubelet-config`, `kubectl patch configmap`, `kubectl annotate`, kubeadm system ConfigMaps (`kubeadm-config`, `kubelet-config`, `kube-proxy`), `vcp-proxy`, Rackspace ngpc, `/var/lib/kubelet/config.yaml`
+- **fires when:** you change cluster-level configuration the kubeadm way — editing a kube-system ConfigMap that holds kubelet/kubeadm settings — on this cluster. The command succeeds, kubectl prints `patched`/`annotated`, and you move on to waiting for nodes to pick it up. They never will.
+- **why the wrong result looks exactly right:** every success signal fires. `[MEASURED 2026-08-14]` a three-line merge patch to `data.kubelet` returned 200 `configmap/kubelet-config patched`; `resourceVersion` bumped (139722947 → 139723649); and the very next quorum read showed the OLD values. Controls: a brand-new data key and a plain annotation — both also accepted, both also gone on re-read. **No mutating webhook touches configmaps** (checked), so this is not cluster policy you can list — it is the hosted control plane itself (Rackspace ngpc; the `vcp-proxy` DaemonSet is the visible edge of it) protecting kubeadm system objects from tenant writes. Nothing an in-cluster reader can enumerate predicts it.
+- **the check — read the write back, from the same instrument that will consume it:**
+  ```bash
+  kubectl -n kube-system patch cm kubelet-config --type merge --patch-file p.json
+  kubectl -n kube-system get cm kubelet-config -o jsonpath='{.data.kubelet}' | grep <your new value>
+  ```
+  An empty grep after a 200 is this trap. And for kubelet settings specifically, the consuming instrument is the node, not the CM — `kubectl get --raw /api/v1/nodes/<n>/proxy/configz` is the ground truth either way.
+- **the remedy that works here:** node files are tenant-root (`kubectl debug --profile=sysadmin`, or privileged+hostPID pods via `chroot /proc/1/root`). On SPOT nodes the only durable carrier for a node-file edit is a DaemonSet that reapplies it on every node (re)placement — register **BLD-021** (`deployments/kustomize/services/node-config/`) is that carrier; extend its script rather than inventing a parallel one.
+- **the general shape:** "the API accepted my write" is a claim about the TRANSPORT, not about the STORE. On any managed platform, objects the provider considers its own may be write-shadowed — accepted, then reconciled away faster than you re-read. The only proof of a write is reading the value back, and the only proof that matters is reading it from the consumer.
+- **relations:** `a print statement is not a config row` (same family: an echo of your input is not the system's state) · `a config key that nothing reads` (the mirror case: a write that lands but is never consumed) · `imperative kubectl scale is undone by the next deploy` (provider/controller reconciliation eating a hand edit, slower variant) · BLD-021 · `bugs_open/252`
+- **source:** 2026-08-14, `bugs_open/252` lane, shipping candidates 3a+3b. The surgical CM patch (three lines, matched-exactly-once, clean diff) was accepted and discarded; caught in under a minute because the lane's own practice is to verify at the readback, not at the success message. Cost: nothing but the discovery itself — the DaemonSet that replaced the approach is the better mechanism anyway (survives spot replacement, which the CM route never addressed).
+- **added:** 2026-08-14, bugs_open/252 disk-pressure lane
+
+---
+
 ## A PodMonitor's numeric `targetPort` keys on the port a pod DECLARES, never the port it SERVES — so a healthy `/metrics` endpoint on an undeclared port is silently never scraped, and the metric still appears in Prometheus because its SIBLINGS carry it
 
 - **footprint:** any `PodMonitor`/`ServiceMonitor` `targetPort:`, `deployments/kustomize/services/agent-chassis/base/podmonitor.yaml`, `deployments/kustomize/services/agent-chassis/base/deployment.yaml`, `containerPort`, `__meta_kubernetes_pod_container_port_number`, `platform/orchestration/actions/spawn_actions.go` (the pod spec that DOES declare 9090), `platform/observability` registrations, `go_sql_*`, `ai_persona_*`

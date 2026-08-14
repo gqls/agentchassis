@@ -1,26 +1,30 @@
 # CONTINUE HERE — the disk-pressure lane (`bugs_open/252`)
 
-**Last updated 2026-08-14 ~08:00Z.** Cold-start handoff for a new chat. The bug file
+**Last updated 2026-08-14 14:20Z.** Cold-start handoff for a new chat. The bug file
 (`252_HANDOFF_2026-08-11_disk_is_invisible_to_the_scheduler…`) holds the evidence and
 the fix candidates; **this file holds only what is still owed and what will mislead
-you.** Read the bug file's two newest blocks — **`✅ 2026-08-14`** (1b live+proven,
-thread-side work complete) and **`🔄 2026-08-13 14:05Z`** (the sawtooth, which
-corrects the struck-through 20:45Z alarm below it) — first.
+you.** Read the bug file's newest blocks in order — **`🔧 2026-08-14 14:15Z`**
+(3a+3b built as a DaemonSet; the ConfigMap route is provider-locked), **`✅
+2026-08-14 ~07:50Z`** (1b live+proven), **`🔄 2026-08-13 14:05Z`** (the sawtooth,
+correcting the struck-through 20:45Z alarm below it).
 
 **The one-paragraph version.** Disk was invisible to the scheduler; candidate 1
-(requests) fixed that. Candidate 1b (spread constraint) makes the two big runners'
-separation a rule, and is **live and proven** — `kubectl get pods -l
-workload=gha-runner` must show 3 pods on 3 nodes, and does. A release now ships the
-runner manifests automatically (`deploy-github-runners` in the makefile,
-`ad945029d`). **All thread-side work is done. What remains is the confirmed root
-cause, and it is entirely owner-side node config:** image GC's trigger (85% used)
-*is* the eviction line (15% available), so the reclaim cycle's trough sits against
-the eviction threshold, and a roll landing in that trough gets its pod rejected —
-that was 08-11. The levers: **3a** GC threshold 85→~70 (raises the trough — the
-fix), **3b** `imageMaximumGCAge=168h` (reclaims between peaks; gate on by default
-at 1.31), **5** journald `SystemMaxUse=512M` (~3.87 GiB/node back, untouched by
-GC), plus standing decisions **2** (limits — deliberately not set) and **4**
-(bigger disks).
+(requests) fixed that — live+proven. Candidate 1b (spread rule for the two big
+runners) — live+proven: `kubectl get pods -l workload=gha-runner` must show 3 pods
+on 3 nodes, and does. The confirmed root cause — image GC's trigger (85% used) *is*
+the eviction line (15% free), so the reclaim cycle's trough touches the rejection
+threshold — is fixed by candidates 3a+3b (70/60, `imageMaximumGCAge=168h`), which
+are **BUILT AND COMMITTED as the `node-config` DaemonSet (register BLD-021),
+awaiting the owner's next `make release` (or `make deploy-node-config`)**. They
+could not ship via the kubelet-config ConfigMap: **that CM is provider-protected —
+writes return 200 "patched" and silently revert** (measured three ways, 08-14; in
+LANDMINES). Prove the deploy at the kubelets: `make node-config-status` → five
+nodes reading `high 70 low 60 maxAge 168h`. Still open: **5** journald
+`SystemMaxUse=512M` (~3.4 GiB/node back; costs ~70→~10 days of node-log retention —
+owner decision, then one more block in the same DaemonSet), plus standing decisions
+**2** (limits — deliberately not set) and **4** (bigger disks — parked).
+Read-aloud summary:
+`docs024_key_docs_latest/bugfix_252_disk_scheduler_blind/SUMMARY_2026-08-14_disk_pressure_lane.md`.
 
 > **✅ THE MARGIN IS A SAWTOOTH, NOT A DECLINE — AND WE HAVE NOW WATCHED THE TEETH.**
 > `[MEASURED 2026-08-13 14:01Z]` Fleet-worst headroom is **2.42 GB** and …1148 sits at
