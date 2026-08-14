@@ -229,3 +229,15 @@ deliverable therefore splits**: ~10 rows recover from history; the ~200
 others are a destination-resolution problem (fix candidate 2 territory /
 unresolved_cta backlog), NOT a history restore, and no amount of re-rendering
 will conjure URLs they never had.
+
+> **CORRECTED 2026-08-14 (repair session):** this section said webdesign.uk
+> `index/call-to-action` "sits LOCKED". **It is not locked.** The live lock
+> map shows the 08-12 repair locked `index/hero` (a row it repaired) and
+> seven other hero/call-to-action rows; `index/call-to-action` was lost
+> 08-11 13:43 — before that lane's baseline — so it was in neither their
+> repair set nor their lock sweep. Caught by reading `lock_type`/`locked_at`
+> on the actual rows before drafting the restore. All 10 recoverable rows
+> are unlocked; no unlock step is needed for the repair.
+> Split re-measured 2026-08-14 ~16:50Z: **10 ever-held / 73 never-held /
+> 134 no-history, of 217** (one never-held row moved to no-history since
+> §11.1 — a page identity change, the fleet moving; the 10 are unchanged).

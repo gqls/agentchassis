@@ -229,3 +229,32 @@ repaired+locked stated). Then, while it queues (~30 min): falsifier checks
   caught it, or the "ok" would have read as a pass of the mutated code.
 - Committing both with `Council-Reviewed: e6c1e4eb…` (verdict READ and
   APPROVED per session 1's record — the trailer is honest).
+- **Chassis rolled again mid-day: `v1.0.1299`, stamp `6f8efa158`, both
+  replicas (probe + controls); fix still an ancestor.** Committed the
+  follow-ups as `a032677d0` + gofmt fixup `b6f351d60`.
+- **Canary dispatched:** `content_rewrite` item `20fd61a1-…`,
+  `item_key=canary_268_beginners`, dartsonline.com/beginners (hero holds
+  cta_url+hero_url+secondary_cta_url, cta holds primary+secondary — both
+  keys-present, unlocked), `mode=edit_live`, filed 16:47:51Z. BEFORE
+  snapshots in scratchpad (`canary/before_*.txt`): hero hrefs
+  `/tools/dart-weight-comparator/index.html` + `/brands/index.html`, cta
+  hrefs same pair. Queue verified moving (completions 16:11–16:44 across 3
+  sites); dispatchable backlog 536/11 sites — rotation, so expect minutes
+  to tens of minutes. NOTE: the ink lane filed a dartsonline
+  `needs_design_review` (styles.css) at 16:46 — different artefact, no
+  content conflict, but we share the site's dispatch slot.
+- **Split re-run + RUNBOOK gap:** the handoff said the split query "is in
+  the RUNBOOK" — **it is not** (session 1 ran it ad hoc); reconstructed
+  from §2's census + `page_component_history`, now added to the RUNBOOK.
+  Result 10/73/134 of 217 (was 10/74/133 of 217 — one never-held row moved
+  to no-history; the 10 unchanged, same rows as §11.1).
+- **CORRECTION (recorded in 268 §11.1 too): webdesign.uk
+  `index/call-to-action` is NOT locked.** The 08-12 repair locked
+  `index/hero` + 7 others; index/call-to-action predates their baseline so
+  was never repaired, never locked. Caught by reading the actual lock rows
+  before drafting the restore. All 10 rows unlocked ⇒ the repair needs no
+  unlock step; HANDOFF §3/§4's "LOCKED — leave it for the unlock step" is
+  superseded on this point.
+- Restore SQL drafted from the newest url-bearing generation per row:
+  `SQL_2026-08-14_restore_cta_urls_10_rows.sql` (merge-only `||`, lock
+  guard, DO/RAISE verify n=10). Held until the canary passes.

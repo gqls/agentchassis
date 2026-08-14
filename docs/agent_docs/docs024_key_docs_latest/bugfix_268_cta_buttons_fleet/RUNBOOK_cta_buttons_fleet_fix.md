@@ -32,6 +32,41 @@ git merge-base --is-ancestor <your-commit> <the stamp>   # did my fix ship?
 Full query: `bugs_open/268_HANDOFF_2026-08-12_...md` §2. Baseline 2026-08-12
 ~20:45Z: 216 components / 19 sites carry a label with no URL; 214 render zero anchors.
 
+## The history split (10 recoverable / never-held / no-history)
+
+Added 2026-08-14 — the HANDOFF said this lived here; it did not (session 1 ran
+it ad hoc). Classifies the §2 census by whether the row EVER held a
+destination URL in an archived generation. Join history by `page_id` +
+`slot_name` (`component_id` is `ON DELETE SET NULL`, so it is not a safe key).
+
+```sql
+WITH damaged AS (
+  SELECT pc.id, pc.page_id, pc.slot_name, s.domain, p.name AS page
+  FROM page_components pc JOIN pages p ON p.id=pc.page_id JOIN sites s ON s.id=p.site_id
+  WHERE pc.slot_name IN ('hero','call-to-action') AND p.status='active'
+    AND (pc.content_data ? 'cta_text' OR pc.content_data ? 'primary_cta')
+    AND NOT (pc.content_data ? 'cta_url' OR pc.content_data ? 'primary_cta_url')
+),
+hist AS (
+  SELECT d.id, count(h.id) AS generations,
+         count(h.id) FILTER (WHERE h.content_data ? 'cta_url' OR h.content_data ? 'primary_cta_url') AS gens_with_url
+  FROM damaged d LEFT JOIN page_component_history h
+    ON h.page_id=d.page_id AND h.slot_name=d.slot_name
+  GROUP BY d.id
+)
+SELECT count(*) FILTER (WHERE gens_with_url > 0) AS ever_held_url,
+       count(*) FILTER (WHERE generations > 0 AND gens_with_url = 0) AS never_held,
+       count(*) FILTER (WHERE generations = 0) AS no_history,
+       count(*) AS total
+FROM hist;
+```
+For the recoverable rows' restore payload (newest url-bearing generation,
+only keys the current row lacks), see the extraction in
+`SQL_2026-08-14_restore_cta_urls_10_rows.sql`'s header and NOTES 2026-08-14.
+Gotcha: `ever_held_url` counts only CURRENTLY-damaged rows — after a restore
+the repaired rows leave `damaged`, so the split TRENDS TO 0/…/… as repair
+succeeds; do not read a shrinking first bucket as history loss.
+
 ## Invariant diff (the one check of six that sees this damage)
 
 ```sql
