@@ -2412,3 +2412,50 @@ declarations. Nothing enforces that invariant; if the 168-component sweep ever e
 reference, the kill-switch silently becomes a declaration-dropper. And RFC_022's optional-key
 counter does not list `render_css_from_spec` at all (no `RegisterActionInputSpec`), so its silence
 there is the gate not looking, not a pass.
+
+---
+
+### 2026-08-14 (late) — CORRECTION: "undispatchable twice over" was true, for the wrong reason, and is now false
+
+**My claim, in council submission `d60aab29` round 2 and in commit `e0f239118`'s message:**
+`829a8f3e` is held because `status='deferred'` **and** `handler_agent` is empty — "the pair
+`discovery_checks/remit.go:29-41` already documents as undispatchable twice over".
+
+**The measurement was right and the explanation was wrong.** `handler_agent` was empty not by
+design but because the filing session's INSERT wrote the handler into `spec` only, while the
+router reads the first-class column (`load_work_item_actions.go:676`,
+`claim_work_item_action.go:132`). I found an accident and cited it as an intentional convention.
+The filing lane found this itself when I asked it to sanity-check the column, and repaired the row
+in `44517bc8e` — so `handler_agent` is now `webdesign-agent` and **the double lock is a single
+lock.**
+
+**Re-verified after the repair, because the correction changes what the gate rests on**
+`[MEASURED 2026-08-14 21:4xZ]`:
+
+| path | can it move `829a8f3e` out of `deferred`? |
+|---|---|
+| `claim_work_item_action.go:102` | no — `status IN ('triaged','approved')` |
+| `load_work_item_actions.go:651` | no — same predicate |
+| `triage_detect_items_action.go:163` | no — `WHERE status='detected'` only |
+| `claim_work_item_action.go:233` (release on unhealthy endpoint) | unreachable — requires a prior successful claim, which `deferred` cannot pass |
+| `site_admin_handlers.go:877` (operator "retry" button) | no — `AND status IN ('needs_human_review','failed','blocked','unresolved')` |
+| stale-work-item-reaper | no — `triaged` + `pipeline='build'` (per remit.go) |
+
+So the single status lock is sufficient, and the hold is sound. **But it is sound for a reason I
+had not established when I asserted it.**
+
+**The part worth keeping, and it inverts the seat's hazard.** `debug_historian` raised HIGH
+severity that an empty `handler_agent` might let the item fire at 4.5. The truth was the opposite:
+an empty column means claim → immediately `blocked` ("No handler_agent set") → released. The item
+could never have rendered — it would have **stuck**, and the owner would have found a jammed queue
+where he expected a canary. And note where that lands it: `blocked` **is** in the admin retry
+list above, whereas `deferred` is not. So the defective filing had a route back to a claimable
+status that the repaired one does not. The repair removed a path, it did not only add one.
+
+**The cheap check that would have caught my version:** when a row's state matches what you want,
+ask *why* it is in that state before citing it as a control. `handler_agent = ''` and
+`handler_agent` **absent from the INSERT** look identical at the artefact and mean opposite things
+about whether anyone intended it. A column matching your hypothesis is not evidence that the
+mechanism you are crediting is the one that produced it. Sibling of
+`a-count-proves-the-damage-not-the-no-op` — I asserted row *identity* but never asked for its
+*provenance*.
