@@ -1335,3 +1335,60 @@ gate. So the result is a real result, not an artefact of the wrong version being
 Nothing is broken here. The daily check is working correctly and refusing to close 18 findings whose
 claims are still on the page — that is the system doing its job. The caveat is only about what we can
 *claim* to have proven.
+
+---
+
+### 2026-08-14 — we can now see where the daily check stops, and I got two things wrong on the way
+
+Yesterday's entry ended on an honest but unsatisfying note: the three safety gates are built, live,
+and have never actually been consulted, and I had no way to *show* that other than reading the
+wording of each decision by hand. That is a bad position to be in, because the only thing standing
+between "the gate approved this" and "the gate was never asked" was me reading prose carefully.
+
+So I've made the system say it outright. Every decision now records **which step of the process
+decided it** — a short, fixed label like "the page still trips the check" or "the words the finding
+quoted are still there". There are eighteen such steps, and the ones that sit at the end, where the
+three gates live, are all named so they stand out. The question "did anything get as far as a gate?"
+is now something you look up, instead of something you argue about from wording.
+
+This changes nothing about how anything is decided. No gate got stricter or looser, nothing new can
+close a finding, and nothing in the system reads the new label to make a decision — it is purely a
+record of what happened. I was careful about that: a measuring instrument that can change the thing
+it measures is no longer evidence about it.
+
+It went through the review council and was **approved first time**, which for this lane is worth
+noting — the last change here took seven rounds. Ten reviewers looked at it.
+
+**Two things I got wrong, both caught, both worth writing down.**
+
+The first was caught by my own test before anyone saw it. I had labelled the gate steps so they could
+be found by a common prefix, then written the test to check exactly that — and it failed, because the
+label for "all three gates passed, finding closed" deliberately reads as a closure rather than as a
+gate. So a search by prefix alone would have found only the cases where a gate *refused* and missed
+every case where one *approved*. That is precisely the confusion this whole change exists to remove,
+and I had rebuilt it inside the fix. The test now checks the real question rather than a proxy for it.
+
+The second was caught by the review council, and it is the more embarrassing of the two. I claimed the
+new label lets us ask whether a gate has **ever** been reached. It does not: each finding's record is
+overwritten every time the daily check runs, so the label only ever tells you about the most recent
+run. A finding that reached a gate last week and is stuck earlier today shows only today's answer.
+What makes it worse is that **this lane wrote the warning about that exact column two days earlier** —
+and the reviewer quoted our own note back at us. I have corrected the wording everywhere it appeared
+and logged it. The genuinely historical record does exist elsewhere (each run keeps its own full
+set of decisions), but I checked rather than assumed, and only **one** run is currently retained — so
+that is a surface that will become useful, not one that is useful now.
+
+**One other thing worth reporting, because I nearly filed it as a bug and it isn't one.** Yesterday I
+noticed the audit examining a page marked "archived", and assumed that was a defect — why audit a page
+nobody serves? I measured it: three of the thirty findings sit on non-active pages. Then, before
+writing it up, I actually fetched the pages. **One of them is archived and still serving 31KB to the
+public.** So auditing archived pages is right, and the code's decision not to filter them out is
+correct for a better reason than the one written beside it. The real distinction is not whether a page
+is archived but whether it is actually *being served*, and nothing currently checks that. Two findings
+are consequently parked for ever, asking a human to fix copy on pages that return "not found". I've
+recorded that against the existing bug that owns this area rather than opening a competing one.
+
+Where that leaves us: the change is committed and approved but **not yet live** — it ships on the next
+release. The first daily check that carries it should show roughly eighteen findings stopping at "the
+page still trips the check" and **zero** reaching a gate. That will look like nothing happened. It is
+the instrument working, and for the first time it will be checkable rather than arguable.

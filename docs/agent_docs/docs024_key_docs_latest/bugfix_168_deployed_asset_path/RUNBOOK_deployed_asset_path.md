@@ -301,3 +301,73 @@ kubectl -n ai-persona-system get pods -l app=agent-chassis \
 ⚠ **The `date LIKE` filter above is the only reliable way to scope to one run**, because
 `result->'revalidation'->>'at'` is **last-write-wins** — grouping it without a date filter returns
 "the last run that touched each row", which reads exactly like a run history and is not one.
+
+---
+
+## Where does the ladder STOP? (`result.revalidation.arm`, live from the roll after v1.0.1295)
+
+The question the three verdict counters cannot answer. Before `arm` this needed a LIKE over the
+prose of `reason`; now it is a key.
+
+```sql
+-- WHERE THE LADDER STOPS, per item, on the LATEST sweep
+SELECT result #>> '{revalidation,arm}' AS arm, count(*)
+FROM site_work_items
+WHERE item_type='claims_unverified' AND result ? 'revalidation'
+GROUP BY 1 ORDER BY 2 DESC;
+
+-- DID A GATE GET REACHED at all — refusal OR closure. This is the observation
+-- a refusal counter structurally cannot give: a gate that refused and a gate
+-- never consulted both report nothing.
+SELECT count(*) FILTER (WHERE arm LIKE 'gate\_%')                    AS refused_at_a_gate,
+       count(*) FILTER (WHERE arm = 'resolved_all_gates_passed')      AS passed_all_gates,
+       count(*) FILTER (WHERE arm LIKE 'unreported:%')                AS uninstrumented,
+       count(*)                                                       AS total
+FROM (SELECT result #>> '{revalidation,arm}' AS arm FROM site_work_items
+      WHERE item_type='claims_unverified' AND result ? 'revalidation') s;
+```
+
+⚠ **THREE GOTCHAS, each of which returns a plausible wrong answer.**
+
+1. **This is a SNAPSHOT, not a history — the word "ever" does not belong in it.**
+   `applyRevalidation` replaces `result.revalidation` **whole** every sweep, so there is exactly
+   one arm per item and it belongs to the most recent run. An item that reached a gate last week
+   and stops at `scan_still_trips` today shows only today's rung; the earlier reach is **gone,
+   not aggregated**. This lane filed that landmine on 08-12 for the `at` stamp and then walked
+   into it on 08-13 for `arm` — caught by the council, not by us (`WRONG_CALLS.md`).
+2. **`resolved_all_gates_passed` carries NO `gate_` prefix.** It is the one arm proving all three
+   gates were reached and passed, named for the closure instead. A prefix-only reach query counts
+   only the reaches where a gate **refused** and misses every closure — which inverts the reading.
+   Always include the second term, as above.
+3. **`LIKE 'gate_%'` treats `_` as a wildcard.** Harmless for today's arm set, wrong in principle;
+   write `gate\_%`. And `arm IS NULL` finds nothing — an uninstrumented revalidator records
+   `unreported:<item_type>`, deliberately, so a gap cannot read as an absence.
+
+**For a RATE or a TREND, read the per-run surface instead** — one row per sweep, never overwritten:
+
+```sql
+SELECT created_at, jsonb_array_length(collected_data->'sweep'->'items') AS decided
+FROM orchestration_states WHERE collected_data ? 'sweep' ORDER BY created_at DESC;
+```
+
+⚠ `[MEASURED 2026-08-14]` that returns **ONE row** (08-13 08:44:39Z) against 2,532 orchestration
+rows going back to 07-13. The surface is structurally right and **effectively empty**; it becomes
+a history as runs accumulate. **Do not read a one-row answer as "the sweep has run once."**
+
+## Is a page the audit flagged actually SERVED? (the check that reframed the archived question)
+
+`ScanDeployedClaims` has no page-status filter, and that is **correct** — an `archived` page can
+still be serving. Do not "fix" it without this check first, and **always curl a fabricated URL on
+the same domain**, or a catch-all 200 reads as a live page:
+
+```bash
+for u in "https://<domain>/<page>.html" "https://<domain>/definitely-not-a-real-page-control.html"; do
+  printf "%-5s %-9s %s\n" "$(curl -s -o /dev/null -w '%{http_code}' -m 15 "$u")" \
+                          "$(curl -s -o /dev/null -w '%{size_download}b' -m 15 "$u")" "$u"
+done
+```
+
+Worked result 2026-08-14: `robot-hands.com/gripper-catalog.html` → **200, 30,997b while
+`status='archived'`** (control 404s), so the scan was right to judge it. Meanwhile
+`leopardessconsulting.co.uk/for-engineering-teams.html` → 404 with the **same byte size as its
+control**, i.e. genuinely absent. `pages.status` does not discriminate; being served does.

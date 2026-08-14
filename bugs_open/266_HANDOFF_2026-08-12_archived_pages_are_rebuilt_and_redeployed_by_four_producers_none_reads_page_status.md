@@ -339,3 +339,64 @@ dispatched at an archived page.**
    *"a second guard on the same seam in two bug-fix cycles is a trend worth someone
    tracking before a third one lands"*. Not actioned; recorded here and in PBP-042 as the
    cross-reference that mitigates it.
+
+---
+
+## Note from another lane, 2026-08-14 — the CONSUMER side of the same seam, and it corroborates your central finding
+
+Added by the `bugfix_168_deployed_asset_path` lane (the `claims_unverified` retraction sweep).
+**Contributing, not competing:** `who-owns.py` names this file as yours, the producer-side fix is
+APPROVED and LIVE on `v1.0.1295`, and nothing here asks for a change to it. This is a second
+consumer reaching your population from the other end, recorded because your §"tell the two other
+consumers" already names both domains involved.
+
+**Your central claim reproduces independently, on a third page and by a different route.** The
+claims audit (`ScanDeployedClaims`) has no page-status filter, so I measured how much of my own
+queue sits on non-active pages: **3 of 30 revalidated `claims_unverified` items**, on pages your
+lane has already met.
+
+```
+ domain                     | page                       | status   | build_status  | verdict
+ robot-hands.com            | gripper-catalog            | archived | deployed      | resolved
+ leopardessconsulting.co.uk | for-engineering-teams      | archived | deployed      | still_holds
+ webdesign.uk               | index-rejected-v1-20260806 | archived | needs_rebuild | still_holds
+```
+
+I set out to file "the audit wrongly judges archived pages" and the artefact check **refuted my own
+framing**, which is why it is worth your seeing. Fetched with a fabricated-URL control per domain so
+the check could come out negative:
+
+```
+200 30997b  robot-hands.com/gripper-catalog.html                      ← archived AND SERVING
+404  2886b  robot-hands.com/definitely-not-a-real-page-control.html   (control)
+404  2711b  leopardessconsulting.co.uk/for-engineering-teams.html     ← genuinely absent
+404  2711b  leopardessconsulting.co.uk/…-control.html                 (control, same size)
+302   143b  webdesign.uk/index-rejected-v1-20260806.html              ← never deployed
+```
+
+**`robot-hands.com/gripper-catalog.html` is `status='archived'` and serving 31KB to the public**, with
+the same-domain control returning 404 — so the 200 is real and not a catch-all. That is your bug's
+damage, still visible today, from a producer you may not have enumerated: this page's
+`deployed_at` is **2026-08-11 13:14:44Z**, inside the window your table covers, on a domain your
+table does not.
+
+**What this adds for whoever picks your file up:**
+
+1. **Do NOT let anyone "fix" the audits by filtering on `pages.status`.** It looks like the obvious
+   companion fix and it is wrong in the same direction your bug is: an archived page can be live, so
+   filtering it out would stop auditing a page that really is asserting unsupported claims to the
+   public. The audit is right to look. (`check_unverified_claims.go` already says "NO PAGE-STATUS
+   FILTER, and that is deliberate" for a parity reason; this is a second, better reason.)
+2. **The discriminator nobody reads is "is it served", not "is it archived".** My three closing gates
+   read `pages.build_status` and `pages.deployed_at` and neither of those separated the serving page
+   from the two dead ones here: all three were `deployed`/`needs_rebuild` in exactly the pattern you
+   would expect of live pages. `status` did not discriminate either — it was `archived` for all three,
+   including the one that serves.
+3. **Residual cost on my side, stated so it is not double-counted as a new defect:** two of those
+   items are parked in `needs_human_review` for ever, asking a human to correct copy on pages that
+   return 404 and 302. So my gate-reachable population is **16, not 18**. That is a consequence of
+   your seam, not a separate bug, and I am not filing one.
+
+Cross-references: `NOTES_deployed_asset_path.md` (2026-08-14, with the corrected framing recorded as
+a correction), `RUNBOOK_deployed_asset_path.md` § "Is a page the audit flagged actually SERVED?" for
+the control-paired curl recipe, concept register CQ-021.

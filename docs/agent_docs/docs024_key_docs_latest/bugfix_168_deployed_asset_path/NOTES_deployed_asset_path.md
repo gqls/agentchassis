@@ -3352,3 +3352,129 @@ may stay unobserved for a long time. Every closure to date predates gate 2.
 ⚠ One incidental confirmation of a known landmine: `page index-rejected-v1-20260806 still carries 14
 claim(s)`. `ScanDeployedClaims` has **no page-status filter**, so a rejected/archived page is still
 being judged — the asymmetry already recorded in this entry, now visible in live output.
+
+---
+
+## 2026-08-13/14 — the gates are now OBSERVABLE, and the change that made them observable walked into this lane's own landmine
+
+Picking up the 08-13 banner's open question: **how would we ever observe these three gates?**
+The two options it left were "instrument the arms (count reaching, not just refusing)" or "find
+or construct a cleaned page". This session did the first. The second is a live-content
+intervention and stays with the owner.
+
+### Re-grounded first, because the banner's figures were hours old
+
+Live `clients_db`, 2026-08-13: `refused_gate1=0 · refused_gate2=0 · refused_gate3=0 ·
+resolved=9 · still_holds=18 · unknown=3 · total=30`, and the load-bearing invariant
+(`newest_component_update > item_filed_at`) is `t` for **9 of 9** closures, zero `f` rows.
+Identical to the banner. Nothing had moved.
+
+### What was actually wrong, and it is not what a counter can show
+
+The three gates sit at the **foot** of an 18-arm ladder. Every arm above them returns before
+they are consulted, so a gate's refusal counter reads `0` identically whether the gate
+approved, refused nothing, or was never asked. Distinguishing those required LIKE-matching the
+**prose** of `result.revalidation.reason` — which is how the 08-13 table of 18/2/1 was built,
+and which this lane already has a landmine about (*a grep proves absence only for the spelling
+it searches*). Reword a reason and every such query silently goes to zero.
+
+**The fix: `result.revalidation.arm`** — a stable key naming the rung that decided. 18 arms
+named in the claims_unverified ladder, `gate_`-prefixed for every rung downstream of a clean
+scan, so the reach question is a key match rather than a prose match. Observation only:
+nothing branches on it, no arm added/removed/reordered, no predicate touched. The invariant
+above was re-measured after the edit and is unchanged.
+
+Four uninstrumented revalidators record `unreported:<item_type>` rather than an empty string,
+because *"nobody wrote one"* and *"no rung was reached"* must not be the same query result —
+this ladder's own founding principle, turned on the instrument that watches it.
+
+### The test caught my design flaw on its first run, before any reviewer did
+
+Written asserting the `gate_` **prefix**, it failed on `resolved_all_gates_passed` — the one
+arm that proves all three gates were reached **and passed**, deliberately named for the
+closure rather than for a gate. **A prefix-only reach query would have counted only the
+reaches where a gate REFUSED and missed every closure**: the two-opposite-causes trap this
+field exists to close, reproduced inside the instrument. The test now pins the **predicate**
+(`gate_` prefix OR the terminal arm) exactly as the SQL runs it.
+
+Then four mutations, four correct failures, green on restore: a duplicate arm name (caught by
+the distinctness check, naming both rungs), a gate arm stripped of its prefix (caught by the
+reach predicate), a return site with no arm, and `recordedArm` returning empty. Verified the
+first two failed on the **intended assertion** rather than incidentally, by reading the
+messages rather than the exit code.
+
+### ⚠ MISSTEP, and it is the same column and the same lane, three days apart
+
+Council **APPROVED first round** (10 seats fired, 7 abstained, `gated_by_truncation: false`,
+no high-severity) — and `debug_historian`'s single LOW advisory was the whole value of the
+round. It quoted **this lane's own landmine** back at me:
+
+> *"A per-row revalidation stamp is LAST-WRITE-WINS, so `GROUP BY` it reads exactly like a run
+> log and is not one"* — `LANDMINES.md:10111`, filed by this lane **2026-08-12**.
+
+`applyRevalidation` replaces `result.revalidation` **wholesale** every sweep. So `arm` is the
+rung that decided an item on the **latest run** and nothing more; **"has a gate ever been
+reached" is exactly what it cannot answer.** I had written "ever" in the submission, the commit
+message and the code comment. Corrected forward in `ac6a86f58` (comments only).
+
+**Why the landmine did not save me:** the `SessionStart` hook matches entries against files
+already **dirty** in the tree, and these files were clean at session start — so my own lane's
+entry was never surfaced, and I never grepped for it because I was not debugging anything.
+**Grep LANDMINES for the TABLE and COLUMN you are about to write to, not only the file you are
+editing.** Filed in `WRONG_CALLS.md` with the cheap check: *a build-object assignment means no
+second row per item can exist, so no per-item key can carry a rate.*
+
+**What is true instead, measured while correcting rather than asserted:** the per-**run**
+decision set does persist and already carries the new key — `collected_data->'sweep'->'items'`
+in `orchestration_states`, one row per sweep, never overwritten. But
+`[MEASURED 2026-08-14]` **exactly ONE sweep row is retained** (08-13 08:44:39Z) against 2,532
+orchestration rows back to 07-13. So neither surface gives a history *today*: one never will,
+the other will as runs accumulate. A one-row answer there is **not** "the sweep has run once".
+
+Incidental, and it answers two seats (`reuse_agent`, `prior_art_librarian`) who both asked
+whether a "which rung fired" field already existed: `decided_by` in
+`diagnose_council_decide_action.go` is the same **concept** in the council subsystem, different
+name and shape; nothing in the revalidator family has one. Not a duplicated mechanism — but
+the check was owed and had not been done.
+
+### The archived-page question — and my first framing of it was WRONG
+
+The 08-13 banner noted one incidental oddity: `page index-rejected-v1-20260806 still carries 14
+claim(s)`, i.e. `ScanDeployedClaims` has no page-status filter, so an archived page is judged.
+I set out to quantify it as a defect. Measured: **3 of the 30 revalidated items sit on pages
+whose status is not `active`** — 2 `still_holds` and, notably, **1 `resolved`**.
+
+> **CORRECTED, by the artefact check I nearly skipped.** I was about to record this as "the
+> audit wrongly judges archived pages". Curling the three, with a fabricated-URL control per
+> domain so the check could come out negative:
+>
+> ```
+> 200 30997b  robot-hands.com/gripper-catalog.html          archived, deployed   ← SERVING
+> 404  2711b  leopardessconsulting.co.uk/for-engineering-teams.html              ← absent
+> 302   143b  webdesign.uk/index-rejected-v1-20260806.html  never deployed
+> 404  2886b  robot-hands.com/…-control.html                (control)
+> 404  2711b  leopardessconsulting.co.uk/…-control.html     (control)
+> ```
+>
+> **An archived page can be serving 31KB to the public** — the control on the same domain 404s,
+> so the 200 is real and not a catch-all. So scanning archived pages is **correct**, and the
+> code comment's "NO PAGE-STATUS FILTER, and that is deliberate" is right for a reason beyond
+> the emit/revalidate parity it cites. `bugs_open/266` (owner: the 215 lane, fix APPROVED and
+> LIVE on v1.0.1295) independently established the same thing from the producer side, and
+> **leopardess and robot-hands are the two consumers that lane notified** — the same population,
+> reached from the other end.
+
+**What the measurement does show, once the framing is fixed:** the discriminator that matters
+is not `pages.status` at all — it is **whether the artefact is actually served**, and none of
+the three gates reads that. Two items are therefore parked in `needs_human_review` for ever,
+asking a human to correct copy on pages that return 404 and 302. The population that could
+ever reach a gate is **16, not 18**. Recorded as a note into `266` rather than filed as a
+competing bug: `266` is owned, and this is its consumer-side sibling, not a new defect.
+
+### State at the end of this session
+
+Arm instrument **committed and council-APPROVED, NOT YET LIVE** — `92b59138b` (+ `bb05ce78a`
+gofmt, `ac6a86f58` the correction) all postdate `v1.0.1295`, so the field ships on the next
+roll. The first sweep to carry it should return ~18 rows of `scan_still_trips` and **zero**
+gate rows. **That is the instrument working, not the gates approving** — and it is the first
+time that sentence will be checkable rather than arguable.
