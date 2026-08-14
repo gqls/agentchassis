@@ -1,18 +1,26 @@
 # CONTINUE HERE — the disk-pressure lane (`bugs_open/252`)
 
-**Last updated 2026-08-13 14:15Z.** Cold-start handoff for a new chat. The bug file
+**Last updated 2026-08-14 ~08:00Z.** Cold-start handoff for a new chat. The bug file
 (`252_HANDOFF_2026-08-11_disk_is_invisible_to_the_scheduler…`) holds the evidence and
 the fix candidates; **this file holds only what is still owed and what will mislead
-you.** Read the bug file's newest block — **`🔄 2026-08-13 14:05Z`** — first; it
-confirms the root cause by direct observation and **corrects the 20:45Z block below
-it**, which is kept struck-through rather than deleted. Everything here assumes it.
+you.** Read the bug file's two newest blocks — **`✅ 2026-08-14`** (1b live+proven,
+thread-side work complete) and **`🔄 2026-08-13 14:05Z`** (the sawtooth, which
+corrects the struck-through 20:45Z alarm below it) — first.
 
-**The one-paragraph version.** Disk was invisible to the scheduler; candidate 1 fixed
-that and is live. What remains is that **image GC's trigger and the eviction trigger
-are the same line**, so the reclaim cycle's trough sits against the eviction threshold
-and a roll landing in that trough gets its pod rejected. Every remaining lever is node
-config — the owner's. **One thread-side change is built, committed and waiting on an
-apply: candidate 1b (`85e8818dd`).**
+**The one-paragraph version.** Disk was invisible to the scheduler; candidate 1
+(requests) fixed that. Candidate 1b (spread constraint) makes the two big runners'
+separation a rule, and is **live and proven** — `kubectl get pods -l
+workload=gha-runner` must show 3 pods on 3 nodes, and does. A release now ships the
+runner manifests automatically (`deploy-github-runners` in the makefile,
+`ad945029d`). **All thread-side work is done. What remains is the confirmed root
+cause, and it is entirely owner-side node config:** image GC's trigger (85% used)
+*is* the eviction line (15% available), so the reclaim cycle's trough sits against
+the eviction threshold, and a roll landing in that trough gets its pod rejected —
+that was 08-11. The levers: **3a** GC threshold 85→~70 (raises the trough — the
+fix), **3b** `imageMaximumGCAge=168h` (reclaims between peaks; gate on by default
+at 1.31), **5** journald `SystemMaxUse=512M` (~3.87 GiB/node back, untouched by
+GC), plus standing decisions **2** (limits — deliberately not set) and **4**
+(bigger disks).
 
 > **✅ THE MARGIN IS A SAWTOOTH, NOT A DECLINE — AND WE HAVE NOW WATCHED THE TEETH.**
 > `[MEASURED 2026-08-13 14:01Z]` Fleet-worst headroom is **2.42 GB** and …1148 sits at
@@ -93,22 +101,27 @@ between rolls. Needs the `ImageMaximumGCAge` gate — **beta and on by default s
 1.30, cluster is 1.31**, so nothing to enable. Composes with 3a; 3b is the one that
 stops the margin decaying between rolls. Owner action (kubelet config).
 
-**✅ Candidate 1b is DONE as code — committed `85e8818dd`, awaiting an apply.** Both
-runner deployments now carry a shared `workload: gha-runner` pod label and an
-identical `maxSkew: 1` / hostname / `DoNotSchedule` / `nodeTaintsPolicy: Honor`
-spread constraint. **The shared label is the load-bearing part and this brief got it
-wrong** — the two deployments have *different* `app:` values, so the obvious
-`app: github-actions-runner`-scoped constraint would have spread that deployment's
-replicas and **still allowed the pairing that opened 252** (a runner replica beside
-the *vmsites* pod). Verified by parsing the rendered YAML per container, `kubectl
-diff -k` clean (`generation` + label + constraint, nothing else), selector untouched,
-and a deadlock check — a 4Gi surge pod fits on all five nodes by request accounting.
-**Applying rolls three CI runner pods, so it is an owner action:**
+**✅ Candidate 1b is LIVE AND PROVEN (2026-08-14).** Both runner deployments carry a
+shared `workload: gha-runner` pod label and an identical `maxSkew: 1` / hostname /
+`DoNotSchedule` / `nodeTaintsPolicy: Honor` spread constraint (`85e8818dd`), and the
+owner's release applied it: **3 pods, 3 distinct nodes, max 1 per node**, pinned
+images intact. The acceptance test, any time:
 ```bash
-kubectl apply -k deployments/kustomize/services/github-actions-runner/overlays/production/uk_001
-kubectl apply -k deployments/kustomize/services/github-actions-runner-vmsites/overlays/production/uk_001
-kubectl -n ai-persona-system get pods -o wide -l workload=gha-runner   # must be 3 pods, 3 nodes
+kubectl -n ai-persona-system get pods -o wide -l workload=gha-runner   # 3 pods, 3 nodes
 ```
+**The shared label is the load-bearing part and this brief originally got it wrong**
+— the two deployments have *different* `app:` values, so an `app:`-scoped constraint
+would have spread one deployment's replicas and **still allowed the pairing that
+opened 252** (a runner replica beside the *vmsites* pod). If you change the label
+value, change it in BOTH deployments or the constraint silently stops spanning them.
+
+**✅ And a release now ships runner manifests automatically** (owner request,
+makefile `ad945029d`): `deploy-agents` calls `deploy-github-runners`, which applies
+both overlays **without** retagging them — the runners have their own image lineage
+(`v1.0.948` / `v1.0.1126`, deliberately different from the platform tag), and
+`build-backend`/`push-backend` never build a runner image, so a tag sweep there
+would ImagePullBackOff both. To move a runner to a new image, use
+`make release-github-runner`, which builds and pushes first.
 
 **Candidate 5 — set `SystemMaxUse=512M` in `/etc/systemd/journald.conf`. NEW, and it
 is the cheapest and biggest item on the list.** `[MEASURED 08-12 18:30Z on …1148 and
@@ -258,11 +271,11 @@ WHERE categories ? 'landmine-verification' ORDER BY created_at DESC LIMIT 3;
 
 ## The honest summary line
 
-**Candidate 1 is live and proven. Candidate 1b is committed (`85e8818dd`) and awaiting
-an apply** — it is a kustomize change, so the 08-13 chassis roll did **not** deliver
-it even though the deployed commit contains it. Between them the fleet requests disk
-and the two big consumers would be separated by a rule rather than by luck. **That is
-the whole of what a thread can do here, and the lane is not fixed.** 252 stays OPEN.
+**Candidates 1 and 1b are both LIVE AND PROVEN (1b as of the 08-14 release).** The
+fleet requests disk, and the two big consumers are separated by a rule — 3 runner
+pods on 3 distinct nodes, enforced by `DoNotSchedule`, shipped automatically by
+every future release (`deploy-github-runners`, makefile `ad945029d`). **Thread-side
+work on this lane is complete, and the lane is not fixed.** 252 stays OPEN.
 
 **The bug is confirmed, and the 08-13 measurement states it better than the filing
 did:** image GC works, but `imageGCHighThresholdPercent: 85` *is* the
@@ -280,8 +293,12 @@ cheapest are each one line:
   touched by image GC** — a permanent tax that lowers the whole sawtooth. Freeing it
   raises every point in the cycle. Unaffected by the correction above.
 
-Neither has been made. **The margin is healthy at this instant (2.42–9.28 GB) and
-that is not the point** — it was 0.60 GB seventeen hours ago and will be again.
+Neither has been made (plus 3b, `imageMaximumGCAge=168h`, reclaiming between peaks).
+**The margin at the 08-14 reading is 1.20–4.26 GB above evict and that is not the
+point** — it is a phase of the sawtooth. Yesterday's healthiest node (…6832, 7–8 GB)
+is today's tightest (1.20 GB); the day before, three nodes sat at 0.6–0.8 GB. The
+window of exposure recurs every cycle until the trough is raised, and raising the
+trough is 3a — one line of kubelet config, the owner's.
 
 > **Claim-shape lesson kept deliberately.** This line has read "one-third done",
 > then "one-fifth done", then "done" — the denominator changed from 3 deployments to

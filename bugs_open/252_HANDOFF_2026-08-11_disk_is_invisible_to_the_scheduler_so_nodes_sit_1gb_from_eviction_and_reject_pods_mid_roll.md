@@ -111,6 +111,37 @@ roll**, self-healed. The reason it is worth filing anyway: with …6832 at 1.34 
 of headroom, the same event on two nodes at once during a roll would leave a
 deployment short for as long as the pressure lasts, and nothing alerts on it.
 
+## ✅ 2026-08-14 ~07:50Z — **CANDIDATE 1b IS LIVE AND PROVEN. THE RUNNERS' SEPARATION IS NOW A RULE. THREAD-SIDE WORK ON THIS LANE IS COMPLETE.**
+
+`[MEASURED at the pods]` The owner's release (chassis now `v1.0.1297`, runner pods
+~14h old at this reading) went through the new release path, which since
+`ad945029d` applies both runner manifests as part of `deploy-agents`. Result:
+
+- **3 runner pods, 3 distinct nodes, max 1 per node, all `Running`** —
+  `kubectl get pods -l workload=gha-runner` is now the one-line acceptance test,
+  and it passes. Placement is enforced by `maxSkew: 1` / `DoNotSchedule`, not by
+  scheduler luck.
+- **Both deployments kept their pinned images** (`v1.0.948` / `v1.0.1126`) — the
+  release did *not* retag them to the platform tag, which is what the
+  `deploy-github-runners` target was designed to guarantee. No ImagePullBackOff.
+- Generations landed at exactly the values the pre-commit `kubectl diff`
+  predicted (15 and 4) — one apply, no drift.
+- Census still **5**; no rejection / eviction / DiskPressure events in the window.
+
+Headroom at the same reading, for the series: …1148 **4.26**, …1149 **2.52**,
+…6832 **1.20**, …6833 **2.42**, …1336 **2.47** GB above evict. Fleet-worst is
+…6832 — **yesterday's healthiest node is today's tightest**, which is the sawtooth
+doing what the 08-13 block says it does. No alarm; phase, not trend.
+
+**What is now DONE in this lane:** candidate 1 (requests, live+proven 08-12),
+candidate 1b (spread constraint, live+proven today), and the release-path wiring
+so runner pod-spec changes ship with every release (makefile `ad945029d`).
+**Everything that remains is an owner decision on node config:** 3a (GC threshold
+85→~70 — raises the sawtooth's trough, the actual fix), 3b (`imageMaximumGCAge`
+168h — retires stale tags between peaks), 5 (journald `SystemMaxUse=512M` —
+~3.87 GiB/node back, unaffected by GC), and the standing decisions 2 (limits) and
+4 (bigger disks).
+
 ## 🔄 2026-08-13 14:05Z — **WE FINALLY WATCHED IMAGE GC FIRE. IT CONFIRMS THE ROOT CAUSE AND IT CORRECTS MY OWN ALARM FROM LAST NIGHT.**
 
 `[MEASURED 14:01Z, clock taken from `SELECT now()`]` A fresh chassis build
