@@ -367,3 +367,31 @@ after the next `agent-chassis` roll**, the same posture `bugs_open/040` used.
 Re-check with `git merge-base --is-ancestor 3621ca7cf <the rolled commit>` and
 the build-provenance log line once a roll happens, then this can move to
 `bugs_closed/`.
+
+## §16 — CLOSED 2026-08-14: rolled, proven live on both replicas
+
+A fresh `agent-chassis` build (`v1.0.1298`) deployed. The startup "build
+provenance" log line was already scrolled out of range on both replicas
+(`--tail=3000` and `--since=6h` both miss it — a busy service, per the standing
+landmine) so the roll was proven at the **binary**, not the log, with the
+mandatory positive/negative controls:
+
+```
+RS agent-chassis-64cb9c4bb9 created 2026-08-14T08:58:03Z.
+Candidate build commit (HEAD at that instant): bc39e7bf547e9d5db07c92085be85c6874654774.
+git merge-base --is-ancestor 3621ca7cf bc39e7bf5... → TRUE (3621ca7cf IS an ancestor)
+
+kubectl exec agent-chassis-64cb9c4bb9-6tfxf -- grep -aq "bc39e7bf..." /proc/1/exe → PRESENT
+kubectl exec agent-chassis-64cb9c4bb9-dphbw -- grep -aq "bc39e7bf..." /proc/1/exe → PRESENT (2nd replica)
+kubectl exec ...                          -- grep -aq "0000...dead" /proc/1/exe → absent (negative control)
+```
+`[MEASURED]` Both live replicas embed the exact candidate commit as their build
+identity, and that commit is a confirmed git descendant of `3621ca7cf`. The Go
+`Required`/no-`Default` change is therefore **live**, not merely committed —
+completing the second half of this bug's fix (the first half, migration 399,
+was independently verified live via real `site_work_items` in §14).
+
+**Both halves of the fix are now fixed AND live. Moving to `bugs_closed/`.**
+`bugs_open/272` (site-review-agent's separate `findings_field` defect,
+discovered while verifying this bug) stays open on its own — it is not this
+bug's to fix and was never blocking this closure.
