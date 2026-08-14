@@ -51,9 +51,16 @@ Round 2 exists because round 1 was **a live regression, not a thin margin**: the
 emissions measured **3.93–4.03:1** on the composited ground and would have re-filed
 `A.info-card-grid__card-link` — an element migration 368 repaired.
 
-Emitted values now, worst-of-four grounds: robot-hands primary `#8a97bd` 4.56 · dartsonline primary
-`#8a97bd` 4.60 · vonc primary `#9b6aff` 4.62 · cookly accent `#c04d28` 4.53 · webdesign.co.uk accent
-`#9d6630` 4.52. All still recognisably the brand colour.
+Emitted values now, worst-of-four grounds, **every ground transcribed from the served stylesheet**:
+robot-hands primary `#8a97bd` 4.56 · dartsonline primary `#8a97bd` 4.60 · vonc primary `#9b6aff` 4.62 ·
+webdesign.co.uk accent `#9d6630` 4.52 · cookly accent `#af4625` 4.62 · lendzy accent `#b25608` 4.64 ·
+**oufe primary `#7d9ec4` 4.51 — the fleet's thinnest, because oufe sets `primary == surface`
+(`#1B2A3B`), so the ink is made legible against its own colour.** All seven are pinned by
+`TestLegibleVariant_EmittedHexIsPinnedForRealPalettes`.
+
+⚠ Two figures in the round-2 commit message (`8ad05d01a`) are WRONG and cannot be amended: cookly
+accent `#c04d28` and lendzy accent `#b75808`, both computed from grounds I invented. Corrected in the
+NOTES entry and pinned in the test. **Trust the test, not the commit message.**
 
 **Five mutation proofs**, each a distinct failure, files restored byte-identical: M1 delete the
 `LegibleVariant` call (restores the defect) · M3 `grounds[:1]` · M4 walk one direction to exhaustion ·

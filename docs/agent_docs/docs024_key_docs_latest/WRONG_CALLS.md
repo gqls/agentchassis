@@ -30817,3 +30817,57 @@ at a breadth of one file.
 **Recorded forward:** `3f72df787` corrects `5baecdfe1`'s message (forward-only forbids the amend);
 their row is logged under their own name above; the deleted lines are whole at HEAD in a better form
 than what was lost.
+
+---
+
+## 2026-08-14 — bug 122: I logged "a probe with invented inputs" as a lesson, fixed the one instance I'd been caught on, and shipped two more of it in the same change
+
+Yesterday I published a colour value to a peer that was computed from a fixture whose
+**grounds I had typed from imagination** rather than transcribed from the served
+stylesheet. A reviewer's independent replication disagreed, I found the cause, wrote it
+up here, and added a test pinning the emitted hex for four real palettes.
+
+**Three of those four fixtures were fine. I never checked the other three sites in the
+same file.** The reviewer replicated again and disagreed again:
+
+| site / slot | what I published | measured, real grounds | what I got wrong |
+|---|---|---|---|
+| cookly.uk accent | `#c04d28` 4.53 | **`#af4625` 4.62** | assumed surface `#FFFFFF`; real is the cream `#F0E8D5` |
+| lendzy.co.uk accent | `#b75808` +0.01 | **`#b25608` +0.14** | had background and surface **swapped, and both wrong** |
+
+And the consequence was not just two wrong numbers. **I asked the reviewer to rule on a
+residual risk on the wrong site.** I told them lendzy's accent was the fleet's thinnest
+emission at +0.01 and asked whether it wanted padding. Lendzy sits at a comfortable +0.14.
+The genuine thinnest is **oufe.com primary at +0.01** — and it is thin for a reason worth
+knowing: oufe sets `primary == surface` (both `#1B2A3B`), so the ink is being made legible
+against its own colour. I burned a reviewer's round on a question about a site that did not
+have the problem, and the site that did have it was not in my table at all.
+
+Both wrong figures are now unamendable, in commit `8ad05d01a`'s message.
+
+**What actually went wrong, and it is not "I was careless with a fixture".** I treated the
+first instance as an incident and fixed *that instance*. The correct response to
+discovering a fabricated input is to **audit every other input of the same kind in the same
+artefact** — I had seven sites' grounds in two probe files and I checked one. A lesson
+logged and then not applied backwards is a lesson that cost the writing and bought nothing.
+
+**Why no check caught it:** every one of these fixtures produces a plausible number, the
+tests all passed, and the two suites were green at HEAD throughout. A fabricated ground
+yields a real WCAG ratio for a colour pair nobody uses. There is no internal signal at all
+— only a second implementation with independently transcribed inputs, which is exactly what
+the reviewer supplied, twice.
+
+**The transferable rules:**
+1. **On finding one fabricated input, audit the whole class before writing the lesson down.**
+   The lesson is not "check your fixture"; it is "the same hand typed the others".
+2. **Transcribe, then cite where from.** The pinned test now says, in a comment, that every
+   ground comes from the served stylesheet — so the next reader knows which values were
+   read and which would be a regression to invent.
+3. **A number you hand a reviewer to rule on becomes their agenda.** Getting the *subject*
+   of a question wrong is worse than getting a figure wrong, because they will spend the
+   round on it. Re-measure the specific case you are asking about, not the neighbourhood.
+4. **Two implementations disagreeing on one input is the only detector we have here**, and
+   it has now fired twice in two days on the same algorithm. That is an argument for pinning
+   the thin cases rather than padding them — a +0.01 margin sits inside the noise between
+   two implementations, so it is the case most likely to flip silently under a refactor.
+   `oufe.com` primary is now pinned for that reason.

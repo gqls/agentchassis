@@ -2020,9 +2020,27 @@ trail with `RESUBMIT_CORR` if it wants the newer design).
 **Fixed at the cause, not padded.** `buildLegibleInkDefaults` composites the overlay onto both page
 grounds and requires all four to clear; `colour.CompositeOverGround` does it deliberately, because
 `platform/colour` refuses to composite alpha implicitly (its header explains why) and that left this
-exact gap for a caller that *knows* its overlay. Re-measured worst-of-four: robot-hands primary
-`#8a97bd` 4.56, dartsonline primary `#8a97bd` 4.60, vonc primary `#9b6aff` 4.62, cookly accent
-`#c04d28` 4.53, webdesign.co.uk accent `#9d6630` 4.52 — all still recognisably the brand.
+exact gap for a caller that *knows* its overlay.
+
+Re-measured worst-of-four, **against grounds transcribed from the served stylesheet for every site**:
+robot-hands primary `#8a97bd` 4.56 · dartsonline primary `#8a97bd` 4.60 · vonc primary `#9b6aff` 4.62 ·
+webdesign.co.uk accent `#9d6630` 4.52 · **cookly accent `#af4625` 4.62** · **lendzy accent `#b25608`
+4.64** · **oufe primary `#7d9ec4` 4.51** — all still recognisably the brand.
+
+> **CORRECTED 2026-08-14, by this lane's independent replication — and it is the SAME error as the
+> `#7785b2` one, committed twice in one change.** I first wrote cookly accent as `#c04d28` 4.53 and
+> lendzy accent as `#b75808` +0.01. Both were computed from **grounds I invented**: cookly's real
+> surface is the cream `#F0E8D5`, not the white I assumed, and lendzy's background/surface I had
+> **swapped and both wrong**. The reviewer's `#AF4625 at 4.62` was right and mine was not.
+>
+> **And the residual I asked them to rule on was on the wrong site.** I reported lendzy's accent as
+> the fleet's thinnest at +0.01; lendzy actually sits at a comfortable +0.14. **The genuine thinnest
+> is `oufe.com` primary at 4.51 (+0.01)**, and it is thin for a nameable reason: oufe sets
+> `primary == surface` (both `#1B2A3B`), so the ink is being made legible against its own colour. I
+> asked for a ruling on a site that did not have the problem.
+>
+> All three are now in `TestLegibleVariant_EmittedHexIsPinnedForRealPalettes` (7 cases, every ground
+> transcribed).
 
 **I rejected the margin the reviewer offered as an alternative** (walk to 5.0 instead of 4.5), and
 the reasoning is worth keeping: it buys absorption without fixing the wrong-ground error, and it

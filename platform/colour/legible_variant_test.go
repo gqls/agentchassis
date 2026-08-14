@@ -254,6 +254,11 @@ func TestLegibleVariant_ClearsTheCOMPOSITEDGroundNotJustTheDeclaredOne(t *testin
 // A fixture whose inputs are transcribed from the artefact, asserting an exact
 // output, is the only shape that catches that.
 func TestLegibleVariant_EmittedHexIsPinnedForRealPalettes(t *testing.T) {
+	// EVERY ground here is transcribed from the served stylesheet. That sentence is
+	// load-bearing: the first version of this table invented background/surface for
+	// three sites, and TWO of the resulting figures were wrong and were published —
+	// in a commit message, a bug file, a handoff and a council submission — before
+	// a reviewer's independent replication disagreed. See the note below the table.
 	cases := []struct {
 		site, src, bg, surface, want string
 	}{
@@ -261,6 +266,23 @@ func TestLegibleVariant_EmittedHexIsPinnedForRealPalettes(t *testing.T) {
 		{"dartsonline.com primary", "#1A1F2E", "#111520", "#1E2436", "#8a97bd"},
 		{"webdesign.co.uk accent", "#d4a373", "#f9f8f6", "#ffffff", "#9d6630"},
 		{"vonc.com primary", "#7c3cff", "#0a0a0f", "#13121f", "#9b6aff"},
+
+		// ⚠ THE THINNEST EMISSION IN THE FLEET, and the reason it is pinned rather
+		// than padded. oufe.com sets primary == surface (both #1B2A3B), so the ink
+		// is being made legible against its own colour and lands at 4.51 — +0.01.
+		// A reviewer proposed walking to 5.0 for absorption; that was declined
+		// because it buys a cushion without fixing a wrong ground and would imply
+		// cover for grounds nobody models. What +0.01 argues for is a PIN, not a
+		// cushion: at that margin this is the case most likely to flip silently
+		// under a refactor, and two independent implementations of this algorithm
+		// have already disagreed twice in two days.
+		{"oufe.com primary (fleet-thinnest, +0.01)", "#1B2A3B", "#0F1820", "#1B2A3B", "#7d9ec4"},
+
+		// The two that a reviewer's replication caught. Both were quoted wrong from
+		// invented grounds: cookly as #c04d28 (real surface is the cream #F0E8D5,
+		// not the white I assumed) and lendzy as #b75808 with bg/surface swapped.
+		{"cookly.uk accent", "#C8502A", "#FDFAF4", "#F0E8D5", "#af4625"},
+		{"lendzy.co.uk accent", "#E8700A", "#F8F7F4", "#FFFFFF", "#b25608"},
 	}
 	for _, c := range cases {
 		grounds := []string{c.bg, c.surface}
@@ -276,8 +298,8 @@ func TestLegibleVariant_EmittedHexIsPinnedForRealPalettes(t *testing.T) {
 		}
 		if got != c.want {
 			t.Errorf("%s: LegibleVariant(%s) = %s, want %s — if this is a deliberate change, "+
-				"re-measure every figure quoted in bugs_open/122 and the council submission, "+
-				"because they name these hexes", c.site, c.src, got, c.want)
+				"re-measure every figure quoted in bugs_open/122, the lane NOTES, the handoff and "+
+				"the council submission, because they all name these hexes", c.site, c.src, got, c.want)
 		}
 	}
 }
