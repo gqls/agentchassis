@@ -2532,3 +2532,20 @@ lines, all on standard-calc) until that page's wiring changes again. Handoff and
 summary corrected in place, visibly. The trackb2 session's uncommitted repoint of
 `decompose_lmc.py`'s pin (`5cc277294` → `7e6b993ef`, "the LAST CLEAN pin") is part
 of the same clean-source workstream — it is theirs and is left untouched.
+
+### 2026-08-14 (afternoon) — colour-fixer floor exemptions converted REASONED→MEASURED (the §6 "anyone; cheap" item)
+
+Done as `single_slot_floors.go`'s disposition note prescribed: a standing test
+(`colour_fixer_class_preservation_test.go`) drives both rendered-row transforms
+(`processComponentCSS`, `checks.ReplaceHardcodedColors`) over class-carrying
+fixtures and asserts the floor's own census (`countComponentClasses`) unchanged
+AND the class-attribute list identical. Controls in the same test: each transform
+proven to fire with exact effects (and proven selective — the link rule's colour
+survives the forced-text strip), and the census proven to detect a removed class
+(drop of exactly 1 on a mutated fixture). Disposition markers and the
+`exemptWriters` reasons now name the test. Whole actions package green before and
+after; **HEAD-archive check green** (`git archive HEAD` → `go test`, so the commit
+stands without any session's WIP). Commit `bb894e312`, council
+`Council-Submitted: d4b08e11-c3f8-47a2-95a6-7d39f0932612` — verdict to be read
+when the round lands (~30 min dispatch latency is normal; find the run by
+payload, not printed id).

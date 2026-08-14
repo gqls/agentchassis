@@ -137,7 +137,7 @@ cd $LANE && python3 oracle.py            # expect 170/0/6 (six CONV = standard-c
 | 4 loans templates with inline arithmetic | flagged, passing | trackb2 (batch move if owner asks) |
 | `bugs_open/251` canonical → then `252` og:/lang | scheduled, ordered | unowned — platform work |
 | `bugs_open/250` last box: loancalculator restore round-trip | open | loancalculator lane |
-| colour-fixer exemptions REASONED→MEASURED | written down in `single_slot_floors.go` | anyone; cheap |
+| colour-fixer exemptions REASONED→MEASURED | **DONE 08-14 pm** — `colour_fixer_class_preservation_test.go`, commit `bb894e312`, council corr `d4b08e11` (read the verdict) | done |
 | loancash `complaint-deadline-calculator` oracle | workstream exists (`loancash_couk_fca_validation/`) | unstarted — note the trackb2 session's transcript mentioned starting it; check before duplicating |
 | Track C (loancash decomposition) | after Track B | — |
 
