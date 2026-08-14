@@ -1991,3 +1991,59 @@ dropped from my landmine entry (`eb07f1fc9`), and logged it in `WRONG_CALLS`; th
 `sv=` form is at HEAD and is better than what was lost. Their correction of my `[INFERRED]` marker is
 now itself out of date — the token came back and §5 records the instrument reading, so it is
 confirmed; they have been asked to drop the marker in `bugs_open/122` §11 next time they touch it.
+
+### 2026-08-14 — the derivation fix, ROUND 2: certifying against the composited ground, and a mutation that PASSED
+
+Round 1 committed as `12cf55015`; round 2 as `8ad05d01a`. Council trail
+`afcec886-f84c-4fb4-8876-43502e70965b` (submitted on round 1's design, in flight at `gate_guidelines`
+when round 2 landed — deliberately not resubmitted mid-round; read the verdict, then resubmit on the
+trail with `RESUBMIT_CORR` if it wants the newer design).
+
+**This lane reviewed round 1 within the hour and both objections were right.**
+
+1. **My quoted hex was wrong; the code was not.** I reported robot-hands emitting `#7785b2`. The real
+   emission for its real palette is **`#7d8bb6`** — identical to dartsonline's, as the reviewer
+   deduced. Mine came from a throwaway probe whose **grounds I had invented** (`#0F1319`/`#1A1F2E`
+   instead of the served `#0F1218`/`#1E2535`). Nothing could contradict me because no test named an
+   output. `TestLegibleVariant_EmittedHexIsPinnedForRealPalettes` now pins four, with inputs
+   transcribed from the artefact. *A probe with fabricated inputs produces a figure indistinguishable
+   from a measured one* — and I published it to a peer.
+2. **The structural objection, and it was worse than they could see from outside.** "Smallest
+   sufficient change" puts every output within ~0.1 of the floor **by construction**, while the
+   derivation reasoned about the palette's *declared* surface and a component painting with
+   `--section-surface` puts the ink on a ground 5% lighter. `[MEASURED]` that overlay costs **0.62**
+   of contrast ratio on the dark palettes — ~10× the headroom — and round 1's own emissions measured
+   **3.93–4.03:1** on the composited ground. **Round 1 would have filed a fresh `contrast_failure`
+   for `A.info-card-grid__card-link`, an element migration 368 repaired**, and this lane's Monday
+   canary would have read it as a retraction regression.
+
+**Fixed at the cause, not padded.** `buildLegibleInkDefaults` composites the overlay onto both page
+grounds and requires all four to clear; `colour.CompositeOverGround` does it deliberately, because
+`platform/colour` refuses to composite alpha implicitly (its header explains why) and that left this
+exact gap for a caller that *knows* its overlay. Re-measured worst-of-four: robot-hands primary
+`#8a97bd` 4.56, dartsonline primary `#8a97bd` 4.60, vonc primary `#9b6aff` 4.62, cookly accent
+`#c04d28` 4.53, webdesign.co.uk accent `#9d6630` 4.52 — all still recognisably the brand.
+
+**I rejected the margin the reviewer offered as an alternative** (walk to 5.0 instead of 4.5), and
+the reasoning is worth keeping: it buys absorption without fixing the wrong-ground error, and it
+would *imply* that unmodelled grounds are handled. They are not — component-painted grounds stay
+`bugs_open/212` §8, over-image stays excluded from firm findings. Better a narrow guarantee stated
+than a wide one implied.
+
+**⚠ THE MOST USEFUL THING IN THIS ENTRY: a mutation that PASSED.** Deleting the compositing loop from
+`pageGrounds` left **every test in the actions package green**. The composited-grounds test lived in
+`platform/colour` and exercised `LegibleVariant` with hand-built grounds — so the **unit was pinned
+and the WIRING was not**, and the mutation walked straight through the gap. A test proving a function
+honours an argument says nothing about whether its caller passes that argument.
+`TestBuildLegibleInkDefaults_EmittedInkClearsTheCompositedGround` now reads the emitted `:root` block
+and measures the value it *actually contains*; under that mutation it goes RED naming **3.93:1**, the
+figure this lane predicted. Five mutation proofs now stand on this change (M1, M3, M4 on round 1; M5,
+M6 on round 2), each a distinct failure, files restored byte-identical each time.
+
+`sectionSurfaceOverlayAlpha` is now a named constant with **two** readers — the emitted CSS literal
+and the derivation — joined by `TestSectionSurfaceOverlayAlphaMatchesTheEmittedCSS`, which fails if
+either moves. The literal stays inside the format string so emitted bytes cannot change.
+
+**Still inert until `agent-chassis` is rebuilt and rolled.** Control D unchanged: dartsonline's
+`--color-primary-ink` must read as a navy, now `#8a97bd`. If it reads `#F0F2F7` the change did not
+ship; if it reads `#7d8bb6` **round 2 did not ship** and the composited grounds are absent.

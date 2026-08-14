@@ -1200,13 +1200,15 @@ Had it been automated on the rule above, it would have written the equivalent of
 served ink diverges. On light sites that turns every brand-accent link near-black — on the lane
 whose product is web design among them.
 
-> **`[UNVERIFIED — inherited, do not quote]`** The specific figures "~224 rendered placements across
-> 13 sites" and "`webdesign.co.uk` alone has 49" came from a subagent and **I did not re-run them**
-> (token expiry, as §5). What I did measure myself is the containing figure:
-> `page_components.rendered_html` carries the anchored pattern on **461 of 1,485 rows**
-> `[MEASURED 2026-08-13]`. The per-site split, and therefore the blast radius on the diverging
-> sites specifically, is **owed** — §9 has the query. Note also that the divergence count is **14
-> sites** by my own §1 table, not 13; I have not reconciled that against the inherited 13.
+> **`[MEASURED 2026-08-14 by me, after the token was restored — and the inherited figure was an
+> UNDERCOUNT]`** The real blast radius is **330 rendered placements across the 14 diverging sites**,
+> not "~224 across 13". Per site: `webdesign.co.uk` **50** (inherited said 49), `finetuning.uk` 48,
+> `ai-agent-orchestration.com` 44, `robot-hands.com` 29, `gaswholesalers.com` 28, `relojistas.com`
+> 23, `loancash.co.uk` 20, `dartsonline.com` 16, `vetcomparison.uk` 11, `oufe.com` 10,
+> `lendzy.co.uk` 8, `mortgagecalculator.co.uk` 7, `cookly.uk` 5, `vonc.com` 31. The fleet-wide
+> figure is **461 of 1,485 `page_components` rows across 20 sites** — the 20 reconciles exactly with
+> the per-site sum, which is the arithmetic that makes both trustworthy. The divergence count is
+> **14** by §1's table, and the inherited "13" was simply wrong. Query in §9(b).
 
 **And `scripts/render_audit.py` would have scored the result a clean pass**, because near-black text
 on a light ground has excellent contrast. This is the shape this file keeps recording: the wrong
@@ -1235,12 +1237,12 @@ translucent overlay. The element *is* on the page ground. **"Sets a background" 
 lands on a different ground"** — and the `system-stats` row above is a first-hand, sufficient
 counter-example on its own: one ground-truth rule that the eligibility rule provably refuses.
 
-> **`[UNVERIFIED — inherited, do not quote]`** A supporting figure of "38 of the 75 self-painted
-> blocks (51%) paint a translucent, `transparent` or `--section-*` background" was produced by a
-> subagent and **I did not re-run it myself** — the kubeconfig token expired mid-verification
-> (2026-08-13 ~15:30, the routine 3-day expiry). The query is written out in §9 below; run it
-> before repeating the number. The §5 conclusion does not depend on it: it rests on the
-> `system-stats` counter-example, which I read from the live corpus myself.
+> **`[MEASURED 2026-08-14 by me, after the token was restored — supersedes the inherited figure]`**
+> **41 of the 76 self-painted blocks (54%) paint a translucent, `transparent` or `--section-*`
+> background.** The inherited figure was "38 of 75 (51%)" — directionally right, wrong in detail,
+> and now replaced. Query in §9(a). The conclusion never depended on it: it rests on the
+> `system-stats` counter-example, which I read from the live corpus myself. **More than half of what
+> the eligibility rule excludes, it excludes wrongly.**
 
 Prior art that already solved this properly and must be reused rather than re-derived:
 `fix_forced_text_colours_action.go:164-188` carries a **calibrated four-way** `paintClass`
@@ -1259,8 +1261,8 @@ saying otherwise is the claim that would not survive review:
 | `content_components.html_template` | 168 components / 423 in-block **+ 30 in inline `style="…"` attributes** (16 tool components) — the 30 have no enclosing block, so any block-walking transform is blind to them |
 | `layouts.css_template` | **17 of 18** — and these ship into every site's `styles.css` |
 | `css_snippets.css_content` | 2 of 21 |
-| `site_components.rendered_html` (stored chrome) | **33 of 66 rows** — no page re-render rebuilds chrome (`bugs_open/117`). The "19 sites" I first wrote here is `[UNVERIFIED]`; the row count is mine |
-| `page_components.rendered_html` (stored artefacts) | **461 of 1,485 rows** (I first wrote 460, inherited; 461 is my own count). The "378 pages" is `[UNVERIFIED]` |
+| `site_components.rendered_html` (stored chrome) | **33 of 66 rows, across 19 sites** — no page re-render rebuilds chrome (`bugs_open/117`). Both figures now mine `[MEASURED 2026-08-14]`; the inherited "19 sites" checked out exactly |
+| `page_components.rendered_html` (stored artefacts) | **461 of 1,485 rows, across 20 sites** `[MEASURED]` (I first wrote 460, inherited). Of those, **330 are on the 14 sites where the ink diverges** — the ones a repoint would actually change |
 
 All four non-`content_components` rows `[MEASURED 2026-08-13]` by me, same anchored pattern, one
 query per surface. The `content_components` row reconciles exactly and that is worth stating,
@@ -1302,11 +1304,22 @@ cheap and welcome; it is not owed for the *damage*, which is measured.
 
 ### 9. Owed measurements, with their queries — and why they are listed rather than quoted
 
+> **RESOLVED 2026-08-14 — all three were re-run by me once the token came back, and the corrected
+> figures now stand inline in §§4–6. Two of the three inherited numbers were wrong: the blast radius
+> was an undercount (330 across 14 sites, not ~224 across 13) and the translucent share was 41 of 76,
+> not 38 of 75. The third (19 sites of chrome) checked out exactly. Queries kept below so the next
+> reader can re-run them rather than trust me.**
+
 The kubeconfig token expired part-way through my verification pass (routine 3-day expiry; the owner
-refreshes it). Three figures that a subagent produced were therefore **never re-run by me**, and are
-marked `[UNVERIFIED — inherited]` where they appear above rather than left wearing a `[MEASURED]`
-badge. **None of the section conclusions rests on them** — each section's load-bearing evidence is
-first-hand — but do not quote these three onward until someone runs the queries.
+refreshes it). Three figures that a subagent produced were therefore **not re-run by me at the time**,
+and were marked `[UNVERIFIED — inherited]` where they appeared above rather than left wearing a
+`[MEASURED]` badge. None of the section conclusions rested on them — each section's load-bearing
+evidence was first-hand — and the marking is what let me come back and settle them the same night,
+which is the whole argument for marking rather than omitting.
+
+**The queries stayed here after being run, deliberately.** Two of the three inherited numbers turned
+out wrong when I re-ran them, so the next reader should be able to check mine the same way rather than
+inherit them from me — which is exactly the mistake this section records.
 
 ```sql
 -- (a) §5's translucent-ground share of the self-painted blocks.
@@ -1379,11 +1392,23 @@ Measured across 8 sites by the contributing lane: the *consumer* shape is fleet-
 `finetuning.uk`, `gaswholesalers.com`), and all three pair it with `--color-cta-text: #ffffff`, which
 is why it has survived unnoticed. The other 5 hold a plain hex there and are fine.
 
-**`[INFERRED]`, and left inferred deliberately** — the inheritance step is reasoned, not observed:
-the contributing lane had no local Playwright and an expired kubectl token, same as me. **The cheap
-disconfirming check for whoever next has a live token:** the filed `contrast_failure` row's spec
-should carry the audit's measured fg/bg/ratio for that selector. `fg ≈ bg ≈ #ffffff` at ≈1.0:1
-confirms it; anything else refutes it.
+> **`[INFERRED]` LIFTED 2026-08-14 — the check was written down, then run, and it PASSED.** The
+> inheritance step was reasoned rather than observed when this was filed (neither of us had a live
+> token). The contributing lane's token came back and they read the filed row's own spec:
+> **`fg = rgb(255,255,255)` on `bg = rgb(255,255,255)`, ratio 1, `text_sample "Run MatchMatrix"`** —
+> which is the primary button's own link text. That is exactly the disconfirming check recorded
+> below, and it confirmed rather than refuted.
+>
+> **Fleet-wide: 16 of 17 filed `%cta-btn%` rows show the same 1.0:1 white-on-white signature.** The
+> 17th is a clean control and worth more than the 16: `leopardessconsulting.co.uk`'s
+> `A.tool-cta-btn-primary` at **2.27:1** — a *valid* token that is merely too pale. So the two faults
+> are distinguishable by ratio alone (≈1.0 = the dead-fallback type error; 2–4 = an ordinary
+> contrast failure), which means the signature is diagnostic rather than just suggestive.
+
+**The check that lifted it**, kept because the next reader should be able to re-run it rather than
+trust us: the filed `contrast_failure` row's spec carries the audit's measured fg/bg/ratio for the
+selector. `fg ≈ bg ≈ #ffffff` at ≈1.0:1 confirms the dead-fallback mechanism; anything else refutes
+it.
 
 **Why it belongs on this bug and why my §7 fix does not touch it.** It is the same family — a palette
 slot used in a role it was not authored for — but the failure is a *type* error, not a contrast one,
