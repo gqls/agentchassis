@@ -29,6 +29,15 @@
 //	  (RFC 006 / bugs_closed/150 — a site-wide promoter with three callers made
 //	  the improvement loop call a busy site clean. Exit 1 on findings.)
 //
+//	go run ./cmd/config-key-audit --optional-key-budget [N] < live-workflows.json
+//	  {"budget": N|null, "actions": [{"action": "...", "optional_keys": K,
+//	    "optional": [...], "consumers": M, "agents": [...], "over_budget": bool}, ...]}
+//	  Which SHARED action's optional-key set has accumulated past the budget?
+//	  (RFC 022 — the trigger moved from "any new opt-in field" to the COUNT; ten
+//	  individually-inert fields are a shared action nobody understands, and this
+//	  is the only thing that notices the tenth.) Shared = >= 2 distinct live
+//	  agents carry it. Without N: report-only census, exit 0. Exit 1 on findings.
+//
 //	go run ./cmd/config-key-audit --suspicious-keys        < live-workflows.json
 //	  [{"agent": "...", "path": "...", "action": "...", "key": "...", "nested": bool}, ...]
 //	  Which live step-config key NAME carries schema-documentation punctuation
@@ -183,6 +192,10 @@ func main() {
 	}
 	if len(os.Args) > 1 && os.Args[1] == "--unregistered-actions" {
 		emitUnregisteredActions()
+		return
+	}
+	if len(os.Args) > 1 && os.Args[1] == "--optional-key-budget" {
+		emitOptionalKeyBudget(os.Args[2:])
 		return
 	}
 	if len(os.Args) > 1 && os.Args[1] == "--single-owner-actions" {

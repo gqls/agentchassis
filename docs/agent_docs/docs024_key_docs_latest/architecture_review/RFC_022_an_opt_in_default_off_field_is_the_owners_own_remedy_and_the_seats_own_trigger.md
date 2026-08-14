@@ -8,7 +8,37 @@ and the ordering between them, matter:
 | half | what it means | state |
 |---|---|---|
 | **interim — option (1)** | An opt-in field whose unsafe default is **OFF** and which **no live consumer names** is **NOT architecture-scope**. The architecture seat should not raise `needs_rfc` on that shape alone. This makes the 2026-08-02 ruling self-consistent: the prescribed remedy stops being penalised. | **effective immediately** |
-| **destination — option (3)** | The trigger moves to the **accumulated count**, not the single addition: an RFC when a shared action's optional-key set grows past a threshold. Needs the mechanical counter over `RegisterActionInputSpec` declarations per action, which does not exist yet. | **to build** |
+| **destination — option (3)** | The trigger moves to the **accumulated count**, not the single addition: an RFC when a shared action's optional-key set grows past a threshold. Needs the mechanical counter over `RegisterActionInputSpec` declarations per action, ~~which does not exist yet~~ **BUILT 2026-08-13** (below). | **counter built; budget N + cron half await the owner** |
+
+### The counter — BUILT 2026-08-13 (register WFA-013)
+
+`cmd/config-key-audit --optional-key-budget [N]` / `scripts/audit-optional-key-budget.sh [--json] [N]`
+(bugfix_223_index_answerability lane, per §0 item 2 of its 2026-08-10 handoff). It counts
+`len(ActionInputSpec.Optional)` per registered action — exactly the "sweep over
+`RegisterActionInputSpec` declarations" this RFC named — joined against DISTINCT live
+carrier agents from the same export the RFC_006 check reads, walked with
+`validation.WalkSteps` (a `substeps` loop body cannot hide a carrier). `over_budget`
+fires only on a SHARED action (≥2 carriers) past N; without N it is a report-only
+census. Mirrors WFA-006's shape deliberately: same binary, same decode, refuse-on-empty
+both sides, wrapper discriminates refusal by empty stdout (`go run` folds exit codes).
+
+**The live distribution, measured 2026-08-13 — the sizing input for the owner's N:**
+118 actions declare optional keys; **21 are shared**. Widest shared surfaces:
+`analyse_repo_local` **12** (2 carriers), `append_doc_note` **11** (**8 carriers** —
+this RFC's own motivating action), `diagnose_prepare_fix_commit` **11** (2 carriers),
+then `diagnose_build_gate` 8, `write_doc_plan` 8 (3), `create_rerender_items` 7 (3),
+`diagnose_persist_fix_plan` 7 (3), `plan_sections` 7 (3). A budget of **10** flags
+exactly the top three today; **12** flags none.
+
+**What still awaits the owner, and this RFC stays open until the first is ruled:**
+1. **The budget N.** A governance choice, not a technical finding (§options, (3)).
+2. **The cron half** — RFC_006's shape came with a daily CronJob because a pre-commit
+   hook cannot gate live config; this starts **report-only** because that choice was
+   explicitly reserved ("decide with the owner whether the counter needs the cron half").
+
+The roster clause shipped by `381`/`383` said "that counter is not built yet" — updated
+by the follow-up pair `402` (fix-proposer) / `403` (council-gate), same surgical anchored
+pattern, so the seats now cite the counter for the exact figure instead of "several".
 
 **The interim is not a weaker version of the destination — it is the half that is safe to
 ship without the counter.** Option (1) alone deliberately gives up the *accumulation* signal,
