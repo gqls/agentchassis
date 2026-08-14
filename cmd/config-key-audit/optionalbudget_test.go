@@ -41,7 +41,7 @@ func TestOptionalKeyCensusCountsDeclarationsAndDistinctConsumers(t *testing.T) {
 		t.Fatalf("decodeLiveAgents: err=%v failed=%d", err, failed)
 	}
 
-	rows := censusOptionalKeys(agents, -1)
+	rows := censusOptionalKeys(agents, -1, nil)
 	if len(rows) == 0 {
 		t.Fatal("census over a real registry returned no rows — the actions import has come unlinked")
 	}
@@ -89,7 +89,7 @@ func TestOptionalKeyBudgetFiresOnlyOnSharedActions(t *testing.T) {
 	// Budget 0: every shared action with >= 1 optional key is over budget, and
 	// no single-consumer action may be — whatever its surface. This pins the
 	// shared-only rule without depending on any action's current key count.
-	rows := censusOptionalKeys(agents, 0)
+	rows := censusOptionalKeys(agents, 0, nil)
 	firedShared, firedLone := false, false
 	for _, r := range rows {
 		if r.OverBudget {
@@ -119,9 +119,56 @@ func TestOptionalKeyBudgetFiresOnlyOnSharedActions(t *testing.T) {
 
 	// A budget no shared action exceeds produces zero findings — the healthy
 	// state must stay representable or the check decays into noise.
-	for _, r := range censusOptionalKeys(agents, 10000) {
+	for _, r := range censusOptionalKeys(agents, 10000, nil) {
 		if r.OverBudget {
 			t.Errorf("budget 10000 must produce no findings, got %+v", r)
 		}
+	}
+}
+
+// The acknowledged baseline (owner ruling 2026-08-14): an over-budget action
+// that has had its ONE review is quiet at its acknowledged level, pages again
+// only when it GROWS past it, and a shrunken surface marks the ack stale
+// rather than paging. Asserted against the registry's own count so the test
+// measures the mechanism, not the fleet's current shape.
+func TestAcknowledgedBaselineQuietsAReviewedActionUntilItGrows(t *testing.T) {
+	agents, _, err := decodeLiveAgents([]byte(sharedActionFleet), "test")
+	if err != nil {
+		t.Fatalf("decodeLiveAgents: %v", err)
+	}
+	spec, ok := datahelpers.GetActionInputSpec("append_doc_note")
+	if !ok || len(spec.Optional) == 0 {
+		t.Fatal("fixture premise broken: append_doc_note no longer registers optional keys")
+	}
+	n := len(spec.Optional)
+
+	find := func(rows []optionalKeyCensusRow) optionalKeyCensusRow {
+		for _, r := range rows {
+			if r.Action == "append_doc_note" {
+				return r
+			}
+		}
+		t.Fatal("append_doc_note missing from the census")
+		return optionalKeyCensusRow{}
+	}
+
+	// Acked at its current level: quiet, even at budget 0.
+	row := find(censusOptionalKeys(agents, 0, map[string]int{"append_doc_note": n}))
+	if row.OverBudget {
+		t.Errorf("acked at %d, count %d, budget 0 — must be quiet, got %+v", n, n, row)
+	}
+	if row.Acknowledged != n || row.StaleAck {
+		t.Errorf("ack bookkeeping wrong: %+v", row)
+	}
+
+	// Acked BELOW the current count: the surface grew past the baseline — page.
+	if row := find(censusOptionalKeys(agents, 0, map[string]int{"append_doc_note": n - 1})); !row.OverBudget {
+		t.Errorf("count %d past baseline %d must page, got %+v", n, n-1, row)
+	}
+
+	// Acked ABOVE the current count: stale bookkeeping, never a finding.
+	row = find(censusOptionalKeys(agents, 0, map[string]int{"append_doc_note": n + 5}))
+	if row.OverBudget || !row.StaleAck {
+		t.Errorf("a shrunken surface must mark the ack stale, not page: %+v", row)
 	}
 }

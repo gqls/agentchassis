@@ -1,0 +1,86 @@
+# deployments/kustomize/services/optional-key-budget-check/base/cronjob.yaml
+#
+# RFC 022's counter, on a clock (owner: "build it now", 2026-08-14, having ruled
+# N=10 the same day and "we can keep the python" for this job's shape).
+#
+# WHY A CRONJOB AND NOT A GIT HOOK — same two reasons as its RFC 006 sibling
+# (single-owner-carriers-check), and the first is decisive here too: the number
+# this check watches changes by a route no commit can carry. An action becomes
+# MORE SHARED when an agent's live config gains a step, which happens straight
+# in the database many times a day; measured while the counter was being built,
+# the shared-action count moved 21 -> 22 overnight with nobody acting. Only a
+# clock against live agent_definitions sees that.
+#
+# WHY NOT RUN THE GO BINARY: identical argument to the sibling (a git clone of
+# a 262M repo + go mod download + a compile, in a job with uncertain egress —
+# a gate that fails for infrastructure reasons gets ignored). The owner was
+# offered the Go-native image shape and chose to keep the Python mirror. The
+# drift risks that buys are PINNED BY TESTS — see check.py's docstring and
+# cmd/config-key-audit/optional_budget_cron_parity_test.go.
+#
+# Modelled on single-owner-carriers-check byte-for-byte where possible: same
+# image, same secret, same doc_notes convention (one row per run INCLUDING
+# clean — a missing row means the job did not run), same direct-Postgres
+# constraint (no pods/exec RBAC here).
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: optional-key-budget-check
+  labels:
+    app: optional-key-budget-check
+    component: config-integrity
+spec:
+  # Daily. 06:50 UTC keeps it clear of database-backup (02:00), the weekly
+  # sweep (06:00), single-owner-carriers-check (06:20), the discovery
+  # staleness check (06:35) and shared-output-fields-check (07:10).
+  schedule: "50 6 * * *"
+  timeZone: "UTC"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      # One query plus a walk over ~180 definitions; five minutes is generous.
+      activeDeadlineSeconds: 300
+      template:
+        metadata:
+          labels:
+            app: optional-key-budget-check
+            component: config-integrity
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: check
+              image: postgres:16-alpine
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  set -e
+                  apk add --no-cache python3 >/dev/null
+                  python3 /scripts/check.py
+              env:
+                - name: PG_CLIENTS_HOST
+                  value: postgres-clients
+                - name: CLIENTS_DB_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: personae-platform-secrets
+                      key: CLIENTS_DB_PASSWORD
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 64Mi
+                limits:
+                  cpu: 200m
+                  memory: 128Mi
+              volumeMounts:
+                - name: check-script
+                  mountPath: /scripts
+                  readOnly: true
+          volumes:
+            - name: check-script
+              configMap:
+                name: optional-key-budget-check-script
+                defaultMode: 365

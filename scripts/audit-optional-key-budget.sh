@@ -69,7 +69,12 @@ if [[ -z "$WORKFLOWS_JSON" || "$WORKFLOWS_JSON" == "null" ]]; then
 fi
 
 ERR="$(mktemp)"
-CENSUS_JSON="$(printf '%s' "$WORKFLOWS_JSON" | (cd "$REPO_ROOT" && go run ./cmd/config-key-audit --optional-key-budget ${BUDGET:+"$BUDGET"}) 2>"$ERR")"
+# The acks file carries the reviewed baselines (owner 2026-08-14: a flagged
+# action owes one review, then its acknowledged level is the baseline). The
+# tool refuses to run if the path is given but unreadable — failing open would
+# re-page every reviewed action.
+ACKS_FILE="$REPO_ROOT/docs/agent_docs/docs024_key_docs_latest/architecture_review/optional_key_budget_acks.json"
+CENSUS_JSON="$(printf '%s' "$WORKFLOWS_JSON" | (cd "$REPO_ROOT" && go run ./cmd/config-key-audit --optional-key-budget ${BUDGET:+"$BUDGET"} --acks "$ACKS_FILE") 2>"$ERR")"
 GO_EXIT=$?
 cat "$ERR" >&2
 rm -f "$ERR"

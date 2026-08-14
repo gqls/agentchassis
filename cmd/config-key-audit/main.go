@@ -29,14 +29,18 @@
 //	  (RFC 006 / bugs_closed/150 — a site-wide promoter with three callers made
 //	  the improvement loop call a busy site clean. Exit 1 on findings.)
 //
-//	go run ./cmd/config-key-audit --optional-key-budget [N] < live-workflows.json
+//	go run ./cmd/config-key-audit --optional-key-budget [N] [--acks <file>] < live-workflows.json
 //	  {"budget": N|null, "actions": [{"action": "...", "optional_keys": K,
-//	    "optional": [...], "consumers": M, "agents": [...], "over_budget": bool}, ...]}
+//	    "optional": [...], "consumers": M, "agents": [...],
+//	    "acknowledged": A, "stale_ack": bool, "over_budget": bool}, ...]}
 //	  Which SHARED action's optional-key set has accumulated past the budget?
-//	  (RFC 022 — the trigger moved from "any new opt-in field" to the COUNT; ten
-//	  individually-inert fields are a shared action nobody understands, and this
-//	  is the only thing that notices the tenth.) Shared = >= 2 distinct live
-//	  agents carry it. Without N: report-only census, exit 0. Exit 1 on findings.
+//	  (RFC 022, budget RULED 2026-08-14: N=10 — the trigger moved from "any new
+//	  opt-in field" to the COUNT: the accumulation is what gets reviewed, never
+//	  the reuse, which is estate design.) Shared = >= 2 distinct live agents
+//	  carry it. --acks names the reviewed-baselines file: a flagged action owes
+//	  ONE review of its surface, then its acknowledged level is the baseline and
+//	  only growth PAST it pages. Without N: report-only census, exit 0.
+//	  Exit 1 on findings.
 //
 //	go run ./cmd/config-key-audit --suspicious-keys        < live-workflows.json
 //	  [{"agent": "...", "path": "...", "action": "...", "key": "...", "nested": bool}, ...]

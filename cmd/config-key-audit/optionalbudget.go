@@ -58,11 +58,48 @@ type optionalKeyCensusRow struct {
 	Optional     []string `json:"optional"`
 	Consumers    int      `json:"consumers"`
 	Agents       []string `json:"agents"`
+	// Acknowledged is the reviewed baseline from the acks file (owner ruling
+	// 2026-08-14: an over-budget action owes ONE review of its accumulated
+	// surface, after which its acknowledged level is the baseline). Zero when
+	// no ack exists.
+	Acknowledged int `json:"acknowledged,omitempty"`
+	// StaleAck marks an ack HIGHER than the current count — the surface shrank
+	// since the review, so the recorded baseline overstates it. Report-only:
+	// a stale ack is bookkeeping to tidy, not a defect to page on.
+	StaleAck bool `json:"stale_ack,omitempty"`
 	// OverBudget is only ever true when a budget was given AND the action is
-	// shared (Consumers >= 2). It is a field rather than a filtered list so a
+	// shared (Consumers >= 2) AND the count exceeds BOTH the budget and any
+	// acknowledged baseline. It is a field rather than a filtered list so a
 	// consumer of the JSON sees the near-misses in the same shape as the
 	// findings — the tenth field is the trigger, but the ninth is the warning.
 	OverBudget bool `json:"over_budget"`
+}
+
+// loadAckedLevels reads the acks file: {"<action>": {"count": N, ...}, ...}.
+// Non-object values (the "_doc" string) are skipped, so the file can explain
+// itself. A missing or unreadable file is an ERROR when a path was given —
+// an ack file that silently fails open would re-page every reviewed action
+// and teach readers to ignore the check.
+func loadAckedLevels(path string) (map[string]int, error) {
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	var entries map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &entries); err != nil {
+		return nil, fmt.Errorf("acks file is not a JSON object: %w", err)
+	}
+	acked := make(map[string]int, len(entries))
+	for action, v := range entries {
+		var e struct {
+			Count int `json:"count"`
+		}
+		if err := json.Unmarshal(v, &e); err != nil || e.Count == 0 {
+			continue // "_doc" and malformed entries carry no baseline
+		}
+		acked[action] = e.Count
+	}
+	return acked, nil
 }
 
 // censusOptionalKeys is the pure half (same split as findSingleOwnerViolations,
@@ -74,7 +111,7 @@ type optionalKeyCensusRow struct {
 // Actions with a spec but zero optional keys are omitted (they have no surface
 // to accumulate); actions carried live but registering no spec are omitted too
 // (they declare nothing to count — --unregistered-actions owns that class).
-func censusOptionalKeys(agents []liveAgent, budget int) []optionalKeyCensusRow {
+func censusOptionalKeys(agents []liveAgent, budget int, acked map[string]int) []optionalKeyCensusRow {
 	carriers := make(map[string][]string) // action -> sorted distinct agent types
 	seen := make(map[string]bool)         // action+"\x00"+agent
 	for _, agent := range agents {
@@ -105,8 +142,11 @@ func censusOptionalKeys(agents []liveAgent, budget int) []optionalKeyCensusRow {
 			Optional:     nonNil(spec.Optional),
 			Consumers:    len(agentsFor),
 			Agents:       agentsFor,
+			Acknowledged: acked[name],
 		}
-		if budget >= 0 && row.Consumers >= 2 && row.OptionalKeys > budget {
+		row.StaleAck = row.Acknowledged > row.OptionalKeys
+		if budget >= 0 && row.Consumers >= 2 &&
+			row.OptionalKeys > budget && row.OptionalKeys > row.Acknowledged {
 			row.OverBudget = true
 		}
 		rows = append(rows, row)
@@ -137,11 +177,27 @@ func censusOptionalKeys(agents []liveAgent, budget int) []optionalKeyCensusRow {
 // discriminate the refusal by its EMPTY STDOUT, never by exit code.
 func emitOptionalKeyBudget(args []string) {
 	budget := -1
-	if len(args) > 0 {
-		n, err := strconv.Atoi(args[0])
+	var acked map[string]int
+	for i := 0; i < len(args); i++ {
+		if args[i] == "--acks" {
+			if i+1 >= len(args) {
+				fmt.Fprintln(os.Stderr, "config-key-audit --optional-key-budget: --acks needs a file path")
+				os.Exit(2)
+			}
+			var err error
+			if acked, err = loadAckedLevels(args[i+1]); err != nil {
+				fmt.Fprintf(os.Stderr,
+					"config-key-audit --optional-key-budget: acks file %q: %v — refusing to run "+
+						"without the baselines rather than re-paging every reviewed action\n", args[i+1], err)
+				os.Exit(2)
+			}
+			i++
+			continue
+		}
+		n, err := strconv.Atoi(args[i])
 		if err != nil || n < 0 {
 			fmt.Fprintf(os.Stderr,
-				"config-key-audit --optional-key-budget: budget must be a non-negative integer, got %q\n", args[0])
+				"config-key-audit --optional-key-budget: budget must be a non-negative integer, got %q\n", args[i])
 			os.Exit(2)
 		}
 		budget = n
@@ -172,7 +228,7 @@ func emitOptionalKeyBudget(args []string) {
 		os.Exit(2)
 	}
 
-	rows := censusOptionalKeys(agents, budget)
+	rows := censusOptionalKeys(agents, budget, acked)
 	out := struct {
 		Budget  *int                   `json:"budget"`
 		Actions []optionalKeyCensusRow `json:"actions"`
