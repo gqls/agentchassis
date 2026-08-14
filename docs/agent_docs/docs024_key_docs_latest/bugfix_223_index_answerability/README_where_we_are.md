@@ -279,3 +279,39 @@ shared machinery should also be the thing our reviewer flags as needing extra sc
 the moment following the rule and breaking it draw the same warning, which makes the warning
 worth less. There are three options costed in that document and a recommendation, but it is a
 judgement about how you want the estate governed and I have not taken it.
+
+---
+
+**2026-08-14 — the staleness bug is closed, and the counter you asked for is built. Two
+small decisions are yours when you have a minute.**
+
+**The staleness problem is fixed and running in production.** The short version of what was
+wrong: when someone asked our code index about a symbol it had never seen — usually because
+the code was written after the last time anyone pushed — the answer "nothing found" came
+with no explanation, and the reviewing model made one up ("that kind isn't indexed"),
+confidently and wrongly. The subtle part, which the diagnosis loop caught me on: we already
+HAD a warning about this, printed at the top of every report. The model read it and ignored
+it, then quoted the vocabulary printed right next to the empty answer instead. So the fix
+was placement, not another warning: every empty answer now says, in the same breath, "this
+answer describes the code as of commit so-and-so, from such-and-such a date — anything newer
+cannot appear here, so if what you asked about is newer, this is the index being behind, not
+the code being absent." And every saved verdict now records which version of the code it was
+judged against, so someone reading it months later can date it. The reviewers approved it
+unanimously, it shipped in the current build, and we watched a real verification run write
+the dated verdict correctly. The bug file has moved to the closed pile.
+
+**The counter from RFC 022 now exists.** When you ruled on that RFC you accepted a known
+blind spot: individually harmless opt-in fields no longer trigger a review, so nothing would
+notice when a shared piece of machinery quietly accumulated its tenth one. The mechanical
+counter that was promised is now built and run against the live fleet. What it found: 118
+actions declare optional fields, 21 of those are used by two or more agents, and the widest
+shared surfaces are the repo analyser (12 optional fields), the note-writing action that
+started all this (11 fields, used by eight different agents), and the fix-commit preparer
+(11). The reviewer prompts that used to say "that counter is not built yet" now point at it.
+
+**The two decisions that are yours:** (1) **the budget** — at what count should a shared
+action's optional fields trigger an architecture review? For scale: a budget of 10 would
+flag exactly the three actions above today; 12 would flag none. (2) **whether the counter
+runs on a clock** — the equivalent check from RFC 006 got a daily scheduled run because
+nothing else re-checks live config; this one is currently run-on-demand only. Neither
+decision blocks anything; the RFC stays open until the budget is ruled.

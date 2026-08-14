@@ -1,5 +1,10 @@
 # HANDOFF — `bugs_open/223` lane, cold start for a fresh chat
 
+> **SUPERSEDED IN FULL 2026-08-14 → read `HANDOFF_2026-08-14_continue_here.md`.**
+> Both live items below are DONE: item 1 became `bugs_closed/254` (fixed AND live on
+> v1.0.1297, council-approved); item 2 is built (register WFA-013, migrations 402/403
+> applied). This file stays as the record of what the work looked like before it was done.
+
 Written 2026-08-10, superseded 2026-08-11 ~10:15Z, **superseded again 2026-08-11 ~12:45Z**
 (after the RFC_022 ruling landed and was implemented, and the staleness 090 was filed).
 **BOTH PHASES ARE LIVE AND BEHAVIOURALLY PROVEN; RFC_022 IS RULED AND ITS INTERIM IS LIVE

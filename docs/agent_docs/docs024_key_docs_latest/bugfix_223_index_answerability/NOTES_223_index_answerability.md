@@ -708,3 +708,58 @@ cannot appear here"), and put the commit into `codeEvidenceLine`. First-hand sub
 for a CONFIRMED verdict is declared per the owner ruling of 2026-07-31: the loop ran,
 capped after refuting the premise, named the deciding check, and that check was run and
 is quoted above.
+
+## 2026-08-14 — 254 CLOSED (fixed AND live on v1.0.1297); RFC_022 counter BUILT; both roster clauses updated
+
+**254's arc, in order.** Filed as `bugs_open/254` and committed `0c880908a` with
+`Council-Submitted: 42afbd67…` (2026-08-11). Council verdict: **approved, "all reviewers
+approve"**, 4 abstained — editquality's two minor trust points (caller enumeration;
+helper provenance) were both already disclosed in the submission, nothing to act on.
+This lane's LANDMINES correction and WRONG_CALLS row were swept into other sessions'
+commits (`b044aa6f7`, `98618aede`) before the pathspec commit — content verified intact
+at HEAD, nothing lost, said so in the commit message.
+
+**Live proof, on v1.0.1297** (the fleet rolled 1295→1296→1297 inside one day — read the
+service, not the tag): pod imageID digest = local image digest exactly; revision label
+`3b0ea20ff`; `merge-base --is-ancestor 0c880908a 3b0ea20ff` → yes; binary literal
+`as-of: this answer describes commit` = 1 with fabricated-needle control 0.
+
+> **⚠ MISSTEP, recorded because it is the exact trap CLAUDE.md names:** the first probe
+> pass printed **thirteen clean "absent" rows including the true revision sha** — every
+> one a swallowed `NotFound` (the pods were deleted mid-probe by the next roll) behind
+> `kubectl exec … 2>/dev/null`. A dead pod and an unstamped binary are indistinguishable
+> once stderr is gone. Caught by the digest check disagreeing; re-run with stderr
+> visible and controls, all clean. The 2>/dev/null habit costs more than it tidies.
+
+**Behavioural proof:** fired the verifier at this lane's own corrected staleness entry
+(corr `16f0475d`, completed 07:39Z): the persisted verdict carries the evidence-line
+commit clause (`… not the present tree.]`) end-to-end — composed in the action,
+suffixed by append_doc_note, on the live binary. Verdict STILL_VALID. The as-of note
+did not render because the run had **no empty answers** (every symbol resolved — the
+index at `a85ad4018` post-dates phase 2 and 254 both). Its first live rendering awaits
+a natural empty answer; the check is in the bug file's closure section. **Moved to
+`bugs_closed/` under the owner's 08-12 restoration of the fixed-and-live bar.**
+
+**RFC_022 counter BUILT (handoff §0 item 2) — register WFA-013.**
+`cmd/config-key-audit --optional-key-budget [N]` + `scripts/audit-optional-key-budget.sh`;
+`censusOptionalKeys` joins `len(spec.Optional)` per action against DISTINCT live
+carriers via `validation.WalkSteps` (the fixture hides one carrier inside a loop's
+`substeps` to pin the bugs_open/144 class). `over_budget` fires only on SHARED (≥2
+carriers) actions past N; report-only without N. Live census: **118 actions declare
+optional keys, 21 shared; top: analyse_repo_local 12 (2 carriers), append_doc_note 11
+(8 carriers — the RFC's own motivating action), diagnose_prepare_fix_commit 11 (2).
+Budget 10 flags exactly those three; 12 flags none.** Wrapper discriminates the
+refusal by EMPTY STDOUT, never exit code (`go run` folds exit 2 → 1). Committed with
+register row+entry and RFC status in one commit; NOT council-submitted (gate scope is
+platform/internal/pkg; this touches cmd/scripts/docs/sql only) — stated in the message.
+
+**Migrations 402/403 applied + recorded** (via psql, `--record-only` after): the
+381/383 clause's "that counter is not built yet" — falsified by the commit above —
+now names the counter and keeps the reduced "insufficient" signal until N is ruled.
+402: fix-proposer 11,829→12,078 chars. 403: council-gate 11,866→12,115, **cache
+breakpoint unmoved at 174, 17 seats marked, 1 shared prefix** (the 377 health check),
+plus a cross-roster guard asserting fix-proposer already carries the sentence.
+
+**Open for the OWNER (recorded in RFC_022 STATUS and README_where_we_are):**
+1. the budget **N** (the census above is the sizing input); 2. whether the check gets
+the RFC_006-style daily CronJob or stays report-only. RFC_022 stays open until N is ruled.

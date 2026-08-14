@@ -1,7 +1,9 @@
 # 254 — code-index answers describe the last PUSHED tip, but the commit vocabulary never reaches the answer site, so a model explains staleness with kinds
 
-**STATUS: FIX BUILT + TESTED 2026-08-11 (this commit); inert until the next chassis roll.
-Stays in `bugs_open/` per the owner ruling of 2026-08-06.**
+**STATUS: CLOSED 2026-08-14 — fixed AND live on `v1.0.1297`, council APPROVED.
+Moved to `bugs_closed/` under the owner's 2026-08-12 restoration of the fixed-and-live
+bar (superseding the 2026-08-06 keep-in-place direction this file's original banner cited).
+Closure evidence in the dated section at the bottom.**
 
 Filed by the `bugs_open/223` lane (bugfix_223_index_answerability). Diagnosis route
 declared per the OWNER RULING of 2026-07-31: a `090` round ran
@@ -115,3 +117,32 @@ unwiring mutations were run and each fails its test; full `actions` package gree
 2026-08-11 — the reader-side check lives there and is unchanged by this fix) ·
 `WRONG_CALLS.md` 2026-08-11 (the filed premise this diagnosis corrected) ·
 `bugfix_223_index_answerability/NOTES` 2026-08-11 ~18:30Z (full evidence trail).
+
+## CLOSURE EVIDENCE — 2026-08-14, fixed AND live
+
+- **Council:** corr `42afbd67-48c7-4581-915d-2880cd1dc74d` → **approved, "all
+  reviewers approve"**, 4 abstained, no blocking objections (editquality's two
+  minor trust points were both already disclosed in the submission). The commit
+  (`0c880908a`) carries `Council-Submitted:`; 098 credits it at report time.
+- **Live, per SERVICE, at the artefact** (three independent checks, each with a
+  control): pod imageID digest `2e89958a9b…` = local `v1.0.1297` digest exactly;
+  image revision label `3b0ea20ff…` and `git merge-base --is-ancestor 0c880908a
+  3b0ea20ff` → yes; pod binary carries the as-of literal (`grep -c -a "as-of:
+  this answer describes commit" /proc/1/exe` → **1**, fabricated-needle control
+  → 0/exit-1). ⚠ A first probe run returned thirteen clean "absent" rows —
+  every one a swallowed `NotFound` from a pod deleted mid-probe behind
+  `2>/dev/null`, the exact trap CLAUDE.md's build section names. Re-run against
+  live pods with stderr visible before believing any of this section.
+- **Behaviourally, on a real run** (landmine-verifier, corr `16f0475d`,
+  2026-08-14 07:39Z, the corrected staleness entry itself): the **persisted
+  verdict carries the evidence-line commit clause** — `doc_notes` body matches
+  `%not the present tree%` — and the verify prompt shows `Answers describe
+  indexed commit …`. Verdict STILL_VALID; the fix's own paperwork was the fixture.
+- **Residual, stated:** the as-of note renders only on EMPTY answers and that
+  run had none, so its first live rendering is still unobserved (build-time it
+  is mutation-proven through `answerCodeCheck` on all three arms, and the
+  literal is in the running binary). The check, when one occurs:
+  `SELECT count(*) FROM llm_call_log WHERE step_name='verify' AND
+  prompt_rendered LIKE '%as-of: this answer describes commit%';` — do not
+  "verify" this with a zero; an empty result means no empty answer has happened
+  yet, not that the note is missing.
