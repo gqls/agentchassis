@@ -869,3 +869,56 @@ is exactly when a ruling gets applied twice at different strengths.
 What I have deliberately not done: I have not touched the queued rebuild, changed the contrast
 target, or started the off-switch. The first belongs to the session that filed it, and the other two
 are code changes in a lane I do not own.
+
+### Later the same afternoon — the four rulings are built
+
+Same session as the entry above. All four decisions are now implemented and committed. Nothing has
+changed on any live site yet, and it cannot until the fleet is rolled.
+
+**The queued darts rebuild is held, not cancelled.** It would have produced the 4.5 colours, which
+you overruled an hour after it was filed. It is parked in a state the queue will not pick up, with a
+one-line note saying how to release it. The session that filed it has confirmed it agrees and has
+frozen its own edits on these files while I worked.
+
+**One thing I found on the way in that I want you to know about, because it was nearly a silent
+mistake.** The contrast number you raised was being read by *two* different mechanisms: the one that
+colours links and small labels — which is what you ruled on — and a second one that colours the text
+*on* buttons and filled bands, which you did not. They shared a single value in the code. Changing
+that value would have quietly restyled every button label on every site as a side effect of a
+decision about links. I split them into two separate numbers and left the button one alone. That is
+a judgement I made about how far your ruling reaches, not something I measured, so it is written up
+as the thing I most want the reviewers to argue with — and it is a two-line change if you'd rather
+buttons moved too.
+
+**The off-switch is built and defaults to ON.** That sounds backwards for a safety switch, and the
+reasoning is worth a sentence: a switch that defaults to off would leave the *broken* colour
+behaviour as the normal case, which is what the other session was right about when it originally
+declined to build one. So instead it is an opt-out — everything on, and an operator can turn a
+single named site back to the old behaviour by editing configuration, with no rebuild and no
+deployment. That is the whole point of it: today, undoing this needs a code revert and a full fleet
+roll; after this, it needs a config edit.
+
+It also has a floor. The contrast target can be retuned by config, but not below the legal
+accessibility minimum — a switch that can be configured to ship unreadable text through a config
+edit would be worse than the bug it exists to undo.
+
+**Why you can believe the new colours.** Every one of them was worked out twice, by two separate
+pieces of code written independently, from palette values read off the live sites rather than copied
+from any of our notes. The two agree exactly. As a check on the checker, the same independent code
+reproduces all seven of the *old* colours too — so it is not simply agreeing with itself. I also
+deliberately broke the code in five different ways and confirmed each break makes a specific test
+fail, because a test that passes when you sabotage the thing it guards is not guarding anything.
+
+**Where the register was lying.** Our own internal reference still told readers the colour mechanism
+was broken and not to use it — true when written on Wednesday, false since Thursday. The automated
+reviewers treat that file as fact, and one of them is reviewing this change right now. Corrected in
+place, with the old wording kept visible underneath, because the wording is what misled people and
+deleting it would lose the lesson.
+
+**What happens next, and the order matters.** The fleet needs rolling — that is yours to run. Then
+the darts site is released from its hold and rebuilt, along with webdesign.co.uk as the second
+canary you asked for. Then you look. Only then does the wider sweep start.
+
+One caution for when you look: on the darts site this changes exactly one small label on the
+homepage. On webdesign.co.uk it changes every link in every article. That is why both are in the
+check.
