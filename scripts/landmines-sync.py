@@ -93,15 +93,24 @@ def run_psql(sql, capture=True):
 
 
 def existing_sources():
+    """{source: sorted list of subject_keys} — IDENTITY, not a count.
+
+    This returned {source: row count} until 2026-08-14, and `refootprinted`
+    compared counts. The splitter fix that day changed the footprint SET of 185
+    entries while leaving the COUNT equal on 6 of them — a count comparison
+    would have left those six's stale subject_keys in doc_notes for ever, with
+    every sync reporting clean. A count proves the damage, never the no-op.
+    """
     out = run_psql(
-        "SELECT source, count(*) FROM doc_notes "
+        "SELECT source, string_agg(subject_key, E'\\x1f' ORDER BY subject_key) "
+        "FROM doc_notes "
         f"WHERE source LIKE {sql_lit(SOURCE_PREFIX + '%')} GROUP BY 1;"
     )
     got = {}
     for line in out.splitlines():
         if "|" in line:
-            src, n = line.rsplit("|", 1)
-            got[src.strip()] = int(n)
+            src, keys = line.split("|", 1)
+            got[src.strip()] = sorted(keys.strip().split("\x1f"))
     return got
 
 
@@ -211,7 +220,7 @@ def main():
     have = existing_sources()
     new = [s for s in want if s not in have]
     gone = [s for s in have if s not in want]
-    print(f"\ndoc_notes: {sum(have.values())} owned row(s) across {len(have)} entr(ies)")
+    print(f"\ndoc_notes: {sum(len(v) for v in have.values())} owned row(s) across {len(have)} entr(ies)")
     print(f"  to insert/refresh: {len(want)}   orphaned (entry retitled/removed): {len(gone)}")
     for s in gone:
         print(f"    orphan: {s}")
@@ -257,11 +266,13 @@ def main():
     #
     # `refootprinted` is the third case and is easy to miss: an entry can keep a
     # byte-identical body while its FOOTPRINT LIST changes, which `changed`
-    # (body comparison) cannot see. `have` is source -> row count, and one row is
-    # written per footprint, so a count mismatch catches exactly that.
+    # (body comparison) cannot see. `have` is source -> sorted subject_keys, one
+    # row per footprint, so a SET comparison catches exactly that. (Until
+    # 2026-08-14 this compared counts — the splitter fix that day re-keyed 6
+    # entries at an unchanged count, which a count comparison misses silently.)
     refootprinted = [
         s for s in want
-        if s in have and have[s] != len(want[s]["footprints"]) and s not in changed
+        if s in have and have[s] != sorted(want[s]["footprints"]) and s not in changed
     ]
     touch = new + changed + refootprinted
     if refootprinted:
@@ -299,7 +310,7 @@ def main():
           f"removed, {len(payload)} bytes on the wire")
     run_psql(payload, capture=True)
     after = existing_sources()
-    print(f"\napplied: {sum(after.values())} owned row(s) now present")
+    print(f"\napplied: {sum(len(v) for v in after.values())} owned row(s) now present")
 
     # Machine-parseable, on their own lines, for landmines-verify-dispatch.sh
     # (RFC_005 3.2) to grep and act on — new or content-changed entries need a

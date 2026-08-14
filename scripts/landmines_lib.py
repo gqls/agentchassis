@@ -51,27 +51,53 @@ def slugify(title):
 def split_footprints(value):
     """'`cmd/`, `scripts/x.py`' -> ['cmd/', 'scripts/x.py']
 
-    Splits on commas/semicolons OUTSIDE backticks, then strips EVERY backtick —
-    entries in the wild carry unbalanced formatting, and a stray backtick inside a
-    subject_key makes the row unfindable by the exact string a later session would
-    search for, which defeats the whole point of a footprint.
+    Three separators, three rules (2026-08-14 — before that, only the first
+    existed, and the file's own dominant '·' convention silently collapsed
+    multi-part footprints into ONE unmatchable string on 63 of 482 entries;
+    comma-splitting inside parentheticals had mangled 143 more):
+    - ',' / ';' split OUTSIDE backticks and OUTSIDE parentheses. The paren rule
+      keeps '`x.go (FuncA, FuncB)`' as one footprint — the trailing-paren strip
+      below then removes the qualifier, exactly as it always did for the
+      comma-free case.
+    - '·' splits UNCONDITIONALLY: it is this file's separator convention and can
+      never be part of a real path/table/symbol, while unbalanced backticks in
+      the wild make any in-tick state unreliable (12 middots sat inside apparent
+      backtick spans when this was measured).
+    Then strips EVERY backtick — a stray backtick inside a subject_key makes the
+    row unfindable by the exact string a later session would search for, which
+    defeats the whole point of a footprint.
     """
-    parts, buf, in_tick = [], [], False
-    for ch in value:
-        if ch == "`":
-            in_tick = not in_tick
-            buf.append(ch)
-        elif ch in ",;" and not in_tick:
-            parts.append("".join(buf))
-            buf = []
-        else:
-            buf.append(ch)
-    parts.append("".join(buf))
+    parts = []
+    for chunk in value.split("·"):
+        buf, in_tick, depth = [], False, 0
+        for ch in chunk:
+            if ch == "`":
+                in_tick = not in_tick
+                buf.append(ch)
+            elif ch == "(":
+                depth += 1
+                buf.append(ch)
+            elif ch == ")":
+                depth = max(0, depth - 1)
+                buf.append(ch)
+            elif ch in ",;" and not in_tick and depth == 0:
+                parts.append("".join(buf))
+                buf = []
+            else:
+                buf.append(ch)
+        parts.append("".join(buf))
 
     out, seen = [], set()
     for p in parts:
-        p = re.sub(r"\s*\(.*?\)\s*$", "", p).strip()
-        p = p.replace("`", "").strip().strip(",;").strip()
+        # Backticks off FIRST (2026-08-14) — the qualifier strip below used to run
+        # before this, so any `path (Qualifier)` wrapped in backticks ended in a
+        # backtick, never matched the $-anchored regex, and kept its qualifier.
+        p = p.replace("`", "").strip()
+        # Trailing ' (qualifier)' strips; 'name(signature)' is KEPT — the space is
+        # the discriminator (a SQL signature like snapshot_agent(text, text) has
+        # none, and is_prose's own docstring records it as a correct footprint).
+        p = re.sub(r"\s+\(.*?\)\s*$", "", p).strip()
+        p = p.strip(",;").strip()
         if not p or p.lower() in seen:
             continue                      # one entry listing a footprint twice wrote two identical rows
         seen.add(p.lower())
@@ -167,3 +193,37 @@ def parse(path=None, on_warn=None):
             }
         )
     return out
+
+
+def _self_test():
+    """Splitter cases, each naming the wrong answer it guards against."""
+    cases = [
+        # (input, expected) — the pre-2026-08-14 splitter fails the '·' and paren cases
+        ("`cmd/`, `scripts/x.py`", ["cmd/", "scripts/x.py"]),
+        ("`a.go` · `b_table` · `some command`", ["a.go", "b_table", "some command"]),
+        ("`deployments/kustomize/` · `make deploy-` · `git stash`",
+         ["deployments/kustomize/", "make deploy-", "git stash"]),
+        # comma inside a parenthetical must NOT split; trailing paren then strips
+        ("`x.go (FuncA, FuncB)`", ["x.go"]),
+        ("`x.go (FuncA, FuncB)` · `y_table`", ["x.go", "y_table"]),
+        # a SIGNATURE paren (no space before it) is part of the key and is KEPT
+        ("`snapshot_agent(text, text)`", ["snapshot_agent(text, text)"]),
+        # '·' inside a backtick span still splits — unbalanced ticks are common
+        ("`a.go · b.go`", ["a.go", "b.go"]),
+        # dedupe and empties (pre-existing behaviour, kept)
+        ("`a.go`, `a.go`, ,", ["a.go"]),
+    ]
+    failed = 0
+    for value, want in cases:
+        got = split_footprints(value)
+        ok = got == want
+        failed += 0 if ok else 1
+        print(f"  {'PASS' if ok else 'FAIL'}  {value!r} -> {got!r}"
+              + ("" if ok else f"  (want {want!r})"))
+    print(f"{len(cases) - failed}/{len(cases)} passed")
+    return 1 if failed else 0
+
+
+if __name__ == "__main__":
+    import sys
+    sys.exit(_self_test())
