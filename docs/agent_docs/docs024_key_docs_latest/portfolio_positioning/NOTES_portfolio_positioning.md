@@ -662,6 +662,40 @@ process nitpicks. "Revise, don't defend" applied:
   exist) already personally verified FALSE — it's real, at
   `rerender_single_page_action.go:1050`, test-pinned).
 
+### 2026-08-13/14 — Phase B execution (see HANDOFF_2026-08-13_continue_here.md for the plan)
+
+**B1+B2 committed** `6f26570e4` (3 finance kinds in all profile tables, kind-scoped HITL
+keys, `evaluate_directory_features`, DIR-001 register entry + index row). Council corr
+`69a619e6-5152-45d8-ae01-5d30a0c7776f`. **Round 1: REVISE** (guardian gating + compliance).
+Split three ways: (1) real defects fixed in `035f72365` — "verified facts" headline
+overclaim → "cited facts", and the non-price ruling got its MECHANICAL half
+(`financeKindFieldAllowlist`, closed per-kind field vocabulary enforced at registration,
+price-shaped fields structurally unregistrable, refusals to the HITL queue, tested);
+(2) submission under-naming (registry.go, coverage tests WERE edited in round 1 — the
+edit list just didn't name them; round 2's does); (3) the guardian's "changes LIVE kinds'
+key shape" — TRUE and owned rather than narrowed, with the reader census as evidence
+(grep: nothing programmatic matches the bare keys; half-migrating the key space would
+recreate the bugs_open/213 collision). Round 2 resubmitted 2026-08-14, verdict pending.
+
+**B1 implementation note**: a background agent began B1 and was killed mid-B1b by an API
+session limit; its partial work was extracted from its worktree, completed and reviewed
+line-by-line in the main session. Two pre-existing bug-231 image-test failures in the full
+actions suite belong to another session's in-flight WIP (verified passing at clean HEAD in
+a throwaway worktree).
+
+**B3b APPLIED [2026-08-14]**: `finance-directory-researcher` agent seeded (active; all its
+actions ship in the OLD binary, so the seed is safe pre-roll) + three weekly discovery
+tasks in `finance_directory_pipeline/SEED_*.sql`, **enabled=false on purpose** — the
+non-price allowlist only exists in the Phase B binary, and research on the old binary
+would enforce the compliance ruling by prompt alone (the exact gap the council objected
+to). Enable-gate: pod-grep `"per kind (Phase B kind-scoped keys)"` on BOTH replicas, then
+`UPDATE scheduled_tasks SET enabled=true WHERE name IN (...)`. Committed with the seeds.
+
+**Still owed for Phase B**: round-2 verdict; B3a components seed (background agent
+authoring now); the Phase B image roll; B3c publish-trigger fix; B3d wiring migrations;
+B3e planner rule; B3f enablement; legacy constant-key row cleanup (disciplined shape
+recorded in the round-2 submission's grounded_in); B4 first runs + HITL review.
+
 **A1 revision complete and resubmitted [2026-08-12]**: fifth check `sitemap_entry_dead_live`
 built (reuses `probeInternalLinkTargets` verbatim), header sections added distinguishing
 `head_essentials_missing` from `check_missing_structure.go` (DB vs live) and
