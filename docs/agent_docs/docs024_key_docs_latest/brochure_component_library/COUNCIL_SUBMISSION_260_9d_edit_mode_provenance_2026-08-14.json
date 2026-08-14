@@ -1,0 +1,38 @@
+{
+  "rationale": "ApplySectionEditAction's content_edit has two modes — field_updates (merge) and replacement_content_data (full replace) — and which mode a run took is currently unanswerable from the DB after the fact: the returned map records edit_type only, and the mode exists solely as logger.Info lines that rotate (measured 2026-08-12: the entire RenderTemplate log family was absent from a 4,661-line 24h window on agent-chassis, so Info-level provenance on this service has a shelf life of hours). The split matters when auditing type damage, because only a full replacement can retype a field the agent did not name, while a merge overwrites exactly the fields it names — so 'which runs could have retyped field X' is a mode question. The copy_quality_two_stage lane hit this concretely (bugs_open/260 §9d): matching collected_data for the two input KEY NAMES returned 132/132 because the action's config echo carries both names regardless of use, and the lane's Phase 4 measurement was re-specified around the gap. This change records the mode and two field counts on the action's returned map, which lands in collected_data, making the question answerable retrospectively for every future run. Purely additive diagnostics: no behaviour change, no new inputs, no schema change, three new keys on an existing result map. The owner directed this change on 2026-08-14 after it was explicitly deferred to them as a fleet-shipping platform edit.",
+  "submitter": "brochure_component_library / fact-assignment front (bugs_open/260)",
+  "plan": {
+    "summary": "The merge-vs-replace decision inside ApplySectionEditAction's content_edit is made in exactly one place (applyContentEdit) and recorded nowhere durable — only Info log lines that rotate within hours on agent-chassis. This change threads that decision through sectionEditOutcome onto the action's returned map as three keys (content_edit_mode, updated_field_count, total_field_count), which lands in collected_data and makes 'which mode did this run take' answerable retrospectively. Additive diagnostics only: no behaviour change, no new inputs, no persistence change.",
+    "edits": [
+      {
+        "file": "platform/orchestration/actions/section_editor_actions.go",
+        "symbol": "sectionEditOutcome",
+        "operation": "modify",
+        "rationale": "Carry the mode and counts on the outcome struct, mirroring its existing branch-specific-fields convention ('ComponentID and SlotName are set by component_swap only') with the inverse: these three are set by content_edit only, component_swap leaves them zero. Documented in the same comment style with the bugs_open/260 §9d citation.",
+        "sketch": " type sectionEditOutcome struct {\n-\tHTML        string\n-\tContentData map[string]interface{}\n-\tComponentID uuid.UUID\n-\tSlotName    string\n+\tHTML              string\n+\tContentData       map[string]interface{}\n+\tComponentID       uuid.UUID\n+\tSlotName          string\n+\tContentEditMode   string\n+\tUpdatedFieldCount int\n+\tTotalFieldCount   int\n }"
+      },
+      {
+        "file": "platform/orchestration/actions/section_editor_actions.go",
+        "symbol": "applyContentEdit",
+        "operation": "modify",
+        "rationale": "Set the mode at the exact branch that resolves the input key, so the recorded value names the key actually used ('field_updates' or 'replacement_content_data') and cannot drift from the code's own precedence (field_updates checked first — the :740 comment explains why). updated_field_count is len(updates) for a merge and the full field count for a replacement; total_field_count is the post-edit content_data size in both modes.",
+        "sketch": "@@ merge branch @@\n+\t\teditMode = \"field_updates\"\n+\t\tupdatedFields = len(updates)\n \t\tlogger.Info(\"applyContentEdit: Merged field_updates into content_data\", ...)\n \t} else if fullReplace := inputs.GetRaw(\"replacement_content_data\"); fullReplace != nil {\n+\t\teditMode = \"replacement_content_data\"\n \t\t... existing switch unchanged ...\n+\t\tupdatedFields = len(existingContentData)\n@@ return @@\n-\treturn sectionEditOutcome{HTML: rendered, ContentData: existingContentData}, nil\n+\treturn sectionEditOutcome{\n+\t\tHTML:              rendered,\n+\t\tContentData:       existingContentData,\n+\t\tContentEditMode:   editMode,\n+\t\tUpdatedFieldCount: updatedFields,\n+\t\tTotalFieldCount:   len(existingContentData),\n+\t}, nil"
+      },
+      {
+        "file": "platform/orchestration/actions/section_editor_actions.go",
+        "symbol": "ApplySectionEditAction",
+        "operation": "modify",
+        "rationale": "Surface the three fields on the action's returned map so they land in collected_data. Comment on the map states why matching the input key names does not work (the config echo carries both names regardless of use) so the next measurer finds the right keys.",
+        "sketch": " \t\t\"edit_type\":         editType,\n \t\t\"slot_name\":         slotName,\n+\t\t\"content_edit_mode\":   outcome.ContentEditMode,\n+\t\t\"updated_field_count\": outcome.UpdatedFieldCount,\n+\t\t\"total_field_count\":   outcome.TotalFieldCount,\n \t}, nil"
+      }
+    ],
+    "grounded_in": [
+      "section_editor_actions.go pre-change returned map (lines 515-525) records edit_type and slot_name only — the merge-vs-replace mode within content_edit appears nowhere in it",
+      "bugs_open/260 §9d, measured 2026-08-12: 'matching collected_data for the two key names returns 132/132 — the action's config echo contains both key names regardless of use. The mode exists only as two logger.Info lines and those rotate.' 132 COMPLETED section-editor orchestrations exist with the mode unrecoverable for all of them",
+      "section_editor_actions.go's own envelope-guard comment: 'applyContentEdit seeds its map from the existing row, so a field_updates merge onto an already-poisoned row carries type and result forward untouched; replacement_content_data is agent-supplied and can be a raw step output' — the code already treats the two modes as having different damage profiles; this records which one applied",
+      "log-channel evidence (bugs_open/260 §7): the entire RenderTemplate log family absent from a 4,661-line 24h window on agent-chassis — Info-level provenance on this service does not survive to audit time",
+      "verification 2026-08-14: go build ./platform/orchestration/... exit 0; go test ./platform/orchestration/actions/ -count=1 ok"
+    ],
+    "risks": "Near-zero by construction: three additive keys on a result map, no control flow touched, no persistence change, no new inputs. What a reviewer should check: (1) that no consumer of this action's result iterates the map exhaustively and breaks on unknown keys — Go map consumers read by key, and the orchestrator merges step results into collected_data generically, but a reviewer may know a consumer I did not find; (2) that 'content_edit_mode is empty for component_swap' is acceptable — the alternative (echoing edit_type there) would duplicate an existing key; (3) key naming — updated_field_count deliberately names the filter (fields the EDIT touched) per the a-filtered-count-can-ship-inside-a-denominator landmine."
+  }
+}

@@ -522,6 +522,14 @@ func ApplySectionEditAction(ctx context.Context, params ActionParams) (interface
 		"page_component_id": pcIDStr,
 		"edit_type":         editType,
 		"slot_name":         slotName,
+		// Merge-vs-replace provenance (bugs_open/260 §9d): before these keys the
+		// mode existed only in log lines that rotate, so matching collected_data
+		// for the "field_updates"/"replacement_content_data" KEY NAMES returned
+		// every run — the action's config echo carries both names regardless of
+		// use. content_edit_mode is empty for component_swap.
+		"content_edit_mode":   outcome.ContentEditMode,
+		"updated_field_count": outcome.UpdatedFieldCount,
+		"total_field_count":   outcome.TotalFieldCount,
 	}, nil
 }
 
@@ -712,11 +720,23 @@ func buildRenderContextFromDB(
 //
 // ComponentID and SlotName are set by component_swap only; content_edit leaves
 // them zero because it changes neither.
+//
+// ContentEditMode, UpdatedFieldCount and TotalFieldCount are set by content_edit
+// only; component_swap leaves them zero. ContentEditMode names the input key the
+// edit resolved ("field_updates" or "replacement_content_data") — before this,
+// the merge-vs-replace decision existed only as Info log lines that rotate, so
+// which mode a run took was unanswerable from the DB (bugs_open/260 §9d; only a
+// replacement can retype a field the agent did not name, so the split matters
+// when auditing type damage). It is returned to the caller's result map, which
+// lands in collected_data.
 type sectionEditOutcome struct {
-	HTML        string
-	ContentData map[string]interface{}
-	ComponentID uuid.UUID
-	SlotName    string
+	HTML              string
+	ContentData       map[string]interface{}
+	ComponentID       uuid.UUID
+	SlotName          string
+	ContentEditMode   string
+	UpdatedFieldCount int
+	TotalFieldCount   int
 }
 
 func applyContentEdit(
@@ -736,6 +756,12 @@ func applyContentEdit(
 			existingContentData[k] = v
 		}
 	}
+
+	// Which input key this edit resolved, and how many fields it touched —
+	// recorded on the outcome so the mode survives into collected_data rather
+	// than living only in the Info lines below (bugs_open/260 §9d).
+	editMode := ""
+	updatedFields := 0
 
 	// Check field_updates first (merge mode — more common, more specific)
 	// This is checked BEFORE replacement_content_data because ExtractActionInputs
@@ -758,11 +784,14 @@ func applyContentEdit(
 			existingContentData[k] = v
 			logger.Debug("applyContentEdit: Merged field", zap.String("field", k))
 		}
+		editMode = "field_updates"
+		updatedFields = len(updates)
 		logger.Info("applyContentEdit: Merged field_updates into content_data",
 			zap.Int("updated_fields", len(updates)),
 			zap.Int("total_fields", len(existingContentData)))
 	} else if fullReplace := inputs.GetRaw("replacement_content_data"); fullReplace != nil {
 		// Full replacement mode
+		editMode = "replacement_content_data"
 		switch v := fullReplace.(type) {
 		case map[string]interface{}:
 			existingContentData = v
@@ -777,6 +806,7 @@ func applyContentEdit(
 			logger.Info("applyContentEdit: Full content_data replacement (from JSON string)",
 				zap.Int("field_count", len(parsed)))
 		}
+		updatedFields = len(existingContentData)
 	} else {
 		return sectionEditOutcome{}, fmt.Errorf("content_edit requires either 'field_updates' or 'replacement_content_data' parameter")
 	}
@@ -823,7 +853,13 @@ func applyContentEdit(
 		zap.Int("content_data_fields", len(existingContentData)),
 	)
 
-	return sectionEditOutcome{HTML: rendered, ContentData: existingContentData}, nil
+	return sectionEditOutcome{
+		HTML:              rendered,
+		ContentData:       existingContentData,
+		ContentEditMode:   editMode,
+		UpdatedFieldCount: updatedFields,
+		TotalFieldCount:   len(existingContentData),
+	}, nil
 }
 
 // applyComponentSwap changes the component template for this section.
