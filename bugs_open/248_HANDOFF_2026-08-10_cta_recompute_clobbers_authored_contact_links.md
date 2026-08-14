@@ -172,3 +172,29 @@ one with a live blast radius. Fix candidate 1 above is 023's escape hatch, gener
    keep passing.
 3. Then, and only then, a bulk promotion of the `misdirected_cta` queue becomes safe to
    consider — separately, and still subject to that queue's own false-positive problem.
+
+
+## Second-site observation — leopardessconsulting.co.uk /services.html (2026-08-14, services-restore session)
+
+The authored CTA on `/services.html` (authored 2026-07-31: primary "Get in touch" →
+`/contact.html`; secondary → `/tools/ai-agent-roi-estimator.html` with a label naming the
+tool) was found on 08-12 replaced by: primary "Book an architecture conversation" →
+`/tools/tool-agent-complexity-estimator.html`, secondary → the time-savings estimator. An
+authored `/contact.html` primary replaced by a tool link is this file's mechanism, observed
+on a second site.
+
+Attribution `[UNVERIFIED which side]`: the `page_rerender` work item that triggered the
+08-11 18:15 regeneration of this page was itself *"1 misdirected CTA(s) on services"* — so
+either the recompute created the misdirection it was dispatched to fix, or the regeneration
+recreated it and the recompute failed to correct it. One more data point either way: the
+`call-to-action` slot was touched again 2026-08-12 20:49, ADDING
+`primary_cta_target_title`/`secondary_cta_target_title` keys that name the tool targets —
+something annotated the mismatched state without correcting it. (Checked against
+`bugs_open/268` before filing here: NOT that class — the URL keys were present throughout,
+rewritten rather than dropped.)
+
+Repaired by hand today (content_data restore + `section_data_resolved` rerender, verified
+at the served page ~18:45Z, real-click probe + no-init mutant). The restored keys include
+`*_target_title` values matching `pages.title` for both targets, so a title-comparing
+checker should now read them as consistent. Survival past the next regeneration is
+unverified — the leopardess RUNNING_NOTES entry of this date carries the re-check.

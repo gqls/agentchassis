@@ -2281,3 +2281,85 @@ Owner asked for the §11.7 work to be prepared as a handoff for a fresh session.
   07-31 and are still live; the placeholder URLs are asset-row metadata only; the
   content_data emptying is the 08-11 regeneration. Two separate defects, two separate bug
   files, neither is the other's cause.
+
+
+## 2026-08-14 (session "services-restore") — /services.html repaired end to end; all five regressions closed and verified live
+
+Executed `HANDOFF_2026-08-14_services_restore.md` in full. Everything below happened
+2026-08-14 between ~18:15Z and ~19:00Z.
+
+**Re-verification first (handoff warning 1).** All five regressions were still live on the
+served page (1 `<img>`, 0 `data-hcc-carousel`, 0 contact-primary anchors, the 404 link and
+the Mistral claim both present). One deviation from the handoff's snapshot: the
+`call-to-action` slot's `updated_at` had moved to **2026-08-12 20:49:36** — something
+added `primary_cta_target_title`/`secondary_cta_target_title` keys naming the (wrong) tool
+targets, without changing the CTAs themselves. Repair 1c therefore also set those two keys
+to the restored targets' real `pages.title` values, so the annotation no longer contradicts
+the URLs. No open work item was in flight against the page.
+
+**Backup:** `bak_leo_services_pc_20260814` (all 4 slots, by page_id).
+
+**Icons (1a).** The two new items got fresh icons via the proven Route-A recipe
+(scope-less `needs_imagery` → image-build-handler, `kind:'icon'` → Banana), prompts
+modelled verbatim on the 07-31 set's constraint-hardened form (recovered from
+`assets.origin_prompt` — worth knowing they are recoverable there):
+`icon_service_routing` (a junction fanning into three routes, one looping back inside its
+boundary) and `icon_service_credibility` (source lines converging into one feed, items
+passing beneath a gauge arc). Created 18:20/18:21Z, serving 200 within the minute, **both
+born with CORRECT `/assets/images/` urls** — unlike the 07-31 six (contributed to the
+248-asset file). All six icons (4 existing + 2 new) were eyeballed before wiring, per the
+site rule; both new ones accepted on first roll; `monitoring` accepted for
+`decision-record` (concentric arcs sweeping a row of marks reads as a log being read back).
+
+**Claims re-measured before the rerender shipped them (1b).** Live 2026-08-14:
+`business_intel.businesses` 3,419 ("more than 2,000" — true); `companies_house_data` 937
+(true); `content_feed_items` 10,087 vs claimed "over 9,545" (true, append-only table,
+grows); scored `credibility IS NOT NULL` 8,846 vs "more than 8,297" (true). Kept both
+item-6 figures. **The Mistral claim is gone again** (factory.go re-read: anthropic/
+ollama/gemini only). **And one claim the handoff didn't enumerate was the 90,790 defect
+class again**: item 4 (`decision-record`) said "more than 2,000 orchestration state
+records … weeks after the fact". `orchestration_states` held 2,819 live but is pruned
+hourly at 24h (and dipped to 1,900 on 07-26), and `orchestration_state_audit` prunes too
+(min `changed_at` 2026-08-12 when read on 08-14) — so "weeks after the fact" was false on
+BOTH tables. Rephrased durably: mechanism only, no count, no retention promise.
+
+**Repairs applied** as ONE transaction (1a icons+alts, 1b bodies, 1c CTA + target_titles,
+1d card 1 → `/case-studies.html`, 1e `carousel:true`), each UPDATE hitting exactly 1 row.
+Both L9 §4 escalation-gate queries returned 0 rows. ONE rerender
+(`rerender_page_safe.sh`, PUBLISH_OK, correlation `a9510019`), COMPLETED, **no
+`needs_page` escalation emitted**.
+
+**Verification (dated PASS: 2026-08-14 ~18:45–18:55Z).** All six §2 assertions pass on a
+cache-busted fetch: img 7/7, hcc ≥1, contact-primary 1, 404-case-study 0, mistral 0 —
+and card-links: the grep-c form reads **17** because the component's inline CSS matches
+the string on 11 lines; the real count is `<a class="info-card-grid__card-link">` = **6**,
+all six hrefs live pages (2× case-studies after 1d). All six icon files referenced once
+each. Real-gesture probe (headless Chromium, `--force-prefers-reduced-motion`, page
+served locally with `<base>` to live assets): trp and icg both
+NEXT_SCROLLS/PREV_RETURNS=true, trp OPENS + SIBLING_CLOSES=true, icg cardAnchors=6. The
+**no-init mutant** (snippets.js removed) kills both carousels and sibling-close while the
+progressive-enhancement baseline survives (native details open; 6 server-rendered
+anchors) — the probe discriminates. Probe scripts: scratchpad only (pattern documented
+here; build_probe.py injects base href + a results-into-title script).
+
+**What this pass does NOT establish:** survival. The 268 fix ("renderer/static fields now
+reach the 238 carry", commit `8f899cc8d`, 09:13 BST today) may or may not be in the
+chassis image that restarted 15:32Z (v1.0.1299) — a sha-probe of `/proc/1/exe` did not
+find it, and the provenance log line had scrolled, so treat the §0.2 re-drop hole as
+possibly still open. **Re-verify the six §2 assertions after the next fleet roll or the
+next regeneration touching this page.** Also noted for the future: the
+`case-study-automated-intelligence-pipeline` pages row (`build_status='planned'`) still
+exists; if that page ever deploys, card 1 becomes a candidate to repoint there
+deliberately (`bugs_open/266` means it may deploy without anyone asking).
+
+**Contributions written:** 248-asset (leopardess 15→13, two clean new rows), 248-CTA
+(second-site observation + the 08-12 annotator data point; checked 268 first — not that
+class, URLs were rewritten not dropped), 152 (two post-fix presigned rows dated).
+`AUDIT_verified_facts.md` given a dated re-measurement block.
+
+**Missteps this session, for the record:** (1) first binary-provenance probe used an
+all-zeros sha as the absent-control and it MATCHED (a 40-zero run occurs in any large
+binary) — control invalid, provenance left honestly unknown rather than asserted; (2) a
+`pkill` for the probe's local HTTP server was chained ahead of two psql queries in one
+compound command and killed the whole thing (exit 144) — separate lifecycle commands from
+queries.

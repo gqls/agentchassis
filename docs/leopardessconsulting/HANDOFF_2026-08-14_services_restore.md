@@ -340,3 +340,27 @@ In order:
 move under a real click and the no-init mutant kills both; the three contributions (§3
 items 1–3) are written into their bug files; RUNNING_NOTES and README_where_we_are carry
 dated entries; the commit is pathspec-scoped and names this file.
+
+
+---
+
+## EXECUTED 2026-08-14 ~18:15–19:00Z — do not re-run this repair
+
+All of §1 (1a–1e), §2 and §3 items 1–3 were carried out and verified on 2026-08-14 by the
+services-restore session. All six §2 grep assertions pass (note: the `card-links` grep
+counts **17 lines** because the component's inline CSS matches the string — the real
+anchor count is 6, which is what the assertion means); both carousels move under a real
+click and the no-init mutant kills both; the three contributions are in their bug files;
+`bak_leo_services_pc_20260814` holds the pre-repair rows (alongside the JSON snapshot).
+Two new icons were generated for `model-routing`/`news-credibility`
+(`icon_service_routing`/`icon_service_credibility`, both eyeballed and accepted). The
+§1b sweep also removed one claim this file did not enumerate: item 4's pruned-table
+count + "weeks after the fact" retention promise (see `AUDIT_verified_facts.md`
+2026-08-14).
+
+**Still open from this file:** §3 items 4–7 (case-studies stale figures, voice work,
+process-automation-scorer acceptance, sitemap). **Standing re-check:** the §0.2 warning
+stands — re-run the §2 assertions after the next fleet roll or any regeneration touching
+this page; whether the 268 fix (`8f899cc8d`, committed 09:13 BST 08-14) is in the
+running chassis was not provable from this session (v1.0.1299; sha-probe negative,
+provenance line scrolled). Full narrative: `RUNNING_NOTES.md` 2026-08-14.

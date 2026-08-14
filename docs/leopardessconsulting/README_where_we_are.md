@@ -963,3 +963,37 @@ is filed and being diagnosed. Our site's repair route is different and has worke
 before, but the handoff says plainly: if the restored images and buttons do not appear
 on the rebuilt page, stop and record it, because at that point our page is evidence
 about the platform fault, and that is worth more than a forced fix.
+
+
+**2026-08-14, evening — the services page is whole again.**
+
+The repair handoff from this morning has been carried out in full, and everything on the
+list is verified working on the live page, not just saved in the database.
+
+The six pictures are back. Four of the originals went straight back where they belonged.
+The two topics the automated rewrite invented in August needed new artwork, so two new
+icons were drawn by the same process and in the same hand as the July set — one for "which
+model handles which step" (a line splitting into routes, with one route that never leaves
+its own boundary), one for the news-credibility engine (several sources merging into one
+stream, each item passing under a small gauge). Both were looked at by eye before being
+wired in, as the site rule requires, and both passed first time.
+
+The "Get in touch" button goes to the contact page again. The false claim about
+Mistral is gone again. The card that led to a page that doesn't exist now points at the
+case-studies page. And both card blocks scroll again with working arrows — proven by a
+real click in a real browser, and double-checked by deliberately breaking the script and
+confirming the arrows then fail, so the test genuinely tells working from broken.
+
+Two things worth saying beyond the checklist. First, while re-checking every figure on the
+page before shipping it, one more invented-precision claim turned up — the card about
+decision records quoted a count from a table that is wiped daily, and promised the records
+stay readable for weeks, which they don't. That sentence now describes what the system
+actually does and promises nothing about numbers or retention. Second, the repair held
+through the page rebuild on the first attempt — the trouble we saw on the other site did
+not happen here. But whether it survives the *next* automated pass is genuinely unknown;
+the underlying platform hole is being worked by another thread as of this morning. The
+check to re-run after the next roll is written down in the notes.
+
+Our evidence has also been added to the three shared fault files it belongs to, including
+one hopeful sign: the asset-record bug that mislabelled July's six icons did not touch
+today's two — the new records came out clean.

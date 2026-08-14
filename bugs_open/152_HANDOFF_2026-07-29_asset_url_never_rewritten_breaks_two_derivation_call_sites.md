@@ -179,3 +179,19 @@ instead of erroring, which it would have done before today.
 rows (favicon/og-card re-derived and served), which is the artefact-level proof;
 the 49 genuinely stranded rows stay stranded by design and are NOT a blocker — their
 source is unrecorded and inventing one would be worse than failing loud.
+
+
+## Recurrence data — leopardessconsulting.co.uk (2026-08-14, services-restore session)
+
+Two ACTIVE rows on this site carry presigned S3 urls (`X-Amz`), both created AFTER the
+152+155 fix rolled (v1.0.1259, 2026-08-06):
+
+- `hero_case_studies` — re-created 2026-08-08 21:34Z, active
+- `content_hero_tool_automation_savings_estimator` — 2026-08-11 20:24Z, active
+
+(Five older retired rows are also presigned, 2026-01-28 → 07-17.) Confirms the
+creation-side recurrence on this site, as the 2026-08-12 measurement filed. A
+counter-example from the same site today: two icon assets created 2026-08-14 via
+scope-less `needs_imagery` → image-build-handler were born with clean `/assets/images/`
+urls — so not every creation path writes presigned; the recurring writer is on the
+hero/content-hero path(s), not the icon path.

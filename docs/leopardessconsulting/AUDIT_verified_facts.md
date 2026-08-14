@@ -307,3 +307,15 @@ block (inside `features[2].description`, as real markup) and named again in pros
 absent from `pages` and returns 404. It is the same invented URL punch-list item 3
 recorded the owner clicking on 2026-07-18; two further instances survived that clean-up
 because they were inside body prose rather than a `link_url` field.
+
+
+## Re-measurement 2026-08-14 (services-restore session) — the /services.html claims, before re-shipping them
+
+| claim (as regenerated 08-11) | live value 2026-08-14 | query | verdict |
+|---|---|---|---|
+| "checked more than 2,000 business records" | **3,419** | `SELECT count(*) FROM business_intel.businesses` | TRUE, understated |
+| "937 … enriched with filed accounts data" | **937** | `SELECT count(*) FROM business_intel.companies_house_data` | TRUE, unchanged |
+| "over 9,545 items collected" | **10,087** | `SELECT count(*) FROM content_feed_items` | TRUE, understated (append-only table; grows) |
+| "more than 8,297 credibility-scored" | **8,846** | `… WHERE credibility IS NOT NULL` | TRUE, understated |
+| "hold more than 2,000 orchestration state records … weeks after the fact" | rows **2,819**, pruned hourly at 24h; dipped to 1,900 on 07-26. `orchestration_state_audit` ALSO prunes (min `changed_at` 2026-08-12 when read 08-14) | `SELECT count(*) FROM orchestration_states`; `SELECT min(changed_at) FROM orchestration_state_audit` | **REMOVED — 90,790 defect class again.** Point-in-time count of a pruned table plus a retention promise false on both tables. Rephrased to mechanism only, no count |
+| "call Claude, Gemini, Mistral or another provider" | factory supports **anthropic, ollama, gemini**; openai is a stub | `platform/aiservice/factory.go:24-35` re-read | **FALSE, removed again** (third appearance of Mistral on this page; also removed 07-31) |

@@ -654,3 +654,25 @@ drain should confirm this before batching sites that might have different owners
 requirements, per CLAUDE.md's "other consumers must be told, not merely measured."
 
 Full detail: NOTES, `## 2026-08-14 (drain job design)`.
+
+
+## Contribution — leopardessconsulting.co.uk numbers, and two clean new rows (2026-08-14, services-restore session)
+
+Measured while restoring `/services.html` (its six teaser icons were rewired today; the page
+now references all six files directly in `content_data`):
+
+- Placeholder-URL rows on this site: **13** now
+  (`url='/assets/images/input-data.asset-key.jpg'`), down from the **15** measured
+  2026-08-12. Not investigated which two moved or why — noting the delta for whoever runs
+  the drain.
+- All six `icon_service_*` FILES serve 200 with distinct sizes (26–47KB) while their rows
+  carry the placeholder URL — the "stale metadata only, no redeploy needed" shape the
+  bucket-E note above describes. A curl-first pass over these 13 would likely classify most
+  as metadata-only.
+- **Two new rows created today via the same Route-A recipe were born with CORRECT urls**:
+  `icon_service_routing` / `icon_service_credibility` (created 18:20/18:21Z via scope-less
+  `needs_imagery` → image-build-handler → Banana), both
+  `url='/assets/images/icon-service-<n>.jpg'`, both serving 200 within a minute of creation.
+  Same recipe as the 07-31 six whose rows today carry the placeholder. Fact only — I have
+  not traced whether the 07-31 rows were placeholderised at creation or later by the repair
+  path this file documents.
