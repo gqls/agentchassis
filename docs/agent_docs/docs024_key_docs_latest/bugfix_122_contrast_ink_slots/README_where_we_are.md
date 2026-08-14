@@ -718,3 +718,45 @@ on four unrelated sites, that gradient is the *identical* blue, and it is not a 
 their palettes. That smells like a shared template quietly supplying a default nobody chose, which
 is the same shape as the bug about generated palettes inheriting a layout's stray light colours.
 I have flagged it rather than pulled the thread.
+
+---
+
+**2026-08-14.** A short one, but it contains the closest I have come this week to filing something
+that was wrong about someone else's work.
+
+The other session has now committed its fix to the colour derivation. It is not switched on yet, but
+the way builds work here, the next time anybody releases anything, it goes out — so it stopped being
+something they control and became something the calendar controls. They told me the new colour for
+one of our sites, and when I measured that colour against the two backgrounds it has to sit on, one
+of them failed. On the face of it their fix would have broken an element we repaired last week, and
+broken it on the exact page my Monday test is built around.
+
+That is a serious thing to say about another thread's committed code, so I checked it against the
+code rather than sending it. It does not survive the check. The function they wrote refuses to
+return a colour unless it clears every background it was given, so it cannot produce the value they
+quoted. When I reimplemented their algorithm and ran it on the real palette, it produces a slightly
+different colour, and that one clears both. **Their fix is sound and my Monday test survives it.**
+The two colours are a hair apart — two of the smallest steps their search can take — and they land
+on opposite sides of the pass mark, which is why the discrepancy was worth chasing rather than
+shrugging at. I have asked them to pin the real value with a test before their review, because right
+now neither of us can say with certainty which one their program produces.
+
+The more useful thing came out of that. Their method deliberately makes the smallest change that
+works — it stops the moment the colour is legible enough. Sensible, and it protects the brand
+colour, which is the whole point. But it means every colour it produces sits *just barely* over the
+line. I measured it across ten sites: seven of the twelve colours it would generate clear the bar by
+less than a tenth of a point, one by two hundredths. And the catch is that it does this arithmetic
+against the background the palette *declares*, while our audit measures the background the browser
+actually *paints* — and those two are not always the same, because some panels are semi-transparent
+and pick up whatever is behind them. When the margin is two hundredths, that difference is enough to
+push it back under.
+
+So my prediction, written down now so it can be judged later: after the next release we should
+expect a fresh crop of contrast tickets on elements this fix just repaired, and they will look like
+our ticket-closing machinery misbehaving. They won't be. The remedy is on their side and is small —
+aim a little above the line instead of exactly at it. I have passed it on with the numbers.
+
+Nothing here needs you, and Monday is still Monday. I have written the test so that whoever runs it
+reads one colour off the page first, which tells them which of the two mechanisms they are actually
+looking at — including the third case where it went wrong, so that outcome is labelled in advance
+rather than argued about afterwards.

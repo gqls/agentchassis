@@ -172,13 +172,42 @@ if it happens.
 
 - **The `A.cta-btn` control is immune** — different variable — so the over-closure half of the test
   survives either way. Grade that one with full confidence regardless.
-- **If robot-hands has re-rendered:** re-fetch `/selection-guide.html`, re-read the two `-ink`
-  declarations and the value `--color-primary-ink` now resolves to, and re-state the two positive
-  predictions against what is actually served **before** the audit fires. Do not grade them against
-  this table.
-- Check cheaply: `curl -s https://robot-hands.com/assets/css/styles.css | grep -- '--color-primary-ink'`
-  → `#E2E8F0` (== `--color-text`) is the **unchanged** state this table assumes. A navy means the
-  derivation fix landed.
+
+> **UPDATED 2026-08-14 — the fix is now COMMITTED (`12cf55015`), so this is no longer hypothetical,
+> and the exposure has been COMPUTED rather than feared. The predictions SURVIVE.** `make build-*`
+> builds from committed HEAD, so the next fleet roll carries it whoever triggers it. But
+> `LegibleVariant` was replicated against robot-hands' served palette (primary `#1A1F2E`, background
+> `#0F1218`, surface `#1E2535`, min 4.5, HSL-lightness step 0.01, first hit wins) and it emits
+> **`#7D8BB6`**, which measures **5.57:1** against the eyebrow's ground and **4.55:1** against the
+> card-link's — *both clear*. Grounds taken from the filed rows' own `spec` (`rgb(15,18,24)` and
+> `rgb(30,37,53)`), not from a template. **So both rows still retract, and the outcome is stable
+> across whichever mechanism is underneath.**
+
+**Read the served ink before you grade — it tells you which mechanism you are testing.** One `curl`,
+and there are now **three** branches, not two:
+
+| resolved `--color-primary-ink` | what it means | canary verdict |
+|---|---|---|
+| `#E2E8F0` (== `--color-text`) | no roll yet, or no re-render — **my retraction is under test** | table above stands |
+| `#7D8BB6` | the derivation fix is live underneath — computed 4.55:1 / 5.57:1 | **both still RETRACT**, table stands |
+| `#7785B2` | the value `12cf55015`'s author quoted — measures **4.22:1** on the card ground, i.e. **FAILS** | `card-link` **stays open**; that is their regression, NOT a retraction bug — stop and tell them |
+
+`curl -s https://robot-hands.com/selection-guide.html | grep -- '--color-primary-ink'` (page block
+first — the site stylesheet can be overridden there; see §5a). The third row exists because my
+replication and their quoted hex disagree by ~0.02 lightness — two steps of their search — and land
+on opposite sides of 4.5. Nobody has pinned which the binary emits; they have been asked to add a
+test before their council round.
+
+**⚠ The structural point, which outlives this canary.** `LegibleVariant` returns the *first*
+lightness that clears, so **every output sits by construction within one step of failing.** Measured
+across 10 served palettes, both slots: **7 of 12 emitted inks land within 0.10 of 4.5** (robot-hands
+primary +0.05, robot-hands accent +0.04, vonc primary +0.04, webdesign.co.uk accent **+0.02**).
+Meanwhile the derivation reasons about the palette's **declared** `surface` while this lane's own
+audit measures the **composited** ground actually painted — the two differ routinely
+(`--section-surface` is `rgba(255,255,255,0.05)` over the page ground). **At +0.02 headroom a
+composited ground barely off the declared one flips the element back under 4.5, and the audit files
+a fresh `contrast_failure` for an element the fix just repaired.** That is a plausible source of
+future `contrast_failure` volume that will look like a retraction defect and will not be one.
 
 **And `A.cta-btn` now has a mechanism, not just "368 did not touch it"** (`NOTES` 2026-08-13 §5).
 `.cta-btn-primary` sets `color: var(--color-cta-bg, var(--color-primary))`, and `--color-cta-bg` on

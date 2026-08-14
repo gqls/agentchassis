@@ -1910,3 +1910,84 @@ finding into `bugs_open/122` under its own name — which is what I asked for, a
 same-file collision that filing it myself would have caused. Contributing into another thread's open
 file by *message* rather than by edit cost one tool call and produced a better result than either
 competing for the file or waiting for it.
+
+## 2026-08-14 — the sibling fix is COMMITTED, and the canary's exposure is computed rather than feared
+
+`581eb30a` committed the `legibleInkFor` repair (`12cf55015`): `colour.LegibleVariant` gets first
+refusal ahead of the palette walk, moving the source in HSL lightness only and returning the
+smallest sufficient change. It is not rolled, but `make build-*` builds from committed HEAD, so
+**the next fleet roll carries it, whoever triggers it and for whatever reason.** The hazard recorded
+yesterday therefore stopped being conditional on that thread's own actions.
+
+### 1. I nearly filed a regression against their fix, and the check that stopped me was arithmetic
+
+They quoted the new robot-hands ink as `#7785b2`. Measured against the grounds **the audit itself
+recorded** (`spec->>'bg'`, so the composited reality rather than a template's claim):
+
+| ink | vs card-link ground `rgb(30,37,53)` | vs eyebrow ground `rgb(15,18,24)` |
+|---|---|---|
+| today `#E2E8F0` | 12.42:1 PASS | 15.21:1 PASS |
+| their quoted `#7785B2` | **4.22:1 FAIL** | 5.16:1 PASS |
+| original defect `#1A1F2E` | 1.07:1 FAIL | 1.14:1 FAIL |
+
+On that reading their fix **regresses** `A.info-card-grid__card-link` — an element migration `368`
+repaired — back into a filed failure, and my "must RETRACT" prediction flips. That is a serious
+claim about someone else's committed code, so it went through the code before it went anywhere near
+a message.
+
+**It does not survive the code.** `LegibleVariant` (`platform/colour/contrast.go:301`) requires
+`clearsAll` — *every* ground at or above `minRatio` — before returning, and the caller
+(`palette_specialised_slots.go:480`) passes `pageGrounds = {bg, surface}` with
+`inkMinContrast = 4.5`. It is structurally incapable of emitting a colour that fails a ground it was
+handed. So `#7785B2` cannot be what it produces for this palette.
+
+Replicating the algorithm faithfully (HSL, step 0.01, both directions per distance, first hit wins)
+against the served palette gives **`#7D8BB6`** — **5.57:1** and **4.55:1**. Both clear. **The
+predictions hold.** `[MEASURED]` by replication, not by running their binary — my HSL round-trip may
+round differently from `platform/colour`'s, which is exactly the residual and is now their test to
+write.
+
+**The lesson: a number quoted in prose is not the number the code emits, and the gap between the two
+was the whole finding.** Had I trusted their hex I would have filed a false regression against a
+sound fix; had I trusted my alarm I would have raised it without the replication that dissolved it.
+Both hexes are ~0.02 lightness apart — two steps of their search — and land on opposite sides of the
+threshold.
+
+### 2. The structural finding, which is worth more than either hex
+
+"Smallest sufficient change" means the walk returns the **first** lightness that clears, so **every
+output sits by construction within one step of the failure boundary.** `[MEASURED 2026-08-14]`
+across 10 served palettes, both ink slots, 12 emitted values:
+
+| margin over 4.5 | sites |
+|---|---|
+| **within 0.10** — 7 of 12 | webdesign.co.uk accent **+0.02** · vonc primary +0.04 · robot-hands accent +0.04 · robot-hands primary +0.05 · dartsonline accent +0.05 · finetuning accent +0.06 · dartsonline primary +0.09 |
+| 0.10–0.20 — 5 of 12 | oufe primary +0.11 · cookly accent +0.12 · lendzy accent +0.14 · vetcomparison accent +0.17 · relojistas accent +0.18 |
+
+Now set that against the premise this entire lane rests on: **the derivation reasons about the
+palette's DECLARED `surface`; the render audit measures the COMPOSITED ground actually painted.**
+Those differ routinely — `--section-surface` is `rgba(255,255,255,0.05)` over the page ground, which
+that thread's own §5 established. **At +0.02 headroom, a composited ground marginally off the
+declared one flips the element back under 4.5 and the audit files a fresh `contrast_failure` for an
+element the fix just repaired.**
+
+Predicted consequence, recorded now so it is falsifiable later: **expect some new `contrast_failure`
+volume after the roll on elements the ink fix "fixed", and expect it to look like a retraction
+defect.** It would not be one. The remedy is theirs and cheap — walk to a target above the threshold
+(4.6, 5.0) so there is absorption, or feed the derivation the composited ground.
+
+### 3. Canary procedure, now three-branched
+
+The discriminator is free and is one `curl` before 14:54:23Z on 08-17: `#E2E8F0` → my retraction is
+under test · `#7D8BB6` → theirs is underneath and both rows still retract · `#7785B2` → the
+regression branch, `card-link` stays open and it is not a retraction bug. Read the **page** block
+first, not just the site stylesheet (§5a). Full table in the handoff.
+
+### 4. Housekeeping done for both threads
+
+`landmines-sync.py --apply` run on my live token (theirs expired): `--check` now reports **in sync**,
+so both entries reached `doc_notes`. They restored the two continuation lines their stale write had
+dropped from my landmine entry (`eb07f1fc9`), and logged it in `WRONG_CALLS`; the two-source `pv=`/
+`sv=` form is at HEAD and is better than what was lost. Their correction of my `[INFERRED]` marker is
+now itself out of date — the token came back and §5 records the instrument reading, so it is
+confirmed; they have been asked to drop the marker in `bugs_open/122` §11 next time they touch it.
