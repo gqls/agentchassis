@@ -660,6 +660,12 @@ func ExtractActionInputs(
 		}
 	}
 
+	// bridgeSupplied records fields whose value came from a DEPRECATED alias
+	// (Strategy 3) in place of a spec Default. Strategy 6 treats these as still
+	// overridable, so a step carrying BOTH the deprecated alias and the canonical
+	// key resolves to the canonical one — see the note at Strategy 6.
+	bridgeSupplied := map[string]bool{}
+
 	// Strategy 3: Check deprecated *_field patterns for any missing fields
 	for oldKey, newField := range spec.Deprecated {
 		// Only use deprecated pattern if we don't already have the value.
@@ -681,8 +687,17 @@ func ExtractActionInputs(
 		if pathStr, ok := config[oldKey].(string); ok && pathStr != "" {
 			value := ExtractNestedField(collectedData, pathStr)
 			if value != nil {
+				wasDefaulted := result.Defaulted[newField]
 				result.Values[newField] = value
 				delete(result.Defaulted, newField)
+				// Record that this value came from a DEPRECATED alias, so Strategy 6
+				// can let the CANONICAL key win over it (council REVISE round 1,
+				// editquality seat). Only tracked when the bridge beat a Default:
+				// that is the only case where Strategy 6 can still act, and it is
+				// the case where a step carries BOTH spellings.
+				if wasDefaulted {
+					bridgeSupplied[newField] = true
+				}
 				result.DeprecatedUsed = append(result.DeprecatedUsed, oldKey)
 
 				logger.Warn("Using deprecated config pattern",
@@ -849,8 +864,17 @@ func ExtractActionInputs(
 	// literals; zero live instances), and the kind guard below refuses a literal
 	// whose type differs from the Default's, so a config typo cannot hand an action
 	// a value of a type its spec promised it would never see.
+	// PRECEDENCE WITH THE DEPRECATED BRIDGE (council REVISE round 1, editquality
+	// seat). Strategy 3 runs earlier in numeric order, so on a step carrying BOTH
+	// the deprecated alias and the canonical key the bridge would claim the field
+	// first and the canonical spelling would lose — the opposite of what a
+	// migration is for, and inconsistent with the dotted case, where Strategy 0
+	// already beats the bridge because it runs before it. So a bridge-supplied
+	// value stays overridable here: canonical beats deprecated, whatever the shape.
+	// The alias is still reported in DeprecatedUsed, because it IS present and IS
+	// deprecated; it simply did not decide the value.
 	for _, field := range allFields {
-		if !result.Defaulted[field] {
+		if !result.Defaulted[field] && !bridgeSupplied[field] {
 			continue // a caller supplied this field; there is no default to beat
 		}
 		raw, exists := config[field]

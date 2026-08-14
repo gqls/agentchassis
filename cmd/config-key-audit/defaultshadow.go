@@ -94,6 +94,7 @@
 package main
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -344,6 +345,77 @@ func findDefaultShadowedKeys(agents []liveAgent, specs map[string]datahelpers.Ac
 	return findings
 }
 
+// countDeadMismatched is the exit condition, in ONE place. The stdin path, the
+// --report path and the summary all call it, so a report saying "clean" while the
+// process exits 1 is not constructible.
+func countDeadMismatched(findings []defaultShadowFinding) int {
+	n := 0
+	for _, f := range findings {
+		if f.dead() && !f.MatchesDefault {
+			n++
+		}
+	}
+	return n
+}
+
+// defaultShadowRunSummary is the doc_notes body: what was looked at as well as
+// what was found, because a report that records only findings cannot be
+// distinguished from a job that never ran (writeDocNote's own comment;
+// bugs_open/140 is what that costs).
+//
+// It states the resolver rule it is grading against, and the date that rule
+// changed. A reader finding an old row must be able to tell which resolver
+// produced it — three of this mode's classes inverted their meaning on
+// 2026-08-14, so an undated verdict is worse than none.
+func defaultShadowRunSummary(scanned, undecoded, withDefaults int, findings []defaultShadowFinding) string {
+	deadMismatched := countDeadMismatched(findings)
+	deadMatched, conditional, live := 0, 0, 0
+	for _, f := range findings {
+		switch f.Verdict {
+		case "live":
+			live++
+		case "conditional":
+			conditional++
+		default:
+			if f.MatchesDefault {
+				deadMatched++
+			}
+		}
+	}
+
+	var b strings.Builder
+	fmt.Fprintf(&b, "default-shadowed-keys: %d live agents scanned (%d undecodable), "+
+		"%d registered specs carry Defaults.\n", scanned, undecoded, withDefaults)
+	fmt.Fprintf(&b, "DEAD (the spec Default wins whatever the config says): %d mismatched, %d matching.\n",
+		deadMismatched, deadMatched)
+	fmt.Fprintf(&b, "CONDITIONAL (wins only if its path resolves at runtime): %d.\n", conditional)
+	fmt.Fprintf(&b, "LIVE (honoured by Strategy 6): %d.\n", live)
+	b.WriteString("Rule graded against: an explicit config VALUE beats a spec Default " +
+		"(bugs_open/231 candidate 2, live in code since 2026-08-14). A DOTLESS scalar of the " +
+		"Default's kind wins; a DOTTED string stays a reference and loses silently when it does " +
+		"not resolve; composites and wrong-kind scalars are refused.\n")
+
+	if deadMismatched == 0 {
+		b.WriteString("\nNo dead mismatched entries. This is the mode's own pass condition, and it is " +
+			"disconfirmable: a scalar of the wrong kind for its Default, a composite, or a defaulted " +
+			"field outside Required+Optional would all appear above.\n")
+		return b.String()
+	}
+
+	b.WriteString("\nDead AND mismatched — live behaviour differs from what the config says:\n")
+	for _, f := range findings {
+		if f.dead() && !f.MatchesDefault {
+			fmt.Fprintf(&b, "  %s %s action=%s %s=%#v (default %#v) [%s]\n",
+				f.Agent, f.Path, f.Action, f.Key, f.ConfigValue, f.DefaultValue, f.Class)
+		}
+	}
+	b.WriteString("\nCAVEAT before calling any of these damage: \"dead\" means dead on the " +
+		"ExtractActionInputs path. An action that reads step.Config directly in its own body still " +
+		"honours the key — 20 of 24 findings were false that way in the 2026-08-11 census. Grep the " +
+		"action's read line first.\n")
+	return b.String()
+}
+
 // emitDefaultShadowedKeys reads the same stdin shape as --live-pairs and
 // prints every finding as JSON. Zero findings is a legitimate, meaningful
 // result; an empty decoded-agent set is not and is refused, exactly as on
@@ -355,13 +427,62 @@ func findDefaultShadowedKeys(agents []liveAgent, specs map[string]datahelpers.Ac
 // dead keys, conditional bindings and live overrides are reported for the census
 // but do not fail the run.
 func emitDefaultShadowedKeys() {
-	raw, err := io.ReadAll(os.Stdin)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "config-key-audit --default-shadowed-keys: reading stdin: %v\n", err)
+	// --report reads the fleet straight from Postgres and records the run in
+	// doc_notes, exactly as --removed-keys-in-use does (that file carries the full
+	// reasoning; this is a second consumer of the same plumbing, not a new one).
+	//
+	// WHY IT EXISTS (council REVISE round 1, bug_historian seat, medium). Strategy
+	// 6's three rejection arms — unresolved dotted path, kind mismatch, empty
+	// value on a Required field — leave the Default standing and say so only
+	// through zap. Chassis pod logs rotate away within MINUTES on this fleet, so
+	// an author who typoed a type gets no durable signal: no agent_error_log row,
+	// no work item, nothing queryable once the pod is gone. That is the shape
+	// 016b §9 names, and it is the same silent-fallback family as the bug this
+	// change fixes.
+	//
+	// The resolver itself CANNOT close it: ExtractActionInputs takes
+	// (collectedData, config, spec, logger) and has no DB handle by design, so a
+	// durable write at the point of resolution would mean threading one through
+	// every action. The estate's established answer for an offline, fleet-wide
+	// config check is a daily CronJob writing to doc_notes — RFC_006 and RFC_021
+	// Q1 both landed there — and this mode is the half that makes that possible.
+	//
+	// ⚠ THE MODE IS NOT YET DRIVEN. No CronJob runs it (see the register entry's
+	// verify-later). Ordering is on whoever wires it: the image must EXIST before
+	// the overlay is applied, because this fleet reports ImagePullBackOff as a Job
+	// still RUNNING and never FAILED — the trap removed-config-keys-check's own
+	// cronjob.yaml records hitting on its first rollout.
+	report := false
+	for _, a := range os.Args[2:] {
+		if a == "--report" {
+			report = true
+			continue
+		}
+		fmt.Fprintf(os.Stderr, "config-key-audit --default-shadowed-keys: unrecognised argument %q (want: [--report])\n", a)
 		os.Exit(2)
 	}
 
-	agents, failed, err := decodeLiveAgents(raw, "--default-shadowed-keys")
+	var (
+		agents []liveAgent
+		failed int
+		err    error
+	)
+	if report {
+		var db *sql.DB
+		db, err = dbConn()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "config-key-audit --default-shadowed-keys: %v\n", err)
+			os.Exit(2)
+		}
+		defer db.Close()
+		agents, failed, err = loadLiveAgentsFromDB(db, "--default-shadowed-keys")
+	} else {
+		var raw []byte
+		raw, err = io.ReadAll(os.Stdin)
+		if err == nil {
+			agents, failed, err = decodeLiveAgents(raw, "--default-shadowed-keys")
+		}
+	}
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "config-key-audit --default-shadowed-keys: %v\n", err)
 		os.Exit(2)
@@ -390,6 +511,16 @@ func emitDefaultShadowedKeys() {
 	}
 
 	findings := findDefaultShadowedKeys(agents, specs)
+
+	if report {
+		summary := defaultShadowRunSummary(len(agents), failed, withDefaults, findings)
+		fmt.Print(summary)
+		writeDocNote("default-shadowed-keys", summary, "default-shadowed-keys", "default-shadowed-keys-check")
+		if countDeadMismatched(findings) > 0 {
+			os.Exit(1)
+		}
+		return
+	}
 
 	enc := json.NewEncoder(os.Stdout)
 	enc.SetIndent("", "  ")

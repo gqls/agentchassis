@@ -16,6 +16,8 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
@@ -400,5 +402,85 @@ func TestCalibration_AssetDeployerDottedPurposeIsConditional(t *testing.T) {
 	f := findOne(t, findings, "purpose")
 	if f.Class != "dotted_conditional" || f.dead() {
 		t.Errorf("the 380 face must report as dotted_conditional (not dead), got %+v", f)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// The --report surface (council REVISE round 1, bug_historian seat): the doc_notes
+// body is the only durable record of a rejected override, so it has to say what
+// was LOOKED AT as well as what was found, and it must be disconfirmable.
+// ---------------------------------------------------------------------------
+
+func TestDefaultShadowRunSummary_CleanRunStatesWhatWouldHaveShown(t *testing.T) {
+	agents := decodeTestAgents(t, `[
+		{"type": "fixture-agent", "workflow": {"start_step": "s1", "steps": {
+			"s1": {"action": "shadowed_action", "config": {"purpose": "logo"}}
+		}}}
+	]`)
+	findings := findDefaultShadowedKeys(agents, shadowSpecs())
+	summary := defaultShadowRunSummary(len(agents), 0, 1, findings)
+
+	// A clean run must record the population, not just the absence of findings —
+	// otherwise it is indistinguishable from a job that never ran (bugs_open/140).
+	for _, want := range []string{
+		"1 live agents scanned",
+		"1 registered specs carry Defaults",
+		"DEAD (the spec Default wins",
+		"LIVE (honoured by Strategy 6): 1",
+		"live in code since 2026-08-14",
+		"disconfirmable",
+	} {
+		if !strings.Contains(summary, want) {
+			t.Errorf("clean summary is missing %q:\n%s", want, summary)
+		}
+	}
+	if strings.Contains(summary, "Dead AND mismatched") {
+		t.Errorf("a clean run must not print the findings header:\n%s", summary)
+	}
+}
+
+func TestDefaultShadowRunSummary_NamesEveryDeadMismatchedEntry(t *testing.T) {
+	agents := decodeTestAgents(t, `[
+		{"type": "fixture-agent", "workflow": {"start_step": "s1", "steps": {
+			"s1": {"action": "guarded_action", "config": {"max_pages": "60"}}
+		}}}
+	]`)
+	findings := findDefaultShadowedKeys(agents, shadowSpecs())
+	summary := defaultShadowRunSummary(len(agents), 0, 1, findings)
+
+	if !strings.Contains(summary, "DEAD (the spec Default wins whatever the config says): 1 mismatched") {
+		t.Errorf("summary undercounts the dead entry:\n%s", summary)
+	}
+	for _, want := range []string{"Dead AND mismatched", "max_pages", "type_mismatch", "CAVEAT"} {
+		if !strings.Contains(summary, want) {
+			t.Errorf("findings summary is missing %q:\n%s", want, summary)
+		}
+	}
+}
+
+// The exit rule and the summary must be the SAME count. A report that reads clean
+// while the process exits 1 (or the reverse) is the drift this file's Verdict
+// field was added to prevent, one layer up.
+func TestCountDeadMismatchedAgreesWithTheSummary(t *testing.T) {
+	agents := decodeTestAgents(t, `[
+		{"type": "fixture-agent", "workflow": {"start_step": "s1", "steps": {
+			"s1": {"action": "guarded_action", "config": {"max_pages": "60", "flag": "yes"}},
+			"s2": {"action": "shadowed_action", "config": {"purpose": "logo", "options": {"q": 1}}}
+		}}}
+	]`)
+	findings := findDefaultShadowedKeys(agents, shadowSpecs())
+
+	n := countDeadMismatched(findings)
+	if n != 3 {
+		// 2 type_mismatch (max_pages, flag) + 1 composite_literal (options).
+		t.Fatalf("countDeadMismatched = %d, want 3: %+v", n, findings)
+	}
+	summary := defaultShadowRunSummary(len(agents), 0, 2, findings)
+	if !strings.Contains(summary, fmt.Sprintf("%d mismatched", n)) {
+		t.Errorf("summary headline disagrees with the exit count (%d):\n%s", n, summary)
+	}
+	// And the live override in the same batch must NOT be counted as dead.
+	if strings.Contains(summary, "purpose='logo'") {
+		t.Errorf("a live override appeared in the dead list:\n%s", summary)
 	}
 }
