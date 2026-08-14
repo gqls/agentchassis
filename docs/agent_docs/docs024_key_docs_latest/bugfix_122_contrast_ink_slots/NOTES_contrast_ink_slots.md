@@ -2208,3 +2208,41 @@ clean case, my retraction under test. Both commits now travel together, so the r
 unlikely as well as diagnostic. It stays in the table anyway: any other lane's roll plus an unrelated
 re-render is outside both our control, and a branch that costs one line to keep is cheaper than a
 misread on the day.
+
+## 2026-08-14 (afternoon) — fresh build v1.0.1298: the ink fix is LIVE, and the canary is still the clean case
+
+Roll landed 08:58Z. Verified at the artefact, not at the tag:
+
+- stamp **`bc39e7bf5`** — adapters print it in their own provenance line; chassis by binary probe,
+  `bc39e7bf5…` **PRESENT** and yesterday's `69612d692…` **absent**, so the probe discriminates.
+- ancestry: **retraction `5639a1103` LIVE**, **ink round 1 `12cf55015` LIVE**, **ink round 2
+  `8ad05d01a` LIVE**. All three in one build.
+- 226 rows still `deferred`, `retracted` **0**, `max(attempt_count)` **0**. 0 sites due; robot-hands
+  still first at 08-17 14:54:23Z.
+
+**The decisive reading: robot-hands still serves `--color-primary-ink: #E2E8F0`, and there is no
+page-level override.** So the ink code is live but **dormant** — nothing schedules a re-render, and
+the value only moves when a site's `styles.css` is regenerated. Monday is therefore the **clean
+case**: the retraction is genuinely what is under test, not something layered on another lane's
+change.
+
+⚠ **This makes the discriminator MORE necessary, not less, and it is worth being precise about why.**
+Yesterday the ink code was not in the binary at all, so "no re-render" was two independent
+protections. Today it is one: the code is armed, and a single re-render of robot-hands between now
+and 14:54Z Monday flips the served value. **Read the ink on the day. Do not carry today's reading
+forward** — that is exactly the "it was live this morning" error this lane already corrected once
+(`12c` §1c), in the same shape and about the same site.
+
+### The 403 claim in the pinned test does not reproduce
+
+The other lane's `f7f4b0dd8` comment tells the next reader that "a bare curl gets 403 on every site —
+a user-agent rejection". `[MEASURED 2026-08-14]` from here: **7 of 7** pinned domains return **200**
+on a bare `curl` of the stylesheet path, identical to the same request with a browser UA. Every
+transcription this lane made — including the two that caught their cookly and lendzy grounds — was a
+bare curl, so if the claim held, none of those readings could exist.
+
+Not corrected by me: it is their file and their comment, and I cannot distinguish "their egress path
+differs" from "transient rate-limiting read as a UA rejection". Flagged with suggested falsifiable
+wording. Recorded here because it sits in the one artefact whose entire job is telling a future
+reader how to re-transcribe the inputs, and a re-derivation instruction that misdescribes the failure
+mode sends its reader to the wrong diagnosis.

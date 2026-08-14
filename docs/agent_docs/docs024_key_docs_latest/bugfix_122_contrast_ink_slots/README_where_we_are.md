@@ -760,3 +760,27 @@ Nothing here needs you, and Monday is still Monday. I have written the test so t
 reads one colour off the page first, which tells them which of the two mechanisms they are actually
 looking at — including the third case where it went wrong, so that outcome is labelled in advance
 rather than argued about afterwards.
+
+---
+
+**2026-08-14, afternoon.** The new build is out and it carries everything: our ticket-closing work,
+and the other team's colour repair in both its versions. I checked that at the running program
+rather than trusting the version number, with a control to prove the check could have said no.
+
+The useful news is that the colour repair is live but **asleep**. Nothing tells a site to rebuild
+itself, so no site has actually taken the new colours yet — that is deliberate on their side, and
+they intend to do one site first and wait for your say-so before widening. I confirmed it by reading
+robot-hands' actual stylesheet: still the old colour.
+
+That is the best possible position for Monday. Our test gets a clean run, measuring our own work
+rather than sitting on top of somebody else's change.
+
+One caution I have written into the handoff, because it is the sort of thing that catches people.
+Until today there were two separate reasons our test was safe: the new colour code was not in the
+system, *and* no site had rebuilt. Now there is only one. If anything rebuilds that site between now
+and Monday afternoon, the colours move. So whoever runs the test on the day must read the colour off
+the live page **on the day** — not trust today's reading. We made a version of that mistake last
+week on the very same site, so it is written down twice.
+
+I have written a fresh handoff so this can be picked up cold in a new conversation. Nothing needs
+you before Monday, except that on Saturday there is a small pricing task on the other rota.
