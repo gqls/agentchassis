@@ -14,7 +14,7 @@ REGION ?= uk001
 REGION_PATH ?= uk_001
 REGISTRY ?= docker.io/aqls
 #IMAGE_TAG ?= latest
-IMAGE_TAG ?= v1.0.1295
+IMAGE_TAG ?= v1.0.1298
 
 # Paths
 TERRAFORM_DIR := deployments/terraform/environments/$(ENVIRONMENT)/$(REGION)
@@ -1109,6 +1109,11 @@ deploy-agents: ## Deploy all agent services with dynamic image tag
 	# release ships pod-spec changes — requests, spread constraints — without
 	# touching which runner image is pinned.
 	@$(MAKE) --no-print-directory deploy-github-runners
+
+	# Deploy the node-config DaemonSet (bugs_open/252: kubelet image-GC settings
+	# applied per node — the kubelet-config ConfigMap is provider-protected, so
+	# node files are the only tenant-reachable home; see the target's comment).
+	@$(MAKE) --no-print-directory deploy-node-config
 
 	# Update database agent definitions
 	@$(MAKE) update-agent-images-v2 IMAGE_TAG=$(IMAGE_TAG)
@@ -2546,6 +2551,44 @@ deploy-github-runners: ## Apply both github runner manifests (pod spec only; ima
 	else \
 		echo "$(YELLOW)No runner manifests applied — all $$SKIPPED skipped for ENVIRONMENT=$(ENVIRONMENT)$(NC)"; \
 	fi
+
+#################################
+# Node configuration (bugs_open/252)
+#################################
+# deploy-node-config — apply the node-config DaemonSet, which sets each node's
+# kubelet image-GC thresholds (85/80/0s -> 70/60/168h) by editing
+# /var/lib/kubelet/config.yaml and restarting kubelet, idempotently.
+#
+# Why node files and not the kubelet-config ConfigMap: that CM is
+# PROVIDER-PROTECTED on this hosted control plane — writes return 200 "patched"
+# and revert before the next read (measured 2026-08-14, three write shapes, no
+# mutating webhook to explain it). The DaemonSet is also what makes the setting
+# survive SPOT node replacement, which a one-off hand edit would not.
+# Full mechanism + failure direction: the DaemonSet manifest's header comment.
+#
+# Like the runners: manifest-only, no image-tag sweep (busybox, own lineage),
+# production-only overlay, called from deploy-agents so `make release` ships it.
+.PHONY: deploy-node-config
+deploy-node-config: ## Apply the node-config DaemonSet (kubelet image-GC settings, per node)
+	@OVERLAY="$(KUSTOMIZE_DIR)/services/node-config/overlays/$(OVERLAY_PATH)"; \
+	if [ -d "$$OVERLAY" ]; then \
+		echo "$(YELLOW)Applying node-config DaemonSet...$(NC)"; \
+		KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k "$$OVERLAY" || exit 1; \
+		echo "$(GREEN)node-config applied — verify with: make node-config-status$(NC)"; \
+	elif [ "$(ENVIRONMENT)" = "production" ]; then \
+		echo "$(RED)MISSING in production: $$OVERLAY$(NC)"; exit 1; \
+	else \
+		echo "$(YELLOW)skipping node-config — no $(ENVIRONMENT) overlay (production-only)$(NC)"; \
+	fi
+
+.PHONY: node-config-status
+node-config-status: ## Show node-config pods and each node's LIVE kubelet GC values
+	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl -n ai-persona-system get pods -l app=node-config -o wide
+	@echo "$(YELLOW)live kubelet values per node (the DS is proven at the kubelet, not at its own logs):$(NC)"
+	@for n in $$(KUBECONFIG=$(KUBECONFIG_PATH) kubectl get nodes -o jsonpath='{.items[*].metadata.name}'); do \
+		KUBECONFIG=$(KUBECONFIG_PATH) kubectl get --raw "/api/v1/nodes/$$n/proxy/configz" 2>/dev/null \
+		| python3 -c "import json,sys;d=json.load(sys.stdin)['kubeletconfig'];print('  $$n'[-10:],'high',d.get('imageGCHighThresholdPercent'),'low',d.get('imageGCLowThresholdPercent'),'maxAge',d.get('imageMaximumGCAge'))"; \
+	done
 
 .PHONY: github-runner-logs
 github-runner-logs: ## Tail github-actions-runner logs
