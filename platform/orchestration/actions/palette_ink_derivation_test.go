@@ -12,7 +12,17 @@
 // apart. bugs_open/122, contribution 2026-08-13.
 package actions
 
-import "testing"
+import (
+	"fmt"
+	"regexp"
+	"strings"
+	"testing"
+
+	"github.com/gqls/agentchassis/platform/colour"
+	"go.uber.org/zap"
+)
+
+func zapNop() *zap.Logger { return zap.NewNop() }
 
 // dartsonline.com's real palette, from its served stylesheet 2026-08-13.
 func dartsonlineInkPalette() map[string]string {
@@ -88,5 +98,81 @@ func TestLegibleInkFor_AchromaticSourceStillFallsThroughToTheWalk(t *testing.T) 
 	}
 	if hex == p["primary"] {
 		t.Errorf("returned the illegible source unchanged (%s)", hex)
+	}
+}
+
+// The overlay alpha is now read by TWO places: buildSectionDefaults emits it as a
+// literal inside a format string, and buildLegibleInkDefaults composites it onto
+// the page grounds. Two readers of one number, with nothing checking they agree,
+// is the drift class platform/colour's own header was written about.
+//
+// The literal stays in the format string deliberately — changing a format string
+// risks changing emitted CSS bytes for no gain — so this test is the joint.
+func TestSectionSurfaceOverlayAlphaMatchesTheEmittedCSS(t *testing.T) {
+	palette := map[string]string{
+		"background": "#111520", "surface": "#1E2436",
+		"text": "#F0F2F7", "text_muted": "#A8B0C0", "primary": "#1A1F2E",
+	}
+	css := buildSectionDefaults("#111520", "#1E2436", palette, true, true, zapNop())
+	want := fmt.Sprintf("--section-surface: rgba(255,255,255,%g);", sectionSurfaceOverlayAlpha)
+	if !strings.Contains(css, want) {
+		t.Errorf("buildSectionDefaults does not emit %q.\nsectionSurfaceOverlayAlpha (%.2f) and the "+
+			"emitted literal have drifted. buildLegibleInkDefaults composites the CONSTANT onto the "+
+			"page grounds, so if the emitted overlay is a different alpha, every ink is certified "+
+			"against a ground no visitor sees.\nemitted CSS:\n%s", want, sectionSurfaceOverlayAlpha, css)
+	}
+}
+
+// WIRING, not arithmetic — and this test exists because its absence was caught by
+// a mutation that PASSED.
+//
+// platform/colour has a test proving LegibleVariant honours composited grounds
+// when it is GIVEN them. That says nothing about whether buildLegibleInkDefaults
+// passes them. Deleting the compositing loop from pageGrounds left every test in
+// this package green (mutation M5, 2026-08-14), which is the textbook shape: the
+// unit is pinned, the wiring is not, and the mutation walks straight through the
+// gap.
+//
+// So this reads the EMITTED :root block and measures the value it actually
+// contains against the ground a visitor sees.
+func TestBuildLegibleInkDefaults_EmittedInkClearsTheCompositedGround(t *testing.T) {
+	// robot-hands.com, served stylesheet 2026-08-14. Its primary is the case that
+	// measured 3.93:1 on the composited surface before the fix.
+	palette := map[string]string{
+		"primary": "#1A1F2E", "accent": "#E8500A",
+		"background": "#0F1218", "surface": "#1E2535",
+		"text": "#E2E8F0", "text_muted": "#A8B0C0", "secondary": "#2A3142",
+	}
+	css := buildLegibleInkDefaults("", palette, zapNop())
+	if css == "" {
+		t.Fatal("no ink block emitted")
+	}
+
+	re := regexp.MustCompile(`--color-primary-ink:\s*(#[0-9a-fA-F]{3,8})\s*;`)
+	m := re.FindStringSubmatch(css)
+	if m == nil {
+		t.Fatalf("no --color-primary-ink in the emitted block:\n%s", css)
+	}
+	emitted := m[1]
+
+	if emitted == palette["text"] {
+		t.Fatalf("emitted --color-primary-ink is %s, which IS --color-text — the pre-repair behaviour", emitted)
+	}
+
+	// The ground a component painting with --section-surface actually shows.
+	composited := colour.CompositeOverGround("#ffffff", sectionSurfaceOverlayAlpha, palette["surface"])
+	if composited == palette["surface"] {
+		t.Fatal("the composited ground equals the declared surface, so this test cannot discriminate")
+	}
+	ratio, err := wcagContrastRatio(emitted, composited)
+	if err != nil {
+		t.Fatalf("wcagContrastRatio(%s,%s): %v", emitted, composited, err)
+	}
+	if ratio < inkMinContrast {
+		t.Errorf("emitted --color-primary-ink %s measures %.2f:1 on the COMPOSITED surface %s "+
+			"(declared %s), below the %.1f floor. buildLegibleInkDefaults is certifying inks against "+
+			"a ground no visitor sees — the compositing loop in pageGrounds has been removed or "+
+			"broken. Measured pre-fix value was 3.93:1.",
+			emitted, ratio, composited, palette["surface"], inkMinContrast)
 	}
 }

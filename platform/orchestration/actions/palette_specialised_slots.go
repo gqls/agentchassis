@@ -477,7 +477,33 @@ func buildLegibleInkDefaults(css string, palette map[string]string, logger *zap.
 		return ""
 	}
 	surface := lookupOrFallback(palette, "surface", "")
-	pageGrounds := []string{bg, surface} // an ink lands on the page or on a card
+	// An ink lands on the page or on a card — AND, on a dark site, on either of
+	// those under the renderer's own translucent section overlay.
+	//
+	// ⚠ THE COMPOSITED GROUNDS ARE NOT OPTIONAL, and leaving them out is a
+	// measured half-fix rather than a theoretical one. buildSectionDefaults emits
+	// `--section-surface: rgba(255,255,255,0.05)` (color_util.go), and a component
+	// that paints with it puts the ink on a ground 5% lighter than the palette
+	// declares. MEASURED 2026-08-14: that costs 0.62 of contrast ratio on the
+	// fleet's dark palettes, while the lightness search returns the SMALLEST
+	// sufficient change and therefore lands 0.02–0.09 above the floor by
+	// construction — so the gap was ~10x the margin. Inks clearing 4.5 on the
+	// declared surface measured 3.93–4.03 on the composited one, i.e. a fresh
+	// contrast_failure for an element this repair had just fixed. Raised by the
+	// bugfix_122_contrast_ink_slots lane against the first version of this change.
+	//
+	// Requiring all four is what makes "smallest sufficient change" safe: the
+	// search now has to clear the WORST real ground, not the most flattering
+	// declared one. This is the same reason grounds is a slice at all.
+	pageGrounds := []string{bg, surface}
+	for _, g := range []string{bg, surface} {
+		if g == "" {
+			continue
+		}
+		if c := colour.CompositeOverGround("#ffffff", sectionSurfaceOverlayAlpha, g); c != g {
+			pageGrounds = append(pageGrounds, c)
+		}
+	}
 
 	wanted := []struct {
 		name, src string

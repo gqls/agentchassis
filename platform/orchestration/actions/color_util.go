@@ -28,6 +28,19 @@ import (
 // (bugs_open/109, bugs_open/113). These wrappers keep the unexported names so
 // no call site in this package had to change.
 
+// sectionSurfaceOverlayAlpha is the alpha of the translucent white overlay
+// buildSectionDefaults emits as `--section-surface`. It is named because a SECOND
+// reader now depends on it: buildLegibleInkDefaults composites it onto the page
+// grounds so an ink is certified against the ground a visitor actually sees, not
+// the one the palette declares (bugs_open/122, 2026-08-14 — the declared/composited
+// gap measured 0.62 of contrast ratio, against a search headroom of 0.02–0.09).
+//
+// The emitted CSS below still carries the literal, deliberately: changing a
+// format string risks changing emitted bytes for no gain. TestSectionSurfaceOverlayAlphaMatchesTheEmittedCSS
+// is what stops the two drifting — it parses the alpha back out of the emitted
+// block and compares. Change one and that test names the other.
+const sectionSurfaceOverlayAlpha = 0.05
+
 // parseHexColor handles #rgb, #rrggbb, and #rrggbbaa forms. Alpha is ignored.
 func parseHexColor(hex string) (r, g, b uint8, err error) {
 	return colour.ParseHex(hex)

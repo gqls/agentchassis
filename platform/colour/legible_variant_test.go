@@ -187,3 +187,97 @@ func absDiff(a, b uint8) int {
 	}
 	return int(b - a)
 }
+
+// ============================================================================
+// Composited grounds — added 2026-08-14 after the bugfix_122_contrast_ink_slots
+// lane raised the objection this section exists to answer.
+// ============================================================================
+
+// sectionOverlay composites the renderer's own --section-surface overlay, the way
+// buildLegibleInkDefaults now does.
+func sectionOverlay(ground string) string {
+	return CompositeOverGround("#ffffff", 0.05, ground)
+}
+
+// THE OBJECTION, PINNED. Certifying an ink against the DECLARED surface while the
+// visitor sees the COMPOSITED one certifies it against the wrong colour. Because
+// the search returns the smallest sufficient change, every output sits within
+// ~0.1 of the floor by construction, so a 0.62 shift is ~10x the margin and flips
+// the element back into a filed failure.
+//
+// MEASURED 2026-08-14, robot-hands' real palette: against {bg, surface} the search
+// emitted #7d8bb6, which measures 3.93:1 on the composited surface — a FAIL, on an
+// element migration 368 had repaired. Against all four grounds it emits #8a97bd at
+// 4.56:1 worst-case. This test fails if the composited grounds are dropped.
+func TestLegibleVariant_ClearsTheCOMPOSITEDGroundNotJustTheDeclaredOne(t *testing.T) {
+	// robot-hands.com, read from its served stylesheet 2026-08-14.
+	const bg, surface = "#0F1218", "#1E2535"
+	grounds := []string{bg, surface, sectionOverlay(bg), sectionOverlay(surface)}
+
+	got, ok := LegibleVariant("#1A1F2E", grounds, AANormal)
+	if !ok {
+		t.Fatal("no variant against the composited grounds")
+	}
+	for _, g := range grounds {
+		ratio, err := ContrastRatio(got, g)
+		if err != nil {
+			t.Fatalf("ContrastRatio(%s,%s): %v", got, g, err)
+		}
+		if ratio < AANormal {
+			t.Errorf("%s on ground %s = %.2f:1 — below the floor on a ground the renderer itself paints", got, g, ratio)
+		}
+	}
+
+	// And the discriminator: the two-ground answer must NOT satisfy four grounds.
+	// If this ever stops holding, the composited grounds have become a no-op and
+	// this test would pass while asserting nothing.
+	twoGround, ok := LegibleVariant("#1A1F2E", []string{bg, surface}, AANormal)
+	if !ok {
+		t.Fatal("no two-ground variant")
+	}
+	if twoGround == got {
+		t.Fatalf("two-ground and four-ground searches both returned %s — the composited grounds "+
+			"are not changing the answer, so this test is vacuous and the objection is unpinned", got)
+	}
+	if r, err := ContrastRatio(twoGround, sectionOverlay(surface)); err == nil && r >= AANormal {
+		t.Errorf("the two-ground answer %s already clears the composited surface at %.2f:1 — "+
+			"the fixture no longer reproduces the reported failure", twoGround, r)
+	}
+}
+
+// The emitted hex, pinned for real palettes. This is the test the reviewing lane
+// asked for, and it exists because I quoted #7785b2 for robot-hands from a probe
+// whose GROUNDS I had invented (#0F1319/#1A1F2E instead of the served
+// #0F1218/#1E2535). The code was right and my figure was wrong, and no test could
+// contradict me because none named an output.
+//
+// A fixture whose inputs are transcribed from the artefact, asserting an exact
+// output, is the only shape that catches that.
+func TestLegibleVariant_EmittedHexIsPinnedForRealPalettes(t *testing.T) {
+	cases := []struct {
+		site, src, bg, surface, want string
+	}{
+		{"robot-hands.com primary", "#1A1F2E", "#0F1218", "#1E2535", "#8a97bd"},
+		{"dartsonline.com primary", "#1A1F2E", "#111520", "#1E2436", "#8a97bd"},
+		{"webdesign.co.uk accent", "#d4a373", "#f9f8f6", "#ffffff", "#9d6630"},
+		{"vonc.com primary", "#7c3cff", "#0a0a0f", "#13121f", "#9b6aff"},
+	}
+	for _, c := range cases {
+		grounds := []string{c.bg, c.surface}
+		for _, g := range []string{c.bg, c.surface} {
+			if o := sectionOverlay(g); o != g {
+				grounds = append(grounds, o)
+			}
+		}
+		got, ok := LegibleVariant(c.src, grounds, AANormal)
+		if !ok {
+			t.Errorf("%s: no variant", c.site)
+			continue
+		}
+		if got != c.want {
+			t.Errorf("%s: LegibleVariant(%s) = %s, want %s — if this is a deliberate change, "+
+				"re-measure every figure quoted in bugs_open/122 and the council submission, "+
+				"because they name these hexes", c.site, c.src, got, c.want)
+		}
+	}
+}

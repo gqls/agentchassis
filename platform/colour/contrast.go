@@ -275,6 +275,47 @@ func ToHex(r, g, b uint8) string {
 	return fmt.Sprintf("#%02x%02x%02x", r, g, b)
 }
 
+// CompositeOverGround returns `overlay` at `alpha` painted over `ground`, as an
+// opaque hex — the colour a browser actually shows where a translucent overlay
+// sits on a ground.
+//
+// WHY A CONTRAST DERIVATION NEEDS THIS. This package refuses to composite alpha
+// for the caller (see the package header: returning a ratio for a 30%
+// transparent colour would be a confident wrong answer). That is the right rule
+// for ContrastRatio, and it leaves a gap: a caller that KNOWS its overlay must
+// be able to composite deliberately and then measure the result. The renderer
+// emits exactly one such overlay — `--section-surface: rgba(255,255,255,0.05)`
+// from buildSectionDefaults — and an ink certified against the DECLARED surface
+// while the visitor sees the COMPOSITED one is certified against the wrong
+// colour.
+//
+// MEASURED 2026-08-14: that 5% white overlay costs 0.62 of contrast ratio on the
+// fleet's dark palettes (robot-hands, dartsonline, vonc), against a first-hit
+// search headroom of 0.02–0.09. So the gap was ~10x the margin, and inks that
+// cleared 4.5 on the declared surface measured 3.93–4.03 on the composited one —
+// a fresh contrast_failure for an element the repair had just fixed. Raised by
+// the bugfix_122_contrast_ink_slots lane, whose objection this closes.
+func CompositeOverGround(overlay string, alpha float64, ground string) string {
+	or, og, ob, err := ParseHex(overlay)
+	if err != nil {
+		return ground
+	}
+	gr, gg, gb, err := ParseHex(ground)
+	if err != nil {
+		return ground
+	}
+	if alpha < 0 {
+		alpha = 0
+	}
+	if alpha > 1 {
+		alpha = 1
+	}
+	mix := func(o, g uint8) uint8 {
+		return uint8(math.Round(float64(g)*(1-alpha) + float64(o)*alpha))
+	}
+	return ToHex(mix(or, gr), mix(og, gg), mix(ob, gb))
+}
+
 // lightnessSearchStep is the HSL lightness increment the search walks. 0.01 is
 // ~2.55 levels per 8-bit channel, so every reachable rounded value is visited
 // without testing the same hex twice more than a couple of times. Coarser steps
