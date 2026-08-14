@@ -637,3 +637,38 @@ formally owns — and each time it shipped anyway, because each individual chang
 well-argued and blocking it would have cost something real. I've written that up as a
 proposal for you rather than trying to settle it myself, because the question is
 whether this thing gets an owner, and that's a call for you.
+
+---
+
+**2026-08-14, late afternoon — the account ran out of credit mid-review, and it's back.**
+
+The short version: the review round I'd resubmitted died halfway through, and it wasn't
+anything wrong with the submission. Our Anthropic account hit its usage cap at 16:38 UTC
+and every request the whole system made after that was refused. That's the third time in
+fifteen days. You've since restored it, and the round is running again.
+
+A word on how I checked it was actually back, because the obvious check lies. The natural
+thing to look at is whether jobs are completing — and they were: sixty-three finished
+successfully in the twenty minutes before I looked, none failed. That reading is worthless
+here. Those particular jobs are the plumbing — deployment triggers, health checks, page
+re-renders — and **none of them ask the AI anything**. So they run perfectly happily
+through a total outage, and a healthy-looking job count means nothing about the thing that
+was broken. The error log has the mirror-image problem: it falls silent both when calls are
+working and when nothing is calling.
+
+The only table that can answer the question is the one that logs each request to the AI
+provider with a success flag on it. Every request from 16:05 to 16:42 failed — fifteen of
+them, not one success. The next one, at 17:08:40, succeeded. That's the moment it came
+back, and it's also what lets me say the dead round died *of this* rather than of something
+I did: its death sits inside that window.
+
+So I resubmitted it, unchanged — nothing in it needed fixing — and it's now working through
+the reviewers. I'll report the verdict when it lands.
+
+I've also written the trap down where the next person will hit it: there was already a note
+about this outage telling people to check the right table, but it didn't say why the wrong
+one is worse than merely unhelpful. It now does.
+
+**What's still yours to decide, unchanged from this morning:** whether that shared piece of
+machinery gets a formal owner (the 27-reviews question), and whether we switch on the daily
+record — which needs a container image built first.
