@@ -75,3 +75,51 @@ committed, so someone shipped it that way; it has nothing to do with this work a
 it alone. It is worth knowing about because the usual quick build check doesn't compile test
 files, so it is invisible unless you go looking, and the next person to run the full test suite
 may think they broke it.
+
+---
+
+## 2026-08-14, later — the new build carries it, and the checks came out clean
+
+You rolled a fresh chassis and the deletion is live on both pods. Confirming that turned out to be
+the interesting part, because the two obvious ways to check were both the wrong tool.
+
+The normal way to ask "did my change ship?" is to ask the running service which commit built it.
+That line is printed once when the service starts, and on a busy service it has scrolled out of
+reach within the hour — it was long gone. The second instinct is to search the running binary for
+my own commit id, and that would have been actively misleading: the release is built from
+whatever was current at build time, which was a *later* commit than mine, so searching for mine
+would have come back empty **on a perfectly correct deploy**. I would have gone looking for a
+broken deployment that didn't exist.
+
+What worked plays on the fact that this change *removes* things. Two log messages that only
+existed in the deleted code are now absent from the running binary — and, importantly, a third
+message that I deliberately kept is still there. That last part is what makes it evidence rather
+than wishful thinking: if my search method were simply broken it would find nothing at all, so the
+message that *must* be present is what proves the method works. I checked first that the deleted
+message existed exactly once before my change and nowhere after it, so its absence can't be
+credited to anyone else.
+
+Then the behaviour, which matters more than the binary. The strongest check was available because
+the old bug had a very specific signature: a failed dispatch used to leave *no database record at
+all*. So I sent a deliberately malformed request naming an agent that doesn't exist, and the
+record appeared — correctly attributed to the agent that was *asked for* rather than the pod that
+happened to receive it, which was the whole point of the earlier fix. That check could only pass
+on repaired code. Duplicate-message handling also carried on across the roll untouched.
+
+**One check I could not complete, and I want to be straight about it rather than round it up.**
+The third thing worth watching writes a row whenever a particular kind of error is discarded. No
+such row has appeared since the roll — but that function only fires about twice a day, and the
+last time was six hours *before* the roll went out. So the expected number of rows in the window
+was under one, and finding none tells us nothing at all about whether it works. I nearly recorded
+that as a failure, and separately I nearly identified the wrong function altogether: I was
+filtering on a severity label that four different parts of the system share.
+
+The reason I've still closed the bug is that this particular edit is provable without observing
+it. The old code preferred the dead handle and fell back to the live one; since the dead handle
+was *always* dead in production, the old code always ended up using exactly the handle the new
+code uses directly. Same value, by construction — not "probably fine". And the one assumption
+underneath it, that the live handle works on the new build, is precisely what the dispatch test
+above measured. I've left the query in the file for whoever wants the direct sighting when it
+next occurs.
+
+The bug has moved to the closed pile. That leaves this lane with no outstanding bug work.

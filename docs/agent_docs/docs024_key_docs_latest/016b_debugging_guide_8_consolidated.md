@@ -12006,3 +12006,51 @@ cause nobody predicted, which is the point — you are defending against "the me
 back", not against one particular reason it did. ⚠ And note the trap in fixing the
 *other* bug first: lengthening the block (e.g. raising a wait timeout so slow boots
 succeed — `bugs_open/258` defect 2) makes redelivery **more** likely, not less.
+
+### A DELETION cannot be proven shipped by grepping for what you added — probe the literal you REMOVED, and pair it with one you KEPT (`bugs_closed/259`, 2026-08-14)
+
+The standing advice for "did my fix ship?" assumes the fix **adds** something: a new symbol, a
+new log line, a stamped commit. A change whose whole content is *removal* has nothing to grep
+for, and the two obvious substitutes both fail:
+
+- **The `build provenance` startup line scrolls.** On a busy service it is out of reach within
+  the hour — measured absent from `--tail=6000` on both chassis pods ~5 hours after a roll. An
+  empty result there means **"not in range", not "unstamped"**.
+- **A sha probe is the WRONG TOOL for a deletion, not merely awkward.** The release builds from
+  HEAD, so the binary is stamped with whatever commit was current *then* — a **later** commit
+  than your fix. Grepping the binary for your own sha therefore fails on a **correct** deploy,
+  and the failure is indistinguishable from "my change did not ship". (Nor can you discover the
+  stamp by grepping for "some 40-hex string": that matches Go's internal digit table and returns
+  the same wrong answer on every service.)
+
+**The technique that works, and is disconfirmable in both directions:** if the change deleted a
+string literal, the deploy is proven by that literal's **absence** — but absence alone is worth
+nothing, because a probe that cannot find *anything* also reports absence. So pair it with a
+literal the change deliberately **kept**, which must come back PRESENT in the same breath. One
+must be gone, one must be there; a broken probe fails the second and unmasks itself.
+
+```bash
+# MUST BE ABSENT — a literal unique to the deleted code
+kubectl -n <ns> exec <pod> -- grep -aq "the line you deleted" /proc/1/exe   # expect non-zero
+# MUST BE PRESENT — a literal you kept, in the same function or file
+kubectl -n <ns> exec <pod> -- grep -aq "the line you kept"    /proc/1/exe   # expect zero
+```
+
+`grep -a` on `/proc/1/exe`, **never `strings`** (absent from the debian-slim images, and behind
+the customary `2>/dev/null` its failure is indistinguishable from "not stamped").
+
+**Establish the probe's attributability before you run it**, or a passing check proves nothing:
+```bash
+git grep -c "<the deleted literal>" <fix-commit>^ -- '*.go'   # must be > 0 — it WAS there
+git grep -c "<the deleted literal>" HEAD          -- '*.go'   # must be 0   — and only you removed it
+```
+If the literal survives anywhere else at HEAD, its absence in the binary is not attributable to
+your change. Worked example: `Child workflow completed, sending response to parent` — exactly one
+occurrence at `e37f79b65^`, zero at HEAD, absent on both pods; control
+`Workflow successfully handed off to the orchestrator` present on both.
+
+**Then still verify the BEHAVIOUR**, because a shipped binary is not a working one. The
+generalisation worth carrying: **prefer a behavioural check that fails LOUDLY on the defect's own
+signature.** Here the pre-fix defect was a function writing *no row at all*, so "a row exists,
+owned by the requested type" is a check that could only pass on fixed code — far stronger than
+any artefact probe.

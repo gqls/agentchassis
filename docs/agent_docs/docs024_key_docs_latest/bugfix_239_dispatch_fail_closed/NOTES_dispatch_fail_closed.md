@@ -201,6 +201,68 @@ post-roll plan had missed — the fleet is **MIXED for hours** after a release a
 `-l app=agent-chassis` selects 2 pods of the many running that binary — now carried into the
 handoff's verification section.
 
+### Post-roll verification on v1.0.1298 — and the two probes that were the WRONG tool
+
+The owner rolled a fresh chassis (`v1.0.1298`, pods up 08:58Z). Verification, and two dead ends
+worth more than the passes:
+
+**Dead end 1: the `build provenance` line had already scrolled.** Absent from `--tail=6000` on
+both pods about five hours after the roll. Per CLAUDE.md that means *not in range*, not
+*unstamped* — but it removes the cheapest check.
+
+**Dead end 2, and the more instructive one: I reached for a sha probe and it is structurally
+wrong for a deletion.** `grep -aq "<my sha>" /proc/1/exe` would have come back **absent on a
+perfectly correct deploy**, because the release builds from HEAD and the binary is stamped with
+whatever commit was current at build time — a *later* commit than `e37f79b65`. Had I run it
+without thinking, "absent" would have read as "my fix did not ship" and I would have gone hunting
+for a deploy problem that did not exist. **The general form: a sha probe answers "which commit
+built this", not "is my change in it" — those coincide only when your commit is the last one.**
+
+**What worked, and why it is disconfirmable:** the change *deletes* log literals, so the probe is
+their absence — paired with a literal I deliberately **kept**, which must come back present in
+the same breath. Absence alone proves nothing, because a probe that finds *nothing* also reports
+absence; the present-control is what unmasks a broken probe. Attributability established first:
+`Child workflow completed, sending response to parent` occurs exactly **once** at `e37f79b65^` and
+**zero** times at HEAD, so its absence can only be my change. Both pods: two deleted literals
+absent, control present. Written up as a 016b §9 entry.
+
+**CHECK 1 — PASS, and it is the one that matters.** A single-line envelope naming
+`no-such-agent-259-postroll` produced `FAILED` with `owner_agent_type` = the **requested** type
+(corr `8234e56e`, 13:55:58Z). Chosen deliberately over an artefact probe because the pre-fix
+defect was *no row at all*, so this check can only pass on fixed code. It also proved the message
+arrived, which needed proving — `kcat -P` can publish nothing at exit 0.
+
+**CHECK 3 — PASS.** `processed_messages` writes across the roll with no discontinuity. ⚠ **I
+nearly misread this.** Today's rate (71–82/hr) is far below the filing's baseline (449/hr on
+08-12), which looks alarming until you compare *across the roll* rather than across two days: the
+decline is visible **before** 08:58 as well, and the writer count (6–17) moves with it, so it is
+fleet load. A change cannot explain a trend that started before it shipped.
+
+**CHECK 2 — INCONCLUSIVE, and this is the misstep-shaped one.** My first query grouped
+`agent_error_log` by `severity` and found post-roll rows — all `fatal`, none `warning`. I was one
+step from reading "no warning rows since the roll" as a **failure**. Two corrections:
+1. **`severity='warning'` does not identify this writer.** Four writers share it
+   (`page-build-handler`, `page-rerender`, `page-retraction`, `content-feed-orchestrator`). The
+   real discriminator is **`context ? 'matched_needle'`** — the key the function puts there
+   because its needle match is unanchored. Severity was never a writer identity.
+2. **The zero needed a demand control, and the control killed the inference in both directions.**
+   That writer fires **~2/day**; its last row is `02:37:58Z`, **6¼ hours before the roll**.
+   Expected count in the ~5 hours since: **~0.4**. So zero is exactly what no-demand looks like
+   and cannot distinguish a working function from a broken one.
+
+So check 2 is recorded as inconclusive rather than dressed as a pass, with the query kept for when
+demand arrives. Closure rests instead on something stronger than observation: the edit was
+`db := p.sqlDB; if db == nil { db = p.db }` → `db := p.db`, and because `p.sqlDB` was *always* nil
+in production the old code *always* fell through to the very handle the new code reads — the same
+value **by construction** — while its only premise, that `p.db` works on the live pod, is exactly
+what CHECK 1 measured on the sibling function whose edit was identical in kind.
+
+**Bug moved to `bugs_closed/259`** (`c5072e142`), naming **both** paths on the pathspec commit —
+`git mv` plus a pathspec that names only the new path ships a **copy** and silently drops half of
+your own move. Verified at HEAD, not at the tree:
+`git ls-tree -r --name-only HEAD -- bugs_open/ bugs_closed/ | grep three_processor_paths` returns
+exactly one line.
+
 ### State at the end of the session
 
 - `e37f79b65` — the fix. `f894b1a38` — gofmt follow-up. `c70f4565f` — bug file.

@@ -1,4 +1,10 @@
-# dispatch/pool lane — HANDOFF 2026-08-14: 259's fix is IN THE TREE and APPROVED; ONE thing is owed
+# dispatch/pool lane — HANDOFF 2026-08-14: **259 is CLOSED, LIVE and VERIFIED. The lane's bug work is DONE.**
+
+> **UPDATED at the end of 2026-08-14 — BOTH owed items are now discharged.** The fresh chassis
+> build (`v1.0.1298`, pods up 08:58Z) carries the fix; it is verified at the artefact and
+> behaviourally; `bugs_open/259` has moved to **`bugs_closed/259`** (`c5072e142`). Register SYS-090
+> updated. **Nothing on 259 remains** except one optional observation noted in §2(b).
+> The lane's remaining work is §3 — memory-index compaction, and the 040 lane's podmonitor item.
 
 > **UPDATED later on 2026-08-14 — item (a) below is DONE.** The council verdict landed
 > **APPROVED** first round (`0ff072ef-ee02-465e-8a70-f5461c585ec9`, 07:57:26Z; 10 reviewers,
@@ -38,7 +44,7 @@ including the one in `validation_drop.go` whose operands were the opposite way r
 ⚠ **259 IS AN AMBIGUOUS NUMBER** — an unrelated GPU-provisioning `259` was filed the same day.
 Resolve by slug; `git log` the file path, never the bare number.
 
-## 2. THE TWO THINGS OWED — this is the next task
+## 2. ~~THE TWO THINGS OWED~~ — **BOTH DISCHARGED. Kept for the queries and the technique.**
 
 ### (a) ~~READ THE COUNCIL VERDICT, and act on it~~ — **DONE, APPROVED. Kept for the queries.**
 
@@ -64,41 +70,43 @@ trailer automatically at report time, with no amend. On REVISE: resubmit with
 base — its `risks` block already names the four things a reviewer should attack, in the order
 they matter.
 
-### (b) VERIFY AFTER THE ROLL, and only then close the bug
+### (b) ~~VERIFY AFTER THE ROLL, and only then close the bug~~ — **DONE on v1.0.1298. Bug CLOSED (`c5072e142`).**
 
-**`bugs_open/259` stays OPEN.** The bar is fixed **and live**, and this is a Go change — inert
-until a fleet roll, so the defect is still reproducible on every chassis pod. **Do not move the
-file to `bugs_closed/` on the strength of the commit.**
+Full evidence lives in **`bugs_closed/259`**; the technique is now a 016b §9 entry. Summary:
 
-Prove the roll at the artefact, not at git:
-```bash
-kubectl -n ai-persona-system logs -l app=agent-chassis --tail=300 | grep -m1 'build provenance'
-git merge-base --is-ancestor e37f79b65 <the stamp>   # "did my fix ship?" is a query
+- **Deploy proven at the artefact by ABSENCE with a PRESENT-control**, because a deletion has no
+  new literal to grep. ⚠ **Two things that do NOT work here, both learned the hard way:** the
+  `build provenance` line had already **scrolled past `--tail=6000`** on both pods (empty there
+  means *not in range*, never *unstamped*); and a **sha probe is the wrong tool for a deletion** —
+  the release builds from HEAD, so the stamp is a **later** commit than the fix and grepping for
+  `e37f79b65` fails on a *correct* deploy. What worked: two deleted literals absent on both pods
+  plus one **kept** literal present, so a broken probe cannot pass as a good deploy. Establish
+  attributability first — the deleted literal must be >0 at `<fix>^` and 0 at HEAD.
+- **CHECK 1 `recordDispatchFailureState` — PASS, measured.** Corr `8234e56e`, 13:55:58Z:
+  `no-such-agent-259-postroll | FAILED | DISPATCH_UNRESOLVABLE: DISPATCH_FAIL_CLOSED …`. The
+  `owner_agent_type` is the **requested** type, not `generic`. This is the load-bearing check
+  because a nil `p.db` yields **no row at all** — the defect's own signature.
+- **CHECK 3 `processed_messages` — PASS, measured.** Continuous across the roll, no loss of
+  writers. ⚠ **Compare ACROSS the roll, not against the filing's `449 rows/82 writers`** — that
+  was a busier day; today runs 71–82/hr and the difference is fleet load, visible in the writer
+  count. The `08:20 260/48` bucket is release churn, not a signal.
+- **CHECK 2 `recordDroppedValidationError` — INCONCLUSIVE by DEMAND, and that is the honest
+  answer, not a pass.** ⚠ **`severity='warning'` does NOT identify this writer** — four writers
+  share it. The discriminator is **`context ? 'matched_needle'`**. That writer fires **~2/day**
+  and its last row (`02:37:58Z`) **predates the roll by 6¼ hours**, so ~0.4 rows were expected in
+  the window and zero could not have come out otherwise. Closure does not rest on it: the edit
+  was `db := p.sqlDB; if db == nil { db = p.db }` → `db := p.db`, and since `p.sqlDB` was *always*
+  nil in production the old code *always* fell through to the exact handle the new code reads —
+  identical by construction — while its only premise (`p.db` works on the live pod) is what
+  CHECK 1 measured.
+
+**The one optional loose end**, if you want the direct observation for completeness:
+```sql
+SELECT occurred_at, agent_type, action, context->>'matched_needle'
+FROM agent_error_log WHERE context ? 'matched_needle' AND occurred_at > '2026-08-14 08:58:00+00'
+ORDER BY occurred_at DESC;
 ```
-⚠ That line **scrolls within the hour** on the chassis, and a full-log grep for the phrase
-**false-matches council-gate payloads that quote it** — treat any match inside a giant JSON log
-line as a false positive. Read the stamp **per service**, not per fleet.
-
-Then the honest check — the deletion should be a fleet-wide no-op, and these two could come out
-either way:
-
-1. **`recordDispatchFailureState` still writes its FAILED rows** (`bugs_closed/239`'s proof).
-   Dispatch a **single-line** envelope naming a non-existent agent (⚠ `kcat -P` sends one
-   message per LINE — a multi-line heredoc becomes N invalid fragments), then:
-   `SELECT owner_agent_type, status, error FROM orchestration_states WHERE correlation_id = '<corr>';`
-2. **`agent_error_log` still gains rows from `recordDroppedValidationError`** — the reader whose
-   operands were reversed, so the one most worth watching. ⚠ domain column trap on that table:
-   `COALESCE(domain,'') = ''`, never `domain IS NULL`.
-3. **C's deletion changed nothing about dedupe** — `processed_messages` keeps its write rate:
-   ```sql
-   SELECT date_trunc('hour', processed_at) hr, status, count(*), count(DISTINCT processed_by)
-   FROM processed_messages WHERE processed_at > now() - interval '4 hours' GROUP BY 1,2 ORDER BY 1 DESC;
-   ```
-   Baseline to beat: **449 rows / 82 writers** in the 13:00 hour, 2026-08-12. **Do not** use the
-   `Duplicate message ignored` / `DEDUPE_CLAIM_LOST` log markers — they fire only when a
-   duplicate actually occurs, so zero there means nothing.
-
-A silent path in 1 or 2, or a collapse in 3, means a live path was misclassified as dead.
+⚠ domain-column trap on that table: `COALESCE(domain,'') = ''`, never `domain IS NULL`.
 
 ## 3. Also still open on the lane
 
