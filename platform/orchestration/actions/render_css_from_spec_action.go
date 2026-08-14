@@ -310,7 +310,13 @@ func RenderCSSFromSpecAction(ctx context.Context, params ActionParams) (interfac
 	// Additive and inert: a component reaches these only by opting in with
 	// var(--color-primary-ink, var(--color-primary)), so every template that has
 	// not been repointed renders byte-identically.
-	inkDefaults := buildLegibleInkDefaults(renderedCSS, mergedPalette, logger)
+	// The policy is resolved here, not inside the builder, so the builder stays
+	// a pure function of (css, palette, policy) and the pinned tests can drive
+	// it at an explicit target. Defaults to enabled at inkMinContrast; the
+	// config keys exist so a bad rollout is a config edit rather than a revert,
+	// a rebuild and a roll (council guardian seat, medium ×2, 2026-08-14).
+	inkPol := resolveInkPolicy(config, siteID, logger)
+	inkDefaults := buildLegibleInkDefaults(renderedCSS, mergedPalette, inkPol, logger)
 	if inkDefaults != "" {
 		renderedCSS = renderedCSS + inkDefaults
 	}

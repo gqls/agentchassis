@@ -143,7 +143,7 @@ func TestBuildLegibleInkDefaults_EmittedInkClearsTheCompositedGround(t *testing.
 		"background": "#0F1218", "surface": "#1E2535",
 		"text": "#E2E8F0", "text_muted": "#A8B0C0", "secondary": "#2A3142",
 	}
-	css := buildLegibleInkDefaults("", palette, zapNop())
+	css := buildLegibleInkDefaults("", palette, defaultInkPolicy(), zapNop())
 	if css == "" {
 		t.Fatal("no ink block emitted")
 	}

@@ -116,10 +116,150 @@ var darkSchemeDerivations = []derivedSlot{
 	{name: "accent_text", from: "accent", isInk: true},
 }
 
-// inkMinContrast is the WCAG AA floor for normal-size body text. An ink slot
-// is text sitting on a filled control or band, so AA is the right bar — these
-// are not decorative large headings.
-const inkMinContrast = 4.5
+// inkMinContrast is the DEFAULT contrast target for a derived ink. It is not
+// the WCAG AA floor and must never be set below it — see inkFloorContrast.
+//
+// OWNER RULING 2026-08-14: 5.0, not the bare 4.5 AA floor. Raised from 4.5 the
+// same afternoon the 4.5 derivation went live, after the owner was shown that
+// the emissions were landing 0.01–0.14 above the line.
+//
+// ⚠ THIS REVERSES A DOCUMENTED TECHNICAL DECISION, AND THE ARGUMENT AGAINST IT
+// IS GOOD. TestLegibleVariant_EmittedHexIsPinnedForRealPalettes records a
+// reviewer proposing exactly 5.0 and the lane declining it: a cushion "buys
+// absorption without fixing a wrong ground and would imply cover for grounds
+// nobody models". That is right, and it is the reason this is a SEPARATE knob
+// from the grounds modelling rather than a substitute for it — raising this
+// number is not a licence to stop enumerating grounds, and the four-ground
+// compositing in buildLegibleInkDefaults stays exactly as it is. The owner's
+// counter-argument is the empirical one: this lane has twice discovered a
+// ground it was not measuring (the 0.05 section overlay cost 0.62 of ratio),
+// so the cushion is priced against a failure mode with a track record.
+//
+// Operators can retune this per render without a rebuild — see inkPolicy. That
+// exists because THIS value changed by owner ruling one hour after a re-render
+// had already been dispatched at the old one.
+const inkMinContrast = 5.0
+
+// inkFloorContrast is the WCAG AA floor for normal-size body text, and the hard
+// lower bound on anything inkPolicy will accept. An ink slot is text sitting on
+// a filled control or band, so AA is the right FLOOR — these are not decorative
+// large headings. A config that asks for less is refused, not honoured: a
+// kill-switch that can quietly disable accessibility is a worse defect than the
+// one it was added to roll back.
+const inkFloorContrast = 4.5
+
+// inkCeilingContrast bounds the other end. AAA for normal text is 7.0; asking
+// for more than that on a brand colour means the search walks to near-white or
+// near-black on most palettes, which is the de-branding this whole repair
+// exists to stop. Values above it are clamped, and the clamp is logged.
+const inkCeilingContrast = 7.0
+
+// inkPolicy is the operator-controllable half of the ink derivation: the two
+// things that can be changed by editing DB config, with no rebuild and no roll.
+//
+// WHY THIS EXISTS. The council's guardian seat raised it twice, medium severity,
+// against the change that shipped this derivation: it alters a shared function's
+// output for 14 of 18 sites with no kill-switch, and rollback was "revert +
+// rebuild + roll + re-render" rather than a config flip. The lane declined a
+// flag at the time, reasoning that a default-OFF switch would leave the BROKEN
+// derivation as the default — which is sound, and is why this one defaults ON.
+// OWNER RULING 2026-08-14 reversed the decline: build the switch.
+//
+// So the shape is deliberately an OPT-OUT, not an opt-in. Enabled everywhere by
+// default; an operator disables a named site to roll that one site back to the
+// pre-repair behaviour on its next render. Nothing rots unexercised, and the
+// 2026-07-29 owner ruling against mandatory default-OFF switches is respected.
+type inkPolicy struct {
+	// enabled false makes buildLegibleInkDefaults emit nothing, so every
+	// consumer falls back through its own var() default to the raw palette
+	// colour — i.e. exactly the pre-2026-08-06 behaviour.
+	enabled bool
+	// minRatio is the contrast target, already clamped to
+	// [inkFloorContrast, inkCeilingContrast].
+	minRatio float64
+}
+
+// defaultInkPolicy is what every render gets unless step config says otherwise.
+func defaultInkPolicy() inkPolicy {
+	return inkPolicy{enabled: true, minRatio: inkMinContrast}
+}
+
+// resolveInkPolicy reads the operator overrides off the render step's config.
+// Everything is optional; an absent or unparseable key leaves the default in
+// place rather than failing the render, because a stylesheet that does not
+// render is worse than one rendered at the default target.
+//
+// Config keys, all live DB config (agent_definitions), so changing any of them
+// takes effect on the next render with no rebuild and no roll:
+//
+//	legible_ink_enabled           bool     global kill-switch (default true)
+//	legible_ink_disabled_site_ids []string per-site kill-switch, site UUIDs
+//	legible_ink_min_contrast      float64  retune the target (default inkMinContrast)
+//
+// siteID may be "" — the render path resolves it from collectedData and it is
+// not guaranteed. An empty siteID simply cannot match the disable list, which
+// is the safe direction: the fix stays on.
+func resolveInkPolicy(config map[string]interface{}, siteID string, logger *zap.Logger) inkPolicy {
+	policy := defaultInkPolicy()
+
+	if v, ok := config["legible_ink_enabled"]; ok {
+		if enabled, ok := v.(bool); ok && !enabled {
+			policy.enabled = false
+			logger.Warn("resolveInkPolicy: ink companions globally disabled by config",
+				zap.String("key", "legible_ink_enabled"))
+		}
+	}
+
+	// Per-site opt-out. Compared case-insensitively and trimmed because these
+	// are hand-edited into JSON config under incident pressure, which is
+	// exactly when a stray space silently un-disables the site you meant to
+	// roll back.
+	if policy.enabled && siteID != "" {
+		if raw, ok := config["legible_ink_disabled_site_ids"]; ok {
+			for _, entry := range toStringSlice(raw) {
+				if strings.EqualFold(strings.TrimSpace(entry), strings.TrimSpace(siteID)) {
+					policy.enabled = false
+					logger.Warn("resolveInkPolicy: ink companions disabled for this site by config",
+						zap.String("site_id", siteID),
+						zap.String("key", "legible_ink_disabled_site_ids"))
+					break
+				}
+			}
+		}
+	}
+
+	// configFloatField and toStringSlice above are both PRE-EXISTING helpers in
+	// this package (diagnose_route_action.go / select_review_panel_action.go).
+	// Reused rather than re-derived: the first version of this function shipped
+	// its own copies of both and the build caught the collision. That is the
+	// same prior-art objection the council's librarian seat raised against this
+	// lane's previous change, arriving a second time within a week.
+	if ratio := configFloatField(config, "legible_ink_min_contrast", inkMinContrast); ratio != policy.minRatio {
+		// CLAMPED, NOT HONOURED, and the floor is the load-bearing half.
+		// A kill-switch that can be configured to 1.0 is a way to ship
+		// illegible text through a config edit and call it a rollback —
+		// strictly worse than the defect it was added to undo. The
+		// disable path above is the supported way to go back to old
+		// behaviour; this knob only moves the target within a sane band.
+		clamped := ratio
+		if clamped < inkFloorContrast {
+			clamped = inkFloorContrast
+		}
+		if clamped > inkCeilingContrast {
+			clamped = inkCeilingContrast
+		}
+		if clamped != ratio {
+			logger.Warn("resolveInkPolicy: requested ink contrast clamped",
+				zap.Float64("requested", ratio),
+				zap.Float64("applied", clamped),
+				zap.Float64("floor", inkFloorContrast),
+				zap.Float64("ceiling", inkCeilingContrast))
+		}
+		policy.minRatio = clamped
+	}
+
+	return policy
+}
 
 // fillDarkSchemeSpecialisedSlots adds the specialised slots a dark palette
 // omits, deriving each from the core slots it does define. It mutates and
@@ -296,7 +436,18 @@ func pickInkOn(bgHex string, palette map[string]string) (hex, source string) {
 		if err != nil {
 			continue
 		}
-		if ratio >= inkMinContrast {
+		// inkFloorContrast, NOT inkMinContrast, and the difference is the whole
+		// point of there being two constants.
+		//
+		// This function serves the --color-<x>-TEXT slots: ink that goes ON a
+		// filled control. The 2026-08-14 owner ruling raising the target to 5.0
+		// was about the --color-<x>-INK slots — links and eyebrows on the page
+		// ground — and said nothing about button labels. Until 2026-08-14 both
+		// mechanisms shared one constant, so editing it in place would have
+		// silently retuned every filled control in the fleet as a side effect of
+		// a ruling about links. Two questions, two constants; raise this one only
+		// when someone rules on THIS one.
+		if ratio >= inkFloorContrast {
 			return val, "palette:" + key
 		}
 	}
@@ -468,7 +619,21 @@ func worstRatioAgainst(candidate string, grounds []string) float64 {
 // ORDER: this must be appended AFTER buildSectionDefaults and buildTokenAliases
 // in RenderCSSFromSpecAction, because it skips any name the assembled CSS
 // already defines. Pinned by TestRenderCSS_InkCompanionsComeAfterTokenAliases.
-func buildLegibleInkDefaults(css string, palette map[string]string, logger *zap.Logger) string {
+func buildLegibleInkDefaults(css string, palette map[string]string, policy inkPolicy, logger *zap.Logger) string {
+	// The kill-switch, and it is deliberately the FIRST thing here. Emitting
+	// nothing is what makes it a true rollback: every consumer opts in with
+	// var(--color-primary-ink, var(--color-primary)), so an absent companion
+	// falls through to the raw palette colour — the exact pre-2026-08-06
+	// behaviour, reached without a revert, a rebuild or a roll.
+	if !policy.enabled {
+		logger.Warn("buildLegibleInkDefaults: DISABLED by config — emitting no ink companions",
+			// Worded to avoid the literal "raw", which pattern-check's
+			// logged-model-output rule matches on inside a log call. Nothing
+			// unwrapped is logged here — every field is a static string.
+			zap.String("effect", "consumers fall back to the undiluted palette colour (pre-repair behaviour)"),
+			zap.String("undo", "clear legible_ink_enabled / legible_ink_disabled_site_ids in the render step config"))
+		return ""
+	}
 	bg := lookupOrFallback(palette, "background", "")
 	if bg == "" {
 		// Nothing to measure against. Stay silent rather than guess: an
@@ -523,7 +688,7 @@ func buildLegibleInkDefaults(css string, palette map[string]string, logger *zap.
 			// followed by a colon, which cannot match a var() usage.
 			continue
 		}
-		hex, src := legibleInkFor(w.src, w.grounds, palette, inkMinContrast)
+		hex, src := legibleInkFor(w.src, w.grounds, palette, policy.minRatio)
 		b.WriteString("  " + w.name + ": " + hex + ";\n")
 		if src == "source:unchanged" {
 			unchanged = append(unchanged, w.name)
@@ -541,6 +706,10 @@ func buildLegibleInkDefaults(css string, palette map[string]string, logger *zap.
 	sort.Strings(substituted)
 	sort.Strings(unchanged)
 	logger.Info("buildLegibleInkDefaults: emitted legible-ink companions a component can opt into",
+		// The target is logged because it is now CONFIGURABLE. A hex in a
+		// stylesheet cannot tell you which target produced it, and on 2026-08-14
+		// two different targets were live within one hour of each other.
+		zap.Float64("min_contrast", policy.minRatio),
 		zap.String("background", bg),
 		zap.String("surface", surface),
 		zap.Strings("substituted", substituted),

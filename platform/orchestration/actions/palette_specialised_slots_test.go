@@ -459,7 +459,7 @@ func TestBuildLegibleInkDefaults_LightSchemeStillEmits(t *testing.T) {
 		"background": "#F4F1EB", "surface": "#FFFFFF",
 		"text": "#1A1A2E", "text_muted": "#5A5A6E",
 	}
-	css := buildLegibleInkDefaults("", p, zap.NewNop())
+	css := buildLegibleInkDefaults("", p, defaultInkPolicy(), zap.NewNop())
 	if css == "" {
 		t.Fatal("nothing emitted for a LIGHT palette; gaswholesalers' accent-on-white " +
 			"link ink (2.22:1, six on the homepage) is exactly what this must reach")
@@ -476,7 +476,7 @@ func TestBuildLegibleInkDefaults_LightSchemeStillEmits(t *testing.T) {
 // a CSS declaration drop entirely rather than degrade — the cascade failure mode
 // the council raised on round 1 — so nothing here may emit "" or a bare var().
 func TestBuildLegibleInkDefaults_NeverEmitsAnEmptyOrIndirectValue(t *testing.T) {
-	css := buildLegibleInkDefaults("", dartsonlinePalette(), zap.NewNop())
+	css := buildLegibleInkDefaults("", dartsonlinePalette(), defaultInkPolicy(), zap.NewNop())
 	if css == "" {
 		t.Fatal("expected an emission for dartsonline's palette")
 	}
@@ -499,7 +499,7 @@ func TestBuildLegibleInkDefaults_NeverEmitsAnEmptyOrIndirectValue(t *testing.T) 
 // Mirrors buildTokenAliases' contract: a stylesheet that already has an opinion
 // keeps it, and the skip reads the ASSEMBLED css.
 func TestBuildLegibleInkDefaults_SkipsNamesTheCSSAlreadyDefines(t *testing.T) {
-	css := buildLegibleInkDefaults(":root{--color-primary-ink: #abcdef;}", dartsonlinePalette(), zap.NewNop())
+	css := buildLegibleInkDefaults(":root{--color-primary-ink: #abcdef;}", dartsonlinePalette(), defaultInkPolicy(), zap.NewNop())
 	if strings.Count(css, "--color-primary-ink:") != 0 {
 		t.Errorf("redefined a name the CSS already declares:\n%s", css)
 	}
@@ -512,7 +512,7 @@ func TestBuildLegibleInkDefaults_SkipsNamesTheCSSAlreadyDefines(t *testing.T) {
 // cannot — that indistinguishability is the property that let the defect hide.
 func TestBuildLegibleInkDefaults_LogNamesSubstitutedAndUnchangedSeparately(t *testing.T) {
 	core, logs := observer.New(zap.InfoLevel)
-	buildLegibleInkDefaults("", dartsonlinePalette(), zap.New(core))
+	buildLegibleInkDefaults("", dartsonlinePalette(), defaultInkPolicy(), zap.New(core))
 
 	entries := logs.FilterMessageSnippet("legible-ink companions").All()
 	if len(entries) != 1 {
