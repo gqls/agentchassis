@@ -31105,3 +31105,34 @@ read low in exactly the direction that makes an intervention look free.
    Every one was caught by looking a second time, none by suspicion at the time. **The
    generalisation earning its place: when a number will be quoted to someone else, compute it a
    second way before sending it.**
+
+## 2026-08-14 — loancalculator lane: "the rerendered tool pages have LOST their calculators" — I was grepping a 404 page I had fetched at a URL I invented
+
+**The claim:** mid-session, assessing the fleet-wide post-1295 rerender wave, I fetched
+the three rerendered tool pages and found 0 `<script>` blocks and no footer — and said
+the wave had stripped the calculators from the live site. Every measurement was real;
+every fetched body was a 1,201-byte 404 page, because I constructed the URLs from the
+pages' `name` column (`/tool-loan-vs-savings.html`) when the site serves them from the
+`url` column (`/tools/loan-vs-savings.html`).
+
+**What made it invisible:** a grep for absence over a 404 blob returns clean — 0
+occurrences of the calculator IS the 404 page's honest answer. And I had run the lane's
+own `check_site_serving.sh` (27/27 pass) two minutes earlier: that script's header
+documents this exact trap and guards every fetch with 200 + ≥2000 B + DOCTYPE — then I
+made my content fetches WITHOUT the guard, in the same breath, because "the site just
+passed serving".
+
+**Caught by:** the DB contradicting the wire (the locked rows sat intact, untouched
+since 08-02), which sent me back to look at what I had actually fetched: `<h1>404`.
+
+**The cheap check that would have caught it:** the one already in the lane's checker —
+never grep a fetched page you have not proven is a page (size + DOCTYPE), and derive
+URLs from `pages.url`, never from `pages.name`. Corollary of `grep-silent-on-non-utf8`
+/ the measurement-discipline family: a grep proves absence only in the document it
+actually searched.
+
+**Cost:** minutes, contained to the session — but the claim was stated in chat before it
+was checked, and the correct next step from a believed "calculators stripped fleet-wide"
+would have been an emergency stop on a healthy wave.
+
+---

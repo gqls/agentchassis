@@ -5021,3 +5021,74 @@ same failure resurfacing through the identity gap; recorded so 058 isn't reopene
 
 Half 2 NOT built this session — deliberately: the param-path evidence the plan requires
 does not exist yet, and guessing it is the one forbidden move.
+
+### 2026-08-14 — the param-path puzzle RESOLVED; control run PASSED; the site was busy while we were away (all benign, one page added)
+
+**The 08-13 puzzle is retention after all — but of a shape the 08-13 queries couldn't
+see.** `orchestration_states` is a ~2-day working set: 2,082 rows for 08-14, 599 for
+08-13, then single digits per day back to 07-13 (stragglers). Completed rows are purged
+on that horizon, and the planner is RARE — 3 `needs_site_plan` items all-time, latest
+08-12 03:22 (noted.co.uk, which matches its `site_plans` row at 03:22:51 to the second).
+So "zero build-site-planner rows all-time" was true every time anyone looked, and will
+almost always be true; nothing exotic about the execution path. The planner is spawned
+by build-dispatch-loop as a work-item handler (`spawn_agent` with
+`agent_type_field: current_item.handler_agent`; the item is created by
+build-briefing-agent's `create_next_item`).
+
+**The param path is SETTLED: `site_record.site_id`.** Three independent legs, none
+inference-only:
+1. *Code chain:* the planner workflow is strictly linear (`start_step` read_specs →
+   ensure_site → load_existing_pages → load_components → …; every step exactly one
+   `next_step`, no conditionals — verified per-step against the live definition).
+   `EnsureSiteRecordAction` returns `"site_id"` on EVERY path that lets the workflow
+   continue — the DB path (site_db_actions.go:194) and the DB-nil placeholder
+   (site_db_actions.go:970) — and the coordinator stores that map at
+   `collected_data["site_record"]` (coordinator.go:1877). If ensure_site errors, the
+   run dies two steps before load_components ever binds a param.
+2. *Same-workflow precedent:* `write_site_plan` already binds the SAME path — its step
+   config is `"target_site_id": "site_record.site_id"`, resolved by ExtractActionInputs
+   Strategy 0 (explicit dot-path against collected_data, action_inputs.go:609-631).
+   Every `site_plans` row therefore certifies one real run where the path resolved:
+   10 rows since 08-02, covering a fresh build (noted 08-12) and repeat replans
+   (1fcfa4f3 ×3).
+3. *QueryDatabaseAction mechanics:* params resolve via ExtractNestedField against
+   collected_data (database_actions.go:47) with the initialize short-circuit BEFORE
+   param resolution (line 14) — so the initialize pass can never nil-fail, and the
+   `input_data.` prefix fallback is irrelevant to this path.
+   `input_data.site_id` (the plan's other candidate) is REJECTED: it is only as good
+   as the dispatcher's input_mapping, and ensure_site's own `extractDomainFromInput`
+   "aggressive search" exists precisely because input shapes vary by caller.
+
+**Control run PASSED, live DB [MEASURED 2026-08-14]:** old query vs new self-gating
+query md5-identical over the full ordered row set (`0ceba482…`, 129 rows) for noted
+(unflagged), loancalculator (unflagged pre-seed), and a nonexistent site id; executed
+via PREPARE with an UNTYPED $1 — which also proves the text-parameter→uuid coercion the
+Go driver relies on. The disconfirming result existed: a widened row set for any
+unflagged case. Preview of the flag-ON branch for loancalculator: exactly 11 components
+— which is CORRECT against 12 locked rows, because `tool-loan-repayment` is placed
+twice (index tool-3 + the inactive tool-standard-calc page's tool-4). First read I
+called that "12 vs 11, one calculator would be exiled" — wrong, the count difference is
+a shared component, not a gap. (tool-credit-roadmap has NO tool row at all — prose-only
+page, nothing to pair.)
+
+**Meanwhile the site was NOT idle (all verified benign at the artefact):** the post-1295
+fleet-wide rerender wave (the predicted one-off `stale_chrome` wave, 440 page_rerender
+items / 16 sites today) reached loancalculator: 9 pages rerendered incl. three
+calculator pages and the claims-cut guide, ~14 more triaged. Verified at the REAL urls
+(see WRONG_CALLS 2026-08-14, the name-vs-url 404 trap): calculators intact (4 script
+blocks each), false claims still 0 everywhere, locked footer serving on rerendered
+pages. The three chrome overwrite attempts were BLOCKED by the locks
+(lock_blocked_change 14:56–15:12, needs_human_review — expected, leave for fire-time
+release). Two deltas that change recorded premises:
+- **The site is 27 active pages now, not 26**: content-gap-planner autonomously
+  created `guide-loan-faqs` (/guides/loan-faqs.html, serving, correct chrome, matches
+  the nested URL convention). The mission draft's keep-list and "26/26" figures predate
+  it. A content_rewrite also added copy to `legal`.
+- **The purity baseline (digest NULL) is eroding BY DESIGN**: 58/66 components still
+  NULL, and the queued rerenders will stamp more. The rebuild audit's before/after
+  control must lean on the 08-11 backups (bak tables / off-cluster dump / snapshot
+  0d1b55f0), not on live digest-NULL.
+
+Next: migration + flag seed (definition change is live-on-apply; control run proves it
+inert unflagged), council submission naming the RFC_022 fifth flag and the 21
+tool-placing sites, then the canary replan.
