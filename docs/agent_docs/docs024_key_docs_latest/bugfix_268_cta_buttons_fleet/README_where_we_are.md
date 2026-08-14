@@ -81,3 +81,20 @@ most of the missing buttons are a different, older problem: nobody ever
 decided where they should point. That is a separate piece of work, and the
 plan has been corrected so nobody expects this fix alone to bring the count
 to zero.
+
+## 2026-08-14 (afternoon) — approved, shipped, and running in production
+
+The review council approved the fix first time, with a few advisory notes
+(the useful one: check the neighbouring code paths the same way — queued for
+the next session). The fix went out in this morning's platform release and
+we've confirmed, at the running binaries themselves, that both servers are
+running code that contains it. From this point on, a page rewrite cannot
+delete a button's destination link.
+
+What remains, in order: prove it on one real page (a controlled rewrite,
+watching the links survive); restore the ten genuinely-deleted links from
+history; then unlock webdesign.uk. The two-hundred-odd buttons that never had
+destinations are a separate decision for you — resolve destinations for them
+site by site, or accept them as label-only; the handoff file lays out the
+options. A fresh session can pick all of this up from
+HANDOFF_2026-08-14_canary_and_repair.md.

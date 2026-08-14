@@ -160,3 +160,39 @@ repaired+locked stated). Then, while it queues (~30 min): falsifier checks
   lost; noted in the fix commit message.
 - Committing now: fix + tests + register + LANDMINES + WRONG_CALLS + workstream
   docs + both bug files, by pathspec, `Council-Submitted: e6c1e4eb…`.
+
+## 2026-08-14 (afternoon) — committed, APPROVED, and LIVE
+
+- **Committed `8f899cc8d`** (8 files — LANDMINES + WRONG_CALLS dropped out of
+  the pathspec because OTHER sessions' commits `bb8bce65c`/`7252c2856` had
+  already swept my appended entries in as same-file passengers; verified both
+  present in HEAD; third passenger event this session, both directions now).
+- **Council APPROVED round 1** (corr `e6c1e4eb…`, 13 reviews, 4 abstained,
+  4 advisory objections, none high). Verdict landed 08:04Z — before the
+  commit; `Council-Submitted:` was still the honest trailer (unread at commit
+  time); 098 credits it automatically. **Advisory asks owed** (next session):
+  - `bug_historian` (medium ×2): (1) enumerate EVERY distinct `source`
+    branch in planSection's field loop and state each one's carry status —
+    partial answer from reads so far: `llm`/`""` skipped early by design
+    (never carried); `query.*` block → `queryListBelowContract` →
+    `handleMissingField` (carry runs), except a query ERROR which
+    deliberately bypasses on_missing and writes fallback only (054's trap);
+    `renderer`/`static` (+dotted) → fixed branch (carry now runs); everything
+    else → `resolve()` → `handleMissingField` on miss (carry runs). NOT yet
+    verified line-by-line from the loop top — finish before recording as
+    settled. (2) add a sibling-branch test: site_specs-sourced field,
+    `on_missing=use_fallback`, declared fallback, nothing stored → carry
+    misses, fallback written (note the pre-existing asymmetry: resolver
+    fallbacks apply only under `use_fallback`; renderer/static fallbacks
+    unconditional).
+  - `guardian` (medium): default-ON fleet-wide on next roll — known,
+    owner-decided, recorded. (low ×2: precedence-flip population check;
+    tests fine.)
+- **LIVE: `v1.0.1298`, both replicas, stamp `bc39e7bf5`** — descendant of
+  `8f899cc8d` (`git merge-base --is-ancestor` passes; binary probe with
+  negative control `deadbeef…` no-match; startup provenance line had
+  scrolled after ~5h — the documented landmine — so the probe method was
+  the grep of CANDIDATE shas from the roll window against `/proc/1/exe`).
+- Next phase (fresh session): canary → 10-row history repair →
+  unresolved_cta scoping → unlock webdesign.uk. See
+  `HANDOFF_2026-08-14_canary_and_repair.md`.
