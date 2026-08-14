@@ -1482,3 +1482,57 @@ same problem still needs the same check; I've written down exactly how to do it.
 roughly 150 other images sitting under the wrong name fleet-wide won't fix themselves —
 that's a proper clean-up job someone still needs to plan out, not a quick fix at the end of
 a session.
+
+---
+
+**14 August 2026, late — coming back after two days: the logo fix landed and was proven, and re-counting the leftovers found two ways the count lies**
+
+I picked this back up after two days away and the first job was to find out what had happened
+without me. A great deal had: other sessions took the repair fix through four rounds of review,
+answered every objection, shipped it, and proved it working on both of the sites that were
+broken. **The gas wholesalers logo is live. The mortgage calculator's missing header image is
+live.** I checked both myself rather than taking the note's word for it, and I also checked that
+the fix is genuinely inside the software that is currently running — not merely written down —
+by asking the running program directly and including a deliberately fake thing to look for, so
+that a "yes" means something. Real yes, fake absent.
+
+One thing I should own: when I made the change I deliberately avoided a wider adjustment to some
+shared plumbing, on the grounds that it was riskier than the problem justified. The reviewers
+disagreed and marked it a high-priority objection, and a later session made that change. They
+were right and I was over-cautious. Worth recording, because it is the review process doing
+exactly what it is for.
+
+The remaining work is a clean-up: a batch of image records left pointing at the wrong filenames
+by the old bug. Someone ran a careful pilot on the first eleven of them yesterday evening — all
+eleven clean. That took the count from 140 down to 98, and my job today was to re-count the rest
+properly before anyone runs the next, much bigger batch. **Two things came out of that, and both
+mean the list is not what it looks like.**
+
+**First, eleven of those 98 records must never be touched.** They refer to images that have since
+been *replaced* by newer ones. Re-publishing them would push an old picture back over a current
+one. That is worse than leaving them alone, and — this is the awkward part — the safety check the
+pilot used would not catch it, because a genuinely outdated image is *supposed* to be missing, so
+the record looks like honest outstanding work. The real list is 87, not 98.
+
+**Second, the two items that look most obviously "still to do" are the two the pilot deliberately
+decided NOT to do.** They are logos on two sites that are already displaying correctly. The
+person running the pilot spotted that publishing them would overwrite a working logo, and skipped
+them on purpose. But nothing in the records says "we decided to leave this" — so the next person
+along sees two easy items with a proven fix and does the damage the last person avoided. I have
+written that in three places now, because it is the kind of thing that only bites once you are
+confident.
+
+I have not run any of the clean-up. The next batch is 57 items across live sites, and one site
+alone accounts for 28 of them, so a single-site trial run is both cheap and informative. That is
+a real change to live sites and I would rather you knew it was happening.
+
+Two older things I promised to keep an eye on have **not** moved, and I re-checked rather than
+assumed. The two industry tracker pages still have no data files — that team's work stopped on
+26 July and nobody has picked it up; the fix is a settings change with no new software, and the
+instructions are sitting in their folder. And the broken gas converter tool is still parked
+awaiting your decision, for the same reason as before: the page has no content plan at all, so
+the automatic repair correctly does nothing.
+
+Last, a tidy-up I owe: the stray unused image file I left on the gas wholesalers site during
+testing on the 10th is still there. It is harmless and nothing points at it, but it is mine and
+it should come off.
