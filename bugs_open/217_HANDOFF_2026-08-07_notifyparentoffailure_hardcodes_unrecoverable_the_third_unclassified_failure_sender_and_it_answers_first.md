@@ -190,3 +190,22 @@ Stays in `bugs_open/` per the owner's 08-06 ruling. The sender-convergence serie
    amplification worst-case (16 at depth ≤ 1) remains theoretical, unobserved.
 
 Evidence with every id and timestamp: lane NOTES 2026-08-08 (night) entry.
+
+## Observation from the 268 lane (2026-08-14 evening) — two same-day instances of a child result failing VALIDATION on delivery, work fine both times
+
+Contributed per who-owns (this lane owns the failure-sender seam); not a new
+bug file. Two `content_rewrite` runs on dartsonline.com, ~30 min apart, both
+ended `complete_error` with an EMPTY `error` column and `__step_error`:
+`{"failed_step":"deploy_page","message":"workflow completed but its result
+could not be delivered to the parent (failed_transient): message validation
+failed (code: CHILD_ORCHESTRATION_FAILED)"}` — orchestrations
+`49fa9f6b-43de-4e5c-b125-52ebf2bcbf6b` (18:25:44Z) and
+`8183390d-a914-4b02-b9c5-3ba2e2e6e1a3` (18:53:xx). Both times the child's
+WORK completed and DEPLOYED (DB rows updated 18:24:55/18:51:30; live pages
+last-modified 18:26:48/18:52:21) while the `site_work_items` row went
+`failed`. So: a validation-rejected child RESULT presents to operators as a
+failed work item with the artefact fine — the "failed item, fine work" shape,
+reproducible, and it looks adjacent to this file's unclassified-sender
+question (which envelope answers, and how it is classified, decides the
+item's fate; the work's fate was already decided). Items:
+`20fd61a1-6fa6-4cc9-8fe0-41f43a790483`, `a61e48ba-e0f8-41ad-a748-fe55d874f503`.

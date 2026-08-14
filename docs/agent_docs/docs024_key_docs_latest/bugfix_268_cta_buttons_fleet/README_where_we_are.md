@@ -129,3 +129,20 @@ show the fix and the repair hold together), the fresh fleet count, and your
 call on the two-hundred-odd never-had-a-destination buttons — for scale,
 the queue that should list them only holds 71 entries across 6 sites, so
 most of them have never even been queued for a decision.
+
+## 2026-08-14 (night) — done: proven, repaired, and closed
+
+The second rewrite test passed: we rewrote one of the freshly repaired
+pages again, and the restored links came through untouched — the fix and
+the repair hold together. All ten restored links are verified on the live
+sites. The bug file has moved to the closed pile with the full record in
+its closing section.
+
+The two questions left are yours, and neither is urgent. First: the ~194
+buttons that never had destinations — do we re-run destination-picking
+site by site, accept them as label-only, or open a dedicated piece of
+work? Worth knowing: the system's own to-do list for these holds only 71
+entries across 6 sites, so most of them have never even been put in front
+of anyone for a decision. Second: webdesign.uk's eight emergency locks
+from before the fix — they can stay on as belt-and-braces, or come off now
+that the fix protects those rows. Say the word either way.

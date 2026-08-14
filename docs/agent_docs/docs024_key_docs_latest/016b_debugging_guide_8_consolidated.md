@@ -256,6 +256,40 @@ title>`, then Symptom / Diagnose / Root cause / Fix, with the SQL and cross-refe
 immediately-prior pattern — the interactive-page clobber — is the final §9 entry in 016
 v2_56; start the next one below.)*
 
+### A symptom census CONFLATES CAUSES — ask history whether each damaged row EVER held the value before sizing a repair or predicting a trend
+
+**Symptom.** A fleet count of "rows missing X" is treated as one population: a fix
+ships, and the count is expected to trend to ~0; a repair is sized at the full
+count (a 214-row restore plan). Neither happens, because the census predicate
+(`has label AND NOT has url`) matches every CAUSE that ends in that state.
+
+**Diagnose.** Split the census against the row's own archived generations —
+`page_component_history` by `page_id`+`slot_name` (NOT `component_id`, which is
+`ON DELETE SET NULL`): rows where some generation held the value (regeneration
+LOSSES — recoverable, and the only rows the write-path bug ever touched), rows
+whose generations never held it (never-resolved — a different, older defect),
+and rows with no history at all (indeterminate). Worked case: `bugs_open/268`'s
+"214 missing buttons" split **10 / 74 / 133** — the fix's real damage class was
+10 rows, the repair was a 10-row restore not a 214-row one, and the census was
+never going to trend to ~0 (it settled at ~194, all `unresolved_cta` class).
+The incident where the unsplit reading was written down and later corrected:
+`WRONG_CALLS.md` 2026-08-14 ("expect ~0"). Split query: the 268 fleet-fix lane
+RUNBOOK.
+
+**Root cause.** A symptom is an END STATE; states have in-degrees > 1. A census
+keyed on the state alone cannot distinguish "the mechanism you are fixing did
+this" from "this was always so", and both repair sizing and post-fix
+expectations inherit the conflation silently.
+
+**Fix.** Before sizing any repair or predicting any post-fix trend from a
+symptom census, join each damaged row to its own history and class it by
+whether the value EVER existed. Only the ever-held class belongs to a
+write-path regression; the never-held class indicts whatever was supposed to
+supply the value in the first place, and no amount of fixing the write path or
+re-rendering will move it. Cross-refs: `bugs_open/268` §11.1/§12, PBP-039
+(the carry can only restore what a row still holds — same asymmetry one layer
+down), `a-stale-page-holds-every-improvement-since-it-rendered` (MEMORY).
+
 ### A CI selector that diffs ONE COMMIT answers "what changed" wrong for every push that isn't one commit — and on a merge it is the PUSHER who silently loses
 
 **Symptom.** A push lands, the run is green, and the artefact never changes: `curl`

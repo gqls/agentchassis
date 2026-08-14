@@ -5,10 +5,15 @@ the primary conversion control is absent from 214 components across 19 live
 customer-facing sites, and it fails silently in every instrument we have.
 **Class:** structural (shared component schema + the regeneration write path).
 
-> **STATUS: OPEN.** webdesign.uk is protected by a site-scoped component lock
-> (`SQL_2026-08-12k`), which is a tourniquet and not a fix. The other 18 sites
-> are unprotected. The mechanism is NOT established — see §4, including a
-> refuted hypothesis of mine.
+> **STATUS: CLOSED 2026-08-14 — fixed AND live AND repaired; see §12.** Fix
+> `8f899cc8d` live since `v1.0.1298` (canary-proven on a live regeneration,
+> `carried_fields` on the plan items); all 10 history-recoverable rows
+> restored and re-rendered; permanence proven by a second rewrite. The ~194
+> remaining label-without-URL rows are the `unresolved_cta` never-resolved
+> class — a SEPARATE deliverable awaiting an owner decision (§12), not this
+> bug. (The banner below is the original filing state, kept for the record.)
+> The webdesign.uk lock question (keep or lift, now the fix protects the
+> rows) is also with the owner.
 
 ---
 
@@ -241,3 +246,39 @@ will conjure URLs they never had.
 > Split re-measured 2026-08-14 ~16:50Z: **10 ever-held / 73 never-held /
 > 134 no-history, of 217** (one never-held row moved to no-history since
 > §11.1 — a page identity change, the fleet moving; the 10 are unchanged).
+
+## 12. CLOSED 2026-08-14 — fixed, live, canary-proven, repaired, permanence-proven
+
+- **Fix live:** `8f899cc8d` (carry inside the renderer/static branch), council
+  APPROVED round 1 (`e6c1e4eb…`), live since `v1.0.1298`; re-verified on
+  `v1.0.1299` (stamp `6f8efa158`, both replicas, binary probe + controls).
+- **Canary (the §7 verification, run for real):** `edit_live` rewrite of
+  dartsonline.com/beginners — prose rewritten, every url key survived, hrefs
+  identical, site-wide invariant diff unchanged, live page redeployed. Route
+  discriminated: plan items record `carried_fields` for exactly the CTA
+  destination fields; `structural_misses` empty. The same operation pre-fix
+  is §3's reproduction, which deleted them.
+- **Repair:** all 10 ever-held rows restored from `page_component_history`
+  (`SQL_2026-08-14_restore_cta_urls_10_rows.sql`; every target URL verified
+  live first) and re-rendered (`reason=section_data_resolved`, 7 pages, 7/7
+  complete). Live pages spot-checked serving the restored anchors.
+- **Permanence (fix+repair compose):** a SECOND `edit_live` rewrite on the
+  freshly repaired dartsonline/index — restored keys survived, carried again
+  (`8183390d…`), live page redeployed 18:52:21Z. Repair-then-fix was the
+  original trap; fix-then-repair holds.
+- **Census after:** 194 label-without-URL / 21 sites (was 217), and the
+  ever-held-a-URL bucket is **ZERO** — the regeneration-loss class is empty.
+- **The remaining ~194 are NOT this bug** and do not block closure: they are
+  the `unresolved_cta` never-had-a-destination class (§11.1). Scoped
+  2026-08-14: the `unresolved_cta` queue holds only 71 items across 6 sites
+  (28 open `needs_human_review`) against ~194 damaged rows across 21 sites —
+  most rows have never even been queued for a destination decision. OWNER
+  DECISION PENDING: re-run resolution per site / accept label-only / new
+  lane (fleet-fix handoff §3 options). Recorded in the lane's
+  `README_where_we_are.md`.
+- Two operational notes recorded on the way: both `content_rewrite` runs'
+  work items read `failed` on a `deploy_page` RESULT-DELIVERY failure while
+  the work succeeded and deployed (contributed to `bugs_open/217`, which
+  owns that seam); and the canary/repair items carry SYNTHETIC backdated
+  `created_at` values (queue-position, lane NOTES 2026-08-14) — do not read
+  those timestamps as filing dates.

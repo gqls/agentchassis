@@ -308,3 +308,34 @@ repaired+locked stated). Then, while it queues (~30 min): falsifier checks
   `save_page_sections` preloads locked rows and SKIPS the incoming section
   for a locked slot (save_page_sections_action.go:641-652) — the locked
   copy stands, the rebuild is not failed.
+
+## 2026-08-14 (night) — repair verified, permanence proven, 268 CLOSED
+
+- **All 7 re-renders complete (7/7, zero failures, ~18:32–18:46Z).** All 10
+  rows verified at the artefact: url key present AND 2 anchors rendered,
+  every row. Live spot-checks across all 5 sites serve the restored links
+  (idea.uk pages live under `/tools/<name>/index.html` — my first curl used
+  the page NAME as the path and read 0; `pages.url` is the truth).
+- **PERMANENCE PROVEN:** second `edit_live` rewrite on the repaired
+  dartsonline/index (`permanence_268_darts_index`, orch `8183390d`) — prose
+  changed, ALL url keys survived, hrefs identical, live page redeployed
+  18:52:21Z. `carried_fields` again names the CTA fields — and also
+  `load_more_text`/`show_load_more` on the listing slot, i.e. the fix is
+  protecting static-sourced non-URL fields too, as designed.
+- **The deploy_page delivery failure recurred** (2nd time tonight, same
+  message, work fine both times) — observation contributed into
+  `bugs_open/217` (owns the failure-sender seam; who-owns checked). Both
+  canary and permanence items left honestly `failed`; do not re-fire.
+- **Census after repair: 194/21, split 0/67/127** — the ever-held bucket is
+  ZERO; the regeneration-loss class is empty. (217→194 dropped 23: our 10
+  plus 13 moved by other lanes' work — the fleet moves.)
+- **CLOSED:** §12 appended to the bug file, top banner corrected, file
+  `git mv`'d to `bugs_closed/`. 016b §9 gained the "symptom census
+  conflates causes — split by history" pattern. Memory topic + workstream
+  line updated. SUMMARY_2026-08-14b written (second same-day summary —
+  the read-out genuinely differs: proven/repaired/closed vs approved/live).
+- **Open for the owner (recorded in README + SUMMARY):** (1) the ~194
+  unresolved_cta rows — resolution re-run per site / accept label-only /
+  new lane; queue coverage is 71 items over 6 sites, so most rows were
+  never queued. (2) webdesign.uk's 8 permanent locks — keep or lift now
+  the fix protects the rows.
