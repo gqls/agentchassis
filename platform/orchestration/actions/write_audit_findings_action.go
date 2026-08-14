@@ -463,6 +463,95 @@ func sanitiseDedupSegment(s string) string {
 }
 
 // ============================================================================
+// Findings parsing — the LLM result reaches collected_data as a JSON string,
+// an already-parsed array, or an already-parsed object wrapping the array
+// under "findings" (the shape site-review-agent's prompt asks for —
+// bugs_open/272: the object case was missing, so a prompt-compliant response
+// silently produced zero work items).
+// ============================================================================
+
+// findingsFromList maps already-parsed finding objects into auditFinding.
+func findingsFromList(items []interface{}) []auditFinding {
+	var findings []auditFinding
+	for _, item := range items {
+		if m, ok := item.(map[string]interface{}); ok {
+			f := auditFinding{
+				Category:          getStringFromMap(m, "category"),
+				Severity:          getStringFromMap(m, "severity"),
+				Description:       getStringFromMap(m, "description"),
+				Suggestion:        getStringFromMap(m, "suggestion"),
+				Page:              getStringFromMap(m, "page"),
+				FixType:           getStringFromMap(m, "fix_type"),
+				AffectedComponent: getStringFromMap(m, "affected_component"),
+				CurrentValue:      getStringFromMap(m, "current_value"),
+				AcceptanceTest:    getStringFromMap(m, "acceptance_test"),
+				MaxFixAttempts:    getIntFromMap(m, "max_fix_attempts"),
+			}
+			if ap, ok := m["affected_pages"].([]interface{}); ok {
+				for _, p := range ap {
+					if ps, ok := p.(string); ok {
+						f.AffectedPages = append(f.AffectedPages, ps)
+					}
+				}
+			}
+			findings = append(findings, f)
+		}
+	}
+	return findings
+}
+
+// findingsFromString fence-trims and unmarshals a JSON string holding either
+// a bare findings array or an object wrapping one under "findings". A
+// non-empty parseError means the string held no findings and was not
+// parseable as an array.
+func findingsFromString(s string, logger *zap.Logger) (findings []auditFinding, parseError string) {
+	cleaned := strings.TrimSpace(s)
+	cleaned = strings.TrimPrefix(cleaned, "```json")
+	cleaned = strings.TrimPrefix(cleaned, "```")
+	cleaned = strings.TrimSuffix(cleaned, "```")
+	cleaned = strings.TrimSpace(cleaned)
+
+	if err := json.Unmarshal([]byte(cleaned), &findings); err != nil {
+		var wrapper map[string]json.RawMessage
+		if err2 := json.Unmarshal([]byte(cleaned), &wrapper); err2 == nil {
+			if findingsJSON, ok := wrapper["findings"]; ok {
+				json.Unmarshal(findingsJSON, &findings)
+			}
+		}
+		if len(findings) == 0 {
+			logger.Warn("Failed to parse findings JSON",
+				zap.Error(err),
+				zap.String("raw_preview", cleaned[:min(200, len(cleaned))]))
+			return nil, err.Error()
+		}
+	}
+	return findings, ""
+}
+
+// parseAuditFindings accepts all three shapes. Only an unparseable string
+// sets parseError; an unrecognised shape, or an object with no "findings"
+// key, returns (nil, "") and the caller reports the zero-findings reason
+// together with the offending type.
+func parseAuditFindings(findingsRaw interface{}, logger *zap.Logger) (findings []auditFinding, parseError string) {
+	switch v := findingsRaw.(type) {
+	case string:
+		return findingsFromString(v, logger)
+	case []interface{}:
+		return findingsFromList(v), ""
+	case map[string]interface{}:
+		// The prompt-compliant wrapped shape: mirror the string case's
+		// wrapper unwrap.
+		switch inner := v["findings"].(type) {
+		case []interface{}:
+			return findingsFromList(inner), ""
+		case string:
+			return findingsFromString(inner, logger)
+		}
+	}
+	return nil, ""
+}
+
+// ============================================================================
 // Main action
 // ============================================================================
 
@@ -532,62 +621,24 @@ func WriteAuditFindingsAction(ctx context.Context, params ActionParams) (interfa
 	}
 
 	// ── Parse findings ──
-	var findings []auditFinding
-
-	switch v := findingsRaw.(type) {
-	case string:
-		cleaned := strings.TrimSpace(v)
-		cleaned = strings.TrimPrefix(cleaned, "```json")
-		cleaned = strings.TrimPrefix(cleaned, "```")
-		cleaned = strings.TrimSuffix(cleaned, "```")
-		cleaned = strings.TrimSpace(cleaned)
-
-		if err := json.Unmarshal([]byte(cleaned), &findings); err != nil {
-			var wrapper map[string]json.RawMessage
-			if err2 := json.Unmarshal([]byte(cleaned), &wrapper); err2 == nil {
-				if findingsJSON, ok := wrapper["findings"]; ok {
-					json.Unmarshal(findingsJSON, &findings)
-				}
-			}
-			if len(findings) == 0 {
-				logger.Warn("Failed to parse findings JSON",
-					zap.Error(err),
-					zap.String("raw_preview", cleaned[:min(200, len(cleaned))]))
-				return map[string]interface{}{
-					"items_created": 0,
-					"parse_error":   err.Error(),
-				}, nil
-			}
-		}
-	case []interface{}:
-		for _, item := range v {
-			if m, ok := item.(map[string]interface{}); ok {
-				f := auditFinding{
-					Category:          getStringFromMap(m, "category"),
-					Severity:          getStringFromMap(m, "severity"),
-					Description:       getStringFromMap(m, "description"),
-					Suggestion:        getStringFromMap(m, "suggestion"),
-					Page:              getStringFromMap(m, "page"),
-					FixType:           getStringFromMap(m, "fix_type"),
-					AffectedComponent: getStringFromMap(m, "affected_component"),
-					CurrentValue:      getStringFromMap(m, "current_value"),
-					AcceptanceTest:    getStringFromMap(m, "acceptance_test"),
-					MaxFixAttempts:    getIntFromMap(m, "max_fix_attempts"),
-				}
-				if ap, ok := m["affected_pages"].([]interface{}); ok {
-					for _, p := range ap {
-						if ps, ok := p.(string); ok {
-							f.AffectedPages = append(f.AffectedPages, ps)
-						}
-					}
-				}
-				findings = append(findings, f)
-			}
-		}
+	findings, parseError := parseAuditFindings(findingsRaw, logger)
+	if parseError != "" {
+		return map[string]interface{}{
+			"items_created": 0,
+			"parse_error":   parseError,
+		}, nil
 	}
 
 	if len(findings) == 0 {
-		return map[string]interface{}{"items_created": 0, "reason": "no valid findings"}, nil
+		logger.Warn("No valid findings extracted",
+			zap.String("findings_field", findingsField),
+			zap.String("findings_type", fmt.Sprintf("%T", findingsRaw)))
+		return map[string]interface{}{
+			"items_created":  0,
+			"reason":         "no valid findings",
+			"findings_field": findingsField,
+			"findings_type":  fmt.Sprintf("%T", findingsRaw),
+		}, nil
 	}
 
 	logger.Info("Parsed audit findings",

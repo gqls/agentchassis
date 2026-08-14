@@ -256,6 +256,46 @@ title>`, then Symptom / Diagnose / Root cause / Fix, with the SQL and cross-refe
 immediately-prior pattern — the interactive-page clobber — is the final §9 entry in 016
 v2_56; start the next one below.)*
 
+### An LLM-result consumer that type-switches on shape silently drops every shape it doesn't name — and the prompt's requested shape may be exactly the missing one
+
+**Symptom.** An LLM step visibly produces good structured output (it is right there in
+`collected_data`), the consuming step runs `COMPLETED` with `error` NULL, and the
+artefact the consumer should have written does not exist — zero work items, zero rows,
+a "nothing to do" result. Worked case: `bugs_open/272` — six `site-review-agent` runs,
+each with a real 5-finding array under `strategic_review.result.findings`, every one
+returning `items_created: 0, reason: "no valid findings"`.
+
+**Diagnose.** Find the consumer's parse site and read the `switch v := raw.(type)`
+against what jsonb says the value actually is:
+`SELECT jsonb_typeof(collected_data#>'{<step>,result}') FROM orchestration_states ...`.
+A parsed JSON value reaches Go as exactly one of `string`, `[]interface{}`,
+`map[string]interface{}`, `float64`, `bool`, `nil` — any case the switch does not name
+falls through with **no error and no log**, usually into a pre-existing
+"empty means done" return.
+
+**Root cause.** The switch was written for the shapes the author had seen, not the
+shape the step's own prompt asks for. `write_audit_findings_action.go` handled a JSON
+string and a bare array; `site-review-agent`'s prompt demands
+`{"overall_score":..., "summary":..., "findings":[...]}` — an object, the one shape with
+no case. The agent only ever filed items when the LLM **disobeyed** its prompt and
+returned a bare array (`bugs_closed/150`). A type switch over LLM output is a claim
+about what the model will return, and the prompt is the counter-evidence sitting in the
+same agent definition.
+
+**Fix.** For 272: parse extracted to `parseAuditFindings` (same file), a
+`map[string]interface{}` case that unwraps `v["findings"]` (mirroring the string case's
+wrapper fallback), the zero-findings return now carries `findings_field` +
+`findings_type` (`%T` of the unmatched value) and logs a Warn, and a table test pins
+every shape. Transferable checks: (1) when writing or reviewing any
+`switch raw.(type)` over LLM/jsonb data, grep the agent's prompt for "Respond with" and
+confirm that shape has a case; (2) give the fallthrough a log line with the `%T` of
+what it dropped (precedent: `create_blog_posts_action.go:149-151`) — a silent
+zero-result is this whole class's camouflage. Sibling switches known to lack the object
+case as of 2026-08-14: `plan_sections_action.go:1004-1027`, `append_doc_note_action.go:171-185`,
+`retract_page_deployment_action.go:520-535`, `vet_med_export_action.go:109-125`.
+Cross-refs: `bugs_open/272`, `bugs_closed/150`, `bugs_closed/264` (the same step's
+other silent default, one field over).
+
 ### A symptom census CONFLATES CAUSES — ask history whether each damaged row EVER held the value before sizing a repair or predicting a trend
 
 **Symptom.** A fleet count of "rows missing X" is treated as one population: a fix

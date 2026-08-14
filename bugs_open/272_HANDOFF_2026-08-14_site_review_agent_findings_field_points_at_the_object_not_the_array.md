@@ -125,3 +125,93 @@ FROM orchestration_states WHERE orchestration_id = '<new run>';
 - `bugs_closed/150` — the earlier, once-off sighting of this same step, from
   the opposite angle (it fired unexpectedly and broke a triage assumption,
   rather than not firing at all).
+
+---
+
+## FIX APPLIED 2026-08-14 (second session) — candidate 2, code only; candidates 1 and 3 REJECTED
+
+**Taken up 2026-08-14 by the `bugs_open/272` session** (distinct from the filing
+session, which moved on to an unrelated lane — checked its live transcript
+before starting). Re-verified the bug first:
+
+- `[MEASURED]` Live config unchanged: `findings_field = "strategic_review.result"`;
+  live prompt still ends `Respond with ONLY a JSON object: {"overall_score": 1-10,
+  "summary": "one paragraph", "findings": [UP TO 5 findings]}`.
+- `[MEASURED]` All 6 surviving `site-review-agent` orchestrations (1 on 08-13,
+  5 on 08-14 — the improvement-loop is dispatching these daily) show
+  `jsonb_typeof(result)=object`, `jsonb_typeof(result.findings)=array`,
+  `items_created=0`, `reason='no valid findings'`.
+- `[MEASURED]` `SELECT count(*) FROM site_work_items WHERE
+  spec->>'audit_source'='site-review'` → **0**, all history. (Only proves the
+  post-264 window — pre-264 items were stamped `design-audit`.)
+
+**No `090` diagnosis run — first-hand verification substituted (stated per the
+2026-07-31 owner ruling):** the claim is local to one function, not
+structural/cross-cutting; the filing session measured the live run and this
+session independently re-verified all three legs (live config+prompt, 6/6 live
+runs, the code at `write_audit_findings_action.go`) before changing anything.
+
+### What shipped
+
+`platform/orchestration/actions/write_audit_findings_action.go`: the inline
+parse block is extracted into unexported, unit-testable functions —
+`findingsFromList` (former array-case body, verbatim), `findingsFromString`
+(former string-case body, verbatim) and `parseAuditFindings`, which adds the
+missing **`case map[string]interface{}`**: it unwraps `v["findings"]`
+(mirroring the string case's existing wrapper fallback), handling both an
+array value and a JSON-string value. The zero-findings return keeps
+`reason: "no valid findings"` byte-identical and **adds** `findings_field` and
+`findings_type` (`%T` of the unmatched value), plus a `logger.Warn` with the
+same keys — this defect was invisible precisely because the zero path said
+nothing anywhere.
+
+New `write_audit_findings_parse_test.go` pins every shape (wrapped object —
+fails pre-fix; bare array — 150's regression guard; bare/wrapped/fenced JSON
+strings; object-with-string-findings; no-findings-key; garbage; scalar) plus a
+field-completeness test. **Mutation-verified**: repointing the map case at a
+wrong key fails both tests; restoring passes.
+
+### Why candidates 1 and 3 (repoint `findings_field` to `strategic_review.result.findings`) were REJECTED
+
+1. `ExtractNestedField` cannot walk the segment `findings` into a **bare
+   array**, so the repoint breaks the one shape that has ever produced items
+   (`bugs_closed/150`'s 3 items were the LLM *disobeying* its prompt). Config
+   `.result` + the code fix handles **both** shapes; `.result.findings` handles
+   only the compliant one.
+2. Applied migration `399_four_auditors_audit_source_resolves_to_a_real_value.sql:181-183`
+   **guards** `findings_field IS DISTINCT FROM 'strategic_review.result'` with a
+   RAISE — a repoint makes 399 read as drift to any future probe/replay. (The
+   filing session did not surface this; it is the strongest reason the
+   config-only stopgap was a trap.)
+3. The code fix needs no migration at all, and no revert-migration later.
+
+Cost accepted: zero-item runs continue until the next chassis roll (findings
+are re-derived every run and deduped, so nothing is permanently lost).
+
+### Council + commit
+
+- Council submission: `Council-Submitted: 5a79843a-c6d7-46e7-a8a2-df4482bd716c`
+  (verdict pending at commit time; check
+  `SELECT created_at, metadata->>'decision' FROM diagnosis_artifacts WHERE
+  correlation_id='5a79843a-c6d7-46e7-a8a2-df4482bd716c' AND kind='council_report';`)
+- Commit: see `git log --follow` on this file (pathspec commit, this session).
+- 016b §9 gains the transferable pattern (*an LLM-result consumer that
+  type-switches on shape silently drops every shape it doesn't name*), with the
+  sibling switches that still lack an object case listed.
+
+### Verify fixed-AND-live (the bar for moving this to bugs_closed/)
+
+1. Confirm the fix shipped **on agent-chassis specifically**:
+   `kubectl -n ai-persona-system logs -l app=agent-chassis --tail=300 | grep -m1 'build provenance'`
+   then `git merge-base --is-ancestor <this fix's commit> <the stamp>`.
+   (Startup line scrolls — fall back to the known-sha binary probe with a
+   control, per LANDMINES.)
+2. Dispatch one `site-review-agent` run (any deployed site) and check, per the
+   original section above: `items_created > 0` and
+   `strategic_findings_written.audit_source = 'site-review'`. The run's
+   findings should then appear:
+   `SELECT item_type, status FROM site_work_items WHERE spec->>'audit_source'='site-review';`
+3. If the LLM returns zero findings legitimately, the zero result now carries
+   `findings_type` — `map[string]interface {}` there with a non-empty
+   `result.findings` array would mean the fix did NOT ship (wrong binary), not
+   that the bug regressed.
