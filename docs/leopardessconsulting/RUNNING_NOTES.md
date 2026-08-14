@@ -2228,3 +2228,56 @@ guides, all 200, all footer-linked.
 covered `/services.html` only and was never swept across the site. The 75,061 figure is the
 **same defect class as the 90,790 one that was fixed**: a cumulative-sounding total read off
 a table that is pruned.
+
+## 2026-08-14 (session "leopardess", cont.) — repair handoff prepared; a FIFTH regression found; the images are recoverable
+
+Owner asked for the §11.7 work to be prepared as a handoff for a fresh session. Output:
+`HANDOFF_2026-08-14_services_restore.md` + pre-repair snapshot
+`scripts/SNAPSHOT_2026-08-14_services_pc_pre_restore.json`. Nothing on the site changed.
+
+### New findings while pinning the repair
+
+- **A fifth regression: the CTA is misdirected again.** Live primary anchor is
+  `"Book an architecture conversation"` → `/tools/tool-agent-complexity-estimator.html`;
+  the 07-31 authored state was "Get in touch" → `/contact.html`. That is the exact
+  signature of `bugs_open/248`'s CTA case (shared number — resolve by slug). The irony is
+  measured: the work item that drove the 08-11 18:15 rerender was itself
+  *"1 misdirected CTA(s) on services"*. Whether the recompute failed to fix it or created
+  it is [UNVERIFIED].
+- **The six icons are NOT lost.** All six live at their derived paths
+  (`icon-service-{monitoring,orchestration,oversight,verification,toolbuild,siteops}.jpg`,
+  distinct sizes 26–47KB, all 200). Only the `content_data` references were emptied; the
+  placeholder-URL asset rows are wrong metadata (248/152), not missing files.
+- **But the regeneration also rewrote the item KEYS**, so only four icons map to current
+  items. `model-routing` and `news-credibility` need two new Route-A icons (or an eye-check
+  that an old one fits). The 07-31 Block A copy itself is unrecoverable: not in any bak_
+  table (all pre-change), and `orchestration_states` is pruned at 24h so the 08-11 rows are
+  gone.
+- **The carousel template arm SURVIVES.** `data-hcc-carousel` present in the canonical
+  `info-card-grid` template — but its md5 has moved since 07-31 (`204a3975…` vs L9's
+  `f99b791c…`), so another lane touched the template. Gate any re-check on the arm's
+  presence, not on md5 equality with the L9 file.
+- **The 238 carry HAS ROLLED and does not cover this class** (238 §9.2, webdesign.uk,
+  08-12): `source:"renderer"` fields short-circuit resolve to `(nil,true)` so the carry
+  never runs, and on that site restoring `content_data` + rerender was NOT sufficient —
+  buttons only returned via a rendered_html splice. Flagged in the repair handoff as a
+  stop-and-contribute checkpoint rather than assumed to transfer (this site's
+  `section_data_resolved` path worked for these very fields on 07-31).
+- **The guide page's Mistral mention is NOT the same false claim.** It says the
+  *calculator covers* OpenAI/Claude/Gemini/Llama/Mistral/Cohere *pricing* — a claim about
+  the tool's comparison table, not the platform's callable providers. Verify against the
+  tool, not factory.go.
+- The 404 card is index 1 ("Data checked before it's trusted"). `bugs_open/268` (filed
+  08-12: content_rewrite drops CTA destination keys, 214 buttons fleet-wide, mechanism NOT
+  established) is adjacent to our regressions (e) and possibly (a) — the repair session
+  should read it before contributing to 248.
+
+### Corrections to my own 08-12 entry
+
+- I wrote "three regressions"; it is five (the CTA, found today, and counting the Mistral
+  claim separately as the 08-12 HANDOFF §11.3(d) already did).
+- I left the empty-image cause attributed vaguely to the 08-11 pass with the placeholder
+  assets as an alternative. Today's evidence splits it cleanly: the FILES deployed fine on
+  07-31 and are still live; the placeholder URLs are asset-row metadata only; the
+  content_data emptying is the 08-11 regeneration. Two separate defects, two separate bug
+  files, neither is the other's cause.

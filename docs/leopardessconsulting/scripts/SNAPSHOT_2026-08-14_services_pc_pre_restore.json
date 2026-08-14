@@ -1,0 +1,138 @@
+{
+    "hero-services": {
+        "updated_at": "2026-08-11T18:15:22.739956+00:00",
+        "component_id": "10d65832-a60c-4435-bdf3-36f1857b271c",
+        "content_data": {
+            "headline": "Services built to run a defined job, on infrastructure we run ourselves.",
+            "subheadline": "Each service below is a working system, not a proposal. See how the pieces fit together in how it works, or check what we've built."
+        }
+    },
+    "call-to-action": {
+        "updated_at": "2026-08-12T20:49:36.320638+00:00",
+        "component_id": "0197e8d7-1adc-43d6-ab32-d0716e013175",
+        "content_data": {
+            "headline": "Talk to us about the job you want automated.",
+            "primary_cta": "Book an architecture conversation",
+            "subheadline": "Bring one process worth handing to a machine. We'll tell you whether it's a good fit, what infrastructure it needs, and where a person should stay in the loop.",
+            "secondary_cta": "Not ready to talk? Use our AI Automation Time Savings Estimator to see how this applies before you get in touch.",
+            "primary_cta_url": "/tools/tool-agent-complexity-estimator.html",
+            "secondary_cta_url": "/tools/automation-savings-estimator/index.html",
+            "primary_cta_target_title": "Agent Architecture Complexity Estimator | Tools",
+            "secondary_cta_target_title": "AI Automation Time Savings Estimator"
+        }
+    },
+    "info-card-grid": {
+        "updated_at": "2026-08-11T18:15:22.752168+00:00",
+        "component_id": "fc56f085-8e9a-4f6b-8e8d-600f9a1381e2",
+        "content_data": {
+            "cards": [
+                {
+                    "body": "A supervisor agent breaks work into steps and hands each to a worker, so one failure doesn't stop the whole run.",
+                    "icon": "🧠",
+                    "title": "Systems that supervise themselves",
+                    "link_url": "/blog/hierarchical-multi-agent-orchestration-explained.html",
+                    "link_label": "See how it works"
+                },
+                {
+                    "body": "We verify business records against Companies House rather than accepting whatever a model returns.",
+                    "icon": "🏛️",
+                    "title": "Data checked before it's trusted",
+                    "link_url": "/case-study-automated-intelligence-pipeline.html",
+                    "link_label": "Read the case study"
+                },
+                {
+                    "body": "A multi-source pipeline collects news and scores it for credibility on a six-hour refresh, not once and forgotten.",
+                    "icon": "📰",
+                    "title": "News scored for credibility",
+                    "link_url": "/case-studies.html",
+                    "link_label": "See what we've built"
+                },
+                {
+                    "body": "Where a step needs judgement, a person signs off on it. That's set per stage, not switched on for everything.",
+                    "icon": "👤",
+                    "title": "Approval set stage by stage",
+                    "link_url": "/how-it-works.html",
+                    "link_label": "See the approval model"
+                },
+                {
+                    "body": "Kubernetes, Kafka and Postgres run underneath: tools your own engineers can hire for and maintain.",
+                    "icon": "⚙️",
+                    "title": "Built on ordinary infrastructure",
+                    "link_url": "/technical-architecture.html",
+                    "link_label": "View the architecture"
+                },
+                {
+                    "body": "More than 150 agent definitions cover site build, content, research and audit, each one written for a specific job.",
+                    "icon": "📚",
+                    "title": "A catalogue built from real work",
+                    "link_url": "/use-cases.html",
+                    "link_label": "Browse use cases"
+                }
+            ],
+            "section_title": "Systems built to run, not just demo",
+            "section_eyebrow": "What we build",
+            "section_subtitle": "Each service below runs on our own infrastructure first, so what you see here is deployed, not proposed."
+        }
+    },
+    "teaser-reveal-panel": {
+        "updated_at": "2026-08-11T18:15:22.746181+00:00",
+        "component_id": "22c12251-73aa-4232-bd67-ef9edcfe8061",
+        "content_data": {
+            "items": [
+                {
+                    "key": "verification-pipeline",
+                    "body": "Our Companies House verification pipeline runs area discovery, entity scraping, automated verification and tiered name-matching on active companies. It's checked more than 2,000 business records, with 937 of those enriched with filed accounts data. We run this on our own sites before we ever offer it to a client, so what you see is working, not proposed.",
+                    "hook": "Business data is only worth acting on if it's true",
+                    "image_alt": "",
+                    "image_url": "",
+                    "open_label": "See the pipeline",
+                    "continuation": "so we check every record against a source that doesn't move for anyone"
+                },
+                {
+                    "key": "hierarchical-orchestration",
+                    "body": "Workflows are defined in the database and re-read on every message, so a step can change without taking the system down. Some workers spawn their own sub-agents when a task splits further. Our catalogue holds more than 150 agent definitions across site build, design, content, research, quality audit, news and business intelligence, with 74 currently active.",
+                    "hook": "One agent can do one job well",
+                    "image_alt": "",
+                    "image_url": "",
+                    "open_label": "See the architecture",
+                    "continuation": "but a real workload needs several jobs done in the right order, so a supervisor hands tasks to workers and checks what comes back"
+                },
+                {
+                    "key": "human-oversight",
+                    "body": "You decide which steps run straight through and which wait for a sign-off. A low-risk step can complete on its own while a step touching money or a public claim stops for a human. It's a control you set, not a promise we make on your behalf.",
+                    "hook": "Some steps need a person to say yes before the system carries on",
+                    "image_alt": "",
+                    "image_url": "",
+                    "open_label": "See the setting",
+                    "continuation": "so approval is set per stage, not as a single switch for the whole pipeline"
+                },
+                {
+                    "key": "decision-record",
+                    "body": "Our own systems hold more than 2,000 orchestration state records. That log is what lets you check why a system did what it did, weeks after the fact, rather than take our word for it.",
+                    "hook": "Every decision an agent makes gets written down",
+                    "image_alt": "",
+                    "image_url": "",
+                    "open_label": "See the record",
+                    "continuation": "so it can be read back later, not just trusted at the time"
+                },
+                {
+                    "key": "model-routing",
+                    "body": "A workflow step can call Claude, Gemini, Mistral or another provider, or run down a self-hosted Ollama path that never leaves the cluster. That distinction matters when a step touches data you don't want handed to a third party.",
+                    "hook": "Different steps call for different models",
+                    "image_alt": "",
+                    "image_url": "",
+                    "open_label": "See the routing",
+                    "continuation": "and sometimes for no external provider at all, so routing is set step by step rather than fixed for the whole system"
+                },
+                {
+                    "key": "news-credibility",
+                    "body": "The multi-source news pipeline refreshes every six hours and scores each item as it arrives. As of our last snapshot it held over 9,545 items collected, with more than 8,297 credibility-scored. The score can still be wrong, which is why we treat it as a signal to check against, not a verdict.",
+                    "hook": "News gets published faster than anyone can check it",
+                    "continuation": "so we built a pipeline that scores credibility as items come in"
+                }
+            ],
+            "section_title": "What's underneath the services list",
+            "section_eyebrow": "HOW IT ACTUALLY RUNS"
+        }
+    }
+}

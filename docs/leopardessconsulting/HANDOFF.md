@@ -968,6 +968,15 @@ articles) afterwards, not just on the word being gone.
 
 ### 11.7 — What to do next, in order (supersedes §10.4)
 
+> **2026-08-14: item 1 is now a self-contained handoff with the forensics done —
+> `HANDOFF_2026-08-14_services_restore.md` (same directory). Start there; it also
+> found a FIFTH regression (the CTA is misdirected again — primary "Book an
+> architecture conversation" points at the complexity-estimator tool, not
+> `/contact.html`; `bugs_open/248`'s CTA case) and established that the six icon
+> files still exist at their derived paths, so the images are restorable, not lost.
+> It carries §3 of this list too (the case-studies figures, the voice work, the
+> scorer acceptance failure, the bug contributions owed).**
+
 1. **Restore the three `/services.html` regressions** (§11.3). Together they are one
    session's work and they are the only items here where the site is *worse* than it was:
    re-point the 404 card link; restore `carousel: true`; restore the six `image_url`

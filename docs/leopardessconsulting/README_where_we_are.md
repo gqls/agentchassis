@@ -925,3 +925,41 @@ placeholder filename rather than their own. That is a known fault elsewhere in t
 already investigated and confirmed by another lane two days before I looked. The neater
 story — "the robots broke my work" — was the one I had already started writing, and it was
 half wrong.
+
+---
+
+## 14 August 2026 — the repair is prepared and handed off, and the services page turns out to be broken in five ways, not four
+
+You asked me to work up the repair and hand it over so a fresh session can run it. That
+is done: the handoff is a single self-contained document next to this one
+(`HANDOFF_2026-08-14_services_restore.md`), with the exact changes written out, the
+checks to run before and after, and the traps labelled. I changed nothing on the site
+itself.
+
+Preparing it turned up one more fault and two pieces of genuinely good news.
+
+The extra fault: the "Get in touch" button on the services page has been rewired again.
+It now says "Book an architecture conversation" and takes the visitor to a calculator
+instead of the contact page. We removed exactly this kind of mismatch at the end of
+July; the automated pass on the 11th brought it back — and, almost comically, the job
+that did it had been dispatched to fix a misdirected button on that very page. This is a
+known, filed fault in the shared machinery; our case will be added to that file as
+evidence.
+
+The good news, first piece: the six images are not lost. The files themselves are all
+still published and intact — I fetched every one of them. What broke is only the page's
+record of where they live, which is a much smaller repair than regenerating artwork.
+Four of the six can go straight back; two need fresh pictures, because the automated
+rewrite also renamed the topics they sit beside, and two of the old pictures no longer
+match anything on the page.
+
+Second piece: the carousel machinery also survived — the scripts and the template are
+all still in place. The page just lost the one line that switches it on.
+
+One caution I have written in bold for whoever runs the repair: on another of our sites,
+the same class of damage was repaired the obvious way two days ago and the fix did not
+take — the restored values were ignored when the page was rebuilt. The underlying hole
+is filed and being diagnosed. Our site's repair route is different and has worked here
+before, but the handoff says plainly: if the restored images and buttons do not appear
+on the rebuilt page, stop and record it, because at that point our page is evidence
+about the platform fault, and that is worth more than a forced fix.
