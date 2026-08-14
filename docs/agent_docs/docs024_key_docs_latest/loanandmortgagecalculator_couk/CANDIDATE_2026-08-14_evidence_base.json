@@ -1,0 +1,65 @@
+{
+  "facts": [
+    {
+      "id": "borrowing-power-return-per-100pm-low",
+      "kind": "metric",
+      "unit": "GBP",
+      "claim": "Clearing £100 a month of loan payments typically returns roughly £5,000 of mortgage borrowing power (lower bound of the site's stated range)",
+      "value": 5000,
+      "source": {
+        "citation": {
+          "url": "https://loanandmortgagecalculator.co.uk/guide-how-loans-affect-mortgage-affordability.html",
+          "quote": "roughly £5,000 to £7,000",
+          "title": "How loans affect mortgage affordability",
+          "accessed": "2026-08-14",
+          "published": "",
+          "publisher": "loanandmortgagecalculator.co.uk"
+        }
+      },
+      "verified_at": "2026-08-14",
+      "writer_line": "Clearing £100 a month of payments typically brings back around £{value} of borrowing power",
+      "staleness_days": 180
+    },
+    {
+      "id": "borrowing-power-return-per-100pm-high",
+      "kind": "metric",
+      "unit": "GBP",
+      "claim": "Clearing £100 a month of loan payments typically returns up to roughly £7,000 of mortgage borrowing power (upper bound of the site's stated range)",
+      "value": 7000,
+      "source": {
+        "citation": {
+          "url": "https://loanandmortgagecalculator.co.uk/guide-how-loans-affect-mortgage-affordability.html",
+          "quote": "roughly £5,000 to £7,000",
+          "title": "How loans affect mortgage affordability",
+          "accessed": "2026-08-14",
+          "published": "",
+          "publisher": "loanandmortgagecalculator.co.uk"
+        }
+      },
+      "verified_at": "2026-08-14",
+      "writer_line": "Clearing £100 a month of payments can bring back up to around £{value} of borrowing power",
+      "staleness_days": 180
+    },
+    {
+      "id": "site-calculator-count",
+      "kind": "metric",
+      "unit": "count",
+      "claim": "The site offers 23 free calculators covering loans and mortgages",
+      "value": 23,
+      "source": {
+        "citation": {
+          "url": "https://loanandmortgagecalculator.co.uk/",
+          "quote": "23 free UK calculators",
+          "title": "loanandmortgagecalculator.co.uk tools index",
+          "accessed": "2026-08-14",
+          "published": "",
+          "publisher": "loanandmortgagecalculator.co.uk"
+        }
+      },
+      "verified_at": "2026-08-14",
+      "writer_line": "There are {value} calculators on this site",
+      "staleness_days": 90
+    }
+  ],
+  "banned_claims": []
+}
