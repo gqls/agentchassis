@@ -964,3 +964,74 @@ it should be stated that way in the submission rather than asserted as a safety 
 Not built. It is a second shared-seam change and needs its own council round; gate 1b's is
 still in flight, and stacking a second submission on an unread verdict is how a lane ends up
 defending two designs at once.
+
+---
+
+## 2026-08-14 (afternoon) — gate 1b PROVEN IN PRODUCTION, and the sweep re-enabled at the owner's instruction
+
+### The behavioural proof, which no test could give
+
+Owner authorised both actions. **They are not the same action**, and the sweep would not have
+delivered the proof: `improvement-sweep`'s `pre_query` takes **one site per fire**
+(`LIMIT 1`, `ORDER BY sites.updated_at ASC NULLS FIRST`, 900s interval), so
+`mortgagecalculator.co.uk` might have waited days. The controlled route is the dispatcher that
+was already running: **`build-pipeline-trigger`, enabled at 60s**, whose `pre_query` fires on any
+site holding a `triaged` + `pipeline='build'` item with attempts remaining.
+
+So: promote the ONE waiting row `detected` → `triaged` (id-scoped UPDATE, `AND status='detected'`
+so it cannot fire twice) and let the existing dispatcher claim it.
+
+```
+14:09:25Z  promoted to triaged
+14:11:26Z  triaged | attempt 1 | _verification.status = handler_reported_no_change
+           error: "completion blocked: the handler reported it changed nothing, so this cannot
+                   be a repair (bugs_open/213 D1): handler reported 0 changes at
+                   response.fix_result.total_fixed and response.text_color_result.total_fixed — …"
+           result.response.fix_result.total_fixed        = 0
+           result.response.text_color_result.total_fixed = 0
+14:13:04Z  attempt 2
+14:14:41Z  failed  | attempt 3  ← TERMINAL
+```
+
+**Both directions, in one window.** The gate fired on the BLOCK path (not the abstain path — the
+counters were present and zero, which is what the 0-of-61 transform measurement predicted), and
+the retry cycle **terminated** at `failed` after the three permitted attempts rather than
+churning. That termination was a claim in my council risks block; it is now measured, not
+asserted. Three dispatches, ~3m15s wall clock. **Before the gate this row would have been
+stamped `complete`** — the finetuning.uk shape exactly.
+
+The error text carries the roster's `Why` verbatim, so an operator reading the item's error
+column gets the reason and the measurement, not a code.
+
+### I doubted my own cost claim, checked it, and it held
+
+The 6-minute dispatch window showed **7 LLM calls** against a baseline of **5–9 per HOUR** — so
+on its face my council submission's claim ("pure SQL and regex with no LLM spend") looked false.
+Attributed: **6 `council-gate` (another lane's round) + 1 `content-gap-planner`, and ZERO from
+`color-variable-fixer` or `improvement-loop`.** The claim holds.
+
+Worth keeping: **a raw count in a window would have incriminated my dispatches.** The
+attribution query is what settled it, and the trap is the mirror image of the usual one — not "a
+count proves the damage" but *a count proves damage that was somebody else's*. In a fleet this
+busy, any before/after count over a shared surface needs a `GROUP BY agent_type` before it means
+anything.
+
+### The sweep: what one fire actually did
+
+`enabled=true` at 14:15Z; it was two days overdue and fired within seconds. First fire:
+**one site**, 13 findings across 13 item types, 1 claimed, 1 triaged, and **zero attributable
+LLM spend**. One of the 13 is a new `dark_section_audit`, so a 17th row now exists and will meet
+gate 1b on a later fire.
+
+⚠ **That is ONE FIRE, not a rate, and it must not be quoted as a cost measurement.** The 122
+lane's 3.2x was measured over 5h29m across many sites, and the LLM-heavy work is in the audit
+agents this fire did not reach. Their lane has been told the switch is back on — appended to
+their own handoff, with the baseline figures and the note that their dated 08-16 ramp
+measurement now has a second driven mechanism in the window.
+
+### Also measured, and it moves the "up to 15 items will fail" risk from prediction to fact
+
+`dark_section_audit` now: 17 rows · 1 gate-blocked · 1 `failed` · **0 abstain records**. The
+abstain arm has not yet fired, which is the one prediction in WII-017's landmine still
+outstanding — 10 of 14 historical rows carried an unreadable payload, so it should appear as more
+of these dispatch. Watch `agent_error_log` under `NO_CHANGE_GATE_UNREADABLE_RESULT`.

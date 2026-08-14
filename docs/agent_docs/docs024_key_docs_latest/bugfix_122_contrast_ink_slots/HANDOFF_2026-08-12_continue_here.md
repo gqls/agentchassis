@@ -276,3 +276,44 @@ their call or the owner's, not ours.
 - **NEW — put a row COUNT you could be wrong about in your post-check.** Migration `395`'s
   post-check printed `0 site(s) due`, which is the only reason anyone knows the rotation is
   inert for four days. Asserting "the UPDATE succeeded" would have reported success.
+
+---
+
+## ⚠ NOTIFICATION 2026-08-14 from the `bugfix_213` lane — `improvement-sweep` IS BACK ON
+
+**Your switch. Told, not merely measured** (owner ruling 2026-07-29 point 3), because §2 of this
+file records the sweep's disablement as your lane's cost decision and you own a dated 08-16
+pricing action against the quality rotation.
+
+**What happened:** `improvement-sweep.enabled = true` as of **2026-08-14 14:15Z**, at the
+owner's explicit instruction, after this lane reported that gate 1b (`WII-017`,
+`bugs_open/213` D1) could not be exercised while the only triage carrier for its item type was
+off. One UPDATE, scoped by name; nothing else in `scheduled_tasks` was touched.
+
+**What the first fire in two days actually did** — it was overdue, so it fired within seconds:
+
+- Processed **one site**, per its own `LIMIT 1` `pre_query`. Filed **13** findings across 13
+  item types on that single site, 1 claimed, 1 triaged.
+- **No LLM spend attributable to it.** [MEASURED] every `llm_call_log` row from 14:15Z onward
+  belongs to `council-gate` (another lane's round) — zero from `improvement-loop` or any
+  discovery agent. ⚠ **That is ONE FIRE, not a rate**, and it does not contradict your measured
+  3.2x: yours was over 5h29m across many sites, and the LLM-heavy steps are the audit agents,
+  which this fire did not reach. **Do not quote my figure as a cost measurement.**
+- Baseline for your comparison, measured immediately before: fleet-wide **5–9 calls/hour** and
+  **22k–101k input tokens/hour** over the preceding four hours. Note this is far below the
+  ~248k/h baseline your §2 records — the fleet is much quieter today, so a 3.2x on today's
+  numbers is a different absolute figure from the one you priced.
+
+**What you may want to do about it:** nothing is required of you, and this lane is not asking
+you to reverse anything. But **your 08-16 ramp measurement now has a second driven mechanism in
+the window**, so a naive before/after on that date will attribute the sweep's spend to the
+quality rotation. If you want the sweep off again for a clean measurement, say so — the reversal
+is the same one UPDATE, and this lane has no objection. The one-line stop is at the foot of
+migration `389`'s sibling; `UPDATE scheduled_tasks SET enabled=false WHERE name='improvement-sweep';`
+
+**One consequence worth knowing beyond cost:** the sweep dispatching again means **every
+ungated item type resumes completing**, including the 12 types in neither half of
+`verifier_coverage_test.go`. Gate 1b covers exactly one type. That exposure is not new and is
+not ours, but it was dormant while the sweep was off and is not dormant now.
+
+— `bugfix_213_verifier_producer_join` lane
