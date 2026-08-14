@@ -2546,6 +2546,7 @@ survives the forced-text strip), and the census proven to detect a removed class
 `exemptWriters` reasons now name the test. Whole actions package green before and
 after; **HEAD-archive check green** (`git archive HEAD` → `go test`, so the commit
 stands without any session's WIP). Commit `bb894e312`, council
-`Council-Submitted: d4b08e11-c3f8-47a2-95a6-7d39f0932612` — verdict to be read
-when the round lands (~30 min dispatch latency is normal; find the run by
-payload, not printed id).
+`Council-Submitted: d4b08e11-c3f8-47a2-95a6-7d39f0932612` — **verdict read same
+session: APPROVED round 1, all reviewers** (`complete_approved` 14:31Z; dispatch
+was near-instant this time, not the ~29-min worst case). 098 credits the commit
+automatically; no further action.
