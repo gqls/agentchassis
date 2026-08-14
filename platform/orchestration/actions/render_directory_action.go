@@ -124,10 +124,10 @@ var directoryPublishProfiles = map[string]directoryPublishProfile{
 		BrowseLabel:      "See every tracked protocol →",
 	},
 	// Phase B finance/insurance kinds (2026-08-13). Non-price facts only
-	// (owner ruling): the headlines say "verified facts", never rates.
+	// (owner ruling): the headlines say "cited facts" — cited is what re-fetch verification actually proves (the quote exists at the source), and never rates.
 	"mortgage-lender": {
 		Kind:             "mortgage-lender",
-		Headline:         "UK mortgage lenders, with verified facts",
+		Headline:         "UK mortgage lenders, with cited facts",
 		SnippetFile:      "data/mortgage-lender-directory.json",
 		FullFile:         "data/mortgage-lender-directory-full.json",
 		SnippetComponent: "mortgage-lender-directory",
@@ -136,7 +136,7 @@ var directoryPublishProfiles = map[string]directoryPublishProfile{
 	},
 	"savings-provider": {
 		Kind:             "savings-provider",
-		Headline:         "UK savings providers, with verified facts",
+		Headline:         "UK savings providers, with cited facts",
 		SnippetFile:      "data/savings-provider-directory.json",
 		FullFile:         "data/savings-provider-directory-full.json",
 		SnippetComponent: "savings-provider-directory",
@@ -145,7 +145,7 @@ var directoryPublishProfiles = map[string]directoryPublishProfile{
 	},
 	"health-insurer": {
 		Kind:             "health-insurer",
-		Headline:         "UK health insurers, with verified facts",
+		Headline:         "UK health insurers, with cited facts",
 		SnippetFile:      "data/health-insurer-directory.json",
 		FullFile:         "data/health-insurer-directory-full.json",
 		SnippetComponent: "health-insurer-directory",

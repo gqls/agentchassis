@@ -120,7 +120,7 @@ var directoryCheckProfiles = []directoryCheckProfile{
 		PageName:         "mortgage-lenders",
 		SectionItemType:  "missing_mortgage_lender_directory_section",
 		PageItemType:     "missing_mortgage_lender_directory_page",
-		PageTitle:        "a cited directory of UK mortgage lenders with verified facts: regulator status, product types, and lender history",
+		PageTitle:        "a cited directory of UK mortgage lenders: regulator status, product types, and lender history",
 	},
 	{
 		Kind:             "savings-provider",
@@ -132,7 +132,7 @@ var directoryCheckProfiles = []directoryCheckProfile{
 		PageName:         "savings-providers",
 		SectionItemType:  "missing_savings_provider_directory_section",
 		PageItemType:     "missing_savings_provider_directory_page",
-		PageTitle:        "a cited directory of UK savings providers with verified facts: regulator status, protection scheme membership, and product types",
+		PageTitle:        "a cited directory of UK savings providers: regulator status, protection scheme membership, and product types",
 	},
 	{
 		Kind:             "health-insurer",
@@ -144,7 +144,7 @@ var directoryCheckProfiles = []directoryCheckProfile{
 		PageName:         "health-insurers",
 		SectionItemType:  "missing_health_insurer_directory_section",
 		PageItemType:     "missing_health_insurer_directory_page",
-		PageTitle:        "a cited directory of UK health insurers with verified facts: regulator status, underwriter, and cover types",
+		PageTitle:        "a cited directory of UK health insurers: regulator status, underwriter, and cover types",
 	},
 }
 

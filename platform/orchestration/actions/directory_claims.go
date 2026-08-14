@@ -80,6 +80,55 @@ func init() {
 	datahelpers.RegisterActionInputSpec("verify_and_register_directory_claims", VerifyAndRegisterDirectoryClaimsInputSpec)
 }
 
+// financeKindFieldAllowlist is the per-kind CLOSED field vocabulary for the
+// finance/insurance directory kinds (Phase B, DIR-001) — the mechanical half
+// of the owner's non-price ruling: these directories carry durable,
+// slow-moving facts (regulator status, product types, structure) and NEVER
+// prices/rates/premiums, because a stale price published under a named
+// FCA-regulated firm is a financial-promotion exposure, where a stale
+// "established 1989" is not. Kinds absent from this map (model, company,
+// protocol) have no closed vocabulary and are unaffected — this is a
+// per-kind tightening, not a shared-mechanism change. Extending a kind's
+// vocabulary is a deliberate one-line edit here plus the matching update to
+// DIR-001 and the researcher prompt.
+var financeKindFieldAllowlist = map[string]map[string]bool{
+	"mortgage-lender": {
+		"fca_firm_reference": true,
+		"regulator_status":   true,
+		"product_types":      true,
+		"established_year":   true,
+		"lender_type":        true,
+	},
+	"savings-provider": {
+		"fca_firm_reference": true,
+		"regulator_status":   true,
+		"product_types":      true,
+		"established_year":   true,
+		"protection_scheme":  true,
+	},
+	"health-insurer": {
+		"fca_firm_reference": true,
+		"regulator_status":   true,
+		"cover_types":        true,
+		"established_year":   true,
+		"underwriter":        true,
+	},
+}
+
+// refuseDisallowedDirectoryField returns a non-empty rejection detail when
+// kind has a closed field vocabulary and field is not in it. Pure, so the
+// policy is unit-testable without a database or a fetch.
+func refuseDisallowedDirectoryField(kind, field string) string {
+	allow, closed := financeKindFieldAllowlist[kind]
+	if !closed || allow[field] {
+		return ""
+	}
+	return fmt.Sprintf(
+		"field %q is not in kind %q's closed vocabulary (non-price facts only, DIR-001 / owner ruling 2026-08-12): "+
+			"permitted fields are fixed per kind, and price/rate/premium-shaped facts are refused at registration by design",
+		field, kind)
+}
+
 type rejectedDirectoryClaim struct {
 	// Kind is the register kind the candidate named (entity_kind, default
 	// "model"). It scopes the review item's key — one HITL item per kind, not
@@ -131,6 +180,18 @@ func VerifyAndRegisterDirectoryClaimsAction(ctx context.Context, params ActionPa
 		if slug == "" || field == "" {
 			failures = append(failures, rejectedDirectoryClaim{Kind: kind, Slug: slug, Field: field,
 				Class: "citation_invalid", Detail: "candidate missing entity_slug or field"})
+			continue
+		}
+		if detail := refuseDisallowedDirectoryField(kind, field); detail != "" {
+			// ENFORCEMENT, not guidance (owner ruling 2026-08-12/13, DIR-001):
+			// the finance kinds carry NON-PRICE facts only. The researcher
+			// prompt says so too, but a prompt is an instruction, not a
+			// control — this is the registration-time gate that makes a
+			// price-shaped fact structurally unregistrable for those kinds,
+			// however the candidate was produced. Routed to the HITL queue
+			// like every other reject: visible, never a silent drop.
+			failures = append(failures, rejectedDirectoryClaim{Kind: kind, Slug: slug, Field: field,
+				URL: datahelpers.GetStringField(cand, "url", ""), Class: "citation_invalid", Detail: detail})
 			continue
 		}
 

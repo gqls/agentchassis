@@ -62,6 +62,47 @@ func TestMatchVerticalDirectory(t *testing.T) {
 	}
 }
 
+// The non-price ruling's mechanical half (council round-1 objection: a policy
+// with no enforcement mechanism is a preference): a finance kind's field
+// vocabulary is CLOSED at registration, so a price-shaped fact is
+// structurally unregistrable however it was produced. Non-finance kinds are
+// untouched — no closed vocabulary.
+func TestRefuseDisallowedDirectoryField(t *testing.T) {
+	cases := []struct {
+		kind, field string
+		wantRefused bool
+	}{
+		{"mortgage-lender", "regulator_status", false},
+		{"mortgage-lender", "fca_firm_reference", false},
+		{"mortgage-lender", "representative_apr", true}, // the exact exposure the ruling names
+		{"mortgage-lender", "typical_rate", true},
+		{"savings-provider", "protection_scheme", false},
+		{"savings-provider", "aer", true},
+		{"health-insurer", "underwriter", false},
+		{"health-insurer", "monthly_premium", true},
+		{"model", "price_input_per_mtok", false}, // open vocabulary: prices ALLOWED for models
+		{"company", "roi_pct", false},            // open vocabulary
+		{"unheard-of-kind", "anything", false},   // no vocabulary registered = open
+	}
+	for _, c := range cases {
+		got := refuseDisallowedDirectoryField(c.kind, c.field)
+		if (got != "") != c.wantRefused {
+			t.Errorf("refuseDisallowedDirectoryField(%q, %q) refused=%v, want %v (detail %q)",
+				c.kind, c.field, got != "", c.wantRefused, got)
+		}
+	}
+}
+
+// Every finance kind with a closed vocabulary must also be a real, renderable
+// kind — an allowlist for a kind that doesn't exist would be dead policy.
+func TestFinanceAllowlistKindsAreRenderable(t *testing.T) {
+	for kind := range financeKindFieldAllowlist {
+		if _, ok := directoryPublishProfiles[kind]; !ok {
+			t.Errorf("financeKindFieldAllowlist names kind %q, which has no directoryPublishProfiles entry", kind)
+		}
+	}
+}
+
 // Every recommending entry must name a kind that actually exists in
 // directoryPublishProfiles — a recommendation for an unrenderable kind would
 // plan a page nothing can ever populate. This is the lockstep guard between
