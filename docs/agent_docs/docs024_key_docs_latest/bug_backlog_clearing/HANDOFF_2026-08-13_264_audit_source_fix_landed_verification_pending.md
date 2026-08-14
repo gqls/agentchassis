@@ -190,3 +190,32 @@ RESUBMIT_CORR=50ee4b26-2303-4304-b437-7320e1368a1d \
   docs/agent_docs/docs024_key_docs_latest/fixloop_eg_dartsonline/submission_264_audit_source_round2.json
 ```
 then run the §B live verification, then decide on `bugs_closed/`.
+
+## UPDATE (2026-08-14) — kubectl restored, verification done, council APPROVED, still open pending a chassis roll
+
+Once kubectl access was restored: dispatched one live run per auditor against
+`mortgagecalculator.co.uk`. Three of four (`brief-fidelity-auditor`,
+`content-quality-auditor`, `visual-design-auditor`) now correctly stamp their
+own name on real `site_work_items` — the fix works. The fourth
+(`site-review-agent`) resolves `audit_source` correctly internally too, but a
+**separate, newly-filed defect** (`bugs_open/272` — its `findings_field` config
+points at the LLM's wrapping object, not the array inside it, so it never
+creates any item regardless of attribution) means this couldn't be end-to-end
+confirmed via a real row. Not this bug's fault — read `272` if you're touching
+`site-review-agent`.
+
+Round 2 of the council review came back REVISE, gated by `prior_art_librarian`
+on a fair catch: the rebuttal to a "duplicate active row" objection was never
+checked against a standing LANDMINE naming "four agent types" with exactly that
+problem. Settled directly — the landmine names four different, specific types,
+confirmed disjoint from this bug's four by re-running its own exact check live.
+**Round 3, submitted with that evidence, came back APPROVED — all 10
+reviewers.** Full detail, all three rounds' objections and answers, in
+`bugs_open/264` §13-§15.
+
+**Bug 264 stays in `bugs_open/` regardless** — the config half (migration 399)
+is live and independently verified; the Go half (`Required`/no-`Default`) is
+committed and now council-approved, but per this estate's fixed-AND-live bar it
+doesn't move to `bugs_closed/` until confirmed live after the next
+`agent-chassis` roll. Whoever does that roll: check
+`git merge-base --is-ancestor 3621ca7cf <rolled commit>`, then close it out.
