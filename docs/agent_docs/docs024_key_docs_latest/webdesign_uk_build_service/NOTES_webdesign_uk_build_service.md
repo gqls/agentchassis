@@ -2638,3 +2638,19 @@ this session's cold-start falsifier sweep:
   (their handoff's owner-decision 1 says "add to `personae-platform-secrets`")
   must go through 047-base-configs terraform, not kubectl, or the first
   release after the keys land breaks payment the same way.
+
+## 2026-08-14 08:12Z — RESOLVED: owner ran the box command; relay live end to end on the terraform-owned token
+
+- Owner ran the one-liner (via `!` in-session, so the output is in the
+  transcript): new process PID 187792, startup log
+  `facts: fetched 15 facts from relay` → `facts: live mode`.
+- Verified at the artefact: asked the live bot price + timing — replied
+  "£149 as a one-off payment… no VAT… you approve the finished site before
+  you pay". No retired terms in the reply (no £1,200 / £75 / deposit / 14-day).
+- The outage window was 2026-08-13 13:55Z → 2026-08-14 08:12Z (refresh-only;
+  the bot served last-good £149 facts throughout, so no visitor ever saw wrong
+  facts — the £1,200 constant stayed dead).
+- Durability now: token declared in 047-base-configs terraform, so a release
+  re-asserts it instead of deleting it. The remaining single point of
+  fragility from the morning entry stands unchanged: `FACTS_URL` pins the
+  core-manager ClusterIP because box cluster-DNS is unresolved.

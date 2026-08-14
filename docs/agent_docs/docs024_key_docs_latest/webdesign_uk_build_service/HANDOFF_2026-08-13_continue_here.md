@@ -47,6 +47,9 @@ is now fixed+live. The missing links are named in §3.
     > proven at the pod (200 with the pod's own token, 401 without). Box half
     > still owed: ONE owner command (NOTES 2026-08-14 entry) copies the tfvars
     > value to `/etc/webdesign-chat.env` and restarts the bot.
+    > **RESOLVED 2026-08-14 08:12Z:** owner ran it; bot live-mode on the
+    > terraform-owned token, £149 verified at the artefact. The claims above
+    > hold again, now release-proof.
 - **WireGuard tunnel** box↔cluster: up, proven, `ip_forward` fault fixed
   (LANDMINE + CHAT-010 register). Carries box→cluster today; can carry the
   Stripe webhook inbound (see §3.2).

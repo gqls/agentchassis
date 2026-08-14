@@ -1199,3 +1199,12 @@ written out in the technical notes and in my chat summary — and it also
 restarts the bot cleanly. After that the whole loop is back (change a fact in
 the database, the bot follows within five minutes), and this time a fleet
 release can't knock it over.
+
+2026-08-14, a few minutes later — done. You ran the command, the bot restarted
+cleanly and immediately fetched its fifteen facts from the database, and I
+asked it the price to be sure: "£149 as a one-off payment… you approve the
+finished site before you pay." Worth saying plainly: at no point did a visitor
+see wrong information — the bot rode out the whole outage on the facts it had
+already fetched. The live-facts loop is back, and it can no longer be broken
+by a release, because the key it depends on is now part of what a release
+installs rather than something a release forgets.
