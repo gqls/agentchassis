@@ -1081,3 +1081,49 @@ of these dispatch. Watch `agent_error_log` under `NO_CHANGE_GATE_UNREADABLE_RESU
 > in the same query — without it, `council-gate`'s 5 calls and `content-gap-planner`'s 24 prior
 > calls would have been read as sweep spend, which is the same misattribution in the other
 > direction. Logged in `WRONG_CALLS.md`.
+
+### The REAL sweep cost, 2h20m in — 6.0x baseline, and my n=1 extrapolation was 6.5x too LOW
+
+[MEASURED 2026-08-14 16:35Z, 2h20m of sweep running, attribution by the zero-before control]
+
+| | input tokens/hour |
+|---|---|
+| baseline (4h15m before the switch) | **56,480** |
+| since the switch | **339,457** |
+| **ratio** | **6.0x** |
+
+My earlier extrapolation from the first pass said ~52k/h. The real figure is **339k/h**. The
+extrapolation was not merely imprecise, it was **6.5x low**, and the reason is instructive: the
+first pass I priced had not yet reached the expensive stage. Attributable spend, zero calls in
+the prior 4h15m in every case:
+
+```
+page-content-writer       57 calls   541,676 in_tok   <- 80% of the attributable total
+site-review-agent         10          38,296
+content-quality-auditor   20          16,963
+webdesign-agent            8          15,610
+component-template-fixer  10          15,215
+visual-design-auditor     10          13,552
+feed-triage / tool-improver / tool-auditor / tool-acceptance / med-price-collector  (small)
+```
+
+`council-gate` (20 calls) and `content-gap-planner` (15) were active before and are NOT
+attributable — the before-column is what separates them.
+
+**`page-content-writer` is the cost.** The sweep is not just auditing; it is triggering page
+content rewrites, and those dominate everything else by 14x. **This is also worse than the 122
+lane's measured 3.2x**, which they took over 5h29m — so it is not that today is unusually
+expensive, it is that this is a higher multiple than the figure the owner was given when they
+authorised the switch.
+
+**Three lessons, and the middle one is the expensive one:**
+1. **A first-pass price is a lower bound on a pipeline, not an estimate of it.** The cheap
+   stages complete first and log first. Anything staged will read low early, and the error is
+   unbounded — here 6.5x.
+2. **I gave the owner a number (3.2x, from another lane's doc) as the basis for a decision, and
+   the real number for the same action was 6.0x.** The 3.2x was measured on a different day
+   against a different baseline. **A cost ratio does not transfer between days** — the
+   denominator moves. Quote the ratio AND both absolute figures, or quote neither.
+3. **The dominant cost was invisible in the first pass and obvious in the census.** One
+   `GROUP BY agent_type ORDER BY input_tokens DESC` found it immediately. Do that before
+   extrapolating anything.

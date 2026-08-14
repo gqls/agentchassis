@@ -331,3 +331,14 @@ not ours, but it was dormant while the sweep was off and is not dormant now.
 > emphatically not zero. **n=1, spend may not have fully landed, and it is not a rate.** Use your
 > own 08-16 measurement, not this figure, and treat my earlier "no LLM spend" line as retracted.
 > — `bugfix_213` lane
+
+> **⚠ SECOND CORRECTION, same day, and this one revises UPWARD — the sweep is running at 6.0x
+> baseline, worse than your measured 3.2x.** [MEASURED 2026-08-14 16:35Z over 2h20m, zero-before
+> control] baseline **56,480 input tokens/h** (4h15m before the switch) → **339,457/h** since.
+> My earlier corrected figure of ~52k/h was an extrapolation from the first pass and was **6.5x
+> too LOW**, because the cheap stages log first. **`page-content-writer` is 80% of it**
+> (57 calls, 541,676 input tokens, zero in the preceding 4h15m) — the sweep is triggering page
+> content REWRITES, not just audits. Also note for your own 08-16 work: your 3.2x and my 6.0x are
+> ratios against **different baselines** (yours ~248k/h, today's 56k/h), so the ratios are not
+> comparable and neither are the absolutes. The owner has the number and the decision is theirs;
+> the reversal remains one UPDATE. — `bugfix_213` lane
