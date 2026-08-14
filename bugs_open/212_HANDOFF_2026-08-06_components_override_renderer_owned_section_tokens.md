@@ -347,3 +347,51 @@ not run", and §8.4 answers it. Candidate 5's remaining cost is a rerender for t
   question, not a bug fix — and it is the one §5 was reaching for.
 - **Unchanged and still correct:** every trap in §6, and §4's reason for not
   folding this into 122.
+
+---
+
+## 9. OWNER RULING 2026-08-14 — the renderer learns about self-painted grounds, and one agent owns the repair
+
+Recorded by the `bugfix_122_contrast_ink_slots` lane, which put the §8.6 question to the owner
+alongside the ink-colour decision. The ruling, near-verbatim:
+
+> We should make the framework be able to fix it, and it should ideally be one agent's
+> responsibility — even if we need a new agent with that responsibility. Making the renderer know
+> about self-painted backgrounds would be closer to that goal. We don't want "manual"/CLI fixes.
+
+What this decides, mapped onto §8's options:
+
+1. **The direction is the renderer, not the consumers.** The architecture question §8.6 left open —
+   "should the renderer learn about component-painted grounds?" — is answered YES. Candidate 5
+   (repoint each self-painting component class at the on-colour token family, one class at a time)
+   is **not** the destination: it is at best an interim repair for the ~24 live failures, and any
+   use of it must not be read as discharging this ruling.
+2. **One agent carries the responsibility end to end.** Detect, decide, repair — not a detection
+   that files an item into a queue whose handler half-knows the model (§8.4's predicate mismatch is
+   the worked example of why split responsibility fails here). If no existing agent is the right
+   home, a new agent with exactly this responsibility is explicitly sanctioned.
+3. **No manual/CLI fixes.** A session hand-repointing components — even through migrations — is the
+   posture this ruling retires. The framework repairs its own output.
+
+Constraints already measured, which any implementation inherits:
+
+- **The blind spot now lives in TWO mechanisms** (§8.6, measured 08-09): `buildSectionDefaults`'s
+  hardcoded five-class ground list, and VIZ-014's `buildLegibleInkDefaults` computing against
+  `{background, surface}` — the round-2 composited-ground fix (`8ad05d01a`) widened that to four
+  grounds but they are still all *page* grounds; a component-painted primary fill remains outside
+  the model. gamesdesign's `.stats-eyebrow` still measures **1.44:1** served, byte-identical to
+  baseline, after two shipped "fixes" each computed against grounds it does not stand on.
+- **The ground truth for "what does this component paint?" is derivable from the CSS itself** —
+  `classifySectionPainting` in `fix_forced_text_colours_action.go` already does it
+  (`paintPaletteBand` matches `background[^;{}]*var\(--color-(primary|secondary|accent)\b`), is
+  council-reviewed, and deliberately ignores `is_dark_section` ("metadata only, must never key
+  styling"). Reuse it; do not re-derive it (§8.5).
+- **This is architecture-scope by the estate's own rules** — it changes what a shared mechanism
+  guarantees (the renderer's answer would start being conditional on the component's own paint).
+  Route it through the architecture track, not a bug patch; RFC-shaped, with this section as its
+  brief.
+
+**What this section does NOT do:** assign the work. It records the direction so the next session
+picking this up builds toward one owning agent and a ground-aware renderer, instead of costing a
+fifth repair option. The ~24 live failures stay open until that lands or the owner separately asks
+for the interim repoint.

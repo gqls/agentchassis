@@ -2276,3 +2276,59 @@ scrolled past `--tail=1500`, binary probe timed out on them) and left the ancest
 Answered from here: `bc39e7bf5`, all three commits live, so their "not shipped vs shipped but not
 re-rendered" ambiguity resolves to **shipped but not re-rendered** — and because round 2 shipped with
 round 1, the `#7d8bb6` regression branch never opened.
+
+## 2026-08-14 (evening) — BOTH OWNER DECISIONS LANDED, and the dartsonline canary is dispatched
+
+The owner ruled on the two decisions the summary put to him. Near-verbatim:
+
+> **Decision 1:** "As a default we only need to get to AA unless someone specifically says otherwise
+> in the brief. Do dartsonline.com only and then we can check and carry on."
+> **Decision 2:** "We should make the framework be able to fix it and it should ideally be one
+> agent's responsibility even if we need a new agent with that responsibility — making the renderer
+> know about self painted backgrounds would be closer to that goal, we don't want manual/CLI fixes."
+
+**Decision 1 execution, through the framework (owner rule 2026-08-04: never hand-build).** The
+delivery mechanism is the one this lane already proved on 08-09/10: a `needs_design_review` work
+item with `handler_agent='webdesign-agent'`, claimed by `build-dispatch-loop`, running
+`render_css_from_spec` — which is the single call site of `buildLegibleInkDefaults`, now round-2 at
+`v1.0.1298`. Before filing:
+
+- **Pin verified**: dartsonline carries a current `site_specs` `design_intent` row with
+  `palette.reference_values` (created 07-06) — the colour-churn landmine's guard. `[MEASURED]`
+- **Collision guard, the corrected one** (`handler_agent='webdesign-agent'` in imminent/in-flight
+  states only): **0 rows**. `[MEASURED]`
+- **Before-state banked**: `scratchpad/before_css_darts/dartsonline_styles_before.css`, sha256
+  `16eb767f…`, inks `primary-ink #F0F2F7` / `accent-ink #F0F2F7` (== text, the pre-fix state).
+- **Item filed**: `css_rerender_ink_round2_dartsonline_com_20260814`, id
+  `829a8f3e-c3b6-4199-a3dd-9d7a973650c0`, `triaged`, `approval_mode='auto'`, owner ruling quoted in
+  the spec. Not yet claimed at filing time.
+
+**Predicted after-state, written before the run** (replication + the pinned test, so two
+implementations agree on these): `--color-primary-ink: #8a97bd` (from `#1A1F2E`),
+`--color-accent-ink: #ef7060` (from `#E8311A`) — wait, the pinned test pins primary only; accent
+`#EF7060` is replication-only. Marked accordingly: primary `[PINNED]`, accent `[REPLICATED]`.
+Everything else in the stylesheet should be byte-stable modulo the ink block (the pin held zero
+drift on this exact path on 08-09). Grade: full-file diff against the banked before-state, then the
+three ink slots, then visual check is the OWNER'S — that is the point of the ruling.
+
+**AA-not-AAA is now the lane's recorded default.** The 7:1 variant I computed for the owner
+(`#B4BDD5`) is dead unless a brief asks for it. The round-2 "no padding" posture is ratified by the
+same sentence.
+
+**Scope correction that preceded the ruling, for the record:** I told the owner "fourteen sites take
+new link colours". Wrong — measured at the consumers: **4 components, 37 placements, 35 pages, 17
+sites**, concentrated robot-hands (6 placements) / lendzy (4) / idea.uk (4). The variable exists on
+14+ sites; what *reads* it is far narrower. The claim conflated "defined" with "consumed" — the
+same error class as `writes-the-field-is-not-reads-the-field`.
+
+**Decision 2 recorded where the question lives**: `bugs_open/212` §9, near-verbatim, mapped onto
+§8's options — the renderer learns self-painted grounds (candidate 5 demoted to interim-at-most),
+one agent owns detect→decide→repair end to end (a new agent explicitly sanctioned), no manual/CLI
+fixes. Architecture-scope by the estate's own rules; routed as an RFC brief, not assigned.
+
+**Monday interplay, checked before filing:** dartsonline's own render-audit is due **08-18
+00:58:46Z** — AFTER robot-hands (08-17 14:54Z), so the first exercise of the retraction is
+unchanged. But dartsonline has **17 open contrast rows**, and its audit will now measure the
+round-2 inks. Any of the 17 sitting on an ink-consuming element may legitimately retract on 08-18 —
+that is the mechanism working, not scope creep. The re-render does NOT touch robot-hands, so the
+canary stays clean.

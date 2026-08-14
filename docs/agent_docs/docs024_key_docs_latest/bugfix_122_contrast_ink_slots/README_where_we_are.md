@@ -784,3 +784,37 @@ week on the very same site, so it is written down twice.
 
 I have written a fresh handoff so this can be picked up cold in a new conversation. Nothing needs
 you before Monday, except that on Saturday there is a small pricing task on the other rota.
+
+---
+
+**2026-08-14, evening.** Both your decisions are recorded and the first one is in motion.
+
+On the colours: AA-as-default is now written down as this lane's standard — the stricter variant I
+showed you is dead unless a brief asks for it. The darts site's stylesheet rebuild has been filed
+through the framework's own queue, the same mechanism we proved twice last week, with the guard
+checks run first: the site's palette is pinned so the design pass cannot invent new colours, and
+nothing else is currently touching its stylesheet. I did not rebuild it by hand — the whole point of
+the queue is that the framework does its own work. What you should expect to see when you look: the
+links and labels that today render in near-white body text will render in a muted navy instead —
+readable, but recognisably the brand's colour rather than plain text. If it looks right, say so and
+we widen one site at a time. If it looks washed out, say that instead — there is a stronger variant
+ready and it costs four characters.
+
+One honesty item: when I explained this decision I told you fourteen sites would take new link
+colours. The right figure is four components on thirty-five pages across seventeen sites — I had
+counted where the colour is *defined* rather than where it is *used*. The correction is in the notes
+with the query that settles it.
+
+On the renderer: your ruling is recorded, near-verbatim, in the bug file where the question lives —
+the renderer learns about self-painted backgrounds, one agent owns the whole repair end to end (a
+new agent if needed), and hand-fixes are retired. I have deliberately not started that work: it
+changes what a shared mechanism promises, so by our own rules it goes through the architecture
+track, and the write-up in the bug file is shaped as the brief for it. The two dozen live failures
+stay open until it lands — they are the reason the work exists, and closing them by hand would
+remove the evidence while leaving the defect.
+
+Timing note so nobody is surprised: the darts site's own weekly check runs early Monday morning,
+several hours after the robotics site's. With the new colours live, some of its seventeen open
+tickets may close on their own in that run — that would be the new closing mechanism doing its job
+on genuinely fixed elements, and I have written it down in advance so it reads as expected rather
+than alarming.
