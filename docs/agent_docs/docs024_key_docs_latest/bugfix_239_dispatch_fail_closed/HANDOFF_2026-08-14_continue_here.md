@@ -110,9 +110,34 @@ ORDER BY occurred_at DESC;
 
 ## 3. Also still open on the lane
 
-- **Memory-index compaction.** The hook fires at 92% of the 25,000-byte cap. **Count is the
-  binding axis, not bytes** — an arrival must displace one; closed-and-live bug entries →
-  `MEMORY_closed.md` is the sanctioned exit. 239, 246, 247, 091/184, 108, 170 are all closed.
+- **Memory-index compaction — THE LANE'S ONLY REMAINING TASK, and here are the live numbers so
+  you do not have to re-measure.** `[MEASURED 2026-08-14, `python3 scripts/memory-index.py`]`
+  ```
+  MEMORY.md: 23,085B of 25,000 (92%) · 69 of 200 lines (34%)
+  entries: 121 vs 106 slots  → 15 OVER. 26 entries over the 90-char content cap.
+  practice entries 15.6KB vs 8.0KB budget  OVER   ← the real overspend
+  bug entries       2.4KB vs 5.0KB                ← NOT the problem
+  header/ruling     3.3KB vs 2.5KB  OVER
+  first to be silently dropped (truncation eats the TAIL):
+    bugfix-161-register-ratifies-the-claim.md · a-one-off-deletion-is-not-a-class-fix.md · bugfix-213-verifier-producer-join.md
+  ```
+  **Read this before starting, because the obvious plan is the wrong one.** The sanctioned exit is
+  closed-and-live bug entries → `MEMORY_closed.md` — but **bug entries are UNDER budget (2.4 of
+  5.0KB) and the overspend is in PRACTICE entries (15.6 of 8.0KB)**, which the owner ruled on
+  2026-07-28 must stay auto-loaded. So retiring bugs alone cannot fix it, and the ruling forbids
+  relocating the practices. What is left is **shortening practice glosses** (the 08-02 pass did
+  exactly this, every link kept) and the 26 entries over the 90-char cap.
+  ⚠ **The strict bit that is easy to get wrong:** before cutting any detail, confirm it exists in
+  the topic file — **and try its other spellings**. On 08-02, 5 of 8 "index-only" details were
+  present under another form and **the 3 genuinely index-only ones each CONTRADICTED their topic
+  file**. If a detail is only in the index, push it down into the topic file FIRST, then cut.
+  ⚠ Also: several candidate entries mix a closed status with a still-live caveat
+  (`bugfix-015` "CLOSED" but carries *081/080 STILL LIVE*; `bugfix-213` "LIVE+PROVEN" but *gate
+  not yet FIRED*), so they are not free retirements — read each before moving it.
+  **Deliberately NOT done by this lane:** no index line was added for the two new landmines
+  (`go build` baselines, struct-comment gofmt) or for 259's closure. They live in `LANDMINES.md`
+  and `bugs_closed/259`, and adding a line while the index is 15 slots over would worsen the very
+  problem this item exists to fix. Same call the 08-13 handoff made for the PodMonitor trap.
 - **`podmonitor.yaml` is live but not in the kustomize build** (`base/kustomization.yaml` lists
   only `deployment.yaml`) — hand-applied, reconciled by nothing, drift silent both ways. Left to
   the `bugs_open/040` lane, which owns the file; wiring it in changes what a whole-fleet release
