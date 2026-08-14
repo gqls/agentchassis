@@ -30514,3 +30514,144 @@ can fool. **But the recovery was luck, not process.**
    own convention already said this and I did not follow it for my own entry.
 4. **Read the pattern-check block, not just the commit-scope block.** Two advisory blocks
    print on every commit and I had trained myself to skim past both.
+
+---
+
+## 2026-08-14 — I claimed a new field answers "has a gate EVER been reached". It answers "the latest sweep only" — and I had filed the landmine that says so, two days earlier
+
+**Lane:** `bugfix_168_deployed_asset_path` (the claims_unverified retraction sweep).
+
+**The claim, made in three places.** I added `result.revalidation.arm` — a stable key naming
+which rung of the revalidator's 18-arm ladder decided an item — to fix a real problem: the
+three verdict counters cannot tell a gate that *refused* from a gate that was *never
+consulted*, and on 08-13 a sweep decided 21 items with all three gate counters at 0. In the
+council submission, the commit message and the code comment I wrote that the field makes
+
+> `arm LIKE 'gate_%'` … **has any gate ever actually been REACHED**
+
+**Why it is false.** `applyRevalidation` rewrites `result.revalidation` **whole** on every
+sweep. The arm is therefore the rung that decided the item on the **most recent run** and
+nothing else. An item that reached a gate last week and stops at `scan_still_trips` today has
+had that arm overwritten. "Ever" is precisely the question the column cannot answer.
+
+**What caught it: the council's `debug_historian` seat**, on an APPROVED first round, as its
+single advisory objection — and it caught it by **quoting this lane's own landmine back at
+me**:
+
+> *"A per-row revalidation stamp is LAST-WRITE-WINS, so `GROUP BY` it reads exactly like a run
+> log and is not one"* — `LANDMINES.md:10111`, **filed by this lane on 2026-08-12**, after it
+> read a run history off `revalidation->>'at'`, published it, and withdrew it (already an entry
+> in this file).
+
+So the same lane made the same mistake about the same column twice in three days: first with
+the timestamp key, then with the key it added *to fix the readability of that very column*.
+The second time it cost nothing only because a reviewer had the file.
+
+**The cheap check that would have caught it:** ask **what a second row looks like**. One
+`UPDATE … SET result = … jsonb_build_object('revalidation', …)` in the same file is the whole
+answer — a build-object assignment is a REPLACE, so there is no second row per item, so no
+per-item column can carry a rate. I had read that function in this session to confirm the
+field would persist at all, and did not ask what it did to the previous value.
+
+**Outcome:** corrected forward in `ac6a86f58` (comments only, no behaviour). Measured rather
+than hand-waved while correcting: the per-**run** surface does exist and already carries the
+new key — `collected_data->'sweep'->'items'` in `orchestration_states`, one row per sweep,
+never overwritten — but **exactly ONE sweep row is retained** (08-13 08:44:39Z) against 2,532
+orchestration rows back to 07-13. So the honest position is that neither surface gives a
+history *today*; one never will, the other will as runs accumulate.
+
+**The transferable rules:**
+1. **A new key inherits every property of the blob it lives in.** I reasoned about the field's
+   own naming with care and about its container not at all. Before claiming a column answers a
+   question, ask whether the column has ONE value per subject or one per event.
+2. **"Ever", "how often" and "rate" are claims about ROW COUNT, not about a value.** If you
+   cannot point at the row the second observation lands in, the word is wrong.
+3. **Your own landmine will not fire for you.** The `SessionStart` hook matches entries against
+   files already DIRTY in the tree, and this file was clean when the session started — so the
+   entry my own lane wrote was never shown to me, and I did not grep for it because I was not
+   debugging anything. The hook is a safety net for the symptom-free case, and it has this
+   exact hole. **Grep LANDMINES for the TABLE and COLUMN you are about to write to, not only
+   for the file you are editing.**
+4. **A REVISE is not the only round that finds a defect.** This was APPROVED, first round, with
+   one LOW advisory — and the advisory was the whole value of the round.
+
+---
+
+## 2026-08-14 — my MUTATION HARNESS reported a mutation as uncaught, and the mutation was caught all along (`bugfix_213_verifier_producer_join`)
+
+**The claim I wrote down:** running a mutation matrix over the gate-2 extraction that the
+council's guardian seat had objected to, I recorded that mutation **E2 — "stop threading
+`pageID` into the `VerifyTarget`" — came back GREEN, i.e. NOT CAUGHT** by the new test. On
+that reading the test I had just written to answer a gating objection had a hole in exactly
+the area the objection was about, and I was one step from either reporting that or writing a
+second test for a gap that did not exist.
+
+**It was false.** The mutation was caught immediately. My harness counted failures with
+`grep -cE '^\s+--- FAIL'`, which matches **sub**tests only — Go indents those. The test that
+catches the `pageID` mutation, `TestRunRegisteredVerifierBuildsTheTargetItWasGiven`, has no
+subtests, so its failure prints at column zero as `--- FAIL: Test…` and my counter scored it
+**0**.
+
+**What caught it:** the other two mutations in the same run returned 1 each, so the shape of
+the result was "two subtest-bearing tests fire, the one without subtests never does" — a
+pattern that is about my *grep*, not about the code. Gating on the command's **exit status**
+instead returned RED on the first try.
+
+**The cheap check that would have caught it first:** a mutation harness needs the same
+two-sided control as any other measurement — **run the detector against the UNMUTATED tree
+and require GREEN, and against a known-broken state and require RED, before trusting a
+single verdict.** I had done exactly this, earlier the same day, for the `ReplaceHardcodedColors`
+probe (an in-remit body must come back CHANGED, a light hex must not) and then built the
+mutation harness with no control at all — because a mutation runner *feels* like a test rather
+than an instrument, and instruments are the things I remember to calibrate.
+
+**The transferable rules:**
+1. **A mutation matrix is a MEASUREMENT and needs a control.** "Mutate, observe RED" is one
+   arm. The other arm is "do not mutate, observe GREEN" — from the same harness, in the same
+   run, printed alongside. Without it a matrix of `RED RED RED` is indistinguishable from a
+   harness that says RED to everything, and a `GREEN` is indistinguishable from a blind one.
+2. **Never score a test run by grepping its prose. Gate on exit status.** Test output is a
+   human format with indentation that encodes hierarchy, so any prefix-anchored grep silently
+   partitions your tests into ones it can see and ones it cannot. `go test` already answers
+   pass/fail in a way no formatting can corrupt.
+3. **A mutation that must leave the program BUILDABLE is a separate trap in the same family**,
+   and I hit it two hours earlier in the same lane: deleting a `case json.Number:` arm made an
+   import unused, so the package failed to compile, `FAIL` appeared, and nothing had been
+   tested. Build failure and test failure are different observations that print the same word.
+4. **Tally note:** this is the second instrument-blindness entry from this lane in two days
+   (the first: an `item_key` join reading a re-typed finding as silence). Both had the same
+   shape — a measurement whose *encoding* answered a narrower question than the one asked —
+   and both were caught by a contradicting second view rather than by suspicion. The
+   generalisation worth automating: **when a result would change what you build next, compute
+   it a second way before acting on it.**
+
+## 2026-08-14 — bugfix 246 lane: a third alarming parse, on the sorest possible spot
+
+**9. NEAR-MISS: my pre-apply drift check reported that Terraform would delete `SITE_FACTS_TOKEN` — the key whose deletion took the site-facts relay down the day before.**
+To check whether a `047-base-configs` apply would prune any live secret key, I isolated the
+`personae_platform_secrets` resource by splitting `main.tf` on the string `'resource '`.
+That string occurs **inside a comment in that very block** — *"this resource reconciles the
+whole secret on every `make release`…"* — so the block was truncated before
+`SITE_FACTS_TOKEN`, which is declared below the comment. The check duly reported it as
+undeclared and therefore due for deletion.
+**It is declared** (`main.tf:124`, `SITE_FACTS_TOKEN = var.site_facts_token`), and a robust
+re-check — *is each live key assigned anywhere in the file?* — returns **no drift at all**.
+**What caught it:** I had read that comment earlier in the session and recognised the key as
+one I had just seen declared. Recognition, not method — which is exactly why it goes in the
+tally.
+**The cheap check:** **do not parse HCL (or any language) by splitting on a keyword that can
+appear in its own comments and strings.** Ask the simplest sufficient question instead —
+here, `re.search(r'^\s*KEY\s*=', src, re.M)` over the whole file. If a structural parse is
+genuinely needed, use `terraform plan`, which is the tool that actually understands the file.
+**The shape, for the tally — and this is the THIRD instance in three days:** a naive
+extraction produced a confident, alarming, *specific* result.
+- 08-12: compared whole LINES instead of values → "a rewrite would break fleet-wide auth".
+- 08-14 (this): split on a keyword found in a comment → "an apply will delete SITE_FACTS_TOKEN".
+- 08-14 (minor, same hour): searched `doc_notes.subject_key` for a landmine's TITLE when the
+  column holds its FOOTPRINT → "the sync did not land"; it had.
+**All three were false, all three were alarming, and all three arrived looking measured.**
+The common cause is not carelessness about the conclusion — it is carelessness about *what
+the extraction actually returned*. A parse is an instrument, and an instrument reports on
+whatever you fed it with total confidence. **When a check produces a result that would be an
+incident, re-derive it a second way BEFORE reporting it.** Two of these three were reported
+to the owner before I re-derived them; that is the part to fix.
