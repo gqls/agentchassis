@@ -15,7 +15,9 @@ on 3 nodes, and does. The confirmed root cause — image GC's trigger (85% used)
 the eviction line (15% free), so the reclaim cycle's trough touches the rejection
 threshold — is fixed by candidates 3a+3b (70/60, `imageMaximumGCAge=168h`), which
 are **BUILT AND COMMITTED as the `node-config` DaemonSet (register BLD-021),
-awaiting the owner's next `make release` (or `make deploy-node-config`)**. They
+awaiting the owner's next `make release` (or `make deploy-node-config`)** — and
+in the fresh-install path too (terraform step `095-node-config`, in all three
+`deploy-infrastructure*` sequences; owner directive 08-14). They
 could not ship via the kubelet-config ConfigMap: **that CM is provider-protected —
 writes return 200 "patched" and silently revert** (measured three ways, 08-14; in
 LANDMINES). Prove the deploy at the kubelets: `make node-config-status` → five

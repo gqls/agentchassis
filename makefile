@@ -14,7 +14,7 @@ REGION ?= uk001
 REGION_PATH ?= uk_001
 REGISTRY ?= docker.io/aqls
 #IMAGE_TAG ?= latest
-IMAGE_TAG ?= v1.0.1298
+IMAGE_TAG ?= v1.0.1299
 
 # Paths
 TERRAFORM_DIR := deployments/terraform/environments/$(ENVIRONMENT)/$(REGION)
@@ -343,6 +343,7 @@ deploy-infrastructure-old: ## Deploy all infrastructure components
 	@$(MAKE) deploy-070-database-schemas
 	@$(MAKE) deploy-080-kafka-topics
 	@$(MAKE) deploy-090-monitoring
+	@$(MAKE) deploy-095-node-config
 
 .PHONY: deploy-infrastructure
 deploy-infrastructure: ## Deploy all infrastructure components
@@ -364,6 +365,7 @@ deploy-infrastructure: ## Deploy all infrastructure components
 	@KUBECONFIG=$(KUBECONFIG_PATH) $(MAKE) deploy-070-database-schemas
 	@KUBECONFIG=$(KUBECONFIG_PATH) $(MAKE) deploy-080-kafka-topics
 	@KUBECONFIG=$(KUBECONFIG_PATH) $(MAKE) deploy-090-monitoring
+	@KUBECONFIG=$(KUBECONFIG_PATH) $(MAKE) deploy-095-node-config
 	@KUBECONFIG=$(KUBECONFIG_PATH) $(MAKE) deploy-100-bootstrap-agents
 	@echo "$(GREEN)Infrastructure deployment complete!$(NC)"
 	@echo "$(YELLOW)To use this cluster, run: export KUBECONFIG=$(KUBECONFIG_PATH)$(NC)"
@@ -389,6 +391,7 @@ deploy-infrastructure-from-ingress: ## Deploy infrastructure starting from ingre
 	@KUBECONFIG=$(KUBECONFIG_PATH) $(MAKE) deploy-070-database-schemas
 	@KUBECONFIG=$(KUBECONFIG_PATH) $(MAKE) deploy-080-kafka-topics
 	@KUBECONFIG=$(KUBECONFIG_PATH) $(MAKE) deploy-090-monitoring
+	@KUBECONFIG=$(KUBECONFIG_PATH) $(MAKE) deploy-095-node-config
 	@KUBECONFIG=$(KUBECONFIG_PATH) $(MAKE) deploy-100-bootstrap-agents
 	@echo "$(GREEN)Infrastructure deployment complete!$(NC)"
 	@echo "$(YELLOW)To use this cluster, run: export KUBECONFIG=$(KUBECONFIG_PATH)$(NC)"
@@ -554,6 +557,29 @@ deploy-090-monitoring: ## Deploy monitoring stack
 			KUBECONFIG=$(KUBECONFIG_PATH) terraform init && \
 			KUBECONFIG=$(KUBECONFIG_PATH) terraform apply -auto-approve; \
 		fi
+
+# bugs_open/252 / register BLD-021: the node-config DaemonSet as an INSTALL
+# step, so a fresh cluster does not come up with the image-GC trigger sitting
+# on the eviction line. Terraform wraps the same kustomize overlay that
+# deploy-node-config applies day-to-day; both are safe to run in either order
+# (same manifest, idempotent apply). Production-only, like the overlay: the
+# step is skipped with a notice when the terraform dir does not exist for
+# $(ENVIRONMENT)/$(REGION), rather than failing a dev install.
+.PHONY: deploy-095-node-config
+deploy-095-node-config: ## Deploy 095-node-config (kubelet image-GC DaemonSet, BLD-021)
+	@if [ -d "$(TERRAFORM_DIR)/095-node-config" ]; then \
+		echo "$(GREEN)Deploying 095-node-config...$(NC)"; \
+		cd $(TERRAFORM_DIR)/095-node-config && \
+		if [ -f terraform.tfvars.secret ]; then \
+			KUBECONFIG=$(KUBECONFIG_PATH) terraform init && \
+			KUBECONFIG=$(KUBECONFIG_PATH) terraform apply -auto-approve -var-file=terraform.tfvars.secret; \
+		else \
+			KUBECONFIG=$(KUBECONFIG_PATH) terraform init && \
+			KUBECONFIG=$(KUBECONFIG_PATH) terraform apply -auto-approve; \
+		fi; \
+	else \
+		echo "$(YELLOW)skipping 095-node-config — no $(TERRAFORM_DIR)/095-node-config (production-only)$(NC)"; \
+	fi
 
 
 # bugs_open/066: this is the BOOTSTRAP path — on a fresh cluster there is no
