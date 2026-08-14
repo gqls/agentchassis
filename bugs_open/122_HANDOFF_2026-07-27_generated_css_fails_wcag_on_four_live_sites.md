@@ -1425,3 +1425,29 @@ hex, and `TestBuildLegibleInkDefaults_NeverEmitsAnEmptyOrIndirectValue` already 
 companions cannot themselves become a dead-fallback trap. **Anything that later teaches the renderer
 to emit a gradient into an ink slot would create exactly this defect**, and that test is what stops
 it. Filed as its own trap in `LANDMINES.md`; a separate bug number is the contributing lane's call.
+
+### 12. 2026-08-14 — the derivation fix is LIVE (`v1.0.1298`), dormant, and now behind ONE protection instead of two
+
+`[MEASURED 2026-08-14, both controls passing]` Build point **`bc39e7bf5`**, pods up 08:58Z.
+`git merge-base --is-ancestor 12cf55015 bc39e7bf5` → true; same for `8ad05d01a`. Controls: HEAD is
+correctly NOT an ancestor, yesterday's `69612d692` correctly IS. The stamp came from the
+`bugfix_122_contrast_ink_slots` lane (adapter provenance line, plus a binary probe on
+`agent-chassis-64cb9c4bb9-6tfxf` where `bc39e7bf5` was present and `69612d692` absent, so the probe
+discriminated) and was re-verified here by ancestry rather than taken on trust.
+
+**Both rounds shipped in the same build**, so the round-1-only failure mode — an ink that reads as a
+correct navy while measuring 3.93:1 on the composited ground — never reached a site.
+
+**Nothing has changed for any visitor.** Read live the same day:
+`dartsonline.com --color-primary-ink: #F0F2F7`, `robot-hands.com: #E2E8F0` — both still the pre-fix
+`--color-text`, because a stylesheet only picks this up when it re-renders.
+
+**But the protection count halved, and this is the operative fact for anyone reading §7.** Until this
+roll, "no visitor sees a change" rested on two independent facts: the code was not in the binary, and
+no stylesheet had re-rendered. **Now it rests on one.** Any re-render of any of the 14 diverging
+sites, fired by any lane for any unrelated reason, regenerates that stylesheet with the new
+derivation. Nobody has to intend it, and this lane is not driving it but cannot prevent it.
+
+So: the owner's ruling on whether the tinted-brand-colour change is wanted is now a **soft** gate. It
+was a hard one yesterday. **Read the served ink on the day; a reading carried forward from an earlier
+session is not evidence about now.**

@@ -4,9 +4,33 @@
 (which has since gone LIVE — see §5). This is a separate thread that started from `bugs_open/122`'s
 08-12 contribution, and it ended up changing the renderer rather than repointing components.
 
-**Nothing is on fire. Nothing has changed on any live site.** Both commits are Go and inert until
-`agent-chassis` is rebuilt and rolled, and then only where a stylesheet re-renders. No template was
-edited, no migration written, no work item filed.
+**Nothing is on fire, and nothing has changed on any live site — but the reason changed on 2026-08-14
+and it matters.**
+
+> ## ⚠ THE FIX IS LIVE AS OF `v1.0.1298`. IT IS DORMANT, NOT ABSENT.
+>
+> Stamp **`bc39e7bf5`**, pods up 08:58Z. `[MEASURED 2026-08-14, both controls passing]`
+> `git merge-base --is-ancestor 12cf55015 bc39e7bf5` → true, same for `8ad05d01a`; HEAD is correctly
+> NOT an ancestor and yesterday's `69612d692` correctly IS. Stamp supplied by the
+> `bugfix_122_contrast_ink_slots` lane (adapter provenance line + a binary probe on
+> `agent-chassis-64cb9c4bb9-6tfxf` that discriminated: `bc39e7bf5` present, `69612d692` absent) and
+> re-verified here by ancestry rather than accepted.
+>
+> **Both rounds shipped together, so the `#7d8bb6` round-1-only regression branch never opened.**
+>
+> **What changed is the number of protections, and it halved.** Until this roll, "no visitor sees a
+> change" rested on TWO independent facts: the code was not in the binary, *and* no stylesheet had
+> re-rendered. **Now it rests on one.** Any re-render of any of the 14 affected sites — fired by any
+> lane, for any unrelated reason — will regenerate that site's stylesheet with the new derivation and
+> change its link and eyebrow colours. Nobody has to intend it.
+>
+> So the owner's pending ruling on the visual change is now a **soft** gate, not a hard one. That is
+> worth saying plainly rather than leaving in a table: the change is one unrelated re-render away from
+> being visible on a live site, and this lane is not driving that re-render but cannot prevent it
+> either. **Read the served ink on the day; never carry a reading forward.**
+
+Both commits are Go, so this needed a roll and got one. No template was edited, no migration written,
+no work item filed — that part is unchanged and is the whole of the remaining dormancy.
 
 ---
 
