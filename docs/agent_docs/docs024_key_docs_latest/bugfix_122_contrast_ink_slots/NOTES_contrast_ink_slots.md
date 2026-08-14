@@ -2125,3 +2125,56 @@ says nothing about whether its caller passes it. Their new test reads the emitte
 measures the value it actually contains; under that mutation it goes red naming **3.93:1** — the
 figure I predicted from the other end, arrived at independently. That is the strongest form this
 lane's "assert the mechanism's EFFECT, never the absence of a call" rule has taken so far.
+
+### 2026-08-14 — council APPROVED at round 1, and the two objections worth more than the verdict
+
+Trail `afcec886-f84c-4fb4-8876-43502e70965b`. **APPROVED, 3 advisory objections in the headline, none
+high-severity.** Health checked before believing it — this lane's own record is that the architecture
+seat's first three reviews were 2/3 truncated: **11 reviewers, 6 abstained, `unreadable: 0`,
+`gated_by_truncation: false`**. Five seats rendered and reviewed. Full table of all five objections
+and their disposition: `HANDOFF_2026-08-14_ink_derivation_continue_here.md` §4(a).
+
+**Two things I got wrong that the council caught, both worth keeping:**
+
+1. **I over-claimed scope.** I submitted this as architecture-scope on the 2026-07-29 §1 test. The
+   `architecture` seat **declined that framing** and returned `ARCHITECTURE_SIGNAL: point_fix`: one
+   pure function added to the package whose header already designates it the single home for WCAG
+   maths is *the mechanism working as designed*, not a new one; no new wire shape, dedupe key,
+   delivery guarantee or cross-package symbol. The consumer-visible-guarantee change is real but it
+   is the **guardian's** question. Useful precedent in both directions — declaring scope honestly is
+   right, but "it changes what a shared mechanism guarantees" is about *contracts*, not about
+   *values a mechanism computes*.
+2. **I asserted an absence while citing the very header that exists to prevent it.**
+   `prior_art_librarian` (medium) and `reuse_agent` (low) both caught the inline comment "added
+   because no HSL helper existed in the tree". The claim was TRUE — the search now recorded in the
+   code found only my two functions, and nothing doing hue/saturation arithmetic under another name —
+   **but I had not run it, and quoting `bugs_open/109`/`113` as my rationale while asserting rather
+   than checking is worse than not quoting them at all.** The right outcome here is not "I was
+   vindicated"; it is that the comment now carries the grep and names what *does* exist
+   (`pickInkOn`/`pickReadableOnBackground` select from a palette; `hexToRGBA` adds alpha) so nobody
+   re-checks.
+
+**`editquality`'s "missing" was half right and the half that landed was the important one.** It said
+`PLAN_2026-08-06` §189-195 *and* `VIZ-014` both still assert the false behaviour — *"exactly what let
+the wrong belief persist"*. `VIZ-014` was already corrected (`f2e0648c7`); the seat could not see that
+because it reviews the **submission, not the tree**. The `PLAN` genuinely was not, and is now.
+**Lesson: correcting the code comment felt like closing the loop and was not** — the artefacts council
+seats and other threads read as ground truth are the docs, and there were three of them.
+
+**The two medium objections, and my answers are decisions rather than deflections:**
+
+- **`bug_historian`: nothing schedules a re-render, so a correct fix sits dormant.** Accepted as a
+  real trap (016b §9) and accepted deliberately: **the owner has not ruled on whether the visual
+  change is wanted**, and filing 14 sites' re-renders on the roll would make a fleet-wide visual
+  change before anyone had looked at one page. Dormancy is the gate. The closing sequence and its
+  trigger are written into the handoff §4(b·i), so it is a dated next step rather than a memory.
+- **`guardian`: no canary gate, no kill-switch; rollback is revert+roll not a config flip.** No flag
+  added, and the cost is stated rather than hidden. A default-OFF flag would leave the *broken*
+  derivation as the default — the "mechanism rotting unexercised" cost the owner named on
+  2026-07-29 §2 — and the architecture seat's `point_fix` ruling means 2026-08-02 §2's opt-in
+  prescription is not triggered. What replaces it is guardian's own second option, free because
+  **re-render is already a per-site staged mechanism**: roll → verify the binary per service →
+  re-render dartsonline only → read the served hex → **verify no new `contrast_failure` rows** →
+  owner ruling → widen one site at a time. **Step 5 is the one not to skip: round 1 would have passed
+  the served-hex check and failed the audit**, because it emitted a hex that read as a correct navy
+  while measuring 3.93:1 on the composited ground.

@@ -68,11 +68,67 @@ M5 delete the compositing loop · M6 move the overlay alpha constant.
 
 ## 4. NEXT, in order
 
-**(a) Read the council verdict.** Trail `afcec886-f84c-4fb4-8876-43502e70965b`, submitted on round 1's
-design, `EXECUTING_STEP` at `review_render_guardian` as of 2026-08-14 08:0x. Round 2 carries
-`Council-Submitted:` on it; **round 1 (`12cf55015`) carries no trailer** because the kubeconfig token
-was down when I finished the code and forward-only forbids an amend — so it will list as un-reviewed
-in the `098` report regardless. Do **not** hand-write `Council-Reviewed:`.
+**(a) ~~Read the council verdict~~ DONE — APPROVED at round 1.** Trail
+`afcec886-f84c-4fb4-8876-43502e70965b`. Health checked before taking it at face value, because this
+lane's own record is that the architecture seat's first three reviews were 2/3 truncated:
+**11 reviewers, 6 abstained (relevance-gated), `unreadable: 0`, `gated_by_truncation: false`** — so
+the approval rests on five seats that actually rendered. `ARCHITECTURE_SIGNAL: point_fix`, and the
+architecture seat explicitly declined my own "architecture-scope" framing: one pure function added to
+the package whose header already designates it the single home for WCAG maths is *the mechanism
+working as designed*, and the consumer-visible-guarantee change is the **guardian's** question, not
+that seat's. Worth knowing I over-claimed scope in the submission.
+
+Round 2 and later commits carry `Council-Submitted:` on this correlation, so `098` credits them once
+it reports. **Round 1 (`12cf55015`) carries no trailer** — the token was down when I finished the code
+and forward-only forbids an amend — so it will list as un-reviewed regardless. Do **not** hand-write
+`Council-Reviewed:` anywhere.
+
+#### The five objections, and what was done about each
+
+| seat | severity | objection | done |
+|---|---|---|---|
+| `prior_art_librarian` | medium | *"no HSL helper existed in the tree"* is an unverified absence claim justifying new code — needs a symbol lookup, not an assertion, **especially** while citing the package header that exists to prevent a second copy | **Search run and recorded in the code comment.** The claim HELD (only these two functions; no hue/saturation arithmetic under another name), and what *does* exist is now named so nobody re-checks: `pickInkOn` / `pickReadableOnBackground` SELECT from a palette, `hexToRGBA` adds alpha. **The seats were right about the method and I was right about the fact** — that is the correct outcome for this objection, not a vindication |
+| `reuse_agent` | low | same, from the reuse angle | same fix |
+| `editquality` | low + a *missing* | the in-code comment was corrected but `PLAN_2026-08-06` §189-195 and `VIZ-014` still assert the false behaviour — *"exactly what let the wrong belief persist"* | **`PLAN` corrected in place** (it was the real gap). `VIZ-014` was already corrected in `f2e0648c7`, which the seat could not see because it reviews the submission, not the tree |
+| `bug_historian` | **medium** | **nothing schedules a re-render**, so a correct fix sits dormant indefinitely; matches a documented recurring pattern (016b §9). Asks for either a work item against the 14 sites, or explicit acceptance | **Explicit acceptance, and the reason is stronger than "it's fine" — see (b·i)** |
+| `guardian` | **medium** ×2 | changes a shared function's output for 14 of 18 sites with **no canary gate and no kill-switch**; rollback is revert + rebuild + roll + re-render, not a config flip. Asks for a per-site flag OR a recorded rollout order | **Rollout order recorded — see (b·ii). No flag, deliberately, with the cost stated** |
+| `debug_historian` | low | Control D checks the served hex but never confirms the fleet is running the new binary | Already covered in (b): the stamp check per service with both controls. Now stated as a *precondition* of Control D rather than a sibling |
+
+#### (b·i) Why dormancy is accepted, answering `bug_historian`
+
+The seat is right that "inert until something re-renders, with nothing scheduling it" is a recurring
+trap, and right that the plan did not close it. The acceptance is deliberate for a reason the
+submission did not state clearly enough: **the owner has not yet ruled on whether the visual change
+is wanted.** This alters link and eyebrow colours on 14 live sites. Filing 14 sites' re-renders the
+moment the chassis rolls would make a fleet-wide visual change before anyone has looked at a single
+page — pre-empting exactly the decision that was escalated. **So dormancy is the gate, not an
+oversight.**
+
+What closes it, in order: chassis rolls → Control D on one site → **owner rules on the visual
+change** → then file the re-renders per `(component, site)` pair via `createRerenderWorkItem`. And the
+weekly `site-render-audit-rotation` will surface any regression on its own clock regardless, so
+dormancy is not the same as blindness.
+
+#### (b·ii) The rollout order, answering `guardian`
+
+No flag was added, and that is a decision with a cost: **rollback is a code revert plus a roll, not a
+config flip.** Two reasons. A default-OFF flag would leave the *broken* derivation as the default,
+which is the "mechanism rotting unexercised" cost the owner named on 2026-07-29 §2 when declining to
+require default-OFF switches. And the architecture seat ruled this a `point_fix`, so the 2026-08-02
+§2 opt-in prescription is not triggered.
+
+What replaces it is guardian's own second option, and it is free because **re-render is already a
+per-site staged mechanism** — nothing changes until a stylesheet renders, and stylesheets render per
+site:
+
+1. Roll. Confirm the binary per service (`bugs_open/249`), both controls.
+2. Re-render **dartsonline only**. Read the served `--color-primary-ink` (Control D below).
+3. Verify no new `contrast_failure` rows on that site after its next audit.
+4. Owner ruling on the visual change.
+5. Only then widen, one site at a time, reading the served hex each time.
+
+**Do not skip step 3.** Round 1 would have passed step 2 and failed step 3 — it emitted a hex that
+read as a correct navy while measuring 3.93:1 on the composited ground.
 ```sql
 SELECT current_step, status FROM orchestration_states
  WHERE collected_data->'input_data'->>'fix_correlation_id' = 'afcec886-f84c-4fb4-8876-43502e70965b'

@@ -194,6 +194,33 @@ on*: `--color-primary-ink`, `--color-accent-ink`. Value = the colour itself when
 clears AA against the background, else the palette colour that does (the existing
 `pickInkOn` walk, which prefers a palette colour so the site keeps its character).
 
+> **⚠ CORRECTED 2026-08-14 — the parenthesis above was FALSE AS BUILT for eight days, and
+> correcting it here was a council objection (`editquality`, corr `afcec886`).** The walk
+> is `{text, accent, text_muted, secondary, primary}` and returns the first member
+> clearing every ground. `text` is first, and `text` is by construction the slot chosen
+> to be legible on `background`, so it clears whenever anything does. `[MEASURED
+> 2026-08-13, served stylesheets, all 18 palette-driven live sites: 16 divergences, all
+> 16 equal to that site's own --color-text, zero exceptions.]` **It did not keep any
+> site's character — it returned body text every time.**
+>
+> Say that as a measurement, not a necessity: the walk *would* return `accent` where
+> `text` failed one ground and `accent` cleared both; no such site exists in the fleet.
+>
+> **Repaired 2026-08-14** by `12cf55015` + `8ad05d01a`: `colour.LegibleVariant` now gets
+> first refusal, moving the source colour in HSL lightness only (hue and saturation
+> preserved) and returning the smallest sufficient change, so the parenthesis above is
+> becoming true for the first time. The walk is kept for the two cases it genuinely owns
+> — an achromatic source, and a source no lightness can rescue on all grounds at once.
+> Still inert until `agent-chassis` rolls. Evidence: `bugs_open/122` contribution
+> 2026-08-13/14; `HANDOFF_2026-08-14_ink_derivation_continue_here.md`.
+>
+> **Why this correction is recorded here rather than only in the code:** this file and
+> the `VIZ-014` register entry are what council seats and other threads read as ground
+> truth. The in-code comment was corrected first and that was not enough — the seat
+> noted both documents still described behaviour the code no longer has, and it was
+> right about this one. (`VIZ-014` was already corrected in `f2e0648c7`, which the seat
+> could not see because it reviewed the submission rather than the tree.)
+
 **Why the renderer and not the layout templates.** The LANDMINE above is decisive: a
 palette slot reaches the stylesheet *only* through `{{palette "X" "literal"}}` in a
 layout, so adding to `darkSchemeDerivations` alone ships nothing. The alternative is

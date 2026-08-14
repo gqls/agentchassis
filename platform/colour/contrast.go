@@ -207,6 +207,25 @@ func (p Pair) Check() (ratio float64, ok bool, err error) {
 // failure this function exists to stop.
 
 // rgbToHSL converts 8-bit sRGB to HSL with h in [0,360) and s,l in [0,1].
+//
+// PRIOR-ART CHECK, because two council seats objected that the first version of
+// this comment asserted "no HSL helper existed in the tree" without showing a
+// search — and they were right to: an unverified absence claim justifying new
+// code is exactly the drift this package's header exists to prevent, and citing
+// that header while asserting rather than checking is worse, not better.
+//
+// The search, run 2026-08-14, and the claim held:
+//
+//	grep -rniE "func .*(hsl|toHSL|fromHSL|lighten|darken|tint|shade|adjustLight)" \
+//	  --include=*.go .          -> only these two functions
+//	grep -rniE "max-min|maxc-minc|\* 60|/ 360" --include=*.go platform/ internal/
+//	                            -> no hue/saturation arithmetic under another name
+//
+// What DOES exist, named so nobody re-checks: pickInkOn and
+// pickReadableOnBackground (actions) both SELECT from a palette rather than
+// transform a colour; hexToRGBA adds alpha; ToHex and CompositeOverGround are in
+// this file. None converts to HSL or moves lightness, so there was nothing to
+// reuse — but that is now a recorded result rather than a belief.
 func rgbToHSL(r, g, b uint8) (h, s, l float64) {
 	rf, gf, bf := float64(r)/255, float64(g)/255, float64(b)/255
 	max := math.Max(rf, math.Max(gf, bf))
