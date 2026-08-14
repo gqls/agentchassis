@@ -30955,3 +30955,36 @@ whichever cause the author had just proven, which is exactly
 > (`TestLegibleVariant_EmittedHexIsPinnedForRealPalettes`, seven cases) is what converts it into
 > something that can fail — and it exists because a reviewer asked for it, not because anything
 > in the work asked for it.
+
+> **ADDENDUM 2026-08-14 (third and last on this pair) — THE DETECTOR IS SYMMETRIC, AND
+> THAT IS WHY IT IS NOT "REVIEW HARDER".** The rows above read as one session getting
+> things wrong and another catching them. That is not what happened, and the reviewing
+> lane insisted on the correction:
+>
+> - It opened the exchange **about to file a regression against committed code, on a hex
+>   the author had published** — wrong number, inherited from the author, one send from a
+>   false accusation. What stopped it was reading `clearsAll` and finding the function
+>   structurally incapable of emitting that value.
+> - Its own objection — *"one structural weakness, a margin too thin to absorb the
+>   difference"* — **understated a live regression by about ten times.** The 0.62-of-ratio
+>   wrong-ground error was found by the author going to the cause instead of accepting
+>   that framing.
+>
+> So on the same day, by the same means, the mechanism caught **the author's invented
+> fixture inputs and the reviewer's understated objection.** Neither party was the
+> reliable one, and no amount of care predicted which would be wrong next.
+>
+> **The transferable form, and it is mechanical rather than social:** the thing that fired
+> all week was **two independent computations of the same quantity disagreeing** — where
+> "independent" means the inputs were transcribed separately from the artefact, not passed
+> between the parties. It has no idea which side is which, which is exactly why it works.
+>
+> So the operational rule is **not** "get it reviewed" — a reviewer can be, and here was,
+> the one holding the wrong number. It is: **for any quantity you are about to make
+> durable, arrange for it to have been computed twice from separately-sourced inputs.** A
+> pinned test with transcribed fixtures is the cheap standing form of that; a second
+> session recomputing is the expensive ad-hoc form. A quantity computed once is
+> unfalsified however green the suite, and *who* computed it tells you nothing.
+>
+> Framing owed to the `bugfix_122_contrast_ink_slots` lane, which supplied it against its
+> own interest.
