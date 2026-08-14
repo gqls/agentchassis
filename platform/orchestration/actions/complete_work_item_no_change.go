@@ -69,6 +69,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/gqls/agentchassis/platform/orchestration/agenterrors"
+	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 )
 
 // noChangeRule declares, for ONE item_type, how to read its handler's own report
@@ -179,24 +180,31 @@ func handlerReportedNoChange(itemType string, result map[string]interface{}) (st
 
 // lookupNumericPath resolves a dotted path to a number.
 //
-// It accepts every numeric form this payload can arrive in, and that breadth is
-// load-bearing rather than defensive: the result map reaches us either from a Go
-// action's return value (int) or through a JSON round-trip in collected_data
-// (float64, or json.Number when a decoder is configured that way). A type switch
-// missing one of those would read "counter absent" for a counter that is present
-// and zero — which this gate would then report as unknown shape, i.e. the exact
-// opposite of the verdict the data supports.
+// TRAVERSAL IS REUSED, COERCION IS NOT, and the split is deliberate (council
+// reuse_agent seat, correlation 0c8e7f5b round 2, medium). The dotted-path descent
+// is datahelpers.ExtractNestedField — the fleet's existing resolver, which is
+// strictly better than the hand-rolled loop this replaced: it also indexes arrays
+// and auto-unwraps a `.response` wrapper.
+//
+// What could NOT be reused is datahelpers.ExtractNestedFieldInt, the obvious
+// candidate, and the reason is the whole basis of this gate's three-valued
+// contract: it returns 0 for a MISSING path and 0 for a path holding zero
+// (data_helpers.go:1290-1304). Those are the two outcomes this gate must keep
+// apart — "the handler reported no changes" (block) versus "I cannot read this
+// payload" (abstain and record). Collapsing them would block the 10-of-14 live
+// rows whose payload is not this handler's at all, which is the opposite of what
+// the evidence supports. So presence is decided here, from the raw value.
+//
+// The accepted numeric forms are load-bearing rather than defensive: the result
+// map arrives either from a Go action's return value (int) or through a JSON
+// round-trip in collected_data (float64, or json.Number under some decoders). A
+// switch missing one would read "counter absent" for a counter that is present and
+// zero — reporting unknown shape where the data says block. Both numeric arms are
+// mutation-proven for exactly that reason.
 func lookupNumericPath(m map[string]interface{}, path string) (float64, bool) {
-	cur := interface{}(m)
-	for _, seg := range strings.Split(path, ".") {
-		asMap, ok := cur.(map[string]interface{})
-		if !ok {
-			return 0, false
-		}
-		cur, ok = asMap[seg]
-		if !ok {
-			return 0, false
-		}
+	cur := datahelpers.ExtractNestedField(m, path)
+	if cur == nil {
+		return 0, false
 	}
 	switch v := cur.(type) {
 	case float64:
