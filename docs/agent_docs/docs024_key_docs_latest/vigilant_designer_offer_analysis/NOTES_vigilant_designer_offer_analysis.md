@@ -1561,3 +1561,159 @@ careless. The three `handler_missing` gap rows stay open by design.
 while the platform capability is deferred. **The site's recorded premise is ahead of what the
 platform supports.** Nothing breaks — the classification describes how the site would earn, the
 gap row records that we cannot check it — but those two should not drift apart silently.
+
+## 2026-08-14 (evening) — B4 BUILT: the offer analyser is live as config, and its shape was decided by three things the handoff did not know
+
+Owner decisions this session, both taken in the fresh chat: **B4 v1 = one analysis, TWO outputs**
+(the ranked ordering artefact AND the findings — not auditor-first, not ordering-first); and
+**leopardess: extend the claims audit to cover `site_specs` prose** (option b of the three the
+last session left open). The second is sanctioned work, sequenced AFTER B4 because "B4 first" has
+been the standing instruction two days running — flagged to the owner as my sequencing choice, not
+his.
+
+### Migration 408 applied + recorded. What shaped it, in order of how much it changed the design
+
+1. **`bugs_open/272`, filed TODAY by another lane, is a live trap in the exact write path B4
+   uses.** `write_audit_findings`'s parse switch handles a JSON string and a JSON array and has
+   **no case for a JSON object**. `site-review-agent` asks its LLM for an object and points
+   `findings_field` at it — so it has filed **zero** work items, ever. `[MEASURED]` no row
+   anywhere in `site_work_items` carries `spec->>'audit_source' = 'site-review'`; the five
+   distinct sources that do exist are design-audit (260), content-quality-audit (38),
+   visual-design-audit (28), brief-fidelity-audit (8), tool-acceptance-tier4 (1).
+   **B4 returns an object too, but points `findings_field` at `offer_analysis.result.findings`
+   — the ARRAY** — which hits the working `case []interface{}`. That is 272's own fix candidate
+   1, applied at birth instead of inherited. A migration guard asserts it, because the failure
+   mode is silence.
+2. **Routing is by `category`, not by `work_item_type`.** `write_audit_findings` classifies
+   deterministically in Go from `category` (+ whether the named page exists);
+   `work_item_type` — which `site-review-agent`'s prompt carefully asks for — is read by
+   **nothing**. So B4's "closed vocabulary" had to be a CATEGORY vocabulary. All seven allowed
+   values have a live route; an off-vocabulary value does not fail, it mints
+   `audit_finding_<x>` aimed at content-gap-planner (`[MEASURED]` six such rows exist
+   fleet-wide, five still `detected` — the shape of a finding that lands nowhere).
+3. **`write_site_spec` DEEP-MERGES**, so a key the model forgets keeps the previous run's value
+   while looking current (`siteSpecDeepMerge`, `site_spec_actions.go:513` — maps recurse, arrays
+   replace). The prompt therefore requires every `ordering` key on every run, including empty
+   arrays and `false`. Freshness is the ROW's, never a timestamp in the payload: an LLM asked
+   for the time invents one. Same family as [[bugfix-238-regeneration-drops-resolver-keys]].
+
+**The degraded verdict is computed in SQL, not judged by the LLM.** `load_premise` returns
+`premise_fields_missing` — the names of the four premise fields empty on THIS site — and the
+prompt copies it verbatim into the artefact. `[MEASURED]` it reads `[recurring_value]` for
+leopardessconsulting.co.uk and `[]` for webdesign.co.uk and gaswholesalers.com, so it discriminates.
+This is the lane's twice-bitten lesson made mechanical: a check that examines less on some sites
+and does not say so produces a silence that reads as a clean bill.
+
+**A guard earned its place before the file was ever applied.** The verify block's honesty-constraint
+check failed on the first trial run (`LIKE '%no visitor behaviour data%'` against a prompt that
+says "NO visitor behaviour data" — `LIKE` is case-sensitive). The block is therefore demonstrably
+not vacuous: I watched it refuse. Trial method: `sed 's/^COMMIT;$/ROLLBACK;/'` piped to psql with
+`ON_ERROR_STOP=1`.
+
+Sizing, measured rather than assumed: strategy specs run 12–17KB (max 17,288, avg 13,765); the
+largest offer surface is webdesign.co.uk at 101 reachable pages = 14,887 chars. Worst-case prompt
+≈ 47KB. B1's live comparator was 29KB with 1,763 output tokens against a 4,000 cap; B4 has two
+outputs so `max_tokens` is 8,000, and `__truncated` on the step result is the thing to read —
+never the status.
+
+### PREDICTIONS, recorded BEFORE firing — first-ever offer-analyser run, gaswholesalers.com
+
+Target chosen over webdesign.co.uk (PLAN §B5's nominated proof site) because webdesign has a
+`content-gap-planner` **executing right now** and 23 unresolved `needs_page` rows: another session
+is mid-work there, and B3's watch-out says a finding cannot be parked — triage promotes every
+`detected` row with no type filter. gaswholesalers.com had its sweep at 15:48–15:52 today and
+recorded an audit pass, so the fingerprint gate makes another imminent sweep unlikely: that is
+the window in which I can READ the first findings before anything dispatches them.
+It is also one of the two acceptance fixtures the handoff named, and neither was composed by us —
+its strategist classified the domain `generic_industry`, then chose `site_type: brochure` with a
+`money_flow` narrating a real gas-wholesale business, the shape its own prompt warns against.
+Recorded premise: `direct_business`, all four premise fields present, 34 reachable pages.
+
+1. An `orchestration_states` row, `owner_agent_type='offer-analyser'`, reaching `complete`.
+2. A NEW `site_specs` row: `aspect='offer_ordering'`, `is_current=true`, `source='offer-analyser'`,
+   carrying all seven keys, `inputs_missing=[]`, `degraded=false`, `primary_model='direct_business'`.
+   **This aspect does not exist anywhere on the estate today** (58 distinct aspects, none of them
+   this) — so its appearance is unambiguous.
+3. **The falsifiable pair, and the point of firing at all:**
+   `jsonb_array_length(collected_data#>'{offer_analysis,result,findings}')` vs
+   `collected_data#>>'{offer_findings_written,items_created}'`. If the LLM returns N findings and
+   `items_created` is 0, the write path is broken the way 272 describes and I have inherited it
+   after all. **`items_created = 0` on its own proves nothing** — an empty findings array is a
+   valid answer, so the count alone is not the test; the PAIR is. (Same shape as
+   [[a-post-fix-zero-needs-a-demand-control]].)
+4. `__truncated` absent from the `offer_analysis` step result.
+5. Any work items created carry `audit_source='offer-analysis'` and item types from the mapped
+   set only — **no `audit_finding_*` row**, which would mean the category vocabulary leaked.
+
+### RESULTS — every prediction met, on both runs, including the degraded arm
+
+**Run 1, gaswholesalers.com** — orchestration `afe600a9-36c2-4056-bccb-d88692d8d02a`, COMPLETED at
+`complete` in **58 seconds**, no error.
+
+| prediction | outcome |
+|---|---|
+| reaches `complete` | ✅ COMPLETED, 58s |
+| new `offer_ordering` spec row, 7 keys, `degraded=false`, `inputs_missing=[]` | ✅ `is_current`, `source='offer-analyser'`, 6 `lead_with` + 5 `avoid_leading_with`, `primary_model='direct_business'`, `spec_version=1` |
+| **the falsifiable pair** | ✅ **LLM returned 5 findings → `items_created=5`**, `audit_source='offer-analysis'`, 0 skipped |
+| `__truncated` absent | ✅ absent (`type=json`, clean parse) |
+| no `audit_finding_*` row | ✅ `content_rewrite` ×2, `needs_content_page`, `nav_restructure`, `cta_improvement` — all mapped types, all with a resolved `page_id` |
+
+**The pair is the load-bearing one.** `items_created=5` against 5 LLM findings is the DEMAND
+control this write path needed: B4 does **not** inherit `bugs_open/272`, and a future zero here
+now means something, because a non-zero has been observed. Every page name the model used matched
+a real page (`page_id` resolved on all five), so the "use the exact name from the list" instruction
+held — a paraphrase would have silently become a request for a NEW page.
+
+**Run 2, leopardessconsulting.co.uk — the DEGRADED arm, which existed for exactly one measured
+case and had never been exercised.** COMPLETED, 5 findings → 5 items, no truncation. The chain
+worked end to end: SQL computed `premise_fields_missing = 'recurring_value'`, and the model copied
+it verbatim into `inputs_missing = ["recurring_value"]` with `degraded = true`. So a thinner
+analysis now announces itself in the artefact instead of looking like a full one.
+
+**And the control that mattered most on that site.** Its `strategy` row is the `hitl` record
+protected by the 2026-07-16 claims ruling. After B4 wrote to the estate:
+`md5(data − satisfaction_condition − trust_threshold)` = `cf500fcf23b8fb09b8e380dc088c0208`,
+**byte-identical to the value pinned before this session touched anything**; still `is_current`,
+still `source='hitl'`, still no `recurring_value`; exactly one current row of each aspect, with
+`offer_ordering` sitting beside `strategy` rather than over it. A wrong implementation — writing
+the ordering into `strategy` — would have superseded the owner-protected record, and this is the
+check that could have caught it.
+
+### Qualitative read: it is good, and it answers the complaint that started this
+
+`avoid_leading_with` on gaswholesalers.com opens with *"A description of the site's page count or
+content inventory"* and later *"A list of fuel product categories before any statement of what the
+buyer gains from the relationship"*. That is, unprompted, the exact failure the
+`copy_quality_two_stage` lane hit — their rejected brief led with *"23 free UK calculators"* — and
+the exact thing the owner asked for (*"we don't want to talk about ourselves unless it's to their
+benefit"*). Every `lead_with` point is phrased as reader benefit, carries `from_field` naming the
+premise field it came from, and is marked for differentiation. The findings cite premise fields by
+name and read as artefact-vs-premise throughout.
+
+### TWO HONEST LIMITS, both found by reading the output rather than by the run failing
+
+1. **⚠ THE OFFER SURFACE IS PAGE METADATA, NOT PAGE CONTENT — so some findings are hypotheses.**
+   `load_offer_surface` passes name, type, nav membership, title and meta description. It does
+   **not** pass a word of what any page actually says. Three of the five gaswholesalers findings
+   are grounded in facts the surface really contains (a generic title; four service pages
+   `not-in-nav`; two pages with no meta description at all). **Two are inferences about page
+   bodies** — and the model said so itself, in the finding: *"cannot be confirmed from the offer
+   surface alone… The risk is that tools function as standalone utilities"*. That is the right
+   behaviour and it is still a design limit: an analyser asked "does this page lead with the right
+   thing?" cannot see what the page leads with. **v2 should add the first section's text per page**
+   (bounded — the surface is already 15KB at 101 pages, so a head-of-hero excerpt, not the body).
+   Not a defect that blocks: the two inferential findings carry acceptance tests checkable by the
+   handler that *does* have the content, which is the right division of labour. Recorded so nobody
+   later reads B4's page-level verdicts as observations.
+2. **The honesty constraint held in the findings; it is slightly leaky in the ordering's `why`
+   clauses.** No "users want"/"visitors expect" anywhere. Where behaviour appears in the findings
+   it is attributed to the premise (*"explicitly identified as the moment of highest purchase
+   intent"* quotes the recorded strategy). But two `why` clauses in the ordering inherit the
+   premise's own behavioural language unattributed — *"captures return-visit intent"*. Minor, and
+   the fix is one prompt line requiring attribution in `why` too. **Stated at its real strength:
+   this is a read of two runs, not a measurement over many.**
+
+**The five gaswholesalers items are left `detected` and will be promoted by the next sweep** — a
+finding cannot be parked here, and these are right, which is the standard the lane set ("design
+checks to be right, not to be reviewed"). Their acceptance tests are concrete enough for a
+different agent to check.

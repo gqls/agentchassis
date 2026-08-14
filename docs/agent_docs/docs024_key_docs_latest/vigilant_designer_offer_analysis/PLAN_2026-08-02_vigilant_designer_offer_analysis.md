@@ -426,3 +426,34 @@ Marked here rather than edited into §B above, so the original text stays readab
   "let the platform handle it" true rather than aspirational; (c) merge it knowingly and accept
   that nothing can see it. **(c) is the one to avoid** — it puts a known falsehood into a record
   B4 grades against, with no detector anywhere.
+- **2026-08-14 (evening) — OWNER DECISION: B4 v1 is ONE analysis with TWO outputs. BUILT, LIVE and
+  PROVEN the same evening.** The fork put to him was three-way: auditor-only as §B4 specs it,
+  ordering-artefact-first (its consumer is blocked and the auditor's is not), or both from one pass.
+  He took **both from one pass**, and the argument for it is that the ordering IS the analysis —
+  splitting them means two LLM passes over identical inputs, and findings written without an
+  ordering are the generic ones §B4 was trying to avoid. Cost accepted: a new shared `site_specs`
+  aspect ships on day one, so the register entry (**BIZ-032**) lands in the same commit per the
+  platform-seam rule.
+  **What shipped:** `offer-analyser`, config-only, 8 steps, migration `408` (applied + recorded).
+  `ensure_site_record → load_premise → load_offer_surface → run_offer_analysis → set_audit_source
+  → write_offer_ordering → write_offer_findings → complete`. Output 1 is `site_specs` aspect
+  `offer_ordering` (ranked reader priorities, per site). Output 2 is work items under
+  `audit_source='offer-analysis'`, existing types and handlers only.
+  **Proven, not asserted:** two live runs, both COMPLETED, 5 findings → 5 work items each. The
+  load-bearing check was the PAIR (LLM findings count vs `items_created`), because `items_created=0`
+  alone is also what a genuinely clean site looks like. The degraded arm fired correctly on
+  leopardessconsulting.co.uk (`inputs_missing=["recurring_value"]`, `degraded=true`), and that
+  site's owner-protected `hitl` strategy row came out **byte-identical to its pinned md5** —
+  the check that would have caught an implementation writing into `strategy` instead of beside it.
+  Evidence, predictions-before-firing, and two honest limits: NOTES 2026-08-14 evening.
+- **2026-08-14 (evening) — OWNER DECISION on the leopardess field: EXTEND THE CLAIMS AUDIT TO COVER
+  `site_specs` PROSE** — option (b) of the three the 08-14 entry above left open, chosen over
+  leaving the field omitted and over merging it knowingly. This makes "let the platform handle it"
+  true rather than aspirational: nothing on this estate claim-checks a premise record, no existing
+  bug covers it, and B4 now grades against those records fleet-wide, which raises the cost of a
+  false premise sentence from inert to consequential.
+  **Sequencing is MINE, not his, and is flagged as such:** B4 went first, because "B4 first" was
+  the standing instruction two days running and the option text he chose said plainly that this
+  work delays B4. The claims-audit extension is the lane's next track. `recurring_value` stays
+  absent on leopardess in the meantime — today's state, and the degraded arm now announces it in
+  every ordering artefact for that site rather than letting the thinner analysis pass as full.

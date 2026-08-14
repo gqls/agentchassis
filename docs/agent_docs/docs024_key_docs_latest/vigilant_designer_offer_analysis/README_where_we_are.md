@@ -674,3 +674,64 @@ about partners, while the platform side is parked. That is fine, but the two sho
 apart quietly.
 
 **B4 is next, and the handoff for a fresh session is written.**
+
+---
+
+## 2026-08-14, later that evening — the offer analyser is built, and it works
+
+You asked for B4 and gave me two answers when I asked: build the analyser and the ranked "what
+should this page lead with" list as one thing rather than two, and fix the leopardess problem
+properly by teaching the claims audit to read premise records. Both are recorded. I did B4 first,
+because you have said "B4 first" two days running and the option you picked said in as many words
+that the claims work delays it — say the word if you want that flipped.
+
+**B4 exists and has run twice.** It is configuration only, so it went live the moment the
+migration applied — no rebuild, no waiting for a release. It reads a site's own recorded premise
+plus the list of pages a visitor can actually reach, and it produces two things:
+
+- **A ranked list of what that site should lead with**, stored on the site's record. Six points
+  for gaswholesalers.com, each one a sentence a page could actually open with, each tagged with
+  which part of the premise it came from and whether it is something a competitor could equally
+  say. Plus a list of what a page should NOT open with.
+- **Findings** where the live site does not do that — five of them, each aimed at a handler that
+  already exists, each with a test a different agent can check.
+
+**The bit that will please you most, and I did not ask for it.** The "do not lead with" list
+opens with *"a description of the site's page count or content inventory"*. That is, word for
+word, the mistake the other lane hit last week when a brief led with "23 free UK calculators", and
+it is what you were asking for when you said we should not talk about ourselves unless it is to
+the reader's benefit. The analyser worked that out from the site's own recorded premise, not from
+me telling it.
+
+**Three things I checked rather than assumed.**
+
+First, the write path. Another session filed a bug this morning showing that our existing
+strategic reviewer has been throwing away every finding it ever produced — silently, for an
+unknown length of time — because of a mismatch between the shape its prompt asks for and the shape
+the code can read. B4 uses the same path, so it would have inherited that exactly. It does not:
+five findings in, five work items out. I checked the pair, not just the count, because "zero items
+created" is also what a genuinely clean site looks like — a zero on its own proves nothing.
+
+Second, the leopardess site. Its premise is the hand-protected one, the record that exists because
+we stripped invented claims out of it in July. B4 wrote a NEW section beside it rather than over
+it, and I proved that mechanically: the protected record's fingerprint is character-for-character
+what it was before this session started. If I had built it wrong, that check is what would have
+caught it.
+
+Third, the degraded case. Leopardess is missing one premise field by your decision. The analyser
+now says so, in the artefact, every time — rather than quietly analysing less and looking like it
+analysed everything. That failure mode has bitten this lane twice, so it is built in rather than
+remembered.
+
+**One honest limit, which I found by reading the output rather than by anything breaking.** The
+page list B4 reads carries page names, titles and search descriptions — but not a word of what any
+page actually says. So when it judges "this page leads with the wrong thing", three of the five
+findings were grounded in things it genuinely could see (a generic title, four service pages
+missing from the navigation, two pages with no description at all) and two were reasoned guesses
+about page content. To its credit it said so itself inside the finding. The fix is to feed it the
+opening lines of each page, which is a v2 change and is written down. I am flagging it because
+"the analyser said X about this page" should not be read as "the analyser saw X on this page".
+
+**What is not done.** B4 only runs when I fire it by hand. Wiring it into the automatic improvement
+sweep is a separate, small change and it is next, along with telling the other lane that the list
+they asked for now exists.
