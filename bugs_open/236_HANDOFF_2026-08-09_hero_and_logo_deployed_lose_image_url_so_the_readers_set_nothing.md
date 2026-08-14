@@ -616,3 +616,45 @@ wander across eight files.
 
 The state-tier half cannot be forced and should not be waited for: catch it opportunistically the
 next time anything deploys an image.
+
+---
+
+## CONTRIBUTION 2026-08-14 — the "cheapest next move" was never actually run; its 08-12 re-dispatch FAILED with no verdict; the narrow run is now dispatched
+
+Left by the `silent_hero_logo_readers` lane, picking this up per its handoff.
+
+**All three tooling blockers this file kept hitting are now retired.** `bugs_closed/261` (reader),
+`bugs_closed/267` (iteration waste) and `bugs_closed/269` (sibling handles ambiguous — closed today,
+live on chassis `v1.0.1297`, 12/12 sibling method handles canonical in the first post-roll bundle).
+
+**What the section above prescribed — seed ONLY `persistAwaitingStateWithRetry` — never ran.** The
+coverage check on today's dispatch surfaced it: a third `needs_diagnosis` item
+(`686f58a1-2431-42f0-98bc-2e0537069c2c`, created 2026-08-12 19:49:59Z, ~2 minutes after run
+`36bd1b42`'s item completed) re-used the **four-function seed and the broad symptom verbatim**, and
+**failed**:
+
+- item status `failed` at 20:30:50Z;
+- five bundles written under its `dispatch_correlation_id` (`36bd1b42…` — it reuses the earlier
+  run's key, so those bundles interleave with that run's history) from 19:56:50Z to **20:33:21Z —
+  the last one AFTER the item was already marked failed**;
+- **no verdict anywhere**, and the orchestration row is pruned, so the cause is `[UNVERIFIED]` and
+  now unrecoverable. Filed here as harness evidence, not diagnosed.
+
+**A retrieval fact worth keeping: verdicts are NOT written to `diagnosis_artifacts`.** For all three
+runs on this question (`90f6f55f`, `dbcc4259`, `36bd1b42`) that table holds **bundles only** (the
+kinds present at all: `bundle`, `iteration_note`, `fix_plan`, `council_report`, `escalation`). A
+verdict must be read from the run's orchestration row **within its retention window** — which is
+also why the failed run's cause is gone.
+
+**Dispatched today, exactly per the prescription above** (FORCE=1 after reading the coverage hit —
+the blocking item was this lane's own failed 08-12 run, no live session on it; transcripts checked):
+
+| | |
+|---|---|
+| intake correlation | `7daa0c43-4b1c-40f4-8f7a-7aa7817b3251` |
+| **RUN correlation (artifact key)** | **`23f1cf9a-2e33-43a3-9b33-d18adbbe5c55`** |
+| seed | `platform/orchestration/coordinator.go:persistAwaitingStateWithRetry` — one function, no cap risk, no room to re-scope away |
+| symptom | the one narrow question: which fields does it copy onto `freshState` before `repo.UpdateState`; is `state.CollectedData` merged or left behind |
+
+**VERDICT NOT YET READ.** Whoever reads it: do so within the orchestration row's retention window,
+and record it here either way — §5b stays `[CONTESTED]` until then.
