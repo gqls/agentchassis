@@ -1,5 +1,9 @@
 # HANDOFF — Track A is DONE. Owner ruled on the decisions; four are actioned. START HERE.
 
+> **⚠ SUPERSEDED 2026-08-14 — START AT `HANDOFF_2026-08-14_continue_here.md`.**
+> Everything ruled here is executed or carried forward there. This file remains the
+> record of the D1–D6 rulings and their outcomes; it is no longer the entry point.
+
 > **UPDATED 2026-08-11 (afternoon), after the owner's rulings and a fresh chassis
 > build (v1.0.1286).** The decisions below are kept with their reasoning because the
 > reasoning is what a later session needs; each now carries its OUTCOME. Read §D1
