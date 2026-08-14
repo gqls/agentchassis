@@ -232,3 +232,42 @@ and SEO decision. I have written the procedure up as
 (7 pairs across 4 domains, measured today, with the ordering that avoids re-arming
 the refile loop and the reason a hard `DELETE` is wrong). It needs an owner
 decision per pair before you execute it.
+
+---
+
+## UPDATE 2026-08-14 (late), from the 215 O2 lane — your two pairs are DECIDED and MEASURED
+
+§3 above ends "it needs an owner decision per pair before you execute it." **That decision
+exists now, was reversed once, and the referrer work is measured.** Nothing has been executed
+on this site; the routing rule still stands — **fundamentallyai's execution is yours**, so this
+is a handover of findings, not a request that anything be done a particular way.
+
+**Owner's ruling, as it now stands** (`DECISION_INPUT_2026-08-12_seven_twin_pairs.md`, the
+2026-08-14 block supersedes the 08-13 one for these two): **keep the bare `/blog/` pages, retire
+the `/guides/tool-*` twins.** It was reversed from "keep `/guides/`" on a finding that
+**there is no redirect mechanism in this estate** — `redirects` is empty fleet-wide with no
+reader and no writer, so retiring a URL 404s it. He kept the older, likelier-indexed `/blog/`
+addresses on that basis.
+
+**What I measured today, read-only** (method and caveats in `HANDOFF_2026-08-12_215_quiet_mode…`
+§14; it reproduces the retraction's own inbound census in SQL, validated against a real refusal):
+
+| your pair | loser to retire | editorial referrers that will REFUSE | in current plan? |
+|---|---|---|---|
+| automation-savings-estimator-guide | `tool-automation-savings-estimator-guide` (`60eeb311`) | **0 — nothing links to it** | no |
+| model-approach-selector-guide | `tool-model-approach-selector-guide` (`ffa6c801`) | **3 article bodies** | no |
+
+**Two things worth having before you execute:**
+
+1. **Do the automation-savings one FIRST.** One of the three things linking to the
+   model-approach loser **is the automation-savings loser itself** (`60eeb311`, confirmed by
+   page id). The census excludes archived referrers, so retiring the first drops the second
+   from three blockers to two at no cost.
+2. **Neither needs plan surgery** (runbook step 3) — the reversal to `/blog/` is what removed
+   that requirement, since the plan does not name the `/guides/` side. **Re-verify at execution
+   anyway**; this plan has been touched by other lanes and my reading is [MEASURED 2026-08-14].
+
+The remaining three referrers are article body copy, so per CLAUDE.md's 2026-08-06 ruling the
+**framework rewrites them, not a session**. And a zero above predicts *the platform will not
+refuse* — it inherits the census's stated blindness to single-quoted, relative and
+JS-assembled hrefs — not that nothing anywhere links there.
