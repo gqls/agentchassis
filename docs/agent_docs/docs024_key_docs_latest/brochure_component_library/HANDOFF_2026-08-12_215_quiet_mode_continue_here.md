@@ -375,3 +375,63 @@ Retiring any loser produces a **404, not a redirect**. That is most consequentia
 `/blog/` URLs — **and he was told a redirect would make that safe.** It does not exist.
 Options per pair: accept the 404, keep the loser published and de-duplicate another way, or
 build a redirect capability first. **Do not resume execution until this is answered.**
+
+---
+
+# 12. PAIR 1 EXECUTED TO STEP 6 AND CORRECTLY REFUSED. Read this before touching pair 1 again.
+
+**Owner reversed pairs 3+4 to `/blog/` on the redirect finding** (recorded in the decision
+doc, 2026-08-14 ruling) and said carry on with the rest. Pair 1 was then executed.
+
+## What was done, and what state pair 1 is in NOW
+
+| step | action | result |
+|---|---|---|
+| 4 | cancel the loser's one open work item | **DONE** — `087c029a…` `page_rerender` → `cancelled`, reason recorded, `handled_by=brochure_215_o2_thread`. **Site-scoped**; the unscoped query would have cancelled 29 items across four sites |
+| 5 | archive the loser | **DONE** — `llm-cost-calculator` (`6e66ff49…`) `active` → `archived`. Survivor `tool-llm-cost-calculator` untouched, still `active` |
+| 6 | retract the deployed file | **REFUSED BY THE PLATFORM, correctly. Nothing deleted.** corr `3e526489…`, orchestration `9d85cdc2…`, `COMPLETED` with `1 considered, 0 dispatched` |
+| 7 | write a redirect | **SKIPPED — inert.** See the RUNBOOK correction |
+| 8 | verify at the artefact | **not reached** |
+
+## Why it refused, and why that is the headline
+
+> `retraction refused for page "llm-cost-calculator": still linked from live content —
+> repair or remove those links first (see editorial_inbound)`
+
+**The page is linked from three live surfaces**, named in the refusal's `context`:
+
+- **nav** — `site_nav_items` row `c5738bd1-cb71-4f93-9f8e-d0fa166678a5`, label *"LLM Cost Calculator"*
+- **chrome footer** — `{"slot":"footer","source":"chrome"}`
+- **an article body** — page `llm-provider-abstraction-production-agent-systems`, slot `article-body`
+
+**The runbook said this page had zero inbound links.** That claim came from `link_registry`,
+which is **empty fleet-wide** — so it was never evidence (LANDMINES 2026-08-14). The real
+inbound census, which `RetractPageDeploymentAction` runs itself, found three references on
+the first page anyone tried. **Assume the same is true of the other six pairs until each is
+checked by dispatching the retraction and reading the refusal** — that is now the cheapest
+inbound census available, and it is free: it refuses rather than deleting.
+
+## ⚠ The state pair 1 is in is SAFE but it is not FINISHED
+
+`llm-cost-calculator` is now **`status='archived'` and still serving 200** — i.e. this
+lane has deliberately created a sixth instance of exactly the condition `bugs_open/266`
+tracks. It is safe: `266`'s guard stops it being rebuilt, nav and footer still point at a
+page that still serves, so **nothing is broken for a visitor**. But it must not be left
+here indefinitely.
+
+**Two ways forward, and the first is the decided one:**
+
+1. **Repair the three referrers to point at `/tools/tool-llm-cost-calculator.html`, then
+   re-dispatch the retraction.** The nav row is a DB edit; the footer is **stored chrome**
+   (`bugs_open/117` — no page rerender regenerates it, read that first); the article body is
+   page content, so per the 2026-08-06 ruling **the framework rewrites it, not a session**.
+2. **Or revert:** `UPDATE pages SET status='active' WHERE id='6e66ff49-3f0e-423f-9286-5ec3dc0c413c'`
+   and re-open the cancelled work item, restoring the pre-execution state exactly.
+
+## The transferable lesson for the remaining six pairs
+
+**Dispatch the retraction FIRST, as a read-only inbound census.** It refuses without
+deleting, and its refusal names every referrer by surface and slot. Doing that before
+archiving would have told us pair 1's real link state in ~40 seconds, with no DB change at
+all. **The runbook's step order (archive, then retract) is wrong in this respect** — retract
+first to learn, then archive, then retract again to execute.
