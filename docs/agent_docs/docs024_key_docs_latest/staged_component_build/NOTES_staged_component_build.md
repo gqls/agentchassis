@@ -4020,3 +4020,62 @@ touches this fix (neither of this session's two commits, `956bf19c6`/`f5386b8f9`
 actual platform-code commit, `930ace3bd`, already carries `Council-Submitted:` from the R1
 round). REVISE → read the fresh objections before doing anything; do not assume they repeat
 R1's.
+
+## 2026-08-14 — round 2 was ALSO revise, and its own objections were worth having: found a second real gap, one retired landmine mis-cited, one different-branch bug mis-cited, and cleaned up two lesser notes
+
+Round 2 (`d927ec67…`, same correlation) came back **REVISE**, decided again by `editquality`,
+gating. Read every objection rather than assuming it repeated R1's — it didn't, mostly:
+
+- **HIGH, real: the repair path (`check_undeployed_assets` → `build-dispatch-loop` →
+  `asset-deployer`) was asserted "safe" in R2's own grounded_in without being traced.** It
+  was not safe by the same standard I'd applied to `image-build-handler`. Traced it properly
+  this time: `build-dispatch-loop`'s `call_handler` maps `spec` as a whole NESTED object
+  (`"spec": "current_item.spec"`), so `asset_id` sits at `input_data.spec.asset_id`, and
+  none of `ExtractActionInputs`'s first three strategies check one level into `spec` —
+  only Strategy 4 (the aggressive search) reaches it. **Found the exact precedent already
+  in the tree**: migration `380` (`bugs_open/231`) fixed this identical shape for `purpose`
+  on this SAME mapping, with this SAME idiom (`"purpose?": "current_item.spec.purpose"`),
+  and its own comment calls it "the estate's OWN idiom" (site-work-orchestrator's
+  `fix_items_loop` already does it too). Measured blast radius before mirroring it: exactly
+  **one** `(item_type, handler_agent)` pair fleet-wide carries `asset_id` in its spec —
+  `(undeployed_asset, asset-deployer)`, 267 rows. Wrote `migration 402`, same
+  snapshot+jsonb_set+DO/RAISE shape as 401. **The dry-run caught a real bug in my own first
+  draft** — the second verify block checked `steps -> 'mark_failed'` at the WRONG nesting
+  level (top-level `workflow.steps` instead of the sub_workflow one level inside
+  `process_item`) — exactly the kind of self-check this lane's whole practice exists to
+  catch, caught before the real apply, not after. Fixed, re-dry-ran clean, applied, verified
+  live, registered (`--record-only`), committed alone (`278b104a0`).
+- **HIGH, NOT real — a retired landmine, cited as if live.** editquality's edit-3 objection
+  quoted a landmine ("`deploy_image_asset` resolves its source image by PURPOSE, not by the
+  `asset_id` you passed it", `bugs_open/155`) as a reason `assetRowIdentity` might not "close
+  the loop it claims to". Read the FULL entry, not just the objection's excerpt: it carries
+  its own **RETIRED 2026-08-06** annotation, with the retirement test's pass recorded at the
+  artefact (`AssetSourceRef` 2/2 replicas, the purpose-cache read 0/2, a nonsense control 0)
+  and an explicit instruction — "do not retire this entry on the commit, on the tag, or on a
+  roll — only on that pair." The council-gate's landmine surfacing evidently doesn't filter
+  retired entries before handing them to a reviewer seat, so **a stale half of a doc_notes
+  row reached a review verdict** — the exact "a record goes stale faster than its reader can
+  tell" pattern, just via a channel (an LLM reviewer quoting a landmine) rather than a human
+  one. Answered by quoting the RETIRED block back in `grounded_in`, not by arguing.
+- **HIGH, NOT real — a different branch, a different (open) bug.** The "missing" objection's
+  OTHER landmine citation (`asset_stored.purpose` / `bugs_open/235`) is genuine and still
+  live, but it describes `image-build-handler`'s **brand-update branch**
+  (`store_imagery_brand_asset`, `spec.brand_update='true'`), which hardcodes `purpose:'hero'`
+  regardless of the item's own spec — a different step from `store_imagery_asset` (the one
+  248's diagnosis and fix touch), whose `purpose_field` already reads
+  `input_data.spec.purpose` dynamically (checked against the live config, not assumed from
+  the objection's framing). Answered by naming the distinction and citing `235` as the bug
+  that owns it, not folding it into this plan.
+- **MEDIUM, fair: an "owner ruling" citation is invisible to a council seat.** Edit 5's R2
+  rationale leaned on "per this estate's ordering-exemption ruling (owner 2026-07-29)" as
+  partial authority for applying config ahead of review. A reviewer cannot open CLAUDE.md.
+  Removed the appeal; the edit now stands only on evidence a reviewer CAN check (the live
+  config, the store step's return shape, the `ResolveInputMapping` code path).
+- **LOW, accepted, not fixed: the dot-in-`asset_key` guard is a heuristic, not a structural
+  invariant.** True, already shipped in `930ace3bd`, and reopening it would be a different,
+  larger change to `asset_key`'s own contract — noted plainly as an accepted limitation
+  rather than argued away or silently dropped.
+
+**Resubmitted, round 3** (`RESUBMIT_CORR=7f0c1535…`, run `d0b465c1…`), 6 edits (the 4
+original Go edits + both migrations), plan bytes 17,851. Verdict not yet read as of this
+entry.

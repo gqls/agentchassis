@@ -451,9 +451,29 @@ config is read live, so this needs no roll.
 without inventing a third diagnosed cause. Resubmission should say so plainly rather than
 defend the original wording.
 
-**⚠ Cut short by kubeconfig expiry (fleet-wide, session-scoped, not this bug).** Still owed:
-pulling a real PRE-fix `image-build-handler`→`asset-deployer` run's resolved `input_data` to
-document what `asset_id` actually held before this fix (several completed 2026-08-13, all
-`owner_agent_type='asset-deployer'` parented by `image-build-handler` — ids in NOTES), and
-**resubmitting to council** with `RESUBMIT_CORR=7f0c1535-25cb-4645-adba-f7429e357a79`. Full
+**⚠ Cut short by kubeconfig expiry (fleet-wide, session-scoped, not this bug).** Resolved
+next session: pulled the pre-fix evidence (5 real runs, `asset_id` empty not wrong),
+registered `401` as a proper migration (`--record-only`), and resubmitted round 2. Full
 reasoning: NOTES, `## 2026-08-13 (session 48fb60ee)`.
+
+## CONTRIBUTION 2026-08-14 — round 2 ALSO revise: a second real gap on the repair path, plus two stale/mis-scoped landmine citations answered; round 3 resubmitted
+
+Round 2 REVISE, `editquality` again gating: one HIGH was real (the
+`check_undeployed_assets`→`build-dispatch-loop`→`asset-deployer` repair path has the
+identical gap `401` fixed for `image-build-handler` — asserted "safe" in round 2 without
+being traced). Two more were citations that didn't hold up on inspection: one landmine is
+explicitly **RETIRED** (2026-08-06, `bugs_open/155`'s purpose-keyed source bug — the
+objection quoted it as live), and one names a genuinely open bug (`bugs_open/235`,
+brand-update branch hardcoding `purpose:'hero'`) but on a **different step**
+(`store_imagery_brand_asset`, not `store_imagery_asset`) than the one this bug's fix
+touches — not folded in, not this plan's job.
+
+Fixed the real gap the same way as `401`: **migration 402** mirrors an *already-reviewed*
+precedent (`migration 380`, `bugs_open/231`) that fixed this identical nested-spec shape for
+`purpose` on this SAME `build-dispatch-loop` mapping — same idiom
+(`"asset_id?": "current_item.spec.asset_id"`), measured blast radius first (exactly one
+`(item_type, handler_agent)` pair fleet-wide, 267 rows), applied, verified, registered.
+
+Resubmitted round 3, `RESUBMIT_CORR=7f0c1535-25cb-4645-adba-f7429e357a79`, run `d0b465c1…`,
+6 edits. Full reasoning and the retired-landmine/wrong-branch corrections: NOTES,
+`## 2026-08-14`.
