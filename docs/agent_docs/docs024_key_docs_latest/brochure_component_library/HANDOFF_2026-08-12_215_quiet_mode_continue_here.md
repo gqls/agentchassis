@@ -11,7 +11,7 @@ carried forward below where still live.
 
 | | |
 |---|---|
-| code | **LIVE on chassis `v1.0.1295`** (rolled 2026-08-13 13:53Z; lane literal + `ARCHIVED_PAGE_GUARD` both artefact-verified on BOTH replicas with a one-letter near-miss and a pre-lane control; provenance `69612d692a4a…`). Superseded the 1293 verification below, which read: **LIVE on chassis `v1.0.1293`** (rolled 2026-08-12 19:13–19:14Z), **re-verified on BOTH replicas 2026-08-12 between the 19:13Z roll and commit `580af7ff0` (19:46Z) by two independent methods.** (1) Literal probe of `/proc/1/exe`: `PLAN_PAGE_STEM_TWIN_REFUSED` **present**, one-letter near-miss `…REFUSEE` **absent** (so the probe can fail), pre-lane control `OWNED_PAGE_GUARD` **present** (so it works on this binary) — all three on each replica. (2) Provenance stamp, captured while still in log range: both replicas built from `7a1887e3163af75ce…`, and `git merge-base --is-ancestor` confirms `19acfc895` (the `carryForwardStructureSpecKeys` re-adoption fix) **is in the build**. Supersedes the `v1.0.1291` verification of ~16:00Z |
+| code | **LIVE on chassis `v1.0.1297`** (rolled 2026-08-13 22:29Z; `ARCHIVED_PAGE_DEPLOY_REFUSED` present on BOTH replicas, one-letter near-miss absent, `OWNED_PAGE_GUARD` positive control present, re-probed 2026-08-14 07:40Z. **The provenance line had already rotated at ~9h — an empty grep there means OUT OF RANGE, not unstamped**; the literal probe is the fallback precisely because it has no shelf life). Previously: **LIVE on chassis `v1.0.1295`** (rolled 2026-08-13 13:53Z; lane literal + `ARCHIVED_PAGE_GUARD` both artefact-verified on BOTH replicas with a one-letter near-miss and a pre-lane control; provenance `69612d692a4a…`). Superseded the 1293 verification below, which read: **LIVE on chassis `v1.0.1293`** (rolled 2026-08-12 19:13–19:14Z), **re-verified on BOTH replicas 2026-08-12 between the 19:13Z roll and commit `580af7ff0` (19:46Z) by two independent methods.** (1) Literal probe of `/proc/1/exe`: `PLAN_PAGE_STEM_TWIN_REFUSED` **present**, one-letter near-miss `…REFUSEE` **absent** (so the probe can fail), pre-lane control `OWNED_PAGE_GUARD` **present** (so it works on this binary) — all three on each replica. (2) Provenance stamp, captured while still in log range: both replicas built from `7a1887e3163af75ce…`, and `git merge-base --is-ancestor` confirms `19acfc895` (the `carryForwardStructureSpecKeys` re-adoption fix) **is in the build**. Supersedes the `v1.0.1291` verification of ~16:00Z |
 | council | **APPROVED** round 3, corr `56e13695-17cb-48ec-bc6b-0371fde8b717` |
 | enabled on | **fundamentallyai.com only** — `honour_realised_identity` + `twin_identity_snap`. `stem_twin_snap` absent by design |
 | dark-launch counters | **still 0/0/0/0** — re-read twice on 2026-08-12 — once **before** the `v1.0.1293` roll and once **after** it, both times with BOTH controls. Demand: **0 `site_plans` rows since the roll**, and the only post-1291 plan was noted.co.uk's first build (0 `pages` predating it, so it cannot exercise the reconciler). Instrument: `agent_error_log` took 3,503 rows in 24h and **13 since the roll**, so the query is not blind on the new binary either. **No replan has run through the new path yet — the zero is want of demand, not want of function** |
@@ -332,3 +332,46 @@ population from the seven pairs — no page is in both lists; do not conflate th
 the flat URLs are older on 5 of 7 pairs and likelier indexed — **an inference, not a
 measurement.** Pairs 3+4 now retire the flat `/blog/` side, which is the direction where
 this matters most. **A redirect (step 7) is what makes it safe, so do not skip step 7.**
+
+---
+
+# 11. 2026-08-14 — O2 EXECUTION STARTED AND WAS HALTED AT A FINDING. Nothing was mutated.
+
+**Chassis `v1.0.1297`** (rolled 08-13 22:29Z): `266`'s guard re-verified present on both
+replicas with controls. **Still not behaviourally exercised** — `ARCHIVED_PAGE_%` counters
+are `0` and **no archived page has acquired a new `deployed_at` in the ~18h since the guard
+went live**, which is consistent but is still want of demand, not proof.
+
+## What happened: pair 1 was worked to step 5 and stopped, read-only throughout
+
+Pair 1 (ai-agent-orchestration `llm-cost-calculator`) was the agreed canary. Reconnaissance
+confirmed the decision doc at the artefact (loser 11,312 b / survivor 46,368 b / control
+404). Then **step 7 turned out to be inert** — full write-up in the RUNBOOK's
+`⚠ CORRECTION 2026-08-14`. **There is no redirect mechanism**: `redirects` is empty
+fleet-wide with no reader and no writer in the tree. Retiring a URL 404s it.
+
+**Execution stopped there. No work item cancelled, no page archived, no file retracted, no
+plan touched.** Everything done was a SELECT or a curl.
+
+## Three things found on the way that the next session needs
+
+1. **`site_work_items` page names are NOT unique fleet-wide.** A step-4 query filtering on
+   `spec->>'page_name' IN ('llm-cost-calculator', …)` **without a site join** returned 29
+   items across **four different `page_id`s on several sites** — including `051d46eb`,
+   which is *fundamentallyai's* `owned_page_review` row from `bugs_open/266`. Scoped to the
+   site it is **4 items, of which exactly one belongs to the loser.** Cancelling the
+   unscoped set would have hit other sites' work. **Always join `sites` in step 4.**
+2. **ai-agent-orchestration.com has NO `site_plans` row at all** — not "the pages are absent
+   from the plan", which is what the decision doc's *"in current plan: no"* implies. Step 3
+   is inapplicable for a stronger reason than recorded, and the refile loop has nothing to
+   re-create from on this site.
+3. **The survivor is `rebuild_policy='owned'`** and the loser is `generic` — so PBP-036's
+   guard already protects the side we are keeping.
+
+## The decision this puts back to the owner (see the RUNBOOK correction)
+
+Retiring any loser produces a **404, not a redirect**. That is most consequential for
+**pairs 3+4**, where he chose `/guides/` and therefore retires the older, likelier-indexed
+`/blog/` URLs — **and he was told a redirect would make that safe.** It does not exist.
+Options per pair: accept the 404, keep the loser published and de-duplicate another way, or
+build a redirect capability first. **Do not resume execution until this is answered.**
