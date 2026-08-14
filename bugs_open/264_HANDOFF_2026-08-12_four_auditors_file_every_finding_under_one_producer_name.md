@@ -282,3 +282,61 @@ refreshed**, including: actually dispatching round 2, re-reading any verdict,
 and the §12/original "How to verify a fix" live audit-run check above. Nothing
 code-side is blocked — the fix itself is unaffected by this outage; it is
 purely a review/verification-tooling gap.
+
+## §14 — kubectl restored; live verification run, round 2 REVISE (answered), round 3 submitted
+
+**Live "How to verify a fix" check — DONE, 3 of 4 confirmed by a real
+site_work_item.** Dispatched one live run each of `site-review-agent`,
+`visual-design-auditor`, `brief-fidelity-auditor`, `content-quality-auditor`
+against `mortgagecalculator.co.uk` (all 4 orchestrations `COMPLETED`, no
+error). Result:
+```sql
+SELECT spec->>'audit_source', count(*) FROM site_work_items
+WHERE created_at > '2026-08-13T21:00:00Z' AND spec ? 'audit_source' GROUP BY 1;
+--  brief-fidelity-audit  | 8
+--  content-quality-audit | 4
+--  visual-design-audit   | 5
+```
+`[MEASURED]` Three distinct, correct values — the fix works end to end for
+these three. **`site-review` is absent, but NOT because the audit_source fix
+failed** — `collected_data#>>'{audit_source_literal,audit_source}'` on that run
+reads `site-review`, exactly right. It never reaches `site_work_items` because
+a **separate, pre-existing defect** stops the write step from creating any item
+at all: filed as **`bugs_open/272`** (site-review-agent's `findings_field`
+config points at the LLM response's wrapping object, not the `findings` array
+inside it, and `write_audit_findings`'s parse switch has no case for a raw
+object — so `items_created` is silently `0` regardless of `audit_source`).
+**This does not implicate this bug's fix** — confirmed by reading the exact
+`collected_data`, not inferred.
+
+**Council round 2 (resubmitted once kubectl access returned): REVISE**, gated
+by `prior_art_librarian` (high), with `debug_historian`/`editquality` also
+objecting (all three answered in round 3, submitted — see below).
+`guardian`/`reuse_agent`/`guidelines`/`constitution`/`mission`/`improvement_guardian`/`architecture`
+all approved round 2. The gating point: round 2's rebuttal to the
+duplicate-active-row objection was never reconciled against the standing
+LANDMINE naming "four agent types" with duplicate active rows — a fair catch,
+since the coincidence of "four" was never checked.
+
+**Settled directly, live, 2026-08-14**: the landmine
+(`LANDMINES.md`, "Four agent types have TWO active definition rows…") names
+its four **explicitly**: `chief-strategist`, `content-creator`,
+`content-creator-contact`, `site-component-architect` (measured 2026-08-09) —
+none of which is one of this bug's four auditors. Re-running the landmine's own
+exact check fleet-wide, live, confirms it:
+```sql
+SELECT type, count(*) FROM agent_definitions
+WHERE is_active AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL
+GROUP BY 1 HAVING count(*) > 1;
+--  chief-strategist=2, content-creator=2, content-creator-contact=2, site-component-architect=2
+```
+Exactly those four, no others — zero overlap with the audit four. Also checked
+this round: no numbering collision on migration 399 (`ls
+docs/agent_docs/sql_for_agents/399*` → exactly the migration + its ROLLBACK,
+one matching `schema_migrations` row).
+
+**Round 3 submitted** (`RESUBMIT_CORR=50ee4b26-2303-4304-b437-7320e1368a1d`),
+answering all of round 2's objections with the evidence above. Submission JSON
+saved at
+`docs/agent_docs/docs024_key_docs_latest/fixloop_eg_dartsonline/submission_264_audit_source_round3.json`
+(round 2's at `..._round2.json`). Verdict not yet read as of this write-up.
