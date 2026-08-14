@@ -1017,3 +1017,42 @@ set-preservation failure (rounds 4, 6, 7, now this), first in the ADDING directi
 harness** — and consistent with the 08-09 arm test, where arm 4 also added two links to a
 section that had none. No voice text fixes this; the mechanical gate (PLAN §3 rule 1 /
 round-7 ruling) remains the only remedy on this axis.
+
+## 2026-08-13/14 — D1 DELIVERED: v2 approved, seven prompts de-duplicated, carrier flipped, verified at the artefact
+
+**Owner approved v2** (*"I approve v2, I like that much more"*) after reading both texts in
+full and the capture-only sample. Execution, in order, all against the live DB:
+
+1. **Snapshots first, committed separately:** all 7 writer prompt texts + pcw's inner
+   sub_workflow template + the old carrier text → `agent_definition_prompt_backups`
+   (8 rows); full agent rows → `agent_def_backup_20260813_voicecarrier` (7); carrier row →
+   `agent_default_configs_bak_20260813_voicecarrier` (1).
+2. **Pre-flight that mattered:** all six `prompt_template` steps run `execute_llm_prompt`
+   (where the injection lives), and pcw's inner `generate_content` inside the loop's
+   `sub_workflow` does too — checked because `{{.voice_style}}` renders literal
+   `<no value>` on any other path.
+3. **Phase A (one transaction, DO/RAISE asserts):** each of the 7 had its inlined
+   `## HOUSE VOICE` block deleted and `## {{.voice_style}}` inserted; `content-writer`
+   and `page-content-writer` kept *"Preserve every fact, number and name exactly."*
+   inline (content contract, not voice); `grounded-explainer` kept its grounding-audit
+   closing note. Asserted before COMMIT: 0 configs with the old rule, 0 with the literal
+   block, 7 with the reference, contracts intact. All passed first run.
+4. **Phase B:** one UPDATE to `voice_style_block` → v2 (6,032 chars), with marker asserts
+   in-transaction. Live ≤60s.
+5. **Artefact verification (not config):** fresh capture-only arm, NEUTRAL suggestion
+   (carrier `1c65d36c`, item `8abfd5cc`, child `d5853f26`). Every rendered prompt in
+   `llm_call_log.prompt_rendered`: v2 markers present, `'start with the fact'` **zero**,
+   `'THIS IS THE DEFAULT'` **zero**, and `HOUSE VOICE` **exactly once from the carrier**
+   (the second textual hit is my own suggestion's phrase — located both, char 279 = the
+   injected block, char 34510 = the suggestion). No truncation. All five page components
+   byte-identical to backup afterwards; item cancelled post-capture.
+6. **Fleet asserts:** active agent defs matching `'start with the fact'` → **0**;
+   matching `'{{.voice_style}}'` → **7**; carrier carries the read-aloud rule → t.
+7. **Register CQ-022** (entry + index row, counts 1,851→1,852 clean) and **NOTIFY files**
+   to `fleet_copy_quality` (decision delivered in superseded form) and
+   `mortgagecalculator_couk_adoption` (their corrections are now the fleet voice; their
+   site untouched).
+
+**Rollback, should it ever be needed:** the old carrier text is in
+`agent_definition_prompt_backups` (`type='agent_default_configs:voice_style_block'`) and
+the seven pre-change templates beside it; one UPDATE per artefact restores any of them.

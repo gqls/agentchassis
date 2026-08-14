@@ -185,3 +185,31 @@ claims checker for the calculator site — it is built, live and approved, and t
 simply never opted in, which is why nothing checked the new figure in yesterday's rewrite
 except a query I wrote by hand. Then read the three lending sites. Then the review
 surface. Then, and only then, the second stage.
+
+---
+
+**2026-08-14 — the house voice you approved is live everywhere, and here is what that
+actually means.**
+
+You read both candidate texts, asked to see real copy written under the new one, and
+approved v2. It is now the voice every writer in the fleet carries — the seven writing
+agents and the blog writer — and it lives in exactly one place, so the next time you
+correct it, the correction is one edit and reaches everything at once. That was the point
+of the whole exercise: the last correction you made took three days to reach nothing,
+because it had nowhere to land.
+
+The way it shipped is worth one paragraph. First the seven writers had their private
+copies of the old voice deleted and replaced with a reference to the shared one — a change
+that altered nothing about what they wrote, which we proved before going further. Then the
+shared text was swapped for v2 in a single edit. Then, rather than trusting the
+configuration, we ran a real writer at a real page with everything locked and read the
+prompt it actually received: the new voice present, once; the old rule gone. Nothing on
+any live page changed during any of this, and every prior text is backed up and restorable
+with one command.
+
+Two things to know for what comes next. The sample run that convinced you also showed the
+writer inventing two links it was told not to add — the fourth time we have watched set
+discipline fail by instruction — so the mechanical link gate stays the only real answer
+there, exactly as the plan already says. And the new voice is the *default*: any site's
+own voice specification still wins where they disagree, so the mortgage calculator site
+you refined by hand keeps behaving exactly as you left it.
