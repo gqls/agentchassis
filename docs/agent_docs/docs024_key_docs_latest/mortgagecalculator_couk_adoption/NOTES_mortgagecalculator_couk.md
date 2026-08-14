@@ -2975,3 +2975,39 @@ summary_from is a template-string defect, cosmetic); one-shot design discovery A
 assets land (mirror oneshot-design-discovery-rh-20260730: topic system.agent.scheduled.requests,
 interval 86400, timeout 900, input_data {domain, site_id}, disable after firing); the bad
 copy line via apply_section_edit content_edit on the hero slot (never content_rewrite).
+
+### 2026-08-14 (same session, outcomes) — everything landed; wire-verified at the URLs
+
+- **21:39:07Z logo.png 200** (deployer serves it at 385×400 from the 812×844 original — resize
+  is the deploy render, byte-source verified at ingest). **21:39:39Z favicon.png 200 (64×64
+  roundel), og-card.png 200 (1200×630 roundel on light ground), hero.jpg bytes changed
+  96,755 → 68,984 = hero_v2.** All four looked at as images, not just statuses. Head references
+  `<link rel="icon" href="/assets/images/favicon.png">` and the og:image URL. The placeholder
+  litter `input-data.asset-key.jpg` still serves, unreferenced — 248's backlog-drain owns it.
+- **Routers wire-proven on live items** (IMG-071 condition met): all 3 `image_url_404` →
+  escalate branch (asset_facts.backing=has_asset resolved correctly through the object
+  flatten); 2 `image_source_unsatisfiable` → mappable/hero → filed needs_imagery, and item_key
+  DEDUP capped both runs at ONE filed item (`from_unsatisfiable:` key is domain+source-scoped).
+  **But their premises had expired 3 minutes earlier** (this session's own deploys) — so: the
+  1 filed generation request cancelled with reason; the 3 spurious escalations cancelled with
+  reason; the remaining 15 stale unsatisfiable items closed `cancelled` with the evidence
+  inline (site_assets.hero resolves; the 21:46Z discovery run did not re-file the class).
+  ⚠ **Lesson for the fleet's ~73: route findings only after a fresh discovery pass on that
+  site — a pre-fix finding routed post-fix files noise and (dedup-capped) spend.** Fleet
+  assignment deliberately NOT done; recommend per-site discovery-then-route.
+- **One-shot design discovery fired 21:46:17Z, COMPLETED in 6s, and the negative result is
+  the proof:** zero re-filings of needs_hero_image / needs_logo / needs_brand_head_assets /
+  image_url_404. It filed forward work only: ~10 `needs_imagery:page:tool-*:content_hero_*`
+  (page-scope tool heroes — the CONSUMABLE class, page-plan joins exist), `stale_chrome`
+  rerender, `deactivated_head`, tool evaluations, and `undeployed_asset:e766370e` (nothing
+  references logo.png yet — redeploy is a harmless same-bytes write). **Expect ~10 paid
+  tool-page hero generations to flow via triage in the coming hours — cancel them if unwanted.**
+  Row disabled after firing (`enabled=f`), matching the rh/quality precedent.
+- **Copy live:** homepage subheadline now ends "It's all free, and there's nothing to sign up
+  for." (section_edit → section-editor, same pass; verified on the served page).
+- Deferred logo-generation item `needs_imagery:site:-:logo` cancelled (owner prefers the
+  original; executed).
+- Still open on this lane: header shows the text wordmark, not the roundel `<img>` (chrome
+  work, parked behind the thinning bug — `stale_chrome` item now detected may move it);
+  the 30 stale titles; card icons (parked, 114-class, needs a component-field change);
+  fleet router assignment (above); fleet design-rotation re-enable (owner cost call).
