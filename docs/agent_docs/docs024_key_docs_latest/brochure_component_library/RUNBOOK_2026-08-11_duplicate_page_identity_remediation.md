@@ -176,3 +176,44 @@ use that, not `link_registry`, before claiming a page is unlinked.
 Until a redirect mechanism exists, the honest options per pair are (a) accept the 404,
 (b) keep the loser published and de-duplicate by other means, or (c) build a redirect
 capability first. Nothing in this runbook can make (a) safe by writing a row.
+
+---
+
+## ⚠ AMENDMENT 2026-08-14 (evening) — two corrections to steps 4 and 5, from executing pair 5
+
+**1. "Cancel open work items" (step 4) must use `workItemClosedStatuses`, not
+`workItemTerminalStatuses`.** The estate keeps both lists side by side and they differ on
+purpose (`platform/orchestration/actions/work_items_common.go:40-70`):
+
+```
+terminal (dedup / ON CONFLICT):  complete verified rejected wont_fix cancelled failed unresolved
+closed   (retraction):           complete verified rejected wont_fix cancelled
+```
+
+`unresolved` and `failed` are absent from the closed set by **owner ruling RFC_010, 2026-08-02**
+— *"`unresolved` is OPEN"* — because they mean "we gave up" and "the handler errored", not "this
+stopped being a problem". **Three of pair 5's nine open items were `unresolved`.** Reaching for
+the terminal list, whose name is the one that sounds right, silently skips them and the step
+reports done. Predicate to use:
+
+```sql
+AND status NOT IN ('complete','verified','rejected','wont_fix','cancelled')
+```
+
+**2. [MEASURED 2026-08-14] Step 4 is NOT durable. Step 5 is what stops the queue.** The fleet
+improvement sweep files **one `page_rerender` per ACTIVE page** on the sites it passes over —
+31 on robot-hands at 15:23 on 08-14, and that site took rerender waves on 08-11 (×4), 08-12,
+08-13 and 08-14. So a cancellation done hours before the archive is undone by the next wave.
+
+The population claim has a control rather than being an inference: robot-hands holds **11
+archived pages**; the 15:23 wave targeted **30 active + exactly 1 archived**, and that one was
+the pair-5 loser, which was still `active` when the wave was filed. **The other 10 archived
+pages received nothing.** Archiving therefore removes a page from the wave's population.
+
+Consequences for the procedure: **do not leave a gap between steps 4 and 5** — run them in one
+transaction, as `SQL_2026-08-14_215_o2_pair5_payload_calculator.sql` does — and if you archive
+late, re-check for a fresh item before dispatching the retraction.
+
+**3. Step 4 must be site-scoped** (already recorded in the 215 handoff §11, repeated here
+because this is the file the executor reads): page names are not unique fleet-wide, and an
+unscoped `spec->>'page_name'` predicate matched 29 items across four sites in rehearsal.

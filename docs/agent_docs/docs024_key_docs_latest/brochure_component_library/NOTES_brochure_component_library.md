@@ -6414,3 +6414,100 @@ three blockers to two, free.** Do 3 before 4.
 `finetuning.uk` has **no `site_plans` row at all** — the second site in this lane found that
 way, after ai-agent-orchestration.com. Its pair-2 execution stays held on `bugs_open/204`
 regardless.
+
+---
+
+## 2026-08-14 (evening) — PAIR 5 EXECUTED through step 5. Steps 3+4+5 landed in one transaction; step 6 is blocked on a permission, not on a finding.
+
+First O2 pair to get past step 5 cleanly. Pair 1 stalled at step 6 on a refusal it *earned*
+(three live referrers); pair 5 has none, and it reached step 6 with the row archived, the plan
+edited and the queue drained. What stopped it is that **this session cannot dispatch the
+retraction** — the Kafka publish is refused by the harness permission classifier. That is an
+environment fact, not a platform finding, and the owner can run the one command.
+
+### The census was re-run before mutating, and it carried its own positive control
+
+§14's read-only reproduction of `retract_page_graph.go`'s three inbound queries was re-run over
+**all three robot-hands losers at once** rather than trusting yesterday's table. Result, exactly
+reproducing §14:
+
+| loser | body | chrome | nav |
+|---|---|---|---|
+| `gripper-payload-calculator` (pair 5) | 0 | 0 | 0 |
+| `matchmatrix` (pair 6) | 2 (`learning-center`, `selection-guide`, both `info-card-grid`) | 2 (`header`, `footer`) | 1 (`4e327ef0`, "MatchMatrix") |
+| `gripper-cycle-time-estimator` (pair 7) | 0 | 0 | 0 |
+
+**Pair 6's five rows are the control and they are the reason pairs 5 and 7's zeros are worth
+anything.** Same query, same site, same run: it can match here. Both shared predicates were
+re-read at source rather than taken from the LANDMINES quote —
+`linkablePageStatusPredicate` (`prepare_link_context_action.go:54`) and
+`PageHasShippedPredicateFor` (`datahelpers/links.go:277-295`). Query kept at
+`scratchpad/rh_inbound_census.sql`; it is read-only and re-runnable.
+
+### What was executed — `SQL_2026-08-14_215_o2_pair5_payload_calculator.sql`
+
+One transaction, `DO`/`RAISE` asserts (not SELECTs — `ON_ERROR_STOP` ignores a non-empty
+result, so a SELECT block cannot stop a COMMIT):
+
+- **step 3, plan surgery** — 1 `site_plan_pages` row + 3 `site_plan_sections` rows deleted from
+  the current plan `7a40a0f9`. **Mandatory here**: the plan named *both* sides, so archiving
+  alone re-arms the refile chain. The exact `INSERT`s to put them back are in the file header,
+  captured from the live rows immediately before the delete.
+- **step 4, work items** — **9 cancelled**, site-scoped, `handled_by=brochure_215_o2_thread`,
+  reason in `resolution_path` (matching pair 1's convention, which I read off the row rather
+  than guessing).
+- **step 5, archive** — `active` → `archived`. Survivor `tool-gripper-payload-calculator`
+  asserted still `active` inside the transaction, and asserted still in the plan.
+
+### The one that would have been wrong: "open" is NOT `workItemTerminalStatuses`
+
+Step 4 says "cancel open work items". This estate has **two lists and they differ on purpose**
+(`work_items_common.go:40-70`):
+
+```
+terminal (dedup / ON CONFLICT):  complete verified rejected wont_fix cancelled failed unresolved
+closed   (retraction):           complete verified rejected wont_fix cancelled
+```
+
+`unresolved` and `failed` are **absent from the closed set deliberately** — owner ruling
+RFC_010, 2026-08-02, *"Decision 2: `unresolved` is OPEN"*. Three of the nine items were
+`unresolved` `needs_internal_links`. Had I reached for the terminal list — the one whose name
+sounds like the one you want — I would have left a third of them open and reported the step
+done. **The name of the list is not the definition of the list.**
+
+### [MEASURED] A whole-site rerender wave re-queues at every ACTIVE page — so step 4 is not durable, and step 5 is what actually stops the queue
+
+The fleet improvement sweep ran across the estate this afternoon (cookly 14:15 → loancalculator
+→ gamesdesign → oufe → **robot-hands 15:17–15:23** → webdesign.uk → gaswholesalers →
+webdesign.co.uk → finetuning 16:20). Its robot-hands pass queued **31 `page_rerender` items —
+one per active page**, two hours before I touched anything, which is why the loser had a
+brand-new item in its list.
+
+The population question has a real control, not an inference. The site holds **11 archived
+pages**. The 15:23 wave targeted **30 active + exactly 1 archived** — and that 1 is my loser,
+which was still active when the wave was filed. **The other 10 archived pages got nothing.**
+
+- So a cancellation performed *before* the archive has a shelf life of hours: robot-hands took
+  rerender waves on 08-11 (×4), 08-12, 08-13 and 08-14.
+- And **archiving is what removes a page from the wave's population** — which makes step 5, not
+  step 4, the durable half. Step 4 is only about items already in flight.
+- Practical consequence for the remaining pairs: **do not leave a gap between step 4 and step
+  5**, and expect a fresh item if you archive late.
+
+### Counters, with the demand control
+
+`ARCHIVED_PAGE_%` in `agent_error_log`: **still 0**, `agent_error_log` took **1,003 rows in
+24h**, so the instrument is live and the zero is want of demand — unchanged from §14, and now
+slightly *less* likely to move, because archiving the loser removed it from the sweep's rerender
+population and I cancelled the two items it already had. `266`'s behavioural proof will not come
+from this pair.
+
+### State left behind — safe, visitor-invisible, not finished
+
+`gripper-payload-calculator` is `archived` and **still serving 200 (23,015 b)**; survivor 200
+(34,157 b); 404 control 2,886 b. Nothing links to it on any of the three surfaces the platform
+checks, and it is out of the nav (it never had a row — `in_header=false, in_footer=false` in the
+plan row, consistent with the nav census's zero). So no visitor sees a dead link; the page is
+simply an orphan file that has not been deleted yet. This is the same *shape* as pair 1's
+resting state and a milder case of it — pair 1's is linked from three live surfaces, this one
+from none. Revert is in the SQL file header.

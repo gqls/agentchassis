@@ -744,3 +744,27 @@ while doing this" above** — including that item's own correction:
   is not durable against **four** producers, so remediating a twin pair by archiving one side
   will be undone. `266` is the blocker to fix; `215`'s own remediation should not assume
   archiving holds until it is.
+
+---
+
+## 2026-08-14 (evening) — O2 remediation: pair 5 executed to step 5, one dispatch owed
+
+Second of the seven pairs to be worked, and the first to clear step 5 cleanly. Full account and
+the owed command: `docs024_key_docs_latest/brochure_component_library/HANDOFF_2026-08-12_215_quiet_mode_continue_here.md` §15.
+
+- **robot-hands.com `gripper-payload-calculator`** (`48d52965…`) — owner ruling 2026-08-13, keep
+  `tool-gripper-payload-calculator`. Steps 3 (plan surgery: 1 + 3 rows), 4 (9 work items
+  cancelled) and 5 (archived) landed in one asserted transaction; the survivor was asserted
+  `active` and in-plan inside it. **Step 6 (retraction) not run — the harness permission
+  classifier refuses the Kafka publish. Not a platform refusal.**
+- **The inbound census was re-run before mutating and carries its own positive control**: same
+  query, same site, same run — pair 5 zero, pair 7 zero, **pair 6 four editorial + one nav**.
+  Reproduces §14's read-only table exactly.
+- **Two procedural corrections went into the runbook** (its 2026-08-14 evening amendment):
+  "open" work items means `workItemClosedStatuses`, not `workItemTerminalStatuses` — three of
+  the nine were `unresolved`, which RFC_010 rules OPEN; and step 4 is not durable on its own,
+  because the fleet sweep re-queues a rerender per **active** page (31 on this site today), while
+  an **archived** page is excluded (11 archived on-site, 10 of them untouched by the wave).
+- **This pair will not supply `266`'s behavioural proof.** Archiving removed the page from the
+  rerender population and its two queued items were cancelled, so no producer is now aimed at it.
+  `ARCHIVED_PAGE_%` remains 0 with a live instrument (1,003 `agent_error_log` rows in 24h).

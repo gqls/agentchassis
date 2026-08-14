@@ -2781,3 +2781,50 @@ natural next one to do. The catch is that fundamentally.ai's execution belongs t
 workstream on the same site, so it should go through them rather than me doing it behind their
 back. The robot-hands ones are clean too but need their site plan edited first, which is a real
 step and not a formality.
+
+---
+
+**2026-08-14, evening.** I did one of the robot-hands pairs today — the gripper payload
+calculator, the one you said keep the `tool-` version of. It's nearly finished, and it's the
+first of the seven to get this far.
+
+**What "nearly" means.** There are eight steps per pair. I did steps three, four and five: took
+the old page out of the site's plan so the machinery can't re-create it, cancelled the nine
+queued jobs that were still pointing at it, and marked the row retired. All three went in as a
+single all-or-nothing database change with checks built in, so if anything had looked wrong it
+would have undone itself rather than half-finished. The checks all passed. The version we're
+keeping was verified untouched in the same breath.
+
+**The last step needs you, and it's one command.** The step that actually deletes the old file
+from the site is a message to the cluster, and my permissions here won't send it — that's my
+sandbox, not the platform objecting. The command is written out in the handoff. It should
+succeed: unlike the first pair, nothing anywhere on the site links to this page, so there's
+nothing for the platform to refuse over. I checked that with the platform's own test rather than
+my own, and I ran it against the other two robot-hands pages at the same time so I could see it
+finding real links elsewhere — it found five on the MatchMatrix one. A test that can't fail
+isn't a test, and that's what the fleet-wide empty table I told you about last time turned out
+to be.
+
+**If nobody runs it, nothing is broken.** The old page is retired in the database and still
+visible on the site — an orphan file sitting there. No menu points at it and no article links to
+it, so no visitor hits a dead end. It's a milder version of where pair one is resting.
+
+**Two things I learned that will make the rest go better.** The first is a near miss. "Cancel the
+open jobs" sounds obvious, but this system keeps two different lists of what counts as finished,
+and they disagree on purpose — a ruling you made in August says a job marked "unresolved" is
+still open, because giving up isn't the same as fixing it. Three of my nine were exactly that. If
+I'd used the list whose name sounds right, I'd have left a third of them running and told you the
+step was done.
+
+The second is about timing. There's a sweep that goes round the whole estate queueing a refresh
+for every page — it came through robot-hands two hours before I started and queued thirty-one
+jobs, one per live page. So cancelling a page's jobs only holds for a few hours. But retiring the
+page takes it off that list entirely: the site has eleven retired pages and the sweep skipped all
+of them. So the retirement is the thing that makes it stick, not the cancelling — worth knowing
+for the remaining pairs, and it means not leaving a gap between those two steps.
+
+**What's next.** The cycle-time estimator is the cheapest of the rest mechanically, but it's the
+one where you asked for the two pages' text to be merged first, and the framework has to write
+that, not me. MatchMatrix is the expensive one — four links to repair including both the site
+header and footer. The two fundamentally.ai ones still sit with the other workstream on that
+site.

@@ -602,3 +602,83 @@ so **retract pair 3 before pair 4 and pair 4 falls to two blockers, free.**
   the action's stated false-negative direction (`retract_page_graph.go:193-202`).
 - A zero-blocker pair is **not** a zero-work pair — see step 3 and the pair-7 merge above.
 - `finetuning.uk` has **no `site_plans` row at all**, the second such site this lane has found.
+
+---
+
+# 15. 2026-08-14 (evening) — PAIR 5 IS EXECUTED TO STEP 5. One command is owed, and this session cannot run it.
+
+**Read this instead of §14's "DO THIS NEXT" item 2.** §14 is otherwise current and its census
+table is confirmed — I re-ran it before mutating and it reproduced exactly.
+
+## Where pair 5 is now
+
+| step | action | result |
+|---|---|---|
+| 3 | remove the loser from the current plan | **DONE** — 1 `site_plan_pages` + 3 `site_plan_sections` rows deleted from plan `7a40a0f9`. Mandatory: the plan named **both** sides |
+| 4 | cancel the loser's open work items | **DONE** — **9** cancelled, site-scoped, `handled_by=brochure_215_o2_thread`, reason in `resolution_path` |
+| 5 | archive the loser | **DONE** — `gripper-payload-calculator` (`48d52965…`) `active` → `archived`. Survivor `tool-gripper-payload-calculator` (`40b87756…`) asserted still `active` **and still in the plan**, inside the same transaction |
+| 6 | retract the deployed file | **NOT RUN — blocked by the harness permission classifier**, which refuses the Kafka publish in `216_TRIGGER_page_retraction.sh`. Not a platform refusal, not a finding |
+| 7 | redirect | **does not exist** (RUNBOOK correction) |
+| 8 | verify at the artefact | **not reached** |
+
+All three mutations were one transaction with `DO`/`RAISE` assertions — file
+`SQL_2026-08-14_215_o2_pair5_payload_calculator.sql` in this directory, which also carries the
+**exact revert `INSERT`s**, captured from the live rows immediately before the delete.
+
+## ⚠ THE ONE COMMAND OWED. It is expected to SUCCEED, unlike pair 1's.
+
+```bash
+SITE_ID=00ff3af5-dad8-4770-9f70-3edc267a3c92 \
+  PAGE_IDS='["48d52965-4e63-4ee6-9215-1bb578ea06b6"]' \
+  ./docs/agent_docs/sql_for_agents/216_TRIGGER_page_retraction.sh
+```
+
+Then step 8, with the controls: loser must 404 (**a 404 here is 2,886 b — a `000` is not a
+`404`, retry it**), survivor must stay 200 at 34,157 b, and a collateral page
+(`/how-it-works.html`, 29,870 b) must stay 200. Re-check after the next news refresh
+(~08:0x/~20:0x) — that second check is the one that tests anything (`bugs_closed/098`).
+
+**Why it should not refuse:** the loser has **zero** editorial referrers and **zero** active nav
+rows, from the platform's own three census queries re-run read-only over all three robot-hands
+losers in one pass. Pair 6 returned **4 editorial + 1 nav** in the same run — that non-zero is
+the positive control that makes pair 5's zero mean something.
+
+## State if nobody runs it — safe, and milder than pair 1's
+
+`gripper-payload-calculator` is `archived` and **still serving 200**. Nothing links to it on any
+surface the platform checks and it was never in the nav, so **no visitor sees a dead link** — it
+is an orphan file awaiting deletion, not a broken page. Pair 1's resting state is the same shape
+but worse (three live referrers). Revert is in the SQL header if you want the pre-execution
+state back exactly.
+
+## Two things learned that change how the remaining pairs should be run
+
+1. **"Open work items" is `workItemClosedStatuses`, NOT `workItemTerminalStatuses`.** The two
+   lists differ deliberately (`work_items_common.go:40-70`): `unresolved` and `failed` are
+   **OPEN** by owner ruling RFC_010 (2026-08-02). **Three of pair 5's nine items were
+   `unresolved`** — the terminal list, which is the one whose name sounds right, would have
+   silently skipped them.
+2. **[MEASURED] Step 4 is not durable; step 5 is.** The fleet improvement sweep queues **one
+   `page_rerender` per ACTIVE page** — 31 on robot-hands at 15:23 today, two hours before I
+   started, which is why the loser had a fresh item. Control: the site has **11 archived pages**
+   and the wave hit **30 active + only the one I archived mid-flight**; the other 10 got
+   nothing. So **archiving removes a page from the wave's population** — do not leave a gap
+   between steps 4 and 5, and expect a new item if you archive late.
+
+## DO THIS NEXT
+
+1. **Run the retraction above, then step 8.** It is the whole of what pair 5 still owes.
+2. **Pair 7 (robot-hands `gripper-cycle-time-estimator`) is next on cost** — 0 editorial
+   referrers, but its real work is the **~1,700-word content merge**, which the **framework
+   writes, not a session** (CLAUDE.md 2026-08-06). Plan surgery required, same shape as pair 5's;
+   both sides are in plan `7a40a0f9` (re-verified today).
+3. **Pair 6 is the most expensive** — 4 editorial referrers including **both** chrome slots, plus
+   plan surgery. Chrome is a stored artefact: read `bugs_open/117` first.
+4. **Pairs 3+4 (fundamentallyai) remain routed to its sweep front**, told in
+   `HANDOFF_2026-08-09_sweep_front_continue_here.md`. Unchanged.
+5. **Pair 2 stays held on `bugs_open/204`.** Pair 1 unchanged — still blocked on its two
+   editorial repairs.
+6. **`ARCHIVED_PAGE_%` counters are still 0** with a live instrument (1,003 `agent_error_log`
+   rows in 24h). Pair 5 will **not** supply `266`'s behavioural proof: archiving removed the page
+   from the rerender wave and its two queued items were cancelled. That proof still needs a
+   producer to dispatch at an archived page of its own accord.
