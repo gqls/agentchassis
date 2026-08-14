@@ -2395,3 +2395,45 @@ verbatim row) + `load_lmc.py --restore mortgages-simple` + the BEFORE served cap
 legs through the framework. Track B2 is proven end to end on one page; 21 remain
 (damage-checker, fact-finder, portfolio last), each needing its own template + field
 extraction plus the same five gates.
+
+### 2026-08-14 (morning, contributed by the Track-A/floors session) — ⛔ standard-calc SERVES PRE-224 ARITHMETIC; diagnosis for the trackb2/re-architecture session
+
+**Fresh-eyes oracle run on v1.0.1297: `PASS 164 FAIL 6`** (controls fired and correct
+in the same session: parse OK; mutation → 4 FAIL / 0 passed). All six failures are
+**one tool: `loans/standard-calc.html`** — the 0% APR boundary (shows £143.47/mo
+where P/n = £166.67) and the two-routes test (*same inputs give different outputs by
+different routes*). That is the `bugs_open/224` stale-answer class, live again.
+
+**The mechanism, measured — it is NOT the stale pin, and it is a one-page fix:**
+
+- The tool row now points at a per-page component (`loans-standard-calc`,
+  2,096 b template) — the trackb2 re-architecture ("machinery in html_template,
+  copy as input_schema fields"). Neither row nor template carries a zero branch.
+- The live **`/assets/js/calculators.js` HAS the fixed standard-calc logic**
+  (4 `standard` mentions, 4 zero-branch markers, 4,495 b).
+- **But the served page never loads it**: its only external script is `site.js`,
+  and it still carries a 1,751 b STALE inline script. The fixed code sits unloaded
+  in the external file while the pre-224 copy answers.
+
+So the repair is: give the `loans-standard-calc` template the
+`<script src="/assets/js/calculators.js">` tag and remove the stale inline script
+(or inline the fixed logic — one or the other, not both), rerender, then
+`oracle.py --tools standard` **with the controls in the same session**. Note the
+rerender has already **committed the regressed bytes to the sites repo** (served ==
+`origin/master`), so the repo heals only when the fixed page rerenders — and any
+byte-comparison against `origin/master` currently validates the WRONG bytes for
+this page. Post-224 reference: `e69b5b275`.
+
+**Also measured, flagged not judged: 16 of 18 converted tool rows are UNLOCKED**
+(only `consolidation` 08-10 and `repayment` 08-12 are locked). If that is the
+re-architecture's design — machinery in the component template, so the row is
+regenerable — then the protection model has moved and the Track B briefs' "tool row
+born locked" language is stale and should be superseded *in writing*. If it is not
+deliberate, it is 16 exposures. **The owning session should say which.** The
+`page_rerender_…trackb2-b1fix` item (16:37 08-13, complete) suggests a repair was
+already attempted and did not take — worth knowing why before repeating it.
+
+*(Checked before writing: session `8185e336…` was active minutes ago on exactly this
+architecture, so this is a contribution into the lane, not a competing fix. Oracle
+attribution, provenance greps and the census are all re-runnable from the commands
+above.)*
