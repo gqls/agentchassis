@@ -4079,3 +4079,72 @@ gating. Read every objection rather than assuming it repeated R1's — it didn't
 **Resubmitted, round 3** (`RESUBMIT_CORR=7f0c1535…`, run `d0b465c1…`), 6 edits (the 4
 original Go edits + both migrations), plan bytes 17,851. Verdict not yet read as of this
 entry.
+
+## 2026-08-14 (continued) — round 3 REVISE (guardian, both HIGH answered clean), round 4 REVISE (bug_historian, an architecture question — stopped resubmitting), and the fix is now PROVEN LIVE at the artefact
+
+**Round 3** completed `complete_revise`. Decided by `guardian`, not `editquality` (its R1/R2
+concerns didn't recur) — two HIGH: (1) whether `build-dispatch-loop`'s live `process_item`
+step actually runs under `sub_workflow` (migration 402's target) or the landmined `substeps`
+shape, where only one nesting executes and the other ships silently nothing; (2) whether
+either target agent type is one of four known to carry two active rows (version ambiguity,
+an unversioned `UPDATE` could patch the unloaded one). **Both checked directly, both clean**:
+`build-dispatch-loop`'s `process_item.config` has `substeps=false`/`sub_workflow=true`
+(only one shape present), and a fresh fleet-wide census
+(`default_config->'workflow' @? '$.** ? (@.substeps != null)'`) still returns **0**, matching
+the landmine's own 2026-08-08 measurement, re-verified rather than assumed still true; both
+`image-build-handler` and `build-dispatch-loop` show exactly one active row each (version
+1). A MEDIUM (`WasDefaulted` shared-plumbing concern) answered by grep: exactly one caller
+fleet-wide (`deploy_image_asset_action.go:175`), no other reader exists.
+
+**Resubmitted round 4** (`RESUBMIT_CORR=7f0c1535…`). Mid-resubmission, a re-run of the
+trigger script to peek at truncated output was killed by `timeout 5` — checked the
+correlation afterward and confirmed only ONE new orchestration existed (no duplicate landed;
+`kubectl run --rm`'s remote pod apparently didn't get far enough to publish before the local
+process died). Deleted the resulting stray `kcat-cgate-*` pod by hand. **Lesson: don't
+`timeout` a submission script to see its output — let it finish.**
+
+**Round 4 completed `complete_revise`, decided by `bug_historian`.** Different in kind from
+R1-R3: an **architecture-scope** question — "should `ExtractActionInputs`'s fallback
+strategies ever run for a field with no explicit `input_fields` entry, full stop?" — not a
+defect in the specific edits. Its own text: "Not a veto… should be flagged to a human
+independent of this round's disposition." Ran its two proposed checks anyway, both clean: a
+broad `ILIKE '%asset-deployer%'` match on `render-audit-agent` turned out to be a
+**false positive** — a DESCRIPTION string mentioning "undeployed_asset/asset-deployer" as a
+downstream consequence, not an actual dispatch edge (confirmed: zero `config.agent_type`
+values anywhere in its workflow); the real fleet-wide scan for literal `agent_type =
+'asset-deployer'` finds only `image-build-handler`'s two steps (already covered) — no third
+caller exists. `asset-deployer`'s own `input_contract` doesn't list `asset_id` at all
+(neither required nor optional), so edit 5's "feeds a required field" framing didn't hold as
+literally stated either, though the general point about optional-mapping silent no-ops
+remains fair.
+
+**Stopped resubmitting here, on purpose.** Four rounds, the last one an explicitly
+architecture-shaped objection — this is precisely the CLAUDE.md council-gate guidance's
+"veto on scope is not answered by resubmitting with better measurements" case. Routing it to
+a human/RFC rather than a round 5.
+
+**Then, separately from the council thread: the fleet rolled while this was in flight.**
+Confirmed `v1.0.1298`, chassis + browser-runner-adapter on the same commit
+(`bc39e7bf5…`, cross-checked via binary probe with positive+negative controls after
+chassis's own provenance line had already scrolled out — busy-service rotation, not a
+`--since-time` issue), and `930ace3bd` (this bug's Go fix) is `git merge-base
+--is-ancestor` of it. **The code fix is live.**
+
+**Proved it, not just trusted it.** The two named symptom pages were still 404 (fixing the
+code doesn't retroactively repair already-committed placeholder files). Found the existing
+`unresolved` `undeployed_asset` item for gaswholesalers.com's logo
+(`edff6d42-9c5d-4777-af27-be7c6d558f74`, created 2026-08-11, never triaged), promoted it to
+`triaged` by hand, and watched: claimed by `build-dispatch-loop` in 19s, complete in 53s,
+`deploy_result.file_path = "/assets/images/logo.png"`,
+`commit_message = "Deploy logo image for gaswholesalers.com"` — the correct extension AND
+purpose name, both of which this exact asset's two prior attempts (pre-fix) got wrong.
+**Verified at the served artefact, not the status: `curl
+https://gaswholesalers.com/assets/images/logo.png` → HTTP 200, 42,211 bytes.** The symptom
+at the top of this bug file — 404, four months — is resolved. `mortgagecalculator.co.uk`'s
+hero was NOT re-tested this session; same mechanism, reasonable to expect the same result,
+stated as an expectation not a re-verified fact.
+
+**Handed off** — `HANDOFF_2026-08-14_continue_here.md`, cut deliberately rather than
+continuing, per the owner's own signal about session length. Three things left: route R4's
+architecture question to a human/RFC; re-test the mortgagecalculator hero the same way;
+design (don't improvise) the backlog-drain job for the ~146 remaining placeholder rows.

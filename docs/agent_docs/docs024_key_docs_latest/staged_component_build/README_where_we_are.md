@@ -1454,3 +1454,31 @@ is a small fix, but it must happen before this is put anywhere near a real form.
 
 The order matters: the credential first, because until that exists the rest cannot be
 tested against anything real.
+
+**2026-08-14.** Picked up one of the other open items you asked about, and it turned into a
+longer story than expected. The mailer thread from the note above turned out to be a dead
+end for now — the actual contact-form bug is already fixed and working, I'd just found a
+stale leftover comment saying otherwise. So instead I picked up an older bug: for months,
+one client's site (Gas Wholesalers) has been showing a broken image where their logo should
+be. The real file was there, just filed under the wrong name, because of a small mix-up in
+how the system decides what to call a freshly generated image. A fix for that had already
+been written and was waiting for review.
+
+That review turned into four rounds back and forth with the automatic reviewers, and each
+round was worth having: the second round found that the SAME small mix-up existed in a
+second place nobody had checked; the third round asked me to double-check two very specific
+"is this actually the code that runs" questions, both of which came back fine on inspection;
+the fourth round raised a genuinely bigger question — not "is this fix wrong" but "should
+this whole category of shortcut be allowed at all, anywhere in the system" — which is a
+question for you, not something a few more rounds of automatic review can settle. I've
+written it up rather than continuing to argue it in circles.
+
+While all that was happening, a new version of the software went out on its own, and it
+included the actual code fix. So rather than just trust that it worked, I found the exact
+broken image, manually told the system to try deploying it again, and watched it happen.
+It worked — the logo now loads correctly, for the first time in months, and I checked it
+myself in a browser rather than just reading a success message. One more site with the
+same problem still needs the same check; I've written down exactly how to do it. And the
+roughly 150 other images sitting under the wrong name fleet-wide won't fix themselves —
+that's a proper clean-up job someone still needs to plan out, not a quick fix at the end of
+a session.

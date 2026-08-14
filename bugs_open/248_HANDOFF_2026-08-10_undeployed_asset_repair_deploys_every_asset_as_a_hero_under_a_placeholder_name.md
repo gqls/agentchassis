@@ -477,3 +477,36 @@ precedent (`migration 380`, `bugs_open/231`) that fixed this identical nested-sp
 Resubmitted round 3, `RESUBMIT_CORR=7f0c1535-25cb-4645-adba-f7429e357a79`, run `d0b465c1…`,
 6 edits. Full reasoning and the retired-landmine/wrong-branch corrections: NOTES,
 `## 2026-08-14`.
+
+## CONTRIBUTION 2026-08-14 (continued) — rounds 3 and 4 both REVISE; stopped resubmitting at an architecture-scope objection; THE FIX IS NOW PROVEN LIVE AT THE ARTEFACT
+
+Round 3 (`guardian`): two HIGH, both checked directly and both clean —
+`build-dispatch-loop`'s live config confirmed `sub_workflow` (not the landmined `substeps`)
+is the shape that actually runs, and neither target agent type carries a second, higher
+version row. Round 4 (`bug_historian`): a **different kind** of objection —
+architecture-scope ("should the shared fallback strategy ever run for an unmapped field, at
+all?"), explicitly flagged by the reviewer itself as something for a human, not another
+round. Its two proposed checks came back clean too (no third live caller of
+`asset-deployer`; its `input_contract` doesn't list `asset_id` at all). **Stopped
+resubmitting here** — a scope objection isn't answered by more evidence on the same
+submission (CLAUDE.md's own council-gate guidance). Routing it to architecture review is
+owed, not done.
+
+**Then the fleet rolled independently, and this bug's Go fix (`930ace3bd`) is now confirmed
+live** (`v1.0.1298`, `git merge-base --is-ancestor` of the running build). Proved it rather
+than trusting the commit message: promoted the standing `unresolved` repair item for
+gaswholesalers.com's logo (`edff6d42…`, never previously triaged) to `triaged` by hand and
+watched it run. **It deployed `/assets/images/logo.png` with commit message "Deploy logo
+image for gaswholesalers.com"** — correct extension, correct purpose, both wrong on this
+exact asset's two prior (pre-fix) attempts. **Verified at the served page, not the work
+item's status: `curl https://gaswholesalers.com/assets/images/logo.png` → HTTP 200, 42,211
+bytes.** The symptom this file opens with — 404, four months — is resolved.
+
+**`mortgagecalculator.co.uk/assets/images/hero.jpg` was not re-tested** — same mechanism,
+different site; say "expected to work" not "verified" until someone actually triggers and
+checks it. **The ~146-row backlog will not drain on its own** — this proof is one asset,
+by hand; draining the rest is still the separate, undesigned job this file has named since
+2026-08-10.
+
+Full round-by-round detail: NOTES, `## 2026-08-14 (continued)`. Cold-start for whoever picks
+this up next: `staged_component_build/HANDOFF_2026-08-14_continue_here.md`.
