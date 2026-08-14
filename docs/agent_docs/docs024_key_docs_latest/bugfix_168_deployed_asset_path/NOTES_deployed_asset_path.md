@@ -3726,3 +3726,98 @@ this lane does not own. The dispatch mirrors `cmd/scheduler/main.go` `fireTrigge
    deterministic. It is also a second, independent reason not to have reached for the section editor.
 2. **No platform code changed**, so there is no council submission for this: the gate's scope is
    `platform/`, `internal/`, `pkg/`. What changed is two data rows, one page, and the docs.
+
+---
+
+## 2026-08-14 evening — round 7's last `editquality` LOW, discharged by mutation
+
+Picked up from `HANDOFF_2026-08-14b_continue_here.md` §3 item 3, the one open item that the LLM
+spend cap (down until 2026-09-01) cannot block, because it is pure Go.
+
+**Visit measurement first, re-run rather than copied forward:**
+`refused_at_a_gate 0 | passed_all_gates 1 | uninstrumented 0 | vintage_no_arm 9 | total 30`, arms
+`scan_still_trips 17 · page_absent 2 · evidence_base_absent 1 · resolved_all_gates_passed 1`,
+daily anchor `last_triggered_at` still `2026-08-14 08:45:04Z`. Matches 14b exactly; nothing moved.
+Fleet still `v1.0.1299` at the pods.
+
+### The debt
+
+Council round 7 (`b67eb26a`) APPROVED with one LOW from `editquality`, and a second seat raised the
+same point independently: moving `AND pc.locked_at IS NULL` out of the page SQL and into the Go loop
+(2026-08-09) was *documented* as leaving emitted output unchanged, and that was **asserted, never
+demonstrated**. Their words: *"a regression here would silently change which pages get findings
+filed"* — fair, because `ScanDeployedClaims` runs fleet-wide on the discovery rotation.
+
+`check_unverified_claims.go` had **no DB-level test at all** — only its `_stats` sub-file was covered.
+
+### What was built
+
+`check_unverified_claims_lockedskip_test.go`, three tests, sqlmock:
+
+1. **The differential.** Arm A feeds the scan the row set the OLD SQL returned (locked rows
+   withheld); arm B feeds it today's set (locked rows present, skipped in Go). Emitted findings must
+   be `DeepEqual`. Also asserts the locked slot stays out of `ExaminedTextBySlot` and out of
+   `NewestComponentUpdate` — both read by the late-ladder gates, and the fixture makes the locked
+   row the NEWER of the two so a leak is unmissable.
+2. **The deliberate difference, pinned.** A page whose only component is locked was invisible under
+   the old SQL and is now present with `examined=0`. That is the whole point of the move — it is
+   what lets the revalidator answer *"cannot answer"* instead of *"the copy was fixed"*.
+3. **Where each side filters**, asserted on the SQL actually handed to the driver.
+
+**The demand control matters more than any of the assertions.** Two empty finding lists are
+trivially equal, so the test fails loudly if the fixture ever stops producing findings. An
+equivalence proved on nothing is exactly this lane's recurring failure shape.
+
+### The result that was worth the run — M3
+
+Mutations applied to a **clean `git archive HEAD` tree** (never the shared working tree, per the
+08-14 §4 trap: another session's WIP must not be able to colour the result), each from pristine:
+
+| mutation | caught by |
+|---|---|
+| drop the `continue` from the locked branch | tests 1 and 2 |
+| move the skip BELOW the scans (the council's exact fear) | tests 1 and 2 |
+| re-add `AND pc.locked_at IS NULL` to the page SQL | **test 3 only** |
+
+**M3 is the informative one.** Restoring the SQL predicate does **not** change emitted findings — the
+differential tests stay green and only the query-text contract notices. That IS the equivalence the
+council asked to see, arrived at from the opposite direction: the two implementations are
+interchangeable for output, and differ only in whether an all-locked page is visible at all.
+
+Consequence for how test 3 should be read: it is a **contract** test, not a behavioural one. sqlmock
+does not execute predicates, so the behavioural consequence of that filter (locked rows never
+arriving) is modelled by arm A of tests 1 and 2, which feed the loop exactly the rows the old SQL
+returned. Written into the file header so nobody reads test 3 as proving more than it does.
+
+### ⚠ MISSTEP — I drafted a source-scanning test and it would have reported the reverse of the truth
+
+Test 3 was first written to `grep` the source of `check_unverified_claims.go` for
+`AND pc.locked_at IS NULL`. That string **is in the file** — in `ScanDeployedClaims`' own doc
+comment, at the line describing the predicate that was REMOVED. The test would have matched the
+prose and reported "the page query still filters in SQL" on a function that does no such thing.
+
+Caught before it ran, by `LANDMINES.md:8278`'s general form — *any regex over source that keys on a
+language's own delimiters will match the delimiter written in PROSE about the language* — which
+this lane had not filed and did not expect to need for a **test it was writing**, as opposed to a
+check it was reviewing. No new landmine filed: it is an instance of that entry, not a new class.
+The fix was to assert on the SQL handed to the driver via a recording `QueryMatcherFunc`, which is a
+runtime value and cannot contain a comment.
+
+Also corrected before commit: the file header first said the mutation made *arm A* gain a finding.
+It is arm B — arm A never sees the locked row.
+
+### Recorded, not fixed
+
+**Only the page side moved to Go.** The `site_components` query still carries
+`AND sc.locked_at IS NULL`, so locked CHROME rows are still dropped before anything can count them —
+the exact shape the page-side move was made to end. Not fixed here (out of scope, and chrome carries
+zero stat fields fleet-wide as of 2026-07-26), but test 3 now fails if anyone lifts that filter
+without adding the skipped-chrome counter alongside it. Named in the file header too.
+
+Commit `a3eaa5961`, one file, 311 insertions. `go vet` clean, package green, and green against a
+clean `HEAD` tree as well as the working tree, so it depends on nothing uncommitted.
+⚠ `gofmt -l` reports `check_image_url_404.go` — **another session's file, left alone.**
+
+**No council submission:** the gate is scope-eligible (`platform/`) but the fleet's LLM capability is
+capped until 2026-09-01, so a submission would sit unrun. Stated in the commit message rather than
+claimed as reviewed; the advisory `commit-msg` nudge fired as expected and is correct to.

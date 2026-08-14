@@ -30,8 +30,11 @@ uninstrumented 0 | total 30`. Arms: `scan_still_trips 17 · resolved_all_gates_p
 page_absent 2 · evidence_base_absent 1 · <no arm> 9` (the 9 are frozen pre-instrument closures — a
 **vintage** marker, not a gap; the gap check is `arm LIKE 'unreported:%'`).
 
-Queries: `RUNBOOK` § "the measurement this lane owes", § "Where does the ladder STOP?", and the new
-§ "Cleaning a page so the gates can be reached".
+**Re-measured 2026-08-14 evening (not carried forward): unchanged, every figure.** Fleet still
+`v1.0.1299` at the pods; daily anchor still `08:45:04Z`. No sweep has run since the 16:48 manual one.
+
+Queries: `RUNBOOK` § "the measurement this lane owes", § "Where does the ladder STOP?",
+§ "Cleaning a page so the gates can be reached", and the new § "Proving a Go test DISCRIMINATES".
 
 ---
 
@@ -112,8 +115,17 @@ have: `needs_page` on ai-agent-orchestration.com (model-directory) and two on we
 2. `features_open/032` — the shared helper. `arm` is set only by `revalidateUnverifiedClaims`; the
    other four record `unreported:<item_type>`. Lifting arms into them belongs with lifting the
    copy-changed comparison. **Measure before building.**
-3. Round 7's remaining `editquality` LOW: a before/after test for the SQL→Go locked-skip move
-   ("emitted output is unchanged" is asserted, not demonstrated). **Still not done.**
+3. ~~Round 7's remaining `editquality` LOW: a before/after test for the SQL→Go locked-skip move
+   ("emitted output is unchanged" is asserted, not demonstrated).~~ **DONE 2026-08-14 evening,
+   commit `a3eaa5961`** — `check_unverified_claims_lockedskip_test.go`, three tests, and the
+   equivalence is **proven by mutation against a clean `git archive HEAD` tree**, not by a green run.
+   The informative result: re-adding the SQL filter changes **no emitted finding** (only the
+   query-text test notices), which is the council's claim reached from the opposite direction. **This
+   item is CLOSED.** Successor, recorded not fixed: **only the page side moved to Go** —
+   `site_components` still filters locked chrome in SQL, dropping those rows uncounted, which is the
+   shape the page-side move was made to end. The new test fails if anyone lifts that filter without
+   adding a skipped-chrome counter. ⚠ Do not read test 3 as behavioural: **sqlmock does not execute
+   predicates**, so it asserts the query ISSUED, never what a `WHERE` would have filtered.
 4. Leftovers from the 08-11 handoff §3.5: §2.3 pin `ScanDeployedClaims` to its intended callers ·
    §2.4 the invisible backlog · §2.5 Decision 2's dedup half · §2.6 more sweep coverage · §2.7 the
    armed-but-inert cap at `check_image_source_unsatisfiable.go:167`.
@@ -122,7 +134,21 @@ have: `needs_page` on ai-agent-orchestration.com (model-directory) and two on we
 
 ## 4. Traps
 
-**New this session** (the first is in `LANDMINES.md`; the rest are lane-local):
+**New 2026-08-14 evening** (lane-local; the source-scan one is an instance of `LANDMINES.md:8278`,
+not a new class):
+
+- ⚠ **sqlmock does not execute SQL.** A test using it can assert what query was ISSUED, never what a
+  `WHERE` clause would have FILTERED. Model a predicate's behaviour as the ROW SET the driver
+  returns; assert the predicate itself by capturing the query text with a recording
+  `QueryMatcherFunc`. Reading a query-text assertion as behavioural coverage overstates it.
+- ⚠ **Do not source-grep this package to test what its SQL does.** `AND pc.locked_at IS NULL` is in
+  `ScanDeployedClaims`' own doc comment, describing the predicate that was REMOVED — a source scan
+  matches the prose and reports the reverse of the truth. Nearly shipped 2026-08-14.
+- ⚠ **Mutate a clean `git archive HEAD` copy, never the working tree** — another session can commit
+  your broken intermediate, and their WIP can colour your result. And **assert the mutation applied**:
+  a drifted anchor no-ops silently and reads exactly like "the test does not discriminate".
+
+**Earlier this session** (the first is in `LANDMINES.md`; the rest are lane-local):
 
 - ⚠ **The assemble rerender never regenerates `rendered_html` from `content_data`** (§2.3). Cheap
   check before dispatching anything: `grep -c "UPDATE page_components" <the action>.go` — **0 means it

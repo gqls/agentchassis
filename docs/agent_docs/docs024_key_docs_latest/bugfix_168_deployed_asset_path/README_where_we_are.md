@@ -1489,3 +1489,52 @@ deliberately didn't touch the daily schedule itself, so it still runs at its usu
 Incidentally the whole job happened to need no AI at all, which is just as well, because the fleet's
 AI capability went down this afternoon on a monthly spending cap and won't be back until the 1st of
 September unless you raise it. Someone else has written that up properly.
+
+---
+
+**Later the same evening.** Nothing was broken and nothing needed deciding, so I went back and paid
+off the last outstanding criticism from the review panel that approved this work a couple of days
+ago. It's a small thing but it had been sitting on the list for two days and it's the only item left
+that doesn't need the AI fleet, which is still down on the spending cap.
+
+The criticism was this. Back on the 9th I moved a filter — the rule that says "don't audit a bit of
+copy a human has pinned in place" — from the database query into the surrounding code. I wrote at
+the time that this changed nothing about what the audit reports. Two of the reviewers, independently,
+said the same thing back to me: *you have asserted that, you haven't shown it.* They were right, and
+they were right to care, because this audit runs across every site we have, so if I had got it wrong
+the effect would have been to quietly change which pages get flagged — and nobody would have seen a
+failure, just a different set of results.
+
+So I've shown it. The test runs the audit twice over the same page: once given only the copy the old
+database query would have handed it, and once given everything including the pinned copy, which the
+new code is supposed to step over. The two runs have to produce identical findings, character for
+character. They do.
+
+**But a test that passes proves nothing by itself** — that is the trap this whole lane keeps
+relearning. So I deliberately broke the code, three different ways, to check the test would actually
+notice. Two of the three it caught immediately. The third one is the interesting one: I put the old
+database filter back, and the test carried on passing. That is not a hole in the test — it is the
+answer to the reviewers' question, arriving from the other direction. The two versions really are
+interchangeable in terms of what gets reported. The only thing that changes is whether a page whose
+copy is *entirely* pinned shows up at all, and we want it to show up, because that is how the system
+tells "this page is clean" apart from "I wasn't allowed to read this page". Those two look identical
+if you only count findings, and confusing them is how you get a machine confidently telling you a
+page is fine when it never looked at it.
+
+I did all the breaking in a scratch copy rather than in the shared working folder, because several
+of us are working in the same place at once and a half-broken file sitting there for even a minute
+can end up in somebody else's commit.
+
+**One near miss worth recording.** My first version of one test searched the source code for the
+filter's text to check whether it was still there. That would have been wrong in an embarrassing and
+invisible way: the exact phrase it was searching for *is* in the file — in a comment explaining that
+the filter was removed. The test would have found the comment and cheerfully reported the opposite
+of the truth. There's a standing note in our traps file about this exact class of mistake, which is
+what stopped me; I'd only ever thought of it as something that catches other people's code checks,
+not the tests I write myself.
+
+**Left undone, deliberately, and written down so it isn't mistaken for finished.** Only half of that
+old change actually moved. The equivalent filter for headers and footers is still in the database
+query, so pinned copy there is still being dropped without being counted — the very thing the first
+half was fixing. It doesn't bite us today. The test will now fail loudly if anyone changes it without
+also adding the counting, which is the right way round.

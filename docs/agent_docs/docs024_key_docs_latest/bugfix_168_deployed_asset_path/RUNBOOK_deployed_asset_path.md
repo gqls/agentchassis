@@ -483,3 +483,55 @@ SELECT swi.item_type, s.domain, swi.summary FROM site_work_items swi LEFT JOIN s
 WHERE swi.result #>> '{revalidation,at}' LIKE '<YYYY-MM-DDTHH:MM>%'
   AND swi.status='complete' AND swi.completed_at > '<just before your run>';
 ```
+
+---
+
+## Proving a Go test DISCRIMINATES, without mutating the shared tree (added 2026-08-14)
+
+A green test is not evidence. Mutate the code it guards and watch it go red — but **never in the
+working tree**: it is shared, another session can `git add` your broken intermediate at any moment,
+and their WIP can equally colour your result. Mutate a clean copy of `HEAD` instead.
+
+```bash
+SCRATCH=<your scratch dir>/mutation-tree
+rm -rf "$SCRATCH" && mkdir -p "$SCRATCH"
+git archive HEAD | tar -x -C "$SCRATCH"          # clean tree, nobody's WIP
+cp <your new _test.go> "$SCRATCH/<same package path>/"
+cd "$SCRATCH" && go test ./<package>/ -run '<your tests>'   # BASELINE — must be green here too
+```
+
+A baseline green in the scratch tree is itself worth having: it proves your test depends on nothing
+uncommitted. Then apply one mutation at a time, **from pristine each time**, and assert the mutation
+actually applied — a mutation whose anchor string has drifted silently no-ops, the tests stay green,
+and that reads exactly like "the test does not discriminate":
+
+```python
+mutated = fn(PRISTINE)
+if mutated == PRISTINE:
+    print("MUTATION DID NOT APPLY — anchor missing, this run proves nothing")   # never silent
+```
+
+Worked script: `<scratch>/mutate.py` from 2026-08-14 (three mutations against
+`check_unverified_claims.go`). Report **which** test caught each mutation, not just that something
+failed — the division of labour is the finding. Parsing `--- FAIL: TestX` for the name: the field is
+`line.split()[2]`, because the line begins `---`.
+
+⚠ **A mutation caught by no test is a real result, not necessarily a broken test.** Re-adding the SQL
+locked filter was caught only by the query-text test, and that is because emitted findings genuinely
+do not change — which was the very equivalence being demonstrated. Read a surviving mutation before
+calling it a gap.
+
+⚠ **sqlmock does not execute SQL.** A test using it can assert what query was ISSUED, never what a
+predicate would have FILTERED. To cover the behaviour of a WHERE clause, model it as the row set the
+driver returns. To assert the clause itself, capture the query text:
+
+```go
+recorder := sqlmock.QueryMatcherFunc(func(expectedSQL, actualSQL string) error {
+    seen = append(seen, actualSQL); return nil    // always matches; ordering identifies the query
+})
+db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(recorder))
+```
+
+**Assert on that captured string, not on the source file.** `AND pc.locked_at IS NULL` appears in
+`ScanDeployedClaims`' own doc comment describing the predicate that was removed, so a source-grepping
+test matches the prose and reports the reverse of the truth (`LANDMINES.md:8278`, general form).
