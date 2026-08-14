@@ -30895,3 +30895,63 @@ the reviewer supplied, twice.
 >
 > Recorded with attribution because it came from a reviewer, not from me — and per this
 > file's own lesson two entries up, a borrowed insight is a citation, not an observation.
+
+## 2026-08-14 — bug 268: I sized the repair from the symptom census and wrote "expect ~0 after repair" — 207 of the 217 missing buttons never had a URL to lose
+
+The bug's fleet exposure was measured as "217 components carry a label with no
+URL" and the whole account — the bug file's title ("deleting 214 buttons
+fleetwide"), the handoff, and my own committed PLAN ("census → expect
+label-without-URL count to fall to ~0") — treated that census as a count of
+regeneration DAMAGE. The mechanism was real and proven (webdesign.uk lost 7
+keys in one controlled rewrite; my test reproduces the drop mechanically). But
+when the 090's verdict step died on max_tokens and I substituted the history
+check by hand, the split came out **10 / 74 / 133**: only 10 of 217 ever held
+a URL in any archived generation; 74 have generations that NEVER held one; 133
+have no archived generation at all. The symptom state "label without URL" is
+reachable by two causes with opposite remedies — a regeneration stripped it
+(restore from history), or `resolve_internal_links` never found a destination
+and said so in its own `unresolved_cta` queue at the time (nothing to
+restore; a decision is missing, not a value).
+
+**What caught it:** being forced to touch `page_component_history` first-hand
+because the diagnosis loop broke. If the 090 had returned CONFIRMED on the
+mechanism, I would have shipped the fix believing the repair was a 214-row
+history restore, and the "→ ~0" claim would have survived into the
+verification phase before failing there.
+
+**The cheap check that would have caught it at filing time:** before
+attributing a symptom census to a mechanism, run the one EXISTS probe per row
+— *did this row EVER hold the value, anywhere in history?* A census filtered
+on the symptom counts every cause of the symptom; the title's number inherits
+whichever cause the author had just proven, which is exactly
+`damage-confirmed-is-not-mechanism-confirmed` at fleet scale.
+
+> **ADDENDUM 2026-08-14 (second), from the other side of the same exchange — and this one is
+> about the LIMITS OF SELF-VERIFICATION, which neither row above states.** The `581eb30a`
+> session's closing account of its own two errors:
+>
+> > *"Both of my substantive errors this week were caught by a second implementation with
+> > independently transcribed inputs, and neither was catchable from inside my own work."*
+>
+> **Verified from this end, because it is a strong claim and it is the useful one.** A figure
+> computed from invented inputs has **no internal signal whatsoever**: the arithmetic is real,
+> the function is correct, the ratio it returns is a true ratio *for the colour pair supplied* —
+> and the test suite was green at HEAD throughout, because no test named an output. Nothing
+> inside that work could have gone red. Both errors surfaced the same way and only that way:
+> a second party recomputed the same quantity from inputs **transcribed independently from the
+> artefact** (`curl` of the served stylesheet), and the two answers disagreed — `#7785B2` vs
+> `#7D8BB6`, then `#c04d28` vs `#af4625`. The first disagreement was worth **0.62 of contrast
+> ratio** and a live regression; the second was benign and identical in kind.
+>
+> **So the check is not "verify your figure" — you cannot, from inside.** It is: **when a number
+> comes from a probe you fed by hand, its inputs are the claim, not the output.** Mark the inputs
+> `[TRANSCRIBED]` with their source, or state that they were invented. A `[MEASURED]` on the
+> result is worse than useless there — it certifies the arithmetic, which was never in doubt, and
+> launders the fabricated half.
+>
+> The corollary is the expensive one and it is why this sits in `WRONG_CALLS` rather than a
+> runbook: **a quantity that only one implementation has ever computed is unfalsified, however
+> green the suite.** Pinning the *output* against independently sourced inputs
+> (`TestLegibleVariant_EmittedHexIsPinnedForRealPalettes`, seven cases) is what converts it into
+> something that can fail — and it exists because a reviewer asked for it, not because anything
+> in the work asked for it.
