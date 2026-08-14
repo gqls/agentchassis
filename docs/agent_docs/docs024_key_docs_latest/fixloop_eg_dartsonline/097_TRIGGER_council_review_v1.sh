@@ -119,6 +119,16 @@ jq -e '[.plan.grounded_in[] | select(type != "string")] | length == 0' "$SUBMISS
   || { echo "ERROR: .plan.grounded_in must be an array of STRINGS (Go: []string) — put the source and what it settles inside the quote text, not in an object." >&2; exit 1; }
 jq -e '(.plan.risks // "") | type == "string"' "$SUBMISSION_FILE" >/dev/null \
   || { echo "ERROR: .plan.risks must be a STRING (Go: string), not an array — join the risks into one prose block." >&2; exit 1; }
+# Fourth trap, added 2026-08-14 after corr c78ed496 round 2 died server-side:
+# a sketch whose every non-blank line is a comment (--, #, //) is refused by
+# the validator as "comment-only — a fix plan proposes changes, not
+# observations". Measurements and post-apply notes belong in .rationale /
+# .grounded_in, not as pseudo-edits.
+jq -e '[.plan.edits[].sketch
+        | select(. != null and . != "")
+        | select([split("\n")[] | select(test("\\S"))] | (length > 0 and all(test("^\\s*(--|#|//)"))))
+       ] | length == 0' "$SUBMISSION_FILE" >/dev/null \
+  || { echo "ERROR: an edit's sketch is COMMENT-ONLY (every non-blank line starts --, # or //). The server refuses these ('a fix plan proposes changes, not observations') — drop the edit or sketch the real change; put observations in .rationale/.grounded_in." >&2; exit 1; }
 
 # Scope pre-filter (the cheap deterministic filter from the design — keeps
 # docs/site-content submissions from spending council credits at all).

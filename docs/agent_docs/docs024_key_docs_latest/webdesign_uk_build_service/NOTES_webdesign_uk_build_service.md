@@ -2700,3 +2700,19 @@ this session's cold-start falsifier sweep:
   truncation found on the way. Council verdict for c78ed496: check
   `orchestration_states` by fix_correlation_id, then `doc_notes`
   council-gate for the note.
+- **Council trail for c78ed496, COMPLETE — APPROVED 19:28:47Z (round 3).**
+  Round 1 REVISE (debug_historian high: UPDATE-by-type vs the dual-active-row
+  landmine — measured closed, tool-suggester has exactly ONE live row and the
+  verify RAISE aborts transactionally; bug_historian medium: the section-half
+  gap needed tracking → filed **bugs_open/276**, register points at it;
+  ROLLBACK sidecar hardened to id-scope + pre-state gate). Round 2 died
+  server-side `complete_invalid` — **a FOURTH type-trap: a comment-only
+  sketch is refused** ("a fix plan proposes changes, not observations");
+  found by reading `__step_error`, cost one dispatch. Round 3 (pseudo-edit
+  dropped, measurements moved to rationale) APPROVED, 7 of 10 seats
+  abstained. The 097 trigger now carries a client-side jq check for the
+  fourth trap (tested both directions: refuses a comment-only sketch, passes
+  a real one — the first jq draft was itself caught by the controls, twice:
+  `splits()[]` stream misuse, then a pipe-precedence rebind).
+  Commits `4d7c2f519` + this one carry `Council-Submitted:`; 098 credits
+  them automatically now the trail is approved.
