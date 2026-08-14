@@ -3558,3 +3558,171 @@ The gates are **observable and observed to be unreached** — for the first time
 (`0` rows matching `gate_%`) rather than an argument from prose. Nothing has changed about *why*:
 18 items still legitimately carry their claims, and 2 of those sit on pages that are not served
 (§ the archived-page correction), so the gate-reachable population remains **16**.
+
+---
+
+## 2026-08-14 (afternoon) — the owner authorised the live-content intervention, and this is the prediction written BEFORE the run
+
+Owner instruction, this session: **"yes, clean a page"** — the option §3.2 of the 08-14 handoff
+recorded as *"the owner's"* and did not take unilaterally. The gates have never been reached because
+no item in the population has a genuinely cleaned page. This makes one.
+
+### Target, and why this one
+
+`leopardessconsulting.co.uk` / **case-studies**, work item `e713613f-178e-4023-90e0-75edacee7ba6`,
+page `ff5e75e3-547b-4a91-b00b-766d144ea4b9`, component `9c9aaed8` slot `case-studies-list`.
+
+Chosen against the ladder's own requirements rather than by convenience:
+
+| requirement | why this page satisfies it |
+|---|---|
+| exactly 1 finding on the page | `findings_now = 1`, so removing it takes the whole page to a clean scan |
+| 1 flagged text, distinctive | `matched = "75,061"`. Short needles (`"3"`, `"11"`, `"100%"`) would keep tripping the claim-granular gate on unrelated prose for ever |
+| page genuinely SERVED | `200, 24,558b`, control `404, 2,711b` on the same domain |
+| `build_status='deployed'`, `deployed_at` non-null | required by the published gate |
+| the claim is genuinely unsupported | see below — it is not a checker false positive |
+
+Rejected candidates, and this matters because four of the six one-finding items are the wrong act:
+`finetuning.uk/privacy-policy` matched **"16"** in *"we do not knowingly collect personal data from
+anyone under the age of 16"* — a **false positive on a legal notice**, and deleting it would damage
+the page. `leopardess/for-engineering-teams` is the 404 from this morning's archived-page work.
+
+### The claim is a real overclaim, and TWO independent platform findings say so
+
+The register (`site_specs.evidence_base`) carries fact `C4-orchestration-state-records`:
+`value 2578`, `tolerance gte`, `verified_at 2026-08-14`, writer_line *"{value}+ orchestration state
+records from our own systems"*. `gte` means published snapshots are supported **up to** the live
+count. The page asserted **75,061** — about **29x** it. `[MEASURED 2026-08-14]` live
+`SELECT count(*) FROM orchestration_states` = **2,701**.
+
+Independently, this site's own `stale_evidence` item `3a5419a1` names the same fact:
+*"live value 2578 is outside tolerance gte of the published 3687 (moved down)"*. Two different
+checks, two different item types, one number. It is not a false positive.
+
+### The act: minimal deletion, on BOTH stored surfaces
+
+Removed the sentence `75,061 orchestration state records. ` (36 chars). No connective repair was
+needed; the neighbours are independent sentences, so it reads *"...40 of them spawn other agents.
+Eight live sites are built and maintained this way..."*. Per the owner's 2026-08-06 ruling,
+**minimal deletion is not writing**, and the check's own fix text prescribes exactly this
+("unregistered numbers need either an evidence_base fact row ... or removal from the copy").
+The paragraph's own closing line is *"we would rather say so than let the number do work it has not
+earned"*, which is the sentence the deletion honours.
+
+> ### CORRECTION TO MY OWN PLAN, mid-task, and it would have shipped a no-op
+> I planned ONE edit — content_data — on the belief that the re-render regenerates rendered_html
+> from it. **It does not.** `RerenderSinglePageAction`'s own header says *"Simple concatenation - no
+> template re-rendering"*: it assembles the page from stored per-component `rendered_html`. So the
+> content_data edit alone would have been **republished with the claim intact**, the scan would have
+> read `scan_still_trips` again, and I would have reported a cleaned page that was not one.
+> Caught by reading the action before dispatching it, not by a symptom.
+> **The cheap check: `grep -c "UPDATE page_components" <the action you are about to fire>`.** Zero
+> hits means it does not write that table, whatever its name suggests. What the check's fix text
+> warns about ("clear content_data, NOT only the rendered HTML - a re-render would otherwise reprint
+> it") is the MIRROR of this trap and reads as though one surface were enough. On this route neither
+> is: `ScanDeployedClaims` reads `rendered_html` for the number scan and `content_data` for the stat
+> scans, and `claimStillOnPage` searches `html || contentJSON`. Both surfaces, always.
+
+Both edits ran under a `DO/RAISE` guard, and **the guard was induced before it was trusted** — run
+with `expect_delta=35` it aborted AFTER performing the UPDATE (it reported the true delta of 36,
+which it could only know by having done the work) and the rows came back byte-identical
+(`md5 b765f556...` / `652f60dd...`, lengths 4149 / 6109 unchanged). A verify block of bare `SELECT`s
+could not have stopped either COMMIT.
+
+Applied: `content_data` 4149 -> 4113, `rendered_html` 6109 -> 6073, one row each, markup untouched.
+
+### THE PREDICTION, stated before the rerender and before the sweep
+
+The next sweep to decide item `e713613f` must return an arm that is either `gate_`-prefixed or
+`resolved_all_gates_passed`. **Either is the first gate reach this lane has ever observed.**
+Specifically:
+
+- **`resolved_all_gates_passed`** if the deploy stamps `pages.deployed_at` later than the newest
+  examined `page_components.updated_at`;
+- **`gate_published_correction_unpublished`** if it does not — the bugs_open/262 gate refusing
+  correctly, which is an equally real observation and would be the more interesting of the two.
+
+**Falsifiers, so this can come out wrong:** `scan_still_trips` means the rerender republished the
+claim and the two edits above did not reach the served page. `gate_claims_still_present` means the
+token "75,061" survives somewhere in `case-studies-list`'s html||content_data. `page_absent` means I
+broke the component. Any of those refutes the paragraph above rather than qualifying it.
+
+⚠ Concurrency noted before dispatch: session `849caf32` is live on **leopardess `services`**
+(`ebc2c413`), not this page - checked by grepping live `.jsonl` transcripts for the page id, since
+`who-owns.py` reads commits and cannot see a session mid-edit. Its `page-rerender` pod restarted at
+16:40:54Z, so this dispatch waits out CLAUDE.md's ~300s post-restart rule.
+
+### RESULT — `resolved_all_gates_passed`. The prediction held, and the gates are no longer unobserved
+
+Sweep fired **2026-08-14T16:48:45Z** (manual, `84db99fc-5ebd-4bd7-9d1e-0272c7fd7557`, orch name
+`manual-review-queue-revalidate-20260814-164838`), 185 items decided.
+
+| predicted, written before the run | observed |
+|---|---|
+| an arm that is `gate_`-prefixed OR `resolved_all_gates_passed` | **`resolved_all_gates_passed`** |
+| not `scan_still_trips` / `gate_claims_still_present` / `page_absent` | none of them |
+
+The closure records all three gates' inputs, which is the part worth keeping — a reader can see what
+the decision rested on without trusting the arm name:
+
+```
+arm     resolved_all_gates_passed        verdict resolved      status complete
+        flagged_texts 1, flagged_texts_verified "all absent from their own slot"   <- claim-granular
+        item_filed_at 2026-08-08T17:13:14 < newest_component_update 2026-08-14T16:43:49  <- copy-changed
+        deployed_at 2026-08-14T16:46:38 > newest_component_update, build_status deployed <- published
+        components_examined 4
+```
+
+Population now `scan_still_trips 17 · resolved_all_gates_passed 1 · page_absent 2 ·
+evidence_base_absent 1 · <no arm> 9`. The reach query returns
+`refused_at_a_gate 0 | passed_all_gates 1 | uninstrumented 0 | total 30`.
+
+**The measurement this lane owes — 2026-08-14 (after): `0 | 0 | 0 | 10 | 17 | 3` of 30**
+(refused gate-claims / gate-copy / gate-published / resolved / still_holds / unknown), invariant `t`
+for **10/10**, zero `f` rows. Was `0 | 0 | 0 | 9 | 18 | 3`.
+
+#### What this does and does NOT establish, because the difference is the whole point
+
+**Established, for the first time and as a query rather than an argument:** the three gates are
+**reachable and not inert**. They were consulted, they evaluated real inputs, and they returned a
+decision. Before today every one of them was unfalsifiable from the data — a refusal counter of `0`
+reads identically whether a gate approved, refused nothing, or was never asked, and the 08-14 morning
+sweep could only show that nothing reached them.
+
+**NOT established: that any gate would REFUSE when it should.** All three refusal arms
+(`gate_claims_still_present`, `gate_copy_unchanged`, `gate_published_*`) remain at zero and remain
+unobserved. **The standing instruction still holds in full: do not describe any gate as having
+prevented anything.** What today changes is narrower and should be stated narrowly — the gates have
+gone from *never reached* to *reached once, and passed*. A pass is not a proof of the refusal.
+
+**The refusal that was within reach and I did not get:** had the sweep run between the component
+edits (16:43:49) and the deploy (16:46:38), the published gate would have returned
+`gate_published_correction_unpublished` — a clean DB, an unpublished correction, which is exactly the
+state `bugs_open/262` exists for. The window was ~3 minutes and the rerender closed it by deploying
+in the same orchestration. **Naming it for whoever wants it: any item whose page is edited but not
+yet redeployed will produce that arm on the next sweep, at no content cost.** It needs no new
+intervention, only the sweep to land inside someone else's edit window.
+
+#### Side effects of a manual fleet-wide sweep, which I fired and therefore own
+
+The sweep is fleet-wide, not per-item. Besides the target it closed **4 further items** that other
+lanes had genuinely fixed since the 08:45Z run, hours earlier than the next daily would have:
+`needs_page` on ai-agent-orchestration.com (model-directory) and two on webdesign.co.uk
+(tool-seo-injector, tool-shadow-stacker), and an `unresolved_cta` on webdesign.uk/index. All carry
+`resolution_path='auto:revalidated'` and are individually reversible by SQL. Nothing was closed that
+the daily would not have closed; the sweep only closes on positive evidence.
+
+`scheduled_tasks.last_triggered_at` was **deliberately not touched** — winding it back would have
+fired the sweep and also moved the daily anchor off 08:44Z permanently, and that row is shared state
+this lane does not own. The dispatch mirrors `cmd/scheduler/main.go` `fireTrigger()` instead, with
+`from_agent_type=cli` and an orchestration name beginning `manual-` so the run is distinguishable in
+`orchestration_states` rather than having to be inferred from the clock.
+
+#### Two incidental facts worth carrying
+
+1. **This whole intervention is LLM-free**, which is why it worked at all today: the fleet's LLM
+   capability went down ~15:36Z on a monthly spend cap (landmine filed by the bugfix_213 lane, live
+   until 2026-09-01). `RerenderSinglePageAction` is pure assembly and the revalidator is
+   deterministic. It is also a second, independent reason not to have reached for the section editor.
+2. **No platform code changed**, so there is no council submission for this: the gate's scope is
+   `platform/`, `internal/`, `pkg/`. What changed is two data rows, one page, and the docs.

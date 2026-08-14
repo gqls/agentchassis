@@ -1,5 +1,47 @@
 # HANDOFF — 2026-08-14 — the instrument is LIVE, the first sweep CONFIRMED the prediction, and the gates are now *observed* unreached. Read this file only
 
+> ## 🟩 SUPERSEDED at 16:48:45Z — A GATE HAS NOW BEEN REACHED. Read this banner before anything below it
+>
+> **Owner instruction this session: "yes, clean a page"** — the live-content intervention §3.2 below
+> records as *"the owner's"* and did not take. Taken now. `leopardessconsulting.co.uk/case-studies`
+> asserted **"75,061 orchestration state records"** against a register fact of **2,578** (`gte`), i.e.
+> a ~29x overclaim, flagged independently by BOTH `claims_unverified` `e713613f` and `stale_evidence`
+> `3a5419a1`. One sentence deleted (36 chars, minimal deletion per the owner's 2026-08-06 ruling), on
+> **both** stored surfaces, rerendered and deployed. Served page 24,558 -> 24,522 bytes, control 404s.
+>
+> | predicted, written into NOTES BEFORE the run | observed |
+> |---|---|
+> | arm is `gate_`-prefixed OR `resolved_all_gates_passed` | **`resolved_all_gates_passed`** |
+> | not `scan_still_trips` / `gate_claims_still_present` / `page_absent` | none of them |
+>
+> **The measurement — 2026-08-14 (after): `0 | 0 | 0 | 10 | 17 | 3` of 30**, invariant `t` for **10/10**,
+> zero `f`. Reach query: `refused_at_a_gate 0 | passed_all_gates 1 | uninstrumented 0 | total 30`.
+>
+> ### ⚠ WHAT THIS DOES NOT LICENCE — the standing instruction is UNCHANGED
+> All three gates were **consulted and PASSED**. Every refusal arm is still at zero and still
+> unobserved. **Do not describe any gate as having prevented anything.** The change is narrow and
+> should be stated narrowly: the gates have gone from *never reached* to *reached once, and passed*.
+>
+> ### The refusal that is now cheap, and needs no intervention
+> Had the sweep landed between the component edit (16:43:49Z) and the deploy (16:46:38Z), the
+> published gate would have returned `gate_published_correction_unpublished` — the `bugs_open/262`
+> case exactly. The window was ~3 minutes and the rerender closed it. **Any item whose page is edited
+> but not yet redeployed produces that arm on the next sweep, at zero content cost.** Wait for it;
+> do not manufacture it.
+>
+> ### ⚠ TRAP THAT NEARLY SHIPPED A NO-OP — now in `LANDMINES.md`
+> `RerenderSinglePageAction` is *"Simple concatenation - no template re-rendering"* and contains **no
+> `UPDATE page_components`**: it republishes stored `rendered_html` and **never regenerates it from
+> `content_data`**. Clearing only `content_data` and rerendering republishes the claim unchanged, with
+> a `COMPLETED` orchestration and a moved `deployed_at`. The audit reads both surfaces anyway
+> (`rendered_html` for numbers, `content_data` for stats, `html||contentJSON` for the claim-granular
+> gate), so **edit both**. Cheap check: `grep -c "UPDATE page_components" <the action you will fire>`.
+>
+> Sweep was **manual** (`84db99fc-5ebd-4bd7-9d1e-0272c7fd7557`), mirroring `fireTrigger()`;
+> `scheduled_tasks.last_triggered_at` deliberately untouched. Being fleet-wide it also closed **4
+> other lanes' genuinely-fixed items** early — named in NOTES. Full record: `NOTES_...md` (2026-08-14
+> afternoon), owner's log: `README_where_we_are.md`.
+
 > ## 🟢 RESULT, 08:45:05Z — the prediction written before the run held exactly. This supersedes the 07:55Z banner below
 >
 > The first instrumented sweep ran **2026-08-14T08:45:05Z**. Fleet has since moved to **`v1.0.1298`**,
@@ -64,16 +106,17 @@ the bottom). Owner's log: `README_where_we_are.md`.
 | thing | state |
 |---|---|
 | `claims_unverified` revalidator | **LIVE + PROVEN** |
-| The three gates (copy-changed · claim-granular · published) | **LIVE on ≥`v1.0.1293`**; **OBSERVED unreached** 2026-08-14 — 0 rows match `gate_%`, now a query rather than a prose reading |
+| The three gates (copy-changed · claim-granular · published) | ~~**OBSERVED unreached** 2026-08-14 — 0 rows match `gate_%`~~ **SUPERSEDED 16:48:45Z: REACHED AND PASSED, once** (`resolved_all_gates_passed`, item `e713613f`). Still **LIVE on ≥`v1.0.1293`**; every REFUSAL arm remains at zero and unobserved |
 | **`result.revalidation.arm` — the arm instrument** | **LIVE on `v1.0.1297`** (needle + both controls, one digest) + council APPROVED r1 |
 | Council | **APPROVED first round**, `fe7dccb3-3038-4177-b77a-0cf620860556`, 10 seats, 7 abstained, 1 LOW advisory (actioned) |
 | Fleet | **`v1.0.1298`** (`IMAGE_TAG` line 17); arm needle re-probed with control after the roll |
 | `bugs_closed/262` (published gate) | CLOSED, live since `v1.0.1293` |
 
-**The measurement this lane owes on every visit — 2026-08-14: `0 | 0 | 0 | 9 | 18 | 3` of 30**
-(refused_gate1 / gate2 / gate3 / resolved / still_holds / unknown), invariant `t` for **9/9**, zero
-`f` rows. Unchanged from 08-13. Queries: `RUNBOOK` § "the measurement this lane owes" and the new
-§ "Where does the ladder STOP?".
+**The measurement this lane owes on every visit — 2026-08-14 (after the clean): `0 | 0 | 0 | 10 | 17 | 3`
+of 30** (refused_gate1 / gate2 / gate3 / resolved / still_holds / unknown), invariant `t` for **10/10**,
+zero `f` rows. ~~`0 | 0 | 0 | 9 | 18 | 3`, unchanged from 08-13~~ — superseded 16:48:45Z by the page
+clean in the top banner. Queries: `RUNBOOK` § "the measurement this lane owes" and § "Where does the
+ladder STOP?".
 
 ---
 
@@ -152,12 +195,14 @@ the two dead ones. Two items therefore park in `needs_human_review` for ever on 
    RESULT banner at the head of this file. This item is CLOSED.** The instrument is live, exercised, and
    its output agrees with an independent hand-reading taken before it existed. Nothing further is owed
    on it. ⚠ A zero gate count is the instrument working, **not** the gates approving.
-2. **The gates are still UNREACHED and no instrument changes that.** What they need is *an item whose
-   page has genuinely been cleaned*, and nothing in the population produces one: 16 of 18 `still_holds`
-   are correct refusals (the claims really are on the page) and the other 2 sit on unserved pages.
-   **The remaining option from the 08-13 banner is the owner's:** construct a cleaned page, which is a
-   live-content intervention. Not taken unilaterally. **Do not describe any gate as having prevented
-   anything.**
+2. ~~**The gates are still UNREACHED and no instrument changes that.**~~ **DONE 2026-08-14 16:48:45Z
+   — see the top banner.** The owner authorised the intervention ("yes, clean a page"); leopardess
+   `case-studies` was cleaned of a ~29x overclaim and the item closed at
+   `resolved_all_gates_passed`. **This item is CLOSED.** What is NOT done, and is the successor: no
+   gate has ever REFUSED. All three refusal arms remain at zero. **Do not describe any gate as having
+   prevented anything** — a pass is not a proof of the refusal. The cheapest next observation is
+   `gate_published_correction_unpublished`, which arrives free the first time a sweep lands between
+   someone's component edit and their deploy; **wait for it, do not manufacture it.**
 3. `features_open/032` — the shared helper, and it now has a second consumer: **`arm` is set only by
    `revalidateUnverifiedClaims`**; the other four record `unreported:<item_type>`. Lifting arms into
    them belongs with lifting the copy-changed comparison. **Measure before building.**

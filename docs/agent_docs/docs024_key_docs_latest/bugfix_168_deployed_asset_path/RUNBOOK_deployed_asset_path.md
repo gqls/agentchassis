@@ -385,3 +385,101 @@ Returns: 21 `needs_human_review` WITH an arm (stamp `2026-08-14T08:45:05Z`), and
 block is frozen at closure.** So `arm IS NULL` = *decided before the instrument shipped*. A
 "which revalidators lack arms?" query written the obvious way returns those 9 and reads as a gap.
 **The gap check is `arm LIKE 'unreported:%'`.**
+
+---
+
+## Cleaning a page so the gates can be reached (added 2026-08-14, the day one was)
+
+### 1. Pick a target against the LADDER, not by convenience
+
+The ladder only consults the gates after a clean scan, so the target must satisfy all of:
+`findings_now = 1` (so removing it takes the whole page clean) · a **distinctive** `matched` token ·
+the page genuinely **served** · `build_status='deployed'` with a non-null `deployed_at` · and the
+claim must be a **real** overclaim.
+
+⚠ **Short needles are disqualifying, not merely awkward.** `claimStillOnPage` is a case-insensitive
+substring over the slot's text, so a `matched` of `"3"`, `"11"` or `"100%"` will keep matching
+unrelated prose and pin the item at `gate_claims_still_present` for ever.
+
+⚠ **Check the claim is not a checker false positive before you delete anything.** Of the six
+one-finding items on 2026-08-14, `finetuning.uk/privacy-policy` matched **"16"** inside *"we do not
+knowingly collect personal data from anyone under the age of 16"*. Deleting that damages a legal
+notice. Read the `snippet`, not just the `matched`.
+
+Prove the claim is unsupported from the register itself, not by eye:
+```sql
+SELECT f->>'id', f->>'value', f->>'tolerance', f->>'writer_line'
+FROM site_specs ss JOIN sites s ON s.id=ss.site_id,
+     LATERAL jsonb_array_elements(ss.data->'facts') f
+WHERE s.domain='<domain>' AND ss.aspect='evidence_base' AND ss.is_current;
+```
+`tolerance=gte` means published copy may state **up to** `value`. A `stale_evidence` item on the same
+site naming the same `fact_id` is a second, independent confirmation — look for one.
+
+### 2. Edit BOTH stored surfaces, guarded, and INDUCE the guard before trusting it
+
+`ScanDeployedClaims` reads `rendered_html` (number/banned scans) **and** `content_data` (stat scans),
+and the claim-granular gate searches `ExaminedTextBySlot`, built as `html + contentJSON`. **And the
+rerender will not do the second one for you** — see the `LANDMINES.md` entry: `RerenderSinglePage`
+is assemble-only and never regenerates `rendered_html` from `content_data`.
+
+Worked scripts: `clean_case_studies.sql` / `clean_case_studies_html.sql` (this session's scratchpad;
+the shape is what matters). Every assertion is `DO ... RAISE EXCEPTION`, never a bare `SELECT` —
+**`ON_ERROR_STOP` ignores a non-empty result, so a verify block of SELECTs cannot stop the COMMIT.**
+Pass the expected byte delta in from outside, because **psql does not interpolate `:vars` inside a
+dollar-quoted body** (it fails with `syntax error at or near ":"`):
+
+```sql
+BEGIN;
+SET LOCAL app.expect_delta = :expect_delta;   -- interpolation works HERE, not inside $$ ... $$
+DO $$ DECLARE v_delta int := current_setting('app.expect_delta')::int; ...
+```
+
+Then **run it once with the wrong delta**. The guard must abort *after* the UPDATE (it can only
+report the true delta by having done the work) and the row must come back byte-identical:
+```bash
+psql -v expect_delta=35 -f clean.sql          # expect: ERROR: ABORT: ... shrank by 36, expected 35
+psql -t -A -c "SELECT md5(content_data::text)||' '||length(content_data::text) FROM ..."   # unchanged
+psql -v expect_delta=36 -f clean.sql          # now COMMIT
+```
+
+Assert inside the DO block that the element is the one you mean **by its text, not its array index**
+(`content_data #>> '{case_studies,3,title}'`), that exactly 1 row updated, that the token is gone from
+the *whole* component, that the length delta is exact, and that
+`jsonb_set(old, path, new) = new_document` — that last one catches a wider edit with a coincidentally
+right length. `trg_page_component_artefact_archive_upd` archives the old `rendered_html`, so a
+`rendered_html` edit is recoverable independently of the guard.
+
+### 3. Rerender, then verify at the ARTEFACT
+
+`scripts/initial_messages/210_vonc_trigger/083_rerender-index-vonc.sh` is the working shape (spawn
+`page-rerender`, call it with `{domain, page_id, site_id}`, NO `spec.reason` = assemble branch).
+⚠ It needs **`page_id`**; `page_name` alone errors. ⚠ Mind CLAUDE.md's ~300s post-restart rule —
+check `.status.startTime` on the `page-rerender` pod first, a spawn inside that window is silently
+dropped. ⚠ `kcat -P` can send nothing at exit 0: **the proof of dispatch is the
+`orchestration_states` row**, never the script's exit code.
+
+Then curl the page, with a fabricated-URL control on the same domain, and check the **byte delta
+equals what you deleted** (24,558 -> 24,522 for a 36-char deletion). A `COMPLETED` orchestration is
+not a repaired artefact.
+
+### 4. Fire the sweep on demand WITHOUT moving the daily anchor
+
+Do **not** wind `scheduled_tasks.last_triggered_at` back: it fires the sweep and also moves the daily
+off 08:44Z permanently, and that row is shared state. Mirror `cmd/scheduler/main.go` `fireTrigger()`
+instead — body `{"action":"orchestrate","config":{"agent_type":"diagnosis-review-queue-revalidator"},
+"input_data":{}}` to `system.agent.generic.requests`, with headers `correlation_id request_id
+message_id orchestration_id orchestration_name step_name=start client_id=system
+message_type=request action=orchestrate`. Worked script: `fire_revalidation_sweep.sh`.
+
+**Name the sender honestly** — `from_agent_type=cli` and an `orchestration_name` beginning `manual-`,
+so a reader can tell your run from a scheduled one instead of inferring it from the clock.
+
+⚠ **The sweep is FLEET-WIDE (500 items, oldest-first), not per-item.** It will also close anything
+else that other lanes have genuinely fixed since the last run — 4 such on 2026-08-14. That is the
+sweep working, but you fired it, so report what it closed:
+```sql
+SELECT swi.item_type, s.domain, swi.summary FROM site_work_items swi LEFT JOIN sites s ON s.id=swi.site_id
+WHERE swi.result #>> '{revalidation,at}' LIKE '<YYYY-MM-DDTHH:MM>%'
+  AND swi.status='complete' AND swi.completed_at > '<just before your run>';
+```

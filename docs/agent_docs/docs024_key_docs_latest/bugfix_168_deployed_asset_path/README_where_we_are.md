@@ -1427,3 +1427,65 @@ visible.
 
 Nothing is outstanding from my side on this piece. The remaining work on this lane is the shared-helper
 tidy-up and two older loose ends, all named in the handoff.
+
+---
+
+### 2026-08-14 (afternoon) — you said "yes, clean a page", so I did, and the three gates finally ran
+
+Short version: a page that was making a claim it couldn't back up no longer makes it, and as a side
+effect the three safety checks we built and had never once seen run, ran, and passed.
+
+**The page and the claim.** Leopardess Consulting's case-studies page said, of our own platform,
+"75,061 orchestration state records". The register of facts that site is allowed to draw on says that
+number is currently 2,578, and it's a "no more than the live count" sort of fact. So the page was
+overstating it by about twenty-nine times. This wasn't a judgement call on my part — two separate
+automatic checks had already flagged it independently: the claims audit, and the freshness check that
+watches for a registered fact drifting away from what the copy says.
+
+**What I actually did.** I deleted one sentence. Not rewrote, not rephrased, not substituted a fresh
+number — deleted "75,061 orchestration state records." and left the rest alone. That's the narrow
+thing your 6th-of-August ruling allows, and it's also what the check's own instructions ask a human to
+do with an unsupported number: either register it or take it out. The sentences either side stand on
+their own, so nothing needed patching up. There's a nice accident in it: the very next line of that
+paragraph reads "we would rather say so than let the number do work it has not earned", which is
+more or less the reason the number went.
+
+**One thing I got wrong, and caught before it did damage.** I had planned a single edit, to the stored
+content, on the assumption that re-rendering the page would rebuild the published HTML from it. It
+doesn't. That particular re-render is a straight assembly job — it glues together HTML that was
+already rendered and saved earlier. So my edit would have been quietly ignored, the page would have
+republished the claim word for word, and the next audit would have reported the same finding. That
+would have looked like the audit being broken rather than like me having done nothing. I found it by
+reading the code before firing it rather than by anything going wrong, and I've written the trap up
+where the next person will hit it.
+
+**Then the interesting part.** Before running anything I wrote down what I expected, so it could come
+out wrong. It came out as predicted: the finding went through all three gates and closed. The record
+it left states what each gate actually checked — the exact words the finding cited are gone from the
+component they were quoted from; the copy was edited after the finding was raised; and the page was
+published *after* that edit, so the public is seeing the corrected version rather than a fix sitting
+in the database. That last one is the check we added because a page can be fixed in the database and
+never republished.
+
+**What I want to be careful about.** This proves the gates work when everything is in order. It does
+**not** prove any of them would stop a bad closure, because none of them refused anything — they all
+passed. So the line you've had from me for a week still stands unchanged: I can't yet say any gate has
+prevented anything. What's changed is smaller than it sounds and I'd rather undersell it: the gates
+have gone from never having been reached to having been reached once and passed.
+
+There was a refusal within arm's reach and I missed it by about three minutes. If the check had run in
+the gap between my editing the page and the page being republished, it would have refused with "the
+correction is sitting unpublished" — which is precisely the case we built that gate for. The
+re-render closed that gap by publishing immediately. It'll happen on its own the first time the daily
+check lands in the middle of someone else's edit, and it costs nothing to wait for.
+
+**One thing you should know because I caused it.** The daily check is fleet-wide, not per-page, so
+running it by hand also closed four other findings that other people had genuinely fixed earlier
+today — two tool pages on webdesign.co.uk, a directory page on ai-agent-orchestration.com, and a
+link on webdesign.uk's front page. All of those would have closed tomorrow morning anyway; I just
+brought them forward. Nothing closed that shouldn't have, and each one is individually reversible. I
+deliberately didn't touch the daily schedule itself, so it still runs at its usual time.
+
+Incidentally the whole job happened to need no AI at all, which is just as well, because the fleet's
+AI capability went down this afternoon on a monthly spending cap and won't be back until the 1st of
+September unless you raise it. Someone else has written that up properly.
