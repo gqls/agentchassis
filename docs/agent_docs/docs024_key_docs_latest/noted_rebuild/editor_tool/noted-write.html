@@ -1,0 +1,296 @@
+<section class="noted-write" id="noted-write">
+  <div class="noted-write__inner">
+
+    <div class="noted-write__auth" id="nw-auth" hidden>
+      <h2 class="noted-write__title">Sign in to Noted</h2>
+      <p class="noted-write__small">Your notes live in your account, so you can open
+        them here or on any other browser you sign in from.</p>
+      <form id="nw-auth-form">
+        <label>Email address
+          <input type="email" id="nw-email" autocomplete="email" required>
+        </label>
+        <label>Password
+          <input type="password" id="nw-password" autocomplete="current-password"
+                 minlength="10" required>
+        </label>
+        <p class="noted-write__small">New here? The same form makes your account —
+          use a password of at least ten characters.</p>
+        <p class="noted-write__buttons">
+          <button type="submit" class="btn btn-primary" id="nw-signin">Sign in</button>
+          <button type="button" class="btn btn-secondary" id="nw-register">Create an account</button>
+        </p>
+      </form>
+      <p class="noted-write__error" id="nw-auth-error" role="alert" hidden></p>
+    </div>
+
+    <div class="noted-write__app" id="nw-app" hidden>
+      <div class="noted-write__bar">
+        <span id="nw-whoami" class="noted-write__small"></span>
+        <span class="noted-write__spacer"></span>
+        <button type="button" class="btn btn-secondary" id="nw-new">New note</button>
+        <button type="button" class="btn btn-secondary" id="nw-signout">Sign out</button>
+      </div>
+
+      <div class="noted-write__failure" id="nw-failure" role="alert" hidden>
+        <strong>That save did not go through.</strong>
+        <span id="nw-failure-detail"></span>
+        Your text is still here, exactly as you typed it — nothing has been lost.
+        <button type="button" class="btn btn-primary" id="nw-retry">Try again</button>
+      </div>
+
+      <label>Title
+        <input type="text" id="nw-title" placeholder="Untitled">
+      </label>
+      <label>Note
+        <textarea id="nw-content" rows="12"
+                  placeholder="Put the thought down. Save when you like."></textarea>
+      </label>
+      <p class="noted-write__buttons">
+        <button type="button" class="btn btn-primary" id="nw-save">Save</button>
+        <span class="noted-write__status" id="nw-status" role="status" aria-live="polite">New note</span>
+      </p>
+
+      <h3 class="noted-write__listhead">Your notes</h3>
+      <ul class="noted-write__list" id="nw-list"></ul>
+    </div>
+
+    <p class="noted-write__small" id="nw-loading">Checking whether you are signed in&hellip;</p>
+  </div>
+</section>
+
+<script>
+/* === tool-doc ===
+     Tool: Write
+     Function: tool-write
+     Page: /tools/write/index.html
+
+     Purpose: The Noted editor — sign in (or make an account), write a note, save
+     it to the account, and open any note back up. Calls the engine at /api/ on
+     the SAME ORIGIN (nginx proxies /api/ to the engine for noted.co.uk and
+     app.noted.co.uk alike), with session cookies.
+
+     Behaviour:
+     - Unauthenticated: one form; "Sign in" -> POST /api/login, "Create an
+       account" -> POST /api/register. The engine's own error message is shown
+       verbatim on failure (it is written for people).
+     - Authenticated: title + textarea, a Save button, the account's notes
+       listed newest-first (GET /api/notes); clicking one loads it. "New note"
+       clears the editor. Save POSTs /api/notes; the response's id is kept so
+       the next save updates rather than duplicates.
+     - Voice recordings and photographs are NOT in this version of the editor;
+       the engine stores them (media endpoints + import) but this UI does not
+       capture them yet. Say so nowhere in the UI — absence is honest enough.
+
+     THE LOAD-BEARING CONTRACT (experience pattern authenticated-note-sync;
+     the reason this tool exists as designed):
+
+       "The editor may say 'Saved' ONLY as a consequence of a successful
+        server response."
+
+     The legacy app set its Saved indicator locally — a false "Saved" is the
+     worst lie this product can tell, because it is the moment someone stops
+     worrying and closes the tab. So, in this file:
+
+     1. The status line NEVER shows "Saved" optimistically. The sequence is
+        dirty -> "Unsaved changes", click -> "Saving…", and ONLY a 2xx
+        response moves it to "Saved ✓". Every other outcome moves it to
+        "NOT saved".
+     2. On any failure — network down, server error, anything — a loud
+        banner appears stating the save did not go through and that the text
+        is untouched. The editor content is NEVER cleared or replaced on a
+        failed save. Retry re-sends the same text.
+     3. Closing the tab with unsaved changes asks first (beforeunload) —
+        "text survives" includes surviving the person themselves.
+
+     Each of these is covered by a MUTATION-VERIFIED check in
+     docs/.../noted_rebuild/editor_tool/test_editor_degraded.py — a test that
+     has never failed proves nothing, so the tests were run against broken
+     variants of this file and shown to catch them. Re-run after ANY edit.
+=== /tool-doc === */
+(function () {
+  'use strict';
+
+  var el = {};
+  ['auth','auth-form','email','password','signin','register','auth-error',
+   'app','whoami','new','signout','failure','failure-detail','retry',
+   'title','content','save','status','list','loading'].forEach(function (id) {
+    el[id.replace(/-([a-z])/g, function (_, c) { return c.toUpperCase(); })] =
+      document.getElementById('nw-' + id);
+  });
+
+  var state = { noteId: null, dirty: false, saving: false };
+
+  function api(path, opts) {
+    opts = opts || {};
+    opts.credentials = 'same-origin';
+    if (opts.body !== undefined) {
+      opts.method = opts.method || 'POST';
+      opts.headers = { 'Content-Type': 'application/json' };
+      opts.body = JSON.stringify(opts.body);
+    }
+    return fetch(path, opts).then(function (res) {
+      return res.json().catch(function () { return {}; }).then(function (data) {
+        if (!res.ok) {
+          var err = new Error(data.error || ('the server answered ' + res.status));
+          err.status = res.status;
+          throw err;
+        }
+        return data;
+      });
+    });
+  }
+
+  function setStatus(text) { el.status.textContent = text; }
+
+  function markDirty() {
+    if (state.saving) return;
+    state.dirty = true;
+    hideFailure();
+    setStatus('Unsaved changes');
+  }
+
+  function showFailure(detail) {
+    el.failureDetail.textContent = detail ? '(' + detail + ') ' : '';
+    el.failure.hidden = false;
+  }
+  function hideFailure() { el.failure.hidden = true; }
+
+  function save() {
+    if (state.saving) return;
+    state.saving = true;
+    hideFailure();
+    setStatus('Saving…');
+    var payload = {
+      title: el.title.value,
+      content: el.content.value
+    };
+    if (state.noteId !== null) payload.id = state.noteId;
+
+    api('/api/notes', { body: payload }).then(function (saved) {
+      // ONLY here — a 2xx response — may the word "Saved" appear. Contract 1.
+      state.saving = false;
+      state.dirty = false;
+      if (saved && saved.id !== undefined) state.noteId = saved.id;
+      setStatus('Saved ✓');
+      refreshList();
+    }).catch(function (err) {
+      // Contract 2: loud, text untouched, retry available.
+      state.saving = false;
+      setStatus('NOT saved');
+      showFailure(err && err.message ? err.message : 'no answer from the server');
+    });
+  }
+
+  function refreshList() {
+    api('/api/notes').then(function (data) {
+      var notes = (data && data.notes) || [];
+      el.list.innerHTML = '';
+      notes.forEach(function (n) {
+        var li = document.createElement('li');
+        var a = document.createElement('a');
+        a.href = '#';
+        a.textContent = (n.title && n.title.trim()) ? n.title : 'Untitled';
+        a.addEventListener('click', function (ev) {
+          ev.preventDefault();
+          openNote(n);
+        });
+        li.appendChild(a);
+        el.list.appendChild(li);
+      });
+    }).catch(function () { /* the list is a convenience; the editor is the product */ });
+  }
+
+  function openNote(n) {
+    if (state.dirty && !window.confirm('You have unsaved changes. Open a different note anyway?')) return;
+    state.noteId = n.id;
+    state.dirty = false;
+    el.title.value = n.title || '';
+    el.content.value = n.content || '';
+    hideFailure();
+    setStatus('Opened — not changed yet');
+  }
+
+  function newNote() {
+    if (state.dirty && !window.confirm('You have unsaved changes. Start a new note anyway?')) return;
+    state.noteId = null;
+    state.dirty = false;
+    el.title.value = '';
+    el.content.value = '';
+    hideFailure();
+    setStatus('New note');
+  }
+
+  function showApp(email) {
+    el.loading.hidden = true;
+    el.auth.hidden = true;
+    el.app.hidden = false;
+    el.whoami.textContent = email;
+    refreshList();
+  }
+  function showAuth() {
+    el.loading.hidden = true;
+    el.app.hidden = true;
+    el.auth.hidden = false;
+  }
+
+  function authenticate(path) {
+    el.authError.hidden = true;
+    api(path, { body: { email: el.email.value, password: el.password.value } })
+      .then(function (data) { showApp(data.email || el.email.value); })
+      .catch(function (err) {
+        el.authError.textContent = err.message;
+        el.authError.hidden = false;
+      });
+  }
+
+  el.authForm.addEventListener('submit', function (ev) { ev.preventDefault(); authenticate('/api/login'); });
+  el.register.addEventListener('click', function () { authenticate('/api/register'); });
+  el.signout.addEventListener('click', function () {
+    if (state.dirty && !window.confirm('You have unsaved changes. Sign out anyway?')) return;
+    api('/api/logout', { body: {} }).catch(function () {}).then(function () {
+      state.noteId = null; state.dirty = false;
+      el.title.value = ''; el.content.value = '';
+      showAuth();
+    });
+  });
+  el.save.addEventListener('click', save);
+  el.retry.addEventListener('click', save);
+  el.new.addEventListener('click', newNote);
+  el.title.addEventListener('input', markDirty);
+  el.content.addEventListener('input', markDirty);
+
+  // Contract 3: leaving with unsaved text asks first.
+  window.addEventListener('beforeunload', function (ev) {
+    if (!state.dirty) return;
+    ev.preventDefault();
+    ev.returnValue = '';
+  });
+
+  api('/api/me').then(function (data) { showApp(data.email); }).catch(function () { showAuth(); });
+})();
+</script>
+
+<style>
+.noted-write__inner { max-width: 720px; margin: 0 auto; }
+.noted-write label { display: block; margin: 0.75rem 0 0.25rem; font-weight: 600; }
+.noted-write input[type=email], .noted-write input[type=password],
+.noted-write input[type=text], .noted-write textarea {
+  width: 100%; padding: 0.6rem; font: inherit;
+  border: 1px solid var(--section-border, #b6b6b6); border-radius: 4px;
+  background: var(--section-surface, #fff); color: inherit;
+}
+.noted-write textarea { resize: vertical; min-height: 14rem; }
+.noted-write__bar { display: flex; gap: 0.5rem; align-items: center; margin-bottom: 1rem; }
+.noted-write__spacer { flex: 1; }
+.noted-write__buttons { margin-top: 0.75rem; display: flex; gap: 0.75rem; align-items: center; }
+.noted-write__status { font-weight: 600; }
+.noted-write__error { font-weight: 600; margin-top: 0.75rem; }
+.noted-write__failure {
+  border: 2px solid currentColor; border-radius: 6px;
+  padding: 0.9rem 1rem; margin: 0 0 1rem;
+}
+.noted-write__failure .btn { margin-left: 0.5rem; }
+.noted-write__list { list-style: none; padding: 0; }
+.noted-write__list li { padding: 0.3rem 0; border-bottom: 1px solid var(--section-border, #ddd); }
+.noted-write__small { opacity: 0.85; }
+</style>

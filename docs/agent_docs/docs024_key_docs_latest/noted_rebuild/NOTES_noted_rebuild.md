@@ -1899,3 +1899,79 @@ the approved copy has its own contact route), and the original 08-12
 `needs_content_page` (superseded by the reconcile-emitted rebuild). **The work
 queue for this site is now empty** except the three inert `detected`
 discovery-rotation rows from 08-10, which nothing dispatches.
+
+---
+
+## 2026-08-14 — three owner answers, and the discovery that there was NO EDITOR
+
+Owner: (1) the privacy page does NOT mention the 30-day backup retention — ruled,
+recorded in `evidence_base.supplied_copy.privacy.open_question`, closed; (2) test
+the degraded states headlessly then hand over a manual walkthrough; (3) cutover
+when we're ready.
+
+### The discovery that reframed (2)
+
+`[MEASURED]` **The product had no editor.** The engine is API-only (grepped
+`Routes()`: `/api/*` handlers, nothing serving HTML); `app.noted.co.uk/` serves
+the framework's marketing index through nginx `location /` (grep: zero
+`textarea`/`/api/notes` in any served page; only contact.html touches `/api/`).
+So "Sign in" → `https://app.noted.co.uk/` → the marketing page → its own
+"Sign in" — **a loop with no product in it.** Every prior verification was
+API-level (curl smoke tests), which is exactly how a missing UI stays invisible:
+each layer proved its own half and nothing walked the person's path.
+
+The degraded-state clause protected a surface that did not exist. So the editor
+was built — it is PLAN §4.2's own item ("the editor becomes a
+`component_level='tool'` component; its JS deploys calling /api/ same-origin"),
+not new scope.
+
+### The editor (`editor_tool/noted-write.html`, function `tool-write`)
+
+Sign in / register (engine messages surfaced verbatim), notes list, title +
+textarea, Save. The degraded contract is the spine, not a feature:
+
+1. **"Saved ✓" appears ONLY on a 2xx** — sequence is dirty → "Unsaved changes"
+   → "Saving…" → server answer decides. Never optimistic.
+2. **Failure is loud and text is sacred** — bordered `role=alert` banner
+   ("…nothing has been lost"), status "NOT saved", content never touched, Try
+   again re-sends the same text.
+3. **beforeunload asks** while dirty, and only while dirty.
+
+Media capture is deliberately absent from v1 (the engine stores it; this UI does
+not record it — the tool-doc says so).
+
+### The headless proof (`editor_tool/test_editor_degraded.py`)
+
+21 checks, six cases, against a local stub faithful to `server.go`'s shapes with
+a deliberately SLOW save — the delay is what makes the ordering claim *provable*
+(mid-flight the status must read "Saving…", not "Saved"). Outage = Playwright
+`route.abort` on POST /api/notes; server error = fulfilled 500 with the engine's
+own message. **This is the induced-failure test the platform runner cannot do.**
+
+**All three contract guards mutation-verified:** optimistic-Saved → the ordering
+check fails ("was 'Saved ✓'"); banner suppressed → the suite dies on the missing
+banner (a TimeoutError, caught-by-crash — legible enough, noted); clear-text-on-
+failure → both "text untouched" checks fail. Clean run restored: ALL CASES PASSED.
+
+Two instrument notes: Playwright's headless shell **suppresses the real
+beforeunload prompt** (tried real activation — click+type — then
+`close(run_before_unload=True)`; no dialog ever arrives), so Case F tests the
+guard's arm/disarm via a cancelable synthetic event and the REAL prompt belongs
+to the manual walkthrough. And an `exit=$?` after a `| tail` pipe reads tail's
+status, not python's — the mutation-2 "exit=0" was that trap, already in memory,
+stepped in anyway.
+
+### Deploy + the owner's half
+
+Born via `076_create_noted_write_tool.sh` (create_tool_component; tool-doc header
+in place first this time). Pages `tool-write` (/tools/write/index.html) +
+companion guide; assemble item filed with the **page_id column** set (the proven
+v2 shape); plan + structure spec updated to 10 pages. Manual walkthrough for the
+owner: `WALKTHROUGH_2026-08-14_degraded_states_by_hand.md` — four parts (normal
+save; devtools-Offline outage; beforeunload; cross-browser proof), what pass
+looks like, and the one honest limit (a mid-request death can save without
+telling; retry converges because a retried save updates, not duplicates).
+
+Next when the page lands: sitesync tick → live smoke on the real page →
+re-point the site's "Sign in" CTAs at /tools/write/ → bind
+`authenticated-note-sync` to the built component (§4.1, still open).
