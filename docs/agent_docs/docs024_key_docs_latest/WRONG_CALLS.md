@@ -30655,3 +30655,43 @@ the extraction actually returned*. A parse is an instrument, and an instrument r
 whatever you fed it with total confidence. **When a check produces a result that would be an
 incident, re-derive it a second way BEFORE reporting it.** Two of these three were reported
 to the owner before I re-derived them; that is the part to fix.
+
+## 2026-08-14 — I told the owner a redirect would make his decision safe, without checking that redirects exist
+
+**The claim.** Presenting the seven-pair decision on 2026-08-13 I wrote, of the two
+fundamentallyai pairs: *"pairs 3 & 4 now retire the older, flat URLs — the ones most likely
+to be indexed by Google. I have no way to measure that. **The redirect step protects it**,
+so for these two pairs that step is not optional either."* I put the same line in the
+execution plan committed to the handoff.
+
+**What was true.** There is no redirect step. `redirects` holds **0 rows fleet-wide**, has
+**no `INSERT` and no `SELECT` anywhere** in `platform/`, `internal/` or `cmd/`, and no
+hosting-layer convention (`_redirects`, `netlify.toml`, `.htaccess`, bucket routing) appears
+in the deploy path. Retiring a URL under this procedure 404s it. The owner took a decision
+about older, likely-indexed URLs partly on the strength of a mitigation that does not exist.
+
+**Where it came from.** The runbook's step 7 says *"Write a redirect loser → survivor in
+`redirects`"*, and I repeated it as a capability. **A documented step is a claim about the
+system, not a property of it** — the same class as this file's 2026-08-12 entry about a
+`doc_notes` check that could never have come out false. I have spent this whole lane
+insisting that a status line, a register entry and a code comment are all claims to be
+verified, and then treated a runbook step as an exception because it was procedural.
+
+**Worse: step 7 carried its own measurement, and I re-ran it as instructed.** It says *"zero
+`redirects.source_page_id` and zero `link_registry.target_page_id` rows reference any of the
+14 twin rows today — re-measure at execution."* I re-measured. Still zero. **Both tables are
+empty fleet-wide**, so that query returns zero for any page that has ever existed. I got a
+confirming answer from an instrument that cannot answer. The instrument-control habit I have
+applied all lane to `agent_error_log` — prove the table can return a non-zero before
+believing a zero — I did not apply to the table I was about to write into.
+
+**What caught it.** Executing. The finding arrived at step 7 of the first pair, before any
+mutation, because the step's own pre-measurement asked for a re-measure and the control
+question ("could this ever be non-zero?") finally got asked. **Had the pairs been executed
+in the order I proposed, pair 1's loser — a 727-word April stub — would have 404'd first and
+harmlessly, and the two indexed fundamentallyai URLs would have gone third and fourth.**
+The canary ordering worked; it just caught a different bird than intended.
+
+**The cheap check, for next time:** before repeating a runbook step as a capability, grep for
+its writer. One `grep -rn "INSERT INTO redirects"` would have cost seconds and would have
+prevented a wrong reassurance to the owner on a decision he cannot easily reverse.
