@@ -1,4 +1,31 @@
-# HANDOFF — 2026-08-14 — the gates are OBSERVABLE (approved, not yet live), and the archived-page "defect" was refuted by measurement. Read this file only
+# HANDOFF — 2026-08-14 — the gates are OBSERVABLE and the instrument is **LIVE**, and the archived-page "defect" was refuted by measurement. Read this file only
+
+> ## 🔵 CORRECTION to this file, 07:55Z, before anyone read it — the arm instrument is **LIVE**, not pending
+>
+> I wrote the tables below saying "NOT LIVE until the next roll". **A roll happened while I was
+> writing them:** the fleet is on **`v1.0.1297`** and the binary carries the arm code. Probed with
+> both controls, so the check could have come out negative:
+>
+> ```
+> NEEDLE_arm  "gate_claims_still_present" = 1 rc=0     ← unique to this change
+> NEEDLE_sent "unreported:"               = 1 rc=0
+> CONTROL_pos "the database is not the website" = 1 rc=0
+> CONTROL_absent "zzz-not-in-any-binary-zzz"    = 0 rc=1   ← the probe discriminates
+> ```
+>
+> 2 Running pods matched `-l app=agent-chassis`, **ONE digest** `sha256:2e89958a`, tag `v1.0.1297`.
+> ⚠ That label is known to under-match this fleet (it has returned 2 while 56 ran the image), so the
+> load-bearing claim is **digest uniformity across what the label returns**, not the pod count.
+>
+> **So the next daily sweep is the FIRST INSTRUMENTED ONE, and it is imminent — ~08:44Z, ~49 minutes
+> after this was written.** The prediction, stated in advance so it is falsifiable: **~16–18 rows of
+> `scan_still_trips`, ZERO `gate_%` rows, and zero `unreported:claims_unverified`.** If instead you see
+> `unreported:claims_unverified`, the arm did not reach the record and edit 2 is wrong. Read it with:
+>
+> ```sql
+> SELECT result #>> '{revalidation,arm}' AS arm, count(*) FROM site_work_items
+> WHERE item_type='claims_unverified' AND result ? 'revalidation' GROUP BY 1 ORDER BY 2 DESC;
+> ```
 
 **Supersedes `HANDOFF_2026-08-12_continue_here.md` for state.** Its §4 traps still hold except where
 corrected below; its banners are history. Working record: `NOTES_deployed_asset_path.md` (newest at
@@ -14,9 +41,9 @@ the bottom). Owner's log: `README_where_we_are.md`.
 |---|---|
 | `claims_unverified` revalidator | **LIVE + PROVEN** |
 | The three gates (copy-changed · claim-granular · published) | **LIVE on ≥`v1.0.1293`**, and **still never REACHED** — not once, by any item |
-| **`result.revalidation.arm` — the arm instrument** | **COMMITTED + council APPROVED, ⚠ NOT LIVE** (postdates `v1.0.1295`) |
+| **`result.revalidation.arm` — the arm instrument** | **LIVE on `v1.0.1297`** (needle + both controls, one digest) + council APPROVED r1 |
 | Council | **APPROVED first round**, `fe7dccb3-3038-4177-b77a-0cf620860556`, 10 seats, 7 abstained, 1 LOW advisory (actioned) |
-| Fleet | `v1.0.1295` (`IMAGE_TAG` line 17) |
+| Fleet | `v1.0.1297` (`IMAGE_TAG` line 17), digest `sha256:2e89958a` |
 | `bugs_closed/262` (published gate) | CLOSED, live since `v1.0.1293` |
 
 **The measurement this lane owes on every visit — 2026-08-14: `0 | 0 | 0 | 9 | 18 | 3` of 30**
@@ -42,7 +69,8 @@ is unchanged. The four uninstrumented revalidators record `unreported:<item_type
 string, so a gap cannot read as an absence.
 
 Commits: **`92b59138b`** (the field + 18 arms + tests), `bb05ce78a` (gofmt), **`ac6a86f58`** (the
-correction in §2.2). All three postdate `v1.0.1295`.
+correction in §2.2). All three are **in `v1.0.1297`** — see the correction banner at the head of this
+file; they postdated `v1.0.1295`, which is what the body originally said.
 
 ### 2.2 ⚠ CORRECTION — the arm is a SNAPSHOT, not a history, and I walked into this lane's own landmine
 
@@ -96,11 +124,12 @@ the two dead ones. Two items therefore park in `needs_human_review` for ever on 
 
 ## 3. What is next
 
-1. **NEXT ROLL: verify the arm field, then read the first instrumented sweep.** Needle for the standing
-   pod-probe: `"unreported:"` or `"gate_claims_still_present"` — expect **1**, currently **0**. Then the
-   sweep at ~08:44Z should show **~16–18 rows of `scan_still_trips` and ZERO gate rows**.
-   ⚠ **That is the instrument working, not the gates approving.** For the first time that sentence is
-   checkable rather than arguable — which was the entire point.
+1. ~~NEXT ROLL: verify the arm field~~ **DONE — LIVE on `v1.0.1297`, needle and both controls in the
+   banner above. What remains is to READ THE FIRST INSTRUMENTED SWEEP (~08:44Z).** Expect **~16–18
+   `scan_still_trips`, ZERO `gate_%`, ZERO `unreported:claims_unverified`**; the last of those three is
+   the one that would falsify edit 2. ⚠ **A zero gate count is the instrument working, not the gates
+   approving.** For the first time that sentence is checkable rather than arguable — which was the
+   entire point.
 2. **The gates are still UNREACHED and no instrument changes that.** What they need is *an item whose
    page has genuinely been cleaned*, and nothing in the population produces one: 16 of 18 `still_holds`
    are correct refusals (the claims really are on the page) and the other 2 sit on unserved pages.
