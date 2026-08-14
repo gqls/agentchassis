@@ -4346,3 +4346,66 @@ B's concurrent self-drain).
 Full account: bug 248's newest CONTRIBUTION. Remaining: bucket D (the bulk of the 98) inherits
 the wire-check-first gate; bucket E's per-row checks; the new "stale row only" bookkeeping
 question (12 confirmed members) for whoever designs bucket D.
+
+## 2026-08-14 (c) — re-measuring the drain after the pilot: the census counts 11 rows that must never be redeployed, and bucket A is a skip signal
+
+Session picked up after two days away; came back to find 524 commits, the fix shipped through
+four council rounds by other sessions, both symptom sites live, and the bucket-A pilot executed.
+Job was to re-verify and cut a fresh handoff (`HANDOFF_2026-08-14c_continue_here.md`).
+
+**Verified, not carried forward:**
+
+- Fix is in the RUNNING binary, `v1.0.1300`, two-way controls:
+  `discarding an asset_key that is an unresolved path expression` PRESENT,
+  `taking purpose from the asset row rather than the spec default` PRESENT,
+  `ZZZ_MUST_BE_ABSENT_CONTROL` absent. (`grep -aq` on `/proc/1/exe`, never `strings`.)
+- gaswholesalers `logo.png` 200; mortgagecalculator `hero.jpg` 200.
+- **LLM cap RECOVERED** — 14b left this open. `llm_call_log.success` by hour: 24/124/53/48/37 ok
+  against 0/0/1/1/1 failed. Bucket E's regeneration subset is no longer cap-blocked.
+- RFC_028 + RFC_029: no ruling commit for either. Still with the owner.
+
+**The reusable bucket query** (14b's summed to 133 of 140 and flagged the gap; this aggregates
+per asset with `bool_or`, so every row lands in exactly one bucket and it sums exactly):
+
+```sql
+WITH marked AS (
+  SELECT a.id, a.site_id FROM assets a
+  WHERE (a.filename LIKE '%asset-key%' OR a.url LIKE '%asset-key%')
+    AND a.status='active'          -- <<< THE NEW FILTER, see below
+), items AS (
+  SELECT m.id AS asset_id,
+         bool_or(w.status='unresolved') AS has_unresolved,
+         bool_or(w.status IN ('triaged','approved','detected')) AS has_open,
+         count(w.id) AS n
+  FROM marked m LEFT JOIN site_work_items w
+    ON w.item_type='undeployed_asset' AND w.spec->>'asset_id' = m.id::text
+  GROUP BY m.id
+)
+SELECT CASE WHEN n=0 THEN 'E' WHEN has_open THEN 'B'
+            WHEN has_unresolved THEN 'A' ELSE 'D' END AS bucket, count(*)
+FROM items GROUP BY 1 ORDER BY 2 DESC;
+```
+
+**Two findings that change the target list, both from re-measuring rather than a symptom:**
+
+1. **The census does not filter `assets.status`** — 98 rows = **87 active + 10 superseded + 1
+   retired**. A superseded/retired row's bytes have been replaced; redeploying them pushes a
+   stale image over a current one. Real target is **87**. Active-only buckets: **D 57 · E 27 ·
+   B 2 · A 1**.
+2. **Bucket A's members are the pilot's DELIBERATE skips, not leftovers.** The two `unresolved`
+   rows are leopardess `logo` (`71652e42…`, **status retired**, `logo.png` 200) and finetuning
+   `logo` (`9c9de5a0…`, active, `logo.png` 200) — exactly the two the pilot skipped as
+   live-referenced. Promoting them "because the pilot proved that action" reproduces the
+   regression the pilot avoided, and on leopardess serves a retired asset's bytes.
+   **A small residual bucket after a pilot is a skip signal more often than an omission** — and
+   the decision lives only in a bug-file contribution, invisible to every query.
+
+Concentration worth knowing before designing bucket D: `dartsonline.com` alone holds 28 of the 57,
+and three sites hold 45. Per-site canary is cheap; a fleet-wide batch is not.
+
+**Re-verified as NOT moved since 08-12** (all three are this lane's older open items): the four
+tracker feeds still 404 (`model-directory.json` 200 as the control) and that lane is still
+dormant/unowned; `tool-gas-unit-converter`'s three items still `needs_human_review`, blocker
+unchanged (`sections=[]`, no plan, and `required_fields_missing` has no repair handler fleet-wide);
+and the stray `/assets/images/logo.jpg` I left on gaswholesalers on 08-10 is still there (200,
+referenced by nothing) — still owed a removal.
