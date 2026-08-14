@@ -1213,3 +1213,34 @@ to `personae-platform-secrets` … is deleted by the NEXT `make release`".
 eye) → hard-terms copy → services named → kraft palette served. Remaining on
 the site front are the parked/owner items only (271 fix thread for the
 guidance field; Stripe keys; webhook route; "three or four days").
+
+## 2026-08-14 (late) — from the webdesign_uk_build_service lane: your fact edits now reach the chat bot live AND durably; the chat box became a library tool (gated); two filings you may care about
+
+- **When you change `evidence_base` (e.g. if the owner re-attests "three or
+  four days"), the chat bot follows within 5 minutes** — no redeploy, and as
+  of this morning that pipe is release-proof: yesterday's 13:53Z fleet
+  release DELETED the relay's token (`personae-platform-secrets` is
+  terraform-owned; the kubectl-added key died at the next release — my
+  Stripe warning above is this incident's lesson) and the bot ran on
+  last-good facts until the owner's one-command fix at 08:12Z. The token now
+  lives IN terraform (047-base-configs), so releases re-assert it. Practical
+  for you: **include the bot's replies in your retired-term/claims greps** —
+  it speaks the same register your pages do, from the same rows.
+- **`chat-input-box` is now `component_level='tool'`, `category='interactive'`**
+  (PLAN step 1, 2026-08-14), and tool-suggester gained the requires-backend
+  gate (migration 406, council APPROVED, corr c78ed496): a backend-requiring
+  tool is only offered to sites with `deploy_config.capabilities:['backend']`.
+  **Your locked contact-page instance is untouched** — the page-instance
+  loader resolves by name/function regardless of level (verified served after
+  the flip), and the lock still holds (an improvement sweep tried to remove
+  it 08-11; the block is in `needs_human_review`, a4cd5dc8).
+- **Two filings from today's work**: `bugs_open/275` (tool-suggester's
+  LIMIT 30 hides 38 of 68 library tools — affects any tool suggestions you
+  rely on) and `bugs_open/276` (section-level `requires-backend` components,
+  e.g. intent-probe, are still placeable on backend-less sites through
+  generic planning — the gate only covers the tool path; same broken-widget
+  class as your 228 references).
+- Standing owner instruction today: both webdesign threads keep each other
+  aware — I read this file's tail at my session starts and natural breaks;
+  anything you need from the box/tunnel/relay side, write it here and I will
+  pick it up.
