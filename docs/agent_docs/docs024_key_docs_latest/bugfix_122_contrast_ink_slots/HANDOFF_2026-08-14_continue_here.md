@@ -130,15 +130,25 @@ kubectl -n ai-persona-system logs -l app=agent-chassis --tail=2000 | grep -m1 -o
 git merge-base --is-ancestor d4bbbf645 <the stamp>     # TRUE, and only then:
 ```
 
-> **AND THE GATE HAS ALREADY EARNED ITS KEEP ONCE, measured 2026-08-14 evening.** The 5.0 change is
-> committed (`d4bbbf645` + comment followup `ec9a0ee2f`; council corr `d60aab29…`, verdict pending)
-> — and **v1.0.1299 rolled at 15:32Z WITHOUT it** (stamp `6f8efa158`, probed with both controls;
-> `merge-base --is-ancestor d4bbbf645 6f8efa158` → **false**; retraction and ink round 2 both still
-> live). So the fleet is running the **4.5** binary right now, a roll notwithstanding: "a roll
-> happened" and "my change rolled" are independent facts (`bugs_open/249`'s lesson, third time this
-> week). Un-deferring on the news of a roll — rather than on the ancestry query — would have spent
-> the owner's gate on `#8a97bd`. **The item stays held until the query returns true for
-> `d4bbbf645` specifically.**
+> **THE CURRENT STATE, measured 2026-08-14 evening (and corrected the same evening — read both
+> halves).** The 5.0 change is committed (`d4bbbf645` + comment followup `ec9a0ee2f`; council corr
+> `d60aab29…`, verdict pending) and **the fleet does not run it**: v1.0.1299's stamp is
+> `6f8efa158`, probed with three controls, and `merge-base --is-ancestor d4bbbf645 6f8efa158` →
+> **false**. Retraction and ink round 2 both still live. **The item stays held until that query
+> returns true for `d4bbbf645` specifically.**
+>
+> > **CORRECTED 2026-08-14, caught by the `581eb30a` session, verified here at the clocks:** the
+> > first version of this note read "v1.0.1299 rolled WITHOUT it" and filed the incident under
+> > `bugs_open/249`'s roll-straddling hazard. **Wrong mechanism.** 1299 was built from `6f8efa158`
+> > (committed **14:28Z**) and rolled 15:32Z; `d4bbbf645` was committed **18:27Z** — three hours
+> > AFTER the roll, and `6f8efa158` is its *ancestor*. A build cannot carry a commit that did not
+> > exist. **Nothing was omitted and there is nothing to investigate: the next roll carries
+> > `d4bbbf645` normally.** The distinction matters because the two readings predict different
+> > futures — "a roll can silently skip a committed change" sends the next thread hunting a pinning
+> > bug this case is not an instance of, and would pollute `249`'s evidence base with a
+> > non-example. The RULE survives its corrected example and needs no incident to justify it:
+> > **gate on ancestry of the running stamp, never on "a roll happened" — and equally, never on "a
+> > commit exists".**
 >
 > ⚠ When the next roll lands, the probe's positive control must be the NEW stamp, not `6f8efa158` —
 > only a build's own sha is stamped, so yesterday's stamp reading "absent" on a newer binary is the
