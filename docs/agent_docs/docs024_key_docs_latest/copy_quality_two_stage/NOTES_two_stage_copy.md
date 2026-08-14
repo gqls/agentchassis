@@ -1114,3 +1114,19 @@ evidence was already ruled out in D3.
 
 Note: loancash is a verbatim HTML port (18 ported pages, 0 framework components), so any
 copy change there is a manual/port question regardless — diagnosis-only by construction.
+
+## 2026-08-14 — the section-editor mode split is now instrumented (peer delivery, pending roll)
+
+The `brochure_component_library` front's owner green-lit the returned-map change and it is
+built: `d476b01c2`, council-submitted `c19309ef`. `ApplySectionEditAction`'s result now
+carries `content_edit_mode` (naming the input key the run actually resolved, so it cannot
+drift from the code's precedence), `updated_field_count` and `total_field_count`, landing
+in `collected_data`. Three caveats, theirs, adopted verbatim: **inert until the next image
+roll** (check the provenance stamp before trusting a row); **forward-only** (the 132
+pre-existing runs stay unrecoverable — Phase 4's not needing them stands); an empty mode
+on a `component_swap` row means *not applicable*, so filter on `edit_type` first.
+
+**What this buys stage 2 when it arrives:** its section-editor dispatches become
+self-describing — "this run merged 2 fields of 7" vs "this run replaced the component" is
+a queryable fact, which makes the §9/§10 preference for `field_updates` enforceable by
+measurement rather than by trust. Nothing in the phasing changes.
