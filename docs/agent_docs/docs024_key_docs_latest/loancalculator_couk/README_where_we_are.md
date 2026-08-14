@@ -1824,3 +1824,27 @@ checking pages at addresses I'd guessed instead of the real ones — the "pages"
 was reading were 404 errors. The database said otherwise, which is what sent me
 back to look. Next: council verdict, then a one-site trial replan, then the
 rebuild.
+
+2026-08-14 (night) — The review board approved the planner change on the second round
+(the first round asked, fairly, that I attach proof for things I'd merely stated; the
+proof existed and now it's attached). Then we ran the trial: one planner run on the
+live site with the new behaviour switched on. The good news is complete on the
+mechanics — the planner saw all eleven calculator components in its menu, looked up
+the right site, nothing broke anywhere on the platform, the locked calculators
+weren't touched, and every real page still serves perfectly. Two surprises, though,
+both caught and boxed in. First, the planner took it upon itself to invent two pages
+we never asked for (an "about" page and a guides index) and queued up work to build
+them plus generate imagery; I've parked all of that and shelved the two empty page
+entries — nothing reached the live site. Second, and more useful: a plain replan
+turns out not to propose page layouts for pages that already exist — so the question
+we most wanted answered ("will the planner keep the calculators in place when it
+rebuilds a page?") simply never came up. It can only be answered by the rebuild
+itself, or by explicitly asking for specific pages to be recomposed. The locks and
+the pairing fix remain the safety net either way.
+
+So: the planner work you asked for is done, reviewed, and proven as far as a trial
+can prove it. Before the rebuild fires there are two things I'd like your view on:
+how we want the 26 existing pages regenerated (the explicit per-page route is now
+clearly the honest one), and whether you're comfortable that the mission brief's
+"keep the pages" instruction is strong enough given that a bare replan invented two
+pages on its own. Everything is written up for the next session either way.

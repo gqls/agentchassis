@@ -5127,3 +5127,52 @@ run orch `ae9e0873`):
 Commits: `f3658c893` (the change + PLAN-049), `1c05b2178` (round 2 + canary script +
 033), both `Council-Submitted: 508fe8eb`. My PLAN-049 index row travelled as a
 same-file passenger in another session's `99fa0a3fb` — stated in both commit messages.
+
+### 2026-08-14 (night) — round 2 APPROVED; canary run: mechanism PROVEN, placement UNTESTABLE by a bare replan, and two surprises contained
+
+**Council round 2: APPROVED** (2 advisories, none high; librarian flipped to approve;
+3 abstained). Advisories dispositioned: 033 got its hard number (review at 8 keys,
+`a212b3470`, first commit entitled to `Council-Reviewed:` — verdict read first); the
+editquality bookkeeping notes were about artifacts already committed; guardian's
+seed-race note is moot (the seed applied under its exactly-1-current-row guard);
+debug_historian's separate-verify-file convention noted for next time.
+
+**Canary (corr `b23b19c7`, orch `7d9d9b6d`, COMPLETED 19:14Z), verdict in three parts:**
+
+1. **PROVEN, at the live artefact:** `available_components` = **140** in the run's own
+   collected_data — the widened menu fired, `site_record.site_id` resolved (the run's
+   site_record carries this site's id), no step failure anywhere in the chain. Locked
+   rows: 17/17 untouched, `tool-2` on loan-vs-savings still 11,845 B with its script.
+   The 28 pre-existing pages rows: **byte-identical** on (name,url,page_type,status) —
+   md5 `e6dd8fb8…` recomputed equal after excluding the newcomers. Serving 27/27.
+
+2. **UNTESTED — and now known to be untestable this way:** the placement question
+   (bug_historian's round-1 objection). A bare replan writes `site_plan_sections`
+   ONLY for pages it invents: every realised page carried `sections: []` into the
+   plan (read from collected_data, not inferred — index 0, tool-loan-vs-savings 0,
+   about 2). Seed 362's "re-emit realised lists verbatim" did not manifest as plan
+   sections on this input shape. So no composition for a built page was proposed,
+   nothing could exile a calculator, and equally nothing exercised the identity arm.
+   **Placement proof moves to the first run that composes a built page** — the
+   mission-driven rebuild itself, or a targeted `recompose_pages` dispatch (intent in
+   BOTH spec list and briefing prose, per the recompose no-op landmine).
+
+3. **SURPRISES, both contained:** the planner INVENTED two pages (`about`,
+   `guides-index`) despite converging on the 27 realised ones, and emitted 7 follow-on
+   items (2 needs_page, 4 needs_imagery incl. a site logo, 1 needs_rerender whose
+   assemble step would have DEPLOYED the two not_built pages as empty shells). All 7
+   deferred with a stated reason (matching the owner's 08-12 parking); the two
+   component-less rows archived under a guard (zero components + created-today only;
+   one UPDATE to reverse). The serving checker briefly read 27/29 with two 404s —
+   the PLAN-047 active-but-never-deployed shape, live for ~6 minutes.
+
+**What this means for the fire sequence — TWO OWNER-FACING QUESTIONS, surfaced not
+decided:** (a) the rebuild's regeneration mechanism must be chosen explicitly: a plan
+that carries no compositions for built pages will not, by itself, regenerate them —
+if the rebuild is to rebuild the 26 pages it must go through recompose_pages (both
+places) or per-page content work, and the calculators' placement test happens THERE,
+with the locks and the identity arm as the safety net; (b) page invention under the
+mission brief — the canary ran bare, so whether the keep-pages pin suppresses
+invention is untested; the fire runbook should check for new active rows immediately
+after the planner phase. Neither question blocks the 407 mechanism, which is done and
+approved; both shape how the fire is dispatched and judged.
