@@ -344,6 +344,8 @@ deploy-infrastructure-old: ## Deploy all infrastructure components
 	@$(MAKE) deploy-080-kafka-topics
 	@$(MAKE) deploy-090-monitoring
 	@$(MAKE) deploy-095-node-config
+	@$(MAKE) deploy-096-github-runners
+	@$(MAKE) deploy-097-ollama
 
 .PHONY: deploy-infrastructure
 deploy-infrastructure: ## Deploy all infrastructure components
@@ -366,6 +368,8 @@ deploy-infrastructure: ## Deploy all infrastructure components
 	@KUBECONFIG=$(KUBECONFIG_PATH) $(MAKE) deploy-080-kafka-topics
 	@KUBECONFIG=$(KUBECONFIG_PATH) $(MAKE) deploy-090-monitoring
 	@KUBECONFIG=$(KUBECONFIG_PATH) $(MAKE) deploy-095-node-config
+	@KUBECONFIG=$(KUBECONFIG_PATH) $(MAKE) deploy-096-github-runners
+	@KUBECONFIG=$(KUBECONFIG_PATH) $(MAKE) deploy-097-ollama
 	@KUBECONFIG=$(KUBECONFIG_PATH) $(MAKE) deploy-100-bootstrap-agents
 	@echo "$(GREEN)Infrastructure deployment complete!$(NC)"
 	@echo "$(YELLOW)To use this cluster, run: export KUBECONFIG=$(KUBECONFIG_PATH)$(NC)"
@@ -392,6 +396,8 @@ deploy-infrastructure-from-ingress: ## Deploy infrastructure starting from ingre
 	@KUBECONFIG=$(KUBECONFIG_PATH) $(MAKE) deploy-080-kafka-topics
 	@KUBECONFIG=$(KUBECONFIG_PATH) $(MAKE) deploy-090-monitoring
 	@KUBECONFIG=$(KUBECONFIG_PATH) $(MAKE) deploy-095-node-config
+	@KUBECONFIG=$(KUBECONFIG_PATH) $(MAKE) deploy-096-github-runners
+	@KUBECONFIG=$(KUBECONFIG_PATH) $(MAKE) deploy-097-ollama
 	@KUBECONFIG=$(KUBECONFIG_PATH) $(MAKE) deploy-100-bootstrap-agents
 	@echo "$(GREEN)Infrastructure deployment complete!$(NC)"
 	@echo "$(YELLOW)To use this cluster, run: export KUBECONFIG=$(KUBECONFIG_PATH)$(NC)"
@@ -579,6 +585,44 @@ deploy-095-node-config: ## Deploy 095-node-config (kubelet image-GC DaemonSet, B
 		fi; \
 	else \
 		echo "$(YELLOW)skipping 095-node-config — no $(TERRAFORM_DIR)/095-node-config (production-only)$(NC)"; \
+	fi
+
+# 096/097 — the CI runners and ollama as INSTALL steps (owner directive
+# 2026-08-14: the whole framework installs via terraform+kustomize). Each
+# terraform root wraps the same overlays deploy-agents applies day-to-day —
+# same manifests, idempotent in either order, and NO image sweep in either
+# path (runners are pinned to their own tags; ollama runs upstream
+# ollama/ollama). Same skip/fail shape as 095.
+.PHONY: deploy-096-github-runners
+deploy-096-github-runners: ## Deploy 096-github-runners (both CI runner deployments)
+	@if [ -d "$(TERRAFORM_DIR)/096-github-runners" ]; then \
+		echo "$(GREEN)Deploying 096-github-runners...$(NC)"; \
+		cd $(TERRAFORM_DIR)/096-github-runners && \
+		if [ -f terraform.tfvars.secret ]; then \
+			KUBECONFIG=$(KUBECONFIG_PATH) terraform init && \
+			KUBECONFIG=$(KUBECONFIG_PATH) terraform apply -auto-approve -var-file=terraform.tfvars.secret; \
+		else \
+			KUBECONFIG=$(KUBECONFIG_PATH) terraform init && \
+			KUBECONFIG=$(KUBECONFIG_PATH) terraform apply -auto-approve; \
+		fi; \
+	else \
+		echo "$(YELLOW)skipping 096-github-runners — no $(TERRAFORM_DIR)/096-github-runners (production-only)$(NC)"; \
+	fi
+
+.PHONY: deploy-097-ollama
+deploy-097-ollama: ## Deploy 097-ollama (ollama-adapter + ollama-eval)
+	@if [ -d "$(TERRAFORM_DIR)/097-ollama" ]; then \
+		echo "$(GREEN)Deploying 097-ollama...$(NC)"; \
+		cd $(TERRAFORM_DIR)/097-ollama && \
+		if [ -f terraform.tfvars.secret ]; then \
+			KUBECONFIG=$(KUBECONFIG_PATH) terraform init && \
+			KUBECONFIG=$(KUBECONFIG_PATH) terraform apply -auto-approve -var-file=terraform.tfvars.secret; \
+		else \
+			KUBECONFIG=$(KUBECONFIG_PATH) terraform init && \
+			KUBECONFIG=$(KUBECONFIG_PATH) terraform apply -auto-approve; \
+		fi; \
+	else \
+		echo "$(YELLOW)skipping 097-ollama — no $(TERRAFORM_DIR)/097-ollama (production-only)$(NC)"; \
 	fi
 
 
@@ -1124,11 +1168,16 @@ deploy-agents: ## Deploy all agent services with dynamic image tag
 		KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k $(KUSTOMIZE_DIR)/services/business-intel/overlays/$(OVERLAY_PATH); \
 	fi
 
-	# Deploy ollama-adapter (uses ollama/ollama image — NOT updated by IMAGE_TAG)
-	@echo "Deploying ollama-adapter..."
-	@if [ -d "$(KUSTOMIZE_DIR)/services/ollama-adapter/overlays/$(OVERLAY_PATH)" ]; then \
-		KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k $(KUSTOMIZE_DIR)/services/ollama-adapter/overlays/$(OVERLAY_PATH); \
-	fi
+	# Deploy ollama-adapter AND ollama-eval (both use the upstream ollama/ollama
+	# image — NOT updated by IMAGE_TAG). ollama-eval added 2026-08-14: it was
+	# live in the cluster but applied by hand only, so nothing reconciled it —
+	# the same drift hole the runners had before deploy-github-runners.
+	@echo "Deploying ollama-adapter + ollama-eval..."
+	@for svc in ollama-adapter ollama-eval; do \
+		if [ -d "$(KUSTOMIZE_DIR)/services/$$svc/overlays/$(OVERLAY_PATH)" ]; then \
+			KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k $(KUSTOMIZE_DIR)/services/$$svc/overlays/$(OVERLAY_PATH); \
+		fi; \
+	done
 
 	# Deploy BOTH github runners' manifests (own image lineage — NOT retagged to
 	# IMAGE_TAG; see the deploy-github-runners comment). Manifest-only, so a
