@@ -818,3 +818,54 @@ several hours after the robotics site's. With the new colours live, some of its 
 tickets may close on their own in that run — that would be the new closing mechanism doing its job
 on genuinely fixed elements, and I have written it down in advance so it reads as expected rather
 than alarming.
+
+---
+
+## 2026-08-14, later — a second thread's read-out, and four rulings that arrived after the darts rebuild was already filed
+
+This is a different session from the one that wrote the entries above. The owner asked me to explain
+the outstanding decisions in more detail, then ruled on them. Recording both, plus three measurements
+that change what the rulings mean in practice.
+
+**What the owner ruled, in his own order.** One: yes, links and labels should be brand-coloured.
+Two: aim for a contrast ratio of **5.0**, not the bare 4.5 minimum. Three: yes, build an off-switch.
+Four: the big sweep goes ahead, but only after he has seen the darts site with his own eyes.
+
+**The first thing to say is that ruling two arrived after the darts rebuild had already been filed,
+and the two do not agree.** The filed job will produce colours at 4.60 and 4.54 — correct for the
+old target, below the new one. At 5.0 the same site would get a slightly lighter navy and a slightly
+lighter coral. Neither is wrong; they are answers to two different questions, and the job in the
+queue is answering the older one. Nobody has done anything careless here: the job was filed on a
+ruling that was accurate when it was made, and the newer ruling came through a different session an
+hour later. This is simply what a fast-moving decision looks like when two people are carrying it.
+
+**The second thing is a correction to a correction, and it matters for the check the owner is about
+to make.** The entry above corrects fourteen sites down to "four components on thirty-five pages
+across seventeen sites". That is right about the components and it misses a second surface: five of
+the page layouts also carry the rule `a { color: ... }` pointing at the ink colour, which is *every
+link in every piece of prose* on the sites that use them. I confirmed this by reading the live
+stylesheets rather than the database — webdesign.co.uk serves that rule today.
+
+The consequence is uncomfortable and worth stating plainly. **On the darts site, exactly one thing
+changes: a single small uppercase label on the homepage.** Its stylesheet contains no live use of
+either ink colour at all. On webdesign.co.uk, by contrast, every link in every article changes
+colour. So the site chosen as the rehearsal is the site where the change is nearly invisible, and
+the sites where it is dramatic are not being looked at. The staged order is still right — one site
+first is the correct instinct — but the owner should know that approving the darts site approves a
+great deal he will not have seen.
+
+**The third thing is smaller and good news.** The predicted colour for the darts site's accent was
+flagged by the other session as unverified. I recomputed it from scratch — a separate implementation
+of the colour maths, with the input values read off the live stylesheet rather than taken from
+anyone's notes — and it agrees exactly, on both colours and both ratios. That is this lane's own
+rule about computing a number twice from separately-sourced inputs, applied to somebody else's
+number rather than my own, and this time the number held.
+
+**Two other sessions are working this same bug right now** — one on the derivation and the darts
+rebuild, one on the machinery that closes contrast tickets. Both are active as of this afternoon.
+Nothing here is a criticism of either; the point of writing it down is that three threads on one bug
+is exactly when a ruling gets applied twice at different strengths.
+
+What I have deliberately not done: I have not touched the queued rebuild, changed the contrast
+target, or started the off-switch. The first belongs to the session that filed it, and the other two
+are code changes in a lane I do not own.
