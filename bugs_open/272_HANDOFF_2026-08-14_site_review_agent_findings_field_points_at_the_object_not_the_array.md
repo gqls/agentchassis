@@ -191,10 +191,34 @@ are re-derived every run and deduped, so nothing is permanently lost).
 ### Council + commit
 
 - Council submission: `Council-Submitted: 5a79843a-c6d7-46e7-a8a2-df4482bd716c`
-  (verdict pending at commit time; check
-  `SELECT created_at, metadata->>'decision' FROM diagnosis_artifacts WHERE
-  correlation_id='5a79843a-c6d7-46e7-a8a2-df4482bd716c' AND kind='council_report';`)
-- Commit: see `git log --follow` on this file (pathspec commit, this session).
+  — verdict **APPROVED, round 1** (2026-08-14, "approved with 2 advisory
+  objection(s) — none high-severity", 6 seats abstained). The commit predates
+  the verdict under the `Council-Submitted:` trailer, which `098` resolves to
+  approved automatically at report time — no amend.
+- Commit: `2a3ea3e2c` (code + test + this file + 016b §9).
+- **Advisory 1 (editquality, medium) — ANSWERED WITH EVIDENCE, no change:** it
+  read the `{items_created:0, parse_error:...}` return (no `reason` key) as a
+  behavioural fork introduced by this fix. It is not:
+  `git show 2a3ea3e2c~1:platform/orchestration/actions/write_audit_findings_action.go`
+  lines ~552-560 show the pre-fix code returning exactly that shape on the
+  string-parse-failure path — the refactor moved it verbatim. The two zero-item
+  shapes (`reason` vs `parse_error`) are a pre-existing contract; merging them,
+  as the seat suggested, would be the actual behaviour change. Fair residue
+  accepted: the new tests assert the extracted parser's returns, not the
+  action's final result map (asserting that needs DB scaffolding out of
+  proportion to a parse fix).
+- **Advisory 2 (reuse_agent, medium) — RECORDED AS A NAMED FOLLOW-UP, not done
+  here:** `create_blog_posts_action.go:101-146` carries a near-identical
+  three-way shape switch, and a third copy invites drift (one gets a case the
+  other doesn't — precisely this bug's genesis). A shared normalizer was looked
+  for before duplicating (none exists: `ParseLLMJSON` is a lenient
+  string-parser, `tryUnwrapMapPatterns` is unexported and scoped to
+  `ExtractFields`) — the seat is right that the submission did not show that
+  search. Consolidating into a `datahelpers` "LLM result → list, unwrapping a
+  named key" helper is a real candidate, but it is a new shared seam touching
+  N call sites — per the 2026-07-29/08-02 rulings that wants its own scoped
+  change with the consumers named, not a rider on a bug fix. The sibling
+  switches are enumerated in 016b §9's new entry for whoever picks it up.
 - 016b §9 gains the transferable pattern (*an LLM-result consumer that
   type-switches on shape silently drops every shape it doesn't name*), with the
   sibling switches that still lack an object case listed.
