@@ -14,11 +14,17 @@ the next chassis roll** — completion gate 1b, which refuses to stamp `complete
 `dark_section_audit` item when the handler's own payload says it changed nothing. It is
 opt-in per `item_type` with the unsafe default OFF, registers no verifier, and touches no
 registry. **D1 half two (retraction at the next audit) is specified and deliberately NOT
-started**, because a precondition nobody had noticed turned up: this detector is an LLM, so
-its silence is not a measurement's silence, and retracting on it could close real defects
-on model variance. **Two things are blocked on the owner:** the kubeconfig token has
-expired, which stopped the council submission from dispatching at all, and the bug's own
-closure criterion is still unsatisfiable (three costed options, unchanged from 08-12).
+started**. > **CORRECTED 2026-08-14:** the reason has CHANGED and the original one was
+disproved. I stopped because I feared the LLM detector's silence was unreliable; **measured,
+it re-reported the defect 7 of 7 times**, so that fear was wrong. What actually blocks half
+two is different and was found afterwards: **`spec.page_name` is free prose** (`all`,
+`global`, `sitewide`, `index / about`, a comma-joined list of three slugs), so page-scoped
+retraction cannot be built on it at all. The design that survives is SITE-scoped retraction
+after **N ≥ 3** consecutive silences — see §"D1 HALF TWO" and the NOTES section
+§"the precondition failed anyway".
+**One thing is still blocked on the owner:** the bug's own closure criterion remains
+unsatisfiable (three costed options, unchanged from 08-12). The kubeconfig token was
+refreshed on 08-13 evening and everything below about it is history, not current state.
 
 ---
 
@@ -29,6 +35,16 @@ closure criterion is still unsatisfiable (three costed options, unchanged from 0
 >    on the failed first attempt stays as the record of why `96c53bc18` carries no trailer;
 >    forward-only forbids an amend, so that commit will list as un-reviewed in the `098`
 >    report and this correlation is the join a human needs.
+>    **ROUND 1 = REVISE** (gating objection from `guardian`), **round 2 resubmitted
+>    2026-08-14 07:42** on the same trail (`RESUBMIT_CORR`), orchestration
+>    `81d8fcb8-64ce-455c-9a7d-c9424d12e6eb`. **All three objecting seats were right and two
+>    of the three were gaps in my EVIDENCE, not in the change** — see §"round 1's objections"
+>    below. The one design question (why the sibling `item_type` is excluded) had a concrete
+>    answer that is now written into the roster comment.
+>    ⚠ **`orchestration_states` has NO `id` column — it is `orchestration_id`.** A poll loop
+>    of mine with `2>/dev/null` swallowed that error for twelve iterations and printed empty
+>    lines, which reads exactly like "the run was never dispatched". Query by payload
+>    (`collected_data->'input_data'->>'fix_correlation_id'`) and never hide psql's stderr.
 > 2. **The stability question is ANSWERED, and item 2 is unblocked:** the audit re-reported
 >    the colour defect on **7 of 7** post-closure re-visits across 4 sites, on findings
 >    independently known not to have been repaired. **But 0 misses in 7 bounds the miss rate
@@ -38,7 +54,7 @@ closure criterion is still unsatisfiable (three costed options, unchanged from 0
 >    `hardcoded_section_colors` and that is an artefact of our own Half A rename** — match
 >    on site+page, not on item_key.
 
-## ⚠ BLOCKED ON THE OWNER — read before doing anything at the cluster
+## ~~⚠ BLOCKED ON THE OWNER~~ — RESOLVED 2026-08-13 evening; kept as the record of a trap
 
 **The kubeconfig token has expired.** `kubectl -n ai-persona-system get pods` returns
 `You must be logged in to the server (Unauthorized)`. Everything live is refused: DB
@@ -51,12 +67,14 @@ returned `Unauthorized`. The printout happens **before** the publish, so it name
 The commit therefore carries **no trailer at all** — `Council-Submitted:` asserts a
 submission was made, and this one was not.
 
-**First action once the token is back**, in this order:
+~~**First action once the token is back**~~ — **all three done 2026-08-13/14:**
 
-1. Re-fire the submission — payload is complete and validated at
-   `scratchpad/213_d1_gate1b_submission.json`. Record the NEW correlation in `NOTES`.
-2. Run the D1-half-two stability measurement below. It is one query and it decides a design.
-3. After the next roll, run the RUNBOOK's gate-1b behavioural check (both directions).
+1. ~~Re-fire the submission~~ → dispatched, round 1 REVISE, round 2 in flight (see banner).
+2. ~~Run the stability measurement~~ → **7 of 7**, and it moved the blocker rather than
+   clearing the path; the miss-rate bound is what sets N ≥ 3.
+3. **STILL OWED — the gate-1b behavioural check, after the next chassis roll.** `96c53bc18`
+   is not in `v1.0.1295` (that image predates it). This is the only thing that proves the
+   wiring, and it needs the RUNBOOK's two-sided control.
 
 ---
 
@@ -182,3 +200,24 @@ lane did.
 
 `96c53bc18` — gate 1b (4 files, no council trailer, and the message says why).
 Docs commit follows this file. Yesterday's evidence: `5c27a85a2`, `13d0bc588`.
+
+---
+
+## ROUND 1'S OBJECTIONS, AND WHAT EACH ONE COST (correlation `0c8e7f5b`, REVISE)
+
+13 seats reviewed, 4 abstained, `gated_by_truncation: false`, decided_by *"gating objection
+from guardian"*. Three seats objected. **Read this before submitting anything else from this
+lane — two of the three were things I had already checked and failed to write down**, which
+is the same objection round 1 of the D3 submission drew.
+
+| seat | sev | objection | answer |
+|---|---|---|---|
+| `guardian` | **high** | The `runRegisteredVerifier` extraction refactors the shared completion path that every registered verifier depends on. The plan proved the NEW gate inert for opted-OUT types; it proved nothing about the EXTRACTED path for types already REGISTERED, where drift lands on every pipeline. | **Correct, and it was a real hole.** Closed by `TestRunRegisteredVerifierPreservesEveryGate2Outcome` — six outcomes against `hardcoded_section_colors`, plus a target-assembly test. Needs no DB (the verifier is a parameter). Mutation-proven 4 ways. |
+| `guardian` | medium | Does not affirmatively rule out other callers of `verifyBeforeComplete`. | **Measured, whole repo:** exactly 2 lines — the definition and ONE call site (`load_work_item_actions.go:920`). I ran this grep *before* submitting and left it out of the plan. |
+| `guardian` | low | Confirm this core site has not already been "sent up and refused". | **It has not, and the record runs the other way:** RFC_017's decided fix landed here (`1c5d9ceb5`), bug 017's gate 1 and `recordUnknownVerdict` landed here (`c82b2872c`, `c80fffc83`), and a 13-0 APPROVED round touched it (`7f85873b9`). |
+| `bug_historian` | medium | The sibling `item_type` has the same handler and the same 0-of-30 zero-fix history and gets no gate — the documented "one call site gets the rigorous fix, the sibling stays heuristic" shape (016b §9). | **The one real design question, and the answer is that it must NOT be gated.** `hardcoded_section_colors` already has a registered verifier, and for a **site-level aggregate** whose defect is "components matching the sweep exist", a zero-change run on an empty population is the CORRECT completion — all 9 rows read `verified — no unlocked component carries a colour within the fixer's remit`. Gating it would block those. The asymmetry is not the handler; it is that one type is graded and the other is graded by nothing. |
+| `prior_art_librarian` | medium | `grounded_in` cites CLAUDE.md owner rulings as authority — **invisible to council seats, so unfalsifiable by any reviewer**. Both the scope decision and the safety default rested on them. | **Accepted and re-grounded IN THE REPO:** `verifiers.go`'s `VerifierPolicy` and `Grades` doc comments both quote the 2026-08-02 opt-in-default-OFF ruling, and RFC_017's policy is in `complete_work_item_verification.go`'s header. The design follows a rule already written into the seam it edits. **Carry this forward: never cite CLAUDE.md to a council seat — cite the code that quotes it.** |
+| `prior_art_librarian` | medium | `handlerReportedFailure` as precedent is asserted, not checked — if it is not as described, "sibling of gate 1" is invented precedent. | **Quoted with line numbers** in round 2: signature at `:247`, three-valued return, call at `load_work_item_actions.go:894`, unknown arm persisted by `recordUnknownVerdict` at `:288`. |
+
+**The pattern across all six: the change survived; the SUBMISSION was under-evidenced.** Four
+of the six were answerable from work already done. Budget the ten minutes to list it.

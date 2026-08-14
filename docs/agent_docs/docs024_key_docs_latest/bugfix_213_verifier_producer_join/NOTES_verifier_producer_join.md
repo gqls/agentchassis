@@ -914,3 +914,53 @@ unlike the colour findings I have no independent evidence that the defect surviv
 is not evidence of instability — it is evidence that **the 7-of-7 result is specific to the
 colour findings and must not be generalised to the producer.** Anyone extending retraction
 to another design-audit type owes the same measurement for that type.
+
+### And then the precondition failed anyway — `page_name` is prose too [MEASURED 2026-08-13]
+
+Stability was the blocker I expected. It cleared. The one I did **not** expect is that the
+field retraction would have to be scoped by cannot carry the weight:
+
+```sql
+SELECT COALESCE(NULLIF(spec->>'page_name',''),'<none>'), count(*), count(DISTINCT site_id)
+FROM site_work_items WHERE spec->>'audit_source'='design-audit' GROUP BY 1 ORDER BY 2 DESC;
+--  index 140/19 · about 29/15 · contact 28/13 · all 17/9 · global 8/4 · services 7/4
+--  · "all pages" 5/3 · sitewide 4/1 · "index / about" 3/1 · "index, services" 2/2
+--  · site-wide 2/2 · "case-study-multi-agent…, case-study-news-pipeline, case-study-…" 3/1
+```
+
+`page_name` is **free prose**, exactly like `affected_component` (yesterday's landmine) and
+exactly like `acceptance_test`. `all`, `global`, `sitewide`, `site-wide` and `all pages`
+are five spellings of one idea; `index / about` and `index, services` are two pages in one
+string; one row carries three case-study slugs comma-joined.
+
+Three consequences, in order of how much they cost:
+
+1. **Page-scoped retraction cannot be built on this field.** "The audit examined page P and
+   did not report a dark-section defect" is unanswerable when P may be the string `all`.
+2. **The dedup key is already degraded by it.** `item_key` is
+   `{source}_{item_type}_{page_name}_{site}` (`write_audit_findings_action.go:291`), so the
+   SAME defect described as `index` on Monday and `sitewide` on Tuesday mints two different
+   keys, both open, neither deduping the other. Not hypothetical — the spellings above are
+   from live rows.
+3. **It bounds my own 7-of-7 result**, and I am saying so rather than leaving it implied: I
+   matched on `COALESCE(page_name,'')` equality. Every colour finding happens to carry
+   `index`, so the match is sound *for those rows*. It would not be sound for a producer-wide
+   version of the same query, and anyone widening it must resolve the spellings first.
+
+**So item 2's blocker is NOT the 122 lane's.** Theirs is "the audit does not report which
+pages it examined" — a missing field, fixable by adding one. Ours is "the page identifier it
+DOES report is prose", which is a producer-side contract change or a different scope.
+
+**The design that survives this, and it is what I would submit:** scope retraction at the
+**SITE**, not the page, for this item type only — *the audit visited this site N consecutive
+times and reported no dark-section defect → retract*. It never has to resolve a page name.
+It is coarser, and the coarseness is bounded by fact rather than hope: all 15 live
+`dark_section_audit` findings name `index`, and `index` is the most-audited page in the
+fleet (140 findings across 19 sites), so a site visit that examines nothing is not a case
+that arises. With N ≥ 3 the miss-rate bound from 7-of-7 (~35% per run) compounds to under
+5%, which is the number that licenses the retraction — **that is why N is 3 and not 1, and
+it should be stated that way in the submission rather than asserted as a safety margin.**
+
+Not built. It is a second shared-seam change and needs its own council round; gate 1b's is
+still in flight, and stacking a second submission on an unread verdict is how a lane ends up
+defending two designs at once.
