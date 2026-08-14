@@ -9,6 +9,46 @@ resubmitted and its verdict has NOT landed** — the round is still running (las
 the guardian seat). Nothing below claims approval, and no commit in this lane carries a
 `Council-Reviewed:` trailer.
 
+> **⚠ CORRECTED, same day, ~20 minutes after this file was written — ROUND 2 CAME BACK
+> AND IT IS ALSO `REVISE`.** 12 seats, 5 abstained, no truncation, **gated by
+> `prior_art_librarian` on a HIGH objection**, with `bug_historian` repeating its round-1
+> point. The paragraph above is left as written because the series is the record; this
+> note is what changed. **The gating objection is that I answered a gating objection
+> badly, and it is right:**
+>
+> - **HIGH — I argued down the architecture gate with a citation the seats cannot read.**
+>   Council seats have no access to `CLAUDE.md`, so "the owner ruled to ship this" and
+>   "the owner retired the staged-rollout requirement" are, from their side, unverifiable
+>   appeals to authority used to dismiss a gate. There is a landmine registered against
+>   exactly this seat for exactly this. The rulings are real and they do apply — but that
+>   is not the point. **The point is that a reviewer who cannot check a claim is right to
+>   refuse it**, and the correct move was to route the objection (which I did, to
+>   `RFC_028`) and then say nothing further, rather than also litigating it with evidence
+>   the reviewer has no way to see. Round 3 drops the argument and quotes any ruling it
+>   must reference verbatim.
+> - **MEDIUM — my headline measurement had no query attached.** The "27 rounds, 8
+>   `needs_rfc`, 1 veto" figure is doing load-bearing work in the argument, and I put the
+>   numbers in the evidence list without the SQL that produced them. This is the seat
+>   whose entire job is verifying such claims against `diagnosis_artifacts`, and I gave
+>   it nothing to run. Unverified, it is, in its words, "folklore dressed as a
+>   measurement" — and it is a fair description, even though the number is correct and
+>   the query is three lines and sitting in `RFC_028`.
+> - **LOW — my "no duplicate classifier exists" proof is a content grep**, and content
+>   search over behaviour patterns is documented as unreliable here. A miss does not
+>   prove absence, which is a rule this estate has written down more than once and I
+>   leaned on anyway.
+> - **`bug_historian`, repeated: the remedy I built is inert.** `--report` exists but no
+>   CronJob drives it, so for an unbounded interval a mistyped setting on a defaulted
+>   field is refused with no fleet-visible signal at all. My reason for not shipping the
+>   overlay was sound (the image must exist first, or the cluster reports the failure as
+>   "still running"), but the seat's point stands regardless: **a deferred remedy is not
+>   a closed objection.** It asks specifically whether the job has run even once and
+>   produced a real row — which it has not.
+>
+> **None of the four is a defence of the code**, and none disputes that the fix works.
+> Three are about how I argued, and one is about a control that is built but switched
+> off. That is a more uncomfortable set of findings than round 1's and a more useful one.
+
 ---
 
 ## What we're trying to do
@@ -140,8 +180,14 @@ with three questions, not a recommendation I've acted on.
 
 Four things, in order:
 
-1. **Read the round-2 verdict** and act on it. If it comes back REVISE again, revise —
-   round 1 found four real defects, which makes another round cheap by comparison.
+1. ~~**Read the round-2 verdict** and act on it.~~ **DONE — it is REVISE (see the
+   correction at the top). Round 3 is the next action, and it is mostly not code:** drop
+   the owner-ruling argument entirely and let `RFC_028` carry the architecture question
+   to a human; attach the SQL behind the 27-round measurement; replace the content grep
+   with a declarations-based check; and decide the one thing that genuinely needs the
+   owner — whether to build and push the CronJob image so the permanent-record mode
+   stops being inert. That last one is an outward-facing registry push, so it is a
+   decision to take rather than assume.
 2. **Witness the new rule firing.** Not from a log tail on an old machine; from a live
    stream, with an older log line in the same filter as the liveness control. This is
    the last outstanding claim in the whole piece of work.
