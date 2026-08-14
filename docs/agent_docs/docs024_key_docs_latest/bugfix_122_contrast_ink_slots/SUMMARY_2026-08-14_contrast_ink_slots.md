@@ -126,3 +126,13 @@ become less protected, by a deployment rather than by a choice.
 Beyond that, the gradient-in-a-colour-slot fault is written up and unowned. It is small,
 well understood, and genuinely separate from everything else here — a good candidate for
 whoever picks up next, precisely because it needs none of this machinery.
+
+---
+
+> **CORRECTION, appended 2026-08-14 late (the summary above is otherwise unedited).** The second
+> "needs you" item says every one of fourteen sites takes the new colours "the moment it rebuilds
+> for any reason at all". Measured the same evening: **false in the safe direction.** Only the
+> design agent regenerates a stylesheet; routine page rebuilds cannot move the colours. The real
+> exposure is someone deliberately dispatching the design agent at an affected site — and the only
+> such request in existence is ours, held pending your look. The decision is better protected than
+> this summary said. Full working in the lane notes and handoff.

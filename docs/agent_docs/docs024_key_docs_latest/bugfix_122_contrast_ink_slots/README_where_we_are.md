@@ -922,3 +922,26 @@ canary you asked for. Then you look. Only then does the wider sweep start.
 One caution for when you look: on the darts site this changes exactly one small label on the
 homepage. On webdesign.co.uk it changes every link in every article. That is why both are in the
 check.
+
+---
+
+**2026-08-14, late — a correction to something I told you twice today, and it is good news.**
+
+I said that once the colour repair was in the system, any rebuild of any of those sites, by anyone,
+for any reason, would change its link colours — and that nobody controls that. The other session
+went and measured it, and I have re-checked their measurement with a wider net: **it is not true.**
+Only one thing in the whole fleet regenerates a site's stylesheet — the design agent, the exact
+process our held rebuild request points at. The everyday page rebuilds that happen all the time
+cannot touch the colours; they only link to the stylesheet, they never rewrite it.
+
+So the exposure I described — "one unrelated rebuild away from going live" — overstated the risk by
+a wide margin. What actually stands between the new colours and a visitor is: somebody deliberately
+pointing the design agent at one of those sites. The one such request that exists is ours, and it is
+held. Your decision is better protected than I told you it was.
+
+The same evening gave us the proof it matters: another team was rebuilding page sections on the
+darts site while we believed the broad version. Under that belief, they were one command from
+spending your before-you-look gate. Under the measured truth, their work could never have touched
+it — and telling them the narrow truth let them carry on instead of stopping for a hazard that
+does not exist. A warning people must ignore to do their jobs is a warning they stop reading, so
+the record now says the narrow, true version.
