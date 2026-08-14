@@ -349,3 +349,9 @@ both names regardless of use). The answer is that it cannot be done as the code 
 - **One-line fix if the split is needed repeatedly** (it is, for their Phase 4): add the mode and
   the two field counts to the returned map, which lands in `collected_data` and makes the question
   answerable retrospectively for ever after.
+  > **BUILT 2026-08-14, owner-directed** (`d476b01c2`, `Council-Submitted: c19309ef`). The
+  > returned map now carries `content_edit_mode` (`"field_updates"` / `"replacement_content_data"`,
+  > empty for `component_swap`), `updated_field_count` and `total_field_count`, threaded from the
+  > one branch that resolves the input key. **Inert until the next image roll**, and it answers the
+  > question for runs from then on only — the 132 pre-existing runs stay unrecoverable, which is
+  > why the copy lane's Phase 4 was already re-specified not to need them.
