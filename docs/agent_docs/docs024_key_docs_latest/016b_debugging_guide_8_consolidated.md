@@ -12054,3 +12054,53 @@ generalisation worth carrying: **prefer a behavioural check that fails LOUDLY on
 signature.** Here the pre-fix defect was a function writing *no row at all*, so "a row exists,
 owned by the requested type" is a check that could only pass on fixed code — far stronger than
 any artefact probe.
+
+### A completed CHILD whose result never reached the PARENT leaves the parent to substitute — so check a payload's PROVENANCE, not just that a payload is there (`bugs_open/274`, 2026-08-14)
+
+The symptom that starts this is never "delivery failed". It is **a record that looks complete and
+plausible and belongs to somebody else.** Bug 213 §D sat at NOT ESTABLISHED for days on exactly
+this shape: of 14 completed work items, 4 carried their handler's response envelope and 10 carried
+a payload that was not that handler's at all — a design-system spec for 9 of them, an unrelated
+child-page triage decision for the 10th. Every one of those items read `complete`, with a
+populated `result`, and nothing errored on the item.
+
+**The check, and it is a census not a hunch.** Ask whether the fleet is failing to deliver child
+results at all, before theorising about any one route:
+
+```sql
+SELECT agent_type, count(*), min(occurred_at)::date AS first, max(occurred_at) AS latest
+FROM agent_error_log WHERE error_message LIKE '%could not be delivered to the parent%'
+GROUP BY 1 ORDER BY 2 DESC;
+```
+
+On 2026-08-14 that returned **60 agent types and ~15,000 rows, continuous since 08-03 and still
+firing** — a fleet-wide condition that had been visible in a bug file for a week as an aside.
+
+**Why this is hard to see, three ways:**
+
+1. **The child logs it; the parent does not.** The failure is recorded against the CHILD's
+   `agent_type`/`step`, while the damage lands in the PARENT's work item. Nothing joins them, so a
+   census of the damaged items never surfaces the cause.
+2. **`agent_error_log.context` does not name the reason.** It carries `failed_step` (and sometimes
+   `item_type`/`page_name`) — useful for locating the route, useless for the mechanism. A
+   diagnosis run predicted the context column would name the failing validator; it does not.
+3. **A substituted payload passes every shape check.** It is valid JSON, it is non-empty, and it
+   has plausible keys. Any completion-time check reading "the handler's report" is then reading
+   someone else's report and grading it correctly — the `bugs_open/213` defect one level up.
+
+**The transferable rule:** when a completion-time check needs the handler's own output, assert
+**provenance**, not presence — a key only that handler emits, or an explicit sender field. And when
+a check cannot find what it expects, **make it ABSTAIN AND RECORD rather than pass or fail**. Bug
+213's gate 1b does exactly that, and its abstain records are what turned this from an anecdote into
+a census: 4 of 4 abstentions, each naming the payload's actual top-level keys, which is how the
+foreign-payload split was shown to be systematic (3:1 live, against 9:1 historical) rather than a
+historical accident.
+
+**Where such a chain stops is worth writing down too.** `"message validation failed"` exists at
+exactly one site (`platform/kafka/producer.go` `ProduceWithValidation`) and is reachable ONLY when
+a validator is injected and rejects the HEADERS — that validator requires `client_id`,
+`correlation_id`, `orchestration_id`, `sender_agent_type` and a step name, and logs an `Error`
+naming each, so **a pod log at the moment of failure identifies the missing field with no new
+code.** The wrapper that turns that error into the `agent_error_log` template is still unlocated,
+and `bugs_open/274` says so rather than guessing — a partial mechanism, honestly bounded, beats a
+complete one that is invented.

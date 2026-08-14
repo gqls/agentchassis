@@ -849,3 +849,35 @@ than on code. Three routes, costed in the lane handoff, two needing an owner's y
 cheapest (one deliberate dispatch of that single waiting row) would settle **both** it and this
 bug's own unsatisfiable closure criterion in the same action. Recorded here so the two are
 answered together rather than separately.
+
+---
+
+## §D UPDATE 2026-08-14 (evening) — a CANDIDATE mechanism, filed as its own bug, and NOT yet established
+
+§D's foreign-payload split went through the diagnosis loop. **Verdict `UNVERIFIABLE` for the
+question as I posed it** (run correlation `6f158444-145d-41a4-88d9-13d812939c58`) — I had pointed
+it at the site that BINDS the `result` input, and per this estate's own reading an `UNVERIFIABLE`
+means the question was wrong, not that the bug is hard. It was: the binding site is not where this
+goes wrong.
+
+**What the run's runtime citations surfaced instead is now `bugs_open/274`:** completed child
+workflows fail to deliver their results to their parents, fleet-wide — **60 agent types, ~15,000
+rows, continuous since 2026-08-03 and still firing**, including `color-variable-fixer` (43) and
+`build-dispatch-loop` (2,495), which are precisely this route's handler and the agent that
+completes its items.
+
+**[CANDIDATE MECHANISM — NOT ESTABLISHED]** If a child's result never reaches the parent, the
+parent completes the work item with whatever else is in its `collected_data`. That would produce
+this section's 10-of-14 split exactly. **It is not cited as the cause**, because the joining step
+is unread: nobody has yet traced what the parent substitutes on a delivery failure. Read
+`bugs_open/274` §4 before treating this as answered.
+
+**What IS established, and it was already half-visible here:** `bugs_open/216` recorded this same
+symptom on 2026-08-07 as *"an unexplained sibling symptom … unfiled at the time of writing, worth
+its own look"*. It sat unfiled for a week. So §D's mystery and that aside are plausibly one thing,
+and neither file could see the other.
+
+**Gate 1b's abstain arm is what made this findable**, which is worth recording as an argument for
+that arm's existence: 4 of 4 abstentions recorded the payload's actual top-level keys, showing the
+split is systematic (3:1 live against 9:1 historical) rather than a historical accident. An arm
+that had merely passed or failed would have produced no evidence at all.
