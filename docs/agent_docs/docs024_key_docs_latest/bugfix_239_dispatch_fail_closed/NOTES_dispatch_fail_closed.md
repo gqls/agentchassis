@@ -165,10 +165,58 @@ explanations (my write failed / someone committed my write) look identical until
 file and then `git log` it. Checking the file alone would have shown my text and looked fine;
 checking git alone would have shown clean and looked like a failed write. It took both.
 
+### Council: APPROVED first round, and what the objections were actually worth
+
+`0ff072ef`, 07:57:26Z — **~15 minutes from submission to verdict**, well inside the ~30 minutes
+CLAUDE.md tells you to budget. 10 reviewers, 8 approve, 2 object (guardian, prior_art_librarian),
+none high-severity, `gated_by_truncation: false`. Full answers in `bugs_open/259`.
+
+**The objections were worth more than the approval was.** Both medium ones caught the same real
+weakness: the submission's `risks` block *named* agentbase's gate equivalence as the load-bearing
+invariant and then **asserted** it rather than measuring it — I wrote "that is worth a reviewer's
+eye" where I should have written a grep. Guardian put it under `missing` as *"asserted, not
+checked"*, which is exactly right.
+
+Measuring it took one file read and came out stronger than the assertion: `a.db` and
+`a.stateRepo` are assigned on **adjacent lines inside one `if a.config.DatabaseURL != ""`**, and
+`a.db` is the argument that becomes `p.db`. So `a.stateRepo != nil` ⟺ `p.db != nil` — the gate
+cannot be weaker than "the processor has a live handle". `isStateless` is assigned `true` once
+and never false.
+
+**And the guardian's objection contained its own resolution, which I nearly missed:** it asked to
+confirm gate equivalence *"or that this site was truly always dead regardless of gate state"*.
+The second disjunct is trivially true and I had already proven it. Two claims had been running
+together in my head as well as in the submission: *deleting C changes nothing* (needs only that C
+never ran — a `DATABASE_URL` fact) versus *the chassis still dedupes* (a claim about agentbase,
+true or false **before** my change as much as after). Separating them dissolves the objection
+without any new evidence. **Lesson: when a reviewer offers a disjunctive condition, check the
+cheap branch first** — I went to measure the expensive one and only then noticed the other was
+already established.
+
+**Two objections left OPEN rather than argued away**, because they are honest tooling limits:
+site A's no-defer claim is a function-**body** fact and the code index stores declarations only;
+site B's zero-caller grep ran against the working tree, not the pushed index. Both seats asked
+for a human re-read at HEAD and both should get one. `debug_historian` also flagged something the
+post-roll plan had missed — the fleet is **MIXED for hours** after a release and
+`-l app=agent-chassis` selects 2 pods of the many running that binary — now carried into the
+handoff's verification section.
+
 ### State at the end of the session
 
 - `e37f79b65` — the fix. `f894b1a38` — gofmt follow-up. `c70f4565f` — bug file.
   `82b159ee9` — an unrelated declared tidy (SYS-091's index row still said `built`).
-- Council: `Council-Submitted: 0ff072ef-ee02-465e-8a70-f5461c585ec9`. **Verdict owed a read.**
+  `fea516212` — these standing docs. `f91397213` — the handoff. `d5d3ad592` — two landmines.
+  `6ea444469` — the verdict and the objection answers.
+- Council: **APPROVED**, `Council-Reviewed: 0ff072ef-ee02-465e-8a70-f5461c585ec9` (written only
+  after reading the verdict; the code commits carry `Council-Submitted:` and `098` credits them
+  automatically, with no amend).
 - `bugs_open/259` stays **OPEN**: fixed in the tree, inert until a fleet roll, so still
-  reproducible in production. Post-roll verification is in the bug file.
+  reproducible in production. Post-roll verification is in the bug file and the handoff.
+- **One commit message is degraded and cannot be fixed:** `d5d3ad592`'s body contains
+  `so a  keeps the reassuring` where I had written a backticked `| tail -N`. Backticks in
+  `git commit -m` are **command substitution** — bash tried to execute `| tail -N`, failed with a
+  syntax error, and substituted empty. The commit still landed. This is the documented
+  `shell-tool-traps-committing` trap. Forward-only forbids an amend; the content is intact in
+  `LANDMINES.md` itself (4 occurrences of `tail -N` at HEAD, verified), so nothing is lost but the
+  message. **Check: single-quote the whole `-m` body, or avoid backticks in it entirely** — every
+  later commit in this session used single quotes.

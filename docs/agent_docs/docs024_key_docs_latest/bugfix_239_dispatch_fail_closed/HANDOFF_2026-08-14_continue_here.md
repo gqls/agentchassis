@@ -1,4 +1,13 @@
-# dispatch/pool lane — HANDOFF 2026-08-14: 259's fix is IN THE TREE; two things are owed
+# dispatch/pool lane — HANDOFF 2026-08-14: 259's fix is IN THE TREE and APPROVED; ONE thing is owed
+
+> **UPDATED later on 2026-08-14 — item (a) below is DONE.** The council verdict landed
+> **APPROVED** first round (`0ff072ef-ee02-465e-8a70-f5461c585ec9`, 07:57:26Z; 10 reviewers,
+> 8 approve, 2 advisory objections, none high-severity, not truncated). Both medium objections
+> were answered with measurements and the answers are in `bugs_open/259` — the short version is
+> that `a.db` and `a.stateRepo` are assigned on adjacent lines inside one `if`, so agentbase's
+> dedupe gate is provably **as strong as** "the processor has a live handle", and separately the
+> deletion is a no-op regardless of that gate because site C never ran. **The only remaining
+> owed item is (b): verify after the roll, then close the bug.**
 
 **Cold-start for a new chat. Read this first; it is self-contained for the next task.**
 Supersedes `HANDOFF_2026-08-13_continue_here.md`, and with it `-08-12b` and `-08-12`, all now
@@ -31,7 +40,7 @@ Resolve by slug; `git log` the file path, never the bare number.
 
 ## 2. THE TWO THINGS OWED — this is the next task
 
-### (a) READ THE COUNCIL VERDICT, and act on it
+### (a) ~~READ THE COUNCIL VERDICT, and act on it~~ — **DONE, APPROVED. Kept for the queries.**
 
 `Council-Submitted: 0ff072ef-ee02-465e-8a70-f5461c585ec9`. Submitted 2026-08-14, still running
 at handoff time (last seen at `gate_tooling_provenance`). **The code is already on the shared
