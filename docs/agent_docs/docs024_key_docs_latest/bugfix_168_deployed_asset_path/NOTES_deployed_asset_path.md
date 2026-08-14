@@ -3478,3 +3478,25 @@ gofmt, `ac6a86f58` the correction) all postdate `v1.0.1295`, so the field ships 
 roll. The first sweep to carry it should return ~18 rows of `scan_still_trips` and **zero**
 gate rows. **That is the instrument working, not the gates approving** — and it is the first
 time that sentence will be checkable rather than arguable.
+
+### Postscript — `shared-ledger-not-appended` fired on a MODIFICATION, and passengers crossed both ways
+
+The docs commit (`29cbe3953`) drew the pre-commit warning *"3 line(s) removed from LANDMINES.md, a
+fleet-wide append-only ledger"* — on a session whose only LANDMINES action was `cat >>`. Investigated
+before assuming, because a deleted ledger entry is unrecoverable-looking and this file's own
+`WRONG_CALLS` entry is about exactly that:
+
+- The 3 removed lines were `3 3` in `--numstat` — removed **and** added. They are the **bugfix_209/231
+  lane's own edits to their own entry**, correcting `2026-08-13` to `2026-08-13/14 (one session,
+  spanning midnight)`. **A modification, not a deletion.** The check counts removed lines and cannot
+  tell the two apart — worth knowing before the next session reads it as damage.
+- My commit therefore carried *their* edit under *my* message: a same-file passenger, exactly what
+  CLAUDE.md says a pathspec cannot prevent.
+- And it went the other way too: **my own arm entry reached HEAD via `f7401425a`**, another lane's
+  commit, minutes before mine — so by the time I committed, only the residual diff was left. Verified
+  both entries are whole at HEAD (mine: 6 bullets, SQL block, relations line all present; theirs:
+  `added: 2026-08-14` present), because a truncated ledger entry is worse than a missing one.
+
+**Nothing was lost in either direction.** Recorded rather than tidied: the useful transferable is that
+`git show <sha> --numstat` distinguishes a modification from a deletion in one line, and the advisory
+check cannot.
