@@ -1,8 +1,10 @@
 # 236 — `hero_deployed` / `logo_deployed` carry no `image_url` by the time the readers run, so hero and logo URLs are never set
 
 **Filed 2026-08-09** by the `rfc012_await_findings` lane, at the owner's direction to clear the
-lane's residual problems. **Status: OPEN, root cause NOT established — see §5, which is the
-honest part of this file.**
+lane's residual problems. **Status: OPEN — ~~root cause NOT established~~ the MECHANISM is
+CONFIRMED as of 2026-08-14** (the park discards in-memory `CollectedData`; see the final
+contribution) — **the fix is an RFC_012 owner decision, not a patch for this file.** §5 remains
+the honest record of how the cause was narrowed.
 
 ## 1. What is established, first-hand, from live rows
 
@@ -658,3 +660,62 @@ the blocking item was this lane's own failed 08-12 run, no live session on it; t
 
 **VERDICT NOT YET READ.** Whoever reads it: do so within the orchestration row's retention window,
 and record it here either way — §5b stays `[CONTESTED]` until then.
+
+### VERDICT READ 2026-08-14 ~08:10Z — the narrow question is ANSWERED, the `[CONTESTED]` marker is lifted, and the mechanism is now CONFIRMED with a declared first-hand supplement
+
+Run `23f1cf9a…`, three bundle iterations, verdict `UNVERIFIABLE` — but read what it says rather than
+the label, because this one is different in kind from the four before it:
+
+> *"The full body of persistAwaitingStateWithRetry (given in full in this bundle) copies only
+> AwaitedRequests, Status, and LastActivity from the in-memory `state` onto the freshly-loaded
+> `freshState` before UpdateState — the cited existence-check reads freshState's OWN CollectedData
+> (to detect an already-arrived response), it does not merge state.CollectedData onto freshState,
+> so it does not contest the plain-discard reading; if anything it reinforces it."*
+
+**So the fragment that made §5b `[CONTESTED]` is resolved: it was an existence check, not a merge.**
+The loop finally read the whole function (the one-function seed left it no room to re-scope away)
+and its five citations include both halves of the copy logic. The `UNVERIFIABLE` label is only the
+confirm-needs-occurrence rule: static mechanism established, live occurrence not yet witnessed by
+the loop — its own two `data_requests` came back truncated before the deciding key was visible.
+
+**The two residual checks it enumerated were run first-hand the same hour, and this is the declared
+substitution per the 2026-07-31 owner ruling** (the loop named exactly what would settle it; these
+are those checks, not a fresh theory):
+
+1. **Occurrence — its own two data_requests, untruncated, while the rows were still parked.** Both
+   were this very run's OWN children, sitting in `AWAITING_RESPONSES` inside the 4-hour window:
+
+   | orchestration | parked on step | step's key in `collected_data` | earlier steps' keys |
+   |---|---|---|---|
+   | `74f8683d…` | `call_diagnoser` | **ABSENT** | `spawn_diagnoser` etc. present |
+   | `5622ffcc…` | `call_handler` | **ABSENT** | `spawn_handler`, `handler_spawned` etc. present |
+
+   Every completed step's key survives; the currently-awaited step's key — the one
+   `storeActionResult` wrote in memory moments before the park — is gone from the persisted row.
+   Both rows, same shape.
+
+2. **Ordering — `processActionResult`'s body, read in the tree** (the loop had located only the
+   `processAwaitResponse` call site): `coordinator.go:1795` calls `storeActionResult`
+   unconditionally FIRST — which writes `state.CollectedData[state.CurrentStep] = result` (`:1873`)
+   and `state.CollectedData[step.OutputField] = result` (`:1877`), in memory — and `:1839` calls
+   `processAwaitResponse` (→ the park) AFTER, with the same `state`. So for every awaited step the
+   in-memory write demonstrably precedes the discard; "the key is only written at response time"
+   is eliminated as an innocent explanation for the absences above.
+
+**What is CONFIRMED:** the park path (`persistAwaitingStateWithRetry`) discards every
+`CollectedData` mutation made in memory during the dispatching step — mechanism loop-cited from the
+full body, occurrence witnessed live on two independent parked rows, ordering verified at
+`:1795`/`:1839`. This is fleet-wide: every action that enriches its own result (or writes sibling
+keys) before an await loses that work at park; the response-time merge then "preserves" a map that
+never held it. It explains both §1 observations, including why the five-month-old sibling-key
+workaround (`deploy_image_asset_action.go:404-415`, `d45c86b1e`) has never worked.
+
+**What remains `[INFERRED]`:** that this mechanism is what erased THESE hero/logo keys on 08-09 —
+those rows are pruned and no direct witness exists. The mechanism is confirmed in general;
+item 2's `agent_error_log` capture (`fallback_sibling_present=false`) will witness the hero/logo
+instance the next time anything deploys an image.
+
+**What this bug now needs is a DECISION, not another run:** the fix lands in the awaited-park seam
+(merge `state.CollectedData` onto `freshState` at park, or persist before parking) — which is
+RFC_012 `(a)`/`(a′)` territory, an open OWNER call, with every await-using pipeline in the blast
+radius. Do not patch it inside this bug; route it to that decision with this evidence attached.
