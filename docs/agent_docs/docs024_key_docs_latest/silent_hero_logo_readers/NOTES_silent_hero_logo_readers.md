@@ -707,3 +707,41 @@ Incidence is unmeasured — the sibling section's per-file cap means many were n
 
 Same root in both: **a commit message and a markdown document are DATA, and I kept handing them to
 the shell as CODE.**
+
+## 2026-08-14 — 269 verified live and CLOSED; the 236 re-run turned out never to have run, so it is dispatched now
+
+**The roll happened overnight**: chassis `v1.0.1297`, pods 2026-08-13T22:29:19Z / 22:29:40Z.
+
+**269 §9 verification, in order, with controls:**
+
+- **Precheck failed as designed**: at ~9h pod age, `head -1` of `--tail=100000` was a worker line,
+  so the provenance startup line was out of range — "not in range", not "unstamped".
+- **Binary probe fallback**: build-point candidate `3b0ea20ffa84…` (HEAD at 22:10:43Z, last commit
+  before the pods started) PRESENT in `/proc/1/exe` on BOTH replicas; control `dffbc75e45…`
+  (committed 07:37Z today, post-build) ABSENT on both. `git merge-base --is-ancestor a3fee59b8
+  3b0ea20ff` → ancestor. The fix is in the binary.
+- **Behaviour**: exactly one bundle since the roll (`38e53a03…`, 07:39:57Z today):
+  `bare_method_handles=0`, and — the demand control that makes the zero readable — **12 sibling
+  bullets in the method format, all canonical**. Pre-fix code rendered every method bare, so 12/12
+  canonical could not be old output. The bullet-plus-signature format is unique to
+  `siblingSignatures`, so this is not `SymbolSizes`' prose being miscounted.
+- **The §9 collision clause is NOT satisfied**: that bundle scoped no §6b file. Recorded exactly in
+  `bugs_closed/269` §11 — half 1 (canonical rendering) live-exercised; halves 2/3 (dedup,
+  first-wins) test-proven only. Owner approved closing on that split this morning.
+
+**Closed and moved**: commit `034c421d2`, both paths on the commit, one line at HEAD confirmed.
+Register `DIAG-043` and `bugs_closed/267` §4b updated in `171335d6f` (`cap_only` 6 all-time, 0 new
+since 267 went live — right direction, thin demand: 1 bundle).
+
+**236 (hero/logo): the "cheapest next move" had never actually run.** Today's 090 coverage check
+refused, and reading the blocking item was the finding: `686f58a1…` (2026-08-12 19:49Z) re-used the
+**broad four-function seed**, not the narrow one, then **failed verdictless** at 20:30Z — five
+bundles under `36bd1b42…` (19:56–20:33Z, the last one after the failure stamp), no verdict, run row
+pruned, cause `[UNVERIFIED]`. Also learned: **verdicts are never in `diagnosis_artifacts`** — all
+three runs on this question hold bundles only there; a verdict must be read from the run's
+orchestration row within retention.
+
+**Dispatched the narrow run** (FORCE=1 after reading the coverage hit — our own failed item, no
+live session): intake `7daa0c43…`, **RUN `23f1cf9a-2e33-43a3-9b33-d18adbbe5c55`** (the artifact
+key), seed ONLY `persistAwaitingStateWithRetry`. Full record in the 236 file's 2026-08-14
+contribution. **Verdict pending at the time of this note.**

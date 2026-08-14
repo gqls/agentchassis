@@ -400,3 +400,26 @@ confident number that meant nothing.
 everything else it does nothing until the next build and roll. The remaining piece is RFC_027, which asks
 whether the underlying naming machinery deserves one proper owner rather than four bug fixes; that's a
 decision for you and "no, four is acceptable" is a fine answer.
+
+**2026-08-14.** The overnight build carries the fix, and I checked that properly rather than assuming
+it: the running binary on both replicas says which commit it was built from, our fix is inside that
+commit's history, and a commit made after the build is absent — so the check could have failed and
+didn't. Then the behaviour: the first diagnosis bundle since the roll listed twelve method references,
+and every one of them is in the new unambiguous form, none in the old form. The old code would have
+written all twelve the old way, so that's real evidence, not a vacuous zero.
+
+One honest caveat, written into the closed file rather than smoothed over: nothing since the roll has
+touched a file where two functions actually share a name, so the part that picks the right one of two
+has test proof but no live sighting yet. The part that stops the ambiguous references being offered at
+all — which is the defect we filed — is proven live. You approved closing on that basis this morning,
+so 269 is closed. That's the whole chain done: 261, 267, 269.
+
+Then I went to the hero/logo bug this was all in aid of, and found something embarrassing in a useful
+way: the "cheapest next move" we wrote down on the 12th — ask one narrow question about one function —
+was never actually run. The retry that evening asked the old broad question again, and then died
+without producing an answer, and nothing recorded why; the evidence of what went wrong has since been
+cleaned away by the database's own housekeeping. So I fired the narrow version today. The answer should
+land within the hour and will go in the bug file.
+
+Still waiting on you: the RFC_027 ruling — whether the naming machinery that produced four bugs gets
+one proper owner, or whether four bugs on something this small is acceptable and we move on.
