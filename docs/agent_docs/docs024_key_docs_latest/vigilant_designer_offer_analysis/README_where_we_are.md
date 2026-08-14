@@ -632,3 +632,45 @@ on it, and each is already carrying a filed note saying our checker cannot exami
 three notes are effectively the requirement list, and building the capability is what clears
 them. Using dartsonline as the worked example is the right choice — it is the newest of the
 three and has no legacy to unpick.
+
+**2026-08-14 — the two fields are in, and the third has a problem I could not solve by doing it.**
+
+Leopardess now carries the two fields that read cleanly, and your July ruling's wording is
+untouched — proved the same way as before, by stripping out what I added and checking the rest
+matches character for character. Every site on the estate now has these fields except that one
+missing entry on that one site.
+
+**On leaving the false claim in for the improvement loop to fix: I checked, and the loop cannot
+do it — for two separate reasons, both written into the checker's own file.**
+
+The first is that the claims auditor only ever looks at published pages and their stored
+content. It does not look at the premise records at all. The false sentence lives in a premise
+record, and nothing that writes a page reads those records, so the claim cannot even leak onto a
+page where the auditor would find it. It would simply sit there, unseen, until the analyser we
+are about to build started marking the site against it.
+
+The second is that the auditor never fixes anything, by design. Its own file says truth
+decisions belong to humans — it raises a note for a person and never rewrites content. So
+"let it fix itself naturally" is not something that machinery does for anybody.
+
+**There is an irony here worth telling you, because it is also the argument for doing something
+about it.** That auditor exists *because of leopardess*. It was built after "eight departments"
+was cleaned off that site and then found weeks later still alive on a forgotten page. The same
+site has now produced the same kind of invented claim one step further back — in the premise
+record, a place nobody thought to extend the auditor to. The fix we built from leopardess does
+not protect leopardess.
+
+So the real choice is: leave the field out, as it is now, and lose nothing but one entry on one
+site; or extend the claims auditor to cover premise records, which is a genuine gap nobody has
+filed and the only version of "let the platform handle it" that would actually be true. I would
+not merge the false sentence and hope — that puts something we know to be untrue into a record
+the new analyser will judge the site against, with nothing anywhere able to spot it.
+
+**Affiliate: understood, and parked properly.** Nothing has been built and nothing is half-built.
+The three notes saying our checker cannot examine those sites stay open on purpose — they are
+the standing record, and they clear themselves if the capability is ever built. One thing to keep
+an eye on: dartsonline's own record now says it is an affiliate site, and its lane is being asked
+about partners, while the platform side is parked. That is fine, but the two should not drift
+apart quietly.
+
+**B4 is next, and the handoff for a fresh session is written.**

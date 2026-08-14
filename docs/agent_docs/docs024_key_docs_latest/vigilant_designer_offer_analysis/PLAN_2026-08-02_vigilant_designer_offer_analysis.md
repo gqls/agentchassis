@@ -382,3 +382,47 @@ Marked here rather than edited into §B above, so the original text stays readab
   `capability_gap:revenue_shape` row (`gap_kind=handler_missing`). Those three rows are the
   requirement list, and closing the capability is what retracts them. Not started; not this
   lane's next action unless the owner says so (B4 remains the stated next track).
+- **2026-08-14 — OWNER REVERSED THE AFFILIATE DECISION THE NEXT DAY: not yet. B4 goes first.**
+  Supersedes the 08-13 entry above, which stands as the record of what was decided then — read
+  the two together. Owner's words: *"I don't think we can claim affiliate yet unfortunately,
+  please take B4 first."* So the affiliate capability is **DEFERRED, not scoped and not started**.
+  What that leaves in place, deliberately: the three `capability_gap:revenue_shape` rows
+  (`gap_kind=handler_missing`, `deferred`, empty handler) on dartsonline.com,
+  loancalculator.co.uk and loanandmortgagecalculator.co.uk stay OPEN and undispatchable. That is
+  the correct resting state — they are the standing record that three live sites are outside the
+  offer checker's reach, and they retract themselves if the capability is ever built.
+  ⚠ **One consequence worth a decision later, not now:** dartsonline.com's premise was
+  re-classified `affiliate` by the 08-12 refresh and its lane has been asked to recommend
+  affiliate partners, so **that site's recorded premise is now ahead of what the platform can
+  support.** Nothing breaks — the classification describes how the site would earn, the gap row
+  records that we cannot yet check it — but the two should not be allowed to drift silently.
+- **2026-08-14 — leopardessconsulting.co.uk: TWO of three Q-fields merged (owner approved).**
+  `satisfaction_condition` and `trust_threshold` taken from donor `0b508d5d`;
+  **`recurring_value` deliberately omitted** and the omission written into the spec's own `notes`
+  so it reads as a decision rather than an oversight. `md5(data − the two added keys)` =
+  `cf500fcf23b8fb09b8e380dc088c0208`, the pinned pre-session value, so the 2026-07-16 claims
+  ruling's content is byte-identical. **Q-field coverage is now 22 of 22 sites; the only gap in
+  the estate is one field on one site.**
+- **2026-08-14 — the owner's "leave the false one in and let the improvement loop fix it
+  naturally" is NOT AVAILABLE, on two independent counts, and both were read in the code.**
+  Recorded as an open decision rather than actioned either way.
+  1. **The claims audit cannot SEE it.** `check_unverified_claims` scans deployed
+     `page_components` / `site_components` HTML and stored `content_data`
+     (`check_unverified_claims.go:1-36`). **It does not read `site_specs` at all.** A false
+     sentence in a strategy row is invisible to it, and no writer or render agent reads the
+     `strategy` aspect either (measured 08-12), so the claim cannot propagate onto a page where
+     the audit *would* find it. It would sit inert until B4 graded against it.
+  2. **Even where it looks, it never repairs.** *"Routing: findings terminate at HUMAN review.
+     Truth decisions are human — auditors raise work items, they never rewrite content
+     (content-governance rule)"* (`:39-41`, and again in the prompt at `:140`). So "fix it
+     naturally" is not a thing this machinery does for anyone, by deliberate design.
+  **The irony worth recording: this check's motivating case IS leopardess** — "eight departments"
+  was audited out of that site and found weeks later alive on an orphan page, which is why the
+  post-deploy audit exists. The same site has now produced the same class of defect one layer
+  further back, in a surface the audit was never extended to cover.
+  **The real options** (owner's call, in the fresh chat): (a) leave it omitted, which is today's
+  state and costs one field on one site; (b) extend the claims audit to cover `site_specs` prose
+  — a genuine platform gap, no existing bug covers it, and it is the only option that makes
+  "let the platform handle it" true rather than aspirational; (c) merge it knowingly and accept
+  that nothing can see it. **(c) is the one to avoid** — it puts a known falsehood into a record
+  B4 grades against, with no detector anywhere.

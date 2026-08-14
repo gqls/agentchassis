@@ -1508,3 +1508,56 @@ invented fact means the review judges a site against something that was never tr
 gate's authority: a false fact causes a claim and then vouches for it*), one layer up. **B4's
 design should assume its inputs are unverified prose**, and the estate's existing claims
 machinery (`evidence_base`, `banned_claims`) does not cover `site_specs`.
+
+## 2026-08-14 — leopardess merged 2 of 3, and the "let the loop fix it" route does not exist
+
+Owner: take the two clean fields; leave the false one in and let the improvement loop fix it
+naturally; affiliate NOT yet, B4 first.
+
+**Merged the two.** `satisfaction_condition` + `trust_threshold` from donor `0b508d5d`, same
+atomic `DO`-block pattern with the additive proof as the guard —
+`md5(data − the two added keys)` = `cf500fcf23b8fb09b8e380dc088c0208`, the value pinned before
+this session touched anything, so the 2026-07-16 claims ruling's content is byte-identical.
+A third guard was added for this run: `IF v_merged ? 'recurring_value' THEN RAISE` — the
+omission is asserted by the code, not just intended by me. The reason is written into the spec's
+own `notes`, so the absence reads as a decision.
+**Q-field coverage is now 22 of 22 sites. The only gap in the estate is one field on one site.**
+
+### The third instruction is not available, and both halves are in the file's own header
+
+Before actioning *"leave the false one in and trigger the improvement loop to fix it
+naturally"*, I checked whether the loop can do either half. It can do neither:
+
+1. **It cannot SEE it.** `check_unverified_claims` scans deployed `page_components` /
+   `site_components` HTML and stored `content_data` (`:1-36`). **`site_specs` is not a surface it
+   reads.** And no writer or render agent reads the `strategy` aspect (measured 08-12, both
+   spellings), so the claim cannot leak onto a page where the audit *would* catch it. It would
+   sit inert in the premise until B4 graded against it.
+2. **It never repairs.** *"Routing: findings terminate at HUMAN review. Truth decisions are
+   human — auditors raise work items, they never rewrite content (content-governance rule)"*
+   (`:39-41`, repeated in the prompt at `:140`). Auto-repair of a truth claim is a thing this
+   platform deliberately does not do, for anyone.
+
+⚠ **And the part worth sitting with: this check's motivating case IS leopardess.** Its header
+says so — "eight departments" was audited out of that site and found weeks later alive
+mid-paragraph on an orphan page, which is why a post-deploy audit exists at all. **The same site
+has now produced the same class of defect one layer further back**, in a surface nobody extended
+the audit to cover. The fix that was built from leopardess does not protect leopardess's premise.
+
+Left as an owner decision rather than actioned either way (options a/b/c in the PLAN log and the
+handoff). **(c) — merge it knowingly — is the one to avoid**, because it puts a known falsehood
+into a record B4 grades against with no detector anywhere; that is `bugs_open/161`'s shape one
+layer up, and 161 is open precisely because a false fact in a register caused a claim and then
+vouched for it.
+
+**Affiliate reversed, and recorded as a reversal.** The 08-13 PLAN entry says "OWNER DECISION:
+yes, support affiliate properly"; the 08-14 entry supersedes it. Both stand — yesterday I had to
+fix exactly this failure for the A-track decision (a reversal recorded only in a handoff while
+the PLAN's decision log still read the other way), and repeating it the next day would have been
+careless. The three `handler_missing` gap rows stay open by design.
+
+⚠ **One drift to watch, flagged not fixed:** dartsonline.com's premise now says `affiliate` (my
+08-12 refresh re-classified it) and its lane is being briefed to recommend affiliate partners,
+while the platform capability is deferred. **The site's recorded premise is ahead of what the
+platform supports.** Nothing breaks — the classification describes how the site would earn, the
+gap row records that we cannot check it — but those two should not drift apart silently.
