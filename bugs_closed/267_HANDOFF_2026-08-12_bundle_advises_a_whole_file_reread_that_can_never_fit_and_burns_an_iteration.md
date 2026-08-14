@@ -115,6 +115,13 @@ FROM diagnosis_artifacts WHERE kind='bundle';
 `36bd1b42-29b5-4094-9264-94ea80c6194a` hit the cap on its **iteration 2**, having been given a
 perfectly-sized seed for iteration 1. So this is current behaviour, not history.
 
+> **INTERIM TREND READING 2026-08-14 (per §9's "re-run after traffic resumes"):** `cap_only` = **6
+> all-time, 0 new** since the fix went live at 2026-08-13 13:53Z — unchanged and not zero, exactly
+> the shape §9 asks for. **Demand is thin: only 1 bundle has been assembled since** (`38e53a03…`,
+> 2026-08-14 07:39Z), and it had no over-cap event, so this is direction-consistent rather than
+> confirmatory. The over-cap advice itself remains unwitnessed live (DIAG-043 status carries the
+> same split). Re-read when bundle traffic is more than a handful.
+
 ## 5. Why this was invisible until today
 
 It sat **behind** `bugs_closed/261`. Until this afternoon the code tier could not resolve
