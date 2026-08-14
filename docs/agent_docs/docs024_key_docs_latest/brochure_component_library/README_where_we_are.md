@@ -2727,3 +2727,57 @@ was reading British Summer Time off the clock and labelling it UTC. Nothing abou
 changes; the times in the documents do, and they're now anchored to events you can check rather
 than to my reading of a clock. It's the second time today I've mis-stamped a time in this
 workstream, which is why I've logged it as a practice failure rather than a slip.
+
+---
+
+## 2026-08-14, late — the duplicate-page job is a good deal smaller than I told you this morning
+
+This morning I wrote that pair 1 was the *cleanest* of the seven duplicate pairs, and that
+since even it needed hand-written content work before the old page could be taken down, the
+other six would be at least as bad. **That was a reasonable guess from one example and it
+turns out to be wrong.** I've now measured all six, and three of them need no content work at
+all — they can be taken down cleanly.
+
+**How I measured it, and why it cost nothing.** When you retire a page, the platform refuses
+if anything still links to it, and it names what. This morning's plan was to get that list the
+only way I thought was available: retire each of the six in turn, read the refusal, then put
+them back — six changes to live pages just to ask a question. I went to write that up and
+found the refusal is built from three plain database queries that never look at the page being
+retired, only at the pages doing the linking. So I ran the same three queries directly, without
+touching anything. Everything today was read-only.
+
+**I checked the measurement against a known answer before trusting it.** Pair 1 is the one page
+the platform has already given us a real refusal for, so I ran it through my version and
+required it to produce the same three answers. It did, exactly. That matters because most of
+what came back was *empty*, and empty is the comfortable answer that nobody re-checks — it's
+the same trap that produced this morning's redirect mistake.
+
+**Where that leaves the seven:**
+
+- **Three are clean** — the two robot-hands calculators and one of the fundamentally.ai guides.
+  Nothing links to them; they can be retired without anyone rewriting a sentence.
+- **Three need editorial repairs** — between two and four links each, sitting in article text
+  and in the site footer. Same shape as pair 1.
+- **One is on hold** for an unrelated bug, as before.
+
+**A free saving I'd not have spotted otherwise.** One of the two fundamentally.ai guides is
+itself one of the three things linking to the other one. So if we take them down in the right
+order, the second one's repair list drops from three to two on its own. I've written the order
+down.
+
+**Something worth noticing about your reversal yesterday.** You switched pairs 3 and 4 back to
+keeping the `/blog/` versions because there's no redirect and you didn't want to break the
+older, better-indexed addresses. That was the reason — but it also happens to retire the side
+almost nothing links to, which is why one of those two is now among the clean three. The
+decision was right for a second reason neither of us knew at the time.
+
+**Nothing was changed today.** Pair 1 is exactly where it was: the old page is retired in the
+database but still visible on the site, nothing broken for a visitor. I've not touched the
+other six.
+
+**What I'd suggest next, and it needs nothing from you.** The cheapest remaining job is the
+fundamentally.ai guide with no inbound links — decided, clean, no plan surgery. It's the
+natural next one to do. The catch is that fundamentally.ai's execution belongs to another
+workstream on the same site, so it should go through them rather than me doing it behind their
+back. The robot-hands ones are clean too but need their site plan edited first, which is a real
+step and not a formality.

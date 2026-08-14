@@ -6340,3 +6340,77 @@ readings, so six timestamps across three docs were an hour early. git logs `+01:
 answers UTC. A systematic offset produces no internal contradiction, which is why reading it
 back could never catch it — corrected by anchoring to checkable events instead of a
 remembered clock. In `WRONG_CALLS.md`, with the tally point made.
+
+---
+
+## 2026-08-14 (late) — O2 sized in one read-only pass, and it is SMALLER than §13 feared
+
+§13 of `HANDOFF_2026-08-12_215_quiet_mode_continue_here.md` sized the remaining six pairs
+as "six archive-dispatch-read cycles, each reversible". **That is not necessary, and it was
+about to mutate six live pages purely to ask a question.** Everything below is `SELECT`s.
+
+### Why the mutation was avoidable
+
+The retraction refuses on editorial inbound links, and §13 reasoned — correctly — that the
+only way to reach that refusal is through a dispatch, whose eligibility gate is
+`status <> 'active'` (`retract_page_deployment_action.go:54-55`). Hence archive-first.
+
+But the three inbound queries in `retract_page_graph.go` (`retractInboundBodySQL`,
+`retractInboundChromeSQL`, `retractInboundNavSQL`) **never read the target page's status** —
+only the referrer's. So they lift verbatim into a read-only SELECT and answer identically
+for an `active` page. The two shared predicates substituted by hand:
+
+- `linkablePageStatusPredicate` = `status NOT IN ('deleted','archived')` (`prepare_link_context_action.go:54`)
+- `PageHasShippedPredicateFor("p")` = `NOT (p.deployed_at IS NULL AND COALESCE(p.build_status,'') <> 'deployed')` (`datahelpers/links.go:277-295`)
+
+Census SQL kept at `scratchpad/o2_inbound_census.sql`; the recipe is now an amendment on the
+`link_registry` LANDMINES entry, which is where the next session asking "what links here?" lands.
+
+### The control, because this census's whole output is empties
+
+Pair 1's loser is the one page whose true answer the platform has already stated (the 08-14
+refusal). Ran it through the same census as a **positive control**: reproduced all three
+referrers exactly — nav `c5738bd1` *"LLM Cost Calculator"*, chrome `footer`, body
+`article-body` on `llm-provider-abstraction-production-agent-systems`. **[MEASURED 2026-08-14]**
+The instrument returns 15 rows overall, so it is not uniformly blind; and every one of the
+seven losers was proved to have LOADED (`page_loaded = t`, name and url matching the intended
+side) before any zero was believed — the "never loaded looks like no rows" trap.
+
+### The result
+
+| pair | site | editorial blockers (REFUSE) | nav (auto) | in current plan? |
+|---|---|---|---|---|
+| 1 aiao llm-cost-calculator | ai-agent-orch | **2** — chrome footer, 1 article body | 1 | site has no plan at all |
+| 2 finetuning ai-readiness-quiz | finetuning.uk | **3** — chrome footer, 2 article bodies | 1 | **site has NO current plan** |
+| 3 fai automation-savings (`/guides/`) | fundamentallyai | **0** | 0 | no |
+| 4 fai model-approach-sel (`/guides/`) | fundamentallyai | **3** — 3 article bodies | 0 | no |
+| 5 rh gripper-payload-calculator | robot-hands | **0** | 0 | **YES** |
+| 6 rh matchmatrix | robot-hands | **4** — chrome header, chrome footer, 2 bodies | 1 | **YES** |
+| 7 rh gripper-cycle-time-estimator | robot-hands | **0** | 0 | **YES** |
+
+**Three of the six have zero editorial blockers and would retract without a content edit.**
+§13's "there is no reason to expect the other six to be cleaner" was a reasonable inference
+from n=1 and it is **wrong** — recorded here rather than silently overwritten, per the
+corrections rule.
+
+### An ordering win that falls out of it, resolved by page ID not by name
+
+Pair 4's three blockers are `llm-cost-calculator-guide` (904f908e, unrelated), pair 4's **own
+survivor** (2f0eb560), and **pair 3's LOSER** (60eeb311). The body census excludes referrers
+whose `status IN ('deleted','archived')` — so **retracting pair 3 first drops pair 4 from
+three blockers to two, free.** Do 3 before 4.
+
+### Two things this census does NOT say, stated because a zero is the reassuring direction
+
+1. It predicts **"the platform will not refuse"**, not "nothing links here". It inherits the
+   action's declared false-negative direction — single-quoted, relative and JS-assembled
+   hrefs are missed (`retract_page_graph.go:193-202`).
+2. A zero-blocker pair is not a zero-work pair. **5, 6 and 7 still need step 3 (plan surgery)**
+   — robot-hands carries both sides of all three — and **pair 7's real cost is the ~1,700-word
+   content merge**, which the framework must write, not a session (CLAUDE.md 2026-08-06).
+
+### Incidental find, same shape as §11's
+
+`finetuning.uk` has **no `site_plans` row at all** — the second site in this lane found that
+way, after ai-agent-orchestration.com. Its pair-2 execution stays held on `bugs_open/204`
+regardless.

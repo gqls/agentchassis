@@ -10414,6 +10414,28 @@ code change owed at the next roll, tracked in RFC_015 §5.
   -- both 0 as of 2026-08-14. A per-page zero from either table means NOTHING until these are non-zero.
   ```
   For an inbound-link question that can actually answer, use the census the estate really runs — `datahelpers.InboundLinkSurfaces` and the two censuses PBP-029 keeps in lockstep — not `link_registry`.
+  > **AMENDED 2026-08-14 (same lane, later) — and you do NOT have to mutate a page to run it.** This
+  > entry sent the next session to `retract_page_graph.go`, which is right, but that action is only
+  > reachable through a dispatch, and its eligibility gate is `status <> 'active'`
+  > (`retract_page_deployment_action.go:54-55`) — so the obvious way to get a referrer list is to
+  > archive the page first. **That is unnecessary, and on a live page it is a production mutation
+  > taken purely to ask a question.** The three inbound queries
+  > (`retractInboundBodySQL` / `retractInboundChromeSQL` / `retractInboundNavSQL`) **never read the
+  > TARGET page's status** — only the referrer's — so they can be lifted verbatim into a read-only
+  > SELECT and run against an `active` page with an identical result. Substitute the two shared
+  > predicates by hand: `linkablePageStatusPredicate` = `status NOT IN ('deleted','archived')`
+  > (`prepare_link_context_action.go:54`) and `PageHasShippedPredicateFor(p)` =
+  > `NOT (p.deployed_at IS NULL AND COALESCE(p.build_status,'') <> 'deployed')`
+  > (`datahelpers/links.go:277-295`), and exclude the retracting page itself as a referrer.
+  > **Validate it before you trust it, because an empty result is this entry's whole subject:** run
+  > it over a page whose refusal you have already seen and require the row-for-row match. Done
+  > 2026-08-14 over `bugs_open/215`'s pair 1 — reproduced the platform's own three referrers
+  > exactly (nav `c5738bd1`, chrome `footer`, body `article-body` on
+  > `llm-provider-abstraction-production-agent-systems`) — which is what made the six *other*
+  > pages' answers, three of them zero, worth believing. **A zero from this census still inherits
+  > the action's stated false-negative direction** (single-quoted, relative and JS-assembled hrefs
+  > are missed, `retract_page_graph.go:193-202`), so it predicts *the platform will not refuse*,
+  > which is not the same claim as *nothing links here*.
 - **the general form, which is the transferable half:** an **empty table is a universal yes-man**. Every `WHERE fk = <x>` against it returns the comforting answer, and no error, no warning and no plan change ever tells you the table was never populated. Before quoting a zero from any table you have not written to yourself, count the table.
 - **relations:** `WRONG_CALLS.md` 2026-08-14 (the incident: I told the owner a redirect would protect two likely-indexed URLs he was retiring) · the `a gate's 0 findings has TWO causes` family · `a post-fix ZERO needs a DEMAND control` · PBP-029 (the link-surface lockstep, which is where the real census lives)
 - **source:** 2026-08-14, `bugs_open/215` O2 execution. Found at step 7 of the first pair, before any mutation, because the step's own "re-measure at execution" instruction finally prompted the question *could this ever be non-zero?*

@@ -7,9 +7,13 @@ carried forward below where still live.
 
 **The pilot is live and inert. Nothing is half-finished in the tree.**
 
-> ## ⚠ COLD START, 2026-08-14 — READ §13 FIRST, THEN §12, THEN THIS FILE IN ORDER.
+> ## ⚠ COLD START, 2026-08-14 (late) — READ §14 FIRST, THEN §13, THEN §12, THEN THIS FILE IN ORDER.
 > The sections are append-only and the file has grown; **§8's "READ THIS FIRST" heading is
-> from 2026-08-12 and is no longer the newest state.** Current position in one paragraph:
+> from 2026-08-12, and §13's "cheapest next measurement" block is from 2026-08-14 morning —
+> NEITHER is the newest state.** **§14 supersedes §13's proposed census** (it worked, but it
+> mutated six live pages to ask a question that a read-only SELECT answers) **and falsifies
+> §13's expectation that the remaining pairs would be no cleaner than pair 1 — three of the
+> six need no content work at all.** Current position in one paragraph:
 > **`bugs_open/266` is fixed, council-APPROVED and LIVE (`v1.0.1298`, both replicas probed);
 > O2's seven pairs are all DECIDED (owner, 08-13, with pairs 3+4 REVERSED on 08-14 — decision
 > doc holds both rulings); pair 1 was executed to step 6 and the platform CORRECTLY REFUSED
@@ -532,3 +536,69 @@ each reversible, and the whole remaining job is sized.
 **nothing is broken for a visitor**. Cancelled work item `087c029a…`. Survivor untouched.
 Exact revert if wanted:
 `UPDATE pages SET status='active' WHERE id='6e66ff49-3f0e-423f-9286-5ec3dc0c413c';`
+
+---
+
+# 14. 2026-08-14 (late) — O2 IS SIZED, read-only, and it is SMALLER than §13 feared
+
+**Read this instead of §13's "cheapest next measurement" block — that recipe works but is
+unnecessary, and it mutates six live pages to ask a question.** Nothing was mutated in this
+session: every command below was a `SELECT`. Pair 1 is exactly where §13 left it.
+
+## §13's proposed census is superseded. Do not archive a page to learn its links.
+
+§13 proposed: archive each loser → dispatch the retraction → read the refusal → repair or
+revert, six times. The reasoning was sound (the audit only runs over the eligible set, and
+eligibility is `status <> 'active'`) but the conclusion does not follow: **the three inbound
+queries never read the TARGET page's status, only the referrer's.** They lift verbatim into
+a read-only SELECT and answer identically for an `active` page. Recipe, predicates and the
+validation requirement are now an amendment on the `link_registry` LANDMINES entry.
+
+**Validated against ground truth before use:** run over pair 1 — the one page whose refusal
+the platform has already stated — it reproduced all three referrers exactly (nav `c5738bd1`,
+chrome `footer`, body `article-body` on `llm-provider-abstraction-production-agent-systems`).
+Every loser was also proved to have loaded before any zero was believed.
+
+## The answer: 3 of the 6 need NO content work
+
+| pair | site | editorial blockers (these REFUSE) | nav (auto) | step 3 (plan) | 
+|---|---|---|---|---|
+| 2 finetuning ai-readiness-quiz | finetuning.uk | **3** — chrome footer, 2 bodies | 1 | no plan row exists |
+| 3 fai automation-savings `/guides/` | fundamentallyai | **0** | 0 | not needed |
+| 4 fai model-approach-sel `/guides/` | fundamentallyai | **3** — 3 article bodies | 0 | not needed |
+| 5 rh gripper-payload-calculator | robot-hands | **0** | 0 | **REQUIRED** |
+| 6 rh matchmatrix | robot-hands | **4** — chrome header+footer, 2 bodies | 1 | **REQUIRED** |
+| 7 rh gripper-cycle-time-estimator | robot-hands | **0** | 0 | **REQUIRED** |
+
+**§13's "there is no reason to expect the other six to be cleaner" is falsified** — left
+visible rather than edited away. Pair 1 was the canary and happened to be among the worse ones.
+
+**Owner's 08-14 reversal of pairs 3+4 paid off twice.** It was taken to protect the indexed
+`/blog/` URLs; it also happens to retire the *less-linked* side — pair 3 has zero referrers.
+
+## Ordering, resolved by page ID not by name
+
+Pair 4's three blockers are `llm-cost-calculator-guide` (904f908e), pair 4's **own survivor**
+(2f0eb560), and **pair 3's LOSER** (60eeb311). Archived referrers drop out of the body census,
+so **retract pair 3 before pair 4 and pair 4 falls to two blockers, free.**
+
+## DO THIS NEXT
+
+1. **Pairs 3 then 4 are fundamentallyai — route through its sweep front, which owns that
+   site's execution** (§5). Pair 3 is the cheapest remaining pair in the whole of O2: zero
+   editorial referrers, no plan surgery, decided. It is the natural next canary and it needs
+   no owner input.
+2. **Pairs 5 and 7 (robot-hands) are zero-blocker but need step 3 first.** Pair 7's real cost
+   is the ~1,700-word content merge, which **the framework writes, not a session**.
+3. **Pair 6 is the most expensive** — 4 editorial referrers including BOTH chrome slots, plus
+   plan surgery. Chrome is a stored artefact: read `bugs_open/117` before touching it.
+4. **Pair 1 is unchanged and still blocked on its two editorial repairs** (chrome footer +
+   one article body). Revert command still in §13 if wanted.
+5. **Pair 2 stays held on `bugs_open/204`.**
+
+## Caveats, because most of this section's output is zeros
+
+- A zero predicts **"the platform will not refuse"**, not "nothing links here" — it inherits
+  the action's stated false-negative direction (`retract_page_graph.go:193-202`).
+- A zero-blocker pair is **not** a zero-work pair — see step 3 and the pair-7 merge above.
+- `finetuning.uk` has **no `site_plans` row at all**, the second such site this lane has found.
