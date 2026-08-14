@@ -25,16 +25,18 @@ import (
 	"go.uber.org/zap"
 )
 
-// MessageProcessor handles all message processing
+// MessageProcessor handles all message processing.
+//
+// `db` is the ONE database handle this processor has. It is opened and sized by
+// agentbase and passed in. There was a second, `sqlDB`, opened in the
+// constructor from DATABASE_URL — a variable no chassis pod sets — so it was
+// always nil in production and every path that guarded on it was dead code.
+// bugs_open/259 deleted it and its six dependents; do not reintroduce a second
+// handle here.
 type MessageProcessor struct {
 	agentType    string
 	agentID      string
 	agentRole    string
-	// db is the ONE handle this processor has. It is opened and sized by
-	// agentbase and passed in. There was a second, `sqlDB`, opened here from
-	// DATABASE_URL — a variable no chassis pod sets — so it was always nil in
-	// production and every path that guarded on it was dead. bugs_open/259
-	// deleted it and its four dependents; do not reintroduce a second handle.
 	db           *sql.DB
 	producer     kafka.Producer
 	orchestrator *orchestration.SagaCoordinator
