@@ -30729,3 +30729,91 @@ second of verification.
 `01f983411` corrects CTS-059's status line and marks which side of midnight each figure fell on.
 `d3edb5b89`'s message still carries the false date; forward-only forbids an amend, and this row
 is the correction of record for it.
+
+---
+
+## 2026-08-14 — I wrote a diff-grep, predicted "expect 2", got 0, and the landmine for it was already on my screen
+
+**The claim:** verifying that my one-line register edit had actually landed and that no other
+session's edit was riding along in the same file, I ran
+`git diff -- <file> | grep -c '^[+-][^+-]'` and annotated it `(expect 2: one removed line, one
+added line)`. It returned **0**.
+
+**What was actually true:** the edit was fine. `git diff --numstat` said `1 1`. The grep was
+blind: the register uses `- ` markdown bullets, so a changed bullet appears in a diff as
+`-- **open review question:…` — the diff marker followed by the bullet's own dash — and
+`[^+-]` cannot match that second character.
+
+**What caught it:** the prediction. Because I had written down what the number should be, a 0
+was a contradiction rather than a result. Had I written the grep without the expectation, `0`
+reads as "no content changed" — which would have sent me hunting for a failed edit that had in
+fact succeeded, or worse, licensed the conclusion that a file I had just edited was untouched.
+
+**The cheap check that would have:** the one already documented — **gate on
+`git diff --numstat`, which no content can fool, and only read lines once it is non-zero.** I
+ran numstat in the same command block, which is the only reason this cost seconds.
+
+**Why this row exists even though the landmine already does.** This is not a new trap. It is in
+`LANDMINES.md` ("`git diff | grep '^-[^-]'` cannot see a deleted markdown BULLET"), it names
+`bugs_open/` as its footprint, and **the SessionStart hook printed it to me at the top of this
+very session** because a `bugs_open/` file was dirty in the tree. I read it, and then wrote the
+blind grep anyway about 90 minutes later against a *different* markdown file. So the datum worth
+tallying is not the trap — it is that **being shown a landmine at session start did not stop me
+walking into it**, because I met it as prose about someone else's file rather than as a habit.
+The transferable form is narrower and more actionable than the entry's: **never write a
+line-content grep over a diff as your only check — put a count in front of it**, whatever the
+file type, because the failure is in the diff format, not in markdown.
+
+---
+
+## 2026-08-14 — a census of what a file contains goes STALE BETWEEN MEASURING AND COMMITTING, and both directions of the error fired within one evening
+
+Two sessions, two opposite mistakes, one cause. Logged as a class because neither incident is
+interesting alone and the pair is: the `bugfix_122` lane and session `581eb30a`, both working
+`LANDMINES.md`, both careful, both wrong about what their own commit contained.
+
+**The claim (mine).** Commit `5baecdfe1`'s message states it "unavoidably takes two passengers …
+in that append-only file", and names them. **It carries none.** `LANDMINES.md` is not in that
+commit at all.
+
+**The claim (theirs, logged under their name too).** A targeted edit to their own LANDMINES entry
+was written from content read before my append landed, and their pathspec commit `2009b9243` took
+it — silently deleting two continuation lines of my entry. Their tool had *told* them the file
+"contains other changes not in your context"; it read as reassurance rather than a stop.
+
+**Why both were false, and it is the same sentence with the signs reversed.** I ran
+`git diff --numstat`, wrote a sentence in the present tense about what the tree held, and committed
+a minute later — by which time their commit had taken the file, so my pathspec found nothing and my
+"passengers" description described a tree that no longer existed. They read a file, composed an edit
+against that content, and wrote it after mine had landed underneath. **One of us described a stale
+tree, the other wrote from a stale read.** Both are the gap between *when you looked* and *when you
+acted*, on the file most likely to be written concurrently precisely because it is the shared
+append-only one every lane is told to contribute to.
+
+**What caught them.** Mine: reading the `commit scope` block the pre-commit hook prints — it listed
+3 files where my message claimed 4. **The hook is advisory and I nearly skimmed it.** Theirs: not a
+check at all — a later sweep (`eb07f1fc9`) happened to restore the lines, and they went looking
+afterwards. Recovery by luck, as they said themselves.
+
+**The cheap checks, and they are different for the two directions:**
+- *Did my commit contain what I said?* — `git show --stat <sha>` **after** committing. A pre-commit
+  census predicts; only this reports. Never describe a commit's contents in its own message from a
+  measurement taken before it ran — write what the task touched, not what the tree held.
+- *Am I writing from a stale read?* — treat "the file was modified on disk since you last read it"
+  as a **STOP**, not a note. Re-read, then re-target the edit. On an append-only shared file, append
+  rather than edit whenever the change permits it: an append cannot silently delete a neighbour's
+  lines, and a targeted string edit written from stale content can.
+- *Did I delete anything?* — `git diff --numstat <file>` and gate on the deletion COUNT before
+  reading any lines. **`git diff | grep '^-[^-]'` cannot see a removed markdown bullet**, which is
+  this estate's own recorded landmine, and it fired here on the person who would have quoted it.
+
+**The transferable point.** Every session is told to commit narrowly with a pathspec, and both of us
+did. **A pathspec protects others from your *staged* files; it does nothing about your *stale* ones,
+in either direction** — it cannot stop you writing over a neighbour's landed edit, and it cannot
+stop the tree changing under a sentence you already wrote. The estate has the same-file-passenger
+trap written down and it is stated as a risk of *breadth*; both of these were failures of *timing*
+at a breadth of one file.
+
+**Recorded forward:** `3f72df787` corrects `5baecdfe1`'s message (forward-only forbids the amend);
+their row is logged under their own name above; the deleted lines are whole at HEAD in a better form
+than what was lost.
