@@ -33,13 +33,13 @@ func openUnconnectedPool(t *testing.T) *sql.DB {
 
 // newProcessorWithPool constructs a processor the way agentbase does, with the
 // collaborators it does not dereference left nil. Verified against the constructor:
-// producer, orchestrator, validator and initializer are only stored, and
-// orchestration.NewStateRepository stores its arguments without touching them.
-func newProcessorWithPool(t *testing.T, db *sql.DB) {
+// producer, orchestrator, validator and initializer are only stored.
+func newProcessorWithPool(t *testing.T, db *sql.DB, databaseURL string) {
 	t.Helper()
-	// DATABASE_URL must be unset for this case: it is NOT set on chassis pods, and
-	// a fixture that sets it exercises a shape production does not have.
-	t.Setenv("DATABASE_URL", "")
+	// DATABASE_URL is NOT set on chassis pods. Since bugs_open/259 the constructor
+	// does not read it at all, which is why the table below drives BOTH values: the
+	// caller's pool must survive whatever this variable says.
+	t.Setenv("DATABASE_URL", databaseURL)
 	_ = NewMessageProcessor(
 		"test-agent", "test-id", "test-role",
 		db,
@@ -58,11 +58,18 @@ func newProcessorWithPool(t *testing.T, db *sql.DB) {
 // different value so a probe that always reports the expected number is caught.
 func TestConstructorDoesNotResizeTheCallersPool(t *testing.T) {
 	for _, tc := range []struct {
-		name string
-		size int
+		name        string
+		size        int
+		databaseURL string
 	}{
-		{"operator configured 12, as the live chassis does", 12},
-		{"control: a different value must also survive", 9},
+		{"operator configured 12, as the live chassis does", 12, ""},
+		{"control: a different value must also survive", 9, ""},
+		// The production shape is DATABASE_URL unset, so the two cases above are
+		// the ones that matter. This third case is the regression guard left by
+		// bugs_open/259: the constructor used to open a SECOND pool from this
+		// variable, and the sibling test that covered its sizing went with it. A
+		// re-added opener that reaches for the caller's pool is caught here.
+		{"DATABASE_URL set: the constructor must still open and touch nothing", 12, "postgres://u:p@127.0.0.1:1/none"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			db := openUnconnectedPool(t)
@@ -73,7 +80,7 @@ func TestConstructorDoesNotResizeTheCallersPool(t *testing.T) {
 				t.Fatalf("precondition: pool did not accept its size: got %d, want %d", got, tc.size)
 			}
 
-			newProcessorWithPool(t, db)
+			newProcessorWithPool(t, db, tc.databaseURL)
 
 			if got := db.Stats().MaxOpenConnections; got != tc.size {
 				t.Errorf("NewMessageProcessor re-sized the pool it was handed: got %d, want %d.\n"+
@@ -85,35 +92,14 @@ func TestConstructorDoesNotResizeTheCallersPool(t *testing.T) {
 	}
 }
 
-// TestConstructorSizesThePoolItOpensItself is the other half of the same rule.
+// TestConstructorSizesThePoolItOpensItself was HERE, and bugs_open/259 removed it
+// along with its subject. It asserted that the second handle the constructor opened
+// from DATABASE_URL was opened and was sized (Go's zero value for MaxOpenConns is
+// 0 = UNLIMITED, so an unsized pool behind a transaction-mode pgbouncer was the
+// hazard it guarded). There is no longer a pool for this constructor to open, so
+// the test could only have been kept by keeping the defect.
 //
-// sqlDB is opened INSIDE the constructor, so sizing it is the constructor's job.
-// It was previously left at Go's zero value, which means UNLIMITED — an unbounded
-// client pool behind a transaction-mode pgbouncer with max_client_conn = 200.
-func TestConstructorSizesThePoolItOpensItself(t *testing.T) {
-	t.Setenv("DATABASE_URL", "postgres://u:p@127.0.0.1:1/none")
-
-	handed := openUnconnectedPool(t)
-	handed.SetMaxOpenConns(12)
-
-	p := NewMessageProcessor(
-		"test-agent", "test-id", "test-role",
-		handed,
-		nil, nil, nil,
-		zap.NewNop(),
-		nil,
-	)
-
-	if p.sqlDB == nil {
-		t.Fatal("DATABASE_URL was set to a parseable DSN but sqlDB was not opened")
-	}
-	if got := p.sqlDB.Stats().MaxOpenConnections; got <= 0 {
-		t.Errorf("the pool this constructor opens is unbounded: MaxOpenConnections = %d. "+
-			"Go's zero value is 0 = unlimited; a pool we open must be sized. See bugs_open/246.", got)
-	}
-
-	// And the handed-in pool is still untouched even on this branch.
-	if got := handed.Stats().MaxOpenConnections; got != 12 {
-		t.Errorf("the caller's pool was re-sized while opening our own: got %d, want 12", got)
-	}
-}
+// This is a genuine coverage REMOVAL, not a replacement — recorded here rather than
+// letting the suite quietly shrink. The half that could be salvaged is the
+// DATABASE_URL-set case in the table above, which still asserts the caller's pool
+// survives; nothing now watches the sizing of a pool this file no longer opens.

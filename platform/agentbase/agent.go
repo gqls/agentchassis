@@ -1193,8 +1193,14 @@ func (a *Agent) processMessage(msg kafka.Message, messageType string) error {
 				// bugs_open/239: a transiently-refused dispatch will be re-run
 				// by the intake pool, so its claim must be given back rather
 				// than completed — a 'complete' row would make the re-run drop
-				// itself as a duplicate. Same rule as the processor layer's
-				// claim; the two must not disagree.
+				// itself as a duplicate.
+				//
+				// This is now the ONLY two-phase claim in the chassis. It used
+				// to say "same rule as the processor layer's claim; the two must
+				// not disagree" — MessageProcessor.ProcessMessage carried a
+				// second copy, but behind a handle that is nil on every chassis
+				// pod, so it had never run and could not have disagreed.
+				// bugs_open/259 deleted it. Do not go looking for the other one.
 				if perrors.IsDispatchLookupUnavailable(procErr) {
 					if rErr := a.stateRepo.ReleaseMessageClaim(cctx, execCtx.CorrelationID, execCtx.RequestID, a.AgentID, execCtx.RetryVersion); rErr != nil {
 						contextLogger.Warn("DISPATCH_RETRY_CLAIM_RELEASE_FAILED (lease will expire naturally)", zap.Error(rErr))

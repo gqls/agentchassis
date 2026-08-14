@@ -30,8 +30,12 @@ type MessageProcessor struct {
 	agentType    string
 	agentID      string
 	agentRole    string
+	// db is the ONE handle this processor has. It is opened and sized by
+	// agentbase and passed in. There was a second, `sqlDB`, opened here from
+	// DATABASE_URL — a variable no chassis pod sets — so it was always nil in
+	// production and every path that guarded on it was dead. bugs_open/259
+	// deleted it and its four dependents; do not reintroduce a second handle.
 	db           *sql.DB
-	sqlDB        *sql.DB
 	producer     kafka.Producer
 	orchestrator *orchestration.SagaCoordinator
 	validator    *validation.Validator
@@ -42,7 +46,6 @@ type MessageProcessor struct {
 	// For stateless operation
 	isStateless bool
 	podName     string
-	stateRepo   *orchestration.StateRepository
 }
 
 // NewMessageProcessor creates a new message processor
@@ -72,41 +75,17 @@ func NewMessageProcessor(
 	// set the variable, because agentbase's defaults (4 / 1 / 10m) are exactly
 	// what this constructor used to impose.
 
-	// `sqlDB`, by contrast, is opened HERE, so sizing it is this constructor's
-	// job — and it was not being done at all. Go's zero value for MaxOpenConns
-	// is 0, meaning UNLIMITED, so any deployment setting DATABASE_URL got an
-	// unbounded pool behind a transaction-mode pgbouncer. The error was also
-	// discarded, which turned a misconfigured DSN into a silent nil handle.
-	//
-	// NOTE FOR A FUTURE CALLER — the sizing below is NEW BEHAVIOUR, not a
-	// tidy-up of something that was already here (the council's guardian seat
-	// asked for this to be said out loud, so a later reviewer does not read it
-	// as pre-existing). DATABASE_URL is unset on every chassis pod today, so
-	// this branch is inert in production and the change closes a hazard rather
-	// than altering a live path. Two things to know if you are the one who
-	// activates it: this pool is a SECOND pool to the same database, and it
-	// deliberately does NOT read CHASSIS_DB_MAX_OPEN_CONNS — that variable
-	// sizes the shared handle agentbase owns, and having one operator knob
-	// silently size two independent pools would mean asking for 12 and getting
-	// 24. If this branch ever becomes live, decide that question explicitly.
-	// The standing intent is the opposite direction: collapse p.sqlDB into p.db
-	// altogether (every reader already falls back to it) — see bugs_open/246.
-	var sqlDB *sql.DB
-	if connStr := os.Getenv("DATABASE_URL"); connStr != "" {
-		opened, err := sql.Open("pgx", connStr)
-		if err != nil {
-			// Not fatal: every reader of p.sqlDB already falls back to p.db,
-			// which is the handle production actually uses. But it must not be
-			// silent — a bad DSN and an unset variable are different faults.
-			logger.Error("DATABASE_URL is set but could not be opened; falling back to the shared handle",
-				zap.Error(err))
-		} else {
-			sqlDB = opened
-			sqlDB.SetMaxOpenConns(4)
-			sqlDB.SetMaxIdleConns(1)
-			sqlDB.SetConnMaxLifetime(time.Minute * 10)
-		}
-	}
+	// This constructor now opens NOTHING, which is why the paragraph above is
+	// the whole of the pool story. It used to open a second handle from
+	// DATABASE_URL and size it here — that block, and the sizing hazard the
+	// bugs_open/246 round documented in it (a SECOND pool to the same database,
+	// deliberately not reading CHASSIS_DB_MAX_OPEN_CONNS, so one operator knob
+	// would have sized two independent pools), went with bugs_open/259. The
+	// hazard is gone rather than mitigated: there is no second pool to size.
+	// DATABASE_URL was never set on a chassis pod, so the branch had never run,
+	// and its only effect was to make four other paths in this file unreachable.
+	// If a second handle is ever genuinely wanted, that is a design decision to
+	// take deliberately — not to restore by re-adding an env-var lookup here.
 
 	// Keep tracer for debugging
 	var tracer *types.TraceLogger
@@ -124,7 +103,6 @@ func NewMessageProcessor(
 		agentID:      agentID,
 		agentRole:    agentRole,
 		db:           db,
-		sqlDB:        sqlDB,
 		producer:     producer,
 		orchestrator: orchestrator,
 		validator:    validator,
@@ -133,7 +111,6 @@ func NewMessageProcessor(
 		initializer:  initializer,
 		isStateless:  true, // Always stateless now
 		podName:      podName,
-		stateRepo:    orchestration.NewStateRepository(sqlDB, logger),
 	}
 }
 
@@ -347,18 +324,15 @@ func (p *MessageProcessor) process(ctx context.Context, msgCtx *MessageContext) 
 		return p.sendWorkflowFailureResponse(ctx, msgCtx, err)
 	}
 
-	// Check if this is a child workflow that completed
-	if msgCtx.IsChildOrchestration() {
-		if p.sqlDB != nil {
-			repo := orchestration.NewStateRepository(p.sqlDB, msgCtx.Logger)
-			state, _ := repo.GetState(ctx, msgCtx.ExecutionContext.OrchestrationID)
-			if state != nil && state.Status == orchestration.StatusCompleted {
-				msgCtx.Logger.Info("Child workflow completed, sending response to parent")
-				return nil
-			}
-		}
-	}
-
+	// bugs_open/259 site A: a `if msgCtx.IsChildOrchestration()` block sat here
+	// that read the orchestration state and returned early on StatusCompleted,
+	// under a log line saying "Child workflow completed, sending response to
+	// parent". It sent nothing. Both that return and the fall-through below are
+	// `return nil`, the only code between them is the log statement below, and
+	// process() has an unnamed error return with no defer — so the two returns
+	// were indistinguishable to every caller. Deleting it was a provable no-op,
+	// not a behaviour change. The log line was the whole reason the site read as
+	// response-handling; that is why it is quoted here rather than left behind.
 	msgCtx.Logger.Info("Workflow successfully handed off to the orchestrator")
 	return nil
 }
@@ -563,36 +537,15 @@ func (p *MessageProcessor) getDefaultWorkflow() models.WorkflowPlan {
 	}
 }
 
-// New response methods using ExecutionContext
-func (p *MessageProcessor) sendWorkflowSuccessResponse(ctx context.Context, msgCtx *MessageContext) error {
-
-	current, caller := getFuncInfo(1)
-	caller, caller_called_by := getFuncInfo(2)
-
-	msgCtx.Logger.With(msgCtx.ExecutionContext.LogContext()...).Info("In file processor.go sendWorkflowSuccessResponse",
-		zap.String("function", current),
-		zap.String("called_by", caller),
-		zap.String("caller_called_by", caller_called_by),
-		zap.String("container", os.Getenv("HOSTNAME")),
-		zap.String("timestamp: ", time.Now().UTC().Format(time.RFC3339)),
-	)
-
-	// Get final state if available
-	var finalResult interface{}
-	if p.sqlDB != nil {
-		repo := orchestration.NewStateRepository(p.sqlDB, msgCtx.Logger)
-		state, err := repo.GetState(ctx, msgCtx.ExecutionContext.OrchestrationID)
-		if err == nil && state != nil {
-			finalResult = state.CollectedData
-		}
-	}
-
-	if finalResult == nil {
-		finalResult = map[string]interface{}{"status": "completed"}
-	}
-
-	return p.sendWorkflowResponse(ctx, msgCtx, finalResult)
-}
+// bugs_open/259 site B: `sendWorkflowSuccessResponse` stood here and had ZERO
+// callers repo-wide (proven by grep against a live-sibling control — the
+// failure sender below has a real call site). Inside it, a dead p.sqlDB guard
+// meant `finalResult` was always the literal `{"status": "completed"}` instead
+// of the orchestration's CollectedData. That defect was real and unreachable at
+// the same time, so it is deleted rather than fixed: adding a p.db fallback
+// would have RESURRECTED a dead path and created the live-behaviour change the
+// bug file warned about. Its one-line wrapper `sendWorkflowResponse` went with
+// it. The live success path is sendWorkflowResponseWithStatus, reached directly.
 
 func (p *MessageProcessor) sendWorkflowFailureResponse(ctx context.Context, msgCtx *MessageContext, err error) error {
 	current, caller := getFuncInfo(1)
@@ -646,17 +599,16 @@ func (p *MessageProcessor) sendWorkflowFailureResponse(ctx context.Context, msgC
 // and later fragments of one mangled send write nothing, and a failure to
 // record must never mask the refusal itself.
 func (p *MessageProcessor) recordDispatchFailureState(ctx context.Context, msgCtx *MessageContext, derr error) {
-	// p.sqlDB is only non-nil when DATABASE_URL is set, and it is NOT set on the
-	// chassis pods — so keying on it alone made this whole function a no-op in
-	// production, which is where it matters. Found by running the post-roll
-	// verification on v1.0.1284: the refusal fired and the intake row recorded
-	// it, but no FAILED orchestration row was ever written. Same fallback the
-	// rest of this file uses (selectWorkflow's `db := p.db; if db == nil { db =
-	// p.sqlDB }`).
+	// This function used to key on p.sqlDB, which is non-nil only when
+	// DATABASE_URL is set — and it is NOT set on the chassis pods, so the whole
+	// function was a no-op in production, which is where it matters. Found by
+	// running the post-roll verification on v1.0.1284: the refusal fired and the
+	// intake row recorded it, but no FAILED orchestration row was ever written.
+	// bugs_open/239 fixed it with a `db := p.db; if db == nil { db = p.sqlDB }`
+	// fallback; bugs_open/259 then deleted p.sqlDB altogether, so the fallback
+	// collapses to the one handle. The nil guard below stays — p.db can be nil
+	// in a unit test, and this is a best-effort recorder either way.
 	db := p.db
-	if db == nil {
-		db = p.sqlDB
-	}
 	if db == nil || msgCtx.ExecutionContext == nil || msgCtx.ExecutionContext.OrchestrationID == "" {
 		return
 	}
@@ -783,11 +735,6 @@ func (p *MessageProcessor) ProcessResponse(ctx context.Context, msg kafka.Messag
 	}
 	// Route to orchestrator
 	return p.orchestrator.HandleResponse(ctx, headers, responseMsg)
-}
-
-// sendWorkflowResponse sends a successful workflow response.
-func (p *MessageProcessor) sendWorkflowResponse(ctx context.Context, msgCtx *MessageContext, result interface{}) error {
-	return p.sendWorkflowResponseWithStatus(ctx, msgCtx, result, "complete", nil)
 }
 
 // sendWorkflowResponseWithStatus is the one sender for every workflow response
@@ -969,19 +916,6 @@ func (p *MessageProcessor) normalizeResponseData(result interface{}) map[string]
 	default:
 		return map[string]interface{}{"result": result}
 	}
-}
-
-func createSQLDB() (*sql.DB, error) {
-	host := os.Getenv("CLIENTS_DB_HOST")
-	port := os.Getenv("CLIENTS_DB_PORT")
-	user := os.Getenv("CLIENTS_DB_USER")
-	password := os.Getenv("CLIENTS_DB_PASSWORD")
-	dbname := os.Getenv("DATABASE_DB_NAME")
-
-	connStr := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
-		host, port, user, password, dbname)
-
-	return sql.Open("pgx", connStr)
 }
 
 // getAgentTypeFromID retrieves the agent type from the database using the agent ID
@@ -1188,9 +1122,6 @@ func (p *MessageProcessor) selectWorkflow(ctx context.Context, agentDef *actions
 			)
 
 			db := p.db
-			if db == nil {
-				db = p.sqlDB
-			}
 			if db == nil {
 				p.logger.Error("DISPATCH_LOOKUP_RETRYABLE: no database connection for agent-type lookup",
 					zap.String("requested_agent_type", groupOrAgentType))
@@ -1479,75 +1410,20 @@ func (p *MessageProcessor) ProcessMessage(ctx context.Context, msg kafka.Message
 	}
 
 	contextLogger := p.logger.With(execCtx.LogContext()...)
-	contextLogger.Info("In processor.go 1072 ProcessMessage",
-		zap.Bool("is p.sqlDB exists (or is it different driver):", p.sqlDB != nil),
-	)
 
-	if p.sqlDB != nil {
-		contextLogger.Info("In processor.go 1072 ProcessMessage. p.sqlDB is not nil")
-
-		// Use request_id for deduplication, not message_id. Two-phase claim
-		// (bugs_open/003 F3): claim as 'processing' with a lease, mark
-		// 'complete' via the defer when ProcessMessage returns. The old
-		// `if RequestID != ""` gate is gone — an un-dedupable message must be
-		// LOUD (state.go warns and counts it), not silently skipped.
-		// agent_id stays execCtx.ToAgentID: on the chassis path that equals
-		// the agentbase layer's AgentID, and the same-pod lease exemption in
-		// HasProcessedMessage keeps the two layers from tripping each other.
-		repo := orchestration.NewStateRepository(p.sqlDB, p.logger)
-		isDuplicate, checkErr := repo.HasProcessedMessage(ctx,
-			execCtx.CorrelationID,
-			execCtx.RequestID,
-			execCtx.ToAgentID,
-			execCtx.RetryVersion,
-		)
-
-		if checkErr != nil {
-			contextLogger.Error("Failed to check for duplicate request",
-				zap.String("request_id", execCtx.RequestID),
-				zap.Error(checkErr))
-		} else if isDuplicate {
-			contextLogger.Warn("Duplicate request detected and ignored",
-				zap.String("request_id", execCtx.RequestID),
-				zap.String("correlation_id", execCtx.CorrelationID),
-				zap.String("orchestration_id", execCtx.OrchestrationID),
-			)
-			return nil
-		}
-
-		// Record this request as processed (atomic claim)
-		claimed, recErr := repo.RecordMessageProcessing(ctx, execCtx, execCtx.ToAgentID)
-		if recErr != nil {
-			contextLogger.Error("Failed to record request processing -", zap.Error(recErr))
-			// Availability over strictness: process anyway (pre-F3 behaviour).
-		} else if !claimed {
-			contextLogger.Warn("DEDUPE_CLAIM_LOST: request claimed by another worker, dropping",
-				zap.String("request_id", execCtx.RequestID),
-				zap.Int("retry_version", execCtx.RetryVersion))
-			return nil
-		} else {
-			completeAgentID := execCtx.ToAgentID
-			defer func() {
-				cctx, ccancel := context.WithTimeout(context.Background(), 10*time.Second)
-				defer ccancel()
-				// bugs_open/239: a transient dispatch-lookup failure means the
-				// intake pool will re-run this exact message. A 'complete' claim
-				// would make the re-run lose the dedupe race against itself
-				// (DEDUPE_CLAIM_LOST) and the message would be dropped for good,
-				// so release the claim instead of completing it.
-				if errors.IsDispatchLookupUnavailable(retErr) {
-					if rErr := repo.ReleaseMessageClaim(cctx, execCtx.CorrelationID, execCtx.RequestID, completeAgentID, execCtx.RetryVersion); rErr != nil {
-						contextLogger.Warn("DISPATCH_RETRY_CLAIM_RELEASE_FAILED (lease will expire naturally)", zap.Error(rErr))
-					}
-					return
-				}
-				if mErr := repo.MarkMessageComplete(cctx, execCtx.CorrelationID, execCtx.RequestID, completeAgentID, execCtx.RetryVersion); mErr != nil {
-					contextLogger.Warn("MARK_COMPLETE_FAILED (lease will expire naturally)", zap.Error(mErr))
-				}
-			}()
-		}
-	}
-
+	// bugs_open/259 site C: the bugs_open/003 F3 two-phase dedupe claim — the
+	// HasProcessedMessage check, the RecordMessageProcessing claim, and the defer
+	// that either released it (bugs_open/239's transient-dispatch rule) or marked
+	// it complete — sat here behind `if p.sqlDB != nil`, so it had never run on
+	// any chassis pod. It was not a dedupe hole: agentbase performs the SAME
+	// two-phase claim on a live handle (agent.go, `a.stateRepo`), including the
+	// same release-on-transient-dispatch-failure rule, and processed_messages
+	// shows it working continuously (449 rows / 82 distinct writers in one hour,
+	// 2026-08-12). This was therefore a second, dead implementation of a
+	// judgement the platform already makes correctly one layer up — deleted,
+	// because one implementation per judgement is the rule and switching this one
+	// ON would have enabled an unexercised concurrency mechanism fleet-wide.
+	// If you are looking for where the chassis dedupes: it is agentbase.
 	contextLogger.Info("TRACE: processor.go ProcessMessage entry",
 		zap.String("agent_type", p.agentType),
 		zap.String("processing_orch", execCtx.OrchestrationID),

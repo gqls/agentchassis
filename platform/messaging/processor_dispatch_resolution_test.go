@@ -430,16 +430,21 @@ func TestFixturesAreTheShapeProductionSends(t *testing.T) {
 // TestRecordDispatchFailureState_UsesTheDbTheChassisActuallyHas pins the gap the
 // post-roll verification found on v1.0.1284 (bugs_open/239).
 //
-// recordDispatchFailureState originally guarded on p.sqlDB, which is populated
-// ONLY when DATABASE_URL is set — and it is not set on the chassis pods. So in
-// production the guard returned early every time and the FAILED orchestration
-// row, the whole point of the function, was never written. The refusal still
-// worked and the intake row still recorded it, which is exactly why this was
-// invisible: two of the three traces were present.
+// recordDispatchFailureState originally guarded on p.sqlDB, a second handle
+// populated ONLY when DATABASE_URL is set — and it is not set on the chassis pods.
+// So in production the guard returned early every time and the FAILED
+// orchestration row, the whole point of the function, was never written. The
+// refusal still worked and the intake row still recorded it, which is exactly why
+// this was invisible: two of the three traces were present.
 //
-// The test drives the shape production has — db set, sqlDB nil — and asserts the
-// INSERT is attempted. On the pre-fix code sqlmock reports the expectation
-// unmet, because nothing was executed at all.
+// The test asserts the INSERT is attempted on the handle the chassis actually has.
+// On the pre-fix code sqlmock reports the expectation unmet, because nothing was
+// executed at all.
+//
+// It used to also assert the fixture had `sqlDB` nil — "the production shape" —
+// because a fixture with both handles set would have passed against the defect.
+// bugs_open/259 deleted the second handle, so there is only one shape left to
+// drive and that assertion is now vacuous rather than protective.
 func TestRecordDispatchFailureState_UsesTheDbTheChassisActuallyHas(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	if err != nil {
@@ -449,10 +454,7 @@ func TestRecordDispatchFailureState_UsesTheDbTheChassisActuallyHas(t *testing.T)
 	mock.ExpectExec("INSERT INTO orchestration_states").
 		WillReturnResult(sqlmock.NewResult(0, 1))
 
-	p := dispatchTestProcessor(db) // db set, sqlDB nil — the production shape
-	if p.sqlDB != nil {
-		t.Fatal("fixture drifted: this test is only meaningful with sqlDB nil")
-	}
+	p := dispatchTestProcessor(db) // the one handle the chassis has
 	msgCtx := dispatchMsgCtx([]byte(`{"action":"orchestrate","config":{"agent_type":"no-such-agent-239"}}`), "orchestrate")
 	derr := p.dispatchUnresolvable(dispatchReasonTypeUnresolved, "no-such-agent-239", "orchestrate", nil)
 

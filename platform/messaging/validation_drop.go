@@ -76,10 +76,11 @@ func MatchedValidationNeedle(errMsg string) string {
 // core could not stay in this package (messaging → orchestration, so
 // orchestration could never import messaging).
 func (p *MessageProcessor) recordDroppedValidationError(msgCtx *MessageContext, matchedNeedle string, procErr error) {
-	db := p.sqlDB
-	if db == nil {
-		db = p.db
-	}
+	// This preferred p.sqlDB and fell back to p.db — the operands the opposite way
+	// round from the rest of the file, so it reached for the handle that was
+	// always nil on a chassis pod and only ever recorded anything by falling
+	// through. bugs_open/259 deleted p.sqlDB, so there is one handle to read.
+	db := p.db
 	if db == nil || msgCtx == nil || procErr == nil {
 		return
 	}

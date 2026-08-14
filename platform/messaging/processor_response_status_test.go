@@ -380,13 +380,20 @@ func TestWorkflowFailureTransientProseIsRecoverable(t *testing.T) {
 // TestSuccessResponseStatusStillComplete is the no-op half. Splitting the sender
 // must leave the success envelope exactly as it was: the same status, the same
 // flags, the result unwrapped in Body.Body and no Error key at all.
+//
+// It called the `sendWorkflowResponse` wrapper until bugs_open/259 deleted it as
+// part of a dead cluster. The wrapper's entire body was
+// `sendWorkflowResponseWithStatus(ctx, msgCtx, result, "complete", nil)`, so this
+// now calls that directly with the same arguments and every assertion below is
+// unchanged — the bugs_open/196 success-envelope coverage is preserved, not
+// dropped.
 func TestSuccessResponseStatusStillComplete(t *testing.T) {
 	p := &recordingResponseProducer{}
 	proc := responseTestProcessor(p)
 	result := map[string]interface{}{"generated_text": "hello"}
 
-	if err := proc.sendWorkflowResponse(context.Background(), responseTestContext(), result); err != nil {
-		t.Fatalf("sendWorkflowResponse: %v", err)
+	if err := proc.sendWorkflowResponseWithStatus(context.Background(), responseTestContext(), result, "complete", nil); err != nil {
+		t.Fatalf("sendWorkflowResponseWithStatus: %v", err)
 	}
 
 	got := onlyResponse(t, p)
