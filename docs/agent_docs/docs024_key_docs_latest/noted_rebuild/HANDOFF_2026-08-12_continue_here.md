@@ -162,6 +162,22 @@ Commits: `fc27a74e0`, `70732301c`, `e5d664f97`, `714c1d65c` (plus `23f1229f0`,
 > **blocker 4** (degraded states by hand, pre-launch), the owner's
 > deletion-vs-backup-retention disclosure decision, and cutover.
 > Full trail: NOTES 2026-08-13.
+>
+> **UPDATE 2026-08-14 evening — the EDITOR now exists; its deploy is queued.**
+> Blocker 4's test surfaced the real gap: **the product had no editor** — the
+> engine is API-only and "Sign in" looped to the marketing index. Built as
+> PLAN §4.2 prescribes: `tool-write` → `/tools/write/index.html`
+> (`editor_tool/noted-write.html`), the degraded contract designed in and
+> **mutation-verified** (`editor_tool/test_editor_degraded.py`, 21 checks;
+> headless cannot show the real beforeunload prompt — that half is the owner's
+> walkthrough, `WALKTHROUGH_2026-08-14_degraded_states_by_hand.md`, ready).
+> Owner ruled: privacy page does NOT mention backup retention (recorded, closed).
+> The assemble item is filed **page_id-column-correct** and queued behind the
+> estate (~370 items at 19:00). **When it deploys:** one sitesync tick → live
+> smoke on the real page (throwaway account, induced outage) → re-point the
+> site's "Sign in" CTAs from `https://app.noted.co.uk/` (a loop!) to
+> `/tools/write/` via the 074 script pattern → bind `authenticated-note-sync`
+> to the built editor (§4.1, still unbound). Trail: NOTES 2026-08-14.
 
 | # | Blocker | What is known |
 |---|---|---|
