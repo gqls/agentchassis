@@ -187,6 +187,32 @@ bug number is that contributor's call.
   served hex in (b). Outcome should be stable across either mechanism; the `#7d8bb6` branch is the one
   that flips it.
 
+## 5b. OWED — a false claim in `LANDMINES.md` I could not safely correct
+
+**`LANDMINES.md:6163` says "(a bare curl gets 403 on every site — that is a user-agent rejection,
+not a routing fault)". It is FALSE.** `[MEASURED 2026-08-14]` all seven domains in this lane's pinned
+test, stylesheet path: **bare curl returns 200 on every one**, byte-identical to a curl with a browser
+UA. A reviewer measured the same from a different host on the same date.
+
+I did not correct it because **`LANDMINES.md` was modified in the working tree** when I went to — i.e.
+another session was mid-edit — and a pathspec commit would have taken their WIP as a passenger. That
+is the same state that produced this thread's earlier clobber of two lines of someone else's entry, so
+the right move was to leave it.
+
+**Whoever picks this up:** check `git status` on the file first, then correct **in place with a dated
+note** (the file's own convention), and verify append-only-ness with `git diff --numstat` BEFORE
+committing. Suggested wording, which survives both readings rather than just inverting the claim:
+
+> a bare curl returned 403 in one authoring environment on 2026-08-06 and **200 from two independent
+> hosts on 2026-08-14**; if you get 403, try `-A`, and if that also fails suspect rate-limiting after
+> a burst rather than UA rejection.
+
+**Why it matters more than a stray parenthesis:** it is inside the entry that tells a reader how to
+re-derive palette values from the artefact. A reader following it adds a UA flag that does nothing
+(harmless) — but on a real 403 they conclude their environment is broken when it is probably
+rate-limiting. And it is where **I** got the claim: I restated it in a Go test comment as though I had
+measured it, in the one artefact whose entire job is re-derivability.
+
 ## 6. Traps this thread paid for (all in `WRONG_CALLS.md`, 2026-08-13/14)
 
 - **A delegated measurement is a citation, not an observation.** I marked a subagent's figures

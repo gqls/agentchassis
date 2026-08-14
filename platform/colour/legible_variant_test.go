@@ -5,10 +5,21 @@
 // every site in the fleet, so repointing a consumer onto it de-branded the
 // element rather than making its brand colour legible.
 //
-// The fixtures are REAL fleet palettes, read from the served stylesheets on
-// 2026-08-13, because the defect was invisible to synthetic fixtures for six
-// days. A fixture that cannot reproduce the original failure cannot prove the
-// repair.
+// The fixtures are REAL fleet palettes, read from the served stylesheets, because
+// the defect was invisible to synthetic fixtures for six days. A fixture that
+// cannot reproduce the original failure cannot prove the repair.
+//
+// ⚠ THAT SENTENCE WAS FALSE FOR THREE OF THEM UNTIL 2026-08-14, and how it stayed
+// false is the useful part. I wrote it while three ground pairs were invented; a
+// reviewer caught one figure, I fixed that fixture, wrote up the lesson, and left
+// the rest. Caught the second the same way. Only on the third did I finally list
+// every hex in this file and tick each against a re-fetch — which is the audit the
+// comments here had been preaching for two days.
+//
+// So: every ground below carries `[TRANSCRIBED <date>]` and the command that
+// produced it. If you add a case, transcribe it and say so; a plausible hex is
+// indistinguishable from a measured one, and the arithmetic will confirm it either
+// way. WRONG_CALLS 2026-08-13/14 has the full account.
 package colour
 
 import (
@@ -145,9 +156,16 @@ func TestLegibleVariant_LightSitePalettesKeepTheirBrandColour(t *testing.T) {
 		site, src, text string
 		grounds         []string
 	}{
-		{"cookly.uk", "#C8502A", "#2C2C27", []string{"#FAF7F2", "#FFFFFF"}},
-		{"webdesign.co.uk", "#d4a373", "#2b2b2b", []string{"#FDFCFA", "#FFFFFF"}},
-		{"lendzy.co.uk", "#E8700A", "#1A1A1A", []string{"#FFFFFF", "#F7F9FC"}},
+		// `[TRANSCRIBED 2026-08-14]`, all three. ⚠ THE FIRST VERSION OF THESE THREE
+		// LINES HAD INVENTED GROUNDS and survived two rounds of correcting the same
+		// error elsewhere in this file: cookly was #FAF7F2/#FFFFFF (real surface is the
+		// cream #F0E8D5), webdesign's background was #FDFCFA, and lendzy's pair was
+		// swapped AND wrong. Found only by auditing every hex in the file after a
+		// reviewer caught the third instance — which is the audit rule this file's
+		// other comments preach and I had not once actually run.
+		{"cookly.uk", "#C8502A", "#2C2C27", []string{"#FDFAF4", "#F0E8D5"}},
+		{"webdesign.co.uk", "#d4a373", "#2b2b2b", []string{"#f9f8f6", "#ffffff"}},
+		{"lendzy.co.uk", "#E8700A", "#1A1A1A", []string{"#F8F7F4", "#FFFFFF"}},
 	}
 	for _, c := range cases {
 		got, ok := LegibleVariant(c.src, c.grounds, AANormal)
@@ -259,8 +277,21 @@ func TestLegibleVariant_EmittedHexIsPinnedForRealPalettes(t *testing.T) {
 	//	curl -fsS -A "Mozilla/5.0 … Chrome/126" https://<domain>/assets/css/styles.css \
 	//	  | grep -oE -- '--color-(primary|accent|background|surface|text): *#[0-9A-Fa-f]{3,8}'
 	//
-	// (a bare curl gets 403 on every site — a user-agent rejection, not a routing
-	// fault). Re-transcribe rather than trust this table if a palette may have moved.
+	// Re-transcribe rather than trust this table if a palette may have moved.
+	//
+	// ⚠ A UA FLAG IS NOT REQUIRED, and the first version of this comment said it was.
+	// I wrote "a bare curl gets 403 on every site — a user-agent rejection", lifted
+	// verbatim from LANDMINES.md and restated as if I had measured it. MEASURED
+	// 2026-08-14, all seven domains above, stylesheet path: **bare curl returns 200 on
+	// every one**, identical to a curl with a browser UA. A reviewer got the same from
+	// a different host, and my own first fetch loop this session was bare and worked —
+	// so I had first-hand contradicting evidence in my own scrollback and repeated the
+	// claim anyway. If you DO get a 403, try `-A` before concluding anything, and
+	// suspect rate-limiting after a burst rather than UA rejection.
+	//
+	// That this landed in THIS comment is the sharp part: the one artefact whose entire
+	// job is telling the next reader how to re-derive the inputs is the worst possible
+	// place for an inherited claim wearing a measurement's voice.
 	//
 	// THE MARKER IS ON THE INPUTS, DELIBERATELY, AND THAT IS THE WHOLE LESSON.
 	// The first version of this table invented background/surface for three sites and
