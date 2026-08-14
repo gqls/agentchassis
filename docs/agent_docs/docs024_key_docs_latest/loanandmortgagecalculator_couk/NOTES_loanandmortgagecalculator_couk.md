@@ -2483,3 +2483,52 @@ entry). No response yet from the owning session to the §3 ruling demand.
 
 `HANDOFF_2026-08-14_continue_here.md` is now the lane entry point — 11b had grown
 five addenda and read as sediment; its content is folded in.
+
+### 2026-08-14 (afternoon) — the 08:06Z hand repair was SUPERSEDED six minutes later by the owning session's clean-pin rebuild; the oracle now reads 170/0/6 and that is HEALTHY
+
+Routine re-run on picking up the lane (controls first, same session: parse OK;
+mutation control 4 FAIL / 0 passed): **PASS 170 / FAIL 0 / CONVENTION 6** — not the
+handoff's 176/0/0. All six CONVENTION lines are one tool, `loans/standard-calc.html`:
+total interest / total repayable matching the **billed** convention (payment rounded
+to the penny first, then multiplied), deltas ±£0.36 at worst on the standard cases.
+Nothing fails; the 0% APR boundary and both two-routes checks pass.
+
+What actually happened this morning, measured:
+
+- 08:06:23Z — work item `b304673c` (this lane's `fix224b` repair) → sites commit
+  `9e7094c96` (08:07Z). The hand-written wiring: coerce-to-zero, exact totals from
+  `result.total`. The 176/0/0 run was against THIS version.
+- 08:11:31Z — the trackb2 session (`8185e336…`) built `manifest_repair.json` from
+  pin `7e6b993ef` (the last sites commit before the 08-12 restore-poisoned
+  rerenders) for exactly two pages — `loans-standard-calc`,
+  `mortgages-overpayment` — asserting "standard-calc has post-fix guard: True" in
+  the run itself; reseed committed 08:11:55Z (`content_components.updated_at`);
+  rerender `adbecca2` 08:12:17Z → sites commit `895bf93a9` (08:13Z).
+- The served inline script is **byte-identical (1,559 B) to the `7e6b993ef`
+  slice**, and its text matches what the 08-10 session (`4bbacd62…`) authored as
+  the ORIGINAL 224 fix — billed-convention totals with an exact-figures branch at
+  0% APR. The pre-regression estate read 164/6/6 carried the same six CONVENTION
+  entries, so 170/0/6 is the historical norm restored, not drift.
+
+So: two sessions repaired the same page six minutes apart; the second (framework
+rebuild from clean source, by the page's owning session) superseded the first
+(hand wiring); both are 224-safe — every input path writes the DOM, the surviving
+version via explicit £0.00 writes in its guard branch. The surviving version is
+also the more canonical one. No damage, nothing to do on the page.
+
+> **CORRECTED 2026-08-14 (afternoon) — this corrects the mid-morning entry above.**
+> "standard-calc still serving the repaired page. Oracle unchanged at 176/0/0" was
+> **false when written** — the swap was live from ~08:14Z. The wire check asserted
+> markers BOTH versions carry (`calculators.js` tag present, stale `r > 0` guard
+> absent), so it structurally could not detect the supersession; and the oracle
+> figure was carried forward from a run the swap had already invalidated. The
+> cheap check that would have caught it: byte-diff the served page against the
+> bytes you shipped — the same mirror-check habit §5 already prescribes for
+> `legal` — or re-run the instrument instead of citing its last output. Caught by
+> this afternoon's routine oracle re-run. Logged in `WRONG_CALLS.md`.
+
+**Standing expectation from now: `oracle.py` reads 170/0/6** (six billed-convention
+lines, all on standard-calc) until that page's wiring changes again. Handoff and
+summary corrected in place, visibly. The trackb2 session's uncommitted repoint of
+`decompose_lmc.py`'s pin (`5cc277294` → `7e6b993ef`, "the LAST CLEAN pin") is part
+of the same clean-source workstream — it is theirs and is left untouched.

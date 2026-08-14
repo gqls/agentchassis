@@ -1030,3 +1030,27 @@ editor refuses locked components, by design. So on the new shape nothing is lock
 the protection is that the template holds the machinery and the writers can only
 fill in the words. Twenty-one calculator pages remain to convert, the three odd-
 shaped ones last.
+
+---
+
+2026-08-14, afternoon. A re-check found the record wrong, not the site. This
+morning two sessions fixed the same broken calculator within six minutes of each
+other: one patched it by hand, and six minutes later the session that owns the
+calculator conversions rebuilt the same page properly, from the last clean copy in
+the site's history. The rebuilt version is what's live, and that's the right
+outcome — it is the original fix, restored through the framework rather than
+hand-stitched. The calculator is correct either way: every arithmetic check
+passes, including the 0% interest case that started all this.
+
+The morning write-up, though, said the hand-patched version was still live and
+quoted its test score — and both statements had stopped being true about six
+minutes after they were measured. The check meant to confirm it looked for
+features both versions share, so it couldn't tell them apart. I've corrected the
+handoff, notes and summary, and logged the lesson: when checking "is my fix still
+live", compare the actual bytes, not a marker both versions carry.
+
+One nuance now on record so nobody "fixes" it: the restored version rounds the
+monthly payment to the penny before working out the totals — the way lenders
+actually bill — so six checks now read "matches the billed convention" rather
+than "matches to the last decimal". That is the healthy, historical state of this
+page, not a fault.

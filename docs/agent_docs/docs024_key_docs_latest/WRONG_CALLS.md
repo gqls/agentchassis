@@ -30011,6 +30011,46 @@ here were measured, dated, marked and correct.
 
 ---
 
+## 2026-08-14 — `bugs_open/252` — "the GC dials live in a ConfigMap you can edit" — told to the owner, and refuted by the first write
+
+**The claim.** Walking the owner through the three remaining disk levers, I presented
+the kubelet GC change as easy specifically BECAUSE of where it lives: *"Where it
+lives — better news than I'd assumed… It's not [node-level]: all four GC keys sit
+explicitly in the `kubelet-config` ConfigMap… Editing it is a `kubectl edit`, not a
+node operation."* The owner authorised the edit on that description.
+
+**Why it was false.** The ConfigMap is provider-protected: the write returns 200
+"patched", `resourceVersion` bumps, and the data reverts before the next read.
+Verified three ways (data patch, new key, annotation — all discarded; no mutating
+webhook to explain it). The keys being *visible* in the CM, and the CM matching the
+live kubelets, said nothing about it being *writable* — the provider's control plane
+reconciles tenant writes away. The claim rested on two true observations (the keys
+are there; nodes match them) and one untested assumption bridging them (therefore
+editing it propagates).
+
+**What caught it.** The lane's own standing practice: verify a write at the readback,
+not at the success message. The patch was "accepted" and the re-read ten seconds
+later showed old values — caught before anything downstream believed it, but AFTER
+the claim had shaped an owner decision, which is what earns it this entry.
+
+**The cheap check that would have caught it pre-claim:** before describing any
+config surface as editable, **write a canary to it** — an annotation costs nothing
+and takes five seconds — and read it back. "The values are in this object" and "this
+object accepts my writes" are independent facts; on managed platforms the second
+must be tested, never inferred from the first. The claim "you can edit X" is a claim
+about a WRITE PATH, and only a write exercises a write path.
+
+**The damage and the recovery.** One walkthrough paragraph and one owner
+authorisation aimed at a door that doesn't open. Recovery was same-hour: the change
+shipped as the `node-config` DaemonSet (BLD-021) instead — which is the *better*
+mechanism regardless, since a CM edit never addressed spot-node replacement, and the
+walkthrough's own journald section had already worked out why node files on spot
+machines need a DaemonSet carrier. The irony is recorded: the reasoning that was
+right about journald was sitting two paragraphs below the assumption that was wrong
+about the kubelet.
+
+---
+
 ## 2026-08-12 — I read a sweep's run history off a column that only records the LAST run, and reported a skipped day that the data cannot speak to
 
 **Lane:** `bugfix_168_deployed_asset_path`, verifying `bugs_closed/262` live on `v1.0.1293`.
@@ -30988,3 +31028,38 @@ whichever cause the author had just proven, which is exactly
 >
 > Framing owed to the `bugfix_122_contrast_ink_slots` lane, which supplied it against its
 > own interest.
+
+## 2026-08-14 — lmc lane: "still serving the repaired page, oracle unchanged at 176/0/0" — the page had been swapped six minutes after the repair, and every marker I checked matched both versions
+
+The morning session hand-repaired `loans/standard-calc` at 08:06Z, measured the
+estate at 176/0/0, and at ~10:00Z recorded "standard-calc still serving the
+repaired page. Oracle unchanged at 176/0/0 (verified within the hour, prior
+entry)". Both halves were false when written: at 08:12Z the trackb2 session —
+the page's owner — had rebuilt the same page from the clean sites-repo pin
+(`7e6b993ef`) and rerendered. From ~08:14Z the wire served different bytes
+(billed-convention totals, the original 08-10 fix restored) and the oracle truth
+was 170/0/6.
+
+What made it invisible: the wire check asserted markers **both versions carry** —
+`calculators.js` tag present, stale `r > 0` guard absent. A check the replacement
+also passes structurally cannot detect a replacement. And "verified within the
+hour" attached a fresh-sounding timestamp to a measurement that a concurrent
+session had already invalidated — on a page two sessions were repairing the same
+morning, staleness is minutes.
+
+Caught by: the afternoon session's routine oracle re-run (the lane's standing
+habit — the same one that found the original regression), then a byte-diff of the
+served page against both morning commits, which put the swap at exactly one
+rerender (`adbecca2`, 08:12:17Z, sites commit `895bf93a9`).
+
+The cheap check that would have caught it: **diff the served bytes against the
+bytes you shipped.** The lane already does exactly this for `legal` as its §5
+mirror check; the page just repaired deserved the same one-line diff. A marker
+grep is a tag check, not an identity check — identity is bytes.
+
+Cost: none on the wire — the superseding version is also 224-safe, and more
+canonical (framework-built from clean source by the owning session). The cost was
+recorded state: the lane's entry-point handoff told the next session to "expect
+176/0/0", which makes the healthy 170/0/6 read as a regression and invites a
+second collision on the same page. Corrected in the handoff, NOTES, and summary
+the same afternoon.

@@ -16,6 +16,14 @@ found and **repaired 2026-08-14** (§2). The per-slot floors (text + component) 
 **live on both write paths and council-APPROVED**. The whole arithmetic estate reads
 **oracle 176 PASS / 0 FAIL / 0 CONVENTION**, verified today.
 
+> **CORRECTED 2026-08-14 (afternoon): the standing oracle read is 170 / 0 / 6, not
+> 176/0/0.** Six minutes after §2's hand repair, the trackb2 session rebuilt the
+> same page from the clean sites-repo pin (`7e6b993ef`), restoring the ORIGINAL
+> 224-fix wiring — billed-convention totals (payment rounded to the penny first).
+> The six CONVENTION lines are all standard-calc, all healthy, and match the
+> pre-regression estate's profile. **Do not "repair" them.** Full account: NOTES
+> 2026-08-14 (afternoon) entry.
+
 ## 1. Verified on v1.0.1298 (pods `64cb9c4bb9-*`, up 08:58Z, 2026-08-14)
 
 | check | result |
@@ -23,7 +31,7 @@ found and **repaired 2026-08-14** (§2). The per-slot floors (text + component) 
 | floors in the binary, both replicas | `SLOT FLOOR` 1 · `COMPONENT FLOOR` 1 · `SHRINK` 1 · neg control 0 |
 | `189`/`204` | `1 / 1` |
 | **post-roll mirror check** (assemble `legal`, diff vs `predicted/`) | **byte-identical** |
-| oracle, whole estate, controls in-session | **176 / 0 / 0** (parse OK; mutation 4 FAIL / 0 passed) |
+| oracle, whole estate, controls in-session | **176 / 0 / 0** (parse OK; mutation 4 FAIL / 0 passed) — **superseded ~08:14Z: now 170 / 0 / 6, healthy (§0 correction)** |
 | standard-calc on the wire | loads `calculators.js`, stale `r > 0` guard gone |
 
 **Do the mirror check after every roll** (one rerender + one diff — §5 commands).
@@ -45,6 +53,16 @@ plus thin wiring that calls `calculateAmortization` and **always writes the DOM*
 (blank inputs coerce to 0 → engine returns zeros), so the two-routes stale-answer
 bug is structurally unrepresentable there. Copy placeholders untouched; row left
 **unlocked** per the owner's ruling. Oracle: the tool 15/15, estate 176/0/0.
+
+> **CORRECTED 2026-08-14 (afternoon): this repair was superseded six minutes after
+> it landed.** At 08:11–08:12Z the trackb2 session rebuilt `loans-standard-calc`
+> (and `mortgages-overpayment`) from clean pin `7e6b993ef` and rerendered — the
+> served inline script is byte-identical to that pin's slice, i.e. the original
+> 08-10 billed-convention 224 fix, restored through the framework. Still 224-safe
+> (every path writes the DOM, explicit £0.00 in the guard branch). The morning's
+> "still serving the repaired page" check used markers both versions carry, so it
+> missed the swap; see `WRONG_CALLS.md` 2026-08-14 (lmc) and the NOTES afternoon
+> entry.
 
 **The pattern that caused it is still present**: four more loans templates carry
 their own inline arithmetic (`settlement-calculator` and siblings — passing today,
@@ -104,7 +122,7 @@ diff <(curl -s -A Mozilla/5.0 https://loanandmortgagecalculator.co.uk/legal.html
 
 # arithmetic, controls FIRST, same session — a green run without them is not evidence
 cd $LANE && python3 oracle.py --selftest-parse && python3 oracle.py --mutate expectation --tools simple
-cd $LANE && python3 oracle.py            # expect 176/0/0
+cd $LANE && python3 oracle.py            # expect 170/0/6 (six CONV = standard-calc billed convention — healthy; CORRECTED 08-14 afternoon)
 
 # floor refusals, fleet (0 is ambiguous — pair it with the archived-prior audit)
 # site_work_items WHERE spec->>'reason' LIKE '%FLOOR REFUSED%'

@@ -67,6 +67,14 @@ structurally impossible there, not merely guarded against. The whole estate now
 passes 176 arithmetic checks with none failing — cleaner than before the
 regression, because the shared engine matches the oracle exactly.
 
+> **CORRECTED 2026-08-14 (afternoon):** six minutes after this repair landed, the
+> session that owns the calculator conversions rebuilt the same page from the last
+> clean copy in the site's history — restoring the original fix, which rounds the
+> monthly payment to the penny before totalling, as lenders bill. Still 176 checks
+> with none failing; six now read "matches the billed convention" instead of
+> exact. That is this page's healthy historical state, not a fault. Details:
+> NOTES afternoon entry and `WRONG_CALLS.md`.
+
 ## Where we are now
 
 Eighteen of twenty-three calculator pages and all eighteen prose pages are
