@@ -178,3 +178,47 @@ The one I'd push hardest for is the second: nothing in our platform reports how 
 connection pool is working. That is not a side issue — it is the entire reason this bug
 sat there for weeks with the wrong setting and nobody noticed. Until we build that, every
 future question about pools gets the same unsatisfying answer I've had to give you today.
+
+---
+
+## 2026-08-14 — the measurement finally happened, and the answer is good
+
+The password is sorted, and it turned out my own doing was the obstacle. I had *generated*
+a new password for the pgbouncer admin account. That account already had a working one. So
+the two halves disagreed and the console refused — nothing exotic, just me creating a
+credential where the job was to write down the existing one. Fixed by doing that instead:
+the real password is now in the terraform secrets file, and I proved it actually works
+*before* writing it rather than after. It reaches the live cluster on the next release; you
+don't need to do anything.
+
+And that unlocked the thing this whole lane has been unable to answer.
+
+**The connection change is not causing a queue.** Now that I can ask pgbouncer directly:
+nothing is waiting, nothing has waited, and it's using five of its fifteen available
+database connections while serving seventeen client connections at once. That last part is
+the interesting bit — it's the pooling working exactly as I argued it would when I proposed
+the change, except now it's measured rather than argued. So the answer to whether we need
+to raise that limit is **no**.
+
+Two honest caveats, because this is the kind of number that gets quoted later. It's one
+reading, taken at one moment. And the "longest wait" figure pgbouncer reports resets once
+the waiting client is served, so a zero can't prove nothing queued in between. The fair
+sentence is "it wasn't queueing at that moment, at that load" — not "it's fine under load".
+Getting the stronger version means sampling across a busy spell, which is cheap now that
+the door is open.
+
+The other lane has finished and shipped the related bug I filed — they deleted the dead
+database handle and the six things that were only reachable through it, and they handled
+the test better than I would have: rather than quietly let coverage shrink when the thing
+being tested disappeared, they recorded it as a deliberate removal and added a guard against
+anyone re-introducing it.
+
+One thing I should flag about my own work this week: three times in three days I ran a check,
+got an alarming result, and the alarm was an artefact of how I'd extracted the data rather
+than anything real — twice I told you before I'd double-checked. The results were false each
+time, but they were specific and they looked measured, which is exactly what makes that
+pattern worth naming. I've written it up. The rule I'm holding myself to now is simple: if a
+check produces something that would be an incident, re-derive it a second way before saying
+it out loud.
+
+Nothing is outstanding on this lane.
