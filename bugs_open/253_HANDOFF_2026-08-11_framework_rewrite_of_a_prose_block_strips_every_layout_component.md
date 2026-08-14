@@ -12,7 +12,27 @@ by any of the decomposition briefs.
 > Its fix commits (`c6dcbcaa8`, `6ea633cea`, `9b7811d4b`) are **not** this bug's, and
 > a `git log` by number will hand you the wrong case. **Refer to this one by slug.**
 
-## ⛔ COUNCIL: REVISE (round 1, `b30ac52c`) — and the objection is RIGHT
+## ✅ COUNCIL: APPROVED at round 3 (`b30ac52c`) — after two REVISEs that each found something real
+
+| round | verdict | gating seat | what it found |
+|---|---|---|---|
+| 1 | REVISE | `bug_historian` (high) | **Coverage**: both floors wired into one of nine writers |
+| 2 | REVISE | `editquality` (high) | My plan cited `create_report_page` as an overwrite path and then gave it **no disposition** — so the plan either failed its own test or silently exempted a known-risky path |
+| 3 | **APPROVED** | — | 10 of 11 seats approve, incl. `bug_historian`. One advisory: my rationale claimed all nine dispositions were *"measured rather than asserted"* while two were marked `[UNMEASURED]` — **the claim overstated the code's own honesty** |
+
+**Both REVISE rounds found real defects**, which is the case for the gate rather than
+against it. Round 1 found the coverage hole. Round 2 found that my *submission* was
+internally inconsistent with its own evidence — the code carried the exemption with a
+reason, the plan did not say so, and a reviewer reviews the plan. Round 3's advisory
+caught me levelling two different strengths of evidence under one word.
+
+Answered in `dffbc75e4` by separating them rather than rewording: **MEASURED** for the
+two INSERT-only writers (counted, could have come out otherwise) and for
+`create_report_page` (the coverage *test* disconfirmed my manual audit); **REASONED
+FROM SOURCE** for the rest, with the exact experiment that would convert the colour
+fixers written down.
+
+## The round-1 objection, kept because it is the origin of the fix
 
 **Gating objection, `bug_historian`, severity HIGH, on the wiring edit:**
 
