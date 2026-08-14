@@ -6687,3 +6687,103 @@ live. There is a **305-item backlog** with the oldest from 08-11, so latency is 
 
 **Nothing about 2a is proven until the served pages change.** The spec fix is the cause
 fix; the reader still sees the old copy.
+
+### Same evening — 2b diagnosed and DISPATCHED, and the diagnosis corrects my own earlier reading of it
+
+**CORRECTION to what I wrote three hours ago in this file.** I recorded that 2b was
+`blocked` because `handler_agent` was empty, and implied that was the barrier. **That is
+wrong, and one query kills it:** the two `needs_experience_plan` items that reached
+`complete` have an **empty `handler_agent` too**. Same shape, same empty field, opposite
+outcome. So the field was never load-bearing and the `blocked` stamp is a sweep's
+complaint, not a cause.
+
+The real difference between the completed items and ours was `created_by`: `cli` — i.e.
+they were accompanied by a **dispatch envelope**, and ours never was. The `blocked` status
+is a *symptom* of not being dispatched. I had the right facts and drew a causal arrow
+between two of them that the evidence did not support — the `a-plausible-external-cause`
+shape, with a database column standing in for the plausible cause.
+
+### THE ACTUAL GAP, and the handoff's plan would have under-delivered without closing it
+
+`experience-planner`'s `load_brief` step reads **only** this:
+
+```sql
+SELECT COALESCE((SELECT string_agg(body, …) FROM doc_notes
+  WHERE subject_type='experience' AND subject_key=$1
+    AND categories @> '["experience-brief"]'::jsonb), '(no brief on file …)')
+```
+
+**It never reads the `site_work_items` row.** The 08-12 session wrote the owner's three
+asks and its careful served-page measurement into the work item's `spec` — where the
+planner cannot see them. With no brief the step returns a visible sentinel and the prompt
+explicitly instructs the planner to *"plan from the live site context alone"*.
+
+So firing the envelope as the handoff instructed would have produced a plan, reported
+success, and **never seen the asks**. It would have looked like the loop working.
+`[MEASURED]` zero `doc_notes` rows existed with `subject_type='experience'` and that
+category before today — this channel has never been used, which is why the gap has not
+surfaced.
+
+Wrote the brief (2,620 chars) carrying the diagnosis, the owner's words verbatim, the three
+asks, the "Llm Cost Calculator" capitalisation defect, and three do-not-relitigate
+decisions (framework writes the content; the six guides are sound and out of scope; verify
+each tool URL serves before planning a link to it). **The postcondition reproduces
+`load_brief`'s exact query** rather than checking that a row exists — so it asserts what
+the planner will actually receive, not merely that I inserted something.
+
+### Dispatched, and verified at the orchestration row rather than at the exit code
+
+`092_TRIGGER_experience_plan.sh fundamentallyai.com tools-are-unreachable-from-the-writing`
+— correlation `cf8923ab-2d5a-462b-89eb-0e97c72d1bea`.
+
+`kcat -P` sends nothing at exit 0, so the clean exit proves nothing. Verified at the row:
+parent `generic` at `call_planner`/`AWAITING_RESPONSES`, child `experience-planner` at
+`load_schema_hint`/`EXECUTING_STEP`, 18 seconds after publish. **Running.**
+
+Preconditions checked, and one of them honestly rather than theatrically: the required
+`docResolveSubject 'experience'` fix (`66d32477d`) landed **2026-07-17** and the running
+chassis is **v1.0.1300** built today, so it is present — reasoned from the tag date. I
+tried to prove it at the binary and **could not**: a binary carries its own build commit,
+not every ancestor, so `grep`ping for an ancestor's sha answers nothing. The control (a
+bogus sha, absent) and HEAD's sha (absent, as expected since my commit postdates the
+build) both behaved, which is how I know the probe itself was sound and simply cannot
+answer that question. Recording the limit rather than dressing the inference up as a
+measurement.
+
+### Why 2a's canaries sat still for 90 minutes — the dispatcher is strict fleet-wide FIFO
+
+`build-pipeline-trigger`'s selection is
+`… WHERE status IN ('triaged','approved') … ORDER BY wi.created_at ASC, wi.priority ASC LIMIT 1`
+— **one site per 60-second tick, chosen by the age of its oldest item, and `priority` only
+breaks ties within an identical timestamp.** So a `priority: 100` item filed now sits
+behind a `priority: 50` item filed on 08-11. The oldest triaged build item in the fleet is
+from **2026-08-11 17:42** and there are **305** of them.
+
+**Consequence worth carrying: filing fresh work sorts you to the BACK, and raising
+`priority` does not move you.** I filed at priority 100 on the first attempt believing it
+would jump the queue; it cannot. Same family as
+`your-action-moves-you-to-the-back-of-the-selector`. The queue *is* alive — I watched
+`build-dispatch-loop` at `process_item_iter_1_claim` — so this is latency by design, not a
+stall, and the CLAUDE.md rule applies: **a missing row is latency, not a dropped dispatch;
+do not retry on that evidence.**
+
+One more thing the selector does that is worth knowing before you file anything:
+`AND NOT EXISTS (… active.status='claimed' …)` — **a single stuck `claimed` item blocks its
+whole site's queue.** fundamentallyai has none, checked.
+
+### Route changed on measurement, and the measurement is the point
+
+Retired the two `needs_page` canaries unrun and refiled as `content_rewrite`
+`mode=edit_live`. `needs_page` is **110 complete / 230 failed** — a 68% failure rate, and
+the item I had cloned as my template had itself errored with *"20 blockers"*, which I
+noticed only when I went back to read it. `content_rewrite` is **99/26**, and the closest
+analogue by intent — `source='voiceh-rollout'`, a voice pass across a site — is **32
+complete / 0 failed**. Same handler either way, so this was a cheaper route to the same
+end, chosen on numbers rather than on which item type sounded right.
+
+The `suggestion` field carries the **instruction**; an LLM writes the prose. That is the
+2026-08-06 owner ruling honoured rather than routed around — I supplied no sentences. The
+instruction names the rule, quotes this page's own offending lines back to it, and carries
+an explicit **do-not-strip-the-caveats** clause, asserted present in both items by the
+transaction. The obvious failure mode for "make this less negative" is a rewrite that
+quietly deletes the site's honesty and passes every structural check.
