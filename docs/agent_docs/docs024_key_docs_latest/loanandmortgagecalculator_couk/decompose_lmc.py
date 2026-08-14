@@ -85,7 +85,7 @@ from decompose_prover import (  # noqa: E402
 )
 from decompose_pages import collapse_runs, split_ordered  # noqa: E402
 
-PINNED_REF = "5cc277294"  # re-pointed twice on 2026-08-12: this lane's OWN deploys move the repo, so re-verify immediately before use
+PINNED_REF = "7e6b993ef"  # 2026-08-14: the LAST CLEAN pin. 0a0e89326 captured my own 08-12 restore-deploys, whose backup (20260805) PREDATES the 224 fix — a restore is a time machine
 SITE_DIR = "loanandmortgagecalculator.co.uk"
 SITES_REPO = os.path.expanduser("~/projects/sites")
 # Same value as load_lmc.py's; needed here only by assert_pin_matches_live().
