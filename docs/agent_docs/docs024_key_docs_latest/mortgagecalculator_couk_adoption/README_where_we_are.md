@@ -1153,3 +1153,30 @@ switched off, exactly as you instructed, until that configuration slip is fixed.
 This chat was getting too long to work well, so the full technical
 continuation plan is written down for a fresh session to pick up without losing
 anything.
+
+---
+
+**2026-08-14 (evening).** The site has its branding back, and it came through the framework.
+
+What you'll see: the gold roundel logo is live again — it's now properly registered in the
+platform as the site's logo (taken from the original site's own file, exactly as you asked:
+"carry on with the original logo"). From it the system derived a favicon (the tab icon) and a
+social sharing card, both live. The hero image is the one you said "this is ok" about — the
+plain navy one with the five icons and no text. A different session's bug-retest had put a
+newer generated hero up earlier today, but that one had a big wordmark baked into the image,
+which fought the headline text the page lays over it, so I checked with you and swapped to
+your earlier choice. The newer one is kept, not deleted, same as the others. The clunky
+"you don't need to sign up for any of it" line is being replaced with "It's all free, and
+there's nothing to sign up for" — the edit is queued and should be live shortly.
+
+Why the framework hadn't done any of this by itself, in one breath each: the design detection
+loop has been switched off fleet-wide since the 10th (a deliberate cost pause while a deploy
+bug was wasting every image it touched — that bug is now fixed and live); the favicon jobs it
+had filed earlier were marked "done" by a separate platform bug without ever running; and the
+hero had used up its two automatic attempts. The two router agents you asked for are now
+assigned and proven working on real items. Detection is running once, tonight, for this site
+only — turning it back on for the whole fleet is a cost call that's yours to make.
+
+One thing worth knowing: while doing this I caught, live, the platform bug that falsely marks
+jobs "done" (it swaps in another job's paperwork). It's now evidenced with traceable IDs in
+the bug files (213/274) — the fixing lane has what it needs.
