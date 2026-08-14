@@ -1,5 +1,31 @@
 # HANDOFF — 2026-08-14b. Candidate 2 **LIVE on v1.0.1298**, both replicas, stamp-proven. **Round 2 with the council. ONE behavioural check still owed.** COLD-START HERE.
 
+> ## ⚠ SUPERSEDED IN THREE PLACES, same day — read this box before §2/§3/§4
+>
+> 1. **§2's owed behavioural check is DONE.** Six `Strategy 6: explicit config value beat
+>    the spec default` lines across **both** replicas (13:56–14:30Z), with `Strategy 0` in
+>    the same filter as the liveness control — `diagnose_persist_fix_plan
+>    max_plan_bytes=65536` and `diagnose_council_decide max_rounds=3`, both entries from
+>    this bug's own census, so **the council reviewing the fix was running on the config it
+>    repaired.** The `--tail` recipe in §2 is confirmed useless and is now a LANDMINE
+>    (~90-second retention; the tell is that a line you know fires is missing too).
+>    **Streaming is what worked, and it took ~14 minutes of real traffic.**
+> 2. **§3: round 2 came back REVISE and round 3 is LOST.** Round 2 was gated by
+>    `prior_art_librarian` — chiefly because I answered the architecture gate by citing
+>    owner rulings **council seats cannot read**. Round 3 fixed all four findings, was
+>    submitted, and **died at `complete_invalid` on `review_editquality`** — not a fault in
+>    the submission (it had passed `persist_submission`) but the **Anthropic account usage
+>    cap**, third exhaustion in 15 days. See `bugs_open/243`, recurrence section.
+>    **The round cannot be resubmitted until the owner restores service.** Nothing to fix
+>    first: `scratchpad/council_231_round3.json` (session `4de3e004`) is valid as-is, or
+>    rebuild it from commit `220dff6ad`'s body.
+> 3. **§4: `--report` HAS produced a real row** — `doc_notes`
+>    `subject_key='default-shadowed-keys'`, 2026-08-14 16:34:31Z, 185 agents / 0 dead / 99
+>    live overrides / exit 0. Still **UNDRIVEN**; the CronJob ordering in §4 stands.
+>
+> **Net: the code is done, live and proven. What remains is one council round that only the
+> owner can unblock, and the CronJob decision.**
+
 Supersedes `HANDOFF_2026-08-14_candidate2_shipped_verdict_and_roll_outstanding.md`
 (that one's §3 items 1–2 are now done/superseded; its §5 traps still hold).
 Full evidence: `bugs_open/231` §POST-ROLL. Missteps: `NOTES_209…` (08-14 afternoon).
