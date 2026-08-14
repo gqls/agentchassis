@@ -1155,3 +1155,36 @@ recording bug_historian's objection as MITIGATED rather than closed, because not
 schedules it — and the ordering constraint on the CronJob is genuine, not an excuse:
 applying the overlay before the image exists produces an ImagePullBackOff that this
 fleet reports as a Job still RUNNING.
+
+### 2026-08-14, 17:10Z — the cap lifted, round 3 refired, and how I proved the fleet was back
+
+Round 3 did not die of anything I wrote. It passed `persist_submission` and then hit the
+Anthropic account cap at `review_editquality` (`f80e528b`, `complete_invalid`, 16:38Z) —
+the third exhaustion in 15 days, `bugs_open/243-anthropic-cap`.
+
+**The restore is measurable, and I did not take "the fleet is back" on trust.** The
+decisive table is `llm_call_log`, because it records the provider call itself rather than
+anything downstream of it: `[MEASURED 2026-08-14 17:10Z]`
+
+```sql
+SELECT date_trunc('minute', created_at) AS minute, provider,
+       count(*) FILTER (WHERE success) AS ok, count(*) FILTER (WHERE NOT success) AS failed
+FROM llm_call_log WHERE created_at > now() - interval '75 minutes' GROUP BY 1,2 ORDER BY 1 DESC;
+```
+Every Anthropic call from 16:05 to 16:42 failed — 15 of them, zero successes. The next
+row is 17:08:40Z, **ok=1, failed=0**. That is the cutover, and round 3's death at 16:38Z
+sits squarely inside the dead window.
+
+**What I nearly used instead, and why each was weaker.** `orchestration_states` counts
+looked like restoration (63 COMPLETED and 0 FAILED since 16:45Z, against 17 FAILED in the
+16:00 hour) — but the completions were `build-dispatch-loop`, `endpoint-health-checker`
+and `build-pipeline-trigger`, plumbing that never calls an LLM. **A fleet with no LLM
+capability at all still shows that green.** The `agent_error_log` filter for cap strings
+was the same shape of mistake one level down: it goes quiet both when calls succeed and
+when nothing calls. Only a table with a `success` column on the call itself can tell
+"working" from "not being asked", and it needs the failing minutes beside the passing one
+to mean anything — the two-sided control again.
+
+Refired with `RESUBMIT_CORR=41a01378-…`, same correlation, now `a41e1677` (17:10:27Z).
+Submission JSON unchanged from the one that died; nothing in it needed fixing. Re-checked
+first that no other session had resubmitted in the gap — three rows before, four after.

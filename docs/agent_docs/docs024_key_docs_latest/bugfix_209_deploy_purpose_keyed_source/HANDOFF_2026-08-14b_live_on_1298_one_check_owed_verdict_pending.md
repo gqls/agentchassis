@@ -23,8 +23,17 @@
 >    `subject_key='default-shadowed-keys'`, 2026-08-14 16:34:31Z, 185 agents / 0 dead / 99
 >    live overrides / exit 0. Still **UNDRIVEN**; the CronJob ordering in §4 stands.
 >
-> **Net: the code is done, live and proven. What remains is one council round that only the
-> owner can unblock, and the CronJob decision.**
+> 4. **17:10Z — THE CAP LIFTED AND ROUND 3 IS REFIRED.** `llm_call_log` shows every
+>    Anthropic call failing 16:05→16:42Z (15, zero successes) and the first success at
+>    **17:08:40Z**; round 3's death at 16:38Z sits inside that dead window. Resubmitted
+>    unchanged with `RESUBMIT_CORR=41a01378-…` → orchestration **`a41e1677`** (17:10:27Z).
+>    So item 2's "cannot be resubmitted until the owner restores service" is **DISCHARGED**;
+>    what is pending is a verdict, not an owner action. **Do not verify a restore from
+>    `orchestration_states` or `agent_error_log`** — a fleet with no LLM capability at all
+>    shows 63 COMPLETED / 0 FAILED, because the plumbing agents never call a model.
+>
+> **Net: the code is done, live and proven. What remains is one council round now IN FLIGHT,
+> and the CronJob decision.**
 
 Supersedes `HANDOFF_2026-08-14_candidate2_shipped_verdict_and_roll_outstanding.md`
 (that one's §3 items 1–2 are now done/superseded; its §5 traps still hold).
