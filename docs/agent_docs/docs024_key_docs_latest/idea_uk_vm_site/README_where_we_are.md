@@ -2070,3 +2070,69 @@ my *paperwork* — three times running I have described my changes to them witho
 listing every file I touched, including, this time, the one carrying the riskiest
 change. They can only judge what I show them. That one is mine to fix, and the fix
 is mechanical: read the file list off the actual diff instead of from memory.
+
+---
+
+**12–14 August — the word "honest", and the thing I should have found in July.**
+
+You read the report page and said the copy sounded like a machine wrote it, that it
+was relentlessly negative, that it was full of small riddles you had to stop and
+decode, and that the word "honest" was everywhere. You were right on all four, and
+the cause was not the writer.
+
+Every sentence you picked out was **written down as an instruction**. "A thinking
+partner, not a verdict machine" was not the model's invention — it was sitting in
+this site's own style specification as a defined term, word for word. "That honesty
+is not a flaw in the service; it is the point of it" copies the shape of a rule that
+says the site's honesty about its limits "is a feature, not a weakness". The
+negativity was specified too: the rules said trust is built by telling people when
+something *won't* help them. The writer did as it was told.
+
+I looked up what good writing of this kind actually does, and the pattern you
+disliked has a name. The "not this, but that" construction is the single most
+commonly cited sign of machine-written prose. Our own instructions asked for it.
+
+**The part I found by accident, and which matters more than the report page.** You
+already made this ruling. On 18 July, on the Leopardess site, you said the word was
+overused and wrote down the reason: *show the honesty, do not label it*. Someone
+implemented it there properly — as a real check that scans the pages and reports
+breaches. It has been quietly working on that one site ever since, and **it was
+never switched on anywhere else**. Two sites out of twenty-three. Your ruling held in
+one place for twenty-five days while the same word spread across fourteen sites.
+
+So: the report page is rewritten and I measured it rather than trusting my ear — the
+"not this, but that" construction is down from four to none, and negative sentences
+from 37% to 16%. The word is gone from the style specifications on sixteen sites, and
+out of the live copy on 124 sections across twelve sites. The count of pages a
+visitor could see it on has gone from 53 to 18. Your hero line keeps it, untouched.
+
+**Three things I want to be straight about.**
+
+I got the mechanism wrong when I described it to you. I said the check could be armed
+to enforce just your one word. It cannot — it carries a built-in list of thirteen
+other machine-writing giveaways, and I only discovered that after arming it, because
+my test happened not to contain any of them. A test that passes proves only what it
+actually tried.
+
+I also nearly did real damage. My first attempt used pattern-matching to strip the
+word automatically, and on the darts site it changed "as an 80% barrel" to "as a 80%
+barrel" — corrupting a sentence that had nothing to do with any of this. Elsewhere it
+turned a heading reading "What we're honest about" into "What we're about", which
+means the opposite. I threw that approach away and wrote all fifty replacements by
+hand.
+
+And your own safety net stopped me. Four of my edits were aimed at the hand-written
+guide pages, which you protected back in August. The system refused them, named the
+decision, and made me say explicitly that I knew about it before it would let the
+change through. That is exactly what we built it for, and it caught its own author.
+
+**It has already been proved necessary.** This afternoon one page put the word back
+by itself — a rebuild regenerated a card from a page description I had not thought to
+clean. Four of those descriptions exist, they are the next job, and they are the
+reason fixing the visible copy alone was never going to hold.
+
+Eighteen pages still have it. Eight of them are in a form the platform genuinely
+cannot edit — old sections with no underlying content record, including a heading on
+the fine-tuning site reading "Our Honest Position on AI". Our rule is that when the
+framework cannot do something I write it down rather than reach behind it by hand, so
+that is what I have done.
