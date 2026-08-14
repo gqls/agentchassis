@@ -19,6 +19,16 @@
 >   **236 stays OPEN: the fix is RFC_012 `(a)`/`(a′)` — an owner decision, not a patch.**
 > - **Still open:** `RFC_027` owner ruling; `bugs_closed/261` §8 follow-ups 2/3; 267 §4b trend
 >   re-read when bundle traffic is more than a handful.
+>
+> **SECOND UPDATE 2026-08-14 ~14:00Z — v1.0.1298 rolled (build point `bc39e7bf5`, probed both
+> replicas with control); nothing of this lane's was gated on it. Re-read on 10 bundles: 0 bare
+> handles, 0 new cap_only, collision witness still outstanding. THE NEXT WORK for a fresh session:
+> `bugs_closed/261` §8 follow-up 2** — the ~10-signature per-file sibling cap
+> (`siblingSignatures`, `diagnose_assemble_bundle_action.go`) hid the three functions a real run
+> needed; a recorded harm case exists in 261 §8.2. Read 261 §8 + the LANDMINES entries on that
+> footprint before touching it. Follow-up 3 (`knownScopeIdentities` omits `values`,
+> `diagnose_route_action.go:541`, cosmetic) and follow-up 4 (the owed precedent check) queue behind
+> it. Owner decisions RFC_012 (236's fix) and RFC_027 remain open — surface, don't work.
 
 ---
 

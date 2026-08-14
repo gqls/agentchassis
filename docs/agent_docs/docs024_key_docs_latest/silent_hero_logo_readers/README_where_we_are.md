@@ -440,3 +440,13 @@ So the hero/logo bug finally has its cause. What it needs now is a decision from
 more digging: the repair sits on a seam every waiting workflow in the platform shares (the RFC_012
 question that's been parked). Fixing it there fixes a whole family of silent losses, of which the
 missing hero and logo images are just the two we happened to catch.
+
+**2026-08-14, afternoon.** A fresh build went out this morning (nothing of ours in it — checked it
+anyway, same method as before, both replicas). With ten diagnosis bundles now through since the fix
+rather than one, the picture is firmer: not a single ambiguous method reference in any of them, and
+not a single wasted "read the whole file" iteration either. The one thing still unseen live is the
+rare case where two same-named functions collide in one file — no investigation has happened to touch
+such a file yet; the test suite covers it. Next piece of real work on this lane, when a session picks
+it up: the list-of-neighbours a bundle shows is capped at about ten per file, and we have a recorded
+case of that cap hiding exactly the three functions an investigation needed. Your two decisions
+(RFC_012 — the pause that loses work; RFC_027 — one owner for the naming machinery) are still open.

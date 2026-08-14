@@ -769,3 +769,25 @@ hero/logo incidence `[INFERRED]` (those rows are pruned; item 2's capture witnes
 Note for the next reader: the verdict itself reported its `data_requests` came back TRUNCATED with
 `…` before the deciding key — the loop cannot currently see deep `collected_data` keys on wide
 rows. That truncation is why its label stayed UNVERIFIABLE while its text answered the question.
+
+## 2026-08-14 (afternoon) — v1.0.1298 rolled; everything this lane shipped still holds on 10 bundles of demand
+
+New chassis build `v1.0.1298`, pods 08:58:03Z / 08:58:25Z. Startup line already rotated at ~4.75h
+(precheck failed as designed); binary probe: build point **`bc39e7bf547e9d5db07c92085be85c6874654774`**
+(08:14:58Z) PRESENT on both replicas, flipped-last-char control absent on both. `a3fee59b8` remains
+an ancestor — 269's fix is aboard trivially. Nothing this lane owns was gated on this roll.
+
+Re-read over ALL bundles since the first roll (22:29Z 08-13), now **10**:
+- `bare_method_handles` **0 of 10** — 269's behaviour now rests on real demand, not one bundle;
+- collision-file scoping **0 of 10** — halves 2/3's live witness still outstanding (expected: §6b
+  files are rare targets);
+- `cap_only` **0 new of 10** — 267 §4b updated in place.
+
+**Next work for this lane** (nothing else is unblocked by us): `bugs_closed/261` §8 **follow-up 2** —
+the per-file sibling cap (~10 signatures) hid the three functions a real run needed behind
+`_(+79 more in this file …)_`; iteration 4's scope collapsed to five symbols, three of them copies
+of `getMapKeys`. Same code path as 267/269 (`siblingSignatures`,
+`diagnose_assemble_bundle_action.go`), so grep the LANDMINES entries on that footprint first.
+Also open there: follow-up 3 (`knownScopeIdentities` omits `values`, cosmetic) and follow-up 4
+(the precedent check two seats asked for, owed). Both owner decisions (RFC_012 for 236, RFC_027)
+remain with the owner.

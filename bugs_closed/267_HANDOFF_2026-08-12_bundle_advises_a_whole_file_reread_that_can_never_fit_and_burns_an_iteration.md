@@ -121,6 +121,10 @@ perfectly-sized seed for iteration 1. So this is current behaviour, not history.
 > 2026-08-14 07:39Z), and it had no over-cap event, so this is direction-consistent rather than
 > confirmatory. The over-cap advice itself remains unwitnessed live (DIAG-043 status carries the
 > same split). Re-read when bundle traffic is more than a handful.
+> **Re-read 2026-08-14 ~13:50Z: 10 bundles since the roll, `cap_only` still 0 new** (6 all-time,
+> unchanged). Direction now rests on real demand rather than a single bundle. The over-cap advice
+> itself is still unwitnessed — no over-cap event has occurred, which is itself consistent with the
+> fix (the sibling-signature map gives the model something to scope besides the whole file).
 
 ## 5. Why this was invisible until today
 
