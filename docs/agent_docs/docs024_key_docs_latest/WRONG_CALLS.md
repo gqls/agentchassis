@@ -31189,3 +31189,37 @@ reading before the day it matters. A safety claim that is wider than the mechani
 "erring on the safe side"; it is spending the credibility of every future warning.
 
 ---
+
+---
+
+## 2026-08-14 — "attempt_count=0 means never claimed": an inference about a counter nobody read
+
+**The claim, written by me into `bugs_open/213` §D as a contribution:** work items completed
+with `attempt_count = 0` were *"plausibly never claimed by the dispatch path at all"* — used to
+argue §D has two sub-populations needing different mechanisms. Marked `[INFERRED]`, which is
+the only credit due: the marker made the correction easy to anchor, and did nothing to stop
+the wrong structural conclusion built on top of it (a two-population split that does not exist).
+
+**It is false.** `[MEASURED 2026-08-14 20:15Z, live]` My own `amend_asset:logo` item went
+`triaged → claimed` under my watcher at 20:15:53Z, the handler genuinely ran and persisted
+(staging row consumed, assets row written), and the item completed with `attempt_count`
+still 0 — and a substituted foreign payload (274's delivery failure at 20:15:55Z, correlation
+`aec9d3ed`). A claim does not increment the counter on this path.
+
+**What made it invisible:** the inference rode on a real observation ("every
+normally-processed sibling shows ≥ 1") — a correlation read as a mechanism. The siblings'
+counters were incremented by something else along their paths, not by `claim_work_item`.
+
+**Caught by:** acting on my own writing within the hour — the live repro was for the LANE's
+work (the logo ingest), and only incidentally re-tested the claim. Had the repro not happened
+to run, the two-population theory would have sat in 213 pointing its next reader at a
+distinction that discriminates nothing.
+
+**The cheap check that would have caught it:** read `claim_work_item`'s UPDATE statement
+before asserting what it increments — one grep into `load_work_item_actions.go`. "What does
+this counter count" is a read of the writer, never an inference from values on rows whose
+history you did not watch. Sibling of `writes-the-field-is-not-reads-the-field`, pointed the
+other way: **values-on-rows is not the writer's contract**.
+
+**Cost:** ~30 minutes and one correcting commit, contained because the correction landed in
+the same file, the same evening, above the still-wet claim.
