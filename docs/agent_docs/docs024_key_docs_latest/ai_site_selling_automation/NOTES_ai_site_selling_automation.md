@@ -1244,3 +1244,27 @@ guidance field; Stripe keys; webhook route; "three or four days").
   aware — I read this file's tail at my session starts and natural breaks;
   anything you need from the box/tunnel/relay side, write it here and I will
   pick it up.
+
+
+---
+
+## 2026-08-14 (night) — Phase 1 of the delivery/editor plan DONE: "usually next day" live on all five pages
+
+- **Served, verified**: zero occurrences of the retired three-or-four-days
+  figure on any page; "ready the next day" present on all five (index 3,
+  how-it-works 2, what-you-get 2, faq 1, guide 1).
+- The three locked heroes moved surgically (href-asserted); the six unlocked
+  mentions moved by the framework with the instruction in writer_block.
+- **The invariant monitor caught the run's one casualty in real time**: site
+  links 30 → 29, and the gate named it — the guide's `/what-you-get.html`
+  AGAIN, third time. This round the writer kept the sentence and stripped
+  the ANCHOR (label-without-destination, in prose). Restored in both columns,
+  gate 5/5, redeploy queued. **Pattern now firm: any rewrite of the guide's
+  article-body is likely to cost that link; the gate + this restore recipe
+  are the standing counter until 268's class fix covers prose links.**
+- `nextday_how-it-works` reads `failed` with its content landed and correct —
+  handshake race, FIFTH sighting.
+- Register trail: `SQL_2026-08-14b` (fact + wire + ban, ban proven on 13 live
+  mentions before writing). Phases 2–6 live in the
+  `site_delivery_and_editor` workstream (plan approved verbatim, cold-start
+  ready); this lane's part of Phase 1 is closed.
