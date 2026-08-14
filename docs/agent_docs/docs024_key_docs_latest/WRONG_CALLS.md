@@ -31223,3 +31223,46 @@ other way: **values-on-rows is not the writer's contract**.
 
 **Cost:** ~30 minutes and one correcting commit, contained because the correction landed in
 the same file, the same evening, above the still-wet claim.
+
+## 2026-08-14 (evening) — I published a six-row table of "every path that could un-park this item". There were seven.
+
+**The claim:** holding a work item behind an owner's visual gate, I enumerated every path that
+could move it out of `deferred` — both claim predicates, the promoter, the release-on-unhealthy
+path, the admin retry button, the stale-item reaper — found all six closed, and published it **as a
+markdown table** in the lane NOTES, a council submission and two peer messages.
+
+**There was a seventh:** `feasibility-recheck`, a **live, enabled** `scheduled_tasks` row whose
+`pre_query` is `UPDATE site_work_items SET status='triaged' … WHERE wi.status='blocked'`. Closed
+for this item too, as it happens — so the conclusion survived and the reasoning did not.
+
+**What made it invisible:** every path I found lives in **Go**, and I found them by grepping Go.
+The seventh lives in a **database row**. No amount of reading the codebase surfaces it; it needs
+`SELECT … FROM scheduled_tasks WHERE pre_query ILIKE '%site_work_items%'`. I had searched one
+substrate exhaustively and reported the result as if I had searched the domain — the same shape as
+`a-grep-proves-absence-only-for-its-spelling`, one level up: **an absence is only as wide as the
+substrate you searched, and "the codebase" is not the same substrate as "the system".**
+
+**And the format did real work here.** A prose sentence — "I checked the claim predicates, the
+promoter and the admin path" — advertises its own edges; a reader sees a list and wonders what else
+there is. A six-row table with a `can it un-park?` column reads as a *census*. I did not claim it
+was exhaustive; the table claimed it for me, and I let it. The peer lane published its own
+enumeration the same evening and was missing the same row — so two independent lists agreed, which
+is the [[two-blind-checks-agree-with-each-other]] failure in its purest form: we were both blind to
+the same substrate.
+
+**Caught by:** following a passing comment in `claim_work_item_action.go` that mentioned "the
+feasibility-recheck scheduled task" — while chasing an unrelated correction from the peer lane.
+Nothing in my own work pointed at it. It is the third costume the same lesson wore in one evening
+(the census that answered its own filter, the row-state cited without its provenance, this).
+
+**The cheap check that would have caught it:** when enumerating "everything that can do X to table
+Y", query the **config substrate** as well as the code — `scheduled_tasks.pre_query`, migrations,
+and `agent_definitions` workflow steps all mutate rows without a Go call site. And: **before
+publishing an enumeration as a table, write down which substrates you searched.** If that sentence
+is shorter than the table, the table is overselling.
+
+**Cost:** none realised — the seventh path was closed anyway. The cost is entirely in what the
+table licensed: two lanes and a council seat treated the hold as proven, and the proof had a hole
+that only luck kept harmless.
+
+---
