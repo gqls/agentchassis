@@ -2550,3 +2550,51 @@ stands without any session's WIP). Commit `bb894e312`, council
 session: APPROVED round 1, all reviewers** (`complete_approved` 14:31Z; dispatch
 was near-instant this time, not the ~29-min worst case). 098 credits the commit
 automatically; no further action.
+
+---
+
+## 2026-08-14 — TRACK B2 BATCH 1 CLOSED: 16 of 21 calculator pages parameterised and live, full oracle back at 170/0/6 — after two self-inflicted defects, both caught, both recorded
+
+**Final state, all measured at the artefact:** 16 pages in the B2 shape
+(`mortgages-simple` + the 15 batch pages), each with machinery in its own
+`content_components` template and 3–18 copy fields (139 fields total, each `required`
+with the original copy as fallback). `b2_verify` 15/15: tool render **verbatim**,
+every inline script **body** verbatim, exact `calculators.js` counts, per-class
+counts, id sets. **Full oracle sweep: PASS 170 / FAIL 0 / CONVENTION 6 — identical to
+the 08-11 pre-work baseline** — with parse + expectation controls fired in-session.
+Class C invariants 23/0. Remaining: the 5 mixed-card pages (explicit per-page slices,
+built but unseeded) and the 2 old-shape decomposed pages (consolidation, repayment).
+
+**Defect 1 — I shipped all 15 without their scripts.** `b2_build` read `b["html"]`
+and never `b["scripts"]`, the separate manifest key `load_lmc.py:240` appends at
+write time. Every mortgages-side tool lost its `calculators.js` tag; portfolio lost
+its whole inline engine. **Worse: I verified 14 of 15 as "ok" — twice.** The class/id
+checks could not see scripts, and the script-count check I then added read 1→1 on
+five pages because assembly's JSON-LD `<script>` replaced the missing calculator
+script one-for-one in the count. Caught by portfolio's `action-btn` living in a JS
+template literal — visible to a whole-page class census, invisible to everything
+else. All 15 restored, builder fixed (scripts ride literally, render proven against
+`html+"\n"+scripts`), reseeded, redeployed. `WRONG_CALLS.md` carries both layers.
+
+**Defect 2 — my rollbacks were a time machine.** The restores in defect 1 (and the
+08-12 Track B rollback before them) restored from `page_components_bak_20260805_lmc`
+— dated three days BEFORE the `bugs_open/224` 0% APR fix. The 08-12 restore-deploys
+pushed pre-fix bytes to the sites repo; the next morning's pin captured them;
+`assert_pin_matches_live` blessed the poison (its premise is "live is truth", and a
+deployed restore makes live the lie); the seeds propagated it. **Live cost:
+`loans/standard-calc` served the pre-fix 0% APR guard from 08-12 ~18:20Z to 08-14**;
+`mortgages/overpayment` lost its `btn-calculate` id. Found ONLY by the full oracle
+sweep (6 FAILs, all 224's exact signature) — every byte/class/id gate passed
+throughout, because each checks consistency with a chosen source and the source was
+the poison. Repaired from the last clean pin `7e6b993ef`, fix markers asserted in the
+seeds before loading, oracle re-proven per-tool and then fleet-wide. Landmine filed
+(§"A restore from a dated backup is a TIME MACHINE"), noted in 224's own file.
+
+**The instrument-error tally for this batch, because the pattern is the lesson:**
+dropped scripts key; count masked by JSON-LD; `2>/dev/null` md5 comparing empty to
+empty (extension-less paths); `>>` creating a bug file that never existed. Four more
+of the same family — **a check that can return the same answer whether or not the
+damage happened is not a check.** `b2_verify` (now in the lane) is identity-based
+end to end for exactly this reason, and the full oracle sweep is the mandatory
+closing gate of every batch: it is the only instrument here that measures behaviour
+rather than consistency.

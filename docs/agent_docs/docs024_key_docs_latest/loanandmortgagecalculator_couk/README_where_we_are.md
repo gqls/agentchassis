@@ -1054,3 +1054,29 @@ monthly payment to the penny before working out the totals — the way lenders
 actually bill — so six checks now read "matches the billed convention" rather
 than "matches to the last decimal". That is the healthy, historical state of this
 page, not a fault.
+
+---
+
+**2026-08-14 — sixteen calculators are now in the new editable shape, and the site's
+arithmetic is fully verified clean. Getting there surfaced two mistakes of mine you
+should know about.**
+
+The good news first: sixteen of the twenty-two calculator pages now work the way you
+asked — every piece of visible text is an editable field, the working parts live in a
+template no writing agent can touch, and the whole site passes its complete
+arithmetic check, all 170 assertions, same as before any of this started.
+
+The two mistakes. First, my initial batch shipped all fifteen pages without their
+JavaScript — I had proven the visible part byte-perfect and never noticed the
+scripts travelled separately. My checks then passed the broken pages twice, for two
+different bad reasons. Second, and subtler: when I rolled pages back during earlier
+problems, the "restore" used a safety copy taken on the 5th of August — three days
+before your stamp duty week's 0% interest fix. So restoring a page quietly
+un-fixed it, and one calculator served the old wrong-at-0% behaviour for about two
+days. The only thing that caught it was the full arithmetic sweep — which is exactly
+why it now runs as the final gate on every batch, no exceptions. Both mistakes are
+written up in the shared trap lists so no other thread repeats them, and the site is
+verified clean end to end as of this entry.
+
+Left to do here: the five odd-shaped calculator pages, and the two pages converted
+under the older scheme. Then the site plan work you ruled on, which is next.
