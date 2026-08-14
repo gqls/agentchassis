@@ -799,3 +799,37 @@ choice; recorded in RFC_022's closing status and WFA-013. Bare-run exit-1-on-fin
 re-verified cleanly (`--json >/dev/null; $?` → 1) after an earlier read of exit=0 turned
 out to be `head`'s exit status in a pipeline, not the script's — the small trap noted so
 nobody re-measures it wrong. SUMMARY_2026-08-14 written (third in the series).
+
+## 2026-08-14 (evening) — owner's three directions executed: cron LIVE, note-writer review DONE (ack at 11), 223 moved
+
+**1. `optional-key-budget-check` CronJob LIVE** (daily 06:50 UTC), Python-mirror shape
+copied from the RFC_006 sibling per the ruling. Proven by a manual Job against the live
+fleet: 185 agents walked, the exact three standing findings, doc_notes row written
+(`subject_key='optional-key-budget'`), exit 1 by design. FOUR drift surfaces pinned by
+`optional_budget_cron_parity_test.go` — counts literal ↔ registry, acks literal ↔ acks
+file, BUDGET ↔ wrapper default, third `walk_steps` copy ↔ Go detector on a
+substeps-wins fixture — each proven able to fail by mutation before first apply.
+Inherited trait: on findings the Job retries once (`backoffLimit: 1`) → TWO doc_notes
+rows on a red day. And after ANY `check.py` edit, re-apply the overlay — the configmap
+is generated from the file and nothing at apply time forces it.
+
+**2. `append_doc_note` review DONE — ACKNOWLEDGE AT 11, no trims**
+(`architecture_review/REVIEW_2026-08-14_append_doc_note_optional_surface.md`). The 11
+keys decompose to 6 concepts, three doubled by the literal/field duality; every key is
+read by the code; the two live-unconfigured ones are defaulted duality halves exercised
+through their defaults; 10 of 11 arrived at the action's birth (07-04) as a schema
+mirror of `doc_notes`, and the eleventh is 223's own suffix — council-approved, opt-in
+OFF, applied after the empty-body refusal. Not accumulation; a schema mirror plus one
+reviewed capability. Baseline recorded in `optional_key_budget_acks.json` + the cron's
+`ACKED_LEVELS`, overlay re-applied; the wrapper now reports **2 findings** (the
+unreviewed pair) and their daily red is CORRECT until their own reviews land.
+
+**Misstep worth keeping:** the parity fixture originally hardcoded `append_doc_note` as
+its expected finding — the moment the review's ack landed, python (acked) and Go
+(fixture nil-acks) disagreed and the test failed. Fixed by choosing the subject
+dynamically (any over-budget, un-acked registry action) and feeding BOTH sides the
+python's own acks literal, so the test survives acks accumulating as the remaining
+reviews land. A fixture that names today's world breaks the day the world improves.
+
+**3. `bugs_open/223` → `bugs_closed/`** at the owner's direction (restored fixed-and-live
+bar), banner updated, both paths on the commit, exactly one file at HEAD.

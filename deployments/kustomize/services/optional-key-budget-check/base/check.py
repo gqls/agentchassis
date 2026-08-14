@@ -195,6 +195,7 @@ OPTIONAL_KEY_COUNTS = {
 # `count` fields and a parity test fails the build if they drift. An action at
 # or under its baseline is quiet; growth PAST the baseline pages again.
 ACKED_LEVELS = {
+    "append_doc_note": 11,
 }
 
 

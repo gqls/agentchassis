@@ -137,40 +137,66 @@ func TestBudgetCronBudgetMatchesTheWrapperDefault(t *testing.T) {
 	}
 }
 
-// budgetParityFleet exercises both nesting shapes the runtime honours: a
-// sub_workflow carrier AND a substeps carrier (substeps WINS when both are
-// present — the half a naive walk misses, bugs_open/144). append_doc_note's
-// registry count (11 as of the ruling) exceeds the budget, so with three
-// distinct carriers it must be the one finding from BOTH implementations.
-const budgetParityFleet = `[
-	{"type": "landmine-verifier", "workflow": {"start_step": "load_entry", "steps": {
-		"persist_verdict": {"action": "append_doc_note"}
+// budgetParityFleetFor builds a three-carrier fleet around the given action,
+// exercising both nesting shapes the runtime honours: a sub_workflow carrier
+// AND a substeps carrier (substeps WINS when both are present — the half a
+// naive walk misses, bugs_open/144).
+func budgetParityFleetFor(action string) string {
+	return `[
+	{"type": "carrier-plain", "workflow": {"start_step": "s1", "steps": {
+		"do": {"action": "` + action + `"}
 	}}},
-	{"type": "council-gate", "workflow": {"start_step": "loop_seats", "steps": {
-		"loop_seats": {"action": "loop_over_items", "config": {"sub_workflow": {"steps": {
-			"persist": {"action": "append_doc_note"}
+	{"type": "carrier-subworkflow", "workflow": {"start_step": "loop", "steps": {
+		"loop": {"action": "loop_over_items", "config": {"sub_workflow": {"steps": {
+			"do": {"action": "` + action + `"}
 		}}}}
 	}}},
-	{"type": "tool-improver", "workflow": {"start_step": "loop_fixes", "steps": {
-		"loop_fixes": {"action": "loop_over_items", "config": {
-			"substeps": {"note": {"action": "append_doc_note"}},
-			"sub_workflow": {"steps": {"decoy": {"action": "append_doc_note"}}}
+	{"type": "carrier-substeps", "workflow": {"start_step": "loop", "steps": {
+		"loop": {"action": "loop_over_items", "config": {
+			"substeps": {"do": {"action": "` + action + `"}},
+			"sub_workflow": {"steps": {"decoy": {"action": "` + action + `"}}}
 		}}
 	}}}
 ]`
+}
 
-// Drift risk (4): the third traversal against the Go detector, same fixtures.
+// Drift risk (4): the third traversal against the Go detector, same fixture,
+// SAME acks (the python's own literal, so the two sides see identical inputs).
+// The subject action is chosen dynamically — any registry action over the
+// budget with no acknowledged baseline — so this test survives acks
+// accumulating as the standing-stock reviews land, instead of breaking the
+// day an action it hardcoded gets its review.
 func TestBudgetCronAgreesWithTheGoDetector(t *testing.T) {
 	if _, err := exec.LookPath("python3"); err != nil {
 		t.Skip("python3 unavailable — parity cannot be checked here; do not read this as a pass")
 	}
 
-	agents, failed, err := decodeLiveAgents([]byte(budgetParityFleet), "parity")
+	raw, err := os.ReadFile(budgetCheckPyPath)
+	if err != nil {
+		t.Fatalf("cannot read %s: %v", budgetCheckPyPath, err)
+	}
+	acked := pyDictInts(t, raw, "ACKED_LEVELS")
+
+	subject := ""
+	for _, name := range datahelpers.ListActionInputSpecNames() {
+		spec, ok := datahelpers.GetActionInputSpec(name)
+		if ok && len(spec.Optional) > 10 && acked[name] == 0 {
+			subject = name
+			break
+		}
+	}
+	if subject == "" {
+		t.Skip("every over-budget action is acknowledged — no un-acked subject exists to " +
+			"compare the traversals on; lower the fixture bar if this becomes permanent")
+	}
+
+	fleet := budgetParityFleetFor(subject)
+	agents, failed, err := decodeLiveAgents([]byte(fleet), "parity")
 	if err != nil || failed != 0 {
 		t.Fatalf("fixture decode: err=%v failed=%d", err, failed)
 	}
 	var goFindings []map[string]interface{}
-	for _, r := range censusOptionalKeys(agents, 10, nil) {
+	for _, r := range censusOptionalKeys(agents, 10, acked) {
 		if !r.OverBudget {
 			continue
 		}
@@ -179,14 +205,14 @@ func TestBudgetCronAgreesWithTheGoDetector(t *testing.T) {
 			"consumers": float64(r.Consumers),
 		})
 	}
-	if len(goFindings) != 1 || goFindings[0]["action"] != "append_doc_note" ||
+	if len(goFindings) != 1 || goFindings[0]["action"] != subject ||
 		goFindings[0]["consumers"] != float64(3) {
-		t.Fatalf("fixture premise broken: Go detector should find append_doc_note with 3 "+
-			"consumers (the substeps carrier included), got %v", goFindings)
+		t.Fatalf("fixture premise broken: Go detector should find %s with 3 consumers "+
+			"(the substeps carrier included), got %v", subject, goFindings)
 	}
 
 	cmd := exec.Command("python3", budgetCheckPyPath, "--stdin")
-	cmd.Stdin = bytes.NewReader([]byte(budgetParityFleet))
+	cmd.Stdin = bytes.NewReader([]byte(fleet))
 	out, _ := cmd.Output() // exit 1 on findings is expected; the output is the comparison
 	var pyFindings []map[string]interface{}
 	if err := json.Unmarshal(out, &pyFindings); err != nil {

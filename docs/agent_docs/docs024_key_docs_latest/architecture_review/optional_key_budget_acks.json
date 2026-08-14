@@ -1,3 +1,8 @@
 {
-  "_doc": "RFC_022 optional-key budget (owner ruling 2026-08-14: N=10, shared = >=2 live carriers). An entry here records that an action's accumulated optional surface was REVIEWED as a whole and acknowledged at `count` - the acknowledged level becomes that action's baseline, and the counter flags it again only if it grows PAST the baseline. Add an entry ONLY with a review to point at (the `review` field is not optional in spirit). This file is the source of truth; check.py's ACKED_LEVELS literal mirrors it and a parity test (cmd/config-key-audit/optional_budget_cron_parity_test.go) fails the build if they drift. Sharing itself is estate design (owner, same ruling): an ack is never a licence question about reuse, only about surface."
+  "_doc": "RFC_022 optional-key budget (owner ruling 2026-08-14: N=10, shared = >=2 live carriers). An entry here records that an action's accumulated optional surface was REVIEWED as a whole and acknowledged at `count` - the acknowledged level becomes that action's baseline, and the counter flags it again only if it grows PAST the baseline. Add an entry ONLY with a review to point at (the `review` field is not optional in spirit). This file is the source of truth; check.py's ACKED_LEVELS literal mirrors it and a parity test (cmd/config-key-audit/optional_budget_cron_parity_test.go) fails the build if they drift - and after editing check.py, re-apply the kustomize overlay or the cluster keeps the old literal. Sharing itself is estate design (owner, same ruling): an ack is never a licence question about reuse, only about surface.",
+  "append_doc_note": {
+    "count": 11,
+    "date": "2026-08-14",
+    "review": "docs/agent_docs/docs024_key_docs_latest/architecture_review/REVIEW_2026-08-14_append_doc_note_optional_surface.md"
+  }
 }

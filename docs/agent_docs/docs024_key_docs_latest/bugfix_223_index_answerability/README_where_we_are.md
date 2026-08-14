@@ -341,3 +341,33 @@ second copy of its logic in Python (with tests to stop the copies drifting) beca
 scheduler's containers can't compile Go, but there is now a newer pattern in the estate
 where the check is compiled into its own small Go image and scheduled like any other
 service, no second copy at all. If you want it on a clock, that is the shape I'd build.
+
+---
+
+**2026-08-14 (evening) — your three directions are done.**
+
+**The counter now runs every morning.** You said build it now and keep the Python, so it
+is built the way the existing scheduled check is built: a small Python copy of the logic
+in a scheduled container, with tests that fail the build if the copy ever drifts from
+the real thing. It ran once tonight as a proof against the live fleet and found exactly
+the three actions we knew about, and wrote its report row. From tomorrow it runs daily
+at ten to seven, and writes a row even on a clean day — so a *missing* row means the
+check didn't run, which is a different problem from "all clear" and now can't be
+mistaken for it.
+
+**The note-writer's review is done, and the verdict is: all eleven switches stay.**
+Reading the code and the live usage, this isn't an action that quietly grew — ten of the
+eleven arrived on day one as the natural write-side of the notes table itself (who the
+note is about, what it says, its labels, which site, who wrote it), and several are
+really one capability that comes in two standard flavours. The eleventh is the one we
+added this month, which went through a full review at the time. Nothing is dead, nothing
+is dangerous, nothing to trim. So its acknowledged level is now eleven: the daily check
+stays quiet about it unless it grows again. The written review is in the architecture
+folder if you want the key-by-key detail.
+
+**Bug 223's file has moved to the closed pile**, as you asked.
+
+**What the morning report will say for a while:** the other two flagged actions (the
+repo analyser and the fix-commit preparer) will keep appearing until their own one-off
+reviews happen — you chose to let those wait for natural contact, so that red is the
+system telling the truth, not something to fix in the check.
