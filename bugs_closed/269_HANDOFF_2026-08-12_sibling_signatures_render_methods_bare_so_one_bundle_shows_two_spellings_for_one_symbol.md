@@ -2,9 +2,10 @@
 
 **Filed:** 2026-08-12, `silent_hero_logo_readers` lane, **at the council's direction**
 (round `ac23f2f7-9230-403c-8f20-4e18623c1849`, `bug_historian` seat, reviewing `bugs_open/267`).
-**Status:** **FIXED IN THE TREE 2026-08-13, NOT YET LIVE.** All three halves done (rendered handle,
-canonical de-duplication, first-wins exactness). Go changes are inert until the next chassis roll, so
-this stays in `/bugs_open/` — a bundle assembled right now still offers ambiguous bare handles.
+**Status:** **CLOSED 2026-08-14 — LIVE on chassis `v1.0.1297`, proven at the binary and on live
+traffic; see §11 for the evidence and for the one clause that is test-proven rather than
+live-exercised.** ~~FIXED IN THE TREE 2026-08-13, NOT YET LIVE~~ — the roll happened 2026-08-13T22:29Z.
+All three halves done (rendered handle, canonical de-duplication, first-wins exactness).
 Council: **APPROVED first round 2026-08-13**, `Council-Reviewed: e5809ca9-d718-44f6-8d27-6d8cd656dd28` — 13 seats approve, 2 advisory objections, none high-severity (both answered in §8). **§6's `[UNMEASURED]` is discharged — 48 of 1,175 methods, see §6b.**
 
 > **Numbering:** 268 was taken by another session the same day. Checked 269 free at filing.
@@ -391,3 +392,59 @@ bundle over a collision-free file demonstrates nothing — which is precisely ho
 - `architecture_review/RFC_027` — the open owner question. This fix narrows it from three producers of
   the spelling to two; §8a establishes the remaining one is currently correct, so the RFC is about drift,
   not a live defect.
+
+## 11. CLOSED 2026-08-14 — live proof, with controls, and the one clause stated exactly
+
+Chassis rolled to **`v1.0.1297`**, both pods started 2026-08-13T22:29:19Z / 22:29:40Z.
+
+**① The code is live — proven at the binary, both replicas, with a control.** §9's log recipe was
+out of range as its own precheck predicted (pods ~9h old at check time; `head -1` of
+`--tail=100000` was a worker line, not a startup line — "not in range", not "unstamped"). Fallback,
+the known-value binary probe:
+
+| probe | replica `…-7ft4l` | replica `…-dc7dm` |
+|---|---|---|
+| build-point candidate `3b0ea20ffa84c689d2a3be8de98edefc4490d672` (HEAD at 22:10:43Z, last commit before the pods started) | **PRESENT** | **PRESENT** |
+| control `dffbc75e45d5809c29cb31f222b0261194ce2bcb` (committed 2026-08-14T07:37Z, AFTER the build — must be absent) | absent ✓ | absent ✓ |
+
+```bash
+kubectl -n ai-persona-system exec <pod> -- grep -aq <sha> /proc/1/exe
+git merge-base --is-ancestor a3fee59b8 3b0ea20ff && echo IN   # → IN
+```
+
+The fix commit `a3fee59b8` (2026-08-13T14:05Z) is an ancestor of the stamp. **269's fix is in the
+running binary.**
+
+**② The behaviour changed — on live traffic, with a non-vacuous demand control.** One bundle has
+been assembled since the roll (`38e53a03-ddcd-46c6-8533-d48510747758`, 2026-08-14 07:39:57Z):
+
+| §9 ② query | value |
+|---|---|
+| `bare_method_handles` | **0** |
+| `bundles_in_window` | 1 |
+| sibling bullets in the method format `` - `path:(*Recv).Name` — `func (` `` | **12, all canonical** |
+
+The 12 is the demand control that makes the 0 readable, and it is stronger than `bundles > 0`: the
+sibling section listed twelve METHODS, and the pre-fix code rendered every method bare
+unconditionally — collision or no collision. Twelve canonical method bullets could not have been
+produced by the old writer. (The format with the em-dash signature is unique to
+`siblingSignatures`; `SymbolSizes`' over-cap advice prints canonical handles in prose, not bullets,
+so this is not 267's output being miscounted.)
+
+**③ What is live-exercised and what is not — do not round this up.** The bundle above scoped **no
+§6b collision file**, so §9's collision clause is not satisfied by live traffic:
+
+- **Half 1 (canonical rendering) — LIVE-EXERCISED and proven** (the 12/12 above). This is the half
+  that makes bare emission unrepresentable, and bare emission is the defect this file is titled
+  for: no bare handle can be offered, so no bare handle can resolve first-wins to the wrong body.
+- **Halves 2 and 3 (canonical de-duplication, first-wins exactness) — TEST-PROVEN ONLY** (§7b's
+  mutation table, fixture built by the real analyser). They fire only when a collision file is
+  scoped, and none has been since the roll.
+
+§9's warning that "a clean result over a collision-free file demonstrates nothing" guarded against
+a **vacuous** zero — a bundle listing no methods at all, where 0 bare is true of the old code too.
+This zero is non-vacuous. Owner approved closing on exactly this split, 2026-08-14.
+
+**When a future bundle scopes a §6b file** (`discovery_checks/check_integrity.go` is the richest,
+six-way), the check is: both canonical handles offered per colliding name, and `ReadSymbolBody` on
+each returns distinct bodies. If that ever fails, reopen against halves 2/3, not half 1.
