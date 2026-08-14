@@ -852,6 +852,9 @@ func siblingSignatures(out analysis.Output, scope []string, capChars int, bodies
 		// same-named method would hide a sibling the model has NOT seen, which is the
 		// opposite of this section's purpose.
 		bareClaimed := map[string]bool{}
+		// Canonical handles of the functions the per-file share elided, in
+		// declaration order — the input to the dead-end tail below.
+		var skippedHandles []string
 		for _, fn := range f.Functions {
 			canon := analysis.CanonicalSymbolName(fn)
 			// In scope under its canonical handle — the common case now, since
@@ -869,6 +872,7 @@ func siblingSignatures(out analysis.Output, scope []string, capChars int, bodies
 			line := fmt.Sprintf("- `%s:%s` — `%s`\n", f.Path, canon, fn.Signature)
 			if fb.Len()+len(line) > perFile {
 				skipped++
+				skippedHandles = append(skippedHandles, canon)
 				continue
 			}
 			fb.WriteString(line)
@@ -877,6 +881,8 @@ func siblingSignatures(out analysis.Output, scope []string, capChars int, bodies
 		if listed == 0 && skipped == 0 {
 			continue
 		}
+		// tailLen is the dead-end tail's size, exempted from the global guard below.
+		tailLen := 0
 		if skipped > 0 {
 			// bugs_open/267 candidate 2 — the same unconditional invitation, one
 			// section down. Offering the bare path for a file that cannot fit the body
@@ -884,7 +890,15 @@ func siblingSignatures(out analysis.Output, scope []string, capChars int, bodies
 			// when the arithmetic permits it (and still offered whenever the size is
 			// unknown, see fitsBudget).
 			if fits, known := bodies.fitsBudget(f.Path); known && !fits {
-				fmt.Fprintf(&fb, "- _(+%d more in this file — not listed here, and the bare file path will NOT render: the whole file exceeds the %d-char body budget. Name symbols individually.)_\n", skipped, bodies.budget)
+				// bugs_open/273 (bugs_closed/261 §8 follow-up 2). This marker used to
+				// say "Name symbols individually" while withholding the names: for a
+				// file that can never render whole, the elided tail was unreachable by
+				// ANY advice the bundle gave — retrieval had already failed to surface
+				// those symbols, or they would be in scope. 261's worked case lost the
+				// three functions its run needed behind exactly this marker.
+				pre := fb.Len()
+				writeDeadEndTail(&fb, f.Path, bodies.budget, skippedHandles)
+				tailLen = fb.Len() - pre
 			} else {
 				fmt.Fprintf(&fb, "- _(+%d more in this file — put the bare file path in next_scope to see it whole)_\n", skipped)
 			}
@@ -893,14 +907,65 @@ func siblingSignatures(out analysis.Output, scope []string, capChars int, bodies
 		section := fb.String()
 		// Global guard with slack for the floor: the per-file share is the real
 		// allocator; this only stops a pathological many-file scope.
-		if total+len(section) > capChars+capChars/4 {
+		//
+		// The dead-end tail is EXEMPT from this guard, deliberately. Counting it
+		// would evict the whole section on the motivating case — one scoped file
+		// (perFile = capChars) that is over the body budget builds a section of
+		// head + tail > capChars + capChars/4, and the only sibling listing in the
+		// bundle would be replaced by "further files omitted". The tail is bounded
+		// per file by siblingDeadEndTailCap and fires only for files the body
+		// budget can never render, so the worst case is
+		// capChars*5/4 + (dead-end files × siblingDeadEndTailCap) — small against
+		// the 60,000-char body budget it sits beside.
+		if total+len(section)-tailLen > capChars+capChars/4 {
 			b.WriteString("_(further files omitted — cap reached)_\n")
 			break
 		}
 		b.WriteString(section)
-		total += len(section)
+		total += len(section) - tailLen
 	}
 	return b.String()
+}
+
+// siblingDeadEndTailCap bounds the compact handle list writeDeadEndTail appends
+// for a file that can never render whole. Measured 2026-08-14 over every
+// non-test Go file in this repo: the largest complete tail (coordinator.go,
+// 91 functions, receiver-qualified handles) is 2,715 chars after its head
+// lines, so 4000 covers every real file today with headroom. Past it, the
+// residual marker names the one remedy that can enumerate the rest.
+const siblingDeadEndTailCap = 4000
+
+// writeDeadEndTail renders the "+N more" marker for a file whose whole body
+// exceeds max_body_chars — the case where "name symbols individually" is the
+// only remedy, so the names must actually be given (bugs_open/273; the same
+// satisfiability rule bugs_open/267 established for the body section's advice).
+// Handles are CANONICAL, not bare: a bare method name resolves to the first
+// same-named function in the file and silently returns the wrong body
+// (bugs_open/269). They are listed compactly — no per-line path or signature —
+// because completeness is what the dead end requires, and the head lines above
+// already carry signatures for the most-declared-first slice of the file.
+//
+// Wording constraint: this marker must never contain the phrases the
+// bundle-census queries discriminate on ("did not fit", "could not be read",
+// "read it whole", "NO next_scope can render this path") — see the LANDMINES
+// entry on counting wasted iterations by marker strings.
+func writeDeadEndTail(fb *strings.Builder, path string, budget int, handles []string) {
+	fmt.Fprintf(fb, "- _(+%d more in this file — and the bare file path will NOT render: the whole file exceeds the %d-char body budget. Name them individually in next_scope as `%s:<handle>`. The elided handles:", len(handles), budget, path)
+	written := 0
+	for i, h := range handles {
+		sep := " "
+		if i > 0 {
+			sep = ", "
+		}
+		// 2 is the pair of backticks around the handle.
+		if written+len(sep)+len(h)+2 > siblingDeadEndTailCap {
+			fmt.Fprintf(fb, " …and %d more, past even this list's cap — enumerate them with a code_request of kind \"symbol\", query %q.", len(handles)-i, path)
+			break
+		}
+		fmt.Fprintf(fb, "%s`%s`", sep, h)
+		written += len(sep) + len(h) + 2
+	}
+	fb.WriteString(")_\n")
 }
 
 // scopeFromCodeResults turns lookup_code_symbols' code_results ([]{path,symbol})

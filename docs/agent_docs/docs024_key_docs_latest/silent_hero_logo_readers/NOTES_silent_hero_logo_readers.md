@@ -791,3 +791,49 @@ of `getMapKeys`. Same code path as 267/269 (`siblingSignatures`,
 Also open there: follow-up 3 (`knownScopeIdentities` omits `values`, cosmetic) and follow-up 4
 (the precedent check two seats asked for, owed). Both owner decisions (RFC_012 for 236, RFC_027)
 remain with the owner.
+
+## 2026-08-14 (evening) — 261 §8 follow-up 2 taken: the dead-end marker now gives the names it demands (bugs_open/273)
+
+Picked up the handoff-designated next work. Read 261 §8 + all four LANDMINES entries on the
+`diagnose_assemble_bundle_action.go` footprint first, as instructed.
+
+**The defect, sharpened during the read:** 267's dead-end marker ("the whole file exceeds the
+budget. Name symbols individually.") is UNSATISFIABLE for the elided tail — the model can only
+name a symbol it has been shown, and the elided ones are by construction the ones retrieval never
+surfaced. Same class as 267 (an invitation the bundle's own arithmetic refutes), one layer down
+(an instruction whose required input is withheld). Filed as **`bugs_open/273`**, with the OWNER
+RULING 2026-07-31 declaration (first-hand substitution for a 090: mechanism read in code, harm
+already witnessed live by 261's run `dbcc4259`, fix mutation-proven at unit level).
+
+**Measured before designing** (the numbers that set the bound): `coordinator.go` 169,139 B vs
+60,000 budget, 91 functions; complete canonical-handle tail after ~10 head lines = **2,715 chars**
+(v3_site_actions 1,935; data_helpers 1,231) — generated from source, not estimated. So
+`siblingDeadEndTailCap = 4000` covers every file in the repo today.
+
+**The fix:** in exactly the `known && !fits` branch, `writeDeadEndTail` appends the elided
+functions' CANONICAL handles compactly (269: bare = wrong body), bounded 4,000/file; past the
+bound it counts the residual and names the `code_request kind "symbol"` remedy — never a silent
+trail-off. **The tail is exempt from the section's global guard** — found by arithmetic before it
+bit: counting it evicts the WHOLE section on the motivating one-file case (head == capChars share,
+head+tail > capChars*5/4 → "further files omitted" replaces the model's only map of the file).
+Could-fit/unknown branches byte-identical; no censused marker phrase introduced (checked against
+the LANDMINES bundle-census entry; asserted by test).
+
+**Mutation-proven:** old marker restored behind `if false` → the three positive tests FAIL, the
+byte-identity pin passes both sides. Full related set green post-fix.
+
+Council: **submitted**, corr `ba3f6047-a2e5-4ce6-ac0e-edf0bb88c4e3`
+(`SUBMISSION_2026-08-14_sibling_dead_end_tail.json`; first attempt refused client-side —
+`operation: "create"` is not in allowedFixOperations, a new file is `"add"`). Committing with
+`Council-Submitted:` per this lane's trap 5, not waiting for the verdict.
+
+Misstep to record: my first test draft asserted head-line handles as `` `canon` `` — but head
+lines render `` `path:canon` ``, so the assertion would have failed on functions that were
+correctly SHOWN. Caught before running by re-reading the render format; the committed assertion
+is `Contains(got, canon)` = "shown somewhere", which both forms satisfy. Also left a placeholder
+helper in the draft that would not compile; deleted before build.
+
+Still open after this: follow-up 3 (`knownScopeIdentities` omits `values`, cosmetic), follow-up 4
+is DONE (261 §9b ran the precedent check). 273 stays in `bugs_open/` until a chassis roll carries
+it (fixed-AND-live bar); live verification recipe is 273 §5 — note its demand control: a zero is
+evidence only if a dead-end file was actually scoped.
