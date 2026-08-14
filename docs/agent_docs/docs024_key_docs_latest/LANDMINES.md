@@ -6159,8 +6159,23 @@ WHERE site_id = (SELECT id FROM sites WHERE domain = 'finetuning.uk') AND status
   `SELECT substring(html_template from '\.<selector>\s*\{[^}]*\}') FROM content_components WHERE name='<component>';`
   `background:` names it → you want `--color-<x>-text`. `color:` names it → you want `--color-<x>-ink`. If both appear in one rule, they are different colours and you need both.
 - **the second trap, which hides the first:** a `var(--color-primary-text, #fff)` that renders white does **not** mean the fallback fired. Check the served stylesheet before concluding the literal is the culprit — on finetuning `--color-primary-text` **is** defined, as `#ffffff`, and it is *correct for its own slot* (primary is #1A1A2E). The value is right, the slot is wrong, and a grep for hard-coded whites finds nothing.
-  `curl -fsS -A "Mozilla/5.0 … Chrome/126" https://<domain>/assets/css/styles.css | grep -- '--color-primary-text:'`
-  (a bare curl gets 403 on every site — that is a user-agent rejection, not a routing fault)
+  `curl -fsS https://<domain>/assets/css/styles.css | grep -- '--color-primary-text:'`
+  > **CORRECTED 2026-08-14 — this line used to end with a parenthetical reading *"(a bare curl gets
+  > 403 on every site — that is a user-agent rejection, not a routing fault)"*, and it is FALSE.**
+  > `[MEASURED 2026-08-14]` all **7** domains in `TestLegibleVariant_EmittedHexIsPinnedForRealPalettes`,
+  > stylesheet path, bare `curl` with no `-A`: **200 on every one**, byte-identical to the same
+  > request carrying a browser UA — and reproduced independently on a second session's egress, so it
+  > is not a local routing difference. Every palette transcription this lane has ever made was a bare
+  > curl; had the claim held, none of those readings could exist.
+  > **Where it came from, because that is the transferable part:** the *true* fact is one entry over —
+  > *"Cloudflare answers `Python-urllib` with 403"* (measured 2026-08-02). A `urllib` fact was
+  > generalised into a `curl` fact and encoded as a parenthetical inside a working recipe, where it
+  > read as incidental colour rather than as a claim, and so was never checked. **It then
+  > propagated**: on 2026-08-14 another lane lifted this line verbatim into a Go test comment as
+  > guidance for re-transcribing fixtures, restating it as measurement. That comment is corrected.
+  > **A false aside inside a correct command is the most durable kind of error in this file** — the
+  > command works, so the reader has no reason to doubt the sentence attached to it. The `-A` flag
+  > above was harmless; the diagnosis it implied was not.
 - **and the constraint that will be lost first:** `legibleInkFor` takes a **slice** of grounds and requires the candidate to clear AA against **every** one, because a component may place the same ink on the page and on a card (dartsonline: `__eyebrow` 1.04 on `background`, `.tl-card-link` 1.07 on the derived `card_bg`). Simplifying it to one ground is a silent half-regression that reads as a working fix on whichever page you happen to open. `TestLegibleInkFor_TwoGroundsDisagree` is the only guard, and it is the only test that fails under that mutation.
 - **while you are in there:** the fixture for such a test must be **satisfiable**. A first version used grounds `#101010` and `#E9E9E9`, for which AA against both is arithmetically impossible (the darker demands relative luminance ≥ 0.200, the lighter ≤ 0.140), so every candidate correctly fell through to the achromatic fallback and the test failed while the code was right. A trap no value can escape does not test preference — it tests the fallback.
 - **source:** 2026-08-06, `bugfix_122_contrast_ink_slots` lane; council `c4d9c841-3658-4742-85b5-961e062ecad2` (round 1 REVISE on exactly this, round 2 APPROVED). Register entry VIZ-014.
