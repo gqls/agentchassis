@@ -3,7 +3,18 @@
 **Raised:** 2026-08-02 by the owner, opening the `vigilant_designer_offer_analysis`
 programme; **written up here 2026-08-08** after the owner asked how far the discussion had
 got and then widened the scope (see §3).
-**Status:** specified, not built. **Two pieces promoted ahead of the rest — see §7.**
+**Status:** ~~specified, not built~~ — **B1, B2, B3 and B4 are all LIVE. Updated 2026-08-14
+evening:** the analyser itself (§3's "config-only agent") is built, live and proven end to end —
+migration `408_offer_analyser_agent.sql`, two live runs, register **BIZ-032**. The owner chose
+**one analysis with TWO outputs**: the findings §5 describes, *and* a ranked reader-priority
+artefact (`site_specs` aspect `offer_ordering`) that §3.1's table did not anticipate, because an
+external consumer asked for it (`copy_quality_two_stage`, CONTRIB 2026-08-12).
+**NOT enrolled in the automatic sweep** — migration `409` is written and HELD for the owner's
+enrolment call (PLAN §B5). **The four axes in §3's table are still only partly answered:** it is a
+config-only reader, not a "full blown agent"; it is an auditor with no checker/handler of its own;
+it is on no council; and it corresponds with **none** of the seven counterparts — its findings
+merely land on three of them via existing item types. §8's five questions all stand.
+**Two pieces promoted ahead of the rest — see §7.**
 **Owning lane:** `docs/agent_docs/docs024_key_docs_latest/vigilant_designer_offer_analysis/`
 (Programme B of `PLAN_2026-08-02`; state review in `REVIEW_2026-08-08_…`).
 
