@@ -1848,3 +1848,27 @@ how we want the 26 existing pages regenerated (the explicit per-page route is no
 clearly the honest one), and whether you're comfortable that the mission brief's
 "keep the pages" instruction is strong enough given that a bare replan invented two
 pages on its own. Everything is written up for the next session either way.
+
+2026-08-14 (late night) — You answered all three questions: regenerate all 26 pages
+by naming them explicitly, trust the "keep the pages" instruction backed by the
+immediate after-the-planner check, and yes to both of the pages the planner invented
+— the about page and the guides index are wanted, so they've been restored rather
+than left shelved.
+
+Before firing I checked the machinery rather than assuming, and four things came out
+of that which change the shape of tonight's launch, though not its substance. First,
+the ordinary submission route has nowhere to carry the "recompose these 26 pages"
+list — so the rebuild happens in two stages: the full rebuild first (new brief, new
+plan, the two new pages built), then a second, targeted planner run that names all
+26 existing pages for redesign. Second, the platform deliberately refuses to
+automatically rebuild pages that carry working tools — for eleven calculator pages
+the redesign will be QUEUED FOR YOUR REVIEW rather than executed, which is the
+platform protecting the calculators, not a fault; the other fifteen or so pages
+rebuild on their own. Third, the two restored pages can only be built through the
+work tickets the trial run created and we parked — so those get un-parked at the
+right moment (after the new plan lands, so they're built to the new brief, not the
+old one). Fourth, a page that exists but has never been served is exactly what the
+planner is happy to fill in, so restoring the two rows is all the preparation they
+need. One more thing found on the way: the platform was updated fleet-wide this
+evening (after the handoff was written), and the site came through it serving all
+27 pages cleanly — re-checked before touching anything.

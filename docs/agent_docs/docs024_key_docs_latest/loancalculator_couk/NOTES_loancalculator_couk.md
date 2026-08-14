@@ -5176,3 +5176,90 @@ mission brief — the canary ran bare, so whether the keep-pages pin suppresses
 invention is untested; the fire runbook should check for new active rows immediately
 after the planner phase. Neither question blocks the 407 mechanism, which is done and
 approved; both shape how the fire is dispatched and judged.
+
+### 2026-08-14 (late night, new session) — owner answered all three questions; fire sequence resized by four mechanism findings
+
+**The owner's answers (this session, asked directly):**
+1. **Q1 regeneration:** explicit recompose, all 26 existing pages.
+2. **Q2 pin:** trust the mission's keep-pages pin, WITH the immediate post-planner
+   new-active-rows check — invention gets archived before it can build.
+3. **The invented pages:** BOTH wanted. Un-archive `about` + `guides-index`; the
+   rebuild fills them in.
+
+**Four mechanism findings tonight (code + live config, evidence inline) that resize
+HOW the fire happens — the handoff's single-dispatch step 3 is superseded:**
+
+1. **082 has no spec plumbing, so recompose cannot ride the rebuild dispatch.** The
+   `needs_site_plan` item is minted by build-briefing-agent's `create_work_item` with
+   NO spec key (live `agent_definitions` row read tonight), and 082's input_data
+   carries only domain/fidelity/email/mission_brief (script read). Injecting the spec
+   between mint and dispatch is a race: the three all-history `needs_site_plan` rows
+   lifecycle to complete in 3–19 min, so the mint→dispatch window is likely seconds.
+   ⇒ **The fire is TWO-PHASE:** phase 1 = 082 rebuild (mission installs, plan
+   converges, the two new pages build, chrome/nav regenerate); phase 2 = a direct
+   build-site-planner dispatch (`canary_replan_407.sh` is the template) carrying
+   `input_data.spec.recompose_pages` = the 26 pre-fire built pages, fired once
+   phase 1 settles. The intent PROSE lives in the mission (the planner's `read_specs`
+   feeds it briefing from site_specs), so the recompose no-op landmine's both-places
+   rule is satisfied in phase 2.
+2. **The reconciler routes tool-role pages to a human gate.**
+   `reconcile_site_plan_action.go` decision rule 3: tool/game role OR
+   `rebuild_policy='owned'` → `owned_page_review` (needs_human_review, NO handler) —
+   deliberate, the generic builder clobbers owned pages (TP-004/TL-001). Live: all 27
+   pages are `rebuild_policy='generic'`, but the current plan carries **11
+   role='tool' pages**. ⇒ phase 2 regenerates ~15 pages automatically and parks the
+   11 tool pages' REBUILDS at human review. The plan-level placement test — does the
+   planner keep the calculators in composition when free to recompose? — still fires
+   for all 26. The 11 review items are EXPECTED OUTPUT, not a failure.
+3. **`deferred` is open to both the dedup index AND the reconciler** (idx_swi_dedup
+   terminal set read from pg_indexes; reconciler `NOT IN (...,'cancelled')` at :559).
+   ⇒ the canary's deferred `needs_page:about`/`needs_page:guides-index` are the ONLY
+   build path for the two pages — a fresh mint is dedup-blocked and the reconciler
+   skips-as-queued. They must be un-deferred (status→'detected'), **but only AFTER
+   phase 1's plan lands**: the build-pipeline scheduler ticks ~every minute
+   (`sched-build-pipeline-trigger` observed 21:39Z with pending_sites=11), so
+   un-deferring pre-fire would build both pages from the CANARY's bare plan and the
+   old briefing.
+4. **Never-shipped active pages are composable.** `realisedPageHasShipped`
+   (v3_site_actions.go:6611): "a page that has never shipped is merely uncomposed" —
+   the preserve guard does not snap it. ⇒ un-archiving the two rows to 'active' is
+   sufficient; the planner can compose them.
+
+**Also verified tonight:** `ensure_site_record` is create-or-find — resubmitting an
+existing domain re-drives the pipeline on the SAME site row (no duplicate) · a THIRD
+archived page exists, `tool-standard-calc` (archived 08-03, unrelated) — it stays
+archived; only the two 08-14 rows get restored · fleet rolled **v1.0.1300** tonight
+(both chassis pods started 20:36Z, AFTER the handoff was cut); serving re-verified
+27/27 clean post-roll · the `RECOMPOSE_INTENT_NOT_REALISED` tell (`4e3c96e64`,
+08-10) is an ancestor of 1295's build commit `69612d692a4a` (merge-base check) —
+[INFERRED for 1300 by tag ordering on a forward-only tree; phase 2's primary check
+is the direct SQL comparison of plan sections vs pre-fire realised compositions, so
+nothing rests on this inference] · site quiet: open items are 13 lock_blocked_change
++ 6 content_rewrite (all needs_human_review) + 1 blocked page_rerender (the
+bugs_open/189 verification item of 08-06) — nothing is actively working the site.
+
+**Un-defer set is THREE items, not seven.** Of the canary's 4 deferred needs_imagery,
+3 target the site or existing pages (site logo `003b98cc`, guide-loan-faqs hero
+`15d6323f`, index hero_home `34b3ace1`) — they stay parked per owner 08-12. Un-defer
+= `needs_page:about` (`222ecf94`), `needs_page:guides-index` (`a52e59d8`),
+`needs_imagery hero_about` (`ad289c0e`). The stale `reconcile_rerender:8d7c…`
+(`1fcb4772`) stays deferred permanently — it is keyed on the canary's plan and its
+assemble would run against a superseded state; phase 1's reconciler emits its own.
+
+**Fire sequence as being executed (supersedes handoff steps 2–5):**
+1. Un-archive `about` (`b3f03e83`) + `guides-index` (`e31c71a8`) → 'active'.
+2. Release the 8 non-calculator locks (page_components `fe158218` `ea49f2ba`
+   `959e220c` `b03e254d` `9e7cbaa2`; site_components `3099f1ee` `4a754431`
+   `8375feb6`). The 12 calculator locks STAY.
+3. Fire 082 with `MISSION_2026-08-14_fire.txt` (mission draft + two dated additions:
+   the page set now names about + guides index and pins "otherwise add no new
+   pages"; a rebuild-scoped recompose-intent paragraph). Save CORR.
+4. Post-planner checkpoint: Q2 new-active-rows check
+   (`created_at > <fire time>` — the two restored rows are 19:14Z, they do not
+   trip it); un-defer the three items; watch the two pages build.
+5. Phase 1 settle: serving 29/29, then phase 2 recompose dispatch (26 pages).
+6. Post-recompose: RECOMPOSE tell query + plan-sections-vs-realised SQL compare;
+   expect ~15 needs_page + 11 owned_page_review + 1 needs_rerender; the 11 review
+   items go to the owner.
+7. Verify per handoff step 5 (purity of the 12 locked rows vs 08-11 backups,
+   URL diff EMPTY on the 27, toolgolden 11/11, calculators in place).

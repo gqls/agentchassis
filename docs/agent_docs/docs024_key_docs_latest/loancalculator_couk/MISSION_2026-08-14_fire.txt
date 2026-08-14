@@ -1,0 +1,36 @@
+loancalculator.co.uk is the definitive free UK loan calculator site: an authority
+portal whose primary product is a suite of interactive calculators, supported by
+plain-English guides that answer the questions the numbers raise.
+
+The site already serves eleven calculators (standard repayment, overpayment,
+consolidation, car finance PCP-vs-HP, loan comparison, credit health check, credit
+roadmap, early settlement, interest-rate stress test, loan-vs-savings, application
+tracker plus a damage checker), fourteen guides, and a legal page. Keep this page
+set and keep every live URL exactly as served — the URLs are indexed and must not
+move or change shape. Two further pages are wanted and already planned: an about
+page at /about.html and a guides index at /guides/index.html; build these two.
+Otherwise add no new pages.
+
+As part of this rebuild, reconsider every existing page's layout and recompose it
+to serve its purpose best — do not simply re-emit the current layouts. The one
+non-negotiable in any recomposition: each calculator page keeps its calculator as
+the centrepiece of the page, and the homepage keeps its credit roadmap tool.
+
+Every calculator must actually compute what it claims, client-side, with the
+arithmetic visible in the page. Never state a capability a tool does not have: if a
+calculator shows three headline figures and no month-by-month schedule, no copy
+anywhere on the site may say it shows a breakdown. Accuracy claims are promises about
+other people's financial decisions.
+
+Voice: plain English for UK borrowers. Explain the mechanism, not just the figure —
+why early payments are mostly interest, what a settlement figure includes, what the
+Consumer Credit Act actually entitles a borrower to. Cite UK legislation and named
+institutions where relevant. Explicit non-advice positioning throughout: the site
+shows numbers and rights, it does not recommend products. No promotional tone, no
+urgency, no invented statistics, no testimonials.
+
+Revenue is affiliate click-through to lenders and comparison partners at the moment
+a completed calculation makes the next step obvious, plus display advertising —
+but trust converts, so the editorial layer must never read as marketing. A visitor
+is satisfied when they have run the calculation they came for, understood what the
+output means, and left with a clear next step.

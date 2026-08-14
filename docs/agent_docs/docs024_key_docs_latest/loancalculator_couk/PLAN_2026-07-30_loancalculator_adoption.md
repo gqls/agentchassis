@@ -241,3 +241,22 @@ browser-rendered DOM — G10), decompose it, then hand the site to the normal ca
   silently move.
 - The checksum gate (G10's lesson) should be built into whichever source is used —
   it is the only reason this lane caught the DOM substitution.
+
+### DECISIONS 2026-08-14 (late night) — the owner's three fire answers, and a resized fire
+
+Owner answered the post-canary questions (see HANDOFF_2026-08-14 + NOTES same date):
+**(1)** regenerate all 26 existing pages via explicit `recompose_pages`;
+**(2)** trust the mission's keep-pages pin, guarded by the immediate post-planner
+new-active-rows check; **(3)** the canary's two invented pages (`about`,
+`guides-index`) are WANTED — un-archive and let the rebuild fill them in.
+
+The fire is now **TWO-PHASE**, a resizing forced by measurement, not preference:
+082 carries no spec, so `recompose_pages` cannot ride the rebuild dispatch — phase 1
+is the plain 082 rebuild (mission installs; the two restored pages build via the
+canary's un-deferred work items after the new plan lands), phase 2 is a direct
+build-site-planner dispatch naming the 26 pages in `input_data.spec.recompose_pages`,
+with the redesign intent standing in the mission prose (recompose landmine's
+both-places rule). Known consequence, accepted: the reconciler parks the 11
+tool-role pages' rebuilds at `owned_page_review` (human gate, by design — TP-004);
+only ~15 non-tool pages regenerate unattended. Full mechanics + evidence: NOTES
+2026-08-14 (late night, new session).
