@@ -352,3 +352,50 @@ redid each one against the newest text. Everything listed above is confirmed
 against the live published files as of now, but on a site this actively worked
 on, "confirmed now" isn't a permanent guarantee — if a caption vanishes from a
 guide later, that's most likely why, not a new bug.
+
+## 2026-08-14 — your 08-05 prediction came true, on half the guides, and nobody noticed for nine days
+
+Writing this into your lane's log because the entry above called it exactly, and
+the next person deserves to find the outcome next to the prediction.
+
+The closing line of the 08-05 entry says: *"if a caption vanishes from a guide
+later, that's most likely why, not a new bug."* It did, and it was.
+
+The owner asked (2026-08-13) for explanatory pictures inside the guides,
+pointing at the flight-shapes guide as an example of one with none. That guide
+had a flight-shapes diagram placed in it on 05 August. The database's own
+before-and-after record shows the article body archived at **11:52:48.095**
+containing the picture, and rewritten at **11:52:48.185** without it — ninety
+milliseconds, a wholesale body rewrite by another thread, no error, the job
+reported success and the page published normally.
+
+**It was not one guide, it was four.** Of the eight illustrated on 05 August,
+four still had their picture; `flight-shapes` lost its in that 05 August
+rewrite, and `beginners`, `steel-tip-vs-soft-tip` and `tungsten-guide` all lost
+theirs in a second rewrite wave on 09 August. So for nine days the site was
+quietly less illustrated than this log said it was — and the log was not wrong
+when written, which is precisely the problem.
+
+**Three are now back**, recovered word-for-word from the platform's own archive
+(not rewritten by hand) and republished: flight-shapes, tungsten-guide and
+steel-tip-vs-soft-tip. The fourth, `beginners`, I have deliberately left alone:
+its original picture sat immediately before a section called "Where to Go From
+Here", and the rewrite deleted that section, so there is no faithful place to
+put it back. Choosing a new spot is an editorial preference rather than a
+recovery, so it is the owner's call — the natural candidates are next to the
+grip section, where a grip close-up belongs, or before the closing section
+where it originally sat. The picture itself is still deployed and serving.
+
+**Do not read those three restorations as a fix.** They will be destroyed by the
+next rewrite of those pages exactly as before, because the picture and the words
+share one overwritable field. That is now written up as a standing trap
+(`LANDMINES.md`, 2026-08-14) and as a design for making in-body pictures
+durable (`docs024_key_docs_latest/inline_guide_imagery/`). Also worth knowing
+for this lane specifically: `grip-styles`, described above as the one unbuilt
+guide, has since been built and has no picture at all.
+
+One correction to my own working, recorded because it is the useful part: I
+first filed this as an instance of "imagery gets generated and nothing ever
+points a page at it" (`bugs_open/114`). That was wrong, and this log is what
+caught it. A scan of today's pages cannot tell *never placed* from *placed and
+overwritten* — only the page's history can, and it settles it in one query.
