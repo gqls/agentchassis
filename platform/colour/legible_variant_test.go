@@ -324,6 +324,29 @@ func TestLegibleVariant_EmittedHexIsPinnedForRealPalettes(t *testing.T) {
 		// cushion: at that margin this is the case most likely to flip silently
 		// under a refactor, and two independent implementations of this algorithm
 		// have already disagreed twice in two days.
+		//
+		// ⚠⚠ OVERRULED 2026-08-14 (OWNER RULING), AND THIS TABLE NO LONGER
+		// DESCRIBES PRODUCTION. The paragraph above is kept because its argument
+		// is good and was answered rather than dismissed — but read as current
+		// guidance it is now WRONG, which is precisely the failure the council's
+		// editquality seat flagged: a decision recorded in one file, overruled in
+		// another, and left live where the next reader finds it first.
+		//
+		// The shipped target is `actions.inkMinContrast` = **5.0**. This test
+		// pins LegibleVariant at `AANormal` (4.5, the fixed WCAG constant), so it
+		// pins the ALGORITHM, not the emission — and it stayed green while these
+		// seven hexes stopped shipping. oufe's real emission is now #8ba9ca at
+		// 5.14, not #7d9ec4 at 4.51.
+		//
+		// The cushion argument was answered, not ignored: the four-ground
+		// compositing in buildLegibleInkDefaults is untouched, so 5.0 is additive
+		// to modelling the grounds rather than a substitute for it. The owner's
+		// counter was empirical — this lane twice found a ground it was not
+		// measuring, and the 0.05 section overlay cost 0.62 of ratio.
+		//
+		// **Production emission is pinned in
+		// `actions/palette_ink_policy_test.go`, at inkMinContrast.** Change the
+		// target and that file fails; this one will not.
 		{"oufe.com primary (fleet-thinnest, +0.01)", "#1B2A3B", "#0F1820", "#1B2A3B", "#7d9ec4"},
 
 		// The two that a reviewer's replication caught. Both were quoted wrong from

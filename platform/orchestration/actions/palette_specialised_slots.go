@@ -169,10 +169,46 @@ const inkCeilingContrast = 7.0
 // default; an operator disables a named site to roll that one site back to the
 // pre-repair behaviour on its next render. Nothing rots unexercised, and the
 // 2026-07-29 owner ruling against mandatory default-OFF switches is respected.
+// Shape borrowed deliberately from ChromeLinkPolicy / LoadChromeLinkPolicy
+// (chrome_link_policy.go) — this package's existing convention for resolving
+// per-site rendering behaviour: a small value type, one constructor, and every
+// failure path resolving toward the SAFE direction with a Warn rather than a
+// silent flip. Named by the council's reuse seat, and the discipline worth
+// copying is that last part: ChromeLinkPolicy returns `unfiltered: true` when
+// its lookup fails, because empty chrome is worse than unfiltered chrome.
 type inkPolicy struct {
+	// resolved marks a policy that came from defaultInkPolicy or
+	// resolveInkPolicy rather than from a bare `inkPolicy{}` literal.
+	//
+	// ⚠ IT EXISTS BECAUSE THE ZERO VALUE OF THIS STRUCT IS THE DANGEROUS ONE,
+	// and Go hands it out for free. `inkPolicy{}` is enabled=false,
+	// minRatio=0 — i.e. "silently emit nothing", which on a shared builder is
+	// indistinguishable from a deliberate kill and produces no error at all.
+	// A future call site that forgets to thread a policy through would get the
+	// pre-repair behaviour back on whatever it renders. Raised independently by
+	// the council's bug_historian and guardian seats as the
+	// "generic mechanism patched at one call site" shape (bugs_open/093, 016b
+	// §9 item 7); buildLegibleInkDefaults refuses an unresolved policy rather
+	// than honouring it.
+	resolved bool
 	// enabled false makes buildLegibleInkDefaults emit nothing, so every
-	// consumer falls back through its own var() default to the raw palette
-	// colour — i.e. exactly the pre-2026-08-06 behaviour.
+	// consumer falls back through its own var() default to the palette colour
+	// — i.e. exactly the pre-2026-08-06 behaviour.
+	//
+	// SAFE BECAUSE EVERY CONSUMER CARRIES A FALLBACK, and that is a measured
+	// property rather than a convention anybody enforces. `[MEASURED
+	// 2026-08-14]` across content_components, site_components, layouts and
+	// page_components: **46 rows reference an ink var, 0 of them bare** — every
+	// one is written var(--color-X-ink, var(--color-X)). A BARE reference would
+	// make the whole declaration drop when this emits nothing, which is worse
+	// than the defect the switch exists to roll back. Nothing in the platform
+	// enforces the fallback, so re-measure before trusting this:
+	//
+	//	SELECT count(*) FROM (...four surfaces...) WHERE
+	//	  body ~ 'var\(\s*--color-(primary|accent)-ink\s*\)';   -- must be 0
+	//
+	// (verify the regex can fire before believing a zero — it must match
+	// `var(--color-primary-ink)` and must NOT match the two-level form.)
 	enabled bool
 	// minRatio is the contrast target, already clamped to
 	// [inkFloorContrast, inkCeilingContrast].
@@ -181,7 +217,7 @@ type inkPolicy struct {
 
 // defaultInkPolicy is what every render gets unless step config says otherwise.
 func defaultInkPolicy() inkPolicy {
-	return inkPolicy{enabled: true, minRatio: inkMinContrast}
+	return inkPolicy{resolved: true, enabled: true, minRatio: inkMinContrast}
 }
 
 // resolveInkPolicy reads the operator overrides off the render step's config.
@@ -625,6 +661,17 @@ func buildLegibleInkDefaults(css string, palette map[string]string, policy inkPo
 	// var(--color-primary-ink, var(--color-primary)), so an absent companion
 	// falls through to the raw palette colour — the exact pre-2026-08-06
 	// behaviour, reached without a revert, a rebuild or a roll.
+	// An unresolved policy is a CALLER BUG, not a kill. Honouring the zero
+	// value would silently restore pre-repair behaviour at that call site with
+	// no error anywhere; failing safe and shouting is the only reading that
+	// cannot hide. See inkPolicy.resolved.
+	if !policy.resolved {
+		logger.Error("buildLegibleInkDefaults: received an UNRESOLVED inkPolicy — falling back to the default policy",
+			zap.String("cause", "a caller passed a bare inkPolicy{} instead of resolveInkPolicy/defaultInkPolicy"),
+			zap.String("effect", "using the shipped default; the kill-switch and contrast override are NOT in force at this call site"),
+			zap.Float64("applied_min_contrast", inkMinContrast))
+		policy = defaultInkPolicy()
+	}
 	if !policy.enabled {
 		logger.Warn("buildLegibleInkDefaults: DISABLED by config — emitting no ink companions",
 			// Every field here is a static string; nothing unwrapped is logged.

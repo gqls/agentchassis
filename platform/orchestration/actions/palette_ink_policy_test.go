@@ -193,7 +193,7 @@ func TestInkPolicy_MinRatioActuallyReachesTheDerivation(t *testing.T) {
 	}
 	seen := map[string]bool{}
 	for _, c := range cases {
-		css := buildLegibleInkDefaults("", palette, inkPolicy{enabled: true, minRatio: c.ratio}, zapNop())
+		css := buildLegibleInkDefaults("", palette, inkPolicy{resolved: true, enabled: true, minRatio: c.ratio}, zapNop())
 		got := inkVar(t, css, "--color-primary-ink")
 		if !strings.EqualFold(got, c.wantPrimaryInk) {
 			t.Errorf("at minRatio %.2f, --color-primary-ink = %s, want %s", c.ratio, got, c.wantPrimaryInk)
@@ -216,7 +216,7 @@ func TestInkPolicy_DisabledEmitsNothing(t *testing.T) {
 		"primary": "#1A1F2E", "accent": "#E8311A",
 		"background": "#111520", "surface": "#1E2436", "text": "#F0F2F7",
 	}
-	if css := buildLegibleInkDefaults("", palette, inkPolicy{enabled: false, minRatio: inkMinContrast}, zapNop()); css != "" {
+	if css := buildLegibleInkDefaults("", palette, inkPolicy{resolved: true, enabled: false, minRatio: inkMinContrast}, zapNop()); css != "" {
 		t.Errorf("disabled policy still emitted CSS — the kill-switch does not kill:\n%s", css)
 	}
 	// Control: the SAME palette must produce a block when enabled, or the test
@@ -345,5 +345,48 @@ func TestPickInkOn_StillUsesTheAAFloorNotTheInkTarget(t *testing.T) {
 			"Getting the fallback here means pickInkOn has been repointed at inkMinContrast, "+
 			"which silently retunes every filled control from a ruling that was about links.",
 			fill, got, source, palette["text"], ratio, inkFloorContrast, inkMinContrast)
+	}
+}
+
+// TestInkPolicy_UnresolvedZeroValueFailsSafeAndLoud pins the fix for the one
+// defect this change's council round actually found.
+//
+// `inkPolicy{}` is Go's free zero value and it is the DANGEROUS state:
+// enabled=false, minRatio=0, i.e. "silently emit nothing". On a shared builder
+// that is indistinguishable from a deliberate kill and raises no error, so a
+// future call site that forgets to thread a policy would quietly restore
+// pre-repair behaviour on everything it renders. Raised independently by the
+// bug_historian and guardian seats (round 1 of d60aab29) as the
+// "generic mechanism patched at one call site" shape.
+//
+// The contract: an unresolved policy is a CALLER BUG, so it must (a) still
+// emit — failing safe, matching ChromeLinkPolicy's discipline of resolving
+// toward the safe direction — and (b) log at Error, so it cannot hide.
+func TestInkPolicy_UnresolvedZeroValueFailsSafeAndLoud(t *testing.T) {
+	palette := map[string]string{
+		"primary": "#1A1F2E", "accent": "#E8311A",
+		"background": "#111520", "surface": "#1E2436", "text": "#F0F2F7",
+	}
+
+	core, logs := observer.New(zapcore.ErrorLevel)
+	css := buildLegibleInkDefaults("", palette, inkPolicy{}, zap.New(core))
+
+	if css == "" {
+		t.Fatal("a bare inkPolicy{} emitted NOTHING — the zero value is being honoured as a kill. " +
+			"A caller that forgets to resolve a policy would silently restore pre-repair behaviour.")
+	}
+	// It must fall back to the SHIPPED default, not to some other target.
+	if got := inkVar(t, css, "--color-primary-ink"); !strings.EqualFold(got, "#94a0c2") {
+		t.Errorf("unresolved policy emitted %s, want the default-policy value #94a0c2", got)
+	}
+	if logs.FilterMessageSnippet("UNRESOLVED").Len() == 0 {
+		t.Error("the unresolved policy was repaired SILENTLY. Failing safe without saying so is how " +
+			"a call site stays unwired indefinitely — the log line is half the contract.")
+	}
+
+	// Control: a deliberately disabled, RESOLVED policy must still emit nothing,
+	// or the guard above has simply broken the kill-switch.
+	if css := buildLegibleInkDefaults("", palette, inkPolicy{resolved: true, enabled: false}, zapNop()); css != "" {
+		t.Errorf("a resolved+disabled policy still emitted CSS; the guard has broken the kill-switch:\n%s", css)
 	}
 }
