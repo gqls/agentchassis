@@ -891,3 +891,39 @@ that had merely passed or failed would have produced no evidence at all.
 > Either the parent's failure handling completes the item anyway, or §D has a different cause
 > entirely. Do not carry the 274 link forward as §D's explanation; it is an open thread that has
 > just been argued against, which is more useful than an unexamined one.
+
+## §D CONTRIBUTION 2026-08-14 — two instances with `attempt_count = 0`, which no dispatch-path mechanism can produce
+
+By the mortgagecalculator adoption lane, found while diagnosing why favicon/og-card 404 despite
+"completed" brand-head items. Two more §D-shaped rows, with a discriminating fact the 14-row
+population above does not record:
+
+- `108a854e-7e97-4b63-a0b9-305a445b9db1` (`needs_brand_head_assets:og_card`) — `complete`,
+  **`attempt_count = 0`**, completed `2026-08-11 19:02:25Z`. Result: a content-planner payload
+  (`{"approach":"new_page","new_page":{"name":"faq", …}}`).
+- `535ffc5a-22dc-4fca-a542-3e4ec2063890` (`needs_brand_head_assets:favicon`) — `complete`,
+  **`attempt_count = 0`**, completed `2026-08-11 19:02:59Z`. Result: same shape, different page
+  (`article-how-much-can-i-borrow`). Both on site `62b5978e-4271-4589-8e00-4baebfc0447c`, both
+  created 08-09 20:56 by the `undeployed_assets` check, handler `asset-deployer`.
+- A third from the same window is already on record elsewhere: the `bugfix_210` lane's 08-12
+  handoff notes a **19:06** item the same evening whose `result` holds unrelated JSON ("checked
+  against 8 clean siblings the same night — not systemic"). With these two it is three instances
+  in one four-minute window (19:02–19:06, 2026-08-11), which reads as one writer active in that
+  window, not three accidents `[INFERRED]`.
+
+Why this bounds the mechanism: build-dispatch-loop's completion path is
+claim → spawn → call → `mark_complete`, and a claimed-and-called item shows `attempt_count ≥ 1`
+(every normally-processed sibling on this site does). A row completed at `attempt_count = 0` was
+plausibly **never claimed by the dispatch path at all** `[INFERRED — I have not read whether any
+completion path skips the claim increment]`. If that holds, §D has (at least) two sub-populations:
+the 10-of-14 above (dispatched, foreign payload) and these (never dispatched, foreign payload) —
+and the second cannot be explained by ANY story about what the parent does after `call_handler`,
+which argues for a writer that completes items it never claimed (e.g. a retraction/`resolveWorkItems`
+-style path, or a completion keyed on the wrong item id). The orchestration_states rows for that
+window are pruned, so the writer cannot be named from there; `system_events`/audit trails for
+2026-08-11 19:02–19:07 on this site are the next place to look if anyone picks this up.
+
+Operationally for our lane: both rows are being treated as FALSE completions — the brand-head
+work never ran (favicon/og-card 404 throughout) and is being re-filed fresh. Their `complete`
+status also counts as strikes under the two-strike rule, which is how a false completion
+converts into future suppression of the very re-detection that would have caught it.
