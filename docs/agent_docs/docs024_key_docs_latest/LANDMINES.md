@@ -10403,3 +10403,39 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **relations:** `WRONG_CALLS.md` 2026-08-14 (the incident: I told the owner a redirect would protect two likely-indexed URLs he was retiring) · the `a gate's 0 findings has TWO causes` family · `a post-fix ZERO needs a DEMAND control` · PBP-029 (the link-surface lockstep, which is where the real census lives)
 - **source:** 2026-08-14, `bugs_open/215` O2 execution. Found at step 7 of the first pair, before any mutation, because the step's own "re-measure at execution" instruction finally prompted the question *could this ever be non-zero?*
 - **added:** 2026-08-14, brochure_component_library lane (bugs_open/215)
+
+---
+
+## Editing a schema `fallback` on a renderer/static field no longer retargets pages that already HOLD a value — the stored value wins, and the page rendering fine is what wrong looks like
+
+- **footprint:** `content_components.input_schema` (`fallback` on `source:"renderer"`/`"static"` fields), `platform/orchestration/actions/plan_sections_action.go` (the renderer/static branch in `planSection`)
+- **fires when:** you change (or add) a `fallback` on a renderer/static-sourced field expecting the new destination to roll out on the next regeneration. Since the bugs_open/268 carry extension (2026-08-14), the branch runs `carryStored()` FIRST: any page whose deployed `content_data` already holds that key keeps its stored value, and only rows with nothing stored take the fallback. Before the change the fallback wrote unconditionally — so every pre-268 mental model, doc line (`181_class_e_live_cta_url_integrity.sql:16-18` "writes unconditionally") and worked example says the opposite of what production now does.
+- **why the wrong result looks exactly right:** the regeneration completes, the button renders, the href is a real working URL — it is just LAST run's URL. Nothing errors, nothing files an item; the only tell is the value itself, and you have to know which value you expected.
+- **the check:** to retarget fleet-wide, edit the stored `content_data` (or clear the key) — the fallback only serves rows with nothing stored. To verify which one a page took, `carried_fields` on the plan item (or the `plan_sections: non-llm field carried from stored content_data` Info log) names every carried field; a field absent from `carried_fields` that still shows the old URL came from somewhere else entirely — stop and read `resolve_internal_links` before blaming the carry.
+- **relations:** concept register **PBP-039** (the carry + its 2026-08-14 extension block) · `bugs_open/268` · `bugs_open/238` · migration `091` (why these fields are `source:renderer` at all)
+- **source:** 2026-08-14, the deliberate stored-beats-fallback precedence change in the 268 fix, pinned by `TestPlanSections_StoredValueBeatsStaticFallback`
+- **added:** 2026-08-14, bugfix_268_cta_buttons_fleet lane
+
+---
+
+### `go build ./...` does not compile test files, so a "clean baseline" cannot see a broken test package — and the failure surfaces later, under your name
+
+- **footprint:** `go build ./...`, `go vet`, `go test`, any pre-edit baseline on this repo
+- **fires when:** you establish a baseline before editing ("prove the tree was green so a pre-existing failure is not read as mine"), reach for `go build ./...` because it is the fast whole-repo check, and get exit 0. Test files are **not** part of a non-test package's build, so a package whose `_test.go` no longer compiles builds perfectly clean. You then edit, run the full suite, and a `[build failed]` appears in a package you never touched — at which point it is genuinely hard to tell whose it is, and the natural reading is that you caused it.
+- **why the wrong result looks exactly right:** exit 0 with no output is the *same* signal a genuinely green tree gives. There is no warning that test files were skipped, and the broken package is usually somewhere you have no reason to look. Live example, 2026-08-14: `internal/adapters/thunder/api/client_test.go:113` — `unknown field Identifier in struct literal of type Instance`, committed by another session, invisible to `go build ./...`, and it surfaced only when a messaging-package change prompted a full-suite run.
+- **the check:** take the baseline with something that compiles tests — `go vet ./...` (cheapest) or `go test ./... -count=1` — and **keep the output**. If a failure appears later, attribute it before dismissing it *or* accepting it, with the two questions that settle it in seconds: is the package **clean in the tree** (`git status --porcelain -- <pkg>`; clean ⇒ the breakage is committed, not another session's WIP), and does it reference anything you touched (`grep -rn "<your symbols>" <pkg>/`)? Both negative ⇒ not yours. On a tree this many sessions share, "the suite was green when I started" is only evidence if the thing you ran could have gone red.
+- **relations:** `a green local build is not a green HEAD` · `test against git archive HEAD` · `WRONG_CALLS.md` (the class where an unchecked baseline becomes someone else's blame)
+- **source:** 2026-08-14, dispatch/pool lane (`bugs_open/259`). The baseline was `go build ./...` + `go test ./platform/messaging/...`; the second command is why the messaging package was covered and the first is why thunder was not.
+- **added:** 2026-08-14, bugfix_239_dispatch_fail_closed lane
+
+---
+
+### A comment placed between struct fields makes a Go file un-gofmt'd, and the pre-commit check reports it AFTER your commit has already landed
+
+- **footprint:** `gofmt`, `.githooks/pre-commit`, `scripts/pattern-check.py`, any aligned Go struct field block
+- **fires when:** you document a field (or an invariant about one) by putting a comment **inside** an aligned field block. gofmt aligns each run of fields as one group and a comment **splits the group**, so gofmt then wants to re-align the fields above your comment — and your file is un-gofmt'd until it does. `go build` and `go test` both pass, so nothing in your own loop objects.
+- **why the wrong result looks exactly right:** the commit **succeeds**. The pattern check does flag it (`gofmt <file> — not gofmt-clean`) but it is **advisory and prints from the pre-commit hook, i.e. before git's own summary** — so a `git commit … | tail -N`, which is the natural way to keep a long commit's output readable, **cuts exactly that block** and keeps the reassuring `N files changed` line. It reads like a gate and is not one: the build gate downstream *does* reject un-gofmt'd code, so this reaches CI as a failed gate and no PR.
+- **the check:** `gofmt -l <the files you touched>` **before** `git commit` — empty output is the pass. Then either accept the realignment (`gofmt -w`, which churns lines you did not mean to touch) or, better, move the comment **out** of the field block: to the type's doc comment, where an invariant about the struct belongs anyway, keeping the field list contiguous and the diff to what you actually changed. If you pipe commit output, `grep -E 'pattern check|gofmt|commit scope' ` instead of `tail`.
+- **relations:** 016b §9 #16 (the gofmt pattern) · the `commit scope` advisory block, which the same `tail` swallows · a `PostToolUse` hook now re-prints the scope report when this happens, but it does **not** re-print the pattern check
+- **source:** 2026-08-14, dispatch/pool lane. `e37f79b65` landed un-gofmt'd; caught on reading the hook output, fixed forward in `f894b1a38`.
+- **added:** 2026-08-14, bugfix_239_dispatch_fail_closed lane

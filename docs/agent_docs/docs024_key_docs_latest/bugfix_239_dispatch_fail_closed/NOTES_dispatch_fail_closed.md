@@ -117,6 +117,54 @@ Another session's committed test breakage. Left alone — not this lane, and for
 someone's attention: `go build ./...` does **not** compile test files, so a baseline taken with
 `build` alone would have missed it and a later session could inherit the blame.
 
+### Two landmines and a wrong call filed — and the verification deliberately NOT chased
+
+Appended two entries to `LANDMINES.md` (the `go build` baseline blindness, and the
+struct-comment/gofmt one) plus a `WRONG_CALLS.md` row for the diff-grep prediction.
+
+Two process notes, both `[UNVERIFIED]` by choice rather than omission:
+
+- **My headings used `##`; the format is `###`.** The sync's `--check` said so
+  (`heading uses '##', the format is '###'`) and the census backs it: 418 `###` entries to 79
+  `##`, the latter being the file's structural sections plus a drift of entries that made the
+  same mistake — including one filed by another lane the same day. Fixed. The slug is derived
+  from the heading TEXT, so the level does not change it; what it changes is whether the parser
+  treats the block as an entry at all.
+- **I ran `landmines-sync.py --apply`, which consumed my own entries' "new" status**, exactly as
+  the landmine at `LANDMINES.md#running-landmines-sync-py-apply-before-landmines-verify-dispatch`
+  says it does: the wrapper `landmines-verify-dispatch.sh` should be run **instead of** `--apply`,
+  never after. CLAUDE.md's own instruction ("after you append, run `--apply`") is what leads you
+  into it. **I did not then fire the verifier by hand, and that is a decision, not a lapse:** the
+  adjacent entry records that the verifier's index is **100% Go while 81% of footprints are not**,
+  and my two entries' footprints are `go build`/`go vet`/`go test` and
+  `gofmt`/`.githooks/pre-commit`/`scripts/pattern-check.py` — a shell hook and a Python script.
+  A verdict on those would resolve 0 rows and be equally uninformative whether it came back
+  STILL_VALID or STALE, and a STALE is the signal that argues for deleting a correct trap. So
+  both entries stand on their prose and their cited commits, unverified by the harness, and
+  marked as such here.
+
+### My `WRONG_CALLS.md` row was swept into another session's commit, and this is the record of it
+
+I appended the diff-grep row to `WRONG_CALLS.md` and, minutes later, `git status` reported the
+file **clean** while `grep` found my text present. Not a lost write — the opposite: commit
+`9de74ada1` (08:54:58, another session, "wrong_calls: log the CLASS — a census of what your
+commit contains goes stale between measuring and committing") is a single-file, 88-insertion
+commit and **my ~30 lines are inside it**. `git show 9de74ada1 -- …/WRONG_CALLS.md | grep -c` on
+my own sentence returns 1.
+
+This is the hazard CLAUDE.md names outright: committing per task stops *you* sweeping up others'
+work, and cannot stop a session running `git add -A` from sweeping up *yours*. Nothing is lost
+and forward-only holds, so there is **nothing to re-commit** — my content is already at HEAD,
+filed under a message that describes only their entry. The row is therefore findable by content
+but not by commit message, which is why it is named here.
+
+**How it was caught, and the transferable bit:** by gating on `git diff --numstat` before
+committing and noticing the file was **absent from the output entirely**. An absent path in a
+numstat is not "nothing changed" — it is "git and I disagree about what I just did", and the two
+explanations (my write failed / someone committed my write) look identical until you `grep` the
+file and then `git log` it. Checking the file alone would have shown my text and looked fine;
+checking git alone would have shown clean and looked like a failed write. It took both.
+
 ### State at the end of the session
 
 - `e37f79b65` — the fix. `f894b1a38` — gofmt follow-up. `c70f4565f` — bug file.
