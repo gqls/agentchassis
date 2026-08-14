@@ -193,3 +193,39 @@ both lists. Do not conflate them when executing.
 `bugs_open/266` is fixed, council-approved and live (`v1.0.1295`), so **an archive holds** —
 the standing "any archive can be undone by the next build" warning is discharged. Remaining
 gates are per-pair and listed in the table: `204` for pair 2, and a plan edit for pairs 3–7.
+
+---
+
+# OWNER RULING 2026-08-14 — pairs 3+4 REVERSED, on the redirect finding
+
+**Trigger:** execution of pair 1 found that **there is no redirect mechanism** (RUNBOOK
+`⚠ CORRECTION 2026-08-14`). Retiring a URL 404s it. The 08-13 ruling on pairs 3+4 was taken
+partly on my assurance that a redirect would protect the retired side; that assurance was
+false, so the owner was asked again with the true trade.
+
+| # | pair | 08-13 ruling | **08-14 RULING** | why it changed |
+|---|---|---|---|---|
+| 3 | fai `automation-savings-…-guide` | keep `/guides/` | **keep bare `/blog/`** | `/blog/` is the older, likelier-indexed URL; with no redirect, retiring it would 404 the indexed side |
+| 4 | fai `model-approach-selector-guide` | keep `/guides/` | **keep bare `/blog/`** | same |
+
+Pairs **1, 5, 6, 7 stand as ruled on 08-13** (keep `tool-`; pair 7 merge-then-retire), and
+pair **2 remains decided-but-held** on `bugs_open/204`. The owner accepted the 404 for those,
+where the retired side is a stub or a non-interactive prose page rather than the indexed one.
+
+## What the reversal simplifies
+
+**Step 3 (plan surgery) is no longer mandatory for pairs 3+4.** It became mandatory only
+because the 08-13 choice retired the IN-PLAN side. Reverting to `/blog/` retires
+`/guides/`, which the plan does **not** name — the loop-safe direction, and the reason this
+was my original recommendation. **Re-verify plan membership at execution anyway**; it was
+measured 2026-08-12 and the fundamentallyai plan has since been touched by other lanes.
+
+**Pairs 5, 6, 7 still require step 3** — robot-hands carries both sides of all three in its
+plan, and that is unchanged by this ruling.
+
+## Standing consequence for all seven
+
+There is no redirect. Every retirement is a 404. The owner has accepted that for the five
+proceeding pairs on the grounds that the retired side is in each case the *worse* page, not
+the indexed one. **If a redirect capability is ever built, pairs 3+4 are the ones worth
+revisiting** — `/guides/` is the better URL and was the owner's preference on merit.
