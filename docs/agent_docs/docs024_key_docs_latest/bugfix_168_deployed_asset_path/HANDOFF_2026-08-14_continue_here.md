@@ -1,4 +1,13 @@
-# HANDOFF — 2026-08-14 — the instrument is LIVE, the first sweep CONFIRMED the prediction, and the gates are now *observed* unreached. Read this file only
+# HANDOFF — 2026-08-14 — ⛔ SUPERSEDED BY `HANDOFF_2026-08-14b_continue_here.md` — THE TITLE BELOW IS NOW FALSE
+
+> **⛔ STOP — GO TO `HANDOFF_2026-08-14b_continue_here.md`.** This file's own title said the gates were
+> *"observed unreached"*. That was true at 08:45:05Z and **false from 16:48:45Z**, when a gate was
+> reached and passed. The title is kept rather than rewritten because the series is the record — but a
+> reader who stops at the title of a `_continue_here` file gets the opposite of the truth, and this
+> lane has already been bitten by a correction sitting below the fold. Everything below is HISTORY.
+> Its §4 traps still hold except where 14b supersedes them.
+
+# ~~HANDOFF — 2026-08-14 — the instrument is LIVE, the first sweep CONFIRMED the prediction, and the gates are now *observed* unreached. Read this file only~~
 
 > ## 🟩 SUPERSEDED at 16:48:45Z — A GATE HAS NOW BEEN REACHED. Read this banner before anything below it
 >
