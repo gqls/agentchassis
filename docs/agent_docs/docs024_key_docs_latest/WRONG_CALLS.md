@@ -31136,3 +31136,56 @@ was checked, and the correct next step from a believed "calculators stripped fle
 would have been an emergency stop on a healthy wave.
 
 ---
+
+## 2026-08-14 — "any re-render ships the change": a warning broad enough to forbid harmless work
+
+**The claim, written by me into `bugs_open/122`'s register entry (VIZ-014), the lane's
+README and repeated to two peers:** *"Any lane re-rendering any of those sites, for any
+unrelated reason, ships the change."* Said about the ink-derivation fix sitting dormant
+behind an owner gate — the point being that only one protection remained after the roll.
+
+**It is false.** `[MEASURED 2026-08-14]` `webdesign-agent` is the **only** agent type
+whose workflow contains a `render_css` step:
+
+```sql
+SELECT a.type, s.key, s.value->>'action'
+FROM agent_definitions a, LATERAL jsonb_each(a.default_config->'workflow'->'steps') s
+WHERE a.is_active AND NOT COALESCE(a.is_snapshot,false) AND a.deleted_at IS NULL
+  AND s.value->>'action' ILIKE '%render_css%';
+-- exactly one row: webdesign-agent | generate_css | render_css_from_spec
+```
+
+`page-rerender`, `rerender-pages`, `rerender-site` and `rerender-chrome` have **zero**
+between them, and `rerender_pages_actions.go:558` writes only the `<link rel="stylesheet">`
+tag — it never regenerates the file. A stylesheet moves when `webdesign-agent` runs. Not
+otherwise.
+
+**What made it invisible:** it was inherited, plausible, and *conservative*. I took it
+from a peer's handoff, it pointed the same way as my own interests (protect the gate),
+and being wrong in the cautious direction feels free. Nothing in the claim could fail a
+test, because no test names a claim about which agent does what — and the word
+"re-render" names a family of four agent types that do materially different things,
+which is precisely the ambiguity that let one member's behaviour get attributed to all
+four.
+
+**Caught by:** going to warn somebody. A session was running
+`rerender_page_sections_direct.sh` against dartsonline with output full of the canonical
+122 pair (`1.11:1`, `#1A1F2E` on `#111520`), and on my stated model it was one command
+from spending a live owner gate. Writing the warning is what made me check which
+re-render path actually regenerates CSS — the claim survived weeks of being *repeated*
+and died the moment it had to be *acted on*.
+
+**The cheap check that would have caught it:** one query, above, at the moment the claim
+was first written down. "Which agent does X" is always a query against
+`agent_definitions`, never an inference from a verb in a script name. Sibling of
+`a-grep-proves-absence-only-for-its-spelling`: **"re-render" is a spelling, not a
+mechanism** — four agent types answer to it and only one of them does the thing.
+
+**Cost:** none realised, and that is the part worth recording. The damage of an
+overbroad safety claim is not alarm, it is **desensitisation**: the broad version forbids
+page-section re-renders, link fixes and CTA restoration — all provably unable to touch a
+stylesheet — and a warning people must ignore in order to do their jobs is one they stop
+reading before the day it matters. A safety claim that is wider than the mechanism is not
+"erring on the safe side"; it is spending the credibility of every future warning.
+
+---
