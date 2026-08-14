@@ -259,3 +259,69 @@ fleet-wide**, and puts the other two users' lines at risk in the rewrite for no 
 > a credential — only by its absence **from any sanctioned place a session could find it**.
 > The Terraform wiring still earns its keep (the credential now has a recorded home), but
 > the honest description is "record the existing secret", not "create the missing one".
+
+### §9 RESOLVED 2026-08-14 — the password is recorded, the console works, and D3 has its answer
+
+**Done:** `terraform.tfvars.secret` now holds the **existing** 20-character userlist value
+instead of the generated 32-character one. Verified without printing it: exactly one
+`pgbouncer_admin_password` key in the file, written length 20, byte-equal to the userlist
+value — and **proven to authenticate before it was written**, which is the order that
+matters:
+
+```
+kubectl -n ai-persona-system exec <pgbouncer-pod> -- \
+  env PGPASSWORD="$ADMIN" psql -h 127.0.0.1 -p 6432 -U pgbouncer_admin -d pgbouncer -c "SHOW POOLS;"
+```
+returned rows. **No pgbouncer restart, no userlist rewrite, nothing at risk for
+`clients_user`/`templates_user`.**
+
+**⏳ Still owed by the machine, not by a person:** `047-base-configs` applies as part of
+`make release`, so until the next release `personae-platform-secrets.PGBOUNCER_ADMIN_PASSWORD`
+still carries the old generated string. **It self-corrects on the next roll.** The console is
+reachable today using the userlist value directly.
+
+**Pre-apply drift check — run it, and parse it properly.** All 9 live keys are declared, so
+the apply deletes nothing.
+
+> **⚠ My first run of this check produced a FALSE POSITIVE that would have read as an
+> incident.** I isolated the `personae_platform_secrets` block by splitting the file on the
+> string `'resource '` — which occurs **inside a comment in that very block** (*"this
+> resource reconciles the whole secret…"*), truncating the block before `SITE_FACTS_TOKEN`
+> and reporting that an apply would delete it. That is the key whose deletion **took the
+> site-facts relay down on 2026-08-13**, so the false alarm landed on exactly the sore
+> spot. **Do not parse HCL by splitting on keywords.** Ask the simple question instead —
+> is each live key assigned anywhere in the file?
+> ```bash
+> kubectl -n ai-persona-system get secret personae-platform-secrets -o json | python3 -c "
+> import json,sys,re
+> live=sorted(json.load(sys.stdin).get('data',{}).keys())
+> src=open('deployments/terraform/environments/production/uk001/047-base-configs/main.tf').read()
+> missing=[k for k in live if not re.search(r'^\s*'+re.escape(k)+r'\s*=', src, re.M)]
+> print('undeclared (an apply DELETES these):', missing or 'NONE')"
+> ```
+
+## 10. THE MEASUREMENT 246 NEVER HAD — `SHOW POOLS`, 2026-08-14
+
+The disconfirming observation for `bugs_closed/246`'s pgbouncer risk, taken at last:
+
+| database | user | cl_active | **cl_waiting** | sv_active | sv_idle | **maxwait** | pool_mode |
+|---|---|---|---|---|---|---|---|
+| clients_db | clients_user | 17 | **0** | 3 | 2 | **0** | transaction |
+| pgbouncer | pgbouncer | 1 | 0 | 0 | 0 | 0 | statement |
+
+**The risk is not materialising.** `cl_waiting = 0` and `maxwait = 0` — no client is queued
+for a server connection, and none has waited. **5 server connections in use of
+`default_pool_size = 15`**, with 17 client connections multiplexed onto them, which is
+transaction pooling doing exactly what the 246 submission argued it would.
+
+**D3 answered: `default_pool_size = 15` does not need raising.** The chassis's cap going
+4 → 12 has not pushed pgbouncer into queueing.
+
+> **This is ONE SAMPLE, and the honest limits are:** `cl_waiting` is instantaneous, and
+> pgbouncer's `maxwait` is *the current longest wait, not a high-water mark* — it returns
+> to 0 when the waiting client is served, so a zero here cannot rule out queueing between
+> samples. It was also taken at ~17 client connections; a burst is exactly when the answer
+> could differ. To make this a real result rather than a snapshot, sample repeatedly
+> (`SHOW POOLS` on a loop, or `SHOW STATS`) across a busy period. **Do not quote this table
+> as "pgbouncer is fine under load" — it says "pgbouncer was not queueing at this moment,
+> at this load".**
