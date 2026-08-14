@@ -112,6 +112,49 @@ curl -s https://robot-hands.com/assets/css/styles.css  | grep -- '--color-primar
 >   the layout surface entirely** — the five-surface list in `bugs_open/122` §6 was already on
 >   record and I had read it. A census answers the question you encoded.
 
+### 3a-bis. THE RE-FILE, ready to run — but gate it on the RUNNING BINARY, not on the commit
+
+**Verified 2026-08-14 evening, after the hold:** the watcher's full timeline shows `829a8f3e` was
+NEVER claimed (`triaged` 16:48→17:11, `deferred` from 17:12, `claimed_by` empty, `attempt_count` 0),
+and dartsonline's served stylesheet is **byte-identical** to the banked before-state (sha
+`16eb767f…`, matched post-hold). No 4.5 rebuild ever ran. Second canary pre-flighted: webdesign.co.uk
+pin present (07-25), collision guard **0 rows**, before-state banked
+(`before_css_webdesign/…`, sha `50d55d8d…`, `--color-accent-ink: #2b2b2b` == text, the pre-fix
+collapse).
+
+**⚠ SEQUENCING: their sha existing is NOT the trigger. Go changes are inert until an image is built
+and ROLLED** — un-deferring after the commit but before the roll re-renders at 4.5, which is
+exactly what the hold exists to prevent. The gate is ancestry **of the running stamp**:
+```bash
+kubectl -n ai-persona-system logs -l app=agent-chassis --tail=400 | grep -m1 -o '"git_commit":"[a-f0-9]*"'
+git merge-base --is-ancestor <their-5.0-sha> <the stamp>     # TRUE, and only then:
+```
+Then, in order:
+```sql
+-- 1. restore the darts item (the hold note carries this too)
+UPDATE site_work_items SET status='triaged'
+ WHERE item_key='css_rerender_ink_round2_dartsonline_com_20260814' AND status='deferred';
+-- 2. file the second canary
+INSERT INTO site_work_items
+  (site_id, source, pipeline, item_type, severity, priority, status, item_key, summary, spec,
+   created_by, approval_mode, max_attempts)
+SELECT s.id, 'operator:bugfix_122_contrast_ink_slots', 'build', 'needs_design_review', 'medium',
+   100, 'triaged', 'css_rerender_ink_round2_webdesign_co_uk_20260814',
+   'Second canary (owner-added): re-render styles.css at the revised 5.0 threshold. Five layouts put accent-ink on every in-prose link, so THIS site exercises the decision.',
+   jsonb_build_object('bug','bugs_open/122','domain','webdesign.co.uk',
+     'reason','ink_derivation_round2_owner_gated_canary','handler_agent','webdesign-agent',
+     'owner_ruling','2026-08-14: 5.0; Go after I have seen dartsonline.com'),
+   'operator:bugfix_122_contrast_ink_slots', 'auto', 3
+FROM sites s WHERE s.domain='webdesign.co.uk';
+```
+**Grade against these, written before any run** — full-file diff vs the banked shas first, then:
+| site | slot | expect at 5.0 | status |
+|---|---|---|---|
+| dartsonline | primary-ink | `#94A0C2` (5.122) | verified two-ways |
+| dartsonline | accent-ink | `#F18072` (5.125) | verified two-ways |
+| webdesign.co.uk | accent-ink | `#915E2C` (5.151) | **replication-only** — treat a different served value as *their build correcting me*, not as drift, and reconcile before grading |
+Then the owner looks at dartsonline (and webdesign, where the links are); his "Go" gates widening.
+
 **Why the hex alone cannot carry this:** round 1 emits a *plausible navy* that passes any eyeball
 check while failing on the real ground. "It's a navy, so the fix is in" reaches the right conclusion
 from the wrong evidence. Both commits now travel together, so branch 3 is unlikely — kept because
