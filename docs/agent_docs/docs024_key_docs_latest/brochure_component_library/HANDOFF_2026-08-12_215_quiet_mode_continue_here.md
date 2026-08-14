@@ -490,9 +490,27 @@ three additionally need plan surgery. **The runbook's "8 mechanical steps per pa
 what this is.** Realistic shape per pair: dispatch retraction as a census → repair N editorial
 referrers through the framework → re-dispatch → verify.
 
-**Cheapest next measurement, and it costs nothing:** dispatch the retraction at each remaining
-loser *before* archiving. It refuses, deletes nothing, and returns the full referrer list per
-page. Six dispatches would size the whole remaining job in minutes.
+**Cheapest next measurement — ~~dispatch the retraction at each remaining loser *before*
+archiving~~ CORRECTED before anyone ran it:** that does not work. **Eligibility is
+`status <> 'active'`** (`retract_page_deployment_action.go:54-55`) and the graph audit runs
+**only over the eligible set** (`:203`, and `retract_page_deployment_persist_test.go:261`
+pins the empty case: *"No graph-audit queries: the eligible set is empty"*). Dispatching at
+an active page returns `nothing_to_retract` **with no referrer list at all** — a zero that
+means "not eligible", not "no inbound links", which is the same shape of empty answer this
+lane has been catching all week.
+
+**The census that DOES work, and it is still cheap and still reversible:**
+
+```
+1. UPDATE pages SET status='archived' WHERE id='<loser>';     -- one field, revertible
+2. dispatch 216_TRIGGER_page_retraction.sh with PAGE_IDS      -- refuses, deletes NOTHING,
+                                                              -- and names every referrer
+3. then either repair the referrers, or UPDATE ... status='active' to put it back
+```
+
+Step 2 is the only thing that can enumerate a page's real inbound links in this estate —
+`link_registry` is empty fleet-wide and cannot. Six losers ⇒ six archive-dispatch-read cycles,
+each reversible, and the whole remaining job is sized.
 
 ## State of pair 1 right now
 
