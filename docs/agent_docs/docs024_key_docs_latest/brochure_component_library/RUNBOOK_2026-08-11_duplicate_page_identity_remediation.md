@@ -125,3 +125,54 @@ OFF; nothing changes for a site until its spec says otherwise.
   The kill switch costs you the defect back, not damaged pages.
 - **Do NOT enable on the five decomposed sites** until `bugs_open/204` is fixed —
   their `pages.sections` hold positional slot names, which the snap carries verbatim.
+
+---
+
+## ⚠ CORRECTION 2026-08-14 — STEP 7 IS INERT, AND STEP 7's OWN MEASUREMENT IS VACUOUS
+
+Found while executing pair 1 (ai-agent-orchestration `llm-cost-calculator`) — **before any
+mutation. Nothing was executed; the run stopped here.**
+
+**1. `redirects` has no reader and no writer.** Fleet-wide the table holds **0 rows**, and
+a search of `platform/`, `internal/` and `cmd/` finds **no `INSERT INTO redirects` and no
+`SELECT … FROM redirects`** anywhere. Every other "redirect" hit in the tree is HTTP-client
+redirect-following (`fetchguard`, Companies House) or a *comment pointing back at this
+runbook*. No `_redirects` / `netlify.toml` / `.htaccess` / bucket-routing convention appears
+in the deploy path either.
+
+**So step 7 as written — "write a redirect loser → survivor in `redirects`" — accomplishes
+nothing. Retiring a URL under this procedure produces a 404, not a redirect.** Whether the
+hosting layer (the B2-backed `sites` repo, or a VM host) could be made to redirect is an
+**infrastructure question outside this repo**, and it is NOT something this platform
+currently does. [MEASURED 2026-08-14; the negative is bounded by the spellings searched,
+which are listed above so the next reader can widen them.]
+
+**2. Step 7's supporting measurement could never have come out otherwise.** It records
+*"zero `redirects.source_page_id` and zero `link_registry.target_page_id` rows reference any
+of the 14 twin rows today, so nothing conflicts — re-measure at execution."* Re-measured at
+execution, as instructed: still zero — **because both tables are empty fleet-wide.**
+`link_registry` holds **0 rows in the entire estate**. The query returns zero for any page
+that has ever existed, so it is not evidence about these fourteen. **"Nothing links to the
+loser" is currently UNKNOWN, not established** — the inbound-link census this estate does
+have lives elsewhere (`InboundLinkSurfaces`, the two censuses PBP-029 keeps in lockstep);
+use that, not `link_registry`, before claiming a page is unlinked.
+
+### What this changes for the owner's 2026-08-13 rulings
+
+- **Pairs 3+4 (fundamentallyai) are the ones that matter.** The owner chose `/guides/`,
+  which retires the **older, flat `/blog/` URLs** — the likelier-indexed side. He was told,
+  in the same breath, *"a redirect is what makes it safe, so do not skip step 7."*
+  **That reassurance was wrong**: there is no redirect to write. Retiring those URLs means
+  they 404 for anyone holding a link and for any search engine that has them indexed.
+- **The decision may still stand** — `/guides/` is the better URL and these are two guides
+  on one site — **but it is now a different trade**, and it is the owner's to re-take.
+- **Pair 1's loser is a 727-word April stub**, so the same gap costs least there. It is
+  still a 404 rather than a redirect.
+- **This also applies to `bugs_closed/098`'s retraction primitive and to the five
+  archived-and-serving pages**: retraction removes the file, and nothing forwards the URL.
+
+### Step 7 should be read as: THERE IS NO REDIRECT. Decide the 404 deliberately.
+
+Until a redirect mechanism exists, the honest options per pair are (a) accept the 404,
+(b) keep the loser published and de-duplicate by other means, or (c) build a redirect
+capability first. Nothing in this runbook can make (a) safe by writing a row.
