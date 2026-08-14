@@ -346,3 +346,62 @@ Two schema gotchas beyond the ones listed above, both paid for on 2026-08-13:
   convincing correlation printout followed by `Unauthorized` — and nothing is queued. Check
   for the run by payload before believing you have submitted anything, and **never write a
   `Council-Submitted:` trailer for a correlation you have not seen dispatch.**
+
+## Proving gate 1b shipped — what actually worked on 2026-08-14 (v1.0.1298)
+
+**The `build provenance` startup line was NOT reachable**, on either replica, at
+`--tail=6000`. The pods were **under four hours old** and it had already scrolled — so treat
+this service's provenance line as good for minutes, not hours, and do not read its absence as
+"unstamped". `git merge-base --is-ancestor` needs a stamp you can actually read; with no
+stamp, that route is closed.
+
+**What worked: probe the binary for a KNOWN literal of your own change, with BOTH controls in
+one pass.**
+
+```bash
+for P in $(kubectl -n ai-persona-system get pods -l app=agent-chassis -o jsonpath='{.items[*].metadata.name}'); do
+  echo "--- $P"
+  kubectl -n ai-persona-system exec "$P" -- sh -c \
+    "grep -aoE 'NO_CHANGE_GATE_UNREADABLE_RESULT|verification_unavailable|ZZZ_NOT_A_REAL_LITERAL_9f3a' /proc/1/exe | sort -u"
+done
+```
+
+Read it as three answers, not one: the **first** must be PRESENT (gate 1b's own error code);
+`verification_unavailable` must be PRESENT (a long-live RFC_017 literal — proves the probe and
+the binary, not your spelling); the nonsense needle must be ABSENT (proves the grep is not
+matching everything). Result on v1.0.1298: needles 1 and 2 present, needle 3 absent, **on
+both replicas**.
+
+⚠ **Two gotchas that cost a run each.** A loop doing one `grep -aq` per needle **times out at
+2 minutes** — each invocation rescans a ~100MB binary, so a three-needle loop over two pods
+cannot finish. One `grep -aoE 'a|b|c' … | sort -u` scans once and answers all three. And
+**never grep for your COMMIT SHA to prove your code shipped**: the provenance stamp is a
+single sha — the build's HEAD — so unless the build was cut at exactly your commit, your sha
+is absent while your code is present. That is the wrong question, and it fails in the
+direction that looks like bad news.
+
+## ⚠ The behavioural check CANNOT be run today, and this is why
+
+Gate 1b is in the binary and **has never executed**. [MEASURED 2026-08-14] zero
+`dark_section_audit` rows touched since the 08:58Z roll; zero
+`NO_CHANGE_GATE_UNREADABLE_RESULT` records; zero `_verification` keys.
+
+The cause is not the gate: **`improvement-sweep` is `enabled = false`** (last triggered
+2026-08-12 16:16Z, switched off by the `bugfix_122` lane after a 3.2x cost surprise), and it
+is the only triage carrier that dispatches these items. `site-discovery-rotation-design` is
+off too.
+
+```sql
+SELECT name, target_agent_type, enabled, last_triggered_at FROM scheduled_tasks
+WHERE name IN ('improvement-sweep','site-discovery-rotation-design');
+-- improvement-sweep | improvement-loop | f | 2026-08-12 16:16:22+00
+```
+
+So one `detected` row sits waiting (`mortgagecalculator.co.uk`, filed 2026-08-13 22:03,
+`attempt_count` 0) and nothing will pick it up. **Waiting does not obtain this proof.** The
+three ways to get it are in the handoff's decisions section; two of them need the owner.
+
+**The reframing this forces, and it should be said plainly rather than buried:** the
+false-green bleed has been **paused since 2026-08-12 by the sweep being off for unrelated
+cost reasons**, not by gate 1b. The gate's value is that it makes re-enabling that sweep safe.
+There is no urgency, and any claim that the gate "stopped the bleed" would be false.

@@ -224,6 +224,50 @@ of the six were answerable from work already done. Budget the ten minutes to lis
 
 ---
 
+## ✅ 2026-08-14 — GATE 1b IS LIVE (v1.0.1298), AND IT CANNOT BE EXERCISED
+
+**Shipped, proven at the artefact on BOTH replicas.** A three-needle single-pass binary probe
+returns gate 1b's own `NO_CHANGE_GATE_UNREADABLE_RESULT`, the long-live control
+`verification_unavailable`, and NOT a nonsense needle. The `build provenance` line was already
+out of reach at `--tail=6000` on four-hour-old pods, so `merge-base --is-ancestor` was not
+available — recipe and the two traps that cost a run each are in the RUNBOOK.
+
+**And it has never executed.** [MEASURED 2026-08-14] 0 `dark_section_audit` rows touched since
+the 08:58Z roll · 0 `NO_CHANGE_GATE_UNREADABLE_RESULT` records · 0 `_verification` keys. The
+cause is not the gate: **`improvement-sweep` is `enabled=false`** (off since 2026-08-12 16:16Z,
+the `bugfix_122` lane's cost decision), and it is the only triage carrier that dispatches this
+item type. `site-discovery-rotation-design` is off too. One `detected` row waits
+(`mortgagecalculator.co.uk`, filed 2026-08-13 22:03, `attempt_count` 0) with nothing to claim it.
+
+> **SAY THIS PLAINLY WHEREVER THE GATE IS DESCRIBED.** The false-green bleed has been paused
+> since 2026-08-12 **by the sweep being switched off for unrelated cost reasons**, not by gate
+> 1b. Detection still runs (a 16th site was filed on 08-13), so items still accumulate — they
+> simply are not dispatched. **The gate's value is that it makes re-enabling that sweep safe.**
+> Any claim that it "stopped the bleed" is false, and there is no urgency to prove it working.
+
+**So the behavioural proof is not obtainable by waiting.** Three ways to get it, and the choice
+is the owner's — note it is the SAME shape as the closure-criterion decision already pending,
+so the two can be answered together:
+
+1. **Re-enable `improvement-sweep`.** Not this lane's call: it was disabled after a measured
+   3.2x LLM cost surprise, and the 122 lane owns a dated 08-16 pricing action against it.
+2. **Dispatch the ONE waiting row deliberately** — `6fe8a0fc-b9e5-4c96-b14d-9227a7827fa9`,
+   `mortgagecalculator.co.uk`. A real live dispatch of a real fixer against a real site, so it
+   needs an explicit yes. It is the cheapest real proof: the handler will report `total_fixed 0`
+   (0 of 61 bodies change, measured), the gate should block, and the row should land
+   `triaged`/`failed` with *"completion blocked: the handler reported it changed nothing"*.
+   ⚠ Assert BOTH directions in one window — a gate that never fires and a gate that is not
+   wired look identical (RUNBOOK).
+3. **Accept presence + unit + mutation proof** and record the wiring as unexercised. Honest,
+   and weaker than the estate's own bar, which is why it is listed last rather than taken.
+
+**Whichever is chosen, the abstain arm is expected to dominate:** only 4 of the 14 completed
+rows ever carried the fixer's response envelope, so `agent_error_log` traffic under
+`NO_CHANGE_GATE_UNREADABLE_RESULT` is the likely first evidence — and that is the gate WORKING,
+not failing (WII-017's landmine).
+
+---
+
 ## ⚠ ITEM 2's DESIGN IS NO LONGER OURS TO INVENT — read WII-016 FIRST (found 2026-08-14)
 
 While this lane was working, the `bugfix_122` lane **built and shipped the retraction seam**:
