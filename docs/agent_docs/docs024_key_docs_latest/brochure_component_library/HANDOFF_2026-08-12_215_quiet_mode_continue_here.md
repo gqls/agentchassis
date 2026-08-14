@@ -435,3 +435,68 @@ deleting, and its refusal names every referrer by surface and slot. Doing that b
 archiving would have told us pair 1's real link state in ~40 seconds, with no DB change at
 all. **The runbook's step order (archive, then retract) is wrong in this respect** — retract
 first to learn, then archive, then retract again to execute.
+
+---
+
+# 13. 2026-08-14 (afternoon) — pair 1's blocker is CONTENT WORK, by design. This resizes O2.
+
+Chassis **`v1.0.1298`** (rolled 08:58Z): guard re-probed present on both replicas, controls
+behaved. `ARCHIVED_PAGE_%` still 0 — and note the loser has now been `archived` for ~6h with
+`deployed_at` unmoved, so nothing has tried to rebuild it either.
+
+## Do NOT hand-edit the nav row. The retraction does it itself.
+
+`retract_page_graph.go:16-38` splits the three inbound classes deliberately:
+
+- **nav row (`site_nav_items`) → the retraction DEACTIVATES it** (to `'inactive'`, a stated
+  convention) and reports it. *"A nav row is a pointer, not prose."* **Mechanised — editing it
+  by hand is doing the machine's job, and would leave the machine's own step a no-op.**
+- **editorial (body copy AND site chrome) → REFUSE, and name the referrers.** *"Repairing
+  prose is a content decision… auditors raise work items and never rewrite content."* The
+  refusal is what makes "dead link created by a retraction" unrepresentable rather than merely
+  detected.
+- **outbound orphans → report only**, owned by `check_orphan_pages`.
+
+**So pair 1 is blocked on exactly TWO things, both editorial:**
+
+1. **the site's footer chrome** — `{"slot":"footer","source":"chrome"}`. Site-wide: every page's
+   footer links to the loser. Chrome is a **stored artefact** and no page rerender regenerates
+   it — read `bugs_open/117` before touching it.
+2. **one article body** — page `llm-provider-abstraction-production-agent-systems`, slot
+   `article-body`.
+
+**A useful thing found while checking: the survivor ALREADY has its own nav row**
+(`f96754a7…`, position 12, `/tools/tool-llm-cost-calculator.html`). So the loser's nav row
+(`c5738bd1…`, position 5) must be **deactivated, not repointed** — repointing would duplicate
+an existing entry. The retraction does exactly that. (Cosmetic aside for whoever finishes:
+the surviving row's label is `Llm Cost Calculator`, slug-cased; the dying row has the correct
+`LLM Cost Calculator`. Worth copying the casing across — one field, and it is the label that
+will remain in the nav.)
+
+## The existing link-repair machinery does NOT apply here, and that is not a gap
+
+`component_link_repair.go` / `repairSectionLinks` repair links to pages that are **dead or
+unbuilt**. These links point at a page that exists and serves 200. What is wanted is to
+**repoint an editorial link to a different destination**, which is a content decision — the
+same reason the retraction refuses. The repair machinery would only engage *after* a
+retraction created a dead link, which is precisely the state the refusal exists to prevent.
+
+## ⚠ This resizes O2, and the owner should know before pairs 3–7
+
+**Pair 1 was chosen as the canary because it was the cleanest of the seven** — no plan surgery,
+a 727-word stub as the loser. It still cannot be retracted without a **chrome edit and a
+content edit**. There is no reason to expect the other six to be cleaner, and robot-hands'
+three additionally need plan surgery. **The runbook's "8 mechanical steps per pair" is not
+what this is.** Realistic shape per pair: dispatch retraction as a census → repair N editorial
+referrers through the framework → re-dispatch → verify.
+
+**Cheapest next measurement, and it costs nothing:** dispatch the retraction at each remaining
+loser *before* archiving. It refuses, deletes nothing, and returns the full referrer list per
+page. Six dispatches would size the whole remaining job in minutes.
+
+## State of pair 1 right now
+
+`llm-cost-calculator` is `archived` and still serving 200; nav and footer still point at it, so
+**nothing is broken for a visitor**. Cancelled work item `087c029a…`. Survivor untouched.
+Exact revert if wanted:
+`UPDATE pages SET status='active' WHERE id='6e66ff49-3f0e-423f-9286-5ec3dc0c413c';`
