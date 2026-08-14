@@ -196,11 +196,27 @@ func parkedReviewItemScanDests(it *parkedReviewItem, specJSON *[]byte) []interfa
 // query goes silently to zero.
 //
 // So the arm is a STABLE KEY, not prose. `GROUP BY arm` answers "where does the
-// ladder actually stop?", and because the gate arms are named `gateN_*`, a
-// prefix match answers "has gate N ever been REACHED?" — which no refusal
-// counter can, since an arm that refuses and an arm that is never consulted both
-// report nothing. Reaching is the observation; refusing is only one of its two
-// outcomes.
+// ladder stop?" mechanically, where before it took a LIKE over the reason text.
+// Reaching is the observation; refusing is only one of its two outcomes, and a
+// counter of refusals can never see the other one.
+//
+// ⚠ IT IS A SNAPSHOT, NOT A HISTORY, AND THE DISTINCTION IS THIS LANE'S OWN
+// LANDMINE — walked into by the change that added the field. `result.revalidation`
+// is REWRITTEN in full on every sweep (see applyRevalidation), so the arm on a
+// work item is the rung that decided it on the MOST RECENT sweep and nothing
+// else. It cannot answer "has a gate ever been reached": an item that reached one
+// last week and now stops at scan_still_trips has had that arm overwritten. The
+// landmine is filed as "a per-row revalidation stamp is LAST-WRITE-WINS, so
+// GROUP BY it reads exactly like a run log and is not one" — filed by this lane
+// two days before this field was written, and the council's debug_historian seat
+// caught the same overclaim in the submission that shipped it.
+//
+// The per-RUN record is the other surface: each sweep writes its whole decision
+// set to the step output, `collected_data->'sweep'->'items'` in
+// orchestration_states, one row per run and never overwritten. That is where a
+// rate or a trend has to come from. [MEASURED 2026-08-14: exactly ONE sweep row
+// is retained (08-13 08:44:39Z), so the surface is structurally right and
+// effectively empty — it becomes a history only as runs accumulate.]
 //
 // ⚠ IT IS AN OBSERVATION, NOT A CONTROL. Nothing branches on Arm and nothing may
 // start to: an instrument that changes the outcome it measures cannot then be

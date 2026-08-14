@@ -101,9 +101,24 @@ import (
 // all. Any arm whose name starts `gate_` proves the scan came back CLEAN and the
 // gates were consulted — that is the observation the counters could not give:
 //
-//	-- has any gate ever actually been REACHED, refusal or not?
-//	WHERE result #>> '{revalidation,arm}' LIKE 'gate_%'
-//	   OR result #>> '{revalidation,arm}' = 'resolved_all_gates_passed'
+//	-- which rung decided each item ON THE LATEST SWEEP (a snapshot, not a rate)
+//	SELECT result #>> '{revalidation,arm}' AS arm, count(*)
+//	  FROM site_work_items
+//	 WHERE item_type='claims_unverified' AND result ? 'revalidation'
+//	 GROUP BY 1 ORDER BY 2 DESC;
+//
+//	-- did a gate get REACHED on that sweep, refusal or closure?
+//	   ... WHERE result #>> '{revalidation,arm}' LIKE 'gate\_%'
+//	        OR result #>> '{revalidation,arm}' = 'resolved_all_gates_passed'
+//
+// ⚠ NEITHER OF THOSE IS A HISTORY, and the word "ever" does not belong in either.
+// `result.revalidation` is rewritten whole on every sweep, so both read only the
+// most recent run — the LAST-WRITE-WINS landmine this lane filed on 2026-08-12 and
+// then walked into on 2026-08-13, caught by the council's debug_historian seat. For
+// a rate or a trend, read the per-run step output instead:
+// `collected_data->'sweep'->'items'` in orchestration_states, one row per sweep,
+// never overwritten. [MEASURED 2026-08-14: exactly ONE sweep row retained, so that
+// surface is structurally right and effectively empty until runs accumulate.]
 //
 // ⚠ THE PREFIX IS THE GATE'S NAME, NOT ITS LADDER POSITION. The ladder consults
 // them in the order claims → copy → published, which is NOT the order they were
