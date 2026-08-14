@@ -1,4 +1,13 @@
-# 274 — completed workflows cannot deliver their results to their parents: ~15,000 failures across 60 agent types since 2026-08-03, and the parent completes the work item without the child's payload
+# 274 — a SUCCEEDED workflow is reported to its parent as FAILED: two reply headers are never set, so the reply cannot pass validation — ~15,000 times across 60 agent types since 2026-08-03
+
+> **⚠ READ §9 FIRST. It supersedes parts of what follows, and this file would otherwise contradict itself.**
+> §9 (added the same evening) LOCATES the root cause and therefore: answers §3's two `[UNVERIFIED]`
+> items (the missing fields are `sender_agent_type` and `in_response_to_step_name`, and the
+> unlocated wrapper is `notifyParentOfSuccess`); **corrects §1 and the original title**, which said
+> the parent proceeds without the payload — it is in fact told the child FAILED; and **DOWNGRADES
+> §4** from a strong candidate for `bugs_open/213` §D to one its own evidence argues against.
+> §5's fix candidates are superseded by §9's. Sections 1–8 are kept as filed, unedited, because
+> the route from symptom to cause is the useful part — but do not act on them alone.
 
 **Filed 2026-08-14** by the `bugfix_213_verifier_producer_join` lane. Found while chasing a
 different question — bug 213's §D, "why do 10 of 14 completed items carry a payload that is not
