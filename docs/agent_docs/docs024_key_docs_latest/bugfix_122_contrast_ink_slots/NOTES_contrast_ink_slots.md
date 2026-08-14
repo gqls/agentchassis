@@ -2369,3 +2369,46 @@ the correction is in the handoff.
 the sha. Then: un-defer `829a8f3e`, re-file for BOTH canaries at 5.0, owner looks, "Go" gates the
 widening. My background watcher on the held item will time out harmlessly (it breaks only on
 terminal states).
+
+## 2026-08-14 (night) — the council's REVISE found their defect, and re-checking the hold found MINE
+
+Their round came back REVISE (health-checked: 7 seats rendered, 0 unreadable) on a real defect:
+`inkPolicy{}`'s zero value was `enabled:false` — a future call site that forgot to thread a policy
+would silently emit nothing, restoring pre-repair behaviour with no error. Fixed with a
+constructor-only `resolved` flag (fails safe AND loud), mutation-proved twice. **Round 2 is
+`e0f239118`; the ancestry gate now points at THAT** — a stamp carrying only `d4bbbf645` would run
+the zero-value version.
+
+**And the seat's nudge to re-verify the hold found a defect in MY filing.** `debug_historian`
+(HIGH) asked whether `deferred` alone makes the item undispatchable. Checking that properly:
+
+- While `deferred`: safe regardless — claims filter `status IN ('triaged','approved')`.
+- **But my INSERT put `handler_agent` in `spec` only. The dispatcher and claim path read the
+  FIRST-CLASS COLUMN** (`load_work_item_actions.go:676` filters `wi.handler_agent`;
+  `claim_work_item_action.go:132` re-reads it by id), and the claim path's own comment spells out
+  what an empty column earns: claimed, then immediately **`blocked`** — "No handler_agent set" —
+  released, error recorded. So once un-deferred, my canary item would not have dispatched to
+  `webdesign-agent`; it would have blocked on first claim, at the exact moment the owner was
+  waiting on his gate.
+- The 08-09 template row had the COLUMN set and `spec` without the key; I transcribed the spec and
+  missed that the column was first-class. **The landmine for this exact shape was served to this
+  session at startup** ("a work item's first-class columns are invisible to its handler — the
+  creator that uses the schema properly is the one whose items cannot be dispatched") and I read it
+  as being about a different direction of the same seam.
+- **Repaired while safely deferred**: `handler_agent='webdesign-agent'` set on `829a8f3e`, guarded
+  on `status='deferred' AND handler_agent=''`; row now matches the proven template shape (both
+  verified side by side). The staged webdesign INSERT in the handoff had the same defect and now
+  names the column.
+
+The general shape, which is now twice-proven in this lane in one week: **copying a working example
+by its VISIBLE fields reproduces the fields you noticed, not the ones that made it work.** The
+08-09 dump showed forty-odd fields; I carried the six that looked meaningful and dropped the one
+the router reads. Same class as the `[TRANSCRIBED]` rule — the template's load-bearing parts are a
+claim you have to identify, not a shape you can eyeball.
+
+Also theirs, recorded for the widening: **46 ink references fleet-wide, 0 bare** — every consumer
+carries a `var()` fallback, so the kill-switch's emit-nothing path degrades instead of dropping
+declarations. Nothing enforces that invariant; if the 168-component sweep ever emits a bare
+reference, the kill-switch silently becomes a declaration-dropper. And RFC_022's optional-key
+counter does not list `render_css_from_spec` at all (no `RegisterActionInputSpec`), so its silence
+there is the gate not looking, not a pass.

@@ -142,7 +142,10 @@ and ROLLED** — un-deferring after the commit but before the roll re-renders at
 exactly what the hold exists to prevent. The gate is ancestry **of the running stamp**:
 ```bash
 kubectl -n ai-persona-system logs -l app=agent-chassis --tail=2000 | grep -m1 -o '"git_commit":"[a-f0-9]*"'
-git merge-base --is-ancestor d4bbbf645 <the stamp>     # TRUE, and only then:
+git merge-base --is-ancestor e0f239118 <the stamp>     # TRUE, and only then:
+# (e0f239118 = ROUND 2 of their change, after a council REVISE found the inkPolicy zero-value
+#  defect; d4bbbf645 is its ancestor, so gating on e0f239118 covers both. Gate on e0f239118 —
+#  a stamp carrying only d4bbbf645 would run the version whose zero value silently emits nothing.)
 ```
 
 > **THE CURRENT STATE, measured 2026-08-14 evening (and corrected the same evening — read both
@@ -150,7 +153,8 @@ git merge-base --is-ancestor d4bbbf645 <the stamp>     # TRUE, and only then:
 > `d60aab29…`, verdict pending) and **the fleet does not run it**: v1.0.1299's stamp is
 > `6f8efa158`, probed with three controls, and `merge-base --is-ancestor d4bbbf645 6f8efa158` →
 > **false**. Retraction and ink round 2 both still live. **The item stays held until that query
-> returns true for `d4bbbf645` specifically.**
+> returns true for `d4bbbf645` specifically.** *(Superseded the same evening: gate on
+> **`e0f239118`** — round 2 after a council REVISE; see the gate block above.)*
 >
 > > **CORRECTED 2026-08-14, caught by the `581eb30a` session, verified here at the clocks:** the
 > > first version of this note read "v1.0.1299 rolled WITHOUT it" and filed the incident under
@@ -176,15 +180,26 @@ UPDATE site_work_items SET status='triaged'
 -- 2. file the second canary
 INSERT INTO site_work_items
   (site_id, source, pipeline, item_type, severity, priority, status, item_key, summary, spec,
-   created_by, approval_mode, max_attempts)
+   created_by, approval_mode, max_attempts, handler_agent)
 SELECT s.id, 'operator:bugfix_122_contrast_ink_slots', 'build', 'needs_design_review', 'medium',
    100, 'triaged', 'css_rerender_ink_round2_webdesign_co_uk_20260814',
    'Second canary (owner-added): re-render styles.css at the revised 5.0 threshold. Five layouts put accent-ink on every in-prose link, so THIS site exercises the decision.',
    jsonb_build_object('bug','bugs_open/122','domain','webdesign.co.uk',
-     'reason','ink_derivation_round2_owner_gated_canary','handler_agent','webdesign-agent',
+     'reason','ink_derivation_round2_owner_gated_canary',
      'owner_ruling','2026-08-14: 5.0; Go after I have seen dartsonline.com'),
-   'operator:bugfix_122_contrast_ink_slots', 'auto', 3
+   'operator:bugfix_122_contrast_ink_slots', 'auto', 3, 'webdesign-agent'
 FROM sites s WHERE s.domain='webdesign.co.uk';
+```
+> **⚠ `handler_agent` must be the FIRST-CLASS COLUMN, not a spec key (corrected 2026-08-14 late).**
+> My original dartsonline INSERT put it in `spec` only. The dispatcher and claim path read the
+> COLUMN (`load_work_item_actions.go:676`, `claim_work_item_action.go:132`), and an empty column
+> means the item is claimed then immediately **`blocked`** — "No handler_agent set" — the moment it
+> is un-deferred. Found by the council's `debug_historian` seat nudging a re-check of the hold; the
+> held row is repaired (`handler_agent='webdesign-agent'` set 2026-08-14 while safely `deferred`),
+> and this staged INSERT now matches the proven 08-09 template shape. While `deferred`, the item is
+> unclaimable regardless (claims filter `status IN ('triaged','approved')`), so the repair was safe.
+```sql
+-- (gate sha updated: round 2 of their change is e0f239118 — gate on THAT)
 ```
 **Grade against these, written before any run** — full-file diff vs the banked shas first, then:
 | site | slot | expect at 5.0 | status |
