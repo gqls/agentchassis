@@ -672,3 +672,38 @@ one is worse than merely unhelpful. It now does.
 **What's still yours to decide, unchanged from this morning:** whether that shared piece of
 machinery gets a formal owner (the 27-reviews question), and whether we switch on the daily
 record — which needs a container image built first.
+
+**Later — approved, and the reviewers caught something I'd have carried forward.**
+
+The review came back **approved** at 17:29. Thirteen reviewers, five raised advisory
+points, none serious enough to block. That's the change finished: it's approved, it's
+running, and the record now says so.
+
+Two of the five were about **my evidence rather than my code**, which is the part worth
+telling you about.
+
+One reviewer said the way I'd proved the code was running on the machines was a method
+our own notes describe as broken. I checked, and it isn't — the note warns against a
+different version of that check, and I'd used the sound one, with the control that makes
+it mean something. So that objection doesn't stand.
+
+The other one did stand, and it paid for itself several times over. I'd written "verified
+on both machines". There are two machines with the obvious name — but **seventeen** run
+that same program under other names, so "both" was a sample I'd described as if it were
+everything. Going to count them properly turned up something I wasn't looking for: **the
+system had been rebuilt again since this morning**, so the version number I'd certified in
+two separate documents was already out of date. The fix survived the rebuild — I checked,
+both directions — but I'd have carried a stale number into a third document if a reviewer
+hadn't made me widen a check I was confident about.
+
+A third reviewer asked a question I should have answered before submitting: of the
+ninety-nine settings this change brings to life, do any of them touch page-building, where
+a wrong value could quietly damage a site? **None do.** Twenty-one of the ninety-nine
+actually change anything at all; the other seventy-eight set a value to what it already
+was. And the three closest to page-building turn out to read their settings by a different
+route that never involved the broken machinery in the first place — so the change doesn't
+affect them either. That took one command. It should have been in the submission.
+
+Two objections are deliberately left **open** rather than counted as settled, because both
+reviewers asked for that: they're the "who owns this shared machinery" question, which is
+the one waiting on you. Nothing else is outstanding on this piece of work.
