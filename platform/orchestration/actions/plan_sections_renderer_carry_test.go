@@ -21,6 +21,7 @@
 //     unlock.sql relies on this for gauntlet-cta's primary urls);
 //   - a declared fallback still writes when nothing is stored
 //     (181_class_e_live_cta_url_integrity.sql / 097b's deliberate pin).
+//
 // The one deliberate behaviour change beyond the carry itself: a stored value
 // now beats a declared fallback (the fallback is a default; the stored value
 // is the page). TestPlanSections_StoredValueBeatsStaticFallback pins it.
