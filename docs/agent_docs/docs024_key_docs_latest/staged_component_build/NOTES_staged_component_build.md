@@ -3974,3 +3974,49 @@ Next session: re-run kubectl once the token is refreshed, pull one of the named 
 orchestration rows' `collected_data` for the `asset-deployer` child (search
 `collected_data` for the resolved `asset_id` the `deploy_asset` step actually saw), record
 it, then resubmit with `RESUBMIT_CORR=7f0c1535-25cb-4645-adba-f7429e357a79`.
+
+## 2026-08-13 (continued, same session, kubeconfig restored) — pre-fix evidence pulled, migration registered, ROUND 2 RESUBMITTED
+
+Token refreshed; picked the owed work back up rather than re-deriving it.
+
+**Pulled the pre-fix evidence.** 5 real `image-build-handler`-parented `asset-deployer`
+completions (`e4519920…`/`600f5abe…`/`a01180e9…`/`5e477300…`/`0eb547ee…`, all before the
+17:09:54Z fix) all show `collected_data->input_data->>'asset_id'` **empty** — the
+safe-but-incomplete failure mode, not the wrong-asset pull the objection feared. Searched
+for a historical row where `asset_key` was ALSO empty (the shape where `assetRowIdentity`'s
+purpose-fallback actually engages) — **zero matches**, so that branch's behaviour under the
+exact shape the objection is about remains genuinely unexercised in the sample; recorded as
+such rather than read as "proven safe".
+
+**Registered the live fix properly, instead of leaving it as an ad-hoc `psql` UPDATE.**
+Found the `bugfix_134_optional_marker` council round as the exact precedent for a
+DB-config-only edit: guardian objected to labelling a live `agent_definitions` mutation as
+anything other than `config_change`, and the fix was written up as a real, idempotent,
+numbered migration (`298_…sql`) and registered via `--record-only` rather than left as a bare
+`UPDATE`. Mirrored it: `docs/agent_docs/sql_for_agents/401_image_build_handler_explicit_asset_id_mapping.sql`
+— same `snapshot_agent` + fenced `jsonb_set` + two `DO $$ … RAISE` verify blocks (new key
+correct; the three neighbouring mapping keys AND the sibling steps survived) shape as 298.
+Dry-run (`run-migrations.sh`, no flags) confirmed it runs cleanly to its own `COMMIT` inside
+the doomed transaction. Registered: `./run-migrations.sh --record-only 401_… --note '…'`,
+confirmed in `schema_migrations` (`applied_by='record-only'`). Committed alone (`f5386b8f9`),
+narrow pathspec.
+
+**Resubmitted to council, `RESUBMIT_CORR=7f0c1535-25cb-4645-adba-f7429e357a79`** — new run
+correlation `754169fc…`, orchestration `d927ec67…`. 5 edits total (the 4 already-shipped Go
+edits from R1, unchanged except edit 4's corrected rationale, plus the new migration-401 edit
+answering the HIGH objection), plan bytes 10,560 (well under the 65,536 cap). Dispatch queue
+was clear (LAG 0) with several OTHER threads' council runs already in flight
+(`council-gate-orchestrate-0813-2201/2203/2208`) — budget the ~30 minutes the RUNBOOK names,
+not the ~2 the queue's own "lane is clear" reading would suggest.
+
+**Verdict not yet read as of this entry.** Follow with:
+```sql
+SELECT created_at, metadata->>'decision' FROM diagnosis_artifacts
+WHERE correlation_id='7f0c1535-25cb-4645-adba-f7429e357a79' AND kind='council_report' ORDER BY created_at;
+```
+APPROVED → `Council-Reviewed: 7f0c1535-25cb-4645-adba-f7429e357a79` on the next commit that
+touches this fix (neither of this session's two commits, `956bf19c6`/`f5386b8f9`, touches
+`platform/`/`internal`/`pkg/`, so neither is itself gated by the 098 coverage report — the
+actual platform-code commit, `930ace3bd`, already carries `Council-Submitted:` from the R1
+round). REVISE → read the fresh objections before doing anything; do not assume they repeat
+R1's.
