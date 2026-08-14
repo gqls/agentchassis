@@ -1,4 +1,4 @@
-# HANDOFF — 2026-08-14, fresh chat starts here: batch-8 fully closed, `bugs_open/248`'s code fix is LIVE on the fleet, its council review is stuck on a genuine architecture question
+# HANDOFF — 2026-08-14 (b), fresh chat starts here: batch-8 fully closed, `bugs_open/248`'s code fix is LIVE and PROVEN on gaswholesalers; mortgagecalculator's hero is a separate, tangled sub-problem
 
 **Supersedes `HANDOFF_2026-08-12_continue_here.md`.** That handoff's whole job (the batch-8
 tail, `tool-bayesian-ranking` + `tool-llm-cost-calculator`) is **done** — both items closed
@@ -6,17 +6,26 @@ the same session window, independently, by two different sessions, with no colli
 file exists because a large amount of *different* work happened afterward, on
 `bugs_open/248`, and it deserves its own cold-start rather than inheriting a stale story.
 
-## 1. State (verified 2026-08-14 ~14:00Z)
+**Update, same day, after a second fresh roll:** re-verified against `v1.0.1299`
+(`6f8efa158…`) — no regression, `930ace3bd` still an ancestor, gaswholesalers' logo still
+200. Went to repeat the same proof on mortgagecalculator's hero and found its situation is
+NOT a simple re-trigger — see the new §2b.
+
+## 1. State (verified 2026-08-14, re-verified same day against a second roll)
 
 - **Batch-8: CLOSED.** Nothing left on it. If a fresh session is tempted to re-check it,
   don't — `CHECK_naming_contract.sh` already reflects both landings (0 broken class).
-- **Fleet: `v1.0.1298`.** Chassis + browser-runner-adapter confirmed on the SAME commit
-  (`bc39e7bf547e9d5db07c92085be85c6874654774`) via the binary-probe-with-controls method
-  (chassis's own provenance log line had already scrolled out of even a `--since-time` pull
-  from pod start — a busy-service rotation issue, not a time-window one; fell back to
-  cross-checking chassis's binary for browser-runner's own known commit, positive AND
-  negative control, both as expected). **`930ace3bd` (the `bugs_open/248` Go fix) is
-  confirmed `git merge-base --is-ancestor` of this build — the code half of 248 is LIVE.**
+- **Fleet: `v1.0.1299`** (was `v1.0.1298` earlier the same day — the fleet rolled again
+  mid-session; re-verify yet again by the time you read this, it moves fast on this tree).
+  Chassis + browser-runner-adapter confirmed on the SAME commit
+  (`6f8efa158ea3365bea79eec0de0283041ed54842` at the second check;
+  `bc39e7bf547e9d5db07c92085be85c6874654774` at the first) via the binary-probe-with-controls
+  method both times (chassis's own provenance log line had already scrolled out of even a
+  `--since-time` pull from pod start, both times — a busy-service rotation issue, not a
+  time-window one; fell back to cross-checking chassis's binary for browser-runner's own
+  known commit, positive AND negative control, both as expected, both times). **`930ace3bd`
+  (the `bugs_open/248` Go fix) is confirmed `git merge-base --is-ancestor` of BOTH builds —
+  the code half of 248 is LIVE and has not regressed across a fleet roll.**
 - **`bugs_open/248` (the placeholder-filename bug — NOT the same-numbered CTA bug, see §5
   below) has been through FOUR council rounds, all REVISE, each answering the last with real
   evidence rather than argument:**
@@ -91,10 +100,37 @@ symptom named at the top of this bug file ("→ 404… four months") is resolved
 
 **This is real, end-to-end, disconfirming-capable proof** — the run could have reproduced
 the old bug (it had, twice before, on this exact asset) and didn't. Recorded in NOTES and the
-bug file. `mortgagecalculator.co.uk/assets/images/hero.jpg` was NOT re-tested this session —
-same mechanism, different site, reasonable to expect the same result, but say so as an
-expectation, not a re-verified fact, until someone actually triggers and checks it (its own
-`needs_hero_image` items would need the equivalent promotion/re-dispatch).
+bug file.
+
+## 2b. Went to repeat the proof on mortgagecalculator — found a SEPARATE, tangled situation, did not fix it
+
+`mortgagecalculator.co.uk/assets/images/hero.jpg` is still **404**. Looked for the same kind
+of stalled, re-triggerable work item gaswholesalers had, and the situation is genuinely
+different, not just "hasn't been re-tried yet":
+
+- The homepage's own `background-image` really does reference `/assets/images/hero.jpg`
+  (checked at the served page, not assumed).
+- The matching asset row — `purpose='hero'`, `asset_key='hero'` (the plain, site-wide
+  homepage hero, as opposed to the per-page variants below) — has **NO active row at all**.
+  The two most recent attempts (`9e94250d…`, updated 2026-08-12; `d6ead260…`, 2026-08-11) are
+  both `status='superseded'`, and one earlier one (`477838e3…`) is `status='rejected'`.
+- This is DIFFERENT from the per-page heroes on the same site (`asset_key='hero_about'`,
+  `'hero_contact'`, etc.), which ARE active and presumably serving fine — those use distinct
+  per-slot keys that don't collide the way the bare `hero` purpose apparently does.
+- Every `needs_hero_image`/`undeployed_asset` item on this site for plain `purpose='hero'`
+  is already `complete` or `cancelled` — none sitting `unresolved`/`triaged` ready to
+  promote the way gaswholesalers' was. Matches the bug file's own 08-12 contribution:
+  "`needs_hero_image` has been filed five times here (3 cancelled, 2 complete) and
+  `image_url_404:hero.jpg` has been blocked since 2026-08-05."
+
+**Did not create a new work item or force anything** — that would be a heavier, more
+speculative action than promoting an already-stalled one, and this site's history (repeated
+supersede/reject/cancel cycles on exactly this asset) suggests there may be a second,
+different mechanism in play here beyond the plain placeholder-filename bug 248 already
+fixed — worth understanding BEFORE dispatching another attempt, not after. Whoever picks
+this up next should start by reading why the two most recent `hero` (plain) generations
+were marked `superseded` rather than assuming a fresh dispatch will behave like
+gaswholesalers' did.
 
 ## 3. What's actually left on `bugs_open/248`
 
@@ -104,9 +140,11 @@ expectation, not a re-verified fact, until someone actually triggers and checks 
    be a hard refusal — is bigger than this bug and shapes every future caller of the shared
    mechanism, not just these two. This is exactly `architecture_review/`'s job, not another
    round of evidence-gathering on the same submission.
-2. **`mortgagecalculator.co.uk/assets/images/hero.jpg`** — same mechanism, not yet
-   re-tested. Find its own `needs_hero_image`/`undeployed_asset` item(s) and repeat §2's
-   promotion-and-watch, then verify at the artefact.
+2. **`mortgagecalculator.co.uk/assets/images/hero.jpg`** — investigated, NOT fixed (see
+   §2b). No stalled item to promote; the plain `hero` asset_key has no active row and a
+   history of superseded/rejected generations. Understand why BEFORE dispatching a fresh
+   attempt — this may be a second, distinct mechanism layered on top of 248's own defect,
+   not just "the same bug, one site behind."
 3. **Design the backlog-drain job.** ~146 rows / 15 sites already committed under the
    placeholder filename will not repair themselves. Nobody has designed this yet. §2 proves
    the corrected deploy path works, so the drain is mechanically "for each affected asset
@@ -153,12 +191,15 @@ existed, so no duplicate landed) and left a stray `kcat-cgate-*` pod that needed
 ## 6. Session-start checklist
 
 1. `git log --oneline -10`; re-read this file FROM DISK.
-2. **Read §2 first** and resolve the in-flight verification before anything else.
-3. Pod-grep chassis + browser-runner for the CURRENT build (method: chassis's provenance
+2. Pod-grep chassis + browser-runner for the CURRENT build (method: chassis's provenance
    line scrolls out fast on this fleet — cross-check via a known-good sibling service's
-   commit + a bogus negative control, per §1, rather than a blind binary grep).
-4. `who-owns.py 248` (both files will show — resolve by filename) and grep live transcripts
-   before touching either the drain-job design or the R4 architecture question.
-5. If picking up the architecture question: that's `architecture_review/`'s process
+   commit + a bogus negative control, per §1, rather than a blind binary grep). The fleet
+   rolled twice in one day already this session — assume it has moved again.
+3. `who-owns.py 248` (both files will show — resolve by filename) and grep live transcripts
+   before touching the drain-job design, the R4 architecture question, or mortgagecalculator's
+   hero (§2b).
+4. If picking up the architecture question: that's `architecture_review/`'s process
    (RFC-shaped), not a normal task — read `docs/agent_docs/docs024_key_docs_latest/
    architecture_review/` for the current convention before starting one.
+5. If picking up mortgagecalculator's hero (§2b): read why the two most recent `hero`
+   generations were `superseded` before dispatching anything new.

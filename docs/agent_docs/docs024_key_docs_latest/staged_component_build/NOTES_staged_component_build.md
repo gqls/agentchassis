@@ -4148,3 +4148,38 @@ stated as an expectation not a re-verified fact.
 continuing, per the owner's own signal about session length. Three things left: route R4's
 architecture question to a human/RFC; re-test the mortgagecalculator hero the same way;
 design (don't improvise) the backlog-drain job for the ~146 remaining placeholder rows.
+
+## 2026-08-14 (continued, same session, fleet rolled a second time) — re-verified no regression; mortgagecalculator's hero turned out to be a different, tangled problem, not a quick repeat
+
+Owner reported a second fresh chassis build. Re-checked rather than assumed: `v1.0.1299`
+(was `v1.0.1298`), new pod generation (`699fc7fcbc`, ~60m old at check time), commit
+`6f8efa158…` (matches current-ish HEAD, one commit behind `e57ecdf1c`). Cross-checked via
+the same binary-probe-with-controls method (chassis's provenance line scrolled out again,
+even from `--since-time` at pod start — a real, repeatable pattern on this fleet, not a
+one-off). **`930ace3bd` still an ancestor** — no regression. Re-curled gaswholesalers' logo:
+still **200**.
+
+Went to repeat the exact proof from the last entry on `mortgagecalculator.co.uk`'s hero and
+it is **not** a quick repeat. Confirmed the homepage's own `background-image` genuinely
+references `/assets/images/hero.jpg` (read at the served page). The matching asset row
+(`purpose='hero'`, `asset_key='hero'` — the plain, site-wide homepage hero, distinct from
+the per-page `hero_about`/`hero_contact` variants which ARE active) has **no active row at
+all** — the two most recent generations are `status='superseded'`
+(`9e94250d…` 2026-08-12, `d6ead260…` 2026-08-11), one earlier is `rejected`. Every
+`needs_hero_image`/`undeployed_asset` item on this site for the plain `hero` purpose is
+already `complete` or `cancelled` — nothing sitting in a promotable `unresolved`/`triaged`
+state the way gaswholesalers' item was. This matches the bug file's own 08-12 contribution
+(5 filings, 3 cancelled, 2 complete, `image_url_404:hero.jpg` blocked since 08-05) — a
+persistent, specific-to-this-asset stuck state, not just "hasn't been re-tried since the
+fix landed."
+
+**Deliberately did not create a new work item or force a fresh dispatch.** Promoting an
+already-stalled item (gaswholesalers) is a small, contained action; creating a new one on an
+asset with a repeated supersede/reject history is a bigger, more speculative one, and this
+site's specific history suggests there may be a SECOND mechanism at play here on top of
+248's own defect — worth reading before dispatching, not after. Left this as a named,
+scoped open item rather than pushing further given the session's length.
+
+**Updated the handoff** (`HANDOFF_2026-08-14_continue_here.md`, §1 for the re-verification,
+new §2b for the mortgagecalculator finding, §3 item 2 revised) rather than writing a second
+new file — this is a continuation of the same day's story, not a fresh milestone.
