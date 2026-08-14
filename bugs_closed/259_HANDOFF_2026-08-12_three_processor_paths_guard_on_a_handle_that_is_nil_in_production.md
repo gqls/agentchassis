@@ -15,7 +15,80 @@
 246's follow-up D5 ("collapse `p.sqlDB` into `p.db`"). What looked like a cosmetic
 two-handles tidy-up is three production-dead code paths sharing one cause.
 
-> ## STATUS 2026-08-14: **FIXED IN THE TREE, STILL OPEN — the fix is a Go change and is inert until a fleet roll.**
+> # ✅ CLOSED 2026-08-14 — FIXED, LIVE ON v1.0.1298, AND VERIFIED AT THE ARTEFACT
+>
+> Council **APPROVED** (`0ff072ef-…`, both advisory objections answered below). Live on both
+> chassis pods (`agent-chassis-64cb9c4bb9-6tfxf`, `-dphbw`, up 08:58Z). Verified as follows —
+> **two of the three checks measured, the third inconclusive for a stated reason, not skipped.**
+>
+> **The deploy, proven at the artefact — by ABSENCE with a PRESENT-control.** The `build
+> provenance` startup line had already scrolled past `--tail=6000` on both pods (they are busy;
+> an empty result there means "not in range", **not** "unstamped"). A sha probe was the wrong
+> tool: the release builds from HEAD, so the stamp is a *later* commit than mine and grepping for
+> `e37f79b65` would fail even on a correct deploy. Instead, because this change **deletes** log
+> literals, the probe is their absence — with a literal that must still be **present** so a
+> broken probe cannot masquerade as a successful deploy. `[MEASURED 2026-08-14, v1.0.1298, both
+> pods, `grep -a` on `/proc/1/exe`, never `strings`]`
+>
+> | literal | required | both pods |
+> |---|---|---|
+> | `Child workflow completed, sending response to parent` (site A, deleted) | ABSENT | absent ✅ |
+> | `p.sqlDB is not nil` (site C, deleted) | ABSENT | absent ✅ |
+> | `Workflow successfully handed off to the orchestrator` (the fall-through I KEPT) | PRESENT | present ✅ |
+>
+> The absent literal existed exactly **once** in the tree at `e37f79b65^` and **zero** times at
+> HEAD, so its absence is attributable to this change and nothing else.
+>
+> **CHECK 1 — `recordDispatchFailureState` still writes its FAILED row: PASS, measured.** This is
+> the load-bearing check, because a nil `p.db` would produce *no row at all* — which is precisely
+> what `bugs_closed/239`'s original defect looked like. Dispatched a single-line envelope naming
+> `no-such-agent-259-postroll` (corr `8234e56e-3f2f-48e9-a83c-3e3672815d73`, orch
+> `7335cb9c-…`):
+> ```
+> owner_agent_type           | status | error
+> no-such-agent-259-postroll | FAILED | DISPATCH_UNRESOLVABLE: DISPATCH_FAIL_CLOSED agent_type_unresolved: …
+>                                       created_at 2026-08-14 13:55:58+00
+> ```
+> `owner_agent_type` is the **REQUESTED** type, not `generic` — SYS-090's whole point, intact on
+> the new binary. The row's existence also proves the message arrived, which is stronger evidence
+> than the intake row (`kcat -P` can publish nothing at exit 0, so arrival needed proving).
+>
+> **CHECK 3 — `processed_messages` write rate unaffected: PASS, measured.** agentbase's dedupe
+> claim — the one site C was a dead copy of — writes continuously **across** the roll. 20-minute
+> buckets either side of 08:58Z: pre-roll `07:40 47 rows/9 writers`, `08:00 68/12`; post-roll
+> `09:00 28/6`, `09:20 30/9`, `09:40 24/6`, `10:00 24/6`. No discontinuity and no loss of
+> writers. ⚠ **Compare across the roll, not against the filing's 449/hr figure from 08-12** —
+> that was a busier day and the absolute difference is fleet load (visible in the writer count),
+> not this change. The `08:20 260/48` spike is release churn as agent pods restart.
+>
+> **CHECK 2 — `recordDroppedValidationError` still writes to `agent_error_log`: INCONCLUSIVE, and
+> this is a DEMAND problem, not a failure.** Zero rows since the roll — and zero here means
+> nothing, which the demand control establishes rather than assumes:
+> - The writer is **not** identifiable by `severity='warning'`: four different writers share that
+>   severity (`page-build-handler`, `page-rerender`, `page-retraction`,
+>   `content-feed-orchestrator`). The discriminator is **`context ? 'matched_needle'`**, the key
+>   this function puts there deliberately because its needle match is unanchored.
+> - Base rate on that discriminator: **2–3 rows/day** for the last three days. **The last row is
+>   `2026-08-14 02:37:58Z` — 6¼ hours BEFORE the roll.** Expected count in the ~5 hours since:
+>   **~0.4**. Observing zero is exactly what no-demand looks like and could not have come out
+>   otherwise.
+>
+> **Why that does not block closure — the reasoning, so a reader can reject it if they disagree.**
+> The edit to this function was `db := p.sqlDB; if db == nil { db = p.db }` → `db := p.db`. In
+> production `p.sqlDB` was **always** nil, so the old code **always** fell through to `p.db` —
+> the very handle the new code reads. The two are the same value by construction, so this is a
+> no-op in the strongest available sense rather than "probably fine". And its one premise —
+> *`p.db` is non-nil and usable on the live pod* — is exactly what **CHECK 1 measured**, in the
+> sibling function whose edit was identical in kind. **Still owed for completeness, and recorded
+> rather than dropped:** the direct observation when demand next arrives —
+> ```sql
+> SELECT occurred_at, agent_type, action, context->>'matched_needle'
+> FROM agent_error_log WHERE context ? 'matched_needle' AND occurred_at > '2026-08-14 08:58:00+00'
+> ORDER BY occurred_at DESC;
+> ```
+> ⚠ domain-column trap on this table: `COALESCE(domain,'') = ''`, never `domain IS NULL`.
+>
+> ~~## STATUS 2026-08-14: **FIXED IN THE TREE, STILL OPEN — the fix is a Go change and is inert until a fleet roll.**~~ **Superseded by the closure above.**
 >
 > Candidate 1 applied at `e37f79b65` (+ `f894b1a38`, gofmt). `p.sqlDB` no longer exists;
 > `MessageProcessor` has one handle. Council gate: `Council-Submitted:
