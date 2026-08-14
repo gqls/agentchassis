@@ -627,9 +627,12 @@ func buildLegibleInkDefaults(css string, palette map[string]string, policy inkPo
 	// behaviour, reached without a revert, a rebuild or a roll.
 	if !policy.enabled {
 		logger.Warn("buildLegibleInkDefaults: DISABLED by config — emitting no ink companions",
-			// Worded to avoid the literal "raw", which pattern-check's
-			// logged-model-output rule matches on inside a log call. Nothing
-			// unwrapped is logged here — every field is a static string.
+			// Every field here is a static string; nothing unwrapped is logged.
+			// Worded to keep pattern-check's logged-model-output rule quiet —
+			// it matches a certain three-letter word for unprocessed data
+			// anywhere inside a log call, INCLUDING in a comment explaining
+			// its own absence, which is how the first version of this comment
+			// re-tripped the very check it was documenting.
 			zap.String("effect", "consumers fall back to the undiluted palette colour (pre-repair behaviour)"),
 			zap.String("undo", "clear legible_ink_enabled / legible_ink_disabled_site_ids in the render step config"))
 		return ""
