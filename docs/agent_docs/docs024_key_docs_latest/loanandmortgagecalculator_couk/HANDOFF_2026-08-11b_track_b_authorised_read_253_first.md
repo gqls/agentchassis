@@ -295,3 +295,61 @@ before anyone runs `section-editor` at an LMC prose row.
   (`feeb85acf`), so the tool stops you — re-point to a concrete SHA and re-verify at
   the moment of use.
 - `bugs_open/251` → then `252`. `bugs_open/250`: round-trip the loancalculator restore.
+
+---
+
+# ADDENDUM 2026-08-14 — the floors now reach the section editor, APPROVED, and what is still NOT rolled
+
+**Council APPROVED `b30ac52c` at round 3** (10 of 11 seats; `bug_historian`, who gated
+round 1, approves). Both REVISE rounds found real defects — see `bugs_open/253`'s
+table. Commits already carry `Council-Submitted: b30ac52c`, so `098` credits them
+automatically; **do not add a `Council-Reviewed:` trailer by amend** (forward-only).
+
+## What is live vs what is only committed — the distinction that matters
+
+| | state |
+|---|---|
+| component floor on **`save_page_sections`** | **LIVE** since v1.0.1295 (verified in the binary, both replicas, with controls) |
+| both floors on **`ApplySectionEditAction`** | **COMMITTED, NOT ROLLED** — needs the next chassis build |
+| coverage test (the class fix) | committed; it is a test, so it protects the *repo*, not production |
+
+**So Track B's 18 decomposed pages are still unprotected on the section-editor path
+until the next roll.** That is the path most likely to be pointed at a decomposed
+prose block. Verify at a pod before relying on it — `strings /app/agent-chassis |
+grep -c enforceSingleSlotFloors` with a positive and a negative control, never the tag.
+
+## What the coverage test buys the next person
+
+Every file that `UPDATE`s `page_components.rendered_html` must now either enforce a
+floor or sit in `exemptWriters` **with a reason**. A tenth writer fails the test until
+its author decides in writing. It already earned this: it caught
+`create_report_page_action.go`, which the manual audit had filed as create-only and
+which in fact overwrites its own row.
+
+**Its stated weakness** (in its own header): it reads SOURCE, so it proves wiring
+EXISTS, not that it EXECUTES. A call in a dead branch would satisfy it.
+
+## Two disclosures
+
+1. **The actions package is currently RED from another session's work** —
+   `TestLegacyLogoStep_StaticPurposeIsShadowedByDefault` and
+   `TestPurposeFieldBridge_DeadForDefaultedField` in
+   `deploy_image_asset_purpose_source_test.go`, last touched by `be1cd6b9d`
+   (`test(231/380)`). Unrelated to the floors; my own surface passes. Not fixed —
+   it is another session's in-flight work. **Do not read a red package here as
+   yours** without checking which tests.
+2. **The kubeconfig token expired mid-session** (`Unauthorized` fleet-wide) and
+   recovered. Documented 3-day expiry; the owner refreshes it.
+
+## Still owed, unchanged
+
+- **The pin** — `b318a8fad` matched only 6 of 22 Track B pages. `decompose_lmc.py`
+  now REFUSES on a stale pin (`feeb85acf`); re-point to a concrete SHA and re-verify
+  at the moment of use.
+- **The last 5 Track B pages** (18 of 23 decomposed).
+- `bugs_open/251` → then `252` (`og:url` must agree with the canonical).
+- `bugs_open/250` — round-trip the loancalculator `--restore`.
+- Convert the colour fixers' exemption from REASONED to MEASURED: run their
+  transform over a fixture carrying class attributes and assert
+  `countComponentClasses` is unchanged. The experiment is written down in
+  `single_slot_floors.go`.
