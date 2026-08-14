@@ -247,3 +247,50 @@ the imagery pipeline generally: the cheap win is wiring `illustration_flight_sha
 onto this one page (it is exactly the image the content needs); the fix that closes the door
 for the *next* orphan is still candidate 2 in this file (drain or stop filing the queue that
 was supposed to catch this).
+
+> ## ⚠ CORRECTED 2026-08-14 — THE ENTRY ABOVE IS WRONG ABOUT THE MECHANISM. This asset was never an orphan: it was WIRED, and then DESTROYED. It does not belong to this bug at all.
+>
+> **What caught it:** reading the owning lane's own log before acting on my own finding —
+> `dartsonline_traffic/README_where_we_are.md`, entry 2026-08-05, which states that all 8
+> built guides were illustrated that day, *"three technical line-diagrams (barrel profiles,
+> the board-setup measurements, **the four flight shapes**)"*. My "0 rendered_html references
+> fleet-wide" scan was accurate **as measured today** and I read it as "was never wired",
+> which the scan cannot distinguish from "was wired and has since been overwritten". A
+> present-tense absence is not a history.
+>
+> **The history, `[MEASURED]` from `page_component_history` on `page_id`
+> `73f9e8ad-30f9-4383-9452-5164e6a3ca1a`:**
+>
+> | when | what |
+> |---|---|
+> | 2026-08-05 11:23 / 11:28 | the two illustration assets are created |
+> | 2026-08-05 11:52:48.095654 | archived article-body `content_data` — **4018 chars, contains `<img` AND `flight-shapes-comparison`** |
+> | 2026-08-05 11:52:48.185471 | current live row written — **6207 chars, contains neither**, `source = save_page_sections_overwrite` |
+>
+> **90 milliseconds apart.** A wholesale body rewrite replaced the prose with a longer,
+> genuinely better version and took the embedded figure with it. It has been gone for nine
+> days and nothing reported it — the work item completed, the page deployed, the asset kept
+> serving 200.
+>
+> **The 08-05 session PREDICTED this in writing and was ignored by me, not by the platform:**
+> *"another thread was actively rewriting several of these exact guide pages' body text while
+> I was placing images into them … three of my placements landed in a page moments before it
+> was replaced, and were silently lost rather than erroring … if a caption vanishes from a
+> guide later, that's most likely why, not a new bug."* That is exactly what happened, and it
+> is the fourth known instance of their four.
+>
+> **Why this matters beyond the correction — the in-body imagery mechanism EXISTS and is
+> simply not durable.** The recovered markup is a plain `<figure><img><figcaption>` embedded
+> in the `article-body` component's single `content` field (which is `source: "llm"`, so the
+> prose and the imagery share one overwritable blob). So "there is no way to put an image
+> inside an article body" — which I believed and had told the owner — is **false**. The real
+> defect is that in-body imagery has no representation the regenerator can see, so any
+> rewrite silently discards it. That is the `save` REPLACES / `rerender` MERGES class already
+> recorded for a different payload in `bugs_open/238`, and the no-archive-no-warning shape in
+> `bugs_open/226` / `229` — **not this file's "nothing ever points a page at it" class.**
+>
+> **So: this instance is NOT evidence for bug 114** and should not be counted in its
+> population. Left here rather than deleted because the wrong reading is the useful part —
+> an orphan census run at one instant cannot tell a never-wired asset from a destroyed
+> placement, and both this file's own scans and mine have that blind spot. Distinguish them
+> with `page_component_history`, which is what settled it in one query.
