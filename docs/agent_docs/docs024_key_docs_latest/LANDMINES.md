@@ -10627,3 +10627,24 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **source:** 2026-08-14, brochure_component_library contrast front, rewriting `fundamentallyai.com`'s `content_direction` into positive-definition form on the owner's instruction. Found by reading the formatter before trusting a diff, not by a symptom — the diff would have been the natural next step and would have been uninterpretable. Distinct from the two existing `formatted` entries above, which say *regenerate it or your edit is invisible*; this one says *once you have regenerated it, the obvious verification is useless*.
 - **relations:** the `content_direction.formatted` entries above (same field, the prior half of the trap) · MEMORY `mutate-the-code-to-prove-the-guard` and `a-post-fix-zero-needs-a-demand-control` (same shape: a check that cannot come out the other way) · `fleet_copy_quality/CONTRIB_2026-08-12_the_honest_ban_and_the_voice_gate_nobody_opted_into.md` (the fleet lane that regenerated `formatted` on 14 sites)
 - **added:** 2026-08-14, brochure_component_library contrast front
+
+---
+
+## A census keyed on a CORRUPTION MARKER is not a work-list: it includes rows you must never republish, and it cannot see your predecessor's deliberate skip
+
+- **footprint:** `assets.filename` / `assets.url` `LIKE '%asset-key%'` · `assets.status` · `site_work_items` `item_type='undeployed_asset'` · `bugs_open/248`'s drain buckets · any "re-trigger every row matching X" batch
+- **the trap, and why the wrong answer looks right:** the marker query selects rows whose **bookkeeping** is wrong. That is a different set from rows whose **artefact** is wrong, and it silently contains two classes that must not be acted on:
+  1. **`superseded` / `retired` rows.** Measured 2026-08-14: 98 marked rows = **87 active + 10 superseded + 1 retired**. Their bytes have been REPLACED by a newer asset, so redeploying pushes a stale image over a current one. **A wire check does NOT catch this** — the old path may legitimately 404, so the row looks like honest outstanding work. Only `AND a.status='active'` catches it.
+  2. **Rows a previous session deliberately LEFT.** After `248`'s bucket-A pilot, the two rows still showing `unresolved` were exactly the two that pilot **skipped on purpose** as live-referenced 200s (leopardess `logo` — itself `retired` — and finetuning `logo`, both serving `logo.png` 200). Promoting them "because the pilot proved that action" reproduces the precise regression the pilot avoided. **Nothing in the row, the item or the census records that a human decided not to act**; the reason lives only in a bug-file contribution.
+- **the check, before a row count becomes a target list:**
+  ```sql
+  -- 1. never republish a non-active asset
+  SELECT status, count(*) FROM assets
+  WHERE filename LIKE '%asset-key%' OR url LIKE '%asset-key%' GROUP BY 1;
+  -- 2. bucket per ASSET (bool_or), or your buckets will not sum:
+  --    the earlier per-item join reconciled to 133 of 140 because one asset can match several items
+  ```
+  then `curl` the reader-derived path per row, **and grep the bug file for the site** — a residual of one or two immediately after a pilot is a **skip signal** far more often than an omission.
+- **the general form, which is the part worth carrying:** a batch built from `WHERE <marker>` inherits every assumption the marker encodes and none of the judgement a human applied afterwards. Bucketing by state turned "re-trigger 140 rows" into "26 need nothing, 13 one action, 64 another, 30 a check first" — and re-measuring after the pilot turned the remaining "2 to promote" into "0, and touching them is a regression".
+- **source:** `bugs_open/248` (CONTRIBUTION 2026-08-14 late); `staged_component_build/HANDOFF_2026-08-14c_continue_here.md` §1; NOTES `## 2026-08-14 (c)`. Sibling entry on the same table: "`assets.url` holding a placeholder is NOT the outage…" (2026-08-10) — that one is about over-reading the count, this one about acting on it.
+- **added:** 2026-08-14, staged_component_build
