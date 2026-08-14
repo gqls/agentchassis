@@ -423,3 +423,20 @@ land within the hour and will go in the bug file.
 
 Still waiting on you: the RFC_027 ruling — whether the naming machinery that produced four bugs gets
 one proper owner, or whether four bugs on something this small is acceptable and we move on.
+
+**2026-08-14, an hour later.** The answer came back in half an hour, and it's the one we suspected
+since the 11th but couldn't prove: when a workflow pauses to wait for another service, the pause
+throws away everything the current step had just worked out and not yet saved. The function that
+writes the pause reloads the record from the database and copies across only three bookkeeping
+fields — everything else the step computed in memory is simply not part of what gets written. The
+line that briefly made us doubt this turned out to be a look-don't-touch check, not a rescue.
+
+And this time it isn't just code-reading: two live workflows, caught mid-pause, both show exactly
+the predicted hole — the waiting step's data missing, every finished step's data intact. It also
+explains why a workaround someone added back in February has never once worked: its output was
+being thrown away by the same pause it was trying to survive.
+
+So the hero/logo bug finally has its cause. What it needs now is a decision from you rather than
+more digging: the repair sits on a seam every waiting workflow in the platform shares (the RFC_012
+question that's been parked). Fixing it there fixes a whole family of silent losses, of which the
+missing hero and logo images are just the two we happened to catch.

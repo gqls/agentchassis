@@ -745,3 +745,27 @@ orchestration row within retention.
 live session): intake `7daa0c43…`, **RUN `23f1cf9a-2e33-43a3-9b33-d18adbbe5c55`** (the artifact
 key), seed ONLY `persistAwaitingStateWithRetry`. Full record in the 236 file's 2026-08-14
 contribution. **Verdict pending at the time of this note.**
+
+## 2026-08-14 (later) — the verdict landed in half an hour, and the mechanism 236 needed is CONFIRMED
+
+Run `23f1cf9a…` (three iterations, ~08:00–08:05Z, verdict on the row by 08:07Z — the one-function
+seed left no room to wander). Label `UNVERIFIABLE`, content decisive: **the full body of
+`persistAwaitingStateWithRetry` copies only `AwaitedRequests`, `Status`, `LastActivity`; the
+fragment that had made §5b `[CONTESTED]` is an existence check on freshState's OWN CollectedData,
+not a merge.** Five citations, both halves of the copy logic.
+
+The two residual checks the verdict enumerated, run first-hand within the hour (declared
+substitution per the 07-31 ruling — the loop named them, I ran them):
+- **its own two data_requests, untruncated, on its own two still-parked children**: awaited step's
+  key ABSENT from `collected_data`, every completed step's key present — both rows;
+- **the ordering read** it asked for: `processActionResult` calls `storeActionResult` at `:1795`
+  (in-memory write of the current step's key, `:1873`/`:1877`) BEFORE `processAwaitResponse` at
+  `:1839`. The "key only written at response time" innocent reading is eliminated.
+
+Recorded in `bugs_open/236` (final contribution) with the honest split: mechanism CONFIRMED,
+hero/logo incidence `[INFERRED]` (those rows are pruned; item 2's capture witnesses the next one).
+**236 stays open — the fix is RFC_012 `(a)`/`(a′)`, an owner decision.** Commit `4540f6344`.
+
+Note for the next reader: the verdict itself reported its `data_requests` came back TRUNCATED with
+`…` before the deciding key — the loop cannot currently see deep `collected_data` keys on wide
+rows. That truncation is why its label stayed UNVERIFIABLE while its text answered the question.

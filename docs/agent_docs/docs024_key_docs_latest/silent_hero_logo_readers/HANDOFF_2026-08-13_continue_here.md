@@ -10,11 +10,13 @@
 > - **269 is CLOSED** — the roll happened (chassis `v1.0.1297`, 2026-08-13T22:29Z), §9 verification
 >   ran with controls, and the file moved: `bugs_closed/269_…` §11 holds the live proof and the one
 >   caveat (collision halves test-proven only, no §6b file scoped yet). Owner approved the split.
-> - **236 (hero/logo) is re-dispatched** — and the finding on the way in: the "cheapest next move"
->   from 08-12 had NEVER run (its re-dispatch reused the broad seed and failed verdictless; see the
->   236 file's 2026-08-14 contribution). The narrow one-function run is in flight:
->   **RUN `23f1cf9a-2e33-43a3-9b33-d18adbbe5c55`** — read its verdict from the orchestration row
->   WITHIN retention (verdicts are never in `diagnosis_artifacts`; bundles only).
+> - **236 (hero/logo): the MECHANISM IS CONFIRMED** — the narrow one-function run
+>   (`23f1cf9a…`, dispatched 08-14 after finding the 08-12 "cheapest next move" had NEVER run)
+>   read the full body: **the park copies only AwaitedRequests/Status/LastActivity; the
+>   `[CONTESTED]` fragment was an existence check, not a merge.** Occurrence witnessed live on the
+>   run's own two parked children (awaited step's key ABSENT, earlier steps' present); ordering
+>   verified at `coordinator.go:1795`/`:1839`. Full record = the 236 file's final contribution.
+>   **236 stays OPEN: the fix is RFC_012 `(a)`/`(a′)` — an owner decision, not a patch.**
 > - **Still open:** `RFC_027` owner ruling; `bugs_closed/261` §8 follow-ups 2/3; 267 §4b trend
 >   re-read when bundle traffic is more than a handful.
 
