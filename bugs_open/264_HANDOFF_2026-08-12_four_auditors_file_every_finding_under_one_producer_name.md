@@ -339,4 +339,31 @@ one matching `schema_migrations` row).
 answering all of round 2's objections with the evidence above. Submission JSON
 saved at
 `docs/agent_docs/docs024_key_docs_latest/fixloop_eg_dartsonline/submission_264_audit_source_round3.json`
-(round 2's at `..._round2.json`). Verdict not yet read as of this write-up.
+(round 2's at `..._round2.json`).
+
+## §15 — Council round 3: APPROVED (all 10 reviewers)
+
+`2026-08-14 07:53:06+00`, `decided_by: "all reviewers approve"`. Every seat
+(`editquality`, `reuse_agent`, `guidelines`, `guardian`, `improvement_guardian`,
+`debug_historian`, `constitution`, `mission`, `prior_art_librarian`,
+`architecture`) voted approve. Two seats (`debug_historian`,
+`prior_art_librarian`) noted they could not independently re-run the
+`schema_migrations`/collision check themselves (outside their queryable
+schema) and are trusting the reported result rather than re-verifying it —
+flagged the same way this file already flagged the equivalent
+`brief-fidelity-auditor` caveat, not a reservation about the fix itself.
+`guidelines` added a non-blocking documentation suggestion (distinguish
+`ActionInputSpec.Required` from `agent_definitions.input_contract` somewhere
+central, since both get called "contract") — a genuine future landmine, not
+this bug's to fix.
+
+**Status: fixed, config-live, code-approved-and-committed, NOT YET ROLLED.**
+Migration 399 is live and independently verified (three of four auditors now
+correctly attribute real work items; the fourth's own resolution is correct
+but blocked from creating any item by the separate `bugs_open/272`). The Go
+`Required`/no-`Default` change is committed and council-approved but — per this
+estate's fixed-AND-live bar — **stays in `bugs_open/` until confirmed live
+after the next `agent-chassis` roll**, the same posture `bugs_open/040` used.
+Re-check with `git merge-base --is-ancestor 3621ca7cf <the rolled commit>` and
+the build-provenance log line once a roll happens, then this can move to
+`bugs_closed/`.
