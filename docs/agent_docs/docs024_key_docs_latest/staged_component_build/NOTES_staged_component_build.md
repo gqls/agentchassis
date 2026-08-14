@@ -4254,3 +4254,55 @@ Both migrations (401 via this site, 402 via gaswholesalers) now have a real end-
 each, not just one migration proven and the other assumed by similarity. Updated the bug file
 (new CONTRIBUTION) and the handoff (§1, §2b closed out, §3 item 2 struck through) rather than
 a new handoff file — same day's story, not a fresh milestone.
+
+## 2026-08-14 (drain job design) — fresh session, picked up §3 items 1 and 3 from
+`HANDOFF_2026-08-14_continue_here.md`
+
+Read the handoff cold, ran `who-owns.py 248` (confirmed owned by this lane, both same-numbered
+files resolved by slug per §5's own landmine), pod-grepped nothing new to add — same fleet
+state as the last entry.
+
+**Item 1 — routed.** Read RFC_028 first (open, unresolved, same overall resolver) to avoid
+duplicating it, then read the actual code (`action_inputs.go`, `unified_extractor.go`) rather
+than trusting either the bug file's or the council round's prose paraphrase of the mechanism.
+Found R4's objection is about a *different* arm than RFC_028 audits — a nested five-strategy
+chain in a different file that RFC_028's own SQL census structurally cannot see (it greps
+`fix_plan` text for `action_inputs.go`, and both migrations that hit this arm shipped as DB
+config, never naming that file). Filed `RFC_029`, cross-referenced both ways, cited `WFA-009`
+as existing precedent for the shape of an answer (opt-in hard-fail, default off — already
+owner-ruled 2026-08-02 §2 for the sibling problem). Committed `439382985`, docs-only, no
+council submission needed (CLAUDE.md: docs/site content are refused client-side).
+
+**Item 3 — designed, not executed, and it took longer than expected because the flat number is
+wrong shape.** Started from re-measuring the marker census (140/14, down from 08-12's 150/16 —
+consistent with organic repair, not a new gap) and then went to bucket the 140 rows by their
+`undeployed_asset` work-item history before designing a "just re-trigger them all" script.
+**Good thing I did** — reading `check_undeployed_assets.go`'s actual query
+(`findUndeployedAssets`) rather than assuming it mirrors the marker query surfaced that ~30 of
+the 140 rows may already be fine at the wire (a later, uncorrelated re-deploy fixed the *page*
+without correcting the stale *row*, the exact shape the code's own comment names for
+favicon/og_card and refuses to file against, because filing it would be "a FALSE claim, which
+is worse than a missed finding"). A bulk drain that skipped this check would have forced
+needless re-deploys on pages that don't need them, which is exactly the kind of "measure before
+you submit" discipline CLAUDE.md's council-gate section asks for on any blast-radius claim —
+applied here to a design instead of a council submission, same principle.
+
+Also checked, and worth remembering for next time this shape comes up: `build-dispatch-loop`
+is periodic, not on-demand — 36 items sitting at `triaged` for up to ~50 minutes is normal
+operation (last real completion was ~90 minutes before the check), not a stalled queue. Nearly
+mis-read that as a landmine (`detection-works-schedule-and-dispatch-do-not.md`'s pattern) before
+checking the actual claim/complete timestamps.
+
+Wrote the full bucket table (A/B/D/E), the LLM-cap cross-check (repair path itself is LLM-free,
+confirmed by reading both action files end to end; only the hero/logo-regeneration subset of
+bucket E depends on the currently-capped LLM path), and the open "owned vs generic" question
+(no matching `sites` column found on a direct check) into the bug file as a new CONTRIBUTION
+rather than a separate PLAN file — this workstream's PLAN is scoped to the staged-build-ladder
+project specifically (`features_open/027`), and bug 248's own file has been the right home for
+its design decisions all along (every prior round's reasoning lives there too), so a bug-file
+CONTRIBUTION keeps one account instead of forking a second.
+
+**Deliberately did not fire the batch.** ~77 rows (buckets A+D) across 14 live sites is real
+production write volume, proven at 2-row scale so far, not 77. Left it as a designed-and-ready
+next step (pilot bucket A first, it's promote-only with no cloning) rather than a script run
+at the end of this session, per the prior handoff's own instruction on this exact point.

@@ -551,3 +551,106 @@ undesigned drain job, and routing R4's architecture-scope objection to a human/R
 owed.
 
 Full detail: NOTES, `## 2026-08-14 (mortgagecalculator hero retest)`.
+
+## CONTRIBUTION 2026-08-14 (fresh session) — R4 routed to `RFC_029`; the backlog-drain job DESIGNED (not executed) — the flat "146 rows" figure hides four different buckets, and a blind bulk re-trigger would be wrong for two of them
+
+**R4 routed.** Filed
+`architecture_review/RFC_029_the_aggressive_recursive_search_has_no_boundary_for_an_unmapped_field.md`,
+committed `439382985`. It is a companion to the already-open `RFC_028` (same resolver, a
+different arm): RFC_028 audits `ExtractActionInputs`'s own eight arms in `action_inputs.go`;
+this bug's R4 objection is about a **second, nested five-strategy chain** one level down, in
+`unified_extractor.go` (`ExtractFields` → `extractSingleField` → `findFieldRecursive`), which
+RFC_028's own census could not see because its query matched `action_inputs.go` text only.
+Both migrations 401 and 402 routed around this exact arm; neither touched it. RFC_029 asks
+whether an unmapped field should ever reach it, points at `WFA-009`'s already-shipped opt-in
+`required` idiom as a precedent for the shape of an answer, and flags a live naming collision
+(two independently-numbered "Strategy 4"s across the two files — migration 402's own comment
+already cites the wrong one).
+
+**The drain job — designed, and it is not the one-line job the earlier framing implied.**
+Re-measured live rather than trusting the 08-12 figure (150/16) or the newer handoff's
+rounding (~146/15):
+
+```sql
+SELECT count(*), count(DISTINCT site_id) FROM assets
+WHERE filename LIKE '%asset-key%' OR url LIKE '%asset-key%';
+-- 140 rows / 14 sites, 2026-08-14 ~17:00Z
+```
+By purpose: icon 79, content_hero 25, logo 14, illustration 10, hero 4, sprite_sheet 2,
+og_card 2, favicon 2, brand_logo 1, blank 1. By site: dartsonline.com 28, robot-hands.com 20,
+gamesdesign.co.uk 17, fundamentallyai.com 16, leopardessconsulting.co.uk 15, webdesign.co.uk
+12, vetcomparison.uk 7, finetuning.uk 6, webdesign.uk 5, lendzy.co.uk 4, oufe.com 4, idea.uk 4,
+vonc.com 1, ai-agent-orchestration.com 1. **Neither gaswholesalers.com nor
+mortgagecalculator.co.uk appears** — both already repaired, dropping out of the marker on their
+own, which is the query behaving correctly, not a new gap.
+
+**⚠ This query is still a floor, per this file's own 08-12 finding (§ "the FLEET CENSUS
+UNDER-COUNTS this bug")** — mortgagecalculator's own pre-fix hero rows never matched it
+(`filename=''`, presigned S3 `url`), and that class is real and separate. Nothing below
+resolves that; it is called out explicitly where it matters (bucket E).
+
+**The mechanism the two proofs used generalises, but the 140 rows are not one bucket.** Joined
+each marker row to its own `undeployed_asset` work-item history:
+
+| bucket | count | state | correct action |
+|---|---|---|---|
+| A | 13 | `unresolved`, no promotion yet | promote to `triaged` — exactly what §2 did for gaswholesalers |
+| B | 26 | already `triaged` | **nothing** — `build-dispatch-loop` is alive (last completion 15:38:34Z, ~90 min before this measurement) and periodic, not stalled; these self-drain |
+| D | 64 | only terminal (`complete`/`cancelled`/`rejected`) items exist | needs a **fresh cloned item** at `status='triaged'` — exactly what §2b did for mortgagecalculator, no promotable row exists |
+| E | 30 | no `undeployed_asset` item was ever filed for this `asset_id` | **do not act blindly** — see below |
+(counts sum to 133, not 140; the discrepancy is a handful of rows with more than one
+matching item where the bucketing query's tie-break picked one — [UNRESOLVED], small enough
+not to change the shape of the plan, flagged rather than silently rounded away.)
+
+**Bucket E is why a blind "re-trigger all 140" design would be wrong, and reading
+`check_undeployed_assets.go` is what found it.** Its own query
+(`findUndeployedAssets`, `check_undeployed_assets.go:264-297`) only flags a row when **no
+deployed page component's `rendered_html`** already references
+`/assets/images/<purpose>.*` — so a row can carry the placeholder marker in `assets.filename`
+while the *live, currently-served* page already links the correctly-named file (a later,
+independent re-deploy corrected the page without correcting the stale row). The code's own
+comment (lines 307-323) names this exact shape for favicon/og_card and *deliberately does not
+file against it*, calling a filed item there "a FALSE claim, which is worse than a missed
+finding." Bucket E (30 rows, no item ever filed) is the general-purpose-field version of that
+same shape, plus the two `brandHeadPurposes()` (favicon, og_card — 4 rows total, structurally
+excluded from this check by `NOT (purpose = ANY(...))`) plus `hero` (4 rows), which this check
+never covers at all — `hero`/`logo` brand-level gaps are found by a **separate** mechanism
+(`needs_hero_image`/`needs_logo_image` → `image-build-handler`, the route mortgagecalculator's
+repair actually used in §2b, not `check_undeployed_assets` → `build-dispatch-loop` at all).
+**Before acting on any bucket-E row, curl its expected `/assets/images/<purpose>.*` path first**
+— some will already be 200 (stale metadata only, no redeploy needed) and some will 404 (a real
+gap that needs the same clone-to-triaged treatment as bucket D, via whichever discovery
+mechanism actually covers that purpose).
+
+**The repair path itself (buckets A/B/D) is LLM-free and unaffected by today's fleet-wide LLM
+cap.** Read `check_undeployed_assets.go` and `deploy_image_asset_action.go` end to end: neither
+calls an LLM or image-generation action — the repair re-deploys an **already-stored** image
+under the correct name via a plain DB read + storage read + git commit
+(`sendGitCommitRequest`). That is consistent with gaswholesalers' 53-second turnaround (§2).
+**This does NOT extend to hero/logo regeneration** (bucket E's non-brand-head-purpose subset
+that turns out genuinely broken) — that route runs through `image-build-handler`, which DOES
+call image generation, and the fleet-wide LLM cap is confirmed live as of this session
+(`llm_call_log`: 0 ok / 17 failed at 16:00Z today, partially recovered by 17:00Z — re-check
+before dispatching any bucket-E item, this snapshot is not a standing guarantee either way).
+Commit `8b897432a` (same day, different lane) is the fleet-wide record of the cap itself.
+
+**What I deliberately did NOT do this session: fire the batch.** Buckets A and D together are
+~77 rows across 14 live sites — real git commits to real customer-facing repos. The prior
+handoff's own framing ("deserves its own careful plan … rather than a one-off script
+improvised at the end of a session") is right, and nothing about today's investigation changes
+that: the bucket-D mechanism is proven exactly twice (gaswholesalers, mortgagecalculator), not
+load-tested at 64-row scale, and bucket E needs a per-row wire check before it even joins a
+batch. **Recommended next step for whoever picks this up:** pilot bucket A (13 rows, cheapest —
+promote only, no cloning) in one small batch with a wire-check per item before scaling to
+bucket D.
+
+**One more open question this design surfaced and could not close:** the earlier handoff's
+phrase "which sites are `owned` vs `generic` rebuild policy" does not correspond to any column
+found on `sites` in a direct check (`settings`, `locked_at`/`locked_by`, `status` — none of the
+14 affected sites are locked, none carry a `settings` key resembling this). **[UNMEASURED]**
+whether this classification lives elsewhere (a different table, a convention in `network_id`
+grouping, or purely tribal knowledge) — flagging rather than guessing. Whoever executes the
+drain should confirm this before batching sites that might have different ownership/consent
+requirements, per CLAUDE.md's "other consumers must be told, not merely measured."
+
+Full detail: NOTES, `## 2026-08-14 (drain job design)`.
