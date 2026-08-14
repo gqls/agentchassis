@@ -2693,3 +2693,10 @@ this session's cold-start falsifier sweep:
   `lock_blocked_change` / `needs_human_review` — an improvement sweep tried to
   REMOVE the locked chat box from the contact page on 2026-08-11; the lock
   held (a4cd5dc8-ddf6-4d00-99ca-ab804d2ef6f9).
+- **406 APPLIED by hand ~09:40Z** (runner dry-run was slow; 383 precedent):
+  snapshot captured, verify DO passed, COMMIT; live row re-read — gate
+  predicate + `["input_data.site_id"]` params present; ledger updated via
+  `--record-only`. The gate is LIVE. Bug **275** filed for the LIMIT-30
+  truncation found on the way. Council verdict for c78ed496: check
+  `orchestration_states` by fix_correlation_id, then `doc_notes`
+  council-gate for the note.
