@@ -126,9 +126,23 @@ collapse).
 and ROLLED** — un-deferring after the commit but before the roll re-renders at 4.5, which is
 exactly what the hold exists to prevent. The gate is ancestry **of the running stamp**:
 ```bash
-kubectl -n ai-persona-system logs -l app=agent-chassis --tail=400 | grep -m1 -o '"git_commit":"[a-f0-9]*"'
-git merge-base --is-ancestor <their-5.0-sha> <the stamp>     # TRUE, and only then:
+kubectl -n ai-persona-system logs -l app=agent-chassis --tail=2000 | grep -m1 -o '"git_commit":"[a-f0-9]*"'
+git merge-base --is-ancestor d4bbbf645 <the stamp>     # TRUE, and only then:
 ```
+
+> **AND THE GATE HAS ALREADY EARNED ITS KEEP ONCE, measured 2026-08-14 evening.** The 5.0 change is
+> committed (`d4bbbf645` + comment followup `ec9a0ee2f`; council corr `d60aab29…`, verdict pending)
+> — and **v1.0.1299 rolled at 15:32Z WITHOUT it** (stamp `6f8efa158`, probed with both controls;
+> `merge-base --is-ancestor d4bbbf645 6f8efa158` → **false**; retraction and ink round 2 both still
+> live). So the fleet is running the **4.5** binary right now, a roll notwithstanding: "a roll
+> happened" and "my change rolled" are independent facts (`bugs_open/249`'s lesson, third time this
+> week). Un-deferring on the news of a roll — rather than on the ancestry query — would have spent
+> the owner's gate on `#8a97bd`. **The item stays held until the query returns true for
+> `d4bbbf645` specifically.**
+>
+> ⚠ When the next roll lands, the probe's positive control must be the NEW stamp, not `6f8efa158` —
+> only a build's own sha is stamped, so yesterday's stamp reading "absent" on a newer binary is the
+> probe working, not failing. This bit once already tonight.
 Then, in order:
 ```sql
 -- 1. restore the darts item (the hold note carries this too)
@@ -152,7 +166,24 @@ FROM sites s WHERE s.domain='webdesign.co.uk';
 |---|---|---|---|
 | dartsonline | primary-ink | `#94A0C2` (5.122) | verified two-ways |
 | dartsonline | accent-ink | `#F18072` (5.125) | verified two-ways |
-| webdesign.co.uk | accent-ink | `#915E2C` (5.151) | **replication-only** — treat a different served value as *their build correcting me*, not as drift, and reconcile before grading |
+| webdesign.co.uk | accent-ink | `#915E2C` (5.151) | now verified two-ways — their pinned test computed it independently |
+| webdesign.co.uk | primary-ink | **unchanged `#5c6b5d`** | the no-op branch: it already clears 5.0 (5.32 / 5.65, verified) — an unchanged primary there is CORRECT, not a failed rebuild |
+
+**Dartsonline's served ink, three-way after the rebuild runs:** `#F0F2F7` = nothing shipped ·
+`#8a97bd` = **the 4.5 binary ran — the roll didn't carry `d4bbbf645`; stop, do not show the owner** ·
+`#94a0c2` = 5.0 live, correct (accent `#f18072`).
+
+**The `pickInkOn` split — reviewed here as asked, and CONCURRED, with standing.** Their change
+splits `inkFloorContrast = 4.5` out so the 5.0 ruling reaches only `legibleInkFor` (the `-ink`
+slots: links and eyebrows on the page ground) and NOT `pickInkOn` (the `-text` slots: labels on
+filled controls). They flagged this as their judgement about the ruling's reach, top risk in their
+submission. **It is the only reading consistent with the owner's own default rule, which was given
+in THIS session:** "as a default we only need to get to AA **unless someone specifically says
+otherwise in the brief**". The 5.0 was said about *this change* — the ink margins he was shown.
+Nobody said anything about filled-control labels; therefore they sit on the default, and the
+default is AA. Raising `pickInkOn` too would apply "specifically says otherwise" to a mechanism
+that was never in the brief. The split is not caution — it is the ruling's own structure,
+implemented.
 Then the owner looks at dartsonline (and webdesign, where the links are); his "Go" gates widening.
 
 **Why the hex alone cannot carry this:** round 1 emits a *plausible navy* that passes any eyeball
