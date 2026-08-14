@@ -1056,3 +1056,61 @@ full and the capture-only sample. Execution, in order, all against the live DB:
 **Rollback, should it ever be needed:** the old carrier text is in
 `agent_definition_prompt_backups` (`type='agent_default_configs:voice_style_block'`) and
 the seven pre-change templates beside it; one UPDATE per artefact restores any of them.
+
+## 2026-08-14 — D3: the three authoritative finance sites, read against the subtraction-vs-lever mechanism. Verdict: one site carries the latent shape, two have it EARNED.
+
+Read-only, per D3 (owner, 08-12). Specs read live; no edits made. The mechanism being
+graded, from the identity-spec CONTRIB: *"authoritative" turns adversarial where the
+reader is the weaker party* — the pull is toward reveal-what-they-don't-tell-you framing
+and the site positioning itself as the reader's champion against an institution.
+
+### loancalculator.co.uk — CARRIES THE LATENT SHAPE, in two spec fields `[MEASURED]`
+
+1. **`strategy.value_proposition` ends:** *"…including the legal rights and lending
+   industry mechanics that **lenders have no incentive to volunteer**."* That is the
+   insider-secrets family — milder than mortgagecalculator's *"what the bank won't tell
+   you"*, but the same move: the site's value defined as revealing what an institution
+   withholds. The mc corrections named this family exactly: *"Lenders are simply the
+   people who decide, and their criteria can be explained calmly."*
+2. **`content_direction.example_phrases.characteristic` still carries** *"Our calculators
+   and guides are built to **reveal the true cost of credit**."* — the sentence family the
+   owner rejected on 08-08 (*"just too strong… positioning us as the authority"*), still
+   listed as a CHARACTERISTIC exemplar. **The exemplar finding makes this the sharper of
+   the two:** a writer follows examples over rules, so a rejected register held up as
+   characteristic is an instruction to reproduce it.
+3. Live symptom level: low (3 of 26 titles loss-marked, 08-12 census) — the H-descended,
+   twice-corrected `content_direction` is holding the line in practice. So this is a
+   LATENT defect with a live exemplar, not an active fire.
+
+### lendzy.co.uk and loancash.co.uk — the adversarial-adjacent frame is EARNED, leave it
+
+These two are rights-enforcement sites (near-identical `key_differentiators`, verbatim —
+see below): *"was this loan within the price cap"*, *"how do I make the rules bite"*,
+check-your-lender-acted-lawfully tools. **The reader's actual errand IS the dispute.**
+The mc correction's own logic cuts the other way here — a negation is kept *"for a
+genuine wrong turn the reader would really take"*, and by extension a confrontational
+frame is kept where confrontation is the subject. Recommending a reframe here would be
+applying the LMC lesson past its mechanism. Live symptoms: 0 of 20 (lendzy) and 1 of 22
+(loancash) titles loss-marked. **Recommend: no change.**
+
+Two watch items, not defects:
+- **loancash's `target_audience` includes the PRE-borrowing urgent reader** (*"considering
+  payday-style loans… borrowing within days"*). For that reader the rights-enforcement
+  register can tip alarmist; if the owner ever extends loancash beyond the port, worth a
+  voice line distinguishing "you are in a dispute" pages from "you are deciding" pages.
+- **loancash and lendzy share `key_differentiators` verbatim** — a copy-paste at adoption.
+  Not graded as a defect (the sites are deliberate siblings), but two sites whose stated
+  differentiator is identical cannot both be differentiated by it; flagged for whenever
+  their positioning is next reviewed. `[MEASURED — the two identity rows]`
+
+### What D3 asks the owner (decision, not work)
+
+For loancalculator only: (a) restate `value_proposition`'s final clause as the lever
+(what the site explains, calmly) rather than the withholding; (b) remove or replace the
+*"reveal the true cost of credit"* characteristic exemplar. Both one-field edits;
+`formatted` regeneration applies to (b). `strategy.tone='authoritative'` itself can stand
+for now — the voice spec is containing it, and re-toning eight sites on one site's
+evidence was already ruled out in D3.
+
+Note: loancash is a verbatim HTML port (18 ported pages, 0 framework components), so any
+copy change there is a manual/port question regardless — diagnosis-only by construction.
