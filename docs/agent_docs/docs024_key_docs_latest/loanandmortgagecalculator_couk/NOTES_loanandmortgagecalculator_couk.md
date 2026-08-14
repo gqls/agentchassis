@@ -2471,3 +2471,15 @@ better than the pre-regression 164/6/6, because the engine's unrounded arithmeti
 matches the oracle's primary expectation exactly, so the rounding-convention
 tolerances are no longer needed. The rerender also recommitted the fixed bytes to
 the sites repo, healing the poisoned `origin/master` copy for this page.
+
+### 2026-08-14 (mid-morning) — v1.0.1298 post-roll checks all green; lane entry point consolidated
+
+Pods `64cb9c4bb9-*` up 08:58Z. All guards in the binary on both replicas with the
+negative control clean (slot floor / component floor / shrink / 189 / 204 =
+1/1/1/1/1, neg 0). **Mirror check: assemble-only rerender of `legal` on the new
+binary is byte-identical to `predicted/legal.html`.** standard-calc still serving
+the repaired page. Oracle unchanged at 176/0/0 (verified within the hour, prior
+entry). No response yet from the owning session to the §3 ruling demand.
+
+`HANDOFF_2026-08-14_continue_here.md` is now the lane entry point — 11b had grown
+five addenda and read as sediment; its content is folded in.
