@@ -30871,3 +30871,27 @@ the reviewer supplied, twice.
    the thin cases rather than padding them — a +0.01 margin sits inside the noise between
    two implementations, so it is the case most likely to flip silently under a refactor.
    `oufe.com` primary is now pinned for that reason.
+
+> **ADDENDUM 2026-08-14, and it is the mechanism the entry above was missing.** Rule 1
+> says "on finding one fabricated input, audit the whole class". True, and it does not
+> explain why anyone skips it. The reviewing lane supplied that, and their sentence is
+> better than mine:
+>
+> > *"An incident treated as an incident when it was a class. I don't think I'd have caught
+> > that in my own work either — the fix feels complete precisely because it's targeted at
+> > the thing that hurt."*
+>
+> **That is the whole trap: a targeted fix carries a feeling of completeness proportional to
+> how specifically it addresses the failure you were shown.** The narrower the fix, the more
+> finished it feels, and the less likely you are to ask what else the same hand did. Fixing
+> the exact fixture I was caught on felt *more* complete than a broad audit would have,
+> which is why I stopped.
+>
+> So the operational form of rule 1 is not "remember to audit". It is: **when a fix feels
+> unusually complete, treat that feeling as the signal to widen.** The check is mechanical
+> and takes one command — list every input of that kind in the artefact
+> (`grep -n '#[0-9A-Fa-f]\{6\}' <fixture files>`) and tick each against its source. Seven
+> grounds in two files; I checked one and felt done.
+>
+> Recorded with attribution because it came from a reviewer, not from me — and per this
+> file's own lesson two entries up, a borrowed insight is a citation, not an observation.
