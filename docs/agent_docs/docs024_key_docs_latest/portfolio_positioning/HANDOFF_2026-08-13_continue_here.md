@@ -99,14 +99,20 @@ records are RFC_025 §10 and NOTES here.
 Naming scheme, stages B0-B4, sequencing, out-of-scope, verification — the full approved
 plan text is long; its stages in one line each:
 
-- **B0 (DONE this session)**: pod-verify v1.0.1295 (done, §1), docs updated, this handoff.
-- **B1 Go changes** (one commit, one council submission, needs a roll): B1a profile
-  entries ×3 kinds ×3 tables + coverage tests; B1b kind-scoped item keys in
-  directory_claims.go (4 edits + stale sibling + fresh log literal); B1c new
-  `evaluate_directory_features` action mirroring `evaluate_news_feed` (deterministic,
-  verticalDirectoryMap, deep-merge into `content_features.<SpecKey>`).
-- **B2 concept-register entry** `register/directory-pipeline.md`, SAME commit as B1
-  (seam rule). Confirmed no entry exists (grep 2026-08-13).
+- **B0 (DONE)**: pod-verify v1.0.1295 (done, §1), docs updated, this handoff.
+- **B1+B2 (DONE, committed `6f26570e4`, council corr `69a619e6-5152-45d8-ae01-5d30a0c7776f`
+  — trailer on the commit this time, verdict pending as of writing; READ IT before
+  building on this)**: all three kinds in all three profile tables + 6 queryresolve
+  arms; kind-scoped item keys (group-by-kind emit, one txn, empty-kind→legacy key,
+  fresh log literals, both emitters); `evaluate_directory_features` action + registry
+  entry (its partial matcher is deliberately longest-key-deterministic — the map mixes
+  recommending and refusing entries, unlike the news map); DIR-001 register entry +
+  index row + ratchet line dropped. Tests: mixed-kind emitter scripts, matcher table,
+  map/profile lockstep guard. NOTE: a background agent began this work and was killed
+  by an API session limit mid-B1b; its partial work was extracted from its worktree,
+  completed, and reviewed line-by-line in the main session. The two bug-231 image test
+  failures in the full actions suite are ANOTHER session's in-flight WIP (verified
+  passing at clean HEAD in a throwaway worktree).
 - **B3 seeds/config, ordered AFTER the B1 roll is pod-verified** (image first, then
   seeds): B3a components seed (6 rows, createElement/textContent XSS discipline from
   SEED_directory_components.sql:16-25, `component_level:'section'`); B3b researcher
