@@ -1179,3 +1179,46 @@ does not escape. It had already printed `SAVE: CORRELATION_ID=…`. **No work it
 Same lesson as the council trigger's `Unauthorized`: **a printed correlation is not evidence of a
 filing.** Keep double quotes out of a `090` symptom, and check the item exists before trusting
 the id.
+
+### THE FLEET'S LLM CAPABILITY IS DOWN UNTIL 2026-09-01 — and it is NOT the sweep's fault
+
+Found while chasing why my `090` verdict step failed. `llm_call_log.success` by hour:
+**14:00 → 98 ok / 2 failed · 15:00 → 49 / 13 · 16:00 → 0 / 17.** Every call now fails with
+
+```
+status 400 invalid_request_error: "You have reached your specified API usage limits.
+                                   You will regain access on 2026-09-01 at 00:00 UTC."
+```
+
+**I nearly reported that my sweep caused it.** The timing invited it — the cap bit at ~15:36Z,
+80 minutes into a burst I had enabled and measured at 6.0x baseline. **It is wrong by two orders
+of magnitude.** The cap is **MONTHLY**, and August had already consumed **~221.9M input tokens**
+by the 14th:
+
+```
+08-09  42.7M   08-08  33.2M   08-10  26.2M   08-04  24.9M   08-02  20.9M   08-03  15.9M
+...    08-13   1.7M   08-14   2.1M  (daily spend had FALLEN an order of magnitude)
+```
+
+The sweep's entire attributable contribution was **~0.71M ≈ 0.3% of the month.** It did not
+cause this and did not meaningfully bring it forward.
+
+**The rule, and it is the fourth instrument lesson of this lane in three days: a period-scoped
+limit needs the PERIOD's denominator.** A day's spend — however dramatic, however recent, however
+much it was your own doing — is not evidence about a month's cap. The dramatic local number and
+the guilty conscience point the same way, which is exactly when to go and get the denominator.
+
+**Two consequences for this lane:**
+
+1. **The `090` on §D cannot complete.** It built a 54,805-char evidence bundle and died at the
+   `verdict` step; the item is back at `triaged` and `diagnose-pipeline-trigger` will retry it
+   every 60s, **failing identically each time**. Correlation
+   `266be67d-a6e1-4afc-8fc1-84b553b2ea82` stands, and the bundle is worth reading by hand — the
+   evidence was gathered before the wall.
+2. **Gate 1b is unaffected and remains fully proven.** It is pure Go with no LLM call, which is
+   now an accidental virtue: it is one of the few completion-path checks that still works. Its
+   proof was completed at 16:35Z, before the wall mattered.
+
+⚠ **Do not read any LLM-backed check's "0 findings" as clean until 09-01.** That includes
+`verifier-remit-check`'s daily report, the council gate, and every audit rotation. Filed as a
+fleet-wide entry in `LANDMINES.md`.
