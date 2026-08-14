@@ -462,3 +462,19 @@ before trusting it.
   mechanism (a stale legal rule, not a duplicated formula).
 - Report, method, controls and the three things the harness got wrong first:
   `docs/agent_docs/docs024_key_docs_latest/loanandmortgagecalculator_couk/REPORT_2026-08-08_arithmetic_validation.md`
+
+---
+
+## 2026-08-14 (LMC lane) — the fix was TRANSIENTLY REVERTED on loans/standard-calc, by a restore, not by a rewrite
+
+Between 2026-08-12 ~18:20Z and 2026-08-14, live `loans/standard-calc.html` served the
+PRE-FIX 0% APR guard again. Cause: a Track B rollback used `load_lmc.py --restore`,
+whose backup table (`page_components_bak_20260805_lmc`) predates this fix by three
+days; the restore was deployed, the next decomposition pin was taken from the poisoned
+tip, and seeds built from it propagated the old guard. `mortgages/overpayment.html`
+lost the 08-09 `btn-calculate` id the same way. Found by the full oracle sweep
+(6 FAILs, all this bug's 0% signature), repaired from the last clean pin `7e6b993ef`,
+re-proven by oracle. Full mechanism: `LANDMINES.md` §"A restore from a dated backup is
+a TIME MACHINE". No status change — the FIX is correct; rollback hygiene failed.
+(A copy of this note briefly existed as a separate 224 file created by an unchecked
+`>>`; removed in this commit.)
