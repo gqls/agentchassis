@@ -219,3 +219,29 @@ committed and now council-approved, but per this estate's fixed-AND-live bar it
 doesn't move to `bugs_closed/` until confirmed live after the next
 `agent-chassis` roll. Whoever does that roll: check
 `git merge-base --is-ancestor 3621ca7cf <rolled commit>`, then close it out.
+
+## UPDATE (2026-08-14, later) — rolled, proven live, CLOSED
+
+A fresh `agent-chassis` build (`v1.0.1298`) deployed. Build-provenance log line
+had already rotated out on both replicas (busy pod), so the roll was proven at
+the binary instead: derived a candidate tip commit from the replicaset's own
+creation timestamp (`git rev-list -1 --before=<RS creationTimestamp>`),
+confirmed it present in `/proc/1/exe` on **both** replicas with a negative
+control, then confirmed `3621ca7cf` (this bug's Go fix) is a git ancestor of
+that candidate. Both proofs hold — the technique is written up as a new memory
+lesson (`derive-a-probeable-candidate-from-the-rs-creation-time`) since the
+usual "grep your own commit" positive control doesn't work when your commit
+isn't the exact build tip, which on this shared branch it essentially never is.
+
+**Bug 264 is now fixed AND live on both halves. Moved to `bugs_closed/`**
+(`d66fc8e83`) — full closure evidence is in the file at its new path. Read
+`bugs_open/264` no longer; it's `bugs_closed/264_HANDOFF_2026-08-12_four_auditors_file_every_finding_under_one_producer_name.md`
+now. `bugs_open/272` (site-review-agent's separate `findings_field` defect,
+found while verifying this one) is unrelated and stays open — it's the next
+natural pickup for this same auditor-findings area if anyone wants it.
+
+**This backlog-clearing thread's own next step**: `bugs_open/040`'s time-gate
+(re-read the `refused` kafka-dial counter, not before `2026-08-13 ~15:00Z`) has
+now had a full day pass — check the current time and, if past the gate, that's
+the natural next pickup per the handoff series this thread continues from
+(`HANDOFF_2026-08-12c_040_time_gated_signal_next_backlog_pickup.md`).
