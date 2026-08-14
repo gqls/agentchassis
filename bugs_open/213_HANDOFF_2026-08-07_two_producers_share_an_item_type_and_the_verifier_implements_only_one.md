@@ -816,3 +816,36 @@ often (`needs_content_planning` 0 of 5, `tone_shift` 0 of 2, `cta_improvement` 6
 and for those I cannot separate "genuinely repaired" from "not re-reported", because unlike
 the colour findings there is no independent evidence the defect survived. Extending
 retraction to another type owes that type its own measurement.
+
+---
+
+## CONTRIBUTION 2026-08-14, same lane — gate 1b is LIVE and UNEXERCISED, and the bleed was stopped by something else
+
+**Gate 1b (WII-017) is live on `agent-chassis` `v1.0.1298`**, council APPROVED (corr
+`0c8e7f5b-e510-4d24-893d-e3abb0bbb7b6`, round 2; round 1 REVISE on a gating objection that was
+right). Presence proven at the artefact on **both** replicas by a single-pass three-needle
+binary probe — the gate's own `NO_CHANGE_GATE_UNREADABLE_RESULT`, the long-live control
+`verification_unavailable`, and a nonsense needle that must be absent. The `build provenance`
+startup line had already scrolled past `--tail=6000` on four-hour-old pods, so
+`merge-base --is-ancestor` was unavailable.
+
+**It has never executed, and waiting will not change that.** [MEASURED 2026-08-14] 0
+`dark_section_audit` rows touched since the 08:58Z roll · 0 `NO_CHANGE_GATE_UNREADABLE_RESULT`
+records · 0 `_verification` keys. **`improvement-sweep` is `enabled=false`** (off since
+2026-08-12 16:16Z, the `bugfix_122` lane's cost decision) and it is the only triage carrier for
+this item type; `site-discovery-rotation-design` is off as well. One `detected` row waits
+(`mortgagecalculator.co.uk`, `6fe8a0fc-b9e5-4c96-b14d-9227a7827fa9`, filed 08-13 22:03,
+`attempt_count` 0) with nothing to claim it.
+
+> **A correction to how this bug's own progress should be read.** The false-green bleed §B
+> documented stopped on **2026-08-12, when that sweep was switched off for unrelated cost
+> reasons** — not because of anything this lane shipped. Detection still runs (a 16th site was
+> filed on 08-13), so items accumulate undispatched. **Gate 1b's value is that it makes
+> re-enabling the sweep safe.** Anyone citing this lane as having stopped the bleed is citing
+> it wrongly.
+
+So the behavioural proof this bug's §6 asks for is now blocked on a scheduler switch rather
+than on code. Three routes, costed in the lane handoff, two needing an owner's yes — and the
+cheapest (one deliberate dispatch of that single waiting row) would settle **both** it and this
+bug's own unsatisfiable closure criterion in the same action. Recorded here so the two are
+answered together rather than separately.
