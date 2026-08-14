@@ -720,3 +720,77 @@ argued down — it is routed to **RFC_028**, which supplies the measurement it a
 and printed as unknown: **27 council rounds have touched this resolver, 8 drew
 `needs_rfc`, 1 was ever vetoed**. Round 2 is with the council under the same
 correlation.
+
+---
+
+## 2026-08-14, later — the owed check is CLOSED, `--report` has written a real row, and rounds 2 and 3
+
+### Strategy 6 observed firing, both replicas — streaming, not tailing
+
+`[MEASURED 2026-08-14 13:56–14:30Z]` **six** `Strategy 6: explicit config value beat
+the spec default` lines (`action_inputs.go:923`) across **both** pods:
+
+| pod | field | value | default | action |
+|---|---|---|---|---|
+| dphbw ×2 | `max_plan_bytes` | 65536 | 32768 | `diagnose_persist_fix_plan` |
+| dphbw ×2 | `max_rounds` | 3 | 2 | `diagnose_council_decide` |
+| 6tfxf | `max_plan_bytes` | 65536 | 32768 | `diagnose_persist_fix_plan` |
+| 6tfxf | `max_rounds` | 3 | 2 | `diagnose_council_decide` |
+
+Both are **entries from this file's own 21-strong dead-mismatched census**, which means
+**the council that reviewed this fix was running on the configuration the fix
+repaired.** Zero `type differs` and zero `empty on required` Warns in the same window —
+meaningful only because `Strategy 0: Resolved config path` fired throughout as the
+liveness control.
+
+**LIMIT, so nobody over-reads it:** `diagnose_council_decide` and
+`diagnose_persist_fix_plan` both read their value from step config DIRECTLY in the
+action body (this file's read-path table). So this proves Strategy 6 **fires and applies
+the value**; it does NOT show a behaviour change. That is consistent with the central
+claim of zero net live behaviour change, not evidence against it.
+
+**The method matters more than the result.** `kubectl logs --tail=200000` returned
+**zero** — and that reading was worthless, because the pod retains **243 lines spanning
+92 seconds** and Strategy 0's *pre-existing* line was missing from the same window.
+Streaming `logs -f` on both replicas, with a pre-existing line in the same filter as the
+control, is what answered it.
+
+### `--report` has produced a real `doc_notes` row
+
+Run against the live fleet: `subject_key='default-shadowed-keys'`,
+`source='default-shadowed-keys-check'`, `created_at 2026-08-14 16:34:31+00` — 185
+agents, **0 dead**, 96 conditional, 99 live overrides, exit 0. So the durable surface is
+real, not prospective. **Nothing schedules it yet**, so `bug_historian`'s objection is
+**MITIGATED, not closed**: between runs a mistyped setting is still refused with no
+fleet-visible signal. The CronJob needs its image built and pushed first — applying the
+overlay before the image exists gives an ImagePullBackOff, which this fleet reports as a
+Job still RUNNING and never FAILED, so shipping the yaml early would swap a known gap
+for a silent one.
+
+### Round 2: REVISE, and its lesson is about me, not the code
+
+12 seats, 5 abstained, no truncation, **gated by `prior_art_librarian`**. All four
+findings were about argument or an inert control; none disputed the code.
+
+- **HIGH, and it is right: I argued a gating objection down with a citation the
+  reviewers cannot read.** Council seats have no access to `CLAUDE.md`, so "the owner
+  ruled to ship this" is, from their side, an unverifiable appeal to authority used to
+  dismiss a gate. **A reviewer who cannot check a claim is right to refuse it.** Round 3
+  makes no architecture argument at all — the signal is routed to `RFC_028` for a human
+  and left explicitly OPEN.
+- **MEDIUM: my 27-round figure had no query attached**, given to the one seat whose job
+  is verifying exactly that class of claim. Round 3 ships the SQL and states its limit
+  (the `needs_rfc` count matches report TEXT, so it is a floor).
+- **LOW: the "no duplicate `LiteralKind`" proof was a content grep**, unreliable here
+  (`bugs_open/108`). Replaced with a **declaration** search over signatures: 21 funcs in
+  datahelpers match `(interface{}) → string`, none classifies a value's kind; the
+  detector declares none. Nearest neighbour named rather than hidden —
+  `InterfaceToString` switches on the same type set but returns the value **rendered as
+  text**, mapping both `25` and `"25"` to `"25"`, collapsing the very distinction the
+  kind guard exists to make.
+
+### Round 3 submitted
+
+Same correlation `41a01378`, `RUN_ORCH_ID=f80e528b-f24c-4544-bfae-bae08d9a7815`.
+Verdict **not read at time of writing**. No `Council-Reviewed:` trailer exists on any
+commit in this lane and none may be written until an approved verdict is read.

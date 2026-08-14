@@ -1118,3 +1118,40 @@ sentence, from a blind instrument, that would have read as verification for ever
 - The council plan schema bit again: `plan` is a nested object, not a flat array, and
   the size cap is quoted as 32KB in the runbook and 64KB in the 097 header. I trimmed
   sketches to land at 32,360 bytes rather than find out which is enforced.
+
+### Later the same day — the owed check closed, and round 2 was about how I argue
+
+**Streaming beat tailing.** Six `Strategy 6` lines across both replicas in ~35 minutes
+of real traffic, with `Strategy 0` as the liveness control in the same filter. The two
+overrides observed are `diagnose_council_decide max_rounds=3` and
+`diagnose_persist_fix_plan max_plan_bytes=65536` — **entries from this bug's own
+census**, so the council reviewing the fix was running on the config the fix repaired.
+Wrote it up as a LANDMINE, because the first reading (0 matches, `--tail=200000`) is a
+confident wrong answer and the only thing that caught it was putting a line I knew fires
+into the same grep.
+
+**Round 2's HIGH objection is the most useful criticism of my own conduct so far.** I
+answered the architecture gate by citing owner rulings from `CLAUDE.md` — which council
+seats **cannot read**. There is a landmine registered against this exact seat for this
+exact move, and I walked into it while feeling well-prepared. The rulings are real and do
+apply; that is beside the point. **A reviewer who cannot verify a claim is right to
+refuse it, and the correct disposition for a scope judgement was to route it and stop
+talking** — which I had already done (RFC_028) and then undermined by continuing to
+litigate. Round 3 makes no architecture argument at all and marks the signal OPEN.
+
+Two smaller round-2 hits, both fair:
+- **My headline measurement had no query attached**, and I gave it to the one seat whose
+  entire job is verifying such claims against `diagnosis_artifacts`. The number was
+  right, the SQL was three lines, and it was sitting in RFC_028 where the reviewer could
+  not see it. "Folklore dressed as a measurement" is accurate about the *presentation*.
+- **My absence proof was a content grep.** Replaced with a declaration search over
+  signatures — and doing it properly turned up the nearest neighbour I had not thought
+  about, `InterfaceToString`, which switches on the same type set but returns the value
+  as text (`25` and `"25"` both → `"25"`). Naming why it *cannot* serve is a better
+  answer than my original "no matches", and I only found it because the seat pushed.
+
+**`--report` now has a real row** (`doc_notes`, 16:34:31Z, 185 agents, 0 dead). I am
+recording bug_historian's objection as MITIGATED rather than closed, because nothing
+schedules it — and the ordering constraint on the CronJob is genuine, not an excuse:
+applying the overlay before the image exists produces an ImagePullBackOff that this
+fleet reports as a Job still RUNNING.

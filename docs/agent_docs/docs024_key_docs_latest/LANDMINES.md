@@ -10531,3 +10531,26 @@ code change owed at the next roll, tracked in RFC_015 §5.
 > reads as 9 uninstrumented items. The gap check is still `arm LIKE 'unreported:%'`. Useful corollary:
 > the absence of the key now *proves* what was previously only inferred from dates — all 9 existing
 > closures predate the instrument, so arm coverage of this type's history is permanently zero.
+
+## A chassis pod's log history is ~90 SECONDS, so `logs --tail=N` answers "was this line ever emitted?" with a confident NO — and the tell is that a line you KNOW is always emitted is missing too
+
+- **footprint:** `kubectl logs --tail`, `kubectl -n ai-persona-system logs`, `agent-chassis`, `logs -l app=`, `Strategy 6: explicit config value beat`, `Strategy 0: Resolved config path`, `build provenance`, `platform/orchestration/datahelpers/action_inputs.go`
+- **fires when:** you verify a code change by grepping a pod's logs for a line the change emits — the standard post-roll question, "did my new branch actually execute?" — on any chassis pod that has been up more than a few minutes.
+- **why the wrong result looks exactly right:** `--tail=200000` returns without error, the grep returns 0, and 0 reads as *"the branch never ran"* or, worse, as *"no warnings, so nothing is wrong"*. `[MEASURED 2026-08-14]` a pod started `08:58:03Z` and queried at ~13:52Z retained **243 lines spanning 92 SECONDS** (`13:51:23Z → 13:52:55Z`). 241 of the 243 were `level:info`, so **the level is not the filter and raising verbosity will not help.** The window is not the pod's lifetime; it is roughly the last minute and a half, whatever `--tail` you pass. An absence here is bounded by retention, and retention is far shorter than anyone's intuition.
+- **the check:** put a line you KNOW fires constantly into the SAME filter as the line you are hunting, and make it a liveness control. If the control is also absent, you have measured retention and learnt nothing:
+  ```bash
+  # WRONG — a confident zero that means nothing
+  kubectl -n ai-persona-system logs <pod> --tail=200000 | grep -c 'my new log line'
+
+  # RIGHT — stream every replica, control line in the same alternation
+  for p in $(kubectl -n ai-persona-system get pods -l app=agent-chassis -o name); do
+    kubectl -n ai-persona-system logs -f "${p#pod/}" --since=1s 2>/dev/null \
+      | grep --line-buffered -E "my new log line|Strategy 0: Resolved config path" &
+  done
+  ```
+  `Strategy 0: Resolved config path` is a good general control for anything in the input resolver — it fires on most steps. Then WAIT: the two lines this recipe was written for took **~14 minutes** of real traffic to appear.
+- **the adjacent trap — this is the same fact that retires the `build provenance` recipe, and for a different reason.** The provenance stamp is a STARTUP line, so it is out of range within minutes for a *different* cause (it is emitted once, at the front). Its fallback is the binary probe (`grep -aq "<sha>" /proc/1/exe` with a two-sided control). **There is no binary-probe equivalent for a runtime branch**, which is why streaming is the only answer for "did it execute?" — and why an offline detector or a `doc_notes` writer beats a log line for anything you will need to prove later.
+- **also worth knowing:** a log-only signal is therefore NOT a durable control on this fleet, and a council seat will say so — `bug_historian` objected on exactly this ground to a change whose rejection arms logged and did nothing else, and the objection was then confirmed by the author hitting this trap while verifying that same change. If a mechanism's refusal needs to be *auditable*, it must write a row, not a line.
+- **relations:** `bugs_open/231` (the change this was measured on; CTS-059) · MEMORY `prove-a-deploy-at-the-artefact-index` and `logs-deploy-reads-one-pod-of-n` · MEMORY `log-measurement-discipline` (absence bounded by retention, pod age AND rotation) · MEMORY `a-silent-gate-either-did-not-look-or-approved` (the same two-causes-one-reading shape) · `016b` §9 "no error anywhere usually means no error surface"
+- **source:** 2026-08-14, bugfix_209/231 lane, post-roll verification of Strategy 6 on chassis `v1.0.1298`. First read: 0 matches across both replicas, which I nearly recorded as "not yet exercised". The control (Strategy 0's pre-existing line, also absent) is the only reason that did not happen; streaming then produced 6 matches across both pods in ~35 minutes.
+- **added:** 2026-08-14, bugfix_209/231 lane
