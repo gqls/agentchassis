@@ -189,8 +189,13 @@ and there are now **three** branches, not two:
 | resolved `--color-primary-ink` | what it means | canary verdict |
 |---|---|---|
 | `#E2E8F0` (== `--color-text`) | no roll yet, or no re-render — **my retraction is under test** | table above stands |
-| `#7D8BB6` | the derivation fix is live underneath — computed 4.55:1 / 5.57:1 | **both still RETRACT**, table stands |
-| `#7785B2` | the value `12cf55015`'s author quoted — measures **4.22:1** on the card ground, i.e. **FAILS** | `card-link` **stays open**; that is their regression, NOT a retraction bug — stop and tell them |
+| `#8a97bd` | **round 2** (`8ad05d01a`) is underneath — certified against the *composited* ground, worst-of-four **4.56:1** | **both still RETRACT**, table stands |
+| `#7d8bb6` | **round 1 (`12cf55015`) shipped WITHOUT round 2** — measures 4.55:1 on the declared surface but **3.93:1 on the composited one** | `card-link` may **file fresh**; that is their round-1 regression, NOT a retraction bug — stop and tell them |
+
+Settle which is live with a git query, not the hex alone:
+`git merge-base --is-ancestor 8ad05d01a <the service stamp>`. The middle branch is the expected one;
+the third is reachable because both commits sit on the shared branch and a roll takes whatever HEAD
+is at build time.
 
 `curl -s https://robot-hands.com/selection-guide.html | grep -- '--color-primary-ink'` (page block
 first — the site stylesheet can be overridden there; see §5a). The third row exists because my
@@ -198,16 +203,32 @@ replication and their quoted hex disagree by ~0.02 lightness — two steps of th
 on opposite sides of 4.5. Nobody has pinned which the binary emits; they have been asked to add a
 test before their council round.
 
-**⚠ The structural point, which outlives this canary.** `LegibleVariant` returns the *first*
-lightness that clears, so **every output sits by construction within one step of failing.** Measured
-across 10 served palettes, both slots: **7 of 12 emitted inks land within 0.10 of 4.5** (robot-hands
-primary +0.05, robot-hands accent +0.04, vonc primary +0.04, webdesign.co.uk accent **+0.02**).
-Meanwhile the derivation reasons about the palette's **declared** `surface` while this lane's own
-audit measures the **composited** ground actually painted — the two differ routinely
-(`--section-surface` is `rgba(255,255,255,0.05)` over the page ground). **At +0.02 headroom a
-composited ground barely off the declared one flips the element back under 4.5, and the audit files
-a fresh `contrast_failure` for an element the fix just repaired.** That is a plausible source of
-future `contrast_failure` volume that will look like a retraction defect and will not be one.
+**⚠ The structural point — RAISED, CONFIRMED, AND FIXED AT THE CAUSE (round 2, `8ad05d01a`).**
+`LegibleVariant` returns the *first* lightness that clears, so every output sits by construction
+within one step of failing (measured: 7 of 12 emissions within 0.10 of 4.5). Meanwhile round 1
+certified against the palette's **declared** `surface` while this lane's audit measures the
+**composited** ground actually painted. **That gap was not a thin margin, it was a live regression**:
+the overlay (`--section-surface: rgba(255,255,255,0.05)`) costs **0.62 of contrast ratio** on dark
+palettes, ~10× the headroom, so round 1's own emissions measured **3.93–4.03:1** on the real ground.
+Independently replicated here: `#7d8bb6` on robot-hands' composited surface `#29303F` = **3.93**.
+Round 1 alone would have re-filed `A.info-card-grid__card-link` — the element `368` repaired.
+
+Round 2 composites the overlay onto both grounds and requires **all four** to clear. Re-replicated
+independently against the served palettes, and it agrees with the author's figures on every value
+they pinned: robot-hands primary `#8A97BD` 4.56 · dartsonline primary `#8A97BD` 4.60 · vonc primary
+`#9B6AFF` 4.62 · webdesign.co.uk accent `#9D6630` 4.52. **The margin was deliberately NOT padded**,
+and that is the right call: padding to 5.0 would not fix a wrong ground, and would imply cover for
+grounds nobody models (component-painted → `bugs_open/212` §8; over-image → excluded from firm
+findings). A narrow guarantee stated beats a wide one implied.
+
+**Two figures of theirs did NOT reproduce here, both benign but worth knowing** — replication against
+palettes re-fetched from the artefact: (1) **cookly.uk accent** — I get `#AF4625` at **4.62**, they
+quote `#c04d28` at 4.53; both clear, so nothing is at risk, but the inputs disagree. (2) **the
+thinnest emission in the fleet is `oufe.com` primary at 4.51 (+0.01), not lendzy's accent** (which
+measures a comfortable **4.64**). `oufe` is the one case where two independent implementations of
+the same algorithm could round to different sides, and it is **not** among the four pinned by
+`TestLegibleVariant_EmittedHexIsPinnedForRealPalettes`. Pinning `oufe` (and `cookly`) is worth more
+than any cushion.
 
 **And `A.cta-btn` now has a mechanism, not just "368 did not touch it"** (`NOTES` 2026-08-13 §5).
 `.cta-btn-primary` sets `color: var(--color-cta-bg, var(--color-primary))`, and `--color-cta-bg` on

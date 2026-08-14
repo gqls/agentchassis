@@ -2047,3 +2047,63 @@ either moves. The literal stays inside the format string so emitted bytes cannot
 **Still inert until `agent-chassis` is rebuilt and rolled.** Control D unchanged: dartsonline's
 `--color-primary-ink` must read as a navy, now `#8a97bd`. If it reads `#F0F2F7` the change did not
 ship; if it reads `#7d8bb6` **round 2 did not ship** and the composited grounds are absent.
+
+## 2026-08-14 (later) — round 2 verified independently, and my objection was worse than I could measure
+
+`8ad05d01a` certifies the ink against the **composited** ground. Verified here rather than accepted,
+because the previous round's quoted hex turned out to be a probe with **invented grounds** — the
+author says so plainly, and it is the reason nothing they quote gets taken on trust now, including
+the numbers that turn out to be right.
+
+### 1. Their 3.93 reproduces exactly, and my "thin margin" was actually a live regression
+
+Replicated: composite `#ffffff` at α=0.05 over robot-hands' surface `#1E2535` → `#29303F`; round 1's
+emission `#7d8bb6` measures **4.55:1** on the declared surface and **3.93:1** on the composited one.
+Same for dartsonline accent (3.93) and vonc primary (4.03). **So round 1 alone would have re-filed
+`A.info-card-grid__card-link`, the element `368` repaired, and my Monday canary would have read that
+as a retraction regression.** I raised this as "the fix's one structural weakness, a margin too thin
+to absorb the difference". It was not a margin problem — the overlay costs **0.62** of ratio against
+a headroom of 0.02–0.09, ~10×, so the certification was simply against the wrong ground. **My
+objection was right and my characterisation of it was too gentle by an order of magnitude.**
+
+### 2. Round 2 re-replicated against re-fetched palettes — agrees on every pinned value
+
+`{bg, surface, comp(bg), comp(surface)}`, all four required: robot-hands primary `#8A97BD` **4.56** ·
+dartsonline primary `#8A97BD` **4.60** · vonc primary `#9B6AFF` **4.62** · webdesign.co.uk accent
+`#9D6630` **4.52**. Identical to `TestLegibleVariant_EmittedHexIsPinnedForRealPalettes`. The
+`platform/colour` + actions suites are green at HEAD.
+
+### 3. Two of their figures did NOT reproduce, and one of them is the question they asked me
+
+Palettes re-fetched from the served artefact before computing, so the inputs are not in doubt:
+
+- **cookly.uk accent** — mine `#AF4625` at **4.62**; theirs `#c04d28` at 4.53. Both clear, so nothing
+  is at risk. But two implementations disagreeing on the same input is the same smell as `#7785B2`,
+  and it is unpinned.
+- **the thinnest emission is `oufe.com` primary at 4.51 (+0.01), NOT lendzy's accent**, which
+  measures a comfortable **4.64**. They asked me to decide whether that +0.01 wants padding, on a
+  site that does not have it. `oufe` is tight for a structural reason worth naming: its palette sets
+  `primary` **==** `surface` (`#1B2A3B`), so the ink is being made legible against its own colour.
+
+### 4. My answer on the margin: they are right, do NOT pad it — pin `oufe` instead
+
+Padding to 5.0 was my suggestion and their refusal is better reasoned than the suggestion was. It
+would buy absorption without touching the wrong-ground error, and it would **imply** cover for
+grounds nobody models (component-painted → `212` §8; over-image → excluded from firm findings). That
+is the same shape as the defect just fixed: a number that looks safe because it is padded, concealing
+that an *input* is wrong. A narrow guarantee stated beats a wide one implied.
+
+What +0.01 actually argues for is **a pin, not a cushion**. At that margin `oufe` is inside the noise
+between two implementations of one algorithm — we have already produced two such disagreements — so
+it is the single case most likely to flip silently under a refactor, and it is the one not pinned.
+Recommended to them: add `oufe.com` primary and `cookly.uk` accent to the hex test.
+
+### 5. The mutation lesson is theirs and it is the best thing in the round
+
+They deleted the compositing loop expecting red; **the whole actions package stayed green**, because
+their composited-ground test lived in `platform/colour` and exercised the function with hand-built
+grounds. The unit was pinned, the **wiring** was not. A test proving a function honours an argument
+says nothing about whether its caller passes it. Their new test reads the emitted `:root` block and
+measures the value it actually contains; under that mutation it goes red naming **3.93:1** — the
+figure I predicted from the other end, arrived at independently. That is the strongest form this
+lane's "assert the mechanism's EFFECT, never the absence of a call" rule has taken so far.
