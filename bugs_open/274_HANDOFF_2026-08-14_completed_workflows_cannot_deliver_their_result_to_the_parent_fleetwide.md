@@ -153,3 +153,83 @@ recorded as still open rather than guessed at.
 dial timeouts — mentions the same table, different failure) · WII-017 (gate 1b, whose ABSTAIN arm
 is currently the fleet's best instrument for observing the wrong-payload effect: 4 of 4 abstentions
 recorded, each naming the payload's actual top-level keys).
+
+---
+
+## 9. ROOT CAUSE LOCATED, 2026-08-14 (evening) — two header fields are never set, and the reply can NEVER pass validation
+
+The `090` verdict listed "the wrapper that logs the template" as its first unresolved item. It is
+`SagaCoordinator.notifyParentOfSuccess`, and the whole chain is now read, from a **live stack
+trace** in a still-running pod (`agent-build-dispatch-loop-17079920-wmrvq`, 18:17:15Z):
+
+```
+validation/validator.go:58        ValidateOutgoingMessage → false
+kafka/producer.go:118             ProduceWithValidation → "message validation failed"
+kafka/reply_delivery.go:139       DeliverReply → FailedTransient
+orchestration/coordinator.go:3751 notifyParentOfSuccess
+orchestration/coordinator.go:4024 completeWorkflow
+```
+
+**The log line names the missing fields directly** — everything else is present:
+
+```
+client_id:"system" · correlation_id:"496c9c55-…" · orchestration_id:"b782a84e-…"
+sender_agent_type:""            ← EMPTY
+in_response_to_step_name:""     ← EMPTY
+```
+
+**And the construction site shows why they are empty: they are never set.**
+`coordinator.go:3709-3721` builds `types.ResponseHeaders` with exactly
+`InResponseToRequestID`, `Status`, `IsComplete`, `MessageType`, `TimeSent`, `OrchestrationID`,
+`CorrelationID`, `ClientID` — and **no `SenderAgentType`, no `InResponseToStepName`**.
+`ResponseHeaders.ToMap()` (`types/context.go:877-883`) emits `in_response_to_step_name` straight
+from that unset field. `ValidateOutgoingMessage` (`validator.go:52-56`) requires **both**.
+
+> **So this is DETERMINISTIC, not intermittent.** The same message cannot pass validation on any
+> retry, on any broker, at any time. It is not a "transient" anything. That matches the data
+> exactly — ~15,000 rows, 60 agent types, continuous since 08-03 with no quiet periods.
+
+### The consequence is worse than a lost payload — the parent is told the child FAILED
+
+`notifyParentOfSuccess` handles undeliverability by design (`bugs_open/158` item 1, owner ruling
+2026-08-03), and its chosen answer is *"TELL THE PARENT IT FAILED"*: when `DeliverReply` does not
+report `Answered()`, it logs *"Could not notify parent of success — notifying parent of FAILURE
+instead"* and calls `notifyParentOfFailure`.
+
+That reasoning is sound for a genuinely undeliverable reply. Here the reply is not undeliverable —
+**it is malformed by construction**, so a workflow that **succeeded** is reported to its parent as
+**failed**, every time this path runs.
+
+### A second, smaller defect at the same seam
+
+`DeliverReply` classifies a **validation refusal** as `FailedTransient`, in the same branch as
+"broker unreachable" and "context cancelled" (`reply_delivery.go:139-145`, comment included). A
+validation refusal is **permanent for that message** — nothing about waiting or retrying changes
+it. Grouping the two means a deterministic defect is reported to operators, and to
+`agent_error_log`, under a label that says "try again".
+
+### Fix candidates, ordered by what makes the bad state unrepresentable
+
+1. **Set the two fields at the construction site.** `SenderAgentType` and `InResponseToStepName`
+   are both available on the coordinator's state at that point. Smallest possible change, ~15,000
+   rows/11 days of blast radius. ⚠ **Check every other `ResponseHeaders` construction site in the
+   same pass** — this one is a literal struct with named fields, so a sibling that omits the same
+   two will fail identically and silently.
+2. **Make the validator's refusal impossible to construct**: a constructor for `ResponseHeaders`
+   that requires the five validated fields, so omission is a compile error rather than a runtime
+   rejection 15,000 times. This is the version that closes the door.
+3. **Re-classify a validation refusal as permanent** in `DeliverReply`, so it stops being reported
+   as transient.
+4. **Do NOT widen the `is_error` exemption** to let these through — see §5.3.
+
+### ⚠ This WEAKENS my own §4 candidate, and that must not be glossed over
+
+§4 proposed this as the mechanism behind `bugs_open/213` §D (items completing with another
+agent's payload). **The located cause makes that link LESS likely, not more.** If the parent is
+notified of *failure*, the expected outcome is an errored/needs-review item — **not** a `complete`
+item carrying a foreign but well-formed payload, which is what §D actually shows. Either the
+parent's failure handling completes the item anyway, or §D has a different cause.
+
+**§4 is therefore downgraded from "strong candidate" to "open, and now doubted by its own
+evidence".** It stays recorded because the two may still meet further downstream, but nobody
+should carry it forward as the explanation. `bugs_open/213` §D is updated to say the same.

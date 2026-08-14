@@ -881,3 +881,13 @@ and neither file could see the other.
 that arm's existence: 4 of 4 abstentions recorded the payload's actual top-level keys, showing the
 split is systematic (3:1 live against 9:1 historical) rather than a historical accident. An arm
 that had merely passed or failed would have produced no evidence at all.
+
+> **§D UPDATE, later the same evening — the candidate above is now DOUBTED BY ITS OWN EVIDENCE.**
+> `bugs_open/274`'s root cause is located: `notifyParentOfSuccess` builds its reply headers without
+> `sender_agent_type` or a step name, the validator requires both, so the reply can never pass —
+> and the coordinator's deliberate answer to an undeliverable success is to **tell the parent the
+> child FAILED**. That predicts errored / needs-review items, **not** the `complete` items carrying
+> a foreign well-formed payload that §D actually shows. **So the link is weaker, not stronger.**
+> Either the parent's failure handling completes the item anyway, or §D has a different cause
+> entirely. Do not carry the 274 link forward as §D's explanation; it is an open thread that has
+> just been argued against, which is more useful than an unexamined one.
