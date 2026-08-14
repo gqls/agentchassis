@@ -84,3 +84,24 @@ BEGIN
 END $$;
 
 COMMIT;
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- ADDENDUM 2026-08-14 (post-apply; comment-only — the SQL above is byte-what-ran).
+-- Applied by hand ~09:40Z, recorded via --record-only. Council round 1 (corr
+-- c78ed496) returned REVISE with two surgery-safety objections on the UPDATE
+-- shape above; answers, measured:
+--   * Dual-active-row trap: tool-suggester is NOT one of the dual-row agent
+--     types — exactly one live row (id c0756913-04b1-489d-86b4-9ec249dc804d,
+--     version 1), confirmed by the council's own read-only check AND by this
+--     file's verify block, whose n<>1 RAISE aborts the whole transaction
+--     (snapshot + UPDATE roll back) if a second row ever appears. No damage
+--     path existed, but the objection's shape is better: FUTURE
+--     agent_definitions migrations should scope by id + pre-state gate, as
+--     this migration's _ROLLBACK sidecar (hardened same day) now demonstrates.
+--   * Concurrent-clobber window: snapshot_agent runs INSIDE the transaction,
+--     so any concurrent edit between authoring and apply would have been
+--     captured pre-update and is recoverable from the snapshot; the verify
+--     block pins the post-state.
+--   * The disclosed-but-untracked sibling gap (section-level intent-probe,
+--     bug_historian's objection) is now tracked: bugs_open/276.
+-- ─────────────────────────────────────────────────────────────────────────────
