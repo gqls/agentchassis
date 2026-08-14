@@ -51,8 +51,19 @@ dartsonline first, under an owner ruling, widening one site at a time.
 **Measured today: robot-hands still serves `--color-primary-ink: #E2E8F0`, with no page-level
 override.** So the site has not re-rendered and the canary is in its clean state.
 
-⚠ **This makes the discriminator MORE necessary, not less.** Until today the ink code was not in the
-binary at all; now it is armed, and **any re-render of robot-hands before Monday flips the value.**
+⚠ **This makes the discriminator MORE necessary, not less — and the reason is worth reading slowly,
+because it is the kind of change that happens silently.** Until 08:58Z today, "nothing has changed
+for any visitor" rested on **two independent facts**: the code was not in the binary, *and* no
+stylesheet had re-rendered. It now rests on **one** — and that one is nobody's to hold. **Any lane
+re-rendering any of those 14 sites, for any unrelated reason, changes their link colours, and nobody
+has to intend it.**
+
+So: **read the ink immediately before grading. Never carry a reading forward**, including the
+`#E2E8F0` recorded above. This lane has already made the "it was live this morning" mistake once
+(`12c` §1c), about this same site, and the window is now shorter than it was then.
+
+(The other lane has flagged the same shift to the owner in its own terms: his pending ruling on the
+visual change went from a hard gate to a soft one overnight, with no commit of theirs involved.)
 
 ---
 
@@ -124,7 +135,7 @@ Row-level backup: `scratchpad/backups/backup_park_contrast_failure_20260811.tsv`
 | 2 | `A.cta-btn` — **root cause found 08-13** and it is a defect class of its own: `.cta-btn-primary` reads `--color-cta-bg` into a `color:` slot, and that token is a **`linear-gradient`** on 5 of 10 sites. Not a valid `<color>`, so the declaration is discarded, `color` **inherits** `#ffffff` over a `#ffffff` button. **Confirmed at the instrument** (filed row: `fg` and `bg` both `rgb(255,255,255)`, ratio 1, sample "Run MatchMatrix"). 16 of 17 filed `%cta-btn%` rows fleet-wide; the 17th is a control at 2.27:1 (valid token, merely pale). **No ink fix or repoint can close it.** Written up as `bugs_open/122` §11 | filed, unowned |
 | 3 | `bugs_open/212` §8 — component-painted grounds (~24 failures) | **owner's**, architecture |
 | 4 | `dark_section_audit` straddles the same generic hole as `contrast_failure` did | `bugs_open/213`'s call or the owner's |
-| 5 | A `[TRANSCRIBED]` note in `platform/colour/legible_variant_test.go` claims a bare `curl` 403s on every site. **It does not** — 7/7 pinned domains return **200** bare, and every transcription in this lane was made with bare curls. Flagged to its author; theirs to correct | cosmetic, but it is in the one artefact whose job is re-derivability |
+| 5 | ~~A note claiming a bare `curl` 403s on every site~~ — **CLOSED 2026-08-14, and it was OURS.** The claim originated in **this lane's own** `LANDMINES.md` entry (source line "2026-08-06, bugfix_122 lane"), was lifted verbatim into another lane's test comment, and is false: 7/7 pinned domains return **200** bare, identical with a browser UA, on two separate egress paths. Corrected at source (`26a2a6541`), both copies now fixed. **Keep the shape:** the *true* fact is one entry over (`Python-urllib` gets 403), and a `urllib` fact generalised into a `curl` fact survived eight days because it sat as a **parenthetical inside a correct command** — the command works, so nothing invites doubt about the sentence attached to it | **closed** |
 
 ---
 
