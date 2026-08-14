@@ -258,3 +258,40 @@ approach is safe. It is a cheap thing to measure and I could not run it today, b
 needs the database. **So the second piece is specified and not started, deliberately** —
 building retraction on top of an unstable detector would close real faults on nothing more
 than the model's mood, which is a worse failure than the one we are fixing.
+
+---
+
+**2026-08-14.** The gate went out with the new build and I can prove it is in there — I asked
+both copies of the service directly, and asked in a way that could have said no: I looked for
+three things in the running program, one of mine that had to be present, one long-standing one
+that had to be present, and one made-up one that had to be absent. All three answered
+correctly, on both copies.
+
+**But it has never once run, and I want to be straight about why, because it changes the story
+I told you earlier this week.** The thing that dispatches these colour items — the improvement
+sweep — was switched off on Tuesday, by another lane, after it turned out to be costing three
+times what was expected. Nothing has dispatched one of these items since. So nothing completes,
+so no false "done" ticks are being minted, and my gate has had nothing to catch.
+
+Which means: **the leak I found stopped on Tuesday because a switch was turned off, not because
+of anything I built.** The audit is still finding these faults — a sixteenth site turned up
+yesterday — they just sit in a queue. What the gate actually buys us is that turning that sweep
+back on is now safe. That is a real thing to have, but it is not "fixed the leak", and I would
+rather say so than let a good-looking green tick stand in for it.
+
+There is one item sitting in the queue right now, on mortgagecalculator.co.uk, with nothing
+that will ever pick it up while the sweep is off. **That single item is the cheapest proof
+available** — send it to the fixer deliberately, and we get to watch the gate refuse it for
+real, on a real site, in about a minute. That needs your say-so, because it is a live action
+rather than a test. And it would settle a second question at the same time: this bug cannot
+close on its own terms, because the fix removed the very traffic that would have demonstrated
+the fix, and one deliberate dispatch answers both.
+
+Two smaller things worth knowing. The council approved the gate on the second attempt, and the
+first attempt's rejection was fair — it caught that I had proved my new code harmless to the
+things it does not touch while proving nothing about the existing code I had moved to make room
+for it. That is now covered. And the other lane working the neighbouring problem shipped their
+version of the "grade it at the next audit" mechanism while I was working, which is good news
+and also means my remaining piece has to be built on top of theirs rather than beside it —
+their own reviewers left a note saying a third copy of that pattern should be shared code, and
+mine would be the third.
