@@ -62,14 +62,15 @@ import (
 //	           regenerates wholesale, never a decomposed prose block.
 //	EXEMPT     rebuild_blog_listing — machine-generated listing, same reasoning.
 //	EXEMPT     fix_forced_text_colours, fix_harcoded_colours — colour rewrites
-//	           believed structure-preserving. `[REASONED FROM SOURCE, NOT
-//	           MEASURED]`: fix_forced_text_colours operates through styleBlockRe
-//	           (`<style>…</style>` contents) and textColorDeclRe (`color: #hex`
-//	           declarations), i.e. it rewrites CSS inside style blocks and never
-//	           touches element attributes, so it cannot remove a `class="card"`.
-//	           That is a reading of its regexes, NOT an experiment on real input.
-//	           **Residual exposure, and the two dispositions are not the same
-//	           strength as the others** — see the note below.
+//	           inside <style> blocks/declarations. `[MEASURED 2026-08-14]`:
+//	           colour_fixer_class_preservation_test.go drives both rendered-row
+//	           transforms (processComponentCSS, checks.ReplaceHardcodedColors)
+//	           over class-carrying fixtures and asserts the floor's own census
+//	           (countComponentClasses) unchanged AND the class-attribute list
+//	           identical — with controls that each transform actually fired and
+//	           that the census detects a removed class. The regex reading that
+//	           stood here (style-block scope, never element attributes) is now
+//	           the explanation, not the evidence.
 //
 // TWO KINDS OF EVIDENCE HERE, AND THEY ARE NOT EQUAL (council round 3, advisory
 // objection from editquality — my own submission claimed all nine dispositions
@@ -81,10 +82,13 @@ import (
 //	           otherwise.
 //	MEASURED   create_report_page — the coverage TEST found it, contradicting the
 //	           manual audit. Disconfirmation, which is the strongest kind here.
-//	REASONED   adopt_verbatim, rebuild_blog_listing, and the two colour fixers —
-//	           read from source. Sound, and still a different thing. To convert
-//	           the colour fixers: run their transform over a fixture carrying
-//	           class attributes and assert countComponentClasses is unchanged.
+//	REASONED   adopt_verbatim, rebuild_blog_listing — read from source. Sound,
+//	           and still a different thing.
+//	MEASURED   the two colour fixers — converted 2026-08-14 by exactly the
+//	           experiment this note used to prescribe: transforms over a
+//	           class-carrying fixture, census unchanged, with transform-fired
+//	           and instrument-detects controls
+//	           (colour_fixer_class_preservation_test.go).
 //
 // Every one of the nine writers now has a disposition. The exemptions live in
 // page_component_writer_coverage_test.go's exemptWriters, where a reason is
