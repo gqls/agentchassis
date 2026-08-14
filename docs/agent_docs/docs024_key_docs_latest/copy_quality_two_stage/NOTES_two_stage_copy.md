@@ -1130,3 +1130,33 @@ on a `component_swap` row means *not applicable*, so filter on `edit_type` first
 self-describing — "this run merged 2 fields of 7" vs "this run replaced the component" is
 a queryable fact, which makes the §9/§10 preference for `field_updates` enforceable by
 measurement rather than by trust. Nothing in the phasing changes.
+
+## 2026-08-14 — Step 4 (LMC evidence_base): coordination gate held, candidate handed over, and the step RESIZED by what drafting it found
+
+The LMC lane is active tonight (B2 batch 1 closed at 20:56, batch 2 pending), so per the
+plan's own gate nothing was applied. Everything short of the write is done and handed
+over: `loanandmortgagecalculator_couk/CONTRIB_2026-08-14_evidence_base_candidate…` +
+`CANDIDATE_2026-08-14_evidence_base.json`, validated with claimscan (parses; banned arm 0
+findings over 65 components, WITH an induced control that fires).
+
+**Three findings from drafting it, each of which shrinks or redirects the step:**
+
+1. **The fleet-wide banned set already covers unarmed sites** (`ScanAllBannedClaims`
+   nil-safe) — so the opt-in's only marginal value is the numeric/stored-stat arms.
+2. **Those arms cannot be dry-run**: claimscan runs `ScanBannedClaims` only. `[MEASURED —
+   induced an unregistered £6,500 and a "trusted by 12,000 customers" stat; neither
+   fires]`. So my earlier framing ("one row turns on a live claims gate, free") was
+   half-right: the row is one edit, but its only new effect is unmeasured and flood-risky
+   on a 23-calculator site. Tool gap named in the CONTRIB (a `-deployed` claimscan flag).
+3. **The high-value move is reuse**: mortgagecalculator's register carries GOV.UK-cited
+   SDLT facts verified TODAY, and `bugs_open/225` is LMC's SDLT calculator applying an
+   expired cap — the exact live-wrong-figure case the register exists to catch. Copying
+   verified facts across sites beats authoring weakly-sourced ones.
+
+The self-referential-sourcing question (the site's own £5–7k heuristic as its own
+citation) is routed to the owner in the CONTRIB, with three options stated.
+
+**With this, every step of the approved 08-13 plan is delivered or handed over at its
+gate:** D1 live and verified; 264 closed (by a concurrent session, both halves); D3
+findings recorded with two one-field decisions pending; Step 4 prepped, validated,
+coordination-held with the apply sequence written down.
