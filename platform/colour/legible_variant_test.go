@@ -254,11 +254,28 @@ func TestLegibleVariant_ClearsTheCOMPOSITEDGroundNotJustTheDeclaredOne(t *testin
 // A fixture whose inputs are transcribed from the artefact, asserting an exact
 // output, is the only shape that catches that.
 func TestLegibleVariant_EmittedHexIsPinnedForRealPalettes(t *testing.T) {
-	// EVERY ground here is transcribed from the served stylesheet. That sentence is
-	// load-bearing: the first version of this table invented background/surface for
-	// three sites, and TWO of the resulting figures were wrong and were published —
-	// in a commit message, a bug file, a handoff and a council submission — before
-	// a reviewer's independent replication disagreed. See the note below the table.
+	// EVERY ground here is `[TRANSCRIBED 2026-08-14]` from the served stylesheet, by:
+	//
+	//	curl -fsS -A "Mozilla/5.0 … Chrome/126" https://<domain>/assets/css/styles.css \
+	//	  | grep -oE -- '--color-(primary|accent|background|surface|text): *#[0-9A-Fa-f]{3,8}'
+	//
+	// (a bare curl gets 403 on every site — a user-agent rejection, not a routing
+	// fault). Re-transcribe rather than trust this table if a palette may have moved.
+	//
+	// THE MARKER IS ON THE INPUTS, DELIBERATELY, AND THAT IS THE WHOLE LESSON.
+	// The first version of this table invented background/surface for three sites and
+	// two of the resulting figures were wrong — published in a commit message, a bug
+	// file, a handoff and a council submission before a reviewer's independent
+	// replication disagreed. Marking the OUTPUT `[MEASURED]` would have been worse
+	// than marking nothing: it certifies the arithmetic, which was never in doubt,
+	// and launders the fabricated half. Nothing here could have gone red — the ratio
+	// is true for the pair supplied, and the suite was green throughout, because no
+	// test named an output.
+	//
+	// Corollary, and the reason this table exists at all: a quantity only ONE
+	// implementation has ever computed is unfalsified, however green the suite. These
+	// seven cases are what make it able to fail. Framing from the reviewing lane
+	// (`bugfix_122_contrast_ink_slots`); the incident is in WRONG_CALLS 2026-08-13/14.
 	cases := []struct {
 		site, src, bg, surface, want string
 	}{
