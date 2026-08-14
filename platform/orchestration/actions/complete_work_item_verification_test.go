@@ -8,9 +8,14 @@
 package actions
 
 import (
+	"context"
+	"database/sql"
 	"errors"
 	"strings"
 	"testing"
+
+	"github.com/google/uuid"
+	"go.uber.org/zap"
 
 	checks "github.com/gqls/agentchassis/platform/orchestration/actions/discovery_checks"
 )
@@ -286,5 +291,171 @@ func TestBlockedCompletionReasonOutOfScope(t *testing.T) {
 	}
 	if !strings.Contains(msg, "site-wide aggregate predicate") {
 		t.Errorf("message must carry the verifier's own reason, got %q", msg)
+	}
+}
+
+// ============================================================================
+// The gate-2 EXTRACTION (runRegisteredVerifier) — council guardian objection,
+// correlation 0c8e7f5b, severity HIGH, 2026-08-13.
+//
+// Gate 1b (complete_work_item_no_change.go) lifted gate 2's body out of
+// verifyBeforeComplete verbatim into runRegisteredVerifier so the new gate could
+// abstain-and-continue without duplicating it. The objection was exact and it was
+// right: the change proved the NEW gate inert for opted-out item_types, but proved
+// nothing about the EXTRACTED path for types that are ALREADY registered — and any
+// drift there lands on every pipeline with a verifier, not on dark_section_audit.
+//
+// This asserts all five outcomes of the extracted function against an
+// already-registered item_type (hardcoded_section_colors, the one the objection
+// named). It needs no database: the verifier is a parameter, so a stub is injected
+// and db stays nil — which is itself worth knowing, because it means this path was
+// always testable and simply had no test.
+// ============================================================================
+
+func TestRunRegisteredVerifierPreservesEveryGate2Outcome(t *testing.T) {
+	const registeredType = "hardcoded_section_colors"
+	specJSON := []byte(`{"check":"hardcoded_section_colors","components_found":3}`)
+
+	// resolvedVerifier / persistsVerifier / erroringVerifier stand in for a real
+	// registered verifier. The point is the WRAPPER's behaviour, not theirs.
+	resolved := func(_ context.Context, _ *sql.DB, _ checks.VerifyTarget, _ *zap.Logger) (checks.VerifyResult, error) {
+		return checks.VerifyResult{Resolved: true, Detail: "no unlocked component carries a colour within the fixer's remit"}, nil
+	}
+	persists := func(_ context.Context, _ *sql.DB, _ checks.VerifyTarget, _ *zap.Logger) (checks.VerifyResult, error) {
+		return checks.VerifyResult{Resolved: false, Detail: "3 components still match"}, nil
+	}
+	erroring := func(_ context.Context, _ *sql.DB, _ checks.VerifyTarget, _ *zap.Logger) (checks.VerifyResult, error) {
+		return checks.VerifyResult{}, errors.New("dial tcp: connection refused")
+	}
+
+	cases := []struct {
+		name           string
+		spec           []byte
+		verifier       checks.ItemVerifier
+		policy         checks.VerifierPolicy
+		wantStatus     string
+		wantComplete   bool
+		wantInPayload  string
+		wantFailOpenIs interface{}
+	}{
+		{
+			name: "verifier resolves → verified, completes",
+			spec: specJSON, verifier: resolved, policy: checks.VerifierPolicy{},
+			wantStatus: "verified", wantComplete: true,
+			wantInPayload: "within the fixer's remit",
+		},
+		{
+			name: "verifier says defect persists → blocked",
+			spec: specJSON, verifier: persists, policy: checks.VerifierPolicy{},
+			wantStatus: "defect_persists", wantComplete: false,
+			wantInPayload: "3 components still match",
+		},
+		{
+			// RFC_017's whole subject. The default policy must fail CLOSED.
+			name: "verifier errors, default policy → error, blocked, fail_open recorded false",
+			spec: specJSON, verifier: erroring, policy: checks.VerifierPolicy{},
+			wantStatus: "error", wantComplete: false,
+			wantInPayload: "connection refused", wantFailOpenIs: false,
+		},
+		{
+			name: "verifier errors, explicit opt-in → error, completes, fail_open recorded true",
+			spec: specJSON, verifier: erroring, policy: checks.VerifierPolicy{FailOpenOnError: true},
+			wantStatus: "error", wantComplete: true,
+			wantInPayload: "connection refused", wantFailOpenIs: true,
+		},
+		{
+			// Must take the verifier-error policy, NOT complete quietly.
+			name: "unparseable spec → error, blocked (same class as a verifier error)",
+			spec: []byte(`{"check":`), verifier: resolved, policy: checks.VerifierPolicy{},
+			wantStatus: "error", wantComplete: false,
+			wantInPayload: "unparseable spec",
+		},
+		{
+			// bugs_open/213's own scope gate must still fire from inside the
+			// extracted function, and must NOT be reachable by FailOpenOnError.
+			name: "Grades disclaims → out_of_scope, blocked, even with fail-open set",
+			spec: specJSON, verifier: resolved,
+			policy: checks.VerifierPolicy{
+				FailOpenOnError: true,
+				Grades: func(checks.VerifyTarget) (bool, string) {
+					return false, "spec carries no check key, so this verifier's predicate is not this item's"
+				},
+			},
+			wantStatus: "out_of_scope", wantComplete: false,
+			wantInPayload: "no check key",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			payload, mayComplete := runRegisteredVerifier(
+				context.Background(), nil, uuid.New(), registeredType,
+				tc.spec, uuid.New(), uuid.NullUUID{}, tc.verifier, tc.policy, zap.NewNop())
+
+			if got, _ := payload["status"].(string); got != tc.wantStatus {
+				t.Fatalf("status = %q, want %q (payload=%v)", got, tc.wantStatus, payload)
+			}
+			if mayComplete != tc.wantComplete {
+				t.Fatalf("mayComplete = %v, want %v", mayComplete, tc.wantComplete)
+			}
+			// item_type must survive into the payload — census queries group by it.
+			if got, _ := payload["item_type"].(string); got != registeredType {
+				t.Errorf("item_type = %q, want %q", got, registeredType)
+			}
+			blob := ""
+			for _, k := range []string{"detail", "error"} {
+				if v, ok := payload[k].(string); ok {
+					blob += v
+				}
+			}
+			if !strings.Contains(blob, tc.wantInPayload) {
+				t.Errorf("payload detail/error %q does not contain %q", blob, tc.wantInPayload)
+			}
+			if tc.wantFailOpenIs != nil {
+				if got := payload["fail_open"]; got != tc.wantFailOpenIs {
+					t.Errorf("fail_open = %v, want %v — this field is what the RFC_017 census read", got, tc.wantFailOpenIs)
+				}
+			}
+		})
+	}
+}
+
+// TestRunRegisteredVerifierBuildsTheTargetItWasGiven asserts the other half of the
+// extraction: the VerifyTarget is assembled from the same inputs as before. A
+// verifier that receives the wrong spec, site or page would answer a different
+// question correctly, which is bugs_open/213's entire subject one level down.
+func TestRunRegisteredVerifierBuildsTheTargetItWasGiven(t *testing.T) {
+	itemID, siteID, pageID := uuid.New(), uuid.New(), uuid.New()
+
+	var got checks.VerifyTarget
+	capture := func(_ context.Context, _ *sql.DB, target checks.VerifyTarget, _ *zap.Logger) (checks.VerifyResult, error) {
+		got = target
+		return checks.VerifyResult{Resolved: true}, nil
+	}
+
+	_, _ = runRegisteredVerifier(context.Background(), nil, itemID, "hardcoded_section_colors",
+		[]byte(`{"check":"hardcoded_section_colors","components_found":3}`),
+		siteID, uuid.NullUUID{UUID: pageID, Valid: true}, capture, checks.VerifierPolicy{}, zap.NewNop())
+
+	if got.ItemID != itemID || got.SiteID != siteID {
+		t.Errorf("ItemID/SiteID not threaded: got %v/%v want %v/%v", got.ItemID, got.SiteID, itemID, siteID)
+	}
+	if got.ItemType != "hardcoded_section_colors" {
+		t.Errorf("ItemType = %q", got.ItemType)
+	}
+	if got.PageID == nil || *got.PageID != pageID {
+		t.Errorf("PageID not threaded: %v want %v", got.PageID, pageID)
+	}
+	if got.Spec["check"] != "hardcoded_section_colors" {
+		t.Errorf("Spec not unmarshalled into the target: %v", got.Spec)
+	}
+
+	// And the nil-page case, which is most live items (only 2,370 of 5,514 specs
+	// carry a page at all, per VerifyTarget's own doc comment).
+	got = checks.VerifyTarget{}
+	_, _ = runRegisteredVerifier(context.Background(), nil, itemID, "hardcoded_section_colors",
+		[]byte(`{}`), siteID, uuid.NullUUID{}, capture, checks.VerifierPolicy{}, zap.NewNop())
+	if got.PageID != nil {
+		t.Errorf("PageID should stay nil for a non-page-scoped item, got %v", got.PageID)
 	}
 }
