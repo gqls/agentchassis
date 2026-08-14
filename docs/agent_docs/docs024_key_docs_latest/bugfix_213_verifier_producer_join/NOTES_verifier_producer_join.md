@@ -1035,3 +1035,49 @@ measurement now has a second driven mechanism in the window.
 abstain arm has not yet fired, which is the one prediction in WII-017's landmine still
 outstanding — 10 of 14 historical rows carried an unreadable payload, so it should appear as more
 of these dispatch. Watch `agent_error_log` under `NO_CHANGE_GATE_UNREADABLE_RESULT`.
+
+> ### ⚠ CORRECTED 2026-08-14, ~15 minutes after writing the section above — "zero attributable LLM spend" was MEASURED TOO EARLY and is FALSE
+>
+> The claim above, that the sweep's first fire cost no attributable LLM spend, was true when I
+> ran the query at **+1 minute** and false by **+5 minutes**. **The sweep dispatches
+> asynchronously and its agents write `llm_call_log` on completion**, so a cost query run
+> immediately after a fire measures the dispatch, not the work.
+>
+> **The corrected figure, with the control that makes it attribution rather than coincidence:**
+>
+> ```sql
+> SELECT agent_type,
+>        count(*) FILTER (WHERE created_at BETWEEN '2026-08-14 10:00:00+00' AND '2026-08-14 14:15:00+00') AS calls_4h_before,
+>        count(*) FILTER (WHERE created_at > '2026-08-14 14:15:00+00')                                    AS calls_since_sweep,
+>        sum(input_tokens) FILTER (WHERE created_at > '2026-08-14 14:15:00+00')                            AS in_tok_since
+> FROM llm_call_log GROUP BY 1 ORDER BY 3 DESC;
+> ```
+>
+> | agent_type | 4h before | since sweep | input tokens since |
+> |---|---|---|---|
+> | `content-quality-auditor` | **0** | 2 | 3,850 |
+> | `site-review-agent` | **0** | 1 | 6,807 |
+> | `visual-design-auditor` | **0** | 1 | 2,321 |
+> | `tool-acceptance-agent` | **0** | 1 | (null) |
+> | `content-gap-planner` | 24 | 1 | 4,488 — **already active, NOT attributable** |
+> | `council-gate` | 16 | 5 | 21,930 — **another lane's rounds, NOT attributable** |
+>
+> **Four agent types that were completely idle for the preceding four hours started within five
+> minutes of the switch.** That zero-before column is the control, and it is what turns this
+> from "calls happened" into "the sweep caused them". Attributable to the first site pass:
+> **~12,978 input tokens across 5 calls.**
+>
+> **What that does and does not license.** Naively, ~13k input tokens per site pass at one pass
+> per 15 minutes ≈ **~52k input tokens/hour** sustained, against a measured baseline of
+> 22k–101k/h — so it roughly doubles a quiet fleet's floor and sits far below the **806k/h** the
+> 122 lane measured while driving it. But this is **one pass**, the spend may not all have
+> landed even now, and their 3.2x was measured over 5h29m with more sites due. **It is still not
+> a rate.** The honest summary is: the first pass is priced, the hourly figure is an
+> extrapolation from n=1, and only a few hours of running will settle it.
+>
+> **The transferable rule, and it is the second instrument failure in this lane in two days:**
+> **an async mechanism's cost cannot be measured at t+1 minute.** Wait for the work to land, or
+> measure a window that closes after the dispatched agents complete. And keep the before-column
+> in the same query — without it, `council-gate`'s 5 calls and `content-gap-planner`'s 24 prior
+> calls would have been read as sweep spend, which is the same misattribution in the other
+> direction. Logged in `WRONG_CALLS.md`.

@@ -31063,3 +31063,45 @@ recorded state: the lane's entry-point handoff told the next session to "expect
 176/0/0", which makes the healthy 170/0/6 read as a regression and invites a
 second collision on the same page. Corrected in the handoff, NOTES, and summary
 the same afternoon.
+
+---
+
+## 2026-08-14 — I priced an ASYNC mechanism one minute after starting it, and reported zero (`bugfix_213_verifier_producer_join`)
+
+**The claim I wrote down**, into this lane's NOTES *and* into a cross-lane notification to the
+team whose cost decision I had just reversed: re-enabling `improvement-sweep` produced **"no LLM
+spend attributable to it"** on its first fire in two days.
+
+**It was false within four minutes.** The sweep dispatches work asynchronously; the agents it
+starts write `llm_call_log` **when they complete**. My query ran at roughly **t+1 minute**, so it
+measured the dispatch and not the work. By t+5 minutes, four agent types that had logged
+**zero** calls in the preceding four hours had run — `content-quality-auditor`,
+`site-review-agent`, `visual-design-auditor`, `tool-acceptance-agent` — for **~12,978 input
+tokens across 5 calls** from one site pass.
+
+**What caught it:** a routine "is what I left running still bounded?" check a quarter of an hour
+later, not suspicion. Had I not looked again, a lane that disabled this mechanism after a
+measured 3.2x cost surprise would have been handed my "no spend" line as reassurance.
+
+**The cheap check that would have caught it first:** ask *when does the thing I am measuring
+write its row?* A dispatcher's own log line lands immediately; its children's land on
+completion, seconds to minutes later. **For anything asynchronous, the measurement window must
+close after the dispatched work finishes** — or the result is guaranteed to read low, and to
+read low in exactly the direction that makes an intervention look free.
+
+**The transferable rules:**
+1. **A cost measured at t+1 on an async mechanism is a measurement of the dispatch.** It is not
+   a cheap approximation of the answer; it is a different quantity that happens to share units.
+2. **Keep a before-column in the same query.** The corrected version put "calls in the previous
+   4 hours" beside "calls since", which is what let me attribute four agents to the sweep AND
+   exonerate two (`council-gate`'s 5 calls, `content-gap-planner`'s prior 24) that a bare
+   after-count would have charged to it. The same query answers both directions.
+3. **n=1 is not a rate, and say so in the sentence that gives the number.** The corrected figure
+   is one site pass. The ~52k/hour that follows from it is an extrapolation, and I wrote it as
+   one.
+4. **Tally note — third instrument failure in this lane in three days**, all the same family: a
+   join key renamed by my own change (read as absence), a mutation harness scored by a grep that
+   could not see top-level failures, and now a cost window that closed before the cost arrived.
+   Every one was caught by looking a second time, none by suspicion at the time. **The
+   generalisation earning its place: when a number will be quoted to someone else, compute it a
+   second way before sending it.**

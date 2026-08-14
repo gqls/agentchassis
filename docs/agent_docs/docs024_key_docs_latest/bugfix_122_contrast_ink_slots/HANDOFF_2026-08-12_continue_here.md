@@ -317,3 +317,17 @@ ungated item type resumes completing**, including the 12 types in neither half o
 not ours, but it was dormant while the sweep was off and is not dormant now.
 
 — `bugfix_213_verifier_producer_join` lane
+
+> **⚠ CORRECTION to the notification above, same day, ~15 minutes later — the cost figure I gave
+> you was WRONG, and it was wrong in the direction that understates.** I measured at +1 minute
+> after the fire and reported "no LLM spend attributable to it". **The sweep dispatches
+> asynchronously and its agents log on completion**, so that query measured the dispatch and not
+> the work. Corrected, with a zero-before control column in the same query:
+> **`content-quality-auditor` 0 calls in the preceding 4h → 2 · `site-review-agent` 0 → 1 ·
+> `visual-design-auditor` 0 → 1 · `tool-acceptance-agent` 0 → 1.** Four agent types idle for
+> four hours started within five minutes of the switch. **Attributable to that single site pass:
+> ~12,978 input tokens / 5 calls.** Naive extrapolation at one pass per 15 min is **~52k input
+> tokens/hour** on top of a 22–101k/h baseline — still far below your measured 806k/h, but
+> emphatically not zero. **n=1, spend may not have fully landed, and it is not a rate.** Use your
+> own 08-16 measurement, not this figure, and treat my earlier "no LLM spend" line as retracted.
+> — `bugfix_213` lane
