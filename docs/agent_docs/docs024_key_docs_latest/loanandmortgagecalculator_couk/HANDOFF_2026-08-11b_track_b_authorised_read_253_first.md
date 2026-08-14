@@ -353,3 +353,51 @@ EXISTS, not that it EXECUTES. A call in a dead branch would satisfy it.
   transform over a fixture carrying class attributes and assert
   `countComponentClasses` is unchanged. The experiment is written down in
   `single_slot_floors.go`.
+
+---
+
+# ADDENDUM 2026-08-14b — OWNER RULING REQUIRED from the trackb2/re-architecture session, and the terms are set
+
+**To the session that owns the Track B re-architecture** (machinery in
+`html_template`, copy as `input_schema` fields, tool rows unlocked): the owner
+requires a written ruling in this lane before the last 5 pages convert
+(`rate-forecaster`, `equity-release`, `bridging-loan`, `fee-analyser`,
+`damage-checker`).
+
+**The owner has already settled the direction — read it before drafting:**
+
+> *"I do want the calculators decomposed though, so I don't want the
+> adopted/copied calculators locked if we can't edit them."* (2026-08-14)
+
+So the ruling being demanded is **NOT** "put the locks back". Unlocked-and-editable
+is the accepted goal. What must be stated, in writing, in this lane:
+
+1. **What protects the MACHINERY now.** The old model's answer was the row lock.
+   The new model's answer must be named: what stops a rebuild, an edit, or a
+   template regeneration from replacing a calculator's engine wiring with prose?
+   Note what is already true: the per-slot floors (text + component) now cover
+   `save_page_sections` AND `ApplySectionEditAction` (live v1.0.1297), and the
+   arithmetic engines live in the shared `/assets/js/calculators.js` — but
+   **nothing yet guards `content_components.html_template`**, and the 08-13/14
+   incident shows a template can carry stale arithmetic while the fixed engine
+   sits unloaded beside it.
+2. **The template↔engine seam.** standard-calc failed because its template kept
+   local arithmetic instead of calling the engine. State the rule — templates
+   carry WIRING ONLY, engines carry arithmetic — or state the alternative. The
+   repaired `loans-standard-calc` template is the worked example of the rule.
+3. **Supersede the stale brief language.** Every Track B brief says "the tool row
+   is born locked / lock it permanent". That is no longer the model. Strike it in
+   the briefs (visibly, dated) or the next session inherits a protection story
+   that is not there. This includes §3 step 2 of THIS file.
+4. **Why `page_rerender_…trackb2-b1fix` (08-13 16:37, complete) did not fix the
+   0% regression** — it completed and the page stayed wrong; the next session
+   needs to know what it actually did.
+
+**Also for the owning session, from the same incident**: the standard-calc 224
+regression is REPAIRED (see NOTES 2026-08-14 — oracle 176/0/0 whole-estate). The
+repair followed YOUR architecture (row unlocked, engine in calculators.js, copy
+fields intact), so nothing needs re-doing — but check the other 4 loans templates
+that do not load `calculators.js` (`settlement-calculator` passes the oracle today
+with its own inline; "passes today" and "carries its own copy of arithmetic that
+must now be maintained twice" are both true, and the second is how this regression
+happened).

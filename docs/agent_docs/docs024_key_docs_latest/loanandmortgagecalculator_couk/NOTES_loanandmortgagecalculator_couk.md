@@ -2437,3 +2437,37 @@ already attempted and did not take — worth knowing why before repeating it.
 architecture, so this is a contribution into the lane, not a competing fix. Oracle
 attribution, provenance greps and the census are all re-runnable from the commands
 above.)*
+
+### 2026-08-14 — standard-calc REPAIRED, at the owner's direction, within the new architecture
+
+Owner ruling: *fix the calculator after checking it again* — and, on the lock
+question, *"I do want the calculators decomposed … I don't want the adopted/copied
+calculators locked if we can't edit them."* So the repair deliberately follows the
+trackb2 architecture rather than re-imposing the old locked model: the row stays
+unlocked, the copy fields stay editable, and the arithmetic moves OUT of the page.
+
+**Re-checked first**: still broken on the wire (no `calculators.js` tag, no zero
+branch), row untouched since 08-13 14:19, **no open work item** — the owning session
+was alive but not mid-fix, so this did not collide with anything.
+
+**The defect, precisely**: the `loans-standard-calc` template carried its own
+pre-224 inline script — `if (P > 0 && r > 0 && months > 0)`, the exact stale-answer
+guard — while the FIXED engine sat unloaded in `/assets/js/calculators.js`
+(`calculateAmortization` has the explicit `rate === 0` branch).
+
+**The repair** (template AND rendered row, one transaction, `DO`/`RAISE` verified):
+replace the stale inline block with `<script src="/assets/js/calculators.js">` plus
+thin DOM wiring that calls `calculateAmortization` and **always writes the DOM** —
+blank/invalid inputs coerce to 0 and the engine returns zeros, so the display can
+never carry a previous calculation's answer. That makes the two-routes bug
+structurally unrepresentable, not just guarded. `{{.label_N}}`/`{{.heading_1}}`
+placeholders untouched in the template; real labels untouched in the row.
+Assemble-only rerender `page_rerender_standard-calc_fix224b_20260814`, complete.
+
+**Proof, controls in the same session**: parse control OK; mutation control
+4 FAIL / 0 passed; `oracle.py --tools standard` **15/15** including the 0% boundary
+and both two-routes checks; full estate **PASS 176 / FAIL 0 / CONVENTION 0** —
+better than the pre-regression 164/6/6, because the engine's unrounded arithmetic
+matches the oracle's primary expectation exactly, so the rounding-convention
+tolerances are no longer needed. The rerender also recommitted the fixed bytes to
+the sites repo, healing the poisoned `origin/master` copy for this page.
