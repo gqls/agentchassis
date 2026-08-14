@@ -6,6 +6,14 @@ actions; you cannot see any other session's, in-flight or committed, except by
 looking. Full problem statement and evidence:
 `docs/agent_docs/docs024_key_docs_latest/multi_session_coordination/HANDOFF_2026-07-16_multi_session_coordination.md`
 
+## Explaining decisions and mechanisms to the owner (owner note, 2026-08-12)
+
+When explaining a ruling, mechanism, or decision to the owner — in chat or in docs — don't
+compress a definition, the rule that governs it, and its application to the current case into
+one dense paragraph. Split it: say what the thing IS in plain terms first (no unexplained
+jargon or acronyms), THEN state the rule, THEN say how the current case measures against it.
+If a paragraph needs a second read to find the one number that mattered, it is doing too much.
+
 ## Git — commit per task (owner ruling, 2026-07-16)
 
 - Commit with an **explicit pathspec**: `git commit <paths your task touched> -m "..."`.
@@ -38,6 +46,21 @@ looking. Full problem statement and evidence:
   to restore. **Read before write on any file you did not create; prefer the
   Write tool, which refuses an unread file, over a shell redirect, which does
   not.**
+- **`git stash` is FORBIDDEN on this tree (owner ruling, 2026-08-14) — and mechanically
+  blocked.** A bare `git stash` revert-sweeps EVERY session's dirty tracked files at once,
+  not just yours: measured 2026-08-12, one stash took **38 files across ~10 lanes** and put
+  the 18 production overlay manifests back ~50–100 releases — after which `git status` read
+  clean and the tree matched HEAD, so the next `apply -k` would have been a silent fleet
+  rollback. Git has no pre-stash hook, so the ban is enforced at the session harness
+  instead: a `PreToolUse` hook (`scripts/block-git-stash.py`, wired in
+  `.claude/settings.json`, self-test `--self-test`) refuses every **mutating** form —
+  bare/push/save/pop/apply/drop/clear/branch — in any session, however the command is
+  compounded. Read-only `git stash list` / `git stash show` stay allowed: they are how you
+  READ a stash an earlier session left. Need what a stash holds? Extract **by path** —
+  `git show 'stash@{N}:<path>' > <path>` — **never pop**: a shared-tree stash holds
+  everyone's WIP, and popping dumps it all into your tree to be committed under your name.
+  Wanted a clean tree for yourself? That is what committing per task (above) and
+  `git worktree` are for. Full trap + per-file recovery: grep `git stash` in `LANDMINES.md`.
 - **Your uncommitted work is not safe, and this practice does not make it safe.**
   Committing per task stops *you* sweeping up *others'* WIP; it cannot stop a
   session that still runs `git add -A` from sweeping up *yours*, half-finished,
