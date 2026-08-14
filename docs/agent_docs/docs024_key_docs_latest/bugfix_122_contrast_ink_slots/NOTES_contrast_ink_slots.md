@@ -2332,3 +2332,40 @@ unchanged. But dartsonline has **17 open contrast rows**, and its audit will now
 round-2 inks. Any of the 17 sitting on an ink-consuming element may legitimately retract on 08-18 —
 that is the mechanism working, not scope creep. The re-render does NOT touch robot-hands, so the
 canary stays clean.
+
+### The owner revised three answers within the hour, and every relayed claim was verified before acting
+
+Relayed by `581eb30a` (the rulings were given in their session): threshold **4.5 → 5.0** for this
+change (the "unless briefed otherwise" branch of the AA default), **a kill-switch is wanted**, and
+**"Go after I have seen dartsonline.com"**. Verified rather than accepted, in order:
+
+1. **The hold on `829a8f3e` is real and correctly shaped** — `deferred`, `spec.held_2026_08_14`
+   present with the restore line, not cancelled. Their guard (`AND status='triaged'`) could not have
+   stomped a claim. Right call: at 4.5 the owner's gate would show colours that will never ship,
+   costing the gate AND a second rebuild.
+2. **Their 5.0 hexes reproduce exactly** on my implementation: dartsonline `#94A0C2` (5.122) /
+   `#F18072` (5.125). Computed fresh: robot-hands primary at 5.0 is also `#94A0C2` (worst 5.077) —
+   clears both canary grounds 5.88 / 7.20, so **Monday's "both retract" verdict survives the
+   threshold change**; discriminator table updated to four hexes. webdesign accent at 5.0:
+   `#915E2C` (5.151), replication-only, needs a pin when the code lands.
+3. **"Zero live ink consumers in dartsonline's served CSS" is TRUE, and my first count said 1.**
+   The hit is line 937 — prose inside the renderer's own explanatory comment, not a rule. A grep
+   counts strings, not consumers; open the matching line before crediting a count of anything.
+4. **The layout surface makes webdesign.co.uk the real canary.** Five layouts carry
+   `a { color: var(--color-accent-ink, …) }` in the stylesheet — read in webdesign's SERVED css.
+   So darts shows the owner one eyebrow; webdesign shows every in-prose link. Owner added it as a
+   second canary on being shown exactly that.
+
+**MISSTEP — my "4 components / 37 placements / 35 pages / 17 sites" correction to the owner was
+itself an undercount by a whole surface.** The census read `page_components.rendered_html` only.
+The five-surface enumeration (`content_components`, **`layouts.css_template` 17 of 18**,
+`css_snippets`, `site_components`, `page_components`) is in `bugs_open/122` §6, was written on
+08-13, and I verified parts of it myself that day. A census answers the question you encoded — I
+encoded one surface of five, then corrected the owner's picture with confidence. The correction to
+the correction is in the handoff.
+
+**Coordination in force:** `581eb30a` owns the 5.0+switch code change;
+`platform/colour/contrast.go` and the `palette_*` actions are frozen to this lane until they message
+the sha. Then: un-defer `829a8f3e`, re-file for BOTH canaries at 5.0, owner looks, "Go" gates the
+widening. My background watcher on the held item will time out harmlessly (it breaks only on
+terminal states).

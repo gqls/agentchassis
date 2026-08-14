@@ -84,8 +84,33 @@ curl -s https://robot-hands.com/assets/css/styles.css  | grep -- '--color-primar
 | served ink | meaning | canary verdict |
 |---|---|---|
 | **`#E2E8F0`** | no re-render — **the expected state, and the clean one: my retraction is under test** | table in 3b stands |
-| `#8a97bd` | round 2 underneath; certified against the **composited** ground, worst-of-four 4.56:1 | table in 3b stands, both rows still retract |
+| `#94a0c2` | **round 2 at the owner's revised 5.0 threshold** (see the revision note below) — 5.88 / 7.20 on the canary grounds | table in 3b stands, both rows still retract |
+| `#8a97bd` | round 2 at the original 4.5 — worst-of-four 4.56:1 | table in 3b stands, both rows still retract |
 | `#7d8bb6` | round 1 **without** round 2 — measures 4.55 declared but **3.93 composited** | `card-link` may file fresh — **their regression, not a retraction bug**. Stop and tell them |
+
+> **REVISED 2026-08-14 (evening) — three further owner rulings, relayed via the `581eb30a` session
+> and each verified at the artefact before being written here:** the ink threshold moves **4.5 →
+> 5.0** for this change (the "unless someone says otherwise" branch of the AA default — his call),
+> a **kill-switch is wanted** after all, and widening waits for **"Go after I have seen
+> dartsonline.com"**. Consequences, all checked:
+> - The dartsonline rebuild item `829a8f3e` is **HELD** (`deferred`, hold note in
+>   `spec.held_2026_08_14`, one-line restore inside) so the owner's gate shows the values that will
+>   actually ship. **Un-defer and re-file at 5.0 for dartsonline AND webdesign.co.uk** once the
+>   code change lands. The `581eb30a` session owns that code change;
+>   `platform/colour/contrast.go` and `palette_specialised_slots.go` etc. are **frozen to this lane
+>   until they message done** — a pathspec commit cannot protect either side from a same-file
+>   passenger.
+> - **dartsonline's served CSS has ZERO live ink consumers** — its one grep hit is line 937, which
+>   is prose inside the renderer's own comment. **A grep counts strings, not consumers.** Its single
+>   real consumer is `page_components`-side, one eyebrow on `/index.html` — so the darts canary
+>   shows the owner ONE small label. **webdesign.co.uk is the second canary** because five layouts
+>   carry `a { color: var(--color-accent-ink, …) }` in the stylesheet itself — every in-prose link.
+> - At 5.0, verified two-ways: dartsonline `#94A0C2` / `#F18072` (5.122 / 5.125); robot-hands
+>   primary is also `#94A0C2` (worst 5.077). webdesign accent `#915E2C` (5.151) is
+>   replication-only — pin it when the code lands.
+> - My own consumer census ("4 components / 37 placements") was **page_components-only and missed
+>   the layout surface entirely** — the five-surface list in `bugs_open/122` §6 was already on
+>   record and I had read it. A census answers the question you encoded.
 
 **Why the hex alone cannot carry this:** round 1 emits a *plausible navy* that passes any eyeball
 check while failing on the real ground. "It's a navy, so the fix is in" reaches the right conclusion
