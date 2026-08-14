@@ -15,7 +15,56 @@
 246's follow-up D5 ("collapse `p.sqlDB` into `p.db`"). What looked like a cosmetic
 two-handles tidy-up is three production-dead code paths sharing one cause.
 
-**Status: OPEN, not fixed — but as of 2026-08-13 fully DIAGNOSED and ready to fix.** All
+> ## STATUS 2026-08-14: **FIXED IN THE TREE, STILL OPEN — the fix is a Go change and is inert until a fleet roll.**
+>
+> Candidate 1 applied at `e37f79b65` (+ `f894b1a38`, gofmt). `p.sqlDB` no longer exists;
+> `MessageProcessor` has one handle. Council gate: `Council-Submitted:
+> 0ff072ef-ee02-465e-8a70-f5461c585ec9`, verdict pending at the time of writing — **whoever
+> picks this up must read it and act on a REVISE/REJECTED, because the code is already on the
+> shared branch.**
+>
+> **It stays OPEN because the bar is fixed AND live**, and the defect is reproducible on every
+> chassis pod until the roll ships. **Do not move it to `bugs_closed/` on the strength of the
+> commit.** What to do after the roll is in "How to verify any fix" below; the two live paths
+> are the honest check and both could come out either way.
+>
+> **What went, beyond the three sites this file filed** — two more dependents of the same nil
+> handle, found while re-locating the line numbers and recorded here because a reader of this
+> file would otherwise not know they were in the blast radius:
+> - **`stateRepo`** — a `*orchestration.StateRepository` field built in the constructor from
+>   the nil `sqlDB` and read **nowhere** in `platform/messaging` (grep returns exactly two
+>   hits: the declaration and the assignment; the identifier is unexported, so nothing outside
+>   the package could reach it). Left behind, it would have silently become
+>   `NewStateRepository(nil, logger)`.
+> - **`createSQLDB()`** — a callerless second opener of a second handle to the same database,
+>   same class, same file. Not `DATABASE_URL`-based (it reads `CLIENTS_DB_*`), which is why
+>   this file never listed it.
+>
+> **And a third live fallback reader this file did not list:**
+> `platform/messaging/validation_drop.go` (`recordDroppedValidationError`) had
+> `db := p.sqlDB; if db == nil { db = p.db }` — **the operands the opposite way round** from
+> the two `bugs_closed/239` left in `processor.go`. So it reached first for the handle that was
+> always nil and only ever wrote its `agent_error_log` row by falling through. Simplified to
+> `p.db` like the others.
+>
+> **One piece of evidence added to C's case**, because the file argued redundancy from the
+> `processed_messages` write rate alone: the `bugs_closed/239` **release** half inside C's defer
+> is duplicated verbatim in `agentbase` (`agent.go`, the two-phase claim defer, on
+> `a.stateRepo`). `ReleaseMessageClaim`'s only two callers fleet-wide were that one and C's. So
+> deleting C loses neither the claim, nor the release, nor the completion — not just "the claim
+> happens elsewhere".
+>
+> **Coverage changes, stated rather than left to shrink quietly:** one test REMOVED
+> (`TestConstructorSizesThePoolItOpensItself` — its whole subject was the deleted second pool;
+> its salvageable half survives as a `DATABASE_URL`-set case in the sibling table), two vacuous
+> `sqlDB` assertions dropped from 239's regression test which is otherwise kept, and
+> `TestSuccessResponseStatusStillComplete` redirected from the deleted `sendWorkflowResponse`
+> wrapper to `sendWorkflowResponseWithStatus` with identical arguments. That redirect was
+> **mutation-verified** rather than assumed: forcing the error-only status override to fire
+> unconditionally makes it fail on `IsComplete` and `IsError`, and restoring makes it pass — so
+> the `bugs_open/196` success-envelope coverage is genuinely preserved, not merely still green.
+
+**Status: ~~OPEN, not fixed~~ — but as of 2026-08-13 fully DIAGNOSED and ready to fix.** All
 three sites are now assessed and all three are **deletions**, each on its own separate
 proof: **C** redundant (agentbase runs the same claim on a live handle), **B** unreachable
 (zero callers), **A** inert (both branches `return nil`, one log line between them).
