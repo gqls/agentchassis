@@ -541,3 +541,133 @@ was measured 2026-08-11 and **goes to zero once option (a) ships** — which is
 the intended order. Re-run `scripts/audit-default-shadowed-keys.sh` plus the
 read-path check at implementation time rather than quoting the number from
 here; a census is a snapshot, and this one is deliberately about to change.
+
+---
+
+## CANDIDATE 2 SHIPPED — 2026-08-14, commit `d3edb5b89` (Go: INERT until the next chassis roll)
+
+Ruling 2 executed. `Council-Submitted: 41a01378-1211-4987-966d-f8b6e2fddce1`
+(platform/ is in scope this time; verdict not yet read at time of writing —
+whoever reads it owns acting on a REVISE, because the code is already on the
+shared branch). Registered as **CTS-059** in the same commit, per the ordering
+exemption's surviving condition (2).
+
+### The mechanism section of this file was RIGHT but understated the reach
+
+This file said Strategy 0 was the only arm that could beat a Default. Reading
+every arm line-by-line to implement the fix showed *why*, and it is stronger than
+"strategies 1/2/3 skip populated fields": **nothing anywhere ever deletes from
+`result.Values`.** `delete(result.Defaulted, field)` at Strategy 0 touches the
+provenance map only. So the has-value skip at the head of Strategies 1, 2, 3, 4,
+5 AND the nested-object backward-compat block can never pass for a defaulted
+field. Six arms, not three.
+
+**That is the blast-radius proof, and it is why this change did not need an
+estimate.** A field Strategy 6 can touch is one no other arm could reach ⇒ no
+behaviour that works today can change. Everything else is arithmetic on the dead
+set.
+
+### What shipped
+
+- **Strategy 6** (`action_inputs.go`): for a field still holding only its Default,
+  an explicit dotless config SCALAR of the Default's kind becomes the value, and
+  `Defaulted` is cleared. Guards: a dotted string stays dead (a dot means
+  REFERENCE — `bugs_open/248` finding (a), 150+ page-visible 404s named
+  `input-data.asset-key.jpg`, same discriminator, measured against 478 asset
+  rows); composites still refused; a kind guard (`datahelpers.LiteralKind`)
+  refuses a scalar whose type differs from the Default's; an explicit `""` cannot
+  override a Required field's Default.
+- **Strategy 3 bridge** now beats a Default when its path resolves — it performs
+  Strategy 0's operation under a deprecated spelling. Zero live definitions carry
+  a Deprecated alias for a defaulted field, so this arm is correctness for the
+  next author, not a live change. The alias is still REPORTED in
+  `DeprecatedUsed`, asserted by a test, so beating the Default does not quietly
+  bless the old spelling.
+- **Detector re-specified in the same commit** (`defaultshadow.go`): `static_string`
+  and `non_string_literal` → `live_override`; `type_mismatch` and
+  `required_empty_string` are the new dead classes; `deprecated_bridge` moved from
+  dead to conditional. The binary now emits a per-finding **`verdict`** and the
+  wrapper script groups on it instead of re-deriving `class != "dotted_conditional"`
+  — that second copy of the rule would have printed 99 working entries as dead
+  keys while the binary exited 0.
+- **Two pinned tests flipped**, both now also asserting provenance is cleared,
+  because `deploy_image_asset` reads `WasDefaulted("purpose")` before letting an
+  asset row's purpose win (248 finding (b)): an override that set the value but
+  left `Defaulted` intact would still read as "nobody said anything".
+
+### Re-measured at implementation time, as this file's own last paragraph demanded
+
+`[MEASURED 2026-08-13/14 — one session, spanning midnight; the BEFORE census is 08-13, the AFTER census and the demand control are 08-14]` — 184 live agents, 61 specs with Defaults (was 62; the
+`write_audit_findings` spec dropped out when `bugs_open/264` removed its only
+Default):
+
+| | before | after |
+|---|---|---|
+| dead mismatched | 21 | **0** |
+| dead matching | 78 | **0** |
+| conditional (dotted + bridges) | 96 | 96 |
+| live overrides | — | **99** |
+| exit | 1 | **0** |
+
+**The 24 → 21 drop between 08-11 and 08-14 was not this lane.** `bugs_open/264`
+took the four `audit_source` entries out (migration 399 + `audit_source` made
+Required with no Default), which is −4, and **one NEW entry arrived**:
+`render-audit-agent steps.audit request_render_audit max_pages=60 (default 25)`,
+from migration `392` (another lane's weekly-rotation work). Investigated before
+anything else, per the previous handoff's cold-start rule: **benign** — read
+directly at `request_render_audit_action.go:98`
+(`datahelpers.GetIntField(config, "max_pages", 25)`), so the live cap was already
+60. It is the 21st member of the direct-read false-positive family, not a fresh
+instance of the class.
+
+So candidate 2's **activation set was empty by construction** — exactly the order
+ruling 1a intended, though reached by 264's route rather than the four-line
+config read that ruling described.
+
+### The zero has a demand control, because I edited both the resolver and its detector
+
+A post-fix zero from a detector the same commit re-specified is the shape that
+should be distrusted. One live `max_pages: 60` was mutated to the string `"60"`
+in the same live export and fed back through the same binary: **exit 1, 1 dead
+mismatched, classed `type_mismatch`, live overrides 99 → 98.** The zero is a real
+zero, and the pipeline (live query → binary → script → exit code) can still
+return non-zero.
+
+### The remaining exposure, unchanged and deliberate
+
+The **96 dotted_conditional** entries still fall back to their Default silently
+when a path does not resolve — this file's second face, and it stays open by
+design: resolvability is a runtime fact an offline check cannot decide. The one
+latent row named earlier in this file (`derive_card_asset entity_type`, benign
+until phases I5/I6) is unaffected.
+
+### The wart, registered rather than hidden (CTS-059's landmine)
+
+The same dotless string now means different things either side of a Default:
+`analysis_field: "repo_analysis"` on a **defaulted** field is a LITERAL
+(Strategy 6); on a **non-defaulted** field it is a single-segment REFERENCE
+resolved against collected_data (Strategy 4). No live config can depend on the
+other reading — Strategy 4 was never reachable for a defaulted field — and all 48
+live dotless statics are plainly values their authors typed (`repo_name:
+'agentchassis'`, `ref: 'main'`, `country: 'GB'`, `severity: 'high'`). But you
+cannot answer "is this string a value or a path?" from the config alone any more:
+you must check whether the action's spec defaults that field.
+
+**Open review question, named at registration and deliberately NOT taken:**
+whether a resolving dotless string on a defaulted field should instead resolve as
+a collected_data reference. It is the one arm that could replace a typed Default
+with a resolved object of unknown shape (`ActionInputs.Get` returns `""` for a
+non-string), and zero live entries want it. Whoever revisits it owns re-measuring
+the `*_field` family first — 28 of them read config directly today, which is
+precisely what makes the change look free.
+
+### What is left on this bug
+
+1. **Read the council verdict** (corr above) and act on a REVISE/REJECTED.
+2. **Post-roll proof**, once a chassis image carrying `d3edb5b89` ships: expect
+   the `Strategy 6: explicit config value beat the spec default` Info line from a
+   step carrying a dotless static on a defaulted field, and
+   `scripts/audit-default-shadowed-keys.sh` still at 0 dead. Expect **no**
+   `Strategy 6: config value's type differs` Warn anywhere — no live entry
+   mismatches kinds today, so one would mean new config arrived.
+3. The dotted_conditional census (96) remains this file's open half.

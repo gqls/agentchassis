@@ -511,3 +511,72 @@ session picks up Task A (the four-line auditor fix, coordinating with the 213
 thread who own that file) and then Task B (the general fix, which needs a
 council round). Both are written out step-by-step in
 HANDOFF_2026-08-11b_census_done_owner_decisions.md.
+
+---
+
+### 2026-08-13 evening → 2026-08-14 morning — the config-beats-default fix is written, tested and committed
+
+The short version: **a step's config can now override a built-in default, which
+for months it could not.** That was the whole of bug 231, and it is done in code
+and waiting for the next chassis build to go live.
+
+What was actually wrong. Every action declares a small spec — which settings it
+accepts and what each falls back to when nobody says otherwise. The code filled in
+those fallbacks *first*, then went looking for what the config had asked for — and
+every one of those later lookups skipped a setting that already had a value. A
+fallback counts as a value. So the fallback always won, and the config was
+decoration. The visible damage was the logo one we already knew about: a step that
+said "this is a logo" got told "it's a hero", and the file landed under the hero's
+name.
+
+The reassuring part is how tightly we could bound the risk. Because the old code
+could only ever set one of these settings by one specific route, anything the new
+code can touch is something that **did nothing at all before**. That's not an
+estimate, it's a property of the code — so there is no way for this to disturb
+something that currently works. Counting it across the live fleet: 99 config
+entries were inert. 78 of them happened to repeat the fallback word for word, so
+nothing changes for those. The remaining 21 belong to actions that were already
+reading the config directly by a private back door, so they were already behaving
+the way their config said. Net effect on live behaviour today: none. The value is
+that the trap is closed for whoever writes the next one.
+
+Two judgement calls worth knowing about. First, a config value containing a dot is
+still ignored if it doesn't resolve — because a dotted value is a *pointer to data
+elsewhere*, and we have already been badly bitten by treating one as a literal:
+that mistake published over 150 broken image links named after the pointer itself.
+Same reasoning here, so dots stay off-limits. Second, I deliberately did **not**
+do one thing I originally planned. A bare word could in principle be read as
+"go and fetch the thing with this name" rather than "use this word". I listed all
+48 live cases before deciding, and every single one is plainly a word the author
+typed — 'agentchassis', 'main', 'GB', 'high'. So bare words are taken literally,
+the other reading is written up as an open question, and the fact that the same
+bare word means different things in two situations is recorded as a trap rather
+than left for someone to trip over.
+
+A detail I'm glad I checked. The tool that reports this class of problem had to be
+updated in the same commit, because two thirds of what it used to report as
+"broken" is now working config — a tool describing last week's code is worse than
+no tool. After updating it, it reported zero problems. I don't trust a zero from a
+checker I just edited, so I took the live configuration, deliberately broke one
+entry, and fed it back: the checker caught it and failed as it should. The zero is
+a real zero.
+
+Also worth flagging, because it's a coordination thing rather than a code thing:
+the first job on my list had **already been done by another session while this was
+being planned** — by a different method than the one you chose, and a slightly
+stronger one (it makes the bad case fail loudly instead of quietly defaulting).
+Nothing was lost, and it's the reason my change ends up altering no live behaviour
+at all. I've recorded it rather than argued with it.
+
+Two things I could not clean up and did not pretend to: another session has a file
+in the shared tree that doesn't currently compile, and a second one is broken at
+the branch tip. Neither is mine and the rule here is to leave other people's work
+alone, so I tested against a clean copy of the committed code instead. And my
+commit unavoidably carries one line of another session's register entry — I've said
+so in the commit message rather than let a reader find it.
+
+Still open: the council review is submitted and I have not read the verdict yet,
+and the fix is inert until someone builds a chassis image. The other half of bug
+231 — 96 config entries that point at data which sometimes isn't there, and fall
+back silently when it isn't — is untouched and stays open by design, because
+whether a pointer resolves is only knowable while the thing is running.

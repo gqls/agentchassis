@@ -926,3 +926,139 @@ Missteps this session:
   max_rounds damage from the detector output alone (see above). The
   detector's own header caveat is what stopped me — write the caveat into the
   tool, not just the report.
+
+---
+
+## 2026-08-13 evening → 2026-08-14 morning (one session) — candidate 2 implemented and committed (`d3edb5b89`)
+
+Task B from `HANDOFF_2026-08-11b`. Full account in `bugs_open/231`'s
+"CANDIDATE 2 SHIPPED" section and registered as CTS-059; this is the working log,
+including what I got wrong or nearly got wrong.
+
+### Cold-start checks: one surprise, investigated first as the handoff demanded
+
+- `go test ./cmd/config-key-audit/ ./platform/orchestration/actions/` — green.
+- **The detector's own exit code lied to me on the first read, and it was my
+  fault.** I ran `./scripts/audit-default-shadowed-keys.sh 2>&1 | tail -40; echo
+  "EXIT=$?"` and read `EXIT=0`. `$?` after a pipeline is **`tail`'s** status, not
+  the script's. Re-run with the output redirected to a file: `REAL_EXIT=1`. Half a
+  minute's confusion, but it is exactly the "my instrument answered a different
+  question" shape, and the cheap fix is to never put `$?` after a pipe.
+- Counts had moved 24 → 21 dead-mismatched. `24 − 4 = 20`, not 21, so **one new
+  entry had arrived** — the handoff's cold-start rule says investigate that before
+  anything else, and it was right to. It is
+  `render-audit-agent … request_render_audit max_pages=60 (default 25)` from
+  another lane's migration `392`. **Benign**: read directly at
+  `request_render_audit_action.go:98`. The 21st member of the direct-read
+  false-positive family, not a fresh instance of the class.
+- **Task A had already shipped, by another lane and by a different route.** Owner
+  ruling 1a described a four-line direct config read in `write_audit_findings`.
+  What is live (commit `3621ca7cf`, `bugs_open/264`) is migration 399 giving each
+  of the four auditors a resolvable `audit_source` plus making the field Required
+  with **no Default** — so it fails loudly rather than defaulting. Different
+  mechanism, same outcome, arguably stronger. Recorded rather than re-litigated;
+  it is why candidate 2's activation set was empty by construction.
+
+### The thing I nearly got wrong, and what stopped me
+
+My first sketch of candidate 2 was "make the later strategies stop treating a
+Default as a value" — i.e. relax the has-value skip everywhere. **That would have
+been much larger than the ruling and genuinely dangerous.** Strategies 1/2 are the
+aggressive recursive search whose own doc comment says it "can find stale values
+from previous loop iterations"; letting it beat a Default would have changed
+resolution for fields nobody was talking about.
+
+What stopped it was reading the arms instead of pattern-matching them. Two things
+fell out that shaped the whole design:
+
+1. **`result.Values` is never deleted from.** `delete(result.Defaulted, field)` at
+   Strategy 0 touches the provenance map only. So the has-value skip can never
+   pass for a defaulted field — across **six** arms (Strategies 1–5 and the
+   nested-object block), not the three this bug's file named. That is the
+   blast-radius PROOF, not an estimate: a field the new arm can touch is one no
+   other arm could reach.
+2. `bugs_open/248` finding (a) is a **precedent pointing the other way** and had to
+   be answered, not ignored: "a config value that is a REFERENCE must never be
+   usable as a VALUE ... deleted rather than gated", after reading
+   `config['asset_key']` as a filename published 150+ page-visible 404s named
+   `input-data.asset-key.jpg`. The resolution is that 248 adopted **"contains a
+   dot ⇒ it is a path"** as its class guard, measured against 478 asset rows — so
+   using the same discriminator makes candidate 2 *consistent* with that ruling
+   rather than a reversal of it. Dotted stays dead.
+
+### Where the evidence changed a design decision
+
+I intended to let a **resolving dotless** string beat the Default too (Strategy
+4's arm), for symmetry with non-defaulted fields. Dropped it after listing the 48
+live dotless statics: every one is a value an author typed (`repo_name:
+'agentchassis'`, `ref: 'main'`, `country: 'GB'`), and the `*_field` family wants
+the field NAME, not the object it names. Resolving them would replace a typed
+Default with an object of unknown shape, and `ActionInputs.Get` returns `""` for a
+non-string. **Zero live entries want it**, so it is registered as CTS-059's open
+question instead of shipped. The asymmetry it leaves is the landmine, and it is
+written down in `LANDMINES.md` rather than left as folklore.
+
+### Testing on a shared tree that would not compile
+
+`go test ./platform/orchestration/actions/` failed on
+`palette_specialised_slots.go:387: undefined: colour` — **another session's
+mid-edit file**, and the package had compiled 20 minutes earlier at session start.
+`internal/adapters/thunder/api` is separately broken at HEAD (`unknown field
+Identifier`). Neither is mine, and forward-only says leave them.
+
+So everything was verified against `git archive HEAD` with only my files overlaid
+— and I proved the thunder failure pre-existed by running it against a **pristine**
+archive with none of my changes, rather than asserting it. On that clean tree:
+datahelpers, actions and cmd/config-key-audit all green, and **exactly the two
+intended tests flipped and nothing else** — which is the blast-radius claim
+confirmed at unit level rather than argued.
+
+### The zero I did not trust
+
+After the re-spec the live run said **0 dead**. I had just edited both the
+resolver *and* the detector that grades it, which is precisely the "your own
+action can silence your own detector" shape. So: took the same live export,
+mutated one `max_pages: 60` to the string `"60"`, fed it back through the same
+binary → **exit 1, 1 dead mismatched, `type_mismatch`, live overrides 99 → 98.**
+The zero is real and the pipeline can still return non-zero.
+
+### Two smaller things worth keeping
+
+- **The pre-commit pattern check produced a false positive I had to disprove:**
+  "changed `GetRaw()` but not its twin `Get()`". I touched neither — I inserted
+  `LiteralKind` immediately after `GetRaw`'s closing brace, and the check
+  attributes an added hunk to the nearest preceding function. Verified by diffing
+  both accessors across the commit; identical. Advisory checks that fire on
+  ADJACENCY are worth disproving in one command rather than either believing or
+  ignoring.
+- **A same-file passenger I could not exclude and so declared:**
+  `000_concept_index.md` also carries the RFC_022 lane's `WFA-013` row, added
+  while this work was in flight. A pathspec commit cannot drop a same-file edit.
+  Their `workflow-authoring.md` entry is still uncommitted, so that row references
+  an entry absent at HEAD until they commit — theirs to close, and named in my
+  commit message rather than left for a reader to discover.
+- The council submission was refused twice on **schema** before it flew: `plan`
+  is a nested object (`summary`/`edits`/`grounded_in`/`risks`), not the flat array
+  the runbook's prose suggests, and `risks` is a single string. The 097 header is
+  the authority. Corr `41a01378-1211-4987-966d-f8b6e2fddce1`.
+
+### One more misstep, caught at commit time: I dated a whole session's evidence to the wrong day
+
+This session started on 2026-08-13 and committed at **08:44 on 08-14**. I had
+written "2026-08-13" onto the register entry, the bug file's `[MEASURED]` block,
+the LANDMINES entry and both prose docs — including the commit message, which is
+now immutable and says "committed 2026-08-13" inside its register sketch.
+
+Caught only because I read `git log -1 --date=iso` to name the handoff file. All the
+uncommitted docs are corrected; the register entry is corrected forward in the docs
+commit (a new commit, not an amend). **The `[MEASURED]` marker is now explicit about
+which side of midnight each figure fell on**, because the before-census (08-13) and
+the after-census plus demand control (08-14) are on opposite days and re-running
+either would otherwise look like drift.
+
+The generalisable bit: **a long session's own sense of "today" is stale evidence.**
+The date banner arrives once at session start and every subsequent `date`-free claim
+inherits it. If a session has run for hours, take the date from `git log` or `date`,
+not from the top of the context — the marker rule ("mark the unverified ones too")
+applies to dates as much as to counts, and a dated measurement is the one figure
+whose provenance a later reader cannot re-derive.
