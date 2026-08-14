@@ -196,3 +196,36 @@ repaired+locked stated). Then, while it queues (~30 min): falsifier checks
 - Next phase (fresh session): canary → 10-row history repair →
   unresolved_cta scoping → unlock webdesign.uk. See
   `HANDOFF_2026-08-14_canary_and_repair.md`.
+
+## 2026-08-14 (evening), session 2 (cold start from HANDOFF_2026-08-14_canary_and_repair.md)
+
+- **Falsifiers re-checked before acting:** lane still owned by this directory
+  (`who-owns.py 268` + git log). **A newer roll landed: `v1.0.1299`, both
+  replicas, started 15:32Z** — startup provenance line already scrolled at
+  ~16:37Z (tail=5000 empty; full-log grep hit the documented giant-payload
+  gotcha), so verified by binary probe: stamp `6f8efa158` PRESENT on both
+  pods, `deadbeef…` control absent, and `git merge-base --is-ancestor
+  8f899cc8d 6f8efa158` passes — **the fix is still live**. webdesign.uk
+  locks = 8. Follow-ups not already done (4 tests in the file, no
+  enumeration block in PBP-039).
+- **Council follow-up 1 (bug_historian, enumeration) DONE** — field loop read
+  line-by-line top-to-bottom at `8f899cc8d` (file untouched since); dated
+  block added to PBP-039. **Two corrections to the handoff's partial map:**
+  (1) `""` is NOT skipped early like `llm` — it reaches `resolve()` →
+  `(nil, true)` → `handleMissingField`, where `carryStored`'s own guard
+  (:2124) refuses the carry but `on_missing` then applies normally, so a
+  `""`-sourced required field with no fallback DEFERS the section;
+  (2) `query.*` has a SECOND no-carry sub-branch nobody had recorded —
+  a nil result with NO error that is not a below-contract list (:2353–2358)
+  writes fallback only, carry never consulted (preserved prior behaviour).
+- **Council follow-up 2 (sibling test) DONE** —
+  `TestPlanSections_SpecSourcedFallbackWritesWhenCarryMisses`
+  (site_specs.* + on_missing=use_fallback + declared fallback + nothing
+  stored → carry offered, misses, fallback written). Mutation-verified: with
+  the optional-branch fallback write knocked out the test FAILS on its
+  load-bearing assertion; restored, full actions package green. Misstep to
+  keep: my first mutation attempt silently didn't apply (spaces-vs-tabs in
+  the match string) — the count assertion in the mutation script is what
+  caught it, or the "ok" would have read as a pass of the mutated code.
+- Committing both with `Council-Reviewed: e6c1e4eb…` (verdict READ and
+  APPROVED per session 1's record — the trailer is honest).

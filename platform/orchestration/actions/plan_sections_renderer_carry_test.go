@@ -231,6 +231,67 @@ func TestPlanSections_StaticFallbackStillWritesWhenNothingStored(t *testing.T) {
 	}
 }
 
+// TestPlanSections_SpecSourcedFallbackWritesWhenCarryMisses is the sibling
+// branch to TestPlanSections_StaticFallbackStillWritesWhenNothingStored, asked
+// for by the council round that approved the 268 fix (corr e6c1e4eb,
+// bug_historian): a resolver-path field (site_specs.*) with
+// on_missing=use_fallback, a declared fallback, and nothing stored. The route
+// is resolve() miss → handleMissingField → carryStored (offered, finds
+// nothing) → on_missing. Pins the pre-existing asymmetry between the two
+// fallback arms, which nothing had ever tested: a resolver-path fallback
+// applies ONLY under on_missing=use_fallback, while a renderer/static
+// fallback writes unconditionally (181/097b's pin, the test above).
+func TestPlanSections_SpecSourcedFallbackWritesWhenCarryMisses(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+	mock.MatchExpectationsInOrder(false)
+
+	siteID := uuid.New()
+	componentID := uuid.New().String()
+
+	// A non-identity aspect, so the alias chain (nested shape, sites row)
+	// misses without issuing further queries.
+	expectRendererComponentLoad(mock, componentID, `{"fields":{
+        "cta_text": {"type":"text","source":"llm","required":true},
+        "cta_url":  {"type":"url","source":"site_specs.conversion.primary_target","required":false,"on_missing":"use_fallback","fallback":"/contact.html"}
+    }}`)
+	mock.ExpectQuery("FROM page_components pc").WillReturnRows(slotRows())
+	expectSpecsAndAssetsEmpty(mock)
+	// The carry IS consulted on this branch — the preload runs and finds
+	// nothing stored. (Contrast: before the 268 fix the renderer/static branch
+	// never consulted it at all.)
+	mock.ExpectQuery("build_status = 'deployed'").
+		WithArgs(siteID, "index").
+		WillReturnRows(storedContentRows())
+	mock.ExpectExec("UPDATE pages").WillReturnResult(sqlmock.NewResult(0, 0))
+
+	out, err := PlanSectionsAction(context.Background(),
+		planParams(db, siteID, "index", []string{"hero"}))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	items := readyItems(t, out)
+	if len(items) != 1 || items[0].Status != "ready" {
+		t.Fatalf("an optional field under use_fallback must not affect readiness; got %+v", items)
+	}
+	if got := items[0].ResolvedData["cta_url"]; got != "/contact.html" {
+		t.Errorf("declared fallback must write when the source and the carry both miss under on_missing=use_fallback; got %v", got)
+	}
+	if len(items[0].CarriedFields) != 0 {
+		t.Errorf("a fallback write is not a carry, got %v", items[0].CarriedFields)
+	}
+	if len(items[0].StructuralMisses) != 0 {
+		t.Errorf("an optional field must not record a structural miss, got %v", items[0].StructuralMisses)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("unmet sqlmock expectations: %v", err)
+	}
+}
+
 // TestPlanSections_StoredValueBeatsStaticFallback pins the one deliberate
 // behaviour change beyond the carry itself. Before the fix a declared
 // fallback wrote UNCONDITIONALLY, so a page whose static field had been
