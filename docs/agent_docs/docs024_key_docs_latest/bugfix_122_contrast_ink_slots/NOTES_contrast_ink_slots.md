@@ -2246,3 +2246,33 @@ differs" from "transient rate-limiting read as a UA rejection". Flagged with sug
 wording. Recorded here because it sits in the one artefact whose entire job is telling a future
 reader how to re-transcribe the inputs, and a re-derivation instruction that misdescribes the failure
 mode sends its reader to the wrong diagnosis.
+
+### The 403 claim was THIS LANE'S OWN, and it had already propagated
+
+Chasing the flag from §above to its source: the line the other lane copied is `LANDMINES.md:6163`,
+inside an entry whose own source line reads **"2026-08-06, `bugfix_122_contrast_ink_slots` lane"**.
+**We wrote it.** So they restated a false claim from the fleet-wide system of record, attributed to
+the lane reviewing them — my error travelling through someone else's work, not theirs.
+
+`[MEASURED 2026-08-14]` 7 of 7 pinned domains, bare `curl`, **200** every one, byte-identical with a
+browser UA, and reproduced on their egress too — so it was never an environment difference.
+
+**Origin, which is the part that generalises:** the true fact is one entry over — *"Cloudflare
+answers `Python-urllib` with 403"*, measured 2026-08-02. A `urllib` fact was generalised into a
+`curl` fact and written as a **parenthetical inside a correct command**. That is why it survived
+eight days and two careful readers: the command works, so nothing invites doubt about the sentence
+attached to it, and an aside does not look like a claim. **A false aside inside a working recipe is
+the most durable error this file can carry.** Corrected in place at `26a2a6541`, original wording
+quoted rather than deleted, and the propagation recorded in the entry so the next reader sees that it
+escaped once.
+
+`scripts/pattern-check.py` flagged `shared-ledger-not-appended` on the two removed lines, correctly —
+it cannot distinguish a correction from a clobber. Declared in the commit message, which is what the
+check asks for, and the removed text is reproduced verbatim inside the correction, so nothing
+downstream is lost.
+
+**Also settled today, for the other lane:** they could not read the deploy stamp (startup line
+scrolled past `--tail=1500`, binary probe timed out on them) and left the ancestry question open.
+Answered from here: `bc39e7bf5`, all three commits live, so their "not shipped vs shipped but not
+re-rendered" ambiguity resolves to **shipped but not re-rendered** — and because round 2 shipped with
+round 1, the `#7d8bb6` regression branch never opened.
