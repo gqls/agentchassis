@@ -7,6 +7,20 @@ carried forward below where still live.
 
 **The pilot is live and inert. Nothing is half-finished in the tree.**
 
+> ## ⚠ COLD START, 2026-08-14 — READ §13 FIRST, THEN §12, THEN THIS FILE IN ORDER.
+> The sections are append-only and the file has grown; **§8's "READ THIS FIRST" heading is
+> from 2026-08-12 and is no longer the newest state.** Current position in one paragraph:
+> **`bugs_open/266` is fixed, council-APPROVED and LIVE (`v1.0.1298`, both replicas probed);
+> O2's seven pairs are all DECIDED (owner, 08-13, with pairs 3+4 REVERSED on 08-14 — decision
+> doc holds both rulings); pair 1 was executed to step 6 and the platform CORRECTLY REFUSED
+> the retraction because the page is linked from the site nav, the footer chrome and an
+> article body.** Pair 1's loser sits `archived` and still serving — safe, visitor-visible
+> nothing broken, revert command in §13. **The remaining blocker is CONTENT work (§13), not
+> mechanical steps, and that resizes the whole of O2.** Two standing traps found this week and
+> easy to re-walk: **there is no redirect mechanism** (RUNBOOK correction, 08-14) and
+> **`link_registry` is empty fleet-wide** so every "nothing links here" answer is a yes-man
+> (LANDMINES, 08-14).
+
 ## 1. State
 
 | | |
