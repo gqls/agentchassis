@@ -2,26 +2,31 @@
 # Read-only. Which live step-config entry can never take effect because the
 # action's ActionInputSpec carries a Default for that field?
 #
-# bugs_open/231. ExtractActionInputs applies spec.Defaults first, and every
-# later strategy except Strategy 0 skips a field that already has a value — so
-# against a defaulted field a static config value is silently dead (the step
-# runs with the Default, whatever the config says). pageflow-builder's
-# `"purpose": "logo"` on deploy_image_asset (Defaults purpose="hero") shipped
-# months of hero-shaped logos exactly this way. Migration 348 repaired the two
-# definitions that carried it; this check is the durable half, so the next
-# author to write a static for a defaulted field is told at audit time, not by
-# a broken artefact.
+# bugs_open/231, and RE-SPECIFIED 2026-08-13 when the resolver changed. It used
+# to be true that against a defaulted field a static config value was silently
+# dead — spec.Defaults landed first and every strategy but Strategy 0 skipped a
+# field that already held a value. pageflow-builder's `"purpose": "logo"` on
+# deploy_image_asset (Defaults purpose="hero") shipped months of hero-shaped logos
+# exactly that way. Candidate 2 (owner ruling 2026-08-11 #2) makes an explicit
+# config VALUE beat a Default, so that shape is now honoured, and this report's
+# two most populous classes became "live_override" instead of dead keys.
 #
-# Finding classes (defined in cmd/config-key-audit/defaultshadow.go):
-#   static_string / non_string_literal / composite_literal — dead literals
-#   deprecated_bridge   — a *_field alias onto a defaulted field (equally dead)
-#   unextractable_field — defaulted field outside Required+Optional: dead to
-#                         EVERY config shape, dotted included
-#   dotted_conditional  — a dotted path on a defaulted field: live only when it
-#                         resolves; falls back to the Default SILENTLY when the
-#                         dispatch shape doesn't carry it (231's second face,
-#                         fixed for asset-deployer by migration 380). Reported,
-#                         never fatal — resolvability is a runtime fact.
+# Verdicts (assigned by the Go binary, printed here — see below):
+#   dead        — the Default always wins: unextractable_field (defaulted field
+#                 outside Required+Optional, dead to every config shape),
+#                 type_mismatch (a scalar of the wrong kind, refused by Strategy
+#                 6's guard), required_empty_string, composite_literal.
+#   conditional — wins if and only if its path resolves at runtime:
+#                 dotted_conditional and deprecated_bridge. Reported, never fatal
+#                 — resolvability is a runtime fact this offline check cannot
+#                 decide (231's second face, fixed for asset-deployer by 380).
+#   live        — live_override: the resolver honours it. Listed for the census.
+#
+# THE VERDICT COMES FROM THE BINARY, deliberately. This script used to compute
+# `dead = class != "dotted_conditional"` — a second copy of a rule that lives in
+# defaultshadow.go, and the re-spec above would have falsified it silently,
+# printing 99 working config entries as dead keys. Read f["verdict"]; never
+# re-derive it from the class name.
 #
 # CAVEAT: "dead" means dead on the ExtractActionInputs path. An action that
 # reads step.Config directly in its own body can still honour the key (that is
@@ -77,23 +82,41 @@ else
     printf '%s' "$FINDINGS_JSON" | python3 -c '
 import json, sys
 findings = json.load(sys.stdin)
-dead = [f for f in findings if f["class"] != "dotted_conditional"]
-cond = [f for f in findings if f["class"] == "dotted_conditional"]
-print("=== CONFIG ENTRIES SHADOWED BY A SPEC DEFAULT ===")
+# Group on the verdict the BINARY assigned. Anything with an unrecognised verdict
+# is surfaced rather than dropped: a new class must be noisy here, not invisible.
+known = ("dead", "conditional", "live")
+dead = [f for f in findings if f.get("verdict") == "dead"]
+cond = [f for f in findings if f.get("verdict") == "conditional"]
+live = [f for f in findings if f.get("verdict") == "live"]
+unknown = [f for f in findings if f.get("verdict") not in known]
+
+def line(f, tag=None):
+    return "  {agent} {path} action={action} {key}={cv!r} (default {dv!r}) [{cls}{tag}]".format(
+        agent=f["agent"], path=f["path"], action=f["action"], key=f["key"],
+        cv=f["config_value"], dv=f["default_value"], cls=f["class"],
+        tag="; " + tag if tag else "")
+
+print("=== DEAD: THE SPEC DEFAULT WINS, WHATEVER THE CONFIG SAYS ===")
 if not dead:
     print("  none")
 for f in dead:
-    tag = "matches default" if f["matches_default"] else "MISMATCH — live behaviour is the default, not this value"
-    print("  {agent} {path} action={action} {key}={cv!r} (default {dv!r}) [{cls}; {tag}]".format(
-        agent=f["agent"], path=f["path"], action=f["action"], key=f["key"],
-        cv=f["config_value"], dv=f["default_value"], cls=f["class"], tag=tag))
+    print(line(f, "matches default" if f["matches_default"]
+               else "MISMATCH — live behaviour is the default, not this value"))
 if cond:
     print()
-    print("=== DOTTED PATHS ON DEFAULTED FIELDS (live only if they resolve; silent fallback otherwise) ===")
+    print("=== CONDITIONAL: beats the Default only if its path resolves; silent fallback otherwise ===")
     for f in cond:
-        print("  {agent} {path} action={action} {key}={cv!r} (default {dv!r})".format(
-            agent=f["agent"], path=f["path"], action=f["action"], key=f["key"],
-            cv=f["config_value"], dv=f["default_value"]))
+        print(line(f))
+if live:
+    print()
+    print("=== LIVE: the resolver honours these (Strategy 6) — census only, not defects ===")
+    for f in live:
+        print(line(f, "redundant — equals its default" if f["matches_default"] else "overrides the default"))
+if unknown:
+    print()
+    print("=== UNRECOGNISED VERDICT — this script is older than the binary; update it ===")
+    for f in unknown:
+        print(line(f, "verdict={!r}".format(f.get("verdict"))))
 '
 fi
 

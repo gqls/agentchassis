@@ -3,47 +3,69 @@
 // --default-shadowed-keys: which live step-config entries can never take effect
 // because the action's ActionInputSpec carries a Default for the same field?
 //
-// bugs_open/231 is why this exists. ExtractActionInputs applies spec.Defaults
-// FIRST (action_inputs.go, "Apply defaults first"), and every later strategy
-// except one skips a field that already has a value. The single exception is
-// Strategy 0, which only reads a config value that is a MULTI-SEGMENT dotted
-// string and only wins if that path actually resolves. So against a defaulted
-// field, a static config value is dead, a numeric or boolean literal is dead
-// (Strategy 5 skips populated fields), the deprecated *_field bridge is dead
-// (Strategy 3 skips populated fields), and a defaulted field that is not in
-// Required or Optional cannot be touched by ANY config shape, because
-// strategies 0, 4 and 5 iterate Required+Optional only.
+// bugs_open/231 is why this exists, and THIS FILE WAS RE-SPECIFIED 2026-08-13
+// when the resolver changed under it. Read the history, because the two most
+// populous classes inverted their meaning:
 //
-// The proven damage: pageflow-builder and site-work-orchestrator each carried
-// `"purpose": "logo"` on deploy_image_asset, whose spec defaults purpose to
-// "hero" — the logo step's effective purpose was "hero" for months (repaired by
-// migration 348, but only for those two definitions; this check is the durable
-// half, because the next author to write a static for a defaulted field would
-// otherwise re-create the bug with nothing reporting it).
+// BEFORE: ExtractActionInputs applied spec.Defaults FIRST and every later
+// strategy skipped a field that already held a value, so against a defaulted
+// field only a Strategy-0 dotted path that resolved could ever win. A static
+// string was dead, a numeric or boolean literal was dead, and the deprecated
+// *_field bridge was dead. The proven damage: pageflow-builder and
+// site-work-orchestrator each carried `"purpose": "logo"` on deploy_image_asset,
+// whose spec defaults purpose to "hero", so the logo step's effective purpose
+// was "hero" for months.
 //
-// Finding classes, by the exact resolver arm that kills the key:
+// AFTER (candidate 2, owner ruling 2026-08-11 #2 — "an explicit config value
+// beats a default" is now the resolver's rule): Strategy 6 takes a dotless
+// config scalar as a LITERAL for a field still holding only its Default, and the
+// Strategy 3 bridge may beat a Default too. So `static_string` and
+// `non_string_literal` — 99 of the 195 live findings this mode reported on
+// 2026-08-11 — are no longer dead keys at all. They are working config, and
+// reporting them as damage would be this checker lying about the resolver.
 //
+// THE CHECKER FOLLOWS THE RESOLVER, NEVER THE REVERSE. It shares the resolver's
+// own datahelpers.LiteralKind rather than restating the kind rule, because a
+// mirrored rule is the drift this binary exists to catch in others.
+//
+// Finding classes, by the exact resolver arm that decides the key:
+//
+//	live_override       — a dotless scalar whose kind matches the Default's:
+//	                      Strategy 6 applies it and clears provenance. NOT a
+//	                      defect. Reported so the census can enumerate which
+//	                      entries the resolver is now honouring — the set that
+//	                      changed meaning on this commit, and the set a future
+//	                      session re-checks to prove it still does.
 //	unextractable_field — the field has a Default but is in neither Required nor
-//	                      Optional: no strategy iterates it, so NO config shape
-//	                      (dotted or not) can ever touch it. The Default is a
-//	                      constant and the config entry is documentation.
-//	static_string       — a string without ".": invisible to Strategy 0, and
-//	                      every strategy that could read it skips the populated
-//	                      field. (For a NON-defaulted field the same string
-//	                      would be a live single-segment reference — Strategy 4
-//	                      — which is why this check is gated on Defaults.)
-//	non_string_literal  — a bool or number: Strategy 5 takes literals only for
-//	                      fields that are still empty, and a defaulted field
-//	                      never is.
-//	composite_literal   — an object or array: no strategy reads composites at
-//	                      all (recorded on Strategy 5), so this is dead with or
-//	                      without the Default; reported here because the Default
-//	                      is what guarantees the field silently gets a value.
+//	                      Optional: no strategy iterates it, Strategy 6 included
+//	                      (they all walk Required+Optional), so NO config shape
+//	                      can ever touch it. The Default is a constant and the
+//	                      config entry is documentation. STILL DEAD.
+//	type_mismatch       — a scalar whose kind differs from the Default's kind
+//	                      (`max_pages: "60"` against default 25, or any scalar
+//	                      against a composite Default). Strategy 6's kind guard
+//	                      refuses it and the Default stands, so a config typo
+//	                      cannot hand an action a type its spec promised it would
+//	                      never see. STILL DEAD, and now the main dead class.
+//	required_empty_string — an explicit "" for a field that is BOTH Required and
+//	                      Defaulted. Strategy 6 refuses it: a required field's
+//	                      Default is the only thing keeping it satisfiable. No
+//	                      live spec has that overlap (measured 2026-08-13, 164
+//	                      specs), so this class exists to keep the checker honest
+//	                      if one ever does. STILL DEAD.
+//	composite_literal   — an object or array: Strategy 6 takes scalars only (see
+//	                      LiteralKind), so this is dead with or without the
+//	                      Default; reported here because the Default is what
+//	                      guarantees the field silently gets a value instead.
+//	                      STILL DEAD.
 //	deprecated_bridge   — spec.Deprecated maps this config key onto a defaulted
-//	                      field: Strategy 3 checks "already has a value" before
-//	                      reading the path, so the bridge can never fire
-//	                      (pinned by TestPurposeFieldBridge_DeadForDefaultedField
-//	                      in the actions package).
+//	                      field. NO LONGER DEAD: Strategy 3's has-value skip now
+//	                      ignores a value that is still only the Default, so the
+//	                      bridge resolves its path and wins. Conditional on that
+//	                      path resolving, exactly like dotted_conditional, and
+//	                      counted with it. Pinned by
+//	                      TestPurposeFieldBridge_BeatsTheDefault in the actions
+//	                      package.
 //	dotted_conditional  — a dotted path bound to a defaulted field. NOT dead:
 //	                      Strategy 0 resolves it and overwrites the Default —
 //	                      but only when the path resolves against the dispatch
@@ -51,17 +73,18 @@
 //	                      nothing the Default wins SILENTLY (bugs_open/231's
 //	                      second face: asset-deployer's `input_data.purpose`
 //	                      resolved nothing on the undeployed_asset dispatch
-//	                      shape, so every logo deployed as a hero). Reported so
-//	                      the census can enumerate the exposure; never exit 1,
-//	                      because resolvability is a runtime fact this offline
-//	                      check cannot decide.
+//	                      shape, so every logo deployed as a hero). A dotted
+//	                      string is still never read as a literal — bugs_open/248
+//	                      finding (a) is what taking a path expression for a value
+//	                      costs. Reported so the census can enumerate the
+//	                      exposure; never exit 1, because resolvability is a
+//	                      runtime fact this offline check cannot decide.
 //
-// matches_default: for the literal classes, whether the dead config value
-// happens to EQUAL the default it is shadowed by. A match means behaviour
-// coincides with the author's literal intent today (deploy_hero_image's static
-// "hero" against default "hero" — invisible, but the first edit to that value
-// changes nothing and says nothing). Only a MISMATCHED dead key is behaviour
-// silently differing from what the config says, so only those drive exit 1.
+// matches_default: whether the config value happens to EQUAL the default. For a
+// dead class a match means behaviour coincides with the author's literal intent
+// today, and only a MISMATCHED dead key is behaviour silently differing from what
+// the config says — so only those drive exit 1. For live_override a match means
+// the entry is simply redundant.
 //
 // CAVEAT the consumer must hold: "dead" here means dead ON THE INPUTS PATH. An
 // action that additionally reads step.Config directly in its own Run body can
@@ -100,14 +123,58 @@ type defaultShadowFinding struct {
 	DefaultValue   interface{} `json:"default_value"`
 	MatchesDefault bool        `json:"matches_default"`
 	Nested         bool        `json:"nested"`
+	// Verdict is the emitted form of dead()/conditional: "dead", "conditional"
+	// or "live". It exists so CONSUMERS NEVER RE-DERIVE THE RULE FROM THE CLASS
+	// NAME. scripts/audit-default-shadowed-keys.sh used to compute dead as
+	// `class != "dotted_conditional"`, a second copy of the rule below that this
+	// re-spec would have silently falsified — it would have printed the 99 newly
+	// live overrides as dead keys. Same defect class this binary reports on.
+	Verdict string `json:"verdict"`
 }
 
-// dead reports whether this finding's config entry can never take effect on
-// the inputs path. ONE definition, shared by the exit rule and the summary —
-// the class list and its consumers disagreeing about which classes are dead is
-// exactly the drift this binary exists to catch in others.
+// Classes emitted by findDefaultShadowedKeys.
+const (
+	classLiveOverride      = "live_override"
+	classUnextractable     = "unextractable_field"
+	classTypeMismatch      = "type_mismatch"
+	classRequiredEmpty     = "required_empty_string"
+	classComposite         = "composite_literal"
+	classDeprecatedBridge  = "deprecated_bridge"
+	classDottedConditional = "dotted_conditional"
+)
+
+// shadowClassVerdict is the ONE definition of what each class means for the exit
+// rule, the summary and the printed report:
+//
+//	"dead"        — the config entry can never take effect; the Default always wins.
+//	"conditional" — it wins if and only if its path resolves at runtime, which an
+//	                offline check cannot decide.
+//	"live"        — the resolver honours it.
+//
+// A class missing from this map is a classifier change that forgot the exit rule;
+// dead() treats it as dead so it is reported rather than hidden, and
+// TestEveryClassHasAVerdict makes that unreachable.
+var shadowClassVerdict = map[string]string{
+	classLiveOverride:      "live",
+	classUnextractable:     "dead",
+	classTypeMismatch:      "dead",
+	classRequiredEmpty:     "dead",
+	classComposite:         "dead",
+	classDeprecatedBridge:  "conditional",
+	classDottedConditional: "conditional",
+}
+
+func verdictFor(class string) string {
+	if v, ok := shadowClassVerdict[class]; ok {
+		return v
+	}
+	return "dead"
+}
+
+// dead reports whether this finding's config entry can never take effect on the
+// inputs path.
 func (f defaultShadowFinding) dead() bool {
-	return f.Class != "dotted_conditional"
+	return verdictFor(f.Class) == "dead"
 }
 
 // registeredSpecs snapshots the registry into a plain map so the pure check is
@@ -188,6 +255,10 @@ func findDefaultShadowedKeys(agents []liveAgent, specs map[string]datahelpers.Ac
 				return
 			}
 
+			required := make(map[string]bool, len(spec.Required))
+			for _, f := range spec.Required {
+				required[f] = true
+			}
 			extractable := make(map[string]bool, len(spec.Required)+len(spec.Optional))
 			for _, f := range spec.Required {
 				extractable[f] = true
@@ -202,26 +273,27 @@ func findDefaultShadowedKeys(agents []liveAgent, specs map[string]datahelpers.Ac
 					continue
 				}
 
+				// The arms below are in the SAME ORDER as Strategy 6's, and that
+				// ordering is load-bearing: unextractable is tested before the
+				// value's shape because no strategy iterates the field at all, and
+				// the dot test comes before the kind guard because a dotted string
+				// is a reference the guard never sees.
+				str, isString := raw.(string)
+				kind := datahelpers.LiteralKind(raw)
 				var class string
 				switch {
 				case !extractable[field]:
-					class = "unextractable_field"
+					class = classUnextractable
+				case isString && strings.Contains(str, "."):
+					class = classDottedConditional
+				case kind == "":
+					class = classComposite
+				case datahelpers.LiteralKind(defaultValue) != kind:
+					class = classTypeMismatch
+				case isString && str == "" && required[field]:
+					class = classRequiredEmpty
 				default:
-					switch v := raw.(type) {
-					case string:
-						if strings.Contains(v, ".") {
-							class = "dotted_conditional"
-						} else {
-							class = "static_string"
-						}
-					case bool, float64, float32,
-						int, int8, int16, int32, int64,
-						uint, uint8, uint16, uint32, uint64,
-						json.Number:
-						class = "non_string_literal"
-					default:
-						class = "composite_literal"
-					}
+					class = classLiveOverride
 				}
 
 				findings = append(findings, defaultShadowFinding{
@@ -230,13 +302,15 @@ func findDefaultShadowedKeys(agents []liveAgent, specs map[string]datahelpers.Ac
 					ConfigValue: raw, DefaultValue: defaultValue,
 					MatchesDefault: literalMatchesDefault(raw, defaultValue),
 					Nested:         nested,
+					Verdict:        verdictFor(class),
 				})
 			}
 
 			// The deprecated bridge is a separate config key, checked over the
-			// alias map rather than the field name. Only a non-empty string
-			// would ever have been read by Strategy 3, so only that shape is a
-			// "would have worked but for the Default" finding.
+			// alias map rather than the field name. Only a non-empty string is
+			// ever read by Strategy 3, so only that shape is a finding — and since
+			// 2026-08-13 it is a CONDITIONAL one: the bridge resolves its path
+			// against collected_data and now beats the Default when it does.
 			for oldKey, field := range spec.Deprecated {
 				if _, hasDefault := spec.Defaults[field]; !hasDefault {
 					continue
@@ -247,10 +321,11 @@ func findDefaultShadowedKeys(agents []liveAgent, specs map[string]datahelpers.Ac
 				}
 				findings = append(findings, defaultShadowFinding{
 					Agent: agent.Type, Path: path, Action: step.Action,
-					Field: field, Key: oldKey, Class: "deprecated_bridge",
+					Field: field, Key: oldKey, Class: classDeprecatedBridge,
 					ConfigValue: pathStr, DefaultValue: spec.Defaults[field],
 					MatchesDefault: literalMatchesDefault(pathStr, spec.Defaults[field]),
 					Nested:         nested,
+					Verdict:        verdictFor(classDeprecatedBridge),
 				})
 			}
 		})
@@ -277,8 +352,8 @@ func findDefaultShadowedKeys(agents []liveAgent, specs map[string]datahelpers.Ac
 //
 // Exit 1 only when a DEAD finding's value MISMATCHES its default: that is the
 // set where live behaviour silently differs from what the config says. Matched
-// dead keys and dotted_conditional bindings are reported for the census but do
-// not fail the run.
+// dead keys, conditional bindings and live overrides are reported for the census
+// but do not fail the run.
 func emitDefaultShadowedKeys() {
 	raw, err := io.ReadAll(os.Stdin)
 	if err != nil {
@@ -323,21 +398,26 @@ func emitDefaultShadowedKeys() {
 		os.Exit(1)
 	}
 
-	deadMismatched, deadMatched, conditional := 0, 0, 0
+	deadMismatched, deadMatched, conditional, live := 0, 0, 0, 0
 	for _, f := range findings {
-		switch {
-		case !f.dead():
+		switch f.Verdict {
+		case "live":
+			live++
+		case "conditional":
 			conditional++
-		case f.MatchesDefault:
-			deadMatched++
 		default:
-			deadMismatched++
+			if f.MatchesDefault {
+				deadMatched++
+			} else {
+				deadMismatched++
+			}
 		}
 	}
 	fmt.Fprintf(os.Stderr,
 		"config-key-audit --default-shadowed-keys: %d agents decoded (%d undecodable), "+
-			"%d specs with Defaults; %d dead mismatched, %d dead matching, %d conditional dotted\n",
-		len(agents), failed, withDefaults, deadMismatched, deadMatched, conditional)
+			"%d specs with Defaults; %d dead mismatched, %d dead matching, "+
+			"%d conditional (dotted paths + deprecated bridges), %d live overrides\n",
+		len(agents), failed, withDefaults, deadMismatched, deadMatched, conditional, live)
 	if deadMismatched > 0 {
 		os.Exit(1)
 	}

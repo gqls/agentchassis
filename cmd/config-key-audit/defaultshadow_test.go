@@ -42,6 +42,17 @@ func shadowSpecs() map[string]datahelpers.ActionInputSpec {
 		"no_defaults_action": {
 			Optional: []string{"purpose"},
 		},
+		// Separate action for the two classes Strategy 6's guards create, kept out
+		// of shadowed_action so the finding COUNTS asserted above stay stable.
+		"guarded_action": {
+			Required: []string{"label"},
+			Optional: []string{"max_pages", "flag"},
+			Defaults: map[string]interface{}{
+				"label":     "fallback", // Required AND Defaulted: the only spec shape
+				"max_pages": 25,         // that can produce required_empty_string
+				"flag":      true,
+			},
+		},
 	}
 }
 
@@ -88,34 +99,48 @@ func TestFindDefaultShadowedKeys_Classes(t *testing.T) {
 
 	findings := findDefaultShadowedKeys(agents, shadowSpecs())
 
+	// RE-SPECIFIED 2026-08-13 with candidate 2. A dotless scalar of the Default's
+	// kind is now applied by Strategy 6, so these two are working config, not dead
+	// keys — the assertions below were `static_string`/dead and
+	// `non_string_literal`/dead until the resolver changed under them.
 	static := findOne(t, findings, "purpose")
-	if static.Class != "static_string" || static.MatchesDefault {
-		t.Errorf("static 'logo' vs default 'hero': want static_string/mismatch, got %+v", static)
+	if static.Class != classLiveOverride || static.MatchesDefault {
+		t.Errorf("static 'logo' vs default 'hero': want live_override/mismatch, got %+v", static)
 	}
-	if !static.dead() {
-		t.Errorf("static_string must be dead: %+v", static)
+	if static.dead() || static.Verdict != "live" {
+		t.Errorf("a dotless string of the Default's kind is honoured by Strategy 6: %+v", static)
 	}
 
+	// The bridge resolves a path, so it is CONDITIONAL on that path resolving —
+	// no longer dead (Strategy 3's has-value skip now ignores a bare Default).
 	bridge := findOne(t, findings, "purpose_field")
-	if bridge.Class != "deprecated_bridge" || bridge.Field != "purpose" {
+	if bridge.Class != classDeprecatedBridge || bridge.Field != "purpose" {
 		t.Errorf("purpose_field bridge onto defaulted purpose: want deprecated_bridge, got %+v", bridge)
+	}
+	if bridge.dead() || bridge.Verdict != "conditional" {
+		t.Errorf("the bridge beats a Default when its path resolves: %+v", bridge)
 	}
 
 	literal := findOne(t, findings, "max_items")
-	if literal.Class != "non_string_literal" || literal.MatchesDefault {
-		t.Errorf("literal 25 vs default 10: want non_string_literal/mismatch, got %+v", literal)
+	if literal.Class != classLiveOverride || literal.MatchesDefault {
+		t.Errorf("literal 25 vs default 10: want live_override/mismatch, got %+v", literal)
 	}
 
+	// Composites are still refused: LiteralKind returns "" for them, so Strategy 6
+	// leaves the Default standing.
 	composite := findOne(t, findings, "options")
-	if composite.Class != "composite_literal" || composite.MatchesDefault {
+	if composite.Class != classComposite || composite.MatchesDefault {
 		t.Errorf("object vs default object: want composite_literal/mismatch, got %+v", composite)
+	}
+	if !composite.dead() {
+		t.Errorf("composite_literal is still dead: %+v", composite)
 	}
 
 	// "mode" is defaulted but in neither Required nor Optional: no strategy
 	// iterates it, so even its DOTTED value is dead — unextractable_field must
 	// dominate the shape classes.
 	unextractable := findOne(t, findings, "mode")
-	if unextractable.Class != "unextractable_field" || !unextractable.dead() {
+	if unextractable.Class != classUnextractable || !unextractable.dead() {
 		t.Errorf("defaulted field outside Required+Optional: want unextractable_field/dead, got %+v", unextractable)
 	}
 
@@ -147,9 +172,117 @@ func TestFindDefaultShadowedKeys_MatchingDefaultIsReportedNotFatal(t *testing.T)
 		if !f.MatchesDefault {
 			t.Errorf("value equals its default (JSON float vs Go int for max_items) but matches_default is false: %+v", f)
 		}
-		if !f.dead() {
-			t.Errorf("a matching static is still dead — only the SYMPTOM is absent: %+v", f)
+		// Since candidate 2 these are LIVE and redundant rather than dead. The
+		// float-vs-int comparison is what keeps them out of type_mismatch: a jsonb
+		// 10 arrives as float64 against a Go int Default, and LiteralKind calls
+		// both "number" on purpose.
+		if f.dead() || f.Class != classLiveOverride {
+			t.Errorf("a matching dotless scalar is live and redundant, not dead: %+v", f)
 		}
+	}
+}
+
+// Strategy 6's kind guard: a scalar of the WRONG kind is refused and the Default
+// stands, so a config typo cannot hand an action a type its spec ruled out.
+func TestFindDefaultShadowedKeys_TypeMismatchIsDead(t *testing.T) {
+	agents := decodeTestAgents(t, `[
+		{"type": "fixture-agent", "workflow": {"start_step": "s1", "steps": {
+			"s1": {"action": "guarded_action", "config": {
+				"max_pages": "60",
+				"flag":      "true",
+				"label":     "real"
+			}}
+		}}}
+	]`)
+
+	findings := findDefaultShadowedKeys(agents, shadowSpecs())
+
+	for _, key := range []string{"max_pages", "flag"} {
+		f := findOne(t, findings, key)
+		if f.Class != classTypeMismatch || !f.dead() || f.Verdict != "dead" {
+			t.Errorf("%q is a string against a non-string Default: want type_mismatch/dead, got %+v", key, f)
+		}
+		if f.MatchesDefault {
+			t.Errorf("%q: a wrong-kind value cannot match its default: %+v", key, f)
+		}
+	}
+
+	// Same kind, so the Required field's override is live — being Required is not
+	// itself a reason to refuse a real value.
+	label := findOne(t, findings, "label")
+	if label.Class != classLiveOverride {
+		t.Errorf("a same-kind override of a Required+Defaulted field is live: %+v", label)
+	}
+}
+
+// The one shape Strategy 6 refuses on the Required side: an explicit "" would
+// turn a satisfiable field into a hard validation failure, and "" is not a
+// meaning a required field can carry.
+func TestFindDefaultShadowedKeys_EmptyStringOnRequiredIsDead(t *testing.T) {
+	agents := decodeTestAgents(t, `[
+		{"type": "fixture-agent", "workflow": {"start_step": "s1", "steps": {
+			"s1": {"action": "guarded_action", "config": {"label": ""}}
+		}}}
+	]`)
+
+	findings := findDefaultShadowedKeys(agents, shadowSpecs())
+	f := findOne(t, findings, "label")
+	if f.Class != classRequiredEmpty || !f.dead() {
+		t.Errorf("explicit \"\" on a Required+Defaulted field: want required_empty_string/dead, got %+v", f)
+	}
+}
+
+// The exit rule, the summary and the shell wrapper all read Verdict. A class the
+// classifier can emit but this map has never heard of would be silently bucketed,
+// which is the drift the Verdict field was added to prevent.
+func TestEveryClassHasAVerdict(t *testing.T) {
+	emitted := []string{
+		classLiveOverride, classUnextractable, classTypeMismatch,
+		classRequiredEmpty, classComposite, classDeprecatedBridge,
+		classDottedConditional,
+	}
+	for _, c := range emitted {
+		if _, ok := shadowClassVerdict[c]; !ok {
+			t.Errorf("class %q is emitted by the classifier but has no verdict — the exit rule "+
+				"would silently treat it as dead", c)
+		}
+	}
+	if len(shadowClassVerdict) != len(emitted) {
+		t.Errorf("shadowClassVerdict has %d entries for %d emitted classes — a stale entry is a "+
+			"class that no longer exists, or one the classifier stopped emitting",
+			len(shadowClassVerdict), len(emitted))
+	}
+	for c, v := range shadowClassVerdict {
+		switch v {
+		case "dead", "conditional", "live":
+		default:
+			t.Errorf("class %q has verdict %q, which no consumer handles", c, v)
+		}
+	}
+}
+
+// The wrapper script groups by verdict instead of re-deriving it from the class
+// name, so the field has to survive marshalling.
+func TestVerdictIsEmittedInJSON(t *testing.T) {
+	agents := decodeTestAgents(t, `[
+		{"type": "fixture-agent", "workflow": {"start_step": "s1", "steps": {
+			"s1": {"action": "shadowed_action", "config": {"options": {"quality": 50}}}
+		}}}
+	]`)
+
+	out, err := json.Marshal(findDefaultShadowedKeys(agents, shadowSpecs()))
+	if err != nil {
+		t.Fatalf("json.Marshal: %v", err)
+	}
+	var decoded []map[string]interface{}
+	if err := json.Unmarshal(out, &decoded); err != nil {
+		t.Fatalf("json.Unmarshal: %v", err)
+	}
+	if len(decoded) != 1 {
+		t.Fatalf("expected 1 finding, got %d", len(decoded))
+	}
+	if decoded[0]["verdict"] != "dead" {
+		t.Errorf("verdict absent or wrong in emitted JSON: %v", decoded[0])
 	}
 }
 
@@ -217,7 +350,18 @@ func TestFindDefaultShadowedKeys_NoSpecOrNoDefaultsIsSilent(t *testing.T) {
 // The pre-migration-348 pageflow-builder shape: static "logo" on
 // deploy_image_asset, whose real spec defaults purpose to "hero". This is the
 // exact config that shipped months of hero-shaped logos.
-func TestCalibration_Pre348StaticLogoIsFlagged(t *testing.T) {
+//
+// FLIPPED 2026-08-13 with candidate 2, and this is the load-bearing calibration:
+// the motivating instance is now HONOURED rather than flagged. Until today this
+// asserted static_string/dead. Both readings are the detector agreeing with the
+// resolver — which is the only property it has — but they are opposite verdicts
+// on the same config, so the flip is recorded here rather than in a commit
+// message nobody reads next to the code.
+//
+// It still earns its place: it is the one test that would catch the resolver
+// change being reverted or the kind guard rejecting a plain string override,
+// either of which would silently restore the original bug.
+func TestCalibration_Pre348StaticLogoIsNowHonoured(t *testing.T) {
 	agents := decodeTestAgents(t, `[
 		{"type": "pageflow-builder", "workflow": {"start_step": "deploy_logo_image", "steps": {
 			"deploy_logo_image": {"action": "deploy_image_asset", "config": {"purpose": "logo"}}
@@ -226,12 +370,18 @@ func TestCalibration_Pre348StaticLogoIsFlagged(t *testing.T) {
 
 	findings := findDefaultShadowedKeys(agents, registeredSpecs())
 	f := findOne(t, findings, "purpose")
-	if f.Class != "static_string" || f.MatchesDefault {
-		t.Errorf("the motivating instance must fire as static_string/mismatch, got %+v", f)
+	if f.Class != classLiveOverride || f.MatchesDefault {
+		t.Errorf("the motivating instance must now report live_override/mismatch — the config says "+
+			"logo and the resolver delivers logo. Got %+v", f)
 	}
 	if f.DefaultValue != "hero" {
 		t.Errorf("deploy_image_asset's live Default changed (%v) — update the 231 record before updating this test", f.DefaultValue)
 	}
+	// The behavioural half of this claim is pinned in the actions package by
+	// TestLegacyLogoStep_StaticPurposeBeatsTheDefault, which drives the real
+	// ExtractActionInputs. This one only asserts the CHECKER agrees with it; a
+	// detector that says "live" while the resolver says "hero" is the failure
+	// this pair exists to make impossible.
 }
 
 // The second face (bugs_open/231, 2026-08-10 specimen): asset-deployer's

@@ -251,18 +251,25 @@ func TestDeployImageAsset_Post348Shape_ResolvesEveryInputByIdentity(t *testing.T
 }
 
 // ---------------------------------------------------------------------------
-// bugs_open/231 — the spec's Defaults SHADOW a static config value.
+// bugs_open/231 — FIXED 2026-08-13. An explicit config value now beats a Default.
 //
-// ExtractActionInputs applies spec.Defaults into Values FIRST, and strategies
-// 1/2/3 all skip a field that already has a value. A single-segment (non-dotted)
-// config value is invisible to Strategy 0. Net: a step config carrying a STATIC
-// value for a spec-defaulted field is dead — the default wins — and the
-// action's own `if purpose == ""` fallback can never fire because the default
-// means purpose is never empty.
+// THESE TWO TESTS WERE FLIPPED DELIBERATELY, and this note is the record of why.
+// Until 2026-08-13 they PINNED the defect: ExtractActionInputs applied
+// spec.Defaults into Values first, and every other strategy skipped a field that
+// already held a value, so for a defaulted field only a Strategy-0 dot-path that
+// resolved could ever set it. A static (non-dotted) config value was dead, and
+// the action's own `if purpose == ""` fallback could never fire because the
+// default meant purpose was never empty.
 //
-// These tests PIN the defective behaviour deliberately (characterisation, same
-// contract as the tests above): when bugs_open/231 is fixed, update them with
-// the fix, citing it.
+// Candidate 2 (owner ruling 2026-08-11 #2: "an explicit config value beats a
+// default" becomes the resolver's rule) closes that. Strategy 6 takes a dotless
+// config scalar as a LITERAL for a field still holding only its Default, and the
+// Strategy 3 bridge may now beat a Default too. Both are in
+// platform/orchestration/datahelpers/action_inputs.go with the full rationale.
+//
+// A dotted string that fails to resolve is still dead on purpose — bugs_open/248
+// finding (a) is what happens when a path expression is read as a value — and
+// TestStrategy0DottedPaths below still pins the resolving case.
 // ---------------------------------------------------------------------------
 
 // The PRE-migration-348 shape of pageflow-builder / site-work-orchestrator
@@ -272,9 +279,10 @@ func TestDeployImageAsset_Post348Shape_ResolvesEveryInputByIdentity(t *testing.T
 // it is deploying a logo; the action resolves purpose="hero" (the spec default),
 // which drives resize dimensions AND the deploy path (BuildAssetPaths:
 // filename = purpose + ext) — the logo's bytes would land at the HERO's path.
-// The RESOLVER behaviour pinned here is still current — any config authored in
-// this shape today gets the same shadow — which is why this test outlives 348.
-func TestLegacyLogoStep_StaticPurposeIsShadowedByDefault(t *testing.T) {
+// The RESOLVER behaviour pinned here is still what any config authored in this
+// shape gets today, which is why this test outlives 348 — but since bugs_open/231
+// was fixed the answer is the one the step asked for.
+func TestLegacyLogoStep_StaticPurposeBeatsTheDefault(t *testing.T) {
 	logger := zap.NewNop()
 	legacyConfig := map[string]interface{}{
 		"purpose":   "logo",
@@ -299,17 +307,29 @@ func TestLegacyLogoStep_StaticPurposeIsShadowedByDefault(t *testing.T) {
 		}
 	}
 
-	if purpose != "hero" {
-		t.Fatalf("bugs_open/231 behaviour changed: legacy logo step now resolves purpose=%q "+
-			"(was shadowed to \"hero\" by the spec default). If this is a deliberate fix, "+
-			"update this test to assert the fixed behaviour and cite the fix commit.", purpose)
+	if purpose != "logo" {
+		t.Fatalf("bugs_open/231 has REGRESSED: logo step resolves purpose=%q, want \"logo\". "+
+			"%q means the spec Default is shadowing the static config value again, and the "+
+			"logo's bytes land at the HERO's path (BuildAssetPaths keys the filename on "+
+			"purpose). Check Strategy 6 in datahelpers/action_inputs.go.", purpose, purpose)
 	}
-	t.Logf("PINNED DEFECT (bugs_open/231): logo step's effective purpose = %q — static config value is dead", purpose)
+	// The provenance half matters as much as the value: deploy_image_asset asks
+	// WasDefaulted before letting the asset row's purpose win (bugs_open/248
+	// finding (b)), so a Strategy 6 override that forgot to clear Defaulted would
+	// still be read as "nobody said anything".
+	if inputs.WasDefaulted("purpose") {
+		t.Fatalf("purpose resolved to %q but is still marked defaulted — Strategy 6 must "+
+			"clear provenance, or bugs_open/248's row-purpose fallback overrides a stated purpose", purpose)
+	}
 }
 
-// The deprecated purpose_field bridge is equally dead for a defaulted field:
-// Strategy 3 skips fields that already hold a value, and the default always has.
-func TestPurposeFieldBridge_DeadForDefaultedField(t *testing.T) {
+// The deprecated purpose_field bridge WAS equally dead for a defaulted field:
+// Strategy 3 skipped any field that already held a value, and the default always
+// had. Fixed in the same round (bugs_open/231): the bridge resolves a dot-path,
+// which is Strategy 0's operation under a deprecated spelling, so it beats a
+// Default for the same reason Strategy 0 does. Without this, renaming a key and
+// supplying the documented alias silently reverted the field to its Default.
+func TestPurposeFieldBridge_BeatsTheDefault(t *testing.T) {
 	logger := zap.NewNop()
 	cfg := map[string]interface{}{
 		"purpose_field": "logo_stored.purpose",
@@ -322,10 +342,18 @@ func TestPurposeFieldBridge_DeadForDefaultedField(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ExtractActionInputs: %v", err)
 	}
-	if got := inputs.Get("purpose"); got != "hero" {
-		t.Fatalf("bugs_open/231 behaviour changed: purpose_field bridge now yields %q; update deliberately", got)
+	if got := inputs.Get("purpose"); got != "logo" {
+		t.Fatalf("purpose_field bridge yields %q, want \"logo\" — the Strategy 3 has-value skip "+
+			"is treating the spec Default as a caller-supplied value again (bugs_open/231)", got)
 	}
-	t.Logf("PINNED DEFECT (bugs_open/231): purpose_field bridge is inert for a defaulted field")
+	if inputs.WasDefaulted("purpose") {
+		t.Fatal("bridge supplied purpose but left it marked defaulted — Strategy 3 must clear provenance")
+	}
+	// The deprecation is still REPORTED: beating the default must not also quietly
+	// bless the old spelling, or the bridge stops being a migration path.
+	if len(inputs.DeprecatedUsed) != 1 || inputs.DeprecatedUsed[0] != "purpose_field" {
+		t.Fatalf("DeprecatedUsed = %v, want [purpose_field] — the alias must still be reported", inputs.DeprecatedUsed)
+	}
 }
 
 // The one mechanism that DOES defeat the default: a Strategy-0 explicit dotted

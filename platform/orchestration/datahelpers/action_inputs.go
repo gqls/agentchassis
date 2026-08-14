@@ -7,6 +7,7 @@ package datahelpers
 import (
 	"encoding/json"
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 
@@ -546,6 +547,28 @@ func (ai *ActionInputs) GetRaw(key string) interface{} {
 	return ai.Values[key]
 }
 
+// LiteralKind classifies a value for Strategy 6's kind guard: "string", "bool",
+// "number", or "" for anything that is not a scalar literal (composites, nil).
+//
+// Numeric widths are deliberately ONE kind. A spec Default is written in Go, so
+// `25` is an int; the same value arriving from a jsonb step config is a float64.
+// Comparing concrete Go types would reject every numeric override in the fleet.
+func LiteralKind(v interface{}) string {
+	switch v.(type) {
+	case string:
+		return "string"
+	case bool:
+		return "bool"
+	case float64, float32,
+		int, int8, int16, int32, int64,
+		uint, uint8, uint16, uint32, uint64,
+		json.Number:
+		return "number"
+	default:
+		return ""
+	}
+}
+
 // ExtractActionInputs extracts inputs according to spec
 // Priority order:
 //  1. input_fields from config (preferred pattern)
@@ -593,10 +616,10 @@ func ExtractActionInputs(
 			value := ExtractNestedField(collectedData, pathStr)
 			if value != nil {
 				result.Values[field] = value
-				// Strategy 0 is the ONLY strategy that can overwrite a default:
-				// every later one skips a field that already has a value, and a
-				// default IS a value. So this is the only place provenance has to
-				// be cleared. If that invariant ever changes, clear it there too —
+				// Provenance must be cleared wherever a default is overwritten.
+				// Three places do that now: here, the Strategy 3 bridge, and
+				// Strategy 6 (bugs_open/231) — every OTHER strategy still skips a
+				// field that already holds a value, and a default IS a value.
 				// TestDefaultedIsClearedWhenACallerSuppliesTheValue pins it.
 				delete(result.Defaulted, field)
 				logger.Info("Strategy 0: Resolved config path before ExtractFields",
@@ -639,8 +662,19 @@ func ExtractActionInputs(
 
 	// Strategy 3: Check deprecated *_field patterns for any missing fields
 	for oldKey, newField := range spec.Deprecated {
-		// Only use deprecated pattern if we don't already have the value
-		if _, hasValue := result.Values[newField]; hasValue {
+		// Only use deprecated pattern if we don't already have the value.
+		//
+		// A value that is still only the spec DEFAULT does not count as "already
+		// have" (bugs_open/231, owner ruling 2026-08-11 #2). The bridge resolves a
+		// dot-path against collected_data — the same operation Strategy 0 performs,
+		// reached through a deprecated spelling — so it must beat a Default for the
+		// same reason Strategy 0 does. Leaving it to lose meant that renaming a key
+		// and providing the documented alias silently reverted the field to its
+		// Default: the exact shape DeprecatedConfigKeys' own doc comment warns
+		// about, one layer up. Zero live definitions carry a Deprecated alias for a
+		// defaulted field (measured 2026-08-13, 164 specs / 184 live agents), so
+		// this arm is correctness for the next author, not a live behaviour change.
+		if _, hasValue := result.Values[newField]; hasValue && !result.Defaulted[newField] {
 			continue
 		}
 
@@ -648,6 +682,7 @@ func ExtractActionInputs(
 			value := ExtractNestedField(collectedData, pathStr)
 			if value != nil {
 				result.Values[newField] = value
+				delete(result.Defaulted, newField)
 				result.DeprecatedUsed = append(result.DeprecatedUsed, oldKey)
 
 				logger.Warn("Using deprecated config pattern",
@@ -764,6 +799,107 @@ func ExtractActionInputs(
 				zap.String("field", field),
 			)
 		}
+	}
+
+	// Strategy 6: an explicit config VALUE beats a spec Default.
+	//
+	// WHY (bugs_open/231; owner ruling 2026-08-11 #2 — "an explicit config value
+	// beats a default" is now the resolver's rule). Defaults are written into
+	// Values before every other strategy runs, and each of those strategies opens
+	// with `if _, hasValue := result.Values[field]; hasValue { continue }`. A
+	// default IS a value and nothing ever deletes from Values, so for a DEFAULTED
+	// field Strategies 1/2/3/4/5 and the nested-object block were all unreachable:
+	// the only thing that could ever set it was a Strategy 0 dot-path that
+	// resolved. Net effect, measured fleet-wide 2026-08-11 and re-measured
+	// 2026-08-13: 99 live config entries bound to a defaulted field were dead —
+	// 48 static strings and 51 non-string literals — of which 21 disagreed with
+	// the default they lost to. `audit_source` was the visible face: four auditors
+	// each set a distinctive label and every finding any of them ever wrote was
+	// stamped "design-audit" (bugs_open/264 has since repaired that instance).
+	//
+	// That unreachability is also why this arm's blast radius is provably the dead
+	// set and nothing more: a field this loop can touch is one no other strategy
+	// could reach, so no behaviour that works today can change. 78 of the 99 carry
+	// a value equal to their default (no-op by equality); the other 21 all read
+	// their value from config DIRECTLY in the action body, so their live behaviour
+	// was already what config said (each read line cited in bugs_open/231).
+	//
+	// A DOT MEANS REFERENCE, NEVER VALUE. A dotted string that reached here is one
+	// Strategy 0 already tried and failed to resolve; taking it as a literal would
+	// hand the action a path EXPRESSION as data. That is not hypothetical — it is
+	// bugs_open/248 finding (a), where config["asset_key"] was read as a filename
+	// and published 150+ page-visible 404s named `input-data.asset-key.jpg`. That
+	// fix chose the same discriminator this one uses (a dot means the string is a
+	// path, whatever produced it) and deleted the literal rung rather than gating
+	// it. So: dotted stays dead, and the default stands.
+	//
+	// Nor is a resolving DOTLESS string treated as a collected_data reference here,
+	// which is what Strategy 4 would do for a field with no default. For a
+	// defaulted field that arm has never been reachable, so no live config can
+	// depend on it, and every one of the 48 live dotless statics is plainly a value
+	// its author typed: repo_name 'agentchassis', ref 'main', country 'GB',
+	// severity 'high', and the *_field family naming a field ('repo_analysis'),
+	// which wants the NAME and not the object it names. Reading them as literals is
+	// what those authors meant; resolving them would replace a typed default with
+	// an object of unknown shape. The asymmetry with a non-defaulted field is
+	// deliberate and is the known wart: a field carrying a Default is a SETTING
+	// with a sensible fallback, which is why authors write values into it.
+	//
+	// Composites are still left alone (no evidence they were ever meant as
+	// literals; zero live instances), and the kind guard below refuses a literal
+	// whose type differs from the Default's, so a config typo cannot hand an action
+	// a value of a type its spec promised it would never see.
+	for _, field := range allFields {
+		if !result.Defaulted[field] {
+			continue // a caller supplied this field; there is no default to beat
+		}
+		raw, exists := config[field]
+		if !exists || raw == nil {
+			continue
+		}
+
+		if s, ok := raw.(string); ok && strings.Contains(s, ".") {
+			// Reported OFFLINE, not here: whether a path CAN resolve is a runtime
+			// fact (the step may legitimately not have run the branch that
+			// populates it), so a Warn on every message would be noise on healthy
+			// pipelines. `config-key-audit --default-shadowed-keys` can see the
+			// whole fleet at once and is where this class is judged.
+			logger.Debug("Strategy 6: config path did not resolve; spec default stands",
+				zap.String("field", field),
+				zap.String("path", s),
+			)
+			continue
+		}
+
+		defaultKind, literal := LiteralKind(spec.Defaults[field]), LiteralKind(raw)
+		if defaultKind == "" || literal == "" || defaultKind != literal {
+			logger.Warn("Strategy 6: config value's type differs from the spec default's; default stands",
+				zap.String("field", field),
+				zap.String("default_kind", defaultKind),
+				zap.String("config_kind", literal),
+				zap.String("bug", "bugs_open/231"),
+			)
+			continue
+		}
+
+		// A required field's Default is the only thing keeping it satisfiable, and
+		// "" is not a meaning a required field can carry — so an explicit empty
+		// string never turns one into a hard validation failure. No live spec puts
+		// a field in both Required and Defaults (measured 2026-08-13, 164 specs),
+		// so this guards a state that does not exist yet rather than one it found.
+		if s, ok := raw.(string); ok && s == "" && slices.Contains(spec.Required, field) {
+			logger.Warn("Strategy 6: refusing an empty config value for a REQUIRED field; default stands",
+				zap.String("field", field),
+			)
+			continue
+		}
+
+		result.Values[field] = raw
+		delete(result.Defaulted, field)
+		logger.Info("Strategy 6: explicit config value beat the spec default",
+			zap.String("field", field),
+			zap.Any("value", raw),
+		)
 	}
 
 	// Validate required fields
