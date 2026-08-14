@@ -450,3 +450,24 @@ such a file yet; the test suite covers it. Next piece of real work on this lane,
 it up: the list-of-neighbours a bundle shows is capped at about ten per file, and we have a recorded
 case of that cap hiding exactly the three functions an investigation needed. Your two decisions
 (RFC_012 — the pause that loses work; RFC_027 — one owner for the naming machinery) are still open.
+
+**2026-08-14, evening.** That capped list-of-neighbours is now fixed, in the tree, waiting for the
+next release to carry it. The problem, plainly: when an investigation looks at a file too big to
+show whole, the bundle used to say "ask for the functions you need by name" — and then only show
+about ten of the names. The other eighty were invisible, and they were precisely the ones the
+search hadn't already found. The investigation that first exposed this (the hero/logo one) ran out
+of turns for exactly that reason: the three functions it said it needed were sitting behind that
+"+79 more" line the whole time.
+
+The fix makes the bundle put its money where its mouth is: if it tells the model to name symbols
+individually, it now lists every name it is withholding — compactly, without the descriptions, so
+the complete list for even our biggest file costs less than three thousand characters against a
+sixty-thousand-character budget. If a file ever has so many functions that even the compact list
+won't fit, it says how many are missing and names the exact query that fetches the rest, rather
+than trailing off. And where the file *can* be shown whole, nothing changes at all — the cheap
+advice ("just ask for the file") was fine there and stays word-for-word.
+
+Written up as bug 273, tested (including a deliberate sabotage run to prove the tests would catch
+the old behaviour), submitted to the review council, and committed. Nothing for you to decide on
+this one — it rides the next release. Your two open decisions are unchanged: RFC_012 (the pause
+that loses work) and RFC_027 (one owner for the naming machinery).
