@@ -11,9 +11,13 @@
 # audit-single-owner-actions.sh (RFC 006): the runtime cannot see a sibling
 # agent's steps, so the count has to be offline and fleet-wide.
 #
-# Usage: scripts/audit-optional-key-budget.sh [--json] [BUDGET]
-#   No BUDGET: report-only census (top surfaces, no findings, exit 0) — the
-#   threshold is the owner's to rule, and until ruled this stays a census.
+# Usage: scripts/audit-optional-key-budget.sh [--json] [--census] [BUDGET]
+#   The budget is RULED (owner, 2026-08-14): N = 10 — the default when no BUDGET
+#   is given, so a bare run enforces the ruling. A number overrides it for
+#   what-if sizing; --census runs the no-budget census (no findings, exit 0).
+#   Sharing itself is estate design, not the defect (owner, same ruling): a
+#   finding means an action's ACCUMULATED optional surface owes one review as
+#   a whole, never that its reuse is a problem.
 # Exit:  0 = no findings (or census-only) · 1 = findings · 2 = could not determine
 #
 # NOTE on exit codes (LANDMINES.md, `go run` collapses the child's exit status):
@@ -25,14 +29,22 @@ set -uo pipefail
 NAMESPACE="${NAMESPACE:-ai-persona-system}"
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 JSON_OUT=0
+CENSUS=0
 BUDGET=""
 for arg in "$@"; do
     if [[ "$arg" == "--json" ]]; then
         JSON_OUT=1
+    elif [[ "$arg" == "--census" ]]; then
+        CENSUS=1
     else
         BUDGET="$arg"
     fi
 done
+# The ruled default (owner, 2026-08-14). An explicit number still overrides for
+# what-if sizing; --census suppresses the budget entirely.
+if [[ "$CENSUS" == "0" && -z "$BUDGET" ]]; then
+    BUDGET=10
+fi
 
 # stderr is deliberately NOT swallowed — see audit-config-keys.sh's identical note.
 psql_q() {

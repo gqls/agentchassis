@@ -315,3 +315,29 @@ flag exactly the three actions above today; 12 would flag none. (2) **whether th
 runs on a clock** — the equivalent check from RFC 006 got a daily scheduled run because
 nothing else re-checks live config; this one is currently run-on-demand only. Neither
 decision blocks anything; the RFC stays open until the budget is ruled.
+
+---
+
+**2026-08-14 (later) — you ruled the budget: 10. Done, and one correction of yours is now
+written into the reviewers' own instructions.**
+
+You said the founding idea was that every agent should be somewhat independent so it can
+be reused in other workflows, and that "a shared action nobody understands" was the wrong
+way to talk about it. That correction is now part of the machinery, not just the chat: the
+reviewer prompts say in so many words that sharing is estate design, that what gets
+reviewed when the budget trips is the *accumulated pile of optional switches*, never the
+reuse itself. The check now runs with 10 as its default, so anyone running it plainly gets
+your ruling; RFC 022 is closed.
+
+What the ruling means in practice: the three widest actions (the repo analyser at 12
+switches, the note-writer at 11, the fix-commit preparer at 11) are over the line today,
+so each owes one review of its accumulated switches — a look at the whole pile, then the
+acknowledged level becomes that action's baseline. Nobody has scheduled those three
+reviews yet; they are ordinary review rounds, not emergencies.
+
+Still yours, no hurry: whether the counter runs on a daily clock. I've explained the
+trade-off in chat — the short version is that the old scheduled check had to carry a
+second copy of its logic in Python (with tests to stop the copies drifting) because the
+scheduler's containers can't compile Go, but there is now a newer pattern in the estate
+where the check is compiled into its own small Go image and scheduled like any other
+service, no second copy at all. If you want it on a clock, that is the shape I'd build.

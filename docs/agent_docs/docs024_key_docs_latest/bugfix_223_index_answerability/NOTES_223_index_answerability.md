@@ -763,3 +763,31 @@ plus a cross-roster guard asserting fix-proposer already carries the sentence.
 **Open for the OWNER (recorded in RFC_022 STATUS and README_where_we_are):**
 1. the budget **N** (the census above is the sizing input); 2. whether the check gets
 the RFC_006-style daily CronJob or stays report-only. RFC_022 stays open until N is ruled.
+
+## 2026-08-14 (later) — OWNER RULED N = 10; RFC_022 CLOSED; framing correction recorded
+
+The owner ruled in chat, with a correction to the RFC's own language worth more than the
+number: *"when we started we wanted every agent to be 'somewhat independent' so it could
+be used in other workflows when required. We want to continue this idea. The 'shared
+action nobody understands' sounds like it isn't right."* **Sharing is estate design, not
+the defect** — a budget finding means an action's accumulated optional surface owes one
+review as a whole, never that its reuse is a problem. Saved to auto-memory
+(`shared-actions-are-estate-design-not-a-smell`) and written into the seat clauses.
+
+Done on the ruling: wrapper defaults to N=10 (`--census` keeps the no-budget mode; an
+explicit number still overrides for what-if sizing); RFC_022 STATUS → **CLOSED**
+(2026-08-11 ruling kept below it as the record); register WFA-013 + index row updated;
+migrations **404/405** replace 402/403's "N is not yet ruled" sentences with the ruled
+trigger (grows a shared action's set past 10, or grows one already past it → needs_rfc)
+plus the framing sentence. Same anchored pattern, breakpoint guarded, cross-roster guard
+in 405. ⚠ **Migration number 402 is now double-assigned** — a concurrent session landed
+`402_build_dispatch_loop_maps_asset_id_top_level.sql` beside this lane's
+`402_rfc022_counter_built…`; the ledger records by filename so nothing is ambiguous, but
+resolve a bare "402" by slug, like bug numbers.
+
+Standing stock at N=10: `analyse_repo_local` (12), `append_doc_note` (11, 8 carriers),
+`diagnose_prepare_fix_commit` (11) — each owes ONE architecture review of its accumulated
+surface, then its acknowledged level is the baseline. Not scheduled by this lane; the
+owner/lanes route those. The cron-half decision stays open (owner is weighing Go-native
+per CGV-030 vs the RFC_006 Python-mirror shape — explanation given in chat and in
+README_where_we_are).

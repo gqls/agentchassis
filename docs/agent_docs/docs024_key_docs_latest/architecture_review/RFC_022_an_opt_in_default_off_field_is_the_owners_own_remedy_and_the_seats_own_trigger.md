@@ -1,6 +1,28 @@
 # RFC 022 — an opt-in, default-OFF field on a shared action is BOTH the owner's prescribed remedy AND the architecture seat's RFC trigger
 
-## STATUS: **DECIDED — OWNER RULING 2026-08-11: option (3), a BUDGET, with option (1) as the interim.**
+## STATUS: **CLOSED — OWNER RULING 2026-08-14: the budget is N = 10.** (Option (3) reached: counter built 08-13, N ruled 08-14.)
+
+The owner's ruling, with its framing correction recorded verbatim in spirit: *"when we
+started we wanted every agent to be 'somewhat independent' so it could be used in other
+workflows when required. We want to continue this idea. The 'shared action nobody
+understands' sounds like it isn't right."* So: **sharing is estate design, not the
+defect.** A budget finding means an action's ACCUMULATED optional surface has grown past
+N=10 and owes one architecture review **as a whole** — it never means the action's reuse
+is a problem, and de-sharing is not the default remedy. At N=10 the standing stock is
+exactly three: `analyse_repo_local` (12), `append_doc_note` (11), and
+`diagnose_prepare_fix_commit` (11) — each owes one review round, after which its
+acknowledged level is the baseline. `scripts/audit-optional-key-budget.sh` now defaults
+to N=10 (a bare run enforces the ruling; `--census` keeps the no-budget census). Roster
+clauses updated to the ruled form by migrations `404`/`405` (the "N is not yet ruled"
+sentence 402/403 shipped was falsified by this ruling).
+
+**Still open, operational not architectural:** whether the counter runs on a daily
+CronJob or stays on-demand — the owner is weighing a Go-native job (the CGV-030
+`component-render-check` precedent) against the RFC_006 Python-mirror shape.
+
+*The section below is the 2026-08-11 ruling as it stood before N was set, kept as the record.*
+
+## Previous STATUS (2026-08-11): **DECIDED — OWNER RULING 2026-08-11: option (3), a BUDGET, with option (1) as the interim.**
 
 The owner took the recommendation in §"The three options, costed" as written. Both halves,
 and the ordering between them, matter:
