@@ -150,7 +150,8 @@ git merge-base --is-ancestor e0f239118 <the stamp>     # TRUE, and only then:
 
 > **THE CURRENT STATE, measured 2026-08-14 evening (and corrected the same evening — read both
 > halves).** The 5.0 change is committed (`d4bbbf645` + comment followup `ec9a0ee2f`; council corr
-> `d60aab29…`, verdict pending) and **the fleet does not run it**: v1.0.1299's stamp is
+> `d60aab29…`, **APPROVED at round 2** — the trail reads REVISE → APPROVED, and the REVISE found
+> the zero-value defect, so the round paid for itself) and **the fleet does not run it**: v1.0.1299's stamp is
 > `6f8efa158`, probed with three controls, and `merge-base --is-ancestor d4bbbf645 6f8efa158` →
 > **false**. Retraction and ink round 2 both still live. **The item stays held until that query
 > returns true for `d4bbbf645` specifically.** *(Superseded the same evening: gate on
@@ -199,13 +200,24 @@ FROM sites s WHERE s.domain='webdesign.co.uk';
 > and this staged INSERT now matches the proven 08-09 template shape. While `deferred`, the item is
 > unclaimable regardless (claims filter `status IN ('triaged','approved')`), so the repair was safe.
 >
-> **The hold itself is a SINGLE status lock, and all six un-park paths are verified shut** (checked
-> by both lanes independently): the two claim predicates (`triaged`/`approved` only), the promoter
-> (`detected` only), release-on-unhealthy (needs a prior claim), the stale reaper (`triaged`+build),
-> and — the one a human would actually reach — **the admin dashboard**. Its retry button
+> **The hold itself is a SINGLE status lock, and all SEVEN un-park paths are verified shut** (six
+> checked by both lanes independently; the seventh found by `581eb30a` following a code comment
+> AFTER both lanes had published their enumerations as complete): the two claim predicates
+> (`triaged`/`approved` only), the promoter (`detected` only), release-on-unhealthy (needs a prior
+> claim), the stale reaper (`triaged`+build), **the admin dashboard** — retry
 > (`site_admin_handlers.go:886`) resets `{needs_human_review, failed, blocked, unresolved}` →
-> `triaged`; its resolve button (`:930`) closes the same set plus `triaged`. **`deferred` is in
-> NEITHER list.** No operator click can un-park or close this item.
+> `triaged`, resolve (`:930`) closes that set plus `triaged`, `deferred` in neither — and
+> **`feasibility-recheck`**, a live enabled `scheduled_tasks` row (600s) whose `pre_query` promotes
+> `blocked` → `triaged` where the handler exists: `WHERE wi.status='blocked'`, so closed for
+> `deferred` (verified at the live row). **A table is a very convincing way to publish an
+> unenumerated absence** — both lanes did it, the same evening the census lesson was written.
+>
+> **⚠ RELEASE-TIME behaviour change from the column repair, know both halves before you un-defer:**
+> with `handler_agent` now set, `blocked` is **self-healing within one 600s tick** (the recheck's
+> `EXISTS(agent_definitions…)` test now passes). That is what you want for the rebuild actually
+> running — a transient block retries itself. It also means **a block will no longer hold this item
+> still**: if you need to re-hold it mid-flight, set `deferred` explicitly. Before the repair,
+> `blocked` was a permanent trap; after it, `deferred` is the ONLY parking state.
 >
 > **And note what the seat's hazard actually was, because both directions got stated before the
 > truth did.** `debug_historian` feared the empty column would let the canary FIRE early. The

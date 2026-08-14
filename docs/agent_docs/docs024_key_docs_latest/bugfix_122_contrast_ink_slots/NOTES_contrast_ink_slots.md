@@ -2513,3 +2513,28 @@ two different defences — collapsing them into either slogan loses the half the
 > Good for the rebuild actually running; but it means that once the hold is lifted, a transient
 > block will NOT park the item. **If it needs re-holding mid-flight, set it back to `deferred`
 > explicitly — do not assume a block will hold it.**
+
+### A seventh path, found after both lanes published "all six" — and the verdict landed
+
+`581eb30a` found `feasibility-recheck` by following a comment in `claim_work_item_action.go` — a
+live, enabled scheduled task (600s) whose `pre_query` promotes `blocked` → `triaged` where the
+handler exists. Verified at the live row from here: `WHERE wi.status='blocked'`, so **closed for
+`deferred` — seven for seven, the hold stands.** But neither lane's enumeration contained it, and
+both had published their lists as complete; mine arrived formatted as a table, which is a very
+convincing way to publish an unenumerated absence. Same lesson as the census, same evening, third
+costume.
+
+**Release-time consequence of my column repair, both halves now in the handoff:** post-repair,
+`blocked` self-heals within one tick (the recheck's `EXISTS` test passes) — good, the rebuild
+retries itself; and therefore **a block no longer holds this item still** — any mid-flight re-hold
+must set `deferred` explicitly, because after the repair `deferred` is the only parking state.
+Before the repair `blocked` was a permanent trap. The repair didn't just fix dispatch; it changed
+which states park.
+
+**`d60aab29` APPROVED at round 2** (REVISE → APPROVED; the REVISE found the zero-value defect, so
+the round paid for itself). Their later commits carry `Council-Reviewed:` on a verdict actually
+read. Gate unchanged: ancestry for `e0f239118`, waiting on the owner's roll.
+
+And their correction of my closing quip stands: the filings were fine — what caught both halves,
+and the seventh path, was **reading the SQL the other lane was relying on**. Available at any hour;
+the only thing that has worked all week.
