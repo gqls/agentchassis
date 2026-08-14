@@ -1062,3 +1062,59 @@ inherits it. If a session has run for hours, take the date from `git log` or `da
 not from the top of the context — the marker rule ("mark the unverified ones too")
 applies to dates as much as to counts, and a dated measurement is the one figure
 whose provenance a later reader cannot re-derive.
+
+## 2026-08-14 afternoon — council REVISE closed, RFC filed, and the post-roll check that could not be made
+
+Full account in `bugs_open/231` (POST-ROLL section) and `RFC_028`. The working log,
+missteps first as usual.
+
+### The verdict was right four times out of four on code
+
+REVISE, gated by `guardian`. I had expected the architecture objection and got it,
+but the one that mattered most was the one I had not anticipated: **my blast-radius
+proof was prose.** The seat's words — "a static snapshot, not an invariant enforced
+going forward" — are exactly correct, and the remedy it suggested (a test pinning the
+has-value invariant) is cheaper than the argument I would have written defending the
+proof. `TestDefaultBeatsTheRecursiveSearch` is that test.
+
+**And I nearly shipped it vacuous.** The test asserts "the recursive search did NOT
+beat the Default", which passes trivially if the search cannot reach the fixture at
+all. I only checked because this estate's own memory says to: ran the identical
+fixture through a spec with no Defaults and confirmed the search resolves
+`purpose="logo"`, `max_items=99`. It does, so the test discriminates — and the control
+is now baked into the test body rather than living in my scrollback, because the next
+person to edit that fixture needs it more than I did.
+
+### The objection I answered, then proved myself, by accident
+
+`bug_historian` objected that Strategy 6's three rejection arms report only through
+zap, and chassis logs rotate within minutes, so a rejected override has no durable
+signal. I agreed and added `--report`.
+
+Then the roll landed and I went to verify the change behaviourally — and **could not**,
+for precisely that reason. `logs --tail=200000` on a pod started 08:58:03Z returns
+**243 lines covering 92 seconds**. Zero Strategy 6 lines. The tempting read is "no
+rejections, all clean". The correct read came from one more query: **Strategy 0's
+pre-existing Info line is also absent from that window.** So the zero measures
+retention, not behaviour. 241 of 243 lines are `level:info`, so it is not a level
+filter either.
+
+I have marked the behavioural check as **still owed** rather than passed. It would
+have been very easy to write "no type-mismatch warnings in the fleet ✓" — a true
+sentence, from a blind instrument, that would have read as verification for ever.
+
+### Two smaller things
+
+- **The stamp probe worked exactly as the landmines prescribe, and the control earned
+  its keep:** grepping `/proc/1/exe` for the expected sha succeeded on both replicas
+  AND a later commit's sha correctly failed on both. Without the negative arm the
+  positive one proves nothing, because a discovery grep for "some 40-hex string"
+  matches Go's internal digit table.
+- **Another session had already recorded the stamp** (`8dd925576`: "v1.0.1298 stamped
+  bc39e7bf5 both replicas"). I verified it independently anyway rather than citing it
+  — a second-hand deploy fact is exactly the kind that gets quoted for weeks — and it
+  was correct. Worth noting the stamp is my OWN RFC commit, so the fleet rolled
+  minutes after this lane's last commit.
+- The council plan schema bit again: `plan` is a nested object, not a flat array, and
+  the size cap is quoted as 32KB in the runbook and 64KB in the 097 header. I trimmed
+  sketches to land at 32,360 bytes rather than find out which is enforced.

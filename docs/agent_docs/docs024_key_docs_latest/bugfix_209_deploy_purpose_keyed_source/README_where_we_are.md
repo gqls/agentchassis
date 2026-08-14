@@ -580,3 +580,60 @@ and the fix is inert until someone builds a chassis image. The other half of bug
 231 — 96 config entries that point at data which sometimes isn't there, and fall
 back silently when it isn't — is untouched and stays open by design, because
 whether a pointer resolves is only knowable while the thing is running.
+
+---
+
+### 2026-08-14 afternoon — the review came back critical, it was right, and the fix is now live
+
+The council reviewed the config-beats-default change and asked for revisions. Eleven
+reviewers, six had nothing to say, and the one that held it up made a point I think
+was the best criticism this lane has had: **my argument that the change was safe was
+an argument, not a test.** I had proved, by reading the code carefully, that the new
+behaviour could only touch settings that previously did nothing. The reviewer's
+response was that this is true of the code as it stands today and nothing stops
+someone adding a seventh or eighth rule next month that quietly breaks the proof. So
+the proof is now a test that fails the moment anyone does that. It cost about twenty
+minutes and it is strictly better than what I had.
+
+There is a small embarrassment attached, and it's worth recording. The test says "the
+automatic search did not override the default". That sentence is also true if the
+search couldn't find anything in the first place — in which case the test guards
+nothing and looks like it guards something. I checked, and the search *does* find
+values there, so the test is real. But I only checked because we have a standing habit
+of asking that question, and without it I'd have shipped a test that reassured
+everybody and tested nothing.
+
+Three other reviewer points were also real and are fixed: a step that used both the
+old and new spelling of a setting got the *old* one, which is backwards; the change to
+that old-spelling path needed tests for the case it wasn't about; and one reviewer
+pointed out that when the new code *rejects* a badly-typed setting, it only says so in
+the logs, which on this system disappear within minutes. So there's now a mode that
+writes a permanent daily record instead. I have not switched it on — it needs a
+container image built first, and turning it on before that exists creates a failure
+this cluster reports as "still running" rather than "broken", which is worse than not
+having it.
+
+**Then the fresh build landed and the fix went live**, and I could prove the code is
+running on both machines: the binary carries the exact commit, and — the important
+half — a *different*, later commit is correctly *not* in it, so the check can tell the
+difference rather than saying yes to everything.
+
+But I could not prove the new behaviour actually happened, and I want to be plain
+about that rather than let it read as a clean pass. I went to the logs to watch the
+new rule fire and found nothing. The tempting conclusion is "no problems, all good".
+The real explanation is that the machine only keeps about **ninety seconds** of logs,
+on a machine that had been running five hours. I know that's the explanation rather
+than a guess, because an *older* log line that has always been there is missing from
+the same window too. So the logs can't answer the question either way, and the honest
+status is: the code is definitely running, the behaviour is not yet witnessed. That
+check is written down as still owed.
+
+The irony is that this is exactly what the reviewer warned about — I hit their
+objection myself, an hour later, trying to check my own work.
+
+One more thing that isn't a code problem: this shared resolver has now been through
+**27 reviews**, and **8 of them** flagged that it's a piece of shared machinery nobody
+formally owns — and each time it shipped anyway, because each individual change was
+well-argued and blocking it would have cost something real. I've written that up as a
+proposal for you rather than trying to settle it myself, because the question is
+whether this thing gets an owner, and that's a call for you.

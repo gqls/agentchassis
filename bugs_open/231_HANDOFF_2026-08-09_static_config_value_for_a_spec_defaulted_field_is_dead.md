@@ -671,3 +671,52 @@ precisely what makes the change look free.
    `Strategy 6: config value's type differs` Warn anywhere — no live entry
    mismatches kinds today, so one would mean new config arrived.
 3. The dotted_conditional census (96) remains this file's open half.
+
+---
+
+## POST-ROLL, 2026-08-14 — LIVE on `v1.0.1298`, and the behavioural check FAILED for a reason worth more than the check
+
+**The code is running, proven at the artefact, both replicas.** Stamp `bc39e7bf5`
+**PRESENT** in both pods' `/proc/1/exe`; a later commit `d11fb2a44` **ABSENT** in
+both, so the probe discriminates rather than matching anything; and
+`git merge-base --is-ancestor` true for `d3edb5b89` (the seam) and `14e4333f7`
+(the REVISE round). Post-roll census: 185 agents, **0 dead**, 96 conditional, 99
+live overrides, exit 0.
+
+**The behavioural half could not be read, and the control is what says so.** I went
+to the logs for `Strategy 6: explicit config value beat the spec default` and found
+**zero**. That reading is worthless: the pod retains **243 lines spanning 92
+SECONDS** (13:51:23Z → 13:52:55Z) on a pod started **08:58:03Z**. The discriminating
+check is that **Strategy 0's PRE-EXISTING Info line is also absent** from the same
+window — so the absence measures the retention window, not the resolver. 241 of the
+243 lines are `level:info`, so the level is not filtered either.
+
+**This is `bug_historian`'s council objection, confirmed by measurement, while
+verifying the change it was raised against.** The seat said a log-only rejection
+surface is not durable on this fleet because chassis logs rotate within minutes. It
+was right, and the evidence is that I could not verify my own change through them.
+`--report` (round 2) exists for exactly this; it is built and **undriven**, and the
+CronJob that would drive it is deliberately not shipped until the image exists
+(ImagePullBackOff reports as a Job still RUNNING on this fleet).
+
+**So the one check still owed is: watch `Strategy 6` fire.** Not from `--tail` on an
+old pod — `logs -f` on both replicas, or drive a step carrying one of the 99 live
+overrides. Absence of the type-mismatch Warn is a genuine expectation (no live entry
+mismatches kinds), but it inherits the same blindness until the window question is
+settled, so do not report it as a pass on its own.
+
+### Round 1's verdict and what it changed
+
+REVISE on corr `41a01378`, 11 seats, 6 abstained, no truncation, decided by a gating
+objection from `guardian`. **Four objections were real defects**, closed in
+`14e4333f7`: the unreachability proof is now an ENFORCED invariant with its own
+vacuity control; the canonical config key now beats a deprecated alias (Strategy 3
+ran first and would otherwise win); both non-defaulted bridge arms are pinned; and
+`--report` gives a rejected override a durable `doc_notes` surface. Two seats' prior-art
+questions were answered with greps rather than code (`LiteralKind` duplicates nothing;
+candidates 1 and 3 both SHIPPED and candidate 3's council attempt was refused
+CLIENT-SIDE on scope, never vetoed). The architecture seat's `needs_rfc` was **not**
+argued down — it is routed to **RFC_028**, which supplies the measurement it asked for
+and printed as unknown: **27 council rounds have touched this resolver, 8 drew
+`needs_rfc`, 1 was ever vetoed**. Round 2 is with the council under the same
+correlation.
