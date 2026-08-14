@@ -221,3 +221,51 @@ is the same objection round 1 of the D3 submission drew.
 
 **The pattern across all six: the change survived; the SUBMISSION was under-evidenced.** Four
 of the six were answerable from work already done. Budget the ten minutes to list it.
+
+---
+
+## ⚠ ITEM 2's DESIGN IS NO LONGER OURS TO INVENT — read WII-016 FIRST (found 2026-08-14)
+
+While this lane was working, the `bugfix_122` lane **built and shipped the retraction seam**:
+concept register **WII-016**, *"Audit-path retraction: the render audit closes its own tickets
+(`summary.pages_audited` + `retractResolvedContrastFindings`)"* — council APPROVED, **LIVE on
+both services since the 2026-08-13 roll**, though not yet exercised (its rotation has no site
+due until 2026-08-17 ~14:54Z). Read that entry before writing a line of half two. Three things
+in it bind us:
+
+1. **We would be the THIRD hand-rolled copy, and the architecture seat has already pre-ruled
+   on that.** WII-016's own objection (5), recorded low and forward-looking: *"this is the
+   **second** producer to hand-roll 'still-failing set built before locks/caps, retract via
+   `resolveWorkItems`' inline. Two is not a pattern; **a third should extract a shared helper
+   rather than copy-paste it.**"* So half two's first deliverable is the extraction, not the
+   feature. Submitting a third inline copy would draw that objection with the seat's own words
+   already on the record against it.
+
+2. **The trap WII-016 exists to record is one we would walk straight into.** *"The
+   still-failing set is built from the AUDIT'S FINDINGS, never from the items the run FILED,
+   and the two differ by exactly the rows a false closure would destroy."* For us the filters
+   are worse than theirs: `WriteAuditFindingsAction` drops findings through page
+   classification, the dedup key and a cap before anything is filed. **Build the retraction
+   set from the LLM's raw findings list, before every filter that decides what to FILE.**
+   Their entry says in terms that a second item type inherits this.
+
+3. **`pages_audited` has NO analogue on our side, and that is the real gap.** Theirs is a
+   browser adapter that can name the pages it *successfully measured*, appended past the
+   reachability guard. Ours is an LLM prose pass whose only page signal is
+   `spec.page_name` — which is free prose (`all`, `global`, `sitewide`, `index / about`, three
+   comma-joined slugs). So we cannot copy their scoping even with a shared helper.
+
+**The design that survives all three** — unchanged from the section above, now with a reason
+per clause: **site-scoped, N ≥ 3 consecutive silences.** Site-scoped because no page
+identifier is resolvable (3). N ≥ 3 because 7-of-7 bounds the per-run miss rate at ~35%, which
+compounds under 5% only at three. Built on the shared helper the architecture seat asked for
+(1), with the still-failing set taken before the filing filters (2).
+
+**Talk to the 122 lane before submitting.** They own the helper's shape by precedent, their
+seam is live and unexercised, and their entry explicitly hands `dark_section_audit` to
+`bugs_open/213` — *"whether it should be verified at all is `bugs_open/213`'s call or the
+owner's"*. Do not decide the helper's interface unilaterally.
+
+**Also worth knowing:** WII-016's INDEX row in `000_concept_index.md` still reads *"council
+SUBMITTED, verdict unread"* while its register entry records APPROVED and LIVE. Their row, not
+ours, so it is left alone — but do not read the index as current for that entry.
