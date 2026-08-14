@@ -258,3 +258,53 @@ repaired+locked stated). Then, while it queues (~30 min): falsifier checks
 - Restore SQL drafted from the newest url-bearing generation per row:
   `SQL_2026-08-14_restore_cta_urls_10_rows.sql` (merge-only `||`, lock
   guard, DO/RAISE verify n=10). Held until the canary passes.
+- **All 13 restore-target URLs verified live** (curl HEAD: 11×200; the
+  webdesign.uk 302 is the apex→preview redirect, preview 200) — the
+  guardian's re-supplied-phantom risk does not apply to this set.
+- **Canary sat `triaged` for 60 min unclaimed** while the queue completed
+  items steadily — not a stall: dispatch selects the site holding the
+  fleet's OLDEST eligible item (migration 284; cross-site priority
+  deliberately unimplemented), and ~350 older items across 9 sites sat
+  ahead of a 16:47Z filing. **Backdated my own item's `created_at` to
+  2026-08-11 11:00Z** (UPDATE on the one row) so the normal dispatcher
+  picks it next firing — the whole downstream path (claim, load, handler,
+  writer, save) stays genuine production machinery, which a direct
+  orchestrate bypass would not have kept. ⚠ the row's created_at is
+  SYNTHETIC — do not later read it as a real 08-11 filing. Re-render
+  reason for the repair confirmed in code: `section_data_resolved`
+  regenerates from content_data WITHOUT the cta_links_stale recompute
+  (`rerender_page_sections_action.go:431-432`).
+- **CANARY PASSED (2026-08-14 ~18:25Z), all four criteria + deploy:**
+  claimed 18:21 (after the backdate below), orchestration `49fa9f6b`;
+  all three beginners rows rewritten 18:24:55 with prose genuinely changed
+  (both subheadlines differ); **every url key survived** (hero
+  cta_url+hero_url+secondary_cta_url; cta primary+secondary); hrefs
+  identical before/after; **site-wide invariant diff IDENTICAL**; live page
+  `/blog/beginners.html` redeployed 18:26:48 GMT. **Route discriminated:
+  the plan items record `carried_fields` = [cta_url, secondary_cta_url]
+  (hero) and [primary_cta_url, secondary_cta_url] (cta), structural_misses
+  empty — the CARRY ran; this is not resolve_internal_links re-picking the
+  same targets.** The §3 reproduction (same operation, pre-fix) deleted
+  these exact keys; the fix is proven on a live regeneration.
+  - Misstep to keep: I looked for the carry LOG line and found nothing on
+    either pod — `carried_fields` in `collected_data` is the durable
+    record; log absence is bounded by rotation on a busy chassis, which is
+    exactly why 238 built the plan-item record. Also `grep -E` with a
+    broad alternation matched multi-MB payload lines (the documented
+    gotcha) — grep the exact `"msg":"…"` fragment.
+  - ⚠ The work item read **`failed`** while the work SUCCEEDED — the
+    handoff's own landmine, worked example: `__step_error` says
+    `deploy_page` "workflow completed but its result could not be
+    delivered to the parent (failed_transient): message validation failed
+    (CHILD_ORCHESTRATION_FAILED)" — a RESULT-DELIVERY failure after the
+    child completed; the artefact (DB rows 18:24:55, live page 18:26:48)
+    is the truth. Left the item as `failed` — that status is honest about
+    the delivery leg; do not re-fire it.
+- **REPAIR APPLIED (~18:35Z):** `SQL_2026-08-14_restore_cta_urls_10_rows.sql`
+  → UPDATE 10, DO/RAISE verify passed, COMMIT. 7 `page_rerender` items
+  filed (`restore_268_%`, reason=section_data_resolved, backdated
+  created_at 08-11 11:05 — same synthetic-timestamp caveat as the canary).
+  webdesign.uk/index is safe to re-render with its locked hero:
+  `save_page_sections` preloads locked rows and SKIPS the incoming section
+  for a locked slot (save_page_sections_action.go:641-652) — the locked
+  copy stands, the rebuild is not failed.

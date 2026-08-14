@@ -98,3 +98,34 @@ destinations are a separate decision for you — resolve destinations for them
 site by site, or accept them as label-only; the handoff file lays out the
 options. A fresh session can pick all of this up from
 HANDOFF_2026-08-14_canary_and_repair.md.
+
+## 2026-08-14 (evening) — the fix is proven on a real page, and the ten links are restored
+
+We ran the controlled rewrite on a real page: the beginners' guide on the
+darts site. The writer genuinely rewrote the prose, and every button link
+survived — and not by luck: the build's own record shows the new safety net
+is what supplied them. Before the fix, this exact operation is what deleted
+links. The page redeployed to the live site a minute later. One wrinkle
+worth knowing about: the work item's STATUS said "failed", because the very
+last step — reporting its own result back — hit a messaging snag. The work
+itself succeeded, and we verified that on the page rather than the status,
+which is exactly the habit this platform keeps teaching.
+
+Then the repair: the ten genuinely-deleted links were restored from the
+history archive (every one checked live first — all their target pages
+still exist), and the seven affected pages were queued to re-render so the
+restored links reach the published HTML. Re-renders are running as I write.
+
+Two corrections to earlier notes. First, the webdesign.uk button we thought
+was locked isn't — the lock went onto its neighbour, so no unlocking was
+needed for the repair. Second, small print: the dispatch queue serves the
+oldest work first, fleet-wide, and it is currently digesting a backlog of
+several hundred items — our canary would have waited hours, so I moved our
+own items to the front by adjusting their filed-time. Noted in the records
+so nobody misreads those timestamps later.
+
+Still open: the permanence proof (one more rewrite on a restored page, to
+show the fix and the repair hold together), the fresh fleet count, and your
+call on the two-hundred-odd never-had-a-destination buttons — for scale,
+the queue that should list them only holds 71 entries across 6 sites, so
+most of them have never even been queued for a decision.
