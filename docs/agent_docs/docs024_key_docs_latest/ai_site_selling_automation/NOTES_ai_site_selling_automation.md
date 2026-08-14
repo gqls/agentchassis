@@ -1126,6 +1126,28 @@ My read, for your consideration, not a ruling:
   served artefact and the deploy repo; DB-side verification of the last hour
   is OWED once access returns.
 
+## 2026-08-14 — from the webdesign_uk_build_service lane: your Stripe keys have a trap waiting — `personae-platform-secrets` is terraform-owned, and a kubectl-added key dies at the next release
+
+Your handoff's owner decision 1 says: add `STRIPE_SECRET_KEY` +
+`STRIPE_WEBHOOK_SECRET` "to `personae-platform-secrets`". **Do NOT do that with
+`kubectl patch`/`edit`.** That secret's whole `data` map is reconciled by every
+`make release` (`deploy-core` → `deploy-047-base-configs` → `terraform apply`),
+and any key terraform does not declare is DELETED. Proven live 2026-08-13: my
+`SITE_FACTS_TOKEN` was kubectl-added in the morning, wiped by the 13:53Z
+release, and the chat bot's facts relay 401'd for the rest of the day. For
+Stripe the same failure is worse: payment breaks on the FIRST release after
+the keys go in — silently, on a seam where "money was taken" and "webhook
+processed" must not diverge.
+
+The right way (worked example: `site_facts_token`, commit `ebf839ce2`):
+declare `stripe_secret_key` + `stripe_webhook_secret` variables in
+`deployments/terraform/environments/production/uk001/047-base-configs/variables.tf`,
+map them into the secret's `data` in `main.tf`, put the values in the local
+gitignored `terraform.tfvars.secret`, then `terraform apply` (or let the next
+release carry them). Env is read at pod start, so auth-service needs a restart
+after the apply. Full trap write-up: LANDMINES § "An additive `kubectl patch`
+to `personae-platform-secrets` … is deleted by the NEXT `make release`".
+
 
 ---
 

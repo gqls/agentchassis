@@ -2606,3 +2606,35 @@ this session's cold-start falsifier sweep:
   core-manager, then set `FACTS_TOKEN` in `/etc/webdesign-chat.env` to the
   tfvars value and `systemctl restart webdesign-chat`; expect
   `fetched 15 facts` + `live mode` in the journal.
+
+## 2026-08-14 (morning) — cluster half HEALED overnight (the 246 lane's apply carried my tfvars line); box half owed: ONE owner command
+
+- The bugfix_246 lane ran the 047-base-configs `terraform apply` for their D1
+  (commits `a5539e140`, `b912504af`), which carried `site_facts_token` from my
+  tfvars line into the cluster; core-manager restarted ~9h before this check.
+  `SITE_FACTS_TOKEN` is back in `personae-platform-secrets` (56 b64 bytes) and
+  present in the pod env. So Option A resolved itself halfway — the decision
+  between A and B is now moot; A's last step is what remains.
+- **Proven end-to-end at the pod (~08:05Z)**: exec'd into core-manager and
+  fetched the relay with the pod's OWN env token (`wget` — no curl in the
+  image) → 200 + the £149 facts; no-token control in the same breath → 401.
+  Fail-closed intact, and the token value never transited this session.
+- **The bot still 401s** (checked through 08:00:33Z): same process as
+  yesterday (PID 174420, never restarted), old token in memory, old value in
+  `/etc/webdesign-chat.env`. The box write remains owner-gated for sessions
+  (classifier). **The single remaining command, from the repo root:**
+
+  ```bash
+  TOKEN=$(grep '^site_facts_token' deployments/terraform/environments/production/uk001/047-base-configs/terraform.tfvars.secret | cut -d'"' -f2) \
+  && ssh -i ~/.ssh/webdesign_box_ed25519 root@webdesign.vs.mythic-beasts.com \
+     "sed -i \"s|^FACTS_TOKEN=.*|FACTS_TOKEN=$TOKEN|\" /etc/webdesign-chat.env \
+      && systemctl restart webdesign-chat && sleep 3 \
+      && journalctl -u webdesign-chat -n 6 --no-pager | grep facts"
+  # expect: "facts: fetched 15 facts from relay" then "facts: live mode"
+  ```
+- Until that runs the bot stays on last-good facts and one restart from dead
+  chat — same fragility as yesterday, now with a single-command exit.
+- Coordination note appended to the sibling lane's NOTES: their Stripe keys
+  (their handoff's owner-decision 1 says "add to `personae-platform-secrets`")
+  must go through 047-base-configs terraform, not kubectl, or the first
+  release after the keys land breaks payment the same way.

@@ -1183,3 +1183,19 @@ terraform apply and one restart; the exact commands are in the runbook under
 reuses the token already on the box so nothing else needs touching. Until then
 the bot works but is fragile; after it, we're back to "change a fact in the
 database, the bot follows within five minutes".
+
+---
+
+2026-08-14, morning — halfway healed overnight; one command left, and it's
+yours.
+
+Another thread's work last night happened to run the same "apply the fixed
+list" step my fix was waiting on, so the cluster side is now right — and I've
+proven it from the inside: the facts service hands over the correct £149 facts
+when shown the new key, and still turns away anyone without it. What's left is
+the other half of the pair: the box next to the website still holds the old
+key, so the bot still can't refresh. That's one command from you — it's
+written out in the technical notes and in my chat summary — and it also
+restarts the bot cleanly. After that the whole loop is back (change a fact in
+the database, the bot follows within five minutes), and this time a fleet
+release can't knock it over.

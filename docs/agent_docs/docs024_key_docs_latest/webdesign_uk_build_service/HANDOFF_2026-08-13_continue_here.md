@@ -42,6 +42,11 @@ is now fixed+live. The missing links are named in §3.
     > owner-gated — see NOTES (evening entry) and RUNBOOK § "Restoring or
     > rotating the facts-relay token". The "within 5 min, no redeploy" claim
     > above holds only once that lands.
+    > **UPDATE 2026-08-14:** cluster half healed — the 246 lane's terraform
+    > apply carried the new token in, core-manager restarted, and the relay is
+    > proven at the pod (200 with the pod's own token, 401 without). Box half
+    > still owed: ONE owner command (NOTES 2026-08-14 entry) copies the tfvars
+    > value to `/etc/webdesign-chat.env` and restarts the bot.
 - **WireGuard tunnel** box↔cluster: up, proven, `ip_forward` fault fixed
   (LANDMINE + CHAT-010 register). Carries box→cluster today; can carry the
   Stripe webhook inbound (see §3.2).
