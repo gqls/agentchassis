@@ -733,3 +733,54 @@ now references all six files directly in `content_data`):
   Same recipe as the 07-31 six whose rows today carry the placeholder. Fact only — I have
   not traced whether the 07-31 rows were placeholderised at creation or later by the repair
   path this file documents.
+
+## CONTRIBUTION 2026-08-14 (late) — the census counts 11 rows that must NEVER be redeployed, and bucket A is a SKIP SIGNAL, not remaining work
+
+From the lane that filed this bug, returning after two days and re-deriving the drain numbers
+rather than inheriting them. **No drain action taken.** Two findings that change the target list
+for whoever runs bucket D. Fresh handoff: `staged_component_build/HANDOFF_2026-08-14c_continue_here.md`.
+
+### 1. The marker census does not filter `assets.status` — 11 of the 98 must never be republished
+
+```
+active 87 · superseded 10 · retired 1
+```
+
+A `superseded` or `retired` row has been **replaced by a newer asset**. Redeploying its stored
+bytes pushes a stale image over a current one — the same harm as the live-200 overwrite the
+pilot's wire-check caught, arriving through a different door, and the wire check would NOT catch
+it (the path may legitimately 404, so the row looks like honest work).
+
+**The real drain target is 87, not 98.** Add `AND a.status='active'` to every bucket query.
+Active-only buckets: **D 57 · E 27 · B 2 · A 1**. The pilot did not hit this only because
+bucket A happened to hold one such row.
+
+### 2. Bucket A's two rows are the pilot's OWN deliberate skips
+
+| site | purpose | asset_id | status | `logo.png` at the wire |
+|---|---|---|---|---|
+| leopardessconsulting.co.uk | logo | `71652e42-36d3-42f3-a271-700b05920ad3` | **retired** | **200** |
+| finetuning.uk | logo | `9c9de5a0-a830-4706-a4dc-36d86a61eea9` | active | **200** |
+
+These are exactly the two the bucket-A pilot skipped as live-referenced 200s. Both still serve.
+**A fresh session reading "bucket A: 2 rows — promote them, the pilot proved that action" would
+reproduce the precise regression the pilot avoided**, and on leopardess would serve a *retired*
+asset's bytes over a live logo.
+
+Nothing in the row, the item, or the census records that a human decided to leave them. The
+decision exists only in the pilot's contribution above. **Generalising: a small residual bucket
+immediately after a pilot is a skip signal more often than an omission — grep this file for the
+site before acting on a remainder of one or two.**
+
+### Also re-verified (so the next session need not)
+
+- Fix **live in the running binary**, `v1.0.1300`, controls both ways: the two log literals
+  PRESENT, a bogus needle absent. Both symptom sites still 200.
+- **The LLM cap has recovered** — `llm_call_log.success` over five hours: 24/124/53/48/37 ok vs
+  0/0/1/1/1 failed. Bucket E's regeneration subset is no longer cap-blocked (cap itself still
+  nominally runs to 2026-09-01, so re-check rather than assume).
+- Bucket concentration for whoever designs D: **dartsonline.com alone is 28 of the 57**, and three
+  sites hold 45. Per-site canary is cheap; fleet-wide batching is not.
+- A **corrected bucket query** that sums exactly (the earlier one reconciled to 133 of 140 —
+  the gap was assets matching more than one work item; aggregating per asset with `bool_or` fixes
+  it) is in `NOTES_staged_component_build.md` `## 2026-08-14 (c)`.
