@@ -1,4 +1,28 @@
-# HANDOFF — 2026-08-14 — the gates are OBSERVABLE and the instrument is **LIVE**, and the archived-page "defect" was refuted by measurement. Read this file only
+# HANDOFF — 2026-08-14 — the instrument is LIVE, the first sweep CONFIRMED the prediction, and the gates are now *observed* unreached. Read this file only
+
+> ## 🟢 RESULT, 08:45:05Z — the prediction written before the run held exactly. This supersedes the 07:55Z banner below
+>
+> The first instrumented sweep ran **2026-08-14T08:45:05Z**. Fleet has since moved to **`v1.0.1298`**,
+> regression-checked at the binary (`gate_claims_still_present`=1 rc=0, fabricated control=0 rc=1).
+>
+> | predicted (written BEFORE the run) | observed |
+> |---|---|
+> | ~16–18 `scan_still_trips` | **18** ✓ |
+> | ZERO `gate_%` | **0** ✓ |
+> | ZERO `unreported:claims_unverified` | **0** ✓ |
+>
+> Plus `page_absent`=**2** and `evidence_base_absent`=**1** — the structured form of exactly what 08-13
+> had to read out of prose. **Two methods, same answer.** So "no finding reached a gate" is now a query,
+> not an argument. ⚠ **Still do not describe any gate as having prevented anything.**
+>
+> ### ⚠ AND IT FALSIFIED ONE LINE OF MY OWN LANDMINE WITHIN HOURS
+> I filed *"an empty arm is never written, so `arm IS NULL` finds nothing"*. **Wrong.** The **9 closed
+> items carry NO `arm` key** — frozen at closure (8× `2026-08-10`, 1× `2026-08-12`), because a terminal
+> item is never re-swept. **`arm IS NULL` = "decided before 2026-08-14", a VINTAGE marker, not a gap.**
+> The obvious "which revalidators lack arms?" query returns those 9 and reads as 9 uninstrumented items.
+> **The gap check is `arm LIKE \'unreported:%\'`.** Corrected as a dated note on the entry, not a rewrite.
+> **Bonus:** the key's absence now *proves* all 9 closures predate the instrument — the 08-12 residual
+> that was called "not retrospectively measurable" is now simply visible.
 
 > ## 🔵 CORRECTION to this file, 07:55Z, before anyone read it — the arm instrument is **LIVE**, not pending
 >
@@ -40,10 +64,10 @@ the bottom). Owner's log: `README_where_we_are.md`.
 | thing | state |
 |---|---|
 | `claims_unverified` revalidator | **LIVE + PROVEN** |
-| The three gates (copy-changed · claim-granular · published) | **LIVE on ≥`v1.0.1293`**, and **still never REACHED** — not once, by any item |
+| The three gates (copy-changed · claim-granular · published) | **LIVE on ≥`v1.0.1293`**; **OBSERVED unreached** 2026-08-14 — 0 rows match `gate_%`, now a query rather than a prose reading |
 | **`result.revalidation.arm` — the arm instrument** | **LIVE on `v1.0.1297`** (needle + both controls, one digest) + council APPROVED r1 |
 | Council | **APPROVED first round**, `fe7dccb3-3038-4177-b77a-0cf620860556`, 10 seats, 7 abstained, 1 LOW advisory (actioned) |
-| Fleet | `v1.0.1297` (`IMAGE_TAG` line 17), digest `sha256:2e89958a` |
+| Fleet | **`v1.0.1298`** (`IMAGE_TAG` line 17); arm needle re-probed with control after the roll |
 | `bugs_closed/262` (published gate) | CLOSED, live since `v1.0.1293` |
 
 **The measurement this lane owes on every visit — 2026-08-14: `0 | 0 | 0 | 9 | 18 | 3` of 30**
@@ -124,12 +148,10 @@ the two dead ones. Two items therefore park in `needs_human_review` for ever on 
 
 ## 3. What is next
 
-1. ~~NEXT ROLL: verify the arm field~~ **DONE — LIVE on `v1.0.1297`, needle and both controls in the
-   banner above. What remains is to READ THE FIRST INSTRUMENTED SWEEP (~08:44Z).** Expect **~16–18
-   `scan_still_trips`, ZERO `gate_%`, ZERO `unreported:claims_unverified`**; the last of those three is
-   the one that would falsify edit 2. ⚠ **A zero gate count is the instrument working, not the gates
-   approving.** For the first time that sentence is checkable rather than arguable — which was the
-   entire point.
+1. ~~NEXT ROLL: verify the arm field~~ ~~read the first instrumented sweep~~ **BOTH DONE — see the
+   RESULT banner at the head of this file. This item is CLOSED.** The instrument is live, exercised, and
+   its output agrees with an independent hand-reading taken before it existed. Nothing further is owed
+   on it. ⚠ A zero gate count is the instrument working, **not** the gates approving.
 2. **The gates are still UNREACHED and no instrument changes that.** What they need is *an item whose
    page has genuinely been cleaned*, and nothing in the population produces one: 16 of 18 `still_holds`
    are correct refusals (the claims really are on the page) and the other 2 sit on unserved pages.

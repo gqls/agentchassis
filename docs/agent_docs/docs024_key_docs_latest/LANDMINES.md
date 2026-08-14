@@ -10463,3 +10463,15 @@ code change owed at the next roll, tracked in RFC_015 §5.
   commit that PRE-DATES your restores, not from the tip they wrote.
 - **source:** the 2026-08-14 repair in `loanandmortgagecalculator_couk/NOTES`; `bugs_open/224` (the reverted fix); `bugs_open/263` (the Track B/B2 arc this happened inside).
 - **added:** 2026-08-14, loanandmortgagecalculator lane
+
+> **CORRECTION 2026-08-14 (later), to my own bullet above — `arm IS NULL` DOES find rows, and it is
+> not a gap.** The bullet said *"an empty arm is never written … so `arm IS NULL` finds nothing"*. True
+> only of rows written since the field shipped. The **first instrumented sweep proved otherwise within
+> hours**: the 21 open items all carry an arm (stamped `2026-08-14T08:45:05Z`), while the **9 `complete`
+> items carry NO `arm` key at all** — their revalidation blocks are frozen at closure (8 stamped
+> `2026-08-10`, 1 `2026-08-12`), because a terminal item is never re-swept and so is never rewritten.
+> So **`arm IS NULL` means "decided before 2026-08-14" — a VINTAGE marker, not an uninstrumented
+> revalidator.** A "which revalidators lack arms?" query written the obvious way returns those 9 and
+> reads as 9 uninstrumented items. The gap check is still `arm LIKE 'unreported:%'`. Useful corollary:
+> the absence of the key now *proves* what was previously only inferred from dates — all 9 existing
+> closures predate the instrument, so arm coverage of this type's history is permanently zero.

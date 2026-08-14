@@ -3500,3 +3500,61 @@ before assuming, because a deleted ledger entry is unrecoverable-looking and thi
 **Nothing was lost in either direction.** Recorded rather than tidied: the useful transferable is that
 `git show <sha> --numstat` distinguishes a modification from a deletion in one line, and the advisory
 check cannot.
+
+---
+
+## 2026-08-14 (later) — the first instrumented sweep ran, the prediction held exactly, and it immediately falsified one line of my own landmine
+
+The sweep fired **2026-08-14T08:45:05Z** against `v1.0.1297` (fleet since moved to `v1.0.1298`,
+regression-checked: needle `gate_claims_still_present`=1 rc=0, fabricated control=0 rc=1).
+
+**The prediction was written into the handoff BEFORE the run**, so this is a real test rather than a
+reading-back:
+
+| predicted | observed |
+|---|---|
+| ~16–18 `scan_still_trips` | **18** ✓ |
+| ZERO `gate_%` | **0** ✓ |
+| ZERO `unreported:claims_unverified` | **0** ✓ |
+
+And the two arms I had not named explicitly came out as the structured form of exactly what 08-13 had
+to read out of prose: **`page_absent` = 2** and **`evidence_base_absent` = 1**, against that day's
+"2 unknown — page absent or no readable content, 1 unknown — no evidence_base spec". **The instrument
+reproduces the hand-read verdicts as keys.** That is the corroboration worth having: it agrees with a
+measurement taken by a different method before the instrument existed.
+
+### ⚠ CORRECTION to my own LANDMINES entry, falsified within hours of being filed
+
+My entry said *"an empty arm is never written … so `arm IS NULL` finds nothing and is not the gap
+check"*. The first run shows the second half is **wrong**:
+
+```
+ status             | arm_key_absent | stamp                | count
+ needs_human_review | f              | 2026-08-14T08:45:05Z |    21
+ complete           | t              | 2026-08-10T08:44:01Z |     8
+ complete           | t              | 2026-08-12T08:44:34Z |     1
+```
+
+The **9 closed items carry no `arm` key at all** — their revalidation blocks are frozen at closure,
+because **a terminal item is never re-swept and therefore never rewritten**. So `arm IS NULL` means
+*"decided before 2026-08-14"* — a **vintage marker**, not an uninstrumented revalidator. Written the
+obvious way, a "which revalidators lack arms?" query returns those 9 and reads as 9 uninstrumented
+items. The gap check is still `arm LIKE 'unreported:%'`.
+
+I had reasoned about the field's forward behaviour and not at all about the rows that already existed
+— the same shape as this session's earlier miss (reasoning about the key's own naming and not about the
+blob it lives in). **Corrected as a dated note appended to the entry rather than a rewrite**, per the
+rule this lane's own WRONG_CALLS entry states.
+
+**One thing it buys, though:** the absence of the key now *proves* what was previously only inferred
+from dates — all 9 closures predate the instrument, so arm coverage of this type's history is
+permanently zero and no future run can backfill it. The 08-12 residual ("all 9 closures predate gate 2
+and that is not retrospectively measurable") is now visible in the data rather than argued from
+timestamps.
+
+### Where the lane stands
+
+The gates are **observable and observed to be unreached** — for the first time that is a query
+(`0` rows matching `gate_%`) rather than an argument from prose. Nothing has changed about *why*:
+18 items still legitimately carry their claims, and 2 of those sit on pages that are not served
+(§ the archived-page correction), so the gate-reachable population remains **16**.

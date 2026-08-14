@@ -371,3 +371,17 @@ Worked result 2026-08-14: `robot-hands.com/gripper-catalog.html` → **200, 30,9
 `status='archived'`** (control 404s), so the scan was right to judge it. Meanwhile
 `leopardessconsulting.co.uk/for-engineering-teams.html` → 404 with the **same byte size as its
 control**, i.e. genuinely absent. `pages.status` does not discriminate; being served does.
+
+### ⚠ Reading the arm column: `IS NULL` is a VINTAGE marker, not a gap (learned 2026-08-14, hours after the field shipped)
+
+```sql
+SELECT status, (result #>> '{revalidation,arm}') IS NULL AS arm_key_absent,
+       result #>> '{revalidation,at}' AS stamp, count(*)
+FROM site_work_items WHERE item_type='claims_unverified' AND result ? 'revalidation'
+GROUP BY 1,2,3 ORDER BY 4 DESC;
+```
+Returns: 21 `needs_human_review` WITH an arm (stamp `2026-08-14T08:45:05Z`), and **9 `complete` with NO
+`arm` key** (8× `2026-08-10`, 1× `2026-08-12`). **A terminal item is never re-swept, so its revalidation
+block is frozen at closure.** So `arm IS NULL` = *decided before the instrument shipped*. A
+"which revalidators lack arms?" query written the obvious way returns those 9 and reads as a gap.
+**The gap check is `arm LIKE 'unreported:%'`.**

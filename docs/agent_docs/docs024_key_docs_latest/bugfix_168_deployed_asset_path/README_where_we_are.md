@@ -1392,3 +1392,38 @@ Where that leaves us: the change is committed and approved but **not yet live** 
 release. The first daily check that carries it should show roughly eighteen findings stopping at "the
 page still trips the check" and **zero** reaching a gate. That will look like nothing happened. It is
 the instrument working, and for the first time it will be checkable rather than arguable.
+
+---
+
+### 2026-08-14 (later) — the new measurement worked, and it caught me out again within the hour
+
+The daily check ran at 08:45 this morning, and for the first time it recorded **which step decided
+each finding** rather than leaving us to read the wording. I had written down what I expected to see
+*before* it ran, which is the only way that kind of claim is worth anything. It came out exactly as
+predicted: eighteen findings stopped at "the page still carries these claims", **none** reached any of
+the three gates, and none showed the "this part isn't instrumented yet" marker.
+
+Better than that, two of the numbers independently reproduce yesterday's hand-reading. Yesterday I had
+to read twenty-one decisions one by one to work out that two were "page missing" and one was "this site
+has no register any more". Today those come out as counts, automatically, and they match. That is the
+useful kind of agreement — two different methods, same answer.
+
+So the honest position has finally changed shape. It is no longer "we believe the gates have never been
+consulted"; it is "no finding reached a gate, and that is a query anyone can re-run". The reason is
+unchanged and is not a fault: the findings are still genuinely true, so the check correctly stops
+before it ever gets as far as the safety gates.
+
+**And it caught me out a third time, which I'd rather report than bury.** I had written a warning note
+saying that a blank value in the new field would never happen. It happens: the nine findings that were
+already closed carry no value at all, because a closed item is never re-examined and so its record is
+frozen at the day it closed. Anyone querying for "parts not yet instrumented" the obvious way would get
+those nine back and read them as a gap, which they aren't — they're just old. Corrected, as a dated
+note underneath the original rather than by rewriting it.
+
+There is a small bonus in that. Those blanks now *prove* something we could previously only infer from
+dates: every one of the nine closures happened before this measurement existed, so none of them can
+ever be explained by it. That was listed as an unanswerable question two days ago and it is now simply
+visible.
+
+Nothing is outstanding from my side on this piece. The remaining work on this lane is the shared-helper
+tidy-up and two older loose ends, all named in the handoff.
