@@ -510,3 +510,44 @@ by hand; draining the rest is still the separate, undesigned job this file has n
 
 Full round-by-round detail: NOTES, `## 2026-08-14 (continued)`. Cold-start for whoever picks
 this up next: `staged_component_build/HANDOFF_2026-08-14_continue_here.md`.
+
+## CONTRIBUTION 2026-08-14 (continued further) — mortgagecalculator's hero was the SAME defect, not a second mechanism; now proven live too
+
+A later session in the same lane picked up exactly the open question the previous entry left:
+"expected to work, not verified" for `mortgagecalculator.co.uk`. The intervening handoff
+(`HANDOFF_2026-08-14_continue_here.md` §2b) had gone looking for a promotable stalled item
+the way gaswholesalers had one, found none (all 5 `placeholder_image_in_use:hero` attempts on
+this site are terminal — 3 cancelled, 2 complete), and stopped rather than speculatively
+dispatching a fresh one, flagging "there may be a second, different mechanism in play here."
+
+**There is not.** This file's own 2026-08-12 contribution already recorded the evidence: all
+five of this site's 2026-08-11 hero generations (`477838e3`, `d6ead260`, `9e94250d`,
+`0e11c818`, `2e2bea17`) deployed to `/assets/images/input-data.asset-key.jpg` — the exact
+placeholder this file is about — via the ordinary **`image-build-handler` →
+`call_asset_deployer`** route. That is precisely the caller **round 1's `migration 401`
+fixed** (confirmed live since 2026-08-13, unchanged through the second fleet roll). The
+repeated `rejected`/`superseded` asset-row history that looked like a distinct, tangled
+problem is fully explained by this bug's own defect, once — round 1 fixed the exact path
+these attempts used.
+
+**Proved it the same way as gaswholesalers, since no item was left to promote a fresh one had
+to be created** — cloned the last discovery-filed `needs_hero_image` item
+(`067a7ad8…`, same `spec`, same `item_key: placeholder_image_in_use:hero`) straight to
+`status='triaged'`, `handler_agent='image-build-handler'`. Claimed by `build-dispatch-loop`,
+complete in ~2m30s (image generation is slower than the repair path's simple re-deploy).
+`deploy_result.file_path = "/assets/images/hero.jpg"`, `commit_message = "Deploy hero image
+for mortgagecalculator.co.uk"` — correct path and purpose, both of which every one of this
+asset's five prior attempts got wrong. **Verified at the served artefact**: the first curl
+immediately after completion still 404'd (git→publish propagation lag, not a failure — a
+retry ~20s later, and a cache-busted URL, both returned **HTTP 200, 96,755 bytes**). The
+`assets` row is now `status='active'`, `filename='hero.jpg'`, `url='/assets/images/hero.jpg'`.
+
+So both named symptom sites (gaswholesalers' logo, mortgagecalculator's hero) are now
+confirmed fixed at the wire, via the two different callers rounds 1 and 2 patched
+(`image-build-handler`/401 and `build-dispatch-loop`/402 respectively) — real coverage of
+both migrations, not just the one gaswholesalers happened to exercise. **Still true and
+unchanged**: this is two assets, by hand; the ~146-row backlog is still the separate,
+undesigned drain job, and routing R4's architecture-scope objection to a human/RFC is still
+owed.
+
+Full detail: NOTES, `## 2026-08-14 (mortgagecalculator hero retest)`.

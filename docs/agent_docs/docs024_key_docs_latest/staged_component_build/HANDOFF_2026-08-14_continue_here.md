@@ -1,4 +1,4 @@
-# HANDOFF — 2026-08-14 (b), fresh chat starts here: batch-8 fully closed, `bugs_open/248`'s code fix is LIVE and PROVEN on gaswholesalers; mortgagecalculator's hero is a separate, tangled sub-problem
+# HANDOFF — 2026-08-14 (b), fresh chat starts here: batch-8 fully closed, `bugs_open/248`'s code fix is LIVE and PROVEN on BOTH named symptom sites (gaswholesalers' logo, mortgagecalculator's hero)
 
 **Supersedes `HANDOFF_2026-08-12_continue_here.md`.** That handoff's whole job (the batch-8
 tail, `tool-bayesian-ranking` + `tool-llm-cost-calculator`) is **done** — both items closed
@@ -8,8 +8,13 @@ file exists because a large amount of *different* work happened afterward, on
 
 **Update, same day, after a second fresh roll:** re-verified against `v1.0.1299`
 (`6f8efa158…`) — no regression, `930ace3bd` still an ancestor, gaswholesalers' logo still
-200. Went to repeat the same proof on mortgagecalculator's hero and found its situation is
-NOT a simple re-trigger — see the new §2b.
+200. Went to repeat the same proof on mortgagecalculator's hero and found its situation was
+NOT a simple re-trigger — see the (now superseded) first half of §2b.
+
+**Update, a later fresh session the same day: mortgagecalculator's hero is FIXED too.** It
+was the same bug 248 defect on the OTHER patched caller (`image-build-handler`, migration
+401), not a second mechanism — see §2b's current paragraph. Both named symptom sites are now
+proven live. What's left is §3 items 1, 3, 4 only.
 
 ## 1. State (verified 2026-08-14, re-verified same day against a second roll)
 
@@ -74,13 +79,10 @@ NOT a simple re-trigger — see the new §2b.
   commit is `930ace3bd`, made by an earlier session, which already carries
   `Council-Submitted: 7f0c1535…`. **Do not write `Council-Reviewed:` on it** — no round has
   approved yet.
-- **The code fix is live; the artefacts it fixes are NOT yet repaired.** Confirmed live:
-  `curl https://gaswholesalers.com/assets/images/logo.png` and
-  `curl https://mortgagecalculator.co.uk/assets/images/hero.jpg` both still **404** as of
-  this writing — the fix prevents *future* placeholder deploys, it does not retroactively
-  repair the ~146 rows / 15 sites already committed under the wrong name (the bug file's own
-  words: "it will not fall on its own"). **A live verification was in progress when this
-  handoff was written** — see §2.
+- **The code fix is live, and BOTH named symptom assets are now repaired** (§2, §2b) — by
+  hand, one dispatch each, not automatically. The fix prevents *future* placeholder deploys;
+  it does NOT retroactively repair the ~146 rows / 15 sites already committed under the wrong
+  name elsewhere (the bug file's own words: "it will not fall on its own").
 
 ## 2. RESOLVED before this handoff was finished writing — the fix is proven, not just live
 
@@ -102,35 +104,30 @@ symptom named at the top of this bug file ("→ 404… four months") is resolved
 the old bug (it had, twice before, on this exact asset) and didn't. Recorded in NOTES and the
 bug file.
 
-## 2b. Went to repeat the proof on mortgagecalculator — found a SEPARATE, tangled situation, did not fix it
+## 2b. RESOLVED 2026-08-14 (fresh session) — mortgagecalculator was the SAME defect, not a second mechanism; now proven live too
 
-`mortgagecalculator.co.uk/assets/images/hero.jpg` is still **404**. Looked for the same kind
-of stalled, re-triggerable work item gaswholesalers had, and the situation is genuinely
-different, not just "hasn't been re-tried yet":
+**Superseded by the paragraph below — kept for the record of what looked plausible and
+wasn't.** The repeated `rejected`/`superseded` history on this site's plain `hero` asset
+(`477838e3`, `d6ead260`, `9e94250d`, none replaced) looked like it might be a second
+mechanism layered on top of bug 248. It is not: this bug file's own 2026-08-12 contribution
+already recorded that all five of this site's 2026-08-11 hero generations deployed to the
+placeholder path via `image-build-handler → call_asset_deployer` — exactly the caller round
+1's `migration 401` fixed. The two facts were sitting in the same file and had not been
+cross-referenced.
 
-- The homepage's own `background-image` really does reference `/assets/images/hero.jpg`
-  (checked at the served page, not assumed).
-- The matching asset row — `purpose='hero'`, `asset_key='hero'` (the plain, site-wide
-  homepage hero, as opposed to the per-page variants below) — has **NO active row at all**.
-  The two most recent attempts (`9e94250d…`, updated 2026-08-12; `d6ead260…`, 2026-08-11) are
-  both `status='superseded'`, and one earlier one (`477838e3…`) is `status='rejected'`.
-- This is DIFFERENT from the per-page heroes on the same site (`asset_key='hero_about'`,
-  `'hero_contact'`, etc.), which ARE active and presumably serving fine — those use distinct
-  per-slot keys that don't collide the way the bare `hero` purpose apparently does.
-- Every `needs_hero_image`/`undeployed_asset` item on this site for plain `purpose='hero'`
-  is already `complete` or `cancelled` — none sitting `unresolved`/`triaged` ready to
-  promote the way gaswholesalers' was. Matches the bug file's own 08-12 contribution:
-  "`needs_hero_image` has been filed five times here (3 cancelled, 2 complete) and
-  `image_url_404:hero.jpg` has been blocked since 2026-08-05."
+Cloned the last discovery-filed `needs_hero_image` item (`067a7ad8…`) straight to
+`status='triaged'` (no stalled item existed to promote, unlike gaswholesalers, so a fresh one
+was created instead — same `item_key`, safe because all prior rows for it are terminal).
+Claimed and completed in ~2m30s. `deploy_result.file_path = "/assets/images/hero.jpg"`,
+correct commit message. **Verified at the served artefact**: `curl
+https://mortgagecalculator.co.uk/assets/images/hero.jpg` → **HTTP 200, 96,755 bytes** (a
+20s-later retry — the immediate check 404'd on git→publish propagation lag, not a repeat of
+the bug; the asset row already showed the correct state at the first check). Full detail:
+bug file's newest CONTRIBUTION, NOTES `## 2026-08-14 (mortgagecalculator hero retest)`.
 
-**Did not create a new work item or force anything** — that would be a heavier, more
-speculative action than promoting an already-stalled one, and this site's history (repeated
-supersede/reject/cancel cycles on exactly this asset) suggests there may be a second,
-different mechanism in play here beyond the plain placeholder-filename bug 248 already
-fixed — worth understanding BEFORE dispatching another attempt, not after. Whoever picks
-this up next should start by reading why the two most recent `hero` (plain) generations
-were marked `superseded` rather than assuming a fresh dispatch will behave like
-gaswholesalers' did.
+Both named symptom sites are now proven fixed at the wire, via both migrations
+(401 here, 402 on gaswholesalers) — real coverage of both patched callers, not one proven and
+the other assumed by similarity.
 
 ## 3. What's actually left on `bugs_open/248`
 
@@ -140,11 +137,9 @@ gaswholesalers' did.
    be a hard refusal — is bigger than this bug and shapes every future caller of the shared
    mechanism, not just these two. This is exactly `architecture_review/`'s job, not another
    round of evidence-gathering on the same submission.
-2. **`mortgagecalculator.co.uk/assets/images/hero.jpg`** — investigated, NOT fixed (see
-   §2b). No stalled item to promote; the plain `hero` asset_key has no active row and a
-   history of superseded/rejected generations. Understand why BEFORE dispatching a fresh
-   attempt — this may be a second, distinct mechanism layered on top of 248's own defect,
-   not just "the same bug, one site behind."
+2. ~~`mortgagecalculator.co.uk/assets/images/hero.jpg`~~ — **DONE 2026-08-14 (fresh
+   session).** Same defect as gaswholesalers, different (also-patched) caller; fixed,
+   dispatched, and verified live at the wire. See §2b.
 3. **Design the backlog-drain job.** ~146 rows / 15 sites already committed under the
    placeholder filename will not repair themselves. Nobody has designed this yet. §2 proves
    the corrected deploy path works, so the drain is mechanically "for each affected asset
@@ -196,10 +191,8 @@ existed, so no duplicate landed) and left a stray `kcat-cgate-*` pod that needed
    commit + a bogus negative control, per §1, rather than a blind binary grep). The fleet
    rolled twice in one day already this session — assume it has moved again.
 3. `who-owns.py 248` (both files will show — resolve by filename) and grep live transcripts
-   before touching the drain-job design, the R4 architecture question, or mortgagecalculator's
-   hero (§2b).
+   before touching the drain-job design or the R4 architecture question — the only two things
+   actually left (§3 items 1 and 3; mortgagecalculator's hero is DONE, see §2b).
 4. If picking up the architecture question: that's `architecture_review/`'s process
    (RFC-shaped), not a normal task — read `docs/agent_docs/docs024_key_docs_latest/
    architecture_review/` for the current convention before starting one.
-5. If picking up mortgagecalculator's hero (§2b): read why the two most recent `hero`
-   generations were `superseded` before dispatching anything new.

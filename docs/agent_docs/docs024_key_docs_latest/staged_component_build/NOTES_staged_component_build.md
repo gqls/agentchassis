@@ -4183,3 +4183,74 @@ scoped open item rather than pushing further given the session's length.
 **Updated the handoff** (`HANDOFF_2026-08-14_continue_here.md`, §1 for the re-verification,
 new §2b for the mortgagecalculator finding, §3 item 2 revised) rather than writing a second
 new file — this is a continuation of the same day's story, not a fresh milestone.
+
+## 2026-08-14 (mortgagecalculator hero retest) — fresh chat, picked up the handoff's own checklist; the "second mechanism" worry does not hold up
+
+Read `HANDOFF_2026-08-14_continue_here.md` cold, ran its own §6 checklist (`git log`,
+pod-grep chassis + browser-runner — still `v1.0.1299`/`6f8efa158…`, no regression — and
+`who-owns.py 248`, which confirmed this bug is owned by this same lane, so continuing in
+place rather than competing).
+
+Went after §2b's open item: understand why mortgagecalculator's plain-`hero` generations kept
+getting superseded/rejected before dispatching anything fresh. Queried `assets` directly
+(`purpose='hero' AND asset_key='hero'`, the bare site-wide one, as opposed to the active
+`hero_about`/`hero_contact` per-slot variants) and got the same 3-row history the last
+session found: `477838e3` rejected, `d6ead260` superseded, `9e94250d` superseded, none
+replaced. Tried to trace the supersede/reject MECHANISM itself first (grepped for
+`UPDATE assets ... status`, `ON CONFLICT (site_id, asset_key)` in `v3_site_actions.go`,
+`generic_actions.go`, `entity_state_actions.go`, `asset_lock_guard.go`) — **this was a dead
+end**: the only asset-status-changing SQL findable by grep is `store_asset`'s
+`ON CONFLICT ... status='active' DO UPDATE` (upsert IN PLACE, same row id, only fires when a
+conflicting row is currently active) and `deploy_image_asset`'s best-effort local-URL
+backfill (never touches `status`). Neither explains a row going from active to
+rejected/superseded while a *different* id takes over — that transition happens somewhere
+this session did not find by grep (possibly DB-driven workflow config rather than a literal
+Go string; not resolved, and not needed once the next thing was checked).
+
+**Stopped chasing the mechanism and reread this bug file's own history instead — the answer
+was already written down.** The 2026-08-12 contribution above lists the outcome of all five
+of this site's 2026-08-11 hero generations: every one deployed to
+`/assets/images/input-data.asset-key.jpg`, this bug's placeholder, via
+`image-build-handler → call_asset_deployer`. Cross-checked which caller round 1's
+`migration 401` patched: the 2026-08-13 contribution names it explicitly —
+`image-build-handler`'s `call_asset_deployer` step. Same caller, same site, same defect.
+**The "second mechanism" read as plausible only because nobody had matched the caller named
+in the 08-12 evidence against the caller named in the 08-13 fix — they are the same one.**
+[CORRECTED here, not a fresh finding elsewhere: the previous session's caution was reasonable
+given what it had in front of it, but the disambiguating fact was one grep away, in this same
+file.]
+
+Given that, dispatched a fresh test the same way gaswholesalers' proof worked, adapted for
+"no stalled item exists to promote": cloned the last discovery-filed
+`needs_hero_image`/`placeholder_image_in_use:hero` item (`067a7ad8…`) verbatim — same `spec`
+JSON, same `item_key` (safe: `idx_swi_dedup`'s partial unique index excludes terminal
+statuses, and all 5 prior rows for this key are `complete`/`cancelled`) — straight to
+`status='triaged'`, `created_by='claude-session-248-hero-retest-20260814'` so it's
+identifiable as a manual dispatch, not auto-discovery. Ran directly via `psql`, NOT filed as
+a numbered file under `sql_for_agents/` — that directory is the live migration runner's own
+queue (`migration-runner-practice` memory; a schema/config migration and a one-off DML
+work-item insert are different things, and dropping the latter there would make it "pending"
+for whichever session's next `--apply` finds it).
+
+New item `f6a8749f-30b8-4187-bb13-dffb8c39f448`, triaged `16:53:00Z`. Claimed by
+`build-dispatch-loop` within one poll tick, `status='complete'` at `16:55:32Z` (~2m30s —
+slower than the repair path's 53s, because this route actually generates a new image rather
+than re-deploying an existing one). `result.deploy_result.deploy_result.file_path =
+"/assets/images/hero.jpg"`, `commit_message = "Deploy hero image for
+mortgagecalculator.co.uk"`.
+
+**Verified at the served artefact, twice, because the first check was a false negative worth
+recording as one**: immediately after `complete`,
+`curl https://mortgagecalculator.co.uk/assets/images/hero.jpg` → **404** — looked like the
+deploy had silently failed exactly the way this bug describes. Waited ~20s and retried (also
+tried a cache-busted query string): **HTTP 200, 96,755 bytes**, both times. Read this as
+git-commit→publish propagation lag, not a repeat of the bug — the asset row itself already
+showed the correct state at the first check (`status='active'`, `filename='hero.jpg'`,
+`url='/assets/images/hero.jpg'`), which a genuine repeat of the placeholder bug would not
+produce. **Anyone re-running this class of proof: don't curl once and conclude — the DB row
+and the served file can be seconds apart.**
+
+Both migrations (401 via this site, 402 via gaswholesalers) now have a real end-to-end proof
+each, not just one migration proven and the other assumed by similarity. Updated the bug file
+(new CONTRIBUTION) and the handoff (§1, §2b closed out, §3 item 2 struck through) rather than
+a new handoff file — same day's story, not a fresh milestone.
