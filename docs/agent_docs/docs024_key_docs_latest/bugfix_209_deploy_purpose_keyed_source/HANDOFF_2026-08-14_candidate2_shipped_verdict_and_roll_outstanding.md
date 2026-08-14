@@ -75,9 +75,18 @@ activation set was **empty by construction** rather than by luck.
    one arm that could replace a typed Default with an object of unknown shape, and
    zero live entries want it. Whoever takes it owns re-measuring the `*_field`
    family first (28 read config directly today, which is what makes it look free).
-5. **240** (unchanged from the previous handoff): `tail ~/kafka-sweep-240.log`; the
-   KUBECONFIG fix's first real APPLY run is the next 00:17/12:17 LOCAL slot the
-   machine is awake for. Then the C2 safe subset + the C1 question.
+5. **240 — the sweep half is DONE and PROVEN; only C2/C1 remain.** The previous
+   handoff was still waiting for "the first real APPLY run"; `[MEASURED 2026-08-14
+   08:50 BST]` from `tail ~/kafka-sweep-240.log` it has run **twice** in APPLY mode
+   since the KUBECONFIG fix, both clean: one deleting 1,414 orphaned topics
+   (`fail=0`, 1,064 remaining) and the `2026-08-13T11:17:01Z` run deleting 1,096
+   (`fail=0`), taking `job.*` topics **1,664 → 570**. Protection held both times
+   (568 KEEP against 593 protected correlations, 6-hour window).
+   ⚠ **The 00:17 local slot on 08-14 did NOT run** — no log entry — which is the
+   already-recorded trap that user crontabs get no anacron catch-up, so a slot the
+   machine sleeps through is silently missed. Do not read the gap as a failure.
+   Remaining on 240: the **C2 safe subset** (scheduler-scoped transport) and the
+   **C1 question**. Neither is started.
 6. 209 Phase 3 (retire dead writers) and 236 — open, unowned by this thread.
 
 ## 4. Cold-start checks
