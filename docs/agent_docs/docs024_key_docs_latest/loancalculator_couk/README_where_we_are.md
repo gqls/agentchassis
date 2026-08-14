@@ -1796,3 +1796,31 @@ reviewed change followed by the rebuild itself.
 
 Handed over cleanly: HANDOFF_2026-08-13_planner_half_continue_here.md has the whole
 state, what's proven, and the exact next steps.
+
+2026-08-14 (evening) — The planner change is in. The one thing blocking the rebuild
+was teaching the site-planner to see a site's own calculators, and the one thing
+blocking THAT was proving which piece of run-state reliably carries the site's id —
+because getting it wrong wouldn't just break this site, it would stop every site on
+the platform from planning. That proof is now done three ways: the planner's own
+workflow creates the value two steps before it's needed (in code that cannot skip
+it), the step that writes finished plans has used the exact same value forever (so
+every plan ever written is a successful test of it), and we ran the new query
+against the live database and confirmed sites without the opt-in flag get
+byte-for-byte what they got before. The change is applied and live, the flag is set
+on loancalculator only, and the whole thing went to the review council (submission
+508fe8eb). The mystery of the planner runs that seemed to leave no trace also fell:
+the runs table only keeps about two days of history, and the planner runs so rarely
+(three times ever) that its records are always gone before anyone looks.
+
+Two things happened to the site while we weren't looking, both harmless but worth
+knowing: the platform's routine maintenance created one new page (a loan FAQs
+guide — it's live and looks right), and a fleet-wide re-render wave (expected,
+one-off, caused by a fix that rolled yesterday) refreshed about a third of the
+pages. The calculators, the cut claims, and the locked footer all came through
+intact — the locks did their job and blocked the three attempts to overwrite the
+protected chrome. One embarrassment on our side, recorded properly: I briefly
+believed the wave had stripped the calculators off the live site, because I was
+checking pages at addresses I'd guessed instead of the real ones — the "pages" I
+was reading were 404 errors. The database said otherwise, which is what sent me
+back to look. Next: council verdict, then a one-site trial replan, then the
+rebuild.

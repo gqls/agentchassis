@@ -5092,3 +5092,38 @@ release). Two deltas that change recorded premises:
 Next: migration + flag seed (definition change is live-on-apply; control run proves it
 inert unflagged), council submission naming the RFC_022 fifth flag and the 21
 tool-placing sites, then the canary replan.
+
+### 2026-08-14 (late) — council round 1: REVISE, and the gating objection was right about my evidence, wrong about the world
+
+Round 1 on `508fe8eb` came back REVISE (gating: prior_art_librarian HIGH; 5 abstained;
+guidelines/adoption_guardian/render_guardian/constitution/mission/debug_historian/
+reuse_agent approved). Dispositions, all answered in round 2 (`SUBMISSION_..._r2.json`,
+run orch `ae9e0873`):
+
+- **librarian HIGH (gating):** I asserted the re-adoption flag-drop closed via
+  `19acfc895` without attaching proof, while multiple landmine pointers still said the
+  opposite. The world was as I claimed — the central LANDMINES entry was ALREADY
+  corrected ("Do not re-fix", council 70256656) and in sync with doc_notes — but the
+  claim in MY submission was bare. Fixed with three attached layers: the code quote
+  (all-unknown-keys carry), a FRESH artefact probe (both replicas, literal 2 hits each,
+  near-miss 0, `merge-base --is-ancestor` true), and the corpus correction: PLAN-048's
+  stale ⚠ struck through in place, with the five-key census now living THERE as the
+  single authority (reuse seat's ask folded into the same edit).
+- **editquality/guardian/debug_historian (version ambiguity):** answered by
+  enumeration — exactly ONE build-site-planner row exists (their own check showed it),
+  and the migration's count(*)=1 guard would have aborted otherwise.
+- **guardian (rollback placeholder):** the round-1 SKETCH abbreviated; the committed
+  FILE was always verbatim — and now verified byte-identical to the snapshot's captured
+  pre-state. Learned in passing: **the two-arg `snapshot_agent(type, reason)` writes to
+  `agent_definitions_backup`**, not agent_definitions — a same-table search for the
+  snapshot comes back empty and reads as "snapshot lost".
+- **bug_historian MEDIUM (menu ≠ placement):** accepted, not defended — the canary
+  (`canary_replan_407.sh`) is the placement-level proof and runs only after the verdict.
+  Their 17/12 locked-rows check reconciled against my 12/11: superset (all locks) vs
+  tool subset; `ported-prose` is the shared 12th component.
+- **architecture MEDIUM:** follow-up filed as `features_open/033` (structure-aspect
+  opt-in key counter; the 402-405 RFC_022 counter covers action input specs only).
+
+Commits: `f3658c893` (the change + PLAN-049), `1c05b2178` (round 2 + canary script +
+033), both `Council-Submitted: 508fe8eb`. My PLAN-049 index row travelled as a
+same-file passenger in another session's `99fa0a3fb` — stated in both commit messages.
