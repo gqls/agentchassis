@@ -344,3 +344,50 @@ So the hazard is not theoretical and the drift check is not ceremony: a live rel
 for exactly this reason today. Note also what it tells you about the release path — **047
 applies as part of `make release`**, which is how `PGBOUNCER_ADMIN_PASSWORD` reached the
 live secret without anyone running terraform by hand.
+
+---
+
+## UPDATE 2026-08-14 — **EVERYTHING THIS LANE OWNED IS NOW DONE.** D1 closed, D3 answered.
+
+**Chassis `v1.0.1297`** (revision `3b0ea20ff`); 246 still shipped, negative control holds.
+
+### D1 — CLOSED
+`terraform.tfvars.secret` now holds the **existing** 20-character `pgbouncer_admin` value
+from the userlist, replacing the 32-character one I wrongly generated. **Proven to
+authenticate BEFORE it was written** (`SHOW POOLS` returned rows), verified byte-equal to
+the userlist value without ever printing it, and written with exactly one key in the file.
+No pgbouncer restart, no userlist rewrite, nothing at risk for `clients_user`/`templates_user`.
+
+**⏳ The live secret still carries the OLD value (32 chars, confirmed).** `047-base-configs`
+applies as part of `make release`, so **it self-corrects on the next roll — no manual step
+is owed by anyone.** Until then the console is reachable using the userlist value directly.
+
+### D3 — ANSWERED: `default_pool_size = 15` does not need raising
+`cl_waiting = 0`, `maxwait = 0`, **5 server connections in use of 15**, with 17 client
+connections multiplexed onto them. 246's one real risk **is not materialising**, and the
+submission's transaction-pooling argument is now evidenced rather than reasoned. Recorded
+in `bugs_closed/246` and RUNBOOK §10 **with its limits**: one sample, and pgbouncer's
+`maxwait` is the *current* longest wait, not a high-water mark, so a zero cannot rule out
+queueing between samples. The quotable sentence is *"not queueing at this moment, at this
+load"*, never *"fine under load"*.
+
+### 259 — fixed and live, by the lane that took it
+`e37f79b65` deleted `p.sqlDB` "and the six things reachable only through it". The regression
+test this lane wrote has been updated by them: `TestConstructorSizesThePoolItOpensItself` is
+**gone along with its subject**, and they recorded it as a genuine coverage *removal* rather
+than letting the suite quietly shrink — with a third table case added to guard a re-added
+opener. That is a better disposition than the one I would have defended.
+
+### Nothing is owed by this lane
+D2 and 259 are with the `bugfix_239` lane. D4 is committed. D1 and D3 are closed. The only
+outstanding item is mechanical and self-resolving (the next release picking up the tfvars
+value).
+
+### Attribution correction — a same-file passenger in `d8e865b27`
+That commit's message names only my `WRONG_CALLS` entry, and it **also carries two other
+sessions' entries** (a "field answers the latest sweep only" call, and a mutation-harness
+one from the `bugfix_213` lane) which landed in the file between my read and my commit.
+Nothing is lost and forward-only holds, but the log misattributes them — recorded here
+because a commit-scope report is advisory and nobody else will notice. This is the
+documented `pathspec commit takes a SAME-FILE passenger` landmine, and appending to a
+fleet-wide append-only file is its most likely trigger.
