@@ -2654,3 +2654,42 @@ this session's cold-start falsifier sweep:
   re-asserts it instead of deleting it. The remaining single point of
   fragility from the morning entry stands unchanged: `FACTS_URL` pins the
   core-manager ClusterIP because box cluster-DNS is unresolved.
+
+## 2026-08-14 — PLAN steps 1+2 DONE: chat-input-box is a library TOOL, and tool-suggester gained the requires-backend gate (migration 406, council c78ed496)
+
+- **Step 1 (config, live)**: reclassified `chat-input-box`
+  (d6a8f57b-c186-41be-8171-0dfbf6e24740) to `component_level='tool'`,
+  `category='interactive'` (the tool convention, 54 of 83 active tool rows).
+  The `requires-backend` tag was already on the row. Verified after the flip:
+  contact page still serves the widget (200, 32 refs) — the loader that
+  resolves EXISTING page instances is level-blind (`loadSectionComponents`,
+  v3_site_actions.go:4287, name/function lookup, no level filter); the row now
+  matches `deploy_tool_action`'s library selector (`tool` + `forked_from IS
+  NULL`). `loadComponentNameResolver` (section/element only) drops it from
+  plan-name normalisation — intended: tools are placed by tool-deployer, not
+  generic section planning.
+- **Guard pre-check before the flip**: `toolTemplateValid` passes (all 5
+  balancedPairs balanced; template ends `</style>`). ⚠ SQL trap met on the
+  way: Postgres `rtrim(t)` strips SPACES only — my first ends-cleanly probe
+  returned false on the trailing newline; `rtrim(t, E' \t\r\n')` is the
+  Go-`TrimSpace` equivalent. Go's check passes.
+- **Step 2 (migration `sql_for_agents/406_tool_suggester_requires_backend_gate.sql`
+  + ROLLBACK sidecar)**: `load_library_tools` gains VMB-010's predicate — a
+  `requires-backend`-tagged tool is offered only where
+  `sites.deploy_config->'capabilities' ? 'backend'` (3 sites today) — plus the
+  `input_data.site_id`/$1 binding, the same idiom as the adjacent
+  `load_existing_tools` step. Proven BEFORE apply: disagreeing pair
+  (webdesign.uk → true; static control ai-agent-orchestration.com → false);
+  the verify DO block mutation-tested against the ungated live row (RAISEs —
+  the check can fail). Register VMB-010 updated in the same commit (tool half
+  live; SECTION half guarding `intent-probe` explicitly still unbuilt).
+  Council: FORCE=1 (config ships as a docs-path migration), corr
+  `c78ed496-a6f4-4ebc-a6c3-1fc4a9221546`, verdict pending at commit time.
+- ⚠ **FOUND, not fixed: `load_library_tools` LIMIT 30 truncates a 68-master
+  library** — tool-suggester has NEVER seen 38 of the tools (order by
+  display_name; chat-input-box sorts 16th, unaffected). Silent cap, fleet-wide
+  suggestion quality. Needs its own filing — grep bugs first.
+- **Queue check before the flip surfaced an owner-attention row**:
+  `lock_blocked_change` / `needs_human_review` — an improvement sweep tried to
+  REMOVE the locked chat box from the contact page on 2026-08-11; the lock
+  held (a4cd5dc8-ddf6-4d00-99ca-ab804d2ef6f9).
