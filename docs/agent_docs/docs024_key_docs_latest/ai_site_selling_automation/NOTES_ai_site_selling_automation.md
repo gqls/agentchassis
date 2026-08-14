@@ -1175,3 +1175,41 @@ to `personae-platform-secrets` … is deleted by the NEXT `make release`".
 - **Remaining on this front: the palette pass** (design_intent still the old
   white brand under kraft heroes) — values proposed to the owner in chat, not
   applied.
+
+
+---
+
+## 2026-08-14 (evening) — the kraft palette is LIVE, verified served, and the anchor held exactly
+
+- **Served stylesheet verified**: background `#f7f1e6`, surface `#efe6d3`,
+  border `#d8c3a0`, text `#1a1a1a`, muted `#6f6553`, accent `#8a6410` — all
+  seven approved values BYTE-EXACT, zero green or old-white residuals. Given
+  `reference_values` are advisory by construction (the corrected colour-churn
+  landmine), exactness was the thing to verify, not assume: baseline copy taken
+  before dispatch, matched-pair diff after.
+- **Contrast, computed not eyeballed**: text 15.5:1, accent-as-link 4.8:1,
+  muted 5.1:1, button text 17.4:1 — all past AA's 4.5.
+- **Buttons are INK, not the proposed egg-gold**: `.btn-primary` is built
+  structurally from a primary→secondary gradient (`#1a1a1a`→`#4a4437`) with
+  white text — the renderer's CTA slot is not palette-addressable, so the gold
+  fill would need a template change. Reported to the owner with the honest
+  case for keeping ink (gold stays reserved for the artwork's output element);
+  awaiting his preference, not chasing it unprompted.
+- **Route notes for the next palette change on any site**: write all FOUR
+  copies in one transaction (design_intent + content_data.color_scheme +
+  palettes + style_collections — worked SQL `SQL_2026-08-14_kraft_palette.sql`);
+  do NOT stack duplicate design runs — a discovery-filed `needs_design_review`
+  at priority 10 will front-run yours, so cancel the duplicate and ride it
+  (fewer LLM passes = less drift surface); the acceptance is the SERVED
+  stylesheet against a baseline, never the item status. My transaction's
+  all-copies-agree union check was WEAKER than intended (passes if ANY copy
+  matches) — verified by direct read instead; do not reuse that block.
+- Sequence that actually delivered it: discovery's own prio-10 design item ran
+  the agent (mine cancelled as duplicate) → repo commit 18:38:41Z → box sync →
+  served. Monitor caught each stage; pages re-verified green throughout (link
+  gate 5/5, buttons intact).
+
+**The brand work is COMPLETE**: imagery guide → five kraft heroes (verified by
+eye) → hard-terms copy → services named → kraft palette served. Remaining on
+the site front are the parked/owner items only (271 fix thread for the
+guidance field; Stripe keys; webhook route; "three or four days").
