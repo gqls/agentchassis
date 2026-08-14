@@ -278,3 +278,55 @@ Standing docs whose advice interacts badly with this state:
 - CLAUDE.md § "Council review of platform changes" — the ~30-minute latency guidance (§4).
 - `RUNBOOK_council_gate.md`'s `complete_invalid` note — written for the transient case, and
   its "resubmit unchanged" is wrong here; the landmine above is the counter-example.
+
+---
+
+## RECURRENCE — 2026-08-14 15:35:51Z. Third exhaustion in 15 days. (contributed by the bugfix_209/231 lane)
+
+Same signature, same message, same stated reset date:
+
+> `API request failed with status 400: {"type":"error","error":{"type":"invalid_request_error",
+> "message":"You have reached your specified API usage limits. You will regain access on
+> 2026-09-01 at 00:00 UTC."}}`
+
+**Boundary `[MEASURED 2026-08-14 16:40Z]`, using this file's own §6 liveness query:**
+
+| | time (UTC) |
+|---|---|
+| last SUCCESSFUL llm call | `2026-08-14 15:35:51.922` |
+| first usage-limit failure | `2026-08-14 15:36:30.499` |
+| state at 16:40Z | **0 ok / 10 failed** in the preceding 20 minutes |
+
+Sustained, not a blip: **zero** successful calls in the ~65 minutes since onset, across 5
+distinct agent types.
+
+⚠ **A CORRECTION I MADE MID-DIAGNOSIS, because the shape is worth knowing.** A
+`GROUP BY model_resolved` over "the last 90 minutes" showed `claude-sonnet-4-6` 9 ok / 18
+failed and `claude-sonnet-5` 21 ok / 9 failed, and I briefly read that as *successes
+interleaved with failures, so the cap trips and releases rather than blocking*. **Wrong:
+every one of those successes predates 15:36Z.** The window straddled the onset, so a
+per-model split across it mixes two regimes and manufactures an interleaving that does not
+exist. **Bucket by MINUTE and check `max(created_at) WHERE success` before reading any
+split that spans an incident boundary.**
+
+**This lane contributed to the exhaustion and should say so.** I ran **three council
+rounds** on corr `41a01378` today (231 candidate 2). Fleet-wide `council-gate` spend on
+2026-08-14 up to onset: **143 calls, 525,277 input tokens.** `bugs_open/244`'s measurement
+— council-gate at 87.8% of August spend, ~790k input tokens per round — is the mechanism,
+and my rounds are three instances of it. Round 3 died at
+`review_editquality` on this cap, so **the round is lost and cannot be resubmitted until
+service returns**; the submission itself was valid (it had passed `persist_submission`).
+
+**What this changes about this file's conclusion: nothing, and that is the point.** §5's
+candidate 1 (owner adds credit) is again the only thing that restores service, and it is
+again not a control. **Third occurrence in 15 days (07-31, 08-10, 08-14)** — the interval
+is shortening, and `bugs_open/244`'s caching fix is the prevention that keeps not landing.
+
+**For the next session that finds its dispatch silently stuck:** this is what it looks
+like. An orchestration terminates at `complete_invalid` with no `council_report` artifact,
+and `collected_data->'__step_error'->>'failed_step'` names a *review seat*, not your
+submission. **Do not edit your JSON** — the runbook's warning applies exactly. Check
+liveness first:
+```sql
+SELECT max(created_at) FROM llm_call_log WHERE success;   -- more than ~2 min stale ⇒ this bug
+```
