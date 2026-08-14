@@ -198,6 +198,24 @@ FROM sites s WHERE s.domain='webdesign.co.uk';
 > held row is repaired (`handler_agent='webdesign-agent'` set 2026-08-14 while safely `deferred`),
 > and this staged INSERT now matches the proven 08-09 template shape. While `deferred`, the item is
 > unclaimable regardless (claims filter `status IN ('triaged','approved')`), so the repair was safe.
+>
+> **The hold itself is a SINGLE status lock, and all six un-park paths are verified shut** (checked
+> by both lanes independently): the two claim predicates (`triaged`/`approved` only), the promoter
+> (`detected` only), release-on-unhealthy (needs a prior claim), the stale reaper (`triaged`+build),
+> and — the one a human would actually reach — **the admin dashboard**. Its retry button
+> (`site_admin_handlers.go:886`) resets `{needs_human_review, failed, blocked, unresolved}` →
+> `triaged`; its resolve button (`:930`) closes the same set plus `triaged`. **`deferred` is in
+> NEITHER list.** No operator click can un-park or close this item.
+>
+> **And note what the seat's hazard actually was, because both directions got stated before the
+> truth did.** `debug_historian` feared the empty column would let the canary FIRE early. The
+> `581eb30a` lane then reasoned it could fire via blocked → operator-retry. **Neither: it could
+> never render at ANY threshold** — the retry resets *status only*, the column stays empty, and the
+> next claim re-blocks it. The broken filing's real failure mode was a **block/retry jam** at the
+> owner's gate moment, burning operator attention while looking like a stuck queue. The repair
+> removed the jam; `deferred`'s absence from the retry list is what keeps the *held* item beyond an
+> operator's reach. Same objection, two wrong theories, one real defect — a seat's QUESTION can be
+> worth more than its theory, and the measured answer beat both lanes' first readings.
 ```sql
 -- (gate sha updated: round 2 of their change is e0f239118 — gate on THAT)
 ```

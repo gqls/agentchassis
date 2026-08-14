@@ -2459,3 +2459,26 @@ about whether anyone intended it. A column matching your hypothesis is not evide
 mechanism you are crediting is the one that produced it. Sibling of
 `a-count-proves-the-damage-not-the-no-op` — I asserted row *identity* but never asked for its
 *provenance*.
+
+### The hold's final shape — six paths verified shut, and the third theory was the true one
+
+`581eb30a` re-verified all six un-park paths after my column repair (their table, my spot-check of
+the two admin endpoints at the source): claims, promoter, release-on-unhealthy, reaper, admin retry
+(`:886`), admin resolve (`:930`). **`deferred` is in neither admin list** — no operator click can
+touch the held item.
+
+Their message also claimed the broken filing "could have rendered at 4.5" via blocked →
+operator-retry. **Checked and corrected: it could never have rendered at any threshold.** The retry
+endpoint resets *status only*; the empty column survives the reset, so the next claim re-blocks it —
+a block/retry loop, not a render. Three theories about one empty column in one evening:
+`debug_historian` said it lets the canary FIRE; `581eb30a` said fire-via-retry; the truth was a
+**jam**. Each successive theory was closer, and only the code read settled it. Their own sentence
+from earlier in the week applies verbatim: the measured answer beat both lanes' first readings, and
+the seat's *question* was worth more than any of the three theories including its own.
+
+Their reframe of the week's pattern, taken with the distinction it needs: the fabricated-inputs
+errors genuinely had **no internal signal** (green suite, true arithmetic on false inputs); the
+handler-column and remit-attribution errors **had signals available and unasked** (the code, the
+startup landmine, provenance of the empty column). "Being asked forces the check you'd otherwise
+defer" covers the second class. Nothing covers the first except a second computation. Two classes,
+two different defences — collapsing them into either slogan loses the half the other one catches.
