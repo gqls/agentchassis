@@ -2856,3 +2856,64 @@ retired safely has now been proved both ways: it correctly reproduced a real ref
 pair, and today it correctly predicted a clean run. That's worth more than either result on its
 own — a check that only ever says "fine" isn't a check, which is exactly what the empty table
 turned out to be.
+
+---
+
+## 2026-08-14, evening — the fundamentally.ai copy: I found the cause and fixed it, and the pages haven't caught up yet
+
+Picked up the handoff about the copy on fundamentally.ai reading a bit AI-written. Before
+touching anything I checked whether the ground had moved, because the handoff was two days old
+and other people had been writing in this folder within the hour.
+
+**It had, and in a way worth knowing about.** Another workstream — the idea.uk one — got an
+almost identical complaint from you on the same day and ran a fleet-wide pass over the writing
+on fourteen sites, fundamentally.ai among them. They were hunting the word "honest". We're
+hunting a different habit. So they'd been over the same site four hours before our handoff was
+even written, and left our problem untouched. The useful part is that it means our handoff was
+looking at the site as it is now, not a stale version of it — I checked that rather than assumed
+it.
+
+**The habit itself.** The site keeps defining things by what they aren't: "a decision aid, not a
+verdict", "a starting estimate, not a forecast", "a number to argue with, not a demo to admire".
+You'd already ruled on this on the 11th — say what a thing **is**, not what it isn't, because a
+negative definition makes the reader do subtraction and reads colder. Nothing to invent, as you
+said.
+
+**Where it was coming from, and this is the bit I can now prove rather than assert.** The fault
+wasn't in the sentences. It was in the site's writing brief — the instruction sheet the writing
+agent reads. Three of its four worked examples were themselves written in exactly that
+shape, and an example is far more contagious than a rule. The proof is that one of those
+examples, "the decision record is real, not a log entry", turns up almost word for word on
+**four separate pages** of the site. A writer copying a rule doesn't do that. A writer copying an
+example does.
+
+**What I changed.** The brief, not the pages. I rewrote the handful of strings the writer
+actually copies into positive form, and added your rule to it in your own words. I deliberately
+left alone the places where the brief uses "not" to tell the writer what to avoid — those are
+instructions, not copy, and the other workstream's recorded mistake was flagging perfectly good
+lines just because they matched a word list.
+
+**One thing I was careful about.** The obvious way to make a site sound less negative is to
+delete its caveats, and that would have been the wrong fix — the honesty is the point. The site
+says plainly that we haven't delivered this to a paying client yet, and the brief tells the
+writer to acknowledge limitations. Both survive, and I made the database refuse the change
+outright if either had gone missing, rather than just intending to keep them.
+
+**Where it stands right now, honestly: not finished.** Fixing the brief doesn't rewrite the
+pages. I'd assumed a "re-render" would do it and that turned out to be wrong — re-rendering
+rebuilds a page from text it has already stored, so it would have reported success and changed
+nothing a reader sees. Getting new words requires a full rebuild, so I've queued two pages for
+one: the worst offender and one of a different type, so they can disagree with each other. One
+page proving a fix isn't proof.
+
+They're sitting in a queue about three hundred deep, so this will take a while. The machinery is
+working — the queue is moving at over a hundred an hour, and our AI capacity came back at six
+this evening after being capped earlier in the day. But until those two pages come out the other
+side and read differently, nothing about this is proven.
+
+**One correction to the handoff worth flagging.** It said the second job — the tools being
+unreachable from the site's own writing, no Tools entry in the menu — was filed and just needed
+a nudge to start. It's actually **blocked**, and has been since a minute after it was filed:
+nothing was ever assigned to do the work. The session that filed it wrote the handoff a minute
+later and never looked at the row again. So the nudge it recommends wouldn't have started
+anything. That one is still to do.

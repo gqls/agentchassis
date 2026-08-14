@@ -10606,3 +10606,24 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **source:** 2026-08-14, owner asked for explanatory images in the dartsonline guides; found while investigating why the flight-shapes diagram was absent. Restored verbatim from `page_component_history` under a guarded UPDATE (work item `aaabecaa-b69c-472d-8a3a-e004d1215b05`) — **a one-page stopgap the next rewrite will undo, not a fix.** Durable design in progress: `docs024_key_docs_latest/inline_guide_imagery/`
 - **relations:** `dartsonline_traffic/README_where_we_are.md` 2026-08-05 (the session that placed all 8 and predicted the loss) · `bugs_open/114` (the correction) · `bugs_open/238` / `226` / `229` (the real class) · MEMORY `a-complete-work-item-is-not-a-repaired-artefact`
 - **added:** 2026-08-14
+
+### `content_direction.formatted` is section-ordered by Go MAP ITERATION — so a before/after diff of it is pure noise, and the obvious way to verify a spec edit tells you nothing
+
+- **footprint:** `platform/orchestration/datahelpers/format_content_direction.go`, `FormatContentDirection`, `FormatSpecValue`, `site_specs` (`aspect='content_direction'`), `write_site_spec`, `apply_adoption_plan`
+- **fires when:** you edit a site's `content_direction` and then try to verify the edit landed by diffing the old and new `formatted` strings — the natural check, and the one the existing "you MUST regenerate `formatted`" landmines above will send you to.
+- **the tell: there is none, and it fails in BOTH directions.** `FormatContentDirection` does `for key, val := range spec` over a `map[string]interface{}`, and Go randomises map iteration order **per run**. So the top-level sections (`Voice:`, `Writing rules:`, `Example phrases:` …) come out in a different order every single time it is called, even for byte-identical input. Consequences, both bad:
+  - **a diff of a GOOD edit looks catastrophic** — the whole block reads as changed, and a session checking "did I break something?" sees maximum damage and may revert a correct change;
+  - **a diff cannot confirm a BAD edit either** — the noise floor is the entire document, so a genuinely missing replacement is invisible in it.
+  Length is no help either: it moves for reordering-independent reasons and is not a content check.
+- **the check — verify by CONTENT, never by diff, and assert BOTH directions:**
+  ```sql
+  SELECT data->>'formatted' LIKE '%<the phrase you removed>%'   AS should_be_false,
+         data->>'formatted' LIKE '%<a phrase that must SURVIVE>%' AS should_be_true
+  FROM site_specs WHERE site_id='<id>' AND aspect='content_direction' AND is_current;
+  ```
+  The survive-clause is the load-bearing half: a copy edit that "removes negativity" can silently become a deletion of the site's honest caveats, and a removed-phrase check alone reports that as success. Put both in a `DO`/`RAISE` block in the same transaction as the write — a `SELECT` verify block cannot stop a `COMMIT`.
+- **and do not hand-replicate the formatter to compute the new value.** Call the real one: a scratch Go module with `replace github.com/gqls/agentchassis => /home/ant/projects/agentchassis`, importing `datahelpers` and calling `FormatContentDirection` directly, is ~30 lines and cannot drift from production. Hand-copying it is how the two halves diverge silently.
+- **while you are here: Go `len()` on the result counts BYTES, Postgres `length()` and Python `len()` count CHARACTERS.** On a spec full of em-dashes these differ by hundreds (measured: 11,327 vs 11,249 on the same string). Neither is wrong; quoting them side by side reads as a truncation bug that is not there.
+- **source:** 2026-08-14, brochure_component_library contrast front, rewriting `fundamentallyai.com`'s `content_direction` into positive-definition form on the owner's instruction. Found by reading the formatter before trusting a diff, not by a symptom — the diff would have been the natural next step and would have been uninterpretable. Distinct from the two existing `formatted` entries above, which say *regenerate it or your edit is invisible*; this one says *once you have regenerated it, the obvious verification is useless*.
+- **relations:** the `content_direction.formatted` entries above (same field, the prior half of the trap) · MEMORY `mutate-the-code-to-prove-the-guard` and `a-post-fix-zero-needs-a-demand-control` (same shape: a check that cannot come out the other way) · `fleet_copy_quality/CONTRIB_2026-08-12_the_honest_ban_and_the_voice_gate_nobody_opted_into.md` (the fleet lane that regenerated `formatted` on 14 sites)
+- **added:** 2026-08-14, brochure_component_library contrast front

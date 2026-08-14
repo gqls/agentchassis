@@ -6534,3 +6534,156 @@ Three post-state facts worth carrying:
 3. **Only part 1 of `098`'s two-part acceptance is done.** Part 1 passed *before the resurrection
    fix existed*, so it discriminates almost nothing. Part 2 — still 404 after the ~20:0x news
    refresh — is owed.
+
+---
+
+## 2026-08-14 (evening) — CONTRAST FRONT 2a: the spec is fixed at the cause. What moved beneath the 08-12 handoff, and the one claim the handoff got wrong.
+
+Picked up `HANDOFF_2026-08-12_contrast_front_continue_here.md`. Checked for movement
+first, because the handoff was two days old and this lane's directory had files written
+within the hour.
+
+### What had moved — a fleet lane had been over this exact site, and the handoff never knew
+
+The `idea_uk_vm_site` lane ran a **fleet voice pass** on 08-12 from an owner brief that is
+nearly the same complaint as ours (*copy sounds AI-written, relentlessly negative*). It:
+
+- rewrote `content_direction` on **14 sites including fundamentallyai.com** at 13:57Z, and
+- ran **17 `section_edit` items** on fundamentallyai at 14:23Z, all `complete`.
+
+Both landed **before** the 08-12 handoff was written (17:42Z). That matters in the
+*reassuring* direction and I nearly recorded it the other way round: it means the handoff
+measured the **post-edit** spec and page set, so its diagnosis was never stale. Verified
+rather than assumed — the `example_phrases.characteristic` array it quotes is byte-for-byte
+what was live when I read it today.
+
+Their target was the word *"honest"* and antithesis. They did not touch the X-not-Y
+few-shot examples, which is why our defect survived their pass intact.
+
+`[MEASURED 2026-08-14 ~19:00Z]` at the served artefact, not inferred:
+`/platform-log/index.html` = **5** X-not-Y constructions in reader-visible text;
+`content_direction.formatted` (the one field the writer reads) = **10**.
+
+### CORRECTION to the 08-12 handoff — 2b is `blocked`, not `triaged`
+
+The handoff records work item `458f53a1` as `status='triaged'` and says it needs only a
+kcat dispatch envelope. It is **`blocked`**, and has been since 17:42:17Z on 08-12 — one
+minute after it was filed. The row carries:
+
+```
+error: "No handler_agent set — item cannot be routed to any agent"
+handler_agent: ""
+```
+
+So firing the envelope at it as the handoff instructs would not have run it. The filing
+session wrote the handoff at 17:43Z, ~1 minute after the block was stamped, and never
+re-read the row — an honest miss, and exactly the shape of "a filed item is not a running
+one" this estate keeps relearning.
+
+### A mechanism that did not exist when the handoff was written
+
+`check_voice_tells` compiles each site's `voice_gate.banned_phrases` and files review
+items. The fleet lane armed it on **7 more sites** on 08-12 (9 live total).
+**fundamentallyai.com is not one of them** `[MEASURED 2026-08-14]`.
+
+Being straight about its limits rather than overselling it: the gate is a **phrase-ban**
+mechanism, and *"say what a thing IS, not what it is not"* does not reduce to a regex
+without firing on every legitimate "not a". So it is the right long-term home for a rule of
+this class but it is **not** the lever for 2a. The spec fix is.
+
+### THE DIAGNOSIS IS NOW CONFIRMED BY REPRODUCTION, not just by argument
+
+The handoff asserted the cause: the spec **teaches** X-not-Y by example, and examples
+outweigh rules. Sampling the served pages turned that from a plausible story into a
+demonstrated one — the spec's example phrase
+
+> "the decision record is real, **not a log entry**"
+
+is reproduced **almost verbatim on four different pages**:
+
+| page | served text |
+|---|---|
+| `model-fine-tuning` | "The decision record produced is a real artefact, not a log entry." |
+| `multi-agent-review-council` | "What the council produces is a decision record, not a log entry." |
+| `multi-agent-review-council` | "…a real artefact we can show you, not a log entry." |
+| `tool-model-approach-selector-guide` | "The decision record from that process is real, and we can show it to you, rather than a log entry." |
+
+A writer copying a rule does not produce that. A writer copying an **example** does. This
+is the strongest evidence in the file and it cost one query.
+
+### The blast radius is much larger than the handoff's seven
+
+`[MEASURED 2026-08-14]` **25 pages / 56 components** match. But I am marking that number
+**[OVER-BROAD]** deliberately: the regex catches ordinary comparative prose
+("matching a question against those representations **rather than** exact keywords") which
+is not the defect. The fleet lane's recorded 7.5× miscount came from trusting exactly this
+kind of loose pattern, so the honest statement is: *the construction is pervasive and at
+least three pages carry it heavily* — `model-approach-selector-guide` alone reproduces it
+**10** times, including *"It's a decision aid, not a verdict"* twice.
+
+### What was changed — the SPEC only, and only the strings a writer COPIES
+
+`site_specs.content_direction` superseded (not edited in place), new row
+`1447dd68`, old `cef6d0e7` marked `is_current=false`. Seven replacements, each
+**asserted to have fired** (the fleet lane's lesson: 50 phrases produced 49 replacements
+and the miss was invisible without the assertion):
+
+`characteristic[0]`, `[1]`, `[3]` · `persuasion_approach.method` ·
+`writing_rules[8]`'s worked good-heading · `content_depth.explanation_pattern` ·
+`things_to_emulate[+1]` (the owner's rule, in his words, plus a positive worked example).
+
+**Deliberately NOT touched** — instruction-to-the-writer strings that use *not*/*rather
+than* to tell the writer what to **avoid**: `voice.person`, `voice.formality`,
+`writing_rules[1]`, `writing_rules[9]`, `things_to_avoid[5]`,
+`persuasion_approach.social_proof_style`. Those are rules, not copy. The fleet lane's
+recorded mistake was reporting four sound strings as defects purely for matching a
+ban-list, and the same trap was sitting in my 13 grep hits.
+
+**The honesty requirement survives, and it was asserted in SQL, not hoped for:**
+`characteristic[2]` keeps *"We have not yet delivered it to a paying client"* and
+`explanation_pattern` keeps *"Acknowledge any current limitation plainly"*. The commit
+guard `RAISE`s if either is missing — so this edit **cannot** silently become a deletion
+of the site's caveats, which was the obvious way to "fix" negativity and the wrong one.
+
+### Two things worth stealing from this session
+
+- **`formatted` is regenerated by the REAL Go function, not hand-replicated.** A scratch
+  module with a `replace` onto the repo calls `datahelpers.FormatContentDirection`
+  directly. Hand-copying that formatter is a silent-drift trap and there was no need.
+- **[LANDMINE CANDIDATE] `FormatContentDirection` iterates a Go map, so the section order
+  of `formatted` is RANDOMISED on every write.** A `diff` of two `formatted` values
+  therefore shows a spurious whole-block change and tells you nothing. **Verify by
+  content, never by diff.** Also: Go's `len()` reported 11,327 and Python's 11,249 for the
+  same string — bytes vs characters, the em-dashes. Neither is wrong; quoting them side by
+  side would have looked like a bug.
+
+### Why a rerender was NOT dispatched, and what was
+
+Concept register `REB-002`/`REB-005` settle it: an assemble-only rerender re-ships stored
+`rendered_html`, and a section re-render regenerates from stored `content_data` **with no
+LLM**. **Neither can rewrite copy.** New copy reaches a page only through a
+`page-build-handler` rebuild. So the spec fix alone would have changed nothing a reader
+sees — and a `page_rerender` would have "succeeded" while proving nothing, which is the
+`a-complete-work-item-is-not-a-repaired-artefact` shape.
+
+Filed **two** `needs_page` items (`c1663c86`, `5be537c1`), shape **cloned** from
+`7824d5ab` per REB-004's "never guess a work-item spec", with the preconditions asserted:
+corrected spec is current, plan `40a66d3a` still current, both pages active, and **no open
+rebuild already in flight** (so I cannot trample another session).
+
+**Two pages, and deliberately of different roles** — `model-approach-selector-guide`
+(blog-post, 10 instances) and `multi-agent-review-council` (landing, 3). One canary cannot
+distinguish a page-specific fluke from a working fix.
+
+Baseline pinned before dispatch: sha256 `7a4618e5af83` / 26,205 b and `5c6c5d22b550` /
+39,043 b.
+
+### State at the time of writing — NOT yet verified, and that is the honest status
+
+Both items sit at `triaged`, unclaimed after ~2 minutes. The build pipeline **is** draining
+(43 completed in the 20:00Z hour, 137 in 19:00Z), and LLM capability recovered at 17:00Z
+after the cap outage (all-failed at 16:00Z), so both preconditions for the rebuild are
+live. There is a **305-item backlog** with the oldest from 08-11, so latency is expected.
+
+**Nothing about 2a is proven until the served pages change.** The spec fix is the cause
+fix; the reader still sees the old copy.
