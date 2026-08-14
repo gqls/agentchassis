@@ -63,8 +63,8 @@ var exemptWriters = map[string]string{
 	// structure. NOT MEASURED — the reasoning is that they cannot strip a card
 	// or a grid because they only touch colour attributes, and that is a code
 	// reading, not an experiment. Residual exposure, stated in bugs_open/253.
-	"fix_forced_text_colours_action.go": "attribute-level colour rewrite; structure untouched [UNMEASURED]",
-	"fix_harcoded_colours_action.go":    "attribute-level colour rewrite; structure untouched [UNMEASURED]",
+	"fix_forced_text_colours_action.go": "colour rewrite inside <style> blocks/declarations; never touches element attributes [REASONED FROM SOURCE, NOT MEASURED]",
+	"fix_harcoded_colours_action.go":    "colour rewrite inside <style> blocks/declarations; never touches element attributes [REASONED FROM SOURCE, NOT MEASURED]",
 
 	// Regenerates a machine-built listing from its source rows. Its markup is
 	// generated wholesale every time, so "how much of the previous markup

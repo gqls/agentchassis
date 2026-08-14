@@ -61,9 +61,30 @@ import (
 //	           the row is a machine-rendered dossier this action owns and
 //	           regenerates wholesale, never a decomposed prose block.
 //	EXEMPT     rebuild_blog_listing — machine-generated listing, same reasoning.
-//	EXEMPT     fix_forced_text_colours, fix_harcoded_colours — attribute-level
-//	           colour rewrites believed structure-preserving. `[UNMEASURED]`: that
-//	           is a code reading, not an experiment. Residual exposure, stated.
+//	EXEMPT     fix_forced_text_colours, fix_harcoded_colours — colour rewrites
+//	           believed structure-preserving. `[REASONED FROM SOURCE, NOT
+//	           MEASURED]`: fix_forced_text_colours operates through styleBlockRe
+//	           (`<style>…</style>` contents) and textColorDeclRe (`color: #hex`
+//	           declarations), i.e. it rewrites CSS inside style blocks and never
+//	           touches element attributes, so it cannot remove a `class="card"`.
+//	           That is a reading of its regexes, NOT an experiment on real input.
+//	           **Residual exposure, and the two dispositions are not the same
+//	           strength as the others** — see the note below.
+//
+// TWO KINDS OF EVIDENCE HERE, AND THEY ARE NOT EQUAL (council round 3, advisory
+// objection from editquality — my own submission claimed all nine dispositions
+// were "measured rather than asserted" while two were marked [UNMEASURED], which
+// overstated exactly the evidence the reader most needs to weigh):
+//
+//	MEASURED   create_tool_component, deploy_tool — counted: 1 INSERT each, ZERO
+//	           `UPDATE ... SET rendered_html`. A count that could have come out
+//	           otherwise.
+//	MEASURED   create_report_page — the coverage TEST found it, contradicting the
+//	           manual audit. Disconfirmation, which is the strongest kind here.
+//	REASONED   adopt_verbatim, rebuild_blog_listing, and the two colour fixers —
+//	           read from source. Sound, and still a different thing. To convert
+//	           the colour fixers: run their transform over a fixture carrying
+//	           class attributes and assert countComponentClasses is unchanged.
 //
 // Every one of the nine writers now has a disposition. The exemptions live in
 // page_component_writer_coverage_test.go's exemptWriters, where a reason is
