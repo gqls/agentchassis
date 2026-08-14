@@ -31,12 +31,15 @@
 > it. Owner decisions RFC_012 (236's fix) and RFC_027 remain open — surface, don't work.
 >
 > **THIRD UPDATE 2026-08-14 (evening) — §8 follow-up 2 is DONE IN TREE: `bugs_open/273`.**
-> Fix + 4 tests (mutation-proven) in `siblingSignatures`/`writeDeadEndTail`; council corr
-> `ba3f6047-a2e5-4ce6-ac0e-edf0bb88c4e3` (committed with `Council-Submitted:`, read the verdict
-> before citing it). 273 needs a chassis roll, then its §5 verification (demand control: a zero
-> proves nothing unless a dead-end file was scoped). Follow-up 4 was already discharged by 261
-> §9b. Remaining for a fresh session: 273's live proof after a roll; follow-up 3 (cosmetic);
-> the RFC_012/RFC_027 owner decisions — surface, don't work.
+> Fix + 5 tests (mutation-proven) in `siblingSignatures`/`writeDeadEndTail`; council corr
+> `ba3f6047-a2e5-4ce6-ac0e-edf0bb88c4e3` — **verdict READ: APPROVED first round, 12 min,
+> 3 advisory objections, all discharged in 273 §8.** The one substantive recommendation
+> (bug_historian: bound the tails' AGGREGATE, not just per-file — the 062 shape) was implemented
+> same day: `siblingDeadEndTailTotalCap = 12000`, own test, own mutation proof. 273 needs a
+> chassis roll, then its §5 verification (demand control: a zero proves nothing unless a
+> dead-end file was scoped). Follow-up 4 was already discharged by 261 §9b. Remaining for a
+> fresh session: 273's live proof after a roll; follow-up 3 (cosmetic); the RFC_012/RFC_027
+> owner decisions — surface, don't work.
 
 ---
 

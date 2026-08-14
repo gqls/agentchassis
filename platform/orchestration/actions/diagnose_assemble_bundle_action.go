@@ -826,6 +826,14 @@ func siblingSignatures(out analysis.Output, scope []string, capChars int, bodies
 
 	var b strings.Builder
 	total := 0
+	// Aggregate allowance for dead-end tails across the whole section — the
+	// council's one substantive recommendation on this fix (corr ba3f6047,
+	// bug_historian, medium): a per-file bound alone leaves N dead-end files
+	// free to add N×siblingDeadEndTailCap uncounted chars, the same shape as
+	// bugs_closed/062 (an unbounded thing let out from under a size cap, found
+	// only when a downstream hard limit trips). Once spent, later dead-end
+	// files get the overflow arm immediately — still honest, still satisfiable.
+	tailRemaining := siblingDeadEndTailTotalCap
 	for _, f := range scoped {
 		named := inScope[f.Path]
 		var fb strings.Builder
@@ -896,9 +904,14 @@ func siblingSignatures(out analysis.Output, scope []string, capChars int, bodies
 				// ANY advice the bundle gave — retrieval had already failed to surface
 				// those symbols, or they would be in scope. 261's worked case lost the
 				// three functions its run needed behind exactly this marker.
+				allow := siblingDeadEndTailCap
+				if tailRemaining < allow {
+					allow = tailRemaining
+				}
 				pre := fb.Len()
-				writeDeadEndTail(&fb, f.Path, bodies.budget, skippedHandles)
+				writeDeadEndTail(&fb, f.Path, bodies.budget, skippedHandles, allow)
 				tailLen = fb.Len() - pre
+				tailRemaining -= tailLen
 			} else {
 				fmt.Fprintf(&fb, "- _(+%d more in this file — put the bare file path in next_scope to see it whole)_\n", skipped)
 			}
@@ -933,7 +946,19 @@ func siblingSignatures(out analysis.Output, scope []string, capChars int, bodies
 // 91 functions, receiver-qualified handles) is 2,715 chars after its head
 // lines, so 4000 covers every real file today with headroom. Past it, the
 // residual marker names the one remedy that can enumerate the rest.
-const siblingDeadEndTailCap = 4000
+//
+// siblingDeadEndTailTotalCap bounds the tails' AGGREGATE across the section
+// (council corr ba3f6047, bug_historian): tails are exempt from the section's
+// global guard, so without this the uncounted growth was N dead-end files ×
+// 4000 with no ceiling on N — this repo already holds 8 files over the 60,000
+// default body budget. 12000 lets three worst-case files enumerate in full;
+// after that each dead-end file still gets the honest overflow arm (a count
+// and the code_request remedy), never a silent trail-off. Worst-case uncounted
+// bytes are therefore totalCap + one marker's prose per dead-end file.
+const (
+	siblingDeadEndTailCap      = 4000
+	siblingDeadEndTailTotalCap = 12000
+)
 
 // writeDeadEndTail renders the "+N more" marker for a file whose whole body
 // exceeds max_body_chars — the case where "name symbols individually" is the
@@ -949,7 +974,11 @@ const siblingDeadEndTailCap = 4000
 // bundle-census queries discriminate on ("did not fit", "could not be read",
 // "read it whole", "NO next_scope can render this path") — see the LANDMINES
 // entry on counting wasted iterations by marker strings.
-func writeDeadEndTail(fb *strings.Builder, path string, budget int, handles []string) {
+// allowance is what THIS file may spend on handles: siblingDeadEndTailCap or
+// whatever is left of siblingDeadEndTailTotalCap, whichever is smaller. At
+// zero the loop's first iteration goes straight to the overflow arm, so the
+// marker stays honest without a special case.
+func writeDeadEndTail(fb *strings.Builder, path string, budget int, handles []string, allowance int) {
 	fmt.Fprintf(fb, "- _(+%d more in this file — and the bare file path will NOT render: the whole file exceeds the %d-char body budget. Name them individually in next_scope as `%s:<handle>`. The elided handles:", len(handles), budget, path)
 	written := 0
 	for i, h := range handles {
@@ -958,7 +987,7 @@ func writeDeadEndTail(fb *strings.Builder, path string, budget int, handles []st
 			sep = ", "
 		}
 		// 2 is the pair of backticks around the handle.
-		if written+len(sep)+len(h)+2 > siblingDeadEndTailCap {
+		if written+len(sep)+len(h)+2 > allowance {
 			fmt.Fprintf(fb, " …and %d more, past even this list's cap — enumerate them with a code_request of kind \"symbol\", query %q.", len(handles)-i, path)
 			break
 		}

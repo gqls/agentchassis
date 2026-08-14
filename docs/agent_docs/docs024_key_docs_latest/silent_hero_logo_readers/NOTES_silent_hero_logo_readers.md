@@ -837,3 +837,31 @@ Still open after this: follow-up 3 (`knownScopeIdentities` omits `values`, cosme
 is DONE (261 §9b ran the precedent check). 273 stays in `bugs_open/` until a chassis roll carries
 it (fixed-AND-live bar); live verification recipe is 273 §5 — note its demand control: a zero is
 evidence only if a dead-end file was actually scoped.
+
+## 2026-08-14 (late evening) — 273 verdict APPROVED in 12 minutes; the council's one real recommendation implemented same day
+
+Verdict read (filtered by MY correlation, per the landmine): **approved, 3 advisory objections,
+none high, 5 abstained**. Two of editquality's three were artifacts of sketch elision — the code
+already did what they asked (same-loop linkage of `skippedHandles`; `canon` is
+`CanonicalSymbolName`) — answered with file evidence in 273 §8a/8b/8c. This lane's trap 4 drew
+blood a THIRD time, at medium severity now instead of a REVISE: show hunks verbatim.
+
+The substantive one: **bug_historian (medium) — the per-file tail cap had no AGGREGATE ceiling**,
+so N dead-end files could add N×4000 uncounted chars (the `bugs_closed/062` Kafka-limit shape;
+this repo already holds 8 files over the 60,000 budget, so "N is small" was social, not
+structural). **Implemented as recommended**: `siblingDeadEndTailTotalCap = 12000`, allowance =
+min(per-file, remaining), overflow arm fires immediately at zero. New test
+`TestDeadEndTail_AggregateCapBoundsTheSumOfTails`, mutation-proven (aggregate accounting behind
+`if false` → exactly that test fails; full package green after revert).
+
+Misstep to record: the aggregate test's FIRST fixture (4 files × 60 methods) PASSED its own
+"fixture is wrong" guard but the tails only summed to ~11.7KB with prose — under the 12,000 cap —
+so the test failed against CORRECT code. My ~3.4KB/tail estimate was 20% high (actual ~2.9KB).
+Recomputed instead of nudging the cap: 72 methods/file. The lesson is the standing one: a fixture's
+arithmetic is an empirical claim; assert it, don't estimate it. (A second, smaller one: my
+`sectionFor` helper sliced at the heading's own closing `**` — visible immediately in the failure
+output, fixed before it could mislead.)
+
+Follow-up committed with `Council-Reviewed: ba3f6047-…` — legitimate because the verdict is READ
+and APPROVED and the delta implements that round's own written recommendation. 273 §4/§8 updated;
+awaiting a chassis roll, then §5 verification.

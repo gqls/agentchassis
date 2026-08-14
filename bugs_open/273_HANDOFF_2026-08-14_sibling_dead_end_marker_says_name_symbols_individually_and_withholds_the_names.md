@@ -57,7 +57,7 @@ the evidence in the index the whole time.
   path as query enumerates `code_symbols` rows for the file but is row-capped and that cap's
   silence is `bugs_open/181` (open); `ls` lists paths, not symbols.
 
-## 4. The fix (in tree, commit pending council correlation)
+## 4. The fix (committed `4f3f0be7d` + post-verdict follow-up; council APPROVED `ba3f6047`)
 
 `platform/orchestration/actions/diagnose_assemble_bundle_action.go`:
 
@@ -69,7 +69,9 @@ the evidence in the index the whole time.
 3. The tail is bounded by `siblingDeadEndTailCap = 4000` per file. Past it, the marker counts the
    residual and names the one remedy that can enumerate the rest (`code_request` kind `symbol`,
    query = the path) — it never trails off silently, which would be this bug one layer further
-   down.
+   down. **ADDED 2026-08-14 post-verdict (§8d): `siblingDeadEndTailTotalCap = 12000` bounds the
+   tails' AGGREGATE across the section**, implementing the council's recommendation; a dead-end
+   file arriving after the aggregate is spent gets the overflow arm immediately.
 4. **The tail is exempt from the section's global guard** (`capChars + capChars/4`). Counting it
    would evict the whole sibling section on the motivating case — one scoped over-budget file
    builds head (= full share) + tail > guard, and the model's only map of the file would be
@@ -80,11 +82,12 @@ the evidence in the index the whole time.
    "read it whole" / "NO next_scope can render this path" — see the LANDMINES entry on counting
    wasted iterations by marker strings; the new tail avoids all of them, asserted by test).
 
-Tests: `diagnose_assemble_deadend_tail_test.go`, four tests. Mutation-proven 2026-08-14: with the
-old marker restored behind `if false`, `TestDeadEndTail_ElidedHandlesAreListedCanonically`,
-`_OverflowIsCountedAndGivenARemedy` and `_DoesNotEvictItsOwnSection` all FAIL; the byte-identity
-pin passes both sides (it is the negative control). Full related set
-(`DeadEndTail|OverCapAdvice|SiblingSignatures|SiblingSpelling|Assemble|Bundle`) green post-fix.
+Tests: `diagnose_assemble_deadend_tail_test.go`, five tests (the fifth, aggregate-cap, added
+post-verdict per §8d). Mutation-proven 2026-08-14, twice: with the old marker restored behind
+`if false`, `TestDeadEndTail_ElidedHandlesAreListedCanonically`, `_OverflowIsCountedAndGivenARemedy`
+and `_DoesNotEvictItsOwnSection` all FAIL while the byte-identity pin passes both sides (it is the
+negative control); and with the aggregate accounting disabled the same way, exactly
+`_AggregateCapBoundsTheSumOfTails` FAILs. Full package green post-fix.
 
 ## 5. How to verify live, after a roll
 
@@ -119,3 +122,45 @@ this extends to the sibling section) · `bugs_closed/269` (why the handles are c
 `bugs_open/236` (the starved run) · `bugs_open/181` (the remedy's own cap) ·
 `architecture_review/RFC_027` (the handle grammar's ownership — this adds no new producer;
 handles come from `analysis.CanonicalSymbolName`, the grammar's one owner).
+
+## 8. The council round — APPROVED first round, 3 advisory objections, all discharged here
+
+Correlation `ba3f6047-a2e5-4ce6-ac0e-edf0bb88c4e3`, decided 2026-08-14 14:23Z:
+`approved with 3 advisory objection(s) — none high-severity`; 5 abstained; guardian, reuse,
+tooling-provenance, diagnosis-guardian, render-guardian, debug-historian all approve.
+
+- **8a — editquality (medium): "the sketch doesn't show that `skippedHandles` reaches the dead-end
+  branch with the right data."** It does, structurally: both branches are the SAME per-file loop
+  iteration. `skippedHandles` is declared inside `for _, f := range scoped`, filled by the same
+  `f.Functions` pass that increments `skipped`, and the dead-end branch runs immediately after in
+  that iteration. For a `wholeFileOmitted` file, `inScope[path]` registers with an EMPTY named
+  set, so every function flows through the same loop. The objection is an artifact of sketch
+  elision — this lane's trap 4 again, though only medium this time. Asserted at function level by
+  all five tests and at action level by the existing
+  `TestOverCapAdvice_BareFilePathSuppressionIsWiredThroughTheRealAction`.
+- **8b — editquality (medium): "`canon` might be a bare name, reintroducing 269."** It is
+  `analysis.CanonicalSymbolName(fn)`, computed at the top of the same loop (269's fix), receiver-
+  qualified for methods. `TestDeadEndTail_ElidedHandlesAreListedCanonically` requires the
+  `(*Big).methodNumberNN` spelling in the rendered tail.
+- **8c — editquality (low): "`tailLen` could be stale across files."** It is declared inside the
+  per-file loop (`tailLen := 0` after the listed/skipped early-continue), fresh each iteration.
+- **8d — bug_historian (medium): "per-file bound only; N dead-end files add N×4000 uncounted chars
+  — the `bugs_closed/062` shape. Recommend a total cap per bundle."** **IMPLEMENTED as
+  recommended, same day**: `siblingDeadEndTailTotalCap = 12000`, allowance =
+  `min(siblingDeadEndTailCap, remaining)`, and at zero the overflow arm fires on the first handle
+  — a count and the `code_request` remedy, never silence. Worst-case uncounted bytes are now
+  `totalCap + one marker's prose per dead-end file`. The recommendation was right to refuse the
+  "N is small" answer: this repo already holds **8 files over the 60,000 budget**, so N was only
+  socially bounded. New test `TestDeadEndTail_AggregateCapBoundsTheSumOfTails`, mutation-proven
+  (aggregate accounting disabled behind `if false` → exactly that test fails).
+- **8e — bug_historian (low): "does a sibling elision marker with the same defect exist
+  elsewhere?"** Surveyed: the body section's `overCapAdvice` lists the largest-fitting symbols
+  and cross-references this section — which for dead-end files is now complete for functions; the
+  workflow-step forwarding cap reports its excluded count (the eba040a9 audit's fix); the
+  remaining capped listings live in `diagnose_code_lookup_action.go` and are `bugs_open/181`'s
+  scope (named in §6). Types/values stay unenumerated by design (§6).
+- **8f — reuse_agent asked for confirmation that `code_request` kind `symbol` exists and matches
+  the call shape.** It does: `ValidCodeRequestKind` (`pkg/diagnose/loop.go:185-191`) accepts the
+  closed set `symbol|content|ls`, and the symbol arm parses path tokens into `path ILIKE` clauses
+  (`diagnose_code_lookup_action.go:1578-1590`), so `query = "<path>"` enumerates that file's
+  indexed rows.

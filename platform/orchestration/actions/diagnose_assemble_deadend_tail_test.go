@@ -24,8 +24,12 @@ package actions
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/gqls/agentchassis/internal/analysis"
 )
 
 func TestDeadEndTail_ElidedHandlesAreListedCanonically(t *testing.T) {
@@ -139,6 +143,99 @@ func TestDeadEndTail_CouldFitAndUnknownBranchesAreByteIdentical(t *testing.T) {
 	if unknown != fits {
 		t.Errorf("unknown size must degrade to the could-fit wording byte for byte.\n--- unknown ---\n%s\n--- fits ---\n%s", unknown, fits)
 	}
+}
+
+// The AGGREGATE cap (council corr ba3f6047, bug_historian's advisory): tails
+// are exempt from the global guard, so their sum needs its own ceiling — N
+// dead-end files must not add N×siblingDeadEndTailCap uncounted chars. Once
+// the aggregate is spent, a later dead-end file gets the overflow arm
+// immediately: still a count, still the code_request remedy, never silence.
+func TestDeadEndTail_AggregateCapBoundsTheSumOfTails(t *testing.T) {
+	// Four dead-end files, each with a tail under the per-file cap but together
+	// well over the aggregate: 72 long-named methods give a ~3.5KB tail each
+	// (57 chars per handle incl. separators), so files 0–2 spend ~10.5KB of the
+	// 12,000 and file 3 arrives with less than its need. Every file must still
+	// render a marker. The file0 assertion below pins the per-file side of that
+	// arithmetic; the file3 assertions pin the aggregate side.
+	root := t.TempDir()
+	var combined analysisOutputAccumulator
+	var scope []string
+	for f := 0; f < 4; f++ {
+		var fns []fnSpec
+		for i := 0; i < 72; i++ {
+			fns = append(fns, fnSpec{name: fmt.Sprintf("aVeryLongDescriptiveMethodNameForAggregate%d%02d", f, i), recv: "*Big", lines: 1})
+		}
+		name := fmt.Sprintf("file%d.go", f)
+		froot, fout := overCapFixture(t, name, fns)
+		combined.add(t, root, froot, name, fout)
+		scope = append(scope, fmt.Sprintf("%s:(*Big).aVeryLongDescriptiveMethodNameForAggregate%d00", name, f))
+	}
+	out := combined.output(root)
+	// budget below the smallest file so every one of the four is a dead end
+	budget := combined.smallestFileChars - 1
+
+	got := siblingSignatures(out, scope, 6000, bodyCapView{repoRoot: root, budget: budget})
+
+	// Fixture arithmetic first: the early files must NOT have tripped their
+	// per-file cap (their tails fit 4000), or this test is measuring the wrong
+	// bound and would pass with the aggregate cap deleted.
+	if strings.Contains(sectionFor(got, "file0.go"), "past even this list's cap") {
+		t.Fatalf("fixture is wrong: file0's tail tripped the PER-FILE cap, so the aggregate bound is not what is under test.\n--- got ---\n%s", got)
+	}
+	// The aggregate must have run out by the last file.
+	last := sectionFor(got, "file3.go")
+	if last == "" {
+		t.Fatalf("file3.go rendered no section at all — the aggregate cap must degrade to the overflow arm, not to silence.\n--- got ---\n%s", got)
+	}
+	if !strings.Contains(last, "past even this list's cap") {
+		t.Errorf("four ~3.4KB tails fit inside a 12,000 aggregate — the aggregate cap is not being applied.\n--- file3 section ---\n%s", last)
+	}
+	if !strings.Contains(last, `code_request of kind "symbol", query "file3.go"`) {
+		t.Errorf("the capped file's marker names no remedy.\n--- file3 section ---\n%s", last)
+	}
+}
+
+// sectionFor slices one file's sibling block out of the rendered section:
+// from its **path** heading to the next file's heading (or the end).
+func sectionFor(got, path string) string {
+	head := "**" + path + "**"
+	start := strings.Index(got, head)
+	if start < 0 {
+		return ""
+	}
+	rest := got[start:]
+	if end := strings.Index(rest[len(head):], "\n**"); end >= 0 {
+		return rest[:len(head)+end]
+	}
+	return rest
+}
+
+// analysisOutputAccumulator merges per-file fixtures (each written by
+// overCapFixture into its own temp root) into one checkout root and one
+// analyser Output, so a multi-file scope can be driven through the real
+// siblingSignatures with fitsBudget able to stat every file.
+type analysisOutputAccumulator struct {
+	files             []analysis.FileInfo
+	smallestFileChars int
+}
+
+func (a *analysisOutputAccumulator) add(t *testing.T, root, fixtureRoot, name string, out analysis.Output) {
+	t.Helper()
+	src, err := os.ReadFile(filepath.Join(fixtureRoot, name))
+	if err != nil {
+		t.Fatalf("fixture read %s: %v", name, err)
+	}
+	if err := os.WriteFile(filepath.Join(root, name), src, 0o600); err != nil {
+		t.Fatalf("fixture write %s: %v", name, err)
+	}
+	if a.smallestFileChars == 0 || len(src) < a.smallestFileChars {
+		a.smallestFileChars = len(src)
+	}
+	a.files = append(a.files, out.Files[0])
+}
+
+func (a *analysisOutputAccumulator) output(root string) analysis.Output {
+	return analysis.Output{Root: root, Files: a.files}
 }
 
 // The guard exemption: a single scoped dead-end file whose head consumes the
