@@ -2828,3 +2828,31 @@ one where you asked for the two pages' text to be merged first, and the framewor
 that, not me. MatchMatrix is the expensive one — four links to repair including both the site
 header and footer. The two fundamentally.ai ones still sit with the other workstream on that
 site.
+
+**Later the same evening.** You ran the command and it worked. The old gripper payload
+calculator page is gone from the site — six seconds, one file deleted, committed with a note
+saying why. **That's the first of the seven duplicate pairs finished, start to end.**
+
+I checked the result against four things rather than one: the retired address now returns a
+"not found" page that is byte-for-byte the same as the one you get for an address that never
+existed — which is how you tell a real "not found" from some other error dressed up as one. The
+version we kept is untouched, and two other pages on the site are unchanged down to the byte, so
+the deletion hit only what it aimed at.
+
+**One check is still owed, and it's the one that matters.** The site republishes itself twice a
+day. Deleting a file and seeing it gone is easy; the real test is whether it's still gone after
+the next republish, because the whole reason this bug exists is that retired pages kept coming
+back. That's due around eight this evening. If it comes back, that's a genuine new finding rather
+than something to retry.
+
+**Where the seven stand.** One done. One waiting on your two small text repairs, one held behind
+an unrelated bug, two belonging to the other workstream on fundamentally.ai, and two robot-hands
+ones left — the MatchMatrix one is the expensive one because four things link to it including the
+site header and footer, and the cycle-time one needs its two pages' text merged first, which the
+framework has to write.
+
+**What I'd say about the method.** The test I built yesterday to predict which pages could be
+retired safely has now been proved both ways: it correctly reproduced a real refusal on the first
+pair, and today it correctly predicted a clean run. That's worth more than either result on its
+own — a check that only ever says "fine" isn't a check, which is exactly what the empty table
+turned out to be.

@@ -6511,3 +6511,26 @@ plan row, consistent with the nav census's zero). So no visitor sees a dead link
 simply an orphan file that has not been deleted yet. This is the same *shape* as pair 1's
 resting state and a milder case of it — pair 1's is linked from three live surfaces, this one
 from none. Revert is in the SQL file header.
+
+### Same evening — step 6 ran and pair 5 is done
+
+Owner ran the dispatch. COMPLETED in 6 seconds, one path deleted, committed to `gqls/sites`.
+**The census's prediction held in the positive direction**, which is the half it had not yet been
+tested on: pair 1 proved it reproduces a real refusal, pair 5 proves it does not manufacture one.
+
+Artefact check with four controls — loser **404 / 2,886 b, byte-identical to the fabricated-URL
+control**; survivor 200 / 34,157 b unchanged; `/how-it-works.html` and `/matchmatrix.html`
+unchanged to the byte, so the delete was targeted.
+
+Three post-state facts worth carrying:
+
+1. **Retraction does not clear `deployed_at`.** The row still reads `2026-08-11 18:40:53`. So a
+   completed retraction *creates* a false positive for `status='archived' AND deployed_at IS NOT
+   NULL` — the detector `266` already documents as blind. The two-step (SQL proposes, curl
+   disposes) is not optional.
+2. **`ARCHIVED_PAGE_%` is still 0 and that is correct**, not a disappointment: `delete_file` is
+   deliberately outside `266`'s guard. Any session hoping this pair would exercise the guard has
+   misread which path retraction takes.
+3. **Only part 1 of `098`'s two-part acceptance is done.** Part 1 passed *before the resurrection
+   fix existed*, so it discriminates almost nothing. Part 2 — still 404 after the ~20:0x news
+   refresh — is owed.

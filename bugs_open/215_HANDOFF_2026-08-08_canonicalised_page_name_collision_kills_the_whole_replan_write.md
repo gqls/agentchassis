@@ -768,3 +768,14 @@ the owed command: `docs024_key_docs_latest/brochure_component_library/HANDOFF_20
 - **This pair will not supply `266`'s behavioural proof.** Archiving removed the page from the
   rerender population and its two queued items were cancelled, so no producer is now aimed at it.
   `ARCHIVED_PAGE_%` remains 0 with a live instrument (1,003 `agent_error_log` rows in 24h).
+
+### Same evening — pair 5 COMPLETE, all 8 steps
+
+Retraction dispatched 16:59:26Z (corr `5a574b41…`), COMPLETED in 6s, `delete_file` removed
+`robot-hands.com/gripper-payload-calculator.html`. **No refusal — the read-only inbound census
+predicted a clean pass and was right**, which validates it in both directions (it reproduced
+pair 1's real refusal and now predicted this pass). Artefact: loser **404 at 2,886 b, identical
+to the fabricated-URL control**; survivor 200/34,157 b and two collateral pages unchanged to the
+byte. **Part 2 of `098`'s acceptance is owed — it must still 404 after the ~20:0x news refresh.**
+`deployed_at` is untouched by retraction, so this page is now a deliberate false positive for the
+blind `archived AND deployed_at IS NOT NULL` detector. First of the seven pairs finished.

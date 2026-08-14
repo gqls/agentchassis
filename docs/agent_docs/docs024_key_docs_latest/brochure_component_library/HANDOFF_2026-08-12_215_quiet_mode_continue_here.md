@@ -682,3 +682,77 @@ state back exactly.
    rows in 24h). Pair 5 will **not** supply `266`'s behavioural proof: archiving removed the page
    from the rerender wave and its two queued items were cancelled. That proof still needs a
    producer to dispatch at an archived page of its own accord.
+
+---
+
+# 16. PAIR 5 IS COMPLETE — all 8 steps, first of the seven to finish. One re-check is owed at ~20:0x.
+
+§15's "one command owed" is discharged: the owner ran the dispatch at 16:59:26Z. **This does not
+supersede §15** — its two procedural findings stand and are what the remaining pairs need.
+
+## Step 6 succeeded, exactly as the census predicted
+
+corr `5a574b41-07ae-44a0-8624-f9cbe41acbd9`, orchestration `e1e6647d-059c-47bb-80c2-89bb91b99ea4`,
+**COMPLETED in 6 seconds**. `delete_file` removed one path,
+`robot-hands.com/gripper-payload-calculator.html`, committed to `gqls/sites` as
+*"Retract 1 retired page(s) from robot-hands.com (bugs_open/098)"*.
+
+**No refusal, and that was a prediction the census could have got wrong.** Pair 1's identical
+dispatch refused and named three referrers; this one had zero on all three surfaces and
+proceeded. The read-only census is now validated in **both** directions — it reproduced a real
+refusal (pair 1, §14) and it correctly predicted a clean pass (here).
+
+## Step 8 — verified at the artefact, four controls
+
+| url | before | after |
+|---|---|---|
+| **loser** `/gripper-payload-calculator.html` | 200, 23,015 b | **404, 2,886 b** |
+| survivor `/tools/gripper-payload-calculator/index.html` | 200, 34,157 b | 200, **34,157 b** |
+| collateral `/how-it-works.html` | 200, 29,870 b | 200, **29,870 b** |
+| collateral `/matchmatrix.html` (pair 6's loser) | 200, 28,970 b | 200, **28,970 b** |
+| fabricated `/definitely-not-a-page-xyz.html` | 404, 2,886 b | 404, 2,886 b |
+
+The loser's 404 is **byte-identical to the fabricated-URL control (2,886 b)**, which is what
+distinguishes a real 404 from an error page of some other origin. Two collateral pages unchanged
+to the byte ⇒ the retraction was targeted.
+
+## ⚠ THE ACCEPTANCE IS TWO-PART AND ONLY PART 1 IS DONE
+
+`216_TRIGGER_page_retraction.sh:19-24` — *"the url 404s immediately"* is part 1, and it
+**passed even before the resurrection fix existed** (`bugs_open/098`'s own correction), so it
+tests little on its own. **Part 2 is the one that tests anything: it must STILL 404 after the
+next news refresh (~08:0x / ~20:0x).** Owed as of 2026-08-14 17:0xZ:
+
+```bash
+curl -s -o /dev/null -w '%{http_code} %{size_download}b\n' https://robot-hands.com/gripper-payload-calculator.html
+# expect 404 / 2886b. A 200 means something rebuilt and re-published it — which with 266's
+# guard live would itself be a finding worth a bug, not a retry.
+```
+
+## Post-state, and one property worth knowing
+
+- Page row: `status='archived'`, **`deployed_at` UNCHANGED** (`2026-08-11 18:40:53`). The
+  retraction does not clear it — `deployed_at` is history, not liveness. So this page is now a
+  deliberate **false positive** for the `status='archived' AND deployed_at IS NOT NULL` detector
+  `bugs_open/266` documents as blind: 404 at the artefact, still stamped in the row. Two-step
+  (SQL selects candidates, curl decides) remains the only sound reading.
+- **No nav row was deactivated** — there was none to deactivate, matching the census's zero.
+- **No new work items** filed on the site by the retraction (no stranded orphans).
+- **`ARCHIVED_PAGE_%` counters still 0.** Correct and expected: retraction dispatches
+  `delete_file`, a path deliberately outside `266`'s guard. Pair 5 was never going to supply that
+  proof.
+
+## O2 scoreboard
+
+| pair | state |
+|---|---|
+| 1 ai-agent-orch `llm-cost-calculator` | archived, **still serving** — blocked on 2 editorial repairs (chrome footer + 1 article body) |
+| 2 finetuning `ai-readiness-quiz` | decided, **held on `bugs_open/204`** |
+| 3 fai `automation-savings-…-guide` | decided, 0 blockers — **routed to the fundamentallyai sweep front** |
+| 4 fai `model-approach-selector-guide` | decided, 3 blockers (2 after pair 3) — same routing |
+| **5 rh `gripper-payload-calculator`** | ✅ **COMPLETE**, part-2 re-check owed at ~20:0x |
+| 6 rh `matchmatrix` | 4 editorial referrers inc. **both** chrome slots + plan surgery — the expensive one |
+| 7 rh `gripper-cycle-time-estimator` | 0 referrers, plan surgery, and **the ~1,700-word content merge the framework must write** |
+
+**One of seven done. The procedure works end to end; what remains is content work and one
+routing.**
