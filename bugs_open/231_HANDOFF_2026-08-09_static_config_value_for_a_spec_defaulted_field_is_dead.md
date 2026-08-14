@@ -794,3 +794,84 @@ findings were about argument or an inert control; none disputed the code.
 Same correlation `41a01378`, `RUN_ORCH_ID=f80e528b-f24c-4544-bfae-bae08d9a7815`.
 Verdict **not read at time of writing**. No `Council-Reviewed:` trailer exists on any
 commit in this lane and none may be written until an approved verdict is read.
+
+### Round 3: died on the account cap, refired after the restore, **APPROVED** 17:29:51Z
+
+The round submitted at 16:36Z never reached a verdict. It passed `persist_submission` and
+died at `complete_invalid` on `review_editquality` — the Anthropic account usage cap
+(`bugs_open/243-anthropic-cap`, third exhaustion in 15 days), not a fault in the
+submission. Refired **unchanged** at 17:10:27Z once the cap was lifted (`a41e1677`).
+
+**Verdict: APPROVED** — 13 reviewers, 4 abstained, `gated_by_truncation: false`,
+**5 advisory objections, none high-severity**. Trailer, now legitimately writable:
+`Council-Reviewed: 41a01378-1211-4987-966d-f8b6e2fddce1`.
+
+The objections are recorded here with dispositions, because two of them are claims about
+**this lane's evidence** and one of those is right.
+
+1. **`architecture` — MEDIUM, `needs_rfc`, DEFLECTIONS: 8. Recorded OPEN, as it asked.**
+   It explicitly did not object to the patch shipping ("narrowly scoped, blast radius
+   bounded by the unreachability proof, now enforced by a test rather than prose") and
+   recorded the signal so the disposition "stays visible rather than being silently
+   absorbed into an approve". That is `RFC_028`'s question and it remains a human's.
+2. **`guardian` — MEDIUM + LOW. Recorded OPEN, as it asked.** Not a veto; it asked that
+   the record show blast-radius certainty is "bounded by one test's coverage, not by
+   pipeline enumeration", and that the Strategy-3 bridge precedence rests on a
+   **point-in-time census** rather than a forward constraint — any future
+   `agent_definitions` row carrying both a deprecated alias and its canonical key on one
+   defaulted field silently gets the new precedence, with the unit test as the only
+   backstop. **Both stand as written. The second is the more durable and belongs in
+   RFC_028's scope, not in a closed bug.**
+3. **`bug_historian` — MEDIUM: enumerate the newly-live overrides that sit in a
+   rebuild/rerender/render pipeline. DONE, and the answer is zero.** `[MEASURED
+   2026-08-14 17:40Z]` Of the 99 live overrides, **21 change a value and 78 equal their
+   own default** (inert by construction — honouring them cannot alter anything). Of the
+   21, **none writes to `page_components`, `rendered_html`, `content_data` or
+   `site_components`**. The three nearest rendering are read/audit-side bounds:
+   `render-audit-agent request_render_audit max_pages=60` (how many pages an audit
+   reads), and `tool-acceptance-agent execute_vision_prompt images_field='browser_run'`
+   / `max_images=4` (which render array the vision step looks at, and how many).
+   **And all three read their step config DIRECTLY** — `GetIntField(config,"max_pages",25)`
+   at `request_render_audit_action.go:98`, `GetStringField(config,"images_field",…)` /
+   `GetIntField(config,"max_images",16)` at `execute_vision_prompt_action.go:132-133`,
+   `config["severity"].(string)` at `checkpoint_for_review_action.go:109` — **so they
+   never went through the resolver and Strategy 6 does not change them at all.** This
+   generalises the limit round 3 already stated for the two council entries: `live_override`
+   is a statement about what the RESOLVER would now honour, and it **over-counts
+   behaviour change** wherever an action reads `params.StepConfig.Config` itself.
+4. **`debug_historian` — MEDIUM: the `/proc/1/exe` stamp citation. CHECKED, does not
+   survive.** The landmine it cites (*"the provenance recipe is INOPERATIVE on
+   agent-chassis"*) is about the **startup LOG line** rotating away, and was itself
+   REFINED 2026-08-13 to "TIME-LIMITED, `INOPERATIVE` is too strong". Its "trap inside
+   the trap" bullet condemns probing `/proc/1/exe` **with your own commit's sha**, because
+   the binary carries exactly one commit — the build point. This lane probed
+   `bc39e7bf5`, which **was** the build point, and ran the mandated ancestry comparison:
+   `git merge-base --is-ancestor d3edb5b89 bc39e7bf5` → yes; `14e4333f7` → yes; a commit
+   made after the roll → correctly **not** an ancestor. Two-sided, control passes. The
+   seat read the entry's title, not its arms.
+5. **`debug_historian` — LOW: "both replicas" is a sample. CORRECT, and now MEASURED
+   rather than caveated.** `[MEASURED 2026-08-14 17:36Z]` **17 pods run this binary**, not
+   2 — `agent-chassis` ×2 plus `vet-intel`, `business-intel`, `agent-diagnose-orchestrator`,
+   `agent-image-build-handler` and nine ephemeral `agent-build-dispatch-loop` pods. The
+   2-pod check was a sample of 17. **The population is uniform and has moved on: all 17
+   are on `v1.0.1299`, not the `v1.0.1298` this file certified.** Stamp of the live build,
+   read from a pod 3 seconds old whose log demonstrably reached back to startup
+   (`logs | head -1` = "Logger initialized successfully", the landmine's own
+   discriminator): **`6f8efa158`**. `d3edb5b89` and `14e4333f7` are both ancestors of it;
+   a commit made after the roll is not. **So the seam survived the re-roll and is live
+   fleet-wide on every pod running this binary** — a stronger claim than the one the seat
+   objected to, and it took the objection to go and get it.
+6. **`editquality` — MEDIUM: CTS-059 may be registered at the wrong path. REFUTED.** It
+   inferred from a landmine quoting `003_contracts_and_standards.md` that the register uses
+   numbered filenames. It does not: `ls docs/agent_docs/docs026_concept_register/register/`
+   shows exactly one numbered file, `000_concept_index.md`, and CTS-059 is in
+   `contracts-and-standards.md` **and** in the index.
+7. **`tooling_provenance` — LOW: the prior-art declaration search should have been a code-index
+   bundle query.** Fair and not blocking; it explicitly accepted the reasoning about the
+   index's content-search limitation. Noted for the next round in any lane.
+
+**Seats approving outright:** `reuse_agent`, `guidelines`, `diagnosis_guardian`,
+`render_guardian`, `constitution`, `mission`, `prior_art_librarian`. `render_guardian`
+independently reached objection 3's conclusion by a different route — "no edit modifies
+`rerender_pages_actions.go`, `rerender_single_page_action.go`, `save_page_sections_action.go`,
+`component_library.go`, or any CSS/template file".

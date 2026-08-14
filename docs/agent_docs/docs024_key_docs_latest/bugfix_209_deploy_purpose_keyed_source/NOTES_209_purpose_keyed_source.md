@@ -1188,3 +1188,48 @@ to mean anything — the two-sided control again.
 Refired with `RESUBMIT_CORR=41a01378-…`, same correlation, now `a41e1677` (17:10:27Z).
 Submission JSON unchanged from the one that died; nothing in it needed fixing. Re-checked
 first that no other session had resubmitted in the gap — three rows before, four after.
+
+### 17:29Z — APPROVED, and the two objections aimed at my own evidence
+
+13 seats, 4 abstained, no truncation, 5 advisory objections, none HIGH. Read in full
+before writing the trailer. Dispositions for all seven objection items are in
+`bugs_open/231` §POST-ROLL; three things belong here because they are about method.
+
+**A seat quoted a landmine by its TITLE and the title was stale.** `debug_historian`
+called my `/proc/1/exe` stamp citation inoperative on agent-chassis. The entry it quoted
+condemns something else — probing with **your own commit's sha**, which fails because the
+binary carries exactly one commit, the build point. I probed the build point. And the
+entry's headline had been refined the previous day to "TIME-LIMITED, `INOPERATIVE` is too
+strong". **The lesson is not that the seat was sloppy — it is that a landmine's title is
+the part that gets quoted and the part that goes stale first**, and mine now has a
+recovery bullet appended for the same reason.
+
+**The objection I was wrong about produced a better fact than the claim it attacked.**
+"Both replicas verified" is a 2-pod sample; `kubectl get pods -o jsonpath` by image shows
+**17 pods** run this binary. Going to measure it turned up something I would not otherwise
+have looked at: **the fleet had rolled again**, to `v1.0.1299`, so the `v1.0.1298` this
+lane certified twice in two handoffs was already historical. The seam survived — stamp
+`6f8efa158`, `d3edb5b89` and `14e4333f7` both ancestors, a post-roll commit correctly not
+— but I would have carried a stale tag into a third handoff. **A sample objection is worth
+answering even when the sample is fine, because the act of widening it re-reads the world.**
+The trick for the stamp: the ephemeral `agent-build-dispatch-loop` pods respawn every ~90s,
+so one is always young enough for its log to still reach startup; `logs | head -1` proves
+the window before you trust the line.
+
+**And the blast-radius ask I should have answered before submitting, not after.**
+`bug_historian` asked which of the 99 newly-live overrides sit in a rebuild/rerender path.
+Zero do. But the useful part is what fell out of checking: of the 99, **21 change a value
+and 78 equal their own default**, and the three nearest rendering all read their step
+config **directly** — `GetIntField(config,"max_pages",25)`, `GetStringField(config,
+"images_field",…)`, `config["severity"].(string)` — never touching the resolver. So
+`live_override` is a claim about what the RESOLVER would honour and it **over-counts
+behaviour change**. Round 3 already stated that limit for two council entries; it
+generalises, and I did not notice until a reviewer made me enumerate. **CLAUDE.md says
+measure the blast radius before you submit rather than asking the reviewer to. I asked the
+reviewer to, twice now, and both times the measurement was one command.**
+
+Minor, recorded so the tally is honest: the landmine commit `77d738a97` tripped the
+advisory `shared-ledger-not-appended` check. The 2 removed lines were that entry's own
+`source:`/`added:` trailer, rewritten in place to carry the third recurrence — the
+sanctioned "correct in place with a dated note" move — but I did not say so in the message,
+which is exactly what the check asks for. Forward-only, so it stands as written.
