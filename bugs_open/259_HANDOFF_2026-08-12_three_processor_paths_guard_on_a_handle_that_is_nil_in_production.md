@@ -54,6 +54,71 @@ two-handles tidy-up is three production-dead code paths sharing one cause.
 > deleting C loses neither the claim, nor the release, nor the completion — not just "the claim
 > happens elsewhere".
 >
+> ### Council verdict: **APPROVED** first round, and the two advisory objections are ANSWERED below
+>
+> `0ff072ef-ee02-465e-8a70-f5461c585ec9`, 2026-08-14 07:57:26Z. 10 reviewers, 8 approve, 2 object
+> (guardian, prior-art-librarian), **none high-severity**, `gated_by_truncation: false`.
+> `decided_by`: *"approved with 2 advisory objection(s) — none high-severity"*.
+>
+> Both medium objections land on the **same** point, and it is a fair one: the plan asserted
+> agentbase's gate equivalence in its own risks block rather than measuring it. Guardian: *"The
+> safety argument rests entirely on agentbase's equivalent claim always running with an
+> equivalent gate (`a.isStateless && a.stateRepo != nil`); the plan's own risks section admits
+> this is unverified… confirm the gate equivalence (**or that this site was truly always dead
+> regardless of gate state**) before merge, not after."*
+>
+> **Answer, and note it satisfies BOTH of the guardian's disjuncts — the second one decisively.**
+>
+> **(1) The deletion is a no-op regardless of agentbase's gate.** Two claims were being run
+> together and they need separating: *"deleting C changes nothing"* requires only that **C never
+> ran**, which follows from `p.sqlDB` being nil unconditionally — a fact about `DATABASE_URL`,
+> nothing to do with agentbase. *"The chassis still dedupes"* is a claim about **agentbase**, and
+> it describes the state of the world **before** this change as much as after. If agentbase's
+> gate were ever nil, dedupe was **already** absent on that path, because the thing that would
+> have had to cover it was dead code. So no deletion here can introduce a dedupe gap. That is
+> the guardian's second disjunct and it holds unconditionally.
+>
+> **(2) The gate equivalence they asked for, now MEASURED — and it is stronger than asserted.**
+> Read at `platform/agentbase/agent.go`:
+>
+> ```go
+> if a.config.DatabaseURL != "" {          // :268 — one condition
+>     db, err := sql.Open("pgx", a.config.DatabaseURL)
+>     if err != nil { return fmt.Errorf(...) }   // so db is valid past here
+>     ...
+>     a.db        = db                                            // :303
+>     a.stateRepo = orchestration.NewStateRepository(db, a.logger) // :304
+> }
+> ...
+> a.processor = messaging.NewMessageProcessor(…, a.db, …)   // :357 — a.db BECOMES p.db
+> ```
+>
+> `a.db` and `a.stateRepo` are assigned on **adjacent lines inside one `if`**, so
+> **`a.stateRepo != nil` ⟺ `a.db != nil` ⟺ `p.db != nil`.** The agentbase gate is therefore
+> *exactly* as strong as "the processor has a live handle at all" — it cannot be weaker. And
+> `isStateless` is declared once (`:84`), assigned `true` once (`:226`) and read once (`:1162`),
+> **never false**, so the gate reduces to the `stateRepo` test alone.
+> **Conclusion: there is no code path on which site C could have de-duplicated and agentbase
+> could not.** The load-bearing invariant the guardian listed under `missing` is now checked
+> rather than asserted.
+>
+> **(3) prior-art's low objection — `DATABASE_URL` on the running pods — re-confirmed rather than
+> inherited.** `[MEASURED 2026-08-14]` both live chassis pods (`agent-chassis-64bfd68fd6-7ft4l`,
+> `-dc7dm`): `DATABASE_URL` **empty**, `CLIENTS_DATABASE_URL` **set**. The seat was right that a
+> deployed-env fact has no check tier and must come from a human; this is that check, taken today
+> rather than carried from 08-13.
+>
+> **Two objections are correctly left OPEN as post-roll work, not answered here:** guardian's low
+> on site B (*"zero-caller claim is grep-based against the working tree, not the pushed code
+> index — should be independently re-verified post-merge"*) and prior-art's medium on site A
+> (*"the code index stores declarations only, never function bodies, so this specific claim is
+> unverifiable via any check available to me"*). Both are limits of the reviewers' tooling, not
+> gaps in the evidence — the site A proof is exhibited in full above for exactly this reason —
+> but both deserve the human re-read at HEAD they ask for. **`debug_historian` adds a caveat
+> worth carrying into the post-roll check: the fleet is MIXED for hours after a release, and
+> `-l app=agent-chassis` selects 2 pods of the many running that binary — so verify
+> behaviourally, per service, not by one pod's grep.**
+>
 > **Coverage changes, stated rather than left to shrink quietly:** one test REMOVED
 > (`TestConstructorSizesThePoolItOpensItself` — its whole subject was the deleted second pool;
 > its salvageable half survives as a `DATABASE_URL`-set case in the sibling table), two vacuous
