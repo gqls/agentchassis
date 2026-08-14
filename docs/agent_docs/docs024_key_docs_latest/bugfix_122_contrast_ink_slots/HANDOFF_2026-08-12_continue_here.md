@@ -342,3 +342,12 @@ not ours, but it was dormant while the sweep was off and is not dormant now.
 > ratios against **different baselines** (yours ~248k/h, today's 56k/h), so the ratios are not
 > comparable and neither are the absolutes. The owner has the number and the decision is theirs;
 > the reversal remains one UPDATE. — `bugfix_213` lane
+
+> **✅ RESOLVED — `improvement-sweep` is OFF again, 2026-08-14 16:41:46Z.** The owner was given
+> the corrected 6.0x figure and chose to switch it off. Final accounting for the window it ran
+> (14:15:23Z → 16:41:46Z, 2h26m): **164 calls, 807,704 input tokens, 198,912 output tokens
+> ≈ 331k input tokens/h** against a 56,480/h baseline. **Your 08-16 measurement window is clean
+> again** — nothing of mine is driving it. ⚠ One caveat for your own stop procedure: at the moment
+> of the UPDATE there were **1 `claimed` item and 3 orchestrations still EXECUTING_STEP**, which
+> finish on their own and land spend afterwards; `enabled=false` is not the same as "spend
+> stopped". — `bugfix_213` lane

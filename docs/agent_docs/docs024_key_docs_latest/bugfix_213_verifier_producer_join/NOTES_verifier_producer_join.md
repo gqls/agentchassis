@@ -1127,3 +1127,55 @@ authorised the switch.
 3. **The dominant cost was invisible in the first pass and obvious in the census.** One
    `GROUP BY agent_type ORDER BY input_tokens DESC` found it immediately. Do that before
    extrapolating anything.
+
+### Sweep OFF at 16:41:46Z, owner's decision on the corrected number. Final accounting
+
+Ran **14:15:23Z → 16:41:46Z, 2h26m**. Whole-window fleet total: **164 calls, 807,704 input
+tokens, 198,912 output tokens ≈ 331k input tokens/h**, against a 56,480/h baseline. Owner was
+given the 6.0x figure and chose to switch it off; that reverses my own enable, not a decision of
+theirs made on good information — the 3.2x I had quoted was another lane's ratio against a
+~248k/h baseline and never transferred to a 56k/h one.
+
+⚠ **Switching the scheduler off does NOT stop work already dispatched.** At the moment of the
+UPDATE there were **1 `claimed` work item and 3 orchestrations still EXECUTING_STEP**. They
+finish on their own and their spend lands afterwards, so a cost query run immediately after the
+switch understates the window — the same lag that made my first-pass figure 6.5x low, in the
+other direction. Anyone verifying the stop should check `claimed` count and running
+orchestrations, not just `enabled=false`.
+
+### What the sweep bought, since it was not free
+
+Not nothing, and worth recording so the spend is not written off as pure waste:
+
+- **Gate 1b's BLOCK arm proven** on real traffic beyond the single deliberate dispatch: 3 items
+  blocked (2 `failed`, 1 `triaged`).
+- **Gate 1b's ABSTAIN arm proven — the one untested arm in WII-017.** 4 items completed
+  unblocked, and **all 4 have a matching `agent_error_log` row**, timestamps agreeing to
+  milliseconds (14:24:46.072 gate record vs 14:24:46.079 completion). **A 1:1 accounting with no
+  silent holes**, which is the property that mattered.
+- **The §D payload split reproduced live, 3:1**, matching the historical 9:1 — so it is
+  systematic, not a historical artefact, and the instrument recorded the shapes:
+  `color_scheme design_notes spacing typography` (3) and
+  `add_to_page approach new_page not_actionable reasoning retype_existing update_spec` (1).
+- **Enough evidence to file the §D diagnosis properly**, which had sat NOT ESTABLISHED for days.
+
+### §D: filed to the diagnosis loop, and the trigger has the SAME trap as the council one
+
+`090` filed, **RUN_CORRELATION_ID `266be67d-a6e1-4afc-8fc1-84b553b2ea82`** (use this, not the
+intake correlation, for artifacts). Prior art checked first: the `needs_diagnosis` queue was
+empty and neither bug directory carried the mechanism.
+
+What I could establish first-hand and put in the symptom: neither `color-variable-fixer` **nor**
+`build-dispatch-loop` declares a `complete_work_item` step in
+`agent_definitions.default_config->'workflow'->'steps'`, yet `agent_error_log.agent_type` on
+every abstain row is `build-dispatch-loop`. So the site that binds the `result` input is
+unidentified — which is exactly the "the cause is not where the symptom is" shape the loop exists
+for. I stopped there rather than guessing.
+
+⚠ **NEW TRAP, and it is the third instance of this shape in two days: the `090` trigger prints a
+correlation and THEN fails.** My first attempt died on `invalid input syntax for type json`
+because the symptom text contained **double quotes** (`inputs.GetMap("result")`) which the script
+does not escape. It had already printed `SAVE: CORRELATION_ID=…`. **No work item was written.**
+Same lesson as the council trigger's `Unauthorized`: **a printed correlation is not evidence of a
+filing.** Keep double quotes out of a `090` symptom, and check the item exists before trusting
+the id.
