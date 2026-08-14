@@ -27,6 +27,15 @@ key-inventory line and assert the two agree), with a budget that triggers a revi
 the accumulated surface — never of reuse itself (owner 2026-08-14: shared actions are
 estate design, not a smell; the same holds for a shared spec row).
 
+## Budget (added at the council's architecture seat's round-2 advisory)
+
+A review trigger with no number is an open-ended intention. Proposed hard budget,
+mirroring the 402-405 idiom: **review at 8 keys on any one aspect** — not "block",
+because config seeds are applied by hand and a hard block has no enforcement point
+until the counter exists; the number makes the trigger checkable rather than
+aspirational. Whoever builds the counter should take the number from THIS file and
+the owner's ruling, not re-derive it.
+
 ## Interim census authority
 
 Until built, the census lives in ONE place: PLAN-048's "key inventory for this aspect"
