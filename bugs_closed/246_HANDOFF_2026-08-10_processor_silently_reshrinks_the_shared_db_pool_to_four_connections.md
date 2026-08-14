@@ -307,3 +307,45 @@ completeness:
 Remaining owner decisions live in
 `docs/agent_docs/docs024_key_docs_latest/bugfix_246_shared_pool_ownership/HANDOFF_2026-08-11_continue_here.md`
 — closing the bug does not close those.
+
+---
+
+## 2026-08-14 — THE RISK IS MEASURED AT LAST. It is not materialising.
+
+This file closed on 2026-08-12 saying plainly that its one real risk — whether the chassis,
+now holding its configured 12 client connections instead of a silent 4, queues at pgbouncer
+— was **UNMEASURED**, and that the instrument (`SHOW POOLS`) was unreachable for want of a
+credential. The credential is now recorded (owner decision D1, closed 2026-08-14) and the
+measurement has been taken:
+
+| database | user | cl_active | **cl_waiting** | sv_active | sv_idle | **maxwait** | pool_mode |
+|---|---|---|---|---|---|---|---|
+| clients_db | clients_user | 17 | **0** | 3 | 2 | **0** | transaction |
+| pgbouncer | pgbouncer | 1 | 0 | 0 | 0 | 0 | statement |
+
+**No client is queued for a server connection, and none has waited.** 17 client connections
+are multiplexed onto **5 server connections of `default_pool_size = 15`** — which is
+transaction pooling behaving exactly as the submission argued it would when it claimed the
+change "does not simply move the queue". That argument is now evidenced rather than
+reasoned.
+
+**Consequences:**
+- The 2026-08-12 closure's outstanding caveat is **discharged**.
+- **Owner decision D3 is answered: `default_pool_size = 15` does not need raising.**
+- The pgbouncer configmap's stale rationale (*"3 chassis replicas × 4 conns"*) can be
+  corrected to reflect 2 replicas × 12 whenever someone is in that file; it is now
+  demonstrably not a capacity problem.
+
+> **What this reading does NOT establish, stated so it is not over-quoted later.** It is
+> **one sample**, at ~17 client connections. `cl_waiting` is instantaneous, and pgbouncer's
+> `maxwait` is **the current longest wait, not a high-water mark** — it returns to 0 as soon
+> as the waiting client is served. So a zero cannot rule out queueing *between* samples, and
+> a burst is precisely when the answer could differ. To turn this into a result rather than
+> a snapshot, sample across a busy period (`SHOW POOLS` on a loop, or `SHOW STATS`).
+> **The honest sentence is "pgbouncer was not queueing at this moment, at this load" — not
+> "pgbouncer is fine under load".**
+
+> **And the other limit still stands, permanently:** there is still **no behavioural witness
+> for the fix itself**. Nothing reports a pool's size or its wait counters, so this measures
+> the *consequence* at pgbouncer, not the chassis-side pool. That gap is what the `db.Stats()`
+> follow-up (D2, owned by the `bugfix_239` lane) exists to close.
