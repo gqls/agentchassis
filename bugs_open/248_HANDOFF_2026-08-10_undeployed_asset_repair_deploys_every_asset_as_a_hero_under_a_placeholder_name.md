@@ -655,6 +655,63 @@ requirements, per CLAUDE.md's "other consumers must be told, not merely measured
 
 Full detail: NOTES, `## 2026-08-14 (drain job design)`.
 
+## CONTRIBUTION 2026-08-14 (same session, later) — bucket-A pilot EXECUTED: 11/11 clean, census 140 → 98, and the wire-check-first rule caught two would-be regressions before they happened
+
+Ran the drain design's bucket-A pilot (user-approved plan, revised once after review — the
+revision is the story). **Result: 11 items promoted, 11 completed, zero placeholder paths in
+any `deploy_result`, every deploy verified 200 at the wire, all 11 asset rows corrected.**
+Fresh census after: **98 rows / 12 sites** (was 140/14 at this session's start — the drop of 42
+is this pilot's 11 plus bucket B's concurrent self-drain, which the design predicted and this
+confirms).
+
+**The revised rule — wire-check BEFORE promotion, gating it — earned its place immediately:**
+
+- **2 SKIPPED as live-referenced 200s**: finetuning.uk `logo` and leopardessconsulting `logo`
+  both already serve `/assets/images/logo.png` 200 and the leopardess homepage references it.
+  Promoting them would have overwritten a served, referenced file with the stored asset-row
+  image — the "fixed by another route" shape this file's own "measured the OTHER way" section
+  documents. These two rows stay in the marker census deliberately: **"stale row only" is a
+  bookkeeping class, not a deploy class**, and force-redeploying to clean a row is backwards.
+- **1 CANARY, clean**: leopardess `brand_logo` (404 on both extensions, referenced by nothing).
+  Promoted `unresolved`→`triaged` by hand; claimed in ~60s, complete in ~80s;
+  `file_path: /assets/images/brand_logo.jpg`, wire 200 (162,089 bytes), row corrected.
+  **Naming finding worth keeping**: the underscore is PRESERVED (`brand_logo.jpg`, not
+  `brand-logo.jpg`) — `BuildAssetPaths` uses the purpose verbatim when `asset_key == purpose`,
+  while `AssetKeyFilename` maps `_`→`-` only when they differ (`url_helpers.go:182,210,317`).
+  Both writer and reader derive the same name, so it is consistent, not a defect — but the same
+  string produces different filenames depending on which role it arrives in. Latent wrinkle,
+  noted, no action.
+- **10 WAVED (webdesign.co.uk icons) — with a mid-pilot hypothesis correction recorded
+  honestly**: these were promoted on the belief they were wrong-extension deploys (`icon-*.jpg`
+  exists, `.png` 404s, assumption: icons should be `.png`). Reading `ImagePurposes`
+  (`url_helpers.go:365`) REFUTED that mid-flight: icon's configured extension **is** `.jpg`, so
+  `icon-css.jpg` was the correct reader-derived path all along and these rows were actually the
+  same "stale row only" class as the two skips. The promotions stood because the risk profile
+  is different from the logo skips: **zero deployed `page_components` reference any icon at
+  either spelling** (checked in the DB, not assumed), so a same-path redeploy could not regress
+  anything a visitor sees. Outcome: all 10 deployed to their correct dash-named paths,
+  content-lengths **byte-identical** to the pre-overwrite baseline (captured deliberately before
+  the wave landed — the stored sources are the same images), and all 10 rows corrected through
+  the framework rather than by hand-editing `assets`.
+
+**What this proves beyond §2/§2b**: the promote-to-triaged mechanism at 11-item batch scale
+(the loop claimed and completed them serially, one at a time, ~30-40s each — a natural rate
+limit, no parallel blast), and the two failure modes the revised plan guarded against (live-200
+overwrite; double-dispatch via a second open item) both actually occurred in the candidate data
+and were caught by the checks, not by luck.
+
+**What remains for the drain** (unchanged in kind, updated in number): bucket B self-drains —
+leave it alone; bucket D (the ~64 clone-needed rows) is now the bulk of the remaining 98, and
+its design should inherit the wire-check-first gate verbatim (some of its rows will be
+already-200 skips too — this pilot measured 2-of-13 in bucket A; assume the rate is nonzero, not
+that it transfers); the ~30 bucket-E rows still need their per-row wire check before any item is
+even filed; and the "stale row only" class now has 12 confirmed members (2 logo skips + the 10
+icons would have joined it had the census been the only test) — whether those rows deserve a
+bookkeeping-only correction path that does not redeploy is a small design question for whoever
+takes bucket D, not something to improvise.
+
+Full detail: NOTES, `## 2026-08-14 (bucket-A pilot)`.
+
 
 ## Contribution — leopardessconsulting.co.uk numbers, and two clean new rows (2026-08-14, services-restore session)
 

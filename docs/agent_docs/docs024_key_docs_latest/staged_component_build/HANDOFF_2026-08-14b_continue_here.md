@@ -62,14 +62,22 @@ lane's job — leave it.
 
 ## 2. What's actually left
 
-1. **Execute (or get sign-off to execute) the drain, bucket by bucket, per the design above.**
-   Recommended order: pilot bucket A first (13 rows, promote-only, cheapest, no cloning) with a
-   wire-check (`curl` the deployed path, expect 200 + correct filename) after each item or small
-   sub-batch — not all 13 blind. If that holds, scale to bucket D (64 rows, needs the clone
-   mechanism) the same cautious way. Bucket E needs the per-row wire check *first*, described
-   above, before any of its rows even join a batch. **This is a real production action across
-   14 live sites and deserves a check-in, not a silent bulk fire**, per this repo's own
-   guidance on hard-to-reverse / shared-state actions.
+1. ~~**Execute (or get sign-off to execute) the drain, bucket by bucket, per the design
+   above.**~~ — **BUCKET-A PILOT DONE, same day, user-approved, 11/11 clean** (2 skipped as
+   live-referenced 200s, 1 canary + 10 waved, zero placeholder paths, all wire-verified,
+   census 140 → **98 rows / 12 sites**). The pilot's revised design — **wire-check BEFORE
+   promotion, gating it** — caught two would-be overwrites of served files and is now the
+   proven shape for the rest of the drain. Full account: bug 248's newest CONTRIBUTION +
+   NOTES `## 2026-08-14 (bucket-A pilot)`. **What remains of the drain:**
+   - **Bucket B**: self-drains, confirmed live during the pilot (part of the 42-row census
+     drop). Leave it alone.
+   - **Bucket D** (~64 rows, now the bulk of the 98): needs the clone-to-triaged mechanism at
+     scale. Inherit the wire-check-first gate verbatim — the pilot measured 2-of-13
+     already-200 skips in bucket A, so assume a nonzero skip rate here too.
+   - **Bucket E** (~30 rows): per-row wire check before any item is even filed, unchanged.
+   - **New, small design question from the pilot**: rows that are "stale bookkeeping only"
+     (already served correctly; 12 confirmed members) — should there be a bookkeeping-only
+     correction that does not redeploy? Decide when designing bucket D, don't improvise.
 2. **RFC_029 (and its sibling RFC_028) await an owner ruling.** Not a task for a normal session
    — if picked up, it is the `architecture_review/` process (RFC-shaped), read that directory's
    conventions first.

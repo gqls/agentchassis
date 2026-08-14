@@ -4306,3 +4306,43 @@ CONTRIBUTION keeps one account instead of forking a second.
 production write volume, proven at 2-row scale so far, not 77. Left it as a designed-and-ready
 next step (pilot bucket A first, it's promote-only with no cloning) rather than a script run
 at the end of this session, per the prior handoff's own instruction on this exact point.
+
+## 2026-08-14 (bucket-A pilot) — same session: the user asked for one more look at the plan
+before firing, and the second look changed it in two load-bearing places
+
+Reviewed my own pilot design before executing (at the user's prompt) and found two defects,
+both then confirmed with live evidence — worth recording as a pattern: **the review of a plan
+is cheapest immediately before execution, when the checks it prescribes can be run for real.**
+
+1. **"Promote all, wire-check after" inverted to "wire-check first, gating promotion".**
+   Spot-checks found 2 of 6 candidates already serving 200 (both logos, live-referenced) —
+   promoting them would have redeployed the stored image over a served file. The plan's
+   original ordering would have done this before its own verification step could notice.
+2. **The bucket-A count (13) was re-derived with a precise selection rule** rather than reused.
+   A looser query returned 25 — the extra 12 all carried a second, open `triaged` item
+   (bucket B, self-draining; promoting them would double-dispatch the same deploy path).
+   The 13 survived the precise rule; the number was right but only by the tie-break's
+   accident, and the rule is now written down where the next bucket's query will be built.
+
+Execution (all times ~19:45–20:30Z): 2 skipped (live-referenced 200s), 1 canary
+(leopardess `brand_logo`: claimed ~60s, complete ~80s, wire 200), 10 waved (webdesign.co.uk
+icons: completed serially over ~6.5 min, one at a time — the loop is its own rate limiter).
+Zero placeholder paths in any result. Census 140 → **98 rows / 12 sites** (pilot's 11 + bucket
+B's concurrent self-drain).
+
+**Missteps, both mine, both caught in-flight:**
+- Assumed icons deploy as `.png` and read the existing `icon-*.jpg` 200s as the bug's
+  wrong-extension shape; `ImagePurposes` (`url_helpers.go:365`) says icon's configured
+  extension IS `.jpg` — the files were correct all along and only the rows were stale. The
+  wave stood on a corrected justification (zero `page_components` references at either
+  spelling = no regression surface; framework-corrected rows) — but the original promotion
+  reason was wrong and the record says so.
+- Assumed `AssetKeyFilename`'s `_`→`-` mapping applies to every deployed filename; the canary
+  produced `brand_logo.jpg` (underscore kept), because `BuildAssetPaths` uses the purpose
+  verbatim when `asset_key == purpose`. My pre-wave wire-checks derived dash-names — right for
+  the icons (asset_key ≠ purpose), wrong in general. Check the derivation branch before
+  deriving a URL from a key.
+
+Full account: bug 248's newest CONTRIBUTION. Remaining: bucket D (the bulk of the 98) inherits
+the wire-check-first gate; bucket E's per-row checks; the new "stale row only" bookkeeping
+question (12 confirmed members) for whoever designs bucket D.
