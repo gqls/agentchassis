@@ -911,17 +911,38 @@ population above does not record:
   in one four-minute window (19:02–19:06, 2026-08-11), which reads as one writer active in that
   window, not three accidents `[INFERRED]`.
 
-Why this bounds the mechanism: build-dispatch-loop's completion path is
+~~Why this bounds the mechanism: build-dispatch-loop's completion path is
 claim → spawn → call → `mark_complete`, and a claimed-and-called item shows `attempt_count ≥ 1`
 (every normally-processed sibling on this site does). A row completed at `attempt_count = 0` was
 plausibly **never claimed by the dispatch path at all** `[INFERRED — I have not read whether any
-completion path skips the claim increment]`. If that holds, §D has (at least) two sub-populations:
-the 10-of-14 above (dispatched, foreign payload) and these (never dispatched, foreign payload) —
-and the second cannot be explained by ANY story about what the parent does after `call_handler`,
-which argues for a writer that completes items it never claimed (e.g. a retraction/`resolveWorkItems`
--style path, or a completion keyed on the wrong item id). The orchestration_states rows for that
-window are pruned, so the writer cannot be named from there; `system_events`/audit trails for
-2026-08-11 19:02–19:07 on this site are the next place to look if anyone picks this up.
+completion path skips the claim increment]`.~~
+
+> **CORRECTED 2026-08-14 (~90 minutes later), by a LIVE repro on my own item — the inference
+> above is WRONG, and what replaced it is stronger.** I watched my `amend_asset:logo` item
+> (site `62b5978e`) go `triaged → claimed` at 20:15:53Z, watched the handler genuinely run
+> (staging row `a8976eb4` consumed 20:15:53, `ingested`; assets row `e766370e` created with the
+> correct bytes), and the item then completed with **`attempt_count` still 0** and its `result`
+> replaced by a content-gap-planner payload (`{"approach":"new_page","new_page":{"name":"faq",…}}`).
+> So a claim does NOT increment `attempt_count` — the 08-11 rows' `attempt_count=0` discriminates
+> nothing, and there is no second sub-population. What caught it: acting on my own inference the
+> same hour, with the artefact checked independently of the status.
+>
+> **The full §D chain, captured live with surviving correlations** (the thing the 08-11 instances
+> could not give — their orchestration rows were pruned):
+> - parent: `build-dispatch-loop` correlation `aec9d3ed-6f3a-4588-b91b-28cf7822f256`, created 20:15:08Z;
+> - child: `asset-deployer` under the same correlation, created 20:15:51Z, **COMPLETED** 20:15:56Z,
+>   its work persisted (staging consumed, assets row written);
+> - `agent_error_log` for `asset-deployer` at **20:15:55Z**: *"workflow completed but its result
+>   could not be delivered to the parent (failed_transient): …"* — `bugs_open/274`'s exact signature;
+> - the item was then marked `complete` carrying a foreign payload.
+>
+> **This answers the fork the §D update above left open**: the parent's failure handling DOES
+> complete the item anyway — 274's "parent is told the child FAILED" does not produce a failed
+> item on this path; it produces a `complete` item whose `result` resolved to something else in
+> the parent's `collected_data` (`mark_complete` config is `"result": "handler_result"`; when the
+> reply never lands, that path resolves to a foreign value rather than erroring —
+> `[INFERRED from config + this capture; the resolution step itself still unread]`). The 274 link
+> is live again, now with a reproducible correlation to trace.
 
 Operationally for our lane: both rows are being treated as FALSE completions — the brand-head
 work never ran (favicon/og-card 404 throughout) and is being re-filed fresh. Their `complete`
