@@ -161,3 +161,71 @@ Cold-start for the fleet fix:
 (also in MEMORY_workstreams). Contributions to the evidence go HERE; the fix
 thread's own working docs go in that directory. Check `who-owns.py 268` and
 live transcripts before routing work at it.
+
+## 11. Fix lane contributions (2026-08-14)
+
+- **Census moved: 216/19 → 217/20** (§2 query re-run 2026-08-13 ~14:1xZ) —
+  the leak is active; one more component and one more site since filing.
+- **§4's candidate mechanism: right outcome, wrong route** (code-read at HEAD,
+  090 pending). `carryStored` never runs for these fields — but not because
+  `resolve` returns `(nil, true)`: the renderer/static branch at
+  `plan_sections_action.go:2361-2369` `continue`s BEFORE `resolver.resolve`
+  is ever called; the `:622-626` short-circuit is a second, redundant guard.
+  Had the early branch not existed, `(nil, true)` fails `found && value != nil`
+  and falls into `handleMissingField` naturally. And the §6 caution about
+  `carryStored`'s guard is inverted: it excludes only `""`/`"llm"` — a
+  renderer field REACHING it would be carried. The defect is that it is never
+  reached.
+- **090 re-run in flight** (authored per §3 of the fleet-fix handoff): intake
+  `95df3483-0291-48d3-992f-6453b5e8324f`, run correlation
+  `38e53a03-ddcd-46c6-8533-d48510747758`. Fix design + owner's default-ON
+  decision recorded in the fleet-fix lane's PLAN/NOTES.
+
+### §11.1 (2026-08-14, later) — the 090 broke instead of ruling; verification substituted first-hand, and the fleet count splits into two classes
+
+**The 090 produced NO verdict either way.** The diagnose-agent's `verdict`
+step died on iteration 5 with `response truncated: stop_reason=max_tokens
+(output_tokens=32000 reached the configured cap)` — bundles had grown
+77KB→141KB over five iterations; `max_attempts=1` so the item is terminally
+`failed` (orchestrations `bdf69bc1`/`661a2b55`/`a02b83dd`). The loud failure
+is `bugs_closed/076`'s guard working as designed; not re-filed as a new bug on
+one occurrence — if a second verdict-step truncation appears, file it then.
+
+**Per the 2026-07-31 owner ruling, the substituted first-hand verification,
+stated plainly:**
+1. **In-vitro reproduction of the mechanism** — a test fixture declaring a
+   `source:"renderer"` url field beside a stored row (the first such fixture
+   in the repo): against the UNFIXED code the key is absent from
+   `resolved_data` (the early branch `continue`s before `carryStored`);
+   against the one-line fix it is carried. Mutation-verified in both
+   directions (`plan_sections_renderer_carry_test.go`).
+2. **Independent second read** — a separate-context trace with citations:
+   the branch predates both `handleMissingField` and the carry
+   (`abf1c308a`, 2026-03-09, the file's founding commit), so it is an
+   optimisation that became a bypass, not a guard.
+3. **History, read with the trigger's semantics** — the archive trigger
+   stores OLD (prosrc read), so a `delete` archive is the pre-rewrite state:
+   webdesign.uk `index/hero` delete-archives at **16:50:19** and **20:34:58**
+   both carry `cta_text,cta_url,hero_url,secondary_cta,secondary_cta_url` —
+   keys present going INTO each rewrite, gone from the stored replacement
+   (the §3 live measurements), untouched on the control page.
+
+**The fleet count is TWO populations, and §2's census cannot tell them
+apart** [MEASURED 2026-08-14, split query in the fleet-fix RUNBOOK]:
+of 217 label-without-URL components (20 sites), only **10** ever had a URL in
+any archived generation — the regeneration-loss class, all lost 2026-08-11/12
+(ai-agent-orchestration news/hero; dartsonline grip-styles + index, both
+slots; idea.uk tool-funding-fit + tool-patent-check heroes; vonc.com
+archetypes, both slots; webdesign.uk index/call-to-action — lost 08-11 13:43,
+BEFORE the repair lane's baseline, so it survived the 08-12 repair and sits
+LOCKED). **74** have archived generations none of which ever held a URL, and
+**133** have no archived generation at all [INDETERMINATE: first-generation
+rows never regenerated, or history orphaned by a page identity change]. So
+the honest attribution: the *mechanism* is proven and was actively deleting
+resolved URLs (webdesign.uk's 7+1, plus these 10); but **most of the 217 are
+the `unresolved_cta` never-had-a-destination class** — `resolve_internal_links`
+filed items for them and rendered no anchor, correctly. **The repair
+deliverable therefore splits**: ~10 rows recover from history; the ~200
+others are a destination-resolution problem (fix candidate 2 territory /
+unresolved_cta backlog), NOT a history restore, and no amount of re-rendering
+will conjure URLs they never had.

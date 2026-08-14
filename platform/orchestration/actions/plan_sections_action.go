@@ -2358,11 +2358,27 @@ func planSection(ctx context.Context, sectionName string, comp componentInfo, re
 			continue
 		}
 
-		// Renderer/static fields — resolved at render time, not now
+		// Renderer/static fields — resolved at render time, not now. A
+		// renderer/static source names ANOTHER writer (resolve_internal_links,
+		// applyCTARecompute), so on a regeneration the current value exists
+		// only in the page's stored content_data — which save_page_sections
+		// replaces wholesale. Skipping here therefore destroyed the key on
+		// every content_rewrite while every re-render (stored ⊕ fresh merge)
+		// kept it: bugs_open/268, 214 CTA anchors gone fleet-wide. So carry
+		// the stored value first. This does not reintroduce the migration
+		// 091/098 revert problem — the carry re-supplies the page's own last
+		// authored/resolved value (storedFieldValue refuses empties), it does
+		// not re-derive one from a spec, so it cannot fabricate a destination
+		// or overwrite an edit with a recomputation. The early continue
+		// itself stays: renderer/static must not reach required-field
+		// handling (098's section-readiness contract), and a declared
+		// fallback still writes when nothing is stored (181/097b's pin) —
+		// but a stored value now beats the fallback, because the fallback is
+		// a default and the stored value is the page.
 		if source == "renderer" || source == "static" ||
 			strings.HasPrefix(source, "renderer.") ||
 			strings.HasPrefix(source, "static.") {
-			if fallback != nil {
+			if !carryStored() && fallback != nil {
 				resolvedData[fieldName] = fallback
 			}
 			continue

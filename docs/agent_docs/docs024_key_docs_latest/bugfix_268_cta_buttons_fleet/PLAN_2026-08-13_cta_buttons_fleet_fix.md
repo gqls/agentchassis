@@ -19,12 +19,24 @@ the loss, proven on webdesign.uk 2026-08-12):
 4. **Canary** — one site, two pages that disagree (heavy + light), end-to-end
    `content_rewrite` with `mode=edit_live`, invariant diff (href counts) both
    sides.
-5. **Repair** — 214 components / 18 unprotected sites, from
-   `page_component_history` (or `resolve_internal_links` re-run if candidate 2
-   ships). Write `content_data`, then re-render. Never patch `rendered_html`.
+5. **Repair** — ~~214 components / 18 unprotected sites, from
+   `page_component_history`~~
+   > **CORRECTED 2026-08-14 (history split, 268 §11.1):** the damaged set is
+   > TWO classes. **10 rows** recover from history (listed in §11.1; one of
+   > them is webdesign.uk `index/call-to-action`, locked — unlock-time work).
+   > The other ~207 (74 never-had + 133 no-archived-generation) are the
+   > `unresolved_cta` class — they need destinations RESOLVED (candidate 2 /
+   > per-site hub decisions), not restored; history holds nothing for them.
+   Write `content_data`, then re-render. Never patch `rendered_html`.
    webdesign.uk stays OUT of the sweep (locked, already repaired).
-6. **Verify fleet** — census query from `bugs_open/268` §2 → expect
-   label-without-URL count to fall to ~0; invariant diff on the canaries.
+6. **Verify fleet** — ~~census query from `bugs_open/268` §2 → expect
+   label-without-URL count to fall to ~0~~
+   > **CORRECTED 2026-08-14:** ~0 was wrong — it assumed all 217 were
+   > regeneration losses. After the 10-row repair the census floor is ~207
+   > never-resolved rows. The fix's verify signal is the CANARY pair (keys
+   > survive a real rewrite) + the 10 repaired rows staying repaired through
+   > their next regeneration; the census only falls as unresolved_cta work
+   > lands, which is a separate deliverable.
 7. **Unlock webdesign.uk** — final step, only after the fix is live and proven
    (filing lane's RUNBOOK carries the unlock/edit/relock recipe).
 
@@ -56,6 +68,15 @@ the loss, proven on webdesign.uk 2026-08-12):
   attributes — hero/call-to-action components are small, so it likely does NOT
   protect the CTA case [INFERRED — check a real hero row's attribute count
   before repeating]. Adjacent, not a fix and not an obstacle.
+
+- **2026-08-14: fix shape FINAL (owner decision + trace).** Keep the early
+  branch; `carryStored()` inside it, carry-first, fallback only when nothing
+  stored; **default ON** (owner, 2026-08-13 in-session — divergence from the
+  2026-08-02 opt-in-OFF shape put to the council in the submission's risks;
+  the carry preserves data where PBP-040's OFF-default guards a refusal that
+  blocks). Do NOT route through `handleMissingField`: two branch properties
+  are load-bearing (098's readiness contract; 181/097b's unconditional
+  fallback when nothing stored). Council `e6c1e4eb-69d5-4b02-93c4-742cc47315b2`.
 
 ## Constraints
 

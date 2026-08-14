@@ -417,3 +417,18 @@ number that the loop disputes. **The damage stands; its home may not.** Whoever
 picks this up should decide whether the 08-12 CTA loss belongs here at all, or
 under a new number — and 9.1 (the carry has rolled, §8 is stale) is unaffected
 by any of this.
+
+---
+
+## §10 — 2026-08-14, from the bugfix_268 lane: the carry has been EXTENDED to renderer/static fields
+
+The 08-12 CTA loss got its own number (`bugs_open/268`) and its answer: the
+carry this file shipped never covered `renderer`/`static`-sourced fields,
+because the field loop's early "resolved at render time, not now" branch
+`continue`s before `handleMissingField`/`carryStored` — original design,
+predating the carry. The 268 fix calls `carryStored()` inside that branch
+(stored beats declared fallback; early continue preserved). Registered as an
+extension on **PBP-039** (whose stale "INERT until roll" status is corrected
+in the same edit — 9.1 here already said §8 was stale). No change to this
+file's own arms; the 16:37–17:23 history re-run this file says is owed was
+fired by the 268 lane (run correlation `38e53a03-…`).
