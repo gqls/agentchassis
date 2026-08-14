@@ -30695,3 +30695,37 @@ The canary ordering worked; it just caught a different bird than intended.
 **The cheap check, for next time:** before repeating a runbook step as a capability, grep for
 its writer. One `grep -rn "INSERT INTO redirects"` would have cost seconds and would have
 prevented a wrong reassurance to the owner on a decision he cannot easily reverse.
+
+## 2026-08-14 — I dated a whole session's measurements to yesterday, including inside an immutable commit message (`bugfix_209/231` lane)
+
+**The claim.** `[MEASURED 2026-08-13]` on the bugs_open/231 census, `measured 2026-08-13` twice
+in concept-register entry CTS-059, `2026-08-13` on the LANDMINES entry, and — worst — the
+sentence `committed 2026-08-13` inside commit `d3edb5b89`'s own register sketch, where it can
+never be edited.
+
+**Why it was false.** The session opened while it was 2026-08-13 and committed at **08:44 on
+08-14**. Every date I typed came from the context banner delivered once at session start, which
+by then was nine-plus hours stale. The before-census and the after-census plus its demand
+control fell on **opposite sides of midnight** — so a single date on the pair is not a rounding
+error, it is two different days collapsed into one figure. Anyone re-running either census and
+comparing against "the 08-13 numbers" would see drift that is really just the wrong label.
+
+**What caught it.** Reading `git log -1 --format=%ad --date=iso` — and only because I needed
+the date to *name a handoff file*, not because I was checking the claim. Nothing else would
+have. The estate's marker rule ("mark the unverified ones too") had been followed everywhere
+else in the session: counts carried `[MEASURED]`, the post-fix zero got a demand control, the
+pre-existing test breakage was proven against a pristine archive. **The date was the one figure
+I never treated as a measurement**, because it arrives unasked and looks like context rather
+than evidence.
+
+**The cheap check, for next time:** `date -Is` (or `git log -1 --date=iso`) before writing any
+dated claim in a session that has been running for hours. It costs one command. More generally:
+**a session's own sense of "today" is stale evidence with no marker on it** — it is supplied
+once, never refreshed, and it silently backdates everything downstream of it. A dated
+measurement is the one figure a later reader cannot re-derive, so it is the one most worth a
+second of verification.
+
+**Recorded forward, not amended:** the uncommitted docs were corrected before landing, and
+`01f983411` corrects CTS-059's status line and marks which side of midnight each figure fell on.
+`d3edb5b89`'s message still carries the false date; forward-only forbids an amend, and this row
+is the correction of record for it.
