@@ -2178,3 +2178,33 @@ seats and other threads read as ground truth are the docs, and there were three 
   owner ruling → widen one site at a time. **Step 5 is the one not to skip: round 1 would have passed
   the served-hex check and failed the audit**, because it emitted a hex that read as a correct navy
   while measuring 3.93:1 on the composited ground.
+
+### 6. Closing the round — the pin verified, and one objection that corrected MY procedure
+
+`TestLegibleVariant_EmittedHexIsPinnedForRealPalettes` now carries **seven** cases including the two
+I asked for. Verified rather than accepted: every ground in the table matches what I fetched from the
+served artefact (`oufe` `#0F1820`/`#1B2A3B`, `cookly` `#FDFAF4`/`#F0E8D5`, `lendzy` `#F8F7F4`/
+`#FFFFFF`), every expected hex matches my own replication (`#7d9ec4`, `#af4625`, `#b25608`), and it
+passes at HEAD. Their two disputed figures were both wrong for the reason I suspected — invented
+grounds, cookly's surface assumed white when it is cream, lendzy's two grounds swapped *and* wrong —
+and my values reproduce exactly. **Their own framing is the useful one: they had logged "a probe
+with invented inputs yields a figure indistinguishable from a measured one" the day before, fixed
+the single fixture they were caught on, and never audited the other six grounds in the same two
+files. An incident treated as an incident when it was a class.**
+
+**The objection that changed something here.** Their `guardian` seat's second point lands on this
+lane's canary procedure, not just on their rollout: **the served hex is necessary and NOT
+sufficient.** Round 1 emits `#7d8bb6` — a plausible navy that passes any eyeball check while
+measuring 3.93:1 composited. A grader reasoning "it is a navy, so the fix is underneath, so both rows
+should retract" reaches the right conclusion from the wrong evidence, and would read a genuine
+round-1 regression as a retraction defect — the precise confusion the three-branch table exists to
+prevent. So the table is reordered: **`git merge-base --is-ancestor 8ad05d01a <stamp>` is
+authoritative and the hex only corroborates.** I had it the other way round, with the git query as a
+footnote.
+
+Their rollout is deliberately dormant (nothing schedules a re-render; staged dartsonline-first under
+an owner ruling, widening one site at a time), so the most likely Monday state is `#E2E8F0` — the
+clean case, my retraction under test. Both commits now travel together, so the regression branch is
+unlikely as well as diagnostic. It stays in the table anyway: any other lane's roll plus an unrelated
+re-render is outside both our control, and a branch that costs one line to keep is cheaper than a
+misread on the day.

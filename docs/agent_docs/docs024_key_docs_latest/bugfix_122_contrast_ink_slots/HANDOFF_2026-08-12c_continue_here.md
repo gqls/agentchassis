@@ -192,10 +192,26 @@ and there are now **three** branches, not two:
 | `#8a97bd` | **round 2** (`8ad05d01a`) is underneath — certified against the *composited* ground, worst-of-four **4.56:1** | **both still RETRACT**, table stands |
 | `#7d8bb6` | **round 1 (`12cf55015`) shipped WITHOUT round 2** — measures 4.55:1 on the declared surface but **3.93:1 on the composited one** | `card-link` may **file fresh**; that is their round-1 regression, NOT a retraction bug — stop and tell them |
 
-Settle which is live with a git query, not the hex alone:
-`git merge-base --is-ancestor 8ad05d01a <the service stamp>`. The middle branch is the expected one;
-the third is reachable because both commits sit on the shared branch and a roll takes whatever HEAD
-is at build time.
+**⚠ READ THE TABLE IN THIS ORDER: the git query is AUTHORITATIVE, the hex only corroborates.**
+`git merge-base --is-ancestor 8ad05d01a <the service stamp>` — true means round 2, false with round 1
+present is the regression branch.
+
+The hex cannot carry this on its own, and the reason is sharp enough to be worth stating:
+**round 1 emits a hex that looks exactly like a correct answer.** `#7d8bb6` reads as a perfectly
+plausible navy, passes any eyeball check, and measures **3.93:1** on the ground a visitor actually
+sees. A grader who reasons "it is a navy, so the derivation fix is underneath, so both rows should
+retract" gets the right conclusion from the wrong evidence and would misread a genuine round-1
+regression as a retraction defect. Distinguishing `#8a97bd` from `#7d8bb6` by eye is two characters.
+The git query cannot be misread, and it is free. (Raised by the `guardian` seat on their council
+round, in the equivalent form: the served hex is *necessary and not sufficient* — their staged
+rollout gates on **no new `contrast_failure` rows**, not on the colour looking right.)
+
+**Most likely Monday state: `#E2E8F0`, i.e. the clean case.** Their round-2 verdict came back
+APPROVED with a deliberately dormant rollout — nothing schedules a re-render, and their staged order
+re-renders **dartsonline only** first, under an owner ruling, widening one site at a time. So
+robot-hands should not re-render by their hand, and both commits now travel together, which makes
+the third branch unlikely as well as diagnostic. Still check, because a roll plus an unrelated
+re-render by any other lane is outside everyone's control.
 
 `curl -s https://robot-hands.com/selection-guide.html | grep -- '--color-primary-ink'` (page block
 first — the site stylesheet can be overridden there; see §5a). The third row exists because my
