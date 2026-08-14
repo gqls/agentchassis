@@ -2904,3 +2904,74 @@ detection-refile; logo — find what "the old existing logo" is before generatin
 (owner rejected two generated candidates on 08-11); favicon/og-card diagnosis;
 router assignment (site-first, then fleet); card icons only after confirming the
 render path consumes them.
+
+## 2026-08-14 (session claude-mcalc-brand) — re-verified the 08-13 handoff, four premises had moved; logo ingested; hero/brand-head deploys in flight
+
+Re-verified before acting (the handoff is a snapshot; this tree moves in hours):
+
+> **CORRECTED 2026-08-14:** handoff §2.1/2.2 — migrations 399/400 are NOT to be written.
+> Rung 2 was cut IN GO by the 248 owning lane (`930ace3bd`, 08-12): rung deleted, dotted
+> asset_key class-guarded, `assetRowIdentity` makes the asset ROW the authority for
+> purpose/asset_key. Live since v1.0.1297 (08-13 22:29Z), verified per-service via OCI
+> `image.revision` (`3b0ea20ff`) + `merge-base --is-ancestor` with a negative control, on
+> agent-chassis, build-dispatch-loop AND image-generator-adapter; re-verified v1.0.1299.
+> Migration 401 (image-build-handler maps asset_id) applied. Numbers 399–406 taken by
+> other threads. Bug 248 round 2 resubmitted by its owner 08-14 — nothing left here.
+
+> **CORRECTED 2026-08-14:** handoff §2.3(a) — the "TWO active heroes" were
+> `hero_about`/`hero_contact` (page variants), not homepage candidates; every
+> `asset_key='hero'` row was rejected/superseded. The premise then expired same-day:
+> `claude-session-248-hero-retest-20260814` generated + deployed a THIRD hero
+> (`3b0cac59`) to the CORRECT path at 16:55Z as the 248 fix's wire-proof. hero.jpg 200.
+
+> **CORRECTED 2026-08-14:** handoff §2.4 "two generated logo candidates" is paraphrase
+> drift (bugfix_210 NOTES §16/§18 is explicit): the owner reviewed generated HERO images
+> that read as logos. "The old existing logo" = the original gold roundel
+> `images/full-logo.png` in gqls/sites (812×844 PNG, sha `db6ce1aa…`, byte-identical to
+> `icon-logo.png`), serving 200 at `/images/full-logo.png`, never in the assets table.
+> The original guide pages still render it; only the rebuilt homepage chrome is text-only.
+
+**Why the framework "didn't do it" (owner ask 1, answered):** `site-discovery-rotation-design`
+is DISABLED — the deliberate 08-10 cost pause, whose rationale (every generated asset wasted
+on the placeholder path) died with the rung-2 fix. Detection cannot re-file anything while
+it is off. Second layer: `placeholder_image_in_use:hero` carried 2 strikes (the two 08-11
+`complete` rows; strikes = complete+failed in a 7-day window, `load_work_item_actions.go:1276-1284`)
+— expire ~08-18. Third layer (favicon/og-card): the two `needs_brand_head_assets` items were
+FALSELY completed (attempt_count=0, foreign content-planner JSON) — evidence contributed to
+`bugs_open/213` §D; and `derive_brand_head_assets` is logo-gated (no active logo row existed,
+ever). Card icons: promoting the 4 deferred icon items is bugs_open/114-class waste — no
+per-array-element source resolution exists (`plan_sections_action.go:2076`), so nothing can
+write a generated icon into the frozen `items[].image`. Parked with that stated reason.
+
+**Owner decisions today (via question):** hero = reinstate hero_v2 (`9e94250d`) — confirmed
+AGAIN after being told v3 went live at 16:55Z (v3 embeds a wordmark that fights the page's
+own text overlay; v2 is text-free); discovery returns as a ONE-SHOT for this site only;
+fleet rotation re-enable left open for the owner.
+
+**Done this session:**
+- Original logo INGESTED through the framework: `scripts/amend-asset.sh` → staging
+  `a8976eb4` ingested → assets row `e766370e` (asset_key=logo, purpose=logo, ACTIVE,
+  origin uploaded/operator-supplied, 12,325 B, 812×844 — size+dimensions+action-side
+  sha256 all match the source; bucket URL is private so the row metadata is the byte proof).
+- **Caught bugs_open/213 §D / 274 live on my own item:** the amend item completed with a
+  SUBSTITUTED content-planner payload and attempt_count still 0 — child succeeded
+  (artefact persisted), its reply hit 274's cannot-deliver at 20:15:55Z, parent completed
+  the item anyway with a foreign result. Correlation `aec9d3ed` survives for tracing.
+  Contributed to 213 §D (with a same-evening visible correction of my own wrong
+  attempt_count inference — also in WRONG_CALLS). **Consequence for THIS lane: item
+  statuses/results are untrustworthy while 274 fires — verify every deploy at the URL.**
+- Hero curation per owner: `3b0cac59` superseded (kept), `9e94250d` ACTIVE. NOTE:
+  `idx_assets_site_asset_key_unique` — one active row per (site, asset_key); supersede
+  before activate or the swap aborts.
+- Three items filed 21:34:15Z, all `triaged`: `deploy_amended:logo` (deploy e766370e →
+  logo.png), `needs_brand_head_assets:derive_20260814` (spec {"mode":"brand_head"} — the
+  LIVE check_mode conditional already tests input_data.spec.mode; the 07-11 seed file does
+  not — read live config, not seeds), `undeployed_asset:9e94250d…` (redeploy hero_v2 →
+  hero.jpg). **In flight at the time of writing — wire-verify at the four URLs.**
+
+**Still owed (tasks 4-6):** router assignment site-scoped (397 header SQL is fleet-wide,
+add the site predicate; NO SQL exists for the unsatisfiable arm — write it; routers'
+summary_from is a template-string defect, cosmetic); one-shot design discovery AFTER
+assets land (mirror oneshot-design-discovery-rh-20260730: topic system.agent.scheduled.requests,
+interval 86400, timeout 900, input_data {domain, site_id}, disable after firing); the bad
+copy line via apply_section_edit content_edit on the hero slot (never content_rewrite).
