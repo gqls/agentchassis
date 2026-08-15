@@ -1,4 +1,9 @@
-# HANDOFF — bug 122, the 5.0 ink target + kill-switch. START HERE. Written 2026-08-15.
+# HANDOFF — bug 122, the 5.0 ink target + kill-switch. Written 2026-08-15.
+
+> ## ⛔ SUPERSEDED for CURRENT STATE by `HANDOFF_2026-08-15b_continue_here.md`. **Read that first.**
+> This file remains the record of the 5.0 canary gate — which is now CLOSED and PASSED — and of
+> the reasoning behind the owner's rulings. Everything below was true when written; the state
+> table in §1 is stale (it predates `v1.0.1301` and migration 415).
 
 > ## ✅ GATE SATISFIED 2026-08-15 ~10:38Z — v1.0.1301 carries `e0f239118`. §4 steps 1–2 EXECUTED.
 >
