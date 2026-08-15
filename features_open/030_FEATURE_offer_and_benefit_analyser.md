@@ -9,8 +9,11 @@ migration `408_offer_analyser_agent.sql`, two live runs, register **BIZ-032**. T
 **one analysis with TWO outputs**: the findings §5 describes, *and* a ranked reader-priority
 artefact (`site_specs` aspect `offer_ordering`) that §3.1's table did not anticipate, because an
 external consumer asked for it (`copy_quality_two_stage`, CONTRIB 2026-08-12).
-**NOT enrolled in the automatic sweep** — migration `409` is written and HELD for the owner's
-enrolment call (PLAN §B5). **The four axes in §3's table are still only partly answered:** it is a
+~~**NOT enrolled in the automatic sweep** — migration `409` is written and HELD for the owner's
+enrolment call (PLAN §B5).~~ **ENROLLED 2026-08-15 on the owner's call** — migration
+`409_improvement_loop_calls_the_offer_analyser.sql` applied + recorded; every sweep's audit-due
+branch now runs B4 between the strategic review and the audit pass. First sweep-driven run not
+yet witnessed. **The four axes in §3's table are still only partly answered:** it is a
 config-only reader, not a "full blown agent"; it is an auditor with no checker/handler of its own;
 it is on no council; and it corresponds with **none** of the seven counterparts — its findings
 merely land on three of them via existing item types. §8's five questions all stand.

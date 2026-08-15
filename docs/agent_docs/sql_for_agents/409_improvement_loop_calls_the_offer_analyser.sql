@@ -1,11 +1,12 @@
--- 409_improvement_loop_calls_the_offer_analyser_HOLD.sql
+-- 409_improvement_loop_calls_the_offer_analyser.sql
 --
--- ⚠ ON HOLD — DO NOT APPLY WITHOUT THE OWNER'S ENROLMENT CALL. The `_HOLD`
--- suffix is deliberate: `SIDECAR_RE` in the migration runner excludes it from
--- `--apply` while still listing it, so a scoped `--apply` by any session cannot
--- pick it up by accident. Rename off the suffix when the call is made.
+-- APPLIED 2026-08-15 ON THE OWNER'S ENROLMENT CALL. This file was
+-- `409_…_HOLD.sql` from 2026-08-14 until then — held per PLAN §B5 ("enrolment
+-- order = owner calls at the time") and renamed off the suffix, per its own
+-- instructions, the day the owner said go. Trial-run (COMMIT→ROLLBACK) clean
+-- against the live row immediately before applying.
 --
--- WHY IT IS HELD, and it is not caution for its own sake:
+-- WHY IT WAS HELD, and it was not caution for its own sake:
 --   PLAN_2026-08-02 §B5 says in as many words "enrolment order = owner calls at
 --   the time", and this migration IS the enrolment — it puts the offer analyser
 --   into EVERY improvement sweep, on all 22 sites, at once. Two costs the owner
@@ -55,8 +56,10 @@
 -- SNAPSHOT FIRST (RUNBOOK convention, `bak_ad_<agent>_<date>`): taken inside
 -- this transaction, so a rollback of the migration and the snapshot are atomic.
 --
--- ROLLBACK: 409_improvement_loop_calls_the_offer_analyser_HOLD_ROLLBACK.sql
--- restores the two edited pointers and drops the two added steps.
+-- ROLLBACK: 409_improvement_loop_calls_the_offer_analyser_ROLLBACK.sql
+-- restores the two edited pointers and drops the two added steps. (Verified
+-- 2026-08-15, pre-apply: BOTH arms of call_site_review read record_audit_pass
+-- live, so the rollback's restore of next_step AND error_step is exact.)
 
 BEGIN;
 

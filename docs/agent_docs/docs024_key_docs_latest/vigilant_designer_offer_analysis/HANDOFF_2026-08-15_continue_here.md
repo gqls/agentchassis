@@ -10,6 +10,11 @@ right when written.
 
 ## The one-line state
 
+> **UPDATE 2026-08-15 (afternoon, this same day): decision 1 below is TAKEN — the owner said
+> ENROL, and migration 409 is applied, recorded, audit-clean. B4 is in the automatic sweep;
+> the first sweep-driven run is not yet witnessed.** The paragraphs below stand as the record
+> of the state this handoff was written in; NOTES 08-15 (later) has the application evidence.
+
 **B4 — the offer analyser — is BUILT, LIVE, PROVEN END TO END, and review-passed (migrations 408
 + 421). It is NOT enrolled in the automatic sweep: migration `409_…_HOLD` is written, trial-run
 clean, and deliberately held for the owner's call. The lane's next track is the claims-audit
@@ -17,7 +22,7 @@ extension over `site_specs` prose, which the owner approved on 08-14.**
 
 ## Decisions the owner has OPEN (put these to him early)
 
-1. **ENROLMENT — the one this lane is blocked on.** `409_improvement_loop_calls_the_offer_analyser_HOLD.sql`
+1. **ENROLMENT — the one this lane is blocked on. [TAKEN 2026-08-15: ENROL — see update above.]** `409_improvement_loop_calls_the_offer_analyser_HOLD.sql`
    puts B4 into every improvement sweep (audit-due branch, between `call_site_review` and
    `record_audit_pass`). PLAN §B5 makes this his call. The two prices, both in 409's header:
    one more LLM call per swept site (30–47KB prompt; the fleet hit its Anthropic cap on 08-14 —

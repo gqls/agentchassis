@@ -766,3 +766,27 @@ part is already live; the code part rides the next release).
    roadmap entries, but making them actionable means deciding what should HANDLE a "page deviates
    from the brief" finding — that is a product call. Bug file 279 has the options under
    candidate 3.
+
+---
+
+## 2026-08-15 (afternoon) — you said enrol, and it is done
+
+You made the enrolment call: the offer analyser is now part of the automatic improvement sweep,
+not a thing a session has to fire by hand. Concretely, whenever the sweep visits a site that is
+due an audit (its content changed, or two weeks have passed since the last look), it will now run
+the offer analysis alongside the strategic review, write the ranked "what should this site lead
+with" record, and file its findings as ordinary work items that the sweep then dispatches.
+
+The held migration went in exactly the way it was written to: a rehearsal run against the live
+system first (clean), then the real apply, then the check that promotion still has exactly one
+owner (clean). If it ever needs undoing, the undo file is written and stays surgical — it removes
+only what this change added, so it cannot trample another session's edits to the same loop.
+
+What I told you before you decided, for the record: each swept site that is due now costs one more
+sizeable AI call (and the fleet did hit its spending cap yesterday afternoon), and each analysis
+files roughly five work items that the sweep will act on rather than park. The gate on "due" keeps
+unchanged sites free.
+
+The thing to watch next: nothing sweep-driven has exercised this wiring yet — both proven runs
+were hand-fired. The first site the sweep picks up will be the real test, and the ten findings
+already sitting from the two proof runs will start moving at the same moment.

@@ -457,3 +457,20 @@ Marked here rather than edited into §B above, so the original text stays readab
   work delays B4. The claims-audit extension is the lane's next track. `recurring_value` stays
   absent on leopardess in the meantime — today's state, and the degraded arm now announces it in
   every ordering artefact for that site rather than letting the thinner analysis pass as full.
+- **2026-08-15 — OWNER DECISION: ENROL. B4 is in the automatic sweep — migration 409 applied,
+  recorded, single-owner audit clean.** The §B5 enrolment call, put to him with both prices as
+  409's header states them (one more 30–47KB LLM call per audit-due swept site, the day after the
+  fleet hit its Anthropic cap; ~5 non-parkable dispatchable items per swept site) and with two
+  alternatives (stay hand-fired; hold until the claims-audit extension lands so B4 grades against
+  checked premises). He chose enrol now. Applied per the held file's own instructions: trial
+  ROLLBACK run clean against the live row first; pre-apply read confirmed BOTH `call_site_review`
+  arms sat at `record_audit_pass`, so the rollback's two-pointer restore stays exact; renamed off
+  `_HOLD` (both files, `git mv`); psql apply under `ON_ERROR_STOP=1` — guard and verify DO blocks
+  passed; `--record-only` with the why; `./scripts/audit-single-owner-actions.sh` clean (1 declared
+  single-owner action, 0 findings — promotion is still solely `triage_findings`, migration 286).
+  Live chain verified after: `call_site_review → spawn_offer_analyser → call_offer_analyser →
+  record_audit_pass → triage_findings`, error arms rejoining. **What this changes:** the 10
+  `detected` offer-analysis items now travel on the next sweep of their sites (IMP-016's "one
+  clean cycle" becomes witnessable rather than waiting), and every audit-due sweep grows the
+  `offer_ordering` estate past 2 of 22 without a session firing anything. **First sweep-driven B4
+  run is the thing to watch** — nothing sweep-driven has exercised the splice yet.

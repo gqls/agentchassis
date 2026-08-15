@@ -1,4 +1,5 @@
--- 409_improvement_loop_calls_the_offer_analyser_HOLD_ROLLBACK.sql
+-- 409_improvement_loop_calls_the_offer_analyser_ROLLBACK.sql
+-- (was 409_…_HOLD_ROLLBACK.sql until the owner's 2026-08-15 enrolment call)
 --
 -- Un-enrols the offer analyser from the improvement sweep: re-points
 -- call_site_review straight back at record_audit_pass and drops the two steps

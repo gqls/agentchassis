@@ -1756,3 +1756,34 @@ Asked by the owner to look the solution over once more and refresh the handoff. 
    this lane's README (the four dead 08-13 brief-fidelity findings: cancel or re-run; whether
    brief-fidelity becomes a routed scheduled check) — **theirs to route, recorded here only so the
    handoff lists every decision the owner has open.**
+
+## 2026-08-15 (later) — ENROLMENT: owner said go, 409 applied, the sweep now carries B4
+
+Cold-start re-verified every handoff liveness claim first, and all held: 10 items still
+`detected`/unclaimed; 2 ordering rows; loop unwired; 409 at `_HOLD`; chassis pods 3h old.
+One claim had gone stale in the useful direction: **webdesign.co.uk is quiet** — no in-flight
+orchestration since 14:35 (the 08-14 blocker, an executing `content-gap-planner`, is gone; its
+`needs_page` rows now sit `failed`, 148 of them). So the §B5 proof run is unblocked.
+
+Put the enrolment decision to the owner with 409's two prices and two alternatives (stay
+hand-fired; hold until claims-audit). **He chose: apply 409, enrol now.**
+
+Application, in the order the held file's own header prescribes, each step's evidence inline:
+1. Trial run (`sed 's/^COMMIT;$/ROLLBACK;/'` → psql `ON_ERROR_STOP=1`): `BEGIN SELECT 1 DO
+   UPDATE 1 DO ROLLBACK` — guard passed against the LIVE row this afternoon, not just 08-14's.
+2. Pre-apply read: `call_site_review` next_step AND error_step both `record_audit_pass` — so the
+   ROLLBACK file's restore of both arms is exact, recorded into its header.
+3. `git mv` both files off `_HOLD` (migration + ROLLBACK); headers updated to say applied-on-call.
+4. Real apply: same six-line clean output ending `COMMIT`.
+5. `--record-only 409_… --note "applied by hand … owner enrolment call 2026-08-15 …"` — recorded.
+6. `./scripts/audit-single-owner-actions.sh` — **clean**: 187 agents decoded, 1 declared
+   single-owner action, 0 findings. Promotion is still solely `triage_findings` (migration 286).
+7. Live chain read back: `call_site_review → spawn_offer_analyser → call_offer_analyser →
+   record_audit_pass → triage_findings`, error arms rejoining. Enrolled.
+
+**Not yet witnessed, deliberately listed as such:** a SWEEP-driven B4 run (both proven runs were
+hand-fired oneshots; the splice has never been exercised by the loop itself), and the 10 items
+travelling. Both now arrive on the next sweep of any audit-due site rather than needing a hand.
+
+Register BIZ-032 + index row corrected visibly (strike-through + date); PLAN decision log has the
+owner decision; 030's status block updated.
