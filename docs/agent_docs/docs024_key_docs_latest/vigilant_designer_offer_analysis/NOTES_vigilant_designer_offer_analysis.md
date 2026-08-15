@@ -1787,3 +1787,53 @@ travelling. Both now arrive on the next sweep of any audit-due site rather than 
 
 Register BIZ-032 + index row corrected visibly (strike-through + date); PLAN decision log has the
 owner decision; 030's status block updated.
+
+## 2026-08-15 — PREDICTIONS, recorded BEFORE firing: the §B5 proof run, webdesign.co.uk
+
+The owed worst-case run, skipped 08-14 because a `content-gap-planner` was executing there.
+Re-checked now: **no in-flight orchestration since 14:35** (all COMPLETED), the planner's
+`needs_page` rows sit `failed`, chassis pods 3h old (dispatch-drop window long past). The surface
+has GROWN since the sizing: **104 reachable pages** (was 101) — better as the truncation test.
+⚠ Both `webdesign.co.uk` AND `webdesign.uk` exist in `sites` — the oneshot's subquery pins the
+exact domain; a LIKE would be firing at two sites.
+
+Vehicle: clone of the proven 08-14 oneshot (`target_agent_type='offer-analyser'`,
+`target_topic='system.agent.scheduled.requests'`, timeout 900, `fire_message=true`, no
+pre_query), `site_id` from a subquery against `sites`, disable the moment `last_triggered_at`
+stamps.
+
+1. `orchestration_states` row, `owner_agent_type='offer-analyser'`, domain webdesign.co.uk,
+   reaching `complete`, COMPLETED.
+2. A new `offer_ordering` spec row for webdesign.co.uk: `is_current`, `source='offer-analyser'`,
+   all seven keys, `inputs_missing=[]`, `degraded=false` (its strategy carries all four Q-fields —
+   read live just now), `primary_model='saas_tools'` (read live just now — the model must echo the
+   RECORDED value, not re-derive one).
+3. **The falsifiable PAIR**: LLM findings count == `items_created`, items under
+   `audit_source='offer-analysis'`.
+4. **`__truncated` ABSENT — the point of this run.** 104 pages ≈ the ~47KB worst-case prompt the
+   sizing predicted; two outputs against `max_tokens` 8000. If it fires, this is where B4's v2
+   must add windowing before the excerpt change (which grows the surface further).
+5. All item types from the mapped set, every `page` naming a real page (`page_id` resolved);
+   no `audit_finding_*` row (chassis roll status for 279's fix unknown — the closed vocabulary
+   must hold regardless).
+
+### RESULTS — all five met; the worst case does not truncate
+
+Run `841060fa-7946-4404-80db-9ea0626ef7a5`, fired 14:58:11 via the oneshot (disabled the moment
+`last_triggered_at` stamped), COMPLETED at `complete` in **51 seconds**, error NULL.
+
+| prediction | outcome |
+|---|---|
+| reaches `complete` | ✅ COMPLETED, 51s — FASTER than the 34-page site (58s) |
+| ordering row, 7 keys, `degraded=false`, `inputs_missing=[]`, `primary_model='saas_tools'` | ✅ all exact — the model echoed the RECORDED value |
+| the falsifiable PAIR | ✅ **4 LLM findings → `items_created=4`** |
+| **`__truncated` absent** | ✅ absent. **The truncation test PASSES at 104 pages** — B4 v1 handles the estate's worst surface with headroom unknown but non-zero |
+| mapped types only, pages resolve | ✅ `content_rewrite`×2 + `tone_shift` page-resolved; the 4th is `needs_content_planning` with NO page — legitimately site-level (news index's nav weight vs its offer role), the `gap`-without-a-page route, live handler content-gap-planner. No `audit_finding_*` row |
+
+Two notes for v2 sizing: (a) the excerpt change (v2a) GROWS the surface — this run is the
+baseline that says v1 fits; re-run the truncation check after v2a on THIS site before trusting
+it anywhere. (b) My earlier item-check query read `spec->>'page_id'` — wrong; `page_id` is a
+COLUMN on `site_work_items`. The first read said 0/4 resolved and the truth was 3/4; instrument
+error, caught by asking the schema. Estate now: **3 of 22 sites carry `offer_ordering`; 14
+offer-analysis items sit `detected` across 3 sites, and with 409 live they travel on the next
+sweep of each.**

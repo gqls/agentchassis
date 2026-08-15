@@ -790,3 +790,23 @@ unchanged sites free.
 The thing to watch next: nothing sweep-driven has exercised this wiring yet — both proven runs
 were hand-fired. The first site the sweep picks up will be the real test, and the ten findings
 already sitting from the two proof runs will start moving at the same moment.
+
+---
+
+## 2026-08-15 (afternoon, continued) — the big-site test passed
+
+Right after the enrolment I ran the one proof that was still owed: the analyser against our
+biggest site, webdesign.co.uk, now 104 pages. The worry was size — the analysis reads a summary
+of every page on the site, and on a site this large that summary alone is substantial, so this
+was the test of whether the analyser's answer gets cut off mid-thought on a big site. It didn't:
+the run finished cleanly in 51 seconds (faster than the 34-page site, oddly), wrote the full
+ranked "lead with this, not that" record, and filed four findings, each one checked out.
+
+The findings themselves are sensible: the home and about pages describe us rather than what the
+reader gets; several guide titles are written in hype register ("Stop Overthinking…") on a site
+whose recorded tone is calm and practical; and the news section is given the same navigation
+weight as the tools and guides that actually earn the site its keep.
+
+Three of our 22 sites now carry the ranked ordering record. Fourteen findings are queued across
+the three, and because of the enrolment you approved, they start moving on their own the next
+time the sweep visits each site — nobody has to push them.
