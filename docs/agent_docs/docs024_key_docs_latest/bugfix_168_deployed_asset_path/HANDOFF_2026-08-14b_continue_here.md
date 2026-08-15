@@ -18,8 +18,8 @@ Read-out: `SUMMARY_2026-08-14b_deployed_asset_path.md`.
 | `claims_unverified` revalidator | **LIVE + PROVEN** |
 | **The three gates** (claim-granular · copy-changed · published) | **REACHED AND PASSED, once** — `resolved_all_gates_passed` on item `e713613f`, 16:48:45Z. **No gate has ever REFUSED**; all refusal arms are 0 and unobserved |
 | `result.revalidation.arm` — the arm instrument | **LIVE**, council APPROVED r1, exercised twice |
-| Fleet | **`v1.0.1299`**, 17 pods, **ONE digest** `sha256:2d247078…` (makefile `IMAGE_TAG` line 17 moves ahead of the fleet — read the pod, not the file) |
-| Daily sweep anchor | **`last_triggered_at` = 2026-08-14 08:45:04Z — UNMOVED.** The 16:48 sweep was a manual dispatch, deliberately not a schedule wind-back |
+| Fleet | ~~`v1.0.1299`~~ **`v1.0.1300` from 2026-08-14 20:36Z**, ONE digest `sha256:de327bf4…`. Both gate arms re-probed in the new binary, fabricated control rc=1 (makefile `IMAGE_TAG` line 17 moves ahead of the fleet — read the pod, not the file) |
+| Daily sweep anchor | **`last_triggered_at` = 2026-08-14 08:45:04Z**, next due **2026-08-15 08:45:04Z**. The 16:48 sweep was a manual dispatch, deliberately not a schedule wind-back |
 | `bugs_closed/262` (published gate) | CLOSED, live since `v1.0.1293` |
 | ⚠ Fleet LLM capability | **DOWN until 2026-09-01** — monthly spend cap, landmine filed by the bugfix_213 lane. Nothing on this lane needs it |
 

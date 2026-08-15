@@ -3870,3 +3870,32 @@ sweep) AND redeployed since:
 
 **If instead a `gate_%` arm appears, prediction 1 is wrong and the reason is worth more than the
 prediction was** — it would mean an item reached a gate by a route this pre-run reading did not see.
+
+### ⚠ MISSTEP, 08:00:29Z — a failed `sleep` handed me a complete PRE-run measurement that looked post-run
+
+To wait for the 08:45:04Z daily I backgrounded `sleep $(( TARGET - NOW )); <the three queries>`, with
+`TARGET=$(date -u -d '2026-08-15 08:46:30' +%s)`. **`date -d` parses in LOCAL time and `-u` only
+formats the output**, so on a BST box the target resolved to a moment already past, `sleep` was handed
+a negative number, and it exited with a usage error.
+
+**The compound command carried on.** No `set -e`, so the three queries ran immediately and returned a
+complete, well-formed, entirely **pre-sweep** result set: 17 `scan_still_trips`, 2 `page_absent`, 1
+`evidence_base_absent`, 1 `resolved_all_gates_passed`, and both watched items still open. Every figure
+correct. Every figure the wrong *moment*.
+
+**This is the lane's own last-write-wins hazard wearing a different hat.** A pre-run and a post-run
+reading of `result.revalidation.arm` are structurally identical — same columns, same arms, same
+counts if nothing moved — so *"the sweep ran and nothing changed"* and *"the sweep has not run"*
+produce the same table. Prediction 1 said "zero refusals"; that output shows zero refusals; it would
+have read as CONFIRMED. It confirms nothing.
+
+**What caught it:** the same output carried `last_triggered_at` (still `2026-08-14 08:45:04Z`) and a
+`date` stamp (`08:00:29Z`). Two independent facts, both saying the sweep had not run.
+**The cheap check, and it is the general form:** *never read a measurement of a scheduled run without
+the anchor and a clock stamp in the same output.* A timing guard that fails silently costs nothing if
+the reading carries its own timestamp, and costs a false confirmation if it does not.
+
+Relaunched **condition-based instead of clock-based** — poll `last_triggered_at` until it CHANGES,
+then measure. Immune to timezone arithmetic entirely, and its timeout branch prints
+*"the daily did not fire — that is a finding, not a timeout"*, so a non-firing scheduler cannot read
+as a tooling failure either.
