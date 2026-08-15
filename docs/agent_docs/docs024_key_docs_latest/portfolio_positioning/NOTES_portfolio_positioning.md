@@ -752,3 +752,16 @@ items since April, ~25 completed full-site rerenders dispatched for nothing,
 `bugs_open/270_HANDOFF_2026-08-13_missing_structure_check_fires_on_vestigial_columns...md`.
 Unowned; candidate 1 (retype predicate onto `site_components`) is the door-closer.
 Also a standing confounder for any rerender-churn investigation (bugfix 117's class).
+
+**B1 round 3: REVISE again [2026-08-14 18:17]** — the loop is now form, not substance:
+the gating HIGH is the submission schema's own ≤8-edit cap vs 10 edited files (named
+inside an edit's rationale instead; reviewer flags the array anyway — structurally
+unsatisfiable as asked); bug_historian's medium MISREADS group-by-kind as "caps emission
+to one item per kind" (the item aggregates the kind's failures in spec.rejected, refreshed
+per pass — same as the pre-existing pattern, now per kind); reuse_agent flipped
+approve→object on a point answered in round 2. Two cheap checks run anyway and clean:
+`agent_definitions` references to `evaluate_directory_features` = 0, to
+`mortgage_lender_directory` = 0 (prior_art's lows). Gate is advisory; verdict trail
+recorded; 4th-round-or-proceed is the owner's call. Nothing else blocks on it — the roll
+is the real gate for everything remaining. Milestone summary:
+`SUMMARY_2026-08-15_guardrails_live_directories_built.md`.
