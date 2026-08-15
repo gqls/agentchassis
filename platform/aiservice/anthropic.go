@@ -124,30 +124,57 @@ func (c *AnthropicClient) GenerateWithImages(ctx context.Context, prompt string,
 // write premium and returns zero reads — see the concept-register entry.
 const CacheBreakpointMarker = "<!--CACHE_BREAKPOINT-->"
 
-// TTL IS DELIBERATELY THE 5-MINUTE DEFAULT — i.e. no "ttl" field is sent at all.
+// TTL IS THE ONE-HOUR EXTENDED CACHE. Owner ruling 2026-08-15.
 //
-// The first draft sent ttl:"1h", reasoning that council-gate's 17-seat chain
-// runs 2–5 minutes and sits right on the 5-minute boundary. The council gate's
-// edit-quality seat caught the flaw (correlation b54f173e, medium severity):
-// the extended TTL is gated behind a beta header this client does not send, so
-// the first caller to opt in would get a 400 rather than a cache hit — and
-// because council-gate reviews every platform change, a 400 there takes out the
-// review path for the whole estate, not just this optimisation.
+// ⚠ READ THE HISTORY BEFORE CHANGING THIS LINE — it has been flipped once already,
+// and the reason it was OFF was sound at the time it was written.
 //
-// Rather than add a beta header I cannot verify from here without spending
-// council credits on the very thing being reined in, this takes the option with
-// no ambiguity: the default TTL needs no header on any model.
+// WHAT IT WAS, AND WHY. This constant was `""` (send no ttl field, get the
+// 5-minute default) because the council gate's edit-quality seat found
+// (correlation b54f173e, medium) that the extended TTL was gated behind a beta
+// header this client does not send — so the first caller to opt in would get a
+// 400 rather than a cache hit, and because council-gate reviews every platform
+// change, a 400 there takes out the review path for the whole estate. That
+// asymmetry is the whole argument and it still holds: a too-short TTL is a worse
+// saving; an unsupported ttl field is an outage.
 //
-// THE COST OF BEING WRONG IS ASYMMETRIC, which is the whole argument. Default
-// TTL that turns out to be too short = some later seats miss and we save less
-// than hoped, visible immediately in cache_read_input_tokens. Unsupported ttl
-// field = every council call 400s. The first is a worse saving; the second is
-// an outage.
+// The comment that stood here set the bar for changing it: "confirm the current
+// beta header for extended TTL, send it, and set ttl here. Do NOT reintroduce ttl
+// without that confirmation." This is that confirmation — and the answer turned
+// out to be that there is no header to send.
 //
-// If the measured run shows later seats missing, the fix is evidence-led rather
-// than speculative: confirm the current beta header for extended TTL, send it,
-// and set ttl here. Do NOT reintroduce ttl without that confirmation.
-const cacheTTL = ""
+// THE EVIDENCE, measured 2026-08-15 against the live account from inside a chassis
+// pod (so the fleet's own key, not a personal one), on BOTH models the fleet uses:
+//
+//	claude-sonnet-5   → HTTP 200, and the usage block credits the write to the
+//	                    1-hour bucket, which is the part that proves the TTL was
+//	                    honoured rather than merely tolerated:
+//	                    "cache_creation": {"ephemeral_5m_input_tokens": 0,
+//	                                       "ephemeral_1h_input_tokens": 6003}
+//	claude-sonnet-4-6 → HTTP 200, no 400. Stated limit: that call returned a cache
+//	                    READ (0 in both creation buckets), so it confirms the field
+//	                    is ACCEPTED on this model but does not by itself re-prove
+//	                    the 1h bucket. The acceptance is what the outage risk hung
+//	                    on; the bucket is proven above.
+//
+// No beta header was sent in either probe. Anthropic's current reference lists the
+// 5m and 1h TTLs as generally available.
+//
+// WHY 1h RATHER THAN THE DEFAULT — the arithmetic, so a future reader can re-judge
+// it instead of inheriting it. A cache write costs 1.25x base input at 5m and 2x at
+// 1h; a read costs 0.1x. Break-even hit rate is therefore ~22% at 5m and ~53% at 1h.
+// Measured over three days on same-prefix call gaps:
+//
+//	council-gate         96% @5m / 98% @1h — already winning; 1h is marginally better
+//	diagnose-agent       64% @5m / 93% @1h — better at 1h
+//	content-gap-planner   1% @5m / 99.8% @1h — the whole reason for this change:
+//	                     at 5m it would cost ~24% MORE than not caching at all
+//
+// IF YOU ARE REVERTING THIS: set the value back to "" — do NOT delete the field
+// handling below, and do not assume a 400 you are seeing comes from the ttl. Check
+// `cache_creation.ephemeral_1h_input_tokens` on a live call first; if the API had
+// stopped accepting the field, every call in the fleet would be failing, not one.
+const cacheTTL = "1h"
 
 func (c *AnthropicClient) generate(ctx context.Context, content interface{}, options map[string]interface{}) (string, error) {
 	// Build request. content is either a plain string (GenerateText) or a
