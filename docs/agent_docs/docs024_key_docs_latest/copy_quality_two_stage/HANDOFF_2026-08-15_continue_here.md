@@ -1,8 +1,35 @@
 # HANDOFF 2026-08-15 — continue here
 
 **Lane:** `copy_quality_two_stage`. **State: the approved 08-13 execution plan is fully
-delivered or closed at its gates.** This file is the entry point for a fresh session;
-NOTES carries the evidence for every claim below.
+delivered or closed at its gates, and the lane is paused on FOUR OWNER DECISIONS, not on
+work.** This file is the entry point for a fresh session; NOTES carries the evidence for
+every claim below; `SUMMARY_2026-08-15_plan_complete…` is the read-aloud account.
+
+## START HERE: the four decisions (owner, pending — everything below waits on these)
+
+1. **loancalculator `strategy.value_proposition`** — its final clause promises the site
+   reveals what *"lenders have no incentive to volunteer"* (the insider-secrets family,
+   the mc corrections' named anti-pattern). **Restate as the lever, or leave?**
+   Recommended: restate. One field.
+2. **loancalculator's characteristic exemplar** — `content_direction.example_phrases`
+   still lists *"reveal the true cost of credit"* (the family the owner rejected 08-08)
+   as a model. Exemplars beat rules, so this teaches the rejected register. **Remove, or
+   replace with a lever-shaped equivalent?** Recommended: replace, not remove — the slot
+   does teaching work. Regenerate `formatted` via `datahelpers.FormatContentDirection`
+   or the edit is inert (the writer reads `formatted`).
+3. **evidence_base sourcing for LMC** — the £5–7k facts in the candidate cite the site's
+   own pages (self-referential provenance). **External source / register as the site's
+   own estimate / open with mortgagecalculator's GOV.UK SDLT facts instead?**
+   Recommended: SDLT first (verified, external, catches `bugs_open/225`'s live wrong
+   figure), sourcing work later. Apply only after LMC's B2 lands, by supersede, watching
+   the first sweep.
+4. **Stage 2 timing** — `bugs_open/033` (the review surface, stage 2's D2 dependency) is
+   being worked in a SEPARATE thread (owner, 08-15). **Build stage 2 in parallel so the
+   two land together, or wait for the surface?** Recommended: parallel — stage 2's first
+   output is the committed proof case, which the owner reviews directly either way; if
+   033's thread stalls, stage 2 pauses exactly where it would have been.
+
+Plain-prose versions of all four: `README_where_we_are`, 2026-08-15 entry.
 
 ## What is DONE and verified (do not redo)
 
@@ -35,27 +62,13 @@ NOTES carries the evidence for every claim below.
    `total_field_count` on every `content_edit` result from now on; forward-only; filter
    `edit_type` first).
 
-## OPEN OWNER DECISIONS (ask, don't assume)
+## NEXT WORK once the decisions land
 
-- **D3's two one-field edits on loancalculator:** (a) `strategy.value_proposition`'s
-  *"lenders have no incentive to volunteer"* clause → restate as the lever; (b) remove/
-  replace the *"reveal the true cost of credit"* characteristic exemplar (the family the
-  owner rejected 08-08; exemplars beat rules). Regenerate `formatted` via
-  `datahelpers.FormatContentDirection` if (b) touches content_direction.
-- **evidence_base sourcing:** the £5–7k facts cite the site's own pages (self-referential
-  provenance). Options in the CONTRIB §"open question". Apply only after LMC's B2 lands,
-  by supersede, watching the first sweep.
-
-## NEXT WORK, in the standing order
-
-1. ~~**`bugs_open/033`** — read 033 + `who-owns` before starting; it may be another lane's.~~
-   **UPDATED 2026-08-15 (owner): 033 IS being worked in a separate thread — do not start
-   it from here.** The open sequencing decision (owner, pending): build stage 2 in
-   PARALLEL so the two land together, or wait for 033's surface to exist. Recommendation
-   given: parallel — stage 2's first output is the committed proof case, which the owner
-   reviews directly either way. The four pending owner decisions are laid out in
-   README_where_we_are (2026-08-15 entry).
-2. **Stage 2 build** (only after 1). The accumulated constraints, all measured:
+1. **Decisions 1+2** are minutes of config work each (supersede, never in-place; snapshot
+   first; the `formatted` regeneration on decision 2 is load-bearing).
+2. **Decision 3** waits on LMC's B2 finishing — check their lane activity first, as ever.
+3. **Stage 2 build** (timing per decision 4; `bugs_open/033` is another thread's — do not
+   start it from here). The accumulated constraints, all measured:
    - **Proof case committed** (owner ruling 08-12): 6 links missing from LMC index
      `prose-0`; pass = `loanandmortgagecalculator_couk/gate_page_links.py` exits 0;
      must-not-change list in NOTES §"OWNER RULING". Fixtures:
@@ -69,7 +82,13 @@ NOTES carries the evidence for every claim below.
    - **Set preservation is mechanical, never instructional** — proven 4× (rounds 4/6/7 +
      the 08-13 arm run, which ADDED 2 links against instruction).
    - **Locks, not instructions, protect approved copy** — proven 3×.
-3. **Phase 4 acceptance checks** (fact-inventory diff; markup parity; the type gate) —
+   - **Never compare prose to prose in an acceptance gate** — the 278 natural experiment
+     (same section, fixed inputs, filled twice): titles identical, **2 of 4 card bodies
+     diverged** with nothing wrong. Set/type/structure comparison passes that pair
+     correctly AND still catches the duplication itself. Evidence banked in `278` §8,
+     which also carries the instruction to capture a free third generation if their
+     repro re-fills the section.
+4. **Phase 4 acceptance checks** (fact-inventory diff; markup parity; the type gate) —
    induce each before trusting; a green gate that cannot fail is the lane's twice-hit
    armed-but-inert shape.
 
@@ -104,5 +123,7 @@ ink canary).
 ## The five living docs
 
 PLAN (design + §6 revised phasing + §8 decisions + §9/§10 stage-2 gates) · NOTES (the
-evidence log — read the 08-13 → 08-15 tail first) · README_where_we_are (owner's log) ·
-SUMMARY_2026-08-12 + SUMMARY_2026-08-14 (the series) · this HANDOFF.
+evidence log — read the 08-13 → 08-15 tail first; corrections are marked in place) ·
+README_where_we_are (owner's log; the four decisions in plain prose at the 08-15 entry) ·
+SUMMARY_2026-08-12 / 08-14 / 08-15 (the series: why it's wrong → the fix ships → what's
+left is choices) · this HANDOFF.
