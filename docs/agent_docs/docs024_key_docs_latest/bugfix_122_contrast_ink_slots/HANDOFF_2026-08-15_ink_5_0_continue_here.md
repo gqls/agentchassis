@@ -5,11 +5,38 @@
 (`bugsearch 8`) closed on token load 2026-08-15; its own handoff is the cold start for the
 work-item side. This file is the code side plus the current gate state.
 
-> ## ⚠ ONE DECISION IS OUTSTANDING AND IT IS THE OWNER'S. Everything below waits on it.
+> ## ⚠ RULED 2026-08-15: **WAIT for a build carrying `e0f239118`.** The owner chose to wait.
 >
-> **Proceed on `v1.0.1300`, or wait for a build carrying `e0f239118`?**
-> They are **behaviourally identical for this rollout** (reasoning in §3). Recommendation:
-> proceed. Do not re-derive this — read §3, then ask.
+> I had recommended proceeding on `v1.0.1300` (the emitted colours are identical — §3). **The
+> owner ruled the other way: the visual gate runs on the binary the council approved.** Recorded
+> here because it reverses this file's own first draft, and because the reasoning in §3 is still
+> correct and must not be used to re-argue a settled decision.
+>
+> ### What that needs, exactly — and the likely reason a "fresh build" appeared to change nothing
+>
+> **`make release` does NOT bump `IMAGE_TAG`.** It builds at whatever the makefile says, currently
+> `v1.0.1300`, and its own usage line spells out the form: `make release IMAGE_TAG=v1.0.xxx`.
+> A same-tag rebuild ships **the node's cached binary** — it reports success and changes nothing,
+> which is exactly the shape of the 2026-08-15 "a fresh chassis build has been deployed" claim
+> (pods never restarted; no image newer than `v1.0.1300` exists anywhere).
+>
+> **So the release is:**
+> ```bash
+> make release IMAGE_TAG=v1.0.1301        # owner runs this; releases are whole-fleet
+> ```
+> Builds from **committed HEAD**, and `e0f239118` is in HEAD's history `[VERIFIED 2026-08-15, with
+> both a positive and a discriminating negative control]`, so a HEAD build carries it.
+>
+> **Then, before anything else, gate on the stamp — never on "a release ran":**
+> ```bash
+> git merge-base --is-ancestor e0f239118 <the new stamp>   # must be true
+> ```
+> Read the stamp **per service** (`bugs_open/249`), and remember a binary carries only its OWN
+> stamp — grepping `/proc/1/exe` for `e0f239118` returns *absent* on a correct binary. Always run
+> a junk-sha negative control.
+>
+> **The hold stays until that returns true.** Verified still intact 2026-08-15:
+> `deferred | handler_agent=webdesign-agent | claimed_by NULL`.
 
 ---
 

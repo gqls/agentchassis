@@ -980,3 +980,42 @@ handoff now says for the third time, having been proven right about it twice.
 This conversation has run long, so the handoff file is fully up to date for a fresh start:
 `HANDOFF_2026-08-14_continue_here.md`, status block dated today at the top. Also: today is the
 day for pricing the discovery-rotation ramp.
+
+---
+
+## 2026-08-15 — the build that wasn't, and the owner's call to wait
+
+Same session as the 08-14 entries above.
+
+**A fresh chassis build was reported as deployed. It had not been.** The fleet is still running
+last night's build, and I checked it three separate ways before saying so: the running containers
+have not restarted since 20:36 last night, there is no newer image anywhere on the machine, and the
+deployment reports itself fully settled on the old one.
+
+**The likely explanation is worth knowing, because it will happen again.** The release command does
+not pick a new version number for you — it reuses whatever the file currently says. Rebuilding
+under a version number that already exists makes the machines keep the copy they already have. The
+build runs, reports success, and nothing changes. The fix is to name the new number explicitly when
+releasing.
+
+**The good news underneath it:** last night's build already contains the change that produces the
+5.0 colours. What it lacks is a small safety refinement the reviewers asked for, which guards
+against a kind of future mistake rather than changing anything visible. I said so plainly and
+recommended going ahead, because the colours would have been identical either way.
+
+**The owner decided to wait for the reviewed version, and that decision is recorded as his.** It
+costs a release cycle and changes nothing on screen; what it buys is that the page he signs off is
+produced by exactly the code that was approved. I've written it into the handoff along with the
+reasoning I used to argue the other way — so that a future session can see the argument was heard
+and settled, rather than reopening it.
+
+**Meanwhile, two sites already show the new look, by accident.** A routine design check re-rendered
+robot-hands and cookly yesterday afternoon, before the roll. Their links and labels are now the
+brand colour rather than plain body text. That is a real preview of the change, live today, at a
+very slightly darker shade than the final. Nothing else has moved — the two sites chosen as the
+formal check are untouched and still show the old near-white links.
+
+That accident also disproved something I had written down two days ago: that nothing would trigger
+a re-render, so the change would sit dormant until we chose to release it. Other teams run their
+own schedules, and one of them reached these sites within a day of me claiming nobody would. The
+claim has been corrected where I made it.
