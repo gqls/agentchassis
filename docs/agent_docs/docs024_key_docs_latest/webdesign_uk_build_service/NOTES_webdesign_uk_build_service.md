@@ -2895,10 +2895,14 @@ this session's cold-start falsifier sweep:
   pod (TOKEN-IN-POD) — the terraform fix's SECOND release survival; box
   journal zero `refresh failed` lines through the roll — which is also the
   NAMED FACTS_URL's first roll survival. Migration dry-run re-run
-  post-roll (per-session + after-every-roll practice): **in flight in the
-  background at handoff time** `[UNVERIFIED — result pending]`; the
-  session-START run showed only other threads' files (418/419/420 etc.).
-  Next session: re-run it anyway (a roll happened between).
+  post-roll (per-session + after-every-roll practice): **completed, result
+  read after the handoff was cut** `[VERIFIED 2026-08-15 ~19:0xZ, run
+  output in the session transcript]` — nothing pending is this lane's:
+  363/370 (experience-planner) read "already applied" as before;
+  418/419/420 still the 276 thread's in-flight gates (pre-state
+  "concurrent edit?"); new arrivals 428/429/432 are the finance-directory
+  thread's (429/432 carry their own "snapshot_agent did not run" probe
+  notes — theirs to read, not ours). Next session: re-run per practice.
 - **Lane position on PLAN_2026-08-11: steps 1–4 of 6 DONE.** Next build
   work = step 5 (tool-deployer backend half, proven on a SECOND site
   sharing the box), then step 6 (tool-suggester cites the approved
