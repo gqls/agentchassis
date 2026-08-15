@@ -923,3 +923,16 @@ behaviour it describes; the prescribed check survives only because of its
 
 Paperwork: `bugs_closed/254` addendum (strike + new section), handoff §0 items 2/3
 corrected in place, `WRONG_CALLS.md` entry, README paragraph for the owner.
+
+## 2026-08-15 ~11:00Z — v1.0.1301 verified through; changes nothing for this lane
+
+Fresh chassis roll (pods up 10:14Z, both replicas on `v1.0.1301`). The startup
+provenance line had already scrolled (`--tail=20000` empty — the known shelf-life,
+not an absence), so verified at the binary with controls, stderr visible: expected
+build revision `0115f2b45` → **3 hits** in `/proc/1/exe`, fabricated sha → 0, the
+as-of literal → 1. Ancestry: `0c880908a` (254 fix) and `45c93bd12` (this morning's
+watch-item paperwork) both ancestors of the build revision. Another session's 10:41Z
+commit had independently verified the same build on both replicas (their lane's
+d476b01c2) — agreeing evidence, not a substitute; the probe above is this lane's own.
+Handoff §1 "verified through" advanced 1300 → 1301. Nothing else moves: the counter
+cron is untouched by a chassis roll, the remaining watch item is unaffected.

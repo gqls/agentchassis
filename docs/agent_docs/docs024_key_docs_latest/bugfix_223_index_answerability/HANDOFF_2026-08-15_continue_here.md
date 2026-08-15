@@ -47,7 +47,7 @@ refutation 2026-08-15 — see it below), zero pending builds.**
 Both bugs are CLOSED, live, and in `bugs_closed/` (`223`: the index states what it
 cannot represent + var/const indexed; `254`: the indexed commit travels with every
 empty answer and dates every persisted verdict — live since v1.0.1297, verified through
-v1.0.1300 by ancestry). RFC_022 is CLOSED end-to-end: interim (migrations 381/383),
+**v1.0.1301** by ancestry + binary probe with controls, 2026-08-15 ~11:00Z). RFC_022 is CLOSED end-to-end: interim (migrations 381/383),
 counter built (register **WFA-013**), budget **RULED N=10** (404/405 put the ruled
 trigger in both rosters, 377 breakpoint intact), and the counter runs daily
 (`optional-key-budget-check`, Python-mirror shape at the owner's direction, first
