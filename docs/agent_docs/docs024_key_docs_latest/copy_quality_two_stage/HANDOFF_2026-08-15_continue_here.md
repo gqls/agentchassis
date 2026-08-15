@@ -73,6 +73,18 @@ NOTES carries the evidence for every claim below.
    induce each before trusting; a green gate that cannot fail is the lane's twice-hit
    armed-but-inert shape.
 
+## NEW 2026-08-15 (late): webdesign.co.uk — the first live v2-era case, WAITING on a composition bug
+
+Owner feedback (via the bugfix-122 front): the homepage copy "sounds like AI with 'this
+not that'" — h2 *"A workbench, not a sales pitch"* + the same shape in the body. Verified;
+NOTES 08-15 has the full record. The site has NO voice spec/gate (pure house-voice
+governance) and the copy predates v2. **Action when unblocked:** voice-only
+`content_rewrite` via `page-build-handler` (renders under v2 now). **Blocked on:** the
+duplicated section (positions 2+3, identical h2) — a composition bug the 122 front was
+asked to file; fix composition FIRST or the two fixes muddy each other. Do not hand-write
+copy (owner rulings 08-04/08-06), and do not touch the tan link colour (intended, 122's
+ink canary).
+
 ## Standing cautions for the next session
 
 - LMC: never fire `run_improvement_sweep_once.sh` (promotes all `detected` rows); the
