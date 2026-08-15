@@ -1946,6 +1946,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 	// =========================================================================
 	// STORAGE — S3, assets, entity state, memory
 	// =========================================================================
+	"publish_site": {
+		Handler:     PublishSiteAction,
+		Category:    "storage",
+		Description: "Publish a site's built artefact tree to its opted-in hosting backend on tree-hash drift (platform/publish; no-op when sites.publish_target is NULL)",
+		IsLocal:     true,
+	},
 	"upload_to_s3": {
 		Handler:     UploadToS3Action,
 		Category:    "storage",
