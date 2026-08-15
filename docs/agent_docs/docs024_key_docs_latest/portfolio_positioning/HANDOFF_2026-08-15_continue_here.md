@@ -104,6 +104,9 @@ Where to look, precisely:
   wrong), not a rubber-stamp. The 2026-08-11 ruling stands: the model is NOT the lever —
   brief/spec first. Route findings INTO that lane's docs (`who-owns` it first; it was
   recently active).
+- **Added 2026-08-15 (owner, session brief): copy-voice work is ACTIVE in another thread** —
+  session "copy quality two stage", id `79d969f9-0009-4540-84cc-2557222db288`. Do not
+  duplicate the voice review from this lane; coordinate through that session's docs.
 
 ### 3b. Pilot execution note (decision made: remortgagecalculator.uk, M4)
 

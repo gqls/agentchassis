@@ -780,3 +780,71 @@ bug_historian's aggregation misread with the mechanism, shows the full allowlist
 the activation, and carries the two zero-count agent_definitions checks. Cold-start:
 `HANDOFF_2026-08-15_continue_here.md` (supersedes 08-13). Owner decision list delivered in
 chat and recorded in the handoff §3.
+
+### 2026-08-15 (later session) — B4 supervised first runs begin
+
+**Cross-thread pointer (owner, in the session brief): copy-voice work is live in another
+thread** — session "copy quality two stage", id `79d969f9-0009-4540-84cc-2557222db288`.
+Relevant to handoff §3a (mortgagecalculator.co.uk voice review): that review should not be
+duplicated from this lane; treat that session as the active worker on voice/copy.
+
+**Observed on pickup, benign but unexplained writer**: all three finance discovery rows
+carry `last_completed_at=2026-08-15 13:54:40.636839+00` — identical to the microsecond
+(one statement), while `last_triggered_at` still holds the 10:51:40 activation stamp and
+`updated_at` still reads 08-14 08:12. Not the scheduler (`stampCompleted` writes both
+stamps), not the admin handlers (both bump `updated_at`); so a manual psql UPDATE, most
+plausibly clearing the in-flight/timed-out cosmetic state the activation left
+(`last_triggered_at` set, `last_completed_at` NULL). No orchestrations of either
+researcher type existed before B4 fired, so no run was hidden behind it. [INFERRED as to
+motive; the column evidence is measured.]
+
+**B4 run 1 — mortgage-lender, fired 14:3x UTC** via
+`UPDATE scheduled_tasks SET last_triggered_at=NULL WHERE name='mortgage-lender-directory-discovery'`.
+Pre-flight: chassis pods 179m old (no 300s window issue); open-work-item check clean for
+the three finance kinds (the open `directory_citation_unverified` rows are the MODEL lane's
+kinds — protocol/company/model — another workstream). Orchestration
+`c516508b-a1ae-43ad-8f39-63aa07f48b8f` spawned within a tick, step `search_web`,
+AWAITING_RESPONSES. Watching to terminal state; results below.
+
+**Run 1 result (COMPLETED 14:32:51, ~2.5 min): mechanics ALL work, the SET fails the bar.**
+Chain exercised end-to-end: search → prepare (4 urls of 10 results) → scrape → extract →
+verify_and_register → kind-scoped HITL reject item. 3 entities registered, 8 claims all
+status `found`; 1 reject item `directory_citation_unverified` ("Directory
+(mortgage-lender)", 2 candidates, both `fetch_error` HTTP 403 on one Eversheds page). No
+price-field refusal this run (nothing attempted a price field). **The defect run 1
+exposed: 2 of 3 entities were CATEGORY-shaped** ("FCA-regulated mortgage lenders
+(general)", "UK Specialist Lending Sector (nonbank)") — true, citable facts hung on
+sector pseudo-entities. Cause read from the artefacts, both layers: (a) retrieval — the
+research_query described the MARKET, so the scrape set was 3/4 market-level pages (FCA
+how-to, KBRA RMBS research, Eversheds market-study commentary, BoE statistics) and only
+1/4 an actual lender (Family Building Society, the run's one real entity); (b) extraction
+— the prompt said "name the specific provider" but never forbade aggregates, and the
+citation gate CANNOT catch this class because the defect is entity shape, not claim
+truth. The sibling directory-researcher (model lane) has the same latent gap — unfired
+there because model sources are model-specific; NOT edited (their row), noted here.
+
+**Fixes applied (all config, live immediately, one transaction where possible):**
+- **Migration 423** (`sql_for_agents/423_…named_firm_rule.sql` + ROLLBACK): named-firm-only
+  rule appended to extract_claims after the price rule, 206's replace()-idiom, snapshot
+  first (verified in `agent_definitions_backup` holding the PRE-change text,
+  14:40:14Z), anchor unique, idempotent WHERE, verify t|t|t. NB found while writing it:
+  a `\n` inside a LIKE pattern matches literal `n` (backslash is LIKE's escape char) —
+  use position() for anchor checks over jsonb ::text.
+- **research_query re-aimed at NAMED firms, all 3 kinds** (guarded UPDATEs, 1 row each).
+  Old values for reversibility: mortgage-lender "UK mortgage lenders FCA authorised:
+  banks, building societies and specialist lenders; residential, buy-to-let and
+  later-life product ranges; regulator status and firm reference numbers" · savings
+  "UK savings account providers: banks and building societies, FSCS protection, product
+  types (easy access, fixed term, ISA), regulator status and firm reference numbers" ·
+  health "UK private medical insurance providers: insurers and underwriters, cover types
+  (inpatient, outpatient, mental health, dental), regulator status and firm reference
+  numbers".
+- **The 2 category entities archived** (status was the only live filter — consumers read
+  `status='active'` only, `queryresolve/directory_items.go:108`), reason written into
+  `attributes.archived_reason`. Family Building Society stays active.
+- **HITL item `dc891e85` ruled complete/discard** with the reasoning in `result` (its two
+  candidates cited the 403 page AND hung on a category-shaped entity).
+
+**Run 2 fired ~14:47Z** (same force-trigger) to measure both fixes. Applying the two
+fixes together rather than one-per-run was deliberate: they act at different stages
+(retrieval vs extraction), and supervision time bounds the run count.

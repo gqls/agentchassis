@@ -24,6 +24,14 @@
 -- EMPTY config, which sweeps every kind (loadDueDirectoryClaims: `$1 = ''
 -- OR de.kind = $1`) — verify at enable time rather than trusting this
 -- comment, then leave it be. A second kindless sweep would double-fetch.
+--
+-- REVISED 2026-08-15 (B4 supervised run 1): the three research_query values below were
+-- re-aimed at NAMED firms and updated on the LIVE rows the same day. The originals
+-- described the market ("UK mortgage lenders FCA authorised: banks, building societies
+-- and specialist lenders; …") and retrieved 3/4 market-level pages, which produced
+-- category-shaped entities. Old values preserved in
+-- portfolio_positioning/NOTES 2026-08-15. This file now matches live so a re-apply
+-- cannot resurrect the market-shaped queries. Companion prompt fix: sql_for_agents/423.
 
 BEGIN;
 
@@ -39,7 +47,7 @@ SELECT
     'system.agent.generic.requests',
     jsonb_build_object(
         'research_query',
-        'UK mortgage lenders FCA authorised: banks, building societies and specialist lenders; residential, buy-to-let and later-life product ranges; regulator status and firm reference numbers'
+        'named UK mortgage lenders — individual banks, building societies and specialist lenders (Building Societies Association and UK Finance member firms): each firm''s mortgage product range (residential, buy-to-let, later life), FCA authorisation statement and firm reference number'
     ),
     'finance-directory-discovery',
     1,
@@ -59,7 +67,7 @@ SELECT
     'system.agent.generic.requests',
     jsonb_build_object(
         'research_query',
-        'UK savings account providers: banks and building societies, FSCS protection, product types (easy access, fixed term, ISA), regulator status and firm reference numbers'
+        'named UK savings providers — individual banks and building societies: each firm''s savings products (easy access, fixed term, cash ISA), FSCS protection statement, FCA authorisation and firm reference number'
     ),
     'finance-directory-discovery',
     1,
@@ -79,7 +87,7 @@ SELECT
     'system.agent.generic.requests',
     jsonb_build_object(
         'research_query',
-        'UK private medical insurance providers: insurers and underwriters, cover types (inpatient, outpatient, mental health, dental), regulator status and firm reference numbers'
+        'named UK private medical insurers — individual insurance companies and underwriters: each firm''s cover options (inpatient, outpatient, mental health, dental), FCA/PRA authorisation and firm reference number'
     ),
     'finance-directory-discovery',
     1,
