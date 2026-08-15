@@ -31656,3 +31656,31 @@ the empty output as "unchanged" (entry above). Same failure: **interrogate somet
 does not exist and you get a well-formed answer indistinguishable from data.** Absence of
 a path, absence of a key. In both cases the disconfirming check was one line and I ran it
 only after the answer looked convenient or after being contradicted.
+
+---
+
+## 2026-08-15 — I ran the collision check and let the commit proceed regardless of its answer (bug 278→279 renumber)
+
+**The claim (implicit):** "bug number 278 is free" — asserted by filing
+`bugs_open/278_HANDOFF_…work_item_type…` and committing it.
+
+**What caught it:** my own pre-commit check — but only its OUTPUT, read AFTER the
+commit landed. The compound command was `ls … | grep -c "^278"; …; git commit …`:
+the count printed **2** (another session had committed an unrelated 278 fifty-four
+seconds earlier), and because the commit was chained unconditionally, it ran anyway.
+I had checked the number was free ~40 minutes before, at research time; a claim
+about a shared namespace was carried across a window in which ~15 other-session
+commits landed.
+
+**The cheap check:** wire the check INTO the action, not beside it —
+`[ "$(ls bugs_open/ bugs_closed/ | grep -c '^278')" -eq 1 ] && git commit …` (the
+count includes your own added file, so the free-number invariant at commit time is
+exactly 1). A check whose result cannot stop the action it guards is a narration,
+not a gate — the same shape as `logging-a-doubt-is-not-a-control-on-it`, from the
+other side: I even READ the doubt, one second too late.
+
+**Cost:** one duplicate number on a tree whose docs say every duplicate number is
+permanent ambiguity tax ("resolve by slug" exists because of 016/017/083/…146).
+Renumbered to 279 within minutes (later filer yields; four references of mine
+fixed), so the residue is one rename commit — but only because the collision was
+noticed at all, which the ungated check did not guarantee.

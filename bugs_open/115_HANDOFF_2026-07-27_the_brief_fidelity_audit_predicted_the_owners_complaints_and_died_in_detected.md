@@ -143,10 +143,10 @@ making the *next* one visible is cheaper than draining this batch.
 
 ---
 
-## 2026-08-15 — the WRITER-side mechanism is now filed as `bugs_open/278`
+## 2026-08-15 — the WRITER-side mechanism is now filed as `bugs_open/279`
 
 This file's fix candidate 1 ("route the item type, or refuse to write it") got its
-mechanism file: **`bugs_open/278`** establishes, with code cites and a live census,
+mechanism file: **`bugs_open/279`** establishes, with code cites and a live census,
 that `classifyFinding`'s fallback mints `audit_finding_<category>` for any category
 outside its hardcoded sets (silently, deprioritised), that the `work_item_type` field
 two prompts demand is discarded unparsed (the struct has no such field; zero readers

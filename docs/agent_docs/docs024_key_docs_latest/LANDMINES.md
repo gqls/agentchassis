@@ -10704,7 +10704,7 @@ code change owed at the next roll, tracked in RFC_015 §5.
   `audit_source='site-review'` — the first such rows ever; `bugs_closed/272` holds the trail).
   The paragraph below was written earlier the same day, when v1.0.1300 had missed the fix;
   its probe recipe stays useful for the next same-shaped question. **Half 2 remains UNFIXED
-  — now filed with full mechanism + census as `bugs_open/278`** (work_item_type discarded
+  — now filed with full mechanism + census as `bugs_open/279`** (work_item_type discarded
   unparsed at the struct; brief-fidelity-auditor unrouteable BY CONSTRUCTION, its category
   hardcoded to a value in no routing set; 6 minted rows live). Fix there, not from here.
 - ~~**UPDATE 2026-08-15 (272 fix session): half 1 is FIXED IN CODE, NOT YET LIVE.**~~ Commit

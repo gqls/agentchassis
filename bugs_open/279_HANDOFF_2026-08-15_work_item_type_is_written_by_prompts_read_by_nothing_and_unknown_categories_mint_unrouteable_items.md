@@ -1,4 +1,4 @@
-# 278 — audit prompts demand a `work_item_type` nothing reads, and `classifyFinding` mints an unrouteable item type for every category outside its hardcoded sets
+# 279 — audit prompts demand a `work_item_type` nothing reads, and `classifyFinding` mints an unrouteable item type for every category outside its hardcoded sets
 
 **Filed 2026-08-15** by the `bugs_open/272` session, as the second half of the
 LANDMINES entry *"`write_audit_findings` drops a JSON OBJECT silently and routes
