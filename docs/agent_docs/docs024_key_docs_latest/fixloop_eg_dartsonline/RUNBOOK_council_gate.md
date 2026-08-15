@@ -253,6 +253,11 @@ genuinely unanimous 8-seat approval that reads as "every seat abstained".
 - **The plan schema is stricter than the 097 header suggests — validate the
   types before submitting** (2026-07-25, bugfix-006 submission: two runs died
   `complete_invalid` at `persist_submission` before any reviewer fired).
+  **`edits[].file` is ONE repo-relative path — no whitespace, no `..`, no leading `/`**
+  (`editProblems`, the per-edit shape gate; contributed 2026-08-15, bugfix-281 round 1 died
+  at `persist_submission` on `"a.go + b.go"` and `"425_x.sql (+_ROLLBACK)"`). Name the
+  companion file in the edit's `rationale`, not its `file`. Cheap pre-check:
+  `all(re.fullmatch(r"[A-Za-z0-9_./-]+", e["file"]) for e in plan["edits"])`.
   `fixPlan` (diagnose_persist_fix_plan_action.go): `risks` is a **single
   string**, not an array (an array kills the whole unmarshal:
   `cannot unmarshal array into Go struct field fixPlan.risks`); `edits[].operation`

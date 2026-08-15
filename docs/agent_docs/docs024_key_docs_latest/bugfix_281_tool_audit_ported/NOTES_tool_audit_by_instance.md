@@ -59,3 +59,25 @@
   files**: `to_jsonb('literal')` on an untyped string → "could not determine polymorphic type";
   fixed with `::text`; round-trip now `t` for both.
 - Register: TL-042 written, TL-033 supersession note, index row.
+
+## 2026-08-15 — commit, seeds applied, council
+
+- Committed `25f92a967` (20 files, pathspec) with `Council-Submitted: 360ae540-8b64-41f9-94da-d7c316183398`;
+  gofmt follow-up `a41d11e30`. WRONG_CALLS entry for this lane rode `e96055a03` (bugs_open/282
+  session) as a same-file passenger — nothing lost, they flagged it in their message.
+- Seeds 425/426 APPLIED 17:17Z (pre-flight re-proved 0 open items without spec.page_id at apply
+  time); live rows verified by reading them back (params, gate condition, prompt needle, slot
+  path); ledger rows present. Hand-ran the live load_tool query on the shared component with two
+  different page_ids → two different tools (mind-map 18,242 chars / asset-formatter 9,222),
+  `source_html == rendered_html` for a ported instance, display_name = subject key. The pin works.
+- **Council round 1 died `complete_invalid` at `persist_submission` — my schema slip**: four edit
+  `file` fields named two paths / carried whitespace ("a.go + b.go", "(+_ROLLBACK)"); the
+  validator wants exactly one repo-relative path. Read `__step_error.failed_step` FIRST (RUNBOOK
+  says so; it was the plan, not a seat). Fixed the four fields, moved companions into rationale,
+  resubmitted under `RESUBMIT_CORR` (run orch `5464d7fd…`). Cheap check for next time: assert
+  `re.fullmatch(r"[A-Za-z0-9_./-]+", edit["file"])` before firing — added to the build script.
+- Advisory on the commit: "migration + platform code in one commit — needs a staged rollout
+  order". Considered: config is live on apply, Go rides the roll; the seed headers state the
+  ordering and why it is safe in either order (forks already carry spec.page_id; the fence rides
+  the same image as the widening). Additive/opt-in shape → normal council scope per RFC_010 §1 /
+  RFC_022, stated in the submission rationale.
