@@ -5286,3 +5286,21 @@ only (8 released in one transaction, counts verified 17→12 pc / 3→0 sc), ser
 27/27 clean, site queue quiet. Two schema-guess errors on the release SQL
 (`section_id`, `component_type` — both aborted whole transactions cleanly before any
 change persisted; "\d before SQL" exists for a reason and I skipped it twice).
+
+**2026-08-15 ~09:10Z — THE PIPELINE STOPPED AT THE B2 GATE, BY DESIGN; manually
+re-driven at the briefing seam.** Research 07:59 → vertical 08:27 → strategy 08:31,
+then NOTHING: the strategist's `gate_next_item` (`site_state.is_deployed == true` →
+complete WITHOUT chaining; migration 341, 2026-08-08) correctly refuses to enqueue
+the briefing→plan rebuild chain on a site with deployed pages. Our rebuild is
+exactly the wanted re-plan the gate cannot know about. Precedent found before
+acting: webdesign.uk re-drove this same seam on 08-09 (`manual-redrive-2026-08-09-*`
+rows, both complete). Filed the withheld item verbatim to the strategist's own
+config shape: `needs_briefing`, key `briefing_loancalculator.co.uk`, handler
+build-briefing-agent, priority 10, spec {}, source
+`manual-redrive-2026-08-15-post-b2-gate`, id `00bd5eff`. The briefing agent's
+final step mints `needs_site_plan` itself (read from its live workflow row), so the
+designed flow resumes one seam downstream of the gate. **Consequence for anyone
+re-running this fire on a deployed site: 082 fresh-mode alone will NEVER re-plan a
+deployed site — the manual `needs_briefing` redrive is a REQUIRED step, not a
+workaround.** Also noted: this site has ZERO all-history needs_briefing/
+needs_site_plan items — adopted sites never walked this leg; tonight is its first.

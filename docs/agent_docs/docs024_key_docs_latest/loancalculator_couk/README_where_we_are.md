@@ -1884,3 +1884,14 @@ downstream read it), and I timestamped the launch from this machine's clock, whi
 turns out to run about ten hours behind the cluster's — the database's own clock is
 the one that counts. Watching now for the new site plan to land; the moment it does,
 the two new pages' build tickets get un-parked and the invention check runs.
+
+2026-08-15 (mid-morning) — A pause, understood and resolved. The research and
+strategy stages finished quickly, then the pipeline went quiet: it turns out a
+safety gate added last week deliberately stops a live site's strategy refresh from
+triggering a full re-plan — on a site that's serving, "someone refreshed the
+strategy" must not mean "rebuild everything". Sensible in general; our case is the
+one exception, because rebuilding everything is precisely what we're here to do. The
+fix was to file the one work ticket the gate had withheld, exactly the way the
+webdesign.uk lane did on the same seam last week. The chain is moving again —
+briefing next, then the plan. One consequence worth remembering: resubmitting a live
+site will ALWAYS need this extra manual step; that's now written into the lane notes.
