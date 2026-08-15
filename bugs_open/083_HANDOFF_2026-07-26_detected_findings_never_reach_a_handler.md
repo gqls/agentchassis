@@ -593,3 +593,48 @@ Two answers this file recorded as open, found in the concept register during tha
   selection starves (IMP-010) — today that cap excludes webdesign.co.uk (85) and
   dartsonline.com (79). **Re-enabling improvement-sweep as-is would examine everything
   except the sites most worked on.** Landmine filed.
+
+---
+
+# OWNER RULING 2026-08-15 — candidate 2 chosen and BUILT: the promoter is its own scheduled task (seed 430, SCH-026)
+
+Put to the owner by the `bugfix_277_required_fields_repair` lane, whose council trail
+(corr `7b0e2833`) drew a high-severity objection to a producer born `triaged` — the
+workaround this file predicted every producer would reach for. The owner ruled: **do 083,
+as candidate 2** — *"give triage its own scheduled task, decoupled from the fix loop:
+promote `detected → triaged` on a slow cadence for item types whose handlers are
+known-good, leaving discovery itself manual."* Not candidate 1: re-enabling
+`improvement-sweep` wholesale re-arms the whole audit+fix loop and its own pre_query
+excludes the busiest sites (the last section above).
+
+**Built the same day, live within the hour.** `detected-item-promoter`
+(`sql_for_agents/430_detected_item_promoter_task.sql`, ledger-recorded, register
+**SCH-026**): a pure-SQL scheduled task on `feasibility-recheck`'s exact pattern
+(`fire_message=false`, pre_query = worker, verified in `cmd/scheduler/main.go:269-277`),
+900s cadence, **≤20 promotions per tick oldest-first**, and a **known-good rule that is
+data, not opinion**: the handler is a live active agent definition AND the exact
+`(item_type, handler_agent)` pair has ≥1 lifetime `complete` (this file's own candidate 4:
+"check the handler is real before celebrating the detector"). A pair with zero completes is
+HELD until a human promotes one row by hand — every new type's first dispatch is a
+deliberate canary. It mirrors `TriageDetectedItemsAction`'s UPDATE in effect incl.
+`pipeline='build'` — which turned out to be load-bearing for a reason this file did not
+record: the **scheduler gate** (`build-pipeline-trigger` pre_query) only wakes the loop for
+a site holding a `pipeline='build'` triaged item; the loop's own loader does not filter by
+pipeline.
+
+Pile at apply (verify block's partition assertion, disconfirmable): **70 detected = 66
+promotable + 4 held (`page_component_status_drift → component-template-fixer`, 0 lifetime
+dispatches) + 0 unroutable.** Re-measured before building: every one of the 18 pairs in the
+pile has an active handler; 17 have completes (`content_rewrite` 107, `needs_rerender` 111,
+`undeployed_asset` 260 …).
+
+**Consequence:** the born-`triaged` workaround is no longer needed. `bugs_open/277`'s
+producer went back to `Status: "detected"` in the same hour (inert until the next chassis
+roll). Other born-triaged producers (migration 233's rerender items, `check_integrity`,
+`check_tool_acceptance_due`) are their lanes' call.
+
+**Status: FIX LIVE for the triage half; OPEN until this file's own verify criteria are met** —
+(1) the pile drains and *stays* drained; (2) `phantom_internal_link` reaches a non-zero
+`complete` count for the first time (none in the pile today — waits for the next re-raise);
+(3) completions verified at the live page. `improvement-sweep` itself stays paused (IMP-016)
+— discovery has SCH-025, triage has SCH-026; the auto-fix half remains a separate decision.

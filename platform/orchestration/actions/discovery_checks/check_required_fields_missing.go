@@ -167,12 +167,15 @@ func (c *RequiredFieldsMissingCheck) Run(dctx DiscoveryCheckContext) (*CheckResu
 				function, pageName, len(missing), strings.Join(missing, ", ")),
 			SpecJSON: string(spec),
 			Priority: 140,
-			// Routed (owner ruling 2026-08-15, bugs_open/277): born triaged
-			// so the dispatch loop hands it to the router, which decides
-			// convert vs close vs park per row. Seeded by 410; the roster
-			// entry in handler_coverage_test.go is the contract.
+			// Routed (owner ruling 2026-08-15, bugs_open/277): the router
+			// (seed 410) decides convert vs close vs park per row; the roster
+			// entry in handler_coverage_test.go is the contract. Born
+			// detected — the observe-only convention — because the promoter
+			// now has its own cadence (detected-item-promoter, seed 430,
+			// bugs_open/083 candidate 2, owner ruling the same day); it was
+			// briefly born triaged while that promoter was still disabled.
 			HandlerAgent: requiredFieldsHandlerAgent,
-			Status:       "triaged",
+			Status:       "detected",
 			CreatedBy:    dctx.AgentType,
 			ItemKey:      fmt.Sprintf("required_fields_missing:%s:%s", pageID, slotName),
 			BatchID:      dctx.BatchID,
