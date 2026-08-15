@@ -493,6 +493,44 @@ def check_runtime_fill_marker(files, ref, findings):
                 ))
 
 
+# An item_type CONSTRUCTED at runtime is a label no consumer can know
+# (bugs_open/279): it inserts into site_work_items cleanly, reports success, and
+# nothing ever claims it — the rows die open (bugs_open/115: 100% of one
+# auditor's output, for weeks). The work-item vocabulary lives only in Go source,
+# so the ban is on construction itself. strip_comments is safe here per its own
+# docstring rule: this check searches ONLY for the offence, so stripping can only
+# ever suppress, never manufacture.
+#
+# This is the commit-time ADVISORY half; the BLOCKING half is
+# TestNoDynamicallyConstructedItemTypes (platform/orchestration/actions/
+# work_item_type_minting_ratchet_test.go), same pattern with its own
+# must-match/must-not-match self-test. Change the two patterns TOGETHER.
+DYNAMIC_ITEM_TYPE_RE = re.compile(r'\b[Ii]temType\s*[:=][^,\n]*("\s*\+|\+\s*"|fmt\.Sprintf)')
+
+
+def check_dynamic_item_type(files, ref, findings):
+    """bugs_open/279 — a constructed item_type is a label nothing consumes."""
+    for path in files:
+        if not path.endswith(".go") or path.endswith("_test.go"):
+            continue
+        content = file_content(path, ref)
+        if not content:
+            continue
+        for i, line in enumerate(strip_comments(content).splitlines(), 1):
+            if DYNAMIC_ITEM_TYPE_RE.search(line):
+                findings.append((
+                    "dynamic-item-type", f"{path}:{i}",
+                    f"work-item {BOLD}item_type{RESET} built from string parts — a label no consumer knows",
+                    "bugs_open/279 — the only construction site ever found "
+                    "(write_audit_findings' audit_finding_ + category) filed items that "
+                    "died open for weeks because no verifier, workflow or handler names a "
+                    "constructed label. Use a literal from the routing vocabulary, or file "
+                    "the finding as capability_gap (the platform's 'work I have no handler "
+                    "for' shape, bugs_closed/077). The blocking twin of this advisory is "
+                    "TestNoDynamicallyConstructedItemTypes — change both patterns together.",
+                ))
+
+
 # A writer of page_components.rendered_html with no link repair (bugs_open/136).
 #
 # bugs_open/079 put the dead-internal-link repair at the full-page section save,
@@ -1657,6 +1695,7 @@ def main():
                   check_new_capability_surface, check_register_coverage,
                   check_register_entry_without_row,
                   check_runtime_fill_marker, check_unrepaired_component_write,
+                  check_dynamic_item_type,
                   check_partial_page_upsert, check_silent_reply_drop,
                   check_handrolled_shipped_predicate, check_flexless_hamburger):
         try:

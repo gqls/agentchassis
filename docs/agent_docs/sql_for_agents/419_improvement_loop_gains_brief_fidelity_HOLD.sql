@@ -1,4 +1,10 @@
--- 418_improvement_loop_gains_brief_fidelity_HOLD.sql
+-- 419_improvement_loop_gains_brief_fidelity_HOLD.sql
+--
+-- (Authored as 418_..._HOLD; renumbered 2026-08-15 the same evening — a concurrent
+-- session took 418 for content_gap_planner_requires_backend_gate. The applied
+-- migration this pairs with is still 417_brief_fidelity_auditor_speaks_the_routers_
+-- vocabulary, whose header calls this file "418_HOLD"; that pointer is left stale
+-- deliberately because editing an applied migration breaks its ledger checksum.)
 --
 -- ⚠ HELD (uppercase suffix: run-migrations.sh --apply skips this file; it lists it
 -- under "Sidecars (hand-run only)"). DO NOT APPLY until the ordering condition below
@@ -25,9 +31,9 @@
 -- Then:
 --   kubectl -n ai-persona-system exec -i postgres-clients-0 -- \
 --     psql -U clients_user -d clients_db -v ON_ERROR_STOP=1 < <this file>
---   git mv docs/agent_docs/sql_for_agents/418_improvement_loop_gains_brief_fidelity_HOLD.sql \
---          docs/agent_docs/sql_for_agents/418_improvement_loop_gains_brief_fidelity.sql
---   ./scripts/migration/run-migrations.sh --record-only 418_improvement_loop_gains_brief_fidelity.sql \
+--   git mv docs/agent_docs/sql_for_agents/419_improvement_loop_gains_brief_fidelity_HOLD.sql \
+--          docs/agent_docs/sql_for_agents/419_improvement_loop_gains_brief_fidelity.sql
+--   ./scripts/migration/run-migrations.sh --record-only 419_improvement_loop_gains_brief_fidelity.sql \
 --     --note "<what you verified>"
 --
 -- WHAT IT DOES (owner decision 2026-08-15, bugs_open/279 candidate 3, half two):
@@ -67,7 +73,7 @@ BEGIN
     WHERE type='improvement-loop' AND is_active
       AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL;
     IF n_defs <> 1 THEN
-        RAISE EXCEPTION 'MIGRATION 418: expected exactly 1 live improvement-loop, found %', n_defs;
+        RAISE EXCEPTION 'MIGRATION 419: expected exactly 1 live improvement-loop, found %', n_defs;
     END IF;
 
     SELECT default_config->'workflow'->'steps'->'call_offer_analyser'->>'next_step',
@@ -79,10 +85,10 @@ BEGIN
       AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL;
 
     IF already = 1 THEN
-        RAISE EXCEPTION 'MIGRATION 418: spawn_brief_fidelity already present — already applied';
+        RAISE EXCEPTION 'MIGRATION 419: spawn_brief_fidelity already present — already applied';
     END IF;
     IF next_now IS DISTINCT FROM 'record_audit_pass' OR err_now IS DISTINCT FROM 'record_audit_pass' THEN
-        RAISE EXCEPTION 'MIGRATION 418: call_offer_analyser points at %/% (expected record_audit_pass/record_audit_pass) — the chain has changed since this file was written; re-derive the splice point', next_now, err_now;
+        RAISE EXCEPTION 'MIGRATION 419: call_offer_analyser points at %/% (expected record_audit_pass/record_audit_pass) — the chain has changed since this file was written; re-derive the splice point', next_now, err_now;
     END IF;
 
     -- 417 must be live: the auditor must not be dispatched speaking a dead category.
@@ -92,7 +98,7 @@ BEGIN
     WHERE type='brief-fidelity-auditor' AND is_active
       AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL;
     IF vocab_ok <> 1 THEN
-        RAISE EXCEPTION 'MIGRATION 418: brief-fidelity-auditor does not carry the 417 vocabulary (found %) — apply 417 first', vocab_ok;
+        RAISE EXCEPTION 'MIGRATION 419: brief-fidelity-auditor does not carry the 417 vocabulary (found %) — apply 417 first', vocab_ok;
     END IF;
 END $$;
 
@@ -138,7 +144,7 @@ BEGIN
       AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL;
 
     IF spliced IS DISTINCT FROM 'spawn_brief_fidelity' OR chain_out IS DISTINCT FROM 'record_audit_pass' THEN
-        RAISE EXCEPTION 'MIGRATION 418: splice failed (offer→% , brief→%)', spliced, chain_out;
+        RAISE EXCEPTION 'MIGRATION 419: splice failed (offer→% , brief→%)', spliced, chain_out;
     END IF;
 
     SELECT count(*) INTO n_steps
@@ -146,10 +152,10 @@ BEGIN
                             FROM agent_definitions WHERE type='improvement-loop'
                               AND is_active AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL)) k;
     IF n_steps <> 30 THEN
-        RAISE EXCEPTION 'MIGRATION 418: expected 30 steps after the splice (28 + 2), found %', n_steps;
+        RAISE EXCEPTION 'MIGRATION 419: expected 30 steps after the splice (28 + 2), found %', n_steps;
     END IF;
 
-    RAISE NOTICE 'migration 418 OK: brief-fidelity wired into the audit chain (30 steps)';
+    RAISE NOTICE 'migration 419 OK: brief-fidelity wired into the audit chain (30 steps)';
 END $$;
 
 COMMIT;

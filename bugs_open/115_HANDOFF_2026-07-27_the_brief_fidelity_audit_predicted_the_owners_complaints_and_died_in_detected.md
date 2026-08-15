@@ -173,7 +173,7 @@ The owner ruled on both halves today (decisions recorded in `bugs_open/279`):
 2. **The auditor becomes a real check**: it now speaks the router's category
    vocabulary (migration `417`, applied — category chosen by repair shape,
    `audit_source='brief-fidelity-audit'` keeps the identity) and joins the
-   improvement loop's audit chain (migration `418_HOLD`, applied post-roll). This
+   improvement loop's audit chain (migration `419_HOLD (renumbered from 418_HOLD: number collision with a concurrent session)`, applied post-roll). This
    file's candidate 1 ("route the item type, or refuse to write it") is done via
    279 (unknown categories → `capability_gap`); its cadence candidate is done via
    the wiring; the terminal-state-audit family candidate stays with `083`.

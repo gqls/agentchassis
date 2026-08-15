@@ -12,6 +12,18 @@
 // ("audit_finding_" + category) and the rows died in 'detected' for weeks
 // (bugs_open/115, fixed in bugs_open/279 by filing capability_gap instead).
 //
+// WHERE THIS SITS AMONG THE EXISTING GUARDS (the reuse question, answered rather
+// than assumed — council round 336d1549, reuse_agent + constitution seats). This
+// is not a new mechanism class: it extends the estate's existing Go source-sensor
+// idiom (verifier_coverage_test.go's TestEveryCheckProducedItemTypeIsClassified,
+// which scans discovery_checks source for ItemType literals) to the construction
+// case that a literal-scanner structurally cannot see. scripts/pattern-check.py
+// carries the same regex as check_dynamic_item_type and was extended in the same
+// commit — but pattern-check is ADVISORY BY DESIGN (its own output: "this never
+// blocks"), and a label that reaches production is precisely the failure that
+// must BLOCK, which is what a Go test does and an advisory cannot. Two layers,
+// one pattern: change them TOGETHER.
+//
 // WHAT THIS RATCHET DOES. It scans this package and discovery_checks for source
 // lines that BUILD an item type dynamically — string concatenation or fmt.Sprintf
 // flowing into an ItemType/itemType assignment — and fails on any hit. Measured at

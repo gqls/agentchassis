@@ -5,7 +5,7 @@
 -- repair-shape section 417 inserted. Before running, be sure: with the old
 -- category restored, 100% of the auditor's output routes to the unknown-category
 -- path again (capability_gap post-d6d56e540; MINTED unrouteable rows on any
--- older binary — bugs_open/279). If 418 has been applied, roll IT back first or
+-- older binary — bugs_open/279). If 419 (formerly 418) has been applied, roll IT back first or
 -- every sweep files roadmap noise.
 
 BEGIN;

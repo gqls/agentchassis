@@ -469,7 +469,7 @@ the 213-lane contribution below was the one thing that had changed).
    instruction, explicit off-vocabulary escape hatch → `capability_gap`), while
    `audit_source` carries the brief-fidelity identity — category = who repairs,
    audit_source = who found. No new item_type, no closed-set change. Wiring into
-   the improvement loop is migration **`418_HOLD`** (splices
+   the improvement loop is migration **`419_HOLD`** (splices
    `spawn_brief_fidelity`/`call_brief_fidelity` between `call_offer_analyser`
    and `record_audit_pass`, mirroring the offer pair incl. `error_step`
    continuing the sweep) — **held until the chassis stamp carries `d6d56e540`**,
@@ -489,10 +489,17 @@ the 213-lane contribution below was the one thing that had changed).
 
 1. Confirm the stamp: `git merge-base --is-ancestor d6d56e540 <stamp>` (and this
    round's commit, which supersedes it).
-2. Apply `418_HOLD` per its header (rename → apply → `--record-only`).
+2. Apply `419_HOLD` per its header (rename → apply → `--record-only`).
 3. Dispatch one improvement sweep (or one manual brief-fidelity run) against
    site `62b5978e…`; verify: zero new `audit_finding_%` rows; findings land as
    routed types under `audit_source='brief-fidelity-audit'`; any off-vocabulary
    category shows as `capability_gap` (`deferred`, empty handler) and in the
    result map's `unrouted_categories`.
 4. Then: `115` closable (fixed AND live), and THIS file moves to `bugs_closed/`.
+
+> **CORRECTED 2026-08-15c:** the wiring migration referenced above as `418_HOLD` is now
+> **`419_improvement_loop_gains_brief_fidelity_HOLD.sql`** — a concurrent session took 418
+> (and a second 417) while this lane's round-2 work was in flight; the council's
+> architecture seat caught the collision. This lane's applied `417` keeps its filename
+> (renaming a recorded migration breaks its ledger checksum); its header's "418_HOLD"
+> pointer is deliberately stale and the renamed file's own header explains.
