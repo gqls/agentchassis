@@ -32106,3 +32106,26 @@ string instead of a prompt, and the fix was cheaper than the alternative I first
 **The cheap check:** after adding ANY string literal that names the pattern a check hunts, run the check on the
 working tree before committing — here `python3 scripts/pattern-check.py` (or the one-off comment-stripped scan in
 this bug's runbook). If the message must mention the spelling, paraphrase it; the reader does not need the SQL.
+
+## 2026-08-15 — webdesign_uk lane: named the CONSUMER as the composer (090 REFUTED it in 3 iterations)
+
+- **The claim** (filed to 090 as `plan-sections-lock-blind`, and in the lane's
+  NOTES + a commit message): "PlanSectionsAction composes the plan without
+  reading page_components locked_at/lock_type" — asserting the lock-blind
+  section-list drop happens IN that function.
+- **What caught it**: the diagnosis loop, iteration 3 — `sectionsRaw :=
+  inputs.GetRaw("sections")` is the function's FIRST move: it CONSUMES an
+  already-assembled list and never enumerates the page's components; its only
+  page_components read resolves identity for names already in the input. The
+  drop is upstream (load_page_sections_from_spec / whatever writes
+  pages.sections). Bonus refutation: the hero/CTA lock_blocked_change rows I
+  cited as "same class" are the CTA-destinations defect's locks blocking
+  content overwrites — not section-list omissions; bundling them overstated
+  the corroboration.
+- **The cheap check that would have caught it**: read the function's INPUT
+  before asserting what it computes — one look at the first 20 lines of
+  PlanSectionsAction (where does `sections` come from?). I grepped the file
+  for "lock" (absent, true) but never asked whether the function composes or
+  consumes the list it was accused of composing. Same family as
+  `cite-the-arm-not-the-function`: a grep hit licenses "this file is
+  involved", never "this function decides".

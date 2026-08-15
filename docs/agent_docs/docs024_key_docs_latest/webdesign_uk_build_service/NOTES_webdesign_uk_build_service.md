@@ -2786,3 +2786,79 @@ this session's cold-start falsifier sweep:
   as failed delivery — the registerable webhook URL today is
   `https://preview.webdesign.uk/stripe/webhook`**, or the owner adds a path
   exception to the edge redirect. Relayed to the sibling lane's NOTES.
+
+## 2026-08-15 (evening, cont.) — EXPERIENCE_PLAN APPROVED; box cluster-DNS FIXED; both ClusterIP pins RETIRED
+
+- **PLAN step 3 DONE**: planner run 8b0f77bf COMPLETED ~35 min after fire
+  (compose → recompose after a "gating objection from contracts" →
+  review seats → approved). Verdict note: "approved with 1 advisory
+  objection(s) — none high-severity". Plan persisted: doc_plans is_current,
+  11,152 chars, sections exactly per PLAN §3 (Journeys / Promise ledger /
+  Data contracts / MVP cut + LATER / Acceptance criteria). The promise
+  ledger states the four controls + fail-closed as contract; MVP cut is
+  verification-shaped (no rebuilding) and gates everything on **Step 0: the
+  contact-email fact must match the domain**. Measured: the live fact says
+  `webdesign@contactforsales.com`, faithfully sourced from the sites row —
+  the mismatch is real at the register level and is ALREADY an open
+  content_rewrite/needs_human_review item. **OWNER CALL: is that address a
+  deliberate sales inbox, or wrong?** Step 0 unpassed until ruled; the plan
+  says journeys C/D (cap + fail-closed fallbacks pointing at contact-info)
+  are not to be treated as trustworthy until then. Intake row
+  needs_experience_plan:site-chat-intake completed with the resolution.
+- **Box cluster-DNS (work item 4) DONE — the handoff's premise was one
+  word off**: no "inoperative DNS= line" exists in wg0.conf; NO DNS was
+  attached to wg0 at all (resolvectl: "Current Scopes: none"), while
+  kube-dns itself answered fine over the tunnel (dig @10.21.0.10 resolved
+  auth-service to its exact ClusterIP). Fix: `resolvectl dns wg0
+  10.21.0.10` + routing domain `~cluster.local` (only cluster.local
+  queries cross the tunnel; internet resolution untouched — verified both
+  directions), runtime first, then durable as a PostUp line in wg0.conf
+  (backup: wg0.conf.bak-20260815). FACTS_URL flipped to the core-manager
+  name (env backup: webdesign-chat.env.bak-20260815; journal: fetched 15
+  facts + live mode on the named URL); nginx /stripe/webhook upstream
+  flipped to the auth-service name (nginx -t, reload, re-proven loopback +
+  public edge 503-keyless). **Both ClusterIP pins retired** — §1's "one
+  remaining fragility" is closed. Static proxy_pass resolves at config
+  load, so a Service recreate now costs an nginx reload, not an edit.
+- ⚠ Probe trap hit on the way (now in RUNBOOK): the facts relay
+  authenticates via `X-Facts-Token` (facts.go:109), NOT `Authorization:
+  Bearer` — a Bearer probe 401s exactly like a dead relay. Also
+  /etc/webdesign-chat.env is a systemd EnvironmentFile, not shell-sourceable
+  (unquoted phone number) — extract single keys with grep/cut, never
+  `source` it.
+- **090 diagnosis c199c4bf**: still at diagnose-agent step `verdict` as of
+  ~17:40Z (claimed ~16:55Z). Not stuck-evidence yet; check
+  spec.diagnosis / doc_notes on the run correlation next session if not
+  terminal by end of this one.
+
+## 2026-08-15 (late) — 090 verdict: **REFUTED — right mechanism, wrong site.** Re-filed at the composer.
+
+> **CORRECTED 2026-08-15 (this entry corrects the two evening entries above
+> and the commit message on 70584ba14):** my symptom asserted
+> PlanSectionsAction "composes the plan" lock-blind. The loop refuted it in
+> 3 iterations: PlanSectionsAction **consumes** an already-assembled
+> `sections` input (`sectionsRaw := inputs.GetRaw("sections")`, its first
+> move) and never enumerates page_components to decide the list; its only
+> page_components read (loadPageSlotComponentIDs) resolves slot_name +
+> component_id for names ALREADY in the input — lock columns never selected
+> because that read cannot drop anything. The lock-blind drop is UPSTREAM,
+> where the `sections` input is assembled: `load_page_sections_from_spec`
+> (load_page_sections_from_spec_action.go) / whatever populated
+> pages.sections for contact around 08-11 and 08-13. ALSO refuted: my
+> "same class" bundling of the hero/call-to-action lock_blocked_change rows
+> — those locks exist for the CTA-destinations defect (268's family) and
+> block content OVERWRITES, not section-list omissions; they are not
+> corroboration of one plan-omission mechanism. What caught it: the loop
+> reading the one thing I had not — the function's input. WRONG_CALLS.md
+> row added (the cheap check: read where a function's input comes from
+> before asserting what it computes). **The mechanism itself survives**
+> ("the stage that assembles the section list is lock-blind") — relocated,
+> and re-filed with the loop's own revised hypothesis + next_scope.
+
+- Second 090 filed and claimed by the loop:
+  `needs_diagnosis:section-list-assembly-lock-blind`,
+  `RUN_CORRELATION_ID = d9f97c15-da88-459f-8fba-75add31227b2` (artifacts key
+  on this). SEED_SCOPE: LoadPageSectionsFromSpecAction +
+  save_page_sections_action.go. Verdict lives in the diagnose-agent
+  orchestration's `collected_data->'verdict'` — diagnosis_artifacts rows are
+  the iteration INPUT bundles, not the output (learned reading c199c4bf).

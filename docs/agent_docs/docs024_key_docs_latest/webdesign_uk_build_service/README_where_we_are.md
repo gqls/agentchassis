@@ -1232,3 +1232,52 @@ come in through the webdesign.uk box for now; and take money first — which
 sets the other thread's copy change in motion. You left the build-time
 wording and the button colour open on purpose. All of it is written into the
 new handoff, ready for a fresh chat.
+
+---
+
+2026-08-15 (evening). Your four evening decisions all got acted on today, and
+three of the four work items are done.
+
+The chat experience plan you said GO to has been written and approved. The
+review council passed it with one advisory concern, and it's a real one: the
+site's contact email on record is webdesign@contactforsales.com, which doesn't
+match the domain. Everything the chat box falls back to — "here's how to reach
+us" when someone hits the rate limit, or when the AI is down — points at those
+contact details. So the plan makes checking that address its first gate, and
+there's a question only you can answer: is webdesign@contactforsales.com a
+deliberate choice (a real sales inbox you own), or a leftover that should be a
+webdesign.uk address? There's already a review item open about it. Nothing
+breaks either way; the plan just won't call those fallback journeys "proven
+honest" until you've ruled.
+
+The Stripe webhook path is built and tested end to end, without needing the
+keys: a request from the internet reaches the payment service in the cluster
+and comes back with its honest "no payment provider configured" answer in a
+fraction of a second. That answer flips to real payment handling the moment
+you add the keys — nothing else to build. One thing to know when you register
+the webhook with Stripe: the main webdesign.uk address currently redirects
+everything to webdesign.co.uk, and Stripe gives up on redirects — so the
+webhook address to give Stripe is the preview.webdesign.uk one, unless you
+carve an exception into the redirect rule in Cloudflare.
+
+The box can now look up cluster services by name — the thing that made us pin
+raw numeric addresses (which silently break if a service is ever recreated) is
+fixed. Both places that had a pinned number now use proper names, and the chat
+bot came back up cleanly on the named address, still serving the 15 live facts.
+
+The improvement-loop bug you said to check and fix — the one where a sweep
+tried to remove the locked chat box — is in the diagnosis loop now, framed the
+way you'd want: the lock did its job, the defect is that the loop keeps
+proposing page layouts that don't know locked sections exist. The diagnosis
+run is minutes from its verdict as I write this. The chat box lock stays on,
+as you ruled, until the fix lands.
+
+Late addendum, same evening: the diagnosis came back and — usefully — proved
+my first framing wrong. The function I named was found to be innocent: it
+receives the page layout ready-made from an earlier stage and can't drop
+anything. The real culprit is that earlier stage, the one that draws up the
+layout list, and a second diagnosis run is already pointed at it. This is the
+process working as designed: being proven wrong by the loop costs minutes;
+writing the wrong cause into the record would have cost every thread that
+believed it. The chat box lock stays on throughout, so nothing is at risk
+while this gets pinned down.

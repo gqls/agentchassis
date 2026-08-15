@@ -695,10 +695,20 @@ the bot to live DB facts, once v1.0.1292 is rolled:
    ```
    The ClusterIP is stable per-service but not forever — resolve it fresh:
    `kubectl -n ai-persona-system get svc core-manager -o jsonpath='{.spec.clusterIP}'`.
-   (A cluster-DNS name would be more durable but the box's split-tunnel only
-   routes the pod/service CIDRs, and CoreDNS is reachable at 10.21.0.10 over the
-   tunnel — `core-manager.ai-persona-system.svc.cluster.local:8088` also works
-   and survives a service-IP change; prefer it.)
+   > **UPDATED 2026-08-15: use the DNS name — it is live config now, not an
+   > aspiration.** The box's system resolver routes `*.cluster.local` to
+   > kube-dns over the tunnel (wg0 PostUp: `resolvectl dns wg0 10.21.0.10`
+   > + routing domain `~cluster.local`; runtime-applied AND durable in
+   > `/etc/wireguard/wg0.conf`). `FACTS_URL` uses
+   > `core-manager.ai-persona-system.svc.cluster.local:8088` since 17:25Z
+   > (journal: `fetched 15 facts` + `live mode` on the named URL), and the
+   > nginx `/stripe/webhook` upstream names auth-service the same way. The
+   > earlier claim here that the name "also works" was true only of
+   > `dig @10.21.0.10` — the SYSTEM resolver (what the Go binary uses) had no
+   > route to kube-dns until the resolvectl config landed. Probe note: the
+   > relay authenticates via the `X-Facts-Token` header, NOT
+   > `Authorization: Bearer` (facts.go:109) — a Bearer probe 401s and reads
+   > exactly like a dead relay.
 3. `systemctl restart webdesign-chat` and check the log: it should print
    `facts: live mode, relay=…` then `facts: fetched N facts from relay`. If it
    prints a fatal about the relay being unreachable + no cache, the endpoint
