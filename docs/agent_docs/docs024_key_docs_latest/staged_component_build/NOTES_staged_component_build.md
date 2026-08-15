@@ -4517,3 +4517,22 @@ Owner reported a fresh chassis build. Verified rather than assumed, per the chec
   **VERDICT READ STILL OWED** — budget ~30 min from ~15:1xZ; find the run by payload:
   `SELECT current_step, status FROM orchestration_states WHERE collected_data->'input_data'->>'fix_correlation_id' = '75091072-9d65-433e-8a30-84719dc3f30f';`
   On REVISE/REJECTED: act on it — the code is already on the shared branch.
+- **VERDICT READ 2026-08-15 ~16:1xZ: REVISE** (run `ae2a88a7`, completed 14:10Z, decided by a
+  GATING objection from `reuse_agent`, HIGH): **the two Phase 1 WARNs are plain log lines, and
+  chassis log retention is ~90 seconds — a 48h observation window built on them is
+  unverifiable after the fact.** The seat is right and cites the platform's own remedy:
+  `agent_error_log` via the established write path (post-RFC_012 leaf package). This is the
+  real defect to fix in the revision; the observation window as shipped cannot be read.
+  Secondary objections, assessed: editquality's two "missing D4" items were SHIPPED in
+  `1806371ef` but absent from the submitted plan text (name them on resubmit);
+  tooling_provenance wants the number ledger-checked (now done: 417 unclaimed, 416 applied by
+  the other lane) and a doc_notes row for the Phase 1 mechanism itself (do in revision);
+  debug_historian's HIGH (two-active-rows trap) MEASURED NOT APPLICABLE — image-build-handler
+  has exactly 1 active row (checked 16:1xZ; cite in 417's header on revision), its
+  snapshot_agent-overload point needs the pg_get_functiondef check before 417 is ever applied;
+  guardian's winner-change-now point is answered by §9 D2 itself (owner-delegated choice);
+  prior_art_librarian cannot see repo rulings (known landmine) — carry the RFC evidence into
+  doc_notes on resubmit. architecture/constitution/mission/guidelines: APPROVE.
+  **Revision = persist both WARNs to agent_error_log + doc_notes row + resubmit with
+  `RESUBMIT_CORR=75091072-9d65-433e-8a30-84719dc3f30f`.** psql NOTE: `kubectl exec -i` with no
+  stdin piped HANGS — the "postgres flakiness" at session end was our own flag; drop `-i`.
