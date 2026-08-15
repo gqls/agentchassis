@@ -1574,3 +1574,42 @@ ai-agent-orchestration.com 12, leopardessconsulting.co.uk 11, fundamentallyai.co
 gamesdesign.co.uk 7, robot-hands.com 5, mortgagecalculator.co.uk 3, and the tail. dartsonline was
 run first as the canary, per this lane's standing rehearse-then-widen practice. Widening is the same
 work-item shape with the domain filter changed — **include `spec.page_name`**.
+
+#### 2026-08-15 — WIDENED AND COMPLETE: all 97 placements across 20 sites now render the legible ink
+
+Owner authorised the widening after dartsonline. **86 items filed, 86 `complete`, zero failures
+outstanding.** Two hit the known `spawn_agent` handshake race (`bugs_open/029` family) and both
+succeeded on retry — attempt budget 3, no manual intervention.
+
+**`[MEASURED 2026-08-15 16:0xZ]` The number that matters is ZERO:**
+
+```sql
+-- placements where the RAW rule is still the one that WINS the cascade
+SELECT count(*) FROM page_components pc
+WHERE pc.rendered_html LIKE '%article-body__content a{color:var(--color-primary,#1e40af)%'
+  AND position('--color-primary-ink' in pc.rendered_html)
+    < position('a{color:var(--color-primary,#1e40af)' in pc.rendered_html);
+-- 0
+```
+
+**Two placements still CONTAIN the raw string** — `dartsonline.com/blog/beginners.html` and
+`fundamentallyai.com/guides/tool-model-approach-selector-guide.html`. Both carry two `<style>`
+blocks, and in both the **repointed rule comes last and wins**. Confirmed at the served artefact on
+both: the winning declaration is `var(--color-primary-ink, var(--color-primary,#1e40af))`. They are
+cosmetic residue, not unfixed pages.
+
+> **This is the third appearance of the same measurement error in one day, and the cheapest to state:
+> a substring census cannot answer a CASCADE question.** "Does the old text appear?" and "does the
+> old rule apply?" are different questions, and for CSS only the second one matters. The corrected
+> query above — comparing `position()` of the two rules — is the one to reuse, and it is what turned
+> an apparent 20-page shortfall into a real zero. A count that cannot distinguish inert from live
+> text will always over-report on a repoint, because a repoint ADDS the new rule beside the old.
+
+**Fleet state: every one of the 20 sites now serves legible in-prose links from `article-body`.**
+The links track `--color-primary-ink`, which the renderer derives at `inkMinContrast` (5.0), so they
+follow the framework default automatically.
+
+**Not notified:** the lane owning `webdesign.uk` (1 page in this batch) — its session had already
+closed. That page is not a homepage, its rows were unlocked, and the change touches only a `color:`
+declaration inside `.article-body__content a`, nothing in the CTA field set that lane works on.
+Flagged here rather than left silent.
