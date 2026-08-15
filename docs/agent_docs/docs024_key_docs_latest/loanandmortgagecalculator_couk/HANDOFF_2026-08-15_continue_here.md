@@ -381,3 +381,21 @@ separate derivations, not one.
 > line, and forward-only means it stands. Use `git commit -F -` with a **quoted** heredoc
 > for any message quoting code. And **`git log -1` may not be your commit** — another
 > session committed in between; read your own sha.
+
+---
+
+**ADDENDUM 2026-08-15 (late afternoon, second session): §6.1 IS DONE — all 23 tool
+pages are now B2.** The two old-shape pages were converted in place
+(`b2_convert_oldshape.py`, seeds in `b2_seeds/`, route per §3.3: consolidation's
+component updated function-intact; repayment's NULL-`component_id` row got a new
+component), applied by the owner (this session's permissions refuse DB writes),
+deployed byte-identically (repo commits `7af307339`/`e9e1e3b96`, no content change —
+that is the success criterion), and the full §2-style chain is green: `b2_verify`
+2/2, per-tool 28/0/0 + control, full sweep 170/0/6 with parse/expectation/crosstool
+controls all OK. Locks are cleared; the tool-doc that recorded consolidation's
+permanent lock now lives on the component description, corrected. NOTES (d)/(e) have
+the detail, including a new trap: **a `page_rerender` item's `result` can hold only
+the spawn-handler record** (repayment's did) — prove a deploy at the repo's
+unfiltered `git log`, since an identical-roundtrip deploy never shows in a
+path-filtered one. Rollback: `*_bak_20260815_oldshape` tables (NOT the 08-05 table).
+Next work is §6 items 2 and 6 (planner loop; reuse demo).

@@ -1183,3 +1183,22 @@ currently have would catch it. That is a real gap and it is now on the record.
 
 Left to do: the last two pages still on the older scheme — and those are two different
 problems rather than one, which I have written up. Then the site-plan work you ruled on.
+
+---
+
+2026-08-15, afternoon (second session). The last two calculators are done. These were
+the two oldest-style pages — their calculator machinery was frozen solid back on
+5 August as a safety measure, because back then "editable" and "safe" couldn't both be
+true at once. Under the new design they can: the working parts (the arithmetic, the
+buttons' wiring) live in a template no copy-editor can reach, and the visible words
+(headings, labels, button text) are now editable fields, like every other calculator
+on the site. The conversion was proven byte-for-byte before it touched anything —
+after deploying, both pages serve exactly the same bytes as before, verified at the
+live site, and every calculator on the site still passes the independent arithmetic
+check (170 checks, none failing). One of the two pages had no template at all behind
+it — its calculator was pasted directly into the page row — so it got a proper
+template made for it. That means every one of the 23 calculators is now built the
+same way, editable the same way, protected the same way. The remaining ideas on the
+list: actually demonstrate reusing one calculator on a second page with different
+words (nobody has done it yet, it's the cheapest proof of the reuse goal), and the
+bigger "teach the planner what this site is" work.

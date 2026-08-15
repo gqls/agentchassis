@@ -2874,3 +2874,35 @@ materialised SQL through psql) and is deliberately NOT routed through the peer s
    page bytes; then `b2_verify.py loans-consolidation mortgages-repayment`; then
    `oracle.py --tools consolidation,repayment` + expectation control; then the full
    sweep + all three controls (all four runs were green at `9483f29e9`).
+
+### 2026-08-15 (e) — old-shape conversion FINISHED: applied by the owner, deployed, full chain green. ALL 23 TOOL PAGES ARE NOW B2.
+
+Continuation of (d). The owner ran `b2_convert_oldshape.py --apply` at 14:06:41/45Z
+(this session's permissions refuse DB writes; the apply was handed over, not laundered
+through a peer). Both guarded transactions passed: row md5s unmoved
+(`a4ebd9178d65` / `4ca1a6ab2ced`), 0 locked, 7/8 fields, components in place.
+
+- Two `page_rerender` items filed 14:14Z (`f884bb46` consolidation, `140f14a0`
+  repayment; RUNBOOK step-4 shape). Both complete within ~2.5 min — empty queue,
+  unlike the morning's 40-min drain.
+- **Deploy proven at the artefact, and the item `result` needed care:**
+  consolidation's result carries the git-adapter response one level deeper than the
+  addendum's example (`result->'response'->'deploy_result'`, success=true, 14:15:48Z).
+  **Repayment's result holds ONLY a spawn-handler record** (role/topics/agent_id) — no
+  deploy evidence at all despite `complete`. The repo is the proof for both:
+  `7af307339` / `e9e1e3b96` "Rerender:" commits at 14:15:47Z/14:16:15Z, matching the
+  items to the second, with NO content change — which is the point: assembly of the
+  NEW components reproduced the served bytes exactly, in production. (Path-filtered
+  `git log -- <file>` does NOT show these commits — no content changed — so an
+  identical-roundtrip deploy is only visible in the unfiltered log. Served md5s
+  unchanged: `db5e75dd7b3c` / `e7f5a93ea94f`.)
+- **Full chain, in order, all green this session:** `b2_verify` 2/2; per-tool oracle
+  PASS 28 / FAIL 0 / CONVENTION 0; per-tool expectation control OK (28 fail, 0 pass);
+  full sweep **PASS 170 / FAIL 0 / CONVENTION 6, N/A 0** (baseline exactly); parse
+  control OK; expectation control OK (0/161/15); crosstool control OK (0/154/13).
+
+State: 41 pages = 18 prose + 23 B2 calculators. Zero locked rows on the site's tool
+pages; every copy span on every calculator is an editable schema field. Owner's
+2026-08-13 direction is now fully implemented. Next per handoff §6: reuse
+demonstration (item 6), site-spec/planner loop (item 2), 252 og:, complaint oracle,
+Track C.
