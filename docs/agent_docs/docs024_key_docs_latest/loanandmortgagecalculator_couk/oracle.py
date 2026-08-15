@@ -755,15 +755,36 @@ def run_case(d, url, c, tool, mutate=None):
                 # correctly: 4 compare-loans verdicts + 3 overpayment prose readings.
                 # A control that cries wolf gets ignored, which is the one failure a
                 # control cannot afford.
-                if mutate in ("expectation", "crosstool"):
+                # NOTE THE ASYMMETRY — the two controls are NOT alike here, and an
+                # earlier version of this carve-out wrongly excluded both (caught in
+                # review by a second session on this lane, 2026-08-15).
+                #   expectation: corrupts `want` at a line this branch never reaches,
+                #                so a text check is immune BY CONSTRUCTION. Excluded.
+                #   crosstool:   swaps in the DONOR's whole check dict, raw_contains
+                #                INCLUDED, so a text check IS genuinely mis-paired and
+                #                MUST fail. Excluding it silently dropped 4 real
+                #                comparisons (compare-loans' verdicts alternate
+                #                Option A/B between adjacent vectors).
+                if mutate == "expectation":
                     rec.update(status="N/A",
                                want="text containing %r" % a["raw_contains"],
-                               note="out of scope for --mutate %s: this check asserts "
-                                    "TEXT, not a number, so corrupting numeric "
+                               note="out of scope for --mutate expectation: this check "
+                                    "asserts TEXT, not a number, so corrupting numeric "
                                     "expectations cannot move it. NOT evidence either "
-                                    "way in a control run." % mutate)
+                                    "way in a control run.")
                     out.append(rec)
                     continue
+                if mutate == "crosstool":
+                    trc = a.get("_true_raw_contains")
+                    if trc is not None and trc == a["raw_contains"]:
+                        rec.update(status="N/A",
+                                   want="text containing %r" % a["raw_contains"],
+                                   note="NON-TEST: the borrowed text expectation (%r) "
+                                        "equals this vector's own, so no comparator "
+                                        "could fail it — excluded from the control "
+                                        "rather than counted as a miss" % trc)
+                        out.append(rec)
+                        continue
                 ok = a["raw_contains"] in raw
                 rec.update(status="PASS" if ok else "FAIL",
                            want="text containing %r" % a["raw_contains"])
@@ -975,7 +996,16 @@ def main():
                 for j, chk_new in enumerate(donor):
                     true_want = (c["checks"][j]["want"]
                                  if j < len(c["checks"]) else None)
-                    swapped.append(dict(chk_new, _true_want=true_want))
+                    # The TEXT expectation needs the same treatment as the numeric
+                    # one: the donor's whole check dict is swapped in, raw_contains
+                    # included, so a text assertion IS genuinely mis-paired here and
+                    # must fail — unless the borrowed string happens to equal its own
+                    # (overpayment's prose is "%d Year", and two of its three vectors
+                    # both round to "2 Year"). Same NON-TEST logic as _true_want.
+                    true_raw = (c["checks"][j].get("raw_contains")
+                                if j < len(c["checks"]) else None)
+                    swapped.append(dict(chk_new, _true_want=true_want,
+                                        _true_raw_contains=true_raw))
                 rotated.append(dict(c, checks=swapped))
             tool["cases"] = rotated
             tool["determinism"] = []      # a determinism check has no expectation
