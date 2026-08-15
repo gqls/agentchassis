@@ -213,3 +213,34 @@ discipline fail by instruction — so the mechanical link gate stays the only re
 there, exactly as the plan already says. And the new voice is the *default*: any site's
 own voice specification still wins where they disagree, so the mortgage calculator site
 you refined by hand keeps behaving exactly as you left it.
+
+---
+
+**2026-08-15 — the four decisions on your desk, in plain terms.**
+
+One: the loan calculator site's stored statement of why it exists ends by promising to
+reveal "what lenders have no incentive to volunteer". That is the same move we corrected
+on the mortgage site, one size smaller, and it sits upstream of every future page. I'd
+restate it as what the site explains, calmly, rather than what lenders withhold. One field.
+
+Two: the same site's settings hold up "reveal the true cost of credit" as a model
+sentence — a family you rejected a week ago. Since writers copy examples far more
+faithfully than they follow rules, a rejected sentence listed as a model is an
+instruction to write it again. I'd replace it with a lever-shaped equivalent rather than
+just delete it, because the example slot is doing real teaching work.
+
+Three: the claims register I drafted for the calculator site includes its flagship
+£5,000–£7,000 figure, but the only source for that number is the site itself, which makes
+the register vouch for its own author. You can send someone to find an external source,
+register it honestly as the site's own estimate, or open the register instead with the
+stamp-duty facts already verified against GOV.UK this week — which would also catch the
+live wrong stamp-duty figure that site is currently serving. I'd start with the
+stamp-duty set and do the sourcing work later. Nothing gets applied until the other
+thread's page rework finishes either way.
+
+Four: you told me the review-surface bug is being worked in a separate thread. The
+editorial pass was queued behind it because its output needs a human to read it. The
+question is whether we build the editorial pass now, in parallel, so the two land
+together — its first job is the six missing homepage links you ruled should wait for it,
+which you would review personally regardless. I'd build in parallel; if the other thread
+stalls, we pause exactly where we would have been anyway.

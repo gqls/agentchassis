@@ -48,10 +48,13 @@ NOTES carries the evidence for every claim below.
 
 ## NEXT WORK, in the standing order
 
-1. **`bugs_open/033` — the human-review queue has no working surface.** This is stage 2's
-   BLOCKING dependency (owner D2, 08-12: no unreviewed auto-rewrite, so stage 2's output
-   parks in a queue nobody can read; `voice_tells`: 34 parked, 1 ever closed, by machine).
-   Read 033 + `who-owns` before starting; it may be another lane's.
+1. ~~**`bugs_open/033`** — read 033 + `who-owns` before starting; it may be another lane's.~~
+   **UPDATED 2026-08-15 (owner): 033 IS being worked in a separate thread — do not start
+   it from here.** The open sequencing decision (owner, pending): build stage 2 in
+   PARALLEL so the two land together, or wait for 033's surface to exist. Recommendation
+   given: parallel — stage 2's first output is the committed proof case, which the owner
+   reviews directly either way. The four pending owner decisions are laid out in
+   README_where_we_are (2026-08-15 entry).
 2. **Stage 2 build** (only after 1). The accumulated constraints, all measured:
    - **Proof case committed** (owner ruling 08-12): 6 links missing from LMC index
      `prose-0`; pass = `loanandmortgagecalculator_couk/gate_page_links.py` exits 0;
