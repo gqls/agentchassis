@@ -945,3 +945,38 @@ spending your before-you-look gate. Under the measured truth, their work could n
 it — and telling them the narrow truth let them carry on instead of stopping for a hazard that
 does not exist. A warning people must ignore to do their jobs is a warning they stop reading, so
 the record now says the narrow, true version.
+
+---
+
+**2026-08-15, morning.** The overnight build changed three things, and one of them is you seeing
+the new colours earlier than planned — through nobody's decision, and safely.
+
+First: the new build carries the first half of the 5.0 work but not the second — the version the
+reviewers asked to be revised, not the corrected one they approved. The difference doesn't change
+any colour; it's belt-and-braces for future code. But your before-you-look check deserves to run on
+the approved version, and the corrected half will be in your next release anyway. So the darts
+rebuild stays held. The gating check we built did exactly its job: it looked at the running system,
+said "not yet", and that was the right answer.
+
+Second — the interesting one. Yesterday afternoon, a routine design-audit process rebuilt the
+stylesheets of the robotics site and the cooking site, entirely on its own, for its own reasons. It
+happened to run while the earlier 4.5 version of the colour repair was live. So those two sites are
+already showing brand-tinted link colours — the robotics site's labels are now a muted navy rather
+than body-text white. This is exactly the third-party possibility we wrote down two nights ago as
+"rare but real"; it took less than a day to happen. It is safe — the colours are legible and
+brand-hued, just at the old threshold rather than your revised one — and in one way it's useful:
+if you look at robot-hands.com today, you are looking at approximately what the fleet-wide change
+will feel like, a shade darker than what will actually ship at 5.0.
+
+Third: one of the 226 parked tickets was cancelled by another team overnight — one of the
+white-on-white button tickets, which belongs to a family another lane now owns. Not our closing
+mechanism (that always signs its work); noted, not alarming. Monday's count expectations adjusted
+by one.
+
+Monday's test survives all of this — the two tickets that must close still must close, the one that
+must stay open still must stay open — but whoever grades it reads the live page first, as the
+handoff now says for the third time, having been proven right about it twice.
+
+This conversation has run long, so the handoff file is fully up to date for a fresh start:
+`HANDOFF_2026-08-14_continue_here.md`, status block dated today at the top. Also: today is the
+day for pricing the discovery-rotation ramp.

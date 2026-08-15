@@ -1,4 +1,42 @@
-# HANDOFF — bug 122 lane. START HERE. Written 2026-08-14 (afternoon).
+# HANDOFF — bug 122 lane. START HERE. Written 2026-08-14 (afternoon), status block updated 2026-08-15.
+
+## ⚡ 2026-08-15 STATUS — read this first, then the body
+
+**v1.0.1300** (pods 20:36Z 08-14, stamp `a2a691213` — chassis provenance line scrolled, stamp read
+from the adapter and probed into the chassis binary with both controls). Ancestry:
+
+| commit | in v1.0.1300? | consequence |
+|---|---|---|
+| retraction `5639a1103` | **LIVE** | Monday unchanged |
+| ink round 2 composited `8ad05d01a` | **LIVE** | — |
+| 5.0 + kill-switch round 1 `d4bbbf645` | **LIVE** | **the fleet now emits 5.0 values on any re-render** (all call sites wired, so round 1 behaves correctly today; the zero-value hazard is for FUTURE unwired callers) |
+| 5.0 round 2 `e0f239118` | **NOT LIVE** | **THE GATE SAYS HOLD, and it is right** — the running version is the one the council said REVISE to. Behaviourally identical for the canary, but the owner's gate should not run on a REVISE-flagged binary when the APPROVED one is a roll away. `829a8f3e` stays `deferred` |
+
+**THE "RARE" THIRD-PARTY EXPOSURE FIRED WITHIN HOURS OF BEING NAMED.** `visual-design-audit` — a
+routine pipeline — filed `needs_design_review` items that re-rendered **cookly.uk** (14:22/14:24Z)
+and **robot-hands.com** (15:25Z) on 08-14, on the then-live **4.5** binary (v1.0.1298). Served now:
+robot-hands `--color-primary-ink: #8a97bd`, cookly `--color-accent-ink: #af4625` — **the 4.5
+round-2 brand-tinted values are user-visible on two sites**, pre-empting the owner's staged gate in
+the SAFE direction (legible, brand-hued, just at the threshold he revised away from).
+dartsonline (`#F0F2F7`, held item intact), webdesign.co.uk and vonc are untouched.
+
+**Monday therefore grades on the `#8a97bd` branch of the §3a table** (round 2 at 4.5 underneath;
+both must-retract rows still clear at 4.56 / 5.16, verdicts unchanged) — **unless another
+re-render lands first: read the served ink again on the day.** This is the third time this
+handoff has had to say that, and the second time events proved it.
+
+**The 226 is now 225 + 1 CANCELLED**, and the cancellation is NOT ours and NOT the retraction:
+`contrast_failure:/gripper-payload-calculator.html#A.cta-btn`, cancelled 16:36Z 08-14 with **no
+`resolved_by`, no `reason`** — the retraction always stamps both. Probably the bug-268 buttons
+lane (the cta-btn/gradient family is in their remit now) — unconfirmed, left as an open question.
+Consequence for §3b: robot-hands' first-pass ceiling is **33**, not 34. All three
+`/selection-guide.html` canary rows are still `deferred`.
+
+**Next trigger unchanged: a roll whose stamp has `e0f239118` as ancestor** → un-defer + file
+webdesign (§3a-bis) → owner looks → "Go". Saturday's pricing task (§4.1) is now TODAY.
+
+---
+
 
 > **STATUS IN ONE PARAGRAPH.** The retraction is built, council-APPROVED, and **live**, now on
 > `v1.0.1298` / `bc39e7bf5` (re-verified at the binary with controls today). It has **still never
