@@ -1410,3 +1410,45 @@ vs $3/$15) through 2026-08-31** — any figure measured in August understates th
    landmine-verifier dispatch (RFC_005 3.2) has not been run.
 4. Untouched from the handoff: D5 (the `scheduled_tasks` check) and `page-content-writer`'s
    prompt-template restructure — still the largest unowned cost item in the fleet.
+
+### 2026-08-15 14:04Z — BOTH owed items CLOSED in one observation
+
+```
+13:55:06 | claude-sonnet-5 | input 1400 | output 406 | write 4991 | read    0
+14:03:52 | claude-sonnet-5 | input 1400 | output 465 | write    0 | read 4991
+```
+
+**1. The marker reads back.** Second call on the same prefix returned `cache_read=4,991,
+cache_creation=0` — the entry written at 13:55:06 was served from cache, not rewritten. The
+documented failure signature (writes accumulating with reads stuck at 0) is excluded.
+
+**2. The fleet TTL gate is closed, and by this agent rather than council-gate.** The gap
+between those two calls is **8m46.566s**. Under the 5-minute TTL the entry would have expired
+at ~14:00:06 and the second call would have forced a write — which is precisely what the
+pre-roll control showed happening 29 times out of 29. Formal gate query, scoped to marked
+agents:
+
+| agent | reads_beyond_5min | widest gap with read |
+|---|---|---|
+| `content-gap-planner` | **1** | **00:08:46.566** |
+| `council-gate` | 0 | 00:01:27.909 |
+
+**Nothing could have refreshed the entry mid-gap** — only two `content-gap-planner` calls exist
+in the window, and the prefix is site- and template-specific, so no other agent shares it. A
+read at 8m46s is **structurally impossible** at a 5-minute TTL. `[MEASURED 2026-08-15 14:04Z]`
+
+> **This is why the confounding correction mattered.** Run unscoped, the handoff's query still
+> returns 0 rows for `council-gate` — its traffic is too dense to open a >5min gap (widest with
+> a read: 1m28s). The estate would have kept waiting on the agent that cannot produce the
+> evidence, while the agent that produces it every ten minutes sat unmarked. **`content-gap-planner`
+> is now the fleet's TTL sentinel; watch it, not council-gate.**
+
+**Revert trigger, for the record:** neither condition fired. No 400s, no truncation
+(`output_tokens` 406/465 against a 16000 cap), reads non-zero on the 2nd call. `cacheTTL` stays
+`"1h"`.
+
+**Remaining from the handoff, untouched by this session:** D5 (the `scheduled_tasks`
+config-integrity check — design settled, not built) and `page-content-writer`'s prompt-template
+restructure (38.1% of fleet uncached input, ~4.94M tokens/3 days, still unowned and uncosted).
+Also: the two new `LANDMINES.md` entries are flagged `NEEDS_VERIFICATION` and the
+landmine-verifier dispatch has not been run.
