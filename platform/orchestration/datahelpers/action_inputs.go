@@ -7,6 +7,7 @@ package datahelpers
 import (
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"slices"
 	"sort"
 	"strings"
@@ -272,7 +273,15 @@ func UnknownConfigKeys(actionName string, config map[string]interface{}) (unknow
 	}
 
 	for k := range config {
-		if recognised[k] || IsFrameworkStepConfigKey(k) {
+		// A `!`-suffixed key is the STRICT spelling of the base field
+		// (RFC_029 §9 D3) — recognised exactly when the base is. The original
+		// spelling is what gets reported if it is not, so the author sees the
+		// key they actually wrote.
+		base := strings.TrimSuffix(k, "!")
+		if base == "" {
+			base = k
+		}
+		if recognised[base] || IsFrameworkStepConfigKey(base) {
 			continue
 		}
 		// Removed keys are NOT unknown — they are known-dead, a distinct third
@@ -280,7 +289,7 @@ func UnknownConfigKeys(actionName string, config map[string]interface{}) (unknow
 		// reports them and the validator rejects them outright. Listing one
 		// here as well would double-report it under the softer label, and the
 		// softer label is the one that gets read.
-		if _, isRemoved := spec.RemovedConfigKeys[k]; isRemoved {
+		if _, isRemoved := spec.RemovedConfigKeys[base]; isRemoved {
 			continue
 		}
 		unknown = append(unknown, k)
@@ -622,6 +631,14 @@ func IsDottedPathReference(s string) bool {
 //     one past it is an RFC, not a council round. That is RFC_022's argument one
 //     level down — each arm is individually well-argued, and the ninth is still a
 //     ninth.
+//   - A `!`-SUFFIXED CONFIG KEY IS A STRICT MAPPING (RFC_029 §9 D3, owner-delegated
+//     ruling 2026-08-15; opt-in with the unsafe default OFF per the 2026-08-02 §2
+//     ruling). `"field!": "<reference>"` means the field resolves via that explicit
+//     reference and NOTHING else: never ExtractFields' whole-tree search, never the
+//     nested-object fallback, never a deprecated-alias bridge. If the reference
+//     does not resolve, extraction FAILS with an error naming the field — for a
+//     strict field, no value is better than a searched one (the owner's stated
+//     ranking). An unmarked key behaves exactly as it always did.
 func ExtractActionInputs(
 	collectedData map[string]interface{},
 	config map[string]interface{},
@@ -633,6 +650,35 @@ func ExtractActionInputs(
 		Values:         make(map[string]interface{}),
 		DeprecatedUsed: []string{},
 		Defaulted:      make(map[string]bool),
+	}
+
+	// The `!` STRICT marker (RFC_029 §9 D3): peel it off the config key and
+	// remember which fields carry it. Strictness is declared where the mapping is
+	// written — beside the path it protects — not in the spec: the author of the
+	// step config is the one asserting "this reference is the only truth". A `!`
+	// key for a field the spec does not declare is inert here (nothing extracts
+	// undeclared fields) and is reported by UnknownConfigKeys where the action
+	// has opted in. If a step carries BOTH spellings, the strict one wins: an
+	// author who wrote the marker did not mean the unmarked entry to override it.
+	strictFields := map[string]bool{}
+	for k := range config {
+		if base := strings.TrimSuffix(k, "!"); base != k && base != "" {
+			strictFields[base] = true
+		}
+	}
+	if len(strictFields) > 0 {
+		normalised := make(map[string]interface{}, len(config))
+		for k, v := range config {
+			if base := strings.TrimSuffix(k, "!"); base != k && base != "" {
+				normalised[base] = v
+				continue
+			}
+			if strictFields[k] {
+				continue // unmarked twin of a strict key: the marker wins
+			}
+			normalised[k] = v
+		}
+		config = normalised
 	}
 
 	// Apply defaults first
@@ -675,17 +721,39 @@ func ExtractActionInputs(
 		}
 	}
 
+	// A STRICT field never meets ExtractFields (RFC_029 §9 D3): it is excluded
+	// from what Strategy 1/2 request AND from what they merge back, because
+	// ExtractFields is the doorway to the whole-tree search — and "explicit
+	// resolution only" is the marker's entire meaning.
+	withoutStrict := func(fields []string) []string {
+		if len(strictFields) == 0 {
+			return fields
+		}
+		kept := make([]string, 0, len(fields))
+		for _, f := range fields {
+			if !strictFields[f] {
+				kept = append(kept, f)
+			}
+		}
+		return kept
+	}
+
 	// Strategy 1: Use input_fields if specified in config (preferred)
 	if inputFields, ok := config["input_fields"].([]interface{}); ok {
-		fieldNames := make([]string, len(inputFields))
-		for i, f := range inputFields {
-			fieldNames[i], _ = f.(string)
+		fieldNames := make([]string, 0, len(inputFields))
+		for _, f := range inputFields {
+			if name, _ := f.(string); name != "" {
+				fieldNames = append(fieldNames, name)
+			}
 		}
-		extracted := ExtractFields(collectedData, fieldNames, logger)
+		extracted := ExtractFields(collectedData, withoutStrict(fieldNames), logger)
 		for k, v := range extracted {
 			// Don't overwrite values already resolved by Strategy 0 (explicit config paths)
 			if _, alreadyResolved := result.Values[k]; alreadyResolved {
 				continue
+			}
+			if strictFields[k] {
+				continue // ExtractFields' core-field recovery may still emit one; a strict field takes nothing from it
 			}
 			if v != nil {
 				result.Values[k] = v
@@ -693,15 +761,53 @@ func ExtractActionInputs(
 		}
 	} else {
 		// Strategy 2: Try to extract all needed fields directly
-		extracted := ExtractFields(collectedData, allFields, logger)
+		extracted := ExtractFields(collectedData, withoutStrict(allFields), logger)
 		for k, v := range extracted {
 			// Don't overwrite values already resolved by Strategy 0 (explicit config paths)
 			if _, alreadyResolved := result.Values[k]; alreadyResolved {
 				continue
 			}
+			if strictFields[k] {
+				continue // ExtractFields' core-field recovery may still emit one; a strict field takes nothing from it
+			}
 			if v != nil {
 				result.Values[k] = v
 			}
+		}
+	}
+
+	// OBSERVATION ONLY (RFC_029, the bugfix-213 lane's contribution of
+	// 2026-08-15): a DOTLESS config reference — `"result": "handler_result"` — is
+	// invisible to Strategy 0's dot-discriminator, so the whole-tree search
+	// (Strategy 1/2, above) runs FIRST and a same-named key anywhere in the tree
+	// beats the mapping the author actually wrote; Strategy 4 then skips the
+	// field as already-resolved. Unique-or-nothing cannot catch that shape: a
+	// single foreign key is "unique" and resolves with full confidence. This
+	// block measures the class during the Phase 1 observation window and changes
+	// NOTHING — same window, same WARN-grep as the conflict instrument. A field
+	// marked `!` never meets the search, so it cannot appear here.
+	for _, field := range allFields {
+		if strictFields[field] || result.Defaulted[field] {
+			continue
+		}
+		pathStr, ok := config[field].(string)
+		if !ok || pathStr == "" || IsDottedPathReference(pathStr) {
+			continue
+		}
+		mapped, exists := collectedData[pathStr]
+		if !exists || mapped == nil {
+			continue
+		}
+		got, has := result.Values[field]
+		if !has {
+			continue
+		}
+		if !reflect.DeepEqual(got, mapped) {
+			logger.Warn("aggressive search: explicit single-segment mapping bypassed",
+				zap.String("field", field),
+				zap.String("reference", pathStr),
+				zap.String("resolved_type", fmt.Sprintf("%T", got)),
+			)
 		}
 	}
 
@@ -713,6 +819,15 @@ func ExtractActionInputs(
 
 	// Strategy 3: Check deprecated *_field patterns for any missing fields
 	for oldKey, newField := range spec.Deprecated {
+		// A STRICT field takes nothing from the bridge (RFC_029 §9 D3): its own
+		// `!` mapping is the only reference allowed to decide it. A step carrying
+		// both a strict canonical key and a deprecated alias for the same field
+		// is asking two sources to be the single truth; the marker wins, and if
+		// its reference fails the loud strict error below names the field rather
+		// than letting the alias quietly stand in.
+		if strictFields[newField] {
+			continue
+		}
 		// Only use deprecated pattern if we don't already have the value.
 		//
 		// A value that is still only the spec DEFAULT does not count as "already
@@ -757,6 +872,9 @@ func ExtractActionInputs(
 	// Check for nested object access (backward compat)
 	// e.g., if we need "page_id" but got "current_page" object containing "page_id"
 	for _, field := range allFields {
+		if strictFields[field] {
+			continue // implicit parent-object hunting is exactly what `!` forbids
+		}
 		if _, hasValue := result.Values[field]; hasValue {
 			continue
 		}
@@ -969,6 +1087,39 @@ func ExtractActionInputs(
 			zap.String("field", field),
 			zap.Any("value", raw),
 		)
+	}
+
+	// STRICT enforcement (RFC_029 §9 D3): a `!` field that did not resolve via
+	// its explicit reference is a HARD error, whatever the spec says about the
+	// field being optional or defaulted. A still-standing Default counts as
+	// unresolved here — the author demanded the mapping resolve, and a Default
+	// silently standing in is the exact silent-substitution shape the marker
+	// exists to refuse. Runs before required-field validation so the error names
+	// the marker, not a generic missing-field.
+	var strictMissing []string
+	for field := range strictFields {
+		if !slices.Contains(allFields, field) {
+			continue // undeclared: nothing extracts it, UnknownConfigKeys reports it
+		}
+		val, exists := result.Values[field]
+		if !exists || val == nil || result.Defaulted[field] {
+			strictMissing = append(strictMissing, field)
+		}
+	}
+	if len(strictMissing) > 0 {
+		sort.Strings(strictMissing)
+		for _, field := range strictMissing {
+			ref, _ := config[field].(string)
+			logger.Error("strict '!' field did not resolve via its explicit mapping",
+				zap.String("field", field),
+				zap.String("reference", ref),
+			)
+		}
+		return result, fmt.Errorf(
+			"strict '!' fields did not resolve via their explicit mapping: %v "+
+				"(RFC_029 §9 D3: a strict field is never resolved by the whole-tree search — "+
+				"fix the mapping, or remove the '!' to restore the search fallback)",
+			strictMissing)
 	}
 
 	// Validate required fields

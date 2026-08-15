@@ -88,8 +88,18 @@ func resolveSourcePath(
 // .response wrappers, input_data prefix variants, and UnwrapDeep results.
 //
 // Returns error if any required mapping path is not found (hard fail).
-// Fields marked with "?" suffix on the destination are silently skipped if
-// the source path doesn't resolve.
+// Suffix markers on the DESTINATION field name:
+//
+//	"?" — optional: silently skipped when the source path does not resolve.
+//	"!" — STRICT (RFC_029 §9 D3, owner-delegated ruling 2026-08-15): hard fail,
+//	      with an error naming the marker, when the source path does not
+//	      resolve. On this surface an UNMARKED field already hard-fails, so the
+//	      marker's value is the TRANSITION: flipping a "?" to a "!" converts a
+//	      silent skip — after which the CHILD's own resolver may fall back to
+//	      the whole-tree search for the missing field — into a loud failure at
+//	      the caller, without changing what resolves on the happy path. The
+//	      marker also states the author's intent where the mapping is written,
+//	      which an unmarked field cannot.
 func ResolveInputMapping(
 	collectedData map[string]interface{},
 	mapping InputMapping,
@@ -98,9 +108,10 @@ func ResolveInputMapping(
 	result := make(map[string]interface{})
 
 	for destField, sourcePath := range mapping {
-		// Check if field is optional (ends with ?)
-		isOptional := strings.HasSuffix(destField, "?")
-		actualDestField := strings.TrimSuffix(destField, "?")
+		// Suffix markers: "?" optional, "!" strict (strict wins a degenerate combo)
+		isStrict := strings.HasSuffix(destField, "!")
+		isOptional := !isStrict && strings.HasSuffix(destField, "?")
+		actualDestField := strings.TrimSuffix(strings.TrimSuffix(destField, "!"), "?")
 
 		// Handle special $item token (fan_out replaces this before calling)
 		if sourcePath == "$item" {
@@ -127,6 +138,17 @@ func ResolveInputMapping(
 					zap.String("source_path", sourcePath))
 				continue
 			}
+			if isStrict {
+				// Strict field not found — the loud failure the marker asks for
+				availablePaths := ListAvailablePaths(collectedData, 2)
+				return nil, fmt.Errorf(
+					"input_mapping failed: STRICT ('!') field '%s': source path '%s' not found — "+
+						"a strict field resolves explicitly or fails the step; it is never left "+
+						"for the child's whole-tree search (RFC_029 §9 D3)\n"+
+						"Available top-level paths: %v",
+					actualDestField, sourcePath, availablePaths,
+				)
+			}
 			// Required field not found - error
 			availablePaths := ListAvailablePaths(collectedData, 2)
 			return nil, fmt.Errorf(
@@ -142,6 +164,7 @@ func ResolveInputMapping(
 			zap.String("dest", actualDestField),
 			zap.String("source", sourcePath),
 			zap.Bool("optional", isOptional),
+			zap.Bool("strict", isStrict),
 			zap.Bool("value_nil", value == nil))
 	}
 
@@ -160,9 +183,11 @@ func ResolveInputMappingWithItem(
 	result := make(map[string]interface{})
 
 	for destField, sourcePath := range mapping {
-		// Check if field is optional (ends with ?)
-		isOptional := strings.HasSuffix(destField, "?")
-		actualDestField := strings.TrimSuffix(destField, "?")
+		// Suffix markers: "?" optional, "!" strict — same contract as
+		// ResolveInputMapping above (RFC_029 §9 D3)
+		isStrict := strings.HasSuffix(destField, "!")
+		isOptional := !isStrict && strings.HasSuffix(destField, "?")
+		actualDestField := strings.TrimSuffix(strings.TrimSuffix(destField, "!"), "?")
 
 		// Handle $item — pass through directly
 		if sourcePath == "$item" {
@@ -190,6 +215,17 @@ func ResolveInputMappingWithItem(
 					zap.String("source_path", sourcePath))
 				continue
 			}
+			if isStrict {
+				// Strict field not found — the loud failure the marker asks for
+				availablePaths := ListAvailablePaths(collectedData, 2)
+				return nil, fmt.Errorf(
+					"input_mapping (with_item) failed: STRICT ('!') field '%s': source path '%s' "+
+						"not found — a strict field resolves explicitly or fails the step; it is "+
+						"never left for the child's whole-tree search (RFC_029 §9 D3)\n"+
+						"Available top-level paths: %v",
+					actualDestField, sourcePath, availablePaths,
+				)
+			}
 			// Required field not found - error
 			availablePaths := ListAvailablePaths(collectedData, 2)
 			return nil, fmt.Errorf(
@@ -204,6 +240,7 @@ func ResolveInputMappingWithItem(
 			zap.String("dest", actualDestField),
 			zap.String("source", sourcePath),
 			zap.Bool("optional", isOptional),
+			zap.Bool("strict", isStrict),
 			zap.Bool("value_nil", value == nil))
 	}
 

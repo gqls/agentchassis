@@ -5,6 +5,8 @@ package datahelpers
 
 import (
 	"fmt"
+	"reflect"
+	"sort"
 	"strings"
 
 	"go.uber.org/zap"
@@ -396,7 +398,20 @@ func syncCoreFieldsToInputData(root map[string]interface{}, inputData map[string
 	}
 }
 
-// extractSingleField tries multiple strategies to find ONE field
+// extractSingleField tries the inner chain's arms, in order, to find ONE field.
+//
+// THE ARM NAMES ARE DESCRIPTIVE, NOT NUMBERED (RFC_029 §9 D4, owner-delegated
+// ruling 2026-08-15). This chain used to number its arms "Strategy 1..5" while
+// ExtractActionInputs (action_inputs.go) independently numbers ITS arms
+// "Strategy 0..6" — two different rules under the same names, in two files that
+// call into each other, and migration 402's header already cited the wrong
+// file's arm because of it. The arms here are: direct-path, input-data-prefix,
+// input-data-map, whole-tree-search, alias. Do not reintroduce numbers.
+//
+// THERE IS A BUDGET ON THIS CHAIN TOO, enforced by a test, not by this comment:
+// resolver_arm_budget_test.go counts this function's resolution return sites
+// (floor 5, ceiling 8). Past the ceiling, another arm is an RFC — RFC_028's
+// outer-chain rule, extended to the inner chain by RFC_029 §9 D4.
 func extractSingleField(
 	data map[string]interface{},
 	fieldName string,
@@ -412,13 +427,13 @@ func extractSingleField(
 	}
 	seen[fieldName] = true
 
-	// Strategy 1: Use FindByPath (handles unwrapping)
+	// direct-path: FindByPath (handles unwrapping)
 	if value := FindByPath(data, fieldName, logger); value != nil {
 		logger.Info("Found via FindByPath", zap.String("field", fieldName))
 		return value
 	}
 
-	// Strategy 2: Try with input_data prefix
+	// input-data-prefix: retry with "input_data." prepended
 	if !strings.HasPrefix(fieldName, "input_data.") {
 		path := "input_data." + fieldName
 		if value := FindByPath(data, path, logger); value != nil {
@@ -429,7 +444,7 @@ func extractSingleField(
 		}
 	}
 
-	// Strategy 3: Look inside input_data map directly
+	// input-data-map: look inside the input_data map directly
 	if inputMap := getInputDataMap(data, logger); inputMap != nil {
 		if value, ok := inputMap[fieldName]; ok {
 			logger.Info("Found in input_data map", zap.String("field", fieldName))
@@ -437,14 +452,15 @@ func extractSingleField(
 		}
 	}
 
-	// Strategy 4: Aggressive recursive search
+	// whole-tree-search: the aggressive last resort — collect-all /
+	// unique-or-nothing since RFC_029 §9 (see findFieldRecursive)
 	logger.Info("Trying aggressive search", zap.String("field", fieldName))
 	if value := findFieldRecursive(data, fieldName, 0, logger); value != nil {
 		logger.Info("Found via aggressive search", zap.String("field", fieldName))
 		return value
 	}
 
-	// Strategy 5: Check known aliases
+	// alias: retry the whole chain under a known alternative name
 	if alias := getFieldAlias(fieldName); alias != "" {
 		logger.Info("Trying field alias",
 			zap.String("field", fieldName),
@@ -459,65 +475,164 @@ func extractSingleField(
 	return nil
 }
 
-// findFieldRecursive does aggressive recursive search
+// fieldCandidate is one match the whole-tree search collected for a field name.
+type fieldCandidate struct {
+	path  string // dotted path from the search root; "~unwrap" marks a hop through tryUnwrapMapPatterns
+	depth int
+	value interface{} // UnwrapDeep'd, never nil
+}
+
+// findFieldRecursive is the whole-tree-search arm — the resolver's last resort,
+// and the only nondeterministic one until 2026-08-15.
+//
+// RULING (RFC_029 §9, owner-delegated, 2026-08-15): COLLECT-ALL / UNIQUE-OR-NOTHING.
+// The search collects EVERY match in the tree (same depth cap, same
+// infrastructure-key skip list as always) instead of returning whichever match a
+// randomised map iteration happened to meet first. If every match carries the
+// same value, it resolves — deterministically, shallowest path first — and
+// behaviour is unchanged from the old happy path. If the candidates CONFLICT,
+// any picking rule is a guess, and the owner's stated ranking forbids a guess:
+// no field at all is better than a wrong field.
+//
+// PHASE 1 (this build — instrument first, refuse second): conflicts still
+// resolve, to the STABLE shallowest-first winner, and emit the WARN below naming
+// the field, every candidate path, and the winner. PHASE 2 (a later build)
+// flips conflicts to refusal. Do not flip without reading RFC_029 §9 D2's
+// precondition: zero conflict WARNs observed over the window, or every observed
+// field/caller pair given an explicit mapping first.
 func findFieldRecursive(
 	data interface{},
 	fieldName string,
 	depth int,
 	logger *zap.Logger,
 ) interface{} {
-	if depth > 20 {
+	candidates := collectFieldCandidates(data, fieldName, "", depth, nil, logger)
+	if len(candidates) == 0 {
 		return nil
 	}
 
-	// Handle maps
-	if m, ok := data.(map[string]interface{}); ok {
-		// Direct match
-		if val, ok := m[fieldName]; ok {
-			logger.Debug("Recursive: found direct match",
-				zap.String("field", fieldName),
-				zap.Int("depth", depth),
-			)
-			return UnwrapDeep(val, logger)
-		}
+	// Stable sort by depth ONLY. Ties keep the collector's deterministic DFS
+	// encounter order (sorted map keys, natural slice order) — sorting by path
+	// STRING here would misorder slice indices ("[10]" < "[2]" lexicographically).
+	sort.SliceStable(candidates, func(i, j int) bool {
+		return candidates[i].depth < candidates[j].depth
+	})
 
-		// Try unwrapping first
-		unwrapped := tryUnwrapMapPatterns(m, logger)
-		if unwrapped != nil {
-			if result := findFieldRecursive(unwrapped, fieldName, depth+1, logger); result != nil {
-				return result
+	winner := candidates[0]
+	conflicting := false
+	for _, c := range candidates[1:] {
+		if !reflect.DeepEqual(c.value, winner.value) {
+			conflicting = true
+			break
+		}
+	}
+
+	if conflicting {
+		paths := make([]string, len(candidates))
+		for i, c := range candidates {
+			paths[i] = c.path
+		}
+		// THE PHASE 1 INSTRUMENT (RFC_029 §9 D2). The observation window reads
+		// this exact message; a pipeline that appears here depends on the old
+		// coin flip landing right and needs an explicit mapping BEFORE Phase 2
+		// flips conflicts to refusal.
+		logger.Warn("aggressive search: conflicting candidates",
+			zap.String("field", fieldName),
+			zap.Strings("candidate_paths", paths),
+			zap.String("winner_path", winner.path),
+			zap.String("phase", "1-resolve-and-warn"),
+		)
+	}
+
+	logger.Debug("whole-tree-search resolved",
+		zap.String("field", fieldName),
+		zap.String("path", winner.path),
+		zap.Int("candidates", len(candidates)),
+	)
+	return winner.value
+}
+
+// collectFieldCandidates walks data depth-first with SORTED keys, collecting
+// every non-nil value stored under fieldName — the collect-all half of
+// findFieldRecursive. Depth cap and the infrastructure-key skip list are exactly
+// the old walk's; only the traversal ORDER (sorted, so reproducible) and the
+// stopping rule (never stops early) differ.
+//
+// A key holding null was never a resolvable value here — the old walk returned
+// it as nil at the root (which read as not-found) and skipped past it mid-tree —
+// so the collector skips null uniformly rather than treating it as a candidate.
+func collectFieldCandidates(
+	data interface{},
+	fieldName string,
+	path string,
+	depth int,
+	out []fieldCandidate,
+	logger *zap.Logger,
+) []fieldCandidate {
+	if depth > 20 {
+		return out
+	}
+
+	switch v := data.(type) {
+	case map[string]interface{}:
+		// Direct match at this level
+		if val, ok := v[fieldName]; ok {
+			if unwrapped := UnwrapDeep(val, logger); unwrapped != nil {
+				out = append(out, fieldCandidate{
+					path:  joinCandidatePath(path, fieldName),
+					depth: depth,
+					value: unwrapped,
+				})
 			}
 		}
 
-		// Recurse into all values
-		// Skip infrastructure/metadata blobs that contain workflow configs with
-		// literal path strings (e.g. input_mapping: {"site_id": "site_record.site_id"})
-		// which get confused with actual data values. Direct match above still works
-		// if someone explicitly asks for "agent_config" etc.
-		for key, val := range m {
+		// Unwrap common nesting patterns ({X}_result.result, result, input_data)
+		// and search inside — this reaches JSON-encoded payloads the plain key
+		// walk cannot (a string is not a map), exactly as the old walk did.
+		if unwrapped := tryUnwrapMapPatterns(v, logger); unwrapped != nil {
+			out = collectFieldCandidates(unwrapped, fieldName, joinCandidatePath(path, "~unwrap"), depth+1, out, logger)
+		}
+
+		// Recurse into all values, in sorted-key order so the candidate list is
+		// reproducible. Skip infrastructure/metadata blobs that contain workflow
+		// configs with literal path strings (e.g. input_mapping:
+		// {"site_id": "site_record.site_id"}) which get confused with actual data
+		// values. Direct match above still works if someone explicitly asks for
+		// "agent_config" etc.
+		keys := make([]string, 0, len(v))
+		for key := range v {
+			keys = append(keys, key)
+		}
+		sort.Strings(keys)
+		for _, key := range keys {
 			if isInfrastructureKey(key) {
 				continue
 			}
-			if result := findFieldRecursive(val, fieldName, depth+1, logger); result != nil {
-				logger.Debug("Recursive: found through key",
-					zap.String("through_key", key),
-					zap.Int("depth", depth),
-				)
-				return result
+			if key == fieldName {
+				// Already collected as the direct match above. A same-named key
+				// nested INSIDE that value is not an independent source, and the
+				// old first-match walk could never have returned it — descending
+				// would manufacture conflicts no run has ever seen.
+				continue
 			}
+			out = collectFieldCandidates(v[key], fieldName, joinCandidatePath(path, key), depth+1, out, logger)
+		}
+
+	case []interface{}:
+		for i, val := range v {
+			out = collectFieldCandidates(val, fieldName, fmt.Sprintf("%s[%d]", path, i), depth+1, out, logger)
 		}
 	}
 
-	// Handle slices
-	if slice, ok := data.([]interface{}); ok {
-		for _, val := range slice {
-			if result := findFieldRecursive(val, fieldName, depth+1, logger); result != nil {
-				return result
-			}
-		}
-	}
+	return out
+}
 
-	return nil
+// joinCandidatePath extends a candidate path with one segment.
+func joinCandidatePath(prefix, key string) string {
+	if prefix == "" {
+		return key
+	}
+	return prefix + "." + key
 }
 
 // isInfrastructureKey returns true for keys that contain framework metadata

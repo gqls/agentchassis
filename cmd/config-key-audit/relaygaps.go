@@ -320,11 +320,11 @@ func findRelayGaps(agents []contractAgent) relayGapReport {
 		projected := projectedAliases(queryOf(claimStep))
 
 		// forwarded: the callee-facing key names the mapping supplies, with the
-		// optional "?" suffix stripped — that suffix is about resolution, not about
-		// which field the child receives.
+		// optional "?" and strict "!" (RFC_029 §9 D3) suffixes stripped — those
+		// suffixes are about resolution, not about which field the child receives.
 		forwarded := map[string]string{}
 		for k, src := range mapping {
-			forwarded[strings.TrimSuffix(k, "?")] = src
+			forwarded[strings.TrimSuffix(strings.TrimSuffix(k, "!"), "?")] = src
 		}
 
 		f := relayGapFinding{Caller: spec.Caller, Step: spec.CallStep, Callee: spec.Callee}

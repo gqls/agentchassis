@@ -78,3 +78,16 @@ symptom sites 200, backlog zero). Full evidence: its CLOSING CONTRIBUTION + NOTE
    trusting any residual row. The lock check is `sites.locked_at IS NULL`.
 4. `scripts/who-owns.py 277` before starting the repair-handler build — a platform session
    may have claimed it.
+
+---
+
+> **ADDENDUM, same day (afternoon session): §2's remaining platform work is DONE — RFC_029
+> Phase 1 is implemented and committed, inert until the next image roll.** What shipped, the
+> one correction to the ruling it forced (the 402 caller cannot take `!` — its `?` serves
+> 636+ item types), the observation-window instructions for Phase 2, and the held adopter
+> migration (`417_..._HOLD.sql`, apply ONLY after the roll, binary-verified) are all recorded
+> in **RFC_029 §10** — read that section first if you are picking up the resolver. The
+> failing test named in §2 was repaired first as instructed, and turned out to be flaky (a
+> map-iteration coin flip), not stably failing; a second test of the same class was repaired
+> when determinism froze its coin. Register CTS-060; LANDMINES has the `!`-before-roll trap;
+> NOTES `## 2026-08-15 (later)` has the session record including one recovered misstep.

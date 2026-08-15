@@ -1,6 +1,6 @@
 # RFC 029 — the aggressive recursive search (`findFieldRecursive`) has no stated boundary for a field the caller never mapped, and `bugs_open/248` is its second production incident in one bug file
 
-## STATUS: **RULED 2026-08-15 (owner-delegated determination) — see §9. Implementation OPEN, phased, not yet started.**
+## STATUS: **RULED 2026-08-15 (§9). Phase 1 IMPLEMENTED 2026-08-15 (§10) — committed, inert until an image roll; Phase 2 OPEN pending the observation window. One D3 premise corrected on evidence (§10.3).**
 
 > The owner, in chat on 2026-08-15, delegated the determination in writing: *"Please think
 > about this and determine the best course of action, we'd rather there be no wrong fields
@@ -377,3 +377,83 @@ ready-made before/after that costs nothing to collect. ⚠ It is currently quiet
 
 — `bugfix_213_verifier_producer_join` lane (bug closed 2026-08-15; this is a post-closure
 contribution, not a reopening)
+
+> **ANSWERED by §10 below (same day):** Phase 1 now measures this exact class — a WARN
+> (`aggressive search: explicit single-segment mapping bypassed`) fires whenever the search's
+> answer for a field with a dotless config reference differs from what that reference resolves
+> to — and the `!` strict marker is the shipped opt-in remedy for any caller that wants the
+> mapping to win or fail today (a strict dotless reference resolves as a single-segment
+> reference, never the search). Your §4 point is conceded in full: unique-or-nothing does not
+> cover this shape, so whether the DEFAULT behaviour flips (your "mapping wins regardless of
+> dot" suggestion) is decided by the observation window's data, not pre-empted here.
+
+---
+
+## 10. IMPLEMENTATION 2026-08-15 — Phase 1, committed (inert until an image roll)
+
+Implemented by the `staged_component_build` lane, one coherent council-gated task. All Go;
+nothing below is live until a chassis image carrying it rolls.
+
+### 10.1 What shipped, decision by decision
+
+- **D1/D2 Phase 1** — `findFieldRecursive` collects ALL matches (sorted-key DFS, same depth
+  cap, same infrastructure skip-list), resolves the shallowest-first winner deterministically,
+  and on conflicts logs WARN **`aggressive search: conflicting candidates`** (field, every
+  candidate path, winner, `phase: 1-resolve-and-warn`) while still resolving. Tests pin:
+  unique-resolves-silently, conflict-warns-with-stable-winner, shallowest-beats-DFS-order,
+  200-run determinism. The pre-existing flaky controls this exposed were repaired first, as
+  §9's implementation notes required: `TestDefaultBeatsTheRecursiveSearch`'s control asserted
+  one winner of a four-way map-iteration race (single-candidate fixture now), and
+  `TestBridgeIsUnchangedForANonDefaultedField`'s fixture let the search outvote the bridge on
+  a coin flip that determinism froze on the wrong side (sources moved under skip-listed keys).
+- **D3** — the `!` strict marker ships on BOTH mapping surfaces. In `ExtractActionInputs`
+  step config, `"field!": "<reference>"` = explicit resolution only (dotted path or
+  single-segment reference), never the whole-tree search / nested-object fallback /
+  deprecated bridge; unresolved (a still-standing Default counts as unresolved) → the
+  extraction errors naming the field and marker. In `ResolveInputMapping`/`WithItem`, `!` is
+  the loud spelling: the `?`→`!` transition converts silent-skip into hard-fail; the suffix
+  is stripped before delivery (test pins that the child receives the bare name).
+  `UnknownConfigKeys` recognises the strict spelling of a declared field; `relaygaps.go`
+  strips `!` like `?`. First adopter: migration **`417_image_build_handler_asset_id_goes_strict_HOLD.sql`**
+  — held until the roll (see §10.3 and the LANDMINES entry for why the order is load-bearing).
+- **D4** — the inner chain's arm budget exists: an AST count of `extractSingleField`'s
+  non-nil resolution returns in `resolver_arm_budget_test.go` (floor **5** pinned exact,
+  ceiling **8**), mutation-proven both ways (a real added return moved 5→6; a lowered ceiling
+  failed with the RFC message). The inner arms are renamed descriptively — direct-path,
+  input-data-prefix, input-data-map, whole-tree-search, alias — and migration 402 carries a
+  dated correction for its "Strategy 4" miscitation (§6 closed).
+- **213 contribution** — instrumented, not yet flipped: WARN
+  **`aggressive search: explicit single-segment mapping bypassed`** fires when the search's
+  answer for a field with a dotless config reference differs from what the reference itself
+  resolves to (Default-blocked fields excluded — those are CTS-059's case, not this one).
+
+### 10.2 The observation window (what Phase 2 waits for)
+
+After the roll, grep both WARN messages fleet-wide for 48h minimum (a week preferred):
+`kubectl -n ai-persona-system logs -l app=agent-chassis -f | grep "aggressive search:"` —
+**stream, do not `--tail` an old pod** (CTS-059's measured 92-second retention window).
+Phase 2 (conflicts resolve NOTHING) proceeds only on §9 D2's precondition: zero conflict
+WARNs, or every observed field/caller pair explicitly mapped first. The bypass WARN's
+population decides whether the 213 class needs the default flipped or stays opt-in via `!`.
+
+### 10.3 DATED CORRECTION to §9 D3 — one named adopter was wrong on the ruling's own evidence
+
+§9 D3 says both 401/402 callers adopt `!` and "adopting `!` there changes nothing on the
+happy path". Measured against the two migrations' own texts before implementing:
+
+- **`image-build-handler` (401): ADOPTED**, via `417_HOLD`. Live measurement 2026-08-15:
+  13/13 asset-deployer children of image-build-handler parents in the retained window carry
+  `asset_id`; zero refusal-branch spawns (the locked/no-asset-URL branches 401 kept non-fatal
+  with `?`). After the flip a refusal-branch spawn hard-fails the step loudly — a real change
+  on a measured-zero branch, and the intended one: a loud absence beats a silent guess.
+- **`build-dispatch-loop` (402): NOT ADOPTED, and must not be.** That mapping is shared by
+  EVERY dispatched item type — 402's own measurement: exactly one (item_type, handler_agent)
+  pair fleet-wide carries `spec.asset_id`, against 636+ item types flowing through the same
+  `call_handler` step. Its `?` is per-item-type optionality doing real work; `!` there
+  hard-fails every non-asset dispatch in the fleet. The repair path keeps `?` and is covered
+  by D1/D2 instead (post-Phase-2, a conflicting foreign `asset_id` resolves to nothing rather
+  than a guess). If the owner wants the repair path strict, that needs a per-item-type
+  mechanism this ruling did not design — flagged, not built.
+
+The `!`-before-roll trap (an old binary reads `field!` as an ordinary field and silently
+re-arms the search) is registered in LANDMINES.md and in the concept register as **CTS-060**.

@@ -193,3 +193,155 @@ func ExtractActionInputs() {
 			"(it must count result.Values only — not other receivers, not result.Defaulted)", count)
 	}
 }
+
+// ---------------------------------------------------------------------------
+// THE INNER CHAIN'S BUDGET — RFC_029 §9 D4 (owner-delegated ruling 2026-08-15),
+// answering RFC_029 §7.3: "a budget on one chain while the other is uncounted
+// measures nothing."
+//
+// ExtractActionInputs' Strategy 1 and 2 both delegate to ExtractFields, whose
+// extractSingleField runs a SECOND five-arm chain in a different file
+// (unified_extractor.go: direct-path, input-data-prefix, input-data-map,
+// whole-tree-search, alias). RFC_028's census structurally could not see it —
+// its query matched fix_plan text naming action_inputs.go — and bugs_open/248
+// produced two council rounds gating on exactly this chain's last arm. Same
+// pattern as the outer budget above, same rules: floor pinned to the exact
+// count (5, measured 2026-08-15) with no slack, ceiling 8 per the owner's
+// "generous" instruction, mutation-proven both ways.
+//
+// WHAT IS COUNTED: return statements in extractSingleField whose expression is
+// not the bare identifier `nil` — i.e. the sites that can hand a resolved value
+// back. (The seen-guard's `return nil` and the final not-found `return nil` are
+// refusals, not resolutions.) An AST walk, not a comment grep, for the reason
+// stated on the outer budget: comments must never be load-bearing.
+// ---------------------------------------------------------------------------
+const (
+	// Generous headroom per the owner's instruction on the sibling question:
+	// three more arms before the ceiling binds. Raising it belongs in RFC_029's
+	// track, not in whichever change is inconvenienced by it.
+	innerChainArmBudget = 8
+
+	// Pinned to the exact count as measured 2026-08-15, deliberately with NO
+	// slack: direct-path, input-data-prefix, input-data-map, whole-tree-search,
+	// and the alias retry (which returns the recursive call). If this trips,
+	// the matcher has stopped seeing the returns — FIX THE MATCHER; do not
+	// lower the floor to make it pass.
+	innerChainArmFloor = 5
+)
+
+// countInnerChainResolutionReturns counts extractSingleField's non-nil return
+// statements in unified_extractor.go.
+func countInnerChainResolutionReturns(t *testing.T) (int, bool) {
+	t.Helper()
+
+	fset := token.NewFileSet()
+	file, err := parser.ParseFile(fset, "unified_extractor.go", nil, 0)
+	if err != nil {
+		t.Fatalf("parsing unified_extractor.go: %v", err)
+	}
+
+	var (
+		found bool
+		count int
+	)
+	ast.Inspect(file, func(n ast.Node) bool {
+		fn, ok := n.(*ast.FuncDecl)
+		if !ok || fn.Name.Name != "extractSingleField" || fn.Body == nil {
+			return true
+		}
+		found = true
+
+		ast.Inspect(fn.Body, func(inner ast.Node) bool {
+			ret, ok := inner.(*ast.ReturnStmt)
+			if !ok || len(ret.Results) != 1 {
+				return true
+			}
+			if ident, isIdent := ret.Results[0].(*ast.Ident); isIdent && ident.Name == "nil" {
+				return true // a refusal, not a resolution
+			}
+			count++
+			return true
+		})
+		return false
+	})
+
+	return count, found
+}
+
+func TestInnerChainArmBudget(t *testing.T) {
+	count, found := countInnerChainResolutionReturns(t)
+
+	if !found {
+		t.Fatal("extractSingleField not found in unified_extractor.go — the matcher is blind, " +
+			"not the chain empty. Fix the matcher; do not delete this test.")
+	}
+
+	if count < innerChainArmFloor {
+		t.Errorf("counted %d resolution returns in extractSingleField, floor is %d.\n"+
+			"This almost certainly means THE MATCHER WENT BLIND (function renamed, returns "+
+			"restructured behind a helper), not that arms were removed. If arms really were "+
+			"removed, lower innerChainArmFloor deliberately and say so in the commit.",
+			count, innerChainArmFloor)
+	}
+
+	if count > innerChainArmBudget {
+		t.Errorf("the inner extraction chain now has %d ways to hand a value back, budget is %d.\n\n"+
+			"This is RFC_029 §9 D4's arm budget. Strategy 1/2 of EVERY action's input resolution "+
+			"delegates here, so a new arm is fleet-wide authority — an ARCHITECTURE question, "+
+			"not a council round. Do not raise innerChainArmBudget to make this pass; take it "+
+			"to RFC_029's track.",
+			count, innerChainArmBudget)
+	}
+
+	t.Logf("inner extraction chain: %d/%d resolution returns used", count, innerChainArmBudget)
+}
+
+// The demand control on the inner matcher, mirroring the outer one's: prove the
+// counter can move, and that it excludes exactly the refusal returns.
+func TestInnerChainArmMatcherCanFail(t *testing.T) {
+	const fixture = `package p
+func extractSingleField() interface{} {
+	if guard {
+		return nil
+	}
+	if a {
+		return valueA
+	}
+	if b {
+		return helper(x)
+	}
+	return nil
+}`
+	fset := token.NewFileSet()
+	file, err := parser.ParseFile(fset, "fixture.go", fixture, 0)
+	if err != nil {
+		t.Fatalf("parsing fixture: %v", err)
+	}
+
+	count := 0
+	ast.Inspect(file, func(n ast.Node) bool {
+		fn, ok := n.(*ast.FuncDecl)
+		if !ok || fn.Name.Name != "extractSingleField" || fn.Body == nil {
+			return true
+		}
+		ast.Inspect(fn.Body, func(inner ast.Node) bool {
+			ret, ok := inner.(*ast.ReturnStmt)
+			if !ok || len(ret.Results) != 1 {
+				return true
+			}
+			if ident, isIdent := ret.Results[0].(*ast.Ident); isIdent && ident.Name == "nil" {
+				return true
+			}
+			count++
+			return true
+		})
+		return false
+	})
+
+	// Two matches, not four: both `return nil` refusals must be excluded, or the
+	// real count above is inflated and the budget bites early.
+	if count != 2 {
+		t.Errorf("inner matcher counted %d resolution returns in the fixture, want 2 "+
+			"(identifier returns and call returns count; bare nil returns do not)", count)
+	}
+}

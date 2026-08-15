@@ -1579,3 +1579,20 @@ repair handler fleet-wide) — I've filed that as its own numbered piece of work
 feeds: the lane to wake is `model_directory_pipeline` — the instructions are in
 `model_directory_pipeline/FINDING_2026-08-10_the_tracker_publisher_was_reverted_and_never_re_extended.md`.
 The stray image on gas wholesalers stays put for now, per your word.
+
+**2026-08-15, afternoon.** The resolver ruling from this morning is now built. In plain
+terms: when a workflow step needs a value nobody explicitly wired up, the platform used to
+wander the whole run's data looking for anything with the right name and take the first thing
+it bumped into — and "first" was literally random. Now it gathers every candidate, and if
+they all agree it uses that value; if they disagree it still picks the same one every time
+(the shallowest) but writes a warning naming every candidate, so after the next release we
+can watch for a week and see exactly which pipelines were living on luck. The follow-up step
+— refusing to pick at all when candidates disagree — waits for that week of evidence. There
+is also a new opt-in "!" mark an author can put on a wiring line meaning "this exact source
+or fail loudly, never guess"; the image pipeline's asset id is queued to be the first user of
+it once the release is out (the switch is written but deliberately held until then). One of
+the ruling's two named first users turned out to be unusable on its own earlier evidence — a
+shared dispatch line where the optional mark is doing real work for hundreds of other item
+types — so that half is recorded as corrected rather than done. Two long-standing flaky tests
+were repaired along the way; both had been asserting the winner of what was actually a coin
+flip. Everything is committed but changes nothing until the next release rolls.

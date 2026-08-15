@@ -4475,3 +4475,40 @@ Owner reported a fresh chassis build. Verified rather than assumed, per the chec
 - `bugs_open/277` was TAKEN UP by another session ("bugfix 033") within the hour — handler
   built as a router (CQ-023, seed 410, their producer flip in Go was inert-until-roll and
   1301 may have carried it — THEIR verification, not ours; do not compete).
+
+## 2026-08-15 (later) — RFC_029 §9 Phase 1 implemented, one coherent council-gated task
+
+- **Repair-first, as §9's notes required — and the failing control turned out to be a CLASS.**
+  `TestDefaultBeatsTheRecursiveSearch`'s control asserted ONE winner of a four-way same-key
+  race decided by Go map iteration: flaky on pristine HEAD (most runs fail), not stably
+  failing as the handoff line implied. Repaired with a single-candidate fixture. Then D1's
+  determinism exposed a SECOND member of the class: `TestBridgeIsUnchangedForANonDefaultedField`
+  flaked 50/50 on HEAD (verified: 9 failures in 30 archive runs) and my change froze it on the
+  losing side — its fixture let the search reach two same-named values before the bridge ran.
+  Fixture sources moved under infrastructure skip-list keys, which is what the test actually
+  meant ("nothing else set").
+- **D1/D2 Phase 1 shipped:** collect-all / shallowest-first / sorted-key DFS in
+  `findFieldRecursive`; conflicts still resolve + WARN `aggressive search: conflicting
+  candidates`. 200-run determinism test. Phase 2 flip documented, NOT shipped.
+- **D3 shipped on both surfaces** (`ExtractActionInputs` config keys; `ResolveInputMapping`
+  dest fields) + `UnknownConfigKeys` + `relaygaps.py`-er, relaygaps.go. **MISSTEP, recovered:** I
+  reverted my mutation-test probe with `git checkout --` and it restored the whole of
+  `unified_extractor.go` to HEAD, wiping the session's edits there — re-applied from context,
+  full suite re-verified. Never revert a mutation with git on a file carrying uncommitted
+  work; edit it back.
+- **MEASURED, and it corrected the ruling:** 402's `asset_id?` lives on a mapping shared by
+  636+ item types (its own text) — `!` there would hard-fail every non-asset dispatch, so the
+  ruling's second named adopter is REFUSED with a dated correction (RFC_029 §10.3). 401's
+  caller measured 13/13 spawns with asset_id, zero refusal spawns → adopted via
+  `417_..._HOLD.sql` (held until the roll; old binary reads `field!` as an ordinary field —
+  LANDMINES entry added, CTS-060 registered).
+- **Migration number collision caught before commit:** 413/414/415 were taken by commits
+  landing DURING this session (d32c40fa6, bugfix_209 lane) — renumbered ours to 416. The
+  session-start snapshot goes stale in hours here.
+- **D4 shipped:** inner-chain arm budget (floor 5/ceiling 8, mutation-proven both ways),
+  descriptive arm names, 402's Strategy-4 miscitation corrected in place.
+- **213 contribution answered:** bypass WARN (`aggressive search: explicit single-segment
+  mapping bypassed`) + `!` as the opt-in remedy; default flip deferred to window data.
+- Clean-room verification: `git archive HEAD` + this task's files → whole tree builds, all 9
+  orchestration packages + config-key-audit tests pass. The working tree itself does NOT
+  compile (another session's untracked `publish_site_action.go`) — not ours, not fixed here.

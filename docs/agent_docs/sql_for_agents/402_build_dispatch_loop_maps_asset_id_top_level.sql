@@ -122,3 +122,23 @@ COMMIT;
 -- in agent_definitions itself, not agent_definitions_backup; confirm which
 -- overload with pg_get_functiondef before relying on it, per the bugfix_134
 -- council round's finding that the two overloads write to different tables).
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- CORRECTION 2026-08-15 (RFC_029 §6/§9 D4 — the Strategy-number collision this
+-- file itself became the worked example of). The header above says resolution
+-- "falls through to Strategy 4's aggressive findFieldRecursive search". That
+-- citation is WRONG in a way that sends a reader to the wrong file:
+-- action_inputs.go's own "Strategy 4" is a DIFFERENT arm ("resolve remaining
+-- config value references"). The aggressive search was unified_extractor.go's
+-- extractSingleField arm 4 — a second, independently-numbered chain one call
+-- away. As of RFC_029 Phase 1 the inner chain's arms carry DESCRIPTIVE names
+-- (direct-path, input-data-prefix, input-data-map, whole-tree-search, alias) so
+-- this class of miscitation cannot recur: the arm this file means is
+-- "whole-tree-search". The MECHANISM described above is otherwise correct, and
+-- nothing about the applied UPDATE changes. This note corrects the record only.
+--
+-- (Also noted, same date: this mapping was NAMED as the `!` strict marker's
+-- second adopter by RFC_029 §9 D3 and was NOT flipped — the mapping is shared
+-- by every dispatched item type, so its `?` is per-item-type optionality and a
+-- strict marker here would hard-fail every non-asset dispatch. See migration
+-- 417_HOLD's header and RFC_029 §9's dated correction.)
