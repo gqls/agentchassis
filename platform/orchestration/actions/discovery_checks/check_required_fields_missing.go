@@ -22,10 +22,16 @@
 // on_missing enforcement in plan_sections, and image fields are owned by
 // image_source_unsatisfiable.
 //
-// Flag-only: no handler agent, emitted at needs_human_review. page-build-
-// handler cannot fix these (it rebuilds from spec sections; the live cases sit
-// on entity pages whose sections list is empty), and the honest resolutions —
-// give the site a data source, or remove the component — are human decisions.
+// Routed since 2026-08-15 (owner ruling, bugs_open/277): items are emitted at
+// triaged for required-fields-missing-handler (seed 410), a pure-SQL router
+// that classifies each finding against live DB state and converts, closes, or
+// parks it per class. This supersedes the original flag-only design — its
+// reasoning ("the honest resolutions — give the site a data source, or remove
+// the component — are human decisions") survives inside the router: the two
+// classes that genuinely need a human (blob components whose regeneration
+// would replace served HTML, and owned/tool pages with no plan) are parked
+// back to needs_human_review WITH the classification and the safe options,
+// holding the dedup key so re-raises cannot churn.
 //
 // NOTE: input_schema is normally the v2 `fields` wrapper. A legacy JSON-Schema
 // (`properties`+`required[]`) component is read via datahelpers.SchemaContentFields
@@ -53,6 +59,15 @@ func (c *RequiredFieldsMissingCheck) Name() string { return "required_fields_mis
 // maxRequiredFieldFlagsPerPass bounds noise on badly-shaped sites; remaining
 // gaps surface on later passes once earlier flags are resolved.
 const maxRequiredFieldFlagsPerPass = 25
+
+// requiredFieldsHandlerAgent is the router seeded by
+// 410_required_fields_missing_router.sql (bugs_open/277, owner ruling
+// 2026-08-15). It classifies each item by (page_name, slot_name) against live
+// DB state and converts, closes, or parks it — this check no longer decides.
+// Declared in block form so handler_coverage_test.go's const resolver sees it.
+const (
+	requiredFieldsHandlerAgent = "required-fields-missing-handler"
+)
 
 func (c *RequiredFieldsMissingCheck) Run(dctx DiscoveryCheckContext) (*CheckResult, error) {
 	rows, err := dctx.DB.QueryContext(dctx.Ctx, `
@@ -152,10 +167,12 @@ func (c *RequiredFieldsMissingCheck) Run(dctx DiscoveryCheckContext) (*CheckResu
 				function, pageName, len(missing), strings.Join(missing, ", ")),
 			SpecJSON: string(spec),
 			Priority: 140,
-			// Flag-only: no handler, and needs_human_review keeps it out of
-			// the dispatch loop while the dedup key holds it open.
-			HandlerAgent: "",
-			Status:       "needs_human_review",
+			// Routed (owner ruling 2026-08-15, bugs_open/277): born triaged
+			// so the dispatch loop hands it to the router, which decides
+			// convert vs close vs park per row. Seeded by 410; the roster
+			// entry in handler_coverage_test.go is the contract.
+			HandlerAgent: requiredFieldsHandlerAgent,
+			Status:       "triaged",
 			CreatedBy:    dctx.AgentType,
 			ItemKey:      fmt.Sprintf("required_fields_missing:%s:%s", pageID, slotName),
 			BatchID:      dctx.BatchID,

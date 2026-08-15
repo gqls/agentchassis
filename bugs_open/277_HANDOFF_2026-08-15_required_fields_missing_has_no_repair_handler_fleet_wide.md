@@ -56,3 +56,41 @@ dispatch loop's normal cadence instead of escalating.
 - `bugs_open/033` (human-review queue has no working surface — the queue this type currently
   dies in).
 - Owner rulings 2026-08-02 §1 (producer-set registration), council-gate norms (CLAUDE.md).
+
+---
+
+# TAKEN UP 2026-08-15 (session "bugfix 033") — the handler is BUILT, as a router
+
+Workstream: `docs024_key_docs_latest/bugfix_277_required_fields_repair/` (standing docs +
+census + canary evidence). Register: **CQ-023**. Seed:
+`sql_for_agents/410_required_fields_missing_router.sql` (+ ROLLBACK). Council submission
+`7b0e2833-715f-4a9a-897b-efd913073582`.
+
+**The population re-measured (fleet-wide, not just the 12 sites): 44 open items**, and the
+census (saved, read-only) reframes the fix-shape above:
+
+| class | n | what the router does |
+|---|---|---|
+| `no_content_data` — component serves 1–21KB rendered_html with EMPTY content_data (blob) | 35 | **parks in place** with the facts: auto-regeneration would REPLACE served HTML (bugs 263) |
+| `stale` — page/component gone at (page_name, slot) | 6 | closes with evidence; discovery rotation re-raises if still real |
+| `no_plan_generic` — sectionless, safe to rebuild | 1 | converts to `needs_content_page` / `mode=recreate`, born `triaged` |
+| `no_plan_owned` — **the gas converter** (tool page, owned-page guard) | 1 | **parks** naming the tool pipeline as the repair route |
+| `partial` — fields genuinely empty on populated content_data | 1 | converts to `content_rewrite` / `mode=edit_live` |
+
+**Correction to this file's fix shape 1/2 ("re-derive the missing fields … regenerating the
+page plan first"):** that is the right repair for exactly ONE of the 44 (the sectionless
+generic page). For the gas converter it is forbidden by the owned-page guard (reconcile_site_plan
+decision 3 — the generic builder clobbers tool pages), so the router routes it to a parked
+decision naming `needs_tool_recreation`/tool-improver rather than overriding an owner ruling.
+**"The page serves real content" (the Verify section above) is therefore the TOOL lane's bar,
+not this handler's** — this handler's bar is: no item of this type ever again sits unread
+without a classification, and every repairable one is dispatched.
+
+Producer flipped (Go, `check_required_fields_missing.go`: born `triaged` at the router;
+`handler_coverage_test.go` roster updated) — inert until the next chassis roll; the seed +
+a canaried assignment UPDATE carry the live half meanwhile. Fix shape 3's register obligation:
+done (CQ-023 names producer set + first consumer; PBP-028's edit_live producer-set clause
+gains the third emitter).
+
+**OPEN** until fixed-AND-live: seed applied + canary verified + fleet assigned + producer
+change rolled.

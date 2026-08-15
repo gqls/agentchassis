@@ -1,0 +1,56 @@
+{
+  "rationale": "bugs_open/277, owner ruling 2026-08-15: 'we should create a repair handler fleet wide' for required_fields_missing — the type is filed flag-only (HandlerAgent \"\", needs_human_review) by check_required_fields_missing.go, so every item parks unread; exactly one item in platform history has ever reached a terminal status. This is one type's instance of bugs_open/033's owner-ruled reframing (2026-07-25: 'the framework — not a person — should resolve every one of these classes'). The change follows the estate's established router-not-repairer pattern (IMG-071 / seed 397, owner-instructed 2026-08-12, executed in production): a pure-SQL DB-config agent that classifies each item once by (page_name, slot_name) — the revalidator's own key, never spec.component_id which is unstable across rerenders — and then CONVERTS the two classes that have an owning repair path, CLOSES the two classes whose predicate no longer holds, and PARKS-IN-PLACE (back to needs_human_review, holding the dedup key, with the facts and safe options in the error message) the two classes that must not be auto-repaired: blob components (NULL content_data under 1.5-21KB of serving rendered_html — regeneration would REPLACE served HTML with one template render, bugs_open/263's class) and owned/tool pages with no plan (the owned-page guard, itself an owner ruling, refuses generic rebuild). Park-in-place rather than checkpoint-and-complete is deliberate: checkpoint_for_review writes NO item_key (no dedup) and completing the original releases its dedup key, so the producer re-raises and the two-strike rule births endless unresolved rows (5 keys of this very type already sat at 1 strike on 2026-08-04); a held dedup key makes churn structurally impossible. Census of all 44 open items run 2026-08-15 (read-only, saved with the workstream docs): no_content_data 35, stale 6, no_plan_generic 1, no_plan_owned 1 (the owner's worked example, gaswholesalers tool-gas-unit-converter), partial 1.",
+  "submitter": "bugfix-033/277 session (bugfix_277_required_fields_repair)",
+  "plan": {
+    "summary": "required_fields_missing items park forever because no handler claims the type. Seed a pure-SQL router agent (required-fields-missing-handler) that classifies each item by live DB state and converts/closes/parks per class; flip the producer to file future items routed (HandlerAgent set, status triaged); update the coverage-test roster and the two register entries the change touches. Existing 44 rows are assigned by a canaried one-off UPDATE after the seed is applied and verified.",
+    "edits": [
+      {
+        "file": "docs/agent_docs/sql_for_agents/410_required_fields_missing_router.sql",
+        "symbol": "required-fields-missing-handler",
+        "operation": "config_change",
+        "rationale": "The router itself, cloned from 397's proven shape: conditional snapshot_agent, INSERT agent_definitions with a workflow of query_database classifier -> conditional_branch cascade -> arms; verify DO-block asserts step shape, the retired create_work_item 'spec' key is ABSENT, and 0 items assigned at seed time. DB config, live on apply, inert until rows are assigned.",
+        "sketch": "classify (query_database, params [input_data.site_id, input_data.work_item_id], one-row CASE over pages/site_plan_sections/page_components/spec.missing_fields emptiness mirroring valueIsEmpty) -> route_stale/route_resolved/route_owned/route_blob/route_noplan/route_partial (conditional_branch cascade, final else_step mark_failed so unknown routes fail loudly) -> arms: close_stale/close_resolved (update_work_item_status status=complete + result_fields evidence); park_owned/park_blob (update_work_item_status status=needs_human_review + error_message naming the owned-page guard / bugs 263 blob danger and the safe options; holds dedup key, complete_work_item's guard then no-ops benignly per load_work_item_actions.go:956-978); file_recreate (create_work_item needs_content_page @ page-build-handler, status triaged NOT detected [promoter off, bugs 083], priority 90, spec_literal mode=recreate, item_key needs_content_page:from_rfm:+page_name) -> close_converted; file_rewrite (create_work_item content_rewrite @ page-build-handler, triaged, priority 30, spec_literal mode=edit_live [PBP-028; bug 238 merge fixes confirmed in running binary a2a6912...], spec_paths carries missing_fields, item_key content_rewrite:from_rfm:+component_id so the two-strike brake works on a stable key) -> close_converted."
+      },
+      {
+        "file": "platform/orchestration/actions/discovery_checks/check_required_fields_missing.go",
+        "symbol": "RequiredFieldsMissingCheck.Run",
+        "operation": "modify",
+        "rationale": "Future items should be born routed instead of parked: the owner ruling supersedes the flag-only design. Precedent for triaged-from-check: check_integrity.go:141, check_tool_acceptance_due.go:134.",
+        "sketch": "- HandlerAgent: \"\",\n- Status:       \"needs_human_review\",\n+ HandlerAgent: requiredFieldsHandlerAgent, // = \"required-fields-missing-handler\", seed 410\n+ Status:       \"triaged\",\nplus rewriting the two flag-only rationale comments (file header :25-28 and :155-156) to record the supersession (owner ruling 2026-08-15, bugs_open/277) and that the ROUTER now decides repair-vs-park per row; ItemKey unchanged."
+      },
+      {
+        "file": "platform/orchestration/actions/discovery_checks/handler_coverage_test.go",
+        "symbol": "knownHandlerAgents",
+        "operation": "modify",
+        "rationale": "The source-scan sensor fails the build the moment the new HandlerAgent literal lands without a roster entry; the roster's contract is 'verified live BEFORE this line', which the sequencing satisfies (seed applied before the Go commit).",
+        "sketch": "+ \"required-fields-missing-handler\": true, // seeded by 410_required_fields_missing_router.sql (bugs_open/277)"
+      },
+      {
+        "file": "docs/agent_docs/docs026_concept_register/register/content-quality.md",
+        "symbol": "CQ-022 (next free CQ number)",
+        "operation": "add",
+        "rationale": "Register the seam in the same commit that ships it (ordering-exemption condition 2). Names the producer set (one check), the type's FIRST consumer (this router — bugs_open/277 fix-shape 3), the conversion item_key shapes, and the landmines: a verifier later registered for this item_type would fail-closed the converted arm; parked rows deliberately hold their dedup keys; the gas-converter class is ROUTED to the tool pipeline, not auto-repaired.",
+        "sketch": "New entry: status / what / producer+consumer set / conversion keys (content_rewrite:from_rfm:_<site8>_<component_id>, needs_content_page:from_rfm:_<site8>_<page_name>) / landmines / sources / relations (CQ-020/021, IMG-071, PBP-028)."
+      },
+      {
+        "file": "docs/agent_docs/docs026_concept_register/register/page-build-pipeline.md",
+        "symbol": "PBP-028 producer-set clause",
+        "operation": "modify",
+        "rationale": "The clause asserts exactly two live mode=edit_live emitters ('Both are the ONLY two live content_rewrite emitters as of this writing'); the router becomes the third edit_live emitter and a new content_rewrite producer, and the 2026-08-02 §1 ruling requires the producer set to stay accurate in the entry that ships the field.",
+        "sketch": "Append to the PRODUCER SET paragraph: a third emitter, required-fields-missing-handler's file_rewrite arm (seed 410, bugs_open/277) — always targets an existing deployed component resolved by (page_name, slot_name); sets mode=edit_live so the writer edits current prose while filling the named missing required fields."
+      }
+    ],
+    "grounded_in": [
+      "bugs_open/277: 'STATUS: OPEN — OWNER RULED 2026-08-15: \"we should create a repair handler fleet wide.\" Not yet built.'",
+      "check_required_fields_missing.go:155-157: '// Flag-only: no handler, and needs_human_review keeps it out of / // the dispatch loop while the dedup key holds it open. HandlerAgent: \"\",'",
+      "CENSUS_2026-08-15_predicted_routes (n=44, saved output): no_content_data 35 / stale 6 / no_plan_generic 1 / no_plan_owned 1 / partial 1; every no_content_data row serves 953-21797 bytes of rendered_html with content_data NULL",
+      "load_work_item_actions.go:956-978: complete_work_item's guarded UPDATE excludes needs_human_review and returns {completed:false, reason:\"already_flagged_or_terminal\"} as SUCCESS — parking one's own item is first-class, never mark_failed",
+      "work_items_common.go:123-125: 'Measured 2026-08-04: 5 required_fields_missing item_keys already sit at 1 strike' — the two-strike churn the park-in-place design prevents",
+      "revalidate_review_queue_action.go:64-66: across the platform's whole history exactly one required_fields_missing item has ever reached a terminal status",
+      "reconcile_site_plan_action.go decision 3: tool/game role OR rebuild_policy='owned' -> owned_page_review, never needs_page — 'the generic builder clobbers owned pages (TP-004 / TL-001)'",
+      "page-build-pipeline.md PBP-028: 'Both are the ONLY two live content_rewrite emitters as of this writing' — the clause this change updates",
+      "bugs_open/083: the detected->triaged promoter (improvement-loop) is disabled, so conversion items must be filed at triaged directly"
+    ],
+    "risks": "1) First execution of this exact classifier shape: the 397 routers have executed (5 items completed live) but with a simpler classifier; the canary (one stale, the one partial, one blob, the gas-converter row) runs before fleet assignment, and any surprise stops the rollout. 2) The one partial row's missing fields are cardN_image_url STRINGS — the writer may mint image paths (bugs_open/214's class); the shrink guard and the canary watch it, and bug 238's resolver-key protection is confirmed in the running binary. 3) PBP-028's confirmed residual gap: if plan_sections resolves the section to a different component than stored, the edit_live join misses and the writer fabricates — save_refused_incomplete is the net. 4) A verifier registered later for required_fields_missing would fail-closed the converted arm (recorded as a landmine in the register entry). 5) Parked rows keep handler_agent set, so a dashboard Retry re-dispatches and re-parks — idempotent by design. 6) The no_plan_generic conversion (1 row, leopardess blog listing) is a full sectionless-page rebuild through the plan/sibling-layout path; if it no-ops for want of a sibling, the staged addition is an ensure_page_section_layout step, deliberately deferred."
+  }
+}

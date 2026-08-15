@@ -101,22 +101,23 @@ var knownHandlerAgents = map[string]bool{
 	"deduplicate-sections":      true, // seeded 2026-07-31 by 269_*.sql; verified live BEFORE this line
 	"domain-strategist":         true, // check_premise_incomplete (B3, 2026-08-09); live since 019_chief_strategist era, pod-verified via 5 llm_call_log runs + its B2 refresh gate witnessed 2026-08-08
 
-	"image-build-handler":     true,
-	"internal-linker":         true,
-	"nav-link-fixer":          true,
-	"nav-updater":             true,
-	"page-build-handler":      true,
-	"page-content-writer":     true,
-	"page-rerender":           true,
-	"rerender-pages":          true,
-	"site-component-linker":   true,
-	"site-design-planner":     true,
-	"tool-acceptance-agent":   true,
-	"tool-auditor":            true,
-	"tool-improver":           true,
-	"tool-recreation-handler": true,
-	"tool-suggester":          true,
-	"webdesign-agent":         true,
+	"image-build-handler":             true,
+	"internal-linker":                 true,
+	"nav-link-fixer":                  true,
+	"nav-updater":                     true,
+	"page-build-handler":              true,
+	"page-content-writer":             true,
+	"page-rerender":                   true,
+	"required-fields-missing-handler": true, // seeded 2026-08-15 by 410_required_fields_missing_router.sql (bugs_open/277); verified live BEFORE this line
+	"rerender-pages":                  true,
+	"site-component-linker":           true,
+	"site-design-planner":             true,
+	"tool-acceptance-agent":           true,
+	"tool-auditor":                    true,
+	"tool-improver":                   true,
+	"tool-recreation-handler":         true,
+	"tool-suggester":                  true,
+	"webdesign-agent":                 true,
 }
 
 // handlerGap describes a handler a check WANTS and the platform does not have.

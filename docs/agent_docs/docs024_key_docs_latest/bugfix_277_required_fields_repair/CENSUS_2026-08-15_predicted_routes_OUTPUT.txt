@@ -1,0 +1,57 @@
+ predicted_route | count 
+-----------------+-------
+ no_content_data |    35
+ stale           |     6
+ no_plan_generic |     1
+ no_plan_owned   |     1
+ partial         |     1
+(5 rows)
+
+   item   |           domain           |                 page_name                 |        slot_name        | predicted_route | n_named | n_still_empty | html_len |   page_type   | rebuild_policy | sections_empty | has_plan_sections 
+----------+----------------------------+-------------------------------------------+-------------------------+-----------------+---------+---------------+----------+---------------+----------------+----------------+-------------------
+ 7ab360fe | ai-agent-orchestration.com | blog                                      | call-to-action          | no_content_data |       2 |             2 |     2149 | blog-index    | generic        | t              | f
+ 8db5ad52 | ai-agent-orchestration.com | blog                                      | hero                    | no_content_data |       1 |             1 |     2489 | blog-index    | generic        | t              | f
+ 3198dcb1 | ai-agent-orchestration.com | pricing                                   | differentiators         | no_content_data |       2 |             2 |     5430 | content       | generic        | f              | f
+ 3f792bb3 | ai-agent-orchestration.com | pricing                                   | call-to-action          | no_content_data |       2 |             2 |     2355 | content       | generic        | f              | f
+ a077baef | ai-agent-orchestration.com | pricing                                   | hero                    | no_content_data |       1 |             1 |     2709 | content       | generic        | f              | f
+ c9affc6f | ai-agent-orchestration.com | the-enterprise-ai-agent-adoption-gap-2025 | hero                    | no_content_data |       1 |             1 |     2778 | blog-post     | generic        | f              | f
+ 13e3269b | ai-agent-orchestration.com | the-enterprise-ai-agent-adoption-gap-2025 | call-to-action          | no_content_data |       2 |             2 |     2367 | blog-post     | generic        | f              | f
+ d5d54126 | finetuning.uk              | blog                                      | hero                    | no_content_data |       1 |             1 |     2146 | blog-index    | generic        | f              | f
+ 9edf9503 | finetuning.uk              | blog                                      | call-to-action          | no_content_data |       2 |             2 |     1593 | blog-index    | generic        | f              | f
+ ba597103 | finetuning.uk              | careers                                   | about-content           | no_content_data |       1 |             1 |     3598 | content       | generic        | f              | f
+ e512af8a | finetuning.uk              | careers                                   | hero                    | no_content_data |       1 |             1 |     2404 | content       | generic        | f              | f
+ f7f07a57 | finetuning.uk              | our-position-on-ai                        | features                | no_content_data |       2 |             2 |     5401 | content       | generic        | f              | f
+ 5de3d7d5 | finetuning.uk              | our-position-on-ai                        | call-to-action          | no_content_data |       2 |             2 |     2040 | content       | generic        | f              | f
+ ed45b687 | finetuning.uk              | our-position-on-ai                        | hero                    | no_content_data |       1 |             1 |     2506 | content       | generic        | f              | f
+ e2432db4 | finetuning.uk              | use-cases                                 | call-to-action          | no_content_data |       2 |             2 |     2049 | content       | generic        | f              | f
+ d527d579 | finetuning.uk              | use-cases                                 | hero-use-cases          | no_content_data |       1 |             1 |     1409 | content       | generic        | f              | f
+ 2f011b1e | finetuning.uk              | use-cases                                 | use-cases-list          | no_content_data |       1 |             1 |     8464 | content       | generic        | f              | f
+ 52036016 | gamesdesign.co.uk          | game-p2p-networking                       | hero                    | no_content_data |       1 |             1 |    21797 | game          | generic        | f              | t
+ a14ff5f9 | gamesdesign.co.uk          | game-pathfinding                          | hero                    | no_content_data |       1 |             1 |    20464 | game          | generic        | f              | t
+ 60619dbc | gamesdesign.co.uk          | tool-drop-rate-simulator                  | hero                    | no_content_data |       1 |             1 |    15675 | tool          | owned          | f              | t
+ 43de52f5 | gamesdesign.co.uk          | tool-ehp-calculator                       | hero                    | no_content_data |       1 |             1 |    15451 | tool          | owned          | f              | t
+ a2a698a3 | gamesdesign.co.uk          | tool-jump-physics                         | hero                    | no_content_data |       1 |             1 |    15572 | tool          | owned          | f              | t
+ bc5aeea5 | gamesdesign.co.uk          | tool-lanchester-sim                       | hero                    | no_content_data |       1 |             1 |    16718 | tool          | owned          | f              | t
+ fe508c6f | gamesdesign.co.uk          | tool-progression-architect                | hero                    | no_content_data |       1 |             1 |    18711 | tool          | owned          | f              | t
+ 5fd42ebf | gamesdesign.co.uk          | tool-ttk-calculator                       | hero                    | no_content_data |       1 |             1 |    16106 | tool          | owned          | f              | f
+ d322ac66 | gaswholesalers.com         | client-case-studies                       | call-to-action          | no_content_data |       2 |             2 |     2100 | content       | generic        | f              | f
+ e0ae0bc1 | gaswholesalers.com         | client-case-studies                       | case-studies-hero       | no_content_data |       1 |             1 |     1488 | content       | generic        | f              | f
+ 7fb51626 | gaswholesalers.com         | client-case-studies                       | case-studies-list       | no_content_data |       1 |             1 |     5162 | content       | generic        | f              | f
+ 222ee823 | mortgagecalculator.co.uk   | game-fact-finder                          | generic-text-block      | no_content_data |       2 |             2 |     1027 | game          | generic        | f              | t
+ 6341499e | mortgagecalculator.co.uk   | game-fact-finder                          | hero                    | no_content_data |       1 |             1 |      953 | game          | generic        | f              | t
+ b2affc96 | mortgagecalculator.co.uk   | investor-index                            | hero                    | no_content_data |       1 |             1 |    12485 | section-index | generic        | f              | t
+ 1331c22e | mortgagecalculator.co.uk   | tool-equity-release                       | hero                    | no_content_data |       1 |             1 |    14164 | tool          | generic        | f              | t
+ 88976915 | mortgagecalculator.co.uk   | tool-overpayment                          | hero                    | no_content_data |       1 |             1 |    11517 | tool          | generic        | f              | t
+ 570de611 | mortgagecalculator.co.uk   | tool-repayment                            | hero                    | no_content_data |       1 |             1 |    14554 | tool          | generic        | f              | t
+ e781118c | mortgagecalculator.co.uk   | tool-simple                               | hero                    | no_content_data |       1 |             1 |     9590 | tool          | generic        | f              | t
+ 7ed472ab | leopardessconsulting.co.uk | blog                                      | blog-listing            | no_plan_generic |      44 |            44 |     8711 | blog-index    | generic        | t              | f
+ 483fb749 | gaswholesalers.com         | tool-gas-unit-converter                   | tool-gas-unit-converter | no_plan_owned   |       9 |             9 |    13248 | tool          | owned          | t              | f
+ 4fa5b019 | ai-agent-orchestration.com | index                                     | case-studies-grid       | partial         |       5 |             5 |    14432 | content       | generic        | f              | f
+ 332bb3f6 | finetuning.uk              | how-we-work                               | features                | stale           |       2 |             2 |        0 | content       | generic        | f              | f
+ 33b01999 | gaswholesalers.com         | fuel-supply-by-industry                   | use-cases-list          | stale           |       1 |             1 |        0 | content       | generic        | f              | f
+ 922dd4f7 | idea.uk                    | tool-ab-test-calculator                   | tool-ab-test-calculator | stale           |       3 |             3 |        0 | tool          | generic        | f              | f
+ 59897e5b | robot-hands.com            | gripper-detail                            | product-details         | stale           |       8 |             8 |        0 | entity-page   | generic        | f              | f
+ ceda3ba9 | robot-hands.com            | gripper-detail                            | product-hero            | stale           |       9 |             9 |        0 | entity-page   | generic        | f              | f
+ 984b77f7 | robot-hands.com            | gripper-detail                            | product-specs           | stale           |      24 |            24 |        0 | entity-page   | generic        | f              | f
+(44 rows)
+

@@ -1032,3 +1032,43 @@ Set the **scalar at the leaf path**, as above. A `jsonb_set` writing a literal
 object at `{...,sweep,config}` would silently drop the `max_items` sibling and
 revert the cap to its default of 50 — which would quietly sweep only the oldest
 items, the exact skew that made the first dry run look useless.
+
+---
+
+## Contribution from the `bugfix_277_required_fields_repair` lane (2026-08-15) — the first "should not fill" repair handler is built, and the queue re-measured
+
+`who-owns.py 033` still names `review_queue_drain` (dormant since 07-28), so this is evidence
+contributed in, not a competing fix. Session "bugfix 033".
+
+**Queue re-measured ~10:30Z: 735 at `needs_human_review`** (325 on 07-28; oldest still
+2026-03-15), 38 item types — and moving fast in BOTH directions: while this session ran,
+another lane's CTA-resolution re-run took `cta_names_unknown_destination` from ~195 to 11
+(commit `39aadb590`). Re-measure before quoting any figure here.
+
+**The owner's 2026-07-25 reframing ("the queue should not fill") got its first per-type
+mechanism today**: an owner ruling this morning (bugs_open/277) ordered a fleet-wide repair
+handler for `required_fields_missing` (44 open here), and it is built as a ROUTER on the
+IMG-071/397 pattern — census first (35 of the 44 are decomposition-legacy blobs that must NOT
+be auto-repaired; 6 stale; 3 genuinely repairable/parkable-with-facts), then per-class
+convert/close/park. Two design points that matter to THIS file:
+
+- **Park-in-place, holding the dedup key, replaced checkpoint-and-complete** for the classes
+  needing a human. Closing-and-letting-the-check-re-raise (this file's drain safety argument)
+  is churn when the underlying state cannot change without a human: the two-strike rule
+  births endless `unresolved` rows (5 keys of this type already at 1 strike, 08-04). A parked
+  row holds its key — no re-raise possible — and stays inside the revalidator's scope as a
+  second close path. The drain's own safety case is meanwhile STRONGER than when written:
+  bugs_open/230's fix (2026-08-09) gave discovery a recurring rotation, so a wrong close's
+  re-raise is now measured (~9 site-examinations/day), not aspirational.
+- **Parked rows now carry their triage on the row** (`error` = classification + safe options,
+  `result.route` = class): the queue the owner reads gains items that state their decision,
+  which is this file's "readership, not routing" point made mechanical.
+
+Full detail: `bugs_open/277` (taken-up block), register CQ-023, seed
+`sql_for_agents/410_required_fields_missing_router.sql`, workstream
+`docs024_key_docs_latest/bugfix_277_required_fields_repair/`.
+
+**Still this file's, untouched**: the Retry-refuse fix for the ~290 handler-less items
+(2026-07-26 contribution above); owner decisions B (the 186 → report) and D (an item type
+must name its reader — CQ-023 is one type's instance of D, not the mechanism); D3 identity;
+revalidator v2 for the 72 covered-but-unjudgeable; the other ~20 uncovered types.
