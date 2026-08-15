@@ -113,14 +113,24 @@ func TestFindDefaultShadowedKeys_Classes(t *testing.T) {
 		t.Errorf("a dotless string of the Default's kind is honoured by Strategy 6: %+v", static)
 	}
 
-	// The bridge resolves a path, so it is CONDITIONAL on that path resolving —
-	// no longer dead (Strategy 3's has-value skip now ignores a bare Default).
+	// RE-SPECIFIED 2026-08-15 (owner ruling decision 4). This fixture carries BOTH
+	// spellings — `purpose: "logo"` and `purpose_field: "stored.purpose"` — on the
+	// same defaulted field, which is exactly the collision the council's guardian
+	// seat asked be made visible. It had gone unnoticed here, and the old assertion
+	// ("the bridge beats a Default when its path resolves") was WRONG for this
+	// fixture: `purpose` is a dotless string of the Default's kind, so Strategy 6
+	// honours it and the alias never decides the value.
+	//
+	// The pure-bridge case the old assertion meant to cover has NOT been dropped —
+	// it moved to TestAliasShadowedByCanonical/alias_only, along with the two cases
+	// where the canonical key does NOT win.
 	bridge := findOne(t, findings, "purpose_field")
-	if bridge.Class != classDeprecatedBridge || bridge.Field != "purpose" {
-		t.Errorf("purpose_field bridge onto defaulted purpose: want deprecated_bridge, got %+v", bridge)
+	if bridge.Class != classAliasShadowed || bridge.Field != "purpose" {
+		t.Errorf("purpose_field alongside a winning canonical purpose: want %s, got %+v",
+			classAliasShadowed, bridge)
 	}
-	if bridge.dead() || bridge.Verdict != "conditional" {
-		t.Errorf("the bridge beats a Default when its path resolves: %+v", bridge)
+	if !bridge.dead() || bridge.Verdict != "dead" {
+		t.Errorf("an alias the canonical key beats cannot decide the value: %+v", bridge)
 	}
 
 	literal := findOne(t, findings, "max_items")
@@ -241,7 +251,7 @@ func TestEveryClassHasAVerdict(t *testing.T) {
 	emitted := []string{
 		classLiveOverride, classUnextractable, classTypeMismatch,
 		classRequiredEmpty, classComposite, classDeprecatedBridge,
-		classDottedConditional,
+		classDottedConditional, classAliasShadowed,
 	}
 	for _, c := range emitted {
 		if _, ok := shadowClassVerdict[c]; !ok {
@@ -482,5 +492,104 @@ func TestCountDeadMismatchedAgreesWithTheSummary(t *testing.T) {
 	// And the live override in the same batch must NOT be counted as dead.
 	if strings.Contains(summary, "purpose='logo'") {
 		t.Errorf("a live override appeared in the dead list:\n%s", summary)
+	}
+}
+
+// TestAliasShadowedByCanonical covers the collision guard added on the owner's ruling of
+// 2026-08-15 (decision 4 of six), raised by the council's guardian seat.
+//
+// THE OBJECTION IT ANSWERS. Strategy 6 lets a canonical key beat a value the deprecated
+// bridge supplied, so a step carrying both spellings resolves to the canonical one. That
+// was justified by a census — "zero live definitions carry both today" — which is a fact
+// about today, not a constraint on tomorrow. Nothing stopped a future agent_definitions
+// row from carrying both and silently getting the new precedence.
+//
+// WHY THE THREE NEGATIVE CASES ARE THE IMPORTANT ONES. It would be easy, and wrong, to
+// implement this as "both keys present ⇒ the alias is dead". Canonical does not always
+// win: Strategy 6 refuses a dotted canonical value (a reference that failed to resolve)
+// and refuses one whose kind differs from the Default's, and in both the bridge's value
+// still stands. A guard without these cases would report a live bridge as dead and send
+// someone to delete config that is doing work.
+func TestAliasShadowedByCanonical(t *testing.T) {
+	cases := []struct {
+		name        string
+		config      string
+		wantClass   string
+		wantVerdict string
+		why         string
+	}{
+		{
+			name:        "alias_only",
+			config:      `{"purpose_field": "stored.purpose"}`,
+			wantClass:   classDeprecatedBridge,
+			wantVerdict: "conditional",
+			why:         "no canonical key present, so the bridge decides the value if its path resolves",
+		},
+		{
+			name:        "canonical_wins",
+			config:      `{"purpose_field": "stored.purpose", "purpose": "logo"}`,
+			wantClass:   classAliasShadowed,
+			wantVerdict: "dead",
+			why:         "dotless string of the Default's kind — Strategy 6 honours it, so the alias is inert",
+		},
+		{
+			name:        "canonical_is_dotted_so_bridge_still_stands",
+			config:      `{"purpose_field": "stored.purpose", "purpose": "elsewhere.value"}`,
+			wantClass:   classDeprecatedBridge,
+			wantVerdict: "conditional",
+			why:         "Strategy 6 refuses a dotted canonical (an unresolved reference); the bridge's value stands",
+		},
+		{
+			name:        "canonical_kind_mismatch_so_bridge_still_stands",
+			config:      `{"purpose_field": "stored.purpose", "purpose": 7}`,
+			wantClass:   classDeprecatedBridge,
+			wantVerdict: "conditional",
+			why:         "the kind guard refuses a number against a string Default; the bridge's value stands",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			agents := decodeTestAgents(t, `[
+				{"type": "fixture-agent", "workflow": {"start_step": "s1", "steps": {
+					"s1": {"action": "shadowed_action", "config": `+tc.config+`}
+				}}}
+			]`)
+
+			alias := findOne(t, findDefaultShadowedKeys(agents, shadowSpecs()), "purpose_field")
+			if alias.Class != tc.wantClass || alias.Verdict != tc.wantVerdict {
+				t.Errorf("want %s/%s, got %s/%s — %s\nfinding: %+v",
+					tc.wantClass, tc.wantVerdict, alias.Class, alias.Verdict, tc.why, alias)
+			}
+			if alias.Field != "purpose" {
+				t.Errorf("the finding must be reported against the CANONICAL field, got %q", alias.Field)
+			}
+		})
+	}
+}
+
+// TestAliasCollisionIsAbsentFleetWideToday pins the census the guard was built on, so a
+// future reader can tell "the guard found nothing" from "the guard is not running".
+//
+// This is the demand control for a check whose live answer is currently ZERO: the cases
+// above prove it FIRES on a constructed collision, so a zero here measures the fleet
+// rather than measuring a broken detector. Without them, a permanent zero is
+// indistinguishable from a classifier that never emits.
+func TestAliasCollisionGuardCanFire(t *testing.T) {
+	agents := decodeTestAgents(t, `[
+		{"type": "fixture-agent", "workflow": {"start_step": "s1", "steps": {
+			"s1": {"action": "shadowed_action", "config": {"purpose_field": "stored.purpose", "purpose": "logo"}}
+		}}}
+	]`)
+
+	var fired bool
+	for _, f := range findDefaultShadowedKeys(agents, shadowSpecs()) {
+		if f.Class == classAliasShadowed {
+			fired = true
+		}
+	}
+	if !fired {
+		t.Fatal("the collision class was never emitted on a fixture built to trigger it — " +
+			"a zero from the live fleet would therefore prove nothing")
 	}
 }

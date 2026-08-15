@@ -569,6 +569,35 @@ func LiteralKind(v interface{}) string {
 	}
 }
 
+// IsDottedPathReference reports whether a step-config string is a REFERENCE to
+// data in collectedData rather than a literal value to hand the action.
+//
+// THIS IS THE RESOLVER'S DOT-DISCRIMINATOR, AND IT IS LOAD-BEARING. A string
+// containing a dot is a path; it is never its own value. Every arm of
+// ExtractActionInputs that has to tell a reference from a literal MUST call this
+// rather than open-code `strings.Contains(s, ".")`, so that a future arm cannot
+// re-derive the rule slightly differently. Owner ruling 2026-08-15, decision 2 of
+// six, raised by RFC_028 and the council's editquality seat: before this existed
+// the rule lived in prose at three call sites (Strategy 0, 4 and 6) and in a
+// comment block, which is not a control on a tree this many sessions share.
+//
+// WHAT GETTING IT WRONG COSTS, once, in production: bugs_open/248 finding (a).
+// config["asset_key"] was read as a filename instead of a path, and the pipeline
+// published 150+ page-visible 404s named `input-data.asset-key.jpg`. That fix
+// chose exactly this discriminator and deleted the literal rung rather than
+// gating it. Strategy 6 (bugs_open/231) then needed the same rule to decide that
+// a dotted string must stay dead against a spec Default.
+//
+// NOTE THE ASYMMETRY, because it is real and is NOT what this predicate decides:
+// a DOTLESS string is still a reference to Strategy 4 (a single-segment
+// collected_data key) and a literal to Strategy 6 (a value its author typed into
+// a defaulted field). This predicate answers only "is this a multi-segment path",
+// which is the half all three arms agree on. CTS-059 records the open question
+// about the other half; do not fold it in here without answering that.
+func IsDottedPathReference(s string) bool {
+	return strings.Contains(s, ".")
+}
+
 // ExtractActionInputs extracts inputs according to spec
 // Priority order:
 //  1. input_fields from config (preferred pattern)
@@ -577,6 +606,22 @@ func LiteralKind(v interface{}) string {
 //
 // This centralizes the extraction logic that was previously duplicated
 // in every action's boilerplate code.
+//
+// THE PRECEDENCE CHAIN IS A SHARED CONTRACT WITH A STATED OWNER (owner ruling
+// 2026-08-15, decision 1 of six; RFC_028). Every action in every workflow resolves
+// its inputs here. Two consequences for anyone editing it:
+//
+//   - THIS COMMENT BLOCK IS THE CONTRACT OF RECORD. The same guarantees used to be
+//     stated in five places (here, the ActionInputSpec field docs, defaultshadow.go's
+//     class list, concept-register CTS-059, and a LANDMINES entry). They agreed only
+//     because a session made them agree. The other four now point HERE; when you
+//     change what this function guarantees, change it here and let them point.
+//   - THERE IS A BUDGET ON HOW MANY WAYS A VALUE CAN ARRIVE, and it is enforced by
+//     a test, not by this comment: resolver_arm_budget_test.go counts the sites in
+//     this function that write into result.Values and fails past the budget. Adding
+//     one past it is an RFC, not a council round. That is RFC_022's argument one
+//     level down — each arm is individually well-argued, and the ninth is still a
+//     ninth.
 func ExtractActionInputs(
 	collectedData map[string]interface{},
 	config map[string]interface{},
@@ -612,7 +657,7 @@ func ExtractActionInputs(
 			continue
 		}
 		// Only resolve multi-segment dot-paths (these are unambiguously path references)
-		if strings.Contains(pathStr, ".") {
+		if IsDottedPathReference(pathStr) {
 			value := ExtractNestedField(collectedData, pathStr)
 			if value != nil {
 				result.Values[field] = value
@@ -753,7 +798,7 @@ func ExtractActionInputs(
 		}
 
 		// Multi-segment path (has dot): resolve via ExtractNestedField
-		if strings.Contains(pathStr, ".") {
+		if IsDottedPathReference(pathStr) {
 			value := ExtractNestedField(collectedData, pathStr)
 			if value != nil {
 				result.Values[field] = value
@@ -882,7 +927,7 @@ func ExtractActionInputs(
 			continue
 		}
 
-		if s, ok := raw.(string); ok && strings.Contains(s, ".") {
+		if s, ok := raw.(string); ok && IsDottedPathReference(s) {
 			// Reported OFFLINE, not here: whether a path CAN resolve is a runtime
 			// fact (the step may legitimately not have run the branch that
 			// populates it), so a Warn on every message would be noise on healthy

@@ -142,6 +142,17 @@ const (
 	classComposite         = "composite_literal"
 	classDeprecatedBridge  = "deprecated_bridge"
 	classDottedConditional = "dotted_conditional"
+
+	// classAliasShadowed — a step carries BOTH a deprecated alias and its canonical
+	// key for the same defaulted field, and the canonical value is one Strategy 6
+	// will honour. The alias therefore cannot decide the value: it is dead, and
+	// deleting it changes nothing. Owner ruling 2026-08-15 decision 4.
+	//
+	// "dead" is the honest verdict and it is deliberately NOT alarming: this is a
+	// tidy-up, not damage. The remedy is one line — remove the deprecated key.
+	// Its value is being ignored, which is the whole reason to report it: an author
+	// who edits the alias expecting an effect will get none.
+	classAliasShadowed = "alias_shadowed_by_canonical"
 )
 
 // shadowClassVerdict is the ONE definition of what each class means for the exit
@@ -163,6 +174,7 @@ var shadowClassVerdict = map[string]string{
 	classComposite:         "dead",
 	classDeprecatedBridge:  "conditional",
 	classDottedConditional: "conditional",
+	classAliasShadowed:     "dead",
 }
 
 func verdictFor(class string) string {
@@ -247,6 +259,40 @@ func toFloat64(v interface{}) (float64, bool) {
 // strings.Contains(value, "."), strategies 0/4/5 iterate Required+Optional
 // only, and every skip is "already present in Values", which a Default
 // guarantees.
+// classifyDefaultedConfigValue decides what the resolver will do with a config value
+// bound to a field that carries a spec Default. It is the ONE copy of that judgement in
+// this checker: the main loop asks it about the canonical key, and the deprecated-bridge
+// loop asks it about the canonical key too, in order to work out whether an alias
+// alongside it can still decide the value (see classAliasShadowed).
+//
+// The arms are in the SAME ORDER as Strategy 6's, and that ordering is load-bearing:
+// unextractable is tested before the value's shape because no strategy iterates the field
+// at all, and the dot test comes before the kind guard because a dotted string is a
+// reference the guard never sees.
+//
+// The dot test calls datahelpers.IsDottedPathReference rather than re-deriving
+// strings.Contains(str, ".") — owner ruling 2026-08-15 decision 2. This checker exists to
+// MIRROR the resolver, so a copied discriminator here is the exact drift the ruling is
+// about: it would keep agreeing right up until the day the resolver's rule changed.
+func classifyDefaultedConfigValue(raw, defaultValue interface{}, extractable, required bool) string {
+	str, isString := raw.(string)
+	kind := datahelpers.LiteralKind(raw)
+	switch {
+	case !extractable:
+		return classUnextractable
+	case isString && datahelpers.IsDottedPathReference(str):
+		return classDottedConditional
+	case kind == "":
+		return classComposite
+	case datahelpers.LiteralKind(defaultValue) != kind:
+		return classTypeMismatch
+	case isString && str == "" && required:
+		return classRequiredEmpty
+	default:
+		return classLiveOverride
+	}
+}
+
 func findDefaultShadowedKeys(agents []liveAgent, specs map[string]datahelpers.ActionInputSpec) []defaultShadowFinding {
 	findings := []defaultShadowFinding{}
 	for _, agent := range agents {
@@ -274,28 +320,7 @@ func findDefaultShadowedKeys(agents []liveAgent, specs map[string]datahelpers.Ac
 					continue
 				}
 
-				// The arms below are in the SAME ORDER as Strategy 6's, and that
-				// ordering is load-bearing: unextractable is tested before the
-				// value's shape because no strategy iterates the field at all, and
-				// the dot test comes before the kind guard because a dotted string
-				// is a reference the guard never sees.
-				str, isString := raw.(string)
-				kind := datahelpers.LiteralKind(raw)
-				var class string
-				switch {
-				case !extractable[field]:
-					class = classUnextractable
-				case isString && strings.Contains(str, "."):
-					class = classDottedConditional
-				case kind == "":
-					class = classComposite
-				case datahelpers.LiteralKind(defaultValue) != kind:
-					class = classTypeMismatch
-				case isString && str == "" && required[field]:
-					class = classRequiredEmpty
-				default:
-					class = classLiveOverride
-				}
+				class := classifyDefaultedConfigValue(raw, defaultValue, extractable[field], required[field])
 
 				findings = append(findings, defaultShadowFinding{
 					Agent: agent.Type, Path: path, Action: step.Action,
@@ -320,13 +345,40 @@ func findDefaultShadowedKeys(agents []liveAgent, specs map[string]datahelpers.Ac
 				if !isString || pathStr == "" {
 					continue
 				}
+
+				// THE COLLISION GUARD — owner ruling 2026-08-15, decision 4 of six,
+				// raised by the council's guardian seat.
+				//
+				// When a step carries BOTH the deprecated alias and its canonical key
+				// for the same defaulted field, the canonical one wins (Strategy 6
+				// lets a bridge-supplied value stay overridable). The owner ruled to
+				// KEEP that behaviour — a migration exists so the new name takes
+				// effect — and to make the situation VISIBLE rather than silent,
+				// because the safety argument for it was a point-in-time census
+				// ("zero live definitions carry both today"), which is a fact about
+				// today and not a constraint on tomorrow.
+				//
+				// BUT CANONICAL DOES NOT ALWAYS WIN, and a guard that claimed it did
+				// would be wrong in the two cases that matter: Strategy 6 refuses a
+				// dotted canonical value (it is a reference that failed to resolve)
+				// and refuses one whose kind differs from the Default's. In both, the
+				// bridge's value still stands. So ask the same classifier the main
+				// loop uses, rather than assuming.
+				aliasClass := classDeprecatedBridge
+				if canonical, hasCanonical := step.Config[field]; hasCanonical && canonical != nil {
+					if classifyDefaultedConfigValue(canonical, spec.Defaults[field],
+						extractable[field], required[field]) == classLiveOverride {
+						aliasClass = classAliasShadowed
+					}
+				}
+
 				findings = append(findings, defaultShadowFinding{
 					Agent: agent.Type, Path: path, Action: step.Action,
-					Field: field, Key: oldKey, Class: classDeprecatedBridge,
+					Field: field, Key: oldKey, Class: aliasClass,
 					ConfigValue: pathStr, DefaultValue: spec.Defaults[field],
 					MatchesDefault: literalMatchesDefault(pathStr, spec.Defaults[field]),
 					Nested:         nested,
-					Verdict:        verdictFor(classDeprecatedBridge),
+					Verdict:        verdictFor(aliasClass),
 				})
 			}
 		})
