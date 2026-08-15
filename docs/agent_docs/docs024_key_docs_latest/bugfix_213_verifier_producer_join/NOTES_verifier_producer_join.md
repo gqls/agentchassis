@@ -1222,3 +1222,145 @@ the guilty conscience point the same way, which is exactly when to go and get th
 ⚠ **Do not read any LLM-backed check's "0 findings" as clean until 09-01.** That includes
 `verifier-remit-check`'s daily report, the council gate, and every audit rotation. Filed as a
 fleet-wide entry in `LANDMINES.md`.
+
+> ### ✅ CORRECTED 2026-08-15 — THE WALL LASTED ~90 MINUTES, NOT TWO WEEKS, AND THIS SECTION'S HEADING WAS FALSE WITHIN THE HOUR IT WAS WRITTEN
+>
+> [MEASURED 2026-08-15 09:30Z] `llm_call_log` by hour, capped-call counts:
+> **08-14 15:00 → 11 capped · 16:00 → 17 capped · 17:00 → 0 capped, 24 successes.**
+> Zero capped calls in every hour since; the 8 hours to 09:00Z today are **0 failed of 131**.
+> The entire outage was **~15:36Z → ~17:05Z on 2026-08-14**. The owner raised the cap.
+>
+> **So this section's own §"two consequences" is retired:** the `090` on §D did not merely
+> fail once, it became **re-runnable ninety minutes later, and nobody re-ran it for a day.**
+> Re-fired 2026-08-15 as run correlation `adecf408-1e60-4293-8b22-351ddbb52a08`. And the
+> council gate was never unavailable either — this lane's half-two submission ran
+> **13 seats to APPROVED in 11 minutes** on 2026-08-15.
+>
+> **What I got wrong, and it is not the diagnosis — that was excellent.** The attribution work
+> in this section is right and worth keeping: the cap is monthly, August had already burned
+> ~221.9M input tokens by the 14th, and the sweep's ~0.71M was 0.3% of it. **The error is
+> that I took the vendor's stated reinstatement date as a FACT ABOUT THE FUTURE** and wrote
+> it into a heading, a warning, and a fleet-wide file. `LANDMINES.md` had **already recorded
+> this exact correction twice** — the 2026-07-31 cap stated 08-01 and the 2026-08-10 cap
+> stated 2026-09-01 and cleared in ~2–3 hours, both times because a human raised it, and the
+> entry says in terms *"the stated reset is the vendor's worst case, not a forecast"* and
+> *"re-run the absence-of-success query for the current hour before concluding you are
+> blocked"*. **I hit the third recurrence and repeated the mistake the second one had already
+> been written up to prevent.** Reading the landmine file for the thing you are ABOUT to
+> touch is the habit; I only grepped it for the cap's *signature*, not for its *duration*.
+>
+> **The check, which takes one query and settles it:** verify a lift on the SUCCESS side, never
+> the failure side — failures simply stop appearing whether or not capability returned.
+> ```sql
+> SELECT date_trunc('hour',created_at) hr, count(*) FILTER (WHERE success) ok,
+>        count(*) FILTER (WHERE error_message LIKE '%usage limits%') capped
+> FROM llm_call_log WHERE created_at > now() - interval '24 hours' GROUP BY 1 ORDER BY 1;
+> ```
+> Logged in `WRONG_CALLS.md`. The fleet-wide `LANDMINES.md` entry was already struck through
+> and corrected by another thread on 08-14; **this lane's copy is what stayed wrong for a day**,
+> which is its own lesson: correcting the shared file does not correct the doc that quoted it.
+
+---
+
+## 2026-08-15 — D1 HALF TWO BUILT, 213 AND 216 CLOSED ON THE OWNER'S RULING
+
+Owner instruction: *"213 half two can proceed here, we can close 213 and 216."* All three done.
+Commits: `a620912f5` (half two + shared helper + WII-016 migration + register), `d103dfcea`
+(216 closed), `0c467cea3` (213 closed), `0d40f25ad` (2 landmines + 1 wrong call),
+`e3d61d7d4` (council objections actioned), `dbe29bbd6` (register verdict update).
+
+### The design was decided by measurement, and two of the three constraints came from data I went looking for rather than data I had
+
+- **SITE-scoped, not page-scoped** — `spec.page_name` is free prose. [MEASURED] live values in
+  the item_keys include `index`, `all` and `all pages`; the last two were filed **on the same
+  day**, 08-14. Nothing resolves that to a page.
+- **Silence is SITE-level, not per-key** — and this is the one I nearly got wrong. The obvious
+  design counts silences per item_key. [MEASURED] the `audit_source` literal was **renamed
+  `design-audit` → `visual-design-audit` between 08-12 and 08-13**, and it is embedded in the
+  key: gamesdesign.co.uk holds two rows for the same defect on the same page under two keys.
+  A per-key rule would have read that single rename as **fifteen defects being fixed at once**.
+  Found by listing the rows before designing, not by reasoning about the key format.
+- **N = 3** — arithmetic from the lane's existing 7-of-7 measurement, unchanged: the 95% upper
+  bound on the per-run miss rate is `1-0.05^(1/7)` ≈ 0.35, so N=1 → ~35%, N=2 → ~12%,
+  N=3 → ~4.2%, the first under 5%.
+
+### The near-miss that was NOT in the design, and would have been invisible
+
+The silence streak has to live somewhere. `site_work_items.result` is the obvious home. Before
+writing the UPDATE I went looking for readers of `updated_at` on that table — and found the
+**`stale-work-item-reaper`**, enabled, hourly, parking `triaged` rows whose `updated_at` is
+older than 48h. `site_work_items` carries `trg_site_work_items_updated_at` (BEFORE UPDATE), so
+**any** write bumps that column and no column list avoids it. With the sweep at 900s, a streak
+write would have made every `triaged` dark-section row **permanently unreapable** — the exact
+queue deadlock that reaper exists to prevent, and migration `237`'s own header predicted it in
+the abstract as a risk *of that migration*, where nobody touching `result` would ever read it.
+
+**The damage would have been an ABSENCE — a park that never happens.** No error, no bad value,
+nothing to inspect; and [MEASURED 2026-07-27, which is why 237 could not be tested] there is
+essentially no `triaged` backlog at any moment because the claimer drains it in ~2 minutes, so
+there is no population in which to notice. Remedy is `workItemInFlightStatuses` = {`triaged`,
+`claimed`}. **Two reasons support it and they are not equal** — "the pipeline is carrying the
+item" is arguable, "the reaper keys on this column and the trigger bumps it" is mechanical.
+The comment states the mechanical one as load-bearing, or the next reader relaxes the rule on
+the strength of the softer one. Filed fleet-wide in `LANDMINES.md`.
+
+### THE MISSTEP: I wrote a test that proved the mock, not the guard
+
+`TestAuditRetraction_UnrecognisedReplyIsNotSilence` set no `ExpectBegin` and asserted no
+retraction came back, with a comment saying the transaction must never open. It passed. **It
+passes identically with the guard deleted**: the code opens the transaction, sqlmock refuses
+the unexpected call, the action logs the error and returns no retraction key, and the
+assertion is satisfied by the mock's refusal instead of the code's guard. Two opposite worlds,
+one identical pass — and the five other tests in the same file all discriminated properly,
+which is why it did not stand out.
+
+**Caught by the mutation matrix and by nothing else.** Not by review, not by re-reading it.
+Fixed by testing the FUNCTION directly with a mock carrying no expectations, so a stray call
+becomes an error RETURN the assertion can see; paired with the opposite-direction test so
+"guard always on" is caught too. Logged in `WRONG_CALLS.md` and `LANDMINES.md`.
+
+Two more results from the same run, both worth keeping:
+
+- **A mutation that passes may have hit a guard in SERIES.** Removing WII-016's
+  `len(PagesAudited)==0` short-circuit failed nothing, because a second `len(audited)==0`
+  return sits behind it. That was true before my migration too. The fix is not to delete the
+  guard but to pass the real condition down to the shared helper, so each can be mutated
+  singly — which is why `observed` is now `len(payload.Summary.PagesAudited) > 0` and not `true`.
+- **When a mutation genuinely is not caught, delete the code.** The streak's own `audit_source`
+  re-check was unreachable by construction (the caller's spec scope already guarantees it).
+  I removed it rather than writing a test to justify it. Untested defence reads as protection
+  and is not.
+
+Matrix discipline used throughout, per this lane's earlier lessons: gated on **exit status**
+(not a `grep '^\s+--- FAIL'`, which sees only subtests), an **unmutated control**, and a
+**byte-identity check** of every mutated file afterwards. 9 mutations, 8 caught.
+
+### The council round: 11 minutes, APPROVED, and three objections were checkable
+
+Corr `54e3b698-3d18-4dd1-9d6f-badec7e331fa`. Dispatch **verified in `orchestration_states`
+before waiting** — this lane has been bitten three times by a printed correlation that named
+nothing. 13 seats, 5 advisory objections, none high.
+
+- **`editquality` asked the question I should have asked myself:** the producer-scope guard
+  skips rows whose `spec.audit_source` differs from the run's literal — so does it **strand**
+  the 4 rows this whole change exists to release? I had disclosed the rename as a *risk* and
+  never checked it against the population. [MEASURED] all 4 carry `visual-design-audit`, and
+  the live literal is hardcoded in the auditor's own `query_database` step as exactly that.
+  They match; the guard releases them. **It could have come out the other way.**
+- **`bug_historian` on truncation:** a well-formed but truncated reply parses as
+  recognised-and-empty and would advance a streak wrongly. [MEASURED] `visual-design-auditor`:
+  **4,088 calls, 0 at `max_tokens`**, max output 1,869 against a 4,000 cap. Real risk, zero
+  occurrences, ~2.1x headroom — recorded so a cap or prompt change re-raises it.
+- **`guardian` found a real hole in the evidence.** Hoisting classification above the filters
+  changed the loop **all six** producers run through, and my tests pinned only
+  `dark_section_audit`. Added two regression tests on a non-gated type (`cta` →
+  `cta_improvement`). That objection earned its round.
+
+### And a stale claim of this lane's own, corrected today
+
+The 08-14 section above declared the fleet's LLM capability **down until 2026-09-01**. It was
+false within the hour: [MEASURED] the cap bit for ~90 minutes and cleared at ~17:05Z on 08-14.
+`LANDMINES.md` had already recorded that exact correction **twice**, for two earlier caps, and
+says in terms that the stated reset is the vendor's worst case rather than a forecast. Full
+correction inline above. **Correcting the shared file does not correct the doc that quoted it** —
+the fleet entry was struck through on 08-14 and this lane's copy stayed wrong for a day.
