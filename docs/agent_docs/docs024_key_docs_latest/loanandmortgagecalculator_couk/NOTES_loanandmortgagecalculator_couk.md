@@ -2866,7 +2866,11 @@ materialised SQL through psql) and is deliberately NOT routed through the peer s
   reproduces the currently served bytes exactly.
 
 **To finish (any session with DB-write permission), the batch protocol from here:**
-1. `python3 $LANE/b2_convert_oldshape.py --apply` (or the two SQL files it prints).
+1. `python3 $LANE/b2_convert_oldshape.py --apply` ~~(or the two SQL files it prints)~~
+   > **CORRECTED 2026-08-15 (caught by the third session, detail in (f)):** the script
+   > prints NO SQL files — plan mode writes nothing to disk. The parenthetical
+   > described this session's own scratchpad materialisation (a separate inline
+   > python), merged from memory into the protocol. The script is the only route.
 2. Two `page_rerender` items, RUNBOOK step-4 insert shape (source, created_by AND
    handler_agent='page-rerender', spec={page_id} no reason, status 'triaged').
 3. Served md5s should be UNCHANGED (byte-identical roundtrip is the success

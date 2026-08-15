@@ -398,4 +398,9 @@ the detail, including a new trap: **a `page_rerender` item's `result` can hold o
 the spawn-handler record** (repayment's did) — prove a deploy at the repo's
 unfiltered `git log`, since an identical-roundtrip deploy never shows in a
 path-filtered one. Rollback: `*_bak_20260815_oldshape` tables (NOT the 08-05 table).
-Next work is §6 items 2 and 6 (planner loop; reuse demo).
+Next work is §6 items 2 and 6 (planner loop; reuse demo). **See also NOTES (f)** (third
+session's independent replication): for an IDENTITY-PRESERVING conversion, `b2_verify`
+is DB-free and therefore a valid **PRE-deploy** gate — run it before the unlock, not
+only after the rerender. (For anything meant to change served bytes it tests the OLD
+page and says nothing.) NOTES (d)'s step 1 carried a wrong parenthetical, corrected
+in place.
