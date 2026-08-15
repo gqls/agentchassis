@@ -26,6 +26,7 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"github.com/gqls/agentchassis/platform/storage"
 	"go.uber.org/zap"
 )
@@ -261,14 +262,22 @@ const DeployedPageEligibilitySQL = `
 // tool pages legitimately have none). The three are deliberately distinct; each
 // comment says why, so the split does not read as accidental drift.
 //
-// RELATED (bugs_open/185): this expression is exactly
-// NOT(datahelpers.NeverDeployedPagePredicate) with an alias prefix — the same
-// "has this page shipped" judgement, in a second package. The split is deliberate
-// (see the family of three above), but neither constant used to name the other,
-// which is how a deliberate split becomes accidental drift. Change one, read the
-// other. Merging them is bugs_open/185's fix candidate 2.
-const FetchablePageEligibilitySQL = `
-		  AND (p.deployed_at IS NOT NULL OR p.build_status = 'deployed')`
+// DERIVED, not spelled (bugs_open/185 fix candidate 2, 2026-08-15): the judgement
+// here is "has this page shipped", and the estate has ONE definition of that —
+// datahelpers.PageHasShippedPredicateFor, i.e. NOT(deployed_at IS NULL AND
+// COALESCE(build_status,'') <> 'deployed'). By De Morgan that is exactly the
+// old hand-written `(p.deployed_at IS NOT NULL OR p.build_status = 'deployed')`,
+// and it was proved so against production before the respell (643/643 pages,
+// zero symmetric difference; the idea.uk unstamped keep survives because its
+// build_status IS 'deployed'). Until then this constant and the datahelpers
+// builder cross-referenced each other by COMMENT only, which is how a
+// deliberate split becomes accidental drift on a tree this many sessions
+// share. Now a change to the canonical builder reaches every listing floor
+// without anyone remembering to read the other file. A `var` because Go cannot
+// call a function in a const initialiser; nothing consumes it in a const
+// context (checked: two uses, both string concatenation in this file).
+var FetchablePageEligibilitySQL = `
+		  AND ` + datahelpers.PageHasShippedPredicateFor("p")
 
 // pageListEligibilitySQL returns the WHERE fragment (alias `p`) a page-listing
 // query must carry so it never advertises a 404. Extracted as a function so the

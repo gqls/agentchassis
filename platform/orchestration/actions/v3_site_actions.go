@@ -6234,10 +6234,26 @@ func reconcilePlanWithRealised(
 	// Force-preserve first-plan (no-current-plan) OR built pages (see header).
 	var preserved []interface{}
 	var noCurrentPlanPages []interface{}
+	hasShippedColumnSeen := false
 	for _, rp := range existingPages {
 		rm, ok := rp.(map[string]interface{})
 		if !ok {
 			continue
+		}
+		// The has_shipped column is a property of the QUERY, not the row, so its
+		// absence is reported once per run — the honest surface for the fallback
+		// realisedPageHasShipped otherwise takes silently (bugs_open/185 tranche 3,
+		// bug_historian's advisory: "nothing distinguishes 'old semantics
+		// intended' from 'migration 302 reverted and the gate has quietly gone
+		// back to the buggy predicate'"). Warn, not Debug: on the live query the
+		// column has been present since 2026-08-03, so its absence now is a
+		// regression, and one Warn per re-plan is not a hot-path cost.
+		if !hasShippedColumnSeen {
+			hasShippedColumnSeen = true
+			if _, present := rm["has_shipped"]; !present {
+				logger.Warn("load_existing_pages rows carry no has_shipped column; realisedPageHasShipped is degrading to the narrow build_status = 'deployed' test, which misreads a shipped needs_rebuild page as uncomposed — is migration 302 absent or reverted, or is this caller wired to a different loader?",
+					zap.Int("existing_pages", len(existingPages)))
+			}
 		}
 		noCurrentPlan := noCurrentPlanFlag(rm)
 		if noCurrentPlan {
@@ -6578,7 +6594,11 @@ func reconcilePlanWithRealised(
 // of "has been served" (bugs_open/185 tranche 3). It falls back to the old
 // build_status test when the column is absent, so the Go change and migration
 // 302 can land in either order (the same degradation contract migration 173
-// established for build_status itself).
+// established for build_status itself). That fallback is NOT silent any more:
+// reconcilePlanWithRealised warns ONCE per run when the loaded rows carry no
+// has_shipped key (2026-08-15, closing bug_historian's tranche-3 advisory) —
+// once, because the column's absence is a property of the query, not the row.
+// This helper stays pure so it can be called per page without a log per page.
 //
 // > **CORRECTED 2026-08-03 — this function (then `realisedPageIsBuilt`) claimed
 // > it "mirrors decideEmit's skip_built test … keep the two in step". That

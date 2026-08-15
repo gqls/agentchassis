@@ -681,7 +681,8 @@ def check_partial_page_upsert(files, ref, findings):
 # or on the two checks that legitimately keep the narrow form, which are listed
 # with their reasons. MEASURED over the tree on 2026-08-03: 11 raw matches, of which
 # 3 are false positives now allow-listed with their reasons (an ORDER BY ranking in
-# create_tool_cross_link_items, twice, and queryresolve's correct disjunct), leaving
+# create_tool_cross_link_items, twice, and queryresolve's correct disjunct — the last
+# retired 2026-08-15 when that disjunct became a derivation, see below), leaving
 # **8 genuine hits — every one of them in the tranche-2 holdout set named in
 # bugs_open/185**, and 0 elsewhere. The first version of this comment claimed "7"
 # from counting by eye before running anything; the rule also fired on the 3 false
@@ -723,10 +724,12 @@ SHIPPED_PREDICATE_ALLOWED = {
     "create_tool_cross_link_items.go":
         "ORDER BY (p.build_status = 'deployed') DESC — a ranking PREFERENCE, not a filter. "
         "Nothing is excluded, so no page is missed; converging would only reorder ties",
-    "queryresolve.go":
-        "FetchablePageEligibilitySQL is `deployed_at IS NOT NULL OR p.build_status = "
-        "'deployed'` — this line is the DISJUNCT that makes the predicate correct, not a "
-        "narrow test. Merging it with datahelpers is bugs_open/185 fix candidate 2",
+    # "queryresolve.go" was listed here until 2026-08-15: FetchablePageEligibilitySQL
+    # was a hand-written `deployed_at IS NOT NULL OR p.build_status = 'deployed'` (the
+    # correct disjunct, not a narrow test). bugs_open/185 fix candidate 2 derived it
+    # from datahelpers.PageHasShippedPredicateFor("p"), so the literal is gone and the
+    # entry with it — a dead allow-list entry would silence this rule on the one file
+    # where a hand-respelled floor is now exactly the drift being guarded against.
 }
 
 

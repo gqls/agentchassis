@@ -13,34 +13,56 @@ package queryresolve
 import (
 	"strings"
 	"testing"
+
+	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 )
 
 // The exact regression that WAS bugs_open/052: the generic (listedOnly=false)
 // listing path — tool-list, game-list, guide-list, archetype-grid — carried NO
 // build-state filter at all (eligibility was ""), so a planned, never-built,
-// 404 page passed the status filter and was listed. Guard: both branches carry
-// a deployed_at floor, and neither is empty.
+// 404 page passed the status filter and was listed. Guard: neither branch is
+// empty, and each carries its floor — the article branch its own deployed_at
+// literal, the generic branch the estate's canonical "has shipped" predicate.
 func TestPageListEligibilityAlwaysHasBuildStateFloor(t *testing.T) {
 	for _, listedOnly := range []bool{false, true} {
 		frag := pageListEligibilitySQL(listedOnly)
 		if strings.TrimSpace(frag) == "" {
 			t.Fatalf("pageListEligibilitySQL(%v) is empty — the never-built-page floor is gone (bugs_open/052)", listedOnly)
 		}
-		if !strings.Contains(frag, "deployed_at IS NOT NULL") {
-			t.Errorf("pageListEligibilitySQL(%v) lacks a deployed_at floor: %q", listedOnly, frag)
-		}
+	}
+	if listed := pageListEligibilitySQL(true); !strings.Contains(listed, "deployed_at IS NOT NULL") {
+		t.Errorf("article listing floor lacks a deployed_at floor: %q", listed)
+	}
+	if generic := pageListEligibilitySQL(false); !strings.Contains(generic, "deployed_at IS NULL") {
+		t.Errorf("generic listing floor lacks a deployed_at axis: %q", generic)
 	}
 }
 
 // The generic floor must ALSO keep a page that is `deployed` yet never stamped
 // (idea.uk/tool-audience-check, a bugs_open/040 shape): it serves 200 and is a
 // real tool page, so a plain `deployed_at IS NOT NULL` floor would delist a
-// working tool — "worse than the bug". The keep comes from the build_status
-// disjunct.
-func TestGenericListingKeepsDeployedButUnstampedPages(t *testing.T) {
+// working tool — "worse than the bug".
+//
+// Since bugs_open/185 fix candidate 2 the floor is not spelled here at all: it
+// is datahelpers.PageHasShippedPredicateFor("p"), verbatim, and THAT builder is
+// where the keep lives (its `COALESCE(build_status,'') <> 'deployed'` conjunct
+// is false for the unstamped-deployed row, so the negation keeps it —
+// links_shipped_predicate_test.go pins that only 'deployed' is ever named). This
+// test therefore guards the DERIVATION: a hand-respelled floor, however
+// equivalent today, is exactly the drift the derivation exists to end.
+func TestGenericListingIsTheCanonicalShippedPredicateVerbatim(t *testing.T) {
 	frag := pageListEligibilitySQL(false)
-	if !strings.Contains(frag, "build_status = 'deployed'") {
-		t.Errorf("generic listing floor must keep deployed-but-unstamped pages via a build_status disjunct: %q", frag)
+	want := datahelpers.PageHasShippedPredicateFor("p")
+	if !strings.Contains(frag, want) {
+		t.Errorf("generic listing floor must BE the canonical shipped predicate, not a respelling:\n  floor: %q\n  want:  %q", frag, want)
+	}
+	if strings.Contains(frag, "OR p.build_status") {
+		t.Errorf("generic listing floor carries a hand-written disjunct beside the canonical predicate: %q", frag)
+	}
+	// The property the old test asserted, now stated where it is actually
+	// decided: the canonical predicate names 'deployed' and no other status.
+	if !strings.Contains(want, "'deployed'") {
+		t.Errorf("canonical shipped predicate no longer names 'deployed' — the unstamped-deployed keep is gone: %q", want)
 	}
 }
 
