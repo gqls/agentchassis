@@ -464,8 +464,18 @@ DECOMP_WORK=... python3 $LANE/voice_apply.py                 # writes manifest_v
 DECOMP_WORK=... python3 $LANE/load_lmc.py --check <page>     # prediction only
 DECOMP_WORK=... python3 $LANE/load_lmc.py --apply <page>
 
-# 4. deploy: assemble-only page_rerender, then diff against the prediction
-#    (spec shape in §8; NO spec.reason; page_id in spec AND column; 'triaged')
+# 4. deploy: assemble-only page_rerender, then diff against the prediction.
+#    FULL insert shape (2026-08-15: the "§8" pointer that stood here was stale —
+#    §8 is the locked-path section. Three more columns are REQUIRED: a bare
+#    insert bounces on NOT NULL source, then created_by, and with both set the
+#    item sits 'blocked' for ever with "No handler_agent set — item cannot be
+#    routed to any agent". Nothing retries a blocked item.):
+#    INSERT INTO site_work_items (item_type, status, page_id, site_id, spec,
+#      summary, source, created_by, handler_agent)
+#    VALUES ('page_rerender','triaged','<page_id>','<site_id>',
+#      jsonb_build_object('page_id','<page_id>'),   -- NO spec.reason
+#      '<why, one line>', 'lmc_decompose_voice',
+#      'claude-session-<slug>-<date>', 'page-rerender');
 diff $DECOMP_WORK/predicted/<page>.html <(curl -s -A Mozilla/5.0 https://…/<url>)
 
 # 5. the calculator must still compute

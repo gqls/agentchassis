@@ -205,3 +205,17 @@ no fields) also carries the fence subject — keep the function name.
 gate scope. The one platform change of the arc (251's `preferredPageURL`) is committed
 with `Council-Submitted: 33fb41cb-768e-4e8e-b5fd-7a4d5ff75fa1`; read the verdict
 before writing any `Council-Reviewed:` trailer.
+
+---
+
+**ADDENDUM 2026-08-15 (post-roll, appended by the floors/verification session):**
+chassis **v1.0.1300** verified this morning — floors in the binary on both replicas
+with the negative control clean (the SHRINK string count moved 1→2: both are the
+floor's own strings, an addition not a loss); oracle **170/0/6** with parse +
+mutation controls in-session (matches §0 exactly); mirror check **byte-identical**
+on a fresh assemble-only rerender of `legal` run by the NEW binary (item
+`260f03e9`, real deploy confirmed in its `result`). One trap found doing it:
+hand-filing a `page_rerender` needs `source`, `created_by` AND
+`handler_agent='page-rerender'` — without the last, the item goes `blocked`
+silently and nothing retries it. Full insert shape is now in RUNBOOK step 4.
+§4 (the mixed-card 5) remains the next work, untouched.

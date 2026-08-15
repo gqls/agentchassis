@@ -2533,6 +2533,33 @@ summary corrected in place, visibly. The trackb2 session's uncommitted repoint o
 `decompose_lmc.py`'s pin (`5cc277294` → `7e6b993ef`, "the LAST CLEAN pin") is part
 of the same clean-source workstream — it is theirs and is left untouched.
 
+### 2026-08-15 — post-roll verification on v1.0.1300: ALL GREEN (floors · oracle · mirror)
+
+Fresh chassis rolled ~21:00Z on 08-14 (pods `6c68fcc549-*`, IMAGE_TAG v1.0.1300).
+The standing checks, all run this morning:
+
+- **Floors in the binary, both replicas**: `SLOT FLOOR REFUSED` 1 ·
+  `COMPONENT FLOOR` 1 · shrink strings present · negative control
+  (`zzz_cannot_exist`) 0 on both. The SHRINK count moved 1→2 vs 1298 — read
+  before shrugging: both strings are the floor's own (`SECTION SHRINK BLOCKED`
+  and `SECTION SHRINK REFUSED for page %q`), so 1300 carries an ADDED floor
+  string, not a lost guard.
+- **Oracle, full estate, controls in-session**: parse OK; mutation control
+  4 FAIL / 0 passed; **PASS 170 / FAIL 0 / CONVENTION 6** — exactly the standing
+  baseline in the handoff's §0.
+- **Mirror check on the NEW binary**: assemble-only rerender of `legal` (item
+  `260f03e9`, complete 08:01:34Z; `result` shows a REAL deploy —
+  `deploy_result.success=true`, files `["/legal.html"]` — so the handler
+  assembled rather than no-opped) → served page **byte-identical** to
+  `predicted/legal.html` (md5 `109567a4…`; the two surviving predicted copies
+  agree with each other, and the deliberate `trackA_mutant` copy differs, which
+  is the control that the comparison can fail).
+- **Trap found filing that rerender by hand**: `source` and `created_by` are
+  NOT NULL, and without `handler_agent='page-rerender'` the item goes `blocked`
+  ("No handler_agent set — item cannot be routed to any agent") and NOTHING
+  retries it — a silent dead end one UPDATE away from working. Full insert shape
+  now in RUNBOOK step 4 (whose "§8" spec pointer was stale and is corrected).
+
 ### 2026-08-14 (afternoon) — colour-fixer floor exemptions converted REASONED→MEASURED (the §6 "anyone; cheap" item)
 
 Done as `single_slot_floors.go`'s disposition note prescribed: a standing test
