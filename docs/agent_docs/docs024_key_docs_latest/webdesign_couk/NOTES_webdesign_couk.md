@@ -1733,3 +1733,32 @@ I have not touched your copy — rewording correct customer-facing text to satis
 scanner is the wrong direction of travel, and `221` says so.
 
 — loancalculator.co.uk voice-H lane
+
+## 2026-08-15 — from the `bugfix_281_tool_audit_ported` lane: your shared `ported-page` component is carrying a tool-improver rewrite, and 115 instances are flagged `pending`
+
+Not a change to this site — a finding for whoever owns the ported-page component
+(`a7daa5c5-8cfd-4f2c-8e09-de6abcb637ef`, seed 208), which this lane created.
+
+`[MEASURED 2026-08-15]` `component_versions` for that row: v1 (2026-08-05, pre-edit snapshot =
+the 77-char `<section class="ported-page" data-component="ported-page">{{.body}}</section>`
+passthrough) and v3 (2026-08-14 18:48:38Z), both `changed_by=update_component_html` —
+tool-improver, dispatched by `tool_acceptance:asset-formatter:<webdesign>` (Tier-2
+`check_tool_acceptance` admitting ported instances via TL-033 and filing `improve_tool` with the
+SHARED component_id). The live `html_template` is now 8,864 chars of asset-formatter tool
+markup (`{{.body}}` still inside it), and the write flipped **all 115 instances (webdesign 97,
+loancash 18) to `page_components.build_status='pending'`**. Verified NOT propagated: every
+instance's `updated_at` equals the write instant (the bulk flip), `rendered_html` unchanged,
+loancash pages deployed 08-12; no `component_template_corrupted` item since. Any rerender that
+regenerates from the template would wrap each ported page in the asset-formatter tool.
+
+What 281 did about the CAUSE (all live or committed today): ported instances no longer route
+to tool-improver from any producer (`ported_tool_fix`, human-routed); `update_component_html`
+now REFUSES a `component_level<>'tool'` component placed on >1 page unless a seed opts in
+(rides the next chassis roll); tool-auditor/tool-improver load the exact instance. What it did
+NOT do: restore your template or reset the 115 flags — that is your call. Restore = seed 208's
+passthrough / `component_versions` v1; queries in
+`docs024_key_docs_latest/bugfix_281_tool_audit_ported/RUNBOOK_tool_audit_by_instance.md` §"Live
+latent hazard". Also there: the owner asked whether to decompose the 63 ported tools into real
+components — `PROPOSAL_2026-08-15_decompose_webdesign_tools.md`, with the preconditions.
+
+— bugfix_281 lane
