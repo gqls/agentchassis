@@ -110,7 +110,6 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
-	checks "github.com/gqls/agentchassis/platform/orchestration/actions/discovery_checks"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"go.uber.org/zap"
 )
@@ -548,70 +547,50 @@ func retractResolvedContrastFindings(
 			urlPath(c.URL)+"#"+contrastSelector(c.Tag, c.Class))] = true
 	}
 
-	// Read the open rows fully and close the cursor BEFORE any UPDATE: a
-	// database/sql Tx is one connection, so retracting while this cursor is
-	// still streaming would deadlock against itself.
-	type openItem struct{ key, status string }
-	candidates, err := func() ([]openItem, error) {
-		rows, qErr := tx.QueryContext(ctx, fmt.Sprintf(`
-			SELECT COALESCE(item_key, ''), status
-			FROM site_work_items
-			WHERE site_id   = $1
-			  AND item_type = 'contrast_failure'
-			  AND status NOT IN (%s)
-		`, sqlInList(workItemClosedStatuses)), siteID)
-		if qErr != nil {
-			return nil, qErr
-		}
-		defer rows.Close()
-		var out []openItem
-		for rows.Next() {
-			var it openItem
-			if sErr := rows.Scan(&it.key, &it.status); sErr != nil {
-				return nil, sErr
-			}
-			out = append(out, it)
-		}
-		return out, rows.Err()
-	}()
+	// The load, the closed-status predicate, the per-row resolve and the parked
+	// accounting all live in work_item_retraction.go now — this function keeps
+	// exactly the part that is THIS producer's judgement (which pages it
+	// measured, and which pairings it still sees), which is the split
+	// WII-016's own council round asked for when dark_section_audit became the
+	// third adopter. The behaviour is unchanged and this file's six retraction
+	// tests are the proof: they were not rewritten, only widened to the loader's
+	// column list.
+	candidates, err := loadAuditRetractionCandidates(ctx, tx, siteID, "contrast_failure")
 	if err != nil {
-		return 0, 0, fmt.Errorf("load open contrast items: %w", err)
+		return 0, 0, err
 	}
 
-	done := map[string]bool{}
-	for _, it := range candidates {
-		if it.key == "" || done[it.key] || stillFailing[it.key] {
-			continue
-		}
-		page := ""
-		for _, ap := range audited {
-			if strings.HasPrefix(it.key, ap.prefix) {
-				page = ap.path
-				break
+	// The availability argument is the REAL expression, not a literal true: the
+	// two early returns above short-circuit the same condition, so passing
+	// `true` here would leave the helper's inert guard unexercised by this
+	// caller and make the three checks a guard chain nobody can mutate one at a
+	// time. An adapter too old to send pages_audited measured nothing.
+	retracted, parked, err = retractResolvedAuditFindings(ctx, tx, siteID, "render_audit", batchID,
+		"contrast_failure", len(payload.Summary.PagesAudited) > 0, candidates,
+		func(c auditRetractionCandidate) (retractionVerdict, string) {
+			if stillFailing[c.Key] {
+				return retractionStillFailing, ""
 			}
-		}
-		if page == "" {
-			continue // not a page this run measured — leave it alone
-		}
-		done[it.key] = true
-
-		reason := fmt.Sprintf(
-			"render audit re-measured %s and this pairing is no longer below its contrast threshold", page)
-		if payload.RunID != "" {
-			reason += fmt.Sprintf(" (run %s)", payload.RunID)
-		}
-		n, rErr := resolveWorkItems(ctx, tx, siteID, "render_audit", batchID, checks.ResolvedFinding{
-			ItemType: "contrast_failure",
-			ItemKey:  it.key,
-			Reason:   reason,
+			page := ""
+			for _, ap := range audited {
+				if strings.HasPrefix(c.Key, ap.prefix) {
+					page = ap.path
+					break
+				}
+			}
+			if page == "" {
+				// Not a page this run measured — leave it alone.
+				return retractionOutOfScope, ""
+			}
+			reason := fmt.Sprintf(
+				"render audit re-measured %s and this pairing is no longer below its contrast threshold", page)
+			if payload.RunID != "" {
+				reason += fmt.Sprintf(" (run %s)", payload.RunID)
+			}
+			return retractionResolved, reason
 		}, logger)
-		if rErr != nil {
-			return 0, 0, rErr
-		}
-		retracted += n
-		if n > 0 && it.status == "deferred" {
-			parked += n
-		}
+	if err != nil {
+		return 0, 0, err
 	}
 
 	if retracted > 0 {

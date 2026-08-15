@@ -471,8 +471,15 @@ func sanitiseDedupSegment(s string) string {
 // ============================================================================
 
 // findingsFromList maps already-parsed finding objects into auditFinding.
-func findingsFromList(items []interface{}) []auditFinding {
-	var findings []auditFinding
+//
+// It also reports whether the list was RECOGNISED — every element decoded into
+// a finding object. An empty input list is recognised (an auditor legitimately
+// reporting nothing wrong); a non-empty list that produced no findings is NOT,
+// because every element was some other shape. That distinction is only needed
+// by the retraction path (write_audit_findings_retraction.go), where "the
+// auditor found nothing" is evidence and "I did not understand the reply" must
+// be inert — see bugs_open/213 D1 half two.
+func findingsFromList(items []interface{}) (findings []auditFinding, recognised bool) {
 	for _, item := range items {
 		if m, ok := item.(map[string]interface{}); ok {
 			f := auditFinding{
@@ -497,14 +504,19 @@ func findingsFromList(items []interface{}) []auditFinding {
 			findings = append(findings, f)
 		}
 	}
-	return findings
+	return findings, len(findings) == len(items)
 }
 
 // findingsFromString fence-trims and unmarshals a JSON string holding either
 // a bare findings array or an object wrapping one under "findings". A
 // non-empty parseError means the string held no findings and was not
 // parseable as an array.
-func findingsFromString(s string, logger *zap.Logger) (findings []auditFinding, parseError string) {
+//
+// `recognised` is true only when a findings array was actually decoded — see
+// findingsFromList's note. A string that parses as an ARRAY of zero findings
+// is recognised; one that fails both unmarshals is not, and neither is a
+// wrapper object carrying no "findings" key.
+func findingsFromString(s string, logger *zap.Logger) (findings []auditFinding, parseError string, recognised bool) {
 	cleaned := strings.TrimSpace(s)
 	cleaned = strings.TrimPrefix(cleaned, "```json")
 	cleaned = strings.TrimPrefix(cleaned, "```")
@@ -515,40 +527,55 @@ func findingsFromString(s string, logger *zap.Logger) (findings []auditFinding, 
 		var wrapper map[string]json.RawMessage
 		if err2 := json.Unmarshal([]byte(cleaned), &wrapper); err2 == nil {
 			if findingsJSON, ok := wrapper["findings"]; ok {
-				json.Unmarshal(findingsJSON, &findings)
+				if uErr := json.Unmarshal(findingsJSON, &findings); uErr == nil {
+					return findings, "", true
+				}
 			}
 		}
 		if len(findings) == 0 {
 			logger.Warn("Failed to parse findings JSON",
 				zap.Error(err),
 				zap.String("raw_preview", cleaned[:min(200, len(cleaned))]))
-			return nil, err.Error()
+			return nil, err.Error(), false
 		}
+		return findings, "", false
 	}
-	return findings, ""
+	return findings, "", true
 }
 
 // parseAuditFindings accepts all three shapes. Only an unparseable string
 // sets parseError; an unrecognised shape, or an object with no "findings"
-// key, returns (nil, "") and the caller reports the zero-findings reason
-// together with the offending type.
-func parseAuditFindings(findingsRaw interface{}, logger *zap.Logger) (findings []auditFinding, parseError string) {
+// key, returns (nil, "", false) and the caller reports the zero-findings
+// reason together with the offending type.
+//
+// ⚠ THE THIRD RETURN IS WHY THIS FUNCTION CHANGED (bugs_open/213 D1 half two).
+// `len(findings)==0 && parseError==""` IS AMBIGUOUS and always was — this
+// function's own contract above says so — because it is returned BOTH for an
+// auditor that looked and found nothing AND for a reply whose shape was never
+// recognised. Reporting zero work items is a correct response to either, so
+// nothing before now had to tell them apart. A retraction rule does: silence
+// is only evidence when the instrument was read successfully, and "I did not
+// understand the reply" must be inert. Do not collapse this back into
+// len(findings)==0.
+func parseAuditFindings(findingsRaw interface{}, logger *zap.Logger) (findings []auditFinding, parseError string, recognised bool) {
 	switch v := findingsRaw.(type) {
 	case string:
 		return findingsFromString(v, logger)
 	case []interface{}:
-		return findingsFromList(v), ""
+		f, ok := findingsFromList(v)
+		return f, "", ok
 	case map[string]interface{}:
 		// The prompt-compliant wrapped shape: mirror the string case's
 		// wrapper unwrap.
 		switch inner := v["findings"].(type) {
 		case []interface{}:
-			return findingsFromList(inner), ""
+			f, ok := findingsFromList(inner)
+			return f, "", ok
 		case string:
 			return findingsFromString(inner, logger)
 		}
 	}
-	return nil, ""
+	return nil, "", false
 }
 
 // ============================================================================
@@ -621,7 +648,7 @@ func WriteAuditFindingsAction(ctx context.Context, params ActionParams) (interfa
 	}
 
 	// ── Parse findings ──
-	findings, parseError := parseAuditFindings(findingsRaw, logger)
+	findings, parseError, shapeRecognised := parseAuditFindings(findingsRaw, logger)
 	if parseError != "" {
 		return map[string]interface{}{
 			"items_created": 0,
@@ -629,16 +656,50 @@ func WriteAuditFindingsAction(ctx context.Context, params ActionParams) (interfa
 		}, nil
 	}
 
+	batchID := uuid.New()
+
+	// ── Classify EVERY finding, before any filter ──
+	// The retraction pass below asks "did this run report anything of type X for
+	// this site", and that question must be answered from what the audit
+	// OBSERVED, never from what this action FILED. A finding dropped by the
+	// blocked check, the dedup check or a failed insert was still observed —
+	// reading "not filed" as "fixed" is the one mistake that closes live
+	// defects (WII-016's landmine, inherited).
+	classified := make([]classifiedFinding, 0, len(findings))
+	observedItemTypes := make(map[string]bool, len(findings))
+	for _, f := range findings {
+		c := classifyFinding(f, pages, siteID, auditSource)
+		classified = append(classified, c)
+		observedItemTypes[c.ItemType] = true
+	}
+
 	if len(findings) == 0 {
+		// A RECOGNISED empty findings list is the audit saying "nothing wrong
+		// here", and that is exactly the observation retraction runs on — so
+		// this early return must not skip it. An UNRECOGNISED reply reaches
+		// here too and retractSilentAuditFindings refuses it on
+		// shapeRecognised, which is why that flag is threaded rather than
+		// inferred from this branch.
+		retraction, rErr := retractSilentAuditFindings(ctx, params.DB, siteID, auditSource,
+			batchID, observedItemTypes, shapeRecognised, logger)
+		if rErr != nil {
+			logger.Warn("Silence retraction failed", zap.Error(rErr))
+		}
 		logger.Warn("No valid findings extracted",
 			zap.String("findings_field", findingsField),
-			zap.String("findings_type", fmt.Sprintf("%T", findingsRaw)))
-		return map[string]interface{}{
-			"items_created":  0,
-			"reason":         "no valid findings",
-			"findings_field": findingsField,
-			"findings_type":  fmt.Sprintf("%T", findingsRaw),
-		}, nil
+			zap.String("findings_type", fmt.Sprintf("%T", findingsRaw)),
+			zap.Bool("shape_recognised", shapeRecognised))
+		out := map[string]interface{}{
+			"items_created":    0,
+			"reason":           "no valid findings",
+			"findings_field":   findingsField,
+			"findings_type":    fmt.Sprintf("%T", findingsRaw),
+			"shape_recognised": shapeRecognised,
+		}
+		if retraction != nil {
+			out["retraction"] = retraction
+		}
+		return out, nil
 	}
 
 	logger.Info("Parsed audit findings",
@@ -661,15 +722,14 @@ func WriteAuditFindingsAction(ctx context.Context, params ActionParams) (interfa
 		blockedRows.Close()
 	}
 
-	// ── Classify and insert ──
-	batchID := uuid.New()
+	// ── Insert ── (classification already done, above, deliberately)
 	created := 0
 	skipped := 0
 	skippedBlocked := 0
 	classificationStats := make(map[string]int)
 
-	for _, f := range findings {
-		classified := classifyFinding(f, pages, siteID, auditSource)
+	for i := range classified {
+		classified, f := classified[i], findings[i]
 		classificationStats[classified.ItemType]++
 
 		logger.Info("Classified finding",
@@ -739,6 +799,16 @@ func WriteAuditFindingsAction(ctx context.Context, params ActionParams) (interfa
 		created++
 	}
 
+	// ── Retract what this run is silent about (bugs_open/213 D1 half two) ──
+	// After the inserts, so a type this run DID report is already on record,
+	// and inside its own transaction: a retraction failure must not lose the
+	// filings, which are this action's primary job.
+	retraction, rErr := retractSilentAuditFindings(ctx, params.DB, siteID, auditSource,
+		batchID, observedItemTypes, shapeRecognised, logger)
+	if rErr != nil {
+		logger.Warn("Silence retraction failed", zap.Error(rErr))
+	}
+
 	logger.Info("WriteAuditFindingsAction: Complete",
 		zap.Int("created", created),
 		zap.Int("skipped_duplicates", skipped),
@@ -746,7 +816,7 @@ func WriteAuditFindingsAction(ctx context.Context, params ActionParams) (interfa
 		zap.Int("total_findings", len(findings)),
 		zap.Any("classification_stats", classificationStats))
 
-	return map[string]interface{}{
+	out := map[string]interface{}{
 		"items_created":         created,
 		"items_skipped":         skipped,
 		"items_skipped_blocked": skippedBlocked,
@@ -754,7 +824,11 @@ func WriteAuditFindingsAction(ctx context.Context, params ActionParams) (interfa
 		"batch_id":              batchID.String(),
 		"audit_source":          auditSource,
 		"classification_stats":  classificationStats,
-	}, nil
+	}
+	if retraction != nil {
+		out["retraction"] = retraction
+	}
+	return out, nil
 }
 
 func getStringFromMap(m map[string]interface{}, key string) string {

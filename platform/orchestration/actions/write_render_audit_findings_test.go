@@ -462,11 +462,11 @@ func TestWriteRenderAuditFindings_RetractsOnlyAbsentPairingsOnAuditedPages(t *te
 
 	mock.ExpectQuery("item_type = 'contrast_failure'").
 		WithArgs(siteID).
-		WillReturnRows(sqlmock.NewRows([]string{"item_key", "status"}).
-			AddRow("contrast_failure:/pricing.html#h2.card-title", "detected"). // still failing
-			AddRow("contrast_failure:/pricing.html#a.cta-link", "triaged").     // gone → retract
-			AddRow("contrast_failure:/pricing.html#h3.gone", "deferred").       // gone → retract (parked)
-			AddRow("contrast_failure:/about.html#h1.title", "detected"))        // page not audited
+		WillReturnRows(sqlmock.NewRows([]string{"id", "item_key", "status", "spec", "result"}).
+			AddRow(uuid.New(), "contrast_failure:/pricing.html#h2.card-title", "detected", "{}", "{}"). // still failing
+			AddRow(uuid.New(), "contrast_failure:/pricing.html#a.cta-link", "triaged", "{}", "{}").     // gone → retract
+			AddRow(uuid.New(), "contrast_failure:/pricing.html#h3.gone", "deferred", "{}", "{}").       // gone → retract (parked)
+			AddRow(uuid.New(), "contrast_failure:/about.html#h1.title", "detected", "{}", "{}"))        // page not audited
 	// EXACTLY TWO updates, each named. resolveWorkItems' args are
 	// (check, reason, site, item_type, item_key, batch).
 	mock.ExpectExec("UPDATE site_work_items").
@@ -541,8 +541,8 @@ func TestWriteRenderAuditFindings_UnreachablePageRetractsNothing(t *testing.T) {
 	mock.ExpectBegin()
 	mock.ExpectQuery("item_type = 'contrast_failure'").
 		WithArgs(siteID).
-		WillReturnRows(sqlmock.NewRows([]string{"item_key", "status"}).
-			AddRow("contrast_failure:/dead.html#h1.title", "detected"))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "item_key", "status", "spec", "result"}).
+			AddRow(uuid.New(), "contrast_failure:/dead.html#h1.title", "detected", "{}", "{}"))
 	// No UPDATE may follow. An unexpected one fails ExpectationsWereMet.
 	mock.ExpectCommit()
 
@@ -602,11 +602,11 @@ func TestWriteRenderAuditFindings_MeasuredButUnfiledFindingsAreNotRetracted(t *t
 		WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectQuery("item_type = 'contrast_failure'").
 		WithArgs(siteID).
-		WillReturnRows(sqlmock.NewRows([]string{"item_key", "status"}).
-			AddRow("contrast_failure:/pricing.html#h2.locked-title", "detected"). // measured, locked
-			AddRow("contrast_failure:/pricing.html#p.body-text", "detected").     // measured, filed
-			AddRow("contrast_failure:/pricing.html#a.cta-link", "detected").      // measured, capped
-			AddRow("contrast_failure:/pricing.html#h3.repaired", "deferred"))     // genuinely gone
+		WillReturnRows(sqlmock.NewRows([]string{"id", "item_key", "status", "spec", "result"}).
+			AddRow(uuid.New(), "contrast_failure:/pricing.html#h2.locked-title", "detected", "{}", "{}"). // measured, locked
+			AddRow(uuid.New(), "contrast_failure:/pricing.html#p.body-text", "detected", "{}", "{}").     // measured, filed
+			AddRow(uuid.New(), "contrast_failure:/pricing.html#a.cta-link", "detected", "{}", "{}").      // measured, capped
+			AddRow(uuid.New(), "contrast_failure:/pricing.html#h3.repaired", "deferred", "{}", "{}"))     // genuinely gone
 	// EXACTLY ONE retraction: the pairing the audit did not measure at all.
 	mock.ExpectExec("UPDATE site_work_items").
 		WithArgs("render_audit", sqlmock.AnyArg(), siteID, "contrast_failure",
@@ -678,8 +678,8 @@ func TestWriteRenderAuditFindings_OverImageReadingDoesNotRetract(t *testing.T) {
 	mock.ExpectBegin()
 	mock.ExpectQuery("item_type = 'contrast_failure'").
 		WithArgs(siteID).
-		WillReturnRows(sqlmock.NewRows([]string{"item_key", "status"}).
-			AddRow("contrast_failure:/index.html#p.hero-sub", "detected"))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "item_key", "status", "spec", "result"}).
+			AddRow(uuid.New(), "contrast_failure:/index.html#p.hero-sub", "detected", "{}", "{}"))
 	mock.ExpectCommit()
 
 	out, err := WriteRenderAuditFindingsAction(context.Background(), ActionParams{
@@ -743,11 +743,11 @@ func TestWriteRenderAuditFindings_ShorterPageDoesNotPrefixMatchALongerOne(t *tes
 	mock.ExpectBegin()
 	mock.ExpectQuery("item_type = 'contrast_failure'").
 		WithArgs(siteID).
-		WillReturnRows(sqlmock.NewRows([]string{"item_key", "status"}).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "item_key", "status", "spec", "result"}).
 			// A DIFFERENT page that merely shares a prefix — must be untouched.
-			AddRow("contrast_failure:/pricing.html#h2.card-title", "detected").
+			AddRow(uuid.New(), "contrast_failure:/pricing.html#h2.card-title", "detected", "{}", "{}").
 			// The audited page itself, absent from the findings — must retract.
-			AddRow("contrast_failure:/pricing#h2.card-title", "deferred"))
+			AddRow(uuid.New(), "contrast_failure:/pricing#h2.card-title", "deferred", "{}", "{}"))
 	// EXACTLY ONE update, and it names the audited page's key.
 	mock.ExpectExec("UPDATE site_work_items").
 		WithArgs("render_audit", sqlmock.AnyArg(), siteID, "contrast_failure",
