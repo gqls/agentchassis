@@ -1,5 +1,16 @@
 # HANDOFF 2026-08-15b — the provision half of Phase 0 is PROVEN ON REAL HARDWARE; the training half is next
 
+> **⚠ PARTLY SUPERSEDED same day, evening: THE TRAINING HALF RAN AND PASSED.**
+> `RUN_SH_DONE` 17:10:01Z; adapter (68MB) **verified durable in B2 at the
+> artefact** (`finetuning/artefacts/phase0-20260815-1621/adapter.tar.gz`, 206 +
+> `Content-Range …/67989958`). FTW-032 proven end-to-end; FTW-035's enablement
+> condition MET (monitor still disabled — owner switch). Full evidence: NOTES
+> "2026-08-15 evening"; milestone read-out: `SUMMARY_2026-08-15_…`. §5 below is
+> DONE except: **B2 bundle redeploy owed** (live bundle still hard-requires 80GB;
+> RUNBOOK §2), **GGUF + playground timing not started**, three new launch traps in
+> RUNBOOK §9. Everything else here (verdict, §4's 259 decision, boot-variability
+> correction, lane boundary) still stands.
+
 **COLD-START document for the lane.** Supersedes
 `HANDOFF_2026-08-15_continue_here.md`, whose title and §2 ("ONE step remains:
 unpause and run Phase 0") are now **out of date** — that step was authorised by the

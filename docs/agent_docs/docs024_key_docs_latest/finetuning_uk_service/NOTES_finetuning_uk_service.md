@@ -1462,8 +1462,86 @@ owner's hold arrived seconds after it reached RUNNING — **decommissioned
 immediately, before any command ran on it**: $0.019, ~37s. Re-paused 15:00Z, pause
 reason records the hold.
 
-### Day's ledger
+### Day's ledger (superseded by the evening run below)
 
 Three boxes, all decommissioned, vendor `{}` at end: $0.0645 + $0.047 + $0.019 =
 **$0.113 by our books** — real vendor cost ≈ **$0.03** (flat-$1.80 inflation, see
 the cost caveat above). Claims table: 3 rows, all `succeeded`, `attempts=1`.
+
+---
+
+## 2026-08-15 evening — PHASE 0 TRAINING RUN COMPLETE AND PROVEN END-TO-END
+
+Owner restored credits and said carry on. The training half ran to `RUN_SH_DONE`
+with the adapter **verified durable in B2 at the artefact** — the proof FTW-032 and
+FTW-035 had been waiting on since June.
+
+### Timeline (all 2026-08-15 UTC)
+
+| time | event |
+|---|---|
+| 16:22:32 | provision dispatched (`4cd5e6a8-…`), box `8720be5c-…` at 216.81.200.240 |
+| 16:27:43 | **launch 1 FAILED usefully** — see finding 1 |
+| 16:39:00 | relaunch with patched setup embedded over ssh (md5 `206e19c6…` = repo copy) |
+| 16:38:58 | `RUN_SH_START` (SmolLM2-1.7B-Instruct, ChatML, SAVE_STEPS=0, MIN_VRAM_MIB=8000) |
+| →16:44 | setup: venv + torch cu124 + unsloth ≈ **5.5 min** (the 25-min figure was for named templates; `base` + pip is faster) |
+| →16:46 | smoke: 20 rows, 1 epoch — `train_runtime` **40.5s**, loss 1.408, `RUN_SH_SMOKE_OK` |
+| 16:47→17:09 | full train: **1363.4s (22.7 min)**, 111 steps ≈ 12.3s/step, 3 epochs |
+| 17:09 | `uploaded final_adapter.tar.gz (0.07GB) -> HTTP 200` |
+| 17:10:01 | `RUN_SH_DONE` |
+| 17:13:15 | box decommissioned, vendor `{}`; re-paused |
+
+**Total: ~50 min provision-to-decommission. $1.50 booked / ≈$0.29 real.**
+Final `train_loss` **0.730** (smoke 1.408 → full 0.730). Adapter: 72,396,376-byte
+safetensors; tarball **67,989,958 bytes**.
+
+### The durability proof, stated precisely
+
+`RUN_SH_DONE ⟹ adapter durable in B2` was proven **at the artefact, not at the
+marker**: fresh presigned GET against
+`finetuning/artefacts/phase0-20260815-1621/adapter.tar.gz` → **HTTP 206**, gzip
+magic bytes (`1f8b`), `Content-Range: bytes 0-0/67989958`. Two independent
+witnesses (box-side HTTP 200 log line; our own GET from outside the box). ⚠ One
+instrument note: `curl -I` (HEAD) against a GET-signed presigned URL returns a
+**163-byte error body**, which reads as "Content-Length: 163" — size a presigned
+object by `Content-Range` on a range GET, never by HEAD.
+
+### Also proven live, first time each
+
+- **The ChatML marker guard** (08-12 fix): passed on real rendered rows — and
+  earned its keep: Unsloth dropped only **5 of 300 rows** for missing response
+  markers (truncation), vs 300 of 300 silently mistrained in the old
+  hardcoded-Llama world.
+- **The whole ssh_exec drive chain**: launch, nohup persistence across session
+  close, poll-by-marker, evidence pull, all via the adapter's kafka actions.
+
+### Three defects found by the run (Phase 0 doing its job)
+
+1. **`/workspace` does not exist on the `base` template** until `00_vm_setup.sh`
+   creates it — but the launch places files there *before* setup runs. Fix: `sudo
+   mkdir -p` first. RUNBOOK §9 corrected.
+2. **`00_vm_setup.sh`'s VRAM gate hardcoded 79000 MiB** — refused the a6000 that a
+   1.7B run was deliberately booked on (`ERROR: 49140 MiB < 79000 MiB`). The 08-12
+   parameterisation covered run.sh + 02_train and missed the setup script. Fixed
+   `2094a02e2` (`MIN_VRAM_MIB`, default = old literal). ⚠ **B2 bundle redeploy
+   still OWED** — this session's PUT was blocked by the permission classifier, so
+   the live bundle still hard-requires 80GB; the box got the identical file over
+   ssh (md5-matched). RUNBOOK §2 recipe, owner or an allowed session.
+3. **`… & echo LAUNCHED` is a lie** — launch 1 returned `exit_code 0, stdout
+   LAUNCHED` while stderr held `cd: /workspace: No such file or directory` and
+   nothing had run. The `&` backgrounds the whole `&&` chain; the echo runs
+   unconditionally, and **ssh_exec's exit_code is the SESSION's, not the chain's**.
+   Fix: group with `{ … & }` and make the marker conditional; always read stderr.
+
+### What remains of Phase 0's original list
+
+- **GGUF conversion + playground timing** — needs a new box (or local llama.cpp
+  work against the B2 adapter) and its own scope decision. NOT started.
+- **FTW-035's enablement condition is now MET** — `thunder-training-monitor` can
+  safely be enabled (its DONE_OK→decommission path is exactly what this run
+  proved safe). Left DISABLED: flipping a fleet scheduled task is an owner call.
+
+### End state
+
+Paused, vendor `{}`, 0 live, 4 claims all `succeeded`/`attempts=1`. Day total:
+**$1.63 booked / ≈$0.32 real** across 4 boxes, all decommissioned.

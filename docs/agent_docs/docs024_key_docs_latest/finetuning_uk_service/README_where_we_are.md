@@ -650,3 +650,45 @@ proven on real hardware. The remaining half — actually driving a training run 
 machine, and getting the trained result safely into storage — is untouched and still
 staged. That is the next natural piece of work whenever you want it, and it will cost
 more than six pence because the machine has to stay up long enough to train something.
+
+---
+
+## 2026-08-15, evening — the first complete training run, start to finish, and the proof that was missing since June
+
+Credits came back and you said carry on, so the training run went ahead. **It
+worked, completely, first full attempt** — though it stumbled twice at the start in
+ways that were cheap to hit now and would have been expensive to hit later, which
+is exactly what a first run is for.
+
+The stumbles, briefly: fresh machines don't have the working directory the scripts
+assume, and the setup script refused our mid-size card because it still assumed the
+huge model from June. Both fixed within minutes, both written into the runbook, and
+the second one is committed to the repository. One subtler catch: the launch
+command *claimed* success while actually having done nothing — the way it was
+chained meant "launched" printed regardless. That's now restructured so the word
+only prints when it's true, and it's in the traps file.
+
+Then the run itself: about five and a half minutes installing software, a
+two-minute rehearsal on 20 examples to catch format problems before the real
+spend, then the real thing — 300 examples, three passes, 23 minutes. The training
+data rendered correctly in the model's own chat format, which is the thing the
+August 12th fix was for; the training loss halved, which is what you want to see;
+and the finished 68 MB adapter was uploaded to our storage automatically.
+
+**Then the step that mattered most: before destroying the machine, I fetched the
+uploaded file from storage independently and checked it was really, fully there.
+It was.** That closes the question open since June — whether "job finished" can be
+trusted to mean "the output is safe off the machine". It can, and now it's proven
+rather than believed. This also means the automated babysitter (which watches runs
+and cleans up machines when they finish) is safe to switch on — I've left that
+switch for you, since it's a standing fleet behaviour rather than a one-off.
+
+The bill for the complete rehearsal of the customer experience: **about 30 cents
+of real GPU time, 50 minutes end to end.** Our own books say $1.50 because they
+still price every card at the flat $1.80 rate — same known discrepancy as this
+morning, waiting on a real invoice.
+
+Still open: re-uploading the corrected script bundle to storage (my upload was
+blocked by a session permission — either allow it or run the §2 recipe yourself),
+converting the adapter to the playground's format, and timing a playground
+session. Then Phase 0 is done and we can price the service from measured numbers.

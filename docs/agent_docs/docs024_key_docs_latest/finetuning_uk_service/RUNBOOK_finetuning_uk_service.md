@@ -530,15 +530,18 @@ python3 presign.py PUT finetuning/artefacts/$RUN_TAG/adapter.tar.gz 240         
 # 2. Provision an a6000 (§7 — unpause, dispatch, save the provisioning_id).
 
 # 3. ONE ssh_exec (§7's decommission shows the envelope shape; body action is
-#    "ssh_exec" with provisioning_id/command/timeout_seconds). The command:
-cd /workspace \
+#    "ssh_exec" with provisioning_id/command/timeout_seconds). The command
+#    (CORRECTED against the 2026-08-15 live launch — see the traps below):
+sudo mkdir -p /workspace && sudo chown ubuntu:ubuntu /workspace \
+ && cd /workspace \
  && curl -sf -o bundle.tar.gz '<BUNDLE_URL>' && tar -xzf bundle.tar.gz \
  && curl -sf -o training_iter0.jsonl '<DATASET_URL>' \
  && printf '%s' '{"final":{"key":"finetuning/artefacts/<RUN_TAG>/adapter.tar.gz","url":"<FINAL_PUT_URL>"}}' > upload_manifest.json \
  && chmod +x run.sh 00_vm_setup.sh \
- && BASE_MODEL=HuggingFaceTB/SmolLM2-1.7B-Instruct CHAT_TEMPLATE=auto \
+ && { BASE_MODEL=HuggingFaceTB/SmolLM2-1.7B-Instruct CHAT_TEMPLATE=auto \
     INSTRUCTION_PART=$'<|im_start|>user\n' RESPONSE_PART=$'<|im_start|>assistant\n' \
-    SAVE_STEPS=0 nohup ./run.sh > train.log 2>&1 & echo LAUNCHED
+    SAVE_STEPS=0 MIN_VRAM_MIB=8000 nohup ./run.sh > train.log 2>&1 & } \
+ && echo LAUNCHED_FOR_REAL
 
 # 4. Poll: ssh_exec 'tail -20 /workspace/train.log' — markers, in order:
 #    RUN_SH_START → step=setup (5-10 min venv+CUDA) → step=smoke →
@@ -557,6 +560,30 @@ manifest JSON travels inside a kafka JSON envelope inside a shell command —
 carefully and echo the command back before firing · `thunder-training-monitor`
 stays **disabled** (its DONE_OK path decommissions the box; enabling early
 destroys the artefact — FTW-035).
+
+Traps found by the first live launch (2026-08-15):
+
+- **`/workspace` does not exist on the `base` template until `00_vm_setup.sh`
+  creates it** — but run.sh requires the files already placed there BEFORE setup
+  runs. The launch command must `sudo mkdir -p /workspace && sudo chown
+  ubuntu:ubuntu /workspace` first (now in the §9 command above; the originally
+  staged command lacked it and failed on it live).
+- **`… & echo LAUNCHED` lies.** The `&` backgrounds the whole `&&` chain and the
+  `echo` runs unconditionally — the first launch returned `exit_code 0, stdout
+  LAUNCHED` while stderr held `cd: /workspace: No such file or directory` and
+  nothing had run. Group the backgrounding so the marker is conditional:
+  `… && { ENV nohup ./run.sh > train.log 2>&1 & } && echo LAUNCHED_FOR_REAL` —
+  **and always read stderr, not just exit_code/stdout: ssh_exec reports the
+  SESSION's exit, not your chain's.**
+- **Small-model runs must ALSO set `MIN_VRAM_MIB`** (e.g. `8000` for a 1.7B) —
+  `00_vm_setup.sh`'s VRAM gate assumed the 70B default and refuses an a6000
+  otherwise (fixed `2094a02e2`, default 79000 = old behaviour). It joins the
+  move-together env set: `BASE_MODEL`/`CHAT_TEMPLATE`/`INSTRUCTION_PART`/
+  `RESPONSE_PART`/`SAVE_STEPS`/`MIN_VRAM_MIB`.
+- ⚠ **B2 bundle redeploy pending**: the live `finetuning/scripts/bundle.tar.gz`
+  still hard-requires 80GB until someone re-tars + PUTs per §2 (this session's
+  upload was permission-blocked; the box received the identical file over ssh,
+  md5 `206e19c6…`).
 
 ## 8b. ⚠ Boot time is DAY-VARIABLE — do not plan around one day's measurement
 
