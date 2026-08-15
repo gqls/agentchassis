@@ -1,9 +1,11 @@
 # 216 — the response-driven recoverable arm re-arms the request, then refuses its own replay: an `error_recoverable` RESPONSE is terminal (at least cross-pod), and the retry_version bump it leaves looks like a retry happened
 
 **Filed 2026-08-07** by the `bugfix_207_sender_convergence` lane, found live during 207's
-post-roll induction on v1.0.1262. **Status: FIXED + LIVE on v1.0.1266 + PROVEN BY
-INDUCTION 2026-08-08 — all three close criteria met; stays in `bugs_open/` per the
-owner's 08-06 ruling.** Owned by the `bugfix_216_claimed_row_passthrough` lane
+post-roll induction on v1.0.1262. **Status: CLOSED 2026-08-15 — FIXED + LIVE on v1.0.1266 +
+PROVEN BY INDUCTION 2026-08-08, all three close criteria met.** ~~stays in `bugs_open/` per the
+owner's 08-06 ruling~~ — **superseded: the owner ruled on 2026-08-15 that this closes**, which
+also settles the filing question the 213 lane raised at the foot of this file (see the closure
+note there). Owned by the `bugfix_216_claimed_row_passthrough` lane
 (docs024_key_docs_latest/bugfix_216_claimed_row_passthrough/). The seam 195/197/207 all
 deliver INTO now delivers: a recoverable response produces a replay on the wire.
 
@@ -235,3 +237,48 @@ rather than moved: it is your file, and a move against a cited ruling is the own
 copy and leaves the original at HEAD.
 
 — `bugfix_213_verifier_producer_join` lane
+
+---
+
+## CLOSED 2026-08-15 — owner ruling, and the one thing that does NOT travel with it
+
+**The owner ruled on 2026-08-15 that this file closes.** That answers §3 above, which had
+flagged the filing question and deliberately left it: the file met CLAUDE.md's stated bar
+(**fixed AND live**) on 2026-08-08 and was being held open only by a cited 08-06 ruling that
+the flagging lane suspected, but had not read, was superseded. It was.
+
+**What is closed is the DEFECT, and it is closed on evidence rather than on age.** The
+recoverable arm re-armed the request and then refused its own replay; it now passes the
+claimed row through from the claim, both call sites were verified by independent grep, the
+regression tests recreate the hostile world, and the fix was proven by live induction with
+the replayed request consumed off the wire at `retry_version=1` seven minutes before the
+timeout path could have produced it. Council APPROVED round 1
+(`fcf8794c-92df-4c8e-9677-5ca284a20cce`).
+
+**What does NOT close with it, and must not be read as closed:**
+
+- **`bugs_open/274` is open, large and still firing** — ~15,000 events since 2026-08-03,
+  1,668 in the 20 hours to 2026-08-15. It is the sibling symptom this file's own opening
+  block flagged as unfiled on 08-08. **This fix is what makes 274's replays real**: a
+  workflow that SUCCEEDS has its success reply refused by validation, falls through to a
+  failure envelope that IS delivered (error messages are exempt), and that failure's prose
+  classifies as `error_recoverable` — landing in the arm this bug fixed. So a large share of
+  the recoverable responses now correctly replayed are 274's fictions rather than genuine
+  transient failures. **Closing this file does not reduce that traffic by one event.**
+- **The duplicate-execution cost is still [UNQUANTIFIED]**, and the honest instrument is
+  parent-side (`awaited_requests.retry_version` and replayed offsets), not the child's error
+  log. It belongs with 274. If whoever takes 274 wants a before/after, **record this arm's
+  current replay volume before landing the header fix** — after it lands, the comparison is
+  gone.
+- **Independent verification of the mechanism remains open by this file's own statement.**
+  The `090` run (`0e7e9640-7b22-4f10-8ea8-1994454993f3`) completed with no clean verdict on
+  the filed symptom; it did not falsify the file and its final citations independently
+  re-derive the central code fact, but that is not the same as a confirmation. The primary
+  evidence is and remains the live induction plus the line-by-line code read.
+
+Moved `bugs_open/` → `bugs_closed/` with **both paths named on the commit** — a `git mv` plus
+a pathspec commit that names only the destination ships a COPY and leaves the original at
+HEAD, and `ls` cannot tell you which happened. Verified at HEAD, not at the tree:
+`git ls-tree -r --name-only HEAD -- bugs_open/ bugs_closed/ | grep 216`.
+
+— closed by the `bugfix_213_verifier_producer_join` lane on the owner's ruling
