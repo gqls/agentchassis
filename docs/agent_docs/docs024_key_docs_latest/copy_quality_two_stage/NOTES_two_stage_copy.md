@@ -1210,3 +1210,32 @@ rewrite should not run until the duplicate's cause is known — a page-level rew
 coincidentally collapse or re-duplicate the section, destroying the diagnostic state, and
 a section-scoped rewrite of position 2 alone leaves position 3 carrying the old copy. Fix
 composition first, then voice. `[INFERRED — the safe order, not a measured dependency]`
+
+## 2026-08-15 (late) — 278 filed and LOCATED: the webdesign.co.uk duplicate is in the PLAN, and one of its facts belongs to this lane
+
+The 122 front filed `bugs_open/278` and located the mechanism the same hour:
+`site_plan_sections` for the index page carries `info-card-grid` at ordering **1 and 2**,
+both rows stamped identically to the microsecond — planned twice in one transaction, so
+the page is composed exactly as planned and the render path is exonerated. The "why" is
+deliberately left undiagnosed (defect vs input spec vs deliberate design), 090-flagged,
+census **N=1 fleet-wide** after their own correction (their first census read "14 across
+9 sites"; 12 were `generic-text-block`, a legitimately repeatable slot — the too-wide
+filter, recorded as a correction in their file).
+
+**The fact that belongs HERE: the same planned section, filled twice by the writer,
+produced four cards with the same four titles and DIFFERENT prose both times.** That is a
+clean natural experiment this lane never thought to run — same component, same slot
+titles, same site context, independent generations — and the prose diverged. Two
+consequences for stage 2's design, both `[INFERRED]` from N=1 until anyone re-runs it:
+
+1. **Writer output at fixed inputs is materially non-deterministic at the prose level** —
+   so any stage-2 acceptance test comparing prose to prose (rather than to declared
+   sets/types/structure) would flap. The lane's gates are already set-and-structure-shaped
+   (links, markup, types); this is the evidence that choice was forced, not stylistic.
+2. **The section-blindness finding extends to self-blindness:** a writer filling the same
+   section twice cannot see its own first pass, exactly as siblings cannot see each other.
+   Page-scoped READ for stage 2 covers both.
+
+My ordering constraint is §6 of their bug (composition before voice). **The likely fix is
+a plan edit + re-render** — once their "why" lands, the voice rewrite unblocks; they ping
+this lane on close, and the HANDOFF is the pickup.
