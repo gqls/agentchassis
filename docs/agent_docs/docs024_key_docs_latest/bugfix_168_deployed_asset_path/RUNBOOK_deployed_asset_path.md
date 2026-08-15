@@ -356,9 +356,16 @@ a history as runs accumulate. **Do not read a one-row answer as "the sweep has r
 
 ## Is a page the audit flagged actually SERVED? (the check that reframed the archived question)
 
-`ScanDeployedClaims` has no page-status filter, and that is **correct** — an `archived` page can
-still be serving. Do not "fix" it without this check first, and **always curl a fabricated URL on
-the same domain**, or a catch-all 200 reads as a live page:
+> **CORRECTED 2026-08-15 (commit `d7cd75a2a`):** the first sentence below said
+> *"`ScanDeployedClaims` has no page-status filter, and that is correct"*. It **now has
+> exactly one** — `AND NOT (p.status = 'archived' AND p.deployed_at IS NULL)`. The
+> *reasoning* under it survived intact and is why the filter is a CONJUNCTION rather than
+> the obvious `status <> 'archived'`: this section's own worked result is one of the five
+> archived-and-serving pages that make the simple version unsafe. Run the census below
+> before touching that predicate again.
+
+An `archived` page can still be serving, so page status alone never licenses skipping a page.
+**Always curl a fabricated URL on the same domain**, or a catch-all 200 reads as a live page:
 
 ```bash
 for u in "https://<domain>/<page>.html" "https://<domain>/definitely-not-a-real-page-control.html"; do
@@ -371,6 +378,39 @@ Worked result 2026-08-14: `robot-hands.com/gripper-catalog.html` → **200, 30,9
 `status='archived'`** (control 404s), so the scan was right to judge it. Meanwhile
 `leopardessconsulting.co.uk/for-engineering-teams.html` → 404 with the **same byte size as its
 control**, i.e. genuinely absent. `pages.status` does not discriminate; being served does.
+
+### Do it for the WHOLE class, not one page (added 2026-08-15 — one page cannot settle a predicate)
+
+The single-page form above answers "was the scan right about *this* page". A predicate needs the
+census: **every** archived page, each against its own domain's control, in one pass.
+
+```bash
+kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -At -F'|' <<'SQL' > /tmp/archived.txt
+SELECT s.domain, p.url FROM pages p JOIN sites s ON s.id=p.site_id
+WHERE p.status='archived'
+  AND EXISTS (SELECT 1 FROM page_components pc WHERE pc.page_id=p.id
+     AND ((pc.rendered_html IS NOT NULL AND pc.rendered_html<>'')
+       OR (pc.content_data IS NOT NULL AND pc.content_data::text<>'{}')))
+ORDER BY 1,2;
+SQL
+while IFS='|' read -r dom url; do
+  [ -z "$dom" ] && continue
+  t=$(curl -s -o /dev/null -w '%{http_code} %{size_download}' -m 20 "https://${dom}${url}")
+  c=$(curl -s -o /dev/null -w '%{http_code} %{size_download}' -m 20 "https://${dom}/zzz-fabricated-control-9x7q.html")
+  printf '%-68s target=%-12s control=%s\n' "${dom}${url}" "$t" "$c"
+done < /tmp/archived.txt
+```
+
+**Result 2026-08-15 — 5 of 11 archived pages served HTTP 200**: `fundamentallyai.com`
+(`/blog/ai-readiness-checker-guide.html` 25,861b, `/tools/llm-cost-calculator/index.html` 35,331b),
+`leopardessconsulting.co.uk/our-approach.html` 28,948b, `robot-hands.com/gripper-catalog.html`
+30,997b, `robot-hands.com/news.html` 48,047b. **This is the measurement that decides the
+predicate**, and it is why `p.status <> 'archived'` — which five sibling call sites use as their
+liveness test — would silently blind the audit on five live pages. Full trap: `LANDMINES.md`,
+"the estate's liveness predicate is WRONG for any AUDIT query".
+
+⚠ **Compare BYTES, not just codes.** A domain with a catch-all makes target and control agree; a
+control that returns what its target returns has controlled nothing.
 
 ### ⚠ Reading the arm column: `IS NULL` is a VINTAGE marker, not a gap (learned 2026-08-14, hours after the field shipped)
 
@@ -515,6 +555,18 @@ Worked script: `<scratch>/mutate.py` from 2026-08-14 (three mutations against
 `check_unverified_claims.go`). Report **which** test caught each mutation, not just that something
 failed — the division of labour is the finding. Parsing `--- FAIL: TestX` for the name: the field is
 `line.split()[2]`, because the line begins `---`.
+
+> ⚠ **ADDED 2026-08-15 — and this section already told me the answer.** I did not reuse the
+> parser above; I wrote a fresh `grep -oE "^\s+--- FAIL: …"`. Go indents only **subtest**
+> failures, so `^\s+` cannot match a top-level `--- FAIL:` **under any input**. Four mutations
+> that were all caught, loudly, reported *silence* — a result indistinguishable from "my tests
+> are worthless", and the exact opposite of the truth.
+>
+> **So: run an UNMUTATED CONTROL through the same pipeline first.** The pristine tree must
+> print nothing, and then at least one mutation must print something. If both print nothing,
+> the instrument is broken, not the guard. A filter you wrote is part of the instrument, and
+> one that has never produced a non-empty line has not been calibrated. Working extractor:
+> `grep -E '^--- FAIL: '` (no leading-whitespace anchor).
 
 ⚠ **A mutation caught by no test is a real result, not necessarily a broken test.** Re-adding the SQL
 locked filter was caught only by the query-text test, and that is because emitted findings genuinely

@@ -31713,6 +31713,15 @@ afterwards; it belonged first. Same shape as
 data side: **a filter you built yourself is part of the instrument, and an instrument
 that has never been shown to produce a non-empty output has not been calibrated.**
 
+**⚠ The worse half: my own lane's RUNBOOK already had the answer, in the section I was
+following.** `RUNBOOK_deployed_asset_path.md` §"Proving a Go test DISCRIMINATES" says, in
+terms: *"Parsing `--- FAIL: TestX` for the name: the field is `line.split()[2]`, **because
+the line begins `---`**."* Written 2026-08-14 by the previous session, about this exact
+file, for this exact purpose. I read that section for the `git archive HEAD` recipe, took
+the recipe, and then hand-rolled the parser it had just warned me about. **Reusing the
+prose and re-deriving the mechanism is how a runbook gets ignored while being followed** —
+if a step is written down, run *that* step, do not write your own from memory of its gist.
+
 **Cost:** near-zero, caught inside two minutes. Recorded because of what it *would*
 have cost: "proven by mutation" is this lane's standard evidence phrase, and the
 version of that table I was one command away from writing would have claimed the

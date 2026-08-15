@@ -1626,3 +1626,58 @@ distinctive figure that can't collide with anything.
 **Fourth, the handoff itself is written** and everything above is in it, along with the traps, the
 exact file to change, the queries, and what each step should produce so the next session can tell
 success from a convincing-looking nothing.
+
+---
+
+### 2026-08-15, afternoon — the second of your three instructions is done
+
+You asked for three things this morning: the evidence base and decomposition for
+webdesign.co.uk (A), the scan-level exclusion (B), and a manufactured refusal so we could
+finally watch a gate turn something down (C). C was already set up before lunch and is
+waiting on tomorrow morning's automatic run — nothing to do but read the result. So I did
+B this afternoon. A has not been started.
+
+**What B was.** We have a daily check that reads every page and flags claims the site
+cannot support. It had no idea whether a page was actually published. So a draft homepage
+for webdesign.uk that was written, rejected, and put in the bin back on 6 August was
+still being read every single day, still producing 19 complaints about wording nobody can
+see, and there was no way to make it stop. B teaches the check to skip that kind of page.
+
+**Where it got interesting.** The handoff I picked up specified exactly which rule to use,
+and backed it with a quote from our fleet-wide traps file. When I went to copy that quote
+into the code, it wasn't there. The nearest thing in that file argues almost the opposite,
+and recommends a rule that would have been the wrong one here.
+
+So rather than pick between two documents, I went and looked at the actual websites. Of
+the eleven pages our database calls "archived", **five are still live on the internet
+right now** — including a blog post, a pricing calculator, and the robot-hands news page.
+Archiving a page in our database sets a flag; it does not take the page off the web. If I
+had used the simpler rule the traps file recommends, we would have quietly stopped
+checking those five live pages for false claims, and nothing anywhere would have told us.
+
+The handoff's instruction was right. Its reason was wrong. That is a more dangerous
+combination than a wrong instruction, because checking the reason feels like nitpicking
+until the moment it changes the code — so I have written that up in two places.
+
+**What actually changed.** One line of database query, plus the explanatory comments
+around it, plus five tests. The effect today is small and deliberately so: exactly one
+page stops being scanned, and the homepage address it used to occupy is still covered by
+the real, live homepage row. Everything else is untouched.
+
+**Two things I got wrong myself**, both caught, both written down. I ran a query joining
+work items to pages that matched nothing at all — and because of how databases handle
+missing rows, the result came back looking like a confident, uniform answer rather than
+an empty one. And I built a little test harness to try and break my own tests, which
+reported that none of them worked; the tests were fine, my harness had a typo that made
+it incapable of ever reporting a failure. I only caught the second because five identical
+"nothing found" results felt too tidy to be true.
+
+**Where this sits.** The code is committed and has gone to the review council; I have not
+read the verdict yet. It will not take effect on the live system until the next fleet
+release, which isn't mine to run. And it deliberately does **not** close the webdesign.uk
+complaint it was written for — I've left that open on purpose, because when it changes
+from "still complaining" to "page skipped" after the next release, that is the only real
+proof the change did what it says.
+
+**Next:** read tomorrow morning's result for C and republish that page, then start A —
+which is much bigger than B and C put together and probably deserves its own workspace.

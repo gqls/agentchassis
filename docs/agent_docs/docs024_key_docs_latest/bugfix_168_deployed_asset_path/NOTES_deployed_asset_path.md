@@ -4155,3 +4155,102 @@ published gate compares database timestamps, not reachability.
   do not guess at the mechanism from the phrasing difference.
 - **Redeploy this page immediately after the observation lands**, so the correction is published and
   the item can close properly. Do not leave it parked.
+
+---
+
+## 2026-08-15 13:37–14:2xZ — B done: the scan exclusion, and the handoff's own justification was miscited
+
+Picked up on the handoff's stated order. C is time-anchored to the ~2026-08-16 08:45:17Z
+daily (~19 h out at session start), so B was the live work. A is untouched.
+
+### The predicate changed shape once, on measurement
+
+Handoff §B.2 specified `AND NOT (p.status = 'archived' AND p.deployed_at IS NULL)` and
+justified it by citing a `LANDMINES.md` entry titled *"an `archived` page can be
+SERVING"*. **That entry does not exist.** The nearest one (2026-08-03, `bugs_open/098`
+lane) argues close to the reverse — `status` is the "should still be served" column,
+`build_status` is the misleading one — and prescribes
+`status='active' AND build_status='deployed'`, which five call sites use. Following the
+*cited* entry would have produced `p.status <> 'archived'`.
+
+So I measured instead of choosing. **Of the 11 archived pages carrying scannable
+components, FIVE serve HTTP 200:**
+
+| page | bytes | control (fabricated URL, same domain) |
+|---|---|---|
+| `fundamentallyai.com/blog/ai-readiness-checker-guide.html` | 25,861 | 404 / 2,697 |
+| `fundamentallyai.com/tools/llm-cost-calculator/index.html` | 35,331 | 404 / 2,697 |
+| `leopardessconsulting.co.uk/our-approach.html` | 28,948 | 404 / 2,711 |
+| `robot-hands.com/gripper-catalog.html` | 30,997 | 404 / 2,886 |
+| `robot-hands.com/news.html` | 48,047 | 404 / 2,886 |
+
+Every control discriminated (different code AND different byte count). **The handoff's
+conclusion was right and its citation was wrong** — the conjunction stands, now on
+evidence. Filed as a `LANDMINES.md` entry (the estate's liveness predicate is wrong for
+audit queries) and two `WRONG_CALLS.md` entries.
+
+⚠ Note what this says about `ScanVoiceTells`: it restricts to
+`p.status IN ('active','deployed')`, and `'deployed'` is not a value of `pages.status`
+(only `active` 658 / `archived` 36), so **the voice scan drops all 36 archived pages
+including the 5 serving.** Not fixed here — flagged in the landmine and the submission.
+
+### Blast radius, measured before writing the predicate
+
+`archived AND deployed_at IS NULL` = **1 page / 7 components fleet-wide**:
+`webdesign.uk` `b9c9a2a3` *index-rejected-v1-20260806*, the motivating case behind item
+`a355d78b` (19 banned-claim findings). The URL it drops (`/index.html`) **stays covered**
+— `webdesign.uk` has a second, active, deployed row `4f180f39` at the same URL.
+
+Of 19 open `claims_unverified` items, exactly **1** is affected. The C test target
+`20d5da84` is archived **but deployed**, so it is deliberately preserved — B and C do not
+collide.
+
+### ⚠ MISSTEP — my first work-item join matched NOTHING and returned a uniform answer
+
+I joined `pages` on `wi.result->'revalidation'->>'page_id'`. The real path is
+`->'revalidation'->'evidence'->>'page_id'`. Every row missed, so `p.deployed_at IS NULL`
+evaluated TRUE on the NULL side and the report read **"never_dep = t"** for all 19
+items — a clean, plausible, entirely fabricated column. Caught by adding
+`count(p.id)` as a control (16 of 19 matched). **A LEFT JOIN that matches nothing does
+not look empty; it looks unanimous.**
+
+### ⚠ MISSTEP — five mutations reported "not caught" and my harness was the problem
+
+Full account in `WRONG_CALLS.md`. Short version: `grep -oE "^\s+--- FAIL:"` cannot match
+a top-level Go failure line (only subtests are indented), so four mutations that were all
+caught, loudly, reported silence. Caught by printing one raw output because five
+identical empty results were too clean. **The fix that belonged first: an unmutated
+control run.** Final matrix, control included, all caught:
+
+| mutation | caught by |
+|---|---|
+| *(control: none)* | nothing — as required |
+| drop the exclusion | test 1 |
+| weaken to `NOT (p.status = 'archived')` | tests 1 + 2 |
+| weaken to `NOT (p.deployed_at IS NOT NULL)` | tests 1 + 3 |
+| page-status filter onto the site query | tests 1 + 4 |
+| full revert of the `page_absent` Reason | revalidator test |
+| drop its "not evidence" clause | revalidator test |
+
+A **partial** revert leaving the word "never" elsewhere is NOT caught; the test header
+states that ceiling rather than hiding it.
+
+### Also corrected in passing
+
+A `cd` in an earlier compound command left the shell's cwd inside
+`platform/orchestration/actions`, so `docs/…/LANDMINES.md` did not resolve and I briefly
+believed a fleet-wide file had been deleted. Absence #2 in ten minutes that was not real.
+
+### State
+
+Commit `d7cd75a2a` (5 files, pathspec, no passengers). Council submission
+`cfaf0694-ee2e-4aa8-b19f-12d81e55b07f` — **verdict not yet read**, committed with
+`Council-Submitted:` per the pre-verdict rule. HEAD (`411ef03b2`, already moved past me)
+builds and tests green from `git archive`.
+
+⚠ **`a355d78b` deliberately LEFT OPEN.** The exclusion does not close it — an excluded
+page yields no scan row, so the arm becomes `page_absent`, a refusal. Cancelling it is a
+separate act, and doing it now would destroy the only live proof the exclusion fired:
+the first sweep after this ships should show `scan_still_trips → page_absent`. **The
+code is inert until a fleet roll**, so the 2026-08-16 sweep will still run the old
+binary and still say `scan_still_trips` — that is expected, not a failure.
