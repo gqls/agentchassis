@@ -948,3 +948,83 @@ Operationally for our lane: both rows are being treated as FALSE completions —
 work never ran (favicon/og-card 404 throughout) and is being re-filed fresh. Their `complete`
 status also counts as strikes under the two-strike rule, which is how a false completion
 converts into future suppression of the very re-detection that would have caught it.
+
+---
+
+# CLOSED 2026-08-15 — owner ruling, on option (a), and here is exactly what closes and what does not
+
+**The owner ruled on 2026-08-15 that this file closes and that D1 half two proceeds.** Both
+were done; half two is built, committed and registered (`WII-018`, commit `a620912f5`).
+
+## The recorded closure criterion is UNSATISFIABLE, and that is why this needed a ruling
+
+This file's own criterion was: a `hardcoded_section_colors` item **with no `spec.check`** must
+reach completion and land `triaged`/`failed`. **Half A permanently removed the traffic that
+would demonstrate it** — the design-audit producer was moved to its own `dark_section_audit`
+item_type, so no further items arrive on the branch the criterion names. The fix deleted its
+own test case. Three options were costed on 2026-08-12 and carried unanswered for three days:
+(a) accept the unit + mutation proof and close, recording the unexercised branch; (b) mint one
+synthetic row on a throwaway site; (c) leave open, accepting the file no longer describes a
+reproducible defect. **The ruling is (a).**
+
+**So, recorded plainly rather than buried: ONE BRANCH OF THE ORIGINAL FIX HAS NEVER EXECUTED
+IN PRODUCTION.** The `out_of_scope` disclaimer path for a `spec.check`-less
+`hardcoded_section_colors` item is proven by unit test and by mutation, and by a binary probe
+that the code is in the running image — **not** by a live item traversing it.
+`result->'_verification'->>'status' = 'out_of_scope'` was 0 when last read and is expected to
+stay 0 for ever, because the population is gone. **A future reader finding that zero should
+not read it as "the fix never worked".**
+
+## What IS proven, and where
+
+| | proof |
+|---|---|
+| **D3** — `verifier-remit-check`, the daily CLASS detector | `WII-015`; CronJob live at `25 7 * * *`, image `v1.0.1289`, **deployed and run** |
+| **D1 half one** — completion gate 1b, refuses a completion the handler never earned | `WII-017`; live `v1.0.1299`, council APPROVED, and **both arms proven on real production traffic with a 1:1 accounting** — 3 items blocked (the deliberate one terminated at `failed` rather than churning), 4 abstained, every abstention matched to its completion to the millisecond |
+| **D1 half two** — silence retraction, the path back OUT of `failed` | `WII-018`; built 2026-08-15, council submitted (`54e3b698-3d18-4dd1-9d6f-badec7e331fa`, dispatch verified live), **8 of 8 mutations caught**, and it also extracted the shared helper WII-016's architecture seat asked the third adopter for |
+
+**Before gate 1b, every one of those blocked items would have read `complete`.** That is the
+damage this file was opened about, and it is stopped.
+
+## THREE THINGS DO NOT CLOSE WITH IT — do not read this closure as covering them
+
+**1. §D is STILL UNEXPLAINED, and its diagnosis run DIED rather than disagreeing.** Ten of the
+fourteen completed rows carry a payload that is not the handler's, and the abstain arm
+reproduced the split live at 3:1. The `090` run filed to settle it
+(`266be67d-a6e1-4afc-8fc1-84b553b2ea82`) **produced no verdict at all**: [MEASURED 2026-08-15]
+its `verdict` step in `llm_call_log` reads `success=f`, `output_tokens` NULL, `response_text`
+empty, and `error_message` *"API request failed with status 400 … You have reached your
+specified API usage limits"*. **That is a budget failure on 2026-08-14, not a judgement about
+§D** — and it is transient: 0 failed and 0 usage-capped LLM calls in the 8 hours to
+2026-08-15 09:00Z. **So §D is cheap to re-attempt and has no current candidate mechanism.**
+The 274 candidate raised on 08-14 was downgraded the same evening by its own evidence and
+`bugs_open/274` §10 does not restore it — a *delivered failure* predicts errored items, not
+the `complete` items carrying a foreign well-formed payload that §D actually shows. **Do not
+borrow 274's answer because it is nearby and satisfying.**
+
+**2. Half two is INERT ON ARRIVAL, exactly as gate 1b was.** `improvement-sweep` is the only
+carrier that dispatches this audit and is `enabled=false` (off 2026-08-14 16:41Z on the
+owner's cost decision, measured at **6.0x** baseline), and `site-discovery-rotation-design` is
+disabled too. **Nothing will exercise silence retraction until one is re-enabled.** The false-
+green bleed is currently paused by the sweep being OFF, not by any of this — the gates are
+what make re-enabling it safe, and any claim that they stopped the bleed would be false.
+
+**3. The routing/capability mismatch is NOT fixed and was never this file's to fix.**
+`dark_section_audit` items are still dispatched at `color-variable-fixer`, which provably
+cannot repair them; they still cycle to `failed`. Half two now gives them an honest exit when
+the defect actually goes away, which answers the owner's second standing question — those rows
+do not sit `failed` for ever any more — but **a handler that can repair them still does not
+exist and is nobody's task.** [MEASURED 2026-08-15] 4 live `failed` rows, and the correct
+expected behaviour is that they do NOT retract, because they are genuinely unrepaired.
+
+## Where the knowledge lives now
+
+`WII-015` / `WII-017` / `WII-018` in the concept register (each with its landmines), the
+`bugfix_213_verifier_producer_join` standing five, and the two landmines this lane added to
+`LANDMINES.md`. `bugs_open/274` and `bugs_open/021` §INSTANCE 2 carry the parts that were
+deliberately not adopted here.
+
+Moved `bugs_open/` → `bugs_closed/` with **both paths named on the commit**; verified at HEAD
+rather than on disk.
+
+— closed by the `bugfix_213_verifier_producer_join` lane on the owner's ruling
