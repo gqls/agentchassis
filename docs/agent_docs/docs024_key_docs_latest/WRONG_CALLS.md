@@ -32230,3 +32230,9 @@ this bug's runbook). If the message must mention the spelling, paraphrase it; th
   that condition (1) is retired. Forward-only forbids an amend, so the entry landed one commit
   late and this row is the record. **Cheap check:** for a platform-seam change, write the register
   entry BEFORE running `git commit`, not after the tests go green.
+
+## 2026-08-15 — "checked clean" on the one poisoned-template placement, from greps for spellings I invented
+- **The claim:** "the one already-`deployed` instance (`learn-ai-builders-content-first`) checked clean" — written into `bugs_open/281`'s contribution and `bugs_open/285`'s incident table.
+- **What was true:** that row was the ONE placement that re-rendered from the poisoned template; it served wrapper-CSS + an empty article + a fabricated downloads list for ~23.5 h.
+- **What caught it:** the `bugfix_285_shared_template_write` lane re-checked with a fingerprint taken FROM the poison itself (`portedPageAssetList`) and corrected me in the bug file (their 18:20Z contribution).
+- **The cheap check I skipped:** my instrument greped for `asset path formatter` / `asset-formatter` — names I inferred, which occur NOWHERE in the poison (I even watched the same patterns return `f` on the template I *knew* was poisoned, and kept the instrument). A "clean" verdict needs a positive control string taken from the bad artefact, and a grep proves absence only for the spelling it searches — both rules were already in MEMORY; I applied neither to my own check.

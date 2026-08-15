@@ -56,3 +56,25 @@
   `load_work_item_actions.go:641-679`) — the item qualifies; it is queue position, not a gate.
 - audit_tool progress: css-unit-converter COMPLETE (first real LLM audit of that tool);
   ab-test claimed/in-flight; two more queued.
+
+## 2026-08-15 ~22:20Z — rerenders VERIFIED live; fence LIVE on v1.0.1303; pilot ran EMPTY
+
+- **Mindmap + occlusion repairs verified at the served artefact with controls**: mindmap
+  newcss×2 + hint + 'MIND MAP STUDIO' control (first fetch hit a stale CDN edge object — a
+  9-byte "Not found" under HTTP 200 — which expired by itself minutes later; if seen again,
+  cache-bust before diagnosing); occlusion placeholder gone, 'Uncanny Valley' control present.
+- **v1.0.1303 verified**: pods 18:45Z; binary probe positive for build sha `5e075a6f9`, junk
+  control absent; `d7b2d9994` (shared-write fence + fixed producers/loaders) is an ancestor ⇒
+  **285's fence is LIVE**; its induce-a-refusal close-out is now runnable.
+- **Pilot add_tool "completed" 18:29 but produced NOTHING**: orchestration `5ef53886` ran 47s,
+  `final_result` empty, no `tool-aspect-ratio` in `content_components`. Matches the
+  spawn→call handshake-failure shape (MEMORY: ~half fail; never cancel pre-diagnosis).
+  Diagnose the run before refiling.
+- ab-test: raw tag is OUT of the stored fork slot (the "failed" section_edit applied its edit
+  before its reassembly step failed); ported slot `removed`;
+  `page_rerender:owner-gate:tool-ab-test-calculator` queued to serve the fork-only page.
+- Two gap-shape `improve_tool` items (`audit_fix_webdesign.co.uk_c5baf147…`/`_1c1b186e…`)
+  fail `load_tool` on missing `spec.page_id` (created between seed 426 and the roll); my
+  backfill UPDATE matched 0 rows — spec shape differs from assumed; re-diagnose.
+- My "checked clean" wrong call on the 285 placement: logged in `WRONG_CALLS.md` (caught by
+  the 285 lane; instrument greped invented spellings).
