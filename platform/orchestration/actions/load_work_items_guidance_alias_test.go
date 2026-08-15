@@ -26,8 +26,10 @@ package actions
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"strings"
 	"testing"
@@ -256,6 +258,89 @@ func TestLoadWorkItems_AliasesGuidanceOnTheLoadPath(t *testing.T) {
 	}
 	if got, present := specOf(2)["suggestion"]; present {
 		t.Errorf("item with neither key gained spec.suggestion = %#v; it must stay absent", got)
+	}
+}
+
+// TestLoadWorkItems_SpecPassesThroughExceptTheAlias is the FENCE around the
+// narrowed invariant, and it exists because a comment is not a control on a
+// tree this many sessions share (council round b24608e8, guardian seat: "a
+// comment-only fence is soft; nothing prevents a later edit from reading 'one
+// narrow exception' as licence for a second, less-disciplined one").
+//
+// TestAliasGuidance_WritesAtMostOneKey bounds the ALIAS. This bounds the
+// LOADER: whatever else LoadWorkItemsAction grows, the spec map it emits must
+// still be the stored JSON plus at most the one aliased key. A second
+// exception added anywhere on this path fails here, even if its own tests pass.
+func TestLoadWorkItems_SpecPassesThroughExceptTheAlias(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	siteID := uuid.New()
+	pageID := uuid.New()
+	componentID := uuid.New()
+
+	// Deliberately rich: routing ids that setRoutingField reads, a nested
+	// object, an array, a bool and a number — every shape a mutation might be
+	// tempted to "normalise" on the way through.
+	storedSpec := `{"page_name":"faq","mode":"edit_live","content_guidance":"State the six service names.",` +
+		`"component_id":"` + componentID.String() + `","add_sections":["faq","cta"],` +
+		`"nested":{"a":1,"b":"two"},"flag":true,"count":3}`
+
+	cols := []string{
+		"id", "site_id", "source", "pipeline", "item_type",
+		"severity", "summary", "spec", "page_id",
+		"priority", "handler_agent", "status", "item_key",
+		"batch_id", "attempt_count", "approval_mode",
+		"component_id", "entity_id", "affected_url",
+	}
+	rows := sqlmock.NewRows(cols).
+		AddRow(uuid.New(), siteID, "content-gap-planner", "build", "content_rewrite",
+			"medium", "add content", []byte(storedSpec), pageID,
+			35, "page-build-handler", "triaged", "gap_plan_add_faq",
+			nil, 0, "auto",
+			nil, nil, nil)
+
+	mock.ExpectQuery("SELECT").WillReturnRows(rows)
+
+	params := ActionParams{
+		Context:          context.Background(),
+		DB:               db,
+		Logger:           zap.NewNop(),
+		ExecutionContext: &orchtypes.ExecutionContext{Action: "process"},
+		CollectedData: map[string]interface{}{
+			"input_data": map[string]interface{}{"site_id": siteID.String()},
+		},
+		StepConfig: models.Step{Config: map[string]interface{}{
+			"site_id": "input_data.site_id",
+		}},
+	}
+
+	out, err := LoadWorkItemsAction(context.Background(), params)
+	if err != nil {
+		t.Fatalf("LoadWorkItemsAction: %v", err)
+	}
+	items := out.(map[string]interface{})["items"].([]interface{})
+	if len(items) != 1 {
+		t.Fatalf("loaded %d items, want 1", len(items))
+	}
+
+	var want map[string]interface{}
+	if err := json.Unmarshal([]byte(storedSpec), &want); err != nil {
+		t.Fatalf("fixture spec does not parse: %v", err)
+	}
+	// The one sanctioned exception, stated here so the assertion below reads as
+	// a whitelist of exactly one and a reviewer can see its whole extent.
+	want["suggestion"] = "State the six service names."
+
+	got := items[0].(map[string]interface{})["spec"].(map[string]interface{})
+
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("the loader changed the spec beyond the one sanctioned alias.\n got: %#v\nwant: %#v\n"+
+			"Every key of spec is caller-supplied and read downstream by name; a second mutation here "+
+			"is the component_id scope-flip hazard (see the header note) waiting to happen.", got, want)
 	}
 }
 

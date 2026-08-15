@@ -148,3 +148,64 @@ The commit hook flagged `unrepaired-component-write` on
 change — I renamed a map key in each file and touched none of those lines. They
 belong to `bugs_open/136`; recorded here rather than silently widening this
 lane's scope.
+
+## 2026-08-15 — council APPROVED round 1 (corr `b24608e8`), 3 advisory objections, 16 seats
+
+`decided_by: approved with 3 advisory objection(s) — none high-severity`. Four
+seats abstained (relevance filter). Approval was NOT the useful part; five seats
+raised something worth acting on, and two of those were right about a real gap.
+
+**Acted on:**
+
+1. **guardian (medium) — "a comment-only fence is soft; nothing prevents a later
+   edit from reading 'one narrow exception' as licence for a second, less
+   disciplined one."** Correct, and the sharpest objection in the round. `T4`
+   bounds the ALIAS; nothing bounded the LOADER. Added
+   `TestLoadWorkItems_SpecPassesThroughExceptTheAlias`: the emitted spec map must
+   deep-equal the stored JSON plus exactly the one aliased key, over a fixture
+   carrying routing ids, a nested object, an array, a bool and a number.
+   **Mutation-proven** — injecting a second `specMap[...] = ...` next to the
+   alias call fails it with the message naming the hazard. A second exception
+   added anywhere on that path now fails here even if its own tests pass.
+2. **architecture (low) — "worth a doc-notes landmine entry so a future session
+   doesn't rediscover this by grep."** Written and dispatched
+   (`LANDMINES.md#a-live-agent-prompt-still-asks-the-llm-for-contentguidance…`,
+   verification correlation `46be0bcb`). The entry's point is the one the seat
+   missed: the grep hit a future session WILL find is `content-gap-planner`'s own
+   prompt asking the LLM for the key, which reads exactly like a live consumer.
+3. **editquality (medium) — "the risks section claims a concept-register entry
+   but no edit writes one; either an omission or asserted-not-delivered."** Fair
+   from the submission alone: the 097 script refuses docs client-side, so
+   register edits cannot appear in an edit list. It was delivered as WDS-016 in
+   `1a4e47b9b` — but the seat could not know that, and it landed one commit after
+   the code, which is its own miss (logged in WRONG_CALLS).
+4. **reuse_agent (low) — "check whether datahelpers already has a coalesce /
+   alias-field utility before hand-rolling a fifth variant."** Checked rather
+   than assumed: no such primitive exists. `GetBoolFieldLoud` and the
+   `ExtractNestedField*` family READ; `syncCoreFieldsToInputData` is unexported
+   in another package; `setRoutingField` writes to the ITEM map, not the spec,
+   and is the analogy the new function is placed beside deliberately. Answered,
+   no change.
+5. **bug_historian (medium) — "the fix is emitter-specific, not
+   mechanism-level; a fifth emitter choosing a THIRD spelling reproduces 271
+   exactly, and a human should note the residual rather than let this be read as
+   closing the class."** Accepted in full, and stated in WDS-016 and the bug
+   file. The generic root — `input_mapping` resolves exactly one source path and
+   has no coalesce, so any mismatched key vanishes silently — is untouched by
+   this fix and by `bugs_open/154`'s before it. Closing THAT would need a
+   declared vocabulary for item-spec keys, which does not exist (the same
+   registry `bugs_open/279` names as its own residual).
+
+**Declined, with reason:**
+
+- **debug_historian (medium) — "add a pod-grep for the `aliasGuidanceIntoSuggestion`
+  symbol to the close-out."** Not taken, because the recipe it recommends is the
+  one CLAUDE.md **retired on 2026-08-11** after it produced three confidently
+  wrong readings in a day: `strings` is absent from the debian-slim images, and
+  behind the customary `2>/dev/null` its failure is indistinguishable from "not
+  stamped". The checklist in §9 already does the current, stronger thing — ask
+  the service for its own `build provenance` line and
+  `git merge-base --is-ancestor 9a7d23c49 <stamp>`, per service, with the
+  known-sha `/proc/1/exe` probe (present AND absent controls) as the fallback
+  when the startup line has scrolled. The seat's underlying point — "unit tests
+  are not deployment evidence" — is right and is exactly what that checklist is.
