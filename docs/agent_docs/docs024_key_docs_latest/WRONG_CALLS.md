@@ -32236,3 +32236,35 @@ this bug's runbook). If the message must mention the spelling, paraphrase it; th
 - **What was true:** that row was the ONE placement that re-rendered from the poisoned template; it served wrapper-CSS + an empty article + a fabricated downloads list for ~23.5 h.
 - **What caught it:** the `bugfix_285_shared_template_write` lane re-checked with a fingerprint taken FROM the poison itself (`portedPageAssetList`) and corrected me in the bug file (their 18:20Z contribution).
 - **The cheap check I skipped:** my instrument greped for `asset path formatter` / `asset-formatter` — names I inferred, which occur NOWHERE in the poison (I even watched the same patterns return `f` on the template I *knew* was poisoned, and kept the instrument). A "clean" verdict needs a positive control string taken from the bad artefact, and a grep proves absence only for the spelling it searches — both rules were already in MEMORY; I applied neither to my own check.
+
+### 2026-08-15 — "7 live components depend on `{{.ComponentID}}`" — it is 5, and I ran a query that answered a different question
+
+- **the claim, and where it went:** that 7 live components depend on `{{.ComponentID}}`'s
+  current semantics, used as the evidence for NOT correcting that placeholder while adding
+  `InstanceID` beside it (`bugs_open/283`, CLC-014). Published in the concept-register entry,
+  a commit message (`03c1b0b90`), and the council submission's rationale.
+- **the truth:** **5** — `faq`, `generic-text-block`, `mechanism-flow`, `evidence-timeseries`,
+  `pricing`. `SELECT count(*) FROM content_components WHERE is_active AND html_template LIKE
+  '%{{.ComponentID}}%'` → 5.
+- **how it happened, and it is not a typo:** I ran a query for components whose id attribute
+  is TEMPLATED at all — `html_template ~ 'id="\{\{'` — which returns 7, because
+  `product-grid` and `category-listing` template their ids from their own domain fields
+  (`{{.product_id}}`, `{{.category_slug}}`) and never mention `ComponentID`. I then wrote the
+  result up as a `ComponentID` dependency count. **The measurement was correct and answered a
+  question I had not asked.** The 7 was even visible in my own output with the two odd ones
+  named in it; I read the row count, not the rows.
+- **what caught it:** the council gate's `prior_art_librarian` seat, which objected that the
+  claim was "asserted with no query shown ... directly checkable via SQL against the schema
+  table, not just the code index — and wasn't done". It did not know the number was wrong; it
+  knew the number was **unevidenced**, and that was enough.
+- **the cheap check that would have:** grep for the actual string you are claiming a
+  dependency on — `LIKE '%{{.ComponentID}}%'` — rather than for the shape you believe implies
+  it. One is the claim; the other is a proxy for it, and a proxy needs its own justification.
+- **the general form, which is the reusable part:** a count is only evidence for the sentence
+  it was computed for. Carrying a number from the query that produced it into a differently-
+  worded claim is the same error as an unverified figure, except it arrives wearing a
+  measurement's clothes — and the marker discipline (`[MEASURED]`) does nothing to catch it,
+  because it WAS measured. Sibling of "your measurement answers the question you ENCODED".
+- **cost:** none operationally — the decision the number supported (leave `ComponentID` alone)
+  is right on other grounds, and no code depended on the count. It shipped into four documents
+  and one council submission, so the cost was to the record, not the system.
