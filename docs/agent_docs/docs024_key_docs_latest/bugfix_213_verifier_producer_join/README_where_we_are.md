@@ -295,3 +295,82 @@ version of the "grade it at the next audit" mechanism while I was working, which
 and also means my remaining piece has to be built on top of theirs rather than beside it —
 their own reviewers left a note saying a third copy of that pattern should be shared code, and
 mine would be the third.
+
+---
+
+## 2026-08-15 — the second half is built, and both bugs are closed
+
+You said half two could proceed and that 213 and 216 could close. All three are done.
+
+**What half two actually is, in plain terms.** The gate we built last time could only say no.
+When the design audit spots a dark section and hands it to a fixer that cannot fix it, the gate
+now refuses to let that ticket be stamped "done" — which was the whole problem — but it left the
+ticket sitting there marked "failed" with no way of ever being closed honestly, even if someone
+later fixed the page by hand. There are four tickets in exactly that state right now. Half two
+is the way out: **when the audit stops reporting the fault, the ticket closes itself, and the
+reason it gives says what was observed rather than just "done".**
+
+The interesting part was deciding *when* to believe silence, and the answer came from the data
+rather than from judgement.
+
+**It has to be about the whole site, not the page.** The audit records which page a fault is on
+as free text, and it is genuinely free — the live values include "index", "all" and "all pages",
+and those last two were written on the same day. There is no way to turn that into a page. So
+the question we ask is about the site: did this audit look at this site and report nothing at
+all?
+
+**It has to be about the site rather than the individual fault, and this is the one I nearly got
+wrong.** The obvious design tracks each fault separately. But the name of the audit was changed
+from "design-audit" to "visual-design-audit" between the 12th and the 13th, and that name is
+baked into every ticket's identity — so one site has two tickets for the same fault under two
+different names. A per-fault design would have read that single rename as fifteen faults being
+fixed at once. I only found it because I listed the actual rows before designing anything.
+
+**And it takes three silences, not one.** We measured earlier that the audit re-reported a known
+unfixed fault seven times out of seven. That sounds like it never misses, but seven out of seven
+only proves the miss rate is below about 35% — so closing on one silence would close a live fault
+about a third of the time it ran. Three silences brings that to about 4%. Three is simply the
+first number that gets under 5%. It is arithmetic, not caution.
+
+**The thing that nearly bit us, which had nothing to do with the design.** To count silences you
+have to write a counter somewhere on the ticket. There is a housekeeping job that sweeps up
+tickets which have sat untouched for 48 hours — and the database automatically stamps "last
+touched" on any write at all, so there is no way to write the counter without resetting that
+clock. Writing a counter every fifteen minutes would have made those tickets permanently
+un-sweepable. Nothing would have looked wrong; the damage would have been a cleanup that simply
+never happens. We avoid it by never writing to tickets that are actively queued. I found it by
+going to look for who reads that column before writing the code, not by any test — no test can
+see a scheduled job's configuration.
+
+**One thing I got wrong and want on the record.** I wrote a test to prove that a garbled reply
+from the audit is ignored rather than treated as silence. The test passed. It also passes if you
+delete the protection entirely — it was being satisfied by the test framework refusing the call
+rather than by our code refusing it. The only thing that caught it was deliberately breaking the
+code to check the test noticed, which is now routine here. Five other tests in the same file were
+fine; this one looked identical to them. It is fixed, and both the mistake and the general shape
+of it are written down for other people.
+
+**The review panel approved it first time**, in eleven minutes, with five advisory comments. Three
+of them were checkable and I checked all three rather than filing them. The best one asked
+whether the safeguard that stops one audit closing another audit's tickets might accidentally
+seal shut the very four tickets this work exists to free — a fair question I had not asked, and
+the answer is no, they all match. Another asked whether a truncated reply could be mistaken for
+silence; the audit has made 4,088 calls and never once come close to being cut off. The third
+found a genuine gap: I had reorganised a piece of code that all six audit types run through, and
+only tested my own. That is now covered.
+
+**On the two bugs.** 216 was fixed, live and proven back on the 8th and was only being held open
+by a rule that had since been replaced. 213's own closing condition had become impossible to
+satisfy — the fix removed the very traffic that would have demonstrated it — so the closure note
+says plainly that one branch of it has never run in production, and explains why the query for it
+will read zero for ever, so nobody later reads that zero as "it never worked".
+
+**Two things are honestly still open and I would rather say so.** First, none of this can run
+yet: the sweep that drives these audits is still switched off for cost, so half two is built and
+inert, exactly as the gate was. Second, we still do not know why some of these tickets carry a
+result that belongs to a different piece of work altogether. The investigation into that died on
+the 14th when the account hit its usage limit — and I found today that the limit was lifted about
+ninety minutes later, so it had been re-runnable for a day and nobody noticed. I have restarted
+it. I had also written in our notes that the fleet was out of action until 1 September, which was
+wrong and is now corrected; the limit message says that, but it is what would happen if nobody
+intervened, not a forecast.
