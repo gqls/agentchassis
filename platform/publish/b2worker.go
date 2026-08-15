@@ -8,8 +8,10 @@
 package publish
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"mime"
 	"path/filepath"
 	"strings"
@@ -107,7 +109,16 @@ func (w *B2Worker) copyOne(ctx context.Context, req Request, project string, f F
 		return fmt.Errorf("b2worker: open %s/%s: %w", req.Domain, f.Key, err)
 	}
 	defer rc.Close()
-	if _, err := w.store.Upload(ctx, project+"/"+f.Key, contentTypeFor(f.Key), rc); err != nil {
+	// Buffer before upload: B2's S3 gateway REQUIRES Content-Length (HTTP 411
+	// MissingContentLength on a bare stream — hit live on the first canary,
+	// 2026-08-15), and the SDK can only compute it from a seekable body.
+	// Site files are small; the ZIP deliverable (Phase 3) must NOT copy this
+	// pattern for its own output.
+	body, err := io.ReadAll(rc)
+	if err != nil {
+		return fmt.Errorf("b2worker: read %s/%s: %w", req.Domain, f.Key, err)
+	}
+	if _, err := w.store.Upload(ctx, project+"/"+f.Key, contentTypeFor(f.Key), bytes.NewReader(body)); err != nil {
 		return fmt.Errorf("b2worker: upload %s/%s: %w", project, f.Key, err)
 	}
 	return nil

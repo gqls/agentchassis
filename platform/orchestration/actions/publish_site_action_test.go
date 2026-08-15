@@ -50,6 +50,11 @@ func (f *pubFakeStore) Download(_ context.Context, key string) (io.ReadCloser, e
 }
 
 func (f *pubFakeStore) Upload(_ context.Context, key, _ string, body io.Reader) (string, error) {
+	// Mirrors the real B2 S3 gateway: a non-seekable body fails live with
+	// 411 MissingContentLength (first canary, 2026-08-15).
+	if _, ok := body.(io.Seeker); !ok {
+		return "", fmt.Errorf("fake gateway: upload body for %q is not seekable", key)
+	}
 	b, _ := io.ReadAll(body)
 	f.objects[key] = b
 	f.uploads++

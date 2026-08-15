@@ -51,6 +51,14 @@ func (f *fakeStore) Download(_ context.Context, key string) (io.ReadCloser, erro
 }
 
 func (f *fakeStore) Upload(_ context.Context, key, _ string, body io.Reader) (string, error) {
+	// B2's S3 gateway requires Content-Length, which the SDK derives only
+	// from a seekable body — a bare stream fails live with HTTP 411
+	// MissingContentLength (hit on the first canary, 2026-08-15). The fake
+	// enforces the contract the real gateway enforces, so the unit tests
+	// can no longer pass a body production would reject.
+	if _, ok := body.(io.Seeker); !ok {
+		return "", fmt.Errorf("fake gateway: upload body for %q is not seekable — the real B2 S3 gateway returns 411 MissingContentLength for this", key)
+	}
 	b, err := io.ReadAll(body)
 	if err != nil {
 		return "", err
