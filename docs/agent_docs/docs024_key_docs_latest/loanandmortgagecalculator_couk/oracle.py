@@ -742,6 +742,28 @@ def run_case(d, url, c, tool, mutate=None):
             rec["shown"] = raw
 
             if a["raw_contains"] is not None:
+                # OUT OF SCOPE for the expectation-corrupting controls — the SECOND
+                # class of this, found 2026-08-15 by the full-sweep control after the
+                # 2026-08-12 fix covered only the determinism checks.
+                #
+                # This assertion is a STRING containment ("Option A is Cheaper",
+                # "2 Years 3 Months"). The mutation below corrupts a NUMERIC
+                # expectation, and this branch returns before ever reaching it, so no
+                # corruption of `want` can move this check — by construction, not by
+                # accident. Counting it as a PASS made the control report "8 checks
+                # PASSED … the checker is inert" on a checker that was working
+                # correctly: 4 compare-loans verdicts + 3 overpayment prose readings.
+                # A control that cries wolf gets ignored, which is the one failure a
+                # control cannot afford.
+                if mutate in ("expectation", "crosstool"):
+                    rec.update(status="N/A",
+                               want="text containing %r" % a["raw_contains"],
+                               note="out of scope for --mutate %s: this check asserts "
+                                    "TEXT, not a number, so corrupting numeric "
+                                    "expectations cannot move it. NOT evidence either "
+                                    "way in a control run." % mutate)
+                    out.append(rec)
+                    continue
                 ok = a["raw_contains"] in raw
                 rec.update(status="PASS" if ok else "FAIL",
                            want="text containing %r" % a["raw_contains"])
@@ -750,6 +772,7 @@ def run_case(d, url, c, tool, mutate=None):
 
             got = parse_money(raw)
             want = a["want"]
+            true_want = a["want"]
             if mutate == "expectation":
                 want = 100.0        # CONTROL: assert a number nothing computes
             tol = tolerance_for(raw)
@@ -765,6 +788,27 @@ def run_case(d, url, c, tool, mutate=None):
                                 "so no comparator could fail it — excluded from "
                                 "the control rather than counted as a miss"
                                 % (want, tw, tol))
+                out.append(rec)
+                continue
+            # THE SENTINEL CAN COLLIDE WITH A REAL ANSWER (found 2026-08-15).
+            # `want = 100.0` is documented above as "a number nothing computes", and
+            # that is true of almost every vector — but NOT of one deliberately built
+            # to sit on a boundary AT that number:
+            # `inv(400000, 1200, 300000, 300000, "asymmetric; LTV exactly 100%")` has
+            # loan == value, so its LTV really is 100.0%. The mutated assertion then
+            # matches the true reading and the check PASSES under a control whose rule
+            # is "nothing may pass" — reported as inertness in the checker when it is
+            # a coincidence in the control. Same treatment as the crosstool NON-TEST
+            # directly above: excluded, and SAID, rather than counted either way.
+            if (mutate == "expectation" and isinstance(true_want, float)
+                    and abs(true_want - want) <= tol):
+                rec.update(status="N/A",
+                           note="NON-TEST: the control's sentinel (%.2f) coincides "
+                                "with this vector's OWN expectation (%.2f) within "
+                                "±%.2f — a boundary case sitting on the sentinel, so "
+                                "no comparator could fail it. Excluded from the "
+                                "control rather than counted as a miss."
+                                % (want, true_want, tol))
                 out.append(rec)
                 continue
             if abs(got - want) <= tol:
