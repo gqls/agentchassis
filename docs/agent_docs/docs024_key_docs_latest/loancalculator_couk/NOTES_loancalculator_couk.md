@@ -5431,3 +5431,13 @@ dedup does not block them) — images will generate and land via rerender; this 
 the pipeline's normal behaviour under the mission, distinct from the parked D3
 set. 1 needs_rerender keyed on the new plan. Rebuild watcher re-armed over the
 whole open set.
+
+**15:37Z — one build-wave failure, dispositioned NO-ACTION:**
+`needs_page:guide-how-loans-are-calculated` FAILED (attempt 1/3) at the
+`complete_workflow` step — "failed to send response: Kafka write errors" — i.e.
+AFTER the work: all 3 of the page's component rows are fresh at 15:33:22
+(artefact checked, not the status). The known response-write flake class
+(cf. spawn-call handshake races; "never cancel the failing row pre-diagnosis").
+Not re-triaged — a retry would rebuild a healthy page a third time to repair
+bookkeeping. If a future replan re-emits this one page for stamp reasons, that
+single extra cycle is the accepted cost.
