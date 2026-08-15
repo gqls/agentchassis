@@ -426,3 +426,40 @@ repaired+locked stated). Then, while it queues (~30 min): falsifier checks
   buttons (anchor / reword / remove / leave); (3) whether to commission a
   content pass diversifying the homogeneous fallback targets. None urgent;
   none blocks anything else.
+
+## 2026-08-15 (afternoon, later) — the three owner rulings EXECUTED
+
+- **D1 (services claim):** rewrite item `d1_268_aao_services_claimfix`
+  COMPLETE at 11:11:27 — the writer reworded the secondary label to "Look
+  through a case study first" (dropped the count entirely; guidance offered
+  170+, grounded same-day at 188 live agent types, but no-count is cleaner
+  and passes the ban class outright). Claims floor passed; resolution
+  rerender `d1_268_aao_services_resolve` (cta_links_stale) queued.
+- **D2 (10 self-target heroes) — disposition decided by EVIDENCE, and it
+  differs from the assumed 1-anchor/9-delete split:**
+  - The tool sits INSIDE the hero on 9 of 10 pages (ids in the hero's own
+    rendered_html); only jelly-invaders has a plain hero above a separate
+    game section.
+  - ANCHOR (1): jelly-invaders `cta_url='#gameCanvas'`.
+  - DELETE (7): auto-battler, economy-simulator, bridging-loan,
+    fee-analyser, portfolio, rate-forecaster, stamp-duty — label text
+    provably renders NOWHERE (not in rendered_html, no template literal),
+    so the keys fed only the never-opening anchor gate. Removed
+    cta_text/secondary_cta/primary_cta; history keeps the old values.
+  - **KEEP (2): tool-affordability and vetcomparison/index — NOT useless.**
+    Their label text appears in the render while the template holds no such
+    literal ⇒ the DATA key is live tool-UI text (submit/search button);
+    deleting would blank a control. Left untouched, reported to owner.
+  - `SQL_2026-08-15_d2_selftarget_heroes.sql` (UPDATE 1 + UPDATE 7, DO
+    verify passed incl. KEEP rows undisturbed); 8 `section_data_resolved`
+    rerenders `d2_268_%` queued.
+- **D3 (content pass): COMMISSIONED as its own lane**
+  `cta_target_content_pass/` (PLAN + RUNBOOK + README + NOTES; workstream
+  line added). Population measured: 16 sites ≥6 rows on one modal target
+  (finetuning 39, aao 36, gaswholesalers 28; password-entropy is modal on
+  THREE sites). Mechanism candidate: writer rewords labels (tool list in
+  guidance) → cta_links_stale label-match resolves. Floor accepted; no
+  urgency.
+- Expected census effect when D1/D2 rerenders land: 11 → 2 label-without-URL
+  rows, and the remaining 2 are the KEEP class (labels in live use — the
+  census predicate over-counts them; noted for any future census reader).
