@@ -1809,3 +1809,38 @@ the image actually needs it — never committed to the repo.
 
 **SMTP is still the open half.** Owner confirmed the source is cPanel webmail (08-09) but the
 actual `GRIPPER_SMTP_HOST`/`_PORT`/`_USER`/`_PASS` values haven't been supplied yet.
+
+---
+
+## 2026-08-15 — SMTP credentials supplied and verified; both owner-supplied items now done
+
+Owner pasted the cPanel "Connect Devices" block directly in chat — host `mail.contactforsales.com`,
+port 465, username the full address, password included in plain text. **That's a live secret
+landing in the transcript**, so the first move was getting it into a permissioned file rather
+than leaving it sitting only in chat scrollback.
+
+Wrote `/home/ant/.config/gripper-dossier/smtp.env`, dotenv-style, matching the Anthropic key
+file's own shape (`GRIPPER_SMTP_HOST=…` / `_PORT=…` / `_USER=…` / `_PASS=…` / `_FROM=…`).
+**Same permissions gap as the key file, this time caught immediately**: the Write tool leaves a
+new file group/world-readable (`664`) by default — checked `stat` right after writing rather
+than assuming, found `664` again, `chmod 600` on the spot. Two for two now; worth internalising
+as a standing step for the next credential file rather than a fact rediscovered per-secret.
+
+**Verified live, not just present** — the standing habit from the Anthropic key: wrote a
+throwaway script (scratchpad, deleted after) that reads the `.env` file at runtime — so the
+script itself carries no secret — and calls `smtplib.SMTP_SSL(host, 465).login(user, pass)`.
+`AUTH` only; no message composed or sent, so this cost nothing and touched no mailbox. Result:
+`AUTH OK` against the real host with the real account.
+
+**One cross-check worth recording**: port 465 lines up with `platform/mailer`'s own
+`UsesImplicitTLS(port string) bool { return port == "465" }` — so when this eventually gets
+wired into the route group, it lands on the implicit-TLS branch of `mailer.New`, not the
+STARTTLS one, with no surprise at that fork.
+
+**Never repeated the password itself anywhere git-tracked** — not in this file, not in the
+proposal, not in chat after the initial receipt. Every doc reference from here on is to the
+file path, `/home/ant/.config/gripper-dossier/smtp.env`, never its contents.
+
+Both items in the proposal's §8 ("what only the owner can supply") are now done. Nothing
+about the route group itself has moved — that's still with the gauntlet lane — but the two
+things that were blocking the first real send no longer are.

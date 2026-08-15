@@ -209,12 +209,25 @@ round 2).
   dev-box file, not a deploy artefact — when the image actually needs it,
   add it as a new key on the `tools-api-secret` k8s Secret (alongside the
   existing `ANTHROPIC_API_KEY`/`DATABASE_URL`), never commit it to the repo.
-- SMTP credentials for `GRIPPER_SMTP_HOST`/`_USER`/`_PASS` (the `_FROM`
-  address is already decided: `robot-hands@contactforsales.com`, owner
-  ruling 07-24). **Sourced from cPanel webmail** (owner confirmed 08-09) —
-  not yet supplied as values.
+- ~~SMTP credentials~~ **DONE 08-15.** Supplied via cPanel webmail (as
+  flagged 08-09). Stored locally at `/home/ant/.config/gripper-dossier/smtp.env`,
+  same dotenv-style shape as the Anthropic key file, permissions fixed
+  664→600 on write (the Write tool creates group/world-readable by default —
+  same gap as the Anthropic key had, fixed the same way, immediately this
+  time rather than found later). **Verified live**: `smtplib.SMTP_SSL` on
+  port 465, `AUTH` only, no message sent — real host, real account,
+  authenticates. Port 465 matches `mailer.UsesImplicitTLS`'s own
+  `port=="465"` branch, so no surprise at the TLS-mode fork when this is
+  wired in. Values: `GRIPPER_SMTP_HOST=mail.contactforsales.com`,
+  `_PORT=465`, `_USER=robot-hands@contactforsales.com`, `_FROM` = same
+  address (owner ruling 07-24) — `_PASS` deliberately not repeated here or
+  anywhere else git-tracked; read it from the file. Same deploy note as the
+  Anthropic key: local dev-box file, not an artefact — becomes k8s Secret
+  keys on `tools-api-secret` when the route group actually ships.
 
-One down, one still blocks the first real send.
+Both credentials are now issued, stored, and verified live. Neither is
+wired into anything yet — that waits on the route group itself, still
+sitting with the gauntlet lane.
 
 ## 9. Suggested sequencing
 

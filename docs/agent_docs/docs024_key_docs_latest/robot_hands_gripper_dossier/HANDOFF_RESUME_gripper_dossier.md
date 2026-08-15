@@ -1,10 +1,10 @@
 # RESUME HERE — gripper dossier pilot
 
-**Last updated 2026-08-10** (body written 07-27; switch positions corrected 07-31
+**Last updated 2026-08-15** (body written 07-27; switch positions corrected 07-31
 08:15Z; fixture 4 result 07-31 10:45Z; cleanup complete 07-31 15:42Z; `bugs_open/160`
 CLOSED+LIVE 07-31 21:10; mailer adoption re-checked 08-04, found NOT self-contained; route-group
-proposal drafted 08-05; Anthropic key issued + verified live 08-10, SMTP still pending — see
-below). Read
+proposal drafted 08-05; **both owner-supplied credentials (Anthropic key + SMTP) issued and
+verified live as of 08-15** — see below). Read
 this first, then `NOTES_…md` (bottom
 up) for the technical log and `README_where_we_are.md` for the owner's account.
 Design of record: `DESIGN_2026-07-24_gripper_dossier_pilot.md` — **but read its
@@ -115,13 +115,15 @@ Live on chassis **v1.0.1175**. Seeds applied: **204, 207, 209, 210**.
      summary of it), including a correction DESIGN §2 needed: the router is NOT
      yet multi-tool despite what §2 claims, it's one hardcoded `/gauntlet` group.
      Ready to route to the gauntlet lane whenever the owner does so.
-   - **Owner-supplied credentials (proposal §8): Anthropic key DONE 08-10, SMTP still
-     open.** Key at `/home/ant/.config/anthropic/gripper-dossier-api-key` (dotenv-style
-     `GRIPPER_ANTHROPIC_API_KEY=...` line, not a bare key), permissions fixed 664→600,
-     verified live via free `count_tokens` (not just "file exists"). Still a local file,
-     not deployed — needs adding to the `tools-api-secret` k8s Secret when the route
-     group actually ships. SMTP: sourced from cPanel webmail (confirmed 08-09), actual
-     `GRIPPER_SMTP_HOST`/`_PORT`/`_USER`/`_PASS` values not yet supplied.
+   - **Owner-supplied credentials (proposal §8): BOTH DONE as of 08-15.**
+     Anthropic key: `/home/ant/.config/anthropic/gripper-dossier-api-key` (dotenv-style
+     `GRIPPER_ANTHROPIC_API_KEY=...`), permissions fixed 664→600, verified live via free
+     `count_tokens`. SMTP: `/home/ant/.config/gripper-dossier/smtp.env` (same dotenv
+     shape — `GRIPPER_SMTP_HOST`/`_PORT`/`_USER`/`_PASS`/`_FROM`), same 664→600 fix,
+     verified live via `smtplib` AUTH-only (no message sent). **Both are local dev-box
+     files, not deploy artefacts** — need adding to the `tools-api-secret` k8s Secret
+     when the route group actually ships. Nothing further owed here; the route group
+     itself is still the blocker, sitting with the gauntlet lane.
 2. **Before that, land two shared pieces** (`features_open/024` A2/A3), or the
    estate forks at exactly this point:
    - a **mailer** in `platform/` — `grep -rn "net/smtp" --include=*.go platform/

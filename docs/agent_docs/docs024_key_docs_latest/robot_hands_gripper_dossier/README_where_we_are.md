@@ -641,3 +641,21 @@ You've since created the spend-capped key for this tool — I checked it actuall
 check, no cost), and tightened its file permissions on the way past since it was readable by
 more than just you on this machine. The email side is still waiting on the actual server
 details from your hosting panel.
+
+---
+
+**2026-08-15.** You sent over the email server details, password included, straight in our
+conversation. Worth knowing for next time: that's the kind of thing better saved to a file on
+your end and just pointed at, the way you did with the AI key, rather than typed out where it
+sits in plain view — I don't think anything bad has come of it here, just flagging it as a
+habit for later.
+
+Either way, I got it off the page and into a proper file straight away, and did the same
+permissions check as before — it had the same too-open default the AI key file did, fixed the
+same way. Then I actually tried logging into the mail server with it, rather than assuming a
+line of text that looks like the right shape means it works. It does — real account, real
+server, confirmed without sending an actual email out.
+
+So both things you needed to provide are done now, checked rather than taken on trust. Nothing
+is wired up yet — that still waits on the other team building the actual public form — but
+whenever they do, both credentials are sitting ready and known-good.
