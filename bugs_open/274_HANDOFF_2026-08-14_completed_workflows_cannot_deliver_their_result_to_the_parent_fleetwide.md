@@ -242,3 +242,66 @@ parent's failure handling completes the item anyway, or §D has a different caus
 **§4 is therefore downgraded from "strong candidate" to "open, and now doubted by its own
 evidence".** It stays recorded because the two may still meet further downstream, but nobody
 should carry it forward as the explanation. `bugs_open/213` §D is updated to say the same.
+
+---
+
+## 10. CONTRIBUTION 2026-08-15 from the `bugfix_213` lane (the filing lane, now handing over) — the mechanism COMPLETES, and it is worse than §9
+
+**I am not working this bug — the owner has it with another thread.** This is the rest of the
+read, handed over rather than acted on. Three additions, each read at source.
+
+### 10.1 The parent ALWAYS hears failure and NEVER hears success — the validator's own exemption is why
+
+`ResponseHeaders.ToMap()` (`types/context.go`) emits `headers["sender_agent_type"] =
+rh.Sender.AgentType` and `headers["is_error"] = fmt.Sprintf("%v", rh.IsError)`.
+
+- **Success path** — `notifyParentOfSuccess` (`coordinator.go:3709`) never sets `Sender` and never
+  sets `InResponseToStepName`, so both required headers are empty and `is_error` is `"false"`.
+  The validator refuses it. **Dropped.**
+- **Failure path** — `notifyParentOfFailure` (`coordinator.go:3954`) builds headers with the **same
+  two fields missing**, but sets `IsError: true`. `ProduceWithValidation` has an explicit
+  exemption: *"Check if it's an error message - those we always send"*. **Delivered.**
+
+> **So the defect is not "a reply sometimes fails to send". It is that on this path the parent
+> receives the bad news and never the good news, by construction** — the same malformed envelope
+> is refused when it says "success" and waved through when it says "failure". That asymmetry is
+> what makes ~15,000 events invisible rather than merely noisy.
+
+### 10.2 The false failure is classified RECOVERABLE, so the parent REPLAYS work that already succeeded
+
+`notifyParentOfFailure` decides its status by prose (`coordinator.go:3943-3947`):
+`perrors.RetryDisposition(errors.New(errorMsg))` → `error_recoverable` when the text reads
+transient. The `errorMsg` on this path is *"workflow completed but its result could not be
+delivered to the parent **(failed_transient)**: message validation failed"* — which contains the
+word the classifier is looking for, **because `DeliverReply` labelled a deterministic validation
+refusal "transient" (§9's second defect)**.
+
+So the two defects compound: a permanent envelope fault is labelled transient, that label is then
+read by a prose classifier, and the parent is told to retry. **The child's successful work is
+executed again.**
+
+### 10.3 This is where 274 meets `bugs_open/216`, and it reframes both
+
+`bugs_open/216` fixed the arm that **refused** a recoverable replay (FIXED + LIVE `v1.0.1266`,
+2026-08-08, proven by induction — a correct fix, not in question).
+
+**Before that fix, 274's manufactured recoverable failures went nowhere — the replay was refused,
+so the duplicate work never happened.** After it, the replay reaches the wire. So:
+
+> **216's correct fix converted 274's silent losses into real duplicate execution.** Neither bug
+> is wrong about itself; the interaction belongs to neither file, which is why nobody has owned
+> it. 216's fix is also load-bearing far more often than its own file suggests — a large share of
+> the recoverable responses it now replays are 274's fictions.
+
+**[UNQUANTIFIED]** how much duplicate execution this actually causes: I have not measured how many
+of the ~15,000 events produced a replay that re-ran real work, and the honest instrument is the
+parent side (`awaited_requests.retry_version` / replayed offsets), not this log. **That
+measurement is the one I would do first**, because it converts 274 from "noisy" to a costed defect
+— and on `page-rerender` (4,794 events) duplicate execution is page rebuilds.
+
+### 10.4 What this does NOT establish
+
+It still does not explain `bugs_open/213` §D (items completing with a foreign but well-formed
+payload). §9 downgraded that link and 10.1–10.3 do not restore it: a delivered *failure* still
+predicts errored / needs-review items, not `complete` ones. **§4 remains doubted.** Treat 213 §D
+as an open question with no current candidate.
