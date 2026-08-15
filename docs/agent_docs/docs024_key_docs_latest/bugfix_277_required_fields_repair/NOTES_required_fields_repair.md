@@ -234,3 +234,14 @@ Every non-terminal row of the type now carries its classification. Future items 
 routed (producer live on v1.0.1302). Remaining checks live in CQ-023's verify-later: the
 +7-day churn guard (~0 new `unresolved` rows) and the re-raise-then-park of the two
 cancelled-conversion findings via discovery rotation.
+
+## 2026-08-15 late — BOTH owner decisions taken and actioned
+
+Owner: (1) "As you suggest, go ahead" → 083 candidate 2 BUILT: `detected-item-promoter` (seed 430,
+SCH-026, live, ledger-recorded; 70 detected = 66 promotable + 4 held + 0 unroutable at apply);
+producer reverted to born-`detected` (inert until roll); council submission `05a3d1c8` pending.
+Load-bearing finding on the way: the scheduler GATE requires `pipeline='build'` (the loader
+doesn't) — why the promoter rewrites pipeline. (2) "Do as your recommendation recommends" →
+RFC_030 RULED + SCHEDULED as a lane: `router_engine/` created with PLAN/HANDOFF/NOTES/RUNBOOK/
+README; nothing built; first job is an A-vs-B design round with the council. Fixed my own
+tautological "control" in 430's verify block before applying (partition assert instead).

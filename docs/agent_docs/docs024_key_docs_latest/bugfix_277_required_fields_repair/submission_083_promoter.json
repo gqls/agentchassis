@@ -1,0 +1,50 @@
+{
+  "rationale": "bugs_open/083 fix candidate 2, OWNER RULING 2026-08-15 (put to the owner by bugfix_277's trail 7b0e2833, where the improvement_guardian seat objected at high severity that a producer born 'triaged' removes the observe-only stage; the owner chose to restore the stage properly rather than accept the workaround). The detected->triaged promoter (TriageDetectedItemsAction) has exactly one live carrier, improvement-loop, whose only driver improvement-sweep has been disabled since 2026-05-02 (IMP-016) — so status='detected' has been a queue with no consumer, and producers routed around it by filing born-triaged. This change gives the promoter its OWN scheduled task on the estate's existing pure-SQL pattern (SCH-006; feasibility-recheck is the exact precedent, and cmd/scheduler/main.go:269-277 confirms fire_message=false runs the pre_query and fires nothing): 900s cadence, at most 20 promotions per tick oldest-first, and a KNOWN-GOOD rule that is data — the handler is a live active agent_definitions row AND the exact (item_type, handler_agent) pair has >=1 lifetime complete (083's own candidate 4: check the handler is real). A pair with zero completes is HELD until a human promotes one row by hand, so every new type's first dispatch is a deliberate canary. The UPDATE mirrors the original promoter's in effect (status, triaged_at, spec.original_pipeline, pipeline='build') — and pipeline='build' was MEASURED load-bearing this session: the scheduler GATE (build-pipeline-trigger pre_query) requires a pipeline='build' triaged item to wake the loop, though the loop's loader itself does not filter. Applied and ledger-recorded 2026-08-15; the seed's verify block asserts a disconfirmable partition of the live pile: 70 detected = 66 promotable + 4 held + 0 unroutable. The one Go change: bugfix_277's producer returns from Status 'triaged' to 'detected' — the revert promised on that trail. improvement-sweep itself stays paused; discovery has SCH-025, triage now has this, and the auto-fix half remains a separate owner decision.",
+  "submitter": "bugfix-033/277 session (bugfix_277_required_fields_repair) — 083 candidate 2",
+  "plan": {
+    "summary": "Restore the detected->triaged triage stage as its own bounded, known-good-gated, pure-SQL scheduled task (detected-item-promoter, seed 430, SCH-026), decoupled from the disabled improvement loop; return bugfix_277's producer to born-detected now that the stage it bypassed exists.",
+    "edits": [
+      {
+        "file": "docs/agent_docs/sql_for_agents/430_detected_item_promoter_task.sql",
+        "symbol": "scheduled_tasks.detected-item-promoter",
+        "operation": "config_change",
+        "rationale": "The promoter on its own cadence. INSERT ... ON CONFLICT (name) DO UPDATE for the task row (900s, target generic, fire_message=false, concurrency_group maintenance, timeout 60); UPDATE ... SET pre_query = a CTE: candidates (detected, handler non-empty, handler active in agent_definitions, pair has >=1 complete; ORDER BY created_at ASC LIMIT 20) -> promoted (UPDATE ... SET status='triaged', triaged_at=now(), spec=jsonb_set(...original_pipeline...), pipeline='build', updated_at=now() ... WHERE wi.status='detected' RETURNING) -> SELECT count/pairs WHERE count>0 (SCH-007 always-return-a-row rule). Verify DO-block: row shape (enabled/fire_message/interval), pre_query carries the cap + pipeline rewrite + original_pipeline stamp + complete test, and the disconfirmable partition promotable + held + unroutable = total.",
+        "sketch": "As applied (file committed 3c6354059). Rollback: UPDATE scheduled_tasks SET enabled=false WHERE name='detected-item-promoter'."
+      },
+      {
+        "file": "platform/orchestration/actions/discovery_checks/check_required_fields_missing.go",
+        "symbol": "RequiredFieldsMissingCheck.Run (Status)",
+        "operation": "modify",
+        "rationale": "The revert promised on trail 7b0e2833: with the promoter live, the observe-only convention is honoured again for this type — born detected, promoted by SCH-026 within 15 minutes when the pair is known-good (it is: 5+ completes today), then routed by seed 410's handler exactly as before. HandlerAgent unchanged. Inert until the next chassis roll; the interim (born-triaged) is documented in the comment.",
+        "sketch": "- Status: \"triaged\",\n+ Status: \"detected\",\n(comment rewritten to name seed 430 / bugs_open/083 candidate 2 as the reason)"
+      },
+      {
+        "file": "docs/agent_docs/docs026_concept_register/register/scheduler-and-tasks.md",
+        "symbol": "SCH-026",
+        "operation": "add",
+        "rationale": "Register the shared mechanism in the same commit that ships it: what it is, the known-good rule and its canary bootstrap, why pipeline='build' is load-bearing (the gate, not the loader), what it deliberately does not do (re-enable improvement-sweep), and the verify-later criteria inherited from bugs_open/083.",
+        "sketch": "Entry as committed; index row added to 000_concept_index.md."
+      },
+      {
+        "file": "bugs_open/083_HANDOFF_2026-07-26_detected_findings_never_reach_a_handler.md",
+        "symbol": "OWNER RULING 2026-08-15 block",
+        "operation": "add",
+        "rationale": "The bug's own account: ruling, build, pile partition at apply, the gate finding, and the status (fix live for the triage half; open until its own three verify criteria are met — pile drains AND stays drained; phantom_internal_link reaches a non-zero complete count; completions verified at the live page).",
+        "sketch": "Block as committed."
+      }
+    ],
+    "grounded_in": [
+      "bugs_open/083: 'Exactly one thing bridges the gap — TriageDetectedItemsAction ... the only workflow carrying that step is the improvement-loop agent, and the only thing that fires that agent is the improvement-sweep scheduled task, which is disabled' + fix candidate 2 text quoted in the seed header",
+      "LIVE 2026-08-15: SELECT type FROM agent_definitions WHERE is_active AND ... AND default_config::text LIKE '%triage_detected_items%' -> improvement-loop only; SELECT name, enabled FROM scheduled_tasks WHERE name='improvement-sweep' -> f",
+      "cmd/scheduler/main.go:269-277: `if !task.FireMessage { stampCompleted(...); logger.Info(\"Pre-query task completed (no message fired)\"); continue }` and :357-376 the eligibility query treating fire_message=false tasks as always in-flight-safe",
+      "020_scheduled_tasks.sql §3 (feasibility-recheck): the precedent — a pre_query CTE UPDATE promoting blocked->triaged with RETURNING and a count>0 gate; SCH-006 register entry documents pre_query as gate AND worker",
+      "GATE vs LOADER, measured: build-dispatch-loop load_items config = {site_id, max_items: 5} (no pipeline filter); build-pipeline-trigger pre_query = '... wi.status = triaged AND wi.pipeline = build AND wi.attempt_count < wi.max_attempts ...' (site-level gate requires a build-pipeline item); the 44 content-pipeline required_fields_missing items were all claimed only because their sites held other build items",
+      "TriageDetectedItemsAction UPDATE (triage_detect_items_action.go:158-172): status='triaged', triaged_at=now(), spec=jsonb_set(...,'{original_pipeline}',to_jsonb(pipeline)), pipeline=$2 — mirrored in effect by the new pre_query",
+      "PILE at apply, per (item_type, handler_agent): 18 pairs, all handlers active; 17 pairs with lifetime completes (content_rewrite 107, needs_imagery 89, needs_design_review 77, undeployed_asset 260, needs_rerender 111 ...); 1 pair with 0 (page_component_status_drift -> component-template-fixer, 4 rows) — held by the rule",
+      "VERIFY BLOCK at apply: NOTICE '430: ... Detected pile now 70: 66 promotable, 4 held (pair never completed — canary one by hand), 0 unroutable' — the partition assert (66+4+0=70) is disconfirmable: a predicate bug breaks the sum",
+      "FIRST-TICK PREVIEW (read-only, before apply): 20 rows across 11 pairs, all pipeline='build' already — content_rewrite 5, needs_design 2, needs_design_review 2, cta_improvement 2, needs_composition 2, evaluate_tools 2, spacing_fix 1, improve_tool 1, needs_content_page 1, needs_rerender 1, responsive_fix 1",
+      "schema_migrations: 430_detected_item_promoter_task.sql recorded via run-migrations.sh --record-only with note; go test ./platform/orchestration/actions/discovery_checks/ green after the Status revert"
+    ],
+    "risks": "1) A promoted item still passes the dispatcher's own gates (site lock, attempt_count, claim gate, handler-exists) — promotion is not dispatch; but 20 promotions/tick into the build queue is new steady-state load; the first hour drains the 66 and the cadence then idles unless discovery rotation (SCH-025) files more. 2) The known-good rule trusts ONE lifetime complete per pair; a pair whose only complete was a false success (016b: complete is not proof) qualifies — the dispatcher's failure path (attempt_count, 3 strikes -> failed) bounds the damage per item, and 083's verify criterion 3 (verify at the live page) is the intended check. 3) The 4 held rows sit until someone canaries the pair; if nobody does, they age exactly as before this change — a stated residual, not a regression. 4) The producer revert is inert until the next chassis roll; between now and then required_fields_missing items are born triaged (as for the last few hours) — harmless, the router handles both. 5) improvement-sweep remains paused: the auto-fix half of the loop is a separate owner decision, not silently re-armed by this."
+  }
+}

@@ -1,6 +1,23 @@
 # RFC_030 — three bespoke single-item-type work-item routers now exist; the fourth should be one engine
 
-**Status: OPEN — filed 2026-08-15 by the bugfix_277 lane, at the council's direction.**
+**Status: RULED 2026-08-15 (owner) — SCHEDULED AS ITS OWN LANE.** Owner's words on being
+shown the trade-off: *"I want each handler to be quite modular and responsible for its own
+specific thing"*, then, on the recommendation that the modular unit is the per-type
+classifier and one shared engine should run them: *"Do as your recommendation recommends."*
+So the ruling is: **build the router engine as a lane; each item type keeps its own
+classifier (its own specific thing); the three existing routers are the engine's first
+migrations, in this order — 410 (the hardened one, defines the contract), then 397's two
+(which gain 410's hardening by migrating).** The tripwire below stays in force meanwhile:
+nobody clones seed 410 for a fourth type. Lane: `docs024_key_docs_latest/router_engine/`
+(standing five + `HANDOFF_2026-08-15_continue_here.md`). Filed 2026-08-15 by the bugfix_277
+lane at the council's direction; ruled the same evening.
+
+**Two design constraints the ruling adds, for the lane:** (1) *modularity is per item
+type* — a type's classifier SQL and route table must be readable and reviewable on their
+own, not spread through engine code; (2) *the engine guarantees what the routers kept
+re-arguing* — park-in-place holds the dedup key, one active definition row, conversions
+born at the status the promoter contract expects (see SCH-026), item-key discipline per
+route — once, as engine behaviour, so a new type's review is about its classifier only.
 Raised in bug 277's round-2 review (corr `7b0e2833`), where THREE seats independently pressed
 the same point: `reuse_agent` (medium — "if the same clone-and-reseed pattern repeats for
 every stuck item_type, the estate ends up with N nearly-identical single-purpose router
