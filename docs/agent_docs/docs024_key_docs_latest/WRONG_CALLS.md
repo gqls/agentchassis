@@ -31582,3 +31582,30 @@ substitute for that.
 **Cost:** two REVISE rounds on a change whose code never altered between them, plus this entry. Nothing false reached
 production, and the code is committed behind a `Council-Submitted:` trailer so the trail stays honest — but two rounds
 of an estate-wide reviewer's attention were spent re-asking for something I had already run.
+
+---
+
+## 2026-08-15 — bugfix 277 round 1: a code comment's MEASUREMENT quoted as CURRENT, into a council rationale, three weeks after the mechanism it describes started changing the number
+
+**The claim, as submitted (corr `7b0e2833`, rationale + PLAN doc):** *"across the platform's whole history exactly
+one `required_fields_missing` item has ever reached a terminal status."*
+
+**What was true:** 50 complete (queried `completed_at < '2026-08-15'` after the seat objected). The source —
+`revalidate_review_queue_action.go:64-66` — records a measurement taken **2026-07-25, before the 033 drain ran**; the
+drain then closed 11 of this type on 07-27 and the revalidator sweeps have kept closing them since. The comment was
+accurate history; I quoted it as present tense.
+
+**Caught by:** the council's `prior_art_librarian` seat, round 1 — *"stated as fact with no attached lookup"* — one
+of four asserted-absence objections in the same round, all of which were answerable by one query each.
+
+**Why it mattered less than it could have, and why that is luck not design:** the park-vs-checkpoint argument rests
+on the two-strike rule and checkpoint's missing item_key, not on this figure — but the figure was doing rhetorical
+work in the rationale ("parks forever"), and a reviewer who caught it could reasonably discount the rest.
+
+**The cheap check:** a figure sourced from a CODE COMMENT is a snapshot with a date; before repeating it, run the
+query it summarises. Same class as "Ground every figure against the live system" (CLAUDE.md) — the wrinkle worth
+this entry is that the stale source LOOKED authoritative because it was in reviewed code, and the very mechanism the
+claim justified building more of (automated closes) is what had been moving the number since.
+
+**Cost:** one factor in a REVISE round (the gating objection was separate); corrected in the round-2 submission and
+the workstream PLAN.

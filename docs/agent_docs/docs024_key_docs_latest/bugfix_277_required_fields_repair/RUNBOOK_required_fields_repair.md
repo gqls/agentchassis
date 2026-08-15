@@ -62,10 +62,21 @@ SELECT count(*) FROM site_work_items
 WHERE item_key = (SELECT item_key FROM site_work_items WHERE left(id::text,8)='e512af8a')
   AND status NOT IN ('complete','verified','rejected','wont_fix','failed','unresolved','cancelled');
 ```
-Gotcha: `result` is overwritten by the loop's mark_complete with the saga response — the route
-survives INSIDE `result->'response'->'triage'` (that is why `complete_workflow.output_fields`
-includes `triage`). For PARKED rows the loop's complete no-ops, so the route is at
-`result->>'route'` (written by update_work_item_status result_fields) and the message in `error`.
+> **CORRECTED 2026-08-15, from the canary itself:** for COMPLETED rows the route is NOT on the
+> row at all. The loop's mark_complete overwrites `result` with the SPAWN bookkeeping
+> (role/topics/agent_id — measured on `332bb3f6`), replacing both the close arm's
+> `result_fields` and any saga response. The audit trail for closed rows lives in
+> `orchestration_states`:
+> ```sql
+> SELECT left(orchestration_id::text,8), status, current_step,
+>        collected_data->'triage'->>'route' AS route
+> FROM orchestration_states
+> WHERE workflow_plan->>'start_step'='classify' ORDER BY created_at;
+> ```
+> For PARKED rows the loop's complete no-ops (guard excludes needs_human_review), so the route
+> IS on the row: `result->>'route'` + the message in `error`. The canary verified all three
+> executed arms this way: `0177ce18` stale · `61a71bbd` no_content_data · `8dd51e7e`
+> no_plan_owned (the gas converter), each COMPLETED at `done` with correct facts.
 
 ## Fleet assignment (after the canary verifies)
 
@@ -83,6 +94,12 @@ FROM site_work_items WHERE item_type='required_fields_missing' GROUP BY 1,2 ORDE
 kubectl -n ai-persona-system exec <chassis-pod> -- \
   sh -c "grep -oa 'buildinfo.GitCommit=[0-9a-f-]*' /proc/1/exe | head -1"
 git merge-base --is-ancestor <producer-commit> <stamp>   # exit 0 = shipped
+# belt-and-braces literal probe: 'required-fields-missing-handler' enters the BINARY
+# only via the Go const (the seed is DB-side), so on EVERY replica:
+kubectl -n ai-persona-system exec <pod> -- sh -c \
+  "grep -ac 'required-fields-missing-handler' /proc/1/exe"        # expect >=1
+kubectl -n ai-persona-system exec <pod> -- sh -c \
+  "grep -ac 'zzq-negative-control-not-a-handler' /proc/1/exe"     # expect 0
 ```
 Then re-run the fleet assignment UPDATE once — items the OLD producer filed between
 assignment and roll are born parked/unassigned and need sweeping in.

@@ -9,8 +9,12 @@ This lane builds it, as the next concrete increment of bugs_open/033's owner-rul
 The mechanism is not in dispute and was verified first-hand rather than through the loop:
 "no handler in the fleet claims this type" is a grep (`HandlerAgent: ""` at
 `check_required_fields_missing.go`, one producer, zero consumers in code or
-`agent_definitions`) plus one live query (exactly one item in platform history ever terminal —
-`revalidate_review_queue_action.go:64-66` records the same measurement). The change implements
+`agent_definitions`) plus live queries. > **CORRECTED 2026-08-15 (caught by the council's
+prior_art_librarian seat):** this doc and the round-1 rationale said *"exactly one item in
+platform history ever terminal"*, quoting `revalidate_review_queue_action.go:64-66` — a
+2026-07-25 measurement repeated as current. Queried on objection: **50 complete**, almost all
+the 033 drain's own closes since 07-27. The design argument never rested on the figure, but
+the figure was stale. Logged in `WRONG_CALLS.md` 2026-08-15. The change implements
 an explicit owner ruling, not a diagnosed root cause; the design risk was pressure-tested by a
 planning agent against the code (verified mechanics recorded in NOTES) and by the council gate
 (submission `7b0e2833-715f-4a9a-897b-efd913073582`).

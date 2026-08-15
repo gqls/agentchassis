@@ -91,3 +91,41 @@ file. (2) The checkpoint-escalation design above — caught by the planning revi
 build. (3) A binary probe greped for the FIX commit's sha inside the binary — a binary
 carries only its own build stamp; corrected to extract `buildinfo.GitCommit=` and use
 `git merge-base --is-ancestor`.
+
+## 2026-08-15 (same session, later) — seed applied, canary verified per-arm, council round 1 REVISE, round 2 resubmitted
+
+**Seed 410 applied** ~11:02Z (verify block passed, 0 assigned). **Canary (4 rows) assigned**
+and dispatched within two cadences:
+- `332bb3f6` (stale) → `complete`, orch `0177ce18` route=stale. **The row's `result` was
+  OVERWRITTEN by the loop's mark_complete with spawn bookkeeping** — the close arm's evidence
+  survives only in `orchestration_states.collected_data.triage`. RUNBOOK corrected (its
+  original completed-row verification query was wrong).
+- `e512af8a` (blob) → parked at `needs_human_review`, route + message on the row. ✓
+- `483fb749` (gas converter) → parked, route=no_plan_owned (orch `8dd51e7e`, n=9 fields,
+  html_len 13248). ✓
+- `4fa5b019` (partial) → `complete`/converted; minted
+  `content_rewrite:from_rfm:_ai-agent-orchestration.com_dda5fbdf…` @ page-build-handler,
+  `mode=edit_live`, priority 30, source AND created_by = the router, `depends_on` = the
+  original (create_work_item's `parent_item_id` input feeds the depends_on DISPATCH GATE, not
+  a provenance column — the gate held seconds until close_converted completed the original).
+  Rebuild still executing at last check.
+
+**Council round 1: REVISE** (14 seats, 3 abstained; gating: editquality — the assignment
+UPDATE must be a reviewed edit, not prose). Real catches among the rest:
+- **prior_art_librarian caught a stale figure**: "exactly one ever terminal" was a 07-25
+  code-comment measurement; live lookup = 50 complete (the 033 drain's own closes).
+  → corrected in PLAN + WRONG_CALLS.md entry.
+- **guardian's component-id key objection** → answered with analysis + a measured instance
+  (the partial row's stored spec.component_id was already dead; classification by (page,slot)
+  found the live one) — written into CQ-023.
+- **debug_historian's needle-gate demand** → `ASSIGN_2026-08-15_fleet_assignment.sql` built
+  with pre-image step, execution-time refusal conditions, ROW_COUNT assert, revert.
+- **reuse_agent/architecture proliferation warning** → CQ-023 tripwire: the FOURTH router
+  author should build the generalised engine.
+- render_guardian's objection cites a pre-178-fix landmine; PBP-028/migration 299 is the
+  edit_live channel — answered by citation.
+- guardian's scheduled-deps question: 0 scheduled_tasks pre_queries name the type or status.
+
+**Round 2 resubmitted** on the same trail (`RESUBMIT_CORR=7b0e2833…`, run orch `a687f2be`).
+**Fleet assignment (remaining ~40 rows) HELD** for the verdict + the partial canary's
+artefact check.
