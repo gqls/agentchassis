@@ -1370,6 +1370,7 @@ an ID prefix, or a status word.
 | HITL-003 | User-representative advocate (intent + conflict triage) | aspirational | Standing advocate triaging claimed conflicts before they reach the user | hitl.md |
 | BLD-006 | Coverage baseline: guides, tools, news, curated top-N on most sites | aspirational | Standing content-coverage policy; curated top-N list mechanism is the one genuine new build | build-pipeline.md |
 | DGH-001 | Commit-is-deploy: git → Actions → Backblaze B2 (+ chassis image-tag deploys) | deployed | Standing deploy mechanism: commit triggers B2 sync; chassis code ships via image tag | deployment-github.md |
+| DGH-008 | `platform/publish` publish seam: opt-in hosted mirror of a built site | built, committed-inert until roll | sites.publish_target (NULL=OFF) + tree-hash drift reconciler + served-bytes acceptance; b2worker live path, cfpages deliberately unarmed; seed HELD (422) | deployment-github.md |
 | DOC-043 | Classify, do NOT merge (the human consolidates) | convention | Standing rule: LLM finds/cites, human decides/writes canonical docs | documentation-system.md |
 | SYS-006 | Entity data model | aspirational | State-based lifecycle entities driving pages, news triggers, client-side real-time data | system-architecture.md |
 | DBG-039 | 0-rows rule: zero rows decisive only after query AND run completion ruled in | deployed | State-dump substitute for evidence past the idle-reaper's 3600s capture window | debugging.md |
