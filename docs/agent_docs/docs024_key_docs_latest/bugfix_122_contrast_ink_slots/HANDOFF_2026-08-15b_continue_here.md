@@ -4,8 +4,20 @@
 the record of the 5.0 canary gate (now closed) and its trap list; read it second, not first.
 
 > ## ✅ NOTHING IS BLOCKED. NOTHING IS IN FLIGHT. No work item is queued, claimed or held.
-> The ink work is **done and live**. What remains is two spin-off threads (§4) and one
-> optional tidy (§5). A fresh session can pick any of them up cold.
+>
+> **UPDATED 2026-08-15 ~18:5xZ — the four owner decisions of §4/§5 are ALL ACTIONED and verified
+> at the artefact. The estate is consistent. Only two genuinely-open items remain (§4a "why", and
+> the `publish_site` parity failure in §5).**
+>
+> | decision | outcome |
+> |---|---|
+> | 1. Delete the duplicate plan line | **DONE.** Served homepage now shows the section **once** (heading count 1, was 2). Before-images of BOTH deleted rows banked in `migration_backups` under `bugs_open_278_delete_duplicate_info_card_grid` |
+> | 2. Bring robot-hands + cookly to 5.0 | **DONE.** robot-hands `#94a0c2`/`#f77f47`; cookly accent `#a24122` — each the pre-computed 5.0 value, read at the served stylesheet |
+> | 3. The unenforced bare-reference invariant | **LEFT, by owner decision.** Still true, still unenforced — §5 |
+> | 4. Close the RFC_022 audit blind spot | **DONE — and it was far wider than the motivating case: 103 live actions were uncountable, 46 of them shared.** See §8 |
+>
+> **Fleet now on `v1.0.1303`** (pods restarted 18:45Z, stamp `5e075a6f9`, junk-sha control absent).
+> Carries `e0f239118` **and** `263197ca2` — verified by ancestry with a working negative control.
 
 ---
 
@@ -150,3 +162,41 @@ stamp `0115f2b45` = `v1.0.1301` · `bugs_open/122`, `bugs_open/278`
 **Rollback routes for the ink work, cheapest first:** per-site kill-switch
 `legible_ink_disabled_site_ids: ["<uuid>"]` on `webdesign-agent`'s `render_css_from_spec` step config
 (config flip, no rebuild) → global `legible_ink_enabled: false` → `415_..._ROLLBACK.sql` → code revert.
+
+
+## 8. RFC_022's optional-key counter had a blind spot covering half the fleet — CLOSED 2026-08-15
+
+**Found because the audit said nothing about `render_css_from_spec` when three optional keys were
+added to it.** Its silence was the gate not looking, and it was not cited as a pass.
+
+**The cause, and why nobody had found it: the code's own comment asserted coverage that did not
+exist.** `censusOptionalKeys` iterates `ListActionInputSpecNames()`, so an action that never
+registered an `ActionInputSpec` is skipped — it cannot be over budget because it cannot be counted.
+The comment said such actions are "omitted too (`--unregistered-actions` owns that class)". **It does
+not.** That mode reports actions **absent from `GlobalActionRegistry`** — steps rejected on every
+message — which is the opposite population. A registered, working action with no input spec was
+reported by **neither** audit.
+
+`[MEASURED 2026-08-15]`
+
+| | |
+|---|---|
+| actions the budget **can** count (spec with optional keys) | **119** |
+| actions it **cannot** (no spec at all) | **103**, of which **46 are shared** (≥2 carriers) |
+
+Uncountable and heavily shared: `execute_llm_prompt` (64 carriers), `query_database` (41),
+`spawn_agent` (41), `call_agent` (41), `conditional` (40).
+
+**The fix is REPORT-ONLY by design** (`censusUncountedActions`, commit `263197ca2`): a new
+"NOT COUNTED — the optional surface is UNKNOWABLE, not zero" section. Registering 103 specs is work
+most of them will never need, and paging the estate over a documentation gap teaches readers to
+ignore the check. What changed is that a reader can now distinguish **"zero"** from **"unknown"**,
+which the old output could not express. The registry import is **named** (main.go carries the same
+package blank) precisely to tell "does not exist" from "exists, declares nothing".
+
+> ⚠ **OPEN, and NOT this lane's:** `optional_budget_cron_parity_test` **fails at HEAD** — confirmed
+> by reverting my change and re-running, so it is pre-existing. `check.py`'s
+> `OPTIONAL_KEY_COUNTS["publish_site"] = 0` while the registry declares **3**. Another lane added
+> optional keys to `publish_site` without regenerating the cron literal, so **the DEPLOYED check is
+> stale for that action**. The test names the regeneration command. Reported rather than fixed
+> because it is that lane's surface; it wants doing.
