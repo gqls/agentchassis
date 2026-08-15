@@ -1538,3 +1538,54 @@ old change actually moved. The equivalent filter for headers and footers is stil
 query, so pinned copy there is still being dropped without being counted — the very thing the first
 half was fixing. It doesn't bite us today. The test will now fail loudly if anyone changes it without
 also adding the counting, which is the right way round.
+
+---
+
+**2026-08-15, morning.** The daily automatic check ran at 08:45 and the prediction we wrote down
+last night was right on all four counts. Nothing new was refused, the two pages we thought might
+clear did not clear, and everything else stayed exactly where it was.
+
+The reason we could believe that result is worth a sentence. Yesterday someone on this lane nearly
+recorded a "confirmed" that wasn't: they set a timer to wake up after the check, the timer silently
+failed, and the measurement ran *before* the check instead of after. Every number in it was correct
+and every number described the wrong moment — and because we had predicted "nothing will change",
+a reading taken before anything could change looked exactly like proof. This morning we waited for
+the system to actually tell us it had run, rather than waiting for a clock, and we printed the
+timestamp alongside every number so the reading can't be detached from its moment. A watcher left
+running from last night's session independently caught the same event and got the same numbers,
+which is about as good a second opinion as we get.
+
+**The interesting part was something nobody predicted, because nobody was watching for it.** One
+page's count of unsupported claims jumped from 14 to 19 overnight. The obvious explanation — someone
+edited the page — is wrong: that page hasn't been touched in ten days, and it has never even been
+published. What changed was *us*. Yesterday evening the owner re-attested how long a build takes:
+it used to be "about three or four days", and it is now "usually ready the next day". That
+re-attestation also banned the old phrasing. So the page didn't move; the yardstick did, and the
+page was immediately re-flagged for still saying the old thing.
+
+That is the system working exactly as intended, and it is worth saying so plainly, because the
+number moving on its own looks alarming. The owner changed what is true, and within one overnight
+run everything still making the retired claim was flagged. That is the entire point of keeping a
+register of what we're allowed to say.
+
+But it does mean a count like "this page carries 19 unsupported claims" is not a fact about the
+page. It's the result of holding the page up against the register, and **either side can move it**.
+Somebody reading that number and going hunting for a page edit will find nothing, and may well
+conclude the checker is broken when it is doing its job. I've written that down as a trap so the
+next person doesn't lose an hour to it.
+
+**I also got it wrong twice on the way there**, which is the part most worth recording. Twice I
+compared the old and new register and twice the comparison told me "nothing changed" — once because
+I compared only the fields I happened to think of, and the field that changed wasn't one of them;
+once because the half of the register that actually mattered lives somewhere I hadn't looked, so my
+query for it came back empty and read as "this site has no such list" when the site has 28 of them.
+Two confident, well-formed, completely wrong answers, both of which pointed at an innocent suspect
+(a software release that went out the same evening). What caught it was running a *different* kind
+of comparison and getting a different answer — two methods disagreeing is the tell.
+
+**One thing that unblocks other people.** Our own notes said the fleet's AI capability was capped
+until 1 September. It isn't — it's been running normally for at least thirty hours, with no failures
+at all this morning. That stated date is what the vendor would reset at if nobody intervened; in
+practice the owner has raised the cap within hours, three times now. Any lane that read our note and
+put off a review submission should go ahead. I've corrected the note where it was written rather
+than only mentioning it here, since that's where people will read it.
