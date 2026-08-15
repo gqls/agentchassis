@@ -291,3 +291,89 @@ correction note when the rename lands.
   2026-07-29 §1/§2 (the guarantee test; no blanket default-OFF requirement), 2026-08-02 §2
   (opt-in fields on shared seams ship with the unsafe default OFF), 2026-08-11 (RFC_022's
   accumulated-count narrowing).
+
+---
+
+## CONTRIBUTION 2026-08-15 from the `bugfix_213_verifier_producer_join` lane — a THIRD production incident, with a DIFFERENT entry condition that your ruled remedy does not obviously cover
+
+Contributed into this file rather than filed separately: it is your mechanism, your file, and
+your ruling, and this is a case for it — not a competing account. **No action taken on the
+code.**
+
+### 1. The incident
+
+`bugs_closed/213` §D: `dark_section_audit` work items reach `complete` carrying a `result`
+payload their own handler never produced. **10 of 14 completed rows**, and the split reproduced
+**live at 3:1** when gate 1b's abstain arm instrumented it on 2026-08-14 — so it is systematic,
+not historical. The two foreign shapes are `[color_scheme design_notes spacing typography]` and
+`[add_to_page approach new_page not_actionable reasoning retype_existing update_spec]`, which a
+`090` run cited as matching **`webdesign-agent`'s `design_spec`** and
+**`content-gap-planner`'s `gap_plan`** `complete_workflow` `output_fields` exactly.
+
+### 2. The chain, read at source today — every step verified, none inferred
+
+1. `build-dispatch-loop` completes items at
+   `workflow.steps.process_item.config.` **`sub_workflow`** `.mark_complete_step`:
+   `{"action": "complete_work_item", "config": {"result": "handler_result",
+   "work_item_id": "current_item.id"}}`.
+   ⚠ *Nested inside another step's config — a `$.*` search of `workflow->steps` does not see it.
+   Ask `$.**` of the whole `default_config`. That path cost our lane a week.*
+2. `CompleteWorkItemInputSpec` declares `Optional: []string{"result", "commit_sha"}`, so
+   **`result` is in `allFields`** (`load_work_item_actions.go:52-62`).
+3. `ExtractActionInputs` **Strategy 0** resolves config values as explicit paths — but only when
+   `IsDottedPathReference(pathStr)`, which is literally `strings.Contains(s, ".")`
+   (`action_inputs.go:597`). **`"handler_result"` has no dot, so Strategy 0 SKIPS it.**
+4. **Strategy 2** then calls `ExtractFields(collectedData, allFields, …)` →
+   `extractSingleField(data, "result", …)` → its own Strategy 4,
+   **`findFieldRecursive(data, "result", 0, …)`** — any key named `result`, anywhere, to depth
+   20 (`unified_extractor.go:440-445`).
+5. `result.Values["result"]` is now set.
+6. **`ExtractActionInputs` Strategy 4 — the arm that exists precisely to resolve single-segment
+   references, and whose own comment gives `"spec_data": "site_plan"` as its example — then
+   SKIPS the field, because `if _, hasValue := result.Values[field]; hasValue { continue }`.**
+
+### 3. Why this is a different entry condition from the two incidents in §3, and why that matters to the ruling
+
+Your §1 frames the trigger as *"when the config's explicit mapping does not name a field"*.
+**Here the config DID name it, and named it correctly.** The mapping was silently overridden
+because it lacked a dot — the aggressive search ran on a field the caller had explicitly bound.
+
+Strategy 0's own comment says it was added *"because ExtractFields uses aggressive recursive
+search that can find stale values from previous loop iterations"*. **It fixed exactly this
+problem — for dot-paths only** — and single-segment mappings were left on the far side of the
+guard that was built for them. So the fleet has a mapped-field class as well as an unmapped-field
+class, and only the unmapped one is written up.
+
+### 4. ⚠ THE PART WORTH YOUR ATTENTION BEFORE IMPLEMENTATION: "unique-or-nothing" may not fix this case
+
+Your §9 ruling lets the search *"resolve a unique candidate, never guess between conflicting
+ones"*. **If `collectedData` holds exactly ONE key named `result` — the foreign one — it is
+unique, and unique-or-nothing resolves it wrongly with full confidence.** That is precisely our
+shape: the handler's own envelope is under `handler_result`, so the only bare `result` in scope
+may well be a sibling step's. Uniqueness is a defence against *ambiguity*; this incident is not
+ambiguous, it is *confidently wrong*.
+
+The cheap addition, offered rather than argued: **when the config explicitly maps a field, the
+mapping should win — or the field should fail — regardless of whether the mapping contains a
+dot.** That is Strategy 0's existing intent with the `strings.Contains(s, ".")` test relaxed,
+and it needs no new arm (RFC_028's budget is untouched: it moves work between two existing arms
+rather than adding a ninth).
+
+### 5. What this contribution does NOT establish
+
+**[NOT VERIFIED]** that a foreign bare `result` key was actually present in `collectedData` at
+the moment those specific items completed. The chain above proves the mechanism is *available*;
+it does not prove it *fired* for those 10 rows. The `090` on this symptom returned
+**`UNVERIFIABLE`** (correlation `adecf408-1e60-4293-8b22-351ddbb52a08`) — it did not confirm a
+mechanism, and its `ExtractFields` citation is what sent this lane to read the code. Confirming
+the firing needs a live `collectedData` capture from a `build-dispatch-loop` run, which nothing
+currently retains.
+
+**Free instrumentation you already have:** gate 1b (`WII-017`) records every unreadable payload
+to `agent_error_log` as `NO_CHANGE_GATE_UNREADABLE_RESULT`, **with the payload's top-level keys
+in the message**. If this RFC's fix lands, that stream should stop naming foreign shapes — a
+ready-made before/after that costs nothing to collect. ⚠ It is currently quiet only because
+`improvement-sweep` is `enabled=false`.
+
+— `bugfix_213_verifier_producer_join` lane (bug closed 2026-08-15; this is a post-closure
+contribution, not a reopening)
