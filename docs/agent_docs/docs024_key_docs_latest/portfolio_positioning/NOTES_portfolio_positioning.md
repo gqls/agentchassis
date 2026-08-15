@@ -961,3 +961,143 @@ the HITL queue while a completed reject item is <3h old — see the suppression 
 above), review the registered set, iterate the query/prompt if the kind's sources
 misbehave differently. Register accumulation is slow by design (~1-2 firms per run;
 weekly cadence + manual force-triggers).
+
+### 2026-08-15 (third session) — B4 continues: savings-provider and health-insurer supervised first runs
+
+**Pre-flight (all measured 17:09Z, DB clock)**: chassis pods started 11:28/11:29Z (~5.7h,
+no 300s window issue); zero open work items keyed to either kind; migrations 423/424
+already live from the earlier session.
+
+**Query mirror APPLIED BEFORE FIRING (iteration 2 → savings + health).** The handoff's
+recipe said "run then iterate", but run 3 (`ffc22155`) had already proven the exact
+failure the two pending queries carried: regulator vocabulary ("FCA authorisation, firm
+reference number") pulls the regulator's pages and yields zero. The mortgage iteration-2
+membership-list shape was proven by runs 4-5 and its own note said "then mirror" — so the
+mirror IS the recorded plan, done before spending a run re-demonstrating a documented
+failure. Guarded UPDATEs (WHERE pinned old value), 1 row each, verified 184 B / 171 B:
+- savings-provider NEW: "list of UK savings account providers: named member banks and
+  building societies (Building Societies Association, UK Finance) and each firm's
+  accounts: easy access, fixed term, cash ISA"
+- savings-provider OLD (reversibility): "named UK savings providers: individual banks and
+  building societies; each firm's accounts (easy access, fixed term, cash ISA), FSCS
+  protection, FCA authorisation, firm reference number"
+- health-insurer NEW: "list of UK private medical insurance providers: named member
+  insurers (Association of British Insurers) and each firm's cover: inpatient,
+  outpatient, mental health, dental"
+- health-insurer OLD: "named UK private medical insurers: individual firms and
+  underwriters; each firm's cover (inpatient, outpatient, mental health, dental), FCA and
+  PRA authorisation, firm reference number"
+
+**Seed drift found and fixed**: `SEED_finance_directory_scheduled_tasks.sql` still
+carried all three ITERATION-1 queries while claiming "this file now matches live" — the
+earlier session's iteration-2 update reached the live mortgage row but not the seed. All
+three seed queries now match live, with a dated revision note naming run 3 as the
+evidence.
+
+**Run 6 (savings-provider, first ever) fired 17:11:28Z** (DB clock, read not estimated)
+via `last_triggered_at=NULL`. Watching via monitor to terminal state; results below.
+
+**My watcher failed silently — the run did not.** The monitor I armed on run 6 polled
+`SELECT id ... FROM orchestration_states` — but the column is `orchestration_id`, and the
+`2>/dev/null || true` I wrapped the psql in (meant for transient kubectl failures)
+swallowed the SQL error every poll, so the monitor sat in silence for its full 15-minute
+timeout while the run completed in 95 seconds. Same class as the `||true` watcher lesson
+already in the memory index: FOREGROUND-TEST the exact watcher query before arming it —
+the arm-time test is the only thing that distinguishes "quiet" from "broken". Run 7's
+watcher uses the query proven in foreground below.
+
+**Run 6 (savings-provider, `c2cd7f55`, fired 17:11:28Z, COMPLETED 17:13:17Z, ~95s):
+15/15 candidates REGISTERED, zero rejects — first-run success, no iteration needed.**
+The mirrored iteration-2 query retrieved the right shape immediately: GOV.UK's
+HMRC-approved ISA managers list, the BSA members list, Family BS's own savings pages,
+Moneyfacts. 13 active entities, all real named firms (Nationwide, Coventry, Skipton,
+Leeds, Yorkshire, Principality, Newcastle, Nottingham, Cambridge BSs; Al Rayan Bank,
+Monzo Bank, NS&I, Family BS), 15 current claims, all `found`, all cited. Independent
+spot-check: Nationwide FRN 106078 and Monzo FRN 730427 both confirmed present on the
+cited GOV.UK page by direct fetch.
+
+**Kind-specific structural note (contradicts the mortgage-kind observation, usefully):**
+the mortgage lesson "list pages name many firms but state few facts" does NOT hold for
+savings — GOV.UK's ISA-managers list states per-firm FCA references inline, so one list
+page yielded 12 fca_firm_reference claims in one pass. The two-hop discovery question
+(Phase C/D) is therefore kind-dependent: savings accumulates fast from official lists,
+mortgage stays slow until a second hop exists.
+
+**Quality note for the eventual per-site review**: Coventry and Skipton `product_types`
+values are ISA-component enumerations from the GOV.UK list ("Cash ISA, Cash Junior ISA")
+— true, cited, but narrower than the firms' actual savings ranges. Same class as
+Mansfield's coverage-statement note from run 5.
+
+**Run 7 (health-insurer, first ever, `8b6f8e12`, fired 17:28:58Z, COMPLETED 17:30:36Z,
+~84s): 13/15 registered across 7 real named insurers, 2 rejects — mechanics clean, the
+SET fails the review bar four ways.** Entities: Bupa, Aviva, AXA Health, VitalityHealth,
+The Exeter, Freedom Health Insurance, WPA — the named-firm rule held (zero category
+entities on this kind's first run; contrast mortgage run 1). The four defects, read from
+the registered set:
+1. **A £-amount inside an allowed field's value**: WPA cover_types "inpatient, outpatient
+   (£350 included as standard); ...". The mechanical non-price gate blocks price FIELDS,
+   not price CONTENT — a benefit limit is exactly the volatile figure the owner's ruling
+   keeps out. Go-side residual noted below.
+2. **Same-run duplicate destroyed the better claim**: two bupa.cover_types extractions
+   from one page; last-write-wins at registration, and the survivor was the weaker
+   benefits blurb ("24/7 remote GP access and dental...") while the superseded row held
+   the real enumeration ("inpatient, outpatient, mental health..."). Read from
+   directory_claims is_current=false.
+3. **Marketing prose in underwriter**: bupa.underwriter = "Bupa (no shareholders;
+   reinvests profits into services)" — ethos, not a firm name.
+4. **forbes.com is refetch-blocked** (HTTP 403 ×2, both rejects) — the 424 class
+   (ibisworld) gained the member run 4's note predicted; per that recorded policy it goes
+   into exclude_domains.
+Also: **source concentration** — all 12 current claims cite ONE broker comparison guide
+(drewberryinsurance.co.uk). Verifiable and honest, but no GOV.UK-equivalent surfaced for
+this kind (the ABI homepage scraped but yielded nothing extractable); flagged for the
+per-site review rather than fixed by query over-fitting.
+
+**Migration 428 applied 17:34Z** (`sql_for_agents/428_…value_hygiene_and_forbes.sql` +
+ROLLBACK): (A) no monetary amount anywhere inside a value; (B) at most ONE claim per
+(provider, field), most complete enumeration wins — because a later duplicate OVERWRITES;
+(C) underwriter = the underwriting firm's name alone; (D) forbes.com → exclude_domains.
+Same shape as 423/424: snapshot-first (backup verified PRE-change), anchors pre-checked
+unique (1|1|1), all edits idempotent-guarded, DO/RAISE verify so a miss aborts the COMMIT
+(the RFC_006 lesson — a SELECT-only verify cannot stop one). **Go-side residual, fix
+candidate for a roll**: the registration-time allowlist could also scan VALUE CONTENT for
+monetary amounts; today the only control on rule A is prompt text, and a doc/prompt line
+is not a mechanical control.
+
+**Run 8 (health-insurer, post-428) fired 17:35:02Z.** Success reads: forbes.com absent
+from the scrape set; no £/GBP inside any newly registered value; no same-run duplicate
+(entity, field) registrations; any underwriter value a bare firm name. If the Drewberry
+page re-extracts, cleaner values should SUPERSEDE run 7's two offending claims; if run 8
+does not touch them, curate manually (archive precedent: run 1's category entities) and
+say so here.
+
+**Run 8 (health-insurer, post-428, `297ca621`, fired 17:35:02Z, COMPLETED ~17:36:2xZ):
+14/15 registered, 1 reject — ALL FOUR 428 RULES PROVEN AT THE ARTEFACT.**
+- forbes.com absent from the scrape set (slot went to mytribeinsurance.co.uk);
+- currency-in-value count across ALL current health claims: 0 — WPA's £350 value
+  superseded by an amount-free modular description;
+- no same-run (entity, field) duplicate; Bupa's real cover enumeration RESTORED as
+  current (the run-7 inversion healed by supersede, is_current tells the story);
+- the new underwriter claim (Saga) is a bare firm name: "Bupa".
+Three new entities: National Friendly, Saga Health Insurance, General & Medical. The one
+reject (aviva.cover_types, citation_lost on a longer quote) is the verbatim gate working;
+aviva keeps its valid run-7 claim.
+
+**Curation + HITL (runs done first, per the two-strike order):** bupa.underwriter
+ethos-prose value retired (is_current=false, superseded_at set, no successor — better
+absent than marketing prose; run 8 never re-extracted that field so supersede could not
+heal it). HITL item `9acefafa` (health-insurer) ruled complete/discard with the reasoning
+in result — run 8's refresh had already replaced the two moot forbes rejects with the one
+aviva citation_lost. NB the 3h reject-suppression window for
+`directory_citation_unverified:health-insurer` now runs until ~20:37Z; next scheduled
+runs are a week out, so it expires harmlessly.
+
+**B4 CLOSED — all three kinds proven through the whole chain under supervision.**
+Register at close (active entities / current claims on them): mortgage-lender 2/3 ·
+savings-provider 13/15 · health-insurer 10/15 — 25 entities, 33 claims, every one a named
+firm, every claim cited, zero price content. (A count query that LEFT JOINs claims
+without the entity status filter reads mortgage as 7 — the extra 4 hang on run 1's two
+ARCHIVED category entities, invisible to consumers via the status='active' filter;
+measure on active entities.) Run count per kind: mortgage 5 (runs 1-5, prior session),
+savings 1 (run 6 — first-run clean), health 2 (runs 7-8 — 428 between them). Next: B3c
+(publish-trigger fix), B3d, B3e, B3f per the handoff §2.

@@ -59,9 +59,17 @@ notes commits, `SUMMARY_2026-08-15…`. All platform commits trailered with the 
 
 ## 2. Next actions, in order
 
-1. **B4 — supervised first researcher runs.** ⚠ **UPDATED 2026-08-15 (later session):
-   mortgage-lender is DONE — 5 supervised runs, chain proven, 2 real firms registered.
-   Remaining: savings-provider and health-insurer, same recipe.** What that session
+1. **B4 — supervised first researcher runs. ✅ DONE 2026-08-15 (third session) — ALL
+   THREE KINDS PROVEN.** Savings run 6 (`c2cd7f55`): 15/15 registered first run, 13
+   named firms, GOV.UK ISA-managers list as anchor source. Health runs 7-8 (`8b6f8e12`,
+   `297ca621`): 10 named insurers, with migration **428** between them (no monetary
+   amounts inside values; one claim per (provider, field); underwriter = firm name;
+   forbes.com excluded) — all four rules proven at the artefact on run 8. Register at
+   close: 25 active entities / 33 cited claims. Queries for savings/health were
+   mirrored to the proven iteration-2 membership-list shape BEFORE their first runs
+   (seed synced). HITL: all three kind items ruled; health's 3h reject-suppression
+   window expires ~20:37Z, harmless at weekly cadence. Full evidence: NOTES same date.
+   The recipe below stays for reference for future kinds. What that session
    learned (full evidence in NOTES, same date):
    - Config now carries migrations **423** (entity = ONE NAMED FIRM, never a
      sector/aggregate) and **424** (quote = ONE CONTINUOUS passage; ibisworld.com

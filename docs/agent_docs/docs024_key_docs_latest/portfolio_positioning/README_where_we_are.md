@@ -317,3 +317,27 @@ starts from "diagnose it against the correction reference", not "approve it". Wh
 look is written in the handoff. The register carries all of this as ruling P9, and its
 own checker still passes. Fresh cold-start for the next chat:
 HANDOFF_2026-08-15_continue_here.md.
+
+---
+
+**2026-08-15, evening.** The supervised first runs are done for all three directory
+kinds, and the whole research chain is now proven honest end to end. The savings sweep
+worked first time: fifteen facts registered from fifteen candidates, thirteen real firms
+— Nationwide, Coventry, Skipton, Monzo, NS&I and eight more — anchored by the
+government's own list of approved ISA managers, which conveniently states each firm's
+regulator reference right on the page. The health insurance sweep needed one round of
+correction, which is exactly what supervision is for: its first run registered real
+insurers (Bupa, Aviva, AXA Health, Vitality and others) but let three bad habits
+through — a pound amount smuggled inside a "what do they cover" fact, a duplicate that
+overwrote a good answer with a worse one, and marketing fluff ("no shareholders,
+reinvests profits") where an underwriter's name should be. All three got rules written
+against them, plus one more source (Forbes) blocked because it refuses our
+verification checks. The re-run came back clean on every count and added three more
+insurers. The directory now holds twenty-five named firms and thirty-three cited facts
+across the three kinds, every fact traceable to the page it came from, no prices
+anywhere. One gap worth knowing about: the health facts all currently come from a
+single broker's comparison guide rather than the insurers' own pages — honest and
+verifiable, but thin, and it's flagged for the manual review that happens before
+anything goes on a site. Next up is the plumbing that actually publishes these
+directories onto pages, then the wiring that lets the improvement loop and the site
+planner know directories exist.
