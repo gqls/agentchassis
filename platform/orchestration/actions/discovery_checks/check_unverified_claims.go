@@ -438,6 +438,14 @@ func ScanDeployedClaims(
 	// heuristic, which cannot tell a guide's worked example from a sales claim.
 	// The column was always in the row this query already reads — the layer
 	// simply never asked for it.
+	//
+	// ⚠ THIS QUERY'S COVERAGE DEPENDS ON A SHARED BUILDER, not only on the text
+	// below: the exclusion interpolates datahelpers.NeverDeployedPagePredicateFor,
+	// so a change to THAT function silently changes which pages this check reads.
+	// That is the intended direction — one definition of "never shipped", one place
+	// to change it (bugs_open/185) — but it is a real coupling, so if you are
+	// editing links.go, this scanner is downstream of you. Raised as a low advisory
+	// by the council's guardian seat, 2026-08-15 round 2.
 	pageQuery := `
 		SELECT pc.page_id::text, p.name, COALESCE(pc.slot_name, ''),
 		       COALESCE(pc.rendered_html, ''), COALESCE(cc.name, ''),

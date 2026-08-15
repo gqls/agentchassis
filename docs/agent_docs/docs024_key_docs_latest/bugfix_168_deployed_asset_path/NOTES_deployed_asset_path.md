@@ -4330,3 +4330,64 @@ Fixed by naming the characters instead of showing them (`65a39bbd8`).
 
 Round 2 submitted against the same correlation (`RESUBMIT_CORR`), so the trail
 accumulates on `cfaf0694-ee2e-4aa8-b19f-12d81e55b07f`. **Verdict not yet read.**
+
+## 2026-08-15 14:30–15:0xZ — council round 2: APPROVED, and the one medium objection was already an open bug
+
+**APPROVED at 14:30:10Z**, `decided_by: "approved with 1 advisory objection(s) — none
+high-severity"`. Seven seats approved with nothing outstanding
+(`improvement_guardian`, `compliance`, `render_guardian`, `debug_historian`,
+`constitution`, `mission`, `architecture`); `reuse_agent` — the seat that gated round 1
+— approved.
+
+**Trailer:** the code commits carry `Council-Submitted:` and that is correct and
+sufficient. `098` resolves the correlation at REPORT time, so they are credited
+automatically now the verdict is approved. **No amend** — forward-only, and CLAUDE.md
+says so explicitly for exactly this case. Do not go back and write `Council-Reviewed:`
+onto a shipped commit.
+
+### The medium objection, and why it needed a check rather than a fix
+
+`bug_historian` [medium]: the plan fixes ONE call site of the hand-rolled predicate but
+does not audit whether the same habit left identical copies elsewhere — *"one call site
+of a shared judgement gets the rigorous fix; the sibling stays heuristic"* (016b §9).
+
+**I ran the census rather than accepting or dismissing it.** Package-wide grep for
+`deployed_at IS (NOT) NULL` / `build_status = 'deployed'` outside the builders: ~30 hits,
+but **most are `pc.build_status`** — `page_components`, a different table answering a
+different question (is this COMPONENT deployed), not page liveness. The genuine
+page-level ones are ~8.
+
+**Then: they are already filed, and by this same mechanism.** `bugs_open/185` —
+*"every detector that selects `build_status = 'deployed'` is blind to 28 live pages"* —
+was itself **filed at the council gate's request on 2026-08-03**, when three seats
+(`bug_historian`, `reuse_agent`, `debug_historian`) asked the identical question about a
+different lane's fix. Its census already enumerates the exact call sites mine found, and
+**classifies two of them as correct as written**:
+
+> `check_unresolved_sections.go:43` — *"its filter is not a liveness test"*
+> `check_page_component_status_drift.go:90` — *"here `= 'deployed'` is **correct**"*
+
+So today's objection is **the same question for the third time**, and the audit it asks
+for exists and is more careful than the one I would have written. **Contributing a
+duplicate census would have been noise, so I did not.** Recorded here instead, with the
+pointer, because the *repetition* is the interesting part: three independent rounds, three
+lanes, one unfixed class. That is a signal about `185` being unfixed, not about this fix.
+
+### The low advisories
+
+- `guardian`: the query now depends on `NeverDeployedPagePredicateFor`, and a change to
+  that builder silently shifts this scanner's coverage — disclosed in risks but not at
+  the call site. **Fixed**: a ⚠ note now sits directly above the query saying "if you are
+  editing links.go, this scanner is downstream of you."
+- `editquality`: the sketch did not show a `datahelpers` import. **Not a defect** — the
+  package was already imported for `EvidenceBase` and `ClaimSurface`, so there was no
+  import to add; the build was never at risk. Checked rather than assumed.
+- `tooling_provenance`: the "why not `PageHasShippedPredicateFor`" reasoning lives only
+  in a Go comment and the submission, not in `doc_notes`. **Accepted, not actioned** —
+  `links.go` already documents the three-predicate family and its axes at length
+  (`PageMayBeLinkedPredicateFor`'s own comment measures the gap), so a fourth copy would
+  be the duplication this very seat exists to prevent.
+- `reuse_agent` / `prior_art_librarian` both noted they were taking my greps at face
+  value this round. Fair, and worth stating plainly: **the ~14 sibling call sites and the
+  builder's signature were verified by me, not by them.** The commands are in the RUNBOOK
+  census section; anyone can re-run them.
