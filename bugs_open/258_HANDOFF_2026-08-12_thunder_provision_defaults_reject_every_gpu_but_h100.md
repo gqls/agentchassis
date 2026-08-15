@@ -8,15 +8,15 @@ a fixer should take them together. None is site-specific.
 >
 > | defect | state |
 > |---|---|
-> | **1** — default `vcpus: 4` invalid for 9 of 11 specs | **FIXED, committed `236810e4e`, NOT live.** Derived from `GET /v1/specs` (fix candidate 1, the ranked-best one). |
-> | **2** — `waitTimeout` hardcoded 5 min, cleanup deletes the box | **FIXED, committed `236810e4e`, NOT live.** Now `thunder_config.provision_wait_timeout_seconds` (migration **400**), default 540s. Fix candidate 1. |
+> | **1** — default `vcpus: 4` invalid for 9 of 11 specs | **FIXED AND LIVE** (2026-08-15) — thunder-adapter `v1.0.1301`, stamp `0115f2b45`, `236810e4e` confirmed an ancestor. Derived from `GET /v1/specs`. |
+> | **2** — `waitTimeout` hardcoded 5 min, cleanup deletes the box | **FIXED AND LIVE** (2026-08-15) — binary as above **plus migration 400 applied**, `thunder_config.provision_wait_timeout_seconds = 540`. ⚠ Both halves were needed: for ~44h the binary shipped without the column and silently fell back to the compiled-in 5 minutes. |
 > | **3** — a failed provision leaves no durable record | **FIXED and LIVE** since thunder-adapter `v1.0.1295` — as a side effect of `bugs_open/259`'s claims table (migration 396), which keeps `status='failed'`, `last_error` and the vendor id beyond pod-log rotation. |
 >
-> **Still owed:** migration 400 applied · a council round (submission written:
-> `finetuning_uk_service/council_submission_258_provision_defaults.json`) · a
-> `make build-thunder-adapter` and a whole-fleet release the **owner** runs.
-> Both blocked 2026-08-13 evening on an expired kubeconfig token (fleet-wide
-> `Unauthorized`; expired 18:05Z — the owner refreshes it).
+> **Still owed — one thing only: a REAL PROVISION.** Code live, migration applied,
+> council submitted 2026-08-15 (`d24f9829-0a3f-47a8-bdcb-4b63ced63f1b`). The bar for
+> closing is fixed AND live AND demonstrated: an a6000 provisioned with **no**
+> `vcpus` override that reaches `running` and is **not** deleted. Provisioning is
+> still PAUSED, so that has not happened yet.
 >
 > ⚠ **Defects 1 and 2 were only safe to fix in this order.** Raising the wait
 > deadline makes the handler block longer, and a longer block used to mean *more*

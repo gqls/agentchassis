@@ -10854,3 +10854,42 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **the check:** when a council verdict changes what actually shipped, **grep the whole entry for the thing that changed and fix every occurrence** — not just the bullet you are writing. `grep -n "ttl\|TTL" <entry>` would have taken one second and shown two answers. And when reading: if an entry has a `council verdict` bullet, read it BEFORE trusting the `what:` line, because the verdict is where the `what:` gets contradicted.
 - **the general form:** the ordering of a register entry is adversarial to this failure — `what:` is written first and rarely revisited, while verdicts and corrections accrete at the bottom. Assume the top of a long entry is the oldest text in it.
 - **added:** 2026-08-15, bugfix_209/231 lane, found while flipping `cacheTTL` to `1h` and discovering the entry had been describing the destination rather than the state
+
+---
+
+## A config-backed fix ships in TWO halves — the build stamp proves the binary and says nothing about the migration, and the binary degrades SILENTLY
+
+- **footprint:** `internal/adapters/thunder/store/config.go` (`LoadConfig`) · `thunder_config.provision_wait_timeout_seconds` · any `store.LoadConfig`-style read using `(to_jsonb(t)->>'col')::int` · `scripts/migration/run-migrations.sh` · every "is my fix live?" check based on `build provenance` + `git merge-base`
+- **fires when:** you ship a fix whose behaviour depends on a new config column, verify it the estate's approved way — read the running service's `build provenance` stamp, confirm your commit is an ancestor — and conclude the fix is live. **The stamp only proves the binary half.** If the migration has not been applied, the code takes its fallback path and the old behaviour continues.
+- **why the wrong result looks exactly right:** the fallback is *deliberate and correct* — degrading to a compiled-in default is what stops an unmigrated database breaking every call (which is why the read uses `to_jsonb`, so a missing column is NULL rather than an error). So nothing fails, nothing logs an error, and the ancestry check genuinely passes. **Measured here: 44 hours** between `v1.0.1295` shipping `bugs_open/258` defect 2's fix and migration 400 being applied — during which the adapter used the hardcoded 5-minute deadline the fix existed to remove, while every deploy check said "shipped".
+- **the check — assert the VALUE, not the version:**
+  ```sql
+  -- 1. does the column exist at all?
+  SELECT count(*) FROM information_schema.columns
+  WHERE table_name='thunder_config' AND column_name='provision_wait_timeout_seconds';
+  -- 2. run the EXACT projection the code runs, and read the value back
+  SELECT (to_jsonb(t)->>'provision_wait_timeout_seconds')::int FROM thunder_config t LIMIT 1;
+  -- 3. and confirm the migration is RECORDED, not merely applied by hand
+  SELECT filename FROM schema_migrations WHERE filename LIKE '400_%';
+  ```
+  At the service, the fallback names itself — this WARN is the whole tell:
+  `provision_wait_timeout_seconds not available — using compiled-in default (is migration 400 applied?)`
+- **so: make the fallback SAY SO.** A silent default is indistinguishable from a configured one. If you write a `resolveX(cfg)` helper with a compiled-in fallback, log at WARN naming the migration — it costs one line and it is the only thing standing between "degraded safely" and "quietly did nothing".
+- **the general rule:** *"prove it at the artefact"* has two artefacts for a config-backed change — **the binary AND the row**. A deploy check that reads only the stamp answers "is the code there", never "is the behaviour on".
+- **relations:** the `prove-a-deploy-at-the-artefact` family (this is its config-shaped blind spot) · `bugs_open/258` defect 2 · FTW-044 · the ordering note in migration 400's header (396 was the opposite case — there the adapter treats an absent table as a HARD ERROR and refuses to provision, deliberately, because that one is a safety guard rather than a tunable)
+- **source:** 2026-08-15, `finetuning_uk_service` lane. Found by checking whether the column existed *after* confirming the commit was in the running build — the ancestry check had already said "live", and it was right and insufficient.
+- **added:** 2026-08-15, finetuning_uk_service lane
+
+### `oracle.py --mutate expectation` reporting CONTROL OK does NOT mean every check is guarded — it cannot test a text assertion at all, and it has cried wolf twice
+
+- **footprint:** `loanandmortgagecalculator_couk/oracle.py` (`run_case`, the `raw_contains` branch and the `want = 100.0` sentinel), `oracle.py --mutate expectation`, `--mutate crosstool`, `chk(raw_contains=…)`, any batch gate whose closing evidence is "the mutation control passed"
+- **fires when:** you close a batch on this lane's mandatory gate, or you read a past session's "controls fired in-session" as meaning the whole suite was exercised. No symptom either way: the control prints `CONTROL OK` whether or not the checks it cannot reach are working.
+- **the trap, two independent halves:**
+  - **A `raw_contains` check is structurally invisible to the control.** It asserts TEXT ("Option A is Cheaper", "2 Years 3 Months"); the branch returns **before** the numeric mutation is applied, so no corruption of an expectation can move it. Counting those as PASS made the control announce *"8 checks PASSED … the checker is inert"* on a checker that was working correctly.
+  - **The sentinel can be a real answer.** The mutation asserts `100.0`, commented as *"a number nothing computes"* — false for any vector built to sit on that boundary. `inv(400000, 1200, 300000, 300000, "asymmetric; LTV exactly 100%")` has loan == value, so its LTV genuinely is 100.0%.
+- **why it is worse than an ordinary gap:** both halves fail **toward the alarm**, and this file's own docstring already records the same shape once before (2026-08-12, determinism checks) with the note that **a control that cries wolf gets ignored**. It had already blocked a Track B page once. The next session to meet a spurious "the checker is inert" is measurably more likely to wave it through — which is the one thing a last-line control cannot afford.
+- **the check, when the control accuses the checker:** **list the passing checks before believing either story** — `python3 oracle.py --mutate expectation --json out.json`, then print every `status == "PASS"` with its page and `what`. If they are text assertions, or their true expectation equals the sentinel, the control is wrong and the checker is fine. And when you fix it, **prove both directions in the same session**: the normal sweep must be unchanged (it shares the branch) and the arithmetic must close exactly — 7 pre-existing N/A + 8 newly excluded = 15, not merely "fewer passes than before".
+- **THE RESIDUAL, and it is not fixed:** the expectation mutation only ever tested the ~161 checks that compare a parsed NUMBER. **No control in this file can test a `raw_contains` check**, so one that has silently stopped matching would not be caught by anything. Do not read `CONTROL OK` as coverage of those 7.
+- **source:** 2026-08-15, loanandmortgagecalculator Track B2 batch 2, closing gate. Fixed in `b40d7d982`; measurements in `NOTES_…md` 2026-08-15 (c).
+- **relations:** MEMORY [[a-pass-from-a-blind-check-outlives-the-blindness]] (closed files later quote it as "verified") · [[a-post-fix-zero-needs-a-demand-control]] · [[mutate-the-code-to-prove-the-guard]] · [[a-quiet-test-passes-when-the-rule-is-gone]]
+- **added:** 2026-08-15, loanandmortgagecalculator B2 mixed-card thread

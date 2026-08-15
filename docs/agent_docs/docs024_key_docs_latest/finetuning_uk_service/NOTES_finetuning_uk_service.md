@@ -1103,3 +1103,66 @@ NOT done:
 
 No spend this session. Nothing unpaused. No cluster state changed at all — the
 `pause_reason` rewrite and migration 396 were yesterday, before the token died.
+
+---
+
+## 2026-08-15 — both fixes now genuinely live, and the 44-hour gap that says why "live" needs two checks
+
+Token restored; everything blocked on 08-13 is done.
+
+### The deploy check, and the thing it does NOT cover
+
+`v1.0.1301`, pod started 10:14:33Z, stamp `0115f2b4528b0063fd01e7af275ccefe9c5a991d`.
+All four commits confirmed ancestors: `10659b419` (259 guard), `7abafc76f`
+(classifier), `236810e4e` (258 defects 1+2), `647f3404a` (the 397→400 renumber).
+
+**Then I checked the other half, and it was missing.** `provision_wait_timeout_seconds`
+did not exist — migration 400 had never been applied. So for the ~44 hours since
+`v1.0.1295`, the adapter had 258 defect 2's *code* and was silently using the
+compiled-in **5 minutes**, because the read falls back when the column is absent.
+That fallback is deliberate and right (it stops an unmigrated DB breaking every
+provision), which is exactly what makes it invisible: no error, no failure, and an
+ancestry check that genuinely passes.
+
+**The generalised lesson, now in `LANDMINES.md`:** *prove it at the artefact* has
+**two** artefacts for a config-backed change — the binary **and** the row. Assert
+the VALUE, not the version. And make the fallback log at WARN naming its migration,
+which this one does; that warning is the only tell.
+
+Note the asymmetry with 396, which is deliberate: the claims table is a **safety
+guard**, so an absent table is a HARD ERROR and the adapter refuses to provision.
+The wait deadline is a **tunable**, so an absent column degrades. Guards fail
+closed; tunables fall back.
+
+### Applied, verified by induction rather than by catalogue
+
+Migration 400 applied and recorded. Then checked the invariant instead of assuming
+it:
+
+```
+wait timeout now: 540s | dispatch await: 600s | INVARIANT OK: wait < await, headroom 60s
+```
+
+And ran the **exact 8-column projection `store.LoadConfig` issues** against the live
+schema — returns `... | t | t | 540`. That proves the read path end-to-end, which a
+`\d thunder_config` would not: the column existing and the code's query working
+against it are different claims.
+
+### Also done
+
+- **258 submitted to the council**: `d24f9829-0a3f-47a8-bdcb-4b63ced63f1b`
+  (verdict not yet read at time of writing; two seats were mid-flight).
+- **landmines-sync**: reported `already in sync` — another session had run it. Did
+  **not** take that at face value: queried `doc_notes` directly and confirmed all
+  three of this lane's entries are present and readable.
+
+### State at handoff
+
+`is_paused` **true**. 0 claim rows, 0 live instances, nothing billing. Nothing has
+been provisioned since 2026-08-12. No spend this session.
+
+**The single remaining step is the unpause + Phase 0 run**, which is the owner's
+step 5 and the money step — staged in full in
+`HANDOFF_2026-08-15_continue_here.md` §2, including the three separate things that
+run has to show and the one it probably will *not* (259's live proof, which needs
+an await to expire and so will not appear if the provision simply succeeds).

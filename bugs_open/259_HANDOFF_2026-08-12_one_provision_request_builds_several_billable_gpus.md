@@ -61,9 +61,14 @@
 > - Candidate 2 (stop blocking the consumer) no longer removes the trigger
 >   either — the trigger is upstream of the adapter entirely.
 >
-> **FIXED — see "The fix, as shipped" at the foot of this file.** Status stays
-> **OPEN** until it is live (a fix committed but unrolled is still reproducible),
-> and provisioning stays **PAUSED** until then.
+> **FIXED AND LIVE** since thunder-adapter `v1.0.1295` (2026-08-13), still live at
+> `v1.0.1301` / stamp `0115f2b45` (2026-08-15) — `10659b419` confirmed an ancestor
+> of both. Migration 396 applied. **Status stays OPEN** for one reason only: there
+> is no LIVE BEHAVIOURAL PROOF yet. The guard has never been observed refusing a
+> real re-dispatch, because provisioning has been paused since the day it was
+> filed. See "How to verify a fix" above — and note that if the first unpaused
+> provision SUCCEEDS quickly, the retry driver never fires and this proof still
+> will not exist.
 
 > ⚠ **THE NUMBER 259 IS AMBIGUOUS — resolve this one by SLUG.** A concurrent
 > session filed `259_HANDOFF_2026-08-12_three_processor_paths_guard_on_a_handle_that_is_nil_in_production.md`

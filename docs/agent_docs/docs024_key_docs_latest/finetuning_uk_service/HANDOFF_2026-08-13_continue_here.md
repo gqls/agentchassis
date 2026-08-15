@@ -1,5 +1,10 @@
 # HANDOFF 2026-08-13 — 259 LIVE, 258 fixed-not-live, and three things blocked on a token
 
+> ## ⛔ SUPERSEDED by `HANDOFF_2026-08-15_continue_here.md`
+> All three blocked items are done: migration **400** applied, 258 submitted to the
+> council (`d24f9829-…`), landmines synced. 258's fixes are now **LIVE** at
+> `v1.0.1301` / `0115f2b45`. One step remains — the unpause + Phase 0 run.
+
 **COLD-START document for the lane.** Supersedes
 `HANDOFF_2026-08-12b_continue_here.md` (accurate, but its "next steps" are done).
 PLAN has the approved design, RUNBOOK the commands (**§5** claims, **§6** sizing +

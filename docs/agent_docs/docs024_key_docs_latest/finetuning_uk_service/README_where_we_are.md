@@ -443,3 +443,45 @@ seven this evening, so for the last few hours I've had no access. Two things are
 waiting on that, neither urgent: the small database change that carries the new
 setting, and sending the change to the review council. Both are written and ready.
 When you refresh the token they'll take a couple of minutes.
+
+---
+
+**2026-08-15.** The new build has both fixes in it — I checked the running service's
+own record of what it was built from, and both yesterday's duplicate-machine fix and
+the two machine-sizing fixes are in there.
+
+**But one of them wasn't actually working, and it's worth explaining why, because it
+nearly slipped past me.** The fix that stops us destroying a machine for being slow
+to start needs two things: the new program, and a small database setting that tells
+it how long to wait. The program shipped on Wednesday. The database setting didn't —
+that had been blocked on the expired login token. So for about forty-four hours we
+had a fix that every check said was deployed, and which was quietly still using the
+old five-minute limit. Nothing failed; the program is written to carry on sensibly
+if the setting is missing, which is right, and is also exactly what made it
+invisible. I've applied the setting now (nine minutes), and confirmed the program
+can actually read it rather than assuming.
+
+I've written that up as a general warning for everyone: **"it's deployed" answers
+whether the code is there, not whether the behaviour is on.** For anything that
+depends on a setting, you have to check both.
+
+**Where we are now.** Everything is in place: both fixes live, the setting applied
+and sanity-checked against the surrounding timeout, the change sent to the review
+council, and all the training material still staged in storage from before. Nothing
+has been spent and no machine has been rented since Wednesday.
+
+**What's left is the actual test run** — switch renting back on, ask for one cheap
+machine with no size specified (that's the point of the sizing fix), and see it come
+up and stay up. That's the money step, about four to ten pence, and it's the first
+run that has a real chance of working end to end. It also finally answers something
+we still don't know: how long one of these machines actually takes to start. Every
+previous attempt was killed at five minutes, so all we can honestly say is "more
+than five".
+
+I've left detailed instructions so this can be picked up in a fresh conversation
+without losing anything — what to run, what to watch, and the three separate things
+that run needs to prove. One caution I've flagged prominently: if the machine starts
+quickly, that will *not* prove the duplicate-machine guard works, because that guard
+only fires when something is slow. It's live and thoroughly tested, but it has still
+never been seen doing its job on a real request, and I'd rather that stayed written
+down than got quietly counted as done.
