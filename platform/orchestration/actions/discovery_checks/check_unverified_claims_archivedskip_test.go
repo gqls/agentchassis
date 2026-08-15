@@ -48,18 +48,41 @@
 //	weaken to `NOT (p.status = 'archived')`            tests 1 and 2
 //	weaken to `NOT (p.deployed_at IS NOT NULL)`        tests 1 and 3
 //	drop it here, add a p.status filter to site query  tests 1 and 4
+//	re-type the shared builder as `p.deployed_at IS    test 1, on the reuse arm
+//	  NULL` (the ROUND 1 DEFECT, restored)
+//
+// That last row is why this file exists in its current shape. Round 1 of the
+// council gate returned REVISE on a HIGH objection from the `reuse_agent` seat:
+// the exclusion hand-rolled "never deployed" instead of calling
+// datahelpers.NeverDeployedPagePredicateFor, which ~14 sibling checks in this very
+// package already use. The seat was right, and the objection was not stylistic —
+// the shared builder carries a `COALESCE(build_status,'') <> 'deployed'` conjunct
+// the hand-rolled version lacked, sparing a page marked deployed but never
+// stamped. Exactly one such row exists fleet-wide and it serves HTTP 200. The two
+// spellings agree on today's data and diverge the moment that row is archived.
 
 package discovery_checks
 
 import (
 	"strings"
 	"testing"
+
+	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 )
 
-// theExclusion is the predicate as it must appear in the page query. Written out
-// once, and compared as a whole: a partial match is precisely the failure this
-// file is about, so there is deliberately no "contains p.status" shortcut.
-const theExclusion = "NOT (p.status = 'archived' AND p.deployed_at IS NULL)"
+// theExclusion is the predicate as it must appear in the page query.
+//
+// ⚠ IT IS DERIVED FROM THE SHARED BUILDER, NOT RETYPED. The never-deployed half is
+// datahelpers.NeverDeployedPagePredicateFor — the estate's one definition of "this
+// page never shipped" (bugs_open/185) — so if that definition changes, this test
+// follows it instead of pinning a stale copy and failing for the wrong reason. A
+// literal here would also quietly re-approve the exact defect council round 1
+// caught: the first version of this query hand-rolled the half as
+// `p.deployed_at IS NULL`, dropping the `build_status <> 'deployed'` conjunct that
+// spares a page marked deployed but never stamped.
+func theExclusion() string {
+	return "NOT (p.status = 'archived' AND (" + datahelpers.NeverDeployedPagePredicateFor("p") + "))"
+}
 
 // capturePageAndSiteSQL reuses the sibling file's sqlmock harness rather than
 // standing up a second one. Its name says "lockedSkip" because that is what it
@@ -82,7 +105,20 @@ func capturePageAndSiteSQL(t *testing.T) (pageSQL, siteSQL string) {
 func TestPageQueryExcludesArchivedAndNeverDeployed(t *testing.T) {
 	pageSQL, _ := capturePageAndSiteSQL(t)
 
-	if strings.Contains(pageSQL, theExclusion) {
+	if strings.Contains(pageSQL, theExclusion()) {
+		return
+	}
+
+	// The reuse check, first, because it is the one council round 1 gated on: if the
+	// never-deployed half is present but is NOT the shared builder's text, someone
+	// has re-typed the estate's definition into this call site.
+	if !strings.Contains(pageSQL, datahelpers.NeverDeployedPagePredicateFor("p")) &&
+		strings.Contains(pageSQL, "p.deployed_at IS NULL") {
+		t.Errorf("the never-deployed half has been hand-rolled instead of taken from "+
+			"datahelpers.NeverDeployedPagePredicateFor. That drops the COALESCE(build_status,'') "+
+			"<> 'deployed' conjunct, which spares a page marked deployed but never stamped — one "+
+			"such row exists fleet-wide and it serves HTTP 200.\nwant to contain: %s\n%s",
+			theExclusion(), pageSQL)
 		return
 	}
 
@@ -101,9 +137,10 @@ func TestPageQueryExcludesArchivedAndNeverDeployed(t *testing.T) {
 		t.Errorf("the exclusion has lost its status half. It now drops every never-deployed page, "+
 			"including active ones still being built, which is a much wider blind spot than intended.\n%s", pageSQL)
 	default:
-		t.Errorf("the exclusion is present but no longer matches %q verbatim — if the rewrite is "+
-			"deliberate, confirm it is still a CONJUNCTION before updating this constant.\n%s",
-			theExclusion, pageSQL)
+		t.Errorf("the exclusion is present but no longer matches %q — if the rewrite is "+
+			"deliberate, confirm it is still a CONJUNCTION and still sources its never-deployed "+
+			"half from the shared builder before changing this test.\n%s",
+			theExclusion(), pageSQL)
 	}
 }
 

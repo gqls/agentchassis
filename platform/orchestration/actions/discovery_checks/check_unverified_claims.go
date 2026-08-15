@@ -354,12 +354,41 @@ func LoadEvidenceBase(ctx context.Context, db *sql.DB, siteID uuid.UUID) (*datah
 // that returned 404 at a different byte count. Excluding on status alone would
 // silently stop claim-checking five live, publicly-served pages.
 //
-// ⚠ THE ESTATE'S USUAL LIVENESS PREDICATE IS THEREFORE WRONG FOR THIS QUERY.
-// `p.status = 'active' AND p.build_status = 'deployed'` (load_site_pages_action.go:80
-// and four sibling call sites) is the right test for "should we RE-PUBLISH this
-// page". It is the wrong test for "is there copy a visitor can read", which is
-// what an audit asks: archiving a page sets a database column, it does not
-// unpublish the artefact already sitting in the deploy repo.
+// ⚠ A STATUS+build_status LIVENESS PREDICATE IS THE WRONG TOOL HERE.
+// `p.status = 'active' AND p.build_status = 'deployed'` reads as the fleet
+// standard and is the right test for "should we RE-PUBLISH this page". It is the
+// wrong test for "is there copy a visitor can read", which is what an audit asks:
+// archiving a page sets a database column, it does not unpublish the artefact
+// already sitting in the deploy repo.
+//
+// > **CORRECTED 2026-08-15, council round 1 (`prior_art_librarian`, MEDIUM).** This
+// > paragraph first cited that predicate as live "at load_site_pages_action.go:80 and
+// > four sibling call sites", carried verbatim from a LANDMINES.md entry. **Checked:
+// > the list is stale.** `load_site_pages_action.go` carries no such predicate, and
+// > `request_render_audit_action.go:107` is a *comment* recording that it USED to —
+// > `bugs_open/185` tranche 2 converted it on 2026-08-03 after measuring 36 live pages
+// > invisible to that audit. A landmine's call-site list is evidence about the day it
+// > was written; re-grep before repeating one.
+//
+// THE NEVER-DEPLOYED HALF IS NOT HAND-ROLLED — it is
+// `datahelpers.NeverDeployedPagePredicateFor("p")`, the estate's one definition
+// (`bugs_open/185`). It is DELIBERATELY not just `deployed_at IS NULL`: it also
+// requires `COALESCE(build_status,'') <> 'deployed'`, which spares a page marked
+// deployed but never stamped. Exactly one such row exists fleet-wide
+// (`idea.uk/tools.html#audience-check`, measured 2026-08-15) and per that helper's
+// own doc it SERVES 200. This query first shipped with the hand-rolled half and the
+// council's `reuse_agent` seat gated on it; the two spellings agree on today's data
+// and would diverge the moment that row were archived.
+//
+// ⚠ WHY NOT `PageHasShippedPredicateFor`, which ~14 sibling checks in this package
+// use? Because it excludes EVERY never-shipped page, and this check wants them: a
+// component with stored `content_data` and no `rendered_html` has never been
+// published and is exactly what the next re-render WILL publish, unchecked
+// (`bugs_open/093`, the reason the row predicate below is an OR). Scanning
+// pre-publication copy is the point. Only the archived-AND-never-shipped corner —
+// copy that was withdrawn before it ever published, and so will never render — is
+// excluded here. Same shape of deliberate divergence as
+// `resolve_internal_links_action.go:575`.
 //
 // The conjunction excludes exactly 1 page / 7 components fleet-wide, and the URL
 // it drops stays covered — an active, deployed row serves the same /index.html.
@@ -406,7 +435,7 @@ func ScanDeployedClaims(
 		JOIN pages p ON p.id = pc.page_id
 		LEFT JOIN content_components cc ON cc.id = pc.component_id
 		WHERE p.site_id = $1
-		  AND NOT (p.status = 'archived' AND p.deployed_at IS NULL)
+		  AND NOT (p.status = 'archived' AND (` + datahelpers.NeverDeployedPagePredicateFor("p") + `))
 		  AND ( (pc.rendered_html IS NOT NULL AND pc.rendered_html <> '')
 		     OR (pc.content_data IS NOT NULL AND pc.content_data::text <> '{}') )`
 	pageArgs := []interface{}{siteID}
