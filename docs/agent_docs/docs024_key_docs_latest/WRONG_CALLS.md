@@ -31796,3 +31796,38 @@ sounding like "the step's config" is precisely what made the wrong path look obv
 **The near miss worth recording:** no call ran during the window, so nothing truncated. That is
 luck, not process — calls arrive about every ten minutes and the fix landed inside one
 interval. The lesson survives the good outcome.
+
+### Addendum, same day — the class was ALREADY in `LANDMINES.md` and I did not grep for it
+
+The entry above reads as a novel discovery. It is not. `LANDMINES.md` has carried
+**"`output_field` nested inside a workflow step's `config` is INERT"** since the
+`finetuning_uk_service` lane filed it — the identical failure with a different key: a value
+authored inside `steps.<step>.config` that the parser reads from a *different* level, so it is
+silently read by nothing. Its check line generalises to my case almost word for word — *"read
+the STORER, not a specimen"* is the same instruction as *read the resolver, not the field
+name*.
+
+**The cheap check I skipped** is the one already in MEMORY as
+`grep-landmines-for-your-symbols`: the SessionStart hook only surfaces entries matching files
+already **dirty** in the tree, and I was editing no Go file — I was writing SQL against
+`agent_definitions`. So the hook could not have shown it to me, and a one-line grep was the
+only route:
+
+```bash
+grep -n "steps.*config.*INERT\|INERT" docs/agent_docs/docs024_key_docs_latest/LANDMINES.md
+```
+
+**Why this is worth a second entry rather than a footnote:** the tally is the point of this
+file, and the tally now says this exact shape — *a key authored in a step's `config` that
+nothing reads* — has bitten two independent lanes with two different keys. That is no longer an
+anecdote about carelessness; it is a **structural property of how `default_config` is authored
+versus how it is consumed**, and it will bite a third lane. The generalisable rule is not "be
+careful with `max_tokens`" but: **before writing any key into `steps.<step>.config`, find the
+code that reads it and confirm it reads it from THAT level** — because the authoring format and
+the consuming format are not the same shape, and nothing in the JSON tells you which keys are
+live.
+
+**Owed, deliberately deferred:** a cross-reference between the two `LANDMINES.md` entries. Not
+added today because another lane has an uncommitted entry in that file, and a pathspec commit
+takes same-file passengers — adding my cross-reference would have swept their in-progress work
+into my commit under my message.
