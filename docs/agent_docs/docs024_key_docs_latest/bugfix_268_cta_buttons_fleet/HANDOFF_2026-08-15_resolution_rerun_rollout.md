@@ -16,7 +16,21 @@ this file → NOTES 2026-08-15 session 3 → `bugs_closed/268` §12.
   (`ai_site_selling_automation/SQL_2026-08-15_unlock_cta_components.sql`,
   verify passed: 0 hero/cta locks, sibling chat-input-box lock untouched);
   (2) **re-run CTA resolution per site** for the ~194 never-resolved
-  label-without-URL rows — **IN PROGRESS, this is your job.**
+  label-without-URL rows — **DISPATCHED IN FULL, your job is verification
+  and the wrap-up.** Canary site dartsonline: 7/7 complete, **11/11 rows
+  resolved, untouched rows byte-identical**; three bounded anomalies
+  contributed into `bugs_open/248` (self-link on brands-index; duplicate
+  target on barrel-weight; empty-label row stays invisible). Fleet batch:
+  **119 items / 20 sites filed** (`ctaresolve_268_%`, backdated 08-11
+  11:20), in queue as of ~09:5xZ. **248 clobber exposure measured ZERO
+  pre-flight** (no dispatched page stores a CTA at a valid excluded-area
+  page); full before-snapshot of all 110 url keys in this session's
+  scratchpad (`canary/before_fleet_all_cta_urls.txt`) — recreate from
+  `page_component_history` if the scratchpad is gone.
+  **Remaining:** wait for the batch (expect some `failed` with fine work —
+  `bugs_open/274`'s delivery defect); per-site matched-pair spot-checks;
+  re-run the census + split; append a dated addendum to `bugs_closed/268`
+  §12 with the final figures and the label-only residue list for the owner.
 
 ## 1. The mechanism (verified at the code — do not re-derive)
 
