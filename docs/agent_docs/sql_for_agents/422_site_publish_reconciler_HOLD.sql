@@ -1,20 +1,35 @@
 -- 422: the publish reconciler — scheduled drift sweep + site-publisher
 -- repurposed onto the publish seam (site_delivery_and_editor Phase 2).
+-- REVISED 2026-08-15 after council round 1 (corr 21aba3f5, gating objection
+-- from debug_historian): the snapshot now uses the sanctioned two-arg
+-- snapshot_agent() into agent_definitions_backup (my hand-rolled partial
+-- INSERT would have dropped topics/capabilities/image fields from any
+-- restore), re-application is a graceful no-op, and the post-update state is
+-- read back rather than assumed.
 --
 -- ⚠ WHY THIS IS A _HOLD FILE (ordering-critical, excluded from --apply by
 -- SIDECAR_RE): it seeds workflows naming the `publish_site` action, which
--- exists only in images built from the commit that ships platform/publish.
--- A seed naming an unregistered action fails at runtime (CLAUDE.md: image
--- first, then seeds). APPLY BY HAND, AFTER the chassis roll that carries
--- publish_site, verified at the binary (grep the build-provenance stamp or
--- ask the pod), with exactly these two commands from the repo root:
+-- exists only in images built from commit 71e4d9736 onward. A seed naming an
+-- unregistered action fails at runtime (CLAUDE.md: image first, then seeds).
 --
+-- BEFORE APPLYING, VERIFY THE RUNNING POD — not git, not the image tag
+-- (per-SERVICE, both replicas if you doubt one):
+--   kubectl -n ai-persona-system logs -l app=agent-chassis --tail=300 | grep -m1 'build provenance'
+--   git merge-base --is-ancestor 71e4d9736 <the stamp sha>   # must exit 0
+-- The stamp is a STARTUP line and scrolls on a busy service; an empty grep
+-- means "not in range", not "unstamped" — fall back to the binary probe with
+-- a KNOWN sha plus a present-and-absent control pair (LANDMINES; never
+-- `strings`, and never a marker containing an em dash).
+--
+-- THEN apply with exactly these two commands from the repo root:
 --   kubectl -n ai-persona-system exec -i postgres-clients-0 -- \
 --     psql -U clients_user -d clients_db -v ON_ERROR_STOP=1 \
 --     -f - < docs/agent_docs/sql_for_agents/422_site_publish_reconciler_HOLD.sql
 --   ./scripts/migration/run-migrations.sh --record-only \
 --     docs/agent_docs/sql_for_agents/422_site_publish_reconciler_HOLD.sql \
 --     --note "hand-applied post-roll; HOLD was for image-before-seed ordering"
+-- Re-running after a successful apply is SAFE: the repurpose block detects
+-- the applied state and no-ops with a NOTICE (it will not stack snapshots).
 --
 -- WHAT IT DOES (all inert until a site opts in — sites.publish_target is
 -- NULL fleet-wide, migration 412):
@@ -23,12 +38,17 @@
 --      failed run cannot pin the rotation head).
 --   2. Repurposes the LIVE site-publisher definition (a pre-070-refactor
 --      fossil: object-format workflow, upload_to_s3 into a bucket "websites"
---      that does not exist) onto the seam. Guarded on the fossil's exact
---      pre-state; snapshots the row first. site-publisher rather than a new
---      type because the spawner's storage allow-list and topic_manager
---      already carry the name — a spawned site-publisher pod is exactly the
---      credentialed environment publish_site requires (the standing chassis
---      carries no B2 credentials by owner ruling 2026-08-08).
+--      that does not exist; ZERO consumers by query — 0 workflows, 0
+--      schedules, 0 work items, 0 orchestrations all-history) onto the seam.
+--      Guarded on the fossil's exact pre-state; full-row snapshot via
+--      snapshot_agent(type, reason) FIRST, and the snapshot is verified to
+--      hold the PRE-change config before anything mutates (a snapshot
+--      carrying the post-change value restores nothing — LANDMINES).
+--      site-publisher rather than a new type because the spawner's storage
+--      allow-list and topic_manager already carry the name — a spawned
+--      site-publisher pod is exactly the credentialed environment
+--      publish_site requires (the standing chassis carries no B2
+--      credentials by owner ruling 2026-08-08).
 --   3. publish-reconciler — a small orchestrator the scheduler dispatches:
 --      spawn site-publisher, call it with {site_id, domain}, complete. The
 --      spawn→call pair is the estate's standing (and known-racy) handshake;
@@ -37,7 +57,14 @@
 --      picks the least-recently-checked opted-in site and stamps it; zero
 --      opted-in sites -> zero rows -> the gate skips and nothing fires.
 --
--- ROLLBACK RECIPE: 422_site_publish_reconciler_HOLD_ROLLBACK.sql.
+-- Note (editquality seat, same round): nothing prevents an operator setting
+-- publish_target='cfpages' before that backend is armed — by design. The
+-- refusal is loud, names the working backend, and recurs each tick until
+-- the target is corrected or cfpages is armed. Do not "fix" this with a
+-- CHECK constraint: arming cfpages would then need migration churn.
+--
+-- ROLLBACK RECIPE: 422_site_publish_reconciler_HOLD_ROLLBACK.sql (restores
+-- from agent_definitions_backup by snapshot_reason, newest snapshot_taken_at).
 
 BEGIN;
 
@@ -55,6 +82,7 @@ DECLARE
   n int;
   live_id uuid;
   cur_action text;
+  snap_action text;
 BEGIN
   SELECT count(*) INTO n FROM agent_definitions
    WHERE type = 'site-publisher'
@@ -69,24 +97,40 @@ BEGIN
    WHERE type = 'site-publisher'
      AND is_active AND COALESCE(is_snapshot, false) = false AND deleted_at IS NULL;
 
+  -- Idempotent re-application: already carrying the seam workflow means a
+  -- previous apply succeeded — no-op, and take no second snapshot.
+  IF cur_action = 'publish_site' THEN
+    RAISE NOTICE '422: site-publisher already carries publish_site — previously applied, skipping repurpose';
+    RETURN;
+  END IF;
+
   -- Guard on the fossil's exact pre-state; anything else means another
   -- session got here first or the row is not what 2026-08-15 measured.
   IF cur_action IS DISTINCT FROM 'upload_to_s3' THEN
     RAISE EXCEPTION '422: site-publisher pre-state mismatch — steps.publish.action is %, expected the upload_to_s3 fossil. Read the row before re-running.', cur_action;
   END IF;
 
-  -- Snapshot the fossil before touching it.
-  INSERT INTO agent_definitions
-        (type, display_name, description, category, agent_category, status,
-         is_active, is_snapshot, default_config, created_at)
-  SELECT type, display_name,
-         COALESCE(description, '') || ' [snapshot before migration 422 repurposed the live row onto platform/publish]',
-         category, agent_category, status,
-         false, true, default_config, now()
-    FROM agent_definitions WHERE id = live_id;
+  -- Full-row snapshot via the SANCTIONED mechanism. Two-arg form ->
+  -- agent_definitions_backup (the one-arg form writes an is_snapshot row to
+  -- a DIFFERENT table — the documented dual-overload trap). The distinctive
+  -- reason is what makes OUR snapshot findable: backup rows copy id AND
+  -- created_at from the source, so only snapshot_reason + snapshot_taken_at
+  -- identify a specific snapshot (LANDMINES).
+  PERFORM snapshot_agent('site-publisher', '422 pre-repurpose: upload_to_s3 fossil');
+
+  -- A snapshot EXISTING is not the check — it must hold the PRE-change
+  -- config, or the restore path is already broken. Abort before mutating.
+  SELECT b.default_config#>>'{workflow,steps,publish,action}' INTO snap_action
+    FROM agent_definitions_backup b
+   WHERE b.type = 'site-publisher'
+     AND b.snapshot_reason = '422 pre-repurpose: upload_to_s3 fossil'
+   ORDER BY b.snapshot_taken_at DESC LIMIT 1;
+  IF snap_action IS DISTINCT FROM 'upload_to_s3' THEN
+    RAISE EXCEPTION '422: snapshot does not hold the pre-change config (found %) — restore would be impossible, aborting with nothing mutated', snap_action;
+  END IF;
 
   UPDATE agent_definitions
-     SET description = 'Publishes one site''s built artefact tree to its opted-in hosting backend via the publish seam (platform/publish). Runs publish_site, which no-ops with a recorded reason when sites.publish_target is NULL (the default), when the tree has no drift against sites.published_hash, or when nothing is built. Must run as a SPAWNED pod: it is on the spawner''s storage allow-list, and the standing chassis carries no B2 credentials. Dispatch with input_data {site_id, domain}.',
+     SET description = 'Publishes one site''s built artefact tree to its opted-in hosting backend via the publish seam (platform/publish). Runs publish_site, which no-ops with a recorded reason when sites.publish_target is NULL (the default), when the tree has no drift against sites.published_hash, or when nothing is built. Must run as a SPAWNED pod: it is on the spawner''s storage allow-list, and the standing chassis carries no B2 credentials. Dispatch with input_data {site_id, domain}. Pre-422 fossil config in agent_definitions_backup, snapshot_reason ''422 pre-repurpose: upload_to_s3 fossil''.',
          default_config = jsonb_set(default_config, '{workflow}', jsonb_build_object(
            'start_step', 'publish',
            'timeout_seconds', 600,
@@ -110,6 +154,13 @@ BEGIN
          )),
          updated_at = now()
    WHERE id = live_id;
+
+  -- Post-condition: read back the row just written, never assume the write.
+  SELECT default_config#>>'{workflow,steps,publish,action}' INTO cur_action
+    FROM agent_definitions WHERE id = live_id;
+  IF cur_action IS DISTINCT FROM 'publish_site' THEN
+    RAISE EXCEPTION '422: post-update read-back shows steps.publish.action = %, want publish_site', cur_action;
+  END IF;
 END $repurpose$;
 
 -- 3. The dispatching orchestrator ----------------------------------------
@@ -206,10 +257,14 @@ BEGIN
     RAISE EXCEPTION '422 verify: site-publisher publish step action is %, want publish_site', a;
   END IF;
 
-  SELECT count(*) INTO n FROM agent_definitions
-   WHERE type = 'site-publisher' AND COALESCE(is_snapshot, false) = true;
+  -- The restore path must actually exist: a backup row under OUR reason
+  -- holding the PRE-change config (not merely any snapshot).
+  SELECT count(*) INTO n FROM agent_definitions_backup
+   WHERE type = 'site-publisher'
+     AND snapshot_reason = '422 pre-repurpose: upload_to_s3 fossil'
+     AND default_config#>>'{workflow,steps,publish,action}' = 'upload_to_s3';
   IF n < 1 THEN
-    RAISE EXCEPTION '422 verify: no snapshot of the pre-422 site-publisher exists';
+    RAISE EXCEPTION '422 verify: no restorable pre-repurpose snapshot in agent_definitions_backup';
   END IF;
 
   SELECT count(*) INTO n FROM jsonb_object_keys((

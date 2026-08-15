@@ -119,3 +119,35 @@
 - Council submission file kept at the session scratchpad
   (`council_publish_seam.json`); the artifact trail lives under the correlation
   either way.
+
+## 2026-08-15 (evening) — council round 1: REVISE, objection CORRECT; seed fixed and resubmitted
+
+- Verdict landed ~15 min after submission (dispatch was fast today, not the
+  measured 29-min queue). **REVISE — gating objection from `debug_historian`,
+  and it caught a real defect of mine, not a style point**: seed 422's
+  "snapshot before repurpose" was a hand-rolled INSERT copying only 9 columns
+  — a restore from it would have silently dropped the fossil's `topics`,
+  `capabilities` and image fields. The estate already had the sanctioned
+  mechanism (`snapshot_agent(type, reason)` → full-row copy into
+  `agent_definitions_backup`) AND two documented landmines about exactly this
+  (dual overloads writing to two different tables; backup rows copying
+  id/created_at so only `snapshot_reason` + `snapshot_taken_at` identify a
+  snapshot). I grepped LANDMINES for my file/table footprints but not for
+  "snapshot" as an operation — the miss was in the verb, not the noun.
+- Fixed in the held seed (all four objections):
+  1. (HIGH) two-arg `snapshot_agent()` with reason `'422 pre-repurpose:
+     upload_to_s3 fossil'`, then the snapshot is verified to hold the
+     PRE-change config before anything mutates (exists ≠ restorable).
+  2. (MEDIUM) re-application is a graceful NOTICE no-op on the applied state
+     (no snapshot stacking); unknown pre-state still raises; the UPDATE gets
+     a post-condition read-back.
+  3. (LOW) the header now names the explicit pod-verification commands
+     (provenance stamp + `git merge-base --is-ancestor 71e4d9736`, with the
+     scrolled-stamp fallback) BEFORE the apply commands.
+  4. (editquality, low) unarmed-cfpages opt-in stays possible by design —
+     noted in the header with the reason a CHECK constraint would be worse.
+- Rollback file rewritten to restore from `agent_definitions_backup` by
+  reason + `snapshot_taken_at DESC`, refuse a snapshot not holding the
+  pre-change config, and stamp `restored_at`.
+- **Resubmitted on the SAME correlation** (round 2, run orch
+  `507d6e87-cbf9-4ad8-9d13-725521416edb`); verdict-read still the owed step.
