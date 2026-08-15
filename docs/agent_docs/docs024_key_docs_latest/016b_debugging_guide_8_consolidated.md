@@ -12272,3 +12272,51 @@ Fix shape that closed it: a fail-closed census fence at the writer
 (`sharedComponentWriteCheck`, opt-in override), plus producers that route shared-address
 findings to human review instead of an auto-fixer. One `html_template` writer
 (`fix_component_template`) remains unfenced — recorded open in `bugs_open/285`.
+
+### An instruction channel that works SOMETIMES is usually two channels — one live, one dead, and the dead one is the field named after the job (`bugs_open/271`, 2026-08-15)
+
+**The symptom is the trap.** You file work with a careful brief — "state X, remove Y,
+add Z" — and the asks are honoured *sometimes*. That reads as an unreliable writer, a
+flaky model, a prompt that needs strengthening. Three of the four rewrite rounds one lane
+burned on this were spent "fixing" real-but-incidental defects the failures appeared to
+expose. The guidance had never reached any prompt in any round.
+
+**The mechanism.** Two spellings existed for one channel and only one was wired.
+`site_work_items.spec.suggestion` travels `LoadWorkItemsAction` → the dispatch loop's
+`"spec": "current_item.spec"` → `page-build-handler`'s `"rewrite_guidance?":
+"input_data.spec.suggestion"` → the writer prompt's `## Rewrite Guidance` block.
+`spec.content_guidance` — written by four Go emitters including the platform's own
+content-gap pipeline, and named after exactly the job it fails to do — was read by
+nothing at any layer. **Why it presents as intermittent rather than broken:** a brief
+that restates what the site's `writer_block` already says appears to work, because the
+writer would have written that anyway. The channel looks flaky; it is dead, and something
+else is doing the work.
+
+**Why the enumeration that clears it is easy to get wrong.** The safety case for any fix
+here is "who reads this key" — and the obvious query answers a narrower question than it
+appears to. A `jsonb_each` over `default_config->'workflow'->'steps'` sees neither prompt
+text (two of the three real readers) nor anything inside a loop's `config.sub_workflow`
+(every dispatcher on this platform), and returns a clean, confident, incomplete answer.
+Ask the whole config blob as text first — `default_config::text LIKE '%spec.<key>%'` —
+and use structure only to say WHERE each hit lives. Equally: a `LIKE` hit is not a reader.
+The one for `content_guidance` is `content-gap-planner`'s own prompt instructing an LLM to
+emit the key, which reads exactly like a live consumer and is the false affordance itself.
+
+**The test, when a steering input seems unreliable:** stop tuning the instruction and ask
+whether it ARRIVES. Grep the rendered artefact — `llm_call_log.prompt_rendered` — for a
+distinctive phrase from your own brief. Absent means the channel is dead, and no amount of
+rewording fixes a channel. Then run the discriminating case: move the identical
+instruction to a channel you have PROVEN carries (here, `writer_block`), change nothing
+else, and see it honoured first time. One channel dead, one alive, same writer, same page,
+same day — that is a mechanism, where "it sometimes ignores me" is a mood.
+
+**Fix shape that closed it:** alias the dead spelling onto the live one at the single Go
+choke point every dispatched item passes through (`aliasGuidanceIntoSuggestion`,
+`load_work_item_actions.go`), in memory, never writing the DB row — NOT a second reader
+one layer down, which is what the bug file originally proposed and would have left two
+live-but-different paths. Emitter renames plus a source-scan ratchet are hygiene; the
+alias is what reaches the ~90 historical rows and the producers no source scan can see
+(config-driven `create_work_item`, operator SQL). **Residual, stated so this is not
+misread as closing the class:** `input_mapping` resolves exactly one source path per
+destination and has no coalesce syntax, so *any* mismatched key still vanishes silently —
+a fifth producer with a THIRD spelling reproduces this bug exactly. Register `WDS-016`.

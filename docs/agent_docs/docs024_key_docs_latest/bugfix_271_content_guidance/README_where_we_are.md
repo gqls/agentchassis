@@ -47,3 +47,52 @@ work items that currently do nothing with their instructions will start acting o
 them. That is the point of the fix, but it is a real behaviour change to items
 already in the queue, so I have asked for that to be stated plainly in the plan
 and I will put it to the council review before committing.
+
+---
+
+**2026-08-15, later that evening.** The fix is written, reviewed and committed. It
+is not live yet — it is Go, and Go does nothing until a new chassis image is
+built and rolled, so the last step belongs to whoever sees the next roll. There
+is a short checklist at the end of the bug file for exactly that.
+
+**What we did, in plain terms.** Rather than build a new pipe for the ignored
+instructions, we connected them to the pipe that already works. There is now one
+place — the point every piece of queued work passes through on its way to being
+done — where a brief written under the old name is quietly read as if it had been
+written under the working name. Nothing is rewritten in the database; this
+happens in memory, on the way past. The four bits of code that were writing the
+dead name now write the live one, and there is a test that fails the build if
+anyone reintroduces the dead name.
+
+**The second model earned its keep.** I asked it to design the fix and to argue
+with me rather than agree. It corrected me on three points, and one mattered: I
+had claimed only one thing in the whole system reads the working field, and there
+are three. My query could only see one *kind* of reader. Since the entire safety
+argument is "everything that reads this field just puts text into a prompt —
+nothing makes a decision from it", an enumeration that could only see part of the
+picture was not good enough to support it. I re-checked it myself before
+believing either of us. That is now written up as a mistake to learn from.
+
+**The review board approved it first time, and the useful part was the
+complaints.** One reviewer said something I think was exactly right: I had
+written the safety rule as a comment in the code — "this is the one permitted
+exception" — and a comment is not a rule, it is a suggestion that the next person
+may read as permission. So I replaced it with a test: the queue loader must hand
+on each item's data exactly as stored, plus the one agreed addition, and nothing
+else. I then deliberately broke that rule to confirm the test catches it. Another
+reviewer made the fair point that we have fixed the one known wrong spelling, not
+the underlying reason a wrong spelling can go unnoticed at all — that is now
+written down as unfinished business rather than quietly filed as solved.
+
+**One thing worth your attention — and a correction to what I told you earlier.**
+Higher up this page I said that when this ships, ninety work items "will start
+acting on their instructions", and that this was a real change to things already
+in the queue. **That was wrong, and I only found out because I went and counted.**
+Around ninety pieces of queued work are
+carrying instructions in the dead field. None of them is currently active — they
+are all finished, cancelled, or parked awaiting a human — so nothing changes
+behaviour the moment this ships. But about twenty-five are parked in
+"needs review" or "failed", and if someone releases one of those back into the
+queue after this is live, it will act on its instructions for the first time.
+That is what you would want to happen, but it is a real change and I would rather
+flag it now than have it surprise someone later.
