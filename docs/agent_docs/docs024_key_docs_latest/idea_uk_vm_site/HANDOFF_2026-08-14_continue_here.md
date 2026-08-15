@@ -88,6 +88,22 @@ mortgagecalculator lane found for `pages.title` (*"`pages.title` does TWO jobs"*
 `page_components.content_data` alone is therefore **not durable**: the next rebuild reads
 the page row and puts it back.
 
+> **✅ DONE 2026-08-15 — DO NOT REDO. See RUNNING_NOTES §X.57.** All four were fixed at
+> source, and the job found **two more the table below misses** (`pages.title`:
+> `finetuning.uk/our-position-on-ai`, `idea.uk/guide-testing-it`) plus one durability
+> hole (`mortgagecalculator`'s row is in the CURRENT plan, so `pages` alone regresses —
+> `site_db_actions.go:1173` re-upserts it unconditionally). **0 remain at either layer**,
+> against live denominators of 684 / 246.
+> **⚠ The rebuilds were still QUEUED when that session ended** — 6 `page_rerender` items,
+> `created_by='claude-ideauk-headmeta-20260815'`, assemble mode. Until they run the
+> SERVED head is stale, so check the artefact before believing either state:
+> `curl -s <url> | grep -o '<title>[^<]*</title>'`. If they are still queued, the direct
+> publish (`scripts/fire_reassemble_idea_uk.sh`, generalised) is the route.
+> **And the finding that outlives the job: `check_voice_tells` — the gate armed on 9
+> sites — CANNOT SEE `pages.title` or `pages.meta_description`** (it selects
+> `page_components.rendered_html` only), and neither can §X.56's census. Arming the gate
+> does not protect the head. See the landmine, and §6's "18 pages" is a body-only figure.
+
 **4 rows fleet-wide, and they are the top of the next session's list:**
 
 | site | page | text |
