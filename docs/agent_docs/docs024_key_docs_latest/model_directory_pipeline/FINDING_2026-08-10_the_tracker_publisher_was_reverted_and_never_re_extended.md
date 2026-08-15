@@ -14,9 +14,18 @@
 > whole run loudly instead. Round 3 asked for a code citation rather than
 > prose to back that fix's safety claim; round 4 supplied it and closed
 > clean. Full account: `NOTES_model_directory_pipeline.md` and
-> `README_where_we_are.md` (2026-08-15 entries). The find-sites
+> `README_where_we_are.md` (2026-08-15 entries). ~~The find-sites
 > kind-blindness defect noted below remains open, now owned by
-> `portfolio_positioning` Phase B3c.
+> `portfolio_positioning` Phase B3c.~~ **B3c LANDED the same day (migration
+> `429_directory_publish_trigger_kind_aware_fan_out.sql`): the trigger now
+> fans out per (site, kind) across all six kinds with per-kind opt-in,
+> component and claims predicates, and the publisher is one render→commit
+> pair with `kind` REQUIRED by its input contract. Verified live 18:11Z:
+> per-kind counts 44/40/8 (differ, as this doc's own check demands), served
+> JSON fresh per run. NB this doc's verify query no longer matches new runs —
+> there is no `adoption_render_result`/`protocol_render_result` any more; each
+> kind is its own orchestration with `directory_render_result` +
+> `input_data.kind`. See `CONTRIB_2026-08-15_b3c_publish_leg_kind_aware.md`.**
 
 # FINDING 2026-08-10 — the four tracker feeds have never existed, and the 08-09 CONTRIB's "probably one dispatch" is WRONG
 

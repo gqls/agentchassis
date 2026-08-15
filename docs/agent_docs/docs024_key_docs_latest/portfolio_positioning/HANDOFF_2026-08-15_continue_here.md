@@ -95,9 +95,17 @@ notes commits, `SUMMARY_2026-08-15…`. All platform commits trailered with the 
      Price-field refusals appearing as rejects is the CONTROL WORKING, not a failure.
    - Work the HITL queue (last — see suppression note); bar = a reviewed,
      non-embarrassing set per kind.
-2. **B3c** — publish-trigger fix (three kind-blind predicates + LIMIT 5,
-   `SEED_directory_publish_trigger.sql:94`, per the 2026-08-10 FINDING; snapshot-first
-   agent_definitions migration + publisher chain extension). Config, live immediately.
+2. **B3c — publish-trigger fix. ✅ DONE 2026-08-15 (fourth session), migration 429
+   applied + PROVEN LIVE.** Trigger fans out per due (site, kind) across all six kinds
+   (per-kind opt-in/component/claims predicates; `ORDER BY random() LIMIT 12` ends the
+   alphabetical starvation); publisher is one render→commit pair with `kind` REQUIRED
+   by its input contract (a kind-less call fails loudly — the 07-26 defect class
+   closed upstream of the action). First run verified at the artefact: per-kind counts
+   44/40/8 differ, served JSON fresh per run, finance kinds correctly self-gated to
+   zero rows. Council `Council-Submitted: a7c99b84-…` (verdict unread at handoff —
+   read it). ⚠ NEW LANDMINE: adding a kind is now SEVEN places — the trigger's SQL
+   VALUES mapping is in lockstep with Go's `directoryPublishProfiles`. Seed synced.
+   Full evidence: NOTES same date (fourth session).
 3. **B3d** — wire `evaluate_directory_features` into improvement-loop (after
    `enrich_news_feed`, READ THE LIVE CONFIG first — 291 re-pointed edges to
    `load_audit_state`) AND into `domain-research-classifier` after

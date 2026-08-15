@@ -1101,3 +1101,77 @@ ARCHIVED category entities, invisible to consumers via the status='active' filte
 measure on active entities.) Run count per kind: mortgage 5 (runs 1-5, prior session),
 savings 1 (run 6 — first-run clean), health 2 (runs 7-8 — 428 between them). Next: B3c
 (publish-trigger fix), B3d, B3e, B3f per the handoff §2.
+
+### 2026-08-15 (fourth session) — B3c DONE: the publish leg goes kind-aware (migration 429, applied + proven live)
+
+**What shipped**: `sql_for_agents/429_directory_publish_trigger_kind_aware_fan_out.sql`
+(+ ROLLBACK) — the trigger's find-sites query now returns one row per DUE (site, kind)
+across all six kinds (per-kind opt-in via the spec key, per-kind deployed component,
+per-kind publishable claims mirroring QueryDirectoryEntries: active entities,
+is_current+found), `ORDER BY random() LIMIT 12` replaces `ORDER BY s.domain LIMIT 5`
+(deterministic alphabetical starvation → positive probability every cycle for every due
+pair), and the publisher collapsed from the hard-coded model→company→protocol 7-step
+chain to ONE render→commit pair parameterised by `input_data.kind`. Per-kind commit
+messages ride the trigger rows via `commit_message_field` (historical messages kept
+verbatim). Seed `SEED_directory_publish_trigger.sql` synced to live in the same task
+(the researcher-seed drift lesson applied proactively).
+
+**Mechanism findings that shaped the design (all read first-hand in the Go)**:
+- **A publisher-internal loop over kinds is IMPOSSIBLE config-only**: loop iterations
+  suffix output fields (`_N`) and `coordinator.go prefixConfigStepReferences` rewrites
+  only a dataRefKeys whitelist that does NOT include git_commit's `files_field` — a
+  render→commit pair inside a loop reads a field that no longer exists. Hence fan-out
+  at the TRIGGER (its spawn+call loop is the proven pattern), publisher stays linear.
+- **The 07-26 silent-model-default trap is closed UPSTREAM of the action**: `kind` joined
+  the publisher's `input_contract.required`, and call_agent's ValidateInputContract
+  fails a call missing a required field (read at call_agent.go:1005-1013). The
+  `kind!` strict marker was considered and REJECTED: pods run v1.0.1302 started
+  11:28Z; RFC_029's strict-marker commit (1806371ef) landed 14:07Z the same day —
+  config must not outrun the binary. [READ, not induced — the loud-fail path was
+  verified in source, not by firing a broken call.]
+- **`"kind": "input_data.kind"` resolves via Strategy 0** (kind is Optional in
+  RenderModelDirectoryInputSpec; the closed-set literal override ignores non-profile
+  strings) — pinned by the existing test case "reference that resolved" in
+  TestDirectoryKindResolvesFromLiteralStepConfig.
+- **Multi-iteration same-role spawn+call is iteration-aware** (findAgentByRole prefers
+  the `_N`-suffixed spawn of the current iteration) — mattered because the new shape
+  runs 3 iterations TODAY where the old ran 1.
+
+**Applied 18:10Z** after snapshot_agent backups of BOTH rows (two-arg form →
+agent_definitions_backup, reason '429...: pre-update'); zero in-flight orchestrations
+checked first; both UPDATEs one transaction; verify DO/RAISE includes
+`EXECUTE 'EXPLAIN ' || query` so a JSON-mangled SQL string aborts the COMMIT. NULL-trap
+caught in my own first draft: `position(... IN trg_query) = 0` is NULL (not true) when
+the path is missing, so plain `<>`/`=` verifies could never fire — rewrote with
+IS DISTINCT FROM + explicit NULL guards before applying.
+
+**First kind-aware run (force-triggered 18:10:51Z, trigger fired 18:11:12Z, COMPLETED
+by ~18:13Z): PROVEN AT THE ARTEFACT**:
+- 3 publisher orchestrations, one per (site, kind): company `a082f0fd`, model
+  `45c0c0bf`, protocol `5442a492` — all COMPLETED.
+- Per-kind entity counts DIFFER (the 07-26 kind-collapse check): company 44, model 40,
+  protocol 8 — same magnitudes the 411 session measured, so the register kept growing
+  while the leg was being fixed.
+- Correct per-kind files (adoption-tracker/model-directory/protocol-tracker + -full)
+  and per-kind commit messages carried through input_data.
+- Served JSON fresh at each run's own completion second (updated_at 18:11:39 /
+  18:12:17 / 18:12:42Z, all 200) — DB→render→commit→served round-trip confirmed.
+- Finance kinds produced ZERO rows — correct self-gating (no site opts in yet; the
+  dry-run of the query before baking it into config returned exactly the 3 AI pairs).
+- `rerender_queued=0` on all three kinds — IDENTICAL pre-429 (the 17:33Z run returned
+  0/0/0 too), so observed-unchanged, not introduced; noted to the model_directory lane
+  in the CONTRIB, not chased from here.
+
+**Council**: submitted FORCE=1 (411 precedent — config migration under docs/, scope
+filter would refuse it uncredited). `SUBMISSION_CORR=a7c99b84-f70f-4f34-b8e9-b12813e8639e`.
+Committed with `Council-Submitted:` per the standing rule; verdict to be read later.
+Schema lessons for the next submitter: `.plan.summary` required; operation vocabulary
+is modify|add|remove|config_change ('create' refused); `.plan.risks` is a STRING.
+
+**Residuals, stated**: (1) the VALUES kind→spec_key→components mapping in the trigger
+SQL is a LOCKSTEP contract with Go's directoryPublishProfiles — a kind added in Go
+without a row here silently never publishes; LANDMINES entry added, DIR-001 updated
+(adding a kind is now SEVEN data-only places, the trigger row is the seventh). (2) No
+staleness ordering — random() is fair-in-expectation only; a real due-stamp needs a
+bookkeeping table, deferred deliberately. Next: B3d (wire evaluate_directory_features),
+B3e, B3f per the handoff §2.

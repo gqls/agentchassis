@@ -1,27 +1,42 @@
--- SEED — model-directory publish trigger (Phase D final leg)
+-- SEED — directory publish trigger (Phase D final leg; kind-aware since 429)
 --
 -- The piece that was PLANNED but not seeded with the rest of Phase D
 -- (noticed 2026-07-24, the day the registry got its first verified rows):
--- without it, nothing commits data/model-directory.json into opted-in
+-- without it, nothing commits the directory data/*.json files into opted-in
 -- sites' repos or queues the scoped rerenders that keep the baked HTML
 -- fresh. Mirrors the content-feed-trigger → content-feed-orchestrator
--- pattern exactly (trigger finds due sites, loops spawn+call of a per-site
--- worker agent).
+-- pattern (trigger finds due work, loops spawn+call of a per-item worker).
 --
--- APPLY ONLY AFTER an image carrying `render_model_directory` is deployed
--- and pod-verified (live since agent-chassis v1.0.1149; re-verify anyway):
---   kubectl -n ai-persona-system exec <agent-chassis-pod> -- \
---     sh -c 'strings /app/agent-chassis | grep -c render_model_directory'
+-- REVISED 2026-08-15 (portfolio_positioning Phase B3c, migration
+-- docs/agent_docs/sql_for_agents/429_directory_publish_trigger_kind_aware_fan_out.sql)
+-- to match live: the trigger now fans out per DUE (site, kind) PAIR across
+-- all six register kinds (model, company, protocol, mortgage-lender,
+-- savings-provider, health-insurer), and the publisher publishes exactly
+-- the ONE kind it is called with ("kind" is REQUIRED by its input contract,
+-- so a kind-less call fails validation instead of silently defaulting to
+-- model — the 2026-07-26 defect class). Earlier revisions of this file
+-- carried the kind-blind find-sites query and the model-only (later
+-- hard-coded three-kind) publisher chain; that history is in git, and the
+-- FINDING_2026-08-10_* file in this directory records how it went wrong.
 --
--- SELF-GATING: the find-sites query requires BOTH the site_specs opt-in
--- flag AND a deployed page carrying a model-directory component. Until the
--- auto-created page exists (discovery checks → content-gap-planner →
--- page-build-handler), every cycle completes idle — harmless by design.
+-- APPLY ONLY AFTER an image whose directoryPublishProfiles carries all six
+-- kinds is deployed (live since agent-chassis v1.0.1301). Verify by build
+-- provenance, per service — never `strings` (LANDMINES):
+--   kubectl -n ai-persona-system logs -l app=agent-chassis --tail=300 \
+--     | grep -m1 'build provenance'
+--   (startup line; if it has scrolled, probe a KNOWN sha with a control:
+--   kubectl exec <pod> -- grep -aq "<expected-sha>" /proc/1/exe)
+--
+-- SELF-GATING: the find-pairs query requires the site_specs opt-in flag,
+-- a deployed page carrying the kind's component, AND publishable claims for
+-- that kind (is_current, status='found', on active entities). Until all
+-- three hold for some (site, kind), every cycle completes idle — harmless
+-- by design.
 --
 -- Config-only: live immediately, no image roll. All three inserts are
 -- guarded (WHERE NOT EXISTS) — idempotent on replay.
 
--- ── 1. Per-site publisher: render the registry JSON, commit, done ─────────
+-- ── 1. Per-(site,kind) publisher: render ONE kind's JSON, commit, done ─────
 INSERT INTO agent_definitions (
     type, display_name, description, category, agent_category, status, is_active,
     image_repository, image_tag, input_contract, output_contract, default_config
@@ -29,35 +44,36 @@ INSERT INTO agent_definitions (
 SELECT
     'model-directory-publisher',
     'Model Directory Publisher',
-    'Per-site publish leg of the model directory pipeline: renders the global directory_entities/directory_claims registry to data/model-directory.json (and the full listing file when the site has a listing page), commits via git-adapter, and queues scoped page rerenders so the server-rendered HTML tracks the registry.',
+    'Per-(site, kind) publish leg of the directory pipeline: renders ONE register kind (model, company, protocol, mortgage-lender, savings-provider, health-insurer) to its data/*.json files for one site, commits via git-adapter, and queues scoped page rerenders. The kind is required by the input contract - a call without it fails validation rather than silently defaulting to model. Kind-aware since migration 429 (Phase B3c).',
     'orchestrator', 'coordinator', 'active', true,
     'docker.io/aqls/agent-chassis',
     (SELECT image_tag FROM agent_definitions WHERE type = 'directory-researcher'),
-    '{"required": ["site_id", "domain"]}'::jsonb,
-    '{"produces": {"directory_commit_result": "model-directory JSON files committed to the site repo"}}'::jsonb,
+    '{"required": ["site_id", "domain", "kind"]}'::jsonb,
+    '{"produces": {"directory_commit_result": "one kind''s directory JSON files committed to the site repo"}}'::jsonb,
     $cfg${
   "workflow": {
-    "start_step": "render_model_directory_json",
+    "start_step": "render_directory_json",
     "processing_mode": "orchestrator",
     "timeout_seconds": 600,
     "steps": {
-      "render_model_directory_json": {
-        "action": "render_model_directory",
-        "config": {"site_id": "input_data.site_id"},
-        "next_step": "commit_model_directory",
-        "output_field": "directory_render_result",
-        "description": "Build data/model-directory.json (+ full listing when a listing page exists) from the global registry"
+      "render_directory_json": {
+        "action": "render_directory",
+        "config": {"site_id": "input_data.site_id", "kind": "input_data.kind"},
+        "next_step": "commit_directory",
+        "description": "Build the requested kind's data JSON (+ full listing when a listing page exists) from the global registry; kind arrives from the trigger row and is required by the input contract, so a missing kind fails the call rather than defaulting to model",
+        "output_field": "directory_render_result"
       },
-      "commit_model_directory": {
+      "commit_directory": {
         "action": "git_commit",
         "config": {
           "files_field": "directory_render_result.files",
           "domain_field": "directory_render_result.domain",
-          "commit_message": "Update model directory"
+          "commit_message_field": "input_data.commit_message",
+          "commit_message": "Update directory data: {{.domain}}"
         },
         "next_step": "complete",
-        "output_field": "directory_commit_result",
-        "description": "Commit the JSON files into the site repo via git-adapter"
+        "description": "Commit the JSON files into the site repo via git-adapter; per-kind message from the trigger via commit_message_field, template fallback if absent. No error_step (427 posture): a commit failure fails this run loudly - isolation now comes from the per-(site,kind) fan-out",
+        "output_field": "directory_commit_result"
       },
       "complete": {
         "action": "complete_workflow",
@@ -68,7 +84,7 @@ SELECT
 }$cfg$::jsonb
 WHERE NOT EXISTS (SELECT 1 FROM agent_definitions WHERE type = 'model-directory-publisher' AND deleted_at IS NULL);
 
--- ── 2. Trigger: find opted-in sites with a live component, loop publisher ─
+-- ── 2. Trigger: find due (site, kind) pairs, loop publisher per pair ───────
 INSERT INTO agent_definitions (
     type, display_name, description, category, agent_category, status, is_active,
     image_repository, image_tag, input_contract, output_contract, default_config
@@ -76,12 +92,12 @@ INSERT INTO agent_definitions (
 SELECT
     'model-directory-trigger',
     'Model Directory Trigger',
-    'Scheduled fan-out for the model directory publish leg: finds sites that opted in (site_specs classification content_features.model_directory) AND have a deployed page carrying a model-directory component, then spawn+calls model-directory-publisher per site. Mirrors content-feed-trigger.',
+    'Scheduled fan-out for the directory publish leg: finds due (site, kind) pairs - site opted in via site_specs classification content_features.<spec_key>, a deployed page carries that kind''s component, and the kind has publishable claims on active entities - then spawn+calls model-directory-publisher once per pair. Kind-aware since migration 429 (Phase B3c); mirrors content-feed-trigger.',
     'orchestrator', 'coordinator', 'active', true,
     'docker.io/aqls/agent-chassis',
     (SELECT image_tag FROM agent_definitions WHERE type = 'directory-researcher'),
     '{}'::jsonb,
-    '{"produces": {"publish_results": "one publisher run per due site"}}'::jsonb,
+    '{"produces": {"publish_results": "one publisher run per due (site, kind) pair"}}'::jsonb,
     $cfg${
   "workflow": {
     "start_step": "find_directory_sites",
@@ -91,12 +107,12 @@ SELECT
       "find_directory_sites": {
         "action": "query_database",
         "config": {
-          "query": "SELECT DISTINCT s.id::text AS site_id, s.domain FROM sites s JOIN site_specs ss ON ss.site_id = s.id AND ss.aspect = 'classification' AND ss.is_current = true AND (ss.data->'content_features'->'model_directory'->>'recommended')::boolean = true WHERE EXISTS (SELECT 1 FROM pages p JOIN page_components pc ON pc.page_id = p.id JOIN content_components cc ON cc.id = pc.component_id WHERE p.site_id = s.id AND p.build_status = 'deployed' AND cc.function IN ('model-directory', 'model-directory-listing')) AND EXISTS (SELECT 1 FROM directory_claims WHERE is_current AND status = 'found') ORDER BY s.domain LIMIT 5",
+          "query": "SELECT site_id, domain, kind, commit_message FROM (SELECT DISTINCT s.id::text AS site_id, s.domain, m.kind, m.commit_message FROM (VALUES ('model','model_directory','model-directory','model-directory-listing','Update model directory'), ('company','adoption_tracker','adoption-tracker','adoption-tracker-listing','Update adoption tracker'), ('protocol','protocol_tracker','protocol-tracker','protocol-tracker-listing','Update protocol tracker'), ('mortgage-lender','mortgage_lender_directory','mortgage-lender-directory','mortgage-lender-directory-listing','Update mortgage-lender directory'), ('savings-provider','savings_provider_directory','savings-provider-directory','savings-provider-directory-listing','Update savings-provider directory'), ('health-insurer','health_insurer_directory','health-insurer-directory','health-insurer-directory-listing','Update health-insurer directory')) AS m(kind, spec_key, snippet_component, listing_component, commit_message) CROSS JOIN sites s JOIN site_specs ss ON ss.site_id = s.id AND ss.aspect = 'classification' AND ss.is_current = true WHERE (ss.data->'content_features'->m.spec_key->>'recommended')::boolean = true AND EXISTS (SELECT 1 FROM pages p JOIN page_components pc ON pc.page_id = p.id JOIN content_components cc ON cc.id = pc.component_id WHERE p.site_id = s.id AND p.build_status = 'deployed' AND cc.function IN (m.snippet_component, m.listing_component)) AND EXISTS (SELECT 1 FROM directory_claims dc JOIN directory_entities de ON de.id = dc.entity_id WHERE de.kind = m.kind AND de.status = 'active' AND dc.is_current AND dc.status = 'found')) due ORDER BY random() LIMIT 12",
           "output_format": "object"
         },
         "next_step": "check_has_sites",
         "output_field": "directory_sites",
-        "description": "Opted-in sites with a deployed model-directory component, only while the registry has publishable claims"
+        "description": "Due (site, kind) pairs: the site opts into the kind's spec key, carries a deployed page with that kind's component, and the kind has publishable claims on active entities (mirrors QueryDirectoryEntries). The VALUES mapping is in lockstep with Go's directoryPublishProfiles - a kind added in Go needs a row here or it never publishes. ORDER BY random() under the LIMIT so no pair can be starved deterministically"
       },
       "check_has_sites": {
         "action": "evaluate_condition",
@@ -105,14 +121,14 @@ SELECT
           "conditions": {"0": "notify_scheduler_idle"},
           "default": "process_sites"
         },
-        "description": "Skip if no sites are due"
+        "description": "Skip if no (site, kind) pairs are due"
       },
       "process_sites": {
         "action": "loop",
         "config": {
           "items_field": "directory_sites.rows",
           "item_variable": "current_site",
-          "max_iterations": 5,
+          "max_iterations": 12,
           "continue_on_error": true,
           "sub_workflow": {
             "start_step": "spawn_publisher",
@@ -122,27 +138,27 @@ SELECT
                 "config": {"role": "directory_publisher", "agent_type": "model-directory-publisher"},
                 "next_step": "call_publisher",
                 "output_field": "publisher_spawned",
-                "description": "Spawn model-directory-publisher for this site"
+                "description": "Spawn model-directory-publisher for this (site, kind) pair"
               },
               "call_publisher": {
                 "action": "call_agent",
                 "config": {
                   "target_role": "directory_publisher",
-                  "input_mapping": {"site_id": "current_site.site_id", "domain": "current_site.domain"},
+                  "input_mapping": {"site_id": "current_site.site_id", "domain": "current_site.domain", "kind": "current_site.kind", "commit_message": "current_site.commit_message"},
                   "timeout_seconds": 600
                 },
                 "next_step": "done",
                 "error_step": "done",
                 "output_field": "publish_result",
-                "description": "Publish the model directory for this site"
+                "description": "Publish this kind for this site; the publisher's input contract requires kind, so a mapping failure is loud"
               },
-              "done": {"action": "loop_complete", "description": "Next site"}
+              "done": {"action": "loop_complete", "description": "Next (site, kind) pair"}
             }
           }
         },
         "next_step": "notify_scheduler",
         "output_field": "publish_results",
-        "description": "Publish per due site"
+        "description": "One publisher run per due (site, kind) pair; a failed pair cannot touch any other pair"
       },
       "notify_scheduler": {
         "action": "query_database",
@@ -164,7 +180,7 @@ SELECT
       },
       "complete_idle": {
         "action": "complete_workflow",
-        "config": {"output_fields": ["directory_sites"], "success_message": "No sites due for model-directory publish"}
+        "config": {"output_fields": ["directory_sites"], "success_message": "No (site, kind) pairs due for directory publish"}
       }
     }
   }
@@ -178,7 +194,7 @@ INSERT INTO scheduled_tasks (
 )
 SELECT
     'model-directory-publish',
-    'Model directory pipeline: publish data/model-directory.json + scoped rerenders to every opted-in site with a deployed model-directory component. Self-gating (idles until pages exist and the registry has found claims).',
+    'Directory pipeline: publish each due (site, kind) pair''s data/*.json + scoped rerenders. Self-gating (idles until pages exist and the kind''s registry has found claims on active entities).',
     21600,
     'model-directory-trigger',
     -- Generic topic, NOT a per-type topic: custom chassis agent types are
@@ -198,10 +214,16 @@ WHERE NOT EXISTS (SELECT 1 FROM scheduled_tasks WHERE name = 'model-directory-pu
 --    SELECT type, is_active FROM agent_definitions
 --    WHERE type IN ('model-directory-publisher','model-directory-trigger');
 --    SELECT name, enabled FROM scheduled_tasks WHERE name='model-directory-publish';
--- 2. While no page carries the component, each cycle completes idle:
+-- 2. While no (site, kind) pair is due, each cycle completes idle:
 --    the trigger orchestration ends at complete_idle with directory_sites.count=0.
--- 3. Once the auto-created page deploys: data/model-directory.json appears in
---    the site repo; page_rerender items queued (item_key page_rerender:<page>).
+-- 3. Once pairs are due: one publisher orchestration per (site, kind), and
+--    the per-kind entity counts must DIFFER across kinds (identical counts
+--    = the 2026-07-26 kind-collapse defect reproduced):
+--    SELECT collected_data->'input_data'->>'kind' AS kind,
+--           collected_data->'directory_render_result'->>'entity_count'
+--    FROM orchestration_states
+--    WHERE owner_agent_type = 'model-directory-publisher'
+--    ORDER BY created_at DESC LIMIT 6;
 --
 -- ── Rollback ────────────────────────────────────────────────────────────────
 --    UPDATE scheduled_tasks SET enabled=false WHERE name='model-directory-publish';

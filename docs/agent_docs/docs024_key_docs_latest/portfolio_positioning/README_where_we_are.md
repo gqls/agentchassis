@@ -341,3 +341,24 @@ verifiable, but thin, and it's flagged for the manual review that happens before
 anything goes on a site. Next up is the plumbing that actually publishes these
 directories onto pages, then the wiring that lets the improvement loop and the site
 planner know directories exist.
+
+**2026-08-15, later — the publishing plumbing is fixed and proven.** The machinery that
+takes a finished directory and actually puts its data file onto a website had two old
+problems: it only ever looked for the original AI-model directory (so our three new
+finance directories could never be published at all), and when it did publish, it sent
+every directory to every opted-in site whether the site wanted it or not. Both are now
+fixed, with a database-only change — no new software build needed. The publisher now
+works through a simple list of "this site wants this directory" pairs, checks each pair
+really is wanted, really has a page for it, and really has facts to publish, and refuses
+loudly if anyone ever asks it to publish without saying which directory (that exact
+silent mix-up put the wrong data out under the wrong name back in July, so the refusal
+matters). We watched the first run live: the existing AI site got its three directories
+published correctly — three separate runs, three different entry counts, the live files
+on the site refreshed within seconds of each run — and the finance directories correctly
+published nowhere, because no finance site exists yet. The moment one does (the
+remortgage pilot is next), its directory will flow without any further plumbing work.
+One honest cost: there's now a list inside the publishing query that has to be kept in
+step with the list of directory kinds in the code — add a kind to one and not the other
+and it quietly never publishes. That trap is written down in the places people actually
+check. The change went to the advisory review council as usual; verdict not yet back at
+time of writing.
