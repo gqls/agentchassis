@@ -473,3 +473,50 @@ evidence gathered over days, where each look was at a page that had had time to 
 looks at an unchanged page in one minute are really one look repeated, so closing the ticket that
 way would satisfy the rule without earning it. On the normal schedule this never comes up. It
 only comes up because I have just built a way to drive it by hand.
+
+---
+
+**2026-08-15, the last run of the day — and it turned the whole thing round.** You said run the
+two, so I ran the first of them. It came back the other way: **the audit looked at the same site
+again and this time it did find a dark section.** The count of clean looks went straight back to
+zero, and the ticket is open exactly as it was.
+
+I want to be careful about what that means, because the obvious reading is wrong. This was not
+the site changing under us. I had saved a copy of the page after the first audit; I fetched it
+again after the second and the two are **identical, byte for byte** — same page, same size,
+nothing touched it in between. And the thing the second audit complained about was already there
+during the first one. So the first audit did not see a fixed site. **The first audit simply
+missed it.**
+
+That is the single most useful thing we have learned today, and it is worth saying plainly:
+**the audit is not consistent with itself.** Ask it the same question about the same page forty
+minutes apart and you can get opposite answers. We had always suspected this — the three-strikes
+rule exists precisely because one clean look cannot be trusted — but until this afternoon it was
+an assumption backed by a run of seven where nothing ever went wrong. Now we have watched it go
+wrong once, directly, with everything else held still.
+
+**And that is the safeguard being vindicated, not embarrassed.** If we had built it to close a
+ticket on a single clean look, it would have closed that ticket at five past two, and forty
+minutes later the same audit would have raised the same kind of fault on the same site. Instead
+it counted one, then correctly threw the count away. The part that threw it away had never once
+run outside a test before today. So across this afternoon we have now seen three of the four
+parts of this safeguard work on real traffic: refusing to close a ticket while the fault is
+reported, starting to count when it goes quiet, and wiping the count when it speaks again.
+
+**A correction I owe you from an hour ago.** I told you I had confirmed the audit was right to
+go quiet by reading the actual page. What I actually confirmed was that *the specific fault
+written on that ticket* is not present — that part is still true. But going quiet is a claim
+about the *whole site*, not that one ticket, and the fault the second audit found was in a
+different part of the page altogether. I checked a smaller thing than the safeguard was
+claiming and presented it as though it covered the whole claim. It is a slightly awkward one to
+own because the check itself was sound and well evidenced — it was pointed at the wrong
+question, which is much harder to notice than a sloppy check. It is written up in the wrong-calls
+ledger.
+
+**I stopped there rather than running the second of the two you approved.** With the count back
+at zero, getting to three now means firing the audit over and over until three clean looks happen
+to fall in a row — and on the evidence of today that is roughly a coin toss each time. That would
+not be proving the last part works; it would be running the test until it gives me the answer I
+had already told you I wanted. So the last part of the safeguard stays unproven, and I would
+rather it stayed honestly unproven than be closed that way. If you want it demonstrated, the
+clean way is to let it happen on the real schedule once a sweep is back on.

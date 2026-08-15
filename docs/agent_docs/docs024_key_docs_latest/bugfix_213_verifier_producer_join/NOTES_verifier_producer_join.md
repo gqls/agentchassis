@@ -1560,6 +1560,90 @@ Candidate fix if this ever matters: gate the bump on `last_silent_at` being olde
 interval, so a burst counts once. Not filed as a bug — the mechanism is correct on its intended
 driver, and this is a hazard of the manual lever §9 introduces.
 
+> **UPDATE, run 2 below: this worry was real but I had its DIRECTION wrong.** I feared two rapid
+> runs would be *too correlated* to count as independent evidence. Run 2, forty minutes later on
+> a byte-identical page, returned the **opposite verdict**. The observations are far noisier than
+> I assumed, not more correlated. The interval gate above would have made things *worse* — it
+> would have suppressed the very re-observation that caught the miss.
+
+---
+
+## 2026-08-15 batch 3 — RUN 2 REVERSED IT, and this is the best result of the day
+
+Owner approved driving mortgagecalculator to N=3. Run 2 (`277b8644`, 14:45:05Z) returned:
+
+```json
+{"silent": false, "candidates": 2, "streaks_reset": 1, "streaks_bumped": 0, "retracted": 0}
+classification_stats: {spacing_fix: 1, responsive_fix: 1, dark_section_audit: 1, needs_design_review: 2}
+```
+
+**The streak was RESET from 1 to 0.** The row `6fe8a0fc-…` is `failed` again with no `retraction`
+key at all. **I stopped here and did not fire run 3** — see the last section.
+
+### Same page. Same bytes. Forty minutes. Opposite answers.
+
+This is the first **direct live observation of the auditor's per-run miss rate**, and every
+alternative explanation was excluded before claiming it:
+
+- **The page did not change.** [MEASURED] `curl` of the homepage after run 1 and again after run
+  2: both 36,807 bytes, `cmp -s` **identical**. Not "looks the same" — byte-identical.
+- **Nothing repaired it in between.** [MEASURED] the only `site_work_items` rows on that site
+  with `updated_at` between 14:00 and 14:46 are the two run 2 itself wrote at 14:45:05, plus
+  `page_rerender` rows another lane **triaged at 14:45:55** — *after* run 2 had already read the
+  page.
+- **The defect run 2 found was present during run 1.** `--hero-btn-ink` appears **3 times** in
+  the page I fetched *before* run 2 ran.
+
+So run 1 did not observe a repaired site; **run 1 missed a defect that was there.**
+
+### Why this vindicates N=3 rather than embarrassing it
+
+N=3's justification was *"7 of 7 post-closure re-visits re-reported a known-unrepaired defect"* —
+a sample that bounded the per-run miss rate at ~35% while **observing zero misses**. Today we
+observed one directly, on the second same-page pair anyone has run.
+
+**Had `ConsecutiveSilences` been 1, run 1 would have retracted the CTA ticket at 14:05, and run 2
+would have filed a fresh dark-section finding on the same site forty minutes later.** The
+safeguard did precisely the job it was designed for, and the reset arm — `streaks_reset: 1`,
+never previously executed in production — is what did it.
+
+**Three arms of WII-018 are now proven live in one afternoon:** the refusal arm (batch 1), the
+bump arm (batch 2), and the reset arm (batch 3). Only the retraction arm remains unexecuted, and
+it should stay that way until it happens honestly.
+
+### ⚠ CORRECTION — my "the silence is CORROBORATED at the artefact" claim was TOO BROAD
+
+Batch 2 above says the CSS check corroborated the silence. **It did not, and the error is worth
+naming precisely because it looks like diligence.**
+
+What I verified: the *CTA ticket's* premise is void — `--color-cta-bg` is declared `#e9e2d3`, so
+the `var(…, var(--color-primary))` fallback is unreachable and the CTA is ~13.5:1. That part
+stands and is still true.
+
+What silence actually asserts: **that this producer saw no dark-section defect anywhere on the
+SITE.** The rule is site-scoped by deliberate design — the file's own header says *"Any
+dark-section finding, under any spelling, on any page, keeps every one of that site's tickets
+alive."* So I checked one ticket's claim and treated it as evidence for a **site-wide** one.
+
+Run 2 found a dark-section finding in the **hero**, not the CTA, and reset the streak on the CTA
+ticket. That is the site-scoping working exactly as documented — and it is also the exact hole in
+my verification. **The narrower check felt like strong evidence and was addressing a different
+proposition from the one the mechanism makes.** Logged in `WRONG_CALLS.md`.
+
+⚠ Not resolved, and it does not change any of the above: whether run 2's hero finding is a true
+contrast defect or a hardcoding complaint (`--hero-btn-ink: #0F1115` is *declared*, and used as
+`color: var(--hero-btn-ink, var(--color-primary))`; I did not establish the button's background).
+Either way it is a `dark_section_audit` classification and correctly resets the streak.
+
+### Why I stopped at run 2 instead of firing run 3
+
+The owner's approval was for "two more runs to close it", on the shared premise that the site was
+silent. **Run 2 falsified that premise.** With the streak back at 0, reaching N=3 now means
+firing until three silences happen to line up — which, at an observed miss rate of roughly one in
+two on this page, is running the experiment until it produces the answer I already said I wanted.
+That is not a proof of the retraction arm; it is selection. The retraction arm stays unproven,
+and that is the honest state.
+
 ### Side effects, batch 2
 
 9 new `detected` items across oufe.com (4) and webdesign.uk (5); **0 on

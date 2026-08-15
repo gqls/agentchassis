@@ -54,6 +54,7 @@ a 2.0% fire rate over 300 commits, wired in as advisory.
 | **grade a probe on the ACTION's own output (`collected_data-><step>`), never on the run's terminal status — a harness that never delivered its payload completes GREEN** | **1** |
 | **check whether an existing bug has an owning workstream before routing work to it** | **1** |
 | **re-measure an INHERITED claim about live state before using it to predict an experiment's outcome — "I can tell you what this will show" is a reason to run the cheap version, not to skip it** | **1** |
+| **restate the claim the MECHANISM makes, in ITS scope, before offering a measurement as corroboration — a rigorous check of a NARROWER proposition reads as stronger evidence than no check at all** | **1** |
 | **read before write — never `cat >` a file you did not create** | **1** |
 | **re-resolve a file:line you carried across sessions — above all one you edited yourself** | **1** |
 | **verify an embedded/quoted artifact is COMPLETE before asserting it — a fixed `[:N]` slice is an unmarked truncation; an author's own ellipsis in evidence is the same defect by hand** | **3** |
@@ -31885,6 +31886,50 @@ against it sat one dispatch away.
 [[a-record-goes-stale-faster-than-its-reader-can-tell]] · [[prior-art-search-goes-stale]] ·
 [[a-post-fix-zero-needs-a-demand-control]] (same shape: a zero you predicted is not a zero you
 measured).
+
+---
+
+## 2026-08-15 (b) — I verified the TICKET's claim and reported it as verifying the MECHANISM's claim
+
+**The claim.** Half two's first live silence landed on `mortgagecalculator.co.uk`. Rather than
+trust an LLM going quiet, I fetched the live page and its stylesheet and checked the defect the
+ticket described. The ticket said the CTA falls back to a gold background with inherited dark
+text; the stylesheet declares `--color-cta-bg: #e9e2d3`, so that fallback is unreachable and the
+real contrast is ~13.5:1. I wrote — in NOTES, in the commit message, and to the owner — that
+**"the silence is corroborated at the artefact, not taken on the LLM's word."**
+
+**What was true.** The CSS finding was correct and still stands. The *inference* was not. Forty
+minutes later, run 2 on a byte-identical page reported a dark-section defect in the **hero**
+(`--hero-btn-ink`), and the streak reset. The site was not dark-section-clean; I had simply
+checked a different part of it.
+
+**Why it was wrong.** Silence in this mechanism is **site-scoped** — the source file's own header
+states it in terms: *"Any dark-section finding, under any spelling, on any page, keeps every one
+of that site's tickets alive."* So a silent run asserts *"no dark-section defect anywhere on this
+site"*. I verified *"this one ticket's stated defect is not present"*. Those are different
+propositions, and the second does not evidence the first. I had read the header — I quoted it in
+the same document — and still checked the narrower thing.
+
+**Why this one is dangerous rather than merely wrong.** It does not look like a gap. It looks
+like exactly the discipline this file exists to enforce: I went to the artefact, ran a
+disconfirmable measurement, got a hard number, and cited it. Everything about the *method* was
+right except the proposition it was pointed at. **A rigorous check of the wrong claim reads as
+stronger evidence than no check at all**, because the rigour is visible and the mismatch is not.
+
+**The cheap check that would have caught it:** before offering a measurement as corroboration,
+**restate the claim the mechanism makes, in its own scope, and ask whether the measurement ranges
+over that scope.** One sentence: *"silence = no dark-section finding on ANY page of this site;
+my check covered the CTA element on one page."* Written out, the gap is obvious. Unwritten, the
+13.5:1 does all the persuading.
+
+**What it cost.** Nothing durable — run 2 refuted it within the hour and the correction is inline
+in NOTES. But it had already been committed (`9c29de2fd`) and told to the owner as a finding, and
+had the streak been driven to N=3 on the strength of it, it would have become the stated
+justification for closing a ticket on a site that was not clean.
+
+**Relations:** MEMORY [[a-justification-in-an-evidence-column-reads-as-evidence]] ·
+[[cite-the-arm-not-the-function]] · [[a-guarantee-conditional-on-a-classifier-inherits-its-gaps]]
+· [[measurement-discipline-index]] ("your measurement answers the question you ENCODED").
 
 ## 2026-08-15 — I wrote the born-triaged rule at 11:00 and violated it at 11:05 (loancalculator lane)
 
