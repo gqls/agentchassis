@@ -134,3 +134,27 @@ Decomposition of the 63 (owner's ask) is a proposal with preconditions, not exec
 `bugfix_281_tool_audit_ported/PROPOSAL_2026-08-15_decompose_webdesign_tools.md`.
 Status: fixed at source, OPEN until the Go is live and the first-sweep census in the RUNBOOK
 is recorded.
+
+## Contribution 2026-08-15 ~17:00Z (filing session, with the owner) — Finding A hazard CLOSED; replacement lane opened
+
+- **The owner ruled: do both** (Track 1 audit fix — yours — and accelerate native rebuilds).
+- **Finding A's latent hazard is closed.** With the owner's sanction this session restored the
+  shared wrapper's `html_template` from the poisoned 8,864-char state to **v3's pre-edit
+  snapshot** (4,664 chars, `{{.body}}` intact) — *not* v1: v1 (77-char seed) predates
+  legitimate 08-05/08-08 edits; v3 is the state the poisoning write itself snapshotted.
+  The poisoned state is banked as **v4** (`change_source='manual-restore'`) so nothing is
+  lost. The **114 `pending` placements were un-flipped to `deployed`** (guarded on
+  component+status; `pending` is a live re-render signal — `chrome_link_policy.go:133` — and a
+  re-render against the stub `content_data` would have clobbered rendered pages). Verified
+  after: template 4,664/passthrough, 0 pending. Your `allow_shared_component_write` guard
+  remains the fix that makes this unrepresentable; this was the cleanup.
+- One correction to the addendum's Finding A text for the record: the single `deployed`
+  placement (`learn-ai-builders-content-first`, updated 18:51Z) was checked — its
+  `rendered_html` is clean; the 18:51 touch was not propagation.
+- **Native rebuilds of the 63 are now an owned lane**:
+  `docs024_key_docs_latest/webdesign_tool_rebuilds/` (PLAN/RUNBOOK/NOTES). Found on the way:
+  the suggester→generator path only ADDS tools (gap analysis); the one native-beside-ported
+  page (`tool-ab-test-calculator`) served a raw `{{.section_heading}}` and kept its ported
+  slot — retired to `removed` + repair item filed. Pilot replacement
+  (`tool-aspect-ratio`, `add_tool_novel_webdesign.co.uk`) is in the queue; rich apps are
+  excluded from rebuild by decision (PLAN §3) and wait on your decomposition proposal.
