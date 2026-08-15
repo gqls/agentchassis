@@ -1175,3 +1175,38 @@ returned-map change is in the running binary. **Every `content_edit` through
 (inert until roll) is discharged; caveats 2 (forward-only, the 132 pre-roll runs stay
 unrecoverable) and 3 (filter `edit_type` first) stand. Stage 2's `field_updates`
 preference is now measurable from its first dispatch.
+
+## 2026-08-15 — owner feedback on webdesign.co.uk routed here: the first live v2-era case, and it splits in two
+
+Handed in by the `bugfix 122` front with evidence; both findings re-verified live before
+accepting. Owner likes the design; the copy is the complaint: *"sounds like AI with 'this
+not that'"*.
+
+**Finding 1 — the "X, not Y" tell — IS this lane's, and the estate already names it.**
+The homepage h2 is *"A workbench, not a sales pitch"* and the body repeats the shape
+(*"…written for practitioners rather than as marketing overviews"*). This construction is
+literally codified as a tell: `voicetells.go`'s `strawmanCommaRe` and the
+defining-by-negation style check (:212), and v2's own rules ban the shape twice over
+(positive definition; *"a matched contrasting pair is earned once or twice per page at
+most"*). Three facts that size the fix:
+
+- `[MEASURED]` webdesign.co.uk has **no voice spec and no voice_gate** — governed purely
+  by the house voice, and invisible to the `voice_tells` detector (opt-in). The copy
+  predates the 08-13 v2 flip, so it is old-voice output.
+- **The remedy is the framework route, under v2:** a voice-only `content_rewrite` through
+  `page-build-handler` — the route is proven (the voiceh rollout), and any rewrite now
+  renders under the v2 carrier. This is the "first real test arrives on its own" case the
+  08-14 SUMMARY predicted, arriving as owner feedback instead of a new build.
+- Hand-writing replacement copy is barred twice over (owner rulings 08-04 and 08-06), and
+  this site is the lane where that rule was written.
+
+**Finding 2 — the DUPLICATED section (positions 2+3, both `info-card-grid`, identical h2,
+hashes `f665c013`/`695f34b9`) — is NOT this lane's**: it is page composition, and the
+peer's read (a planner emitting the section twice would explain the repeated heading too)
+is plausible but undiagnosed. Asked the peer to file it as its own bug.
+
+**Ordering constraint, stated so the two fixes do not muddy each other:** the voice
+rewrite should not run until the duplicate's cause is known — a page-level rewrite could
+coincidentally collapse or re-duplicate the section, destroying the diagnostic state, and
+a section-scoped rewrite of position 2 alone leaves position 3 carrying the old copy. Fix
+composition first, then voice. `[INFERRED — the safe order, not a measured dependency]`
