@@ -3821,3 +3821,52 @@ clean `HEAD` tree as well as the working tree, so it depends on nothing uncommit
 **No council submission:** the gate is scope-eligible (`platform/`) but the fleet's LLM capability is
 capped until 2026-09-01, so a submission would sit unrun. Stated in the commit message rather than
 claimed as reviewed; the advisory `commit-msg` nudge fired as expected and is correct to.
+
+---
+
+## 2026-08-15 08:0xZ — PREDICTION, written and committed BEFORE the 08:45:04Z daily
+
+Fleet rolled to **`v1.0.1300`** at 20:36Z on 08-14 (one digest `sha256:de327bf4`). Gate arms probed in
+the new binary with both controls, so the check could have come out negative:
+`gate_published_correction_unpublished` rc=0 · `resolved_all_gates_passed` rc=0 ·
+`the database is not the website` rc=0 (positive control) · `zzz-not-in-any-binary-zzz` rc=1
+(**fabricated control discriminates**).
+
+**The daily has NOT fired since 08-14 08:45:04Z, and that is correct, not a stall** —
+`interval_seconds` 86400 puts the next one at **2026-08-15 08:45:04Z**, ~45 minutes after this was
+written. Nothing was wound back.
+
+### Pre-run state of all 20 open items (17 `scan_still_trips`, 2 `page_absent`, 1 `evidence_base_absent`)
+
+`page_absent`×2 are invisible to a `JOIN pages` — their `page_id` no longer resolves, which is what
+that arm means. 18 rows join; 18 + 2 = 20 open, + 9 vintage closures + 1 `resolved_all_gates_passed`
+= 30. The arithmetic reconciles, so nothing is being missed by the join.
+
+**Only two items are positioned to move.** Both had copy edited on 08-14 evening (after the last
+sweep) AND redeployed since:
+
+| item | page | newest component | deployed | build_status |
+|---|---|---|---|---|
+| `b561c826` | matchmatrix-methodology | 08-14 18:44 | 08-14 22:22 | deployed |
+| `7315e4d5` | gripper-cycle-time-estimator | 08-14 18:23 | 08-14 22:26 | deployed |
+
+### The prediction, stated so it can be wrong
+
+1. **ZERO refusals again.** No open item is positioned to hit
+   `gate_published_correction_unpublished`. The two items whose pages ARE unpublished
+   (`3375653f` about, `9db796ca` case-study-kafka-…, both `deployed_at` a few seconds BEHIND
+   `newest_component_update`) are still at `scan_still_trips`, and all three gates sit downstream of
+   a clean scan — so the ladder stops above the gate and the zero stays uninformative for them.
+2. `b561c826` and `7315e4d5` either **close at `resolved_all_gates_passed`** (if last night's edits
+   removed the flagged claims — their pages redeployed ~4h after the edit, so the published gate
+   would pass) or **stay `scan_still_trips`** (if the edits were unrelated). No third outcome.
+3. Everything else unchanged: 2 `page_absent`, 1 `evidence_base_absent`, the rest
+   `scan_still_trips`, the 9 vintage closures untouched (terminal items are never re-swept), and
+   `resolved_all_gates_passed` stays ≥1 because `e713613f` is closed and frozen.
+4. `a355d78b` (index-rejected-v1-20260806) is the one item that would hit the **never-deployed** arm
+   rather than the unpublished one — `build_status='needs_rebuild'`, `deployed_at` NULL. It is at
+   `scan_still_trips`, so it will not reach it. Noted because it is the standing candidate for a
+   DIFFERENT published-gate refusal than the one being waited for.
+
+**If instead a `gate_%` arm appears, prediction 1 is wrong and the reason is worth more than the
+prediction was** — it would mean an item reached a gate by a route this pre-run reading did not see.
