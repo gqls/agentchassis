@@ -1004,12 +1004,23 @@ going forward.
 > rather than as a new number per CLAUDE.md ("contribute into the bug file, do not
 > compete").
 >
-> ⚠ **THIS MOVES THE COUNT: 13 → 14.** The 2026-07-31 status block at the top of this
-> file says "this file has 13 items, not 12", with the `grep -cE '^### [ABC][0-9]\.'`
-> that establishes it. That grep now returns **14**, and the done/open tally there
-> (6 done, 1 half, 6 open) becomes **6 done, 1 half, 7 open**. I have not edited that
-> block — it is another session's dated correction and rewriting it would destroy the
-> record of when the count was right. Reconcile it when you next revise the header.
+> ⚠ **THIS MOVES THE COUNT: 14 → 15.**
+>
+> > **CORRECTED 2026-08-15, minutes after committing:** this line first said "13 → 14",
+> > because I took 13 from the 2026-07-31 status block instead of running its own grep.
+> > `grep -cE '^### [ABC][0-9]\.'` returns **15**: C1–C3, A1–**A7**, B1–B5. **A7 arrived
+> > after that status block** (commit `30fdcfb55`, the council REVISE round on A6), so
+> > the file was already at 14 before I touched it. I did run the grep — in the same
+> > compound command as the commit, chained unconditionally, so it printed 15 and the
+> > commit went ahead anyway. That is verbatim the failure this estate logged in
+> > `WRONG_CALLS.md` **earlier the same day** (the 278→279 renumber: *"a check that
+> > cannot stop the action it guards is narration, not a gate"*). Gate it:
+> > `[ "$(grep -cE '^### [ABC][0-9]\.' <file>)" -eq 15 ] && git commit …`
+>
+> The done/open tally in that block (6 done, 1 half, 6 open) is likewise stale by more
+> than my item — reconcile A7 and B5 together when you next revise the header. I have
+> not edited it: it is another session's dated correction, and rewriting it would
+> destroy the record of when the count was right.
 
 `check_voice_tells.go:176` selects `AND p.status IN ('active','deployed')`.
 
