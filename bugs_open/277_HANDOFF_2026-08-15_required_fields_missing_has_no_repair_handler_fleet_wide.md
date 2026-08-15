@@ -92,5 +92,24 @@ a canaried assignment UPDATE carry the live half meanwhile. Fix shape 3's regist
 done (CQ-023 names producer set + first consumer; PBP-028's edit_live producer-set clause
 gains the third emitter).
 
-**OPEN** until fixed-AND-live: seed applied + canary verified + fleet assigned + producer
-change rolled.
+**Same-day progression (all 2026-08-15):** seed applied and hardened to **v3** through the
+council trail (corr `7b0e2833`, FOUR REVISE rounds — two of them found real design errors,
+both then measured and turned into routes: `asset_sourced` — the writer must never fill
+schema-declared `site_assets.*` fields, proven by a live validate_content refusal; and
+`no_plan_unbuildable` — index-family pages with no plan must not be generically recreated,
+proven by a live `mark_no_ready_sections` no-op). Five canaries verified per-arm incl. the
+gas converter (parked `no_plan_owned`, tool pipeline named). **Producer change LIVE on
+`v1.0.1302`** (another lane's roll; uniform image on all 25 chassis pods; merge-base +
+literal probe with controls). Seed ledger-recorded (`--record-only`, honest note). **Fleet
+assignment executed ~14:50Z**: 39/39 remaining rows routed (pre-image saved) — expected
+outcome ≈34 blob-parks-with-facts + ≈5 evidence-closes, zero conversions left in the backlog.
+
+**Council state: REVISE ×4 with seats now disagreeing with each other** (constitution
+approves both the born-triaged deferral and RFC_030's deferral; improvement_guardian holds
+born-triaged HIGH; reuse/architecture reject the deferral). Per the estate norm this stops
+the resubmission loop; **two OWNER decisions are queued** (README_where_we_are): (1)
+born-triaged vs rebuilding the disabled detected-promoter (bugs_open/083) for this type;
+(2) whether/when to schedule RFC_030's three-into-one router-engine consolidation.
+
+**OPEN** pending the fleet after-state verification (rows drain through the dispatch loop
+over the following hour) + the two owner decisions. The mechanism itself is fixed AND live.

@@ -32,3 +32,31 @@ seed. Next steps are: seed it (inert), run four representative findings through 
 canary, then point the remaining 40 at it. The gas converter itself will come back to you as
 a parked decision naming the tool pipeline as the repair route — this handler routes it
 honestly rather than overriding the no-generic-rebuild-of-tools rule.
+
+## 2026-08-15 evening — built, live, backlog routed; two decisions need you
+
+The repair handler is done and working. Every one of the 44 parked findings has now been
+through it or is queued for it: the dead ones are being closed with the evidence written on
+them, and the ones a machine must not touch (the stored-HTML pages, the tool pages, the
+image-slot fields) are parked back in your review queue carrying their classification, the
+danger, and the safe options — instead of sitting there as bare mysteries. New findings of
+this type route themselves from birth now (that change rode another lane's release this
+afternoon). Along the way the review process caught two genuine design errors before they
+could do harm — a repair that would have asked a prose writer to invent image addresses
+(the system refused it, and we made that refusal a routing rule), and a page rebuild that
+would have quietly produced nothing (measured, and made a routing rule too).
+
+The council reviewed this four times and improved it each time, but it has not approved it,
+and the remaining objections are ones the reviewers themselves disagree about — which by our
+own rules means they are yours to settle, not mine to argue again:
+
+1. **One reviewer insists new findings should be born "unclaimable" and promoted by the
+   triage stage; another accepts what we did.** The trouble is the triage stage's machinery
+   has been switched off since May (bug 083) — honouring the contract today means findings
+   sit stranded forever, which is what you ruled against. If you want the contract honoured,
+   the real fix is rebuilding the promoter, and that is a separate piece of work. My change
+   is one line to revert the day that happens.
+2. **This is the third single-purpose router of its kind** (the two image routers from the
+   12th are its siblings). Several reviewers want one shared engine instead of a growing
+   family. I filed that as RFC_030 with the case for doing it as a consolidation of all
+   three; it needs a decision on whether and when to schedule it.

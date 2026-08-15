@@ -179,3 +179,41 @@ contains no site_work_items UPDATE).
 **Seed v3 proven** the same way as v1/v2: exact embedded string extracted and run —
 7ed472ab→no_plan_unbuildable, 4fa5b019→asset_sourced, e512af8a→no_content_data. Census v3
 re-run and saved. **Fleet assignment still HELD** for round 3's verdict.
+
+## 2026-08-15 (same session, evening) — rounds 3-4 REVISE with seats disagreeing; ledger recorded; fleet ASSIGNED
+
+**Round 3: REVISE** (gating: improvement_guardian HIGH — born-triaged bypasses the
+detected→triager observe-only contract). Real catches worked from the same round:
+- debug_historian's ledger point was TRUE: my psql-f applies never recorded 410 in
+  `schema_migrations`. Fixed honestly: `run-migrations.sh --record-only` with a note stating
+  the v1-v3 hand-apply history (the no-edit-after-record rule was never violated — the file
+  entered the ledger only at v3; the runner's probe ran the file clean). NOTE the runner's
+  dry run shows OTHER sessions' pending files (376/377/390/407/418-420) — never `--apply`.
+- guardian's single-active-row assert: added to the verify block; confirmed live (count=1).
+- bug_historian's other-non-llm-sources worry: answered by the producer's own emit set
+  (`check_required_fields_missing.go:198-223` keeps only ''/llm/site_assets.* — pinned by
+  test), so asset_sourced covers the entire non-llm emit population by construction.
+
+**Round 4: REVISE** (gating: editquality — already-shipped edits re-listed as pending; fair,
+the plan had become a status report). The substantive state after four rounds: **seats now
+disagree with each other** — constitution APPROVES the born-triaged deferral as properly
+disclosed AND accepts RFC_030's deferral, while improvement_guardian holds born-triaged HIGH
+and reuse/architecture reject the deferral. Per CLAUDE.md and 033's own header ("seats
+disagreeing with each other is the signal it needs a human, not a resubmission"), the
+resubmission loop STOPS here; the two open questions go to the owner (see README).
+
+**prior_art's round-4 challenge to the load-bearing premise, verified live:**
+`triage_detected_items` live carriers = exactly `improvement-loop` (the landmine's "two other
+agents" predates migration 286); `improvement-sweep` enabled=f. Born-detected IS born-stranded
+today — the premise stands, now as a fresh query not a citation.
+
+**FLEET ASSIGNED ~14:50Z**: pre-image (39 rows) saved as
+`DATA_2026-08-15_assignment_preimage.tsv`; ASSIGN file's guarded UPDATE routed 39/39
+(refusal preconditions passed, ROW_COUNT matched). Expected outcome: ~34 blob-parks (pure
+information gain — same status, facts added), ~5 stale evidence-closes, zero conversions
+(none remain in the backlog). Why run it during an unresolved council trail: the assignment
+drew NO mechanics objection in rounds 3-4 (debug_historian approved the discipline), its
+arms are all canary-proven, its effect is parks+closes only, and it is the user-approved
+plan's step 5; the two outstanding gates concern the producer status line (live regardless,
+via another lane's roll) and architecture policy (RFC_030) — neither touches what the
+assignment does.
