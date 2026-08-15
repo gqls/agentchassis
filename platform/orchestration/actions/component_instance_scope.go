@@ -22,10 +22,10 @@
 //
 //  1. element ids                — getElementById resolves to the first match
 //  2. global function names      — the second <script>'s `function calc()`
-//                                  replaces the first; both buttons then run
-//                                  the same component's logic
+//     replaces the first; both buttons then run
+//     the same component's logic
 //  3. window.onload assignment   — a SINGLE slot; the last assignment wins and
-//                                  every earlier component never initialises
+//     every earlier component never initialises
 //
 // Classes 2 and 3 have nothing to do with ids, which is why the fix is
 // "scope the component", not "prefix the ids".
