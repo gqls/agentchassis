@@ -1717,3 +1717,42 @@ name and read as artefact-vs-premise throughout.
 finding cannot be parked here, and these are right, which is the standard the lane set ("design
 checks to be right, not to be reviewed"). Their acceptance tests are concrete enough for a
 different agent to check.
+
+## 2026-08-15 — review pass over B4: one defect of mine found and fixed, two of my claims went stale overnight, and a mystery bump investigated
+
+Asked by the owner to look the solution over once more and refresh the handoff. Findings:
+
+1. **My own defect: 10 doubled apostrophes in the live prompt.** 408's prompt was authored inside
+   a `$prompt$` dollar-quoted string, where `''` is NOT an escape — it is two literal characters.
+   Habit from single-quoted SQL put `site''s`, `operator''s`, `reader''s` into what the LLM reads.
+   `[MEASURED]` 10 pairs, 0 lone apostrophes (20 total, all paired) — in the file AND the live row.
+   Both live runs tolerated it, but `lead_with[].point` is designed to be fed toward writers, so a
+   model mimicking the doubled style would put `site''s` one hop from production copy. **Fixed:
+   migration 421** (applied + recorded; guard demands exactly the 408 prompt — 10 pairs, 5,494
+   chars — and refuses anything else; verify re-asserts the three load-bearing prompt lines, none
+   of which contains an apostrophe, then 5,484 chars, 0 pairs). Deliberately NOT re-proven with a
+   live LLM run: a 10-character edit changing no instruction, and a re-fire files ~5 more
+   non-parkable items somewhere for no information. The rollback is exact ONLY because lone count
+   was 0 — it re-doubles every apostrophe, and its guard refuses if the prompt has been edited
+   since.
+2. **The 11:27 `updated_at` bump on the offer-analyser row: investigated, content-neutral.** The
+   live prompt was byte-length-identical to the 408 file (5,494 chars, same 10 pairs) and every
+   load-bearing config key matched before I applied 421. Source of the bump unknown — no migration
+   timestamp matches, and per the 08-08 landmine `updated_at` does not move on a config-only
+   UPDATE unless explicitly set, so some session ran an UPDATE that was a no-op for us. Content
+   verified equal is the fact that matters; recorded so the next reader does not re-chase it.
+3. **Two of my 08-14 claims went stale within a day — corrected in the register (BIZ-032), the
+   pattern this lane keeps re-learning.** (a) `bugs_open/272` → **closed, fixed AND live on
+   v1.0.1301** — the object shape now parses; B4's array-path config stays (belt-and-braces, and
+   config must not assume a binary version). (b) The off-vocabulary minting is **fixed in code**
+   (`bugs_open/279`, commit `d6d56e540`: unknown category → `capability_gap`; CI test guards the
+   closed set; mig 416 purged `work_item_type` from the two prompts that asked for it) — **not
+   live until the next chassis roll**. Both fixed by other lanes, from the two halves of the
+   LANDMINES entry this lane wrote on 08-14 — the entry did its job in under a day, twice.
+4. **Estate state re-verified for the handoff:** all 10 offer-analysis items still
+   `detected`/unclaimed (no sweep hit either site overnight); improvement-loop still unwired
+   (`call_site_review → record_audit_pass`, no `call_offer_analyser` key); both oneshots disabled;
+   2 ordering rows current; 409 still `_HOLD`. The 279 session appended two NEW owner decisions to
+   this lane's README (the four dead 08-13 brief-fidelity findings: cancel or re-run; whether
+   brief-fidelity becomes a routed scheduled check) — **theirs to route, recorded here only so the
+   handoff lists every decision the owner has open.**
