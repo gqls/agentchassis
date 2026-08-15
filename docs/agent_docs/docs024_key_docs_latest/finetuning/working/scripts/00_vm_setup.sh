@@ -40,8 +40,14 @@ DRIVER=$(nvidia-smi --query-gpu=driver_version --format=csv,noheader | head -1)
 GPU_NAME=$(nvidia-smi --query-gpu=name --format=csv,noheader | head -1)
 log "GPU: ${GPU_NAME}, ${VRAM_MIB} MiB VRAM, driver ${DRIVER}"
 
-if [ "${VRAM_MIB}" -lt 79000 ]; then
-  echo "ERROR: ${VRAM_MIB} MiB < 79000 MiB. Llama 3.3 70B QLoRA needs an 80GB card." >&2
+# MIN_VRAM_MIB (added 2026-08-15, Phase 0's first live run): the gate assumed
+# the 70B default and refused the a6000 that a 1.7B BASE_MODEL run was
+# deliberately booked on. Unset = 79000, the old literal — a 70B run is
+# byte-identical. Set it alongside BASE_MODEL (same rule as CHAT_TEMPLATE:
+# these move together or the defaults bite).
+MIN_VRAM_MIB="${MIN_VRAM_MIB:-79000}"
+if [ "${VRAM_MIB}" -lt "${MIN_VRAM_MIB}" ]; then
+  echo "ERROR: ${VRAM_MIB} MiB < ${MIN_VRAM_MIB} MiB. The default assumes Llama 3.3 70B QLoRA (80GB card); set MIN_VRAM_MIB with BASE_MODEL for smaller models." >&2
   exit 1
 fi
 
