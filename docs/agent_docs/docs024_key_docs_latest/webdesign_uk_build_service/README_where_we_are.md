@@ -1208,3 +1208,19 @@ see wrong information — the bot rode out the whole outage on the facts it had
 already fetched. The live-facts loop is back, and it can no longer be broken
 by a release, because the key it depends on is now part of what a release
 installs rather than something a release forgets.
+
+---
+
+2026-08-15 — the claim above got its real test, and passed. Today's fresh
+release ran the exact step that deleted the key on Wednesday, and this time
+everything simply carried on: key present, bot refreshing, nobody had to do
+anything. So "a release can't break it any more" is now a measured fact, not
+a promise. Also done since you last read this: the chat box is registered as
+a proper reusable tool in the framework's library, with a safety gate the
+review council approved — it can only ever be offered to sites that actually
+have a backend for it to talk to, so it can't end up as a dead widget on an
+ordinary static site. Two decisions wait on you here (kick off the chat
+experience plan; and confirm the chat box stays on the contact page — an
+automated tidy-up tried to remove it and the lock stopped it), plus the
+money-loop decisions on the other thread — the full list is in today's chat
+summary and the new handoff.

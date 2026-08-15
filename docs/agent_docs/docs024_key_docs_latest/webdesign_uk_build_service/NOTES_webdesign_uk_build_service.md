@@ -2716,3 +2716,24 @@ this session's cold-start falsifier sweep:
   `splits()[]` stream misuse, then a pipe-precedence rebind).
   Commits `4d7c2f519` + this one carry `Council-Submitted:`; 098 credits
   them automatically now the trail is approved.
+
+## 2026-08-15 — fresh fleet roll: the terraform token fix SURVIVED ITS FIRST RELEASE (the disconfirmable test it was built for)
+
+- A fresh chassis build rolled ~30-40 min before this check (core-manager pods
+  36-37m; stamp `0115f2b4528b0063fd01e7af275ccefe9c5a991d`). This release ran
+  the same `deploy-047-base-configs` terraform apply that WIPED the token on
+  2026-08-13 — so this was the fix's first live disconfirmation opportunity:
+  if the tfvars/main.tf change were wrong, the token would be gone and the
+  bot's journal would show 401s from the first post-roll refresh.
+- Measured: `SITE_FACTS_TOKEN` present in the secret (56 b64 bytes), present
+  in the fresh pod env (`TOKEN-IN-POD`), and the box journal has **zero**
+  `refresh failed` lines since 2026-08-14 08:12:30 (failures log every 5 min;
+  silence is success). The relay chain held across a release with no human
+  action — the durability property is now PROVEN, not designed.
+- ⚠ chassis stamp via `logs | grep 'build provenance'` is currently
+  unreadable — chassis log tail is full of LANDMINE TEXT that matches the
+  grep (itself a filed landmine; ~90s log history compounds it). Read
+  core-manager's own stamp, or the image label, for this lane's surfaces.
+- Migration dry-run after the roll: not re-run this session (it ran clean
+  yesterday; pending set was other threads' files). First action for the
+  next session per runner practice.
