@@ -12,7 +12,11 @@
 --
 --   STAMP=$(kubectl -n ai-persona-system logs -l app=agent-chassis --tail=300 \
 --           | grep -m1 'build provenance')   # or read the stamp per CLAUDE.md
---   git merge-base --is-ancestor d6d56e540 <stamp-commit>   # must exit 0
+--   git merge-base --is-ancestor 36aca20bc <stamp-commit>   # must exit 0
+--   (36aca20bc carries BOTH the routing fix d6d56e540 AND the producer-scoped
+--   blocked check — checking only d6d56e540 would let a release from between
+--   the two commits dispatch the auditor while blocked capability_gap rows can
+--   still mute its roadmap filings on 14 sites.)
 --
 -- (Also required first: migration 417 applied — the auditor must speak the router
 -- vocabulary before anything dispatches it. 417 is a normal migration and will be
