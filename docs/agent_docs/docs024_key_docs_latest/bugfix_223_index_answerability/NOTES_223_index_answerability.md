@@ -884,3 +884,42 @@ un-acked declaring action, and a no-subject result is now a FAILURE, not a skip.
 General shape, worth carrying: **a guard whose test subject is drawn from the defect
 population goes blind when the defects are cured — pick the subject from the healthy
 population and induce, or the guard's death reads as its victory.**
+
+## 2026-08-15 ~09:00Z — watch item 1 closed by REFUTATION: the as-of note has rendered live since 08-12, and our "zero demand" was measured in a window that opened after the demand
+
+Ran the closure's own check (`step_name='verify'` + the as-of LIKE): **5**, not 0.
+Dated the rows: first `verify`-step rendering **2026-08-12 14:27:03Z** (corr
+`5b0da698`), three more that day, one **organic** this morning 08:59:15Z (corr
+`095e988a` — landed literally between two of my queries; the demand-control query I
+ran at ~08:57 still said zero). Broadened without the step filter: earliest rendering
+anywhere **2026-08-12 13:05:01Z** (diagnose-agent `verdict`), **22 real-sha renders
+by 08-14 07:58Z**. All predate the closure (08-14) and the handoff (08-15) that both
+said "first live rendering still unobserved".
+
+**How both docs got it wrong while following the rules:** the fix commit `0c880908a`
+landed on shared HEAD 08-11 18:29Z; some other session's roll shipped it (~18.5 h to
+first render). The lane dated liveness from its OWN verification (v1.0.1297, 08-14)
+and then opened its demand window at 08-14 12:00 — thereby excluding every render
+that had already happened. The demand control was sound; its CLOCK was anchored to
+our roll, not to the commit. **On shared HEAD, liveness dates from the first fleet
+roll after your commit, whoever runs it — anchor demand windows at the COMMIT, not
+at your own verification.** And the cheapest catch was flatly available: the closure
+prescribed the exact count query and never ran it before asserting its subject was
+unobserved. Logged in `WRONG_CALLS.md`.
+
+**Bonus, both watch items advanced by one organic run:** this morning's verification
+(banned-claims-footprint entry) rendered the as-of note in its `verify` prompt AND
+persisted a verdict carrying both evidence-line clauses (`%not the present tree%`,
+`%indexed commit%`) — the two halves of 254 proven together, unattended. Watch 2:
+n=5 verify runs with the note, zero kind-shaped misexplanations; two rationales
+reason correctly FROM index scope (the 253cf06c one explicitly: "the code index
+covers only .go source files"). Verdict mix: NEEDS_HUMAN_REVIEW ×4, STILL_VALID ×1.
+
+**Trap confirmed while measuring:** the bare LIKE (no step filter) also matches 13
+council-gate `review_*` rows from 08-11 — the council reviewing 254's own diff; the
+matched text is the format string `commit %s%s%s`. Prompt text scores as the
+behaviour it describes; the prescribed check survives only because of its
+`step_name='verify'` filter. Recorded in the 254 addendum.
+
+Paperwork: `bugs_closed/254` addendum (strike + new section), handoff §0 items 2/3
+corrected in place, `WRONG_CALLS.md` entry, README paragraph for the owner.

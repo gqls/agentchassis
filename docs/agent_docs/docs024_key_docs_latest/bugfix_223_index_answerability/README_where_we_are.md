@@ -400,3 +400,20 @@ skipped forever, exactly when the estate got healthy. It now manufactures its ow
 practice case, and a missing case is a loud failure instead of a silent skip. The
 general lesson is recorded: a watchdog that only exercises on real defects dies of
 success.
+
+**2026-08-15, mid-morning.** Good news with a small red face attached. The "watch and
+wait" item — waiting for the commit-dating note to appear in a live answer for the
+first time — turned out to be already over before we started watching. The note has
+been showing up in real answers since the 12th of August, the day after the fix was
+committed: someone else's deploy shipped it, as deploys here always ship whatever is
+committed, and it quietly worked twenty-odd times before we closed the bug "awaiting
+its first outing". We only noticed because this morning's session actually ran the
+checking query that the closure note had written down but never executed. So the
+correction is the embarrassing kind: the fix was working better and earlier than we
+claimed, and the thing we got wrong was our own bookkeeping about when "live" began —
+we counted from the day we checked, not the day it shipped. That's now written up in
+the wrong-calls log with the lesson attached. Better still, this morning one of the
+routine landmine checks used the note completely unattended — empty answer, note
+present, dated verdict on file — so both halves of the fix have now been seen working
+in the wild without anyone arranging it. The lane is down to one watch item, and it's
+the self-settling kind.

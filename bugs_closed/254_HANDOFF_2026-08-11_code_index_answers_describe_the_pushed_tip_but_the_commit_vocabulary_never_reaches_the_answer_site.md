@@ -139,10 +139,48 @@ unwiring mutations were run and each fails its test; full `actions` package gree
   `%not the present tree%` — and the verify prompt shows `Answers describe
   indexed commit …`. Verdict STILL_VALID; the fix's own paperwork was the fixture.
 - **Residual, stated:** the as-of note renders only on EMPTY answers and that
-  run had none, so its first live rendering is still unobserved (build-time it
+  run had none, ~~so its first live rendering is still unobserved~~ (build-time it
   is mutation-proven through `answerCodeCheck` on all three arms, and the
   literal is in the running binary). The check, when one occurs:
   `SELECT count(*) FROM llm_call_log WHERE step_name='verify' AND
   prompt_rendered LIKE '%as-of: this answer describes commit%';` — do not
   "verify" this with a zero; an empty result means no empty answer has happened
   yet, not that the note is missing.
+  > **CORRECTED 2026-08-15: "still unobserved" was already false when this
+  > closure was written.** The check above, run 2026-08-15 ~09:00Z, returns
+  > **5**, and four of the rows predate this closure — see the addendum below.
+
+## FIRST LIVE RENDERING — addendum 2026-08-15 (the watch item, closed by refutation)
+
+- **First rendering in the named site** (`verify` step, landmine-verifier):
+  **2026-08-12 14:27:03Z**, corr `5b0da698`, carrying
+  `as-of: this answer describes commit 46b507ed (ref 087_towards_multiple_domains)`
+  — a real sha, not the format string. Three more the same day (14:27:15Z,
+  17:26:11Z, 18:50:44Z), and one **organic** run 2026-08-15 08:59:15Z (corr
+  `095e988a`, that morning's verification of the banned-claims-footprint entry),
+  whose persisted `doc_notes` verdict also carries the evidence-line clauses
+  (`%not the present tree%` and `%indexed commit%` both match) — both halves of
+  this fix proven on one unattended run.
+- **Earliest rendering anywhere: 2026-08-12 13:05:01Z**, a diagnose-agent
+  `verdict` prompt. 22 real-sha renders existed by 08-14 07:58Z (18 on 08-12
+  citing `46b507ed`; 4 on 08-14 morning citing `a85ad401`).
+- **Why it was live two days before "live since v1.0.1297":** the fix commit
+  `0c880908a` landed on shared HEAD 2026-08-11 18:29Z; on this tree a commit
+  ships on the next session's roll, whoever runs it. First render ~18.5 h after
+  commit `[MEASURED at the prompt; which tag first carried it UNCHECKED — the
+  render is the proof]`. "Live since v1.0.1297" dates the *verification* of
+  liveness, not its start. The residual's "unobserved" was inferred from one
+  acceptance run plus a demand window opened at 08-14 12:00 — the lane's own
+  roll date — which excluded exactly the demand that had already happened.
+  Logged in `WRONG_CALLS.md` 2026-08-15.
+- **Trap if you re-run the check: keep the `step_name='verify'` filter.** The
+  bare LIKE also matches **13** council-gate `review_*` rows (08-11
+  18:29–18:34Z) — the council *reviewing this fix's own diff*; their text is the
+  format string (`commit %s%s%s`), not a rendering. Prompt text scores as the
+  behaviour it describes.
+- **The second watch (kind-shaped misexplanations): n=5 verify runs now, zero
+  observed.** Verdicts: NEEDS_HUMAN_REVIEW ×4, STILL_VALID ×1, and two
+  rationales explicitly reason *from* index scope ("the code index covers only
+  .go source files"; "string literals likely in SQL/migrations outside the
+  .go-only index scope") — the opposite of the misexplanation class. Fleet-wide
+  rate remains `[UNMEASURED]`.

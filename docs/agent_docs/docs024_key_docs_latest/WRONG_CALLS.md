@@ -31419,3 +31419,31 @@ was one `grep 27-round` away.
 **Cost:** one advisory objection on an otherwise-approved round, and this entry. Nothing false
 reached production. But a durable figure now has two candidate values and neither is sourced,
 which is worse for the next reader than never having quoted it.
+
+## 2026-08-15 — "its first live rendering is still unobserved": the check was prescribed, never run, and the demand window was anchored to our own roll (bugfix 223/254 lane)
+
+**The claim:** `bugs_closed/254`'s closure (08-14) and the 08-15 handoff both stated the
+as-of note had never yet rendered live — the handoff adding "zero verify runs have
+happened at all since 08-14 12:00, so it is unobservable for want of demand", and
+prescribing the exact count query a future session should run.
+
+**What was true:** the note had been rendering since **2026-08-12 13:05Z** — 22 real-sha
+renders existed before the closure was written, four of them in the very `verify` step
+the residual named. The fix commit (`0c880908a`, 08-11 18:29Z) shipped on another
+session's roll ~18.5 h later; the lane dated liveness from its own verification
+(v1.0.1297, 08-14) and opened its demand window at 08-14 12:00, which excluded every
+render that had already occurred. The demand control was sound; its clock was wrong.
+
+**Caught by:** the next session running the closure's own prescribed query, unbounded
+by date — it returned 5 in the named step (and 22 unfiltered by step) on first run.
+
+**The cheap check that would have caught it:** run the query you prescribe before
+asserting its subject has never fired — "the check, when one occurs" cost one SELECT
+and was sitting in the same paragraph as the false claim. And on shared HEAD, anchor
+any "no demand since" window at the COMMIT time, never at your own roll: committing is
+shipping here, so liveness starts when anyone rolls, not when you verify.
+
+**Cost:** none reached production — the fix was working the whole time; the false claim
+only understated its own success. But two cold-start docs told the next session to
+wait for an event that was already two days old, and a watch item stood open for a
+condition that had been satisfied before it was written.

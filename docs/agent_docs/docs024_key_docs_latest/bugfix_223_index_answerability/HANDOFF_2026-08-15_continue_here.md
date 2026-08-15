@@ -9,7 +9,8 @@ marked otherwise.
 
 ## 0. WHAT IS ACTUALLY LEFT (read this and you can stop)
 
-**Zero owner decisions, two watch items, zero pending builds.**
+**Zero owner decisions, ~~two watch items~~ ONE watch item (item 2 closed by
+refutation 2026-08-15 — see it below), zero pending builds.**
 
 1. ~~**OWNER DECISION — the two remaining standing reviews.**~~ **DONE 2026-08-15
    (owner: "direct both reviews now"): both concluded ACKNOWLEDGE, no trims** —
@@ -24,16 +25,22 @@ marked otherwise.
    traversal-parity test would have skipped forever (NOTES 08-15-later has the
    general lesson: a guard whose test subject comes from the defect population goes
    blind when the defects are cured).
-2. **WATCH — the as-of note's first live rendering** (`bugs_closed/254` residual).
+2. ~~**WATCH — the as-of note's first live rendering** (`bugs_closed/254` residual).
    Renders only on EMPTY code-lookup answers; measured 2026-08-15, **zero verify runs
-   have happened at all** since 08-14 12:00, so it is unobservable for want of demand.
-   Check: `SELECT count(*) FROM llm_call_log WHERE step_name='verify' AND
-   prompt_rendered LIKE '%as-of: this answer describes commit%';` — a zero means "no
-   empty answer yet", NEVER "note missing". When it first fires, note it in
-   `bugs_closed/254`'s closure section.
+   have happened at all** since 08-14 12:00, so it is unobservable for want of demand.~~
+   **CLOSED BY REFUTATION 2026-08-15 ~09:00Z: the note had been rendering live since
+   2026-08-12 13:05Z — before 254 was even closed.** The prescribed check returns
+   **5** (first `verify`-step render 08-12 14:27:03Z; a fifth, organic, 08-15
+   08:59:15Z with the evidence-line clauses in its persisted verdict too). The "zero
+   demand" here was measured in a window opened at the lane's own roll date, which
+   excluded the demand that had already happened: the fix shipped on another
+   session's roll ~18.5 h after commit. Full dating + the format-string trap on the
+   bare LIKE: `bugs_closed/254` addendum, `WRONG_CALLS.md` 2026-08-15.
 3. **WATCH — kind-shaped misexplanations post-fix.** `[UNMEASURED]` fleet-wide (the
-   both-ways proof is n=1). Settles itself as landmine verifications accumulate;
-   compare any wrong verdict's reason against the as-of note in the same prompt.
+   both-ways proof is n=1; **n=5 as of 08-15 ~09:00Z, zero misexplanations — two
+   rationales reason correctly FROM index scope; see the 254 addendum**). Settles
+   itself as landmine verifications accumulate; compare any wrong verdict's reason
+   against the as-of note in the same prompt.
 
 ## 1. State in one paragraph
 
