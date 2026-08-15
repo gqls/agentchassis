@@ -645,3 +645,65 @@ which is 213's original title case, not a new one.
 2. `./scripts/who-owns.py <bug>` **before** filing a finding, not after. Mine duplicated a
    worse version of work the owning lane had done that morning.
 3. Confirm `improvement-sweep` is still `enabled=false`.
+
+---
+
+## ADDENDUM 7 (2026-08-15) — THE FRONT IS ESSENTIALLY DONE. Read this and stop; addendums 1–6 are history
+
+**645 commits have landed since addendum 6.** Most of this front moved without me, and two
+of the three bugs I was carrying are no longer mine to carry.
+
+### What is now TRUE (re-checked today, not carried forward)
+
+| thing | state |
+|---|---|
+| `bugs_open/213` | **CLOSED** — moved to `bugs_closed/`. Its lane finished it. |
+| `bugs_open/122` | Open, but its **gate is satisfied on v1.0.1301, both canaries PASS** (`a15181281`) — owner's look is next, not ours |
+| 113's own mechanism | **Repaired fleet-wide**, ai-agent-orchestration.com included; council trail `b8e341b9` **APPROVED** at round 3 |
+| `allow_reinstall` (DES-082) | **LIVE**, and USED once — the site repair went through it |
+| Approval recording (DES-084) | **LIVE on `0115f2b4`** — and **NEVER EXERCISED: 0 rows** |
+| `improvement-sweep` | **`enabled=false`** — confirm before assuming |
+
+**Verification method note:** the chassis is on `0115f2b4528b0063fd01e7af275ccefe9c5a991d`
+(binary probe on `agent-chassis-7779f5d998-96lpf`, `deadbeef` control absent);
+`git merge-base --is-ancestor <your-commit> 0115f2b4` is the "did it ship" query.
+**`strings` was retired 2026-08-11 — do not use it.**
+
+### The one thing I got wrong and fixed today
+
+DES-084 shipped under `Council-Submitted: b8e341b9`. That correlation reached APPROVED at
+round 3 — **on a plan that never contained the approval feature.** So `098` credits
+`1fa86f5cc` as *"[b8e341b9, by correlation, via submitted]"* for a review that never looked
+at it. Not a MISMATCH by the report's own rule (`MISMATCH: 0`), but misleading, and the
+remedy is a correlation of its own rather than a footnote:
+**`9767969e-92fa-44d0-b416-d7187c869531`, submitted 2026-08-15, verdict OWED.**
+
+*Transferable:* **`Council-Submitted:` is safe only while the correlation's eventual approved
+plan still describes your commit.** Reuse it for a LATER, DIFFERENT change on the same trail
+and the coverage join silently credits work nobody reviewed. One trailer, one plan.
+
+### What is actually left on this front — all small
+
+1. **Read verdict `9767969e`** and act on a REVISE/REJECTED. The code is live, so a rejection
+   means reverting shipped behaviour, not declining a proposal.
+2. **DES-084 has never run.** Its audit query has no population, so the tightening it exists
+   to enable has nothing to measure. It will stay that way until the next composition
+   replace — there is no reason to force one.
+3. **`resolveReinstallApprover` reads `approved_by` from the work item SPEC, not from the
+   `site_work_items.approved_by` COLUMN.** `[UNMEASURED]` — if a real HITL flow fills the
+   column instead, this silently records the sentinel. Worth one query before wiring any
+   approval queue.
+4. **113 itself**: kept OPEN per CLAUDE.md's bar. Its own mechanism is fixed and proven; what
+   remains under its number is the `features_open/026` primary-as-ink family, which is
+   **122's**, not this file's.
+
+### What NOT to do
+
+- **Do not unpark the 226 `contrast_failure` rows**, and do not write a contrast verifier.
+  `bugfix_122_contrast_ink_slots` costed that fork (`b2fca2f8f`) and chose **discovery-path
+  retraction** instead. That lane is active and ahead.
+- **Do not enable `improvement-sweep` casually.** `LIMIT 1` per 900s tick, and it discovers
+  as well as triages, so `detected` can rise after a run — that is correct behaviour, not a
+  failure.
+- **Do not re-derive ownership from memory.** `./scripts/who-owns.py <bug>` first; twice on
+  this front I filed a worse version of work the owning lane had already done.
