@@ -2701,3 +2701,64 @@ both pins) and **real for `loans/standard-calc`**, which differs between them �
 very page the 224 fix was about. Now imported from `decompose_lmc.PINNED_REF` so the
 pin can only be changed in one place, rather than restated in a second file that
 nobody re-reads.
+
+### 2026-08-15 (c) — batch 2 CLOSED: deployed, verified, and the closing gate itself was blind in two more places
+
+**Deployed.** The five items drained at **09:53:58–09:56:01Z**, ~70 minutes after filing —
+purely site-rotation latency, on the binary that preceded the 10:14Z roll. The chassis
+that rolled afterwards (`0115f2b4528b0063fd01e7af275ccefe9c5a991d`) is irrelevant to this
+batch: every change here is Python and DB config.
+
+**Verified, with the before/after control that batch 1 lacked.** All five live md5s
+MOVED off the pinned-source values captured pre-deploy, `class="card"` present on all
+five (the whole point of the batch), and `ported-prose` 1/1/1/**0/0** — the two zeros
+being `fee-analyser` and `rate-forecaster`, exactly as predicted, because they decompose
+to a single tool block with no prose rows. **That prediction is why `grep ported-prose`
+must not be used as a deploy tell here**; it would have read as "not deployed" on two
+correctly deployed pages.
+
+- `b2_verify.py` — **5 of 5**: verbatim tool render, every inline script BODY, exact
+  `calculators.js` count, per-class counts, id sets.
+- per-tool oracle — **PASS 33 / FAIL 0 / CONVENTION 0**, identical to the pre-deploy
+  baseline taken in the same session; its mutation control fired correctly (**33 FAIL,
+  0 PASS**).
+- full sweep — **PASS 170 / FAIL 0 / CONVENTION 6**, matching the 08-11 baseline.
+- parse control OK.
+
+**Then the closing gate accused itself.** The full-sweep expectation control reported
+*"CONTROL DID NOT FAIL — 8 checks PASSED under a mutation that makes every answer wrong.
+The checker is inert."* It was crying wolf, and the file's own docstring records this
+happening once before (2026-08-12, determinism checks) with the note that *"a control
+that cries wolf gets ignored"*. **That fix covered ONE immune class; there are three.**
+
+None of the 8 was on a page this batch touched — 4 on `compare-loans`, 1 on `investor`,
+3 on `overpayment` — so the first useful move was to list them rather than to assume
+either innocence or guilt:
+
+1. **`raw_contains` checks assert TEXT** ("Option A is Cheaper", "2 Years 3 Months") and
+   that branch `continue`s **before** the mutation is applied, so corrupting a numeric
+   expectation cannot move them by construction. 7 of the 8.
+2. **The sentinel collides with a real answer.** The mutation sets the expectation to
+   `100.0`, commented as *"a number nothing computes"* — true of nearly every vector, and
+   false for one deliberately built to sit on that boundary:
+   `inv(400000, 1200, 300000, 300000, "asymmetric; LTV exactly 100%")` has loan == value,
+   so its LTV **really is 100.0%**. The 8th.
+
+Both now `N/A` with the reason stated, following the crosstool NON-TEST precedent
+immediately above them in the same function. **Proven both directions in-session**, which
+matters because the fix touches the same branch the normal path uses: normal sweep still
+**170/0/6 with N/A 0**, control now **PASS 0 / FAIL 161 / N/A 15** — and 7 pre-existing +
+8 newly excluded = 15 exactly, so every one is accounted for rather than merely improved.
+
+**MISSTEP 3, a documented landmine I walked straight into.** I wrote the commit message
+for that fix with `git commit -m "... \`want = 100.0\` ..."`. **Backticks in `-m` are
+executed by bash** — it is in `LANDMINES.md` and in my own memory index. Two phrases were
+silently replaced with empty strings in commit `b40d7d982`; bash printed
+`want: command not found` twice and the commit succeeded anyway, so the only signal was
+two words of stderr next to a success line. Forward-only, so it stands. *The check:* use
+`git commit -F -` with a **quoted** heredoc (`<<'EOF'`) for any message quoting code —
+which is precisely the message most likely to contain backticks.
+
+**Also worth recording: `git log -1` was not my commit.** Between committing and reading
+the message back, another session committed, so HEAD had moved. Read your own sha
+(`git log -1 --format=%B <sha>`), never HEAD, when checking what you just wrote.

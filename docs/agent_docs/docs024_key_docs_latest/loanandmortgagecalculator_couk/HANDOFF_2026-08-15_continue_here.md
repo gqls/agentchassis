@@ -1,4 +1,28 @@
-# HANDOFF — B2 batch 2 SEEDED, DEPLOY STILL QUEUED. One command finishes it. START HERE.
+# HANDOFF — B2 batch 2 CLOSED (all 21 calculators parameterised, oracle 170/0/6). START HERE.
+
+> **UPDATED 2026-08-15, later the same day — §1 and §2 below are now HISTORY, not
+> instructions.** The five items drained at **09:53:58–09:56:01Z** and the full
+> verification chain has been RUN. Results, all in one session, all with controls:
+>
+> | check | result |
+> |---|---|
+> | live md5 vs the pre-deploy baseline | **all five MOVED**; `class="card"` present on all five |
+> | `ported-prose` | 1/1/1/**0/0** — the two zeros predicted, see the ⚠ in §2 |
+> | `b2_verify.py` | **5 of 5** — verbatim render, script bodies, classes, ids |
+> | per-tool oracle | **PASS 33 / FAIL 0 / CONVENTION 0**, == the pre-deploy baseline |
+> | per-tool mutation control | fired correctly (**33 FAIL, 0 PASS**) |
+> | **full sweep** | **PASS 170 / FAIL 0 / CONVENTION 6** — matches the 08-11 baseline |
+> | parse control | OK |
+> | full-sweep expectation control | OK **after fixing the control itself** — see §10 |
+>
+> **All 21 calculator pages are now in the B2 shape, live and verified.** The next work
+> is §6.1 (the last two old-shape pages). Keep §1/§2 for their queue-latency evidence and
+> the re-runnable command block; ignore their "still queued" framing.
+>
+> The chassis rolled to `0115f2b4528b0063fd01e7af275ccefe9c5a991d` at 10:14:35Z, AFTER
+> this batch deployed. It bears on nothing here — every change in this batch is Python
+> and DB config. (A sibling lane independently confirmed the pods have not restarted
+> since 10:14Z and that this is the same build already verified this morning.)
 
 **Written 2026-08-15 by the mixed-card session.** Supersedes
 `HANDOFF_2026-08-14_continue_here.md` as the entry point. That file's §4 (the mixed-card
@@ -10,13 +34,14 @@ five) is **done up to the deploy**; its §5 wider queue is carried forward here 
 ## 0. The state in one paragraph
 
 41 pages on `loanandmortgagecalculator.co.uk` (site id `ed633ada-f8af-424b-b4d4-8af79160dbcd`).
-**All 21 calculator pages are now in the B2 shape in the DATABASE** — the mixed-card five
-were seeded this session, joining the 16 from batch 1. **But the five are NOT LIVE**: their
-five `page_rerender` items are still `triaged`, queued behind other sites, and the live pages
-still serve the old verbatim HTML. Nothing is broken by this — live is simply the previous
-(correct) version. **Finishing = let those five items drain, then run the verification chain
-in §2.** Two pages remain on the old Track-B shape (`loans-consolidation`,
-`mortgages-repayment`) and they are **two different shapes, not one** (§3).
+**All 21 calculator pages are now in the B2 shape, LIVE and VERIFIED** — the mixed-card five
+were seeded, deployed and proven this session, joining the 16 from batch 1. Every clean copy
+span is an unlocked schema field; machinery lives in a per-page `html_template` no content
+writer can touch; rows unlocked by design; pages `rebuild_policy='owned'`. Full oracle
+**PASS 170 / FAIL 0 / CONVENTION 6**, unchanged from the 08-11 baseline, with parse and
+mutation controls fired in-session. Two pages remain on the old Track-B shape
+(`loans-consolidation`, `mortgages-repayment`) and they are **two different shapes, not one**
+(§3) — that is the next work.
 
 ## 1. ⚠ THE ONE THING IN FLIGHT
 
@@ -246,3 +271,50 @@ for four of the five** (§3.4).
 
 **Council note:** everything this session touched is lane tooling under `docs/`, site content
 and DB config — out of gate scope (docs are refused client-side and never spend credits).
+
+---
+
+## 10. ⚠ THE CLOSING GATE WAS BLIND IN TWO MORE PLACES — fixed, but read this before you trust it
+
+The full-sweep expectation control reported **"CONTROL DID NOT FAIL — 8 checks PASSED
+under a mutation that makes every answer wrong. The checker is inert."** It was **crying
+wolf**, and `oracle.py`'s own docstring records this happening once before (2026-08-12,
+the determinism checks) with the note that *a control that cries wolf gets ignored*.
+**That fix covered ONE immune class. There were three.**
+
+None of the 8 was on a page this batch touched (4 `compare-loans`, 1 `investor`,
+3 `overpayment`), so the first move was to **list them** rather than assume innocence:
+
+1. **`raw_contains` checks assert TEXT** — "Option A is Cheaper", "2 Years 3 Months" —
+   and that branch returns **before** the numeric mutation is applied, so nothing the
+   control does can move them. **By construction, not by accident.** 7 of the 8.
+2. **The sentinel collides with a real answer.** The control asserts `100.0`, commented
+   as *"a number nothing computes"* — true of nearly every vector, false for one built
+   to sit on that boundary:
+   `inv(400000, 1200, 300000, 300000, "asymmetric; LTV exactly 100%")` has loan == value,
+   so its LTV **really is 100.0%**. The 8th.
+
+Both are now `N/A` with the reason stated, following the crosstool NON-TEST precedent
+directly above them. **Proven both directions in-session**, which matters because the fix
+touches the same branch the normal path uses:
+
+| run | before | after |
+|---|---|---|
+| normal full sweep | 170 / 0 / 6, N/A 0 | **170 / 0 / 6, N/A 0** (unchanged) |
+| `--mutate expectation` | PASS **8** / FAIL 161 / N/A 7 | **PASS 0** / FAIL 161 / **N/A 15** |
+
+7 pre-existing + 8 newly excluded = **15 exactly** — every one accounted for, not merely
+improved. Commit `b40d7d982`.
+
+**What this means for anyone reading a green control here:** the expectation mutation
+only ever tested the ~161 checks that compare a parsed NUMBER. It never tested the
+text-assertion checks and it never could. Those 7 are still unguarded by any mutation
+control — **a `raw_contains` check that has silently stopped matching would not be caught
+by any control in this file.** That is a real, stated gap, not a solved problem.
+
+> ⚠ **Two shell traps fired on me this session; both are in `LANDMINES.md` already.**
+> **Backticks in `git commit -m` execute** — two phrases in `b40d7d982`'s message were
+> replaced with empty strings, bash printed `command not found` twice next to a success
+> line, and forward-only means it stands. Use `git commit -F -` with a **quoted** heredoc
+> for any message quoting code. And **`git log -1` may not be your commit** — another
+> session committed in between; read your own sha.
