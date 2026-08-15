@@ -6912,3 +6912,75 @@ render as *"page  is status=archived"* with a blank. And `domain` is empty on ev
 `page-rerender` row, populated on every `page-build-handler` row, which is the
 `COALESCE(domain,'') = ''` landmine for this table behaving precisely as documented.
 **Group these rows by `page_id`, never by `page_name`.**
+
+### 2026-08-15 later — owner chose full rollout and the framework route; and I had the nav mechanism WRONG
+
+**Owner decisions, both taken against my stated recommendation and both proceeded with in
+full:** (1) roll the copy rewrite to **all** matching pages rather than the dense subset;
+(2) route the nav fix through the framework rather than editing directly.
+
+**2a rollout — 21 further items filed**, one per matching page, each quoting **its own**
+page's matches. The over-broad-pattern risk I flagged is mitigated **in the instruction**
+rather than by trimming the list, which is the honest way to honour a decision I argued
+against:
+
+> *"This page was selected by a deliberately broad pattern match, so SOME OR EVEN ALL of
+> the matches below may be legitimate… If none of the matches on this page is a negative
+> definition, CHANGE NOTHING and say so. Rewriting sound copy is a worse outcome than
+> leaving the habit in place."*
+
+Asserted present in every item by the transaction, alongside the caveat-protection
+clause. Moving: 2 complete, 1 claimed, 20 triaged at time of writing.
+
+### ⚠ CORRECTION — the nav is built from `pages`, NOT from `site_plan_pages`
+
+**I asserted the wrong mechanism in the DECISION_INPUT, in NOTES and in the owner's
+README, and I caught it before changing anything.**
+
+What I claimed: the top nav is generated from `site_plan_pages WHERE in_header`, so the
+fix is five missing plan rows — and that this collided with the 215 front's plan surgery.
+
+What is true: the nav is built from **`pages.in_header` / `pages.in_footer`**, with a
+dedicated index `idx_pages_nav btree (site_id, in_header, nav_order) WHERE
+status='active'`, materialised into `site_nav_items`.
+
+**How the error was made, because the shape is the transferable part.** I queried
+`site_plan_pages`, found exactly six `in_header` rows, observed they matched the six items
+in the served nav exactly, and concluded the plan was the source. **Both tables carry the
+same flags for those pages, so the match was a coincidence.** A count that agrees is not a
+mechanism, and I had a perfectly good way to check — read the thing that writes the nav —
+which I skipped because the agreement felt conclusive. Textbook
+`your-measurement-answers-the-question-you-encoded`: I confirmed a correlation and
+reported a cause.
+
+**What caught it:** reading a completed `nav_drift` item before cloning it, whose own
+`fix` string says *"rebuild `site_nav_items` **from pages**"*. The same habit that has
+paid off repeatedly this session — read the artefact you are about to copy.
+
+**The corrected diagnosis is smaller and better:**
+
+- `tools`: `in_header=false`, `in_footer=false` → appears **nowhere**. Two booleans.
+- `llm-cost-calculator`: `in_header=**true**` yet materialised into the **footer** group
+  only — the stored nav disagrees with the declared flags. That is nav drift literally,
+  and it is why the one existing tools link is in the footer.
+- **The capitalisation defect's cause is now known:** the stored label is
+  `Llm Cost Calculator` while that page's `nav_label` is `Tools / LLM Provider Cost
+  Comparison Calculator`. The builder **title-cases the page NAME and ignores
+  `nav_label`**. Likely a fleet defect, not a label defect. Happy consequence: for
+  `tools` the derived label is `Tools`, so no label plumbing is needed.
+- **The collision risk with the 215 front is void** — nothing here touches the plan.
+
+### BLOCKED on a permission, and I did not manufacture a green item to hide it
+
+The framework route is two steps: **declare** (`UPDATE pages SET in_header…`) then
+**materialise** (a `nav_drift` item, 23 of 23 complete, 3-minute turnaround).
+
+**Step 1 was refused by the harness permission classifier.** Environment limit, not a
+platform finding.
+
+**I deliberately did not file step 2 alone.** Its handler rebuilds the nav *from* `pages`
+— with the flags still false it would rebuild the identical nav, complete, and report a
+fix that never happened. Filing it would have produced exactly the false-success artefact
+this lane has spent weeks learning to distrust. The guarded SQL for both steps in one
+transaction is `SQL_2026-08-15_fundamentallyai_nav_membership.sql`, ready for the owner to
+run or for a session with the permission.

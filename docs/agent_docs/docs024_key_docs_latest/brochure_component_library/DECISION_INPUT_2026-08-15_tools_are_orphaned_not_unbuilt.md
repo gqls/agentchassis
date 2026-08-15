@@ -55,33 +55,64 @@ The plan, and our own 08-12 handoff, both assumed the tools hub had to be create
   to its tool — on **six** pages. It is not missing machinery; it has the right
   machinery already installed.
 
-**The defect is one row, not one component.** The top nav is generated from
-`site_plan_pages WHERE in_header`. That table holds exactly six rows, and they are
-exactly the six items your nav shows:
+> ### ⚠ CORRECTED 2026-08-15, before anything was changed — I named the wrong table
+>
+> This section first said *"the top nav is generated from `site_plan_pages WHERE
+> in_header`"* and that the fix was five missing plan rows. **That is wrong.** The nav
+> is built from **`pages.in_header` / `pages.in_footer`** — there is a dedicated index
+> for it, `idx_pages_nav btree (site_id, in_header, nav_order) WHERE status='active'` —
+> and materialised into `site_nav_items`.
+>
+> **How I got it wrong:** I queried `site_plan_pages`, found exactly six `in_header`
+> rows, saw they matched the six items in the served nav, and concluded the plan was the
+> source. Both tables carry the same flags for those pages, so the match was a
+> **coincidence, not a mechanism.** One matching count is not a causal chain, and I
+> should have read the builder before asserting it.
+>
+> **What caught it:** reading a completed `nav_drift` item, whose own `fix` string says
+> *"rebuild `site_nav_items` **from pages**"*. The correction makes the fix smaller and
+> removes the collision risk in §5 entirely.
+>
+> The plan-row absence below is still factually true, and may matter to something else,
+> but it is **not** why the nav is missing a Tools entry. Do not act on it.
+
+**The defect is two boolean fields on one row.**
+
+`[MEASURED 2026-08-15]` at `pages`:
+
+| page | `in_header` | `in_footer` | `nav_order` | `nav_label` |
+|---|---|---|---|---|
+| `tools` | **false** | **false** | 203 | `Tools / Index` |
+| `llm-cost-calculator` | **true** | false | 201 | `Tools / LLM Provider Cost Comparison Calculator` |
+
+**`/tools.html` has both flags false, so it appears nowhere.** That is the entire nav
+gap, and it is the answer to your first ask.
+
+And the second row is its own small finding: `llm-cost-calculator` is declared
+`in_header=true` and yet materialised into the **footer** group only. The stored nav
+disagrees with the declared flags — nav drift in the literal sense, and the reason your
+one existing tools link is in the footer.
+
+`site_nav_items` holds twelve rows in two groups of six, which is exactly what the site
+serves:
 
 ```
-index  Home | about  About | capabilities  Capabilities
-platform-log-index  Platform Log | news-index  News | contact  Contact
+header:  Home · About · Contact · Platform Log · News · Capabilities
+footer:  Review Council · Fine-Tuning · Backend Engineering · Asset Recovery ·
+         Private Search · Llm Cost Calculator
 ```
 
-**`tools` has no row in the plan at all.** Neither do four other live pages:
+**And that confirms the capitalisation defect's cause.** The stored label is
+`Llm Cost Calculator` while that page's `nav_label` reads
+`Tools / LLM Provider Cost Comparison Calculator`. So the builder derives the label by
+title-casing the page **name** (`llm-cost-calculator`) and **ignores `nav_label`
+entirely**. Useful consequence: for `tools` the derived label would be **"Tools"**,
+which is exactly what you want — so this needs no label plumbing.
 
-| page | serves at | nav_label |
-|---|---|---|
-| `tools` | `/tools.html` | `Tools / Index` |
-| `llm-cost-calculator` | `/tools/llm-cost-calculator.html` | `Tools / LLM Provider Cost Comparison Calculator` |
-| `tool-model-approach-selector-guide` | `/guides/…` | *(blank)* |
-| `tool-automation-savings-estimator-guide` | `/guides/…` | *(blank)* |
-| `tool-ai-readiness-checker-guide` | `/guides/…` | *(blank)* |
-
-**Five of twenty-five active pages are absent from the plan.** Look at those two
-nav_labels: `Tools / Index` and `Tools / LLM Provider Cost Comparison Calculator`. That
-is a `Section / Page` hierarchy. **A Tools section was designed, built, labelled and
-deployed — and then never entered into the plan the navigation is generated from.** It
-has been live and unreachable ever since.
-
-That is why the symptom looks the way it does: six guides that describe tools, and no
-route to any of them. Not an oversight in the writing — an orphaned section.
+Separately and still true: five of twenty-five active pages have no `site_plan_pages`
+row (`tools`, `llm-cost-calculator`, and three guide pages). Two of them carry
+`Tools / …` hierarchical labels, so a Tools section was designed and labelled as a
+section. That is worth understanding, but it is not the nav bug.
 
 ## 4. Why this changes the size of the job
 
@@ -93,30 +124,42 @@ It also means the acceptance test should be *"the tools section is reachable"*, 
 *"a new hub renders"* — and a check that a new hub renders would have passed while the
 existing orphan stayed just as unreachable.
 
-## 5. THE DECISION I NEED, and why I have not just done it
+## 5. WHERE THIS IS BLOCKED — a permission, not a decision
 
-The obvious fix — insert the missing `site_plan_pages` rows — is **plan surgery on
-fundamentallyai.com, and another front in this same lane is doing plan surgery on this
-exact site right now** (the 215 quiet-mode front; two of its seven duplicate pairs are
-here, and it deletes and re-adds plan rows as part of its procedure). Two threads editing
-one plan is precisely the collision this estate keeps paying for, so I have stopped.
+> **SUPERSEDED 2026-08-15 by the correction in §3.** The three options that stood here
+> were all about *which `site_plan_pages` rows to add*, and were built on the wrong
+> mechanism. **The collision risk with the 215 front is void** — the real fix touches
+> `pages`, not the plan, so the two threads never meet. You chose "file it for the
+> framework"; that is still the right shape and it is what I attempted.
 
-**Option A — I add the five plan rows, coordinating with the 215 front first.**
-Smallest change; fixes ask 1 outright. Needs the 215 front to confirm it is not
-mid-transaction on this plan.
+**The framework route needs two steps, and only the second is a work item.**
 
-**Option B — I do only the two Tools rows now (`tools`, `llm-cost-calculator`), leave the
-three guide pages.** Narrower blast radius on a plan someone else is editing. The three
-orphan guides stay unreachable, which is a smaller version of the same bug.
+1. **Declare** the membership: `UPDATE pages SET in_header=true, nav_order=4,
+   nav_label='Tools' WHERE name='tools'`. One row, two booleans.
+2. **Materialise** it: a `nav_drift` item with `reason='nav_membership_declared'`, whose
+   handler *"rebuilds `site_nav_items` from pages and re-renders chrome so the link
+   ships"*. That item type is **23 of 23 complete**, most recently 2026-08-15 00:51 with
+   a three-minute turnaround — it is the healthiest queue on the estate.
 
-**Option C — file it as a work item and let the framework do it.** Most in keeping with
-"every site goes through the framework", slowest, and the queue is currently ~305 deep
-with the oldest item four days old.
+**Step 1 was refused by the harness permission classifier**, so neither has been applied.
+This is an environment limit on my session, not a platform finding and not a decision
+awaiting you.
 
-**Separately, and not blocked by the above:** the nav label wants correcting to `Tools`
-(currently `Tools / Index`), and the footer link still renders **"Llm Cost Calculator"**
-— a title-caser applied to an acronym. If that helper is generic, it is a fleet defect,
-not a label defect.
+**I deliberately did NOT file step 2 on its own.** The handler rebuilds the nav *from*
+`pages`; with the flags still false it would rebuild the identical nav, complete
+successfully, and report a fix that had not happened. A green work item over an unchanged
+artefact is the exact failure this lane keeps documenting, and filing it would have
+manufactured one.
+
+**What I need from you:** either run the one `UPDATE` yourself (the full guarded SQL is
+`SQL_2026-08-15_fundamentallyai_nav_membership.sql`, which also files the `nav_drift`
+item in the same transaction), or grant the permission and I will run it.
+
+**Still open regardless:** the footer link renders **"Llm Cost Calculator"**. §3 shows
+why — the builder title-cases the page *name* and ignores `nav_label`. That is a generic
+helper, so it is very likely a **fleet** defect rather than this site's label being
+wrong, and it deserves its own item. I have not measured how many other sites carry an
+acronym in a page name.
 
 ## 6. The open question I cannot answer from here
 
