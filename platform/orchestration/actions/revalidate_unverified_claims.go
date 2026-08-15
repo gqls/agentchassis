@@ -354,15 +354,23 @@ func claimStillOnPage(scan *checks.ClaimsPageScan, c flaggedClaim) (present, jud
 // "has the page moved since?" question has no answer.
 func unverifiedClaimsVerdict(pageID string, filedAt time.Time, flagged []flaggedClaim, scan *checks.ClaimsPageScan, deploy pageDeployState) revalidationVerdict {
 	if scan == nil {
-		// No row came back for this page: it was deleted, or it has no component
-		// carrying either rendered_html or content_data. Note this check has never
-		// filtered on page status, so — unlike the voice scan — an archived page
-		// still comes back and is still judged. A page with nothing built on it
-		// cannot be read as copy that was corrected.
+		// No row came back for this page: it was deleted, it is archived AND was
+		// never deployed (the one exclusion ScanDeployedClaims carries, added
+		// 2026-08-15 — see its doc comment for why both halves are needed), or it
+		// has no component carrying either rendered_html or content_data. An
+		// archived page that HAS been deployed still comes back and is still
+		// judged, because five such pages were measured serving HTTP 200.
+		//
+		// All three causes refuse rather than close, and deliberately: a page with
+		// nothing built on it cannot be read as copy that was corrected, and a
+		// draft withdrawn before publication is not evidence its claims were
+		// substantiated. Excluding a page from the scan therefore stops new
+		// findings being filed against it; it does not dispose of one already
+		// filed, which stays open on this arm until someone cancels it.
 		return revalidationVerdict{
 			Verdict: revalidationUnknown,
 			Arm:     armPageAbsent,
-			Reason:  "page is absent, or has no component carrying rendered html or stored content, so there is no copy to re-judge; an unbuilt page is not evidence the claims were removed",
+			Reason:  "page is absent, archived without ever having been deployed, or has no component carrying rendered html or stored content, so there is no copy to re-judge; an unbuilt or never-published page is not evidence the claims were removed",
 			Evidence: map[string]interface{}{
 				"page_id": pageID,
 			},

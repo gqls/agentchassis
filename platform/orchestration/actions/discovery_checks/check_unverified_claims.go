@@ -335,11 +335,40 @@ func LoadEvidenceBase(ctx context.Context, db *sql.DB, siteID uuid.UUID) (*datah
 // this page still assert something the register does not support?" differently.
 // Same precedent as ScanVoiceTells and needs_page.
 //
-// ⚠ NO PAGE-STATUS FILTER, and that is deliberate — it differs from
-// ScanVoiceTells, which restricts to p.status IN ('active','deployed'). This
-// check has never filtered on page status, and the revalidator must judge by
-// exactly the predicate the emit side uses or the two ends disagree. Widening
-// or narrowing it here would silently change what the CHECK reports.
+// ⚠ ONE PAGE-STATUS EXCLUSION, added 2026-08-15 on the owner's instruction, and
+// it is a CONJUNCTION: archived AND never deployed. Until then this check had no
+// page filter at all, deliberately — which meant a rejected draft no visitor can
+// reach was re-scanned on every daily sweep, filed findings, and had no way to
+// close (webdesign.uk/index-rejected-v1-20260806, 19 banned-claim findings,
+// review-queue item a355d78b). It remains narrower than ScanVoiceTells, which
+// restricts to p.status IN ('active','deployed').
+//
+// BOTH HALVES ARE LOAD-BEARING, and that is measured rather than argued.
+// `p.status = 'archived'` ALONE IS UNSAFE: of the 11 archived pages carrying
+// scannable components on 2026-08-15, FIVE were serving HTTP 200 —
+// fundamentallyai.com/blog/ai-readiness-checker-guide.html (25,861 B),
+// fundamentallyai.com/tools/llm-cost-calculator/index.html (35,331 B),
+// leopardessconsulting.co.uk/our-approach.html (28,948 B),
+// robot-hands.com/gripper-catalog.html (30,997 B) and robot-hands.com/news.html
+// (48,047 B) — each measured against a fabricated-URL control on its own domain
+// that returned 404 at a different byte count. Excluding on status alone would
+// silently stop claim-checking five live, publicly-served pages.
+//
+// ⚠ THE ESTATE'S USUAL LIVENESS PREDICATE IS THEREFORE WRONG FOR THIS QUERY.
+// `p.status = 'active' AND p.build_status = 'deployed'` (load_site_pages_action.go:80
+// and four sibling call sites) is the right test for "should we RE-PUBLISH this
+// page". It is the wrong test for "is there copy a visitor can read", which is
+// what an audit asks: archiving a page sets a database column, it does not
+// unpublish the artefact already sitting in the deploy repo.
+//
+// The conjunction excludes exactly 1 page / 7 components fleet-wide, and the URL
+// it drops stays covered — an active, deployed row serves the same /index.html.
+//
+// The revalidator must judge by exactly the predicate the emit side uses or the
+// two ends disagree, which is why this scan is shared rather than reimplemented.
+// An excluded page returns no row, which unverifiedClaimsVerdict reads as
+// armPageAbsent — a REFUSAL, not a closure. So this stops the CLASS; it does not
+// dispose of an item already filed against such a page.
 //
 // TWO SURFACES PER COMPONENT, and each scan is gated on the one it reads:
 // the HTML scans on rendered_html, the stat scans on content_data
@@ -377,6 +406,7 @@ func ScanDeployedClaims(
 		JOIN pages p ON p.id = pc.page_id
 		LEFT JOIN content_components cc ON cc.id = pc.component_id
 		WHERE p.site_id = $1
+		  AND NOT (p.status = 'archived' AND p.deployed_at IS NULL)
 		  AND ( (pc.rendered_html IS NOT NULL AND pc.rendered_html <> '')
 		     OR (pc.content_data IS NOT NULL AND pc.content_data::text <> '{}') )`
 	pageArgs := []interface{}{siteID}
