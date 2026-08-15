@@ -25,12 +25,29 @@ both must-retract rows still clear at 4.56 / 5.16, verdicts unchanged) — **unl
 re-render lands first: read the served ink again on the day.** This is the third time this
 handoff has had to say that, and the second time events proved it.
 
-**The 226 is now 225 + 1 CANCELLED**, and the cancellation is NOT ours and NOT the retraction:
-`contrast_failure:/gripper-payload-calculator.html#A.cta-btn`, cancelled 16:36Z 08-14 with **no
-`resolved_by`, no `reason`** — the retraction always stamps both. Probably the bug-268 buttons
-lane (the cta-btn/gradient family is in their remit now) — unconfirmed, left as an open question.
-Consequence for §3b: robot-hands' first-pass ceiling is **33**, not 34. All three
-`/selection-guide.html` canary rows are still `deferred`.
+**The 226 is now 225 + 1 CANCELLED — it was a PAGE ARCHIVAL** (`581eb30a`'s diagnosis, verified
+here: **9 items across 6 `item_type`s cancelled at the identical microsecond** `16:36:54.480105Z`,
+the same instant `/gripper-payload-calculator.html` went `archived`; replacement live at
+`/tools/gripper-payload-calculator/index.html`, HTTP 200). A URL restructure's correct bookkeeping,
+not any lane's intervention — my earlier "probably the 268 lane" guess was wrong; the discriminator
+was timestamp *granularity*: one lane superseding one finding cancels one row, a single transaction
+cancels six types at one microsecond. Ceiling for §3b: **33**. All three `/selection-guide.html`
+canary rows still `deferred`. Two traps that fell out of it:
+- **A page's deploy time is NOT evidence of its ink values.** The replacement pages deployed 22:24Z
+  — after the 20:36Z roll — and still serve the 15:25Z **4.5** stylesheet, because page render and
+  stylesheet render are different mechanisms.
+- **The new `/tools/…` URLs have zero contrast findings because NOTHING HAS AUDITED THEM** — an
+  absence at an unaudited URL, not a clean result. Monday's audit may file fresh rows there; that
+  is discovery, not regression.
+
+**⚠ THE HOLD'S RATIONALE WEAKENED AT 20:36Z — state it honestly, do not over-defend it.** Since
+v1.0.1300, every re-render emits **5.0** — the owner's ruled target. An accidental third-party
+re-render now produces the *correct* colours. The hold on `829a8f3e` no longer protects the owner's
+gate from wrong values; it only preserves the distinction between the APPROVED binary
+(`e0f239118`, one roll away) and a behaviourally identical REVISE-flagged one. That is defensible —
+the gate costs nothing while rolls arrive daily — but it is a much weaker reason than yesterday's,
+and the next session should feel free to revisit it against the facts as they then stand rather
+than inherit this hold as doctrine.
 
 **Next trigger unchanged: a roll whose stamp has `e0f239118` as ancestor** → un-defer + file
 webdesign (§3a-bis) → owner looks → "Go". Saturday's pricing task (§4.1) is now TODAY.
