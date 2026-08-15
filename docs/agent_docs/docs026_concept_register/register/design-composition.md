@@ -817,3 +817,29 @@ deduplication begins; the "raw extractions" count above and the per-concept
 - **the open review question:** nothing BLOCKS on approval today — the ruling was "approval needed but for now default that the human approves", so this delivers the *record* and defers the *gate*. Tightening is one line (return `""`, have the caller refuse), but it should not be flipped until the query above shows who would have been refused.
 - **sources:** `platform/orchestration/actions/install_site_composition_action.go` (`resolveReinstallApprover`, `reinstallDefaultApprover`); `install_site_composition_reinstall_test.go` (tests G/H/I); owner ruling 2026-08-12
 - **relations:** DES-082 (`allow_reinstall`, the flag this approves); `bugs_open/113`
+
+> **DES-084 STATUS CORRECTION 2026-08-15 — "built, not rolled" is STALE. It is LIVE, and it has NEVER RUN.**
+> Shipped in chassis stamp `0115f2b4528b0063fd01e7af275ccefe9c5a991d`: `git merge-base
+> --is-ancestor 1fa86f5cc 0115f2b4` succeeds, and the chassis binary carries that sha
+> (probed on `agent-chassis-7779f5d998-96lpf`, with a `deadbeef` control absent). **Do not
+> re-verify with `strings`** — CLAUDE.md retired it 2026-08-11.
+>
+> **DEPLOYED ≠ EXERCISED, and here the gap is total.** Measured 2026-08-15:
+> `SELECT result->>'reinstall_approved_by', count(*) … GROUP BY 1` → **0 rows**;
+> `result->>'replaced_existing'='true'` → **0**. No composition replace has run since the
+> one that repaired `ai-agent-orchestration.com`, so **not one line of this has executed**
+> and the sentinel has never been written. The audit query the whole design rests on has no
+> population yet — which also means **the eventual tightening of the default still has
+> nothing to measure**, and that was the entry's stated purpose.
+>
+> **REVIEW CORRECTION, and it is mine to own.** This shipped under
+> `Council-Submitted: b8e341b9`, whose trail reached APPROVED at round 3 — **on a plan that
+> never contained the approval feature** (its edits were `allow_reinstall`, the race guard,
+> `previous_collection_id`, the per-request spec read and the `check_integrity` status
+> change; `resolveReinstallApprover` appears in none of them). The 098 report therefore
+> credits `1fa86f5cc` as `[b8e341b9, by correlation, via submitted]` for a review that never
+> looked at it. **Not a MISMATCH by the report's own rule** (`Council-Submitted` asserts
+> nothing, and the run shows `MISMATCH: 0`) — but misleading in effect, and the fix is a
+> correlation of its own, not a footnote. Submitted 2026-08-15 as
+> **`9767969e-92fa-44d0-b416-d7187c869531`**, with the over-credit named in its rationale.
+> **Verdict not yet read — owed.**
