@@ -79,9 +79,10 @@ Owner feedback (via the bugfix-122 front): the homepage copy "sounds like AI wit
 not that'" — h2 *"A workbench, not a sales pitch"* + the same shape in the body. Verified;
 NOTES 08-15 has the full record. The site has NO voice spec/gate (pure house-voice
 governance) and the copy predates v2. **Action when unblocked:** voice-only
-`content_rewrite` via `page-build-handler` (renders under v2 now). **Blocked on:** the
-duplicated section (positions 2+3, identical h2) — a composition bug the 122 front was
-asked to file; fix composition FIRST or the two fixes muddy each other. Do not hand-write
+`content_rewrite` via `page-build-handler` (renders under v2 now). **Blocked on: `bugs_open/278`** — the duplicate is LOCATED in `site_plan_sections`
+(`info-card-grid` planned twice in one transaction, N=1 fleet-wide); the "why" is
+090-flagged and undiagnosed; likely fix is a plan edit + re-render. The 122 front pings
+this lane on close. Fix composition FIRST or the two fixes muddy each other. Do not hand-write
 copy (owner rulings 08-04/08-06), and do not touch the tan link colour (intended, 122's
 ink canary).
 
