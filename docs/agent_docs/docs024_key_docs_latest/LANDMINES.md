@@ -10769,3 +10769,31 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **source:** 2026-08-15, loanandmortgagecalculator Track B2 batch 2, checking the mixed-card five against the 08-05 backup before seeding. Found only because 0-for-5 looked too convenient to be true.
 - **relations:** the entry above on **a restore from a dated backup is a TIME MACHINE** — this is the check that feeds that decision, and it is the one that failed · MEMORY [[measurement-discipline-index]] (*a grep proves absence only for the SPELLING it searches*) · [[a-post-fix-zero-needs-a-demand-control]] (an empty result needs a control that could have come out non-empty)
 - **added:** 2026-08-15, loanandmortgagecalculator B2 mixed-card thread
+
+### Adding a section to a `rebuild_policy='owned'` page: BOTH sanctioned actions refuse, and the site's own tool pages will tell you it is impossible
+
+- **footprint:** `pages.rebuild_policy='owned'`, `platform/orchestration/actions/save_page_sections_action.go:186-196`, `owned_page_guard.go:29-36`, `apply_section_edit` / `ApplySectionEditInputSpec` (`section_editor_actions.go:46-60`), `docs/agent_docs/sql_for_agents/267_tool_guide_intro_recovery_waterfall.sql`, `docs/agent_docs/docs024_key_docs_latest/cta_link_integrity/scripts/049b_deploy_single_page.sh`, any `tool-*` page
+- **fires when:** you need to ADD a component to an existing tool/widget page — merging prose onto a tool page, adding a guide intro, giving a calculator an explainer. No symptom first: you go looking for the action, find two that sound right, and both say no.
+- **the trap, in three parts:**
+  1. **`SavePageSectionsAction` HARD-REFUSES an owned page** — its DELETE-and-reinsert is the TL-001 clobber. Its error names two alternatives ("apply_section_edit for targeted edits or the tool pipeline for rebuilds"), and **neither of them can add a section**.
+  2. **`apply_section_edit` only edits an EXISTING `page_components` row.** Both its edit types (`content_edit`, `component_swap`) target a `page_component_id`. There is no add.
+  3. **So the honest conclusion from the actions alone is "the platform cannot do this" — and that is WRONG.** `owned_page_guard.go:29-36` states the design: the guard sits at `assemble_page` precisely because re-assembly of existing `page_components` "is deliberately NOT gated — it is how owned pages deploy". A direct INSERT plus an **assemble-only** deploy is the sanctioned route, not a workaround. Worked precedent: `267_tool_guide_intro_recovery_waterfall.sql`.
+- **⚠ THE MEASUREMENT THAT LOOKS DECISIVE AND POINTS THE WRONG WAY.** A site's own tool pages are usually single-component, so "tool pages here don't carry prose" reads as a settled convention. **[MEASURED 2026-08-15, fleet-wide] 23 active `owned` pages carry >1 component** — 9 on loanandmortgagecalculator.co.uk with a deliberate `prose-0 / tool-1 / prose-2` interleave, plus `oufe.com tool-recovery-waterfall` and `webdesign.co.uk tool-ab-test-calculator`. robot-hands' three `tool-` pages are all single-component, i.e. **the local n=3 says the opposite of the fleet**. Ask the fleet, not the site:
+  ```sql
+  SELECT count(*) FROM (SELECT p.id FROM pages p JOIN page_components pc ON pc.page_id=p.id
+    WHERE COALESCE(p.rebuild_policy,'generic')='owned' AND p.status='active'
+    GROUP BY p.id HAVING count(pc.id)>1) t;   -- 23 on 2026-08-15, not 0
+  ```
+- **the check, before ANY assemble-only deploy of a page you have just added rows to** — `049b_deploy_single_page.sh`'s own header warns that **if ANY section has NULL `content_data` the whole page escalates to the content writer and the copy IS regenerated.** On a tool page **that regenerates the tool**. NULL and `'{}'` are not the same thing and only one of them is safe:
+  ```sql
+  SELECT slot_name, content_data IS NULL AS is_null, content_data->>'deploy_mode' AS mode
+    FROM page_components WHERE page_id='<page>';
+  -- is_null must be false on EVERY row. mode='verbatim' + exactly 1 component means the
+  -- page is on the verbatim-serve path (rerender_single_page_action.go:287-311) and
+  -- attaching a second component changes its serving mode — intended, but know it.
+  ```
+  And pass **no 4th argument** to `049b`: a reason takes the `rerender_sections` pre-pass instead of assemble-only.
+- **two things worth copying from 267 and two worth NOT copying.** Copy: `NOT EXISTS` replay guard on `(page_id, slot_name)`, and write `rendered_html` in the same statement. Do **not** blindly copy its `pages.sections` append (assembly reads `page_components ORDER BY position ASC`, never that column — and writing it flips `ensure_page_section_layout_action.go:118` from "will write a layout" to "refuses, already non-empty"), nor its `lock_type='permanent'` unless the copy is genuinely hand-authored — locking framework-written content opts it out of ordinary maintenance for no gain.
+- **source:** 2026-08-15, `bugs_open/215` O2 pair 7 (robot-hands `gripper-cycle-time-estimator`). The lane's own handoff said the merge needed "~1,700 words the framework must write"; the words were two finished deployed components and moved verbatim. The fleet-wide query above is the one that saved it, and it was run specifically to disconfirm the n=3 reading.
+- **relations:** MEMORY [[measurement-discipline-index]] (*your measurement answers the question you ENCODED*) · [[a-post-fix-zero-needs-a-demand-control]] (a zero needs a control that could have come out otherwise) · [[shared-actions-are-estate-design-not-a-smell]] · the `bugfix 117` chrome entry (stored artefacts that no rerender regenerates)
+- **added:** 2026-08-15, brochure_215_o2_thread
