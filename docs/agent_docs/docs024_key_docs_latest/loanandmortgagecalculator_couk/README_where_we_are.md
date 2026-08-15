@@ -1202,3 +1202,18 @@ same way, editable the same way, protected the same way. The remaining ideas on 
 list: actually demonstrate reusing one calculator on a second page with different
 words (nobody has done it yet, it's the cheapest proof of the reuse goal), and the
 bigger "teach the planner what this site is" work.
+
+Later the same afternoon. The reuse idea is no longer just a design claim — it has been
+demonstrated and tidied away again, which is what was decided: prove it, don't leave a
+stray page around. We took the repayment calculator's template, made a second copy of
+just its words (different labels, different button text, same arithmetic), put it on a
+hidden test page, and checked the sums on that page against our independent calculator —
+all twelve checks right. Then we removed the test page through the platform's own
+page-removal machinery: the page now returns "not found", the real calculator pages are
+untouched, and the whole site still passes all 170 arithmetic checks. One honest wrinkle:
+the database keeps a small archived record of the test page (its history table is
+designed never to forget a page existed), so internal counts now say "41 active pages
+plus one archived". That archived stub is actually useful — it is standing proof that one
+calculator template can serve two pages with two different sets of words, which was the
+owner's original ask. The one remaining big item on this site is teaching the planner
+what the site looks like, so a future rebuild would recreate it faithfully.

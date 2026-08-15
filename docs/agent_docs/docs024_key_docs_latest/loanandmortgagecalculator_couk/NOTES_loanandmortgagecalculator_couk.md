@@ -2975,3 +2975,37 @@ the transaction, `ON_ERROR_STOP=1` makes psql exit non-zero, and the script prin
 read back which values were checked. Do not "fix" this by weakening the guards into
 `SELECT`s that print — that is the exact anti-pattern the estate already has a ruling
 about (a verify block of `SELECT`s cannot stop a `COMMIT`).
+
+### 2026-08-15 (g) — REUSE DEMONSTRATED AND REVERTED (§6 item 6 DONE; owner ruled "unlinked page, then revert")
+
+The last unproven half of the 2026-08-13 direction. Full arc, all proofs in-session:
+
+- **Prove:** unlinked page `mortgages-repayment-demo` (in_header/in_footer false,
+  noindex, `rebuild_policy='owned'`), second `page_components` row on component
+  `function='mortgages-repayment'` with 8 reworded fields (guidance respected — no
+  quantity/unit/currency changed). Render Go==python proven BEFORE seeding
+  (md5 `17a1d7271c99`); guarded insert asserted 42 pages / row md5 / component
+  backing exactly 2 rows. Deployed via `page_rerender` `35b54859` → repo commit
+  `94fe6bb09`. Served page: demo block verbatim, demo copy present, ORIGINAL copy
+  absent, noindex honoured, 1 calculators.js. **Arithmetic on the REUSED instance:
+  all 4 repayment vectors driven at the demo URL — 12/12 PASS, and the expectation
+  mutation control on the same run: 12 FAIL / 0 pass, CONTROL OK.**
+- **Revert:** `status='archived'` (the documented hand-run write), then the
+  `page-retraction` agent by explicit `page_ids` (orch `34f658f4`, COMPLETED) →
+  delete commit `10cbd6116`, live **404**, absent from repo, control page
+  `mortgages/repayment.html` still 200. Full sweep after: **170/0/6, N/A 0**.
+- **MISSTEP 1 (harmless, worth the check):** first dispatch carried page id
+  `…83d4UPDATE1` — `psql -A -t` piped through `tr -d '[:space:]'` glued the
+  command tag onto the RETURNING value. The action answered `nothing_to_retract,
+  considered 0` and did NOT fall back to site-wide selection on an explicit list —
+  measured conservatism worth knowing. The check: extract UUIDs with
+  `grep -Eo '[0-9a-f-]{36}'` and assert length 36, never trust stripped psql output.
+- **MISSTEP 2 (a design lesson, not a defect):** I tried to DELETE the demo's
+  `pages`/`page_components` rows to return the DB to "exactly 41 pages" — refused by
+  the FK from `page_component_history`, which is the audit trail doing its job. The
+  framework's terminal state for a retracted page is ARCHIVED-IN-PLACE (098's live
+  instance ended the same way; the archived-page guard keeps it out of every rebuild
+  selector, proven in 098). Adopted. **So: 41 ACTIVE pages; `total_pages` now reads
+  42** — any doc citing "41 pages" means the served/active site, and the archived
+  demo row is standing DB evidence that one component backs two rows with different
+  copy. The work items and orchestration rows stay as the audit.

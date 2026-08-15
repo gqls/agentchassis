@@ -404,3 +404,13 @@ is DB-free and therefore a valid **PRE-deploy** gate — run it before the unloc
 only after the rerender. (For anything meant to change served bytes it tests the OLD
 page and says nothing.) NOTES (d)'s step 1 carried a wrong parenthetical, corrected
 in place.
+
+**ADDENDUM 2026-08-15 (evening): §6 item 6 DONE — reuse demonstrated end to end, then
+reverted per the owner's ruling.** Second row on `mortgages-repayment`'s component,
+different copy, deployed to an unlinked noindex page; arithmetic 12/12 + control on the
+reused instance; then archived and retracted through `page-retraction` (delete commit
+`10cbd6116`, live 404, control page still 200), full sweep 170/0/6 after. ⚠ The site
+now has **41 ACTIVE pages + 1 archived demo row** (`page_component_history`'s FK makes
+archived-in-place the terminal state, per 098) — a bare `count(*) FROM pages` reads 42;
+filter on `status='active'` when repeating any "41 pages" figure. Detail + two missteps
+with their checks: NOTES (g). Remaining §6: item 2 (planner loop) is the head of the queue.
