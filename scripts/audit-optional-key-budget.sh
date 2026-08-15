@@ -93,6 +93,7 @@ else
 import json, sys
 out = json.load(sys.stdin)
 budget, rows = out["budget"], out["actions"]
+uncounted = out.get("uncounted") or []
 findings = [r for r in rows if r["over_budget"]]
 shared   = [r for r in rows if r["consumers"] >= 2]
 print("=== OPTIONAL-KEY SURFACE PER ACTION (RFC 022) ===")
@@ -108,6 +109,21 @@ print()
 print("  widest shared surfaces (accumulation is the signal — the tenth field, not the first):")
 for r in shared[:10]:
     print("    {:3d} optional keys  {:2d} carriers  {}".format(r["optional_keys"], r["consumers"], r["action"]))
+
+# The blind spot, printed so a reader can tell "0 optional keys" from
+# "unknowable". These are REGISTERED, dispatchable actions that never
+# registered an ActionInputSpec, so the census above cannot count them and they
+# can never trip the budget. --unregistered-actions does NOT cover them: that
+# mode reports actions missing from the registry entirely. Report-only.
+if uncounted:
+    shared_unc = [u for u in uncounted if u["consumers"] >= 2]
+    print()
+    print("  NOT COUNTED — no ActionInputSpec, so the optional surface is UNKNOWABLE, not zero:")
+    print("    {} live action(s), {} of them shared (>=2 carriers)".format(len(uncounted), len(shared_unc)))
+    for u in uncounted[:10]:
+        print("    {:2d} carriers  {}".format(u["consumers"], u["action"]))
+    if len(uncounted) > 10:
+        print("    ... and {} more (--json for the full list)".format(len(uncounted) - 10))
 '
 fi
 

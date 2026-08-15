@@ -46,6 +46,12 @@ import (
 	"strconv"
 
 	"github.com/gqls/agentchassis/pkg/models"
+	// NAMED import, deliberately: main.go carries the same package as a BLANK
+	// import purely for its registration side effects. censusUncountedActions
+	// needs GlobalActionRegistry itself, to tell "action does not exist"
+	// (--unregistered-actions' finding) from "action exists but declares no
+	// input spec" (this file's).
+	"github.com/gqls/agentchassis/platform/orchestration/actions"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"github.com/gqls/agentchassis/platform/validation"
 )
@@ -110,7 +116,13 @@ func loadAckedLevels(path string) (map[string]int, error) {
 // from three steps is one consumer's design, not three parties to a contract.
 // Actions with a spec but zero optional keys are omitted (they have no surface
 // to accumulate); actions carried live but registering no spec are omitted too
-// (they declare nothing to count — --unregistered-actions owns that class).
+// (they declare nothing to count).
+//
+// ⚠ CORRECTED 2026-08-15: this comment used to end "--unregistered-actions owns
+// that class". IT DOES NOT — that mode reports actions ABSENT from
+// GlobalActionRegistry, which is the opposite population. A registered action
+// with no ActionInputSpec was reported by NEITHER audit, so its optional surface
+// was silently unbounded. censusUncountedActions now lists them.
 func censusOptionalKeys(agents []liveAgent, budget int, acked map[string]int) []optionalKeyCensusRow {
 	carriers := make(map[string][]string) // action -> sorted distinct agent types
 	seen := make(map[string]bool)         // action+"\x00"+agent
@@ -161,6 +173,77 @@ func censusOptionalKeys(agents []liveAgent, budget int, acked map[string]int) []
 		}
 		if rows[i].OptionalKeys != rows[j].OptionalKeys {
 			return rows[i].OptionalKeys > rows[j].OptionalKeys
+		}
+		return rows[i].Action < rows[j].Action
+	})
+	return rows
+}
+
+// uncountedActionRow is a live action whose optional surface this census
+// STRUCTURALLY CANNOT SEE: it is a registered, dispatchable action, but it
+// registers no ActionInputSpec, so there is no Optional list to count.
+type uncountedActionRow struct {
+	Action    string   `json:"action"`
+	Consumers int      `json:"consumers"`
+	Agents    []string `json:"agents"`
+}
+
+// censusUncountedActions closes the hole that the comment on censusOptionalKeys
+// wrongly claimed was covered elsewhere.
+//
+// ⚠ THE OLD COMMENT SAID `--unregistered-actions` OWNS THIS CLASS. IT DOES NOT.
+// That mode reports actions ABSENT FROM GlobalActionRegistry — steps that are
+// rejected on every message. This is the opposite population: actions that are
+// registered and run perfectly well, but never registered an ActionInputSpec.
+// They fall between the two audits and are reported by neither.
+//
+// Why it matters, and it is RFC_022's own mechanism failing quietly: the budget
+// census iterates ListActionInputSpecNames(), so an action with no spec is
+// skipped — it cannot be over budget because it cannot be counted at all. The
+// report then prints a clean bill for it. Found 2026-08-15 when three optional
+// keys were added to `render_css_from_spec` (14+ site carriers) and the audit
+// did not list the action in any form; its silence read as a pass and was the
+// gate not looking. Same shape as MEMORY `a-silent-gate-either-did-not-look-or-approved`.
+//
+// Deliberately NOT a finding and NOT budget-gated: registering a spec is work
+// these actions may never need, and turning this into a failure would page the
+// estate over a documentation gap. It is printed so a reader can tell
+// "0 optional keys" from "unknowable", which the previous output could not.
+func censusUncountedActions(agents []liveAgent) []uncountedActionRow {
+	carriers := make(map[string][]string)
+	seen := make(map[string]bool)
+	for _, agent := range agents {
+		validation.WalkSteps(agent.Workflow, func(path string, step models.Step, nested bool) {
+			if step.Action == "" {
+				return
+			}
+			// Only actions that genuinely EXIST. An action missing from the
+			// registry is --unregistered-actions' finding, and reporting it
+			// here too would double-count a different defect.
+			if _, registered := actions.GlobalActionRegistry[step.Action]; !registered {
+				return
+			}
+			if _, hasSpec := datahelpers.GetActionInputSpec(step.Action); hasSpec {
+				return
+			}
+			key := step.Action + "\x00" + agent.Type
+			if seen[key] {
+				return
+			}
+			seen[key] = true
+			carriers[step.Action] = append(carriers[step.Action], agent.Type)
+		})
+	}
+	rows := make([]uncountedActionRow, 0, len(carriers))
+	for name, agentsFor := range carriers {
+		sort.Strings(agentsFor)
+		rows = append(rows, uncountedActionRow{Action: name, Consumers: len(agentsFor), Agents: agentsFor})
+	}
+	// Widest surfaces first — a shared uncountable action is the one an
+	// architecture round would want to look at.
+	sort.Slice(rows, func(i, j int) bool {
+		if rows[i].Consumers != rows[j].Consumers {
+			return rows[i].Consumers > rows[j].Consumers
 		}
 		return rows[i].Action < rows[j].Action
 	})
@@ -230,9 +313,10 @@ func emitOptionalKeyBudget(args []string) {
 
 	rows := censusOptionalKeys(agents, budget, acked)
 	out := struct {
-		Budget  *int                   `json:"budget"`
-		Actions []optionalKeyCensusRow `json:"actions"`
-	}{Actions: rows}
+		Budget    *int                   `json:"budget"`
+		Actions   []optionalKeyCensusRow `json:"actions"`
+		Uncounted []uncountedActionRow   `json:"uncounted"`
+	}{Actions: rows, Uncounted: censusUncountedActions(agents)}
 	if budget >= 0 {
 		out.Budget = &budget
 	}
