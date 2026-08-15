@@ -856,3 +856,31 @@ is "no demand", never "note missing" (the demand control, as ever).
 `analyse_repo_local` (12) and `diagnose_prepare_fix_commit` (11) — truthful red until
 their one-off reviews land. The timing of those reviews is the lane's ONE remaining
 owner decision; surfaced in README_where_we_are and the 08-15 handoff.
+
+## 2026-08-15 (later) — owner directed both reviews NOW; both DONE, fleet GREEN, and the parity fixture nearly went blind
+
+Both remaining reviews run and concluded **ACKNOWLEDGE, no trims**
+(`REVIEW_2026-08-15_analyse_repo_local_*` at 12; `REVIEW_2026-08-15_diagnose_prepare_
+fix_commit_*` at 11). The short of each: `analyse_repo_local`'s 12 keys are 7 concepts —
+five literal/field dualities through the SHARED `resolveRAGConfigField` ("drop-in config
+compatibility" with `request_repo_analysis`, i.e. contract not accretion) plus the 108
+reproducibility pin and the `exclude_patterns` key whose absence from a hand-run caused
+this lane's own 1,371-vs-1,204 wrong pass-mark; whole surface birth-era, zero additions
+since 07-02. `diagnose_prepare_fix_commit` is the strongest case of the three: **all 11
+optional keys live-configured** (nothing rides on defaults alone), the only one opted
+into unknown-key detection, each key one named input of a commit, finished 07-18 with
+every post-birth key under a named approved delta. Acks recorded both sides, overlay
+re-applied, wrapper at **0 findings exit 0**, and a manual Job run proved the CLEAN
+scheduled path live: `Complete 1/1`, 186 agents, 3 baselines, one doc_notes row.
+
+**The near-miss worth the entry:** with all three actions acked, the ruled budget can
+never produce a finding — so the traversal-parity test's dynamic subject search found
+nothing and would have SKIPPED **permanently**, silently unpinning the third
+`walk_steps` copy (the exact bugs_open/144 class it guards) at the precise moment the
+estate reached its healthy end-state. The guard would have died OF the success. Fixed:
+`check.py --stdin` now takes an explicit budget argument (test-only; the scheduled run
+always enforces the literal), the fixture compares both sides at budget 0 on any
+un-acked declaring action, and a no-subject result is now a FAILURE, not a skip.
+General shape, worth carrying: **a guard whose test subject is drawn from the defect
+population goes blind when the defects are cured — pick the subject from the healthy
+population and induce, or the guard's death reads as its victory.**

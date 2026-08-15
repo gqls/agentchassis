@@ -177,17 +177,22 @@ func TestBudgetCronAgreesWithTheGoDetector(t *testing.T) {
 	}
 	acked := pyDictInts(t, raw, "ACKED_LEVELS")
 
+	// Budget 0 for the comparison (an explicit --stdin argument that only the
+	// test uses; the scheduled run always enforces the ruled BUDGET), so a
+	// subject exists even in the healthy end-state where every over-budget
+	// action is acknowledged — otherwise the third walk copy would silently
+	// come unpinned the day the last standing review landed.
 	subject := ""
 	for _, name := range datahelpers.ListActionInputSpecNames() {
 		spec, ok := datahelpers.GetActionInputSpec(name)
-		if ok && len(spec.Optional) > 10 && acked[name] == 0 {
+		if ok && len(spec.Optional) > 0 && acked[name] == 0 {
 			subject = name
 			break
 		}
 	}
 	if subject == "" {
-		t.Skip("every over-budget action is acknowledged — no un-acked subject exists to " +
-			"compare the traversals on; lower the fixture bar if this becomes permanent")
+		t.Fatal("no un-acked action with optional keys exists at all — either the registry " +
+			"is unlinked or every declaring action is acked, which the acks file's own rules forbid")
 	}
 
 	fleet := budgetParityFleetFor(subject)
@@ -196,7 +201,7 @@ func TestBudgetCronAgreesWithTheGoDetector(t *testing.T) {
 		t.Fatalf("fixture decode: err=%v failed=%d", err, failed)
 	}
 	var goFindings []map[string]interface{}
-	for _, r := range censusOptionalKeys(agents, 10, acked) {
+	for _, r := range censusOptionalKeys(agents, 0, acked) {
 		if !r.OverBudget {
 			continue
 		}
@@ -211,7 +216,7 @@ func TestBudgetCronAgreesWithTheGoDetector(t *testing.T) {
 			"(the substeps carrier included), got %v", subject, goFindings)
 	}
 
-	cmd := exec.Command("python3", budgetCheckPyPath, "--stdin")
+	cmd := exec.Command("python3", budgetCheckPyPath, "--stdin", "0")
 	cmd.Stdin = bytes.NewReader([]byte(fleet))
 	out, _ := cmd.Output() // exit 1 on findings is expected; the output is the comparison
 	var pyFindings []map[string]interface{}

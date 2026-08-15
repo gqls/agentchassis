@@ -43,8 +43,14 @@ THREE THINGS HERE COULD DRIFT FROM THE GO DETECTOR, ALL PINNED BY TESTS
   the daily job and a hand run cannot silently disagree about N.
 
 Modes:
-  check.py --stdin   < live-workflows.json   # print findings JSON, exit 1 on findings
-  check.py                                    # query the DB, report, write doc_notes
+  check.py --stdin [budget]  < live-workflows.json  # findings JSON, exit 1 on findings
+  check.py                                          # query the DB, report, write doc_notes
+
+The optional --stdin budget exists FOR THE PARITY TEST: once every over-budget
+action carries an acknowledged baseline (the healthy end-state), the ruled
+BUDGET can never produce a finding, and the traversal comparison would go
+unexercisable — a silent unpinning of the third walk copy. The scheduled run
+never passes it; the daily job always enforces BUDGET.
 """
 
 import json
@@ -195,7 +201,9 @@ OPTIONAL_KEY_COUNTS = {
 # `count` fields and a parity test fails the build if they drift. An action at
 # or under its baseline is quiet; growth PAST the baseline pages again.
 ACKED_LEVELS = {
+    "analyse_repo_local": 12,
     "append_doc_note": 11,
+    "diagnose_prepare_fix_commit": 11,
 }
 
 
@@ -248,10 +256,12 @@ def _walk_nested(path, step, depth):
         yield from _walk_nested(nested_path, nested, depth + 1)
 
 
-def find_over_budget(agents):
-    """Shared actions whose optional-key count exceeds both BUDGET and their
+def find_over_budget(agents, budget=None):
+    """Shared actions whose optional-key count exceeds both the budget and their
     acknowledged baseline. Counts DISTINCT carriers, not steps — one agent
     calling an action from three steps is one consumer's design."""
+    if budget is None:
+        budget = BUDGET
     carriers, seen = {}, set()
     for agent in agents:
         agent_type = agent.get("type") or ""
@@ -267,7 +277,7 @@ def find_over_budget(agents):
         agents_for = sorted(carriers.get(action, []))
         if len(agents_for) < SHARED_MIN:
             continue
-        if count <= max(BUDGET, ACKED_LEVELS.get(action, 0)):
+        if count <= max(budget, ACKED_LEVELS.get(action, 0)):
             continue
         findings.append({
             "action": action,
@@ -362,8 +372,12 @@ def write_doc_note(body, password, host):
 
 def main():
     if "--stdin" in sys.argv:
+        budget = None
+        rest = [a for a in sys.argv[1:] if a != "--stdin"]
+        if rest:
+            budget = int(rest[0])
         agents = json.load(sys.stdin)
-        findings = find_over_budget(agents)
+        findings = find_over_budget(agents, budget)
         json.dump(findings, sys.stdout, indent=2)
         sys.stdout.write("\n")
         sys.exit(1 if findings else 0)

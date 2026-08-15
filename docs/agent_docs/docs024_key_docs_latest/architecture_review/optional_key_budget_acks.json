@@ -4,5 +4,15 @@
     "count": 11,
     "date": "2026-08-14",
     "review": "docs/agent_docs/docs024_key_docs_latest/architecture_review/REVIEW_2026-08-14_append_doc_note_optional_surface.md"
+  },
+  "analyse_repo_local": {
+    "count": 12,
+    "date": "2026-08-15",
+    "review": "docs/agent_docs/docs024_key_docs_latest/architecture_review/REVIEW_2026-08-15_analyse_repo_local_optional_surface.md"
+  },
+  "diagnose_prepare_fix_commit": {
+    "count": 11,
+    "date": "2026-08-15",
+    "review": "docs/agent_docs/docs024_key_docs_latest/architecture_review/REVIEW_2026-08-15_diagnose_prepare_fix_commit_optional_surface.md"
   }
 }

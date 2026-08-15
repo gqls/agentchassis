@@ -371,3 +371,32 @@ folder if you want the key-by-key detail.
 repo analyser and the fix-commit preparer) will keep appearing until their own one-off
 reviews happen — you chose to let those wait for natural contact, so that red is the
 system telling the truth, not something to fix in the check.
+
+---
+
+**2026-08-15 — you directed both remaining reviews; both are done, and from tomorrow
+the morning report is green.**
+
+Both came back the same way as the note-writer: keep everything, trim nothing. The repo
+analyser's twelve switches are really seven — five of them are the same setting offered
+in the two standard flavours, deliberately identical to its sibling action so configs
+are interchangeable — plus two guards we have personal reasons to value: the pin that
+makes analysis reproducible against a known version of the code, and the exclusion list
+whose absence from a hand-run once gave us a wrong pass-mark. The fix-commit preparer
+was the easiest verdict of the three: every one of its eleven switches is actively used
+in live config right now, each names one ingredient of a commit (the plan, the code,
+the message, the branch, the safety allowlist), and it's the only one of the three that
+already opted into the strictest config checking. Nothing dead anywhere.
+
+All three baselines are now recorded, so the daily seven-o'clock check reports zero
+findings — proven tonight with a live run, not assumed. From here, a red morning means
+something actually changed: someone grew a shared action's switches past its reviewed
+level, and under your ruling that growth itself is architecture business.
+
+One quiet catch worth telling you about: the moment the last review landed, the test
+that keeps the scheduled check's Python copy honest nearly stopped working — with
+everything acknowledged there was nothing left for it to practise on, and it would have
+skipped forever, exactly when the estate got healthy. It now manufactures its own
+practice case, and a missing case is a loud failure instead of a silent skip. The
+general lesson is recorded: a watchdog that only exercises on real defects dies of
+success.
