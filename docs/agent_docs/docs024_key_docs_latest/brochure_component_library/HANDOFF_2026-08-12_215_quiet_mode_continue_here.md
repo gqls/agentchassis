@@ -7,23 +7,32 @@ carried forward below where still live.
 
 **The pilot is live and inert. Nothing is half-finished in the tree.**
 
-> ## ⚠ COLD START, 2026-08-14 (late) — READ §14 FIRST, THEN §13, THEN §12, THEN THIS FILE IN ORDER.
-> The sections are append-only and the file has grown; **§8's "READ THIS FIRST" heading is
-> from 2026-08-12, and §13's "cheapest next measurement" block is from 2026-08-14 morning —
-> NEITHER is the newest state.** **§14 supersedes §13's proposed census** (it worked, but it
-> mutated six live pages to ask a question that a read-only SELECT answers) **and falsifies
-> §13's expectation that the remaining pairs would be no cleaner than pair 1 — three of the
-> six need no content work at all.** Current position in one paragraph:
-> **`bugs_open/266` is fixed, council-APPROVED and LIVE (`v1.0.1298`, both replicas probed);
-> O2's seven pairs are all DECIDED (owner, 08-13, with pairs 3+4 REVERSED on 08-14 — decision
-> doc holds both rulings); pair 1 was executed to step 6 and the platform CORRECTLY REFUSED
-> the retraction because the page is linked from the site nav, the footer chrome and an
-> article body.** Pair 1's loser sits `archived` and still serving — safe, visitor-visible
-> nothing broken, revert command in §13. **The remaining blocker is CONTENT work (§13), not
-> mechanical steps, and that resizes the whole of O2.** Two standing traps found this week and
-> easy to re-walk: **there is no redirect mechanism** (RUNBOOK correction, 08-14) and
-> **`link_registry` is empty fleet-wide** so every "nothing links here" answer is a yes-man
-> (LANDMINES, 08-14).
+> ## ⚠ COLD START, 2026-08-15 — READ §17 FIRST, THEN §16, THEN §15. THE REST IS HISTORY.
+> The sections are append-only and the file is long. **Every "READ THIS FIRST" heading below
+> §17 is stale by its own date** — §8's is 2026-08-12, §13's "cheapest next measurement" is
+> superseded by §14, and §14's "DO THIS NEXT" is superseded by §15–§17. **§17 is the head.**
+>
+> **Current position in one paragraph. O2's seven pairs are all DECIDED (owner, 08-13, pairs
+> 3+4 REVERSED 08-14 — the decision doc holds both rulings). PAIR 5 (robot-hands
+> `gripper-payload-calculator`) IS COMPLETE AND ACCEPTED — all 8 runbook steps, and both halves
+> of `098`'s two-part acceptance, verified 2026-08-15 with controls that prove the site
+> republished in between. It is the first of the seven to finish and the procedure needs no
+> further design.** `bugs_open/266` is fixed, live on `v1.0.1300` (both replicas literal-probed
+> with a near-miss negative and a pre-lane positive control) **and now BEHAVIOURALLY PROVEN —
+> 20 refusals, three archived pages, two producers, both seams** — but is deliberately still
+> open on two named residuals.
+>
+> **What remains is CONTENT work or another front's, on every single one of the six.** Pair 1
+> is archived-and-still-serving pending two editorial repairs; pair 2 is held on
+> `bugs_open/204`; pairs 3+4 are routed to the fundamentallyai sweep front; pairs 6 and 7 need
+> editorial repairs and a ~1,700-word content merge respectively, **and the framework writes
+> content, not a session** (CLAUDE.md 2026-08-06).
+>
+> **Three standing traps, all cheap to re-walk:** there is **no redirect mechanism**, so every
+> retirement is a 404 (RUNBOOK correction, 08-14) · **`link_registry` is empty fleet-wide**, so
+> every "nothing links here" answer is a yes-man — use the read-only census in §14 (LANDMINES,
+> 08-14) · **"open work items" is `workItemClosedStatuses`, NOT `workItemTerminalStatuses`** —
+> `unresolved` is OPEN by owner ruling RFC_010, and it was a third of pair 5's items (§15).
 
 ## 1. State
 
