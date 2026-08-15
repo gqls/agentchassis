@@ -11,9 +11,17 @@ right when written.
 ## The one-line state
 
 > **UPDATE 2026-08-15 (afternoon, this same day): decision 1 below is TAKEN — the owner said
-> ENROL, and migration 409 is applied, recorded, audit-clean. B4 is in the automatic sweep;
-> the first sweep-driven run is not yet witnessed.** The paragraphs below stand as the record
-> of the state this handoff was written in; NOTES 08-15 (later) has the application evidence.
+> ENROL, and migration 409 is applied, recorded, audit-clean. B4 is in the automatic sweep.**
+> By close of the same session: **the §B5 webdesign proof run passed (104 pages, no
+> truncation), the first sweep-driven cycle is WITNESSED end to end** (audit-due fired → B4 ran
+> in-loop → dedup skipped 2 of 5 → two items travelled detected→…→complete with real page
+> work), **and the claims-audit track is filed as `features_open/034`**. Tasks 1, 2, 4 and 5
+> below are DONE; task 3 (v2) is deliberately deferred with its baseline recorded — run 3
+> weakened the attribution-leak evidence (NOTES), so both v2 changes batch with one re-proof.
+> ⚠ Two fresh Kafka no-leader failures during the witness sweep are contributed to
+> `bugs_open/040`; the sweep's HEAD row reads FAILED though all its work committed — do not
+> count that sweep as a failure when reading sweep health. NOTES 08-15 (later) has everything.
+> The paragraphs below stand as the record of the state this handoff was written in.
 
 **B4 — the offer analyser — is BUILT, LIVE, PROVEN END TO END, and review-passed (migrations 408
 + 421). It is NOT enrolled in the automatic sweep: migration `409_…_HOLD` is written, trial-run

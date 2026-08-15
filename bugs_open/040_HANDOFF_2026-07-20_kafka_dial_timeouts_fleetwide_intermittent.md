@@ -888,3 +888,28 @@ Two chassis pods reading `12`. **An empty vector is the disconfirming result** a
 this returns today — so the check can come out either way, which is the only reason it is
 worth running. Full trap in `LANDMINES.md` ("a PodMonitor's numeric `targetPort` keys on the
 port a pod DECLARES").
+
+---
+
+## 2026-08-15 ~15:26–15:34 UTC — two "topic partition has no leader" produce failures in one sweep (contributed by the vigilant_designer lane)
+
+Fresh occurrences, both inside improvement-sweep corr `12b85f92-7808-4f2b-9684-acd636ce43aa`
+(gaswholesalers.com, hand-fired 15:05):
+
+1. **15:26:48** — `page-content-writer` child FAILED at `complete_workflow`:
+   `kafka.(*Client).Produce: fetch request error: topic partition has no leader`
+   (topic=`job.12b85f92-012885b6-page-build-handler-process_item_iter_2_spawn_handler.responses`,
+   partition=1). Took one `content_rewrite` work item to `failed` (attempt 1 of 3); the two
+   sibling items dispatched minutes earlier completed normally.
+2. **15:34:39** — the **head `improvement-loop` row itself** FAILED at its terminal
+   `complete_workflow`: same error class (topic=`system.generic.responses`, partition=2).
+   Every substantive step had already committed (audit ran, findings written, items promoted
+   and dispatched, audit state recorded) — the FAILED status records only the final response
+   write. A reader judging sweeps by head-row status alone will count this sweep as a failure;
+   the work is all there.
+
+Two different topics — one dynamic per-job, one long-lived — within eight minutes, both
+`no leader` on Produce. Pattern-matches this bug's intermittent broker episodes rather than
+anything in the sweep's own config (the same chain end-to-end had run clean at 15:05–15:12).
+Evidence lives in `orchestration_states` error columns while retention lasts; quoted verbatim
+in `vigilant_designer_offer_analysis/NOTES` 2026-08-15.

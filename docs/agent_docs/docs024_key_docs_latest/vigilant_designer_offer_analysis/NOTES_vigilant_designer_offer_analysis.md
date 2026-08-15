@@ -1838,6 +1838,19 @@ error, caught by asking the schema. Estate now: **3 of 22 sites carry `offer_ord
 offer-analysis items sit `detected` across 3 sites, and with 409 live they travel on the next
 sweep of each.**
 
+## 2026-08-15 — v2(b) evidence from run 3: the attribution leak is WEAKER than the 2-run read
+
+Handoff task 3(b) said two of gaswholesalers' `why` clauses inherited the premise's behavioural
+register unattributed, and honestly flagged it as "a read of two runs, not a measurement".
+Run 3 (webdesign) read in full: **5 of 6 `why` clauses attribute explicitly** ("The
+satisfaction_condition is…", "trust_threshold establishes…", "recurring_value names… as the
+reason practitioners return"). One mild instance remains: rank 3's middle sentence ("A
+practitioner who sees a tool acknowledge its own limits trusts every other tool on the site
+more") is a behavioural inference sourced to no field. So: **intermittent, not systematic** —
+the one-line prompt fix stays on the v2 list but does not justify a migration on its own; batch
+it with v2(a), whose truncation re-proof run would double as the attribution check. Baseline for
+v2(a) is recorded above (v1 fits at 104 pages).
+
 ## 2026-08-15 — claims-audit-over-specs track FILED: `features_open/034`
 
 The owner-approved next track now has its file. Before filing: re-grepped both bug dirs and
@@ -1851,3 +1864,38 @@ design constraints from 08-13/08-14, the 13-premise first population (disconfirm
 design questions (one owner-gated: field quarantine), and the 07-31-ruling statement of why
 first-hand verification substituted for a 090 run. Index row added to `features_open/README.md`
 (noting the index gap grew — 031–033 remain unindexed by their filing sessions).
+
+## 2026-08-15 — THE FIRST SWEEP-DRIVEN CYCLE, WITNESSED: 409 works in the loop, items travelled, two COMPLETED
+
+Hand-fired one sweep at gaswholesalers.com (corr `12b85f92-7808-4f2b-9684-acd636ce43aa`,
+15:05:47) — the site whose only `detected` items were B4's five, all reviewed, nothing stale to
+churn. What the sweep did, every claim from `orchestration_states` + `site_work_items` reads:
+
+1. **The audit-due gate fired** (`audit_due: true`, fingerprint changed — B4's own 08-14 writes
+   were part of what changed it). Full audit chain ran: quality/design/completeness discovery,
+   visual + content auditors, site review — then **`spawn_offer_analyser → call_offer_analyser`
+   RAN, sweep-driven, and COMPLETED** (child `4396aec8`, 15:11:30–15:12:40). The 409 splice is
+   not just applied; it has now been exercised by the loop itself.
+2. **Dedup did its job on the second pass over the same site:** the sweep-driven B4 run returned
+   5 findings → `items_created=3, items_skipped=2` — the two skips were same-key findings
+   against still-open items from run 1. No duplicate rows.
+3. **The items TRAVELLED — IMP-016's "one clean cycle" is witnessed, twice:** original
+   `content_rewrite` and `needs_content_page` went detected → triaged → claimed
+   (build-dispatch-loop) → **complete**, with the real handler chain behind each
+   (page-content-writer, internal-link-resolver, page-rerender, webdesign-agent,
+   site-asset-renderer — all COMPLETED, 15:14–15:32). The remaining five (2 original + 3 new)
+   sit `triaged`, i.e. promoted and awaiting the next dispatch round.
+4. **One failure, and it is Kafka, not B4:** the third dispatched item (`content_rewrite`)
+   FAILED at its writer's terminal `complete_workflow` — `topic partition has no leader`
+   (dynamic job topic, 15:26:48, attempt 1 of 3). Eight minutes later the **head sweep row
+   itself** FAILED at ITS terminal `complete_workflow` on the same error class
+   (`system.generic.responses` p2, 15:34:39) — **after** audit, B4, promotion and dispatch had
+   all committed. Both quoted into `bugs_open/040` (the standing intermittent-Kafka bug) as
+   dated evidence. ⚠ **Watch-out for anyone reading sweep health by head-row status: this sweep
+   reads FAILED and did everything.** The work is in the child rows and the item statuses.
+5. `sites_with_ordering` still 3 (the sweep re-wrote gaswholesalers' ordering, same site).
+
+**What remains unwitnessed after today:** nothing in IMP-016's order for B4. The enrolment is
+applied, sweep-exercised, deduping, and draining. The `triaged` five travel on the next
+dispatch round; the `failed` one retries or re-files (its item_key is free — `failed` is
+outside the dedup index's open set).

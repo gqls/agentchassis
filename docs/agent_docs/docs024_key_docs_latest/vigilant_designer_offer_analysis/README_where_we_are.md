@@ -810,3 +810,29 @@ weight as the tools and guides that actually earn the site its keep.
 Three of our 22 sites now carry the ranked ordering record. Fourteen findings are queued across
 the three, and because of the enrolment you approved, they start moving on their own the next
 time the sweep visits each site — nobody has to push them.
+
+---
+
+## 2026-08-15 (late afternoon) — we watched the whole thing work, start to finish
+
+To prove the enrolment rather than just trust it, I ran one sweep at the gas wholesalers site —
+the one carrying the analyser's first five findings. Everything we built this fortnight ran in
+sequence, on its own: the sweep decided the site was due an audit, ran all the auditors AND the
+new offer analysis (its first time running as part of the machine rather than by hand), then
+picked up the queued findings and dispatched them to the agents that fix things.
+
+Two findings went the whole way: the home-page rewrite and the missing content page were
+claimed, written, linked and re-rendered — finished, live, no human involved. That is the "one
+clean cycle" we have been waiting to see since the analyser was built. The analyser also ran
+again as part of the sweep and correctly declined to re-file the findings that were already in
+the queue — no duplicates, which was one of the things I most wanted to see.
+
+One blemish, and it is not ours: a third fix failed partway when the messaging system briefly
+lost a partition leader (a known, intermittent fleet-wide nuisance — I added today's two
+occurrences to its standing bug file). The failed fix will be retried. The same hiccup hit the
+sweep's very last bookkeeping message, so the sweep's own status line reads "failed" even
+though every piece of real work in it completed — worth knowing if you ever glance at sweep
+statuses in the dashboard.
+
+So as of this afternoon: the analyser is enrolled, proven at our largest site, deduplicating
+correctly, and its findings flow all the way to finished page changes without a hand on them.
