@@ -160,3 +160,46 @@ func TestUpdateComponentHTML_CensusFailureFailsClosed(t *testing.T) {
 		t.Errorf("sqlmock expectations: %v", err)
 	}
 }
+
+// The guardian seat's narrowing (council 360ae540): the census is fail-closed
+// ONLY on the non-tool path. A tool fork whose census errors keeps the
+// pre-fence behaviour — warn and write — so the common path gains no new
+// failure mode.
+func TestUpdateComponentHTML_CensusFailureOnToolForkProceeds(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+	mock.ExpectQuery(`SELECT html_template, function, name, COALESCE\(component_level, ''\)`).
+		WithArgs(sqlmock.AnyArg()).
+		WillReturnRows(sqlmock.NewRows([]string{"html_template", "function", "name", "component_level"}).
+			AddRow("<div>{{.body}}</div>", "tool-x", "Tool X", "tool"))
+	mock.ExpectQuery(`SELECT count\(DISTINCT pc.page_id\), count\(DISTINCT p.site_id\)`).
+		WithArgs(sqlmock.AnyArg()).
+		WillReturnError(context.DeadlineExceeded)
+	mock.ExpectExec(`UPDATE content_components`).WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectExec(`UPDATE page_components`).WillReturnResult(sqlmock.NewResult(0, 1))
+
+	params := ActionParams{
+		Logger:           zap.NewNop(),
+		DB:               db,
+		ExecutionContext: &types.ExecutionContext{},
+		StepConfig: models.Step{Config: map[string]interface{}{
+			"component_id": "input_data.component_id",
+			"html_field":   "input_data.new_html",
+		}},
+		CollectedData: map[string]interface{}{
+			"input_data": map[string]interface{}{
+				"component_id": fenceComponentID,
+				"new_html":     "<div><style>.x{}</style>{{.body}}</div>",
+			},
+		},
+	}
+	if _, err := UpdateComponentHTMLAction(context.Background(), params); err != nil {
+		t.Fatalf("tool fork with a failed census must still write (advisory path); got %v", err)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("sqlmock expectations: %v", err)
+	}
+}

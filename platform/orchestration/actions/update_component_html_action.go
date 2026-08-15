@@ -199,79 +199,73 @@ func UpdateComponentHTMLAction(ctx context.Context, params ActionParams) (interf
 	// aimed at one of those pages rewrote the wrapper for all of them on
 	// 2026-08-05 and again on 2026-08-14. The producers no longer route such
 	// items here, but this action is the last gate before the durable source
-	// changes, and the fence belongs where the fan-out happens.
-	//
-	// The census is decisive at the moment of the write: component_level <>
-	// 'tool' AND placed on more than one page. Tool-level forks that are placed
-	// on more than one site draw a WARN, not a refusal — that pattern is
-	// established (tool-llm-cost-calculator, 2 sites, five successful edits) and
-	// is a separate question. allow_shared_component_write is the deliberate
-	// opt-in for a genuine fleet-wide template change; like
+	// changes, and the fence belongs where the fan-out happens. The decision
+	// itself lives in component_write_guard.go (sharedComponentWriteCheck) so
+	// the other writers of html_template can ask the same question; the writer
+	// census is in that file's header. allow_shared_component_write is the
+	// deliberate opt-in for a genuine fleet-wide template change; like
 	// allow_structural_regression it lives in step config, authored by a human,
 	// never in the LLM's output.
-	var placementPages, placementSites int
-	if cErr := params.DB.QueryRowContext(ctx, `
-		SELECT count(DISTINCT pc.page_id), count(DISTINCT p.site_id)
-		FROM page_components pc
-		JOIN pages p ON p.id = pc.page_id
-		WHERE pc.component_id = $1
-	`, componentID).Scan(&placementPages, &placementSites); cErr != nil {
-		// Fail closed: a fence that cannot look must not wave the write through.
-		return nil, fmt.Errorf("shared-component fence: placement census failed for %s: %w", componentIDStr, cErr)
-	}
 	allowShared := false
 	if v, ok := config["allow_shared_component_write"].(bool); ok {
 		allowShared = v
 	}
-	if placementPages > 1 && componentLevel != "tool" {
-		if allowShared {
-			logger.Warn("UpdateComponentHTMLAction: shared non-tool component write ALLOWED by step config",
-				zap.String("component_id", componentIDStr),
-				zap.String("function", componentFunction),
-				zap.String("component_level", componentLevel),
-				zap.Int("placement_pages", placementPages),
-				zap.Int("placement_sites", placementSites),
-			)
-		} else {
-			logger.Error("UpdateComponentHTMLAction: REFUSING write — component is shared by more than one page and is not a tool fork",
-				zap.String("component_id", componentIDStr),
-				zap.String("function", componentFunction),
-				zap.String("component_level", componentLevel),
-				zap.Int("placement_pages", placementPages),
-				zap.Int("placement_sites", placementSites),
-			)
-
-			recordComponentWriteRejection(
-				ctx, logger, params,
-				actionProvenance{
-					AgentType: params.ExecutionContext.Sender.AgentType,
-					StepName:  params.ExecutionContext.StepName,
-					Action:    "update_component_html",
-				},
-				fmt.Sprintf("component write refused for %q (%s): %s-level component placed on %d pages across %d sites",
-					componentName, componentFunction, componentLevel, placementPages, placementSites),
-				"component_write_shared_blocked",
-				"error",
-				map[string]interface{}{
-					"component_id":    componentIDStr,
-					"component_name":  componentName,
-					"function":        componentFunction,
-					"component_level": componentLevel,
-					"placement_pages": placementPages,
-					"placement_sites": placementSites,
-				},
-			)
-
-			return nil, fmt.Errorf(
-				"refusing to overwrite component %s (%s): a %s-level component placed on %d pages across %d sites — a per-instance fix belongs in page_components.rendered_html, not the shared template; set allow_shared_component_write only for a deliberate fleet-wide template change",
-				componentIDStr, componentName, componentLevel, placementPages, placementSites)
+	fence, fenceErr := sharedComponentWriteCheck(ctx, params.DB, componentID, componentLevel, allowShared)
+	if fenceErr != nil {
+		if componentLevel != "tool" {
+			return nil, fmt.Errorf("%w (component %s)", fenceErr, componentIDStr)
 		}
-	} else if placementSites > 1 {
+		// Tool fork: the census is advisory here; the write proceeds unchanged.
+		logger.Warn("UpdateComponentHTMLAction: placement census failed for tool fork; proceeding",
+			zap.String("component_id", componentIDStr), zap.Error(fenceErr))
+	}
+	if fence.Refuse {
+		logger.Error("UpdateComponentHTMLAction: REFUSING write — component is shared by more than one page and is not a tool fork",
+			zap.String("component_id", componentIDStr),
+			zap.String("function", componentFunction),
+			zap.String("component_level", componentLevel),
+			zap.Int("placement_pages", fence.PlacementPages),
+			zap.Int("placement_sites", fence.PlacementSites),
+		)
+
+		recordComponentWriteRejection(
+			ctx, logger, params,
+			actionProvenance{
+				AgentType: params.ExecutionContext.Sender.AgentType,
+				StepName:  params.ExecutionContext.StepName,
+				Action:    "update_component_html",
+			},
+			fmt.Sprintf("component write refused for %q (%s): %s-level component placed on %d pages across %d sites",
+				componentName, componentFunction, componentLevel, fence.PlacementPages, fence.PlacementSites),
+			"component_write_shared_blocked",
+			"error",
+			map[string]interface{}{
+				"component_id":    componentIDStr,
+				"component_name":  componentName,
+				"function":        componentFunction,
+				"component_level": componentLevel,
+				"placement_pages": fence.PlacementPages,
+				"placement_sites": fence.PlacementSites,
+			},
+		)
+
+		return nil, fmt.Errorf(
+			"refusing to overwrite component %s (%s): a %s-level component placed on %d pages across %d sites — a per-instance fix belongs in page_components.rendered_html, not the shared template; set allow_shared_component_write only for a deliberate fleet-wide template change",
+			componentIDStr, componentName, componentLevel, fence.PlacementPages, fence.PlacementSites)
+	}
+	if fenceErr == nil && fence.PlacementPages > 1 && componentLevel != "tool" && allowShared {
+		logger.Warn("UpdateComponentHTMLAction: shared non-tool component write ALLOWED by step config",
+			zap.String("component_id", componentIDStr),
+			zap.String("function", componentFunction),
+			zap.Int("placement_pages", fence.PlacementPages),
+			zap.Int("placement_sites", fence.PlacementSites),
+		)
+	} else if fenceErr == nil && fence.PlacementSites > 1 {
 		logger.Warn("UpdateComponentHTMLAction: tool fork is placed on more than one site — this write reaches all of them",
 			zap.String("component_id", componentIDStr),
 			zap.String("function", componentFunction),
-			zap.Int("placement_pages", placementPages),
-			zap.Int("placement_sites", placementSites),
+			zap.Int("placement_pages", fence.PlacementPages),
+			zap.Int("placement_sites", fence.PlacementSites),
 		)
 	}
 

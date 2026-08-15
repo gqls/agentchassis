@@ -98,6 +98,7 @@ package actions
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"strings"
 
@@ -266,6 +267,77 @@ func tailForMessage(s string) string {
 		t = t[len(t)-tailLen:]
 	}
 	return t
+}
+
+// ============================================================================
+// Shared-component fence (bugs_open/281)
+// ============================================================================
+
+// WRITERS OF content_components.html_template, enumerated 2026-08-15 (grep
+// "UPDATE content_components" over platform/ internal/ pkg/, non-test):
+//
+//   update_component_html_action.go      tool-improver's writeback. Subject is a
+//                                        TOOL — i.e. one page's finding — so a
+//                                        shared component here is always wrong.
+//                                        Calls sharedComponentWriteCheck. ← fenced
+//   fix_component_template_action.go     page-aware (takes page_component_id,
+//                                        reads the page's rendered_html) and
+//                                        writes the component's template. Its
+//                                        shared write is SOMETIMES the intended
+//                                        repair (it restored the ported-page
+//                                        wrapper after the 2026-08-05 clobber),
+//                                        so it is NOT fenced here — a caller of
+//                                        that action from a per-page finding is
+//                                        the same hazard and should call this
+//                                        check before deciding. Recorded, open.
+//   fix_harcoded_colours_action.go       component-scoped subjects: the fix IS
+//   fix_forced_text_colours_action.go    meant to reach every placement.
+//   fix_nav_link_templates_action.go     Not fenced.
+//   store_generated_component_action.go  component-creator regen; the component
+//                                        is the subject. Not fenced.
+//   internal/core-manager/admin/…        human-driven admin. Not fenced.
+//
+// A new writer that takes a PAGE-scoped finding must call the check below —
+// nothing else will stop it fanning one page's fix across a shared component.
+
+// sharedComponentWriteCheck is the fence's decision, separated from the
+// action so any writer of html_template can ask it. Refuse when the component
+// is not a tool fork (component_level <> 'tool') AND is placed on more than one
+// page, unless the caller passes allow=true (a HUMAN-authored step-config
+// opt-in, never LLM output). Tool-level forks are never refused: a per-site
+// fork on two pages is the established shape (tool-llm-cost-calculator, 2
+// sites, five successful rewrites) — for those the caller gets the counts back
+// to WARN on. The census is fail-closed ONLY on the non-tool path: a census
+// error for a tool fork is returned as err with refuse=false, so the common
+// path gains no new failure mode.
+type sharedComponentVerdict struct {
+	Refuse         bool
+	PlacementPages int
+	PlacementSites int
+}
+
+func sharedComponentWriteCheck(ctx context.Context, q dbQueryer, componentID interface{}, componentLevel string, allow bool) (sharedComponentVerdict, error) {
+	var v sharedComponentVerdict
+	err := q.QueryRowContext(ctx, `
+		SELECT count(DISTINCT pc.page_id), count(DISTINCT p.site_id)
+		FROM page_components pc
+		JOIN pages p ON p.id = pc.page_id
+		WHERE pc.component_id = $1
+	`, componentID).Scan(&v.PlacementPages, &v.PlacementSites)
+	if err != nil {
+		if componentLevel != "tool" {
+			// A fence that cannot look must not wave a non-tool write through.
+			return v, fmt.Errorf("shared-component fence: placement census failed: %w", err)
+		}
+		return v, err // tool fork: caller logs and proceeds
+	}
+	v.Refuse = v.PlacementPages > 1 && componentLevel != "tool" && !allow
+	return v, nil
+}
+
+// dbQueryer is the one method the fence needs; *sql.DB and *sql.Tx both satisfy it.
+type dbQueryer interface {
+	QueryRowContext(ctx context.Context, query string, args ...interface{}) *sql.Row
 }
 
 // ============================================================================

@@ -108,3 +108,41 @@ WHERE pc.component_id='a7daa5c5-8cfd-4f2c-8e09-de6abcb637ef' GROUP BY 1,2;
 ```
 Restore = seed 208's passthrough (`component_versions` v1) — the owning lane's call
 (webdesign_couk / adoption-pipeline).
+
+## Did the Go ship? (deploy verification — council debug_historian seat asked for the recipe)
+
+Per CLAUDE.md 2026-08-11: ask the SERVICE, do not `strings` the binary and do not grep a symbol.
+```bash
+kubectl -n ai-persona-system logs -l app=agent-chassis --tail=3000 | grep -m1 'build provenance'
+# → the commit the running chassis was built from; then:
+git merge-base --is-ancestor 25f92a967 <that sha> && echo "281 Go is in the running image"
+```
+Startup line scrolls on a busy chassis; if absent from `--tail`, probe the binary with a KNOWN
+value AND a control: `kubectl exec <pod> -- grep -aq "<sha>" /proc/1/exe` (present) plus a sha
+that must be absent. Per SERVICE, never per fleet (bugs_open/249).
+
+## The two load-bearing absence claims, attached as queries (council prior_art seat asked)
+
+```sql
+-- "0 tool PLANs, so no auto-fixer" (D1). Expect 0 / ~89 on 2026-08-15.
+SELECT count(*) FILTER (WHERE categories ? 'acceptance_criteria') AS tool_plans,
+       count(*) FILTER (WHERE categories ? 'needs_criteria')       AS needs_criteria
+FROM doc_notes WHERE subject_type='tool';
+-- "update_component_html has ONE live consumer" (D4). Text search over the whole
+-- default_config JSON, so nested sub_workflow steps are covered. Expect tool-improver only.
+SELECT type FROM agent_definitions
+WHERE default_config::text LIKE '%update_component_html%'
+  AND is_active AND deleted_at IS NULL AND COALESCE(is_snapshot,false)=false;
+-- Writers of html_template in code (fence coverage): expect the 6 files named in
+-- component_write_guard.go's fence section.
+--   grep -rn "UPDATE content_components" --include=*.go platform/ internal/ pkg/ | grep -v _test
+```
+
+## Seed safety, answered (council guardian + debug_historian seats)
+
+- Double-active-row landmine: both seeds' pre-flight `RAISE` unless exactly ONE active,
+  non-snapshot, non-deleted row is in the un-migrated shape; the post-condition asserts exactly
+  one row is fully migrated. Two active rows → count 2 → abort before any write.
+- Needle-gate discipline: `snapshot_agent` backup first; every UPDATE's WHERE is gated on the
+  pre-state literal (params array / start_step / slot path), so a re-apply is a 0-row no-op and
+  the pre-flight refuses it anyway; the prompt needle is counted (=1) before the replace.
