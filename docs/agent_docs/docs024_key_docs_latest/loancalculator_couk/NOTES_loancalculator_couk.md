@@ -5410,7 +5410,20 @@ guide-list,call-to-action` (no `tool-loan-repayment`); the 11 tool pages →
 calculator); `tool-credit-roadmap` alone carries `loans-credit-health-check`,
 which matches NO locked function (nearest: `tool-credit-health-check`, a
 DIFFERENT page's tool). So: **407's menu mechanism works; the planner's CHOICES
-do not place tools.** The protective stack (tool-role review gate + 12 permanent
+do not place tools.**
+> **CORRECTED ~17:30Z same day — the planner's choices were RIGHT; the claim
+> above inverts the mechanism.** The 090 loop refuted the attribution
+> (`response_has_tool1=true`) and its named next_scope, walked first-hand,
+> closed it: the raw plan_site response (`llm_call_log` `ca3c22f4…`) proposes
+> `tool-loan-repayment` as index's SECOND section and the right `tool-<fn>` on
+> the tool pages — then `loadComponentNameResolver`
+> (v3_site_actions.go:3804-3809) whitelists ONLY
+> `component_level IN ('section','element')`, so every proposed tool section
+> resolves to nothing and validate drops it from the write. **407 widened the
+> menu; nobody widened the resolver.** Filed as `bugs_open/282` with the full
+> cited chain and ranked fix candidates. What caught it: the diagnosis loop's
+> refutation plus reading the actual response text instead of trusting the
+> persisted plan — the artefact one table upstream. The protective stack (tool-role review gate + 12 permanent
 locks + identity arm) is currently the only thing between this plan and
 calculator-less pages — all of it held, nothing live changed.
 **⇒ D2 WARNING, prominent: do NOT realise the 11 owned_page_review /

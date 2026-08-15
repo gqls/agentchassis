@@ -111,16 +111,17 @@ new items listing.
   14:23:32Z, scope = index + the 11 tool pages (the 14 rebuilt guides+legal
   excluded to avoid churn). Judge queries in the script's output; the open
   review items are the vehicles that realise the compositions.
-- **D2 — the 11 tool-page reviews + needs_page:index — ⚠ HELD BY A MEASURED
-  DEFECT (~14:45Z): DO NOT apply plan `dcbae4df` compositions as they stand.**
-  The phase-2 planner, menu demonstrably present (151 components in its own
-  collected_data), placed ZERO of the 12 locked tool functions — the recomposed
-  tool pages and index would be composed WITHOUT their calculators (the lock
-  floor should keep the rows, but that is the untested arm; don't test it by
-  accident). Diagnosis in flight: 090 RUN_CORRELATION `4a02a4e1…` — read its
-  verdict (`doc_notes` / `diagnosis_artifacts`) before working these tickets.
-  The redesigns are realised only after the plan carries the tools (planner
-  prompt fix, or hand-amended plan sections, per the verdict).
+- **D2 — the 11 tool-page reviews + needs_page:index — ⚠ STILL HELD, root cause
+  now KNOWN (~17:30Z): `bugs_open/282`.** Plan `dcbae4df` lacks the calculators
+  NOT because the planner omitted them — the raw response placed every one
+  (llm_call_log `ca3c22f4…`) — but because validate's
+  `loadComponentNameResolver` whitelists only section/element-level components
+  (v3_site_actions.go:3807) and silently drops tool-level names. 407 widened
+  the menu; the resolver was never widened. **Sequence to release D2: fix 282
+  (council-gated; preferred candidate mirrors the menu's own site+flag
+  predicate into the resolver via ONE shared helper) → image rolls → re-fire
+  `phase2_recompose_26.sh` (12-page scope; `dcbae4df` is the no-fix baseline) →
+  verify the 12 functions in site_plan_sections → THEN work the tickets.**
 - **D3 (EXPANDED) — the owner-parked 08-12 items now GATE the visual refresh:**
   `needs_design` + `needs_composition` (site-wide keys!) + 2
   `needs_brand_head_assets` + 3 imagery items (logo `003b98cc`, guide-loan-faqs

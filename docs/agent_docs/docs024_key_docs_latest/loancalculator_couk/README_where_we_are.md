@@ -1949,3 +1949,17 @@ verdict will say whether the fix is in the planner's instructions or somewhere
 deeper. Separately, all the ordinary pages are converging on their final form (a
 second, harmless build pass is running), and the two new pages are building. The
 site has served every real page cleanly throughout.
+
+2026-08-15 (early evening) — The diagnosis came back and it exonerates the planner:
+I had the mechanism backwards, and I've corrected the record everywhere I'd written
+it. The planner DID put every calculator exactly where it belongs — its raw output
+proposes the repayment calculator as the homepage's second section, and the right
+tool on each calculator page. What eats them is a validation step downstream: its
+list of acceptable section names was never taught about tool components when the
+menu was widened last week, so it silently deletes every tool the planner places,
+believing it's cleaning up an invalid name. Classic case of upgrading one half of a
+handshake. Filed as bug 282 with the fix spelled out (teach the validator using the
+menu's own rule, as one shared piece of code so they can never drift apart again).
+The redesign tickets stay held until that fix ships and a fresh plan proves the
+calculators land; everything else about the rebuild stands. The about page is built;
+the guides index needs the same fix path as the homepage.

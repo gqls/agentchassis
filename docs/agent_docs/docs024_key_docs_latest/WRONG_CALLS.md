@@ -31989,3 +31989,67 @@ false "the fix is missing" on a defect that had already cost this lane 44 hours 
 its shipped/not-shipped signal was ambiguous. Corrected in `RUNBOOK` §6.
 
 ---
+
+---
+
+## 2026-08-15 — read "15 pages carry the clobbered template" off a class-name LIKE with no control, in the middle of deciding whether a live incident had propagated
+
+**Lane:** `bugfix_281_tool_audit_ported` (research pass, before any code).
+
+**The claim (my own, mid-investigation):** while confirming that a tool-improver rewrite of the
+shared ported-page component on 2026-08-14 had flipped all 115 instances to `pending`, I added a
+column `count(*) FILTER (WHERE pc.rendered_html LIKE '%ported-page-section%') AS carrying_new_template`
+and read its result — **15 of loancash.co.uk's 18 instances** — as "the clobbered template has
+already been re-rendered into 15 live loancash pages".
+
+**What was true:** nothing had propagated. The next query showed every instance's `updated_at`
+equal to the write's own instant (`18:48:38.131`, the bulk `build_status='pending'` UPDATE, bumped
+by the trigger), the loancash `rendered_html` still holding loan content, and the pages deployed
+08-12, before the write. The class `ported-page-section` was simply already present in those
+pages' markup from an earlier regen; the LIKE measured a class name, not a re-render.
+
+**Caught by:** the follow-up query I ran to size the damage — timestamps + a content check — one
+query later, before anything was written outside my own plan file. Nobody was misled; the cost
+was one alarming line in a checkpoint note, since corrected.
+
+**Why it is worth a row anyway:** the shape is the recurring one — *your measurement answers the
+question you ENCODED, not the one you asked* — and this instance is a clean specimen: "carries the
+new template" was operationalised as "contains a class the new template happens to use", and that
+class was not unique to the new template. It also happened at exactly the moment such an error is
+most expensive: deciding whether a live incident needs an immediate restore. Had I acted on it,
+the "fix" would have been a hand-restore of 15 pages that were fine.
+
+**The cheap check that would have caught it:** any "did X propagate to Y" LIKE needs (a) a
+**positive control** — the same predicate on a row known to be untouched should return FALSE
+(here it would have returned TRUE and exposed the predicate on the spot), and (b) a **second,
+independent signal** — `updated_at` relative to the write, or a content check on something only
+the new state has (`LIKE '%asset%formatter%'`, which returned FALSE for all 15). Cost: one extra
+`FILTER` clause in the same query. The RUNBOOK for this lane now carries the propagation query in
+that shape.
+
+**Cost:** ~2 minutes and one corrected checkpoint line. Recorded because the disconfirming query
+was free and I ran it second instead of first.
+
+## 2026-08-15 — "the planner's choices don't place tools" — I attributed a downstream drop to the model's judgement (loancalculator lane)
+
+**The claim:** written in NOTES, a commit message, the fleet memory line, and told to the owner:
+the phase-2 planner, with the 151-component menu in context, "placed ZERO of the 12 locked tool
+functions" — framed as the planner's CHOICES failing. The persisted plan really did lack all 12;
+the attribution was the error. The raw response had placed every one of them; validate's name
+resolver (section/element whitelist, v3_site_actions.go:3807) dropped them on write.
+
+**Caught by:** the 090 loop's refutation (`response_has_tool1=true` in its verdict citations) —
+which forced reading `llm_call_log.response_text`, the artefact one table upstream of the one I
+had measured.
+
+**The cheap check that would have caught it:** before attributing an ABSENCE in a persisted
+artefact to a model's choices, read the model's raw output for the same run — one SELECT. The
+general form is the lane's own repro lesson inverted: the plan is REGENERATED from the response
+the way a page is regenerated from content_data; measuring only the downstream artefact cannot
+distinguish "never proposed" from "proposed and dropped".
+
+**Cost:** three documents and one owner briefing carried the wrong mechanism for ~3 hours; the
+D2 hold itself was correct throughout (the plan genuinely lacks the tools), so no action was
+mis-taken. Corrected in place in all three, bug filed as `bugs_open/282`, pattern in 016b §9.
+
+---

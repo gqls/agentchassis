@@ -12187,3 +12187,28 @@ The honest bound was right to state and cost nothing; the located mechanism supe
 hours, which is the pattern working as intended. Fix (2026-08-15, `bugs_closed/274` §10-11, LIVE+PROVEN same day): both notify
 literals now carry the full envelope, and a validation refusal classifies as `FailedUndeliverable`,
 not transient.
+
+### A flag-gated WIDENING has two halves — the surface that OFFERS and the surface that ACCEPTS — and widening only the offer makes the pipeline eat its own proposals silently (`bugs_open/282`, 2026-08-15)
+
+The 407/PLAN-049 work widened the planner's component MENU to include a site's own
+tool-level components (opt-in flag, site-scoped subquery). The LLM then did exactly
+what the widening intended: it placed `tool-loan-repayment` as the homepage's second
+section, and the right tool on every calculator page (raw response, `llm_call_log`
+`ca3c22f4…`). The persisted plan carried none of them — validate's
+`loadComponentNameResolver` (v3_site_actions.go:3804) still whitelists ONLY
+`component_level IN ('section','element')`, so every proposed tool section resolved
+to nothing and was dropped from the write. No error, no tell; the plan write
+succeeds, and the result is byte-plausible ("the planner chose not to place the
+tools" — the first, WRONG, reading, corrected same-day).
+
+**The pattern:** any opt-in that widens what a producer is SHOWN must widen, in the
+same change, what the consumer will ACCEPT — and the acceptance predicate should be
+the SAME code as the offer predicate, not a second hand-maintained list. The tells:
+a proposal visible in the raw LLM response but absent from the persisted artefact;
+counts that differ by exactly the widened class; a resolver/validator whose query
+predates the widening migration.
+
+**The debugging move that cracked it:** when a persisted artefact lacks something,
+read the artefact ONE TABLE UPSTREAM (here: `llm_call_log.response_text`) before
+attributing the absence to the model's choices. The 090 loop's refutation
+(`response_has_tool1=true`) is what forced that read.
