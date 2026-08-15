@@ -265,7 +265,7 @@ const DeployedPageEligibilitySQL = `
 // DERIVED, not spelled (bugs_open/185 fix candidate 2, 2026-08-15): the judgement
 // here is "has this page shipped", and the estate has ONE definition of that —
 // datahelpers.PageHasShippedPredicateFor, i.e. NOT(deployed_at IS NULL AND
-// COALESCE(build_status,'') <> 'deployed'). By De Morgan that is exactly the
+// COALESCE(build_status, <empty>) <> 'deployed'). By De Morgan that is exactly the
 // old hand-written `(p.deployed_at IS NOT NULL OR p.build_status = 'deployed')`,
 // and it was proved so against production before the respell (643/643 pages,
 // zero symmetric difference; the idea.uk unstamped keep survives because its

@@ -6069,7 +6069,7 @@ type reconcileCounts struct {
 	// is the exact-URL match that has always been there: which LAYER fired is
 	// the thing a later measurement needs, because they carry different
 	// confidence and the weakest is separately gated.
-	SnappedIdentityPathKey  int
+	SnappedIdentityPathKey   int
 	SnappedIdentityCanonName int
 	SnappedStemTwin          int
 	// TwinIdentityObserved: twins the two DETERMINISTIC layers found while they
@@ -6102,11 +6102,11 @@ type reconcileCounts struct {
 // the orchestration row expires (~24h) — the lesson bugs_open/215 recorded
 // against its own first verification step.
 type identitySnap struct {
-	Layer       string // "path_key" | "canonical_name" | "stem_twin" | "stem_twin_observed" | "stem_twin_refused"
-	PlanName    string
-	PlanURL     string
+	Layer        string // "path_key" | "canonical_name" | "stem_twin" | "stem_twin_observed" | "stem_twin_refused"
+	PlanName     string
+	PlanURL      string
 	RealisedName string
-	RealisedURL string
+	RealisedURL  string
 	// Reason is set on the refusal/observation rows only: why nothing was done.
 	Reason string
 }
@@ -6251,7 +6251,7 @@ func reconcilePlanWithRealised(
 		if !hasShippedColumnSeen {
 			hasShippedColumnSeen = true
 			if _, present := rm["has_shipped"]; !present {
-				logger.Warn("load_existing_pages rows carry no has_shipped column; realisedPageHasShipped is degrading to the narrow build_status = 'deployed' test, which misreads a shipped needs_rebuild page as uncomposed — is migration 302 absent or reverted, or is this caller wired to a different loader?",
+				logger.Warn("load_existing_pages rows carry no has_shipped column; realisedPageHasShipped is degrading to the narrow build_status-only test, which misreads a shipped needs_rebuild page as uncomposed — is migration 302 absent or reverted, or is this caller wired to a different loader?",
 					zap.Int("existing_pages", len(existingPages)))
 			}
 		}

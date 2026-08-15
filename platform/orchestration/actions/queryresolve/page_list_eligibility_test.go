@@ -45,7 +45,7 @@ func TestPageListEligibilityAlwaysHasBuildStateFloor(t *testing.T) {
 //
 // Since bugs_open/185 fix candidate 2 the floor is not spelled here at all: it
 // is datahelpers.PageHasShippedPredicateFor("p"), verbatim, and THAT builder is
-// where the keep lives (its `COALESCE(build_status,'') <> 'deployed'` conjunct
+// where the keep lives (its `COALESCE(build_status, <empty>) <> 'deployed'` conjunct
 // is false for the unstamped-deployed row, so the negation keeps it —
 // links_shipped_predicate_test.go pins that only 'deployed' is ever named). This
 // test therefore guards the DERIVATION: a hand-respelled floor, however
