@@ -927,3 +927,72 @@ verify-later**: the publish trigger's kind-blind find-sites query (now
 explicitly `portfolio_positioning`'s Phase B3c), and the three new Phase B
 finance kinds (no registered entities yet — publishing them now would commit
 empty files; that lane's own remit, own order).
+
+**Council round 1 (corr `a3c418ea-4452-420d-b6e8-62ce78d5339e`): REVISE**,
+gating objection from `prior_art_librarian` (HIGH). My submitted sketch
+showed only the final `UPDATE ... WHERE type=... AND is_active`, which
+matches the standing landmine that four `agent_definitions` types carry two
+active rows and an unpinned predicate can silently hit the wrong one -
+several other seats (`guardian`, `debug_historian`) flagged the identical
+concern independently. **The objection doesn't apply here, it just wasn't
+visible**: the applied migration's own guard `DO` block already refuses
+unless exactly one active row exists (checked in the same transaction,
+immediately before the `UPDATE`), and a post-update verify block re-reads
+the live row and would have caught a missed or wrong-row write. The
+reviewers' own read-only check (printed in the verdict) confirms it
+empirically too: this type has exactly one active row, no duplicate.
+Round-1's condensed sketch text just didn't quote the guard, so it read as
+unprotected. Other objections were non-gating: `bug_historian`/`guardian`
+(medium, non-gating) raised the `error_step` continue-past-partial-failure
+design choice, which `constitution`/`architecture`/`mission` all reviewed
+and approved as a surfaced, local, non-architectural decision - left as
+designed rather than re-engineered mid-review.
+
+**Resubmitted round 2, same correlation** (`RESUBMIT_CORR`), same migration
+(nothing reapplied - it's already live), with the guard/verify `DO` block
+text quoted in full so the defence is visible rather than inferred.
+
+**Round 2: REVISE**, gating objection escalated by `bug_historian` from
+medium/non-gating (round 1) to HIGH/gating - every other seat approved. The
+concern: 411's `error_step` routing lets a failed tracker git-commit on one
+kind fall through silently to the next kind's render, so the workflow still
+reports overall `COMPLETED` even on a partial failure - exactly this
+platform's most-repeated recurring defect shape (016b §9: something
+discarded/skipped with no fail-loud signal). Round 1 had this at medium and
+non-gating because I'd only *disclosed* the gap as a deliberate deferral;
+round 2 escalated it because disclosing a known-bad shape isn't the same as
+not shipping it. **Lesson: defending a known gap through resubmission text
+doesn't resolve it - it reads as declining to fix it, and got worse, not
+better, the second time round.**
+
+Rather than build a new fail-loud alert/work-item mechanism (a second
+unreviewed behavioural addition), wrote and applied migration 427: removes
+the three `error_step` keys entirely, so a commit failure now falls through
+to the coordinator's *existing* `failWorkflow` default path (`orchestration_states.status='FAILED'`,
+already monitored fleet-wide) instead of continuing quietly. Smaller diff
+than 411 itself. Re-verified live after applying: chain still runs end to
+end unaffected on the happy path (entity counts unchanged, all four URLs
+still 200).
+
+**Round 3: REVISE** again, this time gated by `prior_art_librarian` (HIGH) -
+12 of 13 seats approved. The objection was purely evidentiary: 427's safety
+claim ("no `error_step` falls through to the coordinator's default failure
+path") was asserted in prose, not backed by a quoted symbol check in the
+submission - a fair ask, since the estate's landmine catalogue has real
+cases of "no explicit routing" silently doing something other than fail
+loud. Re-read `coordinator.go` myself to confirm: `routeToErrorStepOrFail`
+(coordinator.go:3639-3653, called at line 918 for every local step failure,
+which is exactly the path a failed `git_commit` action hits) falls through
+unconditionally to `failWorkflow` when neither the step-level `ErrorStep`
+field nor the config-level `error_step` key is set - no other branch, no
+panic path. `failWorkflow` (coordinator.go:3713-3747) sets
+`state.Status = StatusFailed` in the normal branch. Both quoted verbatim
+with file:line in round 4's `grounded_in` - no code or config changed,
+purely evidentiary.
+
+**Round 4: APPROVED — "all reviewers approve"** (2026-08-15 17:50 UTC).
+Four rounds total, same correlation `a3c418ea-4452-420d-b6e8-62ce78d5339e`.
+`427` was committed with `Council-Submitted:` (verdict not yet read at
+commit time); now that the verdict is read and approved, per the trailer
+mechanism the commit is auto-credited by the 098 coverage report - no
+amend, none needed.

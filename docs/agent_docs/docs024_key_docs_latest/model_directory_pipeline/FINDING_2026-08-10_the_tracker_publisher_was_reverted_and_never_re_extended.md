@@ -3,12 +3,20 @@
 > `docs/agent_docs/sql_for_agents/411_model_directory_publisher_re_extend_to_company_protocol.sql`,
 > commit `13e964287`. Verified with this doc's own discriminating query
 > (entity counts 40/44/8, differ per kind) and at the HTTP artefact (all four
-> URLs 200 with real content). Council submission `a3c418ea-4452-420d-b6e8-62ce78d5339e`
-> (advisory, verdict pending at commit time). Full account:
-> `NOTES_model_directory_pipeline.md` (2026-08-15 entry) and
-> `README_where_we_are.md` (2026-08-15 entry). The find-sites kind-blindness
-> defect noted below remains open, now owned by `portfolio_positioning`
-> Phase B3c.
+> URLs 200 with real content). **Council review (corr
+> `a3c418ea-4452-420d-b6e8-62ce78d5339e`) went four rounds — REVISE ×3,
+> APPROVED round 4** ("all reviewers approve", 2026-08-15 17:50 UTC). Rounds
+> 1-2 caught a real defect: an `error_step` I'd added let a failed tracker
+> commit fall through silently to the next kind, reporting overall success
+> either way. Fixed in a follow-up migration
+> `427_model_directory_publisher_drop_silent_continue_on_commit_failure.sql`
+> (commit `7e4996d11`) that removes it, so a commit failure now fails the
+> whole run loudly instead. Round 3 asked for a code citation rather than
+> prose to back that fix's safety claim; round 4 supplied it and closed
+> clean. Full account: `NOTES_model_directory_pipeline.md` and
+> `README_where_we_are.md` (2026-08-15 entries). The find-sites
+> kind-blindness defect noted below remains open, now owned by
+> `portfolio_positioning` Phase B3c.
 
 # FINDING 2026-08-10 — the four tracker feeds have never existed, and the 08-09 CONTRIB's "probably one dispatch" is WRONG
 

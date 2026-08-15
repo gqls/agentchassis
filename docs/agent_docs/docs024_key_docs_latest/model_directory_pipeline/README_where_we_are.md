@@ -391,3 +391,18 @@ for the same advisory review the fix-loop uses, since it's a production
 workflow definition that will keep running unattended; the migration itself
 is committed either way. Nothing else needed to change — the earlier fix
 five weeks ago was already correct, it just never got put back into service.
+
+**Later the same day — the review round found a real problem, and I fixed
+it too.** I'd added one thing beyond a plain restore: if committing one
+kind's file to git failed, I made it carry on and try the next kind rather
+than stopping outright, so one bad commit couldn't take down the other two.
+A reviewer pushed back hard on that, and rightly — it meant a partial
+failure would still report as a clean success, with nothing to show that
+anything had gone wrong. That is exactly the kind of quiet failure that has
+bitten us before elsewhere on this platform. I took it out again: now if a
+commit fails, the whole run fails visibly and gets picked up on the next
+scheduled attempt, rather than limping on unnoticed. Took four rounds of
+review in total — the first three each found something real or asked for
+something reasonable, the fourth came back clean with every reviewer
+approving. All of it is applied and live; nothing is waiting on anything
+further.
