@@ -2538,3 +2538,49 @@ read. Gate unchanged: ancestry for `e0f239118`, waiting on the owner's roll.
 And their correction of my closing quip stands: the filings were fine — what caught both halves,
 and the seventh path, was **reading the SQL the other lane was relying on**. Available at any hour;
 the only thing that has worked all week.
+
+---
+
+### 2026-08-15 — the cancelled `gripper-payload-calculator` item: a PAGE ARCHIVAL, not the buttons lane
+
+The filing lane asked (before closing) whether `contrast_failure:/gripper-payload-calculator.html#A.cta-btn`,
+cancelled 16:36:54Z on 08-14 with no `resolved_by` and no reason, was the `bugs_open/268` buttons lane
+superseding it with their own item. **It was not, and the answer is decisive rather than inferred.**
+
+`[MEASURED 2026-08-15]` **Nine work items across six item_types were cancelled at the identical
+microsecond** — `2026-08-14 16:36:54.480105+00`, not merely the same second:
+
+| item_type | example key |
+|---|---|
+| `contrast_failure` | `/gripper-payload-calculator.html#A.cta-btn` |
+| `content_rewrite` | `gap_plan_add_gripper-payload-calculator_…` |
+| `needs_internal_links` (×3) | `needs_links:gripper-payload-calculator:…` |
+| `needs_section_data` | `section_data_gripper-payload-calculator_tool-g…` |
+| `needs_content_page` | `gap_plan_new_gripper-payload-calculator_…` |
+| `page_rerender` (×2) | `page_rerender_…`, `misdirected_cta:…` |
+
+A single lane superseding one finding cancels one item. **Six types at one microsecond is a
+page-scoped bulk transaction**, and `pages` names it: `/gripper-payload-calculator.html` went
+`status='archived'` with `updated_at = 2026-08-14 16:36:54.480105+00` — the same microsecond. A
+replacement is live at `/tools/gripper-payload-calculator/index.html` (active, deployed 22:24Z), with
+its guide at `/blog/tool-gripper-payload-calculator-guide.html` (22:27Z).
+
+**So: a URL restructure — flat `.html` → `/tools/<slug>/index.html` — and archiving the old page
+cancelled every open item against it.** Correct bookkeeping; the page no longer serves. Robot-hands'
+Monday ceiling of 33 stands.
+
+**Two things worth carrying, neither of which was asked:**
+
+1. **The replacement pages deployed at 22:24Z/22:27Z, AFTER `v1.0.1300` rolled (20:36Z) — but they
+   inherit the site's 4.5 stylesheet, which rendered at 15:25Z.** Page render and stylesheet render
+   are different mechanisms (only `webdesign-agent` regenerates `styles.css`), so a page built on the
+   5.0 binary still serves 4.5 inks. **Do not read a page's deploy time as evidence of its ink
+   values.**
+2. **The new URLs have no contrast findings yet.** The audit that produced the 226 ran against the old
+   flat URL. Anything the restructure carried over is currently unmeasured, not clean — an absence at
+   a URL nobody has audited.
+
+**Method note, because the shape recurs:** the discriminator was not the content of any row but the
+**timestamp granularity**. Same-second is coincidence; same-microsecond across six types is one
+transaction. Comparing `updated_at` at full precision answered in one query what a transcript grep
+would have guessed at.
