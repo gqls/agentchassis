@@ -190,3 +190,21 @@ on the shared branch); wait for an image build + fleet roll (not this
 session's call to trigger — owner-run); verify the fleet-level checks in
 PLAN.md §7; close out 270 to `bugs_closed/` only once fixed AND live AND the
 stale items have actually closed.
+
+**Also corrected the LANDMINES.md entry itself** (`017aae6e4`), independent
+of whether 270's fix has shipped: it claimed "read by exactly one caller
+left in the tree", which went stale the moment `bugs_open/280` was filed
+(two callers now), and its "zero `site_components` rows is the real
+'no chrome' signature" guidance has a counter-example named in its OWN
+"confirmed" sentence — the reason this fix keys on `rendered_html` content,
+not row existence. Ran `scripts/landmines-sync.py --apply` after — succeeded
+on the second attempt; the postgres-clients-0 exec pipe was flaky for large
+payloads this session (multiple plain `timeout 60s` queries against
+`orchestration_states` hung past 60s and had to be run via
+`run_in_background` instead; a trivial `SELECT 1` always returned instantly,
+so this reads as write-lock contention from the ~7+ concurrent orchestrations
+in flight at the time, not a broken connection — note for next session if it
+recurs). Sync flagged the entry `NEEDS_VERIFICATION` (RFC_005's
+`landmines-verify-dispatch.sh` — routine for any new/changed entry, not an
+error); not run this session, low priority given the correction is backed by
+direct measurement already quoted inline.
