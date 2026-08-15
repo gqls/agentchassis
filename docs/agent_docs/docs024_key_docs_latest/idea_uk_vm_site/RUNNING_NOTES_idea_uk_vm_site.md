@@ -4801,3 +4801,159 @@ The underlying defect is the one the leopardess lane already knows: *content bak
 
 37 items `triaged` and dispatching. Gate armed on 7 clean sites (§X.55). Once these land,
 re-run the **visible-text** census and arm the gate on each site that reaches zero.
+
+---
+
+## §X.57 — 2026-08-15: the owed `meta_description` job, and the surface NONE of this arc's instruments could see
+
+Picked up `HANDOFF_2026-08-14` §5, whose top item was the four `pages.meta_description`
+rows. All four re-verified live before touching anything. Doing them properly turned up
+two more occurrences and one durability hole, and the reason all three were missed is the
+same reason the regression happened in the first place.
+
+### 1. THE FINDING — the armed gate and the census are blind in the SAME place
+
+`check_voice_tells` is the mechanism this lane armed on 9 sites so that any recurrence
+gets filed automatically. **It cannot see titles or meta descriptions.** Read first-hand
+rather than inferred — `ScanVoiceTells` (`check_voice_tells.go:171-177`) is:
+
+```sql
+SELECT pc.page_id::text, p.name, COALESCE(p.page_type,''), p.url,
+       COALESCE(pc.slot_name,''), pc.rendered_html, pc.locked_at
+FROM page_components pc ...
+```
+
+`p.title` and `p.meta_description` are never selected. They are not in `page_components`
+at all: the head is assembled per render, not stored per page — the title is spliced into
+the **site-level** head component (`rerender_single_page_action.go:617-620`) and the
+description fills a page-scoped **blank** in that same shared head (`:625`,
+`spliceMetaDescription` `:1017-1028`). So the words a visitor reads in the browser tab and
+in the Google result live **only** in the `pages` row.
+
+The same blindness explains §X.56's census. That predicate strips `<script>`/`<style>` out
+of `page_components.rendered_html` — it is the right predicate for the question it asks,
+and the head is simply not in its input. **"53 → 18 reader-visible pages" was true and
+also could never have counted these.**
+
+The sharpest illustration is not idea.uk. **`leopardessconsulting.co.uk` is the site whose
+own `voice_gate` bans `\bhonest(ly)?\b`** — the owner's 2026-07-18 ruling, enforced there
+for 28 days, the very rule §X.54 celebrates finding. Its `/use-cases` meta description
+read *"each honestly labelled"* the whole time. The gate was working perfectly and had
+nothing to say, because a gate cannot report what it does not select.
+
+### 2. What was actually there — 6, not 4, and one of them is not durable at one layer
+
+`[MEASURED 2026-08-15]`, both layers, with live denominators so a zero cannot be blind
+(`pages` 684 rows scanned, current plans 246):
+
+| surface | hits |
+|---|---|
+| `pages.meta_description` | **4** (the handoff's list, all still live) |
+| `pages.title` | **2** — never swept by this arc |
+| `site_plan_pages.meta_description` (CURRENT plan) | **1** |
+| `site_plan_pages.title` (CURRENT plan) | 0 |
+
+The two titles, both confirmed served by `curl`, not by a status:
+
+- `finetuning.uk/our-position-on-ai` — `Our Honest Position on AI | FineTuning`
+- `idea.uk/guide-testing-it` — `Testing it: honest experiments before you commit`
+
+> **This corrects `HANDOFF_2026-08-14` §6 class B.** That filed
+> `finetuning.uk/our-position-on-ai` as having **no framework path** — `content_data` NULL,
+> `component_id` NULL, nothing for `apply_section_edit` to write — and it was right about
+> the `<h2>`. But the **`<title>` on that same page is a plain data field** and was
+> editable all along. Part of what was written off as unfixable was one `UPDATE` away.
+> The class-B filing stands for the body; it over-reached to the whole page.
+
+**And `pages` is a cache, so fixing it is not always durable.** `site_db_actions.go:1173`
+re-upserts `meta_description = EXCLUDED.meta_description` and `:1167` `title =
+EXCLUDED.title` **unconditionally** from the plan — while `nav_label` one line above IS
+`COALESCE`-preserved, which is exactly the asymmetry that invites you to assume the sync
+preserves what it finds. One of the six (`mortgagecalculator.co.uk/guide-first-time-buyer`)
+had a current-plan row carrying the string, so `pages` alone would have regressed it on
+the next sync — **the same shape as the regression that created this job** (§5 of the
+handoff: fixing `content_data` while `pages.meta_description` put it back), one layer up.
+The other five have no current-plan row, so `pages` is genuinely their source. That was a
+query, not an assumption.
+
+### 3. What shipped
+
+Seven exact substring replacements, server-side (`replace()`), each asserted to fire
+exactly once — **"every rule fired" is half the check** (§X.56's newline case). No global
+regex, no a/an rule, nothing that can touch a character outside the replaced span. Doing
+it server-side also kept the `£` and the em dash out of my own channel, which rewrites
+some sequences.
+
+| page | surface | change |
+|---|---|---|
+| idea.uk `index` | meta | "pushes back honestly" → "pushes back" |
+| idea.uk `tool-funding-fit` | meta | "An honest steer" → "A steer" |
+| idea.uk `guide-testing-it` | **title** | "honest experiments" → "experiments" |
+| finetuning.uk `our-position-on-ai` | **title** | "Our Honest Position" → "Our Position" |
+| leopardess `use-cases` | meta | "each honestly labelled" → "each labelled for what it is" |
+| mortgagecalculator `guide-first-time-buyer` | meta + **plan row** | "An honest and comprehensive guide" → "A comprehensive guide" |
+
+Note the last one: replacing the whole phrase is what gets the article right. `An honest
+and comprehensive` → `A comprehensive` handles a/an **inside the replaced span**, which is
+the safe version of the rule that corrupted dartsonline's *"an 80% barrel"* in §X.56.
+
+**The guide title is the one judgement call.** `guide-testing-it` is D-004-protected
+(hand-authored guide copy), and D-004's fence names **slots** — so `pages.title` is not
+mechanically covered and the citation gate never saw it. I made the minimal possible
+change (delete the word, invent nothing) on the ground that the owner's 08-12 ban is
+explicit, fleet-wide, later than D-004, and names exactly one blessed exception which this
+is not. Flagged to the owner rather than buried; it is one field to put back.
+**Worth recording as a gap in its own right: the citation gate has no seam on `pages.title`
+or `pages.meta_description`.** Every RFC_015 protection this lane built guards component
+writes. A rebuild that changes a protected page's title cites nothing and is refused by
+nothing.
+
+### 4. Delivery — dispatched through the framework, NOT yet served
+
+Head data only reaches a reader through a rebuilt head, so six `page_rerender` items were
+filed at `triaged` with `handler_agent='page-rerender'`, `page_id` in the **column as well
+as the spec** and `filename` present (LANDMINES:267 — omitting either burns three attempts
+looking like a flaky handler).
+
+**Deliberately in ASSEMBLE mode — `spec` carries NO `reason`.** That takes
+`check_rerender_mode`'s ELSE branch: assemble the stored section HTML + current chrome and
+deploy. `section_data_resolved` would have been the wrong call here — RUNBOOK TRAP 1b, a
+page missing a required field escalates to the **LLM writer**, and on `guide-testing-it`
+that would regenerate the owner's hand-authored prose. The mode that does less is the safe
+one when the only thing that changed is the head.
+
+**At the time of writing they are still queued, and this is NOT delivered.** The direct
+kcat publish this lane normally uses for a stalled queue was refused by the session's
+permission layer, so they ride the poller.
+
+### 5. A wrong turn worth keeping — I nearly filed a queue jam that does not exist
+
+Watching the items sit, I measured **147 eligible items ahead of mine, the oldest from
+2026-07-14**, and the oldest are `required_fields_missing` rows with `attempt_count = 0`
+after a month. `find_dispatchable_site` is `ORDER BY created_at ASC LIMIT 1`. That reads
+exactly like head-of-line blocking: an unhandleable item at the front, everything behind
+it starved. I was one step from writing it down as a finding.
+
+**It is wrong.** The one claimed row fleet-wide was on `robot-hands.com` — the very site
+holding those July items — created **14:45:55** by another session and claimed
+**14:50:02** by `build-dispatch-loop`. A newer item on the jammed site was dispatched, so
+the queue is not starved; the selector picks a *site* by oldest item and then chooses
+within it. The July rows are unclaimable for their own reason and do **not** block others.
+
+The check that refuted it cost one query and could have come out either way, which is the
+only reason it was worth running. **A plausible mechanism plus a suggestive `ORDER BY` is
+not evidence** — and this one was about to become a `bugs_open/` claim about a shared
+dispatcher, which is precisely the class the 2026-07-31 ruling says not to assert on a
+read of the code alone.
+
+### 6. State
+
+- Data fixed at source, both layers: **0 remaining** in `pages.title`, `pages.meta_description`
+  and current `site_plan_pages`, against live denominators of 684 / 246.
+- **6 `page_rerender` items queued** (`created_by='claude-ideauk-headmeta-20260815'`).
+  Until they run, the SERVED pages still carry the old head. Verify at the artefact:
+  `curl -s <url> | grep -o '<title>[^<]*</title>'`.
+- Landmine filed and synced (7 footprint rows in `doc_notes`).
+- **Still open, unchanged:** class B bodies (8 components, incl. that `<h2>`), class C's one
+  real fix (`funding-fit`'s visible question label), and arming the gate on the remaining
+  sites — which, per §1, will not protect the head surfaces whatever it is set to.

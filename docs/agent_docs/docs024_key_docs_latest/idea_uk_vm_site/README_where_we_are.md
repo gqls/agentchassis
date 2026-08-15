@@ -2136,3 +2136,64 @@ cannot edit — old sections with no underlying content record, including a head
 the fine-tuning site reading "Our Honest Position on AI". Our rule is that when the
 framework cannot do something I write it down rather than reach behind it by hand, so
 that is what I have done.
+
+---
+
+**15 August — the four page descriptions, and the place none of our checks were
+looking.**
+
+I picked up the job the last session left at the top of the list: four page
+descriptions still carrying the word. Those are the short summaries that show up
+under a page's name in Google, and inside the site they get reused as the blurb on
+the cards that link to each tool and guide. That is why one of them had already put
+the word back on its own — the card is printed from the description, so cleaning the
+card and leaving the description just means the next rebuild writes it in again.
+
+All four were still there. Fixing them properly turned up three things worth telling
+you about.
+
+**Two more, in the page titles — the line in the browser tab and the blue link in
+Google.** Nothing in this whole exercise had ever looked there. The fine-tuning site
+was serving "Our Honest Position on AI", and one of your idea.uk guides was titled
+"Testing it: honest experiments before you commit".
+
+**And the reason nothing had looked is the same reason the word got back in.** The
+checker we switched on across nine sites — the one meant to catch this happening
+again — reads the *body* of a page and only the body. It never reads the title or the
+description. So does the count I gave you of how many pages still had the word. Both
+were honest numbers for the question they asked, and both were structurally incapable
+of seeing these six.
+
+The clearest way to put it: the Leopardess site is where your original ruling has been
+enforced since 18 July. That site's own rule bans the word. Its use-cases page
+description has read "each honestly labelled" the entire time. The rule was working
+perfectly and had nothing to say, because it was never shown the sentence.
+
+**One correction to what I told you last time.** I said the fine-tuning page was one
+of eight the platform genuinely cannot edit. That was right about the heading in the
+middle of the page — it still is. But the *title* of that same page was an ordinary
+piece of data all along, and took one command. I wrote off a whole page when only part
+of it was stuck.
+
+**Something to flag rather than bury.** One of the two titles is on a guide whose copy
+you hand-wrote and specifically protected back in August. Our safety net didn't stop
+me this time, because it guards the sections of a page and a title isn't one — so it
+never came up. Your ban on the word is later than that protection and has exactly one
+blessed exception, which this isn't, so I made the smallest possible change: I deleted
+the word and invented nothing. "Testing it: experiments before you commit". If you'd
+rather it stayed as it was, it is one field to put back and I'll do it.
+
+Worth saying plainly, because it is the more useful half: the protection you asked for
+covers what gets written into a page's sections. It does not cover its title or its
+description. A rebuild can change either of those without naming a decision and
+without anything refusing it.
+
+**Where it stands.** The words are out of the database, in both the live copy and the
+underlying plan that regenerates it — I checked the second one because otherwise the
+mortgage guide would simply have come back, the same trick that caused this job in the
+first place. But the six pages have not been rebuilt yet, so a visitor still sees the
+old titles for now. I have queued the rebuilds through the normal pipeline; the direct
+route we usually use when the queue is slow was refused by this session's permissions,
+so they are waiting their turn behind other sites' work. Nothing is broken, and I have
+not claimed this is finished — I will only call it done when I have fetched the pages
+and seen the new titles come back.
