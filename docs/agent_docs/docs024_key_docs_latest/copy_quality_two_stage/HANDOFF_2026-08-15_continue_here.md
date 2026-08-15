@@ -1,15 +1,22 @@
 # HANDOFF 2026-08-15 — continue here
 
-**Lane:** `copy_quality_two_stage`. **State (updated ~18:30Z): the FOUR OWNER DECISIONS
-LANDED this evening — 1+2 are APPLIED AND PROVEN, 3 is ruled SDLT-first (rider:
-`bugs_open/225` is being run in a separate thread — coordinate before anything
-SDLT-adjacent), 4 is ruled BUILD IN PARALLEL.** Remaining work: decision 3's apply
-(coordination check first) and the stage-2 build. NOTES 2026-08-15 (evening) carries the
-evidence: loancalculator's specs were REGENERATED the same morning by the rebuild lane's
-fire and the offending clauses survived verbatim, so the edits were applied to the fresh
-rows (old: strategy `b82e2c7e…`, content_direction `a1feaaa7…`; new: `bca3b9ee…` /
-`7f39172e…`; rollback = flip `is_current`). ⚠ A future re-fire of the research agents
-clobbers both corrections — CONTRIB filed in `loancalculator_couk/`.
+**Lane:** `copy_quality_two_stage`. **State (updated ~22:30Z): the FOUR OWNER DECISIONS
+LANDED this evening and 1+2+3 are ALL APPLIED AND PROVEN; only the stage-2 build (4,
+ruled BUILD IN PARALLEL with the 033 thread) remains.** NOTES 2026-08-15 (evening + late
+evening) carries the evidence:
+- **1+2:** loancalculator's specs were REGENERATED the same morning by the rebuild lane's
+  fire and the offending clauses survived verbatim, so the edits were applied to the
+  fresh rows (old: strategy `b82e2c7e…`, content_direction `a1feaaa7…`; new: `bca3b9ee…`
+  / `7f39172e…`; rollback = flip `is_current`). ⚠ A future re-fire of the research
+  agents clobbers both corrections — CONTRIB filed in `loancalculator_couk/`.
+- **3:** LMC's register is LIVE (row `7268d235…`, its first): mc's 13 GOV.UK SDLT facts
+  verbatim, £5–7k facts deferred to sourcing. Flood risk MEASURED AT ZERO (claimscan
+  numeric arm 0/82 strictest mode, induced controls firing) — and note the correction:
+  the numeric arm always WAS dry-runnable; 08-14's contrary finding is refuted in place
+  (WRONG_CALLS 08-15). 225's calculator fix has been live since 08-09; the register is
+  regression insurance, not a live catch. First scheduled sweep reaches LMC ≥08-16
+  ~09:49Z stamps-permitting; expectation is 0 claims items — any finding = a page
+  changed after 08-15 late evening.
 
 ## The four decisions as originally posed (RULED — kept for context)
 

@@ -25,6 +25,25 @@ exactly as site fifteen was"*). So opting in buys ONLY the numeric and stored-st
 
 ## Finding 2 — and that numeric arm CANNOT be dry-run with today's tooling
 
+> **CORRECTED 2026-08-15 (copy_quality_two_stage, decision-3 apply session): the NUMERIC
+> half of this finding is REFUTED — that arm HAS been in claimscan since the tool's first
+> commit** (`87d13b864`, 2026-07-16; `git log -S ScanUnregisteredNumbers` pins it; line
+> 161 of `cmd/claimscan/main.go`, page_type-aware per bugs_open/102). What failed on
+> 08-14 was the induced control, not the tool: *"£6,500 of borrowing power"* contains no
+> `businessClaimContextRe` keyword (clients/customers/users/…), so the scan correctly
+> ignored it — and its silence was read as an absent arm. **A control that has never
+> fired proves nothing.** (*"trusted by 12,000 customers"* fires as NUMBER today — ×1 on
+> the same binary path — so its 08-14 silence is unexplained; possibly a malformed
+> fixture row, whose skip claimscan reports only on stderr.) Re-measured 2026-08-15 with
+> a firing control (*"Trusted by 12,000 customers and 340 businesses"* → NUMBER ×2): the
+> real corpus is **0 findings across all 82 unlocked components** even in the strictest
+> mode (no page_type column = every page scanned; production exempts this site's 35
+> tool/guide/blog-post pages besides). The numeric flood risk this finding warned about
+> is measured and is zero on today's copy. **The STORED-STAT half of the finding stands:**
+> claimscan calls no `ScanStatClaims` and reads no `content_data`, so that arm still has
+> no offline harness — the un-dry-runnable surface is one arm, not two. WRONG_CALLS
+> entry filed. The paragraph below stands as written for the record.
+
 `cmd/claimscan` runs **only** `ScanBannedClaims` (+ the separate attributed scan).
 Induced proof: a fixture carrying an unregistered figure (*"£6,500 of borrowing power"*)
 and a stored-stat shape (*"trusted by 12,000 customers"*) fires **nothing** — the arms

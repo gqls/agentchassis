@@ -32268,3 +32268,29 @@ this bug's runbook). If the message must mention the spelling, paraphrase it; th
 - **cost:** none operationally — the decision the number supported (leave `ComponentID` alone)
   is right on other grounds, and no code depended on the count. It shipped into four documents
   and one council submission, so the cost was to the record, not the system.
+
+## 2026-08-15 — "the numeric arm cannot be dry-run" — an induced control that never fired, trusted for its silence (copy_quality_two_stage)
+
+- **the claim** (CONTRIB_2026-08-14_evidence_base_candidate…, finding 2; repeated in NOTES
+  and the HANDOFF, and it reached the owner's decision framing): `cmd/claimscan` runs only
+  `ScanBannedClaims`, so the unregistered-number arm cannot be dry-run and its yield on a
+  23-calculator site is unmeasured flood risk.
+- **the reality:** the numeric arm has been in claimscan since the tool's FIRST commit
+  (`87d13b864`, 2026-07-16; `main.go:161`, page_type-aware). The 08-14 induced fixture
+  *"£6,500 of borrowing power"* contains no `businessClaimContextRe` keyword, so the scan
+  correctly ignored it — and that correct silence was read as an absent mechanism. The
+  companion stored-stat half of the claim was and is true (claimscan reads no content_data).
+- **what caught it:** applying decision 3 (08-15): claimscan itself printed the tell —
+  "prose numbers checked on every page type" in its own stderr WARNING — and a re-induced
+  control with a keyword the regex knows ("customers") fired NUMBER ×2 immediately.
+- **the cheap check that would have:** make the induced control FIRE before trusting its
+  silence — a control is only a control once it has been seen to detect. Ten seconds of
+  reading `main.go` (the scan call is 20 lines below the banned call) would also have done it.
+- **the general form:** an induced-control run has TWO outcomes to validate, not one: the
+  real corpus staying quiet AND the fixture firing. Verifying only the first turns "my probe
+  missed" into "the mechanism is absent". Sibling of "a quiet-test passes when the RULE is
+  gone" and "a mutation that PASSES may have hit a guard in series".
+- **cost:** one owner decision (3) was framed with "cannot be dry-run" as a constraint, and
+  the step was resized around a flood risk that measurement shows is zero on today's copy
+  (0/82 components, strictest mode). No operational damage — the recommended sequence
+  happened to be right anyway. Corrected in place in the CONTRIB; NOTES corrected same day.

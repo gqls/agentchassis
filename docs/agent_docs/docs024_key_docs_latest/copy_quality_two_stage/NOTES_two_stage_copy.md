@@ -1148,6 +1148,13 @@ findings over 65 components, WITH an induced control that fires).
    fires]`. So my earlier framing ("one row turns on a live claims gate, free") was
    half-right: the row is one edit, but its only new effect is unmeasured and flood-risky
    on a 23-calculator site. Tool gap named in the CONTRIB (a `-deployed` claimscan flag).
+   > **CORRECTED 2026-08-15 (decision-3 apply): the NUMERIC half is REFUTED** — the arm
+   > has been in claimscan since its first commit (`87d13b864`, 07-16; `main.go:161`).
+   > The £6,500 fixture missed `businessClaimContextRe`'s vocabulary, so its silence was
+   > the scan working, not the arm missing; the [MEASURED] marker was honest and the
+   > measurement still answered the wrong question — the control was never seen to fire.
+   > Stored-stat half stands (no content_data path in claimscan). Full entry in
+   > WRONG_CALLS 2026-08-15; corrected in place in the CONTRIB.
 3. **The high-value move is reuse**: mortgagecalculator's register carries GOV.UK-cited
    SDLT facts verified TODAY, and `bugs_open/225` is LMC's SDLT calculator applying an
    expired cap — the exact live-wrong-figure case the register exists to catch. Copying
@@ -1315,3 +1322,47 @@ agents clobbers both corrections (`write_site_spec` merges incoming over current
 `pinned` is read only by the evidence-base path, so it cannot protect these rows).
 Re-apply from the old-row ids above if that happens. SQL kept in scratchpad this session;
 the row ids + notes columns are the durable record.
+
+## 2026-08-15 (late evening) — decision 3 APPLIED: LMC's register is live, opened SDLT-first, and the flood risk is measured at zero
+
+Coordination checks first, per the standing caution: LMC's B2 batch 2 is CLOSED (all 21
+calculators B2, verified this morning — their handoff header); the only live concurrent
+session touching LMC files is the bugfix-281 lane (platform Go, no site-config writes);
+`bugs_open/225`'s calculator fix has been LIVE since 08-09 (`fe202d7ea`, negative control
+`grep -c 625000` = 0 on both live pages) — so the CONTRIB/HANDOFF line "catches 225's
+live wrong figure" was STALE at apply time. The register's SDLT value today is
+regression protection (225's own tail warns decompose can re-freeze buggy bytes), not
+catching a live error. The owner's rider — 225 is being run in a separate thread —
+turned out to describe residual 225-family work, not a conflicting write.
+
+**The apply `[MEASURED]`:** row `7268d235-cf69-46ce-9a99-64540e3420e8` (site
+`ed633ada…`, aspect `evidence_base`, first row ever — guard asserted 0 prior rows).
+Contents: mortgagecalculator's 13 GOV.UK-cited SDLT facts VERBATIM (source row
+`588ced6a…`, refreshed by `evidence-refresher` the same morning, so `verified_at` is
+today); `banned_claims: []` (fleet set unions in — `dedupeByPattern`, claims_global.go,
+checked before including the key); `writer_block` copied from mc — provably
+`composeWriterBlock(facts)` since that function is pure over the facts array
+(refresh_evidence_base_action.go:968) and mc's block was regenerated from these exact
+facts hours earlier; `writer_block_managed: true`. The candidate's two self-referential
+£5–7k facts are DEFERRED per the ruling (sourcing later); the 23-calculator count went
+with them (same candidate, not re-argued).
+
+**Validation before the write:** claimscan parse clean; banned arm 0/82 unlocked
+components with the "fully verified" induced control firing. **And the numeric arm IS
+dry-runnable** — see the correction above and WRONG_CALLS: NUMBER arm 0 findings across
+all 82 components in the STRICTEST mode (no page_type column → every page scanned as
+UNKNOWN), with an induced control firing ×2 ("Trusted by 12,000 customers and 340
+businesses"). Production will scan strictly less: 35 of LMC's 46 pages are
+tool/guide/blog-post (numeric-arm-exempt, bugs_open/102), leaving 11 scannable pages,
+all measured clean tonight.
+
+**"Watch the first sweep" — recalibrated by the measurement.** The rotation
+(SCH-025, quality-only, 10800s) selects nothing until the 08-09/10 stamps age out from
+2026-08-16 ~09:49Z, then ~1 site/3h; LMC's first scheduled `unverified_claims` run is
+days out, files HITL-terminal `claims:<page_id>` items (no handler, so SCH-026's new
+promoter cannot dispatch them), and tonight's offline run of the same two HTML arms over
+the same corpus returned zero. Deliberately NOT hand-firing the oneshot envelope: it
+runs all 9 quality checks, several of which now have live promotion paths (SCH-026,
+today) and one known misfirer (`generic_theme`) — a full-agent fire to re-measure an
+already-measured zero is blast radius with no information. Expectation to check when the
+rotation reaches LMC: **0 claims items; any finding = a page changed after tonight.**

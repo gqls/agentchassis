@@ -272,3 +272,30 @@ step.
 
 Next: the claims register (checking first what the stamp-duty thread is doing so we
 don't trip over each other), then the editorial pass build.
+
+---
+
+**2026-08-15, late evening — the claims register is on for the second calculator site,
+and the flood we feared measures zero.**
+
+The register is live: the thirteen stamp-duty facts, each one carrying its GOV.UK
+citation, copied exactly from the mortgage site's register — which the machinery had
+itself re-verified against GOV.UK this very morning. Your two unsourced borrowing-power
+figures are left out, as you decided; finding them a proper source is still on the list.
+
+Two things came out of doing it carefully. First, the stamp-duty bug you mentioned is
+in better shape than our notes said: the wrong figure was actually fixed and confirmed
+gone from the live pages six days ago, so the register isn't catching a live error —
+it's insurance against the number ever creeping back, which one of that bug's own
+warnings says is possible.
+
+Second, we caught ourselves in an error worth owning. Last night's prep work claimed the
+number-checking part of the scanner "cannot be tested without going live", and sized the
+risk around that. It can be — it always could — and the test we thought proved otherwise
+had simply been given a sentence the scanner isn't designed to flag. Tested properly
+tonight: across every checkable piece of the site, the new register flags nothing, and a
+deliberately-planted fake figure IS flagged. So the worry that switching this on would
+bury the review queue in false alarms is settled by measurement: it won't. The mistaken
+claim is corrected where it was written, with the lesson logged.
+
+Next: the editorial pass build, in parallel with the review-surface thread, as you ruled.
