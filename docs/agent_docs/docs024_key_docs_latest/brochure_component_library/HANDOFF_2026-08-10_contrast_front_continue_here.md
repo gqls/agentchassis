@@ -707,3 +707,11 @@ and the coverage join silently credits work nobody reviewed. One trailer, one pl
   failure.
 - **Do not re-derive ownership from memory.** `./scripts/who-owns.py <bug>` first; twice on
   this front I filed a worse version of work the owning lane had already done.
+
+---
+
+# ⇒ SUPERSEDED 2026-08-15. Start at `HANDOFF_2026-08-15_contrast_front_continue_here.md`.
+
+This file's title and opening are stale, and it now carries seven addendums of history. The
+2026-08-15 handoff is self-contained, re-measured, and states what is owed. Read that
+instead; come back here only if it links you.
