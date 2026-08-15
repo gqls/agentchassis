@@ -1,5 +1,16 @@
 # HANDOFF 2026-08-15 — everything is live and staged; ONE step remains: unpause and run Phase 0
 
+> **⚠ SUPERSEDED 2026-08-15 by `HANDOFF_2026-08-15b_continue_here.md` — DO NOT ACT ON
+> §2.** The owner authorised the money step and it was **run at 14:26–14:30Z**: one
+> a6000 provisioned, both 258 defects proven live, box decommissioned, `is_paused`
+> re-armed. Cost $0.0645 (our estimate; see 15b §3 — it is not the vendor's charge).
+> **This file's title and §2 are now false.** Two of its figures are also refuted:
+> a6000 boot is **~16 seconds**, not `> 5 min` (§2 "the thing nobody knows"), and the
+> deadline line renders `wait_timeout:540`, **not** `wait_timeout=9m0s` — grepping for
+> `9m0s` finds nothing and reads as "the fix is missing" (WRONG_CALLS 2026-08-15).
+> **Still accurate and still worth reading: §3 (verdict, now READ — APPROVED), §4
+> (traps), §5 (open unknowns, minus the boot time), §6, §7, §8.**
+
 **COLD-START document for the lane.** Supersedes
 `HANDOFF_2026-08-13_continue_here.md` (its blocked items are all done).
 PLAN = approved design · RUNBOOK = commands (**§1b** billing check, **§2** bundle,

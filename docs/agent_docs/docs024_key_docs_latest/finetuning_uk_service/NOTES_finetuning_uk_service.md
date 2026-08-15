@@ -1278,3 +1278,128 @@ Unchanged and deliberately so: `is_paused` **true**, 0 claims, 0 live instances,
 vendor `{}`, **no spend**. The money step was NOT fired — it is the owner's call and
 has been put to him. Nothing in this pass wrote to the cluster; every command was a
 read.
+
+---
+
+## 2026-08-15 (same session, later) — PHASE 0 PROVISION TEST FIRED AND PASSED
+
+Owner approved "provision test only" (not the full Phase 0 training run). Fired,
+proved, cleaned up, re-paused. **Total elapsed unpaused: 3m34s. Total cost:
+$0.0645 by our accounting** (see the caveat on that figure below — it is not the
+vendor's number).
+
+### Timeline, from the artefacts
+
+| time (UTC) | event | source |
+|---|---|---|
+| 14:26:50 | `is_paused=false`; `can_provision` → `t` | DB |
+| 14:27:17 | provision dispatched, correlation `d2cc212d-…4c9d` | kcat |
+| 14:27:24.992 | **`Resolved vCPU count from Thunder specs`** | adapter log |
+| 14:27:25 | instance created at vendor (`createdAt`) | vendor |
+| 14:27:26.106 | **`Provision wait deadline from live config`** | adapter log |
+| 14:27:31 / :36 | poll → `STARTING` | vendor |
+| 14:27:41 | poll → **`RUNNING`**; our row written | vendor + DB |
+| 14:27:41.492 | `Provision complete` | adapter log |
+| 14:29:43 | decommission dispatched | kcat |
+| 14:29:49.752 | `POST /instances/0/delete` → 200 `{"message":"Success"}` | adapter log |
+| 14:29:50.222 | row → `decommissioned`, cost stamped, SSH secret deleted | DB + log |
+| 14:30:24 | `is_paused=true` restored | DB |
+
+### The three things the run had to show
+
+**1. 258 defect 1 — PROVEN.** Verbatim, `provision_action.go:529`:
+
+```json
+{"msg":"Resolved vCPU count from Thunder specs","spec_key":"a6000_x1_prototyping",
+ "vcpus":6,"vcpu_options":[6,8]}
+```
+
+Exactly the line the handoff predicted, spec key and options included. Corroborated
+independently **at the vendor**, which reported `"cpuCores":"6"` on the live box —
+the old hardcoded `DefaultCPUCores = 4` would have been rejected with a 400. Two
+independent witnesses (our log, their API), and **no `vcpus` was passed in the
+request**, which was the whole point.
+
+**2. 258 defect 2 — PROVEN.** `provision_action.go:489`:
+
+```json
+{"msg":"Provision wait deadline from live config","wait_timeout":540}
+```
+
+The live config was read; **no `using compiled-in default` warning anywhere in the
+pod's log.** The box reached `RUNNING` and was **not** deleted mid-provision. Note a
+small doc drift: the handoff predicted the line would render `wait_timeout=9m0s`; it
+actually logs the integer `540`. Same value, different rendering — **if you grep for
+`9m0s` you will conclude the fix is missing.** Corrected in RUNBOOK §6.
+
+**3. 259 — NO live proof, exactly as predicted.** `thunder_provision_claims` shows
+`attempts=1, status=succeeded`. The await never expired, so the retry driver never
+fired and the guard was never asked to refuse anything. **This is now much worse
+than "not yet observed" — see the boot-time finding below, which makes a natural
+slow case on a6000 essentially impossible.**
+
+### ⚠ THE BIG MEASUREMENT: a6000 cold boot is ~16 SECONDS, not ">5 minutes"
+
+`createdAt` 14:27:25 → first `RUNNING` poll 14:27:41. The adapter polls every 5s, so
+the true figure is **between 11 and 16 seconds**. [MEASURED]
+
+The lane has carried `> 5 min` as the honest floor since every prior attempt was
+killed at the old 5-minute compiled-in deadline while still `STARTING`. **That
+premise is now refuted for a6000.** I am NOT claiming it was always wrong: the two
+historical rows in `thunder_instances` are both `a100xl_1`, a scarcer and bigger
+card, so the ">5 min" observations may have been a different spec entirely and may
+still hold there. What is settled is that **a6000 boots in seconds, and the 540s
+wait is ~33× the measured need.**
+
+Consequences worth thinking about before anyone acts on them:
+
+- The 540/600 coupling that four council seats objected to is, for a6000, an
+  enormous margin over a 16s reality. The invariant still matters (it protects the
+  *slow* case), but the urgency of mechanising it is lower than it looked.
+- **259 will now essentially never get natural live proof on a6000.** An await that
+  needs 600s to expire cannot expire against a 16s boot. Waiting "for a naturally
+  slow provision" — the handoff's safer suggestion — is waiting for something that
+  will not happen on this spec. If 259 is to be proven, it must be induced
+  deliberately, and §4's quiet-success trap makes that genuinely dangerous. **This
+  is now an owner call, not a task.**
+
+### ⚠ THE COST FIGURE IS OURS, NOT THUNDER'S — the price question is still open
+
+`cost_usd = 0.064467881216` for `uptime = 128.935762432` s. That divides out to
+**exactly $1.800000/hr**, which is `thunder_config.default_hourly_rate_usd`.
+`provision_action.go:429` stamps `HourlyRateUSD: cfg.DefaultHourlyRateUSD` onto the
+row at provision time and `decommission_action.go:152` computes the cost from that
+stored rate — **a flat configured rate, applied regardless of GPU type.**
+
+So: **this run does NOT answer the open a6000 price question.** At the advertised
+$0.35–0.43/hr the same 129s would be **$0.0125–$0.0154**, i.e. we are over-stating
+a6000 spend by roughly **4–5×**. That is conservative in the safe direction for the
+$30 daily cap (it trips early, not late), but it means `total_24h_spend` is not a
+spend figure, it is an upper bound. **Only an invoice settles the real price** — the
+handoff's open question stands unchanged. [UNVERIFIED: the vendor's actual charge]
+
+### ⚠ LANDMINE FOUND THE HARD WAY: `kubectl logs -l app=<x>` returned ZERO lines
+
+Mid-run, `kubectl -n ai-persona-system logs -l app=thunder-adapter --since=15m | grep
+"Resolved vCPU"` came back **empty**, as did `grep "instances/create"` — while the
+box demonstrably existed. On that evidence the honest reading is "the derivation
+never ran", and the tempting next move is to go looking for a bug in code that is
+in fact working perfectly.
+
+**What caught it was a control**: I grepped for `Provision complete`, a line I had
+*already read with my own eyes* minutes earlier. It returned **0**. A query that
+cannot find a line you have already seen is a broken query, not evidence of absence.
+
+Root cause: the **label selector** form returned nothing for a single-replica,
+zero-restart service. `kubectl logs <pod-name>` on the very same pod returned the
+full 48-line history including both proof lines. This is adjacent to the known
+"`logs -l` reads one pod of N" trap but is not the same thing — here N was 1 and the
+answer was *nothing at all*. Appended to `LANDMINES.md`.
+
+### State at end
+
+`is_paused` **true** (reason string records the result). `can_provision` **f**.
+Vendor `instances/list` → `{}`. Live instances **0**. Claims: 1 row, `succeeded`,
+`attempts=1`, retained deliberately as the audit record — **not cleared** (§5:
+clearing is only for a genuinely orphaned claim, and this one is neither orphaned
+nor blocking, since a re-run gets a fresh correlation). `total_24h_spend` $0.0645.

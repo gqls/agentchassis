@@ -31906,3 +31906,41 @@ built normally). The deeper lesson: writing a rule down is not applying it; the 
 five minutes before the rule predates it and does not inherit it.
 
 ---
+
+## 2026-08-15 — predicted a log line's TEXT from the Go call and got the rendering wrong, in a doc whose whole job was "grep for this to prove the fix shipped"
+
+**Lane:** `finetuning_uk_service` (Phase 0 provision test).
+
+**The claim:** `HANDOFF_2026-08-15_continue_here.md` §2 told the next session to confirm the
+bug-258 defect-2 fix by looking for `Provision wait deadline from live config wait_timeout=9m0s`.
+It was written as the acceptance test for a fix that had already burned 44 hours by shipping
+half-live once.
+
+**What is actually emitted:** `{"msg":"Provision wait deadline from live config","wait_timeout":540}`.
+Same fact, different rendering. **A session grepping for `9m0s` finds nothing** — and the
+documented meaning of "nothing" here is the very bad one: the binary fell back to the compiled-in
+default and the config half never shipped. The handoff's own §4 trains you to read an empty result
+as exactly that.
+
+**Why the guess was wrong, precisely:** the source is `zap.Duration("wait_timeout", d)`
+(`provision_action.go:489-490`), and `zap.Duration` looks like it will print Go's `9m0s`. It does
+not: zap's **JSON encoder renders a Duration as seconds-as-a-number by default**
+(`SecondsDurationEncoder`), so a `time.Duration` field surfaces as `540`. The prediction assumed
+`StringDurationEncoder`, which this logger does not configure.
+
+**Caught by:** running the real provision and reading the pod's actual log, rather than grepping
+for the predicted string. Nearly missed — the greps that would have "confirmed" the absence were
+also being run through a broken label selector at the time (see the same-day LANDMINES entry), so
+two independent causes of an empty result were stacked on top of each other.
+
+**The cheap check that would have caught it:** never transcribe a log line from the Go call site
+into a doc as literal text. Either **quote a line the system has actually emitted**, or grep on the
+**message only** — `grep 'Provision wait deadline'` — and read the fields off the JSON. The message
+string is stable and author-controlled; the field rendering belongs to the encoder. Cost seconds:
+`kubectl logs "$POD" | grep 'Provision wait deadline'`.
+
+**Cost:** none this time (the test passed and the line was found by message). The exposure was a
+false "the fix is missing" on a defect that had already cost this lane 44 hours precisely because
+its shipped/not-shipped signal was ambiguous. Corrected in `RUNBOOK` §6.
+
+---

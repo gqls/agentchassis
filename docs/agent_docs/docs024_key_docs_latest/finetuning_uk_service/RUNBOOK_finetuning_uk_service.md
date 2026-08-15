@@ -385,9 +385,135 @@ If a run reports a timeout, check which deadline actually applied before changin
 anything — a silently-defaulted one logs a warning:
 
 ```bash
-kubectl -n ai-persona-system logs -l app=thunder-adapter --tail=500 \
+POD=$(kubectl -n ai-persona-system get pods -l app=thunder-adapter -o jsonpath='{.items[0].metadata.name}')
+kubectl -n ai-persona-system logs "$POD" \
   | grep -E 'Provision wait deadline from live config|using compiled-in default'
 ```
 
 `using compiled-in default (is migration 400 applied?)` means the binary has the
 fix but the database does not.
+
+⚠ **The deadline logs as an integer, not a duration.** The line reads
+`"wait_timeout":540`, **not** `wait_timeout=9m0s`. Earlier handoffs predicted the
+duration form; grepping for `9m0s` finds nothing and reads as "the fix is missing".
+Corrected 2026-08-15 against the real line.
+
+⚠ **Use the POD NAME, not `-l app=…`.** See §8.
+
+## 7. Firing a provision by hand — the whole recipe (added 2026-08-15)
+
+This lane's most-needed command was **not written down anywhere** until now;
+reconstructing it took a repo-wide search. The two `scripts/initial_messages/`
+files that look like triggers (`270_model_trainer/081_gpu_provisioner.sh`,
+`300_thunder_flywheel/081b_thunder_adapter_gpu_provisioner.sh`) are **stale
+scratchpads from May/June**, non-executable, with destructive SQL interleaved
+below the part that looks like the end. **Do not run them.**
+
+**This spends money. `is_paused` is fleet-wide. Get the owner's word first.**
+
+```bash
+# 0. PRE-FLIGHT — must be can_provision=f for reason "paused", spend 0, active 0,
+#    and the vendor must agree there is nothing already running.
+#    (Vendor call is in §1b; `thunder_instances` count(*) includes HISTORY —
+#     group by status or the 23 decommissioned rows will scare you.)
+
+# 1. UNPAUSE (the money step)
+UPDATE thunder_config SET is_paused = false, pause_reason = NULL;
+
+# 2. DISPATCH exactly one. Topic system.agent.generic.requests; the chassis reads
+#    the agent type from body.config.agent_type (processor.go:1240-1265).
+C=$(cat /proc/sys/kernel/random/uuid); R=$(cat /proc/sys/kernel/random/uuid)
+M=$(cat /proc/sys/kernel/random/uuid); O=$(cat /proc/sys/kernel/random/uuid)
+echo "SAVE THIS: correlation=$C"
+kubectl -n kafka run -i --rm kcat-prov-$(date +%s) --image=edenhill/kcat:1.7.1 \
+  --restart=Never --quiet -- \
+  kcat -P -b personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092 \
+  -t system.agent.generic.requests \
+  -H correlation_id=$C -H request_id=$R -H message_id=$M \
+  -H orchestration_id=$O -H orchestration_name=manual-gpu-provision-$(date -u +%Y%m%d-%H%M%S) \
+  -H step_name=start -H client_id=demo_client -H message_type=request \
+  -H action=orchestrate -H from_agent_type=cli -H from_agent_id=cli-manual-phase0 \
+  <<<'{"action":"orchestrate","config":{"agent_type":"gpu-provisioner"},"input_data":{"gpu":"a6000","mode":"prototyping"}}'
+```
+
+- **Pass NO `vcpus`.** The adapter derives it from `GET /v1/specs` (bug 258 defect
+  1). Supplying one tests nothing. `input_data` is flat: `gpu`, `mode`,
+  `training_run_id`, `template`, `num_gpus`/`vcpus`/`disk_size_gb` (ints, forwarded
+  only when > 0 — `thunder_provision_dispatch.go:113-127`).
+- **All four ids must be real UUIDs** — `orchestration_states.correlation_id` is a
+  `uuid` column, so a friendly string fails the cast at verify time.
+- **Single-line here-string `<<<`, never a heredoc.** `kcat -P` sends **one message
+  per line**; a pretty-printed body becomes N invalid fragments that still carry the
+  headers, and the run reads `owner_agent_type='generic'`, `execution_path=[]`,
+  `status=COMPLETED` — a fast fake success.
+- **`kcat` exits 0 having sent nothing.** The exit code is not evidence. Verify:
+
+```sql
+SELECT owner_agent_type, current_step, status FROM orchestration_states
+WHERE correlation_id = '<C>'::uuid;          -- expect gpu-provisioner | complete | COMPLETED
+SELECT attempts, status, thunder_instance_id FROM thunder_provision_claims
+WHERE correlation_id = '<C>';                 -- expect 1 | succeeded | <id>
+```
+
+### Cleaning up — do NOT leave it to the reaper
+
+The reaper's deadline for a non-training box is **2 hours** (`max_uptime_hours: 2`
+in the provision log), and `default_hard_uptime_hours` is 18. Either is far too long
+for a test. Decommission explicitly, straight at the adapter topic:
+
+```bash
+C=$(cat /proc/sys/kernel/random/uuid); R=$(cat /proc/sys/kernel/random/uuid)
+O=$(cat /proc/sys/kernel/random/uuid); PROV=<provisioning_id from the provision response>
+BODY=$(printf '{"headers":{"correlation_id":"%s","orchestration_id":"%s","client_id":"demo_client","step_name":"decommission","request_id":"%s","message_type":"request","action":"decommission_instance","sender_agent_type":"cli","sender_agent_id":"%s","responses_topic":"system.agent.generic.responses","reply_to_topic":"system.agent.generic.responses"},"body":{"action":"decommission_instance","reply_to_topic":"system.agent.generic.responses","provisioning_id":"%s","reason":"manual cleanup"}}' "$C" "$O" "$R" "$O" "$PROV")
+echo "$BODY" | kubectl -n kafka run -i --rm kcat-decom-$(date +%s) --image=edenhill/kcat:1.7.1 \
+  --restart=Never --quiet -- \
+  kcat -P -b personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092 \
+  -t system.adapter.thunder.requests \
+  -H correlation_id=$C -H orchestration_id=$O -H request_id=$R \
+  -H client_id=demo_client -H message_type=request -H action=decommission_instance \
+  -H step_name=decommission -H sender_agent_type=cli -H sender_agent_id=$O \
+  -H reply_to_topic=system.agent.generic.responses -H responses_topic=system.agent.generic.responses
+```
+
+Note the **adapter topic takes a wrapped envelope** `{"headers":{…},"body":{…}}` as
+the message value (unlike the chassis intake in step 2, which takes a bare body).
+`provisioning_id` is the `db_row_id` / `provisioning_id` from the provision
+response. Then **re-pause**, and verify at the vendor, not at our tables:
+
+```sql
+UPDATE thunder_config SET is_paused = true, pause_reason = '<what you did, and the result>';
+```
+
+### Measured 2026-08-15, first successful end-to-end run
+
+- **a6000 cold boot: ~16s** (`createdAt` → first `RUNNING` poll; 5s poll interval,
+  so true value is 11–16s). The lane's long-standing `> 5 min` figure **does not
+  hold for a6000** — though both historical `>5 min` rows were `a100xl`, so it may
+  still hold there. 540s is ~33× the measured a6000 need.
+- Provision → `Provision complete`: **16.5s**. Decommission → gone: **~7s**.
+- ⚠ **`cost_usd` is OUR estimate, not Thunder's charge.** It is
+  `default_hourly_rate_usd` (a flat **$1.80/hr**, all GPU types) × uptime —
+  `provision_action.go:429` stamps the rate, `decommission_action.go:152` computes
+  from it. The 129s test billed **$0.0645** by our books; at the advertised
+  $0.35–0.43/hr it would be **$0.0125–$0.0154**. So `total_24h_spend` is an **upper
+  bound ~4–5× over** for a6000, and the daily cap trips early rather than late.
+  **The real price is still unanswered — only an invoice settles it.**
+
+## 8. ⚠ `kubectl logs -l app=<x>` can return NOTHING for a live pod
+
+Bit this lane on 2026-08-15. `logs -l app=thunder-adapter --since=15m | grep …`
+returned **empty** for lines that were definitely there; `logs <pod-name>` on the
+same single, zero-restart pod returned the full history. On the empty result the
+natural conclusion is "the code never ran", which would have sent someone hunting a
+bug in working code.
+
+**Always resolve the pod name first**, and when a grep comes back empty, **run a
+control — a line you have already seen with your own eyes:**
+
+```bash
+POD=$(kubectl -n ai-persona-system get pods -l app=thunder-adapter -o jsonpath='{.items[0].metadata.name}')
+kubectl -n ai-persona-system logs "$POD" | grep -c "Provision complete"   # control: must be > 0
+kubectl -n ai-persona-system logs "$POD" | grep "Resolved vCPU count"     # the real question
+```
+
+If the control returns 0, your query is broken and the absence means nothing.

@@ -536,3 +536,74 @@ than left as open questions.
 **So we are exactly one step from the first real test run, and that step costs money**
 — a few pence, but it's a live machine at a vendor, so I've stopped and asked rather
 than just doing it. That question is with you now.
+
+---
+
+## 2026-08-15, later — we rented a GPU, it worked, and it cost about six pence
+
+You said do the provision test only. Done. It worked, first try, no drama. Here is
+what happened and the two things that surprised me.
+
+**The run.** I unpaused at 14:26:50, asked for one A6000, and deliberately did *not*
+tell it how many processors to use — that was the whole point, because the bug we
+fixed was that the system used to guess a number the vendor rejects. It worked out
+the right answer by itself, asked the vendor for the machine, the machine came up,
+and the job finished. I shut the machine down by hand, checked with the vendor that
+it was really gone, and put the safety catch back on at 14:30:24. **The whole thing
+was unpaused for three and a half minutes.** Nothing is running now; I confirmed that
+with the vendor directly rather than trusting our own records.
+
+**Both fixes are proven working on a real, paid machine, not just in tests.** The
+sizing fix worked out "6 processors" from the vendor's own published menu, and the
+vendor's records confirm it built the machine with exactly that. The timeout fix read
+its setting from the database like it was supposed to, instead of falling back to the
+old hardcoded five minutes. That five-minute fallback is the thing that quietly wasted
+44 hours earlier this week, so seeing it read the real setting is the result that
+mattered most.
+
+**Surprise one: these machines start in about sixteen seconds.** We have been carrying
+"more than five minutes" as the honest figure for months, because every previous
+attempt got killed at the five-minute mark before it finished. It turns out an A6000
+is up in roughly a quarter of a minute. I want to be careful here — the older slow
+cases were a *different, bigger* type of card, so it may genuinely be slow for those.
+But for the card we actually plan to use, our nine-minute patience setting is about
+thirty-three times longer than it needs to be.
+
+That has an awkward consequence. **The duplicate-machine guard now has almost no way
+of ever proving itself in normal use.** It only wakes up when a machine takes so long
+that the system gives up waiting — and if the machine is ready in sixteen seconds,
+that will never happen. So the honest position is unchanged from this morning: that
+guard is live, well tested, and still has never been seen doing its job for real. The
+only way to see it work is to deliberately engineer a slow case, and doing that
+carelessly creates precisely the dangerous situation it exists to prevent — a machine
+running and billing while the system reports failure and nobody is watching. **I don't
+think a session should decide that on its own. It's a decision for you.**
+
+**Surprise two: the cost figure in our own records is not what the vendor charges.**
+It says six and a half pence. That number is our own estimate — we multiply the time
+used by a single flat rate of $1.80 an hour that we apply to every type of card,
+regardless of which one it actually was. The A6000 is advertised at around 35 to 43
+cents an hour, so the real charge for that run was probably nearer **one and a half
+pence**. We are over-estimating by roughly four or five times.
+
+That is the safe direction to be wrong in — our £30 daily ceiling trips early rather
+than late, so it protects us harder than we thought. But it does mean the "spend so
+far" number is a worst case, not a bill, and **the question of what an A6000 really
+costs us is still open. Only an actual invoice will settle it.**
+
+**One near-miss worth telling you about,** because it is the kind of thing that wastes
+an afternoon. Halfway through, I checked the logs to confirm the sizing fix had run,
+and the logs came back empty. On the face of it that meant the fix had not run at all,
+and the obvious next move would have been to go hunting for a bug in it. Before doing
+that I searched for a line I had already read with my own eyes two minutes earlier —
+and *that* came back empty too. Which is impossible, so the problem was my search, not
+the system. Asking the same question a slightly different way returned the full logs
+and both proofs, exactly as they should be. Nothing was wrong. I have written that
+trap up in the shared traps file, because an empty search result reads like an answer
+and it usually isn't one.
+
+**Where that leaves us.** The provisioning half of Phase 0 is genuinely finished and
+proven on real hardware. The remaining half — actually driving a training run on the
+machine, and getting the trained result safely into storage — is untouched and still
+staged. That is the next natural piece of work whenever you want it, and it will cost
+more than six pence because the machine has to stay up long enough to train something.
