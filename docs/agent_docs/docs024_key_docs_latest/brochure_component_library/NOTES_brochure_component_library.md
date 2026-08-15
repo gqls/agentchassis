@@ -6787,3 +6787,79 @@ instruction names the rule, quotes this page's own offending lines back to it, a
 an explicit **do-not-strip-the-caveats** clause, asserted present in both items by the
 transaction. The obvious failure mode for "make this less negative" is a rewrite that
 quietly deletes the site's honesty and passes every structural check.
+
+### 2026-08-15 — 2a CANARY VERIFIED AT THE ARTEFACT (it worked), and 2b escalated into a much better diagnosis
+
+**2a — both canaries `complete`, and this time the status is backed by the page.**
+
+`[MEASURED 2026-08-15, served pages, against the sha-pinned baseline]`
+
+| page | bytes | sha256 | X-not-Y |
+|---|---|---|---|
+| `model-approach-selector-guide` | 26,205 → 26,390 | `7a4618e5af83` → `d4e546e753bb` | **10 → 1** |
+| `multi-agent-review-council` | 39,043 → 39,683 | `5c6c5d22b550` → `4ac9404380f5` | **3 → 0** |
+
+**The drop is NOT the evidence — the survive-control is.** A rewrite that simply deleted
+the site's caveats would produce exactly the same drop. So:
+
+- every caveat concept present before is present after (`weighting` 1→1, `paying client`
+  1→1, `normal outcome` 1→1);
+- **16 → 16 internal links on both pages, none lost, none invented**;
+- **zero figures lost.**
+
+How it actually reads, which is the part worth keeping:
+
+> *"It's a decision aid, **not a verdict**, and it can get the weighting wrong"*
+> → *"treat the result as a starting conversation about your situation, and keep in mind
+> that it can get the weighting wrong"*
+
+> *"…**not something we already operate** for a paying client, and we say that plainly
+> **rather than** blurring the line"*
+> → *"**We have not yet delivered it to a paying client, and we state that plainly.**"*
+
+The second is the one to notice: the rewrite made the honesty **more** direct and shorter.
+The worry that "remove the negative framing" would sand off the caveats was the right
+worry and it did not happen — because the instruction said so explicitly and the
+transaction asserted the clause was in both items.
+
+The single survivor on the guide is *"an opening position worth arguing with rather than a
+fixed answer"* — a genuine comparison, and arguably fine. **Not going to chase it**: this
+is exactly the fleet lane's recorded mistake of reporting sound copy as a defect because
+it matches a pattern.
+
+**2b — the run escalated after 5 revise rounds, and the escalation was worth more than an
+approval would have been.** Full write-up:
+`DECISION_INPUT_2026-08-15_tools_are_orphaned_not_unbuilt.md`. In short:
+
+- The `contracts` seat blocked a plan that reused `portfolio-showcase` for a new
+  tools-hub, refusing to accept an unquoted template contract. **I ran the two queries it
+  named.** One worry refuted (guards are per-field, no card-level guard), one refuted
+  harder than it knew (`.title` is an `<h3>`, never an anchor — the only anchor text is a
+  hard-coded *"Visit Site →"*, so the plan's acceptance criterion could never have
+  passed), one confirmed (no matching portfolio entries exist).
+- Then the finding that resizes the whole item: **`/tools.html` already exists, serves
+  200 at 27,163 bytes, and the site already runs `tool-cta` on six pages.** Nothing needs
+  building.
+- **The nav is generated from `site_plan_pages WHERE in_header`, and `tools` has no plan
+  row.** Nor do four other live pages — **5 of 25 active pages are absent from the plan**,
+  two of them carrying `Tools / …` hierarchical labels. A Tools section was built,
+  labelled and deployed, and never entered into the plan the nav reads.
+
+**STOPPED before fixing it, deliberately.** The fix is plan surgery on fundamentallyai,
+and the **215 quiet-mode front is doing plan surgery on this same site right now** — it
+deletes and re-adds `site_plan_pages` rows as steps 3 and 5 of its procedure. Two threads
+editing one plan is the collision this estate keeps paying for. Owner decision requested.
+
+**[UNDIAGNOSED, flagged not guessed] Why can a page be `deployed` with no plan row?** If
+that is possible generally, the plan is not the record of the site it is treated as, and
+the nav is only the first reader to notice. Worth a `090` in its own right. I have **not**
+checked whether other sites carry the same orphans.
+
+**A note on the escalation trail itself, for whoever runs this loop next.** The
+`experience-council` `doc_notes` rows record only *"gating objection from contracts"* —
+31 to 63 characters, the seat's NAME and nothing else. The actual objections, the seat's
+proposed checks and its reasoning live only in `orchestration_states.collected_data`
+(325 KB, keys `review_contracts` / `review_feasibility` / …). **So the durable audit trail
+of a council escalation is currently a list of seat names**, and the substance survives
+only as long as the orchestration row does. That is a real gap in a mechanism whose whole
+value is the reasoning.
