@@ -5304,3 +5304,21 @@ re-running this fire on a deployed site: 082 fresh-mode alone will NEVER re-plan
 deployed site — the manual `needs_briefing` redrive is a REQUIRED step, not a
 workaround.** Also noted: this site has ZERO all-history needs_briefing/
 needs_site_plan items — adopted sites never walked this leg; tonight is its first.
+
+**2026-08-15 ~10:55Z — the redrive item then sat UNCLAIMED for ~1h45m, and the
+reason is a second finding: a hand-INSERTed work item must be born (or moved)
+`triaged`, because the polling dispatcher cannot see `detected`.** Evidence chain:
+the build-pipeline-trigger IS firing (~every 90s, kafka-scheduler logs, pending 2–3
+sites) and its `find_dispatchable_site` query takes ONLY `status IN ('triaged',
+'approved')`. The morning chain's items were claimed in ~30s NOT via that poller —
+they were dispatched by the workflows that created them (`claimed_by=
+build-dispatch-loop`, chain-created); a hand INSERT gets no such kick and waits for
+the fleet triage sweep, whose `detected` backlog currently reaches back to 08-13
+("detection works; SCHEDULE and DISPATCH do not", again). Moved `00bd5eff` to
+`triaged` (guarded UPDATE, attempts 0/3); site-level `sites.locked_at` verified
+NULL (the trigger also filters on it). **RUNBOOK rule for this seam: manual
+redrive = INSERT with `status='triaged'`, not 'detected'.**
+
+**Fleet roll v1.0.1301 landed 10:14Z** (owner-run; both chassis pods restarted).
+Nothing of ours was in flight (the briefing item was still parked at detected);
+the ~300s dispatch quiet window was long past before the item went dispatchable.

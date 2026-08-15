@@ -1895,3 +1895,14 @@ fix was to file the one work ticket the gate had withheld, exactly the way the
 webdesign.uk lane did on the same seam last week. The chain is moving again —
 briefing next, then the plan. One consequence worth remembering: resubmitting a live
 site will ALWAYS need this extra manual step; that's now written into the lane notes.
+
+2026-08-15 (late morning) — A second, smaller stall, also understood: the ticket I
+filed by hand sat unnoticed for nearly two hours because hand-filed tickets enter
+the queue one state earlier than the dispatcher looks — the platform's own workflows
+skip that state when they file tickets, and the sweeper that normally promotes
+things is running days behind, fleet-wide. Nudged ours into the visible state; rule
+recorded: file by hand = file it already-promoted. Meanwhile your new platform build
+(v1.0.1301) rolled through cleanly — nothing of ours was in flight when it did. A
+full handoff for the next session is cut and committed; the fire's state, the
+checkpoint script, the phase-two script, and the four decisions that will be yours
+to make are all in it.
