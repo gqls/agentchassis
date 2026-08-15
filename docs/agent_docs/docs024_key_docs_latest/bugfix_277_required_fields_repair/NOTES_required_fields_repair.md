@@ -217,3 +217,20 @@ arms are all canary-proven, its effect is parks+closes only, and it is the user-
 plan's step 5; the two outstanding gates concern the producer status line (live regardless,
 via another lane's roll) and architecture policy (RFC_030) — neither touches what the
 assignment does.
+
+## 2026-08-15 ~16:15Z — FLEET AFTER-STATE VERIFIED CLEAN
+
+All 39 assigned rows drained through the dispatch loop within ~85 minutes. Final state for
+`item_type='required_fields_missing'`:
+
+```
+complete                                58   (50 historical + today's stale closes + canaries)
+needs_human_review / no_content_data    35   (blob-parks, route + facts + options on the row)
+needs_human_review / no_plan_owned       1   (the gas converter, tool pipeline named)
+triaged 0 · blocked 0 · parked-without-a-route 0
+```
+
+Every non-terminal row of the type now carries its classification. Future items are born
+routed (producer live on v1.0.1302). Remaining checks live in CQ-023's verify-later: the
++7-day churn guard (~0 new `unresolved` rows) and the re-raise-then-park of the two
+cancelled-conversion findings via discovery rotation.
