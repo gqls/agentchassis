@@ -1,6 +1,18 @@
 # RFC 028 — `ExtractActionInputs`' precedence chain is a shared contract with no owner, and it draws the architecture signal in ~30% of the rounds that touch it
 
-## STATUS: **OPEN — routed here from a council REVISE, not raised speculatively.**
+## STATUS: ~~OPEN~~ **RULED 2026-08-15 — all three §5 questions answered by the owner; implemented and committed same day (`260cb2393`), Council-Submitted `5d491545`.**
+
+> Status corrected 2026-08-15 by the `staged_component_build` session (the owner separately
+> confirmed the ruling in chat the same morning). The ruling and its implementation live in
+> commit `260cb2393`, whose message is the authoritative record: **D1** (§5.1) — the chain
+> gets a contract of record: `ExtractActionInputs`' doc block, replacing five parallel
+> statements; **D2** (§5.2) — the dot-discriminator is now one named predicate,
+> `IsDottedPathReference`, called at three resolver sites plus the detector; **D3** (§5.3) —
+> an ENFORCED arm budget: `resolver_arm_budget_test.go`, AST-walk count with floor pinned at
+> the exact count (10) and ceiling 15, mutation-proven both ways; **D4** (beyond §5) — an
+> alias-collision forward guard in the detector. The inner chain this census could not see is
+> budgeted separately under `RFC_029` §9 D4, which extends D3's pattern to
+> `unified_extractor.go`.
 
 Filed 2026-08-14 by the `bugfix_209/231` lane, at the architecture seat's own direction.
 The seat raised `ARCHITECTURE_SIGNAL: needs_rfc | DEFLECTIONS: unknown` against corr

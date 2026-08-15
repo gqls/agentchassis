@@ -1,6 +1,15 @@
 # RFC 029 — the aggressive recursive search (`findFieldRecursive`) has no stated boundary for a field the caller never mapped, and `bugs_open/248` is its second production incident in one bug file
 
-## STATUS: **OPEN — routed here from a council REVISE, at the reviewer's own direction, not raised speculatively.**
+## STATUS: **RULED 2026-08-15 (owner-delegated determination) — see §9. Implementation OPEN, phased, not yet started.**
+
+> The owner, in chat on 2026-08-15, delegated the determination in writing: *"Please think
+> about this and determine the best course of action, we'd rather there be no wrong fields
+> but if there are what best to do with them. The extensive search at least works some
+> (most?) of the time, or should we do a deterministic order - think hard and find the best
+> solution."* The determination below (§9) was made by the session after reading the actual
+> mechanism (`extractSingleField`, `findFieldRecursive`) rather than this file's prose, and
+> records why the owner's own suggested alternative (a deterministic order alone) was
+> examined and not chosen as the whole answer.
 
 Filed 2026-08-14 by the `staged_component_build` lane. `bugs_open/248`'s council round 4
 (`bug_historian`, corr `7f0c1535-25cb-4645-adba-f7429e357a79`, run
@@ -177,6 +186,89 @@ tracing the next incident.
 - **Auditing every other caller of every action with optional fields for the same latent gap.**
   That is the kind of sweep an owner decision on §7.2 would actually schedule, not something to
   pre-empt here by guessing at scope.
+
+## 9. RULING 2026-08-15 — "unique-or-nothing": the search stays, but it may never guess
+
+First, what the mechanism does today, in plain terms: when a field has no explicit mapping,
+the platform walks the run's entire accumulated data looking for any key with the same name,
+and takes the FIRST one it meets. Go randomises the order maps are walked in, so when two
+different values share that key name, which one wins is a per-run coin flip.
+
+The owner's stated preference ranks the outcomes: **no field at all is better than a wrong
+field.** Measured against that ranking, the three candidate answers come out as follows.
+
+- **Remove the search (hard-fail all unmapped fields):** rejected. The dependency surface is
+  unknown and currently unmeasurable — the only evidence the arm fired is an INFO log line,
+  and this session measured the chassis scrolling 50,000 log lines in minutes with zero
+  extraction events in the window, so no one can say today how many field/caller pairs
+  resolve this way. Removing the arm risks breaking every silent dependent at once, on a
+  tree where every Go change ships fleet-wide on the next roll.
+- **Deterministic order alone (the owner's suggested alternative):** examined and not chosen
+  as the whole answer, because determinism makes a wrong pick REPRODUCIBLE, not RIGHT. A
+  sorted traversal replaces "random winner" with "lexicographically-first winner" — arbitrary
+  in a different way. Where candidates agree, determinism costs nothing and we take it; where
+  they disagree, ANY picking rule is a guess, and a guess is exactly what the owner's ranking
+  forbids.
+- **Unique-or-nothing (chosen):** the search collects ALL matches (same depth cap as today).
+  If every match carries the same value, it resolves — deterministically, shallowest path
+  first — and behaviour is unchanged from today's happy path. If the candidates CONFLICT, it
+  resolves NOTHING and logs a WARN naming the field and every candidate path. A pipeline that
+  today depends on the coin flip landing right is already broken nondeterministically; this
+  converts its failure from a silent wrong value into a visible, stable absence with its own
+  log line — the only option on the table that can never produce a wrong field.
+
+### The four decisions
+
+**D1 — `findFieldRecursive` becomes collect-all / unique-or-nothing** as above. Same depth
+cap, same infrastructure-key skip list; traversal order made stable (sorted keys) so the
+candidate list and the shallowest-first winner are reproducible.
+
+**D2 — Instrument first, refuse second (two chassis builds).** Phase 1 ships the collector
+and the determinism but conflicts still resolve (to the stable shallowest winner) while a
+WARN (`aggressive search: conflicting candidates`) records field, candidate paths, and the
+winner. After an observation window (48h minimum, a week preferred), Phase 2 flips conflicts
+to refusal. Precondition for the flip: zero conflict WARNs observed, or every observed
+field/caller pair given an explicit mapping first. This is the closest thing to a staged
+rollout this estate's deployment model permits, and it directly answers the "works some
+(most?) of the time" question with a measurement instead of a guess.
+
+**D3 — the opt-in strict marker ships (Q1's second half), and Q2's first adopter is
+`asset_id` itself.** Per the owner's 2026-08-02 §2 ruling (and WFA-009's shipped precedent):
+a per-field `!` suffix in a caller's `input_mapping` — the mirror of the existing `?`
+optional suffix — meaning "explicit resolution only; if unmapped or unresolved, fail the
+step loudly; never the search." Default OFF. First adopters: the `asset_id` mappings on both
+already-patched callers (migrations 401/402, `image-build-handler`'s `call_asset_deployer`
+and `build-dispatch-loop`'s repair path). Both are already explicitly mapped, so adopting
+`!` there changes nothing on the happy path while converting the two shipped fixes from
+current-state accidents into enforced invariants — a regression that re-exposes `asset_id`
+to the search becomes a loud failure instead of a silent guess. A default-OFF mechanism with
+a named, shipped adopter is what the 2026-07-29 ruling's "rots unexercised" cost demanded.
+
+**D4 — Q3 answered: the arm budget covers BOTH chains.** RFC_028's D3 (ruled 2026-08-15,
+commit `260cb2393`) built `resolver_arm_budget_test.go`: an AST-walk count of the outer
+chain's write sites, floor pinned at the exact count (10), ceiling 15, mutation-proven both
+ways. Extend the same pattern to the inner chain: count `extractSingleField`'s resolution
+return sites (5 today), floor 5, ceiling **8** — generous, per the owner's instruction on the
+sibling question. And the §6 naming collision is resolved as part of the same change: the
+inner chain's log/comment names drop "Strategy N" for descriptive names (direct-path,
+input-data-prefix, input-data-map, whole-tree-search, alias), so no future migration text can
+cite the wrong file's arm number again; migration 402's already-wrong comment gets a dated
+correction note when the rename lands.
+
+### Implementation notes (for whoever takes it)
+
+- All of it is chassis Go — inert until an image roll; platform code, so one council-gate
+  submission for the coherent task, before or alongside the commit, per CLAUDE.md.
+- **Repair `TestDefaultBeatsTheRecursiveSearch` first** (`action_inputs_strategy6_test.go`):
+  it fails on pristine HEAD with its own vacuity control reported stale (found and filed by
+  the RFC_028 implementation session, commit `260cb2393`; also referenced in
+  `bugs_open/274`'s context). It is the exact invariant D1 extends — building on a failing
+  control is how vacuous passes are born.
+- **What would disconfirm this ruling:** Phase 1 showing a substantial population of
+  conflict WARNs whose lucky winner is load-bearing (each mapping to a pipeline that would
+  break on absence). In that case Phase 2 does not proceed on schedule; the pairs get
+  explicit mappings first, and this section gets a dated correction re-examining the premise
+  that conflicts are rare and usually already broken.
 
 ## Sources
 
