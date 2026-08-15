@@ -42,9 +42,17 @@ sessions edit it between your reads)
   commits automatically once their correlation shows approved. Nothing
   further to do on this front.
 
+**Owner decision, 2026-08-15: shipping (build + release) is explicitly
+LEFT TO THE OWNER, not this session** — asked directly, answer was "Leave
+it — I'll ship it." Do not build or release on this bug's behalf without a
+fresh, explicit ask; the owner may already have shipped it by the time you
+read this — **check the artefact (step 2 below) before assuming step 1 is
+still outstanding.**
+
 **NOT done — this is the actual remaining queue, most impactful first:**
 
-1. **Image build + fleet roll.** The code is inert until an image is built
+1. **Image build + fleet roll — NOT this session's job (see owner decision
+   above); check whether it's already happened before offering to do it.** The code is inert until an image is built
    from committed HEAD (`make build-agent-chassis` — confirm that's still
    the right target service for the `discovery_checks` package before
    running it; it was as of 2026-08-15) and the fleet is rolled
