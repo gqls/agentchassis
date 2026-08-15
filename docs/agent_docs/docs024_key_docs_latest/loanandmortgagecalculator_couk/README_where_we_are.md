@@ -1080,3 +1080,61 @@ verified clean end to end as of this entry.
 
 Left to do here: the five odd-shaped calculator pages, and the two pages converted
 under the older scheme. Then the site plan work you ruled on, which is next.
+
+---
+
+**2026-08-15 — the five odd-shaped calculators are done bar the publishing step.**
+
+The five pages I flagged last time are converted. Every one of the twenty-one
+calculators is now built the way you asked: all the visible words are editable fields,
+and the working parts sit in a template no writing agent can reach. The five are sitting
+in the database, fully checked. They are not on the live site yet, and that is the one
+thing still outstanding.
+
+Why they were awkward, in plain terms. Each of these five has a single panel where the
+heading and the machinery are tangled together rather than stacked one after the other.
+The tool that pulls a page apart walks *into* a panel like that looking for the seam,
+and in doing so it dissolves the panel — the calculator loses its box and its inputs
+stack up in one column. There was already a guard that spotted this and refused all
+five, which is the guard doing its job. The answer you ruled on in August was to take
+the panel whole and let the tangled words become editable fields, and that is what I
+built. It is worth saying why that is safe now and was not safe in early August: back
+then "whole" meant the words got locked away where nobody could edit them. Under the
+new scheme the panel is a template and the words are unlocked fields, so the same
+change that used to freeze copy now frees it.
+
+The publishing step is queued behind other sites. The system deploys one site at a time
+in a fixed order and this one sits near the end; when I last looked there were still
+forty-eight pages ahead of it, down from eighty-eight, so it is moving, just not
+quickly. Nothing is broken while it waits — the live pages carry on serving the previous,
+correct version. Whoever picks this up next has one command to run when the queue
+reaches us, and a written-down set of before-readings so they can prove the change
+actually published rather than assume it.
+
+Two mistakes of mine, both caught before they cost anything, both written up.
+
+The first is the one worth your attention. I checked whether it was safe to roll these
+five pages back to an old safety copy, and I got the answer completely backwards. The
+page names in the database use a hyphen where the file on disk uses a slash — so I was
+asking about files that have never existed. Asking git about a file that isn't there
+gets you silence, and silence looks exactly like "this file hasn't changed". Five pages,
+five silences, and I wrote down "all safe". In fact four of the five had changed, because
+they carry the interest-rate fixes from the week before. Had I acted on that reading I
+would have re-broken the same arithmetic we spent two days repairing last week. I found
+it because five out of five looked too tidy to be true, not because any check caught it.
+It is now filed as a standing trap with the one-line check that would have caught it.
+
+The second is smaller and slightly embarrassing: I announced the queue had been stuck
+for an hour and went hunting for a broken scheduler. The database keeps time in UTC and
+this machine is on British Summer Time. The items were four minutes old.
+
+I also found a real fault in our own checking tool while reading it. The tool that
+verifies "the published page matches the source" was pointed at the *wrong* source — the
+one we abandoned last week precisely because it contains reverted arithmetic. It made no
+difference to these five pages, which are identical in both, but it would have mattered
+on the standard loan calculator, which is exactly the page the arithmetic fix was about.
+Fixed so the reference can only be set in one place and cannot drift apart again.
+
+Left after this: publish and verify the five, then the last two pages that are still on
+the older scheme — and those turn out to be two different problems rather than one, which
+I have written down. Then the site-plan work you ruled on.
