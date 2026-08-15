@@ -5263,3 +5263,13 @@ assemble would run against a superseded state; phase 1's reconciler emits its ow
    items go to the owner.
 7. Verify per handoff step 5 (purity of the 12 locked rows vs 08-11 backups,
    URL diff EMPTY on the 27, toolgolden 11/11, calculators in place).
+
+**PHASE 1 FIRED 2026-08-14 ~21:55Z.** `CORR=2d950ecc-4919-441b-a4fb-e6aa47663ad9`,
+printed orch `d03733c0` (find the run by CORRELATION, never the printed id). Q2
+baseline for the new-active-rows check: `created_at > '2026-08-14 21:52:30Z'` (the
+two restored rows are 19:14Z — they do not trip it). Pre-fire state at the moment of
+dispatch: pages 29 active (27 built + 2 restored not-built), locks 12/12 calculators
+only (8 released in one transaction, counts verified 17→12 pc / 3→0 sc), serving
+27/27 clean, site queue quiet. Two schema-guess errors on the release SQL
+(`section_id`, `component_type` — both aborted whole transactions cleanly before any
+change persisted; "\d before SQL" exists for a reason and I skipped it twice).
