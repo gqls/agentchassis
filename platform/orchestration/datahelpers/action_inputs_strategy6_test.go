@@ -75,11 +75,25 @@ func TestDefaultBeatsTheRecursiveSearch(t *testing.T) {
 	// THE CONTROL, and it is not optional. Everything above would pass just as
 	// happily if ExtractFields simply never found these values — a test asserting
 	// "the search did not win" is vacuous unless the search COULD have won. So run
-	// the identical data through a spec with no Defaults and confirm the search
-	// does reach them. Measured: purpose resolves to "logo" and max_items to 99
-	// from `spec.*`, so the assertions above are discriminating, not decorative.
+	// data of the same nesting shape through a spec with no Defaults and confirm
+	// the search does reach it.
+	//
+	// REPAIRED 2026-08-15 (RFC_029 §9 implementation notes; filed failing by
+	// 260cb2393). The original control ran the FULL fixture above and asserted one
+	// winner ("logo") out of FOUR same-named candidates — but which candidate the
+	// whole-tree search met first was Go map-iteration order, a per-run coin flip,
+	// so the control failed on most runs while the assertions it guards were fine.
+	// The control's only job is to prove the search CAN reach a Defaults-blocked
+	// value, so it gets a fixture with exactly ONE candidate per field: correct
+	// under the old random walk, under RFC_029 Phase 1 (stable winner), and under
+	// Phase 2 (conflicts refuse to resolve), because one candidate is never a
+	// conflict. The `spec.*` nesting is identical to the main fixture's, so
+	// reachability proven here transfers to the assertions above.
+	singleCandidate := map[string]interface{}{
+		"spec": map[string]interface{}{"purpose": "logo", "max_items": 99},
+	}
 	noDefaults := ActionInputSpec{Optional: []string{"purpose", "max_items"}}
-	control, err := ExtractActionInputs(collected, map[string]interface{}{}, noDefaults, logger)
+	control, err := ExtractActionInputs(singleCandidate, map[string]interface{}{}, noDefaults, logger)
 	if err != nil {
 		t.Fatalf("control ExtractActionInputs: %v", err)
 	}
@@ -155,6 +169,19 @@ func TestCanonicalKeyBeatsTheDeprecatedAlias(t *testing.T) {
 // before candidate 2 touched Strategy 3's skip. Raised by the guardian seat:
 // the change alters bridge precedence fleet-wide for every `*_field` alias, and
 // the two flipped tests only covered the defaulted case.
+//
+// REPAIRED 2026-08-15 (RFC_029 §9 implementation). The old fixture held BOTH
+// site_id values in plain containers, so Strategy 2's whole-tree search reached
+// two same-named candidates BEFORE the bridge ever ran — and "the bridge fired"
+// was true only when the randomised map walk happened to meet site_record first,
+// a coin flip this test lost intermittently on pristine HEAD. RFC_029's
+// determinism froze that coin (shallowest-first, sorted keys: "explicit" beats
+// "site_record"), turning the intermittent failure permanent. The bridge is the
+// deciding arm ONLY when nothing earlier in the chain resolves the field, so the
+// fixture now places both sources under keys on the search's documented
+// infrastructure skip-list (isInfrastructureKey) — which the search never enters
+// but ExtractNestedField's plain path walk (Strategy 0 and the bridge) does.
+// The search was never this test's subject; now it cannot vote.
 func TestBridgeIsUnchangedForANonDefaultedField(t *testing.T) {
 	logger := zap.NewNop()
 	spec := ActionInputSpec{
@@ -162,13 +189,13 @@ func TestBridgeIsUnchangedForANonDefaultedField(t *testing.T) {
 		Deprecated: map[string]string{"site_id_field": "site_id"},
 	}
 	collected := map[string]interface{}{
-		"site_record": map[string]interface{}{"site_id": "from-the-bridge"},
-		"explicit":    map[string]interface{}{"site_id": "from-strategy-0"},
+		"agent_config":          map[string]interface{}{"site_id": "from-the-bridge"},
+		"__execution_context__": map[string]interface{}{"site_id": "from-strategy-0"},
 	}
 
 	t.Run("bridge supplies a field nothing else set", func(t *testing.T) {
 		inputs, err := ExtractActionInputs(collected,
-			map[string]interface{}{"site_id_field": "site_record.site_id"}, spec, logger)
+			map[string]interface{}{"site_id_field": "agent_config.site_id"}, spec, logger)
 		if err != nil {
 			t.Fatalf("ExtractActionInputs: %v", err)
 		}
@@ -180,8 +207,8 @@ func TestBridgeIsUnchangedForANonDefaultedField(t *testing.T) {
 
 	t.Run("bridge yields to an explicit canonical path", func(t *testing.T) {
 		inputs, err := ExtractActionInputs(collected, map[string]interface{}{
-			"site_id":       "explicit.site_id", // Strategy 0, resolves
-			"site_id_field": "site_record.site_id",
+			"site_id":       "__execution_context__.site_id", // Strategy 0, resolves
+			"site_id_field": "agent_config.site_id",
 		}, spec, logger)
 		if err != nil {
 			t.Fatalf("ExtractActionInputs: %v", err)
