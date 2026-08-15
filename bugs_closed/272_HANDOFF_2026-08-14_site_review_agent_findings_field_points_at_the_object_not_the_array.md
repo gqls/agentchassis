@@ -1,6 +1,18 @@
 # 272 — site-review-agent's `write_strategic_findings` step can never file a
 # finding when the LLM returns the response shape its own prompt asks for
 
+**CLOSED 2026-08-15 — fixed AND live AND proven end-to-end on v1.0.1301.**
+Fix commit `2a3ea3e2c` (council APPROVED round 1, corr `5a79843a`); shipped in
+`v1.0.1301` (image label `revision=0115f2b4`, ancestry + pod-binary probe with
+controls); live verification run `b2c82a25-7803-4ecf-a7d7-1a25099fae40`
+(mortgagecalculator.co.uk, 2026-08-15): `result=object`, `llm_found=5`,
+`items_created=5`, `audit_source='site-review'`, error NULL — the exact pair
+that read 5→0 at filing now reads 5→5, and the 5 work items are the FIRST
+`site-review`-stamped rows in the estate's history. Full trail in the sections
+appended below. The `parseAuditFindings` extraction was reused within a day by
+the `bugs_open/213` lane (commit `a620912f5` adds a `recognised` return for
+silence-vs-nonsense discrimination).
+
 **Filed 2026-08-14.** Found as a side effect of verifying `bugs_open/264`'s fix
 (the audit_source config was correct; the run still produced zero work items,
 for an unrelated reason — this file).

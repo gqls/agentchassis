@@ -10699,7 +10699,12 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **source:** 2026-08-14, vigilant_designer_offer_analysis lane, building B4 (`offer-analyser`) on this write path. Found by reading the action before wiring to it, and confirmed by the audit_source census above — not by a symptom, because there is no symptom to have. `bugs_open/272` holds the site-review instance and its fix candidates; `bugs_closed/264` is the sibling defect on the same config line (four auditors' findings all landing under one producer name).
 - **relations:** `bugs_open/272` · `bugs_closed/264` · register **BIZ-032** (the auditor built against this trap) · MEMORY [[a-post-fix-zero-needs-a-demand-control]] (the zero that needs a demand control — this is that shape exactly) and [[writes-the-field-is-not-reads-the-field]] (`work_item_type`: written by the prompt, read by nobody)
 - **added:** 2026-08-14, vigilant_designer_offer_analysis
-- **UPDATE 2026-08-15 (272 fix session): half 1 is FIXED IN CODE, NOT YET LIVE.** Commit
+- **UPDATE 2026-08-15b (272 fix session): half 1 is FIXED AND LIVE — v1.0.1301 carries it,
+  proven end-to-end** (run `b2c82a25`: object shape, 5 findings, 5 items created,
+  `audit_source='site-review'` — the first such rows ever; `bugs_closed/272` holds the trail).
+  The paragraph below was written earlier the same day, when v1.0.1300 had missed the fix;
+  its probe recipe stays useful for the next same-shaped question. **Half 2 remains UNFIXED.**
+- ~~**UPDATE 2026-08-15 (272 fix session): half 1 is FIXED IN CODE, NOT YET LIVE.**~~ Commit
   `2a3ea3e2c` (council-approved, corr `5a79843a`) adds the missing `map[string]interface{}`
   case — `parseAuditFindings` now unwraps `v["findings"]` — and the zero path reports
   `findings_field` + `findings_type` and logs a Warn, so the silent variant of this trap ends
