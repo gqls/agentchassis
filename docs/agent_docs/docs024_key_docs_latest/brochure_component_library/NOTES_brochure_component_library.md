@@ -7150,3 +7150,67 @@ also what you see if nothing ran.
 deleted, so its content survives in the DB and the retirement is recoverable; only the
 deployed file went. `deployed_at` is unchanged, so the row is another known-blind positive
 for `status='archived' AND deployed_at IS NOT NULL`.
+
+### 2026-08-15 morning — rollout validated at 7 of 23, and the conservatism clause DEMONSTRABLY worked
+
+`[MEASURED 2026-08-15 09:0x, served pages]` 7 complete, 16 queued. Before → after, reader-visible:
+
+| page | X-not-Y |
+|---|---|
+| `production-backend-engineering` | 11 → **3** |
+| `automation-savings-estimator-guide` | 10 → **4** |
+| `review-council-simulator-guide` | 9 → **4** |
+| `tool-model-approach-selector-guide` | 7 → **2** |
+| `capabilities` | 7 → **6** |
+
+**`capabilities` at 7 → 6 is the most important row in this table, and it is a PASS, not a
+weak result.** That page's matches are genuine comparisons — *"Ask us and we'll point you
+to it rather than describe it"*, *"We report what we find rather than what flatters the
+work we did"*, *"re-verified in place rather than retyped"*. The rewriter removed the one
+real negative definition and **left the legitimate contrasts alone**, which is exactly
+what the instruction asked for:
+
+> *"If none of the matches on this page is a negative definition, CHANGE NOTHING and say
+> so. Rewriting sound copy is a worse outcome than leaving the habit in place."*
+
+That was the risk the owner accepted when choosing all-pages over the dense subset, and
+mitigating it in the instruction rather than by trimming the list **held**. The surviving
+lines on the other pages are the same shape — *"a chain of models with defined roles
+rather than one model doing everything"* — real contrasts, correctly untouched. **A
+residual count is not a miss here; the target was never zero.**
+
+### The survive-control, done properly on the stored surface
+
+Served-page checks confirm the caveats, and the honesty reads better than before:
+
+> *"the technical groundwork exists and works, **but we haven't yet delivered it to a
+> paying client**"* (capabilities)
+
+For `production-backend-engineering` I got a **real pre-rewrite baseline** rather than
+relying on memory — `page_component_history`, `source='artefact_archive_trigger'`,
+archived at 08:45:04, the instant of the rewrite:
+
+```
+chars    6,293 -> 6,555
+figures     10 -> 10    LOST: none
+X-not-Y     13 -> 3
+```
+
+**A caveat worth carrying about that check: `content_data` holds 0 internal links before
+AND after.** Links are injected at render, not stored — so counting hrefs in
+`content_data` can never detect a lost link, and a "0 → 0, nothing lost" reading there is
+vacuous. Link survival is only checkable at the served page (15–18 per page, present).
+For the two canaries I had pinned served-page baselines and could assert 16 → 16; **for
+these five I did not capture one beforehand, so I can confirm links are present but
+cannot assert none was lost.** Recording the limit rather than letting the stored-surface
+zero stand in for a check it cannot perform.
+
+### Queue behaviour, so the next session does not misread a pause as a stall
+
+The rollout completed 7 items between 08:14 and 08:46, then **stopped dead for 15+
+minutes with nothing claimed**. That is not a stall: the site had **no `claimed` item**
+(which would have blocked it), the fleet build queue was clearing **~3/minute**
+throughout, and **50 items sat ahead of my oldest** in the strict `created_at ASC` FIFO.
+The dispatcher had simply moved to older work on other sites and will come back round.
+**Do not retry, re-file or raise priority on this evidence** — re-filing resets
+`created_at` and sends the item to the very back, making the wait worse.
