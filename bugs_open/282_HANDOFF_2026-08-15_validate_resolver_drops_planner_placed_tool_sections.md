@@ -67,6 +67,24 @@ enumerable by the flag query). After it ships and a replan runs, verify at
 work the held D2 tickets (11 `owned_page_review` + `needs_page:index` on
 loancalculator — see the lane's HANDOFF 2026-08-15).
 
+## ADDENDUM 2026-08-15 ~19:15Z — the drop has a SECOND ARM the fix must explain
+
+The same plan (`dcbae4df`) carried `loans-credit-health-check` on
+tool-credit-roadmap — a name matching NO component at all — and that name was
+NOT dropped: it persisted into `site_plan_sections` AND spawned
+`needs_new_component:loans-credit-health-check` (which then failed 3/3 at
+`generate_template` on `stop_reason=max_tokens` — benign here, we do not want
+the component, but the routing is the evidence). So an unknown name routes to
+component-creation, while a KNOWN-but-tool-level name vanishes. The simple
+"resolve fails ⇒ dropped" account in step 3 is therefore incomplete: the
+tool-level names likely die in a branch where the unresolved-name handler finds
+an EXISTING component row (level 'tool') and discards the section instead of
+either placing it or minting a creation item. The fixing thread should locate
+that branch precisely — it is probably the cleanest seam for the fix.
+Side observation for the lane: the tool-credit-roadmap PAGE carries no locked
+tool row (the 12 locks cover 11 other active pages + archived standard-calc),
+which is presumably why the LLM reached for a new name there.
+
 ## How to verify a fix
 
 Re-fire the lane's `phase2_recompose_26.sh` (12-page scope). Expect: the 12

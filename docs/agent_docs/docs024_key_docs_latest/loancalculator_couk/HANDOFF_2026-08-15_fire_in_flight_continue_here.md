@@ -16,16 +16,29 @@ locks     12 calculator locks ONLY (decompose_20260802_proven_calculators).
           The 8 non-calculator locks are RELEASED (chrome 3 + css carriers 4 +
           homepage prose-0); pre-release state: NOTES 08-11 §step 6.
 chassis   v1.0.1301 (rolled 10:14Z 08-15). RECOMPOSE tell live since 1295.
-state     AS OF ~17:45Z: serving **28/29** (about BUILT + LIVE; guides-index
-          404s, held at review — same 282 path as index) · **locked-row purity
-          12/12 byte-identical to loancalc_bak_20260811_pc** through the whole
-          rebuild · phase-1+2 build waves DONE (one kafka response-write flake
-          dispositioned, page verified rebuilt) · ~10 tool-page rerenders still
-          draining, queue-paced, locks hold · toolgolden: RUN AFTER the
-          rerender drain (driving served pages mid-rerender races) ·
-          **bugs_open/282 filed** — validate's resolver drops planner-placed
-          tool sections; D2 sequence in the decisions list below.
+state     AS OF ~19:30Z (FINAL for this session): serving **28/29** (about
+          BUILT + LIVE; guides-index 404s, held at review — same 282 path as
+          index) · **locked-row purity 12/12 byte-identical to
+          loancalc_bak_20260811_pc** through the whole rebuild · ALL build
+          waves + rerenders DRAINED (two dispositioned failures, neither
+          damaging: the guide-how-loans kafka response-write flake with the
+          page verified rebuilt, and needs_new_component:loans-credit-health-
+          check failed 3/3 on max_tokens — a component we do NOT want; see the
+          282 ADDENDUM, it is evidence of the drop's second arm) · fleet at
+          **v1.0.1303** (18:45Z; carries no 282 fix — checked git log) ·
+          **bugs_open/282 filed + refined** · milestone read-out:
+          SUMMARY_2026-08-15_the_rebuild_fired_and_the_diagnosis_loop_earned_
+          its_keep.md
 ```
+
+## NEXT SESSION, FIRST STEP — toolgolden against the settled site
+
+The rerenders re-assembled every tool page; the locked rows are byte-identical
+but the ASSEMBLY around them is new. Drive the served pages against the golden:
+`toolgolden.py` in this dir (read its header for the venv + invocation; the
+golden is `acceptance/GOLDEN_2026-07-31b_tool_values.json`, and note the
+LANDMINE: it certifies page-against-itself only, never A-vs-B). Expect 11/11.
+Then the final battery is complete and only the 282 sequence remains.
 
 > **CORRECTED ~11:15Z, same session — read this before the phase framing below:**
 > the reconciler emitted the FULL rebuild set in PHASE 1 (the mission prose alone
