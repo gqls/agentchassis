@@ -1681,3 +1681,35 @@ proof the change did what it says.
 
 **Next:** read tomorrow morning's result for C and republish that page, then start A —
 which is much bigger than B and C put together and probably deserves its own workspace.
+
+**Later the same afternoon — the review council sent it back once, and it was right to.**
+
+I submitted B to the council. It came back **revise**, and the objection was worth the
+round: I had written out a small piece of database logic by hand — "this page was never
+published" — when we already have one official version of that exact test, which about
+fourteen other checks in the same folder already use. I had reinvented it.
+
+That would be a pedantic complaint if the two versions matched. They didn't. Ours has an
+extra clause I didn't know about, which protects a page that is marked as published but
+never got its timestamp stamped — and, per the note attached to it, such a page is still
+live on the web. So my hand-written version could have excluded a page people can read.
+
+I measured before agreeing it was serious, and it was **not** serious *yet*: both versions
+pick the same single page today, and the case where they disagree currently has **zero**
+pages in it. It was a trap set for later, not damage done. Fixed, and the test now fails
+if anyone re-introduces my version, so it can't come back quietly.
+
+The council also caught that I'd repeated a list of code locations from our own traps file
+without checking it — and two of the five had since been changed. Both of my mistakes have
+the same root: I read that file for one thing and treated everything else in it as still
+true. That's now written up as the lesson rather than as an apology.
+
+**Round two was approved.** One reviewer asked a good follow-up question — had I made this
+same mistake anywhere else? I went and checked, and the answer is that those places are
+already logged as an open bug, which was itself opened *at this same council's request*
+back on 3 August when three reviewers asked the identical question about someone else's
+work. So it's now been asked three times about three different pieces of work, and the
+underlying job still hasn't been done. That's worth your attention more than my fix is.
+
+Still no summary document — the real milestone is tomorrow morning's result for C, and
+I'd rather write one thing that says something than two that repeat this.
