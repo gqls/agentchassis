@@ -31510,3 +31510,41 @@ read as absence; a mutation harness scored by a grep that could not see top-leve
 cost window that closed before the cost arrived; and now a mock asserting a negative). Every
 one was caught by looking a second time, none by suspicion — and this one was caught only
 because the mutation run is now routine rather than optional.
+
+---
+
+## 2026-08-15 — I read a vendor's reset date as a fact about the future, and put it in a heading and a fleet-wide file (`bugfix_213`)
+
+**The claim:** written 2026-08-14, in this lane's NOTES, as a section heading — *"THE FLEET'S
+LLM CAPABILITY IS DOWN UNTIL 2026-09-01"* — and as a warning: *"Do not read any LLM-backed
+check's '0 findings' as clean until 09-01. That includes verifier-remit-check's daily report,
+the council gate, and every audit rotation."* Sourced from the API's own 400 body: *"You will
+regain access on 2026-09-01 at 00:00 UTC."*
+
+**What was true:** [MEASURED 2026-08-15] the cap bit at ~15:36Z and cleared at ~17:05Z on
+2026-08-14 — **~90 minutes**, not 17 days. `llm_call_log` capped-call counts by hour: 15:00 →
+11, 16:00 → 17, 17:00 → **0, with 24 successes**. Zero capped calls in any hour since. The
+owner raised the limit. The council gate was never unavailable: this lane ran 13 seats to
+APPROVED in 11 minutes the next morning.
+
+**Caught by:** re-reading the lane's own NOTES a day later while writing a handoff, noticing
+the heading contradicted the fact that my council round had just succeeded, and running the
+hourly query. Nothing prompted it — the doc would have been inherited as a premise.
+
+**The cheap check that would have caught it:** `LANDMINES.md` **already carried this exact
+correction, twice.** The 2026-07-31 cap stated a reset of 08-01; the 2026-08-10 cap stated
+2026-09-01 and cleared in ~2–3 hours; both entries say in terms *"the stated reset is the
+vendor's worst case, not a forecast"* and *"re-run the absence-of-success query for the
+current hour before concluding you are blocked"*. **This was the third recurrence and I
+repeated the mistake the second one had been written up to prevent** — because I grepped the
+landmine file for the cap's SIGNATURE (to identify what I was looking at) and not for its
+DURATION (to decide what to do about it). Verify a lift on the SUCCESS side, never the failure
+side: failures stop appearing either way.
+
+**Cost:** a day. The `090` on §D was re-runnable ninety minutes after it died and nobody
+re-ran it until 2026-08-15; two lanes were told to plan around a two-week outage that had
+already ended. **The tally point this adds:** an error inherited from a VENDOR's own message
+gets written down with more confidence than one we derive, because it reads as measured when
+it is a promise — and the fleet-wide entry was struck through on 08-14 while this lane's copy
+of the claim stayed wrong for a day. **Correcting a shared file does not correct the docs that
+quoted it.**
