@@ -209,3 +209,10 @@ reproducible, and it looks adjacent to this file's unclassified-sender
 question (which envelope answers, and how it is classified, decides the
 item's fate; the work's fate was already decided). Items:
 `20fd61a1-6fa6-4cc9-8fe0-41f43a790483`, `a61e48ba-e0f8-41ad-a748-fe55d874f503`.
+
+> **Cross-ref (2026-08-15, 268 lane):** the observation above is the shape
+> `bugs_open/274` has since established fleet-wide (~15,000 instances: a
+> SUCCEEDED workflow reported FAILED because `notifyParentOfSuccess` omits
+> two reply headers). Treat 274 as the owning file for the delivery-failure
+> mechanism; the two instances above are corroborating cases, not a separate
+> defect.

@@ -198,3 +198,35 @@ at the served page ~18:45Z, real-click probe + no-init mutant). The restored key
 `*_target_title` values matching `pages.title` for both targets, so a title-comparing
 checker should now read them as consistent. Survival past the next regeneration is
 unverified — the leopardess RUNNING_NOTES entry of this date carries the re-check.
+
+## Two sibling observations from the 268 lane's fleet resolution re-run (2026-08-15)
+
+Contributed per who-owns; same function, different branches — recorded here
+rather than filed separately because a fix to `applyCTARecompute` should
+weigh all three directions at once.
+
+1. **The label-match branch lacks the self-exclusion the other paths have.**
+   `chooseCTATargets` refuses to point a page at itself (`h.Name == pageName`
+   guard) and the keep-branch requires `Normalize(current) != Normalize(pageURL)`
+   — but the label-match branch (rerender_page_sections_action.go:711-720)
+   checks only validity and difference-from-current. Live instance:
+   dartsonline.com `brands-index/hero` (page url `/brands/index.html`), label
+   "See all brands" → recomputed `cta_url=/brands/index.html`, a button
+   linking the page to itself. Cosmetic, not broken; fires on index-like
+   pages whose CTA label names the page they sit on.
+2. **Both fields of one slot can land on the SAME target** when both labels
+   match the same candidate (or one matches and the other's positional
+   fallback coincides): dartsonline `barrel-weight/call-to-action` — primary
+   "Compare tungsten percentages" AND secondary "Read the tungsten guide…"
+   both → `/tools/dart-weight-comparator/index.html`, while the guide the
+   secondary label names (`/blog/tungsten-guide.html`) exists but is not in
+   `candidatesFromHubs` (blog guides are neither interactive pages nor
+   hubs). A per-slot distinctness check, or widening candidates to guide
+   pages, would each fix it; they have different blast radii.
+
+Context for scale: the 2026-08-15 owner-directed re-run (`cta_links_stale`
+over 126 pages / 21 sites, item_keys `ctaresolve_268_%`) measured **zero**
+248-class at-risk rows before dispatch (no stored CTA on those pages points
+at a valid excluded-area page), and dartsonline's full before/after diff
+shows no valid stored link changed. Full before-snapshot of every url key
+on every dispatched page: 268 lane scratch + NOTES 2026-08-15.

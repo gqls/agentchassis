@@ -366,3 +366,30 @@ repaired+locked stated). Then, while it queues (~30 min): falsifier checks
   `page_rerender` items `ctaresolve_268_dartsonline.com_%`, backdated
   created_at 08-11 11:15 (same queue-jump caveat as before). BEFORE
   snapshot: scratchpad `canary/before_resolution_darts.txt` (36 rows).
+
+## 2026-08-15 (later) — canary site verified, fleet batch dispatched, 248 exposure measured ZERO
+
+- **dartsonline canary: 7/7 complete, 0 bad. All 11 label-without-URL rows
+  gained destinations; every untouched row byte-identical** (matched-pair
+  diff, scratch `canary/before|after_resolution_darts.txt`). Three bounded
+  anomalies, all recorded in `bugs_open/248`'s tail (who-owns: contribute,
+  don't fork): brands-index/hero SELF-LINK (label-match branch lacks the
+  self-exclusion the other paths have); barrel-weight/cta BOTH buttons on
+  one target (secondary's label names /blog/tungsten-guide.html, which is
+  not in candidatesFromHubs); barrel-weight/hero gained urls but its label
+  key is EMPTY so it renders nothing (was invisible before, still is).
+  brands-index's prior `/contact.html` was a phantom (dartsonline has no
+  contact page) — its replacement is the 203 repair working, not a clobber.
+- **248 pre-flight on the fleet batch: at-risk rows = 0** — no dispatched
+  page stores a CTA destination at a VALID excluded-area page (about/
+  contact/privacy/terms/legal), so the authored-link clobber cannot fire on
+  this batch. Full before-snapshot of all 110 url keys on all dispatched
+  pages: scratch `canary/before_fleet_all_cta_urls.txt` (repair source if
+  anything surprises).
+- **Fleet batch dispatched: 119 items across 20 sites**
+  (`ctaresolve_268_%`, backdated 08-11 11:20 — synthetic, as before).
+  Monitor at 5-min cadence. **`bugs_open/274` found**: it is the dedicated
+  fleet-wide filing (~15k instances) for the deploy_page delivery failure I
+  logged in 217's tail — cross-ref appended to 217 so the accounts don't
+  fork; expect some batch items to read `failed` with fine work (verify at
+  rows, not statuses).
