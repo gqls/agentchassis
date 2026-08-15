@@ -5,9 +5,20 @@ must appear VERBATIM; calculators.js compared by exact count; classes by per-cla
 count against the whole source page; ids by set difference."""
 import json, os, re, subprocess, sys, urllib.request
 S=os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0,"/home/ant/projects/agentchassis/docs/agent_docs/docs024_key_docs_latest/loanandmortgagecalculator_couk")
+sys.path.insert(0,S)
 from b2_load import rendered_tool
-PIN="0a0e89326"
+# PIN IS IMPORTED, NEVER RESTATED (fixed 2026-08-15). This file used to hardcode
+# PIN="0a0e89326" — the pin decompose_lmc had ALREADY abandoned as poisoned: it
+# captured the 08-12 restore-deploys whose backup predates the bugs_open/224 fix,
+# so it holds reverted arithmetic for some pages. The verifier's whole job is to
+# say "live matches the source", and it was asking a source that is wrong.
+# Measured 2026-08-15: harmless for the mixed-card five (byte-identical at both
+# pins) and REAL for loans/standard-calc, which differs between them — so this was
+# a live trap on the very page the 224 fix was about. Importing it means the pin
+# can only ever be changed in one place.
+from decompose_lmc import PINNED_REF as PIN
+# seeds default to the lane's b2_seeds/, overridable for a batch built elsewhere
+SEEDS=os.environ.get("B2_SEEDS", os.path.join(S,"b2_seeds"))
 def get(u):
     r=urllib.request.Request(u, headers={"User-Agent":"Mozilla/5.0"})
     return urllib.request.urlopen(r, timeout=30).read().decode("utf-8","replace")
@@ -22,7 +33,7 @@ def counts(s):
     return c
 fails=0
 for name in sys.argv[1:]:
-    seed=json.load(open(f"{S}/b2_seeds/{name}.json"))
+    seed=json.load(open(f"{SEEDS}/{name}.json"))
     live=get("https://loanandmortgagecalculator.co.uk/"+name.replace("-","/",1)+".html")
     source=src(name)
     probs=[]
