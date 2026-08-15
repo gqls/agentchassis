@@ -853,3 +853,77 @@ footer : Protocol Tracker · Adoption Tracker · Pricing · ROI Estimator · LLM
          Calculator · AI Readiness Quiz · News · Stack Architecture · Our Framework ·
          Reference Deployment
 ```
+
+---
+
+**2026-08-15 — continuing from FINDING_2026-08-10: re-extended the publisher,
+resolving the tracker 404s**
+
+Picked this lane back up on the owner's pointer to
+`FINDING_2026-08-10_the_tracker_publisher_was_reverted_and_never_re_extended.md`.
+First re-checked everything the FINDING asserted, since 5 days had passed and
+the fleet is shared:
+
+- `git log` on this dir + `render_directory_action.go`: no commits since the
+  FINDING itself. No open `site_work_items` row on this. No running session
+  (`ListAgents`) touching it — a large, separate `portfolio_positioning`
+  Phase B lane extended the SAME `directoryPublishProfiles`/render pipeline
+  with three new finance kinds this week (commits `6f26570e4`, `035f72365`,
+  register entry DIR-001), but explicitly deferred THIS repair (re-extending
+  company/protocol) to their own later "Phase B3c wiring" step — so it was
+  still nobody's live task.
+- **Confirmed still broken at the artefact**: all four tracker URLs still
+  404 (`curl` direct, 2026-08-15 ~10:40 UTC). Confirmed the live
+  `model-directory-publisher` row was still the reverted 3-step chain
+  (`id=6fb05b29`, `version=1`, `updated_at=2026-08-15 10:13` — that
+  timestamp bump was unrelated content-identical noise, not a fix; content
+  diff = none).
+- **Re-verified the Go fix is still live** on the current pod (which had
+  JUST rolled ~30 min earlier, 10:14 UTC, carrying the unrelated Phase B
+  code — confirmed via `grep -aq` for `financeKindFieldAllowlist` and
+  `mortgage-lender` present in `/proc/1/exe`, so this was a genuinely fresh
+  binary, not a stale one coincidentally matching): descendant literals from
+  the same 07-26 fix commit still present, negative control still absent.
+
+**Fix applied as a proper migration, not a hand-run one-off** (the FINDING's
+own complaint about 07-26: "the SQL was never committed"):
+`docs/agent_docs/sql_for_agents/411_model_directory_publisher_re_extend_to_company_protocol.sql`.
+Snapshot-first (`snapshot_agent('model-directory-publisher', '411: pre-update')`
+— NOTE: this function is overloaded (1-arg writes an in-table `is_snapshot`
+row like the existing v2; 2-arg writes `agent_definitions_backup` with a
+reason) and a bare 1-arg call with an explicit `::text` cast is STILL
+ambiguous between them since the 2-arg form has a default second parameter —
+Postgres resolves by arg count first, so only passing 2 literal args
+disambiguates. Cost two failed dry-run probes to learn.), then a guarded
+`DO` block (exactly-one-active-row, idempotency, drift-pinned to the exact
+07-26-reverted config), the UPDATE to the 7-step chain, then a verify `DO`
+block. Ran the scoped dry-run first (`MIGRATIONS_DIR=<tmp dir containing only
+411>` — the shared queue had ~40 pending files belonging to other threads;
+never blanket `--apply` the real directory), then applied for real.
+
+Force-triggered (`scheduled_tasks.last_triggered_at = NULL`) rather than
+waiting up to 6h. Fired within the next 30s tick, `COMPLETED`. **Verified with
+the FINDING's own discriminating query** — the one that would have caught the
+07-26 defect: entity counts came back **40 / 44 / 8** (model/company/protocol)
+— different per kind, so the literal-kind read is genuinely live, not
+defaulting. Then verified at the actual HTTP artefact (not just the DB row):
+all four URLs return 200 with real per-kind JSON.
+
+Registry sizes have grown since the FINDING's 2026-08-10 snapshot (27/32/4)
+to 40/44/8 today — the acquisition half of this pipeline (researcher +
+freshness sweeps) has kept working correctly the whole time; only the
+publish leg was stalled. `directory_citation_unverified` HITL items for all
+three kinds are flowing normally in `site_work_items` (checked same session).
+
+Submitted to the council gate for advisory review (`FORCE=1` — the change is
+a DB config migration under `docs/`, not `platform|internal|pkg/`, so the
+scope pre-filter would otherwise refuse it uncredited; a production workflow
+definition that runs unattended on a schedule seemed worth the review anyway).
+`SUBMISSION_CORR=a3c418ea-4452-420d-b6e8-62ce78d5339e`. Committed with
+`Council-Submitted:` rather than waiting — verdict not yet read.
+
+**Deliberately left alone, per the FINDING's own scope note and DIR-001's
+verify-later**: the publish trigger's kind-blind find-sites query (now
+explicitly `portfolio_positioning`'s Phase B3c), and the three new Phase B
+finance kinds (no registered entities yet — publishing them now would commit
+empty files; that lane's own remit, own order).

@@ -1,3 +1,15 @@
+> **RESOLVED 2026-08-15** — the fix prescribed below was applied, five days
+> after this was written and 15 days after the original revert. Migration
+> `docs/agent_docs/sql_for_agents/411_model_directory_publisher_re_extend_to_company_protocol.sql`,
+> commit `13e964287`. Verified with this doc's own discriminating query
+> (entity counts 40/44/8, differ per kind) and at the HTTP artefact (all four
+> URLs 200 with real content). Council submission `a3c418ea-4452-420d-b6e8-62ce78d5339e`
+> (advisory, verdict pending at commit time). Full account:
+> `NOTES_model_directory_pipeline.md` (2026-08-15 entry) and
+> `README_where_we_are.md` (2026-08-15 entry). The find-sites kind-blindness
+> defect noted below remains open, now owned by `portfolio_positioning`
+> Phase B3c.
+
 # FINDING 2026-08-10 — the four tracker feeds have never existed, and the 08-09 CONTRIB's "probably one dispatch" is WRONG
 
 Written by `staged_component_build` at the owner's request ("which thread is handling the

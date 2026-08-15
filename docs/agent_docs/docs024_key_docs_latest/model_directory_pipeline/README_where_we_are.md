@@ -362,3 +362,32 @@ you asked for, so I've left it — but say the word and Pricing goes first.
 **Still blocked, unchanged:** the homepage teaser sections for all three
 registers, behind the case-study statistics problem (bug 073). The pages
 themselves are unaffected.
+
+---
+
+**2026-08-15 — the two tracker JSON feeds are live again; they'd been broken
+since the day after the last entry above**
+
+You asked, on 2026-08-10, who was handling the tracker-feed 404s. The answer
+that day was nobody, and the reason was worse than a stalled task: on
+2026-07-26, the evening of the last entry above, I hand-extended the
+publisher to cover all three registers, hit a bug where it silently
+published the *model* list three times under commit messages claiming to be
+the adoption and protocol trackers, fixed the underlying code within the
+hour, and reverted the publisher config back to model-only so nothing broken
+kept running — meaning to put the three-register version back once a fix
+rolled out. I never came back and did that. So for five weeks the pages
+themselves looked fine (they're server-rendered, and correct), but the JSON
+files the browser fetches to refresh them live — `adoption-tracker.json` and
+`protocol-tracker.json`, snippet and full versions — simply weren't there.
+
+Today I checked the code was still fixed (it is, verified directly against
+the running program, not just the git history), wrote the config change back
+as a proper, reviewed migration this time rather than a hand-run one-off, and
+applied it. All four files are now live and serving real, current data — 44
+companies, 8 protocols, 40 models — and I checked that by fetching the actual
+URLs, not just by trusting a "success" status. I also submitted the change
+for the same advisory review the fix-loop uses, since it's a production
+workflow definition that will keep running unattended; the migration itself
+is committed either way. Nothing else needed to change — the earlier fix
+five weeks ago was already correct, it just never got put back into service.
