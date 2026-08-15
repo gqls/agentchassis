@@ -3955,3 +3955,105 @@ pins an item for ever. Here it is the safe arm doing its job.
 `7315e4d5` (matched `"3600"`) and `9db796ca` (matched `"40"`) carry longer needles and are not
 exposed to this the same way. `a355d78b`'s first finding is `"until you accept"` — a phrase, not a
 number — and it remains the standing candidate for the **never-deployed** arm, unchanged.
+
+---
+
+## 2026-08-15 08:45–08:50Z — RESULT: the prediction HELD, and the one number that moved was moved by the REGISTER, not by a page
+
+**The run is real and the reading is genuinely post-run**, which is the thing the 08:00Z misstep
+could not establish. Three independent facts, all in the measured output:
+anchor moved `2026-08-14 08:45:04.333287Z` → **`2026-08-15 08:45:17.441082Z`** · **20 rows restamped**
+to `2026-08-15T08:45:17Z` (the other 10 are frozen terminal closures: 8 @ 08-10, 1 @ 08-12, 1 @ 08-14)
+· measurement clock `08:45:58Z`. 20 + 10 = 30, so the join is not hiding anything.
+
+⚠ **`last_completed_at` is NOT a completion signal on this row.** It equalled `last_triggered_at`
+exactly, both today and on 08-14 — the scheduler stamps both at dispatch. A watcher that waits for
+"completed" is waiting for something already true. **The evidence a sweep did work is the
+`revalidation.at` stamps on the rows.**
+
+**Corroborated by two independent watchers.** The previous session's condition-based poll was still
+running and caught the same event unprompted (`ANCHOR MOVED at 08:45:31Z`, `0 | 1 | 0 | 30`, both
+watched items `scan_still_trips`). Same numbers, different process, different query text.
+
+### Against the committed prediction
+
+| # | predicted | observed | |
+|---|---|---|---|
+| 1 | zero refusals | `refused_at_a_gate = 0` | **HELD** |
+| 2 | `b561c826` / `7315e4d5` close or stay — no third outcome | both **stayed** `scan_still_trips` | **HELD** (branch 2) |
+| 3 | everything else unchanged; `resolved_all_gates_passed` stays ≥1 | 17/9/2/1/1, identical to pre-run | **HELD** |
+| 4 | `a355d78b` will not reach the never-deployed arm | `scan_still_trips` | **HELD** |
+
+**My own 08:39Z addendum did NOT fire, and the reason is the honest one:** its third outcome was
+conditional on `b561c826`'s scan going clean, and the scan still trips (3 claims, unchanged). So the
+short-needle route to `gate_claims_still_present` was never reached. The addendum is not vindicated
+and not refuted — **it was not tested**. Recording that distinction because "my prediction didn't
+fire" and "my prediction was wrong" are different, and only the second is a correction.
+
+**The first refusal is STILL unobserved.** All refusal arms remain 0 and unexercised, unchanged since
+the instrument shipped. Item 1 of the handoff's "what is next" carries forward untouched.
+
+### The one number that moved — and nobody predicted it because nobody was watching it
+
+`a355d78b` (webdesign.uk, `index-rejected-v1-20260806`): **14 → 19** unsupported claims, all
+`banned_claim`. It was the ONLY count to move among the five items captured before and after
+(`b561c826` 3→3, `3375653f` 2→2, `7315e4d5` 2→2, `9db796ca` 6→6).
+
+**The page did not change.** `newest_component_update` = **2026-08-05 11:56Z**, four days BEFORE the
+item was even filed (08-09 15:52Z). `deployed_at` NULL, `build_status='needs_rebuild'`,
+`page_status='archived'`.
+
+**The register changed.** At **2026-08-14 20:13:21Z** — between the 08-14 16:48 sweep and this one —
+webdesign.uk's `evidence_base` went to a new current version that:
+- re-attested fact `build_duration`: *"usually about three or four days"* (attested 08-04, under the
+  £1,200 offer) → **"usually ready the next day"** (owner, 08-14); and
+- added a **28th banned-claim pattern** (27 → 28):
+  `\bthree (or|to) four days\b|\b3[-–]4 days\b|\bthree[-–]to[-–]four\b`, reason *"RETIRED FIGURE
+  (owner 2026-08-14) … Three-or-four-days belonged to the £1,200 offer."*
+
+The archived page still carries the retired phrasing: **6 of 7 components match, 11 raw occurrences**
+across `rendered_html` + `content_data`. The finding count rose by exactly 5.
+[MEASURED for presence and abundance; the precise 11-raw → +5-findings mapping is NOT traced — the
+scanner extracts and dedupes via `ExtractAssertionText` and I did not follow it through. Do not quote
+5 as "the number of occurrences".]
+
+**This exonerates the v1.0.1300 roll**, which was the competing candidate in the same window
+(20:36:04Z, 23 minutes after the spec change). It did not need to be invoked, and 4 of the 5 sampled
+items did not move across it — which is weak evidence against a fleet-wide sensitivity change, though
+**only 5 of 20 items had pre-run counts captured**, so that is a sample, not a census.
+
+### ⚠ THE LESSON, and it is not lane-local
+
+**A `claims_unverified` count is not a property of the page.** It is the result of comparing a page
+against a register, and **either side can move it**. A reader who sees "still carries 19 claim(s)"
+and goes looking for a page edit will find nothing and may conclude the checker is broken. Here the
+count rose overnight on a page untouched for ten days, because an owner re-attestation retired a
+figure and banned its phrasing.
+
+Corollary worth stating plainly: **this is the mechanism working, not failing.** An owner changed
+what is true; the estate immediately re-flagged every page still saying the old thing. That is the
+point of the register.
+
+### ⚠ MISSTEP — my first two diffs asked the wrong question and both said "unchanged"
+
+Chasing the cause I ran, in order:
+1. `(prev facts) = (cur facts)` → **`f`**, read as "the register changed".
+2. a diff projecting `id` / `value` / `tolerance` → **0 rows**, which reads as *"nothing meaningful
+   changed"* and points straight at the binary.
+
+Both were wrong questions. (2) returned 0 rows because the changed fact is `kind: capability` —
+it has **no `value` and no `tolerance`**; the change lived in `claim` / `writer_line` / `source`,
+keys my projection did not select. A projection that omits the changed key reports "no change" with
+complete confidence.
+
+And the actual cause was **in a half of the document I had not looked at at all**: `banned_claims`
+lives INSIDE the `evidence_base` spec's `data` (`evidence_citations.go:222` —
+`{"facts": [], "banned_claims": []}`), not in a separate `aspect`. My query
+`WHERE aspect ILIKE '%banned%'` returned **0 rows**, which reads as "this site has no banned-claims
+list" when it has **28**. Two independent zero-results, both false, both plausible.
+
+**What caught it:** an order-insensitive whole-object `EXCEPT` (1 in each direction) contradicted the
+0-row projection diff. Two comparisons of the same pair disagreeing is the tell.
+**The cheap check:** when diffing a JSON document, **diff whole objects first and project second** —
+a projection can only ever find changes in the keys you already suspected. And before concluding a
+key is absent, `SELECT jsonb_object_keys(data)`.
