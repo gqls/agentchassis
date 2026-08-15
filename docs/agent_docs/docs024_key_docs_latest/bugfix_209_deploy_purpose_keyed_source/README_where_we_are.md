@@ -707,3 +707,37 @@ affect them either. That took one command. It should have been in the submission
 Two objections are deliberately left **open** rather than counted as settled, because both
 reviewers asked for that: they're the "who owns this shared machinery" question, which is
 the one waiting on you. Nothing else is outstanding on this piece of work.
+
+**The decisions waiting on you, in one place (asked for, 2026-08-15).**
+
+Six. Four come out of RFC_028, one is small and operational, one is bigger than this lane.
+
+1. **Does the input resolver get an owner?** It's the one function every action goes through
+   to decide where a setting's value comes from. What it guarantees is written in five
+   separate places, all currently agreeing, with nothing keeping them so. 27 review rounds
+   have touched it and 8 said it needs an architectural owner — then all 27 shipped. The
+   deflection rate is the argument: a signal that fires eight times and changes nothing is
+   teaching everyone to ignore it.
+2. **Should the "a full stop means look it up elsewhere" rule be written once in code?**
+   It's currently in comments in two places. That distinction cost 150+ live 404s to learn.
+   Cheap to fix, and the one I'd say yes to without hesitation.
+3. **Is there a budget on the number of rules in that chain?** You ruled exactly this way
+   yesterday for a different accumulation (budget of 10, counter built). Nothing counts
+   these; the chain is at eight.
+4. **Does the alias precedence need a forward guard?** The safety argument is a census —
+   true today, not a constraint. A config written tomorrow with both an old and new name
+   silently gets the new behaviour, with one unit test behind it.
+5. **Wire up the daily config check?** Built, has run, nothing schedules it. Needs an image
+   built and pushed BEFORE the schedule is applied, or the failure reads as "still running".
+   I can do it.
+6. **The account cap — and a measurement that changes the options.** Third exhaustion in 15
+   days. The caching fix from the 10th WORKED: the council gate now serves 97% of its input
+   from cache, ~78% cheaper than it would be. The cap still blew, and the reason is that the
+   three next-largest consumers — page-content-writer, content-gap-planner, diagnose-agent —
+   have no caching at all, and the first of them charges more at full rate than the gate
+   does. Options: raise the cap, add a second provider, or apply the technique that worked
+   to the three that never got it. I'd do the third regardless, but I have NOT yet checked
+   whether their prompts repeat enough to cache well, so I can promise no number until I do.
+
+My own suggestion: 2, 4 and 5 are small and self-contained; then measure the three uncached
+agents and bring you a number before anything is spent on 1, 3 or a second provider.
