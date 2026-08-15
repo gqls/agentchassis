@@ -69,8 +69,9 @@ draft — flagging it because the owner's stated goal is the application.**
 >
 > **Who is responsible**
 >
-> Darts Online is the data controller for this website. You can reach us at
-> darts@contactforsales.com or on 07934 524 911.
+> Darts Online is published by Fine Tuning, of Fleetside, West Molesey, East Surrey, which
+> is the data controller for this website. You can reach us at darts@contactforsales.com or
+> on 07934 524 911.
 >
 > **When you contact us**
 >
@@ -114,10 +115,19 @@ draft — flagging it because the owner's stated goal is the application.**
 
 ## What the copy deliberately does NOT say, and why
 
-- **No postal address**, per the identity truth reset (D4, 2026-07-29). A UK controller is
-  normally expected to be identifiable; email and phone are given. **If the owner has a
-  registered business name or address he is willing to publish, it belongs here** — that is
-  an owner decision, not something to invent.
+- ~~**No postal address**, per the identity truth reset (D4, 2026-07-29).~~ **SUPERSEDED BY
+  THE OWNER 2026-08-15:** the publisher is **Fine Tuning**, of **Fleetside, West Molesey,
+  East Surrey**, and that is now in the copy above as the data controller. This is a
+  deliberate, instructed narrowing of D4's "no address" rail — D4 existed to stop a
+  *fabricated* Portland address, not to prevent the real controller identifying itself,
+  which UK GDPR effectively requires. Two things to be aware of, neither of them blocking:
+  - **No postcode was given**, and an ICO-facing controller address would normally carry
+    one. Easy to add before publish if wanted; left exactly as the owner supplied it rather
+    than guessed at.
+  - This will be **public on a live indexed site**. Flagged only because this estate has a
+    standing precedent of scrubbing a personal detail at the owner's request
+    (`4ce27c50c`), so the contrast is worth stating once: this one is instructed and has a
+    legitimate legal purpose. It is his call, and it is recorded here as his.
 - **No claim of a consent banner**, because there isn't one (finding 1). The copy describes
   cookies honestly and points to browser controls, which is accurate but is **not a
   substitute for consent**. If a banner is added, this section should be revised to describe it.
