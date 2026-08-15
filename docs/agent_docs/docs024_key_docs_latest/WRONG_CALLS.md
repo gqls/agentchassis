@@ -31447,3 +31447,32 @@ shipping here, so liveness starts when anyone rolls, not when you verify.
 only understated its own success. But two cold-start docs told the next session to
 wait for an event that was already two days old, and a watch item stood open for a
 condition that had been satisfied before it was written.
+
+---
+
+## 2026-08-15 — "What shipped (one commit, …)" written into a bug file BEFORE the commit existed; a passenger event made it two within minutes
+
+**By:** bugfix 274 lane (session ae908c77).
+
+**The claim:** `bugs_open/274` §10 opened with *"What shipped (one commit,
+Council-Submitted: 573526cd…)"* — written while the tree was still dirty, describing the
+commit I was ABOUT to make.
+
+**What was true:** between writing that line and committing, the RFC_012 park lane
+committed `coordinator.go` by pathspec and took this fix's coordinator half with it as a
+same-file passenger (`3ba384c63`); the remainder went out separately (`919cc6976`). Two
+commits, neither matching the sentence. On this tree that interleaving is the NORMAL case
+for a contended file, not bad luck — the same mechanism MEMORY's
+a-pathspec-commit-still-takes-a-same-file-passenger documents from 2026-08-01.
+
+**Caught by:** the pre-commit re-check of `git status` on the files I was about to name —
+`coordinator.go` had vanished from the dirty list, which is the tell that someone else's
+commit took it.
+
+**The cheap check that would have caught it:** write shipping facts (commit count, shas)
+into a shared doc only AFTER `git log` shows them, or write "commit pending" and let the
+commit's own message be the record. A doc sentence describing a future git action is a
+prediction typed in the voice of a fact — exactly the unmarked-inference shape the marker
+rule exists for.
+
+**Cost:** minutes — corrected in place the same session, before any reader inherited it.

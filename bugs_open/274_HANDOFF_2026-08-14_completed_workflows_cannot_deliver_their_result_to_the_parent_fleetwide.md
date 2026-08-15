@@ -391,3 +391,52 @@ itself is 213's lane, not fixed here).
 `TestDefaultBeatsTheRecursiveSearch` (`platform/orchestration/datahelpers`) fails at clean
 HEAD (verified via `git archive HEAD` in a scratch dir) — pre-existing, referenced by the
 209/231 lane's notes, not touched by this fix.
+
+> **CORRECTION 2026-08-15 (minutes later): "one commit" above became TWO, by a same-file
+> passenger event.** While this lane's coordinator edits were dirty, the RFC_012 park lane
+> committed `coordinator.go` by pathspec and took the envelope half of this fix with it —
+> `3ba384c63` carries `ownIdentity`, `parentReplyStepName` and both `notifyParent*` literals;
+> `919cc6976` carries the platform/kafka classification, the tests and the docs, and its
+> message states the split. Forward-only: nothing lost, HEAD verified green with both halves
+> (`git archive HEAD` build + both test packages pass). For "did my fix ship?" use
+> `git merge-base --is-ancestor 919cc6976 <stamp>` — it is the LATER commit, so it implies both.
+
+### Council verdict, 2026-08-15: APPROVED round 1 — 9 reviewers, 8 abstained, advisory objections dispositioned
+
+Correlation `573526cd-7a4a-4f91-abf9-b44f866759d6`, seat `review_architecture` fired (kafka
+core). Every objection advisory, none high-severity. Dispositions, with the queries the
+reviewers asked for:
+
+- **editquality: "the CollectedData keys are inference, not a symbol read."** They were read
+  before the plan and re-proven after: `data_helpers.go:833` writes `__execution_context__`
+  (serialised via the struct's `step_name` JSON tag) and `:975` writes
+  `"step_name": execCtx.StepName` inside `__work_request__`; the committed table test
+  (`TestParentReplyStepNameRecovery`) exercises the post-DB map shape and passes. The
+  Owner* fields are `state.go:117-119` DB columns — the committed code compiles against them.
+- **reuse: "why a new type-switch instead of extending `extractReplyToMetadata`?"** It is an
+  UNEXPORTED symbol in the sibling `actions` package; the coordinator calling it needs an
+  export plus a new orchestration→actions dependency edge, inverting this tree's layering
+  (actions depends on orchestration's types, not vice versa — the same cycle constraint that
+  moved the 217 classifier into `platform/errors`). The 15-line local helper is the smaller
+  footprint. **Named follow-up A:** consolidate the two type-switch readers if a shared home
+  below both packages appears.
+- **reuse: "a fifth AgentIdentity shape floating beside four unconsolidated literals."** Fair,
+  and deliberate: the approved plan scoped the four existing literal sites OUT to keep a core-
+  plumbing diff reviewable. **Named follow-up B:** switch the three identical literals
+  (coordinator.go ~1507/1590/3414) to `ownIdentity`; the fourth (~2921) omits Role and needs a
+  one-line behaviour decision first.
+- **guardian: "webscrape-unreachability is a claim I want checked."** Query, not assertion:
+  `grep -rn NewProducerWithValidator --include=*.go platform/ internal/ cmd/` → exactly one
+  caller, `agentbase/agent.go:311`; webscrape builds via `kafka.NewProducer`
+  (`adapter.go:79`) = nil validator = `ProduceWithValidation` is a passthrough there.
+- **guardian: typed-error surface widening / third core-file edit this week** — recorded;
+  contained by `errors.Is`, and the gate round itself is the precedent check.
+- **debug_historian: "name the post-deploy check, not just unit-green."** It is §10's verify
+  block above: build-provenance stamp + `git merge-base --is-ancestor 919cc6976 <stamp>` per
+  service, the ~0-row query with its demand control, and the named Error log for any residual.
+  (The pod-grep-for-symbol lore the seat quotes was retired 2026-08-11 — the binary now states
+  its commit; ask it, don't grep for markers.)
+
+`919cc6976` carries `Council-Submitted:`; 098 credits it automatically now the verdict is
+approved. No REVISE required; follow-ups A and B are recorded here rather than smuggled into
+the approved diff.
