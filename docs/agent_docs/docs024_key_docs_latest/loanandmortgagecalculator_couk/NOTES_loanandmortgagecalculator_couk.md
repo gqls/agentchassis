@@ -2793,3 +2793,37 @@ the message back, another session committed, so HEAD had moved. Read your own sh
 > **This diagnosis now has two blind derivations:** the peer ran the full chain read-only
 > before finding my work (5/5 b2_verify, same served md5s, 33/0/0, 170/0/6) and reached
 > both mechanisms independently.
+
+> **CORRECTED AGAIN, 2026-08-15 — the "third class" mechanism I recorded above was WRONG,
+> and I had published it in four places.** The peer session fixed the class (`a848812cd`)
+> and corrected me. Crosstool is now **PASS 0 / FAIL 154 / CONVENTION 2 / N/A 13, exit 0**,
+> FAIL pinned so nothing was silenced; I re-ran the normal sweep (170/0/6, N/A 0) and the
+> expectation control (0/161/15) after their change and both are unchanged.
+>
+> **Real cause: the NON-TEST guards tested `isinstance(tw, float)` and were type-blind to
+> INTS.** All three `_true_want` values were PRESENT and EQUAL to the borrowed expectation,
+> and all three were ints — consolidation `5000`, bridging `200000`, overpayment `2`. The
+> borrowed==own guard that exists for exactly this could never fire. Fixed with a
+> `numeric()` helper at all three sites — including **my** expectation-sentinel guard,
+> which carried the same latent float-only bug. Measured: every tool's vectors have
+> identical selector sequences, so **no `None` `_true_want` exists in the suite at all**.
+>
+> **HOW I FABRICATED THE MECHANISM, which is the part worth keeping.** I dumped the
+> control's JSON and printed `r.get("_true_want")` per row. It returned `None` three times
+> and I wrote a causal story around it. `_true_want` is **never written into the result
+> record** — it lives on the check dict; `rec` never receives it. So `.get()` returned the
+> default for a key that was never in the schema, and **that is byte-identical to a field
+> whose value really is None.** I then reasoned backwards to "the donor vector must have
+> more checks than the receiving one", which describes something that does not happen here.
+>
+> **This is the THIRD instance of one shape in one day**, and that is the finding, not the
+> individual slips: `git log` on a path that never existed (misstep 1), and now `.get()` on
+> a key that was never in the record. **Asking a question about something that does not
+> exist returns a well-formed answer that is indistinguishable from data.** The check, in
+> every case, is one line: prove the thing you are interrogating exists — `git cat-file -e`,
+> or print `sorted(rec.keys())` — before you read meaning into what comes back.
+>
+> The peer also parked an observation I am NOT acting on: crosstool reports
+> **CONVENTION 2** (pre-existing, unchanged by either of us). The control's rule only
+> forbids PASS, so it is green — but a borrowed expectation matching via an alt-convention
+> is the same non-test shape one level up. Noted as a question, not filed as a defect.

@@ -31609,3 +31609,50 @@ claim justified building more of (automated closes) is what had been moving the 
 
 **Cost:** one factor in a REVISE round (the gating objection was separate); corrected in the round-2 submission and
 the workstream PLAN.
+
+---
+
+## 2026-08-15 — I published a root-cause mechanism built on a JSON key that was never in the record
+
+**Lane:** loanandmortgagecalculator, oracle control repair (same session as the
+`pages.name` entry above).
+
+**The claim I published, in four places** — a commit message (`f0eab34e0`), NOTES,
+`LANDMINES.md`, and the lane handoff: that `oracle.py --mutate crosstool`'s three
+residual passes were caused by *"the donor vector having more checks than the receiving
+one, so the rotation pairs by index across vectors of different length, `_true_want` comes
+back `None`, and the float NON-TEST guard cannot fire."*
+
+**It was wrong, and a peer session refuted it with a measurement.** Every tool's vectors
+carry **identical selector sequences**, so index pairing is aligned throughout and **no
+`None` `_true_want` exists anywhere in the suite**. The actual cause: all three
+`_true_want` values were **present and equal** to the borrowed expectation, and all three
+were **ints** (5000, 200000, 2) — while the borrowed==own guard tested
+`isinstance(tw, float)`. A guard written for exactly that case was type-blind to it.
+Fixed in `a848812cd` with a `numeric()` helper at all three guard sites; crosstool now
+PASS 0 / FAIL 154 / N/A 13, exit 0, FAIL pinned.
+
+**Where the false mechanism came from:** I dumped the control's JSON and printed
+`r.get("_true_want")` for each passing row. It returned `None` three times, so I treated
+"the true expectation is missing" as an observation and reasoned backwards to a cause that
+would explain it. **`_true_want` is never written into the result record at all** — it
+lives on the check dict, and `rec` never receives it. `.get()` on a key that was never in
+the schema returns exactly what a genuinely-`None` field returns.
+
+**The cheap check:** `print(sorted(rec.keys()))` once, before reading any single field —
+or grep where the field is assigned (`grep -n '_true_want' oracle.py` shows it set on the
+check dict and read from it, never written to `rec`). I ran that grep only *after* being
+corrected, and it settled the question in one command.
+
+**Cost:** one wrong mechanism committed and propagated to four documents, all corrected
+the same day; no code was written against it (I had deliberately not fixed the class), so
+nothing downstream broke. The expensive shape is that it was **stated with measurements
+beside it** — the numbers around it were real, which makes the story between them read as
+equally checked.
+
+**THIRD INSTANCE OF ONE SHAPE IN A SINGLE SESSION, and that is the actual finding.**
+Earlier the same day I ran `git log` against a repo path that had never existed and read
+the empty output as "unchanged" (entry above). Same failure: **interrogate something that
+does not exist and you get a well-formed answer indistinguishable from data.** Absence of
+a path, absence of a key. In both cases the disconfirming check was one line and I ran it
+only after the answer looked convenient or after being contradicted.

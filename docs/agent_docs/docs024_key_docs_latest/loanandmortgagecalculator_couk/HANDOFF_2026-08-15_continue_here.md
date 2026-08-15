@@ -338,16 +338,29 @@ re-run unchanged after the correction.
 1. `--mutate expectation` only ever tested the ~161 checks comparing a parsed NUMBER. It
    never tested the text assertions and it never could. **A `raw_contains` check that has
    silently stopped matching is caught by nothing there.**
-2. **`--mutate crosstool` STILL EXITS 1, and did before any of this** — 4 passes
-   pre-change, 3 now. A THIRD class, which I did not cause and deliberately did not fix
-   inside a batch-closure commit: when the donor vector has **more checks than the
-   receiving one**, the rotation pairs by index across vectors of different length,
-   `_true_want` is `None` so the float NON-TEST guard cannot fire, and the borrowed
-   expectation lands on an **echoed input value** that matches anyway (consolidation
-   total-debt-to-clear, bridging net-advance-echoed-back, overpayment whole-years).
-   ⚠ **So a red crosstool here is NOT evidence your change broke something** — diff the
-   count against a pre-change run first. That is the next contained piece of work on this
-   file, and it needs its own change and its own evidence.
+2. ~~`--mutate crosstool` STILL EXITS 1 … `_true_want` is `None` because the donor vector
+   has more checks than the receiving one …~~
+   **CLOSED, and MY MECHANISM WAS WRONG — corrected 2026-08-15, commit `a848812cd`
+   (peer session).** Crosstool now reads **PASS 0 / FAIL 154 / CONVENTION 2 / N/A 13,
+   exit 0**, with FAIL pinned at 154 so nothing was silenced. Normal sweep 170/0/6 N/A 0
+   and the expectation control 0/161/15 both re-verified unchanged, by me, after their fix.
+
+   **The real cause: the NON-TEST guards tested `isinstance(tw, float)` and were blind to
+   INTS.** All three `_true_want` values were present and equal to the borrowed
+   expectation, and all three were ints — consolidation total-debt `5000`, bridging
+   net-advance `200000`, overpayment whole-years `2`. The borrowed==own guard that exists
+   for precisely this case could never fire on them. Fixed by a `numeric()` helper (int or
+   float, bool excluded) applied at **all three** guard sites, including my expectation
+   sentinel guard, which had the same latent float-only bug with no observed hit yet.
+   Measured: every tool's vectors carry **identical selector sequences**, so index pairing
+   is aligned throughout and **no `None` `_true_want` exists in the suite** — the
+   different-length-vector story I wrote describes something that does not happen.
+
+   ⚠ **How the wrong mechanism got published, since the method transfers:** I dumped the
+   control's JSON and printed `r.get("_true_want")`, which read `None` on all three rows.
+   `_true_want` is **never written into the result record** — it lives on the check dict.
+   I read a key that was never in the output as if it were a field whose value was None.
+   **Print the keys a record actually has before attributing meaning to a missing one.**
 
 **Independent replication:** the peer session ran the whole chain read-only before finding
 my work — 5/5 `b2_verify`, the same served md5s, 33/0/0 per-tool, 170/0/6 full sweep — and
