@@ -182,3 +182,76 @@ consequence for the fix is not.
 
 **Related:** `bugs_open/263` (Track B2, the lane this came from) ·
 `docs/agent_docs/docs024_key_docs_latest/loanandmortgagecalculator_couk/` NOTES (d)–(g).
+
+---
+
+## 8. UPDATE 2026-08-15 — owner ruled; halves one and two BUILT; §4's UNVERIFIED is CLOSED; and §5 was wrong about the number of collision classes
+
+**Owner ruling, same day:** *"I'd like reuse to be a genuine property of the platform
+because if we chose to list all the calculators on one page we'd hope it would work."*
+So candidate **A + C**, not the staged B. Work commits: `03c1b0b90` (per-instance token +
+detector + register CLC-014), `9372a82c3` (gofmt + index row), `1e19aa6ab` (the guard).
+All three carry `Council-Submitted: 07635a2f-3605-4e67-9a6d-7636b07f16ca`.
+
+### 8.1 §4's `[UNVERIFIED]` is closed, and the answer is the unsafe one
+
+The LMC pages re-render through `page-rerender` → `rerender_page_sections`, whose render
+site is `rerender_page_sections_action.go:494`: `rc.ContentData["ComponentID"] = comp.ID`.
+That is the **content component row id — shared by every instance.** So on the path that
+actually serves these pages, `{{.ComponentID}}` namespaces nothing, exactly as §4 warned it
+might. Also established: `storedSection` (`:103`) does **not** load `page_components.id` at
+all — it carries `componentID, slotName, contentData, renderedHTML, position`.
+
+### 8.2 §2 UNDERSTATED THE DEFECT: there are THREE collision classes, and ids are only one
+
+This is the correction that matters most, because a fix addressing only §2 would leave two
+of them live:
+
+| class | mechanism | affected |
+|---|---|---|
+| element ids | `getElementById` returns the first match | 22 of 22 calculators |
+| global function names | the second `<script>`'s `function calc()` **replaces** the first | 16 declare at top level |
+| `window.onload` | a **single slot** — last assignment wins, so every earlier component **never initialises** | 8 (and those 8 are the only components fleet-wide that assign it) |
+
+Classes 2 and 3 have nothing to do with ids. "Namespace the ids" would have produced a
+page where the second calculator has unique fields and still does not run.
+
+### 8.3 And the owner's case is worse than a repeated component
+
+`btn-calculate` is a **single id shared by NINE different calculator components**; `price`,
+`rate` and `years` are each shared by two, and in those cases both components bind them with
+`getElementById`. So listing *different* calculators on one page collides — a check scoped to
+"the same component twice" would report clean on exactly the page the owner described.
+
+### 8.4 ⚠ A DEFECT IN THE FIX AS COMMITTED — read this before converting any template
+
+The token is `c<position>` from `page_components.position`, chosen because position is
+unique per page and stable across re-renders. **Measured after committing: the LMC tool slot
+sits at position 0 on 7 pages and position 1 on the other 16.** So the same component renders
+**different element ids on different pages**, and any selector addressing it is coupled to the
+page's section order.
+
+That has a concrete cost already visible: `oracle.py` — the lane's arithmetic proof, **170
+checks** — addresses every calculator by literal CSS id (`#loanAmount`, `#displayMonthly`).
+Under a position-derived token it would need **per-page** knowledge rather than one prefix
+per tool, and it would silently break whenever a page's sections were reordered.
+
+**Recommendation, and it should land WITH the template conversion rather than before it:**
+derive the token from the component **function plus an occurrence index within the page** —
+`c-mortgages-repayment` for the first occurrence, `c-mortgages-repayment-2` for a second.
+Stable under reordering; identical on every page for a single-instance component, so the
+oracle takes **one mechanical prefix per tool** instead of a per-page map.
+`rerender_page_sections` already loops over the full section list, so the occurrence index is
+computable there. Nothing is broken by the committed version in the meantime — no live
+template references `{{.InstanceID}}`, so it is inert.
+
+### 8.5 What is NOT done
+
+**The 22 calculator templates are unconverted**, so the defect is still live and this bug
+stays OPEN. That work needs, in order: the §8.4 token change; a converter that namespaces
+ids, scopes lookups to the instance root, wraps each script in an IIFE, and replaces
+`window.onload` with a scoped listener; the oracle's selectors updated **in lockstep**; and
+a two-instance proof page. It changes the rendered bytes of 22 live pages, so it also ends
+the byte-identical property the lane currently verifies against — `b2_verify`'s "verbatim
+render" check will need rebaselining, and that is a deliberate decision, not an accident to
+be discovered mid-batch.
