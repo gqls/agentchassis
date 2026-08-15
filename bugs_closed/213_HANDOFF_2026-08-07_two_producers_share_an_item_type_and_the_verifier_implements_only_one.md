@@ -1028,3 +1028,71 @@ Moved `bugs_open/` → `bugs_closed/` with **both paths named on the commit**; v
 rather than on disk.
 
 — closed by the `bugfix_213_verifier_producer_join` lane on the owner's ruling
+
+---
+
+## POST-CLOSURE NOTE 2026-08-15 (later the same day) — §D ADVANCED, and this file's own §D claim was WRONG
+
+**The file stays CLOSED.** This is recorded here because the closure note above says §D's answer
+belongs in this file, and because part of what it corrects is a claim this file made.
+
+### ⚠ CORRECTION — "neither agent declares a `complete_work_item` step" is FALSE, and it was an artefact of WHERE we looked
+
+The 08-14b handoff and the closure note above both state, as established first-hand, that
+*"neither `color-variable-fixer` nor `build-dispatch-loop` declares a `complete_work_item` step
+in `agent_definitions.default_config->'workflow'->'steps'`"*, and concluded from it that **the
+site binding the `result` input is unidentified**. The re-fired `090`
+(`adecf408-1e60-4293-8b22-351ddbb52a08`) cited a config quote that contradicted it, and
+**verified first-hand today, it is right and we were wrong:**
+
+```sql
+-- what our claim searched — and it is TRUE as far as it goes
+jsonb_path_query_first(default_config->'workflow'->'steps',
+  '$.* ? (@.action == "complete_work_item")')                    -> (none)
+-- the same question asked of the WHOLE config
+jsonb_path_query_first(default_config,
+  '$.** ? (@.action == "complete_work_item")')                   -> HIT
+```
+
+**It exists, one level deeper than we looked** — located exactly:
+
+> `build-dispatch-loop` → `workflow.steps.` **`process_item`** `.config.` **`sub_workflow`**
+> → `mark_complete_step`:
+> `{"action": "complete_work_item", "config": {"result": "handler_result",
+> "work_item_id": "current_item.id"}, "next_step": "done", "output_field": "item_completed"}`
+
+**So §D's open question is ANSWERED: the binding is `result: handler_result`.** A top-level
+`workflow.steps` search cannot see a step nested inside another step's `config.sub_workflow`,
+and a `$.**` search takes about the same time to write. This is the "a grep proves absence only
+for the SPELLING — and the PATH — it searches" shape, and it cost this lane a week of calling
+§D's mechanism unidentified.
+
+### What §D now has, and what it still does not
+
+**Verdict: `UNVERIFIABLE`** (the loop's own label — it did not confirm a mechanism). But its
+citations move the question a long way, and two of them are worth carrying:
+
+- **[VERIFIED first-hand today]** the binding above.
+- **[THE LOOP'S CITATION, NOT INDEPENDENTLY VERIFIED]** the two foreign payload shapes match two
+  other agents' declared `complete_workflow` `output_fields` exactly — `webdesign-agent`'s
+  `design_spec` (`color_scheme typography spacing design_notes`) and `content-gap-planner`'s
+  `gap_plan` (`add_to_page approach new_page not_actionable reasoning retype_existing
+  update_spec`). That is a much stronger lead than "some foreign payload": it names two specific
+  producers.
+- **[UNVERIFIED LEAD]** the loop's final citation points at
+  `platform/orchestration/datahelpers/action_inputs.go` `ExtractActionInputs` /
+  *"ExtractFields uses aggressive recu[rsion]"*. If `handler_result` resolves by aggressive
+  recursive search, a sibling agent's response elsewhere in `collected_data` could satisfy it.
+  **Nobody has read that function for this purpose yet. Do not write this up as the cause.**
+
+**Still NOT established:** how `handler_result` comes to hold another agent's payload. The
+candidate above is a direction, not a finding. And it remains the case that `bugs_open/274`'s
+mechanism is NOT the answer here — a delivered failure predicts errored items, not `complete`
+items carrying a well-formed foreign payload.
+
+### Whoever picks this up
+
+It is now a small, well-posed question: **read `ExtractActionInputs`/`ExtractFields` and decide
+whether `handler_result` can resolve to a non-handler's payload.** That is a code read, not a
+diagnosis run. If it can, the fix is a scoped binding, and gate 1b's abstain arm is already the
+instrument that will show it stopping.
