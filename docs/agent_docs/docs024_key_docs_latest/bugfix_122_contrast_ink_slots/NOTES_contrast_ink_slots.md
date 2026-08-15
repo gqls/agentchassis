@@ -2722,3 +2722,54 @@ together the run lags. Re-run the counts after an orchestration/rotation-stamp w
 audit actually ran — the stamp moving is the demand signal, then compare 17 / 7.
 
 State otherwise unchanged: §4 steps 1–3 done and graded PASS; waiting on the OWNER (steps 4–5).
+
+---
+
+## 2026-08-15 ~15:30Z — owner's visual gate: darts PASS; webdesign exposed a false §5 claim + a platform blind spot
+
+**dartsonline: owner PASS** on the eyebrow ("Where to begin is a good colour").
+
+**webdesign: the owner said the prose links were "readable but not bronze" — and he was right.**
+Investigated at the served artefact, not the stylesheet:
+- `styles.css:91` `a{color:var(--color-accent-ink,var(--color-accent))}` and `:377`
+  `--color-accent-ink:#915e2c` — both served. The grade in the entry above was correct.
+- BUT both prose-link pages (`/guides/tool-css-unit-converter-guide.html`,
+  `/guides/tool-ab-test-calculator-guide.html` — the only two, confirmed in `page_components`)
+  embed an inline `<style>` with `a{color:var(--color-primary,#1e40af)}`. Later in document
+  order, equal specificity → it wins. Served links are `--color-primary` `#5c6b5d` (5.32:1).
+- **So "every article link changes" (§5) was FALSE — accent-ink paints nothing visible on
+  webdesign today.** Corrected visibly in the handoff §5. What caught it: the owner's eyes.
+  The cheap check that would have: reading the PAGE's own `<style>` blocks, not just the
+  stylesheet — a colour claim must be graded at the computed style of a served element.
+- Also ruled out: `port-compat.css` has `.ported-page a{color:var(--primary)}` but the guide
+  pages don't use that class (grep = 0).
+
+**Defects the owner found while looking (all outside this lane's change), filed
+`created_by='owner-visual-gate-20260815'`, all `triaged` on the column-checked shapes:**
+- `section_edit:owner-gate:tool-mind-map` (high, section-editor): illegible pale-on-pale
+  "+ New Map"/node text, junk seeded node "Centrdgsdgsdgsdal Idea", no usage guidance.
+- `section_edit:owner-gate:learn-design-ambient-occlusion-css` (medium): literal
+  "[Image of ambient occlusion sphere diagram]" in prose. The earlier generic `needs_page`
+  rebuild FAILED by design (page is `rebuild_policy=owned`; the error prescribes
+  `apply_section_edit`). Both pages' single section is slot `ported-page`; the occlusion
+  section's `content_data` is a 224-char stub while `rendered_html` is 5,475 — the truth
+  lives in the artefact, stated in the item so nobody regenerates from the stub.
+- 4× `audit_tool` for the only `component_level='tool'` tools (ab-test, css-specificity,
+  css-unit-converter, llm-cost), owner focus (legibility/junk/usability) in the summary.
+
+**Why the mindmap was never caught — `bugs_open/281`, the durable half:**
+`check_tool_health.go:68` filters `cc.component_level='tool'`, but 63/67 webdesign tool pages
+are instances of the ONE shared `ported-page` section component (115 instances fleet-wide) —
+the audit sees 4 of 67 tools. And the tool-auditor's `load_tool` step resolves by
+`component_id` with `LIMIT 1`, ignoring `spec.page_id`, so pointing `audit_tool` at a ported
+instance would audit an ARBITRARY one of 115 — why no fan-out was filed over the 63.
+Tier-4 acceptance CAN address ported instances (its spec carries page_id+function; 15 runs on
+webdesign in 30 days) but declines undocumented tools, so it is not a substitute. Fix
+candidates and verification in the bug file.
+
+**Section-editor over tool-improver for ported instances, deliberately:** section_edit lane is
+171 complete / 2 failed; improve_tool is 45 complete / 186 unresolved with `detected` items
+from 08-11 still sitting — which is also why today's filings went in as `triaged` directly.
+
+State: §4 step 4 done (owner looked, both sites). Step 5 (widening) awaits his explicit
+per-site Go. Owed audit-check unchanged: not gradable before ~08-18 (entry above).

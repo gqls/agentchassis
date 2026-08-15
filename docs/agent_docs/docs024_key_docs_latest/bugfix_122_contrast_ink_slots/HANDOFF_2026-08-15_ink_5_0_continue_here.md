@@ -80,6 +80,20 @@
 > time, reading the served hex each time. Then §4 step 6 (the 168-component sweep) stays
 > not-started until after that. Also owed: confirm no NEW `contrast_failure` rows on the two
 > canary sites after their next audits.
+>
+> **§4 step 4 EXECUTED 2026-08-15 ~15:00Z — the owner looked at both sites.**
+> - **dartsonline: PASS.** "Where to begin is a good colour" — the eyebrow (`#94a0c2`) approved.
+> - **webdesign: links "readable but not bronze" — correct observation, explained.** The only
+>   prose-link pages embed their own `a{color:var(--color-primary)}` rule which beats the
+>   layout's accent-ink rule in the cascade (full correction in §5). What he saw was `#5c6b5d`
+>   at 5.32:1 — compliant. Accent-ink has NO visible surface on this site today, so his look
+>   covered everything there was to see. **Widening (step 5) still awaits his explicit per-site
+>   "Go" — not given yet as of this entry.**
+> - His look also surfaced defects OUTSIDE this lane, filed same day: Mind Map Studio illegible
+>   UI/junk content/no usage hint + the occlusion page's literal image placeholder
+>   (`created_by='owner-visual-gate-20260815'`, two `section_edit` + four `audit_tool` items),
+>   and **`bugs_open/281`** — the tool-audit machinery is structurally blind to 63 of
+>   webdesign's 67 tools (ported-page instances), which is why the mindmap was never caught.
 
 **This is the ink-DERIVATION thread's continuation**, following
 `HANDOFF_2026-08-14_ink_derivation_continue_here.md`. The filing/coordination lane
@@ -234,6 +248,19 @@ layouts carry `a { color: var(--color-accent-ink, var(--color-accent)) }` — **
   `.info-card-grid__eyebrow`, in `page_components.rendered_html` on `/index.html`. **One small
   uppercase label.**
 - **webdesign.co.uk serves the layout `a` rule** — every article link changes.
+
+> **CORRECTED 2026-08-15, caught by the OWNER at the visual gate ("the links don't look
+> bronze"):** the layout rule is served, but the only two pages with in-prose links
+> (`/guides/tool-css-unit-converter-guide.html`, `/guides/tool-ab-test-calculator-guide.html`)
+> each embed a page-level `<style>` block with `a{color:var(--color-primary,#1e40af)}`, which
+> comes later in document order and wins the cascade at equal specificity (0,0,1 vs 0,0,1).
+> Served links render `--color-primary` = `#5c6b5d` (5.32:1, itself compliant), NOT accent-ink.
+> **So accent-ink currently paints nothing visible on webdesign.co.uk** — the stylesheet grade
+> above stands, but "every article link changes" was false: the visual surface of this canary
+> is vacuous by construction. The claim was published from the layout CSS without checking
+> page-embedded styles on the pages that actually have links. Blast-radius statements about a
+> CSS property must be graded at the served element (computed style), not at the stylesheet
+> that declares it.
 
 **Approving on dartsonline alone approves a great deal nobody has seen.** That is why the owner
 added the second canary.
