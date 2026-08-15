@@ -839,3 +839,17 @@ The defect — detectors blind to shipped-but-`needs_rebuild` pages — has been
 kept open by choice, not the defect; they are committed and ride the next fleet release (no roll from this
 session — releases are whole-fleet, owner-run). Post-roll check for whoever is next: `git merge-base
 --is-ancestor ab4076c4a <the chassis stamp>` — no marker grep needed.
+
+## COUNCIL APPROVED 2026-08-15 17:14Z (`9f1ec294`, round 1) — 10 seats sat, 7 abstained, 3 advisory objections, none high
+
+Each medium answered with a check, not prose:
+
+| seat | objection | answer |
+|---|---|---|
+| `bug_historian` [medium] | the Warn is wired into ONE loop but `realisedPageHasShipped` has THREE call sites (:5811, :6006, :6510) — are the other two downstream of it, or independent silent paths? | **All three are inside `reconcilePlanWithRealised`.** :6526 is in its body; :5811 is in `snapPlanPageOntoRealised` and :6006 in `matchTwinIdentity`, whose only callers are lines 5912/6027/6455/6475 — all inside `reconcilePlanWithRealised`. Every `rp` they test is a row of the same `existingPages` slice the warned loop walks first. No independent path. |
+| `guardian` [medium] | name the pipelines that call `reconcilePlanWithRealised`; confirm none treats a Warn as an alert | **One Go caller**: `ValidateSitePlanAction` (`v3_site_actions.go:3261`). Two live agents carry it (`agent_definitions`, `default_config LIKE '%validate_site_plan%'`): `build-site-planner` (has `load_existing_pages`, surfaces `has_shipped` — migrated by 302) and `site-planner` (has NO `load_existing_pages` step, so `existingPages` is empty, the reconcile returns before any gate runs, and no fallback is ever taken — no Warn, correctly). A zap Warn is a log line; the estate's error surface is `agent_error_log`, which nothing here writes. |
+| `debug_historian` [medium] | this round names no post-deploy pod probe of ITS OWN symbols; a prior tranche's probe does not cover it | Correct — and stated in the closing entry above rather than fudged: **nothing from this round is live yet; it rides the next release.** Post-roll proof, in strength order: (1) the Warn is a long distinctive SINGLE literal — `grep -ac "load_existing_pages rows carry no has_shipped column" /proc/1/exe` on a chassis pod (expect 1; control: `realisedPageIsBuilt` expect 0); (2) ancestry — `git merge-base --is-ancestor ab4076c4a <the build provenance stamp>`. The derived `var` is NOT greppable (a runtime-built predicate is not a literal — this lane's own 08-04 lesson), so do not probe for it. |
+
+Lows: `editquality` — "first row only" rests on column presence being uniform per query: it is, mechanically — `load_existing_pages` is one `query_database` SELECT and every row of one SELECT has the same column set. `debug_historian` — empty `existingPages` → no Warn: correct, no row means no gate runs and no fallback is taken. `reuse_agent` — is there an existing warn-once idiom? `grep sync.Once|warnOnce|loggedOnce` over `actions/`: none; a local bool in one loop is the smallest honest form. `prior_art_librarian` — the equivalence query is attached in the CLOSED entry above (both contexts, both directions). `guardian` [low] — const→var consumers: `grep -rn FetchablePageEligibilitySQL` = definition + 2 uses in `queryresolve.go` + comments; `go build ./...` clean.
+
+Both code commits carry `Council-Submitted: 9f1ec294…`; `098` credits them at report time. This docs commit carries `Council-Reviewed:`.
