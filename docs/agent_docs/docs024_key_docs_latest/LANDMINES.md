@@ -10733,3 +10733,22 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **source:** 2026-08-15, bugfix_168 lane, reading the daily revalidation sweep. Found because five items had counts captured before *and* after the same run and exactly one moved; the register diff that explains it took three attempts, the first two of which said "unchanged".
 - **relations:** MEMORY [[a-model-upgrade-can-invert-a-closed-bugs-premise]] (a premise expires under you) · [[grep-the-config-key-before-calling-it-a-win.md]] · the `bugfix 161` entry — *correcting the register does not arm detection; `banned_claims` does* — this is the same seam read from the measurement side · the timing entry immediately above (both are "the reading is right, the frame is wrong")
 - **added:** 2026-08-15, bugfix_168 deployed_asset_path lane
+
+### `pages.name` is NOT the repo path — and `git log` on a path that never existed prints nothing at exit 0, which is what "unchanged" looks like
+
+- **footprint:** `~/projects/sites/<domain>/**.html`, `pages.name` / `pages.url` on any ported site, `git log --since=… -- <path>`, `git show <ref>:<path>`, the per-page staleness check in `loanandmortgagecalculator_couk/HANDOFF_2026-08-14_continue_here.md` §3.1 and §7, `decompose_lmc.py` (`page_paths`, `assert_pin_matches_live`), `b2_verify.py` (`src()`)
+- **fires when:** you check whether a page has changed since some date — before restoring from a dated backup, before trusting a pin, before reusing a golden. No symptom: an unchanged file and a misspelled path both print **nothing** and exit **0**.
+- **the trap:** `pages.name` is the repo path with the **FIRST** slash replaced by a hyphen — `loans-damage-checker` ⇄ `loans/damage-checker.html`, `mortgages-rate-forecaster` ⇄ `mortgages/rate-forecaster.html`. Both files exist and both names are plausible, so pasting `pages.name` into a path builds `loanandmortgagecalculator.co.uk/loans-damage-checker.html`, which has **never existed in the repo**. `git log -- <that>` prints nothing and exits 0. The lane's own §7 tells you to read exactly this output as "empty ⇒ the backup is still valid for that page", so the false absence lands directly on a **restore** decision — and restoring from a stale backup on this site is the documented time machine that reverted a live `bugs_open/224` arithmetic fix for two days.
+- **measured 2026-08-15:** all five mixed-card pages returned "0 commits since 2026-08-05", which I recorded as "the backup is safe for all five". Re-run against the real paths: **4 of the 5 had changed** — the 224 stale-answer guards and the btn-id fix — so the backup was stale for four of the five and the reading was not merely imprecise, it was inverted.
+- **the check, and it is one line before the one you care about** — prove the path resolves, and run a control you know is wrong so an empty result cannot pass for an answer:
+  ```bash
+  git cat-file -e "$REF:$SITE/$REL" || echo "PATH DOES NOT EXIST — the git log below is meaningless"
+  git log --oneline --since=2026-08-05 "$REF" -- "$SITE/$REL"
+  # control: this MUST report missing. If it does not, your path builder is wrong.
+  git cat-file -e "$REF:$SITE/${REL//\//-}" 2>/dev/null && echo "UNEXPECTED"
+  ```
+  Or derive the path from the repo rather than from the DB name: `git ls-tree -r --name-only <ref> -- <site>/ | grep <stem>`, which cannot name a file that is not there. `pages.url` already holds the real relative path (`/loans/damage-checker.html`) — prefer it to reconstructing one from `name`.
+- **why a set-comparison would not have saved you:** the site has 41 pages and 52 repo files; a count check on either side is unchanged by asking about a file that does not exist. Only resolving the individual path discriminates.
+- **source:** 2026-08-15, loanandmortgagecalculator Track B2 batch 2, checking the mixed-card five against the 08-05 backup before seeding. Found only because 0-for-5 looked too convenient to be true.
+- **relations:** the entry above on **a restore from a dated backup is a TIME MACHINE** — this is the check that feeds that decision, and it is the one that failed · MEMORY [[measurement-discipline-index]] (*a grep proves absence only for the SPELLING it searches*) · [[a-post-fix-zero-needs-a-demand-control]] (an empty result needs a control that could have come out non-empty)
+- **added:** 2026-08-15, loanandmortgagecalculator B2 mixed-card thread
