@@ -39,6 +39,10 @@ func shadowSpecs() map[string]datahelpers.ActionInputSpec {
 			Deprecated: map[string]string{
 				"purpose_field": "purpose",
 				"site_id_field": "site_id", // target has NO default → bridge is live, not a finding
+				// Added 2026-08-15 for TestAliasShadowedByCanonical's unextractable case.
+				// Produces no finding unless a step config actually carries the key, so
+				// the finding COUNTS asserted in the tests above are unaffected.
+				"mode_field": "mode",
 			},
 		},
 		"no_defaults_action": {
@@ -49,6 +53,9 @@ func shadowSpecs() map[string]datahelpers.ActionInputSpec {
 		"guarded_action": {
 			Required: []string{"label"},
 			Optional: []string{"max_pages", "flag"},
+			// Added 2026-08-15 for TestAliasShadowedByCanonical's required_empty case
+			// (same no-config-no-finding property as mode_field above).
+			Deprecated: map[string]string{"label_field": "label"},
 			Defaults: map[string]interface{}{
 				"label":     "fallback", // Required AND Defaulted: the only spec shape
 				"max_pages": 25,         // that can produce required_empty_string
@@ -546,6 +553,18 @@ func TestAliasShadowedByCanonical(t *testing.T) {
 			wantVerdict: "conditional",
 			why:         "the kind guard refuses a number against a string Default; the bridge's value stands",
 		},
+		{
+			// ADDED 2026-08-15 answering the council's editquality seat (corr 5d491545):
+			// classifyDefaultedConfigValue has FIVE ways the canonical value can fail to
+			// be live, and the first version of this test covered only two of them. The
+			// three below close that gap. A guard that missed any of these would report a
+			// working bridge as dead and send someone to delete config that is doing work.
+			name:        "canonical_is_composite_so_bridge_still_stands",
+			config:      `{"purpose_field": "stored.purpose", "purpose": {"a": 1}}`,
+			wantClass:   classDeprecatedBridge,
+			wantVerdict: "conditional",
+			why:         "composites are refused (LiteralKind returns \"\"); the bridge's value stands",
+		},
 	}
 
 	for _, tc := range cases {
@@ -591,5 +610,50 @@ func TestAliasCollisionGuardCanFire(t *testing.T) {
 	if !fired {
 		t.Fatal("the collision class was never emitted on a fixture built to trigger it — " +
 			"a zero from the live fleet would therefore prove nothing")
+	}
+}
+
+// TestAliasShadowedByCanonical_RemainingFailureBranches closes the rest of the gap the
+// council's editquality seat identified (corr 5d491545): classifyDefaultedConfigValue has
+// five ways a canonical value can fail to be classLiveOverride, and the alias guard must
+// leave the bridge alone in every one of them. Dotted, kind-mismatch and composite are
+// covered in the table above; these are the two that need a different action to reach —
+// unextractable needs a defaulted field outside Required+Optional, and required_empty
+// needs a field that is both Required and Defaulted.
+func TestAliasShadowedByCanonical_RemainingFailureBranches(t *testing.T) {
+	cases := []struct {
+		name, action, aliasKey, config string
+		why                            string
+	}{
+		{
+			name:     "canonical_unextractable_so_bridge_still_stands",
+			action:   "shadowed_action",
+			aliasKey: "mode_field",
+			config:   `{"mode_field": "stored.mode", "mode": "slow"}`,
+			why:      "no strategy iterates a defaulted field outside Required+Optional, so the canonical can never win",
+		},
+		{
+			name:     "canonical_required_empty_so_bridge_still_stands",
+			action:   "guarded_action",
+			aliasKey: "label_field",
+			config:   `{"label_field": "stored.label", "label": ""}`,
+			why:      "an empty string is refused for a REQUIRED field, so the canonical can never win",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			agents := decodeTestAgents(t, `[
+				{"type": "fixture-agent", "workflow": {"start_step": "s1", "steps": {
+					"s1": {"action": "`+tc.action+`", "config": `+tc.config+`}
+				}}}
+			]`)
+
+			alias := findOne(t, findDefaultShadowedKeys(agents, shadowSpecs()), tc.aliasKey)
+			if alias.Class != classDeprecatedBridge || alias.Verdict != "conditional" {
+				t.Errorf("want %s/conditional, got %s/%s — %s\nfinding: %+v",
+					classDeprecatedBridge, alias.Class, alias.Verdict, tc.why, alias)
+			}
+		})
 	}
 }
