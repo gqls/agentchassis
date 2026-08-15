@@ -440,3 +440,37 @@ reviewers asked for:
 `919cc6976` carries `Council-Submitted:`; 098 credits it automatically now the verdict is
 approved. No REVISE required; follow-ups A and B are recorded here rather than smuggled into
 the approved diff.
+
+---
+
+## 11. LIVE + PROVEN, 2026-08-15 ~10:45Z — CLOSED
+
+Fleet roll at **10:14Z** (chassis pods 10:14:10/10:14:31Z). All four §10 verification arms ran:
+
+1. **Provenance:** the running chassis states `build provenance git_commit=0115f2b4528b0063…`
+   (startup line, pod `agent-chassis-7779f5d998-96lpf`, 10:14:35Z), and
+   `git merge-base --is-ancestor` confirms BOTH halves are ancestors: `919cc6976` ✓ and the
+   passenger-carried `3ba384c63` ✓ (the stamp is 27 commits ahead of the fix).
+2. **Effect, demand-controlled:** pre-roll baseline **293** failures in the two hours before
+   the roll (~2.4/min). Post-roll: **8** rows, all inside 10:17:58–10:23:11 — and every one
+   still labelled `failed_transient`, the label this fix RENAMED, so they are self-datingly
+   pre-fix binaries draining out (short-lived spawned pods created before the roll). Since
+   10:24: **zero for 21+ minutes** (~50 expected at the old rate), while **23 child workflows
+   with parents COMPLETED** in that same window — across exactly the former top-failing types
+   (internal-link-resolver 5, build-dispatch-loop 4, page-content-writer 3, page-build-handler
+   3, page-rerender 2…). The zero has demand.
+3. **Positive signal:** `Successfully notified parent of workflow completion` — the log line
+   that only prints when `DeliverReply` reports `Answered()`, unreachable on this path for any
+   child-with-parent since 08-03 — present in 4 live spawned pods
+   (`agent-build-dispatch-loop-483fe901-4vts8` et al.).
+4. **Parent side:** `CHILD_ORCHESTRATION_FAILED` + "could not be delivered" rows post-roll:
+   **0**.
+
+One measurement lesson while verifying: the first positive-signal grep ran against
+`-l app=agent-chassis` and returned 0 — the completing children run in their own spawned
+`agent-<type>-*` pods, not the chassis deployment (the standing wrong-service landmine). The
+line was found once the right pods were asked.
+
+**Closing bar met: fixed AND live AND proven with demand.** File moves to `bugs_closed/`.
+Residual watch (non-blocking): §10's named follow-ups A (shared step-name reader) and B
+(identity-literal consolidation), and the two latent near-misses recorded in §10.

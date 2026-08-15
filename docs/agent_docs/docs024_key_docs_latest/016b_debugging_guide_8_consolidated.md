@@ -12129,7 +12129,7 @@ signature.** Here the pre-fix defect was a function writing *no row at all*, so 
 owned by the requested type" is a check that could only pass on fixed code — far stronger than
 any artefact probe.
 
-### A completed CHILD whose result never reached the PARENT leaves the parent to substitute — so check a payload's PROVENANCE, not just that a payload is there (`bugs_open/274`, 2026-08-14)
+### A completed CHILD whose result never reached the PARENT leaves the parent to substitute — so check a payload's PROVENANCE, not just that a payload is there (`bugs_closed/274`, filed 2026-08-14, CLOSED live+proven 2026-08-15)
 
 The symptom that starts this is never "delivery failed". It is **a record that looks complete and
 plausible and belongs to somebody else.** Bug 213 §D sat at NOT ESTABLISHED for days on exactly
@@ -12182,6 +12182,6 @@ wrapper was located hours after this entry was written — it is `SagaCoordinato
 (274 §9, from a live stack trace): the coordinator's own reply literal omitted `Sender` and
 `InResponseToStepName`, so a SUCCEEDED child was reported to its parent as FAILED, deterministically.
 The honest bound was right to state and cost nothing; the located mechanism superseded it within
-hours, which is the pattern working as intended. Fix (2026-08-15, `bugs_open/274` §10): both notify
+hours, which is the pattern working as intended. Fix (2026-08-15, `bugs_closed/274` §10-11, LIVE+PROVEN same day): both notify
 literals now carry the full envelope, and a validation refusal classifies as `FailedUndeliverable`,
 not transient.

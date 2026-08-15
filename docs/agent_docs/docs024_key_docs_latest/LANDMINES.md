@@ -6401,10 +6401,12 @@ Two more in the same family, both cheap to get wrong:
   finding: the inspected message is not the rejected one.~~ **HYPOTHESIS REFUTED 2026-08-15
   (bugfix 274 lane): the cause was never `reply_to_request_id`** — it is two headers the success
   literal NEVER SET (`sender_agent_type` via `Sender`, and `in_response_to_step_name`), located
-  from a live stack trace in `bugs_open/274` §9 and **FIXED 2026-08-15** (§10): both
+  from a live stack trace in `bugs_closed/274` §9 and **FIXED + LIVE + PROVEN 2026-08-15**
+  (§10-11; rolled 10:14Z, zero recurrences against demand, the drain-window stragglers
+  self-dated by the old `failed_transient` label): both
   `notifyParent*` literals now carry the full envelope, and a validation refusal classifies as
-  `FailedUndeliverable` instead of `failed_transient`. After the fix rolls, the failure mode this
-  entry documents (verdict computed, rejected in transit, only copy reaped in 24h) should stop
+  `FailedUndeliverable` instead of `failed_transient`. The failure mode this
+  entry documents (verdict computed, rejected in transit, only copy reaped in 24h) has stopped
   occurring for THIS cause — the recovery queries above stay valid for any other undeliverable
   reply. Marking the hypothesis honestly as `[HYPOTHESIS]` is what let it be cheaply refuted
   rather than inherited: the marker rule working as intended.
