@@ -2862,3 +2862,21 @@ this session's cold-start falsifier sweep:
   save_page_sections_action.go. Verdict lives in the diagnose-agent
   orchestration's `collected_data->'verdict'` — diagnosis_artifacts rows are
   the iteration INPUT bundles, not the output (learned reading c199c4bf).
+
+## 2026-08-15 (night) — second 090 CONFIRMED at the assembler; bugs_open/285 FILED; work item 2's "check" half is DONE
+
+- `d9f97c15` verdict: **CONFIRMED**, with static citations (tier-1 SELECT
+  reads component_name/assigned_fact_ids only; tier-3 reads pages.sections
+  only — no tier touches page_components) and state citations (contact's
+  pages.sections = ["hero","contact-info"] while the locked chat-input-box
+  row sits in page_components; the guard, not the assembler, preserves it).
+  The hero/CTA rows re-confirmed as context-only (different defect).
+- **Filed `bugs_open/285`** (full case: root cause, three fix candidates
+  ordered by what closes the door, two interaction verifications, the
+  owner's five-step acceptance) + 016b §9 pattern ("a write guard that
+  holds is not list membership; created_by names the messenger, not the
+  composer") + §10 index row. Prior-art find while filing: **bugs_open/282
+  (today, the 407 thread) is the tool-resolver eating tool-level names —
+  the exact downstream interaction a loader-merge must clear for the
+  chat-box case; their fix is a co-requisite.** Implementation is next
+  session's work item 1 (handoff §2.1 updated); the lock stays ON.

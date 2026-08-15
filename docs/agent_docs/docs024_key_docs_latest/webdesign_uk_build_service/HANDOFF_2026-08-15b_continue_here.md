@@ -47,29 +47,22 @@ STAYS ON until the fix lands (owner ruling 2, 2026-08-15).
 
 ## 2. Next work, in order
 
-1. **Read the SECOND 090's verdict** (item_key
-   `needs_diagnosis:section-list-assembly-lock-blind` — run correlation in
-   the NOTES tail; the first round REFUTED the PlanSectionsAction framing,
-   see §0) and FIX per the verdict. The refuting run's own next_scope:
-   `load_page_sections_from_spec` (the authoritative source of the
-   `sections` input per plan_sections_action.go's bugs_open/151 comment),
-   `save_page_sections` (the write step), and whatever populated
-   `pages.sections` for contact around 08-11/08-13. Reading the verdict
-   bundle: the verdict lives in the diagnose-agent orchestration's
-   `collected_data->'verdict'` (diagnosis_artifacts rows are the iteration
-   INPUT bundles, not the output). Acceptance (owner ruling): an improvement
-   pass over the contact page **KEEPS the locked section in its proposed
-   section list** — not merely "the lock blocked it again". The `a4cd5dc8`
-   needs_human_review row is answered by the fix, not dismissed. Prior art:
-   bugs_closed/058 (the write guard IS its fix), bugs_open/189 (positional
-   lock duplication — adjacent), bugs_open/204 (named in
-   plan_sections_action.go's comment about the sections input), bugs_open/276
-   + pending migrations 418/419/420 (another thread is gating
-   requires-backend sections in the same planners — coordinate, don't
-   collide: their pre-state probes already read "concurrent edit?").
-   ⚠ Do NOT re-bundle the hero/call-to-action lock_blocked_change rows as
-   evidence — the refuting run showed those are the CTA-destinations
-   defect's locks (content overwrites), a different mechanism.
+1. **IMPLEMENT the fix per `bugs_open/285`** (filed this session — the
+   complete cold-start: confirmed root cause, fix candidates ordered by
+   what closes the door, the two interactions to verify, the owner's
+   five-step acceptance). The second 090 (`d9f97c15`) **CONFIRMED** the
+   assembler: none of `LoadPageSectionsFromSpecAction`'s four source tiers
+   reads `page_components`, so a locked live section cannot enter the list.
+   Recommended: merge non-agent-writable rows into the list in the loader
+   using the guard's own predicate (`pageComponentAgentWritableSQL`), with
+   the `specSectionFacts` alignment + cache re-sync obligations named in
+   285. ⚠ Verify FIRST against `bugs_open/282` (the tool-resolver eats
+   tool-level names one step downstream — their fix is a co-requisite for
+   the chat-box case) and `bugs_open/189` (guard duplication seam).
+   Platform code → council gate per CLAUDE.md. Acceptance (owner ruling):
+   an improvement pass over contact **KEEPS the locked section in its
+   proposed list**; the `a4cd5dc8` needs_human_review row is answered by
+   the fix, not dismissed.
 2. **PLAN steps 5–6** (extend tool-deployer for the backend half; wire
    tool-suggester to cite the approved plan) — both now unblocked by step 3.
    Step 5's real test is a SECOND site on the box; the approved plan's LATER
