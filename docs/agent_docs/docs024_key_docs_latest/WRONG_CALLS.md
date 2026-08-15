@@ -53,6 +53,7 @@ a 2.0% fire rate over 300 commits, wired in as advisory.
 | **grep the index before filing — and hardest when a human is waiting, because their report went to more than one session** | **2** |
 | **grade a probe on the ACTION's own output (`collected_data-><step>`), never on the run's terminal status — a harness that never delivered its payload completes GREEN** | **1** |
 | **check whether an existing bug has an owning workstream before routing work to it** | **1** |
+| **re-measure an INHERITED claim about live state before using it to predict an experiment's outcome — "I can tell you what this will show" is a reason to run the cheap version, not to skip it** | **1** |
 | **read before write — never `cat >` a file you did not create** | **1** |
 | **re-resolve a file:line you carried across sessions — above all one you edited yourself** | **1** |
 | **verify an embedded/quoted artifact is COMPLETE before asserting it — a fixed `[:N]` slice is an unmarked truncation; an author's own ellipsis in evidence is the same defect by hand** | **3** |
@@ -31831,3 +31832,56 @@ live.
 added today because another lane has an uncommitted entry in that file, and a pathspec commit
 takes same-file passengers — adding my cross-reference would have swept their in-progress work
 into my commit under my message.
+
+---
+
+## 2026-08-15 — I recommended AGAINST the test that produced the day's only real result
+
+**The claim.** Having exercised `bugs_open/213`'s half two on one site, I told the owner that
+running it on the other three "would exercise the identical arm and produce the identical
+`silent=false` / `retracted=0` result, since all four defects are genuinely unrepaired", and
+recommended stopping. I also wrote it into NOTES as a stated limitation: *"the bump arm needs a
+run that is silent … all four `failed` sites are genuinely unrepaired, so no live run can be
+silent yet."*
+
+**What was true.** The owner overruled me and ran all three. The second site,
+`mortgagecalculator.co.uk`, came back **`silent: true, streaks_bumped: 1`** — the first live
+execution of the arm I had just declared unreachable, and the only new mechanism proven all day.
+The other two behaved exactly as I predicted, which is the part that makes this instructive: my
+prediction was right about 2 of 3 and the exception was the whole point.
+
+**Why it was wrong, and it is not "bad luck".** The claim rested on *"the four rows are
+genuinely unrepaired"*, which I took from the lane's own handoff and **never re-measured**. It
+had gone stale that same afternoon: another lane completed five `page_rerender` items on
+mortgagecalculator.co.uk at 13:44–13:53Z, ~12 minutes before my audit. On a tree this many
+sessions share, a claim about live state written in the morning is not evidence in the
+afternoon — and this file already carries *"prove the artefact is current before reasoning from
+it"* four times.
+
+**The deeper error is the shape of the argument, not the stale input.** I used a *prediction of
+the result* as the reason not to run the experiment. That reasoning is only sound when the
+prediction cannot be wrong, and mine rested on an unverified premise — so it was strongest
+exactly where it was least entitled to be. An experiment whose outcome you are confident about
+is the cheap kind to run, not the safe kind to skip: if you are right it costs little, and if
+you are wrong it is the only thing that will tell you.
+
+**The cheap check that would have caught it** — one query, before recommending anything:
+```sql
+-- has anything touched these sites since the handoff's claim was written?
+SELECT s.domain, w.item_type, w.status, w.updated_at
+FROM site_work_items w JOIN sites s ON s.id = w.site_id
+WHERE s.domain IN ('gamesdesign.co.uk','mortgagecalculator.co.uk','oufe.com','webdesign.uk')
+  AND w.updated_at > '2026-08-15 00:00' ORDER BY w.updated_at DESC;
+```
+It returns the five `page_rerender` rows immediately. I ran that query *afterwards*, to explain
+the surprise; running it first would have turned my recommendation around.
+
+**What it cost, and what it nearly cost.** Nothing, because the owner overrode me. Had they
+accepted the recommendation, the lane would have kept its "the bump arm has never run in
+production" limitation — an unfalsified claim about our own safeguard — while the evidence
+against it sat one dispatch away.
+
+**Relations:** the `prove-a-deploy-at-the-artefact` family · MEMORY
+[[a-record-goes-stale-faster-than-its-reader-can-tell]] · [[prior-art-search-goes-stale]] ·
+[[a-post-fix-zero-needs-a-demand-control]] (same shape: a zero you predicted is not a zero you
+measured).

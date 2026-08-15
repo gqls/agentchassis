@@ -1455,8 +1455,15 @@ a second `detected` duplicate cannot be filed while the first is open. Recorded 
 
 ### What is still NOT proven live, stated plainly
 
-- **The bump arm** (streak climbing) — needs a run that is silent about a site holding an open
-  row. All four `failed` sites are genuinely unrepaired, so no live run can be silent yet.
+- ~~**The bump arm** (streak climbing) — needs a run that is silent about a site holding an open
+  row. All four `failed` sites are genuinely unrepaired, so no live run can be silent yet.~~
+  > **CORRECTED 2026-08-15, ~50 minutes later — THE BUMP ARM FIRED, and this claim was FALSE
+  > when I wrote it.** See the batch-2 section below. What caught it: the owner overruling my
+  > recommendation to stop at one site. I had recommended against running the other three on
+  > the grounds that they would "produce the identical result", and the very next site produced
+  > the single most valuable result of the day. **The claim inherited "they are genuinely
+  > unrepaired" from the handoff without re-checking it** — and it had gone stale that same
+  > afternoon, when another lane re-rendered one of the four sites at 13:44–13:53Z.
 - **The retraction arm** (N=3 → close) — needs three consecutive such runs.
 - **The `audit_source` scope guard is still indistinguishable from the closed-status guard on
   live data.** [MEASURED] every `design-audit`-sourced row fleet-wide is `complete`, so it is
@@ -1469,3 +1476,95 @@ a second `detected` duplicate cannot be filed while the first is open. Recorded 
 `needs_design_review`, `responsive_fix`, `spacing_fix`. All inert while nothing triages. Fleet
 `dark_section_audit` population moves 19 complete / 4 failed → **19 / 4 / 1 detected**. One
 visual LLM audit's spend. **No live site content changed.**
+
+---
+
+## 2026-08-15 batch 2 — the other three sites, and THE BUMP ARM FIRED
+
+Owner chose to run the remaining three despite my recommendation to stop at one. That was the
+right call and my recommendation was wrong; the reasoning is recorded in `WRONG_CALLS.md`.
+
+| site | corr | silent | candidates | bumped | created |
+|---|---|---|---|---|---|
+| mortgagecalculator.co.uk | `a62e2cd7` | **true** | 1 | **1** | 0 |
+| oufe.com | `81538a11` | false | 2 | 0 | 4 |
+| webdesign.uk | `d21a326c` | false | 2 | 0 | 5 |
+
+### The silent run, and what it wrote
+
+`mortgagecalculator.co.uk` returned 5 findings, `classification_stats` =
+`{spacing_fix: 1, responsive_fix: 1, needs_design_review: 3}` — **no `dark_section_audit`**. So
+`shapeRecognised` was true (it parsed a full findings list) and `observedItemTypes` lacked the
+gated type. That is the honest definition of silence, not a failure to read the instrument.
+
+The row `6fe8a0fc-…` now carries, and remains `failed`:
+```json
+{"silent_runs": 1, "audit_source": "visual-design-audit",
+ "last_silent_at": "2026-08-15 14:05:37.321502+00"}
+```
+
+**`candidates: 1` here vs `2` on the three noisy sites is the same rule seen from both sides**,
+and it confirms the batch-1 explanation exactly: a run that files a dark-section row counts its
+own new row (2); a silent run files nothing, so only the pre-existing `failed` row is a
+candidate (1). Nothing else needed to change for that to come out right.
+
+### The silence is CORROBORATED AT THE ARTEFACT, not taken on the LLM's word
+
+A single silence is weak by design (N=3 exists because the per-run miss rate is bounded at only
+~35%), so the interesting question is whether this one was a true repair or a miss. It is
+neither of the obvious answers. **The ticket's premise does not hold on the served page.**
+
+Ticket `6fe8a0fc-…` (filed 2026-08-13) reads: *"CTA section uses
+`var(--color-cta-bg, var(--color-primary))` which resolves to the gold accent (#b59230) as its
+background … if `--color-cta-ink` is undefined the text will inherit the body dark colour
+(#334155) … creating very poor contrast."*
+
+[MEASURED 2026-08-15 14:2xZ, `curl` of the live site + its stylesheet]
+`https://mortgagecalculator.co.uk/assets/css/styles.css` declares:
+```css
+--color-cta-bg:   #e9e2d3;   /* light cream */
+--color-cta-text: #1a1a1a;   /* near-black */
+--color-primary:  #b59230;   /* the gold the ticket feared */
+```
+`--color-cta-bg` **is defined**, so the `var(…, var(--color-primary))` fallback is
+**unreachable** — the CTA is near-black on cream, contrast ≈ **13.5:1**. `--color-cta-ink` does
+not appear anywhere in the HTML or the CSS (0 occurrences), so the whole conditional the ticket
+is built on never evaluates.
+
+This is textbook `[[a-css-fallback-is-present-and-inoperative]]`: the auditor read the *source*,
+reasoned about what would happen *if* the fallback fired, and filed a ticket on a branch the
+served page never takes. **So the silence is correct, and half two's first live streak is
+accumulating against a ticket that arguably should never have been open.** That is the mechanism
+doing exactly its job — an honest exit for an item the handler could never have "repaired",
+because there was nothing to repair.
+
+⚠ **What I could NOT establish:** whether `--color-cta-bg` was already declared on 08-13 (making
+the original ticket a false positive from the start) or was added by the five `page_rerender`
+items another lane completed at 13:44–13:53Z, ~12 minutes before this audit. I have no
+pre-render copy of the CSS. Both stories end in the same correct behaviour here, but they are
+different facts and I am not asserting either.
+
+### ⚠ A REAL GAP IN THE N=3 RULE, found by nearly exercising it
+
+`ConsecutiveSilences: 3` counts **runs, not independent observations, and nothing enforces a
+minimum interval between them.** Three manual dispatches inside one minute would satisfy it and
+retract the ticket. The measurement that licensed N=3 was *"7 of 7 post-closure re-visits across
+4 sites"* — re-visits spread over **days**, against page states that had had time to change.
+Three reads of an unchanged page minutes apart are heavily correlated, so they do not carry the
+independence the ~4.2% figure assumes.
+
+On the natural cadence this never bites (the sweep round-robins the estate, so a given site is
+re-audited rarely). It bites the moment anyone does what I just did — drive the streak by hand.
+**Do not walk a ticket to retraction with back-to-back manual runs and then cite the 4.2%.**
+Candidate fix if this ever matters: gate the bump on `last_silent_at` being older than some
+interval, so a burst counts once. Not filed as a bug — the mechanism is correct on its intended
+driver, and this is a hazard of the manual lever §9 introduces.
+
+### Side effects, batch 2
+
+9 new `detected` items across oufe.com (4) and webdesign.uk (5); **0 on
+mortgagecalculator.co.uk**, where all 5 findings deduped onto existing rows. Fleet
+`dark_section_audit` population: **19 complete / 4 failed / 3 detected**. The four `failed` rows
+are all still `failed` — none retracted, which remains the correct outcome for the three noisy
+sites and is correct-so-far (1 of 3) for the silent one. Three visual LLM audits' spend. **No
+live site content changed by any of this.**

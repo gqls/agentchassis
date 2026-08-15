@@ -427,3 +427,49 @@ That is harmless and it cannot grow beyond two, but the count in the report read
 one, and I would rather you saw that here than wondered about it later. The cost of all this was
 one audit, and four new suggestions on that one site, none of which anything will act on while
 the sweep is off.
+
+---
+
+**2026-08-15, later still — and I was wrong about the interesting part.** I had recommended
+against running the other three sites, on the grounds that they would all come back the same and
+tell us nothing new. The owner said run them anyway. He was right and I was wrong, and it is
+worth being precise about how, because the reasoning I used was the problem rather than the luck.
+
+Two of the three did come back exactly as I predicted. The third, the mortgage calculator, did
+not: **the audit looked at the site and found no dark section at all.** That matters because it
+is the other half of the safeguard — the half that starts counting towards eventually closing a
+ticket, which until this afternoon had never once run outside a test. The ticket is now marked
+"one clean look so far". It needs three before it closes, so it is still open, and correctly so.
+
+I then checked whether the audit was right to go quiet, rather than taking its word for it. I
+fetched the actual page and its stylesheet and read the colours directly. **The fault described
+in the ticket is not on that page, and on the evidence it may never have been.** The ticket says
+the call-to-action falls back to a gold background with dark text on it, which would indeed be
+unreadable — but that fallback only applies if the site has not set its own colour, and it has:
+the panel is near-black text on a light cream background, which is about as readable as it gets.
+The audit had been reasoning about what *would* happen in a case that never arises. So the
+safeguard is not closing a repaired fault; it is on its way to closing a ticket that arguably
+should not have been raised. That is still exactly what we want it doing, and I would rather it
+reached that outcome by observation than by anyone going in and deleting the row by hand.
+
+What I cannot tell you is whether that colour was always set, or whether it was set by the five
+page re-renders another thread of yours ran on that site at about a quarter to two, twelve
+minutes before my audit. I have no copy of the old stylesheet, so both stories are open and I am
+not going to pick one.
+
+**Why my recommendation was wrong, in one line:** I told you the result in advance and used that
+as the reason not to look, and the thing I was confident about turned out to rest on a sentence I
+had copied from our own handoff without re-checking it — a sentence that had stopped being true
+that same afternoon, when your re-renders ran. Being sure what an experiment will show is a
+reason to run the cheap version of it, not a reason to skip it. I have written that up in the
+fleet-wide ledger of wrong calls, because the tally there is what eventually justifies automating
+a check.
+
+**One caution about what we can now do.** Because the ticket needs three clean looks, I could
+simply run the audit twice more in the next few minutes and watch it close, which would prove the
+whole mechanism end to end. I would rather flag something first: the rule counts *runs*, and
+nothing stops those runs happening seconds apart. The three-strikes figure was chosen from
+evidence gathered over days, where each look was at a page that had had time to change. Three
+looks at an unchanged page in one minute are really one look repeated, so closing the ticket that
+way would satisfy the rule without earning it. On the normal schedule this never comes up. It
+only comes up because I have just built a way to drive it by hand.
