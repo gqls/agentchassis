@@ -741,3 +741,60 @@ Six. Four come out of RFC_028, one is small and operational, one is bigger than 
 
 My own suggestion: 2, 4 and 5 are small and self-contained; then measure the three uncached
 agents and bring you a number before anything is spent on 1, 3 or a second provider.
+
+**2026-08-15 — the six decisions, and the one that turned out to be blocked by something that isn't true.**
+
+You ruled on all six. Four of them (the resolver's owner, the "full stop means look it up"
+rule written once in code, the limit on how many rules the chain may have, and the guard on
+the old-name/new-name collision) are written, reviewed and approved. The reviewers earned
+their fee: I'd tested two of the five ways that collision check can be wrong, and one of
+them caught it. All five are covered now.
+
+They also caught me repeating myself. I justified a design decision by quoting a count of
+past reviews without attaching the query that produced it — which is the *same* objection
+the *same* reviewer made about the *same* number one round earlier. I've written that into
+the wrong-calls log, because the lesson had already been recorded in this lane's own file,
+by me, and I sailed straight past it.
+
+**On the scheduler: you were right, and better than I realised.** There are actually two
+scheduling systems here. The six existing config checks all use the older one, which needs a
+container image built and shipped for each check. The one you were thinking of already runs
+four jobs of exactly the shape we need — which means no image at all, ever: the check lives
+inside the program that already holds the information it's checking, and switching it on is a
+single database row. That's the way I'll build it.
+
+**On caching, the news is better than I expected and the reason is slightly embarrassing.**
+
+Our system deliberately uses the five-minute cache rather than the one-hour one. The reason
+was recorded carefully: a reviewer found that the longer cache needed a special permission
+flag we don't send, and that using it without the flag would make *every* AI request in the
+estate fail — not just this one improvement. Sound reasoning, and the note said plainly: do
+not turn this on until someone confirms the flag.
+
+I confirmed it. **There is no flag.** The longer cache is generally available and needs
+nothing special. I sent one real request from inside the system and it not only succeeded,
+the response explicitly confirmed it had stored an hour-long cache entry. I checked both of
+the AI models we use.
+
+That matters because of one number: the agent with the most to gain from caching reuses its
+work **1% of the time within five minutes, and 99.8% within an hour**. Under the old setting,
+switching caching on for it would have cost us about **24% more** than not caching at all. The
+saving wasn't being left on the table — it was out of reach.
+
+So the setting is flipped and with the reviewers now. Two honest caveats. It's a change to
+the program rather than the database, so it does nothing until the next release is built and
+rolled — that's your `make release`. And the largest spender of all, the page-content writer,
+**cannot** be helped by this: the part of its instructions that repeats sits at the *end*,
+and caching only works from the beginning, and even moved it would be too small to qualify.
+
+**One thing I found by accident and think you should know.** Our internal register — the
+document the automated reviewers treat as the source of truth — has been stating since the
+10th that we use the one-hour cache. We didn't. The correction was actually recorded at the
+time, but nine lines further down the same entry, so the document has been contradicting
+itself for five days with the *wrong* half at the top where people read it. My change happens
+to make it true again, which is exactly why I wrote it down rather than letting it quietly
+become correct.
+
+**What's left:** building the scheduled check, and putting the caching marker into the two
+agents that can use it — one of which must wait until the release ships, or it costs more
+rather than less.
