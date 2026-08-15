@@ -31266,3 +31266,49 @@ table licensed: two lanes and a council seat treated the hold as proven, and the
 that only luck kept harmless.
 
 ---
+
+## 2026-08-15 — a mission instruction written from a shorthand's echo, fired at a live pipeline (loancalculator lane)
+
+**The claim:** the mission text I dispatched with the rebuild instructed "the homepage keeps its
+credit roadmap tool". The homepage's locked tool row is `tool-loan-repayment` — the standard
+repayment calculator. I composed the sentence from memory of a NOTES lock-list shorthand
+("index/tool-3") plus the mission draft's calculator enumeration, and never asked the database
+which tool the homepage actually carries.
+
+**Caught by:** grepping my own pre-fire baseline snapshot (taken for a different purpose — the
+phase-2 composition comparison) minutes AFTER the 082 dispatch had persisted the wrong sentence
+into `site_specs` with the classifier already claimed onto the item. The correction beat the
+downstream readers by luck and queue timing, not by design: both submitter-written rows carried
+the clause; the classifier's four output specs did not.
+
+**The cheap check that would have caught it:** one SELECT of the page's components before writing
+a sentence that names what a page carries. The instruction is about a specific row; the row was
+one query away; the baseline file that caught it was built from exactly that query.
+
+**Cost:** two spec-row UPDATEs and this entry. Had it survived to phase 2 (homepage released for
+recompose), the planner would have been licensed — instructed — to swap the homepage's repayment
+calculator for a roadmap tool, and the acceptance check would have read it as an instructed
+change, not a defect.
+
+---
+
+## 2026-08-15 — the Q2 baseline was stamped from the wrong clock (loancalculator lane)
+
+**The claim:** "fire time = 2026-08-14T21:52:30Z", captured from the local machine's `date -u`
+and written into NOTES and the new-rows check as the invention-detection baseline.
+
+**Caught by:** the submission's own DB rows, created at `2026-08-15 07:54:41` — the cluster is
+~10 hours ahead of the local clock. Every created_at comparison runs on the DB's clock, so the
+baseline as written silently widened the detection window to ~10 hours of unrelated overnight
+traffic (numerically safe — it PREdates the true fire — but a wider net than the check was
+designed to cast, and the same error in the other direction would have EXCLUDED the very rows
+the check exists to catch).
+
+**The cheap check that would have caught it:** stamp baselines from the arbiter that will judge
+them — `SELECT now()` on the DB in the same breath as the action, never the local clock. One
+round trip.
+
+**Cost:** a NOTES correction and a tightened baseline (`2026-08-15 07:54:00Z`). Nothing false
+reached a reader; the risk was all in the direction not taken.
+
+---

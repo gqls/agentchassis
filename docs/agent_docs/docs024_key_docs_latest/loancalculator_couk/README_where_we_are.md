@@ -1872,3 +1872,15 @@ planner is happy to fill in, so restoring the two rows is all the preparation th
 need. One more thing found on the way: the platform was updated fleet-wide this
 evening (after the handoff was written), and the site came through it serving all
 27 pages cleanly — re-checked before touching anything.
+
+2026-08-15 (morning) — The rebuild is FIRED and moving. The two wanted pages are
+restored, the eight non-calculator locks are off (the twelve calculator locks stay),
+and the submission went through cleanly — the research stage picked it up within
+half a minute and finished within a few. Two mistakes of mine, both caught and fixed
+within minutes, both written up in the fleet's wrong-calls log: I told the brief the
+homepage carries the "credit roadmap" tool when it actually carries the standard
+repayment calculator (fixed in the brief and in the stored copy before anything
+downstream read it), and I timestamped the launch from this machine's clock, which
+turns out to run about ten hours behind the cluster's — the database's own clock is
+the one that counts. Watching now for the new site plan to land; the moment it does,
+the two new pages' build tickets get un-parked and the invention check runs.

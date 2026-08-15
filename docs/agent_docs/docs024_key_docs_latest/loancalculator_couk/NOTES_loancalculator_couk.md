@@ -5264,7 +5264,20 @@ assemble would run against a superseded state; phase 1's reconciler emits its ow
 7. Verify per handoff step 5 (purity of the 12 locked rows vs 08-11 backups,
    URL diff EMPTY on the 27, toolgolden 11/11, calculators in place).
 
-**PHASE 1 FIRED 2026-08-14 ~21:55Z.** `CORR=2d950ecc-4919-441b-a4fb-e6aa47663ad9`,
+**PHASE 1 FIRED 2026-08-14 ~21:55Z.**
+> **CORRECTED 2026-08-15: the true fire time is `2026-08-15 07:54:41Z` — the DB's
+> clock, which is the arbiter for every created_at comparison. The local machine
+> clock is ~10h behind the cluster; the submitter's own spec rows caught it. Q2
+> baseline tightened to `created_at > '2026-08-15 07:54:00Z'`. Same session, two
+> further corrections: (1) my added mission sentence said the homepage keeps its
+> "credit roadmap tool" — the homepage's locked row is `tool-loan-repayment`;
+> caught minutes post-fire by the pre-fire baseline snapshot, corrected in the
+> mission FILE and in the two spec rows that carried it (`mission_brief`,
+> `submission`) BEFORE any downstream reader — the classifier's four output specs
+> verified clean of the clause. Both in WRONG_CALLS.md 2026-08-15. (2) The
+> pipeline is FAST tonight: classifier claimed the item 27s after mint and its
+> outputs landed within ~3 min — the ~30-min publish→start budget did not apply.**
+`CORR=2d950ecc-4919-441b-a4fb-e6aa47663ad9`,
 printed orch `d03733c0` (find the run by CORRELATION, never the printed id). Q2
 baseline for the new-active-rows check: `created_at > '2026-08-14 21:52:30Z'` (the
 two restored rows are 19:14Z — they do not trip it). Pre-fire state at the moment of

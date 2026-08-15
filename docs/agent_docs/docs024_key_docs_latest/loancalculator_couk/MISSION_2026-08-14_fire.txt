@@ -14,7 +14,7 @@ Otherwise add no new pages.
 As part of this rebuild, reconsider every existing page's layout and recompose it
 to serve its purpose best — do not simply re-emit the current layouts. The one
 non-negotiable in any recomposition: each calculator page keeps its calculator as
-the centrepiece of the page, and the homepage keeps its credit roadmap tool.
+the centrepiece of the page, and the homepage keeps its loan repayment calculator.
 
 Every calculator must actually compute what it claims, client-side, with the
 arithmetic visible in the page. Never state a capability a tool does not have: if a
