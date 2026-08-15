@@ -24,7 +24,7 @@
 # firing them concurrently races two assemblies and two commits for the same file.
 # One at a time, each waited on.
 #
-all]|all]
+# Usage:  ./074_section_editor_noted_cta_urls.sh [all | <page> | "<page>|<slot>"]
 #         Run the single canary FIRST — the spawn->call handshake on this path is
 #         known-flaky (see memory `spawn-call-handshake-races`), and a failure is
 #         not evidence that the edit itself is wrong. Never cancel a failed row
@@ -48,10 +48,10 @@ MODE="${1:-index|hero}"
 # Owner decision 2026-08-12: build /legacy (PLAN §4 step 3) and point at it. The
 # explicit value below is what stops the resolver choosing for us in the meantime.
 EDITS=(
-  'index|hero|{"cta_url":"https://app.noted.co.uk/","secondary_cta_url":"/how-it-works.html"}'
-  'index|call-to-action|{"primary_cta_url":"https://app.noted.co.uk/","secondary_cta_url":"/how-it-works.html"}'
-  'how-it-works|hero|{"cta_url":"https://app.noted.co.uk/","secondary_cta_url":"/migrate.html"}'
-  'how-it-works|call-to-action|{"primary_cta_url":"https://app.noted.co.uk/","secondary_cta_url":"/migrate.html"}'
+  'index|hero|{"cta_url":"https://app.noted.co.uk/tools/write/","secondary_cta_url":"/how-it-works.html"}'
+  'index|call-to-action|{"primary_cta_url":"https://app.noted.co.uk/tools/write/","secondary_cta_url":"/how-it-works.html"}'
+  'how-it-works|hero|{"cta_url":"https://app.noted.co.uk/tools/write/","secondary_cta_url":"/migrate.html"}'
+  'how-it-works|call-to-action|{"primary_cta_url":"https://app.noted.co.uk/tools/write/","secondary_cta_url":"/migrate.html"}'
   'migrate|hero|{"cta_url":"/tools/legacy-rescue/index.html","secondary_cta_url":"/how-it-works.html"}'
   'migrate|call-to-action|{"primary_cta_url":"/tools/legacy-rescue/index.html","secondary_cta_url":"/how-it-works.html"}'
 )

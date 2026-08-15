@@ -1975,3 +1975,47 @@ telling; retry converges because a retried save updates, not duplicates).
 Next when the page lands: sitesync tick → live smoke on the real page →
 re-point the site's "Sign in" CTAs at /tools/write/ → bind
 `authenticated-note-sync` to the built component (§4.1, still open).
+
+---
+
+## 2026-08-15 — the editor is LIVE, smoke-tested against the real service; the Sign in loop is closed
+
+The assemble item completed overnight via the estate queue (no bypass — the owner
+did not answer the offer, and waiting was free). Page `deployed`, publicly serving
+at `https://app.noted.co.uk/tools/write/` (200/22947, editor markup present,
+tool-doc stripped).
+
+### The live smoke (`editor_tool/smoke_live_editor.py`) — ALL 11 CHECKS PASSED
+
+Real page, real nginx, real engine, open internet. Registered a throwaway
+(`noted-smoke-<epoch>@example.invalid` — unroutable by design; the engine has no
+account-deletion endpoint so the account remains, holding one test note), then:
+
+- **outage first**: route.abort on POST /api/notes → loud banner, "NOT saved",
+  text untouched, and — the clause itself — **"Saved ✓" never appeared**;
+- **recovery**: unroute → Try again → the SAME text saved by the real engine;
+- **the product's promise**: a SECOND independent browser context signed in and
+  got the note back, same title, same text.
+
+The script takes a base URL argument precisely so it can be re-run **on the apex
+at cutover** — origin is scheme+host+port and §6's warning applies to the editor
+now too.
+
+### The Sign in loop closed
+
+`index` and `how-it-works` primaries re-pointed from `https://app.noted.co.uk/`
+(which looped to the marketing page) to **`…/tools/write/`** via 074 (EDITS
+updated; its Usage comment line, mangled by an earlier sed, repaired). Verified in
+`rendered_html` (all four slots) and on the box — index at 14:41, how-it-works one
+sitesync tick later at 14:45. Shopfront 200 throughout; apex still the legacy app.
+
+### State: the walkthrough is ready for the owner's hands
+
+`WALKTHROUGH_2026-08-14_degraded_states_by_hand.md`, at
+`https://app.noted.co.uk/tools/write/`. Blocker 4 closes on the owner's word, not
+mine — the loud-enough/obvious-enough judgement is the part that was always his.
+
+Still open after that: bind `authenticated-note-sync` + `legacy-local-data-adoption`
+to the built components (§4.1, `site_experiences`, proposed → bound → verified) —
+the editor now EXISTS to bind to; then cutover (§4.5, owner's word) with the §6
+origin probe and the smoke re-run against the apex.
