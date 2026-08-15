@@ -10724,10 +10724,23 @@ code change owed at the next roll, tracked in RFC_015 §5.
   proven end-to-end** (run `b2c82a25`: object shape, 5 findings, 5 items created,
   `audit_source='site-review'` — the first such rows ever; `bugs_closed/272` holds the trail).
   The paragraph below was written earlier the same day, when v1.0.1300 had missed the fix;
-  its probe recipe stays useful for the next same-shaped question. **Half 2 remains UNFIXED
-  — now filed with full mechanism + census as `bugs_open/279`** (work_item_type discarded
+  its probe recipe stays useful for the next same-shaped question. ~~**Half 2 remains UNFIXED
+  — now filed with full mechanism + census as `bugs_open/279`**~~ (work_item_type discarded
   unparsed at the struct; brief-fidelity-auditor unrouteable BY CONSTRUCTION, its category
   hardcoded to a value in no routing set; 6 minted rows live). Fix there, not from here.
+- **UPDATE 2026-08-15c (279 fixing session): half 2 is FIXED IN CODE + PROMPTS, Go half NOT
+  YET LIVE.** Commit `d6d56e540` (`Council-Submitted: 925d7759`): the minting fallback now
+  files **`capability_gap`** (deferred, empty handler, `spec.builder_needed` — remit.go's
+  conventions; surfaced by `diagnose_triage`'s roadmap view), counted in the result map as
+  `unrouted_categories` and Warn-logged; a closed-set CI test
+  (`write_audit_findings_verifier_join_test.go`) fails on any undeclared emittable type.
+  Migration `416` (APPLIED + recorded 2026-08-15) deleted the dead `work_item_type` field
+  from both prompts, so half of leg 2 above is now historical: prompts no longer ask for it.
+  **Until the next chassis roll the OLD binary still mints** — check the build-provenance
+  stamp before believing a new auditor's unknown category files a `capability_gap`. Nuance
+  the fix surfaced: an unknown category on an EXISTING page never reached the fallback —
+  Rule 4's `default:` swallows it as `content_rewrite` (unchanged, documented in the test).
+  The 4 `detected` minted rows stay put (`bugs_open/115`'s evidence; owner decision).
 - ~~**UPDATE 2026-08-15 (272 fix session): half 1 is FIXED IN CODE, NOT YET LIVE.**~~ Commit
   `2a3ea3e2c` (council-approved, corr `5a79843a`) adds the missing `map[string]interface{}`
   case — `parseAuditFindings` now unwraps `v["findings"]` — and the zero path reports

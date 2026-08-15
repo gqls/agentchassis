@@ -735,3 +735,34 @@ opening lines of each page, which is a v2 change and is written down. I am flagg
 **What is not done.** B4 only runs when I fire it by hand. Wiring it into the automatic improvement
 sweep is a separate, small change and it is next, along with telling the other lane that the list
 they asked for now exists.
+
+---
+
+## 2026-08-15 (later) — the routing bug this lane found is fixed at source; two decisions are yours
+
+*(appended by the bugs_open/279 fixing session — this lane filed that bug from its LANDMINES entry, so the closure note goes here too)*
+
+The second half of the write_audit_findings trap this lane wrote up is now fixed and committed
+(the first half — the silently-dropped object — was fixed yesterday as bug 272). What was wrong:
+when any auditor invented a category the router didn't know, the platform quietly created a work
+item type nothing could ever act on, and it sat in the queue looking like normal pending work. The
+brief-fidelity auditor — the one that correctly predicted your complaints back in July — had ALL
+of its output land this way, which is why its findings were never acted on.
+
+What happens now instead: an unknown category is filed as a "capability gap" — the platform's
+existing way of saying "I found work I have no handler for". Those rows show up on the triage
+sweep's roadmap report rather than pretending to be dispatchable, the action's result now counts
+them out loud, and a test fails the build if anyone reintroduces the old behaviour. The two
+auditor prompts that demanded a field nothing ever read have also stopped asking for it (that
+part is already live; the code part rides the next release).
+
+**Two decisions are yours, not mine:**
+
+1. **The four dead findings from 13 August** (brief-fidelity, mortgagecalculator site) are still
+   sitting in the queue as evidence for bug 115. They can be cancelled, or re-run once the fix is
+   live. I deliberately did not touch them.
+2. **Whether the brief-fidelity auditor becomes a real, routed, scheduled check.** Today nobody
+   dispatches it and its category has no route. With this fix its findings at least surface as
+   roadmap entries, but making them actionable means deciding what should HANDLE a "page deviates
+   from the brief" finding — that is a product call. Bug file 279 has the options under
+   candidate 3.
