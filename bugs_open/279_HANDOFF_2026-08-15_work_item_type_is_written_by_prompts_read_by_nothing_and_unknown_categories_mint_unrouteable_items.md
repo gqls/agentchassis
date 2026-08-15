@@ -503,3 +503,24 @@ the 213-lane contribution below was the one thing that had changed).
 > architecture seat caught the collision. This lane's applied `417` keeps its filename
 > (renaming a recorded migration breaks its ledger checksum); its header's "418_HOLD"
 > pointer is deliberately stale and the renamed file's own header explains.
+
+## VERDICT 2026-08-15 round 3 — APPROVED (corr `336d1549`, resubmission), advisories dispositioned
+
+**`Council-Reviewed: 336d1549-6d85-4c33-ab09-e8faaac5aae4`** — read in full. The
+round-2 REVISE's gating objection (verify 417 applied) and both reuse mediums were
+answered in commit `16963d9c6` (pattern-check twin with a real-history positive
+control; 418→419 renumber; layering stated; doc_notes records). Round-3 advisories,
+dispositioned:
+
+- debug_historian's "no separate rollback file" for 417 — **it exists and is
+  committed** (`417_..._ROLLBACK.sql`, `36aca20bc`); the seat sees the plan JSON,
+  not the tree. Its pod-grep point is the post-roll checklist's step 1.
+- prior_art's verifiability mediums — index limits, not defects; every claim is
+  evidenced in-repo or in `schema_migrations`.
+- **architecture [medium], worth keeping: the category-string routing contract is
+  absorbing producers one point-patch at a time** (this wiring makes six), "rather
+  than prompting reconsideration of the contract". This is the RFC_022 shape —
+  accumulation that no single addition triggers review of. Not this lane's build,
+  but the next session adding a SEVENTH producer (or a twelfth category) should
+  treat that as the accumulation trigger and take the contract itself to the
+  architecture track instead of extending the vocabulary again.
