@@ -48,12 +48,17 @@ ROLLBACK — deliberately NOT restore-from-backup; see file header):
   `input_data.site_id`.
 - No-match/no-spec = NO WRITE, so the fleet outside the three finance verticals is
   untouched by construction.
-- **Council corr `47785bb5-ca66-4aed-819f-2bd29277b80d`: SUBMITTED, VERDICT UNREAD —
-  read it first thing**:
+- **Council corr `47785bb5-ca66-4aed-819f-2bd29277b80d`: round 1 REVISE (20:49Z,
+  version-pin/two-active-rows objection — sketch-visibility artefact on the forward
+  file, REAL on the ROLLBACK, which now carries the count guards), round 2 RESUBMITTED
+  ~21:05Z with guards quoted verbatim + fresh measurements. READ THE ROUND-2 VERDICT
+  first thing**:
   `SELECT created_at, metadata->>'decision' FROM diagnosis_artifacts WHERE
    correlation_id='47785bb5-ca66-4aed-819f-2bd29277b80d' AND kind='council_report' ORDER BY 1;`
-  (Report body: same table, column `body`. If REVISE: fix and resubmit with
-  `RESUBMIT_CORR=47785bb5-…`.)
+  (Report body: same table, column `body`. If REVISE again: fix and resubmit with
+  `RESUBMIT_CORR=47785bb5-…`.) Full round-1 disposition: NOTES closing entry, which
+  also records the architecture seat's flag — a THIRD news-feed-style enrichment
+  splice is the RFC trigger for a shared abstraction; do not hand-copy a third one.
 
 ## 2. Fresh findings a new session must know
 

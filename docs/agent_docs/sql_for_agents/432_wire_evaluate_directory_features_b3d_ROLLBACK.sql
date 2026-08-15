@@ -15,9 +15,31 @@ BEGIN;
 
 DO $do$
 DECLARE
+    n int;
     il jsonb;
     cl jsonb;
 BEGIN
+    -- Exactly-one-active-row guards (added after council round 1 on corr
+    -- 47785bb5, 2026-08-15: the two-active-rows landmine - four agent types
+    -- carry TWO active rows and only the higher version loads. The forward
+    -- migration carried these guards from the start; this file initially did
+    -- not, and a SELECT INTO over two rows picks one ARBITRARILY while the
+    -- UPDATE hits both. Refuse-on-ambiguity rather than version-pin: a
+    -- max(version) pin would silently choose a row in exactly the state
+    -- where a human should look first.)
+    SELECT count(*) INTO n FROM agent_definitions
+    WHERE type = 'improvement-loop' AND is_active
+      AND COALESCE(is_snapshot, false) = false AND deleted_at IS NULL;
+    IF n <> 1 THEN
+        RAISE EXCEPTION '432 ROLLBACK: improvement-loop does not have exactly one active row (found %) - resolve before rolling back', n;
+    END IF;
+    SELECT count(*) INTO n FROM agent_definitions
+    WHERE type = 'domain-research-classifier' AND is_active
+      AND COALESCE(is_snapshot, false) = false AND deleted_at IS NULL;
+    IF n <> 1 THEN
+        RAISE EXCEPTION '432 ROLLBACK: domain-research-classifier does not have exactly one active row (found %) - resolve before rolling back', n;
+    END IF;
+
     SELECT default_config#>'{workflow,steps}' INTO il FROM agent_definitions
     WHERE type = 'improvement-loop' AND is_active
       AND COALESCE(is_snapshot, false) = false AND deleted_at IS NULL;

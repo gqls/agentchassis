@@ -1222,3 +1222,32 @@ config-only change, no dispatch inside the 300s window):**
 running binary — [UNVERIFIED at the artefact; check the pod's build provenance stamp
 before relying on it]. 429 deliberately avoided the marker and needs no change; a
 future tightening pass could adopt it once verified.
+
+### 2026-08-15 (fourth session, closing) — 432 round 1 REVISE, revised and resubmitted round 2
+
+**Round 1 (corr `47785bb5`, 20:49Z): REVISE** — gating objection from editquality, echoed
+by guardian and debug_historian: no version pin on the WHERE clauses (the two-active-rows
+landmine). Disposition, honest on both halves:
+- **Forward migration: the objection was a sketch-visibility artefact** — the applied
+  file's pre-flight refuses on count<>1 active rows for BOTH types (refuse-on-ambiguity,
+  deliberately safer than a max(version) pin, which silently picks a row in exactly the
+  state a human should inspect). Fresh measurement for the resubmission: both types have
+  exactly ONE active row (version 1); the fleet's two-row types are chief-strategist,
+  content-creator, content-creator-contact, site-component-architect — neither is ours.
+  Same lesson as 429's advisories, now COSTING A ROUND: **quote the guard block verbatim
+  in the sketch; reviewers can only see what the sketch shows.** Third occurrence = this
+  goes in the submission checklist.
+- **ROLLBACK: the objection was REAL and is FIXED** — the un-run ROLLBACK lacked the
+  count guards (a SELECT INTO over two active rows picks one arbitrarily while the
+  UPDATE hits both). It now carries the same exactly-one-active-row RAISEs, with a
+  comment crediting the round. The applied forward file is NOT edited — it is the record
+  of what ran.
+- **Architecture seat (medium, not gating): this is the SECOND hand-authored
+  evaluate_news_feed-style splice** (news was first, directory is second); a third
+  starter-kind recommender needing the same treatment is the RFC trigger for a shared
+  abstraction (a generic ordered enrichment-step list on these agents). RECORDED HERE AS
+  THAT TRIGGER — whoever writes the third splice should open the RFC instead of copying.
+
+**Round 2 resubmitted** same correlation (`RESUBMIT_CORR=47785bb5…`, run orch
+`5cb56ab9…`): guards quoted verbatim, measurements in grounded_in, ROLLBACK fix named.
+Verdict to read next session.
