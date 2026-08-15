@@ -12213,3 +12213,61 @@ predates the widening migration.
 read the artefact ONE TABLE UPSTREAM (here: `llm_call_log.response_text`) before
 attributing the absence to the model's choices. The 090 loop's refutation
 (`response_has_tool1=true`) is what forced that read.
+
+### A write guard that "holds" is not list membership — the lock preserves the ROW while every LIST consumers read says the section is gone (`bugs_open/285`, 2026-08-15)
+
+webdesign.uk's contact page carries a permanently locked chat-input-box
+component. Every improvement/rebuild pass files
+`lock_blocked_change … blocked_action: remove` for it, and before the lock
+existed (2026-08-11) the same pass deleted it for real. The reflex reading —
+"the lock is working, the loop keeps trying" — is true and useless: the row
+survives, but `pages.sections` reads `["hero","contact-info"]`, so the plan,
+the cache, and every consumer that reads the LIST believe the section does
+not exist. The defect is upstream of the actor named on the work item:
+`LoadPageSectionsFromSpecAction` assembles the section list from four source
+tiers (`site_plan_sections` → `site_specs.site_plan` → `pages.sections` →
+sibling synthesis) and none of them reads `page_components` — a locked
+section that exists only on the live page structurally cannot enter the
+list, whatever the tier. The 058 write guard then preserves the row at the
+last moment, forever, one noise item per pass.
+
+Two transferable rules. **(1) `created_by` on a blocked-change item names
+the MESSENGER, not the composer** — save_page_sections filed the item, but
+it merely diffed a list someone else assembled; the first 090 round on this
+bug was REFUTED for accusing the consumer one step downstream of the
+assembler (`WRONG_CALLS.md` 2026-08-15: read where a function's INPUT comes
+from before asserting what it computes). **(2) When a guard blocks the same
+change repeatedly, stop reading the guard and read the source-of-truth list
+it is defending against** — a recurring block means the upstream narrative
+still omits the protected thing, and rows are not narratives: protecting
+one does nothing for the other. Diagnosis trail: refuted round `c199c4bf`,
+confirmed round `d9f97c15` (verdicts in the diagnose-agent orchestration's
+`collected_data->'verdict'`; `diagnosis_artifacts` rows are iteration
+INPUTS, not output).
+
+### A fixer addressed by COMPONENT fixes the TEMPLATE — and a shared template's blast radius is its PLACEMENTS, not the finding (`bugs_open/285`, 2026-08-15)
+
+A single-page acceptance failure ("anchor `.asset-row` absent on ONE deployed page") was
+routed to the tool-improver as an `improve_tool` item whose only address was the
+`component_id` — which, for a ported tool, is the SHARED `ported-page` wrapper with **115
+placements fleet-wide**. The improver loaded an arbitrary instance (`LIMIT 1`, page_id
+ignored), "fixed" it by rewriting the shared `html_template` with that one tool's markup,
+flipped all 115 placements to `pending` (a live re-render signal), and completed the item
+18 seconds later. Nothing broke for 21 hours **only because nothing re-rendered** — assembly
+serves stored `rendered_html`; the template is consulted at the next re-render, where each
+page would have become the Asset Path Formatter with a success status. It had already fired
+once nine days earlier (v1 snapshot, recovered by a coincidental regen and noticed by nobody).
+
+The pattern, in three parts, each defensible alone: a producer that files a finding under a
+SHARED address because that is the only id the subject has; a loader that resolves the shared
+address to an arbitrary instance; a writer that applies an instance-scoped fix to the shared
+artefact without counting who else consumes it. **The test when debugging OR reviewing any
+template/config writer:** before believing "this fix is scoped to the finding", ask the write
+path what it counts — if the answer does not include a placement/consumer census, the scope
+of a write is whatever the ADDRESS reaches, not what the finding described. And the latency
+twin: a poisoned template with unchanged rendered artefacts is INVISIBLE until the next
+rebuild — "nothing looks wrong" after a template write proves only that nothing re-rendered.
+Fix shape that closed it: a fail-closed census fence at the writer
+(`sharedComponentWriteCheck`, opt-in override), plus producers that route shared-address
+findings to human review instead of an auto-fixer. One `html_template` writer
+(`fix_component_template`) remains unfenced — recorded open in `bugs_open/285`.
