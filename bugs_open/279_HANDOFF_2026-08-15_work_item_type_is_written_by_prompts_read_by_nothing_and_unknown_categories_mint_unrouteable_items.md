@@ -311,3 +311,129 @@ Remaining to close this file: the Go half goes live on the next chassis roll →
 run verify step 3 (one brief-fidelity dispatch, zero new `audit_finding_%` rows,
 findings landing as `capability_gap`), then move to `bugs_closed/` — plus the two
 owner decisions above, which survive the closure as 115/candidate-3 items.
+
+---
+
+## CONTRIBUTION 2026-08-15 from the `bugfix_213` lane — the blocked filter can suppress the very rows Leg 2 now files, and it is BLIND TO BOTH producer and category
+
+**Not a competing claim and not a request.** `who-owns.py 279` says this file is yours and
+active, so this is filed here rather than as a new bug. It is one mechanism downstream of Leg 2's
+fix, found while auditing who else in the estate reads an *absent* finding as meaningful. **Take
+it, reshape it, or reject it — I am not working it.** Everything below is first-hand: a code read
+at HEAD plus a live census, both quoted.
+
+### The mechanism
+
+`write_audit_findings_action.go` runs a second suppression check on every finding, after the
+dedup-key check and before the insert (the "Broader blocked check", ~line 793):
+
+```sql
+SELECT EXISTS(
+    SELECT 1 FROM site_work_items
+    WHERE site_id = $1 AND status = 'blocked'
+      AND item_type = $2
+      AND ($3::uuid IS NULL OR page_id = $3::uuid)
+)
+```
+`$3` is the NEW finding's `PageID`. When it is NULL the third clause is **TRUE for every row**,
+so the predicate collapses to *"does this site have ANY blocked row of this item_type"*.
+
+**Leg 2's fallback always sets `PageID: nil`** (verified at source, the `return classifiedFinding{…}`
+block: `ItemType: "capability_gap", HandlerAgent: "", Status: "deferred", PageID: nil`). So for
+`capability_gap` the NULL branch is not an edge case — **it is the only branch that ever runs.**
+
+The consequence is that the filter defeats the dedup key sitting three lines below it. That key is
+per-category —
+`DedupKey: fmt.Sprintf("capability_gap:unrouted_audit_category:%s", category)` — and its comment
+states the intended design in terms: *"One open row per site per unknown category — the missing
+thing is a rule for the CATEGORY, however many findings or producers hit it."* The blocked filter
+reduces that to **zero rows per site for EVERY category, once any one `capability_gap` on that
+site is blocked.**
+
+### It is producer-blind too, and that is the sharper half
+
+`capability_gap` is a **co-filed** item_type. The blocked rows are not yours — every one was filed
+by the discovery/remit path, not by `write_audit_findings`:
+
+```
+ domain                   | status  | created_by                   | item_key
+ idea.uk                  | blocked | completeness-discovery-agent | capability_gap:content_duplication_rewrite
+ mortgagecalculator.co.uk | blocked | design-discovery-agent       | palette_contrast
+ vetcomparison.uk         | blocked | design-discovery-agent       | palette_contrast
+```
+`write_audit_findings` stamps `created_by = auditSource` and keys as
+`capability_gap:unrouted_audit_category:%`; **no blocked row has either shape.** So a row blocked
+because a *discovery check* could not route `palette_contrast` now suppresses *your* path from
+recording an unrelated unrouted audit category on that site.
+
+This is the co-filing trap that `write_audit_findings_retraction.go` refuses **structurally** —
+its header: *"the item_type does not name its producer … a candidate is only in scope when its own
+`spec.audit_source` equals the source of the run doing the observing. A producer's silence says
+nothing about another producer's findings."* The retraction helper has that guard. **The blocked
+filter, reading the same shared item_type, does not.** Relevant to the owner's 2026-08-02 ruling
+on converging N producers onto one `item_type`: the ruling's condition is that the producer set
+and key shape be stated — this is a second mechanism reading that shared type with neither in view.
+
+### Live blast radius [MEASURED 2026-08-15]
+
+```sql
+SELECT item_type, count(*) AS blocked_rows,
+       count(*) FILTER (WHERE page_id IS NULL) AS page_id_null, count(DISTINCT site_id) AS sites
+FROM site_work_items WHERE status='blocked' GROUP BY item_type ORDER BY blocked_rows DESC;
+```
+| item_type | blocked rows | page_id NULL | sites |
+|---|---|---|---|
+| `image_url_404` | 40 | 40 | 15 |
+| `capability_gap` | 18 | 18 | 14 |
+
+All 18 `capability_gap` blocks carry the same cause — `"No handler_agent set — item cannot be
+routed to any agent"` (`claim_work_item_action.go:162`), i.e. something claimed a row Leg 2
+deliberately files as non-dispatchable. **So the filter is ARMED on 14 of ~22 sites**, including
+gamesdesign.co.uk, mortgagecalculator.co.uk and oufe.com.
+
+### ⚠ What I did NOT establish — and the control matters more than the finding
+
+**Whether the suppression has ever actually FIRED is unknown.** No run reports
+`items_skipped_blocked > 0`. **Do not read that as reassurance** — I nearly did:
+
+```sql
+SELECT count(*), min(created_at)::date, max(created_at)::date
+FROM orchestration_states WHERE collected_data->'findings_written' ? 'items_skipped_blocked';
+-- 9 runs, oldest 2026-08-15, newest 2026-08-15
+-- (orchestration_states itself: 5,282 rows back to 2026-07-13)
+```
+**The field exists in 9 runs, all from today, against a table holding two months of history** —
+because the counter arrived with your own fix. Five of those nine are my lane's manual audits.
+The meter is hours old, so the zero measures the instrument's age, not the estate's behaviour.
+Two candidate reads remain open and this evidence cannot separate them: *the filter never fires
+because unrouted categories are rare on blocked sites*, or *it fires routinely and nothing has
+ever counted it*.
+
+**The cheap way to settle it, if you want it settled:** `unrouted_categories` is already in the
+action output (line ~888) and is counted **before** the filters, while `items_skipped_blocked` is
+counted after. A run where `unrouted_categories` is non-empty and no matching `capability_gap` row
+appears is the suppression, caught in the act, with no new instrumentation needed.
+
+### Why it may be worth a line in your fix rather than a separate file
+
+Leg 2's fix is what makes this acute, and it is worth being explicit that this is **not** an
+argument against it. Before the fix, unknown categories minted `audit_finding_<category>` — a
+*distinct item_type per category* — so an item_type-scoped blocked filter could only ever suppress
+the one category that was blocked. Converging them onto a single `capability_gap` is the right
+call for every other reason, and it is what turns one blocked row into a **site-wide, all-category,
+all-producer** mute. The convergence did not create the defect; it widened its blast radius, and
+the filter is where the fix belongs.
+
+Candidate shapes, ordered by what closes the door (yours to judge):
+1. Make the blocked check match the **dedup key**, not `item_type` + a NULL-collapsing page clause
+   — it is the identity the row already has, and it is per-category by construction.
+2. Failing that, scope it by producer as the retraction helper does (`spec.audit_source`), so a
+   discovery-filed block cannot mute an audit-filed finding.
+3. At minimum, stop `capability_gap` being claimed at all — it is filed `deferred` with an empty
+   handler *deliberately*, and 18 rows say something claims it anyway. That is arguably the root:
+   no block, no mute. (`bugs_open/077` is cited in Leg 2's own comment for this.)
+
+**Cross-refs:** `bugfix_213_verifier_producer_join/NOTES_…md` 2026-08-15 batch 3 (why this lane
+was auditing absence-keyed consumers) · `write_audit_findings_retraction.go` header (the
+producer-scope guard this filter lacks) · owner ruling 2026-08-02 §1 (converging producers onto
+one `item_type`).
