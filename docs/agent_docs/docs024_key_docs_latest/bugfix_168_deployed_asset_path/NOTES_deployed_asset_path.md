@@ -4057,3 +4057,101 @@ list" when it has **28**. Two independent zero-results, both false, both plausib
 **The cheap check:** when diffing a JSON document, **diff whole objects first and project second** —
 a projection can only ever find changes in the keys you already suspected. And before concluding a
 key is absent, `SELECT jsonb_object_keys(data)`.
+
+---
+
+## 2026-08-15 10:14–10:46Z — new build `v1.0.1301`, instrument re-probed, and **C is DONE and ARMED**
+
+### The new binary, verified at the artefact
+
+Fleet rolled to **`v1.0.1301`** (both chassis pods, started 10:14:10Z / 10:14:31Z). The `build
+provenance` startup line had already scrolled out of `--tail=400` — **that means "not in range", not
+"unstamped"** — so the commit was established by probing the binary:
+
+| probe | result |
+|---|---|
+| `0115f2b45` (09:52:39Z) | **PRESENT** ← the build commit |
+| `0f0767e3b` (10:06Z), `8f990f53e` (10:05Z) | absent |
+| `zzzz-not-in-any-binary-zzzz` (fabricated) | absent ✓ |
+
+⚠ **Two same-shaped 40-hex shas coming back ABSENT is itself the discrimination control** — it is
+what rules out CLAUDE.md's named failure mode (a discovery grep matching Go's internal digit table
+and returning "present" for everything). The fabricated control was run separately and also passed.
+Never `strings`; it is absent from these images and its failure is invisible behind `2>/dev/null`.
+
+**Gate arms re-probed in the NEW binary** — `gate_published_correction_unpublished`,
+`resolved_all_gates_passed`, `gate_claims_still_present` all **PRESENT**. This is not ceremony: a
+zero refusal count read against a binary whose arms were never confirmed cannot distinguish "no
+refusals" from "no instrument".
+
+**And the claims path is UNCHANGED between the two binaries** —
+`git log --since` over `revalidate_unverified_claims.go`, `check_unverified_claims.go`,
+`claims_global.go`, `claims.go` returns empty. So today's 08:45Z measurement carries forward intact
+and nothing about the lane's behaviour moved under us.
+
+### C — the manufactured refusal is ARMED
+
+Owner authorised manufacturing one (2026-08-15), reversing the 08-14 "wait for it".
+
+**Target `20d5da84`** — `leopardessconsulting.co.uk` / `for-engineering-teams`, component
+`9ddedb63` slot `generic-text-block`, `matched "90,790"`, live findings **1**.
+
+**The claim was genuinely false, and would deserve deleting with or without the test:**
+
+| | |
+|---|---|
+| page asserted | **90,790** |
+| register fact `C4-orchestration-state-records` | **4,595** (`gte`, verified 2026-08-15) |
+| actual `count(*) FROM orchestration_states` | **4,818** |
+
+~19× overclaim. **One sentence deleted, 166 chars**, both surfaces, no rewrite and no substituted
+figure — the owner's 2026-08-06 *"minimal deletion is not writing"*.
+
+**The guard was INDUCED before it was trusted.** Run at `expect=999` it aborted with
+*"rendered_html delta 166 <> expected 999 (before 2585 after 2419)"* — a message it could only
+produce **by having performed the UPDATE** — and the row came back byte-identical
+(2585/2324, `updated_at` still 2026-07-17). Then `expect=166` committed: html 2585→2419, content
+2324→2158, claim absent from both surfaces. Script committed as
+`SQL_2026-08-15_clean_for_engineering_teams_both_surfaces.sql`.
+
+**The gate input is now inverted, which is the whole point:**
+`deployed_at 2026-07-17 20:08:04` **<** `newest_component_update 2026-08-15 10:46:04`
+→ `unpublished_correction_pending = t`. Expected arm on the ~2026-08-16 08:45Z daily:
+**`gate_published_correction_unpublished`**.
+
+### ⚠ CORRECTION to my own handoff, §C.4 — "visitors keep seeing what they see now" is TRUE BUT VACUOUS
+
+I wrote that the live page is unaffected because we do not redeploy. Accurate, and beside the point:
+**the page is not served at all.** `pages.status='archived'` with `build_status='deployed'` and a
+non-null `deployed_at` — it was published once in July and has since been archived off the site.
+
+`https://leopardessconsulting.co.uk/for-engineering-teams.html` returns **404, 2,711 bytes —
+byte-identical to a fabricated-URL control on the same domain**, so the 404 is the site's catch-all
+and not a routing accident.
+
+Two things follow, and the second is the one that nearly went unrecorded:
+
+1. **The risk of this act is lower than the handoff implied** — no visitor sees this page either way.
+2. ⚠ **My FIRST attempt at this control proved nothing and looked fine.** I curled
+   `/for-engineering-teams` (from `pages.name`); the real path is `pages.url` =
+   `/for-engineering-teams.html`. Both the page and the control returned **404 / 2,711 bytes** —
+   *identical* — so the control did not discriminate and "0 occurrences of 90,790" was a reading of
+   the 404 body, not of the page. An instance of the existing `LANDMINES.md` entry
+   *"`pages.name` is not the repo path"*, met from the serving side. **A control that returns the
+   same result as its target has not controlled anything** — compare the bytes, not just the code.
+
+**The test is unaffected by the archived status**: `ScanDeployedClaims` has never filtered on
+`pages.status` (documented deliberately at `revalidate_unverified_claims.go` ~:358), and the
+published gate compares database timestamps, not reachability.
+
+### Left for the next session, deliberately not done
+
+- ⚠ **The `features` component (`f4065b66`) on the SAME page still asserts "more than 90,790
+  orchestration state records to date (live count, 2026-07-16)"** — the identical false figure, and
+  **the checker does not flag it** (live findings = 1, not 2). It was left in place because removing
+  it is not needed for the test and would be unrequested live-content change. **But it is a genuine
+  ~19× false claim AND an apparent checker gap** — two prose assertions of the same unregistered
+  number on one page, one flagged and one not. Worth a `090` diagnosis run before assuming a cause;
+  do not guess at the mechanism from the phrasing difference.
+- **Redeploy this page immediately after the observation lands**, so the correction is published and
+  the item can close properly. Do not leave it parked.

@@ -19,7 +19,7 @@ Working record: `NOTES_deployed_asset_path.md` (newest at the bottom). Owner's l
 | Daily sweep | **RAN 2026-08-15 08:45:17.441082Z**, 20 rows restamped. Anchor now `2026-08-15 08:45:17.441082Z`; **next due ~2026-08-16 08:45:17Z** (`interval_seconds` 86400) |
 | The measurement | `refused_at_a_gate 0 \| passed_all_gates 1 \| uninstrumented 0 \| total 30`. Arms: `scan_still_trips 17 · <vintage> 9 · page_absent 2 · evidence_base_absent 1 · resolved_all_gates_passed 1` |
 | **The first refusal** | **STILL UNOBSERVED.** All refusal arms 0 and unexercised since the instrument shipped |
-| Fleet | **`v1.0.1300`**, both chassis pods, started 2026-08-14 20:36Z. Gate arms probed in this binary with controls |
+| Fleet | ~~`v1.0.1300`~~ **`v1.0.1301`**, both chassis pods, started **2026-08-15 10:14Z**, built from commit **`0115f2b45`** (probed at the binary; two same-shaped shas absent + fabricated control absent). **All three gate arms re-probed PRESENT in the new binary.** The claims path (`revalidate_unverified_claims.go`, `check_unverified_claims.go`, `claims_global.go`, `claims.go`) is **unchanged** between 1300 and 1301, so the 08:45Z measurement carries forward |
 | ⚠ Fleet LLM capability | **LIVE — the 08-14 handoff's "DOWN until 2026-09-01" was WRONG.** Measured 08:52Z: 31 ok / 0 failed in the 08:00Z hour, unbroken 30 h. **The council gate is AVAILABLE.** Verify on the SUCCESS side of `llm_call_log`, never the failure side |
 | Code index | **STALE — indexed commit `a85ad401`, 2026-08-12 16:01Z**, and `.go` only (7,358 symbols, no SQL). The landmine verifier says so itself. Do not read "not found in index" as "does not exist" |
 
@@ -183,6 +183,31 @@ it silently either way.
 ---
 
 ## C. Manufacture a flagged item so a gate REFUSES
+
+> ## ✅ **C IS DONE AND ARMED — 2026-08-15 10:46:04Z. DO NOT REDO IT.**
+>
+> The edit is committed to the database. **The only thing owed now is to READ THE RESULT after the
+> ~2026-08-16 08:45:17Z daily**, then redeploy the page.
+>
+> - Target `20d5da84`, component `9ddedb63`, one sentence (166 chars) deleted from **both** surfaces.
+> - Guard **induced** at `expect=999` (aborted, reported the true delta, row byte-identical), then
+>   committed at `expect=166`. html 2585→2419, content 2324→2158, claim absent from both.
+> - **Gate input now inverted:** `deployed_at 2026-07-17 20:08:04` **<**
+>   `newest_component_update 2026-08-15 10:46:04`.
+> - **Expected arm: `gate_published_correction_unpublished`.** A different `gate_%` arm, or
+>   `scan_still_trips`, is informative — read `reason`, do not re-run anything.
+> - ⚠ **The claim was genuinely false** (page 90,790 · register 4,595 · live count 4,818), so the
+>   deletion stands on its own merits and must NOT be reverted to "restore" the test.
+> - ⚠ **The page is `status='archived'` and serves 404** (byte-identical to a fabricated control), so
+>   nothing public changed. §C.4's "visitors keep seeing what they see now" is true but vacuous —
+>   corrected in NOTES.
+> - **THEN REDEPLOY** so the correction is published and the item closes. Do not leave it parked.
+> - **Left undone on purpose:** the `features` component `f4065b66` on the same page asserts the same
+>   false figure and **the checker does not flag it** (live findings 1, not 2). Genuine false claim
+>   *and* an apparent checker gap — worth a `090` run, not a guess.
+>
+> Script: `SQL_2026-08-15_clean_for_engineering_teams_both_surfaces.sql`. Full account: NOTES
+> *2026-08-15 10:14–10:46Z*.
 
 ### C.1 The authorisation, and what it supersedes
 
