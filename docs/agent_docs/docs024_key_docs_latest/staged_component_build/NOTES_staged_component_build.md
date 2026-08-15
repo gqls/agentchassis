@@ -4512,3 +4512,8 @@ Owner reported a fresh chassis build. Verified rather than assumed, per the chec
 - Clean-room verification: `git archive HEAD` + this task's files → whole tree builds, all 9
   orchestration packages + config-key-audit tests pass. The working tree itself does NOT
   compile (another session's untracked `publish_site_action.go`) — not ours, not fixed here.
+- Council submission for the whole task: SUBMISSION_CORR `75091072-9d65-433e-8a30-84719dc3f30f`
+  (both commits carry `Council-Submitted:`; 927e12bd9 = test repairs, 1806371ef = Phase 1).
+  **VERDICT READ STILL OWED** — budget ~30 min from ~15:1xZ; find the run by payload:
+  `SELECT current_step, status FROM orchestration_states WHERE collected_data->'input_data'->>'fix_correlation_id' = '75091072-9d65-433e-8a30-84719dc3f30f';`
+  On REVISE/REJECTED: act on it — the code is already on the shared branch.
