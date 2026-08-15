@@ -1138,3 +1138,48 @@ Fixed so the reference can only be set in one place and cannot drift apart again
 Left after this: publish and verify the five, then the last two pages that are still on
 the older scheme — and those turn out to be two different problems rather than one, which
 I have written down. Then the site-plan work you ruled on.
+
+**2026-08-15, later — the five are live, and all twenty-one calculators are now done.**
+
+They published at about ten to ten and I have checked them properly. Every one of the
+twenty-one calculator pages now works the way you asked: all the visible words are
+editable fields, the working parts sit in a template no writing agent can reach, and the
+panels are intact. The whole site's arithmetic still comes out right — a hundred and
+seventy checks, no failures, exactly the same as before any of this started.
+
+I checked the publishing actually happened rather than assuming it. Before the change I
+took a fingerprint of each of the five live pages; afterwards all five had changed, and
+the calculator panel was present on every one. That matters because one of the obvious
+ways to check would have been wrong: two of the five have no separate text section at
+all, so the marker you would naturally look for is legitimately absent on them, and
+anyone using it as the test would have concluded those two had failed to publish.
+
+Then something worth telling you about. The final safety check — the one that deliberately
+feeds the calculators wrong answers to confirm it can still spot a mistake — announced
+that it had failed, and said in effect "the checker is asleep, eight things passed that
+should have failed". That is exactly the alarm you want, so I took it seriously and looked
+at all eight. It turned out to be a false alarm, and I can say why with confidence.
+
+Seven of the eight are checks that read *words* rather than numbers — a page saying
+"Option A is Cheaper", or "2 Years 3 Months". Feeding the test wrong *numbers* cannot
+possibly disturb a check that is reading words, so those seven were never going to fail
+and counting them as a problem was a mistake in the alarm, not in the calculators. The
+eighth is nicer: the test proves itself by asserting an answer nothing could compute, and
+it uses the number 100 for that. One of our test cases is a loan of £300,000 against a
+property worth £300,000 — where the correct answer genuinely *is* 100%. So the test's
+"impossible" number happened to be the true one, on that one case.
+
+None of the eight was on a page I had touched. I have fixed the alarm so both kinds are
+excluded and labelled, checked that the ordinary run is completely unaffected, and
+confirmed the numbers now add up exactly. This is the second time this alarm has cried
+wolf — it happened once before in August for a related reason — and that matters more
+than it sounds: an alarm that goes off wrongly is one people learn to ignore, and this is
+the last check standing between us and shipping a broken calculator.
+
+One honest limitation, which I have written down rather than quietly fixed: that safety
+check only ever tested the checks that compare *numbers*. It has never been able to test
+the seven that read words, so if one of those quietly stopped working, nothing we
+currently have would catch it. That is a real gap and it is now on the record.
+
+Left to do: the last two pages still on the older scheme — and those are two different
+problems rather than one, which I have written up. Then the site-plan work you ruled on.
