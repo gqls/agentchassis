@@ -85,7 +85,8 @@ extension over `site_specs` prose, which the owner approved on 08-14.**
 1. **Put the enrolment decision to the owner** (above). It gates everything that scales B4 past
    hand-firing.
 2. **The claims-audit extension over `site_specs` prose — the owner-approved next track
-   (08-14, option b).** Nothing claim-checks a premise record: `check_unverified_claims` reads
+   (08-14, option b). [FILED 2026-08-15: `features_open/034` — approved-not-designed, with the
+   design constraints, the first population, and the verification basis all in the file.]** Nothing claim-checks a premise record: `check_unverified_claims` reads
    deployed HTML + stored `content_data` (`check_unverified_claims.go:1-36`), never `site_specs`,
    and it never repairs by design (`:39-41`, `:140`). No bug/feature file exists yet — **file one
    first** (grep both bug dirs again before filing; nothing covered it as of 08-14). Design

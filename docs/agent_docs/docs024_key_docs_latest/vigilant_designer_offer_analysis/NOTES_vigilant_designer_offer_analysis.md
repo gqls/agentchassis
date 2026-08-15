@@ -1837,3 +1837,17 @@ COLUMN on `site_work_items`. The first read said 0/4 resolved and the truth was 
 error, caught by asking the schema. Estate now: **3 of 22 sites carry `offer_ordering`; 14
 offer-analysis items sit `detected` across 3 sites, and with 409 live they travel on the next
 sweep of each.**
+
+## 2026-08-15 — claims-audit-over-specs track FILED: `features_open/034`
+
+The owner-approved next track now has its file. Before filing: re-grepped both bug dirs and
+`features_open` (nothing covers claim-checking a premise record — nearest are 043/262/161, all
+one layer down); re-verified the mechanism at HEAD (`check_unverified_claims.go` — `site_specs`
+appears only as the comparison register; grepped the whole `discovery_checks` package — specs
+are read as config or comparison material, never as subject). The file carries: the leopardess
+fabrication as the motivating case (quoted, with the measurement that refuted it), why the gap
+sharpened this week (B4 enrolled = sweep-driven grading against unchecked prose), the four
+design constraints from 08-13/08-14, the 13-premise first population (disconfirmable), five open
+design questions (one owner-gated: field quarantine), and the 07-31-ruling statement of why
+first-hand verification substituted for a 090 run. Index row added to `features_open/README.md`
+(noting the index gap grew — 031–033 remain unindexed by their filing sessions).

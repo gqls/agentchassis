@@ -58,8 +58,11 @@ hazard has materialised. A risk with no test is an opinion.
 | 020 | FEATURE | [Traffic probe on apis.uk — where is existing traffic coming from?](020_FEATURE_apis_uk_traffic_probe.md) — island-side, £0; stage 2 owner-gated |
 | 022 | FEATURE | [Rendered-text legibility guard for generated imagery](022_FEATURE_rendered_text_legibility_guard.md) — was `011` R2; carries the 60-asset legacy sweep |
 | 023 | FEATURE | [Infographic figures from the evidence base (+ where generated images stop)](023_FEATURE_infographic_figures_from_the_evidence_base.md) — was `011` R3/R4 |
-| 030 | FEATURE | [The offer and benefit analyser](030_FEATURE_offer_and_benefit_analyser.md) — Programme B of `vigilant_designer_offer_analysis`; **B1+B2 promoted by owner 2026-08-08**, rest specified-not-built |
+| 030 | FEATURE | [The offer and benefit analyser](030_FEATURE_offer_and_benefit_analyser.md) — Programme B of `vigilant_designer_offer_analysis`; **B1+B2 promoted by owner 2026-08-08**, rest specified-not-built; analyser BUILT+ENROLLED 2026-08-15 |
+| 034 | FEATURE | [Claims audit over `site_specs` prose](034_FEATURE_claims_audit_over_site_specs_prose.md) — owner-approved 2026-08-14 (option b, the leopardess fabrication); nothing claim-checks a premise record and B4 now grades against them sweep-wide; approved-not-designed |
 
-*(index gap: 014, 015, 017–019, and 024–029 exist on disk but were never indexed
+*(index gap: 014, 015, 017–019, 024–029, and 031–033 exist on disk but were never indexed
 by their filing sessions. 016 and 021 added 2026-08-05 while correcting their
-stale status, above. 030 indexed by its filing session, 2026-08-08.)*
+stale status, above. 030 indexed by its filing session, 2026-08-08; 034 by its
+filing session, 2026-08-15, which also noted the grown gap rather than filling it —
+each index line is its owning session's claim to make.)*
