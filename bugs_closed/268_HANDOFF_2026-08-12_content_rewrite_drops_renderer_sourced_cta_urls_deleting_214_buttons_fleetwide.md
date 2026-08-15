@@ -305,3 +305,18 @@ Owner (2026-08-15, in chat): re-run resolution per site; lift webdesign.uk's
   these want an in-page anchor or a copy change, i.e. a content decision,
   not resolution. v1.0.1300 (stamp `a2a691213`) verified carrying the fix
   before any of this ran.
+
+### §12 addendum 2 (2026-08-15, close) — the residue is dispositioned; the lane is finished
+
+Owner rulings on the addendum-1 residue, executed and live-verified:
+**D1** aao/services reworded by the framework ("Look through a case study
+first" — no count, ban class avoided entirely), claims floor passed, CTAs
+then resolved by cta_links_stale. **D2** the 10 self-target heroes split by
+evidence: 1 in-page anchor (jelly-invaders `#gameCanvas`), 7 vestigial
+labels deleted (proven render-neutral first), 2 KEPT — their label keys are
+live tool-UI text (`SQL_2026-08-15_d2_selftarget_heroes.sql`). **D3** the
+target-diversity content pass is commissioned as its own lane
+(`cta_target_content_pass/`). Residual census rows belonging to THIS bug's
+mechanism: **zero** (the label-without-url census remains a live fleet
+number that counts other causes, including other lanes' mid-build pages —
+split by history before reading it, per 016b §9).

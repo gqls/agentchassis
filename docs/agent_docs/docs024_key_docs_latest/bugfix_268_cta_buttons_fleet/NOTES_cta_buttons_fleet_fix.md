@@ -463,3 +463,24 @@ repaired+locked stated). Then, while it queues (~30 min): falsifier checks
 - Expected census effect when D1/D2 rerenders land: 11 → 2 label-without-URL
   rows, and the remaining 2 are the KEEP class (labels in live use — the
   census predicate over-counts them; noted for any future census reader).
+
+## 2026-08-15 (close) — all rerenders landed; end-state verified; one census surprise explained
+
+- **D1+D2 rerenders 9/9 complete, 0 bad.** Live-verified: jelly-invaders
+  hero renders `href="#gameCanvas"` (page url from `pages.url` — the name
+  is not the path, again); aao/services serves "Look through a case study
+  first" + resolved primary/secondary (`/tools/password-entropy.html`,
+  `/tools/tool-ai-agent-roi-estimator.html`).
+- **Census surprise, resolved by history before concluding anything: 16/3,
+  not the predicted 2.** 14 of the 16 are loancalculator.co.uk guide heroes
+  written 11:04–11:59 TODAY with **0 archived generations and 0 urls
+  ever** — another lane's build wave IN FLIGHT (LMC), first-build rows the
+  268 fix has nothing to do with, and their pipeline's own resolution is
+  still to come. NOT dispatched at — active site, owning lane's business.
+  The remaining 2 are exactly the predicted KEEP rows (labels in live use
+  as tool-UI text). ⚠ For any future reader: this census is a LIVE FLEET
+  number — it counts every cause and every mid-build page; do not read a
+  rise as regression without the history split (016b §9 entry, 2026-08-14).
+- Lane state: **every owner ruling executed and verified; nothing further
+  owed by this lane.** Successor work lives in `cta_target_content_pass/`
+  (commissioned, not started).

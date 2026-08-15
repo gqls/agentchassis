@@ -192,3 +192,24 @@ One small quality note for later: on sites where the wording didn't name
 any page, the fallback picks the site's top tool — so several pages on the
 same site now share the same primary button target. Fine as a floor;
 a copy pass could diversify them when we next touch those sites.
+
+## 2026-08-15 (close of play) — your three decisions are done and checked
+
+The services page now says "Look through a case study first" instead of the
+banned figure, passed the safety net, and both its buttons work on the live
+site. The jelly-invaders page has a real "Play" button that jumps to the
+game. Seven vestigial button labels were removed after proving they never
+rendered anywhere — and two we deliberately did NOT touch, because checking
+first showed their wording is doing real work as the calculator's and the
+search box's own button text; deleting would have blanked live controls.
+
+The content pass you commissioned is set up as its own piece of work with a
+plan and a worst-first order (finetuning.uk first at 39 identical buttons);
+nothing has run yet — it starts with a one-site trial like everything else.
+
+One footnote so the numbers don't mislead anyone later: the raw count of
+label-without-link buttons briefly ROSE this afternoon — because another
+workstream was mid-way through building fourteen new guide pages on the
+loan calculator site as we measured. Brand-new pages pass through that
+state naturally before their links resolve. We checked their history to
+be sure it wasn't our bug returning; it isn't.
