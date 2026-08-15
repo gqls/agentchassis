@@ -1,0 +1,69 @@
+{
+  "rationale": "ROUND 4 on corr 7b0e2833. Round 3's gating objection (improvement_guardian, high: the producer now inserts at a claimable status, 'skipping triage-stage observe-only capability for this item_type entirely') is answered STRUCTURALLY, not by precedent: (1) THE ROUTER IS THE TRIAGE STAGE FOR THIS TYPE. Every finding's first contact is a deterministic, read-only classification against live DB state (the classify step writes nothing); FOUR of the eight routes act on nothing at all (they park the finding back at needs_human_review with the facts); two close only on positive evidence; and only two dispatch further work — into page-build-handler's own gates, which this trail MEASURED failing closed (the canary conversion was refused by validate_content and changed nothing). The triage function has not been skipped; it has moved from a fleet-global promoter into the type's own handler — and the fleet-global promoter this contract assumes is DISABLED (bugs_open/083; register IMP-016 'intentionally paused'), so born-detected today means born-stranded, which is the exact parked-forever state the owner ruled against on 2026-07-25 and again on 2026-08-15. (2) OBSERVE-ONLY CAPABILITY CONCRETELY EXISTS and was USED: the census SQL (workstream dir) classifies the entire population and writes nothing — it is the observe channel, runnable at any time by anyone, and this trail's own protocol was census -> per-arm canary -> fleet-hold. (3) The blast radius of a misfiring check is bounded three ways: the check's own 25-per-pass cap; the classifier's live-state re-verification (a wrong finding classifies as stale/resolved and closes on evidence); and the conversion arms' two-strike brake. If the seat maintains that detected-first is mandatory even while its promoter is disabled, that is a seat-versus-owner-ruling conflict, which per the estate's own norms needs a human, not a fourth resubmission — we state that openly rather than re-litigating. EVERY other round-3 objection is closed by measurement in this round: the asset_sourced scope question is answered by the PRODUCER'S OWN EMIT SET (check_required_fields_missing.go:198-223 keeps only source ''/llm/site_assets.* — site_specs./pages./query. fields NEVER enter missing_fields, pinned by TestMissingRequiredValueFields_SiteAssetsSourcedFieldsAreChecked — so the asset_sourced route covers the entire non-llm emit set by construction, not just the canary's instance); seed 410 is now LEDGER-RECORDED (schema_migrations row via run-migrations.sh --record-only, with an honest note that v1-v3 were hand-applied pre-record; the no-edit-after-record rule was never violated because the file was never recorded until now, and the recorded checksum is of v3 as applied); the single-active-row guarantee is confirmed LIVE by query (count=1); edit 3's status is clarified per editquality (COMMITTED and LIVE — documentation of fact, not a fresh diff); and RFC_030 now records round 3's reuse pressure with the deferral grounds and names 397's two routers as the engine's first consolidation targets.",
+  "submitter": "bugfix-033/277 session (bugfix_277_required_fields_repair), RESUBMIT round 4 of 7b0e2833",
+  "plan": {
+    "summary": "required_fields_missing items park forever because no handler claims the type. Seed 410 v3 (applied, ledger-recorded, canary-proven): a pure-SQL router classifying each item by (page_name, slot_name) into eight routes — close on evidence (stale/resolved), park-in-place holding the dedup key with facts on the row (blob / owned-page / asset-sourced / unbuildable-index), convert born-triaged at page-build-handler (generic sectionless recreate / llm-partial edit_live). Producer files routed-from-birth (live on v1.0.1302). The router is the type's triage stage: read-only classification first, four no-act routes, measured fail-closed gates on the two dispatch routes. Fleet assignment of the ~40 backlog rows held for this verdict.",
+    "edits": [
+      {
+        "file": "docs/agent_docs/sql_for_agents/410_required_fields_missing_router.sql",
+        "symbol": "required-fields-missing-handler (v3, ledger-recorded)",
+        "operation": "config_change",
+        "rationale": "As round 3, plus: recorded in schema_migrations via run-migrations.sh --record-only with a note stating the hand-applied v1-v3 history; the runner's own probe ran the file to its COMMIT without error. The no-edit-after-record ledger rule was never violated: the file entered the ledger only at v3, and its recorded checksum is of the file as now applied.",
+        "sketch": "classify (read-only, one row) -> 8-route cascade -> close x2 (evidence) | park x4 (needs_human_review + facts; dedup key held) | convert x2 (born triaged @ page-build-handler) -> close_converted; verify block asserts single active row, all branch pairs, park statuses, triaged conversions, retired spec key absent."
+      },
+      {
+        "file": "docs/agent_docs/docs024_key_docs_latest/bugfix_277_required_fields_repair/ASSIGN_2026-08-15_fleet_assignment.sql",
+        "symbol": "fleet assignment (needle-gated)",
+        "operation": "config_change",
+        "rationale": "Unchanged from rounds 2-3. Five canaries executed through its id-filtered variant and verified per-arm; fleet run (~40 rows: 35 blob-parks, ~4 stale-closes, re-park sweeps — zero conversions remain in the backlog) held for this verdict.",
+        "sketch": "Guarded DO block: refuse if handler inactive / zero targets / any row mid-claim; UPDATE ... SET handler_agent, status='triaged', attempt_count=0 WHERE item_type='required_fields_missing' AND status IN ('needs_human_review','unresolved') AND COALESCE(handler_agent,'')=''; ROW_COUNT assert; revert statement in header; postcondition incl. no-row-left-unclaimed check."
+      },
+      {
+        "file": "platform/orchestration/actions/discovery_checks/check_required_fields_missing.go",
+        "symbol": "RequiredFieldsMissingCheck.Run",
+        "operation": "modify",
+        "rationale": "STATUS CLARIFIED (editquality round 3): COMMITTED (5ad81182b) AND LIVE (v1.0.1302, uniform across all 25 chassis-image pods; merge-base + literal probe with controls) — this edit documents the shipped change for the review record; nothing is re-applied. The observe-only question this edit gates on is answered in the rationale: the router is the type's triage stage, and the census is its observe channel.",
+        "sketch": "const ( requiredFieldsHandlerAgent = \"required-fields-missing-handler\" ) ; HandlerAgent: requiredFieldsHandlerAgent; Status: \"triaged\"; flag-only comments rewritten as superseded-by-owner-ruling."
+      },
+      {
+        "file": "platform/orchestration/actions/discovery_checks/handler_coverage_test.go",
+        "symbol": "knownHandlerAgents",
+        "operation": "modify",
+        "rationale": "Roster entry (shipped with the producer commit). Seed verified live before the Go commit landed, satisfying the roster's own 'verified live BEFORE this line' contract.",
+        "sketch": "+ \"required-fields-missing-handler\": true, // seeded 2026-08-15 by 410_...sql (bugs_open/277)"
+      },
+      {
+        "file": "docs/agent_docs/docs026_concept_register/register/content-quality.md",
+        "symbol": "CQ-023 (v3)",
+        "operation": "add",
+        "rationale": "As round 3: eight routes with both measured refinements, producer-live fact with probes, key-choice rationale with its measured instance, depends_on semantics, proliferation clause pointing at RFC_030.",
+        "sketch": "Full entry as committed (d8b01e387)."
+      },
+      {
+        "file": "docs/agent_docs/docs026_concept_register/register/page-build-pipeline.md",
+        "symbol": "PBP-028 producer-set clause",
+        "operation": "modify",
+        "rationale": "Third mode=edit_live emitter recorded; channel liveness measured by the probe PBP-028's own verify-later prescribes (grep for the attach log string in /proc/1/exe: 1, negative control 0).",
+        "sketch": "As committed (5ad81182b)."
+      },
+      {
+        "file": "docs/agent_docs/docs024_key_docs_latest/architecture_review/RFC_030_single_type_work_item_routers_want_one_engine.md",
+        "symbol": "RFC_030 (+ round-3 pressure recorded)",
+        "operation": "add",
+        "rationale": "The tracked proliferation obligation, now also recording round 3's reuse_agent/constitution/guardian positions and the deferral grounds — including that 397's two routers lack 410's hardening and are the engine's first consolidation targets (the engine's scope is three-into-one, not a prophylactic).",
+        "sketch": "Population table / engine sketch / fourth-router rule / round-3 pressure section / relations."
+      }
+    ],
+    "grounded_in": [
+      "OBSERVE-ONLY, structurally: the classify step is query_database (read-only; writes nothing); routes park_owned/park_blob/park_asset/park_unbuildable act on no artefact (update_work_item_status back to needs_human_review on the SAME row); close_stale/close_resolved write only status+evidence on the same row; only file_recreate/file_rewrite dispatch further work, and their target's gates were MEASURED failing closed (validate_content refusal, artefact byte-identical). The census SQL (CENSUS_2026-08-15_predicted_routes.sql) classifies the whole population and writes nothing — the observe channel, used before any assignment",
+      "THE PROMOTER THE CONTRACT ASSUMES IS OFF: bugs_open/083 — improvement-sweep enabled=f since 2026-05-02; TriageDetectedItemsAction's sole live carrier is improvement-loop (migration 286); detected rows measured stranded (98 on 07-26, 158 on 07-27, 18 phantom_internal_link detected / 0 complete lifetime). Born-detected for this type = born-stranded",
+      "EMIT-SET GUARANTEE (round-3 bug_historian): check_required_fields_missing.go:198-223 — the source gate keeps a field only if source is '', 'llm', or prefix 'site_assets.'; site_specs.*, pages.*, query.* are skipped at emit. Pinned by TestMissingRequiredValueFields_SiteAssetsSourcedFieldsAreChecked (which also pins what deliberately did NOT widen). Therefore the asset_sourced route covers the ENTIRE non-llm population that can ever appear in spec.missing_fields — the round-3 concern's other-source fields never reach the router",
+      "LEDGER (round-3 debug_historian): schema_migrations now carries 410_required_fields_missing_router.sql (applied_by='record-only', note states the v1-v3 hand-apply history; the runner's dry-run probe reported 'ran to its own COMMIT without error'). The no-edit-after-record rule (scripts/migration/README.md) was never violated: the file was unrecorded until v3",
+      "SINGLE ACTIVE ROW, live: SELECT count(*) FROM agent_definitions WHERE type='required-fields-missing-handler' AND is_active AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL -> 1",
+      "PRODUCER LIVE: stamp 194907d5b6cc69c1ecb50263bd958b2940019587 on v1.0.1302; git merge-base --is-ancestor 5ad81182b <stamp> exit 0; all 25 agent-chassis-image pods on v1.0.1302; literal probe 1 / negative control 0",
+      "CANARY LEDGER (five, per-arm): 332bb3f6 stale->complete (orch 0177ce18); e512af8a blob->parked; 483fb749 gas-converter owned->parked (orch 8dd51e7e); 4fa5b019 asset-sourced: v1 converted, writer output REFUSED by validate_content ('0 blockers, 1 errors', content_data 46 keys and rendered_html 14432 bytes byte-identical), conversion cancelled with note, v2 route asset_sourced proven on the exact embedded SQL (n_asset_empty=5); 7ed472ab no-plan: v2 converted, recreate NO-OPPED at mark_no_ready_sections (orch 302ab662), conversion cancelled with note, v3 route no_plan_unbuildable proven on the exact embedded SQL",
+      "OWNER RULINGS this implements: 2026-08-15 (bugs_open/277) 'we should create a repair handler fleet wide'; 2026-07-25 (bugs_open/033) 'the framework — not a person — should resolve every one of these classes' / 'the queue should not fill'"
+    ],
+    "risks": "1) If the observe-only objection gates a fourth time, the conflict is between a seat's contract (whose promoter machinery is disabled) and two owner rulings — that goes to the owner as a named decision, per the estate's seats-disagreeing norm; the code affected is one producer line, trivially revertable to Status:'detected' the day the promoter is rebuilt. 2) Fleet assignment held for this verdict; backlog contains zero conversion-class rows, so the writer-path surface for the backlog is nil. 3) The two cancelled conversions' originals released their dedup keys; discovery rotation re-raises and v3 parks them; if not re-raised within a week, re-file by hand (RUNBOOK). 4) RFC_030 is a review-track obligation, not a hard block — stated, with the estate's own history as the reason that is the strongest available mechanism."
+  }
+}

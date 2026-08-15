@@ -46,6 +46,19 @@ routing: the review queue held ~20 uncovered types on 2026-08-15. Cloning has be
 twice; the third clone (410) already needed three council rounds to harden — the marginal
 clone is getting more expensive than the engine.
 
+## Round-3 pressure, recorded (2026-08-15)
+
+The same review trail's round 3 pressed harder: `reuse_agent` (medium) — *"duplication is
+allowed to reach three live copies before the rule bites"* — wanted the engine NOW rather
+than at the fourth instance; `constitution` accepted the deferral as stated but insisted it
+stay "a tracked obligation, not a closed matter"; `guardian` noted this file "does not itself
+block a fourth router". All true. The deferral grounds, for whoever picks this up: the owner
+ruling of 2026-08-15 ordered a handler for ONE type that morning; the engine is a design
+round of its own; and the consolidation is LARGER than not-building-a-fourth — **397's two
+routers lack 410's hardening (park-in-place dedup-key semantics, single-active-row assert,
+asset-source splitting) and are this engine's first two migration targets**, so the engine's
+scope is three-into-one, not a prophylactic for a hypothetical fourth.
+
 ## Relations
 
 - CQ-023 (the third router; its "proliferation watch" clause points here).
