@@ -2906,3 +2906,68 @@ pages; every copy span on every calculator is an editable schema field. Owner's
 2026-08-13 direction is now fully implemented. Next per handoff §6: reuse
 demonstration (item 6), site-spec/planner loop (item 2), 252 og:, complaint oracle,
 Track C.
+
+### 2026-08-15 (f) — independent replication of (e), and `b2_verify` turns out to be a PRE-deploy gate for this class of change (third session)
+
+A third session picked up the handoff cold, read (d), verified the state first-hand and
+put the `--apply` to the owner; the conversion landed here. The rerender half and the
+closing docs were done by the (e) session in parallel — **so (e)'s findings have two
+independent derivations, which is worth more than either.** Everything I re-measured
+agrees with (e): row md5s unmoved (`a4ebd9178d65` / `4ca1a6ab2ced`, lengths 5720/3943),
+**0 locked of 70 rows site-wide**, 7/8 schema fields, `content_data` 8/9 keys =
+fields + `_provenance`, backups 2 `page_components` + 1 `content_components` (one,
+correctly — repayment had no component to back up), served md5s `db5e75dd7b3c` /
+`e7f5a93ea94f` unchanged, full sweep 170/0/6 N/A 0. **(e)'s `result`-column trap
+replicates exactly**: repayment's is 381 chars of spawn-handler record
+(`agent_id,agent_type,role,topics`), consolidation's is 32,122 chars carrying the
+git-adapter response. A `complete` status is not deploy evidence — for one of the two
+items there is none in the row at all.
+
+**THE FINDING, and it is a protocol improvement, not a war story: `b2_verify.py` never
+touches the database.** It fetches live HTTP, reads the pinned source with `git show`,
+and reads the seed from disk. So for a conversion whose roundtrip is byte-identical —
+which `b2_convert_oldshape` *proves before it writes*, via `go==py==row md5` — the
+post-deploy verifier can be run **before the unlock and before the rerender**, and its
+answer is valid, because the bytes it inspects are the same bytes either side of the
+deploy. I ran it that way: `ok` on both pages, predicting (e)'s post-deploy `ok` exactly.
+
+Why that is worth having rather than merely tidy: the risky, hard-to-reverse step in
+this conversion is **removing a `permanent` lock and then letting a rerender write the
+page**. Running the verbatim-render/script-body/class/id check only afterwards means
+discovering a mismatch when the lock is already gone. Here it was a live risk and not a
+theoretical one — (d) records that repayment's instance bytes are verbatim in live but
+**not** in the pin (a seam normalisation: dropped blank line, outdented card tag), and
+`b2_verify` asserts pinned inline-script bodies appear verbatim in live. That check
+could have failed for a reason having nothing to do with the conversion. It passes —
+but the point is that this was knowable for free, before the write.
+
+**The condition, stated so nobody over-generalises it:** the prediction holds *only*
+while the roundtrip is byte-identical. For any conversion that intends to change the
+served bytes, a pre-deploy `b2_verify` tests the OLD page and tells you nothing about
+the new one. It is a gate for identity-preserving conversions specifically.
+
+**Two corrections, both mine:**
+
+1. **(d)'s step 1 says "`--apply` (or the two SQL files it prints)". There are no SQL
+   files.** Plan mode prints one summary line per page (`plan <name> go==py==row md5 …
+   %d chars SQL`) and writes nothing to disk; `page_sql()` returns a string that is fed
+   straight to psql's stdin. The script is the only route. Anyone who followed that
+   parenthesis looking for files to hand to a DBA would have found nothing — an
+   irritation here, but the same shape as reading meaning into something that does not
+   exist, which this file has now logged three times in two days.
+2. **I first wrote that claim down as being in the script's docstring. It is not** — it
+   is in (d), in this file, at the old line 2869. `grep -n "SQL file" b2_convert_oldshape.py`
+   returns nothing. I had read the docstring and the protocol block in the same sitting
+   and merged them from memory. Caught by grepping for the string before writing the fix,
+   which is the only reason the correction landed in the right file.
+
+**One thing I checked and did NOT find wrong,** recorded because the absence is the
+useful part: `--apply` prints `ok <name> COMMIT`, and the `DO` block's confirming
+NOTICEs never appear (the script reports the last line of `stderr + stdout`, and
+`COMMIT` from stdout is last). I started to write this up as "the ok line is weaker
+evidence than it looks" — **it is not.** A `RAISE EXCEPTION` in the `DO` block aborts
+the transaction, `ON_ERROR_STOP=1` makes psql exit non-zero, and the script prints FAIL.
+`COMMIT` therefore *entails* every guard passed. The loss is diagnostic only: you cannot
+read back which values were checked. Do not "fix" this by weakening the guards into
+`SELECT`s that print — that is the exact anti-pattern the estate already has a ruling
+about (a verify block of `SELECT`s cannot stop a `COMMIT`).
