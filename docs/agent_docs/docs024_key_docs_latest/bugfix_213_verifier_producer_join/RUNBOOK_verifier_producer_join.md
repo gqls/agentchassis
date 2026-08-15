@@ -552,3 +552,70 @@ FROM site_work_items WHERE item_type='dark_section_audit' AND result ? 'resolved
 ⚠ **The correct expected outcome on the 4 live `failed` rows is that they do NOT retract.**
 They are genuinely unrepaired, so a run that closes them is the bug, not the proof. And check
 the pod carries the code before trusting any of it — the binary states its own commit.
+
+> **§8 is SUPERSEDED as the way to exercise this — you do NOT need a carrier.** See §9.
+> Two corrections to the paragraph above, both verified 2026-08-15:
+> **(a)** `site-discovery-rotation-design` is **not a carrier at all**. It drives
+> `design-discovery-agent`, whose live workflow is three steps and does not call
+> `write_audit_findings`. There is exactly ONE carrier: `improvement-sweep`.
+> **(b)** Enabling it would do nothing anyway — its `pre_query` needs a rotation stamp >7 days
+> old and the oldest live stamp is 6d04h, so it selects 0 rows and dispatches nothing, which
+> looks identical to a clean run.
+
+### 9. Exercising half two on demand, without re-enabling anything (2026-08-15)
+
+**Do not reach for `improvement-sweep` to test this.** It is not detection-only — it triages and
+dispatches repairs, `build-pipeline-trigger` is live on a 60s tick claiming `status='triaged'`,
+and the sweep picks its site by `ORDER BY s.updated_at ASC LIMIT 1`, so you cannot say in advance
+whose live site gets edited.
+
+Dispatch the producer itself. Same code path
+(`visual-design-auditor → write_findings → retractSilentAuditFindings`), one site of your
+choosing, no triage, no repairs. Findings insert as `'detected'`
+(`write_audit_findings_action.go:787`, hardcoded), and dispatch requires `'triaged'`, so they
+are inert while the sweep is off.
+
+```bash
+SITE_ID=$(kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user \
+  -d clients_db -t -A -c "SELECT id FROM sites WHERE domain='<domain>';")
+CORR=$(cat /proc/sys/kernel/random/uuid); TS=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+BODY="{\"action\":\"orchestrate\",\"config\":{\"agent_type\":\"visual-design-auditor\"},\"input_data\":{\"site_id\":\"${SITE_ID}\",\"domain\":\"<domain>\"}}"
+echo "CORR=$CORR"
+kubectl -n kafka run "kcat-vda-$(date +%s)-$RANDOM" --rm --restart=Never \
+  --image=edenhill/kcat:1.7.1 --attach=true --quiet \
+  --command -- sh -c "printf '%s' '${BODY}' | kcat -P -b personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092 -t system.agent.generic.requests \
+  -H correlation_id=${CORR} -H orchestration_id=$(cat /proc/sys/kernel/random/uuid) \
+  -H request_id=$(cat /proc/sys/kernel/random/uuid) -H message_id=$(cat /proc/sys/kernel/random/uuid) \
+  -H message_type=request -H client_id=demo_client -H action=orchestrate \
+  -H sender_agent_type=cli -H sender_agent_id=cli-user \
+  -H responses_topic=system.agent.generic.responses -H timestamp=${TS} && echo PUBLISH_OK"
+```
+⚠ **`PUBLISH_OK` is the whole point of the form.** The heredoc `kubectl run -i … <<JSON` version
+used by the shipped triggers drops ~4 of 5 publishes at exit 0. No marker → nothing was sent.
+
+⚠ **Do NOT run `scripts/initial_messages/170_work_item_flow_build/075_trigger_discovery.sh`.**
+Its last statement is hardcoded to `finetuning.uk` regardless of the domain you pass, and it
+`UPDATE`s that site's `detected` items to `triaged` — i.e. it dispatches real repairs at a site
+you did not name. It also uses the dropping heredoc form, and `set -u` makes its own documented
+one-argument usage crash.
+
+**Read the result — this, not the orchestration status, is the evidence:**
+```sql
+SELECT jsonb_pretty(collected_data->'findings_written')
+FROM orchestration_states WHERE correlation_id='<CORR>';
+```
+A `retraction` key present in that output IS half two having executed. Expected on an unrepaired
+site: `"silent": false`, `"retracted": 0`, `"streaks_bumped": 0`.
+
+⚠ **`candidates` reads 2, not 1, per affected site.** Retraction runs AFTER the insert, so the
+run counts the fresh `detected` row it just filed alongside the old `failed` one — same
+`item_key`, because `failed` is terminal for `idx_swi_dedup` so dedup does not suppress it.
+Bounded at 2 and self-consistent (a run that files a finding cannot be silent about it). Not a
+defect — do not diagnose it as one.
+
+**Confirm the old row was untouched** (a spurious write here bumps `updated_at`, which is the
+hazard the whole file is built around):
+```sql
+SELECT id, status, result->'retraction', updated_at FROM site_work_items
+WHERE item_key = '<audit_source>_dark_section_audit_<page>_<site_id>' ORDER BY created_at;
+```

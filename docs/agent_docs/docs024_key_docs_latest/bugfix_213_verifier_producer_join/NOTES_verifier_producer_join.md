@@ -1364,3 +1364,108 @@ false within the hour: [MEASURED] the cap bit for ~90 minutes and cleared at ~17
 says in terms that the stated reset is the vendor's worst case rather than a forecast. Full
 correction inline above. **Correcting the shared file does not correct the doc that quoted it** —
 the fleet entry was struck through on 08-14 and this lane's copy stayed wrong for a day.
+
+---
+
+## 2026-08-15 (later) — half two EXERCISED on production traffic, WITHOUT re-enabling a carrier
+
+Owner asked to either flip `improvement-sweep` on and off again, or trigger the audits by hand.
+Took the second. Getting there corrected two claims this lane had been repeating.
+
+### ⚠ CORRECTION — the carrier claim in every handoff of this lane is WRONG
+
+Stated everywhere, including `HANDOFF_2026-08-15`: *"`improvement-sweep` and
+`site-discovery-rotation-design` … are the only carriers that dispatch this audit."*
+[VERIFIED first-hand] `site-discovery-rotation-design` drives `design-discovery-agent`, whose
+live workflow has **three steps** (`ensure_site_record, run_checks, complete`) and which does
+**not** appear among the agents whose config contains `write_audit_findings`:
+
+```sql
+SELECT type FROM agent_definitions
+WHERE default_config::text LIKE '%write_audit_findings%'
+  AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL;
+-- brief-fidelity-auditor, content-quality-auditor, council-gate, council-gate-036scratch,
+-- fix-proposer, offer-analyser, site-review-agent, visual-design-auditor
+```
+
+The real chain is `improvement-sweep → improvement-loop → call_design_audit →
+design-audit-agent → call_visual_auditor → visual-design-auditor → write_findings`.
+There is exactly **ONE** carrier, not two, and the second-named one could never have exercised
+this code at all.
+
+**It would also have done nothing if enabled.** [MEASURED 13:41Z] its `pre_query` requires a
+rotation stamp older than 7 days; the oldest live stamp is `robot-hands.com` at **6d04h**, so
+the SELECT half returns **0 rows**. Enabling it would have fired, selected nothing, dispatched
+nothing — and looked exactly like a working test that found nothing to do.
+
+### Why the enable/disable route was refused
+
+`improvement-sweep` is not detection-only. Its own description: *"Discovery agents find issues,
+triage promotes them, **dispatch fixes them**."* [MEASURED] `build-pipeline-trigger` is
+**enabled, 60s interval, last fired 13:45:12Z**, claiming any row at `status='triaged' AND
+pipeline='build'`. The sweep's `pre_query` is `ORDER BY s.updated_at ASC NULLS FIRST LIMIT 1`,
+so *which* live site receives edits is not controllable from the switch.
+
+### What was actually run
+
+`visual-design-auditor` dispatched directly at gamesdesign.co.uk, payload-in-COMMAND form with
+the `PUBLISH_OK` receipt (the heredoc form silently drops ~4 of 5). Command in RUNBOOK §9.
+`corr=5b8c3944-920b-4525-87df-355095f6eb55`, orchestration **COMPLETED**.
+
+Safety established BEFORE firing, not after:
+- `write_audit_findings_action.go:787` inserts with a **hardcoded `'detected'` literal**.
+- `build-pipeline-trigger`'s predicate is `status='triaged'` → `detected` rows are inert.
+- `design-audit-agent`'s live config has **no triage step**. `081b_…robot_hands.sh`'s comment
+  *"step 4: triage_detected_items → promotes detected → triaged"* is **STALE**; triage now
+  lives in `improvement-loop` as `triage_findings`.
+- Binary probe on `v1.0.1302` (both replicas rolled 11:28Z, after the handoff's 1301): three
+  needles, single pass — `re-audited this site on` **present**, control
+  `NO_CHANGE_GATE_UNREADABLE_RESULT` **present**, nonsense needle **absent**. The
+  `build provenance` line was already out of `--tail=3000` on ~2h-old pods, as warned.
+
+### The result — first live execution of WII-018
+
+```json
+"retraction": { "dark_section_audit": {
+    "silent": false, "candidates": 2, "streaks_bumped": 0,
+    "streaks_reset": 0, "retracted": 0, "retracted_parked": 0, "skipped_in_flight": 0 }},
+"audit_source": "visual-design-audit", "total_findings": 5, "items_created": 4
+```
+
+- **The safety arm is proven on production traffic.** The producer spoke
+  (`classification_stats` carried `dark_section_audit: 1`), so `silent=false` and nothing
+  retracted. This is the outcome the handoff insists is CORRECT, not a failure.
+- **The `failed` row was not written at all.** `70416d75-…` still carries `retraction` null and
+  `updated_at = 2026-08-14 15:05:31.904145+00`, unchanged. That proves the `toReset` branch's
+  *"only write when there is something to clear"* guard **live** — a spurious write there would
+  have bumped `updated_at`, the exact hazard the file's header is built around.
+
+### `candidates: 2` — retraction runs AFTER the insert, so a run sees its own new row
+
+I predicted 1. The run filed a NEW `dark_section_audit` row (`9ae28ee3-…`, `detected`) whose
+`item_key` is **byte-identical** to the existing `failed` row's:
+`visual-design-audit_dark_section_audit_index_e33263f4-74f8-494f-b191-546845dbbddf`.
+Dedup did not suppress it because `failed` is terminal for `idx_swi_dedup`. Both rows are then
+non-closed and in-scope, so both count.
+
+**Self-consistent and bounded at 2**: a run that files a dark-section finding is by construction
+not silent about dark sections, so it can never bump the streak on the row it just created; and
+a second `detected` duplicate cannot be filed while the first is open. Recorded because
+`candidates` will read 2 rather than 1 per affected site, and that is **not** a defect.
+
+### What is still NOT proven live, stated plainly
+
+- **The bump arm** (streak climbing) — needs a run that is silent about a site holding an open
+  row. All four `failed` sites are genuinely unrepaired, so no live run can be silent yet.
+- **The retraction arm** (N=3 → close) — needs three consecutive such runs.
+- **The `audit_source` scope guard is still indistinguishable from the closed-status guard on
+  live data.** [MEASURED] every `design-audit`-sourced row fleet-wide is `complete`, so it is
+  excluded by status before source is ever consulted. It is structural and unit-tested; it has
+  still never had to do work in production.
+
+### Side effects, stated
+
+4 new `detected` items on gamesdesign.co.uk (batch `a53c7b41-…`): `dark_section_audit`,
+`needs_design_review`, `responsive_fix`, `spacing_fix`. All inert while nothing triages. Fleet
+`dark_section_audit` population moves 19 complete / 4 failed → **19 / 4 / 1 detected**. One
+visual LLM audit's spend. **No live site content changed.**

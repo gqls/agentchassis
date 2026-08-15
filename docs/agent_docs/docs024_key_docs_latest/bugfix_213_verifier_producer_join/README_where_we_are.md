@@ -374,3 +374,56 @@ ninety minutes later, so it had been re-runnable for a day and nobody noticed. I
 it. I had also written in our notes that the fleet was out of action until 1 September, which was
 wrong and is now corrected; the limit message says that, but it is what would happen if nobody
 intervened, not a forecast.
+
+---
+
+**2026-08-15, later that day.** The owner asked me to switch the improvement loop on briefly and
+then off again, or else to trigger the audits by hand, so that the safeguard we built would
+actually get a run rather than sitting there untested. I did the second, and I want to explain
+why, because the first turned out to be a worse idea than it looked.
+
+There were supposedly two things that could set these audits going. One of them, the design
+rotation, looked like the safe choice because it only looks for problems and never tries to fix
+them. It turns out it could never have worked at all: it drives a different agent from the one
+that actually writes the audit findings, so it has never been a route to this code in the first
+place. Every handoff in this folder has said otherwise, and that was simply wrong. On top of
+that, it picks a site only if that site has not been looked at for a week, and nothing on the
+estate is currently a week overdue — so switching it on would have produced a run that selected
+no site, did nothing, and looked for all the world like a clean test.
+
+The other one, the improvement sweep, does work, but it does not only inspect. It also promotes
+what it finds and hands it to the machinery that makes real changes to a real site — and that
+machinery is running right now, checking every sixty seconds. The sweep chooses its site by
+whichever has gone longest without attention, so I would not have been able to say in advance
+whose website was about to be edited. That is not a thing to switch on to satisfy a curiosity.
+
+So instead I ran the audit itself, directly, against one site I picked deliberately —
+gamesdesign.co.uk. That runs exactly the same code by exactly the same route, but only inspects,
+and files what it finds as a suggestion rather than an instruction. Before firing it I checked in
+the code that findings are recorded as suggestions, and checked that the machinery which makes
+changes only ever picks up instructions, so there was no path from my test to anybody's live
+page. I also confirmed the safeguard was genuinely present in the software currently running,
+rather than assuming it, because the servers had been replaced again since yesterday.
+
+**It worked, and it did the right thing.** The audit looked at the site, found the dark section
+still there, and reported it — and because it had something to report, the safeguard correctly
+did not close the old ticket. That is the outcome we wanted: the whole danger with this kind of
+rule is that it quietly closes a ticket for a fault that is still present, and here it had every
+opportunity and declined. Better still, it did not touch the old ticket at all — not even to
+write a note on it — which matters more than it sounds, because writing to a ticket for
+bookkeeping reasons is the exact thing that can make it invisible to the housekeeping process
+later. We had reasoned that it would not; now we have watched it not.
+
+**What I cannot claim.** This proves the half that refuses to act. It does not prove the half
+that eventually closes a ticket when a fault really has been fixed, because none of the four
+outstanding faults have been fixed, so the audit has nothing to be silent about. That half needs
+three consecutive clean looks at a site that has genuinely been repaired, and we cannot
+manufacture that honestly.
+
+One small surprise worth writing down: the run filed a fresh ticket for the same fault alongside
+the old one, because the old one had been marked failed and the system treats that as finished
+for the purpose of avoiding duplicates. So the site now carries two tickets for one dark section.
+That is harmless and it cannot grow beyond two, but the count in the report reads two rather than
+one, and I would rather you saw that here than wondered about it later. The cost of all this was
+one audit, and four new suggestions on that one site, none of which anything will act on while
+the sweep is off.

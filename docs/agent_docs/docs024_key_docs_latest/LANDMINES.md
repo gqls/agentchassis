@@ -10905,3 +10905,28 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **source:** 2026-08-15, loanandmortgagecalculator Track B2 batch 2, closing gate. Fixed in `b40d7d982`; measurements in `NOTES_…md` 2026-08-15 (c).
 - **relations:** MEMORY [[a-pass-from-a-blind-check-outlives-the-blindness]] (closed files later quote it as "verified") · [[a-post-fix-zero-needs-a-demand-control]] · [[mutate-the-code-to-prove-the-guard]] · [[a-quiet-test-passes-when-the-rule-is-gone]]
 - **added:** 2026-08-15, loanandmortgagecalculator B2 mixed-card thread
+
+### `075_trigger_discovery.sh <domain>` ignores your domain at the end and TRIAGES `finetuning.uk`'s items — a read-only-looking "trigger discovery" dispatches real repairs at a site you never named
+
+- **footprint:** `scripts/initial_messages/170_work_item_flow_build/075_trigger_discovery.sh`, and by shape any `initial_messages` trigger whose tail contains follow-up `psql` calls
+- **fires when:** you want to exercise a discovery/audit path at some site and reach for the obviously-named shipped script. No symptom: it prints a correlation id and a tidy "Discovery triggered" banner exactly as it would on success.
+- **the trap, three independent halves:**
+  - **Lines 79–91 are hardcoded to `finetuning.uk`**, ignoring `$DOMAIN` entirely. The last one is not a query — it is `UPDATE site_work_items SET status='triaged' … WHERE site_id=(SELECT id FROM sites WHERE domain='finetuning.uk') AND status='detected'`. **`triaged` is exactly the predicate `build-pipeline-trigger` claims on** (enabled, 60s tick), so this promotes another site's suggestions into instructions and the repair fleet acts on them. You asked to *look* at site X and you *edited* site Y.
+  - It publishes with the **`kubectl run -i --rm … kcat -P <<JSON` heredoc form**, which drops ~4 of 5 publishes at exit 0 — so the half that was supposed to happen often does not, while the half that was not supposed to happen always does.
+  - `set -euo pipefail` with an unguarded `case "$2"` at line 17 means its **own documented one-argument usage (`./075_trigger_discovery.sh finetuning.uk`) crashes** under `-u`, which is a fair hint the tail has not been exercised in a long time.
+- **the check, before running ANY `initial_messages` trigger:** read to the END of the file, not just the usage header — `sed -n '/kcat/,$p' <script>`. A trigger that ends after the publish is a trigger; one with `psql` after it is a small program with side effects, and the domain it acts on may not be the one you passed. If you only want the dispatch, lift the publish block out and run that.
+- **the safe form of what it was trying to do:** `RUNBOOK_verifier_producer_join.md` §9 — dispatch the producing agent directly, payload in the container COMMAND with a `PUBLISH_OK` receipt, and let findings sit at `detected` (inert) instead of triaging them.
+- **source:** 2026-08-15, `bugfix_213` lane, while looking for a way to exercise WII-018 without re-enabling `improvement-sweep`. Caught by reading the script before running it; nothing about its name or banner would have told me afterwards.
+- **relations:** MEMORY [[kcat-publish-silently-drops]] (the publish half) · [[operator-actions-that-email-a-human]] (same shape: one button, two effects, only one of them named) · [[live-and-committed-are-independent-facts]]
+- **added:** 2026-08-15, bugfix_213 lane
+
+### Enabling a `scheduled_tasks` row proves nothing — a task whose `pre_query` selects 0 rows fires, dispatches nothing, and is indistinguishable from a clean run
+
+- **footprint:** `scheduled_tasks` (`enabled`, `pre_query`, `last_triggered_at`), `site-discovery-rotation-*`, `improvement-sweep`, any "switch it on briefly to test it" plan
+- **fires when:** you flip `enabled=true` to exercise a code path, then read `last_triggered_at` advancing as evidence it ran. It did fire — the scheduler updates that column regardless — but the `pre_query` returned no rows, so nothing was dispatched and no agent ever executed.
+- **the trap:** these `pre_query` bodies carry recency predicates (`last_selected_at < now() - interval '7 days'`, `updated_at ASC LIMIT 1`) that go **empty precisely because the task has been off**, or because a sibling task already consumed the due set. Measured 2026-08-15: `site-discovery-rotation-design` selected **0 rows** — oldest live stamp 6d04h against a 7-day threshold — so enabling it would have produced a fired task, an advanced timestamp, and zero work.
+- **the check, and it is read-only:** **run the `pre_query`'s SELECT half yourself before flipping anything.** `SELECT pre_query FROM scheduled_tasks WHERE name='<task>';` then execute it — but ⚠ **strip any write first**: several of these are CTEs that `INSERT … ON CONFLICT DO UPDATE` a rotation stamp as a side effect of being read, so pasting one verbatim consumes the very due-ness you are testing. Zero rows → the switch is not your lever, and no amount of waiting will change that.
+- **the better lever:** dispatch the target agent directly (RUNBOOK §9 pattern) — you pick the row, nothing depends on a recency predicate, and you avoid whatever *else* the task does. Check that too: `improvement-sweep` reads as a detection sweep and its description ends "**dispatch fixes them**".
+- **source:** 2026-08-15, `bugfix_213` lane. The plan was "enable the safe-looking carrier for one tick"; the carrier was both inert AND not a carrier of that code at all.
+- **relations:** MEMORY [[zero-adoption-means-read-the-mechanism]] (a silent mechanism is usually undriven) · [[detection-works-schedule-and-dispatch-do-not]] · [[a-post-fix-zero-needs-a-demand-control]] (a zero needs a control proving demand existed)
+- **added:** 2026-08-15, bugfix_213 lane
