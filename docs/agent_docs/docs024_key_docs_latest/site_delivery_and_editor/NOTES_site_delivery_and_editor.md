@@ -151,3 +151,41 @@
   pre-change config, and stamp `restored_at`.
 - **Resubmitted on the SAME correlation** (round 2, run orch
   `507d6e87-cbf9-4ad8-9d13-725521416edb`); verdict-read still the owed step.
+
+## 2026-08-15 (late evening) — round 2: APPROVED (3 advisory objections, none high); guards landed
+
+- **APPROVED** on corr `21aba3f5` — the `Council-Submitted:` trailers on
+  `71e4d9736` and `cd5490866` are credited automatically by the 098 report;
+  no amend (forward-only). Advisories triaged:
+  - **ACTED ON — publish_project uniqueness (editquality, medium)**: two
+    sites sharing a `publish_project` would silently overwrite each other's
+    hosted prefix. Migration `423_publish_project_unique.sql` APPLIED: partial
+    unique index on `sites(publish_project) WHERE NOT NULL` — the bad state is
+    now unrepresentable. ⚠ **number collision**: another session took 423
+    concurrently (`423_finance_directory_researcher_named_firm_rule.sql`) —
+    two unrelated migrations share the number; the full FILENAME is the
+    identity (schema_migrations records it), do not "fix" by renaming.
+  - **ACTED ON — re-verify enumeration at apply time (prior_art, medium)**:
+    the 422 header now carries the four queries; two legs read tables outside
+    some seats' schema tier, so the applier re-runs them, never trusts the
+    rationale's figures.
+  - **ACTED ON — pod-probe controls named (debug_historian, low)**: 422
+    header now spells out the positive+negative control pair (zero-sha must
+    NOT match — else the probe is reading Go's digit table).
+  - **RECORDED, not reworked**: (reuse, medium) b2worker-in-Go vs shelling to
+    `b2 sync` — the spawned chassis pods carry no b2 CLI, and adding a binary
+    dependency + credential plumbing to the image for a copy the S3 API does
+    in-process was judged the worse trade; noted here as the answer the
+    submission should have carried. (editquality/guardian, low) B2
+    read-after-write lag can only produce a false `accepted:false` (drift
+    stands, next tick retries) — self-healing by design. (reuse, low)
+    `contentTypeFor` duplication and a shared fetch/verify helper — candidates
+    for the Phase 3+ passes. (architecture, low) **write up Direct Upload
+    protocol decisions BEFORE arming cfpages** — added to the arming step's
+    obligations, do not let the token's arrival shortcut it.
+  - **tooling_provenance's doc_notes check, answered**: the only prior
+    `site-publisher` notes are dormant-agents sweeps (07-22, 07-26) listing it
+    as dormant — corroborating the fossil status, no conflicting context.
+- Phase 2 session state: **everything session-local is done.** Remaining is
+  the post-release sequence in the owed list above (release → verify pod →
+  422 per its header → b2worker canary).

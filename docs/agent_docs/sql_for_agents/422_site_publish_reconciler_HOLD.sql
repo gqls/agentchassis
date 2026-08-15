@@ -17,9 +17,27 @@
 --   kubectl -n ai-persona-system logs -l app=agent-chassis --tail=300 | grep -m1 'build provenance'
 --   git merge-base --is-ancestor 71e4d9736 <the stamp sha>   # must exit 0
 -- The stamp is a STARTUP line and scrolls on a busy service; an empty grep
--- means "not in range", not "unstamped" — fall back to the binary probe with
--- a KNOWN sha plus a present-and-absent control pair (LANDMINES; never
--- `strings`, and never a marker containing an em dash).
+-- means "not in range", not "unstamped". Fallback binary probe, WITH BOTH
+-- controls in the same breath (a lone absent-grep on a Go binary reads
+-- absent even when the commit shipped — LANDMINES; never `strings`, never a
+-- marker containing an em dash or any non-ASCII byte):
+--   P=$(kubectl -n ai-persona-system get pods -l app=agent-chassis -o name | head -1)
+--   kubectl -n ai-persona-system exec ${P#pod/} -- grep -aq "<full sha of the STAMP>" /proc/1/exe && echo stamp-present
+--   kubectl -n ai-persona-system exec ${P#pod/} -- grep -aq "0000000000000000000000000000000000000000" /proc/1/exe && echo CONTROL-BROKEN-any-sha-matches
+-- (positive control: the stamp sha must match; negative control: the zero
+-- sha must NOT — if it does, the probe is matching Go's digit table, not a
+-- stamp, and proves nothing.)
+--
+-- ALSO RE-VERIFY THE ZERO-CONSUMER CLAIM AT APPLY TIME (council round 2,
+-- prior_art seat: two of its four legs read tables outside some reviewers'
+-- reach, and days may have passed — an enumeration is evidence only at the
+-- moment it ran). All four must still be 0:
+--   SELECT count(*) FROM agent_definitions WHERE default_config::text LIKE '%site-publisher%'
+--     AND is_active AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL AND type <> 'site-publisher';
+--   SELECT count(*) FROM scheduled_tasks WHERE target_agent_type='site-publisher';
+--   SELECT count(*) FROM site_work_items WHERE handler_agent='site-publisher';
+--   SELECT count(*) FROM orchestration_states
+--     WHERE collected_data->'__execution_context__'->>'run_agent_type'='site-publisher';  -- slow (~2 min), full scan
 --
 -- THEN apply with exactly these two commands from the repo root:
 --   kubectl -n ai-persona-system exec -i postgres-clients-0 -- \
