@@ -240,6 +240,18 @@ source document and the entry points at it.
 - **source:** hit directly while positive/negative-controlling the
   `shared-ledger-not-appended` guard, 2026-07-29
 - **added:** 2026-07-29, webdesign.uk lane
+  > **AMENDED 2026-08-15 (185 closing lane) — the OTHER way this command bites, and on this
+  > tree it is the worse one.** `git checkout -- <path>` (and `git checkout HEAD -- <path>`,
+  > `git restore <path>`) to undo a **test mutation** discards EVERY uncommitted edit to that
+  > file — your own real work, and any other session's. Done 2026-08-15: mutated
+  > `queryresolve.go` to prove a guard red, then `git checkout --` to "restore" — it restored
+  > HEAD, wiping the very edit the guard was written for; recovered only because a copy had
+  > been saved first (to a directory other than intended, because a `cd` in the same
+  > compound command had failed and the cwd was not what the script assumed). **The check:**
+  > a mutation is undone from a SAVED COPY (`cp f f.bak … cp f.bak f`), never from git; and
+  > before ANY `checkout --`/`restore` on this tree, `git diff --stat -- <path>` — a non-empty
+  > answer is work, and not necessarily yours (`a-pathspec-commit-still-takes-a-same-file-passenger`
+  > is the commit-side twin of this).
 
 ### `pages.sections` is a materialised CACHE — the build reads `site_plan_sections`
 
@@ -3543,8 +3555,15 @@ deliberately:
 
 - **footprint:** `pages.build_status`, `pages.deployed_at`, any guard spelled
   `build_status = 'deployed'` / `COALESCE(build_status,'') <> 'deployed'`,
-  `realisedPageIsBuilt`, `findStrandedNavPages`, `NeverDeployedPagePredicateFor`,
-  `PageHasShippedPredicateFor`
+  `realisedPageHasShipped`, `findStrandedNavPages`, `NeverDeployedPagePredicateFor`,
+  `PageHasShippedPredicateFor`, `queryresolve.FetchablePageEligibilitySQL`
+  > **CORRECTED 2026-08-15 — the footprint named `realisedPageIsBuilt`, which was RENAMED
+  > `realisedPageHasShipped` on 2026-08-03 (185 tranche 3) — twelve days of pointing at a
+  > symbol that no longer exists, the exact stale-footprint trap the correction directly
+  > below records.** Also added `FetchablePageEligibilitySQL`: since 2026-08-15 the page-
+  > listing floor is DERIVED from `PageHasShippedPredicateFor("p")` (185 fix candidate 2),
+  > so it is no longer a second spelling to keep in step — but it IS this predicate, so a
+  > change to the builder now changes what every listing advertises.
   > **CORRECTED 2026-08-03 — this footprint used to name `pageHasBeenLive`, which no
   > longer exists** (it WAS the hand-rolled predicate this entry was written about, and
   > it was deleted the same day in favour of the shared one). Four council seats read
@@ -11093,3 +11112,13 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **the check:** for COMPLETED rows, read the ORCHESTRATION, not the row — `SELECT collected_data->'triage' FROM orchestration_states WHERE workflow_plan->>'start_step'='<your start step>'` (or match on correlation). Evidence survives on the row ONLY for arms that leave the item at a status `complete_work_item`'s guard excludes (`needs_human_review`, `failed`, …) — parked rows keep their `result_fields` + `error`, completed rows do not. Design accordingly: park-evidence on the row, close-evidence in the orchestration trail, and never assert a completed row's route from `result`.
 - **source:** 2026-08-15, bugfix_277 lane (seed 410 canary; RUNBOOK corrected the same hour). The loop behaviour is pre-existing (`051_build_dispatch_loop.sql` `mark_complete`), not 277's.
 - **added:** 2026-08-15, bugfix_277 lane
+
+### gofmt REWRITES two single quotes in a Go doc comment into a typographic ” — SQL quoted in a comment is silently mangled
+
+- **footprint:** `gofmt`, `gofmt -w`, any Go DOC comment (the `//` block directly above a declaration) that quotes SQL or code containing `''` (an empty string literal, e.g. `COALESCE(col, '')`) or ``` `` ```
+- **fires when:** you paste a SQL predicate into a doc comment to explain a helper — `COALESCE(build_status,'') <> 'deployed'` — and the pre-commit pattern check reports the file `not gofmt-clean`. You run `gofmt -w` as instructed. Go 1.19+ doc-comment reformatting treats `` `` `` and `''` as TeX-style quotes and converts them to “ and ”, so the comment now reads `COALESCE(build_status,”) <> 'deployed'` — SQL that will not run if anyone copies it, in a comment whose whole purpose was to be copied.
+- **the tell:** none in the loop — `go build`, `go vet`, `go test` all pass; the gofmt "diff" is one character wide and looks like a whitespace fix. Seen 2026-08-15 on two files in one commit; noticed only because `gofmt -d` was read before `gofmt -w`.
+- **the check:** `gofmt -d <file>` (read the diff) before `gofmt -w` (apply it) whenever the flagged file's change was a COMMENT. If the diff touches a `''` or ``` `` ```, do not apply — rewrite the prose instead: put the SQL in an indented code block inside the comment (gofmt leaves indented blocks alone), or spell the empty string as `<empty>` in running text. Body-of-code string literals are untouched; only doc comments are reformatted.
+- **relations:** the struct-field-comment gofmt landmine above (same tool, different rewrite); `016b §9 #16`
+- **source:** 2026-08-15, 185 closing lane, `41f88f2b3` (comments rewritten to `<empty>`)
+- **added:** 2026-08-15, bugfix bugs_open/185 lane

@@ -761,3 +761,81 @@ re-derived as a new finding.
 caller wired it wrong and the gate has quietly reverted to the buggy predicate". Correct,
 and deliberately not changed now: the code is live and approved, exposure is zero, and the
 honest fix is a Debug-level line in a per-page hot path, which wants its own small round.
+
+
+---
+
+# CLOSED 2026-08-15 — still live at v1.0.1302, the class has not regrown, and the two open-by-choice residuals are done
+
+**Picked up by a fresh session** (`bugfix bugs_open/185`), eleven days after the owning lane handed off with
+"no code is owed". Everything below was re-measured today rather than carried forward from the entries above.
+
+## Still valid, still live — checked, not assumed
+
+| claim | how it was checked today | result |
+|---|---|---|
+| tranches 1–3 still in the running binary | `grep -ac` on `/proc/1/exe` of `agent-chassis-6f4688f88c-sspqq` (fleet `v1.0.1302`) | `realisedPageHasShipped` **1** · old symbol `realisedPageIsBuilt` **0** (negative control) · `PageHasShippedPredicateFor` **2** |
+| the population the detectors were blind to | the census query at the top of this file, re-run | active **658 / 42** shipped-but-not-`deployed`, archived **36 / 8** — grown from 28/7 on 08-03. The fix matters more, not less |
+| the class has not regrown | comment-stripped scan of `HANDROLLED_SHIPPED_RE` over `platform/` | 14 matches, **every one in `SHIPPED_PREDICATE_ALLOWED` with a recorded reason, 0 genuine** |
+| nobody else on it | `scripts/who-owns.py 185`, plus grep of today's live transcripts for the slug | last 185 commit 08-04; slug appears only incidentally elsewhere |
+
+## Fix candidate 2 — DONE: the listing floor is now DERIVED, not spelled (`ab4076c4a`, tidied `41f88f2b3`)
+
+`queryresolve.FetchablePageEligibilitySQL` was `(p.deployed_at IS NOT NULL OR p.build_status = 'deployed')`,
+a second hand-written spelling of the same judgement in a second package, cross-referenced by comment only.
+It is now `AND ` + `datahelpers.PageHasShippedPredicateFor("p")` (const→var). **Equivalence was proved on
+production BEFORE the respell, both ways:**
+
+```
+live listing context (p.status IN ('active','deployed')):  old 621 · new 621 · old−new 0 · new−old 0
+all pages:                                                  old 643 · new 643 · old−new 0 · new−old 0
+NULL build_status rows: 0   (the COALESCE arm has no live case; De Morgan is exact)
+idea.uk tool-audience-check (build_status='deployed', deployed_at NULL): in BOTH sets — the keep survives
+```
+
+The eligibility test that pinned the old literal now pins the DERIVATION (`TestGenericListingIsTheCanonical-
+ShippedPredicateVerbatim`: must contain the builder's output verbatim, no hand-written `OR p.build_status`
+beside it) — mutation: hand-respell the floor → 2 tests red. The `queryresolve.go` entry in pattern-check's
+`SHIPPED_PREDICATE_ALLOWED` is retired: the literal it excused no longer exists, and a dead entry would silence
+the rule on exactly the file it now guards. The family-of-three comment stands — Listed / Deployed / Fetchable
+are genuinely different floors; only Fetchable was this bug's judgement.
+
+## The silent fallback — DONE: one Warn per reconcile run
+
+`realisedPageHasShipped` still degrades to the narrow `build_status` test when `has_shipped` is absent (the
+either-order contract) — but `reconcilePlanWithRealised` now Warns **once per run**, on the first row lacking the
+key. Once, because the column's absence is a property of the QUERY, not the row — which is what answers the
+"Debug line in a per-page hot path" cost that deferred this on 08-04. The helper stays pure. Observer test:
+3 rows without → exactly 1 Warn; rows with (even `has_shipped=false`) → 0. Mutations: Warn dropped → got 0
+(red); once-guard dropped → got 3 (red). **Live exposure today is zero** (migration 302 is applied); the Warn is
+prospective, and its first firing would mean the migration was reverted or a caller was wired to another loader.
+
+## Council: `9f1ec294-eeba-4c5d-b5b7-f6e9c8c0203c` (one round for both, submitted BEFORE the commit this time)
+
+Both commits carry `Council-Submitted: 9f1ec294…`. Picked up within minutes (`review_bug_historian` executing
+at 16:0x). **Verdict not yet read at the time of this entry** — recorded forward; if REVISE, the answers go here.
+
+## What this session got wrong (WRONG_CALLS carries both)
+
+1. Undid a test mutation with `git checkout --` and wiped the derivation edit itself; recovered from a copy that
+   was in the wrong directory because a `cd` had failed. **A mutation is undone from a saved copy, never from git**
+   — on this tree `checkout --` discards every session's uncommitted edits to the file.
+2. The Warn message spelled `build_status = 'deployed'` and `check_handrolled_shipped_predicate` fired on it —
+   the detector strips comments, not string literals. Reworded; not allow-listed.
+3. `gofmt -w` on two doc comments quoting the SQL turned `''` into a typographic `”` — a new LANDMINE (footprint
+   `gofmt`, doc comments). Read `gofmt -d` before applying it to a comment.
+4. Ran `landmines-sync.py --apply` before `landmines-verify-dispatch.sh` (CLAUDE.md still says to; LANDMINES
+   L7199 says not to) — the three entries were then fired by hand with `trigger-landmine-verifier.sh`.
+
+## Residue — named, owned elsewhere, unchanged
+
+- **`max_pages` on 8 over-cap render-audit sites** (2 crossed the cap because of tranche 2) — config, audit-cadence owner.
+- **`tool-archetype-taster-quiz` subject-key mismatch** (1 of 24 current tool plans unreachable by the ladder's key) — tool-acceptance lane.
+
+## Why this closes now
+
+The defect — detectors blind to shipped-but-`needs_rebuild` pages — has been **fixed AND live** since `v1.0.1247`
+(08-04) and is proven so again today at `v1.0.1302`. The two items closed in this entry were hardenings the bug
+kept open by choice, not the defect; they are committed and ride the next fleet release (no roll from this
+session — releases are whole-fleet, owner-run). Post-roll check for whoever is next: `git merge-base
+--is-ancestor ab4076c4a <the chassis stamp>` — no marker grep needed.

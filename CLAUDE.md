@@ -487,8 +487,14 @@ Rules that make them worth the effort:
     only — a running one needs `/hooks` or a restart. **Still grep it yourself for
     table, command and symbol footprints**, which cannot match a path:
     `grep -n "<path-or-table>" …/LANDMINES.md`.
-  - **After you append, run `./scripts/landmines-sync.py --apply`** so the
-    `doc_notes` rows follow. `--check` exits 1 if they have drifted.
+  - **After you append, run `./scripts/landmines-verify-dispatch.sh`** — it runs the
+    sync (so the `doc_notes` rows follow) AND arms the verifier for the new/changed
+    entries. ~~`./scripts/landmines-sync.py --apply`~~ alone consumes the "new entry"
+    status first, so the verifier then never checks your entry (LANDMINES, "Running
+    `landmines-sync.py --apply` before `landmines-verify-dispatch.sh`…" — corrected
+    here 2026-08-15 after a session followed this line and hit exactly that). If you
+    already applied: `./scripts/trigger-landmine-verifier.sh 'LANDMINES.md#<slug>'`
+    per entry. `landmines-sync.py --check` exits 1 if the rows have drifted.
   - **Every entry carries a `footprint`** (the path/table/symbol it guards) so
     entries convert mechanically to `doc_notes` rows —
     `architecture_review/PROPOSAL_D9_landmines_as_a_footprinted_corpus.md`, open

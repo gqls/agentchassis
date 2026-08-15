@@ -122,3 +122,32 @@ never been published. Three seats independently flagged that as the widest new
 power in the change, and it is safe only because of a rule a comment states and a
 human enforces. That is now **RFC 010**, for the owner: leave it as is, or make each
 caller opt in explicitly — about four lines. The bug itself is closed.
+
+---
+
+**2026-08-15 — bug 185 is closed.** A new session picked it up eleven days after the last
+handoff, checked it was still real (the population of live pages the old checks used to miss
+has grown from 28 to 42, so the fix was worth having), checked the fix was still in the running
+system (it is — the fleet is on a much newer build and the code is still there), and then did
+the two things the last handoff had left open on purpose.
+
+The first was tidiness with teeth: two different files in two different packages spelled the
+same rule — "has this page ever been served" — in two different ways, and the only thing
+keeping them in step was a comment saying "if you change one, go and read the other". That is a
+note, not a control. Now the second spelling is *built from* the first, so there is exactly one
+place the rule lives and nowhere for the two to drift apart. Before making the change, the two
+spellings were run side by side against the live database to prove they picked out identical
+pages — they did, 643 for 643, no differences either way.
+
+The second was a quiet failure mode made audible: the planner has a safety net that falls back to
+the old, narrower rule if a newer database column is missing. That fallback used to happen in
+silence, so if the column ever went missing (a reverted migration, say) nobody would know the old
+bug was back. Now it says so in the log, once per run, plainly.
+
+Both changes are committed and go out with the next release; nothing was rolled from this
+session. They went to the review council first, in one round, and the bug file has been moved
+to the closed pile with a full account of what was checked today. Two small leftovers belong to
+other people and are named in the file. Along the way this session made four small mistakes of
+its own — all caught, all written down where the next person will trip over them, and one of
+them (a formatting tool that quietly rewrites quote marks inside code comments) is new to the
+landmines list.

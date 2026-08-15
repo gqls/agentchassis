@@ -32053,3 +32053,56 @@ D2 hold itself was correct throughout (the plan genuinely lacks the tools), so n
 mis-taken. Corrected in place in all three, bug filed as `bugs_open/282`, pattern in 016b §9.
 
 ---
+
+---
+
+## 2026-08-15 — undid a test mutation with `git checkout --` and wiped my own uncommitted fix; the backup that saved it was in the wrong directory
+
+**Lane:** `bugfix bugs_open/185` (closing session — fix candidate 2).
+
+**What I did:** to mutation-prove the new derivation test (`TestGenericListingIsTheCanonicalShippedPredicateVerbatim`),
+I hand-respelled `FetchablePageEligibilitySQL` back to the old disjunct, watched the test go red — correct — and
+then "restored" with `git checkout -- queryresolve.go`. That restored HEAD, i.e. it also discarded the derivation
+edit the whole test exists to guard. `git diff --stat` came back empty and read as "clean", not as "gone".
+
+**Caught by:** the `git diff --stat` I ran to confirm the restore — empty where it should have shown 17/8. Cost:
+~2 minutes, because I had `cp`'d the file first. But the copy was NOT where I intended: the compound command's
+`cd` had failed (cwd already persisted from the previous call), the `||` fallback wrote the backup under
+`~/.claude-scratch/`, and my first restore attempt looked in `/tmp` and found nothing. Two mistakes stacked, and
+only the second one's redundancy saved the first.
+
+**Why it is worth a row:** on THIS tree the same command would have discarded another session's uncommitted
+edits to that file just as silently — the checkout-side twin of the same-file-passenger commit trap, and a
+smaller cousin of the banned `git stash`. `bugs_open/185`'s own bug file already carried the wrong-mutation
+lesson *"a compile error is not a mutation result"*; this is the next one along: **a mutation is undone from a
+saved copy, never from git.**
+
+**The cheap check:** `cp f "$SP/f.bak"` with an ABSOLUTE path into the scratchpad before mutating; `cp` it back
+after; and `git diff --stat -- f` must show the SAME numstat before and after the mutation round. Never
+`checkout --`/`restore` on a file with any uncommitted work — yours or not. LANDMINES' existing `git checkout --`
+entry is amended with this.
+
+---
+
+## 2026-08-15 — my Warn message spelled the SQL its own detector hunts, and the detector fired on the fix for its class
+
+**Lane:** `bugfix bugs_open/185` (closing session — the has_shipped fallback).
+
+**What I did:** wrote a once-per-run Warn for the silent `realisedPageHasShipped` fallback, and had the message
+say the gate was "degrading to the narrow `build_status = 'deployed'` test". Committed. The pre-commit pattern
+check reported `handrolled-shipped-predicate` at that exact line — `check_handrolled_shipped_predicate` strips
+COMMENTS but not STRING LITERALS, so a log message DESCRIBING the narrow test scored as an instance of it. On the
+commit that closes the bug the rule exists for.
+
+**Caught by:** the advisory pattern-check block on `ab4076c4a`'s commit output. Cost: one tidy commit (`41f88f2b3`),
+which reworded the message to "build_status-only test". No false claim reached a doc; the misstep is that I ran
+the tree-wide comment-stripped scan BEFORE writing the Warn and never re-ran it after — the exact
+"re-run your detector on the motivating case" rule, with the motivating case being my own new line.
+
+**Why it is worth a row:** it is the `prompt-text-poisons-its-own-detector` shape (memory) arriving through a log
+string instead of a prompt, and the fix was cheaper than the alternative I first reached for (allow-listing a
+7,000-line file, which would have silenced the rule on precisely the file that carries the gate).
+
+**The cheap check:** after adding ANY string literal that names the pattern a check hunts, run the check on the
+working tree before committing — here `python3 scripts/pattern-check.py` (or the one-off comment-stripped scan in
+this bug's runbook). If the message must mention the spelling, paraphrase it; the reader does not need the SQL.

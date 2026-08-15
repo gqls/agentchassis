@@ -369,3 +369,48 @@ because the sentence that's right and the sentence that's wrong look identical, 
 identity is exactly what a lexical pattern cannot see through. Recorded in the essay as an
 addendum, and the declined code is kept as a comment in `pattern-check.py` (not silently
 deleted) with both calibration numbers, so nobody re-attempts the same shape blind.
+
+## 2026-08-15 — a fresh session closes 185: the two residuals, and four missteps of its own
+
+Picked up cold from `HANDOFF_2026-08-04_continue_here.md`. Contributing here rather than opening a
+new lane directory: the work is this lane's last open item, not a new workstream.
+
+**Validity first, then work.** Binary probe on `v1.0.1302` (`grep -ac … /proc/1/exe`, the rename
+as the free negative control): `realisedPageHasShipped` 1, `realisedPageIsBuilt` 0,
+`PageHasShippedPredicateFor` 2. Census re-run: 42 active + 8 archived shipped-but-not-`deployed`
+(was 28 + 7). Comment-stripped fleet scan of the hand-rolled regex: 14 hits, all allow-listed with
+reasons, 0 genuine. `who-owns` + today's transcripts: nobody else on it. So: still real, still
+fixed, still live, and the two "open by choice" items were exactly what remained.
+
+**Fix candidate 2, done — and the order mattered.** The equivalence of the two spellings was
+proved on production BEFORE the respell (621/621 in the live listing context, 643/643 over all
+pages, symmetric difference 0 both ways, 0 NULL `build_status` rows so De Morgan is exact, the
+idea.uk unstamped-deployed row in both sets). Then `FetchablePageEligibilitySQL` became
+`AND ` + `datahelpers.PageHasShippedPredicateFor("p")`. The eligibility test that pinned the old
+literal was re-pinned to the DERIVATION, exactly the move tranche 2 made for the 098 lane's tests.
+Mutation: hand-respell → 2 red. The `queryresolve.go` allow-list entry in pattern-check retired.
+
+**The silent fallback, done — once per RUN, which is what unblocked it.** The 08-04 deferral said "a
+Debug line in a per-page hot path wants its own round". The column's absence is a per-query
+property, so the Warn lives in `reconcilePlanWithRealised`'s entry loop, fires on the first row
+lacking the key, and the helper stays pure. Observer test 3→1 / with-column→0; mutations 0 and 3.
+
+**Council `9f1ec294-eeba-4c5d-b5b7-f6e9c8c0203c`, ONE round for both, submitted BEFORE the commit**
+— the lesson `171d52a1a` taught this lane, followed. Both commits carry `Council-Submitted:`. Picked
+up within minutes. Verdict recorded in the bug file when read.
+
+**Missteps, in order (WRONG_CALLS has the first two in full):**
+1. `git checkout -- queryresolve.go` to undo a test mutation wiped the derivation edit; the saved
+   copy was in `~/.claude-scratch/` not `/tmp` because a `cd` had failed earlier in the compound
+   command. Recovered. LANDMINES' `git checkout --` entry amended: undo mutations from a copy.
+2. My Warn message spelled `build_status = 'deployed'` and the class's own detector fired on it at
+   commit — it strips comments, not string literals. Reworded (`41f88f2b3`), not allow-listed.
+3. `gofmt -w` on two doc comments turned the SQL's `''` into `”`. Caught by reading `gofmt -d`
+   first. New LANDMINE (footprint `gofmt`, doc comments); comments now say `<empty>`.
+4. Ran `landmines-sync.py --apply` before `landmines-verify-dispatch.sh` (CLAUDE.md still says
+   `--apply`; LANDMINES L7199 says the wrapper). Fired the three entries by hand with
+   `trigger-landmine-verifier.sh`.
+
+**Then closed:** addendum written, `git mv` to `bugs_closed/`, both paths on the commit, 016b §10 row
+added (there was none). Two residuals stay named for their owners (render-audit `max_pages`; the
+`tool-archetype-taster-quiz` subject key).
