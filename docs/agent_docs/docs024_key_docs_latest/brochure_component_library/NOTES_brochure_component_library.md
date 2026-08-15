@@ -6984,3 +6984,129 @@ fix that never happened. Filing it would have produced exactly the false-success
 this lane has spent weeks learning to distrust. The guarded SQL for both steps in one
 transaction is `SQL_2026-08-15_fundamentallyai_nav_membership.sql`, ready for the owner to
 run or for a session with the permission.
+
+---
+
+## 2026-08-15 (morning) — 215 O2 PAIR 7: the merge half is DONE, and it was never an authoring job
+
+Lane: `brochure_215_o2_thread`. Separate front from the fundamentallyai nav work above,
+same directory. Pair 7 = robot-hands.com `gripper-cycle-time-estimator`.
+
+### The claim I set out to execute was wrong, and it was wrong in our own handoff
+
+§17 and this morning's `README_where_we_are` both told the owner that pair 7 needs
+"the ~1,700-word content merge **the framework must write**". **It does not.** The bare
+page's extra words are not loose prose awaiting an author — they are two finished,
+rendered, already-deployed components:
+
+| slot | words | rendered | ports? |
+|---|---|---|---|
+| hero | 88 | 3,316 b | no — duplicates the tool's own heading; its button reads "Run the Estimator" and points at `/contact.html` (defect already live on the bare page) |
+| `tool-gripper-cycle-time-estimator` | 299 | 12,520 b | **no — this is the actual duplicate.** Survivor's own variant is richer (16,850 b) |
+| `generic-text-block` | 449 | 3,305 b | **yes, verbatim** — zero URLs in `content_data` |
+| `faq` (8 Q&As) | 1,138 | 8,933 b | **yes, verbatim** — zero URLs in `content_data` |
+| `call-to-action` | 88 | 2,705 b | no — its primary button points at the SURVIVOR, so moving it makes a self-link |
+
+**1,587 of the ~1,700 words move verbatim.** Nothing was authored by this session or by
+an LLM. Owner chose this option (explainer + FAQ only) from three, 2026-08-15.
+
+### [MEASURED] The n=3 inference that would have sent me the wrong way
+
+robot-hands' three `tool-` survivors are all single-component, which reads as "tool pages
+do not carry prose". **Fleet-wide that is FALSE: 23 active `rebuild_policy='owned'` pages
+carry >1 component** — 9 on loanandmortgagecalculator.co.uk with a deliberate
+`prose-0 / tool-1 / prose-2` interleave, plus `oufe.com` `tool-recovery-waterfall` and
+`webdesign.co.uk` `tool-ab-test-calculator`. I ran that query *specifically to disconfirm*
+my own reading, and it did. **The disconfirming query is the one worth writing down**: had
+I skipped it I would have told the owner pair 7 needed a mechanism this estate does not
+have, when in fact it has 23 live instances of the target shape.
+
+### The mechanism, and why a direct INSERT is sanctioned rather than a workaround
+
+The survivor is `rebuild_policy='owned'`, and:
+- `SavePageSectionsAction` **hard-refuses** it — its DELETE-and-reinsert is the TL-001
+  clobber (`save_page_sections_action.go:186-196`).
+- `apply_section_edit` only edits an **existing** row (`content_edit` / `component_swap`).
+  Neither action can ADD a section.
+- `owned_page_guard.go:29-36` states the design: the guard sits at `assemble_page`
+  precisely because re-assembly of existing `page_components` "is deliberately NOT gated
+  — it is how owned pages deploy".
+
+So the route is INSERT the rows, then deploy **assemble-only**. That is exactly
+`docs/agent_docs/sql_for_agents/267_tool_guide_intro_recovery_waterfall.sql`, the worked
+precedent for adding a prose section to an owned tool page. Ours is strictly safer than
+267's: 267 hand-authored its `content_data` in the house voice; ours copies rows verbatim,
+so there is no new copy, no new claim, and nothing for the claims gate to miss.
+
+### Two deliberate deviations from 267 — stated so they can be overruled
+
+1. **`pages.sections` NOT updated.** 267 appended its slot there. Assembly does not read
+   it — `rerender_single_page_action.go:839-845` is
+   `SELECT rendered_html, slot_name FROM page_components WHERE page_id=$1 AND build_status
+   IS DISTINCT FROM 'removed' ORDER BY position ASC`. `pages.sections` is a planning cache
+   / legacy fallback. Writing it would also flip
+   `ensure_page_section_layout_action.go:118` from "will write a layout" to "refuses,
+   already non-empty". **This is why I checked the reader before copying the precedent** —
+   the survivor's cache is `[]` today and the page renders fine, and the loser's lists 3 of
+   its 5 slots, so the column is not maintained for these pages anyway.
+2. **Rows NOT locked.** 267 locked `permanent` because that site's copy is authored. Ours
+   is framework-written, so locking would opt it out of ordinary maintenance for no gain.
+
+### The landmine I cleared before dispatching, which would have rewritten the tool
+
+`049b_deploy_single_page.sh`'s own header: *"if ANY section has NULL content_data the whole
+page escalates to the content writer and the copy IS regenerated"*. On this page that would
+have regenerated **the tool itself**. Checked first: the survivor's component has
+`content_data = '{}'` — **not NULL**. Also `deploy_mode` absent, so the page is not on the
+verbatim path (`rerender_single_page_action.go:287-311`) and already assembles normally; a
+second component is precisely the case that code anticipates and logs.
+
+### Induced the guard before trusting it
+
+The SQL's pre-conditions are `DO`/`RAISE`, not `SELECT`s, because a verify block of
+SELECTs cannot stop a COMMIT. **I induced it rather than assuming**: aimed the same
+pre-assertion at the bare page (`generic`, 5 components) and it aborted —
+`ERROR: ABORT: survivor rebuild_policy is generic, expected owned`, psql exit 3. Note the
+shell `exit=$?` in that check read the pipeline's `tail`, not psql, so it printed `0`; the
+abort evidence is the ERROR line and the exit-3, not that zero.
+
+### Executed and verified
+
+`SQL_2026-08-15_215_o2_pair7_cycle_time_merge.sql` — `INSERT 0 2`, all post-assertions
+passed (copies byte-identical to source on `component_id`/`content_data`/`rendered_html`;
+positions tool=2, explainer=3, faq=4; bare page still at its original 5 components).
+
+Dispatch: `049b_deploy_single_page.sh`, no reason argument, corr
+`537f5b76-a10a-4559-9307-35d29a47ed3d`, orchestration
+`e440dcf1-4108-4835-b2ca-891c7ccbb086`, **COMPLETED in 7 s**. A clean `kcat` exit proves
+nothing (it drops silently at exit 0), so the orchestration row is the evidence, and the
+artefact below is the real evidence.
+
+**[MEASURED 2026-08-15 08:48Z] At the artefact, four URLs:**
+
+| url | before | after | reading |
+|---|---|---|---|
+| survivor `/tools/…/index.html` | 200, 32,165 b, 2,129 w | 200, **44,478 b, 3,694 w** | **+12,313 b, +1,565 w — the prose landed** |
+| loser `/gripper-cycle-time-estimator.html` | 200, 46,158 b, 3,832 w | 200, **46,158 b, 3,832 w** | unchanged to the byte — untouched, as designed |
+| collateral `/how-it-works.html` | 200, 29,993 b | 200, **29,993 b** | unchanged ⇒ targeted |
+| fabricated `/definitely-not-a-page-xyz.html` | 404, 2,886 b | 404, 2,886 b | instrument steady |
+
+Headings on the survivor now read: tool → explainer → FAQ → chrome, in that order.
+**Leak controls**: the hero's and CTA's headline phrases are **absent** from the survivor
+and **present** on the bare page (so the check can fail and does not). The two occurrences
+of the survivor's own URL are JSON-LD `@id`, i.e. metadata, not a body self-link.
+
++1,565 measured against +1,587 predicted — the 1.4% gap is that my prediction counted
+`content_data` text, which carries JSON keys, against rendered visible words.
+
+### What pair 7 still owes — the RETIRE half, none of it started
+
+Runbook steps 3–8 on the bare page. **Nothing archived, nothing cancelled, no plan row
+touched.** Re-measured today: **both sides are in current plan `7a40a0f9`** (so step 3 is
+mandatory) and the loser has **4 open work items** (`status NOT IN
+('complete','cancelled','rejected')` — the CLOSED-statuses semantics of §15, not the
+terminal list).
+
+⚠ **The explainer and FAQ now serve on BOTH URLs.** That duplicate window is inherent to
+the owner's chosen order (merge first, verify, then retire) and closes when the bare page
+is retracted. It should not be left for days.

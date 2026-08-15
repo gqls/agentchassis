@@ -3016,3 +3016,57 @@ problem two open doors still allow. I've said so in the file so nobody thinks it
 **Where the seven stand.** One done. Every one of the remaining six now needs either the framework
 to write some text, or belongs to the other workstream on fundamentally.ai. There's no mechanical
 work left to design — the procedure is proven.
+
+---
+
+**2026-08-15, later that morning — the second of the seven is half done, and the job was
+much smaller than I told you.**
+
+**First, a correction to what I said earlier today.** I wrote that every one of the six
+remaining pairs now needs either the framework to write some text or belongs to the other
+workstream. For the cycle-time estimator that was wrong, and I had not checked before
+saying it.
+
+Here is what I had assumed. Two pages cover the same tool: a plain one and a newer one
+under `/tools/`. The plain one has about 1,700 more words, and you decided to move those
+words across before retiring it. Everyone — me included — read "1,700 more words" as
+"1,700 words somebody has to write".
+
+Here is what is actually there. Those words are not loose prose. They are two finished,
+published blocks: an explainer of how the estimator works, and a set of eight questions
+and answers. They were written by the framework weeks ago, they are already live, and
+neither of them contains a single link. So they could simply be moved. Nothing needed
+writing, by me or by the machine.
+
+**What I did.** You chose to move the explainer and the FAQ and leave the other two bits
+behind — a banner that duplicates the tool's own heading, and a closing button that points
+at the very page we are moving to, which would have become a link to itself. So the
+tool page now carries the tool, then the explainer, then the questions. It went from about
+2,100 words to about 3,700. I checked it on the live site afterwards, along with three
+other pages as controls to prove the change was aimed only where I meant it.
+
+**The thing that nearly sent me the wrong way.** This site's three tool pages each hold
+exactly one thing — the tool, nothing else. From those three it looks obvious that tool
+pages here simply don't carry written explanation, and I was close to telling you we had
+no way to do what you asked. I ran one query to try to prove myself wrong, across every
+site we run, and it did: **twenty-three pages of that kind already carry extra written
+sections**, nine of them on the loan calculator site with a deliberate
+explanation-then-tool-then-explanation layout. So what you asked for is something we do
+routinely. Three examples looked like a rule and were not.
+
+**What is left on this pair.** The old page is still up and still serving. Retiring it is
+the other half, and it is the same steps that worked on the payload calculator on
+Thursday: take it out of the site plan, close the four outstanding jobs pointing at it,
+archive it, then delete the file. I have not started any of that.
+
+**One thing you should know about the current state.** The explainer and the questions are
+now live on *both* pages, because the merge came first and the retirement has not happened
+yet. That is the order you chose and it is the safe one — the words are safely in the new
+place before the old page goes. But it does mean the same text sits on two addresses for
+now, so this should not sit for days.
+
+**And one thing worth re-testing before we repeat it.** I said this morning that every
+remaining pair needs written content. Pair 7 disproved it. Pair 6 (`matchmatrix`) is
+listed as needing content work, but that listing is about four *links pointing at it* from
+elsewhere on the site, which is a different question from whether its own words can simply
+be moved. Nobody has opened its components either. It may be cheaper than it looks too.

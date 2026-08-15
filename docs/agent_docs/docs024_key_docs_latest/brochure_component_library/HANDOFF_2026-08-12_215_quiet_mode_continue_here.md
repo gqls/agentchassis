@@ -7,10 +7,17 @@ carried forward below where still live.
 
 **The pilot is live and inert. Nothing is half-finished in the tree.**
 
-> ## ⚠ COLD START, 2026-08-15 — READ §17 FIRST, THEN §16, THEN §15. THE REST IS HISTORY.
+> ## ⚠ COLD START, 2026-08-15 — READ §18 FIRST, THEN §17, THEN §15. THE REST IS HISTORY.
 > The sections are append-only and the file is long. **Every "READ THIS FIRST" heading below
-> §17 is stale by its own date** — §8's is 2026-08-12, §13's "cheapest next measurement" is
-> superseded by §14, and §14's "DO THIS NEXT" is superseded by §15–§17. **§17 is the head.**
+> §18 is stale by its own date** — §8's is 2026-08-12, §13's "cheapest next measurement" is
+> superseded by §14, and §14's "DO THIS NEXT" is superseded by §15–§18. **§18 is the head.**
+>
+> **§18 CORRECTS A PREMISE THE REST OF THIS FILE REPEATS.** §14, §16 and §17 all say pair 7
+> needs "the ~1,700-word content merge the framework must write". **It did not** — the words
+> were two finished, deployed components and they moved verbatim. **Pair 7's merge is DONE
+> and live**; its retire half (steps 3–8) is outstanding. Do not re-plan pair 7 from §17's
+> scoreboard, and do not repeat "every remaining pair needs the framework to write content"
+> without opening pair 6's components first — nobody has.
 >
 > **Current position in one paragraph. O2's seven pairs are all DECIDED (owner, 08-13, pairs
 > 3+4 REVERSED 08-14 — the decision doc holds both rulings). PAIR 5 (robot-hands
@@ -842,3 +849,103 @@ link, and a fix candidate stated but not taken.
 
 **Every remaining pair needs the framework to write content, or belongs to another front.** The
 mechanical procedure is proven end to end on pair 5 and needs no further design.
+
+---
+
+# 18. 2026-08-15 (morning) — PAIR 7's MERGE IS DONE AND LIVE. It was never an authoring job, and §17's own words were wrong about that.
+
+**This is the current head of the file. §17 is correct on everything it reports; this
+corrects one premise it repeated, and executes half of pair 7.**
+
+## 1. ⚠ CORRECTION — "the ~1,700-word content merge the framework must write" is FALSE
+
+§17's scoreboard, §16's, §14's item 2 and this morning's `README_where_we_are` all say
+pair 7 needs the framework to **write** ~1,700 words. It does not, and the error was
+never measured — it was inferred from a word-count difference (3,828 vs 2,125) without
+anyone opening the components.
+
+**What is actually on the bare page** [MEASURED 2026-08-15]:
+
+| slot | words | ports? |
+|---|---|---|
+| hero | 88 | no — duplicates the tool's own heading; button says "Run the Estimator", points at `/contact.html` (defect already live on the bare page) |
+| `tool-gripper-cycle-time-estimator` | 299 | **no — this IS the duplicate.** Survivor's variant is richer (16,850 b vs 12,520 b) |
+| `generic-text-block` | 449 | **yes, verbatim** — no URLs at all |
+| `faq` (8 Q&As) | 1,138 | **yes, verbatim** — no URLs at all |
+| `call-to-action` | 88 | no — points at the SURVIVOR, so it becomes a self-link |
+
+**1,587 of the ~1,700 words were two finished, deployed components.** Owner ruled
+2026-08-15: move the explainer and the FAQ only, leave the hero and CTA to die with the
+bare page. Recorded in `DECISION_INPUT_2026-08-12_seven_twin_pairs.md`.
+
+## 2. DONE and verified at the artefact
+
+`SQL_2026-08-15_215_o2_pair7_cycle_time_merge.sql` (guarded, `DO`/`RAISE`, replay guard,
+exact revert in the header) → `INSERT 0 2`. Deploy: `049b_deploy_single_page.sh`,
+**assemble-only, no reason argument**, corr `537f5b76…`, orchestration `e440dcf1…`,
+COMPLETED in 7 s.
+
+| url | before | after | reading |
+|---|---|---|---|
+| **survivor** `/tools/…/index.html` | 200, 32,165 b, 2,129 w | 200, **44,478 b, 3,694 w** | **+1,565 words — the prose landed** |
+| loser `/gripper-cycle-time-estimator.html` | 200, 46,158 b, 3,832 w | 200, **46,158 b, 3,832 w** | unchanged to the byte |
+| collateral `/how-it-works.html` | 29,993 b | **29,993 b** | unchanged ⇒ targeted |
+| fabricated control | 404, 2,886 b | 404, 2,886 b | steady |
+
+Survivor headings now: tool → explainer → FAQ → chrome. **Leak controls both ways**: the
+hero/CTA headlines are absent on the survivor and present on the bare page.
+
+## 3. Three things the next session should not re-derive
+
+1. **A tool page carrying prose is ROUTINE, not novel.** [MEASURED, fleet-wide] **23
+   active `rebuild_policy='owned'` pages carry >1 component** — 9 on
+   loanandmortgagecalculator.co.uk (`prose-0 / tool-1 / prose-2`), plus oufe.com and
+   webdesign.co.uk. robot-hands' own three `tool-` pages are all single-component, so
+   **the n=3 reading says the opposite and is wrong.** I ran that query to disconfirm
+   myself; it is the query that saved the pair.
+2. **The route for adding a section to an OWNED page** is a direct `page_components`
+   INSERT + an **assemble-only** deploy. `SavePageSectionsAction` hard-refuses owned pages
+   (`:186-196`) and `apply_section_edit` only edits an EXISTING row — neither can add one.
+   `owned_page_guard.go:29-36` says re-assembly of existing components "is deliberately NOT
+   gated — it is how owned pages deploy". Worked precedent:
+   `docs/agent_docs/sql_for_agents/267_tool_guide_intro_recovery_waterfall.sql`.
+3. **⚠ CLEAR THIS BEFORE ANY assemble-only DEPLOY.** `049b_deploy_single_page.sh`'s header:
+   *"if ANY section has NULL content_data the whole page escalates to the content writer and
+   the copy IS regenerated"*. On a tool page that regenerates **the tool**. Ours was `'{}'`,
+   not NULL — check, do not assume. (`deploy_mode` was also absent, so the page was never on
+   the verbatim path of `rerender_single_page_action.go:287-311`.)
+
+## 4. WHAT PAIR 7 STILL OWES — the retire half, and NONE of it is started
+
+Runbook steps 3–8 on the bare page. **Nothing archived, nothing cancelled, no plan row
+touched.** Re-measured 2026-08-15:
+
+- **Both sides are in current plan `7a40a0f9`** ⇒ **step 3 is mandatory** (same shape as
+  pair 5's, whose SQL is the model: `SQL_2026-08-14_215_o2_pair5_payload_calculator.sql`).
+- **4 open work items** on the loser — `status NOT IN ('complete','cancelled','rejected')`,
+  the **closed-statuses** semantics of §15, NOT `workItemTerminalStatuses`.
+- **0 editorial referrers** per §14's read-only census — re-verify before acting, it is a
+  day old and it is the check that decides whether the retraction refuses.
+- Step 7 (redirect) remains **inert** — every retirement is a 404.
+
+⚠ **The explainer and FAQ now serve on BOTH URLs.** That duplicate window is inherent to
+the owner's chosen order (merge → verify → retire) and closes when the bare page is
+retracted. **Do not leave it for days.**
+
+## 5. O2 scoreboard
+
+| pair | state |
+|---|---|
+| **5 rh `gripper-payload-calculator`** | ✅ **COMPLETE AND ACCEPTED** (both parts) |
+| **7 rh `gripper-cycle-time-estimator`** | **MERGE DONE + LIVE.** Retire half (steps 3–8) outstanding; 0 referrers, plan surgery required |
+| 1 ai-agent-orch `llm-cost-calculator` | archived, still serving — blocked on 2 editorial repairs (chrome footer + 1 article body) |
+| 2 finetuning `ai-readiness-quiz` | decided, **held on `bugs_open/204`** |
+| 3 fai `automation-savings-…-guide` | decided, **0 blockers** — routed to the fundamentallyai sweep front |
+| 4 fai `model-approach-selector-guide` | decided, 3 blockers (2 if pair 3 goes first) — same routing |
+| 6 rh `matchmatrix` | 4 editorial referrers inc. **both** chrome slots + plan surgery |
+
+**§17's closing line — "every remaining pair needs the framework to write content, or
+belongs to another front" — is now falsified for pair 7 and should be re-tested on pair 6
+before it is repeated.** Pair 6's 4 "editorial referrers" are inbound links, which is a
+different question from whether its own prose is portable; nobody has opened pair 6's
+components either.

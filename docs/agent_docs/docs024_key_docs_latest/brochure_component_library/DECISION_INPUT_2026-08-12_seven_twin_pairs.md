@@ -229,3 +229,40 @@ There is no redirect. Every retirement is a 404. The owner has accepted that for
 proceeding pairs on the grounds that the retired side is in each case the *worse* page, not
 the indexed one. **If a redirect capability is ever built, pairs 3+4 are the ones worth
 revisiting** — `/guides/` is the better URL and was the owner's preference on merit.
+
+---
+
+# OWNER RULING 2026-08-15 — pair 7's merge, scoped. The 08-13 ruling stands; this decides its CONTENTS.
+
+**Trigger:** executing pair 7's merge established that the bare page's "~1,700 extra words"
+are not prose awaiting an author. They are five discrete components, of which two carry
+essentially all the words and move verbatim. The owner was offered three options and chose
+the first.
+
+| # | option | words moved | chosen |
+|---|---|---|---|
+| A | **explainer + FAQ only** | **1,587**, verbatim, zero links, no authoring | ✅ **CHOSEN** |
+| B | + the closing CTA | 1,675 — CTA points at the survivor, needs a new destination | no |
+| C | + the hero as well | 1,763 — hero duplicates the tool's heading and carries a live defect | no |
+
+**What is deliberately left behind, and why it dies with the bare page:**
+
+- **hero (88 w)** — the survivor's tool component already carries its own heading, so the
+  hero would put two competing headings on one page. Its button also reads *"Run the
+  Estimator"* while pointing at `/contact.html`: a defect **already live on the bare page
+  today**, which porting would have carried across. Not this lane's to fix; it disappears
+  when the bare page is retired.
+- **call-to-action (88 w)** — its primary button points at
+  `/tools/gripper-cycle-time-estimator/index.html`, i.e. **at the survivor**. On the bare
+  page that is correct and useful; moved to the survivor it is a link to itself. Repointing
+  it is a commercial choice about where a finished user should go next, not a mechanical
+  one, so it was not made by a session.
+
+**Consequence worth noting:** the survivor has **no CTA at all**, before or after this
+merge, and once the bare page is retired the site loses that closing prompt for this tool
+entirely. That is the status quo for the survivor and was not changed here — but if a CTA
+on the tool page is wanted, it is a separate, small, decided-by-you piece of work.
+
+**This ruling does NOT change the 08-13 decision** ("MERGE the bare page's prose into
+`tool-`, then retire bare"). It scopes what "the prose" means. The retire half is
+unchanged and outstanding — see `HANDOFF_2026-08-12_215_quiet_mode_continue_here.md` §18.4.
