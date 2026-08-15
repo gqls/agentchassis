@@ -1266,3 +1266,147 @@ reassuring.
 Also: the roll was MIXED at check time (1 pod on v1.0.1300, 19 on v1.0.1301, ten services). Per the
 approved gate this is not "done" until one tag covers the set — and the enumeration must be by IMAGE,
 because `-l app=agent-chassis` returns 2 pods of about twenty.
+
+---
+
+## 2026-08-15 (session 3) — D6 markers: content-gap-planner moved to sonnet-5 and cache-marked
+
+### Post-roll gate (§2 of the 2026-08-15 handoff) — partly closed, one item still time-gated
+
+**Fleet tag: CLEAN.** 37/37 pods running the `agent-chassis` image are on `v1.0.1301`
+(`kubectl … -o jsonpath` over `.spec.containers[0].image`, filtered to `agent-chassis:`).
+Everything off-tag is a CronJob pod or infra (`postgres:16-alpine`, `busybox`, `ollama`,
+`pgbouncer`, `github-actions-runner`) and carries no chassis binary. The handoff's "MIXED at
+check time — 1 pod on v1.0.1300" is resolved. `[MEASURED 2026-08-15 ~10:55Z]`
+
+**The >5min-gap TTL proof: still NOT obtained, and the handoff's query as written cannot
+obtain it.** Two findings:
+
+1. **The query is confounded.** It spans all agents, but `council-gate` was the only agent in
+   the fleet with a marker, so it is the only agent that *can* produce a cache read. Running
+   the handoff's query returned 0 rows; the demand control (`count(prev)`, gaps at any width)
+   showed 39 calls / 20 repeat-prefix pairs / **exactly 1 pair over 5 minutes** — and that one
+   pair belonged to `content-gap-planner`, which had no marker, so its 0 reads were structurally
+   guaranteed and said nothing about TTL. **A zero from that query is uninformative unless it is
+   scoped to marked agents.**
+2. **The discriminator itself is sound — I proved it against pre-roll history rather than
+   assuming.** Pre-roll `council-gate`, 2026-08-12 → 10:41Z 08-15: **29 gaps over 5 minutes, 0
+   with a read, 28 with a write.** Under the old 5m TTL a >5min gap *always* forced a rewrite.
+   So one post-roll >5min gap with a non-zero read is decisive. This is the disconfirmable-check
+   discipline from CLAUDE.md — the control could have come out otherwise, and did.
+
+**Why it is still open:** post-roll `council-gate` traffic is dense — 21 calls in 14 minutes,
+widest inter-call gap on a shared prefix **3m07s**. Every observed gap is under 5 minutes, which
+the *old* TTL explains equally well. At the pre-roll rate (29 gaps / ~3.4 days ≈ 8.5/day) one
+should appear within a few hours. **Time-gated, not effort-gated — do not re-run it hoping.**
+
+> **⚠ Correction to the handoff's framing.** §2 says the proof needs "a few hours of traffic".
+> That is true for `council-gate` but was never true for `content-gap-planner`, whose repeats
+> are 1.0% within 5m and 99.7% within 1h — i.e. **the overwhelming majority of its repeat
+> pairs fall in the 5min–1h discriminating band.** Now that it carries a marker, it is by far
+> the faster generator of TTL evidence. Watch it, not council-gate.
+
+### The finding that changed the plan: the 1h bucket is proven on sonnet-5 ONLY
+
+`anthropic.go`'s own evidence block is careful about this and it is easy to skim past:
+`claude-sonnet-5` returned `"ephemeral_1h_input_tokens": 6003` (bucket proven);
+`claude-sonnet-4-6` returned HTTP 200 with a cache READ and 0 in both creation buckets, which
+proves the ttl field is **accepted** but not that the 1h bucket is **honoured**.
+
+Queried the models rather than assuming: **all 17 `council-gate` seats run `claude-sonnet-5`**,
+and council-gate is the fleet's only marked agent (89.6M cache reads / 3 days). So 100% of
+post-roll cache evidence is sonnet-5 evidence. `content-gap-planner` ran `claude-sonnet-4-6`.
+
+Marking it there would have made it the fleet's first 1h-TTL user on a model where the bucket
+is unproven — betting the whole payoff of the change on an unverified assumption, with a silent
+failure mode (writes, no reads, ~24% worse than no caching). Tried to settle it directly with
+the same in-pod probe that proved sonnet-5; the chassis image has no `curl`/`python3` (busybox
+`wget` only) and the sandbox blocked the pod command, so I did not pursue it. **Put it to the
+owner; ruling was: move the agent onto the proven model, then mark it.**
+
+### Migrations, in apply order
+
+| # | what | state |
+|---|---|---|
+| `413` | `plan_gaps` model `claude-sonnet-4-6` → `claude-sonnet-5` (+ a `max_tokens` write that turned out inert) | applied, recorded |
+| `415` | corrects 413: `max_tokens` 16000 at the key the resolver reads; deletes the inert one | applied, recorded |
+| `414` | the `<!--CACHE_BREAKPOINT-->` marker | applied, recorded |
+
+All three applied **out-of-band via `psql`** and registered with `--record-only`. Not a
+shortcut: `run-migrations.sh --apply` is unusable here — 17 files from other lanes are pending
+and the run halts at `324`, whose guard **refuses by design** without a specific `-c` setting.
+It would never have reached 413.
+
+**Marker placement was measured, not reasoned.** `## Content Gap to Address` falls at
+10,103–11,875 chars across the six dominant groups, and **`count(DISTINCT left(prompt, boundary-1))
+= 1` in every group** — the text above the boundary is byte-identical across every call in a
+group. 393 of 404 calls sit in six groups (149/116/83/20/17/8); the ~11 singletons each pay a
+write they never read back, and that cost is in the arithmetic rather than excluded from it.
+
+### MISSTEP — migration 413's guard could not fail, and the change it "verified" had not happened
+
+Logged in full in `WRONG_CALLS.md` and as a `LANDMINES.md` entry. Short form:
+
+- I wrote `max_tokens: 16000` to `...plan_gaps.config.max_tokens`. **Nothing reads that key.**
+- `ai_actions.go` resolves `agentConfig["max_tokens"]` first — and `agentConfig` is
+  `agentDef.DefaultConfig`, **the top level of the agent definition**, not the step's `config`
+  block, despite the name. Fallback is the merged `ai_service` block, then the client's `2048`.
+- Effective cap therefore stayed **4000** (`step.config.ai_service.max_tokens`), while 413
+  printed `OK … max_tokens=16000 (thinking headroom in place)`.
+- **The post-condition read back the key it had just written**, so it could not have failed.
+- Consequence: ~9 minutes with `sonnet-5` (adaptive thinking on by default) against the old 4000
+  budget — exactly the truncation configuration 413's banner existed to prevent. No call ran in
+  the window; nothing truncated. **Luck, not process.**
+- The tell was in the *pre*-condition NOTICE: `max_tokens=(unset)`. The number I believed I was
+  raising from 4000 had no value at that path at all.
+- `415` asserts the **resolved** value in the resolver's precedence order and refuses if a
+  higher-precedence key exists that would outrank the one it sets.
+
+### Why the model swap needed the headroom at all
+
+`sonnet-4-6` omitting `thinking` → thinking OFF. `sonnet-5` omitting `thinking` → **adaptive
+thinking**. `max_tokens` caps thinking + response together, and this step must return complete
+JSON. **Disabling is not reachable from this client**: its only thinking path emits
+`{"type":"enabled","budget_tokens":N}`, which `sonnet-5` rejects with a 400; no path emits
+`{"type":"disabled"}`. Headroom is the sole lever short of a Go change + build + roll. 16000 is
+the non-streaming ceiling (above ~that, HTTP timeouts replace truncation; this client does not
+stream). `max_tokens` is a ceiling, not a commitment — unused headroom is unbilled.
+
+**Checked rather than assumed:** this client deliberately never sends `temperature`/`top_p`/
+`top_k` (`anthropic.go`: "Temperature is intentionally NOT sent"), which is exactly what
+`sonnet-5` rejects. No 400 surface from that direction. Also verified `budget_tokens` absent
+from the step's `ai_service` — had it been present, every call would 400 after the swap.
+
+### First live result — marker fires, no truncation
+
+```
+13:55:06 | claude-sonnet-5 | input 1400 | output 406 | cache_write 4991 | cache_read 0
+```
+
+- **4,991 tokens written** — the marker works and the prefix clears the 1024-token minimum for
+  this model with margin. 4991/(1400+4991) = **78% of the prompt cacheable**, against ~74%
+  predicted from character counts.
+- `cache_read 0` is correct on a first call (nothing to read yet). **The 2nd+ call is the proof.**
+- `output 406` against a 16000 cap — no truncation, and adaptive thinking did not inflate output
+  (prior sonnet-4-6 average was ~441).
+- **Tokenizer inflation confirmed empirically:** 6,391 total prompt tokens vs 4,765 for the same
+  work on sonnet-4-6 = **+34%**, against the ~30% documented figure. `[MEASURED]`
+
+### Cost, stated in both directions
+
+Baseline `content-gap-planner`: 1,730,777 input tokens / 404 calls / 3 days, **zero cached**;
+13.4% of fleet uncached input (3rd behind `page-content-writer` 38.1% and `council-gate` 21.8%).
+Against the saving: sonnet-5 costs ~30% more tokens for the same text at identical sticker
+price, plus new thinking output tokens. **⚠ sonnet-5 is on introductory pricing ($2/$10 per MTok
+vs $3/$15) through 2026-08-31** — any figure measured in August understates the steady state.
+**Re-measure in September rather than carrying an August number forward.**
+
+### Still owed
+
+1. **A non-zero `cache_read_input_tokens` on a 2nd+ `content-gap-planner` call.** A zero is the
+   failure mode, not the absence of one. Polling.
+2. The fleet TTL gate — a `council-gate` (or now `content-gap-planner`) read at a >5min gap.
+3. Two new `LANDMINES.md` entries are flagged `NEEDS_VERIFICATION` by the sync; the
+   landmine-verifier dispatch (RFC_005 3.2) has not been run.
+4. Untouched from the handoff: D5 (the `scheduled_tasks` check) and `page-content-writer`'s
+   prompt-template restructure — still the largest unowned cost item in the fleet.
