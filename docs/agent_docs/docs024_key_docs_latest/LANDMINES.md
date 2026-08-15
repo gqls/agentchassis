@@ -4617,6 +4617,26 @@ that is also the thing you would want in the logs is not.
 - **the check:** never scope the census to your own site — the `WHERE domain=` is what manufactures the false positive. `SELECT s.domain, count(*) FILTER (WHERE coalesce(length(p.rendered_header),0)>0) FROM pages p JOIN sites s ON s.id=p.site_id GROUP BY 1;` → 0 for all 19 domains. Then ask `site_components` instead: `SELECT slot_name, build_status, length(rendered_html) FROM site_components WHERE site_id=…;` — **zero rows there is the real "no chrome" signature**, and the fix is `nav-updater` (`populate_nav_tables → render_site_components`), not a column
 - **source:** `mortgagecalculator_couk_adoption` lane, 2026-08-03 (canary rebuild; NOTES + HANDOFF §12)
 - **added:** 2026-08-03, mortgagecalculator adoption lane
+- **CORRECTED 2026-08-15 (bugfix_270_missing_structure lane):** two things in
+  this entry have drifted, neither because the original entry was wrong when
+  written. (1) **"Read by exactly one caller" is now two**:
+  `check_decision_guards.go:73` (added 2026-08-08, five days after this entry
+  — genuine drift, not an original miss) also reads
+  `pages.rendered_header`/`rendered_footer`, concatenating them (always
+  empty) into what it calls a page's "stored assembly" — filed as
+  `bugs_open/280`. Once `bugs_open/270`'s fix ships AND 280 is fixed, the
+  reader count returns to zero; check both bugs' status before trusting
+  either count. (2) **"Zero `site_components` rows there is the real 'no
+  chrome' signature" (line above) has a known exception, named in this SAME
+  entry's own "confirmed" sentence**: `loanandmortgagecalculator.co.uk`
+  served full chrome with zero rows precisely because chrome was baked into
+  the deployed artefact rather than written to `site_components`. `bugs_open/270`'s
+  fix therefore does NOT key on row existence alone — it checks
+  `coalesce(length(rendered_html),0) > 0` per slot, so a genuinely
+  chrome-serving site with a legacy/baked write path (should one ever
+  reappear — none exist fleet-wide as of 2026-08-15) still reads as healthy
+  rather than as a false "no chrome" positive. Design reasoning:
+  `docs/agent_docs/docs024_key_docs_latest/bugfix_270_missing_structure/PLAN_2026-08-15_missing_structure_check.md` §2.
 
 ### `include_statuses: ["deployed","active"]` filters `pages.status`, where `'deployed'` NEVER OCCURS — the config reads "deployed pages only" and selects every non-archived page
 - **footprint:** `get_pages_for_rerender_action.go:96,153`, `nav-updater` step `get_pages` (`config.include_statuses`), `pages.status` vs `pages.build_status`, `create_rerender_items`
@@ -7331,6 +7351,7 @@ warn line fired and was unreachable before any grep could run).
   `SELECT k, count(*) FROM orchestration_states o, LATERAL jsonb_object_keys(o.collected_data) k WHERE o.owner_agent_type='<type>' GROUP BY k;` then enumerate the keys *inside* the sibling outputs, not just the top level. **The fix is to name `input_fields` (or an explicit dotted path) on the step — config, live immediately, no roll.**
 - **⚠ corollary that has already misled one fix plan:** because of this, "remove the purpose-keyed lookup and let the `asset_id` path resolve it" is a *downgrade* wherever the caller has no `input_fields` — it replaces a correct discriminator with an 86%-wrong one. `bugs_open/209` ranked exactly that fix first; see the 2026-08-08 verification block in that file before acting on any similar "just use the id" simplification.
 - **added:** 2026-08-08, `bugfix_209_deploy_purpose_keyed_source` lane; evidence in `platform/orchestration/actions/deploy_image_asset_purpose_source_test.go`
+- **⚠ UPDATE 2026-08-15 (RFC_029 §9 Phase 1, committed, INERT UNTIL AN IMAGE ROLLS — date any binary you reason about against that roll):** on builds carrying the Phase 1 change, the search is no longer a coin flip. It collects EVERY match (sorted-key DFS), resolves the shallowest-first winner deterministically, and on CONFLICTING candidates logs WARN `aggressive search: conflicting candidates` naming every candidate path — while still resolving the stable winner. So on new binaries the 86%/14% split becomes 100%/0% for one fixed winner: **stable is no longer the same evidence as safe** — the ≥100-iteration stability probe above will PASS on a step that is deterministically wrong, so grep the WARN instead of iterating. Phase 2 (later build, RFC_029 §9 D2's precondition) flips conflicts to resolve nothing. The mapped-field variant (a DOTLESS config reference outvoted by the search — bugs_closed/213 §D) logs WARN `aggressive search: explicit single-segment mapping bypassed` on the same builds. The per-field hard opt-out is the `!` strict marker (see the dedicated entry below).
 
 ### An `empty_section` item's `item_key` names the slot as it was WHEN FILED — a fix that replaces the component renames the slot, so grepping `item_key` for the slot you can see returns 0
 
@@ -10966,3 +10987,11 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **source:** 2026-08-15, `bugfix_209` / D6 markers lane, migrations `413`/`415`, commit `d32c40fa6`. The model move was itself the fix for a different trap: the 1h cache TTL bucket is proven on `sonnet-5` only, so marking a `sonnet-4-6` agent for caching bets its whole payoff on an unverified bucket.
 - **relations:** the `max_tokens` entry immediately above (they fire together — the swap is what makes the inert key matter) · MEMORY [[a-model-upgrade-can-invert-a-closed-bugs-premise]] · [[seed-sql-is-history-live-row-is-fact]]
 - **added:** 2026-08-15, bugfix_209 lane
+
+### A `!` strict-marker key applied to live config BEFORE the binary that parses it rolls silently re-arms the exact search it exists to forbid
+
+- **footprint:** `input_mapping`, `asset_id!`, `platform/orchestration/input_contracts/input_mapping.go`, `platform/orchestration/datahelpers/action_inputs.go`, `agent_definitions.default_config`, `docs/agent_docs/sql_for_agents/416_image_build_handler_asset_id_goes_strict_HOLD.sql`
+- **fires when:** you write a `"field!"` key (RFC_029 §9 D3's strict marker, mirror of `?`) into any live `input_mapping` or step config — by migration, psql, or the admin dashboard — while the fleet still runs a chassis image from before RFC_029 Phase 1. DB config is live immediately; Go is inert until a roll, and the marker is Go.
+- **why it hides:** both failure shapes look like success or like someone else's bug. An old `ResolveInputMapping` reads `asset_id!` as an ORDINARY destination field literally named `asset_id!`: if the path resolves, the child receives a key named `asset_id!` and **no `asset_id` at all**, so the child's own resolver falls back to the whole-tree search — the marker's own regression, introduced by the marker — and nothing errors anywhere. If the path does not resolve, the un-suffixed reading is REQUIRED, so a step whose `?` was doing real per-branch or per-item-type optionality starts hard-failing. In `ExtractActionInputs`-land the old binary simply never reads `config["field!"]`, so the explicit mapping evaporates and the search decides the field, silently.
+- **the check:** before applying any config carrying `!`, ask the binary, not git: `kubectl -n ai-persona-system logs -l app=<service> --tail=300 | grep -m1 'build provenance'`, then `git merge-base --is-ancestor <the RFC_029 Phase 1 commit> <the stamp>` — per SERVICE, not per fleet. That ordering is why the first adopter ships as `416_..._HOLD.sql` (SIDECAR_RE keeps it out of `--apply`). And do NOT flip a `?` whose optionality is load-bearing: build-dispatch-loop's `asset_id?` is shared by 636+ item types, and `!` there hard-fails every non-asset dispatch — the ruling's own second named adopter was refused on exactly this (RFC_029 §9, dated correction).
+- **added:** 2026-08-15, `staged_component_build` lane (RFC_029 Phase 1 implementation)
