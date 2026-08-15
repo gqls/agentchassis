@@ -7,6 +7,16 @@ six sections carry every measurement and every misstep.
 
 ---
 
+> ## UPDATE 2026-08-15 — 274 HANDED OVER, 216 RECONCILED, 213 UNCHANGED
+>
+> **Read §"RECONCILIATION" at the foot of this file before acting on anything below.**
+> Nothing in this lane's own state changed: gate 1b is live on `v1.0.1300` and still proven
+> (now **4 failed, all 4 gate-blocked**; abstain records still 4; no new dispatch because the
+> sweep stays off). **`bugs_open/274` is the owner's, with another thread** — I completed the
+> mechanism read and handed it over in §10 of that file rather than acting on it.
+> **`bugs_open/216` is reconciled**: the sibling symptom it flagged unfiled on 08-07 IS 274, and
+> its own correct fix is what turns 274's fictional failures into real duplicate execution.
+
 ## THE ONE-PARAGRAPH STATE
 
 **D1 half one is FINISHED.** Completion gate 1b is live on `agent-chassis` `v1.0.1299`, council
@@ -167,3 +177,45 @@ test, `4de91ad59` (reuse + `WII-017` + index, `Council-Reviewed:`). Constraints 
 `ee5065b37`. Then the deploy-state, production-proof, correction and shutdown commits, all
 carrying `Council-Reviewed: 0c8e7f5b-e510-4d24-893d-e3abb0bbb7b6`. Register: **WII-017** (this
 gate) and the corrected **WII-013** entry; `SUMMARY_2026-08-14` is the read-aloud account.
+
+
+---
+
+## RECONCILIATION 2026-08-15 — how 213, 216 and 274 actually relate
+
+Asked for by the owner. Short version: **three separate defects, one shared seam, and only one of
+them is this lane's.**
+
+| | what it is | state |
+|---|---|---|
+| **213** | a verifier graded one producer's items against another producer's predicate; and the sibling type has no verifier at all | Half A + D3 live; **gate 1b live + proven, both arms**; half two designed, unbuilt; **cannot close on its recorded criterion** |
+| **216** | the recoverable arm re-armed a request then refused its own replay | **FIXED + LIVE `v1.0.1266` + PROVEN.** Correct. Still filed in `bugs_open/` citing an 08-06 ruling |
+| **274** | a succeeded workflow's reply is malformed, so the parent is told it FAILED — ~15,000 times since 08-03 | Root cause located; **owner's, with another thread**; still firing (1,668/20h) |
+
+### The chain that links them, read at source
+
+1. A child workflow **succeeds**. `notifyParentOfSuccess` builds a reply with **no
+   `sender_agent_type` and no step name**; the validator requires both; the reply is **refused and
+   dropped**. *(274)*
+2. The fallback failure carries the **same malformed envelope** but sets `IsError: true`, and the
+   producer **exempts error messages** — so the *failure* is **delivered**. **The parent always
+   hears the bad news and never the good.** *(274 §10.1)*
+3. That failure's prose says `failed_transient`, so it is classified **`error_recoverable`** — and
+   lands in **the arm 216 fixed**. Before `v1.0.1266` it was refused; after, it replays. **216's
+   correct fix converted 274's silent losses into real duplicate execution.** *(274 §10.2–10.3)*
+
+### What this does NOT resolve, and the temptation to say it does
+
+**213 §D is still unexplained.** A *delivered failure* predicts errored / needs-review items, not
+the `complete` items carrying a foreign well-formed payload that §D actually shows. The candidate
+was raised on 08-14, downgraded the same evening by its own evidence, and 274 §10 does not restore
+it. **§D has no current candidate** — say that rather than borrowing 274's answer because it is
+nearby and satisfying.
+
+### What is genuinely this lane's, and what is not
+
+- **Ours:** gate 1b (done), half two (designed, unbuilt, needs the `bugfix_122` conversation and a
+  shared helper first), 213's closure decision.
+- **Not ours:** 274's fix (another thread), 216's filing location (its lane / the owner), and the
+  duplicate-execution measurement, which is parent-side (`awaited_requests.retry_version`) and
+  belongs with 274.
