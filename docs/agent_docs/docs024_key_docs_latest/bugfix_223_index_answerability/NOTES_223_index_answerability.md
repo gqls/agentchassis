@@ -833,3 +833,26 @@ reviews land. A fixture that names today's world breaks the day the world improv
 
 **3. `bugs_open/223` → `bugs_closed/`** at the owner's direction (restored fixed-and-live
 bar), banner updated, both paths on the commit, exactly one file at HEAD.
+
+## 2026-08-15 — v1.0.1300 verified through; the counter's FIRST SCHEDULED RUN proven, ack honoured on the clock
+
+**The fresh roll (v1.0.1300, pods up 20:36Z 08-14) changes nothing for this lane, verified
+rather than assumed:** pod imageID digest = local image digest; revision `a2a691213`;
+`merge-base --is-ancestor 0c880908a a2a691213` → yes. Everything this lane shipped rides
+forward by ancestry.
+
+**The first scheduled run fired at 06:50:13Z and the whole mechanism worked unattended:**
+186 agents walked (185→186 overnight — the fleet grew again, which is the argument for
+the clock), **findings: 2**, `append_doc_note` absent from the report, `acknowledged
+baselines: 1`. The ack recorded by yesterday's review was honoured end-to-end on the
+schedule, not just in the hand run. Two rows as documented (retry-on-findings).
+
+**Watch item unchanged, measured not assumed:** 0 `verify`/`verify_unverifiable` calls
+at all since 08-14 12:00, so the as-of note remains UNOBSERVABLE for want of demand —
+no landmine verification has run, so no empty answer could have occurred. A zero here
+is "no demand", never "note missing" (the demand control, as ever).
+
+**Standing state the morning report will show until acted on:** 2 findings daily —
+`analyse_repo_local` (12) and `diagnose_prepare_fix_commit` (11) — truthful red until
+their one-off reviews land. The timing of those reviews is the lane's ONE remaining
+owner decision; surfaced in README_where_we_are and the 08-15 handoff.

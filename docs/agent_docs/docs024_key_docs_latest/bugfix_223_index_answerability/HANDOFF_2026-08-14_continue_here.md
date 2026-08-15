@@ -1,5 +1,10 @@
 # HANDOFF — `bugs_open/223` lane, cold start for a fresh chat
 
+> **SUPERSEDED IN FULL 2026-08-15 → read `HANDOFF_2026-08-15_continue_here.md`.**
+> Everything below was ruled and executed the same day it was written: N=10 ruled,
+> the cron built and proven on its first scheduled run, the note-writer review done
+> (ack at 11), 223 moved to `bugs_closed/`. This file stays as the record.
+
 Written 2026-08-14. **Supersedes `HANDOFF_2026-08-10_continue_here.md` in full** — both of
 that file's live items (§0 items 1 and 2) are DONE and verified. Read this file, then
 `NOTES` (newest at the bottom, the 2026-08-14 block) and the bug files it names.
