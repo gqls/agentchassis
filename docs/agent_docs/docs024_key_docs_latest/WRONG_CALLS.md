@@ -32129,3 +32129,19 @@ this bug's runbook). If the message must mention the spelling, paraphrase it; th
   consumes the list it was accused of composing. Same family as
   `cite-the-arm-not-the-function`: a grep hit licenses "this file is
   involved", never "this function decides".
+
+## 2026-08-15 — portfolio_positioning B4: armed a blind watcher on orchestration_states (RECURRENCE of the 2026-08-08 entry)
+
+- **The claim** (implicit, acted on): "my monitor will report the savings-provider
+  run's progress and terminal state" — it reported nothing for its full 15-minute
+  timeout while the run completed in 95 seconds.
+- **What caught it**: the timeout itself; a direct query then showed the run long
+  COMPLETED, and the watcher's SQL selected `id` from a table whose key is
+  `orchestration_id`, every poll's error eaten by `2>/dev/null || true`.
+- **The cheap check that would have caught it**: run the watcher's EXACT command once
+  in the foreground before arming it — the 2026-08-08 entry says precisely this,
+  same table, same wrapper, same class of wrong column. It did not fire because
+  "arming a monitor" did not read as a shell trap: the trigger is the ACT of arming
+  any watcher, not the tool it wraps. Tally: 2. Second-arm fix that worked: `2>&1`
+  into the event stream + error strings in the exit conditions, so the watcher's own
+  failure ends the watch loudly.
