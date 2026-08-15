@@ -2917,3 +2917,66 @@ a nudge to start. It's actually **blocked**, and has been since a minute after i
 nothing was ever assigned to do the work. The session that filed it wrote the handoff a minute
 later and never looked at the row again. So the nudge it recommends wouldn't have started
 anything. That one is still to do.
+
+---
+
+## 2026-08-15, overnight — the copy fix works, and the tools turn out to be built already
+
+**The copy fix landed and I've checked it properly.** Two pages went through the framework
+overnight. The habit of defining things by what they aren't has gone from ten instances to one
+on the worst page, and from three to none on the other.
+
+But the count isn't really the evidence, and I want to be clear about why. If the rewrite had
+simply deleted all the caveats, the count would have dropped exactly the same way and looked
+like a success. So I checked the opposite direction too: every caveat is still there, all
+thirty-two internal links across the two pages survived, and not a single figure was lost.
+
+The best example of it working:
+
+> before: "…not something we already operate for a paying client, and we say that plainly
+> rather than blurring the line"
+> after: **"We have not yet delivered it to a paying client, and we state that plainly."**
+
+That's more honest than what it replaced, and shorter. That's the rule earning its place
+rather than just being obeyed.
+
+**The second job turned into something more interesting.** I sent the tools problem through the
+planning loop, and its review council refused the plan five times and escalated it. That
+sounds like a failure and wasn't — it was the most useful thing that happened all night.
+
+The plan wanted to build a new tools section on the front page. One reviewer refused to accept
+it because the plan was making assumptions about an existing component it hadn't actually read,
+and it named the two exact database queries that would settle the matter. I ran them. The
+reviewer was right to block: the plan assumed a tool's name would become the clickable link
+text, and in that component the name is just a heading — the only clickable text is a hard-coded
+"Visit Site", which would have opened your own tools in a new tab as though they were somebody
+else's website.
+
+**Then the real finding.** Nothing needs building. **The tools page already exists** — it's
+live right now at /tools.html, twenty-seven kilobytes of it, and the site already uses the
+right component for linking to tools on six of its pages.
+
+The problem is one missing database row. The top menu is generated from the site's plan, and
+the tools page simply isn't in that plan. Nor are four other live pages. Two of them are
+labelled "Tools / Index" and "Tools / LLM Provider Cost Comparison Calculator" — that's a
+section-and-page naming pattern, which means **a Tools section was designed, built, labelled and
+published, and then never added to the plan the menu is built from.** It's been sitting there
+live and unreachable ever since.
+
+So the job you asked for is much smaller than any of us thought. It isn't "build a tools hub",
+it's "put the tools section into the plan".
+
+**I've stopped there and I need a decision, for a specific reason.** Making that change means
+editing this site's plan — and another thread of our own work is editing that same plan right
+now, deleting and re-adding rows as part of clearing up duplicate pages. Two of us editing one
+plan at the same time is exactly the sort of collision that costs us a day. So I'd rather ask
+than race.
+
+The options are in `DECISION_INPUT_2026-08-15_tools_are_orphaned_not_unbuilt.md`: fix all five
+missing pages, fix just the two tools ones, or file it and let the queue do it (slowest — the
+queue is three hundred deep with items four days old).
+
+**One thing I don't understand and haven't guessed at.** How does a page get published without
+being in the plan at all? If that can happen generally, then the plan isn't the reliable record
+of the site we treat it as, and the menu is just the first thing to notice. That might be worth
+investigating on its own, and it might affect other sites — I haven't looked.
