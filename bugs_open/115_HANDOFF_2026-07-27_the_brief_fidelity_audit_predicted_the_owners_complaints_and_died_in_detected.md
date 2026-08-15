@@ -158,3 +158,25 @@ holds **6** `audit_finding_%` rows (4 detected on mortgagecalculator, 2026-08-13
 Related: `bugs_closed/272` fixed the same action's other silent-zero (object-shape
 parse) on 2026-08-15, v1.0.1301.
 
+
+---
+
+## STATUS UPDATE 2026-08-15 (279 owner-decision session) — the auditor is being promoted; this file's evidence rows are cancelled by owner decision
+
+The owner ruled on both halves today (decisions recorded in `bugs_open/279`):
+
+1. **The four 2026-08-13 `detected` rows (this file's evidence) are CANCELLED** —
+   owner decision, reason stamped in each row's `error` column. The audit will be
+   **re-run once the routing fix (commit `d6d56e540`) is live**; the re-run doubles
+   as 279's live verification. The three 07-24 findings this file was written about
+   remain as history in the row archive and in this file's own quotes.
+2. **The auditor becomes a real check**: it now speaks the router's category
+   vocabulary (migration `417`, applied — category chosen by repair shape,
+   `audit_source='brief-fidelity-audit'` keeps the identity) and joins the
+   improvement loop's audit chain (migration `418_HOLD`, applied post-roll). This
+   file's candidate 1 ("route the item type, or refuse to write it") is done via
+   279 (unknown categories → `capability_gap`); its cadence candidate is done via
+   the wiring; the terminal-state-audit family candidate stays with `083`.
+
+Residual for this file: after the post-roll re-run, verify the findings land
+routed (not `capability_gap`), then this bug is closable — fixed AND live.

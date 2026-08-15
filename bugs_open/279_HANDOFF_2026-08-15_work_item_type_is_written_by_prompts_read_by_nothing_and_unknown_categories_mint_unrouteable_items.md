@@ -437,3 +437,62 @@ Candidate shapes, ordered by what closes the door (yours to judge):
 was auditing absence-keyed consumers) · `write_audit_findings_retraction.go` header (the
 producer-scope guard this filter lacks) · owner ruling 2026-08-02 §1 (converging producers onto
 one `item_type`).
+
+---
+
+## STATUS UPDATE 2026-08-15b — OWNER DECISIONS EXECUTED (round 2, `Council-Submitted: 336d1549-6d85-4c33-ab09-e8faaac5aae4`)
+
+The owner ruled on candidates 3/4 and added a directive; all three executed this
+session, ground re-checked first (chassis still v1.0.1302, pods predate
+`d6d56e540` → the Go half is STILL not live; the 4 rows were still `detected`;
+the 213-lane contribution below was the one thing that had changed).
+
+1. **The 4 `detected` rows: CANCELLED** (owner decision), reason inline in each
+   row's `error`; re-run post-roll. `bugs_open/115` updated.
+2. **"Stop agents writing triage items with labels that don't exist":**
+   `work_item_type_minting_ratchet_test.go` — a source-scan ratchet banning
+   dynamically-CONSTRUCTED ItemType/itemType values (concatenation/Sprintf) in
+   `actions` + `discovery_checks`, comments stripped before matching, with a
+   self-test that the pattern still bites (4 must-match shapes, 5 must-not).
+   Measured zero construction sites remain at this HEAD. **Stated residual:**
+   config-minted types (`create_work_item` takes `item_type` from step config;
+   `section_edit` has no Go literal) are invisible to source scans — claim-time
+   handler resolution is their only backstop; a write-time check needs a
+   vocabulary registry that does not exist.
+3. **brief-fidelity-auditor promoted — but NOT via a Go route.** The route-to-
+   `content_rewrite` sketch (candidate 3's own text) was **refuted by the
+   auditor's four real findings**: three of four were design-intent violations
+   ("Animations beyond hover states", "Rounded corners beyond 12px") that a
+   content rebuild cannot repair. Instead the auditor now **speaks the router's
+   vocabulary** (migration `417`, APPLIED + recorded: eleven routable categories
+   chosen by repair shape, offer-analyser's warning discipline, exact-page-name
+   instruction, explicit off-vocabulary escape hatch → `capability_gap`), while
+   `audit_source` carries the brief-fidelity identity — category = who repairs,
+   audit_source = who found. No new item_type, no closed-set change. Wiring into
+   the improvement loop is migration **`418_HOLD`** (splices
+   `spawn_brief_fidelity`/`call_brief_fidelity` between `call_offer_analyser`
+   and `record_audit_pass`, mirroring the offer pair incl. `error_step`
+   continuing the sweep) — **held until the chassis stamp carries `d6d56e540`**,
+   apply commands + guards in the file's own header.
+4. **The 213-lane contribution (blocked-filter mute): FIXED, candidate 2.** The
+   broader blocked check is now producer-scoped (`spec->>'audit_source' = $4`) —
+   the same structural guard the retraction helper carries for the same
+   co-filing trap. Pinned by regex+args in the guardian control; mutation-
+   verified (deleting the clause fails the control). Its candidate 3 (make
+   `capability_gap` unclaimable) is the deeper root and is **filed as
+   `bugs_open/284`** — the claimer is unidentified (18 blocked rows, recurring
+   every few days), so per the 2026-07-31 ruling it carries the diagnosis gap
+   stated, not a guessed cause. The 18 rows are NOT repaired yet (they would
+   re-block until 284's mechanism closes).
+
+### POST-ROLL CHECKLIST (whoever sees the next chassis roll)
+
+1. Confirm the stamp: `git merge-base --is-ancestor d6d56e540 <stamp>` (and this
+   round's commit, which supersedes it).
+2. Apply `418_HOLD` per its header (rename → apply → `--record-only`).
+3. Dispatch one improvement sweep (or one manual brief-fidelity run) against
+   site `62b5978e…`; verify: zero new `audit_finding_%` rows; findings land as
+   routed types under `audit_source='brief-fidelity-audit'`; any off-vocabulary
+   category shows as `capability_gap` (`deferred`, empty handler) and in the
+   result map's `unrouted_categories`.
+4. Then: `115` closable (fixed AND live), and THIS file moves to `bugs_closed/`.

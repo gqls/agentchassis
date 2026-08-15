@@ -564,8 +564,18 @@ func TestWriteAuditFindings_UngatedProducerPathIsUnchanged(t *testing.T) {
 			AddRow(pageID, "index", "content", "[]"))
 	mock.ExpectQuery("status = 'blocked'").
 		WillReturnRows(sqlmock.NewRows([]string{"item_key"}))
-	mock.ExpectQuery("SELECT EXISTS").WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(false))
-	mock.ExpectQuery("SELECT EXISTS").WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(false))
+	// The broader blocked check must carry the PRODUCER scope (bugs_open/279,
+	// the bugfix_213 lane's contribution): without spec->>'audit_source' = $4,
+	// a blocked capability_gap filed by the discovery path mutes every unrouted
+	// audit category site-wide (18 such rows on 14 sites when found). Pinning
+	// the regex AND the args proves the clause and the value are both in the
+	// query this action actually runs.
+	mock.ExpectQuery(`SELECT EXISTS[\s\S]*spec->>'audit_source'`).
+		WithArgs(siteID, "cta_improvement", pageID, "visual-design-audit").
+		WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(false))
+	mock.ExpectQuery("SELECT EXISTS").
+		WithArgs(siteID, "visual-design-audit_cta_improvement_index_"+siteID.String()).
+		WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(false))
 	// `status` became a parameter (position 10) when the bugs_open/279 fix let
 	// the capability_gap fallback file as 'deferred'; a routed finding still
 	// inserts 'detected', and this control pins that.

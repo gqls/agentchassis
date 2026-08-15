@@ -836,3 +836,35 @@ statuses in the dashboard.
 
 So as of this afternoon: the analyser is enrolled, proven at our largest site, deduplicating
 correctly, and its findings flow all the way to finished page changes without a hand on them.
+
+---
+
+## 2026-08-15 (evening) — your two decisions are done; one new bug filed on the way
+
+*(appended by the same session as the earlier routing-bug note)*
+
+Both decisions from this afternoon are carried out. The four dead findings are cancelled, each
+stamped with why, and the audit re-runs once the next release ships. The "labels that don't exist"
+guard is in: a build-time check now fails the code the moment anyone constructs a work-item label
+out of string parts instead of using a real one — measured today, the bug we just fixed was the
+only place that ever did it. One honest limit, written where the check lives: labels typed into
+agent *configuration* (rather than code) can't be caught this way; those are caught later, at
+claim time, and the gap is on the record.
+
+The brief-fidelity auditor is promoted — but not quite the way I sketched it this afternoon, and
+the reason is worth a sentence: its own four findings proved the sketch wrong. Three of the four
+were design violations ("animations beyond hover states", "rounded corners beyond 12px"), which
+my plan would have sent to a content rewriter. So instead of inventing a route for its one label,
+the auditor now describes each finding in the same category language every other auditor uses —
+picked by what the *fix* is — while its identity ("found by grading against the brief") travels in
+a separate field it already stamps. It joins the improvement sweep via a wiring change that is
+written and held, deliberately, until the release carrying the routing fix is live; the file
+itself says exactly when and how to apply it.
+
+One new bug came out of the checking: something in the dispatch machinery has been picking up
+"parked" roadmap entries — rows deliberately marked as work nobody can do yet — and stamping them
+as blocked errors, repeatedly, for two weeks. Eighteen rows across fourteen sites. What does the
+picking-up is not yet known, so it is filed (bug 284) with the evidence and the open question
+rather than a guessed cause. It also explains a nasty interaction another session spotted: those
+wrongly-blocked rows would have silently muted the new roadmap filings on fourteen sites — that
+particular mute is now fixed.

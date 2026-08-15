@@ -790,7 +790,16 @@ func WriteAuditFindingsAction(ctx context.Context, params ActionParams) (interfa
 			continue
 		}
 
-		// Broader blocked check
+		// Broader blocked check — scoped to THIS producer's own blocked rows.
+		// The producer scope exists because item_type does not name its producer
+		// (the retraction helper refuses the same co-filing trap structurally,
+		// and this check used to be the one reader of the shared type with no
+		// such guard): capability_gap is co-filed by the discovery/remit path,
+		// and when PageID is nil the page clause is TRUE for every row, so an
+		// unscoped check collapsed to "ANY blocked row of this type on the
+		// site" — 18 discovery-filed blocked capability_gap rows on 14 sites
+		// would have muted every unrouted audit category fleet-wide
+		// (bugs_open/279, the bugfix_213 lane's contribution).
 		var isBlocked bool
 		params.DB.QueryRowContext(ctx, `
 			SELECT EXISTS(
@@ -798,8 +807,9 @@ func WriteAuditFindingsAction(ctx context.Context, params ActionParams) (interfa
 				WHERE site_id = $1 AND status = 'blocked'
 				  AND item_type = $2
 				  AND ($3::uuid IS NULL OR page_id = $3::uuid)
+				  AND spec->>'audit_source' = $4
 			)
-		`, siteID, classified.ItemType, classified.PageID).Scan(&isBlocked)
+		`, siteID, classified.ItemType, classified.PageID, auditSource).Scan(&isBlocked)
 
 		if isBlocked {
 			skippedBlocked++
