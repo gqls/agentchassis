@@ -256,11 +256,11 @@ var itemTypesWithoutVerifiers = map[string]verificationGap{
 	// a human's until ported tools have PLANs and a per-instance repair path;
 	// graduation is decomposition to a real fork, which then draws ordinary
 	// improve_tool items.
-	"ported_tool_fix": {catMechanical, "carries page_id and component_id; instance-keyed, human-routed"},
-	"component_quality_scan":      {catMechanical, "quality score recomputation"},
-	"missing_style_collection":    {catMechanical, "site-scoped existence check"},
-	"unfulfilled_hero_variant":    {catMechanical, "imagery plan completeness"},
-	"silent_failure":              {catMechanical, "meta item; predicate is the silent-check sweep"},
+	"ported_tool_fix":          {catMechanical, "carries page_id and component_id; instance-keyed, human-routed"},
+	"component_quality_scan":   {catMechanical, "quality score recomputation"},
+	"missing_style_collection": {catMechanical, "site-scoped existence check"},
+	"unfulfilled_hero_variant": {catMechanical, "imagery plan completeness"},
+	"silent_failure":           {catMechanical, "meta item; predicate is the silent-check sweep"},
 
 	// The five check_site_structural_validity.go checks (generalising
 	// bugs_open/251's verify_site.py --live catch fleet-wide). Classified on the
