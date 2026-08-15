@@ -262,3 +262,52 @@ there.
 - whether brief-fidelity-auditor gets a real route + a live caller (candidate 3;
   product-shaped). Until then its findings will surface as `capability_gap`
   roadmap rows, which is the honest interim.
+
+## VERDICT 2026-08-15 — APPROVED, round 1 (corr `925d7759`), 3 advisory objections, all dispositioned
+
+**`Council-Reviewed: 925d7759-ddd7-4504-a752-4550e0f32220`** — verdict read in full;
+the code commit `d6d56e540` carries `Council-Submitted:` and is auto-credited by 098.
+12 seats returned (4 abstained); approvals from editquality, guidelines,
+tooling_provenance*, guardian*, diagnosis_guardian, improvement_guardian, compliance,
+debug_historian*, constitution, mission, prior_art_librarian, architecture
+("point_fix... convergence onto existing architecture, not accretion"). Starred seats
+objected advisorily; every objection was verified live this session rather than filed:
+
+- **debug_historian (medium)** — migration 416's `WHERE type=` shape matches the
+  multi-version `agent_definitions` landmine (dormant second active row). **CHECKED,
+  does not apply:** both agents have exactly ONE definition row in the whole table
+  (version 2, active, field gone — query in scrollback recorded here: all-rows census,
+  no type/status filter). The migration's own precondition (`count=2` across both
+  types) would have refused the multi-row case. Its second (low) point — no post-apply
+  verify — was a plan-sketch artefact: the applied file HAS a DO/RAISE postcondition
+  block.
+- **guardian (low ×2)** — dedup widening is unconditional: **CHECKED**, exactly one
+  live `deferred` row matches this action's key family (a `design-audit`
+  `needs_content_planning` from 08-04); for it the widening converts a would-be
+  unique-index insert error into a counted skip — no outcome change, `idx_swi_dedup`
+  already blocked the row. Byte-identity for all 5 producers: **CHECKED LIVE** —
+  visual-design-auditor prompts `colour|spacing|typography|dark_section|responsive`
+  (all designCategories), offer-analyser hard-requires its seven routable values (its
+  prompt even warns against the minting bucket), brief-fidelity-auditor hardcodes
+  `brief_fidelity` (the intended-repair case). Its medium (migration filed as
+  operation 'add' not 'config_change') is a submission-labelling point — noted for
+  next time, nothing to change post-approval.
+- **reuse_agent (medium ×2)** — hand-mirrored capability_gap shape vs a shared
+  constructor, and `classifyEmittableItemTypes` as a second registry. **Answered in
+  the doc_notes decision record** (subject `action/write_audit_findings`):
+  `CapabilityGapItem` builds its own spec for the discovery-check insert path and
+  cannot carry the audit finding's payload; extraction waits for a third producer
+  (the WII-016 third-adopter pattern). The two registries answer different questions
+  (emittable-by-this-action vs verifier coverage estate-wide) and live in different
+  packages; drift between them is caught by the coverage test's own union rule.
+- **tooling_provenance (medium)** — no doc_notes row for the shared action.
+  **DISCHARGED:** decision record written to `doc_notes`
+  (`subject_type='action', subject_key='write_audit_findings'`,
+  categories `["council-gate","decision-record"]`) covering the fallback shape, the
+  Rule-4 nuance, the closed-set rationale, the constructor decision, and the
+  brief-fidelity interim.
+
+Remaining to close this file: the Go half goes live on the next chassis roll →
+run verify step 3 (one brief-fidelity dispatch, zero new `audit_finding_%` rows,
+findings landing as `capability_gap`), then move to `bugs_closed/` — plus the two
+owner decisions above, which survive the closure as 115/candidate-3 items.
