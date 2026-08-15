@@ -32197,3 +32197,36 @@ this bug's runbook). If the message must mention the spelling, paraphrase it; th
 - **My own:** the "must be absent" control for a `/proc/1/exe` sha probe was 40 zeros — it came
   back PRESENT (some zeroed 40-byte region matches), so the control could not fail. Use a
   real-but-different commit sha as the negative control (BLD-019's recipe says so; I skipped it).
+
+## 2026-08-15 — bugfix_271 lane: I enumerated a shared key's consumers with a query that could only see one KIND of consumer
+
+- **"Only ONE live consumer of `input_data.spec.suggestion` exists fleet-wide — I queried every
+  active agent's input_mapping."** FALSE, and I handed it to a planning agent as verified. There
+  are **three**: `page-build-handler` (an `input_mapping`), plus `content-gap-planner` and
+  `css-patch-agent`, which read the same path **from prompt text** (`{{if
+  .input_data.spec.suggestion}}…`). My query joined `jsonb_each(…->'config'->'input_mapping')`, so
+  a prompt-template reader was structurally invisible to it — and the answer came back clean,
+  well-formed and confidently singular. This mattered: the whole safety argument for the fix is
+  "every reader of this key renders prose, none gates a branch", and an enumeration that can only
+  see mappings cannot support a claim about *all* readers. The planning agent caught it; I then
+  re-derived it independently before believing either of us.
+  **Cheap check:** enumerate a config key by **text over the whole config blob** first
+  (`default_config::text LIKE '%spec.suggestion%'`), and only then use a structured query to say
+  WHERE each hit lives. Structure-aware queries answer "which mappings reference X", never "what
+  reads X". Tally for "enumerated with a shape-blind query": 1.
+
+- **Same lane, same shape, caught by myself:** "who maps the whole item spec into a child run?"
+  returned **zero rows, twice**, from a `jsonb_each` over `default_config->'workflow'->'steps'`.
+  Zero was wrong — `build-dispatch-loop` does exactly that. `jsonb_each` descends ONE level and
+  every dispatcher on this platform nests its real steps under `config.sub_workflow.steps`.
+  **Cheap check:** when a structural query returns zero on a platform that demonstrably does the
+  thing, re-ask it as a text pattern before believing the zero. A nesting-blind query returns a
+  well-formed answer about a subset it never names. Tally for "a jsonb query that cannot see
+  inside a loop": 1.
+
+- **Process miss, mine:** I committed the code half (`9a7d23c49`) **without** the concept-register
+  entry, then added it in a follow-up. CLAUDE.md's ordering exemption is explicit that condition
+  (2) — the seam registered in the SAME commit that ships it — is the whole of the requirement now
+  that condition (1) is retired. Forward-only forbids an amend, so the entry landed one commit
+  late and this row is the record. **Cheap check:** for a platform-seam change, write the register
+  entry BEFORE running `git commit`, not after the tests go green.

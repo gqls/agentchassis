@@ -6,7 +6,19 @@ writer WHAT TO CHANGE is write-only. The work happens anyway, steered by
 nothing but `writer_block` and the existing page, and reports `complete`.
 **Class:** structural (a dead channel that looks like the steering wheel).
 
-> **STATUS: OPEN.** Verification: two independent code reads eleven days apart
+> **STATUS: OPEN — but FIXED IN CODE 2026-08-15 (`9a7d23c49`), awaiting a chassis
+> roll. START AT §9**, which carries the fix, the post-roll checklist that closes
+> this file, and a correction to §2/§5 below.
+>
+> **§2 and §5 are superseded in one respect — read §9 before acting on them.**
+> They were written without knowing that the channel ALREADY WORKS under the
+> other spelling (`spec.suggestion` → `rewrite_guidance` → the writer prompt),
+> which is the fleet convention. So the shipped fix aliases the dead spelling
+> onto the live one at the dispatch loader; it is NOT §5's candidate 1
+> (injecting into the section brief at `plan_sections`), and §9 says why that
+> would have been the worse change.
+>
+> Original verification: two independent code reads eleven days apart
 > plus rendered-prompt probes across six LLM calls (§3) — stated per the
 > 2026-07-31 ruling as the substitute for a 090 run; a 090 remains cheap to add
 > if a fixing thread wants the independent pass.
@@ -111,3 +123,121 @@ One channel dead, the other alive, same writer, same page, same day. §6's
 verification recipe stands for whoever wires the field in; note the item's own
 status reads `failed` while the page deployed fine (the spawn→call handshake
 race, fourth sighting in this lane — verify at the artefact, not the status).
+
+---
+
+## 9. FIXED IN CODE 2026-08-15 (commit `9a7d23c49`) — NOT LIVE until a chassis roll carries it
+
+**Status: still OPEN.** The bar is fixed AND live; this is Go, and Go is inert
+until an image ships. The post-roll checklist at the end of this section is what
+closes it.
+
+### The fix is NOT §5's candidate 1, and the reason is a fact this file did not have
+
+§5 was written without knowing that **a working steering channel already exists
+under a different spelling, and that it is the fleet convention.** Verified end
+to end against live `agent_definitions` on 2026-08-15:
+
+```
+site_work_items.spec
+  → LoadWorkItemsAction parses spec to a map      (load_work_item_actions.go ~:740)
+  → build-dispatch-loop:  "spec": "current_item.spec"      [inside a loop sub_workflow]
+  → page-build-handler:   "rewrite_guidance?": "input_data.spec.suggestion"
+  → page-content-writer:  {{if .rewrite_guidance}}## Rewrite Guidance (IMPORTANT: incorporate
+                          this into the content){{end}}
+```
+
+So the defect is not "a field with no reader" in the abstract — it is **two
+spellings of one channel, one of them wired.** `[MEASURED]` 2026-08-15:
+
+| item_type | rows | guidance | suggestion | **guidance-only** |
+|---|---|---|---|---|
+| content_rewrite | 231 | 56 | 175 | **56** |
+| needs_content_page | 113 | 34 | 56 | **34** |
+
+No row carries both keys, and these two types are the only holders of a
+non-empty `content_guidance` fleet-wide; every other item type
+(`contrast_failure` 226/226, `needs_design_review` 65, `cta_improvement` 51)
+uses `suggestion` exclusively.
+
+That reframes the fix. Injecting guidance into the section brief at
+`plan_sections` (§5 candidate 1) would have built a SECOND spelling-specific
+reader one layer below a channel that already works — two live-but-different
+paths is worse than one dead one — and it would have meant committing into
+`plan_sections_action.go` while another session had uncommitted work on its
+symbols. It also contradicts that file's own stated design at :1560 ("Briefs
+apply at content-write time").
+
+### What shipped
+
+1. **`aliasGuidanceIntoSuggestion`** (`load_work_item_actions.go`, beside
+   `setRoutingField`) — fills `spec.suggestion` from `spec.content_guidance`
+   when suggestion is absent, at the ONE choke point every dispatched item
+   passes through. **In-memory only; the DB row is never written.** Writes at
+   most that one key, never over an existing value, never from an empty or
+   non-string guidance, and never materialises `""` (absent-vs-empty is
+   load-bearing: an optional mapping path that RESOLVES to empty is forwarded,
+   a MISSING one is skipped). This is the half that closes the door — it covers
+   producers no source scan can see: config-driven `create_work_item` steps and
+   operator SQL.
+2. **The four emitters now write `suggestion`** (`apply_gap_plan_action.go`,
+   `tool_content_item.go`, `create_tool_component_action.go`,
+   `deploy_tool_action.go`), with a **ratchet test** banning the dead key's
+   return. Hygiene, not the door-closer. `apply_gap_plan_action.go:178` still
+   reads `content_guidance` **from the gap PLAN** — that is content-gap-planner's
+   LLM output contract and is deliberately untouched; the ratchet's own fixture
+   asserts it does not convict that read.
+3. **The "spec map is NEVER mutated" invariant (`:586`) is NARROWED in the
+   commit, not silently broken.** Routing/id keys keep the old rule. The stated
+   discriminating test: `suggestion` is a **prose** channel — its only live
+   readers (`page-build-handler`'s optional mapping, plus prompt lines in
+   `content-gap-planner` and `css-patch-agent`, enumerated by query over every
+   active agent row) render it into a prompt, and none gates scope, routing or
+   any branch. `component_id` did gate scope, which is why backfilling THAT key
+   is still forbidden and `TestSetRoutingField_NeverMutatesSpec` still guards it.
+
+Registered as **WDS-016** in `docs026_concept_register/register/work-dispatch.md`.
+Council: `Council-Submitted: b24608e8-4fb1-4028-9512-86af2ef788b7`.
+
+### No opt-in switch, and the measurement is the reason
+
+The 2026-08-02 §2 ruling asks for new authority on a shared seam to ship
+default-OFF. `[MEASURED]` the loader dispatches only `status IN
+('triaged','approved')` (`:651`), and the 90 guidance-only rows are **all
+terminal or parked** — complete 62, needs_human_review 14, failed 11, cancelled
+2, wont_fix 1, **zero dispatchable**. Nothing in flight changes on roll day. A
+default-OFF switch here would have re-created the dead channel behind a flag.
+What *does* change: any of the 25 failed/needs_human_review rows an operator
+re-triages will act on its brief for the first time — which is what re-triaging
+one means.
+
+### Tests are mutation-proven, not merely green
+
+`load_work_items_guidance_alias_test.go`. Both mutations run this session:
+deleting the **call site** fails ONLY the end-to-end test (a helper with no
+callers looks exactly like a finished refactor, so the unit tests cannot be the
+whole guard); removing the **precedence check** fails the never-overwrite and
+non-string tests.
+
+### POST-ROLL CHECKLIST (whoever sees the next chassis roll)
+
+1. Confirm the stamp **per service**, not per fleet:
+   `kubectl -n ai-persona-system logs -l app=<service> --tail=300 | grep -m1 'build provenance'`,
+   then `git merge-base --is-ancestor 9a7d23c49 <stamp>`. An empty grep means
+   "scrolled", not "unstamped" — fall back to the `/proc/1/exe` probe with a
+   present-AND-absent control pair.
+2. **Baseline first** (this is what makes the post-fix result disconfirmable):
+   `SELECT count(*) FROM llm_call_log WHERE agent_type='page-content-writer' AND prompt_rendered LIKE '%<sentinel>%';`
+   → must be 0 before the canary runs.
+3. File a canary `content_rewrite` on a canary page with the brief in the
+   **DEAD spelling only** (`content_guidance`, no `suggestion`) and a sentinel
+   phrase that greps zero in the register and existing copy. This discriminates
+   the ALIAS specifically, not the emitter rename.
+4. After it runs: the sentinel appears in `llm_call_log.prompt_rendered`
+   alongside `## Rewrite Guidance`, and then in the served page (cache-busted).
+   Per §8, expect the item's own status may read `failed` while the page
+   deployed fine — verify at the artefact, not the status.
+5. **Negative control in the same window:** an item with neither key must gain
+   no `## Rewrite Guidance` heading.
+6. Then: this file moves to `bugs_closed/`, and WDS-016's status goes
+   built → deployed.
