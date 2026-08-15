@@ -15,13 +15,13 @@ $PSQL -c "SELECT spp.role, count(*) FROM site_plans sp JOIN site_plan_pages spp 
 $PSQL -c "SELECT count(*) AS total_plan_pages FROM site_plans sp JOIN site_plan_pages spp ON spp.plan_id=sp.id WHERE sp.site_id='$SITE' AND sp.is_current;"
 
 echo "== 3. Compositions proposed for the two restored pages (expect >0 sections each) =="
-$PSQL -c "SELECT sps.page_name, count(*) AS sections, string_agg(sps.component_name, ', ' ORDER BY sps.position) FROM site_plans sp JOIN site_plan_sections sps ON sps.plan_id=sp.id WHERE sp.site_id='$SITE' AND sp.is_current AND sps.page_name IN ('about','guides-index') GROUP BY 1;"
+$PSQL -c "SELECT sps.page_name, count(*) AS sections, string_agg(sps.component_name, ', ' ORDER BY sps.ordering) FROM site_plans sp JOIN site_plan_sections sps ON sps.plan_id=sp.id WHERE sp.site_id='$SITE' AND sp.is_current AND sps.page_name IN ('about','guides-index') GROUP BY 1;"
 
 echo "== 4. Tool placements in the plan (the placement gate's output) =="
 $PSQL -c "SELECT sps.page_name, sps.component_name FROM site_plans sp JOIN site_plan_sections sps ON sps.plan_id=sp.id WHERE sp.site_id='$SITE' AND sp.is_current AND sps.component_name LIKE 'tool-%' ORDER BY 1;"
 
 echo "== 5. RECOMPOSE tell rows since fire (phase 1 carries no spec — expect NONE) =="
-$PSQL -c "SELECT error_code, count(*) FROM agent_error_log WHERE COALESCE(domain,'')='loancalculator.co.uk' AND error_code='RECOMPOSE_INTENT_NOT_REALISED' AND created_at > '$FIRE' GROUP BY 1;"
+$PSQL -c "SELECT error_code, count(*) FROM agent_error_log WHERE COALESCE(domain,'')='loancalculator.co.uk' AND error_code='RECOMPOSE_INTENT_NOT_REALISED' AND occurred_at > '$FIRE' GROUP BY 1;"
 
 echo "== 6. Page identity md5 of the 27 pre-fire built pages (name|url|page_type|status, restored pair + newcomers excluded) =="
 $PSQL -tA -c "SELECT md5(string_agg(name||'|'||url||'|'||page_type||'|'||status, E'\n' ORDER BY name)) FROM pages WHERE site_id='$SITE' AND name NOT IN ('about','guides-index') AND created_at < '$FIRE';"

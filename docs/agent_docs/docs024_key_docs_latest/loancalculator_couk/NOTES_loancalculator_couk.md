@@ -5322,3 +5322,38 @@ redrive = INSERT with `status='triaged'`, not 'detected'.**
 **Fleet roll v1.0.1301 landed 10:14Z** (owner-run; both chassis pods restarted).
 Nothing of ours was in flight (the briefing item was still parked at detected);
 the ~300s dispatch quiet window was long past before the item went dispatchable.
+
+### 2026-08-15 ~11:05Z — PLAN LANDED (34b1b056, 10:59:33Z); checkpoint run; PHASE 1 EMITTED THE FULL REBUILD SET, resizing phase 2 to probably-unnecessary
+
+Checkpoint results (script in this dir, three schema-guess fixes on the way —
+`sps.ordering` not position, `agent_error_log.occurred_at` not created_at):
+- **Q2 INVENTION: ZERO new page rows.** The keep-pages pin held under the mission
+  brief — the canary's invention did not recur. Q2's answer is now MEASURED.
+- **Plan: exactly 29 pages** (14 guide + 11 tool + 2 content + 1 section-index +
+  1 landing). Identity md5 of the 27 pre-fire pages UNCHANGED (`e6dd8fb8…`).
+- **`about` composed (hero,about-content); `guides-index` sectionless** — a
+  section-index renders through the lister subsystem, sectionless is its shape.
+- **Built pages again sectionless in the plan** (only guide-loan-faqs also carries
+  sections: hero,faq,tool-cta) — BUT unlike the canary, the reconciler THIS TIME
+  emitted the full rebuild set: **15 needs_page (all non-tool built pages,
+  guide-can-i-overpay claimed within seconds) + 11 owned_page_review (every
+  tool-role page — the TP-004 human gate arrived in PHASE 1, not phase 2) + 1
+  needs_rerender keyed on the new plan.** [UNRESOLVED mechanism: why the canary
+  skipped built pages and this run emitted for them — suspect sync_pages wrote
+  the plan's empty sections onto pages.sections, flipping the reconciler's
+  same-composition test; not chased tonight, the operative state is unambiguous.]
+- Un-defer trio moved to detected (about, guides-index, hero_about). Calc locks
+  12/12. RECOMPOSE tell rows: none (correct — no spec in phase 1).
+- **PHASE 2 ON HOLD, probably unnecessary:** its purpose was to force build items
+  for built pages; they exist. What it would still add — plan-level composition
+  records + the RECOMPOSE tell — matters less than the REAL test now running:
+  does a build-time composition keep the calculators? **The placement test has
+  moved to BUILD time, ungated on `index`** (role landing → needs_page → rebuilds
+  around locked `tool-loan-repayment`; identity arm + lock are the floor).
+- **DESIGN REFRESH IS DEDUP-BLOCKED (new decision for the owner):** the 08-12
+  owner-parked items hold site-wide keys — `needs_design`, `needs_composition`,
+  `needs_brand_head_assets:favicon/og_card`, all deferred — so the planner's
+  emit_design produced nothing (dedup). The 8 chrome/css locks are RELEASED but
+  nothing will regenerate chrome/styles until those keys free. Un-deferring
+  reverses an explicit owner parking, so it is D3-EXPANDED in the handoff, not
+  a session action.

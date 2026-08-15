@@ -1906,3 +1906,19 @@ recorded: file by hand = file it already-promoted. Meanwhile your new platform b
 full handoff for the next session is cut and committed; the fire's state, the
 checkpoint script, the phase-two script, and the four decisions that will be yours
 to make are all in it.
+
+2026-08-15 (midday) — The plan landed, and with three pieces of genuinely good
+news. First: the planner invented NOTHING this time — the "keep the pages"
+instruction held, which was the thing we couldn't test in the trial. Second: the
+plan is exactly the twenty-nine pages we asked for, and the about page has a real
+layout proposed. Third, and the big one: the rebuild didn't need the planned second
+stage — the pipeline queued the whole regeneration itself: fifteen ordinary pages
+are rebuilding right now, and all eleven calculator pages were routed straight to
+your review queue, which is the platform refusing to touch working tools without a
+human — exactly what we'd want. The twelve calculator locks are confirmed intact.
+The homepage is the one to watch: it rebuilds automatically around its locked
+calculator, which is the first real test of the protection work this whole effort
+was built on. One decision has grown: the design tickets you parked on the 12th are
+now the only thing stopping the site's look (chrome, styles, favicon, imagery) from
+being regenerated too — un-parking them is your call, since parking them was too.
+A watcher is on the rebuild; next update when it settles or if anything fails.

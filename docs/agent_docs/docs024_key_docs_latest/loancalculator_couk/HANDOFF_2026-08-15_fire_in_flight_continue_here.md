@@ -16,10 +16,22 @@ locks     12 calculator locks ONLY (decompose_20260802_proven_calculators).
           The 8 non-calculator locks are RELEASED (chrome 3 + css carriers 4 +
           homepage prose-0); pre-release state: NOTES 08-11 §step 6.
 chassis   v1.0.1301 (rolled 10:14Z 08-15). RECOMPOSE tell live since 1295.
-state     WAITING for build-briefing-agent to claim briefing_loancalculator.co.uk
-          (item 00bd5eff, status triaged 10:51Z) → briefing mints needs_site_plan
-          → planner → THE CHECKPOINT (below).
+state     PLAN 34b1b056 LANDED 10:59:33Z · checkpoint RUN (Q2: ZERO invention —
+          the pin held; identity md5 unchanged e6dd8fb8…; un-defer trio moved;
+          calc locks 12/12) · REBUILD RUNNING: 15 needs_page (built non-tool
+          pages) + about + guides-index + hero_about + 1 needs_rerender open,
+          11 owned_page_review at the human gate ALREADY (phase 1, not 2).
 ```
+
+> **CORRECTED ~11:15Z, same session — read this before the phase framing below:**
+> the reconciler emitted the FULL rebuild set in PHASE 1 (the mission prose alone
+> sufficed; mechanism note in NOTES — plan sections for built pages are again
+> EMPTY, yet items emitted; sync_pages-writes-empty-sections suspected, unchased).
+> **Phase 2 is ON HOLD and probably unnecessary** — its regeneration purpose is
+> served; the placement test moved to BUILD time and is running ungated on
+> `index` (locked tool-loan-repayment + identity arm are the floor). The
+> `phase2_recompose_26.sh` script stays valid if plan-level composition records
+> or the RECOMPOSE tell are ever wanted. D1/D3 below are REVISED accordingly.
 
 ## The owner's three answers (2026-08-14/15, applied)
 
@@ -89,21 +101,29 @@ new items listing.
    whether the 8 released locks (or successors) are re-armed is an OWNER call —
    the rebuilt chrome/css may not need carriers at all.
 
-## OWNER DECISIONS OPEN (nothing blocks phase 1)
+## OWNER DECISIONS OPEN (REVISED ~11:15Z; nothing blocks the running rebuild)
 
-- **D1 — phase 2 go:** fire immediately once phase 1 verifies clean, or show the
-  owner phase 1 results first? (Current plan: fire unless the owner says wait.)
-- **D2 — the 11 tool-page reviews** phase 2 will mint: per page (or in bulk),
-  realise the recomposed layout deliberately / leave the built page as-is (locks
-  keep the calculators regardless) / rule a bulk-apply with acceptance checks.
-- **D3 — the 3 still-parked imagery items** (site logo `003b98cc`,
-  guide-loan-faqs hero `15d6323f`, homepage hero `34b3ace1`): parked under the
-  08-12 "park the rest" ruling, and their keys DEDUP-BLOCK any fresh imagery
-  mints for those targets during this rebuild. Un-defer if imagery refresh is
-  wanted as part of the rebuild.
+- **D1 (revised) — phase 2:** ON HOLD, probably unnecessary (see correction
+  above). Decide after the 15 auto-rebuilds verify: if build-time compositions
+  kept the calculators placed, phase 2 adds only plan-level records + the
+  RECOMPOSE tell — skip it unless those are wanted.
+- **D2 — the 11 tool-page reviews (ALREADY MINTED, `owned_page_review:*`):**
+  per page or in bulk — realise the redesign deliberately / leave the built page
+  as-is (locks keep the calculators regardless) / authorise a bulk-apply gated
+  by the acceptance checks (toolgolden 11/11 + serving + locked-row purity).
+- **D3 (EXPANDED) — the owner-parked 08-12 items now GATE the visual refresh:**
+  `needs_design` + `needs_composition` (site-wide keys!) + 2
+  `needs_brand_head_assets` + 3 imagery items (logo `003b98cc`, guide-loan-faqs
+  hero `15d6323f`, homepage hero `34b3ace1`) all sit deferred and DEDUP-BLOCK
+  fresh mints. Consequence: the planner's emit_design produced NOTHING, so the
+  released chrome/css will NOT regenerate until these free up. Un-deferring
+  reverses the owner's own 08-12 parking → owner call. (Born-triaged rule does
+  NOT apply to un-defers — 'detected' is fine for chain-visible types, but note
+  needs_design/needs_composition are dispatched by the same poller: set them
+  'triaged' if un-parking.)
 - **D4 (housekeeping, later):** 13 lock_blocked_change + 6 content_rewrite at
-  needs_human_review + 45 parked items + blocked bugs_open/189 rerender — mostly
-  superseded by the rebuild; sweep once it settles.
+  needs_human_review + the remaining parked items + blocked bugs_open/189
+  rerender — mostly superseded by the rebuild; sweep once it settles.
 
 ## Standing cautions (carried)
 

@@ -69,11 +69,11 @@ $PSQL -c "SELECT orchestration_id, current_step, status FROM orchestration_state
 # 2. THE RECOMPOSE TELL — proposed_verbatim = the no-op landmine fired for that
 #    page; absent_from_plan = dropped/renamed (investigate). Absence of a row
 #    for a page = it was genuinely recomposed:
-$PSQL -c "SELECT error_message, count(*) FROM agent_error_log WHERE error_code='RECOMPOSE_INTENT_NOT_REALISED' AND created_at > now()-interval '1 hour' GROUP BY 1;"
+$PSQL -c "SELECT error_message, count(*) FROM agent_error_log WHERE error_code='RECOMPOSE_INTENT_NOT_REALISED' AND occurred_at > now()-interval '1 hour' GROUP BY 1;"
 
 # 3. Compositions actually changed (compare against the pre-phase-2 baseline
 #    captured by the runbook):
-$PSQL -c "SELECT sps.page_name, count(*), string_agg(sps.component_name, ',' ORDER BY sps.position) FROM site_plans sp JOIN site_plan_sections sps ON sps.plan_id=sp.id WHERE sp.site_id='$SITE_ID' AND sp.is_current GROUP BY 1 ORDER BY 1;"
+$PSQL -c "SELECT sps.page_name, count(*), string_agg(sps.component_name, ',' ORDER BY sps.ordering) FROM site_plans sp JOIN site_plan_sections sps ON sps.plan_id=sp.id WHERE sp.site_id='$SITE_ID' AND sp.is_current GROUP BY 1 ORDER BY 1;"
 
 # 4. Tool placements kept (THE placement test of this whole lane):
 $PSQL -c "SELECT sps.page_name, sps.component_name FROM site_plans sp JOIN site_plan_sections sps ON sps.plan_id=sp.id WHERE sp.site_id='$SITE_ID' AND sp.is_current AND sps.component_name LIKE 'tool-%' ORDER BY 1;"
