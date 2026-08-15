@@ -101,11 +101,22 @@ live at 3:1, so it is systematic. The `090` re-fired today (`adecf408`) complete
 - **[THE LOOP'S CITATION, not independently verified]** the two foreign shapes match
   `webdesign-agent`'s `design_spec` and `content-gap-planner`'s `gap_plan` `output_fields`
   **exactly** — so it names two specific producers rather than "something foreign".
-- **[UNVERIFIED LEAD — do NOT write this up as the cause]** `ExtractActionInputs` /
-  `ExtractFields` in `platform/orchestration/datahelpers/action_inputs.go` reportedly uses
-  aggressive recursion; if `handler_result` resolves that way, a sibling agent's response
-  elsewhere in `collected_data` could satisfy it. **Nobody has read that function for this
-  purpose.** That read is the whole of the remaining work.
+- **✅ [READ AND VERIFIED AT SOURCE — the lead was right, and it is already somebody's RFC]**
+  `complete_work_item` declares `result` as Optional → the config maps it `"handler_result"` →
+  `IsDottedPathReference` is literally `strings.Contains(s, ".")` so **Strategy 0 skips a
+  single-segment mapping** → Strategy 2's `ExtractFields` runs `findFieldRecursive` for **any
+  key named `result`**, depth 20 → and Strategy 4, the arm that exists to resolve exactly that
+  shape, **skips because the field already has a value.**
+  **§D is an incident of `architecture_review/RFC_029`**, filed 08-14 by the
+  `staged_component_build` lane and **RULED by the owner 08-15** (implementation OPEN).
+  Contributed into their file, not filed separately, with two things they did not have: a
+  **different entry condition** (RFC_029 frames it as a field the caller never mapped; here the
+  caller DID map it and lost for want of a dot), and a warning that **"unique-or-nothing" may
+  not cover this case** — a lone foreign `result` is *unique*, so the ruled remedy resolves it
+  wrongly with full confidence. ⚠ Still **[NOT VERIFIED]** that it actually fired for those 10
+  rows: the mechanism is *available*, not proven to have *run*.
+
+**NOTHING FURTHER IS OWED BY THIS LANE ON §D.** Its answer now lives where the fix will be made.
 
 **Do not borrow `bugs_open/274`'s mechanism as the answer** — a *delivered failure* predicts
 errored items, not `complete` items carrying a well-formed foreign payload. Raised 08-14,
@@ -153,11 +164,9 @@ Half two gives these items an honest exit when the fault goes away; nothing yet 
 
 There is no queued work. The useful things to do, in order of value:
 
-1. ~~Read the §D verdict when `adecf408` lands~~ — **DONE, and recorded in `bugs_closed/213`.**
-   What remains is one code read: **does `handler_result` resolve to a non-handler's payload
-   via `ExtractActionInputs`/`ExtractFields`?** If it can, the fix is a scoped binding, and gate
-   1b's abstain arm is already the instrument that will show it stopping. This is the single
-   highest-value hour left anywhere near this lane.
+1. ~~Read the §D verdict~~ ~~then read `ExtractActionInputs`~~ — **BOTH DONE.** §D is
+   `RFC_029`'s, contributed into their file. Gate 1b's `NO_CHANGE_GATE_UNREADABLE_RESULT`
+   stream is the free before/after when their fix lands. **Do not pick this up here.**
 2. **When a carrier is re-enabled**, run runbook §8 and confirm the streaks climb and the four
    rows stay open. Nothing to do until then — the code is live and waiting.
 3. **Do not re-open 213 to do either.** Both are recorded as post-closure follow-ups; re-opening
