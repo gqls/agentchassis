@@ -146,3 +146,23 @@ entries across 6 sites, so most of them have never even been put in front
 of anyone for a decision. Second: webdesign.uk's eight emergency locks
 from before the fix — they can stay on as belt-and-braces, or come off now
 that the fix protects those rows. Say the word either way.
+
+## 2026-08-15 — your two decisions, actioned
+
+You said: re-run resolution per site, and take the webdesign.uk locks off.
+
+The locks are off — all eight, verified, with the chat-box lock (which
+belongs to the other workstream) left alone. The fix that shipped this week
+is what makes this safe: rewrites no longer delete button links, so the
+emergency freeze has done its job and is retired.
+
+The resolution re-run is underway. The machinery already exists: the same
+re-render that repairs a mispointed button can also give a destination to a
+button that never had one — it matches the button's own wording against the
+site's real pages first, and falls back to the site's main tool or content
+pages. It also, deliberately, keeps any link that is already valid. We're
+running it site by site: the darts site is going through now as the test
+case; the other twenty follow once it verifies. One honest caveat: a site
+with no plausible destination pages gains nothing from this — those buttons
+will stay label-only and we'll list them for you at the end rather than
+invent links for them.

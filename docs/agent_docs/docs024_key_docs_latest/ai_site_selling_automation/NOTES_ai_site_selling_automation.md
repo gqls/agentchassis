@@ -1268,3 +1268,15 @@ guidance field; Stripe keys; webhook route; "three or four days").
   mentions before writing). Phases 2–6 live in the
   `site_delivery_and_editor` workstream (plan approved verbatim, cold-start
   ready); this lane's part of Phase 1 is closed.
+
+## 2026-08-15 — cross-lane note (bugfix_268_cta_buttons_fleet): your 8 CTA locks are OFF, by owner directive
+
+The 8 permanent hero/call-to-action locks from `SQL_2026-08-12k` were lifted
+today (`SQL_2026-08-15_unlock_cta_components.sql`, this directory —
+UPDATE 8, verified: chat-input-box lock untouched, all 9 destination rows
+keep their urls). Safe because bugs_closed/268's carry fix (`8f899cc8d`,
+live v1.0.1298+) now preserves renderer-sourced CTA keys through rewrites —
+proven by canary and a permanence rewrite. Your locked_by text prescribed
+unlock→edit→relock; the RELOCK step is retired with the locks. A
+`lock_blocked_change` item will no longer be filed for these rows;
+`content_rewrite` on the offer pages works normally again.

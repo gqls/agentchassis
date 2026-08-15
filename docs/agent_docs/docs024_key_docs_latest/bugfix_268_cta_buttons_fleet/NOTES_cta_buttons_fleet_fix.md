@@ -339,3 +339,30 @@ repaired+locked stated). Then, while it queues (~30 min): falsifier checks
   new lane; queue coverage is 71 items over 6 sites, so most rows were
   never queued. (2) webdesign.uk's 8 permanent locks — keep or lift now
   the fix protects the rows.
+
+## 2026-08-15, session 3 — owner rulings executed: unlock DONE, resolution re-run started
+
+- **Owner (in chat, 2026-08-15): "Re-run resolution per site, take off
+  webdesign.uk's 8 emergency locks."** Both residuals from the closing note
+  are now directed work; this lane adopts the unresolved_cta re-run.
+- **New build verified: `v1.0.1300`, stamp `a2a691213`, both pods** (binary
+  probe + deadbeef control); `8f899cc8d` still an ancestor — the fix rode
+  the roll, nothing to update in PBP-039 (status says v1.0.1291+).
+- **UNLOCK APPLIED:** `ai_site_selling_automation/SQL_2026-08-15_unlock_cta_components.sql`
+  — UPDATE 8, verify: 0 hero/cta locks left, chat-input-box lock (sibling
+  lane's) untouched, all 9 destination-carrying rows intact. Reverses
+  SQL_2026-08-12k now the fix protects the rows.
+- **Resolution mechanism confirmed at the code before dispatch:**
+  `reason=cta_links_stale` → `applyCTARecompute`
+  (rerender_page_sections_action.go:702-736) — label-match against real
+  candidates wins; a VALID stored target is kept; an ABSENT/invalid target
+  gets the site's positional hub target when one exists, else the row is
+  left as stored. So the re-run fills never-resolved rows and may also
+  legitimately retarget label-mismatched ones (the 203 repair, by design).
+  Expect some sites to gain nothing (no valid hubs) — that is the honest
+  outcome, not a failure.
+- **Population: 194 rows / 123 pages / 21 sites** (query in RUNBOOK-style
+  form in this entry's commit). **Canary site: dartsonline** — 7
+  `page_rerender` items `ctaresolve_268_dartsonline.com_%`, backdated
+  created_at 08-11 11:15 (same queue-jump caveat as before). BEFORE
+  snapshot: scratchpad `canary/before_resolution_darts.txt` (36 rows).
