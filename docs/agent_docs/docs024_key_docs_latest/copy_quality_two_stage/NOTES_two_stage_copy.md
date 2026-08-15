@@ -1239,3 +1239,18 @@ consequences for stage 2's design, both `[INFERRED]` from N=1 until anyone re-ru
 My ordering constraint is §6 of their bug (composition before voice). **The likely fix is
 a plan edit + re-render** — once their "why" lands, the voice rewrite unblocks; they ping
 this lane on close, and the HANDOFF is the pickup.
+
+> **CORRECTED 2026-08-15, same evening, by the 122 front's measurement — my entry above
+> overstates the divergence.** I wrote *"the same four titles and DIFFERENT prose both
+> times"* and inferred blanket *"prose-level non-determinism at fixed inputs"*. The
+> banked evidence (`278` §8, `deb81f7d2`): titles identical, and the bodies split **2 of
+> 4** — two cards byte-identical across both generations, two divergent (facts preserved,
+> sentences restructured). So the defensible statement is *"2 of 4 card bodies diverged
+> at fixed inputs"*, not blanket non-determinism. The shape-correlation read (short
+> enumerative content converged, discursive prose diverged) is marked
+> unrepeatable-as-a-finding at N=1 in their file and carries the same status here.
+> **Both stage-2 consequences survive** — a prose-to-prose gate fails cards 2 and 3 with
+> nothing wrong, so set/type/structure comparison remains forced; and the structural gate
+> would itself have caught the duplication (two sections, same declared card set). The
+> third-generation capture instruction (if the 278 repro re-fills the section, capture at
+> that moment — free then, expensive later) lives in their §8, not only in this exchange.
