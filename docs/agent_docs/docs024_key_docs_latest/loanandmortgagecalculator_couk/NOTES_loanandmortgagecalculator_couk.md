@@ -2827,3 +2827,50 @@ the message back, another session committed, so HEAD had moved. Read your own sh
 > **CONVENTION 2** (pre-existing, unchanged by either of us). The control's rule only
 > forbids PASS, so it is green — but a borrowed expectation matching via an alt-convention
 > is the same non-test shape one level up. Noted as a question, not filed as a defect.
+
+### 2026-08-15 (d) — the last two old-shape pages: converted-and-proven up to the WRITE, which this session's permissions refuse (second session)
+
+Work by the second lane session (the one that fixed the crosstool int-blindness,
+`a848812cd`), claimed in handoff §6.1. Both pages are ready to convert; the DB write
+itself was DENIED twice by this session's permission mode (script `--apply`, then the
+materialised SQL through psql) and is deliberately NOT routed through the peer session
+— that would launder a permission the user has not granted here. State at stop:
+
+- **Recon corrected one §3.3 nuance**: consolidation's component template (7,681 chars)
+  is the instance's 5,720 bytes PLUS a 33-line `/* === tool-doc === */` JS comment at
+  the top of the inline script — the render with the doc has never reached the page
+  (the permanent lock discards renders; stored bytes rule). Instance bytes verified
+  verbatim in BOTH the pin and live. Repayment's instance is verbatim in live, NOT in
+  the pin — the only real deltas are decomposition's seam normalisation (a dropped
+  blank line + outdent of the second card's opening tag); the rest of a naive
+  pin-block diff is the slice being too greedy (it swallows prose-2 and the footer).
+- **Seeds built and proven**: synthetic manifest from the LIVE instance bytes
+  (md5-asserted against the DB rows), `b2_build` render==block via Go's own engine —
+  `loans-consolidation` 7 fields, `mortgages-repayment` 8 fields, machinery literal.
+  Committed under `b2_seeds/`.
+- **`b2_load` does NOT fit these pages** (it deletes a `ported-page` row and inserts
+  all blocks; these pages are already decomposed). New `b2_convert_oldshape.py`
+  converts the tool-1 row IN PLACE: component UPDATE (consolidation, function kept —
+  fence subject) / component INSERT (repayment, NULL `component_id` route),
+  `content_data` = fields + provenance, lock cleared, `rendered_html` bytes asserted
+  UNCHANGED. Backups to `*_bak_20260815_oldshape` (the 08-05 table is stale for this
+  era). Guards per page in one transaction: backup present, unique active function,
+  row md5 unmoved, row points at the component, 0 locked on the page, field count.
+- **The tool-doc CANNOT ride in the template as `{{/* */}}`**: Go renders a template
+  comment to nothing but `b2_load.rendered_tool`'s python substitution does not strip
+  it, and python==Go render is a lane invariant `b2_verify` depends on. It moves to
+  the component DESCRIPTION with its lock paragraph corrected and dated (the old text
+  claims a permanent lock the conversion removes).
+- **Plan-mode proof, run this session**: `go==py==row md5` for both pages
+  (`a4ebd9178d65` / `4ca1a6ab2ced`), i.e. the first re-render after conversion
+  reproduces the currently served bytes exactly.
+
+**To finish (any session with DB-write permission), the batch protocol from here:**
+1. `python3 $LANE/b2_convert_oldshape.py --apply` (or the two SQL files it prints).
+2. Two `page_rerender` items, RUNBOOK step-4 insert shape (source, created_by AND
+   handler_agent='page-rerender', spec={page_id} no reason, status 'triaged').
+3. Served md5s should be UNCHANGED (byte-identical roundtrip is the success
+   criterion) — deploy proof comes from the item `result` and row stamps, NOT the
+   page bytes; then `b2_verify.py loans-consolidation mortgages-repayment`; then
+   `oracle.py --tools consolidation,repayment` + expectation control; then the full
+   sweep + all three controls (all four runs were green at `9483f29e9`).
