@@ -2,8 +2,14 @@
 
 **Filed 2026-08-14, `silent_hero_logo_readers` lane. This is `bugs_closed/261` §8 follow-up 2,
 promoted to its own number the way follow-up 1 became `bugs_open/269` (now closed).**
-Status: **FIX IN TREE with tests, NOT LIVE** — inert until a chassis image rolls, per the
-fixed-AND-live bar.
+Status: ~~FIX IN TREE with tests, NOT LIVE~~ **CLOSED 2026-08-15 — FIXED AND LIVE on chassis
+`v1.0.1300`** (§9: build point `a2a691213`, both replicas, controls run, both 273 commits
+ancestors). **One caveat, stated where it can't be missed:** the live-behaviour witness is still
+outstanding — **zero** diagnosis bundles of any kind have been assembled since the roll, so there
+has been no organic demand to exercise the new tail. The defect's code no longer exists in the
+running binary and the branch is mutation-proven in tests; the first live bundle that scopes an
+over-budget file is the remaining witness. §5's recipe (with its demand control) stands for
+whoever sees one.
 
 ## 0. Why no `090` run (OWNER RULING 2026-07-31 declaration)
 
@@ -164,3 +170,33 @@ tooling-provenance, diagnosis-guardian, render-guardian, debug-historian all app
   closed set `symbol|content|ls`, and the symbol arm parses path tokens into `path ILIKE` clauses
   (`diagnose_code_lookup_action.go:1578-1590`), so `query = "<path>"` enumerates that file's
   indexed rows.
+
+## 9. Live proof, 2026-08-15 — and the honest zero
+
+Chassis `v1.0.1300`, pods `agent-chassis-6c68fcc549-8lb6d` / `-hptsr`, started ~2026-08-14 21:00Z.
+
+- **Startup stamp out of log range on both replicas** (11h-old pods; first line in `--tail=100000`
+  range was 06:47Z/07:36Z on 08-15) — as the §2-recipe landmine predicts, this means "not in
+  range", NOT "unstamped". Fell back to the binary probe.
+- **Binary probe, discovery done safely:** extracted every distinct 40-hex string from
+  `/proc/1/exe` (78 of them) and intersected with real git objects — **exactly one is a commit**:
+  `a2a691213dfbe11d38549f128870ef41cbf24a83` (2026-08-14 20:16Z). This sidesteps the
+  digit-table trap because junk strings are not git objects. Same stamp PRESENT on replica 2;
+  control (today's post-roll commit `f8cfa131b`) ABSENT on both replicas and correctly NOT an
+  ancestor of the stamp.
+- **Ancestry:** `4f3f0be7d` (fix) IN · `e57ecdf1c` (aggregate cap) IN. Both aboard.
+- **Behaviour, with the demand control run first:** bundles assembled since the roll = **0**, so
+  `fix_witness = 0` and `dead_end_demand = 0` are **unreadable zeros** — exactly the shape §5
+  warns about. Nothing has asked the diagnosis loop anything since the roll. The closure rests on
+  the binary proof plus the mutation-proven unit branch; the organic-demand witness transfers to
+  §5, unexpired.
+
+Query used (rerunnable):
+```sql
+SELECT count(*) AS bundles_since_roll,
+       count(*) FILTER (WHERE body LIKE '%the whole file exceeds the%') AS dead_end_demand,
+       count(*) FILTER (WHERE body LIKE '%The elided handles:%')        AS fix_witness,
+       min(created_at), max(created_at)
+FROM diagnosis_artifacts
+WHERE kind='bundle' AND created_at >= '2026-08-14 20:16+00';
+```

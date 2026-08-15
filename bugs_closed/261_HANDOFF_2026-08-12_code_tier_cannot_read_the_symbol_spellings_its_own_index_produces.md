@@ -314,9 +314,10 @@ All real, all separate, none fixed:
 2. **The per-file sibling cap of ~10 signatures** hid the three functions this run needed behind
    `_(+79 more in this file — put the bare file path in next_scope to see it whole)_`. Iteration 4's
    scope had collapsed to five symbols, three of them copies of a trivial `getMapKeys`.
-   > **TAKEN 2026-08-14 → `bugs_open/273`** (fix in tree with tests, council corr `ba3f6047`,
-   > awaiting a roll): the dead-end marker now lists the elided functions' canonical handles
-   > instead of saying "Name symbols individually" while withholding the names.
+   > **TAKEN 2026-08-14 → `bugs_closed/273`, CLOSED 2026-08-15 live on `v1.0.1300`** (council
+   > APPROVED `ba3f6047`): the dead-end marker now lists the elided functions' canonical handles
+   > instead of saying "Name symbols individually" while withholding the names. Live-behaviour
+   > witness pending organic demand — 273 §5/§9.
 3. **`knownScopeIdentities` omits `values`** (`diagnose_route_action.go:541`, see §7b) — a
    package-level `var`/`const` entry is never recognised as exact, so every one costs a needless
    embedding call and `code_symbols` read. Cosmetic once this fix rolls; it loses no evidence.

@@ -865,3 +865,29 @@ output, fixed before it could mislead.)
 Follow-up committed with `Council-Reviewed: ba3f6047-…` — legitimate because the verdict is READ
 and APPROVED and the delta implements that round's own written recommendation. 273 §4/§8 updated;
 awaiting a chassis roll, then §5 verification.
+
+## 2026-08-15 (morning) — v1.0.1300 rolled; 273 proven aboard and CLOSED; the behaviour zero is honestly unreadable
+
+Owner reports a fresh chassis build. Verified per the recipe, with one new wrinkle worth keeping:
+the startup stamp was out of log range on BOTH replicas (11h-old pods), and a 60-sha `grep -aq`
+probe loop against `/proc/1/exe` TIMED OUT at 3 minutes. The shape that works: ONE
+`grep -aoE '[0-9a-f]{40}' | sort -u` pass (78 distinct strings), then intersect locally with
+`git cat-file -e` — exactly one string is a real commit, and that is the stamp. This dodges the
+digit-table landmine structurally: junk hex is not a git object.
+
+Result: build point `a2a691213` (08-14 20:16Z), PRESENT both replicas; control (today's
+`f8cfa131b`) ABSENT both and not an ancestor. `4f3f0be7d` IN, `e57ecdf1c` IN → the whole 273 fix
+including the aggregate cap is live on `v1.0.1300`.
+
+Behaviour check, demand control first: **0 bundles of ANY kind since the roll** → `fix_witness=0`
+is unreadable, exactly the shape our own §5 warns about. Closed 273 anyway per the fixed-AND-live
+bar — the defect's code no longer exists in the running binary and the branch is mutation-proven —
+with the outstanding organic witness stated in the status header AND §9, same split as 269's
+close. File moved with both paths on the commit; `git ls-tree` check below.
+
+Docs: 261 §8.2 pointer updated to bugs_closed + live; HANDOFF_2026-08-15_continue_here.md written
+(supersedes 08-13; carries the new binary-probe recipe and the remaining surface as a table);
+owner log appended.
+
+Lane state after this: NOTHING in flight. Remaining surface = 273/269 opportunistic live
+witnesses, follow-up 3 (cosmetic), and the two owner decisions (RFC_012, RFC_027).

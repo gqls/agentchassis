@@ -471,3 +471,14 @@ Written up as bug 273, tested (including a deliberate sabotage run to prove the 
 the old behaviour), submitted to the review council, and committed. Nothing for you to decide on
 this one — it rides the next release. Your two open decisions are unchanged: RFC_012 (the pause
 that loses work) and RFC_027 (one owner for the naming machinery).
+
+**2026-08-15, morning.** The new build you rolled last night carries yesterday's fix — checked on
+both running copies, with the usual matched pair of a value that must be present and one that must
+be absent. So bug 273 is now closed: the evidence pack can no longer tell an investigation to "name
+the functions you need" while hiding the names. One honest caveat is written on the closure: since
+the build went out, nothing has actually asked the diagnosis system a question yet, so we have not
+seen the new behaviour on a real investigation — only in the tests. The first real investigation
+that touches one of our oversized files will be the final confirmation, and the check for whoever
+sees it is written in the bug file. With that, this whole workstream is down to: two decisions of
+yours (the pause that loses work; whether the naming machinery gets one owner), one cosmetic
+leftover, and watchful waiting.

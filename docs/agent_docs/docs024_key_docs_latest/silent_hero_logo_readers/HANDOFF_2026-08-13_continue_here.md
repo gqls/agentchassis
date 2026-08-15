@@ -1,5 +1,8 @@
 # HANDOFF 2026-08-13 — continue here (silent_hero_logo_readers)
 
+> **SUPERSEDED 2026-08-15 by `HANDOFF_2026-08-15_continue_here.md`** — 273 is CLOSED (live on
+> `v1.0.1300`); this file remains the record of the 269 close and the 08-14 state updates.
+
 **Written at the owner's request so this lane survives a fresh chat.** Supersedes
 `HANDOFF_2026-08-12b_continue_here.md` for state; that file is still the record of how 261 was found.
 
