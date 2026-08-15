@@ -59,14 +59,34 @@ notes commits, `SUMMARY_2026-08-15…`. All platform commits trailered with the 
 
 ## 2. Next actions, in order
 
-1. **B4 — supervised first researcher runs.** One kind at a time:
-   `UPDATE scheduled_tasks SET last_triggered_at=NULL WHERE name='mortgage-lender-directory-discovery';`
-   then watch the orchestration, then:
+1. **B4 — supervised first researcher runs.** ⚠ **UPDATED 2026-08-15 (later session):
+   mortgage-lender is DONE — 5 supervised runs, chain proven, 2 real firms registered.
+   Remaining: savings-provider and health-insurer, same recipe.** What that session
+   learned (full evidence in NOTES, same date):
+   - Config now carries migrations **423** (entity = ONE NAMED FIRM, never a
+     sector/aggregate) and **424** (quote = ONE CONTINUOUS passage; ibisworld.com
+     excluded — refetch-blocked, citations can never verify). Queries re-aimed at named
+     firms, **⚠ must stay <200 BYTES** (web_search's query_from drops ≥200-char queries
+     as "likely LLM error message" and the run FAILS with an error that misdirects at
+     config keys).
+   - Read results from the orchestration's `collected_data`
+     (`candidate_claims`/`registration`/`verify_and_register`), not just the register.
+   - ⚠ **Completing a reject HITL item suppresses that kind's reject writes for 3h**
+     (`writeWorkItem` two-strike rule; the drop is silent and the rejects survive only in
+     `collected_data`, ~24h). Fix candidate recorded in NOTES: emitter should set
+     `recurrenceExpected` (Go, needs a roll). Until then: rule on HITL items LAST, after
+     the kind's supervised runs are done.
+   - ⚠ This action's log lines never reach `kubectl logs` (mechanism undiagnosed, NOTES
+     has the measurements) — absence of its log line is NOT evidence; use the DB.
+   Per kind: `UPDATE scheduled_tasks SET last_triggered_at=NULL WHERE name='<kind>-directory-discovery';`
+   then watch `orchestration_states` (owner_agent_type='finance-directory-researcher'),
+   then:
    - claims landed? `SELECT de.kind, de.name, dc.field, dc.value, dc.status FROM
-     directory_claims dc JOIN directory_entities de ON de.id=dc.entity_id WHERE de.kind='mortgage-lender' AND dc.is_current;`
-   - rejects under the KIND-SCOPED key (`directory_citation_unverified:mortgage-lender`)?
+     directory_claims dc JOIN directory_entities de ON de.id=dc.entity_id WHERE de.kind='<kind>' AND dc.is_current;`
+   - rejects under the KIND-SCOPED key (`directory_citation_unverified:<kind>`)?
      Price-field refusals appearing as rejects is the CONTROL WORKING, not a failure.
-   - Work the HITL queue; bar = a reviewed, non-embarrassing set per kind. Repeat ×3 kinds.
+   - Work the HITL queue (last — see suppression note); bar = a reviewed,
+     non-embarrassing set per kind.
 2. **B3c** — publish-trigger fix (three kind-blind predicates + LIMIT 5,
    `SEED_directory_publish_trigger.sql:94`, per the 2026-08-10 FINDING; snapshot-first
    agent_definitions migration + publisher chain extension). Config, live immediately.

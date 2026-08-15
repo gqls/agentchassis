@@ -940,3 +940,24 @@ Either accept slow accumulation or add a two-hop discovery step later — owner-
 trade-off, park for Phase C/D.
 
 **Run 5 fired 15:00:30Z** (DB clock, read not estimated) with 423+424 both live.
+
+**Run 5 (`d0f4bcaf`, COMPLETED 15:01:46): 5/5 candidates REGISTERED, zero rejects — the
+full loop now works honestly.** A NEW real firm entered the register: Mansfield Building
+Society, cited to its own retirement-mortgage page; Family BS gained a clean RIO
+product_types claim. Current mortgage-lender register: 2 active entities (Family BS,
+Mansfield BS), 3 current claims, every one a named firm citing its own page. Minor
+quality note for the eventual publish review: Mansfield's product_types value
+("Residential mortgage lending available in England, Wales and Scotland") is a coverage
+statement rather than a product enumeration — true, cited, not embarrassing, but the
+kind of thing the per-site manual review should eye.
+
+**B4 status at session end (credits): mortgage-lender kind PROVEN through the whole
+chain** (discover → scrape → extract named-firm-only → verify verbatim → register →
+kind-scoped HITL on rejects), with 5 supervised runs' evidence. Savings-provider and
+health-insurer NOT yet run — their queries carry the same named-firm pattern (applied
+this session, 184 B each) but each needs its own supervised first run per the B4 recipe:
+force-trigger, watch, read candidates+registration from collected_data (do NOT rely on
+the HITL queue while a completed reject item is <3h old — see the suppression finding
+above), review the registered set, iterate the query/prompt if the kind's sources
+misbehave differently. Register accumulation is slow by design (~1-2 firms per run;
+weekly cadence + manual force-triggers).
