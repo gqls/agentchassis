@@ -414,3 +414,10 @@ now has **41 ACTIVE pages + 1 archived demo row** (`page_component_history`'s FK
 archived-in-place the terminal state, per 098) — a bare `count(*) FROM pages` reads 42;
 filter on `status='active'` when repeating any "41 pages" figure. Detail + two missteps
 with their checks: NOTES (g). Remaining §6: item 2 (planner loop) is the head of the queue.
+
+---
+
+**SUPERSEDED 2026-08-15 evening → `HANDOFF_2026-08-15b_continue_here.md`. Read that first.**
+Everything this file queued is DONE: batch 2 closed (header note), the old-shape two
+converted and live (addendum above), reuse demonstrated and reverted (evening addendum).
+This file remains the evidence trail; the new file starts at §6 item 2, the planner loop.
