@@ -249,3 +249,109 @@ Gotchas that cost time on 2026-08-11:
   write_doc_plan, the diagnose family) are extractor-IRRELEVANT — those
   actions read the `*_field` key from config directly and resolve the path
   themselves. Do not read them as arm-2 exposure.
+
+---
+
+## Prompt caching (LCO-008) — the four commands worth keeping (2026-08-15)
+
+### 1. Read an agent's EFFECTIVE `max_tokens` — never the key you are about to write
+
+The resolver is `ai_actions.go`: `agentConfig["max_tokens"]` (**the TOP LEVEL of
+`default_config`** — `agentConfig = agentDef.DefaultConfig`, *not* the step's `config`, despite
+the name) → merged `ai_service` (root overlaid by step `config.ai_service`) → the client's
+hardcoded `2048`. **`...steps.<step>.config.max_tokens` is INERT** and a migration that writes
+it will pass a guard that reads it back. Show all four so a future divergence cannot hide:
+
+```sql
+SELECT default_config->>'max_tokens'                                                    AS top_level,
+       default_config->'ai_service'->>'max_tokens'                                      AS root_ai,
+       default_config->'workflow'->'steps'->'plan_gaps'->'config'->'ai_service'->>'max_tokens' AS step_ai,
+       default_config->'workflow'->'steps'->'plan_gaps'->'config'->>'max_tokens'        AS step_cfg_INERT
+FROM agent_definitions
+WHERE type='content-gap-planner' AND is_active
+  AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL;
+```
+
+⚠ **Gotcha:** a pre-condition NOTICE reading `max_tokens=(unset)` is the tell that you are
+looking at the wrong path — not that the value is absent estate-wide.
+
+### 2. Is the TTL discriminator even able to fire? (the demand control)
+
+A zero from the >5min-gap query is meaningless without this. It answers "could this query have
+returned a row at all yet", which is a different question from "did it".
+
+```sql
+WITH c AS (
+  SELECT agent_type, created_at, cache_read_input_tokens,
+         lag(created_at) OVER (PARTITION BY agent_type, md5(left(prompt_rendered,4000))
+                               ORDER BY created_at) AS prev
+  FROM llm_call_log
+  WHERE created_at > '<cutoff>' AND prompt_rendered IS NOT NULL
+)
+SELECT count(*) AS calls, count(prev) AS repeat_pairs,
+       count(*) FILTER (WHERE created_at - prev > interval '5 minutes') AS pairs_over_5min,
+       max(created_at - prev) AS widest_gap
+FROM c;
+```
+
+⚠ **Scope it to agents that actually carry a marker.** Unmarked agents cannot produce a cache
+read, so including them guarantees zeros that say nothing about the TTL:
+`SELECT agent_type, sum(coalesce(cache_read_input_tokens,0)) FROM llm_call_log WHERE created_at > … GROUP BY 1;`
+
+**And validate the discriminator against pre-roll history before trusting it** — under the 5m
+TTL a >5min gap must force a WRITE and yield NO read. Measured 2026-08-12 → 08-15 on
+`council-gate`: 29 such gaps, **0 reads, 28 writes**. If that ever comes back with reads, the
+check is broken and every conclusion drawn from it is void.
+
+### 3. Find the shared/varying boundary before placing a marker
+
+Do not reason about it from the template — the template is ~4k chars and renders to ~15k, so
+the boundary is where the *rendered* text stops being shared. `distinct_prefixes_at_boundary`
+must be **1** per group, which is the exact precondition prefix caching needs:
+
+```sql
+SELECT strpos(prompt_rendered,'<ANCHOR>') AS boundary, length(prompt_rendered) AS total,
+       count(*) AS calls,
+       count(DISTINCT left(prompt_rendered, strpos(prompt_rendered,'<ANCHOR>')-1)) AS distinct_prefixes
+FROM llm_call_log
+WHERE agent_type='<agent>' AND prompt_rendered IS NOT NULL
+  AND created_at > now() - interval '3 days' AND strpos(prompt_rendered,'<ANCHOR>') > 0
+GROUP BY 1,2 ORDER BY calls DESC;
+```
+
+### 4. Applying a migration when the runner cannot reach it
+
+`run-migrations.sh --apply` walks **every** pending file in order and a failure stops the run.
+As of 2026-08-15 there are 17 pending from other lanes and it halts at `324`, whose guard
+**refuses by design** unless a specific `-c` setting is prepended — so it never reaches the 400s.
+Apply out-of-band, then register:
+
+```bash
+kubectl -n ai-persona-system exec -i postgres-clients-0 -- \
+  psql -U clients_user -d clients_db -v ON_ERROR_STOP=1 < docs/agent_docs/sql_for_agents/<file>.sql
+
+./scripts/migration/run-migrations.sh --record-only <file>.sql --note '<what you verified>'
+```
+
+⚠ Feed the file on **stdin** (or `-f`), never paste — pasting mangles comments and
+dollar-quoted `DO $$` bodies. `-v ON_ERROR_STOP=1` is what makes a failed guard abort rather
+than commit the rest.
+
+### 5. Verify a marker fired — and know which zero is which
+
+```sql
+SELECT created_at, model, input_tokens, output_tokens,
+       coalesce(cache_creation_input_tokens,0) AS writes,
+       coalesce(cache_read_input_tokens,0)     AS reads
+FROM llm_call_log
+WHERE agent_type='<agent>' AND created_at > '<when the marker went in>'
+ORDER BY created_at;
+```
+
+- `writes > 0, reads = 0` on the **first** call is correct — there was nothing to read.
+- `writes > 0, reads = 0` **persisting** across calls is the silent failure: every call is
+  paying the write premium and reading nothing, which is worse than no caching.
+- `output_tokens` at or near the configured cap means the completion was **CUT**.
+- ⚠ `llm_call_log` stores only **totals** — there is no 5m/1h bucket breakdown, so the log can
+  never tell you which bucket a write landed in. The only log-based TTL proof is behavioural:
+  a read at a gap wider than 5 minutes.
