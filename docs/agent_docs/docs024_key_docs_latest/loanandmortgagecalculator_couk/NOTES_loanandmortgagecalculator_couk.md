@@ -2625,3 +2625,79 @@ damage happened is not a check.** `b2_verify` (now in the lane) is identity-base
 end to end for exactly this reason, and the full oracle sweep is the mandatory
 closing gate of every batch: it is the only instrument here that measures behaviour
 rather than consistency.
+
+---
+
+## 2026-08-15 (b) — Track B2 batch 2: the mixed-card five, and two false readings I took on the way
+
+**State reconciled against live before touching anything.** The 08-14 handoff's §1
+re-check commands were run as written. Two of its figures do not survive:
+
+- **"16 B2 components" reads 15**, and the handoff's own §1 query is why: it counts
+  `description LIKE 'Parameterised calculator component (Track B2%'`, and
+  `mortgages-simple` — the page the design was PROVEN on, by hand, before `b2_load`
+  existed — carries the older description `"Parameterised calculator component:
+  panel,…"`. 15 + 1 = 16, so the handoff's prose is right and its instrument
+  undercounts by one BY CONSTRUCTION. Fixed nothing; recorded so the next session
+  does not chase a missing component.
+- **"19 prose pages" reads 18.** The handoff's own breakdown sums to 42 against a
+  site of 41 pages (19+16+5+2). Live: 18 prose + 16 B2 + 2 old-shape + 5 verbatim
+  = 41.
+- `mortgages-repayment`'s locked tool row has a **NULL `component_id`** — it is a
+  componentless verbatim row (3,943 chars of `rendered_html` on the instance, card
+  + inline script + calculators.js all present). Its sibling `loans-consolidation`
+  IS component-backed (7,681-char template, zero fields). §5 describes them as one
+  shape; they are two, and the conversion will need two routes.
+
+**MISSTEP 1 — I proved the 08-05 backup was safe for all five, and I had searched a
+path that has never existed.** §7 says to check per page with
+`git log --since=2026-08-05 … -- loanandmortgagecalculator.co.uk/<page>.html`. I
+expanded `<page>` from the DB's `pages.name`, giving
+`loanandmortgagecalculator.co.uk/loans-damage-checker.html`. Every page returned **0
+commits**, which I read as "unchanged since the backup, so the backup is valid". The
+repo path is `loans/damage-checker.html` — `pages.name` is the path with the FIRST
+slash replaced by a hyphen. A `git log` on a path that does not exist exits 0 and
+prints nothing, which is byte-for-byte what "no commits" looks like.
+Re-run correctly, **4 of the 5 HAVE changed** since 08-05 (the `bugs_open/224`
+stale-answer guards and the btn-id fix), so the backup is stale for four of them and
+valid only for `loans-damage-checker` — the opposite of what I had just written down.
+*The check:* before believing an empty `git log`, prove the path resolves —
+`git cat-file -e <ref>:<path>` — and run a control on a path you know is wrong. Both
+are one line and I ran neither until the output looked too convenient.
+
+**MISSTEP 2 — "the queue has been stalled for an hour" was a timezone.** My items sat
+at `triaged` with `updated_at 08:44`; local `date` said `09:46`; I concluded the
+dispatcher had been silent for ~62 minutes against a 60-second interval and went
+looking for a broken scheduler. The DB clock is **UTC and local is BST**: server
+`now()` was `08:48`, the items were **253 seconds old**, and `build-pipeline-trigger`
+had fired **45 seconds** earlier. *The check:* never subtract a DB timestamp from
+local wall-clock — ask the database for the age (`EXTRACT(epoch FROM (now()-created_at))`)
+so both ends of the subtraction come from the same clock.
+
+**What the batch actually needed.** All five pages have exactly one `.card` mixing
+copy with machinery, so `keep_widget_wrapper`'s test ("descend only while the holder
+still has a non-holder child; stop when the content is entirely machinery") can never
+fire on them — its docstring already named this as the known limit.
+`gate_wrapper_parity` refused all five, `{'card': (1, 0)}`, reproduced before any
+change. Fix is a second opt-in on the shared helper, `whole_wrapper_classes`, empty by
+default so the sibling lane is byte-for-byte untouched (owner ruling 2026-08-02).
+Taking the card whole is the right answer HERE and was the wrong answer on 2026-08-05
+only because "whole" then meant FROZEN in a locked verbatim row; under B2 the block is
+a parameterised template whose copy is unlocked schema fields.
+
+Proven, all five: gate passes AND its induced-shortfall control still fails all five
+(so the pass discriminates — a gate that has just been made to pass is exactly when
+to re-run its control); `b2_build` render == block via Go's own `text/template`;
+**59 fields**; no span left literal; python substitution == the Go render (checked
+explicitly — `b2_load`'s docstring CLAIMS that invariant and the code never asserted
+it); md5 of all five seeded rows equals the Go-proven bytes; 0 locked.
+
+**A latent trap found while reading `b2_verify.py`: its `PIN` was hardcoded to
+`0a0e89326` — the poisoned pin.** That is the ref the time-machine entry above is
+about, and `decompose_lmc` had already abandoned it for `7e6b993ef`. The verifier
+exists to answer "does live match the source", and it was asking the source that
+holds reverted arithmetic. Measured: **harmless for these five** (byte-identical at
+both pins) and **real for `loans/standard-calc`**, which differs between them — the
+very page the 224 fix was about. Now imported from `decompose_lmc.PINNED_REF` so the
+pin can only be changed in one place, rather than restated in a second file that
+nobody re-reads.
