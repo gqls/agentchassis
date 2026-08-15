@@ -703,6 +703,14 @@ def apply_setup(d, setup):
                 d.set(base + ".d-months", months)
 
 
+def numeric(x):
+    """A numeric expectation: int or float, NOT bool (an int subclass — a
+    `want` of True would be a suite bug, not a 1.0). The control guards below
+    must use this, never `isinstance(x, float)`: see the note at the crosstool
+    NON-TEST guard for what the float-only test cost."""
+    return isinstance(x, (int, float)) and not isinstance(x, bool)
+
+
 def run_case(d, url, c, tool, mutate=None):
     """Drive one vector; return a list of result records."""
     out = []
@@ -801,8 +809,18 @@ def run_case(d, url, c, tool, mutate=None):
                        resolution="±£%.2f (tool displays %d dp)"
                                   % (tol, display_dp(raw)))
             tw = a.get("_true_want")
-            if (mutate == "crosstool" and isinstance(tw, float)
-                    and isinstance(want, float) and abs(tw - want) <= tol):
+            # `numeric`, not `isinstance(_, float)` (the THIRD control blind spot
+            # found 2026-08-15, one per guard): three tools carry INT expectations
+            # — a £5,000 sum of int debts (consolidation), an echoed £200,000 net
+            # advance (bridging), months//12 whole years (overpayment) — and the
+            # float-only test skipped this guard for them, so a borrowed int that
+            # EQUALS the vector's own fell through to a raw PASS and the control
+            # reported checker-inertness that was type blindness in the control
+            # itself. Index pairing is NOT the defect: every tool's vectors carry
+            # identical selector sequences (measured 2026-08-15), so `_true_want`
+            # is always the same selector's own expectation.
+            if (mutate == "crosstool" and numeric(tw)
+                    and numeric(want) and abs(tw - want) <= tol):
                 rec.update(status="N/A",
                            note="NON-TEST: the borrowed expectation (%.2f) "
                                 "equals this vector's own (%.2f) within ±%.2f, "
@@ -821,7 +839,7 @@ def run_case(d, url, c, tool, mutate=None):
             # is "nothing may pass" — reported as inertness in the checker when it is
             # a coincidence in the control. Same treatment as the crosstool NON-TEST
             # directly above: excluded, and SAID, rather than counted either way.
-            if (mutate == "expectation" and isinstance(true_want, float)
+            if (mutate == "expectation" and numeric(true_want)
                     and abs(true_want - want) <= tol):
                 rec.update(status="N/A",
                            note="NON-TEST: the control's sentinel (%.2f) coincides "
@@ -834,7 +852,7 @@ def run_case(d, url, c, tool, mutate=None):
                 continue
             if abs(got - want) <= tol:
                 rec["status"] = "PASS"
-                if mutate == "crosstool" and isinstance(tw, float):
+                if mutate == "crosstool" and numeric(tw):
                     # The comparator agreed with a BORROWED expectation. That is
                     # only innocent if the tool's own answer here is wrong and
                     # happens to equal the neighbour's right one — which is
