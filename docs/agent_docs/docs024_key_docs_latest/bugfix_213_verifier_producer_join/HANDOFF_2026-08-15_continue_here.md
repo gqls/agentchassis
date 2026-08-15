@@ -6,6 +6,38 @@ stands and is the reference for that question.
 
 ---
 
+> ## ⬆ UPDATE 2026-08-15 ~10:40Z — HALF TWO IS **LIVE**, AND §D IS NO LONGER UNIDENTIFIED
+>
+> Two things changed after this file was first written. Both are good news and neither
+> creates work for this lane.
+>
+> **1. A fresh chassis build rolled at 10:14Z and it carries half two.** `v1.0.1301`, both
+> replicas, **presence proven at the artefact**: three-needle single-pass binary probe returning
+> this change's own literal `re-audited this site on` **present**, long-live control
+> `NO_CHANGE_GATE_UNREADABLE_RESULT` **present**, nonsense needle **absent**.
+> ⚠ **Two traps in doing that, both paid for:** the `build provenance` startup line was already
+> out of `--tail=3000` on **twenty-minute-old** pods on this service, so
+> `merge-base --is-ancestor` was not available (absence there means *not in range*, never
+> *unstamped*); and the binary probe takes **~2 minutes per pod**, so a two-pod loop hits the
+> default command timeout and **the second replica reads as silence — which looks exactly like a
+> replica that does not carry the code.** Probe them one at a time.
+> **LIVE IS NOT EXERCISED.** Re-checked at 10:40Z: both carriers still `enabled=false`, and the
+> population is unchanged at 19 `complete` / 4 `failed`. Everything §"THE ONE THING A NEW READER
+> WILL GET WRONG" says below still holds, word for word.
+>
+> **2. §D's open question is ANSWERED, and this lane's own claim about it was FALSE.** The
+> re-fired `090` (`adecf408`) returned **`UNVERIFIABLE`** — but it cited a config quote that
+> contradicted our first-hand claim that *"neither agent declares a `complete_work_item` step"*,
+> and **verified today, the loop is right and we were wrong.** The claim was an artefact of the
+> PATH we searched: `workflow->steps` genuinely has no such step, but a `$.**` search over the
+> whole config hits one at
+> **`workflow.steps.process_item.config.sub_workflow.mark_complete_step`**, binding
+> **`result: handler_result`**. So "the site binding the `result` input is unidentified" is no
+> longer true. Full note, with what is verified and what is only a lead, in
+> `bugs_closed/213` §"POST-CLOSURE NOTE 2026-08-15". **The bug file stays closed.**
+
+---
+
 ## THE ONE-PARAGRAPH STATE
 
 **THIS LANE IS FINISHED AND ITS BUG IS CLOSED.** The owner ruled on 2026-08-15 that half two
@@ -57,16 +89,27 @@ this audit.** So:
 
 ## WHAT IS STILL OPEN, AND WHOSE IT IS
 
-**1. §D — a completed item carries a payload its handler never produced. NOT this lane's answer
-to give, and it has no current candidate.** 10 of 14 completed rows carry a foreign but
-well-formed payload; the abstain arm reproduced the split live at 3:1, so it is systematic.
-**The `090` re-fired today is running** (`adecf408-1e60-4293-8b22-351ddbb52a08`; two verdict
-calls have already succeeded — read artifacts by THAT correlation, not the intake id). The
-08-14 run (`266be67d`) died at its `verdict` step on the account usage cap and its 54,805-char
-evidence bundle is still worth reading by hand. **Do not borrow `bugs_open/274`'s mechanism as
-the answer** — a *delivered failure* predicts errored items, not the `complete` items carrying a
-foreign payload that §D actually shows. That candidate was raised on 08-14 and downgraded the
-same evening by its own evidence.
+**1. §D — a completed item carries a payload its handler never produced. ✅ UPDATED: the binding
+is now IDENTIFIED and the remaining question is a small code read, not a diagnosis run.** 10 of
+14 completed rows carry a foreign but well-formed payload; the abstain arm reproduced the split
+live at 3:1, so it is systematic. The `090` re-fired today (`adecf408`) completed
+**`UNVERIFIABLE`** — but its citations moved it a long way. What is now known:
+
+- **[VERIFIED first-hand]** `complete_work_item` binds `result` from **`handler_result`**, in
+  `build-dispatch-loop` at `workflow.steps.process_item.config.sub_workflow.mark_complete_step`.
+  Our earlier "no such step exists" was an artefact of searching `workflow->steps` only.
+- **[THE LOOP'S CITATION, not independently verified]** the two foreign shapes match
+  `webdesign-agent`'s `design_spec` and `content-gap-planner`'s `gap_plan` `output_fields`
+  **exactly** — so it names two specific producers rather than "something foreign".
+- **[UNVERIFIED LEAD — do NOT write this up as the cause]** `ExtractActionInputs` /
+  `ExtractFields` in `platform/orchestration/datahelpers/action_inputs.go` reportedly uses
+  aggressive recursion; if `handler_result` resolves that way, a sibling agent's response
+  elsewhere in `collected_data` could satisfy it. **Nobody has read that function for this
+  purpose.** That read is the whole of the remaining work.
+
+**Do not borrow `bugs_open/274`'s mechanism as the answer** — a *delivered failure* predicts
+errored items, not `complete` items carrying a well-formed foreign payload. Raised 08-14,
+downgraded the same evening by its own evidence, and 274 §10 does not restore it.
 
 **2. `bugs_open/274`** — the owner's, with another thread. ~15,000 events since 08-03, still
 firing. Note that **216's fix is what makes 274's replays real**, so 274's traffic is inflated by
@@ -110,9 +153,14 @@ Half two gives these items an honest exit when the fault goes away; nothing yet 
 
 There is no queued work. The useful things to do, in order of value:
 
-1. **Read the §D verdict** when `adecf408` lands, and record it in `bugs_closed/213`'s §D
-   section — a closed file is still where that answer belongs.
+1. ~~Read the §D verdict when `adecf408` lands~~ — **DONE, and recorded in `bugs_closed/213`.**
+   What remains is one code read: **does `handler_result` resolve to a non-handler's payload
+   via `ExtractActionInputs`/`ExtractFields`?** If it can, the fix is a scoped binding, and gate
+   1b's abstain arm is already the instrument that will show it stopping. This is the single
+   highest-value hour left anywhere near this lane.
 2. **When a carrier is re-enabled**, run runbook §8 and confirm the streaks climb and the four
-   rows stay open.
+   rows stay open. Nothing to do until then — the code is live and waiting.
 3. **Do not re-open 213 to do either.** Both are recorded as post-closure follow-ups; re-opening
-   a file to add a verdict is how a closed bug becomes ambiguous.
+   a closed file to add a verdict is how a closed bug becomes ambiguous.
+4. **If you probe a pod to check a deploy, probe ONE AT A TIME** — ~2 minutes per pod, and a
+   loop that times out makes the second replica read as unstamped.
