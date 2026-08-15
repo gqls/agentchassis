@@ -99,8 +99,11 @@
   unreserved-number landmine, live demonstration): 412 was applied before the
   jump so it was safe; the seed took 422 after a re-list.
 - **Still owed for Phase 2 completion (next session / post-roll)**:
-  1. Bump IMAGE_TAG, `make build-agent-chassis` from committed HEAD, roll —
-     then verify at the binary (provenance stamp, per SERVICE).
+  1. ~~Bump IMAGE_TAG, build, roll~~ > **CORRECTED same session:** releases
+     are WHOLE-FLEET and the owner runs `make release` — a one-service apply
+     at its own tag is the recorded trap. The code rides the NEXT fleet
+     release; after it, verify at the binary (provenance stamp, per SERVICE:
+     `git merge-base --is-ancestor 71e4d9736 <the stamp>`).
   2. Hand-apply 422 per its header (psql + `--record-only`), AFTER the stamp
      proves the image carries `publish_site`.
   3. Canary: pick a quiet portfolio site (webdesign.uk FORBIDDEN — it's the
