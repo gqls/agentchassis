@@ -499,6 +499,75 @@ UPDATE thunder_config SET is_paused = true, pause_reason = '<what you did, and t
   bound ~4–5× over** for a6000, and the daily cap trips early rather than late.
   **The real price is still unanswered — only an invoice settles it.**
 
+## 9. The Phase 0 TRAINING run — staged 2026-08-15, ready to fire (postponed on an owner credits hold)
+
+Everything below was verified staged on 2026-08-15; the run itself was postponed
+minutes before launch when the owner called a credits hold. **Nothing here has run
+— firing it is the next session's first move once the owner clears spend.**
+
+**Pre-verified this session:** bundle at `finetuning/scripts/bundle.tar.gz` (GET
+presign resolves; md5 `a19557ccf61ac951c28e81254a8d76f7` — matches the handoff, so
+it IS the env-var-parameterised bundle) · dataset at
+`finetuning/datasets/phase0-2026-08-12/training.jsonl` (GET resolves, HTTP 206) ·
+`02_train` takes `--instruction-part`/`--response-part` **literally, no unescape**,
+so the env values must carry REAL newlines (`$'...\n'`), and its marker guard
+(`02_train:280-288`) fails fast before any GPU time if you get that wrong.
+
+```bash
+# 1. Mint the three URLs (presign.py now lives IN THIS DIRECTORY — creds come
+#    from the live k8s secret, never hardcoded):
+export B2_KEY_ID=$(kubectl -n ai-persona-system get secret personae-storage-secrets -o jsonpath='{.data.B2_APPLICATION_KEY_ID}' | base64 -d)
+export B2_KEY=$(kubectl -n ai-persona-system get secret personae-storage-secrets -o jsonpath='{.data.B2_APPLICATION_KEY}' | base64 -d)
+export S3_ENDPOINT=https://s3.us-east-005.backblazeb2.com
+RUN_TAG=phase0-$(date -u +%Y%m%d-%H%M)
+python3 presign.py GET finetuning/scripts/bundle.tar.gz 240                       # → BUNDLE_URL
+python3 presign.py GET finetuning/datasets/phase0-2026-08-12/training.jsonl 240   # → DATASET_URL
+python3 presign.py PUT finetuning/artefacts/$RUN_TAG/adapter.tar.gz 240           # → FINAL_PUT_URL
+# Verify both GETs with a range request BEFORE spending GPU time:
+#   curl -s -o /dev/null -w '%{http_code}' -r 0-0 "$URL"   → expect 206
+#   (a first 503 from B2 is transient — retry before concluding anything)
+
+# 2. Provision an a6000 (§7 — unpause, dispatch, save the provisioning_id).
+
+# 3. ONE ssh_exec (§7's decommission shows the envelope shape; body action is
+#    "ssh_exec" with provisioning_id/command/timeout_seconds). The command:
+cd /workspace \
+ && curl -sf -o bundle.tar.gz '<BUNDLE_URL>' && tar -xzf bundle.tar.gz \
+ && curl -sf -o training_iter0.jsonl '<DATASET_URL>' \
+ && printf '%s' '{"final":{"key":"finetuning/artefacts/<RUN_TAG>/adapter.tar.gz","url":"<FINAL_PUT_URL>"}}' > upload_manifest.json \
+ && chmod +x run.sh 00_vm_setup.sh \
+ && BASE_MODEL=HuggingFaceTB/SmolLM2-1.7B-Instruct CHAT_TEMPLATE=auto \
+    INSTRUCTION_PART=$'<|im_start|>user\n' RESPONSE_PART=$'<|im_start|>assistant\n' \
+    SAVE_STEPS=0 nohup ./run.sh > train.log 2>&1 & echo LAUNCHED
+
+# 4. Poll: ssh_exec 'tail -20 /workspace/train.log' — markers, in order:
+#    RUN_SH_START → step=setup (5-10 min venv+CUDA) → step=smoke →
+#    RUN_SH_SMOKE_OK → step=full_train → RUN_SH_UPLOAD manifest=present →
+#    RUN_SH_FULL_OK → RUN_SH_DONE. Measure each stage — that is FTW-032/035's ask.
+# 5. Prove durability at B2, not at the marker: presign a GET for the adapter
+#    key and range-request it → 206 = the artefact is really there.
+# 6. Decommission (§7), re-pause, record timings in NOTES + §6.
+```
+
+Traps already known: the dataset must land as `training_iter0.jsonl` (run.sh's
+hardcoded `DATA` path) · `SAVE_STEPS=0` = no checkpoints (right for a short run;
+the FINAL upload still happens via the manifest and is the hard gate) · the
+manifest JSON travels inside a kafka JSON envelope inside a shell command —
+**escaping is the whole reason the old session had a `build_launch.py`**; compose
+carefully and echo the command back before firing · `thunder-training-monitor`
+stays **disabled** (its DONE_OK path decommissions the box; enabling early
+destroys the artefact — FTW-035).
+
+## 8b. ⚠ Boot time is DAY-VARIABLE — do not plan around one day's measurement
+
+2026-08-15 measured a6000 ~16s and a100xl 12–17s. But 2026-08-12 measured the
+**same a6000 spec** twice at **4m39s / 4m49s still STARTING**. Same vendor, same
+spec, three days apart, ~20× difference. So: the 540s wait deadline is NOT
+over-generous (it protects the slow days, which really happen), and a natural
+259-guard firing (an await expiring on a slow boot) **remains possible** — rare on
+a fast day, plausible on a slow one. Any claim shaped "boot takes X" must carry
+its date.
+
 ## 8. ⚠ `kubectl logs -l app=<x>` can return NOTHING for a live pod
 
 Bit this lane on 2026-08-15. `logs -l app=thunder-adapter --since=15m | grep …`

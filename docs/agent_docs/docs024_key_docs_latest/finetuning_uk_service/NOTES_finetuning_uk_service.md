@@ -1403,3 +1403,67 @@ Vendor `instances/list` → `{}`. Live instances **0**. Claims: 1 row, `succeede
 `attempts=1`, retained deliberately as the audit record — **not cleared** (§5:
 clearing is only for a genuinely orphaned claim, and this one is neither orphaned
 nor blocking, since a re-run gets a fresh correlation). `total_24h_spend` $0.0645.
+
+---
+
+## 2026-08-15 (same session, continued) — a100xl timed, training run staged, then an owner credits hold
+
+Owner approved three things: a100xl boot timing, the training half of Phase 0, and
+the landmine verifier. The first ran; the second was staged to the point of launch
+and then **postponed on the owner's mid-flight instruction** ("credits are about to
+run out — don't start anything billable"); the third was dispatched before that
+instruction arrived (correlation `e1f41304-dd57-46c7-a95d-9ba0b471995d`, verdict
+lands async in `doc_notes` under `landmine-verification`).
+
+### a100xl boot: 12–17s — and the derivation proven on a SECOND spec
+
+Fired 14:52:01Z, correlation `e32bb9a2-…`. `Resolved vCPU count` →
+`spec_key=a100xl_x1_prototyping vcpus=8` (lowest of `[8,12,16]` — a second live
+proof of 258 defect 1 on a different catalogue entry). Vendor `createdAt` 14:52:11,
+`STARTING` at :22.9, `RUNNING` at :27.9 → **boot 12–17s**. Decommissioned at
+14:54, $0.047 booked (~94s; real ≈ $0.028 at the advertised $1.09/hr).
+
+> **CORRECTED (same day, hours later) — my morning claims overreached, and the
+> lane's own 08-12 notes are what refute them.** I wrote that ">5 min does not
+> hold for a6000" hedged only by "the historical slow rows were a100xl" — wrong
+> on the second half: **the 08-12 session measured the a6000 itself at 4m39s and
+> 4m49s still `STARTING`, twice** (this file, §"Then the GPU"). Today the same
+> spec booted in ~16s. So the true finding is **boot time is DAY-VARIABLE by
+> ~20×**, not "boot is fast": the 540s deadline is not over-generous (it protects
+> the slow days, which demonstrably happen), and my claim that 259 "can now
+> essentially never fire naturally on a6000" is **withdrawn** — on a slow day it
+> can. What caught it: re-reading the 08-12 handoff for an unrelated recipe.
+> The 33×-margin framing in the earlier entry and in HANDOFF 15b §3/§4 is
+> corrected in both places today.
+
+### Training half: STAGED to the moment of launch, then held
+
+All free groundwork done and verified:
+- Presigned URLs minted with a rebuilt `presign.py` — **now committed to this
+  directory** so it stops dying with session scratchpads; creds read live from
+  `personae-storage-secrets`, never hardcoded.
+- Bundle GET verified (206) and **md5 `a19557ccf61ac951c28e81254a8d76f7` matches
+  the handoff** — it is the env-var bundle. Dataset GET verified (206). Final
+  adapter PUT minted for `finetuning/artefacts/phase0-<ts>/adapter.tar.gz`.
+  (First bundle probe returned **503 — B2 transient**; 206 on retry. Don't
+  diagnose off one 503.)
+- Read `02_train`: `--instruction-part`/`--response-part` are **literal, no
+  unescape** → the env values need real newlines (`$'...\n'`), and the marker
+  guard fails fast pre-GPU on a mismatch. Manifest shape confirmed:
+  `{"final":{"key":…,"url":…}}` suffices with `SAVE_STEPS=0`; the final upload
+  stays the hard gate (FTW-033), so `RUN_SH_DONE ⟹ durable` is still what the
+  run will prove.
+- Full launch recipe written into **RUNBOOK §9** (the ssh_exec command, the
+  polling markers, the B2 durability proof) — the next session fires it in
+  minutes, no research.
+
+A training a6000 **was provisioned** (14:58:13Z, correlation `8391d172-…`) and the
+owner's hold arrived seconds after it reached RUNNING — **decommissioned
+immediately, before any command ran on it**: $0.019, ~37s. Re-paused 15:00Z, pause
+reason records the hold.
+
+### Day's ledger
+
+Three boxes, all decommissioned, vendor `{}` at end: $0.0645 + $0.047 + $0.019 =
+**$0.113 by our books** — real vendor cost ≈ **$0.03** (flat-$1.80 inflation, see
+the cost caveat above). Claims table: 3 rows, all `succeeded`, `attempts=1`.

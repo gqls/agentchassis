@@ -539,7 +539,40 @@ than just doing it. That question is with you now.
 
 ---
 
-## 2026-08-15, later — we rented a GPU, it worked, and it cost about six pence
+## 2026-08-15, end of day — the bigger card timed, the training run held at the start line, and one correction of my own
+
+You approved three things this afternoon; here is where each landed.
+
+**The bigger card (a100xl) also starts in seconds** — about 12 to 17 of them, and
+the sizing logic picked the right processor count for it too, on a completely
+different catalogue entry. So the fix works across the menu, not just on one card.
+Cost of finding that out: under five pence.
+
+**But I have to take back something I told you this morning.** I said machines start
+in sixteen seconds and our nine-minute patience window was absurdly long. Then,
+rereading Tuesday's notes for an unrelated recipe, I found this same card was
+measured *twice on Tuesday* taking nearly five minutes and still not ready. Same
+machine type, three days apart, twenty times slower. So the truth is: **start-up
+time swings wildly from day to day**, our patience window is doing its job on the
+slow days, and the duplicate-machine guard *could* still get its natural test on a
+slow day — I was wrong to say it never would. I've corrected this everywhere I
+wrote it down, with the correction visible rather than papered over.
+
+**The training run got to the very start line and is parked there.** Everything
+free was done and checked: the training scripts and data verified in storage, the
+delivery addresses minted, the launch command written out and double-checked
+against the code that will receive it. A machine was actually started — and your
+message about credits arrived moments later, so I shut it down before it did any
+work (four seconds' worth of charge, about a penny) and put the safety catch back
+on. **Nothing is running, nothing is billing, and the whole day's vendor cost is
+about three pence real** (our own books say eleven, because they still price every
+card at a flat rate — that discrepancy is written up and waiting on a real invoice).
+
+When you're ready to spend again, the next session opens the runbook and fires the
+training run in minutes — no research, no rebuilding. The one thing already in
+flight when your message arrived was the small automated review of the note I added
+to the shared traps file this morning; that one couldn't be recalled, but it's a
+single small job, not a machine.
 
 You said do the provision test only. Done. It worked, first try, no drama. Here is
 what happened and the two things that surprised me.

@@ -21,9 +21,9 @@ README = owner's plain-prose log.
 | **259** claim guard (`10659b419`) | **LIVE** — ancestor of that stamp (re-checked with a control) |
 | **258** defects 1+2 (`236810e4e`) | **LIVE** — ancestor of that stamp; migrations 396 + 400 applied |
 | **258 council round** | **APPROVED** 2026-08-15 10:55Z, `d24f9829-0a3f-47a8-bdcb-4b63ced63f1b` — **verdict read** |
-| `is_paused` | **true** (re-armed 14:30:24Z; reason string records the test result) |
-| claims / live instances / vendor | 1 `succeeded` audit row / **0** / `{}` |
-| `total_24h_spend` | **$0.0645** — our estimate, not Thunder's charge (see §3) |
+| `is_paused` | **true** (re-armed 15:00Z after the credits hold; reason string records why) |
+| claims / live instances / vendor | 3 `succeeded` audit rows / **0** / `{}` |
+| `total_24h_spend` | **$0.113** (3 test boxes) — our estimate at flat $1.80/hr; real ≈ $0.03 (see §3) |
 
 ⚠ **Re-check the stamp before you trust it.** The previous handoff's stamp expired
 within three hours when another session rolled the fleet for unrelated work. Ask the
@@ -50,11 +50,15 @@ owner decision, not a task.**
 
 ## 3. Two measurements that change the lane's premises
 
-- **a6000 cold boot is ~16 seconds** (`createdAt` → first `RUNNING` poll; 5s poll
-  interval, so 11–16s). [MEASURED] The lane's standing `> 5 min` figure **does not
-  hold for a6000**. Both historical slow rows were `a100xl`, so it may still hold
-  there — do not over-generalise this in either direction. Our 540s wait is ~33× the
-  measured a6000 need.
+- **a6000 cold boot was ~16 seconds TODAY — but boot time is DAY-VARIABLE by ~20×.**
+  > **CORRECTED later the same day:** this bullet originally said ">5 min does not
+  > hold for a6000" and called 540s "~33× the measured need". **The lane's own 08-12
+  > notes refute that framing: the same a6000 spec measured 4m39s/4m49s still
+  > `STARTING`, twice, three days earlier.** Measured today: a6000 11–16s, a100xl
+  > 12–17s (second spec, `vcpus=8` derived — another live proof of 258 defect 1).
+  > The honest statement: boot ranges **~16s to >4m49s on different days**, so the
+  > 540s deadline is protecting the slow days, not wasting time. Any boot-time
+  > claim must carry its date. RUNBOOK §8b.
 - **`cost_usd` is OUR estimate, not the vendor's charge.** It is
   `default_hourly_rate_usd` (a flat **$1.80/hr for every GPU type**) × uptime —
   `provision_action.go:429` stamps the rate, `decommission_action.go:152` computes
@@ -66,11 +70,17 @@ owner decision, not a task.**
 ## 4. THE OPEN OWNER DECISION — how, or whether, to prove 259
 
 The claim guard is live, unit-tested, mutation-proven, council-approved, and **has
-never fired in production.** The previous handoff suggested waiting for a naturally
-slow provision. **At a 16-second boot that will never happen on a6000** — an await
-needs 600s to expire.
+never fired in production.**
 
-So the only routes are:
+> **CORRECTED later the same day:** this section originally argued a natural firing
+> "will never happen on a6000" at a 16s boot. **Withdrawn** — boot time is
+> day-variable (§3): on a day like 08-12 (4m49s+ still STARTING) a provision could
+> genuinely outrun the 540s wait and the 600s await. So "wait for a naturally slow
+> provision" is back on the table as the safe route — it is just unschedulable.
+> After ANY provision failure, check the claim row (`attempts > 1` = the guard
+> held) before doing anything else.
+
+The deliberate routes remain:
 
 1. **Induce it deliberately** — lower `provision_wait_timeout_seconds` so a provision
    outruns the await. ⚠ **This deliberately creates the quiet-success condition**
@@ -85,22 +95,26 @@ So the only routes are:
 **Do not pick one of these on a session's own authority.** Route 1 in particular is
 the exact failure mode the guard exists to prevent.
 
-## 5. The next actual work — the training half of Phase 0
+## 5. The next actual work — the training half of Phase 0: **STAGED TO THE LAUNCH LINE, held on owner credits**
 
-Untouched and still staged, exactly as the previous handoff §2 described:
+The owner approved it on 2026-08-15 and a training a6000 was provisioned — then a
+credits hold arrived and the box was decommissioned **before any command ran on it**
+($0.019, ~37s). Nothing about the staging is lost:
 
-Bundle live in B2, md5 `a19557ccf61ac951c28e81254a8d76f7`; dataset
-`finetuning/datasets/phase0-2026-08-12/training.jsonl` (300 rows); presigned PUT
-proven. Provision a box (**RUNBOOK §7 now has the exact command**), drive `run.sh`
-over `ssh_exec` with the four env vars (`CHAT_TEMPLATE` / `INSTRUCTION_PART` /
-`RESPONSE_PART` / `SAVE_STEPS`), measure per stage, confirm `adapter.tar.gz` really
-lands in B2, then GGUF and the playground timing. Closes FTW-032/035.
-
-**This costs materially more than the provision test** — the box must stay up for the
-whole run, not 129 seconds. Get the owner's word on the budget first.
-`thunder-training-monitor` stays **disabled** until Phase 0 proves
-`RUN_SH_DONE ⟹ adapter durable in B2` — its DONE_OK path decommissions the box and
-would destroy the artefact.
+- **RUNBOOK §9 has the complete launch recipe** — presign (via `presign.py`, now
+  committed in this directory), the exact ssh_exec command with the env vars and
+  real-newline markers, the polling markers, and the B2 durability proof. Verified
+  this session: bundle md5 matches (it IS the env-var bundle), both GETs resolve,
+  `02_train`'s manifest shape confirmed (`{"final":{…}}` suffices at
+  `SAVE_STEPS=0`).
+- The presigned URLs minted 2026-08-15 ~14:57Z expire after ~4h — **re-mint, don't
+  reuse** (30 seconds with presign.py).
+- First move when the owner clears spend: RUNBOOK §9 top to bottom. Measure each
+  run.sh stage, prove `adapter.tar.gz` in B2 by presigned GET, then GGUF and the
+  playground timing. Closes FTW-032/035.
+- `thunder-training-monitor` stays **disabled** until the run proves
+  `RUN_SH_DONE ⟹ adapter durable in B2` — its DONE_OK path decommissions the box
+  and would destroy the artefact.
 
 ## 6. Council follow-up on 258 — approved, with one well-corroborated gap
 
