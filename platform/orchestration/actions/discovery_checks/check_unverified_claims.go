@@ -373,8 +373,20 @@ func LoadEvidenceBase(ctx context.Context, db *sql.DB, siteID uuid.UUID) (*datah
 // THE NEVER-DEPLOYED HALF IS NOT HAND-ROLLED — it is
 // `datahelpers.NeverDeployedPagePredicateFor("p")`, the estate's one definition
 // (`bugs_open/185`). It is DELIBERATELY not just `deployed_at IS NULL`: it also
-// requires `COALESCE(build_status,'') <> 'deployed'`, which spares a page marked
-// deployed but never stamped. Exactly one such row exists fleet-wide
+// requires that `build_status`, coalesced to the empty string, is not `deployed`
+// — which spares a page marked deployed but never stamped.
+//
+// (That clause is spelled out in prose on purpose, and the reason is a trap worth
+// knowing. Since Go 1.19 gofmt reformats DOC COMMENTS, and it still honours the
+// legacy TeX-style quoting convention: a doubled backtick becomes a Unicode open
+// quote, and a doubled apostrophe becomes a Unicode close quote. SQL's empty-string
+// literal IS a doubled apostrophe, so writing this predicate out verbatim makes
+// gofmt silently corrupt the very expression the comment exists to document — and
+// the corrupted version still compiles, because it is only a comment. Caught by the
+// pre-commit gofmt check; the first two attempts at this note both tripped it, the
+// second while trying to describe it.)
+//
+// Exactly one such row exists fleet-wide
 // (`idea.uk/tools.html#audience-check`, measured 2026-08-15) and per that helper's
 // own doc it SERVES 200. This query first shipped with the hand-rolled half and the
 // council's `reuse_agent` seat gated on it; the two spellings agree on today's data
