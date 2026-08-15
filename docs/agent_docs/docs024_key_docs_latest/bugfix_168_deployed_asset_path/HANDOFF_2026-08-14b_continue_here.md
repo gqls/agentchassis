@@ -105,13 +105,36 @@ have: `needs_page` on ai-agent-orchestration.com (model-directory) and two on we
 
 ## 3. What is next
 
-1. **The first REFUSAL is the only observation still owed, and it is FREE.** Had the sweep landed
+1. **The first REFUSAL is the only observation still owed, and it is FREE.** Had the 08-14 sweep landed
    between the component edit (16:43:49Z) and the deploy (16:46:38Z), the published gate would have
    returned `gate_published_correction_unpublished` — the `bugs_open/262` case exactly. The window was
    ~3 minutes; the rerender closed it. **Any item whose page is edited but not yet redeployed produces
    that arm on the next sweep, at zero content cost. WAIT FOR IT — do not manufacture one.** A second
    live-content change to chase an observation is a worse trade than patience, and the owner's
    authorisation was for *a* page, not a standing licence.
+
+   > **⏳ LIVE EXPERIMENT, 2026-08-15 — a prediction is COMMITTED and the sweep fires at 08:45:04Z.**
+   > Written into NOTES and committed (`7a2dd686b`) **before** the run, so it can be wrong. Read the
+   > NOTES entry *2026-08-15 08:0xZ* before you read the result — the point is the prediction, not the
+   > number. In short: **zero refusals again**, because the two items whose pages are genuinely
+   > unpublished (`3375653f` about, `9db796ca` case-study-kafka-…, `deployed_at` seconds behind
+   > `newest_component_update`) are still at `scan_still_trips`, and **all three gates sit downstream of
+   > a clean scan**, so the ladder stops above them. Only `b561c826` (matchmatrix-methodology) and
+   > `7315e4d5` (gripper-cycle-time-estimator) can move at all — both edited 08-14 evening and
+   > redeployed ~4h later — and each either closes at `resolved_all_gates_passed` or stays
+   > `scan_still_trips`. **No third outcome.** A `gate_%` arm would falsify it, and the reason would be
+   > worth more than the prediction was.
+   >
+   > ⚠ **`a355d78b` (index-rejected-v1-20260806) is the standing candidate for a DIFFERENT refusal** —
+   > `build_status='needs_rebuild'`, `deployed_at` NULL, so it would hit the **never-deployed** arm
+   > (`revalidate_unverified_claims.go:601`) rather than the unpublished one. Also at
+   > `scan_still_trips`, so not today.
+   >
+   > ⚠⚠ **DO NOT read the result without the anchor and a clock stamp in the same output** — see the
+   > new `LANDMINES.md` entry filed today. This session's first attempt to wait for the sweep returned
+   > a complete, correct, entirely PRE-run measurement that would have read as confirming the
+   > prediction. **Poll `scheduled_tasks.last_triggered_at` until it CHANGES**, then measure; never
+   > compute a wake time with `date -u -d '<literal>'`, which parses in LOCAL time.
 2. `features_open/032` — the shared helper. `arm` is set only by `revalidateUnverifiedClaims`; the
    other four record `unreported:<item_type>`. Lifting arms into them belongs with lifting the
    copy-changed comparison. **Measure before building.**
