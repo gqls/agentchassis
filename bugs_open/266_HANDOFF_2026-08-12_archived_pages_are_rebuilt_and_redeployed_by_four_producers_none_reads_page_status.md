@@ -400,3 +400,89 @@ table does not.
 Cross-references: `NOTES_deployed_asset_path.md` (2026-08-14, with the corrected framing recorded as
 a correction), `RUNBOOK_deployed_asset_path.md` § "Is a page the audit flagged actually SERVED?" for
 the control-paired curl recipe, concept register CQ-021.
+
+---
+
+# 2026-08-15 — THE GUARD IS BEHAVIOURALLY PROVEN. 20 refusals, 3 pages, 2 producers, BOTH seams.
+
+**This discharges the "Behaviourally UNEXERCISED" block above**, which said: *"Do not read the
+zero as 'the guard works' until a build is dispatched at an archived page."* One was. Several
+were. Found by the `bugs_open/215` O2 lane while re-checking counters after the `v1.0.1300` roll
+— **not by contriving a test**, which is what §10 of the 215 handoff predicted would happen.
+
+## What fired
+
+`SELECT … FROM agent_error_log WHERE error_code='ARCHIVED_PAGE_DEPLOY_REFUSED'` —
+**20 rows, 2026-08-14 18:34:39Z → 19:53:12Z**, all robot-hands.com.
+
+| refused page | id | status | serving? | rows |
+|---|---|---|---|---|
+| `gripper-catalog` | `64fab29e…` | archived | **200** (one of the five archived-and-serving) | 2 |
+| `news` | `18d681af…` | archived | **200** (one of the five) | 9 |
+| `learning-center-index` | `5a3b27db…` | archived since 08-03 | **404** (already retracted) | 9 |
+
+**Both seams refused, which is the part that matters** — the fix built two, and both were needed:
+
+- `step_name=deploy_page`, `action=git_commit` → *"committing it would re-publish a retired page"*
+- `step_name=update_status`, `action=update_page_status` → *"refused deploy stamp"*
+
+**Two independent producers**, which answers the "does it close all four doors" question from the
+other side: `page-rerender` **and** `page-build-handler`. Neither is `assemble_page`, so this is
+also live confirmation that copying `owned_page_guard`'s placement would have closed the wrong
+doors (trap 1 in this file).
+
+**Corroborating negative:** none of the 20 names the `215` lane's pair-5 loser
+(`48d52965…`, archived 16:36Z the same day) — archiving removed it from the rerender wave's
+population, so it attracted no demand. The proof came from the pre-existing archived-and-serving
+population, not from anything this lane staged.
+
+## ⚠ A SECOND DEFECT, visible only because the guard now refuses — the failure MISNAMES ITS CAUSE
+
+The three refused pages were driven by three work items. Two of them, both `literal_markdown`
+filed by the 15:17Z improvement sweep, ran to **`failed`, `attempt_count=3/3`**, and each records
+this as its reason:
+
+> `completion blocked: post-fix verification found the defect still present: 6 finding(s) still
+> present across N component(s)`
+
+**That sentence blames the fixer. The fixer worked.** [INFERRED — the co-occurrence is
+[MEASURED]: same `page_id`, same minute, guard refusal at `update_page_status` immediately before]
+the repair was written, the guard refused the commit and the stamp, so the deployed artefact never
+changed, so the post-fix verification re-read an unrepaired page and reported the defect present.
+A reader of that work item concludes the markdown fixer is broken. **The check that settles it:**
+confirm whether the verifier reads the served artefact or `content_data`, and whether the refusal
+precedes the verification within each orchestration —
+`SELECT current_step, status FROM orchestration_states WHERE …` for the two item ids
+(`858bb33e-20ec-46f8-99b1-949d59602a7f`, `e7f98894-0fe6-4ab7-a443-c4c572e5712c`).
+
+Two costs, both real and neither yet owned:
+
+1. **Wasted LLM work.** Three full repair attempts per item against a page that cannot deploy.
+   The guard is doing its job at the last possible moment; nothing upstream declines to *start*.
+2. **A misleading failure.** This is the estate's own *"a REJECTION does not name the RULE that
+   rejected"* shape. The honest message is "refused: page is archived", which the guard already
+   knows and writes to `agent_error_log` — it just does not reach the work item.
+
+**Cheapest fix candidate, stated not taken:** have the checkers skip archived pages when filing
+(`literal_markdown` was filed against three archived pages), or have the repair pipeline
+pre-check `pages.status` and close the item as `wont_fix` with the real reason. The first is
+narrower; the second catches every item type. **Neither is this lane's to choose.**
+
+## Observability note for anyone querying these rows
+
+`context->>'page_id'` is present on **all 20** rows and is the reliable key.
+`context->>'page_name'` is populated on **1 of 20** (`gripper-catalog`, the `git_commit` arm) and
+**empty on the rest** — the `error_message` for those reads *"page  is status=archived"* with a
+blank where the name should be. **Do not filter or group these rows by `page_name`.** Also note
+`domain` is empty on every `page-rerender` row and populated on every `page-build-handler` row —
+the `COALESCE(domain,'') = ''` rule for this table applies exactly as its landmine states.
+
+## Why this file is NOT being moved to `bugs_closed/` today
+
+The CLAUDE.md bar (fixed AND live, restored by the owner 2026-08-12) is met, and this file's own
+stricter self-imposed bar — behavioural proof — is now met too. **It stays open on the two named
+residuals recorded above**, because both are paths by which the original defect is still
+reachable: the **multi-page `git_commit`** path that bypasses the guard, and **`deployer-agent`'s
+`index.html` commit**, which carries no page identity for the guard to check. Closing on "the
+guarded paths are proven" would retire a ticket whose defect two unguarded doors still admit.
+**Stated so the next session knows this was a decision, not an oversight.**

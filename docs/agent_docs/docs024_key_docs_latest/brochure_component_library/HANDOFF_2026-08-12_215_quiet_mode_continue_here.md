@@ -756,3 +756,80 @@ curl -s -o /dev/null -w '%{http_code} %{size_download}b\n' https://robot-hands.c
 
 **One of seven done. The procedure works end to end; what remains is content work and one
 routing.**
+
+---
+
+# 17. 2026-08-15 — PAIR 5 FULLY ACCEPTED (part 2 passed), and `266` GOT ITS PROOF while nobody was looking
+
+**This is the current head of the file. §16 is complete and correct; this adds the two results
+that were outstanding when it was written.**
+
+## 1. Part 2 of `098`'s acceptance PASSED — and the controls prove the refresh really happened
+
+The check owed at ~20:0x, run 2026-08-15 07:55Z, after the overnight refresh:
+
+| url | at retraction (08-14 17:00) | now (08-15 07:55) | reading |
+|---|---|---|---|
+| **loser** `/gripper-payload-calculator.html` | 404, 2,886 b | **404, 2,886 b** | **stayed dead** |
+| survivor `/tools/gripper-payload-calculator/index.html` | 200, 34,157 b | 200, **34,280 b** | **+123 b — it REBUILT** |
+| collateral `/how-it-works.html` | 200, 29,870 b | 200, **29,993 b** | **+123 b — it REBUILT** |
+| fabricated control | 404, 2,886 b | 404, 2,886 b | instrument steady |
+
+**The two size changes are the load-bearing part.** "Still 404 the next morning" is weak on its
+own — it is also what you see if nothing ran. Here two unrelated pages on the same site each
+gained 123 bytes, and the survivor's `pages.deployed_at` moved to **2026-08-14 22:24:06Z**. So
+the site demonstrably republished itself, and the retracted page did not come back with it.
+**That is the whole of `bugs_closed/098`'s question, answered affirmatively for this page.**
+
+**PAIR 5 IS DONE — all 8 steps, both halves of the acceptance. First of the seven finished.**
+
+## 2. Chassis rolled to `v1.0.1300`; the lane's code re-verified on BOTH replicas
+
+Pods `…-8lb6d` / `…-hptsr`, both started 2026-08-14T20:36Z.
+
+**The provenance line was already out of range** (~11h; it returned nothing on either pod with
+the per-pod `--limit-bytes=400000` recipe). **That means OUT OF RANGE, not unstamped** — the
+literal probe is the fallback precisely because it has no shelf life. On **both** replicas:
+
+| literal | count | role |
+|---|---|---|
+| `ARCHIVED_PAGE_DEPLOY_REFUSED` | 1 | `266`'s guard — **present** |
+| `ARCHIVED_PAGE_DEPLOY_REFUSEE` | **0** | one-letter near-miss — **the probe can fail** |
+| `OWNED_PAGE_GUARD` | 3 | pre-lane positive control — present |
+| `PLAN_PAGE_STEM_TWIN_REFUSED` | 1 | `215` quiet mode — **present** |
+
+⚠ **Practical note:** `kubectl exec … grep -ac … /proc/1/exe` takes ~20 s per literal, so a
+loop over 5 literals × 2 pods **times out at 120 s**. Run one `exec … sh -c 'for l in …'` per pod.
+
+## 3. `bugs_open/266` is BEHAVIOURALLY PROVEN — 20 refusals, and this lane did not stage them
+
+`ARCHIVED_PAGE_DEPLOY_REFUSED`: **20 rows, 2026-08-14 18:34→19:53Z**, three archived robot-hands
+pages (`gripper-catalog` 200, `news` 200, `learning-center-index` 404), **two producers**
+(`page-rerender`, `page-build-handler`), **both seams** (`git_commit` AND `update_page_status`).
+Instrument control: `agent_error_log` took 2,767 rows in 24 h. Full write-up appended to
+`bugs_open/266`.
+
+**None of the 20 is pair 5's loser** — archiving removed it from the rerender wave's population
+(§15's measurement), so it drew no demand. §16's line *"pair 5 was never going to supply that
+proof"* stands; the proof came from the pre-existing archived-and-serving population instead.
+
+**A second defect fell out of it, and it is NOT this lane's:** two `literal_markdown` items ran
+3/3 attempts against archived pages and failed with *"post-fix verification found the defect still
+present"* — **which blames the fixer for what the guard refused.** Wasted LLM work, and a failure
+message that misnames its cause. Recorded in `266` with the check that would settle the causal
+link, and a fix candidate stated but not taken.
+
+## 4. O2 — unchanged, and this is where the next session starts
+
+| pair | state |
+|---|---|
+| **5 rh `gripper-payload-calculator`** | ✅ **COMPLETE AND ACCEPTED** (both parts) |
+| 1 ai-agent-orch `llm-cost-calculator` | archived, still serving — blocked on 2 editorial repairs (chrome footer + 1 article body) |
+| 2 finetuning `ai-readiness-quiz` | decided, **held on `bugs_open/204`** |
+| 3 fai `automation-savings-…-guide` | decided, **0 blockers** — routed to the fundamentallyai sweep front |
+| 4 fai `model-approach-selector-guide` | decided, 3 blockers (2 if pair 3 goes first) — same routing |
+| 6 rh `matchmatrix` | 4 editorial referrers inc. **both** chrome slots + plan surgery |
+| 7 rh `gripper-cycle-time-estimator` | 0 referrers, plan surgery, **+ the ~1,700-word content merge the framework must write** |
+
+**Every remaining pair needs the framework to write content, or belongs to another front.** The
+mechanical procedure is proven end to end on pair 5 and needs no further design.

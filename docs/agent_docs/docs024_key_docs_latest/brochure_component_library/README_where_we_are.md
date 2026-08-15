@@ -2980,3 +2980,39 @@ queue is three hundred deep with items four days old).
 being in the plan at all? If that can happen generally, then the plan isn't the reliable record
 of the site we treat it as, and the menu is just the first thing to notice. That might be worth
 investigating on its own, and it might affect other sites — I haven't looked.
+
+---
+
+**2026-08-15, morning.** Two results overnight, and the second one is the bigger news.
+
+**First: the payload calculator page stayed gone.** That was the real test — deleting a file and
+seeing it vanish is easy, but this system republishes itself twice a day, and the whole reason
+this bug exists is that retired pages kept coming back. It didn't come back. What makes me
+confident rather than merely hopeful is that I can show the republish actually happened: two other
+pages on that site each grew by exactly 123 bytes overnight, and the page we kept has a fresh
+publish timestamp. So the site did rebuild itself, and the retired page stayed dead through it.
+**That pair is finished — the first of the seven, start to end.**
+
+**Second: the protection we built last week caught something for real, and we didn't have to
+stage it.** Until yesterday it had never actually fired — it was correct code that nothing had
+tested. Overnight it refused **twenty** attempts to republish retired pages on robot-hands: three
+different pages, two different parts of the system trying, and both of the two doors we built it
+to close. That's the evidence that bug was waiting for.
+
+**But it exposed something we should look at, and it isn't mine to fix.** Two of those attempts
+were the routine tidy-up sweep trying to fix stray formatting on retired pages. It tried three
+times each, burning real work each time, and then recorded the failure as *"the fix didn't
+work"* — when in fact the fix worked and the protection correctly refused to publish it. Anyone
+reading those two records would conclude the formatting fixer is broken. It isn't. Two things
+worth doing sometime: stop the sweep filing jobs against retired pages at all, and make the
+refusal say what actually happened. I've written it up where the bug lives rather than acting on
+it, because it belongs to whoever owns that sweep.
+
+**One deliberate decision.** That bug now meets every bar we have for being closed, but I've left
+it open. There are two remaining routes by which the old problem can still happen — a
+multi-page publish and one agent's homepage commit — and closing it would retire a ticket whose
+problem two open doors still allow. I've said so in the file so nobody thinks it was forgotten.
+
+**Where the seven stand.** One done. Every one of the remaining six now needs either the framework
+to write some text, or belongs to the other workstream on fundamentally.ai. There's no mechanical
+work left to design — the procedure is proven.

@@ -6863,3 +6863,52 @@ proposed checks and its reasoning live only in `orchestration_states.collected_d
 of a council escalation is currently a list of seat names**, and the substance survives
 only as long as the orchestration row does. That is a real gap in a mechanism whose whole
 value is the reasoning.
+
+## 2026-08-15 — part 2 passed, the roll re-verified, and 266's proof arrived unstaged
+
+**Part 2 of `098`'s acceptance PASSED, and the controls are what make it worth anything.** The
+loser still 404s at 2,886 b. On its own that is weak — indistinguishable from "nothing ran". But
+the survivor gained **+123 b** (34,157 → 34,280) and `/how-it-works.html` gained **+123 b**
+(29,870 → 29,993), and the survivor's `deployed_at` moved to 08-14 22:24:06Z. **The site
+demonstrably republished and the retracted page did not come back with it.** Lesson worth keeping:
+*when the test is "did a thing survive an event", prove the event happened* — otherwise a quiet
+system passes every durability check you can write.
+
+**Chassis `v1.0.1300`, both replicas re-probed with controls.** Provenance line already out of
+range at ~11 h — that is OUT OF RANGE, not unstamped, and the literal probe is the fallback for
+exactly that reason. `ARCHIVED_PAGE_DEPLOY_REFUSED` present, near-miss `…REFUSEE` absent,
+`OWNED_PAGE_GUARD` present, `PLAN_PAGE_STEM_TWIN_REFUSED` present — both pods.
+
+> **Method misstep, cheap but real:** my first probe was a shell loop over 5 literals × 2 pods.
+> Each `kubectl exec … grep -ac … /proc/1/exe` takes ~20 s, so it **timed out at 120 s** having
+> done pod 1 and part of pod 2. Recovered by running one `exec … sh -c 'for l in …'` per pod. The
+> partial output was still sound — but a timeout mid-loop is exactly the shape that produces a
+> half-measured claim if you do not notice which pod you got.
+
+### 266's behavioural proof arrived on its own, which is the best kind
+
+`ARCHIVED_PAGE_DEPLOY_REFUSED` — **20 rows**, 08-14 18:34→19:53Z, all robot-hands: three archived
+pages, **two producers** (`page-rerender`, `page-build-handler`), **both seams** (`git_commit` and
+`update_page_status`). Instrument control 2,767 rows/24 h.
+
+**Classified before quoting, per this lane's own rule** — and the classification changed the
+story twice:
+
+1. **None of the 20 is pair 5's loser.** I half-expected them to be. They are the *pre-existing*
+   archived-and-serving population (`gripper-catalog` 200, `news` 200) plus one already-retracted
+   page (`learning-center-index` 404). §15's measurement predicts exactly this: archiving removed
+   pair 5's loser from the rerender wave's population, so nothing was aimed at it.
+2. **Two of the three driving work items failed with a message that blames the wrong component.**
+   `literal_markdown`, 3/3 attempts, *"post-fix verification found the defect still present"* —
+   the repair ran, the guard refused the commit and the stamp, the artefact never changed, so the
+   verifier re-read an unrepaired page. **The fixer is not broken; the page is archived.** Marked
+   [INFERRED] in `266` with the query that would settle it, because I did not open the two
+   orchestrations to confirm the ordering within each run.
+
+### Observability trap found in the guard's own rows
+
+`context->>'page_id'` present on **20/20**. `context->>'page_name'` present on **1/20** — the rest
+render as *"page  is status=archived"* with a blank. And `domain` is empty on every
+`page-rerender` row, populated on every `page-build-handler` row, which is the
+`COALESCE(domain,'') = ''` landmine for this table behaving precisely as documented.
+**Group these rows by `page_id`, never by `page_name`.**
