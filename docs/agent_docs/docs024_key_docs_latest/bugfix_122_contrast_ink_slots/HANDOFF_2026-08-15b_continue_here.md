@@ -52,8 +52,9 @@ WHERE pc.rendered_html LIKE '%article-body__content a{color:var(--color-primary,
 **Live colours, `[MEASURED 2026-08-15]`, each reproduced by an independent implementation:**
 dartsonline `--color-primary-ink #94a0c2` (5.122) / `--color-accent-ink #f18072` (5.125) ·
 webdesign.co.uk accent `#915e2c` (5.151), **primary UNCHANGED `#5c6b5d` and that is CORRECT** ·
-robot-hands + cookly still on **4.5** values from a pre-roll third-party re-render (`#8a97bd`,
-`#af4625`) — they will move to 5.0 on their next stylesheet rebuild, which nothing schedules.
+robot-hands `#94a0c2` / `#f77f47` and cookly accent `#a24122` — **brought to 5.0 on 2026-08-15
+by owner decision**; they had been left on the 4.5 values by a pre-roll third-party re-render.
+**The whole estate is now on the 5.0 target.**
 
 ## 2. OWNER RULINGS — settled, do not re-litigate
 
@@ -109,8 +110,10 @@ session ended; `copy_quality_two_stage/HANDOFF_2026-08-15` is the pickup.
 
 ## 5. Optional tidy — none of it urgent
 
-- **robot-hands + cookly still serve 4.5 inks.** Only a `webdesign-agent` run regenerates a
-  stylesheet, and nothing schedules one. Re-render them if you want the estate consistent.
+- ~~robot-hands + cookly still serve 4.5 inks.~~ **DONE 2026-08-15** — both rebuilt and verified at
+  the served stylesheet. Keep the general fact: **only a `webdesign-agent` run regenerates a
+  stylesheet, and nothing schedules one**, so any future ink change stays dormant per site until
+  something re-renders it.
 - **`bugs_open/122` §11** — a `var(--x, fallback)` whose `--x` is defined but of the **wrong type**
   (a gradient in a `color:` slot): the fallback is dead code while the source reads as if it has a
   safety net. Evidence confirmed. Needs its own bug number.
@@ -118,9 +121,9 @@ session ended; `copy_quality_two_stage/HANDOFF_2026-08-15` is the pickup.
   because **46 ink references across four surfaces are all two-level** (measured, with a control).
   A future migration adding a bare one silently arms a declaration-dropper. A periodic check is the
   real fix and is not built.
-- **RFC_022's optional-key audit cannot see `render_css_from_spec`** (no `RegisterActionInputSpec`),
-  so `scripts/audit-optional-key-budget.sh` does not list it. **Its silence is the gate not looking.**
-  General hole, not specific to this action.
+- ~~RFC_022's optional-key audit cannot see `render_css_from_spec`.~~ **CLOSED 2026-08-15 — and the
+  hole was far wider than that one action. Full finding in §8.** What remains open there is the
+  **pre-existing `publish_site` cron-parity failure**, which belongs to another lane.
 - **The `webdesign.uk` lane was never told** its one page was re-rendered in the widening; that
   session had closed. Not a homepage, rows unlocked, only a `color:` inside `.article-body__content a`.
 
