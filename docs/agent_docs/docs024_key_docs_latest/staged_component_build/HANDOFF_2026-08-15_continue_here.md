@@ -25,6 +25,10 @@ every future marker census MUST carry `AND status='active'`).
 this session; fixed AND live both hold (binary-probed `v1.0.1300` with two-way controls, both
 symptom sites 200, backlog zero). Full evidence: its CLOSING CONTRIBUTION + NOTES `## 2026-08-15`.
 
+> **ADDENDUM, same day ~10:45Z: the fleet rolled to `v1.0.1301` and everything re-verified
+> through it** — fix literals present on a 1301 pod (two-way controls), census still 0
+> active with zero new items filed, both symptom sites 200. NOTES `## 2026-08-15 (later)`.
+
 ## 2. The two RFCs are ruled — implementation is the remaining platform work
 
 - **RFC_028: RULED and already implemented** by the 231 lane (`260cb2393`, Council-Submitted
@@ -45,8 +49,12 @@ symptom sites 200, backlog zero). Full evidence: its CLOSING CONTRIBUTION + NOTE
 ## 3. Owner rulings routed elsewhere this morning
 
 - **`tool-gas-unit-converter`: ruled — build a fleet-wide repair handler for
-  `required_fields_missing`.** Filed as **`bugs_open/277`** (this session). Not this lane's
-  build; it needs a platform session (new handler + registration + dispatch wiring).
+  `required_fields_missing`.** Filed as **`bugs_open/277`** (this session). ~~Not this lane's
+  build; it needs a platform session.~~ **TAKEN UP within the hour by another session
+  ("bugfix 033") — handler built as a router (register CQ-023, seed 410, workstream
+  `bugfix_277_required_fields_repair/`). OWNED — contribute into their bug file, do not
+  compete; their producer flip was inert-until-roll and `v1.0.1301` may have carried it
+  (their verification).**
 - **Tracker feeds**: owner will wake the `model_directory_pipeline` lane; the ready-to-run
   fix is `model_directory_pipeline/FINDING_2026-08-10_the_tracker_publisher_was_reverted_and_never_re_extended.md`.
 - **gaswholesalers stray `/assets/images/logo.jpg`**: owner said leave it for now. Unchanged.

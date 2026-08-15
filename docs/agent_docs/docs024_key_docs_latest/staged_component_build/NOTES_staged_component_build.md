@@ -4458,3 +4458,20 @@ cannot tell you whether acting is safe") is hereby confirmed at 42× the pilot's
 with `asset_id` as first adopter + inner-chain arm budget floor 5 / ceiling 8 + descriptive
 arm names). RFC_028 STATUS corrected to RULED (`260cb2393`, D1–D4). Implementation of both:
 platform-code task, council-gated, NOT started — the next platform session's natural pickup.
+
+## 2026-08-15 (later, same session) — v1.0.1301 rolled; everything re-verified through it
+
+Owner reported a fresh chassis build. Verified rather than assumed, per the checklist:
+- Fleet on `agent-chassis:v1.0.1301`, new replicaset (`7779f5d998`), pods started 10:14Z.
+- Binary probe on a 1301 pod: POS1 + POS2 PRESENT, NEG absent — the 248 fix rode the roll.
+  (Provenance line already scrolled out of `--tail=3000` on a pod <1h old — the known
+  pattern; the two-way literal probe answers the question without it.)
+- Census: **0 active / 11 total**, zero new `unresolved` `undeployed_asset` items since the
+  bookkeeping transaction. Both symptom sites still 200. The drained state HELD through the
+  roll and through the discovery sweeps since.
+- No commits touch `platform/orchestration/datahelpers/` since the RFC_029 ruling — the
+  implementation is still unstarted, and is the lane's next platform task (fresh session
+  recommended; the ruling in RFC_029 §9 is self-contained).
+- `bugs_open/277` was TAKEN UP by another session ("bugfix 033") within the hour — handler
+  built as a router (CQ-023, seed 410, their producer flip in Go was inert-until-roll and
+  1301 may have carried it — THEIR verification, not ours; do not compete).
