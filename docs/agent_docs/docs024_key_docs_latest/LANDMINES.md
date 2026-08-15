@@ -11164,3 +11164,36 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **the general form:** a key's presence in live config proves a WRITER exists, never a reader — and the two can be different layers of the same agent. When a channel seems to work sometimes, suspect a second channel doing the work rather than an unreliable first one.
 - **relations:** `bugs_open/271` · register **WDS-016** (the seam, and the never-mutate exception it narrows) · **WDS-014** (`setRoutingField`, same root constraint: `input_mapping` has no coalesce syntax) · MEMORY [[writes-the-field-is-not-reads-the-field]] · [[grep-the-config-key-before-calling-it-a-win]] · [[a-config-key-that-nothing-reads]] · `bugs_open/279` (`work_item_type`: the same false-affordance shape on the same table)
 - **added:** 2026-08-15, bugfix_271_content_guidance lane
+
+### The all-zeros sha is git's NULL-SHA CONSTANT and is genuinely embedded in git-aware Go binaries — as a binary-probe negative control it fires "CONTROL-BROKEN" on a probe that is actually fine
+
+- **footprint:** `grep -aq <sha> /proc/1/exe` deploy verification (the recipe in CLAUDE.md "Building & deploying" and any doc that copies it) · `docs/agent_docs/sql_for_agents/422_site_publish_reconciler_HOLD.sql` header (carried the bad control until 2026-08-15) · any binary built from code that imports git plumbing
+- **fires when:** you follow "always run a control in the same breath — a sha that must be absent" and pick `0000000000000000000000000000000000000000` as the must-be-absent value, because it looks like the obviously-impossible sha.
+- **why the wrong result looks right:** the control MATCHES (the binary really does contain forty consecutive zeros — git's null-sha literal, present in any binary that speaks git), so the probe reports itself broken and the true positive result you already have ("stamp sha matched, sibling shas did not") reads as untrustworthy. Measured on agent-chassis v1.0.1303, 2026-08-15: zero-sha matched; a random 40-hex value (`7f3a9c2e8b1d…`) did not; the stamp probe correctly discriminated 1 of 4 candidate shas. The failure direction is a STALL — a held seed or a verified deploy waits on a probe that was never broken.
+- **the check:** the negative control must be a RANDOM 40-hex value, never the null sha and never any string with a plausible reason to exist. If the random value matches, the probe is genuinely non-discriminating (Go digit-table class); if only the zero-sha matches, the probe is fine and you have just found git's constant.
+- **relations:** the "never a *discovery* grep for some 40-hex string" entry above (same probe, different failure); `bugs_open/153` (the provenance stamp this probe verifies)
+- **verification:** settled first-hand by the filing session, 2026-08-15, all four probes run against live pod `agent-chassis-584b6fcf-9mtqd` (`/proc/1/exe`, v1.0.1303) and quoted above: zero-sha → match; random hex → no match; stamp sha `5e075a6f9…` → match on both replicas; three sibling commit shas → no match. The discrimination is the proof the probe works and the zero-sha match is a constant, not a broken probe.
+- **added:** 2026-08-15, site_delivery_and_editor lane (hit while executing the 422 seed's own header recipe, which prescribed the bad control — header fixed in the same session)
+
+### A `nav_drift` rebuild updates the stored chrome on EVERY page and redeploys only SOME — so the DB reads 100% clean while most of the live site is stale
+
+- **footprint:** `site_work_items` `item_type='nav_drift'`, `nav-updater`, `pages.rendered_footer`, `pages.rendered_header`, `pages.rendered_head`, `site_components` (`footer-theme-chrome`, `header-theme-chrome`), any nav/footer/header membership change
+- **fires when:** you change nav membership (`pages.in_header` / `in_footer`) and fire the `nav_drift` → `nav-updater` path that CLAUDE.md names — i.e. the correct, documented procedure, followed correctly. It completes, and it genuinely works.
+- **the tell: the obvious verification query says the job is DONE, and it is wrong.** Measured 2026-08-15 on dartsonline.com after removing `Shipping & Returns` from the footer — the item reached `complete`, and:
+  ```sql
+  -- pages whose STORED footer still carries the removed link
+  SELECT count(*) FILTER (WHERE rendered_footer ILIKE '%shipping-returns%') FROM pages …;
+  -- 0 of 25.  Every stored footer correct.
+  ```
+  Then the served fleet, same moment: **19 of 25 pages still shipped the old footer.** Only 6 had been redeployed. The gap is **deploy, not render** — the rebuild refreshed all 25 stored chromes and pushed a subset to the site repo, and nothing anywhere reports the difference.
+- **why the sample nearly hid it:** the 6 that WERE clean include `index.html`, `/guides/index.html` and `/news/index.html` — the pages a person spot-checks first. My first check was the homepage alone and read as a complete success. It was `/about.html` and `/contact.html`, checked only because a footer is on every page, that broke the story. **Check a page nobody would think to check, and check by count over the whole sitemap, not by eye over the obvious three.**
+- **the check:** never grade a chrome change at `pages.rendered_*`. Enumerate the site's active URLs and grep the SERVED bytes:
+  ```bash
+  urls=$(psql -t -A -c "SELECT p.url FROM pages p JOIN sites s ON s.id=p.site_id
+                         AND s.domain='<domain>' WHERE p.status='active';")
+  for u in $urls; do printf "%s %s\n" "$u" \
+      "$(curl -s "https://<domain>$u" | grep -c '<the string that should be gone>')"; done
+  ```
+  Then republish the stragglers with an **assemble-only** `page_rerender` — spec `{domain, page_id, page_name, filename}` and **no `reason` key** (3,287 such items have completed in 30 days). Assemble-only is right here precisely because the stored chrome is already correct: it re-concatenates and deploys without regenerating anything, so it cannot escalate to the content writer the way `reason=section_data_resolved` can on a page with a NULL `content_data` section.
+- **relations:** `bugs_open/117` (chrome is a stored artefact) states the render half of this; this entry is the **deploy** half, which 117 does not cover · MEMORY `a-complete-work-item-is-not-a-repaired-artefact` and `prove-a-deploy-at-the-artefact-index` (same family: a terminal status is not an artefact) · the `page_id`-not-`page_name` trap on the same action
+- **added:** 2026-08-15
