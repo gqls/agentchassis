@@ -282,3 +282,26 @@ will conjure URLs they never had.
   owns that seam); and the canary/repair items carry SYNTHETIC backdated
   `created_at` values (queue-position, lane NOTES 2026-08-14) — do not read
   those timestamps as filing dates.
+
+### §12 addendum (2026-08-15) — owner rulings executed; the unresolved_cta re-run is done
+
+Owner (2026-08-15, in chat): re-run resolution per site; lift webdesign.uk's
+8 emergency locks.
+
+- **Locks lifted**: `ai_site_selling_automation/SQL_2026-08-15_unlock_cta_components.sql`
+  — 8 off, verified; sibling chat-input-box lock untouched.
+- **Resolution re-run (cta_links_stale re-renders, 126 pages / 21 sites,
+  item_keys `ctaresolve_268_%`): census 194 → 11 label-without-URL rows
+  (21 → 4 sites), 183 rows resolved.** Canary site dartsonline verified as
+  a matched pair first (11/11 resolved, untouched rows byte-identical);
+  248-class clobber exposure measured ZERO pre-flight; three bounded
+  recompute anomalies contributed into `bugs_open/248`.
+- **The 11-row residue, each with its reason** (list with labels in the
+  lane NOTES 2026-08-15): 1× aao/services blocked by the claims floor
+  (banned claim "70+ agent…" in stored copy — 149 C1's guard, filed its
+  own item; needs a copy fix first) · 10× tool/game-page heroes whose
+  label names the page they sit on (gamesdesign ×3, mortgagecalculator ×6,
+  vetcomparison/index) — a self-target the resolver refuses by design;
+  these want an in-page anchor or a copy change, i.e. a content decision,
+  not resolution. v1.0.1300 (stamp `a2a691213`) verified carrying the fix
+  before any of this ran.

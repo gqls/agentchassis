@@ -1,4 +1,11 @@
-# HANDOFF 2026-08-15 — 268 closed; you are the CTA-resolution rollout session
+# HANDOFF 2026-08-15 — 268 closed; the CTA-resolution rollout is COMPLETE
+
+> **DONE 2026-08-15 midday — nothing left to execute.** Batch terminal
+> 118/119 complete + 1 claims-floor refusal; **census 194 → 11 (21 → 4
+> sites)**; addendum in `bugs_closed/268` §12; residue (1 claims-blocked +
+> 10 self-target heroes) is an OWNER content decision, listed in NOTES
+> 2026-08-15 midday. This file stays as the record of the recipe and its
+> caveats. Only follow the sections below if re-running on a NEW population.
 
 Supersedes `HANDOFF_2026-08-14_canary_and_repair.md` (everything it asked for
 is DONE — see `bugs_closed/268` §12 and NOTES 2026-08-14 night). Read order:

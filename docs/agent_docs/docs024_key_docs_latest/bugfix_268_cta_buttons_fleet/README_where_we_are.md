@@ -166,3 +166,29 @@ case; the other twenty follow once it verifies. One honest caveat: a site
 with no plausible destination pages gains nothing from this — those buttons
 will stay label-only and we'll list them for you at the end rather than
 invent links for them.
+
+## 2026-08-15 (midday) — the re-run is done: 194 missing buttons down to 11
+
+The site-by-site resolution re-run has finished across all twenty-one
+sites. Of the 194 buttons that had wording but no destination, 183 now have
+real ones — matched to the page the wording names where possible, or the
+site's main tool otherwise. Every link that was already valid was left
+untouched, and we checked that on a full before/after snapshot, not on
+trust.
+
+Eleven remain, for two honest reasons. One (on the AI orchestration site's
+services page) is blocked by our own safety net: the section's copy
+contains a claim the platform bans sites from making about themselves, so
+it refuses to republish that section until the copy is fixed — that
+refusal is the guard doing its job. The other ten are buttons sitting on
+the very page they describe — "Calculate Affordability" on the
+affordability calculator itself, "Play Jelly Invaders" on the game's own
+page. The system rightly won't point a page at itself; those buttons want
+to scroll to the tool on the page or say something else, which is a copy
+decision rather than a linking one. The list is written down; none of it
+is urgent.
+
+One small quality note for later: on sites where the wording didn't name
+any page, the fallback picks the site's top tool — so several pages on the
+same site now share the same primary button target. Fine as a floor;
+a copy pass could diversify them when we next touch those sites.

@@ -393,3 +393,24 @@ repaired+locked stated). Then, while it queues (~30 min): falsifier checks
   logged in 217's tail — cross-ref appended to 217 so the accounts don't
   fork; expect some batch items to read `failed` with fine work (verify at
   rows, not statuses).
+
+## 2026-08-15 (midday) — fleet re-run COMPLETE: 194 → 11
+
+- **Batch terminal: 118/119 complete, 1 failed = the claims floor refusing
+  aao/services** ("70+ agent…" banned claim in stored copy — a guard, its
+  own queue item; verified at the artefact: row untouched since 08-02, so
+  nothing was half-written). No 274-class false failures in this batch.
+- **Census: 194/21 → 11/4. Split of the residue:** 1 claims-floor-blocked +
+  10 self-target heroes (label names its own page: gamesdesign
+  game-auto-battler/economy-simulator/jelly-invaders, mortgagecalculator
+  tool-affordability/bridging-loan/fee-analyser/portfolio/rate-forecaster/
+  stamp-duty, vetcomparison index "Search practices"). Self-links are
+  refused by the resolver; an in-page anchor or copy change is a CONTENT
+  decision — handed to the owner, not forced.
+- Full residue labels in this entry's census query output; before-snapshot
+  of all dispatched pages' url keys preserved in scratch + recreatable from
+  history. finetuning.uk spot-check note: positional primaries are
+  homogeneous (the site's top interactive page) — chooseCTATargets' design;
+  flagged to the owner as a possible later content pass, not a defect.
+- mortgagecalculator/index's 15-min `claimed` resolved itself — completed
+  normally; the never-cancel-pre-diagnosis rule held.
