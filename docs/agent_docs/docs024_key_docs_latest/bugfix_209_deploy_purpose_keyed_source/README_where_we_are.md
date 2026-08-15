@@ -851,3 +851,31 @@ would be the failure, not the absence of one.
 more units, so before caching this move costs more, not less. Caching more than covers it. But
 it's also on introductory pricing until the end of this month, so any figure I quote today
 flatters it — worth re-measuring in September rather than trusting today's number.
+
+**2026-08-15, about ten minutes later — it reads back, and that also settles the bigger
+question we'd been waiting on all day.**
+
+The next request came through at 14:03 and used the stored copy: it paid the cheap rate for
+just under 5,000 units instead of storing them again. So the saving is real, not just
+theoretical.
+
+The unexpected part is that the same observation closes the thing the morning's handover said
+we'd have to wait hours for. The whole release today hinged on one claim — that stored copies
+now survive an hour instead of five minutes — and nothing had actually proved it. The proof
+had to be a request that reused a stored copy *more than five minutes after it was stored*,
+because under the old setting that copy would simply be gone. The two requests were **8 minutes
+and 46 seconds apart**, and the second one read the stored copy. Under the old five-minute
+setting that is not a near miss, it is impossible. And I'd already checked the reverse case on
+three days of earlier history: 29 times a request came back after more than five minutes, and
+29 times out of 29 it had to store a fresh copy. So the check could have come out the other way,
+and didn't.
+
+**One thing worth knowing for next time.** We were watching the wrong agent. The review council
+was the obvious place to look, but it's busy — requests arrive every minute or so, which means
+gaps longer than five minutes almost never happen, so it can essentially never produce this
+proof. The content agent I marked today gets asked to do things every ten minutes or so, which
+is exactly the window that discriminates. It produced the answer within nine minutes of being
+switched on. Going forward that's the one to watch.
+
+Nothing needed reverting: no errors, no cut-off answers, and the readings are where they should
+be.
