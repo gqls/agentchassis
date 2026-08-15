@@ -1019,3 +1019,23 @@ That accident also disproved something I had written down two days ago: that not
 a re-render, so the change would sit dormant until we chose to release it. Other teams run their
 own schedules, and one of them reached these sites within a day of me claiming nobody would. The
 claim has been corrected where I made it.
+
+**15 August, later — the weekend homework: what will the site-checker cost us?** Before the slow
+restart of the automatic site-checker was allowed to widen, we owed an answer on what it costs to
+run. The answer is: **nothing on the AI meter, to a first approximation.** I checked it two ways.
+First, the checker's code simply contains no AI calls — it is a set of database lookups (broken
+links, placeholder text, unverified claims and so on). Second, it already did a complete sweep of
+all 22 sites last weekend, and the AI spend log shows not a single call from it, while the same log
+was happily recording thousands of calls from everything else. So the earlier estimate — up to four
+million tokens for a full sweep — was borrowed from a much bigger mechanism and does not apply; the
+real number is zero.
+
+What it does cost is **to-do items**: that one sweep filed 774 of them across the fleet. Most were
+worked through or judged within days. The follow-up cost therefore depends entirely on what later
+consumes those items, not on the checker itself.
+
+One surprise worth knowing: **the restart hasn't actually restarted yet.** Because last weekend's
+sweep touched every site, its seven-day politeness rule means nothing has been eligible to check
+since. The first site becomes eligible tomorrow morning (Sunday), and it will then work through the
+fleet at one site every three hours — done in about three days. We'll glance at the meter mid-week
+to confirm the zero holds in practice, but there is no cost reason to hold anything back.

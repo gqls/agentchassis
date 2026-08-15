@@ -2584,3 +2584,72 @@ Monday ceiling of 33 stands.
 **timestamp granularity**. Same-second is coincidence; same-microsecond across six types is one
 transaction. Comparing `updated_at` at full precision answered in one query what a transcript grep
 would have guessed at.
+
+---
+
+## 2026-08-15 — §4.1 pricing task: the discovery-rotation ramp costs ~ZERO LLM tokens — and the ramp has not started yet
+
+**The task** (08-14 handoff §4 item 1, status block moved it to today): price the quality
+discovery-rotation ramp, calls AND tokens, using the watch queries at the foot of
+`sql_for_agents/395_enable_quality_discovery_rotation_slow_ramp.sql`.
+
+### First correction: the ramp has NOT run. Nothing has been due since re-enablement.
+
+`site-discovery-rotation-quality` is `enabled=t` at 10800s and ticking (its `updated_at` advances
+each tick — verified against `feasibility-recheck`, 600s, whose `updated_at` was 2 min old at read
+time; **no run-history table exists**, so between-ticks health is `[INFERRED]` from the bump alone).
+But every tick since 395 was applied has found **zero due sites**: the rotation's own full pass of
+2026-08-09/10 (hourly, the as-shipped 3600s cadence) stamped all 22 active/deployed sites, and the
+7-day window holds them all un-due until those stamps age out. `[MEASURED]` stamps:
+`2026-08-09 09:49:51Z` (robot-hands) → `2026-08-10 16:39:01Z` (noted.co.uk), none since.
+
+**So the ramp begins 2026-08-16 ~10:12Z** (robot-hands due 09:49:51Z; ticks run ~01:12/04:12/07:12/
+10:12…Z) and drains at 1 site per 3h against dueness arriving ~1/h — ~22 fires, complete ~08-19.
+The "3-day ramp" the migration priced is real; it just starts four days after enablement, because
+the interval sized nothing while the old stamps were fresh.
+
+### The price: ≈0 calls, ≈0 tokens — proven at the code AND at the meter with a demand control
+
+**Mechanism:** `quality-discovery-agent` = `ensure_site_record` → `run_discovery_checks` →
+`complete`. Its 9 checks (`broken_nav_links, placeholder_contact, generic_theme, unverified_claims,
+voice_tells, literal_markdown, decision_guards, premise_incomplete, revenue_shape`) run in
+`platform/orchestration/actions/discovery_checks/`, whose `DiscoveryCheckContext` carries only
+`DB/TX/SiteID/Logger` — no LLM client exists to call. Grep of the whole package + the runner for
+`llm|anthropic|CallModel|Complete(` → comment hits only.
+
+**Measurement, with the demand control:** the complete 22-site pass of 08-09/10 **demonstrably ran**
+— it filed **774 work items** (22 sites, 41 item_types, 35.2/site, batches landing 30–60s after
+each stamp) — while `llm_call_log` holds **zero** rows for `agent_type='quality-discovery-agent'`
+(ever), zero for any `%discover%` spelling (ever), and `'generic'` (the `created_by` those filings
+carry) last logged an LLM call **2026-07-27**. The meter itself works: 2,246 `council-gate` rows the
+same week. A driven mechanism + a zero on a working meter = a real zero, not a blind instrument.
+
+**So the estimate chain resolves:** ≤~180k tok/fire and ≤~4M/ramp were upper bounds inherited from
+the 08-11 improvement-sweep, and the sweep's tokens belong to its triage+dispatch halves — exactly
+the halves the rotation does not do. Steady state (~3.1 passes/day): also ≈0 tokens.
+
+### What the rotation actually costs: rows, not tokens
+
+- First pass filed 774 items. Their disposition today: complete 391 · unresolved 104 ·
+  needs_human_review 102 · deferred 60 · cancelled 57 · failed 32 · blocked 16 · detected 11 ·
+  wont_fix 1. **The "observe-only, nothing consumes detected" framing decayed within a day of the
+  pass** — the 08-11 sweep run and later lanes consumed most of it. Filing IS spending, once a
+  carrier exists.
+- Re-pass refile volume from 08-16 is not predictable a priori: 293 still-open items suppress
+  refiling via the dedup key; 448 terminal rows (complete/cancelled) can legitimately re-file
+  wherever the defect persists. **That number is what the 08-17 re-measure is for** (the watch
+  queries at the foot of 395).
+- Sweep-guard census today: **0 of 22 sites ≥ 50** open build items (max 40). A large refile could
+  push sites over the sweep's guard — relevant only if `improvement-sweep` (off, `enabled=f`) is
+  ever re-enabled.
+- Current idle baseline has moved since the 08-11 figures: overnight 01:00–06:00Z ran ~22–77k input
+  tok/h fleet-wide `[MEASURED last-12h hourly]`, well under the quoted ~248k/h. Compare ramp-hour
+  spend against fresh idle hours, not the stale baseline.
+
+### Tomorrow's check (per SCH-025's own landmine: stamps prove SELECTION, not examination)
+
+After the 08-16 ~10:12Z tick: expect a NEW `last_selected_at` on robot-hands AND a witness that an
+examination ran — an orchestration row or filed/retracted items. **A quiet `site_work_items` is not
+failure** (dedup may suppress everything); the orchestration row is the witness. Then run 395's
+watch queries ~08-17 after a handful of sites, which is the "measure against the real thing" the
+file asks for.
