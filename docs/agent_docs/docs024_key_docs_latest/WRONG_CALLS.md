@@ -31684,3 +31684,106 @@ permanent ambiguity tax ("resolve by slug" exists because of 016/017/083/…146)
 Renumbered to 279 within minutes (later filer yields; four references of mine
 fixed), so the residue is one rename commit — but only because the collision was
 noticed at all, which the ungated check did not guarantee.
+
+## 2026-08-15 — my mutation harness reported "nothing caught" for five mutations running, and I nearly wrote that down as a result (`bugfix_168` lane, scan exclusion)
+
+**The claim I was about to make:** that my four new contract tests did not catch any
+of the four mutations I applied to the predicate they exist to guard. The run printed
+four empty lines under four mutation headings. That is a coherent, believable result —
+sqlmock does not execute predicates, so "the tests are weaker than I thought" was
+exactly the shape of finding I was primed to accept.
+
+**It was the extractor.** I piped `go test` through
+`grep -oE "^\s+--- FAIL: [A-Za-z_]+"`. Go prints a **top-level** failure as
+`--- FAIL: TestName (0.00s)` at column zero; only SUBTESTS are indented. `^\s+`
+requires at least one leading space, so the pattern could not match a top-level
+failure **under any circumstances**. Every mutation had been caught, loudly, with the
+right diagnostic — and my harness reported silence for all of them.
+
+**What caught it:** running one mutation and printing the RAW output instead of the
+filtered output. Two seconds. I did it only because five identical empty results felt
+like too clean a story.
+
+**The cheap check, and I had already written it into the test file and not into the
+harness:** an **unmutated control run**. If the control prints nothing and a mutation
+prints nothing, the harness is broken, not the guard — a result that is identical
+whether or not the thing you are testing is true is not evidence. I added the control
+afterwards; it belonged first. Same shape as
+`a-post-fix-zero-needs-a-demand-control`, met from the tooling side rather than the
+data side: **a filter you built yourself is part of the instrument, and an instrument
+that has never been shown to produce a non-empty output has not been calibrated.**
+
+**Cost:** near-zero, caught inside two minutes. Recorded because of what it *would*
+have cost: "proven by mutation" is this lane's standard evidence phrase, and the
+version of that table I was one command away from writing would have claimed the
+opposite of the truth about every row — in a test file whose whole purpose is to be
+believed by the next person who touches the predicate.
+
+## 2026-08-15 — a handoff's landmine citation said the reverse of what the landmine says, and its conclusion was still right (`bugfix_168` lane)
+
+**The claim, inherited not made:** `HANDOFF_2026-08-15_continue_here.md` §B.2 justified
+its predicate by citing *"`LANDMINES.md` carries the entry **'an `archived` page can be
+SERVING'** — status is not a serving signal"*. I went to quote it and **no entry with
+that wording exists.** The nearest entry (2026-08-03, `bugs_open/098` lane) argues close
+to the reverse: `status` records whether a page *should still be served*,
+`build_status` is the misleading one, and it prescribes
+`status='active' AND build_status='deployed'` — the predicate that, applied to this
+query, would have been the mistake.
+
+**What caught it:** trying to cite it accurately. Nothing else would have. The handoff's
+sentence is fluent, specific, and names a real file; I only opened the file because I
+was going to put its words in a doc comment.
+
+**The cheap check:** `grep` the quoted phrase before repeating it — and when it misses,
+grep the *concept* rather than concluding the entry is gone. My first grep also
+"failed" because the shell's cwd had drifted into a subdirectory from an earlier `cd`,
+so `docs/…/LANDMINES.md` did not resolve and I spent a moment believing a fleet-wide
+file had been deleted. **Two absences in a row, neither real.**
+
+**The part worth keeping:** the handoff's *conclusion* — use the conjunction — was
+correct, and I only established that by measuring instead of by reading. Five archived
+pages serve HTTP 200; the cited entry's own prescription would have blinded the checker
+on all five. **A wrong citation attached to a right answer is more dangerous than a
+wrong answer**, because checking the citation looks like pedantry right up until it
+changes the code. Landmine filed; the handoff's §B.2 is corrected in NOTES.
+
+## 2026-08-15 — my migration guard asserted the key it had just written, so a config change that did nothing passed its own post-condition (`bugfix_209` / D6 markers lane)
+
+**The claim:** migration `413` moved `content-gap-planner` to `claude-sonnet-5` and — because
+that model runs adaptive thinking by default where `sonnet-4-6` ran it off, and `max_tokens`
+caps thinking *plus* response together — raised `max_tokens` from 4000 to 16000 so the step's
+JSON plan could not be truncated. Its post-condition block asserted
+`max_tokens >= 16000` and printed
+`migration 413 OK: model=claude-sonnet-5, max_tokens=16000 (thinking headroom in place)`.
+I wrote the banner explaining why the headroom was the load-bearing half of the change.
+
+**It was false.** I wrote the value to `...plan_gaps.config.max_tokens`. Nothing reads that
+key. `ai_actions.go` resolves `agentConfig["max_tokens"]` first — and `agentConfig` is
+`agentDef.DefaultConfig`, the **top level** of the agent definition, not the step's `config`
+block despite the name — falling back to the merged `ai_service` block. The live value stayed
+at `ai_service.max_tokens = 4000`. So for roughly nine minutes the step was configured exactly
+as the migration's own banner said it must never be: `sonnet-5`, thinking on by default, and
+the old 4000 budget.
+
+**Why the guard could not catch it:** it read back the key it had just written. There is no
+state of the world in which that assertion fails — it measured the write, not the behaviour.
+This is the same shape as the 2026-08-03 pair already in this file: dated, marked, and
+incapable of coming out otherwise. The marker rule was followed in full and bought nothing.
+
+**What caught it:** the `NOTICE` line from the *pre*-condition, which printed
+`max_tokens=(unset)`. That was the tell — the field I believed I was raising from 4000 had no
+value at all at the path I was reading, so the 4000 had to be living somewhere else. Had I
+only read the post-condition, which said what I wanted to hear, nothing would have caught it
+until a truncated JSON plan appeared downstream.
+
+**The cheap check, and it is not "read more carefully":** assert the **resolved** value, in
+the resolver's own precedence order, not the value you wrote —
+`COALESCE(top_level, step_ai_service, root_ai_service, hardcoded_floor)`. Migration `415`
+does this and additionally fails if a higher-precedence key exists that would outrank the one
+it sets, which is the same mistake one level up. And before writing any config key, **read the
+consumer for the precedence rather than inferring it from the field names** — `agentConfig`
+sounding like "the step's config" is precisely what made the wrong path look obviously right.
+
+**The near miss worth recording:** no call ran during the window, so nothing truncated. That is
+luck, not process — calls arrive about every ten minutes and the fix landed inside one
+interval. The lesson survives the good outcome.
