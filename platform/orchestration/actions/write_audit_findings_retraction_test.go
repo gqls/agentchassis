@@ -533,3 +533,113 @@ func retractionFor(t *testing.T, out interface{}, itemType string) silenceRetrac
 	}
 	return r
 }
+
+// ---------------------------------------------------------------------------
+// THE SHARED-PATH CONTROL (council 54e3b698, `guardian`, medium — actioned)
+// ---------------------------------------------------------------------------
+
+// Hoisting classification above the blocked/dedup/insert filters changed the
+// loop EVERY producer runs through, not just this one's. Six live agents call
+// write_audit_findings; the retraction work above only pins dark_section_audit,
+// so on its own it would leave the other five unevidenced — which is exactly
+// what the guardian seat objected to.
+//
+// This drives a NON-gated item_type (cta -> cta_improvement, absent from
+// silenceRetractionGates) through the full filter chain and pins that the order
+// and the effects are unchanged: blocked-key load, per-finding blocked EXISTS,
+// dedup EXISTS, then the INSERT carrying that finding's own item_type, handler
+// and dedup key. sqlmock is ordered, so a reordering of these four fails here.
+func TestWriteAuditFindings_UngatedProducerPathIsUnchanged(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+	siteID := uuid.New()
+	pageID := uuid.New()
+
+	mock.ExpectQuery("FROM pages").
+		WithArgs(siteID).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "page_type", "sections"}).
+			AddRow(pageID, "index", "content", "[]"))
+	mock.ExpectQuery("status = 'blocked'").
+		WillReturnRows(sqlmock.NewRows([]string{"item_key"}))
+	mock.ExpectQuery("SELECT EXISTS").WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(false))
+	mock.ExpectQuery("SELECT EXISTS").WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(false))
+	mock.ExpectExec("INSERT INTO site_work_items").
+		WithArgs(siteID, "discovery", "cta_improvement", "medium", sqlmock.AnyArg(),
+			argJSONContains{`"audit_source":"visual-design-audit"`}, pageID, sqlmock.AnyArg(),
+			"component-template-fixer", "visual-design-audit",
+			"visual-design-audit_cta_improvement_index_"+siteID.String(), sqlmock.AnyArg()).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+
+	// The retraction pass still runs — and asks about dark_section_audit ONLY.
+	// An ungated type must never reach the candidate loader; sqlmock fails an
+	// unexpected query, so a second load here would fail this test.
+	mock.ExpectBegin()
+	mock.ExpectQuery("item_type = 'dark_section_audit'").
+		WithArgs(siteID).
+		WillReturnRows(candidateRows())
+	mock.ExpectCommit()
+
+	out, err := WriteAuditFindingsAction(context.Background(),
+		auditParams(db, siteID, []interface{}{map[string]interface{}{
+			"category":    "cta",
+			"severity":    "medium",
+			"description": "the hero call to action is below the fold",
+			"page":        "index",
+		}}))
+	if err != nil {
+		t.Fatalf("action failed: %v", err)
+	}
+	m := out.(map[string]interface{})
+	if m["items_created"] != 1 {
+		t.Fatalf("the ungated producer must still file its item: %#v", m)
+	}
+	stats, _ := m["classification_stats"].(map[string]int)
+	if stats["cta_improvement"] != 1 {
+		t.Fatalf("classification_stats lost the ungated type: %#v", m["classification_stats"])
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
+// The companion: the dedup filter must still SUPPRESS an ungated finding, and
+// suppression must still be counted. Without this, the test above would pass
+// against a reordering that ran the insert before the filters.
+func TestWriteAuditFindings_UngatedProducerDedupStillSuppresses(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+	siteID := uuid.New()
+
+	expectPagesLoad(mock, siteID)
+	mock.ExpectQuery("status = 'blocked'").
+		WillReturnRows(sqlmock.NewRows([]string{"item_key"}))
+	mock.ExpectQuery("SELECT EXISTS").WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(false))
+	mock.ExpectQuery("SELECT EXISTS").WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
+	// No INSERT: an unexpected Exec would fail this test.
+	mock.ExpectBegin()
+	mock.ExpectQuery("item_type = 'dark_section_audit'").
+		WithArgs(siteID).
+		WillReturnRows(candidateRows())
+	mock.ExpectCommit()
+
+	out, err := WriteAuditFindingsAction(context.Background(),
+		auditParams(db, siteID, []interface{}{map[string]interface{}{
+			"category": "cta", "severity": "medium", "description": "d", "page": "index",
+		}}))
+	if err != nil {
+		t.Fatalf("action failed: %v", err)
+	}
+	m := out.(map[string]interface{})
+	if m["items_created"] != 0 || m["items_skipped"] != 1 {
+		t.Fatalf("want created=0 skipped=1, got %#v", m)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
