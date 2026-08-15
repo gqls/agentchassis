@@ -81,3 +81,36 @@
   ordering and why it is safe in either order (forks already carry spec.page_id; the fence rides
   the same image as the widening). Additive/opt-in shape → normal council scope per RFC_010 §1 /
   RFC_022, stated in the submission rationale.
+
+## 2026-08-15 — council verdict and follow-up
+
+- **APPROVED** round 2 (`360ae540…`, run `5464d7fd…`, ~13 min in the seats): "approved with 6
+  advisory objection(s) — none high-severity", 4 abstained, `unreadable` NULL. Acted on rather
+  than defended (a REVISE round is cheaper than the defect it finds; here the seats' points were
+  cheap and two were real):
+  - bug_historian: "is there a SECOND writer of html_template bypassing the fence?" — enumerated:
+    six actions write it. `fix_component_template_action.go` is the one other PAGE-aware writer
+    (takes `page_component_id`, reads the page's `rendered_html`, writes the component template)
+    — NOT fenced (its shared write is sometimes the intended repair — it restored the wrapper
+    after 08-05); recorded open in the guard file + TL-042. Four others take the component as
+    subject (fan-out intended).
+  - reuse_agent: `component_write_guard.go` is the home for component write guards — fence
+    moved there as `sharedComponentWriteCheck` (+ writer census in the header); the action calls it.
+  - guardian: census on every call + fail-closed = new fleet-wide failure mode — narrowed:
+    fail-closed only when `component_level<>'tool'`; a tool fork's census error warns and
+    proceeds (+test; the helper's decision line mutation-proven again).
+  - guardian (double-active-row landmine) and debug_historian (needle-gate discipline): both
+    already covered by the seeds' pre-flight (`target_count <> 1 → RAISE`) and gated UPDATEs —
+    the seats saw truncated sketches. Answered in the RUNBOOK.
+  - debug_historian: deploy-verification recipe missing — RUNBOOK gains the build-provenance +
+    `git merge-base --is-ancestor 25f92a967` recipe (per CLAUDE.md, not a symbol grep).
+  - prior_art: '0 PLANs' and 'one consumer' asserted — attached as queries in the RUNBOOK
+    (the LIKE over `default_config::text` covers nested sub_workflows).
+  - architecture: TL-042 now states what would close the `ported_tool_fix` sink — (a) decompose
+    to a `component_level='tool'` fork, or (b) a per-instance fixer + instance-keyed PLAN — and
+    the count query to tell whether the gap is closing.
+  - editquality (low): per-check dedup key is intentional (a tool failing both checks is two
+    findings). Not changed.
+- Follow-up commit `d7b2d9994` with `Council-Reviewed: 360ae540-8b64-41f9-94da-d7c316183398`.
+- STATE: fixed at source; seeds 425/426 live; Go (`25f92a967`, `a41d11e30`, `d7b2d9994`) rides
+  the next chassis roll. 281 stays OPEN until the roll + first-sweep census (RUNBOOK).

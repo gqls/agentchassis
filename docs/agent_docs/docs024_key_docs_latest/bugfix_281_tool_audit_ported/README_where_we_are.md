@@ -42,3 +42,24 @@ proposal with the preconditions, for the owner to decide.
 
 Next: council review of the code, commit, apply the two config changes, and the Go rides the
 next fleet build. Verification queries are in the RUNBOOK.
+
+## 2026-08-15 (later) — the review came back approved
+
+The council approved the change (round two — round one failed on a formatting slip of mine in
+the submission, not on the work). It raised six advisory points, all reasonable, and I acted
+on them rather than argued: the new safety check now lives in the shared "component write
+guard" file where the other such checks live; it only hard-stops for shared non-tool
+components (a normal tool fix that hits a database hiccup carries on as before); I listed
+every piece of code that can rewrite a component template and found one more that could in
+principle be pointed at a shared component from a single page — recorded, not changed, because
+it is also the thing that repaired the last incident; and the register entry now says exactly
+what would have to be built for the "human review" items to stop being a permanent pile.
+
+Where this leaves us: the two config changes are live now; the code changes ride the next
+fleet build. Once that has rolled, one discovery pass on webdesign should show roughly
+sixty-six tools examined instead of four, with the Mind Map's colour problem among the
+findings — the queries to check that are in the runbook. Two things remain yours to decide:
+whether to put the shared ported-page template back to its plain pass-through (it is still
+carrying the 14 August rewrite, safely un-propagated), and whether to start the lane that
+decomposes the sixty-three ported tools properly (the proposal lists what has to be true
+first).
