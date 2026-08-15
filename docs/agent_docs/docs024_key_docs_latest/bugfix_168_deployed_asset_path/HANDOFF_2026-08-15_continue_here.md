@@ -7,8 +7,23 @@ Its LLM-capability row is corrected in place. Its §4 traps still hold except wh
 Working record: `NOTES_deployed_asset_path.md` (newest at the bottom). Owner's log:
 `README_where_we_are.md`. Runbook: `RUNBOOK_deployed_asset_path.md`.
 
-**Nothing is in flight. Nothing is half-applied. Everything below is committed.**
-**Nothing is blocked. Three pieces of work are queued and none has been started.**
+**Nothing is half-applied. Everything below is committed.** Nothing is blocked.
+
+## START HERE — the order, as of 2026-08-15 10:50Z
+
+1. **FIRST, and it is time-anchored: read C's result** after the daily fires at **~2026-08-16
+   08:45:17Z**. C is **already ARMED** (§C banner) — the edit is in the database and the gate input
+   is inverted. **Do not redo it, do not re-run anything, and do not manufacture a second one.**
+   Poll `scheduled_tasks.last_triggered_at` until it **CHANGES**, then measure with the anchor and a
+   clock stamp in the same output. **Then redeploy the page** so the correction publishes and the
+   item closes.
+2. **Then B** — the scan exclusion. Contained code change, owes a council submission (the gate is
+   available). ~half a day.
+3. **Then A** — webdesign.co.uk. ⚠ **A is much larger than B and C combined**: an evidence base plus
+   decomposing 98 single-blob pages through the framework. **It probably deserves its own directory
+   under `docs024_key_docs_latest/` and its own standing five**, rather than living in this lane —
+   this lane is about the revalidation gates, and A is a site-rebuild workstream that merely got
+   discovered here.
 
 ---
 
