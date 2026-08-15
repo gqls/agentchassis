@@ -5,7 +5,46 @@ rebuilt that site's stylesheet. He reported the copy reading as AI-written *and*
 duplicated on the home page". Both true; the copy half is the `copy_quality_two_stage` lane's and is
 taken (their NOTES `b2cccc5c9`). **This file is the composition half only.**
 
+> ## ⚠ UPDATED 2026-08-15, SAME SESSION — LOCATED: **the duplication is in the PLAN, not in the page-build or save path.** §4 below said no cause was asserted; that is now superseded for the *location*, though not for the *reason*.
+>
+> `[MEASURED 2026-08-15]` `site_plan_sections` for this site's `index` page carries
+> `info-card-grid` **twice**, at `ordering` 1 and 2, both rows stamped
+> **`2026-07-25 16:26:18.203946+00` — identical to the microsecond**, i.e. written in one
+> transaction alongside `hero` (0) and `call-to-action` (3):
+>
+> ```sql
+> SELECT sps.page_name, sps.ordering, sps.component_name, sps.created_at
+> FROM site_plan_sections sps JOIN site_plans sp ON sp.id = sps.plan_id
+> JOIN sites s ON s.id = sp.site_id
+> WHERE s.domain='webdesign.co.uk' AND sps.page_name='index' ORDER BY sps.ordering;
+> -- index | 0 | hero | 2026-07-25 16:26:18.203946+00
+> -- index | 1 | info-card-grid | 2026-07-25 16:26:18.203946+00
+> -- index | 2 | info-card-grid | 2026-07-25 16:26:18.203946+00
+> -- index | 3 | call-to-action | 2026-07-25 16:26:18.203946+00
+> ```
+>
+> **So the page is composed exactly as planned.** `save_page_sections_action.go` and the
+> re-render path are **exonerated** — §5's first two candidates are closed, and 189's
+> neighbourhood is the wrong neighbourhood.
+>
+> **And it is a TRUE duplicate, not two sections sharing a heading.** Both carry four cards with
+> the *same four titles in the same order* — "Sixty-three tools, zero installs" / "Guides on how
+> things actually work" / "Built by one person, in the open" / "Notes from the workbench". The
+> `content_data` md5s differ only because the body copy under each card was generated
+> independently; the structure and headings are identical. A reader sees the same section twice.
+>
+> **WHAT IS STILL UNKNOWN, and stays unasserted: WHY the plan contains it.** I have measured the
+> plan's *contents*; I have not opened the planner. Whether this is a planner defect, a bad input
+> spec, or a deliberate two-grid design that the writer then filled identically is **undiagnosed**.
+> §4's rule still applies to that question: **a structural claim about the planner needs `090`
+> before it is asserted**, because it would predict recurrence on other sites and the census (§3)
+> currently says N=1.
+>
+> **The fix is therefore probably a plan edit plus a re-render, not a code change** — but do not
+> apply one until the "why" is settled, or the same plan may simply regenerate it.
+
 **NO ROOT CAUSE IS ASSERTED HERE.** The mechanism is undiagnosed. That is deliberate — see §4.
+*(Superseded in part by the update above: the LOCATION is now measured; the REASON is not.)*
 
 ## 1. The symptom, measured
 
