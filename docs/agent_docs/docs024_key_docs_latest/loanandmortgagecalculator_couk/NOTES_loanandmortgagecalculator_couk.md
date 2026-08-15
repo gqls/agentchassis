@@ -2762,3 +2762,34 @@ which is precisely the message most likely to contain backticks.
 **Also worth recording: `git log -1` was not my commit.** Between committing and reading
 the message back, another session committed, so HEAD had moved. Read your own sha
 (`git log -1 --format=%B <sha>`), never HEAD, when checking what you just wrote.
+
+> **CORRECTED 2026-08-15, same day — my fix above was itself wrong on one axis, and a
+> second session on this lane caught it.** I excluded `raw_contains` from BOTH controls.
+> Only `expectation` forces that: it corrupts `want` at a line the branch never reaches.
+> **`crosstool` swaps in the DONOR's whole check dict, `raw_contains` included**, so a
+> text check there is genuinely mis-paired and MUST fail. Measured across three versions
+> rather than argued — crosstool `FAIL 154` pre-change, **`FAIL 148` under my blanket
+> exclusion (6 real comparisons silenced)**, `FAIL 154` after narrowing it: compare-loans'
+> four verdicts (which alternate Option A/B between adjacent vectors) plus two of
+> overpayment's three prose readings. The third overpayment reading IS a true NON-TEST
+> (`"%d Year"`, two vectors both round to `"2 Year"`) and is now excluded by a
+> borrowed==own STRING guard, so N/A goes 9 → 10, not back to 9. Normal sweep and the
+> expectation control re-run unchanged. Commit `f0eab34e0`.
+>
+> **The lesson is the shape of my error, not the line of code:** I had just written that
+> the 2026-08-12 fix "covered ONE immune class and there are three", then made the same
+> mistake one level up — treating two controls as alike because the *exclusion* looked
+> parallel, without checking whether each control's mechanism forced it. **"It looks like
+> the case next to it" is what fails here**, and it is what failed in 08-12 too.
+>
+> **Two residuals, recorded not absorbed.** (1) `--mutate expectation` can never test a
+> text assertion, so those 7 are guarded by nothing. (2) **`--mutate crosstool` STILL
+> exits 1 and did before any of my edits** (4 passes pre-change, 3 now) — a THIRD class,
+> where the donor vector has more checks than the receiving one, so the rotation pairs by
+> index across different-length vectors, `_true_want` is None, and the borrowed
+> expectation lands on an echoed input value that matches anyway. A red crosstool on this
+> lane is therefore not evidence that your change broke something.
+>
+> **This diagnosis now has two blind derivations:** the peer ran the full chain read-only
+> before finding my work (5/5 b2_verify, same served md5s, 33/0/0, 170/0/6) and reached
+> both mechanisms independently.

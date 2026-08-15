@@ -306,11 +306,53 @@ touches the same branch the normal path uses:
 7 pre-existing + 8 newly excluded = **15 exactly** — every one accounted for, not merely
 improved. Commit `b40d7d982`.
 
-**What this means for anyone reading a green control here:** the expectation mutation
-only ever tested the ~161 checks that compare a parsed NUMBER. It never tested the
-text-assertion checks and it never could. Those 7 are still unguarded by any mutation
-control — **a `raw_contains` check that has silently stopped matching would not be caught
-by any control in this file.** That is a real, stated gap, not a solved problem.
+### 10a. …and that fix was itself WRONG on one axis. Caught in peer review, same day.
+
+A second session on this lane reviewed `b40d7d982` and was right: **I excluded
+`raw_contains` from BOTH controls, and only one of them forces it.**
+
+- `expectation` corrupts `want` at a line this branch **never reaches** → immune by
+  construction → exclusion **forced**.
+- `crosstool` swaps in the **donor's whole check dict, `raw_contains` included** → the
+  text check IS genuinely mis-paired → it **must fail**.
+
+Measured across three versions of the file rather than argued:
+
+| oracle.py | crosstool FAIL | N/A |
+|---|---|---|
+| pre-change (`b40d7d982^`) | 154 | 9 |
+| my first fix (`b40d7d982`) | **148** | 16 |
+| corrected (`f0eab34e0`) | **154** | 10 |
+
+**The blanket exclusion silenced 6 genuine must-fail comparisons** — compare-loans' four
+verdict vectors (they alternate Option A/B between adjacent vectors, so every rotation is
+a real mismatch) plus two of overpayment's three prose readings. The third overpayment
+reading *is* a true NON-TEST: its `raw_contains` is `"%d Year"` and two of its three
+vectors both round to `"2 Year"`, so the borrowed string equals its own — now excluded by
+a borrowed==own STRING guard mirroring the float `_true_want` NON-TEST beside it, which is
+why N/A lands on 10 and not back at 9. Normal sweep and the expectation control were
+re-run unchanged after the correction.
+
+**Two residuals, both stated rather than absorbed:**
+
+1. `--mutate expectation` only ever tested the ~161 checks comparing a parsed NUMBER. It
+   never tested the text assertions and it never could. **A `raw_contains` check that has
+   silently stopped matching is caught by nothing there.**
+2. **`--mutate crosstool` STILL EXITS 1, and did before any of this** — 4 passes
+   pre-change, 3 now. A THIRD class, which I did not cause and deliberately did not fix
+   inside a batch-closure commit: when the donor vector has **more checks than the
+   receiving one**, the rotation pairs by index across vectors of different length,
+   `_true_want` is `None` so the float NON-TEST guard cannot fire, and the borrowed
+   expectation lands on an **echoed input value** that matches anyway (consolidation
+   total-debt-to-clear, bridging net-advance-echoed-back, overpayment whole-years).
+   ⚠ **So a red crosstool here is NOT evidence your change broke something** — diff the
+   count against a pre-change run first. That is the next contained piece of work on this
+   file, and it needs its own change and its own evidence.
+
+**Independent replication:** the peer session ran the whole chain read-only before finding
+my work — 5/5 `b2_verify`, the same served md5s, 33/0/0 per-tool, 170/0/6 full sweep — and
+derived both mechanisms in §10 **blind**, before seeing the fix. The diagnosis has two
+separate derivations, not one.
 
 > ⚠ **Two shell traps fired on me this session; both are in `LANDMINES.md` already.**
 > **Backticks in `git commit -m` execute** — two phrases in `b40d7d982`'s message were
