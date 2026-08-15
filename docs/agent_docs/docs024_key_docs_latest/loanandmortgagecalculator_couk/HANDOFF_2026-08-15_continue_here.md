@@ -220,6 +220,14 @@ Go-proven bytes; **0 locked**; `rebuild_policy='owned'` on all five.
 
 1. **`loans-consolidation` + `mortgages-repayment`** — the last two, and **two routes**, see
    §3.3. Unlock decision + parameterise, same pipeline.
+   > 🔒 **CLAIMED 2026-08-15 by a second session on this lane** (the one that fixed
+   > `a848812cd`), recon started. **Do not start these without messaging it first** —
+   > `scripts/who-owns.py` reads COMMITS and is blind to a session mid-recon, which is
+   > exactly this case. If you are that session or it has finished, delete this note.
+   > Two things it should carry in: the `git log --since` staleness check for these two
+   > pages must be built from **`pages.url`, not `pages.name`** (§4), and
+   > `mortgages-repayment`'s tool row is dropped by any inner join to
+   > `content_components` (§3.3).
 2. **Site-spec seed + planner loop** (owner D6, 08-11): seed the spec, let the planner plan,
    reseed until the plan is *reasonably close to today's site*. **Verbatim constraints: the
    site must NOT shrink on rebuild; the exact calculator/guide mix is NOT important; growth
