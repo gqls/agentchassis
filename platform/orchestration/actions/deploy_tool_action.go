@@ -572,7 +572,9 @@ func DeployToolToSiteAction(ctx context.Context, params ActionParams) (interface
 			"tool_display_name": toolDisplayName,
 			"tool_page_url":     pageURL,
 			"source":            "tool-deployer",
-			"content_guidance": fmt.Sprintf(
+			// bugs_open/271: "suggestion" is the key page-build-handler reads
+			// and forwards to the writer prompt; "content_guidance" had none.
+			"suggestion": fmt.Sprintf(
 				"Write an in-depth guide about %s. Explain the concept, why it matters, common mistakes people make, "+
 					"and practical tips. At relevant points, reference the interactive %s tool at %s — "+
 					"e.g. 'Use our %s to see how this applies to your situation.' "+

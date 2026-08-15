@@ -552,6 +552,49 @@ func setRoutingField(item map[string]interface{}, key, columnValue string, logge
 	}
 }
 
+// aliasGuidanceIntoSuggestion makes the dead guidance spelling live
+// (bugs_open/271): four emitters wrote spec.content_guidance — the content-gap
+// pipeline (apply_gap_plan), tool-generator, tool-deployer and the tool-content
+// raiser — while every reader reads spec.suggestion. The brief was therefore
+// discarded before any prompt was built, and the rewrite happened anyway,
+// steered by writer_block and the existing page, and reported complete.
+//
+// Same root constraint as setRoutingField above: input_mapping resolves exactly
+// one source path per destination and has no coalesce syntax, so "read either
+// key" cannot be expressed in config. It has to happen here, at the one point
+// every dispatched item passes through.
+//
+// IN-MEMORY ONLY — the DB row is never touched, so historical specs stay
+// byte-identical for any out-of-repo reader, and this is not a migration.
+//
+// Writes AT MOST the one key "suggestion": never when suggestion already holds
+// a value (of any type), never from an empty or non-string guidance, and never
+// as "" — an optional mapping path that RESOLVES to empty is forwarded as an
+// empty string where a MISSING path is skipped, and handlers gate on presence
+// (see the note on setRoutingField).
+//
+// suggestion is a PROSE channel, which is what makes this safe where
+// backfilling component_id was not: enumerated over every active
+// agent_definitions row on 2026-08-15, its only live readers are
+// page-build-handler's optional "rewrite_guidance?" mapping (which reaches
+// page-content-writer's "## Rewrite Guidance" prompt block) and prompt lines in
+// content-gap-planner and css-patch-agent. None gates scope, routing, or any
+// branch.
+func aliasGuidanceIntoSuggestion(spec map[string]interface{}) {
+	if existing, present := spec["suggestion"]; present {
+		if s, ok := existing.(string); !ok || s != "" {
+			// A real value, or a shape this function will not judge. Either way
+			// the author's own key wins — the alias never overwrites.
+			return
+		}
+	}
+	guidance, ok := spec["content_guidance"].(string)
+	if !ok || guidance == "" {
+		return
+	}
+	spec["suggestion"] = guidance
+}
+
 // ============================================================================
 // ACTION: load_work_items
 // Used by: site-work-orchestrator (to get items to process)
@@ -583,13 +626,25 @@ func setRoutingField(item map[string]interface{}, key, columnValue string, logge
 // gain current_item.page_id. Widening what reaches a handler changes it
 // without editing it; that is a change to make for a reason, not for symmetry.
 //
-// The spec map is NEVER mutated. Backfilling the resolved value into spec was
-// the other candidate and it is unsafe: rerender-pages reads
+// The spec map is NEVER mutated for ROUTING/ID keys, and that rule is
+// load-bearing. Backfilling the resolved value into spec was the other
+// candidate and it is unsafe: rerender-pages reads
 // input_data.spec.component_id, and create_rerender_items gates
 // `scoped := (reason == "section_data_resolved" || reason == "image_landed")
 // && componentIDStr != ""` on it — so writing into spec could silently flip a
 // site-wide rerender into a component-scoped one. Top-level exposure leaves
 // every existing spec.* reader reading exactly what it reads today.
+//
+// ONE NARROW EXCEPTION, added 2026-08-15: aliasGuidanceIntoSuggestion
+// (bugs_open/271) fills spec.suggestion from spec.content_guidance when
+// suggestion is absent. The component_id hazard does not transfer, and the
+// discriminating test is what the key DOES, not that the write is additive:
+// suggestion is a prose channel whose only live readers (enumerated by query
+// 2026-08-15 over every active agent_definitions row — page-build-handler's
+// optional "rewrite_guidance?" mapping, plus prompt lines in
+// content-gap-planner and css-patch-agent) render it into a prompt. None gates
+// scope, routing, or any branch. A future candidate that fails THAT test
+// belongs under the original rule, not under this exception.
 //
 // Data inputs (via ActionInputSpec):
 //   - site_id (required) — resolved from collectedData via path
@@ -742,6 +797,12 @@ func LoadWorkItemsAction(ctx context.Context, params ActionParams) (interface{},
 		if len(specJSON) > 0 {
 			var specMap map[string]interface{}
 			if err := json.Unmarshal(specJSON, &specMap); err == nil {
+				// bugs_open/271: the guidance spelling four emitters wrote has
+				// no reader; alias it onto the one every reader reads. Inside
+				// the successful-unmarshal branch on purpose — a spec that
+				// failed to parse is passed through as its raw string, exactly
+				// as before.
+				aliasGuidanceIntoSuggestion(specMap)
 				specData = specMap
 			} else {
 				specData = string(specJSON)

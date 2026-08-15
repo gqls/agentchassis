@@ -167,7 +167,9 @@ func raiseToolContentItem(ctx context.Context, params ActionParams, logger *zap.
 		"tool_description":  req.description,
 		"tool_page_url":     req.pageURL,
 		"source":            req.source,
-		"content_guidance": fmt.Sprintf(
+		// bugs_open/271: "suggestion" is the key page-build-handler reads and
+		// forwards to the writer prompt; "content_guidance" had no reader.
+		"suggestion": fmt.Sprintf(
 			"This is a tool page for '%s'. Generate: (1) a hero section with the tool name and a one-line benefit statement, "+
 				"(2) an educational guide section explaining the concept behind the tool — what it calculates, why it matters, "+
 				"how users should interpret the results — written for the site's target audience, "+

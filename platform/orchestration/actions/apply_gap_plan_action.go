@@ -205,9 +205,17 @@ func applyAddToPage(ctx context.Context, db *sql.DB, plan map[string]interface{}
 
 		// Build spec for the content rewrite
 		spec := map[string]interface{}{
-			"page_name":        pageName,
-			"content_guidance": contentGuidance,
-			"source":           "content-gap-planner",
+			"page_name": pageName,
+			// bugs_open/271: "suggestion" is the key every reader reads
+			// (page-build-handler's "rewrite_guidance?" mapping →
+			// page-content-writer's "## Rewrite Guidance" prompt block). This
+			// used to be written as "content_guidance", which nothing read, so
+			// the gap planner's whole reason for existing — the composed brief
+			// — was discarded before any prompt was built. The value still
+			// comes from the gap PLAN's content_guidance at :178: that is the
+			// content-gap-planner LLM's output contract and is unchanged.
+			"suggestion": contentGuidance,
+			"source":     "content-gap-planner",
 			// mode=edit_live opts this item into load_current_section_content
 			// (bugs_open/178): the page was just resolved by name from the
 			// pages table above, so it already exists — the writer should
