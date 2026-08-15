@@ -175,11 +175,24 @@ correction to this bug file's own original fix sketch (`build_status=
 
 - Committed: `fdc5daec1` (`check_missing_structure.go` +
   `check_missing_structure_test.go`, 5 new tests, all pass).
-  `Council-Submitted: 524ff897-b697-4c5c-a66f-8939b0457049` — verdict pending
-  at time of writing; do not write `Council-Reviewed:` on this commit until
-  that verdict is actually read as APPROVED.
-- **NOT yet shipped.** This bug stays OPEN (not moved to `bugs_closed/`)
+  `Council-Submitted: 524ff897-b697-4c5c-a66f-8939b0457049`.
+- **UPDATE 2026-08-15, later same day — council verdict: APPROVED.** Read
+  directly (`doc_notes`, categories `? 'council-gate'`, body confirmed
+  against the submission correlation, not assumed from a `LIMIT 1` on a busy
+  shared queue): *"COUNCIL GATE — APPROVED — approved with 5 advisory
+  objection(s) — none high-severity (round 1)"*. 13 reviewers, 4 abstained, 0
+  unreadable, not truncation-gated. Per CLAUDE.md this means the commit is
+  credited automatically by the `098` coverage report once it resolves the
+  correlation — **no amend, no new commit needed**; `Council-Submitted:` was
+  the correct trailer to have used and stays as-is (forward-only forbids
+  rewriting it to `Council-Reviewed:` after the fact). The 5 advisory
+  objections' individual text was not retrievable from `diagnosis_artifacts`
+  for this correlation (only `council_report` summary + the echoed
+  `fix_plan` exist there) — not chased further given none were high-severity
+  and the gate is advisory only.
+- **Still NOT shipped.** This bug stays OPEN (not moved to `bugs_closed/`)
   until an image builds from this commit, the fleet rolls, and one full
   discovery rotation is observed closing the stale items and going quiet on
-  healthy sites — CLAUDE.md's fixed-AND-live bar, not "committed" alone.
+  healthy sites — CLAUDE.md's fixed-AND-live bar, not "committed" or
+  "approved" alone.
 - Continue from: `docs/agent_docs/docs024_key_docs_latest/bugfix_270_missing_structure/HANDOFF_2026-08-15_continue_here.md`.
