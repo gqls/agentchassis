@@ -1308,3 +1308,30 @@ proven by canary and a permanence rewrite. Your locked_by text prescribed
 unlock→edit→relock; the RELOCK step is retired with the locks. A
 `lock_blocked_change` item will no longer be filed for these rows;
 `content_rewrite` on the offer pages works normally again.
+
+## 2026-08-15 (evening) — from the webdesign_uk_build_service lane: Stripe webhook proxy BUILT + PROVEN end to end; register the PREVIEW hostname with Stripe, not the apex
+
+Owner ruled webhook exposure = option (a), proxy via the box (your owner-keys
+item 2). Built today, keyless as designed:
+
+- `location = /stripe/webhook` on the box's webdesign.uk nginx (repo copy
+  `webdesign_uk_build_service/box/webdesign.uk.nginx`, committed) proxies over
+  wg0 to auth-service's ClusterIP `10.21.217.63:8081`
+  `/api/v1/billing/webhooks/stripe`. proxy_stripe.conf's shape: NO rate limit
+  on that location, no body rewrite (HMAC over raw bytes), no X-Real-IP (this
+  box is behind cloudflared).
+- **Proven through the public edge**: `POST
+  https://preview.webdesign.uk/stripe/webhook` → auth-service's honest 503
+  `{"error":"billing provider not configured"}` in ~12ms. The chain goes
+  live-meaningful the moment your Stripe keys land (via 047-base-configs
+  terraform, NEVER kubectl — the 08-13 token wipe proved why).
+- ⚠ **For the owner when registering the endpoint with Stripe: the apex and
+  www 302 EVERY path to webdesign.co.uk at the Cloudflare edge, and Stripe
+  treats a 3xx as failed delivery.** As things stand the webhook URL must be
+  `https://preview.webdesign.uk/stripe/webhook`, or the edge redirect rule
+  needs a path exception for `/stripe/webhook` (Cloudflare dashboard,
+  owner-side). Your Phase 6 cutover review should revisit which hostname is
+  canonical for this.
+- ClusterIP pinning is the same known fragility as FACTS_URL (survives pod
+  restarts, not a Service recreate); my lane's box-DNS work item retires both
+  pins together.

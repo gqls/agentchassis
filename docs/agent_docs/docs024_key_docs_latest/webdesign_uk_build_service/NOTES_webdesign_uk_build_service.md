@@ -2737,3 +2737,52 @@ this session's cold-start falsifier sweep:
 - Migration dry-run after the roll: not re-run this session (it ran clean
   yesterday; pending set was other threads' files). First action for the
   next session per runner practice.
+
+## 2026-08-15 (evening) — the three sanctioned work items all moved: planner FIRED, 090 FILED, webhook proxy PROVEN
+
+- **Migration dry-run (per-session practice)**: clean for this lane — the
+  experience-planner migrations (345/363/370) read "already applied", as they
+  should. Pending trio 418/419/420 are ANOTHER thread's in-flight
+  section-level requires-backend gates for content_gap_planner /
+  build_site_planner / site_planner — the bugs_open/276 class being worked;
+  their pre-state probes read "concurrent edit?", not mine to touch.
+- **PLAN step 3 (owner GO)**: DOC-076 brief seeded for `site-chat-intake`
+  (`BRIEF_2026-08-15_site_chat_intake.sql`, this directory — kept out of
+  sql_for_agents so the runner can't sweep it; doc_notes id
+  6bf8f9a4-4d72-49cc-9b1d-bbbb72b6cd0d, 4,343 chars). Verified with
+  load_brief's exact query BEFORE firing (returns the body, not the
+  sentinel). The brief states MECHANISMS not site facts, deliberately — a
+  figure written there would be a second source of truth beside
+  evidence_base. 092 trigger fired:
+  `SUBMISSION_CORR/CID = 8b0f77bf-592e-4280-a167-12113311ca98`. Watched
+  compose → recompose → review_feasibility (multi-round, normal);
+  doc_plans row count 0 throughout pre-approval, as 363 designed.
+- **Work item 2 (owner: check and fix)**: 090 needs_diagnosis filed for the
+  lock-blind section planner — symptom: PlanSectionsAction composes the
+  proposed section list without reading page_components locked_at/lock_type;
+  only save_page_sections' write guard preserves locked rows, refiling
+  lock_blocked_change noise each pass (and the 2026-08-11 pass REMOVED the
+  then-unlocked box outright). SEED_SCOPE: plan_sections_action.go +
+  save_page_sections_action.go + save_sections_decision_gate.go. The
+  trigger's coverage check refused first on a terminal `failed` diagnose
+  item from the CLOSED 268 lane sharing two seed files — read, ruled dead,
+  FORCE=1. Loop claimed it:
+  `RUN_CORRELATION_ID = c199c4bf-e433-4fa7-8bbf-c64b627e7373` (artifacts key
+  on THIS, not the intake corr). Prior art grepped: 058 closed (the write
+  guard IS its fix), 189 open (positional lock duplication, adjacent), 226,
+  276 (same "loop rewrites what it should preserve/gate" class).
+- **Work item 3 (owner: option (a))**: Stripe webhook proxy BUILT + PROVEN.
+  `location = /stripe/webhook` in the box nginx (repo copy in `box/`
+  updated FIRST, then scp'd; live file backed up to
+  `webdesign.uk.bak-20260815`). proxy_stripe.conf shape minus X-Real-IP (the
+  cloudflared warning in the file's own header). Upstream pinned to
+  auth-service ClusterIP `10.21.217.63:8081` over wg0 — same fragility class
+  as FACTS_URL, both retire together when box DNS lands. Proven at three
+  layers: wg0 direct (503 keyless in 11ms), loopback through nginx, and the
+  PUBLIC EDGE via preview.webdesign.uk (503 `billing provider not
+  configured`). ⚠ First loopback probe 404'd — a reload race, not a config
+  error: the immediate curl beat the SIGHUP re-read; retry 503. ⚠ **Apex +
+  www 302 every path to webdesign.co.uk at the edge, and Stripe treats 3xx
+  as failed delivery — the registerable webhook URL today is
+  `https://preview.webdesign.uk/stripe/webhook`**, or the owner adds a path
+  exception to the edge redirect. Relayed to the sibling lane's NOTES.

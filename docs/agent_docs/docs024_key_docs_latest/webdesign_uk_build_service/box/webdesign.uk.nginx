@@ -8,10 +8,14 @@
 # Phase 4 chat service is live: /api/chat and /health proxy to 127.0.0.1:8081,
 # copying idea.uk's proxy_tool.conf pattern (idea_uk_vm_site/box/proxy_tool.conf)
 # — a rate limit as belt-and-braces on top of the app's own per-IP limiter.
-# /stripe/webhook is NOT wired yet (Stripe is a later phase per PLAN §4) — when
-# it lands, copy proxy_stripe.conf's shape exactly: NO rate limit on that one
-# location (Stripe retries webhooks in bursts; a 503 there reads as an outage
-# and delays/loses payment confirmation), and never let anything rewrite that
+# /stripe/webhook is WIRED (2026-08-15, owner ruling: webhook exposure = box
+# proxy, option (a)) but live-meaningful only once the owner adds the Stripe
+# keys — until then auth-service answers 503 "billing provider not configured",
+# which is the honest keyless state, never a silent fake. The block copies
+# proxy_stripe.conf's shape (idea_uk_vm_site/box/proxy_stripe.conf) minus
+# X-Real-IP per the tunnel warning below: NO rate limit on that location
+# (Stripe retries webhooks in bursts; a 503 there reads as an outage and
+# delays/loses payment confirmation), and never let anything rewrite the
 # body — Stripe verifies a signature over the RAW bytes.
 #
 # ⚠️ THIS BOX IS BEHIND A CLOUDFLARE TUNNEL, UNLIKE idea.uk. Do NOT copy
@@ -49,6 +53,27 @@ server {
         proxy_pass              http://127.0.0.1:8081;
         proxy_http_version      1.1;
         proxy_set_header Host   $host;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout      30s;
+        proxy_send_timeout      30s;
+    }
+
+    # Stripe webhook (PAY-009) — THE MONEY PATH. proxy_stripe.conf's shape:
+    # deliberately NO limit_req (Stripe retries in bursts; throttling here
+    # delays or loses payment confirmation), no body rewrite ever (the
+    # endpoint authenticates by HMAC over the RAW bytes — that signature is
+    # also why an unauthenticated public route is safe to leave standing).
+    # Upstream is auth-service in the cluster over wg0, not a local process.
+    # ⚠ 10.21.217.63 is auth-service's pinned ClusterIP — box cluster-DNS is
+    # unresolved (same fragility as FACTS_URL in /etc/webdesign-chat.env:
+    # survives pod restarts, NOT a Service recreate). Move both to names when
+    # box DNS lands. Verified 2026-08-15: dummy POST end to end returns the
+    # 503 keyless truth from auth-service in ~12ms.
+    location = /stripe/webhook {
+        proxy_pass              http://10.21.217.63:8081/api/v1/billing/webhooks/stripe;
+        proxy_http_version      1.1;
+        proxy_set_header Host   $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_read_timeout      30s;
         proxy_send_timeout      30s;
