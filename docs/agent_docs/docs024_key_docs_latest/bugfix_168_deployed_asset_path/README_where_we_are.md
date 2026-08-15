@@ -1589,3 +1589,40 @@ at all this morning. That stated date is what the vendor would reset at if nobod
 practice the owner has raised the cap within hours, three times now. Any lane that read our note and
 put off a review submission should go ahead. I've corrected the note where it was written rather
 than only mentioning it here, since that's where people will read it.
+
+**2026-08-15, later that morning — four decisions taken, and a fresh start prepared.**
+
+You've decided three things and asked for a handoff so a new session can pick them up cleanly.
+
+**First, webdesign.co.uk gets a proper evidence base, and every component gets broken up so the
+framework can manage it.** This is the biggest piece. To put the problem plainly: the site visitors
+actually land on is stored as 103 pages, and 98 of those are a single undivided lump of HTML each.
+Sites the framework built properly run at about three separately-editable pieces per page. So today
+nothing on that site can be edited, checked or re-rendered in part — only wholesale. Giving it an
+evidence base also switches on claim checking for the first time, so expect a batch of flags at once
+when it lands; that's the system finally being able to look, not a sudden outbreak of problems.
+
+Worth being clear about why this matters more than it sounds: webdesign.uk redirects to
+webdesign.co.uk. The register you re-attested yesterday is attached to the site nobody arrives at.
+
+**Second, the scan will be changed to skip archived pages that were never published.** That stops
+rejected drafts from accumulating flags forever. There's one subtlety I've written into the handoff
+so nobody gets it wrong: we must not skip pages merely because they're marked archived, because an
+archived page can still be serving to the public. It has to be archived *and* never published — both
+halves. And it won't retire that rejected draft on its own; that one still needs closing by hand.
+
+**Third, we'll deliberately create a case that makes one of the safety gates refuse.** We've watched
+those gates pass but never seen one say no, so we don't actually know the refusal works. The plan is
+to correct a genuine overclaim on one page, deliberately not publish the correction, and let
+tomorrow's automatic run notice that the fix hasn't gone live yet. Nothing changes for visitors —
+the page keeps showing what it shows today — and we publish properly straight afterwards.
+
+I've picked the page for that carefully. The obvious-looking candidates are traps: several are
+flagged on a single digit like "3", which would match unrelated text forever and jam the item; and
+one is a privacy policy where the flagged "16" is the age in "we do not knowingly collect data from
+anyone under 16". Deleting that would damage a legal notice. The one I've chosen is flagged on a
+distinctive figure that can't collide with anything.
+
+**Fourth, the handoff itself is written** and everything above is in it, along with the traps, the
+exact file to change, the queries, and what each step should produce so the next session can tell
+success from a convincing-looking nothing.
