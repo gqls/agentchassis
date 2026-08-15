@@ -30,6 +30,35 @@
 > wins was checked). The `#94a0c2` branch of the three-way confirms the 5.0 binary ran — not
 > `#8a97bd` (4.5) and not `#F0F2F7` (nothing shipped).
 >
+> **Independent re-grade, 2026-08-15 10:42–10:46Z (second thread, arrived at the same verdict by a
+> different route — recorded because the ROUTE differs, not the answer).** The table above compares
+> served values against a table written BEFORE the rebuild. That is sound, but it cannot tell a
+> correct value from a value that is right for the wrong palette: a rebuild can move
+> `--color-background`/`--color-surface`, and a prediction against stale grounds agrees with itself.
+> So this pass **re-transcribed the grounds from the POST-rebuild stylesheet** and recomputed:
+>
+> | site | slot | served | recomputed from post-rebuild grounds | worst-of-4 |
+> |---|---|---|---|---|
+> | dartsonline | primary-ink | `#94a0c2` | `#94a0c2` ✓ | **5.122** |
+> | dartsonline | accent-ink | `#f18072` | `#f18072` ✓ | **5.125** |
+> | webdesign | accent-ink | `#915e2c` | `#915e2c` ✓ | **5.151** |
+> | webdesign | primary-ink | `#5c6b5d` | `#5c6b5d` ✓ *(no-op branch)* | 5.324 |
+>
+> Grounds were **unchanged** by both rebuilds, so the pre-written table was valid — now established
+> rather than assumed. All four clear 5.0 with margin; the thinnest is 5.122.
+>
+> **The control that makes this non-vacuous:** at 4.5 the same inputs give `#8a97bd`/`#ef7060` on
+> dartsonline — different hexes. The check could have come out otherwise.
+>
+> **webdesign's primary cannot discriminate anything** — `#5c6b5d` is both the pre-repair value and
+> the 5.0 value, because it already clears. What proves the rebuild ran is **accent moving
+> `#2b2b2b` → `#915e2c` in the same file.** Never grade webdesign on primary.
+>
+> **Baseline banked for the owed audit check: dartsonline had 17 open `contrast_failure` rows at
+> 2026-08-15 10:44Z** (`status NOT IN (complete, verified, rejected, wont_fix, cancelled, failed)`).
+> Compare after its next audit; a RISE is the regression signal. Round 1's emission would have
+> passed the colour table above and failed exactly here — which is why this half is not optional.
+>
 > **Remaining: §4 steps 4–5 — THE OWNER LOOKS.** dartsonline.com (one eyebrow label on the
 > homepage) and webdesign.co.uk (every in-prose link). His "Go" gates widening, one site at a
 > time, reading the served hex each time. Then §4 step 6 (the 168-component sweep) stays
