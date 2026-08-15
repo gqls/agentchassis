@@ -136,3 +136,36 @@ webdesign.co.uk's stylesheet was rebuilt ~10:46Z 2026-08-15 as the `bugs_open/12
 in-prose link moved `#2b2b2b` → `#915e2c` (5.15:1). **That is intended and owner-approved.** It
 touched `styles.css` only and cannot have created or affected these rows — `page_components` were
 not rewritten by it.
+
+## 8. PRESERVED EVIDENCE — the duplicate is a natural experiment, and the fix will destroy it
+
+**Banked 2026-08-15, before any repair.** The two sections are the same planned component, filled by
+the writer twice from the same context in the same build. That is a controlled comparison nobody
+would have thought to run, and **a plan edit + re-render deletes it permanently.** Recorded here so
+the fix does not have to be delayed to preserve it.
+
+Card titles are identical across both (§ update above). The **bodies** are not, and the split is the
+finding:
+
+| card | pos 2 vs pos 3 | body (position 2) | body (position 3) |
+|---|---|---|---|
+| 1 | **IDENTICAL** | "Colour contrast checks, layout generators, SVG tools and more, all running client-side" | *(same)* |
+| 2 | **DIVERGENT** | "**Practical explanations** of the CSS, accessibility rules and security mechanics **that sit…**" | "**Explanations** of the CSS, accessibility rules and security mechanics **behind the tools,…**" |
+| 3 | **DIVERGENT** | "**No team, no investors, no growth targets. Just someone who builds websites**, writing do…" | "**One person builds websites and writes down what they learn here**, with no team, no inve…" |
+| 4 | **IDENTICAL** | "Short updates on new tools, changed guides and anything else worth flagging as it's ad…" | *(same)* |
+
+**`[MEASURED]` 2 of 4 identical, 2 of 4 materially reworded — same facts, different sentences.**
+
+**Why this is worth more than "the md5s differ":** it is not blanket non-determinism. Cards 1 and 4
+are short and enumerative and converged **exactly**; cards 2 and 3 are longer and more discursive and
+diverged in structure while preserving content. `[INFERRED — N=1, not tested]` the plausible read is
+that constrained, list-shaped content converges and open-ended prose does not, but **one page cannot
+establish that** and it must not be repeated as a finding.
+
+**Consequence for anyone building acceptance gates on generated copy:** a gate that compares prose to
+prose would fail this pair on cards 2 and 3 while nothing is wrong — the same generator, the same
+inputs, twice. Compare declared sets, types and structure instead. Contributed to the
+`copy_quality_two_stage` lane, whose stage-2 design uses exactly that rule.
+
+**If the "why" diagnosis re-fills this section as part of a repro, capture the third generation** —
+the second data point is free at that moment and expensive at any other.
