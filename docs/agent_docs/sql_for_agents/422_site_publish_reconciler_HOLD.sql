@@ -23,10 +23,14 @@
 -- marker containing an em dash or any non-ASCII byte):
 --   P=$(kubectl -n ai-persona-system get pods -l app=agent-chassis -o name | head -1)
 --   kubectl -n ai-persona-system exec ${P#pod/} -- grep -aq "<full sha of the STAMP>" /proc/1/exe && echo stamp-present
---   kubectl -n ai-persona-system exec ${P#pod/} -- grep -aq "0000000000000000000000000000000000000000" /proc/1/exe && echo CONTROL-BROKEN-any-sha-matches
--- (positive control: the stamp sha must match; negative control: the zero
--- sha must NOT — if it does, the probe is matching Go's digit table, not a
--- stamp, and proves nothing.)
+--   kubectl -n ai-persona-system exec ${P#pod/} -- grep -aq "7f3a9c2e8b1d4f6a0c5e9b3d7a1f8c4e2b6d0a9f" /proc/1/exe && echo CONTROL-BROKEN-random-hex-matches
+-- (positive control: the stamp sha must match; negative control: the random
+-- hex value must NOT — if it does, the probe is not discriminating and
+-- proves nothing. ⚠ Do NOT use the all-zeros sha as the negative control:
+-- it is git's null-sha CONSTANT and legitimately embedded in git-aware
+-- binaries — it matched on v1.0.1303, a false CONTROL-BROKEN, measured
+-- 2026-08-15 while the random-hex control stayed clean and the stamp probe
+-- correctly discriminated 1-of-4 candidate shas.)
 --
 -- ALSO RE-VERIFY THE ZERO-CONSUMER CLAIM AT APPLY TIME (council round 2,
 -- prior_art seat: two of its four legs read tables outside some reviewers'
@@ -39,13 +43,15 @@
 --   SELECT count(*) FROM orchestration_states
 --     WHERE collected_data->'__execution_context__'->>'run_agent_type'='site-publisher';  -- slow (~2 min), full scan
 --
--- THEN apply with exactly these two commands from the repo root:
+-- THEN apply with exactly this command from the repo root:
 --   kubectl -n ai-persona-system exec -i postgres-clients-0 -- \
 --     psql -U clients_user -d clients_db -v ON_ERROR_STOP=1 \
 --     -f - < docs/agent_docs/sql_for_agents/422_site_publish_reconciler_HOLD.sql
---   ./scripts/migration/run-migrations.sh --record-only \
---     docs/agent_docs/sql_for_agents/422_site_publish_reconciler_HOLD.sql \
---     --note "hand-applied post-roll; HOLD was for image-before-seed ordering"
+-- ⚠ There is NO --record-only step: the runner REFUSES to record
+-- UPPERCASE-suffixed sidecars (by design — they are never in its apply
+-- model), measured 2026-08-15. The apply record is the lane NOTES entry +
+-- this header. STATUS: APPLIED 2026-08-15 ~22:00Z on v1.0.1303 (stamp
+-- 5e075a6f9, 71e4d9736 ancestry verified, 4-leg enumeration re-run = 0).
 -- Re-running after a successful apply is SAFE: the repurpose block detects
 -- the applied state and no-ops with a NOTICE (it will not stack snapshots).
 --
@@ -188,7 +194,10 @@ SELECT
   'Publish Reconciler',
   'Scheduler-dispatched shim: spawns a site-publisher pod (the storage-credentialed environment) and calls it with one site''s {site_id, domain}. All publish logic and all no-op decisions live in site-publisher''s publish_site action; this workflow only crosses the credential boundary. Fired by scheduled_tasks row site-publish-reconciler.',
   'orchestrator',
-  'orchestrator',
+  -- agent_category is CHECK-constrained (check_ad_category): only
+  -- strategist/executor/analyst/integrator/coordinator/specialist or NULL.
+  -- 'orchestrator' lives in the UNconstrained category column above.
+  'coordinator',
   'experimental',
   true,
   jsonb_build_object('workflow', jsonb_build_object(

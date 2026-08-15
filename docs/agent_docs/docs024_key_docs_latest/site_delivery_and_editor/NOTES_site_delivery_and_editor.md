@@ -189,3 +189,61 @@
 - Phase 2 session state: **everything session-local is done.** Remaining is
   the post-release sequence in the owed list above (release → verify pod →
   422 per its header → b2worker canary).
+
+## 2026-08-15 (night) — the release landed: roll verified, 422 APPLIED, canary armed
+
+- **Roll verified on v1.0.1303** (both replicas, started 18:45Z). The
+  provenance log line had rotated out entirely (~1h45m of high-volume logs),
+  so the binary probe carried it: stamp `5e075a6f9…` present on BOTH
+  replicas, three sibling commit shas absent (the probe discriminates),
+  random-hex negative control clean, and `git merge-base --is-ancestor
+  71e4d9736 5e075a6f9…` holds — **the running image carries `publish_site`.**
+- **Misstep → landmine**: my own 422 header prescribed the all-zeros sha as
+  the negative control and it FIRED — forty zeros is git's null-sha CONSTANT,
+  genuinely present in git-aware binaries. A false CONTROL-BROKEN that would
+  have stalled the seed. Filed in LANDMINES (synced) and the header now
+  prescribes a random 40-hex value.
+- **Seed 422 APPLIED ~22:00Z** after the 4-leg enumeration re-ran = 0/0/0/0.
+  Two apply-time discoveries, both fixed in the file:
+  1. `agent_definitions.agent_category` is CHECK-constrained
+     (`check_ad_category`: strategist/executor/analyst/integrator/
+     coordinator/specialist or NULL) — my `'orchestrator'` was rejected,
+     first apply rolled back CLEANLY (single transaction, snapshot included).
+     Re-applied with `'coordinator'`; `category` (unconstrained) keeps
+     `'orchestrator'`.
+  2. The runner REFUSES `--record-only` on UPPERCASE-suffixed sidecars, by
+     design — a `_HOLD` file is hand-run AND hand-tracked. The apply record
+     is the file's own header STATUS line + this entry; the header's old
+     record-only instruction is deleted.
+  Post-apply state verified by the seed's own DO block: site-publisher
+  repurposed (fossil snapshot in `agent_definitions_backup`, reason
+  `'422 pre-repurpose: upload_to_s3 fossil'`), publish-reconciler inserted,
+  schedule enabled at 600s.
+- **Canary armed ~22:04Z**: `noted.co.uk` (chosen for 0 open work items vs
+  ~24 on oufe/cookly) → `publish_target='b2worker'`,
+  `publish_project='noted.ugg2.com'` (target prefix confirmed EMPTY in the
+  bucket; source tree confirmed present; origin `index.html` sha256
+  `b4416c32…` captured for independent acceptance). Exactly 1 site opted in
+  fleet-wide. Timing note: the schedule's first tick (22:01:23Z) preceded the
+  opt-in, correctly gate-skipped on zero rows, and stamped — so the first
+  REAL pass runs at ~22:11:23Z, not immediately. A monitor watches the
+  chain (stamp → orchestration → published_hash).
+- **22:11–22:25Z — the canary RAN and caught a real defect.** Full chain
+  executed (tick → stamp → publish-reconciler → spawned
+  `agent-site-publisher-c08f7091-rl8hc` → publish_site) and failed at the
+  first upload: **HTTP 411 MissingContentLength** — B2's S3 gateway refuses
+  a bare stream; `copyOne` piped `Download()` straight into `PutObject`.
+  The spawn→call handshake worked first try (no race), the spawned pod HAD
+  its storage env — the seam's whole locality argument held; only the
+  upload body shape was wrong. **Why the tests missed it**: my fake's
+  `Upload` just read the stream — the defect lived at the environment
+  boundary the double couldn't see, the same MDL-040 class the cfpages
+  refusal exists to avoid. **Fix `b4981634d`**: buffer to `bytes.NewReader`
+  (seekable ⇒ SDK computes Content-Length); BOTH test fakes now refuse a
+  non-seekable body, and the guard is mutation-proven (reverting to
+  streaming fails the copy test with the production failure shape). Zero
+  objects landed (first file failed), `published_hash` never written —
+  the acceptance gate held. Canary DE-ARMED (`publish_target=NULL`,
+  project kept) until the fix rides the next owner release; re-arm recipe
+  in the handoff §1. Phase 3 note: the ZIP action must NOT buffer whole
+  objects this way — stream with known length or use multipart.
