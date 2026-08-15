@@ -305,3 +305,89 @@ It still does not explain `bugs_open/213` §D (items completing with a foreign b
 payload). §9 downgraded that link and 10.1–10.3 do not restore it: a delivered *failure* still
 predicts errored / needs-review items, not `complete` ones. **§4 remains doubted.** Treat 213 §D
 as an open question with no current candidate.
+
+---
+
+## 10. FIX BUILT, 2026-08-15 — §9's candidates 1 + 3, plus the failure arm's envelope. OPEN until it rolls.
+
+Picked up by a fresh lane (session `ae908c77`, "bugfix 274"). Everything in §9 re-verified at
+HEAD first-hand before editing: the literal, the validator's five-field rule, `ToMap` emitting
+no `step_name` key, and the onset — `git log -L :notifyParentOfSuccess:` shows the literal
+byte-for-byte unchanged from `11394b220` (2026-01-11) through `2d976c026` (2026-08-03), which
+swapped plain `Produce` → validated `kafka.DeliverReply`. **The headers were always empty; what
+changed on 08-03 is that something started checking.** Still firing at pickup: 2,610 rows since
+§9 was written, latest 07:59Z.
+
+**What shipped (one commit, `Council-Submitted: 573526cd-7a4a-4f91-abf9-b44f866759d6`):**
+
+- `notifyParentOfSuccess` sets `Sender` (new `ownIdentity` helper — the same five-field
+  `AgentIdentity` shape the coordinator already stamps at four other sites, from
+  `state.OwnerAgentType/ID/Role` + `s.podName`; OwnerAgentType is the RSH-009-resolved type) and
+  `InResponseToStepName` (new `parentReplyStepName` helper — recovered from
+  `__execution_context__`/`__work_request__`, both written once at state creation by the same
+  `BuildCollectedData` that writes the two `__parent_*` keys this function already trusts;
+  handles the post-DB map shape and the pre-persist typed shape). Empty recovery → an Error log
+  naming this bug, then exactly today's behaviour (validation refuses, failure arm fires).
+- `notifyParentOfFailure` gains the same two fields **plus `ClientID`, which it never set** —
+  its reply passed the parent's incoming validation only via the `is_error` bypass (found by
+  this lane's parent-side sweep; the produce itself is unvalidated so this is truthfulness,
+  not deliverability).
+- `platform/kafka`: `ProduceWithValidation` now returns a typed exported
+  `ErrMessageValidationFailed` (text unchanged), and `DeliverReply` classifies it
+  **`FailedUndeliverable`** — §9's "second, smaller defect": a deterministic refusal was
+  labelled `failed_transient` ("try again") for 12 days. Degrader does not run (refused for
+  headers, not size). ADP-017's register entry updated in the same commit.
+- Tests: `platform/orchestration/reply_headers_validation_test.go` runs the **real**
+  `validation.NewValidator` over the headers the coordinator **really** produced (the 158
+  tests' double deliberately skips validation — which is exactly how this bug stayed invisible
+  to them), with a mutation control proving the refusal is reachable (blanked identity + removed
+  step-name sources must FAIL the real validator); plus a `parentReplyStepName` table test, the
+  failure-arm envelope test, and `TestDeliverReplyValidationRefusalIsUndeliverable` in
+  `platform/kafka`.
+
+**Why §9's candidate 2 (a constructor making the five fields compulsory) was NOT taken:**
+15 `ResponseHeaders{}` literal sites share that type across `platform/` and `internal/`; making
+construction compulsory is an architecture-scope refactor of a shared seam for which this bug
+is thin justification — and the census (this lane, 2026-08-15) found `coordinator.go:3710` is
+the **only** site that is validated + non-error + missing fields, because the validator is
+injected in exactly one place (`agentbase/agent.go:311`). The validated-headers test closes the
+same door at the seam that actually has a validator. Two latent near-misses recorded rather
+than fixed: `agentbase/agent.go:1868` (`SendInitializationResponse` — validated, non-error,
+fields set, but a runtime-empty `spawnRequest.Headers.StepName` would reproduce this exact
+refusal) and `internal/adapters/imagegenerator/dynamic_adapter.go:742` (`sendErrorResponse`
+sets `Status:"error"` but not `IsError`, so it is error-path by intent and same-bug-shaped by
+field values if a validator is ever injected there).
+
+**Parent-side blast radius of populating the headers: none** (this lane's sweep). Replies are
+matched by `in_response_to_request_id` alone (claim SQL `WHERE request_id=$1 AND
+status='waiting'`); the two headers are unread on the response path except log strings, dead
+code, and `persistReportedConditions` — which reads the JSON envelope's `Sender.AgentType`
+only when a body carries `reported_conditions`, i.e. a designed, sanctioned-gated mechanism
+that was dark only because the reply never arrived.
+
+**Parent-side damage, measured at fix time** (adds to §2's child-side census): since 08-03,
+16,869 child-side "could not be delivered" rows; parent-side `CHILD_ORCHESTRATION_FAILED`
+788 at severity `error` (= `routeToErrorStep`) + 34 `fatal` (= cascaded `failWorkflow`, the
+fabricated failure climbing a level) + unrecorded `continue_on_error` loop-skips. The
+fabricated message contains "validation" → the permanent-needle classifies it
+`error_unrecoverable`, so **no parent ever retried**. And per 213 §D's live repro (2026-08-14
+20:15Z), a parent completing a work item after this failure substitutes a foreign payload —
+so this defect is also the *trigger* for that class of false completions (the substitution
+itself is 213's lane, not fixed here).
+
+**Verify after the next roll (fixed-AND-LIVE is the closing bar):**
+1. Provenance, per service: `kubectl -n ai-persona-system logs -l app=agent-chassis --tail=300
+   | grep -m1 'build provenance'` → `git merge-base --is-ancestor <this fix's commit> <stamp>`.
+2. Effect: `SELECT count(*) FROM agent_error_log WHERE error_message LIKE '%message validation
+   failed%' AND occurred_at > '<roll time>';` → ~0. **With a demand control** (a post-fix zero
+   needs demand): completed child orchestrations in the same window > 0, e.g.
+   `SELECT count(*) FROM orchestration_states WHERE status='COMPLETED' AND
+   parent_orchestration_id <> '' AND updated_at > '<roll time>';` and the child-side Info line
+   `Successfully notified parent of workflow completion` present in chassis logs.
+3. Any residual rows post-roll now name their field: this fix's empty-step-name Error log cites
+   bugs_open/274 directly.
+
+**Unrelated but observed at fix time, so my commit is not blamed for it:**
+`TestDefaultBeatsTheRecursiveSearch` (`platform/orchestration/datahelpers`) fails at clean
+HEAD (verified via `git archive HEAD` in a scratch dir) — pre-existing, referenced by the
+209/231 lane's notes, not touched by this fix.

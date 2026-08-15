@@ -12175,6 +12175,13 @@ exactly one site (`platform/kafka/producer.go` `ProduceWithValidation`) and is r
 a validator is injected and rejects the HEADERS — that validator requires `client_id`,
 `correlation_id`, `orchestration_id`, `sender_agent_type` and a step name, and logs an `Error`
 naming each, so **a pod log at the moment of failure identifies the missing field with no new
-code.** The wrapper that turns that error into the `agent_error_log` template is still unlocated,
-and `bugs_open/274` says so rather than guessing — a partial mechanism, honestly bounded, beats a
-complete one that is invented.
+code.** ~~The wrapper that turns that error into the `agent_error_log` template is still unlocated,
+and `bugs_open/274` says so rather than guessing~~ — a partial mechanism, honestly bounded, beats a
+complete one that is invented. **CORRECTED 2026-08-14 (same evening) and FIXED 2026-08-15:** the
+wrapper was located hours after this entry was written — it is `SagaCoordinator.notifyParentOfSuccess`
+(274 §9, from a live stack trace): the coordinator's own reply literal omitted `Sender` and
+`InResponseToStepName`, so a SUCCEEDED child was reported to its parent as FAILED, deterministically.
+The honest bound was right to state and cost nothing; the located mechanism superseded it within
+hours, which is the pattern working as intended. Fix (2026-08-15, `bugs_open/274` §10): both notify
+literals now carry the full envelope, and a validation refusal classifies as `FailedUndeliverable`,
+not transient.

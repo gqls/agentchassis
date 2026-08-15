@@ -6396,9 +6396,18 @@ Two more in the same family, both cheap to get wrong:
   `SELECT ref, commit_time FROM code_symbols GROUP BY 1,2`. A daily job that succeeds against a
   dead branch looks exactly like a healthy index.
 - **source:** 2026-08-07, code-review triage lane (`code_review_triage_2026-08-05/` NOTES §18).
-  Root cause of the validation rejection **NOT diagnosed** — `reply_to_request_id` is empty in
+  ~~Root cause of the validation rejection **NOT diagnosed** — `reply_to_request_id` is empty in
   the *failure* message and `DeliverReply` keys on it, but that is a **[HYPOTHESIS]**, not a
-  finding: the inspected message is not the rejected one.
+  finding: the inspected message is not the rejected one.~~ **HYPOTHESIS REFUTED 2026-08-15
+  (bugfix 274 lane): the cause was never `reply_to_request_id`** — it is two headers the success
+  literal NEVER SET (`sender_agent_type` via `Sender`, and `in_response_to_step_name`), located
+  from a live stack trace in `bugs_open/274` §9 and **FIXED 2026-08-15** (§10): both
+  `notifyParent*` literals now carry the full envelope, and a validation refusal classifies as
+  `FailedUndeliverable` instead of `failed_transient`. After the fix rolls, the failure mode this
+  entry documents (verdict computed, rejected in transit, only copy reaped in 24h) should stop
+  occurring for THIS cause — the recovery queries above stay valid for any other undeliverable
+  reply. Marking the hypothesis honestly as `[HYPOTHESIS]` is what let it be cheaply refuted
+  rather than inherited: the marker rule working as intended.
 
 ## `strings <binary> | grep -c` counts DISTINCT strings, not SITES — the Go linker dedupes identical literals, so a de-duplication refactor moves the number you are using to prove it shipped
 - **footprint:** `strings /app/agent-chassis`; `grep -c`; `strings`;

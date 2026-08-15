@@ -216,3 +216,31 @@ func TestDeliveryOutcomeNamesAreDistinct(t *testing.T) {
 		seen[s] = true
 	}
 }
+
+// bugs_open/274: a validation refusal is deterministic for the message — the
+// same bytes can never pass on any retry — so it must classify as
+// FailedUndeliverable (caller answers with an error response), never as
+// FailedTransient ("try again"), and the degrader must not run: the reply was
+// refused for its HEADERS, not its size, so no smaller payload can help.
+func TestDeliverReplyValidationRefusalIsUndeliverable(t *testing.T) {
+	p := &scriptedProducer{errs: []error{ErrMessageValidationFailed}}
+	degradeCalled := false
+	outcome, err := DeliverReply(context.Background(), p, zap.NewNop(), "t", nil, nil,
+		[]byte("full"), func() ([]byte, error) { degradeCalled = true; return []byte("small"), nil })
+
+	if outcome != FailedUndeliverable {
+		t.Fatalf("outcome = %v, want FailedUndeliverable — a deterministic refusal reported as transient is bugs_open/274's second defect", outcome)
+	}
+	if !errors.Is(err, ErrMessageValidationFailed) {
+		t.Errorf("the validation error must be returned for the caller's error response, got %v", err)
+	}
+	if degradeCalled {
+		t.Error("degrader ran on a validation refusal — the reply was refused for its headers, not its size")
+	}
+	if p.calls != 1 {
+		t.Errorf("produce attempts = %d, want 1 (no resend of bytes that cannot pass)", p.calls)
+	}
+	if outcome.Answered() {
+		t.Error("FailedUndeliverable must not count as answered")
+	}
+}

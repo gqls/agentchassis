@@ -3,6 +3,7 @@ package kafka
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"runtime"
 	"time"
@@ -10,6 +11,14 @@ import (
 	"github.com/segmentio/kafka-go"
 	"go.uber.org/zap"
 )
+
+// ErrMessageValidationFailed is returned by ProduceWithValidation when the
+// injected validator rejects a non-error message's headers. It is DETERMINISTIC
+// for the message: the same bytes can never pass on a retry, so callers (and
+// DeliverReply's classification) must treat it as permanent, not transient
+// (bugs_open/274). The text is unchanged from the previous bare error so every
+// existing log search still matches.
+var ErrMessageValidationFailed = errors.New("message validation failed")
 
 // Producer defines the interface for Kafka message production
 type Producer interface {
@@ -124,7 +133,7 @@ func (p *KafkaProducer) ProduceWithValidation(ctx context.Context, topic string,
 			return p.Produce(ctx, topic, headers, key, value)
 		}
 
-		return fmt.Errorf("message validation failed")
+		return ErrMessageValidationFailed
 	}
 
 	// Validation passed, send the message

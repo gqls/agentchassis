@@ -141,11 +141,24 @@ func DeliverReply(
 		return Delivered, nil
 	}
 
+	if errors.Is(err, ErrMessageValidationFailed) {
+		// A validation refusal is PERMANENT for this message: the headers are
+		// wrong by construction, so the same bytes can never pass on any retry
+		// (bugs_open/274 — this was classified transient and a deterministic
+		// defect spent 12 days being reported as "try again"). Undeliverable,
+		// so the caller must answer with an error response, exactly as for an
+		// oversize reply with no degraded form.
+		logger.Error("Reply refused by outgoing-message validation — permanent for this message, caller must send an error response",
+			zap.Error(err),
+			zap.String("topic", topic),
+			zap.String("correlation_id", headers["correlation_id"]))
+		return FailedUndeliverable, err
+	}
+
 	if !IsMessageTooLarge(err) {
-		// Transient: broker unreachable, validation refusal, context cancelled.
-		// Resending the same bytes may well work, so the caller's existing
-		// retry path stays in charge and we do not degrade a reply that was
-		// never too big.
+		// Transient: broker unreachable, context cancelled. Resending the same
+		// bytes may well work, so the caller's existing retry path stays in
+		// charge and we do not degrade a reply that was never too big.
 		logger.Error("Failed to produce reply",
 			zap.Error(err),
 			zap.String("topic", topic),
