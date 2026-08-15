@@ -30,7 +30,16 @@ REQ=$(cat /proc/sys/kernel/random/uuid)
 MSG=$(cat /proc/sys/kernel/random/uuid)
 TS=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
-RECOMPOSE='["guide-can-i-overpay","guide-car-finance-explained","guide-debt-consolidation-explained","guide-debt-help-uk","guide-document-checklist","guide-finance-damage-and-insurance","guide-fixed-vs-variable-loans","guide-hidden-loan-fees","guide-how-loans-are-calculated","guide-jargon-buster","guide-loan-eligibility-uk","guide-secured-vs-unsecured","guide-uk-lending-landscape","index","legal","tool-application-tracker","tool-car-finance-calculator","tool-compare-loans","tool-consolidation","tool-credit-health-check","tool-credit-roadmap","tool-damage-checker","tool-interest-rate-stress-test","tool-loan-vs-savings","tool-overpayment-calculator","tool-settlement-calculator"]'
+# SCOPE REVISED 2026-08-15 ~14:30Z (was: all 26). Phase 1's build wave already
+# regenerated the 14 guides + legal (self-composing builders); recomposing them
+# again would only churn. What remains needing PLAN COMPOSITIONS — the builders
+# for landing/tool pages refuse to run without them (`spec_sections count 0,
+# source none` escalated needs_page:index at 11:57Z) — is the 12 tool-carrying
+# pages: index + the 11 tool pages. Their open review items (needs_page:index at
+# needs_human_review + 11 owned_page_review) are the vehicles that realise these
+# compositions; the reconciler will skip-as-queued, so expect NO new items from
+# this run — just plan sections + RECOMPOSE tells.
+RECOMPOSE='["index","tool-application-tracker","tool-car-finance-calculator","tool-compare-loans","tool-consolidation","tool-credit-health-check","tool-credit-roadmap","tool-damage-checker","tool-interest-rate-stress-test","tool-loan-vs-savings","tool-overpayment-calculator","tool-settlement-calculator"]'
 
 echo "== PRE-STATE (save this output) =="
 $PSQL -tA -c "SELECT now() AS db_fire_time;"

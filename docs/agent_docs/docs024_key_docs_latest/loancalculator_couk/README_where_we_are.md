@@ -1922,3 +1922,17 @@ was built on. One decision has grown: the design tickets you parked on the 12th 
 now the only thing stopping the site's look (chrome, styles, favicon, imagery) from
 being regenerated too — un-parking them is your call, since parking them was too.
 A watcher is on the rebuild; next update when it settles or if anything fails.
+
+2026-08-15 (afternoon) — Fourteen of the fifteen pages rebuilt cleanly and are
+serving — checked at the live site, not just the tickets. The fifteenth, the
+homepage, stopped itself: it turns out pages of its kind only rebuild from an
+explicit layout in the plan, and the plan didn't carry one, so it queued itself for
+review and changed nothing — the calculator never came under threat. That same fact
+un-shelved the second launch stage: it exists precisely to put layouts in the plan
+for the homepage and the eleven calculator pages, so I've fired it for just those
+twelve (not the fourteen already rebuilt — no point churning them). It writes plans
+only; no live page changes until the review tickets are worked, which remains your
+call. One embarrassment, logged in the wrong-calls file: I fell into the exact trap
+I'd written up two hours earlier — the two new pages' build tickets sat invisible
+for three hours because my own script filed them one state too early; they're
+building now.

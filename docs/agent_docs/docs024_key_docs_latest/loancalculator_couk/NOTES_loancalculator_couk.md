@@ -5357,3 +5357,42 @@ Checkpoint results (script in this dir, three schema-guess fixes on the way —
   nothing will regenerate chrome/styles until those keys free. Un-deferring
   reverses an explicit owner parking, so it is D3-EXPANDED in the handoff, not
   a session action.
+
+### 2026-08-15 ~14:30Z — build wave verified (14/15 + deploy), the homepage escalation decoded, the detected-trap repeated on my own trio, and PHASE 2 FIRED scoped to the 12 tool-carrying pages
+
+**Build wave: 14 of 15 needs_page COMPLETE, zero failures, and VERIFIED AT THE
+ARTEFACT, not the status:** sampled pages carry all-fresh `page_components` rows
+post-plan (guide-can-i-overpay 3/3 touched 11:04, guide-jargon-buster 3/3 11:47,
+legal 2/2 11:59); `reconcile_rerender:34b1b056` complete; serving **27/29** — the
+two fails are exactly the not-yet-built about + guides-index (expected). Calc locks
+12/12 throughout.
+
+**The homepage did NOT rebuild, and the mechanism is now decoded** (orch `936f7ff9`,
+completed_by_step `mark_no_ready_sections`, 11:57Z): `spec_sections: count 0,
+source "none"` — the landing-page builder REQUIRES plan compositions and plan
+34b1b056 carries none for index, so it escalated `needs_page:index` to
+needs_human_review and touched NOTHING (index components 0/5 changed since 08-14 —
+conservative and correct; the locked calculator never even came into play).
+**Guide-type builders self-compose; landing/tool builders build only from plan
+sections.** That is why the 14 guides+legal rebuilt and index+the 11 tool pages
+cannot — and it reverses the phase-2 hold: **phase 2 is the mechanism that
+supplies those compositions.**
+
+**The detected-trap, repeated by ME, ~3 hours lost:** the checkpoint script's
+un-defer wrote `status='detected'` — authored BEFORE the born-triaged rule was
+discovered, and never re-checked after; the handoff note I added even generalised
+it away. The trio sat invisible 11:05→14:21 while every sibling completed. Moved
+to `triaged` 14:21 (script + handoff corrected; WRONG_CALLS entry — "a new rule's
+first enforcement target is the tooling you wrote before you knew it").
+
+**PHASE 2 FIRED 14:23:32Z (DB clock), corr `2f74a975-1a87-40a8-af88-a9bd2ecc1510`,
+SCOPE REVISED 26→12** (index + the 11 tool pages; recorded in the script header):
+the 14 guides+legal are already regenerated — recomposing them would only churn.
+Expected outcome: plan compositions for the 12 (placement gate active,
+plan_includes_tools seeded), RECOMPOSE tells for any no-op, NO new work items
+(the reconciler skips-as-queued — needs_page:index at review + 11
+owned_page_review are open and become the vehicles that realise the new
+compositions). Phase 2 mutates NO live page: tool rebuilds stay human-gated
+(D2), index waits at review until re-driven. Pre-state at fire: 30 rows/29
+active, identity md5 `fd2c09c2…` (differs from `e6dd8fb8…` ONLY by the two
+restored rows' status — expected), locks 12, plan 34b1b056.

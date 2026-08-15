@@ -27,7 +27,7 @@ echo "== 6. Page identity md5 of the 27 pre-fire built pages (name|url|page_type
 $PSQL -tA -c "SELECT md5(string_agg(name||'|'||url||'|'||page_type||'|'||status, E'\n' ORDER BY name)) FROM pages WHERE site_id='$SITE' AND name NOT IN ('about','guides-index') AND created_at < '$FIRE';"
 
 echo "== 7. UN-DEFER the three owner-mandated items (idempotent; RETURNING shows what moved) =="
-$PSQL -c "UPDATE site_work_items SET status='detected' WHERE id IN ('222ecf94-d8f2-4ae1-b689-8ba12e08d953','a52e59d8-3c6c-4f3e-8f2b-121c295af66f','ad289c0e-30c1-4646-8870-20e14887d952') AND status='deferred' RETURNING left(id::text,8), item_key, status;"
+$PSQL -c "UPDATE site_work_items SET status='triaged' WHERE id IN ('222ecf94-d8f2-4ae1-b689-8ba12e08d953','a52e59d8-3c6c-4f3e-8f2b-121c295af66f','ad289c0e-30c1-4646-8870-20e14887d952') AND status='deferred' RETURNING left(id::text,8), item_key, status;"
 
 echo "== 8. Locked calculator rows still 12/12 untouched =="
 $PSQL -tA -c "SELECT count(*) FROM page_components pc JOIN pages p ON pc.page_id=p.id WHERE p.site_id='$SITE' AND pc.locked_by='decompose_20260802_proven_calculators' AND pc.locked_at IS NOT NULL;"

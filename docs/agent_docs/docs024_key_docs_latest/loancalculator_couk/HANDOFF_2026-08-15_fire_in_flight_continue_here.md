@@ -103,10 +103,14 @@ new items listing.
 
 ## OWNER DECISIONS OPEN (REVISED ~11:15Z; nothing blocks the running rebuild)
 
-- **D1 (revised) — phase 2:** ON HOLD, probably unnecessary (see correction
-  above). Decide after the 15 auto-rebuilds verify: if build-time compositions
-  kept the calculators placed, phase 2 adds only plan-level records + the
-  RECOMPOSE tell — skip it unless those are wanted.
+- **D1 (RE-REVISED ~14:30Z — PHASE 2 FIRED, scoped 26→12):** the hold reversed
+  when the homepage escalation decoded — landing/tool builders REQUIRE plan
+  compositions (`spec_sections count 0, source none` → `mark_no_ready_sections`);
+  guide builders self-compose. Phase 2 supplies exactly those compositions and
+  mutates no live page. Fired corr `2f74a975-1a87-40a8-af88-a9bd2ecc1510`
+  14:23:32Z, scope = index + the 11 tool pages (the 14 rebuilt guides+legal
+  excluded to avoid churn). Judge queries in the script's output; the open
+  review items are the vehicles that realise the compositions.
 - **D2 — the 11 tool-page reviews (ALREADY MINTED, `owned_page_review:*`):**
   per page or in bulk — realise the redesign deliberately / leave the built page
   as-is (locks keep the calculators regardless) / authorise a bulk-apply gated
@@ -117,10 +121,10 @@ new items listing.
   hero `15d6323f`, homepage hero `34b3ace1`) all sit deferred and DEDUP-BLOCK
   fresh mints. Consequence: the planner's emit_design produced NOTHING, so the
   released chrome/css will NOT regenerate until these free up. Un-deferring
-  reverses the owner's own 08-12 parking → owner call. (Born-triaged rule does
-  NOT apply to un-defers — 'detected' is fine for chain-visible types, but note
-  needs_design/needs_composition are dispatched by the same poller: set them
-  'triaged' if un-parking.)
+  reverses the owner's own 08-12 parking → owner call. (**CORRECTED ~14:30Z: the born-triaged
+  rule applies to EVERY hand-moved item** — the previous sentence here said
+  'detected' was fine for some types and that was WRONG, proven by the trio
+  sitting invisible for 3 hours. Un-park = set `'triaged'`, always.)
 - **D4 (housekeeping, later):** 13 lock_blocked_change + 6 content_rewrite at
   needs_human_review + the remaining parked items + blocked bugs_open/189
   rerender — mostly superseded by the rebuild; sweep once it settles.

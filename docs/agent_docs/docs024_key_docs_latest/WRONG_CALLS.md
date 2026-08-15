@@ -31885,3 +31885,24 @@ against it sat one dispatch away.
 [[a-record-goes-stale-faster-than-its-reader-can-tell]] · [[prior-art-search-goes-stale]] ·
 [[a-post-fix-zero-needs-a-demand-control]] (same shape: a zero you predicted is not a zero you
 measured).
+
+## 2026-08-15 — I wrote the born-triaged rule at 11:00 and violated it at 11:05 (loancalculator lane)
+
+**The claim:** the checkpoint script's un-defer step set the three restored-page work items to
+`status='detected'`, and the handoff I cut the same hour even generalised "'detected' is fine for
+chain-visible types". The dispatcher polls ONLY `triaged`/`approved` — the exact finding I had
+just written into NOTES, the handoff, and the fleet memory after the briefing item sat invisible
+for two hours that same morning.
+
+**Caught by:** the rebuild watcher's 3-hour timeout — 14 of 15 sibling rebuilds were complete
+while the trio sat untouched at `detected`, which made the un-moved items conspicuous.
+
+**The cheap check that would have caught it:** grep your OWN pending scripts for the state you
+just discovered is inert (`grep -n "status='detected'" *.sh`) the moment the rule is written. A
+new rule's first enforcement target is the tooling you wrote before you knew it.
+
+**Cost:** ~3 idle hours on the two owner-wanted pages (no damage — items re-triaged 14:21Z and
+built normally). The deeper lesson: writing a rule down is not applying it; the script written
+five minutes before the rule predates it and does not inherit it.
+
+---
