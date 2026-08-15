@@ -1,9 +1,29 @@
-# HANDOFF 2026-08-15 — relay release-proof (PROVEN on a real roll), chat box is a gated library tool, PLAN step 3 is next — SUPERSEDES HANDOFF_2026-08-13
+# HANDOFF 2026-08-15 — relay release-proof (PROVEN on a real roll), chat box is a gated library tool, OWNER DECISIONS IN (evening): step 3 GO + fix the improvement loop — SUPERSEDES HANDOFF_2026-08-13
 
 **Start here cold.** Read order: this file → NOTES tail (2026-08-13 evening
 through 2026-08-15) → PLAN_2026-08-11 §3 (the step you are about to run) →
 the sibling lane's newest `ai_site_selling_automation/HANDOFF_*` (they move
 fast and their surface is shared with ours).
+
+**OWNER RULINGS 2026-08-15 (evening) — supersede §3's open list below:**
+1. **Experience-planner run: GO.** Do it (work item 1 in §2).
+2. **The improvement loop that tried to remove the chat box: CHECK AND FIX
+   IT.** The box STAYS (lock stays on) until that fix lands — the
+   `needs_human_review` row is answered by the fix, not by a dismissal.
+   New work item 2 in §2.
+3. Stripe keys: **later** — not now.
+4. Webhook exposure: **proxy through the webdesign.uk box** (option (a),
+   over this lane's tunnel) — decided "for now". Building the nginx block
+   is sanctioned; it can be built and tested ahead of the keys.
+5. Payment timing: **TAKE MONEY FIRST.** This triggers the sibling lane's
+   pay-after-approval → upfront copy migration (relayed to their NOTES
+   2026-08-15).
+6. Build duration ("three or four days"): **UNDECIDED — do not change the
+   copy.** Nuance worth preserving: the owner says he had already chosen
+   "one or two", and is now considering letting the improvement loop run
+   for a while before releasing the design; explicitly left open.
+7. CTA buttons ink vs egg-gold: **UNDECIDED** — owner will check himself;
+   do not act.
 
 ## 0. State in one paragraph
 
@@ -38,47 +58,65 @@ NOTES file.
   ClusterIP `10.21.127.41` because box cluster-DNS is unresolved — the lane's
   one remaining fragility (survives pod restarts, not a Service recreate).
 
-## 2. Next work, in order
+## 2. Next work, in order (reordered per the evening rulings)
 
-1. **PLAN step 3 — `experience-planner`, once, for "site chat intake"**
-   (PLAN §3): produces the approved `EXPERIENCE_PLAN` — journeys, promise
-   ledger (per-IP rate limit, turn cap, spend ceiling, fail-closed to real
-   contact details — already built+mutation-tested in Go, now stated as
-   contract), data contracts (which per-site parameters a deployment needs),
-   MVP cut. The four-critic council with honesty hard-veto is the gate.
-   **Owner gave no explicit go in-session — ask, or treat "carry on" as the
-   go if the queue is healthy.** Steps 5–6 (tool-deployer backend extension,
-   tool-suggester wiring) cite this plan; do not start them first.
-2. **Box DNS durability** — make cluster names resolve from the box (wg0
+1. **PLAN step 3 — `experience-planner`, once, for "site chat intake"
+   (OWNER: GO).** PLAN §3: produces the approved `EXPERIENCE_PLAN` —
+   journeys, promise ledger (per-IP rate limit, turn cap, spend ceiling,
+   fail-closed to real contact details — already built+mutation-tested in
+   Go, now stated as contract), data contracts (which per-site parameters a
+   deployment needs), MVP cut. The four-critic council with honesty
+   hard-veto is the gate. Steps 5–6 cite this plan; do not start them first.
+   Dispatch mechanics: check the queue first (CLAUDE.md § Dispatching);
+   no dispatch within ~300s of a chassis pod (re)start.
+2. **Diagnose + fix the improvement-loop path that tried to REMOVE the
+   locked chat box (OWNER: "check and fix"; the box stays until fixed).**
+   Evidence to start from: work item `a4cd5dc8-ddf6-4d00-99ca-ab804d2ef6f9`
+   (`lock_blocked_change`, `needs_human_review`) — "save_page_sections
+   wanted to remove locked section chat-input-box on page contact",
+   2026-08-11, i.e. an improvement/rebuild pass regenerated the section list
+   WITHOUT the locked section and only the lock stopped the loss. Prior art
+   to grep before filing: `bugs_closed/058` (rebuild path does not honour
+   page_component locks — closed, this may be a NEW path), `bugs_open/268`
+   (regeneration drops CTA URLs on unlocked components — CLOSED 08-14, read
+   its record), `bugfix_149`'s "widening what REACHES a function breaks it
+   unedited". Footprints: `save_page_sections` /
+   `platform/orchestration/actions/lock_policy.go` / whatever improvement
+   agent produced the change. **This is a cross-cutting root-cause claim →
+   090 needs_diagnosis per CLAUDE.md's default** (the 090 trigger
+   self-checks the queue). The fix's acceptance: an improvement pass over
+   the contact page KEEPS the locked section in its proposed section list —
+   not merely "the lock blocked it again".
+3. **Webhook proxy on the box (OWNER: option (a) decided).** Small nginx
+   `location` block on webdesign.uk receiving Stripe's public HTTPS webhook
+   and `proxy_pass`ing over the tunnel to auth-service. Can be built + tested
+   now (curl a dummy POST end to end); it goes live-meaningful only when the
+   owner adds the keys (LATER — ruling 3). Coordinate with the sibling lane
+   before touching their nginx surface; box nginx config is this lane's.
+4. **Box DNS durability** — make cluster names resolve from the box (wg0
    `DNS=10.21.0.10` line is inoperative), then move `FACTS_URL` off the
    pinned ClusterIP. Read-only diagnosis first (`resolvectl status wg0`,
-   `dig @10.21.0.10` over the tunnel); the tunnel-health recipe is in RUNBOOK.
-3. **Bugs for pickup (either lane, or a fresh thread):** `bugs_open/275`
-   (tool-suggester LIMIT 30 hides 38/68 tools — fix candidates ranked in the
-   file) · `bugs_open/276` (section-level `requires-backend` components
-   ungated in generic planning — VMB-010's section half; the council demanded
-   this be tracked, it is now the concrete follow-up).
-4. **Migration dry-run** (`./scripts/migration/run-migrations.sh`, no args) —
-   per-session practice, and a roll just happened. It can take >2 min; run it
-   in the background. Pending files seen 08-14 belonged to other threads —
-   do not `--apply` unscoped.
+   `dig @10.21.0.10` over the tunnel); tunnel-health recipe in RUNBOOK.
+5. **Bugs for pickup:** `bugs_open/275` (LIMIT 30 hides 38/68 tools) ·
+   `bugs_open/276` (section-level requires-backend ungated — related to
+   work item 2's class: both are "the loop rewrites what it should
+   preserve/gate").
+6. **Migration dry-run** (`./scripts/migration/run-migrations.sh`, no args)
+   — per-session practice, and a roll just happened. >2 min, run in
+   background; pending files seen 08-14 were other threads' — never
+   `--apply` unscoped.
 
-## 3. Owner decisions OPEN (mine to surface, not to make)
+## 3. Owner decisions — mostly RULED (see the block at top); still open:
 
-1. **Step 3 go/no-go** (above — credits, one run).
-2. **The blocked chat-box removal** (`lock_blocked_change`, `a4cd5dc8`,
-   `needs_human_review`): keep the chat box on contact (dismiss the sweep's
-   change) or release the lock. Recommendation: keep — it is the product demo.
-3. *(Sibling lane's, listed for the whole-chain view — decide with them:)*
-   **Stripe keys** (test mode; ⚠ via 047-base-configs terraform vars, NEVER
-   kubectl — proven twice this week that a kubectl-added key dies at the next
-   release) · **webhook exposure path** (their (a) = proxy over MY tunnel —
-   exists, proven) · **pay-first vs build-first** (a copy migration, all five
-   pages say pay-after-approval today; my 08-13 money-first recommendation
-   stands for the automated path) · **"three or four days"** build-duration
-   fact (re-attest or replace — the bot speaks the new value within 5 min of
-   the register change) · **CTA buttons ink vs egg-gold** (their evening
-   note awaits preference; their honest case is for ink).
+- **Stripe keys timing** — "a bit later"; when they come: via
+  047-base-configs terraform vars, NEVER kubectl (a kubectl-added key dies
+  at the next release — proven twice this week).
+- **Build-duration copy** — UNDECIDED (ruling 6's nuance recorded at top);
+  do not touch the "three or four days" wording, and note the owner is
+  weighing letting the improvement loop run before releasing the design.
+- **CTA buttons ink vs egg-gold** — owner checking himself; do not act.
+- **Old subscription scaffold deprecation** — sibling's list, after the
+  first real sale; unchanged.
 
 ## 4. Coordination (owner instruction, 2026-08-14 — standing)
 

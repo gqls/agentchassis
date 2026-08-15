@@ -1224,3 +1224,11 @@ experience plan; and confirm the chat box stays on the contact page — an
 automated tidy-up tried to remove it and the lock stopped it), plus the
 money-loop decisions on the other thread — the full list is in today's chat
 summary and the new handoff.
+
+Same evening — you decided: run the chat experience plan; find and fix
+whatever made the automated tidy-up try to remove the chat box (it stays put
+until that's fixed); Stripe keys a bit later; the payment confirmation will
+come in through the webdesign.uk box for now; and take money first — which
+sets the other thread's copy change in motion. You left the build-time
+wording and the button colour open on purpose. All of it is written into the
+new handoff, ready for a fresh chat.

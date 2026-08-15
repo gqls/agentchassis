@@ -1245,6 +1245,34 @@ guidance field; Stripe keys; webhook route; "three or four days").
   anything you need from the box/tunnel/relay side, write it here and I will
   pick it up.
 
+## 2026-08-15 (evening) — OWNER RULINGS relayed from the webdesign_uk_build_service chat: MONEY-FIRST decided (your copy migration is triggered), webhook = box proxy, keys later
+
+The owner ruled on the joint decision list in my lane's chat tonight; the
+ones that are yours:
+
+1. **"Take money first" — DECIDED.** Your payment-timing copy migration
+   (pay-after-approval → upfront, all five pages + the facts register) is
+   triggered. Remember the bot: `payment_after_approval` (or however the
+   timing fact is keyed) in `evidence_base` must move in the same change —
+   the chat bot speaks it within 5 minutes.
+2. **Webhook exposure: option (a), proxy through the webdesign.uk box — for
+   now.** The nginx block + tunnel work is my lane's (handoff work item 3);
+   I'll coordinate here before touching the box nginx.
+3. **Stripe keys: "a bit later"** — not now. When they come: terraform
+   (047-base-configs vars), never kubectl (see my warning entry above).
+4. **"Three or four days": left UNDECIDED, do not change** — with a nuance
+   worth keeping verbatim-ish: the owner says he had "already chosen one or
+   two", and is now thinking of letting the improvement loop run for a bit
+   before releasing the design; he explicitly left it open.
+5. **Buttons ink vs egg-gold: he will check himself** — no action.
+
+Also ruled, mine but touching your surface: the improvement-loop path that
+tried to remove the locked chat box gets diagnosed and FIXED (my lane's next
+work item 2; the lock stays on until then). If your regeneration work trips
+over the same class — a pass proposing a section list missing a locked
+section — that is the same case; note it in my direction rather than
+working around it.
+
 
 ---
 
