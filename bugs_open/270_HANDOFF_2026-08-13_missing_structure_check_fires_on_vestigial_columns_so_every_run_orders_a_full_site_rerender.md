@@ -149,4 +149,37 @@ on, because its own bug was elsewhere.
   check filed.
 - `check_site_structural_validity.go` (`head_essentials_missing`'s header) — the
   council-review thread whose round-2 objection surfaced this; its comment now
-  points here.
+  points here. That comment's cited counts (43/25) are now stale as of the fix
+  below; not edited here — it belongs to a different, actively council-reviewed
+  workstream (`portfolio_positioning`), flagged for them rather than hand-patched.
+- `bugs_open/280` — a second, previously-undocumented caller of the same
+  vestigial `pages.rendered_header/rendered_footer` columns, found while
+  fixing this bug (`check_decision_guards.go`'s stored-assembly SQL). Filed
+  separately — different failure shape, out of scope for this fix.
+
+## UPDATE 2026-08-15 — fix committed, council-submitted, NOT YET SHIPPED
+
+Picked up by the `bugfix_270_missing_structure` session (this bug had been
+explicitly left "unowned" by the filing session). Re-verified live before
+starting: still firing, worse than at filing (50 items / 31 complete vs. 43 /
+25 two days earlier).
+
+**Fix:** retyped the predicate to `site_components` (real chrome store),
+keyed on non-empty `rendered_html` per slot, not `build_status`. Kept the
+check's name/item_type/item_key unchanged so the ~17 open false-positive
+items self-close via the framework's own `CheckResult.Resolved` mechanism
+(RFC_010) on each site's next discovery pass — no manual cleanup needed.
+Full design, the weighing against retiring the check outright, and a marked
+correction to this bug file's own original fix sketch (`build_status=
+'pending'` is NOT a safe "missing" signal): `docs/agent_docs/docs024_key_docs_latest/bugfix_270_missing_structure/PLAN_2026-08-15_missing_structure_check.md`.
+
+- Committed: `fdc5daec1` (`check_missing_structure.go` +
+  `check_missing_structure_test.go`, 5 new tests, all pass).
+  `Council-Submitted: 524ff897-b697-4c5c-a66f-8939b0457049` — verdict pending
+  at time of writing; do not write `Council-Reviewed:` on this commit until
+  that verdict is actually read as APPROVED.
+- **NOT yet shipped.** This bug stays OPEN (not moved to `bugs_closed/`)
+  until an image builds from this commit, the fleet rolls, and one full
+  discovery rotation is observed closing the stale items and going quiet on
+  healthy sites — CLAUDE.md's fixed-AND-live bar, not "committed" alone.
+- Continue from: `docs/agent_docs/docs024_key_docs_latest/bugfix_270_missing_structure/HANDOFF_2026-08-15_continue_here.md`.
