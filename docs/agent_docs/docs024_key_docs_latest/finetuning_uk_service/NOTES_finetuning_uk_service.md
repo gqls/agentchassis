@@ -1166,3 +1166,115 @@ step 5 and the money step — staged in full in
 `HANDOFF_2026-08-15_continue_here.md` §2, including the three separate things that
 run has to show and the one it probably will *not* (259's live proof, which needs
 an await to expire and so will not appear if the provision simply succeeds).
+
+---
+
+## 2026-08-15 (later session) — cold-start re-verification; the pod had rolled under the handoff
+
+Picked up `HANDOFF_2026-08-15_continue_here.md`. Re-verified its §1 state table
+against the live system rather than reading it forward. **One line of it was already
+stale, and it was the one everything else rests on.**
+
+### ⚠ The handoff's build stamp expired within the hour
+
+| | handoff (written ~11:47) | measured (~15:10) |
+|---|---|---|
+| image | `v1.0.1301` | **`v1.0.1302`** |
+| stamp | `0115f2b45` | **`194907d5b6cc69c1ecb50263bd958b2940019587`** |
+| pod start | 10:14:33Z | **11:29:23Z** |
+
+Another session rolled the fleet. `194907d5b` is *274: ratchet the closed bugfix
+lane dir* — nothing to do with this lane, which is exactly the point: **on this tree
+your build stamp is invalidated by other people's work, so a stamp recorded in a
+handoff is a snapshot with a half-life of hours.** Re-ran the ancestry check against
+the NEW stamp:
+
+```
+10659b419 (259 claim guard):   ANCESTOR of stamp — LIVE
+236810e4e (258 defects 1+2):   ANCESTOR of stamp — LIVE
+control: HEAD (65a39bbd8) NOT an ancestor — stamp is behind HEAD, as expected
+```
+
+[MEASURED] Both fixes survive the roll. The control matters: without it, an
+`is-ancestor` check that returned true for everything would look identical.
+
+### The migration-400 fallback WARN is a REAL absence, not an out-of-range one
+
+`grep 'migration 400\|compiled-in default'` over `--tail=3000` → empty. That is the
+result you get both when the warning was never emitted *and* when it has scrolled
+out of range, and the two mean opposite things. **Control that separates them:** the
+`build provenance` line — same startup, same second (11:29:28Z) — is still in the
+window. Startup lines are therefore in range, so the empty grep is a genuine absence.
+The config half is live. (`provision_wait_timeout_seconds` = 540 confirmed at the DB
+in the same pass.)
+
+### The 600s invariant, measured at the schema instead of quoted
+
+The `prior_art_librarian` seat asked for exactly this — "that number is
+schema-checkable and should not rest on the rationale alone". It is **not** at the
+step's top level (`timeout_seconds` reads NULL there, which is how you'd conclude it
+was unset); it is nested one level down in `config`:
+
+```sql
+SELECT jsonb_pretty(default_config->'workflow'->'steps'->'dispatch_provision')
+FROM agent_definitions WHERE type='gpu-provisioner' AND is_active
+  AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL;
+-- → "config": { "timeout_seconds": 600, "output_field": "provision_response" }
+```
+
+[MEASURED] 540 < 600. Invariant holds, 60s headroom. Note the shape trap for anyone
+re-checking: `jsonb_each` on `->'steps'` works (it is an **object**, not an array —
+`jsonb_array_elements` errors with `cannot extract elements from an object`), but the
+timeout is a level deeper than the step.
+
+### `thunder_instances` says 23, and that is not a contradiction
+
+The handoff's table says "claim rows / live instances | 0 / 0"; a bare
+`count(*)` returns **23**. Broken down: all 23 are `decommissioned`, newest
+**2026-06-18**. Vendor cross-check returned `{}` — no instances at all.
+**Nothing is billing.** The 23 is history, and `count(*)` on that table is not a
+measure of live spend — group by `status` or you will scare yourself.
+
+### 258 council verdict: READ, and it is APPROVED
+
+`d24f9829-0a3f-47a8-bdcb-4b63ced63f1b` → `approved`, 2026-08-15 10:55:42Z,
+`decided_by`: *"approved with 1 advisory objection(s) — none high-severity"*.
+Nine seats reported; `debug_historian` returned `object`, the rest `approve`.
+`gated_by_truncation: false` (worth checking given the 138 truncation history).
+
+The predicted push-back landed exactly where the handoff said it would — **four
+separate seats** (`editquality`, `guardian` medium, `guidelines`, `architecture`) all
+independently objected that the wait/await coupling is enforced by prose + a static
+test assertion and **not mechanically**. That is now the lane's most-corroborated
+open gap, not a stray objection.
+
+### Three cheap open items from the seats, closed by direct check
+
+1. **`editquality` edit 3 — "does any other path still hardcode vcpus?"**
+   `grep -rn DefaultCPUCores --include=*.go .` → the only remaining references are
+   the **declaration** (`api/types.go:46`) and **the mutation test**
+   (`provision_defaults_test.go:93-94`), which uses it as the *old wrong value*
+   sentinel. **No production call site.** Objection answered negative.
+   ⚠ But note what that leaves: an **exported constant `DefaultCPUCores = 4` with no
+   production consumer, whose value is invalid for 9 of 11 specs.** It survives
+   legitimately (the test needs the old value to assert against), and it is also
+   exactly the shape a future session reaches for. Flagged, not touched — changing it
+   is a code edit for the gate, not a drive-by.
+2. **`reuse_agent` / `prior_art_librarian` — "is `GetSpecs` a rediscovery?"**
+   Sole definition is `api/client.go:111`. Prior `/v1/specs` knowledge existed only
+   in two standalone probe scripts (`scripts/utils/thunder_probe.go`,
+   `scripts/initial_messages/300_thunder_flywheel/thunder_probe.go`) — never as an
+   adapter client method. **Genuinely new, not dormant machinery.**
+3. **`guardian` missing — "is the reaper affected by the new column?"**
+   Only three files reference `thunder_config`: `adapter.go` (a **named-column**
+   sanity read of `daily_cap_usd` only), `store/config.go`, `provision_action.go`.
+   `LoadConfig` names all eight columns explicitly — **no `SELECT *`** — and reads the
+   new one via `to_jsonb(t)->>'…'`. No consumer can break on the added column.
+   Answered.
+
+### State at end of this pass
+
+Unchanged and deliberately so: `is_paused` **true**, 0 claims, 0 live instances,
+vendor `{}`, **no spend**. The money step was NOT fired — it is the owner's call and
+has been put to him. Nothing in this pass wrote to the cluster; every command was a
+read.

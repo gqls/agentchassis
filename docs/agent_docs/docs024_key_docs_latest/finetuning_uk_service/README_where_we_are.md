@@ -485,3 +485,54 @@ quickly, that will *not* prove the duplicate-machine guard works, because that g
 only fires when something is slow. It's live and thoroughly tested, but it has still
 never been seen doing its job on a real request, and I'd rather that stayed written
 down than got quietly counted as done.
+
+---
+
+## 2026-08-15, later the same day — picked it back up, and checked rather than trusted
+
+Came back to this fresh and went through the handoff's own checklist against the
+running system instead of reading it forward. Almost everything held. One thing had
+already gone out of date, within about three hours of being written.
+
+**Somebody else rebuilt the fleet while this was sitting paused.** The handoff
+recorded which build of the GPU service was running, and by the time I looked it was
+a different one — a newer build, shipped by another session working on something
+completely unrelated. That is normal here and not a problem in itself, but it does
+mean the note saying "our two fixes are in the running service" was, strictly, about
+a service that is no longer running. So I re-checked it against the build that is
+actually live now. **Both fixes are still in.** Also worth saying: I checked in a way
+that could have come out "no" — I included a case that should fail, and it did fail,
+which is what makes the "yes" worth anything.
+
+**The review verdict came back APPROVED.** That was the outstanding question from
+this morning. Nine reviewers looked at the sizing fix and the timeout fix; eight
+approved outright and one raised a records-keeping quibble about a rollback script.
+Nothing high-severity, nothing blocking.
+
+What I think is genuinely interesting is *what they agreed on*. **Four separate
+reviewers, independently, objected to the same thing** — that the safety margin
+protecting us from the duplicate-machine bug is currently held in place by a comment
+and a test, not by the machinery itself. In plain terms: there are two timers that
+have to stay in a particular order, they live in two different places owned by two
+different bits of the system, and nothing stops a future session changing one without
+knowing about the other. If that ever happens, the failure is the nasty one — it
+looks like a clean failure while a machine we're paying for keeps running unattended.
+I checked the actual numbers today and they are correct with the intended margin. The
+gap is about durability, not about today.
+
+**Nothing is running and nothing is being billed** — I confirmed that with the vendor
+directly, not just our own records. One thing that gave me a moment's fright: our
+table of machines has 23 rows in it, where I expected none. They are all long since
+shut down, the most recent back in June. It's a history table, not a list of what's
+switched on.
+
+I also cleared three small loose ends the reviewers had asked about — whether any
+other part of the code still had the old wrong machine-size baked in (it doesn't),
+whether we'd accidentally rebuilt something that already existed (we hadn't), and
+whether the new setting could break another part of the service that reads the same
+configuration (it can't). Those were cheap to check and are now written down rather
+than left as open questions.
+
+**So we are exactly one step from the first real test run, and that step costs money**
+— a few pence, but it's a live machine at a vendor, so I've stopped and asked rather
+than just doing it. That question is with you now.
