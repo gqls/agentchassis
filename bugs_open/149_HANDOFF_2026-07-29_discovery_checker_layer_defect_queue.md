@@ -996,3 +996,56 @@ whose handler sagas fail therefore park/fail the same way adapter-failure sagas
 always have — no new state, but if your queue's recovery assumes "handler sagas
 that reach completion", the population reaching completion-with-junk is now zero
 going forward.
+
+### B5. `ScanVoiceTells` drops every archived page, and five archived pages are serving HTTP 200 — **OPEN, contributed 2026-08-15 from the `bugfix_168_deployed_asset_path` lane**
+
+> **Contributed, not claimed.** This lane found it while narrowing the *claims* scanner
+> and is not fixing it: the voice side belongs to whoever holds this queue. Filed here
+> rather than as a new number per CLAUDE.md ("contribute into the bug file, do not
+> compete").
+>
+> ⚠ **THIS MOVES THE COUNT: 13 → 14.** The 2026-07-31 status block at the top of this
+> file says "this file has 13 items, not 12", with the `grep -cE '^### [ABC][0-9]\.'`
+> that establishes it. That grep now returns **14**, and the done/open tally there
+> (6 done, 1 half, 6 open) becomes **6 done, 1 half, 7 open**. I have not edited that
+> block — it is another session's dated correction and rewriting it would destroy the
+> record of when the count was right. Reconcile it when you next revise the header.
+
+`check_voice_tells.go:176` selects `AND p.status IN ('active','deployed')`.
+
+**Two independent problems in that one line:**
+
+1. **`'deployed'` is not a value of `pages.status`.** Fleet-wide the column takes exactly
+   two values — `active` 658, `archived` 36 (measured 2026-08-15). It is a value of
+   `build_status`. So the second element matches nothing and the predicate is really
+   `p.status = 'active'`. Same shape as the `include_statuses: ["deployed","active"]`
+   trap already in `LANDMINES.md`.
+2. **Therefore the voice scan skips all 36 archived pages — and 5 of them are live.**
+   Measured 2026-08-15 by curl, each against a fabricated-URL control on its own domain
+   returning 404 at a different byte count:
+   `fundamentallyai.com/blog/ai-readiness-checker-guide.html` (200, 25,861 B),
+   `fundamentallyai.com/tools/llm-cost-calculator/index.html` (200, 35,331 B),
+   `leopardessconsulting.co.uk/our-approach.html` (200, 28,948 B),
+   `robot-hands.com/gripper-catalog.html` (200, 30,997 B),
+   `robot-hands.com/news.html` (200, 48,047 B).
+   **Archiving a page sets a database column; it does not remove the artefact from the
+   deploy repo.** So five publicly-readable pages are exempt from voice checking, and
+   nothing anywhere reports it — the scan returns a plausible row count either way.
+
+**What the claims side did instead** (commit `d7cd75a2a`, council
+`cfaf0694-ee2e-4aa8-b19f-12d81e55b07f`): `AND NOT (p.status = 'archived' AND
+p.deployed_at IS NULL)`. The conjunction is the point — never-published is the only
+status signal the deploy repo cannot contradict. The two scanners are now deliberately
+**not** in parity, and this item is that gap written down rather than silently inherited.
+
+**⚠ Do not fix this by copying the claims predicate without re-measuring.** The five
+serving pages are a fact about 2026-08-15, not a law; re-run the census in
+`bugfix_168_deployed_asset_path/RUNBOOK_deployed_asset_path.md` § "Do it for the WHOLE
+class". And note the reverse risk: `ScanVoiceTells` has *always* skipped archived pages,
+so widening it will file a batch of new voice items at once — expected, not an incident.
+
+**Verification standing (owner ruling 2026-07-31):** no `090` run. Substituted
+first-hand verification, declared: read the predicate at `check_voice_tells.go:176`,
+measured the `pages.status` value distribution, and fetched all 11 archived pages
+carrying scannable components with per-domain controls. The claim is a one-line
+predicate and a census — no cross-cutting mechanism is asserted.
