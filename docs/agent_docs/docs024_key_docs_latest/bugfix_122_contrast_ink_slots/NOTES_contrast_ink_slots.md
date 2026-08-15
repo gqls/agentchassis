@@ -2687,3 +2687,38 @@ dartsonline `#F0F2F7`/`#F0F2F7`, webdesign `#5c6b5d`/`#2b2b2b`):
 eyebrow; webdesign shows every in-prose link. His "Go" gates widening one site at a time.
 Residuals: no-new-`contrast_failure` check on both sites after their next audits; the
 168-component sweep stays not-started.
+
+---
+
+## 2026-08-15 ~13:40Z — owed audit-check attempted: NOT YET GRADABLE; filer + due-times established
+
+Tried to grade the "no NEW `contrast_failure` after the next audit" residual. Result: **the audit
+has not run yet, so today's zero is vacuous** — recorded here so nobody reads it as a clean pass.
+
+**Counts** (same status filter as the banked baseline):
+- dartsonline **17 open** (= 10:44Z baseline, unchanged) · webdesign **7 open** — banked NOW as
+  webdesign's baseline; the handoff only banked dartsonline's.
+- **Zero rows created after 10:44Z on either site, ANY status** (`created_at >` filter — counted
+  arrivals, not open survivors, since a new row that completed would vanish from the open count).
+- Newest `contrast_failure` rows: darts 08-11 01:01Z, webdesign 08-11 03:02Z.
+
+**Demand control (why the zero proves nothing yet):** `orchestration_states` on the two sites
+since 10:00Z holds only the canary rebuild chains (`build-dispatch-loop` → `webdesign-agent` →
+`site-asset-renderer`, 10:41–10:45Z) and `availability-discovery-agent` (12:14/12:31Z). No
+audit-shaped run.
+
+**Who files `contrast_failure`, established by stamp-matching:** `render-audit-agent`, dispatched
+by the `site-render-audit-rotation` scheduled task (enabled, hourly tick; per-site cadence 7 days
+via `site_discovery_rotation.last_selected_at`, its `pre_query` self-stamps on selection). Match:
+`last_selected_at` darts 08-11 00:58Z / webdesign 08-11 02:59Z vs newest rows 01:01Z / 03:02Z —
+3 minutes apart on both sites. The 08-14 webdesign runs by `visual-design-auditor` /
+`content-quality-auditor` / `design-audit-agent` are a DIFFERENT audit family (and pre-rebuild);
+grading the residual on them would be the wrong instrument.
+
+**Next due** (`last_selected_at + 7 days`): dartsonline **08-18 ~00:58Z**, webdesign
+**08-18 ~02:59Z**, robot-hands **08-17 ~14:54Z** (consistent with §7's "Monday canary"). Caveat:
+"due" = eligible; the rotation takes ONE due site per hourly tick, so with several sites due
+together the run lags. Re-run the counts after an orchestration/rotation-stamp witness that the
+audit actually ran — the stamp moving is the demand signal, then compare 17 / 7.
+
+State otherwise unchanged: §4 steps 1–3 done and graded PASS; waiting on the OWNER (steps 4–5).

@@ -59,6 +59,22 @@
 > Compare after its next audit; a RISE is the regression signal. Round 1's emission would have
 > passed the colour table above and failed exactly here — which is why this half is not optional.
 >
+> **Owed-check status, measured 2026-08-15 13:40Z: NOT YET GRADABLE — no audit has run since the
+> rebuild, and neither site is due before ~08-18.** Today's zero is "no audit yet", not "audited
+> clean": zero `contrast_failure` rows created after 10:44Z on either site (counted arrivals by
+> `created_at`, any status — not just open survivors), open counts unchanged (dartsonline 17 =
+> baseline; **webdesign baseline banked now: 7 open**), and the only post-rebuild orchestrations
+> on the two sites are the canary rebuild chains themselves plus availability-discovery
+> (12:14/12:31Z). The filer of `contrast_failure` is **`render-audit-agent`, dispatched by the
+> `site-render-audit-rotation` scheduled task** (hourly tick, per-site 7-day cadence stamped in
+> `site_discovery_rotation` — the 08-11 stamps match each site's newest `contrast_failure` row to
+> within 3 minutes). Next due: **dartsonline 2026-08-18 ~00:58Z, webdesign 2026-08-18 ~02:59Z**.
+> "Due" makes a site eligible; the rotation takes ONE due site per hourly tick, so the actual run
+> can lag due-time by hours when several sites come due together. **Do not grade the owed check on
+> webdesign's 08-14 `visual-design-auditor`/`content-quality-auditor` runs** — different audit
+> family, and pre-rebuild anyway. (robot-hands' render-audit, §7's Monday canary: due 08-17
+> ~14:54Z.)
+>
 > **Remaining: §4 steps 4–5 — THE OWNER LOOKS.** dartsonline.com (one eyebrow label on the
 > homepage) and webdesign.co.uk (every in-prose link). His "Go" gates widening, one site at a
 > time, reading the served hex each time. Then §4 step 6 (the 168-component sweep) stays
