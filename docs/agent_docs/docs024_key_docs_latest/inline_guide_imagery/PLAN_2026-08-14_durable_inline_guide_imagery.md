@@ -421,3 +421,70 @@ spend measured before fleet-wide enablement.
   structure) — this plan removes *imagery* from the blob; prose-embedded links, tables,
   and markers stay exposed; that class belongs to the 238/268 lane, and this design
   deliberately adds nothing to `save_page_sections` (per `bugs_open/178`).
+
+---
+
+## 9. OWNER STEER 2026-08-15 — use recursive component composition, and let the guide agents choose placement
+
+Recorded verbatim in substance, because it changes §2's recommendation rather than merely
+adding to it. The owner's words:
+
+> *"In the original architecture components were composed of smaller components ad
+> infinitum. We could use this pattern so that components can be designed and shuffled as we
+> like. The experience loop and other guide agents like the vigilant designer and offer and
+> benefit analysis agents might be able to help determine the best place for the images as
+> well."*
+
+### What I verified before writing this down
+
+**1. The composition pattern is REAL in the schema and has NEVER been used.** `[MEASURED]`
+2026-08-15:
+
+```sql
+SELECT count(*) total, count(parent_instance_id) with_parent,
+       count(DISTINCT parent_instance_id) distinct_parents FROM page_components;
+-- 1580 | 0 | 0
+```
+
+`page_components.parent_instance_id` exists, and **not one row in the entire fleet sets
+it.** So the owner is right that the pattern is in the architecture, and it is also the
+platform's most familiar failure shape — a mechanism built and never driven (cf. the
+`accent_text` slot with zero consumers, `improvement-sweep` disabled since May). **This is
+the single most important fact for whoever revises this plan:** adopting composition here
+would be the FIRST live use of that column, so it is a build-and-prove exercise, not a
+wiring exercise — the opposite of §1's finding about the section-scope route, which is
+already exercised.
+
+**2. The agents he named exist, under adjacent names.** `[MEASURED]` — active, non-snapshot:
+`experience-planner`, `experience-approval-council`, `experience-register-writer` (the
+experience loop); `visual-designer`, `brand-designer`, `feature-designer`; `offer-analyser`.
+There is **no agent literally called "vigilant designer"** — `visual-designer` is the
+closest and is the assumed referent `[ASSUMED]`, to be confirmed with the owner rather than
+guessed at implementation time. "Offer and benefit analysis" maps to `offer-analyser`
+`[INFERRED]`.
+
+### What this changes, and the open question for the revision
+
+The steer bears on §2 (the crux) and §7 Phase 3 (mid-prose placement), in two distinct parts
+that should not be merged:
+
+- **Composition as the representation.** If a figure is a *child component instance* rather
+  than a field on the article component, then figures are addressable, reorderable and
+  reusable — "designed and shuffled as we like" — and they are structurally outside the
+  prose blob, which is exactly the durability property this whole plan is chasing. That is a
+  genuinely better answer than §2's `figure_url` fields IF the composition machinery works.
+  **It is unproven at 0 live rows**, so the revision must cost that honestly: what actually
+  renders a child instance today, and does any render path walk `parent_instance_id` at all?
+  If nothing does, this is a platform capability to build, and the phasing changes shape.
+- **Agents choosing placement.** This addresses a question §2 left thin: *who decides where
+  the image goes?* §7 Phase 3 assumed the writer emits a marker. The owner is proposing the
+  existing design/analysis agents advise instead. That is plausible and reuses live
+  machinery, but it inherits `bugs_open/274` (≈15,000 completed workflows whose results
+  never reached their parents), which §3 already flags for any design depending on a child
+  agent returning a result. Cost that dependency explicitly.
+
+**Not resolved here.** This section records the steer and the measurements; it does not
+redesign the plan. The revision should re-run §2's options table with composition added as
+option (e), and re-take the §6 architecture-scope call — first live use of a dormant
+composition column is a much stronger RFC candidate than the additive-and-inert field
+approach that call was made about.
