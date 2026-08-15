@@ -111,6 +111,36 @@ var (
 	reIIFE = regexp.MustCompile(`(?s)^\s*(?:!|\(|void\s)?\s*(?:function\s*\(|\(\s*\)\s*=>|async\s+function\s*\()`)
 )
 
+// instanceScopeEnforceConfigKey arms the refusal. Shape and naming mirror
+// dead_url_guard.go's record/refuse pair deliberately — one idiom for "this
+// guard is armed", not a second one.
+const instanceScopeEnforceConfigKey = "enforce_instance_scope"
+
+// enforceInstanceScope reports whether a collision should REFUSE the render
+// rather than merely be recorded.
+//
+// OPT-IN, AND THE UNSAFE DEFAULT IS DELIBERATE (owner ruling 2026-08-02 §2: new
+// authority on a shared seam ships as an opt-in field with the unsafe side as
+// the default). Two reasons it cannot default on:
+//
+//   - Pages ALREADY collide today. `generic-text-block` resolves its one id
+//     through {{.ComponentID}}, which is the shared component row id on this
+//     path, so the 13 active pages carrying it two or three times already emit
+//     duplicate ids. Defaulting to refuse would fail their next re-render —
+//     turning a latent defect into an outage, on pages nobody has asked us to
+//     change.
+//   - The detector is a regex scan and errs toward reporting. A false positive
+//     that writes a line in a result is cheap; one that refuses a re-render is
+//     not.
+//
+// So the sequence is: record everywhere, read the numbers, convert the
+// components, then arm per-workflow. Recording is unconditional precisely so
+// the arming decision is made against measurements rather than a guess.
+func enforceInstanceScope(config map[string]interface{}) bool {
+	armed, _ := config[instanceScopeEnforceConfigKey].(bool)
+	return armed
+}
+
 // InstanceCollisions reports why a rendered page is not safe to carry two
 // instances of a component. Each field names a distinct failure class; a page
 // can be clean on ids and still broken on window.onload.

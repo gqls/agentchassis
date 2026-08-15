@@ -100,6 +100,31 @@ func TestInstanceTokenFromSlot_repeatedSlotDoesNotDiscriminate(t *testing.T) {
 	}
 }
 
+// The default is the safety-critical property here, not the armed behaviour:
+// 13 active pages already emit duplicate ids, so a guard that defaults to
+// refusing would fail their next re-render and turn a latent defect into an
+// outage. Assert the default explicitly rather than relying on Go's zero value
+// staying convenient.
+func TestEnforceInstanceScope_defaultsOff(t *testing.T) {
+	if enforceInstanceScope(nil) {
+		t.Fatal("a nil config must not arm the refusal")
+	}
+	if enforceInstanceScope(map[string]interface{}{}) {
+		t.Fatal("an empty config must not arm the refusal")
+	}
+	// A non-bool value must not arm it either — a config carrying the string
+	// "true" is a misconfiguration, and reading it as armed would refuse renders
+	// on the strength of a typo.
+	if enforceInstanceScope(map[string]interface{}{"enforce_instance_scope": "true"}) {
+		t.Fatal("a string value must not arm the refusal")
+	}
+	// And it must actually be reachable — otherwise the two assertions above
+	// would pass against a function that returns false unconditionally.
+	if !enforceInstanceScope(map[string]interface{}{"enforce_instance_scope": true}) {
+		t.Fatal("CONTROL FAILED: the guard cannot be armed at all")
+	}
+}
+
 func TestDetect_fixedShapeIsClean_andMutationProvesTheDetectorCanFail(t *testing.T) {
 	// Two instances, distinct tokens — the whole point of the fix.
 	page := oneCalculator(InstanceToken(1)) + oneCalculator(InstanceToken(2))

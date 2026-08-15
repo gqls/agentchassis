@@ -561,6 +561,38 @@ func RerenderPageSectionsAction(ctx context.Context, params ActionParams) (inter
 		reRendered++
 	}
 
+	// Instance-scope check over the page as assembled from THIS run's sections.
+	// Recorded unconditionally, refused only when armed — see enforceInstanceScope
+	// for why the default cannot be "refuse" (pages already collide today, and
+	// arming by default would turn a latent defect into an outage on them).
+	//
+	// Concatenating the sections is the right unit even though it is not the
+	// final page: an id collision is a property of what shares a document, and
+	// every section here does. Chrome is excluded, so a collision BETWEEN a
+	// section and the header/footer is not visible to this check — stated
+	// because a clean result here is not a clean page.
+	{
+		var assembled strings.Builder
+		for _, entry := range sectionsMetadata {
+			if h, ok := entry["rendered_html"].(string); ok {
+				assembled.WriteString(h)
+				assembled.WriteString("\n")
+			}
+		}
+		if collisions := DetectInstanceCollisions(assembled.String()); !collisions.Clean() {
+			out["instance_collisions"] = collisions.Summary()
+			out["instance_collision_ids"] = collisions.DuplicateElementIDs
+			logger.Warn("rerender_page_sections: page is not safe to carry repeated components",
+				zap.String("page", pageName),
+				zap.String("detail", collisions.Summary()),
+				zap.Bool("armed", enforceInstanceScope(params.StepConfig.Config)))
+			if enforceInstanceScope(params.StepConfig.Config) {
+				return nil, fmt.Errorf("instance scope: %s (page %s)",
+					collisions.Summary(), pageName)
+			}
+		}
+	}
+
 	out["sections_metadata"] = sectionsMetadata
 	out["section_count"] = len(sectionsMetadata)
 	out["rerendered"] = reRendered
