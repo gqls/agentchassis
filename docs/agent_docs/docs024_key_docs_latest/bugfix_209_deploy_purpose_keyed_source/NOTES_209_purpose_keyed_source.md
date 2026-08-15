@@ -1243,3 +1243,26 @@ advisory `shared-ledger-not-appended` check. The 2 removed lines were that entry
 `source:`/`added:` trailer, rewritten in place to carry the third recurrence — the
 sanctioned "correct in place with a dated note" move — but I did not say so in the message,
 which is exactly what the check asks for. Forward-only, so it stands as written.
+
+### 2026-08-15 10:42Z — post-roll gate, half passed and half not yet observable
+
+`v1.0.1301` carries the flip. Stamp `0115f2b45`, read from a pod whose log still reached startup;
+`c5010ac26` and `260cb2393` are ancestors, and two commits made after the stamp are correctly absent.
+
+**I got the control wrong on the first attempt** and it is worth recording because the failure looks
+alarming: I used `0d1687108` as the must-be-absent control, and it came back PRESENT. Nothing was
+wrong with the build — `0d1687108` *precedes* the stamp, so it is supposed to be present. **A
+must-be-absent control has to POSTDATE the build**, and "CONTROL FAILED" on a two-sided ancestry check
+means check the commit order before you conclude anything about the artefact.
+
+**What is established:** no 400s in any of the last four hours (the failure mode the whole change was
+gated on), and one post-roll `council-gate` call reading 119,721 tokens from cache with zero writes and
+zero failures. **What is NOT established:** that the 1-hour TTL is actually in effect. That call's gap
+was well under five minutes, so the old constant explains it equally well. The only disconfirmable
+proof is a cache hit at a gap >5 minutes, which needs traffic time — the query is in the handoff and it
+is structurally zero under the old behaviour, which is what makes it worth running rather than
+reassuring.
+
+Also: the roll was MIXED at check time (1 pod on v1.0.1300, 19 on v1.0.1301, ten services). Per the
+approved gate this is not "done" until one tag covers the set — and the enumeration must be by IMAGE,
+because `-l app=agent-chassis` returns 2 pods of about twenty.
