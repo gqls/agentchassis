@@ -189,6 +189,27 @@ func DeployToolToSiteAction(ctx context.Context, params ActionParams) (interface
 			toolFunction, len(orphans), strings.Join(orphans, ", "))
 	}
 
+	// --- 1b. requires-backend gate, deploy-time half ---
+	// Migration 406 gates the suggestion; this gates the deploy itself, before
+	// anything is written, so an add_tool item from any source cannot ship a
+	// widget against a backend the site cannot have. Predicates, refusal
+	// wording and the follow-on provision item: tool_backend_provision.go.
+	requiresBackend := toolRequiresBackend(toolSemanticTags.String)
+	var eligibility backendEligibility
+	if requiresBackend {
+		eligibility, err = loadBackendEligibility(ctx, params.DB, siteID)
+		if err != nil {
+			return nil, fmt.Errorf("requires-backend eligibility check: %w", err)
+		}
+		if refusal := backendEligibilityRefusal(eligibility, toolFunction, siteDomain); refusal != nil {
+			logger.Error("DeployToolToSiteAction: refusing to deploy a requires-backend tool to an ineligible site",
+				zap.Bool("backend_capable", eligibility.Capable),
+				zap.Int("facts_count", eligibility.FactsCount),
+				zap.String("semantic_tags", toolSemanticTags.String))
+			return nil, refusal
+		}
+	}
+
 	// --- 2. Check for existing fork and deployment status ---
 	// Two-stage check:
 	//   a) Does a fork of this tool exist for this site? (catches orphans from partial failures)
@@ -252,6 +273,9 @@ func DeployToolToSiteAction(ctx context.Context, params ActionParams) (interface
 				})
 			}
 
+			// backend_required only: the provision item was raised when this
+			// fork first deployed, and re-minting on a backfill re-run would
+			// ask the operator to provision a backend that is already running.
 			return map[string]interface{}{
 				"site_id":           siteIDStr,
 				"tool_function":     toolFunction,
@@ -259,6 +283,7 @@ func DeployToolToSiteAction(ctx context.Context, params ActionParams) (interface
 				"fork_id":           forkID.String(),
 				"needs_rerender":    false,
 				"cross_links_added": crossLinks,
+				"backend_required":  requiresBackend,
 			}, nil
 		}
 
@@ -467,6 +492,25 @@ func DeployToolToSiteAction(ctx context.Context, params ActionParams) (interface
 			zap.Error(err))
 	}
 
+	// --- 5b. Ask for the backend the widget now needs (requires-backend only) ---
+	// The widget is live from the page_component insert above; from here until
+	// an operator provisions its backend on the box it fails closed to the
+	// site's contact details. The item is that handover — the in-cluster
+	// pipeline cannot reach the box by design. See tool_backend_provision.go.
+	backendProvision := ""
+	if requiresBackend {
+		backendProvision = raiseBackendProvisionItem(ctx, params, logger, backendProvisionRequest{
+			siteID:       siteID,
+			domain:       siteDomain,
+			pageID:       pageID,
+			pageURL:      pageURL,
+			toolFunction: toolFunction,
+			displayName:  toolDisplayName,
+			forkID:       forkID,
+			eligibility:  eligibility,
+		})
+	}
+
 	// --- 6. Create work item for content around the tool ---
 	// page-content-writer generates hero, intro, and CTA sections.
 	// The tool section (position 2) already has content — the writer skips it.
@@ -615,7 +659,7 @@ func DeployToolToSiteAction(ctx context.Context, params ActionParams) (interface
 		zap.String("page_id", pageID.String()),
 	)
 
-	return map[string]interface{}{
+	result := map[string]interface{}{
 		"site_id":           siteIDStr,
 		"domain":            siteDomain,
 		"tool_function":     toolFunction,
@@ -628,7 +672,15 @@ func DeployToolToSiteAction(ctx context.Context, params ActionParams) (interface
 		"needs_rerender":    true,
 		"cross_links_added": crossLinksAdded,
 		"content_item":      contentItem,
-	}, nil
+		"backend_required":  requiresBackend,
+	}
+	if requiresBackend {
+		// The disposition is output, not just a log line: a requires-backend
+		// tool whose provision request was never filed is a permanently dead
+		// widget that reads as a successful deploy everywhere else.
+		result["backend_provision"] = backendProvision
+	}
+	return result, nil
 }
 
 // companionGuideIdentity derives the (name, url) for a tool's companion guide
