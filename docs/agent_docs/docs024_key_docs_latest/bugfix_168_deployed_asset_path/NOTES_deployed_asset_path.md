@@ -3899,3 +3899,59 @@ Relaunched **condition-based instead of clock-based** — poll `last_triggered_a
 then measure. Immune to timezone arithmetic entirely, and its timeout branch prints
 *"the daily did not fire — that is a finding, not a timeout"*, so a non-firing scheduler cannot read
 as a tooling failure either.
+
+---
+
+## 2026-08-15 08:39Z — ADDENDUM to this morning's prediction: prediction 2's "no third outcome" is WRONG, and the third outcome is the refusal we are waiting for
+
+Written at **08:39Z**, six minutes before the 08:45:04Z daily, anchor verified still
+`2026-08-14 08:45:04.333287+00` at `08:37:29Z`. Committed before the run, so it can be wrong.
+
+This session re-read the pre-run state and found one fact the morning entry recorded but did not
+carry into the prediction: **the flagged token on `b561c826` (matchmatrix-methodology) is `"2"`**,
+and on `3375653f` (about) it is `"3"`.
+
+### Why that matters — verified at the source, not from the landmine text
+
+`claimStillOnPage` (`revalidate_unverified_claims.go:325-340`) is a **case-insensitive substring**
+over `datahelpers.ExtractAssertionText` blocks, **scoped to the finding's own slot**. Its doc
+comment states the design intent outright (`:306-308`):
+
+> *Deliberately crude in the SAFE direction: a token that matches something unrelated in its own
+> slot produces a refusal (non-terminal, a human still sees the item), never a closure.*
+
+So the ladder for `b561c826` is: scan clean → **claim-granular gate** → is `"2"` still a substring
+of any assertion block in slot X? On any prose-bearing slot, almost certainly **yes** → refuse with
+`gate_claims_still_present`.
+
+### The correction
+
+The morning prediction said `b561c826` and `7315e4d5` "either close at `resolved_all_gates_passed`
+… or stay `scan_still_trips`. **No third outcome.**" That enumeration is incomplete. For
+`b561c826` specifically there is a **third** outcome:
+
+> **scan goes clean → `gate_claims_still_present`** — a `gate_%` arm, i.e. the lane's **first
+> observed refusal**, reached by the claim-granular gate rather than the published one this lane
+> has been waiting on.
+
+**This is conditional, and the condition is the uncertain half:** it only fires if last night's
+edits actually cleared all 3 of `b561c826`'s findings, which is exactly what prediction 2 says is
+unknown. If the scan still trips, the ladder stops above the gate and nothing is observed — the
+morning prediction's branch 2 holds unchanged. [INFERRED — the substring behaviour is
+code-verified; whether the scan goes clean is not, and I have deliberately not pre-computed it.]
+
+**So prediction 1 ("zero refusals again") is now stated too strongly, by me, before the run.** If a
+`gate_claims_still_present` appears on `b561c826` this morning, prediction 1 is falsified and the
+cause is **not** a route "this pre-run reading did not see" — it is a route this addendum saw and
+named six minutes out. That distinction is the only thing this entry buys, and it is worth writing
+down precisely because the alternative is discovering the mechanism *after* the arm appears and
+calling it obvious.
+
+⚠ **It would also be a refusal that is CORRECT, not a defect.** The doc comment says a crude match
+refuses on purpose: the item stays open and a human still sees it. Do not file this as a bug if it
+fires — the short-needle trap is about *target selection for a deliberate page-clean*, where it
+pins an item for ever. Here it is the safe arm doing its job.
+
+`7315e4d5` (matched `"3600"`) and `9db796ca` (matched `"40"`) carry longer needles and are not
+exposed to this the same way. `a355d78b`'s first finding is `"until you accept"` — a phrase, not a
+number — and it remains the standing candidate for the **never-deployed** arm, unchanged.
