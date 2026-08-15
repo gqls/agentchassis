@@ -69,7 +69,7 @@ SELECT
     },
     "subheadline": {
       "type": "text", "source": "llm", "required": false,
-      "description": "One honest sentence on what this directory is: named UK lenders, every fact cited to its source. Never mention rates or prices — the directory carries none by design."
+      "description": "One honest sentence on what this directory is: named UK lenders, every fact cited to its source. Never mention rates or prices — the directory carries none by design. May carry the honesty clause: a citation proves where a fact came from, not that it is correct."
     }
   },
   "data_source": "/data/mortgage-lender-directory.json",
@@ -250,7 +250,7 @@ SELECT
     },
     "subheadline": {
       "type": "text", "source": "llm", "required": false,
-      "description": "One honest sentence on what this directory is: named UK lenders, every fact cited to its source. Never mention rates or prices — the directory carries none by design."
+      "description": "One honest sentence on what this directory is: named UK lenders, every fact cited to its source. Never mention rates or prices — the directory carries none by design. May carry the honesty clause: a citation proves where a fact came from, not that it is correct."
     }
   },
   "data_source": "/data/mortgage-lender-directory-full.json",
@@ -431,7 +431,7 @@ SELECT
     },
     "subheadline": {
       "type": "text", "source": "llm", "required": false,
-      "description": "One honest sentence on what this directory is: named UK providers, every fact cited to its source. Never mention rates — the directory carries none by design."
+      "description": "One honest sentence on what this directory is: named UK providers, every fact cited to its source. Never mention rates — the directory carries none by design. May carry the honesty clause: a citation proves where a fact came from, not that it is correct."
     }
   },
   "data_source": "/data/savings-provider-directory.json",
@@ -612,7 +612,7 @@ SELECT
     },
     "subheadline": {
       "type": "text", "source": "llm", "required": false,
-      "description": "One honest sentence on what this directory is: named UK providers, every fact cited to its source. Never mention rates — the directory carries none by design."
+      "description": "One honest sentence on what this directory is: named UK providers, every fact cited to its source. Never mention rates — the directory carries none by design. May carry the honesty clause: a citation proves where a fact came from, not that it is correct."
     }
   },
   "data_source": "/data/savings-provider-directory-full.json",
@@ -793,7 +793,7 @@ SELECT
     },
     "subheadline": {
       "type": "text", "source": "llm", "required": false,
-      "description": "One honest sentence on what this directory is: named UK insurers, every fact cited to its source. Never mention premiums — the directory carries none by design."
+      "description": "One honest sentence on what this directory is: named UK insurers, every fact cited to its source. Never mention premiums — the directory carries none by design. May carry the honesty clause: a citation proves where a fact came from, not that it is correct."
     }
   },
   "data_source": "/data/health-insurer-directory.json",
@@ -974,7 +974,7 @@ SELECT
     },
     "subheadline": {
       "type": "text", "source": "llm", "required": false,
-      "description": "One honest sentence on what this directory is: named UK insurers, every fact cited to its source. Never mention premiums — the directory carries none by design."
+      "description": "One honest sentence on what this directory is: named UK insurers, every fact cited to its source. Never mention premiums — the directory carries none by design. May carry the honesty clause: a citation proves where a fact came from, not that it is correct."
     }
   },
   "data_source": "/data/health-insurer-directory-full.json",

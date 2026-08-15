@@ -765,3 +765,18 @@ approve→object on a point answered in round 2. Two cheap checks run anyway and
 recorded; 4th-round-or-proceed is the owner's call. Nothing else blocks on it — the roll
 is the real gate for everything remaining. Milestone summary:
 `SUMMARY_2026-08-15_guardrails_live_directories_built.md`.
+
+### 2026-08-15 — Phase B ACTIVATED on v1.0.1301; round 4 at owner direction; bug 270 owned elsewhere
+
+Owner rulings: bug 270 is another thread's (hands off); run council round 4. Fresh roll
+v1.0.1301 verified on BOTH replicas via the gate literal + absent-sha control — carries
+Phase A AND Phase B. Executed in the recorded order: components seed regenerated with the
+honesty clause (compliance r3 low) and APPLIED (6 section-level rows; ROLLBACK-dry-run
+validated first); tasks enabled with `last_triggered_at=now()` (first fire deferred —
+supervised force-trigger is the next session's B4); legacy constant-key rows pre-counted
+(exactly 2, ids 39b5153f/35350447) and cancelled with a successor-key note. Round 4
+submitted: states the 8-edit cap as fact instead of claiming completeness, answers
+bug_historian's aggregation misread with the mechanism, shows the full allowlist, records
+the activation, and carries the two zero-count agent_definitions checks. Cold-start:
+`HANDOFF_2026-08-15_continue_here.md` (supersedes 08-13). Owner decision list delivered in
+chat and recorded in the handoff §3.
