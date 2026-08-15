@@ -178,3 +178,60 @@ backoff (RSH-006 landmine 3) — fixing this arm widens the live retry populatio
 - `bugs_closed/003` (F2 retry driver — the healthy timeout path), `bugs_closed/129` /
   RSH-003 (replay-not-rebuild; the `json:"-"` design this arm's fallback collides with),
   `bugs_open/075` lineage (the adapter cap branch, unaffected).
+
+---
+
+## RECONCILIATION 2026-08-15 from the `bugfix_213` lane — your unfiled sibling is now `bugs_open/274`, and your fix is doing more work than this file says
+
+Two things, neither a criticism of the fix, which is correct and well proven.
+
+### 1. The sibling symptom you flagged is filed, and it is large
+
+This file's opening block recorded *"an unexplained sibling symptom — completed workflows whose
+results fail 'message validation failed' on `complete_workflow` delivery to the parent … unfiled
+at the time of writing, worth its own look"*. That look happened on 2026-08-14 and it is now
+**`bugs_open/274`**: [MEASURED] **~15,000 events across 60 agent types, continuous since
+2026-08-03 and still firing** (1,668 in the 20 hours to 2026-08-15). Root cause located —
+`notifyParentOfSuccess` builds its reply headers without `sender_agent_type` or a step name, and
+the validator requires both, so **that reply can never pass**. Your instinct to flag it was right
+and it sat for a week.
+
+### 2. YOUR FIX IS WHAT MAKES 274'S REPLAYS REAL — and that reframes both files
+
+The chain, read at source (`bugs_open/274` §10):
+
+1. A child **succeeds**; its success reply is refused by validation and dropped.
+2. `notifyParentOfSuccess` falls through to `notifyParentOfFailure`, which builds the **same
+   malformed envelope** but sets `IsError: true` — and `ProduceWithValidation` **exempts error
+   messages** (*"those we always send"*). So the failure **is** delivered.
+3. That failure's prose contains `failed_transient`, so `perrors.RetryDisposition` classifies it
+   **`error_recoverable`** — and it lands in the arm this bug fixed.
+
+**Before `v1.0.1266` your arm refused that replay, so the duplicate work never happened. After it,
+the replay reaches the wire.** So this fix — correctly, exactly as designed — now faithfully
+retries a large population of **fictional** failures produced by a workflow that actually
+succeeded.
+
+**Nothing here says the fix is wrong.** A recoverable response *should* replay; the defect is that
+274 manufactures the recoverable response. But it means:
+
+- **This fix is load-bearing far more often than this file suggests.** A large share of the
+  recoverable responses it replays are 274's fictions, not genuine transient failures.
+- **The duplicate-execution cost belongs to 274 and is [UNQUANTIFIED].** The honest instrument is
+  the parent side — `awaited_requests.retry_version` and replayed offsets — not the child's error
+  log. On `page-rerender` (4,794 events) a replay is a page rebuild.
+- **If 274 is fixed at the header, this fix's traffic should drop sharply.** That is a usable
+  before/after for whoever takes 274, and a reason to record this file's current replay volume
+  *before* they land it.
+
+### 3. Filing question for the owner, not an action taken here
+
+This file reads **FIXED + LIVE on `v1.0.1266` + PROVEN BY INDUCTION**, and its header keeps it in
+`bugs_open/` citing *"the owner's 08-06 ruling"*. CLAUDE.md's current text states the bar for
+`bugs_closed/` as **fixed AND live**, which this meets. **[UNVERIFIED whether the 08-06 ruling was
+later superseded — I believe it was, on 08-12, but I have not read the ruling itself.]** Flagged
+rather than moved: it is your file, and a move against a cited ruling is the owner's call.
+⚠ If it does move, name **both** paths on the commit — `git mv` plus a pathspec commit ships a
+copy and leaves the original at HEAD.
+
+— `bugfix_213_verifier_producer_join` lane
