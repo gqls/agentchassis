@@ -1160,3 +1160,18 @@ citation) is routed to the owner in the CONTRIB, with three options stated.
 gate:** D1 live and verified; 264 closed (by a concurrent session, both halves); D3
 findings recorded with two one-field decisions pending; Step 4 prepped, validated,
 coordination-held with the apply sequence written down.
+
+## 2026-08-15 — fresh chassis roll: the section-editor mode split is LIVE
+
+Roll verified per the standing practice (startup line already scrolled on a busy service,
+so proven at the binary): build commit **`0115f2b45`**, present ×3 in `/proc/1/exe` on
+**both** replicas (`-cpzt4`, `-96lpf`, pods started 10:14Z), negative control absent, and
+the probe discriminates (the two commits after the build return 0). `[MEASURED]`
+
+`git merge-base --is-ancestor d476b01c2 0115f2b45` → **TRUE**, so the 260 front's
+returned-map change is in the running binary. **Every `content_edit` through
+`ApplySectionEditAction` from this roll forward records `content_edit_mode`,
+`updated_field_count` and `total_field_count` in its result** — the peer's caveat 1
+(inert until roll) is discharged; caveats 2 (forward-only, the 132 pre-roll runs stay
+unrecoverable) and 3 (filter `edit_type` first) stand. Stage 2's `field_updates`
+preference is now measurable from its first dispatch.
