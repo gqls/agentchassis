@@ -32,6 +32,13 @@
 -- category-shaped entities. Old values preserved in
 -- portfolio_positioning/NOTES 2026-08-15. This file now matches live so a re-apply
 -- cannot resurrect the market-shaped queries. Companion prompt fix: sql_for_agents/423.
+--
+-- ⚠ QUERIES MUST STAY UNDER 200 BYTES. web_search's query_from path drops any query
+-- >= 200 chars as a "likely LLM error message" (web_search_action.go extractSearchQuery,
+-- the len(queryStr) < 200 sanity check) and the run then FAILS with "search query not
+-- found - check 'query', 'topic', or 'query_field' config" — an error that misdirects to
+-- config keys, not to length. B4 run 2 (42f72cd9, 2026-08-15 14:41Z) failed exactly this
+-- way on a 275-byte query; the first re-aimed wording was shortened to fit the same day.
 
 BEGIN;
 
@@ -47,7 +54,7 @@ SELECT
     'system.agent.generic.requests',
     jsonb_build_object(
         'research_query',
-        'named UK mortgage lenders — individual banks, building societies and specialist lenders (Building Societies Association and UK Finance member firms): each firm''s mortgage product range (residential, buy-to-let, later life), FCA authorisation statement and firm reference number'
+        'named UK mortgage lenders: individual banks, building societies, specialist lenders; each firm''s products (residential, buy-to-let, later life), FCA authorisation, firm reference number'
     ),
     'finance-directory-discovery',
     1,
@@ -67,7 +74,7 @@ SELECT
     'system.agent.generic.requests',
     jsonb_build_object(
         'research_query',
-        'named UK savings providers — individual banks and building societies: each firm''s savings products (easy access, fixed term, cash ISA), FSCS protection statement, FCA authorisation and firm reference number'
+        'named UK savings providers: individual banks and building societies; each firm''s accounts (easy access, fixed term, cash ISA), FSCS protection, FCA authorisation, firm reference number'
     ),
     'finance-directory-discovery',
     1,
@@ -87,7 +94,7 @@ SELECT
     'system.agent.generic.requests',
     jsonb_build_object(
         'research_query',
-        'named UK private medical insurers — individual insurance companies and underwriters: each firm''s cover options (inpatient, outpatient, mental health, dental), FCA/PRA authorisation and firm reference number'
+        'named UK private medical insurers: individual firms and underwriters; each firm''s cover (inpatient, outpatient, mental health, dental), FCA and PRA authorisation, firm reference number'
     ),
     'finance-directory-discovery',
     1,

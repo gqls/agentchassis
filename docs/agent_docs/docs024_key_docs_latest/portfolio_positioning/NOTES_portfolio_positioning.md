@@ -848,3 +848,95 @@ there because model sources are model-specific; NOT edited (their row), noted he
 **Run 2 fired ~14:47Z** (same force-trigger) to measure both fixes. Applying the two
 fixes together rather than one-per-run was deliberate: they act at different stages
 (retrieval vs extraction), and supervision time bounds the run count.
+
+> **CORRECTED 2026-08-15 (same session): run 2 actually fired 14:41:11Z and FAILED at
+> search_web — MY re-aimed query broke it.** Orchestration `42f72cd9`, error "search
+> query not found - check 'query', 'topic', or 'query_field' config". The config was
+> byte-identical to run 1's; what changed was the query VALUE — my re-aimed wording was
+> 275 bytes, and `web_search_action.go` extractSearchQuery's query_from path drops any
+> resolved query with `len >= 200` as a "likely LLM error message", then falls through
+> to an error that misdirects at CONFIG KEYS, never mentioning length. (Run 1's original
+> query was 183 bytes — under the cap by accident.) Caught in ~2 minutes because the run
+> was supervised. Also: my first watcher missed run 2 entirely — I'd guessed a
+> `created_at > 14:45` filter while the DB clock said 14:41; filter times belong to the
+> DB's clock, not your sense of elapsed time. Queries shortened to 184-185 bytes (same
+> intent, plain ASCII), live rows + seed updated, cap documented in the seed header.
+> The len<200 conflation of "long query" with "LLM error message" is a platform wart —
+> recorded here and in the seed; not filed as a bug this session (config-side fix
+> suffices for DIR-001's fixed queries; a fleet-shaped 016b/bugs filing needs a grep of
+> other query_from consumers first, which the next session can do off this note).
+
+**Run 3 fired ~14:45Z** with the shortened queries (mortgage-lender kind again).
+
+**Run 3 (`ffc22155`, COMPLETED 14:45:54): the named-firm rule HELD — and retrieval got
+worse.** Scrape set 4/4 regulatory/market pages (FCA how-to, FCA handbook SUP16, FCA
+authorisation page, the same Eversheds commentary): my shortened query's "FCA
+authorisation, firm reference number" vocabulary pulled the REGULATOR's own pages. The
+extractor registered NOTHING from aggregate-only sources — zero new entities, zero
+claims, zero rejects — which is exactly what the 423 rule prescribes and the first
+positive evidence it works (run 1's identical source-shape produced two category
+entities). Lesson: regulator words belong to EXTRACTION, not retrieval — the FCA-footer
+facts live on lender pages, so the query must hunt LENDERS. Query iteration 2 (mortgage
+kind only until proven, then mirror): "list of UK mortgage lenders and building
+societies: named member firms (Building Societies Association, UK Finance) and each
+firm's mortgage range: residential, buy-to-let, later life" (183 B). Run 4 fired
+~14:52Z.
+
+> **CORRECTED (same session): run 4 fired 14:47:11Z, not ~14:52** — the same
+> local-sense-vs-DB-clock error the run-2 correction above describes, made again within
+> minutes of writing it down. Timestamps in these notes must be READ from
+> orchestration_states/scheduled_tasks, never estimated.
+
+**Run 4 (`26c4f5ac`, COMPLETED 14:48:23): retrieval FIXED, and two new mechanical
+failure modes exposed — 8/8 candidates rejected.** Scrape set was the right shape at
+last: UK Finance largest-lenders list, BSA homepage, Family BS, IBISWorld. The extractor
+produced REAL named firms (Nationwide, Yorkshire BS, Coventry BS from IBISWorld; Family
+BS from its own page) — 423's rule demonstrably steering. But verification rejected all 8:
+- `citation_lost` ×3 (Family BS): quotes were multi-paragraph BULLET BLOCKS
+  (`"...\n\n- Owner Occupier..."`); the refetch's text extraction renders layout
+  differently, so a bullet-block quote fails verbatim match even though every word is on
+  the page. Run 1's single-sentence quotes had passed — failure of SHAPE, not truth.
+- `fetch_error` HTTP 405 ×4 (IBISWorld): the aggregator refuses the verifier's refetch,
+  so any claim cited there is dead on arrival — a wasted scrape slot every time it ranks.
+One claim DID register (Family BS `lender_type` "building society", superseding run 1's
+hyphenated value). **Fixes: migration 424** (quote must be ONE CONTINUOUS passage of
+running text; `ibisworld.com` → exclude_domains; snapshot-first, pre-checks 1|f|f,
+verify t|t), seed synced. Only the evidence-named domain excluded — the CLASS
+(refetch-blocked aggregators) will grow; add members as runs name them.
+
+**FINDING — run 4's 7 rejects were SILENTLY SUPPRESSED from the HITL queue by MY OWN
+14:40 ruling.** No `directory_citation_unverified` item was created or refreshed:
+`writeWorkItem` (load_work_item_actions.go, two-strike rule) drops any keyed write whose
+`item_key` had a terminal (`complete`/`failed`) row created <3h before — my completing
+`dc891e85` at 14:40:42 made every reject write under
+`directory_citation_unverified:mortgage-lender` a silent no-op until ~17:40. The rejects
+survive ONLY in orchestration `collected_data` (~24h retention). [INFERRED from code +
+row absence + timestamps; the branch's own log line could not be confirmed at the pod —
+see next paragraph.] Class: "your own action can silence your own detector"
+(memory index). Structural fix candidate: the reject emitter should set
+`workItem.recurrenceExpected` (exists for exactly this; the emitter doesn't set it) —
+Go change, inert until a roll, NOT applied this session. ALSO of note for the two-strike
+half: after 2 terminal rows in 7 days a third write flips to status `unresolved` — a
+weekly HITL queue that a human dutifully completes will hit this on week 3.
+
+**PUZZLE, unresolved: this action's log lines never reach `kubectl logs` on either
+chassis pod** — not the unconditional `verify_and_register_directory_claims: complete`,
+not the HITL-write literal (the same string the deploy gate probes in `/proc/1/exe`, so
+the binary carries it), not the suppression line — across runs 1/3/4, 90-minute window,
+both pods checked individually, while OTHER actions-package callers
+(workflow_actions.go, database_actions.go, ai_actions.go) DO print there, and the verify
+step's processing_history pins execution to `sspqq`. The DB writes prove the code ran.
+Consequence for practice: for THIS action, absence of its log line is not evidence it
+didn't run — the code comment at directory_claims.go:449 claims that line is "the only
+pod-greppable evidence", and in production it is not greppable at all. [MEASURED absence;
+mechanism UNDIAGNOSED — worth a 090 run if it matters beyond this lane.]
+
+**Structural observation for Phase C/D (not a defect):** list pages (UK Finance largest
+lenders, BSA members) name many firms but state few closed-vocabulary facts about each,
+so even perfect retrieval of lists yields ~0 claims from them; per-firm provider pages
+carry the facts but arrive ~1-2 per search. The 6-step workflow has no second hop
+(list → per-firm pages), so realistic yield is a few firms per weekly run, accumulating.
+Either accept slow accumulation or add a two-hop discovery step later — owner-visible
+trade-off, park for Phase C/D.
+
+**Run 5 fired 15:00:30Z** (DB clock, read not estimated) with 423+424 both live.
