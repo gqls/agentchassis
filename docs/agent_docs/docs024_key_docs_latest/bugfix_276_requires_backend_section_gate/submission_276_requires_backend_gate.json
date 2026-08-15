@@ -1,0 +1,56 @@
+{
+  "rationale": "bugs_open/276, council-directed 2026-08-14: a requires-backend-tagged SECTION component (intent-probe, whose frontend POSTs to a server-side API) can still be planned onto a static, backend-less site, because only the TOOL-level instance of this tag was gated (migration 406, tool-suggester) — no section-level call site carries the equivalent check. bugs_open/276 and the concept register (VMB-010) both name only build-site-planner's load_components step as the fix target; a fleet-wide sweep of every agent_definitions step whose query touches content_components (14 hits, all classified 2026-08-15) found this undercounts the problem — THREE section-candidate menus exist, not one, and the one named in the bug (build-site-planner, 2 dispatches/30d) is the minority path. content-gap-planner's load_available_components (not named anywhere in the bug or the register) is the dominant real placement path at 131 dispatches/30d, most recent today. site-planner's load_available_components has zero dispatches ever (checked unbounded, not just 30 days) — dead/legacy code with no ensure_site_record-equivalent step anywhere in its workflow, hence no proven site-id binding. This submission gates all three so the class is actually closed. No live damage exists today: intent-probe's sole current placement (relojistas.com/index) already has backend capability. FORCE=1 because this is genuinely config-only (no Go bytes change) — migration 406, this bug's sibling gating the tool-level instance of the same tag, was itself submitted FORCE=1 with the identical reason and drew a full three-round council review ending APPROVED.",
+  "submitter": "bugfix_276_requires_backend_section_gate workstream",
+  "plan": {
+    "summary": "Gate requires-backend-tagged SECTION components out of all three live planner menus that can offer them, mirroring the tool-side gate already live (migration 406). content-gap-planner and build-site-planner get a capability-checked gate (offered only when the target site's deploy_config.capabilities includes 'backend'); site-planner, which is dead code with no provable site-id binding anywhere in its workflow, gets an unconditional exclusion instead of a guessed binding. Update the concept register (VMB-010) and bugs_open/276 to record the corrected, wider scope.",
+    "edits": [
+      {
+        "file": "docs/agent_docs/sql_for_agents/418_content_gap_planner_requires_backend_gate.sql",
+        "symbol": "content-gap-planner.load_available_components",
+        "operation": "config_change",
+        "rationale": "The dominant real placement path (131 dispatches/30d, most recent today) and the call site neither the bug file nor the register names. Id-scoped UPDATE with a byte-exact pre-state gate (this row was edited twice by a concurrent, unrelated session — migrations 413/414 — in the hours around authoring, confirmed not to touch this step; the pre-state check turns any further collision into a loud abort rather than a silent clobber).",
+        "sketch": "Add params [\"site_record.site_id\"] (currently absent) and extend the WHERE clause with AND (NOT (COALESCE(semantic_tags,'[]'::jsonb) ? 'requires-backend') OR EXISTS (SELECT 1 FROM sites s WHERE s.id = $1 AND COALESCE(s.deploy_config->'capabilities','[]'::jsonb) ? 'backend')). Binding proof: two sibling steps immediately upstream in this same linear workflow (load_specs, load_existing_pages) already resolve site_record.site_id; measured 131/131 recent orchestration_states rows for this agent carry it non-null."
+      },
+      {
+        "file": "docs/agent_docs/sql_for_agents/419_build_site_planner_requires_backend_gate.sql",
+        "symbol": "build-site-planner.load_components",
+        "operation": "config_change",
+        "rationale": "The call site bugs_open/276 and VMB-010 explicitly name, despite being the minority path (2 dispatches/30d). Reuses the $1 binding migration 407 already proved for this exact step (no params change). Same id-scoped + pre-state-gated discipline.",
+        "sketch": "Add a new top-level AND (NOT (COALESCE(semantic_tags,'[]'::jsonb) ? 'requires-backend') OR EXISTS (SELECT 1 FROM sites s WHERE s.id = $1 AND COALESCE(s.deploy_config->'capabilities','[]'::jsonb) ? 'backend')) wrapping the existing (component_level IN ('section','element') OR (component_level='tool' AND ...)) group, applying uniformly to both branches."
+      },
+      {
+        "file": "docs/agent_docs/sql_for_agents/420_site_planner_requires_backend_gate.sql",
+        "symbol": "site-planner.load_available_components",
+        "operation": "config_change",
+        "rationale": "site-planner has zero dispatches ever (checked with no time bound) and no ensure_site_record-equivalent step anywhere in its 5-step workflow — no proven collected_data key holds a site id. A params path resolving to nil hard-fails the step (outage-class per 407's own header warning on this exact class of change). Rather than guess an unproven binding on code that has never executed, this migration strips the tag unconditionally — strictly more conservative than 418/419, and correct for a call site with no site context to check against.",
+        "sketch": "AND NOT (COALESCE(semantic_tags,'[]'::jsonb) ? 'requires-backend'), no params added. Disagreeing-pair proof (no site id needed): old-minus-new = exactly {intent-probe}."
+      },
+      {
+        "file": "docs/agent_docs/docs026_concept_register/register/vm-backend-sites.md",
+        "symbol": "VMB-010",
+        "operation": "modify",
+        "rationale": "Append (never rewrite) a dated status update: the section half is now closed across three named consumers, not the one originally designed for — record the correction and the dispatch-volume evidence for why content-gap-planner mattered most. Status stays 'partial': the audit-check piece (VMB-010's separate 'Later' item) remains deliberately unbuilt.",
+        "sketch": "Append to VMB-010's status-evidence: 'SECTION half LIVE 2026-08-15 across three consumers (content-gap-planner migration 418, build-site-planner migration 419, site-planner migration 420 unconditional) — wider than the original design, which named only build-site-planner (bugs_open/276's own correction). Audit-check piece still UNBUILT, zero live findings to date.'"
+      },
+      {
+        "file": "bugs_open/276_HANDOFF_2026-08-14_section_level_backend_components_unguarded_in_generic_planning.md",
+        "symbol": "TAKEN UP section",
+        "operation": "modify",
+        "rationale": "Record the workstream, the three-call-site correction to the bug's own fix candidate 1, and the fixed-and-live closure bar, so no other thread duplicates this work and the eventual close-out has a clear bar to check against.",
+        "sketch": "Append 'TAKEN UP 2026-08-15' section: workstream path, corrected call-site count (3, not 1) with dispatch-volume evidence, migration numbers 418-420, OPEN until all three applied + disagreeing-pair-verified + register updated."
+      }
+    ],
+    "grounded_in": [
+      "bugs_open/276: 'nothing in generic section planning (`plan_sections` / the component library load) reads the tag' — the gap this closes",
+      "VMB-010 (vm-backend-sites.md): 'Planner side (to apply): load_components gains AND NOT (...) so such components are opt-in via roadmap section_types only' — names build-site-planner only",
+      "Fleet-wide sweep of agent_definitions steps referencing content_components (14 hits, 2026-08-15): exactly 3 are section-candidate menus — content-gap-planner.load_available_components, build-site-planner.load_components, site-planner.load_available_components",
+      "orchestration_states.owner_agent_type dispatch counts, last 30 days, measured 2026-08-15 14:03Z: content-gap-planner 131 (newest today), build-site-planner 2, site-planner 0 (unbounded check)",
+      "content-gap-planner site_record.site_id binding proof: 131/131 recent orchestration_states rows carry non-null collected_data#>>'{site_record,site_id}'; workflow chain ensure_site_record -> load_specs (binds it) -> load_existing_pages (binds it) -> load_available_components",
+      "site-planner workflow graph: load_available_components -> load_style_collections -> plan_site -> validate_plan -> complete — no ensure_site_record-equivalent step anywhere",
+      "intent-probe tag census (2026-08-15): sole placement is relojistas.com/index, which already carries deploy_config->capabilities ? 'backend' — no live damage exists",
+      "406_tool_suggester_requires_backend_gate.sql addendum: 'FUTURE agent_definitions migrations should scope by id + pre-state gate' — the council-recorded guidance this submission's migrations follow",
+      "Disagreeing-pair proof run pre-apply against literal query text: relojistas.com (backend) old=new=141 rows for both 418 and 419; gamesdesign.co.uk (static) old=141/new=140 with diff={intent-probe} for both; 420's unconditional diff = {intent-probe} exactly"
+    ],
+    "risks": "Subtractive by design for non-backend-capable sites (a site without 'backend' in deploy_config.capabilities will stop being offered intent-probe by content-gap-planner and build-site-planner) — this is the intended effect, verified to remove exactly and only intent-probe via the disagreeing-pair proof, nothing else. Nil-param outage risk on 418 is mitigated by the 131/131 binding proof against live orchestration history; 419 reuses migration 407's already-proven binding, unchanged. 420 deliberately avoids this risk by using no binding at all. Concurrent-edit risk on the content-gap-planner row (already edited twice by an unrelated session, migrations 413/414, in the hours around authoring) is mitigated by id-scoped UPDATEs with byte-exact pre-state gates that abort the whole transaction on any mismatch rather than silently double-applying or clobbering a concurrent change; all three migrations were dry-run (COMMIT swapped for ROLLBACK) with both DO blocks passing, and the pre-state gate was mutation-tested against a deliberately wrong literal to confirm it can actually fail. site-planner (420) is unexercisable today (zero dispatches ever), so its fix cannot be verified against a live run — only against the direct-SQL disagreeing-pair proof. No architecture RFC filed: two live owner rulings (2026-08-02 §1 and §2) already cover an opt-in tag with the unsafe side defaulting OFF and the producer/consumer set named in the register entry, exactly as already established for the tool-side gate (406)."
+  }
+}
