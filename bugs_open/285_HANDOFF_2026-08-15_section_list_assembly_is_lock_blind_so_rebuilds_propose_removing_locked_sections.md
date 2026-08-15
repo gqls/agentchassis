@@ -1,5 +1,14 @@
 # Handoff — the section-list assembler is lock-blind: every rebuild proposes a list without the page's locked sections, and only the terminal write guard stands between that and deletion
 
+> ⚠ **285 IS AN AMBIGUOUS NUMBER** — filed the same day as
+> `285_HANDOFF_2026-08-15_tool_improver_rewrites_a_shared_template_…` (an
+> unrelated case). Refer to this one by slug
+> (`section_list_assembly_is_lock_blind`), never by bare number, and
+> `git log` the FILE PATH. **Ownership (owner, 2026-08-15 evening): the fix
+> for THIS case is being implemented by a separate lane** — the filing lane
+> (webdesign_uk_build_service) holds the locked chat box and runs the
+> acceptance when the fix lands.
+
 **Filed 2026-08-15** by the webdesign_uk_build_service lane, on the owner's
 2026-08-15 ruling ("the improvement loop that tried to remove the chat box:
 CHECK AND FIX IT"). Diagnosed through two 090 rounds — the first REFUTED the

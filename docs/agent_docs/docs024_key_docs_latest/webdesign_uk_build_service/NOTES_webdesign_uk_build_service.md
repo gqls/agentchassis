@@ -2880,3 +2880,25 @@ this session's cold-start falsifier sweep:
   the exact downstream interaction a loader-merge must clear for the
   chat-box case; their fix is a co-requisite.** Implementation is next
   session's work item 1 (handoff §2.1 updated); the lock stays ON.
+
+## 2026-08-15 (night, cont.) — 285 fix REASSIGNED to a separate lane (owner); fresh roll survived ×2; lane repositioned on PLAN steps 5–6
+
+- **Owner (in chat): the lock-blind-assembler fix is being worked in a
+  SEPARATE lane.** This lane's residue: keep the chat-box lock ON, watch
+  their fix, run bugs_open/285's five-step acceptance when it lands, and
+  answer a4cd5dc8 then. Also flagged by the owner: **285 is now an
+  AMBIGUOUS NUMBER** — a second, unrelated 285 (tool-improver shared
+  template) was filed the same day by another session. Ambiguity note added
+  to our file's header; resolve by slug, `git log` the file path.
+- **Fresh chassis build rolled ~18:44Z. Post-roll checks all green**:
+  `SITE_FACTS_TOKEN` in secret (56 b64 bytes) and in the fresh core-manager
+  pod (TOKEN-IN-POD) — the terraform fix's SECOND release survival; box
+  journal zero `refresh failed` lines through the roll — which is also the
+  NAMED FACTS_URL's first roll survival. Migration dry-run re-run
+  post-roll (per-session + after-every-roll practice): pending files are
+  other threads' (418/419/420 etc.), nothing for this lane.
+- **Lane position on PLAN_2026-08-11: steps 1–4 of 6 DONE.** Next build
+  work = step 5 (tool-deployer backend half, proven on a SECOND site
+  sharing the box), then step 6 (tool-suggester cites the approved
+  EXPERIENCE_PLAN). The approved plan's MVP verification round is
+  owner-gated at Step 0 (contact email). HANDOFF_2026-08-15c supersedes.
