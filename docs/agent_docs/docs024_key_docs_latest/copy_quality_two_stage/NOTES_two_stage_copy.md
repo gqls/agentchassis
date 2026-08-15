@@ -1254,3 +1254,64 @@ this lane on close, and the HANDOFF is the pickup.
 > would itself have caught the duplication (two sections, same declared card set). The
 > third-generation capture instruction (if the 278 repro re-fills the section, capture at
 > that moment — free then, expensive later) lives in their §8, not only in this exchange.
+
+## 2026-08-15 (evening) — the four decisions LANDED; decisions 1+2 applied and proven the same hour
+
+The owner ruled on all four pending decisions (fresh session, decisions presented from
+the HANDOFF): **1 restate** (value_proposition as the lever) · **2 replace** (exemplar
+with a lever-shaped equivalent) · **3 SDLT-first** — with a rider: *bugs_open/225 is
+being run in a separate thread*, so coordinate before anything SDLT-adjacent · **4 build
+stage 2 in parallel** with the 033 thread.
+
+### The re-verify that earned its keep
+
+Before applying 1+2, re-read the live rows: **loancalculator's specs were REGENERATED
+this morning** (07:58–08:31Z, `domain-research-classifier`/`domain-strategist`, part of
+the rebuild lane's phase-1 fire at 07:54Z, corr `2d950ecc`) — AFTER D3's 08-14 read.
+Both offending clauses **survived the regeneration verbatim**, so the decisions still
+applied, but to NEW row ids — the D3-era rows were already superseded. Anyone acting on
+D3's row ids would have edited history. `[MEASURED — phrase-count sweep across all 12
+current aspects: volunteer clause 1 hit (strategy only), true-cost sentence 2 hits
+(content_direction: array + formatted); briefing quotes neither]`
+
+Also found in the same check: the site has an **active rebuild in flight**
+(save_page_sections lock-blocks 17:11–17:58Z, locks holding). Register edits do not
+touch composition, and draining rerenders render from stored `content_data`, so applying
+now is safe — and better than waiting, since every future writer run inherits the fix.
+
+### Decision 1 applied `[MEASURED]`
+
+`strategy.value_proposition` final clause: *"…that lenders have no incentive to
+volunteer"* → *"…that decide what you pay"*. Supersede mirroring `write_site_spec`
+(site_spec_actions.go:259–289): old `b82e2c7e-8e7e-432e-8130-b0d981805a11` preserved
+is_current=false → new current `bca3b9ee-2278-4706-a158-a7d30b6ea6c8`,
+created_by `claude-session-copyquality-20260815`, source `owner-correction`. In-transaction
+post-conditions (guarded DO/RAISE, per the RFC_006 lesson): exactly 1 current row, old
+phrase 0 hits, new phrase 1 hit. Guard on the read row id makes a concurrent supersede
+abort loudly rather than being overwritten.
+
+### Decision 2 applied `[MEASURED]`
+
+`content_direction`: exemplar replaced in **both** `example_phrases.characteristic[6]`
+and `formatted` (the writer reads ONLY formatted — editing the array alone is inert).
+New text: *"Our calculators and guides show what a loan costs in total, and which parts
+of that cost you can change."* — total-cost content kept, the reveal/true accusation
+dropped, the lever added; register grounded in the mc antidote (*"…their criteria can be
+explained calmly"*). Old `a1feaaa7-0543-4bcf-b401-abbe03c26b3c` → new current
+`7f39172e-9933-4688-ae99-abab17034ac9`. `formatted` was NOT regenerated via
+`FormatContentDirection` — it iterates a Go map (random order), so regeneration churns
+line order; the surgical one-line replacement is byte-equivalent for this change and was
+**proven**: reversing the substitution on the new `formatted` reproduces the old
+byte-for-byte (query returned `t`). Post-conditions: 1 current row, old sentence 0 hits,
+new sentence exactly 2 (array + formatted).
+
+### Coordination + the standing risk
+
+CONTRIB filed into the rebuild lane
+(`loancalculator_couk/CONTRIB_2026-08-15_register_specs_superseded_mid_rebuild.md`):
+writer runs from ~18:0xZ read the corrected register; pages built this morning carry the
+old one. **Standing risk, bugfix-238 shape:** a future re-fire of the research/strategy
+agents clobbers both corrections (`write_site_spec` merges incoming over current, and
+`pinned` is read only by the evidence-base path, so it cannot protect these rows).
+Re-apply from the old-row ids above if that happens. SQL kept in scratchpad this session;
+the row ids + notes columns are the durable record.

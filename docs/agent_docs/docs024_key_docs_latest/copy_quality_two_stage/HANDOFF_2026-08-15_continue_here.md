@@ -1,11 +1,17 @@
 # HANDOFF 2026-08-15 — continue here
 
-**Lane:** `copy_quality_two_stage`. **State: the approved 08-13 execution plan is fully
-delivered or closed at its gates, and the lane is paused on FOUR OWNER DECISIONS, not on
-work.** This file is the entry point for a fresh session; NOTES carries the evidence for
-every claim below; `SUMMARY_2026-08-15_plan_complete…` is the read-aloud account.
+**Lane:** `copy_quality_two_stage`. **State (updated ~18:30Z): the FOUR OWNER DECISIONS
+LANDED this evening — 1+2 are APPLIED AND PROVEN, 3 is ruled SDLT-first (rider:
+`bugs_open/225` is being run in a separate thread — coordinate before anything
+SDLT-adjacent), 4 is ruled BUILD IN PARALLEL.** Remaining work: decision 3's apply
+(coordination check first) and the stage-2 build. NOTES 2026-08-15 (evening) carries the
+evidence: loancalculator's specs were REGENERATED the same morning by the rebuild lane's
+fire and the offending clauses survived verbatim, so the edits were applied to the fresh
+rows (old: strategy `b82e2c7e…`, content_direction `a1feaaa7…`; new: `bca3b9ee…` /
+`7f39172e…`; rollback = flip `is_current`). ⚠ A future re-fire of the research agents
+clobbers both corrections — CONTRIB filed in `loancalculator_couk/`.
 
-## START HERE: the four decisions (owner, pending — everything below waits on these)
+## The four decisions as originally posed (RULED — kept for context)
 
 1. **loancalculator `strategy.value_proposition`** — its final clause promises the site
    reveals what *"lenders have no incentive to volunteer"* (the insider-secrets family,

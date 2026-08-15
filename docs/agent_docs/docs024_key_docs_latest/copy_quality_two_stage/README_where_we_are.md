@@ -244,3 +244,31 @@ question is whether we build the editorial pass now, in parallel, so the two lan
 together — its first job is the six missing homepage links you ruled should wait for it,
 which you would review personally regardless. I'd build in parallel; if the other thread
 stalls, we pause exactly where we would have been anyway.
+
+---
+
+**2026-08-15, evening — you answered all four questions, and the two quick ones are
+already done.**
+
+You ruled: restate the loan calculator site's value proposition, replace its model
+sentence, open the claims register with the stamp-duty facts (noting the wrong-figure
+bug is being fixed in a separate thread), and build the editorial pass now rather than
+waiting.
+
+The two one-field fixes are applied and checked. The site's stored reason-for-existing
+no longer ends by promising to reveal what lenders keep quiet — it now says the site
+explains the rights and mechanics that decide what you pay. And the model sentence
+writers copy is no longer "reveal the true cost of credit" but "show what a loan costs
+in total, and which parts of that cost you can change" — same information, no
+accusation, and it hands the reader the lever.
+
+One thing we found on the way in: that site's settings had been regenerated this very
+morning by the rebuild running over there, and the two bad clauses came through the
+regeneration word-for-word. So the corrections were applied to today's settings, not
+stale ones — and I've left a note in the rebuild team's folder warning that if they
+regenerate again, our corrections would be silently overwritten and would need
+re-applying. The old settings are kept, so undoing or re-applying either change is one
+step.
+
+Next: the claims register (checking first what the stamp-duty thread is doing so we
+don't trip over each other), then the editorial pass build.
