@@ -128,3 +128,54 @@ Not a redesign. The question is narrow and has a cheap answer either way:
 - `bugs_open/267` — the round that surfaced this; register **DIAG-043**.
 - Council round `ac23f2f7-9230-403c-8f20-4e18623c1849` — rounds 2 and 3 of the `architecture`
   objection, plus `reuse_agent`/`constitution`/`tooling_provenance` on the same mechanism.
+
+---
+
+# OWNER RULING 2026-08-15 — §5.2: NOT this track. Two ordinary rounds. Collapsed the same day.
+
+Recorded by the `silent_hero_logo_readers` lane on the owner's word, taking the recommendation
+put to him: **rule it two ordinary council rounds rather than an architecture track, and stop
+filing it.** That is the answer §5.2 anticipated and §6 named as legitimate. The seat's own
+signal was `ARCHITECTURE_SIGNAL: insufficient` for the point fix — it wanted the *pattern*
+visible, not the fix escalated, and the pattern is now visible in this file.
+
+**Status: CLOSED by ruling.** The writer half has one owner as of this commit.
+
+## The `[UNMEASURED]` in §6 is discharged — and it was measured before the ruling, not after
+
+§6 said the ruling "may well turn on the number" of methods sharing a file with a name
+collision. It was measured on 2026-08-13 by `bugs_closed/269` §6b, with its control run first:
+
+| | |
+|---|---|
+| `code_symbols` rows of `kind='method'` | **1,175** |
+| …stored in the parenthesised `(Recv).Name` spelling | **1,175** (and **0** not — so the bare-name strip in the census query does real work) |
+| collision groups (same file, same bare name, ≥2 receivers) | **17** |
+| methods inside them | **48** of 1,175 = **4.1%** |
+
+**4.1% is the floor of the harm, not its rate:** in an n-way group a bare handle resolves to the
+first and is wrong for the other n−1, and the worst groups here are six-way. `pkg/diagnose/loop.go`
+is itself in the list, so a diagnosis *of the diagnosis loop* could have been handed the wrong
+body. **Do not round this up to "48 wrong bodies were served"** — that is the population where the
+defect can fire, and incidence remains unmeasured.
+
+## What shipped under the ruling
+
+- **`code_symbols_actions.go` — the last independent producer — now calls
+  `analysis.CanonicalSymbolName(fn)`.** Behaviour-identical by construction (the helper is the
+  same two lines it was hand-rolling) and pinned by the pre-existing `TestCanonicalSymbolName`.
+  This was the one call site §5.1 named; the other half of §5.1, `siblingSignatures`, was
+  `bugs_closed/269`'s own fix and is already live.
+- **A singleton guard test** (`internal/analysis/handle_producer_singleton_test.go`): no package
+  outside `internal/analysis` may build a method handle from `Receiver.Type`. It walks the **AST**,
+  not the file text, deliberately — a text scan would make every comment discussing the spelling
+  load-bearing, and this package's comments discuss it at length. Scoped to the live trees
+  (`internal/`, `platform/`, `pkg/`, `cmd/`), the same scope §3's own verification grep used;
+  `docs/` and `scripts/` hold uncompiled archived copies of this very code and would keep it
+  permanently red while saying nothing true about the estate. Mutation-proven: reinstating the
+  hand-rolled spelling fails it, naming the file and line.
+
+This answers §5.3's shape question in the only way that survives a tree this many sessions share:
+the rule *"when a grammar has a parser in a shared package, the builder belongs beside it"* is now
+enforced by a test rather than stated in a comment — a doc comment is not a control here, and
+three of the four bugs were one half of a pair living somewhere the other half could not see.

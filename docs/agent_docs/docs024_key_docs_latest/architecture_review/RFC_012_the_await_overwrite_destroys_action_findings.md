@@ -368,3 +368,85 @@ Recorded by the bugfix_080 session on the owner's word, three rulings in one mes
    takes it): the leaf-package shared `agent_error_log` writer + the named
    findings-plus-await helper, through the council gate, concept-register entry in the
    same commit, per the first sitting's prescription.
+
+---
+
+# OWNER RULING 2026-08-15 (third sitting) — (a) DECIDED for the PARK PATH, additively. Implemented same day.
+
+Recorded by the `silent_hero_logo_readers` lane on the owner's word, after the lane laid out
+the decision with the census's findings attached ("Decision 1. do the additive fix at the park
+path").
+
+**What was decided.** Of the three faces of this class, **face 3** — addendum 2's
+`persistAwaitingStateWithRetry`, which discards every `CollectedData` mutation at park time —
+is fixed, and fixed **additively**: the park now carries the dispatching step's in-memory
+`CollectedData` onto the freshly-loaded state, and **a key already present on the fresh copy is
+never overwritten**. That direction is the whole safety argument, and it is what the census
+scored: design 2 (additive, prior keys kept where they do not collide) breaks **0** config
+readers and **0** Go readers, where design 1 (reply under a `response` sub-key) breaks 3 Go
+readers silently.
+
+**Why the census had to be read first, and a correction to this file's own status.** The ruling
+block of 2026-08-06 says (a)/(a′) is available "only behind the reader census §3(a) names, which
+nobody has run". **That was true when written and has been false since 2026-08-07** — the census
+exists as `CENSUS_2026-08-07_rfc012_await_step_readers.md` in this directory, was corrected
+2026-08-09, and its §7 is written as inputs to exactly this decision. A reader taking the older
+block at face value concludes the question is still blocked. Corrected here rather than in place,
+per this directory's append-only rule.
+
+**One number the census gave that moved the decision:** the three Go-side breaks it found have
+since been collapsed onto a **single** shared helper (`deployedImageURL`,
+`deployed_image_read_audit.go`), so design 1's exposure was one function rather than three sites
+by the time this was ruled — and design 2's exposure is still zero.
+
+## What shipped
+
+- `carryCollectedDataOntoFreshState` (coordinator.go), called from
+  `persistAwaitingStateWithRetry` inside its retry loop, so each attempt merges onto its own
+  freshly-loaded state and the merge is idempotent.
+- **Additive only.** A key present on the fresh copy is skipped, so a concurrently-arrived reply,
+  and any other writer, still wins.
+- **A forged-arrival guard.** A carried key spelled `response` under a step we are parking on
+  would be indistinguishable from an arrived reply to this same function's arrival check, so it
+  is stripped (by copy, never mutating the live map) and warned about. **Measured 2026-08-15:
+  no action returns such a key today** — across the 15 files returning `await_response: true`,
+  every `"response"` spelling is either a reader of an arrived reply or a nested topics map. The
+  guard is for the next action, not a live case.
+- 8 tests, **5 mutations proven** (call site unwired; carry made overwriting; strip removed;
+  strip unscoped from awaited steps; strip made to mutate in place) — each fails the test that
+  claims to cover it. Two of the eight drive the **real** `persistAwaitingStateWithRetry` through
+  a mocked DB and assert on the `collected_data` JSON actually written, because the helper-level
+  tests would pass whether or not the park calls it.
+
+## What this ruling does NOT do — read this before citing it
+
+- **(a) is NOT decided for `applyResponseToState`.** The reply-time write still REPLACES the
+  step's record wholesale on two of its four branches: the `output_mapping` branch and the
+  default branch. Only the `.response` branch (`isAgentResponse`) is additive. So a carried key
+  survives the park and can still die when the reply lands, depending on the branch the step
+  takes.
+- **(a′) is NOT decided.** `storeActionResult` is untouched and the census explicitly does not
+  cover it.
+- **(d) is unaffected** — WFA-011 shipped it.
+
+## The finding that came out of implementing it, and why it matters to 236
+
+Tracing which reply branch the image deploys take turned up an asymmetry nothing had recorded:
+**`deploy_hero_image` carries an `output_mapping` on both agents that host it; `deploy_logo_image`
+carries none.** So the hero takes the wholesale-replace branch and gets its `image_url` from the
+reply (`response.data.file_path`), while the logo takes the additive branch and depends entirely
+on the action's own key surviving — which, before this fix, it did not. bugs_open/236's one
+piece of decisive, non-timeout evidence is a **logo** row, and its persisted shape is exactly
+what the additive branch produces over a map the park had emptied. That is the case this fix
+addresses.
+
+**A second finding, larger, and NOT fixed here:** the Go readers of `hero_deployed` /
+`logo_deployed` live in `page-content-writer` and the architect agents, while the producing steps
+live in `site-work-orchestrator` and `pageflow-builder` — **different orchestrations, different
+`collected_data`** — and no live config passes these keys between them (verified 2026-08-15: the
+only config references to either key fleet-wide are the four producing steps). A spawned child
+receives `input_data`, not the parent's map. So the readers cannot see these keys at all, which
+also explains why the audit instrument built on 2026-08-11 to size 236 has recorded **zero** rows
+against real demand (7 `needs_hero_image` and 187 `undeployed_asset` completions since it went
+live): it hits its own "no demand" early return every time. That is a separate defect from this
+one and belongs to 236, stated here so this ruling is not read as closing it.

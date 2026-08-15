@@ -11,6 +11,7 @@ import (
 	"os"
 	"regexp"
 	"runtime"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -2098,6 +2099,15 @@ func persistAwaitingStateWithRetry(ctx context.Context, state *OrchestrationStat
 		freshState.Status = StatusAwaitingResponses
 		freshState.LastActivity = time.Now()
 
+		// Carry the dispatching step's own work across. Additive — see the
+		// function's comment for why this is not a merge in either direction.
+		if carried := carryCollectedDataOntoFreshState(freshState, state, logger); len(carried) > 0 {
+			logger.Info("Carried the dispatching step's collected_data onto the parked state",
+				zap.String("orchestration_id", state.OrchestrationID),
+				zap.Strings("carried_keys", carried),
+				zap.Int("carried_count", len(carried)))
+		}
+
 		// Try to save
 		err = repo.UpdateState(ctx, freshState)
 		if err == nil {
@@ -2129,6 +2139,95 @@ func persistAwaitingStateWithRetry(ctx context.Context, state *OrchestrationStat
 	}
 
 	return nil
+}
+
+// awaitedResponseMarker is the sub-key applyResponseToState writes when an
+// adapter reply lands, and the key persistAwaitingStateWithRetry's arrival check
+// reads to decide a reply beat the park. It is a protocol signal, never data.
+const awaitedResponseMarker = "response"
+
+// carryCollectedDataOntoFreshState copies the dispatching step's in-memory
+// CollectedData onto the freshly-loaded state, ADDITIVELY: a key already present
+// on the fresh copy is left untouched. That direction is the whole safety
+// argument — nothing here can overwrite a concurrent writer, and nothing here can
+// overwrite a reply that landed while we were parking.
+//
+// Without this, parking discards everything the action computed. The park reloads
+// the row from the DB and copies only AwaitedRequests/Status/LastActivity onto it,
+// so storeActionResult's own step-name and output_field writes — and any sibling
+// keys the action wrote — never reached the DB at all. The reply-time merge then
+// "preserved" a map that had never held the action's work, and the persisted
+// record ended up holding exactly the reply and nothing else. The status said
+// complete and nothing recorded a loss.
+//
+// bugs_open/236 — mechanism confirmed 2026-08-14 (witnessed on two parked rows;
+// ordering verified at processActionResult, which calls storeActionResult before
+// processAwaitResponse with the same state). RFC_012 question (a), owner ruling
+// 2026-08-15: fix additively, at the park path.
+//
+// Returns the carried keys, sorted, for the caller's log line and for tests.
+func carryCollectedDataOntoFreshState(freshState, state *OrchestrationState, logger *zap.Logger) []string {
+	if freshState == nil || state == nil || len(state.CollectedData) == 0 {
+		return nil
+	}
+	if freshState.CollectedData == nil {
+		freshState.CollectedData = make(map[string]interface{}, len(state.CollectedData))
+	}
+
+	// The steps we are about to park on. Carrying a key spelled "response" under
+	// one of these would forge the signal the arrival check reads, and a forged
+	// arrival is indistinguishable from a real one.
+	awaitedSteps := make(map[string]struct{}, len(state.AwaitedRequests))
+	for _, req := range state.AwaitedRequests {
+		if req != nil && req.StepName != "" {
+			awaitedSteps[req.StepName] = struct{}{}
+		}
+	}
+
+	carried := make([]string, 0, len(state.CollectedData))
+	for key, value := range state.CollectedData {
+		if _, taken := freshState.CollectedData[key]; taken {
+			continue
+		}
+		if _, awaited := awaitedSteps[key]; awaited {
+			value = withoutResponseMarker(key, value, logger)
+		}
+		freshState.CollectedData[key] = value
+		carried = append(carried, key)
+	}
+	sort.Strings(carried)
+	return carried
+}
+
+// withoutResponseMarker returns value with the response-protocol marker removed,
+// copying rather than mutating because the map handed in is still the live
+// in-memory one the caller goes on using.
+//
+// No action returns such a key today — measured 2026-08-15 across the 15 files
+// that return await_response: every "response" spelling in them is either a
+// reader of an arrived reply or a nested topics map, never a top-level result
+// key. This guards the next action, not a live case.
+func withoutResponseMarker(stepName string, value interface{}, logger *zap.Logger) interface{} {
+	asMap, ok := value.(map[string]interface{})
+	if !ok {
+		return value
+	}
+	if _, present := asMap[awaitedResponseMarker]; !present {
+		return value
+	}
+
+	stripped := make(map[string]interface{}, len(asMap))
+	for k, v := range asMap {
+		if k == awaitedResponseMarker {
+			continue
+		}
+		stripped[k] = v
+	}
+	if logger != nil {
+		logger.Warn("Dropped a 'response' key from an awaited step's own result before parking - it would be indistinguishable from an arrived reply",
+			zap.String("step_name", stepName))
+	}
+	return stripped
 }
 
 // Extract request ID from result or context
@@ -3675,6 +3774,51 @@ func (s *SagaCoordinator) failWorkflow(ctx context.Context, state *Orchestration
 	return fmt.Errorf("workflow failed: %s", errorMsg)
 }
 
+// ownIdentity is this orchestration's own identity as the SENDER of a reply —
+// the same shape the coordinator already stamps onto execution contexts at four
+// other sites. Its AgentType feeds the sender_agent_type header, which
+// ValidateOutgoingMessage requires on every non-error outgoing message
+// (bugs_open/274: this and the step name below were never set here, so every
+// completed child workflow failed producer-side validation and was reported to
+// its parent as FAILED).
+func (s *SagaCoordinator) ownIdentity(state *OrchestrationState) types.AgentIdentity {
+	return types.AgentIdentity{
+		AgentType:    state.OwnerAgentType,
+		AgentID:      state.OwnerAgentID,
+		PodName:      s.podName,
+		AgentVersion: os.Getenv("AGENT_VERSION"),
+		Role:         state.OwnerAgentRole,
+	}
+}
+
+// parentReplyStepName recovers the PARENT's spawning step name — the step this
+// reply is in response to. It was recorded into CollectedData when the child's
+// state was created (BuildCollectedData), in the same breath as the
+// __parent_responses_topic__/__reply_to_request_id__ keys the notify functions
+// already trust, and nothing overwrites it afterwards. After a DB round-trip
+// __execution_context__ is a plain map, but a freshly-built state can still hold
+// the typed struct, so both shapes are handled.
+func parentReplyStepName(state *OrchestrationState) string {
+	if ec, ok := state.CollectedData["__execution_context__"]; ok {
+		switch v := ec.(type) {
+		case *types.ExecutionContext:
+			if v.StepName != "" {
+				return v.StepName
+			}
+		case map[string]interface{}:
+			if name, _ := v["step_name"].(string); name != "" {
+				return name
+			}
+		}
+	}
+	if wr, ok := state.CollectedData["__work_request__"].(map[string]interface{}); ok {
+		if name, _ := wr["step_name"].(string); name != "" {
+			return name
+		}
+	}
+	return ""
+}
+
 func (s *SagaCoordinator) notifyParentOfSuccess(ctx context.Context, state *OrchestrationState) {
 	// Get parent response topic
 	parentTopic, _ := state.CollectedData["__parent_responses_topic__"].(string)
@@ -3706,9 +3850,26 @@ func (s *SagaCoordinator) notifyParentOfSuccess(ctx context.Context, state *Orch
 		return
 	}
 
+	// bugs_open/274: Sender and InResponseToStepName are two of the five headers
+	// ValidateOutgoingMessage requires, and this literal shipped without them
+	// from 2026-01-11. Harmless while the produce was unvalidated; when 158's
+	// fix put this site on the validated path (2026-08-03) the reply became
+	// deterministically undeliverable and every completed child workflow was
+	// reported to its parent as FAILED (~16,869 rows in 12 days).
+	inResponseToStepName := parentReplyStepName(state)
+	if inResponseToStepName == "" {
+		// Validation will refuse the reply and the failure arm below will fire —
+		// exactly the pre-fix behaviour, but named, so it cannot be mistaken for
+		// a transport problem.
+		s.logger.Error("notifyParentOfSuccess: no parent step name recoverable from collected_data — the success reply cannot pass validation (bugs_open/274)",
+			zap.String("orchestration_id", state.OrchestrationID),
+			zap.String("correlation_id", state.CorrelationID))
+	}
+
 	successResponse := types.ResponseMessage{
 		Headers: types.ResponseHeaders{
 			InResponseToRequestID: replyToRequestID,
+			InResponseToStepName:  inResponseToStepName,
 			Status:                "complete",
 			IsComplete:            true,
 			MessageType:           "response",
@@ -3717,6 +3878,7 @@ func (s *SagaCoordinator) notifyParentOfSuccess(ctx context.Context, state *Orch
 			OrchestrationID: state.OrchestrationID,
 			CorrelationID:   state.CorrelationID,
 			ClientID:        state.ClientID,
+			Sender:          s.ownIdentity(state),
 		},
 		Body: types.ResponseBody{
 			Success: true,
@@ -3954,13 +4116,21 @@ func (s *SagaCoordinator) notifyParentOfFailure(ctx context.Context, state *Orch
 	failureResponse := types.ResponseMessage{
 		Headers: types.ResponseHeaders{
 			InResponseToRequestID: replyToRequestID,
-			Status:                status,
-			IsError:               true,
-			MessageType:           "response",
+			// bugs_open/274: the same envelope fields the success arm was
+			// missing, plus ClientID, which this literal never set — the reply
+			// only passed the parent's incoming validation via the is_error
+			// bypass. This produce is unvalidated (is_error is always let
+			// through), so these are truthfulness, not deliverability.
+			InResponseToStepName: parentReplyStepName(state),
+			Status:               status,
+			IsError:              true,
+			MessageType:          "response",
 			//MessageID:             uuid.New().String(),
 			TimeSent:        time.Now(),
 			OrchestrationID: state.OrchestrationID,
 			CorrelationID:   state.CorrelationID,
+			ClientID:        state.ClientID,
+			Sender:          s.ownIdentity(state),
 		},
 		Body: types.ResponseBody{
 			Success: false,

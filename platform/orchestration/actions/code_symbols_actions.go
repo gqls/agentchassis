@@ -592,11 +592,16 @@ func flattenSymbols(out analysis.Output, logger *zap.Logger) []symbolRow {
 
 		for _, fn := range f.Functions {
 			kind := "func"
-			name := fn.Name
 			if fn.Receiver != nil {
 				kind = "method"
-				name = "(" + fn.Receiver.Type + ")." + fn.Name
 			}
+			// The method-handle spelling has ONE owner. This writer used to
+			// hand-roll it, making it the second independent producer of a
+			// grammar whose two halves must agree byte for byte or a handle
+			// resolves to the WRONG body (RFC_027; bugs_closed/261 measured 301
+			// unreadable bodies when they disagreed). Owner ruling 2026-08-15:
+			// collapse it onto the owner, no architecture round needed.
+			name := analysis.CanonicalSymbolName(fn)
 			content := composeSymbolContent(kind, name, fn.Signature, fn.Doc, f.Path)
 			rows = append(rows, symbolRow{
 				path: f.Path, symbol: name, kind: kind,

@@ -719,3 +719,72 @@ instance the next time anything deploys an image.
 (merge `state.CollectedData` onto `freshState` at park, or persist before parking) — which is
 RFC_012 `(a)`/`(a′)` territory, an open OWNER call, with every await-using pipeline in the blast
 radius. Do not patch it inside this bug; route it to that decision with this evidence attached.
+
+---
+
+## CONTRIBUTION 2026-08-15 — the park fix is RULED and BUILT; and two findings that change what this bug IS
+
+By the `silent_hero_logo_readers` lane. **The owner ruled RFC_012 (a) for the park path,
+additively** (RFC_012, third sitting). The fix is in the tree, tested and mutation-proven; it is
+Go, so it is inert until the next chassis roll. Register entry **WFA-014**.
+
+**What the fix does for this bug:** the park no longer discards the dispatching step's in-memory
+`collected_data`, so `deploy_image_asset`'s own `image_url` / `output_path` / `size_bytes` now
+reach the persisted row instead of dying at `persistAwaitingStateWithRetry`. That is the
+mechanism §5/§5b spent five contributions narrowing and the 08-14 run confirmed.
+
+### Finding 1 — hero and logo are NOT the same case, and this file's title implies they are
+
+Verified 2026-08-15 against live `agent_definitions`:
+
+| step | `output_mapping`? | reply-time branch | where `image_url` comes from |
+|---|---|---|---|
+| `deploy_hero_image` (both `site-work-orchestrator` and `pageflow-builder`) | **yes** | `applyOutputMapping` — **replaces the record wholesale** | the REPLY, via `"image_url": "response.data.file_path"` |
+| `deploy_logo_image` (both) | **no** | `.response` branch — **additive, preserves the map** | the ACTION's own key, which the park was discarding |
+
+So the park fix addresses the **logo**. For the hero the mapped result replaces everything at
+reply time, carried keys included, and its `image_url` is supposed to arrive from the reply
+independently.
+
+**This is consistent with §1's own evidence, which is worth re-reading in that light:** the
+decisive non-timeout row (`3e46be5b…`) is a **logo** row, and its persisted shape —
+`{response:{…}, response_status, response_received_at}` and nothing else — is exactly what the
+additive branch produces over a map the park had emptied. The two hero rows in §1 were timeouts
+and §1 already excludes them as evidence. **[UNMEASURED]** whether the hero's mapping path
+resolves in practice; nothing here shows it failing, and nothing here shows it working.
+
+### Finding 2 — the readers cannot see these keys AT ALL, and this is a separate, larger defect
+
+The three readers §1 cites have since been collapsed onto one helper (`deployedImageURL`,
+`deployed_image_read_audit.go:114`) — so §1's `v3_site_actions.go:1020`/`:1031` line numbers are
+stale; the live call sites are `v3_site_actions.go:1187`/`:1196` and
+`assemble_from_library.go:456`.
+
+Those readers run in **`page-content-writer`** and the **architect** agents. The producing steps
+run in **`site-work-orchestrator`** and **`pageflow-builder`**. Different agents means different
+orchestrations and different `collected_data`. Verified 2026-08-15: **the only references to
+`hero_deployed` or `logo_deployed` anywhere in live config are the four producing steps** — no
+`input_mapping`, no template reference, nothing forwards them. A spawned child receives
+`input_data`, not the parent's map (`spawn_actions.go`).
+
+**So the readers hit their own "NO DEMAND" early return every time, and file nothing.** That
+predicts a zero from the instrument built on 08-11 to size this bug — and the zero is there:
+
+```sql
+SELECT count(*) FROM agent_error_log WHERE error_code='DEPLOYED_IMAGE_RESULT_MISSING_URL';
+-- 0, against a live table (9,288 rows / 26 distinct codes since 2026-08-11)
+-- demand control: 7 needs_hero_image + 187 undeployed_asset completions in the same window
+```
+
+**A zero with real demand behind it is not "the bug stopped happening" — here it is the detector
+being blind in the exact shape the confirmed mechanism produces.** The instrument's own
+early-return comment calls the absent-container case "NO DEMAND"; for these keys the container is
+absent *structurally*, not because nothing deployed an image.
+
+**What this means for the fix:** the park fix is correct and lands a real platform defect, but
+**it will not by itself put a hero or logo URL on a page**, because the code that would consume
+the restored key never receives the key. Do not close this bug on the roll. The remaining
+question is a routing one — whether these keys should cross to the reading agents, or whether the
+readers are vestigial and the live path is the `site_assets` resolver — and it wants an owner
+decision or its own bug, not a patch. **[INFERRED]** that the readers are the intended consumer
+at all; that assumption has been carried since 08-09 and has never been tested.

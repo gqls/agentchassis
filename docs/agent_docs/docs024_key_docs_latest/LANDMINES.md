@@ -4770,6 +4770,23 @@ that is also the thing you would want in the logs is not.
   "refusals are RETURNED, not swallowed" comment (071/083/091's
   detected-then-discarded class)
 - **added:** 2026-08-03, bugfix_098_unpublish_primitive lane
+- **NARROWED 2026-08-15 (silent_hero_logo_readers lane) — the PARK half is FIXED
+  in code; the entry stands until that build is live, and the FIRST half of it
+  stands regardless.** RFC_012 question (a), owner ruling 2026-08-15: the park now
+  carries the step's in-memory `CollectedData` onto the freshly-loaded state
+  ADDITIVELY (`carryCollectedDataOntoFreshState`, coordinator.go) — a key already
+  on the fresh copy is never overwritten, so a concurrently-arrived reply still
+  wins. What this retires: "every CollectedData mutation from the step's execution
+  is discarded at park time". What it does NOT retire, and do not read it as
+  retiring: `applyResponseToState` still REPLACES the step's record wholesale on
+  two of its four branches when the reply lands — the `output_mapping` branch and
+  the default branch — so an action's own keys still die at REPLY time on those
+  paths. Only the `.response` branch is additive. **Check which branch your step
+  takes before trusting a carried key to survive:** an `output_mapping` on the
+  step means the mapped result replaces everything (`deploy_hero_image` has one;
+  `deploy_logo_image` does not, and that asymmetry is why the two behave
+  differently — see bugs_open/236). A direct DB write before dispatch remains the
+  only mechanism that survives BOTH halves.
 
 ## A `strings | grep` pod probe returns 0 for a marker the binary CONTAINS if the marker spans a non-ASCII byte
 
