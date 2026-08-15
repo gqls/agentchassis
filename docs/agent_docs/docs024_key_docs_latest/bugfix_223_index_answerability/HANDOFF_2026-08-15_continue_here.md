@@ -9,21 +9,21 @@ marked otherwise.
 
 ## 0. WHAT IS ACTUALLY LEFT (read this and you can stop)
 
-**One owner decision, two watch items, zero pending builds.**
+**Zero owner decisions, two watch items, zero pending builds.**
 
-1. **OWNER DECISION — the two remaining standing reviews.** The daily
-   `optional-key-budget-check` (06:50 UTC) truthfully reports **2 findings every
-   morning**: `analyse_repo_local` (12 optional keys, carriers code-indexer +
-   diagnose-agent) and `diagnose_prepare_fix_commit` (11 keys, feature-implementer +
-   fix-implementer). Each owes ONE review of its accumulated surface, then an ack
-   entry (see §2 mechanics). The owner's standing choice (2026-08-14) was "wait for
-   natural contact"; the visible cost, now that the clock runs, is a permanently red
-   morning report — which habituates readers, the exact decay RFC_022 was filed
-   about. The worked example to copy is
-   `architecture_review/REVIEW_2026-08-14_append_doc_note_optional_surface.md`
-   (method: read the action + every key's read-site; census live keys with
-   `--live-pairs`; date the keys with `git log --follow`; verdict trim-or-acknowledge;
-   ack both sides; re-apply the overlay).
+1. ~~**OWNER DECISION — the two remaining standing reviews.**~~ **DONE 2026-08-15
+   (owner: "direct both reviews now"): both concluded ACKNOWLEDGE, no trims** —
+   `REVIEW_2026-08-15_analyse_repo_local_*` (at 12) and
+   `REVIEW_2026-08-15_diagnose_prepare_fix_commit_*` (at 11). All three baselines
+   recorded both sides; wrapper at 0 findings; the CLEAN scheduled path proven by a
+   manual Job (`Complete 1/1`, 186 agents, 3 baselines, one doc_notes row). **From
+   2026-08-16 the 06:50 report is green, and a red morning means real growth past a
+   reviewed baseline — architecture-scope under the ruled trigger.** Note the guard
+   fix that landed with this: `check.py --stdin` takes a test-only budget argument
+   because with everything acked the ruled budget can never fire and the
+   traversal-parity test would have skipped forever (NOTES 08-15-later has the
+   general lesson: a guard whose test subject comes from the defect population goes
+   blind when the defects are cured).
 2. **WATCH — the as-of note's first live rendering** (`bugs_closed/254` residual).
    Renders only on EMPTY code-lookup answers; measured 2026-08-15, **zero verify runs
    have happened at all** since 08-14 12:00, so it is unobservable for want of demand.
