@@ -1517,3 +1517,60 @@ grade at the served page, not at the template.
 
 **⚠ Do not hand-patch dartsonline.** The rule is fleet-wide and site-agnostic; a per-site fix leaves
 19 other sites broken and creates a second source of truth for the same declaration.
+
+### 2026-08-15 (later) — APPLIED as migration 415, dartsonline PROPAGATED, and three traps on the way
+
+**Owner authorised it**: *"please go ahead with the unreadable links in the screenshot — it only needs
+to go to 5.00 - the framework default."* The repoint adds no target of its own; it points at
+`--color-primary-ink`, which the renderer derives at `inkMinContrast` (5.0), so these links now
+follow the framework default automatically if it ever moves.
+
+**Migration `415_article_body_link_ink_repoint.sql` APPLIED and recorded** (ledger row present).
+Source: 1 row repointed, 0 rows left on the raw rule, 0 bare ink references fleet-wide (the
+kill-switch invariant holds). Applied with `MIGRATIONS_DIR` scoped to a directory containing only
+415 — **`--apply` on the real directory would have swept in ~8 other lanes' pending files**, which
+the runner itself warns about.
+
+**dartsonline propagated: all 11 pages now serve the repointed rule**, verified at the served
+artefact. `--color-primary-ink` there is `#94a0c2`, so the links moved **1.11:1 → 7.00:1** against
+the page ground.
+
+#### Trap 1 — `page_rerender` with a free-text `reason` is a NO-OP for a template change
+
+`page-rerender`'s `check_rerender_mode` matches `input_data.spec.reason` **exactly** against
+`{image_landed, section_data_resolved, cta_links_stale}`; anything else takes `else_step:
+render_page`, whose own description is *"assemble stored HTML"*. My first 11 items carried a
+descriptive sentence as `reason`. **Four ran to `complete` with `page_components.updated_at`
+unchanged and the served page still on the raw rule.** A `complete` work item is not a repaired
+artefact — and here it was not even the right mechanism.
+
+#### Trap 2 — `rerender_page_sections` requires `spec.page_name`, and its absence still reports COMPLETED
+
+Second attempt used `reason='section_data_resolved'` and still changed nothing, with the
+orchestration reporting `COMPLETED` and the correct reason visible in `collected_data`.
+`rerender_page_sections_action.go:80` declares `Required: [target_site_id, page_name]`, and the step
+config maps `page_name` from `input_data.spec.page_name`. Without it the step fails instantly while
+**the workflow still completes** — the documented `__step_error` shape. Adding `spec.page_name` made
+the third attempt work on the first tick.
+
+> This is already written down: `brochure_component_library/scripts/rerender_page_sections_direct.sh`
+> documents it in its own header, measured 2026-07-26, noting that two dispatches from a *different*
+> session failed the same way on webdesign.co.uk. **I found it after failing twice, by reading the
+> script rather than the action.** Grep the scripts dir before hand-rolling a dispatch envelope.
+
+#### Trap 3 — my own "stale placements" counter could not tell an inert rule from a live one
+
+The propagation counter matched the raw substring **anywhere** in `rendered_html`. One page
+(`/blog/beginners.html`) ended with **two `<style>` blocks** — the old rule and the new one — and
+counted as stale for ever. It is not: the **new rule comes last and wins the cascade**, so the links
+render correctly. `[MEASURED]` served order confirmed. **A substring census answers "does the old
+text appear?", never "does the old rule apply?"** — for CSS the question is always order and
+specificity, and a count cannot see either.
+
+#### Remaining
+
+**86 placements across 19 other sites still serve the raw rule** — finetuning.uk 19,
+ai-agent-orchestration.com 12, leopardessconsulting.co.uk 11, fundamentallyai.com 8,
+gamesdesign.co.uk 7, robot-hands.com 5, mortgagecalculator.co.uk 3, and the tail. dartsonline was
+run first as the canary, per this lane's standing rehearse-then-widen practice. Widening is the same
+work-item shape with the domain filter changed — **include `spec.page_name`**.
