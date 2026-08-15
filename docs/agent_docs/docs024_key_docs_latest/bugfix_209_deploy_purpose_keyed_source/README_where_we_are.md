@@ -798,3 +798,56 @@ become correct.
 **What's left:** building the scheduled check, and putting the caching marker into the two
 agents that can use it — one of which must wait until the release ships, or it costs more
 rather than less.
+
+---
+
+**2026-08-15, later the same day — the caching marker is in, and it works. I also got one
+thing wrong along the way and want to be straight about it.**
+
+The job was the last piece of the caching work: switching on the saving for the agent that
+plans what content a site is missing. Caching here means we pay once to store the long,
+unchanging opening section of the instructions we send, and then pay about a tenth as much
+each time we send it again. The catch is that stored copy only survives for a set time. Our
+old setting kept it five minutes; the release earlier today changed that to an hour. Five
+minutes was no good for this agent — it gets asked to do things roughly every ten minutes,
+so the copy would always have expired and we'd have paid the storage fee for nothing, about
+a quarter more than not bothering at all. At an hour, virtually every repeat lands inside the
+window. I checked that myself rather than taking it from the handover: of 391 repeats over
+three days, 1% came back within five minutes and 99.7% within the hour.
+
+**Then I found something the handover hadn't accounted for, and it changed the plan.** All
+our evidence that the one-hour setting actually works comes from one place — the review
+council — and every seat on that council runs a particular model. This content agent was
+running a *different, older* model, and while we'd confirmed that model accepts the new
+setting without complaining, we'd never actually confirmed it honours it. So switching
+caching on for this agent would have been betting the entire saving on something nobody had
+checked. I put the choice to you and you said to move the agent onto the proven model first,
+then switch caching on. That's what I did.
+
+**Where I went wrong.** Moving to the newer model has a side effect I did spot: the new model
+"thinks" before answering by default, where the old one didn't, and the budget we set for its
+answer covers the thinking as well. If the thinking eats the budget, the answer gets cut off
+halfway. So I raised the budget — and I put the new number in the wrong place. The settings
+file has more than one spot where that number can live, and only one of them is actually read.
+I'd written it to a spot nothing reads, so the real budget never moved. Worse, the safety check
+I'd written to catch exactly this asked "is the number I just wrote big enough?" — which can
+only ever answer yes. It congratulated me on a change that hadn't happened.
+
+For about nine minutes the agent was running the new thinking-by-default model on the old
+small budget, which is precisely the state I'd written a page of explanation about avoiding.
+Nothing was harmed — no work came through in that window, which is luck rather than good
+process — and I've fixed it, put the number where it's read, and rewritten the check so it
+asks what the system would actually use rather than what I typed. I've logged it in our
+running list of mistakes, because the shape of it is more useful than the incident: a check
+that reads back your own change can't fail, and it looks exactly like diligence.
+
+**It's working.** The first request through the new setup stored just under 5,000 units of the
+repeated section, the answer came back well within budget with no truncation, and nothing
+errored. I'm now waiting for the next request to confirm it *reads* that stored copy back
+rather than storing it again — that's the bit that proves the saving is real, and a zero there
+would be the failure, not the absence of one.
+
+**One honest caveat on the money.** The newer model counts the same text as roughly a third
+more units, so before caching this move costs more, not less. Caching more than covers it. But
+it's also on introductory pricing until the end of this month, so any figure I quote today
+flatters it — worth re-measuring in September rather than trusting today's number.
