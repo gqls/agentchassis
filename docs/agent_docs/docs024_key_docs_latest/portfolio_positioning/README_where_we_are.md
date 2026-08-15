@@ -362,3 +362,19 @@ step with the list of directory kinds in the code — add a kind to one and not 
 and it quietly never publishes. That trap is written down in the places people actually
 check. The change went to the advisory review council as usual; verdict not yet back at
 time of writing.
+
+**2026-08-15, evening — publishing fix approved; the "should this site have a
+directory?" question is now asked automatically.** The review council approved the
+morning's publishing fix first time, with a few low-level suggestions that turned out to
+already be handled in the applied version. Then the second piece of wiring went in: the
+small decision-maker that looks at what a site is about and, if it's one of our three
+finance verticals, marks it as wanting the matching directory. It now runs in two
+places — every time the routine site-improvement loop visits a site, and at the moment
+a brand-new site is first classified, so a new build knows it wants a directory before
+its pages are planned rather than finding out afterwards. It writes nothing at all for
+sites outside those verticals, so the rest of the fleet is untouched. One thing to
+know: the routine improvement sweep is currently switched off fleet-wide (it has been
+since yesterday, unrelated to this work), so the "existing sites" half of this wiring
+sits ready but idle until that sweep is switched back on; the "new sites" half will get
+its first real exercise when the remortgage pilot site is built. Also submitted for
+advisory review.

@@ -1175,3 +1175,50 @@ without a row here silently never publishes; LANDMINES entry added, DIR-001 upda
 staleness ordering — random() is fair-in-expectation only; a real due-stamp needs a
 bookkeeping table, deferred deliberately. Next: B3d (wire evaluate_directory_features),
 B3e, B3f per the handoff §2.
+
+### 2026-08-15 (fourth session, continued) — 429 verdict APPROVED round 1; B3d DONE (migration 432)
+
+**429 council verdict (corr `a7c99b84`): APPROVED, round 1, 18:24Z** — "approved with 5
+advisory objection(s) — none high-severity", 5 abstained. The two editquality advisories,
+dispositioned with evidence rather than argued:
+- "whole-workflow replacement may drop continue_on_error (the 427-class silent
+  overwrite)" — the reviewer saw the abbreviated sketch; the applied file's full literal
+  carries it, and VERIFIED LIVE post-verdict: `process_sites.config.continue_on_error =
+  true`, `max_iterations = 12` on the live row.
+- "no row-count guard against the two-active-rows fleet pattern" — the pre-flight DO
+  block's first two checks are exactly-one-active-row guards for BOTH types (RAISE on
+  count<>1); present in the applied file, not shown in the sketch.
+Commit `0af2c21f9` carries `Council-Submitted:` and 098 credits it automatically now the
+verdict is approved — no amend, forward-only. Lesson for future sketches: show the
+guards and the loop config lines; both advisories were sketch-visibility artefacts.
+
+**B3d APPLIED (migration `432_wire_evaluate_directory_features_b3d.sql` + surgical-inverse
+ROLLBACK), ~18:55Z, on the fresh v1.0.1303 pods (rolled 18:45Z by another session —
+config-only change, no dispatch inside the 300s window):**
+- improvement-loop: `enrich_directory_features` inserted between `enrich_news_feed` and
+  `load_audit_state`; news edges re-pointed on BOTH success and error paths so a news
+  failure still reaches directory enrichment and either failure still reaches
+  `load_audit_state` (291's property preserved). site_id = `site_record.site_id`.
+- domain-research-classifier: same step between `write_classification_spec` and
+  `write_content_direction_spec` — greenfield builds get the flag at plan time.
+  site_id = `input_data.site_id`, error_step continues the build.
+- Guards pinned the LIVE 291-shaped edges (drift → refuse); snapshots for both rows in
+  agent_definitions_backup (reason '432…: pre-update'); in-transaction DO/RAISE verify
+  passed. Surgical jsonb_set edits, NOT whole-workflow replacement — deliberately
+  opposite to 429's approach because these two agents are other lanes' machinery and the
+  ROLLBACK must not clobber unrelated later edits (it removes the step by `#-` and
+  re-points edges back, guarded).
+- **Finding: the improvement-loop consumer is wired but UNDRIVEN — `improvement-sweep`
+  is DISABLED** (`enabled=f`, interval 900s, last fired 2026-08-14 16:34Z). The loop
+  wiring self-proves only when the sweep re-enables (whoever owns that call) or a manual
+  cycle runs; the classifier wiring proves on the Phase C pilot's greenfield build. The
+  memory pattern "a silent mechanism is usually undriven" applies — do not read the
+  absence of enrichment rows as a 432 failure.
+- Council: `SUBMISSION_CORR=47785bb5-ca66-4aed-819f-2bd29277b80d` (FORCE=1, 411/429
+  precedent). Committed with `Council-Submitted:`; verdict to read next session.
+
+**v1.0.1303 note**: the roll postdates RFC_029's strict-marker commit (1806371ef,
+14:07Z), so `kind!`-style strict input mappings are PROBABLY now available on the
+running binary — [UNVERIFIED at the artefact; check the pod's build provenance stamp
+before relying on it]. 429 deliberately avoided the marker and needs no change; a
+future tightening pass could adopt it once verified.
