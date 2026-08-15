@@ -23,3 +23,36 @@
   RUNBOOK — retire, re-render, grade at the artefact, then batch simple tools serially.
 - [ASSUMED] the deploy will attach to the existing page by matching name/function, as it did
   for ab-test. If it instead creates a duplicate page/URL, stop and re-plan before batching.
+
+## 2026-08-15 ~18:40Z — continuation: floors refused the section-edits (good), surgical repairs applied, pilot queued behind a serial dispatcher
+
+- **CORRECTION of my 17:00Z entry and the same claim in `bugs_open/281`:** "section-editor is
+  the healthy lane for ported instances" was WRONG. Its completions are on real FORK slots.
+  On a ported blob it REGENERATES the section via LLM and the **slot floors refused both
+  writes** (mindmap `28→4 class attributes (14% kept, floor 50%)`; occlusion `11→4 (36%)`) —
+  bugs 178/253 floors doing exactly their job; nothing was damaged. Net lesson for this lane:
+  **a ported tool has NO safe framework editor** — audit-blind (281), improver-poisonous
+  (285), editor-refused (today). Rebuild or decompose are the only managed paths.
+- **Surgical repairs applied instead** (guarded single-transaction `replace()`; DO/RAISE
+  asserted occurrence counts; `trg_page_component_artefact_archive_upd` banked pre-states):
+  1. mindmap: `background: var(--surface); color: white` → `var(--primary)` ×2 (the `.root`
+     node + "+ New Map" inline). Root cause: dark-theme idiom ported to a light site —
+     `--surface: #f3f1ec` under `color: white` ≈ 1.1:1. White on `--primary #5c6b5d` ≈ 6.8:1.
+  2. mindmap: usage hint inserted before `map-list` (verified against the JS: contentEditable
+     node text, hover +/× controls, drag, localStorage autosave — hint states only what the
+     code does).
+  3. occlusion: the bare-text `[Image of ambient occlusion sphere diagram]` line removed
+     (not replaced — authoring a figure is the imagery lane's job, not a repair).
+  Both propagating via `page_rerender:owner-gate:*` items (the assemble path — proven by the
+  occlusion page's own 9 prior completed rerenders preserving the ported slot).
+- **"Centrdgsdgsdgsdal Idea" is NOT a site defect** — the tool seeds "Central Idea"; node text
+  is contentEditable and autosaves to localStorage, so the junk lives in the OWNER'S browser
+  state only. Told the owner; no item filed.
+- **Why the pilot hasn't started: the build-dispatch-loop is SERIAL per site** — measured:
+  each claim fires the second the previous item completes (17:21:31 → 17:22:15 → 17:22:58 →
+  17:34:43). `add_tool` (prio 60) sits behind the rerenders (45), the rawtag edit (50) and a
+  claimed audit_tool that hit "Claim timed out — handler pod likely died" once already.
+  Selection: status `triaged/approved` + attempts < max + approval auto (read at
+  `load_work_item_actions.go:641-679`) — the item qualifies; it is queue position, not a gate.
+- audit_tool progress: css-unit-converter COMPLETE (first real LLM audit of that tool);
+  ab-test claimed/in-flight; two more queued.

@@ -88,7 +88,15 @@ reviews of the wrong artefact. (This was caught before any such item was filed; 
 
 - The owner's three Mind Map defects are filed as
   `section_edit:owner-gate:tool-mind-map` (section-editor lane; 171 complete / 2 failed —
-  the healthy lane for ported instances), 2026-08-15, status `triaged`.
+  ~~the healthy lane for ported instances~~), 2026-08-15, status `triaged`.
+  > **CORRECTED 2026-08-15 ~18:3xZ:** the section-editor is healthy for real FORK slots — its
+  > 171 completions are those — but it REGENERATES a section through an LLM, which is
+  > structurally wrong for a ported blob: both owner-gate items failed with **SLOT FLOOR
+  > REFUSED** (mindmap 28→4 class attributes, occlusion 11→4; bugs 178/253's floors, working
+  > as designed — nothing was written). So ported instances have NO safe framework editor,
+  > which is this bug's thesis restated at the third mechanism. The two pages were repaired
+  > by guarded surgical `replace()` on `rendered_html` (archive trigger banked pre-states)
+  > + `page_rerender`; items cancelled with the supersession recorded in `result`.
 - The 4 real tool components got owner-requested `audit_tool` items the same day
   (`created_by='owner-visual-gate-20260815'`).
 - The other 62 ported tools remain unexamined for legibility/junk-content until this bug is
