@@ -414,3 +414,13 @@ up within minutes. Verdict recorded in the bug file when read.
 **Then closed:** addendum written, `git mv` to `bugs_closed/`, both paths on the commit, 016b §10 row
 added (there was none). Two residuals stay named for their owners (render-audit `max_pages`; the
 `tool-archetype-taster-quiz` subject key).
+
+**17:14Z — council `9f1ec294` APPROVED, round 1** (10 sat, 7 abstained by relevance, 3 mediums, 0 high).
+The mediums were the right questions and each had a mechanical answer: all three
+`realisedPageHasShipped` call sites live inside `reconcilePlanWithRealised` (two via helpers called
+only from it); one Go caller, `ValidateSitePlanAction`, carried by `build-site-planner` and
+`site-planner` — the latter has no `load_existing_pages` step, so it never reaches the gate and never
+warns, which is right; and this round's own post-roll probe is the Warn literal (long, single,
+distinctive), NOT the derived `var`, which is built at runtime and is not in the binary as text.
+That last point is the lane's 08-04 lesson applied forward. Answers recorded in the closed file;
+docs commit carries `Council-Reviewed:`, the code commits keep `Council-Submitted:` (098 resolves).
