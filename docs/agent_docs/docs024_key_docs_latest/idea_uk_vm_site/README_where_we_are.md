@@ -2197,3 +2197,42 @@ route we usually use when the queue is slow was refused by this session's permis
 so they are waiting their turn behind other sites' work. Nothing is broken, and I have
 not claimed this is finished — I will only call it done when I have fetched the pages
 and seen the new titles come back.
+
+**Later — they came back, and the last check found something I need to put to you.**
+
+The rebuilds went through about three quarters of an hour later, so all six pages are
+now serving the corrected titles and descriptions. I fetched every one of them rather
+than trusting the system's own "complete". They are right.
+
+The way I checked was to ask for two things at once: the word must be **gone** from
+those six, and it must still be **there** in the one place you blessed — the report
+page's opening line, "the research, analysis, and honest assessment to think your idea
+through properly". You were specific that this one is good and stays.
+
+**It is gone.** The report page has not carried it since 12 August.
+
+Here is what happened, and it is worth knowing because it is nobody being careless. On
+that day two separate instructions were sent to the very same sentence, one second
+apart. One of them was the careful rewrite of the report page, which deliberately kept
+your line intact. The other was the fleet-wide sweep removing the word everywhere. Both
+were carried out. The sweep ran last, so the sweep won. Nothing flagged it, because two
+edits to the same sentence isn't an error as far as the system is concerned — the later
+one simply lands on top, and both report success.
+
+So the run that was implementing your rule is what deleted the single exception to it.
+The count we gave you at the time — "down to one, the line you blessed" — was true when
+it was taken, and stopped being true ninety minutes later on the same afternoon.
+
+**I have not put it back, because it is your sentence.** Restoring it is one small
+edit and I can do it straight away. Say the word and it goes back to "the research,
+analysis, and honest assessment". If you have since decided you prefer it without, that
+is just as easy — it stays as it is and I will record that as the decision, so nobody
+"fixes" it back for you later.
+
+One other thing you should know about that same sentence, whichever way you decide. It
+also contains "whether you're a first-time founder, an inventor, a writer, or a maker".
+"Whether you're" is on the built-in list of phrases the checker treats as machine-writing
+giveaways — the list I told you about, the one I discovered only after switching the
+checker on. So if we ever arm it on idea.uk, that line gets flagged for a reason that has
+nothing to do with the word we have been discussing. I am not going to quietly reword
+your copy to keep a checker happy; I am telling you so the flag doesn't surprise you.

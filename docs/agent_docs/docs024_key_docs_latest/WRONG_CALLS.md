@@ -32145,3 +32145,35 @@ this bug's runbook). If the message must mention the spelling, paraphrase it; th
   any watcher, not the tool it wraps. Tally: 2. Second-arm fix that worked: `2>&1`
   into the event stream + error strings in the exit conditions, so the watcher's own
   failure ends the watch loudly.
+
+## 2026-08-15 — idea_uk lane: "honest 2 → 1, the blessed hero survives" was TRUE when measured and false 100 minutes later, by the same session's own next batch
+
+- **The claim** (`RUNNING_NOTES` §X.54, 2026-08-12): report.html rewritten, *"honest: 2 →
+  1 (the hero clause the owner blessed)"*. Verified at the served page, not at an item
+  status — the strict standard this lane rightly insists on.
+- **What was actually true:** the measurement was sound at ~12:50. At **14:37** the same
+  session's fleet sweep overwrote the same field and stripped the word. The served page
+  has carried **0** ever since, i.e. the owner's one explicitly protected sentence —
+  *"the research, analysis, and honest assessment"*, which he said in as many words is
+  **good and stays** — was deleted by the very run implementing his ban.
+- **The mechanism, and it is the interesting part:** TWO `section_edit` items were filed
+  against the SAME hero component in the SAME batch at the SAME second (both
+  `2026-08-12 14:23:17`, both by `page_component_id`), with contradictory `field_updates`
+  for one `subheadline` key — one carrying the blessed text, one the stripped text. Both
+  completed; the later write won. **Two edits to one field is not an error condition**,
+  so nothing anywhere reported a collision, and both items read `complete`.
+- **What caught it, 3 days later:** not a re-check of the claim — a **demand control**.
+  Verifying a different job (the head surfaces), the rule was "these six must be ZERO and
+  the blessed clause must still be PRESENT". The positive half failed. Without it, six
+  clean zeros would have read as total success while the one sentence that mattered most
+  to the owner was gone.
+- **The cheap check that would have caught it at the time:** assert the EXCEPTION as a
+  positive at the end of the run, not just the ban as a zero. A rule of the form "none
+  anywhere except exactly here" is two assertions, and this lane only ever ran one of
+  them. **A verified-at-the-artefact figure is a timestamp, not a property** — the
+  artefact keeps changing after you look, including by your own later actions.
+- **Related:** [[a-stale-page-holds-every-improvement-since-it-rendered]] (same decay,
+  opposite direction) · [[a-pass-from-a-blind-check-outlives-the-blindness]] · the
+  08-14 handoff §7's own warning, *"do not fix what the owner has accepted"*, which this
+  violated while quoting it. Tally for "measured once, then invalidated by my own
+  subsequent write": 1.

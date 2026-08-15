@@ -4957,3 +4957,81 @@ read of the code alone.
 - **Still open, unchanged:** class B bodies (8 components, incl. that `<h2>`), class C's one
   real fix (`funding-fit`'s visible question label), and arming the gate on the remaining
   sites — which, per §1, will not protect the head surfaces whatever it is set to.
+
+### 7. DELIVERED — verified at the artefact, and the control is what found the next bug
+
+All six `page_rerender` items reached `complete` and all six served heads are correct
+`[MEASURED 2026-08-15]`. Each fetch carried its own control (`<title>` tag present = the
+page was really fetched), so the six zeros are not blind:
+
+| page | now serves |
+|---|---|
+| idea.uk `index` | desc: "…a researched £29 report that pushes back." |
+| idea.uk `tool-funding-fit` | desc: "…A steer on which funding routes fit your stage…" |
+| idea.uk `guide-testing-it` | title: **Testing it: experiments before you commit** |
+| finetuning.uk `our-position-on-ai` | title: **Our Position on AI \| FineTuning** |
+| leopardess `use-cases` | desc: "…each labelled for what it is…" |
+| mortgagecalculator `guide-first-time-buyer` | desc: "A comprehensive guide for first-time buyers…" |
+
+The queue drained on its own in ~45 minutes, so the direct publish was never needed.
+Worth recording against §4: **"still queued" was a snapshot, not a verdict** — I had
+already measured 147 items ahead and zero completions on three of the four sites, and
+concluded delivery was stalled. It was slow, not stuck. A queue depth is not a
+prediction.
+
+### 8. THE CONTROL FOUND A REGRESSION IN THE OWNER'S OWN BLESSED SENTENCE
+
+The demand control for the six zeros was: **the one sanctioned use must still be
+PRESENT** on `report.html`. It is not. The served page has **zero** occurrences.
+
+The owner's instruction (§X.53 item 4) was explicit — the hero line *"gives you the
+research, analysis, and honest assessment to think your idea through properly"* is
+**good and stays**. What it serves now:
+
+> "The Verified Idea Report gives you the research, analysis, and assessment to think
+> your idea through properly…"
+
+**Cause, measured — not inferred from timing.** Two `section_edit` items were filed
+against **the same hero component, in the same batch, at the same second**
+(`created_by='claude-ideauk-copy-20260812'`, both `2026-08-12 14:23:17`, both targeted by
+`page_component_id`), carrying **contradictory** `field_updates` for the same
+`subheadline` key:
+
+```
+item A  "...the research, analysis, and honest assessment to think your idea through..."   <- the blessed text, preserved
+item B  "...the research, analysis, and assessment to think your idea through..."          <- the sweep, stripped
+```
+
+Both completed. B landed last (`page_components.updated_at` 14:37:09), so B won. Nothing
+detected the collision: two edits to one field is not an error condition, the later write
+simply wins, and both items report `complete`.
+
+**This is the exact failure the 08-14 handoff §7 warns about — "Do not 'fix' what the
+owner has accepted" — happening to the session that wrote the warning.** The sweep that
+implemented the ban deleted the ban's only exception. And the arc's own verification
+could not catch it: §X.54 measured *"honest 2 → 1 (the blessed hero clause)"* and that
+was TRUE when measured at ~12:50; the hero was overwritten at 14:37, after the
+measurement, by the same session's later batch. **A figure verified at the artefact still
+expires — the artefact keeps changing after you look at it.**
+
+Two transferable points, and the second is the one worth carrying:
+
+1. **A ban with a blessed exception needs the exception asserted as a POSITIVE, every
+   time you assert the negative.** "0 occurrences fleet-wide" and "1 occurrence, in this
+   exact clause" are different claims and only the pair is the owner's instruction. Had
+   the 08-12 run asserted the positive at the end, it would have caught its own collision
+   in the same minute.
+2. **When a batch targets every component of a page, check it does not also carry a
+   hand-written edit for one of them.** The generated sweep and the deliberate rewrite
+   were both correct in isolation; nothing joined them up, and they were filed one second
+   apart.
+
+**NOT restored — this is copy on the owner's flagship page and his call.** The fix is one
+`section_edit` on the hero's `subheadline` putting the word back. Flagged to him
+2026-08-15.
+
+> ⚠ Note for whoever restores it: the same subheadline contains **"whether you're"**,
+> which is one of the 13 built-in `globalTellPhrases` (§4.1 of the handoff). If idea.uk
+> is ever armed with the voice gate, this hero fires on that clause regardless of the
+> "honest" question. That is a gate finding to weigh, not a licence to reword the
+> owner's sentence.
