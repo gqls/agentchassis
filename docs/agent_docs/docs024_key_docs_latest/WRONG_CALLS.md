@@ -31476,3 +31476,37 @@ prediction typed in the voice of a fact — exactly the unmarked-inference shape
 rule exists for.
 
 **Cost:** minutes — corrected in place the same session, before any reader inherited it.
+
+---
+
+## 2026-08-15 — I wrote a test that proved a guard, and it proved the mock instead (`bugfix_213` D1 half two)
+
+**The claim:** `TestAuditRetraction_UnrecognisedReplyIsNotSilence` asserted that an audit
+reply whose shape was never recognised opens no transaction and retracts nothing. It was
+written deliberately, with the comment *"No ExpectBegin: the transaction must never open"*,
+and it passed. I counted it as the availability guard's proof.
+
+**What was true:** it passes identically with the guard DELETED. Without the guard the code
+does open the transaction; sqlmock refuses the unexpected call; the action logs the error and
+returns no retraction key; and the assertion — "no retraction key came back" — is satisfied by
+the mock's refusal rather than by the code's guard. **Two opposite worlds, one identical
+pass.** The same file's other five tests all discriminated correctly, which is exactly why
+this one did not stand out.
+
+**Caught by:** the mutation matrix, and nothing else. Removing the guard left the test GREEN.
+Not by review, not by re-reading the test, not by the comment I had written on it.
+
+**The cheap check that would have caught it:** for any test asserting that something does NOT
+happen, ask *"what would this print if the thing it guards were deleted?"* — and if the answer
+is "the same", the test is measuring the harness. The concrete fix here was to call the
+guarded FUNCTION directly with a mock carrying no expectations at all, so a stray database
+call becomes an error RETURN the assertion can see instead of a log line something upstream
+swallows. Paired with an opposite-direction test so "guard always on" is caught too.
+
+**Cost:** none beyond the run — caught before commit, and it turned into two of the three
+findings in the LANDMINES entry it produced. **The tally point: this is the fourth time in
+this lane that a green instrument was measuring itself** (a join key renamed by my own change
+read as absence; a mutation harness scored by a grep that could not see top-level failures; a
+cost window that closed before the cost arrived; and now a mock asserting a negative). Every
+one was caught by looking a second time, none by suspicion — and this one was caught only
+because the mutation run is now routine rather than optional.
