@@ -87,6 +87,16 @@ SELECT status, COALESCE(result->'response'->'triage'->>'route', result->>'route'
 FROM site_work_items WHERE item_type='required_fields_missing' GROUP BY 1,2 ORDER BY 3 DESC;
 ```
 
+> **SETTLED 2026-08-15 ~14:00Z — the producer change is ALREADY LIVE.** Another lane's roll to
+> `v1.0.1302` carried commit `5ad81182b` (stamp `194907d5b…`, `git merge-base --is-ancestor`
+> exit 0; literal probe 1 with negative control 0). **Replica coverage settled by the
+> uniform-image observation**: all 25 pods running the agent-chassis image (15 Running, 10
+> Succeeded job pods) carry the SAME `v1.0.1302` — one probe speaks for all, and this is the
+> honest answer to the "-l app=agent-chassis is not every pod running the binary" landmine
+> (enumerate by IMAGE, then check tag uniformity, before trusting any single-pod probe).
+> The PBP-028 edit_live channel was probed the same way: `grep -ac 'attached current content
+> for edit mode' /proc/1/exe` → 1, negative control 0.
+
 ## Post-roll (after the producer Go change ships in a chassis image)
 
 ```bash

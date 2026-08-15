@@ -129,3 +129,53 @@ UPDATE must be a reviewed edit, not prose). Real catches among the rest:
 **Round 2 resubmitted** on the same trail (`RESUBMIT_CORR=7b0e2833…`, run orch `a687f2be`).
 **Fleet assignment (remaining ~40 rows) HELD** for the verdict + the partial canary's
 artefact check.
+
+## 2026-08-15 (same session, round 2 worked) — two REAL refinements found by the round, both measured; seed at v3; producer already LIVE
+
+**Round 2: REVISE again** (gating: bug_historian — prove the edit_live writer path is guarded
+against the missingkey=zero blanking family). Working the objections found two genuine
+defects in my v1 arms, both settled by MEASUREMENT rather than argument:
+
+1. **The "partial" canary was a category error, and the round's gating question exposed it.**
+   The five missing fields (`cardN_image_url`) are `source: "site_assets.image"` in the
+   component schema — NOT llm fields. The prose writer can only MINT urls for those, and the
+   live run proved the outcome: validate_content refused ("0 blockers, 1 errors"), nothing
+   shipped, artefact byte-identical. → **v2 adds the `asset_sourced` route**: any still-empty
+   field with `source site_assets.*` parks with the asset-pipeline routing fact. The
+   mis-minted conversion item was cancelled with a resolution note. (Also answers the gate:
+   where fields ARE llm-sourced, the conversion path renders through `render_component` —
+   the guarded call site, `missingRequiredLLMFields` v3_site_actions.go:1843/2066 + the
+   PBP-032 envelope render guard — and validate_content stands between writer and save,
+   measured failing CLOSED.)
+2. **The no_plan_generic conversion no-ops, exactly as bug_historian predicted — measured,
+   not argued.** Canary #5 (leopardess blog, the only no_plan_generic row): router converted
+   → page-build-handler → `mark_no_ready_sections` ("no sections ready to build"). And the
+   round-2 "committed fallback" (ensure_page_section_layout) was investigated and REJECTED:
+   `defaultSectionsForPage` has NO blog-index archetype — it would rebuild a listing page as
+   hero+generic prose. → **v3 splits the route**: `no_plan_generic` converts only for
+   page_type ''/content/landing; index-family pages park as `no_plan_unbuildable` naming the
+   blog machinery (needs_blog_posts → blog-content-planner; bugs 015/206). The no-op
+   conversion item was cancelled with a note.
+
+**Other round-2 answers, measured:** provenance on minted items is truthful (source AND
+created_by = the router); `parent_item_id` feeds `depends_on` (a dispatch gate, held seconds
+— documented in CQ-023); 0 scheduled_tasks pre_queries name the type or needs_human_review;
+the only other agent_definitions row naming the type is the producer's carrier
+(completeness-discovery-agent); guardian's single-active-row assert added to the seed's
+verify block; debug_historian's needle-gate discipline shipped as the ASSIGN file;
+prior_art's IMG-071 evidence measured (rows active, 5 terminal items) and now superseded by
+this router's own five live executions.
+
+**The proliferation tripwire is now a tracked artifact**: `RFC_030` filed (three seats asked
+for enforcement beyond a register sentence); CQ-023 points at it.
+
+**THE PRODUCER GO CHANGE IS ALREADY LIVE** — the fleet rolled to `v1.0.1302` mid-session
+(uniform across all 25 chassis-image pods; stamp `194907d5b…` carries `5ad81182b`; literal
+probe 1/control 0). "Your commit is a deploy" in action: new required_fields_missing items
+are born routed NOW. The seed's inertness assert was converted to a report (a re-apply after
+the deliberate canary would otherwise wrongly abort; inertness is structural — the file
+contains no site_work_items UPDATE).
+
+**Seed v3 proven** the same way as v1/v2: exact embedded string extracted and run —
+7ed472ab→no_plan_unbuildable, 4fa5b019→asset_sourced, e512af8a→no_content_data. Census v3
+re-run and saved. **Fleet assignment still HELD** for round 3's verdict.

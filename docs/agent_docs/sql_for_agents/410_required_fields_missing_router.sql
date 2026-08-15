@@ -56,17 +56,42 @@
 --                    decompose properly, lock the component (the producer skips
 --                    locked), or retire the page.
 --   no_plan_generic  sections empty everywhere, page not owned, component not
---                    a blob. -> CONVERT to needs_content_page @
---                    page-build-handler with spec.mode='recreate' (the
---                    check_sectionless_pages idiom) — but at status 'triaged',
---                    NOT 'detected': the detected->triaged promoter is disabled
---                    (bugs_open/083) and a detected item is stranded.
+--                    a blob, AND page_type in ('', 'content', 'landing') — the
+--                    home turf of defaultSectionsForPage's generic layout.
+--                    -> CONVERT to needs_content_page @ page-build-handler
+--                    with spec.mode='recreate' (the check_sectionless_pages
+--                    idiom) — but at status 'triaged', NOT 'detected': the
+--                    detected->triaged promoter is disabled (bugs_open/083).
+--   no_plan_unbuildable  sections empty everywhere, not owned, but the
+--                    page_type has NO sane generic archetype (measured
+--                    2026-08-15 on the one live row: leopardess blog, a
+--                    blog-index whose recreate no-opped at
+--                    mark_no_ready_sections, and defaultSectionsForPage would
+--                    hand it hero/generic-text/CTA — a listing page rebuilt
+--                    as prose). The blog/section-index machinery owns these
+--                    (needs_blog_posts -> blog-content-planner; bugs 015/206
+--                    family). -> PARK with that routing fact. (Round-2's
+--                    "committed fallback" — ensure_page_section_layout — was
+--                    investigated and REJECTED on this measurement.)
+--   asset_sourced    >=1 still-empty field is declared source site_assets.* in
+--                    the component's schema (v2 dialect; legacy defaults to
+--                    llm). THE PROSE WRITER MUST NOT FILL THESE — it can only
+--                    mint URLs, and the first canary conversion PROVED the
+--                    outcome: validate_content refused the writer's output
+--                    (2026-08-15, item content_rewrite:from_rfm:_..dda5fbdf,
+--                    "0 blockers, 1 errors", artefact untouched). Repair
+--                    belongs to the asset/imagery pipeline (bind or deploy the
+--                    asset for the declared purpose — bugs 236/238 family), or
+--                    the schema is mistyped and needs amending. -> PARK with
+--                    that routing fact. (Round-2 council gating objection made
+--                    this a route; it began as a canary surprise.)
 --   partial          plan exists, content_data populated, >=1 named field
---                    still empty. -> CONVERT to content_rewrite @
---                    page-build-handler with spec.mode='edit_live' (PBP-028)
---                    so the writer edits current prose rather than fabricating
---                    a replacement; bugs_open/238's resolver-key protection is
---                    confirmed in the running binary (stamp a2a6912...).
+--                    still empty, none asset-sourced. -> CONVERT to
+--                    content_rewrite @ page-build-handler with
+--                    spec.mode='edit_live' (PBP-028) so the writer edits
+--                    current prose rather than fabricating a replacement;
+--                    bugs_open/238's resolver-key protection is confirmed in
+--                    the running binary (stamp a2a6912...).
 --   (anything else)  malformed spec / unknown route -> mark_failed, loudly.
 --
 -- WHY PARK-IN-PLACE AND NOT checkpoint_for_review: the checkpoint action
@@ -163,7 +188,7 @@ INSERT INTO agent_definitions (
                     "action": "query_database",
                     "config": {
                         "output_format": "object",
-                        "query": "WITH item AS (SELECT spec FROM site_work_items WHERE id = $2::uuid), pg AS (SELECT p.id, COALESCE(p.page_type, '''') AS page_type, COALESCE(p.rebuild_policy, ''generic'') AS rebuild_policy, (p.sections IS NULL OR p.sections = ''[]''::jsonb) AS sections_empty FROM pages p CROSS JOIN item WHERE p.site_id = $1::uuid AND p.name = item.spec->>''page_name'' AND COALESCE(p.status, '''') <> ''deleted'' LIMIT 1), plan_src AS (SELECT EXISTS (SELECT 1 FROM site_plan_sections sps JOIN site_plans sp ON sp.id = sps.plan_id CROSS JOIN item WHERE sp.site_id = $1::uuid AND sp.is_current = true AND sps.page_name = item.spec->>''page_name'') AS has_plan_sections), comp AS (SELECT pc.id AS cid, pc.content_data AS cd, length(COALESCE(pc.rendered_html, '''')) AS html_len, (pc.locked_at IS NOT NULL) AS locked FROM page_components pc JOIN pg ON pc.page_id = pg.id CROSS JOIN item WHERE pc.build_status = ''deployed'' AND COALESCE(pc.slot_name, '''') = COALESCE(item.spec->>''slot_name'', '''') ORDER BY pc.updated_at DESC NULLS LAST LIMIT 1), fs AS (SELECT count(*) AS n_named, count(*) FILTER (WHERE (SELECT count(*) FROM comp) = 0 OR (SELECT cd FROM comp) IS NULL OR (SELECT cd->f.name FROM comp) IS NULL OR jsonb_typeof((SELECT cd->f.name FROM comp)) = ''null'' OR (jsonb_typeof((SELECT cd->f.name FROM comp)) = ''string'' AND btrim((SELECT cd->>f.name FROM comp)) = '''') OR (jsonb_typeof((SELECT cd->f.name FROM comp)) = ''array'' AND jsonb_array_length((SELECT cd->f.name FROM comp)) = 0) OR (jsonb_typeof((SELECT cd->f.name FROM comp)) = ''object'' AND (SELECT cd->f.name FROM comp) = ''{}''::jsonb)) AS n_still_empty FROM item CROSS JOIN LATERAL jsonb_array_elements_text(COALESCE(item.spec->''missing_fields'', ''[]''::jsonb)) f(name)) SELECT CASE WHEN (SELECT count(*) FROM item) = 0 OR (SELECT spec->>''page_name'' FROM item) IS NULL OR jsonb_typeof((SELECT spec->''missing_fields'' FROM item)) IS DISTINCT FROM ''array'' OR jsonb_array_length(COALESCE((SELECT spec->''missing_fields'' FROM item), ''[]''::jsonb)) = 0 THEN ''malformed'' WHEN (SELECT count(*) FROM pg) = 0 OR (SELECT count(*) FROM comp) = 0 OR COALESCE((SELECT locked FROM comp), false) THEN ''stale'' WHEN (SELECT n_still_empty FROM fs) = 0 THEN ''resolved'' WHEN COALESCE((SELECT sections_empty FROM pg), false) AND NOT (SELECT has_plan_sections FROM plan_src) AND ((SELECT page_type FROM pg) IN (''tool'', ''game'') OR (SELECT rebuild_policy FROM pg) = ''owned'') THEN ''no_plan_owned'' WHEN (SELECT cd FROM comp) IS NULL OR (SELECT cd FROM comp) = ''{}''::jsonb THEN ''no_content_data'' WHEN COALESCE((SELECT sections_empty FROM pg), false) AND NOT (SELECT has_plan_sections FROM plan_src) THEN ''no_plan_generic'' ELSE ''partial'' END AS route, COALESCE((SELECT cid::text FROM comp), '''') AS component_id, COALESCE((SELECT html_len FROM comp), 0) AS html_len, (SELECT n_named FROM fs) AS n_named, (SELECT n_still_empty FROM fs) AS n_still_empty, COALESCE((SELECT page_type FROM pg), '''') AS page_type, COALESCE((SELECT rebuild_policy FROM pg), '''') AS rebuild_policy, COALESCE((SELECT sections_empty FROM pg), false) AS sections_empty, (SELECT has_plan_sections FROM plan_src) AS has_plan_sections, EXISTS (SELECT 1 FROM site_work_items t CROSS JOIN item WHERE t.site_id = $1::uuid AND t.item_type = ''needs_tool_recreation'' AND t.spec->>''page_name'' = item.spec->>''page_name'' AND t.status NOT IN (''complete'', ''verified'', ''rejected'', ''wont_fix'', ''cancelled'', ''failed'', ''unresolved'')) AS has_open_tool_recreation",
+                        "query": "WITH item AS (SELECT spec FROM site_work_items WHERE id = $2::uuid), pg AS (SELECT p.id, COALESCE(p.page_type, '''') AS page_type, COALESCE(p.rebuild_policy, ''generic'') AS rebuild_policy, (p.sections IS NULL OR p.sections = ''[]''::jsonb) AS sections_empty FROM pages p CROSS JOIN item WHERE p.site_id = $1::uuid AND p.name = item.spec->>''page_name'' AND COALESCE(p.status, '''') <> ''deleted'' LIMIT 1), plan_src AS (SELECT EXISTS (SELECT 1 FROM site_plan_sections sps JOIN site_plans sp ON sp.id = sps.plan_id CROSS JOIN item WHERE sp.site_id = $1::uuid AND sp.is_current = true AND sps.page_name = item.spec->>''page_name'') AS has_plan_sections), comp AS (SELECT pc.id AS cid, pc.content_data AS cd, length(COALESCE(pc.rendered_html, '''')) AS html_len, (pc.locked_at IS NOT NULL) AS locked, cc.input_schema AS sch FROM page_components pc JOIN pg ON pc.page_id = pg.id LEFT JOIN content_components cc ON cc.id = pc.component_id CROSS JOIN item WHERE pc.build_status = ''deployed'' AND COALESCE(pc.slot_name, '''') = COALESCE(item.spec->>''slot_name'', '''') ORDER BY pc.updated_at DESC NULLS LAST LIMIT 1), fx AS (SELECT f.name, ((SELECT count(*) FROM comp) = 0 OR (SELECT cd FROM comp) IS NULL OR (SELECT cd->f.name FROM comp) IS NULL OR jsonb_typeof((SELECT cd->f.name FROM comp)) = ''null'' OR (jsonb_typeof((SELECT cd->f.name FROM comp)) = ''string'' AND btrim((SELECT cd->>f.name FROM comp)) = '''') OR (jsonb_typeof((SELECT cd->f.name FROM comp)) = ''array'' AND jsonb_array_length((SELECT cd->f.name FROM comp)) = 0) OR (jsonb_typeof((SELECT cd->f.name FROM comp)) = ''object'' AND (SELECT cd->f.name FROM comp) = ''{}''::jsonb)) AS is_empty, COALESCE((SELECT sch->''fields''->f.name->>''source'' FROM comp), ''llm'') AS src FROM item CROSS JOIN LATERAL jsonb_array_elements_text(COALESCE(item.spec->''missing_fields'', ''[]''::jsonb)) f(name)), fs AS (SELECT count(*) AS n_named, count(*) FILTER (WHERE is_empty) AS n_still_empty, count(*) FILTER (WHERE is_empty AND src LIKE ''site_assets.%'') AS n_asset_empty FROM fx) SELECT CASE WHEN (SELECT count(*) FROM item) = 0 OR (SELECT spec->>''page_name'' FROM item) IS NULL OR jsonb_typeof((SELECT spec->''missing_fields'' FROM item)) IS DISTINCT FROM ''array'' OR jsonb_array_length(COALESCE((SELECT spec->''missing_fields'' FROM item), ''[]''::jsonb)) = 0 THEN ''malformed'' WHEN (SELECT count(*) FROM pg) = 0 OR (SELECT count(*) FROM comp) = 0 OR COALESCE((SELECT locked FROM comp), false) THEN ''stale'' WHEN (SELECT n_still_empty FROM fs) = 0 THEN ''resolved'' WHEN COALESCE((SELECT sections_empty FROM pg), false) AND NOT (SELECT has_plan_sections FROM plan_src) AND ((SELECT page_type FROM pg) IN (''tool'', ''game'') OR (SELECT rebuild_policy FROM pg) = ''owned'') THEN ''no_plan_owned'' WHEN (SELECT cd FROM comp) IS NULL OR (SELECT cd FROM comp) = ''{}''::jsonb THEN ''no_content_data'' WHEN (SELECT n_asset_empty FROM fs) > 0 THEN ''asset_sourced'' WHEN COALESCE((SELECT sections_empty FROM pg), false) AND NOT (SELECT has_plan_sections FROM plan_src) AND (SELECT page_type FROM pg) IN ('''', ''content'', ''landing'') THEN ''no_plan_generic'' WHEN COALESCE((SELECT sections_empty FROM pg), false) AND NOT (SELECT has_plan_sections FROM plan_src) THEN ''no_plan_unbuildable'' ELSE ''partial'' END AS route, COALESCE((SELECT cid::text FROM comp), '''') AS component_id, COALESCE((SELECT html_len FROM comp), 0) AS html_len, (SELECT n_named FROM fs) AS n_named, (SELECT n_still_empty FROM fs) AS n_still_empty, (SELECT n_asset_empty FROM fs) AS n_asset_empty, COALESCE((SELECT page_type FROM pg), '''') AS page_type, COALESCE((SELECT rebuild_policy FROM pg), '''') AS rebuild_policy, COALESCE((SELECT sections_empty FROM pg), false) AS sections_empty, (SELECT has_plan_sections FROM plan_src) AS has_plan_sections, EXISTS (SELECT 1 FROM site_work_items t CROSS JOIN item WHERE t.site_id = $1::uuid AND t.item_type = ''needs_tool_recreation'' AND t.spec->>''page_name'' = item.spec->>''page_name'' AND t.status NOT IN (''complete'', ''verified'', ''rejected'', ''wont_fix'', ''cancelled'', ''failed'', ''unresolved'')) AS has_open_tool_recreation",
                         "params": ["input_data.site_id", "input_data.work_item_id"]
                     },
                     "next_step": "route_stale",
@@ -191,15 +216,27 @@ INSERT INTO agent_definitions (
                 },
                 "route_blob": {
                     "action": "conditional_branch",
-                    "config": { "condition": "triage.route == no_content_data", "then_step": "park_blob", "else_step": "route_noplan" },
+                    "config": { "condition": "triage.route == no_content_data", "then_step": "park_blob", "else_step": "route_asset" },
                     "error_step": "mark_failed", "output_field": "d4",
                     "description": "Blob class: content_data empty while rendered_html serves — regeneration would replace served HTML (bugs_open/263)"
                 },
+                "route_asset": {
+                    "action": "conditional_branch",
+                    "config": { "condition": "triage.route == asset_sourced", "then_step": "park_asset", "else_step": "route_noplan" },
+                    "error_step": "mark_failed", "output_field": "d7",
+                    "description": "Still-empty fields declared source site_assets.* — the prose writer must not fill these (round-2 refinement, proven by the first canary conversion''s validate_content refusal)"
+                },
                 "route_noplan": {
                     "action": "conditional_branch",
-                    "config": { "condition": "triage.route == no_plan_generic", "then_step": "file_recreate", "else_step": "route_partial" },
+                    "config": { "condition": "triage.route == no_plan_generic", "then_step": "file_recreate", "else_step": "route_unbuildable" },
                     "error_step": "mark_failed", "output_field": "d5",
-                    "description": "Sectionless generic page — rebuild through the plan/sibling-layout path"
+                    "description": "Sectionless content/landing page — rebuild through the plan/sibling-layout path"
+                },
+                "route_unbuildable": {
+                    "action": "conditional_branch",
+                    "config": { "condition": "triage.route == no_plan_unbuildable", "then_step": "park_unbuildable", "else_step": "route_partial" },
+                    "error_step": "mark_failed", "output_field": "d8",
+                    "description": "Sectionless page whose type has no generic archetype (blog/section-index family) — measured: the recreate no-ops and the default layout would be semantically wrong"
                 },
                 "route_partial": {
                     "action": "conditional_branch",
@@ -260,6 +297,30 @@ INSERT INTO agent_definitions (
                     },
                     "next_step": "done",
                     "description": "Park-in-place: a wrong repair here deletes served content; the revalidator remains a second drain if content_data is ever populated"
+                },
+                "park_unbuildable": {
+                    "action": "update_work_item_status",
+                    "config": {
+                        "status": "needs_human_review",
+                        "work_item_id_field": "input_data.work_item_id",
+                        "skip_if_missing": false,
+                        "error_message": "ROUTED BY required-fields-missing-handler, NOT GENERICALLY REBUILDABLE: the page has no section plan from any source AND its page_type has no sane generic archetype (defaultSectionsForPage would hand a listing/index page hero + generic prose). Measured 2026-08-15: a needs_content_page recreate for exactly this page no-opped at mark_no_ready_sections. The blog/section-index machinery owns this rebuild (needs_blog_posts -> blog-content-planner; bugs 015/206 family), or an owner decision retires the page. Parked holding its dedup key so the producer cannot churn re-raises.",
+                        "result_fields": { "route": "no_plan_unbuildable", "triaged_by": "required-fields-missing-handler" }
+                    },
+                    "next_step": "done",
+                    "description": "Round-2 verification demanded the no-op be settled up front; it no-opped, so this class parks with the owning machinery named"
+                },
+                "park_asset": {
+                    "action": "update_work_item_status",
+                    "config": {
+                        "status": "needs_human_review",
+                        "work_item_id_field": "input_data.work_item_id",
+                        "skip_if_missing": false,
+                        "error_message": "ROUTED BY required-fields-missing-handler, NOT WRITER-REPAIRABLE: at least one still-empty required field is declared source site_assets.* in the component schema (see the orchestration''s triage.n_asset_empty). A prose writer can only MINT a URL for such a field — measured 2026-08-15: the one conversion attempted before this route existed was refused by validate_content and changed nothing. Repair paths, human''s call: bind or deploy the site asset for the declared purpose (asset/imagery pipeline — the bugs 236/238 image-binding family), or amend the component schema if the field should be llm-sourced. Parked holding its dedup key so the producer cannot churn re-raises.",
+                        "result_fields": { "route": "asset_sourced", "triaged_by": "required-fields-missing-handler" }
+                    },
+                    "next_step": "done",
+                    "description": "Round-2 refinement: asset-sourced fields are the imagery pipeline''s to fill, never the writer''s"
                 },
                 "file_recreate": {
                     "action": "create_work_item",
@@ -378,9 +439,21 @@ INSERT INTO agent_definitions (
 -- ----------------------------------------------------------------------------
 DO $$
 DECLARE
-    cfg      jsonb;
-    assigned integer;
+    cfg          jsonb;
+    assigned     integer;
+    active_count integer;
 BEGIN
+    -- Exactly ONE active definition row for the type (guardian seat, round 2:
+    -- four agent types on this estate carry TWO active rows with only the
+    -- higher version loaded — a later edit could silently orphan half the
+    -- workflow). <> not IS DISTINCT here: count(*) is never NULL.
+    SELECT count(*) INTO active_count FROM agent_definitions
+     WHERE type = 'required-fields-missing-handler' AND is_active
+       AND COALESCE(is_snapshot, false) = false AND deleted_at IS NULL;
+    IF active_count <> 1 THEN
+        RAISE EXCEPTION '410: % active definition rows for required-fields-missing-handler — must be exactly 1 (the two-active-rows landmine)', active_count;
+    END IF;
+
     SELECT default_config INTO cfg FROM agent_definitions
      WHERE type = 'required-fields-missing-handler' AND is_active
        AND COALESCE(is_snapshot, false) = false AND deleted_at IS NULL;
@@ -401,16 +474,22 @@ BEGIN
     OR cfg #>> '{workflow,steps,route_owned,config,then_step}'    IS DISTINCT FROM 'park_owned'
     OR cfg #>> '{workflow,steps,route_owned,config,else_step}'    IS DISTINCT FROM 'route_blob'
     OR cfg #>> '{workflow,steps,route_blob,config,then_step}'     IS DISTINCT FROM 'park_blob'
-    OR cfg #>> '{workflow,steps,route_blob,config,else_step}'     IS DISTINCT FROM 'route_noplan'
+    OR cfg #>> '{workflow,steps,route_blob,config,else_step}'     IS DISTINCT FROM 'route_asset'
+    OR cfg #>> '{workflow,steps,route_asset,config,then_step}'    IS DISTINCT FROM 'park_asset'
+    OR cfg #>> '{workflow,steps,route_asset,config,else_step}'    IS DISTINCT FROM 'route_noplan'
     OR cfg #>> '{workflow,steps,route_noplan,config,then_step}'   IS DISTINCT FROM 'file_recreate'
-    OR cfg #>> '{workflow,steps,route_noplan,config,else_step}'   IS DISTINCT FROM 'route_partial'
+    OR cfg #>> '{workflow,steps,route_noplan,config,else_step}'   IS DISTINCT FROM 'route_unbuildable'
+    OR cfg #>> '{workflow,steps,route_unbuildable,config,then_step}' IS DISTINCT FROM 'park_unbuildable'
+    OR cfg #>> '{workflow,steps,route_unbuildable,config,else_step}' IS DISTINCT FROM 'route_partial'
     OR cfg #>> '{workflow,steps,route_partial,config,then_step}'  IS DISTINCT FROM 'file_rewrite'
     OR cfg #>> '{workflow,steps,route_partial,config,else_step}'  IS DISTINCT FROM 'mark_failed' THEN
         RAISE EXCEPTION '410: a conditional_branch arm is missing or mis-wired — an item would stop mid-route';
     END IF;
     -- The park arms must park, not complete — the whole anti-churn design.
     IF cfg #>> '{workflow,steps,park_owned,config,status}' IS DISTINCT FROM 'needs_human_review'
-    OR cfg #>> '{workflow,steps,park_blob,config,status}'  IS DISTINCT FROM 'needs_human_review' THEN
+    OR cfg #>> '{workflow,steps,park_blob,config,status}'  IS DISTINCT FROM 'needs_human_review'
+    OR cfg #>> '{workflow,steps,park_asset,config,status}' IS DISTINCT FROM 'needs_human_review'
+    OR cfg #>> '{workflow,steps,park_unbuildable,config,status}' IS DISTINCT FROM 'needs_human_review' THEN
         RAISE EXCEPTION '410: a park arm does not park at needs_human_review — dedup-key churn returns';
     END IF;
     -- `spec` is RETIRED on create_work_item (bugs_open/234). Assert ABSENCE.
@@ -424,15 +503,14 @@ BEGIN
         RAISE EXCEPTION '410: a conversion item is not born at triaged — it would strand (the detected promoter is off, bugs_open/083)';
     END IF;
 
-    -- INERTNESS, asserted rather than promised: assignment is a separate,
-    -- canaried operational step. If this migration has routed anything, stop.
+    -- INERTNESS is STRUCTURAL: this file contains no UPDATE on site_work_items,
+    -- so it cannot assign. (The first application asserted assigned=0; after the
+    -- deliberate canary of 2026-08-15 that assert would wrongly abort a
+    -- re-apply, so it is now a report.) Assignment remains the separate,
+    -- canaried step in ASSIGN_2026-08-15_fleet_assignment.sql.
     SELECT count(*) INTO assigned FROM site_work_items
      WHERE handler_agent = 'required-fields-missing-handler';
-    IF assigned <> 0 THEN
-        RAISE EXCEPTION '410: % work item(s) already route to required-fields-missing-handler — assignment is a separate canaried step', assigned;
-    END IF;
-
-    RAISE NOTICE '410: required-fields-missing-handler seeded and INERT (0 work items assigned; canary next, per header)';
+    RAISE NOTICE '410: required-fields-missing-handler seeded; % work item(s) currently route to it (assignment happens only via the ASSIGN file)', assigned;
 END $$;
 
 COMMIT;
