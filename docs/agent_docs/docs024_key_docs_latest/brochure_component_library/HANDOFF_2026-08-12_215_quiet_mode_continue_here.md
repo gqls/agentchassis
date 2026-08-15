@@ -7,15 +7,14 @@ carried forward below where still live.
 
 **The pilot is live and inert. Nothing is half-finished in the tree.**
 
-> ## ⚠ COLD START, 2026-08-15 — READ §18 FIRST, THEN §17, THEN §15. THE REST IS HISTORY.
+> ## ⚠ COLD START, 2026-08-15 — READ §19 FIRST, THEN §18, THEN §15. THE REST IS HISTORY.
 > The sections are append-only and the file is long. **Every "READ THIS FIRST" heading below
 > §18 is stale by its own date** — §8's is 2026-08-12, §13's "cheapest next measurement" is
-> superseded by §14, and §14's "DO THIS NEXT" is superseded by §15–§18. **§18 is the head.**
+> superseded by §14, and §14's "DO THIS NEXT" is superseded by §15–§19. **§19 is the head.**
 >
 > **§18 CORRECTS A PREMISE THE REST OF THIS FILE REPEATS.** §14, §16 and §17 all say pair 7
 > needs "the ~1,700-word content merge the framework must write". **It did not** — the words
-> were two finished, deployed components and they moved verbatim. **Pair 7's merge is DONE
-> and live**; its retire half (steps 3–8) is outstanding. Do not re-plan pair 7 from §17's
+> were two finished, deployed components and they moved verbatim. **Pair 7 is COMPLETE — all 8 steps** (§19); its part-2 re-check is owed at ~20:0x. Do not re-plan pair 7 from §17's
 > scoreboard, and do not repeat "every remaining pair needs the framework to write content"
 > without opening pair 6's components first — nobody has.
 >
@@ -917,6 +916,10 @@ hero/CTA headlines are absent on the survivor and present on the bare page.
 
 ## 4. WHAT PAIR 7 STILL OWES — the retire half, and NONE of it is started
 
+> **DISCHARGED the same morning — see §19.** All of steps 3–8 ran and passed. Left in place
+> because the ORDER this section insists on (merge → verify → retire) is the reason the
+> 1,587 words still exist.
+
 Runbook steps 3–8 on the bare page. **Nothing archived, nothing cancelled, no plan row
 touched.** Re-measured 2026-08-15:
 
@@ -949,3 +952,100 @@ belongs to another front" — is now falsified for pair 7 and should be re-teste
 before it is repeated.** Pair 6's 4 "editorial referrers" are inbound links, which is a
 different question from whether its own prose is portable; nobody has opened pair 6's
 components either.
+
+---
+
+# 19. PAIR 7 IS COMPLETE — all 8 steps, second of the seven to finish. One re-check owed at ~20:0x.
+
+**§18.4's "the retire half, and NONE of it is started" is DISCHARGED** — left visible rather
+than edited away, because the order it insists on (merge → verify → retire) is the reason
+1,587 words still exist. Everything else in §18 stands.
+
+## What was done, in one sitting, after the merge was verified at the artefact
+
+| step | action | result |
+|---|---|---|
+| 3 | remove the loser from the current plan | **DONE** — 1 `site_plan_pages` + 3 `site_plan_sections` rows deleted from plan `7a40a0f9`. Mandatory: the plan named **both** sides |
+| 4 | cancel the loser's open work items | **DONE** — **4** cancelled, site-scoped, `handled_by=brochure_215_o2_thread`, reason in `resolution_path`. **2 of the 4 were `unresolved`** — §15's point, the terminal-status list would have skipped half |
+| 5 | archive the loser | **DONE** — `gripper-cycle-time-estimator` (`abae9dc9…`) `active` → `archived`, survivor asserted still active + still in plan + still 3 components inside the same transaction |
+| 6 | retract the deployed file | **SUCCEEDED, no refusal.** corr `b2ff6f8a…`, orchestration `8e5b109d…`, COMPLETED in 6 s. `delete_file` removed `robot-hands.com/gripper-cycle-time-estimator.html`, committed to `gqls/sites` |
+| 7 | redirect | **does not exist** (RUNBOOK correction) — the retirement is a 404 |
+| 8 | verify at the artefact | **PASSED**, five URLs, below |
+
+Steps 3–5 were one transaction with `DO`/`RAISE` assertions:
+`SQL_2026-08-15_215_o2_pair7_retire_bare.sql`, which carries the **exact revert**
+statements captured from the live rows immediately before the DELETE.
+
+**Its pre-flight asserts the merge landed** (`2` prose sections on the survivor) and aborts
+otherwise, so the file physically cannot run in the order that would destroy the prose.
+
+## The census predicted the clean pass, and was right a second time
+
+Re-run read-only before mutating: pair 7's loser had **0 editorial body refs, 0 chrome
+refs, 0 active nav rows**, with **pair 6 in the same breath returning 2 bodies + 2 chrome +
+1 nav** — the positive control, and it independently reproduces §15's "4 editorial + 1 nav"
+for pair 6. So the read-only census is now validated in both directions on **two** pairs:
+it reproduced pair 1's real refusal and predicted clean passes for pairs 5 and 7.
+
+## Step 8, five URLs
+
+| url | before | after | reading |
+|---|---|---|---|
+| **loser** `/gripper-cycle-time-estimator.html` | 200, 46,158 b, 3,832 w | **404, 2,886 b** | **retracted** |
+| survivor `/tools/…/index.html` | 200, 44,478 b, 3,694 w | 200, **44,478 b, 3,694 w** | merge holds through the retraction |
+| collateral `/how-it-works.html` | 29,993 b | **29,993 b** | unchanged ⇒ targeted |
+| collateral `/matchmatrix.html` (pair 6's loser) | 28,970 b (§16) | **29,093 b** | **+123 b — the NEWS-REFRESH delta**, the same +123 b §17 measured on two pages overnight. Not caused by this work; noted so nobody reads it as collateral damage |
+| fabricated `/definitely-not-a-page-xyz.html` | 404, 2,886 b | 404, 2,886 b | instrument steady |
+
+The loser's 404 is **byte-identical to the fabricated control (2,886 b)** — what separates a
+real 404 from an error page of some other origin.
+
+## ⚠ THE ACCEPTANCE IS TWO-PART AND ONLY PART 1 IS DONE
+
+Same as pair 5 (`216_TRIGGER_page_retraction.sh:19-24`, `bugs_closed/098`). Part 1 — "the
+url 404s immediately" — **passed even before the resurrection fix existed**, so it tests
+little alone. **Part 2 is the one that tests anything: it must STILL 404 after the next news
+refresh (~20:0x today).** Owed as of 2026-08-15 08:5xZ:
+
+```bash
+curl -s -o /dev/null -w '%{http_code} %{size_download}b\n' https://robot-hands.com/gripper-cycle-time-estimator.html
+# expect 404 / 2886b. Read the SURVIVOR and a collateral in the same breath: if they have
+# NOT changed size, the refresh has not run and the 404 proves nothing yet (§17's method).
+# A 200 would mean something rebuilt and re-published it — with 266's guard live that is
+# itself a finding worth a bug, not a retry.
+```
+
+## Post-state
+
+- Loser row: `status='archived'`, `deployed_at` **unchanged** — the retraction does not
+  clear it, so this is another deliberate false positive for the
+  `status='archived' AND deployed_at IS NOT NULL` detector `266` documents as blind.
+- **The loser's 5 `page_components` rows were NOT deleted.** Its own copy survives in the
+  DB, so the retirement stays recoverable; only the deployed file went.
+- **No nav row deactivated** — there was none, matching the census's zero.
+- `ARCHIVED_PAGE_%` counters: pair 7 will not add to them for the same reason pair 5 did
+  not — archiving removes the page from the rerender wave's population (§15) and its four
+  items were cancelled. `266`'s behavioural proof already landed independently (§17.3).
+
+## O2 scoreboard — two of seven done
+
+| pair | state |
+|---|---|
+| **5 rh `gripper-payload-calculator`** | ✅ **COMPLETE AND ACCEPTED** (both parts) |
+| **7 rh `gripper-cycle-time-estimator`** | ✅ **COMPLETE** — part-2 re-check owed at ~20:0x |
+| 1 ai-agent-orch `llm-cost-calculator` | archived, still serving — blocked on 2 editorial repairs (chrome footer + 1 article body) |
+| 2 finetuning `ai-readiness-quiz` | decided, **held on `bugs_open/204`** |
+| 3 fai `automation-savings-…-guide` | decided, **0 blockers** — routed to the fundamentallyai sweep front |
+| 4 fai `model-approach-selector-guide` | decided, 3 blockers (2 if pair 3 goes first) — same routing |
+| 6 rh `matchmatrix` | 4 editorial referrers inc. **both** chrome slots + plan surgery |
+
+## DO THIS NEXT
+
+1. **Run the part-2 re-check above at ~20:0x**, with the survivor + a collateral read in the
+   same breath as the refresh control.
+2. **Pair 6 is the only remaining robot-hands pair, and its cost should be RE-TESTED, not
+   inherited.** Its "4 editorial referrers" are links pointing *at* it — a different
+   question from whether its own prose is portable, which is what made pair 7 cheap.
+   **Nobody has opened pair 6's components.** Do that first; it is one query.
+3. **Pairs 3+4** remain routed to the fundamentallyai sweep front. **Pair 2** stays held on
+   `bugs_open/204`. **Pair 1** unchanged — 2 editorial repairs.

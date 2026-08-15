@@ -3070,3 +3070,25 @@ remaining pair needs written content. Pair 7 disproved it. Pair 6 (`matchmatrix`
 listed as needing content work, but that listing is about four *links pointing at it* from
 elsewhere on the site, which is a different question from whether its own words can simply
 be moved. Nobody has opened its components either. It may be cheaper than it looks too.
+
+**Same morning, an hour later — the old page is gone, and that pair is finished.**
+
+I carried on and did the other half. The old plain page has been taken out of the site
+plan, its four outstanding jobs closed, the page archived, and the published file deleted.
+It now returns "not found", and I checked that its "not found" page is byte-for-byte the
+same as the one you get for a made-up address — which is how you tell a real deletion from
+some other kind of error. The new page is untouched and still carries everything we moved.
+Two other pages checked as controls to prove the deletion was aimed only where I meant it.
+
+**That is the second of the seven finished, and the first one where we had to move content
+rather than just choose a side.**
+
+One honest caveat, the same as last time: the real test is not that the page is gone now,
+it is that it is *still* gone after the site rebuilds itself this evening. I will not be
+here for that, so it is written down as the one thing owed on this pair.
+
+**A note for whoever picks up the last robot-hands pair (matchmatrix).** It is currently
+listed as expensive because four things link to it. That is true, but it is a different
+question from the one that made today's pair cheap — today's was cheap because its *own*
+words turned out to be movable. Nobody has looked at matchmatrix's words. It is one query,
+and it is worth doing before anyone assumes that pair needs writing.

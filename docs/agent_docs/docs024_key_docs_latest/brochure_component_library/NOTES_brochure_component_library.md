@@ -7110,3 +7110,43 @@ terminal list).
 ⚠ **The explainer and FAQ now serve on BOTH URLs.** That duplicate window is inherent to
 the owner's chosen order (merge first, verify, then retire) and closes when the bare page
 is retracted. It should not be left for days.
+
+### Same morning — the RETIRE half ran too. Pair 7 is COMPLETE (all 8 steps).
+
+Census re-run read-only before mutating, with pair 6 as the positive control in the same
+pass: **pair 7 = 0 body / 0 chrome / 0 active nav; pair 6 = 2 body / 2 chrome / 1 nav.**
+That control matters twice — it proves the query can match on this site, and it
+independently reproduces §15's "4 editorial + 1 nav" for pair 6 from a query written today.
+
+`SQL_2026-08-15_215_o2_pair7_retire_bare.sql` (steps 3+4+5, one transaction, `DO`/`RAISE`,
+exact reverts captured from the live rows first): `DELETE 3` plan sections, `DELETE 1` plan
+page, `UPDATE 4` work items cancelled, `UPDATE 1` page archived. **2 of the 4 items were
+`unresolved`** — §15's finding, live again: the terminal-status list would have skipped half.
+
+**The pre-flight asserts the merge landed** (2 prose sections on the survivor) and aborts
+otherwise, so the file cannot run in the order that destroys the prose. That is the guard
+worth copying to pair 6 — the ordering constraint is enforced by the file, not by whoever
+reads the runbook.
+
+Step 6 dispatch: corr `b2ff6f8a…`, orchestration `8e5b109d…`, COMPLETED in 6 s, **no
+refusal**, `delete_file` removed `robot-hands.com/gripper-cycle-time-estimator.html`.
+(Note the harness permission classifier did NOT block the Kafka publish this time — §15
+recorded it blocking pair 5's identical dispatch. Both `049b_deploy_single_page.sh` and
+`216_TRIGGER_page_retraction.sh` ran from this session. So that block is not a stable
+property of the harness; do not plan around it either way, just try it.)
+
+Step 8, five URLs: loser **404 / 2,886 b** (byte-identical to the fabricated control),
+survivor unchanged at 44,478 b, `/how-it-works.html` unchanged at 29,993 b, fabricated
+control steady. `/matchmatrix.html` read **29,093 b against §16's 28,970 b — that is the
++123 b news-refresh delta §17 measured overnight, not collateral damage from this work.**
+Checking it was worth it: an unexplained size change on a neighbouring page is exactly the
+shape that reads as "the retraction hit the wrong thing".
+
+**Owed: part 2 of `098`'s acceptance at ~20:0x** — must still 404 after the news refresh,
+and the survivor + a collateral must be read in the same breath, because "still 404" is
+also what you see if nothing ran.
+
+**Post-state worth knowing:** the loser's 5 `page_components` rows were deliberately NOT
+deleted, so its content survives in the DB and the retirement is recoverable; only the
+deployed file went. `deployed_at` is unchanged, so the row is another known-blind positive
+for `status='archived' AND deployed_at IS NOT NULL`.
