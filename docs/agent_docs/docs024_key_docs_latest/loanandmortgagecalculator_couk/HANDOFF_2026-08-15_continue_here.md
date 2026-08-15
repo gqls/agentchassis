@@ -39,6 +39,42 @@ column to `260f03e9`, the item that completed in 3 minutes at 07:58Z (`item_type
 `handler_agent='page-rerender'`, `source`, `created_by`, `spec={page_id}` with no
 `spec.reason`, `pipeline='build'`, `attempt_count=0 < max_attempts=3`, site not locked).
 
+**DO NOT re-diagnose the items — that path is closed, with proof.** At 09:20Z (36 min
+queued) I ran the dispatcher's **own selection query, verbatim from
+`load_work_item_actions.go:641-684`**, against this site, and it returns **all five**:
+
+```sql
+SELECT left(wi.id::text,8), wi.item_type, wi.priority, wi.created_at::time(0)
+FROM site_work_items wi
+WHERE wi.site_id='ed633ada-f8af-424b-b4d4-8af79160dbcd'
+  AND wi.status IN ('triaged','approved')
+  AND wi.attempt_count < wi.max_attempts
+  AND (COALESCE(wi.approval_mode,'auto')='auto' OR wi.status='approved')
+  AND (wi.depends_on IS NULL OR NOT EXISTS (
+       SELECT 1 FROM unnest(wi.depends_on) dep_id
+       WHERE dep_id NOT IN (SELECT id FROM site_work_items
+                            WHERE site_id='ed633ada-f8af-424b-b4d4-8af79160dbcd'
+                              AND status IN ('complete','verified'))))
+  AND wi.pipeline='build' AND wi.handler_agent='page-rerender'
+ORDER BY wi.priority ASC, wi.created_at ASC LIMIT 50;   -- returns 5 rows
+```
+
+So `approval_mode` (`auto`), `depends_on` (NULL), `attempt_count` (0 < 3), `priority`
+(100 — same as the item that completed in 3 minutes this morning) are all fine. **The
+bottleneck is which SITE the loop picks per invocation, upstream of this query.** Item
+ordering within a site is `priority ASC, created_at ASC`, so **a lower `priority` number
+wins** if you ever need to jump our own queue — but that reorders only within this site
+and will not move us up the site rotation.
+
+⚠ **The site rotation is NOT simply `site_id` ascending, whatever RUNBOOK §10 says.**
+Measured over 36 minutes: this site moved 15th → 14th → **10th** while
+`loancash.co.uk`, which ranked *behind* it, completed two rerenders at 09:15Z. Sites
+after us in `site_id` order are being serviced before us. I did not establish the real
+rule (the obvious candidate — oldest-pending-item first, which would put our
+same-day items dead last fleet-wide — is **unverified**, and the one LMC item that
+completed at 08:01Z was also same-day, which argues against it). **Treat the ordering as
+unknown rather than inheriting either story.**
+
 **See where you are in the rotation:**
 ```bash
 $K -A -F$'\t' -c "SELECT row_number() OVER (ORDER BY s.id) AS pos, s.domain, count(*) AS items
