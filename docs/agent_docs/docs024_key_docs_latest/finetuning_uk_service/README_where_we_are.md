@@ -574,6 +574,16 @@ flight when your message arrived was the small automated review of the note I ad
 to the shared traps file this morning; that one couldn't be recalled, but it's a
 single small job, not a machine.
 
+> **Dated correction, 2026-08-15:** the section above was accidentally inserted
+> *ahead* of the one below it, and ate its heading — the heading is restored here
+> and the mistake is owned rather than smoothed over. Read the section below
+> ("we rented a GPU") FIRST: it happened earlier in the day. The pattern-check on
+> the commit is what caught it.
+
+---
+
+## 2026-08-15, later — we rented a GPU, it worked, and it cost about six pence
+
 You said do the provision test only. Done. It worked, first try, no drama. Here is
 what happened and the two things that surprised me.
 
