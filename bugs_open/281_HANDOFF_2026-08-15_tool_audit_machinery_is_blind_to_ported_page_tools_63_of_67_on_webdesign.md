@@ -137,6 +137,11 @@ is recorded.
 
 ## Contribution 2026-08-15 ~17:00Z (filing session, with the owner) — Finding A hazard CLOSED; replacement lane opened
 
+> **Finding A now has its own case: `bugs_open/285`** (owner-directed) — the full two-firing
+> timeline, root-cause decomposition, restoration record, and the residuals
+> (`fix_component_template` unfenced; Tier-4 judge). Close-out of the write-path defect tracks
+> THERE; this file stays about audit coverage.
+
 - **The owner ruled: do both** (Track 1 audit fix — yours — and accelerate native rebuilds).
 - **Finding A's latent hazard is closed.** With the owner's sanction this session restored the
   shared wrapper's `html_template` from the poisoned 8,864-char state to **v3's pre-edit
