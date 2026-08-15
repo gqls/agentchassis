@@ -5396,3 +5396,38 @@ compositions). Phase 2 mutates NO live page: tool rebuilds stay human-gated
 (D2), index waits at review until re-driven. Pre-state at fire: 30 rows/29
 active, identity md5 `fd2c09c2…` (differs from `e6dd8fb8…` ONLY by the two
 restored rows' status — expected), locks 12, plan 34b1b056.
+
+### 2026-08-15 ~14:45Z — PHASE 2 JUDGED: the placement question is ANSWERED and the answer is 0/12; diagnosis filed
+
+Plan `dcbae4df` landed 14:25:49 (2 min from dispatch). Zero RECOMPOSE tells
+(correct — every released page got a genuinely new composition, nothing
+no-opped). Locks 12/12. **THE LANE'S HEADLINE MEASUREMENT: the planner, with the
+widened menu demonstrably in context (`available_components` = **151** in the
+run's own collected_data), placed ZERO of the 12 locked tool component functions
+in the recomposed compositions.** index → `hero,info-card-grid,tool-list,
+guide-list,call-to-action` (no `tool-loan-repayment`); the 11 tool pages →
+`hero,ported-prose,faq,tool-cta` (`tool-cta` is a CTA section, not the
+calculator); `tool-credit-roadmap` alone carries `loans-credit-health-check`,
+which matches NO locked function (nearest: `tool-credit-health-check`, a
+DIFFERENT page's tool). So: **407's menu mechanism works; the planner's CHOICES
+do not place tools.** The protective stack (tool-role review gate + 12 permanent
+locks + identity arm) is currently the only thing between this plan and
+calculator-less pages — all of it held, nothing live changed.
+**⇒ D2 WARNING, prominent: do NOT realise the 11 owned_page_review /
+needs_page:index tickets by naively applying plan `dcbae4df` compositions — they
+would compose the calculators OUT (the lock floor should keep the rows, but that
+is exactly the untested arm).** Diagnosis filed via 090 — RUN_CORRELATION
+`4a02a4e1-3972-450a-8163-28d6bb0a79fd` (queue checked empty first); symptom
+points at seed 362's converge arm + 407's placement wording vs the plan/locked
+rows. Await the verdict before any prompt surgery.
+
+**The rest of the phase-2 cascade, decoded:** 15 needs_page (14 guides + legal)
+are STAMP-CONVERGENCE churn, not damage — the guides were BUILT this morning as
+`hero,faq,tool-cta`, the new plan says the same, but they were stamped at plan
+34b1 (which had no sections for them) so the version-compare emits; this build
+re-stamps at `dcbae4df` and the loop ends. Let run. 16 needs_imagery = per-page
+heroes for the rebuilt pages (different keys from the 3 owner-parked ones, so
+dedup does not block them) — images will generate and land via rerender; this is
+the pipeline's normal behaviour under the mission, distinct from the parked D3
+set. 1 needs_rerender keyed on the new plan. Rebuild watcher re-armed over the
+whole open set.

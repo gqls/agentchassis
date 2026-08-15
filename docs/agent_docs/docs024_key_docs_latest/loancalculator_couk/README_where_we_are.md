@@ -1936,3 +1936,16 @@ call. One embarrassment, logged in the wrong-calls file: I fell into the exact t
 I'd written up two hours earlier — the two new pages' build tickets sat invisible
 for three hours because my own script filed them one state too early; they're
 building now.
+
+2026-08-15 (mid-afternoon) — The question this whole effort was built to answer
+now has a measured answer, and it's the uncomfortable one: given full freedom and
+a menu that demonstrably contained every calculator, the planner designed eleven
+calculator pages and the homepage WITHOUT their calculators. Nothing live was
+touched — the review gate and the twelve locks did exactly their job, which is
+why we built them — but the redesigns it proposed must not be applied as they
+stand, and I've marked the review tickets accordingly. The "why does the planner
+ignore the tools" question is now with the platform's own diagnosis loop; its
+verdict will say whether the fix is in the planner's instructions or somewhere
+deeper. Separately, all the ordinary pages are converging on their final form (a
+second, harmless build pass is running), and the two new pages are building. The
+site has served every real page cleanly throughout.

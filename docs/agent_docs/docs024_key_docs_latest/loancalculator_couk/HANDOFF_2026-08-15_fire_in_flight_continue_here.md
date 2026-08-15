@@ -111,10 +111,16 @@ new items listing.
   14:23:32Z, scope = index + the 11 tool pages (the 14 rebuilt guides+legal
   excluded to avoid churn). Judge queries in the script's output; the open
   review items are the vehicles that realise the compositions.
-- **D2 — the 11 tool-page reviews (ALREADY MINTED, `owned_page_review:*`):**
-  per page or in bulk — realise the redesign deliberately / leave the built page
-  as-is (locks keep the calculators regardless) / authorise a bulk-apply gated
-  by the acceptance checks (toolgolden 11/11 + serving + locked-row purity).
+- **D2 — the 11 tool-page reviews + needs_page:index — ⚠ HELD BY A MEASURED
+  DEFECT (~14:45Z): DO NOT apply plan `dcbae4df` compositions as they stand.**
+  The phase-2 planner, menu demonstrably present (151 components in its own
+  collected_data), placed ZERO of the 12 locked tool functions — the recomposed
+  tool pages and index would be composed WITHOUT their calculators (the lock
+  floor should keep the rows, but that is the untested arm; don't test it by
+  accident). Diagnosis in flight: 090 RUN_CORRELATION `4a02a4e1…` — read its
+  verdict (`doc_notes` / `diagnosis_artifacts`) before working these tickets.
+  The redesigns are realised only after the plan carries the tools (planner
+  prompt fix, or hand-amended plan sections, per the verdict).
 - **D3 (EXPANDED) — the owner-parked 08-12 items now GATE the visual refresh:**
   `needs_design` + `needs_composition` (site-wide keys!) + 2
   `needs_brand_head_assets` + 3 imagery items (logo `003b98cc`, guide-loan-faqs
