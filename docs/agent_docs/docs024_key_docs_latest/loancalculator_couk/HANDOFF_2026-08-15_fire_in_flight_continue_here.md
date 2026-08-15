@@ -16,11 +16,15 @@ locks     12 calculator locks ONLY (decompose_20260802_proven_calculators).
           The 8 non-calculator locks are RELEASED (chrome 3 + css carriers 4 +
           homepage prose-0); pre-release state: NOTES 08-11 §step 6.
 chassis   v1.0.1301 (rolled 10:14Z 08-15). RECOMPOSE tell live since 1295.
-state     PLAN 34b1b056 LANDED 10:59:33Z · checkpoint RUN (Q2: ZERO invention —
-          the pin held; identity md5 unchanged e6dd8fb8…; un-defer trio moved;
-          calc locks 12/12) · REBUILD RUNNING: 15 needs_page (built non-tool
-          pages) + about + guides-index + hero_about + 1 needs_rerender open,
-          11 owned_page_review at the human gate ALREADY (phase 1, not 2).
+state     AS OF ~17:45Z: serving **28/29** (about BUILT + LIVE; guides-index
+          404s, held at review — same 282 path as index) · **locked-row purity
+          12/12 byte-identical to loancalc_bak_20260811_pc** through the whole
+          rebuild · phase-1+2 build waves DONE (one kafka response-write flake
+          dispositioned, page verified rebuilt) · ~10 tool-page rerenders still
+          draining, queue-paced, locks hold · toolgolden: RUN AFTER the
+          rerender drain (driving served pages mid-rerender races) ·
+          **bugs_open/282 filed** — validate's resolver drops planner-placed
+          tool sections; D2 sequence in the decisions list below.
 ```
 
 > **CORRECTED ~11:15Z, same session — read this before the phase framing below:**
