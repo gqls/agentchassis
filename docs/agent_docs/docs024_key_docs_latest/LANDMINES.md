@@ -10703,7 +10703,10 @@ code change owed at the next roll, tracked in RFC_015 §5.
   proven end-to-end** (run `b2c82a25`: object shape, 5 findings, 5 items created,
   `audit_source='site-review'` — the first such rows ever; `bugs_closed/272` holds the trail).
   The paragraph below was written earlier the same day, when v1.0.1300 had missed the fix;
-  its probe recipe stays useful for the next same-shaped question. **Half 2 remains UNFIXED.**
+  its probe recipe stays useful for the next same-shaped question. **Half 2 remains UNFIXED
+  — now filed with full mechanism + census as `bugs_open/278`** (work_item_type discarded
+  unparsed at the struct; brief-fidelity-auditor unrouteable BY CONSTRUCTION, its category
+  hardcoded to a value in no routing set; 6 minted rows live). Fix there, not from here.
 - ~~**UPDATE 2026-08-15 (272 fix session): half 1 is FIXED IN CODE, NOT YET LIVE.**~~ Commit
   `2a3ea3e2c` (council-approved, corr `5a79843a`) adds the missing `map[string]interface{}`
   case — `parseAuditFindings` now unwraps `v["findings"]` — and the zero path reports

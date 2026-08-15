@@ -141,3 +141,20 @@ finds every type whose rows sit non-terminal with no live handler, independent o
 the type means. `bugs_closed/077`, this file and `083` are three sightings of one thing;
 making the *next* one visible is cheaper than draining this batch.
 
+---
+
+## 2026-08-15 — the WRITER-side mechanism is now filed as `bugs_open/278`
+
+This file's fix candidate 1 ("route the item type, or refuse to write it") got its
+mechanism file: **`bugs_open/278`** establishes, with code cites and a live census,
+that `classifyFinding`'s fallback mints `audit_finding_<category>` for any category
+outside its hardcoded sets (silently, deprioritised), that the `work_item_type` field
+two prompts demand is discarded unparsed (the struct has no such field; zero readers
+at any layer), and that **brief-fidelity-auditor's hardcoded `category:"brief_fidelity"`
+makes 100% of its output take that fallback** — which is exactly why this file's three
+findings died. 278 owns the writer fix; candidates 2–4 here (cadence, terminal-state
+audit, handoff surfacing) stay with this file and `083`. Census update: the fleet now
+holds **6** `audit_finding_%` rows (4 detected on mortgagecalculator, 2026-08-13).
+Related: `bugs_closed/272` fixed the same action's other silent-zero (object-shape
+parse) on 2026-08-15, v1.0.1301.
+
