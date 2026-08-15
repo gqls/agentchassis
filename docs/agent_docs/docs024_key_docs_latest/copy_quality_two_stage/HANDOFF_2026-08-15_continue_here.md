@@ -75,13 +75,14 @@ Plain-prose versions of all four: `README_where_we_are`, 2026-08-15 entry.
    `total_field_count` on every `content_edit` result from now on; forward-only; filter
    `edit_type` first).
 
-## NEXT WORK once the decisions land
+## NEXT WORK — the stage 2 build is ALL that remains (start here)
 
-1. **Decisions 1+2** are minutes of config work each (supersede, never in-place; snapshot
-   first; the `formatted` regeneration on decision 2 is load-bearing).
-2. **Decision 3** waits on LMC's B2 finishing — check their lane activity first, as ever.
-3. **Stage 2 build** (timing per decision 4; `bugs_open/033` is another thread's — do not
-   start it from here). The accumulated constraints, all measured:
+~~1. Decisions 1+2~~ **DONE 08-15 evening** (see state block; NOTES has row ids + proofs).
+~~2. Decision 3~~ **DONE 08-15 late evening** (register live, flood risk measured zero).
+
+3. **Stage 2 build** (ruled BUILD IN PARALLEL with the 033 thread; `bugs_open/033` is
+   another thread's — do not start it from here). The accumulated constraints, all
+   measured:
    - **Proof case committed** (owner ruling 08-12): 6 links missing from LMC index
      `prose-0`; pass = `loanandmortgagecalculator_couk/gate_page_links.py` exits 0;
      must-not-change list in NOTES §"OWNER RULING". Fixtures:
@@ -117,6 +118,26 @@ governance) and the copy predates v2. **Action when unblocked:** voice-only
 this lane on close. Fix composition FIRST or the two fixes muddy each other. Do not hand-write
 copy (owner rulings 08-04/08-06), and do not touch the tan link colour (intended, 122's
 ink canary).
+
+### Session-fresh facts for the stage-2 builder (verified 08-15 late evening)
+
+- **The chassis at this writing:** build `0115f2b45` on both replicas (mode split LIVE —
+  `content_edit_mode` etc. on every new `content_edit` result). The owner mentioned a
+  fresh roll during the session; RE-VERIFY the stamp before trusting instrumented rows
+  (`kubectl … logs | grep -m1 'build provenance'`, binary probe fallback, per SERVICE).
+- **claimscan dry-runs BOTH HTML arms** (banned + numeric, page_type-aware via the 4th
+  TSV column — main.go's header has the export SQL). Only the stored-stat arm
+  (content_data) lacks an offline harness. Do not re-derive this from the 08-14 CONTRIB,
+  which is corrected in place on exactly this point.
+- **SCH-026 (`detected-item-promoter`) went LIVE 08-15**: born-`detected` items with
+  known-good handlers now dispatch within ~15 min. "Observe-only" reasoning about
+  detected items predating 08-15 is stale — but `unverified_claims`/HITL-terminal items
+  (no handler) stay parked, and a brand-new (type, handler) pair is HELD until a human
+  canaries it. Stage 2's first dispatch will be exactly such a canary — plan for a
+  hand-promotion, and remember the loancalculator lane's landmine: a hand-filed item
+  must be born `triaged`, `detected` fails silent only if its pair is not known-good.
+- **The 278 natural experiment** (2-of-4 card bodies diverge at fixed inputs) is banked
+  in `bugs_open/278` §8 — it is the evidence behind "never compare prose to prose".
 
 ## Standing cautions for the next session
 
