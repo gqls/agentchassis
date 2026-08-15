@@ -219,3 +219,18 @@ hand-filing a `page_rerender` needs `source`, `created_by` AND
 `handler_agent='page-rerender'` — without the last, the item goes `blocked`
 silently and nothing retries it. Full insert shape is now in RUNBOOK step 4.
 §4 (the mixed-card 5) remains the next work, untouched.
+
+---
+
+**SUPERSEDED 2026-08-15 → `HANDOFF_2026-08-15_continue_here.md`. Read that first.**
+§4 (the mixed-card five) was executed that day: all five are seeded in the B2 shape and
+byte-proven, and their deploy was still queued when the session ended. **Three facts above
+did not survive re-measurement** and are corrected there with evidence — the §1 B2-component
+count undercounts by one *by construction* (`mortgages-simple` predates that description);
+"19 prose pages" reads 18 (the §0 breakdown sums to 42 against a 41-page site); and §5's two
+remaining old-shape pages are **two shapes, not one** (`mortgages-repayment`'s locked row has
+a NULL `component_id`, so an inner join to `content_components` drops it silently).
+§7's open "check per page" is also resolved there: the 08-05 backup is stale for **four** of
+the five. ⚠ **Before running §3.1's or §7's `git log … -- <page>.html` check, read §4 of the
+new file** — `pages.name` is not the repo path, and that command answers "unchanged" for a
+path that has never existed.
