@@ -1451,3 +1451,69 @@ derivation. Nobody has to intend it, and this lane is not driving it but cannot 
 So: the owner's ruling on whether the tinted-brand-colour change is wanted is now a **soft** gate. It
 was a hard one yesterday. **Read the served ink on the day; a reading carried forward from an earlier
 session is not evidence about now.**
+
+## Contribution 2026-08-15 — the OWNER re-reported the original symptom on dartsonline, post-canary. It is `article-body`, it is ONE line, and the repoint is now SAFE
+
+**The owner looked at dartsonline after the 5.0 canary landed and reported the in-prose links still
+unreadable, with a screenshot** (`/blog/board-setup.html`, "How to actually choose" — "Dart Setup
+Builder" and "brand directory" both near-invisible on the dark ground). **He is right, this is not a
+regression, and it is not a failure of the canary.** It is the fourth `--color-primary`-as-ink
+consumer named in the 2026-08-12 contribution above and deliberately left unfixed pending the
+derivation repair. The derivation is now repaired and live, so the block is gone.
+
+### The cause, one line, read from the live artefact
+
+```css
+/* content_components 'article-body', and identically in every rendered copy */
+.article-body__content a { color: var(--color-primary, #1e40af); text-decoration: underline }
+```
+
+It uses the **raw** `--color-primary`. On dartsonline that is `#1A1F2E` — a near-black navy — on
+`--color-background: #111520`.
+
+`[MEASURED 2026-08-15, values transcribed from the served stylesheet]`
+
+| | on `--color-background` | on `--color-surface` |
+|---|---|---|
+| **as served today** (`#1A1F2E`) | **1.11:1** | **1.06:1** |
+| after repointing to `--color-primary-ink` (`#94a0c2`) | **7.00:1** | **5.93:1** |
+
+1.11:1 is the invisible case, and it is exactly what the screenshot shows.
+
+### Why this is one line, not the 168-component sweep
+
+`[MEASURED 2026-08-15]` The rule lives in **one** `content_components` row (`article-body`), and is
+rendered into **97 `page_components` across 20 sites**. So the source fix is a single-row migration;
+the 97 rendered copies need a re-render to pick it up, exactly as with migrations 338/368.
+
+```sql
+-- the source
+SELECT count(*) FROM content_components
+ WHERE html_template LIKE '%.article-body__content a{color:var(--color-primary%';   -- 1
+-- the rendered population
+SELECT count(*), count(DISTINCT p.site_id) FROM page_components pc JOIN pages p ON p.id=pc.page_id
+ WHERE pc.rendered_html LIKE '%.article-body__content a{color:var(--color-primary%'; -- 97 / 20
+```
+
+**The repoint is `var(--color-primary-ink, var(--color-primary, #1e40af))`** — the documented
+two-level form, so it degrades to today's colour if the companion is ever absent (and the
+kill-switch's emit-nothing path stays safe: the fleet-wide bare-reference count is still 0).
+
+### Why it was RIGHT to wait, and why waiting is now over
+
+Before 2026-08-14 this repoint would have written `--color-text` into 97 placements — the
+de-branding described in §§3–4 above — and `render_audit.py` would have scored it a clean pass.
+After the derivation repair it writes a **lightened brand navy**. Same one-line edit, opposite
+outcome, and the only thing that changed is the derivation underneath it. **This is the concrete
+payoff of not repointing consumers first.**
+
+### Status and what it needs
+
+**NOT APPLIED.** It is step 6 of the ink lane's handoff (the sweep), which the owner gated behind
+his own look at the canary. He has now looked, and this is what he found — so the gate has been
+satisfied in the most direct way possible, but the "Go" is still his to give. Whoever picks this up:
+one migration on `content_components`, then re-render the 97 placements per `(component, site)`;
+grade at the served page, not at the template.
+
+**⚠ Do not hand-patch dartsonline.** The rule is fleet-wide and site-agnostic; a per-site fix leaves
+19 other sites broken and creates a second source of truth for the same declaration.
