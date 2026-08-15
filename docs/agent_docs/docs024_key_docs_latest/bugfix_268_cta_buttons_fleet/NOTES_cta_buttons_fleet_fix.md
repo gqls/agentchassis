@@ -414,3 +414,15 @@ repaired+locked stated). Then, while it queues (~30 min): falsifier checks
   flagged to the owner as a possible later content pass, not a defect.
 - mortgagecalculator/index's 15-min `claimed` resolved itself — completed
   normally; the never-cancel-pre-diagnosis rule held.
+
+## 2026-08-15 (afternoon) — v1.0.1301 verified; the lane is DONE pending 3 owner content calls
+
+- **New roll: `v1.0.1301`, stamp `0115f2b45`, control clean, fix still an
+  ancestor.** Nothing in this lane's scope changed by the roll.
+- All execution is complete. What remains are OWNER DECISIONS, stated in
+  README_where_we_are 2026-08-15 (midday + this entry's chat reply):
+  (1) aao/services copy fix (claims floor blocks its CTA until the banned
+  "70+ agent…" claim is reworded); (2) the 10 self-target tool-page
+  buttons (anchor / reword / remove / leave); (3) whether to commission a
+  content pass diversifying the homogeneous fallback targets. None urgent;
+  none blocks anything else.
