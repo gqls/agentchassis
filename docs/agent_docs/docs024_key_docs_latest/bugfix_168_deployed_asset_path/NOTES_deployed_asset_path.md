@@ -4254,3 +4254,79 @@ separate act, and doing it now would destroy the only live proof the exclusion f
 the first sweep after this ships should show `scan_still_trips → page_absent`. **The
 code is inert until a fleet roll**, so the 2026-08-16 sweep will still run the old
 binary and still say `scan_still_trips` — that is expected, not a failure.
+
+## 2026-08-15 14:08–14:5xZ — council round 1: REVISE, and it found a real defect
+
+Verdict at **14:08:01Z**, `decided_by: "gating objection from reuse_agent"`. Seats:
+9 approve, 3 object (`reuse_agent` HIGH, `editquality` medium/low,
+`prior_art_librarian` medium×2 + low), 4 abstained.
+
+### The gating objection was right, and not about style
+
+I hand-rolled `p.deployed_at IS NULL`. The estate has **one definition** of "this page
+never shipped" — `datahelpers.NeverDeployedPagePredicateFor`
+(`platform/orchestration/datahelpers/links.go:277`, from `bugs_open/185`) — and
+**~14 sibling checks in this very package already call the shared family**
+(`check_orphan_pages`, `check_asset_reference_404`, `check_premise_incomplete`,
+`check_site_structural_validity`, `check_backend_entry_orphaned`,
+`check_tool_acceptance_due`, `check_revenue_shape`, `check_site_unreachable`,
+`check_phantom_internal_links`). Mine was the outlier.
+
+**And the builder is not what I wrote:**
+
+```
+deployed_at IS NULL AND COALESCE(build_status, <empty>) <> 'deployed'
+```
+
+The second conjunct spares a page marked deployed but never stamped — and per the
+helper's own doc, such a page **serves 200**.
+
+**Measured before claiming a defect, and reported at its true size:** both spellings
+select the **same 1 page** today, and the divergence class (`archived AND deployed_at
+IS NULL AND build_status='deployed'`) is **0 rows**. The one row of that build shape
+fleet-wide is `idea.uk/tools.html#audience-check`, and it is `status='active'`. So the
+defect was **LATENT, not live** — it would have bitten the moment that row was
+archived. Fixed in `94745ca12`; restoring the round-1 spelling is now a mutation the
+test catches, so it cannot come back quietly.
+
+### ⚠ MISSTEP — I cited a landmine's call-site list without grepping it
+
+`prior_art_librarian` challenged my "five call sites use `status='active' AND
+build_status='deployed'`". **Checked: stale.** `load_site_pages_action.go` carries no
+such predicate; `request_render_audit_action.go:107` is a *comment* recording that it
+USED to, before `bugs_open/185` tranche 2 converted it on 2026-08-03 (36 live pages
+were invisible to that audit); `plan_sections_action.go:200` matches `pc.build_status`
+— a different table. Only two of five stand.
+
+**The irony is the lesson:** the list was overtaken by the very refactor that built the
+helper I then failed to reuse. Both my errors have one root — *I read the landmine
+corpus for one entry and treated its contents as current without re-grepping.*
+Corrected in place at the call site.
+
+### ⚠ MISSTEP — the doc comment could not say what it documented
+
+Round 1 shipped **not gofmt-clean**; the pre-commit pattern check caught it. Cause:
+since Go 1.19 gofmt reformats **doc comments** and still honours the legacy TeX-style
+quoting convention — doubled backtick → Unicode open quote, doubled apostrophe →
+Unicode close quote. **SQL's empty-string literal IS a doubled apostrophe**, so quoting
+`COALESCE(build_status, <empty>)` verbatim made gofmt silently rewrite the predicate
+the comment exists to document — and it still compiles, because it is only a comment.
+**My first attempt to EXPLAIN the trap tripped the trap** (I wrote both digraphs out).
+Fixed by naming the characters instead of showing them (`65a39bbd8`).
+
+### Also answered in round 2
+
+- `bug_historian` (low) asked that the `ScanVoiceTells` parity gap be *routed*, not left
+  standing. Done before the verdict landed: `bugs_open/149` item **B5** (`56a50f0f2`).
+- `debug_historian` flagged no post-roll verification step. Answered with CLAUDE.md's
+  current method — the binary's own `build provenance` line plus
+  `git merge-base --is-ancestor`, **not** a marker grep, which was retired 2026-08-11.
+- `editquality` (low): comment-only edits should not count as substantive coverage.
+  Accepted — round 2 lists **2** edits, not 5, and the trigger script enforces this
+  independently: it **refuses a comment-only sketch** outright.
+- `architecture` returned `point_fix` and approved; `guardian` approved conditionally on
+  no prior ruling making this WHERE clause a protected contract, and none surfaced. I
+  raised the RFC question rather than deciding it; two seats have now answered it.
+
+Round 2 submitted against the same correlation (`RESUBMIT_CORR`), so the trail
+accumulates on `cfaf0694-ee2e-4aa8-b19f-12d81e55b07f`. **Verdict not yet read.**
