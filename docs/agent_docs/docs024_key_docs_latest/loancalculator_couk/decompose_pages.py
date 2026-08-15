@@ -101,7 +101,14 @@ TOOL_FOR_PAGE = {
 }
 
 
-def split_ordered(node, src, ids, out, depth=0, keep_widget_wrapper=False):
+def wrapper_classes(n):
+    """The class list of a node's own start tag (never its subtree's)."""
+    m = re.search(r'class\s*=\s*"([^"]*)"', n.starttag)
+    return set(m.group(1).split()) if m else set()
+
+
+def split_ordered(node, src, ids, out, depth=0, keep_widget_wrapper=False,
+                  whole_wrapper_classes=()):
     """Descent, identical to the prover's, emitting into ONE ordered list.
 
     `out` receives ("prose", html) and ("tool", html) tuples in document order.
@@ -145,6 +152,34 @@ def split_ordered(node, src, ids, out, depth=0, keep_widget_wrapper=False):
     each holder separately. Preserving that panel means treating its prose as
     widget-internal, which is a per-page judgement and is why the override table
     further down this file exists. 263 records the trade-off.
+    ^^^ THAT LIMIT IS WHAT `whole_wrapper_classes` LIFTS, per page. ^^^
+
+    `whole_wrapper_classes` (OPT-IN, default OFF — Track B2, 2026-08-15)
+    -------------------------------------------------------------------
+    A named class here is emitted WHOLE as one tool block, without descending.
+    Empty by default, so every existing caller — including `keep_widget_wrapper`
+    callers — is byte-for-byte unchanged; the sibling lane's stored rows keep
+    their meaning (same reasoning as the paragraph above, owner ruling
+    2026-08-02: opt-in field, unsafe default OFF).
+
+    WHY IT IS NEEDED. `keep_widget_wrapper` stops one level above the machinery
+    only when the wrapper's children are ENTIRELY machinery. The five
+    mixed-card pages on loanandmortgagecalculator fail that test by
+    construction: exactly one `.card` holds a heading and sometimes an advisory
+    `<p>` BESIDE the grid. So the descent walks in and dissolves the card, and
+    `gate_wrapper_parity` rightly refuses the manifest (1 card in source, 0 in
+    the manifest — reproduced on all five, 2026-08-15).
+
+    WHY WHOLE IS THE RIGHT ANSWER HERE AND WAS THE WRONG ANSWER IN 2026-08-05.
+    The refuted "whole-child marking" marked the OUTERMOST mixed node, freezing
+    a page's h1 and intro into a LOCKED verbatim row — copy that no writer could
+    then reach. Track B2 changes what "whole" costs: the block becomes a
+    parameterised template whose every clean copy span is a schema field, and
+    the row is deliberately unlocked. The mixed copy does not get frozen, it
+    becomes editable — which is the owner's 2026-08-13 direction ("all text and
+    widgets need to be editable") and the 2026-08-13 ruling for this class.
+    Naming CLASSES rather than pages keeps the judgement in the caller, which is
+    where the per-page knowledge lives.
     """
     kids = [c for c in node.children if c.tag not in RAWTEXT]
     holders = [c for c in kids if any_marked(c, ids)]
@@ -159,6 +194,12 @@ def split_ordered(node, src, ids, out, depth=0, keep_widget_wrapper=False):
 
     for c in kids:
         if c in holders:
+            # B2: a named wrapper class travels WHOLE, mixed copy and all. Checked
+            # before the single/multi-holder split so the answer cannot depend on
+            # how many siblings happen to hold machinery.
+            if whole_wrapper_classes and (wrapper_classes(c) & set(whole_wrapper_classes)):
+                out.append(("tool", src[c.start:c.end]))
+                continue
             if len(holders) == 1:
                 # 263: stop here when everything inside `c` is machinery, so `c`'s
                 # own wrapper element survives into the tool block.
@@ -169,7 +210,8 @@ def split_ordered(node, src, ids, out, depth=0, keep_widget_wrapper=False):
                         out.append(("tool", src[c.start:c.end]))
                         continue
                 split_ordered(c, src, ids, out, depth + 1,
-                              keep_widget_wrapper=keep_widget_wrapper)
+                              keep_widget_wrapper=keep_widget_wrapper,
+                              whole_wrapper_classes=whole_wrapper_classes)
             else:
                 # Several siblings hold marked nodes (car-finance's input card
                 # and its results grid). The wrapper dissolves; each marked

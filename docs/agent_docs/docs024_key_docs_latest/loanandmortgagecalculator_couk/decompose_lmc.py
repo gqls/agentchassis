@@ -108,6 +108,27 @@ SITE_JS_TAG = '<script src="/assets/js/site.js"></script>'
 CALC_JS_TAG = '<script src="/assets/js/calculators.js"></script>'
 MIXED_VISIBLE_CEILING = 1500
 
+# ── the mixed-card five (Track B2 batch 2, 2026-08-15) ──────────────────────
+# Each of these pages has EXACTLY ONE `.card` whose children mix copy with
+# machinery (a heading, sometimes an advisory <p>, beside the grid). The descent
+# therefore walks into the card and dissolves it — `gate_wrapper_parity` refused
+# all five on 2026-08-15 with {'card': (1, 0)}, which is the gate working.
+#
+# Owner ruling 2026-08-13 for this class: take the card WHOLE and let the mixed
+# copy become fields. Under B2 that costs nothing a writer needs — the block is a
+# parameterised template, every clean copy span is a schema field, and the row is
+# unlocked — which is what distinguishes it from the "whole-child marking" that
+# was refuted on 2026-08-05, when whole meant FROZEN in a locked verbatim row.
+#
+# Named per page, not site-wide, because the other 16 calculator pages are
+# already converted with the plain `keep_widget_wrapper` rule and re-running them
+# through a wider rule would change bytes nobody asked to change.
+WHOLE_CARD_PAGES = {
+    "loans-damage-checker", "mortgages-bridging-loan", "mortgages-equity-release",
+    "mortgages-fee-analyser", "mortgages-rate-forecaster",
+}
+WHOLE_CARD_CLASSES = {"card"}
+
 
 def repo_file(path):
     r = subprocess.run(["git", "show", "%s:%s/%s" % (PINNED_REF, SITE_DIR, path)],
@@ -139,6 +160,8 @@ def strip_code(s):
 def decompose_page(relpath, html, chrome, calc_js_src, verbose=False):
     stem = relpath[:-5]
     is_tool_page = stem in CALCULATOR_URLS
+    page_name = "index" if stem == "index" else stem.replace("/", "-")
+    whole_cards = WHOLE_CARD_CLASSES if page_name in WHOLE_CARD_PAGES else ()
 
     head_m = re.search(r"<head\b[^>]*>(.*?)</head>", html, re.S | re.I)
     body_m = re.search(r"<body\b[^>]*>(.*?)</body>", html, re.S | re.I)
@@ -256,7 +279,8 @@ def decompose_page(relpath, html, chrome, calc_js_src, verbose=False):
                 # .input-grid) inside the tool block. Default-OFF on the shared
                 # helper so the sibling lane's stored rows keep their meaning.
                 split_ordered(blk, body_s, ids, ordered,
-                              keep_widget_wrapper=True)
+                              keep_widget_wrapper=True,
+                              whole_wrapper_classes=whole_cards)
             else:
                 ordered.append(("prose", body_s[blk.start:blk.end]))
         # loose text directly inside #content (between children) would be lost
@@ -300,9 +324,22 @@ def decompose_page(relpath, html, chrome, calc_js_src, verbose=False):
     for b in tool_blocks:
         t = visible(strip_code(b["html"]))
         if len(t) > MIXED_VISIBLE_CEILING:
-            problems.append("a tool block carries %d chars of visible text "
-                            "(ceiling %d) — mixed wrapper suspected"
-                            % (len(t), MIXED_VISIBLE_CEILING))
+            if whole_cards:
+                # EXPECTED on the mixed-card five, and printed rather than
+                # silently skipped: this ceiling exists to detect a tool block
+                # that swallowed copy, and on these pages it is swallowing copy
+                # ON PURPOSE. The protection that replaces it is downstream and
+                # stronger — b2_build turns each clean copy span into an unlocked
+                # schema field, and the per-page field count is asserted at load.
+                # A number here that is WILDLY larger than the card's own copy
+                # would still mean the slice took too much, so read it.
+                print("  note %-40s tool block carries %d chars of visible text "
+                      "(ceiling %d waived: whole-card page, copy becomes fields)"
+                      % (relpath, len(t), MIXED_VISIBLE_CEILING))
+            else:
+                problems.append("a tool block carries %d chars of visible text "
+                                "(ceiling %d) — mixed wrapper suspected"
+                                % (len(t), MIXED_VISIBLE_CEILING))
 
     prose_all = "".join(b["html"] for b in blocks if b["kind"] == "prose")
     stranded = sorted(i for i in ids
