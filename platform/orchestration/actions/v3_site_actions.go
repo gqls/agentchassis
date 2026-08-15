@@ -2053,6 +2053,21 @@ func RenderComponentAction(ctx context.Context, params ActionParams) (interface{
 
 	// Before calling RenderTemplate, set ComponentID in context
 	renderCtx.ContentData["ComponentID"] = comp.ID
+	// InstanceID is per-INSTANCE, unlike ComponentID above, which is the same
+	// value for every instance of a component. This action renders one section
+	// at a time and does not know its index on the page, so the token is derived
+	// from the slot name — best-effort, see InstanceTokenFromSlot. It is set
+	// unconditionally on purpose: missingkey=zero would render an absent
+	// InstanceID as "", which is the silent failure this change removes.
+	{
+		instanceSlot := comp.Function
+		if slotFrom, ok := config["slot_name_from"].(string); ok && slotFrom != "" {
+			if s := datahelpers.ExtractNestedFieldString(params.CollectedData, slotFrom); s != "" {
+				instanceSlot = s
+			}
+		}
+		renderCtx.ContentData["InstanceID"] = InstanceTokenFromSlot(instanceSlot)
+	}
 
 	// Fail loud rather than ship a silently-empty section. If the component's
 	// schema marks a content field required (source:"llm") and it never arrived

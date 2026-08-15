@@ -492,6 +492,12 @@ func RerenderPageSectionsAction(ctx context.Context, params ActionParams) (inter
 			rc.ContentData = make(map[string]interface{})
 		}
 		rc.ContentData["ComponentID"] = comp.ID
+		// InstanceID is per-INSTANCE; ComponentID above is per-COMPONENT and is
+		// therefore identical for every instance of the same component on a page.
+		// A template that namespaces element ids must use this one — see
+		// component_instance_scope.go and bugs_open/283 for why the distinction
+		// is load-bearing rather than stylistic.
+		rc.ContentData["InstanceID"] = InstanceToken(s.position)
 
 		rendered, _, deadURLFields := RenderTemplateReportingMissing(htmlTemplate, rc, logger)
 
