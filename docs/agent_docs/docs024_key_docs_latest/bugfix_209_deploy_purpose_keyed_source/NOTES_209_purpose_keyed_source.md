@@ -1224,7 +1224,17 @@ config **directly** — `GetIntField(config,"max_pages",25)`, `GetStringField(co
 "images_field",…)`, `config["severity"].(string)` — never touching the resolver. So
 `live_override` is a claim about what the RESOLVER would honour and it **over-counts
 behaviour change**. Round 3 already stated that limit for two council entries; it
-generalises, and I did not notice until a reviewer made me enumerate. **CLAUDE.md says
+generalises, and I did not notice until a reviewer made me enumerate.
+
+> **CORRECTED 2026-08-15 — the principle was already written down, in three places, one of
+> them the tool's own printed report.** `scripts/audit-default-shadowed-keys.sh`'s header,
+> `cmd/config-key-audit/defaultshadow.go:90`, and the report text at `defaultshadow.go:413`
+> all carry it, naming `bugs_open/235` as the shape. So "I did not notice until a reviewer
+> made me enumerate" is false: it was on screen in output I had already read and quoted.
+> Caught the next morning while reading the same script for an unrelated reason. **What
+> survives is narrower and still worth having: the enumeration itself** — which three of the
+> 21 are in that class, with file:line — which was not recorded anywhere. Logged in
+> `WRONG_CALLS.md`; the cheap check was `grep -rn "step.Config directly" scripts/ cmd/`. **CLAUDE.md says
 measure the blast radius before you submit rather than asking the reviewer to. I asked the
 reviewer to, twice now, and both times the measurement was one command.**
 

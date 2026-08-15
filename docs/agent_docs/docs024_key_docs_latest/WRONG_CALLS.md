@@ -31312,3 +31312,35 @@ round trip.
 reached a reader; the risk was all in the direction not taken.
 
 ---
+
+## 2026-08-15 — I reported a caveat as my own discovery while the tool printed it in its own report text (bugfix_209/231 lane)
+
+**The claim:** answering the council's `bug_historian` objection, I enumerated the 21
+behaviour-changing config overrides, found that the three nearest rendering read their step
+config directly rather than through the resolver, and wrote it up in NOTES and `bugs_open/231`
+as a generalisation the enumeration had revealed — *"`live_override` is a claim about what the
+RESOLVER would honour and it over-counts behaviour change… I did not notice until a reviewer
+made me enumerate."*
+
+**Caught by:** reading `scripts/audit-default-shadowed-keys.sh` the next morning, for an
+unrelated reason (deciding whether the check could run as pure SQL). Its header carries the
+caveat verbatim — *"'dead' means dead on the ExtractActionInputs path. An action that reads
+step.Config directly in its own body can still honour the key (that is `bugs_open/235`'s shape
+— honoured, and wrong)"* — and so does `cmd/config-key-audit/defaultshadow.go:90`. It is also
+in the **report text the tool prints** (`defaultshadow.go:413`), which means it was on screen
+in output I had already read and quoted from.
+
+**The cheap check that would have caught it:** before writing "I did not notice until…", grep
+the tool that produced the number for the thing you think you noticed —
+`grep -rn "step.Config directly" scripts/ cmd/`. One command, and the estate's own rule already
+says to do it ("grep before you file", "prior art goes stale — but check it exists first").
+
+**What survives, and it is narrower than what I wrote:** the *enumeration* is real and was not
+written down anywhere — which three of the 21 are in that class, with file:line
+(`request_render_audit_action.go:98`, `execute_vision_prompt_action.go:132-133`,
+`checkpoint_for_review_action.go:109`). That is a useful answer to the seat's question. The
+*principle* was documented in three places before I got there, one of them the tool's own output.
+
+**Cost:** two visible corrections and this entry. Nothing downstream acted on it — but the
+shape is the expensive one, because "I discovered X" reads as evidence that X was not already
+known, and the next reader inherits a false picture of what the tooling already tells you.

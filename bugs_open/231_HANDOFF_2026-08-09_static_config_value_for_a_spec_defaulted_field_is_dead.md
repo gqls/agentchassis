@@ -839,6 +839,11 @@ The objections are recorded here with dispositions, because two of them are clai
    generalises the limit round 3 already stated for the two council entries: `live_override`
    is a statement about what the RESOLVER would now honour, and it **over-counts
    behaviour change** wherever an action reads `params.StepConfig.Config` itself.
+   > **CORRECTED 2026-08-15:** that limit was NOT discovered here. It is documented in
+   > `scripts/audit-default-shadowed-keys.sh`'s header, at `defaultshadow.go:90`, and in the
+   > **report text the tool prints** (`defaultshadow.go:413`), all naming `bugs_open/235`.
+   > What this round adds is only the **enumeration** — which three of the 21 are in that
+   > class, with file:line. `WRONG_CALLS.md` 2026-08-15.
 4. **`debug_historian` — MEDIUM: the `/proc/1/exe` stamp citation. CHECKED, does not
    survive.** The landmine it cites (*"the provenance recipe is INOPERATIVE on
    agent-chassis"*) is about the **startup LOG line** rotating away, and was itself
