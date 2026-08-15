@@ -45,13 +45,21 @@
 // documented — and then grows exactly as fast as PLANs get written, which is
 // the pace the per-tool repair loop sets anyway.
 //
-// NOT APPLIED TO tool_health, on purpose. That check raises an improve_tool
-// work item for ANY issue including cosmetic warnings ("no @media breakpoint",
-// "hardcoded colours"), so widening it would drop ~71 items into the build
-// queue in one pass, most of them about styling on pages whose real defect is
-// missing markup. The orphan_element_refs check covers the serious half of that
-// population today with 10 precise findings. Revisit tool_health once the
-// ported tools have PLANs and the noise can be judged per tool.
+// APPLIED TO tool_health SINCE 2026-08-15 (bugs_open/281). Until then this
+// paragraph read "NOT applied, on purpose": tool_health raises an improve_tool
+// item for ANY issue including cosmetic warnings, so widening it would have
+// dropped ~71 items into the build queue in one pass, mostly styling noise on
+// pages whose real defect was missing markup, with no PLANs to judge them by.
+// The owner's visual gate then found the Mind Map Studio (webdesign.co.uk)
+// with illegible pale-on-pale controls and junk seeded content — exactly the
+// class tool_health's hardcoded_colors check exists for — and no item had ever
+// been filed, because the exclusion hid it. The noise objection is answered
+// STRUCTURALLY in check_tool_health.go rather than dismissed: a ported
+// instance's findings file as `ported_tool_fix` with no handler (a human
+// queue, not tool-improver's), identity is per page instance so 63 instances
+// cannot collapse onto one dedup key, and Tier-2 audit queueing is capped per
+// run. A ported tool still gets no automated FIXER until it has a PLAN and a
+// per-instance repair path exists — that half of the old objection stands.
 
 package discovery_checks
 

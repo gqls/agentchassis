@@ -248,6 +248,15 @@ var itemTypesWithoutVerifiers = map[string]verificationGap{
 	"acceptance_run":              {catMechanical, "carries page_id and component_id"},
 	"audit_tool":                  {catMechanical, "all 19 carry page_id and component_id"},
 	"improve_tool":                {catMechanical, "17 of 18 carry page_id and component_id"},
+	// ported_tool_fix (bugs_open/281): a PORTED tool's structural/acceptance
+	// finding, filed by check_tool_health and check_tool_acceptance with NO
+	// handler (needs_human_review) — the same posture as orphan_element_refs.
+	// The predicate is re-runnable (auditTool / the criteria evaluator over the
+	// instance's rendered_html, keyed component_id + page_id), but resolution is
+	// a human's until ported tools have PLANs and a per-instance repair path;
+	// graduation is decomposition to a real fork, which then draws ordinary
+	// improve_tool items.
+	"ported_tool_fix": {catMechanical, "carries page_id and component_id; instance-keyed, human-routed"},
 	"component_quality_scan":      {catMechanical, "quality score recomputation"},
 	"missing_style_collection":    {catMechanical, "site-scoped existence check"},
 	"unfulfilled_hero_variant":    {catMechanical, "imagery plan completeness"},
@@ -796,6 +805,9 @@ var liveItemTypes = []string{
 	"needs_sprite_css", "needs_strategy", "needs_tool_recreation",
 	"needs_vertical_research", "orphan_blog_posts", "owned_page_review",
 	"page_component_status_drift", "page_rerender", "phantom_internal_link",
+	// ported_tool_fix is listed from the moment it is minted (bugs_open/281), same
+	// union rule and same reason as dark_section_audit above.
+	"ported_tool_fix",
 	"required_fields_missing", "responsive_fix", "section_edit",
 	"section_source_drift",
 	"silent_failure", "spacing_fix", "tone_shift", "truncated_component",

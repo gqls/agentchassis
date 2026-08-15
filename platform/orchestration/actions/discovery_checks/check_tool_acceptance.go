@@ -100,6 +100,7 @@ func (c *ToolAcceptanceCheck) Run(dctx DiscoveryCheckContext) (*CheckResult, err
 	rows, err := dctx.DB.QueryContext(dctx.Ctx, `
 		SELECT
 			cc.id::text   AS component_id,
+			cc.component_level,
 			`+toolSubjectKeyExpr+` AS function,
 			CASE WHEN cc.component_level = 'tool'
 			     THEN COALESCE(cc.display_name, cc.function)
@@ -119,12 +120,16 @@ func (c *ToolAcceptanceCheck) Run(dctx DiscoveryCheckContext) (*CheckResult, err
 	defer rows.Close()
 
 	type toolRow struct {
-		ComponentID, Function, DisplayName, PageID, PageName, PageURL, BuildStatus string
+		ComponentID, ComponentLevel, Function, DisplayName, PageID, PageName, PageURL, BuildStatus string
 	}
+	// isFork: a real tool component (its html_template is its own). Anything
+	// else the ladder admits is a PORTED instance of a shared component, whose
+	// tool lives in its page's rendered_html — see tool_eligibility.go.
+	isFork := func(t toolRow) bool { return t.ComponentLevel == "tool" }
 	var tools []toolRow
 	for rows.Next() {
 		var t toolRow
-		if err := rows.Scan(&t.ComponentID, &t.Function, &t.DisplayName,
+		if err := rows.Scan(&t.ComponentID, &t.ComponentLevel, &t.Function, &t.DisplayName,
 			&t.PageID, &t.PageName, &t.PageURL, &t.BuildStatus); err != nil {
 			dctx.Logger.Warn("tool_acceptance: scan error", zap.Error(err))
 			continue
@@ -139,29 +144,40 @@ func (c *ToolAcceptanceCheck) Run(dctx DiscoveryCheckContext) (*CheckResult, err
 	// item. Cancelled items don't count — a cancelled item means the finding
 	// was resolved another way (e.g. PLAN-side, migrations 143/144), and the
 	// tool should be re-checkable immediately (recorded follow-up 2026-07-10).
-	recentItems := map[string]bool{}
+	// Two scopes (bugs_open/281): a fork is cooled by any item on its
+	// component; a ported instance only by an item on ITS page, because the
+	// component is shared by every ported page on the site.
+	recentComponent := map[string]bool{}
+	recentInstance := map[string]bool{}
 	itemRows, err := dctx.DB.QueryContext(dctx.Ctx, `
-		SELECT spec->>'component_id'
+		SELECT spec->>'component_id', COALESCE(spec->>'page_id', '')
 		FROM site_work_items
 		WHERE site_id = $1
-		  AND item_type = 'improve_tool'
+		  AND item_type IN ('improve_tool', 'ported_tool_fix')
 		  AND status <> 'cancelled'
 		  AND created_at > NOW() - INTERVAL '7 days'
 	`, dctx.SiteID)
 	if err == nil {
 		defer itemRows.Close()
 		for itemRows.Next() {
-			var compID sql.NullString
-			if itemRows.Scan(&compID) == nil && compID.Valid {
-				recentItems[compID.String] = true
+			var compID, pageID sql.NullString
+			if itemRows.Scan(&compID, &pageID) == nil && compID.Valid {
+				recentComponent[compID.String] = true
+				recentInstance[compID.String+":"+pageID.String] = true
 			}
 		}
+	}
+	onCooldown := func(t toolRow) bool {
+		if isFork(t) {
+			return recentComponent[t.ComponentID]
+		}
+		return recentInstance[t.ComponentID+":"+t.PageID]
 	}
 
 	pageCache := map[string]fetchedPage{} // url → page, one fetch per URL per run
 
 	for _, tool := range tools {
-		if recentItems[tool.ComponentID] {
+		if onCooldown(tool) {
 			continue
 		}
 
@@ -223,7 +239,7 @@ func (c *ToolAcceptanceCheck) Run(dctx DiscoveryCheckContext) (*CheckResult, err
 			continue // Tier-2 pass: finding only. "Works" is Tier 4's claim.
 		}
 
-		// Failure → improve_tool item carrying the failing criteria + a note.
+		// Failure → a fix item carrying the failing criteria + a note.
 		var failDescs []string
 		for _, f := range ev.failed {
 			failDescs = append(failDescs, f.id+": "+f.detail)
@@ -235,6 +251,7 @@ func (c *ToolAcceptanceCheck) Run(dctx DiscoveryCheckContext) (*CheckResult, err
 			"check":           "tool_acceptance",
 			"page_id":         tool.PageID,
 			"page_name":       tool.PageName,
+			"subject_key":     tool.Function,
 			"issue":           issue,
 			"failing_checks":  failedIDs(ev.failed),
 			"acceptance_test": json.RawMessage(criteriaJSON),
@@ -246,22 +263,48 @@ func (c *ToolAcceptanceCheck) Run(dctx DiscoveryCheckContext) (*CheckResult, err
 			pageUUID = &pu
 		}
 
-		result.WorkItems = append(result.WorkItems, WorkItemSpec{
-			SiteID:       dctx.SiteID,
-			PageID:       pageUUID,
-			Source:       "discovery",
-			Pipeline:     "build",
-			ItemType:     "improve_tool",
-			Severity:     "medium",
-			Summary:      fmt.Sprintf("Acceptance (Tier 2) failed for %s: %s", tool.DisplayName, firstOf(failDescs)),
-			SpecJSON:     string(specJSON),
-			Priority:     60,
-			HandlerAgent: "tool-improver",
-			Status:       "detected",
-			CreatedBy:    dctx.AgentType,
-			ItemKey:      fmt.Sprintf("tool_acceptance:%s:%s", tool.Function, dctx.SiteID),
-			BatchID:      dctx.BatchID,
-		})
+		if isFork(tool) {
+			result.WorkItems = append(result.WorkItems, WorkItemSpec{
+				SiteID:       dctx.SiteID,
+				PageID:       pageUUID,
+				Source:       "discovery",
+				Pipeline:     "build",
+				ItemType:     "improve_tool",
+				Severity:     "medium",
+				Summary:      fmt.Sprintf("Acceptance (Tier 2) failed for %s: %s", tool.DisplayName, firstOf(failDescs)),
+				SpecJSON:     string(specJSON),
+				Priority:     60,
+				HandlerAgent: "tool-improver",
+				Status:       "detected",
+				CreatedBy:    dctx.AgentType,
+				ItemKey:      fmt.Sprintf("tool_acceptance:%s:%s", tool.Function, dctx.SiteID),
+				BatchID:      dctx.BatchID,
+			})
+		} else {
+			// A ported instance gets NO handler (bugs_open/281). tool-improver
+			// rewrites content_components.html_template, and for a ported
+			// instance that is the wrapper SHARED by every ported page on the
+			// site — an improve_tool from this very branch rewrote it fleet-wide
+			// on 2026-08-05 and again on 2026-08-14. The instance's tool lives in
+			// page_components.rendered_html, and no automated fixer edits that
+			// from a finding today; the criteria fence's no_auto_fix was never
+			// read on this path either. Human-routed until both exist.
+			result.WorkItems = append(result.WorkItems, WorkItemSpec{
+				SiteID:    dctx.SiteID,
+				PageID:    pageUUID,
+				Source:    "discovery",
+				Pipeline:  "build",
+				ItemType:  "ported_tool_fix",
+				Severity:  "medium",
+				Summary:   fmt.Sprintf("Acceptance (Tier 2) failed for ported tool %s: %s", tool.DisplayName, firstOf(failDescs)),
+				SpecJSON:  string(specJSON),
+				Priority:  60,
+				Status:    "needs_human_review",
+				CreatedBy: dctx.AgentType,
+				ItemKey:   fmt.Sprintf("ported_tool_fix:tool_acceptance:%s:%s", tool.Function, dctx.SiteID),
+				BatchID:   dctx.BatchID,
+			})
+		}
 
 		c.noteAcceptanceFail(dctx, tool.Function, url, ev, issue)
 

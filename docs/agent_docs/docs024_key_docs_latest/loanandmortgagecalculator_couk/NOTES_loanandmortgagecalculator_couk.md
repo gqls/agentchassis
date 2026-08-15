@@ -3009,3 +3009,34 @@ The last unproven half of the 2026-08-13 direction. Full arc, all proofs in-sess
   42** — any doc citing "41 pages" means the served/active site, and the archived
   demo row is standing DB evidence that one component backs two rows with different
   copy. The work items and orchestration rows stay as the audit.
+
+### 2026-08-15 (from the `bugfix_281_tool_audit_ported` lane — a finding for this lane, not a change to it)
+
+While widening `tool_health` to ported tools (bugs_open/281, register TL-042) I re-ran the
+ladder's eligibility predicate (`tool_eligibility.go`) fleet-wide. **This site's eligible
+population is 4 today, down from the 17 this file measured on 2026-08-10** `[MEASURED
+2026-08-15 ~18:30Z]`: 1 via branch (a) (`loans-consolidation`, tool-level), 3 via branch (b).
+Cause, mechanical: branch (b) requires **exactly one** active component on the page, and Track
+B2 puts prose rows beside each tool row — 14 of 17 `page_type='tool'` pages are now
+multi-component, so (b) fails, and B2's INSERT does not set `component_level` (defaults to
+`'section'`), so (a) fails too. Query used:
+
+```sql
+SELECT s.domain, count(*) eligible, count(*) FILTER (WHERE cc.component_level='tool') via_a
+FROM content_components cc JOIN page_components pc ON pc.component_id=cc.id JOIN pages p ON pc.page_id=p.id JOIN sites s ON s.id=p.site_id
+WHERE s.domain='loanandmortgagecalculator.co.uk' AND cc.is_active AND p.status='active'
+  AND (cc.component_level='tool' OR (p.page_type='tool'
+       AND NOT EXISTS (SELECT 1 FROM page_components pc_t JOIN content_components cc_t ON cc_t.id=pc_t.component_id WHERE pc_t.page_id=p.id AND cc_t.component_level='tool' AND cc_t.is_active)
+       AND (SELECT count(*) FROM page_components pc_n JOIN content_components cc_n ON cc_n.id=pc_n.component_id WHERE pc_n.page_id=p.id AND cc_n.is_active)=1))
+GROUP BY 1;
+```
+
+So the arithmetic fences on those 13 pages have no producer that can reach them until the tool
+row is `component_level='tool'` (the `loans-consolidation` recipe above: function == page name,
+tool-doc header). Two things to weigh before doing that, both already in this file's own words:
+the "⚠ A tool-level component is a NEW exposure" note stands — `tool_health`'s fork branch still
+files `improve_tool` → tool-improver for a tool-level component and does not read
+`no_auto_fix` (281 did NOT change that for forks; it only changed ported instances); and the
+three safety properties listed there (own component, `rebuild_policy='owned'`, permanent lock)
+are what make it safe here. Nothing was changed on this site by the 281 lane. Full context:
+`docs024_key_docs_latest/bugfix_281_tool_audit_ported/PROPOSAL_2026-08-15_decompose_webdesign_tools.md` §preconditions 2.

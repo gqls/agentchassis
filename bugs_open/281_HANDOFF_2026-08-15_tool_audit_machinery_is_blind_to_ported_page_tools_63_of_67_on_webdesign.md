@@ -93,3 +93,44 @@ reviews of the wrong artefact. (This was caught before any such item was filed; 
   (`created_by='owner-visual-gate-20260815'`).
 - The other 62 ported tools remain unexamined for legibility/junk-content until this bug is
   fixed; acceptance rotation continues but only grades documented criteria.
+
+## Addendum 2026-08-15 (fixing session, `bugfix_281_tool_audit_ported/`) — three findings and the fix
+
+**Finding A — mechanism 2 HAS fired, via a third producer this file did not name.** "None
+exist" above is true of `audit_tool` items only. `check_tool_acceptance.go` (Tier 2) already
+admits ported instances (TL-033) and filed `improve_tool` → tool-improver with the SHARED
+`component_id`; tool-improver's `update_component_html` then rewrote the ported-page
+wrapper's `html_template` and flipped every placement to `pending` — `component_versions`
+`[MEASURED]`: v1 (2026-08-05, pre-edit = the 77-char `{{.body}}` passthrough) and v3
+(2026-08-14 18:48Z, trigger `tool_acceptance:asset-formatter:<webdesign>`, complete). **Live
+latent hazard as of 2026-08-15:** the shared template is 8,864 chars of asset-formatter tool
+markup (`{{.body}}` still present); all 115 instances sit at `build_status='pending'`;
+verified NOT yet propagated (every `pc.updated_at` == the write instant, `rendered_html`
+content unchanged, no `component_template_corrupted` item). Restoring the passthrough (seed
+208 / v1) is the owning lane's call — flagged to the owner.
+
+**Finding B — Tier-4's judge cannot file a fix for a ported tool either.**
+`tool_acceptance_actions.go` `JudgeAcceptanceResultsAction` (~:867-873) re-derives the
+component by `cc.function = <subject key>` — no `content_components` row carries a ported
+tool's function (the shared row is `ported-page`), so `componentID==""` and the run lands in
+the "no content_components row … route manually" arm: a verdict is produced, no item is
+filed. Its `LEFT JOIN … LIMIT 1` is the same arbitrary-instance shape as `load_tool`. Not
+fixed here (Tier-4 path); recorded for whoever picks it up.
+
+**Finding C — the eligibility count is 66, not 67.** `tool-ab-test-calculator`'s page carries
+BOTH a fork and a ported-page instance; clause (a) audits the fork, clause (b) rightly skips
+the page. Post-fix census should read 66 subjects.
+
+**Fix (Track 1, TL-042; council-submitted; Go rides the next roll, seeds 425/426 applied):**
+`check_tool_health` enumerates the ladder's population per page instance; ported findings from
+it AND from `check_tool_acceptance` file a new handler-less `ported_tool_fix`
+(`needs_human_review`, key `ported_tool_fix:<check>:<subjectKey>:<site>`); item keys and
+cooldowns are per instance for ported tools (forks byte-identical); template-contract checks
+run only for forks; Tier-2 audit queueing capped 12/run. tool-auditor's and tool-improver's
+`load_tool` pin `component_id AND spec.page_id`; the auditor reviews `source_html` and routes
+ported findings to human review only. `update_component_html` refuses a `component_level<>'tool'`
+component placed on >1 page unless `allow_shared_component_write` (opt-in, default OFF).
+Decomposition of the 63 (owner's ask) is a proposal with preconditions, not executed —
+`bugfix_281_tool_audit_ported/PROPOSAL_2026-08-15_decompose_webdesign_tools.md`.
+Status: fixed at source, OPEN until the Go is live and the first-sweep census in the RUNBOOK
+is recorded.
