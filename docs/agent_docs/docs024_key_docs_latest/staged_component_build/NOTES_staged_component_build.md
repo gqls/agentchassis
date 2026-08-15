@@ -4409,3 +4409,52 @@ dormant/unowned; `tool-gas-unit-converter`'s three items still `needs_human_revi
 unchanged (`sections=[]`, no plan, and `required_fields_missing` has no repair handler fleet-wide);
 and the stray `/assets/images/logo.jpg` I left on gaswholesalers on 08-10 is still there (200,
 referenced by nothing) — still owed a removal.
+
+## 2026-08-15 — drain executed as pure bookkeeping: 84/84 wire-200 (with controls), UPDATE 85 + cancel 3, census 0 active; 248 CLOSED; RFC_029 ruled (delegated)
+
+Owner rulings in chat: drain all (after concurrency check); manual bookkeeping this once;
+site-lock system exists (`sites.locked_at`, honoured by `find_dispatchable_site`'s own SQL —
+read it in the live workflow state), none of the 12 need locking; RFC_029 delegated to me;
+RFC_028 "may have already answered" → confirmed ruled TODAY in `260cb2393` (231 lane);
+tool-gas → fleet-wide repair handler (filed as 277); gaswholesalers stray stays; tracker
+feeds = `model_directory_pipeline` lane, owner will wake it.
+
+**Evidence chain for the drain:**
+- Concurrency: zero open `undeployed_asset` fleet-wide; 268's CTA `page_rerender` wave live
+  on 7/12 sites (pages, not assets — no overlap; their pre-flight measured 248-exposure 0).
+- Binary: `v1.0.1300`, POS1+POS2 present, NEG absent (`/proc/1/exe` grep with controls).
+- Wire: all 84 D+E derived paths curled → 200; per-domain `zzz-must-be-absent-control.jpg`
+  → **404 on all 12 domains** (no catch-all); content-type `image/*` 80/82 + 2
+  fundamentallyai header flakes that retried clean (5024/5488/8125/3655 bytes, distinct).
+- Write: preimage TSV committed (`DATA_2026-08-15_bookkeeping_preimage.tsv`, 85 rows);
+  collision checks 0/0; guarded `UPDATE 85`; cancelled `318eeb70`/`462828c5`/`00d1dda0`
+  (audit note in `result`, `handled_by='claude-session-248-bookkeeping-20260815'`).
+- After: census 11 total / **0 active**. The 11 = 10 superseded + 1 retired, untouched by
+  design. Marker census queries now REQUIRE `AND status='active'`.
+
+**The design inversion worth remembering:** the pilot's 2-of-13 already-served rate scaled
+to **84 of 84** in D+E. The wire-check-first gate wasn't a safety margin, it was the whole
+job — the artefacts had all been repaired organically (rerenders/regens/self-drain) since
+the fix went live; only rows lagged. 14c's landmine ("a census keyed on a corruption marker
+cannot tell you whether acting is safe") is hereby confirmed at 42× the pilot's scale.
+
+**Missteps, mine, this session:**
+- First "no open items on target sites" query used `ORDER BY updated_at DESC LIMIT 40` — it
+  silently cut off 52 dormant `unresolved` items (old timestamps sort last). Caught when the
+  cancel-list query returned 52 rows, not 2. The corrected read: dormant ≠ in-flight, no
+  concurrency risk, but ~49 off-census `unresolved` items (robot-hands ~44, July-dated) are
+  now a recorded observation for discovery hygiene. **A LIMIT on a coordination query is a
+  blindness you chose** — count first, then page.
+- awk-generated SQL: `''\''` quoting emitted literal backslashes into the VALUES list
+  (the `escape-sequence-emission-trap` memory, again). Caught on inspection before execute;
+  regenerated with `awk -v q="'"`. Foreground-test generated SQL by reading it, not by
+  running it.
+- Chassis log census for RFC_029's "how often does the arm fire" came back zero — not
+  because the arm is dead but because 50k lines ≈ minutes on this fleet and no extraction
+  ran in-window. Recorded in the ruling as "unmeasurable today", which is itself the
+  argument for the durable WARN instrumentation phase.
+
+**RFC_029 §9 ruling recorded** (unique-or-nothing + instrument-then-flip + `!` strict marker
+with `asset_id` as first adopter + inner-chain arm budget floor 5 / ceiling 8 + descriptive
+arm names). RFC_028 STATUS corrected to RULED (`260cb2393`, D1–D4). Implementation of both:
+platform-code task, council-gated, NOT started — the next platform session's natural pickup.

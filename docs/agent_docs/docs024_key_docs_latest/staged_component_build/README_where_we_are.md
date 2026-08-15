@@ -1536,3 +1536,46 @@ the automatic repair correctly does nothing.
 Last, a tidy-up I owe: the stray unused image file I left on the gas wholesalers site during
 testing on the 10th is still there. It is harmless and nothing points at it, but it is mine and
 it should come off.
+
+## 2026-08-15 — you gave the go-ahead, and the clean-up turned out to need no publishing at all
+
+You answered the open decisions this morning: run the whole clean-up (after checking nobody
+else was working the same pages), do the record-keeping fix by hand this once, and — on the
+question I couldn't answer — you confirmed there IS a site lock system, and none of these
+twelve sites needs locking while we're in heavy development.
+
+Before touching anything I checked for other in-flight work: another thread is re-running the
+call-to-action links across the fleet today, but that work rewrites pages, not image files, so
+the two cannot collide. Nobody else was touching the image backlog. The fix itself is still in
+the running software — I checked the actual binary again, with controls.
+
+Then the surprise, and it is a good one. Before publishing anything I checked every single one
+of the 84 outstanding items at the live sites — does the correctly-named image already serve?
+**All 84 do.** Every page had already been repaired by the ordinary day-to-day rebuilds since
+the fix went in; only our own records never caught up. So the "clean-up across eleven live
+sites" turned out to be: publish nothing, correct 85 database records, and cancel three stale
+to-do entries that would have tempted a future session into re-publishing over working images.
+I kept a before-copy of every record I changed, in this folder, in case we ever want to look
+back.
+
+I also double-checked the checks themselves: I asked each site for an image that definitely
+should NOT exist and confirmed they all said no. So "all 84 said yes" means the images are
+really there, not that the sites say yes to everything.
+
+The placeholder-image saga is therefore DONE: the bug is fixed in the running software, both
+original broken pages have been right for days, and the backlog is at zero. I have moved the
+bug file to the closed pile.
+
+The two policy questions you asked me to settle are settled and written down. For the search
+mechanism (the one that guesses where a field's value lives): my ruling, recorded in the RFC,
+is that the guess is only allowed when it is not really a guess — if the search finds exactly
+one candidate it may use it, and if it finds several different candidates it must refuse and
+say so loudly, rather than pick one. We measure first, then tighten. The resolver questions
+from the other thread you had indeed already answered — I've marked that file as ruled so
+nobody re-litigates it.
+
+Still with you / still parked: the gas converter tool now has your ruling (build a proper
+repair handler fleet-wide) — I've filed that as its own numbered piece of work. The tracker
+feeds: the lane to wake is `model_directory_pipeline` — the instructions are in
+`model_directory_pipeline/FINDING_2026-08-10_the_tracker_publisher_was_reverted_and_never_re_extended.md`.
+The stray image on gas wholesalers stays put for now, per your word.

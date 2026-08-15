@@ -784,3 +784,68 @@ site before acting on a remainder of one or two.**
 - A **corrected bucket query** that sums exactly (the earlier one reconciled to 133 of 140 —
   the gap was assets matching more than one work item; aggregating per asset with `bool_or` fixes
   it) is in `NOTES_staged_component_build.md` `## 2026-08-14 (c)`.
+
+## CLOSING CONTRIBUTION 2026-08-15 — the drain EXECUTED, and the wire inverted the design: 84 of 84 rows were already served, zero redeploys fired, backlog now 0 active
+
+Owner rulings received in chat this morning: (1) run the whole drain, after checking no other
+thread is working the same pages; (2) the "stale row only" class gets its bookkeeping done
+MANUALLY now, revisit only if the class recurs; (3) the "owned vs generic" question is
+answered — there IS an existing site lock system (`sites.locked_at`/`locked_by`, honoured by
+`find_dispatchable_site`), and none of the 12 affected sites need locking during the current
+heavy-development phase.
+
+**Coordination check (the ruling's own precondition), verified before anything fired:**
+- Zero open (`triaged`/`approved`/`detected`/`claimed`) `undeployed_asset` items fleet-wide —
+  no competing drain. The 268 lane's CTA fleet batch IS live on 7 of the 12 sites
+  (`page_rerender` wave, 08:35Z) but touches page HTML, not asset files; its own pre-flight
+  measured 248-exposure zero (`942883ef8`).
+- **52 dormant `unresolved` items exist that the earlier "no open items" reads missed** (they
+  sorted below a LIMIT in the first query — corrected here): ~44 on robot-hands.com from
+  July, 3 on gaswholesalers, 2 finetuning, 1 leopardess, 1 ai-agent-orchestration. Dormant,
+  never dispatched, no concurrency risk. The three pointing at census rows are dealt with
+  below; the ~49 pointing at NON-census assets are an off-census observation for whoever owns
+  discovery hygiene — recorded in the 08-15 handoff, not this bug's defect.
+- Fix re-verified in the RUNNING binary (`v1.0.1300`, both literals present, negative control
+  absent, `/proc/1/exe` probe).
+
+**The wire sweep — the load-bearing measurement.** Every bucket-D and bucket-E row's
+reader-derived path (`DeployedAssetPath` semantics mirrored in SQL: brand-head fixed names;
+logo `.png`; else `.jpg`; `asset_key==purpose` verbatim, else `_`→`-`) was curled with three
+controls: a per-domain must-be-absent path (**12/12 returned 404** — no catch-all fallbacks),
+content-type (**80/82 `image/*`**, 2 header flakes on fundamentallyai that retried clean as
+`image/jpeg` with distinct sizes), and content-length captured per row. Result:
+
+> **84 of 84 rows (D 57 + E 27) serve a genuine image at the derived path. 200s, all of them.**
+
+The pilot measured a 2-of-13 already-served rate in bucket A and the design said "assume
+nonzero" for D. The truth was **100%** — between the fix going live and today, rerenders,
+regenerations and bucket B's self-drain had already repaired every artefact; only the rows
+never learned. A drain that skipped the wire-check gate would have fired **84 pointless
+redeploys, each one overwriting a correctly-served file** — the exact regression the pilot
+caught twice, at 42× the scale.
+
+**Bookkeeping executed (owner-authorised manual correction), one guarded transaction:**
+- Pre-image of all 85 active marker rows committed first:
+  `staged_component_build/DATA_2026-08-15_bookkeeping_preimage.tsv`.
+- Collision checks before the write: zero duplicate (site, path) pairs within the census;
+  zero healthy active rows already claiming a target filename. The `UPDATE` guarded on
+  `status='active' AND` the marker still matching, so it was idempotent and could not touch
+  a concurrently-changed row. **`UPDATE 85`.**
+- The three dormant `unresolved` items pointing at census assets cancelled with an audit
+  note in `result` and `handled_by='claude-session-248-bookkeeping-20260815'`
+  (`318eeb70…`, `462828c5…` — finetuning logo, the pilot's deliberate skip, item refiled by
+  the 08-14 discovery sweep; `00d1dda0…` — leopardess's RETIRED logo, the row whose
+  promotion would have served a retired asset's bytes). **`UPDATE 3`.**
+- **Census after: 0 active marker rows.** 11 non-active remain (10 `superseded` + 1
+  `retired`) — deliberately untouched: their bookkeeping describes replaced generations, and
+  any future marker census MUST carry `AND status='active'` (14c's finding, now standing
+  practice).
+
+**Bug bar check — fixed AND live: BOTH now hold.** The code fix has been live since
+`v1.0.1300` (proven at the binary with two-way controls, twice, two days running); both
+original symptom sites serve 200; the backlog the defect created is drained to zero active
+rows; the architecture question it surfaced is ruled (`RFC_029` §9, owner-delegated,
+2026-08-15) with implementation tracked there, not here. **Moving this file to
+`bugs_closed/`.** Residuals and where they live: RFC_029 implementation (that file, phased,
+council-gated); the 11 non-active marker rows (harmless by status filter); the ~49 dormant
+off-census `unresolved` items (08-15 handoff, observation only).
