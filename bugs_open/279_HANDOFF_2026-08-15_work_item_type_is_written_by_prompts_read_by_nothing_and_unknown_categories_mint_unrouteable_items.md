@@ -199,3 +199,66 @@ does NOT bind here since nothing new is read, but keep the prompt edit in the
 same review. The 4 `detected` rows and the wiring of brief-fidelity-auditor
 need an owner decision — put both in the README/where-we-are when you get
 there.
+
+---
+
+## STATUS UPDATE 2026-08-15 (fixing session) — fix built, submitted, committed; Go half awaits the next chassis roll
+
+**Council submission:** `Council-Submitted: 925d7759-ddd7-4504-a752-4550e0f32220`
+(APPROVED/REVISE verdict not yet read at commit time — resolve via the
+`diagnosis_artifacts` query in the runbook).
+
+**Decisions taken, per the candidates above:**
+
+- **Candidate 1: the `capability_gap` fork, not refuse-and-count.** The fallback
+  now files the platform's "found work I have no handler for" shape
+  (`bugs_closed/077`), mirroring `CapabilityGapItem` (`discovery_checks/remit.go`)
+  exactly: status `'deferred'`, **empty** `handler_agent`, severity `low`,
+  priority 200, `spec.builder_needed`/`capability`/`not_dispatchable`/`gap_kind`
+  (= `rule_missing`), the finding's own severity kept as `spec.finding_severity`.
+  `diagnose_triage`'s roadmap view (`item_type='capability_gap' OR
+  status='deferred'`) reads these, so they surface instead of rotting. Refusing
+  was rejected because it discards the observation the estate has a ratified
+  vocabulary for. Dedup key `capability_gap:unrouted_audit_category:<category>` —
+  one open row per site per unknown category. The result map gains
+  `unrouted_categories` (only when non-empty) and each unrouted finding draws a
+  Warn — the silence is closed.
+- **A finding it took the tests to surface:** an unknown category on an
+  **existing** page never reaches the fallback — Rule 4's `default:` branch
+  routes it to `content_rewrite`. The fallback fires only when the page does not
+  resolve (free-prose page names — exactly how the production rows were minted).
+  Rule 4 unchanged, deliberately; now documented in the test.
+- **The CI gate:** `classifyEmittableItemTypes` in
+  `write_audit_findings_verifier_join_test.go` declares all 13 emittable types
+  with their consumers; `TestClassifyFindingEmitsOnlyDeclaredItemTypes` drives
+  every category set + Rule 4/5/6 literals + off-vocabulary samples through every
+  page situation. **Mutation-verified**: re-adding the minting line → 17
+  failures; restored → green (full `platform/orchestration/...` suite passes
+  against a clean `git archive HEAD` overlay — the working tree itself doesn't
+  compile due to another session's WIP `publish_site_action.go`).
+- **Candidate 2a (delete the dead prompt field): migration `416`**
+  (`sql_for_agents/416_auditor_prompts_drop_dead_work_item_type.sql` +
+  `_ROLLBACK` sidecar). Replace literals dry-tested read-only against the live
+  rows before writing the file (2→0 occurrences each, jsonb cast holds, steps
+  intact). Applied + recorded — see below for verification.
+- **Shared-path control:** the guardian-seat sqlmock test from the 213 round
+  caught the INSERT's status parameterisation on first run (its job); updated to
+  pin that a routed finding still inserts `'detected'`.
+
+**Verification state, against the "How to verify" list above:**
+
+1. Unit — DONE (see mutation check above).
+2. Coverage join assertion — DONE (`TestClassifyFindingEmitsOnlyDeclaredItemTypes`).
+3. Live brief-fidelity dispatch — **BLOCKED until the next chassis roll**: the Go
+   half is inert until an image ships (check with the build-provenance stamp,
+   then dispatch one run against site 62b5978e… and confirm zero new
+   `audit_finding_%` rows, findings landing as `capability_gap` with
+   `audit_source='brief-fidelity-audit'`).
+4. Prompt leg — verified live post-apply (query + result recorded below).
+
+**Still needing an OWNER decision (unchanged from candidates 3/4):**
+- the 4 `detected` `audit_finding_brief_fidelity` rows' disposition (115's
+  evidence — not bulk-cancelled by this fix, deliberately);
+- whether brief-fidelity-auditor gets a real route + a live caller (candidate 3;
+  product-shaped). Until then its findings will surface as `capability_gap`
+  roadmap rows, which is the honest interim.

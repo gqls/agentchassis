@@ -473,7 +473,7 @@ var itemTypesWithoutVerifiers = map[string]verificationGap{
 	"needs_domain_research":   {catJudgement, "research judgement"},
 	"needs_vertical_research": {catJudgement, "research judgement"},
 	"tone_shift":              {catJudgement, "tone opinion"},
-	"audit_finding_audience":  {catJudgement, "audience opinion"},
+	"audit_finding_audience":  {catJudgement, "audience opinion; HISTORICAL — see audit_finding_brief_fidelity"},
 	"capability_gap":          {catJudgement, "capability opinion"},
 	"owned_page_review":       {catJudgement, "human review item"},
 	"evaluate_tools":          {catJudgement, "tool evaluation opinion"},
@@ -481,7 +481,7 @@ var itemTypesWithoutVerifiers = map[string]verificationGap{
 	// ---- first observed in site_work_items by the 2026-07-24 refresh ----
 	"needs_human_review":            {catJudgement, "generic HITL checkpoint item (checkpoint_for_review_action.go); resolution IS the human's ruling"},
 	"directory_citation_unverified": {catJudgement, "human ruling on citation candidates that failed live verification (directory_claims.go); nothing mechanical to re-run"},
-	"audit_finding_brief_fidelity":  {catJudgement, "audit_finding_* is computed in write_audit_findings_action.go; auditor opinion, sibling of audit_finding_audience"},
+	"audit_finding_brief_fidelity":  {catJudgement, "HISTORICAL: the audit_finding_* minting fallback was removed 2026-08-15 (bugs_open/279 — unknown categories now file capability_gap); rows predating that survive, so the type stays listed per the union rule. Sibling of audit_finding_audience"},
 	"section_edit":                  {catJudgement, "[INFERRED] owner-directed section edit, created outside Go (agent workflow config — no ItemType literal anywhere in platform/); 'applied as intended' has no stored predicate"},
 }
 

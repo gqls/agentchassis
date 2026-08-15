@@ -566,10 +566,13 @@ func TestWriteAuditFindings_UngatedProducerPathIsUnchanged(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"item_key"}))
 	mock.ExpectQuery("SELECT EXISTS").WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(false))
 	mock.ExpectQuery("SELECT EXISTS").WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(false))
+	// `status` became a parameter (position 10) when the bugs_open/279 fix let
+	// the capability_gap fallback file as 'deferred'; a routed finding still
+	// inserts 'detected', and this control pins that.
 	mock.ExpectExec("INSERT INTO site_work_items").
 		WithArgs(siteID, "discovery", "cta_improvement", "medium", sqlmock.AnyArg(),
 			argJSONContains{`"audit_source":"visual-design-audit"`}, pageID, sqlmock.AnyArg(),
-			"component-template-fixer", "visual-design-audit",
+			"component-template-fixer", "detected", "visual-design-audit",
 			"visual-design-audit_cta_improvement_index_"+siteID.String(), sqlmock.AnyArg()).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 

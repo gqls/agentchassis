@@ -24,6 +24,7 @@
 package actions
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/google/uuid"
@@ -153,5 +154,154 @@ func TestOnlyTheOptedInVerifierCarriesAScopeTest(t *testing.T) {
 				"(spec->>'audit_source', NOT item_type, NOT created_by) before it can be trusted.",
 				itemType)
 		}
+	}
+}
+
+// ============================================================================
+// bugs_open/279 — the emittable set is CLOSED, and unknown categories file the
+// platform's capability_gap shape instead of minting a type nobody can route.
+// ============================================================================
+
+// classifyEmittableItemTypes is every item_type classifyFinding is licensed to
+// return, each named with the consumer that makes it a real route. This list is
+// the CI gate bugs_open/279 asked for: until 2026-08-15 an unknown category
+// minted "audit_finding_"+category — an item_type registered nowhere, so every
+// such item died in 'detected' (bugs_open/115: 100% of brief-fidelity-auditor's
+// output). Adding a route to classifyFinding means adding its type HERE and
+// naming what consumes it; a type that appears in the action but not here is
+// exactly the unrouteable shape this guards against.
+var classifyEmittableItemTypes = map[string]string{
+	"needs_design_review":    "webdesign-agent (designRouting)",
+	"spacing_fix":            "component-template-fixer (designRouting)",
+	"header_footer_fix":      "site-component-linker (designRouting)",
+	"dark_section_audit":     "color-variable-fixer (designRouting; own type per bugs_open/213)",
+	"responsive_fix":         "component-template-fixer (designRouting)",
+	"needs_spec_update":      "spec-updater (Rule 2)",
+	"cta_improvement":        "component-template-fixer (Rule 3)",
+	"nav_restructure":        "component-template-fixer (Rule 3)",
+	"needs_content_page":     "page-build-handler (Rule 4)",
+	"tone_shift":             "page-build-handler (Rule 4)",
+	"content_rewrite":        "page-build-handler (Rule 4)",
+	"needs_content_planning": "content-gap-planner (Rules 5/6)",
+	"capability_gap":         "deliberately non-dispatchable roadmap row (deferred, no handler) — read by diagnose_triage (bugs_closed/077)",
+}
+
+// classifyCategoryUniverse enumerates the category sets the router branches on,
+// plus the Rule 4/5/6 literals and a spread of off-vocabulary categories —
+// including the two that were actually minted in production.
+func classifyCategoryUniverse() []string {
+	var cats []string
+	for c := range designCategories {
+		cats = append(cats, c)
+	}
+	for c := range metadataCategories {
+		cats = append(cats, c)
+	}
+	for c := range componentCategories {
+		cats = append(cats, c)
+	}
+	// Rule 4/5/6 literals (content categories, not held in a package var).
+	cats = append(cats, "gap", "content", "differentiation", "structure", "tone", "content_rewrite")
+	// Off-vocabulary: the two categories production actually minted types for
+	// (bugs_open/279's census), plus one that has never existed.
+	cats = append(cats, "brief_fidelity", "audience", "some_future_category")
+	return cats
+}
+
+// TestClassifyFindingEmitsOnlyDeclaredItemTypes drives every category through
+// every page situation (existing page, unknown page, placeholder) and asserts
+// the returned item_type is in the declared set. Re-adding the minting line —
+// or adding a route without declaring its consumer above — fails here.
+func TestClassifyFindingEmitsOnlyDeclaredItemTypes(t *testing.T) {
+	siteID := uuid.New()
+	pages := map[string]pageInfo{"index": {ID: uuid.New(), Name: "index"}}
+
+	for _, cat := range classifyCategoryUniverse() {
+		for _, page := range []string{"index", "pricing", "site-wide", ""} {
+			c := classifyFinding(auditFinding{
+				Category:    cat,
+				Page:        page,
+				Severity:    "medium",
+				Description: "x",
+			}, pages, siteID, "test-audit")
+
+			if strings.HasPrefix(c.ItemType, "audit_finding_") {
+				t.Errorf("category %q page %q minted item_type %q — the bugs_open/279 "+
+					"fallback is back; an audit_finding_* type is registered nowhere and "+
+					"dies in 'detected'", cat, page, c.ItemType)
+				continue
+			}
+			if _, declared := classifyEmittableItemTypes[c.ItemType]; !declared {
+				t.Errorf("category %q page %q routed to item_type %q, which is not in "+
+					"classifyEmittableItemTypes — declare it there WITH its consumer, or "+
+					"this is an unrouteable type shipping to production", cat, page, c.ItemType)
+			}
+		}
+	}
+}
+
+// TestUnknownCategoryFilesACapabilityGapNotAMintedType pins the fallback's
+// shape to the platform's capability_gap conventions (CapabilityGapItem,
+// discovery_checks/remit.go): a roadmap row, not a dispatch.
+func TestUnknownCategoryFilesACapabilityGapNotAMintedType(t *testing.T) {
+	siteID := uuid.New()
+	pages := map[string]pageInfo{"index": {ID: uuid.New(), Name: "index"}}
+
+	// The page deliberately does NOT resolve: an unknown category on an
+	// EXISTING page is swallowed by Rule 4's default branch (content_rewrite)
+	// and never reaches the fallback — unchanged here, and how the production
+	// rows were actually minted (free-prose page names that match no page).
+	c := classifyFinding(auditFinding{
+		Category:    "brief_fidelity",
+		Page:        "site-wide",
+		Severity:    "high",
+		Description: "the hero contradicts the brief",
+	}, pages, siteID, "brief-fidelity-audit")
+
+	if c.ItemType != "capability_gap" {
+		t.Fatalf("item_type = %q, want capability_gap", c.ItemType)
+	}
+	if c.Status != "deferred" {
+		t.Errorf("status = %q, want deferred — a 'detected' capability_gap gets promoted "+
+			"by the site-wide triage pass and dispatched to nothing", c.Status)
+	}
+	if c.HandlerAgent != "" {
+		t.Errorf("handler_agent = %q, want empty — naming a real agent on an "+
+			"undispatchable row invites someone to promote it (bugs_open/077)", c.HandlerAgent)
+	}
+	if c.Priority != 200 || c.Severity != "low" {
+		t.Errorf("priority/severity = %d/%q, want 200/low (the CapabilityGapItem "+
+			"conventions, so the producers group together in triage)", c.Priority, c.Severity)
+	}
+	if !strings.HasPrefix(c.DedupKey, "capability_gap:") {
+		t.Errorf("item_key = %q, want the capability_gap: prefix convention", c.DedupKey)
+	}
+	for _, key := range []string{"builder_needed", "capability", "not_dispatchable", "gap_kind", "finding_severity"} {
+		if v, ok := c.Spec[key].(string); !ok || v == "" {
+			t.Errorf("spec.%s missing or empty — the roadmap row must say what rule is "+
+				"missing and why it is not dispatchable", key)
+		}
+	}
+	if c.Spec["gap_kind"] != checks.GapRuleMissing {
+		t.Errorf("spec.gap_kind = %v, want %q — the missing thing is a ROUTING RULE, "+
+			"not a handler", c.Spec["gap_kind"], checks.GapRuleMissing)
+	}
+	if c.Spec["finding_severity"] != "high" {
+		t.Errorf("spec.finding_severity = %v, want the finding's own severity preserved", c.Spec["finding_severity"])
+	}
+	if c.Spec["category"] != "brief_fidelity" {
+		t.Errorf("spec.category = %v — the original category must survive for whoever "+
+			"writes the rule", c.Spec["category"])
+	}
+
+	// Contrast: a routable category must NOT take the fallback's overrides —
+	// Status stays empty (→ 'detected' at insert) and the handler is real.
+	routed := classifyFinding(auditFinding{
+		Category: "tone", Page: "index", Severity: "high", Description: "x",
+	}, pages, siteID, "test-audit")
+	if routed.ItemType != "tone_shift" || routed.Status != "" || routed.HandlerAgent == "" {
+		t.Errorf("routable category 'tone' got item_type=%q status=%q handler=%q — the "+
+			"capability_gap overrides must be confined to the fallback",
+			routed.ItemType, routed.Status, routed.HandlerAgent)
 	}
 }

@@ -33,6 +33,7 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+	checks "github.com/gqls/agentchassis/platform/orchestration/actions/discovery_checks"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"go.uber.org/zap"
 )
@@ -196,6 +197,14 @@ type classifiedFinding struct {
 	PageName     string
 	Spec         map[string]interface{}
 	DedupKey     string
+	// Status is the row's initial status; empty means 'detected'. Only the
+	// capability_gap fallback sets it ('deferred' — a roadmap row must not be
+	// promoted by the site-wide triage pass, which keys on 'detected').
+	Status string
+	// Summary overrides the finding's own description as the row summary;
+	// empty means the description. Set where the description alone would
+	// read as dispatchable work rather than what the row actually is.
+	Summary string
 }
 
 // ============================================================================
@@ -420,17 +429,41 @@ func classifyFinding(f auditFinding, pages map[string]pageInfo, siteID uuid.UUID
 		}
 	}
 
-	// ── Fallback: unknown category → content-gap-planner for triage
+	// ── Fallback: unknown category → capability_gap for the roadmap
+	//
+	// Until 2026-08-15 this minted item_type "audit_finding_"+category — a type
+	// registered nowhere, so every such item died in 'detected' (bugs_open/115,
+	// bugs_open/279; brief-fidelity-auditor's entire output took this path). An
+	// unknown category means THIS ROUTER lacks a rule, not that the finding is
+	// work some handler can do — so it files the platform's "found work I have
+	// no handler for" shape (bugs_closed/077), which the triage sweep surfaces
+	// as a roadmap entry and cannot silently rot. Field choices mirror
+	// CapabilityGapItem (discovery_checks/remit.go): status 'deferred', empty
+	// handler_agent, severity 'low', priority 200, spec.builder_needed — the
+	// row is a signal, not a dispatch. The finding's own severity, category and
+	// page stay in spec for whoever writes the missing rule.
 	spec["page_name"] = pageName
+	spec["finding_severity"] = severity
+	spec["gap_kind"] = checks.GapRuleMissing
+	spec["builder_needed"] = fmt.Sprintf("write_audit_findings: no route for category %q", category)
+	spec["capability"] = fmt.Sprintf(
+		"classifyFinding needs a routing rule for category %q before %s findings can reach a handler",
+		category, auditSource)
+	spec["not_dispatchable"] = "status 'deferred' + empty handler_agent — deliberate; " +
+		"promoting this row dispatches work no handler can do (bugs_open/077)"
 	return classifiedFinding{
-		ItemType:     "audit_finding_" + category,
-		HandlerAgent: "content-gap-planner",
-		Severity:     severity,
-		Priority:     priority + 10,
+		ItemType:     "capability_gap",
+		HandlerAgent: "",
+		Severity:     "low",
+		Priority:     200,
+		Status:       "deferred",
 		PageID:       nil,
 		PageName:     pageName,
+		Summary:      fmt.Sprintf("no route for audit category %q (%s): %s", category, auditSource, f.Description),
 		Spec:         spec,
-		DedupKey:     fmt.Sprintf("%s_audit_%s_%s_%s", auditSource, category, sanitiseDedupSegment(pageName), siteID),
+		// One open row per site per unknown category — the missing thing is a
+		// rule for the CATEGORY, however many findings or producers hit it.
+		DedupKey: fmt.Sprintf("capability_gap:unrouted_audit_category:%s", category),
 	}
 }
 
@@ -667,10 +700,21 @@ func WriteAuditFindingsAction(ctx context.Context, params ActionParams) (interfa
 	// defects (WII-016's landmine, inherited).
 	classified := make([]classifiedFinding, 0, len(findings))
 	observedItemTypes := make(map[string]bool, len(findings))
+	// Counted here, before the blocked/dedup/insert filters, for the same
+	// reason observedItemTypes is: the question is what the audit OBSERVED
+	// that this router could not place, not what happened to be filed.
+	unroutedCategories := make(map[string]int)
 	for _, f := range findings {
 		c := classifyFinding(f, pages, siteID, auditSource)
 		classified = append(classified, c)
 		observedItemTypes[c.ItemType] = true
+		if c.ItemType == "capability_gap" {
+			unroutedCategories[strings.ToLower(strings.TrimSpace(f.Category))]++
+			logger.Warn("write_audit_findings: no route for finding category — filed as capability_gap",
+				zap.String("category", f.Category),
+				zap.String("audit_source", auditSource),
+				zap.String("page", f.Page))
+		}
 	}
 
 	if len(findings) == 0 {
@@ -762,13 +806,16 @@ func WriteAuditFindingsAction(ctx context.Context, params ActionParams) (interfa
 			continue
 		}
 
-		// Dedup check
+		// Dedup check. 'deferred' is an OPEN status — idx_swi_dedup's exclusion
+		// list is terminal-only — and capability_gap rows file as 'deferred';
+		// without it here every later run of the same producer would re-insert
+		// into the unique index and take a logged error instead of a clean skip.
 		var exists bool
 		params.DB.QueryRowContext(ctx, `
 			SELECT EXISTS(
 				SELECT 1 FROM site_work_items
 				WHERE site_id = $1 AND item_key = $2
-				  AND status IN ('detected', 'triaged', 'claimed', 'blocked')
+				  AND status IN ('detected', 'triaged', 'claimed', 'blocked', 'deferred')
 			)
 		`, siteID, classified.DedupKey).Scan(&exists)
 
@@ -779,15 +826,24 @@ func WriteAuditFindingsAction(ctx context.Context, params ActionParams) (interfa
 
 		specJSON, _ := json.Marshal(classified.Spec)
 
+		status := classified.Status
+		if status == "" {
+			status = "detected"
+		}
+		summary := classified.Summary
+		if summary == "" {
+			summary = f.Description
+		}
+
 		_, err := params.DB.ExecContext(ctx, `
 			INSERT INTO site_work_items (
 				site_id, source, pipeline, item_type, severity, summary,
 				spec, page_id, priority, handler_agent, status, created_by,
 				item_key, batch_id
-			) VALUES ($1, $2, 'build', $3, $4, $5, $6::jsonb, $7, $8, $9, 'detected', $10, $11, $12)
+			) VALUES ($1, $2, 'build', $3, $4, $5, $6::jsonb, $7, $8, $9, $10, $11, $12, $13)
 		`, siteID, "discovery", classified.ItemType, classified.Severity,
-			f.Description, string(specJSON), classified.PageID, classified.Priority,
-			classified.HandlerAgent, auditSource, classified.DedupKey, batchID)
+			summary, string(specJSON), classified.PageID, classified.Priority,
+			classified.HandlerAgent, status, auditSource, classified.DedupKey, batchID)
 
 		if err != nil {
 			logger.Warn("Failed to insert finding work item",
@@ -824,6 +880,12 @@ func WriteAuditFindingsAction(ctx context.Context, params ActionParams) (interfa
 		"batch_id":              batchID.String(),
 		"audit_source":          auditSource,
 		"classification_stats":  classificationStats,
+	}
+	if len(unroutedCategories) > 0 {
+		// The categories this router had no rule for — filed as capability_gap
+		// rather than dispatched (bugs_open/279). Present only when non-empty
+		// so the common case stays byte-identical.
+		out["unrouted_categories"] = unroutedCategories
 	}
 	if retraction != nil {
 		out["retraction"] = retraction
