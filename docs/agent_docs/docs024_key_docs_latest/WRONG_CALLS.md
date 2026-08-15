@@ -31387,3 +31387,35 @@ broken scheduler. The database is **UTC**, the box is **BST**: server `now()` wa
 earlier. **Never subtract a DB timestamp from local wall-clock** — ask the database for
 the age so both ends of the subtraction come from one clock. (The `bugfix_168` lane
 filed the same family as a landmine the same day, from the `date -u -d` side.)
+
+## 2026-08-15 — the same seat pulled me up for the same unqueried figure, two submissions running (bugfix_209/231 lane)
+
+**The claim:** in the RFC_028 submission (corr `5d491545`), I justified the arm-budget design with
+*"the chain grew Strategy 0 through 6 across 27 council rounds, 8 of which flagged it as shared
+machinery with no architectural owner"* — stated as fact, with no query attached.
+
+**Caught by:** the council's `prior_art_librarian` seat, MEDIUM: *"This is exactly the kind of
+council-history claim this seat exists to check against `diagnosis_artifacts`, and no such check
+was run or cited."*
+
+**Why this one is worse than a first offence:** the *previous* submission from this same lane
+(corr `41a01378`, round 2) was gated by the *same seat* for the *same figure* — recorded in
+`bugs_open/231` as *"MEDIUM: my 27-round figure had no query attached, given to the one seat whose
+job is verifying exactly that class of claim."* I fixed it in that round by shipping the SQL, then
+carried the bare number into the next submission and shipped it unattached again. The lesson had
+been written down, in this lane's own bug file, by me.
+
+**And the number may not survive contact.** A crude `LIKE '%ExtractActionInputs%'` over
+`council_report` bodies returns **20** distinct correlations, not 27. The two are measured
+differently (RFC_028's query is narrower/wider in ways I did not re-derive), which is precisely
+the seat's point: a figure quoted without its method is not checkable, and "27" and "20" cannot
+both be the answer to the same question.
+
+**The cheap check that would have caught it:** before pasting any count into a submission, paste
+the query beside it. If the query is not to hand, the number is not evidence yet. Mechanically:
+grep the lane's own `bugs_open/` file for the figure before reusing it — the previous objection
+was one `grep 27-round` away.
+
+**Cost:** one advisory objection on an otherwise-approved round, and this entry. Nothing false
+reached production. But a durable figure now has two candidate values and neither is sourced,
+which is worse for the next reader than never having quoted it.
