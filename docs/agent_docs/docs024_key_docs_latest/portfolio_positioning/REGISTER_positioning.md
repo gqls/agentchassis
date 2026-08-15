@@ -235,6 +235,11 @@ Status legend: LIVE (serving) · BUILT (repo, not adopted) · ADOPTED · — (gr
   other two** (see the seat map): `banker.co.uk` = the setter-seat trade title — the
   estate's industry-facing voice and link engine (`banker.uk` per P5); `finance.org.uk` =
   the referee/education hub — the .org trust weight spent as the estate's citation anchor.
+- **P9 (owner ruling, 2026-08-15): `loanzy.uk` stays with the webdesign lane**, which had
+  already provisioned it (Cloudflare zone, cert, Worker route) for its own purpose. The
+  domain remains L9-claimed here so no other proposition drifts onto it, but its use is
+  the webdesign lane's; this register makes no further plans for it. `loansy.uk` and
+  `loanzy.co.uk` are unaffected (still HOLD).
 
 ## Family: BANKING / SAVINGS / RATES
 
@@ -331,6 +336,8 @@ Status legend: LIVE (serving) · BUILT (repo, not adopted) · ADOPTED · — (gr
   every collision check in this register; build as trade content or HOLD.
 - **neighbours:** none in this portfolio — different market. If built, it competes with
   trade press, not with any sibling here.
+- **P9 (owner ruling, 2026-08-15): HOLD** — excluded from the build-out's first waves;
+  revisit after the fleet rollout, not during it.
 
 ## Family: X — cross-cutting
 
@@ -483,6 +490,8 @@ Status legend: LIVE (serving) · BUILT (repo, not adopted) · ADOPTED · — (gr
   reviewsinsurance.co.uk/.uk (angle: the evaluation layer — reviews of insurERS not
   prices; genuinely distinct mode), sportsreviewinsurance.co.uk/.uk (unclear; hold)
 - **status:** assign after the exact-match rows are built, same rule as L9.
+- **P9 (owner ruling, 2026-08-15): HOLD** — with B8 and B9, excluded from the build-out's
+  first waves; revisit after the fleet rollout.
 
 ---
 

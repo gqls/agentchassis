@@ -299,3 +299,21 @@ routine deployment to reach the live system. Then Phase B: building the machiner
 gives each finance site a directory of real providers, sourced from live web searches with
 every claim verified against its source — the last new capability needed before the pilot
 site and then the fleet build-out proper.
+
+---
+
+**2026-08-15, later.** The directory work passed its review on the fourth round — the
+round you asked for — and everything it was holding back is now switched on: the page
+components are in place, the three weekly research sweeps are armed (first runs will
+happen under supervision, not unattended), and the two stale review entries from the old
+scheme are retired. You then settled all six open decisions in one go:
+remortgagecalculator.uk pilots first; build order goes mortgages, then savings, then
+insurance; loanzy.uk stays with the webdesign team; the three oddball domains (the
+savings app, the banking equipment site, the unnamed insurance brandables) are held out
+of the first waves; reviews of this kind proceed on the advisory record rather than
+looping on paperwork; and the mortgagecalculator copy review is now a live repair job —
+you've said plainly the homepage copy is bad right now, so the next session on that site
+starts from "diagnose it against the correction reference", not "approve it". Where to
+look is written in the handoff. The register carries all of this as ruling P9, and its
+own checker still passes. Fresh cold-start for the next chat:
+HANDOFF_2026-08-15_continue_here.md.

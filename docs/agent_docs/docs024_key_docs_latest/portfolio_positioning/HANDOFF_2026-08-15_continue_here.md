@@ -13,8 +13,23 @@ carries everything a fresh chat needs). Milestone read-out for the owner:
 3. Starter kinds: `mortgage-lender`, `savings-provider`, `health-insurer`; ~6 more later.
 4. Tools stay on manual per-site review; graphs = `evidence-chart` only.
 5. **Bug 270 is OWNED BY ANOTHER THREAD (owner, 2026-08-15) — hands off**, cite it freely.
-6. Owner directed round 4 of the B1 council review (submitted 2026-08-15, corr
-   `69a619e6-5152-45d8-ae01-5d30a0c7776f` — check the verdict before further rounds).
+6. **B1 council review: APPROVED at round 4** (2026-08-15 11:01, corr
+   `69a619e6-5152-45d8-ae01-5d30a0c7776f`). Both platform commits carry the trailer, so
+   098 credits them automatically. CLOSED — no further rounds.
+7. **P9, the owner's six decisions (2026-08-15, all recorded):**
+   - **Pilot domain: `remortgagecalculator.uk` (M4)** — weak preference, either M-family
+     candidate was acceptable; this one goes first.
+   - **Build order: family-by-family, M → B → I**, starting where a live sibling exists to
+     sanity-check against. Agreed as proposed.
+   - **loanzy.uk: stays with the webdesign lane** (register L9 updated, P9 note; the domain
+     remains L9-claimed so nothing drifts onto it, but its use is theirs).
+   - **B8 / B9 / I10: HOLD** — excluded from the first waves (register updated,
+     `check_register.py` passes: 152/152, invariants hold).
+   - **mortgagecalculator.co.uk voice review**: see §3a below — the owner notes the current
+     homepage copy "is bad at the moment", so treat the review as live and possibly
+     corrective, not a formality.
+   - **Council posture: accept the advisory record** rather than iterate on form (moot for
+     B1 — round 4 approved — but standing guidance for future reviews in this lane).
 
 ## 1. Current state (all verified at the artefact, 2026-08-15)
 
@@ -67,24 +82,37 @@ notes commits, `SUMMARY_2026-08-15…`. All platform commits trailered with the 
 6. Then **Phase C pilot** (one real proposition end-to-end, cost baseline from
    `llm_call_log`/`assets`, owner sign-off) → Phase D decisions → Phase E waves.
 
-## 3. Decisions the owner has been asked to make (also delivered in chat 2026-08-15)
+## 3. Owner decisions — ALL ANSWERED 2026-08-15 (see §0.7 for the rulings)
 
-1. **Pilot domain** (Phase C): which proposition goes first. Recommendation: `M2
-   mortgagecalculator.co.uk` is ADOPTED (not greenfield), so the cleanest greenfield pilot
-   with a directory is an M-family domain, e.g. `mortgage-rates.co.uk` (M3) or
-   `remortgagecalculator.uk` (M4) — mortgage-lender directory data will exist first.
-2. **Build order across ~140 domains** (Phase E) — the register says this is the owner's
-   commercial call; a family-by-family default (M → B → I, starting where a live sibling
-   exists to sanity-check against) is on offer.
-3. **loanzy.uk conflict** — the webdesign lane has provisioned it for an unrelated purpose;
-   L9 register direction says hold. Needs an explicit release-or-keep.
-4. **B8 (savingsapp.co.uk), B9 (bankingequipment.co.uk), I10 (brandable cluster)** — build
-   or hold; or simply excluded from wave 1.
-5. **mortgagecalculator.co.uk voice review** — queued since 2026-08-11: live homepage +
-   title pass vs `mortgagecalculator_couk_adoption/REFERENCE_2026-08-11_learned_by_correction_house_voice.html`.
-6. **If round 4 comes back REVISE again on form**: accept the advisory record and proceed
-   (the trail is honest, the code is live), or keep iterating. Rounds cost ~30 min + credits
-   each; round 1 was the only one that changed code.
+The former open-decision list is resolved; what remains actionable from it:
+
+### 3a. The mortgagecalculator.co.uk voice review (the one item needing the owner's eyes)
+
+Where to look, precisely:
+- **The reference** (the four owner corrections from 2026-08-11, written as the corrections
+  that produced them — the standard the copy is judged against):
+  `docs/agent_docs/docs024_key_docs_latest/mortgagecalculator_couk_adoption/REFERENCE_2026-08-11_learned_by_correction_house_voice.html`
+  (it was also published as a private artifact page for the owner that evening — the
+  artifact gallery has it under the "Learned by correction" title).
+- **The candidate**: the LIVE homepage at `mortgagecalculator.co.uk`, plus whether the
+  31-title pass ever finished (that lane's own next-action #1; check
+  `mortgagecalculator_couk_adoption/`'s NOTES tail — as of 2026-08-11 only the homepage's
+  new `<title>` had reached served HTML).
+- **The owner's standing impression (2026-08-15): "the home page copy is bad at the
+  moment."** So the review session should treat this as a live copy problem to diagnose
+  against the reference (which correction is being violated, or is the spec itself still
+  wrong), not a rubber-stamp. The 2026-08-11 ruling stands: the model is NOT the lever —
+  brief/spec first. Route findings INTO that lane's docs (`who-owns` it first; it was
+  recently active).
+
+### 3b. Pilot execution note (decision made: remortgagecalculator.uk, M4)
+
+M4's register entry: audience = existing owner with a fix ending in ≤6 months, calculator +
+deadline checklists, urgency register. Its `.uk` TLD = the instrument side per P5
+(tool-first, the 10-second answer). The mortgage-lender directory kind serves it. Phase C
+steps in `PLAN_2026-08-12_fleet_buildout.md` apply: mission-file from the register entry,
+pre-seeded specs, marker sentence, cost baseline from `llm_call_log`/`assets`, owner
+sign-off before Phase E.
 
 ## 4. Landmines fresh in this lane
 
