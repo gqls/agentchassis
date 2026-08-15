@@ -1,5 +1,41 @@
 # HANDOFF — bug 122, the 5.0 ink target + kill-switch. START HERE. Written 2026-08-15.
 
+> ## ✅ GATE SATISFIED 2026-08-15 ~10:38Z — v1.0.1301 carries `e0f239118`. §4 steps 1–2 EXECUTED.
+>
+> The owner ran the release. Verified before acting, all three ways: pods restarted
+> 2026-08-15T10:14Z on image `v1.0.1301`; stamp `0115f2b4528b0063fd01e7af275ccefe9c5a991d` read
+> from the chassis pod's own full log AND probed into `/proc/1/exe` (junk-sha negative control
+> absent) AND matching on `render-audit-adapter`; `git merge-base --is-ancestor e0f239118
+> 0115f2b45` → **true** (retraction `5639a1103` also still carried). Dispatch waited out the
+> 300s post-restart drop window (acted at ~10:40Z, 26 min after pod start).
+>
+> **Done at ~10:41Z, §4 order, before-states re-read fresh first** (dartsonline
+> `#F0F2F7`/`#F0F2F7`, webdesign `#5c6b5d`/`#2b2b2b` — both match the banked shas' values):
+> 1. Hold released: `829a8f3e` → `triaged` (guarded UPDATE returned 1 row).
+> 2. Second canary filed: `4cdceebc-72e6-4ee6-9a3c-2c1f9fe066f0`,
+>    `css_rerender_ink_round2_webdesign_co_uk_20260814`, `triaged`, `handler_agent` on the
+>    COLUMN, collision guard 0 open webdesign-agent items at filing time.
+>
+> **§4 step 3 GRADED 2026-08-15 ~11:0xZ — BOTH CANARIES PASS, at the artefact, against the
+> pre-written table:**
+> | site | slot | expected | served | full-file diff vs banked before |
+> |---|---|---|---|---|
+> | dartsonline | primary-ink | `#94a0c2` | **`#94a0c2`** | exactly 2 lines changed (the 2 inks) |
+> | dartsonline | accent-ink | `#f18072` | **`#f18072`** | — |
+> | webdesign.co.uk | accent-ink | `#915e2c` | **`#915e2c`** | exactly 1 line changed (accent-ink) |
+> | webdesign.co.uk | primary-ink | unchanged `#5c6b5d` | **`#5c6b5d`** | the correct no-op branch |
+>
+> Both items ran first attempt (`claimed` by `build-dispatch-loop` ~7 and ~25 min after filing,
+> `complete`, `attempt_count` 0). No page-level ink override on either homepage (the layer that
+> wins was checked). The `#94a0c2` branch of the three-way confirms the 5.0 binary ran — not
+> `#8a97bd` (4.5) and not `#F0F2F7` (nothing shipped).
+>
+> **Remaining: §4 steps 4–5 — THE OWNER LOOKS.** dartsonline.com (one eyebrow label on the
+> homepage) and webdesign.co.uk (every in-prose link). His "Go" gates widening, one site at a
+> time, reading the served hex each time. Then §4 step 6 (the 168-component sweep) stays
+> not-started until after that. Also owed: confirm no NEW `contrast_failure` rows on the two
+> canary sites after their next audits.
+
 **This is the ink-DERIVATION thread's continuation**, following
 `HANDOFF_2026-08-14_ink_derivation_continue_here.md`. The filing/coordination lane
 (`bugsearch 8`) closed on token load 2026-08-15; its own handoff is the cold start for the

@@ -2653,3 +2653,37 @@ examination ran — an orchestration row or filed/retracted items. **A quiet `si
 failure** (dedup may suppress everything); the orchestration row is the witness. Then run 395's
 watch queries ~08-17 after a handful of sites, which is the "measure against the real thing" the
 file asks for.
+
+---
+
+## 2026-08-15 ~11:00Z — v1.0.1301 carried the gate commit; both canaries executed and graded: PASS
+
+**The release landed and was verified before anything moved** (yesterday's false "fresh build"
+claim made this non-optional): pods restarted 10:14Z on `v1.0.1301`; stamp
+`0115f2b4528b0063fd01e7af275ccefe9c5a991d` read from the chassis pod's own full log (tail=2000 had
+already scrolled — the full-log read found it), probed into `/proc/1/exe` with a junk-sha negative
+control, and matched on `render-audit-adapter`. `git merge-base --is-ancestor e0f239118 0115f2b45`
+→ **TRUE**; retraction `5639a1103` also still ancestor. Acted at 10:40Z, 26 min past pod start
+(the 300s dispatch-drop window).
+
+**Sequence, §4 order, with fresh before-reads** (both matched the banked shas' values —
+dartsonline `#F0F2F7`/`#F0F2F7`, webdesign `#5c6b5d`/`#2b2b2b`):
+1. `829a8f3e` un-deferred by guarded UPDATE (returned 1 row, `triaged`).
+2. `4cdceebc-…` filed for webdesign.co.uk, `handler_agent` on the COLUMN, collision guard 0.
+3. Claims came via `build-dispatch-loop`: darts claimed ~10:47Z, complete by ~10:5xZ; webdesign
+   claimed ~11:0xZ, complete minutes later. Both `attempt_count` 0.
+
+**Graded at the artefact, not the status** (`[MEASURED 2026-08-15]`, served stylesheets):
+- dartsonline: `--color-primary-ink: #94a0c2`, `--color-accent-ink: #f18072` — the exact 5.0
+  expectations (5.122/5.125). Full-file diff vs banked `16eb767f…` before-state: **exactly the two
+  ink lines changed, nothing else**. No page-level ink block on `/index.html`.
+- webdesign.co.uk: `--color-accent-ink: #915e2c` (5.151), `--color-primary-ink` **unchanged
+  `#5c6b5d`** — the no-op branch behaving as designed (it already clears 5.0). Full-file diff vs
+  banked `50d55d8d…`: **exactly one line changed**. No page-level ink block on `/`.
+- Three-way discriminator: `#94a0c2` ⇒ the 5.0 binary ran. Not `#8a97bd` (4.5), not `#F0F2F7`
+  (nothing shipped).
+
+**State now: §4 steps 1–3 done. Waiting on the OWNER (steps 4–5)** — dartsonline shows one small
+eyebrow; webdesign shows every in-prose link. His "Go" gates widening one site at a time.
+Residuals: no-new-`contrast_failure` check on both sites after their next audits; the
+168-component sweep stays not-started.

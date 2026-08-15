@@ -1039,3 +1039,20 @@ sweep touched every site, its seven-day politeness rule means nothing has been e
 since. The first site becomes eligible tomorrow morning (Sunday), and it will then work through the
 fleet at one site every three hours — done in about three days. We'll glance at the meter mid-week
 to confirm the zero holds in practice, but there is no cost reason to hold anything back.
+
+**15 August, midday — the reviewed version is live, and both preview sites are ready to look at.**
+The release you ran this morning carried exactly the code the reviewers approved — I checked the
+running machines themselves before touching anything, because yesterday a "fresh build" claim
+turned out to be false. It was real this time. So I released the held rebuild for dartsonline and
+filed the second one for webdesign.co.uk, as agreed. Both ran within half an hour, first attempt.
+
+Then I checked the actual pages rather than trusting the job reports. dartsonline now has its
+links-and-labels colour at the agreed 5.0 legibility level — the small capitals label above the
+homepage heading is the thing to look at there. webdesign.co.uk is the site where the change really
+shows: every link inside the article text is now a warm brown that belongs to the brand palette,
+instead of the plain dark grey it had collapsed to. On both sites, comparing against the saved
+before-copies, precisely the intended lines changed and nothing else.
+
+**The next move is yours: look at dartsonline.com and webdesign.co.uk.** If you like what you see,
+say "Go" and we widen it to the rest of the sites one at a time, checking each as it lands. Nothing
+else changes until then.
