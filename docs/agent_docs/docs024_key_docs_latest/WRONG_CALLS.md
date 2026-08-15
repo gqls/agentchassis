@@ -31344,3 +31344,46 @@ written down anywhere — which three of the 21 are in that class, with file:lin
 **Cost:** two visible corrections and this entry. Nothing downstream acted on it — but the
 shape is the expensive one, because "I discovered X" reads as evidence that X was not already
 known, and the next reader inherits a false picture of what the tooling already tells you.
+
+---
+
+## 2026-08-15 — I certified a backup safe for 5 pages by searching a path that has never existed
+
+**Lane:** loanandmortgagecalculator, Track B2 batch 2 (the mixed-card five).
+
+**The claim I wrote down:** "0 commits since 08-05 for all five ⇒ the
+`page_components_bak_20260805_lmc` backup is still a valid rollback source for every one
+of them." I ran the lane handoff's own §7 command, per page, and read five empty results.
+
+**Why it was false:** I built the path from `pages.name`
+(`loanandmortgagecalculator.co.uk/loans-damage-checker.html`). The repo path is
+`loans/damage-checker.html` — `pages.name` hyphenates the FIRST slash. `git log` on a
+path that has never existed prints nothing and **exits 0**, which is byte-for-byte what
+an unchanged file prints. Against the real paths, **4 of the 5 had changed** since the
+backup — they carry the `bugs_open/224` stale-answer guards and the btn-id fix. So the
+backup is stale for four of the five and valid for one, the exact inverse of what I
+recorded.
+
+**What caught it:** the answer looked too clean. 0-for-5 on a site whose recent history
+is full of per-page fixes did not fit, so I listed the directory at the pin before
+trusting it — and the paths I had been querying were not in it.
+
+**The cheap check that would have caught it first:** one line, before the one I cared
+about — `git cat-file -e "$REF:$path"` — plus a control path I *know* is wrong, so an
+empty result cannot pass for an answer. `pages.url` already holds the real relative
+path; reconstructing one from `name` was avoidable work that introduced the bug.
+
+**Cost:** nothing downstream — this fed a restore decision I had not yet made, and the
+batch was seeded from the sites repo at a clean pin rather than from the backup. But
+the shape is the expensive one: had I restored on that reading, I would have re-reverted
+a live arithmetic fix on consumer-finance calculators, which is precisely the time
+machine this lane spent two days unpicking. Landmine filed (`LANDMINES.md`,
+"`pages.name` is NOT the repo path").
+
+**Second, smaller, same session:** I reported the rerender queue "stalled for an hour"
+from `updated_at 08:44` against local `date` reading `09:46`, and went looking for a
+broken scheduler. The database is **UTC**, the box is **BST**: server `now()` was
+`08:48`, the items were 253 seconds old, and the dispatcher had fired 45 seconds
+earlier. **Never subtract a DB timestamp from local wall-clock** — ask the database for
+the age so both ends of the subtraction come from one clock. (The `bugfix_168` lane
+filed the same family as a landmine the same day, from the `date -u -d` side.)
