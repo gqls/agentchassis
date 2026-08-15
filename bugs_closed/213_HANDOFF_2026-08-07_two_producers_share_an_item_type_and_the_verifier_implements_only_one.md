@@ -1096,3 +1096,37 @@ It is now a small, well-posed question: **read `ExtractActionInputs`/`ExtractFie
 whether `handler_result` can resolve to a non-handler's payload.** That is a code read, not a
 diagnosis run. If it can, the fix is a scoped binding, and gate 1b's abstain arm is already the
 instrument that will show it stopping.
+
+### §D UPDATE, same day — THE MECHANISM IS READ AT SOURCE, AND IT IS ALREADY SOMEBODY'S RFC
+
+The code read named as "the whole of the remaining work" above was done. **§D is an incident of
+`architecture_review/RFC_029`** — the aggressive recursive search having no boundary — filed
+2026-08-14 by the `staged_component_build` lane out of `bugs_open/248`, and **RULED by the owner
+on 2026-08-15** ("unique-or-nothing"; implementation OPEN, not started).
+
+**The chain, every step verified at source:** `complete_work_item` declares `result` as Optional
+→ `build-dispatch-loop` maps it `{"result": "handler_result"}` → `IsDottedPathReference` is
+literally `strings.Contains(s, ".")`, so **Strategy 0 skips a single-segment mapping** →
+Strategy 2's `ExtractFields` runs `findFieldRecursive` for **any key named `result`**, to depth
+20 → and `ExtractActionInputs`' Strategy 4, the arm that exists to resolve exactly this shape,
+**skips because the field already has a value**.
+
+**Two things this adds that the RFC did not have**, both contributed into their file rather than
+filed here:
+
+1. **A different entry condition.** RFC_029 frames the trigger as *a field the caller never
+   mapped*. Here the caller **did** map it, correctly, and lost because the value had no dot.
+   Strategy 0's own comment says it was added to stop the aggressive search winning — it fixed
+   that for dot-paths only.
+2. **⚠ The ruled remedy may not cover this case.** "Unique-or-nothing" defends against
+   *ambiguity*. If the only bare `result` in `collectedData` is the foreign one, it is unique —
+   so the remedy resolves it wrongly, with full confidence. This is not an ambiguous read; it is
+   a confidently wrong one.
+
+**Still [NOT VERIFIED]:** that a foreign bare `result` was actually present when those 10 rows
+completed. The mechanism is *available*; it is not proven to have *fired*. Confirming it needs a
+live `collectedData` capture that nothing currently retains — but **gate 1b's
+`NO_CHANGE_GATE_UNREADABLE_RESULT` stream already logs the offending payload's top-level keys**,
+so if RFC_029's fix lands, that stream going quiet is a free before/after.
+
+**Nothing further is owed by this lane.** §D's answer now lives where the fix will be made.
