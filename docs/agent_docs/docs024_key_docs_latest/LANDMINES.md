@@ -10671,6 +10671,19 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **source:** 2026-08-14, vigilant_designer_offer_analysis lane, building B4 (`offer-analyser`) on this write path. Found by reading the action before wiring to it, and confirmed by the audit_source census above — not by a symptom, because there is no symptom to have. `bugs_open/272` holds the site-review instance and its fix candidates; `bugs_closed/264` is the sibling defect on the same config line (four auditors' findings all landing under one producer name).
 - **relations:** `bugs_open/272` · `bugs_closed/264` · register **BIZ-032** (the auditor built against this trap) · MEMORY [[a-post-fix-zero-needs-a-demand-control]] (the zero that needs a demand control — this is that shape exactly) and [[writes-the-field-is-not-reads-the-field]] (`work_item_type`: written by the prompt, read by nobody)
 - **added:** 2026-08-14, vigilant_designer_offer_analysis
+- **UPDATE 2026-08-15 (272 fix session): half 1 is FIXED IN CODE, NOT YET LIVE.** Commit
+  `2a3ea3e2c` (council-approved, corr `5a79843a`) adds the missing `map[string]interface{}`
+  case — `parseAuditFindings` now unwraps `v["findings"]` — and the zero path reports
+  `findings_field` + `findings_type` and logs a Warn, so the silent variant of this trap ends
+  when it ships. **It missed v1.0.1300 by 83 minutes** (image label `revision=a2a691213`,
+  built 21:21 BST; fix committed 22:44) — probe before trusting:
+  `git merge-base --is-ancestor 2a3ea3e2c $(docker image inspect aqls/agent-chassis:<tag> --format '{{index .Config.Labels "org.opencontainers.image.revision"}}')`.
+  Once live, an object-shaped `findings_field` parses and `<step>.result` (not
+  `.result.findings`) is the robust pointing — the wrapper path handles BOTH the object and a
+  bare non-compliant array, whereas `.result.findings` cannot resolve a bare array. The
+  deeper-path advice above stays valid as defence in depth for pre-1300 binaries. **Half 2
+  (`work_item_type` read by nothing; off-vocabulary `category` mints unknown item types) is
+  UNFIXED and still fully live.**
 
 ### `deferred` is the ONLY parking state for a work item — a `blocked` one un-parks itself within 600s, and only if its handler exists, so the same park behaves oppositely on two rows that look identical
 

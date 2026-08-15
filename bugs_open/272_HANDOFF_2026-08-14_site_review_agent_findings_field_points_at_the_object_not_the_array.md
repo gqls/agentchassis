@@ -223,6 +223,29 @@ are re-derived every run and deduped, so nothing is permanently lost).
   type-switches on shape silently drops every shape it doesn't name*), with the
   sibling switches that still lack an object case listed.
 
+### POST-ROLL CHECK 2026-08-15 — v1.0.1300 does NOT carry the fix; still OPEN
+
+The overnight roll (pods `6c68fcc549-*`, 2 replicas, image `v1.0.1300`) was
+checked and the fix **missed the build by 83 minutes**:
+
+- `[MEASURED]` Image label: `docker image inspect aqls/agent-chassis:v1.0.1300
+  --format '{{index .Config.Labels "org.opencontainers.image.revision"}}'` →
+  `a2a691213`, created 2026-08-14 21:21:49 BST. The fix commit `2a3ea3e2c` is
+  22:44:42 BST. `git merge-base --is-ancestor 2a3ea3e2c a2a691213` → NO (and
+  `a2a691213` IS an ancestor of the fix — consistent).
+- `[MEASURED]` Pod binary probe, both directions of control clean:
+  `2a3ea3e2c…` (full sha) absent from `/proc/1/exe`; positive control
+  `write_audit_findings` present; negative control `deadbeef…` absent. (The
+  `build provenance` startup line had scrolled out of retained logs — 11h-old
+  busy pods — so the label + binary probe substituted, per LANDMINES.)
+- Do **not** dispatch a verification run against 1300 — it will produce
+  `items_created=0` from the old binary and reads exactly like a regression.
+
+**The fix ships with the first agent-chassis build cut from a HEAD at or after
+`2a3ea3e2c` (i.e. any build after 22:44 BST 2026-08-14 / v1.0.1301+).** The
+fastest stamp read is the docker image label above; the pod-side check is
+`git merge-base --is-ancestor 2a3ea3e2c <revision label or provenance stamp>`.
+
 ### Verify fixed-AND-live (the bar for moving this to bugs_closed/)
 
 1. Confirm the fix shipped **on agent-chassis specifically**:
