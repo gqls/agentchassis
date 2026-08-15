@@ -32177,3 +32177,23 @@ this bug's runbook). If the message must mention the spelling, paraphrase it; th
   08-14 handoff §7's own warning, *"do not fix what the owner has accepted"*, which this
   violated while quoting it. Tally for "measured once, then invalidated by my own
   subsequent write": 1.
+
+## 2026-08-15 — bugfix_285 lane: two claims in the same arc that were checked in the wrong place
+
+- **"Zero pages ever served the bad markup — the one deployed instance checked clean"** (bug 285,
+  filer's restoration block). FALSE: `learn-ai-builders-content-first` served an empty article +
+  fabricated download links for ~23.5 h. The check read the HEAD of `rendered_html`, and the
+  poison's first 200 chars are the legitimate wrapper CSS. **Cheap check:** grep the poison's
+  FINGERPRINT (a string only the bad write contains — `portedPageAssetList`), or compare
+  `sha256(rendered_html)` to `content_data->>'sha256'` (the ported provenance stamp), or read the
+  357 archive row for that placement — any of the three, and each is one query. Head-of-string is
+  never a content check. Tally for "verified by prefix": 1.
+- **"0 tool PLANs exist (89 needs_criteria)"** (281 lane, D1 premise). Counted `doc_notes …
+  categories ? 'acceptance_criteria'` — PLANs live in `doc_plans` (`check_tool_acceptance.go:590`
+  reads it): 87 current tool PLANs, 14 for ported webdesign tools. The conclusion survived (no
+  per-instance fixer), the premise did not. **Cheap check:** before asserting a table is empty for
+  a purpose, `grep` the CONSUMER for the table it actually reads. Tally for "counted the wrong
+  table": 1.
+- **My own:** the "must be absent" control for a `/proc/1/exe` sha probe was 40 zeros — it came
+  back PRESENT (some zeroed 40-byte region matches), so the control could not fail. Use a
+  real-but-different commit sha as the negative control (BLD-019's recipe says so; I skipped it).

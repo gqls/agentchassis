@@ -86,3 +86,41 @@ It fired twice in nine days; only re-render latency kept it invisible both times
   this fix now applies to `html_template` writers, with one writer still outstanding.
 - 016b §9: "A fixer addressed by COMPONENT fixes the TEMPLATE — and a shared template's blast
   radius is its placements" (added 2026-08-15, cites this file).
+
+## CONTRIBUTION 2026-08-15 evening — `bugfix_285_shared_template_write` lane (verified live)
+
+> **CORRECTED 2026-08-15 18:20Z: "zero pages ever served the bad markup" is FALSE.** One did, for
+> ~23.5 hours. The improver's DELIVERY step (old unpinned `load_tool`, `LIMIT 1`) filed
+> `section_edit_tool_fix_webdesign.co.uk_a7daa5c5…` (18:48:41Z) at an ARBITRARY placement —
+> `learn-ai-builders-content-first`, slot `ported-page` — and the section-editor re-rendered that
+> slot from the poisoned template with `field_updates {}` (complete 18:51:59Z). Its `rendered_html`
+> (8,855 chars) = wrapper CSS + an EMPTY `<article class="ported-page-content">` + a fabricated
+> "Related Downloads" list of three non-existent files; `curl` of the live URL served it (200,
+> `portedPageAssetList` present). "Checked clean" above was a head-of-row look, and the poison's head
+> IS the wrapper CSS. Fleet fingerprint sweep (`LIKE '%portedPageAssetList%'`): this row only.
+> **Restored 18:18Z by seed `431`** from `page_component_history` `ab400131…` (357 archive,
+> `sha256(html)` == the placement's provenance `content_data->>'sha256'`, byte-exact); reason-less
+> `page_rerender` `f298cc52…` queued. Served-page verification owed (lane RUNBOOK).
+> This is a FOURTH mechanism: the delivery is addressed by the loaded instance, so an arbitrary
+> load is an arbitrary target. Seed 426's page pin closes it going forward.
+
+- **Fix status precisely:** NOT live. Pods run `v1.0.1302` (started 11:28Z); `25f92a967`/`d7b2d9994`
+  were committed 17:16Z/17:38Z. Live producers + live writer are the OLD code ⇒ a third firing is
+  possible until the roll. Watch query in the lane RUNBOOK.
+- **`component_versions` v2 is the 08-05 POISON, not the recovery.** Regen snapshots the template it
+  REPLACES (`store_generated_component_action.go:439-451`); v2 = "Developer Resource Library",
+  7,714 chars, no `{{.body}}`; the regen's output is what v3 shows. LANDMINE filed.
+- **The 08-05 firing's real blast radius:** poison → `component_template_corrupted` (08-08) → regen →
+  3 `needs_rerender` (`section_data_resolved`) → **154 `page_rerender`** on 3 sites → **73 `needs_page`
+  LLM rebuilds, all FAILED** on `save_page_sections`'s owned-page guard. The pages survived because of
+  a guard one layer down. Any regen of a shared ported-page template is a fleet re-render trigger.
+- **Residual "fix_component_template is page-aware, unfenced" is mis-described:** its two
+  `html_template` writes are `repair_template_slots` (component-scoped mechanical repair, keyed by
+  `spec.component_id`) and `chrome_overflow_fix` (CSS append to a chrome template via
+  `site_components`, `shared_sites` recorded). Neither is a per-page LLM rewrite; neither restored the
+  wrapper. Not a fence candidate; the real remaining hazard is the DELIVERY shape (`section_edit`
+  content_edit re-renders from template — for a ported instance that discards its rendered_html).
+- **PLANs exist:** 87 current tool PLANs in `doc_plans` (14 of the 63 ported webdesign tools, incl.
+  asset-formatter). 281's "0 tool PLANs" counted `doc_notes`. So the only missing half of an
+  automated ported-tool repair is a per-instance writeback (TL-042 gap (b)) — the lane's next item.
+- Lane docs: `docs024_key_docs_latest/bugfix_285_shared_template_write/`.
