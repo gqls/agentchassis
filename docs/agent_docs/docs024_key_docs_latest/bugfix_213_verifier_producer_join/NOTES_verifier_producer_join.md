@@ -1644,6 +1644,56 @@ two on this page, is running the experiment until it produces the answer I alrea
 That is not a proof of the retraction arm; it is selection. The retraction arm stays unproven,
 and that is the honest state.
 
+---
+
+## 2026-08-15 follow-up — WHO ELSE reads an ABSENT finding as evidence? (answer: nobody at risk)
+
+The miss rate above only matters if something else in the estate depends on it. Audited that
+directly rather than assuming. **The answer is reassuring, which is itself the useful result:
+half two is the only consumer exposed, and it is the one already protected.**
+
+**1. WII-016, the render audit's retraction — SAFE, and for a structural reason.**
+[VERIFIED at source, `write_render_audit_findings_action.go:540-595`] its `stillFailing` set is
+built from `payload.Contrast`, i.e. **pairings the render-audit adapter actually measured**, not
+from an LLM's report. It resolves per pairing, scopes to pages in `audited` (anything else →
+`retractionOutOfScope`), and its availability argument is the real expression
+`len(payload.Summary.PagesAudited) > 0`. So it retracts on **N=1 and is right to**: half two's own
+header states the rule — *"Never 1 unless the observation is a MEASUREMENT rather than an LLM's
+report."* WII-016 is on the correct side of that line and does not inherit today's finding.
+
+**2. Half two is the only absence-keyed LLM consumer**, and N=3 is what covers it — now vindicated
+by direct observation rather than by the 7-of-7 sample.
+
+**3. ⚠ CORRECTION — this lane's "two-strike rule suppresses re-detection" claim is NOT confirmed
+as stated.** `SUMMARY_2026-08-15` says *"a two-strike rule actively suppresses re-detection of
+faults that keep coming back."* I repeated it to the owner today before checking it. What the code
+actually does:
+- [VERIFIED] exhausting attempts sets **`failed`**, not blocked
+  (`complete_work_item_verification.go:385`, `WHEN attempt_count + 1 >= max_attempts THEN 'failed'`).
+- [VERIFIED, and watched live today] **`failed` does NOT suppress re-detection** — `failed` is
+  terminal for `idx_swi_dedup`, which is exactly why batch 1 filed a fresh `detected` row beside
+  the `failed` one under a byte-identical `item_key`.
+- The real suppressor is a **different mechanism with a different trigger**: the blocked filter in
+  `write_audit_findings_action.go:793`, which fires on `status='blocked'` — and blocking comes
+  from an unroutable handler (`claim_work_item_action.go:162`), not from repeated failure.
+
+Not corrected in the summary itself (summaries are never overwritten); recorded here, which is
+where corrections to this lane's claims live.
+
+**4. Out of scope for this lane, and handed on rather than worked.** The blocked filter turns out
+to be blind to both category and producer — `capability_gap` always carries `PageID: nil`, so the
+filter's `($3::uuid IS NULL OR …)` clause always collapses to "any blocked row of this item_type
+on this site", and all 18 live blocks were filed by the discovery/remit path rather than by
+`write_audit_findings`. Armed on 14 of ~22 sites; **whether it has ever fired is unknown**, and
+the counter that would say so has existed for one day across 9 runs. `who-owns.py 279` says that
+territory is owned and active, so it went into `bugs_open/279` as a marked contribution
+(`1aa53be77`), explicitly not as a competing bug and not as work routed at them.
+
+**Consequence for the expensive follow-up:** re-measuring the auditor's miss rate with more trials
+is what `write_audit_findings_retraction.go`'s own header nominates as the way to move N — but
+since nothing outside half two depends on that number, it is **not urgent**, and the natural
+cadence supplies the trials for free once a carrier is back on. Deliberately not spent today.
+
 ### Side effects, batch 2
 
 9 new `detected` items across oufe.com (4) and webdesign.uk (5); **0 on
