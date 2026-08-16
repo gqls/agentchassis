@@ -255,3 +255,125 @@ a two-instance proof page. It changes the rendered bytes of 22 live pages, so it
 the byte-identical property the lane currently verifies against — `b2_verify`'s "verbatim
 render" check will need rebaselining, and that is a deliberate decision, not an accident to
 be discovered mid-batch.
+
+---
+
+## 9. UPDATE 2026-08-16 — the council's REVISE is acted on, §8.4's defect is fixed, and the fix now has a control that does not go stale
+
+Commit `32d6e980a`, `Council-Submitted: 07635a2f-3605-4e67-9a6d-7636b07f16ca` (round 2 of the
+same correlation, so the trail accumulates). **283 stays OPEN: the 22 calculator templates are
+still unconverted, so the defect is still live.**
+
+### 9.1 The token rule is settled: component FUNCTION + OCCURRENCE
+
+§8.4's recommendation is implemented. `c-mortgages-repayment`, then `c-mortgages-repayment-2`
+for a second copy on the same page. `InstanceToken(function, occurrence)` is the rule;
+`InstanceCounter` is the one derivation, walked in position order by every path that can see
+the whole page.
+
+Three candidates were on the table and the deciding question was not uniqueness — it was what
+a **selector** has to know:
+
+| candidate | unique within a page | same on every page | verdict |
+|---|---|---|---|
+| `position` (shipped 08-15) | yes — measured, zero duplicates fleet-wide | **no** — the LMC tool slot is position 0 on 7 pages, 1 on the other 16 | rejected |
+| `page_components.data_uuid` | **provably** — 1,580 rows, 1,580 distinct | **no**, by construction — it is per row | rejected |
+| function + occurrence | derived, not provable | **yes** for a component appearing once | **chosen** |
+
+`oracle.py` addresses all 170 of its checks by literal CSS id. Under either rejected candidate
+it needs per-page knowledge of every tool; under this rule it needs one prefix per tool. The
+cost is that uniqueness is **derived from the page's ordered section list** rather than read
+off a unique column — and `DetectInstanceCollisions` is what pays it.
+
+**This was free to change because nothing consumes it yet: measured 2026-08-16, 0 of 243
+active component templates reference `{{.InstanceID}}`.** That query is the reason the shape
+could be revised at all, and it is the one to re-run before revising it again.
+
+### 9.2 The council's objections, and what each one turned into
+
+- **reuse_agent, HIGH — "the same key under a weaker guarantee".** Accepted in full.
+  `InstanceTokenFromSlot` is **deleted**. The two paths that cannot see the whole page
+  (`RenderComponentAction`; the section editor) now supply **occurrence 0 to the same rule**
+  rather than deriving a token of their own. That is a possibly-wrong *input* to one rule, not
+  a second rule with a second guarantee — and a wrong occurrence produces a **collision**,
+  which the detector already reports. `BindSingleSectionInstanceToken` is the seam, and its
+  agreement with the canonical token is asserted by a test, not by a comment.
+- **bug_historian, MEDIUM — "three call sites patched, the mechanism left generic".** Right
+  about the class, **wrong about the members, and that is the whole lesson.** It named five
+  files; **four of them call no `RenderTemplate*` helper at all.** Measured across the whole
+  repo: **8 non-test files, 14 calls.** The real gap was `section_editor_actions.go` — two
+  sites, page-embedded, binding nothing — which was on **nobody's** list, including mine. So
+  the answer is not a better list (see 9.4).
+- **prior_art_librarian, MEDIUM — `data_uuid`.** Checked and rejected on the table above. The
+  seat was right that it was unchecked; the check changed the argument, not the answer.
+- **guardian, LOW — "no end-to-end test".** Added:
+  `TestRenderLayer_twoInstancesOnOnePageGetDifferentIDs` drives template → binding →
+  `RenderTemplate` → detector, with a mutation that renders the same template through a path
+  binding nothing (which must collide).
+- **editquality + guardian, HIGH — "does not compile".** A submission artefact, fixed by
+  including every named symbol in round 2's sketches.
+
+### 9.3 What is bound where, measured — the census the council asked for
+
+| file | sites | before | now |
+|---|---|---|---|
+| `assemble_from_library.go` | 1 | hand-written map write | `BindInstanceToken` + counter |
+| `rerender_page_sections_action.go` | 1 | hand-written map write | `BindInstanceToken` + counter |
+| `v3_site_actions.go` (`RenderComponentAction`) | 1 | slot-derived token | `BindSingleSectionInstanceToken` |
+| `section_editor_actions.go` | 2 | **nothing — the real gap** | `BindSingleSectionInstanceToken` |
+| `component_library.go` (header/footer/head) | 3 | nothing | allow-listed: chrome, one per document |
+| `render_site_components_action.go` | 1 | nothing | allow-listed: chrome slots |
+| `rerender_pages_actions.go` | 1 | nothing | allow-listed: `<head>` only |
+| `cmd/component-render-check/rendercheck.go` | 4 | nothing | allow-listed: offline lint, writes `doc_notes` (:507), never a served page |
+
+### 9.4 The durable half — why this is not another list
+
+Two censuses of these call sites went stale **inside one council round**: the council's, and
+mine. Mine grepped `platform/` and `internal/` and missed `cmd/component-render-check`
+entirely, which is a scope error in the *question*, not a slip in the reading.
+
+So the control is mechanical:
+
+1. **The shared render layer reports it.** `RenderTemplateReportingMissing` now logs at
+   **Error** when a template references `{{.InstanceID}}` and no token was bound. It reports
+   and does **not** substitute: this layer cannot see the page, so any token it invented would
+   either collide (no better than empty) or **disagree with the token the page's other paths
+   use for the same instance** — which is worse than empty, because the ids would then depend
+   on which action last touched the section.
+2. **`scripts/pattern-check.py` refuses a new unbound render call site.**
+   `check_unscoped_component_render` fires on any changed non-test `.go` that calls a
+   `RenderTemplate*` helper and calls neither binding seam, unless allow-listed with a measured
+   reason. **Proven on the motivating case before being trusted: 4 findings at HEAD, 0 now.**
+   It matches the **call**, not the argument's name — an earlier draft required the argument to
+   be spelled `htmlTemplate`, which is the same staleness one rung down and would have missed a
+   new site passing `tpl`.
+
+### 9.5 Deploy status — the §2 warning in the CONTINUE_HERE is CLOSED
+
+The halves committed on 08-15 **are live**. Chain, each link checkable:
+
+```
+pods  -l app=agent-chassis   imageID   docker.io/aqls/agent-chassis@sha256:f208f01d…
+local aqls/agent-chassis:v1.0.1303     RepoDigests  ["…@sha256:f208f01d…"]   ← same bytes
+   docker image inspect … --format '{{index .Config.Labels "org.opencontainers.image.revision"}}'
+                                        → 5e075a6f949bbb08d164bc1293b8c990068d917f
+git merge-base --is-ancestor 03c1b0b90 5e075a6f9   → yes (and 9372a82c3, 1e19aa6ab, 06a74ba7d)
+```
+
+**The digest match is the load-bearing step, not the label.** A local tag can be rebuilt at any
+time by any session; it is only evidence about the running pod once its `RepoDigests` equals
+the pod's `imageID`. This works where the two recipes in the CONTINUE_HERE failed — the
+`build provenance` startup line had scrolled out of `--tail=20000` on both pods, and grepping
+the binary for a candidate sha only ever confirms a **guess** (the binary carries its own build
+stamp, not its ancestors).
+
+**Round 2's code is committed but NOT yet built or rolled**, so the section-editor binding and
+the pattern-check are inert in production until the next chassis release.
+
+### 9.6 Still not done — unchanged from §8.5 except that the token question is now answered
+
+The 22 calculator templates are unconverted. That work needs: a converter that namespaces ids,
+scopes lookups to the instance root, wraps each script in an IIFE (16 declare at top level) and
+replaces `window.onload` (8 assign it); `oracle.py`'s selectors updated **in lockstep**; a
+two-instance proof page; and `b2_verify`'s verbatim-render baseline reset, because converting
+ends the byte-identical property that lane verifies against. DB writes need the owner.
