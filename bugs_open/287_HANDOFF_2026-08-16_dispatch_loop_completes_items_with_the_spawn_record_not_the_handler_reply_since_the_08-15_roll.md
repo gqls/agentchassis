@@ -205,3 +205,41 @@ them must ALSO make a missing key an error rather than a substitution (§7.3), o
 mis-spelling lands the same way. Blast radius: every `loop` sub-workflow whose later substep
 reads an earlier substep's un-suffixed `output_field` — a `SELECT` over `agent_definitions`
 for `sub_workflow` steps whose config strings match a sibling's `output_field` is the census.
+
+### 9a. The exact door — one allow-list, one missing key [READ 2026-08-16 ~10:30Z, `coordinator.go:4443-4500`]
+
+`prefixConfigStepReferences` rewrites a sub-step's config so that references to sibling
+outputs become iteration-suffixed. It does so for an explicit **allow-list**:
+
+```go
+dataRefKeys := []string{"content_from","context_from","data_from","source_field","input_from",
+                        "result_from","content_field","page_component_id_field"}
+// ...plus every value in config["input_mapping"]
+```
+
+`complete_work_item`'s config key is **`result`** (`"result": "handler_result"`, live
+`build-dispatch-loop` `mark_complete`). **`result` is not on the list.** So `call_handler`'s
+`input_mapping` values ARE suffixed (that is why the handler receives the right item), and the
+`mark_complete` read is NOT — it asks for `handler_result` while the reply sits at
+`handler_result_0`. The comment above the list says it itself: *"IMPORTANT: Any config key
+that references step outputs must be listed here."* It was not.
+
+Same defect class as `bugs_open/149`'s "widening what REACHES a function breaks it unedited"
+in reverse: an allow-list of config keys is a promise every future action must know to keep,
+and `complete_work_item` did not. **Fix that closes the door: stop enumerating.** Suffix ANY
+string-valued config entry whose first dotted segment is a sibling `output_field` (the
+`substepOutputFields` set is already computed and passed in) — then no action can be left
+off. Interim one-liner: add `"result"` to `dataRefKeys`. Either way, a missing key at
+`complete_work_item` must be an ERROR (§7.3), because the recursive fallback is what turned
+"absent" into "someone else's record" here and in 248 before it.
+
+**Test that would have caught it, and pins the fix:** expand a loop whose sub-workflow has a
+`call_agent` (`output_field: X`) followed by ANY step whose config carries `"result": "X"`
+(or any key), and assert the expanded config reads `X_0`. Mutation: remove the suffixing and
+watch it fail.
+
+**Why the pre-roll world never noticed:** the reply never validated (274), so
+`handler_result_N` was never written by a reply either; the un-suffixed key was found via the
+timeout/failure path (`[UNMEASURED which]`), so `mark_complete` "worked" — by reading a
+different wrong thing. Fixing 274 exposed the allow-list gap. This is the file to cite when
+someone asks why a correct fix made a metric worse.
