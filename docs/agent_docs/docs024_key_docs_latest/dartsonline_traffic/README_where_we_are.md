@@ -399,3 +399,42 @@ first filed this as an instance of "imagery gets generated and nothing ever
 points a page at it" (`bugs_open/114`). That was wrong, and this log is what
 caught it. A scan of today's pages cannot tell *never placed* from *placed and
 overwritten* — only the page's history can, and it settles it in one query.
+
+## 2026-08-16 — the guides have their pictures back, the footer is tidied, and two bigger problems surfaced
+
+Short version of two days' work, in the order it will matter to you.
+
+**All four missing guide pictures are back and survived this morning's rebuild.** The grip
+photo on the beginners guide went next to the grip section, as you chose. Please read the
+caveat though: these are restorations, not a fix. The picture and the words share one
+editable field, so the next rewrite of any of those pages will delete them again exactly as
+before. The design that ends that is written up in `inline_guide_imagery/` and is not built.
+
+**Shipping & Returns is gone from the footer** on 24 of 25 pages. The 25th is the
+shipping-returns page itself, still linking to itself in its own footer. That is probably
+moot, because the page is still live and indexed and still describes shipping and returns on
+a site that holds no stock — worth deciding whether to retire it outright, especially as an
+affiliate reviewer will read it.
+
+**That footer job is worth one paragraph on its own, because it nearly fooled me.** The
+rebuild reported success and the database said every single page was correct. The live site
+disagreed: 19 of 25 pages were still serving the old footer. The rebuild had updated all the
+stored copies and only republished six of them — and the six were the homepage and the two
+index pages, which are exactly the pages anyone would spot-check. I only caught it because a
+footer is on every page, so I looked at About and Contact too. Everything is now republished
+and checked page by page.
+
+**The privacy policy is approved but not yet published.** Your wording is agreed and the
+business identity is in it. The page itself does not exist yet, and creating a single page of
+this kind turns out to be genuinely awkward in our framework — there is no on-demand route, so
+it needs the same workaround another site used three days ago. That is the next job.
+
+**Two things turned out to be much bigger than they looked, and both are yours to call.**
+First, the cookie consent gap is not two sites, it is eleven — every site except noted.co.uk
+runs the same Google tag with no consent banner anywhere, and eight of them have no privacy
+policy either. Half the fix is one setting in your Google account. Second, the broken contact
+form is not a dartsonline problem: eleven sites share the identical form that posts nowhere.
+Fixing it once fixes all of them.
+
+Full state, next steps and the exact traps to avoid are in
+`HANDOFF_2026-08-16_continue_here.md`.
