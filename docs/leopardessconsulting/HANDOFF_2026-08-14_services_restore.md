@@ -364,3 +364,9 @@ stands — re-run the §2 assertions after the next fleet roll or any regenerati
 this page; whether the 268 fix (`8f899cc8d`, committed 09:13 BST 08-14) is in the
 running chassis was not provable from this session (v1.0.1299; sha-probe negative,
 provenance line scrolled). Full narrative: `RUNNING_NOTES.md` 2026-08-14.
+
+> **UPDATE 2026-08-16:** re-check done after the roll to v1.0.1303 — the repair survived
+> untouched (served page byte-identical to 08-14, all six assertions pass) AND the 268 fix
+> (`8f899cc8d`) is proven in the running chassis (ancestor of the pod's stamp `5e075a6f9`,
+> stamp sha present in `/proc/1/exe` with a random-hex absent-control). The §0.2 warning is
+> retired for this page from that roll onward. Remaining from this file: §3 items 4–7.

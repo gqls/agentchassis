@@ -2363,3 +2363,25 @@ binary) — control invalid, provenance left honestly unknown rather than assert
 `pkill` for the probe's local HTTP server was chained ahead of two psql queries in one
 compound command and killed the whole thing (exit 144) — separate lifecycle commands from
 queries.
+
+## 2026-08-16 (session "services-restore", cont.) — the repair SURVIVED a fleet roll, and the 268 fix is now provably in the running chassis
+
+Standing re-check from 08-14, run 2026-08-16 ~10:00Z after the roll to chassis
+`v1.0.1303` (pods restarted 2026-08-15 18:45Z):
+
+- **Served `/services.html` is byte-identical to the 08-14 post-repair fetch** (md5
+  `c0a69af05167…` both), all six §2 assertions still pass (img 7, hcc 1, contact-primary 1,
+  404-link 0, mistral 0, real card anchors 6, six distinct icon files). All four slots'
+  `updated_at` still `2026-08-14 18:25:11Z` — nothing has regenerated the page in ~40h. The
+  08-15 fleet activity on this site (12 `ink415w_*` rerenders on blog/guide pages, one
+  headmeta rerender, four `offer-analysis_*` rewrites on index/careers/insights) did not
+  touch services.
+- **The 268 fix IS in the running binary** — closes the 08-14 caveat. Another session
+  stamped v1.0.1303 as commit `5e075a6f9` (LANDMINES, 08-15, on this same pod) and
+  `git merge-base --is-ancestor 8f899cc8d 5e075a6f9` holds; re-probed here: stamp sha
+  present in `/proc/1/exe`, random-hex control absent. So the §0.2 re-drop hole
+  ("renderer-sourced keys never look missing, so the carry never runs") is closed at the
+  binary from this roll on; the 08-14 repair itself simply predates any regeneration.
+- **My 08-14 zero-sha probe misstep is now a LANDMINES entry** (written 08-15 by the
+  session that stamped the pod): forty consecutive zeros are git's null-sha literal and
+  match in ANY binary that speaks git — use a random 40-hex value as the absent-control.
