@@ -85,3 +85,17 @@ correctly-applied migration read as tampered-with. Caught by asking what columns
 before trusting the edit; reverted, and `md5sum` now matches the recorded
 `601f395002755ff05fa915f400dce8fe` exactly. The general form: **an applied migration is
 history, and "fix the stale pointer" is a habit for source, not for history.**
+
+**PASSENGERS in `2079aca42` (WRONG_CALLS.md), named so their authors can find them.** My commit
+added 124 lines where my own row was ~30 — the contended-ledger tell. Two other sessions'
+entries were sitting uncommitted in the file and went in under my message:
+
+- *"a KNOWN-but-tool-level name vanishes while an unknown name routes to creation ⇒ there is a
+  second branch"*
+- *"I put a subagent's fleet counts in a commit message without grounding them, and they were
+  10% stale"*
+
+Nothing is lost and forward-only holds — this is a review/bisect problem, not a data one. What
+caught it was reading the `--numstat` instead of trusting the pathspec: **"I followed the rule"
+is not "I checked the result."** `WRONG_CALLS.md` and `LANDMINES.md` take appends from several
+sessions a day, so the same-file case is the normal case there, not the exotic one.
