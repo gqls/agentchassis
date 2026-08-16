@@ -1,54 +1,79 @@
-# HANDOFF — webdesign tool rebuilds. START HERE. Written 2026-08-16 ~10:15Z, UPDATED 15:40Z. Supersedes `HANDOFF_2026-08-15_continue_here.md`.
+# HANDOFF — webdesign tool rebuilds. START HERE. Written 2026-08-16 ~10:15Z, UPDATED 16:50Z. Supersedes `HANDOFF_2026-08-15_continue_here.md`.
 
-Read `PLAN_2026-08-15_…` (design), `RUNBOOK_…` (commands, incl. the new "Is the adopt path live?" block),
-`NOTES_…` (evidence + missteps, newest at the bottom), `bugs_open/286` (the pilot's real cause + fix).
+Read `PLAN_2026-08-15_…` (design + the owner ruling + its 16:20Z correction), `RUNBOOK_…` (commands),
+`NOTES_…` (evidence + missteps, newest at the bottom), `SUMMARY_2026-08-16_…` (the milestone read-out),
+`bugs_closed/286`-or-`bugs_open/286` (the pilot's cause + fix — check which dir it is in now).
 
-## Verified state (2026-08-16 ~15:40Z — supersedes the 10:10Z table)
+## THE PILOT IS COMPLETE AND LIVE. The replacement recipe is proven end to end. (16:47Z)
+
+`https://webdesign.co.uk/tools/aspect-ratio/index.html` serves the framework-built tool. Graded at the
+served bytes 16:48Z: `class="ported-page"` **0** (was 1), `{{\.` **0**, the tool's own controls present
+(`ratio-width`/`ratio-height`/`target-ratio` ×3 each, `preset-btn` ×8, 6 inputs, 5 buttons),
+**861 visible chars**, md5 changed, negative + positive controls both run. DB: ported slot `removed`
+with its 5,850 chars retained, `tool-aspect-ratio` `deployed` at position 2 — one live slot.
+
+**The recipe, in the order that matters (each step earned its place — see NOTES 16:47Z):**
+1. File the `add_tool` item, description written from the LIVE tool's behaviour, self-contained copy.
+2. **Grade the generated component in the DB before retiring anything** — `{{\.` count 0,
+   visible chars > 300, `<script` ≥1, no `<script src=`, **and read the JS** to confirm it does the job.
+3. **Retire the ported slot BEFORE the generator's own rerender is claimed.** The generator files that
+   rerender itself, already assemble-only — you do not file one. Win this race and the page renders
+   once, correctly; lose it and the page serves two tools (the ab-test shape).
+4. Let that rerender run, then grade at the served URL **with controls**.
+
+## Verified state (2026-08-16 16:50Z — supersedes the 15:40Z table)
 
 | thing | state |
 |---|---|
-| fleet binary | **`v1.0.1304`**, pods 10:41Z, stamp `5de6cddbe`; `88897190e` IS an ancestor (probed with a junk-hex control) ⇒ **286 fix LIVE**. RUNBOOK: probe the STAMP, then ancestry — never grep your own sha. |
-| seed 435 | **APPLIED 15:15Z** (`ee0228813`): `tool-generator.save_tool.adopt_existing_page = true` (SELECT-verified). |
-| pilot | **REFILED 15:2xZ** as item `99734862-ed24-4841-9d8f-7e6ce8c1de6b` (`add_tool_novel_webdesign.co.uk`, `triaged`), 11 items ahead in the serial dispatcher. Description written from the live tool, self-contained copy demanded. |
-| seed 434 proof | 3 re-armed audit fixes **graded PASS at the served pages** (0 raw tags, real copy, inputs/scripts intact). |
-| ab-test | REVERTED to the ported tool + **verified served** (0 raw tags, `class="ported-page"` present, fork gone). Rebuild candidate #2. |
-| 285 | owning lane ran the induce-a-refusal 09:59Z (fence refused, wrapper intact) — theirs. |
-| aspect-ratio page `00979b9e…` | ported slot `deployed`, no native slot yet. |
+| fleet binary | `v1.0.1304`, stamp `5de6cddbe`; `88897190e` IS an ancestor ⇒ **286 fix LIVE**. |
+| seed 435 | APPLIED 15:15Z (`ee0228813`): `tool-generator.save_tool.adopt_existing_page = true`. |
+| **pilot `tool-aspect-ratio`** | **DONE — built, graded, retired, re-rendered, PASS at the served page.** |
+| ab-test | ported tool restored and served; **rebuild candidate #1 of the batch.** |
+| batch scope | **62 ported tools remain.** 97 `ported-page` slots exist but only 63 were tools. |
+| owner gate | **OUTSTANDING — PLAN §4: the owner sees the served page before the batch starts.** |
 
 ## Next actions, in order
 
-1. **Grade the pilot's generator run** (item `99734862`): `SELECT status, error FROM site_work_items WHERE id='99734862-…'`; then the tool-generator orchestration for it — `create_result.page_adopted` must be `true`; `page_components` on page `00979b9e-db47-4c26-819e-add95b0f8fd6` must gain ONE row (`slot_name='tool-aspect-ratio'`, position 2) and `pages` NO new row for the site with name `tool-aspect-ratio`. If it collided again ⇒ the flag is not being read: re-check the SELECT and `agent_error_log` for `save_tool`.
-2. **Grade the generated component itself BEFORE retiring anything** (the ab-test lesson): `content_components` row for `function='tool-aspect-ratio'` — `regexp_matches(html_template,'\{\{\.','g')` count must be 0 (no externalised copy fields), visible-chars > 300, has `<script>`, no `<script src=`.
-3. Retire the ported slot on that page (RUNBOOK guarded UPDATE, exactly 1 row) → assemble-only `page_rerender` (spec `{domain,page_id,page_name,filename}`, no `reason`) → grade at the served URL: `{{\.` 0, `class="ported-page"` 0, the new tool's container present, inputs/buttons present.
-4. Only after 1–3 succeed ONCE: batch (PLAN §2), simple tools first, serial, ab-test second — **CONFIRMED from code (`create_tool_component_action.go:197-206`): the already-exists probe joins `page_components` with NO `build_status` filter, so the hollow fork `cd60486c` (active, linked `removed`) WILL short-circuit the generator into `already_exists` and write nothing.** Before filing ab-test: `UPDATE content_components SET is_active=false, updated_at=now() WHERE id='cd60486c-f5e1-4d80-9676-0d65024f0372' AND function='tool-ab-test-calculator' AND is_active;` (1 row; the removed placement row stays as history), then file.
+1. **Show the owner the served page** (`/tools/aspect-ratio/index.html`). PLAN §4 gates the batch on
+   this, and it is the one step no machine can do. **Do not start the batch before it.**
+2. **ab-test first, and it needs one statement before it is filable.** The generator's already-exists
+   probe has **no `build_status` predicate**, so the withdrawn fork blocks its own rebuild and the run
+   completes having written nothing (LANDMINES, footprint `create_tool_component_action.go`; confirmed
+   from source, not inherited):
+   `UPDATE content_components SET is_active=false, updated_at=now() WHERE id='cd60486c-f5e1-4d80-9676-0d65024f0372' AND function='tool-ab-test-calculator' AND is_active;` (1 row) — then file.
+3. **Then the simple batch, serial** (PLAN §2), recipe above, one tool at a time. Scope it with the
+   RUNBOOK's "Scope the batch correctly" query — **filter `p.name LIKE 'tool-%'`, not
+   `p.url LIKE '/tools/%'`** (`tools-index` is a ported page and is not a tool).
+4. **Rich apps last and one at a time** (owner ruling reversed PLAN §3 — all 63 are in scope). Spec
+   written from the live tool's behaviour; the grade is a feature list in a browser, not a tag count.
 5. Owed to others, unchanged (122 ink lane's audit checks ~08-18; mindmap junk text = owner's localStorage).
 
-## Traps this session paid for (all in LANDMINES / WRONG_CALLS / NOTES)
+## Traps this lane has paid for (all in LANDMINES / WRONG_CALLS / NOTES)
 
-- An empty `final_result` is the workflow's `output_fields` shape, not a failure; read `agent_error_log`
-  for the window and check whether the thing EXISTS before naming a mechanism.
+- **`/tools/<x>/` is a 404; the page is `/tools/<x>/index.html`.** Every "is it clean now?" count
+  passes perfectly against a 404 — it contains none of what you are grepping for. Assert `http=200` first.
+- **There is no `page_component_history` archive row for a retire** — the trigger is
+  `AFTER UPDATE OF rendered_html`. PLAN's 16:20Z correction supersedes the ruling's condition 3: the
+  undo handle is the ported `page_components` row + its md5, recorded before the retire.
+- **Two different sets of exactly 13**: `<script src=` tools (the PLAN/TL-032 class) and
+  `content_data ? 'repair'` tools. **Intersection 4.** Do not use one as a proxy for the other.
+- An empty `final_result` is the workflow's `output_fields` shape, not a failure; read `agent_error_log`.
 - `spec_data` as a MAP is silently unread — census `jsonb_typeof` on any copied `create_work_item` step.
 - A tool slot can be 13 KB and have zero visible text; the class-attr floors will not tell you.
-- Guard "open items on this page" on the dispatchable statuses only; `unresolved`/`failed` pile up.
-- The 4 audit_fix items I re-armed were the SAME class as the 233 dead ones — when a "two-item cleanup"
-  turns out to be a class, say so in the seed and the bug file, and fix the producer, not the rows.
+- Guard "open items on this page" on `('triaged','approved','claimed','pending')` only.
+- **A `090` on a symbol in a file over ~60 KB returns bundles and no verdict** — looks like a run in progress.
 
-## OWNER RULING 2026-08-16 (added ~15:45Z by the bugfix_285 lane) — PLAN §3 REVERSED
+## Not this lane's, but it sits under the batch
 
-**The rich hand-built apps ARE rebuild candidates after all** (Mind Map Studio Pro, Meme Studio,
-Logic Architect Pro, Flat-File Micro CMS, Pasteboard Manager, and the 13 external-script tools):
-the owner chose option (a) — generator rebuild anyway, **accepting that it is a reimplementation,
-not a preservation**. The trade PLAN §3 warned about was put to him in those words and accepted.
+`bugs_open/289` (OPEN, unowned): a `loop_complete` substep re-aggregates the whole loop from inside each
+iteration, so `collected_data` doubles per lap. **`build-dispatch-loop` — the dispatcher every item on
+this lane goes through — is exposed and was at 13 MB**; `tool-auditor` is already dead at 22 MB. A batch
+of 62 serial items runs through it. Watch for the dispatcher stalling rather than assuming a slow queue.
 
-Consequences for this lane's next actions:
-- **No excluded class remains** — all 63 ported tools are in scope for the native route.
-- **`bugs_open/204` / the byte-faithful decomposition route is no longer a prerequisite for ANY
-  webdesign tool.** (204 still matters for other decomposed sites; a session picked it up 15:33Z.)
-- Unchanged and now load-bearing: spec written from the LIVE tool's behaviour; grade the generated
-  component BEFORE retiring the ported slot (ab-test: 13 KB, zero visible text, 47 raw tags);
-  retire with `build_status='removed'`, never delete — **note the `page_component_history` archive
-  row id per tool in NOTES**, that is what makes a bad reimplementation a one-statement revert.
-- RECOMMENDED (yours to take or leave): rich apps LAST and one at a time, after the simple batch
-  proves the recipe, each seen by the owner at the served page.
+## Owner ruling 2026-08-16 (unchanged) — PLAN §3 REVERSED
 
+The rich hand-built apps ARE rebuild candidates (Mind Map Studio Pro, Meme Studio, Logic Architect Pro,
+Flat-File Micro CMS, Pasteboard Manager, and the 13 external-script tools): option (a), generator rebuild
+anyway, **accepting that it is a reimplementation, not a preservation**. No excluded class remains, and
+`bugs_open/204` / the byte-faithful route is no longer a prerequisite for any webdesign tool.
 Full ruling + reasoning: PLAN §"OWNER RULING 2026-08-16", README_where_we_are 2026-08-16 afternoon.
