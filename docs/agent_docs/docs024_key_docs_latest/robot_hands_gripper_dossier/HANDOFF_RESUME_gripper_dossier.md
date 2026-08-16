@@ -121,9 +121,20 @@ Live on chassis **v1.0.1175**. Seeds applied: **204, 207, 209, 210**.
      `count_tokens`. SMTP: `/home/ant/.config/gripper-dossier/smtp.env` (same dotenv
      shape — `GRIPPER_SMTP_HOST`/`_PORT`/`_USER`/`_PASS`/`_FROM`), same 664→600 fix,
      verified live via `smtplib` AUTH-only (no message sent). **Both are local dev-box
-     files, not deploy artefacts** — need adding to the `tools-api-secret` k8s Secret
-     when the route group actually ships. Nothing further owed here; the route group
-     itself is still the blocker, sitting with the gauntlet lane.
+     files, not deploy artefacts** — ~~need adding to the `tools-api-secret` k8s Secret~~
+     **WRONG, corrected 2026-08-16: the deploy target is the ISLAND, not the cluster.**
+     `tools-api` runs on the island VM (`/opt/island`, docker compose), so these go into
+     **`/opt/island/.env`** (root, 600, written ON the box — never through a transcript),
+     per `RUNBOOK_island` "Tenant 2" step 2. I wrote the k8s wording in the 08-05 proposal
+     and repeated it here on 08-10/08-15; the 08-16 build session caught it. There is a
+     `deployments/kustomize/services/tools-api/` overlay in the repo, which is what made
+     the k8s reading look right — but the live public endpoint is the island's Caddy, and
+     that is where the route group actually ships.
+     **08-16: outbound 465 CHECKED FROM THE ISLAND** (my 08-15 check was dev-box-only,
+     which the runbook rightly flagged as insufficient): open, `220` Exim banner,
+     `AUTH PLAIN LOGIN` advertised to the island IP. Runbook step 2's precondition is
+     discharged; EMAIL-002 narrowed in the register (its "cloud boxes can't do 465" is
+     Hetzner-specific and false here).
 2. **Before that, land two shared pieces** (`features_open/024` A2/A3), or the
    estate forks at exactly this point:
    - a **mailer** in `platform/` — `grep -rn "net/smtp" --include=*.go platform/

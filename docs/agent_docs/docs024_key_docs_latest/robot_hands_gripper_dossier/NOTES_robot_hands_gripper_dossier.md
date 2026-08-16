@@ -1962,3 +1962,66 @@ the full read-list there and say which are collected vs defaulted. **Resubmit wi
 report (`SELECT … FROM fix_artifacts WHERE correlation_id='623da25b-…' AND
 kind='council_report'` — check `\d fix_artifacts` first; my one attempt returned nothing) for
 any further objections beyond the truncated first one. Code committed as `f967d9307`.
+
+---
+
+## 2026-08-16 (credentials lane) — the island CAN do 465; my own dev-box check was the weaker claim, and EMAIL-002 was over-general
+
+Picked back up after the route group landed. The build session's RUNBOOK step 2 flagged
+something squarely mine: **"the 08-15 AUTH check was run from the dev box (EMAIL-002: some
+hosts block 25/465)"**. That is a fair hit — on 08-15 I verified the SMTP credential
+authenticates *from this dev box* and recorded it as verified, which it was, but the claim a
+reader needs before shipping is *can the island reach it*, and that is a different question
+about a different machine.
+
+**Why it mattered more than a formality.** Reading EMAIL-002 before running anything:
+*"cloud boxes can't use outbound SMTP 25/465 (Hetzner leaves only 587 submission open — **the
+cPanel UI advertising 465 misleads**)"*. That is a precise description of the path I took —
+the owner pasted a cPanel block advertising 465, I took 465, and I confirmed it somewhere
+that isn't the deploy target. If the register's generalisation had held, the first real
+visitor request would have produced a report and then silently failed to deliver it, at the
+mailer, on the box, after the visitor was told an email was coming.
+
+**[MEASURED] from the island** (`toolsapisuk.vs.mythic-beasts.com`, read-only probes, **no
+credential used or placed on the box** — reachability and capability only, so step 2's
+secret-writing is untouched):
+
+| probe | result |
+|---|---|
+| `openssl s_client -connect mail.contactforsales.com:465` | TLS handshake completes; `220-rs17.uk-noc.com ESMTP Exim 4.99.5` |
+| `EHLO` on that 465 session | `250-rs17.uk-noc.com Hello island [176.126.243.183]` |
+| AUTH advertised on 465 to that IP | **`250-AUTH PLAIN LOGIN`** |
+| port 587 (the EMAIL-002 fallback) | also open, same Exim banner |
+| relay limits, captured in passing | `SIZE 52428800`, `LIMITS MAILMAX=1000` |
+
+**So: 465 is open from the island, and the configuration as it stands is correct — no change
+needed.** Keeping 465 also keeps `mailer.UsesImplicitTLS`'s `port=="465"` branch and
+`GRIPPER_SMTP_PORT=465` consistent; 587 would have meant the STARTTLS fork instead.
+
+**Two corrections fell out, both recorded where the claim lives rather than only here:**
+
+1. **EMAIL-002 is over-general and has been narrowed in the register.** *"Cloud boxes can't
+   use outbound SMTP 25/465"* is true of **Hetzner**, the box it was written from, and false
+   of **Mythic Beasts**, measured above. That entry is `status: deployed` and council seats
+   read register entries as ground truth, so leaving it would have had the next lane design
+   around a constraint that does not exist for them. **The lesson that survives is the check,
+   not the conclusion** — measure from the host that will send, never from a sibling box and
+   never from the provider's own UI — and that is what the narrowing now says.
+2. **My "k8s Secret" wording was wrong** and I wrote it three times (08-05 proposal §8,
+   08-10 and 08-15 handoff bullets). `tools-api` runs on the **island VM** under docker
+   compose, so the credentials go to `/opt/island/.env`, not a cluster Secret. The build
+   session caught it in the proposal header; I have now corrected the handoff bullet too,
+   since that is the cold-start path and the proposal header alone would not have reached a
+   reader who starts from RESUME. Worth naming the trap: there *is* a
+   `deployments/kustomize/services/tools-api/` overlay in the repo, which is exactly what
+   made the k8s reading feel already-verified — **the overlay's existence is not evidence of
+   where the live endpoint runs.**
+
+**One method note for next time**, because it nearly produced a false negative: the runbook's
+own probe was `… 2>&1 | head -2`, and on this host the first lines are OpenSSL's cert-chain
+verification, so the `220` is pushed past line 2 and the check reads blank — indistinguishable
+from "port blocked". Grep for `^220` instead of taking the head. Fixed in the runbook.
+
+**Still not mine and deliberately not taken:** the council REVISE resubmit (`623da25b`) is the
+build session's — they read the round-1 report and left themselves the recipe, and racing them
+to it would be exactly the compete-don't-contribute failure `who-owns.py` exists to prevent.

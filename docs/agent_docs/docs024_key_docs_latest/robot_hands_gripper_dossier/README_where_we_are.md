@@ -694,3 +694,33 @@ put the two credentials on the island (I have not sent them anywhere), check the
 open *from the island* (the 15 August check was from this machine), build and swap the image,
 create the tables, apply the cluster config with the same key, switch the pull task on, then
 build the page and widget on robot-hands.com. I'd like your go-ahead before I touch the island.
+
+---
+
+**2026-08-16, later.** I did the one item on that list that needed no permission and no
+secrets: checking whether the island can actually reach the mail server.
+
+This mattered more than it sounds. When you sent the mail settings, I checked they worked —
+but I checked from *this* machine, not from the server that will actually be sending. Our own
+notes carry a hard-won warning from months back that some hosting providers silently block the
+exact mail port we're configured to use, and specifically that the cPanel screen advertising
+that port can be misleading. Which is precisely the route we took. If that warning had applied
+here, the failure would have been an ugly one: someone requests a report, we build it, we tell
+them it's coming, and the email quietly never sends.
+
+**Good news: it works.** The island reaches the mail server on the configured port, the server
+answers, and it offers to accept a login from that machine specifically. So the settings as
+they stand are right and nothing needs changing. I did this without putting your password on
+the island — it was purely a "can these two machines talk" check, so the actual credential
+step is still untouched and still waiting on you.
+
+Two things I corrected while there. Our internal note about mail ports was written from a
+different hosting provider and stated too broadly — as if no cloud server can use this port.
+That's true of the provider it was written on, not of ours, and the note is now corrected so
+the next person doesn't design around a limit that doesn't apply. And I'd written in a few
+places that the credentials would go into the cluster's secret store; that was wrong — this
+service runs on the island, so they belong in the island's own config file. The other session
+spotted it, and I've fixed it where I originally wrote it.
+
+Everything else on that list still needs your go-ahead, and still needs the credentials put on
+the box by you or someone you've authorised.
