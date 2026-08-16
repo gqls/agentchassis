@@ -138,3 +138,7 @@
   invocation).
 - Misstep: my first round-2 JSON edit appended a 9th edit and then truncated to 8 — dropping the
   very lockstep edit the seats asked for; caught by printing the file list; folded into edit 5.
+- 15:11Z the first round-2 envelope (`e79f31d9`) went `complete_invalid`: `edit 5: file path must be
+  repo-relative with no traversal or whitespace` — my three-files-in-one `file` field. Fixed (single
+  path; other files named in symbol/rationale) and republished ONCE (`RUN_ORCH_ID=0b7c937d`,
+  envelope `eca48e3f`). WRONG_CALLS row written. Check the run's `current_step` at +60 s next time.

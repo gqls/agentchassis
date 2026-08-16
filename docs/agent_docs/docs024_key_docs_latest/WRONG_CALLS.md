@@ -32610,3 +32610,22 @@ BEFORE the commit lands, not after — it listed both 252 files and I read it as
 
 **Cost:** none realised; a commit message that names 252 for a change about LANDMINES, which
 `git log --follow` on those files will show forever.
+
+## 2026-08-16 — a council resubmission that never reached a seat: `edit.file` = "a.go + b.go + c.go" (bugfix_285_lock_blind_section_list lane)
+
+**What I did:** to stay under the 8-edit cap I folded three round-2 files into one edit and wrote
+the `file` field as `platform/.../component_validation.go + save_page_sections_action.go +
+lock_gate_test.go`. The gate's plan validator (`diagnose_persist_fix_plan`) refuses any file that
+is not a single repo-relative path with no whitespace; the run went `persist_submission` →
+`complete_invalid` in seconds. No seat ran, no credits spent, but the round-2 trail carried a
+dead envelope and I read `count(council_report) < 2` as "still reviewing" for ten minutes.
+
+**Why it felt safe:** the JSON parsed, the round-1 submission with the same shape had been
+accepted, and "file" read to me as a label. It is a PATH — the seats' footprint gating keys on it,
+which is exactly why the validator is strict.
+
+**The cheap check:** after publishing, read the run's `current_step` once at +60 s (`SELECT
+current_step, status FROM orchestration_states WHERE orchestration_id='<RUN_ORCH_ID>'`) —
+`complete_invalid` is a distinct terminal step and its `__step_error` names the field. And keep
+one path per `file`; put the other files in `symbol`/`rationale`. Cost: ~10 min and one wasted
+dispatch. Tally for "counted verdicts instead of reading the run's step": 1.
