@@ -1,0 +1,27 @@
+id|domain|item_type|pre_status|attempt_count|max_attempts|page_id|summary
+b4545399-b52f-4711-a2f6-722eb441da08|dartsonline.com|content_rewrite|failed|1|3|552bb99e-17e2-4c31-a904-6dda2b7530bd|Add content to index: The homepage (index) is the natural home for a l
+20fd61a1-6fa6-4cc9-8fe0-41f43a790483|dartsonline.com|content_rewrite|failed|1|3|5009f5c8-b18e-499f-83bf-b458f46f84a3|CANARY bugs_open/268: edit_live rewrite of beginners — proves renderer
+a61e48ba-e0f8-41ad-a748-fe55d874f503|dartsonline.com|content_rewrite|failed|1|3|552bb99e-17e2-4c31-a904-6dda2b7530bd|PERMANENCE PROOF bugs_open/268: edit_live rewrite of the freshly repai
+fbbe9b48-4d14-4121-ab74-302060ba5366|loancalculator.co.uk|content_rewrite|failed|1|3|184dde03-789a-4259-9177-a1ada2cdd6cd|Add content to index: The index (landing) page already exists and is t
+2f56dcb7-f56a-4431-95b2-1479c78c0593|webdesign.co.uk|needs_content_page|failed|1|3|d8875fbf-4c3b-470b-b8c1-8895d9735572|Write content for tool page: A/B Test Significance Calculator
+831b6d0a-c98f-4ced-8372-8558e5ac028a|webdesign.uk|content_rewrite|failed|1|3|7702361b-856a-4c3b-86f5-f14a4db1b52d|Migrate what-you-get to the £149 offer: the deposit, the refund window
+d6fceef6-0787-4136-aefc-902886e8958f|webdesign.uk|content_rewrite|failed|1|3|7702361b-856a-4c3b-86f5-f14a4db1b52d|Rewrite what-you-get for the take-it-or-leave-it £149 offer
+dffe2323-3b08-46d6-ab8f-024c308a7bcf|webdesign.uk|content_rewrite|failed|1|3|4f180f39-b65a-4327-aa5a-2faa5c34751b|Home page must state the no-changes term plainly
+cb76a81f-b4e6-476a-9c76-f2cc1087a164|webdesign.uk|content_rewrite|failed|1|3|5adcc9b9-0dce-46b4-a727-d01e9005188b|Round 5: the imperative is in the wire; rewrite faq (guidance field is
+fa9e51c0-640f-4d55-865d-c3b728b80832|webdesign.uk|content_rewrite|failed|1|3|e7337e16-911e-4892-85a0-74514827f777|Duration to usually-next-day on how-it-works (fact re-attested; instru
+1866fa57-bdb2-4b59-a619-f506580a0ecb|ai-agent-orchestration.com|content_rewrite|needs_human_review|0|3|06f7b3bc-1269-4cf9-aef1-3481b855aeee|Add content to about: The proof-point gap is not a missing page proble
+9a83a782-1a56-4e01-9e7d-5abac94e8939|ai-agent-orchestration.com|content_rewrite|needs_human_review|0|3|9baea9f9-4d4c-449d-949c-e5753d4faf67|Add content to index: The adoption tracker data is already collected a
+4af3f673-db3c-49af-a219-d1085a8dc772|ai-agent-orchestration.com|needs_content_page|needs_human_review|0|3|7f13f791-b703-47f7-85e2-3dbbf37dc8a5|Write content for tool page: AI Automation Time Savings Estimator
+18864b81-c751-4bb4-bb59-82b46b1d61b8|finetuning.uk|content_rewrite|needs_human_review|0|3|1e0f6525-ea9d-44d7-9353-1ba96c3f0123|Add content to services: The gap is about missing social proof and con
+b2c45f09-7a46-46f7-b2da-b44c4ffacb5b|finetuning.uk|needs_content_page|needs_human_review|0|3|a63d62f9-f7c0-4b32-83ee-5cd2770a61c2|Write companion guide: Understanding Fine-Tuning vs RAG vs Prompting D
+452a2820-07cd-48ff-9d4f-1fc14a25fc02|leopardessconsulting.co.uk|content_rewrite|needs_human_review|0|3|66f5a351-1dc3-43c7-bf78-8f1bf47eb9f8|Add content to about: Social proof doesn't need its own page — it need
+090d87e8-fbd4-4843-864c-5465fefead17|leopardessconsulting.co.uk|content_rewrite|needs_human_review|0|3|b6562366-5420-4412-b45f-09ca6c53570f|Add content to case-study-data-pipeline-companies-house: The four case
+cc8e0835-953f-4da6-b3b2-ea546fa71923|leopardessconsulting.co.uk|content_rewrite|needs_human_review|0|3|ecfd0bfd-bc5c-4ed4-9c45-7ba9143e72c8|Add content to ai-readiness-quiz: The case study pages and AI readines
+fea3e51f-acb5-4789-89f2-cedc7558941c|leopardessconsulting.co.uk|content_rewrite|needs_human_review|0|3|3d2fd9fc-5473-4621-b259-6c7e412ddb42|Add content to case-study-kubernetes-inference-platform: The gap descr
+0de0629f-b9d2-41c4-83f9-809101eae038|leopardessconsulting.co.uk|content_rewrite|needs_human_review|0|3|9818fa32-9635-4181-8ea1-b117d0b9488c|Add content to case-study-tool-generation-pipeline: The gap describes 
+cbebae0a-b391-4df6-8f9d-d16e4672f749|leopardessconsulting.co.uk|content_rewrite|needs_human_review|0|3|b2edae00-c10e-404a-9937-1ed969cd4d62|Add content to index: The gap is a single qualifying sentence that gat
+be541015-66a7-40bd-ba00-4a022f7bdb0d|leopardessconsulting.co.uk|content_rewrite|needs_human_review|0|3|ff5e75e3-547b-4a91-b00b-766d144ea4b9|Add content to case-studies: The case-studies page already exists and 
+0c65f9fa-ddce-4e83-a6a8-4f252b3cf3cb|mortgagecalculator.co.uk|content_rewrite|needs_human_review|0|3|0c252ee5-05f5-4b16-ad95-43795f4f198e|Add content to scorecard-simulator: The site already has a page named 
+42236807-74d3-4dca-9eed-0f0717f24090|robot-hands.com|content_rewrite|needs_human_review|0|3|0747e2fc-43e1-4250-9f55-b1dbf5617482|Add content to index: Trust signals belong on the pages where credibil
+02301910-ba3e-4979-9cc2-9ba5ab7a1ba4|robot-hands.com|content_rewrite|needs_human_review|1|3|b16c654c-a1ed-4aba-98d3-6aaa11525063|Add content to matchmatrix-methodology: The matchmatrix-methodology pa
+(25 rows)

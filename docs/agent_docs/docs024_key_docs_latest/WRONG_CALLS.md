@@ -32935,3 +32935,118 @@ got promoted into a mechanism. **A second rule, for reading verdicts:** a REFUTE
 and following it without checking which agent's step the error rows belonged to would have cost
 another day. Check the lead's own premise first: one error row against thirty-one dead runs was
 never going to be the cause.
+
+---
+
+## 2026-08-16 — I wrote a test to prove a guard, and a second guard downstream made it pass regardless (bugs_open/257)
+
+**The claim.** In the `bugs_open/257` fix I added `configMaxTokens`, which requires
+`max_tokens > 0` so that a configured zero — a hard 400 from Anthropic — reads as *unset*
+rather than being sent. I wrote `TestUnusableConfiguredValuesFallBackRatherThanBeingSent`,
+asserted that a `max_tokens: 0` config produced a 2048 request, and recorded that the guard
+was tested.
+
+**What caught it.** My own mutation run, which is the only reason this is a near-miss and not
+a shipped false claim. Mutation **M9** deleted the `> 0` check (`case float64: return int(v),
+true`). The test **PASSED** — the mutation survived. Nine other mutations were killed cleanly,
+so the harness was working; this one specific claim was hollow.
+
+**Why.** Three lines downstream I had added a defensive floor at the wire — `budget :=
+c.maxTokens; if budget <= 0 { budget = DefaultMaxOutputTokens }` — for an unrelated reason
+(struct-literal test fakes carrying a zero value). It sits in **SERIES** with the resolver. So
+with M9 applied: `configMaxTokens` wrongly returns `(0, true)` → `resolvedMaxTokens` returns 0
+→ the floor rescues it to 2048 → the request carries 2048 → my assertion is satisfied. The
+test was passing on the floor while naming the guard. Ollama masks it the same way via
+`if c.maxTokens > 0`.
+
+**The cheap check that would have.** Assert the guard's **own return value**, not a
+downstream artefact of it: `got, ok := configMaxTokens(map[string]interface{}{"max_tokens":
+float64(0)})` and require `ok == false`. Nothing is in series with a direct return. That test
+(`TestConfigMaxTokensDistinguishesAChosenBudgetFromAnUnusableOne`) kills M9 immediately.
+
+**The transferable rule.** *When two guards sit on one path, an end-to-end assertion can only
+ever test their CONJUNCTION — it cannot attribute the pass to either one.* This is the
+existing "a mutation that PASSES usually hit a guard in SERIES" lesson arriving from the other
+direction: there, a surviving mutation misled you about the CODE; here it exposed that a
+passing test was misdescribing itself. If you want to claim a specific guard is covered, the
+test must reach it with nothing downstream able to repair the answer. Defence in depth is good
+engineering and it is corrosive to test attribution, and those two facts are not in tension —
+you just have to test the layers separately.
+
+**A second, smaller one from the same hour, recorded because the SILENCE was the finding.**
+Adding a field to the client structs meant every struct-literal test fake would carry a zero
+budget. I expected the existing `platform/aiservice` suite to fail loudly and planned to
+update the fakes. It passed instead — and that was worse, because it meant the suite asserts
+nothing about the field that decides whether every reply in the fleet is truncated. The
+correct response was not to edit the fakes into agreement (that is fixing the checker to match
+the code) but to make a zero unrepresentable at the wire. **An unexpected green is a finding
+about your tests, not a licence to proceed.**
+
+## 2026-08-16 — bugfix_271 lane: a discovery grep for "some hex string" nearly made me report a fix ABSENT that was present
+
+- **"The fix is NOT in this build."** I was one sentence from reporting that to the owner.
+  The `build provenance` startup line had rotated out of the chassis logs entirely (absent even
+  with `--since-time=<pod start>`), so I fell back to
+  `grep -oiE '(commit|git_sha|revision)"?[: ]+"?[0-9a-f]{7,40}'` over the captured log and got
+  `commit a85ad401`, five times over — a stable, plausible, wrong answer. `git merge-base
+  --is-ancestor 9a7d23c49 a85ad401` then said NO, correctly, about the wrong commit.
+  `a85ad401` is the **code-index snapshot commit** (2026-08-12) quoted inside the
+  landmine-verifier's own verdict prose, which the chassis writes to its logs as CONTENT.
+  CLAUDE.md warns against a discovery grep for "some 40-hex string" **in a binary**; I used one
+  on a LOG STREAM, which is the same failure with more ways to be fooled — logs carry other
+  systems' commit ids as data. **Cheap check:** anchor a provenance read to the line that emits
+  it (`"msg":"build provenance"`, from `cmd/<service>/main.go`), never to a bare hex pattern;
+  and when the line has rotated, probe the binary for a KNOWN SYMBOL with a present-AND-absent
+  control pair, which is what settled it. Tally for "a discovery pattern matched foreign
+  content": 1.
+
+- **Same lane: I declined a council objection with a reason that was too broad, and the objection
+  was right.** The `debug_historian` seat asked for a pod-level symbol probe in the close-out;
+  I declined it as "the recipe retired on 2026-08-11". The retired part was `strings` (absent
+  from debian-slim) and same-tag inference — `grep -a` on `/proc/1/exe` with controls is
+  CLAUDE.md's own sanctioned fallback, and once the provenance line had rotated it was the ONLY
+  method left. **Cheap check:** when declining a reviewer's suggestion because a recipe is
+  retired, name which PART is retired and confirm the suggestion actually falls inside it.
+  Tally for "over-broad decline of a review objection": 1.
+
+- **I contaminated my own negative control and only noticed by luck.** The control (an item with
+  NEITHER guidance key, which must gain no `## Rewrite Guidance` heading) is measured over a time
+  window — and minutes after filing it I re-triaged **25 guidance-carrying items** into that same
+  window at the owner's instruction. Their prompts legitimately carry the heading, so a
+  window-scoped count would have read as the control FAILING and I would have had a false
+  refutation of my own fix. The window happened to still be empty when I noticed; I re-scoped to
+  a content discriminator (the prompt's opening line names the page). **Cheap check:** before
+  filing a negative control, ask what else you are about to inject into its measurement window —
+  a control is only a control if nothing else can produce its positive signal. Tally for
+  "polluted my own control window": 1.
+
+## 2026-08-16 — I wrote a rollback check that says "the latest snapshot", while citing the landmine that says exactly not to (staged_component_build / migration 417)
+
+**The claim,** written into migration 417's header as one of two *measured* pre-apply checks, and
+repeated in the council submission's `grounded_in` and in the handoff: *"the pre-image for the
+ROLLBACK lives in `agent_definitions_backup` … `SELECT snapshot_taken_at, snapshot_reason,
+… ? 'asset_id?' AS has_old … ORDER BY snapshot_taken_at DESC LIMIT 1;  -- expect has_old = t"*.
+
+**What was wrong:** the ordering. The LANDMINES entry I was citing in the very same paragraph
+says *"don't ask whether a snapshot exists, ask whether it holds the pre-change config"* — and I
+then wrote a query that asks for the newest row and merely *hopes* it holds the old key. The
+owner applied 417 twice (a second run to confirm); the replay's `snapshot_agent` wrote a second
+row with the same `pre-update` reason and the **post**-change content, so my check now returns
+`has_old = f` and the true pre-image (25 s earlier) looks missing. Anyone restoring from "the
+latest snapshot" would have re-applied the change they were undoing.
+
+**Why it read as sound:** the check WAS a measurement — I ran `pg_get_functiondef`, confirmed the
+two-arg overload's target table, and pasted a real query with a real expected value. All true, on
+a single-apply timeline. A dated `[MEASURED]` figure that could not have come out otherwise is
+the failure mode this file already records; this is its sibling — **a check whose correctness
+depends on an assumption I never wrote down (that the migration runs exactly once)**.
+
+**The cheap check that would have caught it:** predicate on the CONTENT, never on recency —
+`… WHERE default_config #> '{…}' ? '<old key>' ORDER BY snapshot_taken_at DESC LIMIT 1`. It is
+the same number of characters and it cannot be inverted by a replay. General form: when a check's
+job is "find the row that has property P", write `WHERE P`, not `ORDER BY time` and a hope.
+
+**Cost:** none realised — no restore was attempted; caught while reading the owner's paste of the
+two runs. Corrected in place in 417's header (comment-only; the applied SQL body is byte-identical,
+proven by diffing non-comment lines against the pinned baseline `53edef286`), the duplicate
+`doc_notes` row deleted under a guard, and the trap generalised into LANDMINES.

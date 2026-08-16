@@ -260,3 +260,86 @@ wrong. It is not — it is unverifiable-in-part by a tool whose ground truth
 predates the code. The honest close is that the entry stands on the parts
 verified at `a85ad401` plus this session's own first-hand reads, and the
 alias half re-verifies for free once the index is repinned.
+
+## 2026-08-16 — VERIFIED LIVE at the artefact on v1.0.1304
+
+The owner cut a release; `agent-chassis` moved 1303 → **v1.0.1304**, pods started
+10:41:27Z / 10:41:48Z.
+
+**Establishing the binary took two attempts and the first was wrong.** The
+`build provenance` startup line was already out of retained logs — not just out of
+`--tail=2000`, but absent from `--since-time=<pod start>` as well, so container log
+rotation had eaten it. The chassis DOES emit it (`cmd/agent-chassis/main.go:53`),
+so this is a retention limit, not a missing stamp.
+
+### Misstep 4 — a discovery grep for "some hex string" nearly made me report the opposite
+
+Falling back, I grepped the captured logs with
+`grep -oiE '(commit|git_sha|revision)"?[: ]+"?[0-9a-f]{7,40}'` and got
+`commit a85ad401`, five times over. `git merge-base --is-ancestor 9a7d23c49
+a85ad401` then answered **"the fix is NOT in this build"** — a clean, confident,
+completely wrong result I was one sentence from reporting.
+
+`a85ad401` is the **code-index snapshot commit** (2026-08-12), quoted inside the
+landmine-verifier's own verdict prose, which the chassis logs. It is not a build
+stamp and never was. CLAUDE.md warns about exactly this — *never a discovery grep
+for "some 40-hex string"* — and I used one anyway, on log text rather than a
+binary, which is the same failure in a new place.
+
+**The check:** a provenance read must be anchored to the LINE that emits it
+(`"msg":"build provenance"`), never to a pattern that matches any hex-looking
+token in the stream. Logs carry other systems' commit ids as CONTENT.
+
+**What worked instead** — a symbol probe with both controls in one breath:
+
+| probe | result |
+|---|---|
+| `aliasGuidanceIntoSuggestion` (subject) | PRESENT on both pods |
+| `setRoutingField` (positive control, weeks old) | PRESENT |
+| `aliasGuidanceIntoSuggestionZZZ` (negative control) | ABSENT |
+
+This also **reverses my earlier decline of the council's `debug_historian`
+objection**. That seat asked for a pod-level symbol probe and I declined it as a
+retired recipe. The retired part was `strings` (absent from debian-slim) and
+same-tag assumptions; `grep -a` on `/proc/1/exe` with a present-and-absent control
+pair is CLAUDE.md's own sanctioned fallback, and when the log line has rotated it
+is the ONLY method left. The seat was right and my reason for declining was too
+broad.
+
+### The canary — positive, at the artefact
+
+Filed on `pool-energy-utilities.internal` (unserved internal pool site, 0 deployed
+pages, quiet 6 days — nothing customer-facing at risk), page `faq`, brief in the
+**DEAD spelling only** (`content_guidance`, no `suggestion` key — verified at
+insert time), sentinel `heliotrope kettledrum`. Baseline: 1 writer call in the
+prior 3h, **0** sentinel hits.
+
+Result — claimed after 120s, sentinel in the prompt 135s later:
+
+| measure | value |
+|---|---|
+| page-content-writer calls in window | 2 |
+| prompts containing the sentinel | **2 of 2** |
+| prompts containing `## Rewrite Guidance` | **2 of 2** |
+| stored `page_components` containing the phrase | **2** |
+| item final status | `complete`, no error |
+
+A brief that could ONLY have arrived via the alias reached the prompt AND the
+stored artefact. That is the fix working end to end on the live fleet.
+
+### Two measurement notes worth keeping
+
+- **`llm_call_log.work_item_id` is NULL on child-agent calls.** Fable's plan
+  marked this `[UNVERIFIED]` and deliberately avoided relying on it; now measured
+  — writer calls spawned under a `page-build-handler` item carry **no**
+  `work_item_id`, so it cannot scope a canary. Scope by time window plus a
+  content discriminator instead.
+- **I contaminated my own negative control and caught it late.** The control
+  (an item with NEITHER key, which must gain no `## Rewrite Guidance` heading) is
+  measured over a time window — and I re-triaged 25 guidance-CARRYING items into
+  that same window minutes later. Their prompts will legitimately contain the
+  heading, so a window-scoped count would have read as the control failing.
+  The window happened to still be empty when I noticed. **The check:** before
+  filing a negative control, ask what else you are about to inject into its
+  measurement window — a control is only a control if nothing else can produce
+  its positive signal.

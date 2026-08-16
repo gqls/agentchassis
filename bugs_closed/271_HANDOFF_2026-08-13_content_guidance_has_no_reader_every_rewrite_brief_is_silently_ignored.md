@@ -272,3 +272,73 @@ line has scrolled again, probe the binary for the known sha with a
 present-AND-absent control pair — never a discovery grep for "some 40-hex
 string", which matches Go's internal digit table and returns the same wrong
 answer on every service.
+
+---
+
+## 10. ✅ VERIFIED LIVE 2026-08-16 on chassis **v1.0.1304** — CLOSING
+
+**Fixed AND live**, both halves measured at the artefact rather than inferred.
+
+### The binary carries it (symbol probe, both controls in one breath)
+
+The `build provenance` startup line was gone from retained logs — absent even
+from `--since-time=<pod start>`, i.e. rotated, not missing (the chassis does emit
+it, `cmd/agent-chassis/main.go:53`). So:
+
+| probe | result |
+|---|---|
+| `aliasGuidanceIntoSuggestion` (subject) | **PRESENT** on both pods |
+| `setRoutingField` (positive control, weeks old) | PRESENT |
+| `aliasGuidanceIntoSuggestionZZZ` (negative control) | ABSENT |
+
+> ⚠ **A discovery grep gave the OPPOSITE answer first.** Grepping the logs for
+> `(commit|git_sha|revision)…[0-9a-f]{7,40}` returned `commit a85ad401`, and
+> `git merge-base` then said the fix was NOT in the build. `a85ad401` is the
+> **code-index snapshot** (2026-08-12) quoted inside the landmine-verifier's
+> verdict prose, which the chassis logs as CONTENT. Anchor a provenance read to
+> the emitting line (`"msg":"build provenance"`), never to any hex-looking token
+> in the stream.
+
+### The canary — a brief that could ONLY have arrived via the alias
+
+`pool-energy-utilities.internal` (unserved internal pool site, 0 deployed pages,
+quiet 6 days), page `faq`, spec carrying **`content_guidance` and no
+`suggestion`** (asserted at insert), sentinel `heliotrope kettledrum`.
+Baseline: 1 writer call in the prior 3h, **0** sentinel hits.
+
+| measure | positive canary | negative control |
+|---|---|---|
+| page-content-writer calls | 2 | 2 |
+| prompts with the sentinel | **2 / 2** | 0 / 2 |
+| prompts with `## Rewrite Guidance` | **2 / 2** | **0 / 2** |
+| stored `page_components` with the phrase | **2** | — |
+| item final status | `complete`, no error | — |
+
+The control (same site, page `about`, **neither** key) proves the heading is not
+unconditional — it appears only when a brief is present. Control prompts are
+identified by their own opening line (`… section of About Us | Pool Energy
+Utilities`), not by a time window, because 25 guidance-carrying items were
+re-triaged into that same window minutes later and would have contaminated a
+window-scoped count.
+
+### The 90 historical rows
+
+All 25 non-terminal ones (10 `failed`, 15 `needs_human_review`) were
+**re-triaged 2026-08-16 at the owner's explicit instruction**, after the fix was
+proven — each row's `error` records its prior status and why. The 9 `failed`
+rows had died at `deploy_page` with the spawn→call handshake error, so their
+pages very likely deployed while the item read `failed`; they are being re-run
+now **with their briefs actually reaching the writer** for the first time.
+Pre-state for reversal: `bugfix_271_content_guidance/RETRIAGE_2026-08-16_pre_state.psv`.
+The remaining 65 are `complete`/`cancelled`/`wont_fix` and were left alone.
+
+> **Owner decision, recorded because it overrides a gate:** flipping the 15
+> `needs_human_review` rows bypasses a human-review gate, several parked since
+> April, and touches nine live sites owned by other lanes (6 of the 10 failures
+> are webdesign.uk/.co.uk). That was put to the owner with those three risks
+> named and the answer was "all 25". One re-triaged row is another lane's own
+> canary (`bugs_open/268`'s `edit_live` proof on dartsonline) — that lane should
+> know its canary has been re-run.
+
+**Register `WDS-016` promoted `built` → `deployed`.** This file moves to
+`bugs_closed/`.
