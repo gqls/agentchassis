@@ -894,3 +894,52 @@ Second attempt: it worked, end to end. Eight findings, every one routed to a rea
 "cookie-cutter" and "animations beyond hover" complaints from July are back in the queue,
 this time reachable. Bugs 279 and 115 are closed. Still open and owned: 284 (what keeps
 grabbing parked roadmap rows) and 287's code half awaiting its release.
+
+---
+
+## 2026-08-16 — the findings all landed; reading the pages afterwards is where it gets interesting
+
+Yesterday ended with the analyser enrolled and its first findings starting to move. Overnight they
+all finished moving. Seventeen findings across three sites: thirteen finished, three failed, one
+correctly parked for you. So the machine works end to end, unattended — that part is settled.
+
+Then I did the thing we keep telling ourselves to do, and read the actual pages rather than the
+status column. Two things came out of it that the statuses do not say.
+
+**First, the good news, and it is real.** The web design home page now opens: *"Sixty-three browser
+tools for front-end work. No account, no upload, nothing stored. Everything runs client-side, so
+nothing you type or drop into a tool leaves your machine."* That replaced "Tools and guides for
+people who build websites". The gas wholesalers home page now opens by saying every load is priced
+against the Platts daily benchmark plus a single fixed margin — a checkable operational fact where
+there used to be a category label. I proved the first one was our work and not a coincidence: the
+page was rewritten thirteen seconds before the finding was marked done, by the job the finding
+spawned.
+
+**Second, the catch — and it is the same mistake you complained about in the first place.** Each
+finding is filed with a test attached: a plain sentence saying what "fixed" would look like. The
+web design one said the new copy must mention at least two of *no account, runs in the browser,
+nothing stored* **before any count of tools or articles**. The rewrite mentions all three. It also
+leads with "Sixty-three". That is a count of our own inventory — the exact thing the analyser's own
+"do not lead with" list puts at number one, and the exact thing that made you reject "23 free UK
+calculators" last week. The finding was marked complete anyway.
+
+The reason is structural rather than anyone being careless: **nothing reads the test.** The agent
+that writes the fix is not shown it, and the agent that marks the item done does not check it. We
+built a falsifiable test into every finding and then never asked the question. On the gas
+wholesalers page the same gap shows up differently — the finding was specifically about the page
+*title*, the title still contains the exact phrase it objected to, and the item is marked complete
+because the hero underneath it got rewritten.
+
+**Third, two of the three failures are not what yesterday assumed.** I had put them down to the
+known messaging fault. Two of them are something else entirely, and it is worth knowing about: a
+quarter of the pages on the estate (172 of 704) are marked as owned by a tool or widget, which
+means a generic "rewrite this page" is refused outright to stop it destroying the tool. The refusal
+is correct and the error message even names the right alternative — but nothing acts on it, so the
+finding just dies. This is not our problem alone: the design auditor and the automated checkers
+have items sitting dead on owned pages too. The route that works on those pages exists and is used
+successfully eighteen times elsewhere; no content finding is ever put onto it.
+
+So: the analyser is producing findings that make sites genuinely better, and the weakest link has
+moved. It is no longer "can we find the right thing" — it is "does the fix actually satisfy what we
+asked for, and does anyone ever check". I have not fixed either of these yet; I want your steer on
+which to take first.

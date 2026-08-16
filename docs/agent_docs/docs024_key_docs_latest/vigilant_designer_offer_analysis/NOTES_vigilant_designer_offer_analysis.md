@@ -1899,3 +1899,110 @@ churn. What the sweep did, every claim from `orchestration_states` + `site_work_
 applied, sweep-exercised, deduping, and draining. The `triaged` five travel on the next
 dispatch round; the `failed` one retries or re-files (its item_key is free — `failed` is
 outside the dedup index's open set).
+
+## 2026-08-16 — cold-start re-verification: the whole first population DRAINED overnight, and reading the artefacts found two things the statuses do not say
+
+Cold-start per `HANDOFF_2026-08-15`. Every liveness claim re-run first; then, because the handoff
+said the last unwitnessed thing was the items travelling, I read where they ended up.
+
+### What held, and what had moved (all `[MEASURED]` 2026-08-16 ~16:10 UTC)
+
+- **409 is live in the loop.** `improvement-loop` steps include `spawn_offer_analyser` and
+  `call_offer_analyser`. Also now present, new since the handoff: `spawn_brief_fidelity` /
+  `call_brief_fidelity` — the 279 lane's held wiring went in this morning (their README entry).
+- **`offer_ordering` still 3 of 22 sites.** No sweep has taken B4 to a fourth site since 08-15.
+- **All 17 offer-analysis items are now TERMINAL** (was: 14 filed, 5 `triaged`, at handoff time).
+  **13 `complete`, 3 `failed`, 1 `needs_human_review`.** Everything drained between 15:17 and
+  19:24 on 08-15. IMP-016's cycle is not just witnessed once — the whole first population has
+  been through it.
+
+### The three failures: TWO are a guard firing correctly, not Kafka
+
+The handoff attributed the one failure it saw to the intermittent Kafka fault (`bugs_open/040`).
+That is right for the one it saw and **wrong as a generalisation of the other two**, which had
+not happened yet when it was written. Read from `collected_data->>'__step_error'` on the
+orchestrations the items name in `result.completed_by_orchestration_id`:
+
+| item | orchestration | actual cause |
+|---|---|---|
+| gaswholesalers `content_rewrite` 15:26 | `75941f6e` | **beyond retention — GONE.** The NOTES 08-15 record of it as Kafka `no leader` stands as the only evidence; I could not re-read it |
+| webdesign `content_rewrite` (about) 19:18 | `bbee148d` | `step save_sections failed: … page about is rebuild_policy=owned (tool/widget-owned): a generic section save would clobber it. Use apply_section_edit for targeted edits or the tool pipeline for rebuilds. Refusing to overwrite.` |
+| webdesign `tone_shift` (learn-index) 19:21 | `1bdbbedc` | same guard, same message, page `learn-index` |
+
+That guard is `SavePageSectionsAction` (`save_page_sections_action.go:172-196`, the TL-001 clobber
+guard, unified through `pageIsOwnedForGuard` by `bugs_open/208`). **It is doing exactly its job.**
+The defect is upstream of it: a `content_rewrite` finding whose page is `rebuild_policy='owned'`
+is dispatched to `page-build-handler`, which takes the generic save path, which is refused — and
+the item dies `failed` with no attempt at the route the error message itself names.
+
+**This is NOT an offer-analysis problem — it is fleet-wide.** `[MEASURED]`:
+- **172 of 704 pages are `rebuild_policy='owned'` (24%).** A quarter of the estate cannot take a
+  generic content rewrite.
+- Work items sitting on owned pages come from several filers, not just B4: `design-audit`
+  (`needs_content_page` ×2 failed, `content_rewrite` ×1 failed), the checker layer with no
+  `audit_source` (`literal_markdown` ×8 failed 08-14, `placeholder_contact` ×2 failed,
+  `content_rewrite` ×3 failed 08-15), and offer-analysis (×2, above).
+- **`section_edit` completes on owned pages — 18 of them.** So the correct route exists and works;
+  nothing routes a content finding onto it.
+
+⚠ **What I did NOT establish:** that every one of those other failures was this guard. Their
+orchestrations are past the ~24h retention and I could not read their `__step_error`. The counts
+above are "failed items sitting on owned pages", **not** "failures proven to be the owned guard".
+Two are proven, by quotation, and those two are both this lane's. `[UNMEASURED]` for the rest.
+
+⚠ **Churn is a PREDICTION, not a measurement.** `failed` is outside the dedup index's open set,
+so the next audit-due sweep of webdesign should re-file both findings, re-dispatch, and re-fail.
+I looked for that shape and **did not find it** — the repeat-filed `item_key`s on owned pages are
+all `page_rerender`/`improve_tool` with zero failures. It has not had a sweep to happen in yet.
+
+### The more important finding: `complete` overstates the repair, and nothing checks the acceptance test
+
+The items carry acceptance tests written to be "concrete enough for a different agent to check"
+(NOTES 08-14). **Nothing checks them.** Reading the artefacts against their own tests:
+
+**webdesign.co.uk `index` — attribution PROVEN, not inferred.** The item's `result` names child
+orchestration `7d669629` on `page-build-handler`, response `complete` at 19:15:38; the hero
+component's `updated_at` is **19:15:13**, inside that run. So this hero IS this finding's work.
+The hero was genuinely rewritten, and it is better copy:
+> *"Sixty-three browser tools for front-end work. No account, no upload, nothing stored. Everything
+> runs client-side, so nothing you type or drop into a tool leaves your machine…"*
+
+Its acceptance test: *"The index page hero copy **and meta description** both mention at least two
+of the following three properties **before any count of tools or articles**: no account required,
+runs in the browser, nothing uploaded or stored."*
+- all three properties present ✅
+- **but the copy LEADS with "Sixty-three browser tools" — a count of inventory, which the test
+  forbids** ❌
+- **`meta_description` is still empty**, so the "both" half cannot be satisfied ❌
+
+**The repair reproduced the defect it was filed about.** B4's own `avoid_leading_with` for this
+class opens with *"a description of the site's page count or content inventory"*; the owner's
+original complaint was the `copy_quality_two_stage` brief leading with *"23 free UK calculators"*.
+The writer fixed the finding by leading with sixty-three. Marked `complete`, by an agent that had
+no obligation to read the test.
+
+**gaswholesalers.com `index` — same shape, partially.** Hero now leads with a real operational
+claim (*"priced against the Platts daily benchmark plus a single fixed margin"*) — that half of the
+test is met and it is a good rewrite. But the finding's named artefact, the page **title**, still
+reads `Gas Wholesalers | Wholesale Fuel Distribution & Natural Gas Supply` — it gained a brand
+prefix and **kept verbatim the phrase the finding objected to**. `[INFERRED]` that the prefix came
+from something else; the hero component updated 08-16 08:39, a later rerender, so I cannot
+attribute the title state to this item either way.
+
+⚠ **An empty `meta_description` is the fleet norm, not this item's failure**: 361 of 704 pages
+(51%) carry none. That does not rescue the acceptance test — the test still asks for something
+nothing on this estate produces — but it does mean "meta empty" is not evidence the handler
+misbehaved. **It is evidence B4 writes acceptance tests against a field no handler populates.**
+
+**The one `needs_human_review`** (leopardess, dedicated case-study pages) is the right call: those
+pages need real project facts no agent can invent. Its `result` is `{}` — **no `resolved_by`, so
+nothing records WHY it stopped there.** The lane's own watch-out says read `resolved_by` to tell a
+retraction from a repair; on this route there is nothing to read.
+
+### What this adds up to
+
+B4's findings are landing as real content improvements — that is the honest headline and it is new
+information. The gap is at the other end: **a finding is filed with a falsifiable test, and the
+completion is recorded by whoever did the work, against no test at all.** Two independent
+consequences, one measured on each site: a repair that contradicts its own acceptance test
+(webdesign), and a finding whose named artefact was never touched (gaswholesalers title).
