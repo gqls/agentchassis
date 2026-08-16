@@ -4,7 +4,7 @@ Append-only, newest at the bottom. Missteps are the point.
 
 ## 2026-08-16 — session 1: from "take the next bug" to a class fix
 
-**Started at `bugs_open/225`** on the owner's instruction. First finding, before any
+**Started at `bugs_closed/225`** on the owner's instruction. First finding, before any
 design: **225 was already fixed and live** (2026-08-09), and had been kept in
 `bugs_open/` by the owner's 08-06 direction — which the owner **superseded on 08-12**
 ("if it is fixed and live it should be moved"). So the case itself was paperwork, not

@@ -1,6 +1,6 @@
 // FILE: platform/orchestration/actions/refresh_evidence_fact_drift.go
 //
-// Piece 3 of PLAN_2026-08-09_facts_into_tool_acceptance.md (bugs_open/225's
+// Piece 3 of PLAN_2026-08-09_facts_into_tool_acceptance.md (bugs_closed/225's
 // class fix): the daily evidence sweep fans a moved fact out to the TOOLS that
 // declare they encode it, instead of stopping at one per-site stale_evidence
 // item nobody handles.
@@ -9,7 +9,7 @@
 // A fact constrains what a page may SAY; nothing told the calculators that
 // encode a fact when the fact moved. mortgagecalculator's SDLT tool ran a rule
 // that expired 2025-03-31 for sixteen months while every check passed
-// (bugs_open/225). The register on that site now carries the current figures,
+// (bugs_closed/225). The register on that site now carries the current figures,
 // re-verified daily; this file is what makes a change to one of them reach the
 // tool the same day.
 //

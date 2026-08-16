@@ -415,7 +415,7 @@ var itemTypesWithoutVerifiers = map[string]verificationGap{
 
 	// Produced OUTSIDE this package by refresh_evidence_fact_drift.go in package
 	// `actions` (Piece 3 of PLAN_2026-08-09_facts_into_tool_acceptance.md, the
-	// bugs_open/225 class fix), so neither half of this guard would see it on its
+	// bugs_closed/225 class fix), so neither half of this guard would see it on its
 	// own: the SENSOR scans discovery_checks source only, and the RATCHET is a
 	// snapshot of types already in the database. Classified here on the way IN, in
 	// the same commit that ships the producer — this file's own 07-20 correction.
@@ -430,7 +430,7 @@ var itemTypesWithoutVerifiers = map[string]verificationGap{
 	// only re-check, and it is the producer. Contrast the improve_tool arm of the
 	// same producer, which IS mechanical and inherits improve_tool's classification
 	// above: there a fixer can act and the criteria fence can be re-driven.
-	"fact_drift_review": {catJudgement, "refresh_evidence_fact_drift.go (bugs_open/225 class) — a declared fact moved but the tool must not be auto-rewritten (not_a_fork / no_auto_fix / evidence_drift); carries page_id, and component_id when a fork exists. Resolution is a human ruling on whether the law moved and what the tool must now compute; the re-check is the daily evidence sweep itself"},
+	"fact_drift_review": {catJudgement, "refresh_evidence_fact_drift.go (bugs_closed/225 class) — a declared fact moved but the tool must not be auto-rewritten (not_a_fork / no_auto_fix / evidence_drift); carries page_id, and component_id when a fork exists. Resolution is a human ruling on whether the law moved and what the tool must now compute; the re-check is the daily evidence sweep itself"},
 
 	// Produced OUTSIDE this package, by applyNewPage in apply_gap_plan_action.go
 	// (bugs_open/081, 2026-07-31), so neither half of this guard can see it yet:

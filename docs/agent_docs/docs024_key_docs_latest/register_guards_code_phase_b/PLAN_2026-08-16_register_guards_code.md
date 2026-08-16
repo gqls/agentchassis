@@ -1,6 +1,6 @@
 # PLAN 2026-08-16 — the register reaches the tools that encode its facts (Phase B)
 
-**Lane created 2026-08-16** from `bugs_open/225` (SDLT calculator, expired £625k
+**Lane created 2026-08-16** from `bugs_closed/225` (SDLT calculator, expired £625k
 first-time-buyer cap, sixteen months live). 225 itself was already fixed; this lane
 exists for the CLASS, now tracked as `bugs_open/288`.
 

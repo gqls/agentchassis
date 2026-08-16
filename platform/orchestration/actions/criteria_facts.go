@@ -2,7 +2,7 @@
 //
 // The fence-level `facts` declaration — Piece 2 of
 // docs/agent_docs/docs024_key_docs_latest/mortgagecalculator_couk_adoption/
-// PLAN_2026-08-09_facts_into_tool_acceptance.md (bugs_open/225's class fix):
+// PLAN_2026-08-09_facts_into_tool_acceptance.md (bugs_closed/225's class fix):
 // a tool's criteria document names WHICH evidence-register facts the tool
 // encodes, so the daily evidence sweep can tell the tool when one of them
 // moves (Piece 3, refresh_evidence_fact_drift.go).

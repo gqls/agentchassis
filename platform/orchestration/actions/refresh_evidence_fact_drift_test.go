@@ -5,7 +5,7 @@
 // that cannot be shown to fire is the "armed but inert" shape this estate has
 // been bitten by twice (016b §9).
 //
-// The fixtures are the real bugs_open/225 shape, synthetic ids: a citation
+// The fixtures are the real bugs_closed/225 shape, synthetic ids: a citation
 // fact for the first-time-buyer relief cap, declared by a stamp-duty tool.
 
 package actions

@@ -600,7 +600,7 @@ func TestTier4ChecksAreDeferredNotCounted(t *testing.T) {
 // a tool encodes, is read only by refresh_evidence_base's fan-out, and asserts
 // nothing at acceptance time. The rule exists so a declaration that cannot be
 // read is refused where it is WRITTEN, rather than silently ignored on the day
-// a fact moves — the shape bugs_open/225 shipped for sixteen months.
+// a fact moves — the shape bugs_closed/225 shipped for sixteen months.
 func TestValidateExperienceCriteria_FactsDeclarationP11(t *testing.T) {
 	base := func(facts string) map[string]interface{} {
 		return mustJSON(t, `{
