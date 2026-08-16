@@ -2982,3 +2982,32 @@ this session's cold-start falsifier sweep:
   owner's/noted lane's — "the framework writes the content, not you").
 - **Council 55cda19b:** verdict not yet read at the time of this entry — see the next
   entry / RUNBOOK council section for the read query.
+
+## 2026-08-16 (late morning) — council 55cda19b APPROVED r1; four advisory objections measured, not argued; lockstep test lands; handoff 16 cut
+
+- Verdict read (orchestration `complete_approved` at 22:36Z on the 15th — the
+  round took ~30 min after publish; the report: `diagnosis_artifacts.body`,
+  kind `council_report`, NOT a `content` column). 4 medium/low advisories.
+- **Predicate duplication** (4 seats): the other copy is SQL text in the
+  tool-suggester row — no Go function can be shared across that gap. Fix-forward
+  = `backendCapableSQL` const + `TestBackendCapableSQL_MatchesMigration406`
+  (anchors on the `to_jsonb('SELECT` line, undoubles quotes, asserts containment;
+  **mutation-proven**: one char off fails it). Live row measured: the exact
+  expression at position 310 of the live query.
+- **Already-deployed branch** now refuses a site that lost eligibility: measured
+  0 forks of any requires-backend library tool, 0 placed, 0 `backend_provision`
+  rows — zero-impact is a query now.
+- **Callers** (guardian): exactly one live agent_definitions row calls
+  `deploy_tool_to_site` (tool-deployer); its `complete` reads `deploy_result` as
+  a blob — additive keys reach no strict reader.
+- **016 "Missing handler agents"** (historian): read it — that case is a
+  NON-EMPTY handler naming an absent agent; ours is empty + `needs_human_review`,
+  which the dispatcher never selects (`status IN ('triaged','approved')`,
+  load_work_item_actions.go:706). Same state as 195 live
+  `cta_names_unknown_destination` rows.
+- Reuse (low): the only semantic-tags helper is `BuildSemanticTags`, a writer.
+  Provenance (low): doc_plans (the EXPERIENCE_PLAN) + PLAN were read first —
+  true, just not shown in `grounded_in`. Submission-shape lesson: enumerate the
+  register/index files in the edit list; two seats could not verify them.
+- Commit `f3fd5af39` carries `Council-Reviewed: 55cda19b…`. TL-043 status
+  updated. HANDOFF_2026-08-16 supersedes 15c; MEMORY_workstreams pointer moved.
