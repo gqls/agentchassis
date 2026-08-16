@@ -319,3 +319,20 @@ because they were inside body prose rather than a `link_url` field.
 | "more than 8,297 credibility-scored" | **8,846** | `… WHERE credibility IS NOT NULL` | TRUE, understated |
 | "hold more than 2,000 orchestration state records … weeks after the fact" | rows **2,819**, pruned hourly at 24h; dipped to 1,900 on 07-26. `orchestration_state_audit` ALSO prunes (min `changed_at` 2026-08-12 when read 08-14) | `SELECT count(*) FROM orchestration_states`; `SELECT min(changed_at) FROM orchestration_state_audit` | **REMOVED — 90,790 defect class again.** Point-in-time count of a pruned table plus a retention promise false on both tables. Rephrased to mechanism only, no count |
 | "call Claude, Gemini, Mistral or another provider" | factory supports **anthropic, ollama, gemini**; openai is a stub | `platform/aiservice/factory.go:24-35` re-read | **FALSE, removed again** (third appearance of Mistral on this page; also removed 07-31) |
+
+## Re-measurement 2026-08-16 (services-restore session) — /case-studies.html and /about.html, against the LIVE register
+
+The `evidence_base` aspect is now re-verified automatically (`verified_at: 2026-08-16` on
+every metric when read at 09:03Z). Its `source.sql` is the definition — two of the raw
+counts a session would naturally run are the WRONG column:
+
+| claim (live 08-16 morning) | register says | published now | verdict |
+|---|---|---|---|
+| "2,767 business records verified" | `C1-records-verified`: `verification_status='verified'` = **2,338**, tolerance gte, **floor phrasing only** (874 reclassified 07-20; the 3,419 `count(*)` is NOT the metric) | "More than 2,000 business records verified" | REPLACED — was an exact count now ABOVE the live verified figure |
+| "5,652 items collected, 4,672 scored" | `C2`: 10,377 / 9,176, gte | "More than 10,000 … more than 9,000" | REPLACED — true but 3 months stale |
+| "143 agent definitions, 56 of them active" | `C4`: catalogue 199 (floor "more than 150"); active = `status='active'` **78** (NOT `is_active`=193) | "More than 150 … more than 70 currently active" | REPLACED |
+| "75,061 orchestration state records" | `C4-orchestration-state-records` 4,046 live, pruned | mechanism only, no count | REMOVED — the 90,790 class, third page |
+| "Eight live sites … Those eight are ours" | `C6`: 22 `status='deployed'`, all 22 probed 200 on 08-16, our own | "More than 20 live sites … All of them are ours" | REPLACED |
+| infographic pixels: "2,767 verified / 5,652 collected, 4,672 scored / 8 running today" | as above — 2,767 now overclaims | re-drawn (v4) with a number-free service-notes panel | REPLACED |
+| about stat "Core Technologies: 3" | no fact; filler | "Sites Built and Run: 20+" (`C6`) | REPLACED |
+| for-engineering-teams "90,790 … (live count, 2026-07-16)" | page archived + 404 | cleared from content_data; item closed by human decision | REMOVED (unpublished anyway) |

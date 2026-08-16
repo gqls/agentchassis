@@ -195,3 +195,14 @@ counter-example from the same site today: two icon assets created 2026-08-14 via
 scope-less `needs_imagery` → image-build-handler were born with clean `/assets/images/`
 urls — so not every creation path writes presigned; the recurring writer is on the
 hero/content-hero path(s), not the icon path.
+
+> **CORRECTION 2026-08-16 (same session as the 08-14 note above):** watched three
+> `image-build-handler` runs end to end on leopardess (`infographic_leopardess_line_v2/v3/v4`,
+> `kind:'infographic'`). The row's `url` is a presigned S3 link **while
+> `spawn_asset_deployer` is still EXECUTING** and is rewritten to `/assets/images/<key>.jpg`
+> when the deployer completes (v2: presigned at 10:08Z, clean at 10:09:23Z). So "presigned at
+> creation" is NORMAL and transient; the two at-rest presigned rows named above
+> (`hero_case_studies` 08-08, `content_hero_tool_automation_savings_estimator` 08-11) mean
+> **the deploy step never completed for those assets** — that is the thing to trace, not the
+> creation path. Sharper than what I wrote on 08-14, which read them as a creation-side
+> recurrence.

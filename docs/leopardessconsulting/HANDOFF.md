@@ -940,6 +940,15 @@ the rest of the site, and `/case-studies.html` is still publishing the old numbe
 The claims layer already knows about some of this: **3 `claims_unverified` items sit at
 `needs_human_review`**. That is the same queue nobody drained for five days in July.
 
+> **DONE 2026-08-16 (services-restore session):** every row above is fixed and live —
+> against the LIVE `evidence_base` register (re-verified daily now; its `source.sql` is the
+> definition — "verified" businesses = 2,338 by `verification_status`, NOT the 3,419
+> `count(*)`; "active" definitions = 78 by `status`, NOT the 193 `is_active` this row
+> quoted). Infographic re-drawn number-free (v4). Both `claims_unverified` items handled
+> (about: stat swapped; for-engineering-teams: archived+404, cleared, closed by hand).
+> ⚠ `case-studies-list.case_studies` is resolver-sourced from `site_specs.portfolio` —
+> edit the ASPECT, not `content_data`. Detail: RUNNING_NOTES 2026-08-16.
+
 ### 11.6 — Two platform changes since §10 that directly affect this site
 
 **The tool-naming gate is gone (owner decision 2026-08-11).** `url_field` is live on the

@@ -486,3 +486,17 @@ reachable: the **multi-page `git_commit`** path that bypasses the guard, and **`
 `index.html` commit**, which carries no page identity for the guard to check. Closing on "the
 guarded paths are proven" would retire a ticket whose defect two unguarded doors still admit.
 **Stated so the next session knows this was a decision, not an oversight.**
+
+## Contribution 2026-08-16 (leopardess services-restore session) — writes INTO an archived page's components, not just rebuild/redeploy
+
+`leopardessconsulting.co.uk/for-engineering-teams.html` (archived, 404 live, `build_status`
+still 'deployed', `deployed_at` 2026-07-17 — already in the table above): its
+`generic-text-block.content_data` was rewritten with fresh LLM prose at **2026-08-15
+10:46:04Z** ("Most AI projects stall at the same point…"), and a new
+`needs_internal_links:for-engineering-teams` item was filed **2026-08-16 10:01:59Z**
+(`triaged`). Neither was this session. Producer not traced (out of lane) — recorded because
+it is a live example of the write side of this defect on a page nobody can reach, and it
+also blocks the `claims_unverified` revalidator (`bugs_open/262`'s deployed_at gate can never
+be satisfied by a page that never redeploys), which is why that item had to be closed by
+hand. The 90,790 figure it carried has been cleared from `features` so a revival cannot ship
+it.

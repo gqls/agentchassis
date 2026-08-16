@@ -2385,3 +2385,84 @@ Standing re-check from 08-14, run 2026-08-16 ~10:00Z after the roll to chassis
 - **My 08-14 zero-sha probe misstep is now a LANDMINES entry** (written 08-15 by the
   session that stamped the pod): forty consecutive zeros are git's null-sha literal and
   match in ANY binary that speaks git — use a random 40-hex value as the absent-control.
+
+## 2026-08-16 (session "services-restore", cont.) — /case-studies.html figures swept; the infographic re-drawn without numbers; the two claims items drained; and a resolver landmine re-learned
+
+Handoff §3 item 4. Everything below 2026-08-16 ~10:00–10:45Z.
+
+**The register is refreshed live, and it changed the plan.** `site_specs.evidence_base`
+for this site had `verified_at: 2026-08-16` on every metric (something re-verifies it —
+values current to the hour). Two things it says that my own raw counts did NOT:
+`C1-records-verified` is `count(*) … WHERE verification_status='verified'` = **2,338**, floor
+phrasing only ("more than 2,000") because 874 rows were reclassified on 07-20 — my
+`count(*) FROM businesses` = 3,419 must never be published; and `C4-agent-definitions-active`
+is `status='active'` = **78**, not `is_active` = 193 (the 08-12 handoff's "187 active" used
+the wrong column). **Read the register before measuring; its `source.sql` IS the
+definition.** Sanctioned forms used: floors ("more than 2,000 / 10,000 / 9,000 / 150 / 70 /
+20"), exact 937 and 5,798, the registered 40 spawners (audit snapshot, exact); orchestration
+records rephrased to mechanism only (as on services 08-14).
+
+**Landmine re-learned, cost one rerender: `case-studies-list.case_studies` is
+`source: "site_specs.portfolio.case_studies"`.** I edited `page_components.content_data`,
+rerendered, and the served text was unchanged — the rerender re-resolves that field from
+the `portfolio` aspect (`8869edfc`, is_current since 07-10) and OVERWROTE my edit, while
+the `generic-text-block` (llm-sourced) kept mine. Same shape as `site_plan`: **the aspect
+is the authority; `content_data` is a cache.** Fixed the aspect (backup
+`bak_leo_sitespec_portfolio_20260816`), re-applied, rerendered again → live. Check
+`input_schema->'fields'->k->>'source'` for every field you are about to hand-edit.
+
+**The infographic is re-drawn without numbers.** The Leopardess Line map baked "Records:
+2,767 verified … Sites: 8 running today" into pixels — with the register's verified count
+now 2,338, the image OVERCLAIMED, and the alt text ("more than 2,000") had been written to
+pass the checker while the image itself did not. Re-rolled via Route-A (`kind:'infographic'`
+→ Banana), same prompt but the SERVICE NOTES panel replaced by three number-free lines
+("Records: checked against Companies House / Reading: scored as it arrives, refreshed
+six-hourly / Sites: our own, built this way") and "Do NOT add ANY number, digit …". **Under
+NEW asset_keys each time (`_v2`, `_v3`, `_v4`) so a bad roll could never overwrite the good
+served file** — worth copying. Three rolls, all eyeballed: v2 correct semantics but wrote
+"GOLD LINE / BRONZE LINE / OFF-WHITE LINE" as on-map labels (the prompt's legend spec taken
+literally); v3 prettiest but WRONG STORY — a linear line "Uncertain Match → Verified → A
+Person Decides", i.e. verified before anyone decided; **v4 accepted** — the gold line splits
+at Uncertain Match (clear branch → Verified, uncertain branch → the person), no colour
+words, no digits. v1/v2/v3 files remain deployed but unreferenced. Alt rewritten to
+describe v4 faithfully.
+
+**A 152 correction from watching three rolls:** an asset's `url` is a presigned S3 link
+DURING the pipeline (v2 read that way while `spawn_asset_deployer` was still EXECUTING) and
+is rewritten to `/assets/images/…` when the deployer completes (v2 settled at 10:09:23Z;
+v3/v4 read clean on first look because they were read after). So presigned **at rest** —
+the two rows I contributed to 152 on 08-14 — means the deploy step never completed for
+that asset, not that the creation path is wrong. Appended to 152.
+
+**The two `claims_unverified` items** (2, not 3 — one drained since 08-12):
+- `about` — `content-block-about.stat_2` was "Core Technologies: 3", a filler stat the
+  register cannot vouch for (its own stat_3 lists the three). Swapped for a registered one:
+  "Sites Built and Run: 20+" (`C6`, gte 22, context term "site"). Gate clean, rerender
+  COMPLETED, live. Left for the revalidator to close (it retracts once the page no longer
+  asserts the claim AND has redeployed since the edit — `bugs_open/262`).
+- `for-engineering-teams` — the "90,790" (THE pruned-table count removed from services on
+  07-31) still sat in `features[].description` of a page that is `archived` **and 404 live**
+  (`build_status` still 'deployed', `deployed_at` 07-17). Its `generic-text-block` was
+  rewritten by some producer 2026-08-15 10:46Z (new LLM prose — a `bugs_open/266`-class
+  write into an archived page; 266 already names this page) and a fresh
+  `needs_internal_links` item for it was filed today 10:01Z. The revalidator can never close
+  this one (the page never redeploys past that 08-15 touch), so: cleared the figure from
+  content_data (`bak_leo_fet_features_20260816`) so a revival cannot ship it, and closed
+  the item as `complete`/`human_review` with the decision in `result.human_decision`.
+
+**Also measured, no action:** `/our-approach.html` (archived) still SERVES 200 (28,948 B)
+— the checker's own comment names it — but carries no figures and nothing links to it.
+Deployed sites: 22 `status='deployed'`, all 22 probed HTTP 200 (webdesign.uk 302).
+
+**Verification (dated PASS 2026-08-16 ~10:45Z):** `/case-studies.html` cache-busted: 0
+matches for `75,061|143 agent|5,652|4,672|2,767|Eight live|8 running|56 of them`; every
+digit-bearing sentence on the page is one of the register-sanctioned forms above; v4
+infographic referenced once, old one 0. `/about.html`: "Sites Built and Run" + "20+"
+present, "Core Technologies" gone. Both rerenders COMPLETED with 0 `needs_page`
+escalations. Backups: `bak_leo_casestudies_pc_20260816`, `bak_leo_about_pc_20260816`,
+`bak_leo_fet_features_20260816`, `bak_leo_sitespec_portfolio_20260816`.
+
+**Missteps this session:** (1) hand-edited a resolver-sourced field in `content_data`
+without checking its `source` — one wasted rerender (above); (2) a `cat >>` with a relative
+path after a `cd docs/…/scripts` wrote nothing (the tool resets cwd between calls but not
+within one) — use absolute paths in appends.

@@ -997,3 +997,30 @@ check to re-run after the next roll is written down in the notes.
 Our evidence has also been added to the three shared fault files it belongs to, including
 one hopeful sign: the asset-record bug that mislabelled July's six icons did not touch
 today's two — the new records came out clean.
+
+**2026-08-16, mid-morning — the roll held, and the case-studies page has had its numbers swept.**
+
+First, the check we promised: the fleet rolled to a new build overnight and the services
+page came through untouched — byte-for-byte the same as when we left it, and the platform
+fix that protects restored buttons from the next automated rewrite is confirmed to be in
+the running software now. That worry is retired for this page.
+
+Then the case-studies page. Every figure on it was from July and one of them — the count
+of "verified" businesses — had actually gone DOWN since (a batch was reclassified), so the
+page was overclaiming, not just stale. There is now a live fact register for this site that
+re-checks itself daily and says exactly which number means what; the copy now uses its
+approved forms (floors like "more than 2,000", not exact counts that drift). The tube-map
+graphic had the old numbers drawn into the picture itself, so it was re-drawn — three
+attempts, each looked at by eye; one was rejected because it told the story in the wrong
+order (a record shown as verified before the person had decided) — and the version now
+live has no numbers in it at all, which means it cannot go stale.
+
+Two smaller things: the About page had a filler statistic ("3 core technologies") that the
+register could not vouch for — swapped for a real one (sites built and run: 20+). And the
+notorious "90,790 records" figure we removed from the services page in July was found
+lurking on a fourth page — one that is retired and not reachable by visitors — and has been
+scrubbed there too so it cannot come back if the page is ever revived.
+
+One lesson relearned the hard way: on the case-studies page the list of case studies is
+fed from a site-level record, not from the page itself, so editing the page was undone the
+moment it was rebuilt. Fixed at the source. It cost one rebuild and is written down.
