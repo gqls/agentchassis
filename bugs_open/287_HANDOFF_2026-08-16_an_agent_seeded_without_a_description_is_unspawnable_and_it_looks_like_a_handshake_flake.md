@@ -78,3 +78,23 @@ population.
 is not evidence; the evidence is a spawn of an agent whose description you have
 NULLed on a scratch row succeeding on the rolled binary — or simply: no
 `converting NULL to string` in chassis logs after a seed that forgets the column.
+
+## VERDICT 2026-08-16 — council APPROVED round 1 (corr `ad789fe1-52e7-4900-8df5-1ade09515184`)
+
+**`Council-Reviewed: ad789fe1-52e7-4900-8df5-1ade09515184`** — the code commit
+carries `Council-Submitted:` and is credited by 098. One advisory objection
+checked rather than filed: guardian asked whether `processor.go` builds any
+`agent_definitions` SELECT dynamically (which the source-scan could not see) —
+the file's only `fmt.Sprintf` query targets `client_<id>.agent_instances`, and
+its two `agent_definitions` reads (`:381` the resolver, now COALESCEd; `:980` an
+`EXISTS` probe reading no columns) are static. prior_art's "should this be in
+pattern-check.py" is the same question the 279 round settled: pattern-check is
+advisory by design and a NULL-scan reaching production must BLOCK; the Go test is
+the blocking layer, and unlike the minting ratchet this pattern has no natural
+commit-time twin (the offence is a SELECT column list, which pattern-check's
+per-file model handles no better than the test does).
+
+**Remaining to close this file:** the code half rides the next chassis + core-
+manager roll. Verify at the artefact (image label revision ancestor of the fix
+commit), then move to `bugs_closed/`. Owner call outstanding: `NOT NULL DEFAULT ''`
+on the column.
