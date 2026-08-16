@@ -67,19 +67,23 @@ Gotchas learned the hard way:
 - Rich apps (mind-map, meme-generator, micro-cms, pasteboard, logic-architect…): do NOT file —
   PLAN §3.
 
-## Is the adopt path live? (bugs_open/286 — do this BEFORE refiling the pilot)
+## Is the adopt path live? — DONE 2026-08-16 (v1.0.1304, stamp `5de6cddbe`); recipe kept because the first attempt was WRONG
 
+The binary carries ONLY its own build sha — grepping YOUR commit (or the previous roll's sha) returns
+absent on every roll that isn't built from exactly that commit. So: find the STAMP, then ask git.
 ```bash
 POD=$(kubectl -n ai-persona-system get pods -l app=agent-chassis -o jsonpath='{.items[0].metadata.name}')
-kubectl -n ai-persona-system exec $POD -- grep -aq "88897190e" /proc/1/exe && echo FIX_PRESENT || echo FIX_ABSENT
-kubectl -n ai-persona-system exec $POD -- grep -aq "5e075a6f9" /proc/1/exe && echo control_1303_present   # must also be true after a roll that includes it
-kubectl -n ai-persona-system exec $POD -- grep -aq "deadbeefcafe0000" /proc/1/exe && echo CONTROL_BROKEN || echo control_absent_ok
+kubectl -n ai-persona-system logs $POD --tail=400 | grep -m1 'build provenance'          # startup line; scrolls fast on chassis
+# if it has scrolled: probe each commit in the build window (pod startTime minus ~40 min):
+for s in $(git log --format=%h --since='<start>' --until='<pod start>'); do
+  kubectl -n ai-persona-system exec $POD -- grep -aq "$s" /proc/1/exe 2>/dev/null && echo "$s = STAMP"; done
+git merge-base --is-ancestor <your-commit> <STAMP> && echo LIVE || echo NOT_LIVE
+kubectl -n ai-persona-system exec $POD -- grep -aq "0123456789abcdef0123" /proc/1/exe && echo CONTROL_BROKEN || echo control_ok
 ```
-Only when FIX_PRESENT: rename `sql_for_agents/435_tool_generator_adopt_existing_page_HOLD.sql` (drop `_HOLD`,
-fix its two filename literals), apply, then confirm
+Seed 435 is APPLIED (15:15Z). Flag check:
 `SELECT default_config#>'{workflow,steps,save_tool,config,adopt_existing_page}' FROM agent_definitions WHERE type='tool-generator' AND is_active AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL;` → `true`.
-Then refile the pilot (INSERT above). Grade the generator run: `create_result.page_adopted = true`,
-`page_components` gains ONE row on the EXISTING page id at position 2, `pages` gains NO row.
+Grade a generator run: `create_result.page_adopted = true`, `page_components` gains ONE row on the
+EXISTING page id at position 2, `pages` gains NO row.
 
 ## Visible-text check on a tool slot (a 13 KB slot can be a shell)
 

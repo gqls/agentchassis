@@ -129,3 +129,24 @@
   inputs/buttons present. **RUNBOOK correction:** the grade line's `ported-page-section` fingerprint was
   never in the served markup (0 before and after) — a check that cannot fail; replaced with
   `class="ported-page"`, taken FROM the artefact.
+
+## 2026-08-16 15:10Z–15:35Z — v1.0.1304 carries the 286 fix; seed 435 applied; pilot REFILED; the three audit fixes graded PASS
+
+- **Roll verified the right way this time:** pods `v1.0.1304` up 10:41Z. My first probe grepped
+  `88897190e` and the OLD build sha `5e075a6f9` — BOTH absent, which proves nothing: the binary carries
+  only ITS OWN build sha. Found the stamp by probing every commit in the build window
+  (`5de6cddbe`, 10:25Z), then `git merge-base --is-ancestor 88897190e 5de6cddbe` ⇒ TRUE; a junk-hex
+  negative control absent. **RUNBOOK's probe block corrected accordingly** (probe the STAMP, then
+  ancestry — never "is my sha in the binary").
+- **Seed 435 HOLD lifted + applied 15:15Z** (`ee0228813`, git mv, one file at HEAD): tool-generator
+  `save_tool.adopt_existing_page = true` (verified by SELECT).
+- **Pilot refiled** as item `99734862` (`add_tool_novel_webdesign.co.uk`, `triaged`), description
+  written from the LIVE tool (two parts: gcd-reduce W×H → ratio; target ratio + one dimension → the
+  other, presets 16:9/4:3/1:1/21:9), explicitly self-contained copy (no template fields — the ab-test
+  lesson). 11 items ahead in the serial dispatcher at 15:30Z. Preconditions checked: no open add_tool
+  on the site, `function` claim empty fleet-wide, page `00979b9e…` exists, flag `true`.
+- **Three re-armed audit fixes graded PASS at the served pages** (css-unit-converter,
+  css-specificity-calculator, llm-cost-calculator): 0 raw tags, tool container present, stored tool
+  slots 527/587/1,209 visible chars, inputs/scripts intact, deliveries reached `rendered_html`
+  (23:24Z/12:22Z/23:25Z). Behavioural correctness of each fix is the tool_acceptance pipeline's
+  call, not graded here.
