@@ -2575,3 +2575,13 @@ the file shipped above is identical either way.
 
 **Missteps this session:** none that cost a cycle. The one that nearly did was accepting the
 handoff's "no generator exists" at face value — see WRONG_CALLS.
+
+> **Commit note, same session.** This work is `c5d62f615` (10 files) — but the **LANDMINES.md
+> entry it names is NOT in it.** Between my append and my `git commit <pathspec>`, another
+> session committed that file, and its edit took mine along as a same-file passenger: the
+> kcat-publish entry is at HEAD under `cbdc572bb`, an mcalc notes commit whose message says
+> nothing about it. Nothing is lost and forward-only holds, so no amend — recorded here
+> instead, because a `git log` of LANDMINES.md will otherwise attribute this entry to a lane
+> that never wrote it. This is the documented same-file case (MEMORY
+> [[a-pathspec-commit-still-takes-a-same-file-passenger]]) seen from the other side: a
+> pathspec protects you from sweeping up others' work, never from being swept into theirs.
