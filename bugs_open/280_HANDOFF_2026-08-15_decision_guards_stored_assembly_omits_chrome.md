@@ -171,3 +171,56 @@ No behavioural fleet verification is expected once live: all 5 live
 decision-record rows are body-scoped (census in the original filing,
 re-confirmed here), so no guard's verdict should visibly change. "Shipped"
 is confirmed at the artefact, not by a change in check output.
+
+## UPDATE 2026-08-16, later — council APPROVED on round 2 (round 1 REVISE, answered with evidence)
+
+Round 1 verdict was **REVISE**, gating objection from `editquality`: is
+`site_components.slot_name` really the literal `'header'`/`'footer'`, or
+could it follow a different vocabulary (the landmine set separately
+mentions `content_components.function` values `'site-header'`/`'site-footer'`
+and a `ChromeSlotFunction` resolver)? A fair question from the sketch text
+alone — answered with direct evidence, not argued from precedent:
+
+- Live query confirms `site_components.slot_name` IS exactly
+  `'header'`/`'footer'`/`'head'` fleet-wide (22/22/22, no other value exists).
+- `ChromeSlotFunction`'s own doc comment (`component_library.go:300-317`)
+  states it "maps a `site_components.slot_name` to the
+  `content_components.function` that serves it" — confirming `slot_name` is
+  the plain-vocabulary side; `content_components.function` is a different
+  table's different column, used only to resolve which component definition
+  serves a slot. This fix never touches `content_components` or the
+  resolver.
+- Traced both live writers of `site_components.slot_name`
+  (`render_site_components_action.go:70`, `link_site_components_action.go:171-176`)
+  — both hardcode the plain literal set at the source; `ChromeSlotFunction`
+  is used only to look up which component fills the slot, never as the
+  value written back.
+- Checked whether bug 270's own approved council round
+  (`524ff897-b697-4c5c-a66f-8939b0457049`, same literals, same column,
+  live and pod-verified) had already surfaced this question, per the
+  reviewer's own suggested check: it had not. Genuinely new, now closed
+  with evidence.
+
+Round 1's checks also surfaced a stale figure worth correcting even though
+it changes nothing about the fix: the "5 live decision-record rows, none
+chrome-scoped" census had moved to 8 (3 new, unrelated rows landed
+2026-08-15 from `bugs_open/279`). Re-checked properly: only 2 of the 8 carry
+a parseable ` ```guard ` fence at all (`D-001-free-beside-paid`,
+`D-002-no-tools-directory-on-index`) — the check skips everything else
+regardless of content — and both are page-body-scoped by their own stated
+design. The "currently symptom-free" conclusion holds, more precisely
+stated than the original filing.
+
+Resubmitted on the same trail (`RESUBMIT_CORR=d37ef89e-1bfa-485a-aa97-e3b317de7901`)
+with this evidence folded into the submission. **Round 2: APPROVED, 3
+advisory objections, none high-severity.** No code change between rounds —
+the objection was answerable with evidence, not a defect in the plan.
+
+The commit (`2c75bb526`) already carries `Council-Submitted:
+d37ef89e-1bfa-485a-aa97-e3b317de7901` — per CLAUDE.md, **not amending it**;
+the `098` coverage report resolves and credits it automatically now that
+this correlation shows approved.
+
+**Still NOT SHIPPED.** Image build + fleet roll remain the owner's call, per
+270's precedent. This bug stays open until build+roll+artefact-verification
+are all actually true, not merely committed and approved.

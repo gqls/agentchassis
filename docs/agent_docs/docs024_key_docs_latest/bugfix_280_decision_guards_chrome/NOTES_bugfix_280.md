@@ -147,3 +147,21 @@ shipped, unrelated to this fix) and does not touch anything this fix edits.
 the evidence above folded into `grounded_in` and `risks` — no change to the
 `edits` themselves, since the objection was answerable with evidence, not a
 defect in the plan.
+
+## 2026-08-16, later still — council round 2: APPROVED
+
+3 advisory objections, none high-severity, 13 reviewers (4 abstained).
+Verdict note (`doc_notes` id `edd6fac7-64ef-44b8-b926-a27f39026cf0`) does not
+print the advisory objections' text (unlike a REVISE verdict, which dumps
+the full reviewer JSON) — checked `diagnosis_artifacts.metadata` for a
+richer record and found only the summary counts, same shape as bug 270's own
+approved verdict recorded them. Nothing further to extract; advisory and
+none high-severity is the operative fact.
+
+Commit `2c75bb526` already carries `Council-Submitted:
+d37ef89e-1bfa-485a-aa97-e3b317de7901` — **not amending it** per forward-only;
+`098` resolves and credits it automatically now the correlation is approved.
+Updated `bugs_open/280` with the full round-1/round-2 trail. Shipping
+(image build + fleet roll) remains the owner's call, unchanged from the
+PLAN's original sequencing decision — this session is not building or
+rolling unless explicitly asked.

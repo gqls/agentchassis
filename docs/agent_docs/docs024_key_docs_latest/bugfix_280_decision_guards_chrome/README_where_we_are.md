@@ -42,3 +42,19 @@ Next: commit it, send it through the standing review process (advisory, not
 a blocker), and then it's a question for you whether to build and roll it out
 now or leave it for later — same as 270, where you said you'd handle the
 shipping step yourself.
+
+## 2026-08-16, a bit later
+
+The review came back once asking a real question first: one of the
+automated reviewers wanted proof that the database column I pointed the fix
+at actually uses the words "header" and "footer" — reasonable to ask, since
+there's a similarly-named but different thing elsewhere in the codebase that
+uses slightly different words for the same idea. I checked directly against
+the live database and the code that writes that column, both said yes, and
+sent that evidence back on the same review thread rather than just arguing
+the point. Second time round, it approved — three minor, non-blocking notes,
+nothing that changes the fix.
+
+So: fixed, tested, committed, and now reviewed and approved. Same as before,
+whether and when to actually roll this out to the live system is your call,
+not mine to make unprompted.
