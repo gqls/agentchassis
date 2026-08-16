@@ -33203,3 +33203,39 @@ commit as same-file passengers. Same tree, same hour, two shared append-only fil
 file" measures nothing five minutes later.** Append to a fleet-wide file and commit it **alone,
 immediately** — the re-append took one minute because the text was still in context; an hour later it
 would have been gone for good.
+
+---
+
+## 2026-08-16 — "written by exactly one thing" was a grep, not a census, and the 090 refuted it in one round (bugs_open/284)
+
+**The claim.** Attributing 18 blocked `capability_gap` rows to `TriageDetectedItemsAction`, I wrote —
+in the bug file, the NOTES and a commit-bound account — that `spec.original_pipeline` is *"written by
+exactly one thing"*, and called the resulting join "decisive, and it could have come out otherwise".
+The population split cleanly (18 blocked rows had the key, 19 deferred rows did not), which is exactly
+what made it feel proven.
+
+**What caught it.** The `090` diagnosis run I filed before asserting. It came back **UNVERIFIABLE** —
+no verdict at all — and its citations named **three** writers of that key: the promoter, plus
+`site_admin_handlers.go:HandleApproveWorkItem` and `tool_acceptance_actions.go:routeChromeFailures`.
+A run that reached no conclusion still refuted my premise, which is worth stating on its own: the
+value of a diagnosis round is not only in its verdict.
+
+**Why my check could not have failed.** I greped for the key in Go source and stopped at the first
+hit, in the file I already believed was responsible. Both other writers spell it inside a
+`map[string]interface{}` literal they construct — same string, different shape, and my search had
+already found what it was looking for.
+
+**The cheap check that would have.** `grep -rn "original_pipeline" --include='*.go' platform/ internal/`
+— five seconds, and it lists all three. **Searching for a key to prove single authorship means
+enumerating every writer, and "I found the writer" is not that.**
+
+**The repair made the evidence stronger, which is the argument for doing it.** The KEY does not
+discriminate; the VALUE does. The promoter writes `to_jsonb(pipeline)` — the row's own pipeline — while
+both literal writers hardcode `"build"`. Every one of the 58 promoter-attributed rows carries
+`design` or `content`, which no literal writer can produce. And the two rows that carry NO such key
+turned out to be a second path entirely (hand-inserted, born dispatchable, no handler) — which my
+original framing had silently folded into the one mechanism I was describing.
+
+**The transferable bit:** when a key proves your case, ask what a DIFFERENT producer of that key would
+have written. If the answer is "the same thing", the key is not evidence — a value that only your
+suspect could produce is.
