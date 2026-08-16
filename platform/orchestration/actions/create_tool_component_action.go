@@ -167,6 +167,17 @@ func CreateToolComponentAction(ctx context.Context, params ActionParams) (interf
 	if v, ok := config["in_footer"].(bool); ok {
 		inFooter = v
 	}
+	// adopt_existing_page (opt-in, default OFF — the 2026-08-02 §2 shape): when
+	// true, a page already holding this tool's canonical or legacy name is
+	// attached to instead of collided with — resolveToolPageIdentity +
+	// UpsertPageForRole, the same machinery deploy_tool uses. When false (every
+	// existing caller), behaviour is unchanged: a bare INSERT that errors on
+	// pages_site_id_name_key. The flag exists for the ported-tool replacement
+	// route (bugs_open/286): a same-URL rebuild is impossible without it.
+	adoptExistingPage := false
+	if v, ok := config["adopt_existing_page"].(bool); ok {
+		adoptExistingPage = v
+	}
 
 	// --- Load site domain ---
 	var siteDomain string
@@ -292,22 +303,72 @@ func CreateToolComponentAction(ctx context.Context, params ActionParams) (interf
 	// not a tidy-up: that fix makes these flags load-bearing — they are what puts
 	// a /tools/ page into the footer nav — so an inherited default would now
 	// silently place pages the config asked to keep out.
-	_, err = params.DB.ExecContext(ctx, `
-		INSERT INTO pages (
-			id, site_id, name, url, title,
-			page_type, status, build_status, nav_order, meta_description,
-			in_header, in_footer
-		) VALUES ($1, $2, $3, $4, $5, 'tool', 'active', 'planned', 200, $6, $7, $8)
-	`, pageID, siteID, pageName, pageURL, pageTitle, toolMeta, inHeader, inFooter)
-	if err != nil {
-		// If page creation fails, clean up the component
-		params.DB.ExecContext(ctx, `DELETE FROM content_components WHERE id = $1`, componentID)
-		return nil, fmt.Errorf("failed to create tool page: %w", err)
+	pageAdopted := false
+	if adoptExistingPage {
+		// Replacement arm (bugs_open/286). An existing row under either name
+		// shape keeps its stored identity (bugs_open/080's rule — writing the
+		// canonical name past a legacy row would mint a second page); only no
+		// row at all mints the canonical shape.
+		pageName, pageURL, err = resolveToolPageIdentity(ctx, params.DB, siteID, function,
+			siteUsesFlatURLs(ctx, params.DB, siteID, logger))
+		if err != nil {
+			params.DB.ExecContext(ctx, `DELETE FROM content_components WHERE id = $1`, componentID)
+			return nil, fmt.Errorf("failed to resolve tool page identity: %w", err)
+		}
+		toolPage, uerr := UpsertPageForRole(ctx, params.DB, PageRoleUpsert{
+			SiteID:   siteID,
+			Domain:   siteDomain,
+			Name:     pageName,
+			PageType: "tool",
+			Source:   "tool-generator",
+			// Declared: the role is this arm's constant, so an unshipped page of
+			// another role holding this name is one this arm may take over (RFC_010).
+			AdoptUnshippedRows: true,
+			Columns: []PageColumn{
+				Col("url", pageURL),
+				Col("title", pageTitle),
+				Col("nav_order", 200),
+				Col("in_header", inHeader),
+				Col("in_footer", inFooter),
+				Col("meta_description", toolMeta),
+				Col("build_status", "planned"),
+				Col("status", "active"),
+			},
+			// Empty on purpose: a live same-role page is attached to as it
+			// stands — the replacement route retires the ported slot and
+			// re-renders separately, and nothing about the served page may
+			// change as a side effect of the component write.
+			Refresh: []string{},
+		}, logger)
+		if uerr != nil {
+			params.DB.ExecContext(ctx, `DELETE FROM content_components WHERE id = $1`, componentID)
+			return nil, fmt.Errorf("failed to create tool page: %w", uerr)
+		}
+		if toolPage.Refused() {
+			params.DB.ExecContext(ctx, `DELETE FROM content_components WHERE id = $1`, componentID)
+			return nil, fmt.Errorf("tool page %q not created: %s", pageName, toolPage.Reason)
+		}
+		pageID = toolPage.PageID
+		pageAdopted = toolPage.Outcome != PageRoleCreated
+	} else {
+		_, err = params.DB.ExecContext(ctx, `
+			INSERT INTO pages (
+				id, site_id, name, url, title,
+				page_type, status, build_status, nav_order, meta_description,
+				in_header, in_footer
+			) VALUES ($1, $2, $3, $4, $5, 'tool', 'active', 'planned', 200, $6, $7, $8)
+		`, pageID, siteID, pageName, pageURL, pageTitle, toolMeta, inHeader, inFooter)
+		if err != nil {
+			// If page creation fails, clean up the component
+			params.DB.ExecContext(ctx, `DELETE FROM content_components WHERE id = $1`, componentID)
+			return nil, fmt.Errorf("failed to create tool page: %w", err)
+		}
 	}
 
 	logger.Info("CreateToolComponentAction: Page created",
 		zap.String("page_id", pageID.String()),
-		zap.String("url", pageURL))
+		zap.String("url", pageURL),
+		zap.Bool("page_adopted", pageAdopted))
 
 	// --- Link component to page ---
 	// Position 2 (same as deploy_tool_action): tool widget sits between intro and CTA
@@ -320,8 +381,12 @@ func CreateToolComponentAction(ctx context.Context, params ActionParams) (interf
 		) VALUES ($1, $2, 2, $3, $4, '{}'::jsonb, 'deployed')
 	`, pageID, componentID, function, htmlContent)
 	if err != nil {
-		// Clean up on failure
-		params.DB.ExecContext(ctx, `DELETE FROM pages WHERE id = $1`, pageID)
+		// Clean up on failure. A page this call ADOPTED pre-existed the call
+		// and is live — deleting it here would destroy a served page to tidy
+		// up a failed link; only a row this call created may be removed.
+		if !pageAdopted {
+			params.DB.ExecContext(ctx, `DELETE FROM pages WHERE id = $1`, pageID)
+		}
 		params.DB.ExecContext(ctx, `DELETE FROM content_components WHERE id = $1`, componentID)
 		return nil, fmt.Errorf("failed to link component to page: %w", err)
 	}
@@ -495,6 +560,7 @@ func CreateToolComponentAction(ctx context.Context, params ActionParams) (interf
 		"guide_url":         guideURL,
 		"needs_rerender":    true,
 		"generated":         true,
+		"page_adopted":      pageAdopted,
 		"cross_links_added": crossLinksAdded,
 		"content_item":      contentItem,
 	}, nil
