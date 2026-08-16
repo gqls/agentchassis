@@ -82,3 +82,43 @@ One small note in passing: you asked for the plan to be prepared with Fable, and
 Fable came back with "you've reached your Fable 5 limit" and produced nothing. I
 did the planning myself rather than stall, and said so in the notes so nobody later
 mistakes it for Fable's work.
+
+---
+
+**2026-08-16, later.**
+
+The council came back **REVISE** first, then **APPROVED** on the second round.
+
+The first round is the interesting one, because it caught me twice. One seat
+pointed out that the marker I was using to blame the two checkers cannot actually
+tell you which checker wrote a row — it records the row's own category, and several
+things write it. It was right. Re-measured on the marker each checker stamps with
+its own name, the answer came out cleaner than what I had submitted: nine rows from
+one, nine from the other, exactly the two files I changed and nothing else. A second
+seat picked at a loose phrase in my write-up — "three of six producers" — and
+following it properly turned up a **sixth** checker I had not found, with
+thirty-six live rows, which also never mentions the field at all.
+
+The gating objection was fair too: I had called the change to the shared dispatch
+code "semantically identical" without ever quoting the code it was replacing. It
+is identical — I quoted both halves in round two, and they differ only by a
+nickname and some whitespace — but the reviewer was right that I had asked them to
+take it on trust.
+
+Round two passed with four advisory notes, and I have answered all of them rather
+than waving them through: the old case in the back-catalogue that looked like a
+duplicate is a different member of the same family (a named agent that doesn't
+exist, versus no agent named at all); the repair of the sixty rows is now a proper
+gated script with its own backup, a check that can fail, and a rollback beside it;
+and the deferred work is recorded in the database where the other agents can read
+it, not just in our files.
+
+**One thing genuinely needs you.** The two seats that looked hardest at this change
+disagree with each other about the same edit. One says I unified too little — there
+is a third copy of the same test elsewhere in the codebase, held in step only by a
+comment, and I named it and walked past it. The other says I unified too much —
+that the shared dispatch code every pipeline depends on shouldn't carry a
+refactor that came out of a bug lane, even though it agrees the change is harmless.
+Both are reasonable. The rules say a person breaks that tie, so I have left the
+approved code as it is and written the disagreement down where you'll meet it.
+Either direction is a one-file change whenever you decide.
