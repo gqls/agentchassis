@@ -3113,7 +3113,12 @@ state is already recorded by `bugfix_203_phantom_cta_cleanup/NOTES`,
 hit it as a blocker on 08-16 and worked around it with a direct per-site dispatch. What is
 new is the *cost of it on this site*, measured above.
 
-### 4. NEW CLASS, fleet-wide: on the B2 route every directory-form URL is a live 404, and no DB-derived check can ever see it
+### 4. ~~NEW CLASS, fleet-wide~~ **NOT NEW** — on the B2 route every directory-form URL is a live 404, and no DB-derived check can ever see it
+
+> **CORRECTED 2026-08-16, same session, ~40 minutes after I wrote it.** I called this a new class and > it is not: `LANDMINES.md` has carried it since before today — *"A `/section/` URL 404s on every > B2-hosted site, and a local server hides it"* — with the worker lines, the second-order trap, and > **`mortgagecalculator.co.uk/guides/` already named in its confirmed list.** What caught it: I went > looking for the FIX location, grepped for `worker.js`, and landed in the middle of the entry I had > just failed to find. **My prior-art grep was `trailing slash|directory-form|directory form` — three > phrasings of the SYMPTOM, none of which appears in an entry written about `/section/` URLs.** The > footprint symbols (`worker.js`, `NormalizePagePath`) would have found it first try, which is exactly > what MEMORY's `grep-landmines-for-your-symbols` says and what I did not do. Logged in `WRONG_CALLS.md`.
+>
+> **What survives as genuinely new** is narrower and is now an ADDENDUM to that entry rather than a rival > to it: (a) the five DB-derived mechanisms that collapse the two URL forms via `NormalizePagePath`, which > makes the existing entry's closing rule — *"if a checker disagrees with production, change the checker"* > — read differently once you notice PRODUCTION does the forbidden normalisation itself; (b) the git-route > contrast (`relojistas.com/noticias/` 200), which shows the platform already serves this correctly on one > of its two routes; and (c) the fleet census below. The measurements in this section stand; only the > word NEW was wrong.
+
 
 The `/tools/rate-forecaster/` row above is not a bad link in the ordinary sense — the
 target page exists, is deployed, and serves 200 at `/tools/rate-forecaster/index.html`.

@@ -33093,3 +33093,100 @@ it, mutated two arms, wrote "mutated, not merely run" — and still left three u
 seams, because I mutated the arms I had thought hardest about rather than the ones the
 tests were quietest about. **Mutate where the suite is silent, not where your attention
 already is.**
+
+---
+
+## 2026-08-16 — I reported a council submission as "in flight, awaiting verdict" when it had already died at validation (bugs_open/257)
+
+**The claim.** I fired the `bugs_open/257` submission (corr `85971036`), saw the trigger script print its
+queue-depth block and the "read the verdict here" instructions, and told the owner the change was
+"Council submitted... a monitor is polling for the verdict". I then wrote that correlation into three
+commit trailers, a concept-register entry, a bug-file section, the lane's PLAN, RUNBOOK, NOTES,
+SUMMARY and the workstreams memory line.
+
+**It had already failed.** The run reached `current_step='complete_invalid'`, `status='COMPLETED'`,
+with no council report. Two of my eight edits named TWO files in one `.file` field
+(`"platform/aiservice/anthropic.go + gemini.go"`), and the server requires one repo-relative path with
+no whitespace (`editProblems`). No review ever ran.
+
+**What caught it.** Only that I kept checking. The first two `psql` polls returned nothing and I read
+that as latency — correctly, by CLAUDE.md's own rule that a missing orchestration row is almost always
+queue depth. The third returned `complete_invalid`. **The habit that is right for the normal case is
+exactly what hides this one**, which is why it needs a landmine rather than more care.
+
+**Three things made it invisible, and they compound.**
+1. **`status = COMPLETED`.** The word that means "finished successfully" everywhere else in this
+   estate means "was refused and stopped" here.
+2. **Nothing is recorded.** Measured: `diagnosis_artifacts` for that correlation → **0 rows of any
+   kind**; `collected_data` → nothing but `input_data`; `__step_error` → empty. The gate's
+   `persist_submission` step has no `repair_step`, so it fails without writing the refusal note the
+   action can otherwise produce. **I never obtained the server's own error string, because none
+   exists.**
+3. **Every client-side check passed.** The trigger script has four hard-won traps for exactly this
+   class of server-side death. None covers the file path.
+
+**The cheap check that would have.** One line, and it is now the script's fifth trap:
+`jq -r '.plan.edits[].file | select(test("[[:space:]]") or startswith("/") or contains(".."))'` — any
+output means it will die. Demonstrated against three refused shapes (whitespace, `..`, leading `/`)
+plus a positive control that the corrected submission still passes, per OPP-003's rule that a detector
+needs its failing case shown at the moment it is written.
+
+**How the cause was actually established, since no message was available:** read `editProblems` in
+`diagnose_persist_fix_plan_action.go`, then **re-implement its exact predicate in Python and run it
+over my own submission**. It flagged precisely 2 of 8 edits. That is a reproduction, not a guess — and
+it is the only route available when the refusal records nothing.
+
+**The transferable rule.** *When a job's terminal state is reported by a field whose value is
+`COMPLETED` regardless of outcome, the outcome is in a DIFFERENT field — find it before you report
+success.* For the council gate that field is `current_step`, and one query separates "refused, resubmit
+now" from "genuinely queued, wait an hour". A second, blunter rule: **do not write a correlation id
+into commit trailers and eight documents before you have seen that run reach a reviewing step.** Three
+of my commits now carry a trailer that can never resolve, and forward-only means no amend — the only
+honest repair is a follow-up commit naming the live correlation, which is what I did.
+
+---
+
+## 2026-08-16 — I filed a "NEW fleet-wide class" that `LANDMINES.md` had already documented, and my prior-art grep could not have found it (mortgagecalculator_couk_adoption lane)
+
+**The claim.** Auditing eight live broken links on `mortgagecalculator.co.uk`, I found that
+directory-form URLs (`/guides/`, `/tools/x/`) 404 on every B2-route site while `…/index.html`
+serves 200, and that the platform's shared `NormalizePagePath` collapses the two forms so no
+DB-derived check can see the difference. I wrote it up as **"NEW CLASS, fleet-wide"** — a new
+`LANDMINES.md` entry, a NOTES section headed NEW, and a commit message announcing it — and ran
+`landmines-verify-dispatch.sh` on it, spending a verifier run.
+
+**What was actually true.** `LANDMINES.md` already carried it: *"A `/section/` URL 404s on every
+B2-hosted site, and a local server hides it"*, with `worker.js:8-11,27` cited, the
+`python3 -m http.server` trap, the "never teach the checker to normalise" rule — and
+**`mortgagecalculator.co.uk/guides/` already in its list of live confirmations.** I had
+re-measured, from scratch, a fact recorded against my own site.
+
+**What caught it.** Not a review — I went looking for where the FIX would live, grepped
+`worker.js`, and the grep dropped me into the middle of the entry I had just failed to find. So it
+was caught by accident, roughly 40 minutes and one commit too late.
+
+**The cheap check that would have caught it, and why mine did not.** I *did* grep for prior art
+before filing. My pattern was `trailing slash|directory-form|directory form` — **three phrasings of
+the SYMPTOM, in my own words.** The existing entry never uses any of them; it is written about
+*"a `/section/` URL"*. The entry and I were describing the same mechanism in vocabularies with zero
+overlap.
+
+> **The rule: grep prior art by FOOTPRINT SYMBOL, not by symptom phrasing.** `worker.js`,
+> `NormalizePagePath`, `PageURLSet`, `github_repo` — the identifiers the thing is *made of*, which
+> every writer must spell the same way. Symptom words are where two honest authors diverge, and a
+> corpus of 550+ entries makes divergence certain. MEMORY already says this
+> (`grep-landmines-for-your-symbols`); I read it as advice about finding traps that apply to my
+> files, not as advice about **not duplicating** an entry. It is both.
+
+**Second-order cost, and the part worth flagging to anyone who does this.** The duplicate was not
+inert. Truncating my own entry to replace it also **deleted two other lanes' entries** that had been
+committed after mine (the `kcat -P` stdin-race entry and the idempotent-migration snapshot entry) —
+because I rebuilt the file with `s[:start]` on a tree where HEAD had moved four commits in twenty
+minutes. Recovered by rebuilding from a **pinned** HEAD sha and replacing only my own span, then
+verifying both entries were present again and that `git diff` showed a single hunk. **On this tree,
+"append to a shared file" and "rewrite a shared file" are different risk classes, and the second one
+needs a pinned base and a numstat check before it is committed.**
+
+**Net.** The measurements were sound and are kept; the entry is now an ADDENDUM that cross-references
+the original and carries only what the original does not say (the five collapsing mechanisms, the
+git-route contrast, the fleet census). The word that was wrong was **NEW**.
