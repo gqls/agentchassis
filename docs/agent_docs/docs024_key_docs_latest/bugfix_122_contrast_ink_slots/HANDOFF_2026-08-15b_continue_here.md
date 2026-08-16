@@ -16,8 +16,21 @@ the record of the 5.0 canary gate (now closed) and its trap list; read it second
 > | 3. The unenforced bare-reference invariant | **LEFT, by owner decision.** Still true, still unenforced — §5 |
 > | 4. Close the RFC_022 audit blind spot | **DONE — and it was far wider than the motivating case: 103 live actions were uncountable, 46 of them shared.** See §8 |
 >
-> **Fleet now on `v1.0.1303`** (pods restarted 18:45Z, stamp `5e075a6f9`, junk-sha control absent).
-> Carries `e0f239118` **and** `263197ca2` — verified by ancestry with a working negative control.
+> **Fleet now on `v1.0.1304`** (pods restarted **2026-08-16T10:41Z**, stamp `5de6cddbe`, junk-sha
+> control absent). Carries `e0f239118`, `263197ca2` and `55bc7f806` — ancestry, with a working
+> negative control. *(Was `v1.0.1303` / `5e075a6f9` on 08-15 evening.)*
+>
+> **Re-verified AFTER that roll, 2026-08-16, because a roll is exactly when a lane should re-check
+> rather than assume — all three green and unchanged:** pages serving the old link rule as the
+> winning declaration **0** · bare ink references fleet-wide **0** (the kill-switch invariant) ·
+> canaries still serving dartsonline `#94a0c2`/`#f18072` and webdesign `#5c6b5d` (unchanged
+> branch, correct) / `#915e2c`.
+>
+> ⚠ **TWO of the three "a fresh chassis build has been deployed" reports on 2026-08-15 were FALSE** —
+> the pods had not restarted and no newer image existed, because `make release` reuses the makefile's
+> `IMAGE_TAG` and a same-tag rebuild ships the node's cached binary while reporting success. The
+> 08-16 roll is genuine and the tag was bumped. **Check `pods … .status.startTime` AND the tag before
+> believing any such report**; both are one command and neither can be inferred from the other.
 
 ---
 
