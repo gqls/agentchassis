@@ -98,3 +98,24 @@ per-file model handles no better than the test does).
 manager roll. Verify at the artefact (image label revision ancestor of the fix
 commit), then move to `bugs_closed/`. Owner call outstanding: `NOT NULL DEFAULT ''`
 on the column.
+
+## 2026-08-16 — OWNER DECISION: `NOT NULL DEFAULT ''` APPLIED (migration `438`)
+
+The owner ruled for the schema fix. `438` backfilled the 3 inactive NULLs to `''`
+in the same transaction and set `NOT NULL DEFAULT ''`; its precondition REFUSES if
+any LIVE row is NULL (a live NULL deserves a real description in its own
+migration, as `420` gave — not a silent `''`). **Induced**: a probe INSERT omitting
+the column landed `description = ''` (not NULL), rolled back. `[MEASURED]`
+`is_nullable=NO, column_default=''::text`.
+
+**This changes the class-fix ordering, and for the better:** DDL is live NOW, so a
+seed that forgets the column is already harmless on the binaries running today —
+the ones that still scan into a plain string. The COALESCE code half (committed,
+next roll) becomes belt-and-braces rather than the only guard. Writers re-checked
+before the ALTER: both `snapshot_agent` overloads copy the column; the admin
+create handler binds a Go string; `discovery_actions.go`'s variant clone
+(`description || ' [Variant…]'`) is NULL only for a NULL source, which the
+constraint now forbids.
+
+**Remaining to close:** the code half rides the next chassis + core-manager roll;
+verify at the artefact and move to `bugs_closed/`. Nothing else outstanding.
