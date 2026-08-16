@@ -22,13 +22,12 @@ package actions
 import (
 	"fmt"
 	"regexp"
-	"strings"
 
+	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"go.uber.org/zap"
 )
 
 var (
-	kebabCaseRe         = regexp.MustCompile(`^[a-z][a-z0-9]*(-[a-z0-9]+)*$`)
 	dataComponentAttrRe = regexp.MustCompile(`data-component="([^"]+)"`)
 )
 
@@ -38,7 +37,7 @@ func ValidateComponentFunction(function string) error {
 	if function == "" {
 		return nil
 	}
-	if !kebabCaseRe.MatchString(function) {
+	if !datahelpers.IsKebabCase(function) {
 		suggested := NormalizeComponentFunction(function)
 		return fmt.Errorf(
 			"component function %q is not kebab-case. Suggested: %q",
@@ -75,33 +74,13 @@ func ValidateComponentTemplate(function, htmlTemplate string) error {
 //	"SocialProof"     → "social-proof"
 //	"social-proof"    → "social-proof" (no-op)
 //	""                → ""             (no-op)
+//
+// Delegates to datahelpers.NormalizeComponentFunction (moved down 2026-08-15,
+// bugs_open/285) so the save guard's matchLockedRow here and the loader-side
+// MergeLockedPageSlots in datahelpers normalise with ONE function — the same
+// shape as pageComponentAgentWritableSQL → datahelpers.AgentWritableSQLFor.
 func NormalizeComponentFunction(function string) string {
-	if function == "" {
-		return ""
-	}
-
-	// Already valid kebab-case — fast path
-	if kebabCaseRe.MatchString(function) {
-		return function
-	}
-
-	// Replace underscores with hyphens
-	result := strings.ReplaceAll(function, "_", "-")
-
-	// Insert hyphen before uppercase runs (camelCase → kebab-case)
-	var b strings.Builder
-	for i, r := range result {
-		if r >= 'A' && r <= 'Z' {
-			if i > 0 {
-				b.WriteByte('-')
-			}
-			b.WriteRune(r + 32) // to lowercase
-		} else {
-			b.WriteRune(r)
-		}
-	}
-
-	return b.String()
+	return datahelpers.NormalizeComponentFunction(function)
 }
 
 // NormalizeSectionNames normalizes a slice of section names in-place,
@@ -199,7 +178,7 @@ var canonicalCSSTokens = map[string]struct{}{
 	"--section-text": {}, "--section-text-muted": {}, "--section-surface": {},
 	"--section-border": {}, "--section-heading": {}, "--section-pad-y": {},
 	"--section-pad-y-sm": {},
-	"--radius": {}, "--radius-sm": {}, "--radius-lg": {},
+	"--radius":           {}, "--radius-sm": {}, "--radius-lg": {},
 	"--shadow-sm": {}, "--shadow-md": {}, "--shadow-lg": {},
 	"--container-max": {}, "--container-pad-x": {},
 	"--font-body": {}, "--font-heading": {}, "--font-size-base": {},

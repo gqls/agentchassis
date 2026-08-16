@@ -14,12 +14,32 @@
 //   3. pages.sections (legacy fallback / materialised cache).
 //   4. Same-role sibling layout synthesis (last resort, WARN-logged) — note
 //      this path already read the site_plans tables before this change.
+//   5. (2026-08-15, bugs_open/285, register LOCK-008) MERGE, not a tier: once
+//      any tier has served, the page's LOCKED live rows — page_components rows
+//      automation may not rewrite, classified by the 058 write guard's OWN
+//      predicate (datahelpers.AgentWritableSQLFor) — are inserted into the
+//      list at their live position when the list does not already carry them
+//      (pairing mirrors save_page_sections' matchLockedRow; see
+//      datahelpers.MergeLockedPageSlots). Before this, a section a human had
+//      pinned to the page and the plan did not know about was proposed for
+//      removal on EVERY rebuild; the guard kept the row and filed
+//      `lock_blocked_change … remove` each pass, while pages.sections went on
+//      saying the section did not exist. Measured 2026-08-15: 13 pages
+//      fleet-wide, 5 fresh remove-blocked items that day. Deliberately NOT
+//      applied when no tier served: a locked-only list is neither the plan nor
+//      the page, and a rebuild on it would delete the page's unlocked
+//      siblings — that page keeps today's "no sections" outcome.
 //
 // This replaces the implicit page_record.sections path in the page-build
 // workflow.
 //
-// Also syncs: when a higher-priority source serves and differs from
-// pages.sections, the pages table is updated so the cache stays consistent.
+// Also syncs: after the merge, ONE guarded UPDATE writes the final list into
+// pages.sections when it differs (jsonb-compared — the previous per-tier
+// `sections::text IS DISTINCT FROM $1` was always true, because jsonb text
+// prints `", "` where Go marshals `","`, so every build bumped
+// pages.updated_at). The materialised cache therefore carries the merged list,
+// which is what check_section_source_drift now compares through the same
+// merge, and what save_sections_prune_floor sizes its plan cohort from.
 //
 // Fallback 4 (was 2b): if no source has sections for this page, borrow the
 // layout skeleton from a same-role sibling in the current plan. "sections" is
@@ -32,7 +52,8 @@
 // otherwise see zero sections and short-circuit the build to a (silently
 // successful) "no sections defined" completion. "source" values:
 // "site_plan_tables" (new, 2026-07-06), "site_specs", "pages_table",
-// "same_role_sibling", "none".
+// "same_role_sibling", "none". Result also carries "locked_sections_merged"
+// (the slot names the merge inserted, [] when none) and "locked_merge_count".
 //
 // Registration:
 //   "load_page_sections_from_spec": {
@@ -162,21 +183,7 @@ func LoadPageSectionsFromSpecAction(ctx context.Context, params ActionParams) (i
 			zap.String("page", pageName),
 			zap.Int("sections", len(specSections)),
 			zap.Strings("section_names", specSections))
-
-		// Sync to pages.sections (materialised cache) — same guarded UPDATE as
-		// the site_specs path below.
-		sectionsJSON, _ := json.Marshal(specSections)
-		_, syncErr := params.DB.ExecContext(ctx, `
-			UPDATE pages SET sections = $1::jsonb, updated_at = NOW()
-			WHERE site_id = $2 AND name = $3
-			  AND sections::text IS DISTINCT FROM $1
-		`, string(sectionsJSON), siteID, pageName)
-		if syncErr != nil {
-			logger.Warn("LoadPageSectionsFromSpec: sync to pages.sections failed",
-				zap.Error(syncErr))
-		} else {
-			logger.Info("LoadPageSectionsFromSpec: synced sections to pages table")
-		}
+		// pages.sections sync happens ONCE, after the locked-row merge below.
 	}
 
 	// -----------------------------------------------------------------------
@@ -224,20 +231,7 @@ func LoadPageSectionsFromSpecAction(ctx context.Context, params ActionParams) (i
 			zap.String("page", pageName),
 			zap.Int("sections", len(specSections)),
 			zap.Strings("section_names", specSections))
-
-		// Sync to pages.sections so both sources agree
-		sectionsJSON, _ := json.Marshal(specSections)
-		_, syncErr := params.DB.ExecContext(ctx, `
-			UPDATE pages SET sections = $1::jsonb, updated_at = NOW()
-			WHERE site_id = $2 AND name = $3
-			  AND sections::text IS DISTINCT FROM $1
-		`, string(sectionsJSON), siteID, pageName)
-		if syncErr != nil {
-			logger.Warn("LoadPageSectionsFromSpec: sync to pages.sections failed",
-				zap.Error(syncErr))
-		} else {
-			logger.Info("LoadPageSectionsFromSpec: synced sections to pages table")
-		}
+		// pages.sections sync happens ONCE, after the locked-row merge below.
 	}
 
 	// -----------------------------------------------------------------------
@@ -373,18 +367,9 @@ func LoadPageSectionsFromSpecAction(ctx context.Context, params ActionParams) (i
 					zap.String("page", pageName),
 					zap.String("sibling", layoutExample[bestKey]),
 					zap.Strings("section_names", specSections))
-
-				// Persist to pages.sections so the build can read it and the
-				// page stops being a zero-section dead-end.
-				sectionsJSON, _ := json.Marshal(specSections)
-				if _, syncErr := params.DB.ExecContext(ctx, `
-					UPDATE pages SET sections = $1::jsonb, updated_at = NOW()
-					WHERE site_id = $2 AND name = $3
-					  AND sections::text IS DISTINCT FROM $1
-				`, string(sectionsJSON), siteID, pageName); syncErr != nil {
-					logger.Warn("LoadPageSectionsFromSpec: persisting synthesised sections failed",
-						zap.Error(syncErr))
-				}
+				// Persisted to pages.sections by the single sync after the
+				// locked-row merge below, so the build can read it and the page
+				// stops being a zero-section dead-end.
 			}
 		}
 	}
@@ -396,10 +381,76 @@ func LoadPageSectionsFromSpecAction(ctx context.Context, params ActionParams) (i
 		logger.Warn("LoadPageSectionsFromSpec: no sections found for page",
 			zap.String("page", pageName))
 		return map[string]interface{}{
-			"sections": []string{},
-			"source":   "none",
-			"count":    0,
+			"sections":               []string{},
+			"source":                 "none",
+			"count":                  0,
+			"locked_sections_merged": []string{},
+			"locked_merge_count":     0,
 		}, nil
+	}
+
+	// -----------------------------------------------------------------------
+	// 5a. Merge the page's LOCKED live rows into the list (bugs_open/285).
+	// A tier served, so the list is a real statement of the page; rows a
+	// human pinned to the page that no tier knows about join it here at
+	// their live position. Same predicate as the 058 write guard; pairing
+	// mirrors its matchLockedRow so "already in the list" means the same
+	// thing in both places. Best-effort on query failure, exactly as
+	// loadActiveLockedRows is: the guard still protects the row itself, only
+	// the list (and this build's cache write) stays lock-blind, and the
+	// failure is logged where the 058 preload's is.
+	// -----------------------------------------------------------------------
+	lockedMerged := []string{}
+	if lockedRows, lockErr := datahelpers.LoadLockedPageSlots(ctx, params.DB, siteID, pageName); lockErr != nil {
+		logger.Warn("LoadPageSectionsFromSpec: locked-row preload failed — list assembled lock-blind this run (bugs_open/285)",
+			zap.String("page", pageName), zap.Error(lockErr))
+	} else if len(lockedRows) > 0 {
+		merged, inserted, insertedAt := datahelpers.MergeLockedPageSlots(specSections, lockedRows)
+		if len(inserted) > 0 {
+			// Keep the tier-1 facts slice index-aligned: a merged section has
+			// no plan-time fact assignment (nil = unscoped), and the
+			// len(specSectionFacts) == len(specSections) guard below would
+			// otherwise drop the WHOLE payload silently.
+			if specSource == "site_plan_tables" && len(specSectionFacts) == len(specSections) {
+				for _, at := range insertedAt {
+					specSectionFacts = append(specSectionFacts, nil)
+					copy(specSectionFacts[at+1:], specSectionFacts[at:])
+					specSectionFacts[at] = nil
+				}
+			}
+			for _, lr := range inserted {
+				lockedMerged = append(lockedMerged, lr.MergedName())
+			}
+			logger.Info("LoadPageSectionsFromSpec: merged human-locked live sections the plan does not name (bugs_open/285)",
+				zap.String("page", pageName),
+				zap.String("source", specSource),
+				zap.Strings("merged_slots", lockedMerged),
+				zap.Strings("section_names", merged))
+			specSections = merged
+		}
+	}
+
+	// -----------------------------------------------------------------------
+	// 5b. Sync the FINAL list to pages.sections (materialised cache), once.
+	// jsonb-compared so an unchanged list is a genuine no-op (the old
+	// `sections::text IS DISTINCT FROM $1` guard was always true — jsonb text
+	// prints `", "`, json.Marshal `","` — so every build rewrote the row and
+	// bumped updated_at). Tier 3 (pages_table) reaches this too: a no-op
+	// unless the merge added something, in which case the cache it was read
+	// from was lying and is corrected.
+	// -----------------------------------------------------------------------
+	if sectionsJSON, mErr := json.Marshal(specSections); mErr == nil {
+		if _, syncErr := params.DB.ExecContext(ctx, `
+			UPDATE pages SET sections = $1::jsonb, updated_at = NOW()
+			WHERE site_id = $2 AND name = $3
+			  AND sections IS DISTINCT FROM $1::jsonb
+		`, string(sectionsJSON), siteID, pageName); syncErr != nil {
+			logger.Warn("LoadPageSectionsFromSpec: sync to pages.sections failed",
+				zap.String("source", specSource), zap.Error(syncErr))
+		} else {
+			logger.Info("LoadPageSectionsFromSpec: synced sections to pages table",
+				zap.String("source", specSource))
+		}
 	}
 
 	// Return as interface slice (consistent with how plan_sections reads it)
@@ -409,9 +460,11 @@ func LoadPageSectionsFromSpecAction(ctx context.Context, params ActionParams) (i
 	}
 
 	result := map[string]interface{}{
-		"sections": sectionsIface,
-		"source":   specSource,
-		"count":    len(specSections),
+		"sections":               sectionsIface,
+		"source":                 specSource,
+		"count":                  len(specSections),
+		"locked_sections_merged": lockedMerged,
+		"locked_merge_count":     len(lockedMerged),
 	}
 	// section_facts is emitted ONLY when the authoritative tier served the
 	// sections: it is read from site_plan_sections rows, so index-alignment

@@ -23,6 +23,20 @@
 //
 // Ordered comparison: "sections" is a layout, so [a,b] != [b,a] is real drift.
 //
+// LOCKED LIVE ROWS ARE NOT DRIFT (2026-08-15, bugs_open/285, register
+// LOCK-008). The loader now merges the page's human-locked page_components
+// rows into the list it assembles and syncs THAT into pages.sections — so on
+// a page carrying a locked section the plan does not name, the authoritative
+// table and the cache legitimately differ by exactly that section, and the
+// next rebuild will NOT revert anything. Both sides of the comparison are
+// therefore viewed through the same merge (datahelpers.MergeLockedPageSlots,
+// the loader's own function): a cache that pre-dates the fix (raw plan) and a
+// cache written after it (plan + locked) both compare equal to the merged
+// authoritative list; a genuine edit to one store still differs. Comparing
+// raw lists here would have filed one `section_source_drift` item per fixed
+// page (13 fleet-wide the day this shipped) — the check would have been the
+// noise the fix removed.
+//
 // Registration: automatic via init() -> Register(&SectionSourceDriftCheck{})
 // Enable: add "section_source_drift" to completeness-discovery-agent's
 //   {workflow,steps,run_checks,config,checks} array.
@@ -34,6 +48,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"go.uber.org/zap"
 )
 
@@ -59,6 +74,13 @@ func (c *SectionSourceDriftCheck) Run(dctx DiscoveryCheckContext) (*CheckResult,
 	if err != nil {
 		return nil, err
 	}
+	// Locked live rows per page — the loader merges these into its list and
+	// into the cache, so the comparison must see them on both sides. Loud on
+	// failure: comparing raw lists would flag every locked page as drift.
+	lockedByPage, err := datahelpers.LoadLockedPageSlotsForSite(dctx.Ctx, dctx.DB, dctx.SiteID)
+	if err != nil {
+		return nil, fmt.Errorf("section_source_drift: %w", err)
+	}
 
 	result := &CheckResult{}
 	emitted := 0
@@ -79,7 +101,11 @@ func (c *SectionSourceDriftCheck) Run(dctx DiscoveryCheckContext) (*CheckResult,
 			continue
 		}
 
-		if orderedListsEqual(authoritative, cache) {
+		// Both sides through the loader's own merge: a locked live section the
+		// plan does not name is membership the rebuild will KEEP, not drift.
+		mergedAuth, _, _ := datahelpers.MergeLockedPageSlots(authoritative, lockedByPage[pageName])
+		mergedCache, _, _ := datahelpers.MergeLockedPageSlots(cache, lockedByPage[pageName])
+		if orderedListsEqual(mergedAuth, mergedCache) {
 			continue
 		}
 
