@@ -267,3 +267,30 @@
   check to run at the next "it has rolled" prompt is the one above — image
   label per service, then the ancestry test — BEFORE touching
   `publish_target`.
+
+## 2026-08-16 (afternoon) — v1.0.1304 carries the fix; canary RE-ARMED
+
+- **The roll is real this time** (the morning check refuted a premature one;
+  this is the discipline paying off rather than a contradiction): both
+  chassis replicas on **v1.0.1304**, started 10:41Z, image built 10:28Z,
+  makefile `IMAGE_TAG ?= v1.0.1304`.
+- **Verified at the binary, with the stamp identified rather than assumed.**
+  The provenance log line had already scrolled (pods ~5h old). Probing the
+  fix sha directly returned ABSENT — which is CORRECT and not a failure:
+  **the stamp carries the HEAD the image was built from, not your own
+  commit**, so the test is ancestry, not presence. Old 1303 stamp
+  (`5e075a6f9`) also absent ⇒ genuinely a different binary. Walked recent
+  commits against `/proc/1/exe` to find the actual stamp:
+  **`5de6cddbe` (2026-08-16 11:25 BST)**. Then
+  `git merge-base --is-ancestor b4981634d 5de6cddbe` → **TRUE: the running
+  binary carries the Content-Length fix.** Controls both clean: random hex
+  absent; a commit made AFTER the stamp absent (the probe discriminates).
+- **Canary re-armed 15:56Z**: `noted.co.uk` → `publish_target='b2worker'`
+  (`publish_project='noted.ugg2.com'` was retained from yesterday), exactly
+  1 site opted in fleet-wide. Last reconciler tick 15:50:44Z ⇒ first real
+  pass ~16:00:44Z. Monitor watching stamp → orchestration → published_hash.
+- Acceptance unchanged (handoff §1b): served sha256 at
+  `https://noted.ugg2.com/index.html` must equal origin
+  `b4416c3208f9df047c044a526246f06c4fca03c4b02ec470e9e6af4e01f82ceb`;
+  then a second tick must report `skipped: no drift` with `published_at`
+  unchanged.

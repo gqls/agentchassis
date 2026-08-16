@@ -19,6 +19,8 @@ full-row snapshot in `agent_definitions_backup`, publish-reconciler +
 
 ## 1. FIRST: re-arm the canary once the NEXT release rolls — the first pass ran and FOUND A REAL DEFECT (now fixed, committed, inert until the roll)
 
+> **UPDATE 2026-08-16 15:56Z — the fix rode v1.0.1304 (stamp `5de6cddbe`, ancestry verified) and the canary is RE-ARMED; the acceptance in §1b is now running. History of the first attempt follows.**
+>
 > **SUPERSEDES the "in flight" language below (same night):** the first
 > reconciler pass executed the full chain — tick 22:11:23Z → stamp →
 > publish-reconciler → spawned `agent-site-publisher-c08f7091-rl8hc` →
