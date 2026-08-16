@@ -308,3 +308,37 @@ Waiting on you: whether the privacy page should mention that deleted notes
 survive in encrypted backups for up to thirty days (I left it unsaid — your
 call); the by-hand test that a failed save shouts instead of losing text; and,
 when you're ready, the cutover itself.
+
+---
+
+## 2026-08-16 — noted.co.uk is the new site (written by the assistant)
+
+It's done. Going to noted.co.uk now gets the rebuilt site, not the old app.
+
+How it was done safely is worth a paragraph, because it wasn't obvious. The old
+app was never really served by "the domain" — a small piece of Cloudflare code sat
+in front and fetched the files straight out of the bucket, using its own keys. That
+meant everything else could be put in place first, with nobody noticing: the domain
+pointed at your machine, the tunnel taught to accept it, all of it inert while that
+piece of code still answered. The cutover itself was switching that one thing off,
+and switching it back on is a single command — which I wrote down and committed
+before touching anything.
+
+The old app is still there, at noted.co.uk/legacy-app/. That matters more than it
+sounds: notes live in the browser under the exact web address they were written at,
+so the old app had to stay on the same address to still see them. On a different
+one it would open and show every visitor an empty screen, which looks precisely
+like their notes being gone.
+
+Then I proved the thing everything depends on. On the live site, I wrote a note the
+way the old app does, went to the rescue page, and it found it — text intact,
+voice recording intact, in a file the new service accepts. Signing in, writing,
+saving and reopening from a second browser all work on the new address too, and a
+save still fails loudly with your text untouched when the connection dies.
+
+The shopfront was checked either side and never moved. Nothing was lost.
+
+What's left is watching rather than building: give it a few days, see whether
+anyone needs the old app, and decide when to retire it. The one loose end I'd
+flag is that the smoke tests leave throwaway accounts behind, because the service
+has no way to delete an account — worth adding before real people sign up.
