@@ -2384,3 +2384,16 @@ query**, both caught before commit: it used `fix_correlation_id` (the COUNCIL-GA
 trigger puts `correlation_id` in the envelope headers and `input_data` is `{source, ref}`), and
 the jsonb-path scan hung >120 s on `orchestration_states` — keyed on `source` + a time bound
 instead. Verified against `scripts/trigger-landmine-verifier.sh`, not memory.
+
+**Postscript 2 — `PUB-005` closed itself, and a second transient came and went.** Its owner
+committed `public-api.md` at 11:06:12 (`f967d9307`), six minutes after the row rode out.
+Between two consecutive drift runs minutes apart the count went 1867/1868 → 1868/1869 → clean:
+a *different* row-without-entry appeared and disappeared as another lane's pair of commits
+landed in the wrong order and then the right one. Three live lanes were touching the register
+this morning; the harness reads a fresh HEAD each run, so a single reading is a snapshot of a
+window that may already have shut. **Rule for reading it: a row-without-entry finding younger
+than ~10 minutes is a lane mid-commit, not a leak — re-run before filing anything.** The 08-12b
+handoff's landmine ("expect the index to ride out under another session's commit") is now
+measured at 2 occurrences in one morning; both self-healed. That is data for OPP-006's
+enforcement question, and it points both ways: leaks are real and frequent, AND the repair
+arrives in minutes without a gate. HEAD `0d1cac6cc`+: 1 finding, `rebuild-cascade.md`, still owed.
