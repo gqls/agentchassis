@@ -62,8 +62,30 @@ wrong binary; say so in 287 §6 rather than accepting or dismissing it.
 Not this lane's bug to FIX (coordinator seam, RFC_012 territory) — but this lane found it, filed
 it, and owns getting the verdict recorded. Then hand it to whoever owns the coordinator.
 
-### 3a. Verdict
-_(fill in when read)_
+### 3a. Verdict — NOT LANDED at handoff time (10:40Z); and it will describe the WRONG tree
+Run `fb7ae3bc…` was still cycling verdict→load_runtime→assemble_bundle (4th round) when this
+was written. **Measured: `origin/087` = `a85ad4018` (08-12), 881 commits behind HEAD, carries
+NEITHER the 274 fix nor WFA-014** — the loop is diagnosing the pre-regression coordinator.
+Whatever lands: record it in 287 §6, weight it accordingly, do NOT treat a REFUTED as a
+refutation of §9. **A push is owed to origin (881 commits — the owner's call, not one lane's)
+before any 090 on any recent seam is worth its credits.** Read the verdict with:
+`SELECT body FROM doc_notes WHERE body LIKE '%fb7ae3bc%' ORDER BY created_at DESC LIMIT 1;`
+
+### 3b. The mechanism is READ first-hand at HEAD (287 §9/§9a/§9b — declared substitution)
+- Reply lands at **`handler_result_N`** (loop-suffixed output_field, `makeIterationOutputField`).
+- `mark_complete` reads **`handler_result`** (un-suffixed): `prefixConfigStepReferences`
+  (`coordinator.go:4443`) suffixes only an **allow-list** of config keys
+  (`content_from … page_component_id_field` + `input_mapping`); `complete_work_item`'s key is
+  **`result`** — not on it. Base key is populated only by `propagateIterationOutputs` at the
+  NEXT iteration's start. So at `mark_complete` the key is absent → recursive fallback → the
+  spawn record.
+- Pre-roll it "worked" because 274 made a *different* wrong payload land in the slot
+  (doubly-nested 216 envelope) — 287 §2's baseline is corrected in §9.
+- Fix: stop enumerating — suffix any config string whose first segment is a sibling
+  `output_field`; interim: add `"result"`; either way make an absent key an ERROR at
+  `complete_work_item`. Blast radius census in §9b: 15 sites / 6 agents, most safe by
+  coincidence. **This is a coordinator change → council gate + the RFC_012 owner track. Not
+  this lane's to ship; it IS this lane's to hand over cleanly, which 287 now does.**
 
 ## 4. NEXT ACTIONS, in order
 
