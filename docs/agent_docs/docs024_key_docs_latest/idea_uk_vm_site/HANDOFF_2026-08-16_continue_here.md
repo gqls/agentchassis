@@ -76,12 +76,31 @@ it. That is how D-005's clause could be deleted with both edits reporting `compl
    - **(a)** the sweep covered 16 specs of 23 sites; new spec rows still carry the word —
      `webdesign.co.uk/offer_ordering` (08-15) and `webdesign.uk/evidence_base` (08-14) are
      both current and both match, i.e. written after the sweep.
-   - **(b) ⭐ START HERE — `domain-research-classifier` may still WRITE the language.**
-     §X.54 established it authored idea.uk's original spec, the one that specified every
-     sentence the owner objected to. **The sweep fixed its output; nobody has read its
-     prompt.** If the generator still emits it, every new site starts dirty for ever.
-   - **(c)** it is a generic model habit, in which case only an armed gate holds it, and
-     the gate is on 9 of 23 sites and **files** rather than blocks.
+   - ~~**(b) `domain-research-classifier` may still WRITE the language.**~~
+     **TESTED AND REFUTED 2026-08-16 — do not spend a session on it, and do NOT "clean"
+     these prompts.** Both `domain-research-classifier` and `page-content-writer` DO match
+     `honest` in their live `default_config`. **Every match is an instruction about the
+     AGENT'S OWN truthfulness, not a directive to write the word into copy:** *"where
+     research is thin, say so honestly in the confidence fields rather than fabricating
+     detail"*, *"be strict about the mission but honest about evidence"*, *"if a field has
+     no honest value, give it an empty string"*, *"it is ALWAYS better to be honest and
+     general than specific and fabricated"*. Those are **anti-fabrication rules** —
+     stripping them to satisfy a copy ban would trade a style preference for invented
+     content. ⚠ **This is why a grep on a prompt is not evidence about behaviour: the
+     polarity is invisible to the match.** A prompt saying *"never write 'honest'"* would
+     hit identically.
+   - **(c) ⭐ NOW THE LEADING CANDIDATE — a generic model habit**, in which case only an
+     armed gate holds it, and the gate is on 9 of 23 sites and **files** rather than
+     blocks. Sampling the new copy is what points here: the usage is ordinary English
+     spread across unrelated writers and sites — *"an honest read of your own credit
+     file"* (loancalculator), *"honest, critical feedback"* (idea.uk), *"the more honest
+     way to see which loan costs less"* (loancalculator), *"an honest readiness tier"*
+     (fundamentallyai), *"the failure modes named honestly"* (leopardess). No shared spec
+     term, no shared component — just the word turning up wherever prose is written.
+     **Note several are TOOL components regenerated after the sweep**, incl. idea.uk's
+     `funding-fit` (*"1. Where is the idea, honestly?"*), which the 08-14 handoff listed
+     as class C's one real fix — it has been REWRITTEN since and still carries it, so
+     fixing that component once was never going to hold either.
    ⚠ **Do not count `voice`-aspect spec matches as failures** — those are the ban regexes
    themselves and must contain the word.
 3. **This is a cross-cutting structural claim, so file a `090` before asserting a cause**

@@ -5156,5 +5156,40 @@ same lesson as `a-one-off-deletion-is-not-a-class-fix`.
 - Head surfaces (§X.57) still clean: 0 in `pages.title` / `pages.meta_description` /
   current `site_plan_pages`.
 - **Body copy is regrowing: 30 pages, 11 sites, 23 components newer than the sweep.**
-  Un-diagnosed, deliberately. Next session starts at §4 candidate 2 — read
-  `domain-research-classifier`'s prompt.
+
+### 6. Candidate (b) TESTED THE SAME SESSION — refuted, and the refutation is protective
+
+I wrote §4 candidate 2 as "start here", then started there, because it was one query.
+
+**Both `domain-research-classifier` and `page-content-writer` match `honest` in their live
+`default_config`.** On the grep alone that reads as confirmation. Reading the matches
+inverts it — all four are instructions about the **agent's own truthfulness**:
+
+> *"where research is thin, say so honestly in the confidence fields rather than
+> fabricating detail"* · *"be strict about the mission but honest about evidence"* ·
+> *"if a field has no honest value, give it an empty string"* · *"it is ALWAYS better to
+> be honest and general than specific and fabricated"*
+
+These are **anti-fabrication rules**. A session that had trusted the grep would have
+deleted them to satisfy a copy ban, trading a style preference for invented content — on
+an estate whose whole evidence-gating apparatus exists to stop exactly that. **A grep on a
+prompt cannot see polarity:** a rule reading *"never write the word honest"* produces an
+identical hit. [[prompt-text-poisons-its-own-detector]] — same shape, and it caught me
+having written the "start here" myself an hour earlier.
+
+**Where the evidence now points (c):** sampling the new copy shows ordinary English across
+unrelated sites and writers — *"an honest read of your own credit file"*, *"honest,
+critical feedback"*, *"the more honest way to see which loan costs less"*, *"an honest
+readiness tier"*, *"the failure modes named honestly"*. No shared spec term, no shared
+component. That is a model habit, not a specified instruction, and **only an armed gate
+holds a habit** — which returns the problem to §X.57's finding that the gate is on 9 of 23
+sites, files rather than blocks, and cannot see the head at all.
+
+⚠ **And class C's "one real fix" was never one fix.** idea.uk's `funding-fit` still serves
+*"1. Where is the idea, honestly?"* — but the component was **re-created after 08-12**, so
+editing it once would have been overwritten by the next regeneration regardless. The 08-14
+handoff's framing of class C as a small static list of components was wrong in kind, not
+just in count.
+
+**Still NOT asserting a cause.** (c) is where the evidence points; it is not established,
+and the fleet-wide claim needs a `090` before it goes anywhere durable.
