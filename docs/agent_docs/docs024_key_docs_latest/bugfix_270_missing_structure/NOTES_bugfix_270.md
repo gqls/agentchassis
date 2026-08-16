@@ -208,3 +208,106 @@ recurs). Sync flagged the entry `NEEDS_VERIFICATION` (RFC_005's
 `landmines-verify-dispatch.sh` — routine for any new/changed entry, not an
 error); not run this session, low priority given the correction is backed by
 direct measurement already quoted inline.
+
+## 2026-08-16 — fresh chassis build deployed; verifying at the artefact and in the fleet
+
+**Session gap**: real time has clearly moved on since the last entry (pods
+now 15h+ old, other sessions have landed ~160+ commits on this branch in the
+meantime — confirmed by `git log --ancestry-path fdc5daec1..HEAD | wc -l` =
+164, not a branch reset; a shallow `git log -5`/`reflog -15` genuinely cannot
+see my own commits any more on a tree this busy, which is worth remembering
+before ever concluding "my commit is gone" from a short log).
+
+**Deploy verified at the artefact, not the roll.** `kubectl logs --tail=3000`
+for `agent-chassis` had no `build provenance` line in range (busy pod,
+matches the standing landmine). The git-sha string probe on `/proc/1/exe`
+also came back negative for BOTH `fdc5daec1`'s full sha and an old sha —
+turned out to be a red herring, not a failure: what actually proves the
+running code is the SYMBOL evidence, immune to whatever the ldflag/sha
+mechanism issue was:
+```
+grep -aq "check_missing_structure.go" /proc/1/exe      # PRESENT (new file compiled in)
+grep -aq "findPagesWithMissingStructure" /proc/1/exe    # ABSENT (the exact function this fix deleted)
+```
+Absence of a symbol that ONLY existed in the pre-fix code, checked on BOTH
+`agent-chassis` pods, is stronger and more specific evidence than a bare
+sha match would have been anyway — worth remembering as the general pattern
+for "did my deletion ship" questions.
+
+**Fleet-level self-close verification hit a real blocker, not a bug in the
+fix**: `site-discovery-rotation-completeness` (`scheduled_tasks`) —
+the periodic task that would naturally re-run `missing_structure` (and every
+other check under `completeness-discovery-agent`) per site — is
+`enabled=false`, last triggered 2026-08-10. **This is a pre-existing,
+already-documented state**, not something this session found first —
+`bugfix_203_phantom_cta_cleanup/NOTES` and `vision_finding_revalidator/HANDOFF_2026-08-11_pre_plan.md`
+both already recorded it. Not filing anything new on it. It does mean "wait
+for one natural discovery rotation" (PLAN.md §7's stated verification path)
+is not actually available right now — the driver is off.
+
+**Followed this codebase's own established remedy rather than waiting or
+flipping the scheduler on** — LANDMINES.md (`bugfix_213` lane, 2026-08-15)
+already worked out and recorded exactly this situation twice: don't
+`enabled=true` a task to test it (its `pre_query`'s recency predicate can
+select 0 rows and look identical to a clean run — a demand-control trap);
+and don't reach for `scripts/initial_messages/170_work_item_flow_build/075_trigger_discovery.sh`
+(hardcodes `finetuning.uk` in its tail regardless of the domain argument and
+triages real work items there — read, not run). Instead: dispatch the
+target agent directly via a `kcat` publish to `system.agent.generic.requests`,
+`action=orchestrate`, `config.agent_type` set to the agent, one site's
+`site_id`/`domain` in `input_data`, using the `kubectl run … --command`
+form (never the `<<JSON` heredoc form — LANDMINES: it drops ~4/5 publishes
+silently). Full worked template:
+`docs/agent_docs/docs024_key_docs_latest/bugfix_213_verifier_producer_join/RUNBOOK_verifier_producer_join.md`
+§9 (written for `visual-design-auditor`; swapped `config.agent_type` to
+`completeness-discovery-agent`, everything else identical).
+
+**Chose the canary site by checking `site_components` health FIRST**, not
+blindly: all 17 currently-open `missing_structure:rerender` rows resolve to
+sites with `healthy_slots=3` (header/footer/head all present, non-empty) —
+so every one of them is expected to retract once (re-)checked, none is a
+site with a genuine remaining defect. Picked `leopardessconsulting.co.uk`
+(`site_id=4851f6fc-71cf-4160-a270-e03d6d3e0732`, one `unresolved` row) —
+deliberately NOT `finetuning.uk`, which also has an open row, to stay clear
+of the domain the `075` script landmine specifically warns about, even
+though the safe dispatch method used here doesn't touch that script at all.
+Published with `PUBLISH_OK` confirmed (the marker IS the evidence a publish
+happened — LANDMINES again). Correlation `77ff57d7-91ab-4bf0-8485-2415429d3332`.
+
+**Result — the demand control passed.** Orchestration `COMPLETED` in ~5s.
+The site's `missing_structure:rerender` row flipped:
+```
+status=complete, resolved_by=missing_structure,
+reason="site_components healthy: header, footer and head all hold non-empty
+rendered_html (bugfix 270 — earlier items were filed by a predicate reading
+vestigial pages columns)"
+```
+That is the retraction text written into the fix, verbatim, on a real
+production dispatch — not a unit test double. No new `missing_structure`
+finding was filed for the site (correctly silent, chrome is healthy). Five
+OTHER checks in the same run filed genuine new findings (`head_essentials_missing`
+×36, `page_rerender` ×28, `needs_internal_links` ×10, `phantom_internal_link`
+×2, `required_fields_missing` ×1) — all inserted at `detected`, none
+triaged or dispatched (matches the RUNBOOK's own reasoning: findings are
+inert while `improvement-sweep` stays disabled). Worth a flag, not a chase:
+`head_essentials_missing` firing at all means it's now enabled somewhere —
+`portfolio_positioning`'s HANDOFF said it was deliberately NOT yet switched
+on as of 2026-08-13; real time has moved on substantially since (pods
+15h+ old, 164 commits landed on this branch since my fix alone), so this
+was very likely switched on by someone else in the interim. Not this
+bug's concern — noted here only so a future reader doesn't mistake it for
+something 270's fix touched.
+
+**Scope decision: did not manually dispatch the other 16 open sites.** The
+mechanism is now proven correct end-to-end on a real site, which is what a
+demand control is for — repeating an already-proven mechanism 16 more times
+buys confidence in the SITES' data (already checked healthy, see above),
+not in the fix. Each dispatch is a real, non-trivial production action (a
+~30-check discovery pass, LLM-adjacent cost). The remaining 16 will self-close
+whenever their own site is next checked by ANY discovery trigger — that is
+exactly the framework mechanism this fix relies on, and its timing is gated
+by the already-known, already-documented `site-discovery-rotation-completeness`
+being disabled (`bugfix_203`, `vision_finding_revalidator` — not this bug's
+problem to fix). **270 is closed as fixed-and-live on that basis**: the
+predicate is proven correct in production; the remaining stale rows are a
+bookkeeping tail, not evidence of a live defect.
