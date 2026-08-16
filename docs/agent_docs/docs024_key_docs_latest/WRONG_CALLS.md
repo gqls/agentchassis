@@ -32725,3 +32725,127 @@ already requires relayed claims to be verified before acting; the failure mode h
 relayed claim arrives sounding like a settled fact, and repeating it launders it into one.
 Worse, I wrote it into a **handoff**, which is the highest-leverage place to be wrong: a fresh
 session would have inherited it as established and hand-rolled a page row for no reason.
+
+---
+
+## 2026-08-16 — "a KNOWN-but-tool-level name vanishes while an unknown name routes to creation ⇒ there is a second branch" (bugs_open/282's ADDENDUM, written by the filing lane, nearly acted on by the fixing lane)
+
+**The claim.** `bugs_open/282`'s addendum recorded that on the same plan, one name
+(`loans-credit-health-check`) — described as *"a name matching NO component at all"* —
+**survived** validate and spawned a `needs_new_component` item, while every tool-level name
+was dropped. It concluded: *"The simple 'resolve fails ⇒ dropped' account in step 3 is
+therefore incomplete: the tool-level names likely die in a branch where the unresolved-name
+handler finds an EXISTING component row (level 'tool') and discards the section"*, and
+directed the fixing thread to *"locate that branch precisely — it is probably the cleanest
+seam for the fix."*
+
+**Why it is false.** The name is not unknown. It is an ordinary **section-level** component:
+
+```sql
+SELECT id, "function", component_level, is_active, created_at
+  FROM content_components WHERE "function"='loans-credit-health-check';
+-- 824e3309-f90c-4aa9-b679-46f4a8722475 | loans-credit-health-check | section | t | 2026-08-13 14:19
+```
+
+Created three days earlier for a sibling site. Arm 1 of `resolve()` accepts it — the most
+ordinary path there is. The `needs_new_component` row cited as *"the routing is the
+evidence"* was filed later by `plan_sections`, a different action on a different path, after
+validate had already passed the name through. There is no second branch, and there never was
+an asymmetry: one name was section-level and passed, the others were tool-level and were
+dropped, exactly as step 3 of the bug file says.
+
+**What caught it.** Reading the *level* of the surviving name before designing around it —
+the first question the mechanism makes relevant, since the whole bug is a `component_level`
+whitelist.
+
+**The cheap check I nearly skipped.** `SELECT component_level FROM content_components WHERE
+"function"='<the surviving name>'` — 0.2 s. Cost of not running it: an afternoon hunting a
+branch that does not exist in a 7,000-line file, and a fix aimed at the wrong seam. It was
+the addendum's own recommendation to go there first.
+
+**The transferable rule.** *An anomaly is only an anomaly relative to a fact you have
+checked.* The addendum's inference was sound given its premise ("matches no component") and
+that premise was an **assumption stated in a finding's voice** — no query, no marker. Two
+observations that differ only in a column you have not read are not evidence of a hidden
+mechanism; they are a reason to read the column. And a durable file's ADDENDUM is a
+high-leverage place to be wrong for the same reason a handoff is: it arrives at the fixing
+thread as established context, complete with an instruction about where to look.
+
+---
+
+## 2026-08-16 — I put a subagent's fleet counts in a commit message without grounding them, and they were 10% stale
+
+**The claim.** The commit that shipped the `bugs_open/225` class fix (`989addb1c`) says the
+mechanism has *"zero live consumers (0 of 130 facts, 0 of 87 current tool PLANs)"*. Those two
+denominators came from a research subagent's report, written earlier in the same session. I
+did not re-derive them before typing them into a durable artefact.
+
+**What was actually true, measured minutes later** — `[MEASURED 2026-08-16, one query, with a
+positive control]`: **143** current facts across 12 registers, not 130; **90** current tool
+PLANs, not 87.
+
+```sql
+SELECT count(*) FROM site_specs ss, jsonb_array_elements(ss.data->'facts') f
+ WHERE ss.is_current AND ss.aspect='evidence_base';                            -- 143
+SELECT count(*) FROM site_specs ss, jsonb_array_elements(ss.data->'facts') f
+ WHERE ss.is_current AND ss.aspect='evidence_base' AND f->'source' ? 'artifact_check';  -- 0
+SELECT count(*) FROM site_specs ss, jsonb_array_elements(ss.data->'facts') f
+ WHERE ss.is_current AND ss.aspect='evidence_base' AND f->'source' ? 'citation';        -- 61  ← the control
+```
+
+**What caught it.** Running the query myself before writing the same claim into the bug file,
+because a bug file's numbers get quoted. The commit message was already written by then, and
+forward-only forbids an amend — so the corrected figures live in `bugs_open/288` and here,
+and `989addb1c`'s message is wrong in the archive for ever. That asymmetry is the cost.
+
+**The cheap check I skipped.** The one query above, ~2 seconds, which I ran anyway twenty
+minutes later for the bug file. Nothing about the situation made it hard; I simply carried a
+number from a report instead of from the system.
+
+**Why it is worth a row even though the CONCLUSION held.** The load-bearing claim — *zero*
+consumers — was true, and the argument does not depend on the denominator. That is exactly
+what makes this the tempting kind of error: the sentence reads as measured, it is dated, and
+its most important half is right, so nothing invites a re-check. A reader auditing the
+optional-key budget later would take "130 facts" as an observation of the fleet on 2026-08-16
+and be quietly wrong about the size of the estate. **A precise-looking number is a claim about
+the world even when it is only scenery in your sentence.**
+
+**The transferable rule, which CLAUDE.md already states and I did not follow.** *Ground every
+figure against the live system before repeating it from another doc* — and a **subagent's
+report is another doc**. It has no special standing just because it was produced inside your
+own session and reads in your own register; if anything it is worse, because there is no
+visible seam where you stopped measuring and started quoting. Treat a delegated measurement
+the way you would treat a figure lifted from a handoff: usable as a lead, never as evidence,
+and never into a commit message or a bug file without your own query beside it.
+
+---
+
+## 2026-08-16 — I verified a fix at the pod for a bug that had been CLOSED for a fortnight, because I checked ONE directory (`bugfix_265` lane)
+
+**The claim I acted on:** `bugs_open/145` says *"Stays OPEN for one reason: not yet live"*, a
+fresh roll had just landed, so the obvious cheap win was to verify it at the artefact. I did —
+ancestry check, the added string, a positive control and a negative control on both replicas —
+and only when `git mv` refused with *"destination exists"* did I find `bugs_closed/145`, closed
+on 2026-07-31 and pod-verified on `v1.0.1217`. The same was true of `072`.
+
+**Why the check I skipped was already written down, in the rule next door.** CLAUDE.md says
+*"Grep BOTH directories before filing"* — and I did exactly that when choosing this session's
+bug. It says nothing about **adopting** an existing one, which is the same failure mode with a
+different verb; that gap is precisely why `who-owns.py` exists for the ownership half of it, and
+`who-owns.py 145` did print the workstream but has no opinion about the file existing twice.
+So the rule, the tool and my own habit all pointed at filing, and the adoption case fell
+between them.
+
+**What it cost:** a few probes and about ten minutes — cheap here only because the bug was
+genuinely fixed. Had 145 been half-fixed, I would have been building on a stale close criterion
+and a stale blast radius, and the expensive version of this is a session that reopens finished
+work on the strength of a file nobody removed.
+
+**The cheap check, and it is now mechanical:** before acting on any bug file,
+`ls bugs_open/NNN_* bugs_closed/NNN_*` — two paths for one number means one of them is stale
+(distinct from the documented case of two *unrelated* bugs sharing a number, which is why you
+compare filenames, not numbers). And it no longer relies on anyone remembering:
+`scripts/pattern-check.py`'s new `check_bug_file_duplicated` reports it on any commit touching
+either directory, induced on `a4bf9f1e9` — the commit that created the duplicate I tripped over.
+Tally for "read a bug's status from one directory": 1.
+
