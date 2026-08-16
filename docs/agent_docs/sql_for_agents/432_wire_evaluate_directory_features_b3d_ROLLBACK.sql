@@ -49,6 +49,21 @@ BEGIN
     IF il#>>'{enrich_news_feed,next_step}' IS DISTINCT FROM 'enrich_directory_features' THEN
         RAISE EXCEPTION '432 ROLLBACK: improvement-loop enrich_news_feed.next_step is not in the 432 shape - re-check before rolling back';
     END IF;
+    -- Round-2 advisory (guardian seat, corr 47785bb5, 2026-08-15): pin EVERY
+    -- edge this file is about to overwrite or orphan, not just the entry
+    -- edge. If a third lane has re-pointed the news error path, or spliced
+    -- its own step AFTER enrich_directory_features (so its outbound edges no
+    -- longer point at load_audit_state), writing the pre-432 values back
+    -- would silently disconnect that lane's work - refuse instead.
+    IF il#>>'{enrich_news_feed,config,error_step}' IS DISTINCT FROM 'enrich_directory_features' THEN
+        RAISE EXCEPTION '432 ROLLBACK: improvement-loop enrich_news_feed.config.error_step is not in the 432 shape (found %) - a later edit re-pointed it; re-check before rolling back', il#>>'{enrich_news_feed,config,error_step}';
+    END IF;
+    IF il#>>'{enrich_directory_features,next_step}' IS DISTINCT FROM 'load_audit_state' THEN
+        RAISE EXCEPTION '432 ROLLBACK: improvement-loop enrich_directory_features.next_step is not load_audit_state (found %) - a later splice hangs off this step and would be orphaned; re-check before rolling back', il#>>'{enrich_directory_features,next_step}';
+    END IF;
+    IF il#>>'{enrich_directory_features,config,error_step}' IS DISTINCT FROM 'load_audit_state' THEN
+        RAISE EXCEPTION '432 ROLLBACK: improvement-loop enrich_directory_features.config.error_step is not load_audit_state (found %) - a later edit re-pointed it; re-check before rolling back', il#>>'{enrich_directory_features,config,error_step}';
+    END IF;
 
     SELECT default_config#>'{workflow,steps}' INTO cl FROM agent_definitions
     WHERE type = 'domain-research-classifier' AND is_active
@@ -58,6 +73,13 @@ BEGIN
     END IF;
     IF cl#>>'{write_classification_spec,next_step}' IS DISTINCT FROM 'enrich_directory_features' THEN
         RAISE EXCEPTION '432 ROLLBACK: classifier write_classification_spec.next_step is not in the 432 shape - re-check before rolling back';
+    END IF;
+    -- Same round-2 advisory, classifier side: pin the step's outbound edges.
+    IF cl#>>'{enrich_directory_features,next_step}' IS DISTINCT FROM 'write_content_direction_spec' THEN
+        RAISE EXCEPTION '432 ROLLBACK: classifier enrich_directory_features.next_step is not write_content_direction_spec (found %) - a later splice hangs off this step and would be orphaned; re-check before rolling back', cl#>>'{enrich_directory_features,next_step}';
+    END IF;
+    IF cl#>>'{enrich_directory_features,config,error_step}' IS DISTINCT FROM 'write_content_direction_spec' THEN
+        RAISE EXCEPTION '432 ROLLBACK: classifier enrich_directory_features.config.error_step is not write_content_direction_spec (found %) - a later edit re-pointed it; re-check before rolling back', cl#>>'{enrich_directory_features,config,error_step}';
     END IF;
 END $do$;
 

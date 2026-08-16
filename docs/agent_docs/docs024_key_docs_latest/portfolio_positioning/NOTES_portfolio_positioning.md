@@ -1251,3 +1251,101 @@ landmine). Disposition, honest on both halves:
 **Round 2 resubmitted** same correlation (`RESUBMIT_CORR=47785bb5…`, run orch
 `5cb56ab9…`): guards quoted verbatim, measurements in grounded_in, ROLLBACK fix named.
 Verdict to read next session.
+
+### 2026-08-15 (fifth session) — 432 round 2 APPROVED; advisories dispositioned; B3e applied + live
+
+**432 round 2: APPROVED 22:19:07Z** (corr `47785bb5`, all 11 non-abstaining seats approve,
+6 abstained, `decided_by: all reviewers approve`). Commit `bbb0cfa89` carries
+`Council-Submitted: 47785bb5…` and is credited automatically by 098. Five low advisories,
+none gating; dispositions, each with the check run rather than asserted:
+
+- **guardian edit-1 (output_field collision)**: MEASURED CLEAN 22:25Z — the only steps in
+  either agent writing `directory_features_enrichment` are the two `enrich_directory_features`
+  steps 432 itself added (jsonb_each sweep over both live workflows, 2 rows, both ours).
+- **guardian edit-2 (rollback assumes its inverse targets)**: REAL, FIXED in the un-run
+  `432_…_ROLLBACK.sql` — pre-flight now pins ALL six edges it overwrites or could orphan
+  (news `next_step` AND `config.error_step`; the directory step's own `next_step` +
+  `error_step` in BOTH agents), with refusal messages naming the third-lane-splice
+  scenario. Pinned values read from the live rows 22:27Z, not from the forward file.
+- **architecture (trigger must outlive lane NOTES)**: DONE —
+  `architecture_review/RFC_031_hand_spliced_enrichment_steps_want_an_ordered_list.md`
+  filed as the durable trigger record (population measured live: 3 splices, 2 actions;
+  includes the drift evidence that news is NOT in the classifier while directory is).
+  Trigger unchanged: the THIRD deterministic recommender builds the ordered list.
+- **prior_art (scheduled_tasks unverifiable from the seat)**: RE-CONFIRMED 22:31Z by
+  direct read — `improvement-sweep` enabled=f, interval 900s, last_triggered_at
+  2026-08-14 16:34:16Z. The handoff's claim stands; the loop consumer remains
+  wired-but-undriven, classifier consumer proves on the Phase C pilot.
+- **debug_historian (no SELECT…FOR UPDATE)**: acknowledged, no change — matches the
+  platform's existing verify-block idiom; the in-transaction verify would abort on the
+  drift it describes. Noted here so the next migration author sees the trade-off named.
+
+**B3e DONE, LIVE, VERIFIED AT THE ARTEFACT** — migration
+`sql_for_agents/433_planner_directory_rule_b3e.sql` (+ surgical-inverse ROLLBACK with the
+same guards), applied 22:24Z after a clean dry run (COMMIT→ROLLBACK copy: pre-flight
+passed, UPDATE 1, in-txn verify passed):
+- ONE `Directory rule:` paragraph after the News listing rule + RULES entry 18 after rule
+  17, spliced surgically on `plan_site.config.prompt_template` via jsonb_set +
+  replace() on the DECODED string (no whole-config ::text replace, no \n escape
+  subtleties — a deliberate tightening of 206's idiom).
+- Mapping is verbatim from `directoryCheckProfiles` (check_directory.go:72-149); the
+  composition (hero → `<x>-listing` → call-to-action, header+footer nav) matches the three
+  LIVE pages on ai-agent-orchestration.com AND MissingDirectoryPageCheck's own suggestion.
+- Directory page types verified to survive the Go validator: normaliseRole passes unknown
+  roles through; CanonicalisePage default arm preserves type, name=slug, url=/<slug>.html —
+  the exact shape of the live pages. No section-index flattening trigger applies.
+- Pre-flight guards: exactly-one-active-row (measured 1, version 1), anchors exactly-once
+  (measured 1|1|0 pre-apply), already-applied refusal; verify block is DO/RAISE.
+  Backup-row guard is PRESENCE not exactly-one — snapshot_agent runs outside the txn, so
+  a dry run legitimately leaves a surviving row; exactly-one there would refuse the real
+  apply after any dry run (found while designing the dry run, worth keeping as practice).
+- Read back live post-apply: both splices in position, canonical table untouched, rule 17
+  and news rule intact at count 1.
+- The 12 directory components need NO vocabulary injection: measured no `requires-backend`
+  tags, component_level='section', is_active — they already flow through load_components
+  into available_components. 433's rule supplies the WHEN and the exact name/page_type
+  routing, which is the part the DB list cannot carry.
+
+Next: B3f (434, the 194/215 jsonb_set pattern on completeness-discovery-agent), then
+council submission for 433 + commit, then the Phase C pilot.
+
+### 2026-08-15 (fifth session, cont.) — B3f applied + live; both submissions dispatched
+
+**B3f DONE, LIVE** — migration
+`sql_for_agents/434_enable_finance_directory_and_structural_checks_b3f.sql` (+ surgical-
+inverse ROLLBACK), applied 22:38Z after a clean dry run. Eleven checks enabled on
+completeness-discovery-agent: the three finance directory pairs and the five Phase-A
+structural checks (`dead_internal_link_live`, `canonical_mismatch`,
+`structured_data_invalid`, `head_essentials_missing`, `sitemap_entry_dead_live`).
+Checks array 32 → **43, read back live**.
+- **Correction to the handoff's framing**: B3f said "the 6 directory checks"; the three
+  AI-kind pairs (model/adoption/protocol) were ALREADY enabled by 194/215 — measured in
+  the live array before writing the migration. The six that were missing are the FINANCE
+  pairs. Same count, different six; the migration enables what was actually absent.
+- **Binary precondition proven at the artefact, not inferred from the tag** (an
+  unregistered check NAME is silently skipped, so a config-only enable can look applied
+  and do nothing): pod `agent-chassis-584b6fcf-9mtqd`, `grep -aq … /proc/1/exe` —
+  `missing_mortgage_lender_directory_section` PRESENT, `sitemap_entry_dead_live` PRESENT,
+  positive control `missing_model_directory_section` PRESENT, negative control
+  `missing_zzz_nonexistent_check_qqq` ABSENT. Both controls in the same breath, per
+  LANDMINES; no `strings`, no discovery grep.
+- **Zero work items expected until the Phase C pilot opts in** — the directory checks
+  self-gate on the per-site flag (no site carries a finance key today) AND on current
+  found claims of that kind (B4 populated all three). That silence is the design, not a
+  failure; the pilot is what arms them. The five structural checks fire on any dispatched
+  completeness sweep — their real-site finding volume is UNMEASURED (A1 shipped them
+  flag-only for that reason), so the first post-434 sweeps want watching.
+
+**Both migrations submitted to the council gate** (config under docs/, so `FORCE=1`):
+- 433 (B3e planner rule) → corr `53ae1501-abe0-4bce-8376-bf20e220faf7`
+- 434 (B3f checks enable) → corr `1b087280-b43b-4ea6-82c1-818c4f3cbef8`
+Commits carry `Council-Submitted:` (verdicts pending; 098 credits them on approval).
+Budget ~30 min each — the council itself is 2–5 min, the dispatch queues behind the fleet.
+
+**NEW submission-schema gotcha, fourth in the series** (429 cost two, 432 one, this one
+cost a rejected submit): **a sketch whose every non-blank line is a comment is REFUSED
+client-side** — *"a fix plan proposes changes, not observations"*. 434's first draft
+sketched the migration as an annotated comment block (accurate, readable, and rejected).
+Fix: sketch the REAL statements (guards, UPDATE, verify block) and move the commentary to
+`.rationale`/`.grounded_in`. Note this compounds the 432 lesson rather than replacing it:
+reviewers can only see what the sketch shows, AND the sketch must be code.
