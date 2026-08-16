@@ -139,3 +139,69 @@ Post-roll, `SELECT count(*) FILTER (WHERE result ? 'topics' AND result ? 'agent_
 `status='complete' AND updated_at > <roll>` must be 0 **while** `count(*) FILTER (WHERE result
 ? 'response')` is non-zero in the same window (demand). And one item followed end to end:
 child COMPLETED → item `complete` with `result.response` = the child's payload.
+
+---
+
+## 9. FIRST-HAND READ at local HEAD, 2026-08-16 ~10:25Z — declared substitution (2026-07-31 ruling), because the 090 run reads a tree 881 commits stale (§6)
+
+Read: `coordinator.go` `handleCompleteResponse` (:2597-2680) → `applyResponseToState`
+(:2749-2880); `loop_expansion_handler.go` `makeIterationOutputField` (:222),
+`propagateIterationOutputs` (:426-500) and its single call site in `setLoopVariable` (:374).
+Then re-checked the live parent `c0aee25f…` for the keys the read predicts.
+
+**The mechanism (three facts, each verified):**
+
+1. **The reply is written to the SUFFIXED key.** Loop expansion rewrites each sub-step's
+   `output_field` to `<field>_<iter>` (`makeIterationOutputField`), so `call_handler`'s reply
+   lands via `applyResponseToState`'s additive `isAgentResponse` branch at
+   `process_item_iter_N_call_handler` and at **`handler_result_N`** — the parent row shows
+   `handler_result_0` and `handler_result_1` each holding the correct `{"response":…}`.
+   The reply path itself is fine (fresh load → apply → `continueExecution` on the same state).
+2. **`mark_complete` reads the UN-suffixed key.** Its config is `"result": "handler_result"`;
+   `prefixConfigStepReferences` (:147) rewrites step-name references, and the base
+   `handler_result` is only populated by `propagateIterationOutputs`, which copies
+   `<field>_<iter> → <field>` **once, at the START of each iteration** (`setLoopVariable`,
+   :374) — i.e. before that iteration's `call_handler` has run. So at iteration N's
+   `mark_complete`, `handler_result` is either ABSENT (iteration 0) or holds iteration N-1's
+   value. Live: both items in run `c0aee25f` hold the spawn record for their OWN iteration
+   (topic `…iter_0…` on the 08:39:21 item, `…iter_1…` on the 08:40:06 item), so it is not the
+   N-1 case either — the resolver did not find `handler_result` and **fell back**.
+3. **The fallback lands on `handler_spawned`.** `resolveFieldValue`'s recursive search for a
+   missing key (the `findFieldRecursive` landmine, `bugs_open/248` R1) returns the nearest
+   value — `spawn_agent`'s `extractSpawnData` output at `handler_spawned`/`handler_spawned_N`,
+   whose shape `{role,topics,agent_id,agent_type}` is exactly the item's stored `result`.
+   `[INFERRED which key the search hits first; the SHAPE match and the per-iteration topic
+   match are measured]`.
+
+**Why it appeared WITH the roll and not before — a correction to §2 and §4:**
+Pre-roll, the child's reply never validated (274), so `handler_result_N` was never written by
+a reply. The pre-roll "own envelope" rows this file's §2 counted as CORRECT are **not**: they
+hold `response.deploy_result.response.deploy_result…` — a doubly-nested envelope, which is
+`bugs_open/216`'s duplicate-execution shape (reply refused → child re-run → both wrapped), so
+they were 274's symptom too, and `handler_result` was reached through the failure/timeout
+path `[UNMEASURED which]`. Post-roll the reply is delivered ONCE, correctly, to the suffixed
+key — and the un-suffixed read that `mark_complete` always did now finds nothing at all,
+because nothing else writes it. **The regression is real, but the seam was always wrong: 274
+was hiding it by making a different wrong thing land in the same slot.**
+
+> **CORRECTED 2026-08-16 (§2, §4):** the pre-roll `own_envelope` column is not a "correct"
+> baseline; it is 216/274-shaped. The correct pre-roll count of properly-recorded results is
+> unmeasured and probably ~0 for loop-dispatched items. What the roll changed is WHICH wrong
+> payload lands, not whether one does.
+
+**What the 70 post-roll `own envelope` rows are** (`tool-acceptance-agent`, some
+`page-rerender`): `[UNMEASURED]` — likely single-iteration runs where propagation or a
+non-loop path populates the base key, or agents whose `mark_complete` reads a suffixed key.
+Worth one query by whoever fixes this; not needed to fix it.
+
+**Fix candidate that follows from the read (sharpening §7):** `mark_complete`'s `result`
+must reference the CURRENT iteration's reply — either (a) `prefixConfigStepReferences`
+should also rewrite `output_field` references in `config` to their suffixed form (it rewrites
+step names; it does not rewrite `handler_result` → `handler_result_N`), or (b) run
+`propagateIterationOutputs` after each substep, not only at iteration start, or (c) have
+`complete_work_item` read `<prev step>.response` explicitly. (a) is the one that closes the
+door for every loop-dispatched agent, not just this one, and it is where the seam is. Any of
+them must ALSO make a missing key an error rather than a substitution (§7.3), or the next
+mis-spelling lands the same way. Blast radius: every `loop` sub-workflow whose later substep
+reads an earlier substep's un-suffixed `output_field` — a `SELECT` over `agent_definitions`
+for `sub_workflow` steps whose config strings match a sibling's `output_field` is the census.
