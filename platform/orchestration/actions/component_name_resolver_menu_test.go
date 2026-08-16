@@ -14,6 +14,7 @@ package actions
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
@@ -305,5 +306,175 @@ func TestValidateSitePlan_MenuFieldPointingAtNothingFallsBackToTheBase(t *testin
 	got := sectionsOfFirstPage(t, out)
 	if len(got) != 2 {
 		t.Fatalf("expected the base's hero+faq, got %v", got)
+	}
+}
+
+// ── the residual: an unresolvable name is DROPPED, and that must be durable ──
+//
+// bugs_open/282's council round 1, bug_historian (gating-adjacent, HIGH): the
+// menu arm restores acceptance for one opted-in caller and leaves the generic
+// silent-drop untouched — "any name that resolves to neither the DB base NOR
+// the menu still vanishes with zero error surface, byte-identical to the bug
+// being fixed". These pin the durable record that answers it, for BOTH the
+// opted-in and the un-opted-in caller.
+
+func TestValidateSitePlan_AnUnresolvableNameIsDroppedButTheActionStillSucceeds(t *testing.T) {
+	// The shape bugs_open/039 records (a section naming a missing component):
+	// it must still be removed from the plan — persisting it would put a name
+	// nothing can build into site_plan_sections — and the run must not fail.
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+	mock.MatchExpectationsInOrder(false)
+	expectResolverQueries(mock)
+
+	params := validateMenuParams("available_components")
+	params.DB = db
+	page := params.CollectedData["llm_plan"].(map[string]interface{})["pages"].([]interface{})[0].(map[string]interface{})
+	page["sections"] = []interface{}{"hero", "a-component-that-does-not-exist", "faq"}
+
+	out, err := ValidateSitePlanAction(context.Background(), params)
+	if err != nil {
+		t.Fatalf("a drop must never fail the run: %v", err)
+	}
+	got := sectionsOfFirstPage(t, out)
+	for _, s := range got {
+		if s == "a-component-that-does-not-exist" {
+			t.Fatalf("an unresolvable name must not survive into the plan, got %v", got)
+		}
+	}
+	if len(got) != 2 {
+		t.Fatalf("expected hero+faq, got %v", got)
+	}
+}
+
+func TestRecordDroppedSectionNames_CountsWhatItWrites(t *testing.T) {
+	// The negative ("a clean plan writes nothing") asserted where it is
+	// observable. A sqlmock cannot carry this claim: it fails an EXPECTED call
+	// that never came, not an UNEXPECTED call that did, so a recorder that
+	// wrote on every run would satisfy it. Proven by mutation — deleting the
+	// empty-drops guard left the mock-based version green.
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+	mock.MatchExpectationsInOrder(false)
+	mock.ExpectExec("INSERT INTO agent_error_log").WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectExec("INSERT INTO agent_error_log").WillReturnResult(sqlmock.NewResult(1, 1))
+
+	params := validateMenuParams("available_components")
+	params.DB = db
+
+	if n := recordDroppedSectionNames(context.Background(), params, nil, "available_components"); n != 0 {
+		t.Errorf("no drops must attempt no rows, got %d", n)
+	}
+	if n := recordDroppedSectionNames(context.Background(), params, []droppedSectionName{}, ""); n != 0 {
+		t.Errorf("an empty slice must attempt no rows, got %d", n)
+	}
+	drops := []droppedSectionName{{Page: "index", Name: "x"}, {Page: "about", Name: "y"}}
+	if n := recordDroppedSectionNames(context.Background(), params, drops, ""); n != 2 {
+		t.Errorf("two drops must attempt two rows, got %d", n)
+	}
+}
+
+// TestValidateSitePlan_ADropReachesTheDurableRecord asserts the WIRING, not the
+// shape: that a name dropped inside the action's resolve pass actually reaches
+// the findings door. Written because the first version of these tests did NOT
+// cover it — removing the line that collects a drop left every test passing,
+// which is precisely the silent-loss shape this arm exists to remove. The
+// assertion is a POSITIVE one (this INSERT happened), which is what a mock can
+// honestly prove.
+func TestValidateSitePlan_ADropReachesTheDurableRecord(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+	mock.MatchExpectationsInOrder(false)
+	expectResolverQueries(mock)
+	mock.ExpectExec("INSERT INTO agent_error_log").
+		WillReturnResult(sqlmock.NewResult(1, 1))
+
+	params := validateMenuParams("available_components")
+	params.DB = db
+	page := params.CollectedData["llm_plan"].(map[string]interface{})["pages"].([]interface{})[0].(map[string]interface{})
+	page["sections"] = []interface{}{"hero", "a-component-that-does-not-exist", "faq"}
+
+	if _, err := ValidateSitePlanAction(context.Background(), params); err != nil {
+		t.Fatalf("action failed: %v", err)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("a dropped section must reach the durable record: %v", err)
+	}
+}
+
+func TestValidateSitePlan_NoDropMeansNoDurableWrite(t *testing.T) {
+	// The control for the test above: a plan whose every name resolves must not
+	// touch the findings table at all. Without this, the assertion above would
+	// pass just as well against code that wrote a row on every run.
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+	mock.MatchExpectationsInOrder(false)
+	expectResolverQueries(mock)
+
+	params := validateMenuParams("available_components")
+	params.DB = db
+	page := params.CollectedData["llm_plan"].(map[string]interface{})["pages"].([]interface{})[0].(map[string]interface{})
+	page["sections"] = []interface{}{"hero", "faq"}
+
+	if _, err := ValidateSitePlanAction(context.Background(), params); err != nil {
+		t.Fatalf("action failed: %v", err)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("a clean plan must issue no findings write: %v", err)
+	}
+}
+
+func TestDroppedFindings_ShapeAndTheTwoRemedies(t *testing.T) {
+	drops := []droppedSectionName{
+		{Page: "index", Name: "tool-loan-repayment"},
+		{Page: "about", Name: "a-typo-section"},
+	}
+
+	withMenu := droppedFindings(drops, "available_components")
+	if len(withMenu) != 2 {
+		t.Fatalf("one durable row per drop, got %d", len(withMenu))
+	}
+	f := withMenu[0]
+	if f.ErrorCode != "PLAN_SECTION_NAME_DROPPED" {
+		t.Errorf("error code = %q", f.ErrorCode)
+	}
+	if f.Severity != "warning" {
+		// A drop IS a legal outcome — removing an unbuildable name is correct.
+		// What it must not be is invisible. Matching recordRecomposeOutcomes.
+		t.Errorf("severity = %q, want warning", f.Severity)
+	}
+	if f.Context["page"] != "index" || f.Context["section"] != "tool-loan-repayment" {
+		t.Errorf("context must carry page+section, got %+v", f.Context)
+	}
+	if f.Context["menu_field"] != "available_components" {
+		t.Errorf("context must record whether a menu was configured, got %+v", f.Context["menu_field"])
+	}
+	if !strings.Contains(f.Message, "tool-loan-repayment") || !strings.Contains(f.Message, "index") {
+		t.Errorf("message must name both, got %q", f.Message)
+	}
+
+	// The two remedies are diagnostically different and must not be shared.
+	configured := droppedRemedy("available_components")
+	unconfigured := droppedRemedy("")
+	if configured == unconfigured {
+		t.Fatal("the configured and unconfigured remedies must differ")
+	}
+	if strings.Contains(configured, "bugs_open/282") {
+		t.Error("a configured menu must not blame the 282 shape")
+	}
+	if !strings.Contains(unconfigured, "menu_field") {
+		t.Errorf("an unconfigured menu must name the missing key, got %q", unconfigured)
 	}
 }

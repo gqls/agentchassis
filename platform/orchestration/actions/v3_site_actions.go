@@ -3415,18 +3415,24 @@ func ValidateSitePlanAction(ctx context.Context, params ActionParams) (interface
 		// tool-level components, per-site opt-in) can never be silently eaten by
 		// this surface again. Absent key = today's behaviour, unchanged.
 		// bugs_open/282; the arm itself is component_name_resolver_menu.go.
-		if menuField, _ := config["menu_field"].(string); menuField != "" {
-			if rows, ok := menuRowsFrom(params.CollectedData, menuField); ok {
+		menuFieldConfigured, _ := config["menu_field"].(string)
+		if menuFieldConfigured != "" {
+			if rows, ok := menuRowsFrom(params.CollectedData, menuFieldConfigured); ok {
 				added := resolver.addMenu(rows)
 				params.Logger.Info("ValidateSitePlanAction: accepting the planner's own component menu",
-					zap.String("menu_field", menuField),
+					zap.String("menu_field", menuFieldConfigured),
 					zap.Int("menu_rows", len(rows)),
 					zap.Int("added_beyond_base", added))
 			} else {
 				params.Logger.Warn("ValidateSitePlanAction: menu_field configured but no component menu at that path — falling back to the section/element base",
-					zap.String("menu_field", menuField))
+					zap.String("menu_field", menuFieldConfigured))
 			}
 		}
+		// Every drop is recorded durably, whether or not a menu was configured
+		// — a Warn is not a record on a service whose logs rotate sub-second,
+		// and a silently lost section is the shape this lane exists to remove
+		// (bugs_open/282, council round 1). See recordDroppedSectionNames.
+		var dropped []droppedSectionName
 		if len(resolver.validFunctions) > 0 { // only act if components actually loaded
 			for _, p := range pages {
 				pm, ok := p.(map[string]interface{})
@@ -3446,6 +3452,8 @@ func ValidateSitePlanAction(ctx context.Context, params ActionParams) (interface
 					}
 					fn, ok := resolver.resolve(name)
 					if !ok {
+						pageName, _ := pm["name"].(string)
+						dropped = append(dropped, droppedSectionName{Page: pageName, Name: name})
 						params.Logger.Warn("ValidateSitePlanAction: dropped unresolvable section name",
 							zap.Any("page", pm["name"]),
 							zap.String("section", name))
@@ -3476,6 +3484,7 @@ func ValidateSitePlanAction(ctx context.Context, params ActionParams) (interface
 				}
 				pm["sections"] = resolved
 			}
+			_ = recordDroppedSectionNames(ctx, params, dropped, menuFieldConfigured)
 		} else {
 			params.Logger.Warn("ValidateSitePlanAction: validate_components set but no components loaded — skipping name resolution")
 		}

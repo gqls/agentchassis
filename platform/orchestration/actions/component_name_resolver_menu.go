@@ -1,8 +1,11 @@
 package actions
 
 import (
+	"context"
+	"fmt"
 	"strings"
 
+	"github.com/gqls/agentchassis/platform/orchestration/agenterrors"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 )
 
@@ -124,4 +127,93 @@ func (r *componentNameResolver) addMenu(rows []interface{}) int {
 // identical in the logs and in site_plan_sections.
 func (r *componentNameResolver) resolvedViaMenu(fn string) bool {
 	return r != nil && r.menuOnly[fn]
+}
+
+// ============================================================================
+// The residual: a dropped name is still a SILENT loss (bugs_open/282, council
+// round 1, bug_historian's gating objection)
+// ============================================================================
+//
+// Accepting the menu fixes the class of drop that motivated 282, for the
+// callers that opt in. It does nothing for the REST of the drop surface: a
+// typo, a renamed function, a deleted component, or a caller that never opts
+// in still loses its section with a single Warn and no durable trace — which is
+// byte-identical to the failure this whole lane exists to remove, and is this
+// estate's most-repeated shape (a plan/rebuild pass silently loses content and
+// nobody learns until the damage is visible).
+//
+// So every drop now files a durable finding, whether or not a menu was
+// configured. It uses the door this action already uses for exactly this
+// purpose — LogActionFindings, whose own header gives the standing reason: the
+// chassis logs rotate sub-second, so a log line is not a record. Severity is
+// warning, matching recordRecomposeOutcomes: a drop IS a legal outcome of the
+// mechanism (an unresolvable name SHOULD be removed rather than persisted into
+// a plan nothing can build) — what it must not be is invisible.
+
+// droppedSectionName is one section the resolver could not resolve, with the
+// page it was proposed for.
+type droppedSectionName struct {
+	Page string
+	Name string
+}
+
+// recordDroppedSectionNames persists one durable row per section name validate
+// removed from the plan. menuField is reported so a reader can tell the two
+// cases apart without reading the agent config: a drop with no menu configured
+// invites "should this planner be reading its own menu?" (the 282 fix), while a
+// drop WITH a menu configured means the name was in neither the component base
+// nor anything the planner was offered — a typo, a rename, or a hallucination.
+// droppedRemedy is the operator-facing "what do I do about this" for a dropped
+// name. The two cases are diagnostically different and must not share a
+// sentence: with no menu configured the name may be one the planner was
+// legitimately OFFERED (282's shape, and the reader should suspect the config
+// before the name); with a menu configured it resolved to neither the component
+// base nor anything the planner saw, so it is a typo, a rename, or invention.
+func droppedRemedy(menuField string) string {
+	if menuField == "" {
+		return "this planner's validate step does not read its own component menu (no menu_field configured), so a component the planner WAS offered can still be dropped here — see bugs_open/282 and register PLAN-050 before assuming the name is wrong"
+	}
+	return "the planner proposed a section this site's component set does not contain: check for a renamed or deactivated component, or a planner prompt naming a component that does not exist"
+}
+
+// droppedFindings builds the durable rows for a set of drops. Pure, so the
+// record's shape can be asserted without a database — the findings door itself
+// is exercised by the actions that already use it.
+func droppedFindings(drops []droppedSectionName, menuField string) []agenterrors.Finding {
+	findings := make([]agenterrors.Finding, 0, len(drops))
+	remedy := droppedRemedy(menuField)
+	for _, d := range drops {
+		findings = append(findings, agenterrors.Finding{
+			ErrorCode: "PLAN_SECTION_NAME_DROPPED",
+			Severity:  "warning",
+			Message: fmt.Sprintf("section %q proposed for page %q was dropped from the plan: it resolves to no active component",
+				d.Name, d.Page),
+			Context: map[string]interface{}{
+				"page":       d.Page,
+				"section":    d.Name,
+				"menu_field": menuField,
+				"remedy":     remedy,
+			},
+		})
+	}
+	return findings
+}
+
+// recordDroppedSectionNames persists one durable row per section name validate
+// removed from the plan. menuField is reported so a reader can tell the two
+// cases apart without reading the agent config.
+//
+// It RETURNS the number of rows attempted, and that return is not decoration:
+// "a clean plan writes nothing" is a negative, and a database mock cannot prove
+// a negative — it fails an *expected* call that never came, never an
+// *unexpected* call that did. Returning the count moves the claim somewhere a
+// test can actually assert it. (Found by mutation: deleting the empty-drops
+// guard left every test passing.)
+func recordDroppedSectionNames(ctx context.Context, params ActionParams, drops []droppedSectionName, menuField string) int {
+	if len(drops) == 0 {
+		return 0
+	}
+	siteID := datahelpers.ExtractNestedFieldString(params.CollectedData, "site_record.site_id")
+	attempted, _ := LogActionFindings(ctx, params, siteID, "", "validate_plan", droppedFindings(drops, menuField), params.Logger)
+	return attempted
 }
