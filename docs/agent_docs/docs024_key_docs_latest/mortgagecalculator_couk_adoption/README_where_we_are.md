@@ -1206,3 +1206,51 @@ re-rendered and fell back to the site hero; nothing links the new images to thei
 a known class of bug (114) and I've added these ten as a clean, measured example. I've left the
 images in place so whoever fixes the wiring has something to test with. Nothing more of that
 kind should be generated on this site until it's fixed — it's spend with no visible result.
+
+## 2026-08-16 (Sunday afternoon) — the page titles turned out to be already done, and I found eight links on the site that go nowhere
+
+Picked the site up again from the Saturday-morning notes. Two jobs were left on the list. The
+first one was already finished, and the second one turned into something worth telling you about.
+
+**The titles are done.** The list said thirty pages were still showing their old browser-tab
+titles. I checked every page on the site against what it is supposed to say, and all twenty-seven
+that are live are correct. They fixed themselves: the pages were rebuilt over Friday and Saturday
+for other reasons, and a rebuild picks up the new title on its way past. Worth saying plainly —
+if I had trusted the list instead of checking, I would have rebuilt thirty pages to change
+nothing. The list was right when it was written five days ago and nobody had looked since.
+
+**Eight links on the site lead to a page that isn't there.** I went round every internal link on
+every live page and fetched each one. Four destinations are dead:
+
+- the **Mortgage Scorecard Simulator** — four different pages send you to it, and it is also in
+  the menu at the top and bottom of every page;
+- **"The Secret Scorecard"** guide — two pages send you to it;
+- the **lender restrictions** guide — one page sends you to it;
+- one link to the **rate forecaster** that is written in a slightly different form from the
+  address the page actually lives at, so it 404s even though the page is perfectly fine.
+
+The first three were planned back on 31 July and never built, but the copy on the site talks
+about them by name as though they exist — so a reader following the sentence gets a 404.
+
+**Why nothing flagged this.** The part of the system that checks links has not looked at this
+site since 9 August. It is switched off across the whole fleet — that was already known and
+written down by three other people working on other things, so it isn't news, but it is the
+reason. Two of the eight were caught on 9 August, before it went off, and have been sitting in a
+"needs a human to decide" queue ever since. The other six arrived after it stopped looking.
+
+**You chose to build the three missing pages** rather than re-point the links at pages that
+already exist. That is the better answer and it is also the tidier one mechanically: the links
+are already correct, so building the pages fixes seven of the eight without editing a single
+sentence of the copy we have spent weeks getting right. As it happens the system had already
+started building the scorecard page by itself this afternoon — I found it mid-build — so I have
+left that alone and queued the two guides behind it.
+
+**One thing I am deliberately not fixing by hand.** The eighth link, the rate-forecaster one, is
+a symptom of something broader: on this site, and on the other sites hosted the same way, an
+address ending in a slash always fails. `/guides/` fails; `/guides/index.html` works. Both work
+on the sites hosted the other way. So anyone who types the address, or shares it, or follows an
+old link without the exact ending, gets a 404 — and that is invisible to every internal check we
+have, because the software treats the two forms as the same page. The right fix is at the hosting
+layer, once, for every site of this kind — not a hand-edit of one link here. I have written it up
+where the next person will hit it. **It is your call whether that is worth doing; it is a change
+to how the sites are served, not to the site itself.**
