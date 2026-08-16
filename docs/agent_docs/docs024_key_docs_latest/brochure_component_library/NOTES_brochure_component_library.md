@@ -7405,3 +7405,75 @@ Re-filed on `nav-updater` (`nav_refile.sql`), guarded to abort if `tools.in_head
 true, if a `/tools.html` nav row already exists, or if another open `nav_drift` is on this
 site. **Not verified until `href="/tools.html"` appears on the served index page** — the
 last item taught me exactly what a green status is worth here.
+
+### 2026-08-16 — THE NAV ENTRY IS LIVE. The cause was a MIS-TYPED page, and `in_header` was never sufficient
+
+**`Home About Tools Contact Platform Log News Capabilities`** — verified in the served
+`<nav>` element on `/index.html`, `/about.html` and `/platform-log/index.html`, with
+`/tools.html` returning **200** against a **404 control that returned 404**.
+
+### The real cause, read at source
+
+`populate_nav_tables_action.go` (~line 330):
+
+```go
+neverPrimaryTypes := map[string]bool{"blog-post": true, "tool": true, "entity-page": true}
+neverPrimary := neverPrimaryTypes[page.PageType] || (isChildPageURL(page.URL) && !isSectionIndexType(page.PageType))
+if neverPrimary { if InHeader || InFooter { utility = append(utility, page) } ... }
+```
+
+The comment above it says these types are barred **"regardless of in_header flag"**. So
+`in_header=true` was **necessary and not sufficient**, and the page was routed to the
+`utility` group — the footer. Which is exactly what shipped on the first attempt: two
+`/tools.html` links, **both in the footer**, none in `<nav>`.
+
+**The rule is right and the page was wrong.** Individual tool pages should not be in the
+top menu; `/tools.html` is the parent listing they sit under, and it was typed as one of
+its own children. The URL half of the same test already gets this right — `isChildPageURL`
+matches `"/tools/"` and `/tools.html` does not match it. **Only the `page_type` clause
+misfired.**
+
+### The fleet settled it, not my judgement
+
+Five sites have a `tools` page. **Four type it `content`; fundamentallyai was the only
+`tool`.** Positive control at the served artefact, all three checked showing Tools in the
+top nav: idea.uk, robot-hands.com, finetuning.uk. Retyped to `content` — matching four
+sites beats inventing a second convention, and `section-index` would also have worked but
+nothing uses it for this page.
+
+Side effects checked rather than assumed: `rebuild_policy` is `generic` here **and** on the
+precedent sites, so the build path is governed by that column, not `page_type`; the `tools`
+spec has 0 rows naming `/tools.html`; and the transaction **re-asserts F14 still reads 5**,
+because a registered fact silently changing value is the worst outcome of a retype.
+
+### THREE measurement errors of my own in one hour — all the same family
+
+1. **"NAV LINK LIVE" — reported to the owner, and WRONG.** My monitor counted
+   `href="/tools.html"` **anywhere on the page**; both hits were in the footer. The check
+   could not distinguish the thing I wanted from the thing already there. Corrected to
+   parse the `<nav>` element.
+2. **A 404 control that returned `000`.** A failed request, not a 404 — so it validated
+   nothing, and I nearly quoted the paired `200` as proven. Retried: 404 / 200, and only
+   then does the 200 mean anything. **`000` is not a status code.**
+3. **"0 of 24 pages have the new nav"** from `grep -E '<nav[^>]*>.*Tools'` — which needs
+   both on **one line**, and this HTML is multi-line. The true figure at that moment was
+   **15 of 23**. A regex that cannot match anything returns a confident zero.
+
+All three are the same shape: **the measurement answered a question I had not asked.** Two
+of them would have been reported as fact if I had not re-checked, and one was.
+
+### Chrome reaches pages one at a time — a partial rollout is the normal middle state
+
+`[MEASURED]` immediately after the nav rebuild: **15 of 23 pages NEW, 8 OLD.** Chrome is
+injected at page assembly (REB-005), so a page carries the new nav only once it is
+reassembled. **`nav-updater` queues that itself** — batch `c6ddad98`, created at 16:41 the
+moment the rebuild completed, and 7 of the 8 laggards were already `triaged` in it. **Do
+not file rerenders for these; they are already queued.**
+
+**The exception worth chasing: `contact` is NOT in the batch.** The batch covers 9 pages,
+not the whole site — consistent with REB-001's dependent-page scoping — so a page outside
+the scope keeps the old nav until something else re-renders it. Left under watch.
+
+**And the deploy lags the database by ~15 minutes**: nav group flipped `utility` → `primary`
+at 16:42, the served nav changed at 16:57. A DB check would have read "done" for a quarter
+of an hour before it was true.
