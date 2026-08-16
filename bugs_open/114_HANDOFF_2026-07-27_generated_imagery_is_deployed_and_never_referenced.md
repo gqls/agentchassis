@@ -294,3 +294,49 @@ was supposed to catch this).
 > an orphan census run at one instant cannot tell a never-wired asset from a destroyed
 > placement, and both this file's own scans and mine have that blind spot. Distinguish them
 > with `page_component_history`, which is what settled it in one query.
+
+---
+
+## CONTRIBUTION 2026-08-16 — ten clean instances in one night, one producer, one site (mortgagecalculator.co.uk), and the consumer the producer's own header names cannot see them
+
+By the mortgagecalculator adoption lane. A one-shot `design-discovery-agent` run (08-14 21:46Z)
+had `content_image_missing` file 10 `needs_imagery` GENERATE items (`kind: content_hero`,
+`scope: page`, `scope_ref: tool-<x>`, keys `content_hero_tool_*`) for the site's tool pages,
+which are listed by a `query.*` consumer. Owner: *"let the hero items run."* They ran, 08-15
+19:31–19:43Z: **10/10 `complete`, 10 `active` assets, 10 files serving 200**
+(e.g. `/assets/images/content-hero-tool-repayment.jpg`, 115,250 B).
+
+**Nothing references any of them** `[MEASURED 2026-08-16 ~10:15Z]`:
+- `assets.entity_type` / `entity_id` **NULL on all 10** — the same null-link shape this file
+  records at its `content_hero` census above, so the listing-card join
+  (`pageImageProjection`: `entity_type='page' AND entity_id=p.id AND purpose='card'`) can
+  never pick them up, and the header's own convergence story ("pass 2 sees each card's origin
+  no longer matches and re-derives") has no origin to see.
+- Each tool page DID re-render through the image-landed flow (`needs_page` from
+  image-build-handler 19:32Z → `page_rerender … assemble` 19:46Z → hero component updated
+  19:47:51Z) — and its hero fields resolved to the **site fallback**: `hero_url` and
+  `background_image` both `/assets/images/hero.jpg`. `rendered_html` contains
+  `content-hero-tool-repayment` **0** times. The page-scoped asset was not mapped into the
+  page-scoped hero by that flow.
+- The homepage `tool-list` `items[0].image` is still `""` (the frozen-array shape the 08-14
+  NOTES on this site trace to `plan_sections_action.go:2076` — no per-array-element source).
+
+So the header comment's line 14 — *"The article page re-renders with its new hero via the
+normal image-landed flow"* — is a claim, and on this site it is false: the flow re-rendered
+the page and the page still points at the fallback. `[INFERRED, not read]`: the flow maps
+`hero_url` from the plan/site hero (`site_plan_imagery` join or site fallback), and a
+`content_hero_*`-keyed asset with no plan row and no entity link matches neither.
+
+**Two things this instance adds to the file:**
+1. A **controlled** population — same producer, same night, same site, no other lane touching
+   imagery — so it is not the "one instant census" blind spot the section above warns about
+   (`page_component_history` for `tool-repayment` shows one rerender, no destroyed placement).
+2. The **cost of an owner saying "let them run"** on this class is now a number: 10 paid
+   generations, 0 pixels changed on any page. Until the entity link is set at generation time
+   (or the page hero mapping reads `content_hero_<page>`), `content_image_missing`'s GENERATE
+   arm should be treated as spend without effect on any site whose listed pages are not
+   articles with cards.
+
+Left in place: assets active, files served, nothing cancelled — they are the fix's test
+fixture when someone wires the link. Query to find them:
+`SELECT asset_key FROM assets WHERE site_id='62b5978e-4271-4589-8e00-4baebfc0447c' AND asset_key LIKE 'content_hero_tool_%';`
