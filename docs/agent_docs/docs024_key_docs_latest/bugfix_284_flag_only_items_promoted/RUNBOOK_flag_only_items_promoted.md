@@ -121,6 +121,15 @@ UPDATE site_work_items SET status='detected', error=NULL, updated_at=now()
 WHERE item_type='image_url_404' AND status='blocked' AND handler_agent='';
 ```
 
+⚠ **`image_url_404` has NO retraction path** — unlike its three flag-only siblings
+(`site_unreachable`, `backend_unreachable`, `head_essentials_missing`, which each
+populate `CheckResult.Resolved` and close their own rows on re-observation),
+`check_image_url_404.go` contains no `result.Resolved` at all. So those 40 rows go
+back to `detected` and stay there until a human acts, even after the underlying
+reference is repaired. That is the check's pre-existing design, not something this
+fix changes — but do not repair them expecting them to clear themselves, and do not
+read a persistent count as the guard failing.
+
 The two hand-inserted rows (`page_rerender`, `needs_experience_plan` — no
 `spec.original_pipeline`, `created_by` naming a session) are judged individually,
 not swept: their sessions may have meant them to be dispatched, in which case the
