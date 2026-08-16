@@ -101,7 +101,13 @@ mechanisms is unresolved.
 - **Do not unpark the 225 `contrast_failure` rows, and do not write a contrast verifier.**
   `bugfix_122_contrast_ink_slots` costed that fork (`b2fca2f8f`), found the exemption is on
   the record at `verifier_coverage_test.go:156` justified by an argument RFC_017 refuted, and
-  chose **discovery-path retraction** instead. That lane is active and ahead.
+  chose **discovery-path retraction** instead.
+  ⚠ **That lane's bug is now CLOSED (2026-08-15), so the 225 parked rows have no owner.**
+  This is a real gap, not a tidy ending: the park was always conditional on someone doing
+  the retraction work, and closure did not do it. **Do not read "122 closed" as "the parked
+  backlog is resolved"** — it is still 225 rows of detected, unrepaired contrast failures
+  sitting in `deferred`. If you want them, start from `b2fca2f8f`'s costing, not from
+  scratch, and expect to need `pages_audited` identities in the adapter summary first.
 - **Do not enable `improvement-sweep` casually.** Its pre-query is `LIMIT 1` — **one site per
   900s tick** — and it *discovers* as well as triages, so `detected` can rise after a run.
   That is correct behaviour, not a failure. It is off; leave it off unless you want the spend.
