@@ -320,3 +320,37 @@ target-diversity content pass is commissioned as its own lane
 mechanism: **zero** (the label-without-url census remains a live fleet
 number that counts other causes, including other lanes' mid-build pages —
 split by history before reading it, per 016b §9).
+
+---
+
+## CONTRIBUTION from the `bugfix_271` lane, 2026-08-16 — YOUR CANARY HAS BEEN RE-RUN
+
+Not a finding about this bug; a courtesy so you do not discover it as an anomaly.
+
+`bugs_closed/271` (`spec.content_guidance` had no reader — a rewrite brief written
+under that key never reached any writer prompt) shipped its fix in chassis
+**v1.0.1304** and, at the owner's explicit instruction, **all 25 non-terminal work
+items whose brief lived only in that dead key were re-triaged** on 2026-08-16.
+
+**One of the 25 is this lane's own canary** — the `edit_live` proof on
+dartsonline (`CANARY bugs_open/268: edit_live rewrite of beginners — proves
+renderer…`), which had been sitting in `failed`. It is now back in `triaged` and
+will re-run.
+
+Two things that matter for how you read its result:
+
+1. **It failed at `deploy_page` with "workflow completed but its result could not
+   be delivered to the parent"** — the spawn→call handshake race, not a content
+   failure. Its page had most likely deployed fine while the item recorded
+   `failed`, so treat the old `failed` status as unreliable evidence about what
+   your canary actually proved.
+2. **Its re-run is NOT the same experiment as the original.** Before v1.0.1304 the
+   item's `content_guidance` reached nothing, so the rewrite was steered by
+   `writer_block` and the existing page alone. From now on that brief DOES reach
+   the writer prompt (under `## Rewrite Guidance`). If the re-run behaves
+   differently from your recorded baseline, the changed variable is the brief
+   arriving — not the renderer/CTA mechanism this bug is about.
+
+Each re-triaged row's `error` column records its prior status and the reason.
+Pre-state for reversal, if you want your canary put back exactly as it was:
+`docs/agent_docs/docs024_key_docs_latest/bugfix_271_content_guidance/RETRIAGE_2026-08-16_pre_state.psv`.
