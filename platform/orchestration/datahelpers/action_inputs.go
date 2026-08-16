@@ -808,6 +808,19 @@ func ExtractActionInputs(
 				zap.String("reference", pathStr),
 				zap.String("resolved_type", fmt.Sprintf("%T", got)),
 			)
+			// ...and PERSISTED, every occurrence (resolver_findings.go) — the
+			// same reason as the conflict instrument: a 48h+ window cannot be
+			// read from a ~90s pod log. No-op with no recorder registered.
+			recordResolverFinding(logger, ResolverFinding{
+				Code:    ResolverFindingMappingBypassed,
+				Field:   field,
+				Message: "aggressive search: explicit single-segment mapping bypassed",
+				Context: map[string]interface{}{
+					"field":         field,
+					"reference":     pathStr,
+					"resolved_type": fmt.Sprintf("%T", got),
+				},
+			})
 		}
 	}
 

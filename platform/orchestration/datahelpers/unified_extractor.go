@@ -542,6 +542,20 @@ func findFieldRecursive(
 			zap.String("winner_path", winner.path),
 			zap.String("phase", "1-resolve-and-warn"),
 		)
+		// ...and PERSISTED, every occurrence (resolver_findings.go): the log
+		// line above scrolls out of a chassis pod in ~90s, and the window is
+		// 48h+. With no recorder registered this is a no-op — log-only.
+		recordResolverFinding(logger, ResolverFinding{
+			Code:    ResolverFindingConflictingCandidates,
+			Field:   fieldName,
+			Message: "aggressive search: conflicting candidates",
+			Context: map[string]interface{}{
+				"field":           fieldName,
+				"candidate_paths": paths,
+				"winner_path":     winner.path,
+				"phase":           "1-resolve-and-warn",
+			},
+		})
 	}
 
 	logger.Debug("whole-tree-search resolved",

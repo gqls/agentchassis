@@ -21,6 +21,7 @@ import (
 	"github.com/gqls/agentchassis/platform/messaging"
 	"github.com/gqls/agentchassis/platform/observability"
 	"github.com/gqls/agentchassis/platform/orchestration"
+	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"github.com/gqls/agentchassis/platform/orchestration/types"
 	"github.com/gqls/agentchassis/platform/storage"
 	"github.com/gqls/agentchassis/platform/validation"
@@ -302,6 +303,15 @@ func (a *Agent) initializeComponents() error {
 
 		a.db = db
 		a.stateRepo = orchestration.NewStateRepository(db, a.logger)
+
+		// RFC_029 Phase 1 revision (council run ae2a88a7, reuse_agent's gating
+		// objection, 2026-08-15): the input resolver's two observation WARNs
+		// are also persisted to agent_error_log, because a ~90s pod log cannot
+		// carry a 48h+ observation window. Registered HERE — the one place the
+		// pool and the pod identity both exist; datahelpers has neither. A
+		// binary that never reaches this line (no DB, or not the chassis) stays
+		// log-only, which is the default-OFF control.
+		datahelpers.SetResolverFindingRecorder(a.recordResolverFinding)
 	}
 
 	// Create validator
@@ -2218,4 +2228,43 @@ func (a *Agent) cleanupEphemeralTopics() {
 				zap.String("topic", topic))
 		}
 	}
+}
+
+// resolverFindingAction is the agent_error_log.action tag on resolver rows. It
+// is deliberately NOT a registered action name — the resolver runs inside every
+// action, so no single action owns these rows; grouping by this tag lists the
+// whole population.
+const resolverFindingAction = "input-resolver"
+
+// resolverFindingEntry maps one resolver observation onto the agent_error_log
+// row shape. Pod-level identity only: orchestration_id and step_name are not
+// reachable from the resolver (the finding's context says so). Pure — tested
+// without a DB.
+func (a *Agent) resolverFindingEntry(f datahelpers.ResolverFinding) orchestration.AgentErrorEntry {
+	return orchestration.AgentErrorEntry{
+		AgentType:    a.AgentType,
+		AgentID:      a.AgentID,
+		PodName:      a.PodName,
+		Action:       resolverFindingAction,
+		ErrorMessage: f.Message,
+		ErrorCode:    f.Code,
+		Severity:     "warning",
+		Context:      f.Context,
+	}
+}
+
+// recordResolverFinding is the datahelpers.ResolverFindingRecorder the chassis
+// installs at startup. Best-effort, detached from a.ctx and bounded by a 5s
+// timeout exactly like the other agent_error_log recorders in this file, and a
+// thin wrapper over the ONE writer (orchestration.LogAgentError) — do not fork
+// it. Synchronous by design: the branches that reach it are off the resolver's
+// happy path (a conflict, a bypassed mapping), and a lost row is counted by
+// the writer's own WARN rather than silently dropped by a saturated queue.
+func (a *Agent) recordResolverFinding(f datahelpers.ResolverFinding) {
+	if a.db == nil {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	orchestration.LogAgentError(ctx, a.db, a.logger, a.resolverFindingEntry(f))
 }

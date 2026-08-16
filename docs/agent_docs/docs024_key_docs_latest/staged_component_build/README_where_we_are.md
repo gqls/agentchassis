@@ -1596,3 +1596,20 @@ shared dispatch line where the optional mark is doing real work for hundreds of 
 types — so that half is recorded as corrected rather than done. Two long-standing flaky tests
 were repaired along the way; both had been asserting the winner of what was actually a coin
 flip. Everything is committed but changes nothing until the next release rolls.
+
+**2026-08-16 (morning) — the reviewers said "revise", they were right, and the fix is built.**
+Yesterday's review of the "never guess" change came back with one objection that actually
+mattered: the warning we added to catch pipelines living on luck was only ever written to the
+pod's log, and those logs last about a minute and a half. So the week-long watch we were
+counting on could never have been read afterwards — we'd built a smoke detector with no
+memory. The platform already has a table for exactly this kind of durable record, so this
+morning every one of those warnings is also written there, permanently, one row per
+occurrence, with the field name and every candidate that was found. That is written, tested
+(including proving the tests fail if the write is removed), and committed; it goes live on
+the next release. Two side findings: the first half of the change DID already go out in
+yesterday's release, so it is running now (silently, which is the problem just fixed); and
+the "!" strict-mark for the image pipeline is therefore also ready to be switched on — its
+pre-flight checks were run this morning and passed, so that switch is the next thing to
+apply. The reviewers' smaller points (a missing entry in our own decision log, two checks on
+the switch's paperwork, a note the review board can read in the database rather than in a
+file it cannot see) are all done, and the whole thing has been resubmitted for a second look.

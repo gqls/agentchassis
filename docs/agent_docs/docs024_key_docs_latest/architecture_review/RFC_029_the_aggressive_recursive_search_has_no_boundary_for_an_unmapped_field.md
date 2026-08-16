@@ -457,3 +457,83 @@ happy path". Measured against the two migrations' own texts before implementing:
 
 The `!`-before-roll trap (an old binary reads `field!` as an ordinary field and silently
 re-arms the search) is registered in LANDMINES.md and in the concept register as **CTS-060**.
+
+### 10.4 DATED REVISION 2026-08-16 — the council said REVISE, the objection was right, the WARNs are now rows
+
+**Verdict on the Phase 1 submission (corr `75091072-9d65-433e-8a30-84719dc3f30f`, run
+`ae2a88a7`, 2026-08-15 14:10Z): REVISE**, decided by a gating HIGH objection from the
+`reuse_agent` seat. Approve: architecture, constitution, mission, guidelines. Object:
+editquality, reuse_agent, tooling_provenance, guardian, debug_historian, prior_art_librarian.
+
+**The gating objection is a real defect in §10.1/§10.2 as written.** Both Phase 1 WARNs were
+plain zap log lines, and chassis pod log retention is ~90 seconds (CTS-059) — so the 48h+
+observation window that §9 D2 makes the precondition for Phase 2 **could not be read after the
+fact**. §10.2's "stream, do not `--tail`" was an honest instruction and still not an
+instrument: a window observable only by a human tailing a pod live is not observable. The
+platform's own remedy already existed (`agent_error_log` via `platform/orchestration/agenterrors`,
+RFC_012's leaf writer), which is exactly the reuse-before-create defect the seat names.
+
+**What the revision adds (all Go; inert until a chassis image ≥ its commit rolls):**
+
+- **Every occurrence of both WARNs is also persisted to `agent_error_log`** — no dedup, no
+  sampling, because frequency is the population §9's disconfirmation clause needs. Rows:
+  `error_code` **`RESOLVER_CONFLICTING_CANDIDATES`** (context: field, candidate_paths,
+  winner_path, phase) and **`RESOLVER_MAPPING_BYPASSED`** (context: field, reference,
+  resolved_type); `severity='warning'`; `action='input-resolver'` (deliberately not a
+  registered action name — the resolver runs inside every action); `error_message` is the WARN
+  text verbatim so a row and a line are joinable by eye. **The log lines stay** (live tailing).
+- **Mechanism: a registered sink, not a threaded DB handle.** `findFieldRecursive` and
+  `ExtractActionInputs` carry no `*sql.DB`/`ctx`, and threading one through ~115 call sites was
+  not on. `datahelpers.SetResolverFindingRecorder` (new, `resolver_findings.go`) is a
+  package-level recorder, **nil by default = log-only = the previous build's behaviour** (the
+  default-OFF shape of the 2026-08-02 §2 ruling). The chassis registers one at startup in
+  `agentbase.initializeComponents`, right after the pool is created — the one place the DB and
+  the pod identity both exist — as a thin wrapper over the ONE writer (`orchestration.LogAgentError`
+  → `agenterrors.Write`), synchronous under a detached 5s timeout exactly like the other
+  agent_error_log recorders in that file. A recorder panic is recovered inside datahelpers; the
+  resolver's answer can never change because of the instrument.
+- **Known limit, stated on every row:** per-run identity (`orchestration_id`, `step_name`) is
+  not reachable from the resolver, so rows carry pod-level attribution only (`pod_name` +
+  `agent_type`); each row's context says so (`identity_scope`) so the blank column reads as a
+  stated limit, not a bug. Two standing traps for whoever queries: `agent_error_log.domain` —
+  "no domain" is `COALESCE(domain,'')=''`, never `IS NULL`; and these rows have empty
+  `orchestration_id` by design.
+- **Tests** (`resolver_findings_test.go`, `resolver_findings_bridge_test.go`): with a fake
+  recorder installed, ONE conflict → exactly one finding (code, field, all 3 candidate paths,
+  winner) and a second conflict → a second finding; ONE bypass → exactly one finding; the
+  agreeing / never-resolvable controls → zero findings (row population == WARN population);
+  no recorder → same value, same WARN (the default-OFF control); a panicking recorder cannot
+  change the answer. **Mutation-proven both sites**: removing either `recordResolverFinding`
+  call fails its test. Arm budgets unmoved (outer 10/15, inner 5/8) — the recorder writes no
+  `result.Values` and adds no return site. Whole tree builds from `git archive HEAD` + these
+  files.
+
+**§10.2 is superseded by this:** the observation window is read from rows, not from a log
+grep, and **its clock starts at the roll of the REVISED build**, not Phase 1's —
+```sql
+SELECT error_code, context->>'field' AS field, count(*), min(occurred_at), max(occurred_at)
+FROM agent_error_log
+WHERE error_code IN ('RESOLVER_CONFLICTING_CANDIDATES','RESOLVER_MAPPING_BYPASSED')
+GROUP BY 1,2 ORDER BY 3 DESC;
+```
+Phase 1's log-only build DID roll before this revision — measured 2026-08-16: the running
+chassis binary is stamped `5e075a6f9` (v1.0.1303; must-be-absent control HEAD `bc4cd65e7`
+absent), a descendant of `1806371ef` — so the log-only WARNs are live now and, by this
+section's own argument, unreadable. A ~4,000-line, 2-pod `--tail` sample that morning showed
+the resolver's INFO lines (search reached, one "Found via aggressive search") and **zero WARNs
+of either kind** — consistent with §9's premise, and far too small a sample to be evidence of
+it, which is the whole point of the rows. **The `!` parser is therefore live too, so
+migration 417's binary precondition is met** — its header now carries the two debug_historian
+checks as measurements (1 active row; the two-arg `snapshot_agent` overload → `agent_definitions_backup`).
+
+**The other five seats' objections, answered without code:** editquality's two "missing D4"
+items were in fact shipped in `1806371ef` (the `extractSingleField` renames and migration 402's
+dated correction) — the submitted plan failed to LIST them, and the resubmission names them as
+edits; guardian's "the winner changes now" is §9 D2's explicit owner-delegated choice (stable
+shallowest-first over a coin flip, instrument-then-refuse); tooling_provenance's ledger check
+is DONE (`schema_migrations`: `417_brief_fidelity…` applied, `417_image_build_handler…HOLD`
+unclaimed, ledger keys on the full filename so no collision) and its doc_notes ask is met by
+two rows written the same day (`decision`/`RFC_029` — the ruling's key lines and what shipped,
+so a seat can read them in-DB; `decision`/`council-submission-75091072` — this round's evidence
+with the queries that produced it), which is also prior_art_librarian's answer (owner rulings
+are invisible to seats: known gate landmine).

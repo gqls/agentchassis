@@ -4536,3 +4536,46 @@ Owner reported a fresh chassis build. Verified rather than assumed, per the chec
   **Revision = persist both WARNs to agent_error_log + doc_notes row + resubmit with
   `RESUBMIT_CORR=75091072-9d65-433e-8a30-84719dc3f30f`.** psql NOTE: `kubectl exec -i` with no
   stdin piped HANGS — the "postgres flakiness" at session end was our own flag; drop `-i`.
+
+## 2026-08-16 — the RFC_029 revision: persisted the two WARNs, answered the five paper objections, resubmitted
+
+Session start ~09:45Z from HANDOFF_2026-08-15c. `git log` first: HEAD `bc4cd65e7`, no roll of
+anything of ours since; the tree still does not compile (other lanes' WIP), so every build/test
+below ran from `git archive HEAD` + this task's files in scratch.
+
+- **Read the council report myself** (`diagnosis_artifacts.body`, kind `council_report`) —
+  matches the 15c assessment; nothing new in it. The gating objection stands: log-only WARNs
+  cannot carry a 48h window.
+- **Code (2a):** `datahelpers/resolver_findings.go` — package-level `SetResolverFindingRecorder`
+  (nil = log-only), `recordResolverFinding` (recovers a recorder panic, stamps `identity_scope`),
+  two ErrorCodes. Both WARN sites call it. `agentbase.initializeComponents` registers
+  `a.recordResolverFinding` right after `a.db` is set — a thin wrapper over
+  `orchestration.LogAgentError` (the ONE writer), synchronous under a detached 5s timeout like
+  the sibling recorders. Chose synchronous over a goroutine deliberately: precedent in that
+  file is synchronous, the branches are off the happy path, and a bounded queue would need a
+  drop path whose drops read as "no conflict". Chose a func-typed sink over importing
+  agenterrors into datahelpers: datahelpers stays DB-free.
+- **Tests:** 5 new in datahelpers, 2 in agentbase; all three suites green from the clean
+  archive. **Mutation-proven both sites**: removing either `recordResolverFinding` call fails its
+  test. Arm budgets unchanged (10/15, 5/8). Misstep worth a line: my mutation script backed
+  the clean copy up to `/tmp` (the `||` fallback never fired) and the restore from scratch
+  failed silently — caught because the "restored" full-suite run went red; re-copied from the
+  working tree, which was never touched. Verify a restore by diff, not by the cp's exit.
+- **Measured (2b):** image-build-handler has exactly 1 active row (trap N/A);
+  `snapshot_agent(text,text)` writes `agent_definitions_backup` (pg_get_functiondef), 417's
+  header now says so and gives the has-old-key check; ledger: `417_brief_fidelity…` applied by
+  another lane, `417_image_build_handler…HOLD` unclaimed — the ledger keys on FILENAME, so a
+  shared number is not a collision. **Phase 1 HAS ROLLED**: chassis at v1.0.1303, binary
+  stamped `5e075a6f9` (present) with HEAD `bc4cd65e7` absent as the control; `1806371ef` is
+  its ancestor. So the log-only WARNs are live now (unreadable, as the seat said) and the `!`
+  parser is live, which meets 417's binary precondition. Tiny live sample (2 pods × 2,000
+  lines): resolver INFO lines present, WARNs 0 — not evidence, stated as such.
+- **doc_notes rows written and idempotence proven** (`SQL_2026-08-16_doc_notes_…sql`, replay
+  = `INSERT 0 0` ×2): `decision`/`RFC_029` (the ruling's key lines + what shipped + the codes
+  + the window query — the in-DB evidence prior_art_librarian said it cannot see) and
+  `decision`/`council-submission-75091072` (this round's checks with their queries, PAY-009
+  precedent). `doc_notes.subject_type` has a CHECK constraint (tool/pipeline/experience/action/
+  experience-pattern/landmine/component/decision) — `rfc` is NOT allowed; `decision` is the fit.
+- **Docs:** RFC_029 §10.4 (revision note, supersedes §10.2's grep recipe); CTS-060 status +
+  sink registered; RUNBOOK gained the window query + gotchas; 417 header +2 checks.
+- **Resubmission:** see the entry below for the corr the script printed and the verdict.

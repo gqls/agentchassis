@@ -570,3 +570,41 @@ the parameterised, committed copy of the script that closed P2. Its header carri
 preconditions (fence exists, placement re-verified, pod-grep, 300s spawn window) and the
 rule for choosing the negative-control page. For a TOOL, `tool_acceptance_run.sh` (§10)
 remains the instrument.
+
+## RFC_029 observation window — read it from ROWS, not from a log grep (2026-08-16)
+
+The Phase 1 WARNs are persisted to `agent_error_log` from the revised build onward (council
+REVISE `ae2a88a7`; RFC_029 §10.4). Pod log retention is ~90s, so the old "stream `logs -f`"
+recipe is for live tailing only. The window's clock starts at the roll of the **revised**
+build (not Phase 1's, which is already live log-only in v1.0.1303).
+
+```sql
+SELECT error_code, context->>'field' AS field, count(*),
+       min(occurred_at), max(occurred_at)
+FROM agent_error_log
+WHERE error_code IN ('RESOLVER_CONFLICTING_CANDIDATES','RESOLVER_MAPPING_BYPASSED')
+GROUP BY 1,2 ORDER BY 3 DESC;
+```
+
+Per-pair detail (which paths conflicted, which won; which reference was bypassed):
+```sql
+SELECT occurred_at, error_code, pod_name, context->>'field' AS field,
+       context->'candidate_paths' AS candidate_paths, context->>'winner_path' AS winner,
+       context->>'reference' AS reference
+FROM agent_error_log
+WHERE error_code LIKE 'RESOLVER_%' ORDER BY occurred_at DESC LIMIT 50;
+```
+
+Gotchas, all measured:
+- **`orchestration_id` and `step_name` are EMPTY on these rows by design** — the resolver
+  cannot know them; attribute by `pod_name` + `agent_type` (`identity_scope` in the context
+  says so). Do not file "resolver rows have no orchestration id" as a bug.
+- `agent_error_log.domain`: "no domain" is `COALESCE(domain,'')=''`, never `IS NULL`.
+- **Zero rows has two readings** — "no conflicts" or "the revised build has not rolled".
+  Disambiguate with the binary probe (CLAUDE.md recipe: `build provenance` log line, else
+  `kubectl exec <pod> -- grep -aq <sha> /proc/1/exe` with a must-be-absent control) and
+  `git merge-base --is-ancestor <revision commit> <stamped sha>` — per SERVICE.
+- `kubectl exec -i` with nothing on stdin HANGS until timeout — pipe a heredoc or drop `-i`.
+- The verdict/prior-art rows for this lane are in `doc_notes` (`decision`/`RFC_029`,
+  `decision`/`council-submission-75091072`); re-applying
+  `SQL_2026-08-16_doc_notes_rfc029_phase1_and_council_evidence.sql` is a no-op (fenced).

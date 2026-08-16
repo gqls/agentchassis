@@ -46,6 +46,31 @@
 --
 -- Idempotent: fenced on the `asset_id?` key still being present; a replay
 -- matches no row. DB-only; snapshot-prefixed.
+--
+-- TWO PRE-APPLY CHECKS, MEASURED (council run ae2a88a7 on RFC_029 Phase 1,
+-- debug_historian seat, 2026-08-15; both re-run 2026-08-16 ~10:30Z):
+--   (1) The two-active-rows-per-agent-type trap (LANDMINES: "any UPDATE
+--       agent_definitions … WHERE type = <x>" — four types carry TWO active
+--       rows and only the higher version loads) is NOT APPLICABLE here:
+--       image-build-handler has exactly ONE active, non-snapshot, non-deleted
+--       row (version 1). Re-check before applying — the WHERE below hits every
+--       active row, so a second one would be patched too:
+--         SELECT count(*), array_agg(version) FROM agent_definitions
+--          WHERE type='image-build-handler' AND is_active
+--            AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL;   -- expect 1
+--   (2) The snapshot_agent call below is the TWO-ARG overload, and
+--       pg_get_functiondef confirms it writes to agent_definitions_backup
+--       (the one-arg form writes an is_snapshot row into agent_definitions —
+--       LANDMINES "snapshot_agent has TWO overloads"). So the pre-image for the
+--       ROLLBACK lives in agent_definitions_backup, and the check that matters
+--       is that it holds the PRE-change key, not merely that a row exists:
+--         SELECT snapshot_taken_at, snapshot_reason,
+--                default_config #> '{workflow,steps,call_asset_deployer,config,input_mapping}' ? 'asset_id?' AS has_old
+--           FROM agent_definitions_backup WHERE type='image-build-handler'
+--          ORDER BY snapshot_taken_at DESC LIMIT 1;                           -- expect has_old = t
+--       Ledger (schema_migrations, keyed by FILENAME) checked 2026-08-16: this
+--       file is unclaimed; the other 417 (brief_fidelity_auditor) is applied and
+--       does not collide because the ledger keys on the full filename.
 
 BEGIN;
 
