@@ -1,4 +1,4 @@
-# HANDOFF — 2026-08-16, fresh chat starts here: the RFC_029 revision is BUILT + COMMITTED + RESUBMITTED; Phase 1 turned out to be LIVE already; migration 417 is READY but its apply was refused by the harness — the owner's hand, or a permitted session, applies it
+# HANDOFF — 2026-08-16, fresh chat starts here: the RFC_029 revision is BUILT + COMMITTED + **APPROVED by the council (round 2, read 10:2xZ)**; Phase 1 turned out to be LIVE already; migration 417 is READY but its apply was refused by the harness — the owner's hand, or a permitted session, applies it
 
 **Supersedes `HANDOFF_2026-08-15c_continue_here.md`** (whose §1 verdict summary and §4 traps
 still hold). Everything 15c §2 asked for is done; this file records what changed, what was
@@ -48,8 +48,12 @@ anything resolver-shaped — it supersedes §10.2).
 
 ## 2. OWED, in order
 
-1. **READ the round-2 verdict(s)** — do not let this file's successor say "verdict read owed"
-   again without a date. Find by payload (narrowed — the bare filter seq-scans):
+1. ~~READ the round-2 verdict~~ **DONE 2026-08-16 10:2xZ: APPROVED** (run `b5678c3a`, 3 advisory
+   objections, none high; answers measured and recorded in RFC_029 §10.4). `53edef286` is
+   credited via its `Council-Submitted:` trailer — nothing to amend. The duplicate run
+   (`d1a20669`) was still in seats; **read it once, as a consistency check only** — if it
+   somehow returns REVISE, the first-completed verdict stands and the disagreement is worth a
+   NOTES line, not a rework. Find by payload (narrowed — the bare filter seq-scans):
    ```sql
    SELECT orchestration_id, current_step, status, updated_at FROM orchestration_states
    WHERE owner_agent_type='council-gate' AND created_at > now()-interval '12 hours'
@@ -58,9 +62,7 @@ anything resolver-shaped — it supersedes §10.2).
    SELECT created_at, metadata->>'decision', left(body,600) FROM diagnosis_artifacts
    WHERE correlation_id='75091072-9d65-433e-8a30-84719dc3f30f' AND kind='council_report' ORDER BY created_at;
    ```
-   (Round 1's report is the oldest row; the two round-2 reports follow.) APPROVED → nothing to
-   amend (forward-only; 098 credits `53edef286` automatically). REVISE/REJECTED → act; the code
-   is already on the branch.
+   (Round 1's report is the oldest row; the two round-2 reports follow.)
 2. **Apply migration 417 BY HAND** — its precondition is met and its checks are measured, but
    **this session's apply was refused by the harness's permission classifier** (a live
    production config mutation). The owner, or a session with that permission, runs:
@@ -99,6 +101,6 @@ anything resolver-shaped — it supersedes §10.2).
 ## 4. Session-start checklist
 
 1. `git log --oneline -10`; re-read THIS file from disk.
-2. §2 item 1 (verdict), then item 2 if you have the permission — otherwise tell the owner it is
-   ready and why it was not applied.
+2. §2 item 2 (apply 417) if you have the permission — otherwise tell the owner it is ready and
+   why it was not applied; glance at the duplicate run's verdict (item 1).
 3. Nothing else in this lane is open. RFC_029 §10.4 + CTS-060 + the RUNBOOK are current.

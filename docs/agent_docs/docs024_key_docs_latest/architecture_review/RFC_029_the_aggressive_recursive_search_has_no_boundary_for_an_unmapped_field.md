@@ -537,3 +537,30 @@ two rows written the same day (`decision`/`RFC_029` — the ruling's key lines a
 so a seat can read them in-DB; `decision`/`council-submission-75091072` — this round's evidence
 with the queries that produced it), which is also prior_art_librarian's answer (owner rulings
 are invisible to seats: known gate landmine).
+
+**ROUND 2 VERDICT — READ 2026-08-16 10:2xZ: APPROVED** (run `b5678c3a`, completed 10:16:40Z,
+"approved with 3 advisory objection(s) — none high-severity"; approve: editquality,
+guidelines, tooling_provenance, diagnosis_guardian, debug_historian, constitution, mission,
+architecture; object (advisory): reuse_agent, guardian, prior_art_librarian; 6 abstained).
+Commit `53edef286` carries `Council-Submitted:`, which the coverage report now credits — no
+amend (forward-only). A duplicate run (`d1a20669`, my mis-fired second publish) was still in
+seats at read time; it judges the identical plan and is a consistency check only.
+The advisory points, answered on evidence rather than waved past:
+- **reuse_agent — "did the plan consider `LogActionEntryFindings` / `…InheritingProvenance`?"**
+  Measured after the verdict: every variant takes an `ActionParams` and lives in
+  `platform/orchestration/actions` (`log_action_error.go:278–326`), a package that imports
+  `datahelpers` in 260 files — so the resolver cannot call it without a cycle, and the
+  provenance those helpers inherit (`orchestration_id`, site, step from `params`) is exactly
+  what the resolver does not have. The registered sink is therefore required by the
+  dependency direction, not a preference; the WRITE half is the same one writer either way.
+- **guardian — "does one chassis process ever host more than one Agent?"** No: `agentbase.New`
+  has exactly one caller, `cmd/agent-chassis/main.go:209`; the process-wide recorder's
+  identity is the process's identity. The `a.db == nil` guard is belt-and-braces — the
+  registration line runs after `a.db = db` and the closure reads `a.db` at call time.
+- **prior_art_librarian — the 1-active-row claim "asserted, not checked".** It IS checked, in
+  the DB where the seat can read it: `doc_notes` `decision`/`council-submission-75091072`
+  item [4] carries the query and its output (`1, {1}`). The seat's own procedure did not
+  look there; the row exists for the next round that does.
+- **architecture — the sink is not a precedent to be waved through for a second finding
+  type.** Accepted; CTS-060's wording is adjusted to say exactly that (a second finding type
+  or consumer → a fresh architecture look, not "already established").

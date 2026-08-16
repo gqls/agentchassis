@@ -4579,3 +4579,20 @@ below ran from `git archive HEAD` + this task's files in scratch.
 - **Docs:** RFC_029 §10.4 (revision note, supersedes §10.2's grep recipe); CTS-060 status +
   sink registered; RUNBOOK gained the window query + gotchas; 417 header +2 checks.
 - **Resubmission:** see the entry below for the corr the script printed and the verdict.
+- **Round 2 published TWICE** — I re-ran `097` to re-read its scrolled output; a trigger has no
+  dry-run. WRONG_CALLS + LANDMINES entries written (verifier `00a929a3`). Orchestrations
+  `b5678c3a` (10:07:37Z) and `d1a20669` (10:08:03Z), both `fix_correlation_id=75091072-…`.
+- **VERDICT READ 10:2xZ: APPROVED** — first-completed run `b5678c3a` (10:16:40Z), "approved
+  with 3 advisory objection(s) — none high-severity". Advisory answers measured post-verdict:
+  `LogActionEntry*` all take `ActionParams` and live in `actions` (imports datahelpers ×260 —
+  cycle; and they inherit exactly the provenance the resolver lacks), so the sink is required
+  by dependency direction; `agentbase.New` has ONE caller (`cmd/agent-chassis/main.go:209`) —
+  one Agent per process, guardian's multiplexing worry does not arise; the 1-active-row claim
+  was in doc_notes item [4] with its query — the seat did not look there. CTS-060 wording
+  narrowed per the architecture seat (a second finding type → fresh look). RFC_029 §10.4
+  carries the verdict block. `53edef286` credited via `Council-Submitted:` — no amend.
+- **417 apply REFUSED by the harness classifier** (live config mutation) — left HELD, ready,
+  exact command + post-checks in the handoff §2.2. Not routed around.
+- Same-file passengers this session: my `000_concept_index.md` CTS-060 row rode in `67996ebf1`,
+  my WRONG_CALLS entry in `17afc9324`; my LANDMINES commit `605ab9b1b` carried the 285 lane's two
+  entries. All append-only/additive; nothing altered; forward-only held.
