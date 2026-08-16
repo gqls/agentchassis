@@ -3092,3 +3092,56 @@ listed as expensive because four things link to it. That is true, but it is a di
 question from the one that made today's pair cheap — today's was cheap because its *own*
 words turned out to be movable. Nobody has looked at matchmatrix's words. It is one query,
 and it is worth doing before anyone assumes that pair needs writing.
+
+---
+
+## 2026-08-15, evening — the menu entry, a number the site was too modest about, and four duplicate pages
+
+**The copy job is finished.** All 22 pages rewrote cleanly. The one page that stopped
+(`private-search-embeddings`) you told me to leave, and it was a non-loss anyway — its four
+matches were all legitimate comparisons, so it needed no rewrite.
+
+**The Tools menu entry turned into something more interesting.** You approved the fix, it
+applied, and then the rebuild refused to run. The reason is worth knowing, because the
+system was being careful rather than broken.
+
+Your tools page says **"Three interactive tools"**. You actually have **five**. The rebuild
+noticed and tried to correct it — and our own honesty checker blocked the correction,
+because no registered fact says how many tools you have, so it couldn't tell a correction
+from an invention. It refuses anything it can't verify. That is the right way round: it
+would rather block a true number than let a false one through.
+
+So on your instruction I registered the count as a verified fact — with the query that
+derives it, so it re-checks itself rather than being a number somebody typed once. Two
+small decisions inside that I'd flag:
+
+- I scoped it narrowly, to this one claim. A looser version would have quietly licensed
+  any statistic on the site with the word "tools" near it.
+- I registered it as an **exact** count rather than an "at least". The loose version would
+  have let "three" keep passing for ever, and the whole point was to stop the site
+  underselling itself.
+
+The rebuild is running now. It should put Tools in the menu and correct three to five.
+
+**The duplicate pages — I'm glad we checked.** You asked me to add the five orphaned pages
+to the site plan. Four of them turned out to be duplicates of pages already there: the same
+guide published at two addresses, both live.
+
+Two of those four are already known to the other workstream clearing up duplicates on this
+site, and it has decided to **retire** them. Adding them to the plan would have put back
+two pages someone else is deliberately removing.
+
+The other two nobody had spotted, and they're a bit worse than duplicates. In both cases
+**the plan points at the copy that has already been retired, and the live one isn't in the
+plan at all** — so the answer isn't "add the missing page", it's "swap them over". And both
+retired copies are still being served to visitors: four live web addresses for two pieces
+of writing.
+
+I haven't touched any of it. It's the other workstream's job and it has a tested procedure;
+doing it around them is how the plan ends up naming both copies again. I've written up the
+measurements and handed it over.
+
+**One thing that cost us and I want on the record.** The copy rollout rewrote *both halves*
+of three of these duplicate pairs — I paid twice to fix the same page, because nothing told
+me they were twins. No harm done, but before any future site-wide copy job we should check
+for duplicates first.
