@@ -209,6 +209,93 @@ func countDispatchableWorkItems(ctx context.Context, db *sql.DB, siteID uuid.UUI
 	return count, nil
 }
 
+// countUnroutableDetected answers what the promoter's routability guard held
+// back on this site: `detected` rows that name no handler, or name one that is
+// not a registered agent. It returns the total and a per-item_type breakdown.
+//
+// It exists so the guard is not a SILENT cap. A filter that quietly promotes
+// fewer rows than it used to is indistinguishable, in every log and every step
+// output, from a site that simply had less work — and "the machinery stopped
+// doing something" is exactly the shape this estate keeps failing to notice.
+// Held-back rows are the DESIGNED outcome for a flag-only finding, so this is
+// not an error path; it is the count that makes the design legible.
+func countUnroutableDetected(ctx context.Context, db *sql.DB, siteID uuid.UUID) (int64, map[string]int64, error) {
+	query := fmt.Sprintf(`
+		SELECT wi.item_type, count(*)
+		FROM site_work_items wi
+		WHERE wi.site_id = $1
+		  AND wi.status = 'detected'
+		  AND NOT %s
+		GROUP BY 1
+	`, workItemRoutableSQL("wi"))
+
+	rows, err := db.QueryContext(ctx, query, siteID)
+	if err != nil {
+		return 0, nil, fmt.Errorf("count unroutable detected items: %w", err)
+	}
+	defer rows.Close()
+
+	var total int64
+	byType := map[string]int64{}
+	for rows.Next() {
+		var itemType string
+		var n int64
+		if err := rows.Scan(&itemType, &n); err != nil {
+			return 0, nil, fmt.Errorf("scan unroutable detected items: %w", err)
+		}
+		byType[itemType] = n
+		total += n
+	}
+	if err := rows.Err(); err != nil {
+		return 0, nil, fmt.Errorf("iterate unroutable detected items: %w", err)
+	}
+	return total, byType, nil
+}
+
+// workItemHandlerRegisteredSQL renders "this handler is a registered agent" as a
+// SQL boolean expression over the given handler expression (a placeholder like
+// `$1`, or a column reference like `wi.handler_agent`).
+//
+// It exists so the test has ONE definition. It is the second half of the claim
+// path's routability test (claim_work_item_action.go), and the promoter now
+// applies the same test one step earlier — see workItemRoutableSQL. Two hand-kept
+// copies of one predicate is the drift class this file already documents twice
+// (idx_swi_dedup vs workItemTerminalStatuses; the dispatchable-status trio).
+//
+// ⚠ DELIBERATELY NOT filtered on is_active / is_snapshot, because the claim path
+// is not: a snapshot or deactivated definition still satisfies claim's check and
+// still dispatches. Narrowing it HERE without narrowing claim would hold back rows
+// claim would have accepted, and nothing downstream would ever promote them —
+// the scheduled `detected-item-promoter` is stricter still. If that posture is
+// wrong it is wrong in both places, and both are this one function.
+func workItemHandlerRegisteredSQL(handlerExpr string) string {
+	return "EXISTS (SELECT 1 FROM agent_definitions ad WHERE ad.type = " + handlerExpr +
+		" AND ad.deleted_at IS NULL)"
+}
+
+// workItemRoutableSQL renders the FULL test the claim path applies before it will
+// dispatch a row: the row names a handler, and that handler is registered.
+// `alias` is the site_work_items alias in the caller's query.
+//
+// WHY IT EXISTS (bugs_open/284). ClaimWorkItemAction applies this test AFTER
+// claiming, and a row that fails it is stamped `blocked` with an error naming a
+// routing failure. That is right for a row that was MEANT to be dispatched. It is
+// wrong for the platform's flag-only findings — a palette nothing can repaint, a
+// VM nothing can restart, an image reference nothing can repoint — which name no
+// handler ON PURPOSE and are meant to sit visible for a human. Measured
+// 2026-08-16: 60 such rows across 4 item_types on 15+ sites, every one of them
+// promoted into the dispatch queue by TriageDetectedItemsAction, which filtered on
+// neither field. `blocked` is not terminal, so each one also holds its dedup slot
+// and its check can never file that finding again; and feasibility-recheck can
+// never release it, because no agent type is the empty string.
+//
+// Applying the test at PROMOTION makes that outcome unreachable from the promoter
+// rather than merely unlikely, and it costs nothing a caller must remember.
+func workItemRoutableSQL(alias string) string {
+	col := alias + ".handler_agent"
+	return "(COALESCE(" + col + ", '') <> '' AND " + workItemHandlerRegisteredSQL(col) + ")"
+}
+
 // workItemKey builds the canonical deduplication key for a site_work_items
 // row. The contract is "{itemType}:{target}", with the prefix EQUAL to the
 // row's item_type, so that:

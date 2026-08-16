@@ -181,12 +181,13 @@ func ClaimWorkItemAction(ctx context.Context, params ActionParams) (interface{},
 
 	if handlerAgent.Valid && handlerAgent.String != "" {
 		var handlerExists bool
-		params.DB.QueryRowContext(ctx, `
-			SELECT EXISTS(
-				SELECT 1 FROM agent_definitions
-				WHERE type = $1 AND deleted_at IS NULL
-			)
-		`, handlerAgent.String).Scan(&handlerExists)
+		// The predicate is rendered from workItemHandlerRegisteredSQL, which is
+		// also what the promoter applies one step earlier (bugs_open/284). Same
+		// function, so the two cannot drift into disagreeing about what "this
+		// handler exists" means — which is the whole point of promoting on it.
+		params.DB.QueryRowContext(ctx,
+			"SELECT "+workItemHandlerRegisteredSQL("$1"),
+			handlerAgent.String).Scan(&handlerExists)
 
 		if !handlerExists {
 			// Release claim, mark as blocked

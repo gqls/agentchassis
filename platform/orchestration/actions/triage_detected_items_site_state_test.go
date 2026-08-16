@@ -60,6 +60,14 @@ func runTriage(t *testing.T, promoted int64, countRows *sqlmock.Rows, countErr e
 		WithArgs(siteID, "build").
 		WillReturnResult(sqlmock.NewResult(0, promoted))
 
+	// The routability guard's own count (bugs_open/284), which runs between the
+	// promotion and the site-state count. Empty here: these tests are about the
+	// call-scoped/site-scoped distinction, and a site with nothing held back is
+	// the case they were written against.
+	mock.ExpectQuery(`SELECT wi\.item_type, count\(\*\)[\s\S]*status = 'detected'[\s\S]*NOT \(`).
+		WithArgs(siteID).
+		WillReturnRows(sqlmock.NewRows([]string{"item_type", "count"}))
+
 	// The predicate is the contract: dispatchable statuses AND the target
 	// pipeline. Expressed in the expectation so a change to either clause
 	// fails this test rather than silently changing what "clean" means.

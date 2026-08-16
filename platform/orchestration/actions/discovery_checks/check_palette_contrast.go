@@ -126,10 +126,19 @@ func (c *PaletteContrastCheck) Run(dctx DiscoveryCheckContext) (*CheckResult, er
 			SpecJSON:     string(specJSON),
 			Priority:     20,
 			HandlerAgent: "", // deliberately none — see the file header
-			Status:       "detected",
-			CreatedBy:    dctx.AgentType,
-			ItemKey:      "palette_contrast",
-			BatchID:      dctx.BatchID,
+			// 'deferred', not 'detected', because that is what this item TYPE
+			// means (remit.go's CapabilityGapItem, and WriteBuildItemsAction's
+			// capability_gap, both use it): a roadmap row awaiting a builder, not
+			// a finding waiting to be triaged. Born 'detected', every one of these
+			// was promoted into the dispatch queue and stamped `blocked` —
+			// bugs_open/284, 18 rows on 14 sites. The promoter now refuses to
+			// promote a handler-less row, so this is no longer load-bearing for
+			// safety; it is load-bearing for MEANING, which is the half a guard
+			// cannot supply.
+			Status:    "deferred",
+			CreatedBy: dctx.AgentType,
+			ItemKey:   "palette_contrast",
+			BatchID:   dctx.BatchID,
 		}},
 	}, nil
 }

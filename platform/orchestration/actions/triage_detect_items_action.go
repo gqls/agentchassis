@@ -14,8 +14,9 @@
 //
 // ┌── READ THIS BEFORE BRANCHING ON THIS ACTION'S OUTPUT (bugs_open/150) ──────┐
 // │ `has_items` is CALL-SCOPED: it means "this invocation promoted at least    │
-// │ one row", nothing more. The promotion below is unconditional over the site │
-// │ (site_id + status, no type filter), so the FIRST copy to run takes every   │
+// │ one row", nothing more. The promotion below is site-wide over TYPES        │
+// │ (site_id + status, no type filter — it is filtered only on whether the row │
+// │ can be routed at all, see the guard), so the FIRST copy to run takes every │
 // │ row and every later copy honestly reports promoted: 0. A branch reading    │
 // │ `has_items` therefore asks "did I personally promote something?" when what │
 // │ it means to ask is "does this site have work?" — which is how one measured │
@@ -89,9 +90,12 @@ var TriageDetectedItemsInputSpec = datahelpers.ActionInputSpec{
 	// RFC 006. Re-measured 2026-08-08.)
 	DeprecatedConfigKeys: map[string]string{"target_domain": "target_pipeline"},
 
-	// This action promotes EVERY `detected` row on the site — no type filter,
-	// no ownership filter (:108-120). Its blast radius is the site, not the run
-	// that called it, so a second live agent carrying this step is a defect:
+	// This action promotes every ROUTABLE `detected` row on the site — no type
+	// filter, no ownership filter, and since bugs_open/284 one filter that is not
+	// a choice about scope: a row nothing can route is left where it is, because
+	// promoting it only ever ends in `blocked`. Its blast radius is still the
+	// site, not the run that called it, so a second live agent carrying this step
+	// is a defect:
 	// whichever copy runs first takes everything and every later copy reports
 	// an honest `promoted: 0`.
 	//
@@ -158,19 +162,37 @@ func TriageDetectedItemsAction(ctx context.Context, params ActionParams) (interf
 	// --- Promote detected → triaged ---
 	// Sets pipeline to targetPipeline so the dispatch loop (which filters item_pipeline='build')
 	// will pick them up. Preserves the original pipeline in spec.original_pipeline for auditing.
-	result, err := params.DB.ExecContext(ctx, `
-		UPDATE site_work_items
+	//
+	// ROUTABILITY GUARD (bugs_open/284). The promotion is still unconditional over
+	// the site's TYPES — it promotes work, not a chosen list — but it will not
+	// promote a row the claim path is going to refuse. workItemRoutableSQL renders
+	// claim's own test, from the same function claim calls, so promotion and claim
+	// cannot disagree about what is dispatchable.
+	//
+	// Without it, the platform's flag-only findings — the ones that name no handler
+	// ON PURPOSE, because nothing on the platform can repaint a brand, restart a VM
+	// or repoint an image reference — were promoted here, claimed by the dispatch
+	// loop, and stamped `blocked` with "No handler_agent set". A correct finding
+	// recorded as a routing failure, permanently: `blocked` is not terminal, so the
+	// row goes on holding its dedup slot and the check that found it can never file
+	// it again, and feasibility-recheck cannot release it because no agent type is
+	// the empty string. 60 rows across 4 item_types and 15+ sites when this landed.
+	updateSQL := fmt.Sprintf(`
+		UPDATE site_work_items wi
 		SET status = 'triaged',
 		    triaged_at = now(),
 		    spec = jsonb_set(
-		        COALESCE(spec, '{}'::jsonb),
+		        COALESCE(wi.spec, '{}'::jsonb),
 		        '{original_pipeline}',
-		        to_jsonb(pipeline)
+		        to_jsonb(wi.pipeline)
 		    ),
 		    pipeline = $2
-		WHERE site_id = $1
-		  AND status = 'detected'
-	`, siteID, targetPipeline)
+		WHERE wi.site_id = $1
+		  AND wi.status = 'detected'
+		  AND %s
+	`, workItemRoutableSQL("wi"))
+
+	result, err := params.DB.ExecContext(ctx, updateSQL, siteID, targetPipeline)
 	if err != nil {
 		return nil, fmt.Errorf("failed to promote detected items: %w", err)
 	}
@@ -184,6 +206,24 @@ func TriageDetectedItemsAction(ctx context.Context, params ActionParams) (interf
 		"promoted":        promoted,
 		"target_pipeline": targetPipeline,
 		"has_items":       promoted > 0,
+	}
+
+	// What the routability guard held back, NAMED. These rows are working as
+	// designed — a flag-only finding waiting for a human — but a filter that
+	// silently promotes fewer rows reads exactly like a site with less work, so
+	// the count is reported and logged rather than left to be inferred. A failure
+	// to count is not a failure to promote: log it and carry on.
+	if held, byType, heldErr := countUnroutableDetected(ctx, params.DB, siteID); heldErr != nil {
+		logger.Warn("TriageDetectedItemsAction: could not count unroutable detected items",
+			zap.String("site_id", siteIDStr), zap.Error(heldErr))
+	} else if held > 0 {
+		out["not_promotable"] = held
+		out["not_promotable_by_type"] = byType
+		logger.Info("TriageDetectedItemsAction: held back detected items nothing can route",
+			zap.String("site_id", siteIDStr),
+			zap.Int64("not_promotable", held),
+			zap.Any("by_item_type", byType),
+		)
 	}
 
 	dispatchable, countErr := countDispatchableWorkItems(ctx, params.DB, siteID, targetPipeline)

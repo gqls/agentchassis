@@ -241,10 +241,17 @@ func (c *ContentDuplicationCheck) Run(dctx DiscoveryCheckContext) (*CheckResult,
 			SpecJSON:     string(specJSON),
 			Priority:     150,
 			HandlerAgent: "", // deliberately none — see remit.go
-			Status:       "detected",
-			CreatedBy:    dctx.AgentType,
-			ItemKey:      "capability_gap:content_duplication_rewrite",
-			BatchID:      dctx.BatchID,
+			// 'deferred' is what this item type means (remit.go's
+			// CapabilityGapItem): a roadmap row awaiting a builder. Born
+			// 'detected', these were promoted into the dispatch queue and stamped
+			// `blocked` (bugs_open/284). Kept explicit rather than routed through
+			// CapabilityGapItem because that helper mints its own item_key, and
+			// changing this row's key would open a second dedup slot beside every
+			// row already filed under the old one.
+			Status:    "deferred",
+			CreatedBy: dctx.AgentType,
+			ItemKey:   "capability_gap:content_duplication_rewrite",
+			BatchID:   dctx.BatchID,
 		})
 	}
 
