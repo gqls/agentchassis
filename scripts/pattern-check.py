@@ -635,6 +635,107 @@ def check_unrepaired_component_write(files, ref, findings):
         ))
 
 
+# ── a component template rendered with no per-instance token bound ──────────
+#
+# bugs_open/283. A component's element ids are namespaced by {{.InstanceID}}, and
+# a render path that never binds one gets missingkey=zero — an empty string — so
+# every instance on the page lands back on IDENTICAL ids. The failure is silent
+# and plausible: the second calculator renders, accepts typing, responds to its
+# button, and answers from the FIRST one's fields.
+#
+# Why a check rather than a list in the bug file: measured 2026-08-16, EIGHT
+# non-test files hold FOURTEEN call sites. The council's bug_historian seat named
+# five files it believed were call sites; four of them do not call these helpers
+# at all, and the two that were the actual defect (the section editor's) were on
+# nobody's list. My own first census missed cmd/component-render-check entirely,
+# because it grepped platform/ and internal/ and the file lives in cmd/ — the
+# broad sweep below is what found it. An enumeration written by reading is
+# exactly what goes stale; same shape as the rendered_html writer census above.
+#
+# It matches the CALL, not the argument's name. An earlier version required the
+# template argument to be spelled HTMLTemplate/htmlTemplate/headTemplate, which
+# is the same staleness one rung down: a new call site passing `tpl` would render
+# an unnamespaced page and the check would say nothing. Measured 2026-08-16, the
+# broad form costs nothing — exactly eight non-test files call any RenderTemplate*
+# helper, and every one is either bound or allow-listed below.
+COMPONENT_RENDER_RE = re.compile(r"\bRenderTemplate\w*\s*\(")
+
+# Searched as a CALL on a non-comment line of the RAW body, for both the reasons
+# in _calls_repair_seam's note above: the stripped body can DELETE a guard and
+# manufacture a finding, and the raw body lets a comment merely MENTIONING the
+# seam silence a genuinely unbound writer.
+INSTANCE_BIND_SEAM_RE = re.compile(
+    r"(?:BindInstanceToken|BindSingleSectionInstanceToken)\s*\(")
+
+
+def _binds_instance_token(raw):
+    for line in raw.splitlines():
+        bare = line.lstrip()
+        if bare.startswith("//") or bare.startswith("*"):
+            continue                      # prose about the seam is not a call to it
+        if INSTANCE_BIND_SEAM_RE.search(line):
+            return True
+    return False
+
+
+# Reasons, not exemptions — and every one here is a MEASURED claim about the
+# slot, not a guess about the file. A component rendered into <head>, or into the
+# site header/footer chrome, occurs once per document by construction, so there
+# is no second instance to collide with. A writer whose honest reason is "not yet"
+# belongs in the finding list and the bug file, not in here.
+INSTANCE_TOKEN_ALLOWED = {
+    "component_library.go":
+        "RenderHeader/RenderFooter/RenderHead (:1943, :2012, :2285) render CHROME, "
+        "resolved through ResolveChromeComponent — one header, one footer and one "
+        "<head> per document, so no second instance exists to collide with. This "
+        "file also HOSTS the shared reporting seam (RenderTemplateReportingMissing), "
+        "which is what covers every other caller",
+    "render_site_components_action.go":
+        "site chrome slots (header/nav/footer), one instance per page by construction",
+    "rerender_pages_actions.go":
+        "renders the <head> template only (:532) — a document has exactly one",
+    "rendercheck.go":
+        "cmd/component-render-check is an offline LINT: it renders every active "
+        "component to look for empty-element shapes and writes its report to "
+        "doc_notes (:507), never to page_components.rendered_html and never to a "
+        "served page, so no page can inherit an id from it. It also synthesises a "
+        "unique marker for EVERY referenced field (:315-350), so it supplies its "
+        "own InstanceID; binding a real token would defeat the absence arm it "
+        "exists to run",
+}
+
+
+def check_unscoped_component_render(files, ref, findings):
+    """bugs_open/283 — a component template rendered with no instance token bound."""
+    for path in files:
+        if not path.endswith(".go") or path.endswith("_test.go"):
+            continue
+        if os.path.basename(path) in INSTANCE_TOKEN_ALLOWED:
+            continue
+        content = file_content(path, ref)
+        if not content:
+            continue
+        # OFFENCE in the stripped body (a comment quoting a render call is not
+        # one), GUARD in the raw body via _binds_instance_token.
+        if not COMPONENT_RENDER_RE.search(strip_comments(content)):
+            continue
+        if _binds_instance_token(content):
+            continue
+        findings.append((
+            "unscoped-component-render", path,
+            f"renders a component template with no {BOLD}InstanceID{RESET} bound",
+            "bugs_open/283 — the template's {{.InstanceID}} then renders EMPTY under "
+            "missingkey=zero and every instance on the page takes identical element "
+            "ids, so getElementById hands each lookup to the first copy: the second "
+            "calculator answers from the first one's inputs, with no error anywhere. "
+            "Bind it before rendering — BindInstanceToken(rc, counter.Next(fn)) if you "
+            "walk the whole page in order, BindSingleSectionInstanceToken(rc, fn) if "
+            "you render one section and cannot see the rest. If this slot genuinely "
+            "occurs once per document, add it to INSTANCE_TOKEN_ALLOWED with the "
+            "measured reason.",
+        ))
+
+
 # ── a page upsert that names page_type in the INSERT and not in the SET ─────
 #
 # bugs_open/175, and bugs_closed/081 before it. The statement:
@@ -1695,6 +1796,7 @@ def main():
                   check_new_capability_surface, check_register_coverage,
                   check_register_entry_without_row,
                   check_runtime_fill_marker, check_unrepaired_component_write,
+                  check_unscoped_component_render,
                   check_dynamic_item_type,
                   check_partial_page_upsert, check_silent_reply_drop,
                   check_handrolled_shipped_predicate, check_flexless_hamburger):

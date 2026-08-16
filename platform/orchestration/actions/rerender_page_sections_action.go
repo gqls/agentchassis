@@ -373,6 +373,10 @@ func RerenderPageSectionsAction(ctx context.Context, params ActionParams) (inter
 	// CTA targets for reason=cta_links_stale, loaded once on first CTA section.
 	var cta *rerenderCTAState
 
+	// One counter for the whole page, advanced in position order (loadStoredSections
+	// orders by position) — the canonical per-instance token derivation.
+	instances := NewInstanceCounter()
+
 	for _, s := range stored {
 		comp, invalidTemplate, haveComp := resolveComponent(s)
 
@@ -497,7 +501,14 @@ func RerenderPageSectionsAction(ctx context.Context, params ActionParams) (inter
 		// A template that namespaces element ids must use this one — see
 		// component_instance_scope.go and bugs_open/283 for why the distinction
 		// is load-bearing rather than stylistic.
-		rc.ContentData["InstanceID"] = InstanceToken(s.position)
+		//
+		// The counter advances only for sections that RESOLVED a component: a
+		// carried section (component missing or template invalid) keeps its
+		// stored HTML and contributes no new ids, so counting it would shift
+		// every later token for no reason. The consequence, stated rather than
+		// hidden: if a previously-unresolvable component starts resolving, the
+		// tokens after it move, and that re-render is not byte-identical.
+		BindInstanceToken(rc, instances.Next(comp.Function))
 
 		rendered, _, deadURLFields := RenderTemplateReportingMissing(htmlTemplate, rc, logger)
 

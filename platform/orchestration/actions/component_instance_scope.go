@@ -30,20 +30,42 @@
 // Classes 2 and 3 have nothing to do with ids, which is why the fix is
 // "scope the component", not "prefix the ids".
 //
-// THE TOKEN IS DERIVED FROM position, AND THAT CHOICE IS LOAD-BEARING:
+// THE TOKEN IS component FUNCTION + OCCURRENCE ON THE PAGE, AND THE CHOICE IS
+// LOAD-BEARING. `c-mortgages-repayment`, then `c-mortgages-repayment-2` for a
+// second copy of the same component on the same page.
 //
-//   - page_components.slot_name is NOT unique per page — 13 active pages carry
-//     duplicate slot names, and the only unique index
-//     (uq_page_components_no_byte_identical_duplicate) merely forbids
-//     BYTE-IDENTICAL rows, so two instances with different copy are explicitly
-//     allowed to share a slot. slot_name therefore cannot namespace anything.
-//   - page_components.position IS unique per page — measured across every
-//     active page fleet-wide, zero duplicates — and it is already loaded by
-//     the rerender path, so no schema or query change is needed.
-//   - position is STABLE across re-renders (it is stored, not recomputed),
-//     which matters because an unstable token would change the page bytes on
-//     every rerender and destroy the byte-identical property the site lanes
-//     verify against.
+//   - UNIQUE WITHIN A PAGE. The function separates two DIFFERENT components
+//     (the class that actually bites: one id, btn-calculate, is shared by nine
+//     different calculators), the occurrence separates two copies of one.
+//   - THE SAME ON EVERY PAGE for a single-instance component, which is the
+//     property every hand-written selector needs and the only one that is
+//     expensive to get wrong. loanandmortgagecalculator's oracle.py addresses
+//     all 170 of its checks by literal CSS id; with this rule it needs one
+//     prefix per tool, and with any page-varying rule it needs per-page
+//     knowledge of every tool.
+//   - STABLE ACROSS RE-RENDERS, because it is derived from stored, ordered
+//     data rather than recomputed. An unstable token would change the page
+//     bytes on every rerender and destroy the byte-identical property the site
+//     lanes verify against.
+//
+// TWO RULES WERE TRIED AND REJECTED — both are in the council trail, and both
+// look correct until you ask what a selector must know:
+//
+//   - `position` (shipped 2026-08-15, superseded 2026-08-16 before any
+//     template consumed it). It IS unique per page — measured, zero duplicates
+//     fleet-wide — but it is not the same across pages: measured, the LMC tool
+//     slot sits at position 0 on 7 pages and position 1 on the other 16, so
+//     one component would answer to two different ids depending on the page,
+//     and every selector would be coupled to section order.
+//   - `page_components.data_uuid` (raised by the council's prior_art seat;
+//     1,580 rows, 1,580 distinct, so uniqueness is provable rather than
+//     derived). Rejected for the same reason, harder: the id then differs per
+//     page AND is opaque, so no selector can be written without a lookup.
+//
+// The cost of this rule is that uniqueness is DERIVED (from the page's ordered
+// section list) rather than read off a unique column. That is why
+// DetectInstanceCollisions exists and why the paths that cannot see the whole
+// page say so — see InstanceCounter.
 //
 // DO NOT reuse {{.ComponentID}} for this. It is bound to the CONTENT COMPONENT
 // row id on two of the three render paths (rerender_page_sections_action.go and
@@ -60,41 +82,131 @@ import (
 	"strings"
 )
 
-// InstanceToken returns the per-instance namespace token for a component at
-// `position` on a page. Prefixed with a letter deliberately: an id beginning
-// with a digit is a valid HTML id and getElementById finds it, but it is NOT a
-// valid CSS identifier, so querySelector("#3-foo") throws. Keeping the token
-// selector-safe means a component may use either lookup.
-func InstanceToken(position int) string {
-	return fmt.Sprintf("c%d", position)
-}
+// InstanceContentKey is the render-context key every path binds the token to.
+// Named once so no call site spells it, and so a grep for the key finds every
+// producer.
+const InstanceContentKey = "InstanceID"
 
 var reNotSelectorSafe = regexp.MustCompile(`[^A-Za-z0-9_-]+`)
 
-// InstanceTokenFromSlot derives a token where the page position is NOT in
-// scope — currently only RenderComponentAction, which renders one section at a
-// time and knows its slot name but not its index on the page.
+// InstanceToken returns the namespace token for the `occurrence`-th instance of
+// the component whose function is `function` on one page. Occurrence is
+// zero-based; the first instance takes the bare token so the common case — a
+// component appearing once, which today is EVERY interactive component on every
+// live page — reads as `c-mortgages-repayment` rather than `c-…-1`.
 //
-// BEST-EFFORT, AND THE WEAKNESS IS THE POINT: slot names are positional in
-// practice ("prose-0", "tool-1") and then this is as good as InstanceToken, but
-// slot_name is NOT unique per page — 13 active pages carry repeated slot names
-// (all of them a component repeated under one slot). On those, this returns the
-// same token for every instance and namespaces nothing. That case is caught by
-// DetectInstanceCollisions at the guard, not here: a token function cannot know
-// what else is on the page. Never present this as a uniqueness guarantee.
-//
-// It exists so the value is never ABSENT: templates render with missingkey=zero,
-// so an unset InstanceID would silently become "" and put every instance back on
-// identical ids — failing in exactly the invisible way this whole change exists
-// to remove. A wrong-but-present token fails loudly at the guard; an empty one
-// does not fail at all.
-func InstanceTokenFromSlot(slot string) string {
-	s := reNotSelectorSafe.ReplaceAllString(strings.TrimSpace(slot), "-")
-	s = strings.Trim(s, "-")
+// Prefixed with a letter deliberately: an id beginning with a digit is a valid
+// HTML id and getElementById finds it, but it is NOT a valid CSS identifier, so
+// querySelector("#3-foo") throws. Keeping the token selector-safe means a
+// component may use either lookup.
+func InstanceToken(function string, occurrence int) string {
+	s := strings.ToLower(strings.TrimSpace(function))
+	s = strings.Trim(reNotSelectorSafe.ReplaceAllString(s, "-"), "-")
 	if s == "" {
-		return "c0"
+		// A component with no function is not addressable by name; fall back to
+		// the occurrence alone rather than emitting a bare "c-", which would be
+		// the SAME token for every such component on the page.
+		s = fmt.Sprintf("anon-%d", occurrence)
 	}
-	return "c-" + s
+	if occurrence <= 0 {
+		return "c-" + s
+	}
+	return fmt.Sprintf("c-%s-%d", s, occurrence+1)
+}
+
+// InstanceCounter assigns occurrence indices as a render loop walks a page's
+// sections in position order. It is THE canonical derivation: every path that
+// can see the whole page uses this, so two paths rendering the same page agree
+// on every token rather than agreeing only by coincidence.
+//
+// A path that CANNOT see the whole page — RenderComponentAction and the section
+// editor each render one section, and during a build the page's rows may not
+// exist yet — must not invent a second rule. It calls InstanceToken with
+// occurrence 0 and says so at the call site. That is a possibly-wrong INPUT to
+// one rule, not a second rule with a weaker guarantee, and the difference is
+// what makes it detectable: a wrong occurrence collides, and a collision is
+// exactly what DetectInstanceCollisions reports.
+type InstanceCounter struct {
+	seen map[string]int
+}
+
+// NewInstanceCounter returns a counter for one page's render pass.
+func NewInstanceCounter() *InstanceCounter {
+	return &InstanceCounter{seen: make(map[string]int)}
+}
+
+// Next returns the token for the next instance of `function` on this page and
+// advances the count. Call it once per rendered section, in position order.
+func (c *InstanceCounter) Next(function string) string {
+	if c.seen == nil {
+		c.seen = make(map[string]int)
+	}
+	key := strings.ToLower(strings.TrimSpace(function))
+	tok := InstanceToken(function, c.seen[key])
+	c.seen[key]++
+	return tok
+}
+
+// InstanceTokensForPage assigns tokens to an ordered list of component
+// functions. Same rule as InstanceCounter, for callers holding the whole list
+// at once (and the shape the tests assert against).
+func InstanceTokensForPage(functions []string) []string {
+	c := NewInstanceCounter()
+	out := make([]string, len(functions))
+	for i, fn := range functions {
+		out[i] = c.Next(fn)
+	}
+	return out
+}
+
+// BindInstanceToken puts `token` on the render context under the one key every
+// template reads. Every producer goes through here so that a grep for the
+// binding finds all of them, and so no call site spells the key.
+func BindInstanceToken(rc *RenderContext, token string) {
+	if rc == nil {
+		return
+	}
+	if rc.ContentData == nil {
+		rc.ContentData = make(map[string]interface{})
+	}
+	rc.ContentData[InstanceContentKey] = token
+}
+
+// BindSingleSectionInstanceToken binds the token for a path that renders ONE
+// section and cannot see the rest of the page — the section editor, and
+// RenderComponentAction during a build where the page's rows may not exist yet.
+//
+// It supplies occurrence 0 to the canonical rule rather than inventing a second
+// rule for the single-section case. Right whenever the component appears once on
+// the page, which is every interactive component on every live page today
+// (measured 2026-08-15: no component that binds by getElementById is
+// instantiated twice anywhere). Where it is wrong, the two instances take the
+// same token and DetectInstanceCollisions reports it at assembly — a detectable
+// wrong answer, not a silent one, and not a second guarantee.
+func BindSingleSectionInstanceToken(rc *RenderContext, function string) {
+	BindInstanceToken(rc, InstanceToken(function, 0))
+}
+
+// reTemplateInstanceID matches a template's reference to the per-instance
+// token, in either of Go's spacings and with or without a trim marker.
+var reTemplateInstanceID = regexp.MustCompile(`\{\{-?\s*\.` + InstanceContentKey + `\b`)
+
+// TemplateNeedsInstanceID reports whether a template namespaces anything with
+// the per-instance token, i.e. whether rendering it without one is a defect.
+//
+// This is the predicate the SHARED render layer uses, and it is why the fix is
+// not "patch the three call sites the council saw". Measured 2026-08-16: EIGHT
+// non-test files hold FOURTEEN calls to a RenderTemplate* helper. Three files
+// bound a token before this change; of the five that did not, four are
+// single-instance by construction (chrome, <head>, and an offline lint) and one
+// — the section editor, on nobody's list including the council's — renders a
+// page-embedded component and bound nothing at all. A template rendered by that
+// path gets missingkey=zero, an empty string, so every instance lands back on
+// identical ids, silently, which is the precise failure this seam removes.
+// scripts/pattern-check.py's check_unscoped_component_render is the durable
+// half: the set of call sites grows, and a census written by reading does not.
+func TemplateNeedsInstanceID(templateStr string) bool {
+	return reTemplateInstanceID.MatchString(templateStr)
 }
 
 var (

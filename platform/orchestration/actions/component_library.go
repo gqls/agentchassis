@@ -990,6 +990,32 @@ func RenderTemplateReportingMissing(templateStr string, ctx *RenderContext, logg
 		}
 	}
 
+	// A template that namespaces its element ids with {{.InstanceID}} and is
+	// rendered by a path that never bound one gets missingkey=zero — an empty
+	// string — so every instance on the page lands back on IDENTICAL ids, which
+	// is the exact silent failure bugs_open/283 exists to remove. Measured
+	// 2026-08-16: eight non-test files hold fourteen calls to a RenderTemplate*
+	// helper, and five of those files bound nothing before this change.
+	// Enumerating call sites is what goes stale, so the report lives HERE, where
+	// every one of them arrives, and mirrors the form_action seeding above: the
+	// guarantee is made mechanical rather than left to each caller remembering.
+	//
+	// It reports and does not substitute. There is no value this layer could
+	// invent that would be right: it cannot see the page, so any token it made up
+	// would either collide (no better than empty) or disagree with the token the
+	// page's other render paths use for the SAME instance — which is worse than
+	// empty, because the ids would then depend on which action last touched the
+	// section. Error level matches the dead-control report below: both are a
+	// silently-wrong artefact shipped to a live page.
+	if TemplateNeedsInstanceID(templateStr) {
+		token, _ := ctx.ContentData[InstanceContentKey].(string)
+		if token == "" {
+			logger.Error("RenderTemplate: template namespaces ids with {{."+InstanceContentKey+"}} but no per-instance token was bound — every instance on this page will render identical element ids",
+				zap.String("template_preview", datahelpers.TruncateString(templateStr, 100)),
+			)
+		}
+	}
+
 	// Convert context to map[string]interface{} - preserves nested structures
 	data := contextToInterfaceMap(ctx)
 

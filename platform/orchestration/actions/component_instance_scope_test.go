@@ -10,6 +10,8 @@ package actions
 import (
 	"strings"
 	"testing"
+
+	"go.uber.org/zap"
 )
 
 // oneCalculator is the real shape of an LMC calculator component after the
@@ -52,51 +54,93 @@ func oneCalculatorOldShape() string {
 </script>`
 }
 
-func TestInstanceToken_isUniqueAndSelectorSafe(t *testing.T) {
-	a, b := InstanceToken(1), InstanceToken(2)
-	if a == b {
-		t.Fatalf("token must differ by position, got %q for both", a)
-	}
+func TestInstanceToken_isSelectorSafeAndStableAcrossPages(t *testing.T) {
 	// An id may begin with a digit and getElementById will find it, but
-	// querySelector("#3-foo") throws — so the token must not start with one.
-	for _, tok := range []string{InstanceToken(0), InstanceToken(3), InstanceToken(42)} {
-		if tok == "" || (tok[0] >= '0' && tok[0] <= '9') {
-			t.Fatalf("token %q must start with a letter to be CSS-selector safe", tok)
+	// querySelector("#3-foo") throws — so the token must not start with one, and
+	// must carry nothing that would break a selector.
+	for _, fn := range []string{"mortgages-repayment", "Stamp Duty/SDLT", "", "   ", "!!!", "9lives"} {
+		for _, occ := range []int{0, 1, 7} {
+			tok := InstanceToken(fn, occ)
+			if tok == "" {
+				t.Fatalf("InstanceToken(%q,%d) must never be empty — an empty token "+
+					"is exactly the missingkey=zero failure this seam removes", fn, occ)
+			}
+			if tok[0] >= '0' && tok[0] <= '9' {
+				t.Fatalf("token %q must start with a letter to be CSS-selector safe", tok)
+			}
+			if strings.ContainsAny(tok, " /!.#") {
+				t.Fatalf("token %q must be selector-safe", tok)
+			}
 		}
+	}
+
+	// THE PROPERTY THE ORACLE NEEDS, and the one `position` and `data_uuid` both
+	// fail: the same component alone on two different pages gets the SAME token,
+	// whatever else sits beside it. Here it is second on one page and first on
+	// the other.
+	pageA := InstanceTokensForPage([]string{"hero", "mortgages-repayment", "faq"})
+	pageB := InstanceTokensForPage([]string{"mortgages-repayment", "faq"})
+	if pageA[1] != pageB[0] {
+		t.Fatalf("a single-instance component must take the same token on every page, "+
+			"got %q and %q — every hand-written selector would need per-page knowledge",
+			pageA[1], pageB[0])
+	}
+
+	// And it must actually discriminate, or the assertion above would pass
+	// against a function returning one constant.
+	if pageA[0] == pageA[1] {
+		t.Fatalf("CONTROL FAILED: different components share a token (%q)", pageA[0])
 	}
 }
 
-func TestInstanceTokenFromSlot_isSafeAndNeverEmpty(t *testing.T) {
-	// Never empty: an absent InstanceID renders as "" under missingkey=zero and
-	// silently puts every instance back on identical ids.
-	for _, in := range []string{"", "   ", "!!!", "---"} {
-		if got := InstanceTokenFromSlot(in); got == "" {
-			t.Fatalf("InstanceTokenFromSlot(%q) must never be empty", in)
+func TestInstanceTokensForPage_repeatedComponentGetsDistinctTokens(t *testing.T) {
+	got := InstanceTokensForPage([]string{"faq", "mortgages-repayment", "faq", "faq"})
+
+	seen := map[string]int{}
+	for _, tok := range got {
+		seen[tok]++
+	}
+	for tok, n := range seen {
+		if n > 1 {
+			t.Fatalf("token %q assigned to %d instances on one page — %v", tok, n, got)
 		}
 	}
-	// Selector-safe: no spaces or punctuation that would break querySelector.
-	if got := InstanceTokenFromSlot("tool 1/x"); strings.ContainsAny(got, " /") {
-		t.Fatalf("token %q must be selector-safe", got)
+	// The FIRST instance takes the bare token, so a component that appears once
+	// (every interactive component on every live page today) is unaffected by
+	// this rule existing at all.
+	if got[0] != InstanceToken("faq", 0) {
+		t.Fatalf("first instance must take the bare token, got %q", got[0])
 	}
-	// Positional slots — the common case — do discriminate.
-	if InstanceTokenFromSlot("tool-1") == InstanceTokenFromSlot("tool-2") {
-		t.Fatal("positional slot names must produce different tokens")
+	// Case is not a distinction an HTML id can rely on being preserved, so
+	// "FAQ" and "faq" must count as the same component rather than silently
+	// producing two "first" instances.
+	if mixed := InstanceTokensForPage([]string{"FAQ", "faq"}); mixed[0] == mixed[1] {
+		t.Fatalf("case-differing functions must still be counted as one component, got %v", mixed)
 	}
 }
 
-// The documented WEAKNESS, asserted deliberately. If someone later "fixes" this
-// to look unique, they will have created a token that appears to guarantee
-// something it cannot, which is worse than a known-weak one. 13 active pages
-// repeat a slot name; on those this returns the same token and the GUARD is what
-// catches it, not this function.
-func TestInstanceTokenFromSlot_repeatedSlotDoesNotDiscriminate(t *testing.T) {
-	if InstanceTokenFromSlot("generic-text-block") != InstanceTokenFromSlot("generic-text-block") {
-		t.Fatal("same slot must give the same token - this is a pure function")
+// The single-section paths (RenderComponentAction, the section editor) cannot
+// see the page, so they supply occurrence 0. Assert that this AGREES with the
+// canonical token in the common case — the whole reason it is not a second
+// rule — and that where it does not, the guard is what catches it.
+func TestSingleSectionToken_agreesWithCanonical_andCollidesDetectably(t *testing.T) {
+	rc := &RenderContext{}
+	BindSingleSectionInstanceToken(rc, "mortgages-repayment")
+	single, _ := rc.ContentData[InstanceContentKey].(string)
+
+	canonical := InstanceTokensForPage([]string{"hero", "mortgages-repayment"})[1]
+	if single != canonical {
+		t.Fatalf("the single-section path must supply the SAME token as the canonical "+
+			"derivation for a once-per-page component, got %q vs %q — differing tokens "+
+			"would mean an instance's ids depend on which action last rendered it",
+			single, canonical)
 	}
-	page := oneCalculator(InstanceTokenFromSlot("generic-text-block")) +
-		oneCalculator(InstanceTokenFromSlot("generic-text-block"))
-	if DetectInstanceCollisions(page).Clean() {
-		t.Fatal("the guard must catch what the slot-derived token cannot prevent")
+
+	// Where the assumption is wrong — the component really does appear twice and
+	// both were rendered one section at a time — the tokens collide. That is the
+	// known cost, and it must be DETECTED rather than silent.
+	if DetectInstanceCollisions(oneCalculator(single) + oneCalculator(single)).Clean() {
+		t.Fatal("CONTROL FAILED: two same-token instances must be reported by the guard")
 	}
 }
 
@@ -126,8 +170,9 @@ func TestEnforceInstanceScope_defaultsOff(t *testing.T) {
 }
 
 func TestDetect_fixedShapeIsClean_andMutationProvesTheDetectorCanFail(t *testing.T) {
+	toks := InstanceTokensForPage([]string{"mortgages-repayment", "mortgages-repayment"})
 	// Two instances, distinct tokens — the whole point of the fix.
-	page := oneCalculator(InstanceToken(1)) + oneCalculator(InstanceToken(2))
+	page := oneCalculator(toks[0]) + oneCalculator(toks[1])
 
 	got := DetectInstanceCollisions(page)
 	if !got.Clean() {
@@ -137,13 +182,88 @@ func TestDetect_fixedShapeIsClean_andMutationProvesTheDetectorCanFail(t *testing
 	// MUTATION 1 — give both instances the SAME token, which is exactly what
 	// {{.ComponentID}} does on the rerender path. If this still reads clean the
 	// detector is inert and the clean assertion above proved nothing.
-	same := oneCalculator(InstanceToken(1)) + oneCalculator(InstanceToken(1))
+	same := oneCalculator(toks[0]) + oneCalculator(toks[0])
 	if m := DetectInstanceCollisions(same); m.Clean() {
 		t.Fatal("CONTROL FAILED: two instances sharing a token must collide; " +
 			"the detector cannot see duplicate ids")
 	} else if len(m.DuplicateElementIDs) != 4 {
 		t.Fatalf("expected all 4 ids duplicated, got %d: %v",
 			len(m.DuplicateElementIDs), m.DuplicateElementIDs)
+	}
+}
+
+// THE END-TO-END TEST THE COUNCIL'S GUARDIAN SEAT ASKED FOR (bugs_open/283 §3.6).
+// Everything above tests the detector against hand-written HTML, which cannot
+// tell you whether the RENDER LAYER actually puts two different tokens on two
+// instances. This drives the real seam — a template with {{.InstanceID}}, the
+// real RenderContext binding, the real RenderTemplate — and asserts on the
+// assembled page.
+func TestRenderLayer_twoInstancesOnOnePageGetDifferentIDs(t *testing.T) {
+	logger := zap.NewNop()
+	tmpl := `<section><input id="{{.InstanceID}}-loanAmount"><button id="{{.InstanceID}}-btn-calculate"></button></section>`
+
+	// Render the SAME component twice, as a page-assembling path does: one
+	// counter walked in render order.
+	instances := NewInstanceCounter()
+	var page strings.Builder
+	for i := 0; i < 2; i++ {
+		rc := &RenderContext{}
+		BindInstanceToken(rc, instances.Next("mortgages-repayment"))
+		out := RenderTemplate(tmpl, rc, logger)
+		if strings.Contains(out, "{{") {
+			t.Fatalf("instance %d did not render: %q", i, out)
+		}
+		if strings.Contains(out, `id="-`) {
+			t.Fatalf("instance %d rendered an EMPTY token: %q — this is the "+
+				"missingkey=zero failure the seam exists to remove", i, out)
+		}
+		page.WriteString(out)
+	}
+
+	if got := DetectInstanceCollisions(page.String()); !got.Clean() {
+		t.Fatalf("two rendered instances must carry distinct ids, got: %s", got.Summary())
+	}
+
+	// MUTATION — the regression test for §3.3, the objection that the value was
+	// bound at three call sites while the mechanism stayed generic. Render the
+	// same template through a path that binds NOTHING (any of the five call
+	// sites that did not, before this change). Both instances must then collide,
+	// proving the clean result above is produced by the binding and not by the
+	// template happening to be harmless.
+	var unbound strings.Builder
+	for i := 0; i < 2; i++ {
+		unbound.WriteString(RenderTemplate(tmpl, &RenderContext{}, logger))
+	}
+	if DetectInstanceCollisions(unbound.String()).Clean() {
+		t.Fatal("CONTROL FAILED: an unbound InstanceID must produce colliding ids — " +
+			"either the detector or this test is inert")
+	}
+}
+
+// The shared layer cannot invent a token, so its job is to make the absence
+// loud. Assert the predicate that drives that, since it is what decides whether
+// any of the eleven call sites is reported at all.
+func TestTemplateNeedsInstanceID_matchesTheSpellingsGoAccepts(t *testing.T) {
+	for _, tmpl := range []string{
+		`<input id="{{.InstanceID}}-loanAmount">`,
+		`<input id="{{ .InstanceID }}-loanAmount">`,
+		`<input id="{{- .InstanceID -}}-loanAmount">`,
+	} {
+		if !TemplateNeedsInstanceID(tmpl) {
+			t.Fatalf("must detect the token in %q — an undetected reference renders "+
+				"empty and silently collides", tmpl)
+		}
+	}
+	// Must not fire on a template that does not use it, or every render of the
+	// other 238 components logs an error nobody can act on.
+	for _, tmpl := range []string{
+		`<input id="loanAmount">`,
+		`<div id="{{.ComponentID}}">`,
+		`<div>{{.InstanceIDs}}</div>`,
+	} {
+		if TemplateNeedsInstanceID(tmpl) {
+			t.Fatalf("must not fire on %q", tmpl)
+		}
 	}
 }
 

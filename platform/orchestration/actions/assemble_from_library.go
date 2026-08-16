@@ -258,6 +258,9 @@ func assembleComponents(ctx context.Context, db interface{}, componentNames []st
 	contentRequirements := make(map[string]interface{})
 	var componentIDs []string
 	var componentFunctions []string
+	// One counter for the whole page, advanced in render order — the canonical
+	// derivation of the per-instance token (component_instance_scope.go).
+	instances := NewInstanceCounter()
 
 	for idx, componentName := range componentNames {
 		logger.Info("Querying for component",
@@ -285,14 +288,11 @@ func assembleComponents(ctx context.Context, db interface{}, componentNames []st
 			renderCtx.Description = "Welcome to " + renderCtx.Domain
 		}
 
-		// InstanceID is per-INSTANCE. On this path idx IS the page position, so
-		// unlike the slot-derived fallback used by RenderComponentAction this one
-		// is genuinely unique. Set before rendering so templates can namespace
-		// their element ids — see component_instance_scope.go, bugs_open/283.
-		if renderCtx.ContentData == nil {
-			renderCtx.ContentData = make(map[string]interface{})
-		}
-		renderCtx.ContentData["InstanceID"] = InstanceToken(idx)
+		// InstanceID is per-INSTANCE. This path walks the page's components in
+		// render order, so the counter sees the whole page and the token is the
+		// canonical one. Set before rendering so templates can namespace their
+		// element ids — see component_instance_scope.go, bugs_open/283.
+		BindInstanceToken(renderCtx, instances.Next(comp.Function))
 
 		renderedHTML := RenderTemplate(comp.HTMLTemplate, renderCtx, logger)
 

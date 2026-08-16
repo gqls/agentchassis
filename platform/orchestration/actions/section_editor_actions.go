@@ -843,6 +843,11 @@ func applyContentEdit(
 	}
 
 	// --- Render ---
+	// One section, so the page's other instances are not in scope — occurrence 0
+	// into the canonical rule (bugs_open/283, component_instance_scope.go). Without
+	// this the template's {{.InstanceID}} renders as "" under missingkey=zero and
+	// every instance on the page lands back on identical element ids.
+	BindSingleSectionInstanceToken(renderCtx, getStringVal(componentData, "function"))
 	rendered := RenderTemplate(htmlTemplate, renderCtx, logger)
 	if rendered == "" {
 		return sectionEditOutcome{}, fmt.Errorf("template rendering produced empty output")
@@ -939,6 +944,8 @@ func applyComponentSwap(
 		return sectionEditOutcome{}, fmt.Errorf("failed to build render context for swap: %w", err)
 	}
 
+	// Same single-section case as applyContentEdit above.
+	BindSingleSectionInstanceToken(renderCtx, comp.Function)
 	rendered := RenderTemplate(comp.HTMLTemplate, renderCtx, logger)
 	if rendered == "" {
 		return sectionEditOutcome{}, fmt.Errorf("template rendering produced empty output after swap")
