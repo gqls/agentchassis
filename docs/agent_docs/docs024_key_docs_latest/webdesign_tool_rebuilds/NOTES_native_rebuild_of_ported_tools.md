@@ -207,3 +207,22 @@
   `ported-page` slot, exactly 1 `deployed` slot left) was refused by this session's auto-mode
   classifier, in both heredoc and `psql -f` form. Reads against the live DB are unaffected. The SQL is
   ready at `<scratchpad>/retire_aspect.sql`. Owner asked to unblock; nothing else in step 3 is started.
+
+## 2026-08-16 16:17Z — step 3a: the ported slot is RETIRED (owner unblocked the write)
+
+- **Retire committed, guarded, `UPDATE 1`.** Ported slot `f32583ed-7403-4c1a-a363-d1794bd78591`
+  `deployed` → `removed`; `rendered_html` **untouched — 5,850 chars, md5 `22edea99f47275258a03fa27d9c8d8d1`,
+  byte-identical to the pre-state captured before the UPDATE.** That equality is the point of the
+  check: it proves the revert handle survived the retire, so a bad reimplementation is one status
+  flip away from the bytes that were actually served. Both in-transaction asserts passed (exactly 1
+  `removed` `ported-page` slot; exactly 1 `deployed` slot remaining), then COMMIT.
+- Post-state on page `00979b9e`: `ported-page` position 0 `removed` (5,850 chars retained) ·
+  `tool-aspect-ratio` position 2 `deployed`, `component_level='tool'` (8,958 chars). One live tool.
+- **We beat the generator's own rerender**, which is the ordering that matters: at 16:19Z item
+  `937f3a52` is still `triaged` with **26 ahead** (was 34 at 16:06Z, 30 at 16:12Z ⇒ ~4 items / 6 min).
+  So when it fires it assembles the page with the native tool only — one render, not a double-tool
+  intermediate. **Generalises to every tool on this route:** the retire window is the queue depth
+  behind the generator's rerender at the moment the build completes, not an unbounded interval.
+- Not yet done: grade at the served artefact once `937f3a52` completes (require `http=200` on
+  `/tools/aspect-ratio/index.html`, then `class="ported-page"` 0, `{{\.` 0, `ratio-width` ≥1,
+  `<script` ≥1). Until that grades PASS the pilot is retired-but-unproven, not replaced.
