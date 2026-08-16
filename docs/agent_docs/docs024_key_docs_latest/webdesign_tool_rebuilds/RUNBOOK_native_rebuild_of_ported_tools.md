@@ -144,3 +144,41 @@ FROM page_components WHERE page_id='<page>' AND slot_name='ported-page';
 ```
 Paste the row into NOTES. Revert = flip that id back to its recorded `build_status` and re-render;
 the md5 is how a later session proves the bytes it restored are the bytes that were served.
+
+## Scope the batch correctly — two traps in one query (added 2026-08-16)
+
+```sql
+-- the 62 remaining ported TOOLS, with the external-script class derived, not proxied
+SELECT p.name, p.url, length(pc.rendered_html) AS bytes,
+       (SELECT count(*) FROM regexp_matches(pc.rendered_html,'<script[^>]+src=','gi')) AS ext_scripts
+FROM pages p JOIN page_components pc ON pc.page_id=p.id
+WHERE p.site_id='6b49db8e-d447-4467-8277-4f3018af9897'
+  AND pc.slot_name='ported-page' AND pc.build_status='deployed'
+  AND p.name LIKE 'tool-%'          -- NOT p.url LIKE '/tools/%'
+ORDER BY ext_scripts, bytes;
+```
+
+1. **`p.url LIKE '/tools/%'` returns 64, not 63** — `tools-index` (`/tools/index.html`) is a ported
+   page and is the listing, not a tool. Filter on `p.name LIKE 'tool-%'`.
+2. **`content_data ? 'repair'` is NOT the external-script class, even though both count 13.**
+   The intersection is **4**. `repair` is residue from the `webdesign_tools_repair` lane; the class
+   the PLAN and TL-032 mean is `<script src=` in the ported html. Using one for the other mis-scopes
+   9 tools each way. Derive it with the `regexp_matches` expression above.
+
+Also: `ported-page` slots exist on 97 pages, of which only 64 are under `/tools/` (32 `/learn/`,
+1 `/about/`). A site-wide `slot_name='ported-page'` census is NOT a tool census.
+
+## Before REFILING a tool that already has a native component — deactivate it first
+
+`create_tool_component_action.go` ~197–217 probes `content_components → page_components → pages` on
+`cc.function` + `component_level='tool'` + `p.site_id` + **`cc.is_active=true`, with no
+`build_status` filter**. A component whose placement is `removed` (a withdrawn fork) still matches,
+so the generator returns `{already_exists:true}` and writes nothing — the run "succeeds" having done
+nothing at all. Deactivate the component, then file:
+
+```sql
+UPDATE content_components SET is_active=false, updated_at=now()
+WHERE id='<component>' AND function='<tool-function>' AND is_active;   -- expect 1 row
+```
+The `removed` placement row stays as history. Known case: the ab-test fork
+`cd60486c-f5e1-4d80-9676-0d65024f0372`.

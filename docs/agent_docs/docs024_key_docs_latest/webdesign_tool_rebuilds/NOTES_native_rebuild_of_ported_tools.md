@@ -226,3 +226,44 @@
 - Not yet done: grade at the served artefact once `937f3a52` completes (require `http=200` on
   `/tools/aspect-ratio/index.html`, then `class="ported-page"` 0, `{{\.` 0, `ratio-width` ≥1,
   `<script` ≥1). Until that grades PASS the pilot is retired-but-unproven, not replaced.
+
+## 2026-08-16 16:22Z — batch census for PLAN §2, taken while the rerender queues `[MEASURED]`
+
+Read-only; nothing filed. All counts against the live DB, site `6b49db8e…`.
+
+- **97 `ported-page` slots exist; only 63 were ever tools.** By top-level directory of `pages.url`:
+  `/tools/` **64**, `/learn/` **32**, `/about/` **1**. And of the 64 under `/tools/`, one is
+  `tools-index` (`/tools/index.html`) — the listing page, not a tool. So **63 ported tools**, which
+  reconciles the PLAN's figure exactly, and the other 34 ported pages are out of this lane's scope.
+  **Guard for the batch query: filter `p.name LIKE 'tool-%'`, not `p.url LIKE '/tools/%'`** — the
+  latter files the index page as a tool.
+- **62 remain deployed** (63 minus the pilot). Ported body sizes: min 3,806 B, avg 9,309 B,
+  max 23,900 B (`tool-logic-architect`).
+- **TRAP — there are TWO different sets of 13 here, and they are not the same 13.**
+  `<script src=` in the ported slot's html: **13** tools. `content_data ? 'repair'`: **13** tools.
+  **Intersection: 4.** So using the `repair` key as a cheap proxy for "the external-script class the
+  PLAN warns about" mis-scopes **9 tools in each direction**. The external-script 13 is the set the
+  PLAN and register **TL-032** mean (TL-032's landmine states "13 of webdesign.co.uk's 63 tools load
+  relative `<script src>` files" — my independent count agrees, which is the corroboration, not the
+  coincidence). The `repair` 13 is residue of the `webdesign_tools_repair` lane's runs.
+  Derive the class you actually want; do not pick the other 13 because it is the same number.
+  - external-script (the PLAN's class): micro-cms(4), vibe-equalizer(2), bayesian-rank,
+    blueprint-compiler, community-growth, csp-builder, fluid-typography, head-architect,
+    image-optimizer, performance-budget, recommender-engine, seo-schema, smart-contrast.
+  - `repair`-key only (NOT external-script): animated-favicon, asset-formatter, insight-injector,
+    logic-architect, mind-map, monolith-splitter, pasteboard, rls-architect, seo-injector.
+- **Five native tool components now exist on the site**, and their placements matter for §4:
+  `tool-aspect-ratio` deployed (the pilot) · `tool-css-specificity-calculator` deployed ·
+  `tool-css-unit-converter` deployed · `tool-llm-cost-calculator` **approved, not deployed** ·
+  `tool-ab-test-calculator` **`is_active` with placement `removed`** — the hollow fork.
+  The three css/llm ones sit on pages with **no** live ported slot, so they were generator ADDITIONS,
+  not replacements; only aspect-ratio is a replacement. ab-test's page correctly shows ported live,
+  native gone — the 10:0xZ revert held.
+- **The `already_exists` short-circuit is CONFIRMED by reading the source**, not inherited from the
+  handoff: `create_tool_component_action.go` ~197–217 joins `content_components → page_components →
+  pages` on `cc.function`, `cc.component_level='tool'`, `p.site_id` and **`cc.is_active=true` only —
+  no `build_status` predicate**, `LIMIT 1`, and returns `{already_exists:true}` without writing.
+  So the ab-test fork must be `is_active=false` before ab-test is refiled, exactly as the handoff says.
+  Corollary the handoff does not draw: the same probe now makes **any** tool with a live native
+  component un-refilable, which is the desired throttle — but it means a FAILED rebuild that still
+  left a component behind must be deactivated before a retry, or the retry silently no-ops.
