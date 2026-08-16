@@ -32550,3 +32550,37 @@ its own rule). Pin the fixture to a live row's bytes, or state `[ASSUMED]` on th
 identity holds); one false line about the motivating case in the plan, the bug file, and the
 council rationale, corrected today. The Mind Map is now being audited by the LLM tier (page-pinned
 `audit_tool`, `1bfd5d1e…`), which is the tier that can see its defect.
+
+---
+
+## 2026-08-16 — I censused "every call site" over `platform/` and `internal/` and published the count; the file that broke the census lives in `cmd/`
+
+**Lane:** `bugfix_283_component_instance_scope`.
+
+**The claim:** answering the council's "three call sites patched, the mechanism left generic"
+objection, I ran `grep -rn 'RenderTemplate(' --include=*.go platform/ internal/`, got 11 call
+sites in 7 files, and wrote **"eleven non-test call sites"** into three places: a Go doc comment
+on `TemplateNeedsInstanceID`, a second one inside `RenderTemplateReportingMissing`, and the
+comment block introducing the new pattern-check.
+
+**What is true:** there are **14 calls across 8 files**. The eighth is
+`cmd/component-render-check/rendercheck.go`, which renders every active component through the
+production entry point — precisely the kind of caller the census existed to find. My grep never
+looked at `cmd/`.
+
+**Caught by:** broadening the pattern-check's own regex for an unrelated reason (it keyed on the
+argument's *name*, which would have missed a call site passing `tpl`) and then running it over
+`git ls-files '*.go'` instead of over the changed files. The eighth file appeared immediately.
+
+**The cheap check that would have caught it:** census with the tool that has no scope argument —
+`git ls-files '*.go'`, or `grep -rn … .` from the repo root — and only then narrow. Every
+directory I named was a directory I already believed was involved, so the measurement could not
+have contradicted me. **A census whose scope is a list of directories you chose is a census of
+your own expectations.** This is the same failure as the filtered-denominator entries above,
+one rung out: the filter was not in the `WHERE` clause, it was in the path argument.
+
+**Cost:** none to the fix — the missed file is an offline lint that writes to `doc_notes` and
+never to a served page, so it is allow-listed with a measured reason rather than patched, and no
+behaviour was wrong. The cost was three published counts, corrected in place before the round-2
+council submission went out; the submission's rationale names the miss rather than quietly
+carrying the right number. Tally for "scoped a census to the directories I expected": 1.
