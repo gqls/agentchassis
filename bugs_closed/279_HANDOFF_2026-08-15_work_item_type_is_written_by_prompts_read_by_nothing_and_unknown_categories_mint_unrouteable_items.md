@@ -524,3 +524,59 @@ dispositioned:
   but the next session adding a SEVENTH producer (or a twelfth category) should
   treat that as the accumulation trigger and take the contract itself to the
   architecture track instead of extending the vocabulary again.
+
+---
+
+## STATUS UPDATE 2026-08-16 — THE ROLL LANDED; Go half LIVE; 419 APPLIED; live proof dispatched
+
+**Deploy verified at the artefact, not the tag** (v1.0.1303, pods started
+2026-08-15T18:45Z): the pod's `imageID` digest `f208f01d…` matches the local image
+whose OCI label `org.opencontainers.image.revision = 5e075a6f9`, and
+`git merge-base --is-ancestor` confirms `d6d56e540`, `36aca20bc` and `16963d9c6`
+are all ancestors. (The startup `build provenance` log line had already scrolled
+out — pods were 15 h old — and the `/proc/1/exe` short-sha grep found NOTHING,
+including the known-live control `2a3ea3e2c`, so that probe is not trustworthy for
+this binary; **the image label is the durable probe**: `docker image inspect
+<image> --format '{{index .Config.Labels "org.opencontainers.image.revision"}}'`
+after confirming the RepoDigest matches the pod's `imageID`.)
+
+**Post-roll checklist progress:**
+1. Stamp confirmed — DONE (above).
+2. **Migration 419 APPLIED + recorded** (renamed from `_HOLD`). First apply was
+   **refused by its own postcondition** — the loop had 29 steps, not 28: migration
+   `432` (another lane) had spliced `enrich_directory_features` at the FRONT of the
+   chain (`enrich_news_feed → enrich_directory_features → load_audit_state`) since
+   the file was written. Real drift, benign for this splice (which re-verified
+   intact), and the right refusal — but the absolute count was not the invariant
+   that matters; made it RELATIVE (pre + 2) and re-applied clean. Live chain now:
+   `call_offer_analyser → spawn_brief_fidelity → call_brief_fidelity →
+   record_audit_pass` (31 steps).
+3. Live proof: one brief-fidelity run dispatched directly against
+   mortgagecalculator (`62b5978e…`), corr `288f1918-5472-43dd-b890-b1cff89b9877`,
+   `PUBLISH_OK` confirmed (payload-in-command per the kcat landmine). Result
+   recorded below when read.
+
+### 2026-08-16 — LIVE PROOF DONE; this file is CLOSABLE (fixed AND live)
+
+3. **Live proof (checklist step 3) — PASSED on the second dispatch.** The FIRST
+   dispatch (corr `288f1918`) FAILED at `spawn_bf` before the auditor ran:
+   `converting NULL to string` on `agent_definitions.description` — the auditor's
+   seed omitted the column and five readers scan it into a Go string, so it had
+   NEVER been spawnable via `spawn_agent`. That is a distinct bug, filed
+   **`bugs_open/287`** (data half live via mig `420`, code half committed). It
+   wears the handshake flake's costume — read the error before retrying.
+   Second dispatch (corr `8ab5acd5`): parent COMPLETED; child
+   `brief-fidelity-auditor` COMPLETED — `total_findings 8, items_created 8,
+   audit_source brief-fidelity-audit, classification_stats {tone_shift 1,
+   content_rewrite 1, needs_content_page 3, needs_design_review 1,
+   needs_content_planning 2}`, **`unrouted_categories` absent** (every category
+   on-vocabulary), **`audit_finding_%` rows created since the roll: 0**. The
+   "Cookie-cutter" and "Animations beyond hover states" findings that died on
+   08-13 are back — routed. (One judgement note, not a defect: the animations
+   finding chose `structure` → planner rather than a design category; the LLM
+   picks within the vocabulary and the router honours it.)
+4. **Both legs are fixed AND live**: leg 2's fallback (`d6d56e540`, in v1.0.1303)
+   and leg 1's prompt field (mig `416`); the owner's decisions (mig `417`, `419`,
+   ratchet, blocked-check scope) are live too. → moving to `bugs_closed/`.
+   Residuals live in their own files: `284` (what claims deferred rows), `287`
+   (NULL description class), and the config-side vocabulary residual noted above.

@@ -180,3 +180,16 @@ The owner ruled on both halves today (decisions recorded in `bugs_open/279`):
 
 Residual for this file: after the post-roll re-run, verify the findings land
 routed (not `capability_gap`), then this bug is closable — fixed AND live.
+
+## CLOSED 2026-08-16 — the audit ran for real and its findings ROUTED
+
+Re-run after the v1.0.1303 roll (bugs 279 checklist step 3, corr `8ab5acd5`): 8
+findings → 8 `detected` items with real handlers, `audit_source='brief-fidelity-
+audit'`, zero minted rows. The auditor is wired into every improvement sweep (mig
+`419`) and speaks the router vocabulary (mig `417`). The 07-24 story this file
+told — right about everything, three days early, and dead in `detected` — cannot
+recur by the same mechanism: an unknown category is now a visible `capability_gap`
+(279) and a build-time ratchet bans constructed labels. Fixed AND live → closed.
+Note for the next reader: it also could not be SPAWNED until 2026-08-16 (NULL
+description, `bugs_open/287`) — so "nobody runs it" had two causes, and only one
+was wiring.

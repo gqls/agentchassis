@@ -1,4 +1,4 @@
--- 419_improvement_loop_gains_brief_fidelity_HOLD.sql
+-- 419_improvement_loop_gains_brief_fidelity.sql  (was _HOLD; hold lifted + applied 2026-08-16 against v1.0.1303 = 5e075a6f9, which carries 36aca20bc)
 --
 -- (Authored as 418_..._HOLD; renumbered 2026-08-15 the same evening — a concurrent
 -- session took 418 for content_gap_planner_requires_backend_gate. The applied
@@ -87,6 +87,17 @@ BEGIN
     IF already = 1 THEN
         RAISE EXCEPTION 'MIGRATION 419: spawn_brief_fidelity already present — already applied';
     END IF;
+    -- Record the step count BEFORE the splice so the post-condition can assert
+    -- +2 RELATIVE to it. An absolute count (28+2) refused this file at first apply
+    -- on 2026-08-16: migration 432 (another lane) had added
+    -- enrich_directory_features at the FRONT of the chain — real drift, benign for
+    -- this splice, and the right refusal; but the count is not the invariant that
+    -- matters here, the splice-point check above is.
+    CREATE TEMP TABLE IF NOT EXISTS mig419_pre AS
+      SELECT count(*) AS n FROM jsonb_object_keys((SELECT default_config->'workflow'->'steps'
+        FROM agent_definitions WHERE type='improvement-loop' AND is_active
+          AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL)) k;
+
     IF next_now IS DISTINCT FROM 'record_audit_pass' OR err_now IS DISTINCT FROM 'record_audit_pass' THEN
         RAISE EXCEPTION 'MIGRATION 419: call_offer_analyser points at %/% (expected record_audit_pass/record_audit_pass) — the chain has changed since this file was written; re-derive the splice point', next_now, err_now;
     END IF;
@@ -151,11 +162,11 @@ BEGIN
     FROM jsonb_object_keys((SELECT default_config->'workflow'->'steps'
                             FROM agent_definitions WHERE type='improvement-loop'
                               AND is_active AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL)) k;
-    IF n_steps <> 30 THEN
-        RAISE EXCEPTION 'MIGRATION 419: expected 30 steps after the splice (28 + 2), found %', n_steps;
+    IF n_steps <> (SELECT n FROM mig419_pre) + 2 THEN
+        RAISE EXCEPTION 'MIGRATION 419: expected % steps after the splice (pre + 2), found %', (SELECT n FROM mig419_pre) + 2, n_steps;
     END IF;
 
-    RAISE NOTICE 'migration 419 OK: brief-fidelity wired into the audit chain (30 steps)';
+    RAISE NOTICE 'migration 419 OK: brief-fidelity wired into the audit chain (% steps)', n_steps;
 END $$;
 
 COMMIT;
