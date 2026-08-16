@@ -2236,3 +2236,55 @@ giveaways — the list I told you about, the one I discovered only after switchi
 checker on. So if we ever arm it on idea.uk, that line gets flagged for a reason that has
 nothing to do with the word we have been discussing. I am not going to quietly reword
 your copy to keep a checker happy; I am telling you so the flag doesn't surprise you.
+
+---
+
+**16 August — your sentence is going back, and I have found something worse than the
+thing I was fixing.**
+
+You said restore it, and that "you're" is fine where it is. Both are being done. The
+line goes back to "the research, analysis, and honest assessment to think your idea
+through properly", with the rest of the sentence untouched.
+
+Two small things about how, because they matter more than they look. I built the new
+sentence by editing the old one inside the database rather than retyping it, so the dash
+and the apostrophe could not be mangled in transit. And I made the change refuse itself
+if it damaged the rest of the line — your ruling that "you're" stays is written into the
+check, so a version that lost it would have failed instead of shipping.
+
+**It is live.** I fetched the page: the word appears exactly once, in your line, and
+nowhere else on it.
+
+I have also recorded it as a protected decision, and that is done too. It is the
+mechanism you asked for back in August — the one that lets things improve but not
+regress. Nothing was protecting that sentence, which is exactly why a sweep could delete
+it and nothing objected. The page now carries a standing check: if that phrase ever
+disappears again, we get told automatically. Your second ruling is written into the same
+record, so nobody "tidies" the "you're" out of it later either. That is the useful lesson
+from this whole episode turned into machinery rather than a note somebody has to read.
+
+**Now the part you will want to know about.** While checking my own work I re-ran the
+count of pages still carrying the word. It has gone the wrong way.
+
+It was 53 before the clean-up. It was 18 when I handed over on Thursday. **Today it is
+30, across eleven sites.** Twenty-three of those are on pages built *since* the clean-up
+— the newest ones today. So this is not mess I missed. It is new writing.
+
+And it is not the tools being copied around, which was my first guess. It is ordinary
+prose — headlines, body text, calls to action, FAQ answers — being written fresh, on
+sites I have never touched.
+
+What that means is that we fixed the instances and not the source. The clean-up rewrote
+sixteen sites' style instructions, and that was the right diagnosis for your report page.
+It does not follow that it stops the word everywhere, and the count says plainly that it
+has not. There are three possible reasons and I am deliberately not guessing between
+them: the sweep only covered sixteen sites out of twenty-three; or the thing that
+*writes* those style instructions for a new site still writes the word in, so every new
+site starts dirty; or it is simply a habit these models have and only an active check
+will hold it back. The second is one query to settle and it is where the next session
+should start — nobody has yet looked at that writer's own instructions, only at what it
+produced.
+
+I would rather tell you the count moved the wrong way than quietly re-run the clean-up
+and report a good number again. The clean-up would work, and in four days we would be
+here again.

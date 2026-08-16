@@ -5035,3 +5035,126 @@ Two transferable points, and the second is the one worth carrying:
 > is ever armed with the voice gate, this hero fires on that clause regardless of the
 > "honest" question. That is a gate finding to weigh, not a licence to reword the
 > owner's sentence.
+
+---
+
+## §X.58 — 2026-08-16: the hero restored by owner ruling, and the ban is NOT HOLDING fleet-wide
+
+### 1. OWNER RULING 2026-08-16 — two parts
+
+> *"restore it. you're is fine there."*
+
+1. **The blessed clause goes back.** `report.html` hero returns to *"the research, analysis,
+   and honest assessment to think your idea through properly"*.
+2. **`whether you're` STAYS in that sentence.** This is a ruling against a built-in
+   `globalTellPhrases` entry, raised as a question in §X.57's closing note. It settles a
+   real ambiguity: the 13 built-ins are **not** owner rules — they arrived with
+   `ParseVoiceGate` and nobody chose them for this estate. **Do not reword copy to satisfy
+   a built-in tell without asking.** If idea.uk is ever armed, this hero will file a
+   `voice_tells` item on that clause and the correct disposition is to close it, not to
+   edit the sentence.
+
+### 2. How the restore was filed — the technique is the point
+
+One `section_edit`, `handler_agent='section-editor'`, targeted by **`page_component_id`**,
+`created_by='claude-ideauk-restore-20260816'`.
+
+**The new value was built server-side from the CURRENT value** rather than retyped:
+
+```sql
+replace(pc.content_data->>'subheadline',
+        'analysis, and assessment', 'analysis, and honest assessment')
+```
+
+Two reasons, both learned the hard way in this arc. It cannot touch a character outside
+the replaced span (§X.56's dartsonline `an 80%` corruption), and it **never retypes the em
+dash or the apostrophe** — my own channel rewrites some sequences, so a hand-typed
+replacement of a string containing `—` and `you're` is a needless risk.
+
+The insert is guarded on the current text (`LIKE '%analysis, and assessment%'`) and a
+`DO`/`RAISE` block asserts three things before `COMMIT`: exactly one item was filed, the
+new text contains `honest assessment`, **and it still contains `whether you`** — the
+owner's second ruling asserted as a positive, so a replacement that damaged the rest of
+the sentence would abort rather than ship. A bare `SELECT` could not have stopped the
+commit (`ON_ERROR_STOP` ignores a non-empty result).
+
+The exact string it will write was printed by the `RAISE NOTICE` and read before commit —
+inspecting the payload rather than the outcome, which is the only check available before
+the queue runs.
+
+### 3. D-005 — TO BE CREATED once the edit lands (deliberately not before)
+
+Nothing protected this clause, which is why a sweep could delete it and nothing objected.
+The fix is a decision record, and **the guard is the automated form of the demand control
+that caught it**:
+
+```
+subject_key  D-005-report-hero-honest-assessment   (subject_type 'component', site idea.uk)
+categories   ["decision","decision-record","provenance"]     <- BOTH tags; 'decision-record' is the enforcement key
+covers       {"pages":["report"],"slots":["hero"]}           <- NAME THE SLOT (D-004's mistake was slots:[])
+guard        {"page":"report","assert":"contains","pattern":"honest assessment"}
+```
+
+**Order matters: create it AFTER the edit is live.** `decision_guards` reads the stored
+assembly, so filing the guard now — against a page that currently lacks the phrase —
+files an immediate `decision_regression` item that is true, useless and self-inflicted.
+
+### 4. THE BAN IS NOT HOLDING — `[MEASURED 2026-08-16]`
+
+Re-ran §X.56's own visible-text census, same predicate, and it has gone **the wrong way**:
+
+| | 08-12 (§X.56) | 08-14 (handoff §6) | **08-16 (now)** |
+|---|---|---|---|
+| reader-visible pages | 53 | 18 | **30** |
+| sites | 9 | 9 | **11** |
+
+**23 of the 37 matching components were CREATED AFTER the 08-12 sweep**, across **10
+sites**; only 13 are untouched survivors and 1 was updated after. So this is not residue
+the sweep missed — it is **new copy**, and the newest is dated **today**.
+
+And it is not cloned tool templates, which was my first guess. Grouping the new ones by
+slot gives **18 distinct slot types**, dominated by ordinary LLM-written prose:
+`hero`, `generic-text-block`, `call-to-action`, `faq`, `article-body`, `ported-prose`,
+`use-cases-list` — alongside the tool slots. Writers across the fleet are still producing
+the word on sites this lane never touched.
+
+**What this does and does not establish.** [MEASURED] the counts, the vintages and the
+slot spread. **[UNVERIFIED] the cause** — and there are at least three candidates, which
+is exactly why it is not asserted here:
+
+1. **The spec sweep covered 16 specs, not the fleet**, and new spec rows are still being
+   written with the word — `webdesign.co.uk/offer_ordering` (**08-15**) and
+   `webdesign.uk/evidence_base` (**08-14**) are both current and both match, i.e. created
+   *after* the sweep. ⚠ Do not read the `voice`-aspect matches as failures: those are the
+   **ban regexes themselves** and must contain the word.
+2. **`domain-research-classifier` may still WRITE the language for new sites** — §X.54
+   identified it as the author of idea.uk's original spec. The sweep fixed its *output*,
+   not the generator. **Nobody has checked the agent's own prompt.** That is one query
+   away and is the first thing the next session should do.
+3. **"honest" is a generic AI-copy habit**, not solely spec-driven — in which case only a
+   gate can hold it, and the gate is armed on 9 of 23 sites and **files** rather than
+   blocks.
+
+**The structural point, which holds whichever cause wins:** §X.54 concluded *"the cause
+was the SPEC, not the model"* and that was right about the SHAPE of idea.uk's copy. It
+does not follow that fixing 16 spec rows stops the word fleet-wide, and the census now
+says it did not. **A one-off cleanup of instances is not a fix to the generator** — the
+same lesson as `a-one-off-deletion-is-not-a-class-fix`.
+
+### 5. State
+
+- Hero restore **DONE and verified at the served page**: `https://idea.uk/report.html`
+  returns **exactly 1** occurrence of the word and it is the blessed clause; item
+  `complete`, 0 retries. **D-005 filed and enforceable** — fences re-read back out of
+  `doc_notes` and parsed as JSON (`covers` names the slot, `guard` asserts the phrase),
+  and it carries **both** `decision` and `decision-record`, the second being the
+  enforcement key.
+  > Note on ordering: the stored `rendered_html` carried the phrase ~15 minutes before the
+  > served page did. `decision_guards` reads the STORED assembly, so filing D-005 at that
+  > point was safe — but a check written against the SERVED page would have failed then and
+  > passed later. Know which of the two your assertion reads.
+- Head surfaces (§X.57) still clean: 0 in `pages.title` / `pages.meta_description` /
+  current `site_plan_pages`.
+- **Body copy is regrowing: 30 pages, 11 sites, 23 components newer than the sweep.**
+  Un-diagnosed, deliberately. Next session starts at §4 candidate 2 — read
+  `domain-research-classifier`'s prompt.
