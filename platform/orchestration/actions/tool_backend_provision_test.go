@@ -13,7 +13,10 @@ package actions
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 	"regexp"
+	"strings"
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
@@ -207,5 +210,48 @@ func TestRaiseBackendProvisionItem_RecurrenceExpected_SurvivesTerminalPredecesso
 
 	if got != "raised" {
 		t.Errorf("disposition = %q, want %q — a re-provision request must not be suppressed or branded", got, "raised")
+	}
+}
+
+// THE LOCKSTEP. backendCapableSQL must be byte-identical to the predicate
+// migration 406 wrote into tool-suggester's load_library_tools query — 406's
+// file is byte-what-ran (its addendum says so and its verify block pins the
+// post-state). The two copies cannot share a function (one is Go, one is SQL
+// text in an agent_definitions row), so this test is the mechanism that keeps
+// them from drifting: it anchors on the `to_jsonb('SELECT` line that IS the
+// query (never a comment — a source-scan test must not make comments
+// load-bearing), undoubles the SQL-literal quotes, and asserts containment.
+// Council 55cda19b's fix-forward. Mutation: change one character of the
+// constant and this fails; change 406's expression in a later migration and
+// this fails until the constant follows.
+func TestBackendCapableSQL_MatchesMigration406(t *testing.T) {
+	// The test runs from the package dir; walk up to the repo root.
+	root, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < 6; i++ {
+		if _, err := os.Stat(filepath.Join(root, "go.mod")); err == nil {
+			break
+		}
+		root = filepath.Dir(root)
+	}
+	raw, err := os.ReadFile(filepath.Join(root, backendCapableSQLMigration))
+	if err != nil {
+		t.Fatalf("read migration 406: %v", err)
+	}
+	var queryLine string
+	for _, line := range strings.Split(string(raw), "\n") {
+		if strings.Contains(line, "to_jsonb('SELECT") {
+			queryLine = line
+			break
+		}
+	}
+	if queryLine == "" {
+		t.Fatal("migration 406 no longer carries a to_jsonb('SELECT line — re-anchor this test on wherever the gate query now lives")
+	}
+	undoubled := strings.ReplaceAll(queryLine, "''", "'")
+	if !strings.Contains(undoubled, backendCapableSQL) {
+		t.Errorf("backendCapableSQL has drifted from migration 406's predicate.\n  go:  %s\n  406: %s", backendCapableSQL, undoubled)
 	}
 }

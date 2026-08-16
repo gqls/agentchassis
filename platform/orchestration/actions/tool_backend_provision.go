@@ -59,6 +59,23 @@ import (
 	"go.uber.org/zap"
 )
 
+// backendCapableSQL is migration 406's capability predicate — the expression
+// tool-suggester's load_library_tools query gates on — VERBATIM (406 writes it
+// inside a SQL string literal with doubled quotes; this is the undoubled form,
+// with the same `s` alias). It is a named constant rather than an inline
+// literal because the other copy lives in an agent_definitions row, in SQL,
+// where a Go helper cannot be called: the only lockstep available across that
+// gap is a test that reads 406's byte-what-ran text and fails when the two
+// diverge (TestBackendCapableSQL_MatchesMigration406 — the dedup-index/Go-list
+// lockstep shape). Council 55cda19b, four seats: "names the
+// pin-vs-pool divergence landmine and then writes exactly that shape" — this is
+// the fix-forward. If 406's expression is ever changed by a later migration,
+// change this constant in the same commit and re-anchor the test on that file.
+const backendCapableSQL = `COALESCE(s.deploy_config->'capabilities', '[]'::jsonb) ? 'backend'`
+
+// backendCapableSQLMigration is the migration file the lockstep test reads.
+const backendCapableSQLMigration = "docs/agent_docs/sql_for_agents/406_tool_suggester_requires_backend_gate.sql"
+
 // siteFactsRelayBase is where a box-hosted backend fetches its site's live
 // facts. Advisory config handed to the operator in the provision item — the
 // route itself is registered in internal/core-manager/api/server.go and that
@@ -116,7 +133,7 @@ func loadBackendEligibility(ctx context.Context, db *sql.DB, siteID uuid.UUID) (
 	var e backendEligibility
 	err := db.QueryRowContext(ctx, `
 		SELECT
-			COALESCE(s.deploy_config->'capabilities', '[]'::jsonb) ? 'backend',
+			`+backendCapableSQL+`,
 			COALESCE(jsonb_array_length(eb.data->'facts'), 0),
 			COALESCE((SELECT jsonb_build_object('id', f->>'id', 'claim', f->>'claim')::text
 			          FROM jsonb_array_elements(eb.data->'facts') f
