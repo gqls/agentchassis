@@ -110,3 +110,17 @@
   (they swept 016b minutes after I edited it) — nothing lost, noting for the record.
 - **285 → `bugs_closed/`** (`a88090f4f`, both paths on the commit, exactly one line at HEAD).
   TL-042 status-update + index row (`67996ebf1`; index carried two other lanes' one-line rows).
+- **Council `d8668e1f` APPROVED round 1** (10:04Z, ~6 min after submission — the "budget 30 min"
+  figure is a queue-latency ceiling, not a floor): 10 approve, 1 object (editquality, medium),
+  6 abstained. Acted on rather than defended: (i) each fan-out-intended entry now cites its
+  InputSpec + the write it is exempted for — read at HEAD, all four are `Required [site_id]`
+  sweeps (colour fixers select components IN USE on the site — a template shared with a second
+  site is rewritten too, stated as intended for a declaration-level substitution; nav-link fixer
+  is chrome via site_components) or a component-keyed regen; NONE takes a page input; (ii)
+  subpackage sweep (`*/*.go`) — mutation-proven with a fake writer in `discovery_checks/` → FAIL;
+  (iii) the guard header's stale "page-aware … open" line — the 281 lane had ALREADY corrected it
+  (`fa661d5d2`, 11:06 local) after reading my contribution; I added the pointer that the test is
+  now the census. bug_historian (low): call-exists ≠ verdict-obeyed — true, stated in the file;
+  the behavioural half is `update_component_html_shared_fence_test.go`. Follow-up `194455b40`
+  with `Council-Reviewed:`.
+- 102_coverage_ratchet.txt gains the lane dir (pattern-check advisory on the first commit).
