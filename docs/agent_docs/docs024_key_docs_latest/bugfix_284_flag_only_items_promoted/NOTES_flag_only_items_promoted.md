@@ -56,6 +56,12 @@ FROM site_work_items WHERE item_type='capability_gap' GROUP BY 1;
 `remit.go:184`). The two populations are disjoint and complementary. The blocked rows
 came through the promoter; the deferred rows never did.
 
+> **CORRECTED 2026-08-16, same day — "written by exactly one thing" is FALSE for
+> `original_pipeline`.** The `090` run named three writers (see the UNVERIFIABLE entry
+> below); the other two hardcode the literal `"build"`. The conclusion survives, on the
+> VALUE rather than the key — every one of these rows reads `design` or `content`,
+> which only `to_jsonb(pipeline)` can produce. Caught by the diagnosis loop, not by me.
+
 **So 284's framing — "something claims deferred rows" — is refuted, and its title is
 wrong.** The bug is real and its evidence is sound; the mechanism is one step upstream
 of where it looked. Corrected in the bug file rather than silently.
