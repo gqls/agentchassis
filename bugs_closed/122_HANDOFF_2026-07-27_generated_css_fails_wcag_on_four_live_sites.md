@@ -1613,3 +1613,29 @@ follow the framework default automatically.
 closed. That page is not a homepage, its rows were unlocked, and the change touches only a `color:`
 declaration inside `.article-body__content a`, nothing in the CTA field set that lane works on.
 Flagged here rather than left silent.
+
+---
+
+## CLOSED 2026-08-15 — owner ruling, and the reason this file gave for staying open was a superseded one
+
+**Owner, 2026-08-15, verbatim: "122 is now closed."** Recorded and actioned by the
+brochure contrast front (`bugs_open/113` lane), which had been waiting on the owner's look
+and is now unblocked by it.
+
+**Moved `bugs_open/` → `bugs_closed/` on that ruling.** The bar is met: the lane's own
+`700f06bfc` (2026-08-15) reports **WIDENED AND COMPLETE — all 97 article-body placements
+across 20 sites now render legible ink**, on top of `63d42fcda` (migration 415 applied,
+dartsonline propagated 11/11) and `c9049cb2c` (the derivation fix live on v1.0.1298).
+Fixed **and** live, which is CLAUDE.md's standing bar.
+
+**Correction to this file's own status block, which is why it was still here.** It reads
+*"Stays in `bugs_open/` per the owner's 2026-08-06 ruling."* **That ruling was superseded on
+2026-08-12** — the owner restored CLAUDE.md's original bar, so a fixed-AND-live bug moves
+again. The 08-06 citation was true when written and had outlived its truth; nothing in the
+file joined it back up to the later ruling. *That is the general shape worth noticing: a
+status line naming a dated ruling is a snapshot, and the ruling can move under it.*
+
+**Not re-verified by me at the artefact.** The closure rests on the owner's ruling plus the
+owning lane's own commits, both cited above. I did not re-run the render audit; if a fresh
+number is wanted, run `scripts/render_audit.py --sitemap` and attribute **per selector**,
+not per site total — the totals on these sites are dominated by other families.
