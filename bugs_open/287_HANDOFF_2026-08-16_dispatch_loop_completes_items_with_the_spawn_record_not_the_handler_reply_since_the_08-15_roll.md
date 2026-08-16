@@ -1,5 +1,12 @@
 # 287 — build-dispatch-loop marks work items `complete` with the SPAWN RECORD as their result, not the handler's reply — appears at the 2026-08-15 10:14Z roll, ~75% of completions since
 
+> **⚠ NUMBER COLLISION — two bugs are 287 (2026-08-16, concurrent lanes).** This one is the
+> **`spawn_record`** slug (dispatch-loop item results). The other is
+> `287_…an_agent_seeded_without_a_description_is_unspawnable…` (agent seeding), filed the same
+> morning by another lane. Neither is renumbered — forward-only, and both are already cited by
+> commit. **Resolve by SLUG, `git log` the FILE PATH, never the number** (CLAUDE.md, Debugging).
+> Commits `ae5d12048 93c720960 5953eaf76 e566f36b1 7bb500934` are this file's.
+
 **Filed 2026-08-16** by the mortgagecalculator adoption lane, found while verifying that
 `bugs_closed/274`'s fix (delivery of a child's reply to its parent) is in the live chassis. **It is,
 and it works** — zero cannot-deliver rows against 859 child completions since the v1.0.1303 roll.
