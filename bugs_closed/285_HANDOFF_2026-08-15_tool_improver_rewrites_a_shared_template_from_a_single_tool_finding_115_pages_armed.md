@@ -124,3 +124,29 @@ It fired twice in nine days; only re-render latency kept it invisible both times
   asset-formatter). 281's "0 tool PLANs" counted `doc_notes`. So the only missing half of an
   automated ported-tool repair is a per-instance writeback (TL-042 gap (b)) — the lane's next item.
 - Lane docs: `docs024_key_docs_latest/bugfix_285_shared_template_write/`.
+
+## CLOSED 2026-08-16 — fixed AND live AND seen refusing (bugfix_285_shared_template_write lane)
+
+- **Live:** chassis `v1.0.1303` (pods started 2026-08-15 18:45Z) is built from `5e075a6f9`, a
+  descendant of `d7b2d9994` and `25f92a967` (`git merge-base --is-ancestor`, both true) — the fence
+  and the producer re-routing are in the running binary.
+- **Seen refusing at the artefact (close criterion 1):** an induced one-step orchestrate
+  (`update_component_html`, BYTE-IDENTICAL template content, component `a7daa5c5…`, orch
+  `a9a824f5-cf9c-4fa1-b0a1-30ce7b99fe3b`, corr `bc02e4e6…`) FAILED at `induce_write` in 0.4 s;
+  `agent_error_log` 09:59:06Z `error_code=component_write_shared_blocked`: *"section-level component
+  placed on 115 pages across 2 sites"*. Template `updated_at` unchanged, 0 placements `pending`,
+  still 4 `component_versions` rows. Positive-control payload chosen so that a non-firing fence would
+  have written identical bytes rather than poison.
+- **No third firing (criterion 2):** template still 4,664 chars with `{{.body}}`; 114 `deployed` +
+  1 `removed`; no new item at the shared component since 17:00Z on 08-15.
+- **The casualty is off the live site:** `page_rerender:learn-ai-builders-content-first:285-archive-restore`
+  completed 18:22:24Z; `curl` now serves the restored article (h1 *"The Content-First Strategy for
+  Starter Sites"*), `portedPageAssetList` 0, fake download links 0.
+- **Class closure (test, council `d8668e1f` submitted, advisory):** `component_template_writer_coverage_test.go`
+  — every `html_template` rewriter must call `sharedComponentWriteCheck` or be declared
+  fan-out-intended with a reason; the fenced writer must be SEEN fenced. Mutation-proven both ways.
+- **Residuals re-homed:** the Tier-4 judge's arbitrary-instance shape is `bugs_open/281`'s Finding B
+  and stays there. The `fix_component_template` residual is WITHDRAWN (mis-described — see the
+  contribution above). The per-instance fixer that would let a ported tool be repaired without
+  touching the shared template is a NEW capability, not this defect: designed in
+  `docs024_key_docs_latest/bugfix_285_shared_template_write/PLAN_…` for the owner's routing decision.
