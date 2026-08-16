@@ -270,3 +270,66 @@ regardless of outcome, **the outcome is in a different field** — for the counc
 One query separates "refused, resubmit now" from "genuinely queued, wait an hour". And do not write a
 correlation id into commit trailers and eight documents before you have watched that run reach a
 reviewing step.
+
+## 2026-08-16 — council ROUND 1 verdict: REVISE, and two of the three objections were right
+
+Corr `366efae9` reached `complete_revise` / `COMPLETED` at 16:40:39Z — **the full panel ran this
+time** (`select_panel` → seat reviews → `council_decide` → `route_checks` → `run_checks` →
+`compose_verdict_checked` → `append_verdict` → `complete_revise`). `decided_by`: *gating objection from
+`reuse_agent`*. 4 seats abstained.
+
+**How to read the state fast, because this is what the earlier monitor got wrong:** query
+`orchestration_state_audit` by `orchestration_id` (indexed). The `orchestration_states` lookup keyed on
+`collected_data->'input_data'->>'fix_correlation_id'` is a jsonb scan that **times out at 100s**, which
+is why my first monitor ran a full hour and emitted nothing at all. An empty result from a timing-out
+query is indistinguishable from an empty result from a query that ran.
+
+### The objections, and what each turned out to be
+
+**1. `reuse_agent`, HIGH (gating) — "did you check `datahelpers.GetIntField` / `ExtractNestedFieldInt`
+before hand-rolling a type switch?"** **It was right that I had not.** Having checked:
+`GetIntField(m, key, default) int` handles float64 and int only — no int64, no `json.Number`;
+`ExtractNestedFieldInt(data, path) int` handles float64/int/int64, returns 0 for missing. **Both
+collapse "chose nothing" and "chose 0" into one int**, and that distinction is the entire purpose of my
+`(int, bool)` pair — it is what lets anthropic/gemini apply a floor while **ollama omits the field
+entirely**. A helper returning `int` cannot express two opposite policies over one answer. Neither
+rejects a negative or a zero either, and `max_tokens: 0` is a hard 400. **Kept the helper; wrote the
+check into the source** so the next reader does not re-ask.
+
+**2. `reuse_agent`, MEDIUM — "this is a THIRD resolver; show the existing one could not be shared."**
+**Measured, and decisive:** both existing resolvers live in `package actions`, and
+`platform/orchestration/actions` **imports** `platform/aiservice` (`ai_actions.go:13`). So `aiservice`
+importing either is a **genuine import cycle** — Go refuses to compile it. Not a preference I declined;
+not available. `datahelpers` would not cycle, but `go list -deps ./platform/aiservice` returns **only
+itself** — zero internal dependencies — so that would be the package's first dependency on the
+orchestration layer. Residual stated rather than hidden: three readers of one key remain; this change
+removes the *consequence* of disagreement, not the duplication (candidate 2).
+
+**3. `bug_historian`, MEDIUM — "`GenerateWithImages` is named in the landmine beside `GenerateText` and
+the plan never mentions it."** **The right question.** The answer is that both providers already route
+vision through the same `generate()` this change fixes (`anthropic.go:111`, `gemini.go:305`) — so the
+budget arrived by construction. **But "it shares the path" is an assertion about code someone can
+refactor on a Tuesday**, and this estate's own rule is that asserted-not-verified IS the objection.
+Added three vision tests (both providers inherit the configured budget through nil options, plus an
+unconfigured negative control). **Mutation-proven independently:** reverting anthropic's shared budget
+to a literal fails `TestAnthropicVisionInheritsTheConfiguredBudgetThroughNilOptions` on its own.
+
+**4. `editquality`, LOW ×3 — "edits 6/7/8 are comment-only, not substantive."** Accepted as stated, and
+kept. Edit 6 is not decoration: this change makes `llm_options.go`'s central sentence FALSE, and a
+false explanation beside working code is how folklore starts here. Edit 8 is the same defect in a guard
+test's failure message, which teaches its wrong lesson every time it fires. None of them claims to be
+the fix — the fix is edits 1-4, exactly as the seat says.
+
+**5. `editquality`, MISSING — "no edit addresses the `llm_call_log` blindness the diagnosis names."**
+**Correct, and structurally out of scope at this layer:** the provider clients hold `apiKey`, `model`,
+`maxTokens` and an `http.Client` and **no database handle of any kind** (grep for `sql.`/`pgx`/`DB`
+across `platform/aiservice` returns one comment and nothing else). A bypassing caller has no DB either.
+The clients do keep writing `__sent_max_tokens` back into the options map — the sole feed for
+`llm_call_log.max_tokens` when a caller persists — so this change keeps that column honest for the
+budgets it newly enables. Making direct callers visible to the fleet instrument needs a writer at the
+**caller's** layer; flagged for the human decision the seat asks for, alongside candidate 2.
+
+**Round 2 resubmitted on the SAME trail** (`RESUBMIT_CORR=366efae9…`, run orch
+`8a88b982-cef0-40a9-ab62-5577244afd50`). Two of three substantive objections produced real work — a
+genuine reuse check I had skipped, and three tests covering a path I had not thought about. That is the
+round paying for itself.

@@ -52,6 +52,40 @@ import "encoding/json"
 // instead; that is now a live lever on every path, which is the point of 257.
 const DefaultMaxOutputTokens = 2048
 
+// WHY THIS IS A NEW HELPER AND NOT A REUSE — checked, not assumed, after the
+// council's `reuse_agent` seat objected (HIGH, corr 366efae9) that this estate
+// already has numeric-config helpers and the submission never said whether they
+// were considered. It was right that I had not checked. Having checked:
+//
+//   - `datahelpers.GetIntField(m, key, default) int` handles float64 and int
+//     only — no int64, no json.Number — and returns a bare int with a default.
+//   - `datahelpers.ExtractNestedFieldInt(data, path) int` handles float64, int
+//     and int64, returns 0 for missing.
+//
+// Both collapse "the operator chose nothing" and "the operator chose 0" into the
+// same int. That distinction is the whole point of the (int, bool) pair below:
+// it is what lets anthropic/gemini apply a floor while OLLAMA OMITS THE FIELD
+// ENTIRELY — two opposite policies over one answer, which a helper returning
+// `int` cannot express. Neither helper rejects a negative or a zero either, and
+// `max_tokens: 0` is a hard 400 from Anthropic.
+//
+// AND THE LAYERING IS DECISIVE, independently of the above. The seat's second
+// objection was that this is a THIRD resolver alongside `ai_actions.go:358-364`
+// and `llmOptionsFromConfig`. Both of those live in `package actions`, and
+// `platform/orchestration/actions` IMPORTS `platform/aiservice`
+// (`ai_actions.go:13`). So `aiservice` importing either is a genuine import
+// CYCLE — Go refuses to compile it. Sharing the existing resolver in that
+// direction is not a design preference that was declined; it is not available.
+// `datahelpers` would not cycle, but `aiservice` today has EXACTLY ZERO internal
+// dependencies (`go list -deps ./platform/aiservice` returns only itself), and
+// giving the estate's lowest-level provider package its first dependency on the
+// orchestration layer is a bigger change than the one this file is making.
+//
+// The honest residual: there are now three places that read this key. What this
+// change removes is the CONSEQUENCE of them disagreeing (a silent 2048), not the
+// duplication itself. Unifying them is bugs_open/257 candidate 2, still open,
+// with its three behavioural differences named in the bug file.
+
 // configMaxTokens reads `max_tokens` from an `ai_service` construction config.
 //
 // It accepts int, int64, float64 and json.Number because THE SAME KEY ARRIVES

@@ -419,6 +419,86 @@ func TestOllamaUnconfiguredOmitsNumPredictEntirely(t *testing.T) {
 }
 
 // ============================================================================
+// THE VISION PATH — raised by the council's bug_historian seat (corr 366efae9),
+// which was right to ask and is answered here with tests rather than a sentence.
+//
+// The objection: LANDMINES pairs `.GenerateText(` and `.GenerateWithImages(` as
+// the two shapes that bypass ExecuteAIStepAction, the submission spoke only of
+// GenerateText, and this platform's most-repeated failure is exactly "one call
+// site of a shared judgement gets the rigorous fix, the sibling stays heuristic"
+// (016b §9; bugs_closed/012, 046, 076 are all silent-truncation cases).
+//
+// The answer is that both providers route vision through the SAME generate()
+// this change fixes — anthropic.go GenerateWithImages -> c.generate(ctx, content,
+// options), gemini.go GenerateWithImages -> c.generate(ctx, parts, options). So
+// the budget arrives by construction. But "it shares the path" is an assertion
+// about code that someone can refactor on a Tuesday, and this estate's own rule
+// is that asserted-not-verified IS the objection. These tests make the sharing
+// load-bearing: split the paths and they fail.
+// ============================================================================
+
+func TestAnthropicVisionInheritsTheConfiguredBudgetThroughNilOptions(t *testing.T) {
+	c, tr := anthropicFromConfig(t, map[string]interface{}{"max_tokens": float64(12000)})
+
+	imgs := []ImageInput{{MediaType: "image/png", Data: []byte("not-a-real-png")}}
+	if _, err := c.GenerateWithImages(context.Background(), "describe", imgs, nil); err != nil {
+		t.Fatalf("GenerateWithImages: %v", err)
+	}
+
+	got, ok := bodyField(t, tr.captured, "max_tokens")
+	if !ok {
+		t.Fatal("vision request carries no max_tokens at all")
+	}
+	if int(got) != 12000 {
+		t.Fatalf("vision sent max_tokens=%d, wanted the configured 12000. %d means the "+
+			"image path has stopped sharing generate() and now has its own budget — the "+
+			"exact sibling-left-heuristic shape 016b §9 names (bug_historian, corr 366efae9)",
+			int(got), int(got))
+	}
+}
+
+func TestGeminiVisionInheritsTheConfiguredBudgetThroughNilOptions(t *testing.T) {
+	c, tr := geminiFromConfig(t, map[string]interface{}{"max_tokens": float64(12000)})
+
+	imgs := []ImageInput{{MediaType: "image/png", Data: []byte("not-a-real-png")}}
+	if _, err := c.GenerateWithImages(context.Background(), "describe", imgs, nil); err != nil {
+		t.Fatalf("GenerateWithImages: %v", err)
+	}
+
+	got, ok := bodyField(t, tr.captured, "generationConfig", "maxOutputTokens")
+	if !ok {
+		t.Fatal("gemini vision request carries no generationConfig.maxOutputTokens")
+	}
+	if int(got) != 12000 {
+		t.Fatalf("gemini vision sent maxOutputTokens=%d, wanted the configured 12000 "+
+			"(non-thinking model, no reserve added)", int(got))
+	}
+}
+
+// NEGATIVE CONTROL for the pair above: an unconfigured client must still send the
+// unchanged fallback on the vision path too, or the two tests prove only that
+// SOMETHING is being sent.
+func TestVisionUnconfiguredStillSendsTheFallback(t *testing.T) {
+	imgs := []ImageInput{{MediaType: "image/png", Data: []byte("x")}}
+
+	ac, atr := anthropicFromConfig(t, map[string]interface{}{})
+	if _, err := ac.GenerateWithImages(context.Background(), "d", imgs, nil); err != nil {
+		t.Fatalf("anthropic GenerateWithImages: %v", err)
+	}
+	if got, _ := bodyField(t, atr.captured, "max_tokens"); int(got) != DefaultMaxOutputTokens {
+		t.Fatalf("unconfigured anthropic vision sent %d, wanted %d", int(got), DefaultMaxOutputTokens)
+	}
+
+	gc, gtr := geminiFromConfig(t, map[string]interface{}{})
+	if _, err := gc.GenerateWithImages(context.Background(), "d", imgs, nil); err != nil {
+		t.Fatalf("gemini GenerateWithImages: %v", err)
+	}
+	if got, _ := bodyField(t, gtr.captured, "generationConfig", "maxOutputTokens"); int(got) != DefaultMaxOutputTokens {
+		t.Fatalf("unconfigured gemini vision sent %d, wanted %d", int(got), DefaultMaxOutputTokens)
+	}
+}
+
+// ============================================================================
 // CANDIDATE 4, at the layer that can't be fooled by a comment.
 //
 // A source scan for "who calls GenerateText" was the filing's suggestion, but

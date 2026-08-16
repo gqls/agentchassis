@@ -213,3 +213,31 @@ print('edits:', len(d['plan']['edits']), '(cap 8)')
 
 **ONE EDIT = ONE FILE.** At the 8-edit cap, split the offender and MERGE two edits that touch the
 SAME file rather than dropping content.
+
+## ⚠ Poll the council on the INDEXED column — the obvious query times out
+
+```sql
+-- FAST: orchestration_id is indexed. Take RUN_ORCH_ID from the trigger's printout.
+SELECT new_current_step, new_status, changed_at
+FROM orchestration_state_audit
+WHERE orchestration_id='<RUN_ORCH_ID>' ORDER BY changed_at;
+```
+
+⚠ **Do NOT poll `orchestration_states` on `collected_data->'input_data'->>'fix_correlation_id'`** — it
+is a jsonb scan over a large table and **times out at 100s**. Measured 2026-08-16: a monitor built on
+it ran for a full hour and emitted **zero events**, which reads exactly like "nothing has happened".
+**An empty result from a query that timed out is indistinguishable from an empty result from a query
+that ran** — so wrap any such poll in a `timeout` you can see, or use the indexed table.
+
+Terminal steps and what they mean: `complete_approved` · `complete_revise` (objections came back —
+read them, revise, resubmit with `RESUBMIT_CORR=<SUBMISSION_CORR>` so the trail accumulates) ·
+`complete_rejected` (guardian veto) · `complete_invalid` (**refused before review — never reached a
+seat**; see the section above).
+
+Read the objections themselves from the report body:
+
+```sql
+SELECT metadata->>'decision', left(body, 6000) FROM diagnosis_artifacts
+WHERE correlation_id='<SUBMISSION_CORR>' AND kind='council_report'
+ORDER BY created_at DESC LIMIT 1;
+```
