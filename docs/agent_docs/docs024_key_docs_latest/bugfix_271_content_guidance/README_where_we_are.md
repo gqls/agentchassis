@@ -96,3 +96,49 @@ behaviour the moment this ships. But about twenty-five are parked in
 queue after this is live, it will act on its instructions for the first time.
 That is what you would want to happen, but it is a real change and I would rather
 flag it now than have it surprise someone later.
+
+---
+
+**2026-08-16, afternoon.** It is live and it works. Your release put the fix on
+the fleet (chassis v1.0.1304), and I checked it on the running system rather than
+taking the release as proof.
+
+**How I proved it.** I made up a phrase that appears nowhere in any of our sites —
+"heliotrope kettledrum" — and filed a rewrite instruction containing it, using
+only the broken field name, on an internal spare site nobody visits. The phrase
+turned up in both of the writer's prompts and in the page content it produced. I
+then filed a second item with no instructions at all, and it correctly produced no
+guidance section — which is the bit that matters, because otherwise I would only
+have shown that the heading is always there.
+
+**Something worth knowing about checking deploys.** My first attempt to work out
+which version was running gave me the wrong answer, confidently. The startup line
+that states the version had already scrolled out of the logs, so I searched the
+logs for anything that looked like a version stamp — and found one. It belonged to
+a different system whose report our software happens to print. That made it look
+as though your release did *not* contain the fix, and I was a sentence away from
+telling you so. What settled it properly was asking the running program directly
+whether it contained the new function, with two deliberate control questions whose
+answers I already knew. I have written that up, because it is the kind of mistake
+that would otherwise be repeated.
+
+**The twenty-five items.** You asked me to put all of them back in the queue and I
+have. Ten had previously reported a failure at the publishing step — those had
+probably published fine and merely recorded failure, so the real gain is that they
+now get redone *with* their instructions. Fifteen were sitting waiting for a human
+to look at them, some since April; putting those back skips that wait, which is
+what you decided when I flagged it. Each item now carries a note saying what its
+previous state was and why it was re-queued, so nothing is lost, and I saved the
+before-picture to a file in case you want any of them put back as they were.
+
+**One courtesy I owe someone.** One of the twenty-five was another workstream's own
+test item, which they had left in place deliberately. It has now been re-run. No
+harm done, but they should hear it from us rather than notice it.
+
+**What is left.** We fixed the one wrong field name; we have not fixed the fact
+that a wrong field name fails silently in the first place. If some future code
+invents a third name for the same thing, this bug comes straight back and nothing
+would warn us. That needs a proper list of which fields mean something, which does
+not exist yet and is already noted against another open bug. Nothing is broken
+today because of it — I just don't want it recorded as "solved" when it is
+"solved for the case we found".
