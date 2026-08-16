@@ -1311,7 +1311,7 @@ func loadAgentDefinitionForAction(ctx context.Context, db interface{}, agentType
 	fmt.Printf("DEBUG: loadAgentDefinitionForAction called with agentType=%s, db type=%T\n", agentType, db)
 
 	query := `
-		SELECT id, type, display_name, description, category,
+		SELECT id, type, display_name, COALESCE(description, ''), category,
 		       image_repository, image_tag, 
 		       resources, default_config, capabilities, topics,
 		       health_config, env_vars, is_active

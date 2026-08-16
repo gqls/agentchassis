@@ -263,7 +263,7 @@ func (h *SystemHandlers) HandleResumeWorkflow(c *gin.Context) {
 // HandleListAgentDefinitions lists all agent types
 func (h *SystemHandlers) HandleListAgentDefinitions(c *gin.Context) {
 	query := `
-		SELECT id, type, display_name, description, category, default_config, is_active
+		SELECT id, type, display_name, COALESCE(description, ''), category, default_config, is_active
 		FROM agent_definitions
 		WHERE deleted_at IS NULL
 		ORDER BY category, type

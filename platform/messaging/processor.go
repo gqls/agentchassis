@@ -378,7 +378,7 @@ func (p *MessageProcessor) loadAgentDefinition(ctx context.Context, agentType st
 	//                                    which would otherwise sort ahead of the active row
 	//   ORDER BY version DESC LIMIT 1  → defensive against transient multi-active during deploys
 	query := `
-        SELECT type, display_name, description, category, default_config, capabilities
+        SELECT type, display_name, COALESCE(description, ''), category, default_config, capabilities
         FROM agent_definitions
         WHERE type = $1
 		  AND is_active = true

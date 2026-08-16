@@ -2165,7 +2165,7 @@ func getAgentDefinition(ctx context.Context, db interface{}, agentType string, l
 	//                                    which would otherwise sort ahead of the active row
 	//   ORDER BY version DESC LIMIT 1  → defensive against transient multi-active during deploys
 	query := `
-        SELECT id, type, display_name, description, category,
+        SELECT id, type, display_name, COALESCE(description, ''), category,
                image_repository, image_tag, command,
                resources, default_config, capabilities, topics,
                health_config, env_vars, is_active, idle_timeout_seconds

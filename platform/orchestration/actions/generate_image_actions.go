@@ -680,7 +680,7 @@ func GenerateImageAction(ctx context.Context, params ActionParams) (interface{},
 func loadAgentDefinitionForImageAction(ctx context.Context, db interface{}, agentType string) (*AgentDefinition, error) {
 
 	query := `
-		SELECT id, type, display_name, description, category,
+		SELECT id, type, display_name, COALESCE(description, ''), category,
 		       image_repository, image_tag, 
 		       resources, default_config, capabilities, topics,
 		       health_config, env_vars, is_active
