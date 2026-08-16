@@ -63,14 +63,33 @@
 --       (the one-arg form writes an is_snapshot row into agent_definitions —
 --       LANDMINES "snapshot_agent has TWO overloads"). So the pre-image for the
 --       ROLLBACK lives in agent_definitions_backup, and the check that matters
---       is that it holds the PRE-change key, not merely that a row exists:
---         SELECT snapshot_taken_at, snapshot_reason,
---                default_config #> '{workflow,steps,call_asset_deployer,config,input_mapping}' ? 'asset_id?' AS has_old
+--       is that it holds the PRE-change key, not merely that a row exists.
+--       ⚠ CORRECTED 2026-08-16 (this file was applied TWICE — see APPLIED below):
+--       do NOT read "the latest snapshot". A re-run takes a SECOND snapshot whose
+--       reason still says "pre-update" but whose CONTENT is post-change, so
+--       ORDER BY snapshot_taken_at DESC LIMIT 1 returns has_old = f and the true
+--       pre-image looks missing. Ask for the row that HOLDS the old key:
+--         SELECT snapshot_taken_at, snapshot_reason
 --           FROM agent_definitions_backup WHERE type='image-build-handler'
---          ORDER BY snapshot_taken_at DESC LIMIT 1;                           -- expect has_old = t
---       Ledger (schema_migrations, keyed by FILENAME) checked 2026-08-16: this
---       file is unclaimed; the other 417 (brief_fidelity_auditor) is applied and
---       does not collide because the ledger keys on the full filename.
+--            AND default_config #> '{workflow,steps,call_asset_deployer,config,input_mapping}' ? 'asset_id?'
+--          ORDER BY snapshot_taken_at DESC LIMIT 1;   -- expect exactly one: 2026-08-16 15:58:18Z
+--       (The ROLLBACK sidecar does not depend on this — it is a forward jsonb
+--       transform fenced on 'asset_id!' — but a hand restore from the backup
+--       table does, and that is the path this check exists for.)
+--       Ledger (schema_migrations, keyed by FILENAME) checked 2026-08-16: was
+--       unclaimed pre-apply, RECORDED after (record-only); the other 417
+--       (brief_fidelity_auditor) never collided — the ledger keys on the filename.
+
+-- APPLIED 2026-08-16 15:58:18Z by the owner, by hand, after chassis v1.0.1304
+-- (stamp 5de6cddbe, ancestor of 1806371ef + 53edef286) was verified live:
+-- UPDATE 1, verify DO-block passed, COMMIT. Ledger row recorded (record-only).
+-- ⚠ RE-RUN at 15:58:43Z: the UPDATE fence held (UPDATE 0) — but the two
+-- statements OUTSIDE the fence both fired again: a second snapshot_agent (see
+-- the corrected check above) and the doc_notes INSERT, which is UNFENCED and
+-- produced a duplicate note (deleted 2026-08-16, guarded, keeping the first).
+-- If you port this file's shape, fence the note too:
+--   INSERT INTO doc_notes (...) SELECT ... WHERE NOT EXISTS (SELECT 1 FROM doc_notes WHERE ...);
+-- "Idempotent" that covers only the UPDATE is not idempotent.
 
 BEGIN;
 
