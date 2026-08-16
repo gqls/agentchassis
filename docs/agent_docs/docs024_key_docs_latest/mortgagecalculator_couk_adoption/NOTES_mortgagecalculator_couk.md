@@ -3011,3 +3011,40 @@ copy line via apply_section_edit content_edit on the hero slot (never content_re
   work, parked behind the thinning bug — `stale_chrome` item now detected may move it);
   the 30 stale titles; card icons (parked, 114-class, needs a component-field change);
   fleet router assignment (above); fleet design-rotation re-enable (owner cost call).
+
+## 2026-08-16 (session claude-mcalc-brand, resumed) — hero items ran; 274 fix verified live; a NEW records defect found and filed (287); the header now shows the roundel
+
+Owner instructions this turn: let the hero items run; check the 213/274 fix is in the live
+chassis (both CLOSED 08-15); update docs; carry on; hand off if token load is high.
+
+- **The 10 tool-page hero items ran** (08-15 19:31–19:43Z): 10/10 `complete`, 10 active
+  `content_hero_tool_*` assets. Not eyeballed — page-scope assets on tool pages, the owner
+  said let them run. `[UNVERIFIED that each tool page renders its own; check one]`.
+- **274 fix IS in the live chassis** (v1.0.1303, rolled 08-15 18:45Z): OCI `image.revision`
+  `5e075a6f9…`; both `919cc6976` (envelope) and `3ba384c63` (WFA-014 park carry) are ancestors,
+  control ok. **Behaviour holds:** 0 cannot-deliver rows against 859 child completions since
+  the roll. The 213/274 mechanism that substituted a content-planner payload into my logo item
+  cannot recur.
+- **BUT a different substitution shape appeared WITH that roll and dominates since —
+  filed as `bugs_open/287`.** Items complete with the SPAWN RECORD (`{role,topics,agent_id,
+  agent_type}` = `handler_spawned`) as `result`, not the handler's reply, while the child
+  completes and the parent's own `handler_result` ends up correct. 0 instances in any hour
+  before 10:14Z 08-15; ~270 vs 70 correct since 18:46Z. Work is done, record is wrong. One of
+  them is this site's `undeployed_asset:e766370e` (logo redeploy, 19:12Z) — logo.png was and is
+  200. `090` filed: run `fb7ae3bc-e9bf-4a96-b540-d593b91bc79c` (⚠ trigger warned local HEAD is
+  853 commits ahead of origin, which the loop reads — it may not see WFA-014).
+- **Live site today:** logo/favicon/og-card/hero all 200 (bytes unchanged from 08-14). **The
+  header now renders the roundel as `<img src="/assets/images/logo.png">`** and the nav has
+  About — the `stale_chrome` rerender the 21:46Z discovery filed ran 08-15 18:40Z and consumed
+  the logo. The chrome-thinning "parked" item resolved itself with the asset present; the
+  header-image scope note from 08-14 is closed. `sites.logo_url` is still NULL — the chrome
+  reads the asset, not the column `[INFERRED from the render; column unread]`.
+- **My hero copy line was overwritten** 08-15 18:50Z by `site-review_content_rewrite_index`
+  (the improvement loop, unasked). New line: *"No sign-up, no upsell, and no personal data
+  collected to use any calculator."* — a sentence a person would say; layout classes intact
+  (253's failure mode did not bite here). Not chased; recorded. The owner's §0.4 ask is
+  satisfied either way.
+- Discovery items from 21:46Z all `complete`; one `content_rewrite` (tool-bridging-compound)
+  in `needs_human_review`.
+
+**Handoff for a fresh chat is `HANDOFF_2026-08-16_continue_here.md`.**
