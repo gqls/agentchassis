@@ -104,3 +104,37 @@
   into another lane's `605ab9b1b` (declared in its message) before my docs commit — append-only
   files, content intact at HEAD (grep-verified). Docs commit therefore carries 016b, the two bug
   files and this lane dir only.
+
+## 2026-08-16 afternoon — council round 1 REVISE → round 2 resubmitted (same corr `79f70435`)
+
+- Round 1 verdict (10:26Z): **REVISE**, decided by a gating objection from `prior_art_librarian`
+  (HIGH: "the pairing mirrors matchLockedRow arm-for-arm is the load-bearing claim — confirm the
+  arm ORDER against the symbol"). Everything else approve/object-medium: bug_historian (best-effort
+  skip is log-only — durable trace wanted), reuse_agent + architecture (second locked-row loader
+  beside `loadActiveLockedRows`; mirrored arms), guardian (no-locked-rows regression test; live
+  consumer census not shown; loud drift-check failure to be told to that pipeline), editquality
+  (register/WRONG_CALLS edits not listed as edits), tooling_provenance (no doc_notes row for the
+  action), guidelines (LOCK-008 must name the seam's shape), improvement_guardian (item_key
+  dedup shape), debug_historian (tmpfs archive caveat; name the pod check). Reviewers' own checks
+  measured 25 locked rows (my 26 was 26 at 19:00 the day before — one unlocked or removed since;
+  not re-derived) and 7 remove-blocked items (my 6 + one new: `tool-settlement-calculator:tool-2`
+  17:58Z — the defect kept firing after my census, as predicted).
+- Facts re-verified for the seats: matchLockedRow read verbatim (identity → slot exact → slot
+  kebab, consume-once); live consumer census → `page-build-handler v1 load_spec_sections` ONLY;
+  `git grep` at `7d9b7334a~1` → no test ever called the action; `kebabCaseRe` had three uses all in
+  component_validation.go; no external importer of `actions.NormalizeComponentFunction`; 090
+  d9f97c15 outcome CONFIRMED (`collected_data->'verdict'->'result'->>'outcome'`); item_key has no
+  timestamp (`lock_helpers.go:162`).
+- Round-2 code `57336c127`: durable `LOCKED_MERGE_SKIPPED` agent_error_log row on a skipped merge
+  (+ test); `activeLockedRowsSQL` hoisted in save + `TestRowAndListLockedLoadersNegateTheSamePredicate`;
+  `TestLoadPageSectionsFromSpec_NoLockedRowsIsOneSyncNoMerge`. Verified against `git archive HEAD`
+  + the four files; scratch archive removed after (tmpfs landmine). The `actions` test package
+  compiles in the shared tree again (the two other sessions' duplicate `stripLineComments`
+  files were resolved by them).
+- doc_notes row for the action written: `b8faa498-8234-4546-a005-6180c19f075d`
+  (`subject_type=action`, `subject_key=load_page_sections_from_spec`).
+- Round 2 published 15:1xZ with `RESUBMIT_CORR` (run envelope `f53c39c2`, orch `e79f31d9`);
+  trigger output tee'd to scratch and NOT re-run (LANDMINES: a TRIGGER script publishes on every
+  invocation).
+- Misstep: my first round-2 JSON edit appended a 9th edit and then truncated to 8 — dropping the
+  very lockstep edit the seats asked for; caught by printing the file list; folded into edit 5.

@@ -65,3 +65,18 @@ where it now is — putting it back is a human edit or a re-plan.
 I also found and recorded two mistakes in the original bug write-up (a wrong "must fix 282
 first" dependency, and the wrong step named as the one that produces the list the guard checks);
 neither changed the fix, both changed what to verify, and both are now in the bug file.
+
+## 2026-08-16 afternoon — the council said "revise", and the revisions were cheap and right
+
+The review came back "revise" — not because the fix was wrong, but because the write-up had
+not SHOWN the one thing the whole design leans on: that the new list-side matching pairs
+sections with locked rows in the same order the existing save-side guard does. It does; the
+resubmission now quotes the guard's code line by line and explains the one deliberate
+difference (the list has no component ids, so a name arm stands in for the guard's id arm — and
+why that is what prevents a duplicate row rather than causing one). Three reviewers also asked
+for things I agreed with and did: if the new lock lookup ever fails mid-build, the build now
+leaves a permanent record of having skipped the merge instead of just a log line; the two
+"which rows are locked?" queries (row-side and list-side) are now mechanically pinned to the
+same lock test by a test; and there is a test proving that pages WITHOUT locked sections behave
+exactly as before except that the cache write is now a genuine no-op when nothing changed. Both
+rounds' code is committed; the second review is running on the same trail.
