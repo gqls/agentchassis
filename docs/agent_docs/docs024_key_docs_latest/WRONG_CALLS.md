@@ -33050,3 +33050,46 @@ job is "find the row that has property P", write `WHERE P`, not `ORDER BY time` 
 two runs. Corrected in place in 417's header (comment-only; the applied SQL body is byte-identical,
 proven by diffing non-comment lines against the pinned baseline `53edef286`), the duplicate
 `doc_notes` row deleted under a guard, and the trap generalised into LANDMINES.
+
+---
+
+## 2026-08-16 — I wrote a test suite that PASSED while the code under test was absent, then a control that COULD NOT FAIL — and I had quoted the rule against both in the same session (bugfix_282 lane)
+
+**The claim.** Round 1 of `bugs_open/282` shipped with nine tests and the sentence, in the
+commit message and the council submission, *"tests mutated, not merely run"*. That was true
+of the two arms I mutated and false as a description of the suite.
+
+**What was actually true.** After the council's round-1 objection I added a durable-record
+arm and mutated it too. Two mutations **passed**:
+
+1. **Deleting the line that collects a drop** (`dropped = append(...)`) left every test
+   green. My tests asserted the findings' **shape** (a pure builder) and that the action
+   still succeeded — nothing asserted the **wiring** between them. The mechanism could have
+   shipped inert, which is the exact failure mode 282 IS.
+2. After fixing that with a sqlmock expectation, **deleting the empty-drops guard** also
+   passed. My "a clean plan writes nothing" control was a `mock.ExpectationsWereMet()` call
+   — and **sqlmock fails an EXPECTED call that never came, never an UNEXPECTED call that
+   did**. A recorder that wrote a row on every single run would have satisfied it.
+
+**What caught it.** Only the mutation pass. Both gaps are invisible from a green suite, and
+the second was invisible *from the mutation pass too* until I asserted that the mutation had
+actually applied — my first attempt at it silently no-op'd on a string mismatch and I nearly
+recorded "the test is weak" when the truth was "the edit never happened".
+
+**The cheap checks I skipped.** (a) After writing a test for a new arm, mutate the **call
+site**, not only the function — shape coverage and wiring coverage are different claims.
+(b) When a mutation passes, **prove the mutation applied** before drawing any conclusion
+(`assert new != old` in the patch script — one line). (c) Ask where the negative is
+observable: the fix was to have the recorder **return its attempted count**, moving "wrote
+nothing" from the mock's bookkeeping into a value a test can assert.
+
+**The transferable rule.** *A mock can prove that something happened; it cannot prove that
+nothing did.* Any negative claim asserted through a mock's expectation bookkeeping is
+decorative. If a test needs to say "and nothing was written", the code must **return or
+expose** the count — otherwise the assertion is about the mock's state, not the system's.
+And the sharper, more embarrassing rule: **this is already in my own memory index**
+(`a mock's own bookkeeping cannot assert a NEGATIVE — MUTATE to prove a guard`). I quoted
+it, mutated two arms, wrote "mutated, not merely run" — and still left three untested
+seams, because I mutated the arms I had thought hardest about rather than the ones the
+tests were quietest about. **Mutate where the suite is silent, not where your attention
+already is.**

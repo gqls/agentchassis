@@ -153,3 +153,75 @@ acceptance predicate "should be the SAME code as the offer predicate". On this
 seam that is impossible — the offer is config, the acceptance is Go, and they
 can never ship together. The sharper rule: when two surfaces must agree about a
 SET, have one read the other's ANSWER rather than recompute its QUESTION.
+
+## 2026-08-16 (evening) — council round 1: REVISE, and it was RIGHT
+
+Verdict `revise`, decided by a gating objection from `editquality`; 8 of 12 seats
+approved (architecture approved it explicitly as `point_fix` under RFC_022's
+opt-in exception, "on the letter, not just the spirit"). Four seats objected.
+Full report: `diagnosis_artifacts` kind `council_report`, corr `bbf49822`.
+
+**The objection that changed the code — bug_historian, HIGH.** Paraphrased: the
+fix restores acceptance for ONE opted-in caller and leaves the generic
+mechanism — `resolve()` dropping any unresolved name with a Warn and no durable
+trace — completely untouched, so a typo, a rename, a deleted component, or any
+caller that never opts in still vanishes with zero error surface, *byte-identical
+to the bug being fixed*. It named this as the platform's most-repeated shape.
+
+That is correct and I had scoped it out without saying so. Round 2 files a
+durable finding for **every** drop, opted-in or not, through
+`LogActionFindings`/`agenterrors` — the door this same action already uses for
+`recordRecomposeOutcomes`, whose header states the reason (chassis logs rotate
+sub-second, so a log line is not a record). Reuse, not new machinery. Severity
+`warning` for the same reason as its neighbour: a drop IS a legal outcome — an
+unbuildable name must not reach `site_plan_sections` — what it must not be is
+invisible. Commit `adb1ee2ad`.
+
+**The four checkable objections all resolved clean, by query.** Recorded here
+because "I checked" is not a check:
+
+| objection | check | result |
+|---|---|---|
+| the guard's jsonb path for `output_field` may read the wrong depth (HIGH) | `#>>'{...,load_components,output_field}'` vs `#>>'{...,config,output_field}'` | top-level = `available_components`, nested = NULL. 439 reads the right one — **and its guard passed on apply**, which it could not have at the wrong depth |
+| duplicate active agent rows | count active non-snapshot `build-site-planner` | exactly **1** (version 1); 439's guard asserts `count(*)=1` anyway |
+| `menu_field` might resolve as a REFERENCE not a literal | read the action | it reads `params.StepConfig.Config` raw for every key and has **no** `RegisterActionInputSpec` — no resolution layer sees it |
+| the test expects a `component_level = 'site'` query the diagnosis never mentioned | read the action | **the seat was right that something was unexplained**: `loadSiteChromeNames` runs before the resolver. Two queries, both real; my round-1 text mentioned one |
+
+**prior_art_librarian caught a real evidentiary sin of mine.** My round-1
+`grounded_in` implied filtering `orchestration_states` by `agent_type` — a column
+this estate's own landmine says does not exist. The correct column is
+`owner_agent_type`; re-run, site-planner returns 0 rows. And a nuance I only saw
+by re-running: **build-site-planner's own rows have since aged out of that
+table**, so "0 rows" is a claim about a retention window, not about all history.
+The load-bearing reason for leaving site-planner alone was never its dormancy —
+it is that its menu is section/element-only, so opting it in would add nothing.
+Corrected in the round-2 submission rather than defended.
+
+## 2026-08-16 (evening) — MY OWN TESTS WERE THE WEAKEST THING IN THIS LANE
+
+Round 2's mutation pass found **two** holes in the round-1 suite, and both are
+worse than anything the council found:
+
+1. **Removing the line that collects a drop left every test green.** The tests
+   asserted the findings' SHAPE (a pure builder) and that the action succeeded —
+   nothing asserted the WIRING between them. The new arm could have shipped
+   inert. That is 282's own failure mode, reproduced inside the fix for 282.
+2. Having fixed that with a sqlmock expectation, **removing the empty-drops
+   guard also passed.** `mock.ExpectationsWereMet()` fails an EXPECTED call that
+   never came — never an UNEXPECTED call that did. So my "a clean plan writes
+   nothing" control could not fail, and a recorder writing on every run would
+   have satisfied it.
+
+Fixes: a positive-assertion wiring test (the `INSERT INTO agent_error_log` must
+happen), and `recordDroppedSectionNames` now RETURNS its attempted count so the
+negative is asserted where it is observable rather than in the mock's
+bookkeeping. Five mutations, all now biting.
+
+**A method note that nearly cost me the finding.** My first attempt at mutation 5
+silently failed to apply (string mismatch), and the passing test read as "the
+test is weak". Patch scripts now `assert new != old`. A mutation that did not
+happen is indistinguishable from a mutation that was survived.
+
+Written up in `WRONG_CALLS.md` — including the part that stings, which is that
+the rule against both mistakes is in my own memory index and I quoted it in this
+session before making them.

@@ -150,6 +150,37 @@ flows through with nothing to keep in step.
 - Council: submitted `bbf49822-6704-4802-b3b5-1afed6777c88` (advisory; commit
   carries `Council-Submitted:`).
 
+### ROUND 2 — every drop is now a DURABLE record, not a Warn (`adb1ee2ad`)
+
+The council returned **REVISE** on round 1 (8 of 12 seats approved; gated by
+`editquality`), and `bug_historian`'s objection was right in a way that widened
+the fix: accepting the menu restores acceptance **for one opted-in caller** and
+leaves the generic mechanism untouched — a typo, a renamed function, a deleted
+component, or any caller that never opts in still vanished with a `Warn` and no
+durable trace, *byte-identical to the bug being fixed*.
+
+So `ValidateSitePlanAction` now files one durable finding per dropped section
+name — **for every caller, opted-in or not** — through `LogActionFindings` /
+`agenterrors`, the door this same action already uses for
+`recordRecomposeOutcomes` (reuse, not new machinery; its header carries the
+standing reason that chassis logs rotate sub-second). `error_code`
+`PLAN_SECTION_NAME_DROPPED`, severity `warning` — a drop IS a legal outcome, and
+what it must not be is invisible. The remedy text differs by case: with no
+`menu_field` the dropped name may be one the planner was legitimately OFFERED
+(this bug's own shape), so the reader is pointed here before blaming the name.
+
+**This is the part that generalises beyond 282**: the acceptance surface no
+longer loses anything silently, whether or not anyone opted in. `site-planner`
+and the three `apply_gap_plan` call sites keep their old *behaviour* by design,
+but their exposure is now visible instead of implied.
+
+Round 2 also fixed two holes the council did not find — in my own tests. A
+mutation removing the drop-collection line left the whole suite green (shape
+asserted, wiring not), and the "a clean plan writes nothing" control could not
+fail, because a sqlmock fails an EXPECTED call that never came, never an
+UNEXPECTED call that did. Both closed (wiring test; the recorder returns its
+attempted count). Five mutations, all biting. Written up in `WRONG_CALLS.md`.
+
 ## How to verify a fix
 
 Re-fire the lane's `phase2_recompose_26.sh` (12-page scope). Expect: the 12
