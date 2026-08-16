@@ -32351,3 +32351,78 @@ this bug's runbook). If the message must mention the spelling, paraphrase it; th
   real cause. But had the next session refiled on the handshake theory ("it's flaky, try again") the
   pilot would have burned a second generator round and collided identically, and the class fix
   (TL-044) would have been found one round later.
+
+## 2026-08-12 — "the blocker cleared, so the owed work is mine" — `git status` clean read as RESOLVED when the work had been swept OUT (concept_register lane)
+
+- **the claim** (nearly acted on, 2026-08-12 18:41): the concept-register handoff's owed
+  bullet said `rebuild-cascade.md` was blocked by another session's dirty REB-003 rewrite and
+  instructed "re-check `git status`; if clean, retire this line and delete the file from
+  `KNOWN_STORED_COUNTS`". I re-checked. It WAS clean — empty status, empty diff, fresh mtime.
+  By the rule as written the blocker had cleared and the deletion was mine to make.
+- **the reality:** the file was clean because a session had run a bare `git stash` three
+  minutes earlier, reverting every dirty tracked file on the shared tree — 38 files across ~10
+  lanes, that rewrite among them, and 18 production overlays back ~100 releases. The blocker
+  was not gone; it was invisible. Following the instruction would have deleted a guard on the
+  strength of an accident and reported the item resolved.
+- **what caught it:** the mtime. "Unchanged at 2026-08-08 20:41" in the handoff vs 18:38 on
+  disk for a file with no diff — a write that produced no change is a revert, and `git stash
+  list` had a three-minute-old entry on the current branch.
+- **the cheap check that would have:** assert the POSITIVE fact, not the absence of a diff —
+  `git log --oneline -1 -- <path>`. Clean AND a commit newer than the stall date = the work
+  landed. Clean AND the last commit still older than the stall = the work has gone somewhere,
+  and `git stash list` is the next question. Two commands.
+- **the general form:** "clean" has two causes on a shared tree — the other party committed,
+  or their work was removed — and only the second leaves the blocker in place while looking
+  resolved. An instruction of the form "if clean, do X" encodes only the first cause. Same
+  family as `a post-fix ZERO needs a DEMAND control`: an absence is only evidence once you have
+  established what would have made the thing present.
+- **cost:** none — caught before acting, and the check is now in the handoff and NOTES
+  (`RUNNING_NOTES_concept_register.md` § 2026-08-12c). Cost avoided: one guard deleted, one
+  false "resolved" in a cold-start doc, and 38 files of other lanes' work left in a stash
+  nobody had noticed. The stash itself became CLAUDE.md's ban and a PreToolUse hook (08-14).
+
+---
+
+## 2026-08-16 — the ONE row that did not fit the story was the story, and I gave it an innocent name instead of opening it; and a "0 PLANs" premise counted the wrong table
+
+**Lane:** `bugfix_281_tool_audit_ported` (plan review pass, 2026-08-15 ~17:00Z; caught by the
+`bugfix_285_shared_template_write` lane the same evening).
+
+**Claim 1:** "the 2026-08-14 rewrite of the shared ported-page template has NOT propagated to any
+live page — verified by timestamps + content." Written into the plan file, bug 281's addendum,
+TL-042, the RUNBOOK, and a note to the webdesign lane.
+
+**What was true:** one page had. My own census returned three rows: loancash `pending` 18,
+webdesign `pending` 96, and **webdesign `deployed` 1 — updated since the clobber, carrying the
+new template**. I wrote "probably tool-asset-formatter itself" beside it and moved on. It was
+`learn-ai-builders-content-first`: the improver's delivery step (a `section_edit` at the arbitrary
+instance the unpinned `load_tool` had chosen) re-rendered that slot from the poisoned template
+at 18:51Z and it served an empty article plus fabricated downloads for ~23.5 hours. The 285 lane
+opened the row, found the fingerprint, and restored it (seed 431).
+
+**Why the guess felt safe:** I had JUST caught myself over-reading a class-name LIKE (the row
+above this one), swung to "don't over-read", and the anomaly count was 1 — small enough to name
+away. But an anomaly of size 1 in a population you have just claimed is size 0 is not noise; it
+is the disproof. And "probably X" beside a row is an [ASSUMED] with no marker.
+
+**Claim 2:** "0 tool PLANs exist (89 needs_criteria)" — a load-bearing premise for routing
+ported findings to human review with no fixer. I queried `doc_notes … categories ?
+'acceptance_criteria'`. PLANs live in `doc_plans` (`loadCurrentCriteria` reads `SELECT body FROM
+doc_plans`): 143 tool rows, 14 of webdesign's 63 ported tools have one. The council's prior-art
+seat flagged exactly this ("a load-bearing absence claim not attached to a check") and my
+"attached check" queried the same wrong table. The decision survives on its other leg (no
+per-instance writeback exists), which is luck, not method.
+
+**The cheap checks that would have caught both:**
+- Any census that returns a row you did not predict: `SELECT` that row by name before you write
+  the sentence. Here: `… WHERE build_status='deployed' AND updated_at > <write>` → one page name
+  → `curl` it. Cost: one query and one fetch.
+- Before asserting "N of X have a PLAN", read the function that CONSUMES plans and query the
+  table IT reads (`grep -n "FROM doc_" check_tool_acceptance.go`). "The seed is not the system"
+  has a sibling: the table you remember is not the table the code reads.
+
+**Cost:** the incorrect "not propagated" stood for ~1 hour in six places (all corrected 2026-08-16,
+dated, in place or appended); the wrong PLAN count stood in the plan, the council rationale and
+the RUNBOOK's "attached" query until today. No damage beyond the corrections — the 285 lane had
+already found the page — but the first claim was written in the same breath as a WRONG_CALLS row
+about not over-reading a census, which is the part worth remembering.

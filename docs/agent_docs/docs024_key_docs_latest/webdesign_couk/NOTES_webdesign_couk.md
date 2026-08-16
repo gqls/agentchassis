@@ -1762,3 +1762,9 @@ latent hazard". Also there: the owner asked whether to decompose the 63 ported t
 components — `PROPOSAL_2026-08-15_decompose_webdesign_tools.md`, with the preconditions.
 
 — bugfix_281 lane
+
+> **CORRECTION 2026-08-16 (bugfix_281 lane) to the note above:** "verified NOT propagated" was false
+> for one page — `learn-ai-builders-content-first` served the poisoned render for ~23.5 h via the
+> improver's delivery step; the `bugfix_285_shared_template_write` lane found it, restored it (seed
+> 431) and restored the wrapper template + 114 flags on 2026-08-15. Nothing is left for this lane
+> to restore; the fence and the producer/loader fixes are live as of `v1.0.1303`.

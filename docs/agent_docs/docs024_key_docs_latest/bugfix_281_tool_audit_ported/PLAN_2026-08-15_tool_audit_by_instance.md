@@ -18,14 +18,14 @@ so we can manage them in the framework properly".
    SHARED component_id. tool-improver's writeback (`update_component_html`) rewrites the
    shared template and flips all placements to pending — it did so on 2026-08-05 and
    2026-08-14 (`component_versions` v1/v3). Live latent hazard: the wrapper's template is
-   currently tool-improver output; all 115 instances `pending`; not yet propagated to any
+   currently tool-improver output; all 115 instances `pending`; ~~not yet propagated to any~~ [CORRECTION 2026-08-16: propagated to ONE page via the improver's delivery step, served ~23.5 h; found + restored by the 285 lane, which also restored the template + flags on 2026-08-15] not (otherwise) propagated to any
    rendered_html (verified by timestamps + content).
 
 ## Decisions and their reasons
 
 - **D1 — routing.** Ported findings from BOTH producers file a new handler-less item type
   `ported_tool_fix` (`needs_human_review`), key `ported_tool_fix:<check>:<subjectKey>:<site>`.
-  Reason: the only fixer writes the shared template (two incidents); 0 tool PLANs exist (89
+  Reason: the only fixer writes the shared template (two incidents); ~~0 tool PLANs exist (89~~ [CORRECTION 2026-08-16: wrong table — `doc_plans` holds 143 tool PLANs, 14 for the ported 63; the decision stands on "no per-instance writeback exists", not a PLAN count] (89
   `needs_criteria`); orphan_element_refs is the written precedent for "no fixer until a PLAN
   and a per-instance path exist"; `section_edit` is not a proven per-instance fixer (no
   instruction payload, 1 completed ported-slot edit ever). Forks unchanged byte-for-byte.

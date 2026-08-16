@@ -106,8 +106,14 @@ SELECT s.domain, pc.build_status, count(*), min(pc.updated_at), max(pc.updated_a
 FROM page_components pc JOIN pages p ON p.id=pc.page_id JOIN sites s ON s.id=p.site_id
 WHERE pc.component_id='a7daa5c5-8cfd-4f2c-8e09-de6abcb637ef' GROUP BY 1,2;
 ```
-Restore = seed 208's passthrough (`component_versions` v1) — the owning lane's call
-(webdesign_couk / adoption-pipeline).
+~~Restore = seed 208's passthrough (`component_versions` v1) — the owning lane's call
+(webdesign_couk / adoption-pipeline).~~ **CORRECTED 2026-08-16:** restored 2026-08-15 by the
+`bugfix_285_shared_template_write` lane (template → v3 content, poison banked as v4; 114
+placements un-flipped; the ONE page that DID serve the poison — `learn-ai-builders-content-first`,
+via the improver's arbitrary delivery target — restored from the 357 archive by seed 431). My
+"not propagated" was false for that page; the tell was the single `deployed` + updated-since-
+clobber row in the query above, which I explained away instead of opening. Verify now:
+`0 pending / 115`, template 4,664 chars with `{{.body}}`, no `portedPageAssetList` fingerprint.
 
 ## Did the Go ship? (deploy verification — council debug_historian seat asked for the recipe)
 
@@ -124,10 +130,17 @@ that must be absent. Per SERVICE, never per fleet (bugs_open/249).
 ## The two load-bearing absence claims, attached as queries (council prior_art seat asked)
 
 ```sql
--- "0 tool PLANs, so no auto-fixer" (D1). Expect 0 / ~89 on 2026-08-15.
-SELECT count(*) FILTER (WHERE categories ? 'acceptance_criteria') AS tool_plans,
-       count(*) FILTER (WHERE categories ? 'needs_criteria')       AS needs_criteria
-FROM doc_notes WHERE subject_type='tool';
+-- PLAN census for D1. ⚠ CORRECTED 2026-08-16: PLANs live in doc_plans (loadCurrentCriteria,
+-- check_tool_acceptance.go ~:590 reads `SELECT body FROM doc_plans`), NOT doc_notes — my
+-- first query counted doc_notes and read "0 tool PLANs", which was the wrong table (WRONG_CALLS
+-- 2026-08-16). Measured 2026-08-16: 143 tool rows in doc_plans; 14 of webdesign's 63 ported
+-- tools have one. The load-bearing reason ported findings get no fixer is therefore NOT "no
+-- PLANs" but "no per-instance writeback exists" (TL-042 gap (b)).
+SELECT count(*) FILTER (WHERE subject_type='tool') AS tool_plans FROM doc_plans;
+SELECT count(DISTINCT dp.subject_key) AS ported_webdesign_tools_with_plan
+FROM doc_plans dp JOIN pages p ON p.name='tool-'||dp.subject_key JOIN sites s ON s.id=p.site_id
+WHERE dp.subject_type='tool' AND s.domain='webdesign.co.uk' AND p.page_type='tool';
+SELECT count(*) AS needs_criteria FROM doc_notes WHERE subject_type='tool' AND categories ? 'needs_criteria';
 -- "update_component_html has ONE live consumer" (D4). Text search over the whole
 -- default_config JSON, so nested sub_workflow steps are covered. Expect tool-improver only.
 SELECT type FROM agent_definitions

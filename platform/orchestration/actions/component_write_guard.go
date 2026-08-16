@@ -280,16 +280,16 @@ func tailForMessage(s string) string {
 //                                        TOOL — i.e. one page's finding — so a
 //                                        shared component here is always wrong.
 //                                        Calls sharedComponentWriteCheck. ← fenced
-//   fix_component_template_action.go     page-aware (takes page_component_id,
-//                                        reads the page's rendered_html) and
-//                                        writes the component's template. Its
-//                                        shared write is SOMETIMES the intended
-//                                        repair (it restored the ported-page
-//                                        wrapper after the 2026-08-05 clobber),
-//                                        so it is NOT fenced here — a caller of
-//                                        that action from a per-page finding is
-//                                        the same hazard and should call this
-//                                        check before deciding. Recorded, open.
+//   fix_component_template_action.go     reads a page's rendered_html to
+//                                        DIAGNOSE, but both of its html_template
+//                                        writes take the component as subject:
+//                                        repair_template_slots (mechanical slot
+//                                        repair keyed by spec.component_id) and
+//                                        chrome_overflow_fix (CSS append to a
+//                                        chrome template). Not a per-page LLM
+//                                        rewrite; not fenced. (Corrected
+//                                        2026-08-16 — an earlier version of this
+//                                        census called it "page-aware, open".)
 //   fix_harcoded_colours_action.go       component-scoped subjects: the fix IS
 //   fix_forced_text_colours_action.go    meant to reach every placement.
 //   fix_nav_link_templates_action.go     Not fenced.

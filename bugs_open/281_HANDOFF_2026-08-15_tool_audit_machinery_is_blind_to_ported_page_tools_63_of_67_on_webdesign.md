@@ -171,3 +171,26 @@ is recorded.
   slot — retired to `removed` + repair item filed. Pilot replacement
   (`tool-aspect-ratio`, `add_tool_novel_webdesign.co.uk`) is in the queue; rich apps are
   excluded from rebuild by decision (PLAN §3) and wait on your decomposition proposal.
+
+## Correction 2026-08-16 (fixing session) — three claims in the addendum above, and the roll
+
+- **"verified NOT yet propagated" (Finding A) was FALSE for one page.** The improver's DELIVERY
+  step re-rendered `learn-ai-builders-content-first` (the arbitrary instance the unpinned
+  `load_tool` chose) from the poisoned template at 18:51Z on 08-14; it served an empty article
+  + fabricated downloads for ~23.5 h. Found and restored by the `bugfix_285_shared_template_write`
+  lane (`bugs_open/285`, shared-template slug; seed 431, sha-proven). The row was in my own
+  census as the single `deployed`+updated-since-clobber webdesign row and I explained it away
+  → WRONG_CALLS 2026-08-16. Recovery of the template and the 114 flags was also theirs
+  (2026-08-15); `[MEASURED 2026-08-16]` 0 pending / 115, template 4,664 chars with `{{.body}}`.
+- **"0 tool PLANs" was the wrong table.** PLANs live in `doc_plans` (`loadCurrentCriteria`);
+  143 tool rows, 14 of webdesign's 63 ported tools have one. The routing decision (handler-less
+  `ported_tool_fix`) stands on its OTHER leg — no per-instance writeback exists (TL-042 gap (b))
+  — not on a PLAN count.
+- **`fix_component_template` is not a page-aware LLM rewriter** — its two template writes are
+  component-scoped mechanical repairs; not a fence candidate (285 lane, verified at the code).
+- **Roll:** the Go (`25f92a967`, `a41d11e30`, `d7b2d9994`) is LIVE — `v1.0.1303` built from
+  `5e075a6f9`, binary-probed with a fake-sha control; all three are ancestors. The write fence
+  has been SEEN refusing on the live image (2026-08-16 09:59Z, `component_write_shared_blocked`,
+  115 pages / 2 sites, the 285 lane's induced test). `tool_health` has not yet run on webdesign
+  since the roll (last item 2026-08-15 14:51Z) — the first-sweep census in the RUNBOOK is what
+  remains before this file can close.

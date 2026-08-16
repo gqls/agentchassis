@@ -114,3 +114,30 @@
 - Follow-up commit `d7b2d9994` with `Council-Reviewed: 360ae540-8b64-41f9-94da-d7c316183398`.
 - STATE: fixed at source; seeds 425/426 live; Go (`25f92a967`, `a41d11e30`, `d7b2d9994`) rides
   the next chassis roll. 281 stays OPEN until the roll + first-sweep census (RUNBOOK).
+
+## 2026-08-16 — the roll, and three corrections to my own record
+
+- **Roll verified at the artefact:** pods `v1.0.1303` (started 2026-08-15 18:45Z). Provenance line
+  had scrolled and the pod logs had rotated (start 09:35Z today), so: binary probe. The stamp is
+  ONE full sha (the build HEAD) — my own shas returned 0, which is expected, not absent. Found the
+  build HEAD by probing candidate commits in the window (fixed-string grep, `-F`, per sha; a regex
+  grep over `/proc/1/exe` timed out): `5e075a6f9` (count 3), fake-sha control 0. `git merge-base
+  --is-ancestor` → all three 281 commits ARE in the running image. (The makefile's 1303 bump is
+  uncommitted; HEAD says 1299 — don't look for the tag in git.)
+- **Fence seen refusing on the live image:** `agent_error_log` `component_write_shared_blocked`,
+  2026-08-16 09:59:06Z, step `induce_write`, "Ported Page (webdesign.co.uk)" 115 pages / 2 sites —
+  the 285 lane's induced test (their close step 1). Not repeated.
+- **CORRECTIONS (mine, all applied visibly today — register, RUNBOOK, PLAN, bug file, webdesign
+  NOTES, guard-file census, WRONG_CALLS):**
+  1. "not propagated" was FALSE for `learn-ai-builders-content-first` (served ~23.5 h via the
+     improver's arbitrary delivery target; the 285 lane found + restored it, seed 431). The single
+     `deployed`+updated row in my own census was it; I named it away.
+  2. "0 tool PLANs" counted `doc_notes`; PLANs are in `doc_plans` (143; 14 of the ported 63). The
+     routing stands on "no per-instance writeback", not on a PLAN count.
+  3. `fix_component_template` is component-scoped mechanical repair, not a page-aware LLM
+     rewriter — census wording corrected in `component_write_guard.go`.
+- **State of the shared component `[MEASURED 2026-08-16]`:** template 4,664 chars with
+  `{{.body}}` (v3 content restored by the 285 lane; poison banked as v4); 0 of 115 pending;
+  poison page restored (3,781 chars, no `portedPageAssetList`).
+- **tool_health has NOT run since the roll** (last item 2026-08-15 14:51Z; 0 `ported_tool_fix`
+  rows fleet-wide). The first-sweep census needs a design-discovery pass on webdesign — next.
