@@ -96,7 +96,7 @@ func TestEveryHTMLTemplateRewriterAsksTheSharedFenceOrIsDeclaredFanOut(t *testin
 		if readErr != nil {
 			t.Fatalf("read %s: %v", f, readErr)
 		}
-		body := stripLineComments(string(src))
+		body := withoutLineComments(string(src))
 		if !updatesHTMLTemplate.MatchString(body) {
 			continue
 		}
@@ -152,19 +152,19 @@ func TestFanOutIntendedWritersAreAllStillHTMLTemplateWriters(t *testing.T) {
 			t.Errorf("%s is declared fan-out-intended but cannot be read: %v", f, err)
 			continue
 		}
-		if !updatesHTMLTemplate.MatchString(stripLineComments(string(src))) {
+		if !updatesHTMLTemplate.MatchString(withoutLineComments(string(src))) {
 			t.Errorf("%s is declared fan-out-intended but no longer writes html_template — remove the stale entry", f)
 		}
 	}
 }
 
-// stripLineComments drops `//` line comments so a statement quoted in a doc
+// withoutLineComments drops `//` line comments so a statement quoted in a doc
 // comment is neither a writer nor a fence call. Deliberately naive (a `//`
 // inside a string literal on the same line is also dropped): the cost is a
 // false "not a writer" on a line that has BOTH SQL and a `//` before it, which
 // gofmt'd Go SQL literals never do; the alternative (a Go tokenizer) is more
 // than this test's altitude warrants.
-func stripLineComments(src string) string {
+func withoutLineComments(src string) string {
 	var b strings.Builder
 	for _, line := range strings.Split(src, "\n") {
 		if i := strings.Index(line, "//"); i >= 0 {
