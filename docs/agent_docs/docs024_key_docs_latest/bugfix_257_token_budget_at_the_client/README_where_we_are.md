@@ -121,3 +121,43 @@ but the two copies genuinely are not the same, in three specific ways, and mergi
 them would change behaviour on the single busiest code path in the system. That is
 its own job, with its own review, and the three differences are written down so
 whoever picks it up does not have to find them again.
+
+## 2026-08-16 (later) — a correction: the review never actually ran the first time
+
+I told you earlier that the change had gone to the review council and we were waiting on a verdict.
+**That was wrong, and I want to be plain about it.** The submission had already been refused before I
+said it — I just had not looked at the right field yet.
+
+The council review takes about half an hour to come back, so an empty result means "still queued"
+almost every time, and our own guidance says not to keep re-checking on that evidence. What I did not
+know is that a *refused* submission looks identical to a queued one: the job's status reads
+**COMPLETED**, which everywhere else in this system means it worked. The word that tells you it failed
+is in a different column entirely.
+
+The cause was mundane. A submission is a list of proposed edits, and two of mine described a change
+that genuinely spans two files, so I named both files in one entry — "this file plus that file". The
+server requires exactly one file per entry and rejects anything else. It reads perfectly well to a
+person, it passed every check our own submission tool runs, and it was refused.
+
+**The part worth telling you is that the refusal left no explanation anywhere.** No error message, no
+record in any of the three places such things are normally written. I could not read why it failed; I
+had to work it out by reading the validating code and then re-running its exact rule against my own
+submission, which pointed straight at the two offending entries.
+
+Three things came out of it.
+
+The submission is fixed and resubmitted — restructured so every entry names one file, without dropping
+any content (two entries were about the same test file, so merging them freed the room).
+
+Our submission tool now checks this before sending, so nobody loses half an hour to it again. That
+tool already had four such checks, each added after somebody hit the same kind of silent rejection;
+this is the fifth. I also proved the new check actually catches the thing it is for, on three
+different bad shapes, plus a check that it does not simply reject everything.
+
+And there is one thing I cannot undo. Three commits already record the dead submission's reference
+number, and this project does not permit rewriting commits. So the record now carries a follow-up
+commit naming the live one and saying plainly that it replaces the other. That is untidy, and it is
+the honest version.
+
+The underlying code change is unaffected by any of this — it was written, tested and committed before
+the submission was ever sent.

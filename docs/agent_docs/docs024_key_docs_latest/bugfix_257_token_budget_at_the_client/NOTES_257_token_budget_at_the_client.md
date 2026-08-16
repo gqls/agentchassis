@@ -214,3 +214,59 @@ today, but a session that wires up a producer will be calling a two-generation-o
 model. **Not changed here**: it is unrelated to the token budget and choosing a
 replacement is a sizing/quality decision, not a bug fix. Flagged so it is written
 down somewhere.
+
+## 2026-08-16 — MISSTEP 3: the council submission died at validation and I reported it as in flight
+
+Fired corr `85971036`, saw the trigger script's queue block and verdict instructions, and told the
+owner it was submitted and awaiting a verdict. Wrote that correlation into three commit trailers,
+MDL-041, the bug file, PLAN, RUNBOOK, SUMMARY and the workstreams memory line.
+
+**It had already failed.** `current_step='complete_invalid'`, `status='COMPLETED'`, no council report.
+Two of eight edits named TWO files in one `.file` field:
+
+```
+"platform/aiservice/anthropic.go + gemini.go"
+"platform/orchestration/actions/llm_options.go + configs/reasoning-agent.yaml"
+```
+
+`editProblems()` in `diagnose_persist_fix_plan_action.go` refuses any `.file` containing whitespace, a
+leading `/`, or `..`. No review ran; no credits were spent.
+
+**The reason is DERIVABLE but not READABLE — I never got a server error string, because none was
+recorded.** Measured: `diagnosis_artifacts` for that correlation → **0 rows of any kind**;
+`collected_data` → nothing but `input_data`; `collected_data->>'__step_error'` → empty. The gate's
+`persist_submission` step names no `repair_step`, so it fails without writing the refusal note the
+action can otherwise produce.
+
+What identified it was **re-implementing the server's predicate in Python and running it over my own
+submission** — it flagged exactly 2 of 8 edits, plan bytes 19,093 against a 65,536 cap and 8 edits
+against a cap of 8 (so neither of the other plausible causes). A reproduction, not a guess.
+
+**Why my normal habit hid it.** The first two polls returned nothing, and CLAUDE.md says explicitly
+that a missing orchestration row is almost always latency and not to retry on that evidence. That rule
+is right, and it is exactly what makes this failure look like patience. `status='COMPLETED'` finishes
+the job of hiding it: the word that means success everywhere else means "refused and stopped" here.
+
+**Fixed three ways.**
+1. **The submission**: restructured to 8 edits, ONE FILE EACH. To stay under the cap I merged the two
+   edits that both touched `max_tokens_test.go` (candidate 4's guard lives in the same file as the
+   wire-shape tests) and folded the zero-budget floor into the anthropic and gemini edits where it
+   physically lives. No content dropped. Resubmitted as **`366efae9-f2a8-46ae-a6a6-b9d68a4cc6ae`**.
+2. **The trigger script gains a fifth trap** (`097_TRIGGER_council_review_v1.sh`), mirroring the server
+   rule exactly, and printing the offending paths. The four traps already there were each added after
+   this same class of silent server-side death — operation allowlist, `grounded_in` must be strings,
+   `risks` must be a string, comment-only sketch. This is the fifth.
+3. **Demonstrated the detector's failing case at the moment it was written** (register OPP-003): three
+   refused shapes (`" + "` whitespace, `../etc/passwd`, `/leading/slash`) all caught, plus a positive
+   control that the corrected submission still passes — so the check is not simply refusing everything.
+
+**Consequence I cannot undo:** commits `5cafe18ef`, `171121579`, `665c6773a` carry
+`Council-Submitted: 85971036…`, a correlation that will never produce a verdict, so `098` will never
+credit them. Forward-only forbids an amend. The honest repair is a follow-up commit naming the live
+correlation and saying plainly that it supersedes the dead one.
+
+**The rule worth carrying:** when a job's terminal state is reported by a field that reads `COMPLETED`
+regardless of outcome, **the outcome is in a different field** — for the council gate, `current_step`.
+One query separates "refused, resubmit now" from "genuinely queued, wait an hour". And do not write a
+correlation id into commit trailers and eight documents before you have watched that run reach a
+reviewing step.

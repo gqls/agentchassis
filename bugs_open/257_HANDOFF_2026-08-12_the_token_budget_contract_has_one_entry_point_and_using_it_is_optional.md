@@ -347,3 +347,26 @@ thing to call (step config; `budget_tokens`), so it is not read as obsolete.
    measurement; the response is.
 5. Read the council verdict at correlation `85971036-...` before recording this as
    reviewed.
+
+### ⚠ CORRECTION 2026-08-16 — the first council submission was REFUSED, not reviewed
+
+The section above names council correlation `85971036-5b9a-42ca-aeac-d77a65397c86`. **That run never
+reviewed anything.** It reached `current_step='complete_invalid'`, `status='COMPLETED'`, with no
+council report: two of its eight edits named TWO files in one `.file` field
+(`"platform/aiservice/anthropic.go + gemini.go"`), and `editProblems()` in
+`diagnose_persist_fix_plan_action.go` refuses any path containing whitespace, a leading `/`, or `..`.
+
+**LIVE CORRELATION IS NOW `366efae9-f2a8-46ae-a6a6-b9d68a4cc6ae`** — same plan, restructured to one
+file per edit (two edits merged because they touched the same test file; no content dropped).
+
+⚠ **Commits `5cafe18ef`, `171121579`, `665c6773a` carry the DEAD correlation in their
+`Council-Submitted:` trailer**, so `098` will never credit them. Forward-only forbids an amend; a
+follow-up commit names the live correlation. **Do not read those three commits as un-reviewed** —
+read this line.
+
+⚠ **A refusal records NOTHING readable**: `diagnosis_artifacts` for that correlation → 0 rows of any
+kind, `collected_data` → only `input_data`, `__step_error` → empty (the gate's `persist_submission`
+sets no `repair_step`). The cause was established by re-running the validator's own predicate over the
+submission file, not read from any message. Landmine filed; `097` gained a fifth client-side trap so
+the next thread cannot lose 30 minutes to it. Full account: the lane's NOTES, misstep 3, and
+`WRONG_CALLS.md`.

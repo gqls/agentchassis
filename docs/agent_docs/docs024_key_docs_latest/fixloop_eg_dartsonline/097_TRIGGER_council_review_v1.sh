@@ -130,6 +130,17 @@ jq -e '[.plan.edits[].sketch
        ] | length == 0' "$SUBMISSION_FILE" >/dev/null \
   || { echo "ERROR: an edit's sketch is COMMENT-ONLY (every non-blank line starts --, # or //). The server refuses these ('a fix plan proposes changes, not observations') — drop the edit or sketch the real change; put observations in .rationale/.grounded_in." >&2; exit 1; }
 
+# Fifth trap, added 2026-08-16 after corr 85971036 died server-side (bugs_open/257):
+# the server requires each edit's .file to be a single REPO-RELATIVE path with NO
+# WHITESPACE — editProblems() in diagnose_persist_fix_plan_action.go refuses on
+# strings.ContainsAny(f, " \t\n"), on a leading "/", and on "..". Naming two files
+# in one edit ("a/b.go + c/d.yaml") reads perfectly well to a human, satisfies every
+# check above, and is refused. One edit = one file; split it, or merge two edits on
+# the SAME file to stay inside the 8-edit cap.
+jq -e '[.plan.edits[].file | select(test("[[:space:]]") or startswith("/") or contains(".."))] | length == 0' "$SUBMISSION_FILE" >/dev/null \
+  || { echo "ERROR: an edit's .file is not a single repo-relative path — it contains whitespace, a leading '/', or '..'. The server refuses these (editProblems: 'file path must be repo-relative with no traversal or whitespace'). ONE EDIT = ONE FILE: naming two files in one edit is the common cause. Offenders:" >&2
+       jq -r '.plan.edits[].file | select(test("[[:space:]]") or startswith("/") or contains(".."))' "$SUBMISSION_FILE" >&2; exit 1; }
+
 # Scope pre-filter (the cheap deterministic filter from the design — keeps
 # docs/site-content submissions from spending council credits at all).
 if ! jq -e --arg re "$SCOPE_RE" '[.plan.edits[].file | select(test($re))] | length > 0' "$SUBMISSION_FILE" >/dev/null; then

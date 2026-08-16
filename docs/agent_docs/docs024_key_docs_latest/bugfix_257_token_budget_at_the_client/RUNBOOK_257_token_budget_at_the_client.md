@@ -170,3 +170,46 @@ git merge-base --is-ancestor <this-commit> <the stamped sha> && echo SHIPPED
 
 ⚠ `reasoning-agent` is its OWN service and image, not the chassis. It needs its
 own build/roll, and its `build provenance` line is the thing to read.
+
+## ⚠ Is the council run alive, or was it REFUSED? (check this FIRST, before waiting)
+
+A refused submission reads exactly like a queued one. `status` is `COMPLETED` either way.
+
+```sql
+SELECT current_step, status FROM orchestration_states
+ WHERE collected_data->'input_data'->>'fix_correlation_id' = '<SUBMISSION_CORR>'
+ ORDER BY created_at DESC LIMIT 1;
+```
+
+- `complete_invalid` → **REFUSED at `persist_submission`. No review ran, no credits spent. Fix and
+  resubmit now** — do not wait for a verdict that is never coming.
+- `EXECUTING_STEP` / a review step → genuinely in flight; budget ~30 minutes.
+- **no row at all** → latency (CLAUDE.md: almost always queue depth, do not retry on that evidence).
+
+⚠ **A refusal records NOTHING you can read.** Measured 2026-08-16 on corr `85971036`:
+`diagnosis_artifacts` → 0 rows of any kind, `collected_data` → only `input_data`, `__step_error` →
+empty. The gate's `persist_submission` sets no `repair_step`, so it fails without writing a refusal
+note. **Derive the reason from the validator's source instead** — `editProblems` / `validateFixPlan` /
+`noOpEditReason` in `platform/orchestration/actions/diagnose_persist_fix_plan_action.go` — and prove it
+by running that predicate over your own file:
+
+```bash
+python3 -c "
+import json,sys
+d=json.load(open(sys.argv[1]))
+for i,e in enumerate(d['plan']['edits'],1):
+    f=e['file']
+    bad=('..' in f) or f.startswith('/') or any(c in f for c in ' \t\n')
+    print(('FAIL' if bad else 'ok  '), i, repr(f))
+    assert e['operation'] in ('modify','add','remove','config_change'), e['operation']
+    for k in ('file','operation','rationale','sketch'):
+        assert e.get(k,'').strip(), 'empty '+k
+    L=[l for l in e['sketch'].split(chr(10)) if l.strip()]
+    assert not all(l.lstrip().startswith(('--','#','//')) for l in L), 'comment-only sketch'
+print('plan bytes:', len(json.dumps(d['plan'])), '(cap 65536)')
+print('edits:', len(d['plan']['edits']), '(cap 8)')
+" <submission.json>
+```
+
+**ONE EDIT = ONE FILE.** At the 8-edit cap, split the offender and MERGE two edits that touch the
+SAME file rather than dropping content.
