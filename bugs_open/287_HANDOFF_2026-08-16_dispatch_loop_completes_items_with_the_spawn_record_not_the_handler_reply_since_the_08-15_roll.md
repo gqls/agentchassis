@@ -106,10 +106,15 @@ carried pre-reply value or is absent, so the recursive fallback lands on `handle
 ## 6. Diagnosis status
 
 `090` filed 2026-08-16 ~10:15Z: intake `de3b436a-d8da-4c4c-a8fe-8b3abcb0d461`, run
-`fb7ae3bc-e9bf-4a96-b540-d593b91bc79c`. **⚠ The trigger warned that local HEAD is 853 commits
-ahead of origin/087, and the loop reads ORIGIN — so it may be reading a coordinator WITHOUT
-WFA-014.** Read its verdict with that in mind; if it cites pre-3ba384c63 line numbers, its
-mechanism read is of the wrong binary. Grep-before-file: `bugs_open/236` recorded the park
+`fb7ae3bc-e9bf-4a96-b540-d593b91bc79c`. **⚠ MEASURED after filing: `origin/087` is at
+`a85ad4018` (2026-08-12 17:01), 881 commits behind local HEAD, and `merge-base --is-ancestor`
+says it carries NEITHER `3ba384c63` (WFA-014) NOR `919cc6976` (274).** The loop reads origin.
+So this run is diagnosing a coordinator that does not contain the code the roll introduced —
+its verdict describes the pre-regression binary. **Whatever it says, it cannot CONFIRM this
+mechanism; a REFUTED from it is a refutation of the wrong tree, not of the claim.** The
+correct next step is a push (owner's — 881 commits is not one lane's call) and a re-run, or a
+first-hand read of `coordinator.go` at HEAD declared per the 2026-07-31 substitution rule.
+Recorded here BEFORE the verdict landed so it cannot be read straight. Grep-before-file: `bugs_open/236` recorded the park
 discard (fixed by WFA-014); `bugs_closed/274` the delivery half; `bugs_closed/213` §D the
 foreign-payload symptom. None names this post-roll shape.
 
