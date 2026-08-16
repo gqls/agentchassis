@@ -206,13 +206,52 @@ func TestClassifyFactDrift_SteadyStateIsSilent(t *testing.T) {
 	}
 }
 
-// INDUCED RED for the baseline rule: with no baseline at all (a register with
-// one row ever, or a newly declared fact) the mechanism must be SILENT rather
-// than treating the current value as a move. Remove the `baseline != nil` guard
-// and this fails.
-func TestClassifyFactDrift_NoBaselineIsSilent(t *testing.T) {
-	if _, ok := classifyFactDrift(nil, sdltReliefCapFact(500000), fdTool("stamp-duty", true, false), nil, fdSiteIDStr); ok {
-		t.Fatal("no baseline must mean no fire — 'is the current number right' is Piece 4's question, not this file's")
+// INDUCED RED for the gap the council found (editquality, high, 2026-08-16), and
+// the most important test in this file. The FIRST version of this code returned
+// silently when there was no baseline, reasoning that "is the current number
+// right" is Piece 4's question. That reasoning was correct and the behaviour was
+// still wrong: a tool that is stale on the day it opts in, against a register
+// fact that has not moved since, has no baseline and no drift — so the mechanism
+// built for bugs_closed/225 would have been silent on bugs_closed/225's own
+// shape. A first declaration must ask a human to reconcile the pair once.
+func TestClassifyFactDrift_FirstDeclarationAsksForReconciliation(t *testing.T) {
+	em, ok := classifyFactDrift(nil, sdltReliefCapFact(500000), fdTool("stamp-duty", true, false), nil, fdSiteIDStr)
+	if !ok {
+		t.Fatal("a first-time declaration must not be silent — that is exactly the 225 shape (correct register, stale code, no subsequent change)")
+	}
+	if em.Kind != "unreconciled_declaration" || em.Reason != "never_reconciled" {
+		t.Fatalf("kind/reason = %q/%q, want unreconciled_declaration/never_reconciled", em.Kind, em.Reason)
+	}
+	if em.Route != "fact_drift_review" {
+		t.Fatalf("a reconciliation request is a human's, never an auto-fix: route %q", em.Route)
+	}
+	if em.NewValue == nil || *em.NewValue != 500000 {
+		t.Fatal("the item must carry the register's current value — it becomes the baseline that makes this self-quieting")
+	}
+	if em.OldValue != nil {
+		t.Error("there is no old value to report on a first declaration; claiming one would invent a move")
+	}
+}
+
+// The other half of the same design: having asked once, it must not ask again.
+// The item filed above carries new_value, which becomes the lastItem baseline —
+// so the next pass sees baseline == current and says nothing. Without this, the
+// fix for the objection above would file a review item every single day for
+// every declared fact on the fleet.
+func TestClassifyFactDrift_ReconciliationIsSelfQuieting(t *testing.T) {
+	if _, ok := classifyFactDrift(nil, sdltReliefCapFact(500000), fdTool("stamp-duty", true, false), f64(500000), fdSiteIDStr); ok {
+		t.Fatal("once reconciled at this value, the pair must go quiet — a detector that repeats daily is noise, not a finding")
+	}
+}
+
+// A fact with no numeric value at all (a capability or entity fact someone
+// declared) has nothing to reconcile and must stay silent — the guard is
+// `hasVal`, not just the baseline.
+func TestClassifyFactDrift_ValuelessFactIsSilent(t *testing.T) {
+	fact := sdltReliefCapFact(0)
+	delete(fact, "value")
+	if _, ok := classifyFactDrift(nil, fact, fdTool("stamp-duty", true, false), nil, fdSiteIDStr); ok {
+		t.Fatal("a fact with no numeric value has nothing to reconcile")
 	}
 }
 
@@ -377,5 +416,26 @@ func TestFactDriftIssueText_CarriesEverythingTheFixerNeeds(t *testing.T) {
 		if !strings.Contains(txt, want) {
 			t.Errorf("issue text missing %q:\n%s", want, txt)
 		}
+	}
+}
+
+// The council's compliance seat caught a risk inversion in the first version:
+// every human-routed finding sat at medium/35, so a CONFIRMED value move on a
+// no_auto_fix tax calculator — the exact case this mechanism exists for — ranked
+// BELOW an auto-fixable drift at high/30. Severity now tracks the finding, not
+// the route.
+func TestFactDriftSeverity_AConfirmedMoveOutranksAnEvidenceQuestion(t *testing.T) {
+	moved, _ := classifyFactDrift(nil, sdltReliefCapFact(550000), fdTool("stamp-duty", true, true), f64(500000), fdSiteIDStr)
+	if moved.Kind != "value_drift" || moved.Route != "fact_drift_review" {
+		t.Fatalf("fixture wrong: %+v", moved)
+	}
+	firstTime, _ := classifyFactDrift(nil, sdltReliefCapFact(500000), fdTool("stamp-duty", true, true), nil, fdSiteIDStr)
+	if firstTime.Kind != "unreconciled_declaration" {
+		t.Fatalf("fixture wrong: %+v", firstTime)
+	}
+	// The banding itself lives in writeFactDriftItems; assert the discriminator
+	// it keys on is present and distinct, which is what makes the banding possible.
+	if moved.Kind == firstTime.Kind {
+		t.Fatal("a moved number and an unreconciled declaration must be distinguishable by Kind, or they cannot be banded differently")
 	}
 }

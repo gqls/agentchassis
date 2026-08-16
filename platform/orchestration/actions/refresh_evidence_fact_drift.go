@@ -20,6 +20,20 @@
 //     the register of the site being swept — the driven page's site, never the
 //     PLAN (PBP-037's rule; plan §5.1). An id the site's register does not carry
 //     is inert and reported, never fatal, never an item.
+//   - The subject-key resolution is NOT `toolSubjectKeyExpr` reuse (council
+//     reuse_agent seat, 2026-08-16). That expression computes a subject key FROM
+//     a (component, page) pair; this query needs the opposite direction — given a
+//     PLAN's subject_key, find the pages that carry it — so the shared expression
+//     cannot be substituted, only mirrored. What IS shared is the rule it
+//     encodes (`name` or `'tool-'||name`), and it is spelled the same way here
+//     and in tool_acceptance_actions.go's URL lookup on purpose.
+//   - A FETCH ERROR is not a permanent silence (council bug_historian seat,
+//     2026-08-16). Nothing is filed on the day of a 403 — but a citation that
+//     keeps failing also keeps AGEING, and refreshCitationFact independently
+//     marks a fact `drifted` once it passes its `staleness_days` policy whether
+//     or not the fetch succeeded. That drift arrives here as evidence_drift and
+//     routes to a human. So the escalation path exists; it is time-based rather
+//     than attempt-based, and it lives in the citation arm rather than this one.
 //   - PLAN ↔ page resolution is the platform's OWN name rule, the one Tier 4
 //     already uses to find a tool's URL (tool_acceptance_actions.go:
 //     `name IN ($2, 'tool-' || $2)`), plus a tool-level component whose
@@ -125,10 +139,27 @@ type factDriftIndex struct {
 }
 
 // factDriftIndexQuery resolves every current tool PLAN whose fence mentions
-// `facts` to the active pages on THIS site that carry the tool. See the file
-// header for why this is the name rule and not the ladder predicate. The LIKE
-// is a cheap pre-filter; the fence is parsed in Go.
-const factDriftIndexQuery = `
+// `facts` to the pages on THIS site that carry the tool. See the file header for
+// why this is the name rule and not the ladder predicate. The LIKE is a cheap
+// pre-filter; the fence is parsed in Go.
+//
+// THE PAGE PREDICATE IS THE AUDIT ONE, NOT THE LIVENESS ONE (council
+// debug_historian seat, 2026-08-16, severity high — and it was right to demand
+// the check). `p.status = 'active'` is the estate's LIVENESS predicate and is
+// documented as WRONG for anything choosing which pages to JUDGE: an archived
+// page that was deployed is still being served, so an audit that skips it is
+// blind to live bytes. This uses the same shape check_unverified_claims uses —
+// skip only a page that is archived AND was never deployed — via the shared
+// NeverDeployedPagePredicateFor so the two cannot drift.
+//
+// MEASURED before and after, because the seat's point was that the equivalent
+// check had not been run for THIS join: both motivating pages
+// (mortgagecalculator `tool-stamp-duty`, loanandmortgagecalculator
+// `mortgages-stamp-duty`) are status='active', build_status='deployed', so the
+// old predicate would NOT have shipped inert for them; fleet-wide there are 198
+// active tool pages and 6 archived. The change closes the door on those 6
+// rather than fixing a live miss — which is the point of an audit predicate.
+var factDriftIndexQuery = `
 		SELECT p.id::text, p.name, COALESCE(p.url, ''), COALESCE(p.build_status, ''),
 		       dp.subject_key, dp.body,
 		       COALESCE((
@@ -147,7 +178,8 @@ const factDriftIndexQuery = `
 		          JOIN content_components cc2 ON cc2.id = pc2.component_id
 		          WHERE pc2.page_id = p.id AND cc2.is_active = true AND cc2.component_level = 'tool'
 		            AND cc2.function = dp.subject_key))
-		WHERE p.site_id = $1 AND p.status = 'active' AND dp.body LIKE '%"facts"%'
+		WHERE p.site_id = $1 AND dp.body LIKE '%"facts"%'
+		  AND NOT (p.status = 'archived' AND (` + datahelpers.NeverDeployedPagePredicateFor("p") + `))
 		ORDER BY dp.subject_key, p.name`
 
 // loadFactDriftIndex runs the one join query for a site and parses each fence.
@@ -332,6 +364,32 @@ func classifyFactDrift(entry *evidenceFactRefresh, fact map[string]interface{}, 
 	newVal, hasVal := numericField(fact["value"])
 
 	switch {
+	// FIRST DECLARATION — the tool has never been reconciled against this fact.
+	//
+	// This case exists because of a council objection (editquality, 2026-08-16,
+	// severity high) that was exactly right and would otherwise have shipped a
+	// mechanism blind to its own motivating bug. The baseline is defined purely
+	// from PRIOR REGISTER state, so a tool that is wrong on the day it opts in —
+	// against a fact whose value has been stable since — yields
+	// baseline == current, falls to the default case, and emits NOTHING. That is
+	// precisely bugs_closed/225's shape: a correct register, stale code, and no
+	// subsequent legislative change to trigger anything.
+	//
+	// So a declaration with no baseline at all files ONE review item asking a
+	// human to confirm the tool encodes this value. It is self-quieting: the item
+	// it files carries new_value, which becomes the baseline on the next pass, so
+	// the following day is silent. It does NOT claim the tool is wrong — this
+	// mechanism cannot know that (Piece 4's question) — it says the pair has
+	// never been checked by anyone, which is a different and honest thing.
+	case hasVal && baseline == nil:
+		nv := newVal
+		em.Kind = "unreconciled_declaration"
+		em.NewValue = &nv
+		em.Route, em.Reason = "fact_drift_review", "never_reconciled"
+		em.Detail = fmt.Sprintf(
+			"%s declares it encodes this fact and no prior reconciliation is on record; the register says %s. "+
+				"Confirm the tool computes from that figure. This is a one-time check, not a detected defect.",
+			tool.SubjectKey, formatEvidenceNumber(newVal))
 	case hasVal && baseline != nil && math.Abs(newVal-*baseline) > 1e-9:
 		old := *baseline
 		nv := newVal
@@ -636,10 +694,40 @@ func writeFactDriftItems(ctx context.Context, db *sql.DB, siteID uuid.UUID, doma
 				em.FactID, formatEvidenceNumber(*em.OldValue), formatEvidenceNumber(*em.NewValue), em.SubjectKey)
 		default:
 			item.itemType = "fact_drift_review"
-			item.severity = "medium"
-			item.priority = 35
 			item.handlerAgent = "human-review"
 			item.status = "needs_human_review"
+			// A CONFIRMED VALUE MOVE OUTRANKS AN EVIDENCE QUESTION, whichever
+			// route it takes (council compliance seat, 2026-08-16). The first
+			// version banded every human-routed finding at medium/35, which put
+			// the case this whole mechanism exists for — a live tax calculator
+			// whose figure has demonstrably moved, on a page the fence forbids
+			// auto-fixing — BELOW an auto-fixable drift at high/30. That inverts
+			// risk: the harder a thing is to fix automatically, the more urgent
+			// it is, not less. A lost citation or a first-time reconciliation is
+			// a question; a moved number on a served page is a defect.
+			//
+			// Three bands, ordered by what is actually known:
+			//   value_drift             high/30   — a served number has demonstrably moved
+			//   evidence_drift          medium/35 — the source under a served number changed
+			//   unreconciled_declaration low/60   — nobody has ever checked this pair
+			//
+			// The third is banded lowest deliberately, and not only by risk. A
+			// tool declaring 13 facts (mortgagecalculator's SDLT fence is exactly
+			// that) files 13 reconciliation items on its first sweep — a one-time
+			// burst, per (fact, tool), which is the grain the baseline needs to
+			// stay self-quieting. Kept per-fact rather than collapsed per-tool so
+			// a coarser key cannot swallow later per-fact findings (bugs_open/091's
+			// shape, raised by the council's bug_historian seat), and banded low so
+			// the burst reads as a backlog to work through rather than 13 alerts
+			// in a queue that has no working surface yet (bugs_open/033).
+			switch em.Kind {
+			case "value_drift":
+				item.severity, item.priority = "high", 30
+			case "evidence_drift":
+				item.severity, item.priority = "medium", 35
+			default:
+				item.severity, item.priority = "low", 60
+			}
 			item.summary = fmt.Sprintf("Fact drift for tool %s: %s %s (%s)", em.SubjectKey, em.FactID, em.Kind, em.Reason)
 		}
 

@@ -101,3 +101,65 @@ that asserts nothing and is credited automatically at report time.
   its own round rather than riding in on this one.
 
 All three are named as residual in `bugs_open/288`, not left as folklore.
+
+## 2026-08-16 (later) — council round 1: REVISE, and it found the defect I could not see
+
+**The verdict was REVISE, gated by `editquality`, and it was worth every minute.** The
+memory line "a REVISE round is cheaper than the defect it finds" held again.
+
+### The gating objection, which I had reasoned my way INTO
+
+> classifyFactDrift's baseline is defined purely from PRIOR REGISTER state … So a tool
+> that is wrong from the day it opts in, against a register fact whose value has been
+> stable since (exactly bug 225's shape: correct register, stale code, no subsequent
+> legislative change), produces baseline == current and … emits nothing.
+
+I had a test asserting that silence — `TestClassifyFactDrift_NoBaselineIsSilent` — with
+a comment explaining that "is the current number right" is Piece 4's question. **The
+reasoning was sound and the behaviour was still wrong**, which is the interesting part.
+The distinction I missed: I do not need an oracle to notice that *nobody has ever
+checked this pair*. That is not a claim about arithmetic; it is a claim about our own
+records, and we hold those.
+
+So a first declaration now files one `unreconciled_declaration` review item per (fact,
+tool). It is self-quieting — the item carries the value, which becomes the next pass's
+baseline — and the mutation test proves the point: **M8 reverts to the old behaviour and
+the new test fails**, so the objection is closed by construction, not by assertion.
+
+**The transferable lesson, which is not "listen to reviewers".** My silence had a
+*justification*, and the justification was true. A defensible reason for a behaviour is
+not evidence the behaviour is right — it only proves the behaviour is not accidental.
+The test I wrote asserted my reasoning back to me, which is the most comfortable kind of
+green there is. What the seat did that I did not: it took the mechanism's own motivating
+bug and ran it through the new code. **The check I should have written first: does this
+fire on 225?** It did not, and nothing in my thirteen tests asked.
+
+### Two more real findings, and three answered by measurement
+
+- **`compliance` (medium)** — a risk inversion I had built in without noticing: every
+  human-routed finding sat at medium/35, so a *confirmed* value move on a `no_auto_fix`
+  tax calculator ranked BELOW an auto-fixable drift at high/30. The harder something is
+  to fix automatically, the more urgent it is, not less. Now three bands.
+- **`debug_historian` (high)** — `p.status='active'` is the estate's LIVENESS predicate
+  and is documented as wrong for anything choosing which pages to JUDGE. The sharp part
+  of the objection was not the predicate itself but the asymmetry: *I had measured the
+  eligibility predicate and not this one, in the same query*. Now uses the shared
+  `NeverDeployedPagePredicateFor`. **Measured before changing it: both motivating pages
+  are `active`/`deployed`, so it would NOT have shipped inert — 198 active vs 6
+  archived tool pages fleet-wide. The fix closes a door rather than repairing a miss**,
+  and I have said so rather than letting it read as a catch.
+- Answered without code changes, each by a query or a citation: the fact id **is** in
+  the `item_key` (the sketch hid it); a persistently-403 source is **not** permanent
+  silence (the citation arm ages a fact past `staleness_days` regardless of fetch
+  success, and that arrives here as evidence_drift); **one** agent type calls the
+  action; the optional-key budget audit reports **0 shared actions over N=10**, so P11
+  does not flip this to architecture scope.
+
+### A design call the round forced into the open
+
+Filing per (fact, tool) means seeding mortgagecalculator's 13-fact fence produces 13
+reconciliation items at once. Collapsing to one item per tool would be tidier and is
+**wrong**: a key coarser than the finding drops every finding after the first
+(`bugs_open/091`), which the `bug_historian` seat raised in the same round. Kept
+per-fact, banded low, and the burst is named in the CONTRIB so the receiving lane is
+not surprised by it.

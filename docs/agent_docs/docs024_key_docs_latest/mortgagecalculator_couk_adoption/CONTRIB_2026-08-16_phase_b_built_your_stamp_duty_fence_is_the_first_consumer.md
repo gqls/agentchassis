@@ -48,6 +48,27 @@ LANDMINES via CLM-022.
 Then verify: `SELECT body LIKE '%"facts"%' FROM doc_plans WHERE subject_type='tool'
 AND subject_key='stamp-duty' AND is_current;`
 
+## Expect a one-time burst of 13 items when you seed it
+
+The mechanism files a low-severity `fact_drift_review` per (fact, tool) the first time a
+pair has no reconciliation on record — so a 13-fact declaration produces **13 items on
+the first sweep**, priority 60, all saying "confirm the tool encodes this figure". That
+is deliberate, not a bug:
+
+- It exists because the council caught that a tool which is stale *on the day it opts
+  in* — against a fact that has not moved since — would otherwise emit nothing. That is
+  precisely `bugs_closed/225`'s shape, so the mechanism would have been blind to its own
+  motivating case.
+- It is **self-quieting**: each item records the value, which becomes the baseline, so
+  the following day is silent. You will not get 13 more.
+- It is per-fact rather than per-tool because a key coarser than the finding drops every
+  finding after the first (`bugs_open/091`).
+
+If you would rather not take 13 items at once, seed a subset of ids first (the two the
+225 defect actually turned on are `sdlt-ftb-relief-cap` and
+`sdlt-additional-surcharge-floor`) and add the rest later — the declaration is a list,
+and adding to it is safe.
+
 ## Three things you should know before you apply it
 
 1. **On your site, every route ends with a human.** Your `stamp-duty` fence carries

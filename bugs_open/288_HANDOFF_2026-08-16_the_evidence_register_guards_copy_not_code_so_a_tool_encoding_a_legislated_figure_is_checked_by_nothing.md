@@ -126,6 +126,34 @@ whose Piece 1 has been live since migration 366 (CLM-021).
    same seam, would give RFC_025 its first consumer; not bundled here because it
    changes an existing mechanism's semantics and deserves its own round.
 
+## The council round, and the defect it caught (2026-08-16)
+
+Round 1 came back **REVISE**, gated by the `editquality` seat, and the gating objection
+was **right in a way that would have shipped a mechanism blind to its own motivating
+bug**. Recorded here because it is the most useful thing in this file:
+
+> the baseline is defined purely from PRIOR REGISTER state … a tool that is wrong from
+> the day it opts in, against a register fact whose value has been stable since
+> (exactly bug 225's shape: correct register, stale code, no subsequent legislative
+> change), produces baseline == current and … emits nothing.
+
+**That is 225 exactly.** The fix: a declaration with no baseline now files one
+`unreconciled_declaration` review item per (fact, tool) asking a human to confirm the
+tool encodes the registered value. It is self-quieting — the item carries the value,
+which becomes the next pass's baseline — and it is banded low, because 13 declared
+facts means 13 one-time items and that is a backlog, not 13 alerts.
+
+Two further findings acted on, and three answered by measurement rather than by change:
+
+| seat | finding | outcome |
+|---|---|---|
+| `compliance` (med) | every human-routed case sat at medium/35, ranking a confirmed move on a `no_auto_fix` tax calculator BELOW an auto-fixable one | **fixed** — three bands; a confirmed move is high/30 whichever route it takes |
+| `debug_historian` (high) | `p.status='active'` is the liveness predicate and is wrong for an AUDIT — and the equivalent check had been run for the eligibility predicate but not this join | **fixed** — now uses the shared `NeverDeployedPagePredicateFor`. Measured: both motivating pages are `active`/`deployed`, so it would not have shipped inert; 198 active vs 6 archived tool pages fleet-wide |
+| `bug_historian` (high) | is the fact id in the `item_key`, or will a second drifted fact on the same tool be swallowed (bugs_open/091)? | **already correct** — `fact_drift:<fact_id>:<subject_key>:<site_id>`; the sketch had hidden it |
+| `bug_historian` (med) | a persistently-403 source means permanent silence | **answered** — `refreshCitationFact` marks a fact drifted once it passes `staleness_days` whether or not the fetch succeeded; that arrives here as evidence_drift. Time-based, not attempt-based |
+| `guardian` (med) | how many callers share the modified action? | **measured: one** — `evidence-freshness` |
+| `architecture` (med) | does P11 cross the WFA-013 optional-key budget (N=10)? | **measured: no** — `audit-optional-key-budget.sh` reports 0 shared actions over budget |
+
 ## How to verify (after the roll)
 
 ```bash
