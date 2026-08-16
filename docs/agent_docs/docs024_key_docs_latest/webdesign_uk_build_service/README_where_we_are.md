@@ -1318,3 +1318,40 @@ was mis-built, but the sentence was wrong in four places and is corrected in eac
 
 Decisions still yours: the contact email question, the Stripe webhook hostname, and
 (new) noted.co.uk's facts if you want its chat box next.
+
+### 2026-08-16, later — what "one sitechat binary, one template unit" actually means (owner asked; my earlier entry was too compressed)
+
+The chat program used to BE webdesign.uk's chat program: the sentence it opens
+with ("you are the intake assistant for webdesign.uk, a service that builds
+complete websites...") was a fixed line inside the compiled program. A second
+site meant editing that line and maintaining a second program.
+
+Now that sentence is assembled at startup from two values handed to the
+program — the domain, and a short phrase describing the business. So one
+program file on the box can serve every site on it, and when the code improves,
+one file gets replaced and every site gets the improvement.
+
+The "template unit" is systemd's way of running many services from one
+definition: `systemctl start sitechat@noted.co.uk` reads that site's own
+settings file and keeps that site's own data, with no new program and no new
+service file. webdesign.uk keeps its existing named service pointed at the
+same shared program, so its data and its logs stay where the runbooks say.
+
+Two refusals are built in, both deliberate. If the domain or the description is
+missing, the program will not start — because any default would have to be some
+site's identity, and the failure that produces is a bot introducing itself to
+one company's visitors as a different company, silently, for ever. And if the
+facts arriving from the cluster are labelled with a different domain than the
+one this instance was told it is, it rejects them: the settings files for two
+sites differ by a few lines, so the likely mistake is copying one and missing
+the address line, which would have noted's bot quoting webdesign's prices with
+every check reporting success. Both refusals were triggered on purpose this
+morning and behaved.
+
+"Mutation-proven" means I deliberately broke the safeguard, confirmed the test
+FAILED, then restored it and confirmed it passed — because a test that passes
+either way is not evidence of anything.
+
+What this does not buy: a second site's visitors actually chatting. noted.co.uk
+has no attested facts yet, so the program correctly refuses to start for it.
+That is the decision waiting on you, not a fault.
