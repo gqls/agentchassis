@@ -2019,3 +2019,58 @@ Still open after that: bind `authenticated-note-sync` + `legacy-local-data-adopt
 to the built components (§4.1, `site_experiences`, proposed → bound → verified) —
 the editor now EXISTS to bind to; then cutover (§4.5, owner's word) with the §6
 origin probe and the smoke re-run against the apex.
+
+---
+
+## 2026-08-15 — owner: "that all works" — BLOCKER 4 CLOSED
+
+The owner walked the four parts by hand at `https://app.noted.co.uk/tools/write/`
+(normal save; devtools-Offline outage; close-tab prompt; cross-browser proof) and
+confirmed. The judgement that was always his — loud enough, obvious enough for a
+person mid-thought — is made. Degraded states verified by hand; handoff §5
+blocker 4 closed. Launch conditions remaining: bind the experience patterns
+(§4.1), then cutover (§4.5) on his word.
+
+### The experience patterns are BOUND (§4.1) — through the action, and its doors earned their keep
+
+`bind_site_experience` (bind_site_experience_action.go) refuses four things —
+unclosed binding, empty value, anchorless selector, dead page — and I hit two of
+its refusals before it accepted, both correct:
+
+1. **"no bindings supplied"** — shape, not content: `bindings_field` defaults to
+   `experience_bindings` at the ROOT of collected data; mine sat under
+   `input_data.` Fixed with the config key the spec provides
+   (`bindings_field: input_data.experience_bindings`), not by moving the payload.
+2. **"`empty_state` is supplied but the entry never reads it"** — door 1's second
+   half, the one the header says rots: a value nothing uses misrepresents what the
+   fork asserts. Dropped it.
+
+**One schema change, stated in the SQL and here:** `legacy-local-data-adoption`
+declared `adopt_control` as REQUIRED and used it in **zero** checks or contract
+clauses. It was declared on 08-11 for the sign-in-and-copy-up route that was
+deliberately not built (the download route is the mandatory one — §6, no account
+needed). Binding a required key to a selector that does not exist on the page
+would be exactly the "check that cannot fail" the action's own header warns of.
+Made optional with the reason written INTO the schema; required again when the
+adopt route ships. `EXPERIENCES_2026-08-15_bind_noted_patterns.sql`.
+
+**A correction to my own read, cheap because I checked before asserting:** I first
+took door 4 ("a page role that resolves to nothing") to mean
+`destination_roles=["account"]` would refuse — this site has no `account` page,
+the editor is `role=tool`. Reading `experiencePageBindings` shows door 4 checks
+bindings whose SCHEMA type is `page`, and both schemas type everything `string`.
+Door 4 was never engaged.
+
+`[MEASURED]` `site_experiences`: both rows **`proposed`**, every selector a real
+element id on a deployed page (`#nw-*` from noted-write.html; `#lr-*` from
+noted-legacy-rescue.html), `api_base` `/api` (same-origin, correct on both hosts
+and after cutover). `proposed` not `bound` because both patterns are still
+`draft` — the action records a draft's fork as a proposal, which is §4.1's first
+rung, not a step skipped. Promoting the patterns out of draft, and the green run
+that writes `verified`, are the experience loop's job; three checks stay
+known-unrunnable by the platform and are covered by the two Playwright probes.
+
+**Everything before cutover is now done.** §4.5 remains, on the owner's word:
+repoint the apex from B2 to the box, keep the legacy app reachable for a grace
+period, re-run `test_legacy_rescue.py`'s origin premise and
+`smoke_live_editor.py https://noted.co.uk` on the new origin the moment it flips.
