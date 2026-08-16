@@ -161,3 +161,45 @@ the honest version.
 
 The underlying code change is unaffected by any of this — it was written, tested and committed before
 the submission was ever sent.
+
+## 2026-08-16 (end of session) — the review passed, and the round that failed was the useful one
+
+The change has been through the review council and is **approved** — three advisory comments, none of
+them serious, and none blocking.
+
+It took two rounds, and the first one is the part worth telling you about. It came back **revise**, and
+two of its three substantive objections were right.
+
+The first: I had written a small helper to read a number out of configuration, and a reviewer asked
+whether I had checked that the codebase already has helpers for exactly that. **I had not.** I went and
+looked. There are two, and neither fits — both of them collapse "nobody chose a limit" and "somebody
+chose zero" into the same answer, and that distinction is the whole reason my version exists, because
+it is what lets one of the three model providers deliberately send nothing where the other two send a
+default. So the helper stays, but the reviewer was right that I should have checked before writing it,
+and the check is now written into the code so nobody has to ask again.
+
+The second: a reviewer pointed out that these model clients have a second entry point for requests that
+include images, that our own internal warnings list names it alongside the ordinary one, and that my
+description never mentioned it. As it happens the image path already runs through the same code I
+fixed, so it was working. But "it happens to share the code path" is a statement about code that
+somebody can restructure next week, and this project's own rule is that an unverified claim is itself
+the problem. So there are now three tests covering it, and I checked they genuinely fail if that
+sharing is broken.
+
+The second round then approved, and left three minor notes. Two of them I could settle with a single
+search each, and I did — one asked whether I had counted a category of risk the same way I had counted
+the others, and the honest answer was no, I had counted the one I thought of. Both came back clean.
+The third was a fair criticism of presentation: one of my eight items was a comment-only change that I
+had not labelled as clearly as the other two, so it could read as more than it was.
+
+That is the real argument for these reviews, and it is not that they catch disasters. Both useful
+findings were a single command away, neither had been run, and both came from a question I would not
+have asked myself — because I had already done the version of that check that occurred to me.
+
+**Where this leaves the work:** finished and approved, waiting only on the next fleet build to become
+live. Nothing else is owed on it. Two things are deliberately left for you to decide, and both are
+written down where the next person will find them: whether to merge the two near-duplicate copies of
+the "which limit wins" rule, and whether to make direct model calls visible to our truncation
+monitoring — that second one matters a little more now than it did before, because such calls used to
+be invisible *and* stuck at a known small limit, and are now invisible and running at whatever their
+configuration says.
