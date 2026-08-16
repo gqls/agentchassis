@@ -142,3 +142,18 @@
   repo-relative with no traversal or whitespace` — my three-files-in-one `file` field. Fixed (single
   path; other files named in symbol/rationale) and republished ONCE (`RUN_ORCH_ID=0b7c937d`,
   envelope `eca48e3f`). WRONG_CALLS row written. Check the run's `current_step` at +60 s next time.
+- **Round 2 verdict 15:31Z: APPROVED** ("approved with 3 advisory objection(s) — none high-severity",
+  3 abstained). prior_art_librarian → approve. Advisory: bug_historian medium (other writers of
+  `pages.sections` can still write a lock-blind list between builds — true, the loader repairs it
+  at the next build; recorded in LOCK-008 as residual 1) + low (best-effort skip is still a
+  proceed — the durable row is the mitigation, stated); guardian medium (the save-file hoist rode
+  in the same edit slot as an unrelated delegate — bundling in the SUBMISSION, one-line SQL hoist
+  in the CODE; and the drift check's loud failure is fleet-wide — accepted, residual 2) + low
+  (jsonb sync changes updated_at cadence fleet-wide — intended); architecture medium
+  (cross-package contract without an enforced call path — residual 3, source-scan lockstep named
+  as the mechanical answer if a fourth reader appears); reuse_agent low ×2 (mirrored arms, two
+  loaders — answered in round 2, accepted as advisory); editquality low (says arm 3 is not IN
+  matchLockedRow — correct: it stands in for the identity arm the list cannot apply; the
+  resubmission said so, and the register entry says so). Both code commits already carry
+  `Council-Submitted: 79f70435`; 098 credits them at report time. Register/016b/bug file updated
+  with the verdict.

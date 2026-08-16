@@ -80,3 +80,13 @@ leaves a permanent record of having skipped the merge instead of just a log line
 same lock test by a test; and there is a test proving that pages WITHOUT locked sections behave
 exactly as before except that the cache write is now a genuine no-op when nothing changed. Both
 rounds' code is committed; the second review is running on the same trail.
+
+## 2026-08-16 — approved on the second round
+
+The council approved the revised submission (three advisory notes, none blocking). The two
+worth keeping in view: other parts of the system also write a page's cached section list and can
+still write it without the locked section between builds — the next build corrects it, and the
+health check now tolerates that difference, but it is a window; and nothing FORCES a future
+reader of section lists to use the new merge — the register names today's readers, and if a
+new one appears the mechanical answer is a test that scans for readers. Nothing left to do on
+this bug until the next fleet build lands; then the contact-page acceptance run closes it.

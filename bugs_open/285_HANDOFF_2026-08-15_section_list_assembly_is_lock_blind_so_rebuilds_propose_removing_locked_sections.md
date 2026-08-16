@@ -164,9 +164,10 @@ path is fine) and assert, in order:
 
 ## Implementation — 2026-08-16, fixing lane `bugfix_285_lock_blind_section_list/` (session `390a1ae1`)
 
-**Status: FIX COMMITTED `7d9b7334a` (Go — inert until the next chassis roll), council
-corr `79f70435-fadc-4e1b-b9d3-6d41f437f7fd` (`Council-Submitted:` trailer; verdict recorded
-in the lane NOTES when read). This file stays OPEN until the owner's five criteria above pass
+**Status: FIX COMMITTED `7d9b7334a` + round-2 `57336c127` (Go — inert until the next chassis roll), council
+corr `79f70435-fadc-4e1b-b9d3-6d41f437f7fd` **APPROVED round 2 (2026-08-16 15:31Z)** after a round-1 REVISE
+(arm-order confirmation, durable merge-skip trace, ROW/LIST loader lockstep test, no-locked-rows regression test — lane NOTES).
+Advisory residuals from the approving round are in register LOCK-008. This file stays OPEN until the owner's five criteria above pass
 post-roll — run by the filing lane, which holds the chat-box lock.**
 
 What shipped (candidate 1, made shared — register **LOCK-008**, `register/locks.md`):
