@@ -4607,3 +4607,16 @@ below ran from `git archive HEAD` + this task's files in scratch.
 - **FIRST WINDOW READ — 672 rows in 4.5 h; the disconfirmation clause fires.** Recorded as
   RFC_029 §10.5 with the breakdown; mechanism reading marked `[INFERRED]` for `090`. Phase 2 is
   off the calendar. Handoff §2.3/2.4 rewritten accordingly.
+- **417 APPLIED by the owner 15:58:18Z** (v1.0.1304): `UPDATE 1`, DO-block passed, COMMIT;
+  mapping verified `asset_id!` / no `asset_id?`; ledger recorded. **Run twice** — the replay's
+  `UPDATE 0` proved the fence held and hid two out-of-fence side effects: a decoy snapshot
+  (post-change content, `pre-update` reason — my "latest snapshot" rollback check was therefore
+  WRONG; corrected in the header, WRONG_CALLS row, generalised into LANDMINES) and a duplicate
+  `doc_notes` row (deleted under a guard that only fires on an exactly-2 identical pair).
+  Live proof still pending: 0 image-build-handler runs since the apply; a background watch is
+  armed on the first post-apply child, with `has_suffixed_key_BAD` as the two-way control.
+- **Baseline discipline note:** I ran `diff … git show HEAD~1:<file>` to prove the header edit
+  was comment-only, on a tree where HEAD moves every few minutes — the check was unsound the
+  moment another session committed. Re-ran it against the PINNED sha `53edef286`
+  (MEMORY [[a-baseline-that-reads-head-expires-when-you-commit]] — I had the lesson and used the
+  wrong ref anyway). Result stands: every SQL statement byte-identical, one blank line differs.

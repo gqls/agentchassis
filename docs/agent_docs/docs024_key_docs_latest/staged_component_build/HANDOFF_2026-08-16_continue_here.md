@@ -63,19 +63,32 @@ anything resolver-shaped — it supersedes §10.2).
    WHERE correlation_id='75091072-9d65-433e-8a30-84719dc3f30f' AND kind='council_report' ORDER BY created_at;
    ```
    (Round 1's report is the oldest row; the two round-2 reports follow.)
-2. **Apply migration 417 BY HAND** — its precondition is met and its checks are measured, but
-   **this session's apply was refused by the harness's permission classifier** (a live
-   production config mutation). The owner, or a session with that permission, runs:
-   ```bash
-   kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -v ON_ERROR_STOP=1 \
-     -f - < docs/agent_docs/sql_for_agents/417_image_build_handler_asset_id_goes_strict_HOLD.sql
+2. ~~Apply migration 417 BY HAND~~ **DONE — the owner applied it 2026-08-16 15:58:18Z on
+   v1.0.1304.** `UPDATE 1`, verify DO-block passed, `COMMIT`; live mapping now carries
+   `asset_id!` and no `asset_id?`; ledger row recorded (record-only). **It was run TWICE**
+   (15:58:43Z): the UPDATE fence held (`UPDATE 0`) but the two statements OUTSIDE it fired
+   again — a second `snapshot_agent` row carrying the POST-change config under a `pre-update`
+   reason (so "the latest snapshot" is the WRONG pre-image; the true one is 15:58:18Z — new
+   LANDMINE + WRONG_CALLS, and 417's header is corrected), and a duplicate `doc_notes` row
+   (deleted under a guard, keeping the first). **STILL OWED: the live proof** — no
+   image-build-handler run has happened since the apply (0 as of 16:1xZ; they come in bursts).
+   The first post-apply asset-deployer child of an image-build-handler parent must carry a
+   bare `asset_id`:
+   ```sql
+   SELECT c.created_at, c.status, c.collected_data->'input_data'->>'asset_id' AS asset_id,
+          (c.collected_data->'input_data') ? 'asset_id!' AS has_suffixed_key_BAD
+   FROM orchestration_states c
+   WHERE c.owner_agent_type='asset-deployer' AND c.created_at > '2026-08-16 15:58:18+00'
+     AND EXISTS (SELECT 1 FROM orchestration_states p
+                  WHERE p.orchestration_id=c.parent_orchestration_id AND p.owner_agent_type='image-build-handler')
+   ORDER BY c.created_at LIMIT 3;
    ```
-   then the header's two post-checks (mapping carries `asset_id!` and not `asset_id?`; the
-   latest `agent_definitions_backup` row for image-build-handler has `has_old = t`), then
-   **watch the next image-build-handler → asset-deployer spawn** (they come in bursts, 11–16/h
-   when image builds run; last one 10:09Z today) — the child's `input_data` must carry a bare
-   `asset_id` (29/29 baseline). If it does not: the ROLLBACK file is one command, snapshot
-   already taken. Record the ledger row (`schema_migrations`, `record-only`, notes) after.
+   `has_suffixed_key_BAD = t` (a child receiving a key literally named `asset_id!`) means the
+   binary does not parse the marker — roll back at once:
+   `… -f - < docs/agent_docs/sql_for_agents/417_image_build_handler_asset_id_goes_strict_HOLD_ROLLBACK.sql`
+   (a forward jsonb transform fenced on `asset_id!`; it does NOT depend on the snapshot rows).
+   Two asset-deployer spawns since the roll were build-dispatch-loop children
+   (`needs_brand_head_assets`, no asset in spec) — the 402 `?` doing its job, not 417's path.
 3. ~~After the next chassis roll~~ **ROLLED 2026-08-16 10:41Z — v1.0.1304, stamp `5de6cddbe`
    (probed), ancestor of `53edef286`. The window is OPEN and already answering: 672 rows in
    ~4.5 h — read RFC_029 §10.5.** The next real work on this lane is the PER-PAIR TRIAGE of
