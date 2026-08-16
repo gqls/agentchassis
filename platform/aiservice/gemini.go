@@ -127,6 +127,13 @@ type GeminiClient struct {
 	thinkingBudget *int
 
 	embeddingModel string
+
+	// maxTokens is the VISIBLE-text budget applied when a caller passes none.
+	// Resolved at construction from the same `ai_service` config `model` comes
+	// from; DefaultMaxOutputTokens when unconfigured (max_tokens.go,
+	// bugs_open/257). thinkingReserve is added on top of it for a thinking
+	// model, exactly as it is for a caller-supplied budget.
+	maxTokens int
 }
 
 // geminiModelThinks reports whether the model should be assumed to spend output
@@ -185,6 +192,9 @@ func NewGeminiClient(ctx context.Context, config map[string]interface{}) (*Gemin
 		httpClient:      &http.Client{Timeout: 600 * time.Second},
 		thinkingReserve: defaultGeminiThinkingReserve,
 		embeddingModel:  "text-embedding-004",
+		// Opt-in by construction: absent `max_tokens` yields the pre-257
+		// constant, so an unconfigured client builds a byte-identical request.
+		maxTokens: resolvedMaxTokens(config),
 	}
 
 	if raw, exists := config["thinking_reserve_tokens"]; exists && raw != nil {
@@ -302,7 +312,19 @@ func (c *GeminiClient) generate(ctx context.Context, parts []map[string]interfac
 	// maxOutputTokens is a total that thinking is drawn from first, so for a
 	// thinking model the two are not the same number (see
 	// defaultGeminiThinkingReserve).
-	visibleBudget := 2048
+	// The CONFIGURED visible-text budget, not a literal — still overridden by
+	// options["max_tokens"] just below, so the canonical ExecuteAIStepAction
+	// path is unaffected (bugs_open/257).
+	//
+	// Floored for the reason anthropic.go's generate gives: a struct-literal
+	// client (every fake in this package's tests) carries 0, and 0 here would
+	// silently become a request for `thinkingReserve` tokens of visible text —
+	// i.e. zero answer. The existing suite cannot see that; it passed with the
+	// field unset.
+	visibleBudget := c.maxTokens
+	if visibleBudget <= 0 {
+		visibleBudget = DefaultMaxOutputTokens
+	}
 	if options != nil {
 		switch mt := options["max_tokens"].(type) {
 		case int:

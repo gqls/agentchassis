@@ -10,8 +10,28 @@
 // worse, `map[string]interface{}{}`, which looks deliberate — silently gets the
 // provider's hardcoded fallback instead, whatever the config says.
 //
-// For Anthropic that fallback is **2048 output tokens**
-// (`platform/aiservice/anthropic.go:109`), the smallest number in the estate.
+// For Anthropic that fallback is **2048 output tokens**, the smallest number in
+// the estate.
+//
+// > **CORRECTED 2026-08-16 — the paragraph above was true when written and is
+// > now HALF true, so it is corrected in place rather than deleted.**
+// > `bugs_open/257` Path A moved budget resolution INTO the provider clients
+// > (`platform/aiservice/max_tokens.go`). A direct caller passing `nil` or an
+// > empty map no longer "silently gets the provider's hardcoded fallback
+// > whatever the config says" — it now inherits `ai_service.max_tokens` from the
+// > config the client was CONSTRUCTED with, and reaches the 2048 fallback only
+// > when nobody configured a budget at all.
+// >
+// > **This helper is still the right thing to call**, for the two reasons the
+// > client cannot cover: (a) it reads the STEP's config, which is never passed
+// > to a client constructor, and (b) it forwards `budget_tokens`. What changed
+// > is the CONSEQUENCE of forgetting it — a wrong-but-configured budget, not a
+// > silent 2048.
+// >
+// > The line references in this file were also stale: the hardcoded fallback
+// > moved from `anthropic.go:109` to `:185` when the prompt-caching work
+// > (`bugs_open/244`) landed, and it is now `DefaultMaxOutputTokens`. Line
+// > numbers in comments rot; the constant name will not.
 //
 // MEASURED, 2026-08-10, and this is why the file exists rather than a comment:
 // `generate_provocations` passed an empty options map. Its step config was given

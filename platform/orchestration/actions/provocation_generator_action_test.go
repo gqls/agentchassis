@@ -474,9 +474,12 @@ func TestNoProvocationActionCallsAModelWithAnEmptyOptionsMap(t *testing.T) {
 			sawCall = true
 			if strings.Contains(line, "map[string]interface{}{}") {
 				t.Errorf("%s:%d calls GenerateText with an empty options map:\n\t%s\n"+
-					"That pins the call to the provider's hardcoded 2048 output tokens "+
-					"(anthropic.go:109) whatever ai_service.max_tokens says. Pass "+
-					"llmOptionsFromConfig(...) instead.", file, i+1, strings.TrimSpace(line))
+					"Since bugs_open/257 that no longer pins the call to 2048 — the client "+
+					"resolves ai_service.max_tokens from its own construction config "+
+					"(aiservice.DefaultMaxOutputTokens is the floor). But an empty map still "+
+					"drops this STEP's own max_tokens and its budget_tokens, neither of which "+
+					"a client constructor ever sees. Pass llmOptionsFromConfig(...) instead.",
+					file, i+1, strings.TrimSpace(line))
 			}
 		}
 		// A scan that finds nothing to check passes for the wrong reason — if the

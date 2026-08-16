@@ -24,5 +24,13 @@ custom:
     provider: "anthropic"
     model: "claude-3-opus-20240229"
     temperature: 0.2
+    # LIVE since bugs_open/257 (2026-08-16). Before that this key was read by
+    # nobody: the agent calls GenerateText with nil options (agent.go:127) and
+    # the client discarded everything but api_key/model, so the request always
+    # carried the hardcoded 2048 — the same number by coincidence, which is why
+    # nothing ever looked wrong. Raising it now actually raises the budget.
+    # Left at 2048 deliberately: measured 2026-08-16, this service has no
+    # producer on its topic and no truncation in its logs, so there is no
+    # evidence to size against and a change would be a guess.
     max_tokens: 2048
     api_key_env_var: "ANTHROPIC_API_KEY"

@@ -16,8 +16,15 @@ import (
 
 // AnthropicClient implements the AIService interface for Anthropic's Claude
 type AnthropicClient struct {
-	apiKey     string
-	model      string
+	apiKey string
+	model  string
+	// maxTokens is the output budget applied when a caller passes none in the
+	// options map. Resolved once at construction from the same `ai_service`
+	// config `model` above comes from; DefaultMaxOutputTokens when unconfigured.
+	// See max_tokens.go for why the client owns this rather than the caller
+	// (bugs_open/257): a nil options map used to mean a silent 2048 no matter
+	// what `ai_service.max_tokens` said.
+	maxTokens  int
 	httpClient *http.Client
 }
 
@@ -62,6 +69,10 @@ func NewAnthropicClient(ctx context.Context, config map[string]interface{}) (*An
 	return &AnthropicClient{
 		apiKey: apiKey,
 		model:  model,
+		// Opt-in by construction: absent `max_tokens` yields
+		// DefaultMaxOutputTokens, i.e. the pre-257 constant, so a config that
+		// never named the key produces a byte-identical request.
+		maxTokens: resolvedMaxTokens(config),
 		// Ceiling, not a per-call bound — callers still bound calls via ctx.
 		// The chassis's action path carries NO deadline end-to-end, so without
 		// this a stalled connection holds the consume lane until a pod roll
@@ -180,9 +191,25 @@ func (c *AnthropicClient) generate(ctx context.Context, content interface{}, opt
 	// Build request. content is either a plain string (GenerateText) or a
 	// block array (GenerateWithImages) — the Messages API accepts both shapes
 	// in the same field.
+	// A client built through NewAnthropicClient always carries a positive
+	// budget. A client built as a STRUCT LITERAL does not — every fake in this
+	// package's own tests is one, and a zero would be sent to the API as
+	// `max_tokens: 0`, which is a 400. Measured while writing this: the whole
+	// aiservice suite passed with the field unset, so the existing tests cannot
+	// see it. Floor it here rather than trusting construction, so the bad state
+	// is unrepresentable at the wire (bugs_open/257).
+	budget := c.maxTokens
+	if budget <= 0 {
+		budget = DefaultMaxOutputTokens
+	}
+
 	requestBody := map[string]interface{}{
-		"model":      c.model,
-		"max_tokens": 2048,
+		"model": c.model,
+		// The CONFIGURED budget, not a literal. Still overridden by
+		// options["max_tokens"] below, so the canonical ExecuteAIStepAction
+		// path is unaffected; this is what a direct caller inherits instead of
+		// a hardcoded 2048 (bugs_open/257).
+		"max_tokens": budget,
 		"messages": []map[string]interface{}{
 			{
 				"role":    "user",

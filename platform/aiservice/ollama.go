@@ -25,8 +25,15 @@ import (
 )
 
 type OllamaClient struct {
-	apiURL     string
-	model      string
+	apiURL string
+	model  string
+	// maxTokens is the configured output budget, or 0 for "operator chose
+	// nothing". Unlike anthropic/gemini there is NO fallback constant here:
+	// when nothing is configured this client omits num_predict entirely and
+	// lets the Ollama server apply its own default, which is the behaviour it
+	// has always had. bugs_open/257 is about a configured budget failing to
+	// arrive — not a licence to impose a ceiling where there was none.
+	maxTokens  int
 	httpClient *http.Client
 }
 
@@ -48,9 +55,14 @@ func NewOllamaClient(ctx context.Context, config map[string]interface{}) (*Ollam
 		return nil, fmt.Errorf("model not specified in ollama ai_service config")
 	}
 
+	// configMaxTokens, not resolvedMaxTokens: 0/absent must stay 0 here so the
+	// unconfigured request keeps omitting num_predict (see the struct comment).
+	maxTokens, _ := configMaxTokens(config)
+
 	return &OllamaClient{
-		apiURL: apiURL,
-		model:  model,
+		apiURL:    apiURL,
+		model:     model,
+		maxTokens: maxTokens,
 		httpClient: &http.Client{
 			Timeout: 120 * time.Second,
 		},
@@ -67,6 +79,14 @@ func (c *OllamaClient) GenerateText(ctx context.Context, prompt string, options 
 		"options": map[string]interface{}{
 			"temperature": 0.7,
 		},
+	}
+
+	// The configured budget, applied BEFORE the options map and OUTSIDE the
+	// nil-check — a caller passing nil options is exactly the case bugs_open/257
+	// is about, and it must still inherit what the operator configured. A
+	// caller-supplied max_tokens overrides it below.
+	if c.maxTokens > 0 {
+		requestBody["options"].(map[string]interface{})["num_predict"] = c.maxTokens
 	}
 
 	if options != nil {
