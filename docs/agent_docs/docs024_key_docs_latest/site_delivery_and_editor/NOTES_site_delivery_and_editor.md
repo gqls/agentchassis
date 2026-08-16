@@ -309,3 +309,24 @@
   The 411 fix (`b4981634d`) is therefore proven in production, not just in
   test: yesterday this failed on the first file, today the same tree copies
   clean on the first attempt.
+- **16:11Z — NO-DRIFT PROVEN, and checked for the RIGHT REASON.** The second
+  tick's `published_at` was unchanged — but a FAILED tick would look
+  identical, so the result payload was read: orchestration COMPLETED with
+  `{"published": false, "skipped": true, "reason": "no drift", "tree_hash":
+  "th1:05a06351…"}` — and that hash equals the stored `published_hash`
+  exactly. **PHASE 2 IS COMPLETE**: publish on drift, don't publish without
+  it, and never record success the served bytes don't support.
+- **Operational finding + change made the same hour**: every tick spawns a
+  `site-publisher` pod EVEN WHEN THE ANSWER IS NO-DRIFT — the drift check
+  needs bucket credentials, so it cannot run on the chassis. Measured: 2
+  lingering pods after 2 ticks (11m-old one still Running), i.e. ~144
+  pod-spawns/day per opted-in site to answer "nothing changed". **Interval
+  raised 600s → 3600s** (live UPDATE + the seed file's value and rationale
+  updated together, so a fresh apply matches production). A built tree
+  changes a few times a day at most; an hour of mirror latency on a
+  delivered site is immaterial. If a future backend can answer drift without
+  credentials, this becomes a chassis-side pre-check and the interval can
+  come back down.
+- **Canary LEFT ARMED** (noted.co.uk → noted.ugg2.com): it is now the seam's
+  continuous live proof at one no-op tick/hour. One `UPDATE sites SET
+  publish_target=NULL WHERE domain='noted.co.uk';` reverses it.

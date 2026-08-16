@@ -77,7 +77,7 @@
 --      spawn site-publisher, call it with {site_id, domain}, complete. The
 --      spawn→call pair is the estate's standing (and known-racy) handshake;
 --      a failed handshake is retried by the next tick, not by this workflow.
---   4. scheduled_tasks row site-publish-reconciler: every 600s, pre_query
+--   4. scheduled_tasks row site-publish-reconciler: every 3600s, pre_query
 --      picks the least-recently-checked opted-in site and stamps it; zero
 --      opted-in sites -> zero rows -> the gate skips and nothing fires.
 --
@@ -245,7 +245,12 @@ INSERT INTO scheduled_tasks
 SELECT
   'site-publish-reconciler',
   'Publish-seam drift sweep: one opted-in site per tick, least recently checked first. Gate skips (zero rows) while no site has publish_target set — the seam is opt-in default OFF (migration 412).',
-  600,
+  -- 3600s, not 600s: EVERY tick spawns a site-publisher pod even when the
+  -- answer is "no drift" (the drift check needs bucket credentials, so it
+  -- cannot run on the chassis), and a built tree changes a few times a day
+  -- at most. 600s was the seeded value on 2026-08-16 and was raised the same
+  -- day after measuring pods accumulating one per tick.
+  3600,
   'publish-reconciler',
   'system.agent.scheduled.requests',
   '{}'::jsonb,

@@ -1,47 +1,64 @@
-# HANDOFF 2026-08-15 — continue here: Phase 2 (publish seam) is BUILT, APPROVED, LIVE and mid-canary; next is reading the canary result, then Phase 3 (ZIP)
+# HANDOFF 2026-08-16 — continue here: Phase 2 (publish seam) is COMPLETE AND PROVEN IN PRODUCTION; next is Phase 3 (ZIP deliverable)
 
 **Start here cold.** Read order: this file → `PLAN_2026-08-14_site_delivery_and_editor.md`
-(the owner-approved design, Phases 2–6) → NOTES tail (the 2026-08-15 entries,
+(the owner-approved design, Phases 2–6) → NOTES tail (the 2026-08-15/16 entries,
 newest at the bottom — they carry every misstep and its fix).
 
 ## 0. State in one paragraph
 
-The publish seam is **live end to end**: `platform/publish` + the `publish_site`
-action shipped in the v1.0.1303 roll (verified at the binary: stamp
-`5e075a6f9…` on both replicas, `71e4d9736` is its ancestor), council **APPROVED**
-round 2 on corr `21aba3f5-ca44-4220-a680-d99f5ef0a90b` (round 1 REVISE was
-correct — see §3), migrations 412 + 423 applied (columns + `publish_project`
-uniqueness), seed 422 **hand-applied** ~22:00Z (site-publisher repurposed with a
-full-row snapshot in `agent_definitions_backup`, publish-reconciler +
-600s schedule live). The **canary is in flight**: `noted.co.uk` opted in to
-`b2worker` → `noted.ugg2.com` at ~22:04Z; the first real reconciler pass was due
-~22:11:23Z. Everything else in the fleet is publish_target NULL = OFF.
+**Phase 2 is DONE.** The publish seam is live and proven end to end on
+**v1.0.1304**: `platform/publish` + `publish_site` + the reconciler
+(`site-publish-reconciler` → `publish-reconciler` → spawned `site-publisher`),
+council **APPROVED** (corr `21aba3f5`), migrations 412 + 423 applied, seed 422
+hand-applied. The canary **noted.co.uk → noted.ugg2.com passed on 2026-08-16
+16:01Z**: 8/8 objects copied, served `index.html` sha256 byte-identical to the
+origin hash captured before any publish existed, `published_hash` written only
+after that acceptance; the next tick returned `no drift` and published nothing.
+The canary is **left armed** as continuous proof (one no-op tick/hour). Exactly
+1 site is opted in; every other site is `publish_target` NULL = OFF.
+**Phases 3–6 are unstarted.** cfpages remains deliberately unarmed.
 
-## 1. FIRST: re-arm the canary once the NEXT release rolls — the first pass ran and FOUND A REAL DEFECT (now fixed, committed, inert until the roll)
+## 1. NEXT: Phase 3 — the ZIP deliverable (PLAN Part 2e)
 
-> **UPDATE 2026-08-16 15:56Z — the fix rode v1.0.1304 (stamp `5de6cddbe`, ancestry verified) and the canary is RE-ARMED; the acceptance in §1b is now running. History of the first attempt follows.**
->
-> **SUPERSEDES the "in flight" language below (same night):** the first
-> reconciler pass executed the full chain — tick 22:11:23Z → stamp →
-> publish-reconciler → spawned `agent-site-publisher-c08f7091-rl8hc` →
-> `publish_site` ran — and failed at the FIRST upload with **HTTP 411
-> MissingContentLength**: B2's S3 gateway refuses a bare stream, and
-> `copyOne` piped the download straight into PutObject. **Fixed in
-> `b4981634d`** (buffer to a seekable reader; both test fakes now enforce
-> the gateway's contract, mutation-proven). Zero objects landed under
-> `noted.ugg2.com/` (it failed on the first file), `published_hash` was
-> never written, and the **canary is DE-ARMED** (`publish_target=NULL`,
-> `publish_project` kept) so the 600s retry loop doesn't feed the failure
-> sweeps while the fix waits on the next owner release.
->
-> **To re-arm after the next roll** (verify `b4981634d` is an ancestor of
-> the new stamp first, per §"verify the running pod" in
-> `422_site_publish_reconciler_HOLD.sql`):
-> ```sql
-> UPDATE sites SET publish_target='b2worker', updated_at=now()
->  WHERE domain='noted.co.uk';  -- publish_project already set
-> ```
-> Then follow the acceptance section below unchanged.
+New `zip_deliverable_action.go`: ListObjects prefix → stream through
+`archive/zip` (first use in the repo) → Upload under `deliverables/<domain>/`
+→ presigned URL. Council run + register entry, per the PLAN roll-up.
+
+Carry these forward — they are paid-for, not theoretical:
+- ⚠ **Do NOT copy b2worker's whole-buffer upload pattern for the ZIP's own
+  output.** b2worker buffers each small site file because B2's S3 gateway
+  411s a non-seekable body; a whole site ZIP is a different size class.
+  Stream with a known length, or multipart. A truncated ZIP is a silent
+  contractual failure (the PLAN's own ranked risk 3).
+- The action must run in a **spawned storage-enabled pod** for the same
+  reason `publish_site` does (chassis has no B2 credentials, owner ruling
+  2026-08-08). `site-publisher` is the allow-listed type already; adding a
+  new type means a spawner allow-list change.
+- Acceptance is the artefact: `unzip -l` count == object count, extracted
+  index.html sha == the B2 object, presigned 200 in-expiry / 403 after.
+- Reuse `publish.S3Source`/`ObjectStore` for listing+reading — it exists,
+  is tested, and already strips the `<domain>/` prefix.
+
+Then Phases 4 (handover state), 5 (magic-link customer auth), 6 (the editor —
+**site_id always from the session; the cross-tenant probe is the acceptance**),
+and cfpages arming (owner token + **write up the Direct Upload protocol
+decisions FIRST** — the architecture seat's standing obligation).
+
+## 1a. If you need to re-verify or re-run the canary
+
+```sql
+-- state
+SELECT domain, publish_target, publish_project, published_hash, published_at
+  FROM sites WHERE domain='noted.co.uk';
+-- force a republish (proves the whole path again)
+UPDATE sites SET published_hash=NULL WHERE domain='noted.co.uk';
+-- turn it off entirely
+UPDATE sites SET publish_target=NULL WHERE domain='noted.co.uk';
+```
+Reconciler interval is **3600s** (raised from 600s on 2026-08-16: every tick
+spawns a pod even for a no-op, because the drift check needs bucket
+credentials and cannot run on the chassis). The original acceptance recipe,
+kept because it is still how you check a publish:
 
 ## 1b. The canary acceptance (once re-armed on the fixed binary)
 
