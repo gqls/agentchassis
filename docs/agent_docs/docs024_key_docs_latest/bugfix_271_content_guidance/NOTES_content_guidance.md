@@ -209,3 +209,29 @@ raised something worth acting on, and two of those were right about a real gap.
   known-sha `/proc/1/exe` probe (present AND absent controls) as the fallback
   when the startup line has scrolled. The seat's underlying point — "unit tests
   are not deployment evidence" — is right and is exactly what that checklist is.
+
+## 2026-08-15 — a fresh roll landed and it does NOT carry the fix (the landmine, live)
+
+Told a fresh chassis build had been deployed, which was true — **v1.0.1303** —
+and the obvious next move was to run the §9 canary against it. Checked first, and
+it would have been wasted: the pods started **18:45:33Z / 18:45:58Z** and the fix
+commit `9a7d23c49` is stamped **20:42:42Z**. The build predates the fix by 1h57m.
+`deploy/agent-chassis` is settled on 1303 with nothing rolling, so no newer image
+is inbound either.
+
+Worth recording because the failure would have been *convincing*: a canary filed
+against 1303 comes back with the sentinel absent from every prompt — which is
+byte-for-byte the pre-fix symptom — and the natural read is "the fix does not
+work" rather than "the fix is not there". One `kubectl get pods -o jsonpath`
+against the commit timestamp separates those two worlds in a single command, and
+it needs no provenance line at all.
+
+**Method note, because the documented recipe did not apply cleanly:** the
+`build provenance` startup line had already scrolled out of `--tail=400` on this
+service (expected — CLAUDE.md measures it absent at `--tail=3000` on the chassis),
+and an empty grep there means "not in range", never "unstamped". The cheapest
+sound substitute when the question is only *"could this binary contain commit
+X?"* is **pod start time vs commit time** — a container that started before a
+commit existed cannot contain it, no stamp required. Keep the binary probe for
+the harder question ("which of two candidate commits is in there"), and only ever
+with a present-AND-absent control pair.

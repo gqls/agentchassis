@@ -241,3 +241,34 @@ non-string tests.
    no `## Rewrite Guidance` heading.
 6. Then: this file moves to `bugs_closed/`, and WDS-016's status goes
    built → deployed.
+
+### ⚠ THE 2026-08-15 EVENING ROLL DID **NOT** CARRY THIS FIX — measured, not assumed
+
+A fresh chassis build **was** deployed on 2026-08-15 and it is **v1.0.1303**,
+which **predates this fix by about two hours**. Do not read "a roll happened" as
+"the fix shipped" — that is the fleet's oldest landmine and this is a live
+instance of it.
+
+The measurement (2026-08-15, taken because the startup `build provenance` line
+had already scrolled out of `--tail=400` on this busy service, which means "not
+in range", never "unstamped"):
+
+```
+commit 9a7d23c49518dcfaaf42854416674f5353024ffb   2026-08-15T21:42:42+01:00  (20:42:42 UTC)
+agent-chassis-584b6fcf-9mtqd  started=2026-08-15T18:45:33Z  image=…agent-chassis:v1.0.1303
+agent-chassis-584b6fcf-gz5bt  started=2026-08-15T18:45:58Z  image=…agent-chassis:v1.0.1303
+deploy/agent-chassis .spec…image = v1.0.1303 · "successfully rolled out" (nothing pending)
+```
+
+Pods that started **1h57m before the commit existed** cannot contain it, and the
+deployment is settled rather than mid-rollout, so no newer image is on its way.
+`IMAGE_TAG` must be bumped and a **new** build cut (v1.0.1304+) from a HEAD that
+contains `9a7d23c49`; releases are whole-fleet and the owner runs `make release`.
+
+**So the §9 POST-ROLL CHECKLIST above is still pending in full** — it applies to
+the NEXT roll, not this one. Re-establish the stamp first:
+`git merge-base --is-ancestor 9a7d23c49 <stamp>` per service. If the provenance
+line has scrolled again, probe the binary for the known sha with a
+present-AND-absent control pair — never a discovery grep for "some 40-hex
+string", which matches Go's internal digit table and returns the same wrong
+answer on every service.
