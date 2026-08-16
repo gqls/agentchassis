@@ -42,6 +42,28 @@ register **TL-042** (`docs026_concept_register/register/tool-lifecycle.md`) → 
   correlation_id='815322b9-…'` (verdicts live in the diagnose-agent's collected_data). If CONFIRMED,
   the fix belongs in `loop_actions.go` (truncation/loop_complete handoff), council-scope, and is a
   fleet-wide win (every capped loop consumer). NOT started.
+
+  > **CORRECTED 2026-08-16 (later, by the session that read the verdict):** the run came back
+  > **REFUTED**, then stopped at its iteration cap (`status: UNVERIFIABLE`) — so it refuted the
+  > hypothesis above and confirmed nothing in its place. Two things here were wrong.
+  > **(a) "truncation/loop_complete handoff" is not the mechanism.** The diagnoser found
+  > `ec046659…` with 14 findings against `max_iterations` 10 — truncated — sitting at
+  > `complete`, so truncation plainly does not block the handoff.
+  > **(b) The real cause is a 2^N blow-up of `collected_data`, and the correlation with the
+  > cap is a symptom of it, not a clue to it** — hitting the cap just means running the
+  > maximum number of doublings. A `loop_complete` substep is injected once per iteration and
+  > re-runs the WHOLE-loop aggregator from inside each one, nesting every earlier iteration's
+  > aggregate into its own. `tool-auditor`'s `collected_data` reaches **22 MB avg / 29 MB max**
+  > and the run dies. Measured on three agent types incl. `build-dispatch-loop` (the fleet
+  > dispatcher, 13 MB), with a clean control that does not double. Full evidence and fix
+  > candidates: **`bugs_open/289_…_loop_complete_substep_re_aggregates_…`**.
+  > The diagnoser's own next lead — a Kafka `context canceled` — is a **red herring**: those
+  > rows are logged against `process_item_iter_N_call_handler`, the *parent* dispatch loop's
+  > step, not `tool-auditor`'s loop, and there is one of them against 31 dead rows.
+  > Fresh `090` filed on the correct mechanism: RUN_CORRELATION `12ffad7c-a7b2-4955-b531-554f07650598`.
+  > **What caught it:** not the loop — it refuted the wrong idea and ran out of iterations.
+  > What caught it was comparing the three same-shaped loop consumers by
+  > `length(collected_data::text)` and noticing `tool-auditor` was 1,000x the others.
 - **Per-instance fixer for ported tools** (TL-042 gap (b)) — the 285 lane's next item; also
   `audit_review` items are per PAGE (`item_key_suffix_field=tool_data.page_id`), so N findings on one
   page collapse into ONE review row (better than the old per-site key, still lossy; the full findings

@@ -189,3 +189,40 @@
   fix commits precede 1303's HEAD, so they are in 1304 too by construction).
 - **281 CLOSED**: both mechanisms fixed+live+measured; close section appended; file `git mv`'d with
   both paths on the commit. Handoff written: `HANDOFF_2026-08-16_continue_here.md`.
+
+
+## 2026-08-16 (later) — the 090 verdict came back REFUTED, and the real cause is a 2^N blow-up
+
+- Read `815322b9…`: **REFUTED**, then `stopped_by: iteration-cap`, `status: UNVERIFIABLE`. It
+  killed my hypothesis with one row — `ec046659…`, 14 findings vs `max_iterations` 10, i.e.
+  truncated, sitting at `complete`. So truncation does NOT block the handoff. Its own revised
+  lead (Kafka `failed to write message to kafka: context canceled`) I then checked and
+  **discarded**: those `agent_error_log` rows carry `step_name = process_item_iter_N_call_handler`,
+  which is the *parent* `build-dispatch-loop`'s loop, not `tool-auditor`'s `create_items_loop`;
+  one row today against 31 dead ones. A verdict's next_scope is a lead, not a finding.
+- **What I should have done first, and what actually found it:** compare the same-shaped loop
+  consumers by payload size. `internal-linker` 22 kB avg, `tool-suggester` 447 kB,
+  **`tool-auditor` 22 MB avg / 29 MB max**. Three orders of magnitude on the same machinery is
+  not a subtle bug and it took one query.
+- Per-key sizes then gave it away as an exact geometric series — `_iter_2_done` 70 kB, then
+  141, 283, 567, 1134, 2269, 4538, **9076 kB** at `_iter_9_done`. Exactly 2.00x per iteration.
+- **Mechanism, read in the data not inferred:** `create_items_loop_iter_3_done` has
+  `results[0..9]` (all ten, though four iterations had run) and `results[0]`/`[1]`/`[2]` each
+  contain a nested `done` key holding that iteration's own full aggregate. That IS the recursion.
+- **In the code:** `handleLoopExpansion` injects the sub-workflow's `done` substep
+  (`action: loop_complete`) once per iteration, without `total_iterations` or
+  `substep_output_fields` in its config; `LoopCompleteAction` then falls back to
+  `loop_metadata.total_iterations` (the whole loop) and, finding no Strategy-1 fields, falls
+  through to the Strategy-3 generic scan that copies every `<loop>_iter_<i>_*` key — previous
+  `_done` aggregates included.
+- **The control, which is what makes this disconfirmable:** 3 of the 18 live loops have no
+  `loop_complete` substep. `page-content-writer` has no `_iter_N_done` keys at all, flat 8 kB
+  per-iteration outputs, one 32 kB outer aggregate. If the cause were anything else it would
+  double too.
+- Confirmed on a third type — **`build-dispatch-loop`, the fleet dispatcher**: 201 kB → 617 →
+  1419 → 3023 → 6247 kB, avg 2.8 MB over 353 rows, max 13 MB. It is on the same cliff.
+- Filed **`bugs_open/289_…`** (15 of 18 loops exposed; fix candidates ordered by what makes the
+  bad state unrepresentable) and a fresh `090` on the correct mechanism, RUN_CORRELATION
+  `12ffad7c-a7b2-4955-b531-554f07650598`. Separate defect noticed and NOT folded in:
+  `complete_workflow … message validation failed` x6 — `ProduceWithValidation` validates
+  headers, not size, so it is its own bug.

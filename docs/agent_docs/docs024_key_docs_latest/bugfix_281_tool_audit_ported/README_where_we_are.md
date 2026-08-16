@@ -115,3 +115,43 @@ stuck at the end of their findings loop since before my change (they never mark 
 the same audit gets re-run every forty minutes until it gives up — I've filed it for diagnosis), and
 the "fix one ported tool without touching the shared component" ability still does not exist (the
 285 lane has it next). The full state and pointers are in `HANDOFF_2026-08-16_continue_here.md`.
+
+
+## 2026-08-16 (later) — the diagnosis came back "no", and the real answer was much bigger
+
+The diagnosis run I filed this morning came back **refuted**. My theory was that when a tool
+audit finds more problems than the loop is allowed to process, the truncation breaks the
+handoff at the end of the loop. That is not what happens: the diagnosis found a run that had
+been truncated and finished the loop perfectly well. It then ran out of its own iteration
+budget without proving anything in place of my theory, and left a lead pointing at a
+messaging error. I checked that lead and it was a red herring — those errors belong to a
+different agent's loop entirely, and there is one of them against thirty-one dead runs.
+
+So I went back to the simplest question I had never asked: how big are these things? Three
+agents use the same loop machinery in the same shape. Two of them carry about 22 kilobytes and
+450 kilobytes of working data. The tool auditor carries **22 megabytes** — a thousand times
+more. That one query is what found the bug, and I could have run it on the first morning.
+
+The cause is genuinely nasty and it is not in the tool auditor at all, it is in the shared
+loop engine. Each trip round a loop ends with a step whose job is to tidy up. That step is
+accidentally the *same* step the loop uses to gather up all its results at the very end — so
+every single iteration gathers up everything that came before it, including the previous
+iteration's gathering-up. Each lap therefore contains all the previous laps. The data doubles
+every lap: 70 kilobytes at lap two, and nine megabytes by lap ten. At that size the run cannot
+be carried any further and it simply stops, forever, with nothing waiting on it. Because the
+job never finishes, the system re-dispatches it about every forty minutes — each time paying
+for a fresh AI audit — until it finally gives up.
+
+Two things make this matter well beyond this lane. First, fifteen of the eighteen loops on the
+estate are built the same way, so they all pay this. Second, one of them is the dispatcher
+that hands out every piece of work on the whole system; it is already averaging 2.8 megabytes
+and has touched 13 megabytes. It is on the same cliff, just not over it yet.
+
+I checked this the way I would want someone to check it on me: I found the three loops built
+*without* that tidy-up step and confirmed they do not double, which is the result that would
+have proved me wrong. It is written up as bug 289 with the fix options, and I have filed a
+fresh diagnosis run against the correct mechanism so it gets an independent read.
+
+Nothing is fixed yet. The fix is in shared platform machinery used by fifteen loops, so it
+needs the council gate and it needs the other consumers told, not just counted — that is your
+call on timing, and I have not touched the code.
