@@ -61,3 +61,52 @@
   `content_edit` with empty `field_updates` RE-RENDERS the slot from template+content_data — for a
   ported instance that discards the instance's rendered_html. Any instance-scoped writeback must
   deliver via a reason-less `page_rerender` (assemble-only), never `section_edit`.
+
+## 2026-08-16 — the roll landed; verify, induce, close, class-test
+
+- **Fix LIVE** [MEASURED]: pods `agent-chassis-584b6fcf-{9mtqd,gz5bt}` `v1.0.1303`, started 18:45Z
+  08-15. Stamp probe (`grep -aq <sha> /proc/1/exe` over the commits between 18:15Z and 18:50Z):
+  the binary carries **`5e075a6f9`** — MY docs commit was HEAD at build time — and
+  `git merge-base --is-ancestor d7b2d9994 5e075a6f9` / `25f92a967` both true. (The probe loop over
+  12 candidates timed out after finding it: each exec ~10 s on the big binary — probe a SHORT
+  window, and stop at the first hit.)
+- **Casualty off the live site** [MEASURED at the served page]: `page_rerender:…:285-archive-restore`
+  complete 18:22:24Z (08-15); `curl` → 200, 11,033 B, `portedPageAssetList` 0, `checklist.pdf` 0,
+  h1 "The Content-First Strategy for Starter Sites" present. **My RUNBOOK positive control was
+  wrong**: `class="article-content"` → 0 on the GOOD page (the ported markup uses `.article-content`
+  only as a CSS selector; the h1 markup uses inline styles). Corrected in the RUNBOOK to the h1 text.
+  Cheap check I skipped: run the positive control against the KNOWN-GOOD archived row before
+  arming it (the row was right there in the DB). → WRONG_CALLS.
+- **Third-firing watch clean**: 4 versions, template 4,664 `{{.body}}`, 114 deployed + 1 removed, no
+  new item at `a7daa5c5…` since 17:00Z 08-15.
+- **Induced refusal at the artefact** [MEASURED]: one-step ad-hoc orchestrate (`update_component_html`,
+  `component_id: input_data.component_id`, `html_field: input_data.html`, `create_version:false`),
+  payload = the CURRENT template byte-for-byte (md5 `6690f1aa…` both sides) so a non-firing fence
+  would have written identical bytes rather than poison (it would still have flipped 115 → pending
+  and added a version — the un-flip recipe was ready). Published via `kubectl run … kcat -P` with the
+  JSON file on stdin (one line = one message). Result: orch `a9a824f5-cf9c-4fa1-b0a1-30ce7b99fe3b`
+  **FAILED at `induce_write` in 0.4 s**; `agent_error_log` 09:59:06Z
+  `component_write_shared_blocked` "section-level component placed on 115 pages across 2 sites";
+  template `updated_at` unchanged; 0 pending; 4 versions. Close criterion 1 met.
+- **Post-roll producers**: 2 `improve_tool` items since the roll, both real forks with per-page
+  `audit_fix_<domain>_<page_id>` keys (seed 425's shape working); 0 `ported_tool_fix` yet — no
+  design-discovery sweep has run on webdesign since the roll (last 08-14 16:04Z). 281's first-sweep
+  census is still owed to THEIR lane, not forced here.
+- **Class closure built + proven**: `component_template_writer_coverage_test.go` — same shape as
+  `page_component_writer_coverage_test.go`; regex on the SQL, comments stripped
+  (`withoutLineComments`), fan-out-intended map with reasons, the fenced writer must be SEEN.
+  Mutations: (1) stub the fence call in `update_component_html_action.go` (compiling stub, not a
+  rename — my first attempt was an undefined symbol and only broke the BUILD, which proves nothing)
+  → FAIL "was not seen as a fenced writer"; (2) `zz_mutant_writer.go` with an unfenced UPDATE → FAIL
+  naming it; restored → green. Council `d8668e1f-6272-4888-b116-19edbac283b2` submitted; committed
+  `e2064f3bb` with `Council-Submitted:`.
+- **Cross-session collision caught by `go vet`**: an UNTRACKED sibling test in another session
+  (`agent_definition_nullable_columns_test.go`) declares an identical `stripLineComments`. HEAD was
+  fine, the working tree was not, and whichever landed second would have broken HEAD. Renamed mine
+  to `withoutLineComments` (`87aab3c82`). Then the package's test build broke anyway on ANOTHER
+  lane's in-flight `component_instance_scope.go`/`_test.go` (InstanceToken signature) — verified my
+  tests green against `git archive HEAD` in scratch (memory: shared-tree-wont-compile).
+- **016b §9 correction** landed as a same-file passenger in another lane's commit `fa9c454ab`
+  (they swept 016b minutes after I edited it) — nothing lost, noting for the record.
+- **285 → `bugs_closed/`** (`a88090f4f`, both paths on the commit, exactly one line at HEAD).
+  TL-042 status-update + index row (`67996ebf1`; index carried two other lanes' one-line rows).

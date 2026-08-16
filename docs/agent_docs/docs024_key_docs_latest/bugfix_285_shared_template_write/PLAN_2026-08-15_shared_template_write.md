@@ -46,3 +46,39 @@ commit what should ride the next chassis build, missteps → WRONG_CALLS.md.
    (asset-formatter: has a current PLAN and a real failing criterion).
 4. Close 285 only when the fence is seen refusing at the artefact AND the casualty's served page
    is verified clean.
+
+## 2026-08-16 — status, and the follow-on design (D2(b)) written out for a decision
+
+**Done:** casualty restored + verified at the served page; fix LIVE on v1.0.1303; fence SEEN
+refusing (induced, byte-identical payload); no third firing; D2(a) coverage test built,
+mutation-proven, council `d8668e1f` submitted, committed; 285 → `bugs_closed/`; TL-042 corrected.
+
+**Deliberately NOT built this session — D2(b), the writeback at the finding's scope.** Building it
+without the routing decision produces a mechanism nothing exercises (owner 2026-07-29: "a
+mechanism rotting unexercised" is the cost that ruling refuses to pay). Design, so the decision
+is about a concrete thing:
+
+1. `update_component_html` gains an OPTIONAL `page_id` input. When the target component is
+   `component_level <> 'tool'` AND multi-placed AND `page_id` resolves, it writes THAT placement's
+   `page_components.rendered_html` (`WHERE page_id=$1 AND component_id=$2 AND `+
+   `pageComponentAgentWritableSQL` — lock-honouring), `rendered_html_digest = NULL` (ported bytes are
+   not reproducible; the 357 trigger archives the prior), `build_status` unchanged, NO fan-out
+   flip; `componentRegressionIssues` runs against the CURRENT rendered_html; result carries
+   `scope: "instance"` (else `"template"`). No `page_id` → today's behaviour (refuse). This is
+   opt-in by presence of a config key, unsafe default unchanged — RFC_022 shape, normal gate.
+2. tool-improver seed (HOLD until the binary with (1) has rolled): `load_tool` selects
+   `CASE WHEN cc.component_level='tool' THEN cc.html_template ELSE pc.rendered_html END AS source_html`
+   and `improve_tool`'s prompt reads `{{.tool_data.source_html}}` (today it reads `html_template`
+   — the shared wrapper — for a ported instance); `update_component` gains `page_id: tool_data.page_id`;
+   a `conditional` after it: `update_result.scope == "instance"` → `create_work_item`
+   `page_rerender` reason-LESS (assemble-only) — NEVER the existing `section_edit`, which re-renders
+   from template + stub content_data and would discard the instance write (measured: that is
+   exactly how the 08-14 casualty was made) — else the existing `section_edit` path for forks.
+3. Routing (the OWNER's call): leave `ported_tool_fix` as a human-review sink (today), OR route a
+   ported finding to tool-improver ONLY when the instance has a current `doc_plans` PLAN (14 of 63
+   on webdesign qualify — the Tier-2 judge then has criteria to re-verify against). Canary before
+   any widening: `asset-formatter` (current PLAN, real failing criterion `seeded-rows`, restored
+   template) — one hand-promoted item, watched end to end, served page diffed.
+4. Proof obligations: sqlmock test that with `page_id` set the UPDATE hits `page_components` and
+   NOT `content_components` (mutation: drop the branch → test fails); the coverage test above stays
+   green unchanged (the file still calls the fence); RUNBOOK recipe to induce both scopes.

@@ -32426,3 +32426,58 @@ dated, in place or appended); the wrong PLAN count stood in the plan, the counci
 the RUNBOOK's "attached" query until today. No damage beyond the corrections — the 285 lane had
 already found the page — but the first claim was written in the same breath as a WRONG_CALLS row
 about not over-reading a census, which is the part worth remembering.
+
+## 2026-08-16 — "the relay 404s a site with no facts" (webdesign_uk_build_service, TL-043)
+
+**The claim,** written into a Go error string, the TL-043 register entry, its index row and a
+council submission rationale (corr `55cda19b`), all in one commit: *"the site-facts relay would
+serve 404 and the backend refuses to start on zero facts"* — used to justify the deploy gate's
+zero-facts refusal as "the item would be born unsatisfiable".
+
+**What caught it:** the second-site proof run on the box an hour later. `sitechat` pointed at
+`/api/v1/site-facts/noted.co.uk` logged `facts relay returned zero facts`, and `curl -o
+/dev/null -w '%{http_code}'` on the same URL said **200**. `sitefacts.go`'s predicate is `ss.data ?
+'facts'` — the KEY — and noted.co.uk's row carries `facts: []`. The relay 404s only when the key
+is absent; an empty array is served as a normal 200.
+
+**Why it did not cost more:** the gate reads `jsonb_array_length`, not key presence, and the
+binary refuses on `len(facts)==0` before the status code matters — so every REFUSAL is correct
+and the conclusion stands. Only the mechanism-sentence was wrong. Corrected in place: the error
+string, the code comment, TL-043 (strike-through, dated), and NOTES; the council rationale cannot
+be edited — recorded here and in the lane NOTES so a REVISE round updates the sketch, not the
+claim.
+
+**The cheap check that would have caught it:** I had the relay, the token and `curl` in front of
+me while writing the sentence (I had curled the *webdesign* URL that morning). One request to the
+URL the sentence was ABOUT — `noted.co.uk`, the site the refusal is for today — was the whole
+check. A mechanism claim about a status code is a `curl`, not a reading of the handler.
+
+## 2026-08-16 — re-ran a TRIGGER script to re-read its output, and it published a second council round (staged_component_build / RFC_029 revision)
+
+**What I did:** `097_TRIGGER_council_review_v1.sh` printed ~70 lines; I `tail`ed the first run and
+missed the correlation block at the top, so I ran the SAME command again piped through `grep` to
+read the head. The script has no dry-run or validate-only mode: every invocation publishes. Two
+council-gate orchestrations for the same submission were executing seats within a minute
+(`b5678c3a…` and `d1a20669…`, both `fix_correlation_id=75091072-…`).
+
+**Why it felt safe:** the first invocation had "already happened", and re-running a *report* to
+read it differently is a habit that is correct for `SELECT`s and `git log`. A trigger is not a
+report — its output is a side effect's receipt, and re-running it repeats the side effect.
+
+**Cost:** one duplicate council round (~10 relevance-gated seats of LLM spend). Not cancelled: both
+were already past `persist_submission` and into review seats, and hand-editing shared
+`orchestration_states` mid-step has no sanctioned procedure — a stuck row would cost more than the
+round. Both judge the identical plan under the same trail; the first-completed verdict is the
+verdict of record and the second is read as a free consistency check.
+
+**The cheap check:** capture a trigger's output ONCE, to a file, then read the file as many ways
+as you like: `./097_… sub.json 2>&1 | tee "$SCRATCH/council_$(date +%H%M).log"`. If a script's
+name has TRIGGER/DISPATCH/SUBMIT in it, its second run is a second dispatch — CLAUDE.md already
+says "do not retry on that evidence (it costs a duplicate round)" for the *latency* case; this is
+the same rule for the *I want to see the output again* case.
+- **2026-08-16, same lane, my own:** the RUNBOOK's positive control for the restored page —
+  `grep -c 'class="article-content"'` — read **0 on the GOOD page** (that string is only a CSS
+  selector in the ported markup). Written from a glance at the archived row's first 200 chars,
+  never run against it. **Cheap check:** run every positive control against the KNOWN-GOOD
+  artefact before arming it — the archived row was one query away. Tally for "positive control
+  never exercised on a known-good": 1.

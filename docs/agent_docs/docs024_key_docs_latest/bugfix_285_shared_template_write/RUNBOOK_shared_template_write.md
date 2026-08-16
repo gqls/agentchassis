@@ -25,7 +25,7 @@ SELECT length(rendered_html), rendered_html_digest,
 curl -sL https://webdesign.co.uk/learn/ai-builders/content-first.html > /tmp/cf.html
 grep -c portedPageAssetList /tmp/cf.html            # want 0 (was 1)
 grep -c content-first-checklist.pdf /tmp/cf.html    # want 0
-grep -c 'class="article-content"' /tmp/cf.html      # want ≥1
+grep -c 'Content-First' /tmp/cf.html                # want ≥1 — the article's own h1 (NOT class="article-content": that string is a CSS selector only and reads 0 on the GOOD page; corrected 2026-08-16)
 ```
 Fleet fingerprint sweep (positive control = the row above BEFORE the restore):
 ```sql
@@ -49,4 +49,42 @@ WITH ported AS (SELECT regexp_replace(p.name,'^tool-','') k FROM pages p JOIN pa
     AND pc.component_id='a7daa5c5-8cfd-4f2c-8e09-de6abcb637ef')
 SELECT count(*) ported_tools, count(dp.id) with_current_plan
   FROM ported LEFT JOIN doc_plans dp ON dp.subject_type='tool' AND dp.subject_key=ported.k AND dp.is_current; -- 63 | 14
+```
+
+## Induced refusal (the fence seen firing at the artefact) — repeatable, zero LLM, zero write
+Payload = the CURRENT template byte-for-byte, so if the fence ever does NOT fire the write is a
+content no-op (it would still flip placements pending + add a version row → un-flip: seed pattern
+in bugs_closed/285's restoration block).
+```bash
+S=<scratch>; kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -At \
+  -c "SELECT html_template FROM content_components WHERE id='a7daa5c5-8cfd-4f2c-8e09-de6abcb637ef';" > $S/tpl.html
+# build one-line JSON: headers{correlation_id,orchestration_id,…,action:process}, config.workflow =
+#   {start_step:induce_write, steps:{induce_write:{action:update_component_html,
+#    config:{component_id:"input_data.component_id", html_field:"input_data.html", create_version:false},
+#    next_step:complete}, complete:{action:complete_workflow}}}, input_data:{component_id, html:<tpl minus trailing \n>}
+# (python script in NOTES 2026-08-16; strip exactly ONE trailing newline that psql -At appends; md5 both sides)
+kubectl -n kafka run -i --rm kcat-285-induce-$(date +%s) --image=edenhill/kcat:1.7.1 --restart=Never -- \
+  kcat -P -b personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092 -t system.agent.generic.requests \
+  -H correlation_id=$CORR -H orchestration_id=$ORCH -H message_type=request -H client_id=demo_client -H action=process \
+  -H sender_agent_type=cli -H sender_agent_id=cli-user -H responses_topic=system.agent.generic.responses < $S/induce.json
+```
+```sql
+SELECT status, current_step FROM orchestration_states WHERE orchestration_id='<ORCH>';        -- FAILED / induce_write
+SELECT occurred_at, error_code, context->>'placement_pages' FROM agent_error_log
+ WHERE error_code='component_write_shared_blocked' ORDER BY 1 DESC LIMIT 1;                    -- 115
+SELECT updated_at FROM content_components WHERE id='a7daa5c5-8cfd-4f2c-8e09-de6abcb637ef';     -- unchanged
+```
+Measured 2026-08-16 09:59:06Z: 0.4 s dispatch→refusal.
+
+## Council verdict poll
+```sql
+SELECT current_step, status FROM orchestration_states
+ WHERE collected_data->'input_data'->>'fix_correlation_id' = 'd8668e1f-6272-4888-b116-19edbac283b2';
+SELECT body FROM doc_notes WHERE categories ? 'council-gate' ORDER BY created_at DESC LIMIT 1;
+```
+
+## Coverage test at HEAD when the tree won't build (other lanes' WIP)
+```bash
+S=<scratch>/headtree; rm -rf $S; mkdir -p $S; git archive HEAD | tar -x -C $S
+(cd $S && go test ./platform/orchestration/actions/ -run 'TestEveryHTMLTemplateRewriter|TestFanOutIntended' -count=1)
 ```
