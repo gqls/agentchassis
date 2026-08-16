@@ -32584,3 +32584,29 @@ never to a served page, so it is allow-listed with a measured reason rather than
 behaviour was wrong. The cost was three published counts, corrected in place before the round-2
 council submission went out; the submission's rationale names the miss rather than quietly
 carrying the right number. Tally for "scoped a census to the directories I expected": 1.
+
+---
+
+## 2026-08-16 — `git commit --allow-empty` with no pathspec is a BARE commit, and it swept another lane's staged move
+
+**What I did:** wrote a note-only commit (`1732835d1`) to explain a same-file passenger on the
+LANDMINES ledger, and used `git commit --allow-empty -m …` — thinking "empty" meant "nothing
+from the tree". **It does not.** With no pathspec it is a bare commit and takes the INDEX:
+two staged `D` entries from another session's `git mv bugs_open/252_* bugs_closed/` rode
+along and were committed under my message.
+
+**Outcome — nothing lost, by luck not design:** their `bugs_closed/` half was already
+committed (`82e1831c3`); the staged deletions were the un-committed other half of the move
+(the "`git mv` + pathspec ships a COPY" landmine, from THEIR side), so my commit completed
+their move. `git ls-tree -r --name-only HEAD -- bugs_open/ bugs_closed/ | grep 252_` shows one
+copy each — the correct end state. Had their closed half NOT been committed, my commit would
+have deleted their file from HEAD.
+
+**The cheap check:** there is no safe pathspec-less commit on this tree. A note-only commit is
+`git commit --allow-empty --only -m …`?  No — `--only` needs paths. The honest answer is: **do
+not make note-only commits here; put the note in the file it is about** (a dated line in the
+lane's NOTES, or the next real commit's message). And read the yellow commit-scope block
+BEFORE the commit lands, not after — it listed both 252 files and I read it as output.
+
+**Cost:** none realised; a commit message that names 252 for a change about LANDMINES, which
+`git log --follow` on those files will show forever.
