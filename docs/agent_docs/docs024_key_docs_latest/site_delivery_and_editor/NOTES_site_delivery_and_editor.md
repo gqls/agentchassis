@@ -247,3 +247,23 @@
   project kept) until the fix rides the next owner release; re-arm recipe
   in the handoff §1. Phase 3 note: the ZIP action must NOT buffer whole
   objects this way — stream with known length or use multipart.
+
+## 2026-08-16 (morning) — "a fresh chassis has been deployed": checked, and it is the SAME roll
+
+- Session opened on the premise of a new roll. Measured before acting on it:
+  every service and both chassis replicas still on **v1.0.1303**, started
+  18:45Z 2026-08-15 (the roll verified last session); latest ReplicaSet
+  `584b6fcf` unchanged, deployment revision 832 not advanced; no
+  `v1.0.1304+` in the registry or the local docker cache; makefile
+  `IMAGE_TAG ?= v1.0.1303`; local 1303 image built 18:31Z, i.e. BEFORE
+  `b4981634d` (23:15Z). Binary probe on `agent-chassis-584b6fcf-9mtqd`:
+  fix sha ABSENT, stamp `5e075a6f9` present (positive control), and
+  `git merge-base --is-ancestor b4981634d 5e075a6f9` fails — the running
+  binary predates the fix. **Re-arming now would reproduce yesterday's 411
+  every 600s**, so the canary stays de-armed (confirmed: `publish_target`
+  NULL, 0 sites opted in, 0 reconciler runs since 22:30Z).
+- Nothing to update on the seam side; the handoff §1 recipe is still exact
+  and still waiting on the first release that includes `b4981634d`. The
+  check to run at the next "it has rolled" prompt is the one above — image
+  label per service, then the ancestry test — BEFORE touching
+  `publish_target`.
