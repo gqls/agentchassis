@@ -140,6 +140,38 @@ An empty grep means "not in range" (it is a startup line and scrolls), **not**
 > both still `v1.0.1304` — so this lane's Go half is definitively **not live**.
 > **Whoever rolls must bump `IMAGE_TAG`**: a same-tag rebuild ships the node's
 > stale cached binary.
+>
+> **REFINED again after the council's round-3 advisory (`debug_historian`, and it
+> is a fair challenge):** "prove a deploy at the ARTEFACT, never at git" is the
+> estate's rule, and an ordering proof looks like exactly the anti-pattern it
+> bans. The distinction that makes both true is **which direction you are
+> proving**, and it belongs in any recipe of this shape:
+>
+> | claim | what actually proves it |
+> |---|---|
+> | "my fix is NOT live yet" | the **deployed image tag**, read off the running pod (`kubectl get pod -o jsonpath='{.spec.containers[0].image}'`) — that IS an artefact reading — plus `IMAGE_TAG` showing no newer build exists. Git supplies only the ordering *between commits*, never the deploy fact |
+> | "my fix IS live" | **the binary's own stamp**, obtained from the pod, then `git merge-base --is-ancestor <your-commit> <that stamp>`. Nothing in git can establish this, because git does not know what was built |
+>
+> So: never claim SHIPPED from ordering alone. The negative is safe because it
+> rests on a pod-read tag; the positive requires the stamp. Both halves read the
+> artefact — the only thing git contributes is the ancestry comparison, which is
+> arithmetic on commits, not evidence about deployment.
+
+## Migration 439 — applied ONCE, and a re-run is not free
+
+439 is applied and recorded (`--record-only`, with the reason). It is guarded and
+would refuse a wrong-shaped apply, but **it is not free to re-run**: like every
+migration in this shop it opens with `snapshot_agent(...)`, so a second run takes
+a **second snapshot whose reason still reads "pre-update"** — a documented
+landmine, because the snapshot then records the post-change state under a
+pre-change label. If you need to reapply, take the rollback first, or expect two
+snapshots and know which is which:
+
+```sql
+SELECT id, created_at, notes FROM agent_definitions
+ WHERE type='build-site-planner' AND COALESCE(is_snapshot,false)
+ ORDER BY created_at DESC LIMIT 3;
+```
 
 Then re-fire the loancalculator lane's own script — no dispatch within ~300 s of
 a chassis pod restart, and `kcat -P` exits 0 having sent nothing, so prove the

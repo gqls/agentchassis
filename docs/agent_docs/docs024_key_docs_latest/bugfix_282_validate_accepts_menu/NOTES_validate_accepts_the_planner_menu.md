@@ -300,3 +300,52 @@ lesson as round 2, at a different site: **the suite is quietest exactly where th
 new wiring is**. Wiring test added there too. Seven mutations now, all biting.
 
 Round 3 submitted on the same trail (`bbf49822`).
+
+## 2026-08-16 (late) — council round 3: APPROVED
+
+`decision: approved`, "with 3 advisory objection(s) — none high-severity"; 9
+seats approve, 5 abstain. **`bug_historian`, which gated both earlier rounds,
+approves.** Trail correlation `bbf49822-6704-4802-b3b5-1afed6777c88`.
+
+Three advisories remain, and two were checkable — so I checked them rather than
+closing the lane on "advisory":
+
+1. **`prior_art_librarian` (medium): "six other lanes' tests call these
+   directly" was asserted, not shown.** Correct, and my number was **wrong in my
+   own favour's opposite direction**: shown now, it is **15 call sites across 5
+   test files** (`apply_gap_plan_deployed_conflict_test.go` 5,
+   `apply_gap_plan_retype_test.go` 4, `work_item_created_honesty_test.go` 3 — a
+   lane I had not even noticed — `apply_gap_plan_new_page_test.go` 2, mine 1).
+   The decision not to widen those signatures is better supported than the claim
+   I made for it. An undercount is still an unverified assertion.
+2. **(low) content-gap-planner's own section/element menu**: shown —
+   `load_available_components`, `... WHERE component_level IN ('section','element')`.
+   (low) **resolver test coverage before this lane: 0 files** (searching
+   `*_test.go` for the symbol, excluding my own).
+3. **`debug_historian` (medium): the ordering proof is "the exact anti-pattern"**
+   of verifying a deploy at git rather than at the artefact. A fair challenge,
+   and the answer is a distinction I had left implicit — **which direction you
+   are proving**. "Not live yet" rests on the *deployed image tag read off the
+   pod* (an artefact reading) plus no newer build existing; "live" cannot be
+   established from ordering at all and needs the binary's own stamp. Git only
+   ever contributes the ancestry arithmetic. Written into the RUNBOOK as a table,
+   because a recipe that does not say which direction it proves will be used for
+   both.
+4. **`debug_historian` (low): a migration re-run takes a second `snapshot_agent`
+   whose reason still says "pre-update"** — recording the post-change state under
+   a pre-change label. 439 has been applied exactly once; the caveat and the
+   query to check are now in the RUNBOOK.
+5. **`editquality` (medium/low): my submission's edit list did not define
+   `recordDroppedSectionNamesFor`, and listed one file twice as `add`.** The seat
+   diagnosed the cause exactly: I assembled the plan by **appending round deltas
+   instead of describing the final diff set**. The code was consistent; the
+   submission was not. **Lesson for any resubmission: rewrite the edit list to
+   describe the diff as it now stands, not as a changelog of what each round
+   added.** Nothing about the shipped code changes.
+
+**The shape of the three rounds is worth keeping.** Round 1 fixed the reported
+bug. Round 2 was told the fix was one-caller-shaped and made it durable for all
+callers of one action. Round 3 was told the record followed the CALLER when the
+defect follows the RESOLVER, and closed all four sites — on evidence
+(116 runs/30d) that my scoping had put the class fix on the quieter path. None of
+that was in the bug file, and I would not have found it alone.

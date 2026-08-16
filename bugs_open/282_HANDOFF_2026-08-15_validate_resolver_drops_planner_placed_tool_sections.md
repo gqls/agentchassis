@@ -1,12 +1,15 @@
 # 282 — validate's name resolver silently drops every tool section the planner places (407's missing half)
 
 **Filed:** 2026-08-15, loancalculator rebuild lane.
-**Status:** OPEN — **FIXED AND COMMITTED 2026-08-16 (`5534e9f71`), NOT YET LIVE.**
+**Status:** OPEN — **FIXED, COUNCIL-APPROVED AND COMMITTED 2026-08-16, NOT YET LIVE.**
 The Go half rides the next chassis roll; the config half (migration `439`) is
 applied and inert until it does. Stays OPEN until a post-roll replan proves the
 functions land — the bar is fixed AND live. Fixing lane:
 `docs/agent_docs/docs024_key_docs_latest/bugfix_282_validate_accepts_menu/`
-(PLAN/RUNBOOK/NOTES/README + the council submission, corr `bbf49822`).
+(PLAN/RUNBOOK/NOTES/README + the council submission). Council corr `bbf49822`:
+REVISE → REVISE → **APPROVED** (3 advisories, none high). Both REVISE rounds
+widened the fix and are summarised below — the reported bug was the smallest
+part of what was wrong.
 **Diagnosis trail:** 090 run `4a02a4e1-3972-450a-8163-28d6bb0a79fd` (verdict
 UNVERIFIABLE at budget, disjunctive hypothesis + named next_scope) → next_scope
 walked first-hand same session; the disjunction closed with the drop site cited.
@@ -229,3 +232,24 @@ so this adds under 0.2% even if every gap-plan run dropped a name.
 from `applyNewPage` left every existing gap-plan test green — the same silence
 found at validate in round 2. A wiring test at that site now fails under it.
 Seven mutations, all biting.
+
+### COUNCIL: APPROVED at round 3 (corr `bbf49822`, 2026-08-16)
+
+`approved with 3 advisory objection(s) — none high-severity`; 9 seats approve,
+and `bug_historian` — which gated rounds 1 and 2 — is one of them.
+
+The two REVISE rounds are the substance of this fix, not overhead:
+
+| round | what the council said | what changed |
+|---|---|---|
+| 1 | the fix restores acceptance for ONE opted-in caller and leaves `resolve()`'s silent drop untouched — a typo, a rename, a deleted component still vanish exactly as this bug did | every drop files a durable `PLAN_SECTION_NAME_DROPPED` finding |
+| 2 | that record went into `validate_site_plan` only, while `apply_gap_plan`'s three call sites share the SAME resolver — and run **116 orchestrations/30d** against build-site-planner's handful | all four drop sites record; the gap-plan ones state provenance explicitly |
+
+Advisories left open, all checked rather than waved through: the "six other
+lanes' tests call these directly" claim is really **15 call sites across 5 test
+files** (an undercount on my part, so the no-widening decision is better
+supported than I argued); content-gap-planner's own section/element menu and the
+resolver's zero prior test coverage are both shown by query; the deploy-check
+direction asymmetry ("not live" may rest on the pod-read image tag, "live" needs
+the binary's stamp) is now a table in the lane RUNBOOK; and a migration re-run
+would take a second `snapshot_agent` labelled "pre-update", noted there too.
