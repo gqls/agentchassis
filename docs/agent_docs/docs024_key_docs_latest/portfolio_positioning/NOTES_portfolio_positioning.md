@@ -1419,3 +1419,52 @@ literal and **refuses** (by design). To undo the pair, run **441's ROLLBACK firs
 unedited as the record of what ran, 433 ROLLBACK, 441 + its ROLLBACK), 12 grounded_in
 items, snapshot+guards quoted verbatim. **434's verdict (`1b087280…`) was still executing
 at the time of writing — read it next.**
+
+### 2026-08-16 — 434 APPROVED round 1; three seats raised one shared concern, and the measurement cleared it
+
+**434 (B3f, corr `1b087280…`): APPROVED at round 1**, 16:21:17Z —
+`decided_by: approved with 3 advisory objection(s) — none high-severity`, 6 abstained,
+not truncated. Commit `a1b92f609` carries `Council-Submitted:`; 098 credits it on report.
+
+**The shared concern, raised INDEPENDENTLY by editquality, guardian and debug_historian:**
+`snapshot_agent()` runs before `BEGIN`, so it autocommits outside the guarded transaction —
+and my own stated workflow (dry run, then real apply) calls it TWICE with the same
+`…: pre-update` reason. All three cited the 2026-08-16 LANDMINE: a replay's snapshot is
+labelled *pre-update* and holds *post-update* config, so "the latest snapshot" is the wrong
+pre-image.
+
+**MEASURED, using that landmine's own content-not-recency check — and it clears:**
+```
+SELECT snapshot_reason, snapshot_taken_at,
+       (default_config#>>'{workflow,steps,plan_site,config,prompt_template}' LIKE '%Directory rule:%')
+FROM agent_definitions_backup WHERE type='build-site-planner' …
+```
+433's two rows: **both `f`** (pre-change). 434's two rows: **both 32 checks** (post-change
+is 43). 441's two rows: **both `f`** on its new clause. **Why the seats' reasoning does not
+reach this case:** a dry run is the same file with `COMMIT`→`ROLLBACK`, so the UPDATE is
+undone and the second snapshot still sees the pre-change row. The decoy needs a replay of an
+**already-succeeded** apply — 417's case, not this one. Two consequences worth keeping:
+a pre-flight that **refuses when already applied** cannot produce the decoy at all (the
+replay aborts before the UPDATE), and duplicate `pre-update` rows should be CHECKED rather
+than assumed poisoned — distrusting a good snapshot loses the restore path just as surely.
+Contributed back to the LANDMINES entry as a dated refinement, with the measurements.
+
+**guardian [MEDIUM] — "no `handler_agent` verified for the five structural checks; will
+items pile up unconsumed?"** Answered by the file's own header
+(`check_site_structural_validity.go:86-96`): all five register with **`HandlerAgent ""`
+deliberately** — the flag-only idiom shared with `check_asset_reference_404` and
+`check_site_unreachable`. Findings surface as visible `detected` items and are
+intentionally NOT dispatchable. The header also explains why an auto-repair would be
+actively harmful today: a `canonical_mismatch` fixer is gated on bugs_open/251's fix being
+reachable by every render path that owns a `<head>`, and today it covers only the
+page-rerender path, not `AssemblePageAction`'s three other callers — so an auto-fixer would
+rewrite a canonical that the next render would immediately un-fix. **Not a gap; a designed
+posture the seat could not see from the sketch.** Recorded here so it is not re-raised.
+
+**editquality [LOW]** — the UPDATE's WHERE re-checks only one of the eleven names while the
+DO block checks all eleven: accurate, and the transaction boundary makes the window nil.
+Noted, unchanged. **guardian [LOW]** — filed as `add` rather than `config_change` naming the
+owning pipeline: convention point, taken for the next one.
+
+**Status: Phase B's council trail is now 429 APPROVED · 432 APPROVED (r2) · 434 APPROVED ·
+433 round 2 pending** (`53ae1501…`, resubmitted 16:28Z with 441 attached).

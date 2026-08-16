@@ -75,15 +75,22 @@ Enabled: the three FINANCE directory pairs + `dead_internal_link_live`,
 
 ## 3. Next actions, in order
 
-1. **Read the two verdicts** (both were EXECUTING at 16:10Z on 08-16):
-   - 433 (B3e planner rule): corr `53ae1501-abe0-4bce-8376-bf20e220faf7`
-   - 434 (B3f checks enable): corr `1b087280-b43b-4ea6-82c1-818c4f3cbef8`
+1. **Read the 433 ROUND-2 verdict — it is the only one outstanding.** Corr
+   `53ae1501-abe0-4bce-8376-bf20e220faf7`, resubmitted 16:28Z on 08-16.
    ```sql
    SELECT created_at, metadata->>'decision' FROM diagnosis_artifacts
-   WHERE correlation_id='<CORR>' AND kind='council_report' ORDER BY created_at;
+   WHERE correlation_id='53ae1501-abe0-4bce-8376-bf20e220faf7' AND kind='council_report' ORDER BY created_at;
    ```
    Body: same table, column `body` (NOT `content`). REVISE → fix and resubmit with
    `RESUBMIT_CORR=<corr>`. Disposition advisories in NOTES with the check RUN, not asserted.
+   > **Verdicts already in (do not re-read these):** **434 APPROVED** round 1, 16:21Z,
+   > *"approved with 3 advisory objection(s) — none high-severity"*; all three dispositioned
+   > in NOTES (the shared snapshot-decoy concern was MEASURED and clears; the structural
+   > checks' empty `handler_agent` is the deliberate flag-only idiom, not a gap).
+   > **433 round 1 REVISE**, 16:20Z — gating objection answered at the artefact, and one
+   > medium objection earned a real change: **migration 441** (applied, live) enumerates the
+   > six listing component names instead of asking the planner to derive one by suffixing.
+   > **432 APPROVED** at round 2. **429 APPROVED** at round 1.
 2. **Phase C pilot — remortgagecalculator.uk (M4), end to end.** Mission-file from the
    register entry, pre-seeded specs, marker sentence, dispatch via
    `scripts/initial_messages/020_build_pipeline/082_submit_domain_unified.sh`, cost baseline
@@ -107,8 +114,15 @@ Enabled: the three FINANCE directory pairs + `dead_internal_link_live`,
 - `git stash` forbidden (hook-blocked); pathspec commits; forward-only; re-run `git status`
   before acting on it. **The index lock is contended** — this session hit
   `.git/index.lock` held by another session mid-commit; WAIT for it, never remove it.
-- Migration files: next free number was **435** at session end — RE-CHECK, the queue moves
-  (430/431 were taken within 30 minutes on 08-15).
+- Migration files: **435–440 were taken DURING this session** (the queue moved while I
+  worked); this lane then took **441**, so next free was **442** at session end — RE-CHECK.
+  One of those, **439** (another lane), added `menu_field: "available_components"` to
+  `validate_plan` — it strengthens 433/441 and is a reminder that the planner config has
+  several concurrent editors.
+- **Rolling back the planner pair has an ORDER**: 441 edits text inside the block 433
+  inserted, so 433's surgical-inverse ROLLBACK refuses (by design) until 441's ROLLBACK has
+  run. Both file headers say so; the refusal message alone would send you hunting for drift
+  that is not there.
 - `improvement-sweep` is still disabled fleet-wide. Not ours to re-enable unilaterally —
   find who disabled it (git/NOTES grep or ask the owner) before flipping.
 
