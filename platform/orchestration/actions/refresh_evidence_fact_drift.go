@@ -514,6 +514,20 @@ func planSiteFactDrift(ctx context.Context, db *sql.DB, siteID uuid.UUID, eb map
 		logger.Warn("refresh_evidence_base: malformed facts declaration ignored", zap.String("site_id", siteID.String()), zap.String("issue", is))
 	}
 	if len(idx.byFact) == 0 {
+		// Council bug_historian seat (advisory): "zero rows ends the pass with no
+		// signal at all". A site whose fences DO declare facts but whose pages no
+		// longer resolve — renamed, tool component deactivated, decomposed away —
+		// would otherwise go quiet in exactly the way this whole mechanism exists
+		// to prevent. A resolved declaration that stops resolving is worth a line;
+		// a site that simply declares nothing is not, and is silent as before.
+		if len(idx.unresolved) > 0 || len(idx.issues) > 0 {
+			logger.Warn("refresh_evidence_base: this site has fact declarations but NONE resolved to a page — "+
+				"a declaring PLAN's subject_key may have stopped matching (page renamed, tool component deactivated, "+
+				"or the page decomposed); the fan-out is silent for this site until it does",
+				zap.String("site_id", siteID.String()),
+				zap.Strings("unresolved", idx.unresolved),
+				zap.Strings("malformed", idx.issues))
+		}
 		return plan
 	}
 
@@ -678,7 +692,18 @@ func writeFactDriftItems(ctx context.Context, db *sql.DB, siteID uuid.UUID, doma
 				em.FactID, formatEvidenceNumber(*em.OldValue), formatEvidenceNumber(*em.NewValue), em.SubjectKey)
 		default:
 			item.itemType = "fact_drift_review"
-			item.handlerAgent = "human-review"
+			// HANDLER-LESS BY DESIGN, and this was corrected after the council
+			// approved (guardian seat, advisory): the first version copied
+			// `handlerAgent: "human-review"` from createStaleEvidenceItem next
+			// door. MEASURED 2026-08-16 — there is NO agent_definitions row of
+			// type 'human-review' (0), and the fleet's dominant convention for
+			// needs_human_review is a NULL handler: 544 rows across 21 item
+			// types carry no handler, including `ported_tool_fix`, the very
+			// precedent this routing was modelled on. Only 22 rows use the
+			// 'human-review' string, stale_evidence among them. Naming a handler
+			// that does not exist invites the dispatch loop to try to spawn it;
+			// an empty handler is the documented way to say "a person decides".
+			item.handlerAgent = ""
 			item.status = "needs_human_review"
 			// A CONFIRMED VALUE MOVE OUTRANKS AN EVIDENCE QUESTION, whichever
 			// route it takes (council compliance seat, 2026-08-16). The first
