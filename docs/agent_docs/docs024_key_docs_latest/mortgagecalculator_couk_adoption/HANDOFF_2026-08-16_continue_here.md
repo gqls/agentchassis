@@ -47,7 +47,7 @@ Site id `62b5978e-4271-4589-8e00-4baebfc0447c`. `sites.github_repo` empty → B2
    existed for this site. Fixed upstream (274 CLOSED 08-15, live v1.0.1303, verified with
    demand: 0 cannot-deliver vs 859 child completions).
 
-## 3. THE LIVE THREAD — `bugs_open/287`, filed this morning
+## 3. THE LIVE THREAD — `bugs_open/287` **(the `spawn_record` slug — TWO bugs are 287 today; the other is the agent-description one; resolve by slug)**, filed this morning
 
 While verifying 274 is live I found the NEXT defect on the same seam: since the 08-15 10:14Z
 roll, ~75% of dispatch-loop completions record the **spawn record** (`{role,topics,agent_id}`)
