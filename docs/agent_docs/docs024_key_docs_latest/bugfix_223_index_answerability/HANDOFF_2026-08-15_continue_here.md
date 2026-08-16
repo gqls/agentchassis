@@ -9,8 +9,8 @@ marked otherwise.
 
 ## 0. WHAT IS ACTUALLY LEFT (read this and you can stop)
 
-**Zero owner decisions, ~~two watch items~~ ONE watch item (item 2 closed by
-refutation 2026-08-15 — see it below), zero pending builds.**
+**Zero owner decisions, ~~two watch items~~ ~~ONE watch item~~ one PASSIVE watch (item 2 closed by
+refutation 2026-08-15; item 3 downgraded 2026-08-16 at n=17/0 — see below), zero pending builds.**
 
 1. ~~**OWNER DECISION — the two remaining standing reviews.**~~ **DONE 2026-08-15
    (owner: "direct both reviews now"): both concluded ACKNOWLEDGE, no trims** —
@@ -41,6 +41,15 @@ refutation 2026-08-15 — see it below), zero pending builds.**
    rationales reason correctly FROM index scope; see the 254 addendum**). Settles
    itself as landmine verifications accumulate; compare any wrong verdict's reason
    against the as-of note in the same prompt.
+   > **UPDATED 2026-08-16 ~09:50Z — PASSIVE now.** n=**17** (12 organic runs 08-15
+   > 13:59Z→20:52Z), all 14 persisted verdicts read: **0 misexplanations**; every empty
+   > result attributed to scope or staleness in the model's own words. 0/17 bounds the
+   > rate below ~18% (95%), pre-fix observed 1/2 — proven well below, not zero. No
+   > further scheduled reading. **The 06:50 GREEN prediction in item 1 HELD**: 08-16
+   > 06:50:10Z, 188 agents, 3 baselines, 0 findings, one row, Job `Complete 1/1`.
+   > Also for the owner: remote tip still `a85ad401` (08-12), local HEAD **846 commits**
+   > ahead — the verifier is 4 days blind and now SAYS so; a push is the only cure.
+   > NOTES 08-16 block.
 
 ## 1. State in one paragraph
 
@@ -78,6 +87,8 @@ finding reviews the accumulated SURFACE, never the reuse (auto-memory:
 2. **Reading the daily red as noise to silence.** The 2 findings are truthful until
    the two reviews land. Never quiet them by raising N or hand-editing ACKED_LEVELS
    without a review — the ack file's `review` field is the licence.
+   *(08-16: the reviews landed and the report is GREEN, so there is no standing red
+   to misread — the rule stands for the NEXT red, which will be real growth.)*
 3. **Probing a pod binary behind `2>/dev/null`.** A deleted pod's `NotFound` is
    indistinguishable from "unstamped" — this lane produced thirteen false absences
    that way. Digest-match first, stderr visible, always a positive AND negative
@@ -91,7 +102,7 @@ finding reviews the accumulated SURFACE, never the reuse (auto-memory:
 Indexer reads the REMOTE tip (`git ls-remote`, never `rev-parse origin/…`) ·
 `landmines-sync.py --apply` consumes the NEEDS_VERIFICATION signal (use
 `landmines-verify-dispatch.sh` to verify-on-sync) · no orchestration dispatch within
-~300s of a chassis restart · `verify_unverifiable` has still never executed ·
+~300s of a chassis restart · ~~`verify_unverifiable` has still never executed~~ **FIRED 08-15 ×2 (first ever; footprint luck, not a fix — `bugs_closed/223` correction 08-16)** ·
 `code_symbols` has `line_start`/`line_end`, no `indexed_at` · never
 `ORDER BY created_at DESC LIMIT 1` on a shared table · `go run` folds exit 2 into 1 —
 wrappers discriminate refusal by EMPTY STDOUT · migration numbers 402 (and bug numbers

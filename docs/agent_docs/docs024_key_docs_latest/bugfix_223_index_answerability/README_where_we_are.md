@@ -417,3 +417,37 @@ routine landmine checks used the note completely unattended — empty answer, no
 present, dated verdict on file — so both halves of the fix have now been seen working
 in the wild without anyone arranging it. The lane is down to one watch item, and it's
 the self-settling kind.
+
+**2026-08-16, morning.** The prediction came true: this morning's seven-o'clock check
+ran on its own and came back clean — zero findings, one tidy row on file, all three
+reviewed baselines honoured, and it walked 188 agents (two more than yesterday; the
+fleet keeps growing under it, which is exactly why it runs on a clock). So from today a
+red morning would be news, not noise.
+
+The last watch item has all but settled too. Since yesterday morning twelve more routine
+landmine checks have run without anyone arranging them, and I read every verdict: not one
+of them mistakes "the index can't see this" for "this doesn't exist" — they say, in their
+own words, things like "outside the Go-only index, cannot be confirmed or refuted" and
+"the index is three days stale, so this may have landed after the last push". Seventeen
+in a row now with the note present and no wrong explanation. Seventeen isn't proof of
+zero, but it is proof the old failure is well below the coin-flip rate we saw before the
+fix. I'm calling it passive: nothing to schedule, the check is written down for whoever
+next reads a verdict that looks off.
+
+One thing worth your eye, though it isn't this lane's to fix: those verdicts keep saying
+the index is stale, and they're right — the code index reads whatever was last *pushed*,
+and the branch hasn't been pushed since the 12th. The tree here is now 846 commits ahead
+of that. So for the moment the landmine checker is four days blind on precisely the code
+people are writing landmines about, and the only thing that un-blinds it is a push. The
+good news is that it now tells you this plainly on every answer instead of quietly
+guessing — that's what the last fix was for.
+
+Small correction while I was in there: the fallback verdict path we built — the one that
+refuses to say "stale" when it has checked literally nothing in the code — had been
+recorded as "built, tested, never actually reached in real life", and I'd carried that
+forward for six days. It reached real life twice yesterday afternoon, on its own, on two
+landmine entries whose footprints are pure shell and SQL. Both came back "unverifiable",
+which is precisely the honest answer it exists to give. Nothing changed to make that
+happen except which entries came up; it still won't reach that path when an entry's
+footprint happens to share a word with some Go function, and the tidy-up that would fix
+that is still on the follow-up list. Records corrected in three places.

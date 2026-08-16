@@ -936,3 +936,76 @@ commit had independently verified the same build on both replicas (their lane's
 d476b01c2) — agreeing evidence, not a substitute; the probe above is this lane's own.
 Handoff §1 "verified through" advanced 1300 → 1301. Nothing else moves: the counter
 cron is untouched by a chassis roll, the remaining watch item is unaffected.
+
+## 2026-08-16 ~09:50Z — the handoff's prediction held (first GREEN scheduled run) and the last watch item advanced to n=17, zero misexplanations
+
+**Prediction from the 08-15 handoff — "from 2026-08-16 the 06:50 report is green" — checked
+rather than believed.** `doc_notes` `subject_key='optional-key-budget'`: ONE row at
+2026-08-16 06:50:10Z (the clean path writes one, red writes two — the retry), **188 live
+agent definitions walked** (186→188 overnight; the fleet keeps growing, which is the
+argument for the clock), 118 declaring, **acknowledged baselines 3, findings 0**. Job
+`optional-key-budget-check-29781050` `Complete 1/1`, 15s; the 08-15 job reads `Failed 0/1`,
+which is the red-day exit 1 by design, not a defect. So the counter's first UNATTENDED
+green run is on record; the manual Job of 08-15 proved the path, this proved the schedule.
+
+**Watch item (kind-shaped misexplanations post-fix), measured:** the prescribed check
+(`step_name='verify'` + the as-of LIKE) now returns **17** (was 5 at 08-15 09:00Z) — 12
+organic runs 08-15 13:59Z→20:52Z, every one carrying a real sha (`a85ad401`). Their 14
+persisted verdicts (two entries verified twice) ALL carry both evidence-line clauses, and I
+read every rationale: **0 of 14 explain an absence as a property of the code.** Verdict mix
+NEEDS_HUMAN_REVIEW ×10, STILL_VALID ×2, UNVERIFIABLE ×2. Every empty result is attributed
+to scope or staleness in the model's own words — "0-row result on a stale index — not
+confirmed absent", "outside the Go-only index scope and cannot be verified or contradicted",
+"the index is 3 days stale, so the refactor may have landed after the last push",
+"NOTHING in this round was confirmed … absence claims here carry no weight in EITHER
+direction" (that last one is the mechanical line firing on the two UNVERIFIABLE rounds).
+Cumulative **0/17**. What that sample can and cannot say: the pre-fix observed rate was 1
+of the 2 verdicts examined (the `ValueDef` "of kinds not indexed" instance, this file
+08-11); at 0/17 the 95% upper bound is ~18% (rule of three), so the fix is proven to have
+moved the rate well below "half", not to zero. **Downgraded to passive** — no further
+scheduled reading; the check is in the handoff for whoever next reads a wrong verdict.
+
+**Two things in those verdicts that look like findings and are not:**
+- Every verdict says the index is stale (indexed commit `a85ad401`, 2026-08-12 16:01Z).
+  It IS current — to what the indexer reads. `git ls-remote origin 087_towards_multiple_domains`
+  → `a85ad401`; nobody has pushed since 08-12, and local HEAD is **846 commits** ahead of
+  it (`git log a85ad401..HEAD | wc -l`). So the verifier is four days blind on the
+  symbols it is most often asked about (the just-written ones — the self-reinforcing
+  shape recorded 08-11), and **it now says so in every answer**, which is what 254 was
+  for. Not a lane bug; the push cadence is the owner's. Surfaced in README for him.
+- `kinds with NO rows: type` on every scope line. `type` is in `codeKindList`
+  (`diagnose_code_lookup_action.go:924`) and the analyser files type declarations as
+  `alias` (43 rows) / `struct` / `interface`; live kind census: func 3813, method 1175,
+  struct 1038, var 706, const 545, alias 43, interface 38. Known since 08-11 (this file
+  ~630); the census stating it is the design, not a gap.
+
+Nothing else moves. Zero owner decisions, zero builds, one passive watch.
+
+### 2026-08-16 ~10:10Z — and one thing the standing traps got wrong: `verify_unverifiable` HAS fired
+
+Handoff §4 carried "`verify_unverifiable` has still never executed" from the 08-10 finding
+("the gate's TRUE branch has never fired — one substring match is enough"). Checked while
+reading the 14 verdicts, because two of them said **UNVERIFIABLE**, a status only that
+branch can produce: `SELECT step_name, count(*) FROM llm_call_log WHERE step_name LIKE
+'verify%' GROUP BY 1` → `verify` **96**, `verify_unverifiable` **2** — 2026-08-15
+14:06:41Z (corr `e2324292`, migration-number entry: 3 checks / 0 matched / 1 NOT
+ANSWERABLE / 2 nothing) and 17:16:48Z (corr `c7884875`, `git checkout` entry: 2 / 0 / 0 /
+2). Both rounds' evidence lines carry the "NOTHING in this round was confirmed … EITHER
+direction" clause; both persisted verdicts are UNVERIFIABLE with the suffix. **First
+executions in the branch's history, unattended.**
+
+**Why now — measured, not guessed:** not a fix. No commit on `diagnose_code_lookup_action.go`
+since `0c880908a` (08-11); the live `landmine-verifier` row's `updated_at` is 08-15
+18:44:45Z, which POSTDATES both firings; and its `derive_checks` prompt still emits bare
+`content` checks for "a table name, a distinctive string, a command name". These two
+footprints simply contain no token that ILIKE-substring-hits any of 7,358 Go symbols. So the
+08-10 limitation is **narrowed, not withdrawn**: the branch is proven live on a wholly
+non-Go footprint and stays unreachable wherever one accidentally Go-shaped identifier
+matches (the `VECTORS`→`vectorSearch` case). The RFC_005 follow-up (`derive_checks` skipping
+items it can see are non-Go) is still unbuilt and still where the reachability fix lives.
+
+Corrected visibly in three places, same commit: `bugs_closed/223` (block under "MEASURED
+LIMITATION"), register `diagnosis-loop.md` (the limitation bullet), handoff §4. Missed
+check, for WRONG_CALLS' tally: the handoff carried a "never" forward from 08-10 through two
+rewrites without re-running the one-line count — same shape as the 08-15 watch-item
+refutation (a prescribed check, written down, not run before the claim was repeated).

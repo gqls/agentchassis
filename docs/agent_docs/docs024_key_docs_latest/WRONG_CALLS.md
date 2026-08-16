@@ -32294,3 +32294,32 @@ this bug's runbook). If the message must mention the spelling, paraphrase it; th
   the step was resized around a flood risk that measurement shows is zero on today's copy
   (0/82 components, strictest mode). No operational damage — the recommended sequence
   happened to be right anyway. Corrected in place in the CONTRIB; NOTES corrected same day.
+
+## 2026-08-16 — "`verify_unverifiable` has still never executed" — a "never" carried forward six days past its measurement (bugfix_223_index_answerability)
+
+- **the claim** (`bugs_closed/223` §"MEASURED LIMITATION", register `diagnosis-loop.md`,
+  and handoff §4 "standing traps carried forward" on 08-10, 08-14 and 08-15): the
+  landmine-verifier's TRUE gate branch has never fired in production; every round routes to
+  `verify` because one accidental substring match is enough.
+- **the reality:** it fired twice on 2026-08-15 (14:06:41Z, 17:16:48Z), unattended, on the
+  two entries whose footprints are wholly non-Go and share no token with any Go symbol.
+  Both persisted verdicts read UNVERIFIABLE — the vocabulary only that branch produces.
+  All-history: `verify` 96, `verify_unverifiable` 2. Nothing had changed to enable it; the
+  08-10 measurement (4 of 4 runs, count 1,3,1,1) was correct THAT DAY and was a property of
+  the four footprints tried, not of the mechanism.
+- **what caught it:** reading the 14 new verdicts for the misexplanation watch, two said
+  UNVERIFIABLE, and that status is unreachable from the FALSE branch — one `GROUP BY
+  step_name` settled it.
+- **the cheap check that would have:** the same one-line count, run each time the "never"
+  was copied into a new handoff. Three copies, zero re-runs. Same shape as the 08-15 entry
+  directly above this lane's other one: a check the doc itself prescribes, written down and
+  not run before the claim was repeated.
+- **the general form:** "X has never happened" is a **dated** measurement of a demand-driven
+  event, and it decays with every unit of demand that arrives after it. Copying it forward
+  without a timestamp turns "not yet, as of Tuesday" into a structural claim about the
+  mechanism. Carry the query, not the answer — or at least the date.
+- **cost:** none operational — the register said "do not credit it", which was the safe
+  direction to be wrong in. But a reader planning the `derive_checks` follow-up on "the
+  branch is unreachable" would have designed against a false premise; the correct framing is
+  "reachable only on footprints with no Go-shaped tokens". Corrected in all three places
+  2026-08-16.

@@ -635,3 +635,22 @@ FALSE branch is proven live — but a reader should not credit it with work it h
 `derive_checks` should not emit a bare `content` query for a footprint item it can already
 see is a non-Go file, which would both cut wasted checks and make `no_code_evidence`
 reachable when the footprint really is entirely unverifiable.
+
+> **CORRECTED 2026-08-16 — the TRUE branch HAS NOW FIRED live, twice, unattended.**
+> `SELECT created_at, correlation_id FROM llm_call_log WHERE step_name='verify_unverifiable'`
+> → **2026-08-15 14:06:41Z** (corr `e2324292`, entry
+> `the-next-free-migration-number-is-only-free-until-someone-commits…`: 3 checks, 0 matched,
+> 1 NOT ANSWERABLE, 2 matched nothing) and **2026-08-15 17:16:48Z** (corr `c7884875`, entry
+> `git-checkout-path-restores-from-the-index-not-from-head`: 2 checks, 0 matched, 2 matched
+> nothing). Both persisted verdicts read **UNVERIFIABLE** — the vocabulary only this branch
+> can produce — and both carry the mechanical "NOTHING in this round was confirmed … carry no
+> weight in EITHER direction" clause. All-history count of `verify` = 96, of
+> `verify_unverifiable` = **2**; first-ever executions. **What made it reachable was the
+> footprint, not a fix**: no Go change since `0c880908a` (08-11), and the `landmine-verifier`
+> row's only later touch (18:44:45Z) postdates both firings — these two footprints (git
+> commands; an SQL directory, a shell script, a table) simply contain no token that
+> substring-hits a Go symbol. So the limitation above is narrowed, not withdrawn: the branch
+> is proven live on an entirely-non-Go footprint, and it stays unreachable for any footprint
+> that carries one accidentally-Go-shaped identifier. The `derive_checks` follow-up
+> (RFC_005's mechanism) is still unbuilt. Recorded in `bugfix_223_index_answerability/NOTES`
+> 2026-08-16.
