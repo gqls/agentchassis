@@ -230,6 +230,11 @@ func applyAddToPage(ctx context.Context, db *sql.DB, plan map[string]interface{}
 			resolver := loadComponentNameResolver(ctx, db, logger)
 			if len(resolver.validFunctions) > 0 {
 				resolved := make([]interface{}, 0, len(addSections))
+				// A dropped name is recorded durably, not just logged
+				// (bugs_open/282 council round 2): this path shares the
+				// resolver with validate_site_plan and lost names exactly as
+				// silently — and it is the fleet's dominant placement path.
+				var dropped []droppedSectionName
 				for _, s := range addSections {
 					name, ok := s.(string)
 					if !ok {
@@ -239,10 +244,12 @@ func applyAddToPage(ctx context.Context, db *sql.DB, plan map[string]interface{}
 					if fn, ok := resolver.resolve(name); ok {
 						resolved = append(resolved, fn)
 					} else {
+						dropped = append(dropped, droppedSectionName{Page: pageName, Name: name})
 						logger.Warn("applyAddToPage: dropped unresolvable section name",
 							zap.String("page", pageName), zap.String("section", name))
 					}
 				}
+				recordDroppedSectionNamesFor(ctx, db, logger, siteID.String(), "apply_gap_plan:add_to_page", dropped, "")
 				spec["add_sections"] = resolved
 			} else {
 				spec["add_sections"] = addSections
@@ -362,14 +369,17 @@ func applyNewPage(ctx context.Context, db *sql.DB, plan map[string]interface{}, 
 		resolver := loadComponentNameResolver(ctx, db, logger)
 		if len(resolver.validFunctions) > 0 {
 			resolved := make([]string, 0, len(raw))
+			var dropped []droppedSectionName // durable record, bugs_open/282 round 2
 			for _, name := range raw {
 				if fn, ok := resolver.resolve(name); ok {
 					resolved = append(resolved, fn)
 				} else {
+					dropped = append(dropped, droppedSectionName{Page: pageName, Name: name})
 					logger.Warn("applyNewPage: dropped unresolvable section name",
 						zap.String("page", pageName), zap.String("section", name))
 				}
 			}
+			recordDroppedSectionNamesFor(ctx, db, logger, siteID.String(), "apply_gap_plan:new_page", dropped, "")
 			if len(resolved) > 0 {
 				sections = resolved
 			}
@@ -890,14 +900,17 @@ func applyRetypeExisting(ctx context.Context, db *sql.DB, plan map[string]interf
 		resolver := loadComponentNameResolver(ctx, db, logger)
 		if len(resolver.validFunctions) > 0 {
 			resolved := make([]string, 0, len(raw))
+			var dropped []droppedSectionName // durable record, bugs_open/282 round 2
 			for _, name := range raw {
 				if fn, ok := resolver.resolve(name); ok {
 					resolved = append(resolved, fn)
 				} else {
+					dropped = append(dropped, droppedSectionName{Page: pageName, Name: name})
 					logger.Warn("applyRetypeExisting: dropped unresolvable section name",
 						zap.String("page", pageName), zap.String("section", name))
 				}
 			}
+			recordDroppedSectionNamesFor(ctx, db, logger, siteID.String(), "apply_gap_plan:retype_existing", dropped, "")
 			if len(resolved) > 0 {
 				sections = resolved
 			}

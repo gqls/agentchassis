@@ -18,7 +18,9 @@ import (
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
+	"github.com/google/uuid"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest/observer"
 
 	"github.com/gqls/agentchassis/pkg/models"
 	orchtypes "github.com/gqls/agentchassis/platform/orchestration/types"
@@ -476,5 +478,126 @@ func TestDroppedFindings_ShapeAndTheTwoRemedies(t *testing.T) {
 	}
 	if !strings.Contains(unconfigured, "menu_field") {
 		t.Errorf("an unconfigured menu must name the missing key, got %q", unconfigured)
+	}
+}
+
+// ── round 3: the class, not the caller ──────────────────────────────────────
+//
+// Council round 2, bug_historian (gating, HIGH): the durable record was wired
+// into validate only, while apply_gap_plan's three call sites share the SAME
+// resolver and lost names exactly as silently — on the fleet's dominant
+// placement path. These pin the shared recorder and its provenance.
+
+func TestRecordDroppedSectionNamesFor_NamesItsProvenanceExplicitly(t *testing.T) {
+	// The gap-plan sites have no ActionParams to inherit provenance from, so
+	// the entry must SAY what it is. An entry whose agent_type/action were
+	// never stated is one the writer's merge can fill for you — the trap the
+	// estate's landmines flag, and the reason this path does not reuse the
+	// inheriting door.
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+	mock.MatchExpectationsInOrder(false)
+	mock.ExpectExec("INSERT INTO agent_error_log").
+		WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(),
+			"content-gap-planner", sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(),
+			"apply_gap_plan:new_page", sqlmock.AnyArg(), "PLAN_SECTION_NAME_DROPPED",
+			"warning", sqlmock.AnyArg()).
+		WillReturnResult(sqlmock.NewResult(1, 1))
+
+	n := recordDroppedSectionNamesFor(context.Background(), db, zap.NewNop(),
+		"11111111-1111-1111-1111-111111111111", "apply_gap_plan:new_page",
+		[]droppedSectionName{{Page: "guides", Name: "ghost-section"}}, "")
+	if n != 1 {
+		t.Errorf("one drop must attempt one row, got %d", n)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("the row must carry the stated agent_type/action/code/severity: %v", err)
+	}
+}
+
+func TestRecordDroppedSectionNamesFor_QuietWhenThereIsNothingToSay(t *testing.T) {
+	db, _, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	if n := recordDroppedSectionNamesFor(context.Background(), db, zap.NewNop(), "site", "act", nil, ""); n != 0 {
+		t.Errorf("no drops must attempt no rows, got %d", n)
+	}
+	// A nil DB must be survivable: these call sites run in paths where the
+	// findings door is best-effort and must never change the disposition.
+	if n := recordDroppedSectionNamesFor(context.Background(), nil, zap.NewNop(), "site", "act",
+		[]droppedSectionName{{Page: "p", Name: "n"}}, ""); n != 0 {
+		t.Errorf("a nil DB must attempt no rows and not panic, got %d", n)
+	}
+}
+
+func TestWarnUnrecordedDrops_OnlyWarnsWhenARecordWasLost(t *testing.T) {
+	// The "a failed record is itself silent" objection (round 2, bug_historian
+	// LOW). The findings door is best-effort by design, so the shortfall is
+	// made loud rather than fatal — failing a plan because its REPORT failed
+	// would be worse than the thing being reported.
+	core, logs := observer.New(zap.WarnLevel)
+	logger := zap.New(core)
+
+	warnUnrecordedDrops(3, 3, logger)
+	if logs.Len() != 0 {
+		t.Errorf("a fully recorded batch must be silent, got %d entries", logs.Len())
+	}
+	warnUnrecordedDrops(3, 1, logger)
+	if logs.Len() != 1 {
+		t.Fatalf("a shortfall must warn exactly once, got %d", logs.Len())
+	}
+	if !strings.Contains(logs.All()[0].Message, "could not be recorded durably") {
+		t.Errorf("the warning must say a record was lost, got %q", logs.All()[0].Message)
+	}
+	warnUnrecordedDrops(1, 0, nil) // must not panic
+}
+
+// TestApplyNewPage_ADroppedSectionReachesTheDurableRecord asserts the WIRING at
+// the gap-plan site, not just at validate. Added because mutation showed the
+// existing gap-plan tests stay green with the recorder call deleted — the same
+// silence that let the original bug live. content-gap-planner is the fleet's
+// dominant placement path (116 runs/30d against build-site-planner's handful),
+// so this is the site where the class fix actually earns its keep.
+func TestApplyNewPage_ADroppedSectionReachesTheDurableRecord(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+	mock.MatchExpectationsInOrder(false)
+
+	// The resolver's base: two real components, neither of them the name the
+	// plan proposes.
+	mock.ExpectQuery("component_level IN").
+		WillReturnRows(sqlmock.NewRows([]string{"function", "name", "display_name"}).
+			AddRow("hero", "hero", "Hero").
+			AddRow("faq", "faq", "FAQ Section"))
+	mock.ExpectQuery("INSERT INTO pages").
+		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(uuid.New()))
+	mock.ExpectBegin()
+	mock.ExpectExec("INSERT INTO site_work_items").WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectCommit()
+	// The claim under test: the unresolvable name is recorded, not merely logged.
+	mock.ExpectExec("INSERT INTO agent_error_log").
+		WillReturnResult(sqlmock.NewResult(1, 1))
+
+	plan := map[string]interface{}{
+		"approach": "new_page",
+		"new_page": map[string]interface{}{
+			"name":     "guides",
+			"sections": []interface{}{"hero", "a-component-that-does-not-exist"},
+		},
+	}
+	if _, err := applyNewPage(context.Background(), db, plan, uuid.New(), "example.com", nil, zap.NewNop()); err != nil {
+		t.Fatalf("applyNewPage: %v", err)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("a dropped section on the gap-plan path must reach the durable record: %v", err)
 	}
 }

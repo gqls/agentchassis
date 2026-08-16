@@ -2,11 +2,13 @@ package actions
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"strings"
 
 	"github.com/gqls/agentchassis/platform/orchestration/agenterrors"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
+	"go.uber.org/zap"
 )
 
 // ============================================================================
@@ -157,12 +159,6 @@ type droppedSectionName struct {
 	Name string
 }
 
-// recordDroppedSectionNames persists one durable row per section name validate
-// removed from the plan. menuField is reported so a reader can tell the two
-// cases apart without reading the agent config: a drop with no menu configured
-// invites "should this planner be reading its own menu?" (the 282 fix), while a
-// drop WITH a menu configured means the name was in neither the component base
-// nor anything the planner was offered — a typo, a rename, or a hallucination.
 // droppedRemedy is the operator-facing "what do I do about this" for a dropped
 // name. The two cases are diagnostically different and must not share a
 // sentence: with no menu configured the name may be one the planner was
@@ -214,6 +210,48 @@ func recordDroppedSectionNames(ctx context.Context, params ActionParams, drops [
 		return 0
 	}
 	siteID := datahelpers.ExtractNestedFieldString(params.CollectedData, "site_record.site_id")
-	attempted, _ := LogActionFindings(ctx, params, siteID, "", "validate_plan", droppedFindings(drops, menuField), params.Logger)
+	// InheritingProvenance is the DECLARED opt-in for a batch belonging to the
+	// running step, which is exactly what a drop is: validate_plan dropped it,
+	// in this run. The alternative (LogActionEntryFindings) would file it under
+	// a provenance this caller never named — the merge trap the estate's
+	// landmines flag. Asserted by TestRecordDroppedSectionNames_FilesUnderValidatePlan.
+	attempted, recorded := LogActionFindings(ctx, params, siteID, "", "validate_plan", droppedFindings(drops, menuField), params.Logger)
+	warnUnrecordedDrops(attempted, recorded, params.Logger)
 	return attempted
+}
+
+// recordDroppedSectionNamesFor is the same durable record for a caller that has
+// no ActionParams to inherit provenance from — the three apply_gap_plan sites,
+// which take (ctx, db, logger, siteID) and are reached by six other lanes'
+// tests, so widening their signatures would collide rather than help.
+//
+// It names its provenance EXPLICITLY rather than inheriting it, which is the
+// stricter half of the same rule: an entry whose AgentType/Action were never
+// stated is one the merge can fill for you.
+func recordDroppedSectionNamesFor(ctx context.Context, db *sql.DB, logger *zap.Logger, siteID, action string, drops []droppedSectionName, menuField string) int {
+	if len(drops) == 0 || db == nil {
+		return 0
+	}
+	attempted, recorded := agenterrors.RecordFindings(ctx, db, logger, agenterrors.Entry{
+		SiteID:    siteID,
+		AgentType: "content-gap-planner",
+		Action:    action,
+	}, droppedFindings(drops, menuField))
+	warnUnrecordedDrops(attempted, recorded, logger)
+	return attempted
+}
+
+// warnUnrecordedDrops answers the "a failed record is itself silent" objection:
+// the findings door is best-effort by design (a write failure must never change
+// a disposition the caller already made), so a swallowed return would reproduce,
+// one level up, the exact silence this whole arm removes. It cannot be made
+// fatal — losing the section is the thing being reported, and failing the plan
+// over the REPORT would be worse — so it is made loud instead.
+func warnUnrecordedDrops(attempted, recorded int, logger *zap.Logger) {
+	if logger == nil || recorded >= attempted {
+		return
+	}
+	logger.Warn("dropped section names could not be recorded durably — the drop happened and its record did not",
+		zap.Int("attempted", attempted),
+		zap.Int("recorded", recorded))
 }
