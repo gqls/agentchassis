@@ -12430,3 +12430,62 @@ big payload — it is nested aggregation**, and the ratio tells you how many tim
 data is being re-copied. Always filter with `key LIKE` on these rows; an unfiltered
 `jsonb_each` or `jsonb_pretty` over a 29 MB row times out at 120 s, and a timeout
 reads as a busy cluster rather than an enormous row.
+
+### A status that means "unclaimable" to its PRODUCER may be a promotable queue to someone else — and the row's own history tells you which (`bugs_open/284`, 2026-08-16)
+
+**The shape.** A producer writes a row in a state it believes is inert — recorded,
+visible, not dispatchable — and says so in a comment at the call site. Something
+downstream promotes that state unconditionally, the row enters a pipeline nobody
+meant it to enter, and it fails there. The failure is then recorded as the row's
+own defect: in this case `status='blocked'`, `error='No handler_agent set — item
+cannot be routed to any agent'`, on 60 findings whose whole point was that no
+agent could route them.
+
+**Why the producers' comments were no protection.** Six discovery checks state the
+intent in prose at the call site (*"deliberately none — see the file header"*,
+*"HandlerAgent intentionally empty — flag-only"*, *"alert only; no auto-fixer"*).
+Three of the six chose a promotable status anyway. **A rule kept as a comment at N
+call sites is wrong at some of them**, and the estate's own remedy was sitting one
+file away: `remit.go`'s `CapabilityGapItem` builds the same shape with the correct
+status and explains it once.
+
+**The diagnostic that separates "born wrong" from "changed later".** Ask what
+transitions the row has been through, not what state it is in:
+
+```sql
+SELECT status, count(*),
+       count(*) FILTER (WHERE spec ? 'original_pipeline') AS via_the_promoter,
+       count(*) FILTER (WHERE triaged_at IS NOT NULL)     AS was_promoted
+FROM site_work_items WHERE item_type='<type>' GROUP BY 1;
+```
+
+Two disjoint, complementary populations came back — every damaged row promoted,
+every healthy row never promoted — which located the mechanism one step upstream
+of the symptom in a single query. The bug had been filed against the CLAIM path;
+claim's own `WHERE status IN ('triaged','approved')` means it can never touch the
+state the bug's title accused it of touching.
+
+**But a KEY does not prove authorship — a VALUE can.** `spec.original_pipeline`
+looked unique to the promoter and is written by three places. The two others
+hardcode `"build"`; the promoter writes `to_jsonb(pipeline)`, so a row reading
+`design`/`content` can only be its work. **Before resting a case on the presence of
+a key, enumerate every writer of that key and ask what each would have written.**
+That is what turned an unfalsifiable check into one that could have failed —
+and the rows carrying no such key at all turned out to be a second mechanism
+entirely (hand-inserted, born dispatchable), which the "one writer" framing had
+been silently absorbing.
+
+**Where the guard belongs.** Two steps applied the same test — one before
+dispatch (promote) and one after (claim) — and only the second one enforced it, so
+the first happily created the state the second had to punish. Moving the later
+test EARLIER makes the bad outcome unreachable instead of merely detected, and
+rendering it from **one shared function both call** is what stops the two drifting
+back apart. A guard duplicated in two places is a guard with a half-life.
+
+**And the damage is an absence as well as a status.** `blocked` is in neither
+`workItemTerminalStatuses` nor `idx_swi_dedup`'s excluded list, so every wrongly
+blocked row **holds its `(site_id, item_key)` dedup slot for ever** and its
+check's later findings are dropped with no error. Any census of "how many rows are
+in the wrong state" therefore undercounts the harm: the re-detections are gone.
+When you find rows stuck in a non-terminal failure state, always ask what the dedup
+index does with that state.
