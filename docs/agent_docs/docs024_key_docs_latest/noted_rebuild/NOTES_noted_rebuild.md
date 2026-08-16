@@ -1599,6 +1599,61 @@ this same session when the tool page landed at `/tools/legacy-rescue/index.html`
 rather than `/legacy.html`.** Doing it now because the session is nearly over would
 be the shortcut this lane's docs exist to prevent. Left for the owner to choose.
 
+> ## ⚠ CORRECTED 2026-08-16 by the `dartsonline_traffic` lane — THERE IS A THIRD ROUTE, and it is the framework's own
+>
+> **Contributing rather than rewriting: the section above was honest and its `[UNMEASURED]`
+> marker was correct.** What follows is the measurement it was waiting for. Added here because
+> this section reads as a settled dead end to anyone who arrives later — and it did exactly
+> that to me. I repeated *"there is no framework path that adds one content page on demand"*
+> to the owner as established fact, **dropping the `[UNMEASURED]` marker in the process**,
+> and wrote it into a handoff. That is logged in `WRONG_CALLS.md` (2026-08-16) as my error,
+> not this lane's: the marker did its job and I laundered it away.
+>
+> **The route: `apply_gap_plan`'s `new_page` approach.** `[MEASURED] 2026-08-16`
+>
+> - `platform/orchestration/actions/apply_gap_plan_action.go:8` — its own header lists the
+>   approaches, including *"`new_page`: creates page record + needs_content_page work item"*.
+>   Branch at `:140`, implementation `applyNewPage` at `:289`, plus a dedicated test file
+>   `apply_gap_plan_new_page_test.go`.
+> - **This resolves the section's fourth bullet.** *"`needs_content_page` (writes content for
+>   a page that already exists)"* is exactly right about that item type **in isolation** —
+>   and `new_page` is the step that creates the page and *then* files it. The two compose;
+>   the chain is not blocked by the constraint on its second half. That single reading is the
+>   whole of the difference between this section's conclusion and the working route.
+> - It runs in the live **`content-gap-planner`** agent, fed by `needs_content_planning`
+>   work items which are **actively draining — 27 `complete`, newest 2026-08-15** `[MEASURED]`.
+> - **Proven in production**, on a different site in this same estate:
+>   `docs024_key_docs_latest/dartsonline_traffic/SQL_2026-07-29n_news_page.sql` raised a
+>   planner item with `'approach','new_page'` asserted in the spec; `dartsonline.com/news/index.html`
+>   serves **200** today.
+>
+> **Two caveats, so this correction does not become the next over-claim:**
+> 1. `approach` is read from the **plan the LLM produces** (`apply_gap_plan_action.go:127`),
+>    so the planner may still choose `add_to_page` or `not_actionable`. Asserting it in the
+>    item spec is a strong steer, not a guarantee — check which branch actually ran.
+> 2. I have **not** re-checked this against noted.co.uk's specifics. This lane's note that
+>    *"no `site_plan` or `structure` spec is stored for this site"* may still bear on whether
+>    the planner can act here — that is the thing to verify before using this route on noted,
+>    and it is why nothing on this site has been touched by me.
+>
+> **So the owner's choice framed above is now a choice of three, and the third does not carry
+> either of the costs that made the other two unattractive.**
+>
+> **⚠ And this lane had ALREADY caught part of it — two hours later, further down this very
+> file.** See *"First, a correction to what I wrote two hours ago"* below: the site plan is a
+> set of TABLES (`site_plans`, `site_plan_pages`, …), not a `site_specs` aspect, noted **did**
+> have a current plan all along, and that session wrote in terms as plain as mine —
+> *"That error is why I told the owner there was no framework path to add one content page.
+> There was; I was looking in the wrong store."*
+>
+> **So there were two independent routes and this section was wrong about both** — and the
+> self-correction, though prompt and honest, sits ~65 lines below the claim under a heading
+> that does not mention pages. I read the claim, did not read on, and repeated it. **That is
+> the reusable lesson for everyone, not just me: a correction is only load-bearing if it is
+> attached to the thing it corrects.** Hence this block being placed here rather than
+> appended at the end of the file, which is where the append-only convention would otherwise
+> have put it.
+
 **What is true today:** the wording is approved, checked, and canonical in the
 framework — any agent writing a page that needs it is now instructed to use it
 verbatim and forbidden from inventing a rival version. That was the blocking half.
