@@ -265,6 +265,15 @@ genuinely unanimous 8-seat approval that reads as "every seat abstained".
   refused (use `add` for a new file); `grounded_in` IS a string array; ≤8 edits,
   ≤32KB single-plan bytes. Also mind `noOpEditReason`: a sketch containing
   "add a comment" / "no change needed"-family phrases is refused as a no-op.
+  **A sketch whose every non-blank line is a COMMENT is refused client-side by 097**
+  — *"an edit's sketch is COMMENT-ONLY (every non-blank line starts `--`, `#` or `//`).
+  The server refuses these ('a fix plan proposes changes, not observations')"*
+  (contributed 2026-08-15, portfolio_positioning B3f). This bites hardest on a **SQL
+  migration**, where an annotated block of `--` lines is the natural way to summarise
+  what the file does and is exactly what the gate rejects: sketch the real statements
+  (guards, `UPDATE`, verify block) and move the commentary to `.rationale` /
+  `.grounded_in`. It compounds rather than replaces the "reviewers judge the sketch"
+  rule above — the sketch must be **code**, and it must show the part under objection.
   An invalid run writes **no artifacts at all** — polling
   `diagnosis_artifacts` by corr waits forever; poll `orchestration_states.current_step`
   too and treat `complete_invalid` as terminal (the error is in
