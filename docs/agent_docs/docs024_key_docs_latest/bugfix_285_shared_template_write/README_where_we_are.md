@@ -88,3 +88,17 @@ route nothing automatically; a human promotes an item when they want a fix appli
 **Recommendation: B, staged, with an explicit stop at C if the canary's content is not something
 you would ship. If you intend to decompose the 63, choose A and I'll close the design note as
 "not needed" so it doesn't read as owed.**
+
+## 2026-08-16 — owner decision on D2(b): NOT NEEDED — the imported tools are to be rebuilt as framework-native
+
+The owner's preference is that the 63 imported webdesign tools are rewritten so the framework
+can edit them fully. That is already the direction on record (owner 2026-08-15: "speed up the
+native rebuilds") and is being executed by the `webdesign_tool_rebuilds` lane: the generator's
+attach-to-existing-page fix (bug 286) is LIVE on v1.0.1304 with seed 435 applied 15:15Z today;
+the aspect-ratio pilot is refiled; batch follows one clean pilot, serial, graded at the served page
+before the imported slot is retired; the rich hand-built apps and the 13 external-script tools are
+excluded from generator rebuilds pending a per-tool decision or the byte-faithful conversion route
+(blocked on bug 204). So the per-page fixer designed in PLAN §D2(b) is scaffolding for tools that
+are being replaced — **closed as superseded, nothing built.** No competing lane from here.
+Open for the owner (their PLAN §3): what to do with the rich apps — generator rebuild anyway,
+byte-faithful conversion after 204, or leave imported for now.

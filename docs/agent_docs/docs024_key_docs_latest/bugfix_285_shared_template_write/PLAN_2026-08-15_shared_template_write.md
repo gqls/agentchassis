@@ -82,3 +82,9 @@ is about a concrete thing:
 4. Proof obligations: sqlmock test that with `page_id` set the UPDATE hits `page_components` and
    NOT `content_components` (mutation: drop the branch → test fails); the coverage test above stays
    green unchanged (the file still calls the fence); RUNBOOK recipe to induce both scopes.
+
+> **D2(b) CLOSED 2026-08-16 — SUPERSEDED, not built (owner decision).** The owner prefers the imported
+> tools be rebuilt as framework-native components; that work is owned and in progress in
+> `docs024_key_docs_latest/webdesign_tool_rebuilds/` (286 fix live on v1.0.1304, seed 435 applied,
+> pilot refiled). A per-page writeback would be scaffolding for tools being replaced. The design
+> above stays as a record; do not build it unless the rebuild route is abandoned.
