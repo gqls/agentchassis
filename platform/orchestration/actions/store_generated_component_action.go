@@ -149,6 +149,27 @@ func StoreGeneratedComponentAction(ctx context.Context, params ActionParams) (in
 			sectionType)
 	}
 
+	// Check 4: the input_schema must be the house dialect, {"fields": {...}}.
+	// content_components refuses the retired JSON-Schema dialect (a top-level
+	// "properties" key) by CHECK constraint chk_input_schema_no_legacy_dialect
+	// (migration 437, bugs_open/265), so without this check a JSON-Schema-shaped
+	// generation would die on SQLSTATE 23514 at the INSERT/UPDATE below — after
+	// deriveRenderMode had read `fields`, found none, and called it "template".
+	// Refuse here instead, with the message that names the fix. Same predicate as
+	// the constraint, on purpose: refuse exactly the set the table refuses.
+	{
+		var schemaMap map[string]interface{}
+		if err := json.Unmarshal([]byte(inputSchemaJSON), &schemaMap); err == nil &&
+			datahelpers.IsLegacyInputSchemaDialect(schemaMap) {
+			logger.Warn("store_generated_component: generated input_schema is the retired JSON-Schema dialect — refused before write",
+				zap.String("section_type", sectionType),
+				zap.String("function", functionName))
+			return nil, fmt.Errorf(
+				"generated input_schema for %q uses the retired JSON-Schema dialect (top-level \"properties\"); content_components refuses it (chk_input_schema_no_legacy_dialect) — emit the house dialect {\"fields\": {\"<name>\": {\"source\",\"required\",\"type\",...}}}",
+				sectionType)
+		}
+	}
+
 	// Build suitable_site_types from the site_type that triggered the creation
 	suitableSiteTypes := []string{}
 	if siteType != "" {
@@ -869,7 +890,7 @@ func unwrapJSONBlobIfNeeded(s string, logger *zap.Logger) string {
 func markPagesForRebuild(ctx context.Context, db *sql.DB, sectionType string, logger *zap.Logger) {
 	res, err := db.ExecContext(ctx, `
 		UPDATE pages SET build_status = 'needs_rebuild', updated_at = NOW()
-		WHERE status = 'active'
+		WHERE `+datahelpers.PageWantedLivePredicateFor("")+`
 		  AND build_status = 'deployed'
 		  AND EXISTS (
 		      SELECT 1 FROM jsonb_array_elements_text(sections) sec

@@ -3,16 +3,21 @@
 // One reader of a component's input_schema field set, shared by every consumer
 // that needs the declared content fields — the generation planner, the
 // render-time required-field gate, and the post-deploy required-field audit.
-// See bugs_open/026.
+// See bugs_closed/026 (the fail-open) and bugs_open/265 (the dialect made
+// unrepresentable at the table, migration 437).
 //
 // WHY THIS EXISTS
 // ---------------
 // A component declares its content fields in input_schema. The platform speaks
 // the v2 dialect, `{"fields": {"<name>": {"source","required","type",...}}}`.
 // An OLDER dialect exists — JSON-Schema, `{"type":"object","required":["x"],
-// "properties":{"x":{...}}}` — which pre-dates v2 and can re-appear via a config
-// re-seed, a restored site snapshot, or a component-creator run that emits
-// JSON-Schema.
+// "properties":{"x":{...}}}` — which pre-dates v2. Since migration 437
+// (2026-08-16, bugs_open/265) content_components REFUSES it at the table:
+// CHECK constraint chk_input_schema_no_legacy_dialect rejects any row whose
+// input_schema carries a top-level "properties" key, whoever writes it — a seed,
+// a script, this binary, the admin UI, a restore from a bak_* table. That is
+// where the guarantee lives; everything below is the reader's tolerance, kept
+// as defence in depth for a schema that reaches it from somewhere else.
 //
 // Before this helper, independent readers each did
 // `inputSchema["fields"].(map[string]interface{})` and, on a miss, returned
@@ -21,7 +26,7 @@
 // never told the field existed) and the render gate treated it as "no required
 // fields" (so an empty required field was never caught). A required `news-listing`
 // headline was thereby neither requested nor enforced and served empty
-// (bugs_open/026). Reading one dialect and returning "nothing found" on every
+// (bugs_closed/026). Reading one dialect and returning "nothing found" on every
 // other dialect does not fail safe — it fails OPEN: "I can't read this contract"
 // becomes "there is no contract".
 //
@@ -50,11 +55,20 @@ import "go.uber.org/zap"
 //   - neither (empty {} or a bare example-value map): ok=false, fromLegacy=false,
 //     so the caller keeps its existing no-declared-fields behaviour.
 //
-// fromLegacy is the fail-loud signal: the legacy dialect is extinct fleet-wide
-// (0 of 173 as at 2026-07-21), so a true here means a regression reintroduced it
-// — callers on a build/audit path should surface it via WarnLegacyDialect rather
-// than absorb it silently. The returned map for the legacy case is freshly built;
-// the v2 case shares the caller's map (read-only use only).
+// fromLegacy is the fail-loud signal. Do NOT read it as "the dialect is extinct,
+// so this cannot happen": a comment here said exactly that (0 of 173, 2026-07-21)
+// and four legacy rows were seeded by hand in the three weeks after it — a census
+// is stale the day after it is taken (bugs_open/265). What holds now is a
+// CONSTRAINT: content_components refuses a top-level "properties" key
+// (chk_input_schema_no_legacy_dialect, migration 437), and the three remaining
+// legacy rows were converted by the same migration. So a true here means the
+// schema did not come from content_components under that constraint — the
+// constraint has been dropped, or the caller read a bak_*/versions table, or an
+// in-memory schema is being inspected before a write (which the birth path does
+// on purpose, see IsLegacyInputSchemaDialect). Callers on a build/audit path
+// should surface it via WarnLegacyDialect rather than absorb it silently. The
+// returned map for the legacy case is freshly built; the v2 case shares the
+// caller's map (read-only use only).
 func SchemaContentFields(inputSchema map[string]interface{}) (map[string]interface{}, bool, bool) {
 	if inputSchema == nil {
 		return nil, false, false
@@ -120,20 +134,42 @@ func SchemaContentFields(inputSchema map[string]interface{}) (map[string]interfa
 	return fields, true, true
 }
 
-// WarnLegacyDialect is the fleet-wide tripwire for a reintroduced legacy dialect.
-// Call it on a build or audit path when SchemaContentFields reports fromLegacy,
-// so a re-seed/snapshot-restore/component-creator regression that revives the
-// extinct dialect is visible (a log line, per bugs_open/026's council review)
-// rather than silently absorbed by the now-tolerant reader. Nil logger is a no-op
-// (tests, non-logging call sites). `where` names the call site (e.g.
-// "plan_sections", "check_required_fields_missing").
+// WarnLegacyDialect is the fleet-wide tripwire for a legacy dialect that reached
+// a reader. Call it on a build or audit path when SchemaContentFields reports
+// fromLegacy. Nil logger is a no-op (tests, non-logging call sites). `where`
+// names the call site (e.g. "plan_sections", "check_required_fields_missing").
+//
+// What a firing MEANS changed with migration 437 (bugs_open/265). Before it, this
+// was the only detector for a reintroduced dialect and it was a Warn line nobody
+// read — four rows passed six call sites for up to 15 days unseen. Now the table
+// itself refuses the dialect, so this cannot fire on a content_components row
+// unless the constraint chk_input_schema_no_legacy_dialect is gone. That is why
+// it is an Error and says so: a firing is evidence about the constraint, not
+// about a seed. Check `\d content_components` first.
 func WarnLegacyDialect(logger *zap.Logger, where string, component string) {
 	if logger == nil {
 		return
 	}
-	logger.Warn("SchemaContentFields: projected a LEGACY JSON-Schema input_schema dialect — this dialect should be extinct fleet-wide; a re-seed, snapshot restore, or component-creator run may have reintroduced it (bugs_open/026)",
+	logger.Error("SchemaContentFields: projected a LEGACY JSON-Schema input_schema dialect. content_components refuses this dialect by CHECK constraint chk_input_schema_no_legacy_dialect (migration 437) — if this schema came from that table the constraint has been dropped; otherwise the caller is reading a bak_*/component_versions copy or an in-memory schema (bugs_open/265, bugs_closed/026)",
 		zap.String("where", where),
 		zap.String("component", component))
+}
+
+// IsLegacyInputSchemaDialect reports whether inputSchema would be REFUSED by
+// content_components' CHECK constraint chk_input_schema_no_legacy_dialect
+// (migration 437): a top-level "properties" key, whatever its value. This is
+// deliberately the constraint's own predicate rather than SchemaContentFields'
+// fromLegacy, which is narrower (a non-empty properties object AND no fields):
+// a schema carrying BOTH keys reads as v2 but the table still refuses it, and
+// the birth path must refuse the same set the table refuses or a generation
+// dies on SQLSTATE 23514 instead of a message that names the fix. Nil and
+// non-object schemas are not legacy (the constraint passes NULL).
+func IsLegacyInputSchemaDialect(inputSchema map[string]interface{}) bool {
+	if inputSchema == nil {
+		return false
+	}
+	_, has := inputSchema["properties"]
+	return has
 }
 
 // WarnIfLegacyDialect fires the tripwire iff inputSchema is the legacy dialect.

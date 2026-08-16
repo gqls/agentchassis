@@ -1,0 +1,278 @@
+{
+ "_note": "bugs_open/265 / migration 437: the three legacy-dialect content_components rows captured live 2026-08-16 (before) and migration 437's SQL projection of them (after, from a rolled-back probe run). TestLegacyDialectConversionMatchesProjection asserts SchemaContentFields reads both identically.",
+ "rows": [
+  {
+   "after": {
+    "fields": {
+     "eyebrow": {
+      "source": "llm",
+      "type": "text"
+     },
+     "footnote": {
+      "source": "llm",
+      "type": "text"
+     },
+     "intro": {
+      "source": "llm",
+      "type": "text"
+     },
+     "section_title": {
+      "source": "llm",
+      "type": "text"
+     },
+     "series": {
+      "items": {
+       "properties": {
+        "fact_id": {
+         "description": "id of a kind=series fact; its observations are the points",
+         "type": "string"
+        },
+        "label": {
+         "description": "defaults to the fact's own claim",
+         "type": "string"
+        },
+        "max": {
+         "description": "scale constant ONLY (e.g. 100 for a percentage), never a quantity about the world",
+         "type": "number"
+        },
+        "max_fact_id": {
+         "description": "PREFERRED scale denominator: another registered fact",
+         "type": "string"
+        },
+        "note": {
+         "type": "string"
+        },
+        "unit": {
+         "description": "suffix shown after each value, e.g. %",
+         "type": "string"
+        }
+       },
+       "required": [
+        "fact_id"
+       ],
+       "type": "object"
+      },
+      "min_items": 1,
+      "required": true,
+      "source": "llm",
+      "type": "array"
+     }
+    }
+   },
+   "before": {
+    "properties": {
+     "eyebrow": {
+      "type": "string"
+     },
+     "footnote": {
+      "type": "string"
+     },
+     "intro": {
+      "type": "string"
+     },
+     "section_title": {
+      "type": "string"
+     },
+     "series": {
+      "items": {
+       "properties": {
+        "fact_id": {
+         "description": "id of a kind=series fact; its observations are the points",
+         "type": "string"
+        },
+        "label": {
+         "description": "defaults to the fact's own claim",
+         "type": "string"
+        },
+        "max": {
+         "description": "scale constant ONLY (e.g. 100 for a percentage), never a quantity about the world",
+         "type": "number"
+        },
+        "max_fact_id": {
+         "description": "PREFERRED scale denominator: another registered fact",
+         "type": "string"
+        },
+        "note": {
+         "type": "string"
+        },
+        "unit": {
+         "description": "suffix shown after each value, e.g. %",
+         "type": "string"
+        }
+       },
+       "required": [
+        "fact_id"
+       ],
+       "type": "object"
+      },
+      "minItems": 1,
+      "type": "array"
+     }
+    },
+    "required": [
+     "series"
+    ],
+    "type": "object"
+   },
+   "function": "evidence-timeseries"
+  },
+  {
+   "after": {
+    "fields": {
+     "eyebrow": {
+      "source": "llm",
+      "type": "text"
+     },
+     "footnote": {
+      "source": "llm",
+      "type": "text"
+     },
+     "intro": {
+      "source": "llm",
+      "type": "text"
+     },
+     "section_title": {
+      "source": "llm",
+      "type": "text"
+     },
+     "steps": {
+      "items": {
+       "properties": {
+        "body": {
+         "type": "string"
+        },
+        "branches": {
+         "description": "a decision point: two or more outcomes, rendered side by side",
+         "items": {
+          "properties": {
+           "body": {
+            "type": "string"
+           },
+           "label": {
+            "type": "string"
+           }
+          },
+          "required": [
+           "body"
+          ],
+          "type": "object"
+         },
+         "type": "array"
+        },
+        "marker": {
+         "description": "optional override for the auto number",
+         "type": "string"
+        },
+        "note": {
+         "description": "an aside, rendered as a callout",
+         "type": "string"
+        },
+        "title": {
+         "type": "string"
+        }
+       },
+       "required": [
+        "title"
+       ],
+       "type": "object"
+      },
+      "min_items": 2,
+      "required": true,
+      "source": "llm",
+      "type": "array"
+     }
+    }
+   },
+   "before": {
+    "properties": {
+     "eyebrow": {
+      "type": "string"
+     },
+     "footnote": {
+      "type": "string"
+     },
+     "intro": {
+      "type": "string"
+     },
+     "section_title": {
+      "type": "string"
+     },
+     "steps": {
+      "items": {
+       "properties": {
+        "body": {
+         "type": "string"
+        },
+        "branches": {
+         "description": "a decision point: two or more outcomes, rendered side by side",
+         "items": {
+          "properties": {
+           "body": {
+            "type": "string"
+           },
+           "label": {
+            "type": "string"
+           }
+          },
+          "required": [
+           "body"
+          ],
+          "type": "object"
+         },
+         "type": "array"
+        },
+        "marker": {
+         "description": "optional override for the auto number",
+         "type": "string"
+        },
+        "note": {
+         "description": "an aside, rendered as a callout",
+         "type": "string"
+        },
+        "title": {
+         "type": "string"
+        }
+       },
+       "required": [
+        "title"
+       ],
+       "type": "object"
+      },
+      "minItems": 2,
+      "type": "array"
+     }
+    },
+    "required": [
+     "steps"
+    ],
+    "type": "object"
+   },
+   "function": "mechanism-flow"
+  },
+  {
+   "after": {
+    "fields": {
+     "body": {
+      "llm_guidance": "Pre-rendered dossier HTML from create_report_page. Never authored by an LLM and never assembled from a template \u2014 see the seed header.",
+      "required": true,
+      "source": "llm",
+      "type": "text"
+     }
+    }
+   },
+   "before": {
+    "properties": {
+     "body": {
+      "description": "Pre-rendered dossier HTML from create_report_page. Never authored by an LLM and never assembled from a template \u2014 see the seed header.",
+      "type": "string"
+     }
+    },
+    "required": [
+     "body"
+    ],
+    "type": "object"
+   },
+   "function": "report-dossier"
+  }
+ ]
+}

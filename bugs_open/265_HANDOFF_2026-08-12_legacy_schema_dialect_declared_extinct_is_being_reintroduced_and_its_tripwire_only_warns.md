@@ -1,5 +1,9 @@
 # 265 — the legacy `input_schema` dialect is declared EXTINCT in a doc comment, is being reintroduced steadily, and the tripwire built to catch that only writes a `Warn`
 
+> ## STATUS 2026-08-16 — TAKEN UP by the `bugfix_265_legacy_dialect_unrepresentable` lane. FIX BUILT, council submitted (`aba82416-de79-4452-8730-3e35ca0a15bb`), migration 437 written and probe-run; see §"2026-08-16" at the foot for the re-verification, the producer CORRECTION, and what ships where.
+> Docs: `docs/agent_docs/docs024_key_docs_latest/bugfix_265_legacy_dialect_unrepresentable/`.
+> **Headline correction:** the producer is NOT the component-creator. All four legacy rows were hand-authored SQL seeds/scripts (`created_from='manual'`, `source_agent_type` NULL) — so the fix that stops the count growing is a **CHECK constraint on the table**, the one seam every producer passes through. Population today: **3** (loans-consolidation was converted to v2 by its own lane on 2026-08-15).
+
 **Filed 2026-08-12.** Found by the `copy_quality_two_stage` lane while sizing
 `bugs_open/260`'s exposure; the reintroduction dates were surfaced by the
 `brochure_component_library` front and are reproduced here with their query. **Two
@@ -28,9 +32,18 @@ SELECT function, created_at::date, is_active FROM content_components WHERE input
 
 `[MEASURED 2026-08-12]` Four active components, none forked, spanning 15 days and still
 arriving. **This is not a residue the census missed — it is a steady reintroduction that
-began six days after the dialect was declared dead.** The likely producer is the
+began six days after the dialect was declared dead.** ~~The likely producer is the
 component-creator path; that is `[UNVERIFIED]` and is the first thing the fixing thread
-should establish.
+should establish.~~
+> **CORRECTED 2026-08-16 (fixing lane):** the producer is **hand-authored SQL**, not the
+> component-creator. All four rows are `created_from='manual'`, `source_agent_type` NULL;
+> the three seeds are on disk (`sql_for_agents/207` — committed 2026-07-25, four days after
+> the census — `247`, `250`), and the fourth was the LMC lane's hand seed of 2026-08-10. The
+> component-creator (`created_from='generated'`, 69 rows 03-31→07-06) has emitted **0**
+> legacy rows in its life. What caught it: reading the provenance columns instead of
+> guessing from the dialect's shape — one `GROUP BY created_from, source_agent_type`.
+> Consequence: a gate on the component-creator would have stopped none of the four; the
+> table itself is the only seam they all crossed. Full section at the foot of this file.
 
 **Why a comment earns a bug file.** It is read as an invariant by anyone writing code
 against `input_schema`, and it has already caused one error: this lane specified a
@@ -228,3 +241,100 @@ flags is equally invisible.
 urgency. Defect 2's *silence* claim stands (the tripwire's only output is still a `Warn` that
 nobody reads); Defect 2's *consequence* claim is refuted. Fix candidate 2's urgency drops for
 those two call sites specifically; candidate 3 is strengthened.
+
+---
+
+## 2026-08-16 — TAKEN UP: re-verified, producer corrected, fix built (`bugfix_265_legacy_dialect_unrepresentable` lane)
+
+### Re-verification [MEASURED 2026-08-16, clients_db]
+
+| claim | today |
+|---|---|
+| 4 legacy rows, newest 08-10 | **3**: `report-dossier` (07-27), `mechanism-flow` (07-28), `evidence-timeseries` (07-28). `loans-consolidation` now carries `fields`; `updated_at` 2026-08-15 14:06:40Z; converted by `loanandmortgagecalculator_couk/b2_convert_oldshape.py` (its own lane), no `component_versions` row |
+| producer `[UNVERIFIED]` = component-creator | **wrong direction** — see the CORRECTED block in §Defect 1. `created_from | source_agent_type | n | legacy`: `manual|∅|170|3`, `generated|∅|69|0`, `generated|tool-generator|33|NULL schemas`, `manual|tool-deployer|13|0`, `generated|generic|6|NULL schemas` |
+| tripwire only Warns | unchanged (`component_schema_fields.go:130-137` at HEAD) |
+| comment claims extinction | unchanged (`:53-56` at HEAD) |
+| top-level `properties` anywhere else | `component_versions`: 0. Only `content_components` (live) and `component_versions` (history) carry the column outside `bak_*` tables; every Go reader joins `content_components` |
+
+The bug is **still valid**; the count stopped growing only because the last seeder converted
+their own row — nothing structural changed.
+
+### What the correction means for the fix candidates
+
+The file's candidate 3 said *"if the component-creator path is confirmed as the producer,
+validate there."* It is not the producer, and RFC_009's own CronJob header already states the
+general fact: *"content_components live only in the database. A component is routinely changed
+by a migration or by hand with no commit at all."* So **candidate 3 lands as a CHECK constraint
+on the table** — the seam every one of the four rows actually crossed — with the Go birth-path
+check kept as legibility for the one LLM producer, not as the guarantee.
+
+### The fix, as built (council `aba82416-de79-4452-8730-3e35ca0a15bb`, submitted 2026-08-16)
+
+1. **Migration `437_content_components_refuse_legacy_input_schema_dialect.sql`** — guards
+   (not applied; population is exactly the 3 ids; every property def is an object) → backup
+   table `content_components_bak_20260816_265_legacy_dialect` → UPDATE converting the 3 rows
+   by `SchemaContentFields`' projection written in SQL (behaviour-preserving) → `DO`/`RAISE`
+   verify (0 legacy left; field-name sets equal old `properties` sets; every field has a
+   `source`; `required` flags equal old `required[]`) → `ADD CONSTRAINT
+   chk_input_schema_no_legacy_dialect CHECK (input_schema IS NULL OR NOT (input_schema ?
+   'properties'))` + `COMMENT`. Probe-run 2026-08-16 (COMMIT swapped for ROLLBACK): all
+   guards passed, `UPDATE 3`, verify NOTICE, ALTER, COMMENT; live table confirmed untouched
+   after. `_ROLLBACK` sidecar drops the constraint FIRST, then restores by id.
+   **Refuses the top level only** — nested `properties` under `fields.<x>.items` is the
+   shape of an item (mechanism-flow and evidence-timeseries both carry one) and is fine.
+2. **Go, inert until the next chassis roll:** `datahelpers.IsLegacyInputSchemaDialect` (the
+   constraint's own predicate — deliberately wider than `fromLegacy`, so the birth path refuses
+   exactly what the table refuses); a fourth birth check in `store_generated_component` that
+   fails the step with a message naming the house dialect instead of SQLSTATE 23514 after
+   `deriveRenderMode` has already mis-read the schema as `template`; the doc comment rewritten
+   to cite the constraint (checkable at any moment) instead of a census (stale in four days);
+   `WarnLegacyDialect` Warn→Error with a message that says what a firing now MEANS (the
+   constraint is gone, or the schema came from a `bak_*`/versions copy or memory); the stale
+   `bugs_open/026` pointer → `bugs_closed/026`.
+3. **Proof:** `TestLegacyDialectConversionMatchesProjection` runs `SchemaContentFields` on
+   the live before-JSON and 437's after-JSON (fixture captured from the rolled-back probe, not
+   typed) and asserts identical field maps + `fromLegacy=false` after. Mutation-tested: a
+   dropped `required` flag and an always-false predicate both fail. `go build ./platform/...`
+   green.
+
+**Deliberately not done:** no new CronJob (RFC_006's daily-check pattern is for invariants the
+DB cannot express — this one it can; a constraint does not drift); the reader's legacy
+projection is KEPT (deleting it restores the fail-OPEN blind spot 026 was opened about); the
+three applied seeds are not rewritten (history — a hand re-run now fails loudly, which is the
+intended behaviour); `component_versions`/`bak_*` untouched.
+
+### Two things this surfaces for OTHER lanes (not fixed here — content decisions)
+
+- **`report-dossier` `body` is marked `source: llm` by the projection and therefore by the
+  conversion**, yet its seed (`207`) says the body is *"Never authored by an LLM and never
+  assembled from a template."* That is exactly the over-report addendum 1 predicted. Behaviour
+  is unchanged by 437 (the reader already defaulted it), and 0 `page_components` use the
+  component today, so nothing fires — but the honest v2 value is the gripper-dossier lane's
+  call (`source: renderer` is the vocabulary the fleet uses for pre-rendered fields: 134 rows).
+- **`site-header` (2026-07-17) carries a THIRD shape**: v2 field definitions with no `fields`
+  wrapper (`{"header_cta_url": {"type":"url","source":"config.chrome.header_cta_url",…}}`).
+  `SchemaContentFields` returns `ok=false` for it ("no declared fields"). Harmless today — no
+  `llm` field, chrome path — but it is a v2 schema the v2 reader cannot see. Not this bug's
+  dialect and not refused by 437; noted so the next reader of that row does not assume the
+  wrapper is present. `[OBSERVED, not measured for consequence]`
+
+### Verification route (owner ruling 2026-07-31)
+
+No `090` run for the producer claim. Substituted: a full-population enumeration on the
+provenance columns (it could have shown `generated` rows carrying `properties`, and did not),
+plus the three seed files read on disk with the dialect at the cited lines. The fix goes
+through the council gate.
+
+### How to verify (once 437 is applied; the Go half once rolled)
+
+```sql
+SELECT count(*) FROM content_components WHERE input_schema ? 'properties';         -- 0
+SELECT conname FROM pg_constraint WHERE conname='chk_input_schema_no_legacy_dialect'; -- 1 row
+-- INDUCE, in a transaction you roll back:
+BEGIN; INSERT INTO content_components (name, html_template, function, input_schema)
+  VALUES ('zz','<section></section>','zz-scratch-265','{"type":"object","properties":{"x":{"type":"string"}}}');
+-- must fail: violates check constraint "chk_input_schema_no_legacy_dialect"
+ROLLBACK;
+```
+A zero from the census is now evidence, because the refusal can be induced.
+
