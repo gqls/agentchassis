@@ -163,3 +163,46 @@ reconciliation items at once. Collapsing to one item per tool would be tidier an
 (`bugs_open/091`), which the `bug_historian` seat raised in the same round. Kept
 per-fact, banded low, and the burst is named in the CONTRIB so the receiving lane is
 not surprised by it.
+
+## 2026-08-16 (later still) — council round 2: REVISE again, and it killed my round-1 fix
+
+**Round 2's gating objection is the sharpest thing that happened to this lane**, and it
+was aimed at the fix I had just written for round 1:
+
+> `unreconciled_declaration` only fires when baseline is nil, but nil requires BOTH no
+> lastItem AND no previousRow(factID). previousRow is … prior REGISTER state, the same
+> signal round 2's own rationale names as the broken baseline definition … Since the
+> register is re-verified daily and … the register's cited VALUE was correct and
+> unchanged the whole time, previousRow will almost always resolve.
+
+Correct, and I should have seen it: **I fixed the symptom and left the mechanism that
+caused it in the fallback chain.** On mortgagecalculator the register is superseded every
+morning, so a previous row always exists carrying 500000 — baseline never nil — the
+first-declaration case never fires — the mechanism is still blind to 225. My round-1 fix
+was inert for the exact case it was written for, and my tests passed because I tested the
+fix in isolation rather than against the bug.
+
+**The resolution made the code smaller, which is usually the sign of a right answer.** I
+had conflated two questions:
+
+- *has the register's VALUE moved?* — answered by comparing register rows
+- *has this TOOL ever been reconciled?* — answered only by whether we ever filed for it
+
+`previousRow` answers the first and I was using it for the second. Deleted. The baseline
+is now the newest `fact_drift` finding for (fact, tool) and nothing else; its absence
+means "never reconciled", which is a real state rather than a missing measurement. The
+value-move case still works, because a moved register value stops matching what the tool
+was told.
+
+**Two mutations passed before one bit — see `WRONG_CALLS.md`.** M11 mutated a path the
+test bypassed; M11b read the row without using it. Only M11c (declared, populated,
+consulted) failed, with the right message. I nearly recorded a false proof.
+
+**Also done this round:** reused `discovery_checks.ToolSubjectKeyExpr` instead of the
+hand-written equivalent (two seats objected; they were right — a second spelling of the
+subject-key rule can drift from what the acceptance tiers resolve), and verified live
+that it resolves both tools: LMC `mortgages-stamp-duty` → `mortgages-stamp-duty`, mcalc
+`tool-stamp-duty` → `stamp-duty`, both non-fork. Measured for the guardian seat: the
+validator has exactly **one** production caller (`write_experience_pattern_action.go`),
+and **0 of 161** current PLANs and 0 of 11 experience patterns use a top-level `facts`
+key — no collision.

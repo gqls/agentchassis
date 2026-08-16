@@ -20,13 +20,13 @@
 //     the register of the site being swept — the driven page's site, never the
 //     PLAN (PBP-037's rule; plan §5.1). An id the site's register does not carry
 //     is inert and reported, never fatal, never an item.
-//   - The subject-key resolution is NOT `toolSubjectKeyExpr` reuse (council
-//     reuse_agent seat, 2026-08-16). That expression computes a subject key FROM
-//     a (component, page) pair; this query needs the opposite direction — given a
-//     PLAN's subject_key, find the pages that carry it — so the shared expression
-//     cannot be substituted, only mirrored. What IS shared is the rule it
-//     encodes (`name` or `'tool-'||name`), and it is spelled the same way here
-//     and in tool_acceptance_actions.go's URL lookup on purpose.
+//   - The subject-key resolution REUSES the ladder's own expression,
+//     discovery_checks.ToolSubjectKeyExpr, matched against dp.subject_key —
+//     it is not re-derived inline. Round 2 shipped a hand-written equivalent and
+//     two seats (reuse_agent, tooling_provenance) objected to exactly that: a
+//     second spelling of the rule can drift from what the acceptance tiers
+//     resolve, and then the two disagree about which tool a finding belongs to.
+//     The rule is one constant now, read by both.
 //   - A FETCH ERROR is not a permanent silence (council bug_historian seat,
 //     2026-08-16). Nothing is filed on the day of a 403 — but a citation that
 //     keeps failing also keeps AGEING, and refreshCitationFact independently
@@ -65,13 +65,12 @@
 //     NOBODY. CLM-008: unknown is not loss; a per-tool item on every 403 day
 //     trains people to ignore the queue. Reported in the result, not filed.
 //
-// Baseline for "value drift": the value the tool was last TOLD. First the most
-// recent fact_drift item for (fact, tool) — its spec.fact.new_value; else the
-// same fact's value in the previous evidence_base row for the site (a human
-// supersede or an in-place UPDATE both leave the older row behind); else no
-// baseline and no fire — a register with one row ever, or a fact newly
-// declared, is silent. Piece 4 (an RFC, not this file) owns "is the current
-// number RIGHT"; this file only owns "did it MOVE, and who encodes it".
+// Baseline: the value this TOOL was last told — the newest fact_drift finding for
+// (fact, tool). Nothing else. Its ABSENCE is the signal that the pair has never
+// been reconciled, which files a one-time review item; its presence and
+// difference from the register's current value is a drift. Piece 4 (an RFC, not
+// this file) owns "is the current number RIGHT"; this file owns "has anyone ever
+// checked, and has it moved since".
 //
 // What this file never does: touch `changed`, res.Drifted,
 // res.ArtifactCheckDrifted or shouldRaiseStaleEvidence — the RFC_025 council
@@ -109,6 +108,7 @@ import (
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 
+	"github.com/gqls/agentchassis/platform/orchestration/actions/discovery_checks"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 )
 
@@ -160,27 +160,25 @@ type factDriftIndex struct {
 // active tool pages and 6 archived. The change closes the door on those 6
 // rather than fixing a live miss — which is the point of an audit predicate.
 var factDriftIndexQuery = `
-		SELECT p.id::text, p.name, COALESCE(p.url, ''), COALESCE(p.build_status, ''),
+		SELECT DISTINCT ON (dp.subject_key, p.id)
+		       p.id::text, p.name, COALESCE(p.url, ''), COALESCE(p.build_status, ''),
 		       dp.subject_key, dp.body,
 		       COALESCE((
-		           SELECT cc.id::text FROM page_components pc
-		           JOIN content_components cc ON cc.id = pc.component_id
-		           WHERE pc.page_id = p.id AND cc.is_active = true AND cc.component_level = 'tool'
-		             AND cc.function IN (dp.subject_key, 'tool-' || dp.subject_key)
-		           ORDER BY pc.position LIMIT 1
+		           SELECT cc2.id::text FROM page_components pc2
+		           JOIN content_components cc2 ON cc2.id = pc2.component_id
+		           WHERE pc2.page_id = p.id AND cc2.is_active = true AND cc2.component_level = 'tool'
+		             AND cc2.function IN (dp.subject_key, 'tool-' || dp.subject_key)
+		           ORDER BY pc2.position LIMIT 1
 		       ), '') AS fork_component_id
 		FROM pages p
+		JOIN page_components pc ON pc.page_id = p.id
+		JOIN content_components cc ON cc.id = pc.component_id AND cc.is_active = true
 		JOIN doc_plans dp
 		  ON dp.subject_type = 'tool' AND dp.is_current = true
-		 AND (p.name = dp.subject_key OR p.name = 'tool-' || dp.subject_key
-		      OR EXISTS (
-		          SELECT 1 FROM page_components pc2
-		          JOIN content_components cc2 ON cc2.id = pc2.component_id
-		          WHERE pc2.page_id = p.id AND cc2.is_active = true AND cc2.component_level = 'tool'
-		            AND cc2.function = dp.subject_key))
+		 AND ` + discovery_checks.ToolSubjectKeyExpr + ` = dp.subject_key
 		WHERE p.site_id = $1 AND dp.body LIKE '%"facts"%'
-		  AND NOT (p.status = 'archived' AND (` + datahelpers.NeverDeployedPagePredicateFor("p") + `))
-		ORDER BY dp.subject_key, p.name`
+		  AND NOT (p.status = 'archived' AND ` + datahelpers.NeverDeployedPagePredicateFor("p") + `)
+		ORDER BY dp.subject_key, p.id, p.name`
 
 // loadFactDriftIndex runs the one join query for a site and parses each fence.
 // registerFactIDs is the set of ids the site's register carries; declared ids
@@ -234,21 +232,40 @@ func loadFactDriftIndex(ctx context.Context, db *sql.DB, siteID uuid.UUID, regis
 	return idx, nil
 }
 
-// factDriftBaselines holds "the value the tool was last told" per (fact, tool)
-// and the previous register row's value per fact. See the file header.
+// factDriftBaselines holds THE ONE BASELINE THAT MEANS ANYTHING HERE: the value
+// this TOOL was last told about this fact, per (fact, tool).
+//
+// ⚠ IT USED TO FALL BACK TO THE PREVIOUS REGISTER ROW, AND THAT FALLBACK
+// SILENTLY DISARMED THE MECHANISM (council round 2, editquality, gating). The
+// reasoning at the time was "any prior value is better than none". It is not:
+// the register is re-verified DAILY, so a previous evidence_base row almost
+// always exists and almost always carries the same, correct value — which meant
+// baseline was never nil, the first-declaration case never fired, and the whole
+// mechanism stayed blind to bugs_closed/225's shape (correct register, stale
+// code, no legislative change) even after round 1's fix for exactly that.
+//
+// The two questions were conflated, and separating them is what fixes it:
+//
+//	"has the register's VALUE moved?"      — answered by comparing successive
+//	                                          register rows. NOT this mechanism's
+//	                                          question, and already covered: if
+//	                                          the value moves, it stops matching
+//	                                          what the tool was told, below.
+//	"has this TOOL ever been reconciled?"  — answered ONLY by whether we have
+//	                                          ever filed a finding for this pair.
+//
+// So there is one map and no fallback. Absence means "never reconciled", which
+// is a real and actionable state, not a missing measurement.
 type factDriftBaselines struct {
-	lastItem    map[string]float64 // key: factID + "|" + subjectKey
-	previousRow map[string]float64 // key: factID
+	lastItem map[string]float64 // key: factID + "|" + subjectKey
 }
 
 func baselineKey(factID, subjectKey string) string { return factID + "|" + subjectKey }
 
-// baselineFor answers with the most specific baseline available, or nil.
+// baselineFor returns the value this tool was last told, or nil if this pair has
+// never been reconciled. nil is load-bearing — see the type comment.
 func (b factDriftBaselines) baselineFor(factID, subjectKey string) *float64 {
 	if v, ok := b.lastItem[baselineKey(factID, subjectKey)]; ok {
-		return &v
-	}
-	if v, ok := b.previousRow[factID]; ok {
 		return &v
 	}
 	return nil
@@ -260,26 +277,24 @@ const factDriftLastItemQuery = `
 		WHERE site_id = $1 AND spec->>'check' = 'fact_drift'
 		ORDER BY created_at DESC`
 
-const factDriftPreviousRowQuery = `
-		SELECT data FROM site_specs
-		WHERE site_id = $1 AND aspect = 'evidence_base' AND id <> $2
-		ORDER BY created_at DESC LIMIT 1`
-
-// loadFactDriftBaselines reads both baselines. Only called when the site has at
-// least one resolvable declaration, so sites without declarations pay nothing.
-// The previous row is read as a raw map — never through the typed EvidenceBase
-// (plan landmine §5.2: the typed struct does not model citation/writer_line/unit).
-func loadFactDriftBaselines(ctx context.Context, db *sql.DB, siteID, currentRowID uuid.UUID) (factDriftBaselines, error) {
-	b := factDriftBaselines{lastItem: map[string]float64{}, previousRow: map[string]float64{}}
+// loadFactDriftBaselines reads, for this site, the value each tool was last told
+// about each fact — the newest fact_drift finding per (fact, tool). Only called
+// when the site has at least one resolvable declaration, so sites without
+// declarations pay nothing.
+//
+// It deliberately reads NO register history: see factDriftBaselines' comment for
+// why a previous-register-row fallback disarmed this mechanism entirely.
+func loadFactDriftBaselines(ctx context.Context, db *sql.DB, siteID uuid.UUID) (factDriftBaselines, error) {
+	b := factDriftBaselines{lastItem: map[string]float64{}}
 
 	rows, err := db.QueryContext(ctx, factDriftLastItemQuery, siteID)
 	if err != nil {
 		return b, fmt.Errorf("fact drift baselines (items): %w", err)
 	}
+	defer rows.Close()
 	for rows.Next() {
 		var factID, subjectKey, newVal sql.NullString
 		if err := rows.Scan(&factID, &subjectKey, &newVal); err != nil {
-			rows.Close()
 			return b, fmt.Errorf("fact drift baselines scan: %w", err)
 		}
 		if !factID.Valid || !newVal.Valid {
@@ -294,38 +309,7 @@ func loadFactDriftBaselines(ctx context.Context, db *sql.DB, siteID, currentRowI
 			b.lastItem[k] = f
 		}
 	}
-	rows.Close()
-	if err := rows.Err(); err != nil {
-		return b, fmt.Errorf("fact drift baselines rows: %w", err)
-	}
-
-	var raw []byte
-	err = db.QueryRowContext(ctx, factDriftPreviousRowQuery, siteID, currentRowID).Scan(&raw)
-	switch {
-	case err == sql.ErrNoRows:
-		return b, nil
-	case err != nil:
-		return b, fmt.Errorf("fact drift baselines (previous row): %w", err)
-	}
-	var prev map[string]interface{}
-	if err := json.Unmarshal(raw, &prev); err != nil {
-		return b, nil // an unreadable previous row is "no baseline", not a failure
-	}
-	facts, _ := prev["facts"].([]interface{})
-	for _, fr := range facts {
-		fact, ok := fr.(map[string]interface{})
-		if !ok {
-			continue
-		}
-		id := datahelpers.GetStringField(fact, "id", "")
-		if id == "" {
-			continue
-		}
-		if v, ok := numericField(fact["value"]); ok {
-			b.previousRow[id] = v
-		}
-	}
-	return b, nil
+	return b, rows.Err()
 }
 
 // factDriftEmission is one planned or written per-(fact, tool) finding.
@@ -491,7 +475,7 @@ type factDriftPlan struct {
 // BEFORE the dry-run return so a dry run reports what it would file. Read-only.
 // Any DB failure here is logged and yields no emissions — the sweep's existing
 // work must not be aborted by the fan-out.
-func planSiteFactDrift(ctx context.Context, db *sql.DB, siteID, specRowID uuid.UUID, eb map[string]interface{}, res *siteRefreshResult, dryRun bool, logger *zap.Logger) factDriftPlan {
+func planSiteFactDrift(ctx context.Context, db *sql.DB, siteID uuid.UUID, eb map[string]interface{}, res *siteRefreshResult, dryRun bool, logger *zap.Logger) factDriftPlan {
 	plan := factDriftPlan{toolsByKey: map[string]factDriftTool{}}
 	factsRaw, _ := eb["facts"].([]interface{})
 	factsByID := make(map[string]map[string]interface{}, len(factsRaw))
@@ -533,7 +517,7 @@ func planSiteFactDrift(ctx context.Context, db *sql.DB, siteID, specRowID uuid.U
 		return plan
 	}
 
-	base, err := loadFactDriftBaselines(ctx, db, siteID, specRowID)
+	base, err := loadFactDriftBaselines(ctx, db, siteID)
 	if err != nil {
 		logger.Warn("refresh_evidence_base: fact-drift baselines failed — no fan-out this pass",
 			zap.String("site_id", siteID.String()), zap.Error(err))

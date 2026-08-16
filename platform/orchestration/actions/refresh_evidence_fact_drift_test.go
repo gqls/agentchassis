@@ -257,25 +257,93 @@ func TestClassifyFactDrift_ValuelessFactIsSilent(t *testing.T) {
 
 // ── Baseline precedence ────────────────────────────────────────────────────
 
-// INDUCED RED for the re-fire guard: the last item the tool was told about wins
-// over the previous register row. Drop the lastItem lookup and a fact whose
-// item was already filed re-fires every single day.
-func TestFactDriftBaselines_LastItemBeatsPreviousRow(t *testing.T) {
+// INDUCED RED for the gating defect of council round 2, and the most important
+// test in this file after the first-declaration one.
+//
+// Round 1's fix (fire on a missing baseline) was DEFEATED BY MY OWN BASELINE
+// PRECEDENCE: baselineFor fell back to the previous evidence_base row, the
+// register is re-verified daily, so a previous row essentially always exists
+// carrying the same correct value — baseline was never nil, the first-declaration
+// case never fired, and the mechanism stayed blind to bugs_closed/225 after a
+// whole round spent fixing exactly that. The baseline is now what the TOOL was
+// told and nothing else. Reintroduce a register-history fallback and this fails.
+func TestFactDriftBaselines_OnlyWhatTheToolWasTold(t *testing.T) {
 	b := factDriftBaselines{
-		lastItem:    map[string]float64{baselineKey("sdlt-ftb-relief-cap", "stamp-duty"): 550000},
-		previousRow: map[string]float64{"sdlt-ftb-relief-cap": 500000},
+		lastItem: map[string]float64{baselineKey("sdlt-ftb-relief-cap", "stamp-duty"): 550000},
 	}
 	got := b.baselineFor("sdlt-ftb-relief-cap", "stamp-duty")
 	if got == nil || *got != 550000 {
 		t.Fatalf("baseline = %v, want the value the tool was last TOLD (550000)", got)
 	}
-	// A different tool has been told nothing, so it falls back to the register.
-	other := b.baselineFor("sdlt-ftb-relief-cap", "other-tool")
-	if other == nil || *other != 500000 {
-		t.Fatalf("fallback baseline = %v, want the previous register row (500000)", other)
+	// A tool that has been told nothing has NO baseline — even though the
+	// register has a long, stable history for this fact. That absence is the
+	// whole first-contact signal.
+	if b.baselineFor("sdlt-ftb-relief-cap", "never-reconciled-tool") != nil {
+		t.Fatal("a tool that has never been told anything must have NO baseline — a register-history fallback here is what silently disarmed this mechanism in round 2")
 	}
 	if b.baselineFor("unknown-fact", "stamp-duty") != nil {
 		t.Fatal("an unknown fact must have no baseline")
+	}
+}
+
+// The end-to-end statement of the same thing, in bug 225's own terms: a stable,
+// correct, daily-re-verified register fact plus a tool nobody has ever checked
+// must produce a finding. This is the test that would have failed on the code
+// shipped after round 1.
+func TestClassifyFactDrift_StableRegisterPlusUncheckedToolStillFires(t *testing.T) {
+	// The register has said 500000 every day for months; the tool has never been
+	// reconciled. bugs_closed/225 is precisely this situation.
+	em, ok := classifyFactDrift(
+		&evidenceFactRefresh{FactID: "sdlt-ftb-relief-cap", Outcome: "fresh"},
+		sdltReliefCapFact(500000), fdTool("stamp-duty", false, true), nil, fdSiteIDStr)
+	if !ok {
+		t.Fatal("a stable register and an unchecked tool must still produce a finding — this is 225's exact shape and the mechanism exists for it")
+	}
+	if em.Kind != "unreconciled_declaration" {
+		t.Fatalf("kind = %q, want unreconciled_declaration", em.Kind)
+	}
+}
+
+// THE PLANNER-LEVEL PROOF of the round-2 fix, and the one that actually bites.
+//
+// ⚠ The struct-literal test above does NOT constrain the LOADER: reintroducing a
+// register-history fallback in loadFactDriftBaselines leaves it green, because the
+// test builds factDriftBaselines by hand. That mutation was run and PASSED — the
+// "a mutation that passes may have hit a guard in series" trap, live. This test
+// closes it from the other side: it declares the ONLY queries the loader may
+// issue, so any re-added read of site_specs history fails as an unexpected query,
+// and it asserts the 225-shaped outcome end to end (stable register, tool never
+// told, finding produced).
+func TestPlanSiteFactDrift_UncheckedToolFiresWithoutReadingRegisterHistory(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	body := "```criteria\n{\"facts\":[\"sdlt-ftb-relief-cap\"],\"no_auto_fix\":true,\"checks\":[]}\n```"
+	mock.ExpectQuery(regexp.QuoteMeta(factDriftIndexQuery)).WithArgs(fdSiteID).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "url", "build_status", "subject_key", "body", "fork_component_id"}).
+			AddRow("3d7d0d72-0000-4000-8000-000000000001", "tool-stamp-duty", "", "complete", "stamp-duty", body, ""))
+	// The tool has never been told anything: no prior fact_drift finding.
+	mock.ExpectQuery(regexp.QuoteMeta(factDriftLastItemQuery)).WithArgs(fdSiteID).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "subject_key", "new_value"}))
+	// DELIBERATELY NO further expectation. sqlmock is ordered and strict, so a
+	// re-added site_specs history read here is an unexpected-query failure.
+
+	res := &siteRefreshResult{SiteID: fdSiteIDStr, Domain: "example.test"}
+	// The register has carried the correct value, unchanged, for months.
+	eb := map[string]interface{}{"facts": []interface{}{sdltReliefCapFact(500000)}}
+	plan := planSiteFactDrift(context.Background(), db, fdSiteID, eb, res, true, zap.NewNop())
+
+	if len(plan.Emissions) != 1 {
+		t.Fatalf("a stable register plus a never-reconciled tool must produce exactly one finding, got %d — this is bugs_closed/225's shape", len(plan.Emissions))
+	}
+	if plan.Emissions[0].Kind != "unreconciled_declaration" {
+		t.Fatalf("kind = %q, want unreconciled_declaration", plan.Emissions[0].Kind)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("the loader issued a query it should not have (a register-history read is exactly the round-2 defect): %v", err)
 	}
 }
 
@@ -334,7 +402,7 @@ func TestPlanSiteFactDrift_NoDeclarationsIsOneQueryAndNoResultChange(t *testing.
 	before, _ := json.Marshal(res)
 
 	eb := map[string]interface{}{"facts": []interface{}{sdltReliefCapFact(500000)}}
-	plan := planSiteFactDrift(context.Background(), db, fdSiteID, uuid.New(), eb, res, false, zap.NewNop())
+	plan := planSiteFactDrift(context.Background(), db, fdSiteID, eb, res, false, zap.NewNop())
 
 	if len(plan.Emissions) != 0 {
 		t.Fatalf("a site with no declarations must emit nothing, got %d", len(plan.Emissions))
@@ -359,19 +427,17 @@ func TestPlanSiteFactDrift_DryRunPlansButMarksDryRun(t *testing.T) {
 	defer db.Close()
 
 	body := "```criteria\n{\"facts\":[\"sdlt-ftb-relief-cap\"],\"no_auto_fix\":true,\"checks\":[]}\n```"
-	specRow := uuid.New()
 	mock.ExpectQuery(regexp.QuoteMeta(factDriftIndexQuery)).WithArgs(fdSiteID).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "url", "build_status", "subject_key", "body", "fork_component_id"}).
 			AddRow("3d7d0d72-0000-4000-8000-000000000001", "tool-stamp-duty", "", "complete", "stamp-duty", body, "392e979d-0000-4000-8000-000000000001"))
+	// The tool WAS told 500000 previously, so this pass sees a genuine move.
 	mock.ExpectQuery(regexp.QuoteMeta(factDriftLastItemQuery)).WithArgs(fdSiteID).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "subject_key", "new_value"}))
-	prev, _ := json.Marshal(map[string]interface{}{"facts": []interface{}{sdltReliefCapFact(500000)}})
-	mock.ExpectQuery(regexp.QuoteMeta(factDriftPreviousRowQuery)).WithArgs(fdSiteID, specRow).
-		WillReturnRows(sqlmock.NewRows([]string{"data"}).AddRow(prev))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "subject_key", "new_value"}).
+			AddRow("sdlt-ftb-relief-cap", "stamp-duty", "500000"))
 
 	res := &siteRefreshResult{SiteID: fdSiteIDStr, Domain: "example.test"}
 	eb := map[string]interface{}{"facts": []interface{}{sdltReliefCapFact(550000)}}
-	plan := planSiteFactDrift(context.Background(), db, fdSiteID, specRow, eb, res, true, zap.NewNop())
+	plan := planSiteFactDrift(context.Background(), db, fdSiteID, eb, res, true, zap.NewNop())
 
 	if len(plan.Emissions) != 1 {
 		t.Fatalf("expected one emission, got %d", len(plan.Emissions))

@@ -33239,3 +33239,47 @@ original framing had silently folded into the one mechanism I was describing.
 **The transferable bit:** when a key proves your case, ask what a DIFFERENT producer of that key would
 have written. If the answer is "the same thing", the key is not evidence — a value that only your
 suspect could produce is.
+
+---
+
+## 2026-08-16 (later) — I ran two mutations, both PASSED, and I nearly filed that as proof the guard held
+
+**The setting.** Council round 2 gated on a real defect: my baseline fell back to the
+previous `evidence_base` row, the register is re-verified daily, so a previous row
+essentially always exists — the "first declaration" case I had added in round 1 to fix
+round 1's objection could therefore *never fire*. I fixed it (baseline is now only what
+the tool was last told) and went to prove the fix by re-introducing the defect and
+watching a test fail.
+
+**M11 — passed.** I put the `previousRow` map back on the struct and in the loader. The
+test I ran builds `factDriftBaselines` as a **struct literal**, so the loader is not on
+its path at all. Green, and meaningless.
+
+**M11b — passed.** I then added the register-history *query* back into the loader and
+asserted `mock.ExpectationsWereMet()`. Two reasons it could not bite: `sqlmock`'s
+`ExpectationsWereMet` reports **unfulfilled expectations**, not extra queries; and my
+mutation *read* the row without ever *using* it, so no behaviour changed. Green, and
+meaningless again.
+
+**M11c — failed, correctly**, with the message I wanted to see: *"a stable register plus
+a never-reconciled tool must produce exactly one finding, got 0 — this is
+bugs_closed/225's shape"*. The difference: the field was declared, **populated, and
+consulted by `baselineFor`** — the whole causal chain, not a piece of it.
+
+**What caught it.** Only that I distrusted the green. Two passes in a row on a mutation
+that was *supposed* to break something is the tell; a guard that cannot be broken is
+usually a guard that was not reached. `MEMORY.md` already carries the line — *"a
+mutation that PASSES usually hit a guard in SERIES"* — and I had to walk into it twice
+before I applied it to myself.
+
+**The cheap check I skipped.** Before running a mutation, ask **"what is the causal path
+from this edit to that assertion?"** M11 had none (the test bypasses the loader). M11b
+had none (read without use, and the assertion measures the wrong thing). Thirty seconds
+of tracing would have saved two false proofs.
+
+**Why it matters more than a wasted minute.** I was about to write "the guard is proven
+by induced red" into a council submission and a bug file. A *false* proof of a guard is
+worse than no proof: it converts an open question into a settled one, and the next
+person has no reason to re-ask. **An induced red is only evidence if the mutation is
+FAITHFUL — it must be the defect, not something adjacent to it.** State the mutation you
+ran, not just that you ran one.

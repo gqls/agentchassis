@@ -73,6 +73,24 @@ const toolSubjectKeyExpr = `CASE
 			ELSE regexp_replace(p.name, '^tool-', '')
 		END`
 
+// ToolSubjectKeyExpr is toolSubjectKeyExpr exported for ONE outside reader:
+// refresh_evidence_fact_drift.go's fact-drift fan-out (package actions), which
+// must resolve a PLAN's subject_key to the pages carrying that tool.
+//
+// It is exported rather than copied because two council seats (reuse_agent,
+// tooling_provenance, 2026-08-16) objected to the fan-out re-deriving an
+// equivalent-looking predicate inline: a second spelling of the subject-key rule
+// can drift from what the acceptance tiers actually resolve, and then the two
+// disagree about which tool a finding belongs to.
+//
+// NOTE the deliberate asymmetry: the fan-out reuses this EXPRESSION but NOT
+// toolEligibilityWhere below. Measured 2026-08-16, that predicate's
+// sole-component clause admits neither SDLT tool, so keying the fan-out on it
+// would make it permanently silent on the tools it exists for. Encoding a fact
+// and being acceptance-eligible are different questions; deriving a subject key
+// is the same question.
+const ToolSubjectKeyExpr = toolSubjectKeyExpr
+
 // toolEligibilityWhere is the shared predicate. It is appended to a query that
 // has already constrained p.site_id, and it carries its own is_active/status
 // tests so the two callers cannot drift apart on them.

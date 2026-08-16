@@ -490,7 +490,7 @@ func refreshOneSiteEvidence(
 	// any fact a criteria fence on this site declares. Planned BEFORE the dry-run
 	// return so a dry run REPORTS it; written after the existing raises below so
 	// it can never change when they fire. Read-only here.
-	factDrift := planSiteFactDrift(ctx, db, siteID, specRowID, eb, res, dryRun, logger)
+	factDrift := planSiteFactDrift(ctx, db, siteID, eb, res, dryRun, logger)
 	res.FactDrift = factDrift.Emissions
 
 	if dryRun {
