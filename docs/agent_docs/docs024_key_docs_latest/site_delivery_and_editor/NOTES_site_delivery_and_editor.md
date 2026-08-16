@@ -294,3 +294,18 @@
   `b4416c3208f9df047c044a526246f06c4fca03c4b02ec470e9e6af4e01f82ceb`;
   then a second tick must report `skipped: no drift` with `published_at`
   unchanged.
+- **16:01Z — THE CANARY PASSED. The publish seam works end to end.**
+  Chain, every link observed: tick 16:01:14Z → `site_publish_checks` stamped
+  → `publish-reconciler-orchestrate-0816-1601` → spawn handshake succeeded
+  FIRST TRY (pod `agent-site-publisher-bdcaf73e-krk56`, Running 16s in) →
+  `publish_site` copied the tree → served-bytes acceptance passed →
+  `published_hash = th1:05a06351…` written at 16:01:40.900765Z, orchestration
+  COMPLETED. **Verified at the artefacts, not the status**: 8 objects at
+  origin, 8 at `noted.ugg2.com/` (recursive count both sides); served
+  `https://noted.ugg2.com/index.html` returns 200 and its sha256 is
+  `b4416c32…` — **byte-identical to the origin hash captured BEFORE any
+  publish existed**, which is the whole acceptance. Isolation holds: exactly
+  1 site opted in fleet-wide.
+  The 411 fix (`b4981634d`) is therefore proven in production, not just in
+  test: yesterday this failed on the first file, today the same tree copies
+  clean on the first attempt.
