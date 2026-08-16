@@ -3153,3 +3153,66 @@ authoring path emits this shape rarely, and the acute cost is one href.
 search result that reaches a B2 site with a trailing slash. That is unmeasurable from here
 and is left as a stated exposure, not a claim. Canonicals are NOT part of it: the pages
 emit `…/index.html` canonicals, matching what is served [MEASURED: three pages].
+
+### 5. Acting on it — owner chose "build the pages"; two built and live, the third is blocked by `bugs_open/260`
+
+Put the fork to the owner with the measurements (build the three planned pages vs retarget the
+links at pages that exist). **Owner chose: build the three pages.** Rationale recorded at the time:
+the hrefs are already correct, so building fixes the links *without editing a line of the copy this
+lane spent weeks tuning* — which on a site whose improvement loop rewrites hero copy unasked is the
+material advantage, not a stylistic one.
+
+**Nothing was hand-built and nothing was hand-armed beyond status.** The site's own queue already
+held the right items, deferred since 07-31/08-02:
+
+| item | id | outcome |
+|---|---|---|
+| `needs_page:guide-mortgage-scorecard` | `7fd27e59` | armed `deferred`→`triaged` 16:14:55Z → **complete 16:26:21Z**, page deployed 16:26:13Z |
+| `needs_page:guide-lender-restrictions` | `dde1c0fc` | armed with it → **complete 16:31:50Z** |
+| `gap_plan_add_scorecard-simulator` | `0c65f9fa` | **already in flight when I arrived** (claimed 16:10:14Z by `build-dispatch-loop`, unprompted) → `needs_human_review` 16:18:01Z |
+
+[MEASURED] Both new pages serve 200 with correct chrome, `<title>` matching `pages.title`,
+`…/index.html` canonicals, no template leak: `lender-restrictions` 22,486 B / 444 words,
+`mortgage-scorecard` 22,919 B / 526 words. Copy is in the house voice
+(*"Some things narrow your choice of lender before the rate ever comes into it"*).
+
+**Nothing else on the site was armed** — the armed set was empty when I started (`triaged`/
+`approved`/`detected` = 0, one `claimed`), so §10c's backstop was unnecessary and no other lane's
+items were touched.
+
+#### 5a. The scorecard-simulator build is refused by `bugs_open/260`, and I contributed the instance
+
+`validate_content` → **20 blockers, 0 errors**, all `unrendered_template`/`unrendered_template_block`
+on the `mechanism-flow` component: `{{if .eyebrow}}<span class="mech-flow__eyebrow">Before the
+decision</span>{{end}}` — directives intact, field values substituted, which is 260 §1's verbatim
+fingerprint. Item parked, nothing written (260 §4's gate holds). Contributed to 260 §10 with a
+census isolating the defect from the other 8 issue types under the same `error_code`: **11 events,
+4 domains, 10 work items, 08-11→08-16**, five of them since 260 was filed, and this site is 6 of the
+11. 260 is actively owned (council trail 08-14) — contributed, did not compete.
+
+#### 5b. ⚠ The count of live 404s went 8 → 7, NOT 8 → 1, and the reason is worth knowing
+
+I expected building the pages to fix 7 of 8. It fixed 3. **The two pages the framework just wrote
+each link to `/scorecard-simulator.html` themselves** — because the site's design intent names the
+Scorecard Simulator as an expected page, so every writer that reads the intent links to it. Live
+instances of that dead href went **4 → 6**.
+
+[MEASURED 2026-08-16 16:33Z, full re-audit of all 29 deployed pages, 28 distinct internal links]
+
+| target | before | after |
+|---|---|---|
+| `/guides/mortgage-scorecard/index.html` | 2 dead | **200, 2 links resolve** |
+| `/guides/lender-restrictions/index.html` | 1 dead | **200, 1 link resolves** |
+| `/scorecard-simulator.html` | 4 dead | **6 dead** (2 added by the new pages) |
+| `/tools/rate-forecaster/` | 1 dead | 1 dead (directory-form; not hand-fixed, see §4) |
+
+So the honest read: **the queue that `260` buries is self-fuelling on this site.** Every page the
+framework writes adds another link to the one page it cannot build. That is a stronger argument for
+260's fix than anything in my §10c contribution, and it is measured rather than argued.
+
+⚠ **A 404 immediately after a deploy may be the CDN's cached negative, not the truth.** The
+`mortgage-scorecard` page returned 404 on the first probe 40s after `deployed_at`, and 200 with a
+`?cb=` buster in the same second (`cache-control: public, max-age=300` on the worker's 404 arm).
+`how-banks-decide` did the same during the re-audit and is 200 on three plain probes since. **Probe
+twice, second one cache-busted, before believing a post-deploy 404** — otherwise you will file a
+deploy failure that never happened.

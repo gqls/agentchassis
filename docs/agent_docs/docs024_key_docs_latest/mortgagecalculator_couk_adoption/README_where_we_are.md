@@ -1254,3 +1254,36 @@ have, because the software treats the two forms as the same page. The right fix 
 layer, once, for every site of this kind — not a hand-edit of one link here. I have written it up
 where the next person will hit it. **It is your call whether that is worth doing; it is a change
 to how the sites are served, not to the site itself.**
+
+### Later the same afternoon — two of the three pages are built and live; the third is blocked by a known platform bug
+
+The two guides are done and on the site: **"Where you stand before you apply"**
+(`/guides/mortgage-scorecard/`) and **"What might limit your options"**
+(`/guides/lender-restrictions/`). The framework wrote both — I only un-parked the two build jobs
+that had been sitting in the queue since 31 July. They read in the right voice, they have the right
+titles, and the three links that used to lead nowhere now land on them.
+
+**The Scorecard Simulator did not build, and it is not a fluke.** The system had actually started
+building it by itself this afternoon, before I got to it — and its own quality gate refused the
+result, because the page came back with raw template code in it (`{{if …}}`, `{{end}}`) instead of
+finished HTML. That is a known bug, filed on 12 August by another lane, root cause proven, not yet
+fixed. The gate did the right thing: nothing broken was published. I have added our case to that
+bug, with the measurement that it has now happened eleven times across four sites and that six of
+those eleven are ours.
+
+**One thing I got wrong today, and it is worth you knowing how.** I wrote up the trailing-slash
+problem as a new discovery. It was not — it was already written down in our own traps file, and that
+entry even named this site as an example. The reason I missed it is that I searched for it in my
+words ("trailing slash", "directory-form") and it was filed in someone else's ("a /section/ URL").
+I found out by accident, forty minutes later, when I went looking for where the fix would live. I
+have corrected it everywhere I claimed it, logged it in the wrong-calls file, and the rule I took
+from it is: search for prior work by the *name of the thing* (the file, the function), never by the
+words you would use to describe the symptom. Two people describing the same bug rarely choose the
+same words; they cannot avoid choosing the same filenames.
+
+**A caveat on today's link fix, stated plainly.** Building the two guides fixed three dead links —
+not seven, as I expected. The two new pages each link to the Scorecard Simulator themselves, because
+the site's own brief names it as a page that should exist, so the writer keeps referring to it. Dead
+links went from eight to seven, not from eight to one. The site is slowly accumulating references to
+one page it cannot build, and that will keep happening until that bug is fixed. Nothing here is
+broken by it; it just means the tidy-up is not finished and cannot be finished from this end.
