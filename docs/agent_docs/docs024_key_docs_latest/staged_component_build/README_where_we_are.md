@@ -1634,3 +1634,40 @@ can have twenty to ninety look-alikes by the time it is read. So the plan's next
 guessing entirely) is off the calendar until each of those cases has been given a proper
 explicit wiring line — which is precisely what the week of watching was for, and it says
 the "conflicts are rare" hunch was wrong. That triage is the next job on this lane.
+
+---
+
+**16 August 2026 — answering your build-pipeline question, and why I stopped before deleting the file**
+
+Short answers first.
+
+**"Will the full build-pipeline affect other pages too?" Yes — all 36 of them.** The full
+pipeline re-plans the whole site: it re-runs the site planner and then rebuilds content page by
+page. For one broken tool page that is far too blunt an instrument, and it costs LLM spend on 35
+pages nobody asked about. There is a narrower mechanism that rebuilds *only* the pages you
+explicitly flag, and that is the one to use. So: we do not need the big pipeline, and I would
+recommend against it.
+
+**Good news on the tool: the guide page already exists and works.** It was rebuilt on the 15th
+and has real content. So "rebuild it with a guide" is already half done — what is missing is the
+interactive converter itself, which is a page with a slot and nothing in the slot. Specifically
+nine pieces of text the system was supposed to write and never did. The cleanest fix is to get
+those nine written by the tool-building machinery, without re-running anything site-wide; if
+that does not work, the fallback is the narrow one-page rebuild.
+
+**On the stray image file — I did not delete it, and I want to be straight about why.** I traced
+the whole mechanism and hit something worth telling you: *the system has no supported way to
+delete an image file from a site.* The one deletion route that exists is deliberately restricted
+to pages, and the general-purpose tool refuses deletion on purpose — that refusal is a decision
+someone made deliberately, with a written rationale, not an oversight. The underlying machinery
+*can* delete a file; it is the safety catch above it that says no.
+
+That leaves three honest options: route around that safety catch just this once for a single
+harmless file, build a proper narrow capability for deleting assets, or you delete the one file
+by hand. My instinct is the first, recorded openly — but going around a deliberate safety
+control is exactly the kind of thing I should not do quietly on your behalf while you are not
+looking, so I have written up all three with the evidence and left the choice.
+
+Everything is written down in a fresh handoff so a new chat can pick up both jobs cold. One
+caution recorded there: another session is currently mid-build inside the same part of the code,
+so whoever continues needs to stay out of those files until they are finished.
