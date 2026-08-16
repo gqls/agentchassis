@@ -66,3 +66,38 @@ Gotchas learned the hard way:
   in it (they can end up rendered into the page). Process notes go in the item summary.
 - Rich apps (mind-map, meme-generator, micro-cms, pasteboard, logic-architect…): do NOT file —
   PLAN §3.
+
+## Is the adopt path live? (bugs_open/286 — do this BEFORE refiling the pilot)
+
+```bash
+POD=$(kubectl -n ai-persona-system get pods -l app=agent-chassis -o jsonpath='{.items[0].metadata.name}')
+kubectl -n ai-persona-system exec $POD -- grep -aq "88897190e" /proc/1/exe && echo FIX_PRESENT || echo FIX_ABSENT
+kubectl -n ai-persona-system exec $POD -- grep -aq "5e075a6f9" /proc/1/exe && echo control_1303_present   # must also be true after a roll that includes it
+kubectl -n ai-persona-system exec $POD -- grep -aq "deadbeefcafe0000" /proc/1/exe && echo CONTROL_BROKEN || echo control_absent_ok
+```
+Only when FIX_PRESENT: rename `sql_for_agents/435_tool_generator_adopt_existing_page_HOLD.sql` (drop `_HOLD`,
+fix its two filename literals), apply, then confirm
+`SELECT default_config#>'{workflow,steps,save_tool,config,adopt_existing_page}' FROM agent_definitions WHERE type='tool-generator' AND is_active AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL;` → `true`.
+Then refile the pilot (INSERT above). Grade the generator run: `create_result.page_adopted = true`,
+`page_components` gains ONE row on the EXISTING page id at position 2, `pages` gains NO row.
+
+## Visible-text check on a tool slot (a 13 KB slot can be a shell)
+
+```sql
+SELECT id, slot_name, build_status, length(rendered_html),
+  length(regexp_replace(regexp_replace(regexp_replace(regexp_replace(rendered_html,'<style[^>]*>.*?</style>','','gis'),'<script[^>]*>.*?</script>','','gis'),'<[^>]+>','','g'),'\s|&[a-z#0-9]+;','','g')) AS visible_chars,
+  (rendered_html LIKE '%{{.%') AS raw_tag
+FROM page_components WHERE page_id='<page>';
+```
+`visible_chars = 0` ⇒ hollow; and census the TEMPLATE's `{{.` fields before trusting any re-render.
+
+## Guard on "open items on this page" — the status set that matters
+
+`status IN ('triaged','approved','claimed','pending')` — NOT `NOT IN (complete,cancelled,rejected)`:
+`unresolved`/`failed` are dead to the dispatcher and there are dozens per page from the pre-434 era.
+
+## The ab-test revert (done 2026-08-16 ~10:05Z; recipe for any fork that turns out unfit)
+
+Status flips only, html untouched, one txn with pre-state asserts: ported slot `removed`→`deployed`,
+fork slot `approved`→`removed`, then an assemble-only `page_rerender` (spec `{domain,page_id,page_name,filename}`,
+no `reason`). Grade at the served page: `grep -c '{{\.'` = 0, control string present, ONE tool.

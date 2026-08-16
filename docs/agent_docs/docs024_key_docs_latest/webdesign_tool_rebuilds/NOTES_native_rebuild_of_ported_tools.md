@@ -78,3 +78,49 @@
   backfill UPDATE matched 0 rows — spec shape differs from assumed; re-diagnose.
 - My "checked clean" wrong call on the 285 placement: logged in `WRONG_CALLS.md` (caught by
   the 285 lane; instrument greped invented spellings).
+
+## 2026-08-15 22:10Z → 2026-08-16 10:10Z — pilot diagnosed (NOT the handshake), two seeds, one Go fix approved+committed, ab-test REVERTED to the ported tool
+
+- **MISSTEP, corrected: the handoff's "pilot empty run matches the spawn→call handshake failure" was WRONG.**
+  The three "empty `final_result`" generator runs were three different things: `5ef53886` (aspect-ratio)
+  died at `save_tool` on `pages_site_id_name_key` — `agent_error_log` 18:29:17Z said so all along; the
+  other two (`tool-storage-risk-explainer`, `tool-overpayment-priority`) CREATED their components
+  (`content_components.created_at` matches) — empty `final_result` is that agent's normal shape.
+  What caught it: reading `agent_error_log` for the window instead of `orchestration_states`
+  (MEMORY `spawn-call-handshake-races` says exactly this and I skipped it). → `WRONG_CALLS.md`.
+- **Root cause of the pilot (090 CONFIRMED first iteration, corr `3050effc`):** `create_tool_component`
+  has NO attach-to-existing-page path — bare `INSERT INTO pages`, no `ON CONFLICT`, no lookup, no
+  `page_id` input; the error branch deletes the just-created component. Same binary built ab-test's
+  fork the night before because ab-test went through `tool-deployer`/`deploy_tool_to_site`
+  (`resolveToolPageIdentity` + `UpsertPageForRole`), not the generator. → `bugs_open/286`.
+- **Fix built, tested (3 sqlmock pins, cleanup guard mutation-proven), council APPROVED `27d0f428`
+  23:14Z, committed `88897190e` with the trailer + register TL-044 + seed `435_…_HOLD.sql`.** Opt-in
+  `adopt_existing_page` (default OFF). INERT until (a) a chassis roll carries `88897190e` and (b) 435 is
+  un-HELD and applied — image before config. **The cluster at 09:52Z 2026-08-16 still ran `v1.0.1303`**
+  (pods 18:45Z 08-15, deploy image 1303, no newer local image) — the owner's "fresh chassis build" note
+  did not correspond to anything visible; verify with the binary probe before applying 435.
+- **The two "gap-shape" improve_tool items were a CLASS, not a window:** `spec_data` passed as a MAP is
+  never read (contract: path string) ⇒ **233/233** `audit_fix` items ever filed had `spec={}`; four live
+  producers. Seed **434** (applied 22:1xZ 08-15, committed `bc4cd65e7`) moved tool-auditor ×2,
+  internal-linker, component-quality-auditor to `spec_paths`/`spec_literal`, backfilled the 4 actionable
+  webdesign items from their row columns, re-armed 2 (+ reset llm-cost's counter; ab-test's held).
+  **Proof it worked:** all three ran within 3 minutes (22:37–22:40Z), each wrote a new fork version via
+  `update_component_html` and delivered a `section_edit` (complete). Not yet graded at the served page.
+  → LANDMINES entry.
+- **ab-test: the fork is a HOLLOW SHELL and the page was serving 47 raw tags.** The template
+  externalises 31 UI-copy fields (`section_heading`, `calculate_button_label`, …) nobody supplies;
+  deployer served it verbatim (raw tags); the 08-15 section-edit re-rendered it against `{}` ⇒
+  13,284 chars, **0 visible chars** (class-attr floors passed — every class survived); the queued
+  rerender then failed "blank slots [tool-ab-test-calculator]". No archive row for the pair. The
+  handoff's "raw tag REMOVED from stored html" was true for the wrong reason. **Reverted 10:0xZ:**
+  ported slot `ebe3c57a` → `deployed`, fork `1a9efade` → `removed`, item
+  `page_rerender:owner-gate:tool-ab-test-calculator:revert-to-ported` queued (assemble-only).
+  ab-test is rebuild candidate #2 via the adopt route. → LANDMINES entry; 286 "related finding".
+- **MISSTEP (harmless): my "no open items on this page" guard counted 10 `unresolved` items and
+  aborted** — `unresolved` is a dead status the dispatcher never selects; guard on
+  `IN ('triaged','approved','claimed','pending')` instead. RUNBOOK updated.
+- **285 close-out is being done by its owning lane RIGHT NOW:** `agent_error_log` 09:59:06Z
+  `step_name=induce_write`, `error_code=component_write_shared_blocked`, "placed on 115 pages across
+  2 sites"; wrapper still 4,664/`{{.body}}`/4 versions. Not touched by this lane; noted for the record.
+- Rerender queue timing: the 22:05Z owner-gate rerender was claimed 23:26Z (~80 min behind the
+  serial dispatcher); expect the revert to take about that.

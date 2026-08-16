@@ -1,5 +1,7 @@
 # HANDOFF — webdesign tool rebuilds + owner-gate follow-ups. START HERE. Written 2026-08-15 ~22:30Z.
 
+> **SUPERSEDED 2026-08-16 ~10:15Z by `HANDOFF_2026-08-16_continue_here.md`** — read that one. Note its correction: §Next actions 2 below ("matches the spawn→call handshake failure") was WRONG; the pilot died on `pages_site_id_name_key` in `create_tool_component` (bugs_open/286, `WRONG_CALLS.md`).
+
 The owner's session (visual gate → tool defects → 281/285 → rebuild lane) ran long; this is
 the continuation point. Read `PLAN_2026-08-15_native_rebuild_of_ported_tools.md` for the
 design and `NOTES_…` for the evidence trail. Everything below was verified at the stated time.

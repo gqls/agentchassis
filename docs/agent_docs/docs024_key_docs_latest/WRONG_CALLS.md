@@ -32323,3 +32323,31 @@ this bug's runbook). If the message must mention the spelling, paraphrase it; th
   branch is unreachable" would have designed against a false premise; the correct framing is
   "reachable only on footprints with no Go-shaped tokens". Corrected in all three places
   2026-08-16.
+
+## 2026-08-15 — "the pilot's empty run matches the spawn→call handshake failure" — a mechanism named from the ORCHESTRATION row when the ERROR row was one query away (webdesign_tool_rebuilds)
+
+- **the claim** (`HANDOFF_2026-08-15_continue_here.md` §Next actions 2, and the 22:20Z NOTES entry): the
+  aspect-ratio pilot's tool-generator run (`5ef53886`, 47 s, `final_result` empty, no component) "matches
+  the spawn→call handshake failure shape (~half fail; never cancel pre-diagnosis)", with two OTHER empty
+  generator runs the same evening offered as corroboration ("if all three are empty the defect is in the
+  generator/handshake").
+- **the reality:** three different things. `5ef53886` failed at `save_tool` on
+  `pages_site_id_name_key` — `agent_error_log` had the row at 18:29:17Z, one hour before the claim was
+  written. The two "corroborating" runs CREATED their components (`content_components.created_at`
+  18:37:26Z and 19:28:05Z); an empty `final_result` is that agent's ordinary output shape, not a symptom.
+  Confirmed by the 090 loop first iteration (corr `3050effc`) — the bug is `bugs_open/286`.
+- **what caught it:** the next session ran the `agent_error_log` window query and the
+  `content_components` existence check before believing the handoff — both in MEMORY
+  `spawn-call-handshake-races` ("MEASURE IT IN `agent_error_log`, NEVER `orchestration_states`"), which
+  the claiming session had itself cited for the "never cancel" half.
+- **the cheap check that would have:** `SELECT occurred_at, step_name, action, left(error_message,160)
+  FROM agent_error_log WHERE agent_type='tool-generator' AND occurred_at BETWEEN <start> AND <end>` —
+  10 seconds. And for a "corroborating" run: does the thing it was supposed to make EXIST?
+- **the general form:** an empty `final_result` is a property of the WORKFLOW's `complete` step
+  (`output_fields`), not of success or failure; and pattern-matching a symptom to a memory's headline
+  ("~half fail") is exactly the "confidence is not a signal" failure CLAUDE.md describes — the memory
+  file's own body said which table to read, and the headline was read instead.
+- **cost:** none operational — the handoff said "diagnose before refile", and the diagnosis found the
+  real cause. But had the next session refiled on the handshake theory ("it's flaky, try again") the
+  pilot would have burned a second generator round and collided identically, and the class fix
+  (TL-044) would have been found one round later.
