@@ -33190,3 +33190,16 @@ needs a pinned base and a numstat check before it is committed.**
 **Net.** The measurements were sound and are kept; the entry is now an ADDENDUM that cross-references
 the original and carries only what the original does not say (the five collapsing mechanisms, the
 git-route contrast, the fleet census). The word that was wrong was **NEW**.
+
+**Addendum, same day, and it is the cheapest lesson in this file.** The LANDMINES entry recording the
+above was written, verified present (`grep -c` → 1), and then **lost before it reached a commit** — I
+appended it and carried on with ~40 minutes of other work first. `git log --all -S` over the whole
+history: **zero commits ever contained it.** Another session wrote `LANDMINES.md` back from an older
+copy and my paragraph went with it; my own pathspec commit then silently omitted the file, because by
+then it matched HEAD and there was nothing to commit. Note the asymmetry that makes this hard to
+notice: my two `WRONG_CALLS.md` entries from the same window **survived**, swept into that session's
+commit as same-file passengers. Same tree, same hour, two shared append-only files, opposite outcomes.
+**On a shared tree an append is not saved until it is committed, and "I verified the text is in the
+file" measures nothing five minutes later.** Append to a fleet-wide file and commit it **alone,
+immediately** — the re-append took one minute because the text was still in context; an hour later it
+would have been gone for good.
