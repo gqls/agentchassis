@@ -378,3 +378,57 @@ since yesterday, unrelated to this work), so the "existing sites" half of this w
 sits ready but idle until that sweep is switched back on; the "new sites" half will get
 its first real exercise when the remortgage pilot site is built. Also submitted for
 advisory review.
+
+### Saturday 15 August, late evening — Phase B's build work is finished
+
+That advisory review came back approved, on its second round. The reviewers had asked
+for two things and both were fair. The first was a genuine gap: the "undo" script for
+that last change protected the step it was reversing but not the neighbouring steps it
+would have written over, so if a third piece of work had been slotted in beside ours in
+the meantime, undoing ours would quietly have disconnected theirs. That is fixed — the
+undo script now refuses to run at all if anything around it has moved, rather than
+guessing. The second was a request to write down, somewhere permanent, a pattern we had
+only noted in passing: we have now hand-wired this same kind of small decision-maker
+into a site's workflow twice, and a third would be the point to build one proper
+mechanism instead of a third hand-copy. That is now a numbered item in the architecture
+review track rather than a line in a working file. Writing it down was worth it on its
+own, because doing so surfaced something nobody had decided: the equivalent news
+decision-maker runs for existing sites but not for brand-new ones, while ours now runs
+for both. Nobody chose that inconsistency — it is just what you get when each piece is
+wired in by hand, which is precisely the argument for building the shared version.
+
+Then the last two pieces of Phase B went in.
+
+The first teaches the site planner about directories. Until tonight, a new finance site
+would be marked as wanting a lender directory, and the planner would then plan the site
+without one — because nothing had ever told the planner what that marking meant. The
+site would eventually get its directory, but only after a later inspection pass noticed
+it was missing, by which point the site had already been built and published once
+without it. The planner now knows: if a site is marked for a directory, put the
+directory panel on the home page, and give it a dedicated directory page built the same
+way our three existing directory pages are built. I took the exact wording for all of
+that from the code that defines those pages and from the three real pages already live,
+rather than inventing a description of them.
+
+The second switches on eleven automatic checks: six that watch for a site that wants a
+directory but hasn't got one, and five site-health checks (broken internal links, bad
+canonical tags, invalid structured data, missing page-head essentials, dead sitemap
+entries) that were built earlier in this project and had been sitting switched off. One
+correction to what I said earlier: I had described the six directory checks as new, but
+three of the six pairs were already switched on months ago for the AI-model
+directories — the six that were actually missing are the finance ones. Same number,
+different six.
+
+Worth knowing about that switch-on: these checks will report nothing at all for now, and
+that is intentional, not a failure. They only speak up for a site that has opted into a
+directory, and no site has yet. Switching them on before the pilot is built is the whole
+point — they are the safety net that would catch the pilot being built wrong. The five
+site-health checks are different: they will run on any site we inspect from now on, and
+we genuinely do not know how much they will find, because they have never been let loose
+on real sites. So the first few inspections after tonight want watching rather than
+assuming they will be quiet.
+
+Both changes are submitted for advisory review; verdicts will land shortly and are
+credited automatically. That is Phase B complete. Next is the pilot itself — building
+remortgagecalculator.uk end to end, which is the first time all of this machinery gets
+exercised by a real site rather than by us checking it piece by piece.
