@@ -235,3 +235,42 @@ DB directly with the narrow, aggregate-only queries used in this file (`count(*)
 substitution for the loop here is the first-hand verification recorded above: three agent
 types, a pre-425 and a post-425 row, the nesting read key-by-key out of the stored JSON, the
 code path read in full, and a control group that does not double.
+
+---
+
+## ADDENDUM 2 — the blast radius of the preferred fix is EMPTY, and it is measured
+
+Candidate 1 says "stop running the whole-loop aggregator inside an iteration". The obvious
+objection is *does anything read those per-iteration aggregates?* Measured, so the reviewer
+does not have to (CLAUDE.md, 2026-07-28: "measure the blast-radius claim before you submit"):
+
+```sql
+SELECT a.type, s.k AS loop_step, sub.key AS lc_substep,
+       COALESCE(sub.value->>'output_field','(none)') AS output_field,
+       COALESCE(sub.value->>'next_step','(none)')    AS next_step
+FROM agent_definitions a,
+     jsonb_each(a.default_config->'workflow'->'steps') s(k,v),
+     jsonb_each(s.v->'config'->'sub_workflow'->'steps') sub
+WHERE a.is_active AND COALESCE(a.is_snapshot,false)=false AND a.deleted_at IS NULL
+  AND s.v->>'action'='loop' AND sub.value->>'action'='loop_complete' ORDER BY 1;
+```
+
+**All 15 return `output_field = (none)` and `next_step = (none)`.** With no `output_field`,
+the step's result lands only under the runtime-generated key `<loop>_iter_<N>_<substep>` —
+a name that is minted per iteration during expansion, so **no config can address it**, and a
+grep of `platform/ internal/ pkg/` for a Go reader returns nothing (only an unrelated
+`was_already_done` field on the thunder adapter). The aggregates are written, stored, copied
+into each other, and read by nobody. The consumers read the **outer** `_complete` step's
+`output_field` (`items_created`, `processed_sections`, …), which candidate 1 does not touch.
+
+**This also kills candidate 3 outright.** The terminal substep is *not* always called `done`:
+
+| substep name | loops |
+|---|---|
+| `done` | 9 |
+| `complete_page` | 4 (`pageflow-builder`, `page-rebuild`, `rerender-site`, `site-work-orchestrator.build_items_loop`) |
+| `complete_dispatch` | 1 (`maintenance-triage`) |
+| `task_complete` | 1 (`vet-batch-processor`) |
+
+A name-based skip on `_done` would fix 9 of 15 and silently leave the other 6 — including
+three page-building loops — doubling. **Match on the substep's `action`, never on its name.**
