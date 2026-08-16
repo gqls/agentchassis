@@ -284,3 +284,51 @@ suffixed) AND not in the propagation list** — which is why it is the one that 
 
 The census query is in the commit that added this section; re-run it before fixing, and make
 the fix generic (§9a) so the table cannot grow back.
+
+### 6a. VERDICT READ 2026-08-16 10:19Z — `REFUTED` on the resolver's NAME, symptom CONFIRMED, mechanism otherwise upheld; and the run's own item is an instance
+
+Run `fb7ae3bc…` COMPLETED after **5 iterations (cap)**: `route.status = UNVERIFIABLE`,
+`verdict.outcome = REFUTED`, "no fix proposed". Read what it refuted, not the label:
+
+> *"The end symptom is real — multiple site_work_items rows are stamped status='complete' with
+> result holding exactly the spawn record shape {role, topics, agent_id, agent_type} rather than
+> a {response:{...}} envelope (confirmed for handler_agent = tool-acceptance-agent, page-rerender,
+> section-editor at fresh 2026-08-16 timestamps). But the specific mechanism proposed — that
+> mark_complete resolves 'handler_result' via resolveFieldValue's fallback search — does not
+> hold: resolveFieldValue lives in conditional_branch_action.go … CompleteWorkItemAction
+> instead resolves its 'result' input through datahelpers.ExtractActionInputs →
+> ActionInputs.GetMap("result"), whose own in-file documentation warns that its
+> recursive/aggressive search …"* — citing the comment verbatim: *"ExtractFields uses
+> aggressive recursive search that can find stale values from previous loop iterations
+> (e.g. claim_result.work_item_id from iter 0)."*
+
+**So: §9 fact 3 named the WRONG resolver — corrected here.** The fallback that turns an absent
+`handler_result` into the spawn record is `datahelpers.ExtractActionInputs` /
+`ActionInputs.GetMap` (`action_inputs.go`, the Strategy-1/2 recursive `ExtractFields`), not
+`conditional_branch`'s `resolveFieldValue`. Same door, correct name — and it is the SAME
+aggressive search that `bugs_open/248`'s R1 objection flagged for `asset_id`, whose own
+comment already documents exactly this failure. §9a's cause (the un-suffixed `result` key,
+allow-list gap in `prefixConfigStepReferences`) and the fix (suffix generically; make an absent
+key an error at `complete_work_item`) stand unchanged; §9's line "the `findFieldRecursive`
+landmine" was the right landmine under the wrong caller.
+
+> **CORRECTED 2026-08-16 (§9 fact 3):** ~~`resolveFieldValue`'s recursive search~~ →
+> `ExtractActionInputs`/`GetMap("result")`'s aggressive recursive search. Caught by the 090
+> run's static read; the shape and per-iteration topic evidence are unaffected.
+
+**Caveats on the run, both ways:** it read `origin` (881 commits stale, §6) — but
+`CompleteWorkItemAction`'s read path predates the roll, so on THIS question the stale tree was
+the right tree, and the read is good. It could not see WFA-014 or the 274 fix, so it could not
+speak to why the shape appeared WITH the roll; §9's account of that ("274 was hiding it")
+remains first-hand, `[INFERRED]` on the pre-roll path.
+
+**And the run's OWN work item is an instance of this bug** — a live demand control nobody
+asked for: the `needs_diagnosis` item for `fb7ae3bc…` completed with `result =
+{"role":"handler","topics":{"requests":"job.fb7ae3bc-…-diagnose-orchestrator-spawn_handler.requests",…},
+"agent_type":"diagnose-orchestrator"}` — the spawn record — while the diagnosis itself
+completed and its verdict sits in the `diagnose-agent` row's `collected_data`
+(`verdict`/`route`/`emit`). **`diagnose-dispatch-loop` is a 7th agent for the §9b census**
+(its `process_item`/`mark_complete` shape mirrors build-dispatch-loop's), and every 090
+verdict since 08-15 10:14Z that a reader takes from the ITEM's `result` is a spawn record.
+Read verdicts from `orchestration_states` (`owner_agent_type='diagnose-agent'`,
+`collected_data->'verdict'`) or `diagnosis_artifacts`, never from the item, until this is fixed.
