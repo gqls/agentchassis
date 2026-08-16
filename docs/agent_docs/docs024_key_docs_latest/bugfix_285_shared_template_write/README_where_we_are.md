@@ -52,3 +52,39 @@ was actually the poisoned version being archived (the recovery came from the reg
 followed), and that regeneration itself triggered 154 page re-renders and 73 attempted full rebuilds
 of imported pages, all of which were refused by a different safety check. That is the "or worse"
 scenario, and it has already happened once — we were saved by the last guard in the chain.
+
+## 2026-08-16 — the D2(b) decision, spelled out (owner asked)
+
+**What it is.** Today a fault found on one of the 63 imported webdesign tools goes to a person,
+because the only automatic fixer writes to the shared template (the write this bug was about; now
+refused). D2(b) gives the fixer a second way to write: to the ONE page's own stored HTML, so a fix
+about one page reaches one page. Three pieces: (1) Go — `update_component_html` takes an optional
+page id and, for a shared component, writes that page's row (archived, lock-honouring, same
+"is it structurally worse" check), flips nothing else, reports `scope: instance`; without a page
+id it behaves as today (refuse). (2) Config for tool-improver, held until that binary rolls — read
+the INSTANCE's HTML as the source (today it is fed the shared wrapper, which is how the "fix" became
+a fabricated downloads box), pass the page id, deliver by a plain page re-deploy and never the
+current `section_edit` step (that re-renders from template + stub data and would discard the
+write — it is exactly how the casualty page was made). (3) Routing — which findings go to it.
+
+**The rule.** Don't ship a mechanism nothing exercises (owner 2026-07-29); new authority on a
+shared action is an opt-in field, unsafe default off (owner 2026-08-02 §2). Piece 1 satisfies the
+second; piece 3 decides whether the first is broken.
+
+**How this case measures.** The mechanism is well-defined and low-risk, and it turns "refuse"
+into "write at the right scope". But routing is a policy choice: the 281 lane sent these to
+humans on "no per-instance path" (true; this builds it) and "no PLAN to judge by" (counted in the
+wrong table — 87 tools have plans, 14 of the 63 imported ones). What that does NOT change: a
+page-scoped write fixes the BLAST RADIUS, not the QUALITY. The improver's only two runs on
+imported tools produced garbage. Numbers: 63 imported tools; 14 with a PLAN; 49 with none;
+`ported_tool_fix` pile today 0 (no post-roll sweep on webdesign yet, so growth is unmeasured).
+
+**Choices.** A — leave it (nothing to build; right if the 63 will be decomposed anyway — 281's
+proposal, blocked on bug 204). B — build it, canary ONCE by hand on asset-formatter (has a PLAN,
+a real failing criterion, and is the tool that produced the poison), a person diffs the served
+page, then route automatically only for the 14 with a PLAN. ~1 day + council. C — build it,
+route nothing automatically; a human promotes an item when they want a fix applied.
+
+**Recommendation: B, staged, with an explicit stop at C if the canary's content is not something
+you would ship. If you intend to decompose the 63, choose A and I'll close the design note as
+"not needed" so it doesn't read as owed.**
