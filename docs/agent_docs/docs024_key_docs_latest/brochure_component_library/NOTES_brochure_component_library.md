@@ -7477,3 +7477,43 @@ the scope keeps the old nav until something else re-renders it. Left under watch
 **And the deploy lags the database by ~15 minutes**: nav group flipped `utility` → `primary`
 at 16:42, the served nav changed at 16:57. A DB check would have read "done" for a quarter
 of an hour before it was true.
+
+### 2026-08-16 — ROLLOUT COMPLETE, and my `contact` worry was unfounded
+
+`[MEASURED 2026-08-16 17:11Z, served `<nav>` element, all active pages]`
+
+```
+17:01Z  batch_triaged=7   NEW=14  OLD=7
+17:04Z  batch_triaged=6   NEW=16  OLD=5
+17:08Z  batch_triaged=2   NEW=20  OLD=4
+17:11Z  batch_triaged=0   NEW=24  OLD=0
+```
+
+**24 of 24. Zero pages left on the old nav**, `/contact.html` and `/tools.html` included,
+each showing `Home About Tools Contact Platform Log News Capabilities`.
+
+**CORRECTION to my note an hour ago.** I flagged `contact` as "NOT in the batch — may keep
+the old nav until something else re-renders it, left under watch". **It updated anyway.**
+The batch-membership query I ran was scoped to a name list and taken at one instant, and I
+read a snapshot of a moving queue as a fixed scope. Whether it was added later or reached
+by another path I did not establish — the honest statement is that **I inferred a
+permanent exclusion from a momentary absence**, which is the same family as the three
+measurement errors above and is why the count, not the queue, was the thing to watch.
+
+**And the tools page carries the corrected copy:** *"Five free AI tools you can run in
+your browser — These five tools run inside your browser…"*, stat block reading **5**. The
+number the honesty gate refused to let a rebuild write is now on the page, backed by
+`F14-interactive-tools` whose `source.sql` re-derives it.
+
+**Both of the owner's 2026-08-12 asks are now closed at the artefact:**
+
+| ask | state |
+|---|---|
+| 2a — the copy reads AI-generated (negative framing) | **DONE.** Cause fixed in `content_direction`; 22 pages rewritten; verified against sha-pinned baselines with caveats, links and figures intact |
+| 2b — a Tools entry in the top nav | **DONE.** Live on 24/24 pages |
+
+**Still open from 2b's original three asks, and NOT done:** the six Platform Log guide
+cards still do not link to the tools they describe, and the tools are still not linked
+from body copy where they are named. The nav entry was one of three. The experience brief
+(`doc_notes`, `subject_type='experience'`) carries all three and is durable, so a future
+planner run sees them; the escalated plan was never persisted, so nothing wrong is stored.
