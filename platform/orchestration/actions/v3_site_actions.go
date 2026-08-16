@@ -3409,6 +3409,24 @@ func ValidateSitePlanAction(ctx context.Context, params ActionParams) (interface
 	}
 	if validateComponents && params.DB != nil {
 		resolver := loadComponentNameResolver(ctx, params.DB, params.Logger)
+		// Accept what the planner was OFFERED. `menu_field` names the step whose
+		// output the planner's prompt rendered as its component menu; those rows
+		// are added to the valid set, so a widening of the menu (migration 407's
+		// tool-level components, per-site opt-in) can never be silently eaten by
+		// this surface again. Absent key = today's behaviour, unchanged.
+		// bugs_open/282; the arm itself is component_name_resolver_menu.go.
+		if menuField, _ := config["menu_field"].(string); menuField != "" {
+			if rows, ok := menuRowsFrom(params.CollectedData, menuField); ok {
+				added := resolver.addMenu(rows)
+				params.Logger.Info("ValidateSitePlanAction: accepting the planner's own component menu",
+					zap.String("menu_field", menuField),
+					zap.Int("menu_rows", len(rows)),
+					zap.Int("added_beyond_base", added))
+			} else {
+				params.Logger.Warn("ValidateSitePlanAction: menu_field configured but no component menu at that path — falling back to the section/element base",
+					zap.String("menu_field", menuField))
+			}
+		}
 		if len(resolver.validFunctions) > 0 { // only act if components actually loaded
 			for _, p := range pages {
 				pm, ok := p.(map[string]interface{})
@@ -3438,6 +3456,14 @@ func ValidateSitePlanAction(ctx context.Context, params ActionParams) (interface
 							zap.Any("page", pm["name"]),
 							zap.String("from", name),
 							zap.String("to", fn))
+					}
+					if resolver.resolvedViaMenu(fn) {
+						// The tell that the menu arm did work. Without it, "the
+						// widening reached the plan" and "the planner proposed
+						// nothing from the widened class" look identical.
+						params.Logger.Info("ValidateSitePlanAction: section resolved via the planner's menu, not the section/element base",
+							zap.Any("page", pm["name"]),
+							zap.String("section", fn))
 					}
 					// Preserve the entry's shape: a string stays a string, an
 					// object keeps its other keys (facts) with the name resolved.
@@ -3806,6 +3832,10 @@ type componentNameResolver struct {
 	validFunctions map[string]bool   // function -> true
 	displayToFunc  map[string]string // lower(display_name) -> function
 	nameToFunc     map[string]string // lower(name) -> function
+	// menuOnly marks functions that owe their validity to a planner's own
+	// component menu rather than to the section/element base below — the ACCEPT
+	// half of a menu widening. See component_name_resolver_menu.go (bugs_open/282).
+	menuOnly map[string]bool
 }
 
 // loadComponentNameResolver loads section/element component identity so
