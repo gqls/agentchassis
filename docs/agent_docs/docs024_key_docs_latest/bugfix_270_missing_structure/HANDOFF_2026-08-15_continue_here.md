@@ -1,10 +1,25 @@
-# HANDOFF — bugfix 270, 2026-08-15 — start here in a fresh session
+# HANDOFF — bugfix 270 — CLOSED 2026-08-16, this file is now historical
 
-**Bug:** `bugs_open/270_HANDOFF_2026-08-13_missing_structure_check_fires_on_vestigial_columns_so_every_run_orders_a_full_site_rerender.md`
-(read its `## UPDATE` sections at the bottom — they're the current state, kept current)
-**Sibling bug found while fixing this one:** `bugs_open/280` (a second reader
-of the same vestigial columns, in `check_decision_guards.go` — different
-failure shape, filed separately, not part of this fix).
+**Bug 270 is fixed, shipped, and verified live — closed and moved to**
+`bugs_closed/270_HANDOFF_2026-08-13_missing_structure_check_fires_on_vestigial_columns_so_every_run_orders_a_full_site_rerender.md`
+(read its final `## UPDATE 2026-08-16` for the closing evidence). **There is
+nothing left to do on this bug.** If you were pointed here to continue work,
+check first whether you actually meant `bugs_open/280` (below) — that one is
+still open.
+
+**The rest of this file is left as-is, historical** (standing-five docs are
+append-only / new-file-per-milestone, not rewritten) — it documents the
+in-flight state as of 2026-08-15, before shipping and verification. For the
+finished picture, read `SUMMARY_2026-08-16_fixed_shipped_and_verified_live.md`
+and `NOTES_bugfix_270.md`'s 2026-08-16 entries instead of following the queue
+below.
+
+---
+
+**Sibling bug found while fixing this one — STILL OPEN, may be worth picking
+up next:** `bugs_open/280` (a second reader of the same vestigial columns, in
+`check_decision_guards.go` — different failure shape, no observed wrong
+verdict yet as of filing).
 **Workstream docs:** this directory. Read `PLAN_2026-08-15_missing_structure_check.md`
 first (the design + reasoning — nothing there has changed and it does not
 need re-deriving), then `NOTES_bugfix_270.md` (the full evidence + session

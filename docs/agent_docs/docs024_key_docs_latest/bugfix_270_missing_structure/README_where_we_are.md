@@ -54,3 +54,34 @@ happens, the plan is to watch one full round of the site's normal
 maintenance checks and confirm the fifteen-odd stale items actually clear
 themselves and the check goes quiet on the sites that are already fine. Only
 then does this get marked properly finished.
+
+## 2026-08-16
+
+You deployed a fresh build, so this is the finishing session. Confirmed the
+new code is actually the thing running — not by trusting a version stamp,
+but by checking the running program directly for the exact old function name
+that got deleted, and finding it gone. That's about as solid as this kind of
+check gets.
+
+The plan to watch the site's normal maintenance checks quietly clear the old
+wrongly-filed items hit a snag: the thing that would do that watching on its
+own turned out to already be switched off, for reasons that have nothing to
+do with this bug — other people had already found and written that down
+days ago. So instead of waiting on something that wasn't going to happen, we
+asked the system directly, for one specific site, to check itself again
+right now. It did, and the old wrongly-flagged item for that site closed
+itself immediately, with the system's own note explaining why: "this site's
+header, footer and page setup are all fine — the earlier flag was wrong."
+That's the fix working, live, on a real site, not a rehearsal.
+
+We didn't do the same thing for the other sixteen sites still carrying the
+old flag — we'd already proven the mechanism works, doing it sixteen more
+times would only prove that those particular sites are fine too (which we'd
+already checked separately), and each check is a real, small piece of work
+on a live system, not a free action. Those sixteen will clear themselves the
+next time anything checks those sites, whenever that happens to be — that's
+the same switched-off-scheduler issue, already known, already somebody
+else's separate problem to pick up.
+
+So: fixed, shipped, and proven working on a live site. Bug 270 is now closed
+and moved to the closed-bugs folder.
