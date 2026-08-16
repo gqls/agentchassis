@@ -333,3 +333,48 @@ budgets it newly enables. Making direct callers visible to the fleet instrument 
 `8a88b982-cef0-40a9-ab62-5577244afd50`). Two of three substantive objections produced real work — a
 genuine reuse check I had skipped, and three tests covering a path I had not thought about. That is the
 round paying for itself.
+
+## 2026-08-16 — council ROUND 2: APPROVED
+
+Same trail (`366efae9`), run orch `8a88b982`. `decision: approved`, `decided_by: "approved with 3
+advisory objection(s) — none high-severity"`, **`gated_by_truncation: false`** — checked deliberately,
+because the architecture seat has a recorded history of truncated reviews and a truncation-gated
+verdict is not the same thing as a considered one. 4 seats abstained.
+
+Every round-1 objection was answered with a measurement or a code change rather than an argument, and
+`editquality`'s own note says so: *"Round 2 answers all three substantive objections with measurement
+or code rather than argument, per the stated bar."* Its assessment of the shape is worth keeping:
+*"Edits 1-4 are the real fix and sit on the causal path (client-side budget resolution replacing the
+optional ExecuteAIStepAction gate) … the ollama asymmetry is deliberate and justified, not an
+oversight."*
+
+### The three advisory residuals
+
+1. **`editquality` (low, edit 7)** — the yaml edit is doc-only like 6 and 8 but was not grouped under
+   my own "kept deliberately, not a fix" concession, so it reads as a functional fix. **Accepted.**
+   Fair, and the cheapest kind of honesty error to make: the rationale did disclose the value is
+   unchanged, but grouping is what makes that visible without reading.
+2. **`bug_historian` (low, edit 5)** — the provider scan guards only providers reachable from
+   `factory.go`'s `case` list; a client built outside the factory escapes it. **MEASURED, and mostly
+   closed:** five production sites bypass the factory (`rag_actions.go:374`, `reasoning/agent.go:71`,
+   `tools-api` defend/gripper/position) and **all five are covered anyway** — the per-provider tests
+   call `NewAnthropicClient`/`NewGeminiClient`/`NewOllamaClient` **directly**, not through the factory,
+   so the constructor axis was already bound behaviourally. The real residual is narrower: a future
+   provider whose constructor exists but never reaches the factory switch. Recorded in the test.
+3. **`bug_historian` (low, edit 2)** — struct-literal constructions outside test files were never
+   enumerated the way the call sites were. **MEASURED and closed:** exactly three non-test hits, and
+   **all three are the constructors themselves**. No production code builds these clients as a bare
+   struct.
+
+Residuals 2 and 3 are a good illustration of why the round is worth its cost even when it approves:
+both were answerable in one grep each, neither had been run, and one of them ("did you enumerate this
+axis the way you enumerated the other one?") is exactly the question I would not have thought to ask
+myself, having already done the enumeration I *did* think of.
+
+**Also flagged:** `bugs_closed/076` (*truncated_llm_responses_tolerated_at_113_unguarded_call_sites*)
+was absent from `grounded_in` despite being the closest title in the family. With `012` and `046` it is
+the silent-truncation lineage this bug belongs to; cited in the bug file now.
+
+**Trailer discipline:** the code commits carry `Council-Submitted:`, which is correct for a pre-verdict
+commit — `098` credits them automatically now the correlation is approved, with no amend. Only the
+post-verdict commit carries `Council-Reviewed:`, written after reading the verdict body, never before.
