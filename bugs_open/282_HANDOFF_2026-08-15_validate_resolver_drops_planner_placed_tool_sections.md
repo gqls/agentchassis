@@ -200,3 +200,32 @@ One interaction worth knowing when you fix it: after `7d9b7334a` rolls, `pages.s
 12 loancalculator tool pages will carry the positional slot (`tool-2` etc.); a replan that names
 the tool's FUNCTION pairs with that slot at merge time (function arm), so the plan's position
 then wins over the exiled live position. Nothing here blocks or is blocked by 282.
+
+### ROUND 3 — the record follows the RESOLVER, not the caller (`0b39f5a99`)
+
+Round 2 returned **REVISE** again (9 of 13 seats approved), gated by
+`bug_historian` on the exact continuation of its round-1 point: the durable
+record was wired into `ValidateSitePlanAction` only, while
+`apply_gap_plan_action.go`'s **three** call sites share the same resolver and
+lost names just as silently. The scoping was worse than it looked —
+content-gap-planner runs **116 orchestrations/30d** against build-site-planner's
+handful, so the class fix had been aimed at the quieter path.
+
+**All four drop sites now record.** The three gap-plan sites have no
+`ActionParams` (and six other lanes' tests call them directly, so widening their
+signatures would collide rather than help), so they use a sibling recorder that
+**names its provenance explicitly** — `agent_type`, `action` — instead of
+inheriting it. Validate keeps the inheriting door deliberately, because a drop
+there belongs to the running step. Both choices are asserted by tests, not
+described.
+
+Also closed this round: a failed record was itself silent (the recorder discarded
+its return) — now warned, not made fatal, because failing a plan because its
+REPORT failed is worse than the thing reported. And the noise question was
+**measured rather than argued**: `agent_error_log` already takes 12,012 rows/7d,
+so this adds under 0.2% even if every gap-plan run dropped a name.
+
+**The round's real finding was again in the tests**: deleting the recorder call
+from `applyNewPage` left every existing gap-plan test green — the same silence
+found at validate in round 2. A wiring test at that site now fails under it.
+Seven mutations, all biting.

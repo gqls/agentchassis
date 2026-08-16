@@ -265,3 +265,38 @@ test rather than the conclusion.
 
 **For whoever rolls: `IMAGE_TAG` must be bumped past `v1.0.1304`** — a same-tag
 rebuild ships the node's stale cached binary.
+
+## 2026-08-16 (late) — council round 2: REVISE again, and the same seat was right again
+
+9 of 13 approved (prior_art_librarian flipped to approve — the evidence
+corrections landed; architecture approved again as `point_fix`). Gated by
+`bug_historian` on the continuation of its round-1 objection: the durable record
+went into validate only, while `apply_gap_plan`'s three call sites share the same
+resolver and drop just as silently.
+
+**It was right, and the scoping error was quantifiable.** content-gap-planner
+runs **116 orchestrations/30d**; build-site-planner a handful. I had put the class
+fix on the quieter path and called it a class fix. Round 3 records at all four
+sites.
+
+**A design detail worth keeping.** The three gap-plan functions take
+`(ctx, db, plan, siteID, logger)` and no `ActionParams` — and **six other lanes'
+test files call them directly**, so widening those signatures would have been a
+collision, not a courtesy. They get a sibling recorder that states its provenance
+explicitly (`agent_type`, `action`). That turned out to be the stricter answer to
+editquality's round-2 provenance objection: validate *should* inherit (the drop
+belongs to the running step), and these *should not* (there is no step to inherit
+from), and now both are asserted rather than assumed.
+
+**The measurement that answered the noise objection.** Two seats worried about
+volume on `agent_error_log`. Measured: **12,012 rows in 7 days** already (10,080
+of them `error_code = UNKNOWN`), against 116 gap-plan runs/30d. Even if every run
+dropped a name — they do not — this is under 0.2%. That is an argument I could
+not have made honestly without the query, and I nearly made it anyway.
+
+**And the tests were silent in the same way, one level out.** Deleting the
+recorder call from `applyNewPage` left every existing gap-plan test green. Same
+lesson as round 2, at a different site: **the suite is quietest exactly where the
+new wiring is**. Wiring test added there too. Seven mutations now, all biting.
+
+Round 3 submitted on the same trail (`bbf49822`).
