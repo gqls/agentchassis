@@ -1,8 +1,9 @@
 # HANDOFF 2026-08-16 — continue here
 
 **Lane:** `register_guards_code_phase_b` (`bugs_open/288`, the class behind
-`bugs_closed/225`). **State: the code is built, committed and council round 2 is IN
-FLIGHT; nothing is live and nothing has ever fired.** Read this first, then NOTES for
+`bugs_closed/225`). **State: the code is built and committed, council ROUND 3 is in
+flight after two REVISE rounds each of which found a real defect; nothing is live and
+nothing has ever fired.** Read this first, then NOTES for
 the evidence and PLAN for why the design is what it is.
 
 ## The one-sentence state
@@ -16,9 +17,12 @@ real data.**
 
 ### 1. Read the round-2 council verdict — the code is already on the shared branch
 
-Round 1 was **REVISE** and the gating objection was right (see §"What round 1 caught").
-It was answered in full and resubmitted on the same trail. At the time of writing round
-2 is at `review_editquality`.
+**Rounds 1 and 2 were both REVISE and both gating objections were right.** Round 1: the
+mechanism was blind to its own motivating bug. Round 2: **the round-1 fix was inert**,
+because the baseline fell back to previous REGISTER state and the register is
+re-verified daily, so the "never reconciled" case could never fire. Both answered; round
+3 submitted on the same trail. Expect the same seat (`editquality`) to gate again if
+anything is still wrong — it has been right twice.
 
 ```sql
 SELECT current_step, status FROM orchestration_states
@@ -62,7 +66,7 @@ LMC's is written too, and is inert until that site has an `evidence_base` row at
 (it has none; the `copy_quality_two_stage` lane holds a candidate pending an owner
 decision).
 
-## What round 1 caught, and why it matters more than the fix
+## What the two rounds caught, and why it matters more than the fix
 
 The `editquality` seat found that **the mechanism was blind to its own motivating bug**.
 The baseline came purely from prior REGISTER state, so a tool stale on the day it opts
@@ -75,10 +79,26 @@ fire on 225?** Nothing in thirteen passing tests asked.
 
 Fixed by `unreconciled_declaration` — a first declaration files one low-severity review
 item per (fact, tool), self-quieting because the item records the value that becomes the
-next baseline. Mutation **M8** reverts to the old behaviour and the new test fails.
+next baseline.
+
+**Then round 2 found that fix was INERT.** `unreconciled_declaration` fires only when the
+baseline is nil, and `baselineFor` fell back to the previous `evidence_base` row — but
+the register is re-verified daily, so a previous row essentially always exists carrying
+the correct value. Baseline was never nil. I had fixed the symptom and left the cause in
+the fallback chain. The repair deleted `previousRow` entirely: the baseline is now the
+newest `fact_drift` finding for (fact, tool) and nothing else, and its absence is the
+never-reconciled signal.
+
+⚠ **Proving that fix took three mutations.** M11 and M11b both PASSED — one mutated a
+path the struct-literal test bypasses, the other read a row without using it (and
+`sqlmock.ExpectationsWereMet` reports unfulfilled expectations, not extra queries). Only
+M11c (declared, populated AND consulted) failed. **An induced red is evidence only when
+the mutation is faithful to the defect** — `WRONG_CALLS.md`, 2026-08-16.
 
 Also fixed: a risk inversion (a confirmed move on a `no_auto_fix` tax tool ranked below
-an auto-fixable one — now three bands) and the audit-vs-liveness page predicate.
+an auto-fixable one — now three bands), the audit-vs-liveness page predicate, and the
+hand-written subject-key rule (now reuses exported `discovery_checks.ToolSubjectKeyExpr`,
+verified live to resolve both tools).
 
 ## Landmines this lane learned the hard way
 
