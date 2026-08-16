@@ -10,13 +10,14 @@ unmeasured it says so.
 
 ## The one-paragraph state
 
-**This front is essentially finished.** The bug it started on (`bugs_open/113` — a dark
+**This front is finished bar one decision.** The bug it started on (`bugs_open/113` — a dark
 site's palette omitting a slot, so the layout's light literal shipped and text went
 invisible) is **repaired on every dark site on the fleet**, proven at served stylesheets,
 and its council trail reached APPROVED. The platform gained a way to re-compose a site that
 already has the wrong colour scheme (`allow_reinstall`), which is **live and was used once**
-— that is what repaired `ai-agent-orchestration.com`. What is left is **one small revise, one
-owner look, and a decision about a bug number**. No engineering is blocked.
+— that is what repaired `ai-agent-orchestration.com`. As of 2026-08-15 the owner has closed 122 and ruled the approval
+default stays loose, so what is left is **one small revise and one decision about a bug
+number**. No engineering is blocked and nobody is waiting on us.
 
 ## Live facts, each with how it was checked
 
@@ -24,12 +25,13 @@ owner look, and a decision about a bug number**. No engineering is blocked.
 |---|---|---|
 | chassis build | `0115f2b4528b0063fd01e7af275ccefe9c5a991d` | binary probe on `agent-chassis-7779f5d998-96lpf`, `deadbeef` control absent |
 | `bugs_open/213` | **CLOSED**, in `bugs_closed/` | `ls` |
-| `bugs_open/122` | open; **gate satisfied on v1.0.1301, both canaries PASS** | its lane's `a15181281` |
+| `bugs_closed/122` | **CLOSED 2026-08-15** on the owner's ruling; moved in `d22a6c875` | `git ls-tree HEAD` |
 | `bugs_open/113` | open | `ls` |
 | `allow_reinstall` (DES-082) | **LIVE and USED** (the site repair) | merge-base + served artefact |
 | approval recording (DES-084) | **LIVE, NEVER RUN** — 0 rows | `result ? 'reinstall_approved_by'` → 0 |
 | `improvement-sweep` | **`enabled = false`** | `scheduled_tasks` |
 | queue | **76 detected**, **225 parked `contrast_failure`** | `site_work_items` |
+| approval default | **owner 2026-08-15: do NOT tighten yet** | standing ruling |
 
 > **Do not verify a deploy with `strings`** — retired 2026-08-11 (it is absent from the
 > debian-slim images, so its failure is indistinguishable from "not stamped").
@@ -66,21 +68,33 @@ would trust.
 the rationale, and resubmit with `RESUBMIT_CORR=9767969e-92fa-44d0-b416-d7187c869531`. It is
 a small change. **I did not make it** — see "why I stopped" below.
 
-## Decisions waiting on the owner
+## Decisions — TWO ARE NOW RULED (2026-08-15). One is still open.
 
-**D1 — `bugs_open/122` wants your look, not more engineering.** Its gate is satisfied on
-v1.0.1301 and both canaries pass. That lane is blocked on you.
+**~~D1 — `bugs_open/122` wants your look.~~ RULED 2026-08-15: "122 is now closed."**
+**DONE** — moved to `bugs_closed/122_…` (`d22a6c875`), both paths named on the commit and
+**verified at HEAD**, not at the tree. The bar was met by that lane's own `700f06bfc`
+(WIDENED AND COMPLETE, all 97 article-body placements across 20 sites), `63d42fcda`
+(migration 415 applied) and `c9049cb2c` (derivation fix live on v1.0.1298).
+*Worth knowing why it was still open:* its status block said *"stays per the owner's
+2026-08-06 ruling"* — **superseded on 08-12**, when the owner restored CLAUDE.md's bar.
+True when written; nothing joined it back up to the later ruling. **Not re-verified at the
+artefact by me** — the closure rests on the owner's ruling plus that lane's commits, and the
+file says so.
 
-**D2 — should `bugs_open/113` close?** Its own mechanism is fixed and proven fleet-wide. What
-still sits under its number is the *primary-used-as-ink* family, which belongs to
-`bugfix_122_contrast_ink_slots`. **Recommend: close 113.** Leaving it open makes its status
-unreadable — a reader cannot tell which of two mechanisms is unresolved.
+**~~D3 — tighten the approval default?~~ RULED 2026-08-15: "don't tighten yet."**
+Matches the evidence: DES-084 has **never run** (0 rows), so the query that would show who
+*would* have been refused has no population at all. **Nothing to do — this is a standing
+"leave it".** Revisit only after real composition replaces have happened; **do not force
+one to generate data.** The one-line flip, when it ever comes, is in
+`resolveReinstallApprover` (return `""`, have the caller refuse).
 
-**D3 — do NOT tighten the approval default yet, and there is now a hard reason.** DES-084
-records who approved a composition replace and today defaults to a grant. It has **never
-run** — 0 rows — so the query that would tell you who *would* have been refused has no
-population at all. Tightening now is exactly the leap the record-first design existed to
-avoid. Revisit after some replaces have actually happened; do not force one.
+**D2 — STILL OPEN: should `bugs_open/113` close?** Its own mechanism is fixed and proven
+fleet-wide, and with 122 now closed, **113 is the last file this front holds**. What still
+sits under its number is the *primary-used-as-ink* family (`features_open/026`), which was
+122's territory — and 122 is closed. **Recommend: close 113**, and if the ink family needs a
+home, give it its own file rather than leaving it under a number whose headline defect is
+fixed. Leaving 113 open makes its status unreadable: a reader cannot tell which of two
+mechanisms is unresolved.
 
 ## What NOT to do
 
