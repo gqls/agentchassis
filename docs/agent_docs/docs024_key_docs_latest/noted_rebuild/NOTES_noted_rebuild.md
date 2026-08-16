@@ -2074,3 +2074,82 @@ known-unrunnable by the platform and are covered by the two Playwright probes.
 repoint the apex from B2 to the box, keep the legacy app reachable for a grace
 period, re-run `test_legacy_rescue.py`'s origin premise and
 `smoke_live_editor.py https://noted.co.uk` on the new origin the moment it flips.
+
+---
+
+## 2026-08-16 — CUTOVER DONE. noted.co.uk now serves the framework build.
+
+Owner: "carry on and repoint the apex."
+
+### The insight that made it safe
+
+`portfolio-sites-router` carries **B2 key bindings** (`B2_APP_KEY`, `B2_KEY_ID`)
+and fetches the bucket **directly** — it never consults the zone origin. So while a
+worker owned `noted.co.uk/*`, the apex served the legacy app from B2 **regardless
+of DNS**. That made the whole cutover decomposable:
+
+- DNS and tunnel ingress could be prepared with **zero user impact** (verified —
+  after pointing the apex DNS at the tunnel, the apex still served B2, notice
+  intact, `x-amz-*` present);
+- **the worker route is the switch**, and rollback is one PUT restoring it.
+
+The rollback was written to `RUNBOOK_cutover.md` and **committed before the flip**,
+not after.
+
+### Order, all verified before the switch
+
+1. **Legacy app preserved at `https://noted.co.uk/legacy-app/`** — md5-identical to
+   what B2 served (5 files compared). Placed at `/var/www/noted-legacy/`, **outside
+   `/var/www/noted.co.uk`**, because sitesync rsyncs `--delete` into that root every
+   5 minutes and would erase it. **It must stay on THIS origin**: IndexedDB is
+   origin-keyed, so on a subdomain it would show every visitor an empty database and
+   look exactly like data loss.
+2. Tunnel ingress for apex + `www`; `ingress validate` OK; applied with
+   `systemctl restart` (never `kill -HUP` — it terminates, and the unit has no
+   `Restart=`). Shopfront checked either side.
+3. Apex DNS → CNAME to the tunnel (`--overwrite-dns`; the record it replaced was
+   unreadable — the token is workers-routes scope only — which was acceptable
+   ONLY because the worker, not DNS, is the rollback lever).
+4. **The flip**: `noted.co.uk/*` → `script: null`.
+
+### Verified after, at the artefact
+
+Ten public paths 200 with correct sizes — index, privacy, migrate, how-it-works,
+about, contact, both tools, the guide, and `/legacy-app/`. Engine healthy;
+webdesign shopfront untouched.
+
+**`smoke_live_editor.py https://noted.co.uk` — 11/11**, including the induced
+outage and a second browser session retrieving the note: the editor works on the
+new origin.
+
+**The migration premise, re-proven on the LIVE site** (§6's requirement, now
+`legacy_tool/probe_origin_after_cutover.py`): seeded `NotedDB` through the
+preserved legacy app at `https://noted.co.uk/legacy-app/`, then loaded the rescue
+tool at `https://noted.co.uk/tools/legacy-rescue/` — it found the notes and the
+recording, and **the seeded note came back in the downloaded file with its text
+verbatim and its recording as a data URL**, engine-compatible format string. The
+origin is byte-identical to before (`https://noted.co.uk`); only the server behind
+it changed, which is exactly why everyone's notes are still reachable.
+
+### Three things that misled, recorded
+
+- **Immediately after the flip, the apex read 404s and 4393 bytes** — worker-route
+  propagation across the edge, not a fault. Cache-busted requests showed the
+  origin correct throughout. *A control taken seconds after a routing change can
+  read the OLD world.*
+- **The same trap on nginx**: controls taken immediately after `systemctl reload
+  nginx` returned the OLD config's answers (three different paths all reporting
+  26889 bytes — the fallback index). Settled moments later.
+- **`nginx -t` broke because I left a `.bak` in `/etc/nginx/sites-enabled/`** —
+  nginx glob-includes that directory, so the backup was parsed as a second config
+  (duplicate `limit_req_zone`). The running nginx was unaffected, but the next
+  reload would have failed. Backups now live in `/root/nginx-backups/`.
+
+Also: my first origin-probe assertion (`"1 note"`) failed because the legacy app
+creates its own note on load — **my assertion was wrong, not the product**. The
+strengthened version asserts the SEEDED note is in the rescued payload, which is
+the claim that actually matters.
+
+`www.noted.co.uk` has never existed on this zone (no record, no links, canonical
+is the bare apex), so no regression and nothing that could shift the origin. The
+ingress rule added for it is inert and correct if it is ever added.
