@@ -69,9 +69,27 @@ type decisionGuard struct {
 // predicate differs from its check's is worse than no verifier, because it
 // retracts findings the check would still make (or refuses to retract ones it
 // would not).
+//
+// bugfix_280 (2026-08-16): this used to read pg.rendered_header / pg.rendered_footer,
+// the same vestigial columns bugs_open/270 documents — empty on every page
+// fleet-wide, because chrome is written to site_components by
+// render_site_components, not back onto the pages row. So "stored assembly"
+// silently omitted chrome always: a contains guard on header/footer content
+// could never be satisfied (permanent false positive), and a not_contains
+// guard on chrome content could never be violated (permanent false negative).
+// Fixed the same way 270 was: read the site's header/footer slots from
+// site_components (site-scoped, not page-scoped — chrome is shared across a
+// site's pages) ahead of the existing page_components aggregation. The FROM
+// pages pg WHERE ... clause stays, unchanged, so a nonexistent page still
+// yields zero rows — callers rely on that to distinguish "page missing" from
+// "page exists with empty chrome". bugs_open/280.
 const storedPageAssemblySQL = `
-	SELECT COALESCE(pg.rendered_header,'') || COALESCE(pg.rendered_footer,'') ||
-	       COALESCE((SELECT string_agg(COALESCE(pc.rendered_html,''), '' ORDER BY pc.position)
+	SELECT
+	  COALESCE((SELECT sc.rendered_html FROM site_components sc
+	            WHERE sc.site_id = $1 AND sc.slot_name = 'header'), '') ||
+	  COALESCE((SELECT sc.rendered_html FROM site_components sc
+	            WHERE sc.site_id = $1 AND sc.slot_name = 'footer'), '') ||
+	  COALESCE((SELECT string_agg(COALESCE(pc.rendered_html,''), '' ORDER BY pc.position)
 	                 FROM page_components pc WHERE pc.page_id = pg.id), '')
 	FROM pages pg
 	WHERE pg.site_id = $1 AND pg.name = $2
