@@ -7341,3 +7341,67 @@ has at least two more members on this site than the five measured across three d
 No harm — the copies stayed consistent — but a site-wide copy pass over a duplicated
 estate pays twice and nothing warns you. **A twin check belongs in front of any fleet copy
 job**, and the O2 census is the only thing that can supply one.
+
+### 2026-08-16 — MY ERROR: a `complete` nav_drift that rebuilt nothing, because I overrode the one field the clone existed to get right
+
+**The stat correction WORKED and is live.** `/tools.html` now serves *"Five free AI tools
+you can run in your browser"* — was *"Three interactive tools"* — and `content_data`
+reads `stat_one_value: 5`. Registering F14 unblocked exactly what it was meant to.
+`[MEASURED 2026-08-16, served page, 27,163 → 27,433 bytes]`
+
+**The nav entry did NOT ship, and the item said `complete`.**
+
+```
+site_nav_items for this site: 12 rows, unchanged, still no /tools.html
+served /index.html:           0 occurrences of href="/tools.html"
+work item:                    complete, 8m12s, handled_by build-dispatch-loop
+```
+
+**What it actually did**, from its own `result`: re-rendered and deployed **one file**,
+`tools.html`, commit message *"Rerender: tools.html"*. It never touched `site_nav_items`
+and never re-rendered chrome — **because that is not `page-build-handler`'s job.**
+
+### The mistake, precisely, because the shape is the lesson
+
+I cloned the spec of a completed `nav_drift` (`e2c3a18e`) faithfully — reason, fix string,
+page_id, flags, all correct. **Then I set `handler_agent='page-build-handler'`, a value I
+had carried over from a DIFFERENT query I ran minutes earlier against `needs_page` items.**
+
+`e2c3a18e`'s own `handler_agent` is **`nav-updater`**.
+
+So I obeyed REB-004's *"never guess a work-item spec — clone one"*, cloned the right row,
+and then hand-overrode the single field that routes the work. **The clone was correct and
+I corrupted it with a remembered value from another item type.** The rule protects the
+`spec`; nothing protected the columns around it.
+
+**And the failure is invisible by construction:** `page-build-handler` is a real handler
+that does real work, so the item ran for eight minutes, deployed a file, and completed
+green. A wrong-but-valid handler does not error — it does *its own* job perfectly.
+
+### What actually rebuilds the nav, read at source
+
+`populate_nav_tables_action.go` is the **only** writer of `site_nav_items`
+(`DELETE` at :160, `INSERT` at :510). Live agents running it: `build-site-planner`,
+`site-work-orchestrator`, `site-adoption-agent`, `pageflow-builder`, and **`nav-updater`**,
+whose `refresh_nav_tables` step runs it with `max_header_items: 8` and then chains to
+`render_site_components` for the chrome. Header goes 6 → 7, under the cap.
+
+`nav_drift` + `nav-updater` = **26 complete**. `nav_drift` + `page-build-handler` = my one.
+
+### The positive control I ran BEFORE re-filing, and why it mattered
+
+The obvious check — "find a completed `nav_drift` and confirm its page is in the nav" —
+**failed**: dartsonline's `shipping-returns` completed under `nav-updater` and is in
+neither `site_nav_items` nor the served nav. That looked like the correct handler being
+broken too.
+
+**It is not.** That page has `in_header=false AND in_footer=false`, so a rebuild from the
+flags correctly excludes it. The handler is doing exactly what it says. **A control that
+explains its own negative is worth more than one that merely passes** — had I stopped at
+the bare failure I would have concluded the mechanism was broken and gone looking in the
+wrong place.
+
+Re-filed on `nav-updater` (`nav_refile.sql`), guarded to abort if `tools.in_header` is not
+true, if a `/tools.html` nav row already exists, or if another open `nav_drift` is on this
+site. **Not verified until `href="/tools.html"` appears on the served index page** — the
+last item taught me exactly what a green status is worth here.
