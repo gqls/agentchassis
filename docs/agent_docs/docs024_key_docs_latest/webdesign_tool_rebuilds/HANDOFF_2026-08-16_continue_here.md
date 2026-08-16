@@ -1,39 +1,27 @@
-# HANDOFF — webdesign tool rebuilds. START HERE. Written 2026-08-16 ~10:15Z. Supersedes `HANDOFF_2026-08-15_continue_here.md`.
+# HANDOFF — webdesign tool rebuilds. START HERE. Written 2026-08-16 ~10:15Z, UPDATED 15:40Z. Supersedes `HANDOFF_2026-08-15_continue_here.md`.
 
 Read `PLAN_2026-08-15_…` (design), `RUNBOOK_…` (commands, incl. the new "Is the adopt path live?" block),
 `NOTES_…` (evidence + missteps, newest at the bottom), `bugs_open/286` (the pilot's real cause + fix).
 
-## Verified state (2026-08-16 ~10:10Z)
+## Verified state (2026-08-16 ~15:40Z — supersedes the 10:10Z table)
 
 | thing | state |
 |---|---|
-| fleet binary | **still `v1.0.1303`** at 09:52Z (pods 18:45Z 08-15; deploy image 1303; no newer local image). The owner said a fresh chassis build was deployed — nothing visible corresponded. **Probe before believing any roll** (RUNBOOK). |
-| pilot root cause | `create_tool_component` has no attach path → `pages_site_id_name_key`, component self-deleted. 090 CONFIRMED (`3050effc`). NOT the handshake (WRONG_CALLS). |
-| fix | committed `88897190e` (Go + 3 tests + `bugs_open/286` + register TL-044 + seed `435_…_HOLD.sql`), council APPROVED `27d0f428`. **INERT** until roll + 435. |
-| seed 434 | APPLIED + committed `bc4cd65e7`: 4 producers moved off map-valued `spec_data`; 4 items backfilled; 3 ran clean 22:37–22:40Z (new fork versions + `section_edit` deliveries complete). Served-page grade of those three still owed. |
-| ab-test | REVERTED to the ported tool 10:0xZ (fork hollow: 0 visible chars; page was serving 47 raw tags). `page_rerender:owner-gate:tool-ab-test-calculator:revert-to-ported` **queued `triaged`** (expect ~80 min behind the serial dispatcher). |
-| 285 | its owning lane is running the induce-a-refusal close-out NOW (fence refused at 09:59:06Z, wrapper intact). Not this lane's. |
-| aspect-ratio page | untouched: ported slot `deployed`, no native slot; item key `add_tool_novel_webdesign.co.uk` is free (item `complete`). |
+| fleet binary | **`v1.0.1304`**, pods 10:41Z, stamp `5de6cddbe`; `88897190e` IS an ancestor (probed with a junk-hex control) ⇒ **286 fix LIVE**. RUNBOOK: probe the STAMP, then ancestry — never grep your own sha. |
+| seed 435 | **APPLIED 15:15Z** (`ee0228813`): `tool-generator.save_tool.adopt_existing_page = true` (SELECT-verified). |
+| pilot | **REFILED 15:2xZ** as item `99734862-ed24-4841-9d8f-7e6ce8c1de6b` (`add_tool_novel_webdesign.co.uk`, `triaged`), 11 items ahead in the serial dispatcher. Description written from the live tool, self-contained copy demanded. |
+| seed 434 proof | 3 re-armed audit fixes **graded PASS at the served pages** (0 raw tags, real copy, inputs/scripts intact). |
+| ab-test | REVERTED to the ported tool + **verified served** (0 raw tags, `class="ported-page"` present, fork gone). Rebuild candidate #2. |
+| 285 | owning lane ran the induce-a-refusal 09:59Z (fence refused, wrapper intact) — theirs. |
+| aspect-ratio page `00979b9e…` | ported slot `deployed`, no native slot yet. |
 
 ## Next actions, in order
 
-1. **Grade the ab-test revert at the served page** once its item completes: `curl` the URL cache-busted;
-   `grep -c '{{\.'` = 0, `grep -c 'ported-page-section'` ≥ 1 (the ported tool IS the tool now),
-   `grep -ci 'A/B Test Significance'` ≥ 1, `abc-container` = 0. If the item fails on "assembled to
-   nothing", read the ported slot's visible chars (RUNBOOK) before touching anything.
-2. **Grade the three re-armed audit fixes at the served pages** (`tool-css-unit-converter`,
-   `tool-css-specificity-calculator`, `tool-llm-cost-calculator`): the improver GREW css-unit-converter
-   8,257→14,261 chars — read the artefact, not the status; visible-chars check + the tool still boots.
-3. **Wait for a roll that carries `88897190e`** (RUNBOOK probe with controls). Then un-HOLD + apply seed
-   435, confirm the flag, and **refile the aspect-ratio pilot** (RUNBOOK INSERT — description written
-   from the LIVE tool's behaviour). Grade the generator run (`page_adopted=true`, one new
-   `page_components` row on the EXISTING page id, no new `pages` row), then retire the ported slot,
-   rerender, grade at the artefact. Only after that succeeds ONCE: the batch (PLAN §2), ab-test second.
-4. **Do NOT file section-edits at tool slots to "fix a raw tag"** — LANDMINES (a fork with `{{.}}`
-   copy fields and `content_data={}` renders hollow). If a rebuilt tool ever serves raw tags, that is a
-   generator-output defect: rebuild, don't edit.
-5. Owed to others, unchanged from the 08-15 handoff §Owed elsewhere (122 ink lane's audit checks
-   ~08-18; mindmap junk text = owner's localStorage, nothing to do).
+1. **Grade the pilot's generator run** (item `99734862`): `SELECT status, error FROM site_work_items WHERE id='99734862-…'`; then the tool-generator orchestration for it — `create_result.page_adopted` must be `true`; `page_components` on page `00979b9e-db47-4c26-819e-add95b0f8fd6` must gain ONE row (`slot_name='tool-aspect-ratio'`, position 2) and `pages` NO new row for the site with name `tool-aspect-ratio`. If it collided again ⇒ the flag is not being read: re-check the SELECT and `agent_error_log` for `save_tool`.
+2. **Grade the generated component itself BEFORE retiring anything** (the ab-test lesson): `content_components` row for `function='tool-aspect-ratio'` — `regexp_matches(html_template,'\{\{\.','g')` count must be 0 (no externalised copy fields), visible-chars > 300, has `<script>`, no `<script src=`.
+3. Retire the ported slot on that page (RUNBOOK guarded UPDATE, exactly 1 row) → assemble-only `page_rerender` (spec `{domain,page_id,page_name,filename}`, no `reason`) → grade at the served URL: `{{\.` 0, `class="ported-page"` 0, the new tool's container present, inputs/buttons present.
+4. Only after 1–3 succeed ONCE: batch (PLAN §2), simple tools first, serial, ab-test second (its hollow fork `cd60486c` is inactive on the page — the generator's already-exists probe keys on `function`+`component_level='tool'`+site via a page_components JOIN, and that fork's row is `removed` but still JOINs — **check the probe does not short-circuit on it before filing ab-test**; if it does, deactivate the fork component first).
+5. Owed to others, unchanged (122 ink lane's audit checks ~08-18; mindmap junk text = owner's localStorage).
 
 ## Traps this session paid for (all in LANDMINES / WRONG_CALLS / NOTES)
 
