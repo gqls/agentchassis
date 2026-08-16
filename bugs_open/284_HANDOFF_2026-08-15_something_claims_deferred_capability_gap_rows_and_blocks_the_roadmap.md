@@ -7,7 +7,8 @@
 > class is also **three times the size recorded below** — 60 rows across **four**
 > item_types, not 18 across one; `image_url_404` alone has 40.
 > **Fix committed `7027a2801`** (routability guard at the promoter), council
-> `c22998e8-41df-4145-a7b9-f132a7c77426`. **Stays OPEN**: inert until the next
+> **APPROVED at round 2** (`c22998e8-41df-4145-a7b9-f132a7c77426`, verdict read; round 1
+> REVISE was right twice and its corrections are folded in below). **Stays OPEN**: inert until the next
 > chassis roll, the 60 rows are not repaired yet, and one of the two paths is not
 > closed. Full account: `docs024_key_docs_latest/bugfix_284_flag_only_items_promoted/`.
 > The evidence below is sound and is left unedited — only its conclusion moved.
