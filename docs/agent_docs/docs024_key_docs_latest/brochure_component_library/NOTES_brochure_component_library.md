@@ -7287,3 +7287,57 @@ these twin pairs** — I spent LLM budget rewriting duplicate content twice over
 harmful (the twins stayed consistent), but it is what a duplicate estate costs you when
 nothing tells you the pages are twins. A twin check belongs in front of any fleet-wide
 copy pass.
+
+### 2026-08-15 — owner decisions actioned: fact registered, nav re-armed, twins handed to 215
+
+**Owner chose:** register the tool count; hand the duplicates to the 215 front.
+
+**F14-interactive-tools registered** (`SQL_2026-08-15c`). Read the matcher at source before
+writing it, which changed the shape twice:
+
+- `numberSupported` (`claims.go:962`) only *considers* a fact if one of its
+  `context_terms` is a substring of the claim window, and `Window()`
+  (`claims_stats.go:86`) is `Label + " " + Value + " " + Detail` → **`"Interactive tools 5"`**.
+  **A context term that does not match that string makes the whole fact inert, silently.**
+  Used `["interactive tool"]` — narrow on purpose: a bare `"tools"` term would license any
+  stat on the site whose label contains the word, converting one registered count into a
+  blanket permission.
+- **`tolerance: "exact"`, NOT `"gte"`.** With `gte` the matcher passes any `val <= 5`, so
+  the stale understating `"3"` would validate for ever and the page would never be
+  corrected. `F1-live-sites` uses `gte` because sites launch and the copy states a floor;
+  a tool count is precisely knowable and the whole point here is to make `3` fail.
+
+Guards: the transaction re-derives the live count and **aborts if it is no longer 5**
+(registering a stale number is the failure mode that matters in an honesty register), and
+asserts **16 facts = 15 existing + 1 new** so the append cannot silently drop the others.
+`writer_block` updated in the same edit with an anchored `replace()` whose postcondition
+fails if the anchor did not match — otherwise a no-op `replace()` reads as success.
+
+**nav_drift re-armed** (`attempt_count` was 0, so no retry budget was spent) and is now
+`claimed`. Not verified until the served nav shows the link.
+
+**Twins → CONTRIB**, not acted on: `CONTRIB_2026-08-15_two_twin_pairs_the_o2_census_missed.md`.
+The 215 front owns this (`who-owns.py 215` → OWNED, commits yesterday). Three things in it:
+
+1. **The near-miss.** The owner's "add the orphans to the plan" would have written plan
+   rows for the `/guides/` sides of **pairs 3 and 4** — the very pages the owner's own
+   post-redirect ruling sends to retirement. Their notes are what stopped me: *"the plan
+   named BOTH sides, so archiving alone re-arms the refile chain."*
+2. **Two pairs absent from the seven** — `ai-readiness-checker-guide` (similarity **0.97**)
+   and fundamentallyai's `llm-cost-calculator` (0.79). The latter is NOT their pair 1,
+   which is `ai-agent-orchestration.com`'s page of the same slug. **Same slug, different
+   site — I nearly conflated them.**
+3. **The finding that inverts the remedy: in both missed pairs the plan names the
+   ARCHIVED side and the ACTIVE survivor has no plan row.** So the fix is a **swap**, not
+   an add — adding the orphan while leaving the loser's row produces exactly the
+   both-sides-in-plan state their step 3 exists to remove. Left for them.
+
+**And both archived sides still serve 200**, measured in one run with a **404 control that
+returned 404** — four live URLs for two pieces of content. `deployed_at` predates the 266
+fix on v1.0.1295, so residue rather than a new escape, but it means 266's blind population
+has at least two more members on this site than the five measured across three domains.
+
+**A cost of my own worth recording: the rollout rewrote both halves of three twin pairs.**
+No harm — the copies stayed consistent — but a site-wide copy pass over a duplicated
+estate pays twice and nothing warns you. **A twin check belongs in front of any fleet copy
+job**, and the O2 census is the only thing that can supply one.
