@@ -96,7 +96,21 @@ recurrence and the census says **N=1 fleet-wide**.
 ⚠ **The likely fix is a plan edit + re-render, not code — but do not apply it until the "why" is
 known**, or the plan regenerates it. §8 of that file banks the evidence a fix would destroy.
 
-### (b) The AI-sounding copy — owned by `copy_quality_two_stage`, PARKED BEHIND (a)
+### (b) ~~The AI-sounding copy~~ — **RESOLVED 2026-08-15 ~19:15Z, and the ordering constraint HELD**
+
+`[MEASURED 2026-08-15 19:2xZ]` The webdesign.co.uk homepage now carries **three** components
+(hero · **one** `info-card-grid` · call-to-action) and the h2 reads **"Tools and guides, sorted by
+the problem you're solving"**. The *"A workbench, not a sales pitch"* construction is **gone from the
+served page** — 0 occurrences, was 2.
+
+**The sequence worked exactly as the two lanes agreed**, and that is the part worth keeping: the
+composition fix landed first (~18:2xZ, duplicate plan line deleted), the voice rewrite ran after
+(~19:15Z, all three components re-rendered in one pass). Had the rewrite gone first it would have
+either collapsed the duplicate — destroying `278`'s diagnostic state before it was banked — or
+rewritten only position 2 and left position 3 serving the old copy. **The ordering was not luck; it
+was negotiated between the lanes and honoured by both.**
+
+Original description, kept because the *why* still matters for the next site:
 
 Their h2 is literally *"A workbench, not a sales pitch"*. That lane confirmed the "X, not Y" shape is
 already codified as an AI tell (`voicetells.go`) and banned by the v2 house voice; webdesign.co.uk
