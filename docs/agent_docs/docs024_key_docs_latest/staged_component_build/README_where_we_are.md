@@ -1613,3 +1613,14 @@ pre-flight checks were run this morning and passed, so that switch is the next t
 apply. The reviewers' smaller points (a missing entry in our own decision log, two checks on
 the switch's paperwork, a note the review board can read in the database rather than in a
 file it cannot see) are all done, and the whole thing has been resubmitted for a second look.
+
+**2026-08-16 (late morning) — the second look came back approved.** The review board passed
+the fix on its second round, with three minor notes and nothing serious; the two that were
+real questions ("could you have used an existing helper?" and "could two agents in one pod
+mislabel each other's rows?") were both checked against the code and answered no, with the
+reasons written down. Two things need a human hand: the image-pipeline strict switch (ready,
+checks passed, but this session was not permitted to change live configuration — the exact
+command is in the handoff), and the next release, which is what turns the new record-keeping
+on. One confession: I sent the same review request twice by re-running the submit script to
+re-read its output — it cost a duplicate review, and the lesson is written where the next
+person will trip over it.
