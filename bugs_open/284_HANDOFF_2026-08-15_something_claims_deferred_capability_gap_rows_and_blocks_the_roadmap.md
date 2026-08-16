@@ -1,5 +1,17 @@
 # 284 — something claims `deferred` capability_gap rows, turning parked roadmap entries into `blocked` — and it is still happening
 
+> **DIAGNOSED 2026-08-16 — and the title is wrong, so read this box first.**
+> **Nothing claims a `deferred` row.** The blocked rows were never `deferred`: they
+> were born **`detected`**, which is a promotable queue, and `TriageDetectedItemsAction`
+> promotes every `detected` row on a site without looking at `handler_agent`. The
+> class is also **three times the size recorded below** — 60 rows across **four**
+> item_types, not 18 across one; `image_url_404` alone has 40.
+> **Fix committed `7027a2801`** (routability guard at the promoter), council
+> `c22998e8-41df-4145-a7b9-f132a7c77426`. **Stays OPEN**: inert until the next
+> chassis roll, the 60 rows are not repaired yet, and one of the two paths is not
+> closed. Full account: `docs024_key_docs_latest/bugfix_284_flag_only_items_promoted/`.
+> The evidence below is sound and is left unedited — only its conclusion moved.
+
 **Filed 2026-08-15** by the `bugs_open/279` owner-decision session, spun out of the
 `bugfix_213` lane's contribution into 279 (its "candidate 3: stop capability_gap
 being claimed at all — that is arguably the root"). **Status: OPEN, evidence
@@ -76,6 +88,105 @@ passing item ids to claim directly.
 `claim_work_item_action.go`'s empty-handler branch, both dispatch-loop agent
 definitions and `load_work_item_actions.go`). Filed here first because the queue
 check comes first — check `needs_diagnosis` open items before firing.
+
+## DIAGNOSIS 2026-08-16 — the mechanism, end to end, each link read first-hand
+
+**The rows were born `detected`, not `deferred`.** Four discovery checks build a
+`WorkItemSpec` with an empty `HandlerAgent` and `Status: "detected"`, each with a
+comment asserting the row is deliberately non-dispatchable:
+`check_palette_contrast.go:120-132`, `check_content_duplication.go:232-248`,
+`check_site_unreachable.go:254-264`, `check_backend_unreachable.go:99-108` — and
+`check_image_url_404.go:256-278, 297-310, 330-348`, which **omits the field
+entirely** so Go zero-values it to `""` (invisible to any grep for
+`HandlerAgent: ""`, which is how a census of this class misses its largest member).
+
+`TriageDetectedItemsAction` (`triage_detect_items_action.go:161-173`, live in
+`improvement-loop`) then promotes **every** `detected` row on the site —
+`WHERE site_id = $1 AND status = 'detected'`, no item_type filter, no handler
+filter. The loader selects `status IN ('triaged','approved')`, claim
+(`claim_work_item_action.go:96-105`) claims on the same pair, and its
+empty-handler branch (:159-180) stamps `blocked` and NULLs `claimed_by` /
+`claimed_at` — which is exactly why all 18 rows below show a NULL claimer and
+`attempt_count = 0`.
+
+`ClaimWorkItemAction` never touches a `deferred` row: its UPDATE is
+`WHERE status IN ('triaged','approved')`, so a `deferred` row returns
+`sql.ErrNoRows` and exits at :107. **This file's premise is refuted; its evidence
+is not.**
+
+### `[MEASURED]` 2026-08-16 — 60 rows, four item_types, not 18 and one
+
+| item_type | blocked | sites |
+|---|---|---|
+| `image_url_404` | 40 | 15 |
+| `capability_gap` | 18 | 14 |
+| `needs_experience_plan` | 1 | 1 |
+| `page_rerender` | 1 | 1 |
+
+A further **37** rows sit at `detected` with an empty handler today
+(`head_essentials_missing` 36, `image_url_404` 1) and would join them on the next
+triage of those sites.
+
+### Attribution, by a value that discriminates rather than a key that does not
+
+58 of the 60 carry `spec.original_pipeline` = **`design`** or **`content`**. The
+promoter writes `to_jsonb(pipeline)` — the row's own pipeline — whereas the only
+two other writers of that key (`site_admin_handlers.go` `HandleApproveWorkItem`,
+`tool_acceptance_actions.go` `routeChromeFailures`) both hardcode the literal
+`"build"`, so neither can have produced these rows. **The `090` run
+(`d1477c1d-bca4-4ac9-806d-da860eb0014a`) is what found those two writers**; it
+returned UNVERIFIABLE and named them in `next_scope`, which is what turned a
+claim of "one writer, therefore proven" into a check that could have failed.
+
+**The remaining 2 rows are a different path**: no `original_pipeline`, no
+`triaged_at`, `created_by` naming sessions (`bugfix-189-verify`,
+`contrast-front-113`) — hand-inserted, born dispatchable, with no handler. A
+promoter guard cannot see that one.
+
+### And nothing legitimate depends on promoting a handler-less row
+
+Enumerated, not asserted: of the **150** handler-less rows that have ever reached
+`complete` (11 item_types), **zero** carry `spec.original_pipeline` and **zero**
+have a non-null `triaged_at`. Every one completed through retraction or
+revalidation — never through dispatch.
+
+## FIX — committed `7027a2801`, council `c22998e8-41df-4145-a7b9-f132a7c77426`
+
+`TriageDetectedItemsAction`'s UPDATE now carries the claim path's own routability
+test, rendered from one shared helper (`workItemRoutableSQL` /
+`workItemHandlerRegisteredSQL` in `work_items_common.go`) that claim itself now
+calls — so the two cannot drift into disagreeing. Held-back rows are counted and
+logged by item_type (`not_promotable`), because a filter that quietly promotes
+fewer rows reads exactly like a site with less work. The two `capability_gap`
+producers now file `deferred`, the status that type means everywhere else.
+
+Three mutation proofs, run 2026-08-16: delete the guard → the promotion test
+fails; hand-write claim's predicate → the coupling test fails; drop the
+empty-handler half → two tests fail.
+
+**Behaviour change, stated:** a site whose only `detected` findings are flag-only
+now reports `site_dispatchable=false`, so `improvement-loop`'s
+`check_has_findings` takes `notify_scheduler_clean` rather than
+`insert_rerender_item`. That is the honest answer, and it replaces a rerender plus
+a row that could only ever be blocked. The branch reads `site_dispatchable` (read
+from the live `agent_definitions` row), not the call-scoped `has_items`, so
+`bugs_closed/150` is not reintroduced.
+
+## WHY THIS STAYS OPEN (three things, in order)
+
+1. **Inert until the next chassis roll.** Go changes do not ship on a commit.
+2. **The 60 rows are not repaired**, deliberately — repairing before the guard is
+   live means they re-block on the next claim. Then: `capability_gap` → `deferred`,
+   `image_url_404` → `detected`, and the 2 hand-inserted rows judged individually.
+3. **The hand-insert path is NOT closed.** What closes it is a CHECK constraint
+   making `(handler_agent = '' AND status IN ('triaged','approved','claimed'))`
+   unrepresentable — every writer, including the ~20 raw `INSERT INTO
+   site_work_items` sites that bypass the shared door, and any manual insert.
+   **It must land AFTER this binary rolls**: DB config is live immediately while Go
+   is inert until the roll, so a constraint arriving first makes the OLD promoter's
+   blanket UPDATE error on any site holding a flag-only `detected` row — breaking
+   `improvement-loop` fleet-wide. There are currently **0** rows in that state, so
+   it has no existing violators to repair first.
 
 ## Fix candidates, ordered by what closes the door (pending the diagnosis)
 
