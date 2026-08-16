@@ -121,3 +121,53 @@ decision to discover the hard way.
   270 both ship, that entry's "read by exactly one caller left in the tree"
   line is stale in the other direction (zero callers) and its pointer should
   be updated.
+
+## UPDATE 2026-08-16 — fix candidate 1 implemented, committed, council-submitted; NOT YET SHIPPED
+
+Picked up by the `bugfix_280_decision_guards_chrome` session (started after
+the owner asked for "bug 180," which turned out closed-and-live and
+unrelated — the still-open sibling this file names was the intended target,
+confirmed with the owner directly). Full workstream docs:
+`docs/agent_docs/docs024_key_docs_latest/bugfix_280_decision_guards_chrome/`
+(PLAN has the design reasoning, NOTES has the full evidence/session trail).
+
+**Fix candidate 1 implemented** (retype `storedPageAssemblySQL` to read
+`site_components`), not candidate 2 — same reasoning 270 used to reject its
+own "delete the check" alternative: candidate 1 makes the code match the
+file's header comment, which already describes the post-fix behaviour
+correctly ("chrome + page_components.rendered_html"), rather than requiring
+the comment to be corrected to describe a body-only design that was never
+the stated intent.
+
+The `FROM pages pg WHERE pg.site_id = $1 AND pg.name = $2` gate was
+deliberately kept unchanged (not simplified to a bare `SELECT <subqueries>`)
+specifically so a nonexistent page still yields zero rows — both the check
+and the fail-closed verifier (`VerifyDecisionRegressionResolved`, RFC_017)
+depend on that to tell "page missing" apart from "page exists with empty
+chrome." Checked before writing the query, not discovered after.
+
+`check_decision_guards_test.go` added: one SQL-text anti-regression test
+(mutation-tested — reverted to the pre-fix SQL, confirmed only that test
+fails, restored the fix), plus two behavioural demand controls for the
+false-positive (`contains` guard sees chrome) and false-negative
+(`not_contains` guard catches a chrome regression) shapes described above.
+Whole-package suite green; `go build ./...` clean.
+
+**Committed** `2c75bb526` (pathspec: the two files only), trailer
+`Council-Submitted: d37ef89e-1bfa-485a-aa97-e3b317de7901` — verdict not yet
+read at commit time, per the documented pre-verdict flow (098 resolves and
+credits automatically once approved; forward-only forbids an amend to
+`Council-Reviewed:` later, so do not attempt one — re-check the verdict and
+record it in this file's next update instead).
+
+**Shipping (image build + fleet roll) is NOT this session's call** — same
+owner-decision shape as 270 one day earlier ("leave it, I'll ship it").
+Assume nothing; check whether it has already shipped before offering,
+per-service artefact probe (`kubectl logs -l app=agent-chassis --tail=300 |
+grep -m1 'build provenance'`, then `git merge-base --is-ancestor 2c75bb526
+<the stamp>`), not by inference from a roll having happened.
+
+No behavioural fleet verification is expected once live: all 5 live
+decision-record rows are body-scoped (census in the original filing,
+re-confirmed here), so no guard's verdict should visibly change. "Shipped"
+is confirmed at the artefact, not by a change in check output.
