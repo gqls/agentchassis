@@ -370,3 +370,45 @@ sets no `repair_step`). The cause was established by re-running the validator's 
 submission file, not read from any message. Landmine filed; `097` gained a fifth client-side trap so
 the next thread cannot lose 30 minutes to it. Full account: the lane's NOTES, misstep 3, and
 `WRONG_CALLS.md`.
+
+### Still OPEN after Path A — two items, both raised by the council and both needing a human call
+
+Recorded here rather than only in the lane docs, because this file is where the next thread looks.
+
+**1. Candidate 2 — the duplicated precedence rule (unchanged from §5, still open).** Path A did NOT
+merge `ai_actions.go:358-364` with `llmOptionsFromConfig`. What it removed is the *consequence* of them
+disagreeing — a silent 2048 — not the duplication. The `reuse_agent` seat objected (medium) that Path A
+adds a THIRD reader. Answered structurally, and the answer constrains any future attempt:
+
+> Both existing resolvers live in `package actions`, and `platform/orchestration/actions` **imports**
+> `platform/aiservice` (`ai_actions.go:13`). So `aiservice` importing either is a genuine **import
+> cycle**. Unification cannot go in that direction. It has to be either (a) a new leaf package both
+> import, or (b) `datahelpers` — which does not cycle, but `go list -deps ./platform/aiservice` returns
+> **only itself** today, so that gives the estate's lowest-level provider package its first dependency
+> on the orchestration layer.
+
+The three behavioural differences that make a naive merge unsafe are in the §Path A section above.
+
+**2. `llm_call_log` blindness — §2.3's mechanism is still completely unaddressed, and Path A does not
+touch it.** Raised by the `editquality` seat as the plan's one MISSING item, and it is right:
+
+> *"No edit adds any llm_call_log write (or equivalent observability) for calls that bypass
+> ExecuteAIStepAction; direct callers remain invisible to the fleet's truncation instrument even after
+> their budget is now correctly resolved."*
+
+**Why it was not fixed here, structurally rather than as an excuse:** the provider clients hold
+`apiKey`, `model`, `maxTokens` and an `http.Client` and **no database handle of any kind** — a grep for
+`sql.`/`pgx`/`DB` across `platform/aiservice` returns one comment and nothing else. A bypassing caller
+has no DB either. The write has to happen at the **caller's** layer, so it is a different change with a
+different blast radius.
+
+⚠ **This matters more now, not less.** Before Path A, a direct caller was invisible *and* pinned to
+2048 — so at least the number was predictable. Now it is invisible *and* running at whatever its
+construction config says. **Every instrument this estate has built for truncation reads
+`llm_call_log`** — `fleet-step-token-pressure` (LCO-007), the 205 census, the 183 monitoring — so all
+of them are structurally blind to exactly this population. What Path A does keep honest: the clients
+still write `__sent_max_tokens` back into the options map, the sole feed for `llm_call_log.max_tokens`,
+so the column is correct for the budgets Path A newly enables (asserted by
+`TestSentMaxTokensRecordsAConfigSourcedBudget`) — *for any caller that persists at all*.
+
+**Owner call needed on both**: in scope for this bug, or separate lanes?
