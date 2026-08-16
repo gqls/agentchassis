@@ -121,6 +121,11 @@ type evidenceFactRefresh struct {
 	Outcome    string `json:"outcome"`
 	Detail     string `json:"detail,omitempty"`
 	VerifiedAt string `json:"verified_at,omitempty"`
+	// EncodedByTools names the tool subject keys whose criteria fence declares
+	// this fact (refresh_evidence_fact_drift.go), stamped only on drifted
+	// entries and only when a declaration exists — omitempty, so a site with no
+	// declarations marshals byte-identically to before Piece 3 existed.
+	EncodedByTools []string `json:"encoded_by_tools,omitempty"`
 }
 
 // siteRefreshResult is one site's outcome.
@@ -161,6 +166,15 @@ type siteRefreshResult struct {
 	// EvidenceItem scans res.Facts by Outcome=="drifted" directly, which
 	// already includes these facts regardless of this counter.
 	ArtifactCheckDrifted int `json:"artifact_check_drifted"`
+
+	// FactDrift is Piece 3's fan-out (refresh_evidence_fact_drift.go): one
+	// entry per (fact, declaring tool) that is owed something this pass, with
+	// the route it took and the honest write outcome. FactDeclarationsUnresolved
+	// lists "<subject_key>:<fact_id>" declarations the register cannot resolve —
+	// inert by rule (PBP-037), surfaced so a typo is visible. Both omitempty:
+	// the no-op site's JSON does not change.
+	FactDrift                  []factDriftEmission `json:"fact_drift,omitempty"`
+	FactDeclarationsUnresolved []string            `json:"fact_declarations_unresolved,omitempty"`
 }
 
 func RefreshEvidenceBaseAction(ctx context.Context, params ActionParams) (interface{}, error) {
@@ -472,6 +486,13 @@ func refreshOneSiteEvidence(
 		res.WriterBlock = "unmanaged"
 	}
 
+	// Piece 3 (refresh_evidence_fact_drift.go): plan the per-tool fan-out for
+	// any fact a criteria fence on this site declares. Planned BEFORE the dry-run
+	// return so a dry run REPORTS it; written after the existing raises below so
+	// it can never change when they fire. Read-only here.
+	factDrift := planSiteFactDrift(ctx, db, siteID, specRowID, eb, res, dryRun, logger)
+	res.FactDrift = factDrift.Emissions
+
 	if dryRun {
 		return res, nil // report only — write nothing, raise nothing
 	}
@@ -541,6 +562,13 @@ func refreshOneSiteEvidence(
 		}
 		res.AttestationWorkItemCreated = write.Inserted
 		res.AttestationWorkItemRefreshed = write.Refreshed
+	}
+
+	// Piece 3's write half — its own items, its own keys, after (and
+	// independent of) the two raises above. See refresh_evidence_fact_drift.go.
+	if len(factDrift.Emissions) > 0 {
+		writeFactDriftItems(ctx, db, siteID, domain, &factDrift, params.AgentType, logger)
+		res.FactDrift = factDrift.Emissions
 	}
 
 	return res, nil

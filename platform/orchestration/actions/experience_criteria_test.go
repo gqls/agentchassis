@@ -594,3 +594,59 @@ func TestTier4ChecksAreDeferredNotCounted(t *testing.T) {
 		}
 	}
 }
+
+// P11 — the fence-level `facts` declaration (criteria_facts.go, Piece 2 of
+// PLAN_2026-08-09_facts_into_tool_acceptance.md). It names WHICH register facts
+// a tool encodes, is read only by refresh_evidence_base's fan-out, and asserts
+// nothing at acceptance time. The rule exists so a declaration that cannot be
+// read is refused where it is WRITTEN, rather than silently ignored on the day
+// a fact moves — the shape bugs_open/225 shipped for sixteen months.
+func TestValidateExperienceCriteria_FactsDeclarationP11(t *testing.T) {
+	base := func(facts string) map[string]interface{} {
+		return mustJSON(t, `{
+		  "profiles": ["desktop"],
+		  "facts": `+facts+`,
+		  "checks": [{"id":"a","type":"selector_exists","selector":"{{binding.s}}"}]}`)
+	}
+	schema := mustJSON(t, `{"s":{"type":"selector"}}`)
+
+	t.Run("a well-formed list validates and changes nothing else", func(t *testing.T) {
+		v := ValidateExperienceCriteria(base(`["sdlt-ftb-relief-cap","sdlt-additional-surcharge-floor"]`), schema)
+		if !v.OK() {
+			t.Fatalf("a well-formed facts list must validate, got %+v", v.Errors)
+		}
+		if v.Executable != 1 {
+			t.Errorf("facts must not change the executable count, got %d", v.Executable)
+		}
+	})
+
+	for _, c := range []struct{ name, facts, want string }{
+		{"not an array", `{"id":"x"}`, "facts must be a JSON array"},
+		{"non-string entry", `["a",7]`, "is not a string"},
+		{"empty entry", `["a",""]`, "is empty"},
+		{"duplicate", `["a","a"]`, "declared twice"},
+	} {
+		t.Run(c.name+" is refused", func(t *testing.T) {
+			v := ValidateExperienceCriteria(base(c.facts), schema)
+			if v.OK() {
+				t.Fatalf("a malformed facts declaration must be refused, not silently ignored")
+			}
+			if !hasErrorContaining(v, c.want) {
+				t.Errorf("want an error mentioning %q, got %+v", c.want, v.Errors)
+			}
+		})
+	}
+
+	// P7 still owns the per-CHECK case: a tool encodes a fact, a check does not,
+	// and neither checker reads `facts` off a check — so it is an inert field
+	// there and must stay refused.
+	t.Run("a per-check facts key is still inert under P7", func(t *testing.T) {
+		tmpl := mustJSON(t, `{
+		  "profiles": ["desktop"],
+		  "checks": [{"id":"a","type":"selector_exists","selector":"{{binding.s}}","facts":["x"]}]}`)
+		v := ValidateExperienceCriteria(tmpl, schema)
+		if v.OK() {
+			t.Fatal("a per-check facts key must still be refused as an inert field (P7)")
+		}
+	})
+}

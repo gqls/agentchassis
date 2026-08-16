@@ -234,6 +234,9 @@ func (v *ExperienceCriteriaValidation) errf(checkID, field, format string, args 
 //	P9  a check id ending in -EDIT is rejected outright: Tier 2 silently SKIPS
 //	    those, so they read as green while asserting nothing
 //	P10 an attribute check names something to assert, and its patterns compile
+//	P11 a fence-level `facts` declaration is an array of non-empty, unique fact
+//	    ids (criteria_facts.go) — read only by refresh_evidence_base's fan-out,
+//	    asserted by neither checker; a per-check `facts` is still inert under P7
 func ValidateExperienceCriteria(template map[string]interface{}, bindingSchema map[string]interface{}, extra ...interface{}) ExperienceCriteriaValidation {
 	var v ExperienceCriteriaValidation
 
@@ -301,6 +304,21 @@ func ValidateExperienceCriteria(template map[string]interface{}, bindingSchema m
 	if experienceLiteralURLRE.MatchString(experienceFlatten(template)) {
 		v.errf("", "criteria_template",
 			"an absolute URL appears in the template — base entries are site-agnostic; concrete addresses belong in the per-site binding (bugs_closed/045: a static fallback re-applies on every render and cannot be overridden)")
+	}
+
+	// P11 — a fence-level `facts` declaration (criteria_facts.go) is an array of
+	// non-empty, unique fact ids. It is read ONLY by refresh_evidence_base's
+	// fact-drift fan-out, never by either checker, so it asserts nothing at
+	// acceptance time; the rule exists so a declaration that cannot be read is
+	// refused where it is written rather than silently ignored on the day a fact
+	// moves. A per-check `facts` is still refused by P7 below — a tool encodes a
+	// fact, a check does not.
+	if raw, present := template["facts"]; present {
+		if _, issues := criteriaFactsFromValue(raw); len(issues) > 0 {
+			for _, is := range issues {
+				v.errf("", "facts", "%s", is)
+			}
+		}
 	}
 
 	checks, _ := template["checks"].([]interface{})
