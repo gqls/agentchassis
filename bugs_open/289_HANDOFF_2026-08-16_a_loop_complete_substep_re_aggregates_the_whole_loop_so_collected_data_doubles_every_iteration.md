@@ -177,3 +177,61 @@ re-dispatches it, so each stalled audit costs **a fresh Sonnet LLM audit roughly
   to the parent (failed_transient): message validation failed` (6 rows, 2026-08-12→15).
   `ProduceWithValidation` (`platform/kafka/producer.go:120-140`) validates **headers**, not
   size, so that is its own thing. Worth a separate file.
+
+---
+
+## ADDENDUM 2026-08-16 — it predates migration 425, and **the diagnosis loop cannot see this bug**
+
+**Two `090` runs have now returned REFUTED on it. Both refutations are false, and both fail
+the same way.** Read this before spending another run.
+
+**1. The mechanism predates 425 — so it accounts for the entire stall history, not just this
+week.** `1a70fed3-ffbc-42c1-b617-4295dbea37e6`, created **2026-08-04 05:56Z** (eleven days
+before 425 was applied), `collected_data` **20 MB**:
+
+```
+create_items_loop_iter_0_done    20 kB
+create_items_loop_iter_1_done    40 kB
+create_items_loop_iter_2_done    80 kB
+create_items_loop_iter_3_done   160 kB
+create_items_loop_iter_4_done   321 kB
+create_items_loop_iter_5_done   643 kB
+create_items_loop_iter_6_done  1287 kB
+create_items_loop_iter_7_done  2574 kB
+create_items_loop_iter_8_done  5149 kB
+create_items_loop_iter_9_done    10 MB
+```
+
+Ten iterations, exact 2.00x throughout. The oldest dead row is 2026-07-29.
+
+**2. Run `12ffad7c-a7b2-4955-b531-554f07650598` (filed against the correct mechanism) refuted
+it with a claim that is simply untrue.** Its words:
+
+> "the actual collected_data for orchestration 1a70fed3 (tool-auditor) enumerates keys action,
+> llm_audit, load_tool, tool_data, input_data, site_specs, site_record, agent_config,
+> audit_result, item_created, loop_metadata, item_created_0 through item_created_8 — a
+> suffixed-index pattern, not a '_iter_<N>_done' pattern, **and no '_done' key appears at all**."
+
+Measured on that exact row:
+
+```sql
+SELECT (SELECT count(*) FROM jsonb_object_keys(collected_data) k WHERE k LIKE '%\_done')
+FROM orchestration_states WHERE orchestration_id='1a70fed3-ffbc-42c1-b617-4295dbea37e6';
+```
+→ **10**, and the ten sizes above.
+
+**3. Why both runs failed, and why re-running will not help.** The evidence bundle cannot carry
+a 20 MB `collected_data`, so the key enumeration it shows the diagnoser is **truncated** — and
+the diagnoser reads the truncation as absence. Run `815322b9…` failed the same way one step
+earlier ("(no orchestration rows for this correlation/site)" in its own iteration-1 citation,
+against a target that plainly has rows). **The bug's own symptom — an enormous
+`collected_data` — is what blinds the tool we would normally use to diagnose it.** That is a
+property of the harness, not of this bug, and it will recur on any oversized-state defect.
+
+**Consequence for whoever takes this on:** the `090` route is unavailable here. Verify at the
+DB directly with the narrow, aggregate-only queries used in this file (`count(*)` over
+`jsonb_object_keys`, `length(value::text)` per key) — never `SELECT collected_data` or
+`jsonb_pretty` on these rows, which times out at 120s. Per the owner ruling of 2026-07-31, the
+substitution for the loop here is the first-hand verification recorded above: three agent
+types, a pre-425 and a post-425 row, the nesting read key-by-key out of the stored JSON, the
+code path read in full, and a control group that does not double.
