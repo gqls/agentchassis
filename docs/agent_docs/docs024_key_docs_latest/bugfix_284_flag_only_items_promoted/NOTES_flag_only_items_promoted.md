@@ -200,3 +200,64 @@ GROUP BY 1,2;
 Full build (`go build ./...`) and vet clean against `git archive HEAD` + my files;
 the one `vet` complaint (`load_component_library_actions.go:207 unreachable code`)
 is another lane's and pre-exists this change.
+
+## 2026-08-16 — council round 1: REVISE, and two of the objections were RIGHT about my evidence
+
+Verdict `revise`, gated by **guardian** (high), with objections also from
+`editquality`, `reuse_agent` and `prior_art_librarian`; 4 seats abstained. None of
+it disputed the mechanism. All of it disputed what I had *shown*.
+
+**The two that were straightforwardly right:**
+
+- **`prior_art_librarian`: `spec->>'original_pipeline'` cannot name which CHECK
+  wrote a row.** It is the row's own pipeline — one label over several producers,
+  the `audit_source` landmine shape — so my 15-design/3-content split does not
+  attribute anything to `check_palette_contrast` or `check_content_duplication`. It
+  is right. Re-measured on the marker each check writes into its OWN spec:
+
+  ```sql
+  SELECT spec->>'check', count(*), count(DISTINCT site_id) FROM site_work_items
+  WHERE item_type='capability_gap' AND status='blocked' GROUP BY 1;
+  -- content_duplication | 9 | 9
+  -- palette_contrast    | 9 | 9
+  ```
+
+  Exactly the two files I edited, nothing else. The pipeline split is still
+  evidence — but only of *which mechanism* wrote the key, never of which producer.
+
+- **`editquality`: "three of six producers got it wrong" was loose.** The accurate
+  enumeration is **six** producers filing an empty-handler flag row at `detected`,
+  and it gained one I had not found: `check_site_structural_validity.go:1148-1163`
+  (`head_essentials_missing`, 36 live rows) — which **also omits the field**, so
+  that is TWO omitters, not one, and my value-grep was blind to both.
+
+**The gating one, and why I resubmitted rather than backed out.** `guardian` (high)
+said the claim-path refactor rests on an unverified equivalence: I wrote
+"semantically identical" and never quoted the query claim actually runs. Fair — and
+answerable exactly, which is the difference between an evidence objection and a
+scope veto. At `7027a2801^`:
+
+```
+SELECT EXISTS(SELECT 1 FROM agent_definitions WHERE type = $1 AND deleted_at IS NULL)
+```
+
+No `is_active`, no `is_snapshot` — in the before OR the after. The seat's own
+answered check closed the practical half in round 1: **zero** live `handler_agent`
+values point at an inactive or snapshot definition.
+
+**`reuse_agent` asked the best question**: why not make the existing
+`detected-item-promoter` scheduled task the mechanism, rather than a second
+routability predicate? Answer, measured: it promotes ≤20 rows per 900s fleet-wide,
+asynchronously, and demands ≥1 lifetime `complete` for the pair — right for an
+unattended sweep, wrong inside a loop that promotes its own site's findings and
+dispatches them in the same run. Its second question found something better than
+an objection: a repo-wide search for the predicate returns a **third** consumer,
+`remit.go:230` `HandlerStepConfig`, whose own comment already names
+`claim_work_item_action.go` as its source of truth and keeps the coupling **in
+prose**. Three consumers of one predicate, two coupled by a comment — which is the
+estate's own argument for extracting it. Not migrated here (the guardian objected
+to blast radius); recorded as the named next adopter.
+
+**Cost of the round: ~11 minutes, and it bought a corrected attribution, a sixth
+producer, and a third consumer I had not enumerated.** The `a-revise-round-is-
+cheaper-than-the-defect-it-finds` lesson, again.
