@@ -287,3 +287,39 @@ sites `9d1a17202` before stamp-duty is decomposed**, or decomposition
 re-freezes the buggy bytes. The `--emit-criteria` step your PLAN gated on
 "224 and 225 both fixed" is now **unblocked** — both are live and the full
 estate is green.
+
+---
+
+## CLOSED 2026-08-16 → `/bugs_closed/` (this section added by the closing session)
+
+**Re-verified live at the wire before moving it, not taken from the section above.**
+The fix has been live since 2026-08-09; what changed today is only that the file is
+allowed to move.
+
+| check, run 2026-08-16 | result |
+|---|---|
+| `curl -s https://loanandmortgagecalculator.co.uk/mortgages/stamp-duty.html \| grep -c 625000` | **0** |
+| the same page, `grep -o "FTB_RELIEF_CAP *= *[0-9]*"` | **`FTB_RELIEF_CAP = 500000`** — the positive control, so the zero above is an absence and not a failed fetch |
+| `curl -s https://mortgagecalculator.co.uk/stamp-duty.html \| grep -c 625000` | **0** (the twin) |
+| the DB row behind the LMC page | component `f29254a5-…` (`tool-1` on `mortgages-stamp-duty`) carries `FTB_RELIEF_CAP = 500000` and `SURCHARGE_FLOOR = 40000` |
+
+⚠ **The component id this file names in "Fix landed" (`55682bc8-…`) NO LONGER EXISTS.**
+The page was decomposed into `prose-0` / `tool-1` / `prose-2` by the LMC lane's B2 work
+after this bug was written. Anyone re-checking this case must resolve the component by
+page, not by the id recorded here — and that mortality is itself part of why the class
+fix does not address artefacts by component id.
+
+**Why it moves now.** It was held in `bugs_open/` by the owner's direction of
+2026-08-06 ("please leave the bugs that you've found in bugs_open"). The owner
+**superseded that on 2026-08-12** — *"if it is fixed and live it should be moved"* —
+restoring CLAUDE.md's fixed-AND-live bar, which this case has met since 08-09.
+
+**The CLASS is now tracked separately as `bugs_open/288`.** This file's own section
+"Why no existing check could ever have caught this" was the finding that outlived the
+fix: the evidence register guards COPY, not CODE. Pieces 2+3 of
+`PLAN_2026-08-09_facts_into_tool_acceptance.md` were built on 2026-08-16 (`989addb1c`,
+council `cff364b8`, register CLM-022 + TL-045) — a tool's criteria fence can now
+declare which register facts it encodes, and the daily evidence sweep tells it when
+one moves. **That is inert until the next roll and until a fence declares**, which is
+why 288 is open and this one is not: the defect this file describes is no longer
+reproducible, and the gap it revealed is somebody's live work.
