@@ -32690,3 +32690,38 @@ this tree: the *number* of same-day commits by `cqls` on one bug tells you nothi
 sessions made them.
 
 Tally for "misattributed my own summarised-out work to another session": 1.
+
+## 2026-08-16 — "there is no framework path that adds one content page on demand"
+
+**The claim.** Told the owner, and wrote into a handoff, that creating a single content page
+(a privacy policy for dartsonline.com) had no framework route and needed a hand-rolled
+workaround.
+
+**Where it came from.** Another lane's commit message (`fb317132a`, noted.co.uk), read and
+repeated **without opening the code it described**. Its wording — *"needs_content_page needs
+a page that already exists"* — is true of that item type in isolation. I generalised it to
+the whole chain.
+
+**Why it is false.** `apply_gap_plan_action.go:8` states in its own header that the
+`new_page` approach *"creates page record + needs_content_page work item"* — the page is
+created first, then the item is filed. The action runs in the live `content-gap-planner`,
+fed by `needs_content_planning` items that are actively draining (27 `complete`, newest
+2026-08-15). **And the precedent is in the same directory I was writing the handoff into**:
+`SQL_2026-07-29n_news_page.sql` used exactly this route, with `approach: new_page` asserted
+in the item spec, and `/news/index.html` serves 200 today.
+
+**What caught it.** The owner asked me to double-check. Nothing else would have — the claim
+was inherited, confidently worded, and consistent with the awkwardness the other lane really
+did experience.
+
+**The cheap check I skipped.** One grep: `grep -rlE "INSERT INTO pages" --include=*.go` returns
+the writers in seconds, and `apply_gap_plan_action.go` is in the list with a test beside it
+literally named `apply_gap_plan_new_page_test.go`. Total cost: under a minute.
+
+**The transferable rule.** *A commit message is an argument, not an API.* Another session's
+conclusion is evidence about **their** situation — their site, their item type, their
+constraints — and does not transfer until you have read the mechanism yourself. This estate
+already requires relayed claims to be verified before acting; the failure mode here is that a
+relayed claim arrives sounding like a settled fact, and repeating it launders it into one.
+Worse, I wrote it into a **handoff**, which is the highest-leverage place to be wrong: a fresh
+session would have inherited it as established and hand-rolled a page row for no reason.

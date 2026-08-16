@@ -59,22 +59,48 @@ page is **not yet created**.
 the "what it deliberately does not say" reasoning are all in
 `DRAFT_2026-08-15_privacy_copy_for_owner_approval.md`.
 
-⚠ **There is no framework path that adds one content page on demand.** Do not rediscover
-this — the `noted.co.uk` lane established it three days ago (`fb317132a`): the planner makes
-all pages at once (unknown blast radius on a re-run), `create_tool_component` is tool-only,
-`create_report_page` forces `rebuild_policy='owned'`, and `needs_content_page` needs a page
-that already exists. **The route that worked** was to mirror the **adoption** path
-(`apply_adoption_plan_action.go:541`, `INSERT … ON CONFLICT (site_id, name)`), taking every
-value from the current plan so no identity is hand-rolled (`bugs_open/080`).
+> ⚠ **CORRECTED 2026-08-16 — I RELAYED A CLAIM AND IT IS WRONG. There IS a framework route,
+> and THIS LANE HAS ALREADY USED IT.** The earlier text here said *"there is no framework
+> path that adds one content page on demand"*. I took that from the `noted.co.uk` lane's
+> commit message (`fb317132a`) and repeated it to the owner without checking it — exactly the
+> relayed-claim failure `WRONG_CALLS.md` exists for. Verified from source 2026-08-16:
+>
+> - **`apply_gap_plan` has a `new_page` approach whose own header says it "creates page
+>   record + needs_content_page work item"** (`apply_gap_plan_action.go:8`, branch at `:140`,
+>   implementation `applyNewPage` at `:289`). So `needs_content_page` needing an existing page
+>   is true *of that item type alone* and false *of the chain* — `new_page` creates the page
+>   first and then files it. That is the sentence I misread.
+> - The action runs in the live **`content-gap-planner`** agent `[MEASURED]`, fed by
+>   `needs_content_planning` items which are **actively draining — 27 `complete`, newest
+>   2026-08-15** `[MEASURED]`.
+> - **The precedent is on this very site**: `SQL_2026-07-29n_news_page.sql` in this directory
+>   raised a planner item with `'approach','new_page'` asserted in the spec, and
+>   `/news/index.html` exists and serves 200 today. So the route is proven here, not just in
+>   principle.
+>
+> **Caveat to carry:** `approach` is read from the *plan* the LLM produces
+> (`apply_gap_plan_action.go:127`), so the planner could choose `add_to_page` or
+> `not_actionable` instead. Asserting `approach` in the item spec is what 29n did and it
+> worked — treat it as a strong steer, not a guarantee, and check which branch actually ran.
+>
+> The adoption-route mirror below remains a valid fallback, but it is **no longer the first
+> choice** — prefer the planner route, which is the framework doing its own job.
 
 Steps, in order:
 1. Register the approved copy in `evidence_base` as `supplied_copy.privacy`, **deriving** the
    new spec row from the live one (`data || {...}`) so existing `banned_claims`/facts carry
    across untouched. Pattern: `noted_rebuild/apply_privacy_copy.py` — **it is noted-specific
    and needs parameterising**, do not run it as-is.
-2. Create the `pages` row the adoption way. Convention from 7 other sites `[MEASURED]`:
-   `name='privacy'`, `url='/privacy.html'`, `page_type='content'`, `sections=["generic-text-block"]`,
-   `in_header=false`, `in_footer=true`.
+2. Create the page via **`needs_content_planning` → `content-gap-planner`**, `approach:
+   new_page` asserted in the spec, modelled on `SQL_2026-07-29n_news_page.sql`. File it at
+   `status='triaged'` (`detected` does not drain on this site — §5). Fallback only if the
+   planner refuses: mirror the adoption path (`apply_adoption_plan_action.go:541`,
+   `INSERT … ON CONFLICT (site_id, name)`), taking every value from the current plan so no
+   identity is hand-rolled (`bugs_open/080`).
+   Convention from 7 other sites `[MEASURED]`: `name='privacy'`, `url='/privacy.html'`,
+   `page_type='content'`, `sections=["generic-text-block"]`, `in_header=false`, `in_footer=true`.
+   ⚠ `page_type` is a routing key, not a label — verify the row before it builds
+   (`bugs_open/081`: a deployed mistyped page has no repair path).
 3. `nav_drift` → nav-updater for the footer link, **then §5's landmine: verify the SERVED
    bytes on every page, not `pages.rendered_footer`.**
 4. Verify the served page carries the copy **verbatim**.
