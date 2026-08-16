@@ -472,10 +472,28 @@ commit message. The seat's objection is upheld and the artifact now exists:
 **`architecture_review/RFC_032_three_render_context_builders_disagree_about_what_an_instance_is.md`**
 
 It also carries the `architecture` seat's own follow-up ask (§5 there): the RFC_022 exception 283
-was approved under holds **only while zero live templates reference `{{.InstanceID}}`**, and the
-mechanical trigger for that expiry is **not built** — a commit-time lint cannot see a template that
-lives in a database column. The RFC states the one-line query and says plainly that whoever converts
-the first template either builds the check or accepts that the exception has silently expired.
+was approved under holds **only while zero live templates reference `{{.InstanceID}}`**.
+
+> **UPDATE, same day: that trigger is now BUILT, DEPLOYED AND PROVEN.**
+> `instance-token-adoption-check`, a daily CronJob at 07:40 UTC
+> (`deployments/kustomize/services/instance-token-adoption-check/`). It counts active components
+> referencing `{{.InstanceID}}`: **0 = the exception holds; non-zero = it has expired and `RFC_032`
+> is owed a round.** One `doc_notes` row per run (`subject_key='instance-token-adoption'`) even
+> when quiet, so a missing row means the job did not run.
+>
+> **Not the pattern-check the seat suggested, and the reason matters:** `pattern-check.py` is a
+> commit-time lint over repo files, and an `html_template` is written by the component-creator
+> agent, by hand-authored SQL, by migrations and by the admin UI — four routes, none through a
+> commit. Only a clock against live data can see the first adopter.
+>
+> **Its healthy answer is ZERO, so it carries a DEMAND CONTROL** — the same `LIKE` in the same
+> statement also counts `{{.ComponentID}}`, and the job **refuses (exit 2)** if that returns 0,
+> rather than reporting a zero it has not earned. First live run 15:29 UTC: adopters 0, control 5,
+> active 243; both report branches were exercised via `--stdin` before deploy, with exit codes
+> checked, so the tripped branch is known reachable rather than hoped-for.
+>
+> ⚠ **A trip is not a defect** — conversion is the intended next phase. **Retire the job once it
+> trips**, or a fired tripwire becomes a muted one.
 
 ### 10.6 The remaining advisories, and what was done
 

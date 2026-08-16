@@ -170,3 +170,38 @@ SELECT subject_key FROM doc_notes WHERE subject_key LIKE 'LANDMINES.md#%' ORDER 
 Slugs are a truncated kebab-case of the heading, with punctuation dropped —
 `` `{{.ComponentID}}` is the estate's… `` becomes
 `componentid-is-the-estate-s-per-instance-id-convention-on-one-render-path-and-th`.
+
+## 9. The RFC_022 expiry tripwire
+
+```bash
+# deploy / redeploy (no makefile target yet — see NOTES for why)
+kubectl apply -k deployments/kustomize/services/instance-token-adoption-check/overlays/production/uk_001
+
+# run it now rather than waiting for 07:40 UTC
+kubectl -n ai-persona-system create job ita-now --from=cronjob/instance-token-adoption-check
+kubectl -n ai-persona-system logs job/ita-now
+kubectl -n ai-persona-system delete job ita-now      # one-off jobs are not garbage-collected
+
+# what it has been saying
+```
+```sql
+SELECT created_at, left(body, 200) FROM doc_notes
+WHERE subject_key='instance-token-adoption' ORDER BY created_at DESC LIMIT 5;
+```
+
+⚠ **A MISSING row is the alarming case, not a quiet one.** The job writes a row on every run,
+including when it finds nothing, precisely so that "the job did not run" cannot look like "the
+exception still holds".
+
+⚠ **Exercise both branches before trusting a change to it** — the tripped branch is the one that
+never runs in practice, so it is the one that rots:
+
+```bash
+cd deployments/kustomize/services/instance-token-adoption-check/base
+echo '{"adopters":0,"control":5,"active_total":243,"adopter_names":[]}' | python3 check.py --stdin; echo "exit=$?"   # 0
+echo '{"adopters":2,"control":5,"active_total":243,"adopter_names":["x","y"]}' | python3 check.py --stdin; echo "exit=$?"  # 1
+```
+
+⚠ **If it ever reports `REFUSING TO RUN: the {{.ComponentID}} control matched 0 templates`, do not
+"fix" it by removing the control.** That message means the pattern matching itself stopped working,
+and every zero this job has reported since is worthless. Find out why the control stopped firing.

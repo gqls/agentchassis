@@ -94,18 +94,34 @@ gate.** The seat also asked for a *written trigger* — a mechanical signal fire
 live template references `{{.InstanceID}}` — rather than a prose reminder. That trigger is **not
 built**; see §6.
 
-## 6. What is NOT built, stated so it is not mistaken for done
+## 6. The trigger — BUILT AND RUNNING (2026-08-16); the unification is not
 
-- **The trigger.** `scripts/pattern-check.py` is a commit-time lint over repo files; component
-  templates live in `content_components.html_template` in the database, so a pattern-check cannot
-  see one. The trigger needs a DB-side check (the RFC_006 shape — a daily CronJob query), and the
-  query itself is one line:
-  ```sql
-  SELECT count(*) FROM content_components WHERE is_active AND html_template LIKE '%{{.InstanceID}}%';
-  ```
-  Whoever converts the first template should either build that check or accept that the RFC_022
-  exception has silently expired.
-- **The unification itself.** Nothing in 283 moves `ComponentID`.
+> **UPDATED 2026-08-16, hours after filing.** This section said the trigger was not built and
+> assigned it to whoever converts the first template. It is built, deployed and has run.
+
+**`instance-token-adoption-check`** — a daily CronJob (07:40 UTC),
+`deployments/kustomize/services/instance-token-adoption-check/`. It counts active components whose
+`html_template` references `{{.InstanceID}}`; **0 means this exception still holds, non-zero means
+it has expired and this RFC is owed a round.** One `doc_notes` row per run
+(`subject_key='instance-token-adoption'`) including a quiet one, so a *missing* row means the job
+did not run — which is not the same as "the exception still holds".
+
+**Why a CronJob and not the pattern-check finding the seat suggested.** The instinct was right and
+that example cannot work: `scripts/pattern-check.py` is a commit-time lint over **repo files**, and
+a component's `html_template` is written by the component-creator agent, by hand-authored SQL, by
+migrations and by the admin UI — four routes, none of which passes through a commit.
+
+**⚠ Its healthy answer is ZERO, so it carries a demand control.** A broken query, a mis-escaped
+`LIKE` or an empty table all return zero too. Every run therefore also counts `{{.ComponentID}}`
+through the same `LIKE` in the same statement, and **refuses (exit 2)** if that comes back 0 rather
+than reporting a reassuring zero it has not earned. First live run, 2026-08-16 15:29 UTC:
+`adopters 0, control 5, active 243` — the control fires, so the zero is evidence.
+
+**⚠ Retire the job once it trips.** A tripwire left failing daily is how a real signal becomes one
+people mute. A trip is **not** a defect report — converting templates is 283's intended next phase.
+
+**Still NOT built: the unification itself.** Nothing in 283 moves `ComponentID`. That is §4's
+question and it is what this RFC is actually for.
 
 ## 7. Sources
 

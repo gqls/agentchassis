@@ -108,8 +108,30 @@ as **`architecture_review/RFC_032`**.
 - **A narrowed guard armed today.** It would fire on nothing (no interactive component is
   instantiated twice anywhere), and a mechanism rotting unexercised is the failure mode the owner's
   2026-07-29 ruling warns about. Convert → re-measure → arm.
-- **The RFC_022 expiry trigger.** A commit-time lint cannot see a template stored in
-  `content_components.html_template`; it needs a daily DB check (`RFC_032` §6 carries the query).
+> **CORRECTION 2026-08-16, later the same day:** the third item below said the RFC_022 expiry
+> trigger was deliberately not built. It **is** built — see §4a. It was reclassified once it became
+> clear the estate already had the exact idiom for it (twelve daily check CronJobs), so "not built"
+> was measuring my assumption about cost rather than the cost.
+
+## 4a. The tripwire that IS built
+
+**`instance-token-adoption-check`** — daily CronJob, 07:40 UTC, deployed and proven (first run
+2026-08-16 15:29 UTC). Counts active components referencing `{{.InstanceID}}`: **0 = the RFC_022
+exception still holds; non-zero = it has expired and `RFC_032` is owed a round.**
+
+Three things about it are worth carrying to any similar check:
+
+1. **It could not be a commit-time lint**, which is what the architecture seat suggested. An
+   `html_template` is written by the component-creator agent, by hand-authored SQL, by migrations
+   and by the admin UI — four routes, none through a commit.
+2. **Its healthy answer is ZERO, so it carries a demand control.** A broken query, a mis-escaped
+   `LIKE` and an empty table all return zero too. It counts `{{.ComponentID}}` through the same
+   `LIKE` in the same statement and **refuses** if that returns 0.
+3. **Its polarity is inverted vs every sibling check**, and the report says so in its own words: a
+   trip is not a defect, it is an owed review. Retire the job once it trips.
+
+Owed: a `deploy-instance-token-adoption-check` makefile target (not added, because `makefile`
+carried another session's uncommitted changes and a pathspec commit would have taken them).
 
 ## 5. ⚠ The next phase is architecture-scope, and the approval says so
 

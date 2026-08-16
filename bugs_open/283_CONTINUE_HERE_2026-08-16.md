@@ -98,10 +98,13 @@ cd $SC && go build ./... && go test ./platform/orchestration/actions/
 5. **Then, and only then**, consider arming `enforce_instance_scope` anywhere. ⚠ The
    `render_guardian` seat's words: arming it **before** the 13 known-colliding pages are fixed
    would itself be *"a high-severity fail-loud violation"*. Convert → re-measure → arm.
-6. **Build the RFC_022 expiry trigger, or accept it has expired** (`RFC_032` §6). A commit-time
-   lint cannot see a template that lives in a DB column, so the trigger has to be a daily check:
-   `SELECT count(*) FROM content_components WHERE is_active AND html_template LIKE '%{{.InstanceID}}%';`
-   Not built. Whoever converts the first template owns this.
+6. ~~Build the RFC_022 expiry trigger~~ **DONE — `instance-token-adoption-check`, a daily CronJob
+   at 07:40 UTC, deployed and proven (first run 2026-08-16 15:29 UTC: adopters 0, control 5,
+   active 243).** You do not need to remember the expiry; it will tell you.
+   **What you DO owe it:** it is not in the makefile (the file had another session's uncommitted
+   changes when it was built, and a pathspec commit would have taken them as a passenger), so add
+   `deploy-instance-token-adoption-check` alongside its siblings when the makefile is quiet.
+   **And retire the job once it trips** — a fired tripwire left failing daily gets muted.
 
 ## 5. Traps carried forward
 

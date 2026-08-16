@@ -104,7 +104,9 @@ not evidence."*
 Correct. What existed was a `verify-later` line and a sentence in a commit message. **`RFC_032` now
 exists**, and it carries the architecture seat's own ask: the RFC_022 exception this was approved
 under expires the moment a live template references `{{.InstanceID}}`, and the mechanical trigger
-for that expiry is **not built** — a commit-time lint cannot see a template stored in a DB column.
+for that expiry is ~~**not built** — a commit-time lint cannot see a template stored in a DB
+column~~ **BUILT AND RUNNING, later the same day — see the entry at the bottom of this file. The
+"not built" was a cost estimate dressed as a decision.**
 
 ### Not a misstep, but worth recording: my LANDMINES edit was swept
 
@@ -128,3 +130,36 @@ own. Nothing lost — forward-only holds — but it also consumed the "new entry
 
 Council **APPROVED** round 2 (6 advisory objections, none high-severity), and the code went live on
 chassis `v1.0.1304` the same morning. Still inert: 0 of 243 templates reference the token.
+
+### Later the same day — building the expiry tripwire, and a reclassification
+
+`RFC_032` §6 and the case file both said the RFC_022 expiry trigger was "not built", and assigned it
+to whoever converts the first template. That was a cost estimate dressed as a decision. The estate
+already has **twelve** daily check CronJobs, two of them (`single-owner-carriers-check`,
+`optional-key-budget-check`) built for exactly this reason — *"the number this check watches changes
+by a route no commit can carry"* — so the marginal cost was four files, not a project.
+
+`instance-token-adoption-check` is now live at 07:40 UTC. Three design points worth carrying:
+
+1. **The seat suggested a pattern-check finding, and that could not have worked.** A component's
+   `html_template` is a database column written by the component-creator agent, by hand-authored
+   SQL, by migrations and by the admin UI — four routes, none through a commit. Taking the seat's
+   *intent* (a mechanical trigger) rather than its *example* (a lint) was the whole design.
+2. **A check whose healthy answer is ZERO needs a demand control inside the check.** A broken query,
+   a mis-escaped `LIKE` and an empty table all return zero. So every run also counts
+   `{{.ComponentID}}` through the same `LIKE` in the same statement, and the job **refuses** if that
+   returns 0 rather than reporting a zero it has not earned. Live: adopters 0, control 5, active 243.
+3. **The polarity is inverted vs every sibling, so the report says so in its own words.** A trip
+   means an owed architecture review, not a defect — and the person who reads a failed Job at 08:00
+   is not the person who built it. Writing "THIS IS NOT A DEFECT REPORT. Do NOT 'fix' this by
+   reverting a conversion" into the output itself is cheaper than hoping they find the docs.
+
+Verified rather than assumed, before trusting it: `kubectl kustomize` builds; **both** report
+branches exercised via `--stdin` with exit codes checked (the tripped branch is the one that never
+runs in practice, so it is the one that rots); the census SQL run against the live DB returns the
+exact shape the script parses; and then an actual Job run in-cluster — `SUCCEEDED 1`, the quiet
+branch printed, the `doc_notes` row present at 15:29:24 UTC.
+
+**Not done, and it is a shared-tree consequence rather than an oversight:** no `deploy-…` makefile
+target, because `makefile` carried another session's uncommitted change and a pathspec commit takes
+same-file passengers. Recorded in the register's `verify-later` and in the CONTINUE_HERE.
