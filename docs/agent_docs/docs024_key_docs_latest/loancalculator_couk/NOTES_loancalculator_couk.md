@@ -5454,3 +5454,40 @@ AFTER the work: all 3 of the page's component rows are fresh at 15:33:22
 Not re-triaged — a retry would rebuild a healthy page a third time to repair
 bookkeeping. If a future replan re-emits this one page for stamp reasons, that
 single extra cycle is the accepted cost.
+
+## 2026-08-16 — bug 282 is FIXED AND COMMITTED (from the bugfix_282 lane, not this one)
+
+The blocker your D2 sequence names is done, and the sequence can resume once the
+next chassis image rolls. Recording it here because the fix landed in another
+lane and nothing in this directory would otherwise say so.
+
+- Commit `5534e9f71`. Go half: `component_name_resolver_menu.go` (new) + two
+  small hunks in `v3_site_actions.go` — **INERT until an image carries it**.
+  Config half: migration `439`, **applied and recorded 2026-08-16**, setting
+  `menu_field: "available_components"` on `build-site-planner.validate_plan`.
+  Council submitted, corr `bbf49822-6704-4802-b3b5-1afed6777c88` (advisory).
+- **What it does:** validate now accepts the component names its own planner
+  step was OFFERED, instead of re-checking them against a hardcoded
+  section/element whitelist. Your calculators stop being deleted between the
+  LLM's response and `site_plan_sections`.
+- **Your sequence is unchanged** and still correct: roll → re-fire
+  `phase2_recompose_26.sh` (12-page scope) → verify the 12 locked tool functions
+  in `site_plan_sections` on their own pages → then work the 11
+  `owned_page_review` + `needs_page:index`. Baseline for the comparison is still
+  plan `dcbae4df` (0 of 12).
+- **Two things to expect that the old baseline will not show.** (1) A new log
+  line, `"ValidateSitePlanAction: section resolved via the planner's menu"`, one
+  per accepted tool section — that is the tell the arm fired; its absence with
+  tools present in the plan means the image predates the fix, so check the build
+  provenance before re-diagnosing. (2) LOCK-008 (`7d9b7334a`, live on v1.0.1304)
+  now merges locked rows into the assembled list, so `pages.sections` on the 12
+  tool pages carries positional slots — **verify at `site_plan_sections`, not at
+  `pages.sections`**, exactly as your handoff says.
+- **A correction to 282's ADDENDUM that touches this site's read of events.**
+  `loans-credit-health-check` on `tool-credit-roadmap` was recorded as "a name
+  matching NO component at all", evidence of a second drop branch. It is an
+  ordinary **section-level** component (`824e3309…`, created 2026-08-13 for
+  loanandmortgagecalculator.co.uk), which is why it survived validate. The
+  `needs_new_component` item came later, from `plan_sections`, on a different
+  path. There is no second branch; the account in step 3 of the bug file was
+  complete. Full correction in the bug file and `WRONG_CALLS.md`.

@@ -102,3 +102,54 @@ the opt-in is real, i.e. that no un-opted-in caller's behaviour changed.
   not its conclusions. Recording this because a half-finished subagent's findings
   are easy to inherit as if they were complete — this lane's claims are cited to
   queries and file:line, not to that agent.
+
+## 2026-08-16 (later) — shipped, and one shared-tree event worth recording
+
+Order of operations, as executed: build + 9 tests + **mutation of both arms** →
+council submission (`bbf49822`) → commit `5534e9f71` (code + migration + lane
+docs, pathspec, `Council-Submitted:` trailer) → `git archive HEAD` build and
+test in a clean tree (exit 0) → migration `439` applied **by hand, single file**
+→ recorded via `--record-only`.
+
+**Why the migration was NOT applied with `--apply`.** The dry run listed six
+pending files; four belong to other lanes (429, 432, 433, 434 — two of them
+already flagged LIKELY ALREADY APPLIED). `--apply` takes every pending file in
+the directory, so firing it would have applied four other threads' migrations on
+their behalf. Applied 439 alone by piping it to psql (it carries its own
+BEGIN/COMMIT and guard), then recorded it with a note saying exactly that.
+
+Post-apply verification, with its control: `menu_field='available_components'`
+AND it equals `load_components.output_field` on build-site-planner; **`site-planner`
+returns `<absent>`** — the control that proves the change is scoped to the one
+agent rather than to the action.
+
+**My WRONG_CALLS and LANDMINES appends were swept into another session's commit
+(`2079aca42`) as same-file passengers.** Both entries are intact at HEAD, and
+that session left a note (`4434cd61b`) naming the passengers for their authors.
+Nothing lost, forward-only holds — recording it because this is the exact hazard
+CLAUDE.md describes, and because it means the git history attributes those two
+entries to another lane's commit message. If you are tracing where this lane's
+landmine came from, `git log` the FILE, not the message.
+
+**RFC_022 checked rather than asserted** (the ruling says asserting it without
+the query IS the objection). Before the migration: `SELECT count(*) FROM
+agent_definitions WHERE default_config::text LIKE '%menu_field%' AND is_active
+...` → **0**, and a repo grep for `menu_field` outside my own change → **0**. So
+all three conditions held (opt-in; the unsafe side — accepting the menu — is the
+default; zero live consumers named it). After 439 there is exactly one consumer,
+which is the deliberate act, enumerated in the migration header.
+
+**Docs the fix owed, and where they went:** bug file (status + a CORRECTED block
+refuting its own ADDENDUM + fix-as-built) · `WRONG_CALLS.md` · `LANDMINES.md`
+(+ `landmines-verify-dispatch.sh`, corr `eab5a7cd`) · register **PLAN-050** new,
+**PLAN-027** amended, **PLAN-049** given the back-relation it never had — their
+mutual silence was the documentary form of this bug · `016b` §10 row (282 had a
+§9 pattern but no index row) and a §9 addendum correcting the pattern's own
+advice · the loancalculator lane's NOTES, because the lane that is BLOCKED on
+this fix would otherwise have no way to learn it had landed.
+
+**The §9 correction is the part worth re-reading.** The pattern entry said the
+acceptance predicate "should be the SAME code as the offer predicate". On this
+seam that is impossible — the offer is config, the acceptance is Go, and they
+can never ship together. The sharper rule: when two surfaces must agree about a
+SET, have one read the other's ANSWER rather than recompute its QUESTION.

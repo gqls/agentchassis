@@ -1,6 +1,12 @@
 # 282 — validate's name resolver silently drops every tool section the planner places (407's missing half)
 
-**Filed:** 2026-08-15, loancalculator rebuild lane. **Status:** OPEN.
+**Filed:** 2026-08-15, loancalculator rebuild lane.
+**Status:** OPEN — **FIXED AND COMMITTED 2026-08-16 (`5534e9f71`), NOT YET LIVE.**
+The Go half rides the next chassis roll; the config half (migration `439`) is
+applied and inert until it does. Stays OPEN until a post-roll replan proves the
+functions land — the bar is fixed AND live. Fixing lane:
+`docs/agent_docs/docs024_key_docs_latest/bugfix_282_validate_accepts_menu/`
+(PLAN/RUNBOOK/NOTES/README + the council submission, corr `bbf49822`).
 **Diagnosis trail:** 090 run `4a02a4e1-3972-450a-8163-28d6bb0a79fd` (verdict
 UNVERIFIABLE at budget, disjunctive hypothesis + named next_scope) → next_scope
 walked first-hand same session; the disjunction closed with the drop site cited.
@@ -84,6 +90,65 @@ that branch precisely — it is probably the cleanest seam for the fix.
 Side observation for the lane: the tool-credit-roadmap PAGE carries no locked
 tool row (the 12 locks cover 11 other active pages + archived standard-calc),
 which is presumably why the LLM reached for a new name there.
+
+> **CORRECTED 2026-08-16 (bugfix_282 lane, at the fix): THERE IS NO SECOND ARM,
+> and the premise of this addendum is false.** `loans-credit-health-check` is
+> not "a name matching NO component at all" — it is an ordinary **section-level
+> component**, and that is the whole of why it survived:
+>
+> ```sql
+> SELECT id, "function", component_level, is_active, created_at
+>   FROM content_components WHERE "function"='loans-credit-health-check';
+> -- 824e3309-f90c-4aa9-b679-46f4a8722475 | loans-credit-health-check | section | t | 2026-08-13 14:19
+> ```
+>
+> (Created 2026-08-13 for loanandmortgagecalculator.co.uk.) Arm 1 of `resolve()`
+> — `validFunctions[raw]` — accepts it. The `needs_new_component` row cited as
+> "the routing evidence" was filed by **`plan_sections`**, a different action on
+> a different path, after validate had already passed the name through. So the
+> asymmetry was never asymmetric: one name was section-level and passed, the
+> others were tool-level and were dropped. **The "resolve fails ⇒ dropped"
+> account in step 3 is complete and correct**, and there is no branch to locate.
+>
+> Cost of the error, had it been followed: an afternoon hunting a branch that
+> does not exist in a 7,000-line file, and the fix aimed at the wrong seam. The
+> check that dissolves it is one query on `component_level`, 0.2 s — now in the
+> lane's RUNBOOK and in `WRONG_CALLS.md`.
+
+## FIX AS BUILT — 2026-08-16, commit `5534e9f71` (bugfix_282 lane)
+
+**Candidate 1 was adopted in goal and rejected in mechanism.** "Mirror the
+menu's own predicate in the resolver" cannot be done honestly: the menu is not
+Go. It is a SQL string in `agent_definitions`, and it had **already drifted past
+407's text** — migration `419` (2026-08-15, the `bugs_open/276` family) added a
+`requires-backend` clause to the same query and guards its own apply by
+asserting 407's exact bytes. A Go mirror would have been a third
+hand-maintained copy across the SQL/Go line: exactly the lockstep class this
+bug's own §9 entry says to avoid ("single-sourcing is a guarantee, a lockstep
+test is a backstop").
+
+**What shipped instead: validate consumes the OFFER'S OUTPUT.** A new opt-in
+step-config key, `menu_field`, names the collected-data path holding the menu
+the planner was actually shown (`available_components`); those rows are UNIONed
+into the resolver's valid set. One list, one source — a future gate on the menu
+flows through with nothing to keep in step.
+
+- Go: `platform/orchestration/actions/component_name_resolver_menu.go` (new) +
+  two small hunks in `v3_site_actions.go`. **Inert until the next chassis roll.**
+- Config: migration `439_validate_plan_accepts_the_planner_menu.sql`, **applied
+  and recorded 2026-08-16**, on `build-site-planner.validate_plan` only. Its
+  guard checks `menu_field` and `load_components.output_field` **together**.
+- The shared resolver's query and signature are **unchanged**, so
+  `apply_gap_plan`'s three call sites (content-gap-planner) keep the
+  section/element-only menu 407 and PLAN-049 deliberately withheld from them.
+- `site-planner` (the only other `validate_site_plan` consumer, 0 runs, its own
+  menu section/element-only) was left alone — verified absent after apply.
+- Order-safe both ways: unread key = today's behaviour; rolled Go without the
+  key = today's behaviour.
+- Tests: 9, incl. an un-opted-in negative control; **both arms mutated** to
+  prove they can fail. The resolver had zero coverage before this.
+- Council: submitted `bbf49822-6704-4802-b3b5-1afed6777c88` (advisory; commit
+  carries `Council-Submitted:`).
 
 ## How to verify a fix
 
