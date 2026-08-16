@@ -65,3 +65,85 @@ platform builds (`go build ./...`).
 Not yet committed as of writing this entry — commit, council submission and
 the standing-five completion (README, SUMMARY) are the immediate next steps
 in this same session.
+
+## 2026-08-16, later — council round 1: REVISE, reviewers' checks answered
+
+Committed (`2c75bb526`), submitted to the council gate
+(`SUBMISSION_CORR=d37ef89e-1bfa-485a-aa97-e3b317de7901`). Verdict came back
+**REVISE**, gating objection from `editquality`:
+
+> "The fix's entire correctness rests on `site_components.slot_name`
+> literally being 'header'/'footer'. This is asserted in the sketch but
+> never verified — the landmine set references `content_components.function`
+> values 'site-header'/'site-footer'/'head' and a distinct
+> `ChromeSlotFunction` resolver in `component_library.go`, suggesting slot
+> naming may follow a different vocabulary than the plain string…"
+
+A legitimate question given only the sketch text — answered with live
+evidence, not argued from precedent alone:
+
+1. **Live query**: `SELECT slot_name, count(*), count(*) FILTER (WHERE
+   coalesce(length(rendered_html),0)>0) FROM site_components GROUP BY 1` →
+   `header 22/22`, `footer 22/22`, `head 22/22`. `site_components.slot_name`
+   IS literally `'header'`/`'footer'`/`'head'`, fleet-wide, no other values
+   exist.
+2. **`component_library.go:300-317`**, `ChromeSlotFunction`'s own doc
+   comment: *"maps a `site_components.slot_name` to the
+   `content_components.function` that serves it"* — confirming
+   `site_components.slot_name` IS the plain-vocabulary side (`'header'` in
+   → `'site-header'` out); `content_components.function` is a DIFFERENT
+   table's DIFFERENT column, used only to resolve which library component
+   definition SERVES a slot. My fix reads `site_components.rendered_html`
+   directly by `slot_name` and never touches `content_components` or the
+   resolver at all — the resolver is real, it exists, and it is simply not
+   on the code path this fix touches.
+3. `check_missing_structure.go` (bug 270, **APPROVED, LIVE, pod-verified**)
+   already reads the identical literals against the identical column and is
+   confirmed correct in production — checked whether 270's own council round
+   (`524ff897-b697-4c5c-a66f-8939b0457049`) had already surfaced this
+   question, per the reviewer's own suggested check: **it had not** — the
+   verdict note for that round contains no mention of `slot_name` or
+   `ChromeSlotFunction`. So this is a genuinely new question, first answered
+   here with direct evidence, not an inherited-and-rechecked one.
+
+**Second thing surfaced by the reviewers' own read-only checks, and worth
+recording as a correction even though it doesn't change the fix**: one
+check asked to "verify the plan's claim of 5 live decision-record rows,
+none chrome-scoped" and returned **8**, not 5. Re-queried by hand:
+`categories ? 'decision-record'` now returns 8 rows (up from 5 at 280's
+filing on 2026-08-15 — 3 new ones landed same-day, 2026-08-15 14:18 and
+18:03, from an unrelated workstream, `bugs_open/279`). **But row COUNT is
+the wrong denominator**: `DecisionGuardsCheck.Run()` skips any row whose
+body has no parseable ` ```guard ` fence
+(`guardFenceRe.FindStringSubmatch`, `m == nil → continue`). Checked which of
+the 8 actually carry one:
+```sql
+SELECT subject_key, (body LIKE '%```guard%') FROM doc_notes
+WHERE categories ? 'decision-record' ORDER BY created_at;
+```
+Only **2 of 8** do — `D-001-free-beside-paid` and
+`D-002-no-tools-directory-on-index`. (The bug file's original "5, none
+chrome-scoped" was not wrong in its conclusion, but was looser than it read:
+it treated all 5 then-existing rows as examined for chrome-scoping without
+distinguishing which actually carry an enforceable guard at all; D-003,
+D-004 and `write_site_plan` turn out to have no fence and are inert to this
+check regardless of content.) Read both fenced guards in full: D-001 asserts
+an `href` inside the `brief-explanation` body slot; D-002's own decision
+text is explicit that it covers "no section OUTSIDE header/footer" — i.e.
+deliberately excludes chrome from its own claim. **Corrected conclusion,
+stronger than the original**: exactly 2 rows are live, enforceable guards
+today, both are page-body scoped by their own stated design, and the 3 new
+rows since filing carry no guard fence at all — so the "currently
+symptom-free" claim holds, for a more precise reason than originally stated.
+
+Also checked the reviewers' own flagged landmine, "`categories ? 'decision'`
+… means TWO different things" (LANDMINES.md) — it recommends filtering on
+`'decision-record'`, not bare `'decision'`; the live `Run()` query already
+does exactly that (`WHERE site_id = $1 AND categories ? 'decision-record'`),
+so this landmine's outstanding "code change owed" note is stale (already
+shipped, unrelated to this fix) and does not touch anything this fix edits.
+
+**Resubmitting on `RESUBMIT_CORR=d37ef89e-1bfa-485a-aa97-e3b317de7901`** with
+the evidence above folded into `grounded_in` and `risks` — no change to the
+`edits` themselves, since the objection was answerable with evidence, not a
+defect in the plan.
