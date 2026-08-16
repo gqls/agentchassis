@@ -10,6 +10,8 @@ import (
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
+
+	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 )
 
 // Covers the write-side lock gate (bugs_open/058): automated writers must not
@@ -273,5 +275,25 @@ func TestLoadActiveLockedRowsQueryFailureIsBestEffort(t *testing.T) {
 
 	if rows := loadActiveLockedRows(context.Background(), db, uuid.New(), zap.NewNop()); rows != nil {
 		t.Fatalf("preload failure must return nil (save proceeds, DELETE predicate still protects), got %+v", rows)
+	}
+}
+
+// bugs_open/285 (section-list case): the ROW loader here and the LIST loader in
+// datahelpers must negate the SAME lock predicate. They differ on membership by
+// design (this one keeps every locked row out of the DELETE; the list one
+// omits build_status='removed'); a divergence on the LOCK test itself is how a
+// row survives the DELETE and is still missing from the list, or the reverse.
+func TestRowAndListLockedLoadersNegateTheSamePredicate(t *testing.T) {
+	rowArm := "NOT " + pageComponentAgentWritableSQL("")
+	listArm := "NOT " + datahelpers.AgentWritableSQLFor("pc.")
+	if !strings.Contains(activeLockedRowsSQL, rowArm) {
+		t.Fatalf("save-side loader no longer negates the shared predicate:\n%s", activeLockedRowsSQL)
+	}
+	if !strings.Contains(datahelpers.LockedPageSlotsSQL, listArm) {
+		t.Fatalf("list-side loader no longer negates the shared predicate:\n%s", datahelpers.LockedPageSlotsSQL)
+	}
+	// Both arms are the same predicate under different aliases.
+	if strings.ReplaceAll(listArm, "pc.", "") != rowArm {
+		t.Fatalf("predicates differ beyond alias:\n row: %s\n list: %s", rowArm, listArm)
 	}
 }

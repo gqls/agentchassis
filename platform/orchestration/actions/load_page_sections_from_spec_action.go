@@ -83,6 +83,7 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
+	"github.com/gqls/agentchassis/platform/orchestration/agenterrors"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"go.uber.org/zap"
 )
@@ -404,6 +405,22 @@ func LoadPageSectionsFromSpecAction(ctx context.Context, params ActionParams) (i
 	if lockedRows, lockErr := datahelpers.LoadLockedPageSlots(ctx, params.DB, siteID, pageName); lockErr != nil {
 		logger.Warn("LoadPageSectionsFromSpec: locked-row preload failed — list assembled lock-blind this run (bugs_open/285)",
 			zap.String("page", pageName), zap.Error(lockErr))
+		// A log line scrolls; the skip must leave a DURABLE trace (council
+		// bug_historian, corr 79f70435: a merge that silently no-ops on a DB
+		// hiccup is the shape this fix exists to remove). Same channel
+		// plan_sections uses for its own degradations.
+		LogActionEntryInheritingProvenance(ctx, params, agenterrors.Entry{
+			SiteID:       siteID.String(),
+			Action:       "load_page_sections_from_spec",
+			ErrorMessage: fmt.Sprintf("locked-row merge SKIPPED for page %q: %v — this build's section list is lock-blind (bugs_open/285)", pageName, lockErr),
+			ErrorCode:    "LOCKED_MERGE_SKIPPED",
+			Severity:     "warning",
+			Context: map[string]interface{}{
+				"page_name": pageName,
+				"source":    specSource,
+				"remedy":    "the 058 guard still protects the locked ROW; the LIST and this build's pages.sections write omit it — rebuild the page once the DB is healthy",
+			},
+		}, logger)
 	} else if len(lockedRows) > 0 {
 		merged, inserted, insertedAt := datahelpers.MergeLockedPageSlots(specSections, lockedRows)
 		if len(inserted) > 0 {

@@ -190,6 +190,89 @@ func TestLoadPageSectionsFromSpec_NoTierServedMeansNoMerge(t *testing.T) {
 	}
 }
 
+// guardian (council 79f70435): the consolidated sync reaches EVERY page, not
+// only locked ones — pin that a page with NO locked rows gets exactly one
+// jsonb-compared UPDATE with the plan's own list and no merge keys, i.e. the
+// tier path is unchanged apart from the guard now being able to say "no".
+func TestLoadPageSectionsFromSpec_NoLockedRowsIsOneSyncNoMerge(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+	siteID := uuid.New()
+
+	mock.ExpectQuery("FROM site_plan_sections sps").WithArgs(siteID, "index").
+		WillReturnRows(planRows().AddRow("hero", nil).AddRow("faq", nil))
+	mock.ExpectQuery("FROM page_components pc").WithArgs(siteID, "index").
+		WillReturnRows(sqlmock.NewRows(lockedSlotColumns))
+	// Exactly ONE sync, with the plan list; 0 rows affected = the jsonb guard
+	// said "unchanged" (the old ::text guard could never say that).
+	mock.ExpectExec("UPDATE pages SET sections").
+		WithArgs(`["hero","faq"]`, siteID, "index").
+		WillReturnResult(sqlmock.NewResult(0, 0))
+
+	out, err := LoadPageSectionsFromSpecAction(context.Background(), loadSpecParams(db, siteID, "index"))
+	if err != nil {
+		t.Fatalf("action error: %v", err)
+	}
+	res := out.(map[string]interface{})
+	if got := res["sections"].([]interface{}); !reflect.DeepEqual(got, []interface{}{"hero", "faq"}) {
+		t.Errorf("sections = %v", got)
+	}
+	if res["locked_merge_count"] != 0 || len(res["locked_sections_merged"].([]string)) != 0 {
+		t.Errorf("merge keys should be empty: %v / %v", res["locked_merge_count"], res["locked_sections_merged"])
+	}
+	if facts, _ := res["section_facts"].([]interface{}); len(facts) != 2 {
+		t.Errorf("section_facts = %#v, want 2 aligned entries", res["section_facts"])
+	}
+	// A second UPDATE (the old per-tier double write) would trip sqlmock here.
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("expectations: %v", err)
+	}
+}
+
+// bug_historian (council 79f70435): a locked-row query failure must not be a
+// silent one-build regression to lock-blind — the list proceeds unmerged (the
+// 058 guard still protects the row) but a DURABLE agent_error_log entry is
+// written, not just a log line. This pins the write and the code.
+func TestLoadPageSectionsFromSpec_LockedQueryFailureLeavesADurableTrace(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+	siteID := uuid.New()
+
+	mock.ExpectQuery("FROM site_plan_sections sps").WithArgs(siteID, "contact").
+		WillReturnRows(planRows().AddRow("hero", nil))
+	mock.ExpectQuery("FROM page_components pc").WithArgs(siteID, "contact").
+		WillReturnError(sql.ErrConnDone)
+	// 13 placeholders in agenterrors.Write's INSERT; the code and message are
+	// the two we care about, matched by position ($10 error_code, $11 message
+	// per the column order there — asserted loosely via a custom matcher).
+	mock.ExpectExec("INSERT INTO agent_error_log").
+		WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(),
+			sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), "load_page_sections_from_spec",
+			sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg()).
+		WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectExec("UPDATE pages SET sections").
+		WithArgs(`["hero"]`, siteID, "contact").
+		WillReturnResult(sqlmock.NewResult(0, 0))
+
+	out, err := LoadPageSectionsFromSpecAction(context.Background(), loadSpecParams(db, siteID, "contact"))
+	if err != nil {
+		t.Fatalf("action error: %v (a locked-query failure must be best-effort, not fatal)", err)
+	}
+	res := out.(map[string]interface{})
+	if got := res["sections"].([]interface{}); !reflect.DeepEqual(got, []interface{}{"hero"}) {
+		t.Errorf("sections = %v, want the unmerged plan list", got)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("durable trace or sync missing: %v", err)
+	}
+}
+
 // Sanity on the JSON the sync writes: Go marshals with no spaces, and the
 // SQL compares as jsonb, so the loader's own output shape is what the guard
 // must be immune to. (Documents the trap; the comparison itself lives in SQL.)

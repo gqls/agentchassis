@@ -1110,14 +1110,24 @@ type lockedPageRow struct {
 // proceeds exactly as before this guard existed (the DELETE predicate still
 // protects the rows themselves; only slot-matching is lost, which would leave
 // a duplicate slot rather than destroy locked copy).
-func loadActiveLockedRows(ctx context.Context, db *sql.DB, pageID uuid.UUID, logger *zap.Logger) []*lockedPageRow {
-	rows, err := db.QueryContext(ctx, `
+//
+// activeLockedRowsSQL is hoisted so a lockstep test can pin that this loader
+// and the list-side loader (datahelpers.LockedPageSlotsSQL, bugs_open/285)
+// negate the SAME predicate string — the two answer "may automation rewrite
+// this row?" for the ROW and for the LIST, and must never drift on the lock
+// test itself (they legitimately differ on membership: this one carries every
+// locked row so the DELETE cannot destroy it; the list one omits
+// build_status='removed', which is not on the page).
+var activeLockedRowsSQL = `
 		SELECT id, COALESCE(slot_name, ''), position, COALESCE(locked_by, ''), COALESCE(lock_type, ''),
 		       COALESCE(component_id::text, '')
 		FROM page_components
-		WHERE page_id = $1 AND NOT `+pageComponentAgentWritableSQL("")+`
+		WHERE page_id = $1 AND NOT ` + pageComponentAgentWritableSQL("") + `
 		ORDER BY position ASC
-	`, pageID)
+	`
+
+func loadActiveLockedRows(ctx context.Context, db *sql.DB, pageID uuid.UUID, logger *zap.Logger) []*lockedPageRow {
+	rows, err := db.QueryContext(ctx, activeLockedRowsSQL, pageID)
 	if err != nil {
 		logger.Warn("SavePageSectionsAction: locked-row preload failed (bugs_open/058)", zap.Error(err))
 		return nil
