@@ -62,7 +62,13 @@ wrong binary; say so in 287 §6 rather than accepting or dismissing it.
 Not this lane's bug to FIX (coordinator seam, RFC_012 territory) — but this lane found it, filed
 it, and owns getting the verdict recorded. Then hand it to whoever owns the coordinator.
 
-### 3a. Verdict — NOT LANDED at handoff time (10:40Z); and it will describe the WRONG tree
+### 3a. Verdict — LANDED 10:19Z: `REFUTED` on the resolver's NAME only; symptom CONFIRMED; cause + fix stand (287 §6a)
+The 090 (5 iterations, cap) confirmed fresh spawn-record rows on 3 handlers and corrected one detail:
+the fallback is `datahelpers.ExtractActionInputs`/`GetMap("result")` (whose own comment warns of it),
+not `resolveFieldValue`. **The run's OWN item completed as a spawn record — read any 090 verdict from
+`orchestration_states` (`owner_agent_type='diagnose-agent'`, `collected_data->'verdict'`), never the
+item.** LANDMINES entry added 08-16. Original caveat kept below for the record:
+#### (superseded) NOT LANDED at handoff time; and it will describe the WRONG tree
 Run `fb7ae3bc…` was still cycling verdict→load_runtime→assemble_bundle (4th round) when this
 was written. **Measured: `origin/087` = `a85ad4018` (08-12), 881 commits behind HEAD, carries
 NEITHER the 274 fix nor WFA-014** — the loop is diagnosing the pre-regression coordinator.
