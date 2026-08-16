@@ -3048,3 +3048,103 @@ chassis (both CLOSED 08-15); update docs; carry on; hand off if token load is hi
   in `needs_human_review`.
 
 **Handoff for a fresh chat is `HANDOFF_2026-08-16_continue_here.md`.**
+
+## 2026-08-16 (afternoon, fresh session) — the stale-title item was already DONE; and the site is serving eight broken internal links nothing is watching for
+
+Picked up `HANDOFF_2026-08-16_continue_here.md` §4. Worked the two items it left as
+actionable and measured both before acting. One was already finished; the other turned up
+a live defect the handoff does not mention.
+
+### 1. §4.5 "the 30 stale `<title>`s" is CLOSED — carried forward unmeasured for five days
+
+[MEASURED 2026-08-16 15:47Z, live HTTP against every deployed page] **27 of 27 deployed
+pages serve a `<title>` byte-identical to their `pages.title` row.** Zero stale. The
+08-11 finding ("the other 30 pages still SERVE their old `<title>`") was true when
+written and was overtaken by the 08-15/08-16 rerender traffic — 24 of the 27 pages were
+re-deployed 08-15 08:39Z–08-16 11:28Z for other reasons, and an assemble re-reads
+`pages.title` (08-11 §7's own mechanism, working as documented).
+
+The check that would have come out otherwise: it compares the SERVED `<title>` to the DB
+row per page, so any page whose row had moved without a rerender fails it. The loop is in
+this session's scrollback; it is one `curl | grep -o '<title>[^<]*'` per row of
+`SELECT url,title FROM pages WHERE build_status='deployed'`.
+
+**The misstep worth recording is the handoff's, and I nearly repeated it:** the item was
+listed as *"mechanical, unchanged"* — a status inherited from 08-11 and never re-measured
+across five days of heavy rerender traffic on this exact site. Had I acted on it I would
+have fired 30 rerenders to change nothing. **A carried-forward "unchanged" on a site with
+a live improvement loop is a claim about the past, not a measurement.**
+
+### 2. NEW, live, and unfiled: four dead internal-link targets, eight link instances, seven pages
+
+[MEASURED 2026-08-16 15:52Z, live HTTP; every 404 re-probed 3× before being believed]
+
+| target | live | link instances | on pages | page row |
+|---|---|---|---|---|
+| `/scorecard-simulator.html` | 404 | 4 | first-time-buyer, how-banks-decide, disclaimer, tool-affordability | `planned`, **`in_header=t`, `in_footer=t`** |
+| `/guides/mortgage-scorecard/index.html` | 404 | 2 | how-banks-decide, games/fact-finder | `planned` |
+| `/guides/lender-restrictions/index.html` | 404 | 1 | how-banks-decide | `planned` |
+| `/tools/rate-forecaster/` | 404 | 1 | tools/rate-scenarios | target EXISTS and is deployed — the href is directory-form (§4) |
+
+⚠ **A single-shot 404 inside a fast scan is not evidence.** My first sweep also reported
+`/games/fact-finder/index.html` as 404; re-probed 3× it is 200 every time, and the page
+serves its full body. One transient inside a ~28-URL burst. Everything in the table above
+survived triple probing; fact-finder did not, and is fine.
+
+### 3. Why the framework did not catch them — the §2 answer needs a second rotation added
+
+The handoff §2 layer 1 says detection was off, and names `site-discovery-rotation-design`.
+**`site-discovery-rotation-completeness` is ALSO `enabled=false`, last triggered
+2026-08-10 17:40Z** — and it is the one that owns link integrity: `phantom_internal_links`
+(DB-derived) and `dead_internal_link_live` (live-probing), among 42 checks.
+
+[MEASURED] `site_discovery_rotation` for this site: `completeness-discovery-agent`
+last selected **08-09 20:56Z** — 6.8 days. Every one of the eight links above was authored
+or re-deployed after that pass except the `/scorecard-simulator.html` pair, and **that pair
+WAS detected**: two `unbuilt_internal_link` items filed 08-09 20:56Z, both sitting in
+`needs_human_review` ever since. So on this site the class divides cleanly:
+
+- **detected and parked** (2 links) — the framework did its job and nobody answered it;
+- **undetected** (6 links) — filed by nothing because the detector has not run since.
+
+**This is NOT a new finding about the rotation and I am not filing one.** The disabled
+state is already recorded by `bugfix_203_phantom_cta_cleanup/NOTES`,
+`vision_finding_revalidator/HANDOFF_2026-08-11_pre_plan.md` and `bugs_closed/270`, which
+hit it as a blocker on 08-16 and worked around it with a direct per-site dispatch. What is
+new is the *cost of it on this site*, measured above.
+
+### 4. NEW CLASS, fleet-wide: on the B2 route every directory-form URL is a live 404, and no DB-derived check can ever see it
+
+The `/tools/rate-forecaster/` row above is not a bad link in the ordinary sense — the
+target page exists, is deployed, and serves 200 at `/tools/rate-forecaster/index.html`.
+The href is written in directory form, and **this site serves nothing in directory form**:
+
+[MEASURED 2026-08-16 15:55Z] `mortgagecalculator.co.uk` — `/guides/` 404, `/about/` 404,
+`/tools/repayment/` 404, `/investor/` 404, `/` 200. Same on two more `github_repo=''`
+(B2-route) sites: `gaswholesalers.com/tools/supplier-comparison-calculator/` 404 vs
+`…/index.html` 200; `leopardessconsulting.co.uk/tools/automation-savings-estimator/` 404
+vs `…/index.html` 200. **Contrast — the git route serves it correctly:**
+`relojistas.com/noticias/` 200 AND `/noticias/index.html` 200 (`github_repo='vm-sites'`).
+So this is a property of the hosting route, not of the link, and the platform demonstrably
+can serve it right on one of its two routes.
+
+**Why no DB-derived check will ever flag it:** `datahelpers.NormalizePagePath`
+(`links.go:215-227`) strips `index.html` and then trailing `/`, so `/tools/rate-forecaster/`
+and `/tools/rate-forecaster/index.html` collapse to the same key. `PageURLSet.Contains`
+therefore returns true, and every consumer of that set agrees — the build-time resolver
+(`loadResolverPageSet`), the deploy gate (`validate_page_content`), `RepairPageLinks`, and
+`check_phantom_internal_links`. One normalisation, five mechanisms, all blind together, all
+correct on the git route and all wrong on B2. `dead_internal_link_live`
+(`check_site_structural_validity.go`) is the one check that would catch it, because it
+probes the href as written — and it lives in the disabled rotation of §3.
+
+[MEASURED, fleet-wide] Only **two** directory-form internal hrefs exist in any deployed
+`page_components.rendered_html` today: this one, and `relojistas.com /glosario → /noticias/`
+— which is on the git route and serves 200. **So the live damage of the whole class today
+is one link, on this site.** Recorded as a landmine rather than filed as a bug: the
+authoring path emits this shape rarely, and the acute cost is one href.
+
+⚠ The wider exposure is not internal links at all — it is every human, external site or
+search result that reaches a B2 site with a trailing slash. That is unmeasurable from here
+and is left as a stated exposure, not a claim. Canonicals are NOT part of it: the pages
+emit `…/index.html` canonicals, matching what is served [MEASURED: three pages].
