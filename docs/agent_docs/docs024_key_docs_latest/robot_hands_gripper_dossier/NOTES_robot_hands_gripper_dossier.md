@@ -1946,3 +1946,19 @@ register **PUB-005**, LANDMINES "two gin groups", RUNBOOK_island "Tenant 2".
 session); outbound 465 checked FROM THE ISLAND (08-15's check was from the dev box); image
 build + `docker save|ssh load` + compose swap; 436 applied on the island; seed 208 applied on
 the cluster with the same pull key; `report-request-pull` enabled; then the site widget.
+
+**Council round 1 (corr `623da25b`, 10:20Z): REVISE — gating objection from `editquality`,
+5 seats abstained.** The visible objection (the doc_note truncates each seat's report; the
+full report was not retrieved before this session's usage checkpoint): *"the plan's own
+evidence disagrees with itself on the field vocabulary — the rationale lists cycle_rate but
+not accel_ms2; the grounded_in quote of the same query lists accel_ms2"*. **Both are true
+and not in conflict**: the live `load_request` query reads BOTH (`accel_ms2`, `surfaces_n`,
+`safety_factor` are read but OPTIONAL — score_grippers defaults them 9.81 / 2 / from
+cycle_rate — and the chat deliberately does not collect them; my rationale abbreviated the
+list to the fields the intake records). So this is a wording defect in the SUBMISSION, not
+in the code; `spec.go`'s package comment already carries the abbreviated list too — state
+the full read-list there and say which are collected vs defaulted. **Resubmit with
+`RESUBMIT_CORR=623da25b-16d7-4836-8667-ffcd6352d6d6`** after reading the FULL round-1
+report (`SELECT … FROM fix_artifacts WHERE correlation_id='623da25b-…' AND
+kind='council_report'` — check `\d fix_artifacts` first; my one attempt returned nothing) for
+any further objections beyond the truncated first one. Code committed as `f967d9307`.
