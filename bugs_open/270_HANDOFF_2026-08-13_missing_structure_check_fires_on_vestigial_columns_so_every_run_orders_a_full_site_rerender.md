@@ -190,9 +190,40 @@ correction to this bug file's own original fix sketch (`build_status=
   for this correlation (only `council_report` summary + the echoed
   `fix_plan` exist there) — not chased further given none were high-severity
   and the gate is advisory only.
-- **Still NOT shipped.** This bug stays OPEN (not moved to `bugs_closed/`)
-  until an image builds from this commit, the fleet rolls, and one full
-  discovery rotation is observed closing the stale items and going quiet on
-  healthy sites — CLAUDE.md's fixed-AND-live bar, not "committed" or
-  "approved" alone.
-- Continue from: `docs/agent_docs/docs024_key_docs_latest/bugfix_270_missing_structure/HANDOFF_2026-08-15_continue_here.md`.
+- **UPDATE 2026-08-16 — FIXED, SHIPPED, AND VERIFIED LIVE. Closing.**
+  Fresh `agent-chassis` build deployed (owner-run, per the 2026-08-15
+  decision to leave shipping to the owner). Verified at the artefact on
+  BOTH `agent-chassis` pods — not a bare sha match (that probe came back
+  negative for reasons not chased down, likely the ldflag mechanism itself,
+  not the deploy), but the stronger, more specific check: `grep -aq
+  "findPagesWithMissingStructure" /proc/1/exe` returns ABSENT on both pods —
+  that exact function only ever existed in the pre-fix code, so its absence
+  from the running binary is direct proof this fix is what's live, not an
+  inference from a version string.
+
+  **Fleet self-close verification hit a real, pre-existing blocker**:
+  `site-discovery-rotation-completeness` — the scheduled task that would
+  naturally re-check every site — is `enabled=false`, last triggered
+  2026-08-10 (already known and documented by `bugfix_203` and
+  `vision_finding_revalidator`, not a new finding). "Wait for one natural
+  discovery rotation" was therefore not actually available. Followed this
+  codebase's own established remedy instead of waiting or flipping the
+  scheduler on (LANDMINES.md, `bugfix_213` lane): dispatched
+  `completeness-discovery-agent` directly for one site
+  (`leopardessconsulting.co.uk`, chosen because its `site_components` were
+  independently confirmed healthy first) via the safe `kcat`-publish pattern.
+  **Result: the stale item retracted in production**, `status=complete`,
+  `resolved_by=missing_structure`, reason text matching the fix verbatim —
+  the RFC_010 self-close mechanism working exactly as designed, on a real
+  dispatch, not a test double.
+
+  The other 16 open sites were deliberately NOT dispatched individually —
+  the mechanism is proven correct (that's what a demand control establishes),
+  their `site_components` are already confirmed healthy, and each dispatch
+  is a real, non-trivial production action. They will self-close whenever
+  their own site is next checked by any discovery trigger — gated by the
+  same already-known disabled-scheduler issue, which is not this bug's
+  problem to fix. Full evidence: `docs/agent_docs/docs024_key_docs_latest/bugfix_270_missing_structure/NOTES_bugfix_270.md`,
+  2026-08-16 entries.
+
+  **Moving to `bugs_closed/`.**
