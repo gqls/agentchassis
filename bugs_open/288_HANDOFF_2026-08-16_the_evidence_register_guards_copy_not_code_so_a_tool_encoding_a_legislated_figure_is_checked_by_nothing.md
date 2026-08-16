@@ -96,8 +96,18 @@ whose Piece 1 has been live since migration 366 (CLM-021).
 
 ## §5 — the residual, which is why this file stays OPEN
 
-1. **Not live.** Go is inert until the next chassis roll; verify at the binary, not
-   the tag, and not by the absence of errors.
+1. **Not live — MEASURED, not assumed.** `[2026-08-16, both replicas, with a positive
+   control in the same exec]`:
+
+   | replica | `fact_drift_review` | `stale_attestation` (control) |
+   |---|---|---|
+   | `agent-chassis-…-48lv6` | **0** | 5 |
+   | `agent-chassis-…-vtfdx` | **0** | 5 |
+
+   The control is what makes the zero mean something: the probe CAN find a symbol in
+   this binary, so `0` is an absence rather than a broken grep. Re-run exactly this
+   pair after the next roll and expect the first column to become non-zero. Do not
+   verify at the tag, and never by the absence of errors.
 2. **No live declaration.** The first is mortgagecalculator's `stamp-duty` fence,
    handed to that lane as a CONTRIB. Until it lands, this mechanism has never fired on
    real data and its green means nothing (`a-pass-from-a-blind-check-outlives-the-blindness`).
