@@ -29,7 +29,7 @@ and `## 2026-08-16`.
 | `/assets/images/hero.jpg` | 200, 68,984 B = hero_v2 | `undeployed_asset:9e94250d…` |
 | header | **renders `<img src="/assets/images/logo.png">`**, nav Home + About | the `stale_chrome` rerender (08-15 18:40Z) consumed the asset — the "chrome can only thin" worry from 08-11 §11.2 did not block this |
 | hero copy | *"No sign-up, no upsell, and no personal data collected…"* | `site-review_content_rewrite_index` 08-15 18:50Z (improvement loop, unasked) overwrote my 08-14 `section_edit`; result is fine, layout intact |
-| 10 tool-page heroes | 10 active `content_hero_tool_*` assets | the 21:46Z discovery run's items; **not yet eyeballed on a page** |
+| 10 tool-page heroes | 10 active assets, 10 files serve 200 — **and NOTHING references them** (entity link NULL, tool pages re-rendered to the `hero.jpg` fallback, listing cards `image:""`) | `content_image_missing` GENERATE arm; `bugs_open/114`-class, contributed there 08-16. Left in place as the fixture for whoever wires the link |
 | placeholder litter | `input-data.asset-key.jpg` still 200, unreferenced | 248's backlog-drain owns it |
 
 Site id `62b5978e-4271-4589-8e00-4baebfc0447c`. `sites.github_repo` empty → B2 route.
@@ -68,9 +68,13 @@ _(fill in when read)_
 ## 4. NEXT ACTIONS, in order
 
 1. **Read the 287 verdict** (§3), record it in 287 §6, note if it read the wrong tree.
-2. **Eyeball one tool-page hero** — e.g. `/tools/repayment/index.html`: does the page reference
-   `content_hero_tool_repayment`'s deployed file, and does it look right? Ten paid images
-   nobody has looked at is the RUNBOOK's own "the eye is the check" gap.
+2. ~~Eyeball one tool-page hero~~ DONE 08-16: `/tools/repayment/index.html` does NOT reference
+   `content-hero-tool-repayment.jpg`; its hero fields resolved to `/assets/images/hero.jpg` on
+   the post-generation rerender; entity link NULL on all 10. **The 10 tool heroes are paid and
+   unconsumed** — `bugs_open/114` contribution 08-16 has the measurements. Do NOT promote or
+   re-file `content_image_missing` items on this site until 114's link is wired; if the owner
+   wants them visible, that is a page-hero MAPPING change (read how the image-landed rerender
+   fills `hero_url` — it took the site fallback over the page-scoped asset), not more generation.
 3. **Router fleet assignment (IMG-071) — deliberately NOT done, and here is the rule I'd
    apply:** on this site every one of the 20 pre-fix findings was stale by the time the router
    ran (this session's own deploys had fixed them 3 minutes earlier), so routing produced only
