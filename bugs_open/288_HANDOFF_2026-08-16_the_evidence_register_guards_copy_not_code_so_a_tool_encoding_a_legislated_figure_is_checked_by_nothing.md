@@ -6,9 +6,16 @@ and live; this file is what 225's own section *"Why no existing check could ever
 caught this"* was pointing at, written down as a tracked defect instead of a remark
 inside a closed case.
 
-**Status: PARTIALLY FIXED 2026-08-16** — Pieces 2+3 of the existing plan are built
-and committed (`989addb1c`, council `cff364b8`), **inert until the next chassis roll
-and until a fence declares**. The residual is named in §5 and is why this stays open.
+**Status: PARTIALLY FIXED 2026-08-16, council-APPROVED at round 3** (`cff364b8`, 13 of
+15 seats, 2 advisory objections both acted on). Pieces 2+3 of the existing plan are
+built and committed, **inert until the next chassis roll and until a fence declares**.
+The residual is named in §5 and is why this stays open.
+
+⚠ **Two REVISE rounds preceded the approval and each found a REAL defect — read the
+council section below before trusting anything here.** Round 1: the mechanism was blind
+to its own motivating bug. Round 2: **the round-1 fix was inert**, defeated by a
+baseline fallback onto register history. A green after one round would have shipped a
+check that could never fire.
 
 ## Diagnosis provenance (2026-07-31 owner ruling)
 
@@ -153,6 +160,38 @@ Two further findings acted on, and three answered by measurement rather than by 
 | `bug_historian` (med) | a persistently-403 source means permanent silence | **answered** — `refreshCitationFact` marks a fact drifted once it passes `staleness_days` whether or not the fetch succeeded; that arrives here as evidence_drift. Time-based, not attempt-based |
 | `guardian` (med) | how many callers share the modified action? | **measured: one** — `evidence-freshness` |
 | `architecture` (med) | does P11 cross the WFA-013 optional-key budget (N=10)? | **measured: no** — `audit-optional-key-budget.sh` reports 0 shared actions over budget |
+
+### Round 2 — REVISE again, and it killed round 1's fix
+
+> `unreconciled_declaration` only fires when baseline is nil, but nil requires BOTH no
+> lastItem AND no previousRow … Since the register is re-verified daily … previousRow
+> will almost always resolve.
+
+**Correct.** The fix for round 1 was inert on the very site it was built for. Repaired
+by deleting the register-history fallback entirely: the baseline is the newest
+`fact_drift` finding for (fact, tool) and nothing else, and its absence is the
+never-reconciled signal. Two questions had been conflated — *has the VALUE moved*
+(register rows) and *has this TOOL been reconciled* (a prior finding) — and only the
+second is this mechanism's.
+
+⚠ **Proving it took three mutations; the first two passed and were worthless.** One
+mutated a path the struct-literal test bypasses; one read a row without using it. Only
+the faithful mutation (declared, populated, consulted) failed. **An induced red is
+evidence only when the mutation is the defect** — `WRONG_CALLS.md`, 2026-08-16.
+
+Also this round: reused the exported `discovery_checks.ToolSubjectKeyExpr` instead of a
+hand-written equivalent (two seats), verified live to resolve both tools.
+
+### Round 3 — APPROVED, and both advisories acted on
+
+- **`handler_agent = 'human-review'` names an agent that does not exist.** Measured:
+  **0** `agent_definitions` rows of that type; the fleet's dominant convention is a NULL
+  handler — **544 rows across 21 item types**, including `ported_tool_fix`, the very
+  precedent this routing was modelled on — against 22 rows using the string. Copied in
+  good faith from the sibling function in the same file. `fact_drift_review` is now
+  handler-less.
+- **"Zero rows ends the pass with no signal."** A site whose fences declare facts but
+  whose pages stop resolving now warns; a site that declares nothing stays silent.
 
 ## How to verify (after the roll)
 

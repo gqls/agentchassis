@@ -1,9 +1,9 @@
 # HANDOFF 2026-08-16 — continue here
 
 **Lane:** `register_guards_code_phase_b` (`bugs_open/288`, the class behind
-`bugs_closed/225`). **State: the code is built and committed, council ROUND 3 is in
-flight after two REVISE rounds each of which found a real defect; nothing is live and
-nothing has ever fired.** Read this first, then NOTES for
+`bugs_closed/225`). **State: the code is built, committed and
+council-APPROVED at round 3 after two REVISE rounds each of which found a real defect.
+Nothing is live and nothing has ever fired.** Read this first, then NOTES for
 the evidence and PLAN for why the design is what it is.
 
 ## The one-sentence state
@@ -15,7 +15,14 @@ real data.**
 
 ## THREE THINGS OWED, in order
 
-### 1. Read the round-2 council verdict — the code is already on the shared branch
+### 1. ~~Read the council verdict~~ DONE — APPROVED at round 3
+
+`cff364b8`, 2026-08-16 16:55Z: **approved**, 13 of 15 seats, 2 advisory objections
+(both acted on in `6b3b0510e`), none high-severity. The `editquality` seat that gated
+rounds 1 and 2 approves. Commits carry `Council-Reviewed: cff364b8-…`. **Nothing is
+owed to the gate.** The remaining two items below are.
+
+<details><summary>How to re-read it (the column is <code>body</code>, not <code>content</code>)</summary>
 
 **Rounds 1 and 2 were both REVISE and both gating objections were right.** Round 1: the
 mechanism was blind to its own motivating bug. Round 2: **the round-1 fix was inert**,
@@ -36,8 +43,7 @@ Full objection text: `SELECT body FROM diagnosis_artifacts WHERE correlation_id=
 kind='council_report' ORDER BY created_at DESC LIMIT 1;` (the column is **`body`**, not
 `content` — that cost a round trip).
 
-Commits carry `Council-Submitted: cff364b8-…`, which 098 credits automatically on
-approval. **Do not write `Council-Reviewed:` unless you have read an approved verdict.**
+</details>
 
 ### 2. After the next chassis roll — prove it at the binary, then INDUCE it
 
