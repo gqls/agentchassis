@@ -172,6 +172,68 @@ a row that could only ever be blocked. The branch reads `site_dispatchable` (rea
 from the live `agent_definitions` row), not the call-scoped `has_items`, so
 `bugs_closed/150` is not reintroduced.
 
+## COUNCIL — APPROVED at round 2 (`c22998e8-41df-4145-a7b9-f132a7c77426`), verdict READ
+
+**Round 1: REVISE**, gated by `guardian`. Nothing disputed the mechanism; the
+objections were about what had been *shown*, and two were right:
+
+- `prior_art_librarian`: `spec->>'original_pipeline'` cannot name which CHECK wrote
+  a row — it is the row's own pipeline, one label over several producers (the
+  `audit_source` landmine shape). **Correct.** Re-measured on the per-producer
+  marker: `spec->>'check'` → `content_duplication` 9 rows/9 sites,
+  `palette_contrast` 9 rows/9 sites. Exactly the two files edited, nothing else.
+- `editquality`: "three of six producers got it wrong" was loose — and the precise
+  enumeration found a **sixth** producer, `check_site_structural_validity.go`'s
+  `head_essentials_missing` (36 live rows), which **also omits the field**. Two
+  omitters, not one.
+- `guardian` (gating): "semantically identical" was asserted without quoting the
+  query claim runs. At `7027a2801^`: `SELECT EXISTS(SELECT 1 FROM agent_definitions
+  WHERE type = $1 AND deleted_at IS NULL)` — no `is_active`, no `is_snapshot`, in
+  the before or the after; and the seat's own answered check found **zero** live
+  `handler_agent` values pointing at an inactive or snapshot definition.
+
+**Round 2: APPROVED**, 4 advisory objections, none high-severity. Answered rather
+than waved through:
+
+- *`debug_historian`: 016's "Missing handler agents" may overlap.* **Ruled out** —
+  that case is a handler NAMED but unregistered (claim's OTHER block branch). This
+  is a handler deliberately absent. Same family, different member; the guard covers
+  both branches, so it is a superset of that case, not a duplicate of it.
+- *`debug_historian`: the 60-row repair is prose with no needle-gate discipline.*
+  **Written properly**: `REPAIR_2026-08-16_blocked_flag_only_rows.sql` +
+  `ROLLBACK_…sql` in the lane directory — a `DO`/`RAISE` gate refusing to run until
+  the pod-verified commit is named, a mechanically-counted pre-state, a row-level
+  backup, idempotent per-type UPDATEs, a verify that RAISES, and an induction
+  recipe to prove the verify could fail.
+- *`debug_historian`: no pod-verification step named.* It is the repair's own
+  precondition and the RUNBOOK's first block: the `build provenance` line per
+  SERVICE, then `git merge-base --is-ancestor 7027a2801 <stamp>`.
+- *`tooling_provenance`: the deferred work needs a `doc_notes` row so the next
+  session does not re-derive it.* **Written** — `subject_key`
+  `site_work_items:flag_only_rows_promoted_and_blocked`.
+- *`reuse_agent`: does the scheduled promoter already report held-back counts?*
+  **No** — its `pre_query` returns `promoted` and the promoted pairs only.
+  `countUnroutableDetected` duplicates nothing.
+- *`guardian`: what if that second query errors?* It logs `Warn` and the promotion
+  result stands; a failure to COUNT is not a failure to promote.
+
+### ⚠ OWNER DECISION — two seats point in opposite directions on the same edit
+
+`reuse_agent` (medium) objects that a **third** copy of this predicate —
+`discovery_checks/remit.go` `HandlerStepConfig`, coupled to claim only by a prose
+comment that names claim as its source of truth — was identified and **not**
+migrated onto the new shared renderer, leaving three renderings of one test.
+
+`guardian` (medium) objects that touching `claim_work_item_action.go` **at all** was
+more than the bug required: the round-2 byte-diff shows the refactor is inert, which
+argues it is *safe*, not *necessary*, and its stability preference is to restore the
+inline literal and keep the helper only in the promoter.
+
+One seat says the unification did too little; the other says it did too much.
+Per the 2026-07-28 ruling — *"let a human break it, especially when seats disagree
+with each other"* — **nothing was done unilaterally.** The approved code stands as
+committed. Either direction is a one-file forward commit whenever you rule.
+
 ## WHY THIS STAYS OPEN (three things, in order)
 
 1. **Inert until the next chassis roll.** Go changes do not ship on a commit.
