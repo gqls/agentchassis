@@ -32849,3 +32849,48 @@ compare filenames, not numbers). And it no longer relies on anyone remembering:
 either directory, induced on `a4bf9f1e9` — the commit that created the duplicate I tripped over.
 Tally for "read a bug's status from one directory": 1.
 
+
+---
+
+## 2026-08-16 — I nearly hand-rebuilt a generator that had existed for nineteen days, because a handoff said it did not (leopardess sitemap lane)
+
+**The claim I was about to act on, written by an earlier session of this same lane:**
+*"No platform generator exists — HANDOFF.md §6 item 5 / turn 18 built it from the `pages`
+table via git-adapter; find that recipe in RUNNING_NOTES turn 18 and re-run it with the
+current `pages` rows."* It even named where to look next: *"grep
+`retract_page_deployment_action.go` too — it edits sitemap.xml on retraction, so a
+generator-shaped helper may already exist."*
+
+**Both halves were wrong, and in opposite directions.** `retract_page_deployment_action.go`
+does NOT edit sitemap.xml — its only mention of the file is a comment saying the retraction
+path must never touch it, because the repo legitimately holds files `pages` does not model.
+And the generator does exist: `scripts/site-discovery-files.py`, concept register
+**SEO-002**, built 2026-07-28 — eleven days after turn 18 wrote the "none exists" line, and
+nineteen days before I read it. It does more than the recipe I was told to re-run (probes
+every URL and refuses to list a non-200; also emits `robots.txt` and `llms.txt`).
+
+**What caught it:** grepping the platform Go tree for `sitemap` — not to find a generator,
+but to check whether anything would *consume* the file I was about to write. The hit was a
+long comment in `discovery_checks/check_site_structural_validity.go` explaining why its
+`sitemap_entry_dead_live` check deliberately does not gate on completeness, which names
+`scripts/site-discovery-files.py` and its register id in passing. Pure luck of a
+neighbouring comment: nothing about the search was aimed at the question it answered.
+
+**What it would have cost:** an hour of writing a worse tool, and — the expensive part — a
+second hand-rolled sitemap recipe in the estate, diverging from the one that already encodes
+three lessons learned the hard way. Instead the fix was to run the real tool, which also let
+me find and close a defect in it (it did not filter `pages.noindex`, a column younger than
+the tool) so the next lane gets a better one, not a duplicate.
+
+**The cheap check, and where it should have fired.** `grep -i sitemap
+docs/agent_docs/docs026_concept_register/register/*.md` — under a second, returns SEO-002 as
+the first hit. CLAUDE.md already says the register is *"the index sessions are told to
+consult before concluding something does not exist"*, and the handoff had done the opposite:
+it wrote a durable "does not exist" claim, with a costed workaround attached, and no marker.
+**The transferable form: an absence claim is a MEASUREMENT and decays like one.** "No X
+exists" needs `[MEASURED <date>]` exactly as much as a row count does, and on this tree
+"nineteen days ago" is not a date you can act on. The one I inherited read as a permanent
+property of the platform because nothing in its phrasing distinguished the two.
+
+Tally for "acted on an unmarked absence claim from another session's doc": 1.
+Tally for "did not grep the concept register before building": 1.
