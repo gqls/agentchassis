@@ -1,4 +1,4 @@
-# HANDOFF 2026-08-16 ~10:25Z — bug 265, continue here (cold-start)
+# HANDOFF 2026-08-16 — bug 265 — **SUPERSEDED: THE BUG IS CLOSED.** Kept for the trail; the closure section in `bugs_closed/265_*` is the record. Nothing below is outstanding except the two items explicitly owned by other lanes.
 
 **State (updated 10:26Z):** council **APPROVED r1, all reviewers** (`aba82416…`, verdict 10:22:53Z). Migration 437 **APPLIED 10:24Z + recorded** (3 converted, constraint present, census 0, refusal induced and rolled back). Go half `58b0111ac` inert until the next chassis roll. Steps 1–2 below are DONE; start at step 3.
 

@@ -3,7 +3,7 @@
 // One reader of a component's input_schema field set, shared by every consumer
 // that needs the declared content fields — the generation planner, the
 // render-time required-field gate, and the post-deploy required-field audit.
-// See bugs_closed/026 (the fail-open) and bugs_open/265 (the dialect made
+// See bugs_closed/026 (the fail-open) and bugs_closed/265 (the dialect made
 // unrepresentable at the table, migration 437).
 //
 // WHY THIS EXISTS
@@ -12,7 +12,7 @@
 // the v2 dialect, `{"fields": {"<name>": {"source","required","type",...}}}`.
 // An OLDER dialect exists — JSON-Schema, `{"type":"object","required":["x"],
 // "properties":{"x":{...}}}` — which pre-dates v2. Since migration 437
-// (2026-08-16, bugs_open/265) content_components REFUSES it at the table:
+// (2026-08-16, bugs_closed/265) content_components REFUSES it at the table:
 // CHECK constraint chk_input_schema_no_legacy_dialect rejects any row whose
 // input_schema carries a top-level "properties" key, whoever writes it — a seed,
 // a script, this binary, the admin UI, a restore from a bak_* table. That is
@@ -58,7 +58,7 @@ import "go.uber.org/zap"
 // fromLegacy is the fail-loud signal. Do NOT read it as "the dialect is extinct,
 // so this cannot happen": a comment here said exactly that (0 of 173, 2026-07-21)
 // and four legacy rows were seeded by hand in the three weeks after it — a census
-// is stale the day after it is taken (bugs_open/265). What holds now is a
+// is stale the day after it is taken (bugs_closed/265). What holds now is a
 // CONSTRAINT: content_components refuses a top-level "properties" key
 // (chk_input_schema_no_legacy_dialect, migration 437), and the three remaining
 // legacy rows were converted by the same migration. So a true here means the
@@ -139,7 +139,7 @@ func SchemaContentFields(inputSchema map[string]interface{}) (map[string]interfa
 // fromLegacy. Nil logger is a no-op (tests, non-logging call sites). `where`
 // names the call site (e.g. "plan_sections", "check_required_fields_missing").
 //
-// What a firing MEANS changed with migration 437 (bugs_open/265). Before it, this
+// What a firing MEANS changed with migration 437 (bugs_closed/265). Before it, this
 // was the only detector for a reintroduced dialect and it was a Warn line nobody
 // read — four rows passed six call sites for up to 15 days unseen. Now the table
 // itself refuses the dialect, so this cannot fire on a content_components row
@@ -150,7 +150,7 @@ func WarnLegacyDialect(logger *zap.Logger, where string, component string) {
 	if logger == nil {
 		return
 	}
-	logger.Error("SchemaContentFields: projected a LEGACY JSON-Schema input_schema dialect. content_components refuses this dialect by CHECK constraint chk_input_schema_no_legacy_dialect (migration 437) — if this schema came from that table the constraint has been dropped; otherwise the caller is reading a bak_*/component_versions copy or an in-memory schema (bugs_open/265, bugs_closed/026)",
+	logger.Error("SchemaContentFields: projected a LEGACY JSON-Schema input_schema dialect. content_components refuses this dialect by CHECK constraint chk_input_schema_no_legacy_dialect (migration 437) — if this schema came from that table the constraint has been dropped; otherwise the caller is reading a bak_*/component_versions copy or an in-memory schema (bugs_closed/265, bugs_closed/026)",
 		zap.String("where", where),
 		zap.String("component", component))
 }

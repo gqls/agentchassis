@@ -152,7 +152,7 @@ func StoreGeneratedComponentAction(ctx context.Context, params ActionParams) (in
 	// Check 4: the input_schema must be the house dialect, {"fields": {...}}.
 	// content_components refuses the retired JSON-Schema dialect (a top-level
 	// "properties" key) by CHECK constraint chk_input_schema_no_legacy_dialect
-	// (migration 437, bugs_open/265), so without this check a JSON-Schema-shaped
+	// (migration 437, bugs_closed/265), so without this check a JSON-Schema-shaped
 	// generation would die on SQLSTATE 23514 at the INSERT/UPDATE below — after
 	// deriveRenderMode had read `fields`, found none, and called it "template".
 	// Refuse here instead, with the message that names the fix. Same predicate as

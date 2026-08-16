@@ -1,6 +1,7 @@
 # 265 — the legacy `input_schema` dialect is declared EXTINCT in a doc comment, is being reintroduced steadily, and the tripwire built to catch that only writes a `Warn`
 
-> ## STATUS 2026-08-16 10:25Z — CONSTRAINT LIVE. Council **APPROVED round 1, all reviewers** (`aba82416-de79-4452-8730-3e35ca0a15bb`). Migration 437 **APPLIED** 10:24Z and recorded: 3 rows converted (verify NOTICE), `chk_input_schema_no_legacy_dialect` present, legacy census **0**, refusal **INDUCED** (SQLSTATE 23514, scratch row rolled back). The Go half (`58b0111ac`) is inert until the next chassis roll — **stays OPEN until that rolls and is read at the pod**; then move to `bugs_closed/`. Taken up by the `bugfix_265_legacy_dialect_unrepresentable` lane; see §"2026-08-16" at the foot.
+> ## STATUS 2026-08-16 — **CLOSED, both halves LIVE and proven** (see §CLOSED at the foot). Constraint live 10:24Z; Go live on v1.0.1304 (both replicas, 10:41Z).
+> ## Superseded status line (2026-08-16 10:25Z) — CONSTRAINT LIVE. Council **APPROVED round 1, all reviewers** (`aba82416-de79-4452-8730-3e35ca0a15bb`). Migration 437 **APPLIED** 10:24Z and recorded: 3 rows converted (verify NOTICE), `chk_input_schema_no_legacy_dialect` present, legacy census **0**, refusal **INDUCED** (SQLSTATE 23514, scratch row rolled back). The Go half (`58b0111ac`) is inert until the next chassis roll — **stays OPEN until that rolls and is read at the pod**; then move to `bugs_closed/`. Taken up by the `bugfix_265_legacy_dialect_unrepresentable` lane; see §"2026-08-16" at the foot.
 > Docs: `docs/agent_docs/docs024_key_docs_latest/bugfix_265_legacy_dialect_unrepresentable/`.
 > **Headline correction:** the producer is NOT the component-creator. All four legacy rows were hand-authored SQL seeds/scripts (`created_from='manual'`, `source_agent_type` NULL) — so the fix that stops the count growing is a **CHECK constraint on the table**, the one seam every producer passes through. Population today: **3** (loans-consolidation was converted to v2 by its own lane on 2026-08-15).
 
@@ -337,4 +338,91 @@ BEGIN; INSERT INTO content_components (name, html_template, function, input_sche
 ROLLBACK;
 ```
 A zero from the census is now evidence, because the refusal can be induced.
+
+---
+
+# CLOSED 2026-08-16 — fixed, LIVE at both halves, and proven with demand
+
+**Closing bar (CLAUDE.md): fixed AND live.** Both halves are live and each was proven at the
+artefact, not at a status.
+
+## 1. The constraint — live 10:24Z, and its refusal was INDUCED
+
+Migration `437` applied by hand and recorded (`schema_migrations`, `--record-only`, note carries
+what was verified). In one session, in order:
+
+| check | result |
+|---|---|
+| conversion | `UPDATE 3` + the in-transaction `DO`/`RAISE` verify NOTICE (names, sources, required flags) |
+| census | `SELECT count(*) … WHERE input_schema ? 'properties'` → **0** |
+| constraint present | `chk_input_schema_no_legacy_dialect` in `pg_constraint` → 1 |
+| the three rows | all three now read `input_schema ? 'fields'` = t |
+| **refusal INDUCED** | a legacy-dialect INSERT → `ERROR: new row … violates check constraint "chk_input_schema_no_legacy_dialect"`, rolled back, scratch row count 0 |
+
+**The zero has a demand control.** Two real component writes passed the live constraint after
+the roll — `tool-ab-test-calculator` (via `tool-deployer`, 12:17:47Z) and
+`tool-css-specificity-calculator` (via `tool-generator`, 12:19:56Z). So the constraint is on the
+live write path and does **not** refuse legitimate writes. Both arms are shown: it refuses the
+retired dialect (induced) and passes the house dialect (observed on real traffic).
+
+## 2. The Go half — live on v1.0.1304, both replicas, with controls
+
+The `build provenance` startup line had already scrolled (the standing landmine: it is a
+STARTUP line on a busy service, and absence from `--tail` means "not in range", not
+"unstamped"). Probed the binary instead, **with controls, never a discovery grep**:
+
+| probe | pod `…-48lv6` | pod `…-vtfdx` |
+|---|---|---|
+| build stamp `5de6cddbe…` (this lane's own commit) | PRESENT | PRESENT |
+| new literal `chk_input_schema_no_legacy_dialect` | PRESENT | PRESENT |
+| **negative control** — the OLD tripwire text *"this dialect should be extinct fleet-wide"* | **ABSENT** | **ABSENT** |
+| control — `58b0111ac…` (the fix commit, an ANCESTOR not the stamp) | ABSENT (correct) | — |
+
+`git merge-base --is-ancestor 58b0111ac 5de6cddbe` → **true**, so the fix is in the build the
+pods are running. The negative control is what makes this more than "a string is present": the
+sentence the fix DELETED is gone from both binaries, so this is the post-fix code, not a
+coincidental match.
+
+**Tripwire firings since the roll: 0** — consistent with the constraint holding, and its meaning
+has changed: a firing now says *the constraint is gone*, not *someone seeded the old shape*.
+
+## 3. What is NOT proven, stated plainly
+
+**The birth-path refusal (Check 4) has never fired in production, and is not expected to.**
+It refuses a component-creator generation that emits JSON-Schema; the component-creator has
+emitted **0** legacy schemas in 69 rows all-history, which is why the constraint — not this
+check — is the guarantee. Check 4 exists so that if it ever happens the failure is a message
+naming the house dialect rather than SQLSTATE 23514 after `deriveRenderMode` has already
+mis-read the schema as `template`. It is proven by unit test and by mutation, and proven
+present in the running binary; it is **not** proven by a live generation traversing it. A future
+reader finding no firing should not read that as "the check never worked".
+
+## 4. What this closure does NOT cover
+
+1. **`report-dossier`'s `body` is `source: llm`** while its seed (`sql_for_agents/207`) says the
+   body is *"Never authored by an LLM"*. The conversion preserved the reader's existing
+   behaviour rather than changing it — this is the over-report addendum 1 predicted. 0
+   `page_components` use the component today, so nothing fires. The honest v2 value
+   (`source: renderer`, the vocabulary 134 rows already use) is the **gripper-dossier lane's**
+   content decision, not this lane's.
+2. **`site-header` carries a third shape** — v2 field definitions with no `fields` wrapper —
+   which `SchemaContentFields` reads as "no declared fields". Not the retired dialect, not
+   refused by 437, harmless today (chrome path, no `llm` field). Noted so the next reader of
+   that row does not assume the wrapper is present. `[OBSERVED, consequence not measured]`
+3. **The tripwire's six call sites still log rather than queue.** Fix candidate 2 as filed. It
+   is now defence in depth behind a constraint rather than the only detector, which is why it
+   was not converted — but nothing here makes it *read*.
+
+## Where the knowledge lives now
+
+`CLC-015` in the concept register (with its landmine), the
+`bugfix_265_legacy_dialect_unrepresentable` standing five, the `LANDMINES.md` entry for seed
+authors, and a `WRONG_CALLS.md` row for the near-miss this session caught in itself.
+
+Council `aba82416-de79-4452-8730-3e35ca0a15bb` — **APPROVED round 1, all reviewers.**
+
+Moved `bugs_open/` → `bugs_closed/` with **both paths named on the commit**; verified at HEAD
+rather than on disk.
+
+— closed by the `bugfix_265_legacy_dialect_unrepresentable` lane
 

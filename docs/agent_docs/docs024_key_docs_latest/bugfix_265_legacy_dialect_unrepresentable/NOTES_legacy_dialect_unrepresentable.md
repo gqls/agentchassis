@@ -63,3 +63,25 @@ constraint present, three rows `fields`=t. Induced: legacy INSERT → `violates 
 "chk_input_schema_no_legacy_dialect"`, rolled back, scratch count 0. Recorded `--record-only`
 with the note. Register CLC-015 + bug STATUS updated to "constraint LIVE, Go awaits roll".
 Runner dry-run skipped (took >110 s this session — many pending files from other lanes).
+
+## 2026-08-16 (afternoon) — CLOSED
+
+Roll to **v1.0.1304** at 10:41Z. `build provenance` line already out of `--tail` range on
+agent-chassis (the standing landmine — it is a STARTUP line and the service is busy), so the
+binary was probed instead, with controls: stamp `5de6cddbe` present on both replicas, new
+literal present, **the pre-fix tripwire sentence ABSENT** (the negative control that makes it
+evidence rather than a coincidental match), and `58b0111ac` confirmed an ancestor of the stamp.
+Constraint re-verified live; refusal induced earlier; **demand control** — two real component
+writes (`tool-ab-test-calculator` 12:17Z via tool-deployer, `tool-css-specificity-calculator`
+12:19Z via tool-generator) passed the live constraint, so it is on the write path and does not
+refuse legitimate writes. Tripwire firings since the roll: 0. Bug moved to `bugs_closed/`.
+
+**MISSTEP, caught before committing (WRONG_CALLS row filed).** Repointing `bugs_open/265` →
+`bugs_closed/265` in code comments is right for source files — it is the exact stale-pointer
+trap this very change corrected for `026`. I applied the same sed to
+`sql_for_agents/437_*.sql`, which was **already applied**, and `schema_migrations` stores an
+**md5 checksum** of the file as applied. A comment-only edit would have drifted it and made a
+correctly-applied migration read as tampered-with. Caught by asking what columns the ledger has
+before trusting the edit; reverted, and `md5sum` now matches the recorded
+`601f395002755ff05fa915f400dce8fe` exactly. The general form: **an applied migration is
+history, and "fix the stale pointer" is a habit for source, not for history.**

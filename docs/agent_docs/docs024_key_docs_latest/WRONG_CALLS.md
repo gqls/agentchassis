@@ -32629,3 +32629,33 @@ current_step, status FROM orchestration_states WHERE orchestration_id='<RUN_ORCH
 `complete_invalid` is a distinct terminal step and its `__step_error` names the field. And keep
 one path per `file`; put the other files in `symbol`/`rationale`. Cost: ~10 min and one wasted
 dispatch. Tally for "counted verdicts instead of reading the run's step": 1.
+
+---
+
+## 2026-08-16 — I nearly drifted an APPLIED migration's checksum by fixing a stale pointer in its comment (`bugfix_265` lane)
+
+**The habit was right and the target was wrong.** Closing `bugs_open/265` meant moving the file
+to `bugs_closed/`, which makes every `bugs_open/265` reference a stale pointer — the exact trap
+this same change had just corrected in `component_schema_fields.go`, whose header pointed at
+`bugs_open/026` months after 026 closed. So I ran one `sed` over every file naming it. One of
+those files was `sql_for_agents/437_*.sql` — **the migration I had applied 90 minutes earlier.**
+
+**Why it would have been invisible.** `schema_migrations` stores an **md5 checksum** of each
+file as applied (`filename, applied_at, checksum, applied_by, notes`). A comment-only edit
+changes the file's md5 while changing nothing about what ran, so a correctly-applied migration
+would have read as tampered-with to the next drift check — and the diff, being a comment, would
+look obviously harmless to whoever investigated. Nothing would have failed; the record would
+just have quietly stopped matching.
+
+**What caught it:** asking what columns the ledger actually has before trusting the edit
+(`information_schema.columns WHERE table_name='schema_migrations'`) — prompted by nothing more
+than the file being one I had already applied. Reverted; `md5sum` now equals the recorded
+`601f395002755ff05fa915f400dce8fe` exactly, verified rather than assumed.
+
+**The cheap check:** before editing anything under `sql_for_agents/`, ask whether it is applied
+— `SELECT applied_at, checksum FROM schema_migrations WHERE filename LIKE '<NNN>%'` — and if it
+is, **leave it alone**. An applied migration is history; my own plan said exactly that about the
+three seeds it declined to rewrite, and I then made the same edit to my own file because "fix
+the stale pointer" felt like tidying rather than rewriting. Source files are for improving,
+applied migrations are not. Tally for "edited a file that a ledger has already fingerprinted": 1.
+

@@ -27,3 +27,24 @@ reader can't see them. Both are noted for their owners, neither is dangerous tod
 
 Council review is submitted; the database change is ready to apply after the verdict; the Go
 part rides the next chassis roll.
+
+## 2026-08-16, later
+
+A fresh build went out and it carries the code half, so this is finished. To be sure rather
+than hopeful I asked the two running containers what they were built from — and, more usefully,
+checked that a sentence the fix DELETED is genuinely gone from both of them, which is the part
+that distinguishes "the new code is running" from "a word I searched for happens to be there".
+The database rule went in this morning and I proved it by trying to break it: an attempt to
+store a component in the old shape was rejected, and two real components written by the system
+this afternoon went in perfectly well. So it refuses what it should and allows what it should.
+
+One honest caveat, written into the record rather than glossed: there is a second, smaller
+guard inside the code that will probably never fire, because the thing it guards against has
+never happened in the system's history. It is tested and it is in the running binary, but
+nobody should later read its silence as evidence it does not work.
+
+I also caught myself in a small mistake worth keeping. Tidying up, I updated a stale reference
+inside the database migration file itself — which had already been run. The system records a
+fingerprint of each migration exactly as it was run, so my tidy-up would have made a correct,
+successfully applied change look tampered with. Reverted, fingerprint matches, and the lesson
+is written down: once a migration has run it is history, not a document to improve.

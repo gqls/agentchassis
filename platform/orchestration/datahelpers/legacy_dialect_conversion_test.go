@@ -1,6 +1,6 @@
 // FILE: platform/orchestration/datahelpers/legacy_dialect_conversion_test.go
 //
-// bugs_open/265 / migration 437. The migration converts the last three legacy
+// bugs_closed/265 / migration 437. The migration converts the last three legacy
 // JSON-Schema input_schema rows to the v2 `fields` dialect IN SQL, mirroring
 // SchemaContentFields' projection, and then adds a CHECK constraint that refuses
 // the legacy dialect for every producer. This test is the proof that the SQL
