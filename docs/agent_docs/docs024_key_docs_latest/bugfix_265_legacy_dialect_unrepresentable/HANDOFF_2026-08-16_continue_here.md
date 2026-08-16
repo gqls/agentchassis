@@ -1,9 +1,6 @@
 # HANDOFF 2026-08-16 ~10:25Z — bug 265, continue here (cold-start)
 
-**State:** fix committed `58b0111ac` (Go inert until roll; migration 437 written, probe-run,
-**NOT APPLIED**). Council submitted `aba82416-de79-4452-8730-3e35ca0a15bb`, run started
-10:14Z, verdict NOT yet read (poll was mid-flight when this session hit its usage limit).
-Register entry CLC-015 written (says "not yet applied") — committed alongside this file.
+**State (updated 10:26Z):** council **APPROVED r1, all reviewers** (`aba82416…`, verdict 10:22:53Z). Migration 437 **APPLIED 10:24Z + recorded** (3 converted, constraint present, census 0, refusal induced and rolled back). Go half `58b0111ac` inert until the next chassis roll. Steps 1–2 below are DONE; start at step 3.
 
 **Do, in order:**
 1. Read the verdict: `SELECT created_at, metadata->>'decision' FROM diagnosis_artifacts WHERE

@@ -56,3 +56,10 @@ Verdict pending at time of writing; commit carries `Council-Submitted:`.
 `source: llm` (its seed says never LLM-authored) — gripper-dossier lane's call; `site-header`
 carries v2 field defs with no `fields` wrapper — a third shape the reader cannot see, harmless
 today. Both in the bug file.
+
+**10:22Z verdict:** APPROVED round 1, all reviewers. **10:24Z applied 437 by hand** (`psql -v
+ON_ERROR_STOP=1 < file`): `UPDATE 3`, NOTICE, ALTER, COMMENT, COMMIT. Read back: census 0,
+constraint present, three rows `fields`=t. Induced: legacy INSERT → `violates check constraint
+"chk_input_schema_no_legacy_dialect"`, rolled back, scratch count 0. Recorded `--record-only`
+with the note. Register CLC-015 + bug STATUS updated to "constraint LIVE, Go awaits roll".
+Runner dry-run skipped (took >110 s this session — many pending files from other lanes).

@@ -1,6 +1,6 @@
 # 265 — the legacy `input_schema` dialect is declared EXTINCT in a doc comment, is being reintroduced steadily, and the tripwire built to catch that only writes a `Warn`
 
-> ## STATUS 2026-08-16 — TAKEN UP by the `bugfix_265_legacy_dialect_unrepresentable` lane. FIX BUILT, council submitted (`aba82416-de79-4452-8730-3e35ca0a15bb`), migration 437 written and probe-run; see §"2026-08-16" at the foot for the re-verification, the producer CORRECTION, and what ships where.
+> ## STATUS 2026-08-16 10:25Z — CONSTRAINT LIVE. Council **APPROVED round 1, all reviewers** (`aba82416-de79-4452-8730-3e35ca0a15bb`). Migration 437 **APPLIED** 10:24Z and recorded: 3 rows converted (verify NOTICE), `chk_input_schema_no_legacy_dialect` present, legacy census **0**, refusal **INDUCED** (SQLSTATE 23514, scratch row rolled back). The Go half (`58b0111ac`) is inert until the next chassis roll — **stays OPEN until that rolls and is read at the pod**; then move to `bugs_closed/`. Taken up by the `bugfix_265_legacy_dialect_unrepresentable` lane; see §"2026-08-16" at the foot.
 > Docs: `docs/agent_docs/docs024_key_docs_latest/bugfix_265_legacy_dialect_unrepresentable/`.
 > **Headline correction:** the producer is NOT the component-creator. All four legacy rows were hand-authored SQL seeds/scripts (`created_from='manual'`, `source_agent_type` NULL) — so the fix that stops the count growing is a **CHECK constraint on the table**, the one seam every producer passes through. Population today: **3** (loans-consolidation was converted to v2 by its own lane on 2026-08-15).
 
