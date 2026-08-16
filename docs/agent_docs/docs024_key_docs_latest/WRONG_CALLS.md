@@ -32894,3 +32894,44 @@ property of the platform because nothing in its phrasing distinguished the two.
 
 Tally for "acted on an unmarked absence claim from another session's doc": 1.
 Tally for "did not grep the concept register before building": 1.
+
+## 2026-08-16 — "the tool-auditor stall is truncation breaking the loop's handoff, and the correlation with `max_iterations` is the clue" (bugfix_281 lane, written into its own HANDOFF; refuted next session)
+
+**The claim.** The lane's handoff recorded that `tool-auditor` runs die at
+`create_items_loop_complete`, "strongly correlated with findings > `max_iterations` 10 (43
+capped runs stuck vs 1 completing)", and told the next session that if the diagnosis
+confirmed, "the fix belongs in `loop_actions.go` (truncation/loop_complete handoff)". It was
+filed properly, with a `090` run against it, and the correlation it quoted was real.
+
+**Why it is false.** The `090` run (`815322b9…`) came back **REFUTED** on one row:
+`ec046659…` had 14 findings against a `max_iterations` of 10 — i.e. it *was* truncated — and
+sat at `complete`. Truncation does not block the handoff. The actual cause is that a
+`loop_complete` substep is injected once **per iteration** and re-runs the whole-loop
+aggregator from inside each one, nesting every earlier iteration's aggregate into its own, so
+`collected_data` doubles per lap: 70 kB at lap 2, 9 MB at lap 10, 22 MB total, at which point
+the run cannot be carried. The correlation with the cap was real but inverted in meaning —
+hitting the cap is not a clue to the mechanism, it is simply how you buy the maximum number of
+doublings. Fifteen of the eighteen live loops share the defect. `bugs_open/289`.
+
+**What caught it.** The `090` loop killed the wrong theory, which is what it is for. But it did
+**not** find the right one — it exhausted its iteration cap (`status: UNVERIFIABLE`) and left a
+lead pointing at a Kafka `context canceled` error that turned out to belong to a different
+agent's loop entirely. What actually found the cause was the next session running one query
+the lane had never run.
+
+**The cheap check I skipped.** `SELECT owner_agent_type, avg(length(collected_data::text))
+FROM orchestration_states GROUP BY 1` across the three agents that use the *same* loop shape.
+`internal-linker` 22 kB, `tool-suggester` 447 kB, `tool-auditor` **22 MB**. Three orders of
+magnitude on identical machinery, in one query, before any theory. The per-key breakdown then
+hands you an exact geometric series and the answer is unmissable.
+
+**The transferable rule.** *When one consumer of a shared mechanism fails and its siblings do
+not, measure the siblings before theorising about the failure.* The lane had already
+established that the loop machinery was shared and that `tool-auditor` was the only one dying
+— which is precisely the setup where a one-line comparison against the healthy siblings beats
+a hypothesis. Instead the correlation that was closest to hand (findings vs `max_iterations`)
+got promoted into a mechanism. **A second rule, for reading verdicts:** a REFUTED verdict's
+`next_scope` and `revised_hypothesis` are *leads, not findings* — this one's was a red herring,
+and following it without checking which agent's step the error rows belonged to would have cost
+another day. Check the lead's own premise first: one error row against thirty-one dead runs was
+never going to be the cause.

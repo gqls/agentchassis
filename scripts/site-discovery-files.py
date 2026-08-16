@@ -75,8 +75,16 @@ def site_row(domain):
 
 
 def live_pages(site_id):
+    """`noindex` is excluded deliberately, and it is not a nicety: SEO-003 (live since
+    chassis v1.0.1277) injects <meta name="robots" content="noindex, nofollow"> for these
+    pages, so listing one here would have the site's own sitemap contradict a control the
+    platform is actively enforcing. This tool predates that column. Latent, not live, when
+    added 2026-08-16: fleet-wide exactly two rows carry it, and the only ACTIVE one
+    (vonc.com/tools/gauntlet/round.html — meta tag confirmed served) is on a site with no
+    sitemap.xml at all, so nothing had yet published the contradiction."""
     return q(f"""SELECT url, to_char(GREATEST(updated_at, COALESCE(last_built_at, updated_at)),'YYYY-MM-DD')
                  FROM pages WHERE site_id='{site_id}' AND status='active'
+                   AND noindex IS NOT TRUE
                    AND deployed_at IS NOT NULL ORDER BY url""", width=2)
 
 

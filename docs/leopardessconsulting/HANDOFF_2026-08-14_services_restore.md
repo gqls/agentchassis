@@ -375,12 +375,22 @@ provenance line scrolled). Full narrative: `RUNNING_NOTES.md` 2026-08-14.
 > DONE and live (item 4: `/case-studies.html` swept against the LIVE `evidence_base` register,
 > infographic re-drawn number-free as `_v4`, both `claims_unverified` items handled — detail
 > RUNNING_NOTES 2026-08-16, commits `8fc8c9acb` `4ac4b799f` `3ca88ae8d`). Remaining, in order:
-> 1. **§3 item 7 — sitemap.xml** (started): live sitemap has 27 `<loc>`; missing the 4
->    trust-series blog pages + `/tools/ai-vendor-trust-checklist.html` (all `active`/`deployed`).
->    No platform generator exists — HANDOFF.md §6 item 5 / turn 18 built it from the `pages`
->    table via git-adapter; find that recipe in RUNNING_NOTES turn 18 and re-run it with the
->    current `pages` rows (grep `retract_page_deployment_action.go` too — it edits sitemap.xml
->    on retraction, so a generator-shaped helper may already exist).
+> 1. ~~**§3 item 7 — sitemap.xml**~~ **DONE AND LIVE 2026-08-16 ~15:52Z** — 27 → **36** `<loc>`,
+>    served file byte-identical to the generated one, 36/36 probe 200, negative control (the
+>    never-deployed `/case-study-automated-intelligence-pipeline.html`) 404 and absent, 0 archived
+>    leaks. Detail: RUNNING_NOTES 2026-08-16 (afternoon).
+>    > **CORRECTED 2026-08-16 — "No platform generator exists" was TRUE at turn 18 (2026-07-17)
+>    > and FALSE from 2026-07-28.** It is `scripts/site-discovery-files.py`, concept register
+>    > **SEO-002**: `robots.txt` + `sitemap.xml` + `llms.txt` for any site from the `pages` table,
+>    > dry-run by default, probes every URL and lists only 200s. Do not hand-roll the turn-18
+>    > recipe. `retract_page_deployment_action.go` was a dead end — its only mention of
+>    > sitemap.xml is a comment saying it must NEVER touch it. Logged in `WRONG_CALLS.md`.
+>    Two carry-forwards, both deliberate, neither done: the tool also emits **`llms.txt`**
+>    (6,970 B, built from each page's own `<h1>`/first sentence) — a NEW file for this site, so
+>    out of that item's scope and available as a costed next step; and **`robots.txt`** is
+>    Cloudflare-managed here (the tool detects the merge; ClaudeBot/GPTBot/CCBot et al. are
+>    disallowed at the edge), so shipping ours changes nothing until a dashboard setting is off
+>    — an owner's call, not a session's.
 > 2. **§3 item 6 — `tool-process-automation-scorer` acceptance** (7 pass / 2 fail
 >    `submit-shows-error`, `fix_cycles_spent: 0`): reproduce with `scripts/tool_acceptance_run.sh`
 >    (read its header first — three things must line up, two fail quietly).
@@ -389,3 +399,8 @@ provenance line scrolled). Full narrative: `RUNNING_NOTES.md` 2026-08-14.
 >    replacement. ⚠ For any hand-edit, read each field's `input_schema` source first — see
 >    LANDMINES "A `site_specs.<aspect>.<path>`-sourced field…" (added today; verifier run
 >    `05d0454c` pending — check its verdict in `doc_notes` categories ? 'landmine-verification').
+>
+> **New in this directory:** `scripts/commit_site_file.sh` — commit any file into a site's
+> directory in the deploy repo via the git-adapter, with a `PUBLISH_OK` receipt and the repo
+> read from `sites.github_repo`. Use it in preference to `commit_brand_assets.sh`, whose
+> `kubectl run -i … kcat -P < file` publish drops ~4 in 5 at exit 0.

@@ -1024,3 +1024,42 @@ scrubbed there too so it cannot come back if the page is ever revived.
 One lesson relearned the hard way: on the case-studies page the list of case studies is
 fed from a site-level record, not from the page itself, so editing the page was undone the
 moment it was rebuilt. Fixed at the source. It cost one rebuild and is written down.
+
+**2026-08-16, afternoon — the site's map for search engines was nine pages out of date, and is now current.**
+
+A sitemap is the file a site hands to Google and other search engines saying "here is every
+page I have". Ours listed 27 pages. The site actually has 36 that are live and published.
+The nine missing ones were the newest and, in a sense, the most worth finding: the four
+articles in the data-trust series, the vendor trust checklist tool, two more tools, and the
+guides that explain them. None of them were being offered to search at all.
+
+It is now 36, and every one of those 36 was fetched and confirmed to load before it went in
+— a sitemap that advertises a broken page is worse than no sitemap. The one page that is
+listed in our database but has never actually been published is correctly left out, and I
+checked that it is still a dead link so I know the exclusion is doing something.
+
+Two things worth recording about how this went.
+
+The first is a small embarrassment with a useful lesson. The handoff note I was working
+from said the platform had no tool for generating sitemaps and that I should re-run a
+hand-rolled recipe from July. That was true when it was written; it stopped being true nine
+days later, when someone built exactly that tool. I found it by accident, in a comment in an
+unrelated file. So the fix here was to run the proper tool rather than rebuild a worse one
+by hand — and the lesson, which we keep relearning, is that "this does not exist" has a
+shelf life of days on this system, and checking costs one search.
+
+The second is a trap I had to notice rather than step in. Two of our tools live at addresses
+that end in a folder name rather than a page name. Typing the tidy-looking version of those
+addresses gives a "not found" error, because of how our hosting works — only the full
+address with the page name on the end actually loads. Tidying them in the sitemap would have
+handed search engines two dead links. They went in as they are.
+
+While I was in that tool I also found and fixed a fault in it: it did not know about the
+setting that marks a page as "do not list me in search". So it would have cheerfully put
+such a page into a sitemap while the page itself was asking to be ignored — the site
+contradicting itself. Nothing had gone wrong yet: there is exactly one live page in the
+whole estate with that setting, and its site has no sitemap. Fixed before it could bite, and
+tested by checking the tool now leaves that page out.
+
+Remaining from the services-restore list: the automated test failure on the process
+automation scorer tool, and the voice work (a banned word still on about a dozen pages).

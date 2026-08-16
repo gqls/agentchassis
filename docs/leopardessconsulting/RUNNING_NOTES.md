@@ -2466,3 +2466,112 @@ escalations. Backups: `bak_leo_casestudies_pc_20260816`, `bak_leo_about_pc_20260
 without checking its `source` — one wasted rerender (above); (2) a `cat >>` with a relative
 path after a `cd docs/…/scripts` wrote nothing (the tool resets cwd between calls but not
 within one) — use absolute paths in appends.
+
+---
+
+## 2026-08-16 (afternoon) — sitemap.xml regenerated: 27 → 36 URLs, and the generator I nearly rewrote already existed
+
+Handoff §3 item 7, the last of the four items left over from the services restore.
+
+**The finding that changed the plan, before any code.** The handoff said *"No platform
+generator exists — HANDOFF.md §6 item 5 / turn 18 built it from the `pages` table via
+git-adapter; find that recipe in RUNNING_NOTES turn 18 and re-run it"*. That was true when
+turn 18 wrote it (2026-07-17) and is **false now**: `scripts/site-discovery-files.py`
+(register **SEO-002**) landed 2026-07-28 and does exactly this job — `robots.txt`,
+`sitemap.xml` and `llms.txt` for any site from the `pages` table, dry-run by default. I
+found it in a code comment, not in the register: `discovery_checks/check_site_structural_validity.go`
+names it while explaining why `sitemap_entry_dead_live` deliberately does NOT gate on
+"every page appears in the sitemap". One grep of the concept register for `sitemap` would
+have found it in seconds. Logged in `WRONG_CALLS.md`.
+
+**What was actually missing** `[MEASURED 2026-08-16 ~15:45Z]`. Live sitemap: 27 `<loc>`,
+all `lastmod 2026-07-16`. `pages` rows for this site: 48 total — 11 `archived`, 1 `active`
+but never deployed (`/case-study-automated-intelligence-pipeline.html`, `build_status
+='planned'`, the same phantom §1d repointed a card away from), **36 active + deployed**.
+So nine were missing, not the four the handoff predicted — the fleet's automated loops
+added five more pages since 08-14:
+
+```
+/blog/ai-data-trust-in-financial-services.html      (the 4 trust-series articles
+/blog/ai-data-trust-in-healthcare.html               the handoff knew about)
+/blog/ai-data-trust-in-hiring-and-hr.html
+/blog/can-you-trust-ai-with-your-data.html
+/guides/tool-automation-savings-estimator-guide.html (new since)
+/guides/tool-process-automation-scorer-guide.html    (new since)
+/tools/ai-vendor-trust-checklist.html                (the handoff knew about)
+/tools/automation-savings-estimator/index.html       (new since)
+/tools/process-automation-scorer/index.html          (new since)
+```
+
+**The trap I walked up to and did not step in: the two tool pages are directory-style URLs
+and the pretty form is a 404.** `/tools/automation-savings-estimator/` returns **404**, and
+so does `/tools/process-automation-scorer/` `[MEASURED 2026-08-16]` — the Cloudflare worker
+maps `{hostname}{path}` to a B2 object key and rewrites only `/` → `/index.html`, so an
+object store has no directory index (LANDMINES, "A `/section/` URL 404s on every B2-hosted
+site"). Both the pages' own `<link rel="canonical">` and every internal link on the site use
+the explicit `/index.html` form, which is what `pages.url` holds and therefore what went in.
+Tidying those to the pretty form would have put two 404s in the sitemap — and a canonical
+naming a URL that does not exist is the worst version of this, per the same entry.
+
+**Ran the generator rather than the turn-18 recipe.** `./scripts/site-discovery-files.py
+leopardessconsulting.co.uk` → *36 fetchable, 0 dropped*, matching an independent `curl`
+sweep of all 36 I had run first (36/36 → 200). `lastmod` comes from
+`GREATEST(updated_at, last_built_at)`, so the dates are now real per page instead of
+27 × `2026-07-16`.
+
+**Shipped only `sitemap.xml`, deliberately.** The tool also emits `robots.txt` and
+`llms.txt`. `robots.txt` is Cloudflare-managed on this domain and the tool said so itself —
+the managed block is being merged in and currently disallows **Amazonbot,
+Applebot-Extended, Bytespider, CCBot, ClaudeBot, CloudflareBrowserRenderingCrawler, GPTBot,
+Google-Extended, meta-externalagent**; Cloudflare PREPENDS its file rather than yielding, so
+shipping ours would change nothing until a dashboard setting is off (owner's call, not a
+session's — turn 18 reached the same conclusion independently). `llms.txt` (6,970 B, built
+from each page's own `<h1>` and first sentence) is a **new file for this site**, not a
+repair of a stale one, so it is out of this item's scope and is left as a costed, ready
+next step.
+
+**Delivery: a new script, because the existing one uses the publish pattern that drops.**
+`scripts/commit_site_file.sh` (this directory). `commit_brand_assets.sh` publishes with
+`kubectl run -i --rm … kcat -P < file`, which is the stdin-attach race `rerender_page_safe.sh`
+was written to escape — `kubectl run -i` wires stdin asynchronously, so the container can
+reach kcat at EOF and publish nothing at exit 0 (four of five lost, measured 2026-07-26).
+The new script carries the payload in the container COMMAND and prints `PUBLISH_OK`. It also
+**reads `sites.github_repo` instead of hardcoding `"sites"`** — that hardcode is correct here
+(the column is empty for this domain) and silently wrong for `idea.uk`/`relojistas.com`,
+which serve from `vm-sites` and take a green commit into the wrong repo (LANDMINES). Branch
+left unset on purpose: `gqls/sites` has no `main`, and `CommitToRepo` falls back to the repo
+default `master`, which is the branch the B2 workflow watches.
+
+**Verification, in the order that makes each step falsifiable** `[MEASURED 2026-08-16 ~15:52Z]`:
+
+```
+PUBLISH_OK                                            (receipt, not an assumption)
+git-adapter corr 142c4a2b… → success:true, files ["/sitemap.xml"], repo gqls/sites
+git show --stat a1e07becb  → 1 file changed, 36 insertions(+), 108 deletions(-)
+                              ^ NON-EMPTY. success:true on an empty commit is the
+                                documented failure shape, so the stat is the evidence
+served == generated        → byte-identical diff, 4,333 B, 36 <loc>
+36/36 served <loc> → HTTP 200 (cache-busted)
+negative control: /case-study-automated-intelligence-pipeline.html → 404 AND absent
+                  from the sitemap (0 matches) — the planned-but-never-deployed page
+all 11 archived urls → 0 leaks
+no duplicate <loc>; XML parses; every loc on the canonical origin
+old 27 ⊆ new 36 → 0 lost
+```
+
+**One defect found in the generator, fixed, and proven in both directions.** SEO-002's
+`live_pages()` selects `status='active' AND deployed_at IS NOT NULL` and does **not** filter
+`pages.noindex` — a column that did not exist when it was written (SEO-003, live since
+chassis v1.0.1277, injects `<meta name="robots" content="noindex, nofollow">` for those
+pages). So the generator would advertise, in a site's own sitemap, a page the platform is
+actively telling crawlers to skip. **Latent, not live** `[MEASURED 2026-08-16]`: exactly two
+rows carry `noindex` fleet-wide, and the only `active` one — `vonc.com/tools/gauntlet/round.html`,
+meta tag confirmed served — is on a site with **no sitemap.xml at all** (404), so nothing had
+published the contradiction yet. Fixed with `AND noindex IS NOT TRUE` plus the reasoning in
+the docstring. Proof it does something: vonc.com counts **22 without the filter, 21 with**,
+and the generated file (scratchpad only — not committed, not deployed) has 21 `<loc>` and 0
+matches for `gauntlet/round.html`. leopardess is unaffected: all 36 are `noindex=false`, so
+the file shipped above is identical either way.
+
+**Missteps this session:** none that cost a cycle. The one that nearly did was accepting the
+handoff's "no generator exists" at face value — see WRONG_CALLS.
