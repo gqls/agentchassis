@@ -1,0 +1,93 @@
+# deployments/kustomize/services/instance-token-adoption-check/base/cronjob.yaml
+#
+# The expiry tripwire for bugs_open/283's RFC_022 exception, asked for by the
+# council's `architecture` seat in round 2: "recommend a written trigger (e.g. a
+# pattern-check finding) fired the first time a live template references
+# {{.InstanceID}}".
+#
+# WHY A CRONJOB AND NOT THE PATTERN-CHECK THE SEAT SUGGESTED. The seat's instinct
+# was right and its example could not work: `scripts/pattern-check.py` is a
+# commit-time lint over REPO FILES, and a component's html_template lives in a
+# DATABASE COLUMN written by the component-creator agent, by hand-authored SQL, by
+# migrations and by the admin UI — four routes, none of which passes through a
+# commit. Same decisive argument as its two siblings (single-owner-carriers-check,
+# optional-key-budget-check): the number this watches changes by a route no commit
+# can carry, so only a clock against live data can see it.
+#
+# ⚠ THE POLARITY IS THE OPPOSITE OF THOSE SIBLINGS. A trip here is not a defect —
+# converting templates is the intended next phase of 283 and the thing that actually
+# fixes the bug. What the trip says is that the architecture exception licensing the
+# seam has lapsed and a review is owed. See check.py's docstring; the report says so
+# in its own words too, because a failing Job is read by whoever is on hand.
+#
+# ⚠ RETIRE IT ONCE IT TRIPS. A tripwire that has fired is noise, and leaving it
+# failing daily is how a real signal becomes one people mute.
+#
+# Modelled on optional-key-budget-check byte-for-byte where possible: same image,
+# same secret, same doc_notes convention (one row per run INCLUDING a quiet one — a
+# missing row means the job did not run), same direct-Postgres constraint.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: instance-token-adoption-check
+  labels:
+    app: instance-token-adoption-check
+    component: config-integrity
+spec:
+  # Daily. 07:40 UTC keeps it clear of database-backup (02:00), the weekly sweep
+  # (06:00), single-owner-carriers-check (06:20), removed-config-keys-check (06:25),
+  # site-discovery-staleness-check (06:35), component-fallback-check (06:40),
+  # optional-key-budget-check (06:50), concept-register-drift-check (06:50),
+  # component-render-check (06:55), shared-output-fields-check (07:10) and
+  # verifier-remit-check (07:25).
+  schedule: "40 7 * * *"
+  timeZone: "UTC"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      # One statement returning four scalars. Two minutes is already generous.
+      activeDeadlineSeconds: 120
+      template:
+        metadata:
+          labels:
+            app: instance-token-adoption-check
+            component: config-integrity
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: check
+              image: postgres:16-alpine
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  set -e
+                  apk add --no-cache python3 >/dev/null
+                  python3 /scripts/check.py
+              env:
+                - name: PG_CLIENTS_HOST
+                  value: postgres-clients
+                - name: CLIENTS_DB_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: personae-platform-secrets
+                      key: CLIENTS_DB_PASSWORD
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 64Mi
+                limits:
+                  cpu: 200m
+                  memory: 128Mi
+              volumeMounts:
+                - name: check-script
+                  mountPath: /scripts
+                  readOnly: true
+          volumes:
+            - name: check-script
+              configMap:
+                name: instance-token-adoption-check-script
+                defaultMode: 365
