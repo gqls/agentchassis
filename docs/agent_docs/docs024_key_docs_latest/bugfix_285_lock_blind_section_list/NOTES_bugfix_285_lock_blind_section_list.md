@@ -157,3 +157,54 @@
   resubmission said so, and the register entry says so). Both code commits already carry
   `Council-Submitted: 79f70435`; 098 credits them at report time. Register/016b/bug file updated
   with the verdict.
+
+## 2026-08-16 late afternoon — APPROVED, and round 1 is LIVE (unexercised)
+
+- **Council round 2: APPROVED** (`0b7c937d` / envelope `eca48e3f`, `complete_approved` 15:31:26Z).
+  `council_decide`: `decision=approved`, `round=1` (the re-published envelope restarts the
+  counter), 14 reviewers, 3 abstained, `decided_by = "approved with 3 advisory objection(s) —
+  none high-severity"`, `unreadable=0`, `gated_by_truncation=false`. Verdict read from
+  `orchestration_states.collected_data->'council_decide'` and the `doc_notes` council-gate row;
+  full report `diagnosis_artifacts kind=council_report`, corr `79f70435`, 15:31:14Z.
+  The three advisory objections: **architecture** (medium, `ARCHITECTURE_SIGNAL: needs_rfc`) —
+  `MergeLockedPageSlots`/`LockedPageSlotsSQL` are a cross-package contract with no enforced call
+  path, so a future section-list reader can still be written lock-blind; the seat explicitly
+  recommends *"proceeding but opening the RFC in parallel rather than gating this round"*.
+  **bug_historian** (medium) — the census asked "who calls this ACTION", not "who else WRITES
+  `pages.sections`"; (low) the best-effort skip is a new instance of the silent-fallback family,
+  name it as such. **guardian** (medium ×2, low ×1) — the `save_page_sections` hoist rode in a
+  bundled edit slot; the drift check's new loud failure is fleet-wide; the cache-sync
+  consolidation changes write behaviour for every build. **editquality** (low) — "arm for arm"
+  overstates: the merge's third arm is a *functional stand-in* for the guard's identity arm, not
+  the same arm. **prior_art_librarian** approved but asks a human to diff the quoted
+  `matchLockedRow` body against the committed file (the code index lags HEAD).
+- **No new trailer, deliberately.** `7d9b7334a` and `57336c127` already carry
+  `Council-Submitted: 79f70435`; CLAUDE.md says `098` resolves the correlation at REPORT time and
+  credits the commits automatically once the verdict turns approved. Forward-only forbids an
+  amend, and writing `Council-Reviewed:` onto a later unrelated commit would be a false join.
+- **Liveness, measured at the artefact (15:45Z).** Pods `agent-chassis-5d95ddddfd-{48lv6,vtfdx}`
+  run `v1.0.1304`, started 10:41Z. `build provenance` had already scrolled past `--tail=3000`
+  (the documented shelf life), so: binary probe on 48lv6 — `locked_sections_merged` PRESENT,
+  `LOCKED_MERGE_SKIPPED` absent, `load_page_sections_from_spec` PRESENT (positive control),
+  `deadbeefcontrolstring` absent (negative control). Round 1 in, round 2 out — consistent with
+  the commit times (10:09Z vs 15:10Z) either side of the pod start. Corroborated at the data:
+  20/20 post-roll `page-build-handler` runs carry the new `spec_sections` keys.
+- **The merge has NOT fired in production.** All 20 runs: `locked_merge_count = 0`. Correct
+  behaviour (no locked rows on those pages) and NOT evidence the merge works.
+- **The `remove` counter is currently a blind zero.** 0 new items since the roll, but 0 locked
+  pages rebuilt — no demand. Recorded before quoting it anywhere; the near-miss is exactly the
+  memory-file lesson *"a post-fix ZERO needs a DEMAND control"*, which is why the register status
+  line says it in terms rather than reporting "0 items = fixed".
+- **bug_historian's objection, answered by measurement** (now in LOCK-008 residual 1): writers of
+  `pages.sections` = `apply_gap_plan` ×3, `ensure_page_section_layout` (empty-source rescue only),
+  the loader, and 7 INSERT-a-new-page paths that are benign by construction (no `page_components`
+  rows exist yet). Callers of `save_page_sections` over 30 days: `page-build-handler` 98 (all with
+  the loader) and `page-rerender` 625 (none) — and rerender composes from the stored ROWS
+  (`loadStoredSections`/`carryStoredSection`), so it cannot drop a locked row; the fleet's 38
+  `overwrite` vs 7 `remove` split is that difference showing up in the data. The other four
+  callers: 0 runs in 30 days. `page-rebuild` is the one to re-check if it wakes (plans from
+  `current_page.sections`, no loader in its chain).
+- **Open, not done by this session:** the architecture seat's RFC (single mandatory entrypoint
+  for section-list assembly) is not written; the acceptance run is not fired (it redeploys a live
+  shopfront page and the owner assigned it to the filing lane); round 2 is inert until the next
+  roll.

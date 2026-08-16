@@ -216,3 +216,46 @@ How to close: RUNBOOK C5 in the lane dir — stamp check (`git merge-base --is-a
 ["chat-input-box"]` in that run's `collected_data->'spec_sections'`, and no new `remove`
 items on the next loancalculator rebuilds. Then `git mv` this file to `bugs_closed/` naming
 BOTH paths on the commit.
+
+## LIVE — 2026-08-16 15:45Z: round 1 is running; the merge has not yet fired
+
+**Round 1 (`7d9b7334a`) IS in the running chassis (`v1.0.1304`, both replicas, pods started
+10:41Z — after that commit's 10:09Z). Round 2 (`57336c127`, 15:10Z) is NOT.** Proven at the
+artefact, not at the tag and not at git, with controls in the same exec
+(`agent-chassis-5d95ddddfd-48lv6`, `grep -a … /proc/1/exe`):
+
+| probe | result | why it is the right probe |
+|---|---|---|
+| `locked_sections_merged` | **PRESENT** | round-1 result key, introduced by this fix |
+| `LOCKED_MERGE_SKIPPED` | absent | round-2 durable trace — correctly not in a binary built before it |
+| `load_page_sections_from_spec` | PRESENT | positive control: the grep can see strings in this binary |
+| `deadbeefcontrolstring` | absent | negative control: the grep is not matching everything |
+
+The startup `build provenance` line had already scrolled (absent from `--tail=3000`), which is
+the documented shelf-life problem — so the probe above is the evidence, and it is corroborated
+independently **at the data**: every one of the 20 `page-build-handler` runs since the roll
+carries `spec_sections.locked_sections_merged` and `locked_merge_count`, keys no earlier binary
+could emit.
+
+**What is NOT yet proven, stated plainly: the merge has never fired in production.** All 20
+post-roll runs were on pages with no locked rows, so `locked_merge_count = 0` and
+`locked_sections_merged = []` every time. That is the no-locked-rows regression case behaving
+correctly — it is not evidence the merge works.
+
+**And the symptom counter is currently uninformative.** `remove`-blocked items filed since the
+roll: **0** — but locked pages rebuilt since the roll: **also 0**. There has been no demand, so
+the zero says nothing (LANDMINES/memory: *a post-fix ZERO needs a DEMAND control*). The 7
+existing `remove` items are all pre-roll (6 on 2026-08-15 17:11–17:58Z, 1 on 08-13).
+
+**Consequence for closing this file:** step 1 of "How to close" (is it live?) is DONE and
+recorded here; steps 2–3 (the owner's five acceptance criteria on webdesign.uk `contact`, via
+the 081c work-item recipe) are still owed, and by the owner's ownership note at the head of this
+file they belong to the filing lane, which holds the chat-box lock. **A rebuild pass on `contact`
+rewrites its unlocked sections and redeploys a live shopfront page, so it is not something a
+second lane should fire unannounced** — the recipe is ready in the lane RUNBOOK (C5) with the
+exact assertions. The alternative demand is a natural rebuild of any of the 12 loancalculator
+calculator pages, which would exercise the merge with no new action from us; the first one to run
+should show `locked_merge_count = 1` and file no `remove` item.
+
+Round 2's durable `LOCKED_MERGE_SKIPPED` trace stays inert until the next roll: today, a locked
+query that fails mid-build still degrades to lock-blind with only a log line.

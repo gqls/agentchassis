@@ -90,3 +90,50 @@ health check now tolerates that difference, but it is a window; and nothing FORC
 reader of section lists to use the new merge — the register names today's readers, and if a
 new one appears the mechanical answer is a test that scans for readers. Nothing left to do on
 this bug until the next fleet build lands; then the contact-page acceptance run closes it.
+
+## 2026-08-16 late afternoon — the council approved it, and half of it is now actually running
+
+Two things happened since the last entry, one good and one worth being careful about.
+
+The review came back **approved**. Fourteen reviewers, no blocking objections, three advisory
+ones I've written down in full. The most substantial is from the architecture reviewer, and it
+is a fair point rather than a complaint about this change: the fix adds two shared functions
+that two different parts of the code now call to get "the page's real section list", but nothing
+*forces* a future piece of code to call them. So someone could, next month, write a third reader
+of section lists and be blind to locked sections all over again — which is exactly how this bug
+happened the first time. The reviewer's own recommendation was to ship this and raise that
+question separately, which is what we're doing; I have not written that proposal yet and have
+said so rather than leaving it implied.
+
+The second thing: a fleet build went out at lunchtime, and **the first half of the fix is now
+live**. I checked that at the running program itself rather than trusting the version number —
+asked the binary whether it contains the new code, with two control checks in the same breath to
+prove the question was capable of coming back "no". It contains this morning's half; it does not
+contain the extra safety net I added this afternoon, which waits for the next build. That matches
+the clock exactly, which is reassuring.
+
+**But live is not the same as working, and I want to be blunt about that.** Since the build went
+out, twenty pages have been rebuilt, and every one of them was a page with no locked sections —
+so the new code ran, did the correct nothing, and reported nothing. The part that actually
+matters, slotting a locked section back into the list, has not happened once in production yet.
+Related: there have been no new "the pipeline tried to remove a locked section" complaints since
+the build — and that number is worthless as evidence, because none of the affected pages have
+rebuilt. Nothing has asked the question, so "no complaints" is silence, not success. I have
+recorded it that way everywhere rather than letting a zero look like a result.
+
+What that leaves is one real test: rebuild a page that *does* have a locked section. The obvious
+one is the webdesign.uk contact page with the chat box, and the recipe is written out ready to
+run. I have not fired it, for two reasons: it rewrites and republishes the other sections of a
+live shopfront page, and you assigned that acceptance run to the lane that owns the chat box.
+The other way it gets proven is simply the next time one of the twelve loan-calculator pages
+rebuilds on its own — that will exercise it with nobody doing anything, and the first one to run
+should show the locked calculator back in the list and file no complaint.
+
+Also answered this afternoon, because a reviewer was right to push on it: I had checked "who
+else calls this code" but not "who else writes the section list". I've now measured both. The
+other writers are either the planner (whose lists the next build re-merges anyway) or paths that
+create brand-new pages, where there is no locked section to lose yet. And of the six places that
+can save a page's sections, only two have run at all in the last month — one of them goes through
+the fixed code, and the other one builds its proposal from the page's actual rows, so it cannot
+drop a locked section in the first place. That is why the complaint counts in the database are
+mostly "tried to overwrite" and only a handful are "tried to remove".

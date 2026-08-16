@@ -32659,3 +32659,34 @@ three seeds it declined to rewrite, and I then made the same edit to my own file
 the stale pointer" felt like tidying rather than rewriting. Source files are for improving,
 applied migrations are not. Tally for "edited a file that a ledger has already fingerprinted": 1.
 
+
+## 2026-08-16 — bugfix_285 lane: after a context summarisation I nearly reported my OWN lane's commits as "another session got there first"
+
+**The claim I was one sentence from writing to the owner:** *"a concurrent session has already
+implemented, council-approved and is still documenting this bug — I will not compete."* I had
+resumed a long session whose implementation phase had been summarised out of context, so from
+where I sat the day's evidence read as someone else's: a complete lane directory
+(`bugfix_285_lock_blind_section_list/`), two fix commits, a council submission at round 2, and a
+docs commit timestamped **eleven minutes earlier** — the textbook signature of a live concurrent
+thread on this tree, and one this repo's own rules train you to back away from
+(`who-owns.py`, "do not start a competing fix").
+
+**What caught it:** reading the bug file's own Implementation heading, which names the session
+that wrote it — `(session 390a1ae1)` — and comparing that against my own session id in the
+scratchpad path. Same session. The "other lane" was me, four hours earlier.
+
+**Why it matters more than the embarrassment:** the false version was about to become an
+*inaction*. Believing the work was owned elsewhere, the correct behaviour is to stand down and
+contribute a note — so I would have left the lane's own status lines saying **NOT YET LIVE** while
+the fix was in fact running in production, and left the council's measurement objection
+unanswered, both on the grounds of not treading on a thread that did not exist.
+
+**The cheap check, and it is one command:** on any resumed or summarised session, before
+attributing recent commits to another thread, ask who the artefacts say wrote them —
+`grep -n "session [0-9a-f]\{8\}" <the bug file / lane docs>` and compare with your own session id
+(the scratchpad path carries it). Recent-and-unfamiliar is not the same as somebody else's;
+after a summarisation, your own work arrives looking exactly like a stranger's. Corollary for
+this tree: the *number* of same-day commits by `cqls` on one bug tells you nothing about how many
+sessions made them.
+
+Tally for "misattributed my own summarised-out work to another session": 1.
