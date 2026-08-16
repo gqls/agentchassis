@@ -1180,3 +1180,29 @@ only — turning it back on for the whole fleet is a cost call that's yours to m
 One thing worth knowing: while doing this I caught, live, the platform bug that falsely marks
 jobs "done" (it swaps in another job's paperwork). It's now evidenced with traceable IDs in
 the bug files (213/274) — the fixing lane has what it needs.
+
+---
+
+**2026-08-16 (morning).** Checked back in after the weekend roll.
+
+The good: everything from Thursday night is still up, and the header now shows the gold
+roundel as an actual image instead of the text — the site's own chrome re-render picked the
+logo up on its own once the asset existed. That was the piece I'd said was "parked behind the
+nav bug"; it wasn't blocked after all. The nav has About in it now too. Someone else's
+improvement pass rewrote the hero sentence again on Friday evening; the new one ("No sign-up,
+no upsell, and no personal data collected…") is a sentence a person would say, so I've left it.
+
+The platform fix you asked me to confirm (the one that was marking jobs "done" with the wrong
+paperwork) IS in the live build and IS working — I measured it: zero of those failures against
+859 finished jobs since the roll. But the same roll brought in a *different* wrong-paperwork
+shape — jobs now get stamped "done" with the record of the agent being *started* rather than
+what it *did*. The work itself is fine; only the receipt is wrong. It's about three-quarters
+of all completions since Friday. I've filed it (bug 287) and sent it through the diagnosis
+loop; the fix belongs to whoever owns the coordinator, not this lane.
+
+The honest disappointment: the ten tool-page hero images you told me to let run did run — ten
+images, all generated, all uploaded — and **not one of them is on a page**. The tool pages
+re-rendered and fell back to the site hero; nothing links the new images to their pages. That's
+a known class of bug (114) and I've added these ten as a clean, measured example. I've left the
+images in place so whoever fixes the wiring has something to test with. Nothing more of that
+kind should be generated on this site until it's fixed — it's spend with no visible result.
