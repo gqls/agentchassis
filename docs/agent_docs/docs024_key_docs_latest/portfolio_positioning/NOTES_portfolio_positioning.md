@@ -1349,3 +1349,73 @@ sketched the migration as an annotated comment block (accurate, readable, and re
 Fix: sketch the REAL statements (guards, UPDATE, verify block) and move the commentary to
 `.rationale`/`.grounded_in`. Note this compounds the 432 lesson rather than replacing it:
 reviewers can only see what the sketch shows, AND the sketch must be code.
+
+### 2026-08-16 — 433 round 1 REVISE: the gating objection answered at the artefact, and one objection that earned a real change (441)
+
+**Council latency, measured**: 433/434 were submitted ~22:45Z on 08-15 and did not START
+until **16:08Z / 16:10Z on 08-16** — ~17.4 hours queued. CLAUDE.md's "~30 minutes" is a
+floor under normal load. A `fix_plan` artifact with no `council_report` row means RUNNING,
+not dropped; diagnose by artifact KIND, never by elapsed time.
+
+**433 round 1: REVISE** (`decided_by: gating objection from editquality`, 5 abstained, not
+truncated). Dispositions:
+
+- **editquality [HIGH, gating] — "the rule names `content_features`, but is that data
+  actually piped into the prompt via input_fields? If not, the rule is inert."** A sharp
+  objection and the right failure mode to name. **ANSWERED AT THE ARTEFACT, and the first
+  read looked like it CONFIRMED the objection** — the newest rendered prompt contains
+  `content_features` exactly TWICE, both occurrences inside the RULE text, none in the
+  data. The trap there is that the rule text and the data both contain the same substring,
+  so a naive `LIKE '%content_features%'` cannot tell them apart. Re-asked in the DATA form
+  (`content_features:map[`, which the Go map rendering produces and the rule text cannot):
+  **5 of 66 real `plan_site` renders carry it, and the same 5 carry `news_feed:map[`.**
+  The other 61 are sites whose classification spec has no such key — so the count tracks
+  the data and could have come out otherwise. Verbatim from the 08-11 render:
+  `content_features:map[news_feed:map[reason:… recommended:true separate_page:true …]]`.
+  End-to-end precedent for the same mechanism: the News listing rule has produced **7 live
+  `news-index` pages across 6 domains**, including relojistas.com's localised
+  `noticias-index` — exactly what that rule's text asks for.
+- **bug_historian [MEDIUM] — "does the prompt teach byte-identical component names? a
+  paraphrase is dropped silently."** **RIGHT, and it produced migration 441.** Two parts:
+  (1) the underlying safety claim is now MEASURED — `content_components.name <> function`
+  for all 12 directory rows (`name` is prose, "UK Mortgage Lender Directory"), and 433
+  teaches the **function** values, which is the canonical resolution target:
+  `componentNameResolver.resolve()`'s FIRST arm is *already a valid function → return
+  unchanged* (`v3_site_actions.go:3896-3898`). Teaching `name` would have been exactly the
+  defect the seat feared. **I had measured `function` and never checked whether `name`
+  differed — the plan was on the right side of this by construction, not by checking.**
+  (2) A real weakness the objection lands on: 433 enumerated every component and page name
+  EXCEPT the listing component, which it asked the model to DERIVE by suffixing. The one
+  derivable name was the one exception. **441 enumerates all six listing names** and adds a
+  sentence stating that a paraphrased component name is dropped from the plan silently.
+  Applied 2026-08-16 after a clean dry run (UPDATE 1 + UPDATE 1); read back live.
+- **reuse_agent [MEDIUM] — "does the OLDER path become a no-op, or a second creator?"**
+  A no-op, by construction: `MissingDirectoryPageCheck` returns empty when `pageCount>0`
+  (`check_directory.go:338-348`); `MissingDirectorySectionCheck` the same on a
+  `page_components` join (251-266). The plan-time path satisfies the check's precondition.
+- **debug_historian [MEDIUM] — "no `snapshot_agent()` before the jsonb_set."** The applied
+  file's FIRST line is exactly that, and the guard RAISEs if the backup row is absent.
+  **Sketch-visibility artefact — the FOURTH round this lane has lost to showing reviewers
+  less than the file contains.** Now a checklist item, not a lesson: *quote the snapshot
+  call and the guard block verbatim in every sketch.*
+- **guardian [MEDIUM] no `SELECT … FOR UPDATE`**: acknowledged unchanged (same as 432 —
+  matches the platform's verify-block idiom; the in-txn DO/RAISE aborts on that drift).
+  **[LOW] blast radius**: now named — `plan_site`'s output feeds the greenfield build
+  pipeline and `recompose_pages` redesign runs. **[LOW] prompt cost**: now MEASURED rather
+  than estimated — real renders are 40,897–85,183 bytes (n=66), so 433's ~2.4KB is ~3–6%.
+- **prior_art [LOW]**: the claims it could not verify from its tier are the ones measured
+  above; nothing was left asserted.
+
+**Side finding, unlooked-for**: migration **439** (another lane, landed mid-session) added
+`menu_field: "available_components"` to `validate_plan`, so the planner's own menu rows now
+join the valid set alongside the section/element base. Strengthens 433/441 — both
+resolution paths cover the 12 — and is a reminder that this prompt has several editors.
+
+**Ordering trap created by 441, stated in both headers**: 441 edits text INSIDE 433's
+inserted block, so while 441 is applied, 433's surgical-inverse ROLLBACK cannot match its
+literal and **refuses** (by design). To undo the pair, run **441's ROLLBACK first**.
+
+**Round 2 resubmitted** same correlation (`RESUBMIT_CORR=53ae1501…`): 4 edits (433 forward
+unedited as the record of what ran, 433 ROLLBACK, 441 + its ROLLBACK), 12 grounded_in
+items, snapshot+guards quoted verbatim. **434's verdict (`1b087280…`) was still executing
+at the time of writing — read it next.**
