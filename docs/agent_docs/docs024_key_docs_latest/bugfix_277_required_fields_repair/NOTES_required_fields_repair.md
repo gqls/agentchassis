@@ -245,3 +245,13 @@ doesn't) — why the promoter rewrites pipeline. (2) "Do as your recommendation 
 RFC_030 RULED + SCHEDULED as a lane: `router_engine/` created with PLAN/HANDOFF/NOTES/RUNBOOK/
 README; nothing built; first job is an A-vs-B design round with the council. Fixed my own
 tautological "control" in 430's verify block before applying (partition assert instead).
+
+## 2026-08-16 morning — fresh chassis: producer revert LIVE; promoter drained the pile; 083 council REVISE measured
+
+Chassis `v1.0.1303` uniform (9 pods), stamp `5e075a6f9…` carries `3c6354059` → born-`detected`
+producer is live. Promoter: detected 70 → 4 (= the held pair); 100 promoted, 93 complete / 4
+failed (downstream) / 3 parked. Council `05a3d1c8` REVISE — objections measured, all
+favourable, recorded in bugs_open/083 (pipeline provenance 97/2/1 all rewritten as the
+original promoter did; no diagnose/report ever at detected; reapers key on claimed_at; two
+sibling born-triaged producers named). Not resubmitted this session — token load; round 2 is
+the first item in the HANDOFF.

@@ -638,3 +638,36 @@ roll). Other born-triaged producers (migration 233's rerender items, `check_inte
 `complete` count for the first time (none in the pile today — waits for the next re-raise);
 (3) completions verified at the live page. `improvement-sweep` itself stays paused (IMP-016)
 — discovery has SCH-025, triage has SCH-026; the auto-fix half remains a separate decision.
+
+## VERIFY CRITERION 1 MET — 2026-08-16 morning (bugfix_277 session, post-roll)
+
+`detected-item-promoter` ran overnight on its 15-minute cadence. **Pile: 70 → 4, and the 4
+are exactly the held pair** (`page_component_status_drift → component-template-fixer`, zero
+lifetime completes — awaiting a hand canary). 100 rows promoted since apply (the pile refilled
+from discovery rotation and drained again): **93 complete, 4 failed (all downstream
+page-build-handler failures — save_sections/verification, not promoter defects), 3 parked**.
+Zero rows born after apply remain at `detected`. Criterion 1 ("drains and STAYS drained") holds.
+Criterion 2 (`phantom_internal_link` first-ever complete) still waits for a re-raise; criterion 3
+(verify completions at the live page) is not yet done — a sample is the next session's job.
+
+**The producer revert is LIVE**: chassis `v1.0.1303` (uniform, 9 pods), stamp `5e075a6f…`
+carries `3c6354059`; `check_required_fields_missing.go` files born-`detected` again.
+
+**Council on the promoter (corr `05a3d1c8`): REVISE**, every objection measured the same morning:
+- "pipeline='build' unconditional could misroute diagnose/report items" — promoted rows' original
+  pipelines: build 97 / content 2 / design 1; **no diagnose or report item has ever sat at
+  `detected`** (lifetime). Same rewrite the original promoter always did. A cheap door-closer for
+  the next session: `AND wi.pipeline NOT IN ('diagnose','report')` in the candidates CTE — as a
+  NEW numbered migration (430 is ledger-recorded; never edit a recorded file).
+- "stale reaper keyed on created_at would reap promoted rows" — every enabled reaper pre_query keys
+  on `claimed_at` (`claimed-item-timeout`, `stale-work-item-reaper`, `report-dispatch`); none on
+  `created_at`. Does not apply.
+- "sibling born-triaged producers left unaudited" — grep: exactly two, `check_integrity.go` and
+  `check_tool_acceptance_due.go` (the precedents cited when 277 went born-triaged). Their lanes'
+  call whether to return to `detected`; both pairs are known-good so the promoter would carry them.
+- "sole live carrier premise" — re-verified live twice: only `improvement-loop` carries
+  `triage_detected_items` (migration 286 removed the other two); `improvement-sweep` enabled=f.
+- reuse_agent's "invoke the Go action instead of mirroring in SQL" — the honest answer is that
+  the Go action is site-scoped and workflow-embedded (needs an orchestration per site per tick);
+  the SQL mirror is the estate's own SCH-006 pattern for exactly this shape. Worth stating in
+  round 2, not conceding.
