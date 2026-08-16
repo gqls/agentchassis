@@ -56,3 +56,46 @@ already had one come back as an empty shell; and the old version is retired rath
 a disappointing rebuild can be put back in one step. My suggestion, which is the lane's to take or
 leave: do these last and one at a time, once the simple tools have proved the process, so the owner
 is only asked to look at the difficult ones after the easy ones are known to work.
+
+## 2026-08-16 late afternoon — the first rebuilt tool is built and graded; the old one is switched off
+
+The aspect-ratio calculator is the first tool the framework has rebuilt in place, and the part that
+had never worked before now works: the generator attached its new tool to the page that already
+existed, instead of trying to create a second page at the same address and dying. That was the whole
+point of yesterday's fix, and it did it in 54 seconds.
+
+Before switching anything off I graded what it built, because last time we assumed and got an empty
+shell. This one is real: it reduces a width and height to a simplified ratio the proper way, it works
+the other direction too (give it a target ratio and one dimension and it gives you the other), and
+the 16:9 / 4:3 / 1:1 / 21:9 shortcut buttons are there. All the wording is written into the tool
+itself rather than left as blanks for something else to fill in — which is exactly what went wrong
+with the A/B test tool.
+
+So the old imported version of that tool is now switched off. Switched off, not deleted: its content
+is untouched, and I checked its fingerprint before and after to prove the bytes did not change, so
+putting it back is a single flip if anyone dislikes the new one. The page will rebuild itself with
+just the new tool on it shortly — it is sitting in a queue about twenty jobs deep. I will check the
+live page once it has run; until then the rebuild is done but unproven, and I am not treating it as
+finished.
+
+Two things I got told to do that turned out to be impossible as written, both now corrected in the
+plan. First, we were meant to record an "archive row" for each tool as the undo handle — there is no
+such row, because the archive only records changes to a page's content, and switching a tool off
+changes only its status. The undo handle is the old tool's own row, which is better anyway. Second,
+the address we were checking the live page at, `/tools/aspect-ratio/`, is a 404 — the real page is
+at `/tools/aspect-ratio/index.html`. That matters more than it sounds: every one of our "is it clean
+now?" checks passes perfectly against a 404 page, because a page that does not exist contains none of
+the things we are looking for.
+
+While waiting I counted up what is left, and found a couple of traps worth knowing about. There are
+97 imported pages on the site but only 63 are tools — the rest are learning pages, and one of the
+63-looking ones is just the tools index listing. And there are two separate groups of exactly 13
+tools that are easy to mistake for each other: 13 whose code lives in separate files (the awkward
+ones), and 13 carrying a marker from an earlier repair effort. Only 4 tools are in both groups. If
+someone used one list as a shortcut for the other they would get nine tools wrong in each direction.
+
+I also read the generator's code and found something that would have bitten us on the second rebuild:
+when it checks "does this tool already exist?", it does not care whether the existing one is switched
+off. So the A/B test tool, whose failed rebuild we withdrew this morning, would block its own
+replacement — and the run would finish successfully having built nothing at all. That is now written
+down with the one-line fix, before it cost us a cycle rather than after.
