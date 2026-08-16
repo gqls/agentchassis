@@ -91,3 +91,16 @@ Re-fire the lane's `phase2_recompose_26.sh` (12-page scope). Expect: the 12
 locked tool functions in `site_plan_sections` on their own pages; zero
 RECOMPOSE_INTENT_NOT_REALISED rows; locks 12/12 untouched. The negative control
 already exists: plan `dcbae4df` is the no-fix baseline.
+
+## Cross-reference — 2026-08-16 (bugfix_285_lock_blind_section_list lane)
+
+`bugs_open/285` (section-list case) named this bug a "prerequisite or co-requisite" for its
+loader-merge fix. **It is not, for the page-BUILD path:** `plan_sections` never calls
+`loadComponentNameResolver` (callers: `ValidateSitePlanAction` `v3_site_actions.go:3407`,
+`apply_gap_plan_action.go`); a locked tool slot merged by the loader (`7d9b7334a`, LOCK-008)
+resolves via `plan_sections` Path 0 by stored identity and reaches save. This bug remains
+exactly what it says — the RE-PLAN path drops planner-placed tool sections — and remains yours.
+One interaction worth knowing when you fix it: after `7d9b7334a` rolls, `pages.sections` on the
+12 loancalculator tool pages will carry the positional slot (`tool-2` etc.); a replan that names
+the tool's FUNCTION pairs with that slot at merge time (function arm), so the plan's position
+then wins over the exiled live position. Nothing here blocks or is blocked by 282.

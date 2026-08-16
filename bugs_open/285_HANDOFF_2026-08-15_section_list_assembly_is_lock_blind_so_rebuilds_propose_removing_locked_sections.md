@@ -100,8 +100,19 @@ assembly. The write guard (058) protects the ROW; nothing protects the LIST.
 
 ## Two interactions the fixing thread MUST verify (candidate 1)
 
-- **plan_sections' resolver excludes tool-level components from name
-  normalisation** (`loadComponentNameResolver`, section/element only —
+- > **CORRECTED 2026-08-16 (fixing lane, `7d9b7334a`):** this bullet mis-attributes
+  > the function. `loadComponentNameResolver` is called by `ValidateSitePlanAction`
+  > (`v3_site_actions.go:3407`) and `apply_gap_plan_action.go` ONLY — never by
+  > `plan_sections` (`grep -n loadComponentNameResolver plan_sections_action.go` → 0
+  > hits). On the page-build path a merged slot name resolves via `plan_sections`
+  > Path 0 (`loadPageSlotComponentIDs`, slot→component_id from `page_components`,
+  > no `component_level`/lock filter) or Path 1 (no level filter); a self-contained
+  > tool is `ready`. So `bugs_open/282` is a co-requisite ONLY for candidate 2
+  > (writing tools INTO the plan at replan) — not for candidate 1, which shipped.
+  > Verified by driving the merged name through the fixture path in the loader
+  > test and by reading the writer/render chain (below). WRONG_CALLS 2026-08-16.
+  ~~**plan_sections' resolver excludes tool-level components from name
+  normalisation** (`loadComponentNameResolver`, section/element only —~~
   deliberate: tools are placed by tool-deployer). A merged `chat-input-box`
   entry must survive plan_sections' planning/skip machinery
   (`persistSectionSkips`, the deferred/needs_new_component branches) all the
@@ -150,3 +161,57 @@ path is fine) and assert, in order:
 - Owning lane + full session trail:
   `docs/agent_docs/docs024_key_docs_latest/webdesign_uk_build_service/`
   (NOTES 2026-08-15 evening/late entries, HANDOFF_2026-08-15b §2.1).
+
+## Implementation — 2026-08-16, fixing lane `bugfix_285_lock_blind_section_list/` (session `390a1ae1`)
+
+**Status: FIX COMMITTED `7d9b7334a` (Go — inert until the next chassis roll), council
+corr `79f70435-fadc-4e1b-b9d3-6d41f437f7fd` (`Council-Submitted:` trailer; verdict recorded
+in the lane NOTES when read). This file stays OPEN until the owner's five criteria above pass
+post-roll — run by the filing lane, which holds the chat-box lock.**
+
+What shipped (candidate 1, made shared — register **LOCK-008**, `register/locks.md`):
+- `datahelpers/locked_page_sections.go` (NEW): `LoadLockedPageSlots(ForSite)` — the guard's
+  exact predicate string `NOT AgentWritableSQLFor("pc.")`, never re-typed (a test refuses a
+  `locked_at IS NOT NULL` lookalike); `build_status <> 'removed'` as a separate MEMBERSHIP
+  condition (0 such rows). `MergeLockedPageSlots` — pure; pairs list entries with locked rows
+  arm-for-arm as `matchLockedRow` does (slot exact → slot kebab → component function/name),
+  consume-once, then inserts unpaired rows at their live position (clamped, ascending).
+  `NormalizeComponentFunction` moved down; `actions` delegates.
+- `load_page_sections_from_spec_action.go`: merge after any tier serves (NOT when none did —
+  a locked-only list is neither plan nor page and a rebuild on it would delete unlocked
+  siblings); `section_facts` kept index-aligned (nil at each merged index); result gains
+  `locked_sections_merged` + `locked_merge_count`; best-effort on the locked query (Warn,
+  proceed unmerged — the guard still protects the row). ONE jsonb-compared cache sync
+  replaces the three per-tier syncs whose `sections::text IS DISTINCT FROM $1` was ALWAYS
+  true (LANDMINES 2026-08-16).
+- `check_section_source_drift.go` (ENABLED live): both sides through the same merge — else
+  one drift item per fixed page (13 on day one). Loud if the locked query fails.
+- Tests: 12 merge cases + predicate pin; the FIRST loader tests (sqlmock; MUTATION-proven —
+  merge removed → fails alone on `sections`; facts alignment removed → fails alone on
+  `section_facts`; no-tier case proves the locked query never ran); drift check ×3.
+
+Fleet census that made this a class, not a page (2026-08-15, RUNBOOK C1–C3): 26 locked rows
+(all `permanent`), **13 on tier-1 pages whose plan omits them** — contact + 12
+loancalculator.co.uk calculators (`tool-1..4` positional slots); **5 remove-blocked items
+filed 17:11–17:48Z that day** by `page-build-handler` (`spec_sections.source=site_plan_tables`,
+list `[hero, ported-prose, faq, tool-cta]`); the tail-exile moved `index/tool-3` 4→6 and
+`tool-settlement-calculator/tool-2` 3→5 within two hours.
+
+Second correction (with the 282 one above): the proposal `save_page_sections` diffs is the
+content WRITER's `sections_metadata` (`render_component` emits `component_id` +
+`stored_slot_name` from `slot_name_from: current_section.name` → `compile_page_sections`), one
+hop past `plan_sections`. That is WHY the guard pairs the merged entry: identity arm, then
+slot — consume-and-keep, `overwrite` item (058's design; deduped by `item_key`), no duplicate.
+All 26 live locks are `static`-field components → `render_from_template`, no LLM spend.
+
+Consequence to expect after the roll: the `remove` items STOP; an in-list locked section
+still draws/refreshes ONE `overwrite` item per pass (LANDMINES "a lock_blocked_change item does
+NOT mean the copy differed"). A carry-stored-row shortcut for locked sections in the
+writer/render loop would make them silent — left as LOCK-008's open review question.
+
+How to close: RUNBOOK C5 in the lane dir — stamp check (`git merge-base --is-ancestor 7d9b7334a
+<stamp>`), ONE page-build-handler pass over contact via the 081c work-item recipe (NOT
+`run_improvement_sweep_once.sh`), then the five criteria; expect `locked_sections_merged =
+["chat-input-box"]` in that run's `collected_data->'spec_sections'`, and no new `remove`
+items on the next loancalculator rebuilds. Then `git mv` this file to `bugs_closed/` naming
+BOTH paths on the commit.
