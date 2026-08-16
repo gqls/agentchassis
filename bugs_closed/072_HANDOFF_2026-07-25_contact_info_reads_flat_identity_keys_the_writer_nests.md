@@ -412,3 +412,125 @@ block after the roll, the fallback is fabricating and the change is wrong.
 - **The fix is inert until a chassis rebuild + roll.** Verification recipe —
   pod-grep with a positive control, then induce the failing case, then the
   negative control — in the workstream RUNBOOK §4.
+
+---
+
+## RECOVERED 2026-08-16 from a stale duplicate — content this file never received
+
+**Not new work.** `bugs_open/072_…contact_info…md` and this file both existed at HEAD: the
+closure of 2026-07-31 (`0fe941f18`) added this copy without removing the old path, and the old
+copy then kept receiving appends (`b566db2a3`, `2ba73088c`) that this one never saw. The
+duplicate is being removed today by the `bugfix_265_legacy_dialect_unrepresentable` lane, so
+everything it held that this file lacked is reproduced below **verbatim and unedited**, before
+the path goes.
+
+**Read it as history, not as current status.** Its own heading says the bug is open pending an
+acceptance test; this file's closure (21:18 UTC the same day, later) supersedes that. What is
+worth keeping is the evidence and the correction: a re-verification on a second image, and the
+"buys 5 sites → buys ONE PAGE" correction with its measurement.
+
+<details>
+<summary>verbatim, from the removed duplicate</summary>
+
+> ## FIXED, APPROVED, AND **LIVE ON v1.0.1219** — open only for its live acceptance test, which is BLOCKED ON `bugs_open/029`
+> **Do not re-diagnose this. Do not start a competing fix.** The cause is settled,
+> the code is committed, and it is **in the running binary on both replicas**.
+> **Pod-verified TWICE, on two different images.** First on `v1.0.1218` (pods
+> `776f55c5f9-*`, 18:05 UTC), then **re-verified on `v1.0.1219`** (pods
+> `59cb674798-t7dgn` / `-z84n8`, started 19:09 UTC) at 19:17 UTC — because the
+> fleet rolled three more times (17:59, 19:08, 19:09) and **the pods I first
+> verified no longer existed**. All of the change's strings present on **both**
+> current replicas (`resolved from the canonical sites row`,
+> `source_aliases_used`, `COALESCE(contact_address`), against **two** positive
+> controls (`plan_sections: loaded site_specs`, `site_assets path resolved via
+> image-role alias`).
+>
+> **Re-verify after every roll, not once.** On a tree that rolls three times in
+> ninety minutes, "I pod-grepped it" has a shelf life measured in minutes, and a
+> later image is not guaranteed to be built from a later commit
+> (`bugs_open/153`).
+>
+> ### ⚠ CORRECTION TO THIS FILE'S OWN "buys 5 sites" CLAIM — it buys ONE PAGE
+>
+> Measured 2026-07-31 after the roll. Only **8 pages fleet-wide** name
+> `contact-info` in `pages.sections` at all, and **7 already render 3-of-3**.
+> **Exactly one page is in the broken state:**
+>
+> | page | planned | built | `sites.email` | spec email |
+> |---|---|---|---|---|
+> | **vetcomparison.uk / contact** | 3 | **2** | `vetcomparison@contactforsales.com` | **(none)** |
+>
+> The other four sites I claimed would gain a block (oufe, robot-hands, vonc,
+> webdesign) **do not have `contact-info` in their page plans** — vonc's contact
+> page plans only `["hero-contact","contact-form"]`. The resolver fix is still
+> correct and fleet-wide, but "5 sites gain a contact block" conflated *"the
+> resolver can now find an email"* with *"a page asked for one"*. **Adding
+> `contact-info` to those plans is a separate, editorial change and is NOT part
+> of this bug.**
+>
+> Independent corroboration on the one real page: a `needs_section_data` work
+> item, `section_data_contact_contact-info_72b9e3a6…`, has sat at
+> `needs_human_review` since **2026-07-17** — raised by exactly the
+> `on_missing: needs_human_review` withholding this bug describes.
+>
+> ### What remains, and why it is not moving
+>
+> The live acceptance test is **queued and correctly formed** — work item
+> `45f9b005-6a41-4128-8c5b-0236542f4658`, `needs_page` / `triaged` / `pipeline=build`
+> / `handler_agent=page-build-handler`, site unlocked, `attempt_count 0 < 3`.
+>
+> **It is blocked by a fleet-wide build-dispatch stall, not by anything here — and THREE ROLLS DID NOT CLEAR IT.**
+> `build-dispatch-loop` last completed a work item at **15:44 UTC**; since then
+> **72 items sit at `triaged` with `handled_by` NULL** across 6 sites
+> (gamesdesign 35, gaswholesalers 31). `build-pipeline-trigger` is enabled and
+> firing on schedule (last 18:15) — its `pre_query` gate passes, the consumer is
+> what has stopped. That is **`bugs_open/029`** (hung spawns saturate the dispatch
+> group and halt builds fleetwide), already owned: another lane committed
+> *"dispatch still the blocker"* (`475d55c0b`) and *"a dispatch stall handed to
+> its owner"* (`a8c21d233`) the same afternoon. **Do not fix it from here.**
+>
+> **To close this bug:** when the build queue moves, that work item rebuilds
+> `vetcomparison.uk/contact`. Expect **3 components** with the email present in
+> `contact-info`, and the 2026-07-17 `needs_section_data` item auto-closed by
+> `closeResolvedDataRequest`. **Negative control, on the same page:** `phone`,
+> `address` and `hours` exist in NO store for this site and must stay **absent**
+> from the rendered block — if any appears, the fallback is fabricating and the
+> fix is wrong. Then move this file to `bugs_closed/`.
+>
+> - **Root cause was NOT the flat/nested path mismatch.** Both remedies in the
+>   "Fix candidates" section below fix **0 of the 8 affected sites** — the nested
+>   values are empty on exactly those 8. The resolver could not read the
+>   canonical `sites` row. **Read the RESOLVED section at the bottom of this file
+>   before anything in the middle.**
+> - **Fix:** `ef9e7e999` + `489ae1e7f` (`plan_sections_action.go` —
+>   `resolveSpecAlias`, `ensureSiteRow`), registered **PBP-026**.
+> - **Diagnosis loop: CONFIRMED**, first iteration, corr `0f76987c`.
+> - **Council gate: APPROVED round 1**, corr `dd03a73b`, 4 advisory objections,
+>   none high-severity; the two actionable ones are answered in `489ae1e7f`.
+> - ~~**Why still in `bugs_open/`:** the fix is Go … until an image is rebuilt and
+>   rolled.~~ **SUPERSEDED 19:20 UTC — it HAS rolled and is verified live on
+>   v1.0.1219.** It stays open only for the live acceptance test above.
+> - ~~**To close it:** … rebuild a contact page on **vonc.com** … then confirm
+>   **gamesdesign.co.uk** still renders no contact block.~~ **SUPERSEDED — both
+>   subjects were wrong.** `vonc.com/contact` does not list `contact-info` in its
+>   plan, and `gamesdesign.co.uk` has no `contact` page at all (its page is
+>   `contact-index`, and it plans `contact-block`, a different component). **Use
+>   `vetcomparison.uk/contact` for both**: it is the only page fleet-wide in the
+>   broken state, and its own `phone`/`address`/`hours` are the negative control,
+>   since they exist in no store and must stay absent. Procedure: the "What
+>   remains" section above, or `RUNBOOK …§4` (whose worked example still names
+>   vonc — **use the page_id in the handoff instead**).
+> - ~~**Then:** the 5 sites … need their contact pages rebuilt.~~ **SUPERSEDED by
+>   the ONE PAGE correction above.** Four of those five do not ask for the
+>   component; giving them one is an editorial change, not this bug's.
+>
+> *(These three bullets are struck rather than deleted: they are what this thread
+> believed before it ran its own verification recipe, and the recipe naming the
+> wrong subject is exactly what exposed the error — see `WRONG_CALLS.md`.)*
+
+</details>
+
+*(Recovered by the lane that found the duplicate while closing `bugs_closed/265`. If any of it
+contradicts the closure above, the closure is later and this is the earlier belief — which is
+precisely why it was preserved rather than dropped.)*
+

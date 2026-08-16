@@ -1070,6 +1070,55 @@ def _is_true(v):
     return v is True
 
 
+def check_bug_file_duplicated(files, ref, findings):
+    """A bug file that exists in BOTH bugs_open/ and bugs_closed/ — a closure that
+    COPIED instead of moving.
+
+    WHY THIS EXISTS. CLAUDE.md's pathspec rule and `git mv` interact badly: naming
+    only ONE of the two paths on the commit ships the new file and leaves the old
+    one tracked, so the bug reads as open and closed at once. The landmine for it
+    has been in LANDMINES.md for weeks and it still fired twice — measured
+    2026-08-16, `bugs_open/` carried stale duplicates of 145 (closed 2026-07-31)
+    and 072 (closed 2026-07-31), i.e. the open backlog overstated itself by two
+    for a fortnight and nothing noticed.
+
+    THE COST IS NOT COSMETIC. A session picking "the next unowned open bug" reads
+    the stale copy, which still says OPEN and still carries the old close
+    criteria, and redoes work already done — that is exactly how it was found
+    (a lane verified 145's fix at the pod before discovering it had been closed
+    at v1.0.1217 a fortnight earlier). The duplicate ALSO splits the record:
+    072's open copy accumulated a re-verification and a correction that its
+    closed copy never received.
+
+    Advisory, like everything here. It fires on any commit touching either
+    directory, because that is when the mistake is made and when it is cheapest
+    to fix — name BOTH paths on the commit and verify at HEAD, not on disk:
+      git ls-tree -r --name-only HEAD -- bugs_open/ bugs_closed/ | grep <number>
+    should return exactly one line.
+    """
+    if not any(f.startswith("bugs_open/") or f.startswith("bugs_closed/") for f in files):
+        return
+    try:
+        repo = sh("git", "rev-parse", "--show-toplevel").strip()
+    except Exception:
+        return
+    for other, this in (("bugs_closed", "bugs_open"), ("bugs_open", "bugs_closed")):
+        for f in files:
+            if not f.startswith(this + "/") or not f.endswith(".md"):
+                continue
+            twin = os.path.join(repo, other, os.path.basename(f))
+            if os.path.exists(twin):
+                findings.append((
+                    "bug-file-duplicated", f,
+                    f"the same filename also exists in {BOLD}{other}/{RESET} — a closure that COPIED instead of moving",
+                    "A bug cannot be open and closed at once: one of the two is stale and the "
+                    "next session to pick an unowned bug may redo finished work. Name BOTH "
+                    "paths on the commit (`git commit bugs_open/OLD.md bugs_closed/NEW.md`) "
+                    "and verify at HEAD, not on disk. If the surviving copy is missing content "
+                    "the other accumulated after the close, carry it across before removing it.",
+                ))
+
+
 def check_truncation_without_reader(files, ref, findings):
     """bugs_closed/076 — a seeded workflow that tolerates a cut response, unread."""
     sql = [p for p in files if p.endswith(".sql")]
@@ -1792,6 +1841,7 @@ def main():
     findings = []
     for check in (check_untouched_twin, check_gofmt, check_stdin_eater, check_declared_pairs,
                   check_unguarded_migration_insert, check_append_only_docs,
+                  check_bug_file_duplicated,
                   check_truncation_without_reader, check_logged_model_output,
                   check_new_capability_surface, check_register_coverage,
                   check_register_entry_without_row,
