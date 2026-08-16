@@ -10759,7 +10759,19 @@ code change owed at the next roll, tracked in RFC_015 §5.
   stamp before believing a new auditor's unknown category files a `capability_gap`. Nuance
   the fix surfaced: an unknown category on an EXISTING page never reached the fallback —
   Rule 4's `default:` swallows it as `content_rewrite` (unchanged, documented in the test).
-  The 4 `detected` minted rows stay put (`bugs_open/115`'s evidence; owner decision).
+  ~~The 4 `detected` minted rows stay put (`bugs_open/115`'s evidence; owner decision).~~
+- **UPDATE 2026-08-16 (279 lane): BOTH HALVES FIXED AND LIVE — v1.0.1303 (image label
+  `revision=5e075a6f9`) carries `d6d56e540` + `36aca20bc`; `bugs_closed/279`, `bugs_closed/115`.**
+  Live proof: brief-fidelity-auditor's first real sweep-shaped run filed 8 findings → 8 routed
+  items, `unrouted_categories` empty, 0 `audit_finding_%` rows since the roll. The 4 detected
+  rows were CANCELLED by owner decision (reasons inline). Half 2 of this entry is now historical:
+  an off-vocabulary category files `capability_gap` (deferred, empty handler) and BOTH
+  `pattern-check.py` (advisory) and `TestNoDynamicallyConstructedItemTypes` (blocking) refuse a
+  constructed item_type at commit/build time. **Still true and now sharper:** the broader
+  blocked check is producer-scoped (`spec->>'audit_source'`), so a discovery-filed blocked
+  `capability_gap` cannot mute an audit-filed one — but `bugs_open/284` (something CLAIMS
+  deferred capability_gap rows and blocks them, 18 rows / 14 sites) is the reason those blocked
+  rows exist at all, and is open.
 - ~~**UPDATE 2026-08-15 (272 fix session): half 1 is FIXED IN CODE, NOT YET LIVE.**~~ Commit
   `2a3ea3e2c` (council-approved, corr `5a79843a`) adds the missing `map[string]interface{}`
   case — `parseAuditFindings` now unwraps `v["findings"]` — and the zero path reports
@@ -11223,3 +11235,13 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **the check:** before AND after any editor pass on a tool slot, measure visible text, not tags: `SELECT length(regexp_replace(regexp_replace(regexp_replace(regexp_replace(rendered_html,'<style[^>]*>.*?</style>','','gis'),'<script[^>]*>.*?</script>','','gis'),'<[^>]+>','','g'),'\s|&[a-z#0-9]+;','','g')) FROM page_components WHERE id='<slot>'` — a tool with 0 is a shell whatever its byte length. And read the TEMPLATE's `{{.` census first (`regexp_matches(html_template,'\{\{\.([a-z_0-9]+)','g')`): a fork whose template names copy fields that `content_data` does not carry cannot be repaired by ANY re-render — it needs the copy supplied (framework, not by hand) or a rebuild. Recovery when it has already fired: the tool-deployer's verbatim template is still in `content_components.html_template`; the pre-edit `rendered_html` is NOT archived for these rows (no `page_component_history` row for the pair) — do not assume the trigger caught it.
 - **relations:** bugs_open/286 (records the case; asks for a text-content floor beside the class-attr floor) · bugs 178/253 (the floors that pass) · MEMORY [[a-complete-work-item-is-not-a-repaired-artefact]] · the lane NOTES entry "a failed section_edit may have half-applied … read the artefact in BOTH directions" — this is the direction it did not read
 - **added:** 2026-08-16, webdesign_tool_rebuilds lane (found grading the ab-test rerender at the artefact: 47 raw tags served, 0 visible chars stored — the same page, two different failures, neither the one the queue reported)
+
+## An agent seeded WITHOUT a `description` cannot be spawned, cannot receive a message, and is missing from the admin list — and the spawn failure looks exactly like the handshake flake
+
+- **footprint:** `agent_definitions.description` · any `INSERT INTO agent_definitions` seed whose column list omits `description` · `spawn_actions.go getAgentDefinition` · `ai_actions.go loadAgentDefinitionForAction` · `generate_image_actions.go loadAgentDefinitionForImageAction` · `platform/messaging/processor.go` (definition resolver) · `internal/core-manager/admin/system_handlers.go` (agent list) · any orchestration that FAILED at a `spawn_agent` step
+- **the trap:** the column is nullable with no default, and until commit `3c8a87101` all five readers scanned it into a plain Go `string`. A row with NULL description therefore fails EVERY path that loads it: `spawn_agent` dies with `sql: Scan error on column index 3, name "description": converting NULL to string is unsupported`; the messaging processor would fail the agent's first message the same way; the admin list `continue`s past the row so the agent silently vanishes from the one place a human would look. `[MEASURED 2026-08-16]` exactly one live definition was in this state — `brief-fidelity-auditor`, whose seed's column list simply omitted `description` — 1 of 193, the other 3 NULLs fleet-wide being inactive scratch probes. **The failure wears the spawn→call handshake flake's costume** (MEMORY: ~half of spawn→call pairs fail fleet-wide), so a session seeing `FAILED|spawn_<x>` will retry and move on. **Behind an `error_step` it is invisible**: the improvement loop's audit chain continues past a failed auditor by design, so a NULL-description auditor makes every sweep report COMPLETED with that auditor silently skipped.
+- **the check, before you conclude a spawn "flaked":** read the error column, not the status — `SELECT left(error,200) FROM orchestration_states WHERE correlation_id='<corr>'`. `converting NULL to string` on `description` is this, not the flake. And before you seed ANY agent: `SELECT type FROM agent_definitions WHERE description IS NULL AND is_active AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL;` must not list it after your seed applies — or just put `description` in the column list. `TestAgentDefinitionDescriptionIsNeverScannedBare` (`agent_definition_nullable_columns_test.go`) fails the build if a sixth bare reader appears; it is module-wide because two of the five were outside `actions`.
+- **fix state:** data half LIVE (mig `420`, one row); code half (`COALESCE(description,'')` at all five readers) committed with `bugs_open/287`, inert until the next chassis + core-manager roll. `NOT NULL DEFAULT ''` on the column is the cleaner door and is the OWNER's call (DDL on a shared 209-row table with an estate-wide seed convention) — recorded in 287, not slipped in.
+- **source:** 2026-08-16, `bugs_open/279` lane, the FIRST real spawn of `brief-fidelity-auditor` after migration `419` wired it into the improvement loop. Found because the lane was watching that exact orchestration for a different proof; the error string was read rather than the status retried.
+- **relations:** `bugs_open/287` · `bugs_closed/279` (the wiring that exposed it) · `bugs_closed/115` (the auditor "nobody ran" — two causes, not one) · MEMORY [[spawn-call-handshake-races]] (the flake this impersonates)
+- **added:** 2026-08-16, bugs_open/279 lane

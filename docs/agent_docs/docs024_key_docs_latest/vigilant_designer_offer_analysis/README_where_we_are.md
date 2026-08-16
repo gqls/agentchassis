@@ -868,3 +868,29 @@ picking-up is not yet known, so it is filed (bug 284) with the evidence and the 
 rather than a guessed cause. It also explains a nasty interaction another session spotted: those
 wrongly-blocked rows would have silently muted the new roadmap filings on fourteen sites — that
 particular mute is now fixed.
+
+---
+
+## 2026-08-16 — the release landed; the auditor ran for real; one more bug found by trying
+
+*(appended by the 279 lane, closing out yesterday's decisions)*
+
+The fresh chassis carries all of yesterday's fixes — checked against the image itself, not the
+version number. So the held wiring went in, and I dispatched the brief-fidelity auditor at the
+mortgage site to prove the whole chain.
+
+The first attempt failed before the auditor even started, and the failure looked like the routine
+"spawn didn't take" flake this platform is known for. It wasn't. The auditor's original seed had
+never given it a description, the database allows that, and every piece of code that loads an
+agent choked on the empty field. **This agent had never been startable in the normal way** — which
+is a second, independent reason "nobody ran it" was true, on top of the wiring. Worse: the loop
+is designed to carry on when one auditor fails, so had I not been watching this exact run, every
+sweep would have reported success with the auditor quietly skipped. Filed as bug 287; the one-row
+fix is live and the code fix (make all five loaders tolerate the empty field, plus a build check
+so a sixth can't reappear) is committed for the next release. Whether the column should be made
+mandatory outright is a schema change I've left as your call.
+
+Second attempt: it worked, end to end. Eight findings, every one routed to a real handler — the
+"cookie-cutter" and "animations beyond hover" complaints from July are back in the queue,
+this time reachable. Bugs 279 and 115 are closed. Still open and owned: 284 (what keeps
+grabbing parked roadmap rows) and 287's code half awaiting its release.
