@@ -63,3 +63,55 @@ whether to put the shared ported-page template back to its plain pass-through (i
 carrying the 14 August rewrite, safely un-propagated), and whether to start the lane that
 decomposes the sixty-three ported tools properly (the proposal lists what has to be true
 first).
+
+## 2026-08-16 — the new build is live, and I have to correct three things I said yesterday
+
+The code is now running in the fleet (build 1303 — checked by asking the running binary which
+commit it was built from, with a fake commit as a control so a "not found" would have meant
+something). The safety fence has already been seen doing its job on the live system: another
+lane deliberately pointed the improver at the shared ported-page component this morning and it
+was refused, naming the 115 pages it would have hit.
+
+Now the corrections, because they matter more than the good news:
+
+1. Yesterday I wrote that the 14 August rewrite of the shared template had not reached any live
+   page. That was wrong for one page. The improver's *delivery* step had picked an arbitrary
+   page (the same "which instance?" blindness, one step further along) and re-rendered it from
+   the poisoned template; that page served an empty article with made-up download links for
+   about a day. The lane working the incident (bug 285, "tool-improver shared write") found it
+   and restored it, and also put the shared template and the 114 flagged pages back on 15
+   August. My own census had shown exactly one page that did not fit — I gave it a plausible
+   name and moved on instead of opening it. That is written up as a wrong call.
+2. I said no tools had acceptance PLANs. I had counted the wrong table. There are 143 tool
+   PLANs, 14 of them for the ported webdesign tools. The decision to send ported findings to a
+   human still stands, but for its other reason: nothing can yet apply a fix to one ported page
+   without touching the shared component. Building that per-page repair is the next thing, and
+   the 285 lane has it.
+3. I described one other piece of code as able to rewrite a shared template from a single page.
+   On closer reading it repairs the component as a whole by design; it is not the same hazard.
+
+Nothing is left for the owner to restore. What remains for this bug: the health check has not
+yet swept webdesign since the build went live (its rotation last visited on 9 August), so I have
+fired one pass by hand and am waiting for it — the census of what it files is what closes 281.
+
+## 2026-08-16 (afternoon) — closed, with one more honest note
+
+The by-hand discovery pass ran on webdesign against the live code: sixty-six tools examined instead
+of four; thirteen ported tools got structural findings for a human to look at (mostly "no mobile
+breakpoint", a few external calls); twelve got queued for the AI reviewer; nothing was pointed at
+the shared component; nothing was filed on non-tool pages. Then I filed one AI review for the Mind
+Map by hand — safe now that the reviewer loads the exact page — and it reviewed the actual Mind Map
+code: five out of ten, four serious problems (touch interaction does not work at all, controls that
+only appear on hover). So the machinery does what it was meant to.
+
+The honest note: the Mind Map's *legibility* problem, which started all this, is not something the
+structural check can see — its colours are theme variables, and it is the theme's resolved values
+that were pale. I had repeated the bug file's assumption that a "hardcoded colours" check would catch
+it, and never ran the one-line census that would have shown otherwise. That is written up. The AI
+review tier is the one that sees this class, and it now can.
+
+Bug 281 is closed. Two things came out of it for others: the AI reviewer's runs have been getting
+stuck at the end of their findings loop since before my change (they never mark themselves done, so
+the same audit gets re-run every forty minutes until it gives up — I've filed it for diagnosis), and
+the "fix one ported tool without touching the shared component" ability still does not exist (the
+285 lane has it next). The full state and pointers are in `HANDOFF_2026-08-16_continue_here.md`.

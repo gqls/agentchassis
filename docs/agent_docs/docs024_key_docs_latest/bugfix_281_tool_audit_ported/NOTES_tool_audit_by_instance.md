@@ -141,3 +141,51 @@
   poison page restored (3,781 chars, no `portedPageAssetList`).
 - **tool_health has NOT run since the roll** (last item 2026-08-15 14:51Z; 0 `ported_tool_fix`
   rows fleet-wide). The first-sweep census needs a design-discovery pass on webdesign — next.
+
+## 2026-08-16 — first sweep on the live image (design-discovery fired by hand, corr `172ef9b3…`, 10:07:52Z → COMPLETED 10:09Z)
+
+- Rotation had last visited webdesign 2026-08-09, so I fired `082_fire_design_discovery_any_site.sh`
+  (live `run_checks.config.checks` includes `tool_health` + `tool_acceptance` — read from the row).
+  Run: 44 items inserted, 3 skipped, `checks_failed []`.
+- **Census `[MEASURED 10:12Z]`:** `ported_tool_fix` **13** (all `needs_human_review`, handler NULL,
+  page_id set, 13 distinct keys == rows; all on the shared ported component; findings: 9× no @media,
+  3× fetch(), 1× CDN — all `low`); `audit_tool` **12** = the per-run cap, alphabetical
+  `animated-favicon … css-variables` (12 distinct keys, page_id set); `improve_tool` **0** — the 4
+  forks all had items inside 7 days (cooldown working, unchanged semantics). Negative control:
+  **0** new tool items on non-tool pages, demand control 34 non-tool ported pages exist. Register
+  the census verdict: coverage widened as designed; instance identity holds.
+- **The motivating case is NOT detected by the structural tier — and the bug file's premise for
+  it was wrong.** `tool-mind-map` drew no `ported_tool_fix`; the bare-hex census on its
+  `rendered_html` is **0** (2 hex strings anywhere, both non-colour): its styles are `var(--text-dim)`,
+  `var(--surface)` … throughout. The illegibility the owner saw is the RESOLVED value of those
+  variables (contrast — bug 122's ink-slot class), which no regex over the source can see. The 281
+  file's "the existing `hardcoded_colors` check already looks for exactly this class of thing" is
+  refuted at the artefact; my plan repeated it and I never ran the census I wrote as a step (the
+  `>3 bare hex verified by regex census first` line) → WRONG_CALLS. Note the row was rewritten by
+  hand at 18:06:05Z on 08-15 (owner-gate `section_edit` cancelled 18:06:38Z), so whether it was
+  var-based BEFORE that edit is unknowable from the live row.
+- What DOES reach the Mind Map's defect class: Tier-2 LLM audit (`audit_tool` — reaches `m…` in a
+  later capped pass; **hand-filed one now, page-pinned, item `1bfd5d1e…` as the instance-pin
+  proof — SAFE only because 425's pin is live**), `palette_contrast` (in the same discovery run —
+  check what it filed for this page), and Tier-4 vision (bug 243, never executed for any tool).
+
+## 2026-08-16 (later) — instance-pin proof, a pre-existing stall found, 281 CLOSED
+
+- Hand-filed page-pinned `audit_tool` for the Mind Map (`1bfd5d1e…`, created_by
+  `bugfix-281-instance-pin-proof`, `triaged`); claimed 10:11:53Z. Run `a6f7ac42…`: `load_tool` →
+  `tool_data.page_id` = the item's page, `component_level=section`, `source_html` 18,608 = the row's
+  `rendered_html`; llm_audit score 5/10, 17 findings (4 high: mouse-only drag/pan, hover-only node
+  controls, `nodeLayer.prepend(svgLayer)` on every render, global `window.onmousemove` clobber); loop
+  ran 10 iterations `check_target_class → create_review_item → done` — **0 improve_tool** (gate works
+  live). PIN PROVEN.
+- **But the run never left `create_items_loop_complete`** (10:16Z → roll at 10:41Z killed it →
+  FAILED; the sweep re-dispatched at 10:54 and 11:37, both stalled the same way; item `failed`
+  12:17Z). Compared against history: pre-425 tool-auditor runs show the identical shape (20 RUNNING /
+  2 FAILED at that step) → PRE-EXISTING, not 425. Correlation: 43 runs with >10 findings (the
+  `max_iterations` cap) stuck/failed vs 1 completing; 3 uncapped also stuck. Filed **`needs_diagnosis`
+  `815322b9…`** (mechanism + pointers, no counts asserted). Only ONE `audit_review` row exists for
+  the page — the per-page `item_key_suffix_field` collapses N findings to 1 (residual, noted).
+- Roll #2 today: pods `v1.0.1304` at 10:41Z (`git merge-base` on the new stamp not re-run — the
+  fix commits precede 1303's HEAD, so they are in 1304 too by construction).
+- **281 CLOSED**: both mechanisms fixed+live+measured; close section appended; file `git mv`'d with
+  both paths on the commit. Handoff written: `HANDOFF_2026-08-16_continue_here.md`.

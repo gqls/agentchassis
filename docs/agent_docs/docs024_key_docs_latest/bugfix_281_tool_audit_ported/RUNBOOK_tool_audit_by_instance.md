@@ -159,3 +159,20 @@ WHERE default_config::text LIKE '%update_component_html%'
 - Needle-gate discipline: `snapshot_agent` backup first; every UPDATE's WHERE is gated on the
   pre-state literal (params array / start_step / slot path), so a re-apply is a 0-row no-op and
   the pre-flight refuses it anyway; the prompt needle is counted (=1) before the replace.
+
+## Post-roll census result 2026-08-16 (recorded so nobody re-runs it blind)
+
+`[MEASURED 10:12Z]` webdesign, design-discovery corr `172ef9b3…`: `ported_tool_fix` 13 (13 keys, all
+handler-less, page_id set), `audit_tool` 12 (cap), `improve_tool` 0 at the shared component (1 Tier-4
+`acceptance_fail` on a fork), non-tool pages 0 (demand control 34). **Mind Map: `hardcoded_colors`
+does NOT fire — bare-hex census 0, styles are `var(--…)`.** The section above headed "Mind Map
+detectability" is therefore a NEGATIVE result by design; the LLM tier is the detector — see the
+instance-pin proof query, and read the audit with:
+```sql
+SELECT collected_data->'audit_result'->'result'->>'quality_score', f->>'severity', left(f->>'description',160)
+FROM orchestration_states, jsonb_array_elements(collected_data->'audit_result'->'result'->'findings') f
+WHERE orchestration_id='a6f7ac42-357a-4860-9cff-dea601d42873' ORDER BY 2;
+```
+**Churn warning:** tool-auditor runs stall at `create_items_loop_complete` (pre-existing; diagnosis
+`815322b9…`) — expect each `audit_tool` item to be re-dispatched every ~40 min until `failed`. Do
+not read "12 audit_tool items = 12 audits".

@@ -194,3 +194,33 @@ is recorded.
   115 pages / 2 sites, the 285 lane's induced test). `tool_health` has not yet run on webdesign
   since the roll (last item 2026-08-15 14:51Z) — the first-sweep census in the RUNBOOK is what
   remains before this file can close.
+
+## CLOSED 2026-08-16 — fixed AND live, measured at the artefact
+
+- **Mechanism 1 (blind producer):** live in `v1.0.1303`/`1304`. First sweep on webdesign (design-
+  discovery corr `172ef9b3…`, 2026-08-16 10:08Z, fired by hand — rotation last visited 08-09):
+  **13 `ported_tool_fix`** (all handler-less `needs_human_review`, page_id set, 13 distinct keys;
+  9× no @media, 3× fetch(), 1× CDN) + **12 `audit_tool`** (the per-run cap, `animated-favicon…
+  css-variables`, page_id set) — all on ported instances; **0 `improve_tool` at the shared
+  component** (the only improve_tool in the pass is a Tier-4 `acceptance_fail` on a 1-placement
+  fork); the 4 forks correctly on 7-day cooldown; **0** tool items on non-tool pages (demand
+  control: 34 non-tool ported pages exist). Run: 44 items, `checks_failed []`.
+- **Mechanism 2 (arbitrary instance):** proven on the live run of a hand-filed, page-pinned
+  `audit_tool` for the Mind Map (`1bfd5d1e…`, orch `a6f7ac42…`): `tool_data.page_id` == the
+  item's page, `component_level=section`, `source_html` = that page's 18,608-char `rendered_html`,
+  the LLM's findings cite the Mind Map's own code (`nodeLayer.prepend(svgLayer)`, 22×22 `.btn-mini`,
+  mouse-only drag — score 5/10, 4 high), and every finding routed to `create_review_item` —
+  0 `improve_tool`. Hand-filing such an item was UNSAFE before 425; it is the proof now.
+- **Write fence:** live, seen refusing (2026-08-16 09:59Z, 115 pages / 2 sites, induced by the 285
+  lane).
+- **What the motivating case taught (correction to this file's verify section):** the Mind Map's
+  illegibility is NOT reachable by `hardcoded_colors` — its styles are `var(--…)` throughout (bare-hex
+  census 0); the defect is resolved-contrast (bug 122's class). The structural tier now REACHES it and
+  correctly files nothing for it; the LLM tier (Tier 2) is what sees its defects, and it now can.
+- **Residuals, each with a home:** Tier-4 judge's function-keyed re-derivation (Finding B — open,
+  unowned); no automated per-instance fixer for ported tools (TL-042 gap (b) — the 285 lane's next
+  item); `bugfix_285_shared_template_write` owns the incident recovery (done) and its close;
+  **tool-auditor runs stall at `create_items_loop_complete` (pre-dates 425 — 20 RUNNING / 2 FAILED
+  there before it; strongly correlated with findings > `max_iterations` 10) so items re-dispatch and
+  re-audit until `failed`** — filed `needs_diagnosis` `815322b9…` 2026-08-16; the LMC B2
+  eligibility regression (handed to that lane 2026-08-15).
