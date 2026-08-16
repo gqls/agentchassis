@@ -260,7 +260,7 @@ duplicated in full.
 
 ### FTW-031 — Scripts bundle in B2 as the training deployment unit
 - **status:** deployed
-- **status-evidence:** "re-uploading the object IS the whole deploy" (2026-06-03); flat-bundle verification steps confirmed in a later runbook.
+- **status-evidence:** "re-uploading the object IS the whole deploy" (2026-06-03); flat-bundle verification steps confirmed in a later runbook. Latest deploy 2026-08-15 17:45Z (md5 `6f27b21a…`, adds `MIN_VRAM_MIB` to `00_vm_setup.sh`); the deploy is now scripted — `finetuning_uk_service/deploy_bundle.py` PUTs and refuses to report success unless the read-back md5 matches, closing the byte-identical trap at the tool.
 - **what:** The on-VM scripts (run.sh, 00_vm_setup.sh, 02_train, 03_inference_test) ship as `finetuning/scripts/bundle.tar.gz` in the personae-model-training bucket; the launcher presigns a GET and the VM curls+untars it. The bundle must be flat (files at archive root). Re-uploading the object deploys new training code — no chassis or DB change required — with the corollary that editing a script without re-tarring deploys nothing (a byte-identical md5 trap). The agent definition holds only the object key.
 - **sources:** NOTES_phase5_training_launcher_running(45).md#update-2026-06-03-191x; working/phase5/UPLOAD_bundle.sh; RUNBOOK_iter0_pretrigger(8).md#4a; working/scripts/README_setup.md
 - **relations:** run.sh (FTW-030); presigned data plane (FTW-032); Flywheel C training pipeline (FTW-011)

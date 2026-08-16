@@ -6,8 +6,8 @@
 > `Content-Range …/67989958`). FTW-032 proven end-to-end; FTW-035's enablement
 > condition MET (monitor still disabled — owner switch). Full evidence: NOTES
 > "2026-08-15 evening"; milestone read-out: `SUMMARY_2026-08-15_…`. §5 below is
-> DONE except: **B2 bundle redeploy owed** (live bundle still hard-requires 80GB;
-> RUNBOOK §2), **GGUF + playground timing not started**, three new launch traps in
+> DONE except **GGUF + playground timing not started** (~~B2 bundle redeploy~~
+> DEPLOYED 17:45Z, md5 `6f27b21a…`, verified via the launcher's own GET path), three new launch traps in
 > RUNBOOK §9. Everything else here (verdict, §4's 259 decision, boot-variability
 > correction, lane boundary) still stands.
 

@@ -77,8 +77,8 @@ vCPU derivation proven on two specs: a6000 → 6 (`[6,8]`), a100xl → 8
 1. `/workspace` absent on the `base` template until setup creates it — launch now
    `mkdir`s first (RUNBOOK §9).
 2. `00_vm_setup.sh` VRAM gate hardcoded 79,000 MiB (the 70B assumption) →
-   `MIN_VRAM_MIB`, default unchanged (`2094a02e2`). **B2 bundle redeploy still
-   owed** — live bundle hard-requires 80 GB until then.
+   `MIN_VRAM_MIB`, default unchanged (`2094a02e2`). Bundle **deployed to B2
+   17:45Z**, md5 `6f27b21a…`, verified via the launcher's own presigned-GET path.
 3. `… & echo LAUNCHED` printed success unconditionally while the chain had died —
    ssh_exec reports the *session's* exit, not the chain's. Marker now grouped and
    conditional; read stderr always.

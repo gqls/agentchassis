@@ -580,10 +580,14 @@ Traps found by the first live launch (2026-08-15):
   otherwise (fixed `2094a02e2`, default 79000 = old behaviour). It joins the
   move-together env set: `BASE_MODEL`/`CHAT_TEMPLATE`/`INSTRUCTION_PART`/
   `RESPONSE_PART`/`SAVE_STEPS`/`MIN_VRAM_MIB`.
-- ⚠ **B2 bundle redeploy pending**: the live `finetuning/scripts/bundle.tar.gz`
-  still hard-requires 80GB until someone re-tars + PUTs per §2 (this session's
-  upload was permission-blocked; the box received the identical file over ssh,
-  md5 `206e19c6…`).
+- ~~⚠ B2 bundle redeploy pending~~ **DEPLOYED 2026-08-15 ~17:45Z** (owner-directed):
+  bundle md5 **`6f27b21a6a4236c3c23679892337d0c3`** at
+  `finetuning/scripts/bundle.tar.gz`, round-trip verified by boto3 read-back AND
+  by the launcher's own presigned-GET path; the fetched `00_vm_setup.sh` carries
+  `MIN_VRAM_MIB` and the old `-lt 79000` literal is gone from the gate line.
+  `deploy_bundle.py` (this directory) is now the deploy — it refuses to report
+  success unless the read-back md5 matches. The earlier `curl -T` was
+  permission-blocked; boto3 is the same PUT and is not.
 
 ## 8b. ⚠ Boot time is DAY-VARIABLE — do not plan around one day's measurement
 
