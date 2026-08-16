@@ -124,3 +124,8 @@
   2 sites"; wrapper still 4,664/`{{.body}}`/4 versions. Not touched by this lane; noted for the record.
 - Rerender queue timing: the 22:05Z owner-gate rerender was claimed 23:26Z (~80 min behind the
   serial dispatcher); expect the revert to take about that.
+- **ab-test revert VERIFIED at the served page 10:1xZ** (item complete 10:01:39Z — queue was empty):
+  raw `{{.` 0 (was 47), `abc-container` 0 (fork gone), `class="ported-page"` 1, control ×3, `<script>` 5,
+  inputs/buttons present. **RUNBOOK correction:** the grade line's `ported-page-section` fingerprint was
+  never in the served markup (0 before and after) — a check that cannot fail; replaced with
+  `class="ported-page"`, taken FROM the artefact.

@@ -35,7 +35,7 @@ name the page, verify the item completes, then grade at the artefact below.
 
 ```bash
 curl -s https://webdesign.co.uk/<tool-url> -o /tmp/t.html
-grep -c 'ported-page-section' /tmp/t.html   # must be 0
+grep -c 'class="ported-page"' /tmp/t.html   # must be 0 after replacement — CORRECTED 2026-08-16: 'ported-page-section' was never in the served markup (0 before AND after; fingerprint taken FROM the artefact)
 grep -c '{{\.' /tmp/t.html                  # must be 0
 grep -c '<script' /tmp/t.html               # must be ≥1 (tool is interactive)
 ```
