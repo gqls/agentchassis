@@ -86,11 +86,45 @@ the "what it deliberately does not say" reasoning are all in
 > The adoption-route mirror below remains a valid fallback, but it is **no longer the first
 > choice** — prefer the planner route, which is the framework doing its own job.
 
-Steps, in order:
-1. Register the approved copy in `evidence_base` as `supplied_copy.privacy`, **deriving** the
-   new spec row from the live one (`data || {...}`) so existing `banned_claims`/facts carry
-   across untouched. Pattern: `noted_rebuild/apply_privacy_copy.py` — **it is noted-specific
-   and needs parameterising**, do not run it as-is.
+### ⚠ 3.1a THE REMAINING DECISION — how the copy stays VERBATIM. Read before step 1.
+
+Measured 2026-08-16 while starting this, and it changes the shape of step 1:
+
+- **`supplied_copy` has ZERO Go readers** (`grep -rn "supplied_copy" --include=*.go platform/ internal/`
+  → nothing). It is not a mechanism. On noted it works **only** because the copy is also
+  written into `evidence_base.writer_block`, which IS fed to the writer's prompt, and that
+  prose tells the model to reproduce it word for word. **So "verbatim" here is a prompt-level
+  instruction, not an enforcement.** noted's session verified the result 22/22 by hand
+  afterwards — do the same, do not assume.
+- **dartsonline has NO `evidence_base` aspect at all** `[MEASURED]`. Its 14 live aspects are
+  audience, briefing, classification, content_direction, design_intent, growth_config,
+  identity, imagery_style_guide, resolved_composition, site_config, strategy, submission,
+  tools, vertical_landscape. 14 other sites have one; this one does not. So step 1 is
+  **creating a new spec aspect for this site**, not deriving from a live row — which makes
+  `noted_rebuild/apply_privacy_copy.py`'s whole safety argument (derive `data || {...}` so
+  the existing bans carry across) inapplicable, because there is nothing to derive from.
+  ⚠ Check what `refresh_evidence_base_action.go` would then do to a hand-created aspect
+  before creating one — there is a LANDMINE on that file about a coarse item key.
+
+**Three routes, and the choice is genuinely open:**
+
+| route | verbatim guarantee | cost |
+|---|---|---|
+| **A. planner `new_page` + a new `evidence_base.writer_block`** | prompt-level only | creates a spec aspect this site has never had; must verify the served copy by hand |
+| **B. `deploy_mode='verbatim'`** (`adopt_verbatim.go`; `RerenderSinglePageAction` ships those bytes untouched) | **true byte-preservation** | built for *adoption of crawled sites* behind `--fidelity locked`, and forces `rebuild_policy='owned'` — which the noted lane explicitly forbade for itself. Would need justifying as a deliberate exception |
+| **C. hand-create the page row** (adoption mirror) | n/a | the `bugs_open/080` hand-rolled-identity risk; last resort |
+
+**My reading, not a decision:** A is the framework doing its own job and is reversible; B is
+the only one that actually *guarantees* the legal wording survives a future regeneration,
+which for a privacy policy is worth more than usual. **Worth an owner steer**, since it is
+the same "durable vs regenerable" tension as the guide-imagery work in §3.2.
+
+Steps, in order (assuming route A):
+1. Register the approved copy — on this site that means **creating** an `evidence_base`
+   aspect carrying `supplied_copy.privacy` **and** a `writer_block` that instructs verbatim
+   reproduction (the writer_block is the operative half — see 3.1a).
+   `noted_rebuild/apply_privacy_copy.py` is the shape to copy, **not the script to run**:
+   it is noted-specific and its derive-from-live guard cannot work here.
 2. Create the page via **`needs_content_planning` → `content-gap-planner`**, `approach:
    new_page` asserted in the spec, modelled on `SQL_2026-07-29n_news_page.sql`. File it at
    `status='triaged'` (`detected` does not drain on this site — §5). Fallback only if the
