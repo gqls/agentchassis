@@ -298,7 +298,10 @@ func tailForMessage(s string) string {
 //   internal/core-manager/admin/…        human-driven admin. Not fenced.
 //
 // A new writer that takes a PAGE-scoped finding must call the check below —
-// nothing else will stop it fanning one page's fix across a shared component.
+// and since 2026-08-16 something DOES stop it: component_template_writer_coverage_test.go
+// fails the build for any html_template rewriter in this package that neither
+// calls sharedComponentWriteCheck nor is declared fan-out-intended with a cited
+// reason (council d8668e1f). This header is the narrative; that test is the census.
 
 // sharedComponentWriteCheck is the fence's decision, separated from the
 // action so any writer of html_template can ask it. Refuse when the component
