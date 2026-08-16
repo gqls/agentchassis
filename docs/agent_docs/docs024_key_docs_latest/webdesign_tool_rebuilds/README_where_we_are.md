@@ -38,3 +38,21 @@ aspect-ratio.
 
 The 285 close-out (proving the shared-template fence refuses) is being done by its own lane right
 now — I saw the refusal land at 09:59 and left it to them.
+
+## 2026-08-16 afternoon — the owner has settled the rich apps: rebuild them too
+
+The one open question on this lane was what to do with the handful of hand-built applications —
+the mind-map studio, meme studio, logic architect, the mini-CMS, the pasteboard — and the tools
+whose code sits in separate script files. The plan had them set aside, because a rebuild from a
+written description is a fresh implementation rather than a copy, and something is usually lost.
+That trade was put to the owner and he has accepted it: **rebuild them as well.** So every one of
+the 63 imported tools is now in scope for this route, and nothing here waits on the faithful-copy
+conversion any more.
+
+Three things stay exactly as they were, and matter more for these apps than for the calculators:
+the description we hand the generator has to be written from watching the live tool work, not from
+reading its page; each rebuild is judged before the old one is switched off, because we have
+already had one come back as an empty shell; and the old version is retired rather than deleted, so
+a disappointing rebuild can be put back in one step. My suggestion, which is the lane's to take or
+leave: do these last and one at a time, once the simple tools have proved the process, so the owner
+is only asked to look at the difficult ones after the easy ones are known to work.

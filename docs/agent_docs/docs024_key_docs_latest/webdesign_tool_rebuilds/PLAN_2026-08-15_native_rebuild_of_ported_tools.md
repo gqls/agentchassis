@@ -62,3 +62,36 @@ does NOT execute it and must not be confused with it.
   `removed`.
 - The fixed audit (Track 1, once live) lists the tool under clause (a) — the census in
   `bugfix_281_tool_audit_ported/RUNBOOK` counts it.
+
+## OWNER RULING 2026-08-16 — §3 is REVERSED: the rich apps ARE rebuild candidates
+
+> **CORRECTION to §3 above (do not read §3 as current).** §3 recorded "Rich apps are NOT rebuild
+> candidates" — Mind Map Studio Pro, Meme Studio, Logic Architect Pro, Flat-File Micro CMS,
+> Pasteboard Manager and similar — deferring them to the byte-faithful route or per-tool sign-off.
+> **The owner has ruled option (a): generator rebuild anyway, accepting that it will be a
+> REIMPLEMENTATION rather than a preservation.** The trade §3 warned about (an AI rebuild from a
+> short description silently downgrades a hand-built app) was put to him in those terms and
+> accepted. So there is no excluded class left: all 63 are in scope for this lane, and the
+> decomposition/byte-faithful route is no longer a prerequisite for any of them.
+> Recorded by the `bugfix_285_shared_template_write` lane, which asked the question at closure;
+> this lane owns the execution.
+
+What the ruling does NOT change — the existing conditions in this PLAN still bind, and they carry
+more weight for a rich app than for a converter:
+
+1. **The spec is written from the LIVE tool's behaviour, not from its page.** Already required for
+   the 13 external-script tools (Constraints, above); a rich app is the same shape for a different
+   reason — its value is in interactions no static read of the page describes. Reimplementation is
+   the accepted outcome; an ACCIDENTAL reimplementation of half the features is not, and the only
+   thing separating them is how the description is written.
+2. **Grade the generated component BEFORE retiring the ported slot** (the ab-test lesson, measured:
+   a 13 KB slot with zero visible text and 47 raw `{{.` tags reached the served page). For a rich
+   app the grade is a feature list checked in a browser, not a raw-tag count.
+3. **Retire, never delete.** `build_status='removed'` is the documented tombstone; the ported bytes
+   stay recoverable from `page_component_history` (357 archive) and `cmd/webdesignport` is
+   idempotent. Note the archive row id per tool in NOTES as you go — that is what makes a bad
+   reimplementation reversible in one statement rather than a re-import.
+4. **RECOMMENDED, lane's call: rich apps go LAST and one at a time**, after the simple batch has
+   proved the recipe end to end, with the owner seeing each served page (§4). The ruling settles
+   WHETHER, not the order; front-loading the hardest reimplementations before the recipe is proven
+   spends the owner's review attention on the least certain output first.
