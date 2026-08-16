@@ -243,3 +243,37 @@ watch it fail.
 timeout/failure path (`[UNMEASURED which]`), so `mark_complete` "worked" — by reading a
 different wrong thing. Fixing 274 exposed the allow-list gap. This is the file to cite when
 someone asks why a correct fix made a metric worse.
+
+### 9b. Blast-radius CENSUS [MEASURED 2026-08-16 ~10:35Z, live `agent_definitions`]
+
+Every active loop sub-workflow whose sub-step has a string config value (outside `input_mapping`
+and the step-ref/allow-list keys) whose first dotted segment equals a sibling `output_field`:
+
+| agent | loop | substep | action | config key | names |
+|---|---|---|---|---|---|
+| **build-dispatch-loop** | process_item | **mark_complete** | complete_work_item | **result** | handler_result |
+| build-dispatch-loop | process_item | check_claim | conditional | condition | claim_result |
+| business-intel | process_batch | check_match | conditional | condition | ch_search |
+| business-intel | process_batch | fetch_details | companies_house_fetch | company_number_field | ch_search |
+| maintenance-triage | rebuild_loop | mark_dispatch_complete | mark_maintenance_complete | result_field | rebuild_result |
+| pageflow-builder | build_pages_loop | check_review_approved | conditional | condition | reviewed_content |
+| pageflow-builder | build_pages_loop | save_sections | save_page_sections | sections_metadata_field / html_field | page_content / assembled_page |
+| page-rebuild | build_pages_loop | (same two) | | | |
+| site-work-orchestrator | build_items_loop | check_review_approved | conditional | condition | reviewed_content |
+| site-work-orchestrator | build_items_loop | complete_work_item | complete_work_item | commit_sha | page_deployed |
+| site-work-orchestrator | build_items_loop | save_sections | save_page_sections | (same two) | |
+
+15 sites, 6 agents. **Not all are live defects — but where they are safe, they are safe by
+coincidence, not by the mechanism:** `page_content`, `assembled_page`, `reviewed_content`,
+`page_deployed` are in `propagateIterationOutputs`' hardcoded `commonOutputFields` list, so the
+base key is pre-populated at iteration start — from the PREVIOUS iteration on iteration ≥1
+(the very staleness the propagation comment warns about) and from nothing on iteration 0.
+`claim_result` / `ch_search` / `rebuild_result` are non-awaiting actions whose result is written
+synchronously before the reader runs, so `resolveFieldValue` may find them via its own
+strategies. **`handler_result` is the one that is BOTH awaited (so written only at reply time,
+suffixed) AND not in the propagation list** — which is why it is the one that fires. The
+`site-work-orchestrator` `commit_sha: page_deployed` read is the next-nearest shape
+(`deploy_page` may await) — `[UNMEASURED]` whether it currently records the right sha.
+
+The census query is in the commit that added this section; re-run it before fixing, and make
+the fix generic (§9a) so the table cannot grow back.
