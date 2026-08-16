@@ -1,6 +1,6 @@
--- 435_tool_generator_adopt_existing_page_HOLD.sql
+-- 435_tool_generator_adopt_existing_page.sql
 --
--- ⚠ HOLD — DO NOT APPLY until the chassis binary carrying bugs_open/286's Go
+-- (HOLD LIFTED 2026-08-16 15:15Z: v1.0.1304 build sha 5de6cddbe carries 88897190e — probed with controls.)
 -- (create_tool_component `adopt_existing_page`, register TL-044) has ROLLED.
 -- The `_HOLD` suffix keeps the migration runner's --apply from taking it
 -- (SIDECAR_RE excludes it; MEMORY "migration-runner-practice"). Applied against
@@ -65,8 +65,8 @@ VALUES ('pipeline','build',
     E'## tool-generator save_tool: adopt_existing_page ON (bugs_open/286, migration 435)\n\n'
     'create_tool_component now attaches a same-URL rebuild to the EXISTING tool page (resolveToolPageIdentity + UpsertPageForRole, Refresh:[]) instead of failing on pages_site_id_name_key and deleting its own component. This is the ported-tool replacement route (webdesign_tool_rebuilds lane): after the generator deploys, the lane retires the ported slot and re-renders as a separate verified step.',
     '["build-pipeline","tool-generator","bugs_open/286"]'::jsonb,
-    'migration','435_tool_generator_adopt_existing_page_HOLD.sql');
+    'migration','435_tool_generator_adopt_existing_page.sql');
 
-INSERT INTO schema_migrations (filename) VALUES ('435_tool_generator_adopt_existing_page_HOLD.sql');
+INSERT INTO schema_migrations (filename) VALUES ('435_tool_generator_adopt_existing_page.sql');
 
 COMMIT;
