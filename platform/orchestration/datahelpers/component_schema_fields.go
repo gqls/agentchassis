@@ -177,7 +177,16 @@ func IsLegacyInputSchemaDialect(inputSchema map[string]interface{}) bool {
 // via a different helper (the render gate's paths call missingRequiredLLMFields,
 // not SchemaContentFields directly) — so the render/rerender paths surface a
 // reintroduced dialect even though they never run plan_sections. The extra read
-// is a pure map lookup on the extinct dialect's absence. Nil logger no-ops.
+// is a pure map lookup that costs nothing on the ordinary v2 shape. Nil logger
+// no-ops.
+//
+// It fires on SchemaContentFields' `fromLegacy` — deliberately NARROWER than
+// IsLegacyInputSchemaDialect, which the birth path uses. The two ask different
+// questions: this one is "did a reader actually have to PROJECT a legacy
+// schema", the other is "would the TABLE refuse this row" (which also catches a
+// schema carrying both keys, where the reader is fine but the constraint is
+// not). Keep them different; collapsing them would either mute this tripwire or
+// let the birth path write a row the table rejects.
 func WarnIfLegacyDialect(inputSchema map[string]interface{}, logger *zap.Logger, where string, component string) {
 	if _, _, fromLegacy := SchemaContentFields(inputSchema); fromLegacy {
 		WarnLegacyDialect(logger, where, component)
