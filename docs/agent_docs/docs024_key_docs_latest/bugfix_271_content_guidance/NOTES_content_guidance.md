@@ -235,3 +235,28 @@ X?"* is **pod start time vs commit time** — a container that started before a
 commit existed cannot contain it, no stamp required. Keep the binary probe for
 the harder question ("which of two candidate commits is in there"), and only ever
 with a present-AND-absent control pair.
+
+## 2026-08-15 — the landmine verifier returned NEEDS_HUMAN_REVIEW, and it is a STALENESS artefact not a refutation
+
+Verdict on `LANDMINES.md#a-live-agent-prompt-still-asks-the-llm-for-contentguidance…`
+(correlation `46be0bcb`, verdict written 20:52:51Z):
+
+> Core footprint files (`load_work_item_actions.go`, `apply_gap_plan_action.go`)
+> and all named agents/item types confirmed present at a85ad401; `suggestion` key
+> usage consistent with the entry's claims; however, the
+> `aliasGuidanceIntoSuggestion` function (introduced in 9a7d23c49, 2026-08-15)
+> postdates the index snapshot (2026-08-12) and cann[ot be verified]
+
+So everything it *could* check, it confirmed; the one thing it could not is the
+function committed forty minutes earlier. **`[per the verifier, not independently
+measured]` the code index snapshot is 2026-08-12, three days behind HEAD.** That
+matches the known recurrence shape — the index pin has to name the LIVE working
+branch or it silently drifts — and it means **any** landmine entry citing code
+from the last three days will draw the same verdict for the same reason.
+
+Recording it because the verdict word is alarming and the content is not: a
+reader skimming for `NEEDS_HUMAN_REVIEW` would reasonably infer the entry is
+wrong. It is not — it is unverifiable-in-part by a tool whose ground truth
+predates the code. The honest close is that the entry stands on the parts
+verified at `a85ad401` plus this session's own first-hand reads, and the
+alias half re-verifies for free once the index is repinned.
