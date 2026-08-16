@@ -370,3 +370,22 @@ provenance line scrolled). Full narrative: `RUNNING_NOTES.md` 2026-08-14.
 > (`8f899cc8d`) is proven in the running chassis (ancestor of the pod's stamp `5e075a6f9`,
 > stamp sha present in `/proc/1/exe` with a random-hex absent-control). The §0.2 warning is
 > retired for this page from that roll onward. Remaining from this file: §3 items 4–7.
+
+> **CONTINUE HERE (2026-08-16 ~11:30Z, session checkpointed on usage limit).** §3 items 1–4
+> DONE and live (item 4: `/case-studies.html` swept against the LIVE `evidence_base` register,
+> infographic re-drawn number-free as `_v4`, both `claims_unverified` items handled — detail
+> RUNNING_NOTES 2026-08-16, commits `8fc8c9acb` `4ac4b799f` `3ca88ae8d`). Remaining, in order:
+> 1. **§3 item 7 — sitemap.xml** (started): live sitemap has 27 `<loc>`; missing the 4
+>    trust-series blog pages + `/tools/ai-vendor-trust-checklist.html` (all `active`/`deployed`).
+>    No platform generator exists — HANDOFF.md §6 item 5 / turn 18 built it from the `pages`
+>    table via git-adapter; find that recipe in RUNNING_NOTES turn 18 and re-run it with the
+>    current `pages` rows (grep `retract_page_deployment_action.go` too — it edits sitemap.xml
+>    on retraction, so a generator-shaped helper may already exist).
+> 2. **§3 item 6 — `tool-process-automation-scorer` acceptance** (7 pass / 2 fail
+>    `submit-shows-error`, `fix_cycles_spent: 0`): reproduce with `scripts/tool_acceptance_run.sh`
+>    (read its header first — three things must line up, two fail quietly).
+> 3. **§3 item 5 — voice work**: 33 `voice_tells` items + ~12 pages with the banned "honest";
+>    method in `fleet_copy_quality/CONTRIB_2026-08-12_the_honest_ban…md`; assert on SHAPE after
+>    replacement. ⚠ For any hand-edit, read each field's `input_schema` source first — see
+>    LANDMINES "A `site_specs.<aspect>.<path>`-sourced field…" (added today; verifier run
+>    `05d0454c` pending — check its verdict in `doc_notes` categories ? 'landmine-verification').
