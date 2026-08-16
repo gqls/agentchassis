@@ -58,7 +58,7 @@ func TestPromotionRefusesWhatTheClaimPathWouldBlock(t *testing.T) {
 	// falsify. (Re-rendering the predicate from its own helper and comparing would
 	// pass with the guard deleted from the query entirely; that was the first
 	// version of this test and it proved nothing.)
-	mock.ExpectExec(`UPDATE site_work_items[\s\S]*status = 'detected'[\s\S]*` +
+	mock.ExpectExec(`UPDATE site_work_items[\s\S]*status = 'detected'[\s\S]*`+
 		`COALESCE\(wi\.handler_agent, ''\) <> ''[\s\S]*FROM agent_definitions`).
 		WithArgs(siteID, "build").
 		WillReturnResult(sqlmock.NewResult(0, 2))
@@ -170,7 +170,7 @@ func TestClaimAndPromoterAskTheSameQuestion(t *testing.T) {
 // TestRoutablePredicateNamesBothFailureModes is the small, direct one: the guard
 // has to cover BOTH ways claim refuses a row, and the empty-handler half is the
 // one this bug was made of. A predicate that only checked registration would still
-// promote every flag-only row, because `EXISTS (… type = '')` is false — it would
+// promote every flag-only row, because `EXISTS (… type = ”)` is false — it would
 // LOOK like it worked while blocking on the wrong reason.
 func TestRoutablePredicateNamesBothFailureModes(t *testing.T) {
 	p := workItemRoutableSQL("wi")
