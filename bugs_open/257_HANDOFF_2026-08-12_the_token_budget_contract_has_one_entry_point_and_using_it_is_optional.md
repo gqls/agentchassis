@@ -412,3 +412,45 @@ so the column is correct for the budgets Path A newly enables (asserted by
 `TestSentMaxTokensRecordsAConfigSourcedBudget`) — *for any caller that persists at all*.
 
 **Owner call needed on both**: in scope for this bug, or separate lanes?
+
+### ✅ COUNCIL APPROVED — round 2, corr `366efae9-f2a8-46ae-a6a6-b9d68a4cc6ae` (2026-08-16)
+
+*Verdict READ before this line was written.* `decision: approved`, `decided_by: "approved with 3
+advisory objection(s) — none high-severity"`, **`gated_by_truncation: false`** (checked deliberately —
+the architecture seat has a recorded history of truncated reviews), 4 seats abstained.
+
+Round 1 on the same trail was **REVISE**, gated by `reuse_agent`. Two of its three substantive
+objections were right and produced real work: a reuse check I had genuinely skipped, and vision-path
+coverage I had not thought about. Full account in the lane NOTES.
+
+**The three advisory residuals, and what was done about each:**
+
+1. **`editquality` (low, edit 7)** — the `reasoning-agent.yaml` edit is doc-only like edits 6 and 8,
+   but was not grouped under my own "accepted as comment-only, kept deliberately" concession, so it
+   *reads* as a functional fix. **Accepted; it is a fair honesty point.** The value is unchanged at
+   2048 and the rationale said so, but the grouping should have made that obvious without reading.
+2. **`bug_historian` (low, edit 5)** — candidate 4's provider scan guards only providers reachable
+   from `factory.go`'s `case` list; a client constructed outside the factory would not be caught.
+   **MEASURED and mostly closed:** five production sites bypass the factory
+   (`rag_actions.go:374`, `reasoning/agent.go:71`, `tools-api` defend/gripper/position) — and all five
+   are covered anyway, because the per-provider tests call `NewAnthropicClient`/`NewGeminiClient`/
+   `NewOllamaClient` **directly** rather than through the factory. The genuine residual is narrower
+   than it sounds: a FUTURE provider whose constructor exists but is never added to the factory switch.
+   Recorded in the test's own comment.
+3. **`bug_historian` (low, edit 2)** — struct-literal constructions outside test files were never
+   enumerated the way the `GenerateText` call sites were. **MEASURED and closed:**
+   `grep -rn '&(AnthropicClient|GeminiClient|OllamaClient){' --include=*.go` minus tests returns
+   **exactly three hits — `anthropic.go:69`, `gemini.go:186`, `ollama.go:62` — and all three ARE the
+   constructors themselves.** No production code builds these clients as a bare struct. The floor's
+   remaining population is the 7 test fakes across 5 files, which is what it was written for.
+
+**Also noted by the seat and worth carrying:** `bugs_closed/076`
+(*truncated_llm_responses_tolerated_at_113_unguarded_call_sites*) was not cited in `grounded_in`
+despite being the closest title in the family — along with `bugs_closed/012` and `046`, it is the
+silent-truncation lineage this bug belongs to.
+
+⚠ **The commits carry `Council-Submitted:`, not `Council-Reviewed:`** — deliberately, and correctly:
+they were made before the verdict, forward-only forbids an amend, and `098` resolves the correlation at
+report time, so they are credited automatically now that it is approved. **Do not read them as
+un-reviewed.** ⚠ Commits `5cafe18ef`, `171121579`, `665c6773a` carry the earlier DEAD correlation
+`85971036` (refused unreviewed); `3f918bd34` records the supersession.

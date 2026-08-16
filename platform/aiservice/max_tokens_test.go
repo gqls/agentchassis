@@ -319,6 +319,14 @@ func TestResolvedMaxTokensAppliesTheFloorOnlyWhenNothingWasChosen(t *testing.T) 
 // constructor, so maxTokens is the zero value. Without the floor in generate(),
 // this sends `"max_tokens": 0` — a 400 — and the whole existing suite passes
 // anyway, because nothing else asserts the field. Measured 2026-08-16.
+// ⚠ POPULATION MEASURED 2026-08-16, after the same seat asked whether struct-literal
+// constructions exist outside test files (advisory low): `grep -rn '&(AnthropicClient|
+// GeminiClient|OllamaClient){' --include=*.go` minus tests returns exactly THREE hits
+// — anthropic.go:69, gemini.go:186, ollama.go:62 — and all three ARE the constructors
+// themselves. So there is no production code building these clients as a bare struct.
+// The floor's remaining population is the 7 test fakes across 5 files in this package,
+// which is what it was written for. The seat was right to ask: the GenerateText call
+// sites were enumerated and this axis was not, until now.
 func TestStructLiteralClientCannotSendAZeroBudget(t *testing.T) {
 	tr := &capturingTransport{body: okAnthropicBody}
 	c := &AnthropicClient{ // deliberately NOT through the constructor
@@ -508,6 +516,28 @@ func TestVisionUnconfiguredStillSendsTheFallback(t *testing.T) {
 // source scan only to notice a provider that has no behavioural coverage.
 // ============================================================================
 
+// ⚠ SCOPE OF THIS GUARD, recorded after the council's bug_historian seat flagged
+// it (advisory low, corr 366efae9 round 2): this scan guards the PROVIDER-NAME
+// axis only — a provider reachable from factory.go's `case` list. A client
+// constructed OUTSIDE the factory would not be caught by it.
+//
+// Measured 2026-08-16, because the seat's concern deserves a number rather than
+// a reassurance. Five production sites bypass the factory and call a concrete
+// constructor directly:
+//
+//	platform/orchestration/actions/rag_actions.go:374   NewOllamaClient   (embeddings)
+//	internal/agents/reasoning/agent.go:71               NewAnthropicClient
+//	internal/tools-api/handlers/defend.go:83            NewAnthropicClient
+//	internal/tools-api/handlers/gripper.go:63           NewAnthropicClient
+//	internal/tools-api/handlers/position.go:77          NewAnthropicClient
+//
+// All five are covered anyway, and NOT by this scan: the per-provider tests above
+// call NewAnthropicClient / NewGeminiClient / NewOllamaClient DIRECTLY rather than
+// through the factory, so the constructor axis is already bound behaviourally.
+// What remains genuinely unguarded is a FUTURE provider whose constructor exists
+// but is never added to factory.go's switch — reachable only by a direct call,
+// invisible to this scan, and with no per-provider test because nobody wrote one.
+// That is the residual; it is small, and it is stated rather than papered over.
 func TestEveryImplementedProviderResolvesItsBudgetFromConfig(t *testing.T) {
 	t.Setenv("MAXTOK_TEST_KEY", "test-key")
 
