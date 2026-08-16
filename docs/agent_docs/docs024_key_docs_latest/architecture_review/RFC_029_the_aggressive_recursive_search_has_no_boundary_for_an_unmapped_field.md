@@ -564,3 +564,40 @@ The advisory points, answered on evidence rather than waved past:
 - **architecture — the sink is not a precedent to be waved through for a second finding
   type.** Accepted; CTS-060's wording is adjusted to say exactly that (a second finding type
   or consumer → a fresh architecture look, not "already established").
+
+### 10.5 FIRST READ OF THE OBSERVATION WINDOW — 2026-08-16 ~15:10Z (window opened 10:41Z): §9's disconfirmation clause is FIRING; Phase 2 does NOT proceed on schedule
+
+**The revision is LIVE**: chassis `v1.0.1304`, binary stamped `5de6cddbe` (probed `/proc/1/exe`;
+`53edef286` is its ancestor); pods started 10:41Z; first row 10:42Z. The instrument works.
+
+**Population after ~4.5 h `[MEASURED]`** (`agent_error_log`, both codes): **672 rows**.
+- `RESOLVER_CONFLICTING_CANDIDATES`: `current_page` **245**, `work_item_id` **207**, `result` 77,
+  `sections` 12, `page_type` 12, `reason` 1.
+- `RESOLVER_MAPPING_BYPASSED`: `result` **118**, every one with `reference='handler_result'`
+  (dotless) and the search's answer a `map[string]interface{}` from elsewhere — the
+  bugs_closed/213 §D shape, at ~26/h.
+- By agent: **build-dispatch-loop 608**, page-content-writer 33, page-build-handler 27,
+  page-rerender 3, rerender-pages 1.
+- Candidate counts per conflict are LARGE: `work_item_id` conflicts carry **21–93 candidate
+  paths**, winner `claim_result.work_item_id` (shallowest); `current_page` conflicts carry
+  4–62, winner mostly `handler_result.retry_payload.message.body.~unwrap.current_page`
+  (a retry payload — whether that is the RIGHT page for the step is exactly the question).
+  `result` conflicts: 7 candidates, winner `handler_spawned.result`.
+
+**Reading, marked:** `[INFERRED — not yet diagnosed]` build-dispatch-loop's `collected_data`
+accumulates across items in one long-lived orchestration, so each iteration's `work_item_id`,
+`current_page`, `result` meets every previous iteration's copies; the stable shallowest winner
+may be the current item's (`claim_result.*`) or a stale one (`retry_payload…`) — items are
+COMPLETING, which says the winner is at least not fatal, not that it is right. **This is a
+mechanism claim about a shared loop; it goes through `090` before anyone acts on it.**
+
+**What this decides now:** §9 D2's precondition ("zero conflict WARNs, or every observed pair
+explicitly mapped first") is nowhere near met, and §9's own disconfirmation clause ("a
+substantial population of conflict WARNs whose lucky winner is load-bearing") is at least half
+satisfied on day one — substantial, yes; load-bearing, to be established per pair. **Phase 2 is
+NOT to be flipped on the calendar.** The next work on this lane is the per-pair triage: for each
+(agent, field, winner_path) — is the winner the value the step needs? If yes, write the explicit
+mapping (or `!`) so it stops being a search; if no, the pipeline has been living on the old coin
+flip and needs the mapping even more. Then, and only then, D2's flip. Owner note: this is
+precisely the measurement the ruling asked for instead of a guess, and it says the guess would
+have been wrong.

@@ -1,4 +1,4 @@
-# HANDOFF — 2026-08-16, fresh chat starts here: the RFC_029 revision is BUILT + COMMITTED + **APPROVED by the council (round 2, read 10:2xZ)**; Phase 1 turned out to be LIVE already; migration 417 is READY but its apply was refused by the harness — the owner's hand, or a permitted session, applies it
+# HANDOFF — 2026-08-16, fresh chat starts here: the RFC_029 revision is BUILT + APPROVED + **LIVE (v1.0.1304)** and the observation window's FIRST READ says Phase 2 must NOT flip on schedule (672 rows / 4.5 h — §10.5); migration 417 was handed to the owner to apply by hand; the per-pair triage is the next work
 
 **Supersedes `HANDOFF_2026-08-15c_continue_here.md`** (whose §1 verdict summary and §4 traps
 still hold). Everything 15c §2 asked for is done; this file records what changed, what was
@@ -76,14 +76,18 @@ anything resolver-shaped — it supersedes §10.2).
    when image builds run; last one 10:09Z today) — the child's `input_data` must carry a bare
    `asset_id` (29/29 baseline). If it does not: the ROLLBACK file is one command, snapshot
    already taken. Record the ledger row (`schema_migrations`, `record-only`, notes) after.
-3. **After the next chassis roll ≥ `53edef286`**: verify per SERVICE (`build provenance` line,
-   else the `/proc/1/exe` probe with a two-way control; `git merge-base --is-ancestor 53edef286
-   <stamp>`), then the observation window **opens** — read it from ROWS (RUNBOOK, "RFC_029
-   observation window"): 48h minimum, a week preferred. Zero rows has two readings (no
-   conflicts / not rolled) — the probe disambiguates.
-4. **Phase 2 (conflicts resolve NOTHING)** only after 3, on §9 D2's precondition; its own
-   council-gated task; flip sites marked in code and in `unified_extractor_search_test.go`'s
-   header.
+3. ~~After the next chassis roll~~ **ROLLED 2026-08-16 10:41Z — v1.0.1304, stamp `5de6cddbe`
+   (probed), ancestor of `53edef286`. The window is OPEN and already answering: 672 rows in
+   ~4.5 h — read RFC_029 §10.5.** The next real work on this lane is the PER-PAIR TRIAGE of
+   that population (build-dispatch-loop 608 of 672; `work_item_id` conflicts with 21–93
+   candidates; `current_page` winners inside `handler_result.retry_payload…`; `result` bypassed
+   118× on the dotless `handler_result` reference). The mechanism reading in §10.5 is marked
+   `[INFERRED]` — **file it through `090` before acting** (it is a claim about a shared loop).
+   Then explicit mappings / `!` per pair. RUNBOOK has the queries.
+4. **Phase 2 (conflicts resolve NOTHING) is NOT to be flipped on the calendar** — §9's
+   disconfirmation clause is firing on day one. Only after 3's triage leaves the population at
+   zero (or fully mapped); its own council-gated task; flip sites marked in code and in
+   `unified_extractor_search_test.go`'s header.
 
 ## 3. Traps found this session (cheap, easy to lose)
 

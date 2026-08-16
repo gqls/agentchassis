@@ -4596,3 +4596,14 @@ below ran from `git archive HEAD` + this task's files in scratch.
 - Same-file passengers this session: my `000_concept_index.md` CTS-060 row rode in `67996ebf1`,
   my WRONG_CALLS entry in `17afc9324`; my LANDMINES commit `605ab9b1b` carried the 285 lane's two
   entries. All append-only/additive; nothing altered; forward-only held.
+- **~15:10Z, owner asked for 417 and said the new chassis is on production.** Verified at the
+  artefact: `v1.0.1304`, pods up 10:41Z, stamp `5de6cddbe` (probed after three absent
+  candidates — the stamp is ONE commit, ancestors read absent), `53edef286` its ancestor →
+  the revision is LIVE. Handed the owner the apply command + post-checks + ledger insert +
+  live-proof query in chat (not applied by me — the classifier refusal stands).
+  Pre-flight for 417 re-checked post-roll: 2 asset-deployer spawns since 10:41Z, 0 with
+  `asset_id` — BOTH from build-dispatch-loop (`needs_brand_head_assets`, no asset in spec:
+  the 402 `?` doing its job), none from image-build-handler; not a regression on 417's path.
+- **FIRST WINDOW READ — 672 rows in 4.5 h; the disconfirmation clause fires.** Recorded as
+  RFC_029 §10.5 with the breakdown; mechanism reading marked `[INFERRED]` for `090`. Phase 2 is
+  off the calendar. Handoff §2.3/2.4 rewritten accordingly.

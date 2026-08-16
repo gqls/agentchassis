@@ -1624,3 +1624,13 @@ command is in the handoff), and the next release, which is what turns the new re
 on. One confession: I sent the same review request twice by re-running the submit script to
 re-read its output — it cost a duplicate review, and the lesson is written where the next
 person will trip over it.
+
+**2026-08-16 (afternoon) — the new release is out, the recorder is on, and it is already
+telling us something.** You asked for the strict-switch migration; it's in the chat with its
+checks, yours to run. More important: within four and a half hours of the release the new
+record shows about 670 cases where the "guess between look-alike fields" search actually met
+disagreeing candidates — mostly inside the long-running dispatch loop, where one field name
+can have twenty to ninety look-alikes by the time it is read. So the plan's next step (stop
+guessing entirely) is off the calendar until each of those cases has been given a proper
+explicit wiring line — which is precisely what the week of watching was for, and it says
+the "conflicts are rare" hunch was wrong. That triage is the next job on this lane.
