@@ -267,3 +267,37 @@ Read-only; nothing filed. All counts against the live DB, site `6b49db8e…`.
   Corollary the handoff does not draw: the same probe now makes **any** tool with a live native
   component un-refilable, which is the desired throttle — but it means a FAILED rebuild that still
   left a component behind must be deactivated before a retry, or the retry silently no-ops.
+
+## 2026-08-16 16:47Z — PILOT COMPLETE: graded PASS at the served page. The replacement recipe is proven end to end.
+
+Rerender item `937f3a52` claimed and `complete` **16:47:14.945Z**, `error` empty (~59 min behind the
+retire, 22 items deep at 16:26Z — matches the ~80 min the 08-15 owner-gate rerender took).
+
+**Grade at `https://webdesign.co.uk/tools/aspect-ratio/index.html` `[MEASURED 16:48Z]`**, baseline in
+the 16:05Z entry above:
+
+| check | before | after | verdict |
+|---|---|---|---|
+| http / bytes | 200 / 13,113 | 200 / **15,402** | served, and CHANGED (md5 `28a6248473…` → `698952bf1e…`) |
+| `class="ported-page"` | 1 | **0** | ported wrapper gone |
+| `{{\.` | 0 | **0** | no raw tags (the ab-test failure mode) |
+| `<script` | 5 | 5 | interactive |
+| `ratio-width` / `ratio-height` / `target-ratio` | 0 | **3 / 3 / 3** | the native tool IS the page |
+| `preset-btn` | 0 | **8** | the four presets served |
+| `<input` / `<button>` | — | **6 / 5** | controls present |
+| visible chars (styles+scripts stripped) | — | **861** | not a hollow shell (ab-test served 0) |
+
+Controls run in the same breath, because a count of 0 proves nothing on a page you failed to fetch:
+negative control `zzz-not-in-any-page-qqq` = **0**, positive control `webdesign` = **7**, and the
+served headings are the tool's own (`<h2>Aspect Ratio Calculator`, all five labels). DB final state:
+`ported-page` `removed` position 0 with its 5,850 chars **retained**, `tool-aspect-ratio` `deployed`
+position 2 `component_level='tool'` — exactly one live slot.
+
+**So the recipe from PLAN §1 is proven, in this order, and every step earned its place:**
+build (adopt) → **grade the component in the DB** → retire the ported slot **before the generator's
+own rerender is claimed** → let that rerender assemble → grade at the served URL with controls.
+One render, no double-tool intermediate, and a one-flip revert still available.
+
+Next per the handoff: PLAN §4 first — **the owner sees this served page** — then §2's batch, simple
+tools first, serial, ab-test second (and ab-test needs `cd60486c…` deactivated before filing, per the
+`already_exists` landmine). Nothing filed by this session beyond the pilot.
