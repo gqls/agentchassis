@@ -225,3 +225,43 @@ happen is indistinguishable from a mutation that was survived.
 Written up in `WRONG_CALLS.md` — including the part that stings, which is that
 the rule against both mistakes is in my own memory index and I quoted it in this
 session before making them.
+
+## 2026-08-16 (evening) — the deploy check I wrote was a check that could not fail, and a control caught it
+
+Wrote the standard deploy-verification recipe into this lane's RUNBOOK: probe
+`/proc/1/exe` for this lane's commit sha. Ran it **with both controls**, as
+CLAUDE.md requires — a sha that must be absent (mine) and one that must be
+present (`7d9b7334a`, which the 285 lane had already proven live on the running
+image).
+
+**Both came back absent.** The control failing is the whole finding: **the binary
+carries ONE sha — the commit it was BUILT at — not every ancestor it contains**,
+so a grep for any other commit returns "absent" regardless of what shipped.
+Without the control I would have written "the Go half is not live" off a test
+that says exactly that about every commit ever made — true here by luck, and
+unfalsifiable.
+
+**This is a documented landmine and I walked into it anyway** (`LANDMINES.md`:
+"`grep -aq <ancestor-commit-sha> /proc/1/exe` reads absent even when that commit
+genuinely shipped", plus the refinement that a known-present commit cannot serve
+as a positive control *unless it IS the stamp*). The SessionStart hook did not
+show it to me because that hook matches entries against **files already dirty in
+the tree**, and this entry's footprint is a *command*, not a path. That is the
+standing lesson I had in memory and did not apply: **grep LANDMINES for the
+command or symbol you are about to trust, not just for the files you are
+editing.**
+
+Second trap, same area: the chassis log history is ~90 seconds, so
+`logs --tail=100000 | grep 'build provenance'` finds nothing even hours after a
+roll — also already a landmine.
+
+**What actually settles it, needing no stamp — prove the ORDERING:**
+`7d9b7334a` (live on `v1.0.1304`) **is** an ancestor of `adb1ee2ad`, the reverse
+is false (11:09 vs 17:08 today), and both the deployed image and the makefile's
+`IMAGE_TAG` still read `v1.0.1304` — so no build has been cut since, and this
+lane's Go half is definitively **not live**. The RUNBOOK's recipe is corrected in
+place, with the failed control written into it so the next reader inherits the
+test rather than the conclusion.
+
+**For whoever rolls: `IMAGE_TAG` must be bumped past `v1.0.1304`** — a same-tag
+rebuild ships the node's stale cached binary.

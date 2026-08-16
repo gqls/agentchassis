@@ -112,6 +112,35 @@ git merge-base --is-ancestor <this lane's commit> <the sha in that line>   # exi
 An empty grep means "not in range" (it is a startup line and scrolls), **not**
 "unstamped".
 
+> **CORRECTED 2026-08-16, same day, after this recipe failed its own control.**
+> Two things above do not work on this fleet as written, and I only found out
+> because I ran a control:
+>
+> 1. **Do NOT grep the binary for YOUR commit.** I probed `/proc/1/exe` for this
+>    lane's sha (absent, as expected) *and* for `7d9b7334a`, a commit the 285
+>    lane had already proven live on the running image — **also absent**. The
+>    control failing is the finding: **the binary carries ONE sha, the commit it
+>    was BUILT at**, so a grep for any other commit returns absent no matter what
+>    the image contains. Without the control I would have written "the fix is not
+>    live" from a test that says that about every commit ever made.
+> 2. **The chassis log history is ~90 seconds** (a LANDMINES entry says so
+>    outright), so `--tail=100000 | grep 'build provenance'` finds nothing on a
+>    busy pod — not even from this morning's roll.
+>
+> **What works, with no stamp at all — prove the ORDERING:**
+> ```bash
+> kubectl -n ai-persona-system get pods -l app=agent-chassis \
+>   -o jsonpath='{.items[*].spec.containers[0].image}' | tr ' ' '\n' | sort -u   # -> v1.0.1304
+> git merge-base --is-ancestor <a commit KNOWN live on that image> <your commit> # YES => yours is later
+> git merge-base --is-ancestor <your commit> <that known-live commit>            # NO  => yours is not in it
+> grep -m1 '^IMAGE_TAG' makefile    # still v1.0.1304 => no build has been cut since
+> ```
+> Measured this way 2026-08-16: `7d9b7334a` (live on v1.0.1304) IS an ancestor of
+> `adb1ee2ad`, and the reverse is false, with the deployed tag and `IMAGE_TAG`
+> both still `v1.0.1304` — so this lane's Go half is definitively **not live**.
+> **Whoever rolls must bump `IMAGE_TAG`**: a same-tag rebuild ships the node's
+> stale cached binary.
+
 Then re-fire the loancalculator lane's own script — no dispatch within ~300 s of
 a chassis pod restart, and `kcat -P` exits 0 having sent nothing, so prove the
 dispatch by the orchestration row, not by the exit code:
