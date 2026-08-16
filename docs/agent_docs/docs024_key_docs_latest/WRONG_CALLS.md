@@ -32481,3 +32481,72 @@ the same rule for the *I want to see the output again* case.
   never run against it. **Cheap check:** run every positive control against the KNOWN-GOOD
   artefact before arming it — the archived row was one query away. Tally for "positive control
   never exercised on a known-good": 1.
+
+## 2026-08-16 — "bugs_open/282's resolver is a co-requisite for the 285 loader merge" — a bug file's named co-requisite is a CLAIM, and I nearly inherited it (bugfix_285_lock_blind_section_list lane)
+
+**The claim** (in `bugs_open/285`'s "Two interactions the fixing thread MUST verify", and in the lane
+HANDOFF that pointed at it): "plan_sections' resolver excludes tool-level components from name
+normalisation (`loadComponentNameResolver`, section/element only) … This is not hypothetical — it is
+`bugs_open/282`'s exact mechanism … Whatever fix 282 lands is a prerequisite or co-requisite for
+candidate 1 reaching tool-level locked sections." Written by the filing lane the evening it filed,
+one day after that same lane's round-1 090 was REFUTED for accusing `PlanSectionsAction` of something
+it does not do.
+
+**What was actually true:** `grep -n loadComponentNameResolver plan_sections_action.go` returns
+NOTHING. Its callers are `v3_site_actions.go:3407` (`ValidateSitePlanAction` — the site RE-PLAN
+path, where 282 genuinely bites) and `apply_gap_plan_action.go:222/354/882`. On the page-BUILD path
+`plan_sections` resolves a name via Path 0 (`loadPageSlotComponentIDs`, slot→component_id from
+page_components, no `component_level` filter) then Path 1 (`loadSectionComponents`, no level
+filter); a self-contained tool is `ready`. So a merged `chat-input-box` / `tool-2` entry survives
+`plan_sections` today, 282 unfixed. 282 is a co-requisite only for candidate 2 (writing tools into
+the plan at replan) — which is not what shipped.
+
+**Why it felt safe to inherit:** the claim was in the bug file's imperative section ("MUST verify"),
+it cited a real bug filed the same day by another lane, and it named a real function that really
+does exclude tools. Every noun was true; only the CALL SITE was wrong — the same shape as the
+round-1 refutation the day before ("a grep hit licenses 'this file is involved', never 'this
+function decides'"), inherited by the very lane that had just written that lesson down.
+
+**Cost:** none realised — I read `plan_sections` before designing, and the design does not depend on
+282. Had I taken the claim as read, the fix would have waited on another lane's open bug for no
+reason (or, worse, been scoped to sections only "until 282 lands"), while 5 remove-blocked items a
+day kept being filed on loancalculator.
+
+**The cheap check:** when a bug file names a function as the blocker, `grep -n <function> <the
+file it is accused of being called from>` BEFORE you plan around it — 0.1 s. Same check for the
+second thing the file got slightly wrong: it said the proposal `save_page_sections` diffs comes
+from `plan_sections`; it comes from the content writer's `sections_metadata` one hop later
+(`render_component` → `compile_page_sections`), which is where `stored_slot_name`/`component_id`
+are set — the actual reason the guard pairs the merged entry. Both corrections are now in the bug
+file. Tally for "inherited a bug file's cross-reference without opening the accused function": 1
+(and it is the second day running that this function/file pair produced one).
+
+---
+
+## 2026-08-16 — I wrote a verification step ("verify >3 bare hex by regex census first") and then reported its outcome without running it; the census returns 0
+
+**Lane:** `bugfix_281_tool_audit_ported`.
+
+**The claim:** bugs_open/281's verify section (from the filing lane) said the Mind Map Studio's
+pale-on-pale styles "are in its own `<style>` block — note the existing `hardcoded_colors` check
+already looks for exactly this class of thing, it just never ran." My plan adopted it as THE
+detectability criterion, wrote the census as a RUNBOOK step, encoded a Mind-Map-SHAPED fixture
+(bare hex, no @media) into the unit test — and never ran the census against the real row.
+
+**What is true:** the live `rendered_html` uses `var(--…)` for every colour; bare-hex census 0. The
+defect is the variables' resolved contrast, invisible to any source regex. The first live sweep
+(2026-08-16) reached the page and, correctly by its own rules, filed nothing for it. The unit
+test passes because the fixture is what I imagined the page to be.
+
+**Caught by:** the first-sweep census, item missing → ran the census I had written down.
+
+**The cheap check that would have caught it:** run the artefact-level census BEFORE encoding the
+fixture — `SELECT count(*) FROM regexp_matches(rendered_html, …)` on the named page, one query.
+More generally: a fixture you COMPOSE exercises your own belief about the artefact, not the
+artefact (cf. "the framework writes the content, not you" — a fixture you compose will exercise
+its own rule). Pin the fixture to a live row's bytes, or state `[ASSUMED]` on the shape.
+
+**Cost:** none to the fix (the widening is correct and the census verdict stands: 13 + 12 items,
+identity holds); one false line about the motivating case in the plan, the bug file, and the
+council rationale, corrected today. The Mind Map is now being audited by the LLM tier (page-pinned
+`audit_tool`, `1bfd5d1e…`), which is the tier that can see its defect.

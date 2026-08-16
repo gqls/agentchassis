@@ -1,0 +1,49 @@
+# /etc/systemd/system/sitechat@.service — ONE binary, several sites on one box
+# (PLAN_2026-08-11 step 5, Option A). `systemctl start sitechat@<domain>` reads
+# /etc/sitechat/<domain>.env and keeps its state under /var/lib/sitechat/<domain>.
+#
+# The env file carries the per-site parameters (see RUNBOOK "provisioning a
+# second site's chat instance"): SITE_DOMAIN + SITE_DESCRIPTION (the bot's
+# identity — refused if absent in live mode, so an instance can never fall
+# back to another site's identity), FACTS_URL for THAT domain + FACTS_TOKEN,
+# CONTACT_EMAIL/CONTACT_PHONE (what the four controls fail closed TO), the
+# ANTHROPIC_API_KEY, BIND_ADDR=127.0.0.1:<port> (loopback ONLY — the historic
+# webdesign-chat *:8081 bind is the pattern noted.co.uk's nginx names as the
+# one not to copy), and optionally MAX_TURNS_PER_CONVERSATION /
+# DAILY_SPEND_CEILING_USD.
+#
+# The binary cross-checks the relay's own `domain` field against SITE_DOMAIN and
+# refuses another site's facts, so two env files that differ by one line cannot
+# have one site state the other's prices in its own name.
+#
+# Sandboxing mirrors webdesign-chat.service (same www-data user, same profile).
+
+[Unit]
+Description=site chat intake service for %i (shared sitechat binary)
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+EnvironmentFile=/etc/sitechat/%i.env
+Environment=DATA_DIR=/var/lib/sitechat/%i
+ExecStart=/usr/local/bin/sitechat
+Restart=on-failure
+RestartSec=5
+
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/var/lib/sitechat/%i
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6
+RestrictNamespaces=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+
+[Install]
+WantedBy=multi-user.target

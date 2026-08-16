@@ -8,7 +8,17 @@
 #
 # EnvironmentFile carries ANTHROPIC_API_KEY + CONTACT_EMAIL/CONTACT_PHONE +
 # the two engineering-default overrides (MAX_TURNS_PER_CONVERSATION,
-# DAILY_SPEND_CEILING_USD) — see RUNBOOK "the chat service env file".
+# DAILY_SPEND_CEILING_USD) — see RUNBOOK "the chat service env file" — and,
+# since 2026-08-15 (PLAN_2026-08-11 step 5), FACTS_URL/FACTS_TOKEN + the
+# instance's identity SITE_DOMAIN/SITE_DESCRIPTION.
+#
+# 2026-08-15: ExecStart moved to the SHARED /usr/local/bin/sitechat binary —
+# the same file sitechat@.service runs for every other site on this box — and
+# BIND_ADDR pins the loopback bind this header always claimed (the binary used
+# to bind *:8081; noted.co.uk's nginx names that as the pattern not to copy).
+# This unit is kept rather than migrated to sitechat@webdesign.uk so the
+# proven DATA_DIR/store and its journal history stay where every runbook line
+# points; the two units run the identical binary.
 
 [Unit]
 Description=webdesign.uk chat intake service (Phase 4)
@@ -20,8 +30,9 @@ User=www-data
 Group=www-data
 EnvironmentFile=/etc/webdesign-chat.env
 Environment=PORT=8081
+Environment=BIND_ADDR=127.0.0.1:8081
 Environment=DATA_DIR=/var/lib/webdesign-chat
-ExecStart=/usr/local/bin/webdesign-chat
+ExecStart=/usr/local/bin/sitechat
 Restart=on-failure
 RestartSec=5
 

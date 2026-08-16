@@ -2908,3 +2908,77 @@ this session's cold-start falsifier sweep:
   sharing the box), then step 6 (tool-suggester cites the approved
   EXPERIENCE_PLAN). The approved plan's MVP verification round is
   owner-gated at Step 0 (contact email). HANDOFF_2026-08-15c supersedes.
+
+## 2026-08-16 (morning) — PLAN step 5 BUILT: the deployer half (TL-043, council-submitted, inert till roll) + the box half (one `sitechat` binary, webdesign rolled, three second-site proofs). One wrong claim caught by the proof run.
+
+- **Handoff 15c said the 285 fix was another lane's** — verified before starting:
+  `who-owns.py section_list_assembly_is_lock_blind` shows only my two commits on the
+  file, no fix commits touching `load_page_sections_from_spec_action.go` since; the
+  lock stays ON, watch item unchanged. Started step 5 as 15c §2.1 directed.
+- **Deployer half (Go, `platform/orchestration/actions/`)** — commit `51c33f482`,
+  council corr `55cda19b-273a-469a-bd61-d86d0c03efa0` (`Council-Submitted:` trailer).
+  New `tool_backend_provision.go`: `toolRequiresBackend` (semantic_tags parse, fail-safe
+  on malformed JSON — the unsafe side is "deployed against no backend"),
+  `loadBackendEligibility` (406's `deploy_config->'capabilities' ? 'backend'` byte-for-byte
+  + `jsonb_array_length(evidence_base facts)` + first contact-shaped fact),
+  `backendEligibilityRefusal` (extracted so it is TESTED not asserted),
+  `raiseBackendProvisionItem` (shared `withWorkItemTx` door; item_type
+  `backend_provision`, no handler, `needs_human_review`, `recurrenceExpected`, key
+  `backend_provision:<fn>:<site>`; token as a NAME never a value). `deploy_tool_action.go`
+  step 1b refuses BEFORE any write; step 5b raises after the page_component insert on
+  the fresh-deploy arm only; output map carries `backend_required` + disposition.
+  Tests: 8 new; recurrence flag **mutation-proven** (flipping it → `insert_failed`).
+  Compiled+tested against a clean `git archive HEAD` overlay. Register TL-043 (+VMB-010
+  update, index row). Zero live behaviour change: no deployer-created requires-backend
+  fork exists (webdesign's chat box is a hand splice); the gate activates on the tag.
+  Known gaps stated in TL-043: tool-generator arm out of scope; no full-action wiring test.
+- **Second-site census, measured** (`sites` with `backend` capability): webdesign.uk
+  15 facts · relojistas.com 13 facts (its OWN VM, not this box) · noted.co.uk **0 facts**
+  (on this box; the noted lane's handoff: privacy copy is the owner's, 0 registered
+  facts). So the only other site on the box is exactly the case the gate refuses; the
+  visitor-facing second-site acceptance is **owner-gated on noted's facts**.
+- **Box half — chat-service parameterised (repo `box/chat-service/`, in sync with box):**
+  `renderPromptIntro(domain, description)` replaces the compiled `promptIntro`;
+  `SITE_DOMAIN`/`SITE_DESCRIPTION` REQUIRED in live mode (no default — an instance must
+  never fall back to another site's identity); `fetchFacts` cross-checks the relay's
+  `domain` field vs SITE_DOMAIN and refuses a mismatch; `BIND_ADDR` env (default keeps
+  the historical `:PORT` bind so a binary swap alone changes nothing). Tests: 2 new
+  (identity in intro / mismatch refused incl. case-insensitive); mismatch check
+  **mutation-proven**. Static build `sitechat` (gitignored), md5 `d914d07a…` local == box.
+  New `box/sitechat@.service` template unit (`/etc/sitechat/%i.env`, `/var/lib/sitechat/%i`).
+- **webdesign instance ROLLED to the shared binary** ~10:06Z: backups
+  `/etc/webdesign-chat.env.bak-20260815b`, unit `.bak-20260815b`, old binary
+  `webdesign-chat.bak-20260815b`; env gained SITE_DOMAIN + SITE_DESCRIPTION with the
+  byte-identical intro phrase; unit `ExecStart=/usr/local/bin/sitechat` +
+  `BIND_ADDR=127.0.0.1:8081`. Verified at the artefact: journal `fetched 15 facts` →
+  `live mode, site=webdesign.uk` → `sitechat on 127.0.0.1:8081`; `ss` shows
+  **127.0.0.1:8081** (was `*:8081` — the bind noted's nginx named as the pattern not to
+  copy; fixed as a side effect); `/health` ok; **Journey A through the public edge**:
+  "What does this cost?" → "One hundred and forty nine pounds… no VAT… approve it, then
+  you pay. What business do you run?" (conv `e3de7bc8`). ⚠ the reply carries an em dash
+  despite `promptConduct` banning them — pre-existing model non-compliance, not this
+  change; noted, not fixed.
+- **Three transient proofs on the box** (dummy API key ⇒ no LLM call possible; nothing
+  persisted; RUNBOOK "transient proof runner"): (a) **relojistas.com params → same binary
+  came up: `fetched 13 facts`, `live mode, site=relojistas.com`, `/health` 200 on 18082**
+  — the "same binary, different parameters, that site's own facts" mechanism, proven on a
+  REAL second site's real facts (service-level; relojistas is not served from this box,
+  and its entity facts make an intake bot nonsense there — proof, not deployment);
+  (b) noted.co.uk → `facts relay returned zero facts` → refused, no listener;
+  (c) SITE_DOMAIN=noted.co.uk + webdesign's FACTS_URL → `refusing another site's facts`
+  → refused, no listener.
+- **WRONG CALL (mine, this session; WRONG_CALLS.md row added):** I wrote "the relay 404s
+  a site with no facts" into the Go error string, TL-043, its index row and the council
+  rationale. Proof (b) measured **200 with `facts: []`** for noted.co.uk — `sitefacts.go`
+  gates on the `facts` KEY, not its length. Every refusal is still correct (gate reads
+  the COUNT; binary refuses on `len==0`); only the mechanism sentence was wrong.
+  Corrected in place (error string, code comment, TL-043 strike-through+date); the
+  submission rationale cannot be edited — if the round comes back REVISE, the sketch
+  gets the corrected sentence. Cheap check I skipped: `curl` the URL the sentence was
+  ABOUT.
+- **Deliberately NOT done:** no `/etc/sitechat/noted.co.uk.env` pre-staged (placeholder
+  owner copy in a disabled unit is a trap), no `/api/chat` location in noted's nginx
+  (nothing to proxy to; visitors would get 502s), no facts attested for noted (the
+  owner's/noted lane's — "the framework writes the content, not you").
+- **Council 55cda19b:** verdict not yet read at the time of this entry — see the next
+  entry / RUNBOOK council section for the read query.

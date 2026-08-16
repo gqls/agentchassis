@@ -38,7 +38,9 @@
 //     'backend'` is 406's own expression. If the two ever disagree, the
 //     suggester and the deployer are answering different questions.
 //   - facts: the relay (internal/core-manager/handlers/sitefacts.go) serves a
-//     404 unless the site has a current evidence_base row with a 'facts' key,
+//     404 unless the site has a current evidence_base row with a 'facts' key —
+//     and 200 with `[]` when the key holds an empty array (noted.co.uk,
+//     measured 2026-08-16; the count, not the key, is what this gate reads) —
 //     and the chat binary REFUSES TO START on zero facts (an empty facts
 //     section licenses the model to improvise). A provision item minted for a
 //     site with no facts would be unsatisfiable at birth — bugs_open/177's
@@ -149,7 +151,8 @@ func backendEligibilityRefusal(e backendEligibility, toolFunction, domain string
 	if e.FactsCount == 0 {
 		return fmt.Errorf(
 			"tool %s requires a backend fed by the site-facts relay, and site %s has no current "+
-				"evidence_base facts — the relay would serve 404 and the backend refuses to start on zero facts. "+
+				"evidence_base facts — the relay serves 404 (no facts key) or 200 with an empty array (measured "+
+				"2026-08-16 on noted.co.uk), and the backend refuses to start on zero facts either way. "+
 				"Attest the site's facts (the register trail pattern) before deploying this tool",
 			toolFunction, domain)
 	}

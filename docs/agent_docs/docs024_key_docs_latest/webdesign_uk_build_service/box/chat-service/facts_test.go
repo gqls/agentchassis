@@ -35,7 +35,7 @@ func TestRenderedPromptCarriesEveryClaimAndTheFixedFrame(t *testing.T) {
 		{ID: "deposit", Claim: "A £75 deposit is non-refundable."},
 		{ID: "empty_one", Claim: "   "}, // must be skipped, not rendered as an empty bullet
 	}
-	prompt := renderSystemPrompt(facts)
+	prompt := renderSystemPrompt("webdesign.uk", "a service that builds complete websites for small and medium UK businesses", facts)
 
 	for _, want := range []string{
 		"- The website build costs one thousand two hundred pounds.",
@@ -58,7 +58,7 @@ func TestStartupFetchesPersistsAndServes(t *testing.T) {
 	defer srv.Close()
 
 	cache := filepath.Join(t.TempDir(), "facts-lastgood.json")
-	p, err := newFactsProvider(srv.URL, "tok", cache, time.Hour)
+	p, err := newFactsProvider(srv.URL, "tok", "webdesign.uk", "a test site", cache, time.Hour)
 	if err != nil {
 		t.Fatalf("provider init: %v", err)
 	}
@@ -88,7 +88,7 @@ func TestRelayDownFallsBackToDiskCache(t *testing.T) {
 	srv := factsRelayStub(t, "tok", nil, http.StatusInternalServerError)
 	defer srv.Close()
 
-	p, err := newFactsProvider(srv.URL, "tok", cache, time.Hour)
+	p, err := newFactsProvider(srv.URL, "tok", "webdesign.uk", "a test site", cache, time.Hour)
 	if err != nil {
 		t.Fatalf("cache fallback should have succeeded: %v", err)
 	}
@@ -105,7 +105,7 @@ func TestRelayDownAndNoCacheRefusesToStart(t *testing.T) {
 	srv := factsRelayStub(t, "tok", nil, http.StatusInternalServerError)
 	defer srv.Close()
 
-	_, err := newFactsProvider(srv.URL, "tok", filepath.Join(t.TempDir(), "absent.json"), time.Hour)
+	_, err := newFactsProvider(srv.URL, "tok", "webdesign.uk", "a test site", filepath.Join(t.TempDir(), "absent.json"), time.Hour)
 	if err == nil {
 		t.Fatal("no relay + no cache must refuse, not improvise a prompt from somewhere")
 	}
@@ -117,7 +117,7 @@ func TestZeroFactsIsAnErrorNotAnUpdate(t *testing.T) {
 	srv := factsRelayStub(t, "tok", []siteFact{}, http.StatusOK)
 	defer srv.Close()
 
-	if _, err := fetchFacts(srv.URL, "tok"); err == nil {
+	if _, err := fetchFacts(srv.URL, "tok", "webdesign.uk"); err == nil {
 		t.Fatal("zero facts must be an error")
 	}
 }
@@ -126,8 +126,40 @@ func TestWrongTokenSurfacesAs401Error(t *testing.T) {
 	srv := factsRelayStub(t, "right-token", []siteFact{{ID: "a", Claim: "x"}}, http.StatusOK)
 	defer srv.Close()
 
-	_, err := fetchFacts(srv.URL, "wrong-token")
+	_, err := fetchFacts(srv.URL, "wrong-token", "webdesign.uk")
 	if err == nil || !strings.Contains(err.Error(), "401") {
 		t.Fatalf("want an error naming 401 (its fix differs from a 404's), got %v", err)
+	}
+}
+
+// SITE IDENTITY IS A PARAMETER (PLAN_2026-08-11 step 5): the intro must name
+// the site the instance was configured for, and nothing else.
+func TestPromptIntroNamesTheConfiguredSite(t *testing.T) {
+	prompt := renderSystemPrompt("noted.co.uk", "a note-taking app", []siteFact{{ID: "a", Claim: "Fact A."}})
+	if !strings.Contains(prompt, "intake assistant for noted.co.uk, a note-taking app.") {
+		t.Errorf("intro does not carry the configured identity: %q", prompt[:120])
+	}
+	if strings.Contains(prompt, "webdesign.uk") {
+		t.Error("another site's identity leaked into this instance's prompt")
+	}
+}
+
+// THE CROSS-CHECK: several instances on one box read env files that differ by
+// one line. A FACTS_URL copy-pasted from another site's env would have this
+// instance state a different business's prices in this site's name, with every
+// fetch reporting success — so the relay's own domain field is checked against
+// SITE_DOMAIN and a mismatch is a hard error, not an update.
+func TestRelayServingAnotherSitesFactsIsRefused(t *testing.T) {
+	// The stub always answers Domain: "webdesign.uk".
+	srv := factsRelayStub(t, "tok", []siteFact{{ID: "a", Claim: "£149 for a site."}}, http.StatusOK)
+	defer srv.Close()
+
+	_, err := fetchFacts(srv.URL, "tok", "noted.co.uk")
+	if err == nil || !strings.Contains(err.Error(), "another site") {
+		t.Fatalf("a relay serving webdesign.uk facts to the noted.co.uk instance must be refused, got %v", err)
+	}
+	// Case-insensitive on the domain: the relay lowercases, an operator may not.
+	if _, err := fetchFacts(srv.URL, "tok", "WebDesign.UK"); err != nil {
+		t.Fatalf("case difference alone must not refuse: %v", err)
 	}
 }

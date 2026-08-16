@@ -52,15 +52,24 @@ type factsResponse struct {
 // promptFrame is everything around the facts: behaviour instructions, not
 // facts, so it stays compiled-in and owner-reviewed like all bot copy. The
 // facts bullets are interpolated between Intro and Conduct.
-const promptIntro = `You are the intake assistant for webdesign.uk, a service that builds complete websites for small and medium UK businesses.
+//
+// The intro's SITE IDENTITY is a parameter (SITE_DOMAIN + SITE_DESCRIPTION,
+// PLAN_2026-08-11 step 5: one binary, several sites on one box). It is NOT
+// defaulted: a second site's instance falling back to another site's identity
+// is the worst failure this file can produce — the bot would introduce itself
+// as a different business and no error would ever say so. main.go refuses to
+// start live mode without both.
+func renderPromptIntro(domain, description string) string {
+	return "You are the intake assistant for " + domain + ", " + description + `.
 
 Facts you may state, and the ONLY facts you may state as numbers or commitments — never invent, round, or approximate anything beyond these:`
+}
 
 const promptConduct = `Your job: have a short, plain conversation. Ask what business the visitor runs and what domain they'd want the site on. Do not ask for anything else unless they offer it. Do not invent services, features, or numbers beyond the facts above. Do not promise anything about timing, price, or process that isn't stated above. If asked something you don't know, say so plainly and point at the contact details. Write in plain, direct British English — short sentences, no agency-marketing language, no em dashes. This is a first conversation, not a sales pitch: restraint reads as confidence here.`
 
-func renderSystemPrompt(facts []siteFact) string {
+func renderSystemPrompt(domain, description string, facts []siteFact) string {
 	var b strings.Builder
-	b.WriteString(promptIntro)
+	b.WriteString(renderPromptIntro(domain, description))
 	b.WriteString("\n")
 	for _, f := range facts {
 		claim := strings.TrimSpace(f.Claim)
@@ -81,6 +90,11 @@ func renderSystemPrompt(facts []siteFact) string {
 type factsProvider struct {
 	mu     sync.RWMutex
 	prompt string
+
+	// domain and description parameterise the prompt intro; domain is ALSO
+	// the cross-check against what the relay says it served (see fetchFacts).
+	domain      string
+	description string
 }
 
 func (p *factsProvider) SystemPrompt() string {
@@ -90,7 +104,7 @@ func (p *factsProvider) SystemPrompt() string {
 }
 
 func (p *factsProvider) set(facts []siteFact) {
-	rendered := renderSystemPrompt(facts)
+	rendered := renderSystemPrompt(p.domain, p.description, facts)
 	p.mu.Lock()
 	p.prompt = rendered
 	p.mu.Unlock()
@@ -101,7 +115,13 @@ var factsHTTP = &http.Client{Timeout: 10 * time.Second}
 // fetchFacts GETs the relay. Non-200 is an error carrying the status so a 401
 // (bad/missing token) is distinguishable from a 404 (domain not registered)
 // in journalctl — those have different fixes and identical symptoms otherwise.
-func fetchFacts(url, token string) ([]siteFact, error) {
+//
+// expectDomain is the instance's own SITE_DOMAIN, checked against what the
+// relay SAYS it served: with several instances on one box reading env files
+// that differ by one line, a FACTS_URL copy-pasted from another site's env
+// would otherwise have this instance state a different business's prices in
+// this site's name, with every fetch reporting success.
+func fetchFacts(url, token, expectDomain string) ([]siteFact, error) {
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
 		return nil, err
@@ -119,6 +139,9 @@ func fetchFacts(url, token string) ([]siteFact, error) {
 	if err := json.NewDecoder(resp.Body).Decode(&fr); err != nil {
 		return nil, fmt.Errorf("facts relay response not decodable: %w", err)
 	}
+	if !strings.EqualFold(strings.TrimSpace(fr.Domain), strings.TrimSpace(expectDomain)) {
+		return nil, fmt.Errorf("facts relay served domain %q but this instance is %q — refusing another site's facts", fr.Domain, expectDomain)
+	}
 	if len(fr.Facts) == 0 {
 		// Zero facts is indistinguishable from a misconfigured relay, and a
 		// prompt with an empty facts section licenses the model to improvise
@@ -132,10 +155,10 @@ func fetchFacts(url, token string) ([]siteFact, error) {
 // persists successful fetches, and starts the background refresher. An error
 // here means neither the relay nor a cached copy could supply facts — the
 // caller should treat that as fatal, per the header comment.
-func newFactsProvider(url, token, cachePath string, refreshEvery time.Duration) (*factsProvider, error) {
-	p := &factsProvider{}
+func newFactsProvider(url, token, domain, description, cachePath string, refreshEvery time.Duration) (*factsProvider, error) {
+	p := &factsProvider{domain: domain, description: description}
 
-	facts, err := fetchFacts(url, token)
+	facts, err := fetchFacts(url, token, domain)
 	if err != nil {
 		log.Printf("facts: startup fetch failed (%v), trying last-good cache %s", err, cachePath)
 		cached, cacheErr := os.ReadFile(cachePath)
@@ -156,7 +179,7 @@ func newFactsProvider(url, token, cachePath string, refreshEvery time.Duration) 
 		ticker := time.NewTicker(refreshEvery)
 		defer ticker.Stop()
 		for range ticker.C {
-			fresh, err := fetchFacts(url, token)
+			fresh, err := fetchFacts(url, token, domain)
 			if err != nil {
 				// Keep last-good; loud enough to find, quiet enough not to
 				// page anyone over a transient blip.

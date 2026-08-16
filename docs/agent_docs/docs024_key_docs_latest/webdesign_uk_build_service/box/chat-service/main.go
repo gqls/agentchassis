@@ -81,12 +81,25 @@ func main() {
 		if factsToken == "" {
 			log.Fatal("FACTS_URL is set but FACTS_TOKEN is not — refusing to start half-configured")
 		}
-		provider, err := newFactsProvider(factsURL, factsToken, dataDir+"/facts-lastgood.json", 5*time.Minute)
+		// Live mode renders the prompt intro from the site's own identity
+		// (PLAN_2026-08-11 step 5: one binary, several sites on one box).
+		// No default: an instance falling back to another site's identity
+		// would introduce itself as a different business and nothing would
+		// ever error. SITE_DOMAIN is also cross-checked against the domain
+		// the relay says it served — see facts.go.
+		siteDomain := os.Getenv("SITE_DOMAIN")
+		siteDescription := os.Getenv("SITE_DESCRIPTION")
+		if siteDomain == "" || siteDescription == "" {
+			log.Fatal("FACTS_URL is set but SITE_DOMAIN/SITE_DESCRIPTION are not — live mode renders " +
+				"the prompt intro from them; refusing to start half-configured")
+		}
+		provider, err := newFactsProvider(factsURL, factsToken, siteDomain, siteDescription,
+			dataDir+"/facts-lastgood.json", 5*time.Minute)
 		if err != nil {
 			log.Fatalf("facts provider init failed (relay unreachable and no last-good cache): %v", err)
 		}
 		systemPrompt = provider.SystemPrompt
-		log.Printf("facts: live mode, relay=%s", factsURL)
+		log.Printf("facts: live mode, site=%s, relay=%s", siteDomain, factsURL)
 	}
 
 	cs := &chatServer{
@@ -103,7 +116,12 @@ func main() {
 	mux.HandleFunc("/api/chat", cs.handleChat)
 	mux.HandleFunc("/health", hs.handleHealth)
 
-	addr := ":" + port
-	log.Printf("webdesign-chat on %s (max_turns=%d, daily_ceiling=$%.2f)", addr, maxTurns, dailyCeiling)
+	// BIND_ADDR lets an instance bind loopback only — the noted.co.uk nginx
+	// config on this same box names the historical *:8081 bind as the pattern
+	// NOT to copy (ufw as the only control). Default keeps the historical
+	// all-interfaces bind so a binary swap alone changes nothing for the
+	// running webdesign instance; new instances set BIND_ADDR=127.0.0.1:<port>.
+	addr := env("BIND_ADDR", ":"+port)
+	log.Printf("sitechat on %s (max_turns=%d, daily_ceiling=$%.2f)", addr, maxTurns, dailyCeiling)
 	log.Fatal(http.ListenAndServe(addr, mux))
 }

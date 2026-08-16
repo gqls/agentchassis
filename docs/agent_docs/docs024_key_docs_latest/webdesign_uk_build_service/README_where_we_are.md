@@ -1281,3 +1281,40 @@ process working as designed: being proven wrong by the loop costs minutes;
 writing the wrong cause into the record would have cost every thread that
 believed it. The chat box lock stays on throughout, so nothing is at risk
 while this gets pinned down.
+
+## 2026-08-16 — the chat box can now be deployed to a second site by the framework (step 5 built); the visitor-facing proof waits on noted's facts
+
+Step 5 of the August plan was "extend the tool deployer so it can handle a tool that
+needs a backend, and prove it on a second site sharing webdesign's box". Both halves are
+built and one half is proven all the way through.
+
+The framework half: when the deployer forks the chat tool onto a site, it now checks
+first that the site is the kind that can run a backend (the same rule the suggester
+uses), and that the site actually has attested facts for the bot to speak from. If
+either is missing it refuses before writing anything, and says why. If both hold, it
+deploys the widget and files ONE plainly-worded item for a human: "provision the backend
+for this site" — with the relay address, the name of the secret, and where the recipe
+lives. It never carries the secret's value. This is committed and has gone to the
+council; it goes live on the next fleet roll.
+
+The box half: the chat program is no longer hard-wired to webdesign.uk. One binary
+now serves any site given its domain, a one-line description, and the relay address
+for its facts; it refuses to start if it is handed another site's facts by mistake.
+webdesign.uk is already running on that shared binary — the price question through the
+real site still gets the right answer — and as a side effect the service now listens
+on the loopback address only, which it always should have.
+
+Proven this morning, on the box: the same binary brought up with relojistas.com's
+parameters fetched relojistas' 13 facts and came up healthy; brought up as noted.co.uk it
+refused, because noted has no facts yet; brought up as noted but pointed at webdesign's
+facts it refused too. So the mechanism works. What is NOT yet done is a second site's
+visitors actually chatting: the only other site on this box is noted.co.uk, and its facts
+are yours to write (that's already on the noted lane's list). When they exist, provisioning
+noted's instance is one command from the runbook plus one nginx block.
+
+One thing I got wrong and caught myself: I wrote that the relay answers "not found" for a
+site with no facts. It answers "found, zero facts". The bot refuses either way, so nothing
+was mis-built, but the sentence was wrong in four places and is corrected in each.
+
+Decisions still yours: the contact email question, the Stripe webhook hostname, and
+(new) noted.co.uk's facts if you want its chat box next.

@@ -765,3 +765,110 @@ ssh -i ~/.ssh/webdesign_box_ed25519 root@webdesign.vs.mythic-beasts.com \
   'journalctl -u webdesign-chat -n 20 --no-pager | grep facts'
 # expect "facts: fetched 15 facts from relay" (+ "facts: live mode" after a bot restart)
 ```
+
+## One binary, several sites: `sitechat` + `sitechat@<domain>` (2026-08-16, PLAN_2026-08-11 step 5)
+
+The chat service is now a per-site parameterised binary, `/usr/local/bin/sitechat`,
+built from `box/chat-service/` and run by two unit shapes on the box:
+
+| unit | reads | data | for |
+|---|---|---|---|
+| `webdesign-chat.service` (kept, repointed) | `/etc/webdesign-chat.env` | `/var/lib/webdesign-chat` | webdesign.uk — proven store + journal history stay put |
+| `sitechat@<domain>.service` (template) | `/etc/sitechat/<domain>.env` | `/var/lib/sitechat/<domain>` | every other site on this box |
+
+Both run the SAME file; `md5sum /usr/local/bin/sitechat` on the box must equal the
+local build's. The old `/usr/local/bin/webdesign-chat` is kept as
+`webdesign-chat.bak-20260815b` (rollback: repoint `ExecStart`, `daemon-reload`, restart).
+
+### Per-site parameters (the env file)
+
+```
+ANTHROPIC_API_KEY=...                       # required
+SITE_DOMAIN=<domain>                        # required in live mode; cross-checked vs the relay's `domain`
+SITE_DESCRIPTION="<owner-confirmed phrase>" # required in live mode; renders "intake assistant for <domain>, <desc>."
+FACTS_URL=http://core-manager.ai-persona-system.svc.cluster.local:8088/api/v1/site-facts/<domain>
+FACTS_TOKEN=...                             # SITE_FACTS_TOKEN — same value fleet-wide, terraform-owned; grep/cut it out of /etc/webdesign-chat.env, NEVER `source` that file
+CONTACT_EMAIL=... / CONTACT_PHONE=...       # at least one; what the four controls fail closed TO
+BIND_ADDR=127.0.0.1:<port>                  # loopback ONLY for new instances (see below)
+MAX_TURNS_PER_CONVERSATION / DAILY_SPEND_CEILING_USD   # optional engineering defaults
+```
+
+`SITE_DESCRIPTION` is **owner copy**, like the contact line — the bot introduces
+itself with it. `sites.company_name/tagline/email/phone` are the operator's starting
+point, not the answer. **The binary refuses to start live mode without SITE_DOMAIN and
+SITE_DESCRIPTION** — no default, so an instance can never fall back to another
+site's identity. It also refuses when the relay's `domain` field ≠ SITE_DOMAIN
+(proven live 2026-08-16: noted's identity + webdesign's URL → `refusing another
+site's facts`, no listener) and on zero facts.
+
+### Rolling the shared binary (all instances on the box)
+
+```bash
+cd docs/agent_docs/docs024_key_docs_latest/webdesign_uk_build_service/box/chat-service
+GOPROXY=off GOTOOLCHAIN=local go test . -count=1 && \
+GOPROXY=off GOTOOLCHAIN=local GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o sitechat .
+scp -i ~/.ssh/webdesign_box_ed25519 sitechat root@webdesign.vs.mythic-beasts.com:/root/
+ssh -i ~/.ssh/webdesign_box_ed25519 root@webdesign.vs.mythic-beasts.com \
+  'install -m 755 /root/sitechat /usr/local/bin/sitechat && systemctl restart webdesign-chat.service "sitechat@*.service" 2>/dev/null; \
+   sleep 2; journalctl -u webdesign-chat -n 3 --no-pager -o short-iso; ss -ltnp | grep sitechat'
+```
+Expected journal: `facts: fetched N facts from relay` → `facts: live mode, site=<domain>, …`
+→ `sitechat on 127.0.0.1:<port>`. **`ss` must show `127.0.0.1:` binds only** — the pre-08-16
+build bound `*:8081` (noted's nginx names it as the pattern not to copy); if you ever see
+`*:` or `0.0.0.0:` here, BIND_ADDR is missing from that unit/env.
+
+### Provisioning a second site's instance (answering a `backend_provision` item)
+
+The chassis raises ONE `backend_provision` work item per (tool, site) when
+`deploy_tool_to_site` forks a `requires-backend` tool (TL-043; inert until the chassis
+roll after `51c33f482`). Its `spec` carries `domain`, `facts_relay_url`, the token
+secret's NAME, `facts_count_at_deploy`, `contact_fact_at_deploy` (a snapshot — re-read
+the live fact) and a pointer here. To answer it:
+
+```bash
+D=<domain>; PORT=<unused loopback port, e.g. 8084>
+ssh -i ~/.ssh/webdesign_box_ed25519 root@webdesign.vs.mythic-beasts.com <<REMOTE
+set -e
+install -d -m 700 /etc/sitechat; install -d -o www-data -g www-data -m 700 /var/lib/sitechat/$D
+TOKEN=\$(grep '^FACTS_TOKEN=' /etc/webdesign-chat.env | cut -d= -f2-)
+KEY=\$(grep '^ANTHROPIC_API_KEY=' /etc/webdesign-chat.env | cut -d= -f2-)
+cat > /etc/sitechat/$D.env <<EOF2
+ANTHROPIC_API_KEY=\$KEY
+SITE_DOMAIN=$D
+SITE_DESCRIPTION="<OWNER-CONFIRMED PHRASE>"
+FACTS_URL=http://core-manager.ai-persona-system.svc.cluster.local:8088/api/v1/site-facts/$D
+FACTS_TOKEN=\$TOKEN
+CONTACT_EMAIL=<owner-confirmed>
+BIND_ADDR=127.0.0.1:$PORT
+EOF2
+chmod 600 /etc/sitechat/$D.env
+systemctl enable --now sitechat@$D.service; sleep 2
+systemctl is-active sitechat@$D.service; journalctl -u sitechat@$D -n 3 --no-pager -o short-iso
+REMOTE
+```
+Then add to that site's nginx vhost (`/etc/nginx/sites-available/$D`, mirroring
+webdesign.uk's `location /api/chat` block incl. its `limit_req` zone) a
+`proxy_pass http://127.0.0.1:$PORT;`, `nginx -t && systemctl reload nginx`, and
+prove Journey A through the public edge: `curl -X POST https://<host>/api/chat -d
+'{"message":"What does this cost?"}'`. Only THEN mark the item complete. **Do not
+pre-stage an env file with placeholder copy** — a disabled unit someone starts later
+would introduce the bot with the placeholder.
+
+Gate before you start: `curl -s -o /dev/null -w '%{http_code}\n' -H "X-Facts-Token: $TOKEN"
+<facts_relay_url>` **and** the body's `facts` length. **200 is not enough** — noted.co.uk
+returns 200 with `facts: []` (measured 2026-08-16), and the binary refuses on zero
+facts. Facts are attested by the site's owner/lane (register trail), never by the
+provisioner.
+
+### Transient proof runner (no unit, dummy key, nothing persisted)
+
+For "does this site's instance come up" without enabling anything and with NO chance
+of an LLM call:
+```bash
+ANTHROPIC_API_KEY=proof-not-a-real-key CONTACT_EMAIL=proof@example.invalid \
+SITE_DOMAIN=<domain> SITE_DESCRIPTION="proof" FACTS_URL=<relay>/<domain> FACTS_TOKEN=$TOKEN \
+DATA_DIR=/tmp/sitechat-proof BIND_ADDR=127.0.0.1:18082 timeout 6 /usr/local/bin/sitechat
+```
+Success = `fetched N facts` + `live mode, site=<domain>` + a `/health` 200 on 18082
+within 3s. Used 2026-08-16 for relojistas.com (13 facts, came up), noted.co.uk (zero
+facts, refused), and the mismatch case (refused).
