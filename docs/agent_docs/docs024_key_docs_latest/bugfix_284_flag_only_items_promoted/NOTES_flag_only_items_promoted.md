@@ -166,3 +166,31 @@ The owner's instruction was to prepare the plan with Fable. The agent terminated
 `You've reached your Fable 5 limit. Run /usage-credits to continue`. No plan was
 returned — recorded here so nobody later reads the plan in this directory as Fable's
 work. Planning was done in-session; re-runnable when the limit resets.
+
+## 2026-08-16 — what the guard actually does to today's fleet, with a demand control
+
+Predicate run against the live table before the roll, so the effect is measured
+rather than predicted. **Held back: 37 rows, all of them handler-less**
+(`head_essentials_missing` 36 on one site, `image_url_404` 1) — and **0 rows held
+back for "handler not registered"**, so no real job is stranded by the second half
+of the test today.
+
+The control matters more than the finding: **4 `detected` rows still promote**. A
+guard that held back everything would produce the same "37 held back" line and look
+identical in the logs, so the number that proves it discriminates is the one that
+still gets through. (`a-post-fix-zero-needs-a-demand-control`.)
+
+```sql
+-- held back, by reason
+SELECT CASE WHEN COALESCE(wi.handler_agent,'')='' THEN 'no handler named'
+            ELSE 'handler not registered: '||wi.handler_agent END, wi.item_type, count(*)
+FROM site_work_items wi WHERE wi.status='detected'
+  AND NOT (COALESCE(wi.handler_agent,'') <> '' AND EXISTS (
+    SELECT 1 FROM agent_definitions ad WHERE ad.type = wi.handler_agent AND ad.deleted_at IS NULL))
+GROUP BY 1,2;
+-- the control: still promotable  -> 4
+```
+
+Full build (`go build ./...`) and vet clean against `git archive HEAD` + my files;
+the one `vet` complaint (`load_component_library_actions.go:207 unreachable code`)
+is another lane's and pre-exists this change.
