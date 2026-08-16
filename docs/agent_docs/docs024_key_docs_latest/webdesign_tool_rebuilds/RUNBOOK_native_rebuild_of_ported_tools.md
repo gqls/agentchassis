@@ -105,3 +105,42 @@ FROM page_components WHERE page_id='<page>';
 Status flips only, html untouched, one txn with pre-state asserts: ported slot `removed`→`deployed`,
 fork slot `approved`→`removed`, then an assemble-only `page_rerender` (spec `{domain,page_id,page_name,filename}`,
 no `reason`). Grade at the served page: `grep -c '{{\.'` = 0, control string present, ONE tool.
+
+## Grade the served page — use the `index.html` URL, not the directory (added 2026-08-16, adopt-route pilot)
+
+`https://webdesign.co.uk/tools/aspect-ratio/` is a **404** (3,001 B); the served artefact is
+`https://webdesign.co.uk/tools/aspect-ratio/index.html` (200). Take the URL from `pages.url`.
+This matters because the 404 body scores `{{\.` = 0 and `class="ported-page"` = 0 — **a perfect
+pass on a page that could never have contained either.** Assert the status code first:
+
+```bash
+curl -s -o /tmp/t.html -w 'http=%{http_code} bytes=%{size_download}\n' "https://webdesign.co.uk$(psql_url)"
+# require http=200 before reading any count below
+```
+
+## The generator files its OWN rerender — do not file a second one (adopt route, 2026-08-16)
+
+A completed adopt run leaves `page_rerender` queued with key
+`page_rerender_<page_name>_<site_id>_assemble` and spec `{domain, page_id, filename, page_name}` —
+already the assemble-only shape. It also files `needs_content_page` (`tool_content:<page_name>:<site>`)
+and `nav_drift` (`nav_rebuild:<site>`), and it creates a **guide page** (`<page_name>-guide` under
+`/guides/`) plus cross-links. So on this route:
+
+- **Retire the ported slot BEFORE that rerender is claimed.** If it renders first the page serves
+  BOTH tools — the ab-test shape. Check the backlog ahead of it:
+  `SELECT count(*) FROM site_work_items WHERE status IN ('triaged','approved','pending') AND created_at < '<the rerender item's created_at>';`
+- "`pages` gained no row" is a check on the **tool** page only. The guide page IS a new `pages` row
+  and is correct output — do not read it as an adopt failure.
+
+## Record the revert handle per tool — the ported ROW, not an archive row
+
+A `build_status` retire fires **no** archive trigger (`…archive_upd` is `AFTER UPDATE OF rendered_html`
+and requires the html to differ; the twin is `AFTER DELETE`). `page_component_history` stays empty for
+the page. Capture this instead, immediately before the retire:
+
+```sql
+SELECT id, slot_name, build_status, position, length(rendered_html) AS len, md5(rendered_html) AS md5
+FROM page_components WHERE page_id='<page>' AND slot_name='ported-page';
+```
+Paste the row into NOTES. Revert = flip that id back to its recorded `build_status` and re-render;
+the md5 is how a later session proves the bytes it restored are the bytes that were served.

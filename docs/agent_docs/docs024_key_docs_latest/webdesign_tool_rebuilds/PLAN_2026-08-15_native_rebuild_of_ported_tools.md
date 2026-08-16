@@ -95,3 +95,23 @@ more weight for a rich app than for a converter:
    proved the recipe end to end, with the owner seeing each served page (§4). The ruling settles
    WHETHER, not the order; front-loading the hardest reimplementations before the recipe is proven
    spends the owner's review attention on the least certain output first.
+
+### CORRECTION 2026-08-16 16:20Z — condition 3 of the ruling above asks for a row that cannot exist
+
+> Condition 3 says: "Note the archive row id per tool in NOTES as you go — that is what makes a bad
+> reimplementation reversible in one statement rather than a re-import." **The retire we prescribe
+> creates no archive row.** The trigger is `trg_page_component_artefact_archive_upd AFTER UPDATE **OF
+> rendered_html** ON page_components … WHEN (old.rendered_html IS NOT NULL AND new.rendered_html IS
+> DISTINCT FROM old.rendered_html)`, with an AFTER DELETE twin. Setting `build_status='removed'`
+> changes neither `rendered_html` nor deletes the row, so neither fires. Measured on the pilot page
+> `00979b9e`: `page_component_history` = **0 rows**. (This is why the 08-16 NOTES entry recorded
+> "No archive row for the pair" on ab-test — true, and its mechanism was not known at the time.)
+>
+> **The substance of condition 3 is unaffected and is in fact stronger than it was written.** The
+> reversibility comes from the same choice — retire, never delete — but the handle is the surviving
+> `page_components` row, not an archive row: it keeps its `rendered_html` verbatim, so the revert is
+> one status flip plus a re-render (proven on ab-test, 2026-08-16 10:0xZ). **So record, per tool:
+> the ported slot's row id, its `rendered_html` length and md5, and its pre-state `build_status`** —
+> the md5 is what lets a later session prove the bytes it is restoring are the bytes that were served.
+> `page_component_history` remains the right place to look for content-CHANGING writes (a section
+> edit, a rerender that rewrites a slot); it is simply not part of the retire path.

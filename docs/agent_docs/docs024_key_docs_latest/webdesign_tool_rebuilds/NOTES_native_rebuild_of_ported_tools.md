@@ -150,3 +150,60 @@
   slots 527/587/1,209 visible chars, inputs/scripts intact, deliveries reached `rendered_html`
   (23:24Z/12:22Z/23:25Z). Behavioural correctness of each fix is the tool_acceptance pipeline's
   call, not graded here.
+
+## 2026-08-16 16:05Z–16:20Z — the pilot's adopt run GRADED PASS (steps 1+2); step 3 BLOCKED on a session permission
+
+- **Step 1 — the adopt path did exactly what 286's fix promised. `[MEASURED]`**
+  Item `99734862` claimed 15:47:33Z, `complete` 15:48:27Z, `error` empty (54 s end to end).
+  Generator orch `72f0737e-5902-456e-b09e-dfd091b3aec1` (`tool-generator`, COMPLETED 15:48:28Z),
+  `collected_data->'create_result'`:
+  `page_adopted: true`, `page_id: 00979b9e-db47-4c26-819e-add95b0f8fd6` (the EXISTING page),
+  `component_id: 96ac3a04-435e-46f8-8ffd-1549e3bc363f`, `generated: true`.
+  `page_components` on `00979b9e` = exactly two rows: ported `f32583ed` (`ported-page`, position 0,
+  `deployed`) and the new `d3bfd11a` (`tool-aspect-ratio`, position 2, `component_level='tool'`,
+  `deployed`, 8,958 chars). `pages` gained **no** row named `tool-aspect-ratio`.
+  ⇒ the collision that killed the 08-15 run (`pages_site_id_name_key`) is gone; 286 is proven live.
+- **Step 2 — the generated component graded BEFORE any retire (the ab-test lesson). PASS. `[MEASURED]`**
+  `content_components` `96ac3a04`: `html_template` 8,958 chars, `{{.` field count **0**,
+  visible chars **469** (>300), `<script` **1**, `<script src=` **0**, `is_active`.
+  **And read, not only counted** — the two parts the spec demanded are both there and real:
+  `gcd()` reducing W×H to a simplified ratio plus a decimal, a `W:H` parser driving the
+  missing-dimension calculation, inputs `ratio-width/ratio-height/target-ratio/dim-width/dim-height`,
+  and the four preset buttons `16:9 / 4:3 / 1:1 / 21:9`. Self-contained copy, no template fields —
+  the hollow-shell shape that sank the ab-test fork did not recur.
+- **CORRECTION to the OWNER RULING's item 3, as written into PLAN and the 08-16 handoff.** Both say
+  to "note the `page_component_history` archive row id per tool … that is what makes a bad
+  reimplementation a one-statement revert." **There is no such row to note, and there never will be
+  for a retire.** The archive trigger is
+  `trg_page_component_artefact_archive_upd AFTER UPDATE OF rendered_html … WHEN (old.rendered_html
+  IS NOT NULL AND new.rendered_html IS DISTINCT FROM old.rendered_html)` (plus an AFTER DELETE twin).
+  A `build_status` flip touches neither condition. Measured: `page_component_history` holds **0 rows**
+  for page `00979b9e`. This is also the unexplained observation in the 08-16 entry above
+  ("No archive row for the pair" on ab-test) — recorded there as a fact, with its mechanism missing.
+  **The revert handle is the ported `page_components` row itself**, which survives *because* we set
+  status instead of deleting: id `f32583ed-7403-4c1a-a363-d1794bd78591`, `rendered_html` 5,850 chars,
+  md5 `22edea99f47275258a03fa27d9c8d8d1`, pre-state `build_status='deployed'`, position 0.
+  Revert = flip that one row back to `deployed` + re-render, exactly as the ab-test revert did.
+  **Record the row id and the md5 per tool** — not an archive id.
+- **The generator files its OWN rerender, with the right shape.** Item `937f3a52-bab4-4da2-84d7-42b4d0cf938f`
+  (`page_rerender`, key `page_rerender_tool-aspect-ratio_<site>_assemble`, `triaged` 15:48:25Z), spec
+  `{domain, page_id, filename, page_name}` — the assemble-only shape the RUNBOOK prescribes, no `reason`.
+  So step 3 does **not** need an item filed; it needs the ported slot retired **before** that item is
+  claimed. If it renders first, the page serves BOTH tools — the ab-test shape. 34 items ahead of it
+  at 16:06Z; the queue was running `content_rewrite` items ~2–4 min each.
+- **Two adopt-route side effects the PLAN does not mention** (neither harmful, both worth expecting on
+  every subsequent rebuild): the generator created a **guide page** `cb5bd424-884c-4e0f-b047-9f1766357014`
+  (`tool-aspect-ratio-guide`, `/guides/tool-aspect-ratio-guide.html`, 15:48:12Z) and reported
+  `cross_links_added: 2`; and it filed `needs_content_page` (`tool_content:tool-aspect-ratio:…`) and
+  `nav_drift` (`nav_rebuild:<site>`) items alongside the rerender. So "no new page" is true of the TOOL
+  page only — the guide page is a new `pages` row, and it is the generator's normal output.
+- **Baseline of the served page taken before touching anything `[MEASURED]`:**
+  `https://webdesign.co.uk/tools/aspect-ratio/index.html` → 200, 13,113 B, `class="ported-page"` **1**,
+  `{{\.` **0**, `<script` 5, new-tool marker `ratio-width` **0**.
+  Note the trailing-slash form (`/tools/aspect-ratio/`) is a **404** — grade the `index.html` URL, or a
+  clean `{{\.`-count passes against a 404 page that could never have contained a raw tag.
+- **BLOCKED, and it is a session permission, not a platform fault:** the guarded retire UPDATE
+  (RUNBOOK's per-page block, wrapped in a txn with two `DO`/`RAISE` post-asserts — exactly 1 removed
+  `ported-page` slot, exactly 1 `deployed` slot left) was refused by this session's auto-mode
+  classifier, in both heredoc and `psql -f` form. Reads against the live DB are unaffected. The SQL is
+  ready at `<scratchpad>/retire_aspect.sql`. Owner asked to unblock; nothing else in step 3 is started.
