@@ -11307,3 +11307,29 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **source:** 2026-08-16, leopardess services-restore session (RUNNING_NOTES 2026-08-16); one wasted rerender
 - **relations:** LANDMINES "A `static`-source field in a component's `input_schema` OVERWRITES your stored `content_data` on every section resolve" (the same trap for the other two source families — read them together) · "A queue `page_rerender` item with no `reason` … is ASSEMBLE-ONLY" (the opposite failure: nothing re-resolves) · `docs/leopardessconsulting/RUNBOOK.md` landmine 14 (a section-component fork does not survive rerender — same "the rerender re-derives from the authority" mechanism)
 - **added:** 2026-08-16, leopardess services-restore session
+
+### A census over `workflow.steps.*.action` is BLIND to every action nested in a `sub_workflow` — 80 live invocations, 19 action names, and the answer comes back well-formed and short
+
+- **footprint:** `agent_definitions.default_config->'workflow'->'steps'` · any query of the form `jsonb_each(default_config->'workflow'->'steps')` reading `->>'action'` · `loop` steps · blast-radius and "who calls this action" measurements · council-gate footprint maps · deprecating or changing any registered action · `render_component`, `assemble_page`, `plan_sections`, `save_page_sections`, `call_agent`, `spawn_agent`, `create_work_item`, `complete_work_item`
+- **fires when:** you answer "which live workflows execute action X?" — for a blast radius, a footprint, a deprecation, or a council submission's pipeline census — by iterating the top-level steps map and reading each step's `action`. **It returns a clean, plausible, non-empty answer, and it silently omits everything a loop runs.**
+- **the mechanism, measured 2026-08-16:** a `loop` step carries an entire nested workflow at `config.sub_workflow.steps.<name>.action`. Fleet-wide, live and non-snapshot: **1,271 top-level steps, 18 of which carry a `sub_workflow`, hiding 80 action invocations across 19 distinct action names.** Note the near-miss shape too — `config ? 'action'` on a loop step returns **0**, so a census that *tries* to look inside the loop, but guesses the key one level too shallow, reports "no nested actions" and reads as a completed check.
+- **the tell, and why you will not see it:** the top-level census is not empty, so nothing looks wrong. Caught here only because a **text control** disagreed with the structured query: `default_config::text LIKE '%render_component%'` found `page-content-writer` while `steps.*.action='render_component'` found **nothing at all** — i.e. a whole render path read as executed by no live workflow, which was false. Without the control I would have published "`render_component` is dormant" in a council submission.
+- **the check:** run both and reconcile the difference before publishing either.
+  ```sql
+  -- structured (executes it), now including sub_workflows
+  WITH s AS (SELECT ad.type, st.value AS step
+             FROM agent_definitions ad, LATERAL jsonb_each(ad.default_config->'workflow'->'steps') st
+             WHERE ad.is_active AND COALESCE(ad.is_snapshot,false)=false AND ad.deleted_at IS NULL)
+  SELECT DISTINCT type FROM s WHERE step->>'action' = '<action>'
+  UNION
+  SELECT DISTINCT s.type FROM s, LATERAL jsonb_each(s.step->'config'->'sub_workflow'->'steps') sw
+   WHERE sw.value->>'action' = '<action>';
+  -- text control (mentions it) — the over-inclusive upper bound; a difference is a question, not noise
+  SELECT type FROM agent_definitions WHERE is_active AND COALESCE(is_snapshot,false)=false
+    AND deleted_at IS NULL AND default_config::text LIKE '%<action>%';
+  ```
+  A text hit that the structured query misses is either a deeper nesting or a mere mention (a footprint map, a `next_step` label) — **open the row and look**, because those two have opposite meanings for a blast radius.
+- **the general form:** a structured query encodes a belief about the document's SHAPE, and when the shape is wrong the query does not error — it answers a narrower question, correctly, in the same format as the question you asked. A text scan over the same column encodes no shape belief, which is exactly why it makes a usable control even though it over-reports.
+- **relations:** MEMORY [[measurement-discipline-index]] (interrogating what doesn't EXIST returns a well-formed answer) · [[a-post-fix-zero-needs-a-demand-control]] (a zero needs a control that could have made it non-zero) · `bugs_open/283` §10 (the pipeline census this was found in) · the council `guardian` seat's standing objection that a Go-file census is not a pipeline census
+- **source:** 2026-08-16, `bugfix_283_component_instance_scope` lane, answering the council `guardian` seat's round-2 objection that the plan's blast radius stopped at the Go-file level. Both counts read first-hand off the live DB; the `sub_workflow` key path was read out of `page-content-writer`'s own `process_sections_loop` config rather than guessed, after `config ? 'action'` returned 0 and the first guess proved wrong.
+- **added:** 2026-08-16, bugfix_283 lane

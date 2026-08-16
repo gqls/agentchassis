@@ -1,4 +1,4 @@
-# 283 — CONTINUE HERE (2026-08-16). Round 2 is submitted; the next real work is converting templates.
+# 283 — CONTINUE HERE (2026-08-16). Round 2 is **APPROVED and LIVE**; the next real work is converting templates.
 
 **Read `bugs_open/283_HANDOFF_…_element_ids_are_literal.md` first** — that is the case file
 (diagnosis, evidence, the owner's ruling, and **§9, which is this session's record**). This
@@ -33,9 +33,21 @@ still live and 283 stays OPEN.**
 | `7042b4eaf` | council REVISE recorded, the 5-vs-7 correction |
 | **`32d6e980a`** | **round 2 — see §3** |
 
-All carry `Council-Submitted: 07635a2f-3605-4e67-9a6d-7636b07f16ca`. **Do NOT write a
-`Council-Reviewed:` trailer until you have read an approved verdict** — round 2's verdict was
-not back when this was written.
+All carry `Council-Submitted: 07635a2f-3605-4e67-9a6d-7636b07f16ca`. **Round 2 came back
+`approved` at 2026-08-16 10:25 UTC** — "approved with 6 advisory objection(s) — none
+high-severity". The `098` report resolves the correlation at report time, so those commits are
+credited automatically; **no amend, and do not retro-fit a `Council-Reviewed:` trailer.** New
+commits on this lane may carry `Council-Reviewed: 07635a2f-3605-4e67-9a6d-7636b07f16ca`.
+
+**It is LIVE.** Chassis `v1.0.1304`, pods started 2026-08-16T10:41 UTC, digest-verified (case
+file §10). **And still inert — 0 of 243 templates reference the token.** Approval is not the
+same as the defect being fixed; the 22 calculator templates are still literal-id.
+
+**All six advisory objections are worked through in case file §10** — two needed a code check
+(both fine), three needed a measurement (all done), and two produced real artefacts: `RFC_032`
+and a `LANDMINES.md` entry. §10.4 is the one to read: the general `missingkey=zero` exposure is
+**not** closed by this work, and that is recorded as a known-unresolved root cause rather than a
+risk bullet.
 
 Tests: green on a clean `git archive HEAD` tree. **The working tree's test build is broken by
 another session's staged-but-uncommitted `agent_definition_nullable_columns_test.go`, which
@@ -67,15 +79,14 @@ cd $SC && go build ./... && go test ./platform/orchestration/actions/
 
 ## 4. Do this next, in order
 
-1. **Read the round-2 verdict** — it is keyed on the same correlation:
-   ```sql
-   SELECT created_at, metadata->>'decision' FROM diagnosis_artifacts
-   WHERE correlation_id='07635a2f-3605-4e67-9a6d-7636b07f16ca' AND kind='council_report'
-   ORDER BY created_at;
-   ```
-   Two reports will be there; the newest is round 2. The code is already on the shared branch,
-   so a REVISE is acted on forward, not held.
-2. **Convert the 22 calculator templates.** Namespace ids with `{{.InstanceID}}-`, scope
+1. ~~Read the round-2 verdict~~ **DONE — approved; §10 of the case file has every objection and
+   what it turned into.**
+2. **Convert the 22 calculator templates.** ⚠ **This is architecture-scope, and the council said
+   so in the same breath as approving.** The `architecture` seat approved round 2 under RFC_022's
+   narrow exception, whose third condition is *zero live consumers* — and its note is explicit:
+   *"the moment the 22 templates start consuming `InstanceID` … that conversion PR, not this one,
+   is where an RFC or at minimum a fresh architecture pass belongs."* So: **`RFC_032` first, or a
+   fresh architecture round.** Then namespace ids with `{{.InstanceID}}-`, scope
    lookups to the instance root instead of `document.getElementById`, wrap each script in an
    IIFE (**16 declare at top level**), replace `window.onload` (**8 assign it**). DB writes
    need the owner — this session's permission classifier refuses them.
@@ -84,7 +95,13 @@ cd $SC && go build ./... && go test ./platform/orchestration/actions/
    function-based.
 4. **Rebaseline `b2_verify`'s verbatim-render check.** Converting ends the byte-identical
    property that lane verifies against. A deliberate decision, not something to meet mid-batch.
-5. **Then, and only then**, consider arming `enforce_instance_scope` anywhere.
+5. **Then, and only then**, consider arming `enforce_instance_scope` anywhere. ⚠ The
+   `render_guardian` seat's words: arming it **before** the 13 known-colliding pages are fixed
+   would itself be *"a high-severity fail-loud violation"*. Convert → re-measure → arm.
+6. **Build the RFC_022 expiry trigger, or accept it has expired** (`RFC_032` §6). A commit-time
+   lint cannot see a template that lives in a DB column, so the trigger has to be a daily check:
+   `SELECT count(*) FROM content_components WHERE is_active AND html_template LIKE '%{{.InstanceID}}%';`
+   Not built. Whoever converts the first template owns this.
 
 ## 5. Traps carried forward
 

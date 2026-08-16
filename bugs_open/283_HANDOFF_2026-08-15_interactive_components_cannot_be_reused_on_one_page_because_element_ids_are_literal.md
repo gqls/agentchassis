@@ -377,3 +377,124 @@ scopes lookups to the instance root, wraps each script in an IIFE (16 declare at
 replaces `window.onload` (8 assign it); `oracle.py`'s selectors updated **in lockstep**; a
 two-instance proof page; and `b2_verify`'s verbatim-render baseline reset, because converting
 ends the byte-identical property that lane verifies against. DB writes need the owner.
+
+---
+
+## 10. UPDATE 2026-08-16 (later) — round 2 is **APPROVED and LIVE**, and the six advisory objections are worked through
+
+`decision: approved` at 10:25 UTC, *"approved with 6 advisory objection(s) — none high-severity"*.
+Reviewers: **approve** — constitution, mission, debug_historian, tooling_provenance, architecture;
+**object (advisory)** — editquality, bug_historian, reuse_agent, guardian, render_guardian,
+prior_art_librarian; 6 abstained. **283 still stays OPEN: the 22 templates are unconverted.**
+
+**It is live.** Chassis `v1.0.1304`, pods started 2026-08-16T10:41 UTC. Same digest chain as §9.5:
+pod `imageID` `sha256:75ae5902…` == local `v1.0.1304` `RepoDigests`, whose
+`org.opencontainers.image.revision` is `5de6cddbe`, of which `32d6e980a` is an ancestor. So the
+section-editor binding, the shared-layer report and the new token rule are all running in
+production — **and still inert, because nothing consumes the token.**
+
+### 10.1 The two "this needs a code_check, not an assumption" objections — both checked, both fine
+
+The `editquality` seat was right that the *sketch* did not evidence either claim. Both are true in
+the code, and here is the evidence rather than the assertion:
+
+1. **"The report is on `RenderTemplateReportingMissing`, but every call site calls plain
+   `RenderTemplate` — if these are two distinct functions the report never fires."** They are not:
+   `component_library.go:952` is a three-line wrapper —
+   `func RenderTemplate(...) string { out, _, _ := RenderTemplateReportingMissing(...); return out }`.
+   Every call site reaches the report. ✅
+2. **"The rationale says the counter does not advance for a CARRIED section, but the sketch shows an
+   unconditional `instances.Next(...)` in the loop."** The carried branch `continue`s at
+   `rerender_page_sections_action.go:399`, before the render block at `:511` where `Next` is called.
+   The stated behaviour holds. ✅
+
+### 10.2 `prior_art_librarian` — three new factual claims, unverified in the submission. Verified here.
+
+| claim | check |
+|---|---|
+| `pattern-check.py` already has the `check_unrepaired_component_write` idiom with a raw-body/stripped-body split | `scripts/pattern-check.py:608` (the check), `:567` (`_calls_repair_seam`, the raw-body scan), `:576-605` (`COMPONENT_WRITE_ALLOWED`, reasons-not-exemptions). The new check mirrors all three. ✅ |
+| `cmd/component-render-check/rendercheck.go` exists and is one of the call sites | it exists; 4 `RenderTemplate*` calls; renders every active component through the production entry point; writes its report to `doc_notes` (`:507`) and never to a served page; synthesises a marker for every referenced field (`:315-350`). ✅ |
+| `section_editor_actions.go`'s two sites render page-embedded components and bound no token | `applyContentEdit` (`RenderTemplate(htmlTemplate, …)`) and `applyComponentSwap` (`RenderTemplate(comp.HTMLTemplate, …)`); neither bound anything before `32d6e980a`. ✅ |
+
+### 10.3 `guardian` — the census was Go-file-level, not pipeline-level. Here is the pipeline level.
+
+Live, non-snapshot agent types touching the edited actions — and the measurement itself needed a
+correction, which is the more useful half:
+
+| action | agent types that EXECUTE it | that MENTION it |
+|---|---|---|
+| `render_site_components` | 7 — nav-link-fixer, nav-updater, pageflow-builder, rerender-chrome, rerender-pages, rerender-site, site-work-orchestrator | 7 |
+| `assemble_from_library` | 4 — content-site-architect, landing-page-architect, portfolio-architect, site-component-architect | 4 |
+| `rerender_page_sections` | 1 — page-rerender | 3 (council-gate + fix-proposer are footprint mentions, not steps) |
+| `apply_section_edit` | 1 — section-editor | 2 (tool-improver) |
+| `render_component` | **1 — page-content-writer** | 1 |
+
+**≈15 distinct live agent types across 4+ pipelines** — wider than the Go-file census implied, and
+the guardian was right to ask. All of it inert today (0 of 243 templates), which is what makes it
+safe rather than lucky.
+
+> ⚠ **`render_component` first measured as ZERO, and that was wrong.** A census over
+> `workflow.steps.*.action` cannot see an action nested in a `loop` step's
+> `config.sub_workflow.steps.*.action` — fleet-wide that hides **80 invocations across 19 action
+> names**. `render_component` is executed inside `page-content-writer`'s `process_sections_loop`.
+> Caught by a text control disagreeing with the structured query; without it I would have published
+> "that render path is dormant". Full trap in `LANDMINES.md`.
+
+### 10.4 `bug_historian` — the objection to take seriously, and it is NOT closed
+
+> *"This ships a second instance of the `missingkey=zero` exposure rather than closing the
+> mechanism … the realistic outcome is that `InstanceID` joins the population of 'detected, never
+> enforced' fields already documented elsewhere on this platform."*
+
+**Recorded as a known-unresolved root cause, which is exactly what the seat asked for.** Stating it
+plainly:
+
+- Go's `missingkey=zero` blanks **any** absent field in **every** template, silently. 283 adds a
+  report for **one** field name. Every other required field on every other template is exactly as
+  exposed as it was before, and **nothing in this bug attempts the general fix.**
+- The general fix would be at the template-execution layer — refuse (or loudly mark) any bare
+  output placeholder that renders empty. That is a fleet-wide behaviour change to every render, and
+  it is not this bug's to make.
+- `enforce_instance_scope` stays **off**, so today a collision is recorded and nothing acts on it.
+  It cannot default on: 13 active pages already collide via `generic-text-block`, so arming it
+  would fail their next re-render.
+- **The sequence that actually closes it** — and the only honest one — is: convert the templates,
+  which removes the 13 collisions' cause; re-measure; then arm. Arming a narrowed guard *now*
+  would be a mechanism that fires on nothing, which is the failure mode the owner's 2026-07-29
+  ruling warns about.
+
+### 10.5 `reuse_agent` — "'filed as the follow-up' has no locator". Correct; now it does.
+
+I wrote that the `ComponentID` unification was "filed as the follow-up the architecture seat asked
+for". **Nothing had been filed** — there was a `verify-later` line in CLC-014 and a sentence in a
+commit message. The seat's objection is upheld and the artifact now exists:
+
+**`architecture_review/RFC_032_three_render_context_builders_disagree_about_what_an_instance_is.md`**
+
+It also carries the `architecture` seat's own follow-up ask (§5 there): the RFC_022 exception 283
+was approved under holds **only while zero live templates reference `{{.InstanceID}}`**, and the
+mechanical trigger for that expiry is **not built** — a commit-time lint cannot see a template that
+lives in a database column. The RFC states the one-line query and says plainly that whoever converts
+the first template either builds the check or accepts that the exception has silently expired.
+
+### 10.6 The remaining advisories, and what was done
+
+- **`debug_historian`, medium — compile atomicity** ("six files must land in one commit; round 1's
+  own HIGH objection was a merge-half-done"). They did: `32d6e980a` is a single commit containing
+  the seam and all five callers. ✅
+- **`debug_historian`, low — no deploy-verification for the new logging seam.** Honest answer: the
+  log line **cannot fire in production today**, because it fires only when a template references
+  `{{.InstanceID}}` and none is bound, and no template references it. What *is* verified is that
+  the code is in the running binary (§10's digest chain). The pod-level check becomes meaningful
+  the moment the first template converts:
+  `kubectl -n ai-persona-system logs -l app=agent-chassis --tail=2000 | grep 'no per-instance token was bound'`.
+- **`guardian`, low — "confirm the 0-template count holds at merge time".** Re-run post-merge and
+  post-roll, 2026-08-16: **0 of 243.** ✅
+- **`guardian`/`bug_historian`, low — the pattern-check allow-list is keyed on file basename, so a
+  render call added to an allow-listed file inherits the exemption silently.** Real, unfixed, and
+  it matters most for `component_library.go`, which hosts both the chrome renderers and the shared
+  seam. Keying on file+symbol is the improvement; not done.
+- **`render_guardian`, low — the report logs and does not refuse.** Same substance as 10.4, same
+  answer. Its warning is worth carrying verbatim: *"if `enforce_instance_scope` is ever flipped on
+  before the 13 known-colliding pages are fixed, that would be a high-severity fail-loud
+  violation."*
