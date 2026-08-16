@@ -54,6 +54,29 @@ services:
       DATABASE_URL: postgres://tools_api:${POSTGRES_PASSWORD}@postgres:5432/tools_api?sslmode=disable
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}   # DEDICATED spend-capped key, never the platform's
       GAUNTLET_MODEL: claude-sonnet-5
+      # ── Tenant 2: the gripper-dossier intake (/api/v1/tools/gripper), added
+      # 2026-08-16. OPT-IN BY ENV: the route group and its poller mount only
+      # when GRIPPER_ANTHROPIC_API_KEY is non-empty (internal/tools-api/config).
+      # The `:-` defaults mean an .env that predates this block interpolates to
+      # empty and the service boots exactly as before — no warning, no change.
+      # Once the key IS set, GRIPPER_PULL_KEY (>=24 chars; must equal the
+      # pull_key seed 208 writes on the cluster) and GRIPPER_SMTP_HOST/_FROM are
+      # REQUIRED and the process refuses to start without them (fail-loud, the
+      # same rule as DATABASE_URL). All values live in /opt/island/.env, root
+      # only, never in this repo. Verified pair as of 2026-08-15:
+      # GRIPPER_SMTP_HOST=mail.contactforsales.com PORT=465 (implicit TLS —
+      # mailer.UsesImplicitTLS's own branch) USER/FROM=robot-hands@contactforsales.com.
+      GRIPPER_ANTHROPIC_API_KEY: ${GRIPPER_ANTHROPIC_API_KEY:-}   # its OWN spend-capped key (owner-issued 08-10), never the gauntlet's
+      GRIPPER_MODEL: ${GRIPPER_MODEL:-claude-haiku-4-5}
+      GRIPPER_PULL_KEY: ${GRIPPER_PULL_KEY:-}
+      GRIPPER_SMTP_HOST: ${GRIPPER_SMTP_HOST:-}
+      GRIPPER_SMTP_PORT: ${GRIPPER_SMTP_PORT:-465}
+      GRIPPER_SMTP_USER: ${GRIPPER_SMTP_USER:-}
+      GRIPPER_SMTP_PASS: ${GRIPPER_SMTP_PASS:-}
+      GRIPPER_SMTP_FROM: ${GRIPPER_SMTP_FROM:-}
+      GRIPPER_SMTP_FROM_NAME: ${GRIPPER_SMTP_FROM_NAME:-Robot Hands}
+      # GRIPPER_DAILY_TURN_CAP (default 2000) and GRIPPER_MAX_BODY_BYTES (16384)
+      # are deliberately not surfaced here; set them in .env only if needed.
     depends_on:
       postgres:
         condition: service_healthy

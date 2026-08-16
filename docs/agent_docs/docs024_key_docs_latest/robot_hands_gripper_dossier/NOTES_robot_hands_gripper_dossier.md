@@ -1844,3 +1844,105 @@ file path, `/home/ant/.config/gripper-dossier/smtp.env`, never its contents.
 Both items in the proposal's §8 ("what only the owner can supply") are now done. Nothing
 about the route group itself has moved — that's still with the gauntlet lane — but the two
 things that were blocking the first real send no longer are.
+
+---
+
+## 2026-08-16 — the route group is BUILT (not yet shipped): what was found on the way, and what changed from the proposal
+
+Picked up `PROPOSAL_2026-08-05` as the "tools api" session and built it. Everything below is
+in `internal/tools-api/` (packages `gripper`, `store`, `handlers`, `middleware`, `api`,
+`config`) + `cmd/tools-api/main.go` + `sql_for_agents/436_tools_api_gripper_intake.sql`,
+register **PUB-005**, LANDMINES "two gin groups", RUNBOOK_island "Tenant 2".
+
+**Three findings that changed the build, none of which the proposal or the DESIGN carried:**
+
+1. **The spec vocabulary is the cluster's, not the design's.** [MEASURED live 2026-08-16]
+   `report-builder`'s `load_request` step reads `spec->>'mass_kg'`, `'travel_mm'`,
+   `'accel_ms2'`, `'surface_material'`, `'surfaces_n'`, `'safety_factor'`, `'cycle_rate'`,
+   `'ip_min'`, `'mounting'`, `'part_geometry'`, `'application'` (query pulled from the live
+   `agent_definitions` row, not the seed), and the work-item spec is the island's spec
+   verbatim + `request_id`/`submitted_at`. DESIGN §5.3 says the mapping is "cluster-side, in
+   score_grippers input handling" — the μ alias and the cycle-rate tier ARE there, but the
+   NAMES are not renamed anywhere. So `gripper.Fields` uses `mass_kg / travel_mm /
+   part_geometry / surface_material(enum of 6) / ip_min / cycle_rate / mounting / application /
+   budget` from the first turn, and a test pins it. Had I built the design's `payload_kg /
+   part_surface / environment / notes`, every request would have failed scoring on
+   `mass_kg is required` — after the visitor was told an email is coming.
+2. **The island `sites` table has no `deploy_config`.** The proposal §4 said to check the
+   pull key against `sites.deploy_config->'report_island'->>'pull_key'`; that column exists
+   on clients_db, not on the island's minimal id/domain/status table (`island_db_prep.sql`).
+   The key is `GRIPPER_PULL_KEY` env on the island and must be pasted equal to seed 208's
+   value on the cluster — two places, by hand, as 208's header always said.
+3. **Seed 208's `base_url` was still the wrong pre-correction shape** (`/api/gripper/v1`),
+   committed since 07-25, never applied. Corrected in place to
+   `https://tools.apis.uk/api/v1/tools/gripper` with a dated header note. Applying it before
+   the island answers 200 would make the (disabled) pull task 404 every tick — order in
+   RUNBOOK_island step 7.
+
+**Design decisions taken (and why), where the proposal left room:**
+
+- **Opt-in by env.** `cfg.Gripper` is nil unless `GRIPPER_ANTHROPIC_API_KEY` is set; then the
+  routes are not mounted and the binary boots exactly as v1.0.1198 does. Reason: adding
+  REQUIRED env vars to a shared island service means the next image swap by *any* session
+  fails to boot until `.env` is edited — a deploy-ordering landmine for other people. Once
+  opted in, `GRIPPER_PULL_KEY` + SMTP are required and fail loud (config.go's own rule).
+- **Two gin groups on one prefix**: browser routes behind CORS + per-route `httpguard.Limiter`
+  bands (6/h+20/d, 60/h+200/d, 3/h+10/d — the DESIGN bands, which the gauntlet's flat RPS bucket
+  cannot express) + the group's own body cap; `GET /requests` behind `InternalKey` INSTEAD of
+  CORS (server-to-server GET has no Origin; CORS would 403 the cluster). LANDMINES entry.
+- **`/chat` reuses `aiservice.GenerateText`** — one flattened prompt (fixed prefix ending in
+  `<!--CACHE_BREAKPOINT-->`, then spec-so-far, last 8 turns and the new message, each embedded
+  as JSON so visitor text cannot close a delimiter). aiservice has no system prompt and no
+  `output_config`, so DESIGN's schema-forcing is replaced by a strict parser
+  (`gripper.ParseReply`: one JSON object, `DisallowUnknownFields`, no trailing content, typed
+  + enumerated spec, reply capped). The model's `complete` flag is IGNORED; the server computes
+  `missing_fields` from the merged spec. Not built: a raw client with `system`/`output_config`
+  — that would be a platform-seam change to aiservice or a second Anthropic client, both out of
+  scope for this round; noted as a follow-up.
+- **Merges in SQL** (`spec = spec || $turn`, `transcript = transcript || $pair`) so two
+  overlapping turns on one session commute; "non-null never regresses" falls out because the
+  turn spec has been through `Normalise` and holds no nulls. Turn cap and token cap are the
+  claim UPDATE's WHERE clause; the global daily cap is a conditional upsert on
+  `gripper_daily_turns` (my first draft summed `turns` over sessions active today — wrong
+  across midnight and racy; the Plan-agent critique caught it).
+- **Poller (60 s tick, three lanes)**: check sidecar → `fulfilled`/`failed`/`expired`; link
+  email; apology. `email_attempts` is claimed BEFORE `Send` (mailer is synchronous, no
+  idempotency) so a crash mid-send costs one retry, capped at 3 → `email_failed`. Cadence
+  2 m / 5 m×1 h / 15 m / 24 h expiry as DESIGN §5.2. The link is the sidecar's `url` resolved
+  against `https://<domain>/` if same-host, else the conventional `/reports/<id>.html`.
+  Hourly: transcript GC (24 h idle), PII scrub (90 d post-terminal), limiter sweeps.
+- **`/submit`**: `httpguard.CheckIntake` runs BEFORE email validation so a bot cannot learn
+  which check it tripped; one shared byte slice `{"accepted":true}` for bot and human; the
+  request is filed from the SESSION's spec (server truth) in one tx with active→submitted, or
+  from an inline spec in plain-form mode. No request id in the response — the email carries it.
+- **`/requests`** serves `pending|pulled` only, `created_at >= since`, buffered NDJSON +
+  `_meta`, then `MarkPulled` (pending→pulled, never regressing). `expired`/`failed` rows are
+  NOT served: they have had their apology, and a late report nobody is told about is waste.
+- **Email copy** is a first draft in `gripper/email.go`; no copy existed anywhere in the lane.
+  Owner review before launch.
+- **Not built, said plainly**: site widget + `/gripper-report/` page (separate deliverable);
+  a `host` filter on `/requests` (single report-island site today — a second on the same
+  island would cross-wire, recorded in PUB-005); Anthropic 429/5xx retry.
+
+**Verification, so far** — all local, none on the island:
+- `go test ./internal/tools-api/...` green: route registration + the CORS/key split (api),
+  spec/prompt/parser (gripper), poller lanes with a fake store + fake TLS sidecar host + a
+  recorder Sender (gripper), handlers against a fake store and canned model replies (bot vs
+  human byte-identical; model `complete:true` overridden; failed turn not persisted; feed
+  parsed with the CLUSTER's own struct), config opt-in, middleware.
+- **SQL exercised for real**: throwaway `postgres:16` prepped like the island (minimal `sites`,
+  198, 276), then 436 applied TWICE (creates, then skips, verify block passes both times) and
+  `TestGripperStoreLifecycle` (gated on `TOOLS_API_TEST_DATABASE_URL`) walked the whole
+  lifecycle asserting the GUARDS: cross-site claim → not found, token cap → capped, incomplete
+  submit rolls back, second submit → closed, chat after submit → closed, re-fulfil refused,
+  email claim bounded at 3, apology once, scrub nulls email.
+- **Real process smoke** against that DB: `/session` 403 without Origin / 200 with
+  robot-hands.com; `/chat` with a bogus key → honest 503; `/submit` inline → 201 and the
+  honeypot copy → the same 201 bytes; `/requests` 401 → 200 NDJSON with `_meta`; gauntlet
+  `/publish` still answers. SIGTERM → `shutdown signal received` → `tools-api stopped`.
+
+**Not done / owner-gated** (RUNBOOK_island "Tenant 2" is the ordered checklist): secrets onto
+`/opt/island/.env` (they never transit a transcript — owner or an explicitly-authorised
+session); outbound 465 checked FROM THE ISLAND (08-15's check was from the dev box); image
+build + `docker save|ssh load` + compose swap; 436 applied on the island; seed 208 applied on
+the cluster with the same pull key; `report-request-pull` enabled; then the site widget.

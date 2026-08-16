@@ -3,7 +3,7 @@
 **For:** the gauntlet lane ("vonc 6"), who own `internal/tools-api`
 (`scripts/who-owns.py` doesn't index it — ownership is by prior coordination,
 same channel as the `ClientIP` fix, `bugs_open/139` → `bugs_closed/139`).
-**From:** the gripper dossier lane. **Status:** proposal, not a patch — the
+**From:** the gripper dossier lane. **Status:** ~~proposal, not a patch~~ **BUILT 2026-08-16 (session "tools api"), tested, NOT yet shipped — see NOTES 08-16 for what changed on the way: (a) the spec speaks the CLUSTER's field names, not DESIGN §2's; (b) §4 below is wrong on one point — the island `sites` table has no `deploy_config`, so the pull key is `GRIPPER_PULL_KEY` env; (c) §8's "k8s Secret" wording is wrong for the actual deployment, which is the island's `/opt/island/.env`. Register PUB-005; RUNBOOK_island "Tenant 2" is the ship checklist.** Originally: proposal, not a patch — the
 last cross-lane ask here was a small helpers.go fix; this is a real feature,
 so a written plan for your review is the honest-sized version of "CONTRIB",
 not a diff we hand you cold.

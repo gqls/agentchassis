@@ -3,6 +3,14 @@
 -- Workstream: docs/agent_docs/docs024_key_docs_latest/robot_hands_gripper_dossier/
 -- Design of record: DESIGN_2026-07-24_gripper_dossier_pilot.md §3/§5.
 --
+-- CORRECTED 2026-08-16 (never applied before this correction): base_url was
+-- 'https://tools.apis.uk/api/gripper/v1', the pre-correction island shape that
+-- the island's Caddy allowlist would 404 (DESIGN §2 correction, 07-26). The
+-- intake is a route group inside tools-api, so the base is
+-- 'https://tools.apis.uk/api/v1/tools/gripper' — the puller appends /requests.
+-- No trailing slash: report_request_pull_action.go concatenates raw.
+-- The pull_key here must equal GRIPPER_PULL_KEY in the island's /opt/island/.env.
+--
 -- PRE-IMAGE SAFE (names no action, no agent). But applying it EARLY is not
 -- free: pull_report_requests selects sites by `deploy_config ? 'report_island'`,
 -- so once this row exists the pull task will try that endpoint every tick.
@@ -65,7 +73,7 @@ END $$;
 UPDATE sites
 SET deploy_config = COALESCE(deploy_config, '{}'::jsonb) || jsonb_build_object(
         'report_island', jsonb_build_object(
-            'base_url', 'https://tools.apis.uk/api/gripper/v1',
+            'base_url', 'https://tools.apis.uk/api/v1/tools/gripper',
             'pull_key', current_setting('gripper.pull_key'),
             'note',     'Island intake for the gripper dossier. The cluster PULLS only; the island is never called by the cluster for anything else, and its payload deliberately carries no visitor email — PII stays on the island. Seed 208.'
         )

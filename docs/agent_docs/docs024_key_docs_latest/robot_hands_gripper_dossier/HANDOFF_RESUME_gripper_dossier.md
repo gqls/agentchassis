@@ -1,6 +1,6 @@
 # RESUME HERE — gripper dossier pilot
 
-**Last updated 2026-08-15** (body written 07-27; switch positions corrected 07-31
+**Last updated 2026-08-16 — the route group is BUILT and tested, NOT shipped; see the 08-16 block at the end and NOTES 08-16.** (body written 07-27; switch positions corrected 07-31
 08:15Z; fixture 4 result 07-31 10:45Z; cleanup complete 07-31 15:42Z; `bugs_open/160`
 CLOSED+LIVE 07-31 21:10; mailer adoption re-checked 08-04, found NOT self-contained; route-group
 proposal drafted 08-05; **both owner-supplied credentials (Anthropic key + SMTP) issued and
@@ -168,3 +168,14 @@ Live on chassis **v1.0.1175**. Seeds applied: **204, 207, 209, 210**.
   now). Gates only the island/public half.
 - Cleanup of the two live fixture pages awaits the owner reading them.
 - The soft-launch decision (unlinked → footer nav link) is still theirs.
+
+
+---
+
+## 2026-08-16 — ROUTE GROUP BUILT (not shipped). Resume from RUNBOOK_island "Tenant 2"
+
+- **Code**: `internal/tools-api/{gripper,store/gripper.go,handlers/gripper.go,middleware/{bands,internalkey}.go,api/server.go,config/config.go}` + `cmd/tools-api/main.go`; DB `sql_for_agents/436_tools_api_gripper_intake.sql`; seed 208 base_url corrected; island `docker-compose.yml` env block added (opt-in, `:-` defaults). Register **PUB-005**; LANDMINES "two gin groups"; council submitted with the commit.
+- **Proven locally**: unit + integration tests (real Postgres, 436 applied twice, store lifecycle), real-process smoke of all four routes both directions, SIGTERM graceful stop. NOTES 08-16 has the list.
+- **Three corrections to carry forward**: the chat spec speaks the CLUSTER's field names (measured against the live `report-builder` query — DESIGN §5.3's "island stays dumb" is not how the pipeline works); the island `sites` has no `deploy_config` (pull key = `GRIPPER_PULL_KEY` env, must equal seed 208's); seed 208's base_url is now the corrected `…/api/v1/tools/gripper`.
+- **NEXT, in order (RUNBOOK_island "Tenant 2" steps 1–7)**: 436 on the island → secrets into `/opt/island/.env` (owner/authorised; check 465 FROM the island) → compose + image swap (bump `IMAGE_TAG`, `make build-tools-api-ref`, `docker save|ssh load`) → verify at the container → public smoke (403/200, 401/200) → seed 208 on the cluster with the SAME key → enable `report-request-pull` → then the site widget + `/gripper-report/` page (DESIGN §2 "Site side", unchanged). Email copy (`gripper/email.go`) wants an owner read before launch.
+- **Switch positions unchanged**: `report-dispatch` ON, `report-request-pull` OFF, seed 208 NOT applied.

@@ -187,3 +187,64 @@ docker run --rm --entrypoint sh aqls/tools-api:$TAG -c 'strings /tools-api | gre
 **Pick the grep target from what your change CREATED**, not from a type name or a
 comment: a comment is not in the binary, and a typed constant may be inlined away
 — both make a pod-grep vacuous (this has burned two workstreams already).
+
+## Tenant 2 — the gripper-dossier intake (`/api/v1/tools/gripper`) — BUILT 2026-08-16, NOT YET SWAPPED IN
+
+Same binary, same container, same Postgres, same Caddy allowlist (`/api/v1/tools/*`
+already covers it). Nothing new runs on the box; the existing `tools-api` service
+grows four routes and a background poller. Register **PUB-005**; code
+`internal/tools-api/{gripper,store/gripper.go,handlers/gripper.go}`; DB
+`sql_for_agents/436_tools_api_gripper_intake.sql`.
+
+**It is OPT-IN BY ENV.** With `GRIPPER_ANTHROPIC_API_KEY` empty/unset the new image
+boots exactly like the old one (log line: `gripper route group NOT mounted`). So the
+image swap and the env change are two separate, individually-safe steps, in either
+order. Once the key is set, `GRIPPER_PULL_KEY` (≥24 chars) and `GRIPPER_SMTP_HOST`
++ `GRIPPER_SMTP_FROM` are REQUIRED and the process refuses to start without them —
+read `docker compose logs tools-api | head` after any env change.
+
+### Bring-up, in order
+
+1. **DB (safe any time; idempotent; guarded to refuse a non-island DB):**
+   ```bash
+   scp docs/agent_docs/sql_for_agents/436_tools_api_gripper_intake.sql root@toolsapisuk.vs.mythic-beasts.com:/opt/island/
+   ssh root@toolsapisuk.vs.mythic-beasts.com 'cd /opt/island && docker compose exec -T postgres psql -U tools_api -d tools_api -v ON_ERROR_STOP=1 < 436_tools_api_gripper_intake.sql && docker compose exec -T postgres psql -U tools_api -d tools_api -c "INSERT INTO island_migrations(name) VALUES ('"'"'436_tools_api_gripper_intake.sql'"'"') ON CONFLICT DO NOTHING"'
+   ```
+   Expect the four `NOTICE … created` lines and `Migration 436 verified: 3 tables, 3 indexes, robot-hands.com deployed`. It also seeds robot-hands.com into the island `sites` (real cluster id `00ff3af5-…`) — without that row CORS answers 403 to the widget. (Verified 2026-08-16 against a throwaway `postgres:16` prepped like the island: first apply creates, second apply skips, both pass the verify block.)
+2. **Secrets → `/opt/island/.env` (root, 600, ON the box — never through a transcript):** append
+   `GRIPPER_ANTHROPIC_API_KEY=` (the 08-10 key, `/home/ant/.config/anthropic/gripper-dossier-api-key` on the dev box),
+   `GRIPPER_PULL_KEY=` (mint it: `openssl rand -hex 24`; the SAME value goes into seed 208 on the cluster),
+   `GRIPPER_SMTP_HOST=mail.contactforsales.com`, `GRIPPER_SMTP_PORT=465`,
+   `GRIPPER_SMTP_USER=robot-hands@contactforsales.com`, `GRIPPER_SMTP_PASS=` (from `/home/ant/.config/gripper-dossier/smtp.env`),
+   `GRIPPER_SMTP_FROM=robot-hands@contactforsales.com`.
+   **Check outbound 465 FROM THE ISLAND first** — the 08-15 AUTH check was run from the dev box (EMAIL-002: some hosts block 25/465):
+   `ssh root@island 'timeout 8 openssl s_client -connect mail.contactforsales.com:465 -quiet </dev/null 2>&1 | head -2'` → a `220` banner means the path is open.
+3. **compose:** the repo copy of `docker-compose.yml` already carries the `GRIPPER_*` env block (with `:-` defaults, so it is safe to scp before the .env is filled). Bump `image:` to the new tag, then `scp` it over.
+4. **Image:** commit first (`make build-tools-api-ref` builds from committed HEAD), bump `IMAGE_TAG`, then
+   `docker save docker.io/aqls/tools-api:$TAG | gzip | ssh root@island 'gunzip | docker load'` and `docker compose up -d tools-api`.
+5. **Verify at the running container, never the tag** (the section above; new positive symbol: `gripper/poller`):
+   ```bash
+   ssh $ISL "cd /opt/island && $X 'grep -a -c gripper/poller /tools-api'"          # > 0
+   ssh $ISL "cd /opt/island && $X 'grep -a -c logNeverExisted /tools-api'"         # 0
+   ssh $ISL 'cd /opt/island && docker compose logs --since 2m tools-api | grep -E "gripper route group|gripper/poller: started|listening"'
+   ```
+   ⚠ busybox `grep -a -c` inside alpine has misreported a multi-word literal before (PUB-004); prefer a single token, and trust the log line over the grep.
+6. **Smoke from the public internet** (all four, both directions — LANDMINES "two gin groups"):
+   ```bash
+   B=https://tools.apis.uk/api/v1/tools/gripper
+   curl -s -o /dev/null -w '%{http_code}\n' -X POST $B/session                                    # 403 (no Origin)
+   curl -s -H 'Origin: https://robot-hands.com' -X POST $B/session                                # 200 {session_id, greeting}
+   curl -s -w '%{http_code}\n' $B/requests                                                        # 401
+   curl -s -H "X-Internal-Key: $GRIPPER_PULL_KEY" $B/requests                                     # 200, ends with {"_meta":…}
+   # a real chat turn (spends ~1 Haiku call on the capped key):
+   curl -s -H 'Origin: https://robot-hands.com' -H 'Content-Type: application/json' -X POST $B/chat -d '{"session_id":"<id>","message":"about 2.5 kg"}'
+   ```
+7. **Cluster side, only AFTER 6 passes:** apply the CORRECTED seed 208 with `-v pull_key=<the same key>` (base_url is now `https://tools.apis.uk/api/v1/tools/gripper`), then enable the `report-request-pull` scheduled task (dispatch is already enabled; that order is the rule). Watch one tick: `per_site → {"robot-hands.com": {"scanned": n, "inserted": n}}`, no `error`.
+
+### Operating it
+
+- Log prefixes: `gripper/session|chat|submit|requests` per request, `gripper/poller:` per tick (quiet when nothing is due). A `DROPPED reason=honeypot|too-fast` line is a bot the gate ate — the visitor-facing response was the normal 201.
+- Where a request is: `SELECT id, status, email_attempts, next_check_at, expires_at FROM gripper_report_requests ORDER BY created_at DESC LIMIT 20;` Statuses: `pending → pulled → fulfilled → emailed`, or `failed`/`expired` (+ `failure_notified_at` once the apology went), or `email_failed` after 3 refused sends. Every move is a guarded UPDATE, so re-driving a row is `UPDATE … SET status='fulfilled', next_check_at=now() WHERE id=… AND status='email_failed'` — the poller picks it up next tick.
+- Daily LLM budget: `SELECT * FROM gripper_daily_turns ORDER BY day DESC LIMIT 7;` (cap 2,000/day, `GRIPPER_DAILY_TURN_CAP`). A `409 today's limit` in the log is that cap.
+- Retention runs hourly inside the poller: transcripts dropped 24h after last activity; email/ip/user-agent nulled 90 days after a terminal state (owner-accepted Q7).
+- **Rollback:** unset `GRIPPER_ANTHROPIC_API_KEY` in `.env` and `docker compose up -d tools-api` — the group unmounts, the poller does not start, the gauntlet is untouched. The tables can stay.

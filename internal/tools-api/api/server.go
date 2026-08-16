@@ -1,16 +1,64 @@
 package api
 
 import (
+	"time"
+
 	"github.com/gin-gonic/gin"
 	"github.com/gqls/agentchassis/internal/tools-api/config"
 	"github.com/gqls/agentchassis/internal/tools-api/handlers"
 	"github.com/gqls/agentchassis/internal/tools-api/middleware"
+	"github.com/gqls/agentchassis/internal/tools-api/store"
+	"github.com/gqls/agentchassis/platform/httpguard"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+// GripperDeps is what the gripper route group needs beyond the pool: its
+// store, its LLM factory and the per-route limiters. Built by NewGripperDeps
+// for production; tests hand in fakes. Nil means "not mounted".
+type GripperDeps struct {
+	Store     handlers.GripperStore
+	Generator handlers.ChatGenerator
+	Limiters  GripperLimiters
+}
+
+// GripperLimiters are the per-endpoint bands from DESIGN §2. Exposed so a
+// process-wide sweeper (the poller's hourly hook) can reach them.
+type GripperLimiters struct {
+	Session, Chat, Submit *httpguard.Limiter
+}
+
+// Sweep drops idle keys from all three limiters.
+func (l GripperLimiters) Sweep() {
+	for _, lim := range []*httpguard.Limiter{l.Session, l.Chat, l.Submit} {
+		if lim != nil {
+			lim.Sweep()
+		}
+	}
+}
+
+// NewGripperLimiters builds the DESIGN §2 bands:
+// /session 6/h + 20/d, /chat 60/h + 200/d, /submit 3/h + 10/d, per visitor.
+func NewGripperLimiters() GripperLimiters {
+	h, d := time.Hour, 24*time.Hour
+	return GripperLimiters{
+		Session: httpguard.NewLimiter(httpguard.Band{Window: h, Max: 6}, httpguard.Band{Window: d, Max: 20}),
+		Chat:    httpguard.NewLimiter(httpguard.Band{Window: h, Max: 60}, httpguard.Band{Window: d, Max: 200}),
+		Submit:  httpguard.NewLimiter(httpguard.Band{Window: h, Max: 3}, httpguard.Band{Window: d, Max: 10}),
+	}
+}
+
+// NewGripperDeps wires the production dependencies for cfg.Gripper.
+func NewGripperDeps(pool *pgxpool.Pool, g *config.GripperConfig) *GripperDeps {
+	return &GripperDeps{
+		Store:     &store.Gripper{Pool: pool},
+		Generator: handlers.AnthropicChatGenerator(g),
+		Limiters:  NewGripperLimiters(),
+	}
+}
+
 // NewRouter constructs the gin engine with all routes for the tools-api service.
-// Later stages attach middleware and handlers to apiGroup.
-func NewRouter(pool *pgxpool.Pool, cfg *config.Config) *gin.Engine {
+// gripper is nil when cfg.Gripper is nil (the group is simply not mounted).
+func NewRouter(pool *pgxpool.Pool, cfg *config.Config, gripper *GripperDeps) *gin.Engine {
 	r := gin.New()
 
 	// gin.Logger() before Recovery so every request is recorded, including one
@@ -70,5 +118,45 @@ func NewRouter(pool *pgxpool.Pool, cfg *config.Config) *gin.Engine {
 	apiGroup.GET("/round/:slug", handlers.PublicRoundHandler(pool))
 	apiGroup.OPTIONS("/round/:slug", func(c *gin.Context) {})
 
+	if cfg.Gripper != nil && gripper != nil {
+		mountGripper(r, pool, cfg.Gripper, gripper)
+	}
+
 	return r
+}
+
+// mountGripper adds the second tool. Two gin groups on ONE path prefix, on
+// purpose:
+//
+//   - the browser routes (/session, /chat, /submit) sit behind CORSMiddleware
+//     exactly like the gauntlet's, then their own per-route bands and their
+//     own body cap;
+//   - GET /requests is the cluster's, arrives with no Origin header, and is
+//     gated by X-Internal-Key INSTEAD of CORS. Put it in the CORS group and
+//     every pull 403s; put the browser routes outside CORS and any page on the
+//     internet can drive the intake. The split is the whole security shape of
+//     the group and is the thing a third tool copying this must not merge.
+//
+// Ordering inside the browser group mirrors the gauntlet group: CORS first so
+// a preflight (204-aborted there) never spends a rate-limit token or reads a
+// body; then bands; then the cap.
+func mountGripper(r *gin.Engine, pool *pgxpool.Pool, g *config.GripperConfig, deps *GripperDeps) {
+	const prefix = "/api/v1/tools/gripper"
+
+	pub := r.Group(prefix)
+	pub.Use(middleware.CORSMiddleware(pool))
+	pub.Use(middleware.InputCapMiddleware(g.MaxBodyBytes))
+
+	pub.POST("/session", middleware.BandedRateLimit(deps.Limiters.Session), handlers.GripperSessionHandler(deps.Store))
+	pub.OPTIONS("/session", func(c *gin.Context) {})
+
+	pub.POST("/chat", middleware.BandedRateLimit(deps.Limiters.Chat), handlers.GripperChatHandler(deps.Store, g, deps.Generator))
+	pub.OPTIONS("/chat", func(c *gin.Context) {})
+
+	pub.POST("/submit", middleware.BandedRateLimit(deps.Limiters.Submit), handlers.GripperSubmitHandler(deps.Store))
+	pub.OPTIONS("/submit", func(c *gin.Context) {})
+
+	internal := r.Group(prefix)
+	internal.Use(middleware.InternalKey(g.PullKey))
+	internal.GET("/requests", handlers.GripperRequestsHandler(deps.Store))
 }

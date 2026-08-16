@@ -659,3 +659,38 @@ server, confirmed without sending an actual email out.
 So both things you needed to provide are done now, checked rather than taken on trust. Nothing
 is wired up yet — that still waits on the other team building the actual public form — but
 whenever they do, both credentials are sitting ready and known-good.
+
+---
+
+**2026-08-16.** The public half — the chat box, the "send me the report" button, the bit that
+emails you the link — is now written, in the same service the vonc debate tool runs on, exactly
+the way the 5 August proposal asked. It is tested locally against a real database and run as a
+real process here; it is **not on the island yet** and nothing public has changed.
+
+Three things I found that neither the design nor the proposal knew, and each changed what I
+built:
+
+1. The design said the chat would collect fields called one thing and the cluster would
+   translate them. I checked the live pipeline: it doesn't translate anything — it reads the
+   fields by the names *it* expects, straight from what the island sends. So the chat now
+   records the cluster's names from the first question. Built the other way, every request would
+   have failed after the visitor was already promised an email.
+2. The proposal said the island could check the cluster's secret key against a column in its
+   sites table. That column doesn't exist on the island (its sites table is deliberately tiny).
+   The key lives in the island's environment file instead, and has to be pasted identically
+   into the cluster's config — the same "two places, by hand" the original config file always
+   said.
+3. The cluster-side config that points at the island still had the *old* wrong address in it
+   from July. Fixed the file; it was never applied, so nothing was broken.
+
+Two design choices worth knowing about. The new tool is **switched off unless its own AI key
+is present** — so swapping the image onto the island is safe on its own, and switching the tool
+on is a separate, reversible step (delete the key, restart, it's gone). And the emails: I wrote
+first-draft wording for "your report is ready" and "sorry, we couldn't" because none existed
+anywhere. Please read them before this goes live; they're short and easy to change.
+
+What's left is all on-the-box or cluster-side, in a numbered order in the island runbook:
+put the two credentials on the island (I have not sent them anywhere), check the mail port is
+open *from the island* (the 15 August check was from this machine), build and swap the image,
+create the tables, apply the cluster config with the same key, switch the pull task on, then
+build the page and widget on robot-hands.com. I'd like your go-ahead before I touch the island.
