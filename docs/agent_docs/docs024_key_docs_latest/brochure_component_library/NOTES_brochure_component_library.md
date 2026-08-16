@@ -7214,3 +7214,76 @@ throughout, and **50 items sat ahead of my oldest** in the strict `created_at AS
 The dispatcher had simply moved to older work on other sites and will come back round.
 **Do not retry, re-file or raise priority on this evidence** — re-filing resets
 `created_at` and sends the item to the very back, making the wait worse.
+
+### 2026-08-15 late — nav declaration APPLIED, rebuild blocked by an honest gate, and the plan request must NOT be executed as asked
+
+**The nav SQL ran** (owner authorised). `pages.tools` now reads `in_header=t`, `nav_order=4`,
+`nav_label='Tools'` — the declaration is live and survived. The `nav_drift` item was filed.
+
+**The rebuild then failed, and the failure is the gate working correctly.**
+
+```
+content validation failed: 0 blockers, 1 errors
+  type: unregistered_stat   severity: error
+  location: hero-tool.stat_one_value   value: "5"
+  "a figure published in a stat field matches no evidence_base fact value"
+```
+
+Note this is **0 blockers / 1 error** — a *different* wall from the 20-blocker one that
+stopped `private-search-embeddings`. Do not conflate them.
+
+**The number tells the story.** Stored `content_data` and the served page both say
+**`stat_one_value: "3"`** ("Three interactive tools"). The validator objected to **"5"** —
+a value that appears on neither surface. So the rebuild **regenerated** the hero and
+proposed 3 → 5, and the gate refused the write. The served page is untouched.
+
+**And 5 is CORRECT.** `[MEASURED 2026-08-15]` active `page_type='tool'` pages:
+
+```
+llm-cost-calculator · tool-ai-readiness-checker · tool-automation-savings-estimator
+tool-model-approach-selector · tool-review-council-simulator      (+ 'tools', the index)
+```
+
+**Five tools. The live page claims three, and has been understating itself.** The rebuild
+tried to correct it and was blocked because **no `evidence_base` fact registers the count**
+(checked: zero tool-related facts). So the gate cannot tell a correction from a
+fabrication — it is refusing a true statement for want of a registered one, which is the
+conservative failure and the right one.
+
+**Consequence for the nav: the fix is HALF-APPLIED.** The declaration is set; the
+materialisation cannot run until that stat is resolvable. Nothing is broken and nothing is
+serving wrongly — the Tools link simply is not in the nav yet.
+
+### ⚠ THE PLAN REQUEST — do not execute it as literally asked
+
+The owner asked me to retrospectively add the five orphaned pages to the plan. **Checked
+before acting, and four of the five are DUPLICATE TWINS of pages already in the plan**,
+both halves serving 200:
+
+| orphan (not in plan) | planned twin | text similarity |
+|---|---|---|
+| `/guides/tool-automation-savings-estimator-guide.html` | `/blog/automation-savings-estimator-guide.html` | **0.97** |
+| `/guides/tool-ai-readiness-checker-guide.html` | `/blog/ai-readiness-checker-guide.html` | **0.97** |
+| `/guides/tool-model-approach-selector-guide.html` | `/blog/model-approach-selector-guide.html` | 0.73 |
+| `/tools/llm-cost-calculator.html` | `/tools/llm-cost-calculator/index.html` | 0.79 |
+
+Only `tools` (`/tools.html`) is a genuine unique page — and it needed a nav flag, not a
+plan row.
+
+**Adding the other four would be actively harmful, not merely redundant.** This is the
+exact duplicate-page-identity class the **215 quiet-mode front** is remediating on this
+same site, and that front's own notes record the mechanism: *"the plan named BOTH sides,
+so archiving alone re-arms the refile chain."* Writing plan rows for the losers would
+**re-arm four twins** the sibling front is trying to retire, and it would do so under my
+name in a plan it is mid-way through cleaning.
+
+**So the instruction is correct in intent and wrong in target**, through no fault of the
+owner: he was acting on my own earlier framing of "five live pages missing from the plan",
+which I wrote before I knew what those five were. The honest move is to say so rather than
+execute it.
+
+**Also worth noticing about my own work:** the rollout rewrote **both halves of three of
+these twin pairs** — I spent LLM budget rewriting duplicate content twice over. Not
+harmful (the twins stayed consistent), but it is what a duplicate estate costs you when
+nothing tells you the pages are twins. A twin check belongs in front of any fleet-wide
+copy pass.
