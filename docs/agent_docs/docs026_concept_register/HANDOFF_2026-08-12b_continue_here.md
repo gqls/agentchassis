@@ -1,5 +1,7 @@
 # HANDOFF — concept register — 2026-08-12b
 
+> **SUPERSEDED 2026-08-16 by `HANDOFF_2026-08-16_continue_here.md` — read that first; its "do these FIRST" block has three verifier verdicts owed a read-back. This doc's register-state table still stands.**
+
 **Cold-start doc for the register lane. This SUPERSEDES
 `HANDOFF_2026-08-12_continue_here.md`** (which superseded `2026-08-10b`). Its staleness
 table is now out of date in two rows — both remaining signals are closed — but **its

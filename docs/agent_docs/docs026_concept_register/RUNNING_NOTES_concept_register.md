@@ -2279,3 +2279,108 @@ Nothing else in this session touched the register. The two landmines filed
 (`b3aa8c45c`, `19eb8fdf8`) are fleet-wide, not lane work — though the second is the lane's
 own subject one layer up: an advisory that is delivered but keyed so that nothing can match
 it has not reached anyone.
+
+---
+
+## 2026-08-14 / 08-16 — the stash ban lands, the landmine keys are repaired, and the verifier is finally fired
+
+Two owner-directed pieces and one carry-through, across two sittings.
+
+### 1. `git stash` forbidden and mechanically blocked (owner ruling 2026-08-14, `371317eb6`)
+
+Owner asked for the ban in CLAUDE.md and "can we ban it in .git?". **The honest answer to the
+second is no**: git has no pre-stash hook, `.githooks/` cannot see a stash coming, and any
+filesystem trick against `.git/refs/stash` would corrupt the very stash we are still recovering
+from. The enforceable layer is the session harness — every actor on this tree is a session — so
+the ban is a `PreToolUse` hook, `scripts/block-git-stash.py`, wired in the versioned
+`.claude/settings.json`. Denies every MUTATING form (bare/push/save/pop/apply/drop/clear/branch)
+in any compound shape; `git stash list`/`show` and `git show 'stash@{N}:<path>'` stay allowed
+because they are the documented recovery. 14/14 self-test, pipe-tested on the real stdin shape,
+then **proven live**: a real stash against a scratch repo was denied in-session, the scratch
+repo showed 0 stashes afterwards. Fails open on malformed input but a crash of its own surfaces
+— a silently dead safety gate is what this fortnight already demonstrated once.
+
+Evidence the ban holds: `git log -g refs/stash` — the newest stash is still 2026-08-12 18:38:51,
+across 680 commits since (checked 08-16 11:01).
+
+**Same commit carried the owner's 08-12 "explaining decisions" CLAUDE.md note**, which had sat
+uncommitted — and therefore stash-sweepable — for two days. Named in the message.
+
+**The overlays question closed itself**: by 08-14 the release flow had already rewritten the
+working-tree overlays to the live tag (fleet, makefile, tree all `v1.0.1299`; `v1.0.1303` by
+08-16), so there was nothing to protect by committing them. Owner ruled the same.
+
+### 2. `split_footprints` fixed and `doc_notes` re-keyed (`f92e0b3ca`) — and the check changed the work twice
+
+Owner asked me to verify the fix was right before doing it. It was, and the verification
+reshaped it:
+
+- **The defect had grown**: 59 → 63 `·`-collapsed entries in two days. The file's own convention
+  was outrunning the parser.
+- **A second defect of the same class, twice the size**: commas INSIDE parentheticals did split,
+  so `` `path.go (FuncA, FuncB)` `` shipped as junk fragments — 143 entries. Total re-keyed:
+  **185 of 482**, rows 2,452 → 2,398, and **zero entries without either defect were touched**
+  (asserted on the full corpus, before/after).
+- **My first paren fix was wrong** and the new 8-case self-test (`python3 scripts/landmines_lib.py`)
+  caught it before it touched anything: it stripped `snapshot_agent(text, text)` to
+  `snapshot_agent`, which `is_prose`'s own docstring records as a correct footprint. Fixed by
+  requiring a SPACE before `(` for the qualifier strip — the discriminator between a
+  trailing qualifier and a signature.
+- **The sync's own detector could not have seen the repair.** `refootprinted` compared row
+  COUNTS; 6 of the 185 entries changed key IDENTITY at an unchanged count and would have kept
+  stale subject_keys for ever, every sync reporting clean. `existing_sources()` now returns the
+  sorted subject_keys and the comparison is identity. Simulated against the live DB before
+  applying: 185 rewrites, both same-count probes present in the set.
+- **Zero verifier cost by construction**: refootprinted entries are excluded from
+  `NEEDS_VERIFICATION` (body unchanged), and the dispatcher is manual.
+
+Applied and asserted at the artefact: DB keys == parser output on all 482 entries, 0 mismatches,
+0 strays, 0 middots; immediate re-run "nothing to apply". Delivery on identical inputs, old
+parser vs new: nothing lost; discriminating probe gained the WireGuard entry firing for a file
+under `deployments/kustomize/services/wireguard/` — a match the collapsed string could not
+structurally make. **Honest caveat**: full-path dirty files often matched collapsed strings by
+substring anyway; the fix's real wins are directory-prefix matching and exact-greppable
+`doc_notes` keys.
+
+### 3. Verifier fired (08-16) — three entries, one of them owed since 08-12
+
+`--apply` on 08-12 armed two entries (`NEEDS_VERIFICATION`) that I never dispatched — the same
+sync-before-dispatch trap the CLAUDE.md correction of 08-15 now names. Confirmed at the DB that
+none of the three had a `landmine-verification` row, confirmed the chassis was outside its
+300s spawn-drop window (pods up since 08-15 18:45Z), then fired
+`trigger-landmine-verifier.sh` per entry:
+- `a-shared-tree-git-stash-reverts…` → `4dd05e8a-f1ae-4306-8f8c-6d782ed125b6`
+- `appending-a-landmine-with-this-file-s-own-separator…` → `ef045a9a-8da6-40d1-8a3c-84087882f8be`
+- `git-commit-paths-silently-commits-fewer-files…` → `52b70a74-7b69-4f8b-aefe-b92d69fcaea6`
+Arrival to be proven at `orchestration_states`, not from the print (`kcat -P` can drop at exit
+0). See the handoff for the read-back query.
+
+### 4. The fresh chassis roll (`v1.0.1303`) does not touch this lane
+
+Checked rather than assumed: none of `block-git-stash.py`, `landmines_lib.py`,
+`landmines-sync.py` appears in any `build/docker/backend/*.dockerfile`. All three are
+harness/tooling; nothing here ships in an image.
+
+### 5. Register state at 08-16 11:01 — a NEW finding, and it is the predicted one
+
+`test-concept-register-drift-local.py` at HEAD `88897190e`: **1867 entries, 1868 index rows,
+2 findings.** The old one (`rebuild-cascade.md`'s stored count — sixth session running, its
+REB-003 rewrite still dirty, still same-file-blocked, last commit still 07-27) and a new one:
+**`PUB-005` — an index row with NO register entry.** The mechanism is exactly the 08-12b
+handoff's landmine: the row rode into HEAD as a passenger in another lane's commit
+(`88897190e`, the `286`/TL-044 commit, 11:00:35 — one minute before my check) while the entry
+sits complete and DIRTY in `register/public-api.md` (+13/−2). Owner is live (transcript
+`f15c870e` writing at 11:02). **Not mine to commit** — flagged in the handoff; the owning lane
+closes it by committing `public-api.md`. It is a transient window, but it is the exact state
+OPP-006 exists to prevent, and it is now the register's second HEAD finding.
+
+**Postscript, same sitting — verdicts read back.** All three spawned within 20 s of dispatch
+(`orchestration_states` rows 10:03:19–10:03:50Z, COMPLETED) and the verdicts landed at
+10:03:44 / 10:04:02 / 10:04:05Z: **UNVERIFIABLE ×3**, each stating the entry is "internally
+consistent" and that every footprint lies outside the Go-only `code_symbols` index. That is the
+`verify_unverifiable` branch behaving as documented (WRONG_CALLS 08-16, first entry), not a
+refutation; nothing objects. **Two corrections to my own first draft of the handoff's read-back
+query**, both caught before commit: it used `fix_correlation_id` (the COUNCIL-GATE key; this
+trigger puts `correlation_id` in the envelope headers and `input_data` is `{source, ref}`), and
+the jsonb-path scan hung >120 s on `orchestration_states` — keyed on `source` + a time bound
+instead. Verified against `scripts/trigger-landmine-verifier.sh`, not memory.

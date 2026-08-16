@@ -981,3 +981,40 @@ own health check can finally be closed — by a route nobody would have chosen.
 >
 > So: nothing to worry about, nobody to apologise to, and one more instance of the thing I keep
 > saying today — I checked a proxy for the claim instead of the claim.
+
+---
+
+**2026-08-16, register lane — three things since the 12th, in plain terms.**
+
+First, the stash. On the 12th one session ran `git stash` on our shared tree and it quietly
+swept up two days of everybody's unsaved work — thirty-eight files across about ten lanes —
+including the release manifests, which it put back a hundred releases while leaving the tree
+looking perfectly clean. I put everything back and wrote it up. On the 14th you asked me to
+forbid it, and to ban it in git itself if we could. We can't — git has no way to intercept a
+stash before it happens — so the ban lives in the harness every session runs through instead:
+a small gate that refuses any stash that would change the tree, and lets through the two
+read-only forms we need for recovering from the one that already happened. I proved it live by
+trying a stash and watching it get refused. Since then, in over six hundred commits, nobody has
+managed to make a new one. That is the ban working.
+
+Second, the landmine keys. When I filed the stash landmine I tested whether it would actually
+reach anyone, and it wouldn't: the tool that reads our landmine file was splitting the "which
+files does this concern" line on commas, and most of the file uses a little dot separator
+instead. So dozens of entries were being delivered under a key nothing could match — present,
+synced, and inert. You asked me to check the fix was right and then do it. Checking it made it
+bigger: the dot problem had grown from 59 entries to 63 in two days, and there was a second,
+larger problem of the same kind hiding behind it (commas inside brackets), so 185 of 482
+entries have now been re-keyed. The check also caught something in the sync tool itself: it
+decided whether an entry needed rewriting by counting rows, and six of those entries changed
+their keys without changing their count — they'd have stayed wrong forever, with every sync
+reporting clean. That's fixed too. And my own first attempt at the fix was wrong in a way the
+new self-test caught before it touched anything.
+
+Third, today. I fired the verifier at the three landmines I owed it — two of them had been
+armed since the 12th and I never sent them, which is exactly the trap you had corrected in
+CLAUDE.md the day before. Reading back the verdicts is the next session's first job.
+
+One thing to know: the register has a new drift finding as of this morning — a row promising a
+concept whose entry hasn't been committed yet. It's the exact failure the 12th's handoff
+predicted (the row rides out inside someone else's commit), it belongs to a lane that is live
+right now, and it should close itself when they commit. I've left it to them and flagged it.
