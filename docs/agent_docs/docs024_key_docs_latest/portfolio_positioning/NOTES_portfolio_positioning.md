@@ -1468,3 +1468,24 @@ owning pipeline: convention point, taken for the next one.
 
 **Status: Phase B's council trail is now 429 APPROVED · 432 APPROVED (r2) · 434 APPROVED ·
 433 round 2 pending** (`53ae1501…`, resubmitted 16:28Z with 441 attached).
+
+**CORRECTION to commit `0b125c532`'s message (same session, 2026-08-16).** That message
+says LANDMINES.md rode along in it carrying the `mortgagecalculator_couk_adoption` lane's
+restructure as *my* passenger. **It did not — the file is not in that commit at all.** What
+actually happened is the mirror image: while I was writing the message, that lane committed
+LANDMINES.md themselves (`d0dd4bec9`), and **my contributed bullet went in as THEIR
+passenger.** By the time my pathspec commit ran, the file was clean, so git took only the
+two remaining files and reported exactly that.
+
+Nothing is lost — the bullet is at HEAD (verified: `git show HEAD:…/LANDMINES.md | grep -c
+"CONTRIBUTED 2026-08-16, portfolio_positioning lane — the DRY-RUN"` → 1) and the doc_notes
+sync + verifier dispatch had already run (corr `2c4189d9`). Forward-only forbids an amend,
+so the correction lives here.
+
+**The transferable bit, and it is the reason this is written down:** I checked the passenger
+situation *before* composing the message and then committed *after* — and on this tree that
+gap is enough for the answer to change. A same-file passenger check is only true at the
+instant `git commit` runs. **Read the commit's OWN output**: it prints the scope block
+naming every file it actually took, and mine said two files while my message described
+three. The check that would have caught it costs nothing — compare the scope block against
+what the message claims, before moving on.
