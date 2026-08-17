@@ -53,3 +53,46 @@ rows — a well-formed answer from interrogating what doesn't exist. Caught with
 `jsonb_pretty` on the actual row. It never left the session or became a recorded claim, so
 not a WRONG_CALLS row; noted here as the check ("pretty-print one row before trusting a
 zero-row LATERAL walk").
+
+## 2026-08-17 — session 1 (execution)
+
+- Half 1 committed in `0ed96c7eb` (Council-Submitted: cba35b35). Mutation proofs run and
+  recorded: MUT-1 (generic pass disabled) fails the 3 suffixing assertions; MUT-2 (shape gate
+  removed) fails the condition assertion — the prose assertion did NOT fire under MUT-2
+  because `prefixDataReference`'s first-segment check guards it in series (a mutation that
+  partially passes hit a guard in series — the condition case is the gate's unique pin).
+- Full `./platform/orchestration/...` suite green; **archive build green at the new HEAD**
+  (`git archive HEAD` → `go build ./...` rc=0 + new tests pass) — load-bearing today because
+  the 289 and 291 lanes landed platform commits underneath us during the session.
+- **Migration 448 APPLIED** ~13:15 BST: UPDATE 2, DO verify passed, doc_note inserted,
+  ledger record-only with note. Pre-checks: binary probe v1.0.1305 stamp `6a782274b` present
+  + HEAD-sha control absent + `53edef286` (strict parser) ancestor ✓; one active row per
+  type ✓. Pre-apply txn test passed and the DO verify was INDUCED (re-adding `result`
+  alongside `result!` raised as designed).
+- **Same-file passenger, inbound direction:** my WFA-017 index row (uncommitted ~15 min) was
+  swept into the 291 lane's `c8400e452` along with their WDS-018 row. Entry file
+  (workflow-authoring.md) was untouched and landed with my code in `0ed96c7eb`, so the
+  register-with-code rule holds; provenance named in my commit message. The index count
+  narrative (theirs, 1,886) is consistent with HEAD after both rows — measured 1,886 rows /
+  0 dups / 1,886 entries post-commit.
+- **Council run** `445fbbb7` dispatched within a minute of submission (12:16:53Z — no queue
+  today), seats executing at time of writing.
+- **Phase D measurement (historical repair):** spawn-record `complete` rows since 08-15
+  10:00Z = **2,259** (kept accumulating since the bug file's ~270). Parent row survives
+  (corr8-prefix join) for 1,689, but the reply is actually still present for only **244**
+  (`process_item_iter_N_call_handler.response` 238 / `handler_result_N` 240 / non-loop
+  `handler_result` 4; union 244 ≈ 11%). The rest lost `collected_data` (reaping/aggregation
+  blowups — see 289) or use loop names other than process_item (minor). OWNER DECISION
+  QUEUED: repair the 244 by migration (counted needles, preserve the spawn record under a
+  `_replaced_spawn_record` key) and accept the ~2,015 as marked-untrustworthy (the LANDMINE
+  + 287 §6a reader guidance already cover them), or skip repair entirely.
+- **Council verdict (12:31Z): REJECTED — guardian veto, round 1, on the Go half's SCOPE**
+  (fleet-wide resolver-behaviour change riding a bug fix); architecture seat `needs_rfc`;
+  guardian endorsed the config half explicitly. Actions taken: RFC_035 filed (ratify /
+  narrow / revert — owner's call); WFA-017 entry + index row record the veto with the
+  BLD-019-style "Live ≠ approved" line; 452_HOLD hardened (pod-probe gate, max-version pin,
+  catchment note); 448 NOT edited (ledger checksum) — its prospective version-pin objection
+  is noted here instead: at apply time each type had exactly one active row (measured), so
+  the applied UPDATE hit the loaded rows. Seat objections that were sketch-vs-file
+  misreadings (error_step nesting, is_snapshot spelling, unverified parser liveness) are
+  answered in 287 §11a with pointers to the files/NOTES.

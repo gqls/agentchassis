@@ -6,12 +6,31 @@
 -- RECORD since the 08-15 roll).
 --
 -- ⚠⚠ HOLD: ORDERING-PREFERRED — APPLY BY HAND ONLY AFTER THE CHASSIS IMAGE
--- CARRYING bugs_open/287's Half 1 (the generic suffixing pass in
--- prefixConfigStepReferences — commit subject "287 …generic reference-shaped
--- suffixing…") HAS ROLLED on agent-chassis. Verify:
+-- CARRYING bugs_open/287's Half 1 (commit 0ed96c7eb, the generic suffixing pass
+-- in prefixConfigStepReferences) HAS ROLLED on agent-chassis. THE GATE IS A
+-- POD-LEVEL BINARY CHECK, NOT A GIT-ONLY ONE (debug_historian objection, council
+-- corr cba35b35: merge-base ancestry alone is the documented trap — per-service
+-- builds resolve HEAD independently). Ask the RUNNING pod:
 --
---   kubectl -n ai-persona-system logs -l app=agent-chassis --tail=300 | grep -m1 'build provenance'
---   git merge-base --is-ancestor <the Half 1 commit> <the stamped sha>
+--   POD=$(kubectl -n ai-persona-system get pods -l app=agent-chassis -o jsonpath='{.items[0].metadata.name}')
+--   kubectl -n ai-persona-system logs $POD --tail=300 | grep -m1 'build provenance'   # scrolls; empty = not in range
+--   # binary probe with BOTH controls (known-present stamp + known-absent sha):
+--   kubectl -n ai-persona-system exec $POD -- grep -aq "<full stamped sha>" /proc/1/exe   # expect present
+--   kubectl -n ai-persona-system exec $POD -- grep -aq "<a sha that must be absent>" /proc/1/exe  # expect absent
+--   git merge-base --is-ancestor 0ed96c7eb <the POD's stamped sha>   # ancestry ON THE PROBED STAMP only
+--
+-- COUNCIL (round 1, corr cba35b35): the gate REJECTED the submission on the Go
+-- half's SCOPE (→ RFC_035, owner to rule); the guardian seat explicitly endorsed
+-- THIS migration ("a contained, agent-scoped fix … should proceed") and noted it
+-- does NOT depend on the Go half — on the current binary the strict mapping
+-- resolves the base handler_result maintained by per-substep propagation
+-- (bugs_open/287 §11). The HOLD stays because suffixed-direct is the more robust
+-- resolution and the roll is imminent either way.
+--
+-- ⚠ error_step: mark_failed widens error catchment beyond strict misses: ALL
+-- mark_complete action errors (DB failure, bad uuid) now fail the ITEM via
+-- fail_work_item instead of failing the whole loop orchestration. Stated
+-- deliberately (guardian objection 4 asked for it to be explicit).
 --
 -- WHY THE ORDER (and why it is "preferred", not load-bearing like 417's):
 -- with Half 1 live, loop expansion rewrites `result!: handler_result` to
@@ -82,16 +101,23 @@ UPDATE agent_definitions
        updated_at = now()
  WHERE type = 'build-dispatch-loop'
    AND is_active AND COALESCE(is_snapshot, false) = false AND deleted_at IS NULL
+   -- two-active-rows trap (editquality/debug_historian objection): only the
+   -- highest version loads; pin the UPDATE to it even though today count=1.
+   AND version = (SELECT max(version) FROM agent_definitions d2
+                   WHERE d2.type = agent_definitions.type AND d2.is_active
+                     AND COALESCE(d2.is_snapshot,false)=false AND d2.deleted_at IS NULL)
    AND default_config #> '{workflow,steps,process_item,config,sub_workflow,steps,mark_complete,config}' ? 'result';
 
 DO $$
 DECLARE cfg jsonb;
 BEGIN
+    -- read the row the runtime actually loads (max version among active)
     SELECT default_config #> '{workflow,steps,process_item,config,sub_workflow,steps,mark_complete,config}'
       INTO cfg
       FROM agent_definitions
      WHERE type = 'build-dispatch-loop'
-       AND is_active AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL;
+       AND is_active AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL
+     ORDER BY version DESC LIMIT 1;
     IF cfg IS NULL THEN
         RAISE EXCEPTION '452: no live build-dispatch-loop mark_complete config';
     END IF;

@@ -504,3 +504,27 @@ is joinable from the surviving parent's `process_item_iter_N_call_handler.respon
 the joinable population and put the repair (or the decision not to) to the owner with counts.
 Until 452 is applied, keep reading 090 verdicts from `orchestration_states`, never the item
 (§6a's warning stands for build-dispatch-loop; it is CLOSED for diagnose/report as of 448).
+
+### 11a. COUNCIL VERDICT READ 2026-08-17 ~12:35Z — REJECTED, guardian VETO on the Go half's SCOPE; the config half explicitly endorsed; routed to RFC_035
+
+Round 1, corr `cba35b35`: 11 seats returned (6 abstained on relevance). **The veto is about
+HOW, not WHETHER** — guardian: the generic suffixing pass "turns a 3-agent bug fix into a
+behavioural change to the shared orchestrator resolver used by every loop-bearing agent …
+which the plan's own evidence says the strict markers already do"; architecture seat:
+`needs_rfc`, split from the migrations. Both are consistent with §11's own correction (the
+mapped key is present; `!` alone closes this bug). Per the 2026-07-28 scope-veto ruling:
+recorded on WFA-017 (**Live ≠ approved — no `Council-Reviewed:` trailer ever on this
+correlation**), routed to **`architecture_review/RFC_035`** (ratify / narrow to enumeration /
+forward-revert — owner's call), code stays on the branch pending that ruling.
+
+**The config half proceeds on the guardian's own note** ("a contained, agent-scoped fix …
+should proceed"): 448 stays applied; 452_HOLD stays gated and was HARDENED on three seat
+objections that were real against the file or prospective — pod-probe-with-controls gate
+language (not merge-base-only), a max-version pin on the UPDATE + verify (two-active-rows
+trap, prospective — count=1 today), and the explicit statement that `error_step: mark_failed`
+widens error catchment to ALL mark_complete errors, not just strict misses. Three other
+objections were against the submission SKETCH, not the files: the `error_step` paths in
+448/452 are config-level (`{…,mark_complete,config,error_step}` — the step-level-inert trap
+was already avoided), `is_snapshot` is spelled correctly, and 448's parser-liveness was
+binary-probed with positive AND negative controls before applying (NOTES). 448 itself is
+ledger-recorded and NOT edited post-record (checksum).
