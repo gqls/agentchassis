@@ -208,3 +208,39 @@
   for section-list assembly) is not written; the acceptance run is not fired (it redeploys a live
   shopfront page and the owner assigned it to the filing lane); round 2 is inert until the next
   roll.
+
+## 2026-08-17 morning — round 2 live, and the merge PROVEN on a natural rebuild
+
+- **Both rounds live on `v1.0.1305`** (pods `agent-chassis-5657f446c7-{q7b82,r6sf2}`, started
+  2026-08-16 22:07Z). Probe on q7b82: `LOCKED_MERGE_SKIPPED` PRESENT (round 2 shipped this time),
+  `locked_sections_merged` PRESENT, `load_page_sections_from_spec` PRESENT (positive control),
+  `deadbeefcontrolstring` absent (negative). RUNBOOK C6.
+- **The merge FIRED, unprompted.** `page-build-handler` corr `b45d9965-1efb-4d58-aa05-447ce4bc83a8`,
+  2026-08-16 **16:09:17Z** — 24 minutes after yesterday's "unexercised" entry, under round 1 on
+  v1.0.1304 — on loancalculator.co.uk `index`. `locked_merge_count=1`,
+  `locked_sections_merged=["tool-3"]`, `source=site_plan_tables`, proposed list = the plan's 5
+  names + the locked calculator at the tail (its live position, 6). All five owner criteria hold;
+  the evidence table is in the bug file. The one I care most about: **the locked row's
+  `updated_at` is still 2026-08-09**, i.e. the save consumed-and-kept it without a write, while
+  the five unlocked siblings all carry `created_at = updated_at = 16:23:23Z` — the guard's own
+  control (do not "fix" this by never rebuilding anything) passing in the same row set.
+- **The `remove` counter now has a demand control and still reads 0.** Newest `remove` item
+  fleet-wide is still 2026-08-15 17:58:27Z. Yesterday that zero was blind; today a locked page
+  has actually rebuilt, so the zero answers a question that was asked.
+- **`section_source_drift` filed nothing** since the roll — the drift-check half is doing its job
+  (without it, this page would have been a false positive the moment the cache gained `tool-3`).
+- **MISSTEP, caught before it became a false alarm and worth the space:** my first artefact check
+  grepped the served page for `tool-3` and `data-component="tool-3"` → 0 and 0, which reads
+  exactly like "the locked calculator is not being served", and I was one step from filing that as
+  a new defect. Both markers were mine, not the artefact's: `tool-3` is a `page_components.slot_name`
+  (a DB label that never appears in markup) and this tool's template emits no `data-component` at
+  all. Taking the literal FROM the row (`substring(rendered_html …)` → `tool-loan-repayment-section`)
+  and re-running with a present-control (`tool-list`=25) and an absent-control
+  (`zzz-absent-control-zzz`=0) gives 16 hits: the tool IS served. WRONG_CALLS row written. Same
+  family as the memory-file lesson "your measurement answers the question you ENCODED" — and note
+  the failure mode was a FALSE POSITIVE for a bug, which is the direction that wastes a lane.
+- **Where that leaves the case:** fixed, live, and no longer reproducible — the stated
+  `bugs_closed/` bar. Not moved, because the owner's acceptance text names webdesign.uk `contact`
+  and the chat-box lock is the filing lane's; that page has not rebuilt since the roll and its
+  evidence would be identical in shape (tool-level locked row, tier-1 page, plan omits it).
+  Recommendation recorded in the bug file: move on the owner's word.

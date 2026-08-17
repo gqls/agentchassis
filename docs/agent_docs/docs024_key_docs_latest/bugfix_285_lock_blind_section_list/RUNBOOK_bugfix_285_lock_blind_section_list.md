@@ -91,3 +91,46 @@ Gotcha: "who calls the ACTION" and "who writes `pages.sections`" are different q
 second is the one the bug_historian seat asks. A caller with `with_loader = 0` is only dangerous
 if it composes from the LIST — `page-rerender` composes from the stored ROWS, so it cannot drop a
 locked row (read `loadStoredSections`/`carryStoredSection` before assuming otherwise).
+
+## C9 — the acceptance, as it actually arrived (a natural rebuild; no need to drive one)
+Find any run where the merge fired, then assert the five criteria against THAT run:
+```sql
+-- 1. the run + its proposal (locked_merge_count > 0 is the whole filter)
+SELECT correlation_id, collected_data->'page_record'->>'name',
+       collected_data->'spec_sections'->>'sections',
+       collected_data->'spec_sections'->>'locked_sections_merged', created_at
+FROM orchestration_states WHERE (collected_data->'spec_sections'->>'locked_merge_count')::int > 0
+ORDER BY created_at DESC;
+-- 2./3./4. cache, locked row untouched, siblings rebuilt — one query, read the timestamps
+SELECT p.sections::text FROM pages p JOIN sites s ON s.id=p.site_id WHERE s.domain='<d>' AND p.name='<page>';
+SELECT pc.position, pc.slot_name, coalesce(pc.lock_type,'-'), md5(coalesce(pc.rendered_html,'')),
+       pc.created_at, pc.updated_at
+FROM page_components pc JOIN pages p ON p.id=pc.page_id JOIN sites s ON s.id=p.site_id
+WHERE s.domain='<d>' AND p.name='<page>' ORDER BY pc.position;
+```
+Read it like this: the locked row's `updated_at` must PRE-DATE the run (consume-and-keep wrote
+nothing), and the unlocked siblings must carry `created_at = updated_at =` the save's timestamp
+(they were deleted and re-inserted — that is 058's own control, and a fix that skipped it would
+be "keep the lock by never rebuilding").
+```sql
+-- 5. and the demand control that makes the zero mean something
+SELECT max(created_at) FROM site_work_items WHERE item_type='lock_blocked_change' AND spec->>'blocked_action'='remove';
+```
+
+## C10 — check the SERVED page without inventing a marker
+⚠ **`slot_name` is a database label — it appears NOWHERE in the markup, and not every template
+emits `data-component`.** Two invented markers agreeing on 0 is what nearly produced a false
+"the tool is gone" (WRONG_CALLS 2026-08-17). Take the literal from the row first:
+```sql
+SELECT substring(regexp_replace(coalesce(pc.rendered_html,''),'\s+',' ','g') from 1 for 300)
+FROM page_components pc JOIN pages p ON p.id=pc.page_id JOIN sites s ON s.id=p.site_id
+WHERE s.domain='<d>' AND p.name='<page>' AND pc.slot_name='<slot>';
+```
+then grep the served page for THAT, with both controls in the same command:
+```bash
+curl -s -o /tmp/p.html -w '%{http_code} %{size_download}\n' https://<domain>/
+for m in "<literal-from-the-row>" "<a-section-you-know-is-there>" "zzz-absent-control-zzz"; do
+  printf '%-34s %s\n' "$m" "$(grep -c -- "$m" /tmp/p.html)"; done
+```
+Expect: subject > 0, positive control > 0, absent control = 0. A lone 0 cannot tell "absent" from
+"wrong question".

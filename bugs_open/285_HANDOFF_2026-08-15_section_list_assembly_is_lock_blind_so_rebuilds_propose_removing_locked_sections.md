@@ -259,3 +259,55 @@ should show `locked_merge_count = 1` and file no `remove` item.
 
 Round 2's durable `LOCKED_MERGE_SKIPPED` trace stays inert until the next roll: today, a locked
 query that fails mid-build still degrades to lock-blind with only a log line.
+
+## PROVEN — 2026-08-17: the merge fired on its own, and every acceptance criterion holds
+
+**Both halves are now LIVE** (`v1.0.1305`, pods started 2026-08-16 22:07Z; probed at
+`/proc/1/exe` on `agent-chassis-5657f446c7-q7b82`: `locked_sections_merged` PRESENT,
+`LOCKED_MERGE_SKIPPED` PRESENT — round 2's durable trace shipped this time — with
+`load_page_sections_from_spec` PRESENT as the positive control and `deadbeefcontrolstring`
+absent as the negative).
+
+**And the mechanism has been exercised for real, without anyone firing anything.** At
+2026-08-16 16:09:17Z — under round 1 on `v1.0.1304`, ~24 minutes after the previous entry was
+written — `page-build-handler` rebuilt **loancalculator.co.uk `index`**, a page carrying the
+locked `tool-3` calculator (`tool-loan-repayment`, `lock_type=permanent`). Correlation
+`b45d9965-1efb-4d58-aa05-447ce4bc83a8`, COMPLETED. This is the fleet half of the acceptance,
+arrived as a natural rebuild rather than a driven one.
+
+The owner's five criteria, each measured against that run:
+
+| # | criterion | measured |
+|---|---|---|
+| 1 | the PROPOSED list contains the locked section | ✅ `spec_sections.sections` = `["hero","info-card-grid","tool-list","guide-list","call-to-action","tool-3"]`, `source=site_plan_tables`, `locked_sections_merged=["tool-3"]`, `locked_merge_count=1`. The plan tier served 5 names; the 6th is the merge. |
+| 2 | the cache tells the truth afterwards | ✅ `pages.sections` for `index` now carries the same 6, written 16:23:57Z |
+| 3 | the locked row is untouched (artefact, not status) | ✅ row still `created_at 2026-08-02`, **`updated_at 2026-08-09 14:44:40`** — both a week BEFORE this run; `md5(rendered_html)` `99a7f143…`; still `lock_type=permanent`, position 6 |
+| 4 | an UNLOCKED sibling is still rebuilt (058's own control) | ✅ all five — hero, info-card-grid, tool-list, guide-list, call-to-action — carry `created_at = updated_at = 16:23:23Z`, i.e. deleted and re-inserted by this very save |
+| 5 | no `lock_blocked_change … blocked_action: remove` for the slot | ✅ **0 `remove` items fleet-wide since the fix rolled**; the newest in the whole table is still `2026-08-15 17:58:27Z`, pre-fix. The page's only item is the `overwrite` one from 2026-08-08, `updated_at` unchanged (deduped by `item_key`, 058's design) |
+
+**This time the zero has its demand control.** The previous entry warned that "0 `remove` items"
+meant nothing while 0 locked pages had rebuilt. A locked page HAS now rebuilt — the whole
+mechanism ran end to end on one — and it produced no `remove` item. The counter is answering a
+question that was actually asked.
+
+**Sixth check, beyond the owner's five: the SERVED page.** `https://loancalculator.co.uk/` →
+200, 56,257 bytes, and the locked calculator is in it: **16 occurrences of its own namespaced
+class `tool-loan-repayment-section`** (positive control `tool-list` = 25, negative control
+`zzz-absent-control-zzz` = 0). So the rebuild kept the section in the list, kept the row, and
+shipped it to visitors.
+
+⚠ **A near-miss worth copying, because it nearly became a false alarm here:** the first artefact
+check grepped the served page for `tool-3` and for `data-component="tool-3"` and found **zero**,
+which reads exactly like "the locked calculator is not being served". Both markers were
+INVENTED — the slot name is a database label that never appears in the markup, and this tool's
+template emits no `data-component` attribute at all. The correct check takes its literal FROM
+the artefact (`substring(rendered_html …)` → the namespaced class the template actually writes)
+and runs a present-control and an absent-control in the same command. Recorded in `WRONG_CALLS`.
+
+**Status: the defect is no longer reproducible, and the fix is fixed-AND-live by the stated bar.**
+What remains is not a defect but a hand-over: the owner's acceptance text names webdesign.uk
+`contact`, whose chat box is the filing lane's and which has not rebuilt since the roll. That
+page's evidence will be identical in shape to the table above (its `chat-input-box` is the same
+case: a tool-level locked row on a tier-1 page whose plan omits it). **Recommendation: this file
+moves to `bugs_closed/` on the owner's word; the chat-box lock decision stays with the filing
+lane, whose ruling said the lock holds "until this is fixed and live" — it now is.**

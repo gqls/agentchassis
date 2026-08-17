@@ -33326,3 +33326,39 @@ produced once by `resolveAIServiceConfig` (`:243`) — and that merge *includes*
 So client-default and options cannot disagree at any nesting level, for 13 agents or 68. The number was
 wrong; the argument it was decorating was not. **That is exactly why a wrong number is dangerous here —
 it was load-bearing for nothing, so nothing failed to warn me.**
+
+## 2026-08-17 — bugfix_285 lane: I searched a live page for a marker I had INVENTED, got zero, and nearly filed "the locked calculator is not being served"
+
+**The claim I was one step from filing:** verifying the 285 fix at the artefact, I fetched
+`https://loancalculator.co.uk/` (200, 56 KB) and grepped it for `tool-3` → **0**, and for
+`data-component="tool-3"` → **0**, while the five unlocked sections all matched
+`data-component="…"` cleanly. Read straight, that is: *the rebuild kept the locked row in the
+database and dropped it from the published page* — a fresh, worse defect than the one I was
+closing, and I had already started reading the assembly query to find out why.
+
+**Both markers were mine, not the artefact's.** `tool-3` is a `page_components.slot_name` — a
+database label for a position on a page; nothing writes it into HTML. And `data-component` is
+emitted by the ordinary section templates but **not** by this tool's template, so its absence
+carried no information either. Two invented markers, agreeing with each other, producing a
+confident wrong answer — the agreement is what made it persuasive.
+
+**What caught it:** asking the row what it actually renders before asking the page —
+`SELECT substring(rendered_html …)` returned a template whose every class is namespaced
+`tool-loan-repayment-section`. Grepping the served page for **that** gives **16 hits**, and the
+tool is plainly there.
+
+**The cheap check, and it is two extra words on the same command line:** take the literal you
+grep for FROM the artefact you are checking (or from the row that produced it), never from the
+identifier you happen to have in hand — and run a **present-control and an absent-control in the
+same command** (`tool-list` = 25, `zzz-absent-control-zzz` = 0). A single grep returning 0 cannot
+distinguish "absent" from "I asked the wrong question", and on a 56 KB page it never will.
+
+**Why this direction matters more than the usual one.** The failure mode here was a **false
+POSITIVE for a bug**, not a false pass: it would have spent a lane's session diagnosing an
+assembly path that was working correctly, and would have gone into a case file as measured
+evidence. The `[MEASURED]` marker would have been honestly applied to a number that answered a
+question nobody asked. Same family as "your measurement answers the question you ENCODED, not the
+one you asked" — but the encoded question was in the *search string*, which is the part that
+looks too small to be worth checking.
+
+Tally for "grepped an artefact for an identifier the artefact never contained": 1.

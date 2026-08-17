@@ -137,3 +137,42 @@ can save a page's sections, only two have run at all in the last month — one o
 the fixed code, and the other one builds its proposal from the page's actual rows, so it cannot
 drop a locked section in the first place. That is why the complaint counts in the database are
 mostly "tried to overwrite" and only a handful are "tried to remove".
+
+## 2026-08-17 morning — it worked, and it proved itself without us doing anything
+
+Yesterday's entry ended with the fix live but unproven, and one honest gap: every page rebuilt
+since the build happened to have no locked sections, so the new code had run twenty times and
+correctly done nothing twenty times. The test I said would settle it — a rebuild of a page that
+actually has a locked section — has now happened on its own.
+
+Twenty-four minutes after I wrote that, the pipeline rebuilt the loan calculator site's front
+page, which carries a locked calculator. **It kept it.** The list the rebuild worked from
+contained the five sections the plan knows about *and* the locked calculator; the page's cached
+list was updated to say the same; the locked section itself was not written to at all (its
+last-modified date is still a week earlier); the five unlocked sections around it were rebuilt
+normally, which is the control that stops "keep the locked thing" being achieved by never
+rebuilding anything; and no "tried to remove a locked section" complaint was filed — by the
+pipeline or since, anywhere on the fleet. I also checked the page as a visitor sees it: the
+calculator is there, sixteen mentions of its own markup, with a check either side to prove the
+search could have come back empty.
+
+That last check is worth telling you about, because it nearly went the other way. My first look
+at the live page searched for the section's internal name and found nothing — which reads exactly
+like "the calculator has vanished from the site", and I was a step away from raising it as a new
+fault. The name I searched for was one I had assumed rather than taken from the page: it is a
+database label, and it never appears in the published HTML. When I took the actual text the
+calculator's own template writes and searched for that instead, it was plainly there. The wasted
+alarm would have been mine, not the system's; it is written down so the next person searching a
+live page takes their search term from the artefact and runs a control both ways.
+
+Also this morning, the second half of the fix (the extra record kept when the lock lookup itself
+fails) went out with the overnight build, so both halves are now running.
+
+**Where that leaves it.** The fault is fixed, running, and demonstrably not reproducible: this was
+one of the thirteen affected pages, and it behaved exactly as intended with nobody prompting it.
+The one thing still outstanding is not a fault — it is that your written acceptance names the
+webdesign.uk contact page and its chat box specifically, and that page has not rebuilt since. Its
+evidence would look identical to the calculator's, because it is the same shape of problem. So:
+**I recommend closing this one, and the chat-box lock decision sits with the lane that owns it**
+— your own ruling was that the lock holds until the fix is live, and it now is. Say the word and I
+will move the case file across.
