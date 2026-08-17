@@ -11,6 +11,7 @@ package main
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 )
 
@@ -114,5 +115,76 @@ func TestDiscardedInlineWorkflow(t *testing.T) {
 func TestDiscardedInlineWorkflowNilInput(t *testing.T) {
 	if _, found := discardedInlineWorkflow(nil); found {
 		t.Fatal("nil input_data reported as carrying a workflow")
+	}
+}
+
+// bugs_open/083 — the pre_query result is now logged, because for a
+// fire_message=false task it was the only evidence of the tick's work and it
+// was being discarded.
+//
+// What this pins is the CAP, not the logging: a truncation that hides itself
+// would let a partial result read as a whole one, which is the same class of
+// defect the logging exists to close. So the marker is the assertion.
+func TestTruncateForLog(t *testing.T) {
+	cases := []struct {
+		name      string
+		in        string
+		limit     int
+		want      string
+		wantExact bool // byte-identical passthrough, no marker
+	}{
+		{
+			// The shape actually logged today: detected-item-promoter's own row.
+			name:      "a real pre_query result is well under the cap and untouched",
+			in:        `{"promoted":"7","pairs":"needs_rerender->rerender-pages"}`,
+			limit:     preQueryLogLimit,
+			wantExact: true,
+		},
+		{
+			name:      "exactly at the limit is not truncated",
+			in:        "abcde",
+			limit:     5,
+			wantExact: true,
+		},
+		{
+			name:  "over the limit keeps the prefix AND says it was cut",
+			in:    "abcdefgh",
+			limit: 5,
+			want:  "abcde…[truncated]",
+		},
+		{
+			// nil is reachable: a fire_message=false task with no pre_query at
+			// all reaches the same log line.
+			name:      "nil is passed through, not panicked on",
+			in:        "",
+			limit:     preQueryLogLimit,
+			wantExact: true,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			var in []byte
+			if tc.in != "" {
+				in = []byte(tc.in)
+			}
+			got := string(truncateForLog(in, tc.limit))
+
+			if tc.wantExact {
+				if got != tc.in {
+					t.Fatalf("input was altered: got %q, want the input back unchanged (%q)", got, tc.in)
+				}
+				if strings.Contains(got, "truncated") {
+					t.Fatalf("uncut input carries a truncation marker: %q", got)
+				}
+				return
+			}
+			if got != tc.want {
+				t.Fatalf("got %q, want %q", got, tc.want)
+			}
+			if !strings.Contains(got, "truncated") {
+				t.Fatalf("a cut result does not announce the cut: %q", got)
+			}
+		})
 	}
 }

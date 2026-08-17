@@ -190,6 +190,11 @@ func runTick(ctx context.Context, db *sql.DB, producer kafka.Producer, logger *z
 
 		// Run pre-query if configured
 		inputData := task.InputData
+		// Kept past the merge so the CTE-only branch below can report what the
+		// query actually did — for fire_message=false tasks the merged
+		// input_data is never sent anywhere, so this is the only surviving
+		// evidence of the tick's work.
+		var preQueryResult json.RawMessage
 		if task.PreQuery.Valid && task.PreQuery.String != "" {
 			dynamicData, err := runPreQuery(ctx, db, task.PreQuery.String, logger)
 			if err != nil {
@@ -214,6 +219,7 @@ func runTick(ctx context.Context, db *sql.DB, producer kafka.Producer, logger *z
 					zap.String("task", task.Name))
 				continue
 			}
+			preQueryResult = dynamicData
 			// Merge pre-query results into input_data
 			inputData, err = mergeJSON(task.InputData, dynamicData)
 			if err != nil {
@@ -271,8 +277,15 @@ func runTick(ctx context.Context, db *sql.DB, producer kafka.Producer, logger *z
 				logger.Warn("Failed to update timestamps",
 					zap.String("task", task.Name), zap.Error(err))
 			}
+			// Report the pre_query's own result. For these tasks the query IS
+			// the worker, so without this the log says only that a tick
+			// happened — a task that promoted 20 rows and one that promoted
+			// none emit the identical line (bugs_open/083). The row a
+			// pre_query returns is its report; whatever an author SELECTs is
+			// what appears here, so select counts and ids, never secrets.
 			logger.Info("Pre-query task completed (no message fired)",
-				zap.String("task", task.Name))
+				zap.String("task", task.Name),
+				zap.ByteString("pre_query_result", truncateForLog(preQueryResult, preQueryLogLimit)))
 			continue
 		}
 
@@ -468,6 +481,23 @@ func runPreQuery(ctx context.Context, db *sql.DB, query string, logger *zap.Logg
 		return nil, fmt.Errorf("pre_query marshal: %w", err)
 	}
 	return data, nil
+}
+
+// preQueryLogLimit bounds the logged pre_query result. A pre_query may return
+// an unbounded string_agg, and one pathological row should not be able to
+// dominate the scheduler's log.
+const preQueryLogLimit = 2048
+
+// truncateForLog caps b, saying so in the output when it does. A cap that hides
+// itself turns a partial reading into a confident one — the same defect the
+// pre_query logging above exists to fix, so it must not be reintroduced here.
+func truncateForLog(b []byte, limit int) []byte {
+	if len(b) <= limit {
+		return b
+	}
+	out := make([]byte, 0, limit+24)
+	out = append(out, b[:limit]...)
+	return append(out, "…[truncated]"...)
 }
 
 // mergeJSON merges two JSON objects. Fields from overlay take precedence.
