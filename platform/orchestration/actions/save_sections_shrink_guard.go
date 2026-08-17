@@ -190,11 +190,28 @@ func evaluateSectionShrink(floor float64, minExistingChars int, existing map[str
 // comparator, which pins its own tag-stripped measure against this function so it
 // cannot drift into measuring a third axis nobody ships.
 func strippedIncomingBySlot(sections []SectionData) map[string]int {
+	return incomingBySlot(sections, func(html string) int {
+		return len(strings.TrimSpace(shrinkGuardTagStripper.ReplaceAllString(html, "")))
+	})
+}
+
+// incomingBySlot folds the incoming sections into per-slot totals under whatever
+// measure it is given — ONE aggregation, three measures.
+//
+// Council 823679dc, reuse seat: three functions in this package had grown the same
+// shape (tag-stripped, visible text, class attributes), each with its own copy of
+// the keying rule, which is how the last-write-wins defect came to exist in two of
+// them independently. The keying question ("what does a repeated slot name mean?")
+// is answered once, here, and the measure is the parameter — which is also the
+// separation the calibration harness needs.
+//
+// ComponentName is what the insert loop writes as slot_name; += because a slot name
+// legitimately repeats and the insert loop writes every instance (see
+// visibleIncomingBySlot's note).
+func incomingBySlot(sections []SectionData, measure func(string) int) map[string]int {
 	m := make(map[string]int, len(sections))
 	for _, s := range sections {
-		stripped := strings.TrimSpace(shrinkGuardTagStripper.ReplaceAllString(s.HTML, ""))
-		// ComponentName is what the insert loop writes as slot_name.
-		m[s.ComponentName] = len(stripped)
+		m[s.ComponentName] += measure(s.HTML)
 	}
 	return m
 }
@@ -215,12 +232,7 @@ func strippedIncomingBySlot(sections []SectionData) map[string]int {
 // 240), which brings the group into scope — correct, since the group does carry
 // prose.
 func visibleIncomingBySlot(sections []SectionData) map[string]int {
-	m := make(map[string]int, len(sections))
-	for _, s := range sections {
-		// ComponentName is what the insert loop writes as slot_name.
-		m[s.ComponentName] += visibleTextLength(s.HTML)
-	}
-	return m
+	return incomingBySlot(sections, visibleTextLength)
 }
 
 // enforceSectionShrinkFloor loads the existing per-slot stripped lengths and
@@ -384,8 +396,22 @@ func enforcePageTotalTextFloor(ctx context.Context, params ActionParams, siteID,
 		// Changing that here would be an unreviewed behavioural change riding on
 		// an axis correction — the two siblings refuse on a failed measurement and
 		// this one does not, which is worth reconciling on its own evidence.
+		//
+		// BUT IT NO LONGER STANDS DOWN SILENTLY (council 823679dc, bug_historian
+		// seat, medium — and it was right): "a floor that fails open on error is
+		// indistinguishable from no floor at all on the very incident class this
+		// whole bug is about", so a future incident gets diagnosed as "the floor
+		// should have caught this" when in fact it never ran. It files a work item
+		// of its own type — NOT the refusal type its siblings use, because nothing
+		// was refused here and a row saying otherwise would be a false claim.
 		params.Logger.Warn("save_page_sections: page-total text floor could not measure the deployed page — save PROCEEDS, matching the inline rule this replaced",
 			zap.String("page_name", pageName), zap.Error(err))
+		reason := fmt.Sprintf(
+			"save_page_sections: the page-total text floor could not measure page %q's deployed sections (%v), so it STOOD DOWN and the save PROCEEDED. Nothing was refused and nothing was prevented — this row exists so that a later content loss on this page is not mis-diagnosed as a floor that should have caught it. (bugs_open/293)",
+			pageName, err)
+		_ = emitPruneRefusalWorkItem(ctx, params.DB, savePageSectionsUnmeasured(siteID, pageID, pageName, reason,
+			fmt.Sprintf("Page-total text floor did not run on %q — the save went ahead unguarded", pageName),
+			pageTotalUnmeasuredFix), params.Logger)
 		return nil
 	}
 	defer rows.Close()
@@ -443,3 +469,48 @@ const pageTotalRefusalFix = "The whole page's text fell past the page-total floo
 	"are VISIBLE text, so a page whose HTML is larger than before can still be refused. " +
 	"page_total_text_floor on the save_page_sections step is the escape hatch (0 disables) when the " +
 	"page is genuinely meant to shed most of its prose."
+
+// savePageSectionsUnmeasured is the FAIL-OPEN counterpart to
+// savePageSectionsRefusal, and it carries a different item_type on purpose.
+//
+// Its sibling files `save_refused_incomplete`, which asserts that a save was
+// refused. On this path nothing was refused: the guard could not measure and the
+// write went ahead. Filing that under a refusal type would be a false claim in a
+// queue an operator reads, and the estate's own rule is that a refusal sentence
+// must be true of the row it is on (`shrinkMeasurementErrorFix` exists for exactly
+// that reason one floor over).
+//
+// SHARED-VOCABULARY NOTE, per the owner ruling of 2026-08-02 §1 — the producer set
+// and the key shape are stated here and in the concept register rather than left to
+// be inferred. PRODUCERS: `enforcePageTotalTextFloor` only, one call site
+// (`save_page_sections_action.go`). ITEM KEY: `save_guard_unmeasured:<page name>`,
+// so repeats on one page collapse to one row; `recurrenceExpected` is inherited
+// from the emitter, which is correct here — there is no handler, so a repeat is a
+// new event and not a failed fix. NO AUTOMATED CONSUMER: nothing dispatches on this
+// type, by design; it is a record for a human reading the queue after the fact.
+func savePageSectionsUnmeasured(siteID, pageID uuid.UUID, pageName, reason, summary, fix string) pruneRefusal {
+	pID := pageID
+	return pruneRefusal{
+		SiteID:   siteID,
+		PageID:   &pID,
+		Source:   "save_page_sections",
+		Pipeline: "build",
+		ItemType: "save_guard_unmeasured",
+		ItemKey:  fmt.Sprintf("save_guard_unmeasured:%s", pageName),
+		Subject:  pageName,
+		Summary:  summary,
+		Reason:   reason,
+		Fix:      fix,
+	}
+}
+
+// pageTotalUnmeasuredFix — the remedy for a guard that did not run is not a floor
+// setting, and saying "lower the floor" here would send the reader to tune a
+// threshold that was never consulted.
+const pageTotalUnmeasuredFix = "The page-total text floor could not read this page's deployed sections, so it " +
+	"stood down and the save PROCEEDED — this is not a refusal and nothing was blocked. The floor fails open " +
+	"because the inline rule it replaced did (its two sibling floors fail CLOSED; reconciling that is filed, not " +
+	"done). Usually a transient database error, in which case the next save is guarded again and this row is " +
+	"history. If it recurs on one page, read that page's page_components rows — a page with no " +
+	"build_status='deployed' rows is out of this floor's population by design, which is not an error. Do NOT " +
+	"tune page_total_text_floor in response: it was never consulted on this save."

@@ -147,11 +147,7 @@ func evaluateComponentLoss(floor float64, existing map[string]int, incoming map[
 // class count: bit-identical for the ~97% of groups with one instance, deterministic
 // for the rest, and needing no assumption that position survives a rebuild.
 func componentClassesIncomingBySlot(sections []SectionData) map[string]int {
-	m := make(map[string]int, len(sections))
-	for _, s := range sections {
-		m[s.ComponentName] += countComponentClasses(s.HTML)
-	}
-	return m
+	return incomingBySlot(sections, countComponentClasses)
 }
 
 // enforceSectionComponentFloor refuses a save that would flatten a structurally

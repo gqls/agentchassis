@@ -454,3 +454,84 @@ func loadCalibrationPairs(path string) ([]calibrationPair, error) {
 	}
 	return pairs, sc.Err()
 }
+
+
+// TestVisibleDefinitionsAgree answers council 823679dc's bug_historian objection
+// with a measurement instead of a code reading.
+//
+// THE OBJECTION, and it is a real shape: this bug makes visibleTextLength THE
+// measure of "is there real content here" for save-time guards, but the estate has
+// at least one other independent notion of visible content —
+// sectionHasVisibleContent in rerender_single_page_action.go, which the page
+// assembler uses to decide a section is empty and droppable. If the two disagree, a
+// save can pass this floor and the assembler can drop the same content anyway: a
+// SECOND silent-drop path for the class this floor exists to protect, one layer
+// removed. The seat could not check it from SQL or the code index and asked for a
+// human diff.
+//
+// THEY DO DIFFER, by construction, and the read is: visibleTextLength is
+// parser-based (datahelpers.VisibleTextFromHTML, dropping script/style/noscript/
+// template/code/pre/svg/iframe/textarea/select/option/head WITH their content, and
+// decoding entities); sectionHasVisibleContent is a regex chain (style blocks,
+// script blocks, tags, entities, whitespace) with a >10-char threshold and an
+// explicit reRuntimeFill escape for sections a browser fills later. So the parser
+// drops MORE (code/pre/svg) while the regex drops entities entirely rather than
+// decoding them.
+//
+// The direction that matters is only one of the two, and this test pins it:
+// **nothing this floor judges as prose-bearing may be droppable by the assembler.**
+// The converse is harmless — the assembler keeping a section this floor declines to
+// judge costs nothing, and a runtime-filled section legitimately has no build-time
+// prose and is out of scope by the minimum anyway.
+//
+// A code reading gives the same answer, but a reading cannot see the entity edge
+// case (content that is almost entirely entities counts ~0 for the regex and >0 for
+// the parser), which is why this runs over the real population instead.
+func TestVisibleDefinitionsAgree(t *testing.T) {
+	path := os.Getenv("SHRINK_CALIBRATION_JSONL")
+	if path == "" {
+		t.Skip("set SHRINK_CALIBRATION_JSONL to an exported pair file to run the calibration")
+	}
+	pairs, err := loadCalibrationPairs(path)
+	if err != nil {
+		t.Fatalf("loading pairs: %v", err)
+	}
+
+	judged, wouldBeDropped, assemblerKeepsWhatWeSkip := 0, 0, 0
+	var offenders []string
+	for _, p := range pairs {
+		for _, html := range []string{p.Existing, p.Incoming} {
+			inScope := visibleTextLength(html) >= minShrinkGuardVisibleChars
+			keptByAssembler := sectionHasVisibleContent(html)
+			if inScope {
+				judged++
+				if !keptByAssembler {
+					wouldBeDropped++
+					if len(offenders) < 10 {
+						offenders = append(offenders, fmt.Sprintf("    %s: %d visible chars but the assembler would DROP it",
+							p.id(), visibleTextLength(html)))
+					}
+				}
+			} else if keptByAssembler {
+				assemblerKeepsWhatWeSkip++
+			}
+		}
+	}
+
+	// DEMAND CONTROL: an empty population would report perfect agreement.
+	if judged == 0 {
+		t.Fatal("no section in the export is in this floor's scope — the comparison cannot come out either way")
+	}
+	t.Logf("sections in this floor's scope: %d; of those, droppable by the assembler: %d", judged, wouldBeDropped)
+	t.Logf("(the harmless direction: %d sections the floor declines to judge that the assembler keeps)", assemblerKeepsWhatWeSkip)
+	for _, o := range offenders {
+		t.Log(o)
+	}
+	if wouldBeDropped > 0 {
+		t.Errorf("%d sections carry ≥%d visible characters by this floor's measure and are still EMPTY by the "+
+			"assembler's (sectionHasVisibleContent). That is a second, independent silent-drop path for exactly "+
+			"the content this floor protects: the save is allowed and the assembler drops it anyway. The two "+
+			"definitions must be reconciled, or this floor's guarantee is conditional on a predicate it does not "+
+			"control.", wouldBeDropped, minShrinkGuardVisibleChars)
+	}
+}

@@ -29,13 +29,24 @@ import (
 // where each guard is driven against a mocked database and each assertion is
 // paired with a named mutation.
 //
-// It also closes a hole found while writing it: the writer-coverage test
+// It also NARROWS a hole found while writing it: the writer-coverage test
 // STRUCTURALLY CANNOT SEE the whole-page save. Its predicate is
 // `UPDATE page_components … SET … rendered_html =`, and the rebuild path is
 // DELETE+INSERT — the only UPDATEs in save_page_sections_action.go touch
 // `position`. So the fleet's highest-volume rendered_html writer (3,603 archived
 // rebuild writes in 8 days, against 281 edit writes) was invisible to the fleet's
 // writer-coverage test, and unwiring a floor there would have failed nothing.
+//
+// > CORRECTED 2026-08-17 (council 823679dc, editquality seat, low — and it was
+// > right): this said "closes a hole", which overstated what ships. It does not
+// > generalise the older test's UPDATE-only regex, so a NEW writer on some other
+// > DELETE+INSERT path stays invisible to writer-coverage exactly as before. What
+// > it actually does is two narrower things: pin the three floors this action
+// > must call, and — added in response to the objection —
+// > TestEveryFloorEnforcerHasACaller, which fails when ANY `enforce…Floor`
+// > function in the package has no caller at all. That covers the "someone adds a
+// > fourth floor and never wires it" case generically, which was the real content
+// > of the claim; the older test's regex remains the older test's problem.
 
 // callsTheSharedDecision matches a call to the shared pure decision.
 var callsTheSharedDecision = regexp.MustCompile(`evaluateSectionShrink\(`)
@@ -155,5 +166,72 @@ func TestSavePageSectionsWiresBothTextFloors(t *testing.T) {
 		t.Error("the sections-reaching-save diagnostic no longer logs visible_text_total: a refusal's cause is " +
 			"illegible without the axis the floors measure, and the signature of this bug's failure mode is " +
 			"stripped GROWING while visible COLLAPSES — which needs both numbers in the same line")
+	}
+}
+
+
+// Every floor enforcer in this package must be CALLED by something. Added in
+// response to council 823679dc's editquality objection, which was that claiming to
+// "close" the writer-coverage hole while only asserting three named calls
+// overstated what shipped — a FUTURE floor added to this write path would stay
+// invisible the same way.
+//
+// This is the generic half. It does not care which action calls what; it asks only
+// that a function whose name declares it enforces a floor is reachable at all,
+// which is the failure mode "someone wrote the guard and never wired it" — the same
+// shape as bugs_open/293's own defect one level up, and the shape
+// page_component_writer_coverage_test.go's header describes as "a guard nothing
+// proves is reached".
+//
+// Deliberately weak in one direction and strong in the other: it cannot tell you
+// the call EXECUTES (it reads source, like its model), but it cannot be satisfied
+// by a comment either, because the declaration and the call are matched separately
+// and a call needs the open paren in a non-declaration position.
+func TestEveryFloorEnforcerHasACaller(t *testing.T) {
+	files, err := filepath.Glob("*.go")
+	if err != nil {
+		t.Fatalf("glob: %v", err)
+	}
+	declRe := regexp.MustCompile(`(?m)^func (enforce\w*Floor)\(`)
+
+	decls := map[string]string{} // name -> file it is declared in
+	bodies := map[string]string{}
+	for _, f := range files {
+		if strings.HasSuffix(f, "_test.go") {
+			continue
+		}
+		src, readErr := os.ReadFile(f)
+		if readErr != nil {
+			t.Fatalf("reading %s: %v", f, readErr)
+		}
+		bodies[f] = string(src)
+		for _, m := range declRe.FindAllStringSubmatch(bodies[f], -1) {
+			decls[m[1]] = f
+		}
+	}
+
+	for name, declFile := range decls {
+		called := false
+		for f, body := range bodies {
+			// A call, not the declaration: strip the declaration line's form.
+			hay := strings.ReplaceAll(body, "func "+name+"(", "")
+			if strings.Contains(hay, name+"(") {
+				called = true
+				_ = f
+				break
+			}
+		}
+		if !called {
+			t.Errorf("%s declares %s and NOTHING in this package calls it. A floor with no caller is not a "+
+				"floor — it is a function that passes its own unit tests while the write it was written to "+
+				"guard goes through unguarded (bugs_open/293 is the same shape one level up: a floor that ran "+
+				"but measured the wrong thing). Wire it, or delete it.", declFile, name)
+		}
+	}
+
+	// VACUITY CONTROL: the regexp must actually be finding enforcers.
+	if len(decls) < 3 {
+		t.Fatalf("found %d floor enforcers (%v); expected at least 3 (shrink, page-total, component). A scan "+
+			"that matches nothing PASSES.", len(decls), decls)
 	}
 }
