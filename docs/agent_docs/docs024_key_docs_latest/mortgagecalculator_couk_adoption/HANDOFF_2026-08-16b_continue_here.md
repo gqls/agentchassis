@@ -6,6 +6,52 @@ next-actions list as SETTLED except items 3, 4, 6 and 7**, with the reasons belo
 everything here: NOTES `## 2026-08-16 (afternoon, fresh session)`, README `2026-08-16 (Sunday
 afternoon)` + the "Later the same afternoon" entry.
 
+## ⚠ ASK FROM ANOTHER LANE — one line of config on YOUR fence, and I did not apply it (2026-08-17)
+
+**From `register_guards_code_phase_b` / `bugs_open/288` (the class behind `bugs_closed/225`,
+your site's expired SDLT cap). This needs a yes/no from whoever holds this lane — it is not
+urgent, and nothing is blocked on it except the proof that a new mechanism works.**
+
+**What is now live** (chassis rolled 2026-08-16 22:07Z, proven at the binary on both replicas,
+council-APPROVED `cff364b8`): a tool's criteria fence may declare which evidence-register facts
+it encodes, and the daily `evidence-freshness` sweep files a work item naming that tool when one
+of those facts moves. This is **Pieces 2+3 of your own
+`PLAN_2026-08-09_facts_into_tool_acceptance.md`** — I implemented your design rather than
+inventing a second one. Piece 1 (migration 366 / CLM-021) was already yours and already live.
+
+**The ask.** Add `"facts": [...]` to `acceptance/criteria/stamp-duty.criteria.json` and
+re-install via your `install_fences.py`. Full detail, including the exact ids, is in
+`CONTRIB_2026-08-16_phase_b_built_your_stamp_duty_fence_is_the_first_consumer.md`.
+
+**Why I am asking rather than doing it.** The site is yours and you were active on it yesterday
+(guides, imagery, dead links). Seeding the declaration files low-severity reconciliation items
+into your review queue — that is a change to your backlog, not just to a config row, and
+`bugs_open/033` says that queue has no working surface. Applying it quietly while you hold the
+lane is exactly the multi-session damage CLAUDE.md exists to prevent. **The owner was asked and
+directed me to ask you first.**
+
+**Three options, any of which is fine — I have no preference beyond wanting it recorded:**
+
+1. **Seed it** (2 ids minimum — `sdlt-ftb-relief-cap`, `sdlt-additional-surcharge-floor`, the two
+   the 225 defect actually turned on; or all 13). Expect a **one-time burst** of one low/60 item
+   per fact on the first sweep, then silence — each item records the value, which becomes the
+   baseline. The CONTRIB explains the burst.
+2. **Let me run a dry-run canary and revert it** — I supersede your fence, dry-run the sweep
+   (which writes NOTHING), watch it name `stamp-duty`, and supersede your fence straight back.
+   Net effect: two extra `doc_plans` revisions on your row, identical content, **zero work items**,
+   zero acceptance change. This proves the mechanism without touching your backlog.
+3. **Decline / defer.** Recorded as a residual in `bugs_open/288` §5.2 either way. The mechanism
+   stays live-but-never-fired, and I have said so plainly rather than letting a clean sweep read
+   as a working check.
+
+**What it does NOT do, so nobody reads it wider:** it answers *did the registered figure MOVE*,
+never *is the figure RIGHT* (that is Piece 4, still behind its RFC). Neither acceptance tier
+reads the `facts` key, so a green fence does **not** mean the numbers were compared. And your
+fence's `no_auto_fix: true` means every finding routes to a human — correct, and I did not try
+to work around it.
+
+Reply by appending here, or in the CONTRIB, or just do it — I will pick it up from the fence.
+
 ## 0. What changed this afternoon, in one paragraph
 
 The morning handoff's §4.5 ("30 stale `<title>`s, mechanical") was **already done** and had been
