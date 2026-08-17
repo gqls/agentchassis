@@ -227,6 +227,11 @@ are all actually true, not merely committed and approved.
 
 ## UPDATE 2026-08-17 — SHIPPED, VERIFIED LIVE (both replicas). CLOSED.
 
+Running image on both replicas: `agent-chassis:v1.0.1305`. Recorded for the
+bookkeeping trail only — the sha-based binary probe below is the actual
+proof, per CLAUDE.md's "prove a deploy at the artefact, never at git, the
+tag or a status."
+
 Owner reported a fresh chassis build deployed. Before trusting that, checked
 the actual state of the shared tree first: real time had passed since the
 approval above (HEAD had advanced 135 commits since `2c75bb526`, all from
