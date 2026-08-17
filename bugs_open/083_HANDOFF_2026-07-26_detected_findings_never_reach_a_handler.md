@@ -910,3 +910,41 @@ held at 1+0 / 28.
 `placeholder_contact → page-build-handler` correctly remains at `detected`: 0 lifetime successes, so
 the known-good rule holds it, and at 1 day old it is inside `453`'s 3-day limit. It should escalate
 on ~**2026-08-19**, which is the second discriminating test of that clock.
+
+### OPEN RISK, observed 2026-08-17 18:30Z — work-item history SHRANK, cause NOT diagnosed
+
+**The observation, measured twice.** `required_fields_missing` read **complete 64 /
+needs_human_review 31** at 11:00Z and **complete 50 / needs_human_review 31** at 18:30Z. The 14
+are not re-statused — `verified` is 0 and the type has only two statuses — so they left the table.
+Re-measured at 18:29 and stable at 50, so it was a discrete event, not measurement drift.
+
+**What I did NOT establish, stated plainly because the temptation is to fill it in.** I did not find
+the actor. There is no `DELETE FROM site_work_items` in a scheduled task (an earlier grep of mine
+that appeared to find three was matching `deleted_at`, not `DELETE` — a bad query, corrected here),
+no work-item retention window in `platform/`/`internal/`/`sql_for_agents/`, and no CronJob that
+names the table. The `295` lane's phrase *"the rest are past retention"* is what put me on to it,
+but that may refer to `orchestration_states` (which is reaped) rather than to work items. Against a
+blanket retention sweep: **the oldest surviving row fleet-wide is 2026-03-15**, and 89 completed
+rows created before 2026-08-01 still exist. So this looks targeted, not systemic — but *"looks"* is
+the right word and this is `[UNDIAGNOSED]`, not a mechanism.
+
+**Why it matters here regardless of cause, which is the actionable part.** Both of this promoter's
+success tests read *lifetime* history:
+
+- 430's known-good rule — *"the pair has ≥1 `complete`"*;
+- 444/454's floor — *"the pair is succeeding at ≥25%"*.
+
+If completed rows can leave the table, **"lifetime" is really "within whatever window survives"**,
+and a pair that worked well but has been quiet can lose its evidence and read as *never having
+worked* — held for ever. That is exactly the latent failure `454` was applied to prevent, arriving
+by a second, independent route. It is also the third instance today of one class: **the population I
+was measuring was not the population I assumed** (`failed` rows carry no `completed_at`; `verified`
+is a second success status; and now the row set itself is not stable).
+
+**Not fixed here, and deliberately not patched blind.** A durable claim about a cross-cutting
+mechanism is what `090`'s diagnosis loop is for (CLAUDE.md), and guessing at a guard before knowing
+the actor would be a fix aimed at a mechanism nobody has identified. What a next session should do,
+in order: (1) run `090` on *"completed `site_work_items` rows disappear; 14 `required_fields_missing`
+completes left the table between 11:00Z and 18:30Z on 2026-08-17 with no status change"*; (2) only
+then decide whether the promoter's tests need a durable counter (e.g. a per-pair success tally that
+survives row deletion) rather than a live COUNT over the table.
