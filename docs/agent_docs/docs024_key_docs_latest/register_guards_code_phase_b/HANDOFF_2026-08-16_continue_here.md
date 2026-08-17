@@ -1,18 +1,54 @@
 # HANDOFF 2026-08-16 — continue here
 
 **Lane:** `register_guards_code_phase_b` (`bugs_open/288`, the class behind
-`bugs_closed/225`). **State (updated 2026-08-17): the code is council-APPROVED and LIVE — proven at the
-binary on both replicas, and the first production sweep ran clean. It has still NEVER
-FIRED, because no tool declares anything yet; that one step is an ask sitting with the
-mortgagecalculator lane.** Read this first, then NOTES for
-the evidence and PLAN for why the design is what it is.
+`bugs_closed/225`). **State (updated 2026-08-17, evening): council-APPROVED, LIVE, and PROVEN TO FIRE** —
+the mortgagecalculator lane seeded a real declaration and ran the induced proof at 16:17Z.
+**One arm remains unproven and is structurally uninducible until the next real sweep.**
 
-## The one-sentence state
+## WHAT IS PROVEN, and what is not
 
-The evidence register can now be told which facts a calculator encodes, and the daily
-sweep will name that calculator when a fact moves — **but the code is not in a running
-binary, no tool declares anything yet, and therefore the mechanism has never fired on
-real data.**
+**Proven** (mcalc lane, 16:17Z 2026-08-17, 14-second window, restore in a `trap … EXIT`,
+register restored to 500000 with `pinned` carried, 0 items written):
+
+| run | `fact_drift` entries | kind | `new_value` for the changed fact |
+|---|---|---|---|
+| baseline (register 500000) | 13 | `unreconciled_declaration` | **500000** |
+| induced (register 550000) | 13 | `unreconciled_declaration` | **550000** |
+
+The fan-out resolves a declaration on a tool the acceptance ladder **cannot see** (2
+components, 0 tool-level — the exact case we refused to key `toolEligibilityWhere` on),
+routes all 13 to `fact_drift_review` (correct for a `no_auto_fix` fence), and **reads the
+register at check time**. The discriminator is **not** the kind — it is `new_value`
+tracking the register between runs.
+
+**NOT proven, and it cannot be today:** the `value_drift` arm. On a fresh declaration
+every pair is `never_reconciled` and that arm wins; a dry run writes no items, so it can
+never create the baselines. **It becomes inducible only after one REAL sweep files the 13.**
+
+## THE OWED ITEM
+
+**Let the next real daily sweep (~09:03Z) run, then induce `value_drift`.** It files 13
+low/60 `fact_drift_review` items which become the baselines and self-quiet. If that arm
+comes back wrong it is THIS lane's defect, not the site lane's — route it to
+`bugs_open/288`.
+
+Everything else that was owed is discharged: council APPROVED (`cff364b8`), code live and
+re-verified on the current pods (`mine=2, control=5, negative control=0`), declaration
+seeded, first half of the proof run.
+
+## ⚠ THREE CORRECTIONS TO THIS LANE'S OWN DOCS (2026-08-17) — read before following them
+
+1. **`dryrun_fact_drift.sh` used the stdin-race publish form** (4 of 5 publishes lost at
+   exit 0). FIXED — payload in the container command with a `PUBLISH_OK` receipt.
+2. **The RUNBOOK's induced-proof step predicted `kind: value_drift`, which its own code
+   cannot produce on a fresh declaration.** FIXED — it now carries what a PASS actually
+   looks like.
+3. **`fact_drift` is per-site and NESTED** (`results[N].fact_drift`); `total_drifted`
+   beside it counts CITATION drift and reads 0. Both documented.
+
+All three were found by the lane that used the docs, not by me. `WRONG_CALLS` 2026-08-17.
+
+## SUPERSEDED — the original three items, kept for the trail
 
 ## THREE THINGS OWED, in order
 
