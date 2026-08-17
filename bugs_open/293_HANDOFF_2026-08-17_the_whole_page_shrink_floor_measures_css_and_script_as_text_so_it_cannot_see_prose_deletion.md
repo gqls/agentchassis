@@ -1,4 +1,4 @@
-# 291 — the whole-page shrink floor measures CSS and SCRIPT as "text", so it cannot see prose deletion — and its one refusal in the archive was a repair
+# 293 — the whole-page shrink floor measures CSS and SCRIPT as "text", so it cannot see prose deletion — and its one refusal in the archive was a repair
 
 **Filed 2026-08-17** by the `bugfix_285_shared_template_write` lane, which fixed the SIBLING call
 site and is deliberately not touching this one. **This is the residual half of a corrected axis,
