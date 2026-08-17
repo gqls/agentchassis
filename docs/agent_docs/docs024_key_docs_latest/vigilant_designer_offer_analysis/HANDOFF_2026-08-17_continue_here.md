@@ -26,6 +26,23 @@ needs no help:** two `content_rewrite` items sit `triaged` on **owned** webdesig
 after the roll**. Grade with the negative control too (generic-page items over the same window must
 produce no such row), or "the fix works" cannot be told from "the emit fires unconditionally".
 
+**Expect HOURS, not minutes, and do not read the delay as a problem.** `[MEASURED 18:20 UTC]`
+dispatch is healthy — 6 items claimed fleet-wide in 25 minutes, `build-pipeline-trigger` firing
+every 60s — but it works roughly one item per site at a time and is currently working through
+`page_rerender`s. **webdesign.co.uk has 24 items `triaged` and 1 `claimed`**, and the two
+owned-page `content_rewrite`s are somewhere in that queue. So a zero at any point in the next few
+hours still means "not yet asked". The one-line check:
+```sql
+SELECT count(*) FROM site_work_items
+ WHERE item_type='owned_page_review' AND spec->>'refused_by'='save_page_sections';  -- 0 = not asked yet
+```
+
+**What the fix will report on once it bites** (`[MEASURED 18:20]`): **26** content-type items have
+died `failed` on owned pages across **six** producer families — `literal_markdown` 8,
+`tool_crosslink` 6, `tool_content` 3, `design-audit` 3, `offer-analysis` 3, `placeholder_contact` 2,
+`gap_plan` 1. ⚠ **Upper bound, not a count of this guard's kills** — only 3 are proven, the rest are
+past retention. Details and the caveat in `bugs_open/295`.
+
 ## ⚠ SUPERSEDED 16:15 UTC — the EARLIER roll did not carry the fix; prediction 5 confirmed
 
 **Read this before the rest of the file.** Pods restarted 14:42–14:43 UTC (`5bd56bdd9b`).
