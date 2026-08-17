@@ -885,7 +885,7 @@ never given it a description, the database allows that, and every piece of code 
 agent choked on the empty field. **This agent had never been startable in the normal way** — which
 is a second, independent reason "nobody ran it" was true, on top of the wiring. Worse: the loop
 is designed to carry on when one auditor fails, so had I not been watching this exact run, every
-sweep would have reported success with the auditor quietly skipped. Filed as bug 287; the one-row
+sweep would have reported success with the auditor quietly skipped. Filed as bug 290; the one-row
 fix is live and the code fix (make all five loaders tolerate the empty field, plus a build check
 so a sixth can't reappear) is committed for the next release. Whether the column should be made
 mandatory outright is a schema change I've left as your call.

@@ -563,7 +563,7 @@ after confirming the RepoDigest matches the pod's `imageID`.)
    `converting NULL to string` on `agent_definitions.description` — the auditor's
    seed omitted the column and five readers scan it into a Go string, so it had
    NEVER been spawnable via `spawn_agent`. That is a distinct bug, filed
-   **`bugs_open/287`** (data half live via mig `420`, code half committed). It
+   **`bugs_closed/290`** (data half live via mig `420`, code half committed). It
    wears the handshake flake's costume — read the error before retrying.
    Second dispatch (corr `8ab5acd5`): parent COMPLETED; child
    `brief-fidelity-auditor` COMPLETED — `total_findings 8, items_created 8,

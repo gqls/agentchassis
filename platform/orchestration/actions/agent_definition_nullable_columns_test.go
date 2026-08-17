@@ -1,6 +1,6 @@
 // FILE: platform/orchestration/actions/agent_definition_nullable_columns_test.go
 //
-// bugs_open/287 — an agent seeded WITHOUT a description is unspawnable, and the
+// bugs_closed/290 — an agent seeded WITHOUT a description is unspawnable, and the
 // failure looks like a spawn handshake flake.
 //
 // agent_definitions.description is nullable with no default, and five readers
@@ -78,7 +78,7 @@ func TestAgentDefinitionDescriptionIsNeverScannedBare(t *testing.T) {
 	}
 	for _, h := range hits {
 		t.Errorf("agent_definitions.description scanned BARE — a NULL (a seed that forgot the column) "+
-			"fails the Scan and the agent cannot be spawned/resolved (bugs_open/287). "+
+			"fails the Scan and the agent cannot be spawned/resolved (bugs_closed/290). "+
 			"Use COALESCE(description, '') as the five existing readers do:\n\t%s", h)
 	}
 }

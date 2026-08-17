@@ -1,4 +1,13 @@
-# 287 — an agent seeded without a `description` cannot be spawned or resolved: five readers scan a nullable column into a Go string, and the failure looks exactly like the spawn→call handshake flake
+# 290 — an agent seeded without a `description` is unspawnable: five readers scan a nullable column into a Go string, and the failure looks exactly like the spawn→call handshake flake
+
+> **RENUMBERED 287 → 290 on 2026-08-16.** A concurrent session filed an unrelated
+> `287` (dispatch-loop completes items with the SPAWN record) **89 seconds before**
+> this file — theirs keeps the number, this one moves, same rule as the 278→279
+> collision. **Anything still saying `287` about a NULL `description` means THIS
+> file.** Two pointers are deliberately left stale because editing an applied
+> migration would break its ledger checksum: migrations `420` and `438` name
+> "bugs_open/287" in their headers. Resolve bug numbers by SLUG, never by number.
+
 
 **Filed 2026-08-16** by the `bugs_open/279` lane, from the FIRST spawn of
 `brief-fidelity-auditor` after migration `419` wired it into the improvement loop.
