@@ -84,7 +84,14 @@ verified; the third was an explanation, not a change.** §5 below is amended in 
    ⚠ **But that first pass proves the CHAIN, not the CHECKS.** It drew
    `remortgagecalculator.uk`, which has **0 pages** (deployed or otherwise), so its zero
    findings could not have come out any other way. **The first informative tick is the next
-   one** (~12:32Z, `robot-hands.com`). Do not read the clean first run as "the fleet is fine".
+   one** (~12:32Z, `robot-hands.com`).
+   **✅ RESOLVED 12:33Z — the checks fire.** That second tick swept `robot-hands.com`
+   (35 deployed pages, so a real test) and filed **87 items**: `head_essentials_missing` 29,
+   `page_rerender` 20, `undeployed_asset` 17, `needs_internal_links` 6,
+   **`dead_internal_link_live` 4**, `literal_markdown` 4, `canonical_mismatch` 1, and five
+   others. The four live-link findings are genuine 404s, all linked from that site's
+   `/tools.html` — two tool pages plus `privacy.html` and `terms.html`. **So the week the
+   rotation spent disabled was hiding real broken links fleet-wide, not only here.**
    ⚠ **What to watch, and it is not the rotation itself:** findings land at `detected`, and
    `detected-item-promoter` (live, 15-minute cadence) now promotes them to `triaged`, from where
    handlers dispatch. One completeness pass on `leopardessconsulting.co.uk` filed ~77 items

@@ -3349,3 +3349,21 @@ byte-identical. Fence re-parsed out of the stored body: 13 unique non-empty stri
 otherwise.** A clean steady-state dry run is equally consistent with a live mechanism and an inert
 one — the could-not-have-come-out-otherwise shape `WRONG_CALLS.md` exists to catch. The one result
 that would discriminate is the one still owed.
+
+### 5. The rotation's second tick answered §1's open caveat — the checks fire, and they found real damage immediately
+
+[MEASURED 12:33Z] Tick 2 (12:32:43Z) drew `robot-hands.com` — **35 deployed pages of 41**, so
+unlike tick 1 this could have come out either way. It filed **87 items**: `head_essentials_missing`
+29, `page_rerender` 20, `undeployed_asset` 17, `needs_internal_links` 6, **`dead_internal_link_live`
+4**, `literal_markdown` 4, `needs_content_image` 2, `canonical_mismatch` 1, plus
+`deactivated_component`, `nav_drift`, `orphan_blog_posts`.
+
+**The four `dead_internal_link_live` findings are real 404s**, every one linked from that site's
+`/tools.html`: `gripper-cycle-time-estimator.html`, `gripper-payload-calculator.html`,
+`privacy.html`, `terms.html`. Not trailing-slash cases — ordinary dead links, sitting live.
+
+Two things follow. **(a)** The caveat recorded at §1 was worth recording and is now discharged
+honestly: tick 1's zero proved nothing, tick 2's 87 proves the checks work. **(b)** This site was
+not a special case. The week `site-discovery-rotation-completeness` spent disabled was hiding real
+broken links across the estate, and the first real site swept had four. Twenty-one sites remain
+in the backlog at roughly one an hour.
