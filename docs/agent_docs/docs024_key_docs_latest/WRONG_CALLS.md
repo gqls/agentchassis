@@ -33283,3 +33283,46 @@ worse than no proof: it converts an open question into a settled one, and the ne
 person has no reason to re-ask. **An induced red is only evidence if the mutation is
 FAITHFUL — it must be the defect, not something adjacent to it.** State the mutation you
 ran, not just that you ran one.
+
+---
+
+## 2026-08-16 — I censused ONE nesting level and reported it as the population: "13 agents configure a budget" was really 68 (bugs_open/257)
+
+**The claim.** Sizing the blast radius of the `bugs_open/257` fix, I ran a census over
+`agent_definitions` and reported: *"193 active agents; **3** set `ai_service.max_tokens`
+(diagnose-agent 32000, feed-triage 4000, site-adoption-agent 16000); **10** set agent-level
+`max_tokens`. All 13 go through the canonical path, hence all 13 are unaffected."* That figure went
+into the bug file, the concept register (MDL-041), the council submission, and three commit messages.
+
+**The true number is 68.** Depth-aware census, run post-roll: 3 root `ai_service.max_tokens`, 10
+agent-level, and **67 with a STEP-level `workflow.steps.<step>.config.ai_service.max_tokens`** — 68
+distinct agents once deduplicated. **I understated it 5×** by counting only the root block.
+
+**What caught it.** Not the census, and not the council — the *live data*, after the roll.
+`llm_call_log` showed `feed-triage / score_relevance` sending **8192**, where my census had recorded
+feed-triage at **4000**. One query resolved it: root `ai_service.max_tokens = 4000`, step-level
+`config.ai_service.max_tokens = 8192`, and `resolveAIServiceConfig` overlays the step block over the
+root (`ai_actions.go:77-87`), so 8192 is correct and my census had never looked there.
+
+**The cheap check that would have.** `LANDMINES.md` already carries this trap twice, for this exact
+key — *"the cap is `config.ai_service.max_tokens`; `config.max_tokens` reads NULL for every row"* and
+*"The fleet 'uncapped LLM step' census misses two whole populations — it reads 0 while steps are still
+falling to the hardcoded 2048"* (nested `sub_workflow` steps; depth-aware totals 134 not 126). **I
+grepped LANDMINES for `max_tokens` at the start of this lane and read those entries.** Knowing the trap
+existed did not stop me writing a census with the same shape, because I was asking a different question
+and did not notice it was the same object.
+
+**The transferable rule, and it is the index's own:** *your measurement answers the question you
+ENCODED, not the one you asked.* I encoded "which agents have a root `ai_service.max_tokens` key?" and
+reported the answer as "which agents configure a budget?". The two differ by 55 agents. **Before
+quoting a census as a population, write down the question the SQL actually asks and check it is the
+sentence you are about to publish.** For jsonb config specifically: if the key can appear at more than
+one nesting level, a single-level census is a lower bound and must be labelled one.
+
+**What it does NOT change, stated precisely so the correction is not read as wider than it is.** The
+blast-radius *conclusion* stands, because it never rested on the count. It rests on a structural fact:
+`createAIClient` (`ai_actions.go:287`) and the options build (`:361`) read the **same merged map**
+produced once by `resolveAIServiceConfig` (`:243`) — and that merge *includes* the step-level overlay.
+So client-default and options cannot disagree at any nesting level, for 13 agents or 68. The number was
+wrong; the argument it was decorating was not. **That is exactly why a wrong number is dangerous here —
+it was load-bearing for nothing, so nothing failed to warn me.**
