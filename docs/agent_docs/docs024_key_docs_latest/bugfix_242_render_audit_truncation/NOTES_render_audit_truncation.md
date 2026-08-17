@@ -230,3 +230,40 @@ renumbered, per CLAUDE.md; both the bug file and the 016b §10 row now say resol
 owner's action (`make release` is whole-fleet). Once a tag-bumped build is live, run 299's
 §7 criterion via the manual dispatch recipe — page-less site, expect COMPLETED on the
 NORMAL edge, `findings_written` = the skip no-op, no `__step_error`, no error-log row.
+
+## 2026-08-17 (night) — 299 LIVE on v1.0.1307 and CLOSED; 242's fields confirmed in an ORGANIC run
+
+**Deploy, proven per service at the artefact.** `IMAGE_TAG` now reads `v1.0.1307` and every
+deployment matches; pods up ~17:05Z. Binary probe on **both** chassis replicas, each with a
+positive and a negative control in the same breath: fix literal **1/1**, control literal
+**1/1**, nonsense **0/0**. (Contrast with the 14:43Z roll earlier the same day, which was
+`v1.0.1305` on an unbumped tag and carried none of it — the difference between the two
+probes is the whole lesson.)
+
+**The close criterion, forced — and the forcing itself is the part worth copying.** The
+organic trigger had disappeared: `remortgagecalculator.uk` deployed its pages during the
+day, so **no site had zero deployed pages any more**. Rather than create a scratch site or
+mutate a live one, I dispatched at `pool-web-tech.internal` (`8f02310c…`) — an existing
+internal pool row with zero pages, which takes `request_render_audit`'s no-deployed-pages
+branch by construction. Nothing created, nothing mutated, no rotation stamp touched, no
+external HTTP (a skip never dispatches to the adapter). Payload shape copied from the
+known-good 17:12 rotation run rather than guessed; `PUBLISH_OK` seen; corr `c920fffe…`,
+orch `132b38b9-254e-49d0-86a3-a21d295eb0ac`, COMPLETED ~90s.
+
+Result — all four held: `current_step=complete` (**NORMAL** edge), `findings_written =
+{skipped: true, reason: no_deployed_pages, inserted: 0, deduped: 0}`, no `__step_error` and
+no `complete_error`, **zero** new `agent_error_log` rows with the fleet-wide guard-error
+count still **2** (the two pre-fix occurrences, unmoved). **The disconfirming result was
+available**: the same input against the pre-fix binary produced `__step_error` + an error
+row + the `complete_error` edge nine hours earlier (`dc0233ab`). Same case, different
+binary, opposite outcome — which is what makes this a grading and not a demonstration.
+
+**242 also gets an unforced confirmation, which it did not have before.** The 17:12 organic
+rotation run on `cookly.uk` (`2bb6873a…`) carries `pages_total: 5` beside `pages: 5` and a
+full `findings_written` (`inserted: 9, deduped: 10, retracted: 7, findings_capped: false`).
+Until tonight 242's honesty fields had only ever been seen in the deliberately forced 08-11
+test; they are now visible in ordinary production traffic.
+
+299 moved to `bugs_closed/` per the owner's 08-12 bar. ⚠ **`299` is an ambiguous number** —
+the concurrent webdesign CTA/tel `299` stays in `bugs_open/`; resolve by SLUG, and `git log`
+the FILE PATH.

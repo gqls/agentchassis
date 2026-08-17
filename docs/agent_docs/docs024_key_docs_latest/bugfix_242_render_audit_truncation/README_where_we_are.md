@@ -93,3 +93,31 @@ the timings; if that note had stood, the next session would have skipped review 
 reason. And my bug number 299 collides with an unrelated 299 filed by another session this
 evening; neither gets renumbered, so both files now say to identify them by name, not
 number.
+
+2026-08-17 (night) — The new build is real this time, and the bug is finished.
+
+I ran the same check as before — asking the running program directly whether it contains
+the new code, on both copies, with two control questions whose answers I already knew — and
+this time the answer is yes on both. The version label was bumped properly, so the machines
+actually pulled the new code.
+
+Then I tested it for real. There was a wrinkle: the site that triggered this bug in the
+morning had published its pages during the day, so the fault condition no longer existed
+anywhere. Rather than invent a fake site or fiddle with a real one, I used one of the
+internal "pool" placeholder rows, which genuinely has no pages — so it hits the same
+branch honestly, and nothing was created or changed to make the test work. The run finished
+the normal way, its record says plainly "skipped, no deployed pages, nothing filed", there
+is no error attached to it, and it added nothing to the error log. Nine hours earlier the
+identical input produced a recorded failure. Same input, different build, opposite result —
+that is what makes it a proof rather than a demonstration.
+
+One extra thing fell out of this that is worth knowing: the earlier bug (242, the audit that
+could quietly measure only part of a site) had only ever been proven with a deliberately
+rigged test. Tonight's ordinary weekly sweep of one of the live sites shows its honesty
+fields working in normal traffic for the first time. So both fixes are now confirmed in the
+real world rather than on a test bench.
+
+The bug file has moved to the closed pile. Worth noting for anyone reading later: there are
+two different bugs numbered 299 — mine, and an unrelated one another session filed this
+evening about a call-to-action link on a web page. Neither gets renumbered; identify them by
+name, not by number.
