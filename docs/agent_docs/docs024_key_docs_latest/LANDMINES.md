@@ -11749,3 +11749,20 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **source:** 2026-08-17, while verifying RFC_022 for the owner (who had asked for the counter to be BUILT — it already was; CLAUDE.md's clause was three days stale and is now corrected). Found by running the parity test rather than trusting the cron's clean row.
 - **relations:** `RFC_022` · register **WFA-013** · `optional_key_budget_acks.json` (the acknowledgement source of truth, mirrored by the same literal mechanism) · MEMORY [[detection-works-schedule-and-dispatch-do-not]] and [[a-post-fix-zero-needs-a-demand-control]]
 - **added:** 2026-08-17, RFC_022 verification
+
+## `make -n release` descends into NOTHING, so "is my service in the release?" answers 0 whether it is or not
+
+- **footprint:** `makefile` (`release`, `release-backend`, `pinned_sweep`, `deploy-core`, `deploy-agents`, `update-kustomization-images`) · any verification of the form `make -n release | grep <service>` · `bugs_open/237`, `bugs_open/249`
+- **fires when:** you change what a release deploys — adding a service, changing a tag-update list, wiring a gate — and you check your work by dry-running the release. No symptom first; the command succeeds and prints plausible output.
+- **the trap:** `release` used to be a plain prerequisite list, so `make -n` walked into every sub-goal and printed the real actions. Since `21b9772a9` (the `bugs_open/249` fix) it is `$(call pinned_sweep,…)` — **one shell block** that loops `make $$goal` internally. Under `-n`, make prints that block and executes none of it, so the entire release expands to **three lines of shell**. `make -n release | grep -c render-audit-adapter` returns **0** at a HEAD where render-audit-adapter is fully wired into the release and rolls correctly — `[MEASURED 2026-08-17]`, on the very commit that wired it.
+- **why it is worse than a plain false negative:** the recipe is written down as a *passed* check. `bugs_open/237`'s own 2026-08-10 verification table records "`make -n release` reaches the render-audit overlay → **3** actions", and that was true *the day it was written* — 249 landed the next day and silently invalidated it. So the file hands the next reader a check that now returns 0, and 0 reads as "my change is not in the release", which invites re-fixing something that is already right. The failure is one-directional and always toward "absent".
+- **the check — measure at a goal the sweep CALLS, never at `release` itself:**
+  ```bash
+  make -n deploy-agents | grep -c render-audit-adapter          # the retag loop
+  make -n deploy-core   | grep -c "Release coverage OK"         # the gate, via update-kustomization-images
+  ```
+  and prove the instrument can fail: break the input and require the opposite answer —
+  `make -n deploy-core AGENT_DEPLOY_SERVICES="agent-chassis"` must print `RELEASE COVERAGE:` failures.
+- **the related half:** `make -n` does not expand a **shell `for` loop** either. Now that the release's service lists are loops (`AGENT_DEPLOY_SERVICES`), counting `make -n deploy-agents` action lines reads **9** where the old copy-pasted blocks read **37**, and the sets are identical. Never compare those counts across the refactor — compare the **resolved service set** (run the loop under `kubectl`/`sed` stubs, or expand the make variable and test each overlay path), which is what the two numbers were always standing in for.
+- **relations:** `bugs_open/237` (the enumeration class; its own verify recipe is the worked casualty), `bugs_open/249` (`pinned_sweep`, the change that broke it), `WRONG_CALLS.md` 2026-08-17, MEMORY [[measurement-discipline-index]] and [[a-pass-from-a-blind-check-outlives-the-blindness]] (a check that passed while blind, quoted afterwards as evidence)
+- **added:** 2026-08-17, bugs_open/237 class-fix lane — caught because a check that had "passed" for another session returned 0 on a tree where the thing it tests demonstrably works
