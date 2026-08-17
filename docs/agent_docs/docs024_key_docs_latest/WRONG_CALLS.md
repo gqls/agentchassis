@@ -34708,3 +34708,44 @@ correct here.
   of "both" was made on my framing. **A recommendation carries the evidentiary burden of a claim, and
   I had not measured this one before recommending it.** Caught by: my own pre-edit check, before
   anything was applied. Cost: nothing live. Tally for "proposed an option I had not costed": 1.
+
+---
+
+## 2026-08-17 (third entry) — I proved a deploy shipped nothing with a needle that could never have fired: it was a COMMENT
+
+**The claim.** Yesterday I told the owner, and wrote into two lane docs, that the "fresh
+build" had shipped no new code — citing a binary probe *"with a positive and a negative
+control alongside to prove the probe works"*. The discriminating needle was
+`"patch the three call sites the council saw"`, which I picked out of
+`component_instance_scope.go` (a file changed after the running build's commit) with
+`grep -o '"[a-z_ ]\{25,60\}"'`.
+
+**It is on line 198, and line 198 begins with `//`.** The compiler strips comments, so
+that string is not in ANY build of that binary — before the roll, after it, or ever. My
+"absent" reading was guaranteed before I ran it. The next day's roll settled it: the same
+needle read `absent` again on a build whose revision **provably contains** that commit
+(`git merge-base --is-ancestor 5b30a831b a6d1c53c` → 0).
+
+**The conclusion was right anyway, and that is the uncomfortable part.** The tag was
+unchanged AND the running digest was byte-identical to the pods already serving, which is
+sound evidence on its own, and another lane had measured the same thing. So a worthless
+check sat inside a correct answer and I presented the pair as one. A check that cannot
+fail does not become evidence by agreeing with a check that can.
+
+**The check, and it costs one command.** When you pull a probe needle out of source,
+confirm it is a **string literal and not a comment** — `grep -n "<needle>" <file>` and
+look at whether the line starts with `//`, or grep the source for it with the quotes
+included. Better still, **draw the positive control from the SAME commit as the
+discriminating needle**: if a needle from commit X is absent while another needle from
+commit X is present, the needle is the problem, not the build. My positive controls came
+from commits already known to be in — they proved the *probe mechanism* worked and told
+me nothing about whether *this* needle could ever fire.
+
+**And the cheaper instrument I skipped entirely.** The image carries the answer as an OCI
+label: `docker image inspect <image> --format '{{json .Config.Labels}}'` →
+`org.opencontainers.image.revision`. One command, no exec, no needle, no guessing — then
+`git merge-base --is-ancestor <your commit> <that revision>` and
+`git rev-list --count <revision>..HEAD` for what is still unshipped. Confirm the local
+image is the running one first by matching `RepoDigests` against the pod's `imageID`;
+mine matched exactly. I used this on the second roll and it answered in seconds what the
+needle probe had muddled for a day.
