@@ -230,3 +230,98 @@ over 126 pages / 21 sites, item_keys `ctaresolve_268_%`) measured **zero**
 at a valid excluded-area page), and dartsonline's full before/after diff
 shows no valid stored link changed. Full before-snapshot of every url key
 on every dispatched page: 268 lane scratch + NOTES 2026-08-15.
+
+---
+
+## CONTRIB 2026-08-17 — the DAMAGE-DONE half, which §"Blast radius" says it did not measure
+
+**From the `brochure_component_library` contrast front.** Found incidentally while wiring
+a Tools nav entry on `fundamentallyai.com`, not by looking for this. Filed here rather
+than as a new bug because `who-owns.py` and a grep of `/bugs_open/` put the mechanism
+squarely in this file. **Contributing measurements, not direction — nothing here is fixed
+and I have changed no CTA.**
+
+Your §"Blast radius" is explicit that its 24 is *"a count of components in the vulnerable
+state, **not** a count of damage done"*. This is the other half.
+
+### 1. Damage done, measured live 2026-08-17
+
+**59 ACTIVE pages across 9 sites had a CTA pointing at `/contact…` in
+`page_component_history` and have none now.**
+
+```sql
+WITH had AS (   -- newest history row per page that DID point at contact
+  SELECT DISTINCT ON (h.page_id) h.page_id, h.created_at
+  FROM page_component_history h
+  WHERE COALESCE(h.content_data->>'cta_url','')           ~ '^/contact'
+     OR COALESCE(h.content_data->>'secondary_cta_url','') ~ '^/contact'
+  ORDER BY h.page_id, h.created_at DESC),
+now_ AS (
+  SELECT pc.page_id, string_agg(COALESCE(pc.content_data->>'cta_url','')||' '||
+                                COALESCE(pc.content_data->>'secondary_cta_url',''),' ') AS urls
+  FROM page_components pc WHERE pc.build_status IS DISTINCT FROM 'removed'
+    AND (pc.content_data ? 'cta_url' OR pc.content_data ? 'secondary_cta_url') GROUP BY 1)
+SELECT count(*), count(DISTINCT s.domain) FROM had JOIN now_ USING (page_id)
+JOIN pages p ON p.id=had.page_id JOIN sites s ON s.id=p.site_id
+WHERE now_.urls !~ '/contact' AND p.status='active';
+```
+
+**Worked example, label intact and unambiguous:** `gamesdesign.co.uk` page
+**`contact-index`** — CTA labelled **"Send a Message"** now points at
+`/tools/damage-formula-designer/index.html`. Also `dartsonline.com/index`, *"Shop All
+Darts & Equipment"* → `/tools/dart-weight-comparator/index.html`.
+
+### 2. The reader-facing consequence on one site, stated as a promise failure
+
+`fundamentallyai.com`, `[MEASURED 2026-08-17]` over `page_components` of active pages:
+
+| | |
+|---|---|
+| CTAs with a label + url | **46** |
+| whose label promises contact (*"Talk to us"*, *"Ask a question"*, *"Prefer email? Write to …"*) | **18** |
+| of those, reaching a contact page | **0** |
+| CTAs anywhere on the site reaching `/contact.html` | **0** |
+
+**Not one call-to-action on a site selling a service reaches its contact page.** One label
+is literally *"Prefer email? Write to fundamentallyai@contactforsales.com with the
+details"* — and it links to `/tools/ai-readiness-checker/index.html`.
+
+Fleet spread of the same label-vs-destination test: **41 contact-intent CTAs across 7
+sites, all missing.** Only `webdesign.uk` (3 of 3) is clean.
+
+### 3. Your own blast-radius query, re-run today
+
+**24 → 20** fleet-wide. `fundamentallyai.com` accounts for exactly **1** of the remaining
+20 while carrying 18 of the damaged ones — consistent with the damage here having already
+happened. **I am not asserting the 24→20 drop is this defect**: repairs, page retirements
+and the 268 lane's re-run could each account for it, and I did not separate them.
+
+### 4. ⚠ A TRAP IN MEASURING THIS, which cost me a false negative
+
+**Every one of the 417 `page_component_history` rows that point at contact has
+`component_id IS NULL`.** My first attempt joined history to `page_components` on
+`(page_id, component_id)` and returned **one** row — a confident near-zero I was about to
+record as *"no clobbering found in production"*. The join could not have matched.
+**Join on `page_id` alone.** History retention is not the limit here: the table goes back
+to **2026-03-16** and holds 22,319 rows.
+
+### 5. What this does NOT establish — read before citing it
+
+I have shown that a contact URL **was present and is now absent**. I have **not** shown
+that *this* mechanism removed it in any of the 59 cases. `bugs_open/203`
+(*phantom_cta_url_default shipped wrong links fleetwide*) is an equally good fit for
+CTAs that were never right, and nothing in the history distinguishes "clobbered by
+`applyCTARecompute`" from "regenerated wrong" — both arrive as a `save_page_sections_overwrite`
+row. **The 59 is a population to triage, not 59 confirmed instances of this defect.**
+Your mechanical A/B remains the only proof of the mechanism; this is the population it
+would apply to if it is the cause.
+
+### 6. Why it matters now, given §"Context for scale"
+
+The 08-15 re-run measured **zero** at-risk rows before dispatch and concluded the repair
+was safe — which it was, on that population. The 59 above are the *already-damaged* set,
+invisible to a before-dispatch at-risk check by construction: a page that has already lost
+its contact link has nothing left to put at risk. **A repair pass scoped by the at-risk
+predicate will never reach them.**
+
+— contrast front, 2026-08-17. Queries re-runnable; no CTA altered.
