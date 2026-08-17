@@ -378,3 +378,60 @@ the silent-truncation lineage this bug belongs to; cited in the bug file now.
 **Trailer discipline:** the code commits carry `Council-Submitted:`, which is correct for a pre-verdict
 commit — `098` credits them automatically now the correlation is approved, with no amend. Only the
 post-verdict commit carries `Council-Reviewed:`, written after reading the verdict body, never before.
+
+## 2026-08-16 (evening) — LIVE at v1.0.1305, and MISSTEP 4: my census was understated 5×
+
+Fleet rolled 22:07:55Z. **The chassis roll carried `reasoning-agent:v1.0.1305` as well**, so the
+"needs its own image" caveat I recorded is satisfied — a whole-fleet `make release` covers all 14
+services, which I had treated as an open question rather than checking.
+
+**Deploy proven at the binary.** `reasoning-agent` stamps `6a782274b`; `git merge-base --is-ancestor
+5cafe18ef 6a782274b` passes. The `agent-chassis` provenance line had **already scrolled out of
+`--tail=400`** — exactly the documented landmine — so the `/proc/1/exe` probe settled it, with a
+fabricated sha as the negative control in the same exec. The deployed `reasoning-agent.yaml` carries
+the 257 annotation, again with a fabricated-string control.
+
+**`reasoning-agent` is healthy** — 3 pods, 0 restarts, 0 error lines. Worth checking rather than
+assuming: this is the first build in the service's life where that YAML `max_tokens` is actually
+parsed, and it arrives as an `int`, which is precisely the type a `float64`-only reader drops.
+
+### MISSTEP 4: "13 agents configure a budget" was really 68, and the LIVE DATA caught it
+
+Reading `llm_call_log` after the roll, `feed-triage / score_relevance` showed **8192**. My census had
+recorded feed-triage at **4000**. One query resolved it: root `ai_service.max_tokens = 4000` **and** a
+step-level `workflow.steps.score_relevance.config.ai_service.max_tokens = 8192`, which
+`resolveAIServiceConfig` overlays over the root (`ai_actions.go:77-87`).
+
+**My census only ever read the root block.** Depth-aware: 193 active agents · 3 root · 10 agent-level ·
+**67 step-level** · **68 distinct**. A 5× understatement, and it went into the bug file, the council
+submission and three commit messages.
+
+**What makes this worth writing down is that I had already read the warning.** `LANDMINES.md` carries
+this trap twice, for this exact key — *"the cap is `config.ai_service.max_tokens`; `config.max_tokens`
+reads NULL for every row"* and the depth-aware-census entry (134 LLM nodes, not 126). I grepped
+LANDMINES for `max_tokens` at the start of this lane and read both. **Knowing the trap existed did not
+stop me, because I was asking a different question and never noticed it was the same object.** That is
+a more uncomfortable failure than not having looked.
+
+**The conclusion is unaffected, and the reason is the uncomfortable part.** The blast-radius argument
+never rested on the count — it rests on `createAIClient` (`:287`) and the options build (`:361`) reading
+one merged map that already includes the step overlay. So the number was decorating an argument that did
+not need it, and **nothing failed when it was wrong**. A load-bearing wrong number gets caught; a
+decorative one survives until someone quotes it for a different purpose.
+
+### The live check of the central claim, and its honest limit
+
+0 steps changed `max_tokens` across the roll boundary; 36 post-roll calls across 5 steps as the demand
+control (so the zero is not a blind pass); 0 truncations either side, counted on
+`error_message ILIKE '%stop_reason=max_tokens%'` — never on `output_tokens >= max_tokens`, per the
+landmine. **Early and partial: 5 steps is not the fleet.** Re-run after a day of normal load.
+
+### What is still NOT verified, recorded so nobody over-reads the LIVE banner
+
+The distinguishing behaviour — a nil-options caller whose config exceeds 2048 actually sending >2048 —
+**has no live exerciser.** `reasoning-agent` is the only nil-options caller, its budget is deliberately
+2048, nothing publishes to its topic, and its config is baked into the image (no ConfigMap volume), so
+manufacturing the case needs a yaml edit plus a rebuild and would be synthetic. It is proven
+deterministically by the mutation-tested wire-shape tests instead. **The bug file now says explicitly
+not to write "behaviourally verified end to end" without doing that work** — which is a claim the 204
+lane could legitimately make and this one cannot.
