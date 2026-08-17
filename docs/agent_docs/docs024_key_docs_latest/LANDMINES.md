@@ -12000,3 +12000,26 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **relations:** `bugs_open/288` · register **CLM-022** / **TL-045** · `register_guards_code_phase_b/RUNBOOK_register_guards_code.md` · `WRONG_CALLS.md` 2026-08-17 (I reported "the induction did not fire" off exactly this pair of readings) · MEMORY [[a-post-fix-zero-needs-a-demand-control]]
 - **source:** 2026-08-17, `mortgagecalculator_couk_adoption` lane, proving CLM-022 end to end as its first live consumer
 - **added:** 2026-08-17, mortgagecalculator_couk_adoption lane
+
+### `count(*) = count(DISTINCT item_key)` is the WRONG dedup test for `site_work_items` — the index is per SITE, so a same-named page on two sites reads as a dedup failure that isn't
+
+- **footprint:** `site_work_items.item_key`, `idx_swi_dedup`, `owned_page_review`, `page_rerender`, `tool_crosslink`, any `emitOwnedPageReviewItem`-shaped emitter using `ON CONFLICT DO NOTHING`, and any "did my dedup hold?" query
+- **fires when:** you ship or verify anything that files work items on a deterministic key and want to prove it converges on one row instead of accumulating. No symptom first — you write the obvious aggregate, it comes out uneven, and the uneven number is the thing you report.
+- **the trap:** the index is
+  ```sql
+  CREATE UNIQUE INDEX idx_swi_dedup ON site_work_items (site_id, item_key)
+   WHERE item_key IS NOT NULL AND status NOT IN
+     ('complete','verified','rejected','wont_fix','failed','unresolved','cancelled');
+  ```
+  **`site_id` is the first column.** `item_key` is unique *within a site*, never globally — and item keys are routinely built from a PAGE NAME (`owned_page_review:<page>`, `page_rerender_<page>_<site>_assemble`), so any page name the estate reuses (`llm-cost-calculator`, `privacy`, `terms`, `about`, `index`) produces one legitimate row **per site**. A fleet-wide `count(*)` vs `count(DISTINCT item_key)` therefore reports a shortfall whenever two sites share a page name, and the shortfall is exactly the number of shared names.
+- **the tell: there is none, and the false reading is a plausible bug.** Measured 2026-08-17 grading `bugs_closed/295`: 8 rows, **7** distinct `item_key`s. That reads as "one row was deduped away that should not have been", which is a real failure mode for an `ON CONFLICT DO NOTHING` emitter and would have been filed as one. The truth: `owned_page_review:llm-cost-calculator` exists on finetuning.uk **and** leopardessconsulting.co.uk. Nothing about the aggregate distinguishes the two cases.
+- **the check — group by the index's own key, or use a repeat you caused:**
+  ```sql
+  -- right: the unit the index actually enforces
+  SELECT site_id, item_key, count(*) FROM site_work_items
+   WHERE item_type='<type>' GROUP BY 1,2 HAVING count(*) > 1;   -- any row here IS a real dedup miss
+  ```
+  Better still, **prove it on a repetition you can attribute**: drive the same emitter at the same page twice and assert exactly one row. On 295 that was one page refused at 20:45:20 and again at 20:50:39 → **1** row, which is unambiguous in a way no fleet aggregate can be.
+- **the second half, easy to miss:** the partial predicate excludes **seven** terminal statuses, `failed` among them. So a terminal item's key is FREE and the same finding can legitimately be re-filed later — a second row with the same `(site_id, item_key)` is **not** a dedup failure if the first one is terminal. Check the statuses before calling a duplicate a duplicate. ⚠ And the converse trap: repeated failures on one page may be **different producers with different keys**, not one key re-filing — on 295 two failures 35 minutes apart on the same page were `offer-analysis_…` and `gap_plan_…`, and reading the timestamps instead of the keys gave the wrong mechanism.
+- **relations:** `bugs_closed/295` (where this was caught, mid-grading), `bugs_open/204` (why an emission needs a bounded dedup key), MEMORY `dedup-index-go-list-lockstep` (the other half of this index's contract — the Go terminal-status list must match the predicate above or the fleet gets 42P10)
+- **added:** 2026-08-17, vigilant_designer_offer_analysis lane
