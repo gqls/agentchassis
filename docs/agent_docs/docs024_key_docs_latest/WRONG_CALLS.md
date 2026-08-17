@@ -34159,3 +34159,99 @@ one error look like two agreeing observations.
 document — the NOTES and handoff entries were written after the payload dump, so they were right
 first time. Had I written the docs first, this would have propagated as "CLM-022 does not work"
 into a bug file and a reply to the lane that built it.
+
+## 2026-08-17 — "those 15 builds are harmless churn": an inherited framing read as a measurement, and 14 duplicate pages went live
+
+**The claim.** Judging a recompose fire on loancalculator.co.uk, I read the 15
+`needs_page` items it minted and wrote, in NOTES and in the handoff, that they were
+"the 14 guides — the same stamp-convergence churn as 08-15 — not damage. Let run."
+
+**The truth.** They were builds for **14 pages that did not previously exist**. The
+plan the fire had just written had retyped the entire guides section: 14 pages of role
+`blog-post` at `/blog/<slug>.html`, and **zero** of role `guide`, where both prior
+plans had 14 `guide` at `/guides/<slug>.html`. They built and deployed. The site now
+serves the same 14 topics at two URLs each, beside the untouched originals.
+
+**Where the wrong framing came from, and why that is the interesting part.** The
+previous session's notes described its own 15-item wave as stamp-convergence churn,
+and it was right about ITS wave. I carried the sentence across to a different run and
+never tested it. **A framing inherited from a handoff arrives pre-authorised: it reads
+like a finding someone already checked, so it never gets marked `[ASSUMED]` and never
+attracts a query.** That is what makes it more dangerous than a guess of my own — I
+would have marked a guess.
+
+**Two cheap checks, both of which I had, and the ordering that made them useless.**
+
+1. **The item keys.** `needs_page:can-i-overpay` is not `needs_page:guide-can-i-overpay`.
+   The missing prefix is visible in the output I pasted into my own notes, and I read
+   that list twice. Expectation supplied the prefix.
+2. **The page-identity md5** — `checkpoint_postplan.sh` step 6, written by an earlier
+   session for exactly this, plus step 1's "new page rows after fire — expect NONE".
+   I ran it, and it worked: `fd2c09c2…` → `da6908df…` told me immediately. **I ran it
+   ~35 minutes after the fire instead of in the minutes after the plan landed.** In
+   between, the fleet claim gate (`bugs_open/243`) re-opened and the builds dispatched.
+   The check was correct, available and free; only its POSITION was wrong.
+
+**So the rule is about timing, not about knowing.** A post-condition check on an
+irreversible pipeline is worth what its latency lets you prevent. This one is designed
+to run "the moment a NEW current plan lands" — the handoff says so in bold — and run
+late it becomes an accurate post-mortem instead of a stop.
+
+**Aggravating factor worth its own line:** I had also concluded, correctly, that the
+claim gate was shut and that nothing could dispatch. That was true when I measured it
+and I then treated it as a standing property. **A gate you have measured shut is not a
+gate that stays shut** — this one re-opened on an hourly timer whose exact firing time
+I had myself calculated and written into the RUNBOOK.
+
+**Cost.** 14 duplicate pages built and deployed on a live public site; a 43-page
+rerender wave minted by the platform's own `orphan_blog_posts` response; a retraction
+that has no clean path (same class as `bugs_open/080`/`081`) and now needs an owner
+decision about what the site's URL shape even is. Containment was attempted ~2 minutes
+after the discovery and refused by the permission classifier; the window closed while
+it was escalated. **Nothing about the calculators was harmed** — 12/12 locks held and
+toolgolden passes exit 0 — so the lane's actual deliverable survived.
+
+---
+
+## 2026-08-17 — I wrote a verification recipe into a bug file that CANNOT work, then hit it myself twelve minutes later (`bugs_open/237` class fix)
+
+**The claim.** Closing out step 1 of 237's class fix, I appended a remaining-work list
+to the bug file stating that behaviour equivalence for the coming refactor was
+"provable by `make -n` set-diff", and recorded the baselines as figures:
+**"37 deploy actions, 17 restarts, 14 pushes"**. Written in the same voice as the
+measured results above it, and committed.
+
+**Why it was wrong.** `make -n` prints a recipe; it does not execute one. The whole
+point of the refactor was to replace fifteen copy-pasted make lines with a **shell
+`for` loop** — and a shell loop is *one* recipe line no matter how many services it
+iterates. So the instrument I prescribed measures the thing being changed *by* the
+change: after the refactor the same command reads **9**, against a baseline of 37,
+with the two sets provably **identical**. Had I trusted my own recipe I would have
+read a 76% drop in deploy actions and concluded the refactor had dropped 28 services
+from the release — the exact failure the bug is about, arrived at by "verifying".
+
+**The same defect, one level up, in someone else's passed check.** 237's 2026-08-10
+verification table records "`make -n release` reaches the render-audit overlay → **3**
+actions". That was true when written. The next day `bugs_open/249` changed `release`
+from a prerequisite list into `$(call pinned_sweep,…)` — one shell block that loops
+`make $$goal` internally — and `make -n` stopped descending into it entirely. The
+recipe now returns **0** on a tree where render-audit-adapter is fully wired and rolls
+correctly. A check that passed, quoted afterwards as evidence, silently converted into
+a check that always says "absent".
+
+**What caught it.** Running the check and refusing to accept a number I liked the shape
+of. `make -n release | grep -c render-audit-adapter` → 0 was *convenient* to report as
+"needs more work"; it disagreed with a pod I had already read at v1.0.1305, and the
+disagreement is what forced me to ask what the command actually does.
+
+**The cheap check that would have prevented both.** Before recording ANY figure as a
+baseline, ask what the command does when the answer should be *yes* — and prove it can
+say *no*. Here: `make -n deploy-core AGENT_DEPLOY_SERVICES="agent-chassis"` must print
+`RELEASE COVERAGE:` failures. An instrument that has never been shown to fail is not an
+instrument. This is the [MEASURED]-marker discipline again: both my figures were real,
+current and correctly read, and the **comparison** was meaningless.
+
+**Cost.** None externally — caught inside the same session, before the false conclusion
+reached a commit or a handoff. The bug file's remaining-work list was corrected in place
+and the trap is now `LANDMINES.md` ("`make -n release` descends into NOTHING…"), because
+the recipe is written down in a bug file where the next reader will find it and believe it.
