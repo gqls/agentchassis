@@ -92,11 +92,20 @@ Nothing is owed on 281 itself.
 > own "what is still owed after the roll" section is the live list: verify the series is flat with
 > the demand control attached, sweep the 30-plus corpse rows that the fix does not move, and the
 > two residuals (the `total_iterations` fallback, and no size tripwire on `collected_data`).
-> Item (3) is **NOT done — do not read the two new LANDMINES as covering it.** The two entries I
-> appended and armed are 289's own (a `090` REFUTED on an oversized-state target is bundle
-> starvation; a `<loop>_iter_N_done` key is a whole-loop aggregate). **The two candidates listed
-> in item (3) above — the one-sha binary stamp, and the audit_tool re-dispatch cost — are still
-> unwritten.**
+> Item (3) is **DONE as of 2026-08-17, and one of its two claims was WRONG.** Both are now in
+> `LANDMINES.md`, synced and armed — but I verified them first-hand rather than relaying them,
+> and that is what caught it.
+>   - **(a) the one-sha binary stamp — CONFIRMED.** Probed `agent-chassis` `v1.0.1305`: an
+>     ancestor commit (`7a276dc9c…`, 08-15, `merge-base --is-ancestor` clean) greps **0** in
+>     `/proc/1/exe`, while the positive control `build provenance` greps **1**. The trap is real.
+>   - **(b) "a Sonnet audit every ~40 min until `failed`" — CORRECTED.** Measured across every
+>     `audit_tool` item with >1 orchestration: attempts **cap at 3** (3 is the maximum in the
+>     table), and the gaps are 43/59/128/129/147/147 min. The ~40 min came from **this lane's own
+>     hand-filed probe item** (`1bfd5d1e…`) generalised to the class. True cost is ≤3 audits over
+>     ~1–5 h, bounded — not an unbounded loop. The landmine is written as the correction.
+> **Separately, note four LANDMINE entries are armed but UNVERIFIED**: the verifier is an LLM
+> agent and the Anthropic quota is exhausted until 2026-09-01, so those runs fail. Re-arm after
+> it returns: `./scripts/trigger-landmine-verifier.sh 'LANDMINES.md#<slug>'` per entry.
 
 Remaining, unchanged: (2) the per-instance fixer / per-finding review keys (coordinate with
 `bugfix_285_shared_template_write` — check their NOTES mtime first).
