@@ -546,3 +546,70 @@ by §1, not by their absence.
   docs — and a "deleted" marker must be one the new code cannot contain as a
   substring. Cheapest check, before you exec anything:
   `git grep -c "<marker>" -- '*.go'` on the commit you expect to be running.
+
+## CONTRIBUTION 2026-08-17 (`bugfix_277_required_fields_repair` lane) — the trap fired again, at scale, and BLD-019 is the only reason anyone noticed
+
+**A roll happened this afternoon and shipped nothing.** The owner rebuilt and deployed the chassis
+at **the same `IMAGE_TAG` as the morning's build** (`v1.0.1305`), so the node served its cached
+layer. The pods restarted, looked healthy, and are running **this morning's binary**. Filed here
+rather than as a new bug because this is exactly candidate 2's territory: the tag did not imply
+the build.
+
+### Three independent instruments, all disconfirmable, all agreeing
+
+| instrument | reading |
+|---|---|
+| OCI label on the **local image** at `v1.0.1305` | `revision=89a0cbeb7…`, `created=2026-08-17T14:30:02Z` — a genuinely new build |
+| **running binary** (`grep -a … /proc/1/exe`) | `6a782274b…` **PRESENT** (the morning's build) · `89a0cbeb7…` **ABSENT** |
+| pod `imageID` vs local repo digest | pods on `sha256:f90a7e88…`; local image `sha256:6039e19c…` — **different images** |
+
+Pods restarted `14:42:48Z` / `14:43:11Z`, i.e. after the 14:30 build — so this is not a timing
+race. The rebuild simply never reached the node.
+
+> **Control discipline, because a wrong reading here looks exactly like a right one.** The negative
+> control was a **real but different commit sha**, never a constant-character run — a
+> 40-zeros needle is present in every binary (LANDMINES, 2026-08-17) and would have made a sound
+> probe look broken. Both arms behaved: the expected sha present, the other absent, same `exec`.
+
+### The cost, quantified
+
+**252 commits** sit between the running revision (`6a782274b`) and HEAD, of which **26 touch
+`platform/`, `internal/`, `pkg/` or `cmd/`** — i.e. 26 commits of Go changes that their authors
+have every reason to believe are live and are not. Among them are `remit.go`'s doc unification,
+`283`/RFC_034's deterministic `scope_component_instance` half, and the `284` tie-break unification
+of the agent-registration predicate.
+
+**This is the failure mode CLAUDE.md's "bump `IMAGE_TAG` for every build" line exists to prevent,
+and a written rule did not prevent it** — the same lesson as the owner's 2026-08-02 §2 ruling
+(*"a comment is not a control on a tree this many sessions share"*). Candidate 2 or 3 is what turns
+the rule into a control.
+
+### What this says about the candidates
+
+- **Candidate 1 is doing its job and is the only reason this was caught.** Nothing else in the
+  estate would have distinguished "fresh pods running new code" from "fresh pods running the
+  cached old code" — both look identical at `kubectl get pods`, at the tag, and in a health check.
+  BLD-019's own register entry says it *"detects; it does not refuse"*, and today is that sentence
+  happening in production.
+- **Candidate 2 (make the tag imply the build) would have prevented it outright**, at either
+  strength: a sha-suffixed tag makes a same-tag rebuild unrepresentable, and a `push-*` refusal on
+  a revision-label mismatch would have failed the push instead of silently shipping nothing.
+- **Candidate 3 (gate push on a `.build/<service>.<tag>` stamp) would NOT have caught this one.**
+  Worth saying plainly so the ordering is honest: the stamp file *would* have recorded the new
+  commit against the same tag and the push would have been permitted. Candidate 3 catches
+  "pushed without building"; today's case is "built, pushed, and the node ignored it".
+- Both 2 and 3 are recorded in this file and in register **BLD-019** as *deliberately not built,
+  pending explicit owner sign-off* because they change the push/deploy contract fleet-wide. This
+  instance is evidence for that decision, not a licence to take it.
+
+### Immediate operational note
+
+**Nothing is wrong with the code; it is simply not deployed.** To ship it: bump `IMAGE_TAG` in the
+makefile (currently still `v1.0.1305`) and run a release — whole-fleet, owner-run, never a
+single-service apply at its own tag. Until then, any session verifying "did my Go fix ship?"
+against this chassis will correctly get **no**, and should not read that as their change being
+missing from the build.
+
+**Not applicable to config-shipped work.** `agent_definitions` / `scheduled_tasks` changes are live
+at COMMIT and are unaffected — this lane's own work today (migrations `444`, `453`) is live and was
+verified at the live rows, not at the binary.
