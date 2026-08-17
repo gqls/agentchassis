@@ -2329,3 +2329,49 @@ remortgagecalculator.uk's missing `primary_model`, which was a site mid-provisio
 asserting, not about the measurement** — the queries were right and the world moved, or the clock
 did. That is the pattern to carry forward: on this estate the expensive error is not a bad reading,
 it is a good reading asserted a few minutes later as though nothing had changed.
+
+## 2026-08-17 (evening) — 295 CLOSED: the second build was real, and the fix is proven with a negative control
+
+**Build 1 (`v1.0.1305`, pods 14:42) shipped nothing** — same tag as before, binary still
+`6a782274b` (08-16), 222 commits behind, and another lane's same-day production literal absent too.
+**Build 2 (`v1.0.1307`, pods ~17:06) is real** — tag bumped, makefile matches, marker present.
+
+**The grading, in the order it has to be done:**
+
+| check | result |
+|---|---|
+| POSITIVE — rows from the fixed path | **8** `owned_page_review` with `refused_by='save_page_sections'`, 4 sites, 18:57→21:31, vs **0 for all history** |
+| **NEGATIVE CONTROL** — does it fire on everything? | **6** content items COMPLETED on `generic` pages in the same window → **0** rows |
+| are the rows on genuinely owned pages? | **8 of 8 `owned`**, 0 generic (joined `spec->>'page_name'` back to `pages`) |
+| dedup on a repeat refusal | `learn-algorithms-bayesian-theory` refused **twice** (20:45:20, 20:50:39) → **1** row |
+| did the item falsely succeed? | no — all four driving items `failed`, which is the deliberate half |
+
+**The negative control is the whole difference between a proof and a coincidence.** A broken fix
+that emitted unconditionally would have produced those same 8 rows and many more, and the extra
+ones would have looked like ordinary queue growth for weeks. Six successful generic saves emitting
+nothing is what excludes it. This is the shape `a-post-fix-zero-needs-a-demand-control` names,
+run in the other direction: a post-fix NON-zero needs a silence control.
+
+⚠ **NEW TRAP, and I nearly filed it as a dedup failure.** The reading is **8 rows / 7 distinct
+`item_key`s**. `count(*) = count(DISTINCT item_key)` is the obvious dedup test and it is **WRONG
+for this item type**: `owned_page_review:llm-cost-calculator` exists on **finetuning.uk AND
+leopardessconsulting.co.uk**, and the partial unique index is on **`(site_id, item_key)`** — per
+site, not global. Two sites with a same-named page correctly get two rows. **The right test is
+per (site, key), or the repeat-refusal case above, which is unambiguous.**
+
+**The baseline this was graded against was measured hours earlier on the same path** — gamesdesign
+`tool-ttk-calculator`, `failed` 13:02:18, guard message quoted, 0 rows, on build `6a782274b`. The
+only variable between the two readings was the build. **That is why the 13:02 reproduction was
+worth recording at the time rather than shrugged at as "the bug still exists".**
+
+**Scale of what was disappearing** `[MEASURED]`: 26 content-type items dead on owned pages across
+six producer families. ⚠ **Upper bound — only 3 proven**, the rest past retention.
+
+**Moved to `bugs_closed/295_…`** with both paths named on the commit (a pathspec commit after
+`git mv` otherwise ships a copy) and verified at HEAD with `git ls-tree`, not on disk: exactly one
+line, in `bugs_closed/`.
+
+**Two residuals did NOT close with it, deliberately:** the shared `spec.fix` text routes an
+add-a-section case to `apply_section_edit`, which cannot add; and fix candidate 3 (route content
+findings on owned pages to `section_edit`, which completes there 18 times) is untouched. **This made
+a refusal visible; it did not make the page get repaired.**
