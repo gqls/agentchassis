@@ -11980,3 +11980,22 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **added:** 2026-08-17, `bugfix_297_tool_recreation_context` lane (migration 453, council
   `4b9265c3` APPROVED). Found by MEASURING the proposed query's row count against the site's page
   population — the two disagreed — not by reading the SQL, which had looked fine twice.
+
+### `refresh_evidence_base`'s fact-drift result is nested PER SITE, and the top-level `total_drifted` beside it counts something else — so the obvious query says "it never fired" about a run that fired thirteen times
+
+- **footprint:** `refresh_evidence_base` (the action) · `refresh_result` · `total_drifted` · `fact_drift` · `unreconciled_declaration` · `value_drift` · `fact_drift_review` · `platform/orchestration/actions/refresh_evidence_fact_drift.go` · `refresh_evidence_base_action.go` · CLM-022 · `register_guards_code_phase_b/dryrun_fact_drift.sh`
+- **fires when:** you read back a dry run of the evidence sweep to see what the CLM-022 fan-out WOULD file — proving a new `facts` declaration works, checking a fence after seeding, or sizing the burst before a real sweep. It fires hardest on a **negative** reading, because a null is the result you are half-expecting (the owning RUNBOOK says "a dry run that reports nothing after a real change is the failure").
+- **why the wrong result looks exactly like the right one:** `fact_drift` is emitted **per site**, inside the results array — `refresh_result->'results'->N->'fact_drift'`. There is no top-level key, so the natural probe `(collected_data->'refresh_result') ? 'fact_drift'` correctly returns **`f`** — about your path, not about the data. **And it arrives with false corroboration:** `total_drifted` sits at the top level right beside the absent key and counts **citation** drift (the daily source re-fetch), a different quantity entirely. Measured 2026-08-17: two runs each carrying **13** `fact_drift` entries both reported `total_drifted: 0`. Two fields agreeing, from one mistake, because the second was never independent.
+- **the check:** read the nested path, and dump the container before concluding anything from an absence.
+  ```sql
+  SELECT jsonb_array_length(collected_data->'refresh_result'->'results'->0->'fact_drift'),
+         (SELECT jsonb_agg(DISTINCT d->>'kind')
+            FROM jsonb_array_elements(collected_data->'refresh_result'->'results'->0->'fact_drift') d)
+    FROM orchestration_states WHERE correlation_id = '<run>';
+  -- and when in doubt: SELECT jsonb_pretty(collected_data->'refresh_result') — one query, under a minute
+  ```
+- **⚠ a fresh declaration CANNOT produce `value_drift`, and that is not a fault.** Until one REAL (non-dry) sweep has written the baselines, every (fact, tool) pair is `never_reconciled` and the `unreconciled_declaration` arm wins. Proven 2026-08-17 on `mortgagecalculator.co.uk`: dry **13 unreconciled** → real sweep **13 inserted** → dry with one fact moved → **1 `value_drift`**, `old_value 500000 → new_value 550000`. **13 → 13 → 1 is the healthy sequence**; a lane that induces before the real sweep will read a correct mechanism as a dead one.
+- **⚠ and two strings that do not match the owning RUNBOOK** (told to that lane 2026-08-17, their file unedited): the route reason is **`not_a_fork`**, not the `no_auto_fix` it predicts — both are sufficient conditions and the code records whichever it evaluated; and a dry run's **`writer_block_action: "regenerated"` is a PLAN, not pending work** — the real run reported `unchanged` with `md5(data->>'writer_block')` identical before and after, so sizing a first real sweep's blast radius from a dry run overstates it.
+- **relations:** `bugs_open/288` · register **CLM-022** / **TL-045** · `register_guards_code_phase_b/RUNBOOK_register_guards_code.md` · `WRONG_CALLS.md` 2026-08-17 (I reported "the induction did not fire" off exactly this pair of readings) · MEMORY [[a-post-fix-zero-needs-a-demand-control]]
+- **source:** 2026-08-17, `mortgagecalculator_couk_adoption` lane, proving CLM-022 end to end as its first live consumer
+- **added:** 2026-08-17, mortgagecalculator_couk_adoption lane
