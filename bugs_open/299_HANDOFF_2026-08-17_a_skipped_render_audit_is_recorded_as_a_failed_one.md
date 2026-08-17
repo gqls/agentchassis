@@ -1,13 +1,20 @@
 # 299 — a skipped render audit is recorded as a FAILED one: the drain has no case for its own upstream's honest no-op
 
-> **STATUS 2026-08-17 — fix COMMITTED (`89b3e582b`) and council APPROVED round 1**
-> (`Council-Reviewed: eaa043d7-867f-4d40-a0d9-c41b41e56cf9` — verdict read: "approved
-> with 2 advisory objection(s) — none high-severity", 12 reviewers, 5 abstained; the two
-> advisories' text not yet pulled from the report artifact — see lane NOTES). Inert until
-> the next chassis roll. OPEN until §7's live criterion is met post-roll: dispatch
-> `render-audit-agent` at a page-less site → COMPLETED via the NORMAL edge,
-> `findings_written` = the skip no-op, no `__step_error`, no new `agent_error_log` row.
-> Lane: `docs/agent_docs/docs024_key_docs_latest/bugfix_242_render_audit_truncation/`.
+> **⚠ NUMBER COLLISION — `299` names TWO unrelated cases.** A concurrent lane filed
+> `299_HANDOFF_2026-08-17_home_page_cta_names_the_brief_starter_tool_and_dials_the_phone_instead.md`
+> at 17:19 (this file was committed ~13:00). Neither is renumbered — per CLAUDE.md
+> numbering is never reassigned. **Resolve by SLUG, and `git log` the FILE PATH.**
+>
+> **STATUS 2026-08-17 (evening) — fix COMMITTED (`89b3e582b`), council APPROVED round 1
+> (`Council-Reviewed: eaa043d7-867f-4d40-a0d9-c41b41e56cf9`, verdict and all six
+> advisories READ and answered in §8) — and NOT LIVE.** A chassis roll landed at ~14:43Z
+> and **shipped none of this**: the deployed tag is still `v1.0.1305` (unchanged, fleet-wide)
+> because `IMAGE_TAG` was not bumped, so the same-tag rebuild served the node's cached
+> image. **Proven at the artefact, both replicas, with controls** — see §7b. Independently
+> confirmed the same hour by the `295` lane (`dcf3dc7d6`, `b9942d449`): same cause, a
+> different fix, also unshipped. **So the close criterion below is blocked on a
+> TAG-BUMPED build, not on the next roll.** Lane:
+> `docs/agent_docs/docs024_key_docs_latest/bugfix_242_render_audit_truncation/`.
 
 **Filed** 2026-08-17, found while re-verifying `bugs_closed/242`'s close criterion (this
 file's evidence is what that verification turned up on the live DB). **Severity** low —
@@ -151,3 +158,74 @@ means the organic re-fire is ≥7 days out; use the manual dispatch recipe
 - `bugs_open/296` — parked contrast findings and retraction; different defect, same
   drain. §4's "no retraction on skip" is written so a fix for either cannot regress
   the other.
+
+## 7b. The 2026-08-17 roll did NOT ship this fix — measured, not inferred
+
+The chassis pods restarted ~14:43Z, **after** the fix commit (12:53Z), and the fix is
+still absent. The binary is the authority: the startup `build provenance` line had
+already rotated out of reach (`--limit-bytes=400000` from the log start reaches only
+16:08Z — "not in range", not "unstamped", exactly as `LANDMINES.md` warns).
+
+Probe, run on **both** replicas, each with two controls in the same breath:
+
+```bash
+POD=agent-chassis-5bd56bdd9b-6sb8t   # and -jzmns
+kubectl -n ai-persona-system exec $POD -- grep -ac "audit was skipped upstream" /proc/1/exe
+kubectl -n ai-persona-system exec $POD -- grep -ac "carries neither a result nor a .response" /proc/1/exe
+kubectl -n ai-persona-system exec $POD -- grep -ac "zzz_this_string_is_not_in_any_binary_299" /proc/1/exe
+```
+
+| probe | expectation | 6sb8t | jzmns |
+|---|---|---|---|
+| this fix's new literal | present if shipped | **0** | **0** |
+| positive control (guard literal, in old AND new) | must be present | 1 | 1 |
+| negative control (nonsense string) | must be absent | 0 | — |
+
+So the instrument discriminates (control present, negative absent) and the answer is
+**the fix is not in the running binary**. Cause: `IMAGE_TAG` in the makefile still reads
+`v1.0.1305` and every deployment reads `v1.0.1305` — a same-tag rebuild ships the node's
+cached binary (CLAUDE.md, "Bump `IMAGE_TAG` for every build"). **A roll is not a build,
+and a fresh-looking pod is not new code.**
+
+## 8. Council advisories (eaa043d7) — answered with measurements, not argument
+
+Verdict: **approved**, 12 reviewers, 5 abstained, 0 unreadable, not truncation-gated.
+Three seats objected at medium, two at low. Answers:
+
+- **bug_historian (medium) — "the plan does not audit for siblings."** Measured: the
+  exact strict shape (*error* when the field carries neither a result nor a `.response`)
+  exists in **exactly one file fleet-wide** — this one (`grep -rln "neither a result
+  nor" platform/ internal/` → 1 hit). The named sibling `write_audit_findings_action.go`
+  is the **opposite** design: it falls back through three alternative field paths and, on
+  a miss, returns `{items_created: 0, reason: "no findings in …"}` with a `Warn` — it
+  cannot turn a skip into a failure. **So the exposure does not replicate in this
+  shape.** `[UNMEASURED]` and deliberately left so: whether some *other* consumer is
+  strict in a different way, and whether `write_audit_findings`' permissiveness is the
+  242-class risk in the other direction (a silently-empty write where a loud failure
+  might be right). That is that drain's owner's call, not this bug's.
+- **reuse_agent (medium) — "did you look for an existing shared skip helper?"** Looked:
+  `grep -rn "skipped" platform/orchestration/datahelpers/*.go` returns six hits, all
+  unrelated prose (voicetells, page_identity, claims, runtime_fill, unified_extractor).
+  **There is no shared skip-shape helper to extend**, so the inline check duplicates
+  nothing. The divergence the seat suspected between the two drains is real and is
+  recorded in the bullet above.
+- **guidelines (medium) — a nested-field addition must be named in the concept register
+  in the SAME commit (2026-08-11 ruling).** **Partly missed, stated rather than
+  glossed:** the register *was* updated — VIZ-013 now names the `skipped` key and its
+  producer — but in `4fe7cc519`, a docs commit ~15 minutes after the code commit
+  `89b3e582b`, not in it. The ruling asks for the same commit. Logged in `WRONG_CALLS.md`.
+- **guardian (low) — "`ExpectationsWereMet()` with no expectations passes vacuously."**
+  Correct about that line, and the test does not rest on it. **Mutation-proven**:
+  inserting `params.DB.QueryContext(ctx, "SELECT 1")` before the skip return fails the
+  test — `a skipped audit must not error: stray query: … call to Query 'SELECT 1' … was
+  not expected` — because sqlmock errors on an unexpected query and
+  `loadLockedComponentHTML` propagates rather than swallows. The load-bearing assertion
+  is the `err` check; `0c65dc131` writes that into the test so the next reader does not
+  trust the vacuous line.
+- **guardian (low) — "confirm this action has exactly one caller."** Query, not
+  assertion: `SELECT type … FROM agent_definitions, jsonb_each(default_config->'workflow'
+  ->'steps') s WHERE … s.value->>'action' = 'write_render_audit_findings'` →
+  **`render-audit-agent`, 1 step. Single consumer.**
+- **debug_historian (low) — "no step verifies the fix reaches the running pod; same-tag
+  rebuilds ship stale binaries."** The seat called it before it happened. Done in §7b —
+  and it is exactly what the probe caught. This advisory is now the close-out step.
