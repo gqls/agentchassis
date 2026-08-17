@@ -77,7 +77,14 @@ Measured this session, so it can be costed rather than guessed:
    (expect a new row with `refused_by='save_page_sections'`), and one at a known **generic** page
    (expect none). Running only the first cannot tell a working fix from an emit that fires
    unconditionally.
-2. **PREDICTION 5 IS ARMED AND UNRESOLVED — it is free evidence, do not waste it.** gamesdesign's
+2. **PREDICTION 5 IS ARMED AND UNRESOLVED — it is free evidence, do not waste it.**
+   > **UPDATE 12:59:44 UTC, minutes before this session ended:** the item moved `triaged` →
+   > **`claimed`** by `build-dispatch-loop`. **The guard is being asked right now**, so the
+   > `owned_page_review` count of 0 is no longer "the test has not run" — it is mid-flight, and the
+   > next reader gets the answer for free. Its two siblings on the same site settled meanwhile
+   > (`index` → `complete`, `tools-index` → `needs_human_review`), so dispatch is working normally.
+   > **Check the item's final status AND the review count together**: `failed` + still 0 confirms
+   > inertness; anything else needs the deploy state re-checked before trusting it. gamesdesign's
    `content_rewrite` on **`tool-ttk-calculator`** (`rebuild_policy='owned'`) was promoted but not
    yet claimed when this session ended. When it dispatches on the CURRENT (unfixed) binary it
    should die `failed` with **no** review row. If a row appears, the fix shipped earlier than I
