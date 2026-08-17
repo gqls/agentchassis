@@ -457,3 +457,29 @@ tools first, serial, ab-test second (and ab-test needs `cd60486c…` deactivated
   **Note the margin: the retire window here was ~2 minutes, not the ~45 the pilot had.** The queue was
   nearly empty today, so build→rerender-claim can be minutes. Do the retire immediately after the
   component grades, not after writing it up.
+
+## 2026-08-17 12:35Z — rebuild #3 COMPLETE: `tool-markdown-tables` graded PASS at the served page. Recipe now proven TWICE.
+
+Rerender `9eb455d1` complete **12:35:12Z**. Grade at
+`https://webdesign.co.uk/tools/markdown-tables/index.html` `[MEASURED 12:35Z]`:
+
+| check | before | after |
+|---|---|---|
+| http / bytes | 200 / 11,078 | 200 / **11,557**, md5 `9e318a82…` → `00fd3615…` |
+| `class="ported-page"` | 1 | **0** |
+| `{{\.` | 0 | **0** |
+| `md-input` / `md-output` / `md-convert-btn` / `md-hint` | 0 | **3 / 4 / 4 / 2** |
+| `<textarea>` / `<button>` | — | **2 / 2** |
+| neg control `zzz-not-in-any-page-qqq` / pos control | — | **0 / 7** |
+
+DB: `ported-page` `removed` (3,806 chars, 576 visible, retained) · `tool-markdown-tables` `deployed`
+position 2, 5,035 chars, **395 visible chars**. One live slot.
+
+**Elapsed, end to end: 12:19 filed → 12:35 live = 16 minutes.** (Pilot was 15:16 → 16:47 = 91 min,
+entirely queue depth.) So the recipe's wall-clock is dominated by the dispatcher backlog, not by any
+step we control — which is the argument for filing serially and not batching wider until the
+`bugs_open/289` question on `build-dispatch-loop` is settled.
+
+**Running tally:** live+proven **2** (`tool-aspect-ratio` owner-approved, `tool-markdown-tables`) ·
+blocked on the unique-index decision **4** · remaining clear **57** · builds attempted 3, failed 1
+(#2, the index collision — a filing-time defect, not a generator defect).
