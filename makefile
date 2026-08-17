@@ -875,23 +875,19 @@ deploy-core-manager:  ## Deploy core-manager using Terraform
 	@$(MAKE) deploy-service path=$(TERRAFORM_DIR)/services/core-platform/1120-core-manager
 
 
-.PHONY: deploy-remote-job-spawner
-deploy-remote-job-spawner: ## Deploy remote-job-spawner using kustomize
-	@echo "$(YELLOW)Updating remote-job-spawner image tag to $(IMAGE_TAG)...$(NC)"
-	@cd $(KUSTOMIZE_DIR)/services/remote-job-spawner/overlays/$(OVERLAY_PATH) && \
-		sed -i.bak 's/newTag:.*/newTag: $(IMAGE_TAG)/' kustomization.yaml
-	KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k $(KUSTOMIZE_DIR)/services/remote-job-spawner/overlays/$(OVERLAY_PATH)
+# deploy-remote-job-spawner: DELETED 2026-08-17 (bugs_open/237). It was an explicit rule, and an
+# explicit rule BEATS the deploy-% pattern rule — so this service silently opted out
+# of the pattern rule's registry pre-flight and could be deployed at a tag nobody
+# built. `make deploy-remote-job-spawner` still works and now asks the registry first.
 
 .PHONY: deploy-remote-job-spawner-tf
 deploy-remote-job-spawner-tf: ## Deploy remote-job-spawner using Terraform
 	@$(MAKE) deploy-service path=$(TERRAFORM_DIR)/services/agents/2220-remote-job-spawner
 
-.PHONY: deploy-kafka-scheduler
-deploy-kafka-scheduler: ## Deploy kafka-scheduler using kustomize
-	@echo "$(YELLOW)Updating kafka-scheduler image tag to $(IMAGE_TAG)...$(NC)"
-	@cd $(KUSTOMIZE_DIR)/services/kafka-scheduler/overlays/$(OVERLAY_PATH) && \
-		sed -i.bak 's/newTag:.*/newTag: $(IMAGE_TAG)/' kustomization.yaml
-	KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k $(KUSTOMIZE_DIR)/services/kafka-scheduler/overlays/$(OVERLAY_PATH)
+# deploy-kafka-scheduler: DELETED 2026-08-17 (bugs_open/237). It was an explicit rule, and an
+# explicit rule BEATS the deploy-% pattern rule — so this service silently opted out
+# of the pattern rule's registry pre-flight and could be deployed at a tag nobody
+# built. `make deploy-kafka-scheduler` still works and now asks the registry first.
 
 .PHONY: deploy-kafka-scheduler-tf
 deploy-kafka-scheduler-tf: ## Deploy kafka-scheduler using Terraform
@@ -990,13 +986,10 @@ wg-status: ## Check WireGuard pod status
 #################################
 # Vet Intel Agent
 #################################
-.PHONY: deploy-vet-intel
-deploy-vet-intel: ## Deploy vet-intel agent using kustomize
-	@echo "$(YELLOW)Deploying vet-intel agent...$(NC)"
-	@cd $(KUSTOMIZE_DIR)/services/vet-intel/overlays/$(OVERLAY_PATH) && \
-		sed -i.bak 's/newTag:.*/newTag: $(IMAGE_TAG)/' kustomization.yaml
-	KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k $(KUSTOMIZE_DIR)/services/vet-intel/overlays/$(OVERLAY_PATH)
-	@echo "$(GREEN)Vet-intel agent deployed$(NC)"
+# deploy-vet-intel: DELETED 2026-08-17 (bugs_open/237). It was an explicit rule, and an
+# explicit rule BEATS the deploy-% pattern rule — so this service silently opted out
+# of the pattern rule's registry pre-flight and could be deployed at a tag nobody
+# built. `make deploy-vet-intel` still works and now asks the registry first.
 
 .PHONY: logs-vet-intel
 logs-vet-intel: ## Tail logs from vet-intel agent
@@ -1009,13 +1002,10 @@ restart-vet-intel: ## Restart vet-intel agent
 #################################
 # Business Intel Agent
 #################################
-.PHONY: deploy-business-intel
-deploy-business-intel: ## Deploy business-intel agent using kustomize
-	@echo "$(YELLOW)Deploying business-intel agent...$(NC)"
-	@cd $(KUSTOMIZE_DIR)/services/business-intel/overlays/$(OVERLAY_PATH) && \
-		sed -i.bak 's/newTag:.*/newTag: $(IMAGE_TAG)/' kustomization.yaml
-	KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k $(KUSTOMIZE_DIR)/services/business-intel/overlays/$(OVERLAY_PATH)
-	@echo "$(GREEN)Business-intel agent deployed$(NC)"
+# deploy-business-intel: DELETED 2026-08-17 (bugs_open/237). It was an explicit rule, and an
+# explicit rule BEATS the deploy-% pattern rule — so this service silently opted out
+# of the pattern rule's registry pre-flight and could be deployed at a tag nobody
+# built. `make deploy-business-intel` still works and now asks the registry first.
 
 .PHONY: logs-business-intel
 logs-business-intel: ## Tail logs from business-intel agent
@@ -1273,8 +1263,8 @@ deploy-frontends: ## Deploy all frontend applications
 	kubectl apply -k $(KUSTOMIZE_DIR)/frontends/user-portal/overlays/$(OVERLAY_PATH)
 	kubectl apply -k $(KUSTOMIZE_DIR)/frontends/agent-playground/overlays/$(OVERLAY_PATH)
 
-.PHONY: deploy-admin-dashboard
-deploy-admin-dashboard: deploy-dashboard ## Deploy admin-dashboard (alias)
+# (deploy-admin-dashboard is defined once, above — the duplicate here was removed
+#  2026-08-17, bugs_open/237.)
 
 .PHONY: deploy-user-portal
 deploy-user-portal: ## Deploy user-portal only
