@@ -264,3 +264,47 @@ column-truncation detector is not attempted: `left(...)` in agent SQL is indisti
 legitimate projection without knowing the consumer.
 
 **Round 2 resubmitted on the same trail** (`b684a399`, run orch `517928d9`).
+
+## 2026-08-17 — council ROUND 2: APPROVED, and MISSTEP 5 is the same one as misstep 3
+
+`decision: approved`, *"3 advisory objections, none high-severity"*, `gated_by_truncation: false`,
+4 abstained.
+
+### MISSTEP 5: I wrote the lesson in round 2 and broke it in the same submission
+
+Round 1's gating objection was that 445 never snapshots — false about the file, true about my sketch.
+I wrote the general lesson into the round-2 rationale: *"a sketch must show the SAFETY-CRITICAL lines,
+not the interesting ones."*
+
+**Then the new sketch I wrote for 446, in that same submission, omitted its pre-state gate**, and
+round 2's `editquality` seat objected (medium) to exactly that. The file has the gate at lines 52-56
+and always did.
+
+**I fixed the instance and not the class.** I added `snapshot_agent` to the two sketches the seat had
+NAMED, and wrote a third sketch that dropped a different safety line. The remediation *felt* complete
+because the objection was answered — which is the whole failure mode, and it is distinct from not
+having learned the lesson at all.
+
+The concrete fix, since a rule I have now broken twice needs a mechanism and not another resolution:
+**for a migration, sketch the WHOLE file.** They are ~40 lines. The summarising was never buying
+anything, and it has now cost two review rounds' attention on artefacts of my own description.
+
+### The one real code gap, and it was in the worst possible place
+
+`editquality` (low): `LIMIT 30 -- widened 08-14` is a **false negative** — a genuinely capped query
+going undetected *by the mechanism built to end undetected caps*. Fixed: the regex tolerates trailing
+`--` and `/* */`. Tested **both directions**, because widening a pattern is how you turn a false
+negative into a false positive: a comment must not HIDE a cap, and prose mentioning one
+(`-- we removed the LIMIT 30 here`) must not INVENT one. Mutation-proven — M10 (comment-blind regex)
+killed by the first, M11 (no end anchor) by the second.
+
+That objection is worth more than its severity label. An operator who annotates a cap is the operator
+who *thought about it*, and that is precisely the cap most worth a second look.
+
+### `bug_historian`'s observation, carried rather than closed
+
+Approved, with the note that Part A is WARN-only while this lane's own census found two live analogous
+caps. **Observation is not remediation.** The warning makes them visible; it does not fix
+`tool-recreation-handler.load_related_context` (10 of up to 107) or
+`internal-linker.load_candidate_pages` (15 of up to 68). Both remain open, recorded in the bug file,
+and are an owner call.
