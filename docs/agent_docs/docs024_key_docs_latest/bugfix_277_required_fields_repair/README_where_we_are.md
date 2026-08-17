@@ -127,3 +127,64 @@ fine — is what told me the problem was my question, not the site.)
 The promoter now has both door-closers the review round asked for, plus the one it needed and
 nobody asked for. Next: the review round itself, which I'm submitting now with all of this as
 evidence.
+
+---
+
+## 2026-08-17, early afternoon — approved; and two things I want your decision on rather than mine
+
+The review round came back **approved** — twelve of the reviewers in favour, including the two
+that had objected most strongly last time. Two of them left non-blocking notes, and I checked
+both rather than filing the approval and moving on, because one of them was a good question.
+
+That reviewer's point was: *your new rule decides a handler is trustworthy by counting how often
+it has succeeded — but this platform has a documented case of a job reporting success while
+actually deploying nothing useful. If the one success your rule is built on was fake, the rule
+is built on sand.* That is exactly the right question. So I opened the page that one success
+claims to have repaired and read it: clean, no defect. Then — and this is the part that matters
+— I ran the same test on three pages where the same handler *failed*, to prove my test can
+actually detect the problem it was looking for. It found the defect on all three. So the success
+is real, the failures are real, and the rule is sound. A test that finds nothing is worthless
+until you have shown it can find something.
+
+**The good news on the original bug.** Another team's mechanism — built for a different problem
+entirely, knowing nothing about ours — has started re-checking the findings we parked. It agrees
+with us row for row: on the twenty-nine pages we said "a machine must not touch this", it
+independently declines to judge them, and gives the same reason we did. That matters more than
+anything I could measure myself, because the judgement it confirms is the one this whole piece of
+work rests on and the one you'd be right to doubt. It could easily have disagreed. The review
+queue for this finding type now contains exactly **one** genuinely live item, where it used to
+contain forty-four indistinguishable ones.
+
+### Decision 1 — a part of the repair machine has never actually run
+
+One reviewer flagged that our repair router has two branches that rebuild page content, and that
+rebuilding is a known way to silently lose content on this platform. I have now measured
+something nobody had: **those two branches have never once fired.** Every finding the router has
+ever handled went down a "park it for a human" or "close it, it's already fixed" branch. The two
+occasions it tried to convert something, the conversion was cancelled.
+
+So the risk isn't disproven — it's untested. And the first time those branches do run, it will be
+on a live customer page, unrehearsed.
+
+We have a house rule for exactly this shape: a risky new capability ships switched off, and
+someone turns it on deliberately the first time. Our own promoter works that way — it refuses to
+hand work to a handler type nobody has watched at least once. I did **not** apply that to the
+router myself, because it changes the safety posture of something you've already signed off, and
+there are two sensible ways to do it. **Your call:** leave it as is, or make those two branches
+park-for-a-human until someone has run one by hand and watched it.
+
+### Decision 2 — five findings are stuck waiting for a human, and nobody is that human
+
+The promoter deliberately holds back any finding type nobody has ever supervised. Right now five
+findings are held that way — four since 10 August. That is the design working, but there's a
+gap: nothing prompts anyone to go and do the first supervised run, so a held finding can sit
+indefinitely. That is a smaller version of the original bug we set out to fix. It needs either an
+owner for those types, or a rule that says how long something may sit held before it's escalated.
+
+### One small thing worth knowing
+
+Our review system refuses to look at changes that are "just configuration" — it only reviews Go
+code. But on this platform a great deal of real behaviour lives in configuration, including the
+whole mechanism reviewed today. It only got reviewed the first time because it happened to have
+one Go file attached. I overrode the refusal deliberately and said so, but it's a real blind spot
+in the review process rather than a one-off inconvenience.
