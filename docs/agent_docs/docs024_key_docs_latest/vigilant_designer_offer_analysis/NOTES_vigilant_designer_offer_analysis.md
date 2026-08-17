@@ -2006,3 +2006,65 @@ information. The gap is at the other end: **a finding is filed with a falsifiabl
 completion is recorded by whoever did the work, against no test at all.** Two independent
 consequences, one measured on each site: a repair that contradicts its own acceptance test
 (webdesign), and a finding whose named artefact was never touched (gaswholesalers title).
+
+## 2026-08-17 — my own 08-16 claims re-checked after 19 hours: nothing moved, and the reason is that NOTHING DRIVES THE SWEEP
+
+Picked the session back up 19 hours later (118 other-session commits in between). Re-ran every
+figure I wrote yesterday before building on it — the lane's own rule, applied to my own work.
+
+**Everything is exactly as I left it, which is itself the finding.** `[MEASURED]` 2026-08-17 11:35:
+`offer_ordering` still **3 of 22 sites**; still **17 items, 13/3/1**; the two owned-page findings
+on webdesign **not re-filed**.
+
+### The churn prediction: NOT confirmed, and NOT disconfirmed — the test never ran
+
+Yesterday I predicted the two `failed` findings would be re-filed by the next audit-due sweep
+(`failed` is outside the dedup index's open set). They were not. **That is not evidence against
+the prediction**, because the sweep that would have done it never happened:
+
+- **Zero `improvement-loop` orchestrations in the entire ~24h retention window.** Zero
+  `offer-analyser` runs too.
+- **`scheduled_tasks.improvement-sweep` is `enabled=false`** (interval 900s, last *triggered*
+  2026-08-14 16:34).
+- **This is not a fleet outage — 22 other schedulers fired normally within the last hour**
+  (`detected-item-promoter`, `build-pipeline-trigger`, the discovery rotations, the reapers…).
+  `improvement-sweep` is specifically off.
+
+**It is off deliberately, and it is the OWNER'S cost control, not a defect.** Migration
+`389_park_contrast_failures_and_reenable_improvement_sweep.sql` quotes him verbatim: *"lets
+reenable improvement-sweep for the rerenders for a short while - it will be expensive so I am wary
+of costs."* So the sweep runs in short owner-opened windows and is otherwise disabled.
+
+**⚠ CORRECTION TO WHAT THIS LANE TOLD THE OWNER ON 08-15.** The enrolment read-out said B4's
+findings *"start moving on their own the next time the sweep visits each site — nobody has to push
+them"*, and the decision log says enrolment grows the estate *"without a session firing anything"*.
+Both are true **conditionally on a sweep happening**, and in the 19 hours since, none has. The
+handoff did record that the loop is *"hand-fired by other sessions, stamps nothing"* — so the fact
+was known to the lane and simply did not make it into the sentence the owner read. Enrolment was
+still the right call (it is a precondition, and it is now proven in-loop); what it is not is
+self-driving. **Growing `offer_ordering` past 3 of 22 needs either an owner sweep window or
+deliberate hand-firing — it will not happen by itself.**
+
+### The owned-page dead-end: filed as `bugs_open/295`, and the diagnosis sharpened
+
+Grepped both bug dirs first (`208` is the nearest and covers the *selection* and *assemble* paths,
+not this one; its lane last touched it 08-08, so unowned). What I established beyond yesterday:
+
+- **Three call sites share `pageIsOwnedForGuard`; two file an `owned_page_review` item and one does
+  not** — `owned_page_guard.go:294` (yes), `multipage_actions.go:75` (yes),
+  `save_page_sections_action.go:186-196` (**no** — hard error).
+- **`page-build-handler` has NO `assemble_page` step** (read from the live `agent_definitions` row,
+  not a seed). So the sibling that files the row is not on this route, and the upstream-skip
+  honour path commit `6a9d85777` added cannot fire either — there is no upstream skip to honour.
+  The backstop guard is the only guard here.
+- **The right destination already exists in the same workflow:** `validate_content`'s `error_step`
+  is `mark_needs_review`; `save_sections`'s is `mark_item_failed`.
+- **Positive control for the data claim:** 34 `owned_page_review` rows DO reach
+  `needs_human_review` from reconcile's path, so 0 from `save_page_sections` is a real absence, not
+  a dead item type. I would not have trusted the zero without it.
+
+⚠ **A misstep worth recording:** I nearly filed this as "the guard is wrong to fail the item". It
+is not — it is right to refuse, and `6a9d85777` shows the lane that built it scoped the sibling
+exit deliberately and self-caught when it over-applied. The defect is only the **missing record**.
+Reading the commit that touched the exact lines is what stopped me mis-stating it; the file:line
+alone would not have.

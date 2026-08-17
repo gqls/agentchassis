@@ -943,3 +943,47 @@ So: the analyser is producing findings that make sites genuinely better, and the
 moved. It is no longer "can we find the right thing" — it is "does the fix actually satisfy what we
 asked for, and does anyone ever check". I have not fixed either of these yet; I want your steer on
 which to take first.
+
+---
+
+## 2026-08-17 — a correction to what I told you on Saturday, and one thing filed
+
+I came back to this a day later and re-checked my own figures before adding to them. Nothing had
+moved: still three sites with the ranked record, still the same seventeen findings in the same
+states. That turned out to be the interesting part.
+
+**The correction first, because it is mine.** When you approved enrolling the analyser into the
+automatic sweep, I told you its findings would "start moving on their own the next time the sweep
+visits each site — nobody has to push them". That is true only if a sweep happens, and **the sweep
+is switched off**. It is switched off on purpose, by you: back on the 11th you said *"lets reenable
+improvement-sweep for the rerenders for a short while - it will be expensive so I am wary of
+costs"*, and it has been off again since the 14th. So it runs in short windows you open, not
+continuously. Everything else about the enrolment stands — it is wired in correctly and we watched
+it work inside a real sweep — but it is a precondition, not a self-winding clock. Growing this past
+three sites needs you to open a window, or a session to fire it deliberately. I should have said
+that plainly at the time; the fact was written in our own notes and did not make it into the
+sentence you read.
+
+To be clear about what is *not* broken: the rest of the scheduling estate is running normally —
+twenty-two other scheduled jobs fired within the hour I checked. This one is specifically off.
+
+**The thing I filed.** Yesterday I told you two of the three failures were a guard correctly
+refusing to overwrite a page owned by a tool. I have now traced why that refusal goes nowhere.
+There are three places in the platform that stop a generic rewrite from clobbering a tool page.
+Two of them, having refused, file a note for a human saying "this page was refused, here is the
+right way to edit it". The third — the only one on the path our findings actually take — just
+throws an error, so the work item dies and the reason disappears within a day when the run record
+ages out. That is filed as bug 295, with the preferred fix being about six lines: make the third
+one file the same note the other two already file. It is worth doing beyond our own lane, because
+the design auditor and the automated checkers have items dying the same way on the same pages, and
+a quarter of all pages on the estate (172 of 704) are tool-owned.
+
+I checked one thing before writing that up, and it changed the wording: the guard is not wrong to
+refuse, and the session that built it had already thought carefully about this area. The fault is
+only that the refusal leaves no trace. Reading their commit rather than just the code is what
+stopped me filing it as something it is not.
+
+**Where that leaves us.** Two real gaps are now on the table and neither is fixed: nothing checks
+whether a fix actually satisfied the test the finding was filed with, and a refusal on a tool-owned
+page vanishes. Plus the two tracks you already approved — the claims audit over our written
+premises, and the analyser's v2. I would like your steer on the order.
