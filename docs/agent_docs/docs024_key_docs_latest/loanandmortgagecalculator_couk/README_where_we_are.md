@@ -1377,3 +1377,41 @@ Where that leaves the planner work: the first round told us the shape is achieva
 write-back is what needs fixing. The next round needs the two matching switches on, and needs
 its own before-and-after page diff built into the script rather than improvised after the fact,
 which is what I had to do today.
+
+2026-08-17, late afternoon. The cause is settled, and it was my mistake rather than a broken
+mechanism — which is the better outcome of the two, because it means the next attempt should work.
+
+I said this morning that there were three related switches and I had turned on one. The diagnosis
+service didn't manage to answer the question (partly my fault — see below), but it pointed at the
+right place to look, and three queries there settled it. The switch I turned on says "keep a
+page's existing name". It turns out that switch can only act on a page the system has already
+*recognised* as an existing page, and the recognising is done by the two switches I left off. The
+platform's own code says so in a comment I hadn't read closely enough: the marker that says "this
+page is a real one, keep its name" is deliberately wiped from everything the planner proposes, and
+is re-applied *only* by the matching step. No matching step, no marker; no marker, and the switch
+I enabled never gets consulted at all.
+
+So the run wasn't a failure of the mechanism. It measured what happens when the mechanism can't
+fire. The proof is in the plan's own web addresses: the duplicates were filed under `/tools/...`,
+the generic location, rather than under `/mortgages/...` where the real page lives — and the only
+way to get the generic location is for the page to have arrived as a fresh proposal with no
+memory of the real one. Next round turns on all three together.
+
+Two smaller corrections worth your knowing about, both mine.
+
+The first is that the diagnosis run partly chased a ghost I created. Before filing it I had marked
+the plan as "no longer current" — sensibly, because leaving a thin plan current is dangerous — and
+my description of the problem told the service that I'd deleted the duplicate pages but not that
+I'd also retired the plan. So it went looking for the current plan, found nothing, and reported
+"the current plan has zero pages", then built a theory that some unidentified second process had
+overwritten the plan seven minutes later. There was no second process; the change at that minute
+was mine. One sentence in my description would have prevented it, and I've written that down as
+the lesson: if you tidy up the evidence before asking someone to examine it, say what you tidied
+and give them the identifier to look at instead.
+
+The second is a documentation gap that I think is worth someone fixing, and I've written it into
+the relevant bug file rather than just my own notes. The file describing those three switches asks
+you — quite rightly — to measure your site before turning the identity one on. I did exactly that,
+measured 38 of 45 pages at risk, turned it on, and still got the duplicates, because nothing in
+that file says the switch cannot work at all without one of its siblings. An option that depends on
+another option isn't a peer of it, and saying so where it's documented would have saved today's run.

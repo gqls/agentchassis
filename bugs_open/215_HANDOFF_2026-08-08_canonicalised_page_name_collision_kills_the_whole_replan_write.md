@@ -832,3 +832,38 @@ wrong.
 
 Full account, incl. the repair and its assertions:
 `docs024_key_docs_latest/loanandmortgagecalculator_couk/NOTES_…md` entry **2026-08-17 (d)**.
+
+### UPGRADE 2026-08-17 (same lane, same day) — cause ESTABLISHED: the flag has an undocumented PRECONDITION
+
+The contribution above left the cause open. It is now settled, from the run's own stored
+intermediate output plus the code path, with no inference load-bearing. **The flag is not
+broken. It is inert unless a snap or a union has already paired the page:**
+
+1. `collected_data->'validate_plan'->'pages'` for the run holds the site's **realised names**
+   (`mortgages-simple`, `mortgages-stamp-duty`, …) and **no `identity_authority`, no `url`, no
+   `parent_section`, `sections: []`**.
+2. `v3_site_actions.go:6476` strips the marker from every LLM page —
+   *"the ONLY minter … Stripped before any pass can read it, and **re-stamped only by a snap or
+   a union**"*.
+3. This site had **neither snap layer** (`twin_identity_snap` / `stem_twin_snap` absent — the
+   firing session's own choice), so nothing re-stamped it; `reconcile_result` shows
+   `pages_restamped: 0`.
+4. Therefore `realisedIdentityOf` returned `ok=false`, `HonourRealisedIdentity` was never
+   reached, and `CanonicalisePage` derived `tool-<name>` **at the role's DEFAULT hub**.
+   That default hub is the positive discriminator: a realised-derived page would carry
+   `parent_section='mortgages'` and land at `/mortgages/…`, and the plan says
+   `/tools/mortgages-stamp-duty/index.html`.
+5. `sync_pages` then materialised it. **The damage originated at the PLAN WRITE, not the sync.**
+
+**What we suggest this file records for the next reader**, because it is the part a careful
+session can still get wrong: `site_identity_policy.go` presents the three switches as
+independently gated behaviours, and asks (rightly) for the population to be measured before
+`HonourRealisedIdentity` is enabled. We measured it — 38 of 45 pages not fixed points, 17 by
+name — enabled exactly that flag, and got the twins anyway, because **nothing in the file says
+the flag cannot fire at all without a pairing layer.** An opt-in whose effect depends on another
+opt-in is a precondition, not a peer, and stating it where the flag is documented would have
+saved this run. (`StemTwinSnap` is the one that matters for this shape — its own comment says it
+matches a bare plan page against a prefixed realised one *in either direction*.)
+
+Next round on this site seeds all three together. Full chain and the queries:
+`docs024_key_docs_latest/loanandmortgagecalculator_couk/NOTES_…md` entry **2026-08-17 (e)**.

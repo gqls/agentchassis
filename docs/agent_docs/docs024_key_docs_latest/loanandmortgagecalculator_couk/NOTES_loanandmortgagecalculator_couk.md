@@ -3324,3 +3324,60 @@ order, or turn them on together and accept that one canary then answers a compou
 question.** The next run should also carry a page-level pre/post diff (this one's md5 told
 me *something* moved but not *what* — the snapshot diff did that, and it should be in the
 script, not improvised afterwards).
+
+### 2026-08-17 (e) — ESTABLISHED: `honour_realised_identity` has a PRECONDITION. It is inert unless a snap or union paired the page, and I switched on the effect with both pairing layers off
+
+The 090 (`33d4d7bc`) came back without settling it, but its `next_scope` was right — test against
+`plan_id` directly — and walking that first-hand settled it in three queries. Chain, each link
+cited, no inference left load-bearing:
+
+1. **The planner proposed the site's OWN page names.** The run's stored intermediate output,
+   `collected_data->'validate_plan'->'pages'`, holds `name: "mortgages-simple"`,
+   `"mortgages-repayment"`, `"mortgages-stamp-duty"` … — the realised names, not prefixed ones.
+   The LLM half did its job.
+2. **Those entries carry NO `identity_authority`, no `url`, no `parent_section`, and
+   `sections: []`.** Same stored output. That is the whole answer in one artefact: the
+   realised-identity marker is absent by the time validate hands the pages on.
+3. **Why it is absent —** `v3_site_actions.go:6476`, in the pass over the LLM pages:
+   `delete(lm, "identity_authority")` with the comment *"This function is the ONLY minter of
+   the realised-identity marker … Stripped before any pass can read it, and **re-stamped only
+   by a snap or a union**."* This site had **no snap layers** — `twin_identity_snap` and
+   `stem_twin_snap` were absent, which was MY phase-1 decision — so nothing re-stamped it.
+4. **So at write time `realisedIdentityOf` returns `ok=false`** and
+   `HonourRealisedIdentity` is unreachable; `CanonicalisePage` derives `tool-<name>` at the
+   role's DEFAULT hub. The plan's own rows prove that is what happened:
+   `tool-mortgages-stamp-duty` at `/tools/mortgages-stamp-duty/index.html`.
+   **The default hub is the positive discriminator**: a page that HAD come through
+   `normaliseRealisedToPlanPage` would carry `parent_section='mortgages'` and canonicalise to
+   `/mortgages/…`, which is precisely what my own pre-fire identcheck predicted. `/tools/…`
+   means parent_section was empty, i.e. not realised-derived. `reconcile_result` corroborates:
+   `pages_restamped: 0`.
+5. `sync_pages` then faithfully materialised that plan. **The damage originated at the PLAN
+   WRITE, not at the sync** — which is the opposite of what the shape of the symptom suggests.
+
+**So the flag is not broken; it was inert by precondition, and the precondition is undocumented
+where the flag is documented.** `site_identity_policy.go` describes all three switches as
+independently gated behaviours and tells you to measure the population before enabling
+`HonourRealisedIdentity` — which I did, correctly, 38 of 45. Nothing there says the flag cannot
+fire at all unless one of the other two has paired the page first. **Turning on an effect while
+withholding its precondition is the mistake, and the file's own framing invites it.**
+
+> **CORRECTION to the 090's account, and the fault is MINE not the loop's.** The diagnosis
+> reported that the plan was "superseded seven minutes later by a further, unidentified plan
+> write for this site" and that "that current plan's own `site_plan_pages` total is 0". Neither
+> is true: `site_plans` for this site holds **exactly one row** (`6d8742f1`, 45 pages, 10
+> sections, `is_current=false`, `superseded_at 12:12:47`) — and 12:12:47 is **my own repair
+> transaction** superseding it, not a second writer. Its "current plan with 0 pages" is the
+> shape of a query against **no current plan at all**: I had left zero current plans on
+> purpose. My symptom text told the loop the inserted page rows had been removed and did **not**
+> say the plan had been superseded, so its evidence surface was an artefact I created five
+> minutes before filing. Logged in `WRONG_CALLS.md`. **The loop was not wrong to be stuck; it
+> was wrong about the writer, and it named the right next step anyway.**
+
+**Consequence for phase 4, replacing this plan's phase-1 decision:** seed
+`twin_identity_snap` and `stem_twin_snap` **together with** `honour_realised_identity`. The
+stem layer is the one that matters here — its own comment says it matches a bare plan page
+against a prefixed realised one *in either direction*, which is exactly
+`mortgages-stamp-duty` ↔ `tool-mortgages-stamp-duty`. "One canary, one question" was a false
+economy: with a precondition unmet, the canary answered no question at all about the flag —
+it only measured what happens when the flag cannot fire.

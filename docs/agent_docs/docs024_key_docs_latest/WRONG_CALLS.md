@@ -34072,3 +34072,40 @@ session — this claim carried no `[MEASURED]`, no evidence line, and no disconf
 was stated in the same confident register as the measured findings around it. It is also the exact
 shape CLAUDE.md's diagnosis section warns about: *confidence is not a signal, and the failure mode
 is not missing information — it is not looking.*
+
+---
+
+## 2026-08-17 (second entry, same lane) — I repaired the evidence five minutes before asking a diagnosis to read it, and did not say so in the symptom
+
+Having repaired a failed planner canary (restored 24 pages from a snapshot, deleted 19 phantom
+rows, **superseded the plan row**), I filed a `090` and wrote in the symptom: *"the inserted rows
+were removed after measurement, so the snapshot and the plan tables are where the before/after
+lives."* True as far as it goes, and it omits the load-bearing half — I had also set the plan's
+`is_current=false`, deliberately, because a thin current plan is a rebuild hazard.
+
+**What that omission did to the run.** The diagnosis went looking for "the current plan", found
+none, and reported it as *"that current plan's own `site_plan_pages` total is 0 — the 'trivial
+explanation' query built to rule out an empty-plan artefact instead confirmed one"*. It then
+built its hypothesis on a second story: that the plan had been *"superseded seven minutes later
+by a further, unidentified plan write for this site"*. There was no second write. There is
+exactly one plan row; the superseding UPDATE was mine.
+
+So the loop spent its iterations characterising an artefact of my own repair, and its narrative
+acquired a phantom writer. **The absence I created was indistinguishable, at its evidence
+surface, from the absence it was testing for** — which is this file's oldest shape
+(`interrogating something that doesn't exist returns a well-formed answer`), except that this
+time I *manufactured* the nonexistence and then asked someone else to interrogate it.
+
+**The check, and it is one clause:** when you file a diagnosis after touching the evidence, the
+symptom must state **what you changed, when, and the id to query instead of the live view.**
+Here that was seventeen words: *"plan `6d8742f1` was superseded by my repair at 12:12:47 — query
+it by `plan_id`, not by `is_current`."* Cheaper still: file the 090 **before** the repair, or
+snapshot the evidence surface as well as the data.
+
+**The half that went right, and it is why this cost minutes not hours.** The loop's `next_scope`
+named the correct next step regardless — test against `plan_id` directly — and walking it
+first-hand settled the whole chain in three queries (the marker is stripped from every LLM page
+and *"re-stamped only by a snap or a union"*, `v3_site_actions.go:6476`; both snap layers were
+off; so the flag I had just seeded could never fire). A `090` that reaches no verdict can still
+be worth its cost if it names where to look, and the owner ruling of 2026-07-31 is satisfied by
+walking that scope in the same session rather than filing the claim unverified.

@@ -263,6 +263,25 @@ dispatch within ~300s of a chassis pod restart). Budget tens of minutes for queu
 **Phase 4 — reseed and repeat** until (1)–(4) hold. Record each round's divergence in
 NOTES; the divergences are the product here, not the final plan.
 
+**Phase 4, as it now stands after round 1 (2026-08-17, NOTES (e) — cause ESTABLISHED):**
+
+1. **Seed `twin_identity_snap` and `stem_twin_snap` alongside the identity flag**, superseding
+   the round-1 decision to withhold them. `honour_realised_identity` is **inert without a
+   pairing layer**: `v3_site_actions.go:6476` strips `identity_authority` from every LLM page
+   and it is *"re-stamped only by a snap or a union"*, so with no snap the flag is never
+   reached. The stem layer is the one that matters for this site's shape — bare realised name
+   vs prefixed plan name, in either direction.
+2. **Put the page-level diff INSIDE the canary script.** Round 1's identity digest said
+   *something* moved; the snapshot diff (which columns, which rows) had to be improvised
+   afterwards. It belongs in the script, next to the digest.
+3. **Expect the sections to stay empty until `bugs_open/204`'s class is fixed at this path.**
+   Round 1's plan carried 10 sections, all for framework-built pages. A faithful plan for this
+   site is not reachable while positional slot names resolve to nothing at the plan write — so
+   judge round 2 on identity and page count, and treat sections as a known outstanding gap
+   rather than a round-2 failure.
+4. **Do not re-run without re-measuring the floor** (§5) and without a fresh snapshot: the
+   pre-fire digest is the only thing that makes the repair assertable.
+
 ## 7. Council scope
 
 Site config + lane tooling (spec rows, docs, a shell script) — out of gate scope, per
