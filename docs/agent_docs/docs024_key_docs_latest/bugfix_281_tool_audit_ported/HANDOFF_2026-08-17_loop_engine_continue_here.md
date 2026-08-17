@@ -26,7 +26,7 @@ runs them. Do not report any of this as fixed in production.
 | Corpse sweep | **DONE.** 49 rows → `FAILED`; 0 `RUNNING` fleet-wide, 98 Kafka topics released. Ids in the scratchpad `289_corpse_rows_before.txt`; rows were failed, not deleted |
 | `WFA-015` `loop_iteration_terminal` | built + tested, **not live** |
 | `WFA-016` `collected_data` size tripwire (WARN 8 MiB / ERROR 24 MiB) | built + tested, **not live** |
-| Council | **BLOCKED.** `Council-Submitted: 7a3c4fb7-…` on `509e01e6a` never rendered a verdict; the tripwire commit `cf970b009` has no trailer at all |
+| Council | **APPROVED**, round 2, corr `7a3c4fb7-e8c1-4b5f-950e-7a826d5bebbe` (~16:50Z) — 4 advisory objections, none high-severity, **all answered with a change or a measurement** (see 289's council section). `Council-Reviewed:` trailer on `a436d898f`. Note `cf970b009` still carries no trailer and forward-only forbids an amend, so `098` cannot auto-credit that one |
 
 **Commits, in order:** `820230756` `a6312cb21` `969cea2ae` `03cfab45a` (diagnosis, 08-16) ·
 `509e01e6a` (the fix + WFA-015) · `ab2b4bdd3` (docs) · `c2f66d9ff` (the quota finding) ·
@@ -102,7 +102,12 @@ went out normally at 16:38Z. Do not plan around a September date.
    council gate was down was **wrong** and was never the real reason; the three above are.) **Re-run its age census
    immediately before applying**: the census (0 `RUNNING` rows under 4 h anywhere) is what
    licenses the 4 h threshold, and if that has changed the proposed arm is the wrong fix.
-6. **289 residual (4)** — `LoopCompleteAction` still lets a step lacking its own
+6. **289 residual (6), from the council's architecture seat** — the `loop_iteration`-presence
+   fallback in `isLoopIterationTerminal` is a permanent SECOND discriminator once every persisted
+   plan carries the explicit flag. Delete it once no in-flight plan predates `509e01e6a`. The
+   seat's wider point is the RFC signal and is NOT this fix: the step model overloads `action` to
+   mean both "what to run" and "role in the workflow", which is why a flag was needed at all.
+7. **289 residual (4)** — `LoopCompleteAction` still lets a step lacking its own
    `total_iterations` inherit the whole loop's. Latent now that the early return is in, and the
    fallback is deliberate backward-compat for pre-expansion plans, so weigh that before "fixing" it.
 
