@@ -70,7 +70,7 @@
 // with no successor to pair against — 3,603 of them against the 281 overwrite
 // rows — so there is no pair evidence for that path, and changing an axis
 // fleet-wide on evidence that does not cover it is how a guard starts refusing
-// good work. Recorded as an open question in bugs_open/290, with the query.
+// good work. Recorded as an open question in bugs_open/291, with the query.
 package actions
 
 import (
