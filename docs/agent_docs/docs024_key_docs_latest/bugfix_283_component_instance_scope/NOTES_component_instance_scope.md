@@ -307,3 +307,42 @@ this detector, and the unfixed gate would have refused 62 correct results mid-pr
 moment at which someone either "fixes" unbroken components or relaxes the gate in a hurry. It also
 matters for the guard: once `enforce_instance_scope` is armed, a false UNSCOPED refuses renders of
 correct components.
+
+---
+
+## 2026-08-17 (session 3, continued) — ruling, build, and the fixture that earned its keep
+
+**Owner ruled** after the twice-corrected numbers were in front of them: hybrid, LMC first, and —
+the addition that shaped the build — **through the framework**. Recorded in RFC_034's header.
+
+**Round 3 approved clean** ("all reviewers approve", 12:43 UTC) — the detector fix. The lane's
+council arc: REVISE → approved with 6 advisories → approved clean.
+
+**The converter was built** (`b7b396cb3`, CLC-017): transform + gate + the `fix_component_template`
+seam, with the §2.1 refusal mechanical — `needs_script_scoping`, nothing written. Census updated
+(third html_template write in `component_write_guard.go` + `fanOutIntendedWriters`).
+
+### The live fixture caught what no composed test could — before the code ever ran in anger
+
+Pinning `tool-css-unit-converter`'s real bytes as the happy-path fixture immediately failed the
+surface-count assertion: 11 literal `getElementById` calls, not 12. The twelfth is
+`getElementById(targetId)` — a variable, fed at runtime from `data-target="result-px"` on five
+copy buttons. **A conversion that renamed the ids but not the `data-target` values would have
+shipped five silently-dangling buttons on every converted page carrying that pattern.** No pass I
+had designed touched `data-*`; no fixture I would have composed contained the pattern. The pass
+now exists (exact-match values only — a value merely *containing* an id is the documented
+concatenation limit), and the fixture asserts `data-target="{{.InstanceID}}-result-px"`.
+
+The general form is the lane's oldest lesson pointed at test design: **a fixture you compose
+exercises your own belief about the artefact; only pinned live bytes can disagree with you.** This
+is the second time in two days real bytes overturned a design assumption (the tool-doc comment was
+the first).
+
+### ⚠ The 14:43 "fresh build" shipped nothing — same-tag cache trap, observed live
+
+Pods restarted 14:43 UTC, still on yesterday's digest `f90a7e88…` (revision `6a782274b`). The
+14:30 local rebuild (`89a0cbeb7`) contains the detector fix and converter, was pushed — under the
+SAME tag `v1.0.1305` — and the restart served the node's cached image. Another lane measured the
+same trap the same day (203 commits unshipped; it is now a MEMORY banner). Nothing to do but say
+it: **the fix rides the next roll under a bumped tag.** Digest equality is the only check that
+sees this; the tag, the restart time, and even the local label all read "fresh".

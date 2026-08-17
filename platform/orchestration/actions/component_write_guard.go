@@ -281,15 +281,20 @@ func tailForMessage(s string) string {
 //                                        shared component here is always wrong.
 //                                        Calls sharedComponentWriteCheck. ← fenced
 //   fix_component_template_action.go     reads a page's rendered_html to
-//                                        DIAGNOSE, but both of its html_template
-//                                        writes take the component as subject:
-//                                        repair_template_slots (mechanical slot
-//                                        repair keyed by spec.component_id) and
-//                                        chrome_overflow_fix (CSS append to a
-//                                        chrome template). Not a per-page LLM
-//                                        rewrite; not fenced. (Corrected
-//                                        2026-08-16 — an earlier version of this
-//                                        census called it "page-aware, open".)
+//                                        DIAGNOSE, but all THREE of its
+//                                        html_template writes take the component
+//                                        as subject: repair_template_slots
+//                                        (mechanical slot repair keyed by
+//                                        spec.component_id), chrome_overflow_fix
+//                                        (CSS append to a chrome template), and
+//                                        scope_component_instance (2026-08-17,
+//                                        bugs_open/283 — fan-out to every
+//                                        placement is the point, and the write
+//                                        is gate-refused when the script is
+//                                        unscoped). Not a per-page LLM rewrite;
+//                                        not fenced. (Corrected 2026-08-16 — an
+//                                        earlier version of this census called
+//                                        it "page-aware, open".)
 //   fix_harcoded_colours_action.go       component-scoped subjects: the fix IS
 //   fix_forced_text_colours_action.go    meant to reach every placement.
 //   fix_nav_link_templates_action.go     Not fenced.

@@ -163,3 +163,29 @@ version of that discovery.
 The decision in front of you is unchanged in shape and easier in substance: the hybrid approach,
 loan-calculator site first, now covers 73% of the estate with the reliable mechanical pass and
 reserves the careful work for the 25 that genuinely need it.
+
+---
+
+## 2026-08-17 (evening) — your ruling is in effect, the converter is built, and today's redeploy didn't actually ship it
+
+You chose the hybrid, loan-calculator first, everything through the framework. That last part
+shaped the build: the converter is a platform action, so every conversion will be a recorded,
+reviewable work item with a before-snapshot — not a hand edit.
+
+It's built and tested, and the review board passed it with no objections. Two things from the
+build worth telling you. The tests use real stored components rather than examples I invent, and
+that habit paid for itself again: one real component's copy-buttons store the name of the element
+they act on in a side attribute the code reads at runtime — a kind of reference none of my renaming
+rules covered and no invented example would have contained. It's covered now. And the converter's
+best feature is a refusal: any component whose script would still clash after renaming is rejected
+untouched, because a half-converted page passes every check while still giving visitors the wrong
+calculator's answer.
+
+One thing to know about today's redeploy: it restarted the machines but served them yesterday's
+software. The rebuild reused the old version number, and machines keep a cached copy per number —
+a known trap here, which another team hit the same day. Nothing is lost; the converter simply rides
+the next properly numbered release. Until then nothing has been converted and the original bug is
+still live.
+
+Next after that release: one end-to-end trial conversion, then the 66 easy components in batches
+while we design the careful pipeline for the 25 calculators.

@@ -597,3 +597,61 @@ byte-identical check, moving `oracle.py`'s 170 selectors in lockstep, the orderi
 `RFC_032`, and when `enforce_instance_scope` is armed.
 
 **Nothing has been converted. 283 stays OPEN and the defect is still live.**
+
+---
+
+## 12. UPDATE 2026-08-17 (afternoon) — owner ruled, detector corrected, converter BUILT; round 3 approved clean
+
+### 12.1 The owner ruling (RFC_034, now DECIDED)
+
+**Shape C (hybrid), LMC first, and the conversions RUN THROUGH THE FRAMEWORK** — work items and
+dispatched actions, the detector as the gate, never hand-applied SQL or hand-edited templates.
+
+### 12.2 The corpus numbers were corrected TWICE in one day — read §3a of RFC_034, not any earlier figure
+
+Regex triage said 24 need script work; the detector said 88; the truth is **25**, because the
+detector itself had a defect: its accepted-wrapper regex anchored at the body's first byte, and the
+estate's tool templates conventionally open with a `/* tool-doc */` comment — **62 correctly
+IIFE-wrapped scripts read as global** (a 70% false-flag rate, found by sampling one flag). Detector
+fixed (`5b30a831b`), council round 3 **approved, all reviewers approve** (2026-08-17 12:43 UTC).
+Final split: **66 mechanical-only / 25 judged**, and the 25 are the 23 `loans-*`/`mortgages-*`
+calculators plus two tools — the original "22 templates" scope, rediscovered from the other side.
+
+### 12.3 The deterministic half is BUILT (`b7b396cb3`) — fix_type `scope_component_instance`, register CLC-017
+
+`ConvertTemplateToInstanceScope` + `GateConvertedTemplate` + the framework seam in
+`FixComponentTemplateAction`. The gate enforces §2.1 mechanically: a component whose script still
+declares into global scope gets `fixed:false, action:"needs_script_scoping"` and **nothing is
+written** — ids-only conversion is unrepresentable through this path. Every ambiguity refuses
+(hex-ambiguous ids, already-converted, unrecognised binding constructions). Fixtures are pinned
+LIVE ROW BYTES, and one paid for itself immediately:
+
+> ⚠ **`data-*` attributes can carry id references no call-site pass can see.**
+> `tool-css-unit-converter`'s five copy buttons write `data-target="result-px"` and the script
+> binds `getElementById(targetId)` off the attribute at runtime. A conversion that missed it would
+> ship five silently-dangling buttons. The composed test never contained this; the real bytes did.
+> There is now a `data-*` exact-match pass, and the fixture asserts it.
+
+### 12.4 ⚠ THE "FRESH BUILD" OF 2026-08-17 14:43 DID NOT SHIP THIS — same-tag cache trap, live
+
+The pods restarted at 14:43 UTC and still run **yesterday's digest** (`f90a7e88…`, revision
+`6a782274b`): round 2's seam is live; **the detector fix and the converter are NOT.** A local
+rebuild at 14:30 (`89a0cbeb7`) contains both and was pushed — but under the **same tag**
+`v1.0.1305`, so the restart served the node's cached image. This is CLAUDE.md's "bump `IMAGE_TAG`
+for every build" trap, observed live (and the same day another lane measured 203 commits unshipped
+the same way). **The fix rides the next roll under a bumped tag; do not one-service-apply it**
+(releases are whole-fleet, owner runs `make release`).
+
+### 12.5 What execution still needs, in order
+
+1. **A roll with a bumped tag** (12.4). Verify at the artefact: pod digest == local digest, then
+   the revision label, then ancestry of `b7b396cb3`.
+2. **The work-item seed** — `instance_scope_conversion` items, one per component ROW
+   (`content_components.id`, never function), LMC's rows first. Not written.
+3. **Pre-conversion owed steps**: rebaseline `b2_verify`'s byte-identical check; move `oracle.py`'s
+   170 selectors in lockstep with each converted calculator.
+4. **The judged pipeline for the 25** — design not started; every LMC calculator is in this pool,
+   so LMC-first means the judged pipeline is needed early, with the truncation check
+   (`output_tokens == max_tokens` means CUT) on every rewrite.
+5. **Per component: convert → rerender → redeploy.** A `fixed:true` changes no served page until
+   the rerender.
