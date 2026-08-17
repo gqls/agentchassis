@@ -987,3 +987,62 @@ stopped me filing it as something it is not.
 whether a fix actually satisfied the test the finding was filed with, and a refusal on a tool-owned
 page vanishes. Plus the two tracks you already approved — the claims audit over our written
 premises, and the analyser's v2. I would like your steer on the order.
+
+---
+
+## 2026-08-17 (afternoon) — both your decisions are done, and I got three things wrong along the way
+
+**The bug you told me to fix first is fixed and reviewed.** The refusal that goes nowhere — where a
+tool-owned page correctly refuses a rewrite and then the reason vanishes — now leaves the same note
+for a human that the platform's two other refusals already leave. It is about six lines. I proved
+the test works by deliberately breaking the fix twice and watching it fail both times, then putting
+it back. The review council passed it first time, all thirteen reviewers.
+
+Two of their comments were worth more than the approval. One reviewer pointed out that the advice
+my note gives — "use the targeted section editor instead" — is right for rewriting something that
+already exists and is a **dead end** for adding something new, because that editor cannot add. That
+is true, I checked, and I have left it alone deliberately: the wording belongs to a shared piece of
+machinery used by four different callers, and changing it inside a small fix is exactly the sort of
+scope creep four other reviewers had just praised the change for avoiding. It is written down as a
+follow-up with the correct route named. The other reviewer noticed I had claimed "three places in
+the code do this" without ever having run the search. I ran it. It is two, not three — the third
+gets there by a different path. The conclusion held; my count did not.
+
+**The sweep window ran for twenty-four minutes and I closed it again.** In that time it visited two
+sites on its own — a games design site and a robotics one — and wrote the ranked "lead with this"
+record for both. That takes us from three sites to five. Nobody touched anything: the sweep chose
+the sites, ran the analysis, filed the findings and started dispatching them.
+
+**The number you need, if you want to decide on a longer window:** it is about one site every
+fifteen minutes, and *every* site is currently due an audit, so each visit is the expensive kind —
+a full audit plus the offer analysis plus dispatching what it finds. Eighteen sites still have no
+ranked record, so finishing the estate is roughly four and a half hours of open window. Say the
+word and I will open one; it stays shut until you do.
+
+**One thing that is genuinely pleasing.** On the games design site, the analyser's "do not lead
+with" list opens with *"the number of tools or guides currently on the platform"*. That is the
+fourth site where it has independently put that first — and it is exactly what our own writer then
+did to the web design home page yesterday, which now opens "Sixty-three browser tools". The
+analyser knows the rule and the writer breaks it. That is a solvable problem and I have written up
+how.
+
+**Now the three things I got wrong, because they are the useful part.**
+
+The first two were the same mistake twice: our database reports times in UTC and my terminal
+reports them in British summer time, an hour apart. So a sweep that had been working for two
+minutes looked like it had been stuck for seventy-two. I caught that one before it left my screen,
+wrote up the trap so nobody repeats it — and then twenty minutes later told you the sweeps were
+running slower than their schedule, which was the *same error* wearing a different hat. They were
+exactly on schedule. What I take from it: writing down a rule does not protect you from it, because
+by then the wrong number had become an explanation, and I went looking for evidence to support the
+explanation instead of rechecking the number.
+
+The third is subtler and worse. I reported that one site was missing a piece of its commercial
+record, and used that as the reason to make a change to the analyser. Seven minutes later the site
+had it. The site had been **created that morning and had no pages yet** — another thread was
+building it while I measured, and I had caught it half-finished and written that instant down as a
+fact about the estate. My own output had "created today" printed in the column next to it. The
+underlying gap in the analyser is real but now has no live example, so I have downgraded it and
+struck the claim through rather than quietly deleting it.
+
+All three are logged where the next person will trip over them.
