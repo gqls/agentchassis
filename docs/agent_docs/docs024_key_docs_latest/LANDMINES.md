@@ -11831,3 +11831,35 @@ code change owed at the next roll, tracked in RFC_015 §5.
   `4b9265c3`), after reading the enforcement block rather than the header comment —
   the header says "is refused", line 146-153 is where it `exit 2`s.
 - **verifier note 2026-08-17:** the landmine-verifier returned **UNVERIFIABLE** on this entry, and **that is not doubt about it** — the verifier reads the Go code index, which covers only `.go` files, so a makefile-footprinted entry is outside what it can see (the neighbouring `IMAGE_TAG`/`imagePullPolicy` entry drew `NEEDS_HUMAN_REVIEW` the same afternoon for the same reason). Verified by hand instead, on this tree: `make -n release | grep -c render-audit-adapter` → **0**, while `make -n deploy-agents | grep -c render-audit-adapter` → **non-zero** and the pod runs `browser-runner-adapter:v1.0.1305`. **Any landmine whose footprint is a makefile, a manifest or SQL needs a hand-run check written into the entry, because the automated one cannot grade it.**
+
+### `orchestration_states.owner_agent_type` is NOT "which agent ran" — it reads ZERO for a demonstrably active agent, and a dormancy claim built on it inverts a bug's severity
+
+- **footprint:** `orchestration_states.owner_agent_type` · `llm_call_log.agent_type` · `site_work_items.handler_agent` · any "is this agent dormant / has this ever run / is this a live burn" question · `bugs_open/297`, `bugs_open/298`, `bugs_open/257` §4
+- **fires when:** you are sizing a defect and need to know whether the agent that carries it actually runs — the difference between "a live burn" and "a latent cleanup", which is usually the whole severity argument. The obvious query is `SELECT count(*) FROM orchestration_states WHERE owner_agent_type='<agent>'`, and it is the wrong instrument.
+- **the tell — a confident ZERO for an agent that is plainly working.** Measured 2026-08-17: `owner_agent_type='tool-recreation-handler'` → **0 orchestrations**, while `llm_call_log` for the same `agent_type` holds **290 calls, most recent 2026-08-11**, and `site_work_items.handler_agent` names it on 4 items. Same run: `owner_agent_type='internal-linker'` → 0, while 69 work items name it as handler with the newest dated **that same day**. The column carries the ORCHESTRATION's owner, which for a handler dispatched into a loop is the *parent* workflow, not the handler. A zero here is "this agent did not own a top-level run", which is not the question you asked.
+- **why it is dangerous rather than merely wrong:** it fails toward "dormant", and dormant is the answer that makes a bug go away. Had I trusted it, `bugs_open/297` would have been filed as a latent cleanup on an idle agent; it is in fact live and bites at 19 of 24 sites.
+- **the check, and use TWO because each has a blind spot:**
+  ```sql
+  SELECT agent_type, count(*), max(created_at) FROM llm_call_log WHERE agent_type='<agent>' GROUP BY 1;
+  SELECT status, count(*), max(created_at) FROM site_work_items WHERE handler_agent='<agent>' GROUP BY 1;
+  ```
+  `llm_call_log` is blind to an agent with no LLM step, or one whose LLM step is never reached (`bugs_open/298`: 69 dispatched items, 0 LLM rows). `handler_agent` is blind to an agent driven by a schedule rather than by work items. **Agreeing zeros are evidence; one zero is not.** And if both read zero while a definition is `is_active`, that is a finding in itself (`bugs_open/257`: a deployed service consuming a topic nothing publishes to) — not a licence to call the bug latent.
+- **source:** `bugfix_275_silent_row_caps` lane, 2026-08-17, while filing `bugs_open/297`/`298`; the same shape appears in `bugs_open/257` §4, where `llm_call_log` was the blind instrument and the POD log was the honest one
+- **added:** 2026-08-17, bugfix_275_silent_row_caps lane
+
+### Two live agents whose names differ by one word — `internal-linker` vs `internal-link-resolver` — and the busy one is not the one carrying your defect
+
+- **footprint:** `agent_definitions.type` · `internal-linker` / `internal-link-resolver` · `tool-suggester` / `tool-generator` / `tool-recreation-handler` / `tool-improver` / `tool-auditor` · any measurement attributed to "the linker" or "the tool agent" · `bugs_open/298`
+- **fires when:** you measure activity for an agent by a name you typed from memory or from a bug file, and a *different* agent with a near-identical name absorbs the traffic. Nothing errors: both names exist, both are `is_active`, and each returns a plausible number.
+- **the tell:** the numbers are plausible but attached to the wrong subject. Measured 2026-08-17: `internal-link-resolver` has **54 orchestrations and NO capped query at all**; `internal-linker` has **0 orchestrations, 69 work items, and the `LIMIT 15` the bug is about**. Reading the first and concluding about the second gives you "busy agent, capped query" — a live burn that does not exist. The `tool-*` family is the same hazard at five members.
+- **the check, before attributing ANY measurement:** enumerate the near-neighbours first, and read the workflow, not the name —
+  ```sql
+  SELECT type, is_active, created_at::date FROM agent_definitions
+   WHERE type LIKE '%link%' AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL;
+  SELECT s.key, s.value->>'action' FROM agent_definitions a,
+         LATERAL jsonb_each(a.default_config->'workflow'->'steps') s
+   WHERE a.type='<the exact one>' ORDER BY 1;
+  ```
+  **The step list is the identity.** If the agent you are writing about does not contain the step your bug is about, you have the wrong agent — which is a one-query check and the only one that cannot be fooled by a plausible name.
+- **source:** `bugfix_275_silent_row_caps` lane, 2026-08-17, caught while filing `bugs_open/298` — `owner_agent_type` returned `internal-link-resolver` for a query about `internal-linker`, which is what exposed both this and the entry above
+- **added:** 2026-08-17, bugfix_275_silent_row_caps lane
