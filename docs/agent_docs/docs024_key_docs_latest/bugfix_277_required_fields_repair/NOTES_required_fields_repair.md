@@ -535,3 +535,33 @@ had landed 60/40 in the expected direction would have gone straight into a bug f
 config**: the live agent definition names `pipeline`. The artefact that said otherwise
 (`k8s/bk_agent_definitions_backup.sql`) is a snapshot dated 2026-03-12. Reading the live row rather
 than the seed is what caught it, and it is the reason the canary was safe to run at all.
+
+**Council round on the visibility fix: APPROVED at round 1** (corr `8dc58e2a`, 22:07:31Z), 4
+advisory objections, none high; `architecture` returned `point_fix`. Three were checkable and were
+checked (full record in `bugs_open/083` §7):
+
+- `guardian` was right that I had **asserted** the other CTE-only tasks select nothing sensitive.
+  Now measured over all 9: **zero** mention password/secret/credential/api_key/b2_/aws_/smtp/
+  authorization, **zero** mention email, two mention "token" — both LLM *token-pressure* monitors
+  ending `SELECT id::text AS note_id`. Clean today; the standing hazard is a future author, which
+  is what the comment at the log site addresses.
+- `guardian` also asked whether the non-suppressing `WHERE` exists elsewhere. **Exactly one other
+  task**: `held-pair-canary-escalation` (`453`) — bounded at 2 of 9, both this lane's.
+- `debug_historian` asked whether the held census had been gathered by running the live pre_query
+  (which embeds `UPDATE … RETURNING`) and thereby promoted rows as a side effect. It had not: the
+  census was a **read-only mirror** (`scored` alone), and the full query was only ever exercised
+  inside `BEGIN … ROLLBACK`.
+- **`editquality` and `tooling_provenance` were simply right about a submission defect:** I claimed
+  in `grounded_in` that SCH-007 is corrected, but listed no edit touching the register. The
+  correction was real and was made — it just was not in the edit list, so no seat could see it.
+  **An edit list that omits work you have actually done reads exactly like a claim you cannot
+  support.** Worth remembering next submission.
+
+Two advisories accepted and not fixed, named so the silence is a decision: the forward migration
+`RAISE`s on the already-applied case where a 0-row no-op would be tidier (the rollback has the
+symmetric branch; erring loud is the safe direction), and `truncateForLog` is package-local —
+checked, and all five existing `truncate*` helpers are unexported inside
+`platform/orchestration/actions`, with only `fetchguard.LimitedRead` exported and unrelated.
+
+**Told the `bugs_open/297` lane about the duplicate migration number** (their `453` is the unapplied
+one, so renumbering is free; `459` was clear at 22:15Z). Not edited by me.

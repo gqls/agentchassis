@@ -1091,6 +1091,68 @@ placeholder_contact->page-build-handler (pair has never completed one (awaiting 
 Everything else this file asked for is done. When those two land, close it — **naming both paths on
 the commit** (`git mv` landmine) and verifying at HEAD with `git ls-tree`.
 
+## 7. COUNCIL APPROVED round 1 (corr `8dc58e2a`, 22:07:31Z) — and the two objections worth checking were checked
+
+**APPROVED**, 4 advisory objections, none high-severity, not truncated; `architecture` returned
+`point_fix` (strictly additive observability, no new contract), `constitution`, `mission`,
+`guidelines`, `reuse_agent` and `prior_art_librarian` approving. Three objections were checkable, so
+they were checked rather than banked — and **one of them was simply right**.
+
+**1. `guardian` (MEDIUM) — "risk 1 asserts the other CTE-only tasks 'select counts, ids and reasons
+only', but that is not verified against the actual pre_query bodies; logging every task's raw result
+is a real blast-radius change (log volume, potential secret exposure)."** The right objection, and I
+had asserted where I should have measured. Now measured, over all **9** enabled `fire_message=false`
+tasks:
+
+| | |
+|---|---|
+| mention `password`/`secret`/`credential`/`api_key`/`private_key`/`b2_`/`aws_`/`smtp`/`authorization` | **0** |
+| mention `email` | **0** |
+| mention `token` | **2** — `council-seat-token-pressure`, `fleet-step-token-pressure` |
+
+Both "token" tasks are **LLM token-pressure monitors** (output vs max tokens), not credentials, and
+both end `SELECT id::text AS note_id FROM ins` — a `doc_notes` UUID. So the fleet-wide logging
+change exposes nothing sensitive **today**; the standing hazard (a future author selecting a secret)
+remains, which is why the code comment at the log site says to select counts and ids, never secrets.
+
+**2. `guardian` (LOW) — "does the same non-suppressing `WHERE` exist in the other CTE-only tasks? If
+so, `048`'s release-on-no-op is silently defeated elsewhere too."** Checked: **exactly one other
+does** — `held-pair-canary-escalation` (migration `453`), which this file already named as carrying
+the identical idiom. The other seven do not. So the defect is bounded at 2 of 9, both in this lane,
+and `453`'s correction is its author's call rather than something to bundle here.
+
+**3. `editquality` (missing) + `tooling_provenance` (MEDIUM) — "the plan claims it corrects
+concept-register SCH-007, but no edit delivers that; a claimed correction not written back to the
+register is indistinguishable from the stale-half problem the register itself has."** **Correct, and
+it is a defect in the submission rather than in the work.** SCH-007 *was* corrected (strike-through,
+date, and the cost named — the stale wording is what made the broken suppression idiom look
+mandatory), along with SCH-026 — but the edit list did not include the register file, so the seats
+could not see it. Recorded as a lesson rather than argued away: **an edit list that omits work you
+have actually done reads exactly like a claim you cannot support.**
+
+**4. `debug_historian` (MEDIUM) — "did the 'held set measured live' evidence come from running the
+LIVE pre_query by hand? It embeds `UPDATE … RETURNING`, so gathering evidence could itself have
+promoted work items."** Exactly the right question to ask, and the answer is no: the held census was
+run as a **read-only mirror** (the `scored` CTE alone, no `promoted` CTE), and when the full query
+*was* exercised it was inside `BEGIN … ROLLBACK`. No row was promoted as a side effect of measuring.
+
+**Two advisories accepted and NOT fixed, named so the silence is a decision:**
+
+- `debug_historian` (LOW): the forward migration `RAISE`s on any md5 mismatch, **including the
+  already-applied case**, where needle-gate discipline would prefer a 0-row no-op. The rollback file
+  has that symmetric branch and the forward file does not. Real, minor, and a re-runner would get a
+  loud abort rather than silent success — which is the safe direction to be wrong in.
+- `reuse_agent` / `constitution` / `prior_art_librarian` (LOW, all three): check for an existing
+  shared truncation helper before adding `truncateForLog`. Checked — there are **five** `truncate*`
+  helpers in the tree (`truncateCell`, `truncateStr`, `truncateTail`, `truncateNewsSummary`,
+  `truncatePreservingRealised`) and **every one is unexported inside `platform/orchestration/actions`**;
+  the only exported one, `fetchguard.LimitedRead`, is for HTTP bodies. Nothing `cmd/scheduler` can
+  import, so a package-local helper is right. The pre-existing near-duplication inside `actions` is
+  real but is not this change's to fix.
+
+The commit carrying this work went out with `Council-Submitted: 8dc58e2a-…` before the verdict
+landed, which `098` resolves to the approval at report time — no amend, per forward-only.
+
 ### `454` PROVEN on the next tick — 2026-08-17 16:43Z
 
 The correction to `444` (count `verified` as success, not just `complete`) released exactly what it
