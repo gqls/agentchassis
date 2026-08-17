@@ -258,3 +258,33 @@ Two hundred and fifty-two commits are in the code but not in the running system,
 them real code changes from about ten different pieces of work, several already approved. I have
 bumped the version number so your next release will actually land. That one genuinely does need
 you — I cannot run the release.
+
+
+## 2026-08-17 (evening) — it shipped, and it works
+
+The build reached the cluster this time — I checked the image itself rather than the version
+number, because the last two "fresh build" reports turned out to have shipped nothing at all.
+
+The result is about as clean as these things get. The thing that was doubling on every lap of a
+loop now stays exactly the same size on every lap: seventy-seven bytes on the dispatcher, eighty-two
+on the tool auditor, identical lap after lap. The dispatcher — which handles every piece of work on
+the whole system — has gone from carrying two and a half megabytes on an average run, and fourteen
+at worst, to about a hundred kilobytes.
+
+And the case that started all this now works. The tool auditor ran, went round all ten laps, and
+finished — for only the second time in sixty-three attempts. Better, it did it on the hard case: it
+had found eighteen problems with a limit of ten, which is exactly the condition that used to kill
+it every single time.
+
+One honest note, because a number in there is misleading. The run reports "ten items created", but
+it actually created none: all ten were suppressed as duplicates of a review item that already
+existed from August the sixteenth. That is a separate, already-known limitation — the review items
+are keyed per page, so many findings on one page collapse into one row — and not something this fix
+broke. I have written it down where the next person will look, because "ten created" reads as ten
+until you check.
+
+So that bug is closed. What is left is the one I cannot do for you: the follow-up bug about runs
+that get stuck in a state nothing can rescue them from. The fix is one paragraph of configuration,
+but it takes effect the instant it is saved, with no build step to catch a mistake, on a job that
+touches the whole fleet — so it wants your say-so, and the file explains exactly what to re-check
+first.
