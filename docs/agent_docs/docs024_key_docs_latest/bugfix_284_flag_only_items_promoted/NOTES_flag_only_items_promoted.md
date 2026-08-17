@@ -354,3 +354,40 @@ an agent that has never existed — 14 rows, 2 sites, **5 yesterday → 14 today
 dispatchable so neither this lane's guard nor its proposed CHECK constraint covers
 them (a CHECK cannot subquery `agent_definitions`). Filed with the producer named
 and a `090` as its next step.
+
+## 2026-08-16 (evening) — the repair ran, the guard is proven live, and I wrote a duplicate of this lane's own repair file
+
+**The miss first, because it is the useful part.** I (the 279 lane, picking this
+up after the v1.0.1305 roll) wrote and applied
+`sql_for_agents/442_repair_flag_only_rows_blocked_by_the_old_promoter.sql`
+**without opening this directory**, where `REPAIR_2026-08-16_blocked_flag_only_rows.sql`
+was already written — to the same council standard, with the same gate. No damage:
+the two reach the same end state, 442 is the one in `schema_migrations`, and the
+lane file now carries a SUPERSEDED banner so nobody runs it and concludes the
+repair never happened. **The check I skipped costs one command:**
+`ls docs/agent_docs/docs024_key_docs_latest/bugfix_<n>_*/` before writing any SQL
+for a bug that has a lane. `who-owns.py` names the lane; it does not list what the
+lane has already built. Logged in `WRONG_CALLS.md`.
+
+**What actually happened, in order:**
+1. Roll verified per SERVICE at the artefact — chassis AND core-manager both
+   v1.0.1305, running digests matched the local images, OCI `revision=6a782274b`,
+   `git merge-base --is-ancestor 7027a2801 6a782274b` → 0.
+2. Census re-measured: 60 blocked / 4 item_types / 58 with `original_pipeline` —
+   identical to this lane's measurement, so nothing had moved.
+3. **A contradiction that had to be walked past**: both `capability_gap` producers
+   read `Status: "deferred"` at HEAD, which would mean a `detected`-only promoter
+   could not have touched them. `git log -S` settled it — `deferred` arrived in
+   `7027a2801`, this lane's OWN fix. The rows were born `detected`. Now a
+   LANDMINE, because the next reader hits the same apparent refutation.
+4. Repair applied (442). The two hand-inserted rows judged individually; the
+   `needs_experience_plan` one is **owner-raised** and went to `deferred` (roadmap
+   view), NOT cancelled.
+5. CHECK constraint `swi_no_handlerless_promotable` (mig 443), `NOT VALID` +
+   `VALIDATE`, induced with two negative controls.
+6. **Demand control for the guard** — the part a passing zero cannot give you:
+   `leopardessconsulting.co.uk` holds 36 flag-only `detected` rows and nothing
+   routable, so a `triage_detected_items` run there could only hold them back or
+   promote them. Result: `promoted: 0, not_promotable: 36,
+   not_promotable_by_type: {"head_essentials_missing": 36}` (corr `a5be3dea`).
+   Under the old binary all 36 would have been promoted and then blocked.

@@ -33388,3 +33388,29 @@ not.
 Tally for "shell ate part of a commit message": 1 (and the trap was already written down, which is
 the interesting part — a documented landmine did not fire because the danger arrived dressed as
 formatting).
+
+## 2026-08-16 — wrote a duplicate repair migration because I read the bug file but not the bug's LANE DIRECTORY
+
+**The claim I acted on:** "284's repair is unwritten — the bug file says the 60
+rows are not repaired, so I need to write the repair." **What was true:** the
+repair SQL already existed, finished, in
+`docs024_key_docs_latest/bugfix_284_flag_only_items_promoted/REPAIR_2026-08-16_blocked_flag_only_rows.sql`,
+written to the same council standard. I wrote and applied
+`sql_for_agents/442_…` instead, leaving two artefacts for one repair.
+
+**What caught it:** appending the owner-facing note at the end of the task — I
+listed the lane directory to find its README and saw the REPAIR file sitting
+there. Nothing else would have; the bug file itself never names it.
+
+**The cheap check that would have:** `ls docs/agent_docs/docs024_key_docs_latest/bugfix_<n>_*/`
+before writing ANY artefact for a bug that has a lane. "Not repaired yet" in a bug
+file means the ACTION has not run — it does not mean the ARTEFACT does not exist,
+and those two are written by different sessions for different readers.
+`scripts/who-owns.py` names the owning lane but does not list what it has built,
+so the `ls` is the missing half.
+
+**Cost:** low — no damage, both files agree, 442 is the one in the ledger and the
+lane file now carries a SUPERSEDED banner. Recorded because the tally is the point:
+this is the second time a session in this thread has produced work a neighbouring
+lane had already done (the first was the 213 lane's contribution into 279 arriving
+after that round had shipped).

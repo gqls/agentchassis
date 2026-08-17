@@ -122,3 +122,37 @@ refactor that came out of a bug lane, even though it agrees the change is harmle
 Both are reasonable. The rules say a person breaks that tie, so I have left the
 approved code as it is and written the disagreement down where you'll meet it.
 Either direction is a one-file change whenever you decide.
+
+---
+
+## 2026-08-16 (evening) — it is done, and one of the rescued items is yours
+
+The release went out, so everything this lane was holding could finally run.
+
+**The 60 stuck items are repaired.** Each one is back in the state its own checker
+files — the "roadmap" ones parked as roadmap entries, the broken-image ones back to
+plain findings — and each carries a note saying what happened to it, so none of them
+looks like it fixed itself. **One of them was yours**: the note you raised on
+2026-08-12 reading fundamentallyai.com — the six Platform Log guides that name tools
+and never link to them, and no Tools entry in the top nav. It had been filed as work,
+then silently marked as a routing failure two days later, and it has been unreachable
+ever since. It is now parked where the roadmap report picks it up. **Nothing has
+acted on it — it needs a human, because there has never been an agent that handles
+that kind of item.** Flagging it rather than leaving you to find it.
+
+**The door is shut, not just swept.** Beyond the code fix, the database now refuses
+outright to put a "nobody can do this" item into the queue of things to do — so a
+hand-written insert, or one of the twenty-odd places in the code that bypass the
+normal door, can no longer recreate this. I tested that by trying it: the bad shape
+is rejected, the two legitimate shapes still go through.
+
+**And I proved the fix works rather than assuming it.** A quiet week would have
+looked identical to a working fix, so I picked the site with 36 of these items and
+nothing else to do, and ran the exact step that used to break them. It held all 36
+back and promoted none — where the old build would have taken every one. That is the
+difference between "no complaints" and "checked".
+
+**One thing needs your ruling** (unchanged from the review, nothing was done
+unilaterally): two reviewers disagreed about the same edit — one says a third copy of
+a shared check should have been unified too, the other says touching that file at all
+went beyond the bug. Either way is a small, single-file change whenever you decide.

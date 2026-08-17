@@ -1,3 +1,21 @@
+-- ============================================================================
+-- ⚠ SUPERSEDED — ALREADY EXECUTED. DO NOT RUN.
+--
+-- The repair this file describes was carried out on 2026-08-16 as migration
+-- `docs/agent_docs/sql_for_agents/442_repair_flag_only_rows_blocked_by_the_old_promoter.sql`
+-- (applied AND recorded in schema_migrations, with its own ROLLBACK sidecar).
+-- All 60 rows are repaired and stamped `result.repair_284`; this file's predicate
+-- (`status='blocked' AND handler_agent=''`) now matches 0 rows, so running it
+-- would be a harmless no-op — but it would also look like the repair had not
+-- happened yet.
+--
+-- WHY THERE ARE TWO: the session that executed the repair wrote 442 without first
+-- reading this lane's own directory, where this file was already waiting. That was
+-- a process miss, logged in NOTES and WRONG_CALLS.md. The two files reach the same
+-- end state by the same discipline; 442 is the one in the ledger, so 442 is the
+-- record. Rollback via 442's sidecar, not this file's.
+-- ============================================================================
+
 -- REPAIR — bugs_open/284: the 60 flag-only rows wrongly stamped `blocked`.
 --
 -- ⚠ DO NOT RUN THIS UNTIL THE GUARD IS LIVE. Until `7027a2801` is in the running
