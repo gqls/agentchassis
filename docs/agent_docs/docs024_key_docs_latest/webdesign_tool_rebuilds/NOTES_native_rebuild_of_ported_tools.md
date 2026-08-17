@@ -301,3 +301,48 @@ One render, no double-tool intermediate, and a one-flip revert still available.
 Next per the handoff: PLAN §4 first — **the owner sees this served page** — then §2's batch, simple
 tools first, serial, ab-test second (and ab-test needs `cd60486c…` deactivated before filing, per the
 `already_exists` landmine). Nothing filed by this session beyond the pilot.
+
+## 2026-08-17 11:19Z — owner passed the pilot; rebuild #2 (ab-test) FILED, with the fork deactivation the generator needs
+
+- **OWNER GATE DISCHARGED.** Owner on the served pilot page: *"that page is good"*
+  (`/tools/aspect-ratio/index.html`). PLAN §4 satisfied for the pilot ⇒ PLAN §2's batch is unlocked.
+- **Spec written from the LIVE tool, by reading its script** — not from its page copy. The ported
+  ab-test tool computes: `pA=cA/vA`, `pB=cB/vB`, rates shown to 2 dp; standard error of the difference
+  `sqrt(pA(1-pA)/vA + pB(1-pB)/vB)`; `z=(pB-pA)/se`; verdict at `|z| > 1.96` ("Significant Result",
+  green) else "Not Significant" (red), Z-score shown to 2 dp; defaults A 1000/50, B 1000/65;
+  recalculates on input and once on load.
+  Two things carried into the brief deliberately, both stated in the description:
+  (a) **bind the listeners to its OWN four inputs** — the ported version does
+  `document.querySelectorAll('input')`, which also binds the site's global search box, so typing in
+  site search re-runs the calculator. Describing the intent, not copying the defect.
+  (b) **divide-by-zero / blank-field guard** — the ported version renders `NaN` on a zero visitor count.
+  Copy is required literal in the component (the 31-externalised-field failure that made the first
+  fork a hollow shell).
+- **THREE active components claim `function='tool-ab-test-calculator'`, and only ONE may be touched.**
+  The handoff named `cd60486c` and it is right, but the reason matters because a "deactivate every
+  active row with this function" sweep would do real damage:
+  | id | name | placement | verdict |
+  |---|---|---|---|
+  | `cd60486c…` | `…_pre_037-webdesign-co-uk` | `removed` on **webdesign.co.uk** | the fork — deactivate |
+  | `58da6570…` | `…_pre_037-idea-uk` | `approved` on **idea.uk** | **another site's LIVE tool** — the probe filters `p.site_id`, so it never matched; leave |
+  | `8c9a6e06…` | `…_pre_037` | **no placement at all** | the **library template** — the probe's INNER JOIN excludes it; deactivating it would break future forks; leave |
+- **Filed in one transaction with three post-asserts**, all passed: (1) the generator's probe now finds
+  **0** live components for this site ⇒ it will actually build rather than return `already_exists`;
+  (2) exactly **1** open `add_tool` on the site (the serial throttle intact); (3) `58da6570` and
+  `8c9a6e06` **both still active** — an explicit collateral-damage assert, because the failure mode of
+  getting step 1 wrong is silent and lands on a different site.
+  Item **`8c921926-ee4f-4479-8f79-39f18f3b9249`**, `triaged`, 11:19:24Z. `UPDATE 1` / `INSERT 0 1`.
+- **Revert handle recorded BEFORE anything ran** (per PLAN's 16:20Z correction — there is no archive
+  row): ported slot **`ebe3c57a-9f8a-43e6-933f-9dcbb74babc7`**, `deployed`, position 0,
+  **5,772 chars, md5 `6b99651c11b7dbfa939c5296bdb5704b`**. The dead first fork `1a9efade` stays
+  `removed` at position 2 as history.
+- **MISSTEP, mine, corrected within the same minute:** I read the session clock jumping to 08-17 and
+  announced the item had "sat `triaged` for 19 hours and was never claimed — the stall risk I
+  flagged". **False.** `created_at` was `2026-08-17 11:19:24`, i.e. one minute old; the gap was in the
+  session, not the queue. I inferred elapsed queue time from a wall clock instead of reading the row's
+  own timestamp — the one field that could have contradicted me. Two consequential readings in the
+  same breath were also artefacts: "`add_tool` does not appear in the claimed-24h list at all" was my
+  own `LIMIT 12` cutting the count-1 tail (it was there, count 1, the pilot), and the item has **0**
+  items ahead of it, not a backlog. What the wasted queries DID establish, and it is worth keeping:
+  build-dispatch-loop is alive (102 COMPLETED / 28 FAILED in 24 h, latest 11:20:33Z) and the entire
+  fleet dispatchable backlog was this one item. → `WRONG_CALLS.md`.

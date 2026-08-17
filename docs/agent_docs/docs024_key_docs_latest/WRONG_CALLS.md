@@ -33550,3 +33550,26 @@ both.
   `git ls-tree -r --name-only HEAD -- bugs_open/ bugs_closed/ | grep -cE "/<n>_"` must be 1 — and
   treat a pre-move check as a hint, never a claim. Tally for "claimed a shared identifier from a
   pre-action check": 1.
+
+## 2026-08-17 — webdesign_tool_rebuilds lane
+
+- **I announced a 19-hour dispatcher stall from a wall clock, on a row that was one minute old.**
+  My session resumed after an overnight gap; `date -u` read 08-17 11:20 and the work item I had filed
+  read `triaged`, so I stated it "has sat `triaged` for 19 hours and was never claimed — that's the
+  stall risk I flagged" and opened a diagnosis. Its `created_at` was `2026-08-17 11:19:24` — **filed
+  one minute earlier**. The gap was in the conversation, not in the queue. **The cheap check:** the
+  row carries the only clock that matters — `SELECT now() - created_at AS age` in the same query as
+  the status, so age and status can never be read from different sources. I had already SELECTed that
+  row and printed `created_at` in the output I was looking at. Tally for "elapsed time inferred from
+  the session rather than the record": 1.
+- **Two supporting readings in the same breath were artefacts of my own queries, not findings.**
+  (a) "`add_tool` does not appear in the claimed-24h list at all" — my `ORDER BY count DESC LIMIT 12`
+  cut a tail of seven count-1 types, `add_tool` among them. **The cheap check:** a categorical census
+  used to prove an ABSENCE must not carry a `LIMIT`; if it does, re-ask with `HAVING count(*) <= n`.
+  (b) "queued behind a backlog" — the item had **0** rows ahead of it. Both were quoted as evidence
+  for the stall, and both would have come out the same way whether or not a stall existed, which is
+  the disconfirmability test failing rather than a measurement being unlucky.
+- **What the wrong call nevertheless bought, recorded so it is not re-derived:** build-dispatch-loop
+  is alive and healthy on 2026-08-17 (102 COMPLETED / 28 FAILED in 24 h, latest 11:20:33Z) and the
+  entire fleet dispatchable backlog at that moment was a single item. Given `bugs_open/289` predicts
+  this loop dies of state doubling, that is a genuinely useful negative — **it is not dead yet.**
