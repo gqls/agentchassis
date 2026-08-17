@@ -287,3 +287,61 @@ have not acted on** — say if you want either chased:
    the tools instead. That is the mirror image of your original complaint: the tools are
    reachable now, but the writing about them may have been orphaned from its own
    section index.
+
+---
+
+**2026-08-17, later — your three decisions, and one of them turned out to be the wrong
+question. Also: the build you deployed shipped no new code.**
+
+**First, the deploy, because it affects everything else.** The pods restarted at 14:42
+today but the image tag is unchanged at `v1.0.1305`, and the running binary is the same
+one as this morning: I probed it for a string that only exists in a commit made *after*
+the build it carries, and it is absent, with a positive and a negative control alongside
+to prove the probe works. **215 commits are sitting unshipped**, and another lane
+measured the same thing independently. A rebuild at an unchanged tag serves the node's
+cached image, so nothing new reaches the fleet. The fix is to bump `IMAGE_TAG` in the
+makefile before building. Until that happens, anything I write in Go — including the
+unification you just approved — is committed but inert.
+
+**Decision 1 — unify the third copy of the shared test — was already done** by another
+session acting on your ruling, and it is correct: there is now one definition, in the
+package both callers can reach, with the dispatcher and the checker delegating to it. I
+verified it builds and passes, and repaired one thing the merge got wrong: the new
+function had been inserted into the middle of another function's comment block, so the
+documentation for one was attached to the other. No behaviour change.
+
+**Decision 2 — fix 227 first, then route the row — is recorded and handed over.** 227
+belongs to another lane, so I have not touched their fix; I have written the dependency
+into their bug file so they know an owner-raised row is queued behind it, and noted the
+one thing that makes it easy when they land: the handler they need (`experience-planner`)
+already exists and is active, so routing that row is a one-field change once their prompt
+fix is in.
+
+**Decision 3 — "add the images" — is the right instinct but the wrong action for most of
+them, and I stopped rather than generate thirty pictures nobody needs.** I measured all
+thirty findings against what each site actually holds:
+
+- **Eleven already have the image, under exactly the name the page asks for.** Nothing to
+  generate; the file simply was never published to the web path. That is a deploy that
+  did not run, not a missing picture.
+- **Six are heroes where the site has plenty** — lendzy, for instance, has nine, but they
+  are named per page (`hero_home`, `hero_about`, `hero_price_cap`…) and one page is asking
+  for a plain `hero`, which nothing is named. Generating a tenth would not fix the page;
+  pointing the page at its own hero would.
+- **Five genuinely need generating** — case-study illustrations on two sites.
+- **Eight are the favicon and social-card gaps, and they belong to bug 131**, which is
+  owned, so I left them alone.
+
+**And there is a live blocker on the five that do need generating.** The imagery
+pipeline is failing today — twelve failures against four successes, all with the deployer
+getting a 404 trying to commit to a GitHub branch called `master`. I checked the obvious
+explanation (those sites have no repository configured) and it is **not** the cause: the
+sites whose images succeeded in the same window have no repository configured either. So
+filing the five now would most likely just add five more failure rows. I have put the
+whole census and that blocker into bug 114, which is the existing bug this belongs to.
+
+**What I would do next, if you agree:** treat the eleven "already have it" and six
+"pointed at the wrong name" as one piece of work in the imagery lane (it is their class,
+and it is a repoint/republish, not new art), let 131 finish the favicon and social cards,
+and hold the five case-study images until someone understands the deployer's 404. None of
+that needs a decision from you today unless you want it prioritised.
