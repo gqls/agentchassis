@@ -176,3 +176,25 @@ zero-row LATERAL walk").
   deeper than build-dispatch-loop's `result.response.<payload>`, because the diagnose handler's
   own reply body itself carries a `response` key. That is layering, NOT `bugs_open/216`'s
   double-execution envelope (which nests the same payload twice) — do not re-file it as one.
+
+## 2026-08-17 — the REAL roll (v1.0.1307, 17:05Z): both halves live, bug proven dead
+
+- **Verified the roll properly this time, and it IS new:** pre-fix stamp `6a782274b` now ABSENT
+  from `/proc/1/exe` (present 4 h earlier), fake-sha control also absent so the probe
+  discriminates. Provenance log line had rotated out of BOTH pods (earliest line 18:10Z for a
+  17:05Z start) — so the sha route was exhausted and the **behavioural** proof below is what
+  settles it. That is the better evidence anyway: it tests the code, not the label.
+- **WFA-017 firing, visible in data:** expanded plans read `"result!": "handler_result_0"`.
+  Only the generic pass can suffix that key. Two controls in the same object: `work_item_id!`
+  untouched (loop var), `error_step` step-prefixed (`process_item_iter_0_mark_failed`).
+- **End to end, demand-controlled (roll → +75 min):** `field=result` resolver rows **0** (from
+  ~455/day) · other-field rows 34 (instrument live, agent busy) · **10** runs created ·
+  **11/11** loop completions carry the reply · **0** spawn records. The 7 other completions in
+  the window have blank `claimed_by` and a `{"reason": "render audit re-measured …"}` result —
+  the no-change path, not the dispatch loop, not this bug.
+- **Remaining resolver rows are the two fields this lane already excluded:** `current_page` 22,
+  `work_item_id` 12. `[INFERRED]` the `work_item_id` rows now come from `claim_work_item` /
+  `fail_work_item` (same declared field, not strict); rows carry pod-level attribution only, so
+  per-row proof is not available from the row — do not assert it. RFC_029's triage, not ours.
+- Register WFA-017 → **LIVE + PROVEN**; index row likewise; RFC_035 §8 records that the owner's
+  ruling is now about live code (the estate's stated norm, 2026-07-29 #2).

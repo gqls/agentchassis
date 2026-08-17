@@ -1,6 +1,6 @@
 # RFC 035 — loop expansion rewrites ANY reference-shaped sibling-output config value (WFA-017): ratify, narrow, or revert
 
-## STATUS: OPEN — filed 2026-08-17 by the bugfix-287 lane, at the council's direction (guardian VETO + architecture seat `needs_rfc`, round 1, corr `cba35b35`). The code is COMMITTED (`0ed96c7eb`) and will ride the next chassis roll unless the owner directs a forward revert first. **Read §7 first: the 14:42Z "fresh build" shipped no new code (same-tag rebuild), so the Go half is still INERT, and the config half went live without it — which changes the cost of option (3).**
+## STATUS: OPEN — filed 2026-08-17 by the bugfix-287 lane, at the council's direction (guardian VETO + architecture seat `needs_rfc`, round 1, corr `cba35b35`). **The code is now LIVE (chassis v1.0.1307, 2026-08-17 17:05Z) and PROVEN** — see §8. So this is a ruling about live code, which is this estate's stated norm (2026-07-29 #2: "review here is after the fact, by design"), not a lapse. Options are unchanged; option (3) means a forward revert of live behaviour.
 
 ## 1. What happened, plainly
 
@@ -144,3 +144,38 @@ Also worth the owner's attention when ruling: the same `retry_payload` sibling s
 base and the suffixed keys (140/140 and 548/548 respectively), so the item's stored `result`
 will be `{retry_payload, response}` under either option — fatter than the reply alone, and a
 separate (small) cleanliness question that neither this RFC nor 287 proposes to solve.
+
+## 8. THE CODE IS LIVE AND PROVEN — 2026-08-17 17:05Z, chassis v1.0.1307 (this changes what the options COST, not what they are)
+
+The owner rebuilt with a bumped tag (the 14:42Z attempt had shipped nothing — same tag, cached
+image). Evidence, all measured within 75 minutes of the roll:
+
+- **The generic pass is observably firing:** every `build-dispatch-loop` plan expanded since the
+  roll carries `"result!": "handler_result_0"`. The old binary could not produce that — `result`
+  was never on the allow-list. Two controls ride in the same object: `work_item_id!` stays
+  `current_item.id` (loop variable, not a sibling output) and `error_step` is step-prefixed, not
+  data-suffixed. So the shape gate and the first-segment rule are both behaving as specified.
+- **No regression anywhere the census predicted one:** `field=result` resolver rows **0** (from
+  ~455/day), 10 orchestrations of demand, 11/11 loop completions carrying the handler's reply,
+  0 spawn records. The other 22 live sites in the census belong to agents whose loops ran in
+  this window (page-content-writer, page-build-handler, tool-generator all appear in the
+  resolver rows, i.e. they executed) with **no new error class** attributable to suffixing.
+
+**What this does to the three options:**
+
+- **(1) Ratify** — now costs nothing to enact (it is the running behaviour) and has a live
+  disconfirmation window running: any mis-suffixed literal would surface as a resolution failure
+  in an agent whose loop runs. None so far, 75 minutes.
+- **(2) Narrow to enumeration** — now a behaviour CHANGE to live code, not a decision to hold
+  something back. Same argument as before (the allow-list is a promise three actions already
+  broke), but it must now be shipped and re-verified.
+- **(3) Forward-revert** — likewise a live change; and note it would return `mark_complete`'s
+  strict reference to the base key, which resolves only via `propagateIterationOutputs`' refresh.
+  That works (it is what migrations 448/452 relied on for the four hours before this roll, with
+  the same 4/4 and 1/1 proofs) — but it puts a measured side-channel back under a strict marker
+  whose whole purpose is to remove guessing.
+
+**The filing lane's recommendation is unchanged: (1).** The guardian's objection — that a
+snapshot census cannot bound future configs — also stands unchanged and is not answered by this
+section; what it now has is a live behavioural window on top of the static census, and the
+register entry's LANDMINE line telling the next author what the convention is.

@@ -132,3 +132,31 @@ than it is.
 I've left the bug file open rather than filing it as closed: nothing is biting new work, but
 those 303 records are still wrong for anyone reading them, and your two decisions live in that
 file.
+
+## 2026-08-17 (evening) — this one is done: the real build landed and the bug is provably dead
+
+The rebuild worked this time. I checked it the same way as before and it is genuinely a new
+programme: the fingerprint of the old one is gone, and a deliberately fake fingerprint doesn't
+match either, so the check can tell the difference. The startup line that names the build had
+already scrolled away on both machines, so I proved it a better way — by what the system now
+*does*.
+
+The code half is working exactly as designed: every new job now writes its instructions in the
+corrected form, and the two things that should have been left alone were left alone. Then the
+whole point of the exercise, over the first 75 minutes of real traffic:
+
+- the internal warning that fired about 455 times a day on this defect: **zero**
+- jobs run in the window: **10**, work items completed by the dispatcher: **11**
+- of those, carrying the worker's real answer: **11 of 11**
+- carrying the wrong "hiring note" instead: **none**
+
+That is the bug closed, with the traffic to prove it rather than an absence of complaints. (Seven
+other completions in the window came from a different route entirely, not the dispatcher.)
+
+**Two things still sit with you, neither of them the bug:**
+1. **RFC_035** — keep, narrow, or undo the code half. It is now running, so this is a decision
+   about live behaviour; that is normal here, and the write-up says so plainly.
+2. **The 303 repairable historical records** — script written and rehearsed, waiting on your go.
+
+I've kept the bug file in the open folder purely because those 303 records are still wrong for
+anyone reading them. Nothing else is outstanding on it.

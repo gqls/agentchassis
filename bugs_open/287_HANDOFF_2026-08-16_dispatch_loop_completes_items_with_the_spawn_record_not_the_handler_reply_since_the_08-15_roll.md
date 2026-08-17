@@ -1,21 +1,22 @@
 # 287 — build-dispatch-loop marks work items `complete` with the SPAWN RECORD as their result, not the handler's reply — appears at the 2026-08-15 10:14Z roll, ~75% of completions since
 
-## STATUS 2026-08-17 17:0xZ — FIXED AND LIVE for the main producer; OPEN on three named residuals (§11b has the evidence)
+## STATUS 2026-08-17 18:2xZ — **FIXED, LIVE AND PROVEN ON BOTH HALVES** (§11c). Kept here only until two OWNER decisions land; the defect itself is dead for new traffic.
 
 | | state |
 |---|---|
 | **build-dispatch-loop** (86% of the defect) | **FIXED + LIVE + PROVEN** — mig `452` applied 16:28:57Z; a post-apply run completed **4/4 items carrying the handler's reply**, content checked at the artefact |
 | **diagnose-dispatch-loop** | **FIXED + LIVE + PROVEN** — mig `448` 12:19:59Z; its first post-apply run COMPLETED 17:0xZ and the item's `result` holds the real verdict (`status: UNVERIFIABLE`, summary, conclusion) where it used to hold the spawn record. So §6a's "read verdicts from `orchestration_states`, never the item" is now RETIRED for this agent |
 | **report-dispatch-loop** | config **LIVE** (same migration, identical shape) — **unproven for want of traffic**: zero runs since the apply. Demand-bound, not a failure |
-| **Half 1 (Go, WFA-017)** | **COMMITTED, INERT** — the 14:42Z "fresh build" shipped no new code (same `IMAGE_TAG`, cached image; probed). Needs an `IMAGE_TAG` bump + rebuild (owner's) |
+| **Half 1 (Go, WFA-017)** | **LIVE + PROVEN v1.0.1307, 17:05Z** — expanded plans read `result!: handler_result_0`; `field=result` resolver rows **0** (from ~455/day) with 10 runs of demand; 11/11 loop completions carry the reply; 0 spawn records (§11c). The earlier 14:42Z "fresh build" had shipped nothing (same tag, cached image) |
 | **Historical rows** | 3,330 wrong; **303 repairable**; mig `455_HOLD` written + dry-run proven, **awaiting the owner's go** |
 | **Convention question** | `RFC_035` open (guardian scope veto on Half 1 — ratify / narrow / revert; owner's) |
 | **Admin** | `452`'s `schema_migrations` row is **MISSING** (harness refused `--record-only`); it IS applied — command in the file header |
 
-**Why this file stays in `bugs_open/` even though the defect is fixed and live:** the two
-owner decisions below are staged here and nowhere else, and **303 historical rows are still
-wrong** — a reader of those rows is still misled today. It moves to `bugs_closed/` when `455`
-is decided and `RFC_035` is ruled. Nothing is biting new traffic.
+**Why this file is still in `bugs_open/`:** by CLAUDE.md's bar (fixed AND live) it has earned
+`bugs_closed/`, and nothing is biting new traffic. It is held here for one reason only —
+**303 historical rows are still wrong and a reader of them is still misled today**, and the two
+owner decisions that settle this lane (`455_HOLD` go/no-go, `RFC_035`) are staged from here.
+Move it the moment `455` is decided; the fix needs no further work.
 
 **Reading an item's `result` now:** for a run created after its agent's migration it is
 `call_agent`'s step record with the reply at `.response` (12 keys, incl. `retry_payload`) — not
@@ -601,3 +602,44 @@ spawn-record column → 0 while own-envelope is non-zero.
 **Still open:** (1) the `IMAGE_TAG` bump + rebuild so Half 1 rolls (owner's — releases are
 whole-fleet); (2) RFC_035's ruling on Half 1 — and note that 452 landing WITHOUT Half 1 is
 itself evidence for the owner to weigh there; (3) the 244 repairable historical rows.
+
+### 11c. 2026-08-17 17:05Z — the REAL roll landed (v1.0.1307): Half 1 is LIVE, and the whole bug is now proven dead with a demand control
+
+The owner rebuilt with a bumped tag. Verified, not assumed:
+
+- **New binary confirmed:** the pre-fix stamp `6a782274b` is now **ABSENT** from `/proc/1/exe`
+  (it was present four hours earlier), and a fake-sha control (`deadbeef…`) is absent too, so
+  the probe discriminates. The startup provenance line had already rotated out of both pods'
+  logs, and the OCI label was not reachable from here — so the decisive evidence is behavioural,
+  below, which is stronger anyway.
+- **WFA-017 is firing, visibly, in data.** Every `build-dispatch-loop` plan expanded since the
+  roll reads:
+  `{"result!": "handler_result_0", "work_item_id!": "current_item.id", "error_step": "process_item_iter_0_mark_failed", …}`
+  The pre-roll binary **could not** have produced `handler_result_0` for the `result!` key —
+  `result` was never on `prefixConfigStepReferences`' allow-list, so only the generic pass
+  suffixes it. (Note the two controls sitting in the same object: `work_item_id!` is left alone
+  because `current_item` is a loop variable, not a sibling output; `error_step` is
+  step-prefixed, not data-suffixed.)
+- **End to end on the new binary, with the demand control** (window: roll → +75 min):
+  | measure | value |
+  |---|---|
+  | `RESOLVER_%` rows, `field=result`, build-dispatch-loop | **0** (from ~455/day: 176 conflict + 279 bypass) |
+  | resolver rows, other fields, same agent | 34 — the instrument is live and the agent is busy |
+  | orchestrations created (DEMAND) | **10** |
+  | items completed by the loop | **11**, of which **11 carry the handler's reply** |
+  | spawn-record-shaped completions | **0** |
+
+  The 7 further completions in the window without a reply were **not** completed by the
+  dispatch loop (blank `claimed_by`, `{"reason": "render audit re-measured …"}` — the
+  no-change path), so they are outside this bug.
+- **The remaining 34 rows are the two fields this file already told you not to judge the fix
+  by:** `current_page` (22) and `work_item_id` (12). `[INFERRED]` the `work_item_id` rows now
+  come from `claim_work_item` / `fail_work_item`, which declare the same field and are NOT
+  strict — resolver rows carry pod-level attribution only, so this cannot be proven per row
+  from the row itself. Either way they are RFC_029's triage, not 287's.
+
+**So: fixed, live, and proven on both halves — the defect is dead for new traffic.** What is
+left is not the defect: the 303 repairable historical rows (mig `455_HOLD`, dry-run proven,
+owner's go), `RFC_035`'s ruling — which is now a decision about **live** code, the estate's
+stated norm (2026-07-29 #2: review here is after the fact by design) — and 452's missing
+ledger row.
