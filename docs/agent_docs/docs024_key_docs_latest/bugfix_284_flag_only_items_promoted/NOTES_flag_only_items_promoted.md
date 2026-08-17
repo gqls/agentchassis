@@ -429,6 +429,18 @@ parked row · (3) "add the images".**
 
 ### The deploy shipped no new code — probed, not assumed
 
+> **CORRECTED 2026-08-17 evening — the CONCLUSION below is right, one of its two supports
+> is WORTHLESS.** The discriminating needle `"patch the three call sites the council saw"`
+> is on line 198 of `component_instance_scope.go` **inside a `//` comment**, so it is
+> stripped by the compiler and cannot appear in any build. It read `absent` again on the
+> NEXT roll, whose revision `a6d1c53c` provably contains that commit
+> (`git merge-base --is-ancestor 5b30a831b a6d1c53c` → 0). What actually carried the
+> claim was the row below it: unchanged tag **and** a running digest byte-identical to
+> the pods already serving. **The cheap instrument I should have used, and did use on the
+> next roll:** `docker image inspect <img> --format '{{json .Config.Labels}}'` →
+> `org.opencontainers.image.revision`, after matching `RepoDigests` to the pod's
+> `imageID`. Logged in WRONG_CALLS 2026-08-17 (third entry).
+
 Pods restarted 14:42Z as `agent-chassis-5bd56bdd9b-*`, image **`v1.0.1305` unchanged**,
 digest `sha256:f90a7e88…`. Single-exec probe with controls on the running binary:
 
@@ -491,3 +503,30 @@ went into `bugs_open/114` (its subject is this class from the other end) and the
 dependency into `bugs_open/227`; both are owned lanes, so both are contributions, not
 competing fixes. `who-owns.py` was run on 114, 131 and 227 before writing a word into any
 of them.
+
+
+## 2026-08-17 evening — v1.0.1307 is REAL, and the unification is LIVE
+
+Tag bumped (1305 → **1307**) and the digest changed (`f90a7e88…` → `8339bdbd…`), so this
+roll is not the same-tag no-op the previous one was. Verified at the artefact, by the
+label rather than by a needle:
+
+```
+docker image inspect aqls/agent-chassis:v1.0.1307 --format '{{json .Config.Labels}}'
+  org.opencontainers.image.revision = a6d1c53c068a5df421479cc9e8801f251f80d539
+  org.opencontainers.image.created  = 2026-08-17T16:50:06Z
+RepoDigests → sha256:8339bdbd…  ==  the pods' imageID   ← the local image IS the running one
+```
+
+`git merge-base --is-ancestor <X> a6d1c53c` for each: **`7027a2801` (the 284 guard) IN ·
+`10fc61184` (the owner's tie-break unification) IN · `cab28cfbe` (my comment repair) IN ·
+`5b30a831b` IN.** Unshipped backlog **42 commits**, down from 215.
+
+Corroborated in the binary with a needle that CAN discriminate, unlike the comment above:
+the pre-unification inline form `EXISTS(SELECT 1 FROM agent_definitions` (no space, no
+alias) is **absent**, and the shared renderer's `EXISTS (SELECT 1 FROM agent_definitions
+ad WHERE ad.type = ` is **present** — that pair is the before/after of `10fc61184`, and
+at HEAD no chassis-compiled source still contains the old form (grep over `platform/`
+returns nothing). So decision (1a) is live: **one definition of "does this work item name
+an agent that exists", rendered from one function, used by the promoter, the claim path
+and `HandlerStepConfig`.**
