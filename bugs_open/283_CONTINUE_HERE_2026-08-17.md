@@ -106,3 +106,38 @@ SELECT html_template FROM content_components WHERE id='24faa765-845e-4d1d-b7df-d
 Then diff the SERVED page once the rerender lands. **Tomorrow 07:40 UTC the
 `instance-token-adoption-check` TRIPS (adopters 0→1): expected, acknowledged by RFC_034 DECIDED —
 retire the CronJob after observing the trip, do not treat it as a defect.**
+
+---
+
+## 6. CANARY RESULT — converted EXACTLY as predicted; rerender fan-out in flight
+
+**18:51:54 UTC: item `38efde3b` claimed and completed in the same second.** The fix result, against
+the prediction made from the pinned fixture before dispatch:
+
+| field | predicted | actual |
+|---|---|---|
+| `fixed` | true | **true** |
+| `ids_declared` | 12 | **12** |
+| `id_attrs_renamed` | 12 | **12** |
+| `get_element_by_id` | 11 | **11** |
+| `id_ref_attrs` | 6 | **6** |
+| `hash_refs` | 0 | **0** |
+
+Verified at the artefact, not the status: the live `html_template` carries
+`id="{{.InstanceID}}-input-value"` and `data-target="{{.InstanceID}}-result-px"`; snapshot v2 in
+`component_versions` (`change_source='scope_component_instance'`); **adoption count is now 1 of
+244** — so the 07:40 UTC tripwire WILL trip tomorrow, which is the RFC_022 expiry doing its job.
+The workflow's own `doc_notes` entry is written and accurate (created_by='component-template-fixer').
+
+**The rerender is a FAN-OUT, and that is worth knowing before reading any status:** the workflow's
+`needs_rerender` item completed by spawning a **111-page site-wide rerender batch**
+(`batch_id 486e96c9…`), not by rerendering the one page. At 19:05 the batch stood 58 complete / 52
+queued, with the canary page's own `page_rerender` item still `triaged`. The stored
+`rendered_html` therefore still carried the OLD ids at that moment — **"complete" on the
+needs_rerender item is not a repaired artefact**, it is a dispatched batch. A background watcher is
+armed on the moment the stored render flips; the served page
+(`/tools/css-unit-converter/index.html`) follows on deploy.
+
+**Still owed on the canary before calling it done end-to-end:** stored render flipped → served page
+carries `c-tool-css-unit-converter-…` ids → the page still works by hand (one click of a copy
+button exercises the renamed `data-target` chain). Then release the HOLD seed for the other 68.
