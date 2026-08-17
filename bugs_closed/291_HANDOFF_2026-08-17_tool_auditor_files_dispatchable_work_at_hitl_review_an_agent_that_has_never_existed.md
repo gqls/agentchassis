@@ -1,8 +1,11 @@
 # 291 — `tool-auditor` files dispatchable work at `hitl-review`, an agent that has never existed, and it is bleeding now
 
 **Filed 2026-08-17** by the `bugs_open/284` lane, which found it while verifying its
-own fix at the live table. **Status: OPEN, evidence measured, producer identified,
-root cause NOT diagnosed beyond the producer** — per the 2026-07-31 owner ruling
+own fix at the live table. **Status: CLOSED 2026-08-17 — fixed AND live on every axis
+(config migrations 450/451/457; Go `c8400e452`+`f629f4530` proven on chassis v1.0.1307
+by digest + binary probe + ancestry, all controlled) AND exercised in production with a
+demand control. See the closure section at the foot of this file.** Originally filed as:
+**OPEN, evidence measured, producer identified, root cause NOT diagnosed beyond the producer** — per the 2026-07-31 owner ruling
 this file asserts no structural root cause; it records what was measured first-hand
 and names the `090` run as the next step. Grepped `/bugs_open/` and `/bugs_closed/`
 for `hitl-review` first: **zero hits**, so this is not a duplicate. The
@@ -207,3 +210,50 @@ NOT applied** (against this binary it would hard-error every review-item filing 
 **Config half remains LIVE and unaffected** (migrations 450/451 — DB config is live on
 apply): the bleed is still stopped and the 14 findings are still parked and actionable.
 Only the Go class-fix and Phase 3 wait on a real roll.
+
+---
+
+## `[MEASURED]` 2026-08-17 — CLOSED: live on every axis, and the guard is EXERCISED
+
+**The roll that counts is `v1.0.1307`** (the 14:43Z one shipped nothing — see the
+section above). Proven three ways before anything was applied:
+
+1. **Digest match** — local `aqls/agent-chassis:v1.0.1307` RepoDigest
+   `sha256:8339bdbd7999…` **==** the running pods' `imageID`.
+2. **Binary probe, both controls discriminating** — `DISABLE_UNREGISTERED_HANDLER_DEMOTION`
+   present (1); positive control present (2); negative control absent (0).
+3. **Ancestry, with a control** — OCI `revision=a6d1c53c068a5df421479cc9e8801f251f80d539`;
+   `git merge-base --is-ancestor` YES for both `c8400e452` and `f629f4530`, and
+   correctly NO for a commit made after the build.
+
+**Phase 3 applied** as **migration 457** (ROLLBACK written first; hand-applied +
+`--record-only`). Live post-state: tool-auditor's `create_review_item` now carries
+`handler_agent=''` + `status='needs_human_review'`, and **zero rows anywhere in
+`site_work_items` carry `hitl-review`** — the one parked `needs_new_layout_candidate`
+row from 2026-08-12 was swept and stamped `result.handler_291`.
+
+**The guard is exercised, not merely deployed** — `PROBE_write_door_guard.sh`
+(`docs024_key_docs_latest/bugfix_291_hitl_review_phantom_handler/`), corr
+`a40d69b7-b91b-431f-9187-b7c8f0ee9220`, `COMPLETED|finish`. Two `create_work_item`
+steps in one inline-workflow dispatch, both at `status='claimed'` (in the guard's
+trigger set, but NOT dispatchable — so the probe cannot cause real work to run):
+
+| arm | handler_agent | born status | error | never claimed |
+|---|---|---|---|---|
+| **TEST** (unregistered) | `zzz-unregistered-probe-291` | **`blocked`** | `Handler agent not registered: zzz-unregistered-probe-291` | yes |
+| **CONTROL** (registered) | `tool-improver` | `claimed` | *(null)* | yes |
+
+The TEST row was blocked **at write, never claimed** — under the pre-guard binary it
+is born `claimed` with a null error, so the observable genuinely discriminates. The
+CONTROL is what makes it a proof rather than a green light: a guard that blocked
+everything would have produced the same TEST row. Both probe rows cancelled.
+
+**Residuals, all owned elsewhere and none reopening this bug:**
+- The **dedup KEY-GRANULARITY** loss — `audit_review_<page_id>` is one slot per PAGE,
+  so any open item swallows later DISTINCT findings for that page. No routing fix can
+  close it (council round 1 was right about this); the fix is per-FINDING review keys,
+  the `bugfix 285` lane's named follow-on.
+- The ~41 raw `INSERT INTO site_work_items` sites bypass the door; claim's branch
+  remains their backstop.
+- Five producers still name the unregistered pseudo-handler `'human-review'` at parked
+  statuses (inert; recorded in WDS-018's limits).

@@ -176,3 +176,41 @@
   ships `c8400e452`+`f629f4530` — verify by DIGEST, then `git merge-base
   --is-ancestor c8400e452 <stamp>`; (2) staged Phase 3 flip; (3) one natural
   tool-auditor run filing `''`+`needs_human_review`; (4) straggler sweep + census.
+
+## 2026-08-17 ~17:2xZ — v1.0.1307 IS the real roll: guard LIVE + EXERCISED, Phase 3 applied, 291 CLOSED
+
+- **Roll proven three ways before touching anything** (the 14:43Z "fresh build" failed
+  the first of these; this one passes all three):
+  1. **DIGEST match** — local `aqls/agent-chassis:v1.0.1307` RepoDigest
+     `sha256:8339bdbd7999…` **==** the running pods' `imageID`. (Tag was bumped this
+     time: `IMAGE_TAG` now `v1.0.1307`.)
+  2. **BINARY probe, both controls discriminating** — `DISABLE_UNREGISTERED_HANDLER_DEMOTION`
+     PRESENT (1); positive control `Handler agent not registered: ` present (2);
+     negative control `ZZZ_NOT_A_REAL_SYMBOL_291` absent (0).
+  3. **ANCESTRY with a control** — image OCI `revision=a6d1c53c068a5df421479cc9e8801f251f80d539`;
+     `git merge-base --is-ancestor` YES for `c8400e452` (guard + relaxed validation)
+     AND `f629f4530` (kill-switch), and correctly NO for a commit made after the build.
+- **Phase 3 applied**: staged file moved in as **migration 457** (+ ROLLBACK written
+  first), applied by hand + `--record-only`. Post-state verified at the artefact:
+  config `handler_agent=''` / `status='needs_human_review'`; **0 rows anywhere in
+  `site_work_items` carry `hitl-review`** (the one parked 08-12 row swept, stamped
+  `result.handler_291`); 0 blocked at the phantom.
+- **The guard EXERCISED, not merely deployed** — `PROBE_write_door_guard.sh` (new, in
+  this dir), corr `a40d69b7-b91b-431f-9187-b7c8f0ee9220`, run `COMPLETED|finish`.
+  Two `create_work_item` steps in ONE inline-workflow dispatch (no `agent_definitions`
+  row written), both at `status='claimed'` — in the guard's trigger set but NOT
+  dispatchable, so the probe structurally cannot cause real work to run:
+  - **TEST** (`zzz-unregistered-probe-291`, precondition-checked as unregistered):
+    born **`blocked`**, `error='Handler agent not registered: zzz-unregistered-probe-291'`,
+    `claimed_at IS NULL` — **blocked AT WRITE, never claimed**. Under the pre-guard
+    binary this row is born `claimed` with a NULL error, so the observable discriminates.
+  - **CONTROL** (`tool-improver`, registered): born **`claimed`**, error NULL —
+    the guard is selective, not a blanket block. Without this arm a
+    block-everything bug would have read as a pass.
+  - Both probe rows cancelled by the script at the end.
+- **291 CLOSED**: fixed AND live on every axis — config (450/451/457), Go
+  (`c8400e452`+`f629f4530` on v1.0.1307), and exercised in production.
+- Residuals carried forward, unchanged and owned elsewhere: the dedup KEY-GRANULARITY
+  loss (per-FINDING review keys — the 285 lane's follow-on); the ~41 raw-INSERT sites
+  that bypass the door (claim remains their backstop); the five `'human-review'`
+  pseudo-handler producers (inert; recorded in WDS-018).

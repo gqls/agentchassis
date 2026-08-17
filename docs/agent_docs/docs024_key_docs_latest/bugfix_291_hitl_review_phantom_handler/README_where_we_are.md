@@ -91,3 +91,37 @@ I deliberately did NOT do the last step of our fix. It only becomes safe once th
 code is actually running — done today it would make the tool auditor fail to file any
 review item at all, silently. The staged script refused to run for exactly that
 reason, which is what those guards are for.
+
+## 2026-08-17, later — this time the release really did go out, and the bug is closed
+
+The second release (v1.0.1307) is the real thing. I checked it three ways before
+touching anything, because this afternoon taught us not to trust the word "deployed":
+the fingerprint of the image built here matches the fingerprint of the image actually
+running; the fix's distinctive marker is present in the running programme (with a
+control that proves the check could have said no); and the image's own record of which
+commit it was built from contains both of our commits — and correctly does not contain
+a commit made after the build.
+
+So I finished the job. The leftover phantom reviewer name is gone: the auditor's
+configuration now uses the standard "no handler, a human decides" form, and there is
+no longer a single row anywhere in the work queue addressed to the reviewer that never
+existed. That went in as migration 457, with its undo script written first.
+
+Then I did the part that matters more than "it deployed": I proved the new safety net
+actually catches things, in production. I sent the live system two work items in one
+go — one addressed to a made-up handler, one addressed to a real one — and watched what
+it did with them. The made-up one was stopped at the moment of writing, marked blocked
+with a clear explanation, and never dispatched. The real one went through untouched.
+That second half is the important half: without it, a net that caught *everything*
+would have looked like success. Both test items were cleaned up afterwards.
+
+**Bug 291 is closed.** The findings that were being lost are back and actionable, the
+cause is fixed at the framework level rather than just for this one agent, and the
+whole thing is proven at the artefact rather than asserted.
+
+Three things stay open, and all three belong to other lanes or later work, not here:
+the review-item filing key is still one-per-page (so a second, different finding about
+the same page can still be squeezed out — that needs per-finding keys, which the tools
+lane already owns); about forty places in the code write to the work queue directly and
+bypass the new door (the older check still catches those, just later); and five other
+places still name a different non-existent handler harmlessly. All are written down.
