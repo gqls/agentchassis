@@ -1765,3 +1765,42 @@ looked new"*. **`IMAGE_TAG` must be bumped; a restart on the same tag is not a r
 Note one probe arm was worthless and I should not have written it: `grep -aq "bestDomainKey"`
 tests for a LOCAL VARIABLE name, which Go strips — it would read ABSENT on a binary that has
 the fix. The commit-stamp probe is the one that carries the result.
+
+### 2026-08-17 (evening, cont.) — the pilot's deploy failures are a LIVE FLEET-WIDE OUTAGE, not a pilot fault
+
+Chased the 11 deploy failures and they are the local edge of something much larger.
+
+**The split is clean, and it is not credentials.** Every site taking the 404 has
+`github_repo = (EMPTY)`; every site with a real repo has none:
+| site | github_repo | base-tree 404s (4h) |
+|---|---|---|
+| remortgagecalculator.uk | (EMPTY) | 11 |
+| robot-hands.com | (EMPTY) | 9 |
+| loancalculator.co.uk | (EMPTY) | 4 |
+| noted.co.uk | vm-sites | 0 |
+| webdesign.uk | vm-sites | 0 |
+| oufe.com | (EMPTY) | 0 |
+**The adapter is HEALTHY**: its own log shows `deploy_page` succeeding for noted.co.uk at
+16:25:37Z with `repo_name: vm-sites`, `success: true`. So the token works, the pod works, and
+"GitHub is down" / "the token expired" are both refuted. **Caveat on oufe.com**: 0 there is
+absence of ACTIVITY, not evidence of success — it did not deploy in the window, and I have
+not shown it would succeed.
+
+**Scale and timing (measured):** ~832 `base tree` 404s since **13:31Z**, still firing at
+16:14Z. `page-rerender` 488 · `build-dispatch-loop` 254 · `asset-deployer` 40 ·
+`image-build-handler` 12 · `rerender-pages` 10 · `page-build-handler` 9. **808 of them carry
+a NULL `site_id`**, so anyone counting by site sees a small fraction of the damage.
+
+**Two things make it hard to see, and both are worth fixing regardless of the cause:**
+1. It is logged under **`error_code = 'LLM_API_ERROR'`** — a deploy fault filed under an LLM
+   code. Grepping for a deploy problem does not find it.
+2. Most rows have no `site_id`, so per-site triage under-reports it ~70x.
+
+**Filed `090`: `RUN_CORRELATION_ID=75220928-935a-4e5d-8982-802992b0af34`.** What I could NOT
+establish first-hand, and therefore did not assert: WHICH component chooses the git route
+versus the bucket route, and what changed at 13:31 so that no-repo sites reach the git path
+at all. `deploy_config` is `{}` on the affected sites AND on long-established ones that have
+deployed fine for weeks, so the route is decided somewhere else.
+
+**Not this lane's to fix** — shared deploy infrastructure — but it is the reason the pilot
+site is built and not published, so it belongs in this lane's handoff as the blocking item.
