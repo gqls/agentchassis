@@ -654,3 +654,49 @@ generating ~86% of the events, plus a tail of ~214 rows across five agents. So:
 **Owed, unchanged:** the per-pair triage (now much better scoped), and 417's live proof, which is
 still demand-bound — `image-build-handler` has not run since the apply (0 in 19 h; it ran 3
 times in the 8 days before), and zero strict/`asset_id` errors have appeared.
+
+#### 10.6a The `[INFERRED]` above is now MEASURED, and the real rule is sharper than "the earliest iteration wins"
+
+One ballot, read in full (a `work_item_id` conflict, 13 candidates, `build-dispatch-loop`):
+
+```
+claim_result.work_item_id                                     <- WINNER
+claim_result_0.work_item_id
+claim_result_1.work_item_id
+process_item_iter_0_claim.work_item_id
+process_item_iter_1_claim.work_item_id
+process_item_iter_0_done.results[0].claim.work_item_id
+process_item_iter_0_done.results[0].claim_result.work_item_id
+handler_result.retry_payload.message.body.~unwrap.work_item_id
+handler_result.retry_payload.message.body.input_data.work_item_id
+handler_result_1.retry_payload.message.body.~unwrap.work_item_id
+handler_result_1.retry_payload.message.body.input_data.work_item_id
+process_item_iter_1_call_handler.retry_payload.message.body.~unwrap.work_item_id
+process_item_iter_1_call_handler.retry_payload.message.body.input_data.work_item_id
+```
+
+**`[MEASURED]`** the depth-1 candidates are exactly `claim_result`, `claim_result_0`,
+`claim_result_1` — the un-suffixed base plus one per iteration. Depth cannot separate them, so
+D1's **tie-break decides, and the tie-break is sorted-key DFS order**: `claim_result` sorts
+before `claim_result_0` before `claim_result_1`. **The base name always sorts before its own
+suffixed siblings**, because the suffix is an append.
+
+So the rule is not "the earliest iteration is shallowest". It is: **where loop expansion writes
+`<field>_<iter>` beside a base `<field>`, the deterministic winner is always the BASE key** —
+and by `bugs_open/287` §9 fact 2 the base key is populated by `propagateIterationOutputs` at the
+*start* of each iteration, so it holds iteration N−1's value (or nothing on iteration 0). The
+stale value does not win by accident; it wins by construction, every time, on every field that
+loop expansion suffixes.
+
+**This corrects §10.6's own guess** (~~"shallowest therefore favours the earliest iteration"~~ —
+the earliest iteration's *suffixed* key `_0` in fact LOSES to the base; the effect is the same
+staleness but the cause is the naming, not the depth). It also sharpens what D1 did: determinism
+converted "randomly stale" into "always stale" for this shape. That is still the ruling's stated
+preference — a stable wrong answer is visible and fixable where a coin flip is neither, and it is
+what made this measurable at all — but **Phase 2's design must say it out loud**, because it is
+the one case where the search's *deterministic* answer is reliably the wrong one, and refusing
+(Phase 2) is strictly better than picking here.
+
+Filed to `bugs_open/287` §10 as an addendum, since it strengthens that fix's rationale: after
+§9a (a) suffixes the reference, `mark_complete` stops searching altogether, which is the only
+version that survives this tie-break.

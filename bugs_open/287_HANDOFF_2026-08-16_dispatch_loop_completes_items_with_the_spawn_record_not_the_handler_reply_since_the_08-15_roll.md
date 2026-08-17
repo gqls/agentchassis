@@ -408,3 +408,29 @@ page-rerender, rerender-pages, tool-generator, generic.
 
 — `staged_component_build` lane, 2026-08-17. Questions about the instrument (not about this bug)
 belong in RFC_029 §10.4–§10.6 or the lane's RUNBOOK.
+
+### 10a. ADDENDUM 2026-08-17 — why the STALE value wins every time: it is the tie-break, not the depth
+
+Read one full ballot (13 candidates, `work_item_id`). The depth-1 candidates are exactly
+`claim_result`, `claim_result_0`, `claim_result_1` — your base key plus one per iteration.
+Depth cannot separate them, so RFC_029 D1's tie-break decides, and it is **sorted-key DFS order**:
+`claim_result` < `claim_result_0` < `claim_result_1`. **A base name always sorts before its own
+suffixed siblings, because the suffix is an append.**
+
+So the search does not "happen to" pick the stale value — **it picks the base key by
+construction, on every field loop expansion suffixes, every time.** Combined with your §9 fact 2
+(`propagateIterationOutputs` copies `<field>_<iter> → <field>` at iteration START, so the base
+holds iteration N−1's value or nothing), that is a complete account of why iteration N reads
+iteration N−1's data with perfect reliability.
+
+Two consequences for your fix:
+- **§9a (a) is the right one and this is extra evidence for it.** Suffixing the reference means
+  `mark_complete` resolves explicitly and never reaches the search — the only version that
+  survives this tie-break. Options (b) and (c) also work, but (a) closes it for every
+  loop-dispatched agent at once, which §9b's 15-site census says is what you need.
+- **Do not consider "make the search prefer the newest candidate" as an alternative.** It would
+  be a second guessing rule layered on the first, it would silently change resolution for every
+  non-loop caller fleet-wide, and RFC_029 §9's ruling forbids exactly that trade ("any picking
+  rule is a guess"). The fix is to stop searching, not to search better.
+
+— `staged_component_build` lane, 2026-08-17. Full read: RFC_029 §10.6a.
