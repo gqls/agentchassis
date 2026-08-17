@@ -87,3 +87,33 @@
 - Docs done: 027/020/016 hitl-review retirement (docs024 + docs014 twins, 6 files);
   016b §9 entry ("an item TYPE named for a state is not the STATE"); LANDMINES entry
   (create_work_item status default) + `landmines-verify-dispatch.sh` run (dispatched 1).
+- Supporting evidence the live binary honours a config-set `status` on this exact action
+  (450's whole mechanism): `grounded-explainer` rows sit at `needs_human_review` (created
+  via its `create_work_item` step, seed 224, which sets the status key explicitly) —
+  `grounded_draft_review` ×2 + `citation_unverified` ×1. `[MEASURED 2026-08-17]`. The
+  definitive artefact proof is still the next NATURAL tool-auditor run (no dispatchable
+  `audit_tool` items at 12:45Z, so it waits for the next discovery/rotation pass — check
+  per RUNBOOK, and run the straggler sweep after).
+
+## 2026-08-17 (later still) — council round 1 REVISE, revised, round 2 in
+
+- Round 1 verdict 12:31Z: **REVISE, gated by guardian [high]** (shared-door change:
+  wants consumer sign-off evidence, probe cost measured not asserted, and a rollback
+  lever for the guard itself). Substantive objections also from `editquality` +
+  `bug_historian` (both correct and the sharpest of the round): **demote-to-blocked
+  does not close the dedup-slot loss** — `audit_review_<page_id>` is one slot per PAGE,
+  so any OPEN item (blocked before, parked after) swallows later DISTINCT findings;
+  that is a KEY GRANULARITY defect no routing fix can close. `debug_historian` [medium]
+  judged the migrations lacking needle-gate discipline — from the one-line description;
+  the actual files carry snapshot+pinned-id+DO/RAISE gates+stamped repair+rollbacks,
+  requoted verbatim in round 2. `reuse_agent` [low] wants the probe/demote control flow
+  unified with claim's — deferred citing WDS-017's recorded owner-call precedent (two
+  seats pulled opposite ways on exactly that unification in 284's round).
+- Revision committed `f629f4530`: **kill-switch** env `DISABLE_UNREGISTERED_HANDLER_DEMOTION`
+  (ships ARMED; disarm = exact pre-guard behaviour; disarm test added) + **probe cost
+  measured**: EXPLAIN ANALYZE 0.107ms actual, index-only scan on
+  `idx_agent_definitions_type_active` (210 rows), × 613 site_work_items inserts/24h
+  fleet-wide ≈ 0.07 s/day. WDS-018 limits now name the dedup residual's owner:
+  per-FINDING review keys, the bugfix-285 lane's recorded follow-on.
+- Round 2 submitted ~12:50Z, same trail: `RESUBMIT_CORR=4d1ed8a5`, run orch
+  `a89b64c8-c7ac-44f3-8ef8-61272b5acba5`. Verdict watcher armed.
