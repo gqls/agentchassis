@@ -4645,7 +4645,19 @@ that is also the thing you would want in the logs is not.
   empty) into what it calls a page's "stored assembly" — filed as
   `bugs_open/280`. Once `bugs_open/270`'s fix ships AND 280 is fixed, the
   reader count returns to zero; check both bugs' status before trusting
-  either count. (2) **"Zero `site_components` rows there is the real 'no
+  either count.
+- **CORRECTED 2026-08-17 (bugfix_280_decision_guards_chrome lane): the reader
+  count has returned to ZERO.** Both `bugs_open/270` and `bugs_open/280` are
+  now fixed, council-approved and **verified live** (binary-probe confirmed,
+  both `agent-chassis` replicas, 2026-08-17 — see `bugs_closed/280`'s closing
+  update for the method). Fresh census, same day:
+  `grep -rn "pg\.rendered_header\|pg\.rendered_footer\|pg\.rendered_head" platform/ --include="*.go" | grep -v _test.go`
+  returns only historical comments in `check_decision_guards.go` and
+  `check_missing_structure.go` documenting the old bug, plus one already-corrected
+  descriptive comment in `check_site_structural_validity.go` — **no live code
+  path reads these columns anywhere in the tree.** If a third reader is ever
+  added, re-open this correction rather than trusting "zero" as a permanent
+  fact — it is a snapshot, not a guarantee. (2) **"Zero `site_components` rows there is the real 'no
   chrome' signature" (line above) has a known exception, named in this SAME
   entry's own "confirmed" sentence**: `loanandmortgagecalculator.co.uk`
   served full chrome with zero rows precisely because chrome was baked into
