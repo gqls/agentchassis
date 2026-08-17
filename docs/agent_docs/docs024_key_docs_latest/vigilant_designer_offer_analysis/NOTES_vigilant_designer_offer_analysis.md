@@ -2068,3 +2068,39 @@ is not — it is right to refuse, and `6a9d85777` shows the lane that built it s
 exit deliberately and self-caught when it over-applied. The defect is only the **missing record**.
 Reading the commit that touched the exact lines is what stopped me mis-stating it; the file:line
 alone would not have.
+
+## 2026-08-17 — PREDICTIONS recorded BEFORE opening the sweep window (owner said: open a short one)
+
+Owner took both decisions put to him: fix 295 first (done, committed `2a5798c4b`, council
+`d4f49ea5`, inert until a roll), and **open a short sweep window**.
+
+**Pre-flight, the 389 way — measured before enabling anything:**
+- `improvement-sweep` pre_query picks **ONE site per firing** (`LIMIT 1`), ordered
+  `s.updated_at ASC NULLS FIRST`, skipping any site with a `claimed` build item or **≥50** items
+  in `(triaged, detected)` on `pipeline='build'`. Interval **900s**.
+- **All 23 active/deployed sites are eligible — zero skips.** Backlogs run 0–21 against the 50
+  guard (08-11's problem, where five sites sat over it, is gone). Firing order starts
+  dartsonline.com → gamesdesign.co.uk → robot-hands.com → vetcomparison.uk → finetuning.uk → …
+- **All 23 are `audit_due=true`, none `not_converging`** — computed by running the gate's OWN
+  query from `load_audit_state`, not by inference. So *every* firing runs the full audit chain
+  including B4, which is the expensive shape, not the cheap one.
+- Chassis pods 14h old — well past the ~300s dispatch-drop window. Pod hash `5657f446c7`, a
+  different build from yesterday's `5d95ddddfd`, and **my 295 fix is NOT in it** (committed after
+  the roll). Expected and stated so the next prediction is falsifiable.
+
+**Predictions, in falsifiable form:**
+1. Sweeps fire ~every 15 min, one site each, starting at **dartsonline.com**.
+2. Each swept site runs `spawn_offer_analyser → call_offer_analyser` (all are audit-due).
+3. **`offer_ordering` grows by one site per swept site**, from the current **3**.
+4. Each B4 run files roughly 4–5 items under `audit_source='offer-analysis'`, and the sweep
+   promotes and dispatches them rather than parking them.
+5. **The 295 prediction, and the one that could most usefully come out wrong:** any dispatched
+   content item landing on a `rebuild_policy='owned'` page will die `failed` with **NO**
+   `owned_page_review` row carrying `refused_by='save_page_sections'` — because the fix is
+   committed but not rolled. **If such a row DOES appear, my "inert until a roll" claim is wrong
+   and I should find out why before trusting anything else I said about the deploy state.**
+
+⚠ **Window discipline, written down because a window nobody closes is just an expensive default:**
+this is enabled by a direct `UPDATE`, **not a migration** — deliberately, because a migration that
+enables it would re-enable the sweep for anyone who later runs the migration set, which is exactly
+the kind of surprise 389's own header worries about. **It must be disabled in this session.**
