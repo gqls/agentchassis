@@ -150,8 +150,13 @@ write-time registry check `bugs_closed/279`'s ratchet header said did not exist)
   born-`blocked` (claim's own predicate via `workItemHandlerRegisteredSQL`; demote not
   refuse; feasibility-recheck self-heals on registration); `create_work_item` accepts
   the parked idiom from config; `resolve_composition_layout` drops the phantom for
-  `''`. Register **WDS-018**. Council `4d1ed8a5-20c4-420f-b619-6197ab9af1b2`
-  (submitted; verdict pending at time of writing).
+  `''`. Register **WDS-018**. Council `4d1ed8a5-20c4-420f-b619-6197ab9af1b2`:
+  round 1 REVISE (guardian, gating — answered with a kill-switch
+  `DISABLE_UNREGISTERED_HANDLER_DEMOTION`, ships armed, + measured probe cost
+  0.107ms × ~613 inserts/day, commit `f629f4530`); **round 2 APPROVED**
+  (2 advisories, none high; the dedup KEY-GRANULARITY loss is recorded as a
+  residual owned by the 285 lane's per-finding review keys — no routing fix can
+  close it).
 - **STAGED** (`bugfix_291_.../STAGED_tool_auditor_review_handler_to_empty.sql`):
   the flip of tool-auditor's inert parked handler to `''` — MUST NOT apply before the
   roll (ordering gate in the file header).
