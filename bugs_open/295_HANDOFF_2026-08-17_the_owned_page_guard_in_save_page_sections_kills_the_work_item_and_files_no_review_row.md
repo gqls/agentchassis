@@ -60,6 +60,41 @@ the 16:15 one could not have been.** A control of 40 zeros matches every binary 
 using it cannot discriminate and its absences are worthless (auto-memory
 `a-fresh-deploy-can-ship-no-new-code`, found by another lane the same day).
 
+### What the fix will make visible — SIX producer families, not one, and a correction to my own churn claim
+
+`[MEASURED 2026-08-17 18:20]` **26 content-type items have died `failed` on `rebuild_policy='owned'`
+pages**, from at least six independent producer families:
+
+| producer family | failures | pages | window |
+|---|---|---|---|
+| `literal_markdown` (deterministic checker layer) | 8 | 8 | 08-14 |
+| `tool_crosslink` (`content_rewrite`) | 6 | 3 | 08-15 → 08-17 |
+| `tool_content` (`needs_content_page`) | 3 | 3 | 08-15 → 08-17 |
+| `design-audit` (`needs_content_page` ×2, `content_rewrite` ×1) | 3 | 2 | 08-11 |
+| **`offer-analysis`** (`content_rewrite` ×2, `tone_shift` ×1) | 3 | 3 | 08-15 → 08-17 |
+| `placeholder_contact` | 2 | 2 | 08-14 |
+| `gap_plan` (`content_rewrite`) | 1 | 1 | 08-17 |
+
+⚠ **This is an UPPER BOUND on what this guard killed, not a count of it.** Only **three** are proven
+— the two quoted from 08-15 and `tool-ttk-calculator` at 13:02:18 today. Every other orchestration
+is past the ~24h retention and its `__step_error` is unreadable, so "failed on an owned page" is
+**not** the same claim as "refused by this guard". Do not repeat the 26 as if it were.
+`[UNMEASURED]` for the other 23. What the number does establish is the **population the fix now has
+to report on**, which was the point.
+
+> **CORRECTION to my own 2026-08-16 churn prediction — it is NOT confirmed, and the truth is a
+> different mechanism.** I predicted that `failed` being outside the dedup index's open set would
+> let the SAME finding re-file and re-fail each sweep. Two `tool-ttk-calculator` failures 35 minutes
+> apart (13:02, 13:37) looked exactly like that. **They are different `item_key`s from different
+> producers** — `offer-analysis_content_rewrite_…` and `gap_plan_add_…`. Likewise
+> `learn-algorithms-p-values-explained` carries **four distinct `tool_crosslink:<tool>:…` keys**
+> (one per cross-linking tool), three failed across three days and a fourth queued right now.
+> **So the repetition is real and the mechanism I gave for it was wrong:** it is not one finding
+> re-filed, it is many producers independently arriving at the same owned page and each dying
+> silently. The waste is comparable; the fix for it is not (a dedup change would have done nothing).
+> Checking the `item_key`s rather than the counts is what separated the two, and I would have
+> recorded the wrong cause from the timestamps alone.
+
 ### ⚠ STILL OPEN, and the reason is not bureaucratic: **the guard has not been asked**
 
 `owned_page_review` rows with `refused_by='save_page_sections'`: **0**, at 18:16 UTC, 70 minutes
