@@ -33715,3 +33715,46 @@ SYSTEM when it was a fact about the QUERY — which makes it the second member o
 in three days, both mine.
 
 ---
+
+## 2026-08-17 — a handoff asserted "BLOCKED" about work that had been finished three hours earlier, and the block was the FIRST thing the next session read
+
+**Lane:** `copy_quality_two_stage`. **The claim:** the 2026-08-15 handoff's closing section
+— *"NEW 2026-08-15 (late): webdesign.co.uk … WAITING on a composition bug … **Blocked on:
+`bugs_open/278`**"*, with an ordering constraint (fix composition first) restated over two
+paragraphs so the next session would not get it wrong.
+
+**Why it was false:** both halves had already landed. `bugs_open/278`'s duplicate plan row
+was deleted at ~18:2xZ and the page was regenerated at **19:15:13Z** — all three components
+created in one pass, deployed 19:15:35Z. The handoff was committed at **22:13:17Z**
+(`d31951646`), about **three hours later**. Nothing had changed in between; the session
+simply never re-read the state it had recorded earlier that evening before writing its
+closing summary of it.
+
+**Caught by:** the next session (this one) re-checking the blocker before working around it
+— one query against `site_plan_sections` and one `curl` of the served page. That check was
+run only because the handoff's OWN standing caution says to
+(*"Re-verify 'X does not exist' claims … before building X"*), which is the rule working,
+one document too late.
+
+**The cheap check that would have caught it:** re-run the query that ESTABLISHED the block
+immediately before writing the handoff section that asserts it. The block was three
+sentences of prose and one `SELECT`; the `SELECT` was the perishable half and was not
+re-run. A handoff is not a log entry — NOTES may say "blocked as at 19:00Z" for ever, but a
+handoff is read as PRESENT TENSE by definition, so every state claim in one carries an
+implicit "as I write this" that only a re-check can honour.
+
+**Second, smaller error in the same neighbourhood, not ours but corrected in place:** the
+`bugfix_122` handoff credits the copy fix to *"the copy lane's voice rewrite"*. This lane
+ran no rewrite — its own handoff, written three hours later, still believed the case was
+blocked. The item was `created_by: offer-analysis`, `source: discovery`, a positioning fix
+that regenerated the page and inherited the v2 house voice on the way. **Attributing an
+outcome to the lane that OWNED the problem, rather than to the row that produced it, is its
+own failure mode** — it would have had us record a route as exercised when this lane has
+still never driven it. CONTRIB filed in their directory.
+
+**Cost:** none directly — the re-check took two minutes and the finding was good news. The
+cost it nearly had is the point: a session that trusted the handoff would have spent its
+first hour coordinating with another lane about a bug that was already closed, and would
+have recorded a route as proven that has never been run.
+
+---

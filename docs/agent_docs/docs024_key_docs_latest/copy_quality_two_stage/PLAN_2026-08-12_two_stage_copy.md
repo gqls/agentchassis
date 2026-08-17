@@ -528,3 +528,50 @@ once in the keys it can carry.
 prescription in `bugs_open/260` candidate 2 rather than only against this plan.** The
 expiry point travels with it: the losslessness result is measured against four components on
 one day, and re-running the key enumeration is a precondition for trusting it again.
+
+---
+
+## 11. DELIVERED 2026-08-17 — what this plan asked for, and what it got wrong
+
+**Phase 2 (the actual gap) and Phase 4 (acceptance checks) are BUILT.** `copy-editor` is
+seeded (`sql_for_agents/447_copy_editor_stage_two.sql`, register **CQ-024**), and
+`gate_stage2_edit.py` grades a proposal before it is applied. Evidence, row ids and the
+first run's numbers: NOTES 2026-08-17.
+
+**Three things this plan predicted correctly**, recorded because they were load-bearing
+design bets made before the sweep confirmed them:
+
+- **The split was the only new thing.** §6 Phase 2 said page-scoped READ / section-scoped
+  WRITE "is the new thing this lane would build, and it is the only part not already
+  present somewhere in the estate". Measured on delivery: exactly right. Every other
+  ingredient existed — `section-editor` to write, `checkpoint_for_review` to queue,
+  `{{.voice_style}}` to carry the voice, `content-quality-auditor` as a page-scoped read
+  to copy from.
+- **Locks, not instructions.** In the SELECT, structurally, as §6 demanded.
+- **The set must be enumerated as data.** The proof-case component's own `llm_guidance`
+  *already* says "Preserve every factual claim, figure, and internal link present in the
+  existing content" — and that page lost six links anyway. The prose instruction was live
+  the whole time; it is not what worked.
+
+**One correction to §6 Phase 2's framing.** It listed two constraints that "must be
+resolved by a human before any of it is built", the first being that an unsupervised copy
+rewriter changes a deliberate guarantee and therefore needs architecture review. D2 had
+already dissolved that in the other direction — by keeping the guarantee (output queues for
+review) stage 2 never becomes architecture-scope — but §6 was left standing as though the
+question were open. **It was closed on 2026-08-12, and a later reader would have re-opened
+it.** What actually remained was engineering, and it was config.
+
+**A correction to the ORDER, from the owner's decision 4 (2026-08-15).** §8's "revised
+order of work" ends *"6. Stage 2 … only after 5 [`bugs_open/033`]"*. That is superseded:
+stage 2 was built in PARALLEL with the 033 thread, on the ruling that its first output is
+the committed proof case, which the owner reviews directly either way. **The dependency was
+real but it was on the REVIEW, not on the QUEUE** — and a human reading one proposal needs
+no dashboard. What 033 still gates is routine operation at volume, which is a different
+claim from the one §8 made.
+
+**What §9/§10's gate argument bought, and what it did not.** The type gate is built on both
+dialects and has its own induced control. But on the proof-case component it is close to
+vacuous: `ported-prose` declares ONE `html` field, so `field_updates` and
+`replacement_content_data` are the same edit and §10's blast-radius mitigation has nothing
+to narrow. The gate earns its place on multi-field components; here it is insurance, and
+saying so is the difference between a measured gate and a green light.

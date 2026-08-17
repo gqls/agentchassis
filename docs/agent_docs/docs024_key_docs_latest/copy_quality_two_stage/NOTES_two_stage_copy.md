@@ -1366,3 +1366,128 @@ runs all 9 quality checks, several of which now have live promotion paths (SCH-0
 today) and one known misfirer (`generic_theme`) — a full-agent fire to re-measure an
 already-measured zero is blast radius with no information. Expectation to check when the
 rotation reaches LMC: **0 claims items; any finding = a page changed after tonight.**
+
+## 2026-08-17 — STAGE 2 IS BUILT, AND IT PASSED ITS PROOF CASE ON THE FIRST RUN
+
+The handoff's "all that remains" is done. `copy-editor` is seeded, live, and has produced
+one graded proposal against the committed proof case. It is **config-only** — no Go, no
+council submission (that gate's scope is `platform/`/`internal/`/`pkg/`), and it was live
+the moment migration 447 applied.
+
+### Re-verification first, because the handoff was two days old
+
+- **Chassis has rolled**: `v1.0.1305`, both replicas, build commit **`6a782274b`**
+  `[MEASURED]`. The startup `build provenance` line had already scrolled out of a
+  400 KB log head, so this is the binary probe with controls: `grep -acF` → **3** hits on
+  both pods for `6a782274b…`, **0** for a commit made after the roll, and the probe
+  discriminates. `git merge-base --is-ancestor 0115f2b45 6a782274b` → TRUE, so the
+  section-editor **mode split is still in the running binary** and stage 2's
+  `field_updates` preference stays measurable.
+- **The proof case is intact and STABLE**: the live `prose-0` component is
+  **byte-identical to the committed fixture** — same `sha256`
+  (`4f55b963…`), five days on. ⚠ It first looked like 5 bytes of drift (`length()` 6,583
+  vs 6,588 on disk); that is postgres counting **characters** and the file counting
+  **bytes**, and the page carries `£`. Compare digests, never lengths.
+- `gate_page_links.py` still fails with exactly the same 6 of 16 links, and its induced
+  control still fires.
+
+### CORRECTION — the webdesign.co.uk case was NOT blocked, and was already closed when I said it was
+
+The handoff's last section says the webdesign voice fix is *"WAITING on a composition
+bug"*. **It was already fixed three hours before that sentence was committed** (handoff
+committed 22:13Z; the fix completed **19:15:38Z**). Verified now, live:
+`site_plan_sections` has one `info-card-grid` (the duplicate row at ordering 2 is gone),
+all three `page_components` were **created** in one pass at **19:15:13Z**, and the served
+page carries one `info-card-grid__title` with the h2 reading *"Tools and guides, sorted by
+the problem you're solving"* — the *"A workbench, not a sales pitch"* construction is gone.
+
+**And the attribution in the `bugfix_122` handoff is wrong, in a way worth correcting
+rather than shrugging at.** It credits the copy half to *"the copy lane's voice rewrite"*.
+This lane ran no rewrite — its own handoff, written three hours later, still believed the
+case was blocked. The item that did it was `13522562…`, **`created_by: offer-analysis`,
+`source: discovery`**, a `content_rewrite` about the homepage tagline leading with
+inventory rather than the zero-friction promise, dispatched through `page-build-handler`.
+
+**What actually removed the AI tell was a ROUTINE REGENERATION INHERITING THE v2 CARRIER.**
+Nobody aimed at the voice. Another lane's positioning fix regenerated the page, and because
+D1 made v2 the fleet default on 08-13, the new copy came out without the tell. That is the
+strongest evidence the lane has that CQ-022 works **unattended** — better evidence than a
+targeted rewrite would have been, because nothing was steering. `[MEASURED]`
+Residual: two `rather than` contrast constructions survive in card bodies, which v2 permits
+("earned once or twice per page at most"). Not a defect on today's rules; noted, not filed.
+
+### Prior-art sweep before building anything (the lane's own standing lesson)
+
+Re-checked every "X does not exist" claim against the live estate. Result: **stage 2 needed
+no new mechanism except the page-scoped read**, exactly as PLAN §6 Phase 2 predicted.
+
+| stage 2 needs | exists? | what it is |
+|---|---|---|
+| page-scoped READ | **the gap** | but `query_database` reaches it in config — no Go |
+| section-scoped WRITE | yes | `section-editor` / `apply_section_edit`, `field_updates` |
+| edit-in-place channel | yes, SECTION-scoped | `load_current_section_content` + `spec.mode=edit_live` (`bugs_open/178`) |
+| the house voice | yes, automatic | `{{.voice_style}}` is injected into any template naming it (`ai_actions.go:300-315`) |
+| a human-review checkpoint | yes | `checkpoint_for_review` — "create a needs_human_review item without suspending the orchestration", with an `on_approve` follow-on |
+| a live template to copy | yes | `content-quality-auditor` — same shape, and already page-scoped |
+
+`copy-editor` (`sql_for_agents/447`) therefore needed **no binary**, which also means no
+roll, no wait, and no council round.
+
+### The four safety rules are asserted AT APPLY TIME, not promised in comments
+
+A doc comment enforces nothing on a tree this many sessions share, so the migration RAISEs
+on each. All four passed on apply (`NOTICE: copy-editor seeded: 4 rules asserted`):
+
+1. **No step can write to a page** — RAISEs if any step's action is one of six
+   page-writing actions. D2's "no unreviewed auto-rewrite" is now a property of the config.
+2. **The lock is in the SELECT** (`locked_at IS NULL`), not in the prompt — the rule proven
+   three times, most sharply on 08-09 when both prompt versions tried to overwrite the
+   owner's approved opening and only the lock stopped them.
+3. **`{{.voice_style}}` must be referenced**, or the agent silently runs with no house
+   voice at all (CQ-022's stated degradation).
+4. **The stage-1 brief is refused** — RAISEs if any step selects `content_direction` other
+   than the declared `required_links` array. The SET is data; the framing is denied.
+
+### The gate came BEFORE the run, and every control fires
+
+`gate_stage2_edit.py` grades one proposal before it is applied: types (both dialects), link
+set (no drops + the page's declared set), markup (no class or structural element lost),
+facts (no figure lost, **none invented**), volume floor. `--self-test` runs five induced
+controls plus a dialect control; **all six fail as they must**. The type control was added
+after I noticed the first version had no way to fail on the one check that guards
+`bugs_open/260` — the armed-but-inert shape this lane has now hit three times, caught in my
+own work this time.
+
+Two properties worth keeping: the gate **reproduced the known defect independently** (same
+6 links, by a different route — it reads one component's `content_data`, `gate_page_links.py`
+reads all components' `rendered_html`), and it **reports coverage, not just findings**
+(which fields were type-checked; that a legacy-dialect component's `maxItems`/`enum`/
+`pattern` were never evaluated).
+
+### The first run `[MEASURED]`
+
+Hand-fired canary, orch `18e0d79e`, corr `83ec64fb`, ~50 seconds end to end.
+
+- **Judgement:** it found the real defect and named all six missing guides, then said
+  *"Everything else — order, naming, tone — is sound and doesn't need touching."*
+- **The diff is SIX ADDED LINES AND NOTHING ELSE.** No prose rewritten, no reordering, no
+  markup touched. The "if a section is already good, leave it out entirely" instruction
+  held on its first outing.
+- **Gate: PASS, 0 failing** — 16/16 required links, 22 hrefs preserved, 42 class attrs
+  intact, no structural count fell, 6 figures unchanged with **none invented**, 669 words
+  against a 566 floor.
+- **Not truncated**: 5,651 output tokens against a 16,000 cap, and the HTML closes cleanly.
+  (`llm_call_log` has no `stop_reason` column — the token comparison is the check here.)
+- **The page is unchanged.** The workflow cannot write to it; the proposal sits at
+  `copy_edit_proposed` / `needs_human_review`, item `6dce90f1…`.
+
+### What is NOT proven, stated plainly
+
+- **The apply path has never run.** The gate grades a PROPOSAL. `on_approve` →
+  `section-editor` is declared and **unexercised**, because it depends on the dashboard
+  endpoint `bugs_open/033` is about. Approval today is by hand.
+- **`field_updates` buys nothing on this component**: `ported-prose` declares ONE `html`
+  field, so "the fields being edited" is the whole component. The blast-radius argument
+  needs a multi-field component to mean anything.
+- **One run, one page, one defect** — and an unusually legible defect. Whether the
+  restraint survives a subtler page is the open question, not a claim.

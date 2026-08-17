@@ -299,3 +299,57 @@ bury the review queue in false alarms is settled by measurement: it won't. The m
 claim is corrected where it was written, with the lesson logged.
 
 Next: the editorial pass build, in parallel with the review-surface thread, as you ruled.
+
+## 2026-08-17 — the editorial pass exists now, and it passed the test we set it in June's terms
+
+The second stage is built. That was the last thing on the list, and it works.
+
+To recap what it is, because the name doesn't say much: the writer that builds a page is
+judged on whether the facts are right, the sections are all there, and the links and
+styling are correct. Nobody has ever judged it on whether the result reads like a person
+wrote it, whether the most useful thing is at the top, or whether the page talks about
+itself instead of talking to the reader. We had something that noticed those problems and
+nothing that fixed them — design problems had a fixer, copy problems didn't. This is the
+missing fixer.
+
+**It turned out to need no new code at all.** Before building anything I went looking for
+what already existed, and nearly all of it did: a way to read a page, a way to apply an
+edit to one section safely, the house voice we shipped last week, and a way to put work in
+front of a human before it lands. The only genuinely missing piece — letting the editor see
+a whole page at once instead of one section at a time — could be done with a database query
+in configuration. So it went live the moment it was applied. No build, no wait for a
+release.
+
+**The test.** You ruled on the 12th that the six guide links missing from the loan-and-
+mortgage homepage should stay there, unrepaired, as this thing's proof. We kept them. Today
+the editor read that page and, without being told what was wrong, reported that six
+required guides were missing from the list, named all six, and then said everything else on
+the page — order, naming, tone — was sound and didn't need touching. Its proposed fix is
+six added lines and nothing else. Not one sentence of the existing copy was rewritten.
+
+That restraint is the part I'd flag. The failure we kept expecting was an editor that
+"improves" a page nobody asked it to improve and quietly loses things on the way — which is
+precisely how those six links went missing in the first place. This one changed only what
+was broken.
+
+**Nothing has been applied to the site.** By your decision in June, this thing is not
+allowed to change live copy without a person reading it first, and it is built so it
+physically cannot: there is no step in it that can write to a page. Its proposal is sitting
+in the review queue waiting for you. **That's the one thing I need from you** — a yes, and
+I'll apply it and confirm the links are live.
+
+I also built the checker that grades any proposal before it is applied: does it still carry
+every link, has it lost any styling, has it invented a figure that wasn't there, has it
+quietly shrunk the page. It reports a pass only after failing on purpose first — I feed it
+five kinds of deliberate damage and it has to catch all five, or I don't trust its green
+light. It does.
+
+**One correction to last night's handover.** It said the webdesign.co.uk copy fix was
+blocked, waiting on the duplicated-section bug. It wasn't — both halves had already been
+fixed three hours before that was written. Worth understanding *why* the copy got better,
+because it's a genuinely good sign: nobody rewrote it. Another thread fixed something
+unrelated about the homepage's positioning, which regenerated the page, and because the new
+house voice went fleet-wide last week, the regenerated copy simply came out without the
+"a workbench, not a sales pitch" phrasing you objected to. The improvement arrived on its
+own, in work aimed at something else entirely. That is what shipping the voice centrally
+was supposed to buy, and it's the first time we've seen it happen unattended.
