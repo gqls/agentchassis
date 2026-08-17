@@ -10,6 +10,37 @@ refusal leaves no trace once the orchestration ages out at ~24h.
 
 ---
 
+## STATE 2026-08-17 (same day) — **FIXED IN CODE, INERT UNTIL THE NEXT CHASSIS ROLL.** Council submitted, verdict not yet read
+
+Commit `2a5798c4b`. The guard now calls `emitOwnedPageReviewItem(..., "save_page_sections", ...)`
+before returning the same error, which is fix candidate 1 below, unchanged in scope.
+
+**The item still fails, deliberately.** The save genuinely did not happen; recording otherwise
+would trade a silent failure for a false success. What changes is that the refusal now leaves the
+deduped, human-routable row its two siblings leave.
+
+**Test is mutation-proven in BOTH directions, run before submitting** —
+`TestSavePageSections_OwnedRefusalEmitsReviewItem`:
+- delete the emit call → `ExpectationsWereMet` fails (the row is genuinely asserted, not assumed);
+- downgrade the refusal to a silent skip → the must-still-refuse assertion fails.
+Both mutations were applied, observed failing, and reverted; full package suite green after.
+
+**Council:** `Council-Submitted: d4f49ea5-fa7d-4996-b04c-8d99d89728f4` (submitted before commit,
+per the pre-verdict trailer rule — 098 credits it automatically once approved).
+**Still owed: read the verdict and act on a REVISE/REJECTED**, because the code is already on the
+shared branch.
+
+⚠ **Do NOT close this file on the commit.** The defect stays reproducible until the fix is in a
+running chassis — `make build-*` builds from committed HEAD, but the roll is whole-fleet and the
+owner's. Verify at the artefact, not the tag, with the positive AND negative control in
+"How to verify a fix" below; a new `owned_page_review` row carrying
+`refused_by='save_page_sections'` is the proof, and there were **zero** of those when this was
+filed.
+
+**Not addressed here, still open:** fix candidate 3 (routing content findings on owned pages to
+`section_edit`, which demonstrably works on them — 18 completes). This fix makes the refusal
+visible; it does not make the page get fixed.
+
 ## The evidence
 
 **Two live work items died this way** (offer-analysis, webdesign.co.uk, 2026-08-15). Quoted from
