@@ -846,6 +846,11 @@ SHIPPED_PREDICATE_ALLOWED = {
     "import.go": "WRITES the value, does not test it",
     "fix_component_template_action.go": "page_components write, not a pages liveness test",
     "save_page_sections_action.go": "page_components predicate, different table",
+    "save_sections_shrink_guard.go":
+        "page_components predicate, different table — the page-total text floor's population, "
+        "carried over VERBATIM from the inline block it was extracted from (bugs_open/293). It "
+        "inherited this entry's reason along with the code: an extraction moves a line out of an "
+        "allow-listed file and silently un-exempts it, which is how this check found it",
     "maintenance_actions.go":
         "DECIDED 185 tranche 2: findStalePages flags pages for refresh — a needs_rebuild "
         "page is already flagged, so converging double-queues it; findPagesWithNoContent "
