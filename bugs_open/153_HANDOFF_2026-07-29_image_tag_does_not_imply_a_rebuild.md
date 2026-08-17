@@ -613,3 +613,23 @@ missing from the build.
 **Not applicable to config-shipped work.** `agent_definitions` / `scheduled_tasks` changes are live
 at COMMIT and are unaffected — this lane's own work today (migrations `444`, `453`) is live and was
 verified at the live rows, not at the binary.
+
+### RESOLVED for that instance — 2026-08-17 17:05Z, and the resolution is the evidence for candidate 2
+
+The stranded roll above was cleared by a build at a **new tag**: `v1.0.1307`, OCI
+`revision=a6d1c53c0`, `created=2026-08-17T16:50:06Z`, pods started 17:05Z. Verified at the binary
+with both controls in one `exec` — `a6d1c53c0` **PRESENT**, and the superseded `6a782274b`
+**ABSENT** (so this is a genuinely different image, not a cached layer wearing a new name).
+
+**296 commits shipped, 31 of them touching `platform/`/`internal/`/`pkg/`/`cmd/`.** The new build
+sits 48 commits behind HEAD (3 touching Go), which is ordinary churn on this tree rather than a
+defect.
+
+**What the pair of events demonstrates, and why it belongs in this file rather than only in a
+session log:** the *only* difference between the roll that shipped nothing and the roll that shipped
+296 commits was **whether `IMAGE_TAG` had been bumped**. Same makefile, same command, same operator,
+same day — one silent no-op and one clean release, distinguishable at the time by no signal
+whatsoever except BLD-019's stamp. That is candidate 2's argument stated as an experiment rather
+than an assertion: a tag that implied its build could not have produced the first outcome.
+
+The trap itself is **unfixed**; only this instance is closed.
