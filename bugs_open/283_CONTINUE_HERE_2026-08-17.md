@@ -66,3 +66,43 @@ reviewers approve").
 | adoption tripwire | CronJob `instance-token-adoption-check` (CLC-016) |
 | decisions | `RFC_034` (DECIDED), `RFC_032` (open — ComponentID unification) |
 | judged pool list | RFC_034 §3a / NOTES: 23 `loans-*`/`mortgages-*` + `tool-archetype-clash-calculator`, `tool-bayesian-ranking` |
+
+---
+
+## 5. UPDATE 2026-08-17 evening — the roll is REAL this time, and the canary is IN FLIGHT
+
+**`v1.0.1307` verified at the artefact**: bumped tag, pod digest `8339bdbd…` == local digest,
+revision `a6d1c53c0`, and **both `5b30a831b` (detector fix) and `b7b396cb3` (converter) are
+ancestors**. The converter is live on the fleet for the first time.
+
+**Canary dispatched through the framework** (step 1 of §3, done):
+
+- work item **`38efde3b-10df-40c5-b3dc-691dddcd57b9`**, `item_type=instance_scope_conversion`,
+  `status=triaged`, `handler_agent=component-template-fixer`, `item_key=instance-scope:24faa765`
+- target: `tool-css-unit-converter`, component row `24faa765…`, ONE page on webdesign.co.uk —
+  **the pinned-fixture component**, so the expected result is predicted to the digit:
+  `fixed:true, ids_declared 12, id_attrs 12, get_element_by_id 11, id_ref_attrs 6, hash_refs 0,
+  data-target ×5`, then the workflow's `check_needs_rerender` raises the rerender automatically.
+- pre-dispatch checks done: no in-flight work on the component (one PARKED `vision_finding` —
+  a mobile-layout CSS gap, pre-existing, orthogonal to id namespacing, noted in the item's spec
+  so the served-page diff is not misattributed); chassis restart was >1h before dispatch.
+- ⚠ webdesign.co.uk is the TOOL REBUILDS lane's territory (blocked on a roll at the time). A
+  native rebuild of this tool would REPLACE the template and take the conversion with it
+  (regeneration replaces; rerender merges) — acceptable for a canary, recorded here so nobody
+  reads a later disappearance as a revert.
+
+**How to verify the canary (next session, in order):**
+```sql
+SELECT status, result FROM site_work_items WHERE id='38efde3b-10df-40c5-b3dc-691dddcd57b9';
+-- ⚠ a COMPLETED item's result may be the SPAWN record — read the orchestration:
+SELECT current_step, status FROM orchestration_states
+ WHERE collected_data->'input_data'->>'id' = '38efde3b-10df-40c5-b3dc-691dddcd57b9';
+SELECT count(*) FROM content_components WHERE is_active AND html_template LIKE '%{{.InstanceID}}%';
+-- expect 1 after conversion; the template itself:
+SELECT html_template FROM content_components WHERE id='24faa765-845e-4d1d-b7df-d71a06a0a617';
+-- and the doc_notes entry the workflow appends (subject_type='pipeline', subject_key='build',
+-- created_by='component-template-fixer', newest)
+```
+Then diff the SERVED page once the rerender lands. **Tomorrow 07:40 UTC the
+`instance-token-adoption-check` TRIPS (adopters 0→1): expected, acknowledged by RFC_034 DECIDED —
+retire the CronJob after observing the trip, do not treat it as a defect.**
