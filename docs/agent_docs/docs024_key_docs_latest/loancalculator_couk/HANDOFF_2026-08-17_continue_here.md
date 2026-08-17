@@ -1,5 +1,21 @@
 # HANDOFF — loancalculator.co.uk · **282 PROVEN, 0/11 → 11/11**; the rebuild wave is queued behind `bugs_open/243` (2026-08-17 ~12:05Z)
 
+> ## ⚠ SUPERSEDED by `HANDOFF_2026-08-17b_continue_here.md` — and it contains ONE WRONG CLAIM, kept here deliberately
+>
+> **Step 2 of "FIRST STEP" below says the 14 guide builds are "stamp-convergence
+> churn, not damage". THAT IS FALSE.** Those 15 `needs_page` items were builds for
+> **14 NEW `blog-post` pages at `/blog/<slug>.html`** that this re-fire's plan
+> invented while dropping all 14 real `guide` pages from the plan. The gate re-opened
+> at 12:10:17Z and **all 14 duplicates built and deployed**; they now serve alongside
+> the guides they duplicate. Containment was attempted at 12:12 and refused by the
+> permission classifier.
+>
+> The rest of this file — the 282 proof, the 11/11 measurement, the judge query, the
+> toolgolden result, the nav findings — is accurate and still worth reading. The
+> homepage rebuild it recommends in step 3 **ran and succeeded**: calculator at
+> position 2, locks 12/12, toolgolden exit 0. See NOTES §9 for the correction and
+> what caught it, and 17b for current state.
+
 > Supersedes `HANDOFF_2026-08-15_fire_in_flight_continue_here.md`. Its two owed
 > steps are both DONE (toolgolden, and the D2 re-fire sequence). Evidence and every
 > misstep: NOTES `## 2026-08-17`. Owner prose: README_where_we_are, same date.

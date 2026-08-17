@@ -5714,3 +5714,83 @@ is still in force, because `pingClaude`'s switch sends a 400 to
 rebuilt.** Nothing about the placement result is contingent on the wave: the
 measurement is at `site_plan_sections`, which is already written. The wave only
 re-stamps the 14 guides and rebuilds index.
+
+### 9. CORRECTION, and the outcome: the calculators are RIGHT, and I shipped 14 duplicate pages doing it
+
+> **CORRECTED 2026-08-17 ~16:30Z. §6 and §7 above called the 15 `needs_page` items
+> "the 14 guides — the same stamp-convergence churn as 08-15". THAT WAS WRONG, and
+> it was wrong in the one direction that mattered.** They were builds for **14 NEW
+> pages**. What caught it: running the handoff's own page-identity md5 — it had moved
+> from the script's pre-fire `fd2c09c2…` to `da6908df…`, which is exactly what that
+> check exists to detect. **I ran it ~35 minutes after the fire instead of in the
+> minutes after the plan landed, and by then the fleet claim gate had re-opened.**
+> The cheap check I skipped: the item keys themselves. `needs_page:can-i-overpay`
+> is not `needs_page:guide-can-i-overpay`, and I read the list twice without
+> noticing the missing prefix, because the 08-15 framing told me what to expect.
+> **An inherited framing is an [ASSUMED] claim wearing a measurement's clothes.**
+
+**What the re-fire's plan actually did.** `9463e31d` **retyped the whole guides
+section**: 14 pages of role `blog-post` at `/blog/<slug>.html`, and **zero** pages
+of role `guide`. Both earlier plans had 14 `guide` at `/guides/<slug>.html`
+(measured: `34b1b056` guide=14, `dcbae4df` guide=14, `9463e31d` blog-post=14,
+guide=0). So this was introduced by MY re-fire, not inherited — same script, same
+12-page recompose scope, one image later.
+
+**Damage, and it completed.** The 14 rows were created 11:46:26 with zero
+components; their 14 `needs_page` items dispatched as soon as the `bugs_open/243`
+gate re-opened at 12:10:17, and **all 14 duplicates are now `build_status=deployed`
+and serving 200** alongside the 14 real guides, which are untouched and also serving.
+Same content, two public URLs, 14 times. I attempted the guarded containment (cancel
+the items, archive the zero-component rows — the owner's 08-15 answer #2) at 12:12
+and the permission classifier refused the write; escalated to the owner and the
+window closed while it sat.
+
+**The platform caught it itself, which is worth recording as a credit.**
+`orphan_blog_posts` fired — *"14 blog posts deployed but not linked from blog
+listing page"* — and its remedy minted a **43-page rerender batch**
+(`items_created: 43`), which is the origin of the 40 `page_rerender` rows still
+`triaged`. So one bad plan cost a whole-site rerender wave on top of 14 builds.
+
+**AND THE THING THE LANE EXISTED FOR CAME OUT RIGHT.** [MEASURED at the artefact,
+16:17Z] `needs_page:index` rebuilt the homepage at 13:44:08 and the locked
+calculator is now at **position 2** — properly composed as the second section, where
+the plan put it — instead of appended at position 6 as the pre-fire row order had it.
+Locks **12/12** held throughout. And `toolgolden.py --compare` against
+`GOLDEN_2026-08-17_post_rebuild` returns **exit 0, "all 11 tools reproduce their
+golden values exactly"**, index included. So the 282 fix, LOCK-008 and the re-fire
+did together exactly what they were meant to: the calculator moved into its planned
+slot and still computes identically.
+
+**Serving now: 42 of 43 active pages 200.** `guides-index` is still the only
+persistent 404 — its rerender came back `needs_human_review` with *"no sections
+ready to build (empty spec sections)"*, so it remains uncomposed, unchanged from
+this morning. ⚠ **`tool-damage-checker` read 404 once at 16:25 and 200 on three
+immediate retries** — a mid-republish window during the rerender wave. A single 404
+sampled during a wave is not evidence of a broken page; re-sample before believing it.
+
+**Failure pattern to hand on: 8 of 13 failures are `failed to get latest commit/base
+tree`** — the git deploy path, not the build. Includes `page_rerender:index`, which
+failed to publish while the page itself deployed fine at 13:44 and passes toolgolden.
+So these are late rerenders failing to republish, not lost work. With 40 rerenders
+still queued against the same path, expect more.
+
+### 10. The "fresh chassis build" is NOT what the cluster is running — the same-tag trap, live
+
+The owner deployed a fresh chassis build. [MEASURED 16:15Z] It is not running:
+
+```
+cluster pod digest   sha256:f90a7e88…   from commit 6a782274b   (pods restarted 14:43Z)
+local image v1.0.1305 digest sha256:6039e19c…  from commit 89a0cbeb7  built 15:30:44
+```
+
+`IMAGE_TAG` is still `v1.0.1305` in the makefile, so the rebuild pushed a **new image
+under the same tag** and the node kept its cached binary — the exact failure CLAUDE.md
+warns about ("a same-tag rebuild ships the node's stale cached binary"). The pods also
+restarted at 14:43, *before* the 15:30 build, so they never had a chance to carry it.
+**The running binary is 202 commits behind the image that was built** (`89a0cbeb7` is
+an ancestor of HEAD). Needs an `IMAGE_TAG` bump + `make release` (owner runs releases;
+they are whole-fleet). Nothing in this lane is blocked by it — 282 is live in
+`6a782274b` — but no fix committed today is live.
+
+**The tag is not the artefact and neither is a pod restart.** Two readings agreed on
+"v1.0.1305" and disagreed on the binary; the digest is what settled it.

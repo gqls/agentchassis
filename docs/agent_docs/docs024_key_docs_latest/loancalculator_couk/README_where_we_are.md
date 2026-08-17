@@ -2038,3 +2038,68 @@ written up as bug 243, with the spend itself as bug 244. I spent about twenty mi
 re-diagnosing it before finding their write-ups, which is my own fault: I should have
 searched first. Worth knowing that this is the second time today that the fleet's
 own "is everything healthy" check said yes while nothing could actually run.
+
+---
+
+## 2026-08-17 (late afternoon) — the calculators came out right; I also put fourteen duplicate pages on the site
+
+Two things happened and they need separating, because one is the win we were after and
+the other is a mess I made getting there.
+
+**The win, and it is the whole point of the last three days.** The homepage rebuilt
+this afternoon and the loan repayment calculator is now sitting where it belongs — as
+the second thing on the page, composed into the layout by the framework, rather than
+bolted on at the end as it was before. Every one of the eleven calculators is in the
+plan on its own page. All twelve protected copies survived untouched. And the tool that
+records what each calculator computes now passes cleanly on all eleven: "all 11 tools
+reproduce their golden values exactly". So the site is genuinely being built by the
+framework now, calculators included, which is what we set out to prove.
+
+**The mess.** The same planning run that fixed the calculators also quietly rewrote the
+guides section. Our fourteen guides live at /guides/… and are typed as guides. The new
+plan replaced all fourteen with blog posts at /blog/… — same topics, same slugs, new
+URLs — and dropped the real guides from the plan entirely. It then queued fourteen
+builds for these new pages.
+
+I misread those fourteen queued jobs as harmless. The previous session had described
+its own batch of fifteen jobs as harmless re-stamping of existing pages, and I carried
+that sentence across to a different run without checking it. The job names actually
+said "can-i-overpay", not "guide-can-i-overpay" — the missing word was in output I
+pasted into my own notes and read twice.
+
+I did catch it, but late. There is a check written for exactly this — a fingerprint of
+the site's page list, meant to be run the moment a new plan lands — and when I ran it,
+about thirty-five minutes after the fire, it told me straight away that the page list
+had changed. By then the fleet-wide queue I told you about this morning had re-opened,
+on the hourly timer whose exact firing time I had calculated myself, and the builds had
+gone. **All fourteen duplicates are now live.** The real guides are untouched and still
+serving. I tried to stop it about two minutes after realising, and the write was
+refused by the permission system; by the time it reached you the window had shut.
+
+**What I need from you, and it is a question about the site rather than a fix.** The
+plan currently says this site's articles live at /blog/. Nobody chose that. So: do the
+guides stay at /guides/ and we retract the fourteen new pages, or does the site
+actually move to /blog/ and we retire the guides with redirects? I have not touched
+either, because the answer changes what gets cleaned up. Worth knowing that retracting
+published pages has no clean path in the framework today — it is the same problem
+already flagged as bugs 80 and 81, a wrongly-typed page that is live with no way to
+withdraw it — so this may need a decision from you about method as well as intent.
+
+The site's own immune system spotted the duplication without being asked, reporting
+"14 blog posts deployed but not linked from blog listing page", and responded by
+queueing a re-render of all forty-three pages. That is why there is a lot of churn in
+the queue right now. Most of it is failing on a git error when it tries to publish,
+which is not losing any work — the pages themselves are fine — but it is noise.
+
+**One more thing, and it matters for anything you deploy today.** The fresh chassis
+build has not actually reached the cluster. A new image was built at 15:30 from a much
+later commit, but it was pushed under the *same* version tag as the one already
+running, so the machines kept the copy they had cached. The running program is the one
+from this morning — two hundred commits behind what you built. The version number
+looks right, which is exactly why this trap is in our notes. It needs the tag bumping
+and a proper fleet release, which is your command to run. Nothing in this site's work
+depends on it; the calculator fix was already live.
+
+Where the site stands: forty-three pages active, forty-two serving. The Guides index is
+still the one page that will not build — it has no sections composed for it — and it is
+still the only genuine 404.
