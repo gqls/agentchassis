@@ -1843,3 +1843,19 @@ OWED next: build outcome (needs_human_review + unrendered_template = 260, do
 not re-dispatch); artefact facts verbatim (37 Fleetside, £10, DESIGNCONSULT,
 free of charge); footer nav (about precedent says footer renders primary+
 utility, SQL_p22); live 200.
+
+**Build round 1 (16:33-16:37Z): REFUSED at validate_content, and the gate was
+RIGHT.** Error surface: `agent_error_log` row `CONTENT_VALIDATION_BLOCKER_DETAIL`
+(context.issues; the work item error says only "0 blockers, 1 errors").
+The issue: `invalid_email` — the page states info@designconsultancy.co.uk, but
+`sites.email` for webdesign.co.uk still carried the PORT-ERA PLACEHOLDER
+`webdesign@contactforsales.com` (phone empty). The validator checks page emails
+against the sites row, exactly the placeholder_contact family. **Fix at the
+source, not the checker:** sites row updated (guarded on the old value) to the
+owner-attested email/phone/contact_address from the D16 fact set; item
+re-triaged 16:44Z. NOTE the consequence: any future CHROME re-render reads the
+sites row vocabulary, so the real email now supersedes the placeholder
+everywhere downstream — deliberate, direction of truth. Watch also: GitHub API
+was 503ing fleet-wide at 16:27-16:38Z (deploy_page failures on other sites); if
+round 2 dies at deploy_page, check the page row + page_components before
+re-dispatching (the 08-11 lying-item trap).
