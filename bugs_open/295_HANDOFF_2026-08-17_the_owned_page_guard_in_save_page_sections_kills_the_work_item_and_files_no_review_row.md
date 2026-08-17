@@ -41,6 +41,58 @@ filed.
 `section_edit`, which demonstrably works on them — 18 completes). This fix makes the refusal
 visible; it does not make the page get fixed.
 
+## COUNCIL VERDICT 2026-08-17 — **APPROVED at round 1**, all 13 reviewers, 4 abstained (corr `d4f49ea5`)
+
+`decided_by: "all reviewers approve"`. The commit's `Council-Submitted:` trailer resolves to this
+automatically at `098` report time. **Three objections were worth acting on; all three are answered
+below rather than banked.**
+
+**1. `debug_historian`, MEDIUM — the one that mattered.** *The error text and the review item's
+`spec.fix` route a human to `apply_section_edit`, and a LANDMINE says BOTH sanctioned actions
+refuse when ADDING a section to an owned page.* **Checked, and the objection is half right —
+which is the useful half.** LANDMINES `apply_section_edit / ApplySectionEditInputSpec`:
+`apply_section_edit` only edits an EXISTING `page_components` row (both edit types target a
+`page_component_id`); **there is no add**. So:
+- For the two casualties here — `content_rewrite` on `about`, `tone_shift` on `learn-index`, both
+  **rewrites of existing components** — the guidance is **correct** and the route works.
+- For any finding needing a **NEW** section on an owned page, the guidance is a **dead end**, and
+  the landmine names the real route: a direct INSERT plus an **assemble-only** deploy
+  (`owned_page_guard.go:29-36`: re-assembly of existing components "is deliberately NOT gated — it
+  is how owned pages deploy"; worked precedent `267_tool_guide_intro_recovery_waterfall.sql`).
+**Deliberately NOT fixed in this commit.** That text lives in `emitOwnedPageReviewItem`'s shared
+`spec.fix` and is read by all four producers; rewriting it inside a point fix is exactly the scope
+creep four seats praised this change for avoiding. **Follow-up, unowned:** widen the shared
+`spec.fix` to name the add-a-section route. Until then a reviewer acting on one of these rows for
+an ADD case will be sent somewhere that refuses.
+
+**2. `bug_historian`, LOW — "no census was run to confirm exactly three call sites".** Fair, and
+now run:
+```
+grep -rn "pageIsOwnedForGuard" --include=*.go platform/ internal/ pkg/ | grep -v _test.go
+```
+**Exactly TWO call sites invoke the predicate** — `save_page_sections_action.go:186` and
+`multipage_actions.go:43` — plus its definition. **Both now emit.** No fourth, uncovered caller
+exists, so the fix is complete rather than partial.
+> **CORRECTION 2026-08-17 to this file's own wording, and to the council submission.** I wrote
+> "three call sites, one predicate". That is loose: there are **three GUARDS on the same ownership
+> policy**, but only **two callers of `pageIsOwnedForGuard`**. The third —
+> `censusExcludedOwnedPages` — reaches the same policy through the inverse SQL
+> (`ownedPageExclusionSQL`), not through the function. The conclusion is unchanged and the fix is
+> unchanged; the count was wrong and a reviewer was right to ask for the census rather than accept
+> the number. Logged in `WRONG_CALLS.md`.
+
+**3. `guidelines`, flagged for a human — `ON CONFLICT DO NOTHING` vs the `idx_swi_dedup`
+DELETE+INSERT contract.** Pre-existing in the shared helper, called identically by the two live
+siblings; this change neither creates nor worsens it. Note for whoever routes it: the emit uses
+`ON CONFLICT DO NOTHING` with **no conflict target**, so it does not do index inference and cannot
+raise the `42P10` that the dedup-index/Go-list drift produces. Worth a separate look at the
+helper, not a blocker here — which is what the seat itself concluded.
+
+Two "missing" notes were already satisfied and are recorded so nobody re-checks: the `guardian`
+asked whether the helper's signature matches its live definition (it does — the package builds and
+the full suite is green), and `editquality` asked what grounds the `item_key` literal
+(`owned_page_guard.go:211`, `"owned_page_review:"+pageName`; the test asserts it and passes).
+
 ## The evidence
 
 **Two live work items died this way** (offer-analysis, webdesign.co.uk, 2026-08-15). Quoted from
