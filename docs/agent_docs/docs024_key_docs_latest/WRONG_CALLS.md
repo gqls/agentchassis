@@ -33414,3 +33414,54 @@ lane file now carries a SUPERSEDED banner. Recorded because the tally is the poi
 this is the second time a session in this thread has produced work a neighbouring
 lane had already done (the first was the 213 lane's contribution into 279 arriving
 after that round had shipped).
+
+---
+
+## 2026-08-17 — three false readings while VERIFYING a fix, and all three were confident (bugs_open/284 → bugs_closed/284)
+
+Yesterday's diagnosis held up. Today's *verification* produced three wrong claims in
+about ninety minutes, which is the interesting part: the checking phase felt like the
+safe phase.
+
+**1. A `kubectl exec` loop killed by the tool timeout reports `absent`.** I probed the
+running binary for four needles with one `exec` per needle in a shell loop. The tool
+timed out at 120s partway through, and the needle it died on printed **`absent`** —
+because a killed `exec` exits non-zero and my `if` read that as "not found". The
+output looked complete and even plausible (two present, one absent, in a set where a
+mixed result is expected). Re-run as a **single** `exec` with all needles inside plus
+a nonsense negative control, it was **PRESENT**. *The check:* one exec, every needle
+inside it, a control that must come out the other way, and assert the exit status —
+`grep -q` failing and `grep -q` never running are the same reading at the call site.
+
+**2. "Zero runs in five weeks" was measuring the PRUNER.** Chasing which agent had
+promoted the damaged rows, I found **0** `orchestration_states` rows for all three
+agents that have ever carried the step, in a table whose oldest row is five weeks old
+— and briefly concluded the promoter had never run and my attribution was wrong.
+`SELECT status, count(*), min(created_at)::date, max(created_at)::date … GROUP BY 1`
+says why that is worthless: **`COMPLETED` rows exist only for the last two days.**
+The five-week span is a handful of stuck `RUNNING`/`CANCELLED` stragglers, which is
+exactly what makes the window look long enough to trust. *The check:* before reading
+an absence out of any table, measure its retention **for the status you are asking
+about**, not from the oldest row of any status.
+
+**3. "The only scheduled driver is disabled, therefore the code path cannot run."**
+False, and I committed it to a lane NOTES and nearly to the concept register. The
+driver being `enabled=false` bounds what runs **by itself**; it says nothing about
+what can be run **on purpose**. Another lane exercised the very guard I had just
+declared unexercised, by dispatching the step directly at one site — with a
+manufactured demand control (a site holding 36 flag-only rows and nothing routable,
+so the promoter could only hold or promote) — and got `promoted: 0,
+not_promotable: 36`. Single-step dispatch is routine on this estate and is in
+MEMORY as *"single-page deploy bypasses stalled queue"*; I had the lesson and did not
+apply it to my own verification. *The check:* "this cannot be exercised" is a claim
+about the DISPATCH SURFACE, not about a cron row. Before writing it, ask whether the
+step can be fired directly — and if it can, fire it, because that is also the
+cheapest proof available.
+
+**The tally worth drawing.** All three share one shape: **an absence, read as
+evidence.** A missing grep hit, a missing table row, a missing scheduler tick. In
+each case the honest reading was "this instrument cannot answer that question" and in
+each case I read "the answer is no". Yesterday's lesson in this file was the same
+shape from the other direction (a key's *presence* read as proof of authorship). An
+absence needs its instrument's sensitivity stated before it means anything, and the
+cheap way to state it is a control that is supposed to come out the other way.
