@@ -1,3 +1,8 @@
+> **SUPERSEDED 2026-08-17 by `HANDOFF_2026-08-17_continue_here.md`.** Kept for the record: its
+> "pilot is complete" section is still accurate, but the state table, the batch scope and the
+> next-actions list are all out of date, and it does not know about the fleet-wide unique index
+> (`idx_cc_tool_function_unique`) that blocks two of the tools it tells you to file.
+
 # HANDOFF — webdesign tool rebuilds. START HERE. Written 2026-08-16 ~10:15Z, UPDATED 16:50Z. Supersedes `HANDOFF_2026-08-15_continue_here.md`.
 
 Read `PLAN_2026-08-15_…` (design + the owner ruling + its 16:20Z correction), `RUNBOOK_…` (commands),
