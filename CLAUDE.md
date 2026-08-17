@@ -187,10 +187,25 @@ asserting it without the query is itself the objection**.
 destination.** What (1) gives up is **accumulation**: ten individually inert opt-in
 fields are a shared action nobody understands, and this trigger was the only thing
 that would have noticed the tenth. (3) gets it back by triggering on the accumulated
-optional-key **count** — but that counter (a sweep over `RegisterActionInputSpec`
+optional-key **count** — ~~but that counter (a sweep over `RegisterActionInputSpec`
 declarations per action) **is not built**. Whoever builds it closes `RFC_022`; until
-then the estate runs with a stated blind spot. Live in both rosters via migrations
-`381` (fix-proposer) and `383` (council-gate).
+then the estate runs with a stated blind spot.~~ **CORRECTED 2026-08-17: RFC_022 is
+CLOSED and the whole mechanism is LIVE — this paragraph told every session the
+opposite for three days.** The counter was built 2026-08-13 (`cmd/config-key-audit
+--optional-key-budget` / `scripts/audit-optional-key-budget.sh [--json] [N]`,
+register **WFA-013**); the owner ruled **N = 10** on 2026-08-14; and the automatic
+half runs daily (`50 6 * * *` UTC, CronJob `optional-key-budget-check`, live since
+2026-08-14 and writing ONE `doc_notes` row per run — on clean results too, so a
+MISSING row means the job did not run and must not read as "nothing is wrong").
+**So: do not build it, and do not repeat the blind-spot claim.** What an author owes
+now is only to keep the cron's literal in step — two actions (`retract_asset_files`,
+`publish_site`) entered the registry counted as **ZERO** and were invisible to the
+check until 2026-08-17; the parity test (`cmd/config-key-audit/optional_budget_cron_parity_test.go`)
+catches it, so RUN IT, and after editing `check.py` re-apply the kustomize overlay or
+the cluster keeps the old literal. An action past N owes ONE review of its accumulated
+surface, recorded in `architecture_review/optional_key_budget_acks.json` (the source of
+truth) with the review it points at; three are acknowledged today. Live in both rosters
+via migrations `381` (fix-proposer) and `383` (council-gate), updated by `402`/`403`.
 
 ### Platform seams and the ordering exemption (OWNER RULING, 2026-07-28)
 
