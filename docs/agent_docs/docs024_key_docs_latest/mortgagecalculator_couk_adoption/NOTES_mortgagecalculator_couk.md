@@ -3443,3 +3443,28 @@ from another discovery agent on its own schedule. **Do not attribute the whole 3
 morning's decision**; the attributable share is the five sites named, and the honest figure for
 "what enabling the rotation caused" is 208 items across those five, 95 promoted. The forecast was
 the right order of magnitude; the attribution needed a second look.
+
+#### Precision note on "re-verified on the NEW binary" [added 16:30Z]
+
+Prompted by the MEMORY line added today — *a "fresh build" can ship no new code; a same-tag
+rebuild serves the cached image*. Tightening my own wording before it is quoted back:
+
+**What I actually established:** the pods are a new replicaset (`5bd56bdd9b`, started 14:42–14:43Z,
+vs `5657f446c7` before) running image tag **`v1.0.1305`**, and `fact_drift_review` is present in
+the binary they are running, with a positive control (`stale_attestation` 5) and a negative
+control (impossible string 0) in the same exec.
+
+**What I did NOT establish:** which commit built `v1.0.1305`. The `build provenance` startup line
+had already scrolled out of `--tail=6000` on both replicas — CLAUDE.md warns it is a startup line
+with a short shelf life on a busy service, and that an empty result there means "out of range",
+not "unstamped". So I cannot name the commit, and **the same symbol counts (2 / 5) were true of
+the PRE-roll binary too**, which means my check could not have distinguished a new image from a
+cached one.
+
+**Does it matter here? No, and this is why:** the test did not depend on the build being new. It
+needed the fact-drift code to be PRESENT in whatever is running, which is exactly what the control
+pair establishes — and then the mechanism demonstrably fired and tracked a live value change. A
+positive result is indifferent to provenance. It would have mattered had the result been null:
+then "the code is not in this build" and "the mechanism is broken" would have been
+indistinguishable, and I had no evidence to separate them. **Worth knowing for next time: verify
+provenance BEFORE the run, not after, because it is only cheap while the pod is young.**
