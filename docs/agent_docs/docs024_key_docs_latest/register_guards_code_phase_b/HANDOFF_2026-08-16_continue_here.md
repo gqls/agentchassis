@@ -1,40 +1,39 @@
 # HANDOFF 2026-08-16 — continue here
 
 **Lane:** `register_guards_code_phase_b` (`bugs_open/288`, the class behind
-`bugs_closed/225`). **State (updated 2026-08-17, evening): council-APPROVED, LIVE, and PROVEN TO FIRE** —
-the mortgagecalculator lane seeded a real declaration and ran the induced proof at 16:17Z.
-**One arm remains unproven and is structurally uninducible until the next real sweep.**
+`bugs_closed/225`). **State (2026-08-17, 18:30Z): council-APPROVED, LIVE, and FULLY PROVEN — both arms and
+the self-quieting property. Nothing about the mechanism is owed.**
 
-## WHAT IS PROVEN, and what is not
+## WHAT IS PROVEN — all of it
 
-**Proven** (mcalc lane, 16:17Z 2026-08-17, 14-second window, restore in a `trap … EXIT`,
-register restored to 500000 with `pinned` carried, 0 items written):
+| property | evidence |
+|---|---|
+| the fan-out fires | 13 entries on a real declaration; resolves a tool the acceptance ladder **cannot see** (2 components, 0 tool-level) |
+| reads the register AT CHECK TIME | two dry runs differing only in the register value returned `new_value` 500000 then 550000 (mcalc lane, 16:17Z) |
+| routes correctly | all 13 → `fact_drift_review`, handler-less, severity low / priority 60 |
+| files for real | a real sweep wrote the 13 items at 18:16Z, recording the baselines |
+| **self-quieting** | dry run with baselines set → **0 entries** (13 facts checked). The identical run pre-baseline produced **13**. |
+| **`value_drift`** | baseline moved 500000→450000, register untouched → exactly **1** entry, `kind: value_drift`, `old 450000 → new 500000` |
+| per-fact isolation | that run produced 1 entry; the other 12 declared facts stayed silent |
+| nothing written by a dry run | 13 items before and after, 0 of kind `value_drift`, register still 500000, item spec restored **byte-equal** |
 
-| run | `fact_drift` entries | kind | `new_value` for the changed fact |
-|---|---|---|---|
-| baseline (register 500000) | 13 | `unreconciled_declaration` | **500000** |
-| induced (register 550000) | 13 | `unreconciled_declaration` | **550000** |
+**How to re-induce `value_drift` safely: move the BASELINE, never the register.** The
+comparison is symmetric, so the item's recorded `spec.fact.new_value` exercises the
+identical branch without touching a live tax figure on a public site. Recipe in the
+RUNBOOK.
 
-The fan-out resolves a declaration on a tool the acceptance ladder **cannot see** (2
-components, 0 tool-level — the exact case we refused to key `toolEligibilityWhere` on),
-routes all 13 to `fact_drift_review` (correct for a `no_auto_fix` fence), and **reads the
-register at check time**. The discriminator is **not** the kind — it is `new_value`
-tracking the register between runs.
+## WHAT REMAINS — none of it is this mechanism
 
-**NOT proven, and it cannot be today:** the `value_drift` arm. On a fresh declaration
-every pair is `never_reconciled` and that arm wins; a dry run writes no items, so it can
-never create the baselines. **It becomes inducible only after one REAL sweep files the 13.**
-
-## THE OWED ITEM
-
-**Let the next real daily sweep (~09:03Z) run, then induce `value_drift`.** It files 13
-low/60 `fact_drift_review` items which become the baselines and self-quiet. If that arm
-comes back wrong it is THIS lane's defect, not the site lane's — route it to
-`bugs_open/288`.
-
-Everything else that was owed is discharged: council APPROVED (`cff364b8`), code live and
-re-verified on the current pods (`mine=2, control=5, negative control=0`), declaration
-seeded, first half of the proof run.
+1. **The `improve_tool` arm has still never run in production** and may be unreachable on
+   today's fleet (both live fences are `no_auto_fix`, neither page is a fork). Unit-tested
+   only. Do not report it as exercised.
+2. **The prose half of the class** (tool-page prose, currency anywhere) is untouched —
+   `bugs_open/288` §5.
+3. **RFC_025 stage 2b** (`page_name` addressing, reachable for every source kind).
+4. **Piece 4, the oracle** — the only thing that answers *is the figure RIGHT*. Behind its
+   own RFC.
+5. **LMC** has no register, and will hit the installer wall when it does — warned in their
+   CONTRIB.
 
 ## ⚠ THREE CORRECTIONS TO THIS LANE'S OWN DOCS (2026-08-17) — read before following them
 
