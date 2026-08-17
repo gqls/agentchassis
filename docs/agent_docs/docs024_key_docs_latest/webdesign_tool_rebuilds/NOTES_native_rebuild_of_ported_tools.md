@@ -637,3 +637,27 @@ blocked on the unique-index decision **4** · remaining clear **57** · builds a
   Brief adds an async/debounce requirement (`crypto.subtle.digest` is a promise), a secure-context
   fallback message, clearing on empty input (the ported one leaves a stale hash), and the usual
   no-`alert()`/no-inline-`onclick`.
+
+## 2026-08-17 21:45Z — #6 built, graded and retired in 46 SECONDS. The race won by design, not timing.
+
+- **Timeline, deliberately tight after losing #5's race:** build complete **21:45:03Z** → run graded
+  21:45:17 (14 s) → component graded → ported slot `removed` **21:45:49Z**. **46 seconds end to end**,
+  against margins of 45 min / 2 min / 26 min / 96 min on the previous four. The change was not speed
+  for its own sake: I graded and retired FIRST and wrote this entry afterwards, which is the ordering
+  the RUNBOOK now mandates and the one I had failed to follow on #5.
+- **Run:** `complete`, `page_adopted=true`, no `already_exists`, no `__step_error`, component
+  `9fe73bf0-eeb4-4aa2-a7a4-b22ae838113f`.
+- **Component PASS:** 8,520 chars, `{{\.` **0**, 1 script, 0 `script src`, **0 `alert(`**,
+  **0 inline `onclick=`**. Logic confirmed by reading, not counting: `crypto.subtle.digest('SHA-384', data)`,
+  `btoa(`, output shaped `integrity="sha384…`, `addEventListener('input'` and `addEventListener('click'`
+  (real listeners, both requirements), `setTimeout(` present for the debounce and the "Copied" label.
+  `SHA-384` appears 4×, `crypto.subtle` 3× — and no algorithm picker, as specified.
+- **Ported slot retired:** `7d4b69db-66a0-4c81-ba4e-6e27ab09fc49` to `removed`, `UPDATE 1`,
+  **md5 `16332add36f84bddc5da40d8aa5d59c3` byte-identical** to the handle taken at filing.
+- **Two repair rerenders now queued, both `triaged`:** `b607fd48…` (svg-optimizer, repairing the
+  double-tool page) and `4d8fa51b…` (sri-generator). Watched together.
+  Note `8fbee635…` completed 20:36 on the SRI page — **before** this build, so it is unrelated;
+  a rerender on your page is not necessarily YOUR rerender, check `created_at` against your build.
+
+**Batch tally: built 6, live-and-proven 3, awaiting rerender 2 (svg, sri), failed 1 (#2, index),
+parked 2 (RFC_036), remaining ~55.**
