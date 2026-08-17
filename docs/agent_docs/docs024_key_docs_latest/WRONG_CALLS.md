@@ -33573,3 +33573,42 @@ both.
   is alive and healthy on 2026-08-17 (102 COMPLETED / 28 FAILED in 24 h, latest 11:20:33Z) and the
   entire fleet dispatchable backlog at that moment was a single item. Given `bugs_open/289` predicts
   this loop dies of state doubling, that is a genuinely useful negative — **it is not dead yet.**
+
+## 2026-08-17 — "worth a separate file" on a defect that was already filed AND already closed, because I grepped for the mechanism in the code and not in `bugs_closed/` (bugfix_281 lane)
+
+**The claim.** While filing `bugs_open/289` I noticed a second fault in the same error log —
+`workflow completed but its result could not be delivered to the parent (failed_transient):
+message validation failed` — established that `ProduceWithValidation` validates headers rather
+than size, and wrote into the bug file: *"so that is its own thing. Worth a separate file."*
+
+**Why it is false.** It was `bugs_closed/274`, filed 2026-08-14, fixed by `919cc6976` at
+2026-08-15 10:04Z and **closed the same day** — two days before I called it unfiled. The fix is
+titled almost exactly what I had just re-derived: *"a validation refusal is UNDELIVERABLE not
+transient"*.
+
+**What caught it.** Not a rule — luck of sequencing. I went to size the defect before filing it,
+saw the errors stop dead on 08-15, and only then ran `git log --grep` to find out what had
+stopped them. Had it still been firing I would have filed a duplicate of a closed bug without
+ever looking.
+
+**The cheap check I skipped.** The one CLAUDE.md names, twice: *"Grep BOTH directories before
+filing"*. `ls bugs_open bugs_closed | grep -iE 'deliver|parent'` returns the file in under a
+second. I did grep — for the *mechanism*, in the Go source (`ValidateOutgoingMessage`), which
+told me how the validator works and nothing at all about whether anyone had been here before.
+**Grepping the code is not grepping the bug queue**, and the confidence the code-read gave me is
+what made the queue-grep feel unnecessary.
+
+**The transferable rule.** *A durable claim of ABSENCE — "unfiled", "no prior art", "nothing
+does this" — is a claim about a corpus you must actually have searched, and it decays the moment
+you stop.* Here it was false on arrival, because the estate had fixed it while I was two days
+into another bug. The specific trap for this estate: **a fault whose symptom is still visible in
+a log you are reading is not necessarily a live fault** — `agent_error_log` retains ~30 days, so
+the rows I found spanned 08-03 to 08-15 and read exactly like an ongoing problem. Date-bound the
+symptom before you describe it as current: `GROUP BY occurred_at::date` costs one query and would
+have shown the cliff immediately.
+
+**The half that went right, worth keeping.** I did not take 274's closure on trust either. It had
+been closed on **21 minutes** of post-roll evidence; I re-measured over two days, confirmed the
+error log is not pruned (so a zero means something), and ran a **demand control** — the five
+heaviest former producers ran 311/138/93/50/50 times since 08-16 and produced zero. That went
+back into the closed file, so the next reader inherits a two-day claim instead of a 21-minute one.

@@ -176,7 +176,20 @@ re-dispatches it, so each stalled audit costs **a fresh Sonnet LLM audit roughly
   `complete | complete_workflow | workflow completed but its result could not be delivered
   to the parent (failed_transient): message validation failed` (6 rows, 2026-08-12→15).
   `ProduceWithValidation` (`platform/kafka/producer.go:120-140`) validates **headers**, not
-  size, so that is its own thing. Worth a separate file.
+  size, so that is its own thing. ~~Worth a separate file.~~
+  > **CORRECTED 2026-08-17: it was already filed AND already fixed — `bugs_closed/274`**
+  > (`completed_workflows_cannot_deliver_their_result_to_the_parent_fleetwide`), fixed by
+  > `919cc6976` ("a validation refusal is UNDELIVERABLE not transient") at 2026-08-15 10:04Z and
+  > closed the same day. I wrote "worth a separate file" **without grepping `bugs_closed/`**,
+  > which is the one check CLAUDE.md names for exactly this. Nothing was filed on it, so the
+  > cost was a stale line in this file rather than a duplicate bug — but the line would have
+  > sent the next reader to file one. WRONG_CALLS 2026-08-17.
+  > **It is extinct, and I re-measured it rather than take the closure on trust:** zero
+  > occurrences fleet-wide since 2026-08-15 in an `agent_error_log` that is NOT pruned (it holds
+  > 34,877 rows back to 2026-07-18 and was still being written at 11:09Z today), **with a demand
+  > control** — the five heaviest former producers all ran since 08-16 and produced none:
+  > page-rerender 311 runs, build-dispatch-loop 138, feed-ingester 93, page-build-handler 50,
+  > page-content-writer 50. Peak was 3,136 errors on 08-11.
 
 ---
 

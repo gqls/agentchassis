@@ -474,3 +474,26 @@ line was found once the right pods were asked.
 **Closing bar met: fixed AND live AND proven with demand.** File moves to `bugs_closed/`.
 Residual watch (non-blocking): §10's named follow-ups A (shared step-name reader) and B
 (identity-literal consolidation), and the two latent near-misses recorded in §10.
+
+
+---
+
+## Independent re-confirmation 2026-08-17, on a 2-day window with a demand control
+
+Closure rested on **21 minutes** of post-roll evidence. Contributed by the
+`bugfix_281_tool_audit_ported` lane, which came at this cold from the other end — it found the
+`message validation failed` rows while diagnosing `bugs_open/289` and went to file them as a new
+bug before grepping `bugs_closed/`. The measurement stands on its own:
+
+- **Zero occurrences fleet-wide since 2026-08-15.** Daily counts before it stopped: 08-15 733,
+  08-14 2,184, 08-13 631, 08-12 2,097, **08-11 3,136**, 08-10 759, 08-09 2,214, 08-08 1,305.
+- **The log is not pruned**, so the zero is real rather than an artefact of retention:
+  `agent_error_log` holds 34,877 rows spanning 2026-07-18 → 2026-08-17 11:09Z, and was still
+  being written to today.
+- **Demand control** — the zero is not silence. The five heaviest former producers all ran at
+  volume since 2026-08-16 and logged none: `page-rerender` 311 runs (newest 08-17 08:42Z),
+  `build-dispatch-loop` 138 (newest 08-17 11:26Z), `feed-ingester` 93, `page-build-handler` 50,
+  `page-content-writer` 50. Former totals for those five: 5,868 / 2,954 / 1,218 / 1,034 / 965.
+
+Fix commit `919cc6976` (2026-08-15 10:04Z). Nothing here reopens the bug; it replaces a 21-minute
+claim with a two-day one that could have come out otherwise.
