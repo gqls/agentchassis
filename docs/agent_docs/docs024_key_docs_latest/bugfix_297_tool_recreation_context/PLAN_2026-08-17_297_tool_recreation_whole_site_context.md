@@ -101,6 +101,26 @@ following 445/446's hardened shape exactly:
 
 Migration number 453 confirmed free at write time: ledger max 451; dir holds 452 only as `_HOLD`.
 
+> **CORRECTED 2026-08-17 (flagged by the `bugfix-083` session) — the number is SHARED, and the
+> check above was true and insufficient.** Two migrations carry 453:
+> `453_held_pair_canary_escalation` (bugs_open/083) and `453_tool_recreation_whole_site_context`
+> (this lane). **Always cite this migration by number AND slug.**
+>
+> **Neither session was careless — the window is structural.** The two files were committed
+> **102 seconds apart** (mine `66f36bd79` 12:56:29Z, theirs `f1a5b6315` 12:58:11Z), and when each
+> of us checked, the ledger held no 453 and the other's file was not yet on the tree. So the
+> documented remedy — query `schema_migrations` and `ls` the directory before claiming a number —
+> **would not have caught this**: it is necessary but not sufficient, because the race lives
+> between the check and the commit. The load-bearing habit is the slug, not the check.
+>
+> **And renumbering is NOT the fix here, though the landmine's general advice says to renumber the
+> unapplied one.** That advice assumed mine was unapplied; it was applied and ledger-recorded at
+> 16:21:53Z. `schema_migrations` keys on **filename** and stores an **md5 checksum** per row, so
+> renaming would orphan a checksummed row and make the renamed file read as *pending* to
+> `run-migrations.sh` — one scoped `--apply` from a replay by another session. (It would abort
+> safely on this file's own pre-state gate, but that is a spurious failure in someone else's run.)
+> **Decision: keep the number, never edit the applied file, disambiguate in prose.**
+
 ## 6. Council
 
 One run for the coherent task, submitted alongside the commit (`Council-Submitted:` trailer;

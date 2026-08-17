@@ -110,3 +110,23 @@ One useful thing fell out of the search: the guard that blocks those rebuilds te
 its refusal to "use the tool pipeline for rebuilds" — but the tool pipeline uses the very step being
 refused, so for the twelve pages in that state the advice points at a door that is locked. That has
 gone into the relevant bug for the session that owns it.
+
+## 2026-08-17 (later still) — a numbering clash with another session, and why we are leaving it alone
+
+Another session noticed that two different database changes both ended up numbered 453: theirs and
+ours. Nothing is broken — the system identifies these files by their full name, not the number, so
+both applied correctly and neither overwrote the other. The only real cost is that from now on
+saying "migration 453" does not identify anything, so both of us need to say the full name.
+
+They offered to let us renumber ours since they believed it had not been applied yet. It had been,
+about three hours earlier, so renumbering would actually have caused a problem rather than solved
+one: the record of what has been applied is filed under the exact filename and includes a
+fingerprint of the file's contents, so renaming ours would leave an orphaned record and make the
+renamed file look like it had never been run — which is one careless command away from someone
+running it again. So we are keeping the number and being careful with names instead.
+
+The more interesting part is that this was nobody's mistake. Both files were committed 102 seconds
+apart, and when each of us checked whether the number was free, it was — the other file did not
+exist yet. The check everyone is told to run cannot close that gap, because the gap is between
+checking and committing. I have added that to the shared warnings file underneath their entry, so
+the next person does not trust a clean check more than it deserves.

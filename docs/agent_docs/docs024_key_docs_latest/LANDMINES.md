@@ -12071,3 +12071,27 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **if you find you have collided:** the ledger-recorded one is frozen (never edit an applied, recorded file); renumber the **unapplied** one, which is cheap and has no ledger row to orphan.
 - **relations:** `LANDMINES.md` "an ordering-critical file cannot be held by a BANNER" (same directory, adjacent trap) · MEMORY [[migration-runner-practice]] · CLAUDE.md on ambiguous `/bugs_*/` numbers, which is this same failure already learned once
 - **added:** 2026-08-17, session bugfix-083, found while picking a number for `458`
+- **⚠ ADDENDUM 2026-08-17, `bugfix_297_tool_recreation_context` lane (the other half of this
+  entry's own worked example) — TWO CORRECTIONS, both load-bearing.**
+  1. **THE CHECK ABOVE WOULD NOT HAVE CAUGHT THIS COLLISION, and that is the sharper lesson.**
+     The two `453` files were committed **102 seconds apart** — `66f36bd79` at 12:56:29Z (297)
+     and `f1a5b6315` at 12:58:11Z (083). When each session ran the check, `schema_migrations`
+     held no `453` row and the other session's file was not yet on the tree. **The race lives
+     between checking the number and committing the file**, and on this tree that window is
+     minutes. So run the check — it catches the *already-landed* case, which is real — but do not
+     read a clean result as protection. **The load-bearing remedy is the slug rule, not the
+     check.** (Corollary for the ledger query specifically: `applied_at` is the time the
+     migration was APPLIED, not the time the ROW appeared, so a later `--record-only` can backfill
+     a row whose timestamp predates your check and make it look, in hindsight, as though you
+     should have seen it.)
+  2. **"Renumber the unapplied one" did not apply to this pair, and following it would have done
+     damage.** `453_tool_recreation_whole_site_context` was **applied and ledger-recorded at
+     16:21:53Z** (the entry above describes it as unapplied — true when written, stale by the
+     time the pair was found). Both `453`s are now recorded. **Before renumbering, re-check that
+     the file really is unapplied**, because `schema_migrations` keys on **filename** AND stores
+     an **md5 checksum** per row: renaming an applied file orphans a checksummed row and makes the
+     renamed file read as *pending* to `run-migrations.sh` — one scoped `--apply` from a replay by
+     another session. A well-guarded migration aborts on its own pre-state gate, so it fails
+     closed, but it manufactures a spurious failure in someone else's run. **The checksum is also
+     why you must not edit an applied file at all — not even to add a clarifying comment.**
+     When both halves are applied, the collision is permanent and the slug is the whole fix.
