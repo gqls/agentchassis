@@ -488,3 +488,32 @@ coverage gate deliberately ignores all six, because their images are not in
 *functionally* wrong today. Staleness of a linked package is a strong reason to
 look, not proof that behaviour changed. That is a per-service question and it is
 the first thing the next session should cost.
+
+> ### ⚠ CORRECTION 2026-08-17, same session — I overstated the checks' staleness
+>
+> Section (b) above says the four checks are "running August-6th logic". That is
+> true of the **platform packages they link** and it is **not** true of their own
+> code, and the sentence invites the second reading. Measured properly
+> [MEASURED 2026-08-17]: **none of the four has a single unshipped commit to its
+> own `cmd/<service>/` directory.** Each was deployed at or after the last change
+> to its own logic — `verifier-remit-check`'s two same-day commits (`ef1374426`,
+> `74ac4ed3a`) are both ancestors of its overlay commit `74ac4ed3a`, i.e. they
+> shipped; the other three have had no own-code changes at all since deploying.
+>
+> **So the honest risk is narrower than "the immune system is stale".** The checks
+> run the logic they were written with. What is stale is the *shared* code they
+> link (`platform/orchestration/actions`,
+> `platform/orchestration/actions/discovery_checks`) — so if a shared predicate,
+> constant or helper they depend on has been corrected since, the correction has
+> not reached them, and the check would go on testing the old rule while reporting
+> cleanly. That is a real failure mode and it is the reason to fix the mechanism;
+> it is not evidence that any check is wrong today.
+>
+> **Still unmeasured, still not asserted:** whether any linked symbol they actually
+> use has changed. That is the per-service question, and it is now a much smaller
+> one — the surface is "the symbols these four `cmd/` packages import", not the
+> whole 2,865 commits.
+>
+> Caught by asking a sharper question than the commit count: "has this service's
+> OWN code changed since it shipped?" A large diff between a build and HEAD says
+> nothing about whether the diff touches the built thing.
