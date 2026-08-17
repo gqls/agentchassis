@@ -1864,3 +1864,16 @@ was nothing to catch, which is only a meaningful statement because the page was 
 Now that deploys work again, the failed `needs_imagery`/`needs_page`/`needs_rerender` items are
 candidates for a retry, but **their `attempt_count` is exhausted (1–3 of max 3)**, so they will
 not retry themselves. That is the next concrete action for this lane.
+
+**Pilot's outage casualties RE-QUEUED (2026-08-17 late).** The `stale-work-item-reaper` only
+touches `triaged` rows 48h+ (`pre_query` read, not assumed), so nothing was going to retry
+these. Re-queued **11** items — 10 `needs_imagery` + 1 `needs_page` — with a predicate that
+names the site, `status='failed'`, the `%base tree%` error signature, AND
+`attempt_count < max_attempts`, so it cannot reach anything else. **`attempt_count` left
+ALONE at 1 of 3**: they have budget, and resetting it would erase the fact that they already
+failed once. The in-transaction guard required exactly 11 triaged and exactly **3 still
+failed** afterwards — the three genuine failures (`needs_new_component` ×2 at
+`store_generated_component`, `needs_rerender` timeout, all 3/3) are deliberately NOT retried,
+because they failed for their own reasons and would simply fail again.
+
+**`bugs_open/292` → `bugs_closed/292`** — fixed AND live in v1.0.1307, which is the bar.

@@ -1,8 +1,22 @@
 # 292 — a site's directory recommendation FLIPS BETWEEN RUNS when its domain contains two keywords with opposite verdicts
 
-**Status: FIXED IN TREE, COMMITTED, INERT UNTIL THE NEXT FLEET ROLL** (Go change —
-`make build-*` builds from committed HEAD, and releases are whole-fleet/owner-run).
-The running binary at filing time is **v1.0.1305**, which carries the DEFECT.
+**Status: CLOSED 2026-08-17 — FIXED AND LIVE.** Shipped in **v1.0.1307** (pods started
+17:05:46Z). Evidence, and note it is an ANCESTRY argument rather than a binary read: the
+tag-bump commit `e24dc0e6c` (16:36:35Z) is what the running image was built from, and
+`git merge-base --is-ancestor e0d662243 e24dc0e6c` returns true. The `build provenance`
+startup line had already scrolled out of range (~1h on a busy service), which is why the
+documented fallback was used.
+**Council-approved** unanimously at round 1, corr `d9ca49ae-1c5d-476c-9059-361ed95531bb`.
+
+> **Do NOT verify this the way I first tried.** Grepping the binary for `e0d662243` returns
+> ABSENT on a perfectly good build: the binary carries ONE stamp — the commit it was built
+> from — not every ancestor. A discovery grep for `[0-9a-f]{40}` is worse (20 hits, none a
+> real commit — Go's internal digit table). Both mistakes and the working recipe are logged
+> in `WRONG_CALLS.md`, 2026-08-17.
+
+Prior status (kept for the record): FIXED IN TREE, COMMITTED, INERT UNTIL THE NEXT FLEET ROLL.
+The running binary at filing time was **v1.0.1305**, which carried the DEFECT — and which the
+cluster then re-served from cache for a further day because the tag was reused (`aa9c7b74f`).
 
 **Filed 2026-08-17 by the portfolio_positioning lane**, found as a *pre-flight* for the
 Phase C pilot — before dispatching a build, not after a symptom. There is no failure row
