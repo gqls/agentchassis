@@ -18,7 +18,16 @@ negative control: the semicolon marker the fix introduces reads **0**, the pre-e
 variant reads **1**, the sibling guard reads **1**, a fabricated string reads **0**. The startup
 `build provenance` line had scrolled on both pods, which means out of range, not unstamped.
 
-**The likely reason, and the only action that helps: `IMAGE_TAG` was not bumped.** The fix is at
+**The build commit is `6a782274b` (08-16 vintage), and 222 commits sit in HEAD without it.**
+Probed with a *plausible fake* sha as the negative control, because 40 zeros matches every binary
+and cannot discriminate: build sha → 3, fake sha → 0, my fix's sha → 0,
+`merge-base --is-ancestor` → NO. **This is FLEET-WIDE and not about this lane** — another lane's
+production literal committed 12:35 UTC today also reads 0, while three markers from 08-16 read 1.
+**Every Go change committed on 08-17 is inert, across several lanes.** Config (agent definitions,
+migrations) is live regardless, which is what makes it confusing. Independently found the same day
+by another session (auto-memory `a-fresh-deploy-can-ship-no-new-code`).
+
+**The only action that helps: `IMAGE_TAG` was not bumped.** The fix is at
 HEAD (12:12:01 UTC, `2a5798c4b`), but the fleet is deployed at **`v1.0.1305`** and the makefile's
 `IMAGE_TAG` is **also `v1.0.1305`**. A same-tag rebuild ships the node's stale cached binary
 (CLAUDE.md, build section). Whether it was rebuilt-at-the-same-tag or never rebuilt is
