@@ -33465,3 +33465,54 @@ each case I read "the answer is no". Yesterday's lesson in this file was the sam
 shape from the other direction (a key's *presence* read as proof of authorship). An
 absence needs its instrument's sensitivity stated before it means anything, and the
 cheap way to state it is a control that is supposed to come out the other way.
+
+## 2026-08-17 — `bugfix_277_required_fields_repair` / `bugs_open/083`
+
+**1. A verify criterion carried forward twice, already satisfied six days before the fix it
+was meant to test.** `bugs_open/083` criterion 2 ("`phantom_internal_link` reaches a non-zero
+`complete` count for the first time") was written 2026-07-26 when the count was genuinely 0.
+The 2026-08-15 block asserted *"none in the pile today — waits for the next re-raise"* and the
+2026-08-16 block repeated it. [MEASURED 2026-08-17] the count was **7**, and all 7 completed
+2026-08-09 to 08-11 — before the promoter under test existed. Had it been re-measured a day
+later it would have been recorded as the fix's success. **What caught it:** querying the
+completion *dates* while sampling for a different criterion. **The cheap check:** one
+`GROUP BY status, max(completed_at)` on the type — five seconds, and it would have been
+disconfirming at any point in the previous eight days. **The class:** a verify criterion is a
+figure like any other and goes stale like any other; CLAUDE.md's "ground every figure against
+the live system before repeating it from another doc" is usually read as applying to evidence,
+not to the tests themselves.
+
+**2. A counterfactual that reported 100% success for all 17 groups, because the query dropped
+one entire arm.** Computing each `(item_type, handler_agent)` pair's health at the moment the
+promoter promoted it, keyed on `completed_at < triaged_at`. Result: every pair 100%, zero
+failures anywhere. **`failed` rows do not carry `completed_at`** — 0 of 265, against 5882 of
+5921 `complete` rows — so the failure arm counted zero by construction and the disconfirming
+result was unreachable. **What caught it:** the uniformity. A real population of handlers does
+not all succeed 100% of the time, and the table was too good. Re-run on `updated_at` it showed
+`literal_markdown → page-build-handler` at **1 complete / 28 failed** at promotion time — the
+finding the whole door-closer rests on. **The cheap check, now a LANDMINE:**
+`SELECT status, count(*), count(completed_at) FROM site_work_items WHERE status IN
+('failed','complete') GROUP BY 1` before using that column as a clock.
+
+**3. A four-page sample that all 404'd, read for a moment as "the work never reached the
+page".** Fetching `/guides/index.html` rows as `/guides/` — this site does not serve the
+trailing-slash form. **What caught it:** fetching the site root as a control (200, 37 KB), which
+separated "the subject is broken" from "my request is wrong". Re-fetched at the exact stored
+URL: 200 on all four. **The cheap check:** request the URL the row literally names, and treat a
+*whole sample* failing as evidence about the instrument before evidence about the subject.
+
+**Addendum, and it is the cheapest lesson of the three.** Misreading 2 was already in
+`LANDMINES.md` before I made it: *"`orchestration_states` retains barely a **day**
+here. So `count(*)` is 'still retained', never a census — always select
+`min/max(created_at)` in the same query and print the window beside the figure."* I
+did not see it because the `SessionStart` hook only surfaces entries whose footprint
+matches a **dirty file**, and this one's footprint is a **table**. CLAUDE.md says so
+in as many words, and MEMORY carries it as *"grep LANDMINES for the SYMBOL you are
+about to trust"* — I grepped it yesterday for `git stash` and the register, and did
+not grep it today for `orchestration_states` before resting a conclusion on that
+table. **One grep, before the conclusion, not after the doubt:**
+`grep -n "orchestration_states" …/LANDMINES.md`. That is now two entries in this file
+(2026-08-16 prior-art, 2026-08-17 this) whose cheap check was "grep the corpus for the
+thing you are about to trust", which is the tally that argues for automating it —
+a `PreToolUse`-style nudge on a psql/grep naming a footprinted table would have caught
+both.
