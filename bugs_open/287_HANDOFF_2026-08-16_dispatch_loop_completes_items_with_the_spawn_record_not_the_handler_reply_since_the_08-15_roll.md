@@ -1,5 +1,27 @@
 # 287 — build-dispatch-loop marks work items `complete` with the SPAWN RECORD as their result, not the handler's reply — appears at the 2026-08-15 10:14Z roll, ~75% of completions since
 
+## STATUS 2026-08-17 17:0xZ — FIXED AND LIVE for the main producer; OPEN on three named residuals (§11b has the evidence)
+
+| | state |
+|---|---|
+| **build-dispatch-loop** (86% of the defect) | **FIXED + LIVE + PROVEN** — mig `452` applied 16:28:57Z; a post-apply run completed **4/4 items carrying the handler's reply**, content checked at the artefact |
+| **diagnose-dispatch-loop** | **FIXED + LIVE + PROVEN** — mig `448` 12:19:59Z; its first post-apply run COMPLETED 17:0xZ and the item's `result` holds the real verdict (`status: UNVERIFIABLE`, summary, conclusion) where it used to hold the spawn record. So §6a's "read verdicts from `orchestration_states`, never the item" is now RETIRED for this agent |
+| **report-dispatch-loop** | config **LIVE** (same migration, identical shape) — **unproven for want of traffic**: zero runs since the apply. Demand-bound, not a failure |
+| **Half 1 (Go, WFA-017)** | **COMMITTED, INERT** — the 14:42Z "fresh build" shipped no new code (same `IMAGE_TAG`, cached image; probed). Needs an `IMAGE_TAG` bump + rebuild (owner's) |
+| **Historical rows** | 3,330 wrong; **303 repairable**; mig `455_HOLD` written + dry-run proven, **awaiting the owner's go** |
+| **Convention question** | `RFC_035` open (guardian scope veto on Half 1 — ratify / narrow / revert; owner's) |
+| **Admin** | `452`'s `schema_migrations` row is **MISSING** (harness refused `--record-only`); it IS applied — command in the file header |
+
+**Why this file stays in `bugs_open/` even though the defect is fixed and live:** the two
+owner decisions below are staged here and nowhere else, and **303 historical rows are still
+wrong** — a reader of those rows is still misled today. It moves to `bugs_closed/` when `455`
+is decided and `RFC_035` is ruled. Nothing is biting new traffic.
+
+**Reading an item's `result` now:** for a run created after its agent's migration it is
+`call_agent`'s step record with the reply at `.response` (12 keys, incl. `retry_payload`) — not
+a bare `{response:…}`. A plan is copied at orchestration creation, so **pre-migration runs keep
+producing spawn records until they drain** — attribute before concluding (§11b).
+
 > **⚠ NUMBER COLLISION — two bugs are 287 (2026-08-16, concurrent lanes).** This one is the
 > **`spawn_record`** slug (dispatch-loop item results). The other is
 > `287_…an_agent_seeded_without_a_description_is_unspawnable…` (agent seeding), filed the same

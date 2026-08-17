@@ -166,3 +166,13 @@ zero-row LATERAL walk").
   are now the habit. Fixed by keeping the true time at `result->_completed_at_before_repair` and
   asserting THAT, and by warning that the hourly census must exclude `_repaired_by` rows so a
   repair can never flatter the fix.
+- **448 PROVEN 17:0xZ.** The post-apply diagnose run (`c2b656b8`) COMPLETED and its item's
+  `result` holds the real verdict — `status: UNVERIFIABLE`, summary, conclusion — where a
+  pre-fix item held `{role,topics,agent_id,agent_type}` with no verdict at all. **So 287 §6a's
+  instruction "read 090 verdicts from `orchestration_states`, never the item" is RETIRED for
+  diagnose-dispatch-loop** (runs created after 12:19:59Z only). report-dispatch-loop: zero runs
+  since the apply — unproven, demand-bound, identical config.
+  ⚠ Honest note on shape: for diagnose the path is `result.response.response.status`, one layer
+  deeper than build-dispatch-loop's `result.response.<payload>`, because the diagnose handler's
+  own reply body itself carries a `response` key. That is layering, NOT `bugs_open/216`'s
+  double-execution envelope (which nests the same payload twice) — do not re-file it as one.

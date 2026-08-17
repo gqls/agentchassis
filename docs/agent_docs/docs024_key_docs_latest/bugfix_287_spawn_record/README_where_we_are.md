@@ -102,3 +102,33 @@ Still yours to decide: the 244 repairable historical records, and the architectu
 RFC_035. One small admin thing: the migration ledger wouldn't accept my "record this as
 applied" command (a permissions block in my session), so that one bookkeeping row is missing —
 the change is live regardless, and the file says so loudly.
+
+## 2026-08-17 (early evening) — both migrated agents now proven on real work; three things are yours
+
+The diagnosis pipeline's first job since its change finished, and its record now holds the
+actual verdict it reached — where before it held the hiring note and no verdict at all. With
+the main dispatcher's four-for-four earlier, both changed agents are proven on real traffic,
+each on a job that began after its change. The third (report generation) has the identical
+setting but hasn't had a job to run, so it is untested rather than unfixed.
+
+I've also written the history-repair script and rehearsed it against the live database inside a
+transaction that I rolled back: it finds 303 repairable records out of 3,330 and restores each
+one from the job that produced it — matched exactly, by requiring the job to name that very
+piece of work, not by a near-enough identifier. It is not applied; it waits on you. Writing it
+caught one of my own mistakes: the table stamps a "last changed" time on every write no matter
+what you ask, so my first draft's safety check would have refused to run every single time. The
+script now keeps each record's true completion time inside the record, and warns that the
+progress report must exclude repaired rows — otherwise a repair could make the fix look better
+than it is.
+
+**Three things need you:**
+1. **Redo the build with a new version number** — today's code (mine and several other lanes',
+   203 commits' worth) is committed but not running.
+2. **RFC_035** — keep, narrow, or undo the code half. The bug is fixed without it, so this is
+   purely the convention question the reviewers asked you to settle.
+3. **The 303-record repair** — say go and I'll apply it; say leave it and history stays
+   annotated with warnings.
+
+I've left the bug file open rather than filing it as closed: nothing is biting new work, but
+those 303 records are still wrong for anyone reading them, and your two decisions live in that
+file.
