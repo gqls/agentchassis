@@ -33686,3 +33686,32 @@ move) and a negative control (a legacy page must move) so an inert harness could
 "nothing moved". Result: **7 fixed points, 38 moved, 17 by name**, all 17 calculators. That one is
 the real blocker, and it is the one I would have been tempted to assume was already handled
 because the sibling replanned fine without it.
+
+## 2026-08-17 — armed a wait-loop whose filter could NEVER fire, and read ten minutes of its silence as "still booting"
+
+**Lane:** `finetuning_uk_service` (Phase 0 GGUF convert box).
+
+**The claim (implicit):** "no output from my until-loop = the provision hasn't completed yet."
+The loop grepped the adapter log for lines containing the CORRELATION ID **and** the string
+`Provision complete` — but those never co-occur: the `Provision complete` line carries
+`db_row_id`, not `correlation_id`. The filter was structurally unable to match anything, so
+its silence carried no information, and a box that had provisioned in the usual ~17 s sat
+idle-billing for the full 10-minute timeout (~$0.06 real; the same-day RUNBOOK §7 sequence
+had used two separate greps, and merging them for tidiness is what broke it).
+
+**Caught by:** the timeout expiring, followed by looking at the raw adapter lines and the
+vendor — box RUNNING since 11:43:08, claim `succeeded, attempts=1`.
+
+**The cheap check that would have caught it:** the one already on record —
+`foreground-test-a-watcher-before-arming-it` (fleet memory) and this lane's own RUNBOOK §8
+control rule: before trusting any log filter, run it once against a line you KNOW exists.
+`grep '<corr>' | grep 'Provision complete'` over the PREVIOUS run's log returns 0 lines in
+one second, which is the whole discovery. A watcher must be proven able to FIRE, not just
+proven to run.
+
+**Cost:** ~10 min of idle a6000 (~$0.06 real) and a stretch of session time. Same failure
+family as the §8 label-selector trap from 08-15 — an empty grep read as a fact about the
+SYSTEM when it was a fact about the QUERY — which makes it the second member of that family
+in three days, both mine.
+
+---
