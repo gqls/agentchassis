@@ -391,3 +391,60 @@ live, owner-blessed mechanism's safety posture on my reading alone, and the bran
 `conditional_branch` steps whose `then_step`/`else_step` are data — so "opt-in" would mean either
 a new expression form or redirecting the arms to a park step, and which of those is right is a
 design call. **Put to the owner in `README_where_we_are.md` instead.**
+
+## 2026-08-17 ~14:40–17:00Z — the "fresh build" shipped nothing; 453 proved itself; and 444 was wrong in a way no review could have caught
+
+**THE ROLL SHIPPED NO NEW CODE. Verified on three instruments before believing it.** The owner
+rebuilt and deployed the chassis at **the same `IMAGE_TAG` as the morning's build** (`v1.0.1305`),
+so the node served its cached layer. (a) The local image at that tag carries `revision=89a0cbeb7`,
+`created=14:30:02Z` — a genuinely new build. (b) The **running binary** contains `6a782274b` (the
+morning's) and **not** `89a0cbeb7`. (c) Pod `imageID` is `sha256:f90a7e88…` while the local repo
+digest is `sha256:6039e19c…` — different images. Pods restarted at 14:42/14:43Z, *after* the 14:30
+build, so this is not a timing race. **252 commits sit unshipped, 26 of them touching Go.**
+Contributed to `bugs_open/153` (which owns this trap) rather than filed anew; nothing of this
+lane's is affected because migrations `444`/`453`/`454` are DB config and live at COMMIT.
+Negative control was a **real but different sha**, never a zeros run — a 40-zero needle is present
+in every binary (LANDMINES, same day).
+
+**453 fired on schedule and did exactly what it was built to do.** First tick 12:57:43Z: escalated
+the **4** `page_component_status_drift` rows (7 days waiting) to `needs_human_review`, and correctly
+left `placeholder_contact` alone at 1 day — the clock discriminating, not just firing on a backlog.
+The written row carries the pair, the reason, `days_waiting: 7`, `limit_days: 3`, the exact by-hand
+promote command, and `owner: "(UNASSIGNED - claim this) check_page_component_status_drift.go added
+2026-07-10, never touched since, no lane doc claims it"`. The design choice that the map enriches
+rather than gates is what produced that last line instead of silence.
+
+**Then 444 turned out to be wrong, and this is the important entry.** Checking a newly-arrived pair,
+`empty_section → page-build-handler` read **3 complete / 12 failed = 20%** — below my floor, so 444
+was holding it. But my own 11:00Z census had recorded that same pair at **11 complete / 13 failed =
+46%**. Completes cannot decrease. My first thought was corrupted data.
+
+Nothing had regressed. **`site_work_items.status` has TWO terminal success states** — a verification
+sweep had moved 9 of those completes to **`verified`** (`complete_work_item_verification.go:218`),
+which is a completion that *also passed verification*, i.e. more evidence, not less.
+`idx_swi_completed`'s predicate already lists both; I had never read it as a domain.
+
+So both of the promoter's success tests — 430's known-good rule and 444's floor — **measured success
+with half the definition, and the resulting metric gets WORSE as the platform verifies more work.**
+Fixed by `454` in both predicates, applied after a read-only dry run whose two controls flip
+opposite ways (`empty_section` F→T proves the fix does something; `literal_markdown` staying held
+proves it did not just disable the door). Fleet scope when found: `verified` was **9 rows across 1
+pair**, so exactly one verdict changed — but the **latent** case is why it could not wait: a pair
+whose successes have *all* been verified has zero `complete` rows, reads as never having worked, and
+is held for ever, which is precisely `bugs_open/083`'s disease.
+
+> **This is the second instance of one class in a single session**, and worth naming as such. Earlier
+> today: `failed` rows carry no `completed_at`, which made a counterfactual return a uniform 100%.
+> Same table, same day. Both are **a status column whose values I assumed instead of enumerating**,
+> and in both cases the wrong answer was well-formed and plausible. Neither was *unmeasured* — the
+> marker discipline was followed — they were **measured against an incomplete definition**, which no
+> marker detects and, as WRONG_CALLS records, **no council review could have caught**: twelve seats
+> approved 444, and `bug_historian` came closest by challenging whether `complete` was *trustworthy*
+> — the right instinct on the wrong axis. A review of a plan cannot enumerate a column the plan never
+> mentions. `SELECT status, count(*) … GROUP BY 1` before filtering on a status. Both now LANDMINES.
+
+**Provenance note:** commit `b6bca52fc` carried, as a same-file passenger, another session's
+improvement to the build-provenance LANDMINES entry (they split one line and added an
+`UPDATED 2026-08-17` note about reading the image label first). Nothing was lost — the content
+survives and is better — but naming it so `git log` does not attribute their work to this lane, the
+same courtesy the `284` lane extended to this lane's WRONG_CALLS entry this morning.
