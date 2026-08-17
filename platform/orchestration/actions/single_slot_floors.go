@@ -106,14 +106,27 @@ func enforceSingleSlotFloors(ctx context.Context, params ActionParams, siteID, p
 		return nil
 	}
 
-	existingText := map[string]int{slot: len(strings.TrimSpace(shrinkGuardTagStripper.ReplaceAllString(existingHTML, "")))}
-	incomingText := map[string]int{slot: len(strings.TrimSpace(shrinkGuardTagStripper.ReplaceAllString(incomingHTML, "")))}
+	// The text axis is VISIBLE text — style/script/comment blocks removed with
+	// their content — not the tag-stripped length the whole-page path uses.
+	// bugs_closed/285: on the write that emptied a live article body the
+	// tag-stripped axis read 262% retained (a wrapper stylesheet replaced the
+	// prose) while visible text fell 2,754 → 68 chars. Calibrated against all
+	// 117 archived overwrite pairs, including what the change LOOSENS — the
+	// table, the disagreement in both directions, and the scope limit are in
+	// section_visible_text.go's header. RE-RUN THAT CALIBRATION before changing it.
+	existingText := map[string]int{slot: visibleTextLength(existingHTML)}
+	incomingText := map[string]int{slot: visibleTextLength(incomingHTML)}
 	existingComp := map[string]int{slot: countComponentClasses(existingHTML)}
 	incomingComp := map[string]int{slot: countComponentClasses(incomingHTML)}
 
 	var reasons []string
+	// evaluateSectionShrink applies its own minShrinkGuardChars (500) to the
+	// EXISTING side, so a short caption is out of scope without a second rule
+	// here. An earlier version of this change added its own 120-char minimum;
+	// MUT-2 proved it dead code (removing it broke nothing, because 500
+	// dominates) and it was deleted rather than kept as decoration.
 	for _, v := range evaluateSectionShrink(textFloor, existingText, incomingText) {
-		reasons = append(reasons, fmt.Sprintf("%s %d→%d chars of text (%.0f%% kept, floor %.0f%%)",
+		reasons = append(reasons, fmt.Sprintf("%s %d→%d chars of VISIBLE text, stylesheet and script content excluded (%.0f%% kept, floor %.0f%%)",
 			v.Slot, v.Existing, v.Incoming, v.ratio()*100, textFloor*100))
 	}
 	for _, v := range evaluateComponentLoss(componentFloor, existingComp, incomingComp) {
