@@ -33612,3 +33612,30 @@ been closed on **21 minutes** of post-roll evidence; I re-measured over two days
 error log is not pruned (so a zero means something), and ran a **demand control** — the five
 heaviest former producers ran 311/138/93/50/50 times since 08-16 and produced zero. That went
 back into the closed file, so the next reader inherits a two-day claim instead of a 21-minute one.
+
+**IT HAPPENED AGAIN THE SAME DAY, on a different object, about four hours later (bugs_open/275).** I
+ran `substring(query from 'LIMIT[[:space:]]+[0-9]+')` over live step configs, got 26 hits, called seven
+of them "multi-row caps that can bite", and wrote that number into a commit message, a council
+submission and a concept-register entry. Then I checked, because I had written *"nobody has checked
+whether the other six bite"* into the bug file and it was one query each.
+
+**Two of the seven were not whole-result caps at all** — `fix-proposer.load_last_bundle` and
+`visual-design-auditor.load_design_context` put their LIMIT inside a subquery and aggregate to ONE row.
+**Two more were harmless work queues** (`find_news_sites` 5 of 9, `find_directory_sites` 12 of 3 with
+`ORDER BY random()`) where the rest simply arrive on the next run. So of "seven caps that can bite",
+**three actually bite** — though the good news is that the two genuinely biting ones I had not
+previously identified are real, unfiled, and one is worse in ratio than the bug I was fixing.
+
+**Same shape as the entry above, four hours apart, and that is the point of writing it twice.** My SQL
+asked *"does this query text contain a multi-row LIMIT?"* and I reported the answer as *"how many
+silent caps are there?"*. Neither question is unreasonable; they are just not the same question, and
+nothing in the output marks the gap. The first time the axis was nesting DEPTH (root vs step-level
+config); the second it was SEMANTICS (a LIMIT that bounds the result vs one inside a subquery; a corpus
+vs a work queue). **A pattern-match over config text finds text, not meaning** — and the distance
+between them is exactly where a confident wrong number comes from.
+
+**The check, and it is the same one both times:** before quoting a census as a population, write the
+sentence the SQL actually asks underneath the sentence you are about to publish, and read them side by
+side. If they differ by a word like "silent", "configured", "active" or "effective", the census is a
+lower or upper bound and must be labelled one. It cost me one query per row to settle here — which is
+also how long it would have taken to check before publishing.
