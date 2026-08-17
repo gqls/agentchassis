@@ -188,6 +188,34 @@ func SavePageSectionsAction(ctx context.Context, params ActionParams) (interface
 				zap.String("page_name", pageName),
 				zap.String("page_id", pageID.String()),
 			)
+
+			// bugs_open/295: refusing is right; refusing SILENTLY is not.
+			//
+			// The two sibling guards on this same predicate both record the refusal —
+			// censusExcludedOwnedPages (selection) and AssemblePageAction (assemble) —
+			// and this one did not. That gap is invisible on the normal build route,
+			// where assemble_page refuses first and files the row. It is NOT invisible
+			// on page-build-handler's route, which has no assemble_page step at all: a
+			// content_rewrite work item reaches this action directly, dies `failed`, and
+			// the only statement of why lives in the orchestration's __step_error, which
+			// ages out at ~24h retention. Measured 2026-08-17: 0 owned_page_review rows
+			// have ever carried refused_by='save_page_sections', against 172 of 704
+			// pages estate-wide being rebuild_policy='owned'.
+			//
+			// The work item still fails — the save genuinely did not happen, and saying
+			// otherwise would be worse. What changes is that the refusal now leaves the
+			// same deduped, human-routable row its siblings leave, whose spec.fix already
+			// names apply_section_edit as the route that DOES work on an owned page.
+			// Errors inside the emit are swallowed by design: reporting must never be
+			// what breaks a guard.
+			emitOwnedPageReviewItem(ctx, params.DB, siteID, pageName, "save_page_sections",
+				fmt.Sprintf(
+					"%s: page %s is rebuild_policy=owned (tool/widget-owned); a generic "+
+						"section save would clobber it. Use apply_section_edit for targeted "+
+						"edits or the tool pipeline for rebuilds.",
+					ownedPageSkipReasonPrefix, pageName),
+				params.Logger)
+
 			return nil, fmt.Errorf(
 				"page %s is rebuild_policy=owned (tool/widget-owned): a generic section save "+
 					"would clobber it. Use apply_section_edit for targeted edits or the tool "+

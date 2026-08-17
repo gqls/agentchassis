@@ -733,3 +733,72 @@ func TestSavePageSections_OrdinarySkipIsNotClaimed(t *testing.T) {
 		t.Errorf("the action should have proceeded past the early exit to its normal reads: %v", err)
 	}
 }
+
+// ---------------------------------------------------------------------------
+// bugs_open/295 — the refusal must LEAVE A RECORD, not just refuse
+// ---------------------------------------------------------------------------
+
+// TestSavePageSections_OwnedRefusalEmitsReviewItem pins the half of the guard
+// that bugs_open/295 found missing: this action refused owned pages correctly and
+// recorded NOTHING, while its two siblings on the same predicate both emit an
+// owned_page_review row. On page-build-handler's route there is no assemble_page
+// step, so this action's refusal was the only one — and it existed solely in the
+// orchestration's __step_error, which ages out at ~24h.
+//
+// The assertion is POSITIVE and mutation-proof in both directions: sqlmock is given
+// an explicit expectation for the INSERT, so deleting the emitOwnedPageReviewItem
+// call fails ExpectationsWereMet; and the error return is still asserted, so
+// "fixing" this by turning the refusal into a silent skip fails too. Both matter —
+// the item SHOULD still fail, because the save genuinely did not happen.
+func TestSavePageSections_OwnedRefusalEmitsReviewItem(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	siteID := uuid.New()
+	pageID := uuid.New()
+
+	mock.ExpectQuery("SELECT id, url FROM pages").
+		WithArgs(siteID, "tool-gauntlet").
+		WillReturnRows(sqlmock.NewRows([]string{"id", "url"}).AddRow(pageID, "/tools/gauntlet/index.html"))
+	mock.ExpectQuery("SELECT COALESCE\\(rebuild_policy").
+		WithArgs(pageID).
+		WillReturnRows(sqlmock.NewRows([]string{"rebuild_policy"}).AddRow("owned"))
+
+	// The record itself. Args are pinned where they carry meaning: the site it
+	// belongs to, the source that refused (the column that tells this row apart
+	// from reconcile's and from the selection guard's), and the deterministic
+	// item_key that makes repeated dispatches converge on one row.
+	mock.ExpectExec("INSERT INTO site_work_items").
+		WithArgs(
+			siteID,
+			"save_page_sections",
+			sqlmock.AnyArg(), // summary
+			sqlmock.AnyArg(), // spec json
+			"owned_page_review:tool-gauntlet",
+		).
+		WillReturnResult(sqlmock.NewResult(1, 1))
+
+	params := ActionParams{
+		StepConfig: models.Step{Config: map[string]interface{}{}},
+		CollectedData: map[string]interface{}{
+			"current_page": map[string]interface{}{"name": "tool-gauntlet"},
+			"site_record":  map[string]interface{}{"site_id": siteID.String()},
+		},
+		DB:               db,
+		Logger:           zap.NewNop(),
+		ExecutionContext: &orchtypes.ExecutionContext{StepName: "save_sections"},
+	}
+
+	if _, err := SavePageSectionsAction(context.Background(), params); err == nil {
+		t.Fatal("owned page was not refused — the guard must still fail the save, not skip it")
+	} else if !strings.Contains(err.Error(), "rebuild_policy=owned") {
+		t.Errorf("refused, but not for the ownership reason: %v", err)
+	}
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("the owned-page refusal left no owned_page_review row — bugs_open/295 is back: %v", err)
+	}
+}
