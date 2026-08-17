@@ -221,7 +221,35 @@ var (
 	// A component whose script body is wrapped in an IIFE or a block-scoped
 	// listener declares nothing globally. These are the accepted wrappers.
 	reIIFE = regexp.MustCompile(`(?s)^\s*(?:!|\(|void\s)?\s*(?:function\s*\(|\(\s*\)\s*=>|async\s+function\s*\()`)
+	// Leading comments before the wrapper. reIIFE anchors at the body's start,
+	// and the estate's tool templates conventionally open with a /* tool-doc */
+	// block — measured 2026-08-17 (cmd/instanceaudit over the 91 live
+	// getElementById templates), 62 of them are IIFE-wrapped behind exactly that
+	// comment and were being reported unscoped. A false flag here is not
+	// harmless conservatism once the guard is armed: it would refuse renders of
+	// correct components, and at conversion time it would send 62 sound scripts
+	// into the judged-rewrite pool. Only LEADING comments are skipped — comments
+	// elsewhere cannot sit between "start of body" and "the wrapper".
+	reLeadLineComment  = regexp.MustCompile(`^\s*//[^\n]*(?:\n|$)`)
+	reLeadBlockComment = regexp.MustCompile(`(?s)^\s*/\*.*?\*/`)
 )
+
+// stripLeadingJSComments removes line and block comments from the FRONT of a
+// script body, so the accepted-wrapper test judges the first statement rather
+// than the first byte.
+func stripLeadingJSComments(body string) string {
+	for {
+		if m := reLeadLineComment.FindString(body); m != "" {
+			body = body[len(m):]
+			continue
+		}
+		if m := reLeadBlockComment.FindString(body); m != "" {
+			body = body[len(m):]
+			continue
+		}
+		return body
+	}
+}
 
 // instanceScopeEnforceConfigKey arms the refusal. Shape and naming mirror
 // dead_url_guard.go's record/refuse pair deliberately — one idiom for "this
@@ -332,7 +360,7 @@ func DetectInstanceCollisions(html string) InstanceCollisions {
 			continue
 		}
 		out.WindowOnloadAssignments += len(reWindowOnload.FindAllString(body, -1))
-		if !reIIFE.MatchString(body) {
+		if !reIIFE.MatchString(stripLeadingJSComments(body)) {
 			out.UnscopedInlineScripts++
 		}
 	}

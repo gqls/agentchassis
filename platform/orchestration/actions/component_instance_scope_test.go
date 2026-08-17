@@ -394,6 +394,48 @@ func TestDetect_differentComponentsSharingAnIdNameStillCollide(t *testing.T) {
 	}
 }
 
+// The estate's tool templates conventionally open their script with a
+// /* tool-doc */ block, and the wrapper test anchors at the body's start —
+// measured 2026-08-17, 62 of the 91 live getElementById templates are
+// IIFE-wrapped behind exactly that comment and were being reported unscoped.
+// The fixture is the real corpus shape (tool-css-unit-converter's opening),
+// not one composed to make the point.
+func TestDetect_leadingCommentDoesNotHideTheWrapper(t *testing.T) {
+	docComment := `/* === tool-doc ===
+function: tool-css-unit-converter
+purpose: Converts a value between px, rem, em, vw and vh.
+=== end tool-doc === */`
+
+	for name, script := range map[string]string{
+		"block comment": docComment + "\n(function () {\n  var x = 1;\n})();",
+		"line comments": "// tool-doc\n// second line\n(function () {\n  var x = 1;\n})();",
+		"both":          "// lead\n" + docComment + "\n(function () {\n  var x = 1;\n})();",
+	} {
+		got := DetectInstanceCollisions(`<script>` + script + `</script>`)
+		if got.UnscopedInlineScripts != 0 {
+			t.Fatalf("%s: an IIFE behind a leading comment must read as scoped, got %d unscoped",
+				name, got.UnscopedInlineScripts)
+		}
+	}
+
+	// CONTROL — the same comment in front of a genuinely global script must
+	// still be reported, or the stripping has widened the wrapper test into
+	// accepting anything that starts with a comment.
+	global := DetectInstanceCollisions(`<script>` + docComment + "\nfunction runCalc() {}\n</script>")
+	if global.UnscopedInlineScripts != 1 {
+		t.Fatalf("CONTROL FAILED: a leading comment must not launder a global "+
+			"declaration, got %d unscoped", global.UnscopedInlineScripts)
+	}
+
+	// And a comment INSIDE the body changes nothing — only leading ones are
+	// skipped, because only they can sit between start-of-body and the wrapper.
+	inner := DetectInstanceCollisions(`<script>function f() { /* note */ }</script>`)
+	if inner.UnscopedInlineScripts != 1 {
+		t.Fatalf("an inner comment must not affect the verdict, got %d unscoped",
+			inner.UnscopedInlineScripts)
+	}
+}
+
 func TestDetect_ignoresSharedScriptSrcAndUnrenderedTemplates(t *testing.T) {
 	// calculators.js is one shared file legitimately referenced by every
 	// calculator; counting it as a per-instance body would make every
