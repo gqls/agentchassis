@@ -389,3 +389,20 @@ named for.)*
 > query while costing out the owner's options, instead of quoting my own earlier
 > number. The lesson is the one already in MEMORY — a population you measured is
 > not a population that stays measured, and terminal rows are the ones that vanish.
+
+### OWNER RULING 2026-08-17 on the tie — EXECUTED, verdict pending
+
+The owner ruled **unify the third copy**. Done in commit `ea1e4a0`-adjacent work
+(`Council-Submitted: 79505ac5-32ca-4429-bfb3-e3955a4b245c`, still EXECUTING at
+hand-off — `098` credits the commit automatically once it approves, so nothing is
+lost, but **someone must still READ it and act on a REVISE**). The renderer moved
+DOWN into `discovery_checks` as exported `HandlerRegisteredSQL` (import direction
+forced it — `actions` imports `discovery_checks`, never the reverse), `actions`
+delegates in one line so the claim path stays byte-identical (the second seat's
+objection honoured as far as the ruling allows), and `HandlerStepConfig` renders
+instead of hand-writing. **It was FIVE renderings, not three**: the two extra are
+`core-manager/admin/agent_handlers.go:101,:724`, deliberately excluded because they
+ask a different question (admin CRUD existence, not routability) — binding them
+would let a routability narrowing silently change what the admin API 404s. A source
+guard licenses exactly one hand-written occurrence in `platform/orchestration`,
+with a scanner self-test; mutation-verified (5 failures on a re-inlined copy).
