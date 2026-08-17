@@ -400,3 +400,69 @@
   mechanics otherwise stand; Phase 4 gains the email links; new Phase 4b =
   netlify-oauth publisher backend (one const + one case on the proven seam;
   needs a new Deps field — Deps carries only ObjectStore today).
+
+## 2026-08-17 (later session) — PHASE 3 BUILT + COMMITTED: zip_deliverable (commit e1a7f1935, register DGH-011)
+
+- **Falsifiers checked before writing a line**: no newer handoff; `archive/zip`
+  absent from the repo (nobody had started); canary intact (`noted.co.uk`,
+  `published_hash` still the 08-16 16:01:40Z value). The "webdesign.uk live
+  webdesign" session was not in the peer list, but its owner-terms work landed
+  as commit `84202f061` (payment before build; preview ~1 month beside the
+  PERMANENT ZIP) — context for Phase 4's email copy, no conflict with this
+  phase.
+- **The handoff's open dispatch question, decided: own agent type, not
+  site-publisher's workflow.** Evidence: one type = one workflow (spawned
+  agents run their definition's workflow; the group-spawn `workflow` override
+  does not apply to single spawns, spawn_actions.go:1592 vs :2259), and
+  coupling the cut to the hourly reconciler would produce ~24 unread archives
+  a day. So: `zip-deliverer` on `isStorageEnabledAgent` (the sanctioned
+  per-type grant) + a `zip-deliverable-dispatch` spawn→call shim, seeded by
+  **459_zip_deliverer_agent_HOLD.sql** — deliberately NO scheduled task, and
+  the seed's verify block asserts zero schedules target the new types.
+  Topics need no Go change: the spawn→call handshake creates per-JOB topics
+  at spawn time (spawn_actions.go:1180–1210); 422's `publish-reconciler` (a
+  seeded new type) already proved the path.
+- **The action** (`zip_deliverable_action.go`): reuses `publish.S3Source` +
+  the `newPortfolioStore` idiom; composes to a TEMP FILE (seekable `*os.File`
+  → SDK sends Content-Length; the b2worker whole-buffer pattern explicitly
+  not copied — its own comment forbids it for this size class); verifies at
+  the artefact BOTH sides of the upload (entries == listing count; archived
+  `index.html` byte-equal to a fresh origin read; remote size == local, read
+  from the destination LISTING, never the upload return); key =
+  `deliverables/<domain>/<domain>-<treehash12>.zip` so a re-cut of the same
+  tree overwrites its equivalent; oversize ALERTS and completes (threshold is
+  an input so an induced oversize can prove the alert fires). 3 unit tests
+  green, incl. the induced-oversize demand control; the package fakes refuse
+  non-seekable bodies, so the wrong upload shape fails in test.
+- **Seed subtlety worth keeping**: the workflow config maps
+  `size_alert_bytes`/`expiry_minutes` as EXPLICIT dot-paths because a field
+  with a spec default can only be overridden by a Strategy-0 path that
+  resolves (bugs_open/248 finding (b), action_inputs.go); an unresolved path
+  leaves the default standing (verified at Strategy 0's `value != nil` guard).
+- **RFC_022 worked as designed**: the parity test FAILED on first run
+  (`check.py OPTIONAL_KEY_COUNTS["zip_deliverable"] = 0, registry declares 3`),
+  literal regenerated with the command in check.py's own comment (120 → 121
+  lines, only our action added), all four BudgetCron tests green, and the
+  kustomize overlay re-applied post-commit (new configmap
+  `optional-key-budget-check-script-t5849k8k98`, cronjob reconfigured).
+  Reader-side proof arrives with tomorrow's 06:50Z run's `doc_notes` row —
+  remember a MISSING row means the job did not run, not "clean".
+- **Same-file passenger, recorded not lamented**: the `000_concept_index.md`
+  DGH-011 row reached HEAD on ANOTHER session's commit (`8e051f16d`) between
+  my edit and my commit — the known shared-tree shape; forward-only holds,
+  the row is correct, and e1a7f1935's message says so.
+- **Council**: submitted alongside the commit, corr
+  `4cc887b9-6c4a-4165-ae21-6c69bbefccfd`, `Council-Submitted:` trailer on
+  e1a7f1935. Verdict may land ~30 min after submission (dispatch queues
+  behind the fleet) — READ it; a REVISE must be acted on, the code is already
+  on the shared branch.
+- **HEAD proven, not assumed**: `git archive HEAD` → clean build of
+  `./platform/... ./cmd/...` + Zip tests green from the archive.
+- **What Phase 3 still owes (post-roll, next session or later this one)**:
+  (1) verify the running chassis carries e1a7f1935 (ancestry vs the stamp,
+  with controls — recipe in 459's header); (2) apply seed 459; (3) production
+  acceptance on the canary: dispatch the shim (PUBLISH_OK recipe in the seed
+  header), `unzip -l` count == 8 B2 objects, `index.html` sha256 == origin,
+  presigned 200 in-expiry AND 403 after expiry (both directions), and the
+  size-alert demand control (`size_alert_bytes: 1` dispatch → alert fires,
+  cut completes).

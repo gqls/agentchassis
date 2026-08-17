@@ -103,3 +103,26 @@ that get seriously busy. None of these block anything.
 Next: back to building. The ZIP file the customer downloads is the next piece
 — it is also exactly what gets uploaded to their Netlify account, so one
 piece of work serves both doors.
+
+---
+
+2026-08-17, later. The ZIP is built. This is the file a customer actually
+gets: their whole site in one download. The code that makes it now exists,
+is tested, and is committed — it gathers every file of the built site,
+packs them into a single archive, checks its own work twice (once that the
+archive really contains every file byte-for-byte, and again that the copy
+that reached storage is exactly the size it should be — a shortened
+download that looks fine until you open it is the failure we most wanted
+to design out), and then produces a download link that works for seven
+days. Very large sites raise a flag for us to look at rather than ever
+producing a cut-down archive: the customer gets everything or we get told,
+never something in between.
+
+Two things worth saying plainly. First, nothing runs yet in production:
+the new code must ride the next release, and then a small piece of
+configuration (written and waiting, with its own checklist) switches it
+on. Cutting a ZIP happens only when asked — there is no schedule, because
+nobody wants a fresh archive every hour; the delivery email (next phase)
+is what will ask. Second, the review council has been asked to look the
+work over, as we do for platform changes; the commit carries the
+submission's reference so the review trail joins up on its own.
