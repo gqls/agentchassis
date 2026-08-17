@@ -1859,3 +1859,16 @@ everywhere downstream — deliberate, direction of truth. Watch also: GitHub API
 was 503ing fleet-wide at 16:27-16:38Z (deploy_page failures on other sites); if
 round 2 dies at deploy_page, check the page row + page_components before
 re-dispatching (the 08-11 lying-item trap).
+
+**Build round 2 (17:35Z): REFUSED again, mirror image — the trap has TWO fields.**
+The writer wrote `webdesign@contactforsales.com` into the copy and the validator
+flagged it against the now-corrected `sites.email`. Source: NOT the chrome
+(header/footer/head all clean), NOT persisted round-1 content (0 page_components
+rows — the gate really does persist nothing): it is **`sites.content_data->>'email'`**,
+a SECOND copy of the contact inside the fixed vocabulary blob that rides into the
+writer's context via site_record. Fixed 17:53Z (jsonb_set email+phone, guarded on
+the old value; content_data now carries no 'contactforsales' anywhere), item
+re-triaged for round 3. LANDMINES entry extended with the two-field sweep.
+Port-era `submission`/`briefing` specs also embed the placeholder but are NOT in
+the build's context; left as historical records. If round 3 fails at deploy_page
+with a GitHub 503, check page_components BEFORE re-dispatching.
