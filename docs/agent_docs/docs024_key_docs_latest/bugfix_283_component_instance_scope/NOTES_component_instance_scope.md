@@ -163,3 +163,67 @@ branch printed, the `doc_notes` row present at 15:29:24 UTC.
 **Not done, and it is a shared-tree consequence rather than an oversight:** no `deploy-…` makefile
 target, because `makefile` carried another session's uncommitted change and a pathspec commit takes
 same-file passengers. Recorded in the register's `verify-later` and in the CONTINUE_HERE.
+
+---
+
+## 2026-08-17 (session 3) — scoping the conversion on the owner's go-ahead
+
+### State check first, because the owner asked for one and it was the right call
+
+120 commits had landed since my last. Three touched files I own — two on `v3_site_actions.go`
+(the 282 lane) and one adding 50 lines to `pattern-check.py`. **Nothing disturbed this lane:** all
+four binding sites intact (1/2/2/2), `check_unscoped_component_render` still registered, both 283
+files present. `v1.0.1305` was built from `6a782274b`, digest-matched to the running pods, and every
+283 commit is an ancestor — so the seam is still live.
+
+The tripwire had run **unattended** at 07:40 UTC and caught real drift: active components
+243 → **244**. That is the mechanism doing its job on its own clock, and it is also a reminder that
+any figure carried from yesterday is already stale.
+
+### MISSTEP 5 — I measured the blast radius at the wrong UNIT, and it flattered me
+
+Cross-site sharing, measured by `function`: *"4 components shared across up to 5 domains"*, with
+`tool-llm-cost-calculator` at 5 domains. I nearly wrote that into `RFC_034`.
+
+It is wrong. Those four functions are **exactly the four that carry forks** — several active
+`content_components` rows under one `function` name — so grouping by function merged several
+single-domain rows into one apparently-widely-shared component. Re-measured at the ROW level, which
+is the unit that actually gets converted: **1 row on 2 domains, 3 rows on 2 pages.**
+
+Two consequences, and the second is the one that would have cost something:
+
+- the blast radius is *smaller* than I was about to publish, so the error was in the direction that
+  makes a plan look scarier rather than safer — but it is still a wrong number in an RFC;
+- **a `function`-keyed conversion silently skips 9 forked rows.** The wrong unit was not just a
+  reporting error; it would have been a conversion bug.
+
+Caught by noticing that two counts of "the same thing" disagreed (83 functions vs 88 vs 91 rows) and
+chasing the discrepancy instead of picking one. **The general form: when a census can be taken at
+more than one grain, the grain IS the finding — state it in the row label, and re-derive at the
+grain the WORK happens at, not the grain the query was easy at.**
+
+### The finding that changes the plan, and why I proved it instead of asserting it
+
+"Namespace the ids" is the obvious half of the conversion, and it is the half a regex can do. I
+believed — and could have written — that it was therefore a safe first phase.
+
+It is not, and the reason is collision class 2: both instances still declare `function runCalc()` at
+top level, the second declaration replaces the first, and every instance's `onclick="runCalc()"`
+resolves to the survivor. So an id-only conversion gives a page with **zero duplicate ids** where
+every button runs the last instance's logic. It passes the check while producing the wrong answer.
+
+`TestIDOnlyConversion_readsCleanOnIDsAndIsStillBroken` asserts exactly that (0 duplicates, 2
+surviving `window.onload`, 2 surviving global scripts), and mutating the fixture to be script-scoped
+fails it, so it is sensitive to what it claims. **This is the difference between a plan that
+sequences ids-then-scripts and one that does not — worth the twenty lines.**
+
+And a smaller one found by reading a real template rather than imagining it: `{{.InstanceID}}`
+renders as `c-mortgages-repayment`, so the obvious de-collision `function runCalc_{{.InstanceID}}()`
+is a **syntax error**. The IIFE route is forced, not chosen. Asserted in a test so a converter author
+meets it there rather than on a shipped page.
+
+### Where it stopped, deliberately
+
+`RFC_034` filed; nothing converted. The shape question (deterministic fix_type vs LLM rewrite vs
+hybrid) is the owner's, and it decides whether 94 live pages change over days or weeks. Building a
+converter before that decision would be building for a shape that may not be chosen.

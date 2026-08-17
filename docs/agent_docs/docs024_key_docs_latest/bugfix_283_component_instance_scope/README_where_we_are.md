@@ -81,3 +81,51 @@ not the machinery — is the point where this becomes a real commitment across t
 library, and deserves its own review. There is also a knock-on: converting changes the exact bytes
 of 22 live pages, and one of our checks currently verifies that those bytes don't change. That
 check needs rebaselining first, deliberately, rather than being discovered mid-run.
+
+---
+
+## 2026-08-17 — I checked the size of the job before starting it, and it is four times bigger
+
+You said go ahead, and asked me to check nothing had moved underneath us first. Nothing had: 120
+commits had landed from other work, three of them touched files this job also touches, and none of
+them disturbed it. The safety check I built yesterday had run overnight on its own schedule and
+correctly noticed that the component library grew by one overnight — which is the small proof that
+it is actually watching rather than just installed.
+
+Then, before writing any of the conversion, I measured what "convert the calculators" actually
+means. **The file said 22 templates. It is 91.** Ninety-one stored components, appearing on 94 live
+pages across 22 different sites, carrying about 1,350 hardcoded names between them. The good news
+is that they are almost all independent: converting one of them changes one page, with three
+exceptions. So this is a long job rather than a risky one.
+
+**Two things I found that change how it has to be done, and I proved both rather than trusting my
+reasoning.**
+
+The first is the important one. The obvious way to do this job is in two steps: rename all the
+names first, because that part a machine can do reliably, then deal with the trickier scripts
+afterwards. I was about to propose exactly that. It turns out that doing the first half alone
+produces a page that *passes the safety check* and is *still broken* — because both copies of the
+calculator still share the name of the function that does the arithmetic, so whichever copy loads
+last wins and both buttons run its sums. The page would look fixed, test clean, and still show a
+visitor a figure calculated from someone else's numbers. So the two halves have to be done together,
+per component. I wrote a test that demonstrates this rather than leaving it as an argument, and then
+deliberately broke the test to confirm it was actually checking the thing.
+
+The second is smaller but would have cost a wasted afternoon: the natural way to give each copy its
+own function name doesn't work, because the name we generate contains hyphens and hyphens aren't
+allowed in JavaScript function names. That rules out one of the two approaches, which is useful to
+know before rather than after.
+
+I also found two quiet ones: 58 of the 91 components have form labels wired to those names, and 33
+style themselves using them. Neither produces any error if we rename the name and forget the label
+or the style rule — the page just silently stops working properly in a small way.
+
+**What I need from you.** I've written the proposal up as RFC_034. The question isn't whether to do
+it — it's *how*, and there are three ways with real trade-offs: a deterministic converter that's
+auditable but can't handle the script half; letting the AI rewrite each component, which can handle
+it but has previously truncated a component and reported success; or a hybrid. I've recommended the
+hybrid, done component by component with the existing safety check as the gate. But the choice
+affects whether 94 live pages change over days or weeks, so it's yours.
+
+I've deliberately not started converting. Building the converter before you pick a shape would risk
+building the wrong one.
