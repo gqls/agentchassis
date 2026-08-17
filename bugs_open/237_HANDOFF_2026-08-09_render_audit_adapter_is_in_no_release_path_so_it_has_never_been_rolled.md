@@ -421,3 +421,70 @@ necessarily the fleet's cadence. Options are costed in the chat of 2026-08-17;
 **Do not, in the meantime, "fix" this by running `release-github-runner`**: it
 would move the singular runner to today's `IMAGE_TAG` and leave `-vmsites`
 untouched and un-movable, which is the state that produced this in the first place.
+
+---
+
+## 2026-08-17 evening — the class fix SURVIVED ITS FIRST REAL RELEASE, and the residual is bigger than two runners
+
+### (a) `v1.0.1307` ran the refactored tooling. Nothing broke.
+
+The fleet rolled while this lane was open, and the release used the new
+declaration-driven `deploy-agents`. Verified at the artefact [MEASURED 2026-08-17]:
+
+- **All four of this lane's commits are IN the deployed build.** Build provenance
+  (BLD-019) reports `a6d1c53c0` on browser-runner, git-adapter, core-manager,
+  auth-service and reasoning-agent — **one revision across all five**, so BLD-020's
+  pin held too. `git merge-base --is-ancestor` confirms `6b3524201`, `f0657b466`,
+  `e24dc0e6c` and `0cc47437a` are all ancestors of that build.
+- **15 services on `v1.0.1307`**, retagged by the single loop that replaced the
+  fifteen copy-pasted blocks.
+- **The pair still moves together:** `browser-runner-adapter` started `17:05:42Z`,
+  `render-audit-adapter` `17:05:44Z` — two seconds apart, on the same image. That
+  ordering is the one per-service fact the refactor had to preserve, and it did.
+
+> **What this does NOT prove, stated so nobody upgrades it later.** The tree is
+> compliant, so `check-release-coverage` **could only have passed** — this release
+> could not have come out otherwise, and a gate that cannot fail proves nothing
+> about its discriminating power. That was established separately, by mutation
+> (the control that reproduces this bug's original state). What the release proves
+> is the *other* half and it is worth having: **the refactor did not break a real
+> release.** BLD-022 moves from "armed" to "exercised", not to "proven".
+
+### (b) The real residual: SIX services are frozen, not two — and four of them run PLATFORM GO CODE
+
+Chasing the runner ruling turned up the same shape four more times. Every service
+whose image the release does not build is frozen, because each has its own deploy
+target and **nothing runs it, and nothing notices**:
+
+| service | pinned | overlay last touched | what it is |
+|---|---|---|---|
+| `github-actions-runner` | v1.0.948 | 2026-04-08 | CI runner; **missing rsync + ssh** (above) |
+| `github-actions-runner-vmsites` | v1.0.1126 | 2026-07-16 | CI runner; **no retag target exists at all** |
+| `component-render-check` | v1.0.1258 | 2026-08-06 | daily CronJob check |
+| `shared-output-fields-check` | v1.0.1265 | 2026-08-08 | daily CronJob check |
+| `removed-config-keys-check` | v1.0.1285 | 2026-08-11 | daily CronJob check |
+| `verifier-remit-check` | v1.0.1289 | 2026-08-11 | daily CronJob check |
+
+Each overlay was written **once, on the day the service was created, and never
+again** — which is the proof that these targets are not run, rather than an
+inference.
+
+**The four checks are the serious half, and they were the quiet one.** Unlike the
+runner image (Ubuntu + a pinned upstream tarball, project content changing about
+twice a year), all four checks **build from the platform Go source** and import the
+estate's most-churned package — `component-render-check` imports
+`platform/orchestration/actions`, `verifier-remit-check` imports
+`platform/orchestration/actions/discovery_checks`. Measured against HEAD:
+**~2,865 / ~2,619 / ~1,778 commits of platform code behind** respectively.
+
+So the estate's own daily immune system is running August-6th logic against a
+platform that has moved 2,865 commits. **A fix to a check's own logic does not
+reach the check** — it needs someone to remember a target, and for four months
+nobody has. This is the same defect as `render-audit-adapter`, one layer out: the
+coverage gate deliberately ignores all six, because their images are not in
+`RELEASE_IMAGES`, and that scope line is now the thing to revisit.
+
+**Not yet measured, and deliberately not asserted:** whether each check is
+*functionally* wrong today. Staleness of a linked package is a strong reason to
+look, not proof that behaviour changed. That is a per-service question and it is
+the first thing the next session should cost.
