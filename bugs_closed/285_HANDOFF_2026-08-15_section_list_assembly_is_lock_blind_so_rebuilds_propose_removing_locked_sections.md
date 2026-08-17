@@ -320,3 +320,47 @@ page's evidence will be identical in shape to the table above (its `chat-input-b
 case: a tool-level locked row on a tier-1 page whose plan omits it). **Recommendation: this file
 moves to `bugs_closed/` on the owner's word; the chat-box lock decision stays with the filing
 lane, whose ruling said the lock holds "until this is fixed and live" — it now is.**
+
+---
+
+## ACCEPTANCE RUN — 2026-08-17, all five steps PASS on the real page (filing lane, webdesign_uk_build_service)
+
+The fix (separate lane, `57336c127`, council round 2) is **live on `v1.0.1305`** — verified at
+the artefact, not inferred: the chassis pods were too old for the `build provenance` startup
+line, so `/proc/1/exe` was probed for candidate shas **with a negative control** (HEAD
+`3de9ca8aa` absent; `6a782274b` MATCH; two neighbouring candidates absent, so the probe
+discriminates), then `git merge-base --is-ancestor 57336c127 6a782274b`.
+
+**Driven as the owner specified** (full pass, his explicit choice once told it would run the
+content writer and republish): work item `80f7e5aa`, `needs_content_page` → `page-build-handler`
+over `webdesign.uk` `contact`, claimed 12:15:59Z, **complete 12:20:35Z**. Baseline pinned
+BEFORE the run at 11:10:23Z, with a full JSON backup of all three components.
+
+| # | acceptance step | verdict | evidence |
+|---|---|---|---|
+| 1 | the PROPOSED list handed downstream contains `chat-input-box` | **PASS** | the run's own `spec_sections`: `{"count":3,"source":"site_plan_tables","sections":["hero","contact-info","chat-input-box"],"locked_merge_count":1,"locked_sections_merged":["chat-input-box"]}` — note this is not merely "the name is present": the merge itself is recorded as having fired, on the **tier-1** source |
+| 2 | `pages.sections` carries it after the pass | **PASS** | `["hero", "contact-info", "chat-input-box"]`, written 12:20:32Z (was `["hero","contact-info"]` since 08-15) |
+| 3 | the locked row's artefact is untouched | **PASS** | `md5(rendered_html)` still `de6048265bbdc69707b85d2dade88268`, `updated_at` still `2026-08-11 15:03:09.940884+00`, `lock_type` still `permanent` |
+| 4 | an UNLOCKED sibling IS still rebuilt (058's own control) | **PASS** | both rebuilt at 12:20:09Z — `hero` md5 `655cc34d…`→`5a9b715b…`, `contact-info` `f042c9e5…`→`f1528633…` |
+| 5 | no `lock_blocked_change … blocked_action: remove` filed | **PASS** | 0 new rows on `lock_blocked_change:contact:chat-input-box` since the baseline. The pass no longer *attempts* the removal, so the guard has nothing to block — which is the whole difference between "the lock held again" and "the defect is gone" |
+
+**The `specSectionFacts` alignment obligation this file named is satisfied**: `section_facts`
+came back `[null, null, null]` — three entries for three sections, so the
+`len(specSectionFacts) == len(specSections)` guard cannot silently drop the fact-scoping
+payload on the merged list. Worth stating because tier 1 (`site_plan_tables`) served this run,
+which is exactly the arm the obligation was written for.
+
+**`a4cd5dc8` is ANSWERED, not dismissed** (owner's condition): marked `complete` with the
+resolution and this evidence written into its `spec`.
+
+**The lock is STILL ON.** It comes off only on the owner's say-so — unchanged by this run.
+
+**Two things this run does NOT establish**, stated so nobody reads more into it:
+- **Not yet served.** `complete` is not deployed (box sync 1–30 min). Immediately after the
+  run the live page was byte-identical to the baseline — 24,218 bytes, 26 hrefs, widget
+  present — because the new copy had not synced. The list/cache facts above are DB facts.
+- **Copy changed, as the owner accepted it would.** No links lost (2→2 on both sections) and
+  no banned claim fired, but `hero` now states `£149` (an attested fact it did not carry
+  before) and dropped "we usually reply within a day or two", and both `hero` and
+  `contact-info` now open with "Get in touch" — a duplicated heading on one page. Flagged to
+  the owner; full backup retained, so either section can be restored surgically.
