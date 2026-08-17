@@ -1355,3 +1355,50 @@ either way is not evidence of anything.
 What this does not buy: a second site's visitors actually chatting. noted.co.uk
 has no attested facts yet, so the program correctly refuses to start for it.
 That is the decision waiting on you, not a fault.
+
+## 2026-08-17 — step 6 done; the contact-page rebuild you approved is set up and waiting on a fleet-wide traffic jam
+
+Two things went live for us today and one thing is stuck, none of it broken.
+
+**Step 6 is done.** When the framework asks "should this site get a chat box?", it
+now reads the approved plan for that experience first and cites it, instead of
+working the safety questions out from scratch each time. That plan is the one the
+council approved on Friday. The change is live in the database. One honest caveat,
+written into the record rather than glossed: the part of the framework that asks
+that question has not actually run for a week, so nothing has exercised the new
+wiring yet. I have written down exactly what to check the first time it does,
+including a control that would fail if the wiring were silently empty — because
+the obvious check passes either way, which is how this sort of thing gets believed
+too early.
+
+**The 285 fix is live**, and so is our own step-5 work. I confirmed that by asking
+the running program which version of the code it is, with a deliberate wrong answer
+included in the test to prove the question can come out negative. Both are in.
+
+**The rebuild of the contact page — the one you chose the full version of — is set
+up and queued, but has not run.** Before starting I took a complete backup of the
+three sections on that page and recorded what the live page looks like now, so
+anything the rebuild does can be undone. Then I found the queue was not moving.
+
+The reason turned out to be worth the detour. Our Anthropic account is bumping its
+usage limit intermittently — most requests succeed, a few get refused. At 11:09
+this morning a health check happened to hit one of the refusals, and marked the
+whole AI endpoint "unhealthy". Everything that picks up queued work checks that
+flag first, so the entire fleet's build queue stopped — not just ours. And the
+flag is only re-tested once an hour, so the stoppage outlives the problem that
+caused it by up to an hour. Meanwhile real work kept succeeding, so every
+health check anyone would normally run said the system was fine.
+
+That combination — queue completely stopped, all the dashboards green — was not
+written down anywhere, so I have recorded it properly against the existing bug
+about the usage limit, and added it to the traps file so the next person who
+wonders why their work will not start finds the answer in one query instead of an
+afternoon. I did not fix it: another session has that file open for something
+else, and editing it underneath them causes exactly the kind of tangle we have
+rules to avoid. I have written down the three ways it could be fixed, in the order
+that best closes the door.
+
+The queue should free itself at about 12:10 when the hourly re-test runs, and our
+rebuild will then go ahead on its own. If it does not, the account limit is biting
+harder than it looks and that is one for you — it is the same limit that stopped
+everything on 10 August, which you cleared by adding credit.

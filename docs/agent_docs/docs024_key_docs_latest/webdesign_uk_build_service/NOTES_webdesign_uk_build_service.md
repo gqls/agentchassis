@@ -3011,3 +3011,75 @@ this session's cold-start falsifier sweep:
   register/index files in the edit list; two seats could not verify them.
 - Commit `f3fd5af39` carries `Council-Reviewed: 55cda19b…`. TL-043 status
   updated. HANDOFF_2026-08-16 supersedes 15c; MEMORY_workstreams pointer moved.
+
+## 2026-08-17 — TL-043 + the 285 fix are LIVE on v1.0.1305; PLAN step 6 SHIPPED (TL-046, mig 449); the 285 acceptance is DISPATCH-BLOCKED by a fleet-wide claim gate nobody had recorded
+
+- **What is live, proven at the binary, not inferred.** The chassis pods are 12h
+  old so the `build provenance` startup line had scrolled (the documented
+  fallback). Probed `/proc/1/exe` for candidate shas **with a negative control**:
+  HEAD `3de9ca8aa` **absent**, `6a782274b` **MATCH**, two neighbouring candidates
+  absent — so the probe discriminates and the running binary is `6a782274b`
+  (`v1.0.1305`). `git merge-base --is-ancestor` then puts BOTH `f3fd5af39`
+  (my TL-043) and `57336c127` (the other lane's 285 section-list fix) inside it.
+  **So the 285 acceptance became runnable today, and TL-043's verify-later did too.**
+- **PLAN step 6 SHIPPED — `TL-046`, migration `449`** (renumbered mid-write from
+  447: another lane took that number, and later took TL-044 too, so my register
+  entry moved to TL-046 with an id note recording the join). tool-suggester now
+  loads the council-approved experience plans (`load_experience_plans`, spliced
+  `load_library_tools → … → suggest_tools`) and cites one per suggestion via a new
+  `experience_plan` field. Applied + verified in-transaction; the dry run executed
+  the file to its own COMMIT against live state and rolled back.
+  - The landmine this change is shaped by: **a template variable with no matching
+    `input_fields` entry renders EMPTY and errors nothing.** 449's verify block
+    RAISES on exactly that, and its pre-state guards assert each of the three
+    prompt anchors occurs EXACTLY ONCE before any `replace()` runs, so a
+    concurrent edit aborts rather than lands on top. The prompt is edited by
+    anchored replace, never retyped — 3,471 bytes of another lane's reviewed copy.
+  - **Digest bounded at `left(body,600)`** because the three current plans are
+    10,075 / 11,152 / 13,971 chars and injecting them whole would add ~35KB to
+    every call. What the bound COSTS (the suggester never sees the promise ledger)
+    is stated in TL-046, not hidden.
+  - **Runtime proof is OWED and recorded as owed:** tool-suggester has **0 runs in
+    7 days** — undriven, so nothing has rendered the new block. TL-046's
+    verify-later requires a POSITIVE CONTROL on the first real run (the rendered
+    prompt must contain `site-chat-intake` AND must not read "None on file."),
+    because a presence-only check passes identically on a channel rendering empty.
+- **The 285 acceptance: authorised by the owner, set up, and BLOCKED — not by the
+  fix, by the fleet.** Owner chose the full pass on contact (I put the choice to
+  him because a full pass runs the content writer and REPUBLISHES the shopfront;
+  this lane's own record has rewrites dropping required links three times and 6
+  `page_divergence_overwritten` items from the 08-16 rebuild). Prepared: baseline
+  pinned at 11:10:23Z (three components with md5s: hero `655cc34d`, contact-info
+  `f042c9e5`, chat-input-box `de604826` / 3,886 bytes / locked `permanent`
+  08-11 14:48Z), full JSON backup of all three components' `rendered_html` +
+  `content_data`, and the served-page baseline (26 hrefs, chat widget present).
+  Item `80f7e5aa` created triaged at 11:42:43Z.
+  - ⚠ **MISSTEP, caught by its own check:** my first backup attempt wrote an
+    ERROR into the backup file (`column reference "content_data" is ambiguous`)
+    and the file still existed. The `grep -c '^UPDATE page_components'` → **0**
+    is what caught it. A backup whose existence you check but whose CONTENT you
+    do not is not a backup.
+- **Why it is blocked, measured** (full write-up: the 2026-08-17 addendum to
+  `bugs_open/243`, plus a LANDMINES entry): `ai_endpoint_health.claude` went
+  `healthy=false` at **11:09:53Z** on an intermittent usage-cap 400, and
+  `claim_work_item` gates EVERY claim fleet-wide on that row — so
+  `build-dispatch-loop` runs to completion every ~90s, loads the same item every
+  time, and takes `claim → check_claim → done` with
+  `reason: ai_endpoint_unavailable`. `find_dispatchable_site` is
+  `ORDER BY created_at ASC LIMIT 1` across ALL sites, so the fleet queues behind
+  one item that cannot clear. **Zero claims since 10:32:33Z.** The row's
+  `check_interval_seconds` is **3600**, so the stop outlives the outage by up to
+  an hour; next probe 12:09:53Z.
+  - **The trap worth remembering:** the whole time this was true, Anthropic
+    traffic was SUCCEEDING — 93 of 99 calls OK, latest 11:52:32Z, i.e. after the
+    row went false. 243's own liveness query (`max(created_at) FROM llm_call_log
+    WHERE success`) says the fleet is UP while nothing can be claimed.
+  - ⚠ **My own over-read, corrected mid-diagnosis:** I first said "the cluster is
+    calling Anthropic successfully" from a `llm_call_log` count with **no provider
+    filter** — the same shape as counting a denominator you did not scope. Re-ran
+    grouped by provider/model; the conclusion survived (all rows were anthropic),
+    but it survived by luck, not by method.
+  - **NOT fixed by me:** `check_endpoint_health_action.go` is dirty in the tree
+    under another session (unrelated `CheckConfig` work), so editing it would make
+    me a same-file passenger on their commit. Three fix shapes are recorded in the
+    243 addendum, ordered by what closes the door.
