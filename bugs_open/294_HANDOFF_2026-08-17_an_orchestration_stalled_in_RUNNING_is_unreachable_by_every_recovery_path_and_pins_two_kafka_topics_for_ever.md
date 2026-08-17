@@ -126,9 +126,21 @@ by dead `RUNNING` rows **0**.
 - **The reaper `pre_query` is live config, so a change takes effect immediately with no roll** —
   there is no build to gate it and no window to reconsider. Treat it accordingly.
 - **It is a shared fleet-wide mechanism**, so it is council-scope under CLAUDE.md's
-  platform-seams rule. **The council gate is unavailable until the Anthropic account quota
+  platform-seams rule. ~~**The council gate is unavailable until the Anthropic account quota
   returns (2026-09-01, or sooner if raised)** — which is why this is filed with the measurement
-  and the exact SQL rather than applied. See the quota note in the `bugfix_281` lane NOTES.
+  and the exact SQL rather than applied. See the quota note in the `bugfix_281` lane NOTES.~~
+  > **CORRECTED 2026-08-17 (evening), by the `299` skipped-render-audit lane — THE GATE IS UP.**
+  > A full round ran today on this branch: submitted **12:46:22Z**, `complete_approved` /
+  > `COMPLETED` by **12:52:17Z** — ~6 minutes, 12 reviewers, 5 abstained, 0 unreadable, verdict
+  > APPROVED with six advisory objections whose text I read and answered
+  > (correlation `eaa043d7-867f-4d40-a0d9-c41b41e56cf9`; see
+  > `bugs_open/299_…skipped_render_audit…` §8). So the quota is not blocking submissions, and
+  > "filed rather than applied" should no longer rest on this reason. **Caught because I
+  > submitted rather than believing the note** — the claim was dated the same morning, which is
+  > exactly the shelf life this estate's own rules warn about. Whoever takes 294: put it through
+  > the gate. `[UNMEASURED]` whether the quota constrains some *other* path (a different account,
+  > model tier, or the fix-loop's own LLM steps) — this correction refutes only the stated
+  > consequence, that a council round cannot be run.
 - `bugs_open/289` is the producer that filled this hole, and its fix is committed but inert until
   the next roll. **Do not treat 289's fix as closing this** — 294 is the reason the corpses were
   immortal, not the reason they were created.
