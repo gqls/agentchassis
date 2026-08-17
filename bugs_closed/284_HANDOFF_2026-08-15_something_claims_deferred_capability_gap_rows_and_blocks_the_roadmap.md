@@ -375,3 +375,17 @@ here applies to both, so it was checked against the second before this file clos
 → `page-build-handler` stands at 0 complete / 4 failed, so its findings can never
 pass that gate — a handler that has never once succeeded at an item type it is
 named for.)*
+
+> **CORRECTED 2026-08-17 (figure, not conclusion):** the closure section above says
+> *"all 7 rows ever filed carry an empty handler (3 cancelled, 3 complete, this
+> one)"*. Re-measured ~1 hour later the same day: **5 rows — 3 cancelled, 1
+> complete, 1 (ours) deferred.** Both readings were true when taken; two terminal
+> rows were pruned between them (`database-cleanup` prunes terminal work items).
+> The **conclusion is unaffected and is the part that matters**: every row ever
+> observed for this item_type carried an EMPTY `handler_agent`, and the terminal
+> ones were dispositioned by `cli` — a human at the command line — not by an agent.
+> ⚠ Migration `442`'s header repeats the "7 rows" figure and is NOT edited (it is
+> ledger-recorded; editing drifts its checksum). **What caught it:** re-running the
+> query while costing out the owner's options, instead of quoting my own earlier
+> number. The lesson is the one already in MEMORY — a population you measured is
+> not a population that stays measured, and terminal rows are the ones that vanish.
