@@ -66,7 +66,12 @@ verified; the third was an explanation, not a change.** §5 below is amended in 
    **ONE site per hourly tick**, only sites unchecked for >7 days, skipping any site holding a
    `claimed` build item, stamping `site_discovery_rotation` as it goes. **22 of 23 active sites
    were due**, so it drains over roughly a day and then goes mostly quiet.
-   **First tick confirmed 11:32:14Z, `sites_due` 22 → 21.**
+   **First tick confirmed 11:32:14Z, `sites_due` 22 → 21**, and the agent itself ran to
+   `COMPLETED` in 4s — so the chain trigger → agent → completion is proven.
+   ⚠ **But that first pass proves the CHAIN, not the CHECKS.** It drew
+   `remortgagecalculator.uk`, which has **0 pages** (deployed or otherwise), so its zero
+   findings could not have come out any other way. **The first informative tick is the next
+   one** (~12:32Z, `robot-hands.com`). Do not read the clean first run as "the fleet is fine".
    ⚠ **What to watch, and it is not the rotation itself:** findings land at `detected`, and
    `detected-item-promoter` (live, 15-minute cadence) now promotes them to `triaged`, from where
    handlers dispatch. One completeness pass on `leopardessconsulting.co.uk` filed ~77 items

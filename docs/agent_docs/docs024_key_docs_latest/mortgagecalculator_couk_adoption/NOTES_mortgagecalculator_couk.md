@@ -3240,7 +3240,16 @@ demand-control trap** (LANDMINES: never `enabled=true` a scheduled task to test 
 (`remortgagecalculator.uk`), the rest last selected 08-09. So the pre_query could not have
 returned 0 — the demand control was satisfied in advance, not asserted afterwards.
 
-[MEASURED after enabling] **First tick 11:32:14Z, `sites_due` 22 → 21.** It runs.
+[MEASURED after enabling] **First tick 11:32:14Z, `sites_due` 22 → 21**, and
+`orchestration_states` shows `completeness-discovery-agent` COMPLETED at 11:32:18 — 4s.
+So trigger → agent → completion is proven end to end.
+
+⚠ **The first pass is NOT evidence about the checks, and I nearly recorded it as if it were.**
+It drew `remortgagecalculator.uk`, which has **0 pages** — `count(*)` on `pages` for that site
+is zero, deployed or otherwise. A discovery pass over nothing returns zero findings whatever
+the checks do or do not detect, which is the same could-not-have-come-out-otherwise shape
+`WRONG_CALLS.md` keeps recording. **The first informative tick is ~12:32Z (`robot-hands.com`,
+last checked 08-09).** Judge the rotation there, not here.
 
 ⚠ **The thing to watch is downstream of the rotation, not the rotation.** Findings insert at
 `detected`; `detected-item-promoter` is live on a 15-minute cadence and moves them to `triaged`,
