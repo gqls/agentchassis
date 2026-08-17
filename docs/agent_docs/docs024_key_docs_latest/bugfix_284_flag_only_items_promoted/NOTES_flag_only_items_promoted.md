@@ -261,3 +261,96 @@ to blast radius); recorded as the named next adopter.
 **Cost of the round: ~11 minutes, and it bought a corrected attribution, a sixth
 producer, and a third consumer I had not enumerated.** The `a-revise-round-is-
 cheaper-than-the-defect-it-finds` lesson, again.
+
+## 2026-08-17 — LIVE on v1.0.1305, and the repair was done by another lane
+
+The guard shipped. Two independent proofs, and the better one is not mine:
+
+- **Another session verified it at the artefact and wrote the repair**
+  (`docs/agent_docs/sql_for_agents/442_repair_flag_only_rows_blocked_by_the_old_promoter.sql`,
+  uncommitted in the tree at the time of writing — **not mine to commit**). Its
+  header records chassis AND core-manager on `v1.0.1305`, image digests matching the
+  local images, OCI label **`revision=6a782274b`**, and
+  `git merge-base --is-ancestor 7027a2801 6a782274b` exiting 0. That is the
+  definitive form — a tag is not evidence, an ancestry proof is.
+- **My own three-needle binary probe**, both replicas: the promoter's log literal,
+  `workItemHandlerRegisteredSQL`'s `EXISTS (SELECT 1 FROM agent_definitions ad WHERE
+  ad.type = `, `workItemRoutableSQL`'s `, '') <> '' AND `, and
+  `countUnroutableDetected`'s `SELECT wi.item_type, count(*)` — all PRESENT, with a
+  long-lived positive control PRESENT and a nonsense negative control absent in the
+  same exec.
+
+**Repair state, measured 2026-08-17 11:0x — all handler-less blocked rows are gone:**
+
+```sql
+SELECT count(*) FROM site_work_items WHERE status='blocked' AND handler_agent='';  -- 0
+```
+`capability_gap` 18 → `deferred`, `image_url_404` 40 → `detected`,
+`needs_experience_plan` → `deferred`, `page_rerender` → **cancelled** (a ten-day-old
+verification rerender for another lane) — one transaction, 11:01:26. The two
+hand-inserted rows were judged individually exactly as this lane's RUNBOOK asked,
+including the owner-raised one being deferred rather than cancelled. My own
+`REPAIR_*.sql` did **not** run (`repair_284_backup` does not exist) and is now
+redundant; it stays in the lane as the rollback-bearing version if a future repair
+of this class is needed.
+
+### ⚠ THE GUARD IS LIVE AND UNEXERCISED, and a zero here is not proof it works
+
+```sql
+SELECT name, enabled, last_triggered_at FROM scheduled_tasks
+WHERE name IN ('improvement-sweep','detected-item-promoter');
+-- improvement-sweep      | f | 2026-08-14 16:34
+-- detected-item-promoter | t | 2026-08-17 10:46
+```
+
+`improvement-loop` is the **only** live carrier of `triage_detected_items`
+(measured, `SingleOwner`), and its only driver `improvement-sweep` is **disabled**.
+So the code path my guard sits in **cannot currently run at all** — the same
+"LIVE but NEVER YET EXECUTED" shape as WII-017/WII-018.
+
+Worse for anyone reading a dashboard: the thing actually promoting rows today is the
+`detected-item-promoter` scheduled task, created **2026-08-15**, which already
+refused handler-less rows from birth. **So "0 blocked rows" today is explained by
+the disabled driver plus a promoter that was never broken, NOT by my fix.** What the
+fix buys is that re-enabling `improvement-sweep` — or any future agent gaining the
+step — cannot re-create the class. Say it that way and nothing is overclaimed.
+
+### Misstep 1 — a `kubectl exec` loop that times out reports "absent"
+
+My first needle probe ran one `kubectl exec` per needle in a shell loop with a 120s
+tool timeout. It was killed during the third needle, and that needle printed
+**`absent`** — because the killed `exec` exits non-zero and my `if` read that as
+"not found". The loop's output looked complete: three lines, one of them a clean
+negative. Re-run as a SINGLE exec with all needles and a negative control inside, it
+was **PRESENT**. A timeout and a real absence are the same reading at the call site;
+put every needle in one exec, include a control that must come out the other way,
+and check the exit status.
+
+### Misstep 2 — "zero runs in five weeks" was measuring the PRUNER
+
+Chasing who promoted the 58 rows, I found **0** `orchestration_states` rows for
+`improvement-loop`, `design-audit-agent` and `site-review-agent` across a table
+whose oldest row is 2026-07-13, and briefly took that as "the promoter never ran, so
+the attribution is wrong". It is not:
+
+```sql
+SELECT status, count(*), min(created_at)::date, max(created_at)::date
+FROM orchestration_states GROUP BY 1;
+-- COMPLETED | 3264 | 2026-08-16 | 2026-08-17   ← nothing older than ~24-48h survives
+```
+
+**`COMPLETED` rows exist only for the last two days.** The table cannot answer "did X
+run on 08-09", so an empty result there is not evidence of anything. The 5-week span
+comes entirely from a handful of stuck `RUNNING`/`CANCELLED` stragglers, which is
+exactly what makes the window look long enough to trust. Before reading an absence
+out of `orchestration_states`, ask what its retention actually is — for terminal
+rows, and separately from the oldest row of any status.
+
+### And a new bug came out of the verification: `bugs_open/291`
+
+The other arm of the same claim guard is bleeding while this one is paused:
+`tool-auditor` files `item_type='needs_human_review'` at `handler_agent='hitl-review'`,
+an agent that has never existed — 14 rows, 2 sites, **5 yesterday → 14 today**, born
+dispatchable so neither this lane's guard nor its proposed CHECK constraint covers
+them (a CHECK cannot subquery `agent_definitions`). Filed with the producer named
+and a `090` as its next step.
