@@ -71,3 +71,20 @@ curl -s -X PUT -H "Authorization: Bearer $CLOUDFLARE_API_404_TOKEN" \
   the whole migration premise rides on it:
   `python3 …/editor_tool/smoke_live_editor.py https://noted.co.uk`
 - shopfront control: `curl -H "Host: webdesign.uk" http://127.0.0.1:8080/`
+
+---
+
+## ADDENDUM 2026-08-17 — legacy app retired
+
+`/legacy-app/` no longer serves the old app; it **302s (relative,
+`absolute_redirect off`) to `/tools/legacy-rescue/`**. Decision basis: zero
+non-probe traffic in the grace period, zero inbound links, notice only existed
+inside the app.
+
+**Nothing deleted**: copies remain at `/var/www/noted-legacy/` (box), `gqls/sites`
+master, and B2. **Rollback**: restore the alias block from
+`/root/nginx-backups/noted.co.uk.pre-retire-20260817`, `nginx -t`, reload.
+⚠ keep backups OUT of `sites-enabled/` (glob-included; breaks `nginx -t`).
+
+The origin probe (`legacy_tool/probe_origin_after_cutover.py`) now seeds from the
+rescue page itself and passes 9/9 post-retirement.

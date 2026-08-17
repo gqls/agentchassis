@@ -33,14 +33,14 @@ def check(l, ok, d=""):
 
 with sync_playwright() as p:
     b = p.chromium.launch(); ctx = b.new_context(); pg = ctx.new_page()
-    # 1. the preserved legacy app, on the SAME origin
-    pg.goto(BASE + "/legacy-app/", timeout=30000)
-    check("legacy app served at the same origin",
-          "Noted" in (pg.title() or ""), pg.title())
-    # 2. write notes as the old app would
+    # RETIRED 2026-08-17: /legacy-app/ now 302s to the rescue tool, so the probe
+    # seeds from the rescue page itself. Origin is what matters, not which page
+    # does the writing - IndexedDB is shared across every page of the origin,
+    # which is the premise this probe exists to keep proving.
+    r = pg.goto(BASE + "/legacy-app/", timeout=30000)
+    check("retired path lands on the rescue tool", "/tools/legacy-rescue/" in pg.url, pg.url)
     pg.evaluate(SEED)
     check("seeded NotedDB at https://noted.co.uk", True)
-    # 3. the rescue tool, same origin, different page
     pg.goto(BASE + "/tools/legacy-rescue/", timeout=30000)
     pg.wait_for_selector("#lr-found:not([hidden])", timeout=15000)
     counts = pg.locator("#lr-counts").inner_text()

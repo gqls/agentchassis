@@ -2208,3 +2208,39 @@ the claim that actually matters.
 `www.noted.co.uk` has never existed on this zone (no record, no links, canonical
 is the bare apex), so no regression and nothing that could shift the origin. The
 ingress rule added for it is inert and correct if it is ever added.
+
+---
+
+## 2026-08-17 — the old app is RETIRED and the notice is gone
+
+Owner: "let's retire the old app and remove the notice."
+
+**Measured before touching anything:** every one of the 22 hits `/legacy-app/` ever
+took was our own cutover probing (16:03–16:04 on the 16th, curl + headless Chrome
+via the tunnel loopback) — no real person visited it in the grace period. Nothing
+on the live site links to it, and the wind-down notice existed only inside the old
+app's own index.html, so retiring the app removes the notice with it.
+
+**What "retired" means, precisely:** serving stopped; **no bytes destroyed
+anywhere.** The copy remains at `/var/www/noted-legacy/` on the box, in
+`gqls/sites` master, and in B2. `/legacy-app/` now **302s to
+`/tools/legacy-rescue/`** — anyone arriving there almost certainly wants their
+notes, and the rescue tool is the page that returns them, on the same origin, so
+it reads the same IndexedDB the old app wrote.
+
+Two small traps on the way, both caught by verifying at the artefact:
+
+- nginx's default absolute redirect built the Location from the LISTEN address —
+  `http://noted.co.uk:8082/...` — fine box-locally, broken publicly. Fixed with
+  `absolute_redirect off;` (relative Location, resolved by the browser against the
+  real origin). Verified publicly: 302 → `https://noted.co.uk/tools/legacy-rescue/`,
+  followed to a 200.
+- The origin probe seeded its test notes THROUGH `/legacy-app/`, so retirement
+  broke the probe, not the product. Re-pointed it to seed from the rescue page
+  itself (origin is what matters, not which page writes) and re-ran: **9/9**, and
+  cleaner — "1 note", exactly the seeded one, since the old app no longer runs to
+  create its own.
+
+The notice ("being refreshed") now greps **zero** on every public path. Rollback,
+should the owner ever want the old app back at a URL:
+`/root/nginx-backups/noted.co.uk.pre-retire-20260817` restores the alias block.

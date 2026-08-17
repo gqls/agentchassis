@@ -342,3 +342,22 @@ What's left is watching rather than building: give it a few days, see whether
 anyone needs the old app, and decide when to retire it. The one loose end I'd
 flag is that the smoke tests leave throwaway accounts behind, because the service
 has no way to delete an account — worth adding before real people sign up.
+
+---
+
+## 2026-08-17 — the old app is retired (written by the assistant)
+
+You asked to retire the old app and remove the notice, and it's done. The facts
+made it an easy call: in the whole grace period, the only visits to the old app
+were my own tests — not one real person went there — and nothing on the new site
+pointed at it.
+
+Anyone who does turn up at the old address now lands on the rescue page instead,
+which is the right place: it finds the notes still sitting in their browser and
+hands them back as a file. I re-proved that end to end after the retirement —
+wrote a note the old way, and the rescue page found it, text and recording intact.
+
+Nothing was deleted. The old app still exists in three places — on the server's
+disk, in the source repository, and in the bucket — it just isn't served any more.
+The "being refreshed" notice is gone from everywhere a visitor can reach, which is
+right, because the refresh has happened.
