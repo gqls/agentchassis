@@ -330,3 +330,77 @@ liveness first:
 ```sql
 SELECT max(created_at) FROM llm_call_log WHERE success;   -- more than ~2 min stale ⇒ this bug
 ```
+
+---
+
+## ADDENDUM 2026-08-17 (webdesign_uk_build_service lane) — the cap RECURRED, and it stops the BUILD QUEUE by a path this file does not describe: one sampled 400 wedges `claim_work_item` for a FULL HOUR while the fleet's own liveness query says healthy
+
+**Contributed, not competing** — 243 is the cap; this is a consequence of the cap that
+nothing in 243, 244 or any other bug file records (`grep -rln ai_endpoint_health
+bugs_open/ bugs_closed/` → one CLOSED file, 030). Found because it blocked a
+webdesign.uk acceptance run, not by looking for it.
+
+**The mechanism, end to end, all `[MEASURED]` 2026-08-17 11:42–11:58Z:**
+
+1. `ai_endpoint_health` holds one row per endpoint. The `claude` row
+   (`https://api.anthropic.com/v1/messages`) went `healthy=false` at **11:09:53**,
+   `last_healthy 11:07:15`, error = the same *"You have reached your specified API usage
+   limits … regain access on 2026-09-01"* 400 this bug is about.
+2. `claim_work_item_action.go:~218-255` gates **every work-item claim fleet-wide** on that
+   row: handler's endpoint unhealthy → the claim is RELEASED and the item set back to
+   `triaged`. Returns `{"claimed": false, "reason": "ai_endpoint_unavailable"}`.
+3. So `build-dispatch-loop` runs to COMPLETION every ~90s, loads the same item
+   (`pending.has_items = true`, `items[0].id` unchanged run after run), fails the claim,
+   and completes. Path taken, read from `collected_data` keys:
+   `claim → check_claim → done`; `spawn_handler` never reached.
+4. `build-pipeline-trigger`'s `find_dispatchable_site` is
+   `ORDER BY wi.created_at ASC … LIMIT 1` across **all sites**, so the whole fleet queues
+   behind the single oldest item, which can never clear. **Zero claims fleet-wide since
+   10:32:33**; four sites' items sat `triaged` (webdesign.co.uk, leopardessconsulting.co.uk,
+   dartsonline.com, webdesign.uk).
+5. **`check_interval_seconds` on that row is 3600.** The endpoint is re-probed ONCE AN HOUR.
+   So a single sampled 400 stops all build dispatch for **up to an hour after real service
+   has recovered**.
+
+**The part that makes it a trap rather than merely a wedge — the fleet looks HEALTHY the whole
+time.** While dispatch was fully stopped, real Anthropic traffic was succeeding:
+**93 of 99 calls OK in the last 2 hours, latest 11:52:32Z** (`claude-sonnet-5` 66/67,
+`claude-opus-4-6` 27/30) — i.e. *after* the health row went false. **243 §6's own liveness
+query (`SELECT max(created_at) FROM llm_call_log WHERE success`) therefore reports the fleet
+UP while nothing can be claimed.** Two true facts that read as contradictory:
+
+- the cap is real and intermittent — `usage limit` errors in the last 24h: 3 on
+  `claude-opus-4-6`, 1 on `claude-sonnet-5`;
+- most calls still succeed, so the fleet is *not* down in the 08-10 sense.
+
+The health probe samples ONE call (`check_endpoint_health_action.go:203`,
+`claude-haiku-4-5-20251001`, `max_tokens 1`). Under an intermittent cap, a single sample is a
+coin flip, and losing it costs an hour of fleet dispatch. **NOTE the probe uses haiku while the
+fleet's live traffic is sonnet/opus** — `llm_call_log` holds **zero** haiku rows in 24h, so the
+probe's model is exercised by nothing else and its result cannot be cross-checked from that
+table. Whether the cap is account-wide or per-model is **[UNMEASURED]** here and matters: if
+per-model, this is not transient at all.
+
+**How to tell this apart from ordinary queue latency** (the question 243 §6 answers for LLM
+steps; this is the dispatch equivalent):
+```sql
+SELECT healthy, last_checked, last_healthy, check_interval_seconds, left(error,120)
+  FROM ai_endpoint_health WHERE name = 'claude';
+SELECT max(claimed_at) FROM site_work_items WHERE claimed_by = 'build-dispatch-loop';
+```
+`healthy=f` + no claim since roughly `last_checked` = this. **A dispatch stop is invisible in
+`llm_call_log`** — do not conclude from succeeding LLM calls that work is flowing.
+
+**NOT fixed here, and deliberately not:** `check_endpoint_health_action.go` is **dirty in the
+working tree right now** (another session, on an unrelated `CheckConfig`/input-spec concern),
+so editing it would make me a same-file passenger on their commit. Recorded for whoever owns
+this surface. Shapes worth considering, in the order they close the door: require N
+consecutive failures before marking unhealthy (a single sample should not gate a fleet);
+re-probe on a short interval **while unhealthy** rather than the healthy-state 3600s; and let
+`claim_work_item` distinguish "endpoint capped" from "endpoint unreachable" — under a cap,
+letting the claim through costs one failed step, while blocking it costs the whole queue.
+
+**Falsifier for this addendum:** if the 12:09:53Z probe succeeds and claims resume within
+minutes, the "up to an hour" figure is confirmed as the *upper* bound of one cycle, not a
+permanent stall. If it fails again and dispatch stays stopped, the cap is biting the probe's
+model specifically and this is the more serious per-model case.

@@ -11662,3 +11662,19 @@ code change owed at the next roll, tracked in RFC_015 §5.
 > `[UNMEASURED]` whether the 4 failures and the 97 successes share one key/limit bucket; the
 > dispatchable-now answer does not depend on it.
 > - **added:** 2026-08-17, loanandmortgagecalculator D6 planner lane
+
+## The BUILD QUEUE can be fully stopped while every liveness check says the fleet is healthy — `claim_work_item` gates on `ai_endpoint_health`, and that row is re-probed ONCE AN HOUR
+
+- **footprint:** `ai_endpoint_health` (the `claude` row, `check_interval_seconds`) · `platform/orchestration/actions/claim_work_item_action.go` (the "AI endpoint health check" block, `reason: ai_endpoint_unavailable`) · `check_endpoint_health_action.go` (the prober, `claude_ping`) · `build-dispatch-loop` (`load_items`/`process_item`) · `build-pipeline-trigger` (`find_dispatchable_site`) · any question of the form "why has my work item not dispatched?"
+- **fires when:** you create a work item, see the dispatch loop running on schedule, confirm the loop LOADS your item, and confirm LLM calls are succeeding fleet-wide — and conclude the queue is merely slow. It is stopped. One 400 from the AI endpoint (an intermittent usage cap: `bugs_open/243`) flips `ai_endpoint_health.healthy` to false; `claim_work_item` then RELEASES every claim fleet-wide and sets the item back to `triaged`; and because `find_dispatchable_site` is `ORDER BY created_at ASC … LIMIT 1` across ALL sites, the whole fleet queues behind one item that can never clear. The row is re-probed on `check_interval_seconds` = **3600**, so the stop outlives the outage by up to an hour
+- **the tell — and why the obvious checks all read GREEN:** the dispatch loop runs to COMPLETION every ~90s (not stuck, not erroring); `pending.has_items = true` with your item in it; `orchestration_states` shows healthy completed runs; and `llm_call_log` shows real successes THROUGHOUT (measured 2026-08-17: 93 of 99 calls OK, latest 11:52:32Z, while zero items had been claimed since 10:32:33Z). **`SELECT max(created_at) FROM llm_call_log WHERE success` — the fleet's own recommended liveness query — reports UP while nothing can be claimed.** The only honest tell is in the loop's own `collected_data`: the path runs `claim → check_claim → done`, `spawn_handler` is never reached, and `claim_result` reads `{"claimed": false, "reason": "ai_endpoint_unavailable"}`
+- **the check, before diagnosing any "my item won't dispatch":**
+  ```sql
+  SELECT healthy, last_checked, last_healthy, check_interval_seconds, left(error,120)
+    FROM ai_endpoint_health WHERE name = 'claude';
+  SELECT max(claimed_at) FROM site_work_items WHERE claimed_by = 'build-dispatch-loop';
+  ```
+  `healthy=f` plus no claim since about `last_checked` IS this, and no amount of waiting on your own item will show it. Read the claim result rather than the loop's status: a loop that claims nothing COMPLETES successfully. **Do not infer dispatch health from LLM health** — they are independent, and under an intermittent cap they disagree for an hour at a time
+- **source:** 2026-08-17, webdesign_uk_build_service lane — found because it blocked a `bugs_open/285` acceptance run; full mechanism, timings and the three fix shapes in the 2026-08-17 addendum to `bugs_open/243`. The prober samples ONE call on `claude-haiku-4-5-20251001` while live traffic is sonnet/opus, and `llm_call_log` holds zero haiku rows in 24h — so the probe's own model is cross-checkable from nothing
+- **relations:** `bugs_open/243` (the cap this is downstream of) · `bugs_open/244` (the spend that triggers the cap) · LANDMINES "A stopped queue provokes exactly the kind of activity that makes the aggregate look alive" (the sibling shape, one level up) · MEMORY [[a-plausible-external-cause-is-when-to-doubt-your-instrument]]
+- **added:** 2026-08-17, webdesign_uk_build_service lane
