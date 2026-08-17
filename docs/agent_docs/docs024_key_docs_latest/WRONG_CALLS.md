@@ -34815,3 +34815,47 @@ passes.
 about behaviour I had written from the design in my head rather than from the code or a
 run. The code was right all three times. **Documentation is where my errors live**, and it
 is the artefact other people execute.
+
+---
+
+## 2026-08-17 — I re-validated a bug with the BUG FILE's own query, and called its result "the eligible population"
+
+Re-validating `bugs_open/146` (ported tools outside the acceptance tiers), I re-ran the SQL
+the bug file records — `WHERE cc.component_level='tool'` — got 72 rows (was 17 at filing),
+and wrote into the lane NOTES that the 7 defective pages were "still structurally outside
+the tier population". The predicate had not been the live gate for **19 days**: `ac9f75a0c`
+(2026-07-29 17:19, TL-033) replaced it with `toolEligibilityWhere`, which admits ported
+pages — **three hours after the bug was filed**. The claim that survives is different and
+narrower (the pages are eligible but unfenced, so Tier 4 still never runs).
+
+**What caught it.** A parallel code-reading pass that started from the FILE the bug cites
+and read its git log, instead of starting from the bug's prose.
+
+**The cheap check I skipped.** `git log --oneline -- <the file the bug cites>` before
+re-running any query a bug file records. A bug file's SQL encodes the code AS OF FILING;
+on a tree taking ~1,500 commits/week, re-running it verbatim measures a historical
+predicate and labels the result with today's date. Same family as
+`[[narrow-filter-defines-the-conclusion]]` — and this bug's OWN corrected-before-filing box
+documents that exact trap, one section above the query I copied.
+- **I dramatised a verification gap that my own earlier check had already closed — in a
+  commit message and three docs.** (bugfix-291, 2026-08-17.) After proving a guard live and
+  running a demand-control probe, I added a third probe arm and justified it in writing as:
+  the kill-switch literal "proved the guard shipped; it did not prove the RELAX, a different
+  edit in the same commit with no marker" — and called the averted outcome "the exact
+  disaster the staging existed to prevent, caused in the act of finishing". Both halves were
+  wrong. `git log -S` per edit shows they are **different commits** (`c8400e452` carried the
+  relax, `f629f4530` the kill-switch), and my ancestry step had already run
+  `git merge-base --is-ancestor` **against both**, with a control, before any of it. The
+  arm was worth running — presence in the binary is not behaviour, and a config refused
+  downstream would have been swallowed by `continue_on_error` — but that is a *different,
+  smaller* justification than the one I wrote.
+  **The cheap check:** *before writing "X was unproven until this", re-read your own
+  evidence list and ask which line already covers X.* I had the ancestry result in the same
+  NOTES file, four paragraphs up. The pull toward a dramatic near-miss story is the tell:
+  a step feels more load-bearing when it rescues you from disaster, so the justification
+  inflates to fit the effort already spent. **Related and worth pairing:** a marker proves
+  the edit that carries it; ancestry proves the COMMIT; only a behavioural probe proves what
+  the code DOES — three different claims, and naming which one you have is the discipline.
+  **Tally for "asserted a gap my own prior check had closed": 1.** What worked: the
+  correction cost one `git log -S` and landed the same day, in the same files, before anyone
+  read the overstatement as history.
