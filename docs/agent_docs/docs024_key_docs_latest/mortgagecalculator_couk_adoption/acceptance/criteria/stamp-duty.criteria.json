@@ -1,4 +1,19 @@
 {
+  "facts": [
+    "sdlt-standard-nil-band-upper",
+    "sdlt-standard-band-250k-upper",
+    "sdlt-standard-band-925k-upper",
+    "sdlt-standard-band-1500k-upper",
+    "sdlt-standard-rate-125k-250k",
+    "sdlt-standard-rate-250k-925k",
+    "sdlt-standard-rate-925k-1500k",
+    "sdlt-standard-top-rate",
+    "sdlt-ftb-nil-band-upper",
+    "sdlt-ftb-rate-300k-500k",
+    "sdlt-ftb-relief-cap",
+    "sdlt-additional-surcharge",
+    "sdlt-additional-surcharge-floor"
+  ],
   "checks": [
     {
       "expect_values": {

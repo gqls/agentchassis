@@ -78,6 +78,7 @@ PSQL = ["kubectl", "-n", "ai-persona-system", "exec", "-i", "postgres-clients-0"
         "--", "psql", "-U", "clients_user", "-d", "clients_db"]
 
 APPLY = "--apply" in sys.argv
+ALLOW_INELIGIBLE = "--allow-ineligible" in sys.argv
 ONLY = sys.argv[sys.argv.index("--only") + 1] if "--only" in sys.argv else None
 
 NO_AUTO_FIX_REASON = (
@@ -135,10 +136,48 @@ for fn in sorted(os.listdir(CRIT)):
     if ONLY and slug != ONLY:
         continue
     if slug not in eligible:
-        print("SKIP     %-18s not ladder-eligible on this site — a PLAN here "
-              "would never be read" % slug)
-        skipped += 1
-        continue
+        # Rule 2 (above) refuses a row for an ineligible tool because "a PLAN here
+        # would never be read". Since CLM-022 that premise has ONE stated exception:
+        # the daily evidence sweep (Piece 3, refresh_evidence_fact_drift.go) resolves
+        # a declaring PLAN by the SAME name rule Tier 4 uses for a tool's URL, not by
+        # the ladder's eligibility predicate — deliberately, because that predicate
+        # returns neither tool-stamp-duty (2 components, 0 tool-level) nor LMC's
+        # mortgages-stamp-duty, i.e. exactly the tools the mechanism exists for.
+        # So a fence carrying `facts` IS read on an ineligible tool.
+        #
+        # Two conditions keep this from re-opening what rule 2 closed:
+        #   - the criteria document must actually declare `facts` (no facts, no
+        #     second reader, so the original refusal stands unchanged); and
+        #   - a CURRENT doc_plans row must already exist under this key, so the key
+        #     is INHERITED from whatever the eligibility query said when the tool was
+        #     eligible, never constructed from a page name here — which is precisely
+        #     the silent-permanent-failure rule 1 warns about.
+        # It still needs --allow-ineligible: this must be a decision, not a default.
+        doc_probe = json.load(open(os.path.join(CRIT, fn)))
+        has_current = psql("SELECT 1 FROM doc_plans WHERE subject_type='tool' "
+                           "AND subject_key=$k$%s$k$ AND is_current;" % slug).strip()
+        if not (ALLOW_INELIGIBLE and doc_probe.get("facts") and has_current):
+            why = "not ladder-eligible on this site — a PLAN here would never be read"
+            if doc_probe.get("facts") and has_current and not ALLOW_INELIGIBLE:
+                why += "; it declares facts and already has a row — pass --allow-ineligible"
+            print("SKIP     %-18s %s" % (slug, why))
+            skipped += 1
+            continue
+        row = psql("SELECT p.name, COALESCE(p.url,''), COALESCE(p.build_status,'') "
+                   "FROM pages p WHERE p.site_id=(SELECT id FROM sites WHERE domain='%s') "
+                   "AND p.name='tool-%s' AND p.status='active';" % (DOMAIN, slug)).strip()
+        if row.count("\n"):
+            sys.exit("AMBIGUOUS: %d active pages named tool-%s — refusing to guess" %
+                     (row.count("\n") + 1, slug))
+        if not row:
+            print("SKIP     %-18s declares facts but no active page named tool-%s"
+                  % (slug, slug))
+            skipped += 1
+            continue
+        eligible[slug] = tuple(row.split("\t"))
+        print("ALLOW    %-18s ineligible for the ACCEPTANCE ladder (rule 2) but it "
+              "declares facts and the evidence sweep reads it — key inherited from "
+              "the existing current row" % slug)
     name, url, build = eligible[slug]
     model = vc.MODELS.get(slug)
     if not model:
@@ -175,9 +214,20 @@ for fn in sorted(os.listdir(CRIT)):
         continue
 
     n_assert = sum(len(c["expect_values"]) for c in checks)
-    fence = json.dumps({"profiles": ["desktop", "mobile"], "no_auto_fix": True,
-                        "no_auto_fix_reason": NO_AUTO_FIX_REASON,
-                        "checks": checks}, indent=2, ensure_ascii=False)
+    # Fence-level `facts` (CLM-022, Piece 2 of PLAN_2026-08-09): the ids of the
+    # evidence-register facts THIS tool encodes, so the daily evidence sweep can
+    # tell the tool when one of them moves. Ids only, never values — doc_plans has
+    # no site_id, so values must resolve from the driven site's register at check
+    # time (PLAN §5.1). Passed straight through from the criteria document; a tool
+    # that declares none gets no key at all, which is what fail-open expects.
+    # NB this must be assembled HERE, not added to the doc_plans row afterwards:
+    # --apply rewrites the whole body, so a hand-added key is lost on next install.
+    fence_doc = {"profiles": ["desktop", "mobile"], "no_auto_fix": True,
+                 "no_auto_fix_reason": NO_AUTO_FIX_REASON}
+    if doc.get("facts"):
+        fence_doc["facts"] = doc["facts"]
+    fence_doc["checks"] = checks
+    fence = json.dumps(fence_doc, indent=2, ensure_ascii=False)
 
     body = f"""# PLAN — {slug}
 
