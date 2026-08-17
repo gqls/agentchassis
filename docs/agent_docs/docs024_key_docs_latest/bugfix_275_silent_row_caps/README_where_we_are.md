@@ -62,3 +62,61 @@ One small thing found along the way and deliberately left alone: one library ent
 which means it sorts first and has therefore always occupied one of the 30 visible slots while telling
 the model nothing useful — its description is internal developer notes. That is a content problem
 rather than this one, and it belongs to whoever owns that tool.
+
+## 2026-08-17 — the review sent it back once, and it was right to
+
+The change went to the review council and came back **revise**. Four of its objections found real
+things, and one of them changed what is now running.
+
+**The one that mattered most.** To fit the whole library into the prompt I shortened each tool's
+description to 200 characters — and I did it *silently*. A reviewer pointed out that this is the same
+mistake as the bug I was fixing, just moved one level down: a tool whose distinguishing feature is
+described in its third sentence now reads as generic, and neither the model nor anyone reading the
+record can tell anything was cut. That is exactly right, and slightly embarrassing given what the fix
+was for. Shortened descriptions now end with a visible "[…truncated]" marker, which costs about 3% and
+means the model can at least see that there is more. I chose the marker over simply allowing longer
+descriptions because doing that costs more than twice as much prompt and *still* cuts a third of them
+silently.
+
+**One objection was wrong about the file and right about me.** It said my migration never took a backup
+before changing live configuration. It always did — the backup is there, timestamped. But the summary I
+submitted for review showed the clever parts and left the safety line out, and a reviewer can only judge
+what you show them. The lesson is worth keeping: when you summarise a change for review, show the
+safety-critical lines, not the interesting ones.
+
+**One was right in a way I would have missed.** Two reviewers flagged that some agent types have two
+active configuration rows, where only one is actually used, so a targeted update can silently do
+nothing. I checked: this agent has exactly one row, so the change was fine. But it was fine *by luck* —
+the guard I had written could not have detected the problem it was supposed to guard against. That is
+now fixed properly.
+
+**And a minor one found a genuine process hole.** A reviewer asked me to confirm my migration number
+was not already taken. It wasn't — but because I applied the change by hand rather than through the
+usual tool, it had been recorded nowhere, which is precisely how two people end up claiming the same
+number. Both are now on the register.
+
+## 2026-08-17 — something I nearly told you that was not true
+
+While checking whether widening the menu genuinely changes anything, I found that suggestions the model
+cannot match to an existing tool get sent off to be **built from scratch**. So I reasoned the old cap
+must have been making us rebuild tools we already owned — and the numbers looked damning: 18 of 19
+"build this from scratch" requests named a tool already in the library.
+
+It is a good story and it is false. I checked the dates before writing it down, and every one of those
+18 library entries was created *at or after* the request that named it — meaning they exist *because*
+of those builds, not in spite of them. That is the pipeline working normally, not waste.
+
+I mention it because it is the third time today my reasoning has run ahead of my evidence, and the only
+difference on this occasion is that I checked before telling you rather than after. The harm from the
+original bug is what the report said it was — the suggester was choosing from half the library — and
+there is no measured waste on top of it.
+
+## Where it stands
+
+The library fix and the truncation marker are both **live**. The detection code waits for the next
+build. The review is on its second round.
+
+Two things remain open and are written down where the next person will find them: the bug's own
+end-to-end proof needs a real suggester run, which has not happened yet; and **two other agents have
+the same defect** — one of them choosing from 10 of up to 107 items, which is worse than the bug I set
+out to fix. Whether those become their own tickets is your call.
