@@ -309,6 +309,28 @@ func LoopCompleteAction(ctx context.Context, params ActionParams) (interface{}, 
 		zap.String("step_name", params.ExecutionContext.StepName),
 	)
 
+	// =====================================================
+	// A per-iteration terminal substep is a chain link, NOT the loop's
+	// aggregation point (see handleLoopExpansion, which sets this flag).
+	// Aggregating here would re-collect every iteration once per lap —
+	// including earlier iterations' own aggregates, which is a 2^N blow-up
+	// of collected_data and kills the orchestration outright once it can no
+	// longer be carried (bugs_open/289).
+	//
+	// Deliberately returns BEFORE the diagnostic key dump below: on the runs
+	// that motivated this, that dump logged a 22 MB key list once per lap.
+	// =====================================================
+	if isLoopIterationTerminal(params.StepConfig.Config) {
+		iteration := loopConfigInt(params.StepConfig.Config, "loop_iteration", -1)
+		logger.Info("Loop iteration terminal reached; aggregation deferred to the loop's end-step",
+			zap.Int("iteration", iteration))
+		return map[string]interface{}{
+			"status":    "iteration_complete",
+			"iteration": iteration,
+			"loop_name": params.StepConfig.Config["loop_name"],
+		}, nil
+	}
+
 	logger.Info("Starting loop completion")
 
 	// DIAGNOSTIC: Log ALL available keys
@@ -527,6 +549,51 @@ func LoopCompleteAction(ctx context.Context, params ActionParams) (interface{}, 
 		"results":    iterationResults,
 		"count":      len(iterationResults),
 	}, nil
+}
+
+// isLoopIterationTerminal reports whether this loop_complete step is a
+// sub-workflow's per-iteration terminal substep rather than the loop's own
+// end-step. Only the former is injected by handleLoopExpansion; only the latter
+// should aggregate. See bugs_open/289 for what happens when the two are confused.
+//
+// Two signals, deliberately:
+//
+//   - `loop_iteration_terminal`, set explicitly at injection. This is the one to
+//     rely on, and it is what keeps a NESTED loop's own end-step aggregating
+//     correctly (that step is built by handleLoopExpansion, never injected as a
+//     substep, so it does not carry the flag).
+//   - `loop_iteration`, which every injected iteration step carries and the
+//     loop's own end-step never does. This is the fallback for workflow plans
+//     that were EXPANDED AND PERSISTED BEFORE this fix shipped: those plans are
+//     already in flight with no flag in them, and without this they would keep
+//     doubling until they died. A hand-authored loop_complete step has no
+//     business carrying an iteration index either way.
+func isLoopIterationTerminal(config map[string]interface{}) bool {
+	if config == nil {
+		return false
+	}
+	if terminal, ok := config["loop_iteration_terminal"].(bool); ok && terminal {
+		return true
+	}
+	_, hasIteration := config["loop_iteration"]
+	return hasIteration
+}
+
+// loopConfigInt reads an int from step config, tolerating the float64 that a
+// JSON round-trip through the persisted workflow plan produces.
+func loopConfigInt(config map[string]interface{}, key string, fallback int) int {
+	if config == nil {
+		return fallback
+	}
+	switch v := config[key].(type) {
+	case int:
+		return v
+	case int64:
+		return int(v)
+	case float64:
+		return int(v)
+	}
+	return fallback
 }
 
 // buildLegacyPatterns returns the hardcoded HTML-specific key patterns.

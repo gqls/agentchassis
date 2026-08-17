@@ -157,6 +157,31 @@ func (s *SagaCoordinator) handleLoopExpansion(
 			injectedStep.Config["continue_on_error"] = resolveSubstepContinueOnError(
 				substep.Config, continueOnError, substepName, logger)
 
+			// =====================================================
+			// A sub-workflow's terminal substep is conventionally
+			// declared `action: loop_complete` (named `done`,
+			// `complete_page`, `complete_dispatch`, `task_complete`
+			// — 15 live loops, four different names, so NEVER match
+			// this on the substep's name). That is also the action of
+			// the loop's own end-step, so injected once per iteration
+			// it runs the WHOLE-loop aggregator from inside every lap
+			// and nests each earlier iteration's aggregate into its
+			// own: collected_data then doubles per iteration (2^N)
+			// and the orchestration dies once it can no longer be
+			// carried. bugs_open/289 — tool-auditor reached 22 MB and
+			// completed 1 run in 63.
+			//
+			// Mark it so LoopCompleteAction knows it is a chain link
+			// and not the aggregation point. Explicit, rather than
+			// inferred from the presence of `loop_iteration`, so that
+			// a NESTED loop's own end-step — created by its own call
+			// to this function, not injected as a substep — is still
+			// recognised as a real aggregation point.
+			// =====================================================
+			if substep.Action == "loop_complete" {
+				injectedStep.Config["loop_iteration_terminal"] = true
+			}
+
 			// Track first step name
 			if iterIdx == 0 && substepName == substepOrder[0] {
 				firstStepName = injectedStepName

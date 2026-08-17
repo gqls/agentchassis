@@ -216,13 +216,17 @@ var frameworkStepConfigKeys = map[string]bool{
 	"input_fields":      true, // read by ExtractActionInputs for every action
 	"loop_item_index":   true, // injected by loop expansion
 	"loop_iteration":    true, // injected by loop expansion
-	"loop_name":         true, // injected by loop expansion
-	"loop_var_name":     true, // injected by loop expansion
-	"output_mapping":    true, // coordinator result mapping
-	"role":              true, // coordinator
-	"target_action":     true, // coordinator
-	"timeout_seconds":   true, // coordinator step timeout
-	"total_iterations":  true, // loop error handler
+	// loop_iteration_terminal marks a per-iteration terminal substep so
+	// LoopCompleteAction defers aggregation to the loop's own end-step
+	// (bugs_open/289 — otherwise collected_data doubles per iteration).
+	"loop_iteration_terminal": true, // injected by loop expansion
+	"loop_name":               true, // injected by loop expansion
+	"loop_var_name":           true, // injected by loop expansion
+	"output_mapping":          true, // coordinator result mapping
+	"role":                    true, // coordinator
+	"target_action":           true, // coordinator
+	"timeout_seconds":         true, // coordinator step timeout
+	"total_iterations":        true, // loop error handler
 }
 
 // IsFrameworkStepConfigKey reports whether a key is read by the orchestrator
