@@ -205,3 +205,47 @@ ever meant to be.
 **And the judgement call from yesterday is still yours**, untouched: whether to
 unify the third copy of that shared test, or to back my change out of the shared
 dispatch code. Two reviewers wanted opposite things and I have not picked for you.
+
+---
+
+**2026-08-17, decisions waiting on the owner.** Three, in order of how much they
+matter. Bug 291 has been handed to another lane, so it is not one of them. Whether to
+re-enable `improvement-sweep` is *not* one either — you already ruled on that in
+`bugs_open/083` on 2026-08-15 (it stays paused; triage got its own scheduled task
+instead), and this lane's fix does not change that ruling.
+
+**1. The third copy of the shared safety test.** Three places in the code ask the same
+question — "does this work item name an agent, and does that agent exist?". Before this
+fix, each spelled it out separately and a comment asked the next person to keep them in
+step. The fix made two of them read one shared piece of code. The third
+(`remit.go`'s `HandlerStepConfig`) still has its own copy, and its comment says out
+loud that it must match the dispatcher's. Two reviewers took opposite views: one that
+the third should be brought in too, one that the shared dispatch code should not have
+been touched at all from a bug lane. Options: (a) unify the third — one definition,
+drift impossible, touches a fourth file; (b) revert the dispatch-code half — smallest
+footprint, leaves three copies held together by comments; (c) leave exactly as is —
+two unified, one not, which is where the reviewers disagreed. **Recommendation: (a),
+and not urgently.** The third copy is correct today; the reason to fold it in is that
+"keep these in step by hand" has already failed once here, which is the whole reason
+this bug existed.
+
+**2. `needs_experience_plan` on fundamentallyai.com — and it is not what it looked
+like.** The other lane flagged this to you as a finding with no handler. Checked
+directly: the handler **does** exist and is active (`experience-planner`); the row
+simply never names it, and no row of this type ever has (5 live, 3 archived, every one
+with the field blank). So this is a routing gap, not a missing capability. **But do not
+just point the row at the agent:** `bugs_open/227` is still open and says that agent's
+prompt hardcodes one site's diagnosis, so running it against fundamentallyai.com would
+likely produce another site's plan. Options: (a) leave it deferred as a roadmap row you
+read; (b) fix 227 first, then route it; (c) route it now and accept the risk.
+**Recommendation: (b) if you want the work done, (a) if you do not** — (c) spends a
+run to produce something misleading.
+
+**3. Forty image-reference findings now have no way to close themselves.** The forty
+`image_url_404` rows were restored to "recorded, waiting for a human". That check,
+unlike its three siblings, has no self-clearing arm — so even after someone repairs a
+reference the row stays open, and while it is open the check cannot re-report on that
+same path. Options: (a) accept a permanent list a human prunes; (b) have a lane add the
+self-clear arm the three sibling checks already have. **Recommendation: (b), low
+priority** — it is a small, well-precedented piece of work, and without it the forty
+rows will quietly stop being trustworthy as a list.
