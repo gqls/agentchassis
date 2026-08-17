@@ -466,3 +466,18 @@
   presigned 200 in-expiry AND 403 after expiry (both directions), and the
   size-alert demand control (`size_alert_bytes: 1` dispatch → alert fires,
   cut completes).
+- **Council verdict READ: APPROVED round 1** (corr `4cc887b9`, all seats, 2
+  advisory objections, none high). Objection outcomes: (a) *input_contract
+  undeclared on zip-deliverer* — ACTED ON: the seed now declares it and the
+  verify block asserts it; **chasing this caught a real defect the council did
+  not name** — in call_agent's `input_mapping` an UNMARKED field whose source
+  path does not resolve ERRORS the step (ResolveInputMapping — a DIFFERENT
+  rule from the executor step config's Strategy 0, which silently skips), so
+  the shim's `size_alert_bytes`/`expiry_minutes` mappings would have failed
+  every plain `{domain}` dispatch; both now carry the `?` optional marker.
+  (b) *seed omits description column* — REFUTED: a sketch-elision artefact
+  (the `...` in the council sketch), the committed file always carried the
+  column; no change. (c) *459 collision risk* [low] — apply-time re-list
+  instruction added to the seed header. The precedent rows (site-publisher,
+  publish-reconciler) both carry NULL input_contract — the new row is now
+  stricter than the 422 pair it mirrors, deliberately.

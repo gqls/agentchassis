@@ -9,6 +9,13 @@
 -- A seed naming an unregistered action fails at runtime (CLAUDE.md: image
 -- first, then seeds).
 --
+-- ALSO BEFORE APPLYING: re-list the 459 number (council round 4cc887b9, low
+-- objection — filename numbers are never reserved; the HELD status does not
+-- protect against another lane taking 459 in the meantime):
+--   ls docs/agent_docs/sql_for_agents/ | grep -E '^459' — expect ONLY this
+--   pair; a third file means a collision, rename ours to the next free number
+--   before applying (the FILENAME is the identity).
+--
 -- BEFORE APPLYING, VERIFY THE RUNNING POD — not git, not the image tag
 -- (per-SERVICE; both replicas if you doubt one):
 --   kubectl -n ai-persona-system logs -l app=agent-chassis --tail=300 | grep -m1 'build provenance'
@@ -79,7 +86,12 @@
 BEGIN;
 
 -- 1. The spawned executor -------------------------------------------------
-INSERT INTO agent_definitions (type, display_name, description, category, agent_category, status, is_active, default_config)
+-- input_contract declared (council round 4cc887b9, architecture seat): these
+-- are workflow-read inputs crossing the spawn→call boundary, so the callee
+-- declares them and call_agent validates the shim's mapped payload against
+-- the declaration (ValidateInputContract checks required-presence only, so
+-- the optional fields never fail a dispatch that omits them).
+INSERT INTO agent_definitions (type, display_name, description, category, agent_category, status, is_active, input_contract, default_config)
 SELECT
   'zip-deliverer',
   'ZIP Deliverer',
@@ -88,6 +100,11 @@ SELECT
   'executor',
   'experimental',
   true,
+  jsonb_build_object(
+    'required', jsonb_build_array('domain'),
+    'optional', jsonb_build_array('size_alert_bytes', 'expiry_minutes'),
+    'description', 'domain names the portfolio-sites/<domain>/ tree to archive; size_alert_bytes overrides the 512 MiB alert threshold (set 1 to demand-prove the alert path); expiry_minutes overrides the 7-day presign expiry.'
+  ),
   jsonb_build_object('workflow', jsonb_build_object(
     'start_step', 'zip',
     'timeout_seconds', 900,
@@ -140,10 +157,15 @@ SELECT
         'action', 'call_agent',
         'config', jsonb_build_object(
           'target_role', 'zipper',
+          -- The '?' suffix is LOAD-BEARING: in call_agent's input_mapping an
+          -- UNMARKED field whose source path does not resolve ERRORS the step
+          -- (ResolveInputMapping, input_mapping.go — different rule from the
+          -- executor's own step config, where Strategy 0 silently skips).
+          -- Without it, a normal dispatch supplying only {domain} would fail.
           'input_mapping', jsonb_build_object(
-            'domain',           'input_data.domain',
-            'size_alert_bytes', 'input_data.size_alert_bytes',
-            'expiry_minutes',   'input_data.expiry_minutes'
+            'domain',            'input_data.domain',
+            'size_alert_bytes?', 'input_data.size_alert_bytes',
+            'expiry_minutes?',   'input_data.expiry_minutes'
           ),
           'timeout_seconds', 900
         ),
@@ -174,6 +196,17 @@ BEGIN
      AND is_active AND COALESCE(is_snapshot, false) = false AND deleted_at IS NULL;
   IF a IS DISTINCT FROM 'zip_deliverable' THEN
     RAISE EXCEPTION '459 verify: zip-deliverer zip step action is %, want zip_deliverable', a;
+  END IF;
+
+  -- The input contract must declare the spawn→call boundary (council 4cc887b9):
+  -- call_agent validates the shim's payload against it, so a NULL here would
+  -- silently disable that check.
+  SELECT count(*) INTO n FROM agent_definitions
+   WHERE type = 'zip-deliverer'
+     AND is_active AND COALESCE(is_snapshot, false) = false AND deleted_at IS NULL
+     AND input_contract->'required' @> '["domain"]'::jsonb;
+  IF n <> 1 THEN
+    RAISE EXCEPTION '459 verify: zip-deliverer input_contract missing or does not require domain';
   END IF;
 
   SELECT count(*) INTO n FROM jsonb_object_keys((
