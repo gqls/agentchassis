@@ -10,7 +10,26 @@ has been on every handoff in this lane and it earned itself again today: this se
 site as lacking a premise field, and seven minutes later it had one — the site was being built
 while I measured. See the WRONG_CALLS entries dated 2026-08-17; there are three.
 
-## ✅ UPDATE 18:15 UTC — **THE FIX IS LIVE on `v1.0.1307`.** Still OPEN: the guard has not been asked
+## ✅ FINAL 21:35 UTC — **295 IS CLOSED: fixed, live and BEHAVIOURALLY PROVEN.** Moved to `bugs_closed/`
+
+The guard was asked and answered correctly. **8** `owned_page_review` rows carrying
+`refused_by='save_page_sections'` across **four** sites (webdesign, finetuning ×3, leopardess),
+18:57→21:31, against **zero for all history**. **Negative control passed:** 6 content items
+COMPLETED on `generic` pages in the same window and emitted **zero** rows, so the emit is not
+unconditional. All 8 rows join back to genuinely `owned` pages. Driving items stayed `failed`, not
+falsely `complete`. Dedup held — one page refused twice produced exactly one row.
+
+⚠ **One trap for whoever re-checks this: `count(*) = count(DISTINCT item_key)` is the WRONG dedup
+test.** It reads 8 rows / 7 keys, which looks like a miss and is not:
+`owned_page_review:llm-cost-calculator` exists on two different sites and the partial unique index
+is on **`(site_id, item_key)`**, per site.
+
+**Residuals stay open and are named in the closed file:** the shared `spec.fix` text routes an
+add-a-section case to an action that cannot add, and fix candidate 3 (route these findings to
+`section_edit`, which works on owned pages) is untouched. **This made a refusal visible; it did not
+make the page get fixed.**
+
+## SUPERSEDED 18:15 UTC — the fix went live; at that point the guard had not yet been asked
 
 **This supersedes the 16:15 banner below, which is kept because its measurement was correct at the
 time and is now the pre-fix baseline.** The tag moved `v1.0.1305 → v1.0.1307` (makefile matches),
