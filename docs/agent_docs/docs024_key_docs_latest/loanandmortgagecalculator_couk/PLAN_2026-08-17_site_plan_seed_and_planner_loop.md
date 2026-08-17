@@ -271,6 +271,16 @@ NOTES; the divergences are the product here, not the final plan.
    and it is *"re-stamped only by a snap or a union"*, so with no snap the flag is never
    reached. The stem layer is the one that matters for this site's shape — bare realised name
    vs prefixed plan name, in either direction.
+   **But measure before enabling, the same discipline the identity flag asked for and got:**
+   both layers **COUNT what they would have done while OFF** (their own doc comments say so),
+   and round 1 has already run, so that count exists for this site's real plan. Read it before
+   seeding — a layer that would have paired two pages which are NOT the same page is the
+   failure mode the council objected to, and `stem_twin_snap` is explicitly *"a name heuristic
+   that can pair two pages that are not the same page"*. Left them OFF at the end of round 1
+   deliberately for that reason; do not seed them as a reflex because round 1 blamed their
+   absence.
+   ⚠ **And do not read the two flags now seeded as protection**: another session replanning
+   this site today hits exactly what round 1 hit. That is why the LANDMINES entry says so.
 2. **Put the page-level diff INSIDE the canary script.** Round 1's identity digest said
    *something* moved; the snapshot diff (which columns, which rows) had to be improvised
    afterwards. It belongs in the script, next to the digest.
