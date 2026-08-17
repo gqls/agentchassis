@@ -34287,3 +34287,92 @@ one look unchecked.
 **Caught by:** re-reading my own risks block before firing, and noticing that item 3 named a table,
 a column and a predicate — i.e. it was already written as a query. **The tell is syntactic:** if a
 "risk" contains enough detail to run, it is not a risk, it is a to-do. Cost: nothing, this time.
+
+---
+
+## 2026-08-17 — I diagnosed a psql failure as a formatting problem and wrote that into NOTES; the column simply did not exist
+
+**The claim, written down:** fetching the council report for `bugs_open/299`'s round
+(`SELECT content FROM diagnosis_artifacts …`) returned nothing usable, and I recorded in the lane
+NOTES that the fetch *"failed on psql `-t` formatting, not on absence"* — and moved on, leaving the
+six advisories unread until the next session.
+
+**What was actually true:** `diagnosis_artifacts` has no `content` column. The body column is
+called **`body`**. One `\d diagnosis_artifacts` returned the schema and the next query worked
+first time and produced 14KB of reviewer text containing **three medium objections I would
+otherwise never have answered** — including one that named a real procedural miss of mine (below).
+
+**The cheap check, which CLAUDE.md already mandates:** *"Schema first: `\d <table>` before writing
+SQL"*. I had run `\d agent_error_log` earlier in the same session, on the same instinct, and it
+saved me then (`occurred_at`, not `created_at`). I skipped it here because the query *looked*
+like one I had already got right.
+
+**Why this earns a row rather than a shrug:** the error was not the failed query — it was writing a
+**diagnosis of the failure** into an append-only doc, in the same confident voice as the measured
+facts around it. "Failed on formatting" is a claim about a mechanism; I had run no check that could
+have distinguished it from "the column does not exist", and the two have opposite remedies
+(retry differently vs. read the schema). A future reader would have inherited "the report body is
+awkward to fetch" when the truth is "you named the wrong column".
+
+**Caught by:** running `\d diagnosis_artifacts` at the start of the next attempt — the very check
+whose omission caused it. Cost: six unread council advisories carried across a session boundary,
+one of which was already true and unactioned.
+
+---
+
+## 2026-08-17 — "the fix rides the next chassis build": a build was deployed and it shipped nothing
+
+**The claim, written down and told to the owner:** the `bugs_open/299` fix was *"committed and
+rides the next chassis build"*, and the bug file's status block said *"inert until the next chassis
+roll"*.
+
+**What happened:** a chassis roll landed ~14:43Z, after the fix commit. The pods were new (0
+restarts, fresh age) and the owner reported a fresh build deployed. **The fix was not in it.** The
+deployed tag was still `v1.0.1305` — unchanged fleet-wide, and equal to the makefile's `IMAGE_TAG`
+— so the same-tag rebuild served the node's cached image. Binary probe on **both** replicas, with a
+positive and a negative control in the same breath: new literal **0**, control literal **1**,
+nonsense string **0**. The `295` lane proved the identical thing about a different fix within the
+same hour (`dcf3dc7d6`).
+
+**The cheap check:** the claim as written was unfalsifiable in the direction that mattered — "the
+next roll" names an event, not a condition. The condition is **a build whose `IMAGE_TAG` differs
+from the deployed one**. `grep '^IMAGE_TAG' makefile` next to
+`kubectl get deploy -o custom-columns=…IMAGE` is two commands and answers it before any probe:
+**if the two are equal, a roll cannot ship your commit.**
+
+**Why it is a row and not merely a landmine repeat:** the landmine ("a roll is not evidence your
+fix shipped") is already in MEMORY and I had read it — and I still wrote a status line whose truth
+depended on someone else bumping a tag. The failure was **phrasing a dependency as a schedule**.
+The bug file now states the condition instead: blocked on a TAG-BUMPED build.
+
+**Caught by:** probing the binary before believing the owner's "fresh build has been deployed" —
+i.e. by not treating a report of a deploy as evidence of a deploy. Cost: nothing this time, because
+the probe ran first; it would have cost a false CLOSED had I run the live criterion and read its
+result as a pass. **That is the real danger here — the close criterion would have "failed" against
+an unfixed binary and looked like the fix not working.**
+
+---
+
+## 2026-08-17 — I shipped a nested-field addition and registered it in the NEXT commit, not the same one
+
+**The miss:** the `bugs_open/299` fix teaches a drain to read a new `skipped` key inside an
+already-declared object input. Under the **2026-08-11 owner ruling** that is a *nested-field
+addition*: it needs no contract re-declaration, but it **must be named in the seam's
+concept-register entry in the same commit that ships it**. I did update the register — VIZ-013
+now names the key and its producer — but in `4fe7cc519`, a docs commit ~15 minutes *after* the
+code commit `89b3e582b`.
+
+**What caught it:** the council gate's `guidelines` seat, at medium severity, in round 1 — quoting
+the ruling and noting that the response-body exemption did not apply because the key changes
+control flow rather than being chassis-internal telemetry. Not a review comment I could have
+written off: it named the ruling, the date, and why the exemption missed.
+
+**The cheap check:** the register edit was already in my plan — it just was not in my *commit
+pathspec*. When a change adds a key to a shared shape, put the register file in the SAME
+`git commit <paths>` as the code. The rule exists because the two commits can be separated by
+another session's work, and a reader bisecting the code commit sees an unregistered key.
+
+**Why it is worth a row:** nothing was false and nothing broke, so this is precisely the kind of
+miss that leaves no trace and repeats. The ordering was invisible to me because both edits happened
+within one session and *felt* simultaneous — the commit boundary is the only place the difference
+exists, and it is the place the rule is written about.
