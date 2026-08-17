@@ -91,6 +91,53 @@ Plus one instrument note: never size a presigned object by HEAD (returns a
 A 300-example fine-tune on a 1.7B model: **~50 minutes wall clock, ~$0.30 of GPU.**
 Even at 10× headroom for bigger models, longer epochs and retries, unit cost is
 pennies-to-low-dollars against a service price in the tens-to-hundreds — the
-margin question is operator time, not GPU time. Remaining before pricing: GGUF
-conversion + playground-hour timing (not started), and the invoice that settles
-the real hourly rate.
+margin question is operator time, not GPU time. ~~Remaining before pricing: GGUF
+conversion + playground-hour timing~~ **BOTH MEASURED 2026-08-17 — §7.** Only the
+invoice question remains.
+
+## 7. GGUF conversion & playground rehearsal (measured 2026-08-17)
+
+**GGUF conversion** (a6000, `base` template, attempt 2 — attempt 1 failed, see below):
+
+| stage | measured |
+|---|---|
+| toolchain + setup (apt update, cmake asserted, venv+torch+unsloth) | ≈ 291 s |
+| merge + convert + quantise q4_k_m (incl. llama.cpp build) | **170 s** |
+| upload 1.06 GB → B2 | **16 s** |
+| **end-to-end on-box** | **489 s (8.2 min)** |
+
+Artefact: `finetuning/artefacts/phase0-20260815-1621/smollm2-1.7b-phase0-q4_k_m.gguf`,
+**1,055,609,504 B**, verified at B2 by range-GET (`Content-Range …/1055609504` +
+literal `GGUF` magic bytes).
+
+⚠ **Attempt 1's root cause, confirmed by attempt 2: unsloth's
+`save_pretrained_gguf(out, …)` writes to `<out>_gguf/`, not `<out>/`, while
+printing success naming `<out>`.** Attempt 1's guard looked only in `--out`,
+found nothing, and correctly refused to claim success — but the artefact then
+died with the box ($3.66 booked / ≈$0.71 real, and the box idled to the reaper's
+2 h deadline: **the reaper's first real reap, unattended, correct**). Attempt 2
+searches everywhere ≥50 MB and uploads what it finds.
+
+**Playground rehearsal** (a6000, **`ollama` template**, dispatch 18:24:28 Z):
+
+| stage | measured |
+|---|---|
+| provision dispatch → box ready | **27 s** |
+| ollama ready (binary **preinstalled**; service NOT running — started by hand) | 42 s |
+| fetch 1.06 GB GGUF from B2 | **12 s** (~88 MB/s) |
+| `ollama create` | 18 s |
+| cold first token (incl. 38.5 s model load) | **78 s** |
+| **DISPATCH → FIRST TOKEN, total** | **≈ 3 m 23 s** |
+| warm first token / throughput | **0.36 s · 139.3 tok/s** (cold-request rate 7.5 tok/s) |
+
+**The booking read** (PLAN line 154's `[TO MEASURE]`, now measured): on a
+fast-boot day a playground box is conversational **~3½ minutes after dispatch**;
+on a slow-boot day (§4: boot varies ~20×) budget **~9 minutes**. So: start the
+box ~10 minutes before a booked hour and the customer never sees a cold model.
+Warm behaviour during the hour: sub-second first token, ~140 tok/s on a 1.7B.
+Template verdict: the `ollama` template carries the binary (saves an install)
+but not a running service — the boot script must `ollama serve` itself.
+
+**Phase 0 total spend, all sixteen days of it settled in two sessions:**
+$5.72 booked / **≈ $1.12 real** across 7 boxes, every one decommissioned, vendor
+`{}` at close. Phase 0 is COMPLETE; pricing is unblocked (invoice still owed).

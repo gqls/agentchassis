@@ -1,4 +1,15 @@
-# HANDOFF 2026-08-17 — GGUF attempt 1 FAILED (artefact died with the box); playground rehearsal not started; everything else of Phase 0 is DONE
+# HANDOFF 2026-08-17 — ~~GGUF attempt 1 FAILED~~ **PHASE 0 COMPLETE (same day, evening)**
+
+> **SUPERSEDING BANNER, 2026-08-17 ~18:30Z: BOTH remaining items are DONE.**
+> GGUF attempt 2 PASSED (489s; artefact 1.06GB verified at B2 — attempt 1's
+> cause: unsloth writes `<out>_gguf/`, not `<out>/`). Playground rehearsal
+> MEASURED on the `ollama` template: **dispatch→first-token ≈3m23s** (27s
+> provision + 42s ollama-ready + 12s fetch + 18s create + 78s cold first
+> token); warm 0.36s / 139.3 tok/s. All boxes decommissioned, vendor `{}`,
+> re-paused. **Statistics of record: RESULTS_2026-08-15 §7.** What remains for
+> the LANE (not Phase 0): pricing (needs the invoice), owner switches (monitor
+> enable; 259 live-proof), Phase 1 coordination. The sections below describe
+> the mid-day failed state and stand as history.
 
 **COLD-START for the lane.** Supersedes `HANDOFF_2026-08-15b_…` (training half:
 complete — see its banner). RESULTS_2026-08-15 = the statistics of record.

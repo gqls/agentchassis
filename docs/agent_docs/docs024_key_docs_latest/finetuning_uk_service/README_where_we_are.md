@@ -692,3 +692,38 @@ Still open: re-uploading the corrected script bundle to storage (my upload was
 blocked by a session permission — either allow it or run the §2 recipe yourself),
 converting the adapter to the playground's format, and timing a playground
 session. Then Phase 0 is done and we can price the service from measured numbers.
+
+---
+
+## 2026-08-17 — Phase 0 is finished
+
+Two things remained: converting the trained model into the format the playground
+serves, and rehearsing the playground itself. Both are done, and the rehearsal
+answered the question the whole booking design was waiting on.
+
+The conversion failed on its first try yesterday in an annoying way — the
+conversion tool reported success but had written the file into a different
+folder than the one it was told, so our safety check (correctly) refused to
+believe it, and the file was lost when the machine shut down. While I was away,
+the automatic janitor noticed the idle machine and shut it down at its two-hour
+limit — the first time it has ever done that for real, and it worked exactly as
+designed, which is quietly one of the best results of the week. Today's re-run
+looked for the file everywhere rather than trusting the tool's word: eight
+minutes, converted, uploaded, and independently verified in storage — a 1 GB
+file ready for the playground.
+
+Then the rehearsal: I started a fresh machine using the vendor's
+ollama-flavoured template, pulled the converted model from storage, and timed
+every step. **From pressing go to the model answering its first question: about
+three and a half minutes.** After that first answer it responds in about a third
+of a second at ~140 words-worth a second — a perfectly pleasant chat experience.
+The practical rule this gives us: start the machine about ten minutes before a
+customer's booked hour (that covers the vendor's slow days too) and they will
+never see a cold model.
+
+The whole of Phase 0 — every rehearsal, every failure, every measurement across
+both days — cost about **$1.12 of real GPU money**. Everything is switched off
+and the safety catch is back on. What's left is business rather than
+engineering: your call on the price (the first invoice will settle what the
+cards really cost us), whether to switch the automatic run-babysitter on, and
+coordinating the sales page with the thread that owns the site's front end.

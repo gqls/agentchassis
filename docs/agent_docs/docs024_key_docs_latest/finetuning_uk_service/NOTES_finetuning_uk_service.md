@@ -1549,3 +1549,40 @@ object by `Content-Range` on a range GET, never by HEAD.
 
 Paused, vendor `{}`, 0 live, 4 claims all `succeeded`/`attempts=1`. Day total:
 **$1.63 booked / ≈$0.32 real** across 4 boxes, all decommissioned.
+
+---
+
+## 2026-08-17 — PHASE 0 COMPLETE: GGUF attempt 2 passed, playground rehearsal measured
+
+Owner: "rerun the test with the fixed script", after a fresh chassis roll
+(pods 17:05Z; dispatch waited out the 300s rule trivially). Full numbers are in
+**RESULTS §7** — this entry is the evidence trail and the missteps.
+
+**GGUF attempt 2** (box `169b074e…`, 18:14–18:24Z, $0.291 booked): both HANDOFF
+leads applied — `apt-get update` before install with `cmake` ASSERTED pre-convert,
+and the artefact searched everywhere ≥50MB instead of trusting `--out`.
+**Attempt 1's cause confirmed: unsloth `save_pretrained_gguf(out,…)` writes
+`<out>_gguf/`** (`/workspace/gguf_gguf/SmolLM2-1.7B-Instruct.Q4_K_M.gguf`) while
+printing success naming `<out>`. e2e 489s; gguf stage 170s; upload 16s. Verified
+at B2: `Content-Range …/1055609504` + literal `GGUF` magic. [MEASURED]
+
+**Playground rehearsal** (box `e632feaf…`, `template:"ollama"` — the field is
+forwarded, proven live; 18:24–18:29Z, $0.140 booked): dispatch 18:24:28 →
+box-ready 27s → ollama ready 42s (**binary preinstalled, service NOT running** —
+script had to `ollama serve` itself; the template saves the install, nothing
+else) → 1.06GB fetch 12s → create 18s → **cold first token 78s** (load 38.5s) →
+**DISPATCH→FIRST TOKEN ≈3m23s**. Warm: 0.36s first token, 139.3 tok/s.
+PLAN line 154's `[TO MEASURE]` is measured. Booking read: start the box ~10 min
+before a booked hour (covers a slow-boot day) and the customer never sees cold.
+
+**Missteps this session, both caught by controls:** (1) the attempt-1 watcher
+(2026-08-17 morning) — WRONG_CALLS'd separately, filter could never fire; (2) the
+old attempt-1 watcher fired on attempt 2's PG_DONE because both watchers share
+`ssh_poll.sh`/`last_poll.txt` which I'd repointed — harmless here (same terminal
+set), but two watchers sharing mutable helper state is a coincidence-dependence
+worth not repeating.
+
+**End state: vendor `{}`, `is_paused=t`, 0 live, all 7 Phase-0 boxes
+decommissioned. Phase 0 spend total $5.72 booked / ≈$1.12 real.** Remaining for
+the lane: invoice (settles real rates), owner switches (monitor enable, 259
+live-proof), Phase 1 front-end coordination.
