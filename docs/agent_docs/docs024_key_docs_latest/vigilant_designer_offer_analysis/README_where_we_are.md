@@ -1046,3 +1046,39 @@ underlying gap in the analyser is real but now has no live example, so I have do
 struck the claim through rather than quietly deleting it.
 
 All three are logged where the next person will trip over them.
+
+---
+
+## 2026-08-17 (late afternoon) — the fresh build did not ship any of today's code, and that is not just my fix
+
+You told me a fresh chassis had been deployed, so I went to check my fix was live rather than
+assume it. **It is not — and neither is anything else anyone committed today.**
+
+The pods genuinely did restart, at 14:42, on a new deployment. But the version label was never
+changed: the fleet was on `v1.0.1305` before and is on `v1.0.1305` now, and when the label does not
+change, the machines are entitled to reuse the copy they already had. So new pods came up running
+**yesterday evening's code**. I confirmed it by asking the binary itself which commit built it —
+it answers with one from the 16th — and there are **222 commits sitting in our repository that are
+not in the thing actually running.**
+
+**This is not about my change.** I tested for a distinctive piece of another thread's work,
+committed at lunchtime today, and it is absent too. Three markers from yesterday are all present.
+So the line is clean: everything committed on the 16th is live, everything committed today is not,
+across several threads who each believe their work has shipped. One of them independently found the
+same thing this afternoon and wrote it down, which is how I know it is not a quirk of my method.
+
+**One thing that makes this genuinely confusing, and worth you knowing:** database and
+configuration changes go live immediately and are completely unaffected. Only compiled code is
+stuck. So a thread that changed configuration sees its work behaving correctly, and a thread that
+changed code sees nothing happen — and both look equally "deployed" from the outside.
+
+**What is needed is one line:** the version label in the makefile needs bumping before the rebuild,
+then a normal release. Re-running the deploy at the current label cannot help, because the machines
+will keep serving the copy they have. That is your call and your command, so I have not touched it.
+
+**The silver lining, and it is a real one.** Because the fix is definitively not live, the bug it
+fixes is still reproducible — and it reproduced this afternoon exactly as I predicted it would,
+unprompted, on a tool page on the games design site. The sweep filed the finding, the system tried
+to rewrite the page, the guard correctly refused, the task died, and no note was left for anyone.
+That gives us a clean "before" measurement to compare against once the fix does ship: the same site,
+the same page, and a count that is currently, provably, zero.
