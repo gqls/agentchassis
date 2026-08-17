@@ -10,6 +10,28 @@ has been on every handoff in this lane and it earned itself again today: this se
 site as lacking a premise field, and seven minutes later it had one — the site was being built
 while I measured. See the WRONG_CALLS entries dated 2026-08-17; there are three.
 
+## ⚠ UPDATE 16:15 UTC — A CHASSIS ROLLED AND DID NOT CARRY THE FIX; PREDICTION 5 IS CONFIRMED
+
+**Read this before the rest of the file.** Pods restarted 14:42–14:43 UTC (`5bd56bdd9b`).
+**`bugs_open/295`'s fix is NOT in the binary** — binary probe with two positive controls and a
+negative control: the semicolon marker the fix introduces reads **0**, the pre-existing colon
+variant reads **1**, the sibling guard reads **1**, a fabricated string reads **0**. The startup
+`build provenance` line had scrolled on both pods, which means out of range, not unstamped.
+
+**The likely reason, and the only action that helps: `IMAGE_TAG` was not bumped.** The fix is at
+HEAD (12:12:01 UTC, `2a5798c4b`), but the fleet is deployed at **`v1.0.1305`** and the makefile's
+`IMAGE_TAG` is **also `v1.0.1305`**. A same-tag rebuild ships the node's stale cached binary
+(CLAUDE.md, build section). Whether it was rebuilt-at-the-same-tag or never rebuilt is
+**undetermined** — I have no earlier digest to compare — but the remedy is the same either way and
+it is the owner's: **bump `IMAGE_TAG`, rebuild, roll.** Re-rolling `v1.0.1305` cannot help.
+
+**Prediction 5 CONFIRMED, and it is now a verified pre-fix baseline rather than an assumption.**
+gamesdesign's `content_rewrite` on `tool-ttk-calculator` (owned) → **`failed` 13:02:18**,
+orchestration `763b227b`, cause quoted verbatim as the owned-page guard, **0** `owned_page_review`
+rows from `save_page_sections`. Third quoted instance, first predicted in advance, and the first
+where the item was filed by the sweep and died with no session touching it. **When the fix ships,
+re-test on that same site/page/item type: the bar is a row where there are provably zero.**
+
 ## The one-line state
 
 > **B4 is enrolled, sweep-driven, and now PROVEN to grow the estate on its own** — two sites
