@@ -199,6 +199,30 @@ func WriteRenderAuditFindingsAction(ctx context.Context, params ActionParams) (i
 	}
 	maxItems := datahelpers.GetIntField(config, "max_items", 60)
 
+	// A page-less site produces a deliberate no-op from request_render_audit
+	// ({"skipped": true, "reason": "no_deployed_pages"}) — not a result and not
+	// a failure. Filing nothing is correct; erroring is not: the workflow's
+	// error edge would stamp "nothing was measured" and turn the upstream's
+	// honest skip into a recorded failure (bugs_open/299 — it did, on both
+	// rotation picks of a page-less site). Top-level only: an awaited reply
+	// never carries this shape, and the still-awaited signal ({"success":
+	// true, "request_id": …}) must keep falling through to the loud guard
+	// below. No retraction either — standing findings may only be closed by a
+	// run that re-measured their pages, and a skip measured nothing.
+	if raw, ok := params.CollectedData[auditField].(map[string]interface{}); ok {
+		if skipped, _ := raw["skipped"].(bool); skipped {
+			reason, _ := raw["reason"].(string)
+			logger.Info("write_render_audit_findings: audit was skipped upstream — nothing to file",
+				zap.String("reason", reason))
+			return map[string]interface{}{
+				"skipped":  true,
+				"reason":   reason,
+				"inserted": 0,
+				"deduped":  0,
+			}, nil
+		}
+	}
+
 	// batchID groups the items THIS run files, and it is not bookkeeping: it is
 	// what makes resolveWorkItems' self-protection guard operative on the
 	// retraction path below. That guard is `batch_id IS DISTINCT FROM $batch`,

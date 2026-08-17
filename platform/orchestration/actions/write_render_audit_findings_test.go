@@ -379,6 +379,51 @@ func TestWriteRenderAuditFindings_StillAwaitedIsAnError(t *testing.T) {
 	}
 }
 
+// bugs_open/299: a page-less site's audit returns a deliberate no-op
+// ({"skipped": true, …}, top-level — the no-await path persists it unwrapped),
+// and the drain must complete honestly rather than error onto the workflow's
+// failure edge. The result must SAY skipped (a reader must not confuse it with
+// a measured-clean sweep), and no query may run — in particular no retraction,
+// because a run that measured nothing may not close standing findings.
+func TestWriteRenderAuditFindings_SkippedAuditIsAnHonestNoOp(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	result, err := WriteRenderAuditFindingsAction(context.Background(), ActionParams{
+		DB:               db,
+		Logger:           zap.NewNop(),
+		ExecutionContext: &types.ExecutionContext{},
+		StepConfig:       models.Step{Config: map[string]interface{}{}},
+		CollectedData: map[string]interface{}{
+			"site_id": uuid.New().String(),
+			"render_audit": map[string]interface{}{
+				"skipped": true,
+				"reason":  "no_deployed_pages",
+				"domain":  "example.test",
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("a skipped audit must not error: %v", err)
+	}
+	m, ok := result.(map[string]interface{})
+	if !ok {
+		t.Fatalf("want a map result, got %T", result)
+	}
+	if m["skipped"] != true || m["reason"] != "no_deployed_pages" {
+		t.Fatalf("result must carry the skip and its reason, got %v", m)
+	}
+	if m["inserted"] != 0 {
+		t.Fatalf("a skip files nothing, got inserted=%v", m["inserted"])
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("no queries should have run: %v", err)
+	}
+}
+
 // bugs_open/242: a truncated sweep must not report as a whole-site verdict.
 // The summary's cap-bite echo is stamped into this action's durable result —
 // parity with findings_capped/findings_dropped, the max_items cap's own honest
