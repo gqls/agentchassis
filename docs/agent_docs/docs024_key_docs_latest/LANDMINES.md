@@ -11950,7 +11950,7 @@ code change owed at the next roll, tracked in RFC_015 §5.
 
 - **footprint:** any migration that drops a `LIMIT` from an `agent_definitions` `query_database`
   step; `LEFT JOIN` in a step's `query` config; `research_results`, or any child table with no
-  unique constraint on the join key; register **LCO-009**, `bugs_open/275` / `297` / `298`
+  unique constraint on the join key; register **LCO-009**, `bugs_open/275`, `bugs_closed/297`, `bugs_open/298`
 - **fires when:** you fix a silent row cap the right way — delete the cap so the model sees the
   whole population. The cap was bounding **rows returned**, not **rows per entity**, so it was
   also silently bounding the damage of any fan-out in the same query.

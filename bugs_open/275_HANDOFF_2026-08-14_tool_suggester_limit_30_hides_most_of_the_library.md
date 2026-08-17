@@ -205,7 +205,7 @@ Both feed an LLM a truncated corpus, which is precisely this bug's mechanism:
    picks internal links from — so a page's link targets are chosen from at most 15 of 68, ordered
    `p.name`, i.e. alphabetically. Same accident, same invisibility.
 
-**✅ 297 IS NOW FIXED AND LIVE (2026-08-17, `bugfix_297_tool_recreation_context` lane).** Migration
+**✅ 297 IS NOW FIXED AND LIVE (2026-08-17, `bugfix_297_tool_recreation_context` lane) — its file is now `bugs_closed/297_…`, council APPROVED r1 (`4b9265c3`).** Migration
 453 drops its cap entirely — and the remedy **inverted this lane's shape**: nothing needed bounding
 there (one short line per row; whole population at the worst site = 8,810 chars vs 735), so there is
 no truncation and no marker. It also closed a defect the census had not looked for — the step's plain
