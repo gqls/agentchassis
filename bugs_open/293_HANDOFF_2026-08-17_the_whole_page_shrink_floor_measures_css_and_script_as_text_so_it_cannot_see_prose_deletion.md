@@ -185,3 +185,66 @@ absent that long is a DROP, which the guard declines to judge.)
 
 Step 2 (change the axis, or record why not) is this lane's next move; option (b), shadow-mode, is no
 longer needed — it would cost a roll and a week to produce pairs that already exist.
+
+---
+
+## FIX COMMITTED 2026-08-17 — steps 2 and 3 done. STAYS OPEN until it rolls.
+
+By the `bugfix_293_whole_page_shrink_axis` lane. `6aae23e62` (axis, minimum, page-total extraction,
+keying, tests) · `9cd887ddf` (the class floor's keying) · `e42d57adf` (council round 1 revisions) ·
+`3a69ea16c` (a pattern-check allow-list entry my own extraction un-exempted). Council
+`823679dc-43d5-4f93-8b2d-746c41250290`, round 1 REVISE with all five objections acted on, round 2
+resubmitted on the same correlation.
+
+**Open, not closed, and the bar is the reason:** this is Go, so it is inert until an image is built and
+rolled. `[MEASURED 2026-08-17]` the running chassis `v1.0.1305` is stamp `6a782274b` (08-16) —
+**and `4b32f174c`, the sibling axis this file's own header describes as shipped, is NOT in it
+either.** Both halves go live on the same roll. `IMAGE_TAG` is already at `v1.0.1307`.
+
+### What shipped, against this file's "What the fix would be"
+
+| this file said | what shipped, and why it differs |
+|---|---|
+| "One line: feed `visibleTextLength` … instead of `shrinkGuardTagStripper`" | done, on **three** floors not one — the per-slot whole-page guard, the section editor, and the page-total guard extracted out of `save_page_sections_action.go` |
+| "`minShrinkGuardChars` (500) … stay as they are" | **changed.** 500 on visible text leaves 587 of 1,079 slots unjudged, so `evaluateSectionShrink` takes the minimum as a parameter and both floors pass `minShrinkGuardVisibleChars = 200`: scope 492 → 959, guard-judged refusals pinned at ONE from 500 down to 50. 200 not 120 because 200 is the deepest step the section editor's own 263 pairs also cover (scope 153 → 204, same 4 refusals). `minShrinkGuardChars` keeps its value — its remaining consumer (`load_current_section_content_action.go:262`) is a pairing heuristic that refuses nothing |
+| "the config opt-outs stay as they are" | the two existing ones did; the page-total floor **gained** `page_total_text_floor` (default 0.25 = today's behaviour, 0 disables). It had no escape hatch at all — the only way past it was rolling a binary |
+| — | **`shrink_axis_coverage_test.go`**: a caller of `evaluateSectionShrink` that does not measure with `visibleTextLength` fails the build; any `enforce*Floor` with no caller fails the build. This is what replaces the "unaffected by construction" claim |
+| — | **keying**: both sides of both floors now SUM per slot name. On the class floor MUT-293-G shows last-wins is a live **false refusal**, not a blind spot: two instances holding 60 class attributes, rebuilt to keep 55, is refused because only the last instance's 25 is compared |
+
+### Step 3 — the sibling's calibration, re-run
+
+263 archived overwrite pairs through the real implementation (up from 117; the archive has filled):
+the visible axis refuses **4**, all real hollowings — the three this file lists plus
+`idea.uk/index/tool-list` 1,118→0 — and the count is the SAME 4 at every minimum from 500 to 50 while
+scope rises 153 → 261. So lowering that path's minimum costs nothing measurable, on its own evidence.
+
+### Residuals, honestly
+
+1. **The page-total floor still fails OPEN** on a measurement error, as the inline rule did. Its two
+   siblings fail closed. It now files a `save_guard_unmeasured` work item so a later content loss on
+   that page is not mis-diagnosed as a floor that should have caught it — but reconciling the three is
+   a behavioural change needing its own evidence and is **not done**.
+2. **120 of 1,079 pairs (11%)** still sit below the 200-char minimum and are unjudged by the text
+   floors; the class-attribute floor is their only cover. The remedy if a defect turns up there is a
+   lower minimum plus a harness re-run, which is now one command.
+3. **The fourth copy of the retired axis stays**, deliberately: `load_current_section_content_action.go:262`.
+   Allow-listed with its reason in `shrink_axis_coverage_test.go`.
+4. **`page_component_writer_coverage_test.go` is still blind to this path** — it matches
+   `UPDATE … SET rendered_html`, and the rebuild is DELETE+INSERT. My coverage test pins the three
+   floors this action must call and fails on any unwired enforcer, but it does not generalise that
+   older regex, so a NEW writer on another DELETE+INSERT path stays invisible there.
+
+### How to close (revised)
+
+1. Roll a chassis image built from `HEAD` ≥ `e42d57adf`. Verify at the artefact, not at git:
+   `kubectl … exec <pod> -- sh -c "grep -oa 'buildinfo.GitCommit=[0-9a-f-]*' /proc/1/exe | head -1"`
+   then `git merge-base --is-ancestor e42d57adf <that sha>`. ⚠ **Do not** grep the pod LOG for
+   `build provenance` — the chassis logs whole agent payloads and they quote the phrase (LANDMINE).
+2. Induce a refusal and check the ARTEFACT: the page's `page_components` rows byte-identical
+   afterwards, plus the allow arm (a legitimate full-content save of the same page must succeed).
+3. Watch a week with the **demand control** alongside — a zero refusal count means nothing unless
+   `page_component_history` shows rebuild writes in the window. Expect ~0–1 refusals; hand-read any
+   hit against the robot-hands precedent before classifying it.
+4. Then move to `bugs_closed/` and add the pattern to 016b §9.
+
+Commands for all of it: `docs024_key_docs_latest/bugfix_293_whole_page_shrink_axis/RUNBOOK`.
