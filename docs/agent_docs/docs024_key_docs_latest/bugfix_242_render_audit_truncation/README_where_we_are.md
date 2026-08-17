@@ -58,3 +58,38 @@ nothing filed" instead of erroring), tested including deliberately breaking the 
 prove the test notices, and sent to the review council. The fix rides the next software
 release. It had actually happened once before — during last week's 242 work, unnoticed,
 in a run we were using to check something else. Both occurrences ever are now explained.
+
+2026-08-17 (evening) — Two things to know, and the first one matters more than my bug.
+
+**The fresh build that went out this afternoon contains none of today's fixes.** I checked
+before trusting it, and the answer is not ambiguous: I asked the running program directly
+whether it contains the new code — twice, on both copies of it, each time alongside two
+control questions whose answers I already knew, so I could tell a real "no" from a broken
+instrument. The controls came back exactly right and the answer was no. The reason is
+simple and mechanical: the version label was not changed, so the machines served the copy
+they already had rather than pulling the new one. New-looking pods, old code. Another
+session working on a different bug (295) found precisely the same thing within the hour,
+by the same method, independently. So at least two finished, reviewed fixes are sitting
+committed and inert, waiting on one thing: bump the version label, rebuild, roll. That is
+your call to make, not a session's — rolling the fleet is your action.
+
+There is a trap in this worth naming: had I gone ahead and run my fix's live test against
+that build, it would have failed, and the failure would have looked exactly like "the fix
+does not work". I have written that warning into the bug file so nobody else walks into it.
+
+**My bug (299) is otherwise finished and approved.** The review council passed it first
+time round, with six advisory comments. I read all six and answered each with a
+measurement rather than an argument — including going and checking whether the same defect
+exists in the neighbouring piece of code (it does not: that one is built the opposite way,
+permissive where mine was strict), and deliberately breaking my own test to prove it would
+actually notice the problem it claims to guard against. One comment caught a genuine
+procedural slip of mine, which I have logged in the wrong-calls file: I recorded the new
+key in the register 15 minutes after the code commit rather than in it.
+
+Two corrections went out beyond my own lane. Another bug file (294) told everyone the
+review council was unavailable until September because of an account limit — that is
+wrong, my round ran and was approved in six minutes today, so I corrected it in place with
+the timings; if that note had stood, the next session would have skipped review for no
+reason. And my bug number 299 collides with an unrelated 299 filed by another session this
+evening; neither gets renumbered, so both files now say to identify them by name, not
+number.
