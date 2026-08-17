@@ -103,3 +103,86 @@ breaks, not just the payment sentence):
 - `delivery_preview_and_zip` → **preview link after payment, ~1 month, plus the ZIP to keep.**
 - **NEW** — the audience is not businesses only (the bot's self-introduction was already
   corrected on the box, 2026-08-17: it now says it builds "for anyone who wants a website").
+
+---
+
+# OWNER'S DECISIONS, 2026-08-17 evening — and a new lead
+
+- **A is OUT.** *"I don't think we do build before payment."* Payment comes FIRST, then the
+  build. My §1 A was written on the opposite assumption and was wrong; corrected everywhere.
+- **B: IN.** The price is what these terms buy.
+- **C: he did not understand it.** Restated below, in the bot's own words.
+- **D: IN.** Slots are limited.
+- **E: IN but no promises** — *"each site might be different"*, so describe the KIND of thing
+  delivered, never a specification.
+- **No refunds: "state it against the deal - a really cheap starter site - but you get what
+  you're given basically."** Applied: `no_refund`'s claim is now re-justified exactly there.
+
+## C, restated — because the live bot explained it better than I did
+
+Asked *"What if I do not like it? Can I get my money back?"*, the bot said:
+
+> "No. We don't offer refunds. The £149 is a fixed price for one build, handed over as it is.
+> **That said, what you're buying is the site's own files, which you own outright. You can
+> take them to any web developer and have them changed. So if something doesn't work for you,
+> you're not stuck with it forever — you just own a working starting point you can build on
+> with help elsewhere.**"
+
+That is C. The point is that "no refunds" is not "no remedy": the remedy is that you already
+hold everything needed to change it, without us. It is what stops the terms reading as harsh.
+
+## THE NEW LEAD — F: show the work, promise nothing
+
+> **You can see exactly what you get: real sites built with this system, and the exact prompt
+> that produced each one.**
+
+Why this fits every constraint the owner set:
+
+- **It promises nothing about THEIR site**, which is the requirement — each build differs, so
+  any specification is a hostage. Examples describe what happened, not what will.
+- **It is the honest substitute for a preview.** Pay-first removes the customer's look at
+  their own site, so they must be able to look at somebody's. This is that, and it is the
+  answer to the trust gap flagged in §3.
+- **It uses what the owner already has**: *"I can use the system on some of my own domains as
+  examples of exactly what they'd get and with what prompt."* No new claim needed — the
+  evidence is a page of finished sites.
+- **It carries the innovation point without a capability claim.** Showing prompt → finished
+  multi-page site IS the "different from a desktop assistant" argument, demonstrated rather
+  than asserted, so no third party is characterised and nothing dates.
+- **The cheaper sibling brand cannot falsify it.** It is not a comparison, so it survives.
+- **It gets stronger on its own** as recommendations arrive — *"let the recommendations do
+  the talking"* — because the same slot on the page takes them.
+
+**Recommended shape:** lead F (show the work) · support C (you own the files, so there is a
+remedy that is not a refund) · price-justify B (this is what the terms buy) · D and E as
+supporting lines near the queue copy and the hero respectively.
+
+## The preview sentence, rewritten
+
+Owner's draft: *"here's your site (with some links to instructions of how to host it e.g.
+netlify. Then if you also really want to see it sooner then here's a limited time preview
+too."* Rewritten in the house voice (no em dashes, flat, unapologetic):
+
+> **Your site arrives as a ZIP: every file, yours to keep. Putting it online takes a few
+> minutes and the instructions are included, with the services we would use named. If you
+> want to see it working before you do any of that, there is a preview link. It stays up for
+> about a month; the files are yours for good.**
+
+This is already attested — `delivery_preview_and_zip`, live in the register since
+2026-08-17 — so the writers can now use it and the claims gate will pass it.
+
+## TODO added at the owner's request — the prompt maker
+
+> *"we want to add a prompt maker that allows them to make a really good prompt for the
+> system to get them just the site they want. Maybe even a different/or same chat box but
+> pointing towards a different aim. Or just make this one do its very best (this is probably
+> the better route actually)."*
+
+**Owner's own preference is the last one: make the EXISTING chat box do it.** That is also
+the cheaper and safer route here — the box already has the site's facts, the four abuse
+controls, and a live deployment; a second widget would duplicate all of it. The change would
+be to `promptConduct` (the compiled behaviour half, not the facts): steer the conversation
+towards drawing out what the visitor actually wants until it is good enough to build from,
+and hand that back as the brief. **Not started** — it needs its own round, and it interacts
+with the `website-brief-starter` tool, which already exists and covers adjacent ground
+(`bugs_open/299` is its broken CTA).
