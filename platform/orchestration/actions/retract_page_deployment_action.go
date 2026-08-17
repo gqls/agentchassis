@@ -334,7 +334,8 @@ func RetractPageDeploymentAction(ctx context.Context, params ActionParams) (inte
 	// to the adapter reply and everything else about the run.
 	recordRetractionAudit(ctx, params, siteID, domain, audit, logger)
 
-	requestID, err := sendGitDeleteFileRequest(ctx, params, config, domain, paths, logger)
+	requestID, err := sendGitDeleteFileRequest(ctx, params, config, domain, paths,
+		fmt.Sprintf("Retract %d retired page(s) from %s (bugs_open/098)", len(paths), domain), logger)
 	if err != nil {
 		return nil, err
 	}
@@ -619,7 +620,7 @@ func loadActivePageFilePaths(ctx context.Context, db *sql.DB, siteID uuid.UUID) 
 // leaves the branch unset and CommitToRepo falls back to the repo default;
 // a retraction that helpfully passed the column would target a branch that does
 // not exist.
-func sendGitDeleteFileRequest(ctx context.Context, params ActionParams, config map[string]interface{}, domain string, paths []string, logger *zap.Logger) (string, error) {
+func sendGitDeleteFileRequest(ctx context.Context, params ActionParams, config map[string]interface{}, domain string, paths []string, commitMessage string, logger *zap.Logger) (string, error) {
 	if params.Producer == nil {
 		return "", fmt.Errorf("kafka producer not available")
 	}
@@ -662,11 +663,10 @@ func sendGitDeleteFileRequest(ctx context.Context, params ActionParams, config m
 		"body": map[string]interface{}{
 			"action": "delete_file",
 			"data": map[string]interface{}{
-				"repo_name": repoName,
-				"domain":    domain,
-				"paths":     paths,
-				"commit_message": fmt.Sprintf("Retract %d retired page(s) from %s (bugs_open/098)",
-					len(paths), domain),
+				"repo_name":      repoName,
+				"domain":         domain,
+				"paths":          paths,
+				"commit_message": commitMessage,
 			},
 			"reply_to_topic":         responsesTopic,
 			"parent_responses_topic": responsesTopic,

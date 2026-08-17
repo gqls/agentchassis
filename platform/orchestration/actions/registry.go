@@ -1316,6 +1316,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "UNPUBLISH (bugs_open/098): removes the deployed artefacts of pages that must no longer be served, via git-adapter delete_file. Paths are only ever derived from pages.url through the shared PageFilePathFromURL, a path an ACTIVE page also owns is refused, and every refusal is reported rather than swallowed. Does not clear deployed_at",
 		IsLocal:     true,
 	},
+	"retract_asset_files": {
+		Handler:     RetractAssetFilesAction,
+		Category:    "site",
+		Description: "Asset-level UNPUBLISH (bugs_closed/248 residue): deletes caller-NAMED orphan asset files via git-adapter delete_file. Scope-locked to /assets/; refuses any path a non-deleted asset row derives (storage.DeployedAssetPath), any brand-head published path, and any path referenced by deployed rendered_html; dry_run defaults TRUE — deletion is opt-in via a config literal; every refusal returned AND recorded in agent_error_log",
+		IsLocal:     true,
+	},
 	"select_review_panel": {
 		Handler:     SelectReviewPanelAction,
 		Category:    "diagnose",
