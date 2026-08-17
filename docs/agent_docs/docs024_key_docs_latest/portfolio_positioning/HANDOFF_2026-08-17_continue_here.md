@@ -83,8 +83,8 @@ the net, not the measurement.
   recommending and not-recommending entries. `mortgage-refinance.co.uk` — M4, the pilot's own
   family, `"refinance"` contains `"finance"` — flipped per run. Reproduced on iteration 1;
   fix + regression test pass 600×3. **The pilot domain is unaffected** (one keyword only,
-  deterministic on old and new code). Council corr `d9ca49ae-1c5d-476c-9059-361ed95531bb`,
-  **verdict outstanding — read it.**
+  deterministic on old and new code). Council corr `d9ca49ae-1c5d-476c-9059-361ed95531bb` —
+  **APPROVED, nothing outstanding but the fleet roll.**
 - **Pilot seeded** (`SEED_2026-08-17_…sql` + `SEED_2026-08-17b_…sql`, both applied): site row
   with email, `evidence_base`, `imagery_style_guide`. Both survived the submitter.
 - **Two LANDMINES filed** (both at HEAD, both taken as passengers by other lanes' commits):
