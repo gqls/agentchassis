@@ -342,3 +342,12 @@
   `DISABLE_UNREGISTERED_HANDLER_DEMOTION` (`f629f4530`) is now PRESENT in `/proc/1/exe` alongside
   both 285 symbols, control absent. The 08-17 14:43Z same-tag restart that shipped nothing is
   therefore closed out; the lanes waiting on that code are live.
+
+- **Council `02cb2134` round 2: APPROVED** (`a955db5d`, `complete_approved`; `decided_by: all
+  reviewers approve`, 10 reviewers, **0 objections**, 0 unreadable). Both round-1 objections were
+  submission defects and both were answerable in one round — the stale-exemption test shown as its
+  own edit, and the population figure corrected 6→7 by re-running the detector. Nothing in the
+  committed code changed between rounds, which is the honest summary: the code was right and the
+  account of it was not. Commits `7e610ec98` + `8164e3e61` carry `Council-Submitted: 02cb2134`, so
+  098 credits them automatically now the correlation is approved — no amend, no `Council-Reviewed:`
+  trailer written after the fact.
