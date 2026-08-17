@@ -891,3 +891,22 @@ stands for pairs nobody has spot-checked, and is recorded as risk 5.
 **Trailers:** the two commits carrying this work went out with `Council-Submitted: 05a3d1c8-…`
 before the verdict landed, which `098` resolves to the approval at report time. No amend
 (forward-only), and no `Council-Reviewed:` written on a verdict that had not been read.
+
+### `454` PROVEN on the next tick — 2026-08-17 16:43Z
+
+The correction to `444` (count `verified` as success, not just `complete`) released exactly what it
+should, on the **first promoter tick after it applied**:
+
+```
+empty_section -> page-build-handler   2 rows   detected -> triaged at 16:43:05Z
+```
+
+Before `454` that pair read 3 `complete` / 12 `failed` = **20%** and was held by the floor; counting
+its 9 `verified` rows it is 12/12 = **50%** and passes. Disconfirmable: had `454` been wrong in
+either direction, the rows would have stayed held (no effect) or `literal_markdown` would have been
+released too (floor disabled). Neither happened — `literal_markdown → page-build-handler` remains
+held at 1+0 / 28.
+
+`placeholder_contact → page-build-handler` correctly remains at `detected`: 0 lifetime successes, so
+the known-good rule holds it, and at 1 day old it is inside `453`'s 3-day limit. It should escalate
+on ~**2026-08-19**, which is the second discriminating test of that clock.
