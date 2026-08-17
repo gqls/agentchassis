@@ -205,3 +205,81 @@ log entire council and diagnosis payloads, and a seat's SQL check quoted the phr
 two runbooks matched a false line 2 hours newer than the pod's startup. It is not a startup line
 scrolling out of reach (the documented failure) — it is a **collision with agent payload content**,
 which no `--tail` size fixes. Use the binary marker. Filed as a LANDMINE.
+
+## 2026-08-17, council round 1 — REVISE, and the gating objection was the right question
+
+`823679dc-43d5-4f93-8b2d-746c41250290`, `complete_revise`, ~8 minutes. Five objections across four
+seats (guidelines approved; 5 seats abstained on relevance). **Two of the five changed the code, one
+was refuted by a measurement I should have run before submitting, and two were answered as asked.**
+
+### The gating one: is `page_components.build_status` ever `'deployed'`? — REFUTED
+
+Guardian (high), and editquality and guidelines independently flagged the same thing. The reasoning
+was excellent: `LANDMINES.md` records the SIBLING table's `site_components.build_status` as
+`'rendered'` and **never** `'deployed'`. If `page_components` matched, then the page-total floor I
+extracted returns zero rows for every page, `existingTotal <= minPageTotalTextChars` short-circuits
+every time, the floor **never engages** — and my sqlmock tests would certify it anyway, because a mock
+supplies whatever rows you tell it to. Guardian's words: *"extracting the block is the moment to
+verify the population predicate rather than carry a possibly-vacuous one forward with a new test suite
+certifying it."*
+
+`[MEASURED 2026-08-17]` It is the dominant value, so the analogy does not transfer:
+
+```sql
+SELECT build_status, count(*) AS rows, count(DISTINCT page_id) AS pages
+FROM page_components GROUP BY 1 ORDER BY 2 DESC;
+--  deployed  1575  617   |  approved  85  49  |  pending  19  19  |  removed  4  4
+```
+and per page, the guard's exact population: **617 of 729 pages (84.6%)** have at least one row with
+`build_status='deployed' AND rendered_html IS NOT NULL`.
+
+**This is the check I should have run before submitting**, and the reason I did not is instructive: I
+carried the predicate over *verbatim* precisely so as not to change behaviour, and treated "unchanged"
+as "already validated". An inherited predicate has whatever validity it always had — which may be
+none — and **extraction is the moment that question becomes yours.** No code changed for this
+objection; the measurement is the deliverable.
+
+### The two that changed the code
+
+- **bug_historian (medium): the fail-open path stood down silently.** *"A floor that fails open on
+  error is indistinguishable from no floor at all on the very incident class this whole bug is
+  about"* — so a later content loss gets diagnosed as "the floor should have caught this" when it
+  never ran. It now files a work item under its **own** type `save_guard_unmeasured`, not the
+  `save_refused_incomplete` its siblings use: nothing was refused on that path and a row saying
+  otherwise is a false claim in a queue a human reads. Producer set, key shape and "no automated
+  consumer, by design" stated at the constructor per the owner ruling of 2026-08-02 §1. It still
+  fails OPEN — that stays a separate question.
+- **reuse_agent (low): three `*IncomingBySlot` helpers, one shape.** Collapsed onto
+  `incomingBySlot(sections, measure)`. Worth more than tidiness: **that duplication is how the
+  last-write-wins keying defect came to exist in two of them independently.** The keying question is
+  now answered once and the measure is the parameter — which is also the separation the harness needs.
+- **editquality (low): "closes a hole" overstated what shipped.** It does not generalise the older
+  writer-coverage test's UPDATE-only regex, so a new writer on some other DELETE+INSERT path stays
+  invisible exactly as before. Corrected to "narrows" in the file header, and made *partly true* by
+  adding `TestEveryFloorEnforcerHasACaller` — ANY `enforce…Floor` in the package with no caller fails
+  the build, which is the generic case the claim was reaching for. **MUT-293-H** proves it bites.
+
+### The one that turned into a new measurement
+
+**bug_historian (medium): is "visible" defined once or three times?** `visibleTextLength` (mine, and
+now all three floors) versus `sectionHasVisibleContent` in `rerender_single_page_action.go:910`, which
+the page assembler uses to decide a section is empty and droppable. If they disagree, *a save can pass
+this floor and the assembler can drop the same content anyway* — a second, independent silent-drop
+path for exactly the class this floor protects. The seat said plainly it could not check this from SQL
+or the code index and needed a human diff.
+
+They **do** differ, by construction: parser walk (dropping script/style/noscript/template/code/pre/
+svg/iframe/textarea/select/option/head with their content, entities **decoded**) versus a regex chain
+(style blocks, script blocks, tags, entities, whitespace) with a **>10**-char threshold and an
+explicit `reRuntimeFill` escape. Only one direction matters, though: nothing this floor judges as
+prose-bearing may be droppable by the assembler.
+
+`[MEASURED]` over all three populations — **6,585 sections in the floor's scope, ZERO droppable by the
+assembler**; 944 in the harmless direction (the floor declines to judge, the assembler keeps).
+`TestVisibleDefinitionsAgree` holds it, with a demand control that FAILS on an empty population. A
+code reading reaches the same conclusion, but it cannot see the entity edge case — content that is
+almost entirely entities counts ~0 for the regex and >0 for the parser — which is why this runs over
+real rows rather than in my head.
+
+**Round 2 resubmitted on the same correlation** (`RESUBMIT_CORR`), so the trail accumulates.
+Eight mutations now run: A–H.
