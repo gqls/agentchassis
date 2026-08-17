@@ -58,6 +58,11 @@ went out normally at 16:38Z. Do not plan around a September date.
 
 ## What is owed, in the order it becomes possible
 
+0. **THE ROLL ITSELF IS BLOCKED ON A TAG, and the owner runs it.** `makefile` line 17 is now
+   `v1.0.1306` (`aa9c7b74f`). Until a release goes out at a NEW tag, items 1 and 2 below cannot be
+   done at all — and a same-tag re-release will look like it worked. Confirm before believing any
+   roll: `docker inspect aqls/agent-chassis@sha256:<imageID from kubectl> --format '{{index .Config.Labels "org.opencontainers.image.revision"}}'`
+   then `git merge-base --is-ancestor 509e01e6a <that revision>`.
 1. **After the next roll — verify 289 at the artefact, WITH the demand control.**
    ```sql
    SELECT key, length(value::text) FROM orchestration_states, jsonb_each(collected_data)
@@ -72,15 +77,29 @@ went out normally at 16:38Z. Do not plan around a September date.
    Once 289's fix is ALSO live the expected count falls toward zero, so **a zero means "no
    oversized state persisted", not "the tripwire is broken"**. To prove the instrument itself,
    check `build-dispatch-loop`, which was still legitimately reaching 14 MB when this was written.
-3. **When the quota returns — submit both code commits to the council.** `509e01e6a` carries
-   `Council-Submitted: 7a3c4fb7-…` whose round died on the quota, not on its content (it reached
-   `review_constitution`); `cf970b009` was never submitted. **Never write `Council-Reviewed:` on a
-   verdict you have not read.**
-4. **When the quota returns — re-arm four landmine entries.** All four are synced to `doc_notes`
-   but their verifier runs failed on the quota:
-   `./scripts/trigger-landmine-verifier.sh 'LANDMINES.md#<slug>'` per entry.
+3. ~~When the quota returns — submit both code commits to the council.~~ **DONE 2026-08-17
+   16:38Z.** Round 2 dispatched on the **original** correlation
+   `7a3c4fb7-e8c1-4b5f-950e-7a826d5bebbe` (run orch `ec91ab5a-4548-4327-8f3d-9dd012005bbc`), so
+   `509e01e6a`'s existing `Council-Submitted:` trailer resolves and `098` credits it automatically
+   on approval. **Both changes are in that ONE round** — the loop fix and the tripwire — because
+   `bugs_open/244` measures `council-gate` at 87.8% of the fleet's August LLM spend and ~790k input
+   tokens per round, so a second round for four lines of logging is a poor trade. It cleared
+   `review_constitution` (where round 1 died) and was at `review_tooling_provenance` at 16:44Z.
+   **Still owed: READ THE VERDICT** and act on a REVISE/REJECTED — the code is already on the
+   shared branch. `SELECT metadata->>'decision' FROM diagnosis_artifacts WHERE
+   correlation_id='7a3c4fb7-…' AND kind='council_report';`
+   **Never write `Council-Reviewed:` on a verdict you have not read.** Note `cf970b009` carries no
+   trailer at all and forward-only forbids an amend, so `098` cannot auto-credit it whatever the
+   verdict — the correlation is recorded in the bug file, WFA-016 and here instead.
+4. ~~When the quota returns — re-arm four landmine entries.~~ **DONE.** The verifier is running
+   normally and verdicts are arriving. Mine so far: the one-sha binary stamp → **STILL_VALID**; the
+   same-tag rebuild → **NEEDS_HUMAN_REVIEW**, which is the verifier's `.go`-only index refusing a
+   makefile/shell footprint rather than a doubt about the entry — the human half was measured by
+   hand and is recorded in the entry. **Read any `NEEDS_HUMAN_REVIEW` that way: an entry footprinted
+   on shell, SQL, YAML or a makefile can never come back `STILL_VALID`.**
 5. **`bugs_open/294`, whenever the owner rules.** Live config, immediate, no roll to gate it, on a
-   fleet-wide reaper — which is why it was filed rather than applied. **Re-run its age census
+   fleet-wide reaper — which is why it was filed rather than applied. (The earlier note that the
+   council gate was down was **wrong** and was never the real reason; the three above are.) **Re-run its age census
    immediately before applying**: the census (0 `RUNNING` rows under 4 h anywhere) is what
    licenses the 4 h threshold, and if that has changed the proposed arm is the wrong fix.
 6. **289 residual (4)** — `LoopCompleteAction` still lets a step lacking its own
