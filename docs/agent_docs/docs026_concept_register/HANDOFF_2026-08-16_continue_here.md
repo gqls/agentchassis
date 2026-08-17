@@ -1,5 +1,7 @@
 # HANDOFF — concept register — 2026-08-16
 
+> **SUPERSEDED 2026-08-17 by `HANDOFF_2026-08-17_continue_here.md` — read that instead.** Its figures are re-measured at a current HEAD, it consolidates the still-live items from this doc and from `2026-08-12b`, and it corrects the "the branch is unpushed" line both this doc and 08-12b carry (the remote branch exists, 66 commits behind; only the LOCAL upstream is unconfigured). Nothing in this doc is owed — its three verifier verdicts were read back the same session.
+
 **Cold-start doc for the register lane. This SUPERSEDES
 `HANDOFF_2026-08-12b_continue_here.md`.** That doc's picture of the register itself is still
 right (all three staleness signals closed, tooled as `DOC-077`/`DOC-078`); what changed since is

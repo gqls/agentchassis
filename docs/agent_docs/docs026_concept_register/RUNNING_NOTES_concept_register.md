@@ -2397,3 +2397,64 @@ handoff's landmine ("expect the index to ride out under another session's commit
 measured at 2 occurrences in one morning; both self-healed. That is data for OPP-006's
 enforcement question, and it points both ways: leaks are real and frequent, AND the repair
 arrives in minutes without a gate. HEAD `0d1cac6cc`+: 1 finding, `rebuild-cascade.md`, still owed.
+
+---
+
+## 2026-08-17 — fresh cold-start handoff, and two corrections found while grounding it
+
+Wrote `HANDOFF_2026-08-17_continue_here.md` (supersedes 08-16, which supersedes 08-12b) so a new
+session can start cold. Re-measured every figure rather than carrying any forward — HEAD
+`7d832ebc8`, re-confirmed at `b4db98f0b` twenty minutes later, 244 commits on from my last sitting.
+
+**Everything from the last three sittings is holding, measured not assumed:**
+- **The stash ban**: no new stash in **650 commits since the ban** (`371317eb6`), 1,043 since the
+  stash itself. `stash@{0}` is still the 2026-08-12 18:38:51 one.
+- **The landmine re-key**: 546 entries file-side, 546 DB-side, **0 key mismatches, 0 strays, 0
+  `·` left in any `subject_key`**, 2,758 rows. **64 entries have been added by other lanes since
+  the 08-14 splitter fix and all are keyed correctly** — so the fix holds for new arrivals, which
+  the backfill alone could not have shown.
+- **Register**: 1880 entries / 1880 index rows, agreeing exactly; **1 finding**, the perennial
+  `rebuild-cascade.md` stored count (still dirty +3/−3, last commit still 07-27 — seventh session).
+- **Verdicts**: UNVERIFIABLE ×3, stable, no objections.
+- **Citation health is stable against a growing corpus**: 8,279 citations / 1,806 entries, still
+  **75%** resolving as written and still exactly **4** never-existed, against 08-12's 7,793 /
+  1,767. The corpus grew ~490 citations and the ratio did not move.
+- **Version lag has a real worklist now** and its controls pass: newest citation `v1.0.1305` at
+  lag 0 (so the live version resolves correctly), field-keying excluding 101 of 345 citations
+  (29%, so the key is doing work), and **77 entries ≥50 releases behind on `status-evidence`**.
+
+### Correction 1 — "the branch is unpushed" was wrong, and both prior handoffs carried it
+
+`git status -sb` shows no upstream and `git rev-parse @{u}` errors, which I had been reading as
+"nothing is pushed". **That is a LOCAL tracking-config fact, not a statement about the remote.**
+Asked the remote directly: `git ls-remote --heads origin 087_towards_multiple_domains` returns
+`896c5aeeb`, and `git rev-list --count 896c5aeeb..HEAD` is **66**. So the branch IS pushed and is
+66 commits behind — which matters, because the drift CronJob reads the *pushed* branch, so its
+morning row is real but lags HEAD by hours rather than being absent. Corrected in the new handoff
+and flagged on the 08-16 banner. Same shape as this lane's other absence errors: I interrogated a
+proxy (local config) for a claim about a remote, and the proxy answered a narrower question.
+
+### Correction 2 — my own self-test passed VACUOUSLY on its first run, and said so
+
+The handoff first carried the key-identity assertion as a pasted heredoc. Two problems: the
+heredoc terminator was indented, so copy-pasting it verbatim would hang rather than run; and a
+check this reusable should not live as prose. Promoted it to
+**`scripts/landmines-keys-check.py`** — read-only, exits 1 on mismatch, and it exists because
+`landmines-sync.py --check` **cannot** settle key identity (its drift test is `new or gone`, which
+is exactly how six of the 185 re-keyed entries hid at an unchanged row count).
+
+Its `--self-test` mutates a copy of the corpus and requires the mutation to register. **On the
+first run it reported FAIL — and it was right.** My mutation inserted a footprint at the first
+`- **footprint:**` line in the file, which sits in the PREAMBLE, above the `# Entries` marker that
+`parse()` starts from. The mutation was a no-op, so an unmutated and a mutated corpus scored
+identically. Had the self-test simply asserted "no mismatches" it would have passed and certified
+nothing. Fixed the mutation (anchor below `ENTRIES_MARKER`), not the assertion: now 0 problems
+unmutated, 1 mutated, PASS. This is the `mutate-the-code-to-prove-the-guard` rule catching its own
+harness, and it is worth recording that the failing run was the valuable one.
+
+**Deliberate deviation, stated:** I edited the `SILENTLY INERT` landmine entry to point at the new
+script, then ran `landmines-sync.py --apply` **without** `landmines-verify-dispatch.sh`. That
+consumes the entry's "changed" status so no verifier run fires — chosen on purpose: this entry's
+footprints are wholly non-Go and unchanged, it was verified on 08-16, and the verdict would be a
+byte-identical UNVERIFIABLE for the cost of a fleet run. Any genuinely new entry still gets its own
+`NEEDS_VERIFICATION`.
