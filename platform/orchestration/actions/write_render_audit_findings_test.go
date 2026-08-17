@@ -419,6 +419,16 @@ func TestWriteRenderAuditFindings_SkippedAuditIsAnHonestNoOp(t *testing.T) {
 	if m["inserted"] != 0 {
 		t.Fatalf("a skip files nothing, got inserted=%v", m["inserted"])
 	}
+	// NOTE which assertion does the work here (council eaa043d7, guardian, low):
+	// ExpectationsWereMet() with NO expectations registered passes vacuously and
+	// proves nothing about whether a query ran — the sqlmock landmine. The
+	// load-bearing assertion is the err check ABOVE: sqlmock errors on an
+	// unexpected query and loadLockedComponentHTML propagates rather than
+	// swallows, so any DB call on the skip path surfaces as a returned error.
+	// Mutation-proven 2026-08-17: inserting `params.DB.QueryContext(ctx,
+	// "SELECT 1")` before the skip return fails this test with "call to Query
+	// 'SELECT 1' … was not expected". The line below is kept as a cheap
+	// belt-and-braces, not as the proof.
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Fatalf("no queries should have run: %v", err)
 	}
