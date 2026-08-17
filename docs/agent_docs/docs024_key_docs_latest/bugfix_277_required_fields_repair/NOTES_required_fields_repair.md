@@ -448,3 +448,90 @@ improvement to the build-provenance LANDMINES entry (they split one line and add
 `UPDATED 2026-08-17` note about reading the image label first). Nothing was lost — the content
 survives and is better — but naming it so `git log` does not attribute their work to this lane, the
 same courtesy the `284` lane extended to this lane's WRONG_CALLS entry this morning.
+
+---
+
+## 2026-08-17 evening — session `bugfix-083`: the canary ran, and the residual's remedy was inoperative
+
+Picked up this lane's own `HANDOFF_2026-08-17` §5 items 1 and 3, from a fresh chat. Contributing
+into the shared account rather than opening a `bugfix_083_*` lane, per CLAUDE.md.
+
+**Owner decisions re-confirmed, not re-opened.** Decision 1 (gate the router's convert arms) came
+back to me as *"gate them"* at ~16:15Z, which contradicted the *"leave as is"* this lane recorded at
+12:53Z and shipped in `f1a5b6315`. I surfaced the contradiction with both timestamps rather than
+acting on the later answer, re-explained the trade-off (including the 2026-07-29 counter-rule that a
+gate nothing reaches is a mechanism rotting unexercised), and the owner confirmed **leave as is**.
+No change to `file_rewrite` / `file_recreate`. Recorded here so a fourth session does not re-raise it.
+
+**The canary (decision 2's other half).** `453` built the clock; nobody had been the human. Full
+record in `bugs_open/083`. Three things worth having in the technical log:
+
+1. **Validity-check first.** 1 of the 4 escalated rows named a `page_components.id` with **0 rows**
+   in the table — repaired by an ordinary re-render five days after filing. `fixPageComponentStatus`
+   returns a hard error on `sql.ErrNoRows`, so canarying that row would have written a `failed`
+   against the pair, and post-`444`/`454` failures are *scored*. **The canary meant to qualify a
+   pair can push it under the floor.** Filed as `bugs_open/300`; the row was closed by hand as
+   `complete` / `resolution_path='manual:revalidated'` with the proof in `result.revalidation`.
+2. **`430`'s prescribed canary UPDATE ends `AND status='detected'`** and matches **0 rows** once
+   `453` has escalated — `UPDATE 0`, no error, reads like a completed step.
+3. **`453` is a one-way door.** Nothing returns an escalated row to `detected`, so a newly
+   known-good pair's remaining findings stay stranded. Returned by hand; the promoter then took
+   them within 4 minutes. The mechanism fix belongs to `453`'s author.
+
+**The residual, and why it was bigger than it looked.** 083 recorded the guardian's cheap control
+as *"return a third column counting held rows so the scheduler's log makes it visible"*. Measured at
+the running service, that column would have been **write-only**: for `fire_message=false` the
+pre_query result is merged into `inputData` and then discarded — `fireTrigger` is never reached — so
+`promoted` and `pairs` had never been readable either. Every tick emitted the same bare line.
+
+So the fix went into `cmd/scheduler/main.go` (every CTE-only task logs its own result; the 2 KB cap
+**announces itself**, because a silent truncation would rebuild the defect inside the fix) plus
+migration `458` for the numbers. Commit `03012d862`, council `8dc58e2a-…` submitted with `FORCE=1`
+— `097` scopes to `platform/`/`internal/`/`pkg/` and this is `cmd/` + config, the blind spot §5
+item 6 of the handoff already names.
+
+**Two findings from writing `458`, both of which change what I believe about this task:**
+
+- **The row-suppression idiom never worked.** `... FROM promoted WHERE (SELECT COUNT(*) FROM
+  promoted) > 0` suppresses nothing — aggregate-only target list, no `GROUP BY`, so exactly one row
+  returns regardless. Verified read-only against an empty CTE (`WHERE` → `('0', NULL)`; `HAVING` →
+  0 rows). Consequence: the promoter claimed its `maintenance` concurrency slot on **every** tick,
+  defeating `048`'s release-on-no-op. Corrected to `HAVING COUNT(*) > 0 OR held > 0` — suppress on
+  *both* being zero, because an idle tick that is holding rows is the state the residual is about.
+  **Sized honestly: a door, not a repair** — no `maintenance` group-mate is starved today (all five
+  within 1.04 intervals of due). ⚠ `453` carries the identical idiom; its lane's call.
+- **Concept-register SCH-007 is stale and is what made the broken idiom look mandatory.** It says a
+  pre_query "must return at least one row, or the timestamps never advance". False since
+  `dc2e4b61a` (`bugs_open/048`): the zero-row path stamps both and logs *"Pre-query found no rows"*
+  (`main.go:200-216`). Confirmed at the running service in the same hour — `feasibility-recheck`,
+  `report-dispatch` and `diagnose-pipeline-trigger` all log exactly that line and keep their
+  cadence. Entry corrected with the cost named.
+
+**`458` reports `held=2` on its first run, and one of them is `444`'s own floor holding a live row
+for the first time** (`literal_markdown → page-build-handler`). `444` recorded both doors as holding
+zero and called them "doors, not repairs"; one is now load-bearing and nothing could see it. The
+migration's verify block carries that as a **positive control** (held must be non-zero or the
+counter is unproven) and a **negative control** (the promotable set must be unchanged by the
+restructure — 0 before, 0 after).
+
+**The counter inherits this file's own 18:30Z OPEN RISK** (14 completes left the table, cause
+undiagnosed): `held` is a live `COUNT` over `site_work_items`, like the rule and the floor it
+reports on, so a pair could be reported held with the confident-but-wrong reason *"has never
+completed one"*. Flagged in `bugs_open/083` and in SCH-026 rather than left for the two accounts to
+drift. If `090` finds the actor and the answer is a durable per-pair tally, this counter should read
+that tally.
+
+**A wrong turn, logged in full in `WRONG_CALLS.md`.** Before settling on `bugs_open/300`'s narrow
+finding I tried to justify a *general* "is this finding still true?" predicate, using "was the page
+redeployed after the finding was filed?" as the staleness proxy. It came out backwards — 86% success
+for "stale" rows against 41% for fresh ones — because `pages.deployed_at` **is written by the
+handler's own work**, so the instrument was moved by the thing it measured. No predicate built. The
+tell was the result pointing the wrong way hard enough to be absurd; a confounded instrument that
+had landed 60/40 in the expected direction would have gone straight into a bug file.
+
+**One refuted hazard, recorded because it was plausible and specific.** A warning that
+`component-template-fixer`'s `create_rerender` step INSERTs into a `domain` column dropped from
+`site_work_items` — which would have failed *after* the repair was applied — is **false at the live
+config**: the live agent definition names `pipeline`. The artefact that said otherwise
+(`k8s/bk_agent_definitions_backup.sql`) is a snapshot dated 2026-03-12. Reading the live row rather
+than the seed is what caught it, and it is the reason the canary was safe to run at all.

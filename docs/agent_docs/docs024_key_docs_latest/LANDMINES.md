@@ -12023,3 +12023,51 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **the second half, easy to miss:** the partial predicate excludes **seven** terminal statuses, `failed` among them. So a terminal item's key is FREE and the same finding can legitimately be re-filed later — a second row with the same `(site_id, item_key)` is **not** a dedup failure if the first one is terminal. Check the statuses before calling a duplicate a duplicate. ⚠ And the converse trap: repeated failures on one page may be **different producers with different keys**, not one key re-filing — on 295 two failures 35 minutes apart on the same page were `offer-analysis_…` and `gap_plan_…`, and reading the timestamps instead of the keys gave the wrong mechanism.
 - **relations:** `bugs_closed/295` (where this was caught, mid-grading), `bugs_open/204` (why an emission needs a bounded dedup key), MEMORY `dedup-index-go-list-lockstep` (the other half of this index's contract — the Go terminal-status list must match the predicate above or the fleet gets 42P10)
 - **added:** 2026-08-17, vigilant_designer_offer_analysis lane
+
+### A HELD finding AGES before its canary runs — validate it against current state first, or the canary fails for an artefact reason and the gate records that as "this handler cannot do the job"
+
+- **footprint:** `detected-item-promoter` (SCH-026, `sql_for_agents/430`, `444`, `454`, `458`), `held-pair-canary-escalation` (`453`), `site_work_items.status='detected'` held pairs, `result.held_pair_escalation.what_to_do`, and any by-hand promotion of a never-dispatched `(item_type, handler_agent)` pair
+- **fires when:** you are the human doing a pair's first supervised dispatch. No symptom first — you are handed a row, an explicit UPDATE to run, and a queue that has been waiting days. The instruction says "promote ONE row of this pair", and every row looks equally valid.
+- **the trap:** the promoter deliberately holds a pair with no lifetime completion **until a human runs one**, so by construction these rows are the OLDEST in the system — `page_component_status_drift` sat 7 days. During that wait, ordinary rebuild/re-render traffic can repair the finding, or move the thing it points at. Dispatch a row whose subject has moved and the handler fails for a reason that has nothing to do with its competence. **Post-`444`/`454` that failure is not free:** the promoter's 25% success floor reads lifetime `complete`/`verified` vs `failed` per pair, so an artefact failure is scored against the pair — and the pair the canary was meant to *qualify* can instead be pushed under the floor and held for ever. **The canary teaches the gate the opposite of the truth.**
+- **the tell: there is none from the queue.** A stale row is well-formed, correctly typed, correctly attributed, and its `spec` reads exactly like a live one. Measured 2026-08-17 on the first-ever canary of this pair: **1 of the 4 escalated rows** named `page_components.0f02ca76…`, which had **0 rows** in the table — the page was re-rendered five days after filing and the slot now held a different id, correctly `deployed`. Nothing on the work item said so. And note the fraction is *dirty* (1 of 4), not the suspiciously clean 30/30 that `016b` warns about — a dirty fraction is easier to wave away.
+- **the check — resolve the finding's SUBJECT before you promote, not after it fails:**
+  ```sql
+  -- does the thing this finding is about still exist, and is the finding still TRUE?
+  SELECT wi.id, wi.spec->>'slot_name' AS slot,
+         wi.spec->>'observed_status' AS observed_when_filed,
+         pc.build_status AS status_now,           -- NULL here => subject is GONE => do not canary this row
+         EXISTS (SELECT 1 FROM page_components x
+                  WHERE x.page_id = wi.page_id
+                    AND x.slot_name = wi.spec->>'slot_name') AS slot_still_resolves
+    FROM site_work_items wi
+    LEFT JOIN page_components pc ON pc.id = (wi.spec->>'page_component_id')::uuid
+   WHERE wi.id = '<the row you were told to promote>';
+  ```
+  Pick a row where the subject resolves AND the reported condition still holds. Close the stale ones with their evidence (`status='complete'`, `resolution_path='manual:revalidated'`, put the proof in `result.revalidation` — the convention `revalidate_review_queue_action.go:628-637` uses) rather than dispatching them.
+- **two more that bite in the same five minutes:**
+  - **`430`'s prescribed canary UPDATE ends `AND status='detected'` and will match 0 ROWS if `453` has escalated the row** to `needs_human_review` first — which it does automatically after 3 days, i.e. for exactly the pairs anyone is likely to canary. `UPDATE 0` is not an error and reads like a completed step. Check the row's status first and promote from where it actually is.
+  - **`453`'s escalation is a ONE-WAY door.** It moves rows to a status the promoter never selects, and nothing moves them back — so after a successful canary the pair's *other* findings do NOT rejoin the queue. Return them to `detected` by hand (or the pair is known-good and idle at the same time).
+- **judge the canary at the ARTEFACT, never at the item's `result`** — `bugs_open/287` has the dispatch loop storing the spawn record instead of the handler's reply. Use the subject's own row (`page_components.build_status`) and the served page, and take a **demand control**: leave a sibling finding un-canaried and confirm it did NOT change. On 2026-08-17 the canaried slot moved `approved → deployed` while both siblings kept their original `updated_at`, which is what made "it worked" mean something.
+- **relations:** `bugs_open/083` (the promoter and its residual) · `bugs_open/300` (why this row's subject id was unstable in the first place — the type keys on `page_components.id`, which `016b` already says is not stable across re-renders) · `bugs_open/287` (why not to trust `result`) · `016b` §re-validation trap 1
+- **added:** 2026-08-17, session bugfix-083, from the first canary this mechanism ever had
+
+### Two different migrations can carry the SAME NUMBER — the ledger keys on FILENAME, so nothing collides, nothing warns, and "migration 453" becomes ambiguous for ever
+
+- **footprint:** `docs/agent_docs/sql_for_agents/`, `schema_migrations`, `scripts/migration/run-migrations.sh`, and any commit message, bug file or handoff that names a migration by number
+- **fires when:** you pick the next migration number the obvious way — `ls sql_for_agents/ | grep -oE '^[0-9]+' | sort -n | tail -1` and add one. Many sessions do this within the same hour on one tree, and none of them can see the others' unpushed or just-written files.
+- **the trap:** `schema_migrations`'s primary key is **`filename`**, not the number. So two files numbered `453` are two distinct ledger rows: both are "pending", both apply, neither is skipped, and **no check anywhere warns**. The damage is not a lost or double-applied migration — it is that the NUMBER stops identifying anything. Measured on 2026-08-17: `453_held_pair_canary_escalation.sql` (applied 12:58Z) and `453_tool_recreation_whole_site_context.sql` (written, unapplied) coexist, and so do two `454`s (`454_page_content_writer_honest_stop_word.sql`, `454_promoter_counts_verified_as_success.sql`). Every later sentence saying "migration 453 did X" now needs a slug to be readable — the same trap `/bugs_open/` numbers already have (016, 083, 131, 146 …), one layer down and with no documented warning.
+- **the tell:** none at apply time. `run-migrations.sh` prints per-file progress, so a duplicate number scrolls past looking exactly like an ordinary pending file.
+- **the check — before writing the file, and again before applying:**
+  ```bash
+  # who else already claimed this number? (disk AND ledger — a number can be recorded but the file unpulled)
+  N=458; ls docs/agent_docs/sql_for_agents/ | grep -E "^${N}_"
+  kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db \
+    -t -A -c "SELECT filename FROM schema_migrations WHERE filename LIKE '${N}\_%';"
+  # and the fleet-wide picture: any number owned by more than one slug
+  ls docs/agent_docs/sql_for_agents/ | grep -v '_ROLLBACK\|_HOLD' | grep -oE '^[0-9]+' \
+    | sort | uniq -c | awk '$1 > 1'
+  ```
+  **Always refer to a migration by number AND slug** in prose, commits and bug files — `458_detected_item_promoter_reports_what_it_held`, never "458". A bare number is already ambiguous today.
+- **if you find you have collided:** the ledger-recorded one is frozen (never edit an applied, recorded file); renumber the **unapplied** one, which is cheap and has no ledger row to orphan.
+- **relations:** `LANDMINES.md` "an ordering-critical file cannot be held by a BANNER" (same directory, adjacent trap) · MEMORY [[migration-runner-practice]] · CLAUDE.md on ambiguous `/bugs_*/` numbers, which is this same failure already learned once
+- **added:** 2026-08-17, session bugfix-083, found while picking a number for `458`

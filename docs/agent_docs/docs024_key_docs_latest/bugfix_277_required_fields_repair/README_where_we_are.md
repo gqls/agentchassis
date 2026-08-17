@@ -289,3 +289,89 @@ the plan never mentions. That one needed a query, not a reviewer. It's logged as
 alongside a near-identical one earlier the same day, because twice in one session is a pattern
 rather than bad luck: both times I filtered on a status column without first asking what values that
 column can hold.
+
+---
+
+## 2026-08-17, evening — somebody finally ran the first one by hand, and it worked
+
+A fresh session picked this up. Three things happened worth telling you about, and one of them is a
+mistake of mine caught before it did any harm.
+
+**First, a housekeeping point about your own instructions.** You told me to gate the two
+content-rebuilding branches of the repair router. You'd told the earlier session the opposite —
+leave them alone — about three and a half hours before, and that session had already written your
+decision into a commit so nobody would reopen it. Rather than quietly reverse you, I put both
+answers side by side with their timestamps and explained the trade-off again, including the argument
+*against* gating that I hadn't given you the first time: a safety gate that nothing ever reaches is
+a mechanism that rots unused, which you've ruled against before. You confirmed: leave them alone.
+Nothing changed. I mention it because with this many sessions running, the same question can reach
+you twice in an afternoon wearing different clothes, and the honest thing is to say so rather than
+act on whichever answer came last.
+
+**Second, the actual work: the first supervised run of a repair type that had never once run.**
+The promoter deliberately refuses to hand work to a handler nobody has ever watched, until a person
+runs one and watches it. Yesterday we built the clock that nags when something has been waiting too
+long. Nobody had yet been the person. Now someone has.
+
+The type in question had twenty findings, none of which had *ever* been dispatched, the oldest
+waiting a week. I promoted exactly one by hand and watched it: it was picked up 64 seconds later,
+the thing it was complaining about was repaired, and the job closed — with the repair landing
+eleven seconds *before* the job was marked done, which is the fingerprint of real work rather than a
+job that just says it's finished.
+
+Then the interesting part happened on its own. That one success is all the promoter needed to start
+trusting the type, so on its next scheduled run, four minutes later, **it picked up the remaining
+findings and repaired them without anyone asking**. That is the whole point of this piece of work,
+end to end, for the first time: a person watches one, the machine takes the rest. I checked the
+live page before and afterwards — identical, to the byte, with all its text intact. This kind of
+repair fixes a status, and it did not touch anyone's content.
+
+**Third, and this is the one I want you to notice: I nearly ran the wrong one.** Before promoting
+anything I checked whether the four findings were still true. One wasn't. It was complaining about a
+piece of a page that no longer exists — the page had been rebuilt five days after the complaint was
+filed, and the replacement was already fine. Had I promoted *that* one, it would have failed, for a
+reason that has nothing to do with whether the repair machinery works. And because we added a rule
+yesterday that stops trusting a handler once it starts failing, **that failure would have been
+scored against the very thing the run was meant to prove.** The exercise designed to earn trust
+would have destroyed it instead.
+
+That's now written down in three places so the next person doesn't step on it, and the underlying
+cause is filed as its own bug: this kind of finding remembers a page's part by an identifier that
+the platform already knows is not stable when a page is rebuilt. There's a rule in our own debugging
+guide saying don't do that, complete with the fix. This code is on the wrong side of it.
+
+**A separate thing that turned out to be worse than advertised.** The review round left one open
+complaint: when the promoter refuses to hand out work, it does so silently. The suggested fix was to
+have it report a count. I went to add the count and found it would have gone nowhere — the
+scheduler throws away everything these background jobs report. So for the last two days the
+promoter has been writing a little summary of what it did on every run, and nothing has ever read
+it. Every run has logged one identical line whether it moved twenty items or none.
+
+So I fixed it at the level where it was actually broken — one change that makes *every* job of this
+kind report what it did, not just this one — plus the counting the reviewer asked for. It's
+committed and goes live at the next rebuild of that service, and I've said clearly in the bug file
+that it is **not** verified until I can see a real run's numbers in the log, rather than assuming
+the commit was enough.
+
+Worth knowing what it says on its first run: it is holding two things back, and one of them is
+yesterday's new safety rule doing its job on a live item for the first time. Yesterday that rule was
+recorded as "blocking nothing today — it's a door, not a repair". It's now load-bearing, and until
+today nobody could have known.
+
+**My mistake, logged.** Having found one stale finding, I went looking for the general pattern,
+intending to build a guard. I measured it with what looked like a sensible test — do findings whose
+page was rebuilt since filing fail more often? — and the answer came back saying the stale ones
+succeed *twice as often*, which is nonsense. The reason is that the column I was measuring gets
+written by the repair itself, so I was using the outcome to predict the outcome. The measurement
+couldn't have told me anything. What saved me is that it came out absurd; had it come out merely
+plausible, I'd have built a guard on it and written the number into a bug file. I've logged it, and
+what shipped instead is the small, directly-checkable finding rather than the grand one.
+
+**Where it leaves things.** The promoter is doing what it was built to do, and now has evidence
+rather than argument behind that claim. Bug 083 stays open on two narrow points: the logging change
+needs the next rebuild before it's real, and yesterday's safety doors should sit a week before
+anyone says they're behaving. One caveat inherited from earlier today, which I've flagged rather
+than papered over: another session found that completed work records have been disappearing from
+the database and nobody yet knows why. All of this counting reads that same table, so if records
+can vanish, the promoter can decide a handler "has never succeeded" when it has. That needs the
+diagnosis run someone has already recommended.

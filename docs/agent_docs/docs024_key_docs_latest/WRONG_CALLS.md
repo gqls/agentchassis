@@ -34873,3 +34873,49 @@ documents that exact trap, one section above the query I copied.
   self-healing (retire late, the next queued rerender repairs it, ported bytes intact), which is the
   only reason this is a note rather than an incident. Tally for "a step whose correctness depended on
   me being awake": 1.
+
+## 2026-08-17 (evening) — `bugs_open/083` close-out: I nearly built a guard on a measurement whose instrument was moved BY THE THING IT MEASURED
+
+**The claim I was about to make.** Having found one stale finding (a work item naming a
+`page_components.id` that no longer existed), I went looking for the general class, intending to add
+a "is this finding still true?" predicate to the `detected-item-promoter`. I needed to size it, so I
+reached for a proxy that used only existing columns: *was the finding's page redeployed after the
+finding was filed?* — reasoning that a redeploy is when a finding goes stale.
+
+**What the measurement said**, over every row the promoter has ever promoted:
+
+| page redeployed after the finding was filed | complete | failed | success |
+|---|---|---|---|
+| yes | 530 | 88 | **86%** |
+| no  | 24  | 35 | **41%** |
+
+Read naively that says staleness *more than doubles* the success rate, which is absurd on its face —
+and the absurdity is the only reason I looked again.
+
+**Why it is worthless.** `pages.deployed_at` is updated **by the handler's own work**. A successful
+repair redeploys the page, so "redeployed after filing" is very largely a *consequence* of the
+outcome I was trying to predict, not a condition preceding it. The instrument was moved by the thing
+it was measuring. No arrangement of that query separates "stale before dispatch" from "redeployed by
+the dispatch", because both write the same column, and nothing on the row records which.
+
+**What caught it.** The result pointing the wrong way, hard. A confounded instrument that had come
+out at 60/40 in the direction I expected would have gone straight into a bug file as
+justification — and the guard I would then have built would have been aimed at a class I had never
+actually measured.
+
+**The cheap check that would have prevented it, and it is one sentence:** before using a column as
+evidence about an outcome, ask **who writes that column** — and if the answer includes the process
+whose outcome you are predicting, it cannot be evidence about it. This is the `[MEASURED]`-marker
+discipline one level deeper: the figures were real, current and correctly read, and the *comparison*
+was meaningless. Same shape as the `make -n release` entry above (a real number, a meaningless
+comparison) and as this lane's own `completed_at` trap the same day (`failed` rows carry none, so
+every pair reads 100%).
+
+**Cost: none externally.** Caught inside the session, before it reached a bug file, a commit or a
+council submission. What shipped instead was the narrow, directly-verified finding
+(`bugs_open/300`: one item type keys on an id the platform already documents as unstable) — a
+smaller claim, but one where the evidence is a row that either exists or does not.
+
+**Tally for "an instrument written to by the process under test": 2 today** — this, and the
+`completed_at` pair-health query recorded in `2026-08-17c` above. Two in one day on the same table
+is what makes it worth automating a habit rather than remembering a rule.

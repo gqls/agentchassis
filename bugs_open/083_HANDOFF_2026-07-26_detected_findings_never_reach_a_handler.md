@@ -892,6 +892,205 @@ stands for pairs nobody has spot-checked, and is recorded as risk 5.
 before the verdict landed, which `098` resolves to the approval at report time. No amend
 (forward-only), and no `Council-Reviewed:` written on a verdict that had not been read.
 
+---
+
+# 2026-08-17 evening — the first canary RAN, the whole arc is demonstrated, and the residual's stated remedy turned out not to work
+
+Session `bugfix-083`, picking up the close-out this file's own handoff invited. Everything below
+is a fresh query or a fetch of a live page; nothing is carried forward.
+
+## 1. The held-pair canary — run, completed, and verified at the artefact
+
+The owner ruled (2026-08-17) that a human should canary a held pair now, and that a time limit
+should exist for the future. The time-limit half was built the same afternoon by the
+`bugfix_277` lane (migration `453`, `held-pair-canary-escalation`, which had already fired and
+moved 4 rows out of `detected`). **This is the other half: a human actually being the human.**
+
+`page_component_status_drift → component-template-fixer` was the oldest held pair — **20 rows,
+`claimed_at IS NULL` on every one, never dispatched in its life.**
+
+**Validity-checking the four escalated rows first is what made this worth doing carefully, and it
+found a trap.** `453`'s escalation payload says *"promote ONE row of this pair"*. One of the four
+was stale: `bc041cfb` named `page_components.0f02ca76…`, which **no longer exists** — the page was
+re-rendered on 08-15 and the slot now holds `a9550607…` at `build_status='deployed'`. The finding
+was true when filed and had since been repaired by ordinary re-render. Dispatching *that* row would
+have failed inside the handler (`fixPageComponentStatus` returns a hard error on `sql.ErrNoRows`),
+and — post-`444` — **that failure would have counted against the pair's success ratio.** A canary
+failing for an artefact reason teaches the gate the exact opposite of the truth. Filed as
+`bugs_open/300`; closed by hand as `complete` / `resolution_path='manual:revalidated'` with the
+evidence in `result.revalidation`.
+
+**Canaried `d15536c2` instead** (drift verified still true at promotion time), promoted from
+`needs_human_review` — note `430`'s prescribed statement ends `AND status='detected'` and would
+have matched **0 rows**, silently, since `453` had already moved it.
+
+| | |
+|---|---|
+| promoted by hand | 21:47:33Z |
+| claimed | 21:48:37Z (**64s** later — dispatch works) |
+| component `06c80367` `approved → deployed` | 21:49:05Z |
+| item `complete` | 21:49:16Z |
+
+The artefact moved **11 seconds before** the row was closed — the causal order real work leaves.
+Evidence was taken at `page_components.build_status` and the served page, **not** at the item's
+`result`, because `bugs_open/287` is still open for `build-dispatch-loop`.
+
+**Demand control, taken at that moment:** the two un-canaried siblings (`c881b7df` tool-1,
+`424986fd` prose-2) were still `approved`, with their original `updated_at` of 08-06 and 08-15.
+So the instrument could tell repaired from not.
+
+## 2. Then the mechanism did the rest by itself — which is the discriminating evidence criterion 2 never was
+
+With one lifetime completion the pair now passes the known-good rule, so the two remaining
+still-true rows were returned to `detected` (they were stranded — see §3) and **the promoter took
+them on its own next tick, unattended**:
+
+| | |
+|---|---|
+| promoter tick | 21:52:46Z — both rows promoted at 21:52:45, stamped `spec.original_pipeline='build'` |
+| `c881b7df` | claimed 21:53:03 → component `a39ffa7b` `approved→deployed` 21:53:21 → complete 21:53:28 |
+| `424986fd` | claimed 21:53:28 → component `c8c34743` `approved→deployed` 21:53:43 → complete 21:53:50 |
+
+Pair lifetime record now **4 complete, 0 failed**, from a standing start of zero dispatches ever.
+(⚠ subject to the 18:30Z OPEN RISK above: "lifetime" is only "whatever survives in the table". If
+those four completes were to leave it, this pair reverts to held and the canary would have to be
+run again — which is an argument for the durable per-pair tally that section proposes.)
+
+**The served page is unharmed, checked before and after:** `/loans/consolidation.html` returned
+200 / 13,512 bytes / 2,190 visible characters both times, **byte-identical visible text**, h1
+*"Debt Consolidation Risk Checker"*, and the canaried slot's own prose still present (probe: *"If
+you're thinking about rolling several debts into one loan"* — with a nonsense negative control that
+correctly returned absent). All three components' `rendered_html` lengths are unchanged (469 / 744
+/ 5720): this fix repairs a status, and it did not rewrite content.
+
+**This is the arc the bug was filed about, end to end, for the first time:** a human canaries one
+row → the pair becomes known-good → the promoter dispatches the rest unattended → the handler
+repairs them → verified at the served page. Unlike criterion 2, it is discriminating: none of it
+could have happened before 2026-08-15.
+
+## 3. A composition gap between `453` and SCH-026 — the escalation is a ONE-WAY door
+
+`453` moves a held row `detected → needs_human_review`. The promoter only ever selects
+`status='detected'`. **Nothing moves an escalated row back.** So when a pair is canaried and becomes
+known-good, its other findings do *not* rejoin the queue — they sit in the human pile for ever,
+which is `bugs_open/033`, i.e. the disease this file exists to cure, one step further along.
+
+Handled by hand this time (the two rows above were returned to `detected` with a
+`result.returned_to_detected` stamp, and the promoter then took them within 4 minutes). **Not
+fixed in the mechanism** — flagged for the `453` author as the natural follow-on: a successful
+canary should return that pair's escalated rows to `detected`.
+
+## 4. The guardian's residual: its stated remedy does not work, and the real gap is one level down
+
+This file records the residual with a suggested cheap control — *"have the pre_query return a third
+column counting `detected` rows a door held, so the scheduler's own log makes it visible."*
+
+**[MEASURED at the running service] That would have been write-only.** Every tick of this task
+emits one line and it carries no numbers at all:
+
+```
+{"caller":"scheduler/main.go:274","msg":"Pre-query task completed (no message fired)",
+ "task":"detected-item-promoter"}
+```
+
+Six such lines in `--tail=3000`. For a `fire_message=false` task the pre_query result is merged into
+`inputData` and then **discarded unlogged** — so `promoted` and `pairs` have never been readable
+either. That is SCH-006's observability gap and **eight CTE-only tasks share it**, so it was fixed
+there rather than here (owner-approved this session: *fix the framework*).
+
+Shipped as `03012d862`, council `8dc58e2a-2a0f-4b0c-aa9d-738177db079b` (`FORCE=1` — `097` scopes to
+`platform/`/`internal/`/`pkg/`, and this change is `cmd/` plus config, the blind spot this lane
+already noted):
+
+- **`cmd/scheduler/main.go`** — every CTE-only scheduled task now logs its own pre_query result.
+  Capped at 2 KB, and **the cap announces itself**: a silent truncation would rebuild, inside the
+  fix, the defect the fix exists to close. Test pins the marker, not the logging.
+  **INERT until `kafka-scheduler` is rebuilt and rolled — verify at the artefact, not at the commit.**
+- **Migration `458`** (applied + ledger-recorded, `_ROLLBACK.sql` alongside) — supplies the numbers,
+  with a reason per held pair. The doors move into a `scored` CTE evaluated **once** per row, of
+  which `candidates` and `held` are complementary halves; deliberately **not** a second negated copy
+  of the predicates, which would have drifted within four hours (`444` added them, `454` corrected
+  them, same day). Guarded on a verbatim pre-image md5 so a concurrent edit by the still-open 277
+  lane **aborts** it rather than silently reverting that lane's work.
+
+**`458` also closes a second defect found while writing it.** The final SELECT's
+`WHERE (SELECT COUNT(*) FROM promoted) > 0` suppresses **nothing** — aggregate-only target list, no
+`GROUP BY`, so one row returns regardless (verified read-only: the `WHERE` form returns `('0',NULL)`,
+the `HAVING` form returns 0 rows). Consequences, both live until today: the scheduler could not
+distinguish an acting tick from an idle one, and the task claimed its `maintenance` concurrency slot
+on **every** tick, defeating `bugs_open/048`'s release-on-no-op. Now suppressed on
+`promoted=0 AND held=0` — *not* on `promoted` alone, because an idle tick that is holding rows is
+exactly the state this residual is about.
+**Honest sizing: a door, not a repair.** No `maintenance` group-mate is starved today (all five
+within 1.04 intervals of due).
+
+**What it reports on its first day is the argument for it** — and it is a positive control, not a
+zero:
+
+```
+promoted=0  held=2
+literal_markdown->page-build-handler (pair below the 25% success floor);
+placeholder_contact->page-build-handler (pair has never completed one (awaiting a hand canary))
+```
+
+`444` recorded both doors as holding **zero** rows at apply and called them *"doors, not repairs"*.
+**One of them is now load-bearing and nothing could see it.**
+
+> ⚠ **This counter inherits the OPEN RISK recorded above at 18:30Z** (*"work-item history SHRANK
+> — 14 completes left the table, cause UNDIAGNOSED"*), and I am flagging it rather than leaving the
+> two accounts to drift. `held` is a live `COUNT` over `site_work_items`, exactly like the known-good
+> rule and the floor it reports on. **If completed rows can leave the table, a pair can be reported
+> as held for a reason that is an artefact of row disappearance**, and the held *reason* string will
+> say "pair has never completed one" — which would be a confident, wrong explanation. That makes the
+> visibility worth *more*, not less (the shrinkage was invisible precisely because nothing reported
+> per-pair state), but it is not independent evidence: **if `090` finds the actor and the answer is a
+> durable per-pair tally, this counter should read that tally, not the table.** Whoever takes that
+> item owns this line too.
+
+## 5. Corrections to this file's own record
+
+> **CORRECTED 2026-08-17 (evening) — concept register SCH-007 is stale and this file leaned on it.**
+> SCH-007 states a pre_query *"must return at least one row, or `last_triggered_at`/
+> `last_completed_at` never advance"*. **False since `dc2e4b61a`** (the `bugs_open/048` fix): the
+> zero-row path stamps both timestamps and logs *"Pre-query found no rows — task ran with nothing to
+> do"* (`cmd/scheduler/main.go:200-216`, read at source). It is the rule that made the
+> non-suppressing `WHERE` look deliberate. Register entry corrected.
+
+> **A generic "is this finding still true?" predicate was considered and REFUSED by its own
+> measurement.** Sizing the class on `spec.page_component_id` gives one item type and one stale row
+> of twenty. A generic proxy — *"was the page redeployed after the finding was filed?"* — came out
+> **backwards**: promoted rows whose page was redeployed after filing succeeded 530/618 (86%) against
+> 24/59 (41%) for those not redeployed. That reads as staleness *helping*, which it does not:
+> `pages.deployed_at` is updated **by the handler's own work**, so the column is a consequence of the
+> outcome it was meant to predict. The instrument cannot separate the two. Logged in `WRONG_CALLS.md`;
+> no predicate built.
+
+> **A HIGH hazard raised against the canary was REFUTED at the live config.** The warning was that
+> `component-template-fixer`'s `create_rerender` step INSERTs into a `domain` column dropped from
+> `site_work_items`, which would fail *after* the repair had been applied. The **live** agent
+> definition names `pipeline`, not `domain`; the repo artefact saying otherwise
+> (`k8s/bk_agent_definitions_backup.sql`) is a snapshot dated 2026-03-12. What caught it: reading the
+> live row instead of the seed. Recorded because the hazard was plausible, specific, and wrong.
+
+## 6. Where the three criteria stand now
+
+| criterion | state |
+|---|---|
+| 1 — the promotable pile drains and stays drained (corrected wording) | **HOLDS.** Promotable = **0**; the raw `detected` count is 152, of which 147 are flag-only rows with no handler and 5 have one. `458`'s verify block asserted the partition. |
+| 2 — `phantom_internal_link` reaches a non-zero `complete` | met on its literal wording, **non-discriminating** (already true six days before the fix) — unchanged, do not bank it |
+| 3 — completions verified at the live page | **MET twice over**: the 08-17 morning sample of four, and now three more this evening on `loanandmortgagecalculator.co.uk`, before-and-after with a negative control |
+
+**Status: FIX LIVE, bug still OPEN**, for two reasons and no others:
+
+1. `cmd/scheduler/main.go` is **committed but not rolled** — the held count is computed and stored
+   in the pre_query's output today and nothing reads it until `kafka-scheduler` ships. The residual
+   is not closed until a tick's held count is visible in the service's own log.
+2. `444`'s doors and `458`'s counter should sit a week before anyone declares they hold nothing they
+   should not.
+
+Everything else this file asked for is done. When those two land, close it — **naming both paths on
+the commit** (`git mv` landmine) and verifying at HEAD with `git ls-tree`.
+
 ### `454` PROVEN on the next tick — 2026-08-17 16:43Z
 
 The correction to `444` (count `verified` as success, not just `complete`) released exactly what it
