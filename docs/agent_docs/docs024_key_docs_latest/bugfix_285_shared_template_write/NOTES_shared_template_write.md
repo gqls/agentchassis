@@ -171,3 +171,43 @@
 - **Bug numbering, twice wrong:** filed as 290 (taken by another lane minutes earlier), renumbered
   to 291 — which another lane had ALSO taken between my check and my move — then to 293, verified
   unique at HEAD **after** the move. On this tree a number is claimed by whoever commits next.
+- **Council `3279156b` APPROVED round 1** (12:0xZ, ~8 min): 3 advisory objections, none high; all acted on.
+  - **reuse_agent (medium) was RIGHT and it changed the code.** It asked whether the estate already
+    had an HTML→reader-text helper before I added a regex chain. It does:
+    `datahelpers.VisibleTextFromHTML` → `ExtractAssertionText`, a real `html.Parse` walk that drops
+    script/style/noscript/template/code/pre/svg/iframe/textarea/select/option/head with their
+    content and decodes entities — the same extraction the claims and voice-tell scans use. My
+    grep had been for `visibleText|textFloor|visible_chars` in `platform/`, which missed it;
+    the seat named the files (`claims.go`, `section_text.go`, `check_voice_tells.go`).
+    `visibleTextLength` is now a non-whitespace count over it, and the floor agrees with those
+    scans by construction rather than by coincidence.
+  - **And the reuse forced a RE-MEASUREMENT, which changed the evidence** `[MEASURED via a Go
+    harness over all 117 pairs, not SQL]`: the real pair reads **2,143 → 16 (0.7%)**, not the
+    regex's 2,754 → 68; the visible axis refuses **3** pairs, not 1 —
+    `idea.uk/tool-ab-test-calculator` 684 → **0** visible (2026-08-11, tag-stripped GREW
+    10,399 → 12,929) and the same tool on webdesign (08-15) are `bugs_open/286`'s hollow forks,
+    so two of the three are the OTHER lane's incident and the axis is not tuned to mine; the old
+    axis still refuses only my repair; **the two axes agree on zero pairs**; 43/117 leave scope
+    (not 31) under the pre-existing 500-char minimum. Every published figure was corrected —
+    code header, register PBP-043 + index, bug 293, LANDMINES (with a dated in-place note),
+    README. **A figure measured with a proxy is not a figure measured with the code.**
+  - guardian (medium): caller census — `enforceSingleSlotFloors` has exactly ONE caller
+    (`section_editor_actions.go:436`); `evaluateSectionShrink` has two, and the axis lives in the
+    CALLER, so the whole-page path is unaffected by construction. Recorded in the code.
+  - debug_historian (medium): no deploy verification — RUNBOOK gains the pod-provenance recipe
+    (stamp then ancestry, with a real-but-different sha as the absent control) plus an
+    induced-refusal recipe and a DEMAND CONTROL (a zero refusal count means nothing if no section
+    edits ran).
+  - bug_historian (medium): 293 must not read as a lower-priority follow-up — it now carries a
+    PRIORITY block with the volume argument (3,603 rebuild writes vs 281 edit writes in 8 days)
+    and states plainly that the sibling was fixed because it could be CALIBRATED, not because it
+    mattered more.
+  - editquality (low ×2): sketch showed one test body of four and assumed the call site's symbol
+    names. Both are sketch-truncation artefacts; the committed code compiles and the whole
+    `actions` package is green at `git archive HEAD`. No change.
+  - Follow-up `4b32f174c` with `Council-Reviewed:`, figures `44b4f7e6d`, ledger note `7311f4d36`.
+- **Export trap worth keeping:** `kubectl exec … psql -At -c "SELECT json_agg(...)"` for the 117
+  pairs (2 MB in ONE row) died mid-stream — `unexpected EOF`, truncated JSON, and the Go harness
+  then panicked on a parse error that looked like a bug in my code. Chunked JSONL
+  (`row_to_json` per row, `LIMIT 20 OFFSET n`) transferred all 117 cleanly. A single huge row is
+  the fragile shape, not the total volume.
