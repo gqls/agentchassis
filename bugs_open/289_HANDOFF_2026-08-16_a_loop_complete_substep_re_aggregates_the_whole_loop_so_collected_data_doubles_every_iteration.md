@@ -485,3 +485,64 @@ is the architecture-scope trigger.
 **6. `constitution` (minor) — TIDIED.** It noticed the submission still listed "no size tripwire"
 as an open residual while edit 5 added one — staleness carried from the original filing. Residual
 (5) is marked closed above; residual (4) and the new (6) remain open.
+
+
+---
+
+## LIVE AND PROVEN AT THE ARTEFACT — 2026-08-17 18:2xZ, build `v1.0.1307`
+
+**The fix shipped and the doubling is gone.** Proven on real traffic, not on an induced case.
+
+**First: the deploy is real, checked at the artefact rather than at the tag** (the previous two
+"fresh build" reports had shipped nothing — see the same-tag LANDMINE). Pods
+`agent-chassis-6d6d7b9996-*`, image `v1.0.1307`, started 17:05Z, digest
+`sha256:8339bdbd…`, whose own OCI label reads revision **`a6d1c53c0`**, built 2026-08-17 16:50Z.
+`git merge-base --is-ancestor` against that revision: **`509e01e6a` SHIPPED, `cf970b009` SHIPPED**.
+(`a436d898f`, the council's `GetIntField` reuse swap, is NOT in this build — it postdates it and
+is behaviourally identical, so it rides the next one.)
+
+**The measurement, on `build-dispatch-loop` — the fleet dispatcher, and the loop with the most
+traffic.** Chosen deliberately over inducing a `tool-auditor` run: it exercises the same shared
+engine with genuine demand, so the reading needs no artificial case. Per-lap `_done` sizes on
+post-roll runs:
+
+| | before (measured 08-17 am) | after |
+|---|---|---|
+| `process_item_iter_0_done` | 201 kB | **77 B** |
+| `_iter_1_done` | 617 kB | **77 B** |
+| `_iter_2_done` | 1,419 kB | — |
+| `_iter_3_done` | 3,023 kB | — |
+| `_iter_4_done` | 6,247 kB | — |
+| ratio per lap | **~2.1–3.1x** | **1.00** |
+
+**The disconfirming result was a ratio near 2.0. It is 1.00 — the series is flat.** The stored
+value is exactly the designed marker:
+`{"status": "iteration_complete", "iteration": 0, "loop_name": "process_item"}`.
+
+**Demand control, because a flat series proves nothing if no multi-lap loop ran:** every run read
+carries `loop_metadata.total_iterations = 5`, so five-lap loops genuinely executed. Like-for-like
+totals over multi-lap runs only:
+
+| era | runs | avg `collected_data` | max |
+|---|---|---|---|
+| before the roll | 156 | 2,575 kB | 14 MB |
+| **after the roll** | 10 | **104 kB** | **229 kB** |
+
+**~25x smaller on average, ~61x on peak, on the service that dispatches every piece of work on
+the estate.**
+
+**WFA-016 (the tripwire) is live and silent — and that is the expected reading, not a failure.**
+0 `collected_data is unusually large` lines in the last hour, because after this fix nothing
+persists an oversized state. Per WFA-016's own verify-later note, a zero here means "no oversized
+state", NOT "the instrument is broken"; the only honest way to exercise it now is a fixture, since
+the producer it was written for has stopped.
+
+### Still owed before this can close
+
+**The motivating case itself is NOT yet proven.** No `tool-auditor` run has executed since the
+roll — its queue holds no runnable item (28 failed, 20 complete, 16 unresolved, 10 deferred), so
+the zero is absence of demand, not evidence. The bug's own stated pass is "a `tool-auditor`
+orchestration reaching `COMPLETED`" (the population held **1 in 63**). One bounded probe has been
+filed to settle it: item `12836a25-8266-46fb-bba1-2e8635ef9cc0`, page-pinned to the Mind Map,
+`created_by='bugfix-289-postroll-verification'`, **`max_attempts=1` so it costs at most ONE Sonnet
+audit** rather than the three the old exhausted probe paid. Read its outcome, then close.
