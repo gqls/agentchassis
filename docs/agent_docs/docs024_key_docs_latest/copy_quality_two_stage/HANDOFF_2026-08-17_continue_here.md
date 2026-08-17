@@ -1,8 +1,19 @@
 # HANDOFF 2026-08-17 — continue here
 
-**Lane:** `copy_quality_two_stage`. **State: the build is DONE. Stage 2 exists, is live,
-and passed its proof case on its first run. The lane is now waiting on ONE owner decision
-(apply the proposal) and otherwise has no build work outstanding.**
+**Lane:** `copy_quality_two_stage`. **State: DONE and APPLIED. Stage 2 exists, is live,
+passed its proof case on its first run, and — owner-approved the same evening — the edit
+has been applied to the live page and verified at the artefact. The lane has no
+outstanding decision and no build work. Next is a HARDER page, not a fix.**
+
+> **UPDATED 2026-08-17 evening — the proof case is CLOSED.** `gate_page_links.py` now exits
+> 0 ("all 16 required links present"); the six guides have had a homepage link since
+> 21:52:55Z. Applied via `section_edit` item `e02190da` → orch `b747199d` → COMPLETED
+> 21:53:18Z. Every must-not-change item held (H1, 31 class attrs, 12 cards, 2 tool-grids,
+> no banned phrase; words 629 → 669). Verdict banked in
+> `loanandmortgagecalculator_couk/acceptance/RESULT_2026-08-17_index_link_gate_PASSING.txt`
+> beside the 08-12 FAILING baseline. Both work items closed with evidence on the row.
+> **The write path is proven end to end. The `on_approve` → `section-editor` handoff is
+> still NOT** — approval today is a human running two commands, and `bugs_open/033` is why.
 
 Everything the 08-15 handoff called "NEXT WORK" is delivered:
 
@@ -14,38 +25,63 @@ Everything the 08-15 handoff called "NEXT WORK" is delivered:
 - **The proof case passed** — orch `18e0d79e`, proposal item **`6dce90f1-bbc7-43b3-a71c-ebfa48cf9afe`**,
   gate exit 0. Full numbers in NOTES 2026-08-17.
 
-## THE ONE THING WAITING ON THE OWNER
+## ~~THE ONE THING WAITING ON THE OWNER~~ — DONE 2026-08-17 evening (kept: the recipe is reusable)
 
-**Apply the proof-case proposal, or not.** The six missing guide links on
-`loanandmortgagecalculator.co.uk/index` were kept unrepaired since 2026-08-12 by the owner's
-own ruling (*"leave it for stage 2 as proof"*). Stage 2 has now proposed the repair and the
-gate passes it. **The page is still unchanged** — by D2 the agent cannot write, and it did
-not.
+**The owner approved, and it is applied.** What follows is the procedure that ran, which is
+the same procedure for the NEXT proposal — the review queue still has no surface, so every
+approval is a human running these steps.
 
-The proposal: six `<li>` entries added to the Guides list, **nothing else touched** — no
-prose rewritten, no reordering, no markup changed.
+**Two corrections earned in the doing, both already applied to the tooling:**
 
-To apply once the owner says yes (the `on_approve` → `section-editor` path is declared but
-**unexercised**, since it depends on the dashboard `bugs_open/033` is about — so do it by
-hand):
+- **`--item` was broken and this handoff recommended it.** It read a flat
+  `review_data.page_component_id`; a real proposal nests `review_data.edits[]`, one entry
+  per component. It would have failed for anyone who followed this file. Fixed in
+  `8a45a3e3c` — found by USING it, not by reading it.
+- **File `triaged`, then claim it yourself before direct-publishing.** `section_edit` claim
+  latency is avg 1,695 s with a 21,757 s tail (n=172), so waiting is not viable inside a
+  session; claiming first is what stops the loop double-dispatching a payload already in
+  flight. Check `ai_endpoint_health.healthy` first — a stopped queue reads green everywhere
+  else (LANDMINES, 2026-08-17, webdesign lane).
+
+**What the case was** (kept, because it is the worked example): the six missing guide links
+on `loanandmortgagecalculator.co.uk/index` were held unrepaired from 2026-08-12 by the
+owner's ruling (*"leave it for stage 2 as proof"*). Stage 2 proposed six `<li>` entries added
+to the Guides list and **nothing else** — no prose rewritten, no reordering, no markup
+changed — the gate passed it, the owner approved, and it went live the same evening.
+
+**THE RECIPE, for the next proposal** (the `on_approve` → `section-editor` path is declared
+but **unexercised**, since it depends on the dashboard `bugs_open/033` is about — so this is
+by hand):
 
 ```bash
-# 1. re-grade first: the page may have changed since 08-17
+# 0. is the queue even claiming? a stopped queue reads green everywhere else
+#    SELECT healthy, last_checked FROM ai_endpoint_health WHERE name='claude';
+# 1. STALENESS, then re-grade against the LIVE row (never the payload's own "before")
+#    SELECT pc.updated_at > swi.created_at AS payload_is_stale FROM site_work_items swi
+#      JOIN page_components pc ON pc.id=(swi.spec->'review_data'->'edits'->0->>'page_component_id')::uuid
+#     WHERE swi.id='<review item>';
 python3 docs/agent_docs/docs024_key_docs_latest/copy_quality_two_stage/gate_stage2_edit.py \
-        --item 6dce90f1-bbc7-43b3-a71c-ebfa48cf9afe
-# 2. file the section_edit item for section-editor, spec shape:
-#    {"domain":…, "page_name":"index", "edit_type":"content_edit",
-#     "page_component_id":"d6c9198b-1e8c-4299-ac84-57c6a950e0f0", "field_updates":{…}}
-#    born 'triaged' (a hand-filed 'detected' row fails silent unless its
-#    (type,handler) pair is known-good — SCH-026 holds new pairs for a human)
-# 3. prove it at the artefact, not at the status:
+        --item <review item>
+# 2. file the section_edit, spec COPIED BY SQL from the proposal row (never retyped):
+#    {"domain":…, "page_name":…, "edit_type":"content_edit",
+#     "page_component_id":…, "field_updates":{…}}
+#    born 'triaged', then claim it yourself (UPDATE … status='in_progress',
+#    claimed_by='<session>') before direct-publishing, or the loop may dispatch it too
+# 3. publish to section-editor on system.agent.generic.requests (input_data needs
+#    domain, site_id, page_id, page_name, slot_name, page_component_id, edit_type,
+#    field_updates, work_item_id). kcat -P exits 0 having sent NOTHING — the
+#    orchestration row is the only proof of dispatch
+# 4. prove it at the artefact, NOT at the status: check_edit_skipped routes a lock- or
+#    decision-gated REFUSAL to 'complete' as well, so 'complete' alone means nothing
 python3 docs/agent_docs/docs024_key_docs_latest/loanandmortgagecalculator_couk/gate_page_links.py
+# 5. close both items with the evidence on the row — nothing in the platform will
 ```
 
-⚠ **Re-grade before applying.** The proposal was computed against the component as it stood
-on 08-17; if a rebuild has rewritten `prose-0` since, the stored `field_updates` would
-overwrite the newer copy wholesale (`content` is the component's ONLY field, so the edit is
-a full-field replacement). The gate reads the CURRENT row, so a re-grade catches it.
+⚠ **Re-grade before applying, always.** A proposal's `field_updates` is a full-field
+replacement frozen when it was written; if anything rewrote that field since, applying it
+reverts the newer copy and every status still reads success. On a single-field component
+(`ported-prose` declares only `content`) that means reverting the WHOLE component. The gate
+reads the CURRENT row, so a re-grade catches it. Now a LANDMINE entry in its own right.
 
 ## What is proven, and what only looks proven
 
@@ -56,14 +92,13 @@ a full-field replacement). The gate reads the CURRENT row, so a re-grade catches
 | the gate can fail | **MEASURED** — 6 controls, all fire |
 | the four safety rules hold | **ASSERTED AT APPLY TIME** by guarded `DO` blocks, not by comments |
 | the agent cannot write to a page | **STRUCTURAL** — no step in it can; the migration RAISEs if one is added |
-| the apply path works | **NOT PROVEN — never run.** `on_approve` → `section-editor` is declared and unexercised |
+| the apply path works | **PROVEN 2026-08-17** end to end: proposal → gate → `section_edit` → render → deploy → six links live. ⚠ but the `on_approve` → `section-editor` HANDOFF is still unexercised — a human filed the item |
 | it works on a subtler defect | **UNKNOWN.** Six absent links is a legible defect; restraint on a vaguer page is untested |
 | `field_updates` narrows blast radius | **VACUOUS HERE** — `ported-prose` declares one field, so it is a full-field write either way |
 
 ## Next work, in the order that closes doors
 
-1. **Apply the proof case** (owner's call, above). It is the only thing that exercises the
-   write path end to end.
+1. ~~**Apply the proof case**~~ **DONE 2026-08-17** — gate exits 0, six links live.
 2. **A second page, deliberately chosen to be harder** — a multi-component page with a
    multi-field component, so `field_updates` and the type gate are doing real work rather
    than standing by. The interesting question is whether "leave good sections alone"

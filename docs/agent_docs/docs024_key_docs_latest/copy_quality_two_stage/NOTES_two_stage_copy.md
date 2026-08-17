@@ -1491,3 +1491,68 @@ Hand-fired canary, orch `18e0d79e`, corr `83ec64fb`, ~50 seconds end to end.
   needs a multi-field component to mean anything.
 - **One run, one page, one defect** — and an unusually legible defect. Whether the
   restraint survives a subtler page is the open question, not a claim.
+
+### 2026-08-17 (evening) — APPLIED. The proof case is satisfied, end to end, and the write path is no longer theoretical
+
+Owner approved the proposal; applied and verified at the artefact.
+
+**Before applying, two checks that were the point of the exercise:**
+
+- **Staleness:** the payload is a full-field replacement frozen at 11:51Z. Component last
+  changed `2026-08-12 16:02:59Z`, proposal written `2026-08-17 11:51:12Z` →
+  `payload_is_stale = f`. (The check is now a LANDMINE entry; on this tree a parked edit is
+  usually the stale case, not the fresh one.)
+- **Re-grade against the LIVE row** via `gate_stage2_edit.py --item`: **0 failing.**
+  ⚠ And that flag was BROKEN — it read a flat `review_data.page_component_id` I had guessed
+  at, while a real proposal nests `review_data.edits[]` (one entry per component, because
+  page-scoped read means N edits are normal). It would have exited "carries no
+  page_component_id" on **every** real proposal, and the handoff told the next session to
+  use it. **Found by using it, not by reading it** — the flag existed, was documented, and
+  had never been run against a payload the agent actually produces. Fixed (`8a45a3e3c`).
+
+**The apply `[MEASURED]`:** item `e02190da` (`section_edit`, spec copied BY SQL from the
+proposal row, never retyped), dispatched to `section-editor`, orch `b747199d`, COMPLETED
+21:53:18Z. `content_data.content` 6,513 → **7,136 chars** at 21:52:55Z.
+
+⚠ **Queue note:** filed `triaged`, then **claimed by hand and direct-published**, because
+`section_edit` claim latency is avg **1,695 s** with a **21,757 s** tail (n=172) and the
+session could not verify what it could not wait for. Claiming first is what stops the loop
+double-dispatching a payload that is already in flight. The dispatch path itself is real —
+172 of 173 `section_edit` items ever filed were claimed by `build-dispatch-loop`; only the
+latency is unpredictable. Queue health was checked first (`ai_endpoint_health.healthy = t`),
+per the landmine filed this morning by the webdesign lane.
+
+**Verified at the artefact, not at the status** — which matters here because
+`check_edit_skipped` routes a lock- or decision-gated REFUSAL to `complete` as well:
+
+| the owner's must-not-change list (08-12) | baseline | now | |
+|---|---|---|---|
+| H1 *"How your loans and your mortgage affect each other"* | — | — | **unchanged** |
+| 31 class attrs | 31 | 31 | unchanged |
+| 12 cards | 12 | 12 | unchanged |
+| 2 tool-grids | 2 | 2 | unchanged |
+| no banned phrase | absent | absent | unchanged |
+| word count not below ~600 | 629 | 669 | +40 |
+| guide links | 7 | **13** | **+6, the whole point** |
+
+- `gate_page_links.py` → **exit 0, "all 16 required links present"** (the pass condition the
+  owner's ruling names). Banked as `acceptance/RESULT_2026-08-17_index_link_gate_PASSING.txt`
+  beside the 08-12 FAILING baseline; the post-edit component beside it.
+- **Served page:** all six restored links live on `https://loanandmortgagecalculator.co.uk/index.html`
+  (http 200). One of the six resolves TWICE on the served page — that is the site footer
+  carrying its own link with different text (*"If repayments are a struggle"*), exactly what
+  `gate_page_links.py`'s docstring warns about; **inside the component each of the six
+  appears exactly once**, checked separately.
+- ⚠ **Unit correction for anyone re-checking:** the ruling's "31 class attrs" counts
+  `class="…"` ATTRIBUTES; `gate_stage2_edit.py` counts individual class TOKENS (43 in the
+  rendered html, 42 in `content_data` — the difference is the `ported-prose` section wrapper
+  added at render). Both were unchanged; they are different numbers of different things.
+
+**Both items closed with their evidence on the row** (`section_edit` and the
+`copy_edit_proposed` review item) rather than left parked — nothing in the platform would
+have closed either, since the review queue has no surface and the edit item was hand-claimed.
+
+**What this does and does not prove.** The write path now works end to end, once, on one
+page: proposal → gate → `section-editor` → render → deploy → six links live. It does NOT
+prove the `on_approve` → `section-editor` handoff, which is still the untested part —
+approval today is a human running two commands, and `bugs_open/033` is why.

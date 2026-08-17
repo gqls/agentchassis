@@ -353,3 +353,39 @@ house voice went fleet-wide last week, the regenerated copy simply came out with
 "a workbench, not a sales pitch" phrasing you objected to. The improvement arrived on its
 own, in work aimed at something else entirely. That is what shipping the voice centrally
 was supposed to buy, and it's the first time we've seen it happen unattended.
+
+## 2026-08-17 (evening) — applied, and the six links are live
+
+You said apply it, so I did. The six guides that have had no homepage link since the 12th
+now have one, on the live site.
+
+What ran: the editor's proposal went through the checker one more time against the page as
+it stood tonight — not against the copy it was written from, which is the mistake that
+would have quietly undone somebody else's work if the page had changed in between — and
+then through the normal section-editing route that writes one component and redeploys it.
+It took about forty seconds.
+
+What I checked afterwards, because "the job says it finished" is not the same as "the page
+is right": the six links are on the served page; the headline is untouched; the twelve
+calculator cards, the two calculator grids and every styling attribute are exactly as they
+were; nothing new was invented; and the page is forty words longer, which is the six lines
+that were added. The formal test you set this thing on the 12th — a script that fails if
+any required link is missing — now passes, and I've kept its verdict alongside the failing
+one from the 12th so the pair is on the record.
+
+One thing worth telling you because it nearly bit me. The checker has a shortcut for
+grading a proposal straight out of the review queue, and I had written the handover telling
+the next person to use it. It didn't work — I had guessed the shape of the thing it reads,
+and a real proposal is shaped differently. It would have failed for anyone who tried it,
+including me tomorrow. I only found it because I used it rather than trusting it. Fixed,
+and the fix is committed separately so the reason is visible.
+
+Where that leaves us: the editorial pass is built, it has done one real job on a live page
+correctly, and the route from "proposal" to "live" is proven rather than assumed. What is
+still not proven is the automatic version — today approval means a person runs two
+commands, because the review queue still has no screen anyone can use. That is the other
+thread's work and I have not touched it.
+
+Next, unless you'd rather something else: run it on a harder page — one with several
+sections and a fault that's a matter of tone rather than six obviously missing links — to
+find out whether tonight's restraint is the design working or just an easy target.

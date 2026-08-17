@@ -1,0 +1,8 @@
+# gate_page_links.py verdict at the moment stage 2's edit landed
+# 2026-08-17 21:53Z — companion to BASELINE_2026-08-12_index_link_gate_FAILING.txt
+# applied by section_edit e02190da (orch b747199d) from copy-editor proposal 6dce90f1
+
+ok   index: all 16 required links present
+
+1 page(s) checked, 0 failing.
+exit=0
