@@ -329,3 +329,65 @@ four — the causal order real work leaves behind.
 the *original* promoter). Yesterday's block and the day before's both said it was still waiting.
 Corrected in the bug file and logged in WRONG_CALLS; it is satisfied on its wording but is not
 evidence about candidate 2.
+
+## 2026-08-17 ~11:30–12:45Z — 083 council APPROVED at round 2; advisories checked; the router's trail 7b0e2833 assessed and NOT resubmitted
+
+**Council round 2 on `05a3d1c8`: APPROVED** (11:27Z, ~8 minutes from dispatch — much faster than
+the 29-minute figure CLAUDE.md warns to budget for; the fleet was quiet). 12 seats approved,
+including `architecture` and `prior_art_librarian` — the seat whose HIGH objection gated round 1.
+3 abstained, not truncated, 2 advisory objections, none high.
+
+> ⚠ **The submission was REFUSED client-side first**: `097` checks that at least one edit touches
+> `platform/`, `internal/` or `pkg/`, and this round is SQL config plus docs. Round 1 passed only
+> because it happened to carry the Go producer revert alongside. So **the gate's scope filter is
+> path-based and cannot see a platform mechanism that ships as `scheduled_tasks` /
+> `agent_definitions` config** — which on this estate is a large fraction of behaviour. Used
+> `FORCE=1` deliberately (a live shared mechanism, not docs or site content, and an existing
+> trail the gate had already accepted at round 1). Worth raising as its own item.
+
+**Both advisories were checked rather than banked.** `guardian` LOW asked for the per-tick cost I
+had not measured: `EXPLAIN (ANALYZE)` on the live table gives 65.3 ms for 430's predicates and
+78.1 ms for 444's — **+12.9 ms on a 900,000 ms tick**. `bug_historian` MEDIUM was the one worth
+real work: the floor treats `complete` as ground truth, and `bugs_closed/028` documents
+`page-build-handler` reporting complete while deploying hollow content — the exact handler in the
+pair that motivated the floor. Its sharpest form is one row, so I checked that row at the live
+page: 0 literal-markdown hits in 8,120 visible chars. **A zero from a detector I had just written
+is worthless without a demand control**, so the same five patterns went over three pages whose
+items are `failed`/`needs_human_review`: 9, 5 and 13 hits. The one complete is real; the failures
+are real; the objection is answered in the direction that strengthens the floor. Contributed to
+`bugs_open/184` with a consumer notice, since that lane owns the underlying handler failure and
+its findings will now sit at `detected` instead of dispatching.
+
+**Trail `7b0e2833` (the router, REVISE ×4): assessed, and deliberately NOT resubmitted.** The
+handoff suggested a short round 5 citing the two owner rulings. Reading round 4's actual verdict
+says that would fail, and why:
+
+- **What gated round 4 was `editquality` HIGH — "a no-op dressed as an edit"** — four of its
+  edits were already-committed work re-listed as pending. A round 5 that "cites the rulings and
+  stops" has *no real edits at all* and would be gated identically. The trail cannot be closed
+  by narration.
+- **Most of round 4's objections are now genuinely answered by shipped code, not by argument.**
+  `improvement_guardian`'s HIGH (born-triaged removes the observe-only stage) and
+  `prior_art_librarian`'s HIGH (the sole-live-carrier premise) are both settled: the promoter
+  exists, the producer is back to born-`detected` and live on `v1.0.1305`, and
+  `prior_art_librarian` itself approved that premise today on the 083 trail.
+- **The RFC_030 proliferation objections are owner-RULED but their specific ask is not met.**
+  `reuse_agent`, `guardian` and `architecture` all said, in effect, *"acceptable only if RFC_030
+  is genuinely a hard gate on a 4th router, not aspirational"*. A lane existing is not a gate.
+  That residual is real and belongs to the `router_engine` lane, not to another round here.
+- **`bug_historian`'s HIGH is neither resolved nor refuted — it is UNEXERCISED, which nobody
+  had measured.** [MEASURED 2026-08-17] every route ever taken by this router: `no_content_data`
+  35, `asset_sourced` 1, `no_plan_owned` 1. **`file_rewrite` and `file_recreate` have NEVER
+  fired, and the router has produced ZERO child work items.** The two conversions attempted
+  during the fleet assignment were cancelled. So the regeneration risk the seat raised (closed
+  case 056; `missingkey=zero` renders a missing required field as empty with no error, guarded
+  at one call site) is entirely theoretical *so far* — and the first time those arms run will be
+  in production, on a customer page, untested.
+
+**I did not unilaterally gate the convert arms**, though the estate's own remedy is obvious (owner
+ruling 2026-08-02 §2: new authority on a shared seam ships as an opt-in field with the unsafe
+default OFF, which RFC_022 then confirms is not architecture-scope). Two reasons: it changes a
+live, owner-blessed mechanism's safety posture on my reading alone, and the branch conditions are
+`conditional_branch` steps whose `then_step`/`else_step` are data — so "opt-in" would mean either
+a new expression form or redirecting the arms to a park step, and which of those is right is a
+design call. **Put to the owner in `README_where_we_are.md` instead.**
