@@ -134,3 +134,47 @@ next chassis image is built and rolled — and a thing worth knowing came out of
 sibling fix from this morning, which everyone believes went live, has *not*. The running image was
 built yesterday. So both halves of this correction will start working at the same moment, on the next
 roll. Round two is with the council now.
+
+## 2026-08-17, evening — it rolled, it's live, and it has already done its job ten times
+
+The new chassis image went out (v1.0.1307) and the fix is in it. I checked that by asking the running
+program what it was built from rather than trusting the version number, because a version tag is a
+claim and the binary is a fact — and both pods gave the same answer, with a control to prove the check
+itself works.
+
+**Both halves arrived together, as expected.** This morning's sibling fix — the one everyone thought
+had already shipped — went live on this same roll alongside ours. That's the tidier outcome, since
+they share a threshold.
+
+**And it's been exercised, which is the part I care about.** Eleven page rebuilds ran in the first
+three-quarters of an hour and none was blocked. On its own that number means nothing: "no refusals"
+looks identical whether the guard is working perfectly or not looking at anything at all. So I checked
+the thing behind it — **ten of those eleven sections were big enough for the guard to judge**, and it
+judged them and let them through. That's exactly what the measurements predicted. And on those same
+ten sections, the old measure would have allowed someone to delete every word of the prose and not
+noticed.
+
+**Two things I want to be straight about.**
+
+First, no refusal has actually fired yet. Everything says it will work when one is needed — nine
+deliberate sabotage tests of the code, and the guard demonstrably running on real pages — but it hasn't
+yet had to say no to anything, and I'd rather tell you that than imply otherwise. Based on the history,
+expect roughly one a week.
+
+Second, I chose **not** to force one. I could trigger a refusal deliberately, but on this path a save
+that *isn't* refused destroys the page's writing — the exact damage we're fixing — and I don't think
+that's a sensible thing to do to a live site to prove a point I've already proven nine other ways.
+There is a safe version: temporarily tighten the threshold in the database so the next ordinary rebuild
+gets refused, then put it back. Nothing is destroyed, because a refusal writes nothing. But it does
+block someone else's page build for a few minutes and it edits a shared setting other work depends on,
+so it's your call rather than mine. **Say the word and I'll do it.**
+
+**One more thing rides the next roll.** The council asked for a refinement after the image was built —
+one of the three guards should refuse rather than shrug when it can't take a measurement at all. That
+change is written, approved and committed, but it isn't in the current image. It's a small
+improvement, not a gap: the guard behaves exactly as it always did in that situation, and the two
+guards that run immediately after it would refuse anyway.
+
+The bug is closed. What's left over is written down rather than forgotten: about a tenth of sections
+are still too small for the text guards to judge, and the platform's older coverage test still can't
+see this write path at all.
