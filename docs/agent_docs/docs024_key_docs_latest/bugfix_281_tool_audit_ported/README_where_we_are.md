@@ -193,3 +193,36 @@ AI audit each time, until they give up. There is still nothing that notices a tw
 run and complains — I have written that down rather than fixed it. And there is a second,
 unrelated fault in the same area (a completed run failing to hand its result back) that I have
 noted and not touched, because folding it in would have made this change harder to review.
+
+
+## 2026-08-17 (later) — cleared the wreckage, and found why nothing had cleared it
+
+I cleared the forty-nine dead runs. But the useful part was asking first why nothing had already
+cleared them, because some had been sitting there since the twenty-ninth of July, through several
+fleet restarts.
+
+The answer is that they were invisible to everything. There are two mechanisms meant to catch a
+run that stops: one wakes up runs that are waiting too long for a reply, and one kills runs that
+have been wedged on a step for over four hours. The first looks only at runs that are actually
+waiting for something, and these were waiting for nothing. The second recognises two particular
+states, and these runs were in a third. So neither could see them, and they would have sat there
+for ever.
+
+Two knock-on effects I did not expect, both worse than the untidiness. The system counts runs in
+that state as *active*, so our count of live work was overstated by forty-nine permanent corpses
+— the very dashboard that should have flagged this was reporting them as healthy. And the
+topic-cleanup job refuses to delete the message channels belonging to anything it thinks is
+still live, so those forty-nine runs were holding ninety-eight Kafka topics open, permanently.
+We have an open bug about the message broker running out of memory because there are too many
+topics; this was quietly feeding it.
+
+Before touching anything I checked whether that state is ever used by healthy work, because if it
+were, cleaning it up on a timer would kill live jobs. It is not: there was not one single run in
+that state under four hours old, anywhere in the fleet. That check is what made the cleanup safe,
+and it is the check that would have stopped me if the answer had gone the other way.
+
+So: wreckage cleared, ninety-eight topics released, and the reason it happened is written up as a
+separate bug with the exact one-paragraph fix. **I have not applied that fix.** It changes a
+fleet-wide cleanup job, it takes effect the instant it is saved with no build step to catch a
+mistake, and the review council is down until the API quota comes back. That one is yours to
+call, and it is not urgent now that the wreckage is gone and the thing that created it is fixed.

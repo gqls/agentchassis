@@ -288,3 +288,27 @@
 - **Nothing about the 289 fix changes.** It is committed and rides the next roll regardless;
   the gate is advisory and cannot block a commit. What is owed is unchanged: read a verdict
   when one is obtainable, and act on a REVISE/REJECTED.
+
+
+## 2026-08-17 (later) — swept the corpses, and found why they were immortal
+
+- Did NOT go straight to the `UPDATE`. Asked first why a reaper had not already taken rows from
+  29 July, which turned out to be the more valuable half.
+- **The reaper's live `pre_query` has no `RUNNING` arm** — `AWAITING_RESPONSES` 30m (dispatch)
+  and 90m, `EXECUTING_STEP` 4h, and nothing else. `TimeoutMonitor` iterates `awaited_requests`,
+  which on these rows is `{}`, so it has nothing to time out at any age. Two recovery paths,
+  both structurally blind. Filed **`bugs_open/294`**.
+- **The census that licensed the sweep, and that could have come out otherwise:** `RUNNING` rows
+  fleet-wide by age — 0 under 15 min, 0 under 1 h, 0 under 4 h, 49 over. `RUNNING` is not a live
+  state at all on this fleet, it is a graveyard. Had healthy agents been sitting there for
+  minutes, a 4 h reap would be unsafe and 294's candidate (1) would be the wrong fix.
+- **Two harms I had not expected, both found by reading what treats `RUNNING` as live:**
+  `monitoring.go` counts it as an ACTIVE orchestration (so the fleet's active count was
+  overstated by 49 corpses — the instrument that should have caught this was reporting them as
+  healthy), and `getActiveOrchestrationTopics` protects their topics from cleanup, so the 49
+  rows were pinning **98 Kafka topics** permanently. That is a direct feed into `bugs_open/240`.
+- Swept 49 rows to `FAILED`, ids saved first. After: 0 RUNNING fleet-wide, 0 pinned topics.
+- **Did NOT apply 294's fix.** It is a live-config change to a fleet-wide reaper (immediate, no
+  roll to gate it) on a shared mechanism, and the council gate is down until the quota returns.
+  Filed with the measurement and the exact SQL instead, plus the negative control the verify
+  needs. A one-off sweep is not a class fix and this file should not read as though it were.

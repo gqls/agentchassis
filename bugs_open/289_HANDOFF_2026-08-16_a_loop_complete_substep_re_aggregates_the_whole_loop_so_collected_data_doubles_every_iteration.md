@@ -358,3 +358,14 @@ default 20. Inert today because live config arrives from JSONB as float64 — th
 > `orchestration_states.current_step` instead. The `Council-Submitted:` trailer on `509e01e6a`
 > asserts nothing and stays honest; `098` credits it automatically if the correlation is ever
 > approved.
+
+
+> **CORPSE SWEEP DONE 2026-08-17** — item 2 of "what is still owed" above is closed.
+> 49 rows (`status='RUNNING' AND last_activity < NOW() - INTERVAL '4 hours'`, every one of them
+> `tool-auditor` at `create_items_loop_complete` or `create_items_loop_iter_9_done`) set to
+> `FAILED` with an error naming this bug. Verified after: **0** `RUNNING` rows fleet-wide and
+> **0** topics pinned by them, down from 98. Ids saved to the lane scratchpad
+> (`289_corpse_rows_before.txt`) — the rows were failed, not deleted, so it is reversible.
+> **The reason they were immortal is a SEPARATE defect and is NOT fixed: `bugs_open/294`** (the
+> reaper has no `RUNNING` arm and `TimeoutMonitor` keys on `awaited_requests`, which were empty).
+> Do not read this sweep, or 289's fix, as closing 294.
