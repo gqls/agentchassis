@@ -1402,3 +1402,35 @@ The queue should free itself at about 12:10 when the hourly re-test runs, and ou
 rebuild will then go ahead on its own. If it does not, the account limit is biting
 harder than it looks and that is one for you — it is the same limit that stopped
 everything on 10 August, which you cleared by adding credit.
+
+## 2026-08-17 (afternoon) — the contact page rebuild ran, and the fix does what it was supposed to
+
+The queue freed itself at about ten past twelve, and your contact page rebuild ran
+straight after: started 12:15, finished 12:20.
+
+**It passed every one of the five checks.** The important one is the first. The
+rebuild's own record shows it merged the locked chat box into the list of sections
+it proposed — not "the chat box happened to still be there", but the merge itself
+recorded as having happened. That was the whole defect: before today, every rebuild
+proposed a list with your chat box missing, and only a safety guard stopped it being
+deleted. Now the list is right at the source. The chat box itself was not touched —
+byte for byte identical, same timestamp as when it was locked in August. And the two
+sections that are NOT locked were rebuilt normally, which matters: a "fix" that
+worked by never rebuilding anything would be no fix at all.
+
+I have marked the outstanding review item answered, with the evidence attached.
+**The lock on the chat box stays on** — that comes off on your say-so, not mine.
+
+**The rebuild did change the copy on that page, and it is now live.** No links were
+lost, and the contact details are untouched. Two things you should look at:
+
+- The headline section now mentions the £149 price, which it did not before. That
+  figure is one of your attested facts, so it is allowed — but it is a change of
+  emphasis on the page people land on to ask questions.
+- It dropped "we usually reply within a day or two".
+- Both the headline block and the contact block now start with "Get in touch", so
+  the phrase appears twice on the page. That is a bit clumsy and is the framework's
+  doing, not a rule being broken.
+
+I have the exact previous version of both sections saved and can put either back
+precisely, or leave it. That is a taste question, so it is yours.

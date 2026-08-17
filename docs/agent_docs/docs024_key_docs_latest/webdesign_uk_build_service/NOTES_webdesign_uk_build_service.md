@@ -3083,3 +3083,47 @@ this session's cold-start falsifier sweep:
     under another session (unrelated `CheckConfig` work), so editing it would make
     me a same-file passenger on their commit. Three fix shapes are recorded in the
     243 addendum, ordered by what closes the door.
+
+## 2026-08-17 (afternoon) — the 285 acceptance RAN and PASSED all five steps; a4cd5dc8 answered; the rebuild changed contact's copy and it is now SERVED
+
+- **The queue freed itself exactly as the falsifier predicted.** Probe re-ran
+  **12:10:18Z** → `healthy=true`; first claim **12:11:32Z**. So the fleet-wide
+  dispatch stop was **11:09:53 → 12:10:18 = 60m25s** from ONE sampled 400, with
+  no error row anywhere. Recorded as the resolved falsifier in `bugs_open/243`.
+- **Acceptance run**: item `80f7e5aa` claimed 12:15:59Z, **complete 12:20:35Z**.
+  All five steps PASS — the table and evidence now live in the bug file. The
+  step-1 evidence is the strong one: the run's own `spec_sections` reads
+  `{"count":3,"source":"site_plan_tables","sections":["hero","contact-info","chat-input-box"],"locked_merge_count":1,"locked_sections_merged":["chat-input-box"]}`
+  — the merge is recorded as having FIRED, on the **tier-1** source, not merely
+  "the name is in the list". `section_facts` came back `[null,null,null]`, so the
+  `specSectionFacts` alignment obligation the bug file named holds 3-for-3.
+- **`a4cd5dc8` marked `complete`** with the resolution + evidence written into its
+  `spec` (owner's condition: answered by the fix, not dismissed).
+  **The chat-box lock is STILL ON** — it comes off only on the owner's word.
+- ⚠ **TRAP HIT AND CORRECTED IN THE SAME BREATH.** The fixing lane CLOSED the bug
+  (`462a165b9`, `bugs_open → bugs_closed`) while my acceptance was running, so my
+  `cat >>` to the old path **created a stray 3,728-byte file in `bugs_open/`
+  containing only my addendum**. `git status` showed it as `??`, which is the
+  tell. Appended to the file's real home in `bugs_closed/`, removed the stray,
+  and confirmed at HEAD (`git ls-tree -r --name-only HEAD -- bugs_open/
+  bugs_closed/ | grep -c section_list_assembly` → **1**). This is the filed
+  `git mv` landmine from the other side: the file is missing from your path
+  either way, and only `git ls-tree HEAD` says which path is real.
+- ⚠ **My assertion SQL was wrong the first time**: `updated_at` is ambiguous
+  across the `page_components`/`pages` join, so steps 3 and 4 ERRORED rather
+  than returning a verdict — and my watcher had also triggered on the *sections*
+  change, which happens EARLY (in `load_spec_sections`), so even a working query
+  would have read a mid-run snapshot with the item still `claimed`. Qualified the
+  columns and re-armed on TERMINAL state. **A trigger fired on the wrong signal
+  reads as an answer.**
+- **What the rebuild did to the copy — measured against the 11:10:23Z backup, and
+  now SERVED** (`last-modified 12:22:15Z`, page 24,136 bytes):
+  - **No links lost**: 2→2 hrefs on both sections; served page still 26 hrefs;
+    chat widget still present. The lane's matched-pair rule held.
+  - `hero`: rewritten. **Gained `£149`** (an attested `evidence_base` fact it did
+    not previously state) and **dropped "we usually reply within a day or two"**.
+  - `contact-info`: rewritten, claim-identical (email + phone unchanged).
+  - ⚠ **Both sections now open with "Get in touch"** — a duplicated heading on one
+    page. Not a claims defect; a copy-quality regression the framework introduced.
+    Flagged to the owner; the full JSON backup is retained, so either section can
+    be restored surgically (`content_data` AND `rendered_html`, the lane pattern).
