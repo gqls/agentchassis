@@ -140,8 +140,29 @@ The discriminator is **not** the kind — it is that `new_value` tracks the regi
 between the two runs. That proves the fan-out reads the register AT CHECK TIME rather
 than replaying a stored number, which is the property the whole design turns on.
 
-**To reach `value_drift`:** let one real daily sweep file the one-time items (they become
-the baselines and self-quiet), then induce again.
+**To reach `value_drift`:** let one real sweep file the one-time items (they become the
+baselines and self-quiet), then induce again. **DONE 2026-08-17 18:30Z — both remaining
+properties are now proven:**
+
+| check | result |
+|---|---|
+| self-quieting: dry run with baselines set, register unchanged | **0 entries** (13 facts checked) — the identical run before the baselines produced 13 |
+| `value_drift`: baseline moved 500000→450000, register left at 500000 | **1 entry**, `kind: value_drift`, `old_value: 450000`, `new_value: 500000` |
+| per-fact isolation | exactly **1** entry — the other 12 declared facts stayed silent |
+| written | **nothing** — 13 items before and after, 0 of kind `value_drift`, register still 500000, item spec restored byte-equal |
+
+**⚠ Move the BASELINE, not the register.** The comparison is symmetric
+(`abs(new-baseline) > 1e-9`), so moving the item's recorded `spec.fact.new_value` exercises
+the identical branch — without touching a live tax figure on a public site for even ninety
+seconds. Capture the pre-image first (`SELECT spec::text`), restore in a `trap … EXIT`, and
+assert the restored spec parses **equal to** the pre-image rather than eyeballing one field.
+
+> **⚠ CORRECTED 2026-08-17 (third time this recipe was wrong — see WRONG_CALLS): the
+> `reason` is `not_a_fork`, NOT `no_auto_fix`.** Both conditions are true of
+> `tool-stamp-duty` (non-fork AND a `no_auto_fix` fence), and the fork guard is tested
+> FIRST, so it wins. The route is the same either way; only the recorded reason differs.
+> **A `switch` reports the first arm that matches, not the most important one** — if you
+> want to know why something routed, read the order, not the set of true conditions.
 
 **⚠ Where to look, because the counter next door lies.** `fact_drift` is per-site and
 NESTED — `refresh_result->'results'->N->'fact_drift'`. There is no top-level key, and

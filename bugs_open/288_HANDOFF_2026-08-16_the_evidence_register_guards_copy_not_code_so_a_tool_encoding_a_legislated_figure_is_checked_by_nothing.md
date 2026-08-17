@@ -158,9 +158,27 @@ whose Piece 1 has been live since migration 366 (CLM-021).
    REAL sweep files the 13 one-time items.** ⚠ My own RUNBOOK predicted `value_drift` here
    and was wrong — corrected inline, and in `WRONG_CALLS.md`.
 
-3. **Still owed: let one real daily sweep run, then induce `value_drift`.** The next
-   scheduled sweep is ~09:03Z; it will file the 13 low/60 items, which become the
-   baselines and self-quiet. Whoever holds this then owns the second half of the proof. The first is mortgagecalculator's `stamp-duty`
+3. ~~**Still owed: induce `value_drift`**~~ → **DONE 2026-08-17 18:30Z. CLM-022 IS NOW
+   FULLY PROVEN — both arms and the self-quieting property.**
+
+   A real sweep filed the 13 items at 18:16Z (`created_by=generic`, all
+   `unreconciled_declaration`/`never_reconciled`, severity low, priority 60, **handler
+   empty** — the handler-less shape the guardian seat asked for). That recorded the
+   baselines, which is what made the last arm reachable.
+
+   | check | result |
+   |---|---|
+   | **self-quieting** — dry run, baselines set, register unchanged | **0 entries** (13 facts checked). The identical run before the baselines existed produced **13**. |
+   | **`value_drift`** — baseline moved 500000→450000, register untouched | **1 entry**, `kind: value_drift`, `old_value: 450000`, `new_value: 500000`, `route: fact_drift_review` |
+   | **per-fact isolation** | exactly 1 entry; the other 12 declared facts silent |
+   | **nothing written** | 13 items before and after; 0 of kind `value_drift`; register still 500000; item spec restored **byte-equal** to its pre-image |
+
+   **The register was never touched.** The comparison is symmetric, so moving the item's
+   recorded baseline exercises the same branch without changing a live tax figure on a
+   public site. Restore ran from a `trap … EXIT`.
+
+   ⚠ The `reason` came back `not_a_fork`, not `no_auto_fix` — both are true of this page
+   and the fork guard is tested first. My RUNBOOK said the latter; corrected. The first is mortgagecalculator's `stamp-duty`
    fence, handed to that lane as a CONTRIB. **Until it lands this mechanism has never
    fired on real data, and today's clean sweep is a pass from a check with nothing to
    check** (`a-pass-from-a-blind-check-outlives-the-blindness`). Measured 2026-08-17:

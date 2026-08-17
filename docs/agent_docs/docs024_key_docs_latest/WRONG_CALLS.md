@@ -34785,3 +34785,33 @@ repo's rules ask for, applied to a number that had gone stale in the four minute
 it.
 
 Tally for "recorded a correction without re-deriving what the correction changed": 1.
+
+---
+
+## 2026-08-17 (later) — the same recipe was wrong a THIRD time: I predicted the reason a `switch` would report
+
+Third correction to one RUNBOOK step in one day (the first two are the row above). Having
+fixed the predicted *kind*, I left the predicted **reason** — `no_auto_fix` — and the
+induced run returned **`not_a_fork`**.
+
+**Both conditions are true** of `tool-stamp-duty`: it is a non-fork page AND its fence
+carries `no_auto_fix`. The routing `switch` tests the fork guard first, so that arm wins
+and records its reason. The destination is identical either way; only the recorded reason
+differs — which is exactly why it survived two rounds of correction unnoticed.
+
+**What caught it.** Running it. Again.
+
+**The cheap check.** I wrote that `switch` and its ordering is deliberate — the fork guard
+is first because pointing an auto-fixer at a shared template is the worse failure. Reading
+my own arm order against the fixture would have taken seconds.
+
+**The transferable rule.** **A `switch` reports the first arm that matches, not the most
+important one.** When you document what a mechanism will say, the set of true conditions
+is not the answer — the evaluation order is. And a field nobody routes on (here, `reason`)
+is precisely where a wrong prediction hides, because every functional assertion still
+passes.
+
+**The pattern across all three, which is the real lesson:** every one of these was a claim
+about behaviour I had written from the design in my head rather than from the code or a
+run. The code was right all three times. **Documentation is where my errors live**, and it
+is the artefact other people execute.
