@@ -330,3 +330,73 @@
 - **Canary LEFT ARMED** (noted.co.uk → noted.ugg2.com): it is now the seam's
   continuous live proof at one no-op tick/hour. One `UPDATE sites SET
   publish_target=NULL WHERE domain='noted.co.uk';` reverses it.
+
+## 2026-08-17 — DELIVERY ARCHITECTURE DECIDED (five discussion rounds with the owner); full record in PLAN_2026-08-17_delivery_architecture_decisions.md
+
+- **The v1.0.1305 roll (14:43Z today) is a NO-OP for this lane, checked not
+  assumed**: no inert code awaiting a roll (`b4981634d` shipped+proven in
+  1304); canary undisturbed (`published_hash` still the 08-16 16:01:40Z
+  value ⇒ the reconciler correctly found no drift across the roll). Do not
+  re-verify. ⚠ Fleet memory the same day: a "fresh build" CAN ship no new
+  code (same-tag rebuild serves the cached image) — this lane's check did
+  not depend on the roll shipping anything.
+- **OWNER DECISIONS (each with its reason):**
+  1. **Fees SEPARATE** — domain "keep this domain — £10/mo"; hosting priced
+     deliberately HIGH because the owner does not want the hosting
+     business; always offered beside FREE connect-your-own-Netlify (and
+     possibly other third parties). Supersedes this session's earlier
+     one-combined-subscription sketch.
+  2. **No free custom-domain serving** — the custom domain serves a
+     choose-a-home page until the customer picks Netlify / paid hosting /
+     ZIP-elsewhere; the site stays visible on our preview subdomain
+     (our brand). Reason: bounds the free-rider commitment to zero, and
+     with a FREE door beside it the page converts rather than punishes.
+  3. **Netlify connect happens IN THE REQUEST PHASE** — on the
+     request-confirmation page + email, i.e. the build-wait window
+     ("usually ready the next day"), so the hosting choice is a non-event
+     by delivery: most sites are BORN into the customer's own account.
+     NEVER on the request form itself (top-of-funnel stays zero-friction);
+     always SKIPPABLE (a stalled signup never blocks a build or sale; the
+     link repeats in approval + delivery emails); tokens for
+     never-converting requests expire after N days.
+  4. **Account surface** — v1 IS the delivery email (ZIP, connect link,
+     hosting payment link, domain subscription link, Stripe's hosted
+     customer portal); Phase 6's editor login home later becomes the
+     account hub (Edit / Domain / Hosting / Billing). No standalone page.
+  5. **Own authoritative DNS: GO — as part of the DOMAIN programme**, not
+     the scale review. Reason: every domain we register needs DNS wherever
+     the site lives (ours / their Netlify / choose-a-home), so DNS is the
+     domain product's backbone, and owning it keeps every state a zone-file
+     template + keeps the emergency exit ours. Early domains may ride
+     zone-per-domain; migration later = one proven EPP call each (VMB-015).
+     Our-hosted sites then take CF for SaaS custom hostnames for TLS/CDN.
+- **Facts that reshaped the advice** (measured this session, cited in the
+  PLAN snapshot): Netlify-via-customer-OAuth was already in the 08-14
+  matrix as the real-ownership row; no provider has an account-creation API
+  and temp-email account minting is the bulk-suspension shape; EPP login
+  already PROVEN from the cluster + a deployed EPP client exists + the
+  second customer TAG is already applied for (`domain:create` is the only
+  missing verb); `mode=payment` is HARDCODED in the billing provider (£10/mo
+  needs Stripe Payment Links or the PAY-005 methods; never trust the
+  PAY-007 scaffold); forms are already ruled mailto-with-paid-tier-later.
+- **TODO/backlog recorded at the owner's request:**
+  (a) **Domain-per-site programme** — framework-chosen .uk name,
+      `domain:create` on the proven EPP client under the SECOND tag (gated
+      on Nominet granting it), own-DNS pair with three zone templates,
+      choose-a-home page, £10/mo retention Payment Link. Also gated on
+      Stripe keys + webhook edge exception.
+  (b) **Whole-architecture scale review incl. own cluster(s)** — AFTER the
+      working site. Seeded agenda: CF zone cap (unpublished), CF-for-SaaS
+      vs zones, runner-per-repo, monorepo build throughput, pod-per-tick
+      economics, cluster capacity, per-hostname metering (Workers Analytics
+      Engine; TRF-006 beacon pattern), abuse/takedown posture.
+  (c) **Busy-site payment thread** — metering threshold → upsell email
+      offering BOTH our paid tier AND free Netlify-connect (the pressure
+      valve: the costliest customers are invited to take hosting home).
+  (d) **DEFERRED by owner, do not build**: newsfeeds/editorial pieces as a
+      paid-hosting perk.
+- Superseded from the 08-14 PLAN: Part 2d's "ownership reverts to the ZIP"
+  — ownership is now **domain + their-own-Netlify + ZIP**. Phases 3–6
+  mechanics otherwise stand; Phase 4 gains the email links; new Phase 4b =
+  netlify-oauth publisher backend (one const + one case on the proven seam;
+  needs a new Deps field — Deps carries only ObjectStore today).

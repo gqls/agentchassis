@@ -60,3 +60,46 @@ emailed login, then the editor itself. Still waiting on you for two keys: the
 Stripe ones for taking payment, and a Cloudflare one if we later want the
 sites hosted there rather than on our own storage — the current route needs
 neither, so nothing is blocked.
+
+**17 Aug 2026.** We spent today deciding, not building — five rounds of
+discussion, and the shape of the whole delivery business came out the other
+side. Written down properly in the plan file dated today; here is what it
+means in ordinary words.
+
+What a customer will experience: they ask for a site and, while they wait for
+it to be built, we invite them to spend two minutes creating their own free
+account at Netlify (a big site-hosting company) and clicking one Connect
+button. If they do — and we expect most will — their finished site is
+delivered straight into an account that belongs to them from the first
+moment. Their hosting, their bandwidth, their bill if they ever outgrow the
+free tier; nothing for us to run. If they skip it, no harm: the build and the
+sale go ahead regardless, the site is always viewable on our preview address,
+and their own domain shows a friendly "choose where your site should live"
+page until they pick — their free Netlify, our own hosting, or just taking
+the files away. We deliberately priced our own hosting high, because we don't
+want to be a hosting company; the page always shows the free option next to
+it.
+
+Money: two separate, simple charges. Keeping the domain name we chose for
+them is £10 a month — we register it ourselves at trade price, since we're a
+Nominet registrar, so this is good margin and completely automatic. Hosting
+with us is the expensive option almost nobody should take. Everything is a
+link in an email: the payment links, the file download, and a page run by
+Stripe where customers manage their own subscriptions — we build no billing
+screens at all.
+
+One technical decision worth saying aloud: we will run our own nameservers —
+the machines that answer "where does this domain point?". Because we register
+every customer domain, that answering job is ours whichever company hosts the
+site, and doing it ourselves means moving a customer between "our hosting",
+"their Netlify" and "still choosing" is a one-line change on our own
+machines, forever, with no outside company able to hold it hostage.
+
+Parked for later, on purpose: giving paying hosting customers extra content
+like news feeds (your idea, kept, not now); the big review of how everything
+scales, including whether we need more clusters; and what to do about sites
+that get seriously busy. None of these block anything.
+
+Next: back to building. The ZIP file the customer downloads is the next piece
+— it is also exactly what gets uploaded to their Netlify account, so one
+piece of work serves both doors.
