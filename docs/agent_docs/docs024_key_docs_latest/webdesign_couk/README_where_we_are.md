@@ -843,3 +843,39 @@ rollout that carries it, and then the menu across all ninety-odd pages picks up
 both News and Buying design in one rebuild. The page-by-page refresh that bakes
 the new menu into every page moves at the platform's own slow drip and will
 take some hours.
+
+---
+
+**17 August 2026 — the Nominet registrar page.**
+
+You asked for a page on webdesign.co.uk that satisfies Nominet's requirements
+for the DESIGNCONSULT tag application, delivered through the framework rather
+than hand-built. That page is now live at webdesign.co.uk/domains/index.html
+and says, exactly: who you are (trading name, 37 Fleetside address, phone,
+email), the tag and its Channel Partner classification, the £10 a month price
+for registration and renewal, that transferring away and leaving are free, the
+timescales, the renewal and expiry policy with the 30-day notice, the five and
+ten working day service commitments, how to complain and how to escalate to
+Nominet, how to report abuse, and Nominet's own registration terms. Every one
+of those facts is recorded in a register the site now carries, attested by you
+with dates, so future pages cannot quietly contradict them.
+
+Two things along the way are worth knowing. First, the site's own database
+still listed a made-up contact address from when the site was first imported,
+and the platform's honesty checks correctly refused to publish your real email
+because it disagreed with the fake one. The fake one is now gone everywhere.
+Second, when the framework's writer generated the page itself, it produced
+copy that read well and passed every automated check, but said the opposite of
+what the page is for — including a sentence claiming we don't register domains
+at all — and dropped the address and complaints procedure Nominet requires. So
+the final page was placed through the framework's section editor with the
+wording fixed exactly, rather than left to the writer. If you ever ask for this
+page to be rebuilt from scratch, that hazard returns: the copy should be
+checked against the register before anyone shows it to Nominet.
+
+The £150 figure you mentioned for customers buying their domain when they
+leave belongs to the webdesign.uk build service, and a note has been left in
+that workstream's folder so it lands in their pricing rather than on this
+page, which truthfully says transfers are free. One thing still finishing as
+this is written: the footer link ("Domain registration") is being added across
+the site, which takes a few hours to reach every page.
