@@ -147,3 +147,22 @@ zero-row LATERAL walk").
   `result!`/`work_item_id!`/`error_step` in its persisted plan and is AWAITING_RESPONSES at
   call_handler; its item is still `diagnosing`, so the completion shape is not yet observed.
   report-dispatch-loop has had no run at all since 448 — demand-bound, not a failure.
+- **Migration 455 WRITTEN + DRY-RUN PROVEN, NOT applied (owner decision).** Repairs the
+  historical rows whose reply survives. Population re-measured 16:45Z: **3,330** spawn-record
+  items (was 2,259 at 12:40 — pre-452 runs drained), of which **303** are repairable.
+  The join is **exact, not probabilistic**: the corr8 prefix from `topics.requests` is only a
+  candidate; each row additionally requires
+  `parent.collected_data->('process_item_item_'||N)->>'id' = item.id`, i.e. the parent must
+  itself name this item for that iteration. 303/303 candidates satisfied it and 303/303 have a
+  `response`. Dry run in a rolled-back txn: **needles 303 → UPDATE 303 → verify passed**.
+  Writes `_replaced_spawn_record` (so the ROLLBACK sidecar needs no backup table) and
+  `_repaired_by`.
+- **MISSTEP caught before the owner ever saw it:** my first draft asserted `updated_at` had
+  NOT moved. The trigger is **unconditional** — `BEGIN NEW.updated_at = NOW(); RETURN NEW; END;`
+  read from `pg_proc`, not assumed — so `SET updated_at = updated_at` is overwritten and that
+  verify block would have RAISED and aborted the migration on **every** run. This is the same
+  species as the WRONG_CALLS entry above (a recipe/assertion whose predicted state the code
+  cannot produce); it never reached a durable claim because reading the trigger and dry-running
+  are now the habit. Fixed by keeping the true time at `result->_completed_at_before_repair` and
+  asserting THAT, and by warning that the hourly census must exclude `_repaired_by` rows so a
+  repair can never flatter the fix.
