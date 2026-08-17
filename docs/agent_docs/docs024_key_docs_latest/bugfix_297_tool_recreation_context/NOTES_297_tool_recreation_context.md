@@ -51,3 +51,48 @@ Read-only validation of the proposed text: worst site → 107 rows = population;
 - Inner `LIMIT 1` is the fetch-one idiom — outside the silent-cap class by LCO-009's stated
   design (n=1 excluded; end-anchored regex ignores mid-query subquery LIMITs — both arms
   vindicated on live cases in 275's round 2).
+
+## 2026-08-17 — council submitted (FORCED, with the reason stated), then applied
+
+`SUBMISSION_CORR = 4b9265c3-f6f4-4ed6-a038-f6aaf10b52d8`.
+
+**The gate's client-side scope filter is `^(platform|internal|pkg)/` and this change is
+config-only**, so it needed `FORCE=1`. I did NOT do that silently: the rationale opens with the
+scope note. The justification is 275's own round — the sharpest objection there
+(`bug_historian`, unmarked column truncation) was against the MIGRATION half, not the Go half, so
+a config migration to a live shared agent is exactly a shape this gate has caught things in. The
+ruling's purpose is that *docs and site content* never spend credits; a live agent's SQL is
+neither.
+
+## 2026-08-17 — a risk I raised, then closed rather than leaving for a reviewer
+
+Writing the submission's risks block I noted the LATERAL's `ORDER BY r.created_at DESC` and asked
+whether it wanted `NULLS LAST` — `created_at` is nullable, and a NULL sorts FIRST under plain
+DESC, which would let an untimestamped row win the "newest" tie for ever.
+
+**I measured instead of asking: 0 of 21 adoption_page rows are NULL today.** So the guard costs
+nothing right now, and it makes the bad state unreachable rather than merely unlikely — which is
+the "rank by what closes the door" test. Added `NULLS LAST` to the query, the verify block's
+literal, the file header and the submission before firing it. **A risk you can close for free is
+not a risk to hand a reviewer.**
+
+## 2026-08-17 — applied, verified, recorded
+
+Applied by hand (own file only — `--apply` takes every pending file, and 452 sits in the dir as a
+`_HOLD`). Snapshot captured, both gates passed, `UPDATE 1`, post-state verify passed, COMMIT.
+
+| check | result |
+|---|---|
+| live query | LATERAL present, **no multi-row LIMIT** |
+| worst site | **107 rows = full population** (was 10) |
+| fan-out site | population rows, duplicate `index` gone |
+| snapshot | `agent_definitions_backup` 16:21:26Z (NOT an `is_snapshot` row — the landmine) |
+| ledger | `--record-only` with a note, never a hand INSERT |
+
+**A live reminder of the bug's own premise, caught in passing:** the fan-out site's population read
+41 while I was validating and **42** ten minutes later, at verify time — another session was adding
+pages underneath me. A fixed constant against a growing population is exactly what candidate 4
+warned about; this fix leaves no constant.
+
+**Owed, not claimed:** `llm_call_log.prompt_rendered` confirmation needs the next real recreation
+run (most recent call 2026-08-11). The query-level disconfirming pair is what is asserted today.

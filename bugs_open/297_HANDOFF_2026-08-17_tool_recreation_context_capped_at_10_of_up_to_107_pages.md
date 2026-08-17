@@ -1,5 +1,12 @@
 # 297 — `tool-recreation-handler` is shown 10 of up to 107 related pages, and the cut is by `nav_order`
 
+> **FIXED AND LIVE 2026-08-17** — migration `453_tool_recreation_whole_site_context.sql`, applied
+> and ledger-recorded, by the `bugfix_297_tool_recreation_context` lane. The cap is **gone, with
+> nothing bounded in its place**, and a second live defect in the same query (join fan-out) is
+> closed with it. Council trail `4b9265c3-f6f4-4ed6-a038-f6aaf10b52d8` (submitted alongside; this
+> file will say so when the verdict lands). **Stays OPEN until the verdict is read** — see
+> "What was done" at the foot.
+
 **Filed 2026-08-17** by the `bugfix_275_silent_row_caps` lane, from the census `bugs_open/275`'s fix
 made possible. **Same defect class as 275, different step, and worse in ratio.**
 
@@ -82,6 +89,59 @@ LCO-009. What is new here is arithmetic on live data: the query text read from `
 the population counted with that query's own predicate, and the agent's activity confirmed in
 `llm_call_log`. Every figure is reproducible by one query. **Grepped `bugs_open/` and `bugs_closed/`
 before filing** — nothing covers this step under any spelling.
+
+## What was done (2026-08-17, `bugfix_297_tool_recreation_context`)
+
+Lane docs: `docs/agent_docs/docs024_key_docs_latest/bugfix_297_tool_recreation_context/`.
+
+**Candidate 1 was followed and the measurement inverted its remedy.** The instruction was to
+measure which column dominates the payload, bound that, and drop the row cap — 275's shape. Here
+**nothing needed bounding**: the prompt renders one short line per row
+(`- {{.name}} ({{.page_type}}): {{.title}}`, read from the live template); across all 727 pages
+`name` ≤ 66 chars, `title` ≤ 144 (p99 ≈ 114), `page_type` ≤ 16; and the **whole population at the
+worst site renders as 8,810 chars (~2.2k tokens) against 735 today**, inside a prompt that already
+embeds the original page's entire raw HTML. So the cap simply went. **No truncation marker, because
+nothing is truncated** — stating that so the absence of 446's marker machinery reads as a decision,
+not an omission. Candidate 4 is honoured: no constant is left to outgrow.
+
+**A second live defect in the same query, found by measuring rather than reading.** The plain
+`LEFT JOIN research_results … result_type='adoption_page'` has no one-row guarantee and no unique
+constraint behind it. Page `0747e2fc…` (the `index` of site `00ff3af5…`, nav_order 1) **already has
+two adoption rows, so that site's prompt was listing `index` twice inside the visible 10** — today,
+before any change. Removing the cap widens that door, so the same edit closes it with
+`LEFT JOIN LATERAL (… ORDER BY r.created_at DESC NULLS LAST LIMIT 1) ON true`: newest summary per
+page, exactly one row per page, row shape unchanged (`name, title, page_type, summary`).
+`NULLS LAST` because `created_at` is nullable and a NULL sorts first under plain `DESC` — 0 of 21
+rows are NULL today, so the guard costs nothing and makes the bad state unreachable rather than
+merely unlikely.
+
+**The inner `LIMIT 1` is not a new silent cap**: it is the fetch-one idiom, which LCO-009 excludes
+by design, and LCO-009's regex is end-anchored so a subquery LIMIT is correctly ignored (both arms
+vindicated on live cases in 275's round). The migration's post-state verify asserts no **multi-row**
+LIMIT survives while permitting this one.
+
+**No Go change**: the framework half of this class is already committed (`eb137faed`, LCO-009) and
+rides the next chassis roll. `rr.summary` stays selected though never rendered — 275's `category`
+reasoning, and it keeps the row shape byte-compatible.
+
+### Verified live 2026-08-17
+
+| check | result |
+|---|---|
+| live query text | carries the LATERAL, **no multi-row `LIMIT`** |
+| worst site (webdesign.co.uk) | **107 rows = its full population** (was 10) |
+| fan-out site `00ff3af5…` | population rows, **duplicate `index` gone** |
+| snapshot | `agent_definitions_backup`, 2026-08-17 16:21:26Z |
+| ledger | `453_…` recorded via `--record-only` (never a hand-written INSERT) |
+
+⚠ **Still owed, not claimed:** end-to-end confirmation in `llm_call_log.prompt_rendered` needs the
+next real recreation run (most recent call was 2026-08-11). What is asserted here is the
+query-level disconfirming pair — a page past nav position 10 **could not** appear before and
+**does** now.
+
+Rollback (config is live on apply, so it was written before the apply):
+`453_tool_recreation_whole_site_context_ROLLBACK.sql`, gated to refuse unless the row still carries
+453's text.
 
 ## Related
 

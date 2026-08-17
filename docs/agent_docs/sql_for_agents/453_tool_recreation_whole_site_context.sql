@@ -32,6 +32,12 @@
 -- regex ignores subquery LIMITs, both arms vindicated on live cases).
 -- Indexed: idx_research_page + idx_research_created.
 --
+-- NULLS LAST is deliberate. `research_results.created_at` is NULLABLE, and a
+-- NULL sorts FIRST under plain DESC — so an untimestamped row would win the
+-- "newest" tie and pin a page to it for ever. Measured 2026-08-17: 0 of 21
+-- adoption_page rows are NULL today, so it costs nothing now and makes the bad
+-- state unreachable rather than merely unlikely.
+--
 -- Validated read-only before writing this file: proposed text returns 107 rows
 -- = population on the worst site, and 40 = population on the fan-out site with
 -- the duplicate gone.
@@ -90,7 +96,7 @@ UPDATE agent_definitions
    SET default_config = jsonb_set(
          default_config,
          '{workflow,steps,load_related_context,config,query}',
-         to_jsonb('SELECT p.name, p.title, p.page_type, rr.summary FROM pages p LEFT JOIN LATERAL (SELECT r.summary FROM research_results r WHERE r.page_id = p.id AND r.result_type = ''adoption_page'' ORDER BY r.created_at DESC LIMIT 1) rr ON true WHERE p.site_id = $1 AND p.name != $2 ORDER BY p.nav_order'::text)
+         to_jsonb('SELECT p.name, p.title, p.page_type, rr.summary FROM pages p LEFT JOIN LATERAL (SELECT r.summary FROM research_results r WHERE r.page_id = p.id AND r.result_type = ''adoption_page'' ORDER BY r.created_at DESC NULLS LAST LIMIT 1) rr ON true WHERE p.site_id = $1 AND p.name != $2 ORDER BY p.nav_order'::text)
        ),
        updated_at = now()
  WHERE id = '8701375f-81f7-4d92-ba39-c85f8489dada'
@@ -115,7 +121,7 @@ BEGIN
     RAISE EXCEPTION '453: a multi-row LIMIT survives in the query: %', q;
   END IF;
   -- the de-dup is in place
-  IF position('LEFT JOIN LATERAL' in q) = 0 OR position('ORDER BY r.created_at DESC LIMIT 1' in q) = 0 THEN
+  IF position('LEFT JOIN LATERAL' in q) = 0 OR position('ORDER BY r.created_at DESC NULLS LAST LIMIT 1' in q) = 0 THEN
     RAISE EXCEPTION '453: the one-row-per-page LATERAL is missing — the fan-out door is open: %', q;
   END IF;
   -- presentation order preserved
