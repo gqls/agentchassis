@@ -3423,3 +3423,23 @@ the wrong answer. I read exactly that, and reported "the induction did not fire"
 before dumping the full payload and finding all 13. **Check at
 `results[N].fact_drift`, and never read `total_drifted` as the fact-drift count.**
 Logged in `WRONG_CALLS.md`.
+
+### The rotation's fleet impact, measured rather than predicted [16:25Z, ~5h after enabling]
+
+I warned the owner to expect "real work arriving over the next day" on the strength of one site's
+~77 items. Closing that with a measurement rather than leaving it as a forecast.
+
+**Swept, one per hour as designed:** `remortgagecalculator.uk` 11:32, `robot-hands.com` 12:32,
+`cookly.uk` 13:33, `loancalculator.co.uk` 14:33, `idea.uk` 15:34. **17 sites still due**, so the
+backlog drains through tomorrow morning.
+
+**Filed by discovery since 11:31Z, fleet-wide: 301 items across 8 sites**, of which **155 have
+already moved past `detected`** — i.e. `detected-item-promoter` is doing exactly what I flagged
+it would. Biggest: `robot-hands.com` 115 (81 promoted), `gamesdesign.co.uk` 91 (55),
+`loancalculator.co.uk` 48 (6), `idea.uk` 36 (7).
+
+⚠ `gamesdesign.co.uk` is **not** in the completeness rotation's swept list above — those 91 come
+from another discovery agent on its own schedule. **Do not attribute the whole 301 to this
+morning's decision**; the attributable share is the five sites named, and the honest figure for
+"what enabling the rotation caused" is 208 items across those five, 95 promoted. The forecast was
+the right order of magnitude; the attribution needed a second look.
