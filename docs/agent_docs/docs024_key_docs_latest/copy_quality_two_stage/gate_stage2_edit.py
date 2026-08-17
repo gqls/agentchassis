@@ -284,13 +284,24 @@ def main():
     a = ap.parse_args()
 
     if a.item:
-        row = psql(f"""SELECT json_build_object(
-              'component', spec->'review_data'->>'page_component_id',
-              'proposal', spec->'review_data'->'field_updates')
-            FROM site_work_items WHERE id = '{a.item}';""", want_json=True)
-        if not row or not row.get("component"):
-            sys.exit(f"item {a.item} carries no review_data.page_component_id")
-        component_id, proposal = row["component"], row["proposal"]
+        # A stage-2 proposal carries review_data.edits[], one entry per component —
+        # page-scoped read, section-scoped write, so N edits are normal. Each is graded
+        # against its OWN component's live row; the exit code is the worst of them.
+        row = psql(f"""SELECT spec->'review_data'->'edits'
+                         FROM site_work_items WHERE id = '{a.item}';""", want_json=True)
+        if not row:
+            sys.exit(f"item {a.item} carries no review_data.edits — not a stage-2 proposal")
+        rc = 0
+        for i, edit in enumerate(row):
+            cid, fu = edit.get("page_component_id"), edit.get("field_updates")
+            if not cid or not isinstance(fu, dict):
+                print(f"FAIL edit {i}: missing page_component_id or field_updates")
+                rc = 1
+                continue
+            if i:
+                print()
+            rc |= grade(cid, fu)
+        return rc
     else:
         if not (a.component and a.proposal):
             sys.exit("need --component and --proposal, or --item")
