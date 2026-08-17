@@ -1581,3 +1581,54 @@ is precisely the failure 441 exists to prevent and the one a silent-looking succ
 > positively demonstrated for `validate_plan` specifically — no drop has ever occurred to
 > prove it end to end. The pilot is its first real exercise, which is another reason to run
 > the query there rather than assume the silence.
+
+### 2026-08-17 (cont.) — Phase C pilot SEEDED and DISPATCHED; the seed's own claims guard was inert
+
+**Pilot dispatched** ~11:4xZ, corr `fb048d5f-b4b3-49c8-bc02-2810bbe209aa`.
+`domain-submitter` COMPLETED; `needs_domain_research` triaged to
+`domain-research-classifier`. Mission stored at 3,010 chars with all three marker sentences
+intact (`urgency without alarm`, `10-second answer`, `non-price facts`) — the 082 script
+single-lines and escapes the file, so verifying the markers survived is not ceremony.
+Pre-seeded `evidence_base` + `imagery_style_guide` both survived the submitter (`is_current`).
+
+**PRE-FLIGHT THAT PAID FOR ITSELF — and it produced `bugs_open/292`.** Before dispatching I
+asked what the classifier actually writes for finance sites, because the directory flag
+depends on it. Measured: `industry` is **NULL** and `site_type` `"interactive-platform"` on
+all four comparable sites — *neither is in `verticalDirectoryMap`*. So for this whole family
+the **domain-derived signal is the only one that can fire**. Chasing that led to the defect:
+the domain-signal loop ranged the map (randomised) appending EVERY match into a
+first-match-wins dispatch, over a map that deliberately mixes recommending and
+NOT-recommending entries. `mortgage-refinance.co.uk` — M4, the pilot's own family, because
+`"refinance"` contains `"finance"` — **flipped per run**. Reproduced on iteration 1; fixed;
+600×3 green. Pilot domain unaffected (single keyword). Full write-up in the bug file; the
+transferable half is in 016b §9.
+
+**THE SEED'S OWN GUARD WAS DEAD, AND MY VERIFY BLOCK SAID IT WASN'T.** All six
+`banned_claims` patterns inert on first apply — dollar-quoted SQL passes bytes literally and
+JSON *then* unescapes, so `\\\\b` stored `\\b`. `claims.go` falls back to `QuoteMeta` only on
+a compile ERROR, and a double-escaped pattern is *valid regex that matches no English*: it
+compiled, the fallback never fired, the guard was loaded, listed, **counted**, and dead.
+My verify asserted `jsonb_array_length = 6` and passed. **Six inert patterns count exactly
+like six working ones** — the check could not have come out otherwise, which is the entire
+objection to it. What caught it: probing four must-match strings and one must-not.
+
+Three failed corrections, each worth keeping because they are the same family as the bug:
+1. the `£` guard searched for the character it wanted to CONFIRM — this channel rewrites
+   `\uXXXX` into the character it denotes, so what I typed is not what landed (`chr(92)` now);
+2. the `LIKE` guards were unreadable — **in `LIKE` the backslash IS the escape character**,
+   so `'%\b%'` means "the letter b" and would have passed on any pattern containing `b`
+   (`position()` now, which has no escape semantics);
+3. the first probe used Postgres `~`, but production compiles with Go RE2 and **PG spells
+   word boundary `\y` while `\b` is backspace** — a check in the wrong engine, which is its
+   own false signal. Semantics now pinned in Go beside the production compile call
+   (`datahelpers/claims_banned_pattern_escaping_test.go`, 6 must-catch + 4 must-allow + the
+   mechanism itself).
+Then the corrected guard was **run against the still-broken rows and required to flag them**
+(6 of 6) before being trusted on the fixed ones. LANDMINE filed.
+
+**Landmine footprints, corrected mid-session**: another lane filed an entry warning that
+prose and globs cannot substring-match a path. Ran their parser against my two entries —
+both had prose/glob parts, and comma-splitting had cut junk fragments (`config-only`,
+`no roll needed"`) out of my parentheticals. Both rewritten as short comma-separated keys and
+re-verified through `landmines_lib.parse()`. Reading their entry cost a minute; my entries
+were partially inert without it.
