@@ -1201,3 +1201,39 @@ owner_agent_type='experience-planner' AND status='EXECUTING_STEP'` before you st
 
 Delete the probe brief by id, and close the intake row the trigger created —
 `item_key='needs_experience_plan:<key>'` — or `idx_swi_dedup` holds the key for ever.
+
+## "My work item won't dispatch" — is the fleet's claim gate shut? (2026-08-17)
+
+Before investigating your item, the dispatcher, the selector or the loader — all of
+which read GREEN through this — ask whether `claim_work_item` is refusing every
+claim fleet-wide. Full mechanism: `bugs_open/243` and the two LANDMINES entries
+whose footprint is `ai_endpoint_health`.
+
+```bash
+# 1. Is the gate shut, and WHEN does it re-open? (the second column is the answer)
+kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -c "
+SELECT name, healthy, last_checked,
+       last_checked + (check_interval_seconds || ' seconds')::interval AS next_probe_due,
+       left(error,110) AS why
+FROM ai_endpoint_health ORDER BY name;"
+
+# 2. The instrument vs the traffic — a red row with fresh successes means STALE ROW, not an outage
+kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -c "
+SELECT provider, model_resolved, count(*), max(created_at)
+FROM llm_call_log WHERE created_at > now() - interval '20 minutes' GROUP BY 1,2 ORDER BY 4 DESC;"
+
+# 3. The only honest per-run tell (the loop COMPLETES either way):
+kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -c "
+SELECT collected_data->'claim_result' FROM orchestration_states
+WHERE collected_data ? 'claim_result' ORDER BY created_at DESC LIMIT 3;"
+```
+
+- **`next_probe_due` is the useful number** — the `claude` row's interval is **3600s**,
+  so a single bad ping shuts the fleet's claim gate for up to an hour after the API
+  itself has recovered. You can wait for it; you do not have to guess how long.
+- **The re-probe clears it even if the cap is still live.** `pingClaude`
+  (`check_endpoint_health_action.go`) returns false ONLY on 401/402; a 400 usage-limit
+  reply falls to `default: return true, ""`. So "regain access on 2026-09-01" in the
+  `error` column does NOT mean two weeks of no dispatch — measured 2026-08-17.
+- **Do not infer dispatch health from LLM health.** Query 2 reporting healthy traffic
+  is compatible with zero items claimable, and that is the state that wastes an hour.

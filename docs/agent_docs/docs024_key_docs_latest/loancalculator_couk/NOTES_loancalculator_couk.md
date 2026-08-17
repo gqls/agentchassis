@@ -5491,3 +5491,226 @@ lane and nothing in this directory would otherwise say so.
   `needs_new_component` item came later, from `plan_sections`, on a different
   path. There is no second branch; the account in step 3 of the bug file was
   complete. Full correction in the bug file and `WRONG_CALLS.md`.
+
+## 2026-08-17 — the D2 sequence RESUMED and its headline measurement is 11/11: the calculators are back in the plan
+
+Picked up `HANDOFF_2026-08-15_fire_in_flight_continue_here.md`. Its blocker
+(`bugs_open/282`) was fixed by the bugfix_282 lane on 08-16; this session verified
+the fix is live, ran the owed toolgolden battery, re-fired phase 2, and judged it.
+
+### 1. The 282 fix IS live — and the check I reached for first was the WRONG one
+
+[MEASURED] Running chassis is `v1.0.1305`, deployed digest
+`sha256:f90a7e88…`, and the local docker image for that tag carries the same
+RepoDigest, so its OCI label is authoritative for the running pod:
+`org.opencontainers.image.revision = 6a782274b626c9f4977c9246d905deebb097cb1f`.
+Positive control run in the same breath — that sha IS present in `/proc/1/exe`
+on `agent-chassis-5657f446c7-q7b82`, so the label and the binary agree.
+`git merge-base --is-ancestor 5534e9f71 6a782274b` -> **YES**. Config half also
+live: `menu_field = available_components` on `build-site-planner.validate_plan`
+(migration 439).
+
+> **MY OWN WRONG TURN, worth the space because it looked rigorous.** My first
+> probe grepped `/proc/1/exe` for the 282 fix's own sha (`5534e9f71…`) and got
+> "absent" — and my negative control was also absent, so nothing flagged it. But
+> **the binary carries exactly ONE sha, its own build commit, never its
+> ancestors**, so that probe answers "was the image built AT my commit", which is
+> almost never the question. Absent was the *expected* reading for a fix that
+> shipped four commits later. CLAUDE.md already states the right test
+> ("`git merge-base --is-ancestor <your-commit> <the stamp>`") and I reached past
+> it for a grep. The tell I should have noticed: a probe whose negative control
+> and subject both come back absent has not discriminated anything.
+> Cheap check that fixes it: get the STAMP first (label or log line), then ask git.
+
+### 2. The handoff named the WRONG golden file, and the name is a trap
+
+The handoff's first step says the golden is
+`acceptance/GOLDEN_2026-07-31b_tool_values.json`. **That file is the discarded
+"attempt 1" baseline from 07-31**, not a golden. Evidence, from the file itself:
+it holds **12** pages (including `tool-standard-calc`, archived since 08-03), its
+`pressed` field is a bare STRING in a schema the current harness no longer emits
+(now `{label, sel}`), and that string is `mobile-menu-btn` — the nav hamburger —
+on **9 of 12** pages. That is exactly the failure this file's own NOTES entry of
+07-31 describes: the press had moved off the tool and onto site furniture. It is
+also **untracked in git** (`??`), so it exists only in this working tree; its
+08-12 mtime is a copy or touch, not a re-capture.
+
+The live baseline is the committed `GOLDEN_2026-08-08_voice_h_complete.json`
+(11 pages, current schema, taken after the 08-08 compare passed). Corrected in
+the handoff in place; WRONG_CALLS row added. **Cheap check that would have caught
+it in one command: open the golden and count its pages.**
+
+### 3. Toolgolden: exit 1, and the arithmetic is nevertheless UNCHANGED
+
+`--compare` against the 08-08 golden exits 1 and prints "11 of 11 tools diverged".
+That headline is true and misleading, so the useful reading is the breakdown
+(diffed shared keys myself rather than trusting the summary):
+
+```
+shared fields compared, IDENTICAL : 1340
+shared fields that CHANGED        : 0
+ids only in golden (removed)      : 176   -> 2 distinct: nav-links-menu, mobile-menu-btn
+ids only in capture (added)       :  80   -> 1 distinct: d91e7be1-… (the new FAQ block)
+vectors where DIFFERENT inputs were driven : 0
+```
+
+[MEASURED] **Not one shared field changed value, and `drove` is identical in every
+vector**, so the comparison really is apples-to-apples — the pages' own numeric
+defaults are untouched, which is the thing that would silently invalidate it (the
+toolgolden landmine). Every "divergence" is the rebuilt chrome: the old
+hand-built nav's two id-bearing elements are gone and a FAQ section arrived. **No
+tool's own field was added, removed or changed.** So the handoff's expected
+"11/11" holds on arithmetic; only the exit code disagrees.
+
+Also a real check in its own right: the harness **wrote** the new capture, and it
+refuses to write when any tool is inert or input-independent. `vary=0` appears on
+exactly the three tools the RUNBOOK says are exempt by construction
+(application-tracker, credit-health-check, damage-checker).
+
+Re-baselined as `acceptance/GOLDEN_2026-08-17_post_rebuild_tool_values.json`,
+compare run BEFORE the capture, deliberately, per the 08-08 precedent.
+
+### 4. NAV: the calculators are gone from the header, and Guides is stuck
+
+[MEASURED] Served header on every tool page is now: logo, `Home`, `About`, and a
+"Get Started" CTA to application-tracker. The 08-08 golden records what it
+replaced — a `Tools` dropdown listing nine calculators (`nav-links-menu`).
+
+- **The tool pages' absence is BY DESIGN, twice over.** `classifyPagesForNav`
+  (`populate_nav_tables_action.go`) bars `page_type='tool'` from primary nav, and
+  bars any URL under `/tools/` as a child page, "the parent /tools.html … represents
+  them in navigation". All 11 tool rows are `in_header=false`. **But this site has
+  no tools listing page** — only `guides-index`. So the framework's stated
+  representative for the calculators does not exist here. Owner question, below.
+- **`guides-index` is NOT barred** — it is `page_type='section-index'`, and the code
+  has an explicit exception for exactly that case (`isSectionIndexType`), and
+  `navPageScopeSQL` admits `status='active'`. Accordingly `site_nav_items` DOES
+  carry `Guides -> /guides/index.html` at primary position 2, written
+  2026-08-15 14:25:52 by the phase-2 planner. It is the SERVED chrome that omits
+  it. [INFERRED, not chased] the chrome the pages carry predates or ignores that
+  nav row; `pages.rendered_header` is NULL on index/about/tool-settlement, so the
+  header is assembled from a site-level component, not per page.
+- Calculators are still reachable: each tool page cross-links 8 of them in-body,
+  and index links 8. Not orphaned, but not navigable from the header.
+
+### 5. Serving state, unchanged from the handoff
+
+28/29 active pages return 200; `guides-index` (`/guides/index.html`) is the only
+404, still `build_status='planned'`. `tool-credit-roadmap` serves 200 despite
+`build_status='needs_rebuild'`, so the cross-links to it are not dead.
+
+### 6. PHASE 2 RE-FIRED — and this is the measurement the lane existed for
+
+Fired `phase2_recompose_26.sh` (12-page scope, unchanged) at DB time
+**2026-08-17 11:43:34Z**, corr `3584d962-d3de-415b-a468-64afab126534`,
+orchestration `627ff71a-1af2-401b-a961-16a181916e71`. Pre-flight: no in-flight
+orchestration for the site, pods 13h old (no 300s window), local clock within 2s
+of the DB clock. New plan **`9463e31d-ee50-482e-94a9-7e186ef25543`** landed
+11:46:22Z and is current.
+
+[MEASURED] **11 of 11 locked calculators are now placed on their own page** —
+against a baseline of **0 of 11** in plan `dcbae4df`. Verified as a join of the
+locked rows' `content_components.function` against `site_plan_sections` on the
+current plan, per page, not by eye:
+
+```
+index                          tool-loan-repayment          t
+tool-application-tracker       tool-application-tracker     t
+tool-car-finance-calculator    tool-car-finance-pcp-hp      t
+tool-compare-loans             tool-compare-loan-offers     t
+tool-consolidation             tool-consolidation-risk      t
+tool-credit-health-check       tool-credit-health-check     t
+tool-damage-checker            tool-return-damage-checker   t
+tool-interest-rate-stress-test tool-rate-stress-test        t
+tool-loan-vs-savings           tool-loan-vs-savings         t
+tool-overpayment-calculator    tool-overpayment-impact      t
+tool-settlement-calculator     tool-early-settlement        t
+```
+
+So `bugs_open/282` is not merely live, it is **PROVEN on the motivating case**:
+the same script, same scope, same planner, one image later, 0/11 -> 11/11.
+Supporting readings: **0** `RECOMPOSE_INTENT_NOT_REALISED` rows (every page
+genuinely recomposed, no no-ops), locks **12/12** held.
+
+⚠ **The script's own judge query #4 cannot show this.** It counts
+`component_name LIKE 'tool-%'`, which also matches the `tool-cta` and `tool-list`
+SECTION components — it returned **26** on the 0/11 baseline and would return 26
+again either way. A query that gives the same answer whichever way the world is
+must not be the test. Use the locked-function join above; runbook updated.
+
+### 7. One placement to flag, and the wave
+
+`tool-credit-roadmap` was given `tool-credit-health-check` — **another page's
+calculator**, and the second copy of that function in the plan. That page has no
+locked row of its own (it is a rebuild-era page), so nothing was displaced, but a
+duplicated calculator across two pages is a content decision, not a win. Flagged
+for the owner, not actioned.
+
+Reconciler emitted, all born `triaged`: 15 `needs_page` (the 14 guides —
+the same stamp-convergence churn as 08-15 — plus `needs_page:index`, "stale"),
+5 `needs_imagery` (guides-index hero, compare-loans hero, 3 index icons), 1
+`needs_rerender` keyed on the new plan. **No `owned_page_review` this time**: the
+11 tool pages' review items from 08-15 are still open, so the reconciler
+skipped-as-queued exactly as the script predicted.
+
+**On letting `needs_page:index` run.** The handoff had it "STILL HELD" pending
+282. Two things changed that: 282 is fixed and verified above, and the item the
+handoff describes as held is in fact `complete` since 2026-08-16 08:45
+(`build-dispatch-loop`) — index was auto-rebuilt a day ago, on an image WITHOUT
+the 282 fix, and the locked calculator survived it (locks 12/12, and toolgolden
+finds index's fields byte-identical). This new item is a fresh mint from the
+reconciler, born triaged by the framework, on a `landing` page — TP-004's human
+gate keys on tool-ROLE pages, which is why the 11 got `owned_page_review` and
+index did not. So the floor has already held once unaided, and this rebuild is
+strictly better informed than that one (the calculator is now IN the plan).
+Let it run; verifying at the artefact afterwards with the fresh golden.
+
+### 8. The build wave did NOT run, and the reason is `bugs_open/243` — already found by three other lanes today
+
+All 21 items sat `triaged` and unclaimed. What I established before finding the
+prior art (recorded because the re-derivation is itself evidence the tell is well
+hidden, and it cost ~20 minutes):
+
+- `build-pipeline-trigger` fires every 60s as configured; `build-dispatch-loop`
+  pods spawn continuously (7 alive) and every run finishes **COMPLETED**, `error`
+  NULL. 69 orchestrations completed fleet-wide in 25 minutes.
+- The loop **does** load the item — `pending.has_items = true`, the full row
+  present. So this is NOT `bugs_closed/176`'s selector/loader disagreement, which
+  is what I first assumed; I had to correct that mid-investigation.
+- The honest tell is one field: `collected_data->'claim_result'` =
+  `{"claimed": false, "reason": "ai_endpoint_unavailable", "endpoint": "https://api.anthropic.com/v1/messages"}`.
+- `claim_work_item_action.go` (~:218) reads `SELECT healthy FROM ai_endpoint_health`
+  for the handler's endpoint and, on false, **releases the claim and puts the item
+  back to `triaged`**. Fleet-wide, silently.
+- [MEASURED] The `claude` row: `healthy=f`, `last_checked 11:09:53Z`,
+  `last_healthy 11:07:15Z`, `check_interval_seconds 3600`, error = the API's own
+  `status 400 … "You have reached your specified API usage limits. You will
+  regain access on 2026-09-01 at 00:00 UTC."`
+- [MEASURED] And the row is **stale**: `provider='anthropic'` calls are succeeding
+  continuously right now — `claude-sonnet-5` and `claude-opus-4-6`, real
+  `output_tokens`, 1–3 per minute, latest 11:58:08Z, from `council-gate` and
+  `landmine-verifier`. The endpoint is serving while the instrument says it is not.
+- Because `find_dispatchable_site` is `ORDER BY wi.created_at ASC … LIMIT 1` across
+  ALL sites, the whole fleet queues behind the oldest unclaimable item. Six sites
+  were behind it; loancalculator's items (11:46:36) were sixth.
+
+**PRIOR ART — grep first, which I did only after diagnosing.** This is
+`bugs_open/243` (the cap) / `bugs_open/244` (the spend), and **two** LANDMINES
+entries already carry the whole mechanism, one titled "The BUILD QUEUE can be
+fully stopped while every liveness check says the fleet is healthy … that row is
+re-probed ONCE AN HOUR", filed today by the webdesign_uk lane, plus a 11:55Z
+correction from the loanandmortgagecalculator lane establishing exactly what I
+re-measured — that live traffic recovers within minutes while the row stays red.
+Three lanes found this today before me. **Nothing filed; nothing to file.**
+
+**What this lane can use, and is not in those entries: the clear time is
+computable, not a guess.** `last_checked + check_interval_seconds` = **12:09:53Z**
+is when the prober next becomes due (`check_endpoint_health_action.go` :87-95
+gates on exactly that sum). And the current prober will clear it even if the cap
+is still in force, because `pingClaude`'s switch sends a 400 to
+`default: return true, ""` — only 401/402 return false. Added to the RUNBOOK.
+
+⇒ **The 12 pages' PLAN is correct and proven; the pages themselves have not been
+rebuilt.** Nothing about the placement result is contingent on the wave: the
+measurement is at `site_plan_sections`, which is already written. The wave only
+re-stamps the 14 guides and rebuilds index.

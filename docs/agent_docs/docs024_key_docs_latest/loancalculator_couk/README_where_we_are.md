@@ -1963,3 +1963,78 @@ menu's own rule, as one shared piece of code so they can never drift apart again
 The redesign tickets stay held until that fix ships and a fresh plan proves the
 calculators land; everything else about the rebuild stands. The about page is built;
 the guides index needs the same fix path as the homepage.
+
+---
+
+## 2026-08-17 (midday) — the calculators are back in the plan: none of twelve, to eleven of eleven
+
+Short version: the thing that was blocking this site is fixed, and I have proved it
+on the actual site rather than in principle. The calculators are not yet back on the
+rebuilt pages, and the reason for that is a fleet-wide billing gate, not anything
+wrong with this site.
+
+**What was wrong, in plain terms.** When the site was rebuilt on 15 August, the
+planner correctly decided which calculator belonged on each page — and then a
+checking step further down the line threw every one of those decisions away. It was
+checking proposed page contents against a list that simply did not include
+calculators, so each calculator silently failed the check and was dropped before
+anything was saved. The result was a set of tool pages whose plans described
+everything except the tool.
+
+**It is fixed, and the fix is running.** Another thread fixed it yesterday: the
+checking step now accepts exactly what the planner was offered, rather than
+re-deciding for itself. I confirmed the running system genuinely carries that fix —
+not by trusting a version number, but by reading the commit stamped into the running
+program and asking git whether the fix was in it, with a control that could have
+failed.
+
+**Then I re-ran the planning step and counted.** Before: none of the twelve pages had
+its calculator in the plan. After: **every one of the eleven pages that owns a
+calculator now has exactly its own calculator, in the right place.** The twelfth page
+(Credit Roadmap) has no calculator of its own, and the planner gave it a copy of the
+Credit Health Check one — that is a content decision for you, not a fault, and I have
+left it alone. The twelve protected copies of the calculators were untouched
+throughout, and I checked that rather than assuming it.
+
+**I also finished the outstanding check on the calculators' arithmetic.** The tool
+that records what each calculator computes reported "11 of 11 diverged", which sounds
+alarming and is not. Breaking it down: of 1,340 values compared, **not one changed**.
+Every difference is the new page furniture — the old hand-built navigation menu has
+gone and a new questions-and-answers block has arrived. The sums are identical. I
+re-recorded the baseline so future runs compare against today's pages.
+
+**One thing I should flag as a genuine loss.** The old site had a "Tools" menu in the
+header listing nine calculators. The rebuilt header has only Home and About. The
+calculators are still reachable — each page links to eight of the others in its body
+— but they are no longer in the menu. This is the framework behaving as designed: it
+deliberately keeps individual tool pages out of the top menu and expects a single
+parent "Tools" listing page to represent them. **This site has no such page** (it has
+one for Guides). So the question for you is whether we should create a Tools listing
+page, the same shape as the Guides one. I have not done it.
+
+Related, and smaller: the Guides entry is missing from the menu too, but for a
+different and more mundane reason — the Guides page itself has never been built and
+currently returns "not found", which is the one outstanding page on the site (28 of
+29 serve correctly). The menu data already contains the Guides link, so building the
+page should bring it back.
+
+**Why the pages have not actually been rebuilt yet.** The rebuild work was queued
+correctly — fifteen page jobs and some image jobs — and then nothing happened,
+because the whole fleet's job queue is currently shut. The cause is the Anthropic
+account's spend limit: it was hit briefly at about 11:08 this morning, and a health
+record flipped to "unavailable". Everything that claims a job checks that record
+first, so no job anywhere in the estate can be claimed while it says unavailable —
+and that record is only re-checked once an hour. Meanwhile the API itself recovered
+within minutes and is working fine right now. So the estate is idle because of a
+stale flag, not because it is broken. It should clear itself at 12:09:53, and I am
+watching for that.
+
+To be clear about what is and is not affected: **the eleven-of-eleven result above
+does not depend on any of that.** The plan is written and verified. The queue only
+governs when the pages get rebuilt from it.
+
+This is already known — three other threads hit the same wall this morning and it is
+written up as bug 243, with the spend itself as bug 244. I spent about twenty minutes
+re-diagnosing it before finding their write-ups, which is my own fault: I should have
+searched first. Worth knowing that this is the second time today that the fleet's
+own "is everything healthy" check said yes while nothing could actually run.

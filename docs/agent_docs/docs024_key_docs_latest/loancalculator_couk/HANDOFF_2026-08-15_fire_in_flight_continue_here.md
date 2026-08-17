@@ -36,9 +36,22 @@ state     AS OF ~19:30Z (FINAL for this session): serving **28/29** (about
 The rerenders re-assembled every tool page; the locked rows are byte-identical
 but the ASSEMBLY around them is new. Drive the served pages against the golden:
 `toolgolden.py` in this dir (read its header for the venv + invocation; the
-golden is `acceptance/GOLDEN_2026-07-31b_tool_values.json`, and note the
+golden is ~~`acceptance/GOLDEN_2026-07-31b_tool_values.json`~~, and note the
 LANDMINE: it certifies page-against-itself only, never A-vs-B). Expect 11/11.
 Then the final battery is complete and only the 282 sequence remains.
+
+> **✅ DONE 2026-08-17, and the golden named above was the WRONG FILE — do not use
+> it.** `GOLDEN_2026-07-31b` is the discarded "attempt 1" baseline: 12 pages
+> (including `tool-standard-calc`, archived since 08-03), `pressed` recorded as a
+> bare string in a schema the harness no longer emits, and that string is the nav
+> hamburger `mobile-menu-btn` on 9 of 12 pages. It is untracked in git; its 08-12
+> mtime is a copy, not a capture. **The baseline in force was the committed
+> `GOLDEN_2026-08-08_voice_h_complete.json`**, and the current one is now
+> `acceptance/GOLDEN_2026-08-17_post_rebuild_tool_values.json`.
+> **Result: 11/11 on arithmetic.** Raw `--compare` exits 1 and says "11 of 11
+> diverged", but 0 of 1,340 shared fields changed value and `drove` is identical
+> in every vector; the only differences are 2 removed nav ids and 1 added FAQ
+> block, i.e. the rebuilt chrome. NOTES 2026-08-17 §2–§3 has the breakdown.
 
 > **CORRECTED ~11:15Z, same session — read this before the phase framing below:**
 > the reconciler emitted the FULL rebuild set in PHASE 1 (the mission prose alone
