@@ -110,6 +110,22 @@ func QueryDatabaseAction(ctx context.Context, params ActionParams) (interface{},
 
 	params.Logger.Info("QueryDatabaseAction: Complete", zap.Int("count", len(results)))
 
+	// A result set exactly as large as its own LIMIT may be a truncated view of
+	// the population, and NOTHING downstream can tell — least of all an LLM step,
+	// which returns plausible output whether it was shown 30 rows or 74
+	// (bugs_open/275: tool-suggester was judging every site against 30 of 74
+	// library tools, chosen alphabetically). Observational only; see
+	// query_row_cap.go for why this is a suspicion signal and not a real count,
+	// and why LIMIT 1 is excluded.
+	if limit, hit := resultHitItsRowCap(query, len(results)); hit {
+		params.Logger.Warn("query_database result count EQUALS the query's LIMIT — the result may be a truncated view of the population, and no downstream step can tell",
+			zap.String("step", params.ExecutionContext.StepName),
+			zap.String("agent_type", params.AgentType),
+			zap.Int("limit", limit),
+			zap.Int("rows_returned", len(results)),
+		)
+	}
+
 	if outputFormat == "array" {
 		return results, nil
 	}
