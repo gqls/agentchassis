@@ -5,12 +5,31 @@
 > Full evidence + every misstep: NOTES `## 2026-08-17` §1–§10. Owner prose:
 > README_where_we_are, same date.
 
+> **UPDATED 2026-08-17 ~18:20Z — two changes since this file was written: the chassis
+> DID roll properly on the second attempt, and the whole site is now PUBLISH-BLOCKED by
+> a fleet-wide deploy outage. See NOTES §12. The `/blog/` decision below is unchanged
+> and still owed, but note it can no longer be ACTED on until the outage clears —
+> retracting a page needs a working deploy too.**
+
 ```
 site      loancalculator.co.uk   0162cde4-633e-45e9-8ca6-87a6b2fe1d26
-chassis   RUNNING = digest sha256:f90a7e88… from commit 6a782274b (pods restarted
-          14:43Z). ⚠ NOT the fresh build: a new image was pushed under the SAME tag
-          v1.0.1305 (digest sha256:6039e19c…, commit 89a0cbeb7, built 15:30:44) and
-          the node kept its cached binary. Running binary is 202 commits behind.
+chassis   v1.0.1307, stamp a6d1c53c0 — VERIFIED LIVE 18:14Z (pod digest sha256:8339bdbd…
+          matches the local image for that tag; positive control present in /proc/1/exe,
+          negative control absent). 296 commits gained. ⚠ The FIRST "fresh build" of the
+          day never shipped — same-tag rebuild of v1.0.1305, nodes kept the cache; fixed
+          at source by another lane (aa9c7b74f).
+DEPLOY    ⛔ NOTHING CAN PUBLISH. 0 pages deployed since the 17:05 roll. Fleet-wide
+          outage since 13:31Z (portfolio_positioning lane, commit fdd8ca54f): ~832
+          base-tree 404s, all on sites with github_repo EMPTY — loancalculator confirmed
+          first-hand (github_repo EMPTY, deploy_config {}). Logged under error_code
+          'LLM_API_ERROR' and 808 rows carry NULL site_id, so it hides from both greps.
+          Their 090 (corr 75220928-935a-4e5d-8982-802992b0af34) returned UNVERIFIABLE,
+          stopped BY THIS SITE's evidence: identical row state, yet some requests 404 at
+          base-tree while a later one reaches ref-update and 503s — which an unbuildable
+          repo name could never do. Next step nobody has taken: read the git-vs-bucket
+          router and what resolveGitRepoNameDB returns for an empty github_repo.
+          NOT this lane's to fix; it blocks chrome propagation (10/43 pages), the 29
+          queued rerenders, AND any retraction of the duplicates.
 plan      9463e31d-ee50-482e-94a9-7e186ef25543  is_current — CORRECT for the 11
           calculators, WRONG for the guides (see THE DAMAGE)
 locks     12/12 held throughout

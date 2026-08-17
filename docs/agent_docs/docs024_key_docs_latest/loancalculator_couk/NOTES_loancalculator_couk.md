@@ -5833,3 +5833,50 @@ If none exists, the served chrome is old everywhere and you cannot yet judge it.
 from PRIMARY nav by design and this site has no `tools-index` parent. So the real
 change is header-dropdown → footer-list. That is a UX judgement for the owner, not a
 loss of navigation.
+
+### 12. The fresh chassis IS live this time — and the lane is now publish-blocked by a fleet-wide deploy outage
+
+**The build landed properly.** [MEASURED 18:14Z] Tag bumped to **v1.0.1307**, pods up
+17:05:24/17:05:46Z, pod digest `sha256:8339bdbd…` matching the local image for that tag
+exactly, whose label gives the stamp **`a6d1c53c068a5df421479cc9e8801f251f80d539`**.
+Positive control PRESENT in `/proc/1/exe`, negative control (the old `6a782274b`) ABSENT
+— so the probe discriminated. Ancestor of HEAD; **296 commits** gained over the binary
+that ran this morning. Contrast §10: the earlier "fresh build" was a same-tag rebuild
+that never reached the nodes. Another lane hit the same trap and fixed it at source
+(`aa9c7b74f`, "bump IMAGE_TAG to v1.0.1306 — v1.0.1305 was reused … 24 code commits
+across ~10 lanes are inert").
+
+**But nothing can publish.** [MEASURED] **0 pages have `deployed_at` after the 17:05
+roll.** The 8 `failed to get latest commit/base tree` errors recorded in §9 are the
+local edge of a **fleet-wide deploy outage running since 13:31Z**, found and filed by
+the portfolio_positioning lane (`fdd8ca54f`): ~832 base-tree 404s, every affected site
+having `github_repo` EMPTY. **loancalculator.co.uk is named in their table (4 in a 4h
+window), and I confirmed it first-hand: `github_repo = (EMPTY)`, `deploy_config = {}`.**
+
+Two things they found that make it hard to see, worth carrying: it is logged under
+`error_code = 'LLM_API_ERROR'` (a deploy fault under an LLM code, so grepping for a
+deploy problem misses it), and 808 of the rows carry a NULL `site_id`, so per-site
+triage under-reports it ~70×.
+
+**Their `090` came back `UNVERIFIABLE` (stopped: scope-not-narrowing)** — corr
+`75220928-935a-4e5d-8982-802992b0af34`, completed 16:41Z — and **this site is the
+evidence that stopped it**: loancalculator has identical row state throughout the
+window, yet some requests fail at branch/base-tree with 404 while a later one gets PAST
+that stage and fails at ref-update with 503, "a stage a genuinely unbuildable repo name
+could never reach". So "empty `github_repo` ⇒ 404" is a correlation, not the mechanism.
+Named next step, not yet done by anyone: read the component that routes git vs bucket,
+and what `resolveGitRepoNameDB` actually returns for an empty `github_repo` (the
+`sendGitCommitRequest` comment mentions a sites-table FALLBACK repo name, not an empty
+string). **Shared deploy infrastructure — not this lane's to fix.**
+
+**Consequences for this lane, all downstream of that one outage:**
+- The chrome fix (§11) is stuck at **10 of 43** pages carrying the new footer. The rest
+  keep the pre-13:47:45 chrome until they can republish.
+- 29 `page_rerender` still `triaged`, 12 failed, 1 re-claimed 18:01. Failure mode has
+  shifted from the base-tree 404 to request timeouts since the roll.
+- **Retracting the 14 duplicates would itself need a working deploy**, so even with the
+  owner's answer in hand, the cleanup cannot execute until this clears.
+
+⇒ **The lane is blocked on infrastructure, not on a decision, and the two blocks are
+independent.** Nothing here changes the §9 result: the calculators are correct in the
+plan and correct on the pages that did publish (toolgolden exit 0, locks 12/12).
