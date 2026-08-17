@@ -1643,3 +1643,55 @@ thing standing between this defect and a silent return"*. Already satisfied: the
 compiles and passes (600×3 green, and it FAILED on iteration 1 before the fix, which is what
 establishes it can detect the defect at all). No change. Phase B + 292 now have four
 approvals and one unanimous.
+
+### 2026-08-17 (cont.) — the pilot is BLOCKED, and not by anything in this lane: the build pipeline is head-of-line stuck fleet-wide
+
+Watched the pilot for 20 minutes; `needs_domain_research` never left `triaged`. Rather than
+wait, checked the dispatch path — and the fleet's whole build pipeline is stalled.
+
+**The chain is alive.** `build-pipeline-trigger` is `enabled`, 60s interval, and completed
+**27 runs in 40 minutes**; `build-dispatch-loop` likewise; 48 work items across 11 types and
+6 sites were touched in the window. So this is not a dead fleet and not a dead scheduler —
+which is exactly what makes it hard to see.
+
+**The selector takes ONE row, oldest-first, fleet-wide.** From the live config,
+`build-pipeline-trigger.find_dispatchable_site`:
+`… WHERE s.locked_at IS NULL AND wi.status IN ('triaged','approved') AND wi.attempt_count <
+wi.max_attempts … ORDER BY wi.created_at ASC, wi.priority ASC, wi.id ASC LIMIT 1`.
+Note it does NOT filter `pipeline='build'` (the scheduled task's own gate query does) — it
+takes the oldest eligible item in the estate, whatever it is.
+
+**The head row never moves, so nothing behind it ever runs.** Measured: the last 8
+consecutive trigger runs all picked the SAME site (`webdesign.co.uk`,
+`6b49db8e-…`); its item `8c921926-…` (`add_tool`, created 11:19:24Z) still reads
+`status=triaged`, `attempt_count=0` — while `updated_at` bumps every run (12:08:35Z), so the
+row IS being touched and is going nowhere. `call_dispatch`'s response carries that item back
+inside a `pending` block with `has_items: true`, and the orchestration finishes
+`COMPLETED` / `current_step=complete` with **no `__step_error`**. Every layer reports success.
+
+**My pilot is 5th of 36 eligible items** and cannot be reached until the head clears. Ordering
+is `created_at ASC`, so new arrivals queue BEHIND me — my position can only improve; it is
+head-of-line blocking, not starvation-by-reordering (which is the defect 429 fixed in the
+publish trigger, `ORDER BY domain LIMIT 5`).
+
+**What the blocking item is, and why this is NOT ours to clear.** It is
+`add_tool_novel_webdesign.co.uk` — the `webdesign_tool_rebuilds` lane's owner-directed
+REPLACEMENT #2, rebuilding a ported tool at an EXISTING page (`page_id` set,
+`/tools/ab-test-calculator/index.html`, handler `tool-generator`). That is exactly
+**`bugs_open/286`**'s scenario, whose fix is BUILT + council-APPROVED but **NOT LIVE** — the
+Go rides the next chassis roll. **Hands off**: another lane's item, another lane's bug, and
+CLAUDE.md says never cancel a failing row pre-diagnosis.
+
+**It is also NOT `bugs_open/029`.** 029 is hung spawns saturating the `dispatch` concurrency
+group — orchestrations stuck in `AWAITING_RESPONSES`. Here every orchestration COMPLETES.
+Different mechanism, same fleet-wide consequence.
+
+**Filed `090` rather than asserting the root cause** (CLAUDE.md's default: cross-cutting, and
+the cause is non-obvious after a proper look — I can show the selector and the stuck row, but
+NOT why the dispatcher returns an item as `pending` without claiming it).
+**`RUN_CORRELATION_ID=5fbb7f4c-9968-4b95-9048-caad202cea4a`** — claimed by the dispatch loop.
+Artifacts are keyed under THAT id, not the intake one.
+
+The open structural question the run should settle, and it outlives this incident: the
+selector has **no skip and no backoff** for a head item that is returned but never claimed,
+so one un-claimable row halts every build on the estate while all instrumentation reads green.
