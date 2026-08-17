@@ -1692,3 +1692,37 @@ Nothing needs a decision from you today. Two things are simply waiting: the imag
 switch you applied has still not had an occasion to prove itself (that pipeline has run three
 times in nine days, and not once since), and the "stop guessing entirely" step waits on the other
 lane's fix landing first.
+
+---
+
+**17 August 2026 — you asked me to look once more for a supported way to delete that file, and to build one if there wasn't. There wasn't. It's built.**
+
+The fourth look turned up two things worth having even though they didn't change the answer.
+First, there IS a "delete asset" button in the admin interface — and it only edits the
+database record, touches no file, and reports "deleted: true" while the file goes on being
+served. Worth knowing before anyone trusts it. Second, the one comparable removal anyone has
+done here (a stray design file another lane removed last week at your direction) was done by
+hand, outside the platform. And the clincher: our stray file has no database record at all,
+so every mechanism that works from records is structurally unable to reach it. No supported
+path exists. So, per your instruction, I built the narrow capability.
+
+It is deliberately the most cautious thing I have shipped here. It can only touch files
+under the assets folder — pages, feeds and site chrome are structurally out of reach
+whatever a caller types. It refuses to delete anything the platform still believes is a
+real asset, anything the favicon machinery owns, and anything a live page actually links to —
+that last check is the same one that twice saved us from overwriting working logos during
+last week's clean-up, now built in rather than remembered. And by default it deletes
+nothing: it audits, and tells you what it WOULD do and what it refused. Making it actually
+delete requires an explicit, deliberate setting. I broke each of those five safeguards on
+purpose in a scratch copy and watched a test fail for each one — all five alarms work.
+
+Governance done properly: this does NOT reopen the door the reviewers deliberately shut on
+general-purpose file deletion — it is the narrow, guarded shape their own review said such
+things should take, and I cited that decision rather than working around it. Submitted for
+council review, entered in the register, all committed.
+
+One honest limitation: like all our code changes it does nothing until you next rebuild and
+roll the fleet. Everything for afterwards is staged and written down — the check that the
+new code is really running, the one settings file to apply, and a ready-made script that
+does the dry run first, then the real deletion only when told, then proves the right file
+died and the right logo survived. Nothing will fire on its own.
