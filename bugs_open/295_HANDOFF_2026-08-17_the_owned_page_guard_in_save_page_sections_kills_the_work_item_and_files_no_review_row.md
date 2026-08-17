@@ -339,6 +339,38 @@ the data claim carries its own positive control (34 rows prove the item type rea
 `needs_human_review`, so 0 from this path is an absence rather than a dead mechanism). The two
 failures are quoted verbatim from the orchestrations the items themselves name.
 
+## CONTRIB 2026-08-17 (`bugfix_297_tool_recreation_context` lane) — the guard's own remedy text names a route that is ALSO blocked
+
+Found while looking for a safe target to fire a `tool-recreation-handler` run at, so this is an
+observation with its evidence, not a claim on your lane's fix.
+
+The refusal message says: *"Use `apply_section_edit` for targeted edits or **the tool pipeline for
+rebuilds**"* (`save_page_sections_action.go:219-223`, and the same wording in the emitted
+`owned_page_review` spec). **But the tool pipeline's own save step IS `save_page_sections`** —
+`tool-recreation-handler.save_sections` uses that action (live config, `expects_no_sections_metadata:
+true`), and the ownership guard at `:186` runs before any of that and is unconditional on caller. So
+for a `rebuild_policy='owned'` page the recommended route hits the same guard that recommended it.
+
+**Measured 2026-08-17:**
+
+| | |
+|---|---|
+| owned pages flagged `needs_rebuild` estate-wide | **12** (of 64 `needs_rebuild`; the other 52 are generic) |
+| tool pages with a surviving adoption source (what a recreation rebuilds FROM) | **6**, all on `gamesdesign.co.uk` — **all 6 `owned`, all 6 `needs_rebuild`** |
+| recreations ever run against an owned page | **0** — all 4 historical `needs_tool_recreation` items were `mortgagecalculator.co.uk`, `rebuild_policy='generic'`, all `complete` |
+
+So the owned-page recreation path has **never been exercised**, and by the code it cannot succeed:
+the run would reach `analyze_tool` and `recreate_tool` (the expensive 64k-token call), then die at
+`save_sections`. That is a stronger version of this bug's harm than the `content_rewrite` case —
+the work is *done and then discarded*, not merely refused early — and it is why this lane declined
+to fire a verification run at `gamesdesign.co.uk` rather than manufacture a failure inside your
+experiment.
+
+**Not asserting what the fix should be** — whether owned tool pages need a distinct save route, or
+the message needs correcting, or `needs_rebuild` on an owned page is itself the anomaly, is your
+call. Flagging that the review row your fix adds will, on these 12 pages, point a human at a route
+that does not work.
+
 ## Relates to
 
 `bugs_open/208` (the guard this extends — its lane last touched it 08-08; the selection and
