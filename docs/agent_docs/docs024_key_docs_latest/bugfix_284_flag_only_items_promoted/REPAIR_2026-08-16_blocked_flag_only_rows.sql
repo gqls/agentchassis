@@ -40,7 +40,16 @@
 -- thing this file exists to prevent.
 
 \set ON_ERROR_STOP on
-\set guard_commit ''   -- ← put the pod-verified commit sha here, e.g. 'a1b2c3d4'
+
+-- ⚠ FIXED 2026-08-17: this was `\set guard_commit ''`, a **psql client** variable,
+-- while the DO block below reads `current_setting('myvars.guard_commit')`, a **server**
+-- GUC. The two never met, so the gate raised unconditionally and this script could
+-- never run even when it should have. It failed CLOSED, which is the safe direction and
+-- is why nothing was damaged — but a guard whose passing path was never induced is not
+-- a guard, it is a comment that aborts. Logged in WRONG_CALLS 2026-08-17.
+-- Set the pod-verified commit as a real session GUC, e.g.:
+--   SET myvars.guard_commit = '6a782274b';
+SET myvars.guard_commit = '';   -- ← put the pod-verified commit sha here
 
 BEGIN;
 
@@ -145,6 +154,14 @@ BEGIN
 
     RAISE NOTICE 'VERIFY PASSED: % row(s) repaired, 0 still blocked, 0 stray errors', landed;
 END $$;
+
+-- ── 5b. INDUCE THE GATE BOTH WAYS before trusting it — the omission that made the
+--       original version of this file inert. It must ABORT with the GUC empty, and
+--       PROCEED with it set:
+--         SET myvars.guard_commit = '';            -- expect: REFUSING …
+--         SET myvars.guard_commit = '6a782274b';   -- expect: no refusal
+--       A gate only ever tested on its failing side cannot be distinguished from one
+--       that always fails.
 
 -- ── 6. The control that proves the verify could have failed. Induce it once, on a
 --       throwaway transaction, BEFORE you trust the pass:
