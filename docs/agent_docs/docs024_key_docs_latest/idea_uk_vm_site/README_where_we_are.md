@@ -2288,3 +2288,38 @@ produced.
 I would rather tell you the count moved the wrong way than quietly re-run the clean-up
 and report a good number again. The clean-up would work, and in four days we would be
 here again.
+
+---
+
+**17 August — one word added to the writer, and the honesty job is closed.**
+
+You said we had dealt with this enough, no more sweeps, and that a single stop word in
+the writer would do it. That is done and it is live.
+
+The rule now sits in one place: the instructions the page writer gets every time it
+writes anything, on any site, including sites that do not exist yet. It says not to use
+the word in page copy, and — this part mattered — it explains the difference between
+*being* straight with the reader and *labelling* yourself as honest, which is how you
+put it back in July. Show it, don't say it.
+
+**One thing I nearly broke, and it is worth a paragraph.** Those same writer
+instructions already used the word four times — but as rules aimed at the machine, not
+at the page: "better to be honest and general than specific and fabricated", "if a field
+has no honest value, leave it empty". Those are the rules that stop it inventing
+customers and statistics. If I had simply stripped the word out of the instructions, as
+a careless reading of your request would suggest, I would have removed the anti-invention
+rules to satisfy a style preference. I found that yesterday by checking rather than
+assuming, and today it stopped me doing real damage. The change is written so it fails
+outright if those rules are not still intact afterwards.
+
+**What this does and doesn't do.** It stops new copy carrying the word. It does not
+touch the thirty pages that already have it — you said no more sweeps, so those stay as
+they are. Page titles and the descriptions that show in Google are already clean and
+stay that way. If the word starts showing up specifically inside the interactive tools,
+that comes from a different writer and I will tell you rather than go cleaning.
+
+I have not yet seen it take effect in a real run — the writer had not run in the twenty
+minutes after I made the change, and I am not going to call it proven until I have seen
+the instruction in an actual job. I nearly recorded it as broken on that basis: my check
+came back empty, which looks exactly like failure, and the honest reading was that
+nothing had run yet at all. Also, it is one file to undo if you dislike the effect.

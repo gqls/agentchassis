@@ -5193,3 +5193,100 @@ just in count.
 
 **Still NOT asserting a cause.** (c) is where the evidence points; it is not established,
 and the fleet-wide claim needs a `090` before it goes anywhere durable.
+
+---
+
+## §X.59 — 2026-08-17: OWNER CLOSES THE HONESTY ARC — one stop word at the writer, no more sweeps
+
+### 1. The ruling
+
+> *"I think we have dealt with the honesty problem enough. It doesn't need any more
+> sweeps. just stop the overuse probably by a single stop word in the content writer
+> agent would do it sufficiently."*
+
+This closes the remediation track. **Do not run another census-and-clean pass.** The
+outstanding items §X.58 listed as "next" — the `090` on the regrowth, arming the gate more
+widely, re-fixing `funding-fit` — are **dropped by ruling**, not forgotten. The arc's own
+evidence supports it: the last sweep cleaned 124 sections and the count was back up four
+days later, so a third pass buys the same four days.
+
+Note what the ruling implicitly settles: **it is a DENSITY problem, not a zero-tolerance
+one.** "Stop the overuse" is not "remove every instance", which is what the 08-12 pass
+attempted and what produced the flatness the sibling lane warned about.
+
+### 2. Migration 454 — applied and recorded
+
+`page-content-writer`, `prompt_template` at
+`{workflow,steps,process_sections_loop,config,sub_workflow,steps,generate_content,config}`.
+Rule 19 added directly after rule 18. Config only, so **live immediately, no build**.
+
+**Which agent, decided by measurement not by name.** There are two plausible ones and the
+owner's phrase ("the content writer agent") fits both. `page-content-writer` has **1,826
+`llm_call_log` rows in 7 days, newest today**; **`content-writer` has ZERO.** Editing the
+dormant one would have changed nothing and looked identical afterwards — same shape as
+this lane's own `pages`-vs-`site_plan_pages` trap: pick the writer that runs, not the one
+that is named after the job.
+
+**Why NOT the per-site `avoid` list.** The prompt already renders
+`content_direction.avoid` as *"Avoid (do NOT do these)"*. Putting the word there is one
+edit per site — a sweep by another name, and one that goes stale the moment a 24th site
+exists. One rule at the writer covers every site including the ones not built yet.
+
+### 3. The trap in this change, and why the wording is defensive
+
+**This prompt uses the word four times itself, as instructions about the MODEL'S OWN
+truthfulness** — rule 18 (*"It is ALWAYS better to be honest and general than specific and
+fabricated"*), the empty-string rule, and two more. A naive "strip the word from the
+prompt" would have **deleted anti-fabrication rules on an estate whose entire
+evidence-gating apparatus exists to stop invented content.** That is the §X.58 refutation
+paying off immediately: without it I would have been editing those lines today.
+
+So rule 19 states the distinction rather than assuming the model infers it — keep **being**
+straight, never **label** it — which is the owner's own 2026-07-18 formulation. It also
+names the blessed exception and D-005, so the writer does not "fix" the report hero.
+
+The migration asserts the anti-fabrication rules **survive**, not merely that the new rule
+landed: it fails if rule 18 or the empty-string rule is missing afterwards, and fails if 19
+lands before 18. **Asserting only what you added cannot detect what you destroyed.**
+
+### 4. Verified — and the zero that meant nothing
+
+`[MEASURED 2026-08-17]` at the live row: rule 19 present, rule 18 present, empty-string
+rule present. **And the snapshot holds the PRE-change config** (asserted as *"must NOT
+contain rule 19"*) — the landmine's point exactly: do not ask whether a snapshot exists,
+ask whether it holds the state you would be restoring.
+
+> ⚠ **The near-miss.** Checking `llm_call_log.prompt_rendered` — the only record of what
+> the model was actually handed — gave **6 calls, 0 carrying rule 19**, with rule 18 as a
+> control present in all 6. That reads as *"the config changed and the prompt did not"*,
+> a real and serious failure mode. **It was wrong.** Every one of those calls happened
+> **BEFORE** the apply (newest 16:10:09, applied 16:19:44). Zero calls had run since the
+> change, so the zero was arithmetic, not evidence. **A control proving my QUERY works
+> does not prove the WINDOW contains anything** — I had a present-control and no
+> after-the-change control. Re-checking with `created_at > applied_at` returned 0 rows
+> *total*, which is the honest reading.
+
+Runtime confirmation therefore stays **[PENDING]** until a writer call lands after
+16:19:44 UTC. The check, with the window pinned to the ledger so it cannot drift:
+
+```sql
+WITH m AS (SELECT applied_at FROM schema_migrations WHERE filename LIKE '454%' LIMIT 1)
+SELECT count(*) AS calls_after_apply,
+       count(*) FILTER (WHERE prompt_rendered LIKE '%19. Never write the words%') AS carrying
+FROM llm_call_log l, m WHERE l.agent_type='page-content-writer' AND l.created_at > m.applied_at;
+```
+`calls_after_apply` must be > 0 before `carrying` means anything at all.
+
+### 5. What this does and does not do
+
+- It stops the writer **producing** the word in new copy. It is the only lever that scales
+  to sites that do not exist yet.
+- It does **nothing** to the 30 pages already carrying it — by ruling, those stay.
+- It does **nothing** to titles and meta descriptions, which no writer prompt governs
+  (§X.57) — those are data fields, and they are currently at 0 fleet-wide.
+- Tool copy comes from other generators. If the word keeps appearing in tool markup
+  specifically, that is a different prompt and a separate decision — **report it, do not
+  sweep it.**
+- Rollback is one file: `454_..._ROLLBACK.sql`, which removes the added sentence by exact
+  literal rather than restoring the whole snapshot (a whole-config revert would silently
+  discard any other session's change to this agent since).

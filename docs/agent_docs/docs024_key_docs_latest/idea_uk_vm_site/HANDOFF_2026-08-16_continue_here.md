@@ -1,5 +1,20 @@
 # HANDOFF 2026-08-16 — the head surfaces are clean, the BODY is regrowing. Read this, then §X.57–§X.58.
 
+> # ⛔ SUPERSEDED IN PART — OWNER RULING 2026-08-17 CLOSED THE HONESTY ARC
+> **§1 and §5 below are HISTORY, not instructions.** The owner ruled: *"we have dealt
+> with the honesty problem enough. It doesn't need any more sweeps. just stop the overuse
+> probably by a single stop word in the content writer agent."*
+> **Done — migration `454`** adds rule 19 to `page-content-writer`'s `prompt_template`
+> (config only, live immediately; ROLLBACK companion exists). **So: do NOT run the `090`
+> on the regrowth, do NOT arm the gate more widely for this word, and do NOT re-fix
+> `funding-fit`.** The 30 pages already carrying it STAY. The ruling also implicitly
+> settles that this is a DENSITY problem, not zero-tolerance.
+> ⚠ **If you are here to "clean the word out of the writer prompt", STOP** — four uses in
+> that prompt are anti-fabrication rules about the model's own truthfulness and deleting
+> them trades style for invented content. See §X.59.
+> **Everything else in this file still stands**, in particular §4 (the gate cannot see
+> titles or meta descriptions) and §6–§7.
+
 **Supersedes `HANDOFF_2026-08-14_continue_here.md` as the cold-start file.** That file is
 still correct on everything it describes and its §7 traps are still live — but its §5
 job is DONE (banner added there) and its §6 numbers are now WRONG in a way that matters:
