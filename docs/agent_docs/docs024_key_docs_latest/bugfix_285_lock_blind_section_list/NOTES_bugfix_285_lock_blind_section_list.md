@@ -244,3 +244,25 @@
   and the chat-box lock is the filing lane's; that page has not rebuilt since the roll and its
   evidence would be identical in shape (tool-level locked row, tier-1 page, plan omits it).
   Recommendation recorded in the bug file: move on the owner's word.
+
+## 2026-08-17 — CLOSED on the owner's word; what is left of the lane
+
+- Case file moved `bugs_open/` → `bugs_closed/` (both paths named on the commit; verified at HEAD
+  with `git ls-tree`, not at the tree — the `git mv` + pathspec trap ships a COPY otherwise).
+  Header now carries the CLOSED banner, the evidence pointer, and the one thing the closure does
+  NOT assert (contact/chat box never rebuilt through the fix).
+- LOCK-008 status → **deployed**; 016b §10 row → CLOSED with the `/bugs_closed/` path and the
+  resolve-by-slug warning (both 285s are now in `bugs_closed/`, so a bare number is worse than
+  ever).
+- **Open after closure, and none of it blocks:** (1) `RFC_033` — the architecture seat's
+  needs_rfc, awaiting an owner ruling; this lane's recommendation is the source-scan lockstep,
+  not a single entrypoint. (2) LOCK-008's open review question — should a merged locked section
+  be marked "carry the stored row" so the writer/render loop spends nothing on it and the
+  `overwrite` item stops recurring? Cost today is one template render per locked section per pass
+  (all locks are `static`-field components, no LLM spend measured); the benefit is silence, not
+  correctness. (3) The three advisory council residuals, recorded in LOCK-008: the between-builds
+  window where another `pages.sections` writer can leave a lock-blind list, the drift check's
+  fleet-wide loud failure, and the unenforced cross-package contract (= RFC_033). (4) `page-rebuild`
+  is the one dormant save path that would re-open the class if it woke — 0 runs in 30 days,
+  plans from `current_page.sections` with no loader in its chain. (5) webdesign.uk `contact`
+  acceptance + the chat-box lock: the filing lane's, unchanged.

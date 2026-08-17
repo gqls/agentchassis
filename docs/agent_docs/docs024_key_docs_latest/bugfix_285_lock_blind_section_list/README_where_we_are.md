@@ -176,3 +176,28 @@ evidence would look identical to the calculator's, because it is the same shape 
 **I recommend closing this one, and the chat-box lock decision sits with the lane that owns it**
 — your own ruling was that the lock holds until the fix is live, and it now is. Say the word and I
 will move the case file across.
+
+## 2026-08-17 — closed
+
+Moved the case file to the closed set on your word. The header says plainly what the closure does
+and does not claim: it claims the fault is fixed, running and demonstrated on a real rebuild; it
+does not claim the webdesign.uk contact page has been through it, because that page hasn't
+rebuilt since. Same shape of problem, and the chat-box lock is still that lane's call.
+
+What is actually left, in plain terms — none of it urgent, and none of it a fault:
+
+1. **One question for you**, written up as RFC_033: "the page's section list" is worked out
+   independently in eight places, and after this fix exactly two of them know about locked
+   sections. Nothing stops a ninth being written blind — which is how this bug happened. My
+   recommendation is the cheap version: a test that fails the build when someone adds a new reader
+   without saying whether it honours locks, rather than forcing all eight through one function
+   (they legitimately want different answers, and one of them must NOT honour locks).
+2. **A small polish, deliberately not done:** a locked section still gets rebuilt and then thrown
+   away — the guard keeps the human's copy, which is correct, but the work is wasted and it files
+   a routine "tried to overwrite" note each pass. Making it skip the work entirely is a separate,
+   optional change; it buys quiet, not correctness, and it costs nothing today because every
+   locked section on the fleet renders from a template with no AI call.
+3. **One thing to watch:** there is a dormant rebuild path that plans from the page's cached list
+   without going through the fixed code. It has not run in a month. If it wakes, it could
+   reproduce this on that route — noted in the register and the runbook so it is not a surprise.
+4. **The contact page and its chat box** stay with the webdesign lane, as you ruled.

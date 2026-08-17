@@ -1,5 +1,14 @@
 # Handoff — the section-list assembler is lock-blind: every rebuild proposes a list without the page's locked sections, and only the terminal write guard stands between that and deletion
 
+> ✅ **CLOSED 2026-08-17 — fixed AND live AND proven at the artefact** (owner's word, on the
+> evidence in the "PROVEN — 2026-08-17" section at the foot of this file: the merge fired on a
+> natural rebuild of loancalculator.co.uk `index`, corr `b45d9965`, and all five acceptance
+> criteria plus a served-page check held). Live in `v1.0.1305` (both council rounds).
+> **The one thing this closure does NOT assert:** webdesign.uk `contact` has not rebuilt since
+> the roll, so the chat box has not been through it — same case shape (tool-level locked row on
+> a tier-1 page whose plan omits it), and the lock/rebuild decision stays with the
+> webdesign_uk_build_service lane. Residuals live on in LOCK-008 and `RFC_033`.
+>
 > ⚠ **285 IS AN AMBIGUOUS NUMBER** — filed the same day as
 > `285_HANDOFF_2026-08-15_tool_improver_rewrites_a_shared_template_…` (an
 > unrelated case). Refer to this one by slug
