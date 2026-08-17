@@ -3177,3 +3177,38 @@ this session's cold-start falsifier sweep:
   only then is "the binary is 6a782274b" evidence. **A control has to be capable of
   being absent; a control that is present in every possible world is decoration.**
   This is the sibling of the filed "discovery grep matches Go's digit table" trap.
+
+## 2026-08-17 (evening 2) — owner settled the terms mechanics; lock off SAFELY; bot audience narrowing removed; reasons doc delivered
+
+- **Lock off, in the safe order** — see `SQL_2026-08-17_plan_carries_chat_then_unlock.sql`.
+  The finding that made the order matter: the `is_current` plan (`6a3e6d1b`) held
+  `contact = [hero, contact-info]` ONLY, so the chat box survived purely as a locked row
+  the 285 fix merges in (`locked_merge_count=1`). **Unlocking alone would have let the very
+  next rebuild delete it** — the 2026-08-11 deletion again. Plan row added (ordering 2),
+  THEN `locked_at` cleared, one transaction, DO/RAISE verify refusing to leave it unlocked
+  AND unplanned. Verified after: widget served, live turn answered.
+- **The bot was speaking the OLD terms to customers.** Measured: *"Do I get to see the site
+  before I pay?"* → *"Yes. You'll get a private preview link… You only pay the £149 once
+  you've approved it."* The bot renders `evidence_base` facts through the relay, so **the
+  register supersede fixes it in ~5 minutes with no rebuild and no deploy** — which makes
+  the register the FIRST thing to change, not the last. Recorded in `TERMS_…`.
+- **Audience narrowing removed from the bot.** `SITE_DESCRIPTION` on the box said "for small
+  and medium UK businesses"; the owner: *"it isn't necessarily just business sites"*. Changed
+  to "a service that builds complete websites" — the audience claim is **removed, not
+  replaced**, because inventing a new audience is a claim nobody attested. Verified live.
+  ⚠ Note this string is a BOX env var, not a register fact — grep the box, not the DB, when
+  the bot says something no fact explains.
+- **Dependency analysis delivered** (`TERMS_…`): **three** attested facts break, not one, and
+  `no_refund`'s `writer_line` literally instructs writers to say *"You pay once you have
+  approved the site"* — so changing only `payment_after_approval` lets one page state both
+  positions with each traceable to an attested fact and the gate passing both.
+- **Reasons doc delivered** (`DECISION_…`): five candidates, each checked true today, with
+  the superlative constraint applied throughout (a cheaper sibling brand is coming, so any
+  market-wide claim is untenable by construction). Surfaces that pay-first makes
+  `dda32da9`'s missing portfolio load-bearing, and two phrasing traps ("not refundable"
+  contradicts the legal-complaint backstop; the 1-month preview expiry reads as loss unless
+  the ZIP is named alongside it).
+- **Chassis**: new build confirmed (`v1.0.1307`; this morning's `6a782274b` now absent, with
+  a plausible-fake negative control also absent). Exact commit unresolved — the
+  candidate-by-candidate probe costs ~15s per exec and timed out after 7. Nothing of mine
+  depends on it: step 6 is config (live on apply), TL-043 was already live.

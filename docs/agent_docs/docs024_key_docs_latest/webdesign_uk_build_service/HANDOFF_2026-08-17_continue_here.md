@@ -37,6 +37,39 @@ until I've finalised that plan"*, which he is doing in the session
   register supersede the most urgent item, ahead of any page work.
 - **Still held**: the site rewrite, the chat move to `index`, the positioning copy.
 
+## 0c. UPDATE 2026-08-17 evening — owner settled the mechanics; the DECISION doc is the next input
+
+**Owner rulings this session** (his words, in `REQUIREMENTS…` and `TERMS…`):
+- Customer does **not** see the site before paying. Preview link: owner always; customer
+  **after payment**, **expires ~1 month**; customer also gets a **ZIP** to keep.
+- **No refunds.** A full refund is used only to settle a legal complaint — a **backstop, not
+  an advertised term**.
+- **Not businesses only.** The bot's self-introduction was narrowing to "small and medium UK
+  businesses" — that was MY `SITE_DESCRIPTION` on the box. Corrected 2026-08-17 to
+  "a service that builds complete websites" (audience claim REMOVED, not replaced), service
+  restarted, verified live: it now answers *"we build for anyone who wants a website"*.
+  Backup `/etc/webdesign-chat.env.bak-20260817`.
+- **Positioning**: multi-page, production, hosted, files handed over — *"different from what
+  Claude can do on your desktop"*. Phrase as what WE deliver, never as what a named product
+  cannot do (unverifiable by our own checker, and it dates).
+- **Second brand coming** (cheaper, even less service) ⇒ **no superlatives**, ever.
+
+**Next input he is waiting on nothing for:** `DECISION_2026-08-17_reasons_for_the_no_refund_position.md`
+— five candidate reasons, each verified true today, with a recommendation
+(lead A "the work is already done when you pay", support C "you own the files", justify B
+"the price is what these terms buy"). **He picks; then the register supersede runs.**
+
+**⚠ The gap the new position creates:** pay-first removes the preview, so visible EXAMPLES
+become the trust mechanism — and `dda32da9` ("No portfolio or case studies are present in
+any sampled page") is open and already FAILED. Under the old terms it was cosmetic; now it
+is load-bearing.
+
+**Chassis:** a genuinely new build is live — tag `v1.0.1307`, and this morning's binary
+(`6a782274b`) is now **absent** (controls sound: plausible-fake absent). Exact commit not
+resolved — probing candidate-by-candidate costs ~15s each and timed out; if it matters,
+probe from the pods' start time backwards, and see §3's warning about the PREVIOUS build
+which shipped nothing.
+
 ## 1. DO NOT START — the hold, and what it covers
 
 Everything in `REQUIREMENTS_2026-08-17_owner_brief_pending_new_plan.md` is held:
