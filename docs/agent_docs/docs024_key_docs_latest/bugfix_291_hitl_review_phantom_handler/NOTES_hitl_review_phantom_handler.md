@@ -117,3 +117,27 @@
   per-FINDING review keys, the bugfix-285 lane's recorded follow-on.
 - Round 2 submitted ~12:50Z, same trail: `RESUBMIT_CORR=4d1ed8a5`, run orch
   `a89b64c8-c7ac-44f3-8ef8-61272b5acba5`. Verdict watcher armed.
+
+## 2026-08-17 (close of session) — council APPROVED round 2
+
+- Round 2 verdict ~12:55Z: **APPROVED — "approved with 2 advisory objection(s), none
+  high-severity"**. `editquality`, `bug_historian`, `reuse_agent` and 8 others clean.
+  Advisories, all already answered by design or process:
+  - guardian [medium]: register+council is "documentation not sign-off" — recorded; the
+    estate has no per-pipeline sign-off authority short of the owner (2026-07-29 ruling
+    #3's "tell them" is the register + this trail).
+  - guardian [low]: probe latency under agent_definitions lock contention not ruled out
+    by an EXPLAIN — the kill-switch is the mitigation (disarm without a roll).
+  - debug_historian [medium]: rollout evidence must be read from the RUNNING binary,
+    never commit hashes — agreed; that is already the bug file's closure criterion
+    (provenance stamp + merge-base before the staged flip, RUNBOOK section).
+  - prior_art_librarian [low ×2]: helper existence + kill-switch commit — both verified
+    in-tree (`workItemHandlerRegisteredSQL` pre-exists from 284 at work_items_common.go;
+    kill-switch in `f629f4530`).
+- Commits `c8400e452` + `f629f4530` carry `Council-Submitted: 4d1ed8a5…`; 098 credits
+  them automatically now the verdict is approved (no amend — forward-only).
+- **Remaining to close 291** (fixed-AND-live bar): (1) next fleet roll carries the two
+  Go commits — verify per SERVICE at the provenance stamp, `git merge-base
+  --is-ancestor c8400e452 <stamp>`; (2) apply the STAGED phase-3 flip (renumber into
+  sql_for_agents/ at the then-free number); (3) one natural tool-auditor run files
+  `''`+`needs_human_review` review items; (4) straggler sweep + next-day census.
