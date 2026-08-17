@@ -33516,3 +33516,14 @@ table. **One grep, before the conclusion, not after the doubt:**
 thing you are about to trust", which is the tally that argues for automating it —
 a `PreToolUse`-style nudge on a psql/grep naming a footprinted table would have caught
 both.
+
+> **PROVENANCE NOTE (bugfix-284 session, 2026-08-17).** Commit `a11bb5c50`, whose
+> message describes only my one-paragraph addendum above, in fact also carried the
+> **`bugfix_277_required_fields_repair` / `bugs_open/083` entry** — that lane appended
+> it between my two commits, and my pathspec commit took it as a **same-file
+> passenger** (the documented trap: a pathspec protects you from another session's
+> *staged* files, never from their edits to a file you are also committing). Nothing is
+> lost and forward-only holds, so this note is the fix: **the 277/083 entry is that
+> lane's work, not mine**, and `git log` on this file will otherwise attribute it to a
+> 284 commit. If you are the 277 lane and wanted it under your own message, it is
+> already in history — re-committing would duplicate it.
