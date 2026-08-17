@@ -237,6 +237,12 @@ need judgement" into `RFC_034` §4 as the basis of the recommended option.
 
 **The real classifier says 88 of 91.**
 
+> **CORRECTED same day (see MISSTEP 7 below): the 88 was the classifier's own defect** — a 70%
+> false-flag rate from an anchored wrapper regex that could not see past a leading `/* tool-doc */`
+> comment. The corrected figure is **25**, and the regex triage this misstep condemned had been
+> within one of the truth. The misstep recorded here is still real — the proxy *was* the wrong
+> instrument — but its punchline number was not.
+
 What caught it, before the owner acted on it: the triage query's own last line said all 67
 "mechanical" rows still contained an inline `<script>`. A component with inline JavaScript and *no*
 scoping problem is possible but unusual, and 67 of them was not credible. **Two numbers I had put
