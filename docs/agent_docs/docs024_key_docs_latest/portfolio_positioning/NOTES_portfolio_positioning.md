@@ -1804,3 +1804,63 @@ deployed fine for weeks, so the route is decided somewhere else.
 
 **Not this lane's to fix** — shared deploy infrastructure — but it is the reason the pilot
 site is built and not published, so it belongs in this lane's handoff as the blocking item.
+
+### 2026-08-17 (late) — v1.0.1307 IS a real build, 292 is LIVE, the outage is over, and B3f's volume is finally measured
+
+**The tag moved: v1.0.1305 → v1.0.1307.** Another lane found and fixed the same thing I
+reported, independently and in the commit message: *"BUILD: bump IMAGE_TAG to v1.0.1306 —
+v1.0.1305 was reused, so the cluster has been re-serving a cached 08-16 binary and 24 code
+commits across ~10 lanes are inert"* (`aa9c7b74f`), then `e24dc0e6c` → v1.0.1307.
+
+**`bugs_open/292`'s fix is LIVE.** `git merge-base --is-ancestor e0d662243 e24dc0e6c` → true,
+and the pods (started 17:05:46Z) run the image tagged by that commit (16:36:35Z). So the fix
+shipped. **292 can be closed once someone confirms at the artefact** — I am asserting
+ancestry, which is the documented test, not a binary read.
+
+> **CORRECTED — MY OWN PROBE METHOD WAS WRONG TWICE TODAY, and it nearly produced a confident
+> false negative.**
+> 1. `grep -aq "<my commit sha>" /proc/1/exe` **only matches if the build was made from
+>    EXACTLY that commit.** The binary carries ONE stamp — the commit it was built from — not
+>    every ancestor. So ABSENT means "not built from this commit", *not* "does not contain the
+>    fix". I read it the wrong way at first and would have reported 292 as unshipped.
+> 2. `grep -aoE "[0-9a-f]{40}"` to *discover* the stamp returned **20 strings, none of them a
+>    real commit** (`git cat-file -e` refused all 20). That is the trap LANDMINES already
+>    describes — it matches Go's internal digit table. I ran it having read that entry.
+> 3. `grep -aq "bestDomainKey"` (yesterday) tested a **local variable name**, which Go strips.
+> **The method that works, in order:** read the service's own `build provenance` line
+> (`kubectl logs -l app=<svc> --tail=300 | grep -m1 'build provenance'`) — but it is a STARTUP
+> line and had already scrolled here after ~1h; failing that, take the tag-bump commit from
+> `git log -p -- makefile` and run **`git merge-base --is-ancestor <your-commit> <that
+> commit>`**. Never a discovery grep, never a symbol that is not a string literal.
+
+**THE DEPLOY OUTAGE IS OVER, and the zero is demand-controlled.** Since the 17:05Z roll:
+**0** `base tree` 404s, against **117** other errors in the same window (so the error door is
+live) and real deploy demand — 89 `page_rerender` triaged, 7 claimed, 2 failed, 16
+`contrast_failure` completed. Compare ~832 404s in the preceding three hours. **The 090
+(`75220928…`) was overtaken by the roll** — it still has no verdict; read it for the routing
+question if it lands, but the incident is closed. **What I never established stays
+unestablished**: which component chose the git route for a no-repo site, and what changed at
+13:31. If it recurs, that is the question.
+
+**B3f's structural checks — the "[UNMEASURED] volume" from the last handoff is now MEASURED:**
+| check | items | sites | first seen |
+|---|---|---|---|
+| `head_essentials_missing` | **247** | 8 | 2026-08-16 10:01Z |
+| `dead_internal_link_live` | 6 | 3 | 2026-08-17 12:32Z |
+| `canonical_mismatch` | 4 | 3 | 2026-08-17 12:32Z |
+| `structured_data_invalid`, `sitemap_entry_dead_live` | 0 | — | — |
+247 is a real backlog, not noise — but all are `detected` and **flag-only by design**
+(`HandlerAgent ""`), so they consume no handler capacity and dispatch nothing. Treat as
+intelligence to triage, not an incident. **The two silent checks are the ones to be careful
+about**: zero could be "clean estate" or "never exercised", and I have NOT distinguished them.
+
+**The six directory checks are at ZERO — and this time that is a PASS, provable rather than
+assumed.** The pilot is the only opted-in site and it HAS its `mortgage-lenders` page with the
+right composition (verified directly at proof point 2), so
+`missing_mortgage_lender_directory_page` SHOULD be silent. The net stayed quiet because there
+was nothing to catch, which is only a meaningful statement because the page was checked first.
+
+**Pilot unchanged since 16:21Z** — its failed and `needs_human_review` items are untouched.
+Now that deploys work again, the failed `needs_imagery`/`needs_page`/`needs_rerender` items are
+candidates for a retry, but **their `attempt_count` is exhausted (1–3 of max 3)**, so they will
+not retry themselves. That is the next concrete action for this lane.
