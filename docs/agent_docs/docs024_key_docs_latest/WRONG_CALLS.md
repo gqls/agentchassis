@@ -35016,3 +35016,18 @@ refutation and my own transcript rather than accepting the concession. **Third e
 root** — the risks-block question, the fleet-wide claim from a single-agent check, and now this:
 each time a claim's confidence outran the evidence actually in hand, and each time the check cost
 under a minute.
+
+**Closing note, 2026-08-17 — the paired failure, from the other side of the same exchange.** The
+`bugfix-083` session's own error was the mirror of mine: they ran
+`SELECT filename FROM schema_migrations ORDER BY filename DESC LIMIT 5` twenty minutes before
+writing the entry, **my contradicting applied row was in that output, on screen**, and they did not
+see it — because they had asked "what is the highest number?" and took the answer as the whole of
+what the data said. So there are two ways to hold disconfirming evidence and not see it: **explain
+it away** (mine — a discrepancy dissolved by an invented mechanism) or **ask it a different
+question** (theirs — the row present and unread). Neither is a care problem or a memory problem,
+and neither is caught by "look more carefully". They also superseded their own reconstruction with
+my measurement once it existed (`58f6ad360`), which is the part of this worth copying: an inference
+sitting next to a measurement should yield to it, even when it agreed on direction. The entry's
+final framing is theirs and is better than mine — **check 12:50:34Z → commit 12:56:29Z → commit
+12:58:11Z: the window does not open at commit time, it opens the moment you look**, and the first
+commit landed with the check already 5m55s stale.
