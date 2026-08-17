@@ -34,9 +34,9 @@ func TestSingleSlotFloors_CatchesFlatteningThatKeepsTheText(t *testing.T) {
 		t.Fatalf("fixture: existing should carry 43 class attributes, got %d", got)
 	}
 	// The TEXT floor alone would allow this — that is the precondition.
-	et := len(strings.TrimSpace(shrinkGuardTagStripper.ReplaceAllString(existing, "")))
-	it := len(strings.TrimSpace(shrinkGuardTagStripper.ReplaceAllString(incoming, "")))
-	if v := evaluateSectionShrink(defaultSectionShrinkFloor,
+	et := visibleTextLength(existing)
+	it := visibleTextLength(incoming)
+	if v := evaluateSectionShrink(defaultSectionShrinkFloor, minShrinkGuardVisibleChars,
 		map[string]int{"prose-0": et}, map[string]int{"prose-0": it}); len(v) != 0 {
 		t.Fatalf("precondition: the text floor must ALLOW this save, got %+v", v)
 	}
@@ -54,9 +54,9 @@ func TestSingleSlotFloors_CatchesTextLossThatKeepsTheLayout(t *testing.T) {
 	existing := buildSlotHTML(20, 900)
 	incoming := buildSlotHTML(20, 100)
 
-	et := len(strings.TrimSpace(shrinkGuardTagStripper.ReplaceAllString(existing, "")))
-	it := len(strings.TrimSpace(shrinkGuardTagStripper.ReplaceAllString(incoming, "")))
-	if v := evaluateSectionShrink(defaultSectionShrinkFloor,
+	et := visibleTextLength(existing)
+	it := visibleTextLength(incoming)
+	if v := evaluateSectionShrink(defaultSectionShrinkFloor, minShrinkGuardVisibleChars,
 		map[string]int{"prose-0": et}, map[string]int{"prose-0": it}); len(v) != 1 {
 		t.Fatal("the text floor must refuse a gutting that keeps the layout")
 	}
@@ -73,9 +73,9 @@ func TestSingleSlotFloors_AllowsAGenuineRewrite(t *testing.T) {
 	existing := buildSlotHTML(43, 800)
 	incoming := buildSlotHTML(31, 760)
 
-	et := len(strings.TrimSpace(shrinkGuardTagStripper.ReplaceAllString(existing, "")))
-	it := len(strings.TrimSpace(shrinkGuardTagStripper.ReplaceAllString(incoming, "")))
-	if v := evaluateSectionShrink(defaultSectionShrinkFloor,
+	et := visibleTextLength(existing)
+	it := visibleTextLength(incoming)
+	if v := evaluateSectionShrink(defaultSectionShrinkFloor, minShrinkGuardVisibleChars,
 		map[string]int{"prose-0": et}, map[string]int{"prose-0": it}); len(v) != 0 {
 		t.Fatalf("a genuine rewrite must pass the text floor, got %+v", v)
 	}

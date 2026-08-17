@@ -87,7 +87,7 @@ func TestCountComponentClassesTolerance(t *testing.T) {
 // it is asserted directly: the case that shipped kept 84% of its text.
 func TestComponentFloorCatchesWhatTheTextFloorAllows(t *testing.T) {
 	// Text: 3776 -> 3172 chars is 84% kept, above the 0.5 text floor.
-	if v := evaluateSectionShrink(defaultSectionShrinkFloor,
+	if v := evaluateSectionShrink(defaultSectionShrinkFloor, minShrinkGuardVisibleChars,
 		map[string]int{"prose-0": 3776}, map[string]int{"prose-0": 3172}); len(v) != 0 {
 		t.Fatalf("precondition: the text floor allowed this save, got %+v", v)
 	}

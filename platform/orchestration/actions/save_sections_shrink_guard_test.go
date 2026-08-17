@@ -6,13 +6,21 @@ import "testing"
 // numbers are the real ones: generic-text-block went 4020→1650 stripped chars
 // (57% loss) while its siblings grew by one anchor each, and the page-total
 // guard passed the save.
+//
+// The minimum is a parameter as of bugs_open/293, so every case names the one it
+// is exercising rather than inheriting a constant. min defaults to
+// minShrinkGuardVisibleChars (200) when a case leaves it zero — which is what both
+// live callers pass — and the cases that exist to pin the boundary set it
+// explicitly, including at the retired 500 so the change of value is itself tested
+// rather than assumed.
 func TestEvaluateSectionShrink(t *testing.T) {
 	cases := []struct {
-		name       string
-		floor      float64
-		existing   map[string]int
-		incoming   map[string]int
-		wantSlots  []string
+		name      string
+		floor     float64
+		min       int
+		existing  map[string]int
+		incoming  map[string]int
+		wantSlots []string
 	}{
 		{
 			name:  "the 178 case: one prose slot gutted, siblings grew — refused",
@@ -56,10 +64,47 @@ func TestEvaluateSectionShrink(t *testing.T) {
 		{
 			name:  "param-sized slots shrink legitimately — the gamesdesign hero rewrite",
 			floor: 0.5,
-			// 499 stripped chars is under minShrinkGuardChars: a -70% shrink
+			// 199 VISIBLE chars is under minShrinkGuardVisibleChars: a -70% shrink
 			// here was a measured IMPROVEMENT, not damage.
-			existing:  map[string]int{"hero-tool": 499},
-			incoming:  map[string]int{"hero-tool": 150},
+			existing:  map[string]int{"hero-tool": 199},
+			incoming:  map[string]int{"hero-tool": 60},
+			wantSlots: nil,
+		},
+		{
+			// THE VALUE CHANGE, pinned in both directions (bugs_open/293). 499
+			// visible chars was out of scope under the retired 500-char minimum and
+			// is IN scope now — that slot losing 70% of what a reader sees is the
+			// case the whole change exists to catch, and 587 of 1,079 rebuild pairs
+			// sat in this band.
+			name:      "a mid-sized prose slot is IN scope at the visible minimum",
+			floor:     0.5,
+			min:       minShrinkGuardVisibleChars,
+			existing:  map[string]int{"generic-text-block": 499},
+			incoming:  map[string]int{"generic-text-block": 150},
+			wantSlots: []string{"generic-text-block"},
+		},
+		{
+			name:      "…and the same slot was OUT of scope under the retired 500 minimum",
+			floor:     0.5,
+			min:       minShrinkGuardChars,
+			existing:  map[string]int{"generic-text-block": 499},
+			incoming:  map[string]int{"generic-text-block": 150},
+			wantSlots: nil,
+		},
+		{
+			name:      "the minimum is a >= boundary: exactly at it is judged",
+			floor:     0.5,
+			min:       minShrinkGuardVisibleChars,
+			existing:  map[string]int{"body": minShrinkGuardVisibleChars},
+			incoming:  map[string]int{"body": 10},
+			wantSlots: []string{"body"},
+		},
+		{
+			name:      "one char under the minimum is not judged",
+			floor:     0.5,
+			min:       minShrinkGuardVisibleChars,
+			existing:  map[string]int{"body": minShrinkGuardVisibleChars - 1},
+			incoming:  map[string]int{"body": 10},
 			wantSlots: nil,
 		},
 		{
@@ -87,15 +132,23 @@ func TestEvaluateSectionShrink(t *testing.T) {
 			incoming: map[string]int{
 				"faq": 2100, "about-content": 1400, "hero-about": 100,
 			},
-			// hero-about is under the size threshold; the two prose slots are
-			// the vetcomparison 08-01 numbers.
-			wantSlots: []string{"about-content", "faq"},
+			// The two prose slots are the vetcomparison 08-01 numbers. hero-about
+			// (460 → 100) is now reported TOO: it was exempt under the retired
+			// 500-char minimum and 460 visible chars is a real block of copy losing
+			// 78% of it. That third violation is the change of minimum showing up in
+			// a case written before it, which is why the case is kept rather than
+			// re-tuned.
+			wantSlots: []string{"about-content", "faq", "hero-about"},
 		},
 	}
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			got := evaluateSectionShrink(tc.floor, tc.existing, tc.incoming)
+			min := tc.min
+			if min == 0 {
+				min = minShrinkGuardVisibleChars
+			}
+			got := evaluateSectionShrink(tc.floor, min, tc.existing, tc.incoming)
 			gotSlots := make(map[string]bool, len(got))
 			for _, v := range got {
 				gotSlots[v.Slot] = true

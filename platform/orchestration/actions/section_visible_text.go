@@ -52,12 +52,21 @@
 // "A guard that refuses good work gets switched off, and then it protects
 // nothing" (component_write_guard.go's header, the same lesson).
 //
-// THE MINIMUM IS ALREADY THERE, AND IT IS 500 — not a number this file adds.
-// evaluateSectionShrink skips any slot whose EXISTING side is under
-// minShrinkGuardChars (500), so short captions and param blobs are out of scope
-// without a second rule. An earlier draft added its own 120-char minimum; a
-// mutation run (delete the clause, see what fails) showed it was dead code,
-// because 500 dominates it. It was deleted rather than kept as decoration.
+// THE MINIMUM IS ALREADY THERE — not a number this file adds. evaluateSectionShrink
+// skips any slot whose EXISTING side is under the minimum its caller passes, so
+// short captions and param blobs are out of scope without a second rule. An earlier
+// draft added its own 120-char minimum; a mutation run (delete the clause, see what
+// fails) showed it was dead code, because the shared minimum dominated it. It was
+// deleted rather than kept as decoration.
+//
+// > CORRECTED 2026-08-17 (bugs_open/293): that minimum was 500 and a hardcoded
+// > constant when this was written. It is now minShrinkGuardVisibleChars (200),
+// > passed as a parameter — this file's own closing paragraph predicted both the
+// > need and the shape ("the fix is a lower minimum for this axis — which needs
+// > evaluateSectionShrink to take it as a parameter"), and 293's sweep supplied the
+// > number. 500 was calibrated against TAG-STRIPPED lengths, so carrying it onto
+// > this axis quietly excluded ordinary prose: on the rebuild population it left
+// > 587 of 1,079 slots unjudged, and on this path 110 of 263.
 //
 // WHAT THE AXIS CHANGE LOOSENS, measured rather than waved at. Applying the 500
 // rule to VISIBLE text leaves 74 of the 117 pairs in scope, so 43 (37%) fall
@@ -75,14 +84,35 @@
 // axis — which needs evaluateSectionShrink to take it as a parameter, not a
 // second copy of the ratio rule here.
 //
-// SCOPE, deliberately narrow. This is used by the SECTION-EDITOR call site
-// (single_slot_floors.go) only. The whole-page save path
-// (save_sections_shrink_guard.go) still measures the tag-stripped axis: its
-// writes are DELETE+INSERT rebuilds, which the archive records as delete rows
-// with no successor to pair against — 3,603 of them against the 281 overwrite
-// rows — so there is no pair evidence for that path, and changing an axis
-// fleet-wide on evidence that does not cover it is how a guard starts refusing
-// good work. Recorded as an open question in bugs_open/293, with the query.
+// SCOPE — no longer narrow, as of 2026-08-17.
+//
+// > CORRECTED 2026-08-17 (bugs_open/293), and the correction is the whole point of
+// > that bug. This paragraph used to read: "This is used by the SECTION-EDITOR call
+// > site (single_slot_floors.go) only. The whole-page save path
+// > (save_sections_shrink_guard.go) still measures the tag-stripped axis: its writes
+// > are DELETE+INSERT rebuilds, which the archive records as delete rows with no
+// > successor to pair against — 3,603 of them against the 281 overwrite rows — so
+// > there is no pair evidence for that path."
+// >
+// > **The successor was never missing.** It is the LIVE page_components row, and
+// > page_components.created_at proves the re-insert belongs to the rebuild that had
+// > just deleted its predecessor: 1,123 of 1,254 within 60 s, 1,109 within 5 s, and
+// > not one live row older than its own last delete. That yields 1,079 exactly-paired
+// > rebuild writes — nine times this file's original evidence base — and the same
+// > rule reproduces the three refusals above with identical figures when applied to
+// > the overwrite rows, which is the control that earned it.
+//
+// All three text floors now measure with this function: the per-slot whole-page
+// guard and the page-total floor (both in save_sections_shrink_guard.go) and the
+// section editor (single_slot_floors.go). What holds a fourth caller to it is
+// shrink_axis_coverage_test.go, not this comment.
+//
+// One consumer of the RETIRED axis remains, deliberately:
+// load_current_section_content_action.go:262 uses shrinkGuardTagStripper with
+// minShrinkGuardChars (500) to judge whether an unclaimed stored slot is
+// "prose-sized" enough to be a plausible body-text match. It refuses nothing, so it
+// is a pairing heuristic rather than a floor, and re-tuning it would change which
+// slots get paired with no calibration for that decision.
 package actions
 
 import (

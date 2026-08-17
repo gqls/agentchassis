@@ -386,23 +386,35 @@ func SavePageSectionsAction(ctx context.Context, params ActionParams) (interface
 	}
 
 	// DIAGNOSTIC: record what actually reached the save path — per-section HTML
-	// lengths and the stripped-text total the regression guard will compute.
+	// lengths and the text totals the floors below will compute.
 	// Logged unconditionally so these numbers are visible on a passing save too,
 	// not only when the guard blocks.
+	//
+	// It reports BOTH axes on purpose (bugs_open/293). This line used to advertise
+	// itself as "the stripped-text total the regression guard will compute", and
+	// tag-stripped length stopped being that the moment the floors moved to visible
+	// text — a diagnostic that names the wrong quantity is worse than none, because
+	// whoever debugs a refusal reads it as the guard's own arithmetic. Keeping the
+	// retired axis alongside is what makes a refusal legible: the signature of this
+	// bug's failure mode is html and stripped GROWING while visible COLLAPSES.
 	{
 		diagStripper := regexp.MustCompile(`<[^>]*>`)
 		diagTotal := 0
+		diagVisibleTotal := 0
 		diagPerSection := make([]string, 0, len(sections))
 		for _, s := range sections {
 			diagStripped := strings.TrimSpace(diagStripper.ReplaceAllString(s.HTML, ""))
+			diagVisible := visibleTextLength(s.HTML)
 			diagTotal += len(diagStripped)
+			diagVisibleTotal += diagVisible
 			diagPerSection = append(diagPerSection,
-				fmt.Sprintf("%s:html=%d,stripped=%d", s.ComponentName, len(s.HTML), len(diagStripped)))
+				fmt.Sprintf("%s:html=%d,stripped=%d,visible=%d", s.ComponentName, len(s.HTML), len(diagStripped), diagVisible))
 		}
 		params.Logger.Info("SavePageSectionsAction: sections reaching save",
 			zap.String("page_name", pageName),
 			zap.Int("section_count", len(sections)),
 			zap.Int("stripped_text_total", diagTotal),
+			zap.Int("visible_text_total", diagVisibleTotal),
 			zap.String("per_section", strings.Join(diagPerSection, " | ")),
 		)
 	}
@@ -572,38 +584,14 @@ func SavePageSectionsAction(ctx context.Context, params ActionParams) (interface
 	// Refuse to overwrite content-rich pages with empty template shells.
 	// This prevents LLM failures (credit exhaustion, timeouts, empty responses)
 	// from wiping good content that was previously generated and deployed.
-	{
-		var existingTextLen int
-		scanErr := params.DB.QueryRowContext(ctx, `
-			SELECT COALESCE(SUM(
-				LENGTH(REGEXP_REPLACE(rendered_html, '<[^>]*>', '', 'g'))
-			), 0)
-			FROM page_components
-			WHERE page_id = $1 AND build_status = 'deployed'
-		`, pageID).Scan(&existingTextLen)
-
-		if scanErr == nil && existingTextLen > 200 {
-			newTextLen := 0
-			tagStripper := regexp.MustCompile(`<[^>]*>`)
-			for _, s := range sections {
-				stripped := tagStripper.ReplaceAllString(s.HTML, "")
-				stripped = strings.TrimSpace(stripped)
-				newTextLen += len(stripped)
-			}
-
-			if newTextLen < existingTextLen/4 {
-				params.Logger.Warn("SavePageSectionsAction: CONTENT REGRESSION BLOCKED — new content has much less text than existing",
-					zap.String("page_name", pageName),
-					zap.Int("existing_text_chars", existingTextLen),
-					zap.Int("new_text_chars", newTextLen),
-					zap.Int("new_sections", len(sections)),
-				)
-				return nil, fmt.Errorf(
-					"content regression blocked: new content has %d chars of text vs %d existing (page: %s). "+
-						"This usually means the LLM returned empty content. Refusing to overwrite.",
-					newTextLen, existingTextLen, pageName)
-			}
-		}
+	// Extracted to save_sections_shrink_guard.go (bugs_open/293) so it has a home,
+	// a test, and the config escape hatch it never had — and so its axis is the same
+	// VISIBLE-text measure its two siblings below use. As an inline block measuring
+	// tag-stripped length in SQL it would allow a whole-page prose wipe on 337 of
+	// 366 pages: a stylesheet anywhere on the page props up the total that every
+	// slot's loss is diluted into. Same guarantee, same thresholds, honest measure.
+	if regressionErr := enforcePageTotalTextFloor(ctx, params, siteID, pageID, pageName, sections); regressionErr != nil {
+		return nil, regressionErr
 	}
 
 	// --- Per-slot shrink guard (bugs_open/178) ---

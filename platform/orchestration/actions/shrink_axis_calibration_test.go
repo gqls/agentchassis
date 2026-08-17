@@ -89,8 +89,8 @@ func TestShrinkAxisCalibration(t *testing.T) {
 	}
 
 	axes := []axis{
-		{"tag-stripped (live on the whole-page path)", tagStrippedLengthForCalibration},
-		{"visible text (live on the section editor)", visibleTextLength},
+		{"tag-stripped (RETIRED 2026-08-17, kept as comparator)", tagStrippedLengthForCalibration},
+		{"visible text (LIVE on all three floors)", visibleTextLength},
 	}
 
 	// Refusals are keyed by pair id per axis so the agreement between axes is
@@ -106,10 +106,10 @@ func TestShrinkAxisCalibration(t *testing.T) {
 		for _, p := range pairs {
 			existing := map[string]int{p.Slot: a.measure(p.Existing)}
 			incoming := map[string]int{p.Slot: a.measure(p.Incoming)}
-			if existing[p.Slot] >= minShrinkGuardChars {
+			if existing[p.Slot] >= minShrinkGuardVisibleChars {
 				inScope[i]++
 			}
-			for _, v := range evaluateSectionShrink(defaultSectionShrinkFloor, existing, incoming) {
+			for _, v := range evaluateSectionShrink(defaultSectionShrinkFloor, minShrinkGuardVisibleChars, existing, incoming) {
 				refused[i][p.id()] = true
 				details[i] = append(details[i], fmt.Sprintf("    %s: %d→%d (%.1f%% kept)",
 					p.id(), v.Existing, v.Incoming, v.ratio()*100))
@@ -118,7 +118,7 @@ func TestShrinkAxisCalibration(t *testing.T) {
 	}
 
 	t.Logf("pairs: %d (floor %.2f, minimum %d chars on the EXISTING side)",
-		len(pairs), defaultSectionShrinkFloor, minShrinkGuardChars)
+		len(pairs), defaultSectionShrinkFloor, minShrinkGuardVisibleChars)
 	for i, a := range axes {
 		sort.Strings(details[i])
 		t.Logf("axis %-44s in scope %4d/%4d   refuses %3d",
@@ -219,8 +219,8 @@ func TestShrinkAxisBlindness(t *testing.T) {
 	}
 
 	axes := []axis{
-		{"tag-stripped (live on the whole-page path)", tagStrippedLengthForCalibration},
-		{"visible text (live on the section editor)", visibleTextLength},
+		{"tag-stripped (RETIRED 2026-08-17, kept as comparator)", tagStrippedLengthForCalibration},
+		{"visible text (LIVE on all three floors)", visibleTextLength},
 	}
 	type outcome struct{ inScope, refused, allowed int }
 	results := make([]outcome, len(axes))
@@ -242,18 +242,18 @@ func TestShrinkAxisBlindness(t *testing.T) {
 			continue
 		}
 		simulated++
-		if visibleTextLength(p.Existing) >= minShrinkGuardChars {
+		if visibleTextLength(p.Existing) >= minShrinkGuardVisibleChars {
 			wroteProse++
 		}
 
 		for i, a := range axes {
 			existing := map[string]int{p.Slot: a.measure(p.Existing)}
 			incoming := map[string]int{p.Slot: a.measure(hollow)}
-			if existing[p.Slot] < minShrinkGuardChars {
+			if existing[p.Slot] < minShrinkGuardVisibleChars {
 				continue // out of this axis's scope: it declines to judge
 			}
 			results[i].inScope++
-			if len(evaluateSectionShrink(defaultSectionShrinkFloor, existing, incoming)) > 0 {
+			if len(evaluateSectionShrink(defaultSectionShrinkFloor, minShrinkGuardVisibleChars, existing, incoming)) > 0 {
 				results[i].refused++
 			} else {
 				results[i].allowed++
@@ -270,7 +270,7 @@ func TestShrinkAxisBlindness(t *testing.T) {
 	}
 
 	t.Logf("prose-bearing sections simulated: %d of %d pairs (%d carry ≥%d visible chars)",
-		simulated, len(pairs), wroteProse, minShrinkGuardChars)
+		simulated, len(pairs), wroteProse, minShrinkGuardVisibleChars)
 	for i, a := range axes {
 		t.Logf("axis %-44s judged %4d   REFUSES the wipe %4d   ALLOWS it %4d",
 			a.name, results[i].inScope, results[i].refused, results[i].allowed)
@@ -291,52 +291,44 @@ func TestMinimumSweep(t *testing.T) {
 	if err != nil {
 		t.Fatalf("loading pairs: %v", err)
 	}
+	// The sweep drives the REAL decision at every minimum. It used to replicate
+	// evaluateSectionShrink's arithmetic — because the minimum was a hardcoded
+	// constant and a sweep had no other way in — and carried a pinning assertion so
+	// the copy could not drift. bugs_open/293 made the minimum a parameter, which
+	// deleted both the copy and the need for the assertion: there is now one rule
+	// and the harness turns its dial.
 	for _, min := range []int{500, 400, 300, 200, 150, 120, 100, 50} {
-		visInScope, visRefused, hollowCaught, refusedGuardJudged := 0, 0, 0, 0
+		inScope, refused, hollowCaught, refusedGuardJudged := 0, 0, 0, 0
 		var judged []string
 		for _, p := range pairs {
-			ex := visibleTextLength(p.Existing)
-			if ex < min {
-				continue
+			ex := map[string]int{p.Slot: visibleTextLength(p.Existing)}
+			if ex[p.Slot] >= min {
+				inScope++
 			}
-			visInScope++
-			// The real historical write.
-			if float64(visibleTextLength(p.Incoming)) < float64(ex)*defaultSectionShrinkFloor {
-				visRefused++
+			if v := evaluateSectionShrink(defaultSectionShrinkFloor, min, ex,
+				map[string]int{p.Slot: visibleTextLength(p.Incoming)}); len(v) > 0 {
+				refused++
 				if p.GapS <= guardJudgedGapSeconds {
 					refusedGuardJudged++
 					judged = append(judged, fmt.Sprintf("        %s: %d→%d visible, gap %.0fs",
-						p.id(), ex, visibleTextLength(p.Incoming), p.GapS))
+						p.id(), v[0].Existing, v[0].Incoming, p.GapS))
 				}
 			}
-			// The constructed wipe of the same section.
-			if float64(visibleTextLength(hollowVisibleText(p.Existing))) < float64(ex)*defaultSectionShrinkFloor {
+			if len(evaluateSectionShrink(defaultSectionShrinkFloor, min, ex,
+				map[string]int{p.Slot: visibleTextLength(hollowVisibleText(p.Existing))})) > 0 {
 				hollowCaught++
 			}
 		}
-		t.Logf("minimum %4d visible chars: in scope %4d/%4d   refuses real writes %2d (of which the guard would actually have judged %2d)   catches the wipe %4d",
-			min, visInScope, len(pairs), visRefused, refusedGuardJudged, hollowCaught)
+		marker := ""
+		if min == minShrinkGuardVisibleChars {
+			marker = "  ← SHIPPED"
+		}
+		t.Logf("minimum %4d visible chars: in scope %4d/%4d   refuses real writes %2d (of which the guard would actually have judged %2d)   catches the wipe %4d%s",
+			min, inScope, len(pairs), refused, refusedGuardJudged, hollowCaught, marker)
 		sort.Strings(judged)
 		for _, j := range judged {
 			t.Log(j)
 		}
-	}
-	// The sweep replicates evaluateSectionShrink's arithmetic to vary a
-	// threshold the shipped function hardcodes, so it is pinned to the real
-	// decision at the shipped minimum — if the two ever disagree there, the
-	// sweep is measuring a rule nobody runs.
-	shipped, replicated := 0, 0
-	for _, p := range pairs {
-		ex := map[string]int{p.Slot: visibleTextLength(p.Existing)}
-		in := map[string]int{p.Slot: visibleTextLength(p.Incoming)}
-		shipped += len(evaluateSectionShrink(defaultSectionShrinkFloor, ex, in))
-		if ex[p.Slot] >= minShrinkGuardChars && float64(in[p.Slot]) < float64(ex[p.Slot])*defaultSectionShrinkFloor {
-			replicated++
-		}
-	}
-	if shipped != replicated {
-		t.Fatalf("the sweep's arithmetic does not reproduce evaluateSectionShrink at minimum %d: %d vs %d",
-			minShrinkGuardChars, shipped, replicated)
 	}
 }
 
@@ -362,7 +354,7 @@ func TestPageTotalGuardBlindness(t *testing.T) {
 	}
 	// The live rule: existing page text over 200 chars, refuse below a quarter.
 	const pageMinChars, pageFloor = 200, 0.25
-	type totals struct{ tagEx, tagHollow, visEx, visHollow int }
+	type totals struct{ tagEx, tagIn, tagHollow, visEx, visIn, visHollow int }
 	byPage := map[string]*totals{}
 	for _, p := range pairs {
 		tp := byPage[p.PageName+"@"+p.Domain]
@@ -372,16 +364,21 @@ func TestPageTotalGuardBlindness(t *testing.T) {
 		}
 		hollow := hollowVisibleText(p.Existing)
 		tp.tagEx += tagStrippedLengthForCalibration(p.Existing)
+		tp.tagIn += tagStrippedLengthForCalibration(p.Incoming)
 		tp.tagHollow += tagStrippedLengthForCalibration(hollow)
 		tp.visEx += visibleTextLength(p.Existing)
+		tp.visIn += visibleTextLength(p.Incoming)
 		tp.visHollow += visibleTextLength(hollow)
 	}
-	tagJudged, tagRefuses, visJudged, visRefuses := 0, 0, 0, 0
+	var tagJudged, tagRefuses, tagReal, visJudged, visRefuses, visReal int
 	for _, tp := range byPage {
 		if tp.tagEx > pageMinChars {
 			tagJudged++
 			if float64(tp.tagHollow) < float64(tp.tagEx)*pageFloor {
 				tagRefuses++
+			}
+			if float64(tp.tagIn) < float64(tp.tagEx)*pageFloor {
+				tagReal++
 			}
 		}
 		if tp.visEx > pageMinChars {
@@ -389,13 +386,18 @@ func TestPageTotalGuardBlindness(t *testing.T) {
 			if float64(tp.visHollow) < float64(tp.visEx)*pageFloor {
 				visRefuses++
 			}
+			// The REAL rebuild, not the constructed one — the false-refusal
+			// question for this guard, which the wipe column cannot answer.
+			if float64(tp.visIn) < float64(tp.visEx)*pageFloor {
+				visReal++
+			}
 		}
 	}
 	t.Logf("pages: %d  [APPROXIMATE — paired slots only, not every deployed row]", len(byPage))
-	t.Logf("page-total axis tag-stripped (live): judged %3d  REFUSES a whole-page prose wipe %3d  ALLOWS it %3d",
-		tagJudged, tagRefuses, tagJudged-tagRefuses)
-	t.Logf("page-total axis visible text:        judged %3d  REFUSES a whole-page prose wipe %3d  ALLOWS it %3d",
-		visJudged, visRefuses, visJudged-visRefuses)
+	t.Logf("page-total axis tag-stripped (live): judged %3d  REFUSES a whole-page prose wipe %3d  ALLOWS it %3d   refuses REAL rebuilds %2d",
+		tagJudged, tagRefuses, tagJudged-tagRefuses, tagReal)
+	t.Logf("page-total axis visible text:        judged %3d  REFUSES a whole-page prose wipe %3d  ALLOWS it %3d   refuses REAL rebuilds %2d",
+		visJudged, visRefuses, visJudged-visRefuses, visReal)
 }
 
 // hollowVisibleText builds bugs_closed/285's failure out of a real section:

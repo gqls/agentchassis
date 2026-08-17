@@ -339,14 +339,17 @@ func expectSaveSlotReads(mock sqlmock.Sqlmock, siteID, pageID uuid.UUID, pageNam
 	mock.ExpectQuery("FROM site_specs").
 		WillReturnRows(sqlmock.NewRows([]string{"data"}))
 
-	// Content regression guard — nothing deployed, so it stands down
-	mock.ExpectQuery("SELECT COALESCE\\(SUM").
-		WithArgs(pageID).
-		WillReturnRows(sqlmock.NewRows([]string{"sum"}).AddRow(0))
+	// Page-total text floor — nothing deployed, so it stands down.
+	// It reads rendered_html now rather than SUM()ing a tag-stripped length in
+	// SQL (bugs_open/293): visible text needs a real parse, and REGEXP_REPLACE
+	// cannot exclude what is inside <style>. So this is a THIRD read of
+	// page_components and the ordered expectations below count from here.
+	mock.ExpectQuery("FROM page_components").
+		WillReturnRows(sqlmock.NewRows([]string{"rendered_html"}))
 
 	// Per-slot shrink floor (bugs_open/178)
 	mock.ExpectQuery("FROM page_components").
-		WillReturnRows(sqlmock.NewRows([]string{"slot_name", "len"}))
+		WillReturnRows(sqlmock.NewRows([]string{"slot_name", "rendered_html"}))
 
 	// Per-slot component floor (bugs_open/253). A SECOND read of
 	// page_components, immediately after the shrink floor's. It must be

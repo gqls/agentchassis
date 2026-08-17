@@ -110,12 +110,20 @@ func enforceSingleSlotFloors(ctx context.Context, params ActionParams, siteID, p
 	// calls this function it inherits the loosened axis with zero calibration
 	// coverage"). Measured 2026-08-17 over platform/ internal/ pkg/ cmd/, non-test:
 	// enforceSingleSlotFloors has exactly ONE caller, section_editor_actions.go:436
-	// (the content_edit branch) — the path the 117 archived pairs came from. The
-	// shared pure decision evaluateSectionShrink has two callers, this one and
-	// save_sections_shrink_guard.go:165, and that one still passes tag-stripped
-	// lengths: the axis lives in the CALLER, so the whole-page path is unaffected
-	// by construction, not by convention. A second caller of THIS function inherits
-	// the visible axis with no calibration of its own — re-run the harness first.
+	// (the content_edit branch) — the path the archived overwrite pairs came from.
+	// A second caller of THIS function inherits the visible axis with no calibration
+	// of its own — re-run the harness first (shrink_axis_calibration_test.go).
+	//
+	// > CORRECTED 2026-08-17 (bugs_open/293), same day: this note used to end "and
+	// > that one still passes tag-stripped lengths: the axis lives in the CALLER, so
+	// > the whole-page path is unaffected by construction, not by convention." Both
+	// > halves are now false and the second was the weaker claim of the two — an axis
+	// > that lives in the caller is not "unaffected by construction", it is
+	// > UNGOVERNED, which is why the whole-page path went on measuring stylesheets as
+	// > prose for a fortnight after this one stopped. Both callers of
+	// > evaluateSectionShrink now pass VISIBLE text and the same minimum, and what
+	// > holds a third caller to it is shrink_axis_coverage_test.go rather than this
+	// > paragraph.
 	//
 	// The text axis is VISIBLE text — style/script/comment blocks removed with
 	// their content — not the tag-stripped length the whole-page path uses.
@@ -131,12 +139,19 @@ func enforceSingleSlotFloors(ctx context.Context, params ActionParams, siteID, p
 	incomingComp := map[string]int{slot: countComponentClasses(incomingHTML)}
 
 	var reasons []string
-	// evaluateSectionShrink applies its own minShrinkGuardChars (500) to the
-	// EXISTING side, so a short caption is out of scope without a second rule
-	// here. An earlier version of this change added its own 120-char minimum;
-	// MUT-2 proved it dead code (removing it broke nothing, because 500
-	// dominates) and it was deleted rather than kept as decoration.
-	for _, v := range evaluateSectionShrink(textFloor, existingText, incomingText) {
+	// The governing minimum on the EXISTING side is passed in, so a short caption
+	// is out of scope without a second rule here. An earlier version of this change
+	// added its own 120-char minimum; MUT-2 proved it dead code (removing it broke
+	// nothing, because the shared minimum dominated) and it was deleted rather than
+	// kept as decoration.
+	//
+	// It is minShrinkGuardVisibleChars (200), lowered from 500 on 2026-08-17 by
+	// bugs_open/293 — WITH this path's own evidence, not as a side effect of the
+	// whole-page fix. Re-run over the 263 archived overwrite pairs: scope rises
+	// 153 → 204 and the refusals stay the same 4, all of them real hollowings. 500
+	// had been calibrated against tag-stripped lengths, where a stylesheet inflates
+	// every count, and applying it to visible text was excluding ordinary prose.
+	for _, v := range evaluateSectionShrink(textFloor, minShrinkGuardVisibleChars, existingText, incomingText) {
 		reasons = append(reasons, fmt.Sprintf("%s %d→%d chars of VISIBLE text, stylesheet and script content excluded (%.0f%% kept, floor %.0f%%)",
 			v.Slot, v.Existing, v.Incoming, v.ratio()*100, textFloor*100))
 	}
