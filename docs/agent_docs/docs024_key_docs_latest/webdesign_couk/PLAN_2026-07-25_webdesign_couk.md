@@ -366,3 +366,41 @@ it was internally coherent — but nobody checked whether the reader wants it. A
 positioning argument about what makes US credible is not evidence about what a
 visitor came to the site to do. Test a section against the visitor's errand before
 writing it, not against how defensible its premise feels.
+
+### D16 — Nominet registrar page ships THROUGH THE FRAMEWORK, not as a one-off (owner, 2026-08-17)
+
+The owner is applying to Nominet for a second registrar tag (**DESIGNCONSULT**,
+Channel Partner classification) and needs webdesign.co.uk to carry the
+customer-facing disclosures the Registry-Registrar Agreement requires (Schedule
+D.1.1–D.1.7 + Key Terms + B.1.8/9/10/13 — extracted references in NOTES
+2026-08-17). Three rulings from the exchange:
+
+1. **Delivery is framework, not artefact.** A hand-spliced `/domains/index.html`
+   was built (untracked in ~/projects/sites, content owner-approved facts) —
+   the owner then directed: *"update the webdesign.co.uk plan and spec so this
+   page is delivered through the framework and not as a one off."* The hand file
+   is the CONTENT REFERENCE, not the deliverable. **Do not rebase/push the sites
+   repo for it** (owner: "Don't rebase the repo").
+2. **Transfer away is FREE on this page.** The owner wants a **£150
+   transfer-away fee in the webdesign.uk build-service model** (there the client
+   is buying the domain off us) — but THIS page describes direct domain
+   purchase through us, a different offering, so it truthfully says free.
+   The £150 belongs to the webdesign.uk thread's pricing, not here.
+3. **The facts are fixed and owner-supplied** (see NOTES 2026-08-17 + correction
+   below): trading name webdesign.co.uk, no company number;
+   **37 Fleetside, West Molesey, East Surrey KT8 2NF** (house number added by
+   owner 08-17); tel +44 (0) 7934 524 911; info@designconsultancy.co.uk (also
+   abuse contact); £10/month registration AND renewal; commitments at the RRA
+   bounds (ack ≤5wd, resolve target 10wd, expiry notice ≤30d, reg ≤1wd,
+   changes/transfers ≤2wd). **These must survive the framework writer
+   VERBATIM** — a paraphrased guarantee on a regulator-facing page is the
+   043 fabricated-claims class in its most expensive costume.
+
+**Mechanism (established, partially):** the build path is a `pages` row +
+`needs_page` item for `page-build-handler` (SQL_p18 is this site's own worked
+example; reconcile_site_plan files the item automatically only for pages in
+`site_plan_pages`). **Open question for the next session:** the fact-carriage
+seam — how the spec pins owner facts so `llm_fields` writers cannot drift them
+(candidates: evidence_base/writer_block facts, component static fields/schema
+`fallback`, or the RFC_016 fact-assignment mechanism from the fundamentallyai
+lane). Search before building; do not invent a new seam.
