@@ -4665,3 +4665,38 @@ below ran from `git archive HEAD` + this task's files in scratch.
   had to be sequenced against each other, and it is easy to get backwards.
 - 417 live proof still demand-bound: 0 image-build-handler runs in 19 h (3 in the prior 8 days),
   0 strict/`asset_id` errors.
+
+## 2026-08-17 — the logo.jpg gets its supported path: retract_asset_files built (DGH-010)
+
+Owner: check again for a supported deletion path; if none, build the narrow capability. Checked
+a fourth time with fresh eyes and two new angles: the admin API HAS a wired
+`DELETE /sites/:id/assets/:id` — and it is an `assets.status='deleted'` UPDATE returning
+`{"deleted": true}` with the file still serving (the misleading-success shape, worth knowing
+before anyone reaches for it). And the mcalc `.xcf` removal (`bad331c27`) was hand-run
+`b2 rm` + a hand commit — operator surgery, not a path. Decisive extra fact: **logo.jpg has NO
+assets row at all**, so every row-keyed mechanism is structurally unable to name it. Verdict
+unchanged: no supported path. Built option 2.
+
+**`retract_asset_files`** (commit `37303a6dd`, registered **DGH-010** same commit,
+`Council-Submitted: 82b595c5`): caller-named orphan asset deletion through the adapter's
+existing `delete_file` verb — NOT the RFC 011 extension DGH-006 forbids (no new verb, generic
+allowlist untouched; a guarded dedicated caller is option B's own shape). Five guards, each
+mutation-proven (5 mutants, 5 kills, each by exactly its own test): `/assets/` scope-lock after
+`path.Clean` (refuse, never sanitise); refuse any non-deleted row's derived path via the shared
+`DeployedAssetPath` (superseded/retired refuse too — the drain's lesson); refuse brand-head
+published paths (legitimately row-less); refuse anything deployed `rendered_html` references
+(bucket-A's wire-check made structural); **dry_run defaults TRUE**, armed only by a step-config
+literal (the 2026-08-02 §2 shape). Refusals returned AND persisted (`ASSET_RETRACTION_REFUSED`/
+`AUDIT` in agent_error_log — the RFC_029 ~90s-retention lesson). `sendGitDeleteFileRequest`
+generalised with a message param; sibling behaviour byte-identical; full suite green; HEAD
+rebuilt from `git archive` and green.
+
+**INERT until the next roll.** Then, in order: binary probe with a negative control → rename
+`sql_for_agents/446_asset_retraction_agent_HOLD.sql` (drop `_HOLD`) → scoped migration apply →
+`scripts/RETRACT_gaswholesalers_logo_jpg.sh` dry run → read refusals → `ARM=1` → verify at the
+wire with the control pair (jpg 404 AND png 200) + the audit row. The armed route via
+step_overrides is `[UNVERIFIED]` — fallback stated in the script.
+
+Pattern-check advisory on the commit flagged `retract_page_deployment_action.go:704` — that line
+is the ORIGINAL 098 log call (blames to `43c259f46`); my diff moved line numbers, and the logged
+values are derived paths, not model output. Noted, not actioned.
