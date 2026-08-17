@@ -6,7 +6,33 @@ copy-voice work lives in session "copy quality two stage".
 
 ## 1. THE ONE THING TO DO FIRST
 
-**The pilot is building. Watch it, and check the three proof points in order.** Dispatched
+> ## ⛔ READ THIS BEFORE WATCHING THE PILOT — IT IS BLOCKED, AND NOT BY US
+>
+> **The whole fleet's build pipeline is head-of-line stuck, and every layer reports success.**
+> `build-pipeline-trigger.find_dispatchable_site` selects `ORDER BY wi.created_at ASC …
+> LIMIT 1` across the ESTATE (it does not filter `pipeline='build'` the way the scheduled
+> task's gate does). The head row — `8c921926-…`, `add_tool` on **webdesign.co.uk**, created
+> 11:19Z — is returned by the dispatcher inside a `pending` block, never claimed:
+> `status=triaged`, `attempt_count=0`, while `updated_at` bumps every run. Eight consecutive
+> firings picked that same site. The orchestration COMPLETES each time with no `__step_error`.
+> **The pilot is 5th of 36 eligible items and cannot be reached until the head clears.**
+>
+> - **Do not touch that item.** It is the `webdesign_tool_rebuilds` lane's owner-directed
+>   rebuild at an existing page = **`bugs_open/286`**, fix built + council-approved, **NOT
+>   LIVE — it rides the next chassis roll.** Their item, their bug; never cancel a failing
+>   row pre-diagnosis.
+> - **Not `bugs_open/029`** (that is hung spawns stuck in `AWAITING_RESPONSES`; here they
+>   complete). Different mechanism, same fleet-wide consequence.
+> - **`090` filed** rather than a guessed root cause — I can show the selector and the stuck
+>   row, but not why a returned `pending` item is never claimed:
+>   **`RUN_CORRELATION_ID=5fbb7f4c-9968-4b95-9048-caad202cea4a`** (artifacts are keyed under
+>   that id, not the intake one). **Read it first.**
+> - **The likely unblock is the fleet roll** (which also ships `292`'s fix and `286`'s) —
+>   owner-run. After it, re-check the head row before assuming the pilot moves.
+> - Ordering is `created_at ASC`, so new arrivals queue BEHIND the pilot: its position can
+>   only improve. Nothing needs re-dispatching, and re-submitting would just add a second row.
+
+**The pilot is dispatched and queued** (blocked as above — clear that first). Dispatched
 2026-08-17 ~11:4xZ, correlation `fb048d5f-b4b3-49c8-bc02-2810bbe209aa`.
 `domain-submitter` COMPLETED; `needs_domain_research` is triaged to
 `domain-research-classifier`. Everything below is a query, not an inference.
