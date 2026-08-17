@@ -34255,3 +34255,35 @@ current and correctly read, and the **comparison** was meaningless.
 reached a commit or a handoff. The bug file's remaining-work list was corrected in place
 and the trap is now `LANDMINES.md` ("`make -n release` descends into NOTHING…"), because
 the recipe is written down in a bug file where the next reader will find it and believe it.
+
+---
+
+## 2026-08-17 — I wrote a measurable question into a council submission's RISKS block instead of measuring it (`bugs_open/297`, caught before dispatch)
+
+**The claim.** Drafting the round for migration 453, I wrote into `risks`: *"created_at is nullable
+on research_results, and a NULL sorts first under DESC … Worth a reviewer's opinion on whether to
+add NULLS LAST."*
+
+**Why that is a wrong call and not diligence.** CLAUDE.md's 2026-07-28 ruling says it in one line:
+**"Measure the blast-radius claim before you submit; do not ask the reviewer to."** `bugs_closed/124`
+listed "verify no collision" as a risk for the council to check and drew the objection that this is
+not evidence. I reproduced the shape exactly — on a tree whose own rules I had just re-read, in a
+submission whose rationale quotes that lane's lessons twice.
+
+**The cheap check, which is one query:**
+`SELECT count(*) FILTER (WHERE created_at IS NULL) FROM research_results WHERE result_type='adoption_page';`
+→ **0 of 21.** Nine seconds. And the answer does not merely retire the risk, it changes the code:
+the guard costs one word, so `NULLS LAST` went into the query, the verify block's literal, the file
+header and the submission before it fired. **A risk you can close for free is not a risk to hand a
+reviewer** — it is an edit you have not made yet.
+
+**What makes this worth a row rather than a shrug.** The risks block is exactly where a
+measurable-but-unmeasured thing looks *responsible*: it reads as candour, it is written in the
+same voice as the measured items around it, and no reader can tell from the prose which ones cost a
+query and which cost a paragraph. That is the `[UNMEASURED]`-marker failure at the level of a whole
+section — the marker rule makes a checked claim look checked and does nothing to make an unchecked
+one look unchecked.
+
+**Caught by:** re-reading my own risks block before firing, and noticing that item 3 named a table,
+a column and a predicate — i.e. it was already written as a query. **The tell is syntactic:** if a
+"risk" contains enough detail to run, it is not a risk, it is a to-do. Cost: nothing, this time.
