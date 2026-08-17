@@ -596,3 +596,44 @@ blocked on the unique-index decision **4** · remaining clear **57** · builds a
   been deployed" was true of 1307 and false of 1305 (same tag ⇒ cached image, 267 commits inert).
   **The claim is not the evidence, in either direction** — 1305 taught "do not believe it", and 1307
   is the reminder that disbelief is not the answer either; both times the binary settled it.
+
+## 2026-08-17 19:00–21:45Z — #4 LIVE and PASS · #5 LOST THE RERENDER RACE (repaired) · #6 filed
+
+- **#4 `tool-html-minifier` — PASS at the served page.** Rerender complete 19:27:24Z.
+  `https://webdesign.co.uk/tools/html-minifier/index.html`: `http=200`, 13,007 B,
+  `class="ported-page"` **0** (was 1), `{{\.` **0**, the OLD tool's id `htmlInput` **0** (gone),
+  the new tool's own ids present — `html-input` 3, `opt-comments` 3, `opt-whitespace` 3,
+  `copy-btn` 2, and `protectRegions` 2 (the pre/script/style guard is in the served bytes).
+  Controls: negative **0**, positive **7**.
+- **#5 `tool-svg-optimizer` — the run and the component are GOOD, but I LOST THE RETIRE RACE.**
+  - Run clean: `complete`, `page_adopted=true`, no `already_exists`, no `__step_error`,
+    component `88b70065-9ac5-45e8-88c6-5027034daa59`.
+  - Component PASS: 7,879 chars, `{{\.` **0**, 1 script, 0 `script src`, **0 `alert(`**,
+    **0 inline `onclick=`**, visible 247. **All seven transforms present, in the specified order** —
+    comment removal (the defect the ported version had disabled), the xml declaration, the DOCTYPE,
+    the metadata block, whitespace collapse, tag-gap removal, plus a `(style|script)` guard that
+    swaps those regions out for NUL-delimited PROTECTEDBLOCK placeholders and restores them after.
+    ids `svg-stripper-input/-output/-input-count/-output-count/-saved/-copy-btn` ⇒ the character
+    counts and the saved-percentage readout are all there.
+  - **THE MISS:** the build completed **19:00:24Z**. The generator's rerender `cd098325` was claimed
+    **20:37:02Z** and completed 20:37:38Z — **with the ported slot still `deployed`.** So from 20:37
+    to 21:45 the page served **BOTH** tools: measured at 21:41, 19,415 B (up from ~12 KB) with
+    `class="ported-page"` **1** and the ported `inputCode` **2** alongside the new component.
+    Exactly the ab-test shape this lane exists to avoid.
+  - **Repaired:** ported slot `665075ab-591c-47e8-af95-faab9f48b73d` to `removed`, `UPDATE 1`,
+    md5 `be0f5c3530636eddb04e03c82141d8a8` byte-identical to the handle taken at filing. A second
+    rerender `b607fd48-1817-485e-8587-3fc79dd94620` was already queued and will assemble it correctly.
+  - **WHY it happened, honestly: the race is not a race against the queue, it is a race against MY
+    ATTENTION.** I armed a watcher and reported to the owner; the build finished during the gap
+    between turns and the rerender came up ~96 minutes later, still unattended. The three earlier
+    tools were won by luck of timing, not by design — margins were ~45 min, ~2 min and ~26 min.
+    **A step whose correctness depends on someone being awake is not a controlled step.**
+  - **Cost is bounded and self-healing, which is why this is a note and not a bug:** the damage is a
+    page serving two tools until the next rerender; no data is lost, the ported bytes are intact, and
+    any queued `page_rerender` repairs it once the slot is `removed`. → `WRONG_CALLS.md`.
+- **#6 `tool-sri-generator` FILED** — item `b1073c5d-3e83-4bfa-b7ac-c77dc4522f27`, page
+  `211c3abc…`, both gates pre-asserted. Revert handle: slot
+  **`7d4b69db-66a0-4c81-ba4e-6e27ab09fc49`, 4,752 chars, md5 `16332add36f84bddc5da40d8aa5d59c3`**.
+  Brief adds an async/debounce requirement (`crypto.subtle.digest` is a promise), a secure-context
+  fallback message, clearing on empty input (the ported one leaves a stale hash), and the usual
+  no-`alert()`/no-inline-`onclick`.

@@ -34859,3 +34859,17 @@ documents that exact trap, one section above the query I copied.
   **Tally for "asserted a gap my own prior check had closed": 1.** What worked: the
   correction cost one `git log -S` and landed the same day, in the same files, before anyone
   read the overstatement as history.
+- **I treated a timing-critical production step as if my attention were guaranteed, and lost it.**
+  The rebuild recipe requires retiring the old tool's slot before the generator's self-queued rerender
+  is claimed. I armed a watcher, reported to the owner, and the build completed between turns; the
+  rerender ran ~96 minutes later against a page that still had both slots live, so
+  `/tools/svg-optimizer/index.html` served TWO tools for about 68 minutes. I had already written
+  "retire immediately after the component grades, not after writing it up" into my own NOTES after a
+  2-minute margin the day before — and then did exactly that again, one tool later.
+  **The cheap check:** before filing, ask whether you will be present when the build lands; the margin
+  has been measured at 45, 2, 26 and 96 minutes, so **there is no safe assumption**. Treat "I won the
+  race" on the earlier tools as timing luck, not as evidence the step is controlled — three wins in a
+  row is exactly what makes an uncontrolled step feel controlled. Damage here was bounded and
+  self-healing (retire late, the next queued rerender repairs it, ported bytes intact), which is the
+  only reason this is a note rather than an incident. Tally for "a step whose correctness depended on
+  me being awake": 1.

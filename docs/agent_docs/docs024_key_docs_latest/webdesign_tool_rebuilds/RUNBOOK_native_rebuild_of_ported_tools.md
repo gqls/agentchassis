@@ -216,3 +216,19 @@ ORDER BY created_at DESC LIMIT 1;
 `agent_error_log` (`occurred_at`, not `created_at`) carries the same failure independently — filter
 `agent_type='tool-generator'` over the window. **A NULL `create_result` prints as a blank line under
 `psql -At`, which reads exactly like "no run happened" — it means the run died before `save_tool`.**
+
+## The retire race is against YOUR ATTENTION, not the queue (added 2026-08-17, after losing it)
+
+The generator queues its own rerender the moment the build completes. Measured margins between build
+completion and that rerender being claimed: **~45 min, ~2 min, ~26 min, ~96 min.** There is no floor.
+If the build lands while nobody is looking, the page serves BOTH tools until someone notices.
+
+- **Do not file a rebuild you cannot attend.** The window opens when the `add_tool` item completes,
+  and the build itself takes under a minute once claimed.
+- **If you lose it, it is repairable and self-healing** — no data is lost. Retire the ported slot as
+  normal; any queued `page_rerender` for that page then assembles it correctly. Check for one before
+  filing a new one:
+  `SELECT id,status FROM site_work_items WHERE page_id='<page>' AND item_type='page_rerender' AND status IN ('triaged','approved','claimed','pending');`
+- **Confirm the damage at the served page rather than assuming it** — a double-tool page is obvious
+  by size (the SVG page went ~12 KB to 19,415 B) and by `class="ported-page"` being 1 when it should
+  be 0, with both tools' control ids present.
