@@ -1082,3 +1082,41 @@ unprompted, on a tool page on the games design site. The sweep filed the finding
 to rewrite the page, the guard correctly refused, the task died, and no note was left for anyone.
 That gives us a clean "before" measurement to compare against once the fix does ship: the same site,
 the same page, and a count that is currently, provably, zero.
+
+---
+
+## 2026-08-17 (evening) — the second build was real, and the fix is now proven working
+
+The version label was bumped this time, so the machines actually picked up new code. I checked the
+binary rather than trusting the deployment, and the fix is in it.
+
+Then I waited for the thing that actually matters, which is not "is it installed" but "does it do
+anything". **It does.** Over the evening, eight tool-owned pages across four of our sites were
+put through a generic rewrite, correctly refused — and each refusal now leaves a note for a human
+saying which page, why, and what to do instead. Before this fix there had been **zero** such notes
+in the entire history of the system; the refusals simply vanished.
+
+**The check I care about most is the one that could have embarrassed me.** Eight notes appearing
+proves nothing on its own — a broken version of this fix that filed a note every single time would
+produce exactly the same eight, plus a great many more nobody would notice for weeks. So I checked
+the opposite: in the same period, six ordinary pages were rewritten successfully and **produced no
+notes at all**. That is the result that separates "it works" from "it fires at everything", and
+it is the only reason I am willing to call this proven rather than probably fine.
+
+Two smaller things held up as designed. The same page was refused twice within five minutes and
+produced one note, not two. And the failed tasks stayed marked as failed rather than being quietly
+marked done — which matters, because a task falsely marked done is a worse problem than the one we
+just fixed.
+
+I have closed the bug. Two things deliberately did **not** close with it, and both are written
+down where the next person will find them. The note we now leave tells a human to use the targeted
+section editor — which is right if they are changing something already on the page, and a dead end
+if they need to *add* something, because that editor cannot add. And more importantly: this makes
+the refusal visible, it does not make the page get fixed. The tool-owned pages that need content
+changes still need a route that works on them, and that is a separate piece of work.
+
+**One number worth your attention.** While measuring, I found **26** content tasks that have died
+on tool-owned pages over the past week, from **six different parts of the system** — the automated
+checkers, the design auditor, the cross-linker, the offer analyser and two others. I can only prove
+three of those were this exact fault; the rest are past the point where the evidence expires. But
+that is the scale of what has been disappearing quietly, and from tonight it is all visible.
