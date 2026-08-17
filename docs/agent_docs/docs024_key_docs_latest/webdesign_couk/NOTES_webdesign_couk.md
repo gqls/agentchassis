@@ -1815,3 +1815,31 @@ nav_label "Domain registration", + ported-page component (component_id
 item → nav-updater for the footer row (chrome is a stored artefact, 117); (5)
 verify live: curl the URL for 200 + grep DESIGNCONSULT, then footer link on 2–3
 pages after the fan-out.
+
+## 2026-08-17 (later) — D16 executed: the Nominet page is now FRAMEWORK-delivered
+
+Owner rulings landed mid-session: £150 transfer-away belongs to webdesign.uk's
+build service (CONTRIB filed in their dir), THIS page says free; house number
+37; deliver through the framework, no repo rebase. **SQL_p23 applied 2026-08-17:**
+- `evidence_base` spec CREATED (site's first): 15 owner-attested facts
+  (identity, £10/month, commitment set), writer_block in the fleet idiom
+  (no em dash, negation-in-clause rule), 1 banned claim (accredited).
+  NOTE: this arms the stat audit for all future BUILDS on this site
+  (validate_page_content_stats keys on row-with-facts existing). Ported-page
+  rebuilds don't pass through it; stat-component builds now need register
+  backing. Deliberate.
+- Plan store rows: site_plan_pages `domains` + 5 site_plan_sections with
+  assigned_fact_ids (tier-1 authoritative; section_facts wiring confirmed in
+  page-build-handler config). Components chosen NON-RANGING (260 risk):
+  hero + 4x generic-text-block, NO call-to-action (SQL_p19 empty-buttons
+  precedent).
+- pages row `domains` planned, rebuild_policy='generic' (framework-owned),
+  footer-only (D15/D16), page_spec.purpose = the writer's brief.
+- needs_page:domains triaged for page-build-handler (SQL_p18 pattern).
+Pre-dispatch checks: no competing open items on a domains page; pods 103m old.
+The hand-built ~/projects/sites/webdesign.co.uk/domains/index.html is now
+REFERENCE ONLY — delete once the framework page is live and verified.
+OWED next: build outcome (needs_human_review + unrendered_template = 260, do
+not re-dispatch); artefact facts verbatim (37 Fleetside, £10, DESIGNCONSULT,
+free of charge); footer nav (about precedent says footer renders primary+
+utility, SQL_p22); live 200.
