@@ -454,3 +454,75 @@ they were made before the verdict, forward-only forbids an amend, and `098` reso
 report time, so they are credited automatically now that it is approved. **Do not read them as
 un-reviewed.** ⚠ Commits `5cafe18ef`, `171121579`, `665c6773a` carry the earlier DEAD correlation
 `85971036` (refused unreviewed); `3f918bd34` records the supersession.
+
+## ✅ LIVE 2026-08-16 at v1.0.1305 — verified at the artefact, with controls; and a CORRECTION to my own census
+
+Fleet rolled 22:07:55Z. **Both target images shipped** — the chassis roll carried
+`reasoning-agent:v1.0.1305` too, so the "needs its OWN image" caveat above is satisfied.
+
+### Deploy proven at the binary, not at git or the tag
+
+| check | result |
+|---|---|
+| `reasoning-agent` build stamp (from its own log) | `6a782274b626c9f4977c9246d905deebb097cb1f` |
+| `git merge-base --is-ancestor 5cafe18ef 6a782274b` | **YES** — the fix is in the deployed build |
+| `agent-chassis` binary probe, positive control | expected sha **present** in `/proc/1/exe` |
+| `agent-chassis` binary probe, **negative control** | fabricated sha **absent** — the probe discriminates |
+| deployed `configs/reasoning-agent.yaml` carries the 257 annotation | **PRESENT**, with a fabricated-string control **absent** |
+
+⚠ The chassis' `build provenance` line had already **scrolled out of `--tail=400`** — the documented
+landmine. The binary probe has no shelf life and is what settled it.
+
+### `reasoning-agent` survived reading its own config for the first time
+
+3 pods `Running`, **0 restarts**, 0 error/panic/fatal lines. Worth checking rather than assuming: this
+is the first build in the service's life where that YAML `max_tokens` is actually parsed (as an `int`,
+which is exactly the type the pre-existing `float64`-only reader would have dropped).
+
+### The central claim tested live: "this alters zero requests in the fleet"
+
+`llm_call_log`, 12h before the roll vs since:
+
+| | value |
+|---|---|
+| calls in the 12h before | 584 |
+| **calls since the roll (DEMAND CONTROL — the zero is not blind)** | **36** across 5 distinct steps |
+| **steps whose `max_tokens` changed across the boundary** | **0** |
+| truncations before / after (`error_message ILIKE '%stop_reason=max_tokens%'`, the only correct predicate) | 0 / 0 |
+
+⚠ **This is an EARLY, PARTIAL sample and must not be read as fleet-wide proof** — 5 steps have run
+since the roll, out of a much larger live population. It is a real check with a real demand control,
+not a complete one. Re-run it after a day of normal load.
+
+### ⚠ CORRECTION — my census in the §Path A section is UNDERSTATED 5×, and the live data caught it
+
+The §Path A section says *"3 set `ai_service.max_tokens` … 10 set agent-level … all 13 go through the
+canonical path"*. **The true figure is 68 distinct agents.**
+
+`llm_call_log` showed `feed-triage / score_relevance` sending **8192** where my census recorded
+feed-triage at **4000**. The reason: root `ai_service.max_tokens = 4000` AND a **step-level**
+`workflow.steps.score_relevance.config.ai_service.max_tokens = 8192`, which `resolveAIServiceConfig`
+overlays over the root (`ai_actions.go:77-87`). **My census only ever read the root block.**
+
+Depth-aware, run 2026-08-16 post-roll: **193** active agents · **3** root `ai_service.max_tokens` ·
+**10** agent-level `max_tokens` · **67** step-level `config.ai_service.max_tokens` · **68** distinct
+agents once deduplicated.
+
+**The conclusion is unchanged, and precisely why matters:** the blast-radius argument never rested on
+the count. It rests on `createAIClient` (`:287`) and the options build (`:361`) reading the **same
+merged map** from `resolveAIServiceConfig` (`:243`) — and that merge already *includes* the step-level
+overlay. So client-default and options cannot disagree at any nesting level, for 13 agents or 68. The
+number was decorating an argument that did not need it, which is exactly why nothing failed when it was
+wrong. Logged in `WRONG_CALLS.md`.
+
+### What is verified, and what is NOT — stated so the next reader does not over-read this
+
+- **VERIFIED:** the fix is in the deployed binaries (both images, with controls); the config half
+  shipped; `reasoning-agent` is healthy; the canonical path is unchanged on live traffic so far.
+- **NOT VERIFIED LIVE, and it has no live exerciser:** the distinguishing behaviour — *a nil-options
+  caller whose config exceeds 2048 actually sending >2048*. The only nil-options caller in the estate is
+  `reasoning-agent`, its budget is deliberately 2048, and **nothing publishes to its topic**. Its config
+  is baked into the image (no ConfigMap volume), so manufacturing this case needs a yaml edit plus a
+  rebuild, and would be a synthetic exerciser rather than a real one. The behaviour is proven
+  deterministically instead by the mutation-tested wire-shape tests, which assert the request BODY.
+  **Do not write "behaviourally verified end to end" in this file without doing that work.**
