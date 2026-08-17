@@ -531,3 +531,46 @@ blocked on the unique-index decision **4** · remaining clear **57** · builds a
   requirements, along with real listeners and inline copy feedback instead of `alert()`.
   **This is the third ported tool in four whose live behaviour was worse than its page suggested** —
   reading the script before writing the brief is earning its place every time.
+
+## 2026-08-17 18:1x–18:2xZ — #4 built + graded + retired; #5 filed; and a two-tool defect class, censused rather than assumed
+
+- **#4 `tool-html-minifier` — run clean on all three signals**, `page_adopted=true`, adopted page
+  `5777d02b…`, component `c0cfb873-2991-42a0-8694-700b965b5194`. Item complete 17:48:51Z.
+- **Component graded — and it fixes BOTH ported defects, properly:**
+  it masks `<pre|textarea|script|style>` blocks into NUL-delimited placeholders *before* any
+  transformation and restores them after (`protectRegions`/`restoreRegions`), so collapsing cannot
+  corrupt them; comment stripping is genuinely implemented (`/<!--[\s\S]*?-->/g`, multi-line);
+  0 `alert(`, 0 inline `onclick=`, real listeners, clipboard with a 2-second "Copied" label and a
+  `document.execCommand` fallback. Numbers: 6,546 chars, **0** `{{\.` fields, 1 script, 0 `script src`.
+- **HONEST GRADE NOTE — it MISSED my stated numeric bar and I passed it anyway, deliberately.**
+  Visible chars **243**, against the ">300" I have been applying (pilot 469, markdown-tables 395).
+  I did not restate the threshold to fit; I enumerated the visible text instead, and every UI element
+  is accounted for: title, an explanatory paragraph, "HTML input", "Minified output", "Options",
+  "Remove comments", "Collapse whitespace", "Copy output". **A minifier's copy simply weighs less
+  than a calculator's five labelled numeric fields.** The bar exists to catch the ab-test shell
+  (0 visible chars, 31 externalised fields, 47 raw tags served) — and the discriminating signal there
+  was `raw_fields` and `visible=0`, not the 300. **So treat >300 as a smell, not a gate: the gate is
+  `raw_fields = 0` AND every control having a literal label, which a character count cannot check.**
+  Recorded here rather than silently adjusted, because moving a threshold to agree with the artefact
+  in front of you is exactly the trap in `MEMORY/fixing-a-checker-to-agree-with-a-broken-site`.
+- **Ported slot retired**, `UPDATE 1`: `7ce029a7-db5f-41ec-b9a8-aa2ab7d48ac5` → `removed`,
+  4,929 chars, md5 `4f122ea0cefe0cb6a63b3247c01541d1` — byte-identical to the handle taken at filing.
+  Rerender `b137a7ce-dc4b-428f-b359-ed1a52bf521d` was still `triaged` at the time ⇒ race won again,
+  though only just: the item had completed **26 minutes** earlier while I was writing up. **On a busy
+  queue that margin is luck.** Retire immediately after the component grades.
+- **#5 FILED: `tool-svg-optimizer`** (SVG Code Stripper), item `7ced2d32-4d63-4b88-b98f-e5e2eeb7d847`,
+  page `4bd3319b…`. Revert handle: ported slot **`665075ab-591c-47e8-af95-faab9f48b73d`, 5,095 chars,
+  md5 `be0f5c3530636eddb04e03c82141d8a8`**.
+- **THE SAME DEFECT, on a second tool — and then CENSUSED instead of generalised.** svg-optimizer's
+  step 1 is also inert, the replace call swallowed by its own comment:
+  `// 1. Remove Comments code = code.replace(//g, "");` — identical shape to the minifier's
+  `// FIXED: Use regex for HTML comments code = code.replace(//g, "");`. An empty regex `//` is a JS
+  syntax error, so whoever hit it commented the line out to make the file parse and left the control
+  advertised but dead. Two instances looked like a class, so I asked the DB rather than assuming:
+  ```sql
+  ... WHERE pc.rendered_html ~ 'code\s*=\s*code\.replace\(//'
+       OR pc.rendered_html ~ '//\s*\d*\.?\s*(Remove Comments|FIXED)'
+  ```
+  ⇒ **exactly 2 tools fleet-wide on this site, and they are the two being rebuilt.** So the class
+  closes itself and needs no separate bug. Bounding it cost one query; asserting "this is probably
+  everywhere" would have cost a filing and been wrong.
