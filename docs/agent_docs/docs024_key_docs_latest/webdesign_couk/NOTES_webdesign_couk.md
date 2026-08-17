@@ -1872,3 +1872,31 @@ re-triaged for round 3. LANDMINES entry extended with the two-field sweep.
 Port-era `submission`/`briefing` specs also embed the placeholder but are NOT in
 the build's context; left as historical records. If round 3 fails at deploy_page
 with a GitHub 503, check page_components BEFORE re-dispatching.
+
+**Round 3 (deployed 20:58Z): `complete` — and the artefact refuted the status
+AGAIN (instance seven for this site).** All numbers matched the register so
+every gate passed, but the writer (a) wrote "webdesign.co.uk doesn't register
+domains itself", (b) transmuted ack_5wd into "5 working days to become fully
+active" and resolve_10wd into "transfers take up to ten working days"
+(contradicting the correct 2wd two sections earlier), and (c) omitted the
+address, complaints procedure and abuse contact (RRA D.1.1/D.1.4/D.1.7).
+**A numeric audit verifies VALUES, not MEANINGS** — the registered numbers were
+woven into invented claims and sailed through. Copy-quality lane's "set
+preservation is not achievable by instruction" finding, reproduced on a
+compliance page.
+
+**Repair: section_edit / edit_type=content_edit with LITERAL field_updates**
+(SQL_p24 + p24b) — operator-exact copy through the framework's section-editor
+(loanandmortgagecalculator index = fleet precedent). Round 1: 3/5 landed; 2 and
+4 refused by the VISIBLE-TEXT SLOT FLOOR (50% of existing; 48%/44% kept — the
+floor is step-config only, apply_edit whitelists input_fields, so no per-item
+override; do NOT loosen the fleet step config for one page). Refiled 2b/4b with
+register-consistent additions → complete. **VERIFIED stored artefact: 17/17
+facts verbatim, 4/4 defect probes absent. VERIFIED LIVE (curl, 200): address,
+£10, DESIGNCONSULT, free of charge, abuse + Nominet escalation all serving;
+denial/placeholder/template-leak all 0.** nav_drift filed (nav_rebuild:<site>,
+precedent shape) → footer 'Domain registration' row + chrome rebuild; the
+08-14 chrome_divergence hand-patch was already archived/overwritten so the
+rebuild destroys nothing new, and it propagates the REAL contact into chrome.
+Hand-built reference file DELETED from ~/projects/sites (framework owns the
+path; it would have blocked the next pull).
