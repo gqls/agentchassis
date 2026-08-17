@@ -206,3 +206,42 @@ that it resolves both tools: LMC `mortgages-stamp-duty` → `mortgages-stamp-dut
 validator has exactly **one** production caller (`write_experience_pattern_action.go`),
 and **0 of 161** current PLANs and 0 of 11 experience patterns use a top-level `facts`
 key — no collision.
+
+
+## 2026-08-17 — live on the fresh build, and the zero that proves nothing
+
+**The roll landed** (pods 22:07:55Z / 22:08:17Z on 08-16) and the code is in it. Verified
+at the binary rather than at the tag, both replicas, with a positive control in the same
+exec: `fact_drift_review` **2**, `unreconciled_declaration` **1**, control
+`stale_attestation` **5**.
+
+**Which revision** matters here and I checked it rather than assuming: two strings unique
+to the final, post-council, advisory-corrected commit (`6b3b0510e`) — the
+`"may have stopped matching"` warning and the `DISTINCT ON (dp.subject_key` join — are
+both present. So the binary is not an earlier build of the same feature. This is worth
+doing every time: "my symbol is present" only tells you *some* version of your change
+shipped, and I have shipped four.
+
+**The first production exercise happened without me.** The `evidence-freshness` sweep ran
+at **09:04:14Z** with this code live: 8 register revisions written, **0 errors**. That is
+the no-op proof — the new query path executed against all 13 register-bearing sites in
+production and broke nothing, which is the thing that could most easily have gone wrong
+in a shared daily sweep.
+
+**And `fact_drift` items: 0 — which is NOT evidence of anything.** There is no demand
+behind it. 0 of 90 current tool PLANs declare a `facts` list, so the fan-out has nothing
+to act on; a clean sweep here is a check with nothing to check
+(`a-post-fix-zero-needs-a-demand-control`). I have written that into `bugs_open/288` in
+those words, because "the sweep ran clean" is exactly the sentence a later reader would
+quote as "the mechanism works".
+
+**The one remaining step is a coordination question, and I did not take it myself.**
+Firing the mechanism needs a declaration, which means writing to mortgagecalculator's
+fence. That lane was active on 08-16 (guides, imagery, dead links) though it has not
+touched the fence since 08-10. Seeding files low-severity items into their review queue —
+a change to their backlog, not just a config row, and `bugs_open/033` says that queue has
+no working surface. **Asked the owner; the owner said ask the lane.** No live session
+matched that lane (its transcript stopped at 11:41, as the current sessions started), so
+the ask now sits at the top of their newest handoff — the file a fresh session there reads
+first — with three options and no preference. The CONTRIB had been sitting unread since
+08-16, which is why the handoff was the right channel and the CONTRIB alone was not.

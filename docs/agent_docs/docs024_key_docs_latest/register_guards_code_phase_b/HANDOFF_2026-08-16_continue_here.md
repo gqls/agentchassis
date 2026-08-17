@@ -1,9 +1,10 @@
 # HANDOFF 2026-08-16 — continue here
 
 **Lane:** `register_guards_code_phase_b` (`bugs_open/288`, the class behind
-`bugs_closed/225`). **State: the code is built, committed and
-council-APPROVED at round 3 after two REVISE rounds each of which found a real defect.
-Nothing is live and nothing has ever fired.** Read this first, then NOTES for
+`bugs_closed/225`). **State (updated 2026-08-17): the code is council-APPROVED and LIVE — proven at the
+binary on both replicas, and the first production sweep ran clean. It has still NEVER
+FIRED, because no tool declares anything yet; that one step is an ask sitting with the
+mortgagecalculator lane.** Read this first, then NOTES for
 the evidence and PLAN for why the design is what it is.
 
 ## The one-sentence state
@@ -45,28 +46,38 @@ kind='council_report' ORDER BY created_at DESC LIMIT 1;` (the column is **`body`
 
 </details>
 
-### 2. After the next chassis roll — prove it at the binary, then INDUCE it
+### 2. ~~Prove it at the binary~~ DONE 2026-08-17 — live, and the first sweep was clean
 
-Pre-roll state is **measured**, not assumed (2026-08-16, both replicas):
-`fact_drift_review` → **0**, `stale_attestation` (control) → **5**. Re-run exactly that
-pair; the first must become non-zero.
+| check | result |
+|---|---|
+| `fact_drift_review` in `/proc/1/exe`, both replicas | **2** (was 0 pre-roll) |
+| `unreconciled_declaration`, both replicas | **1** |
+| `stale_attestation` (positive control) | 5 |
+| strings unique to the final approved revision `6b3b0510e` | present ×2, so the binary is post-council, not an earlier build |
+| `evidence-freshness` sweep | ran **09:04:14Z**, 8 register revisions, **0 errors** |
+| `fact_drift` items fleet-wide | **0** |
 
-```bash
-kubectl -n ai-persona-system exec <chassis-pod> -- grep -ac fact_drift_review /proc/1/exe
-kubectl -n ai-persona-system exec <chassis-pod> -- grep -ac stale_attestation /proc/1/exe
-```
+⚠ **That 0 is not a pass.** It has no demand behind it — 0 of 90 tool PLANs declare
+anything, so there is nothing to act on. What the run proves is the NO-OP case: the new
+query path ran against all 13 register-bearing sites in production and broke nothing.
 
-Then the induced proof — **this is the only thing that distinguishes a live mechanism
-from an inert one**, and the recipe is in `RUNBOOK_register_guards_code.md`:
-seed the mcalc fence → dry run → supersede `sdlt-ftb-relief-cap` 500000→550000 → dry run
-must name `stamp-duty` → restore. A dry run that reports nothing after a real change is
-the failure.
+**The induced proof is still owed** and is the only thing that separates a live
+mechanism from an inert one. Recipe in `RUNBOOK_register_guards_code.md`; the reusable
+dispatcher is `./dryrun_fact_drift.sh <site_id>` (dry runs write nothing). It cannot be
+run until a fence declares — see item 3.
 
-### 3. The first declaration is another lane's to apply
+### 3. The first declaration — ASKED 2026-08-17, awaiting the mortgagecalculator lane
 
-`CONTRIB_2026-08-16_phase_b_built_your_stamp_duty_fence_is_the_first_consumer.md` is in
-`mortgagecalculator_couk_adoption/`. Their site, their `install_fences.py`, their call.
-**Do not hand-edit the `doc_plans` row** — their script rewrites whole bodies.
+**The owner was asked and directed that this go to the lane first**, so the request now
+sits at the TOP of `mortgagecalculator_couk_adoption/HANDOFF_2026-08-16b_continue_here.md`
+(a CONTRIB alone had sat unread since 08-16), offering three options: seed it, let us run
+a dry-run canary and revert, or decline. **Do not apply it unilaterally** — the site is
+theirs, they were active on it on 08-16, and seeding files items into a review queue that
+`bugs_open/033` says has no working surface. **Do not hand-edit the `doc_plans` row**
+either — their `install_fences.py` rewrites whole bodies on `--apply`.
+
+If they say yes, the full detail is in
+`CONTRIB_2026-08-16_phase_b_built_your_stamp_duty_fence_is_the_first_consumer.md`.
 
 LMC's is written too, and is inert until that site has an `evidence_base` row at all
 (it has none; the `copy_quality_two_stage` lane holds a candidate pending an owner
