@@ -124,3 +124,50 @@
   the behavioural half is `update_component_html_shared_fence_test.go`. Follow-up `194455b40`
   with `Council-Reviewed:`.
 - 102_coverage_ratchet.txt gains the lane dir (pattern-check advisory on the first commit).
+
+## 2026-08-17 — the delivery half: the floors were on that path and both PASSED
+
+- Roll check: pods `agent-chassis-5657f446c7-*` on `v1.0.1305` (started 08-16 22:07Z). 285's state
+  unchanged and stable: template 4,664 with `{{.body}}`, 4 versions, 114 deployed + 1 removed,
+  casualty row 3,781 chars sha-matching its provenance stamp, 1 fence refusal on record (mine).
+  Served page verified again: `portedPageAssetList` 0, the real h1 present.
+- **The question that opened this:** why did nothing refuse the 08-14 delivery? It went through
+  `apply_section_edit` → `applyContentEdit`, and `single_slot_floors.go` IS wired into that branch
+  (`section_editor_actions.go:436`). So a guard was on the path and let it through.
+- **Answer, measured on the real archived pair** (`page_component_history ab400131…` vs the poison):
+  `shrinkGuardTagStripper` strips TAGS, not `<style>`/`<script>` CONTENT — so CSS and JS count as
+  text. Tag-stripped: 3,245 → 8,492 = **262% kept**. Class attributes: 3 → 4 = **133%**. Visible
+  text: 2,754 → **68** = **2%**. Both axes GREW while the article was destroyed.
+- **Calibration over all 117 archived overwrite pairs** (357's archive, since 08-09) — and it
+  changed the design: the visible axis refuses exactly 1 pair (the poisoning write); the
+  tag-stripped axis also refuses exactly 1, and it is a DIFFERENT pair — **my own restore**
+  (08-15 18:18Z), 38% kept. So the live floor would have refused the REPAIR. That is why this is a
+  correction of the axis, not a second floor with an OR.
+- **Population at risk** `[MEASURED]`: 198 live rows (9 sites, 118 pages, median 1,782 visible
+  chars) whose stored content cannot be reproduced from their `content_data` — a re-render empties
+  them. Biggest group is `ported-page.body` (99) but NOT only ported: `hero.headline` 15 across 4
+  sites, `call-to-action` 7 across 3. General class, not a webdesign quirk.
+- **What the change loosens, measured before submitting**: `evaluateSectionShrink` has its own
+  `minShrinkGuardChars = 500` on the existing side; applying that to VISIBLE text takes **31 of
+  117 pairs (26%)** out of the text floor's scope (mostly-CSS slots). The old axis refused 0 of
+  those, and its ratio there is dominated by the stylesheet; the class floor still covers
+  structural collapse. 180 of the 198 at-risk rows are ≥500 visible.
+- **Scoped to one call site on purpose.** The whole-page path keeps the old axis: its writes are
+  DELETE+INSERT, archived as delete rows with no successor (3,603 delete vs 281 overwrite), so
+  there is NO pair evidence for it. Filed as `bugs_open/293` with two ways to get the evidence.
+- **MISSTEPS, three, all mine:**
+  1. My first four tests passed with the axis REVERTED at the call site (MUT-1) — they exercised
+     `visibleTextLength` and the arithmetic, never the wiring. Added an enforcer-level test that
+     drives `enforceSingleSlotFloors` (nil DB is safe: `prune_floor.go:353` returns early), which
+     is the one that bites. **A helper's test is not the guard's test.**
+  2. I added a 120-char absolute minimum with its own calibration paragraph. MUT-2 (delete the
+     clause) broke NOTHING — because `minShrinkGuardChars = 500` already dominated it. Dead code
+     with a persuasive comment; deleted. **Read the pure function's own thresholds before adding
+     one at the call site.**
+  3. Two fixtures did not reproduce the trap they were named for (ratio 0.53 where the real pair
+     is 0.38; an entity-count expectation of 3 where `&amp;` is itself an entity). The fixture-guard
+     assertions caught both — which is the argument for writing them.
+- Council `3279156b-d2ba-41f0-9115-aa2275bfb27e` submitted; committed with `Council-Submitted:`.
+- **Bug numbering, twice wrong:** filed as 290 (taken by another lane minutes earlier), renumbered
+  to 291 — which another lane had ALSO taken between my check and my move — then to 293, verified
+  unique at HEAD **after** the move. On this tree a number is claimed by whoever commits next.

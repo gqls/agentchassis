@@ -33527,3 +33527,26 @@ both.
 > lane's work, not mine**, and `git log` on this file will otherwise attribute it to a
 > 284 commit. If you are the 277 lane and wanted it under your own message, it is
 > already in history — re-committing would duplicate it.
+
+## 2026-08-17 — bugfix_285 lane: a guard's test that passed with the guard unwired, and a free bug number that was not free
+
+- **The tests proved the arithmetic, not the guard.** Four tests pinned `visibleTextLength` and the
+  floor ratios and all four stayed green when the new axis was reverted at the call site
+  (`enforceSingleSlotFloors`) — i.e. they could not tell whether the fix was WIRED. Caught by
+  running that mutation deliberately (MUT-1). **The cheap check:** for any guard change, mutate the
+  CALL SITE, not just the helper, and require a test that drives the enforcing function. Tally for
+  "tested the helper, not the wiring": 1. Related: [[mutate-the-code-to-prove-the-guard]],
+  page_component_writer_coverage_test.go's own header ("a guard nothing proves is reached is the
+  same defect one level up").
+- **A threshold I added was already there, 4× larger.** I wrote a 120-char absolute minimum, with a
+  calibration paragraph justifying it, at a call site whose pure function already applied
+  `minShrinkGuardChars = 500` to the same side. Deleting my clause broke no test (MUT-2) because it
+  could never fire. **The cheap check:** read the pure function's own guard clauses before adding
+  one around it — `grep -n "min[A-Z]" <the decision file>` would have shown it in one command. A
+  dead clause with a persuasive comment is worse than no clause: the next reader believes it.
+- **"The next free bug number" is not free by the time you use it.** Filed 290 (another lane had
+  committed 290 minutes earlier), renumbered to 291 (another lane took 291 between my check and my
+  `git mv`), then 293. **The cheap check:** verify uniqueness at HEAD **after** the move —
+  `git ls-tree -r --name-only HEAD -- bugs_open/ bugs_closed/ | grep -cE "/<n>_"` must be 1 — and
+  treat a pre-move check as a hint, never a claim. Tally for "claimed a shared identifier from a
+  pre-action check": 1.
