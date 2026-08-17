@@ -3145,3 +3145,69 @@ measurements and handed it over.
 of three of these duplicate pairs — I paid twice to fix the same page, because nothing told
 me they were twins. No harm done, but before any future site-wide copy job we should check
 for duplicates first.
+
+---
+
+## 2026-08-17, later — the 225 parked contrast problems: I found out why nothing was happening
+
+Some background first, because the answer only makes sense with it.
+
+When the machine renders one of our sites in a real browser and finds text you can't read
+against its background, it writes a ticket. Back on 10–11 August it wrote **225** of them
+across 16 sites. Those tickets were then deliberately **parked** — put in a holding status —
+because the thing that would have tried to fix them was known to be unreliable, and letting
+it loose would have produced 225 tickets marked "fixed" that weren't.
+
+The plan was that the machine would re-visit each site later, look again, and close any
+ticket where the problem had genuinely gone. That closing mechanism was built and is
+working. But six days passed and **not one of the 225 tickets had moved**, which is what
+made someone open a bug about it.
+
+**There were three possible explanations, and I've now checked all three.**
+
+**First: had the machine simply not looked again yet?** Yes — and this turns out to explain
+the whole six days. The re-visiting works as a rotation: one site an hour, and each site is
+only eligible once every seven days. All 23 of our sites were looked at on 10–11 August, so
+for the next six days **there was nothing due**. The rotation wasn't stuck; it was correctly
+idle, waiting for the seven days to elapse. The first site came due at lunchtime today.
+
+So there was never anything wrong here. I'll add that the closing mechanism itself was only
+written into the code on **12 August** — a day *after* the last time any of these sites was
+looked at. It has therefore never once had the chance to run. The fact that it has closed
+nothing isn't evidence it's broken; it hasn't been asked yet. I did confirm it's genuinely
+running in the live system now.
+
+**Second: are the problems still actually there?** This is the one that matters, and the
+answer is **yes**. I re-rendered four pages on four different sites this afternoon in a real
+browser and measured them fresh. **All four are still failing, at exactly the same
+readability figures the tickets recorded six days ago.** On top of that, each of those pages
+now shows *more* problems than we have tickets for, not fewer.
+
+**Third: is the closing mechanism silently ignoring them?** No — and given the first two
+answers, we don't need it to be. Nothing here is broken.
+
+**So here is where that leaves us, and it's a decision for you rather than a job for me.**
+
+Over the coming week the rotation will reach these 16 sites and look again. Because the
+problems are still real, it will correctly close **almost none** of the 225 tickets. They
+will sit exactly where they are — in a holding status that no dashboard or health report
+looks at. No mechanism will ever clear them, for the entirely honest reason that **they are
+true**. There are 225 genuine readability failures on 16 live sites.
+
+The earlier fix we shipped — the one for body text in articles, across 97 places — was real
+and it worked. These are a different problem: mostly a brand colour being used both as a
+background and as text on top of itself, which is a known family we have on the list but
+haven't tackled.
+
+What's needed is either someone to own fixing them, or an explicit decision that we accept
+them for now. I haven't made that call, and I've changed nothing. It's all written up in the
+bug file with the queries, so whoever picks it up doesn't have to re-do any of the work.
+
+**One thing that nearly caught me out, for the record.** I twice convinced myself I'd
+disproved something when my test simply couldn't have detected it. The clearest case: I
+tried to work out from the database whether a site had been busy at a particular moment, and
+my query looked at when each job was "last updated". For a job that is *still running*, the
+last update **is** the moment it started — so a job running right through the moment I cared
+about looked, to my query, like it was never there at all. I only spotted it by watching
+live records and noticing two columns were identical. I've written both up properly, because
+a test that can only ever come back "all clear" is worse than no test.

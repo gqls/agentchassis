@@ -7517,3 +7517,76 @@ cards still do not link to the tools they describe, and the tools are still not 
 from body copy where they are named. The nav entry was one of three. The experience brief
 (`doc_notes`, `subject_type='experience'`) carries all three and is durable, so a future
 planner run sees them; the escalated plan was never persisted, so nothing wrong is stored.
+
+---
+
+## 2026-08-17 (late afternoon) — `bugs_open/296` ANSWERED: (a) + (b), not (c)
+
+Picked up `296` (the 225 parked `contrast_failure` rows routed out of this lane as
+orphaned) and worked its §4. Full write-up with every query is in the bug file's new §8;
+this is the technical log, including the wrong turns.
+
+**Result: no defect in the retraction. The park is honest and will not drain.**
+
+**§4(a) — CONFIRMED, and it explains the whole six days.** All 16 sites holding parked rows
+have `site_discovery_rotation.last_selected_at` in 2026-08-10 14:54 … 2026-08-11 12:04 —
+i.e. the sweep that *filed* the rows. `reaudited_since_park = false` for all 16. Cause is
+the driver's own shape, read from `scheduled_tasks`: hourly fire, **`LIMIT 1` site**,
+7-day eligibility, 23 eligible sites, 0 never-audited. All 23 were swept 08-10/11, so
+**between 08-11 12:04 and 08-17 14:54 not one site was due.** The idle rotation was correct.
+
+**§4(a)'s demanded positive control does not exist, and the check could not have come out
+otherwise.** Zero `contrast_failure` rows have ever reached `complete` (what
+`resolveWorkItems` sets). But: last audit of a findings-holding site **2026-08-11 12:04**;
+retraction committed (`5639a1103`) **2026-08-12 20:03**. Code cannot run before it is
+committed — the mechanism has never had one opportunity. The zero is arithmetic, not a
+silent no-op. *(It IS live now — binary probe on `v1.0.1305` for the reason literal and
+`retraction_scope_pages`, both present, negative control absent.)*
+
+**§4(b) — CONFIRMED, and it is the finding that matters.** Four parked pairings on four
+sites, re-measured today via `scripts/render_audit.py` (live headless render, not the
+stored row). **All four reproduce at exactly the parked ratio:** dartsonline `H3.H3`
+1.06:1; finetuning `A.cta-btn` 1.00:1; idea.uk `P.info-card-grid__subtitle` 3.35:1; vonc
+`A.gauntlet-btn-primary` 1.76:1. Live failure counts now **exceed** parked counts on every
+one of those pages (6v2, 4v3, 11v2, 23v8) — expected, since the filed set was always a
+subset of the measured set (`max_items` cap + locked-component skip). **So retraction will
+correctly decline on ~all 225 when the rotation does arrive.** Palettes look like
+`features_open/026` (primary-as-ink), not 122's article-body ink.
+
+### Missteps — the part worth keeping
+
+1. **[REFUTED — mine] "Sites flip to `building` during a build, so the rotation's
+   `status IN ('active','deployed')` predicate excludes them."** `building` *is* a valid
+   status (`v3_site_actions.go:360-363`) and `robot-hands.com`'s `sites.updated_at` was
+   moving every few minutes, which made it look right. It is wrong: **no live workflow ever
+   sets it** — all three `update_site_status` steps in active `agent_definitions` set
+   `deployed`. The moving `updated_at` was those same steps re-setting `deployed`. *A valid
+   enum value is not evidence anything writes it — query the config.*
+2. **[REFUTED — mine, and the reasoning is the transferable bit] "A claimed build item
+   blocked the rotation at the two ticks that logged 'no rows'."** I tested it
+   retrospectively with `claimed_at <= t AND updated_at >= t` and got 0 for both ticks, and
+   very nearly wrote that down as a refutation. **That test is structurally blind to exactly
+   the case it was looking for:** a row that is *currently* claimed has
+   `updated_at == claimed_at`, so a claim held across `t` fails `updated_at >= t` and reads
+   as absent. I only caught it by listing live `status='claimed'` rows and noticing the two
+   columns were equal. **Do not reconstruct claim state from `updated_at`** — it is the
+   last write, and for a held claim the last write *is* the claim. Sibling of the
+   `trg_site_work_items_updated_at` landmine.
+3. **[REFUTED — mine] "Only one render-audit orchestration exists since 07-13, so audits
+   have essentially never run."** `orchestration_states` is **pruned hard** — 2,709 rows for
+   08-17 and 08-16, but 2 for 08-15, 15 for 08-12, 1 for 08-09. A "zero over history" from
+   that table is worth ~2 days, not the 5 weeks its `min(created_at)` suggests. I re-based
+   the timeline on `site_discovery_rotation` (which is not pruned) instead.
+
+### Secondary, measured — the rotation's claimed-build guard
+
+`NOT EXISTS (… status='claimed' AND pipeline='build')` is **sampled once per hour** against
+a value flipping on a **~20s** timescale (`undeployed_asset` items hold a claim ~25s of
+every ~26s in a burst). Polled read-only every 20s while two due sites were mid-build:
+**9 of 14 samples had EVERY due site blocked.** A delay, not starvation — a skipped site
+keeps its stamp, stays due, wins a later tick. **[SAMPLE: 14 × 20s during an active burst;
+NOT a steady-state rate — I did not measure one.]**
+
+⚠ **To run that selector by hand, wrap it in `BEGIN … ROLLBACK`.** The `pre_query` contains
+a data-modifying CTE that stamps `site_discovery_rotation`; a bare run **advances the
+rotation and costs a real site its turn**.
