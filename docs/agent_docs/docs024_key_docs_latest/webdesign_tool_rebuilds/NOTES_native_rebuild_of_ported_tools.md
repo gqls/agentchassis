@@ -403,3 +403,28 @@ tools first, serial, ab-test second (and ab-test needs `cd60486c…` deactivated
   The one thing that would have caught it: the word **"empty"**. → `WRONG_CALLS.md`.
   (The RUNBOOK line was directionally right but imprecise — it omits `forked_from IS NULL`, which is
   why three rows can exist at all. Corrected there now to the index's exact predicate.)
+
+## 2026-08-17 12:2xZ — rebuild #3 FILED: `tool-markdown-tables`, routing around the 4 blocked tools
+
+- **Candidate chosen by both gates plus simplicity**, from the 58 unblocked: `tool-markdown-tables`
+  (Markdown Table Architect), the smallest ported body on the site at **3,806 chars**, no external
+  `<script src>`. Page `284cf0aa-7ffd-4365-aeb9-4aaed6bc5d2f`, `/tools/markdown-tables/index.html`.
+- **Revert handle recorded before filing:** ported slot `9dd2b167-51aa-4af2-833a-d5820a2115e3`,
+  `deployed`, **3,806 chars, md5 `1ef643d265b0d9d2271a28667889c5eb`**.
+- **Spec from the live script.** Two textareas (`inputData`/`outputData`) + a Convert button;
+  delimiter decided from the FIRST line only (tab if it contains one, else comma); rows split on
+  newline, cells trimmed, emitted as `| a | b | c |`; a `| --- | --- | --- |` separator inserted after
+  the first row only (so row 1 is the header); live on `input`. Placeholder is a worked tab-separated
+  example (Name/Role/ID, Alice/Admin/101, Bob/User/102). Two behaviours described as intent rather
+  than copied: the ported version leaves **stale output** when the input is emptied (early `return`),
+  and it binds its button with an inline `onclick` calling a global — the brief asks for a cleared
+  output with a hint, and real listeners.
+- **Filed with BOTH gates as pre-asserts inside the transaction, before the INSERT** — this is the
+  change of practice that #2 bought: `idx_cc_tool_function_unique`'s exact predicate must be 0, the
+  site probe must be 0, and no `add_tool` may be open. A blocked file now fails at the DB in
+  milliseconds instead of after the generator has run an LLM and died at `save_tool`.
+  Item **`7451ecee-eb46-44e6-a5bc-b302790ccf3c`**, `triaged`.
+- **Grading this one must look at the RUN, not the item.** #2 proved the item reports `complete` with
+  `error` NULL on a failed build. So: `create_result.page_adopted = true` AND `create_result` must not
+  contain `already_exists` AND `collected_data->'__step_error'` must be absent — check all three
+  before touching the ported slot.

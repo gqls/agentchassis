@@ -196,3 +196,23 @@ WHERE id='<component>' AND function='<tool-function>' AND is_active;   -- expect
 ```
 The `removed` placement row stays as history. Known case: the ab-test fork
 `cd60486c-f5e1-4d80-9676-0d65024f0372`.
+
+## Grade the RUN, not the work item — a failed build reports `complete` with `error` NULL
+
+Measured 2026-08-17 (rebuild #2): item `complete`, `error` empty, **nothing built**. The generator
+orchestration ended at `current_step='complete_error'` with `orchestration_states.error` NULL and the
+real message one level down. Ask for all three signals at once:
+
+```sql
+SELECT current_step,
+       collected_data#>>'{create_result,page_adopted}'   AS adopted,      -- want: true
+       collected_data#>>'{create_result,already_exists}' AS short_circuit,-- want: NULL
+       collected_data#>>'{__step_error,failed_step}'     AS failed_step,  -- want: NULL
+       collected_data#>>'{__step_error,message}'         AS why
+FROM orchestration_states
+WHERE owner_agent_type='tool-generator' AND created_at > '<the item''s claimed_at>'
+ORDER BY created_at DESC LIMIT 1;
+```
+`agent_error_log` (`occurred_at`, not `created_at`) carries the same failure independently — filter
+`agent_type='tool-generator'` over the window. **A NULL `create_result` prints as a blank line under
+`psql -At`, which reads exactly like "no run happened" — it means the run died before `save_tool`.**
