@@ -1632,3 +1632,14 @@ both had prose/glob parts, and comma-splitting had cut junk fragments (`config-o
 `no roll needed"`) out of my parentheticals. Both rewritten as short comma-separated keys and
 re-verified through `landmines_lib.parse()`. Reading their entry cost a minute; my entries
 were partially inert without it.
+
+**292 APPROVED unanimously at round 1** (corr `d9ca49ae…`, 2026-08-17 11:15Z, `decided_by:
+all reviewers approve`, 6 abstained) — and the queue was ~3 minutes this time, against 17.4
+hours two days ago. Worth noting for anyone sizing a submission: the latency is not a
+property of the gate, it is fleet load, so neither figure is "the" number.
+One LOW advisory, editquality: the regression test assumes `matchVerticalDirectory`'s
+signature and param order, and a wrong guess would fail to compile — *"which is the only
+thing standing between this defect and a silent return"*. Already satisfied: the test
+compiles and passes (600×3 green, and it FAILED on iteration 1 before the fix, which is what
+establishes it can detect the defect at all). No change. Phase B + 292 now have four
+approvals and one unanimous.

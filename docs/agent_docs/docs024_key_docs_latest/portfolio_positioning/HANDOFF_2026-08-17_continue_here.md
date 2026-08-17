@@ -76,7 +76,8 @@ the net, not the measurement.
   possibly-NULL `p`, so `NULL <> 1` is NULL, no `IF` fires, and **the verify passed having
   inspected nothing**. Fixed in both un-run ROLLBACKs (433, 441); applied forward files left
   as the record of what ran.
-- **`bugs_open/292` FILED + FIXED IN TREE (commit `e0d662243`), INERT UNTIL THE NEXT ROLL.**
+- **`bugs_open/292` FILED + FIXED + COUNCIL-APPROVED (commit `e0d662243`, corr
+  `d9ca49ae-…`, unanimous round 1). INERT UNTIL THE NEXT ROLL.**
   `matchVerticalDirectory` collected its domain signal by ranging a map (randomised) and
   appending EVERY match into a first-match-wins dispatch, while the map deliberately mixes
   recommending and not-recommending entries. `mortgage-refinance.co.uk` — M4, the pilot's own
@@ -128,7 +129,10 @@ facts — those are PURCHASE facts and remortgaging is not a purchase.
 1. **Watch the pilot** (§1) — then the cost baseline from `llm_call_log` / `assets` (no
    aggregate cost figure exists anywhere in the platform; it must be computed by hand), then
    **owner sign-off before Phase E**.
-2. **Read the 292 verdict** (`d9ca49ae-…`). REVISE → fix and resubmit with `RESUBMIT_CORR`.
+2. ~~Read the 292 verdict~~ **DONE — APPROVED unanimously, round 1** (2026-08-17 11:15Z,
+   *"all reviewers approve"*, 6 abstained). One LOW advisory (editquality): the test assumes
+   `matchVerticalDirectory`'s signature, and a wrong guess would fail to compile — already
+   answered, the test compiles and passes 600×3. Nothing outstanding on 292 but the roll.
 3. **292's fix is inert until a fleet roll.** Releases are whole-fleet and owner-run; this
    lane does not roll. After a roll, verify at the artefact, never at git.
 4. **A Phase-C summary** when the pilot lands — the series' next inflection.
