@@ -93,7 +93,19 @@ copy-voice work lives in session "copy quality two stage".
 > named the site + `status='failed'` + `%base tree%` + remaining budget, and `attempt_count`
 > was left at 1/3 on purpose. **Check whether they now succeed:**
 > - **succeed** → the pilot can publish; Phase C closes on the cost baseline + owner sign-off.
-> - **fail again** → the outage is NOT fixed and the 090's routing question becomes urgent.
+> - **fail again → READ THE CAUSE BEFORE CONCLUDING.** My first version of this rule said a
+>   failure means the outage is back. **That is wrong and it fired within minutes:** a retry
+>   failed at 18:31 with `call_asset_deployer … timed out after 3 retries`, while base-tree
+>   404s stayed at **0**. Only a renewed `%base tree%` error is evidence about the outage.
+>
+> **State at 18:35Z:** base-tree outage still FIXED (0 since the roll). The live constraint is
+> **asset-deployer TIMEOUTS — 18 since the roll, across exactly 1 site** (the pilot, the only
+> one with imagery in flight, so concentrated not fleet-wide). `needs_imagery`: 8 triaged,
+> 1 claimed, 1 complete *(pre-existing, from 13:27 — NOT a retry success; I misread this once)*,
+> 1 failed at **attempt 2/3, so it still has a retry**. `assets` still **11**.
+> **Too early to call.** The measurement that settles it: does `assets` for this site rise
+> above 11? `SELECT count(*) FROM assets WHERE site_id=(SELECT id FROM sites WHERE
+> domain='remortgagecalculator.uk');`
 >
 > **The 3 genuine failures were deliberately NOT retried and are the real remaining work:**
 > `needs_new_component` ×2 (`store_generated_component`, 3/3), `needs_rerender` ×1 (timeout,

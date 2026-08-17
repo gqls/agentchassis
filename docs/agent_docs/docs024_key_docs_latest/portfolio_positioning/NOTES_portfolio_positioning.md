@@ -1877,3 +1877,28 @@ failed** afterwards — the three genuine failures (`needs_new_component` ×2 at
 because they failed for their own reasons and would simply fail again.
 
 **`bugs_open/292` → `bugs_closed/292`** — fixed AND live in v1.0.1307, which is the bar.
+
+**CORRECTION ×2 on the retry watch (2026-08-17 18:35) — both were my errors, and both would
+have misled.**
+
+1. **I reported "the retries are succeeding" on the strength of `complete:1`. That row was
+   PRE-EXISTING** — the single `needs_imagery` that completed at 13:27Z, before the outage.
+   **No retry has completed.** The watch's own first line (`t+20s: claimed:1 complete:1
+   triaged:9`) shows the 1 was there from the start; I read a baseline as a result. The check
+   that would have caught it costs nothing: a count that is already non-zero at t=0 cannot
+   evidence anything at t+n — **take the baseline before you start watching, or watch a delta.**
+2. **My watch then printed "A RETRY FAILED AGAIN — outage not fixed". That verdict is WRONG.**
+   The loop keyed on `failed:[1-9]` — on the FACT of a failure, not its CAUSE. The new failure
+   is `call_asset_deployer … timed out after 3 retries`, and **base-tree 404s remain at 0 since
+   the roll**. A different failure is not evidence about the outage. The rule I wrote into the
+   handoff ("fail again → the outage is NOT fixed") was too crude for the same reason and is
+   corrected there.
+
+**Actual state:** the base-tree outage stays FIXED (0 since 17:05Z). The live constraint is
+now **asset-deployer TIMEOUTS: 18 since the roll, across exactly 1 site** — the pilot, which is
+the only site with imagery work in flight, so this is concentrated rather than fleet-wide.
+Pilot `needs_imagery`: 8 triaged, 1 claimed, 1 complete (the old one), 1 failed at
+**attempt 2 of 3 — it still has a retry**. Assets unchanged at 11, so nothing new has landed.
+**Too early to call either way**, and that is the honest read rather than a lean in either
+direction: image generation is genuinely slow, and one timeout in a draining queue is not yet
+a pattern. What to measure next is whether `assets` for this site rises above 11.
