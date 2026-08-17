@@ -2256,3 +2256,36 @@ one producer to start.
 ⚠ **The trap to avoid: do NOT let the model emit a predicate for a judgement test.** Two-thirds of
 these cannot be expressed, and a plausible-looking predicate over a judgement clause would grade
 confidently and wrongly — worse than the prose it replaced, because it would carry a green tick.
+
+### ⚠ CORRECTION, same session, ~40 minutes later — v2(c)'s POPULATION claim is WRONG. The mechanism stands; the live instance evaporated
+
+I wrote above, and into `features_open/030` and a commit message: *"`[MEASURED 2026-08-17]` Exactly
+one site in the estate has no `primary_model`: remortgagecalculator.uk"*. **Re-read 7 minutes
+later: it has `primary_model='affiliate'` and no missing premise fields. Zero sites now lack one.**
+
+**What happened, and it is not an instrument error this time.** `remortgagecalculator.uk` was
+**created today (`sites.created_at` = 2026-08-17, `status='active'`, 0 pages)** — it was being
+provisioned by another lane *while I was measuring*. I caught it mid-build, between its `sites` row
+and its premise being written, and recorded that instant as a property of the estate. I even
+printed `created 2026-08-17` in my own census output and did not connect it.
+
+**What survives, stated at its real strength:**
+- **The code asymmetry is REAL and unchanged** — read directly from `load_premise`'s SQL:
+  `premise_fields_missing` is computed over four TOP-LEVEL fields and does **not** include
+  `primary_model`, which is read from `data->'revenue_models'->>'primary_model'`. A site with the
+  four fields present and no `primary_model` would get `degraded=false` and an empty model.
+- **What is now UNESTABLISHED is whether that state ever persists.** My single apparent instance was
+  a provisioning transient that closed within minutes. `[UNMEASURED]` whether a site can sit in that
+  state long enough for a sweep to reach it. **So v2(c) drops from "one site will be mis-reported"
+  to "a latent gap with no demonstrated live instance"** — still cheap to close (one field added to
+  an array), no longer independently motivated. **It should NOT be the reason to open the v2 batch.**
+- The transient itself is the more interesting object: a new site passes through a window where
+  some premise fields exist and others do not, and the sweep can arrive during it. **Whether that
+  window is wide enough to matter is a real question and I have not answered it** — measuring it
+  needs a site being created, not a snapshot of one.
+
+**Third time today I have been caught by the gap between measuring and asserting** (the stale sweep
+census, the UTC/BST subtraction twice, now this). The other two were instrument errors. This one is
+not: the reading was correct and the *system moved*. The check that would have caught it is not a
+better query — it is noticing that **`created_at` = today, on a site with 0 pages, means "under
+construction", and nothing about a site under construction is a fact about the estate.**

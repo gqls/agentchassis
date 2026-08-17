@@ -291,13 +291,23 @@ re-proof that files ~5 more non-parkable items somewhere for no new information.
   inherited the premise's behavioural register unattributed. Run 3 weakened this: 5 of 6 attributed
   explicitly, one mild instance left. **Intermittent, not systematic** — does not justify a
   migration alone, which is why it batches.
-- **v2(c) — `primary_model` is outside the degraded arm's field list, so one site will get a thin
-  analysis that reports itself as full.** `[MEASURED 2026-08-17]` `load_premise` computes
+> **⚠ CORRECTED 2026-08-17, ~40 minutes after filing — v2(c)'s population claim below is WRONG and
+> is struck through where it names a site.** `remortgagecalculator.uk` was measured at 12:28 UTC as
+> having no `primary_model`; re-read at 12:35 UTC it has `affiliate`. The site was **created that
+> same day and had 0 pages** — I caught it between its `sites` row and its premise being written.
+> **Zero sites now lack a `primary_model`.** The CODE asymmetry is real and re-verified; what is
+> unestablished is whether any site persists in that state long enough for a sweep to reach it.
+> **Read v2(c) as a latent gap that is cheap to close, NOT as a live defect, and do not let it be
+> the reason to open the v2 batch.**
+
+- **v2(c) — `primary_model` is outside the degraded arm's field list, so ~~one site will get a thin
+  analysis that reports itself as full~~ a site in that state would be mis-reported as full.** `[MEASURED 2026-08-17]` `load_premise` computes
   `premise_fields_missing` over four TOP-LEVEL fields (`satisfaction_condition`, `trust_threshold`,
   `recurring_value`, `value_proposition`) and **not** `primary_model`, which it reads from a
-  different path, `data->'revenue_models'->>'primary_model'`. Exactly **one** of 23 sites lacks
-  one — **remortgagecalculator.uk** — so on that site B4 will echo an empty model and still report
-  `degraded=false, inputs_missing=[]`. That is precisely the failure the degraded arm exists to
+  different path, `data->'revenue_models'->>'primary_model'`. Exactly **one** of 23 sites lacked
+  one at the moment of measuring — ~~**remortgagecalculator.uk**~~, **which was a site being
+  provisioned that hour and now has one; the true current count is ZERO**. A site genuinely in that
+  state would have B4 echo an empty model while still reporting `degraded=false, inputs_missing=[]`. That is precisely the failure the degraded arm exists to
   prevent, and it is invisible on the other 22.
   Fix: add `primary_model` to the missing-check at its nested path.
   ⚠ **Do NOT fix it by letting the model infer a `primary_model`.** Inventing a commercial
