@@ -134,25 +134,50 @@ whose Piece 1 has been live since migration 366 (CLM-021).
    this binary, so `0` is an absence rather than a broken grep. Re-run exactly this
    pair after the next roll and expect the first column to become non-zero. Do not
    verify at the tag, and never by the absence of errors.
-2. **No live declaration — THE ONE THING STILL OWED, and it is a coordination
-   question, not a technical one.** The first is mortgagecalculator's `stamp-duty`
+2. ~~**No live declaration**~~ → **DECLARED AND PROVEN TO FIRE, 2026-08-17.** The
+   `mortgagecalculator_couk_adoption` lane seeded `stamp-duty` with **all 13** SDLT ids
+   (not the 225 pair — `verify_criteria.py:load_register_bands()` hard-fails on a missing
+   id, so declaring two would understate what the tool encodes), and ran the induced
+   proof at 16:17Z in a 14-second window with the restore in a `trap … EXIT`.
+
+   | run | `fact_drift` entries | kind | `new_value` for the changed fact |
+   |---|---|---|---|
+   | baseline (register 500000) | 13 | `unreconciled_declaration` | **500000** |
+   | induced (register 550000) | 13 | `unreconciled_declaration` | **550000** |
+
+   **PROVEN:** the fan-out resolves a declaration on a tool the acceptance ladder cannot
+   see (2 components, 0 tool-level — the exact case the fan-out refuses to key
+   `toolEligibilityWhere` on), routes all 13 to `fact_drift_review` (correct for a
+   `no_auto_fix` fence), and **reads the register at check time** — the two runs differ in
+   exactly the one value that changed. Register restored to 500000, `pinned` carried, 0
+   items written (a dry run writes nothing, as designed).
+
+   **NOT PROVEN, and structurally uninducible today:** the `value_drift` arm. On a fresh
+   declaration every pair is `never_reconciled` and that arm wins; a dry run cannot create
+   the baselines that would let `value_drift` win. **It becomes inducible only after one
+   REAL sweep files the 13 one-time items.** ⚠ My own RUNBOOK predicted `value_drift` here
+   and was wrong — corrected inline, and in `WRONG_CALLS.md`.
+
+3. **Still owed: let one real daily sweep run, then induce `value_drift`.** The next
+   scheduled sweep is ~09:03Z; it will file the 13 low/60 items, which become the
+   baselines and self-quiet. Whoever holds this then owns the second half of the proof. The first is mortgagecalculator's `stamp-duty`
    fence, handed to that lane as a CONTRIB. **Until it lands this mechanism has never
    fired on real data, and today's clean sweep is a pass from a check with nothing to
    check** (`a-pass-from-a-blind-check-outlives-the-blindness`). Measured 2026-08-17:
    **0 of 90** current tool PLANs declare anything. The mcalc lane is ACTIVE today but
    on another front (guides, imagery, dead links) and has not touched the fence since
    2026-08-10 — so the seed was NOT applied unilaterally while they hold the site.
-3. **The `improve_tool` arm is unproven in production and may be unreachable.** Both
+4. **The `improve_tool` arm is unproven in production and may be unreachable.** Both
    live SDLT fences carry `no_auto_fix` and neither page is a fork, so on today's
    fleet every route is human. Proven by unit test only — say so, do not report the
    auto-fix path as exercised.
-4. **The prose half of the class is untouched.** Blind spots 2 and 3 above (tool-page
+5. **The prose half of the class is untouched.** Blind spots 2 and 3 above (tool-page
    prose, and currency anywhere) are still blind. A retired-figure scan over raw
    deployed HTML in the post-deploy claims audit would close it, and was deliberately
    NOT built here: it is a second scanner over the same components, which is
    `bugs_open/093`'s shape, and it deserves its own measurement of the false-positive
    rate first (the plan's §3 rejects the blanket form for exactly that reason).
-5. **RFC_025 stage 2b is still owed** — `artifact_check` reachable for every source
+6. **RFC_025 stage 2b is still owed** — `artifact_check` reachable for every source
    kind and addressable by `page_name` rather than a component id that dies. Small,
    same seam, would give RFC_025 its first consumer; not bundled here because it
    changes an existing mechanism's semantics and deserves its own round.

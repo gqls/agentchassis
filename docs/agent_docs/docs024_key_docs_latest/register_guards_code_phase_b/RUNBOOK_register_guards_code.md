@@ -72,6 +72,25 @@ FROM doc_plans WHERE subject_type='tool' AND subject_key IN ('stamp-duty','mortg
 rewrite the whole body on `--apply`, so a hand-added key is lost on the next install.
 Add it to the lane's criteria JSON and re-install.
 
+⚠ **`install_fences.py` REFUSES the install for exactly the tools this mechanism serves,
+and it refuses SILENTLY** (found by the mcalc lane, 2026-08-17):
+
+```
+SKIP     stamp-duty   not ladder-eligible on this site — a PLAN here would never be read
+```
+
+Its rule 2 keys on the acceptance ladder's eligibility, and a decomposed or ported tool
+is not eligible — which is precisely why the fan-out does NOT key on
+`toolEligibilityWhere`. So the installer's refusal rests on a premise CLM-022 made false:
+since Piece 3 a declaring PLAN *is* read, by the name rule. A lane following "just
+re-install" literally gets a clean-looking run, no error and no `facts` key — and the
+verification query (`body LIKE '%"facts"%'`) returns `f` with nothing explaining why.
+
+The mcalc lane added `--allow-ineligible`, fenced on BOTH: the criteria document must
+actually declare `facts`, and a current `doc_plans` row must already exist under that key
+(so the subject key is inherited, never constructed from a page name). **LMC's
+`mortgages-stamp-duty` will hit the identical wall** — 3 components since B2.
+
 ## Fire a one-off dry run of the sweep
 
 Not within 300 s of a chassis pod restart (the spawn is silently dropped). Publish to
@@ -95,13 +114,49 @@ A dry run **plans** the fan-out and marks each emission `dry_run`; it writes not
 ## Induce the fan-out (the only proof that matters)
 
 Supersede the fact, dry-run, restore. `pinned` must be carried forward (CLM-001), and
-check `writer_block_managed` first — if true, the daily sweep will regenerate the
-writer block with your test number, so keep the window short and do it outside
-09:00–09:10 UTC (the sweep's own CAS window).
+check `writer_block_managed` first — if true, the daily sweep will regenerate the writer
+block with your test number, so keep the window short and do it outside 09:00–09:10 UTC
+(the sweep's own CAS window). Put the restore in a `trap … EXIT` so it fires whatever
+happens, and flip `is_current` back onto the ORIGINAL row rather than inserting a copy —
+the mcalc lane's shape, and it makes the restore exact.
 
-**Expected:** `fact_drift` names `stamp-duty`, `kind: value_drift`,
-`route: fact_drift_review`, `reason: no_auto_fix`. **A dry run that reports nothing
-after a real change is the failure.**
+> **⚠ CORRECTED 2026-08-17 — this step used to predict `kind: value_drift`, and that is
+> UNREACHABLE on a freshly-seeded declaration.** Every (fact, tool) pair with no prior
+> finding is `never_reconciled`, and that arm is tested FIRST, so a newly-declared fence
+> yields `kind: unreconciled_declaration` on BOTH the baseline and the induced run. The
+> mcalc lane ran this recipe as written and got a result my own text called a failure.
+> **`value_drift` only becomes inducible after a REAL (non-dry) sweep has recorded the
+> baselines** — a dry run writes no items, so it can never create them.
+
+**What a PASS looks like on a fresh declaration** (measured by the mcalc lane, 16:17Z
+2026-08-17, and it is a genuine proof):
+
+| run | `fact_drift` entries | kind | `new_value` for the changed fact |
+|---|---|---|---|
+| baseline (register 500000) | 13 | `unreconciled_declaration` | **500000** |
+| induced (register 550000) | 13 | `unreconciled_declaration` | **550000** |
+
+The discriminator is **not** the kind — it is that `new_value` tracks the register
+between the two runs. That proves the fan-out reads the register AT CHECK TIME rather
+than replaying a stored number, which is the property the whole design turns on.
+
+**To reach `value_drift`:** let one real daily sweep file the one-time items (they become
+the baselines and self-quiet), then induce again.
+
+**⚠ Where to look, because the counter next door lies.** `fact_drift` is per-site and
+NESTED — `refresh_result->'results'->N->'fact_drift'`. There is no top-level key, and
+top-level `total_drifted` counts CITATION drift: it reads **0** while each site carries
+13 entries. Read it with a path query:
+
+```sql
+SELECT jsonb_pretty(jsonb_path_query_array(collected_data,
+         '$.refresh_result.results[*].fact_drift[*]'))
+FROM orchestration_states WHERE correlation_id='<corr>';
+```
+
+**A dry run that reports nothing after a real change is still the failure** — just make
+sure you looked in the right place before concluding it.
+
 
 ## Prove the code is live
 

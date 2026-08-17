@@ -34376,3 +34376,59 @@ another session's work, and a reader bisecting the code commit sees an unregiste
 miss that leaves no trace and repeats. The ordering was invisible to me because both edits happened
 within one session and *felt* simultaneous — the commit boundary is the only place the difference
 exists, and it is the place the rule is written about.
+
+---
+
+## 2026-08-17 — I shipped a dispatch script using a publish form LANDMINES says drops 4 in 5, and a proof recipe that predicted an outcome its own code cannot produce
+
+Two errors in the same directory, both found by the lane I handed the work to
+(`mortgagecalculator_couk_adoption`, CONTRIB_REPLY 2026-08-17b). Both are in
+**documentation I wrote and told other people to follow**, which is what makes them worth
+a row: a wrong command in a RUNBOOK spends someone else's session, not mine.
+
+### 1. The publish form
+
+`dryrun_fact_drift.sh` published with `kubectl run -i --rm … kcat -P <<JSON` — the payload
+on **stdin**. `kubectl run -i` attaches stdin asynchronously, so if the container reaches
+`kcat` first it sees EOF, publishes nothing and **exits 0**. Measured on the leopardess
+lane 2026-07-26: **four of five publishes lost.** It is in `LANDMINES.md` with the safe
+replacement (payload base64'd into the container COMMAND with `&& echo PUBLISH_OK`).
+
+**What caught it.** The receiving lane recognised the shape and used the safe form instead.
+Both their dry runs landed first time.
+
+**The cheap check I skipped.** `grep -n "kcat" LANDMINES.md` before writing a dispatcher.
+I did grep LANDMINES for the *newline* trap — my JSON is correctly one line — and stopped
+there, satisfied. **Finding one trap in a file is the moment you are most likely to stop
+looking for the second one.**
+
+**Why I didn't:** I copied the shape from an existing repo script
+(`200_component_creator/080_component_creator_trigger.sh`), which uses the broken form.
+Copying a working-looking pattern from the tree is not a substitute for the check —
+several committed scripts carry this form and the landmine exists *because* they do.
+
+### 2. The proof recipe that could not produce its own predicted result
+
+My RUNBOOK's "Induce the fan-out" step said: change the register value, dry-run, expect
+`kind: value_drift`. **On a freshly-seeded declaration that is unreachable.** Every (fact,
+tool) pair with no prior finding is `never_reconciled`, that arm is tested FIRST, and a dry
+run writes no items — so it can never create the baselines that would let `value_drift`
+win. The mcalc lane ran my recipe exactly and got `unreconciled_declaration` on both runs,
+against a text of mine that called a non-`value_drift` result the failure.
+
+They were careful enough to report it as "the half it can reach, PROVEN" rather than as a
+failure. A less careful reader follows my sentence and records the mechanism as broken.
+
+**What caught it.** Them running it. Not me — I wrote the recipe without tracing my own
+precedence order through it.
+
+**The cheap check I skipped.** Read your own `switch` in the order the code evaluates it,
+against the exact state the recipe creates. I had *just* rewritten that precedence in
+response to a council objection, so the ordering was as fresh in my head as it will ever
+be, and I still wrote a prediction that contradicts it.
+
+**The transferable rule.** **A recipe is a claim, and it is testable before anyone runs
+it: does the state this recipe creates actually reach the branch it predicts?** Both errors
+are the same species — I wrote instructions I had not executed, in a directory whose whole
+purpose is telling the next person how to execute them. The RUNBOOK now carries both
+corrections inline, where they will be read, rather than only here.
