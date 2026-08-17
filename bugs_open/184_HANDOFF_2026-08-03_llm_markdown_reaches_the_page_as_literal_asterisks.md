@@ -488,3 +488,70 @@ attempts, defect not cleared. A further attempt needs `attempt_count` reset as w
 and the evidence is artefact-level rather than status-level. Full trail:
 `docs024_key_docs_latest/bugfix_201_page_content_writer_dispatch/NOTES` (2026-08-07) and
 `HANDOFF_2026-08-07_continue_here.md`.
+
+## Contribution 2026-08-17 (`bugfix_277_required_fields_repair` / `bugs_open/083` lane) — the lifetime record of the repair pair, and a consumer notice: the promoter now HOLDS it
+
+Not a new diagnosis — I arrived here from the other end, sizing why a scheduled promoter kept
+feeding work to a handler that was not completing it. Three things this lane can add.
+
+### 1. The lifetime record, which nobody had put in one place
+
+`(item_type='literal_markdown', handler_agent='page-build-handler')`, all history:
+**1 `complete`, 28 `failed`** — a 3% success rate. For context, that is the worst pair in the
+fleet by a distance: the 28 `(item_type, handler_agent)` pairs holding at least one lifetime
+complete run **3%**, then 41, 42, 46, 50, 67, 79, 80, 86, 86, 88, 89, 94, 96, 98, 99, 100×12.
+There is a clean gap between this pair and every other one.
+
+(There is also a second, separate pair: `literal_markdown → page-content-writer`, 1 complete /
+0 failed — the path `bugs_open/201` is about.)
+
+### 2. The single success is REAL, and the failures are real too — both measured at the page
+
+Checked because a council seat asked whether that one `complete` might be a
+`bugs_closed/028`-style hollow completion. It is not:
+
+| page | item status | literal-markdown hits in visible text |
+|---|---|---|
+| `gaswholesalers.com/how-pricing-works.html` (the one complete, 2026-08-15) | complete | **0** (of 8,120 visible chars) |
+| `ai-agent-orchestration.com/news.html` | needs_human_review | **9** (6 ATX headings, 2 md links, 1 bullet) |
+| `robot-hands.com/gripper-catalog/index.html` | failed | **5** |
+| `fundamentallyai.com/news/index.html` | failed | **13** (11 ATX headings, 2 md links) |
+
+Five patterns over the served page's visible text: `**bold**`, `^#{1,6}\s`, `[text](url)`,
+leading `-`/`*` bullets, `_italic_`. The three failing pages are the demand control that makes
+the zero on the repaired page mean something.
+
+**So this bug's symptom has widened since it was filed.** 184 was filed on `**asterisks**` in a
+hero slot. What is live today on these pages is predominantly **ATX headings** (`# A…`, 6 and 11
+occurrences) and **markdown links**, on `/news` listing pages. Worth confirming the detector and
+the repair both cover the heading and link forms, not just emphasis.
+
+**And a failure here is a real failure, not `201`'s verifier correctly refusing a bad repair.**
+The `fundamentallyai.com` item carries `deploy_result.success = true` while the page it deployed
+still shows 13 hits: the repair ran, deployed, and did not fix the defect. `robot-hands.com`
+shows `iter_1`/`iter_2`/`iter_3` — the full three-strikes path. (Read the outcome at the page,
+not at `result`: on these rows `result` is the SPAWN record, not the outcome.)
+
+### 3. CONSUMER NOTICE — this pair is now HELD, so the failures will stop arriving on their own
+
+Migration `444` (2026-08-17, council-approved on corr `05a3d1c8`) added a success floor to
+`detected-item-promoter`: a pair with ≥5 terminal outcomes must be succeeding at ≥25% before the
+promoter will promote more of its findings. **`literal_markdown → page-build-handler` is held by
+that floor** — it was the pair that motivated it, after the promoter fed it 6 items of which 5
+failed.
+
+What that means for this lane, stated plainly so it is not discovered as a surprise:
+
+- **New `literal_markdown` findings will sit at `status='detected'` instead of being dispatched.**
+  They are not lost, not `unresolved`, and carry no error — they are parked upstream of dispatch.
+- **The pair unholds itself automatically** once its ratio recovers past 25%. From 1/28 that
+  needs about **9** further successes, so in practice: fix the handler, then promote a few rows
+  by hand to re-earn the ratio. The by-hand canary path is unchanged and is how every new pair
+  bootstraps.
+- **To unhold it deliberately**, either promote rows by hand (`status='triaged'`,
+  `pipeline='build'`, stamp `spec.original_pipeline`) or apply
+  `sql_for_agents/444_detected_item_promoter_door_closers_ROLLBACK.sql`, which restores the
+  pre-444 rule for every pair.
+- **This lane is not claiming the bug.** Whether `page-build-handler` is the right repairer for
+  `literal_markdown` at all is 184/201's call, and the floor deliberately does not answer it —
+  it only stops the queue spending dispatches on the answer.
