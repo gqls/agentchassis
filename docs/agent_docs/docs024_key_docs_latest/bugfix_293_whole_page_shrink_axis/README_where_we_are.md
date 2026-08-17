@@ -73,3 +73,64 @@ my own measuring instrument.
 in the repo on purpose, because the instruction "re-run this calibration before changing it" was
 sitting in the code with no way for anyone to do it. Next is the fix itself, which needs a decision
 about how wide to go, and then the council.
+
+## 2026-08-17, later the same day — the fix is written, and the council found something
+
+**The fix, in plain terms.** All three guards now count only the words a reader would actually see.
+The cut-off below which they don't bother judging a section moved from 500 characters to 200, because
+500 was chosen back when the count included all the styling instructions — on an honest reading of the
+prose it was excluding more than half the sections on a page. And the oldest of the three guards, the
+page-wide one that was buried as an unnamed block of code in the middle of a much longer function, now
+has a name, a test, and a switch an operator can turn off without rebuilding the software. It had
+never had one.
+
+**I asked Fable to plan it before writing anything, and that was worth doing.** It found a fourth
+place the same mistake lives — one I had missed — and that find changed the design. I had intended to
+simply lower the 500 to 200 where it was defined. But something else uses that number for a completely
+different purpose: deciding whether two sections are similar enough to be paired up. Lowering it in
+place would have quietly changed that behaviour with no evidence behind the change. So the number
+became a setting passed in by each guard, and the old one stayed exactly where it was.
+
+It also talked me out of what I thought was the tidier fix. I wanted to make the shared decision
+measure the text itself, so no caller could get it wrong. That would have broken the measuring
+harness, which works precisely because it can feed the real decision *either* measure and compare. So
+the check is now a test that fails the build if any caller measures the wrong way — a test can ask
+"was this measured properly?"; a type cannot.
+
+**Then the council reviewed it and sent it back, and the reviewer was right.** The blocking question
+was one line long: *does the page-wide guard's filter actually match any rows?* It selects sections
+marked "deployed" — and there is a known trap recorded in our own notes where the equivalent column on
+a neighbouring table never holds that value at all. If the same were true here, the guard I had just
+carefully extracted, named, tested and documented would never run on any page, and the test suite
+would have cheerfully confirmed it worked, because tests hand the code whatever rows you tell them to.
+
+It was one query. "Deployed" is by far the commonest value — 1,575 sections across 617 pages, 85% of
+all pages — so the trap doesn't apply here and nothing needed changing.
+
+**But the lesson is the part I want to record, because I got it wrong in a way that felt careful.** I
+had kept that filter *deliberately* unchanged, and said so in the code, on the grounds that quietly
+changing which sections a guard looks at is exactly the sort of unreviewed behaviour change that
+causes incidents. That reasoning is sound. What I never did was check whether the filter matched
+anything in the first place. "I didn't change it" protects you from *introducing* a fault and does
+nothing whatsoever about *inheriting* one — and moving a line of code into a function with a proper
+name, a paragraph of explanation and a test suite makes it look far more trustworthy than it did as an
+anonymous fragment, without adding a single piece of evidence. Every figure I had published about that
+guard rested on a number I had not counted.
+
+**Three other things the reviewers asked for, all now done.** The page-wide guard, when it can't read
+the page at all, lets the save through rather than blocking it — inherited behaviour I chose not to
+change. A reviewer pointed out that it did so *silently*, which means a future content loss would be
+diagnosed as "the guard should have caught that" when in fact it never ran. It now leaves a record,
+under a label that says plainly nothing was blocked. Another asked whether our idea of "visible text"
+matches the one the page assembler uses when it decides a section is empty and can be dropped — a fair
+worry, because if they disagree, a save could pass this guard and have its content thrown away
+downstream anyway. They *do* differ in how they're built; I measured 6,585 real sections and none of
+them could be dropped that way, and there's now a test that keeps it so. The third was that I had
+oversold my own test as "closing" a gap when it only narrowed one; I've corrected the wording and made
+the test do the broader thing it was claiming.
+
+**Where this stands.** Everything is committed. It's Go code, so none of it does anything until the
+next chassis image is built and rolled — and a thing worth knowing came out of checking that: the
+sibling fix from this morning, which everyone believes went live, has *not*. The running image was
+built yesterday. So both halves of this correction will start working at the same moment, on the next
+roll. Round two is with the council now.
