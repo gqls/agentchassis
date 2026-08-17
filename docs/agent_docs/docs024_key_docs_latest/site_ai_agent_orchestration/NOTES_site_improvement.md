@@ -166,3 +166,89 @@ survives contact with the measurement.** Contrast was not "already fixed on othe
 that transfers — the mechanism that fixed other sites is *already live here* and this site is
 still broken, for two reasons that mechanism was never meant to catch. Images were not fixed
 elsewhere either; the one site that ran the image handlers ended up with no images.
+
+---
+
+## 2026-08-17 (later) — owner picked "both routes"; A1 then FAILED its own safety check
+
+Owner chose route **A1 + A2** for contrast, and approved the `pricing` framework rebuild.
+
+### ⚠ MY OWN OPTION A1 WAS UNSAFE, AND THE CHECK THAT CAUGHT IT TOOK ONE QUERY
+
+I offered A1 ("give this site's `primary` a visible value — one spec row") as the fast, safe,
+site-scoped half. **It is not safe, and I should have measured before offering it.** Before
+editing the palette I counted how `--color-primary` is actually consumed:
+
+```
+component CSS (rendered_html, this site)      site stylesheet
+  color         37                              color         2
+  background    24     <---- the problem        background    2
+  border-color   6                              border-color  1
+  accent-color   4
+```
+
+`--color-primary` is **dual-role**: 37 foreground uses and 24 *background* uses. Lightening it so
+the headings read would put a light fill under the white/near-white labels that sit on those
+fills — trading 20 failures for a fresh set. That is `render_audit.py`'s own defect family 2, *"a
+token used in two roles — correct in one place, invisible in the other"*, which I had read in that
+file's header earlier the same session and still proposed a fix that walks into it.
+
+**There is no safe single-value palette fix here.** Foreground uses need a light colour on these
+dark grounds; background uses need a dark colour under white labels. One token cannot be both —
+which is precisely why the ink companion exists. **A1 is withdrawn; A2 is the whole fix.**
+Recorded in `WRONG_CALLS.md`.
+
+### A2, done properly — migration 456
+
+`content_components.html_template` is the source: the rule in the template is **byte-identical**
+to the one in the served `rendered_html`, checked rather than assumed.
+
+Fleet scope of the defect, measured: **156 of 294 templates** carry a bare foreground
+`--color-primary`; only **4** mention the ink companion at all. This site renders **12** of them.
+Migration `456` repoints those 12, named explicitly so a concurrent placement cannot shift the set.
+
+Dry-run simulation before applying (read-only, the whole point being that it could have come out
+otherwise): 12 rows, 12 changed, **36 bare → 0**, 36 wrapped, **0** damage to
+`--color-primary-text` (a different token, the label that sits ON a primary fill). Applied:
+`UPDATE 12`, all five guards passed.
+
+Shape is 415's: two-level fallback `var(--color-primary-ink,var(--color-primary,#X))`, never bare,
+so it is **inert** where no companion is emitted and corrective where one is.
+
+### The fix is applied at the template and CANNOT REACH THE SITE — known open bug
+
+`rerender-pages` does **not** render. It files one `page_rerender` work item per page: my run
+created **41** (`items_created: 41`), status `COMPLETED` within seconds. **A COMPLETED
+orchestration here means "41 rows filed", not "41 pages rendered"** — I nearly reported the fix as
+shipped on that status.
+
+Checked at the artefact instead: **1** component re-rendered, and the 12 components carrying an
+ink repoint are all `article-body` from **migration 415, rendered 08-15** — i.e. *none of mine*.
+
+The queue then sat unchanged for 10+ minutes at `claimed=1, triaged=40`. It is **not this site**:
+
+| site | signature, 2026-08-17 ~18:0x |
+|---|---|
+| ai-agent-orchestration.com | claimed 1, triaged 40 |
+| fundamentallyai.com | claimed 1, triaged 43 |
+| finetuning.uk | claimed 1, triaged 35 |
+| idea.uk | claimed 1, triaged 32 |
+| webdesign.co.uk | claimed 1, **failed 30** |
+| loancalculator.co.uk | claimed 1, **failed 7** |
+
+Every site wedged at **exactly one claimed item**, all claimed by `build-dispatch-loop`. That is
+`bugs_open/029` — *hung spawns saturate dispatch group and halt builds fleetwide* — which is
+**OPEN and owned**. Not re-diagnosed and not forked; recorded here as the blocker.
+
+**So: the contrast fix is correct, applied and committed at the source, and invisible to a visitor
+until that queue moves.** Reported to the owner as blocked rather than done, because the
+difference is the whole point.
+
+The documented bypass ([[single-page-deploy-bypasses-stalled-queue]]) needs care and was **not**
+fired blind: with no `reason` stamped, `page-rerender` takes the `render_page` branch, which
+assembles from **stored `rendered_html`** and would therefore ship the OLD css — a bypass that
+completes green and propagates nothing. Only the `rerender_sections` branch (a `reason` of
+`image_landed` / `section_data_resolved` / `cta_links_stale`) regenerates from `content_data`.
+⚠ This site has **2 locked components**, and firing `section_data_resolved` at a locked,
+positionally-named section **duplicates** it (LANDMINES; `bugs_open/189` records the reversal SQL).
+Count `page_components` for the page before and after if that route is taken.

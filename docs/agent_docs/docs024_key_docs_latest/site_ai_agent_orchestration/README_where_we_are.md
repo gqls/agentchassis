@@ -87,3 +87,68 @@ should make that impossible rather than just unlikely.
 I've written up the full evidence and I'm ready to go, but the contrast fix has two routes and
 they differ a lot in how far they reach, so it's your call rather than mine. I'll put the
 options to you separately.
+
+---
+
+## 2026-08-17 (evening) — what I did, what I got wrong, and what's now blocking
+
+You picked both contrast routes and approved rebuilding the pricing page. Here's where that got to.
+
+### First, a correction I owe you
+
+One of the two options I put to you was wrong, and I caught it just before applying it. I'd
+offered "give this site's primary colour a visible value — one row, quick, reversible" as the
+fast half. When I went to make that change I checked how that colour is actually used, and it's
+used for **two different jobs**: 37 places use it for *text*, and 24 places use it as a *panel
+background* with white writing on top. Making it lighter so the headings become readable would
+have made those 24 panels pale with white text on them — I'd have fixed 20 problems and created
+a fresh batch.
+
+There's no single colour that works for both jobs, which is exactly why we built the "legible
+ink" companion in the first place. So that option was never really available, and I withdrew it.
+The other route was the whole answer all along. I've logged this properly — it's my mistake, and
+the check that caught it took ten seconds and I should have run it before offering you the choice
+rather than after.
+
+### The contrast fix itself is done — at source
+
+I found where the problem actually lives. The rule that makes those headings invisible is stored
+in the shared component library, and it's character-for-character the same as what the live site
+serves — so the library is the source, not the page. Across the whole platform, **156 of our 294
+component templates** have this same flaw; only 4 of them use the legible-ink companion. This site
+uses 12 of the bad ones.
+
+I've written and applied a database migration that fixes those 12, following exactly the pattern
+we used for a similar fix two days ago. I simulated it read-only first: 36 bad declarations, all
+36 correctly rewritten, nothing else touched. Then applied it — 12 rows changed, every safety
+check passed. It's committed, with a rollback file.
+
+The change is written so that it's completely inert on any site that doesn't have the legible-ink
+feature switched on, and helpful on any site that does. So it can't hurt the other 14 sites that
+share these components.
+
+### But it can't reach the live site yet, and that's not my doing
+
+Here's the honest bit. Changing the library doesn't change the pages — they have to be rebuilt to
+pick it up. I fired that rebuild. It reported success in seconds, and **it hadn't rebuilt
+anything**: that job doesn't actually rebuild pages, it just adds 41 jobs to a queue. I nearly
+reported the fix as shipped on the strength of that "success".
+
+I checked the actual pages instead, and the queue isn't moving. It isn't this site — I looked
+across the estate and **every site is stuck in the same way**, each one frozen with exactly one
+job "claimed" and the rest waiting. Two sites have batches that outright failed in the last
+half-hour. This is a known, already-filed bug of ours about jobs hanging and blocking the whole
+queue. It's someone else's open case, so I've recorded what I saw rather than starting a
+competing investigation.
+
+**So: the contrast fix is correct, applied, and committed — and a visitor won't see any
+difference until that queue starts moving again.** It's known to sometimes clear itself in about
+40 minutes. There's a documented way to bypass the queue, but the obvious version of it rebuilds
+pages from their *stored* HTML, which would ship the old broken styling while reporting success —
+so I'm not firing that blind.
+
+### Still to do
+
+Images and carousels I haven't started — both need the same build pipeline that's currently
+jammed, so there was no point queuing more into it tonight. The pricing page rebuild you approved
+is in the same position.
