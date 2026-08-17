@@ -226,3 +226,33 @@
   `12ffad7c-a7b2-4955-b531-554f07650598`. Separate defect noticed and NOT folded in:
   `complete_workflow … message validation failed` x6 — `ProduceWithValidation` validates
   headers, not size, so it is its own bug.
+
+
+## 2026-08-17 — the fix is built, submitted and committed; inert until the roll
+
+- Re-checked before touching anything: 66 commits landed overnight, HEAD moved, **the loop
+  engine files were untouched** and no new bug file cites 289 — so nobody had taken it. My four
+  08-16 commits are all ancestors of HEAD. (`git log -6` reads as though my work is missing —
+  it is 67 commits back; ancestry is the check, not the log's first page.)
+- **The bug is still live and still burning.** Since the `v1.0.1305` roll (08-16 22:07Z):
+  25 `tool-auditor` runs, **1 COMPLETED**, 14 FAILED, the rest stuck at
+  `create_items_loop_complete` / `_iter_9_done` with `awaited_requests = {}`.
+- Second `090` (`12ffad7c`) finished **UNVERIFIABLE**, as predicted — bundle starvation again.
+  Its iteration-1 REFUTED cited "no `_done` key appears at all" for `1a70fed3`; that row has
+  **ten**, 20 kB → 10 MB. Both runs on this target refuted it on false absences.
+- Fix committed `509e01e6a`: mark the injected terminal at expansion, return a marker instead
+  of aggregating. Matched on **action**, never name (9 of 15 are called `done`). Registered
+  WFA-015 in the same commit — it is a reserved key on a shared mechanism, which is the shape
+  `bugs_closed/124` was vetoed for shipping unregistered.
+- **Guard proven by mutation, not by a green tick:** disabling the early return makes the guard
+  test fail and print `results[0].done.results[0].done.nested` — the recursion, reproduced in a
+  unit test. The guard test's control strips only the terminal signals and demands the old
+  swallowing behaviour back, so a function that merely never aggregates would not pass it.
+- Blast radius measured rather than asserted, because the council would otherwise be asked to:
+  all 15 `loop_complete` substeps declare `output_field = (none)` and `next_step = (none)`, so
+  the per-iteration aggregate was addressable by nothing and read by nobody. That measurement
+  also killed the cheap name-based candidate.
+- Council `Council-Submitted: 7a3c4fb7-e8c1-4b5f-950e-7a826d5bebbe`, verdict pending.
+- Two pattern-check advisories checked and dismissed with reasons (twin `LoopAction` has no
+  aggregation path; the `:334` hit is a bare string literal). Noticed and NOT fixed:
+  `LoopAction`'s `max_iterations` read is a bare `.(float64)` — inert today, same class as 193.

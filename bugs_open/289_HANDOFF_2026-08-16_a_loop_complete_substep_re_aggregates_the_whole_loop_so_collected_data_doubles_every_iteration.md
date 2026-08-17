@@ -274,3 +274,72 @@ into each other, and read by nobody. The consumers read the **outer** `_complete
 
 A name-based skip on `_done` would fix 9 of 15 and silently leave the other 6 — including
 three page-building loops — doubling. **Match on the substep's `action`, never on its name.**
+
+
+---
+
+## FIX BUILT 2026-08-17 — committed `509e01e6a`, INERT until the next chassis roll
+
+**Status: still OPEN.** The bar is fixed AND live; this is Go, so it does nothing until the
+image is rebuilt and rolled. Releases are whole-fleet and the owner runs them.
+
+**What shipped** (candidate 1, the one that makes the bad state unrepresentable):
+`handleLoopExpansion` sets `loop_iteration_terminal: true` on an injected substep whose action
+is `loop_complete`, and `LoopCompleteAction` returns a three-field marker
+(`status`/`iteration`/`loop_name`) for such a step instead of aggregating — **before** the
+existing diagnostic key dump, which on these runs was logging a 22 MB key list once per lap.
+Aggregation is unmoved: it still happens on the loop's own `<loop>_complete` end-step, which is
+what `output_field` exposes and what every consumer reads. New key registered in
+`frameworkStepConfigKeys`; concept register **WFA-015**.
+
+**Matched on the substep's ACTION, never its name** — per ADDENDUM 2, the terminal is called
+`done` in only 9 of 15 loops.
+
+**Marked at injection, not inferred**, so a nested loop's own end-step still aggregates. The
+bare-`loop_iteration` fallback is deliberate: plans already expanded and persisted are in flight
+with no flag, and without it they would keep doubling until they died.
+
+**Tests: 5, and the guard is proven by MUTATION.** With the early return disabled, the guard
+test fails and prints the recursion verbatim —
+`results[0].done.results[0].done.nested` carrying the prior-iteration marker twice. The guard
+test also carries a **control** that strips only the two terminal signals from otherwise
+identical input and requires the OLD swallowing behaviour back, so it cannot pass against a
+`LoopCompleteAction` that merely never aggregates. Also covered: the in-flight-plan fallback
+with a `float64` iteration index (a JSON round-trip through the persisted plan), a nested inner
+end-step that must still aggregate, and a table for the discriminator including the two shapes
+that must NOT trip it.
+
+**Council:** `Council-Submitted: 7a3c4fb7-e8c1-4b5f-950e-7a826d5bebbe` (verdict pending at the
+time of writing — read it, and act on a REVISE/REJECTED; the code is already on the shared
+branch, so there is nothing to hold back).
+
+**Two pattern-check advisories, both checked and both non-issues** — recorded so the next
+reader does not re-walk them: (a) *untouched-twin `LoopAction`* — `LoopAction` is the loop
+setup/expansion action and has no aggregation path at all (no `iterationResults`, no
+`substep_output_fields`, no Strategy scan), so it cannot carry this defect; (b)
+*logged-model-output at `loop_actions.go:334`* — that line is the bare literal
+`logger.Info("Starting loop completion")`, no model output; the checker's line anchor shifted
+by the inserted early return.
+
+**Noticed while there, NOT fixed, NOT this bug:** `LoopAction` reads `max_iterations` with a
+bare `.(float64)` assertion, so an `int`-typed declaration would silently fall back to the
+default 20. Inert today because live config arrives from JSONB as float64 — the same class as
+`bugs_open/193`'s silent bool reads, worth a sibling fix by whoever converges that.
+
+### What is still owed on 289 after the roll
+
+1. **Verify at the artefact, with the demand control.** Re-run one `tool-auditor` audit and read
+   the series: `SELECT key, length(value::text) FROM orchestration_states, jsonb_each(collected_data)
+   WHERE orchestration_id='<new run>' AND key LIKE '%\_done' ORDER BY key;` —
+   **the disconfirming result is a ratio near 2.0 between consecutive laps.** This proves nothing
+   unless a loop with more than one iteration actually ran, so check
+   `loop_metadata.total_iterations > 1` on the run you read. The durable pass is a `tool-auditor`
+   orchestration reaching `COMPLETED`; the population had 1 in 63 before this.
+2. **Sweep the corpse rows.** 30-plus orchestrations are already dead at 22 MB and this fix does
+   not move them. They are still being re-dispatched by the claimed-item-timeout sweep, so they
+   are still costing Sonnet audits until their items go `failed`.
+3. **The two residuals** — the `total_iterations` fallback, and the absence of any size tripwire
+   on `collected_data`. A 22 MB orchestration is still silent.
+4. **The separate `complete_workflow` defect** noted at the end of the main file
+   (`message validation failed`, 6 rows) — `ProduceWithValidation` validates headers, not size.
+   Still unfiled.

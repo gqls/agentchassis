@@ -155,3 +155,41 @@ fresh diagnosis run against the correct mechanism so it gets an independent read
 Nothing is fixed yet. The fix is in shared platform machinery used by fifteen loops, so it
 needs the council gate and it needs the other consumers told, not just counted — that is your
 call on timing, and I have not touched the code.
+
+
+## 2026-08-17 — the fix is written, and what it does and does not do
+
+I checked first whether anyone else had picked this up overnight — sixty-six commits had landed,
+but nobody had touched the loop machinery, so it was still mine to do. I also checked the bug was
+still doing damage rather than fixing itself: since last night's build the tool auditor has run
+twenty-five times and finished once.
+
+The fix is small and it is where the bug is, not where the symptom is. Each lap of a loop ends
+with a tidy-up step; that step was accidentally the same step the loop uses to gather everything
+up at the very end, so every lap re-gathered all the previous laps. Now the per-lap step is
+marked as what it actually is — a link in the chain — and the gathering-up happens only once, at
+the end, exactly where every consumer already reads it.
+
+Two details worth knowing, because both were traps. First, that tidy-up step is only called
+"done" in nine of the fifteen loops; the others call it four different things. A fix that matched
+on the name would have repaired nine and left six quietly broken, including three of the
+page-building loops — so it matches on what the step *does* instead. Second, I checked whether
+anything actually reads the per-lap data I am removing. Nothing can: all fifteen of those steps
+are declared in a way that makes their output unaddressable, and there is no code anywhere that
+reads it. It was being written, copied into itself, and read by nobody.
+
+I did not trust the tests for passing. I deliberately broke the fix and re-ran them, and the test
+failed and printed the doubling back at me — that is the only reason I believe the test is
+testing anything. It also has a companion test that proves the *old* behaviour is still there for
+the step that is supposed to aggregate, so I would notice if I had simply switched the whole
+thing off.
+
+It has gone to the review council and it is committed. **It is not live yet** — it is Go, so it
+does nothing until the fleet image is rebuilt and rolled, which is your call and not mine.
+
+Three honest limits. It stops the growth but does not clean up the thirty-odd runs already dead
+at twenty-two megabytes; those are still being retried every forty minutes, still paying for an
+AI audit each time, until they give up. There is still nothing that notices a twenty-two-megabyte
+run and complains — I have written that down rather than fixed it. And there is a second,
+unrelated fault in the same area (a completed run failing to hand its result back) that I have
+noted and not touched, because folding it in would have made this change harder to review.

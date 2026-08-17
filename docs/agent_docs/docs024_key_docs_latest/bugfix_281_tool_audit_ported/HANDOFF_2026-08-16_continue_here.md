@@ -82,7 +82,21 @@ register **TL-042** (`docs026_concept_register/register/tool-lifecycle.md`) → 
 
 ## If you continue in a new chat
 
-Nothing is owed on 281 itself. Highest-value next steps in this lane's neighbourhood: (1) read the
-`815322b9` diagnosis verdict and fix the loop stall (fleet-wide); (2) the per-instance fixer /
-per-finding review keys (coordinate with `bugfix_285_shared_template_write` — check their NOTES
-mtime first); (3) the two LANDMINE entries above.
+Nothing is owed on 281 itself.
+
+> **UPDATED 2026-08-17.** Item (1) is **DONE as far as it can go without a roll**, and it turned
+> out not to be the loop stall this file described — see the CORRECTED block above. The cause was a
+> 2^N blow-up of `collected_data` in the shared loop engine, filed as **`bugs_open/289`** and fixed
+> in **`509e01e6a`** (`Council-Submitted: 7a3c4fb7-e8c1-4b5f-950e-7a826d5bebbe`, register WFA-015).
+> **It is Go, so it is INERT until the next chassis roll** — 289 stays OPEN until then, and 289's
+> own "what is still owed after the roll" section is the live list: verify the series is flat with
+> the demand control attached, sweep the 30-plus corpse rows that the fix does not move, and the
+> two residuals (the `total_iterations` fallback, and no size tripwire on `collected_data`).
+> Item (3) is **NOT done — do not read the two new LANDMINES as covering it.** The two entries I
+> appended and armed are 289's own (a `090` REFUTED on an oversized-state target is bundle
+> starvation; a `<loop>_iter_N_done` key is a whole-loop aggregate). **The two candidates listed
+> in item (3) above — the one-sha binary stamp, and the audit_tool re-dispatch cost — are still
+> unwritten.**
+
+Remaining, unchanged: (2) the per-instance fixer / per-finding review keys (coordinate with
+`bugfix_285_shared_template_write` — check their NOTES mtime first).
