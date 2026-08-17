@@ -126,3 +126,82 @@ quarter of the page's text. `[APPROXIMATE — paired slots only, not every deplo
 pages it would allow a **whole-page** prose wipe on **337**. On visible text it refuses 363 of 363.
 That is the scope argument for fixing the axis once, in one shared place, rather than at the one call
 site this bug names.
+
+## 2026-08-17, later — the fix, six mutations, and a seventh that found a live false refusal
+
+Planned with `fable` against the evidence above (brief and its answers summarised in
+`PLAN_2026-08-17_whole_page_shrink_axis.md`). Three of its findings changed the design, and one
+corrected my own count.
+
+- **The axis is in FOUR places, not three.** I had missed
+  `load_current_section_content_action.go:261-262`, which applies `shrinkGuardTagStripper` and
+  compares against `minShrinkGuardChars` to decide whether an unclaimed stored slot is "prose-sized"
+  enough to pair with an unmatched section. It refuses nothing — a pairing heuristic, not a floor.
+  **This is what settled the design of the minimum:** I had intended to change
+  `minShrinkGuardChars` from 500 to 200 in place, which would silently have re-tuned that action's
+  pairing behaviour with no calibration covering it. Instead `evaluateSectionShrink` takes the
+  minimum as a parameter and a NEW constant `minShrinkGuardVisibleChars = 200` is passed by both
+  floors; 500 and the retired stripper stay, annotated with their one remaining consumer.
+- **Rejected the obvious structural fix, on fable's argument.** I had planned to make
+  `evaluateSectionShrink` take HTML maps so no caller *could* choose an axis. That would destroy the
+  calibration harness, whose whole value is running BOTH axes through the REAL decision. The axis
+  stays the caller's to supply and `shrink_axis_coverage_test.go` enforces it instead — a test can
+  check "measured the right way"; a type cannot.
+- **A hole in the estate's existing coverage test**, found while writing mine:
+  `page_component_writer_coverage_test.go:39` matches `UPDATE page_components … SET … rendered_html =`
+  and this path is DELETE+INSERT (its only `UPDATE`s set `position`). So the fleet's
+  highest-volume `rendered_html` writer — 3,603 archived rebuild writes against 281 edit writes —
+  was **invisible to the fleet's writer-coverage test**, and unwiring a floor there failed nothing.
+  `TestSavePageSectionsWiresBothTextFloors` closes it.
+
+### Mutations, RUN before commit — all seven bite
+
+A mutation you did not run is a claim. Each was applied to a `git archive HEAD` tree, tested, reverted.
+
+| id | mutation | result |
+|---|---|---|
+| MUT-293-A | per-slot guard back to the tag-stripped axis, both sides | **3 tests fail, in BOTH directions** — the refusal test because the retired axis allows the poison, the repair test because it refuses the repair |
+| MUT-293-B | pass `minShrinkGuardChars` (500) instead of 200 | the mid-sized-prose test fails. **Nothing else in the suite could catch it** — every other fixture is comfortably over 500 visible chars |
+| MUT-293-C | `+=` → `=` on both sides of the text floor | the repeated-slot test fails **for one row ORDER and passes for the other**, which is the finding |
+| MUT-293-D | page-total floor back to the tag-stripped axis | it ALLOWS the whole-page wipe — so that floor is load-bearing and **not shadowed** by its per-slot sibling |
+| MUT-293-E | unwire `enforcePageTotalTextFloor` from the action | coverage test fails |
+| MUT-293-F | put `enforceSingleSlotFloors` back on the retired axis | coverage test fails twice (no `visibleTextLength`; retired stripper not allow-listed) |
+| MUT-293-G | `+=` → `=` in the CLASS floor | fails — **and via the ALLOW arm, which is a worse finding than expected** (below) |
+
+### MUT-293-G found a LIVE FALSE REFUSAL, not a blind spot
+
+I applied the summing fix to the class floor for consistency, expecting it to close a blind spot of
+the same shape. The mutation says the shipped behaviour is worse than that. With last-write-wins, a
+page carrying two instances of one slot name with 60 class attributes between them, rebuilt to keep
+**55** of them, is **REFUSED** — because only the last instance's 25 is compared against the group's
+60, giving 42% against a 50% floor. So the shipped class floor can block a whole page save on a
+legitimate rebuild of any of the 14 pages with a repeated slot name, and which way it falls depends
+on the order the database returns rows in. That is a live defect with damage, not a gap.
+
+### DEPLOY STATE, measured — and it corrects a figure in another lane's notes
+
+`[MEASURED 2026-08-17]` Running chassis: `v1.0.1305`, both pods, restarted 14:43Z. Stamp read from
+the binary (`grep -oa 'buildinfo.GitCommit=[0-9a-f-]*' /proc/1/exe`): **`6a782274b`, dated 08-16**.
+
+- My fix (`6aae23e62`) is **NOT** in it, as expected — committed after the build. `IMAGE_TAG` in the
+  makefile is already `v1.0.1307` while the chassis overlay still reads `v1.0.1305`, so the next
+  build picks my commit up from HEAD.
+- **`4b32f174c` — the 285 lane's visible-text axis at the section editor — is NOT in it either.**
+  Their fence (`d7b2d9994`) is. So **the sibling's axis is still inert**, and both halves of the
+  correction will now go live on the same roll. Anyone reading `PBP-043`'s "verify-later" and waiting
+  for the section editor's first visible-axis refusal is waiting for a roll that has not happened.
+- ⚠ **The 285 lane's NOTES record the v1.0.1305 stamp as `5e075a6f9`.** It is not: that sha is
+  **absent** from the running binary, on a grep whose sanity control (`gqls/agentchassis`, present)
+  passes. Not corrected in their file — it is their lane's record — but do not carry that sha forward.
+
+**MISSTEP 2, mine, and it wasted three probes.** I ran the binary probe for a bare 40-hex sha, and
+read the first "absent" as an answer before checking the positive control — which then failed, so the
+whole reading was worthless. The stamp is stored next to a marker and the reliable extraction is
+`grep -oa 'buildinfo.GitCommit=[0-9a-f-]*'`, which another lane's runbook already had. **The absent
+control is the one that tells you the probe works; run it FIRST, not as a footnote.**
+
+**MISSTEP 3: `kubectl logs | grep -m1 'build provenance'` returned another lane's text.** These pods
+log entire council and diagnosis payloads, and a seat's SQL check quoted the phrase, so the recipe in
+two runbooks matched a false line 2 hours newer than the pod's startup. It is not a startup line
+scrolling out of reach (the documented failure) — it is a **collision with agent payload content**,
+which no `--tail` size fixes. Use the binary marker. Filed as a LANDMINE.
