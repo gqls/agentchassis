@@ -129,3 +129,37 @@ affects whether 94 live pages change over days or weeks, so it's yours.
 
 I've deliberately not started converting. Building the converter before you pick a shape would risk
 building the wrong one.
+
+---
+
+## 2026-08-17 (later) — you asked me to look it over once more, and the scary number was my instrument's fault
+
+The "88 of 91 scripts need rewriting" I gave you earlier today is wrong, and the truth is much
+better: **25**. Here is what happened, plainly.
+
+The checker I built for this work — the one that will judge every converted component — turns out
+to have had a blind spot. Most of our tool components start their code with a standard comment
+block describing what the tool does. The checker looked at the first character of the code to
+decide "is this safely wrapped?", saw a comment instead of the wrapper, and said "unsafe". Sixty-two
+components were flagged that way, and every one of them was actually fine — properly wrapped, just
+politely documented first. I found it because you asked for the second look: I opened one flagged
+component by eye and its code visibly ended with the wrapper's closing bracket.
+
+So the checker is fixed (with tests that prove both that it now sees through the comment and that a
+comment can't be used to smuggle genuinely unsafe code past it), it has gone back to the reviewer
+council as a third round on the same case, and the honest count is: **66 components need only the
+mechanical renaming; 25 need the careful script work.** And those 25 are almost exactly the
+calculators on the loan-and-mortgage site that this whole bug was filed about — the original "22
+templates" estimate was close to right all along, arrived at from the other side.
+
+Two things worth saying straight. First, this flips yesterday evening's framing back: the AI-rewrite
+exposure is 25 components, 23 of them on the one site with an independent test harness watching, so
+the hybrid plan is comfortable rather than uncomfortable. Second, if we had started converting
+without this second look, the broken checker would have rejected 62 perfectly good results somewhere
+in the middle of the programme — the exact moment when the temptation is to loosen the checker to
+make the problem go away. Finding it before the programme, with the fix reviewed, is the cheap
+version of that discovery.
+
+The decision in front of you is unchanged in shape and easier in substance: the hybrid approach,
+loan-calculator site first, now covers 73% of the estate with the reliable mechanical pass and
+reserves the careful work for the 25 that genuinely need it.

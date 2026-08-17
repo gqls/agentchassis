@@ -268,15 +268,21 @@ kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user 
 go run ./cmd/instanceaudit /tmp/templates.json --list
 ```
 
-**Baseline 2026-08-17** — 91 templates: **3** already scoped, **88** declaring into global scope,
-**8** assigning `window.onload`, and **91 of 91** producing duplicate ids when doubled (1,345 in
-total). Worst single component: `tool-idea-viability-scorecard`, **79** colliding ids.
+**Baseline 2026-08-17, post-detector-fix (`5b30a831b`)** — 91 templates: **66** already scoped,
+**25** genuinely declaring into global scope (17 global-only + 8 `window.onload`; the 23
+`loans-*`/`mortgages-*` calculators plus two tools), and **91 of 91** producing duplicate ids when
+doubled (1,345 in total). Worst single component: `tool-idea-viability-scorecard`, **79** colliding
+ids.
 
-⚠ **Do not size this job with regexes.** Three patterns (`window.onload`, inline `on*=`, a
-`function` keyword near the top of a script) flagged **24** and the real classifier says **88** —
-the 64 they missed declare globals in spellings the patterns did not search for. The estimate was
-wrong in the direction that made the job look easy, which is the direction that gets a plan
-approved. Full account: `RFC_034` §3a.
+> ~~3 already scoped, 88 declaring into global scope~~ **CORRECTED same day: the 88 was the
+> DETECTOR's defect, not the corpus's.** 62 of the 88 were IIFE-wrapped behind a leading
+> `/* tool-doc */` comment the anchored wrapper regex could not see past. Fixed and
+> mutation-proven; full account `RFC_034` §3a.
+
+⚠ **Do not size this job with regexes — and do not read a gate's flag as ground truth without
+SAMPLING the flags.** The regex triage said 24 (missing spellings it did not search for); the
+unfixed gate said 88 (a 70% false-flag rate); one eyeballed sample of a flagged template exposed
+the comment. Both wrong numbers reached a filed RFC before the sample caught them.
 
 ⚠ **`instanceaudit` reads a FILE and touches no database.** That is deliberate: point it at a
 converter's OUTPUT to check the work, not only at its input. It refuses an empty export rather than

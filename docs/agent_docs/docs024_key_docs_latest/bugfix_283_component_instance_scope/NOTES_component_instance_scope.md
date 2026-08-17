@@ -262,3 +262,42 @@ to lean — here, the direction that made the plan look cheap and got it as far 
 Corroboration worth noting because it was free: the detector counts 1,345 duplicate ids when each
 template is doubled; the independent SQL census counts 1,346 literal `id=` attributes. Two code
 paths, agreeing within one — neither was written to check the other.
+
+### MISSTEP 7 — "size the work with the gate" was followed, and produced a worse number than the regex it condemned, because the gate itself was broken
+
+The owner asked me to look the analysis over once more before deciding on it. Three things fell out,
+in ascending order of consequence.
+
+**The off-by-one was a finding, not noise.** The detector's 1,345 doubled-duplicate ids against the
+SQL census's 1,346 attributes resolves to one template — `tool-spawn-rate-balancer` — carrying
+`id="chartTitle"` twice within a single copy: once in markup, once in a JS string that rebuilds the
+same SVG `<title>`. Nothing binds it (`getElementById` uses: 0); it is an aria-labelledby target on
+one gamesdesign.co.uk page. Benign, but "agreeing within one" is now *explained* rather than waved
+at, which is the difference between corroboration and coincidence.
+
+**The 88 was the DETECTOR's false-flag rate.** Sampling one flagged template
+(`tool-css-unit-converter`) showed a body that visibly ended in `})();` — an IIFE, hidden from the
+anchored wrapper regex by the estate's conventional leading `/* tool-doc */` comment. Measured
+properly: **62 of the 88 flags were false, a 70% rate.** The corrected corpus is **66 scoped / 25
+genuinely global**, and the 25 are the 23 LMC calculators plus two tools — the original "22
+templates" scope, rediscovered from the other direction. Detector fixed (`stripLeadingJSComments`,
+leading comments only, launder-control in the test, both mutations killed), council round 3
+submitted on the same correlation, `5b30a831b`.
+
+**My cross-check lost to the fixed detector exactly as MISSTEP 6 predicted.** The Python depth-walk
+I used to expose the 88 said 65/26; the fixed detector says 66/25; the disagreement is
+`tool-css-specificity-calculator`, whose JS is full of regex literals that unbalanced the crude
+walk. It is a comment-led IIFE; the production detector is right. I built a second implementation
+to check the first one, and the second implementation was wrong in precisely the way the lane's own
+lesson says second implementations are.
+
+The composed lesson, stated once: **"size with the gate" and "sample the gate's flags" are one
+practice, not two.** A gate run over a corpus it has never been sampled against is a first run of
+an instrument, not a measurement. The full chain 24 → 88 → 25 is in `WRONG_CALLS.md` (two entries,
+the second correcting the first) and `RFC_034` §3a, history kept.
+
+**Why the fix ships now rather than with the programme:** RFC_034's plan gates every conversion on
+this detector, and the unfixed gate would have refused 62 correct results mid-programme — the
+moment at which someone either "fixes" unbroken components or relaxes the gate in a hurry. It also
+matters for the guard: once `enforce_instance_scope` is armed, a false UNSCOPED refuses renders of
+correct components.

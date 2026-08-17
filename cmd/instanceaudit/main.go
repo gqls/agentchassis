@@ -31,12 +31,18 @@
 //
 // READING THE OUTPUT. "unscoped" counts inline script bodies the detector does
 // not recognise as wrapped; it errs toward reporting, so treat it as a floor on
-// "must satisfy the gate" rather than proof that a given script is unsafe.
-// "dupIfDoubled" is the honest headline: the number of element ids that collide
-// when the component appears twice on one page. Baseline 2026-08-17, 91 live
-// templates: 3 already scoped, 88 declaring into global scope, 8 assigning
-// window.onload, and 91 of 91 producing duplicate ids (1,345 in total) — which
-// independently corroborates the SQL census of 1,346 literal id attributes.
+// "must satisfy the gate" rather than proof that a given script is unsafe —
+// AND SAMPLE THE FLAGS before publishing the count. This tool's own first run
+// reported 88 of 91 unscoped, and 62 of those were correctly IIFE-wrapped
+// behind a leading /* tool-doc */ comment the detector then failed to skip; the
+// figure reached a filed RFC before one eyeballed sample exposed it. The
+// detector is fixed (stripLeadingJSComments, mutation-proven), and the honest
+// baseline of 2026-08-17 is: 66 already scoped, 25 genuinely declaring into
+// global scope (17 global-only + 8 window.onload — the 23 loans-*/mortgages-*
+// calculators plus tool-archetype-clash-calculator and tool-bayesian-ranking),
+// and 91 of 91 producing duplicate ids when doubled (1,345 in total; the SQL
+// census's 1,346 is one internal duplicate in tool-spawn-rate-balancer, an
+// aria-title id repeated in markup and a JS string, bound by nothing).
 package main
 
 import (

@@ -34009,3 +34009,39 @@ answer to that question.
   production defect by tripping over it in my own harness.
   Tally for "trusted a join key without checking its uniqueness": 1. Tally for "a broken instrument
   produced a plausible finding": 1 — and the cost of the habit that caught it was five minutes.
+
+---
+
+## 2026-08-17 (later) — the correction ABOVE was itself half-wrong: "88 need script work" was the DETECTOR's false-flag rate, not the corpus; the truth is 25, and the regex it condemned had been nearly right
+
+**Lane:** `bugfix_283_component_instance_scope`. **This corrects the entry immediately above**, whose
+remedy — "size the work with the gate" — was followed and produced a *worse* published number.
+
+**The claim:** `DetectInstanceCollisions` (the acceptance gate) run over the 91 live templates
+reported 88 declaring into global scope. I published "88 of 91 need script work" into `RFC_034`,
+a commit message, and the owner-facing summary, framing the regex triage's 24 as the error.
+
+**What is true:** **25.** The estate's tool templates conventionally open their script with a
+`/* tool-doc */` comment block, and the gate's accepted-wrapper regex anchored at the body's first
+byte — so **62 correctly IIFE-wrapped scripts read as unscoped: a 70% false-flag rate.** The gate
+was the right instrument and it was broken; the regex triage it "corrected" had been within one of
+the truth by accident. Detector fixed (`5b30a831b`, mutation-proven both directions, council round
+3 on the same correlation); the 25 are the 23 LMC calculators plus two tools — i.e. the original
+bug's "22 templates" was nearly the right judged-work list all along.
+
+**Caught by:** the owner asking me to "look over this once more", and one eyeballed sample of a
+flagged template (`tool-css-unit-converter`) whose body visibly ended in `})();`.
+
+**The cheap check that would have caught it:** **sample the flags before publishing the count.**
+"Size the work with the gate" is necessary and was not sufficient: a gate is code, and its verdict
+over a corpus it has never been run against is a *first run*, not a settled instrument. Reading N
+flags costs minutes; here 1 sample exposed a 70% false-flag rate. Corollary from the same hour: my
+hand-rolled Python cross-check (65/26) was wrong on its 26th too — regex literals unbalanced its
+depth walk — so the fix was never "a better second implementation"; it was fixing the real one and
+sampling its output.
+
+**Cost:** one wrong figure in a filed RFC and an owner-facing message, both corrected in place the
+same day, before any decision was taken on them; and one real detector defect found and fixed that
+would otherwise have refused 62 correct conversions mid-programme — which is the only reason this
+entry has a happy ending. Tally for "published a classifier's output over a corpus it had never
+been sampled on": 1.

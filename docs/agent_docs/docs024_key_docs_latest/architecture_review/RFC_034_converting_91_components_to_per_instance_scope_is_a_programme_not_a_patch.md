@@ -92,36 +92,45 @@ not safely mechanical.
 that handles ids and `getElementById` but forgets these ships pages whose labels no longer focus
 their input and whose component-specific styling silently stops applying — on 94 live pages.
 
-### 3a. ⚠ CORRECTION 2026-08-17 — the split above is REGEX TRIAGE, and it was wrong in the direction that made the job look easy
+### 3a. ⚠ TWICE-CORRECTED (2026-08-17, same day) — the regex said 24, the detector said 88, and the truth is 25, because the DETECTOR had a defect the corpus run exposed
 
-An earlier version of §4 said the script half was *"the ~30 rows whose scripts need judgement"*,
-derived from three regexes (`window.onload`, inline `on*=`, a `function` keyword near the top of a
-script). **That number does not survive contact with the real classifier.**
+The history is kept because it is the useful part. Three classifications of the same 91 templates,
+hours apart:
 
-`DetectInstanceCollisions` — the detector this lane already built, and the one that will gate
-acceptance — was run over all 91 live templates
-(`cmd/instanceaudit`, one-off, reads the templates and calls the production function):
+1. **Regex triage: 24 "need script work".** Three patterns; published as "~30" in an earlier §4.
+2. **The production detector: 88.** ~~"That number does not survive contact with the real
+   classifier … 88 of 91 need it."~~ **Wrong — and wrong because the classifier was wrong.**
+   Sampling the 88 found that the estate's tool templates conventionally open their script with a
+   `/* tool-doc */` comment block, and the detector's accepted-wrapper regex anchors at the body's
+   first byte — so **62 correctly IIFE-wrapped scripts read as global.**
+3. **The fixed detector** (leading comments skipped before the wrapper test; commit `5b30a831b`,
+   mutation-proven both directions, council round 3 on the same correlation):
 
 | | rows |
 |---|---|
-| script bodies **already scoped** (0 unscoped inline scripts) | **3** |
-| **declare into global scope** (≥1 unscoped) | **88** |
-| of those, also assign `window.onload` | 8 |
-| **would produce duplicate ids if placed twice** | **91 — every one** |
-| total duplicate ids across all 91, doubled | **1,345** |
+| script bodies **already scoped** | **66** |
+| **genuinely declare into global scope** | **25** — of which 17 global-only, 8 also `window.onload` |
+| **would produce duplicate ids if placed twice** | **91 — every one** (1,345 ids; the SQL census's 1,346 is one internal duplicate in `tool-spawn-rate-balancer`, an aria-title id repeated in markup and a JS string, bound by nothing) |
 
-So the script work is not a minority tail: **88 of 91 need it.** The regex triage found 24 because
-it searched for three specific old-fashioned spellings; the other 64 declare globals in ways it did
-not look for.
+**The 25 are the 23 `loans-*`/`mortgages-*` calculators plus `tool-archetype-clash-calculator` and
+`tool-bayesian-ranking`** — i.e. the original bug's "22 calculator templates" was very nearly the
+right judged-work list all along. Also measured, because it is what makes "the 66 are actually
+safe" a checked claim: all 20 inline `on*=` handlers and all 8 `window.onload` assignments sit
+inside the 25, and there are **zero** `window.<name> =` assignments anywhere in the 66.
 
-Two notes on trusting this number rather than the regexes:
+Three lessons, in the order they were paid for:
 
-- **It is the same classifier that will accept or reject each conversion**, so its verdict is the
-  operative one even where a hand-reading might disagree. The detector's own docstring says it errs
-  toward *reporting* — a script wrapped in a form it does not recognise reads as unscoped — which
-  makes 88 a ceiling on "needs work" and, more usefully, a floor on "must satisfy the gate".
-- **It corroborates the independent SQL census**: 1,345 duplicate ids by the Go detector against
-  1,346 literal `id=` attributes counted in SQL — two different code paths, agreeing within one.
+- **Do not size work with a hand-rolled proxy for an existing classifier** (the 24).
+- **Do not read a gate's flag as ground truth without sampling the flags** (the 88). One eyeball of
+  one flagged template found the comment; the false-flag rate was 70%.
+- **A second implementation loses to the real one even when checking it**: an independent Python
+  depth-walk said 65/26 and was wrong on `tool-css-specificity-calculator` — regex literals in its
+  JS unbalanced the crude walk. The fixed production detector is right on it.
+
+**The gate consequence is why the detector fix ships with this RFC rather than later:** this
+programme uses `DetectInstanceCollisions` as its accept/reject gate, and the unfixed gate would
+have refused 62 correct conversions — at which point someone mid-programme either "fixes"
+components that are not broken or relaxes the gate in a hurry. Both are worse than one line now.
 
 ## 4. The decision the owner needs to make
 
@@ -131,30 +140,26 @@ property of the platform. The question is **shape**, and there are three candida
 **A. Deterministic converter as a new `fix_component_template` fix_type.** Reuses live machinery —
 that action already rewrites `content_components.html_template` (`repair_template_slots`) and
 already routes through the work-item/dispatch loop. Auditable, idempotent, re-runnable, and every
-conversion is a reviewable diff. ⚠ **Post-correction, this finishes 3 of 91 components.** The other
-88 declare into global scope, and §2.1 forbids shipping them half-converted — so on its own this
-option converts the names on 88 rows that must then sit unshipped until something does their
-scripts. It is a *component* of the answer, not an answer.
+conversion is a reviewable diff. **Post-§3a-correction, this finishes 66 of 91 components** — their
+scripts are already IIFE-scoped, so namespacing ids, `getElementById` strings, `label for=` and CSS
+`#id` completes them, gate-verified. The remaining 25 must not ship half-converted (§2.1).
 
-**B. LLM rewrite per component**, through the component-creator/tool-improver path. Handles the
-script half, which A cannot, and post-correction that is 88 of 91 rows rather than a tail. ⚠ **This
-is the truncation class**: `bugs_open/012` saw a 10,272-char component saved back as 1,253 chars,
-reported as success. An LLM rewrite of 91 templates needs a byte-level structural check on every
-result, and `output_tokens == max_tokens` means CUT. It also rewrites 1,207,640 bytes of working
-production markup to fix a scoping problem, which is a wide blast radius for a narrow defect.
+**B. LLM rewrite per component**, through the component-creator/tool-improver path, for scripts
+that genuinely declare into global scope — **25 rows**, carrying all 20 inline handlers and all 8
+`window.onload`s. ⚠ **This is the truncation class**: `bugs_open/012` saw a 10,272-char component
+saved back as 1,253 chars, reported as success. Every result needs a byte-level structural check,
+and `output_tokens == max_tokens` means CUT.
 
-**C. Hybrid — A for the mechanical surfaces, B for the script half**, one component at a time, with
-`DetectInstanceCollisions` as the accept/reject gate for both halves and nothing shipped
-half-converted.
+**C. Hybrid — A for the 66 and every mechanical surface, B for the 25 judged scripts**, one
+component at a time, with the (now-corrected) `DetectInstanceCollisions` as the accept/reject gate
+for both halves and nothing shipped half-converted.
 
-**My recommendation is still C, and the correction strengthens rather than weakens it** — but the
-balance inside C has shifted a long way toward B, and that is the thing to be clear-eyed about.
-Before the measurement, C looked like "a program does most of it, an LLM mops up ~30". It is
-actually "a program does the names on all 91 reliably, and an LLM must touch 88 scripts". If that
-LLM exposure is unacceptable, the honest alternative is **not** option A — it is to narrow the
-*scope*: convert only the components someone actually wants to place twice, and leave the rest
-literal. That is 283's original candidate B, which the owner declined on 2026-08-15 for good
-reasons, but it is the only shape that avoids rewriting 88 working scripts.
+**My recommendation is C, and after the §3a corrections it is a genuinely comfortable shape** — the
+deterministic pass completes 73% of the estate on its own, and the LLM exposure is 25 components,
+23 of which are the LMC calculators the bug was filed about, on the one domain with an independent
+oracle (170 checks) to verify results against. The earlier draft of this paragraph said the LLM
+must touch 88 scripts and floated narrowing the scope as the honest alternative; both followed from
+the detector's false flags and are withdrawn.
 
 ## 5. What must be decided WITH the shape, not after it
 
