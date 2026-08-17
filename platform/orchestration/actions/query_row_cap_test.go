@@ -90,6 +90,41 @@ func TestTrailingFormsAreStillFound(t *testing.T) {
 	}
 }
 
+// A trailing SQL comment must not hide a cap. Added after the council's
+// editquality seat pointed out (corr b684a399 round 2) that an annotated cap
+// would be a FALSE NEGATIVE — silent under the very mechanism built to end
+// silent caps. The `-- note` form is how an operator documents a cap in place,
+// so it is precisely the case most worth catching.
+func TestATrailingCommentDoesNotHideACap(t *testing.T) {
+	for _, q := range []string{
+		`SELECT * FROM a ORDER BY x LIMIT 30 -- widened 2026-08-14, see bugs_open/275`,
+		`SELECT * FROM a ORDER BY x LIMIT 30; -- applied by 406`,
+		"SELECT * FROM a ORDER BY x LIMIT 30\n-- why: prompt size\n",
+		`SELECT * FROM a ORDER BY x LIMIT 30 /* prompt size */`,
+		"SELECT * FROM a ORDER BY x LIMIT 30 /* one */ -- two\n",
+	} {
+		n, ok := queryRowCap(q)
+		if !ok || n != 30 {
+			t.Errorf("a trailing comment hid the cap in %q (got %d, %v) — an annotated cap is "+
+				"exactly the one someone thought about, and the one this check must not miss", q, n, ok)
+		}
+	}
+}
+
+// ...but a comment must not INVENT a cap either: the number has to be a real
+// trailing LIMIT, not something mentioned in prose.
+func TestACommentMentioningLimitIsNotACap(t *testing.T) {
+	for _, q := range []string{
+		`SELECT * FROM a ORDER BY x -- we removed the LIMIT 30 here`,
+		`SELECT * FROM a /* had LIMIT 30 before 275 */ ORDER BY x`,
+	} {
+		if n, ok := queryRowCap(q); ok {
+			t.Errorf("prose mentioning a limit was read as a cap (%d) in %q — the detector would "+
+				"warn on an UNCAPPED query, which is worse than missing one", n, q)
+		}
+	}
+}
+
 // The condition the action actually branches on.
 func TestResultHitItsRowCapOnlyFiresOnEquality(t *testing.T) {
 	// exactly at the ceiling -> suspicious, warn

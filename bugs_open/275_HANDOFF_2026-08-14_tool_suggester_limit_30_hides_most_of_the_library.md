@@ -208,3 +208,35 @@ Both feed an LLM a truncated corpus, which is precisely this bug's mechanism:
 **Grepped before recording** (`bugs_open/` + `bugs_closed/`): neither is filed anywhere, under any
 spelling. They are recorded here rather than as two new bug files because that is the owner's call, not
 mine — but they are measured, they are real, and the measurement should not have to be redone.
+
+### ✅ COUNCIL APPROVED — round 2, corr `b684a399-bb4d-4b1f-82f0-fe1429ebdceb` (2026-08-17)
+
+*Verdict READ before this line was written.* `decision: approved`, *"approved with 3 advisory
+objection(s) — none high-severity"*, **`gated_by_truncation: false`**, 4 seats abstained. Round 1 was
+REVISE, gated by `debug_historian`.
+
+**Round 1 changed the shipped work** — it caught that 445 traded a silent ROW cap for a silent COLUMN
+cap. Migration **446** (applied, live) now marks truncated descriptions ` […truncated]`: 49 of 73 rows
+carry it, payload 20,738 chars, the signal costing ~3%.
+
+**The three advisory residuals:**
+
+1. **`editquality` (medium)** — *"446 never checks the live query text is currently 445's output before
+   mutating it."* **The file DOES, at lines 52-56** (`position('left(description, 200)' in q) = 0` →
+   `RAISE`). My SKETCH omitted it — the second time in two rounds I left a safety line out of a sketch,
+   after writing that exact lesson into the round-2 rationale. Logged in `WRONG_CALLS.md`; the code
+   needed no change.
+2. **`editquality` (low)** — *"`LIMIT 30 -- note` is a false negative — silent under the very mechanism
+   meant to end silent caps."* **Real and now FIXED**: the regex tolerates trailing `--` and `/* */`
+   comments, with tests both ways (a comment must not HIDE a cap, and prose mentioning a limit must not
+   INVENT one). Mutation-proven — reverting to the comment-blind pattern fails
+   `TestATrailingCommentDoesNotHideACap`.
+3. **`editquality` (missing)** — *"the schema_migrations INSERT is asserted as done outside the diff."*
+   Correct: 445 and 446 were recorded by hand (`INSERT ... ON CONFLICT DO NOTHING`), not by an edit in
+   the plan. Both rows exist; the point stands that a hand-recorded ledger entry is invisible to review.
+4. **`bug_historian` (approve, with an observation worth carrying)** — Part A is WARN-only, and this
+   lane's own census found **two live analogous caps**. Observation is not remediation: the warning
+   makes them visible, it does not fix them. Those two remain open (above) and are an owner call.
+
+**Trailer discipline:** the code commits carry `Council-Submitted:`; only post-verdict commits carry
+`Council-Reviewed:`, written after reading the verdict body.

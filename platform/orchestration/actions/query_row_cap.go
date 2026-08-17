@@ -45,7 +45,13 @@ import (
 // A parameterised limit (`LIMIT $2`) deliberately does not match: there is no
 // literal to compare against, and guessing would produce a warning nobody can
 // act on.
-var queryLimitRe = regexp.MustCompile(`(?is)\bLIMIT\s+(\d+)\s*;?\s*$`)
+// A trailing SQL comment is tolerated. Without this, `... LIMIT 30 -- widened 08-14`
+// is a FALSE NEGATIVE — a genuinely capped query going undetected by the very
+// mechanism built to end silent caps, which is the worst possible place for a
+// blind spot. Raised by the council's editquality seat (corr b684a399 round 2,
+// advisory low) and worth taking: an operator annotating a cap is exactly the
+// operator whose cap most deserves a second look.
+var queryLimitRe = regexp.MustCompile(`(?is)\bLIMIT\s+(\d+)\s*;?\s*(?:(?:--[^\n]*|/\*.*?\*/)\s*)*$`)
 
 // queryRowCap returns the statement's trailing literal LIMIT and whether one was
 // found.
