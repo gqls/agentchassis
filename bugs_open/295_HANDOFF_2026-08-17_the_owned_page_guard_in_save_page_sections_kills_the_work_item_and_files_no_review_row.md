@@ -41,6 +41,55 @@ filed.
 `section_edit`, which demonstrably works on them — 18 completes). This fix makes the refusal
 visible; it does not make the page get fixed.
 
+## ✅ CLOSED 2026-08-17 (21:35 UTC) — **FIXED, LIVE AND BEHAVIOURALLY PROVEN with both controls.** The guard was asked 9 times and answered correctly every time
+
+Live on `v1.0.1307`. Graded at the artefact, not at the tag, and **not on the positive result
+alone** — the negative control is what makes this a proof rather than a coincidence.
+
+**POSITIVE — the refusal now leaves a record.** `[MEASURED 21:35]` **8 `owned_page_review` rows
+carrying `refused_by='save_page_sections'`**, where there had been **zero for all history**. Across
+**four sites** (webdesign.co.uk, finetuning.uk ×3, leopardessconsulting.co.uk), 18:57 → 21:31, all
+post-roll. Each row: `status='needs_human_review'` (terminal, unclaimable), `severity=high`,
+`priority=30`, `source`/`created_by`=`save_page_sections`, `item_key='owned_page_review:<page>'`,
+and a `reason` opening `OWNED_PAGE_GUARD:` that names `apply_section_edit` as the route.
+
+**NEGATIVE CONTROL — it does not fire on everything.** In the same window **6 content items
+COMPLETED on `rebuild_policy='generic'` pages and produced ZERO review rows.** Generic saves
+happened, succeeded, and emitted nothing. Without this, 8 rows is equally consistent with an emit
+that fires unconditionally, which is the failure mode the "How to verify" section below was written
+to exclude.
+
+**EVERY row is on a genuinely owned page.** Joining each row's `spec->>'page_name'` back to `pages`:
+**8 of 8 `owned`, 0 `generic`.**
+
+**DEDUP HELD, and the one apparent anomaly is correct.** `learn-algorithms-bayesian-theory` was
+refused **twice** (20:45:20 and 20:50:39) and produced **exactly one** row — `ON CONFLICT DO
+NOTHING` on the deterministic key, as designed. The count reads 8 rows / **7** distinct
+`item_key`s, which is not a dedup miss: `owned_page_review:llm-cost-calculator` exists on
+**finetuning.uk AND leopardessconsulting.co.uk**, and the partial unique index is on
+**`(site_id, item_key)`** — per-site, not global. Two sites with a same-named page correctly get
+two rows. ⚠ **A reader checking `count(*) = count(DISTINCT item_key)` would have recorded a false
+dedup failure here.**
+
+**THE ITEM STILL FAILS, which was the deliberate half.** All four driving `content_rewrite` items
+are `failed` (20:45:20, 20:47:47, 20:50:39, 20:52:37), not `complete`. A green item here would have
+been a worse defect than the one this fixed — a false success in place of a silent failure.
+
+**Against the pre-fix baseline recorded hours earlier on the same code path:** gamesdesign
+`tool-ttk-calculator`, `failed` 13:02:18 on the unfixed binary, guard message quoted, **0** rows.
+Same guard, same item type, same estate — the only variable was the build.
+
+**Council APPROVED round 1** (corr `d4f49ea5`), verdict read and its three objections answered
+below. Register **PBP-036** updated with the fourth producer and the shared key shape.
+
+**Residual, deliberately not closed with this file:** the `spec.fix` text these rows carry routes a
+human to `apply_section_edit`, which is right for rewriting an existing component and a **dead end
+for ADDING a section** to an owned page (LANDMINES `apply_section_edit / ApplySectionEditInputSpec`;
+the real route is a direct INSERT plus an assemble-only deploy). That text lives in the shared
+helper read by all four producers and belongs in its own change. **Fix candidate 3 — routing content
+findings on owned pages to `section_edit`, which demonstrably works there — is also untouched: this
+makes the refusal visible, it does not make the page get fixed.**
+
 ## STATE 2026-08-17 (18:15 UTC) — **THE FIX IS NOW LIVE IN THE BINARY** on `v1.0.1307`. Still OPEN: live ≠ proven, and the guard has not been asked yet
 
 **The tag moved and the build is real this time.** Deployed image `v1.0.1307` (was `v1.0.1305`),
