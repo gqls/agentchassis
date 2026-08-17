@@ -205,9 +205,7 @@ Both feed an LLM a truncated corpus, which is precisely this bug's mechanism:
    picks internal links from — so a page's link targets are chosen from at most 15 of 68, ordered
    `p.name`, i.e. alphabetically. Same accident, same invisibility.
 
-**Grepped before recording** (`bugs_open/` + `bugs_closed/`): neither is filed anywhere, under any
-spelling. They are recorded here rather than as two new bug files because that is the owner's call, not
-mine — but they are measured, they are real, and the measurement should not have to be redone.
+**✅ NOW FILED (owner directed, 2026-08-17): `bugs_open/297` and `bugs_open/298`.** Re-measured from scratch before filing, and the numbers moved: 297's cap bites at **19 of 24 sites** (median site sees 10 of 26, worst 10 of 107 — **worse than 275 itself**), and 298's at **8 of 24** (median 12, under its own cap, so most sites are unaffected). ⚠ **298 is filed with a deliberately WEAKER claim**: `llm_call_log` has **zero** rows for `internal-linker` in all history, so whether its cap has ever shaped a link decision is **UNMEASURED** and that file says so rather than guessing. ⚠ My earlier count for 298 omitted the query's own `HAVING COUNT(pc.id) > 0` and over-counted — corrected in the ticket.
 
 ### ✅ COUNCIL APPROVED — round 2, corr `b684a399-bb4d-4b1f-82f0-fe1429ebdceb` (2026-08-17)
 

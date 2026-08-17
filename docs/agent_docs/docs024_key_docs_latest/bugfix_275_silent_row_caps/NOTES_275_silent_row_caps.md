@@ -308,3 +308,30 @@ caps. **Observation is not remediation.** The warning makes them visible; it doe
 `tool-recreation-handler.load_related_context` (10 of up to 107) or
 `internal-linker.load_candidate_pages` (15 of up to 68). Both remain open, recorded in the bug file,
 and are an owner call.
+
+## 2026-08-17 — the two instances filed as tickets (owner directed), and re-measuring changed both
+
+Filed as `bugs_open/297` and `bugs_open/298`. **Re-measured from scratch rather than copying my own
+figures**, which was right twice over:
+
+- **298's population was over-counted.** My census query omitted the step's own
+  `HAVING COUNT(pc.id) > 0`. With the real predicate it bites at **8 of 24 sites**, not the "worst site
+  has 68" framing I had been carrying — and the **median site (12) is UNDER the cap**, so most sites
+  are unaffected. That is a materially weaker bug than I had been describing.
+- **298's reachability collapsed under checking.** `llm_call_log` has **zero** rows for
+  `internal-linker` in all history, so the `plan_links` step that consumes those candidates has no
+  logged call, ever. The cap is structurally real and the step is reachable — 69 work items name the
+  agent (newest today) and 13 of 38 completed runs passed `check_target_found` — but **whether it has
+  shaped a single link decision is UNMEASURED**, and the ticket says so instead of guessing.
+
+⚠ **`owner_agent_type` is the WRONG instrument for "does this agent run".** It returned 0 for
+`tool-recreation-handler` — which has **290 `llm_call_log` rows**. It also revealed a near-miss:
+`internal-link-resolver` (54 orchestrations) is a *different* agent from `internal-linker`, and has no
+capped query at all. Two similar names, one real. Use `llm_call_log` and `site_work_items.handler_agent`.
+
+**297 is the stronger ticket by a distance**: live, 19 of 24 sites over cap, and at the median site the
+model sees 10 of 26 — 38%, against 275's 41%. The bug I fixed was not the worst instance of its own class.
+
+**Adjacent finding recorded in 298, not chased:** 15 of 38 completed `internal-linker` items found no
+target page and completed anyway — a run that links nothing is indistinguishable from one that worked,
+by `status` alone.
