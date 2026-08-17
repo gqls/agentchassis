@@ -61,11 +61,28 @@ HEAD). But **the deployed tag is `v1.0.1305` and the makefile's `IMAGE_TAG` is A
 the whole backend fleet is on that one tag, and the pods restarted onto it. CLAUDE.md's build
 section states the consequence directly: *"Bump `IMAGE_TAG` (makefile ~line 16) for every build — a
 same-tag rebuild ships the node's stale cached binary."*
-⚠ **I cannot tell from here WHICH of the two happened** — the image was rebuilt and pushed at the
-same tag and the node served its cached layer, or it was never rebuilt. Both are consistent with
-everything I can see (pod digest `sha256:f90a7e88…`; I have no earlier digest to compare). **The
-mechanism is undetermined; the outcome is not.** Either way the remedy is the same and it is the
-owner's: **bump `IMAGE_TAG`, then rebuild and roll.** Re-rolling at `v1.0.1305` cannot help.
+> **SHARPENED 20 minutes later — the build commit is now KNOWN, and this is FLEET-WIDE, not mine.**
+> The running binary is commit **`6a782274b`** (2026-08-16). Probed directly, with the negative
+> control the previous paragraph's method needed: that sha reads **3**, a *plausible fake* sha
+> (`deadbeef1234…`) reads **0**, and my fix's sha reads **0**.
+> `git merge-base --is-ancestor 2a5798c4b 6a782274b` → **NO**. **222 commits sit in HEAD and not in
+> the running chassis.**
+> **It is not just this fix.** Another lane's env-var literal `DISABLE_UNREGISTERED_HANDLER_DEMOTION`
+> (production code, committed 12:35 UTC today) also reads **0** against a positive control of
+> `OWNED_PAGE_GUARD` → 3. Markers from 2026-08-16 (`PLAN_SECTION_NAME_DROPPED` 17:29,
+> `LOCKED_MERGE_SKIPPED` 16:10, `RESOLVER_CONFLICTING_CANDIDATES` 11:10) all read **1**. So the
+> binary is 08-16 vintage and **every Go change committed on 08-17 is inert**, across several lanes.
+> **Independently found and recorded the same day by another session** (auto-memory
+> `a-fresh-deploy-can-ship-no-new-code`, which measured 203 commits at its earlier hour and warns
+> that a negative control of 40 zeros MATCHES every binary and so cannot discriminate — I used a
+> plausible fake sha for exactly that reason).
+> **Config is unaffected** — `agent_definitions` and migrations are live regardless, which is what
+> makes this confusing: config work behaves and Go work does not.
+
+⚠ **What remains undetermined is only the mechanism** — whether the image was rebuilt at the same
+tag and the node served its cached layer, or was never rebuilt at all. **The remedy is identical
+and it is the owner's: bump `IMAGE_TAG` (makefile ~line 17, still `v1.0.1305`), then rebuild and
+roll.** Re-rolling at `v1.0.1305` cannot help, and a pod restart is not evidence of anything.
 
 ### The defect reproduced ON DEMAND, exactly as predicted, on a binary now PROVEN unfixed
 
