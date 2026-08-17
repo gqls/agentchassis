@@ -481,3 +481,11 @@
   instruction added to the seed header. The precedent rows (site-publisher,
   publish-reconciler) both carry NULL input_contract — the new row is now
   stricter than the 422 pair it mirrors, deliberately.
+- **Landmine filed** for the `?`-marker trap (call_agent input_mapping vs
+  executor step config — same dotted path, opposite failure rules), verifier
+  ran STILL_VALID at 22:22Z. The entry itself reached HEAD as a same-file
+  passenger on `d157f6714` (another session's LANDMINES correction) — the
+  second passenger event of this session, one in each direction; recorded,
+  nothing lost. Also: a first grep for the entry reported a FALSE ABSENCE
+  (case-sensitive grep vs the heading's capitals) — trust `git log -S`, not
+  one grep spelling.
