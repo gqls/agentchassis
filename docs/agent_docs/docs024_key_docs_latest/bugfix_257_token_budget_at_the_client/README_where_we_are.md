@@ -203,3 +203,53 @@ the "which limit wins" rule, and whether to make direct model calls visible to o
 monitoring — that second one matters a little more now than it did before, because such calls used to
 be invisible *and* stuck at a known small limit, and are now invisible and running at whatever their
 configuration says.
+
+## 2026-08-16 (evening) — it's live, and the live data immediately caught me out
+
+A fresh build went out (v1.0.1305, around 22:08). The change is **live**, and I checked it the way
+this project insists on: by asking the running programs what they were built from, rather than
+trusting the version tag.
+
+One service answered directly and its answer contains my fix. The main one had already scrolled its
+start-up message out of reach — a known trap here — so I checked inside the running binary instead,
+and in the same command checked for a made-up value that must *not* be there, so I could tell the
+check was actually working rather than agreeing with everything. Both came out right. The small
+configuration change shipped too, with the same kind of control.
+
+I also confirmed the one service this actually unlocks came back healthy — three copies, no restarts,
+no errors. That mattered more than it sounds: this is the first build in that service's life where
+that setting is genuinely read, so a mistake in how I parse it would have shown up as a crash loop.
+
+**Then the live data caught an error of mine, and it is worth telling you about.**
+
+When I sized the risk of this change, I counted how many services configure a length limit and
+reported **13**. Watching real traffic after the build, one service was sending a limit of 8192 where
+my count said 4000. The reason is that these settings can be written at more than one level of the
+configuration, and **I had only counted the top level**. Counted properly, it is **68**, not 13 — I
+was out by a factor of five, and that figure had gone into the bug record, the review submission and
+three commit messages.
+
+The conclusion it was supporting is unaffected, and I want to be precise about why rather than wave
+it away. The argument for this change being safe never depended on the count. It depends on a
+structural fact: the code that builds the connection and the code that sets the limit read the *same*
+merged settings, and that merge already includes the deeper levels. So they cannot disagree, whether
+it is 13 services or 68.
+
+But that is exactly what makes the wrong number worth flagging. It was decorating an argument that
+did not need it, so **nothing broke when it was wrong** — it would simply have sat there until
+somebody quoted it for a different purpose. The uncomfortable detail: this project keeps a file of
+known traps, I read its entries on this exact setting at the start of the work, and it still did not
+save me, because I was asking a different question and never noticed it was about the same thing.
+
+**One thing I have deliberately not claimed.** The specific new behaviour — a caller that asks for no
+limit now inheriting a large configured one — has nothing in production that exercises it. The only
+caller of that shape is the idle service, its limit is deliberately left small, and nothing sends it
+work. So that behaviour is proven by tests that inspect the actual outgoing request, which I verified
+fail when the fix is removed, but it is not proven by production traffic. I have written that into the
+bug record explicitly, including an instruction not to describe this as "verified end to end" without
+doing that work, because a previous piece of work on this list *could* honestly say that and this one
+cannot.
+
+What I could check on real traffic, I did: no step's limit changed across the build boundary, with
+enough calls afterwards to show the check wasn't simply looking at nothing, and no truncations either
+side. That sample is small and early, and I've labelled it that way.
