@@ -793,3 +793,68 @@ has objected to repeatedly. Named so the silence reads as a decision.
 **Status: unchanged — FIX LIVE, bug OPEN.** Criterion 1 holds under its corrected wording,
 criterion 3 is met, criterion 2 is met but non-discriminating. Remaining: let `444`'s doors sit
 long enough to show they hold nothing they should not.
+
+### COUNCIL APPROVED — round 2, corr `05a3d1c8`, 2026-08-17 11:27Z
+
+**APPROVED**, 12 seats approving (including `architecture` and `prior_art_librarian`, the seat
+whose HIGH objection gated round 1), 3 abstained, not truncated. Two advisory objections, none
+high. Both were checkable, so both were checked rather than banked — and one of them changed
+what I believe about the door-closer.
+
+**1. `guardian` (LOW) — "the per-tick cost of the new correlated subquery isn't measured, only
+the 0-and-0 row-count outcome."** Fair: I had measured the effect and not the cost. `EXPLAIN
+(ANALYZE, BUFFERS)` on the live table, candidates query only:
+
+| | execution time |
+|---|---|
+| 430's predicates (before) | **65.3 ms** |
+| 444's predicates (after) | **78.1 ms** |
+| delta | **+12.9 ms** |
+
+On a 900,000 ms tick that is **+0.0014%** of the interval. No starvation risk.
+
+**2. `guardian` (MEDIUM) — "confirm the fleet-wide pipeline distribution; I can't read
+`scheduled_tasks` from here."** Confirmed, and it is `grounded_in [3]` re-stated so the seat's
+check is answerable from the file: pipelines across all 8,421 rows are build 7749, content 490,
+design 130, **diagnose 44, experience 7, maintenance 1**. The allow-list covers the first three;
+the last three are held by design. The seat's real point is the *silent* failure mode — a new
+pipeline value stops being promotable with no signal beyond a growing pile that looks like
+normal backlog. **That is a live residual and it is sharper than my risk 4 admitted**, because
+this file's criterion-1 meter is *already* known to conflate populations. Not closed here.
+The cheap control, when someone takes it: have the pre_query return a third column counting
+`detected` rows a door held, so the scheduler's own log makes it visible.
+
+**3. `bug_historian` (MEDIUM) — "the floor treats `complete` as ground truth, and
+`bugs_closed/028` is the documented case of `page-build-handler` reporting complete while
+deploying hollow content. If that pair's ONE lifetime complete is hollow, the floor is computed
+on a corrupted signal."** The sharpest form of this is one row, so I checked it.
+
+The complete: `literal_markdown` on `gaswholesalers.com/how-pricing-works.html`, 2026-08-15
+16:43. Fetched the live page and ran five literal-markdown patterns over its visible text
+(`**bold**`, ATX headings, `[text](url)`, leading bullets, `_italic_`): **0 hits in 8,120
+visible characters.**
+
+**A zero from a detector I had just written proves nothing, so it was given a demand control** —
+the same five patterns, same code path, against three pages whose `literal_markdown` items are
+`failed` or `needs_human_review`:
+
+| page | item status | markdown hits |
+|---|---|---|
+| `gaswholesalers.com/how-pricing-works.html` | **complete** | **0** |
+| `ai-agent-orchestration.com/news.html` | needs_human_review | 9 |
+| `robot-hands.com/gripper-catalog/index.html` | failed | 5 |
+| `fundamentallyai.com/news/index.html` | failed | 13 |
+
+**The objection is answered, and the answer strengthens the floor rather than weakening it.**
+That one `complete` is real work, not a `028`-shaped hollow completion — and the failures are
+real too, with the defect still visible on the served pages. So `1 complete / 28 failed` is an
+honest measurement of a handler that mostly cannot do this job, and holding the pair is right.
+It also means the floor's input signal was not corrupted **in this case**; the general concern
+stands for pairs nobody has spot-checked, and is recorded as risk 5.
+
+> The failures are already owned: `bugs_open/184` (LLM markdown reaches the page as literal
+> asterisks) and `bugs_open/201` (its dispatch path). Not re-filed here — contributed there.
+
+**Trailers:** the two commits carrying this work went out with `Council-Submitted: 05a3d1c8-…`
+before the verdict landed, which `098` resolves to the approval at report time. No amend
+(forward-only), and no `Council-Reviewed:` written on a verdict that had not been read.
