@@ -779,3 +779,56 @@ to the fabricated-URL control**; survivor 200/34,157 b and two collateral pages 
 byte. **Part 2 of `098`'s acceptance is owed — it must still 404 after the ~20:0x news refresh.**
 `deployed_at` is untouched by retraction, so this page is now a deliberate false positive for the
 blind `archived AND deployed_at IS NOT NULL` detector. First of the seven pairs finished.
+
+---
+
+## CONTRIBUTION 2026-08-17 — first live consumer of `honour_realised_identity`, and the twins were minted anyway
+
+From the `loanandmortgagecalculator.co.uk` D6 planner lane. Reporting a measurement, not a
+diagnosis.
+
+**We are (as far as we can see) this flag's first live consumer.** Before firing we measured
+the population the flag exists for, using the real `datahelpers.CanonicalisePage` through the
+descriptor `write_site_plan_action.go:487` actually builds (`Role` = stored `page_type`,
+`Slug` = `firstNonEmpty(slug,name)` → the stored NAME for a realised page, `ParentSection` =
+`parentSectionFromURL(url)`, `FlatURLs` = false), with a positive and a negative control in the
+harness so an inert run could not report "nothing moved":
+
+```
+site ed633ada-f8af-424b-b4d4-8af79160dbcd, 45 active pages:
+  7 fixed points, 38 moved (name 17, url 38, type 0)
+```
+
+All 17 name moves are calculator pages, e.g. `mortgages-stamp-duty` →
+`tool-mortgages-stamp-duty` at `/mortgages/mortgages-stamp-duty/index.html` (the doubled
+segment is the stored name being used as the slug).
+
+**Then we seeded `honour_realised_identity='true'` and fired one canary — and 19 phantom
+pages were INSERTED anyway**, 17 of them exactly the predicted `tool-<name>` twins, at
+`/tools/<name>/index.html`. Verified before the fire that the key was live in the current
+structure row (`6ca809d6`, value the string `'true'`, which `(…)::boolean` accepts). Chassis
+`v1.0.1305`, corr `6fe6ee93-67b9-4831-bf17-2ca473e1d30c`, COMPLETED 12:07:05Z. All 19 rows
+had zero `page_components` and zero references in the 8 tables that FK to `pages`; deleted
+after measurement, and the live site never served them (phantom paths 404).
+
+**Candidate links, none established by us:**
+1. **The reconciler may never have paired the plan pages with the realised rows.**
+   `twin_identity_snap` and `stem_twin_snap` were **absent** on this site — a deliberate
+   "one canary, one question" choice that now looks like the likely cause, since
+   `stem_twin_snap` is described as matching a bare plan page against a prefixed realised
+   one, which is exactly this pairing. Honouring a realised identity cannot help a page the
+   reconciler never marked `identity_authority='realised'`.
+2. The site-spec reader may not be in the running binary. ⚠ **We could not settle this and
+   our probe was uninformative, not negative**: 7- and 9-char sha prefixes for recent
+   commits all came back absent from `/proc/1/exe` — *including the negative control* — and
+   the startup provenance line has scrolled (pods ~14 h old), with no commit env var set.
+
+Filed for diagnosis rather than asserted: 090 run correlation
+`33d4d7bc-62f8-4886-a8e2-7c39f0c0a302`. If (1) is the answer, the useful outcome for this
+file is that the identity flag has a **precondition** — it is inert without a pairing layer —
+and that is worth stating where the flag is documented, because we read
+`site_identity_policy.go` closely, measured the population it asks for, and still got this
+wrong.
+
+Full account, incl. the repair and its assertions:
+`docs024_key_docs_latest/loanandmortgagecalculator_couk/NOTES_…md` entry **2026-08-17 (d)**.

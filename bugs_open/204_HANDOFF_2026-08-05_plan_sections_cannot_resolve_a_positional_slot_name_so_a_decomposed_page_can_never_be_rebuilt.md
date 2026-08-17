@@ -413,3 +413,42 @@ names ARE resolvable by stored id → `92e14493b` + config (189, APPROVED
 `87444080`, PBP-035) removed the save-path gate → this canary. **Unblocks** the
 owner's 2026-08-05 instruction to rerun loancalculator's copy through the
 framework in the H voice: the mechanism is now proven on that site's own pages.
+
+---
+
+## CONTRIBUTION 2026-08-17 — the same blindness may live in a THIRD path: `write_site_plan` produced 0 sections for 41 positional-slot pages, on a site where this fix is live
+
+From the `loanandmortgagecalculator.co.uk` D6 planner lane. **Not a reopening, and not a
+claim about this fix's correctness** — the id route is live and this lane has no evidence
+against it. What we have is a fresh instance of the same *shape* in a path this file's chain
+does not name.
+
+**The run.** One `build-site-planner` canary, site `ed633ada-f8af-424b-b4d4-8af79160dbcd`,
+corr `6fe6ee93-67b9-4831-bf17-2ca473e1d30c`, COMPLETED 2026-08-17 12:07:05Z on chassis
+`v1.0.1305` (well after `v1.0.1257`).
+
+**What the plan carried.** `site_plan_sections` for the resulting plan holds **10 rows
+total**, and all 10 belong to the four pages the FRAMEWORK itself built on 08-15
+(`hero`/`article-body`/`call-to-action` on two new guides; the complaint-checker tool's
+four). The **41 adopted pages got zero sections**, and `sync_pages_to_db` then wrote
+`sections = []` onto 24 of them in the live `pages` table (restored from a snapshot within
+the half hour; the live site never served it).
+
+**Why it looks like this file's class.** Those 41 pages carry positional slot names —
+`prose-0`, `tool-1`, `prose-2` — which are neither a component `name` nor a `function`,
+which is precisely the lookup this file measured at 0/57 on the sibling site.
+
+**What we have NOT established, and are not asserting:** whether the drop happened in the
+name resolver at all. The same run also failed to preserve realised page identities with
+`honour_realised_identity='true'` set, and a reconciler that never PAIRED a plan page with
+its realised row would produce both symptoms at once — no pairing, so no sections carried
+and no identity honoured. Filed for diagnosis rather than guessed: 090 run correlation
+`33d4d7bc-62f8-4886-a8e2-7c39f0c0a302`.
+
+**Explicitly NOT `bugs_open/282`.** 282 is validate's resolver missing tool-LEVEL functions;
+these sections name nothing at all, so an acceptance-side fix cannot reach them.
+
+Evidence, if this turns out to be yours: the plan rows above, plus snapshot table
+`pages_bak_20260817_preplan_lmc` which holds the pre-run `sections` for all 46 pages. Full
+account: `docs024_key_docs_latest/loanandmortgagecalculator_couk/NOTES_…md` entry
+**2026-08-17 (d)**.

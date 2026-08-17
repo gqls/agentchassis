@@ -1320,3 +1320,60 @@ One aside worth your attention: our site's specification still lists 41 pages, f
 adoption, while the site now has 45. The planner is handed that list. I have deliberately not
 tidied it up, because what the planner does with a slightly out-of-date list is something we want
 to find out — it will be true of every adopted site, not just this one.
+
+2026-08-17, mid-afternoon. You said go, so I fired the planner once. It failed in exactly the
+way I said it might, the site is back to precisely where it was, and the failure taught us two
+things that no amount of reading the code would have.
+
+First, what I did before firing: took a full copy of all 46 page records and their components
+into backup tables, wrote down a fingerprint of every page's name and address, checked the
+site's calculators all still proved right, and confirmed the AI service was actually answering
+(a note elsewhere in the fleet claimed it was cut off until September; it isn't — twenty-eight
+successful calls in the twenty minutes before I fired).
+
+The run took three minutes and nineteen seconds. The good news first, because it is real: the
+plan it produced is the right SHAPE. It proposed 45 pages with exactly the same mix as the live
+site — 19 calculators, 13 guides, 9 content pages, 2 blog posts, an index and a homepage. That
+is what you asked for when you said the exact combination doesn't matter but the size and
+complexity do. On its first attempt, unprompted, it matched the site's shape.
+
+The bad news. It also created 19 duplicate pages — the seventeen calculator twins I predicted,
+plus two more — moved the web addresses of 21 real pages, and wiped the list of building blocks
+on 24 of them. It repointed two of the five navigation links at addresses that don't exist. And
+it queued 27 jobs, one of which was "assemble and deploy these pages", which would have pushed
+the mess to the live website.
+
+None of that reached the public site. I cancelled the deploy job before anything picked it up,
+and then put everything back from the backup in a single database transaction that refused to
+commit unless the page fingerprint came back byte-for-byte identical to the one I took before
+firing. It did. The duplicates are deleted, the addresses and building-block lists are restored,
+the navigation is correct, and all 170 arithmetic checks still pass. I checked the live site
+directly too: the real pages still serve, and the duplicate addresses return "not found",
+because they never existed outside the database.
+
+Two things worth your attention.
+
+One: the protection you insisted on back in July is the reason this was cheap. The 17
+calculator pages are marked "owned", and the planner would not touch them — instead it raised a
+review request for each one and left the originals alone. The pages it did damage were the 24
+ordinary ones. Ownership marking worked exactly as designed.
+
+Two: I got one of my own decisions wrong, and it probably caused the failure. There are three
+related switches. I turned on the one that says "keep a page's existing name", and deliberately
+left off two others that do the matching — the ones that recognise "mortgages-stamp-duty" and
+"tool-mortgages-stamp-duty" as the same page. My reasoning was that one experiment should test
+one thing. But preserving a page's identity is meaningless if nothing recognised the page as
+existing in the first place, so I turned on the effect and left off its precondition. I have not
+asserted that as the cause — I've sent it to the diagnosis service to establish properly rather
+than assume, because I have been wrong once already today by reasoning instead of measuring.
+
+The second failure — the wiped building-block lists — traces to a defect we already have on
+file from 5 August (bug 204). Our pages label their parts by position, like "prose-0" and
+"tool-1", and the planner's checker can only recognise parts by name. So it silently dropped
+every part of every adopted page. That is not a new bug and I have not filed one; it is an
+existing bug showing up in a third place.
+
+Where that leaves the planner work: the first round told us the shape is achievable and the
+write-back is what needs fixing. The next round needs the two matching switches on, and needs
+its own before-and-after page diff built into the script rather than improvised after the fact,
+which is what I had to do today.

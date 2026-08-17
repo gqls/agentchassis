@@ -3213,3 +3213,114 @@ list, and that answer generalises to every adopted site.
 **Stopped here on purpose.** The dispatch is the step that writes `pages` on a 45-page live
 site, so it is the owner's call, not a session's — everything up to it is done and the seed is
 one `psql -f` away.
+
+### 2026-08-17 (c) — the oracle's coverage does NOT grow with the site: one of the two new tools does real amortisation arithmetic and nothing proves it
+
+Follow-on from (b), settled by reading the templates rather than guessing.
+
+| new tool (08-15) | component | arithmetic? | evidence |
+|---|---|---|---|
+| `tool-overpayment-priority` | level `tool`, 12,187 B | **YES — exactly our class** | the annuity formula (`balance * monthlyRate / (1 - Math.pow(1 + monthlyRate, -n))`), a month-by-month amortisation loop with an interest-not-covered guard, three overpayment strategies compared (loan-first / mortgage-first / split), months→years |
+| `tool-affordability-complaint-checker` | level `tool`, 22,470 B | **no money arithmetic** — zero `Math.`/`toFixed`/`parseFloat`; rules and dates. My first-pass regex flagged it true (`+=` string building): a false positive, and reading the template is what settled it |
+
+**So from today the honest form of the lane's headline claim is "23 of the 24 arithmetic
+calculators prove right", not "every calculator".** `oracle.py`'s tool set is a
+hand-authored dict (`T["loans/standard-calc.html"] = {…}`, 18 keys, no discovery query, no
+glob), so it covers what a human last enumerated and cannot pick up a page the framework
+adds. Neither half is defective — the loop is meant to add tools, and the oracle is
+hand-curated precisely so its expectations are derived independently of the page. It is the
+**seam** that nobody owns, and it decays silently every time the loop succeeds.
+
+Cheapest fix is a coverage check rather than more coverage: enumerate `page_type='tool'`
+pages whose template contains money arithmetic, subtract the oracle's dict keys, fail on a
+non-empty difference. It computes nothing, so it cannot be wrong about arithmetic — it can
+only be wrong about the arrears list, visibly.
+
+### 2026-08-17 (d) — THE CANARY FIRED AND FAILED IN THE WAY IT WAS GUARDING AGAINST: 19 phantom pages, 21 moved URLs, 24 blanked section lists. Repaired to the byte; the live site never saw any of it
+
+Owner said go (chat, 12:00 BST). Sequence, all of it timestamped:
+
+1. **Snapshot** — `pages_bak_20260817_preplan_lmc` (46 rows) and
+   `page_components_bak_20260817_preplan_lmc` (82), both asserted at creation.
+2. **Pre-state 11:55Z** — identity digest `md5(name|url|page_type|status)` =
+   `86f42aa5d5c122da938c970a01dc6ff4`; 45 active / 1 archived; 24 `owned` / 22 `generic`;
+   **0 locked page_components**; 0 `site_plans`.
+3. **Seed applied** — structure row `6ca809d6`, both keys `'true'`, `url_shape` still
+   absent, 41-entry pages list and `source='adoption'` carried, all asserted by the seed's
+   own `DO`/`RAISE`.
+4. **LLM path checked usable** — 28 anthropic calls / 0 failures in the preceding 20
+   minutes, against a red `ai_endpoint_health` row (LANDMINES corrected separately).
+5. **Fired 12:03:46Z**, corr `6fe6ee93-67b9-4831-bf17-2ca473e1d30c`. **COMPLETED 12:07:05Z
+   — 3m19s, no queue wait at all** (the ~29-minute latency the RUNBOOK warns about did not
+   materialise; do not plan on either figure).
+
+**What the run got RIGHT, and it is the part worth keeping.** The plan is faithful in
+SHAPE: 45 planned pages with the role mix `tool 19 · guide 13 · content 9 · blog-post 2 ·
+section-index 1 · landing 1` — **exactly** today's live page-type census. D6 asks for
+"reasonably close to where we are" and at the page level the first attempt hit it.
+
+**What it got wrong, measured against the snapshot rather than eyeballed:**
+
+| damage | measured |
+|---|---|
+| phantom pages INSERTED | **19** — 17 tool twins (`mortgages-stamp-duty` → `tool-mortgages-stamp-duty` at `/tools/mortgages-stamp-duty/index.html`) + 2 blog-post twins at `/blog/…`. All `build_status='planned'`, `rebuild_policy='generic'`, zero components |
+| real pages whose URL moved | **21** — 13 guides `.html` → `/index.html`; both hubs `/loans/index.html` → `/loans.html`; 6 content pages `/loans/x.html` → `/loans-x.html` |
+| real pages whose `sections` was CLEARED to `[]` | **24** — incl. `index`, `legal`, `guides-index`, all 13 guides, and 5 tool-carrying content pages that held `["prose-0","tool-1"]` |
+| nav items repointed at moved URLs | **2** (`Loan Calculators` → `/loans.html`, `Mortgage Calculators` → `/mortgages.html`) |
+| work items filed | **27** — 17 `owned_page_review` (needs_human_review) + 10 triaged incl. a `needs_rerender` "assemble and deploy pages after plan reconcile" |
+| **real pages whose NAME, page_type or status changed** | **0** |
+| **oracle** | 170 PASS / 0 FAIL / 6 CONVENTION / 0 N/A, after the repair |
+
+**`rebuild_policy='owned'` did its job and is why this was recoverable**: the 17 owned
+calculator pages were not modified — the run filed a human-review item for each instead and
+minted a twin beside it. The pages it *did* mutate are the 24 `generic` ones.
+
+**The live site never saw any of it.** Verified at the wire after the repair:
+`/guides/jargon-buster.html` 200, `/loans/index.html` 200,
+`/mortgages/stamp-duty.html` 200, `/tools/mortgages-stamp-duty/index.html` **404**,
+`/loans.html` **404**. Nothing was deployed, because the one `needs_rerender` item was
+cancelled before any dispatch claimed it.
+
+**Containment and repair, in that order.** Cancelled the 10 triaged items first (the
+`needs_rerender` was the bleeding edge), then in ONE guarded transaction: restored `url` +
+`sections` on the 24 from the snapshot, restored the 2 nav URLs from their pages, deleted
+the 19 phantoms (checked first: zero rows in all 8 tables that FK to `pages`, so no
+archive-in-place was needed and the 08-15 FK lesson does not apply to rows that never
+rendered). Assertions in the same transaction: 46 pages, identity digest back to
+`86f42aa5…` exactly, zero rows differing from the snapshot on `sections`, zero nav items
+pointing away from their page. Then superseded the plan row (kept as evidence, `is_current`
+false) and cancelled the 17 moot reviews — 0 open items from the run, 0 current plans, i.e.
+the 11:55Z state.
+
+**Why the plan blanked the sections — almost certainly `bugs_open/204`, not a new bug.**
+The plan carried **10** sections in total, and all 10 belong to the four pages the
+FRAMEWORK built on 08-15 (`hero`/`article-body`/`call-to-action` on the two new guides,
+and the complaint-checker tool's four). The 41 adopted pages got **zero**. LMC's slot names
+are positional — `prose-0`, `tool-1`, `prose-2` — which are neither a component `name` nor a
+`function`, which is exactly 204's blindness ("plan_sections resolves a section by
+NAME/FUNCTION only"), here reaching the plan-write path. **Note this is NOT
+`bugs_open/282`**: 282 is about tool-LEVEL functions missing from validate's resolver, and
+no acceptance-side fix helps a slot name that names nothing.
+
+**Why the identity flag did not hold — NOT ASSERTED, filed instead.** `honour_realised_identity`
+was `'true'` in the current structure row before the fire, and the twins appeared anyway.
+Candidate links, none established: the reconciler may never have PAIRED the plan pages with
+the realised rows (`twin_identity_snap` / `stem_twin_snap` are absent — **my own deliberate
+"one canary, one question" choice is a live suspect here**, since those are the layers that
+match a prefixed name against a bare one); or the site-spec reader may not be in the running
+chassis binary (`v1.0.1305`). ⚠ **My binary probe was UNINFORMATIVE and I nearly read it as
+an answer**: 7- and 9-char sha prefixes for the 282 commits all came back absent — *and so
+did the negative control*, so the method found nothing rather than establishing absence.
+The startup provenance line has scrolled (pods ~14 h old) and no commit env var is set.
+**090 filed rather than guessed**: `RUN_CORRELATION_ID=33d4d7bc-62f8-4886-a8e2-7c39f0c0a302`.
+
+**What I would do differently, and it is the lesson for the next reseed.** The canary was
+correct to fire — the damage was DB-only, snapshotted, reversible, and it bought two
+measured mechanisms that no amount of reading would have produced. But I fired it with the
+*pairing* layers off and the *identity-preservation* layer on, which is a combination that
+cannot work if pairing is what was missing: honouring a realised identity is meaningless for
+a plan page the reconciler never recognised as realised. **Turn the layers on in dependency
+order, or turn them on together and accept that one canary then answers a compound
+question.** The next run should also carry a page-level pre/post diff (this one's md5 told
+me *something* moved but not *what* — the snapshot diff did that, and it should be in the
+script, not improvised afterwards).

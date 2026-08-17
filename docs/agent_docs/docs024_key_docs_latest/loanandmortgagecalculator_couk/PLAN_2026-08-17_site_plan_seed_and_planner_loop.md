@@ -227,6 +227,26 @@ DB config is live immediately; no roll needed. ⚠ Two standing cautions inherit
 sibling's seeds: `write_site_spec` ignores and drops `pinned`, so do not rely on it; and
 check the keys survive after any adoption run.
 
+> **PHASES 1–3 RAN 2026-08-17 12:03–12:30Z. Read NOTES (d) for the full account.**
+> Seed applied (structure row `6ca809d6`). Canary fired (corr
+> `6fe6ee93-67b9-4831-bf17-2ca473e1d30c`), COMPLETED in 3m19s.
+> **Result: the plan's SHAPE passed and the write-back failed.** 45 planned pages with the
+> role mix exactly matching the live census — which is D6's actual target — but the run
+> INSERTED 19 phantom pages, moved 21 real URLs, cleared `sections` on 24 real pages and
+> repointed 2 nav links. Repaired from the snapshot inside one guarded transaction; identity
+> digest is back to the pre-fire value byte for byte, oracle 170/0/6, and the live site never
+> served any of it (phantom paths 404). `rebuild_policy='owned'` protected all 17
+> calculator pages — the run filed a review item per page instead of touching them.
+> **Two causes, one filed and one identified:** the blanked sections are `bugs_open/204`'s
+> positional-slot blindness reaching the plan-write path (NOT `282`, which is about
+> tool-level functions); the phantom twins happened *with* `honour_realised_identity='true'`
+> already set, so that link is **not asserted** — 090 filed, run correlation
+> `33d4d7bc-62f8-4886-a8e2-7c39f0c0a302`.
+> **Phase 4's first change is a correction to this plan's own phase-1 decision:** seeding the
+> identity-preservation flag while deliberately withholding `twin_identity_snap` /
+> `stem_twin_snap` turned on an effect without its precondition. One canary answering one
+> question was the wrong economy here.
+
 **Phase 2 — canary the planner ONCE**, reusing the sibling's script rather than writing a
 new one: `loancalculator_couk/canary_replan_407.sh` (adapt the site id/domain; it already
 prints its own judging queries, and it carries the two traps — `kcat -P` exits 0 having
