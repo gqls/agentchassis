@@ -2166,3 +2166,47 @@ classification for a site is precisely what the echo-the-recorded-value rule exi
 > `load_premise`'s own SQL is what corrected it. **Same shape as the 08-15 `page_id` misread
 > (`spec->>'page_id'` vs the COLUMN): when a figure comes out empty or zero, check the PATH before
 > believing the value.** That is twice in three days on this lane.
+
+## 2026-08-17 — CORRECTION to my own 08-16 framing: the acceptance-test gap is KNOWN, MEASURED and DELIBERATELY DEFERRED, and the blocker names something this lane owns
+
+Before letting the acceptance-test finding become a track, I grepped for prior art — the rule this
+lane keeps proving the value of. It exists, and it is better than my write-up of it.
+
+> **CORRECTED 2026-08-17.** On 08-16 I wrote *"nothing reads the test … we built a falsifiable test
+> into every finding and then never asked the question"*, in NOTES and in the owner log. **The
+> first half is true; the implied second half — that nobody had noticed — is false.**
+> `platform/orchestration/actions/complete_work_item_no_change.go:44-48` states it plainly and
+> costs it: *"grading the item's own stated `acceptance_test` is a separate and larger job (that
+> field is free LLM prose; **10 of 15 live values name a computed property and 2 contain clauses no
+> probe can assess**, so it needs a **producer-side contract change first**)"*. That is a measured
+> deferral with a named blocker, not an oversight. What caught me: I grepped `site_work_items` and
+> the DB, and did not grep the SYMBOL `acceptance_test` in Go until today.
+
+**What DOES exist, and exactly how far it reaches.** `complete_work_item_no_change.go` refuses a
+completion when the handler's own payload says it changed nothing — built for `bugs_open/213`'s
+false-green damage. It is **opt-in with the unsafe default OFF** (the 2026-08-02 shared-seam
+ruling), and `noChangeGates` currently holds **exactly one type: `dark_section_audit`**. So
+`content_rewrite` / `tone_shift` / `cta_improvement` are not covered even for the crude
+"handler did nothing" case.
+
+**Why my case is beyond BOTH mechanisms, which is what makes it worth keeping.** On webdesign.co.uk
+the handler **did** change the page — a real, substantial hero rewrite, attribution proven to the
+child orchestration. A no-change gate would have passed it correctly. The acceptance test was still
+unmet, and unmet in the one way that matters: *"before any count of tools or articles"*, and the
+new copy leads with **"Sixty-three browser tools"**. **The repair reintroduced the exact fault the
+finding was filed to remove.** Neither the no-change gate (nothing was zero) nor a banned-term
+screen (no banned term) can see that.
+
+**The tractable path, and it is ours.** The recorded blocker is *"a producer-side contract change
+first"* — the field is free LLM prose, so nothing can grade it. **B4 is a producer of exactly this
+field, and this lane owns B4.** So the version of this work that is actually available is not
+"build a fleet-wide acceptance grader"; it is **make B4 emit a machine-checkable acceptance
+predicate alongside the prose** — a small, opt-in, per-producer contract, which is the shape the
+2026-08-02 ruling prescribes anyway. That would give the deferred fleet-wide job its first
+producer to grade against, instead of waiting for all 15 values to become assessable at once.
+`[UNMEASURED]` how many of B4's own acceptance tests are expressible as a predicate — **that
+census is the first step, and it is cheap**: 22 live offer-analysis values to read.
+
+**Not filed as a bug.** It is not a defect with a root cause; it is a known deferral with a named
+blocker and a now-identified first mover. It belongs with the v2 batch as **v2(d), gated on that
+census**, and the census result decides whether it is worth doing at all.
