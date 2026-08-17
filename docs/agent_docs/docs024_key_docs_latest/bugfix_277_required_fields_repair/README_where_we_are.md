@@ -232,3 +232,60 @@ rebuild branches should be switched off until someone has watched one run, and w
 for the five findings held awaiting a first supervised run. On the first, a **second** reviewer has
 now independently said those branches want a fail-loud guard, so that decision has more weight
 behind it than when I raised it.
+
+---
+
+## 2026-08-17, late afternoon — the build you deployed didn't actually ship, and I got something wrong that I want to flag properly
+
+**First, the thing you need to know: this afternoon's chassis deployment shipped no new code.** It
+was rebuilt under the *same version number* as this morning's build, and when that happens the
+server quietly reuses the copy it already had. The pods restarted and look perfectly healthy. They
+are running this morning's code.
+
+I checked this three separate ways before saying it: the image on disk is genuinely new (built at
+14:30), the program actually running contains this morning's fingerprint and not the new one, and
+the pods are running a different image file from the one that was built. The restarts happened
+*after* the build, so it isn't a timing coincidence.
+
+**What that costs:** 252 commits are sitting undeployed, 26 of which change actual program code. So
+26 pieces of work whose authors reasonably believe are live are not. Nothing is broken — it simply
+hasn't shipped. The fix is to bump the version number in the makefile and run a release; that's a
+whole-fleet action you run, not me. I've recorded the incident against the existing bug that owns
+this trap, including one honest correction to that bug's proposed fixes: one of the three fixes on
+its list would *not* have caught today's case, and I've said so rather than let it look better
+supported than it is.
+
+None of my own work today is affected — it's all database configuration, which takes effect the
+moment it's committed rather than needing a build.
+
+**Second: the time-limit mechanism you asked for is working.** It ran at 12:57 and escalated the
+four findings that had been waiting seven days, while correctly leaving the one-day-old finding
+alone. That's the clock actually discriminating rather than just emptying a backlog. Each escalated
+finding now carries how long it waited, what to do about it, and — for the unowned type — the words
+"UNASSIGNED, claim this" along with the evidence that nobody has touched that check since July.
+
+**Third, and I'd rather you heard this from me: the safety rule I added this morning was wrong, and
+I've fixed it.** I built it to hold back any handler succeeding less than a quarter of the time. It
+turns out this system records success in **two** different ways — a job can be marked "done", and
+then later marked "verified" once it's been checked. I was only counting the first. So every time
+the platform *verified* a piece of work, that handler's apparent success rate went **down**. I had
+built a scorecard that gets worse the better we do.
+
+I caught it by accident: I looked at a handler that read 46% this morning and 20% this afternoon,
+which is impossible unless something is wrong. Nothing had gone wrong — nine of its successes had
+simply been verified in between. Counting both, it's 50%, and my rule had been about to block it
+for no reason.
+
+Two things worth saying about that. The damage was small and I've fixed it while it was small — that
+second status is currently rare, nine records in total. But the version of this that would have hurt
+is the one that hadn't happened yet: a handler whose successes had *all* been verified would have
+looked like it had never worked at all, and been blocked permanently — which is precisely the
+original bug this whole project exists to fix.
+
+And: **the review panel could not have caught this.** Twelve reviewers approved that rule this
+morning. One of them came close — it asked whether "done" could really be trusted — and my answer
+to it was correct but aimed at the wrong question. A review reads the plan; it can't check a detail
+the plan never mentions. That one needed a query, not a reviewer. It's logged as a mistake of mine,
+alongside a near-identical one earlier the same day, because twice in one session is a pattern
+rather than bad luck: both times I filtered on a status column without first asking what values that
+column can hold.
