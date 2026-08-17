@@ -1,139 +1,121 @@
-# HANDOFF 2026-08-17 — the loop-engine work (bugs 289 / 294 / WFA-015 / WFA-016)
+# HANDOFF 2026-08-17 (evening) — loop engine: 289 CLOSED and PROVEN LIVE; what is left
 
-**This supersedes `HANDOFF_2026-08-16_continue_here.md` for everything loop-engine.** That file
-is still the cold-start for the *tool-audit-by-instance* lane (bug 281, CLOSED); read it for
-that, and read this for the loop engine, which grew out of its one open thread.
+**Supersedes the earlier version of this file and `HANDOFF_2026-08-16_continue_here.md` for
+everything loop-engine.** The 08-16 file remains the cold-start for the *tool-audit-by-instance*
+lane (bug 281, closed); read it only for that.
 
-**Read in this order:** this file → `bugs_open/289` (the case, with three addenda) →
-`bugs_open/294` (why the wreckage was immortal) → `NOTES_tool_audit_by_instance.md` (evidence,
-newest at bottom) → `README_where_we_are.md` (the owner's plain-prose log) → register
-**WFA-015** and **WFA-016** in `docs026_concept_register/register/workflow-authoring.md`.
+**Status in one line: the loop-engine defect is fixed, live on `v1.0.1307`, and proven at the
+artefact on the case that motivated it. Nothing here is blocked on the owner except `bugs_open/294`.**
 
 ---
 
-## The one thing to know first
+## 1. What shipped, and the proof
 
-~~**Everything below is COMMITTED and NONE of it is LIVE.**~~ **SUPERSEDED 2026-08-17 18:2xZ — IT
-SHIPPED.** Build `v1.0.1307` (pods started 17:05Z, digest `sha256:8339bdbd…`, OCI revision label
-`a6d1c53c0`) carries **`509e01e6a` and `cf970b009`**, confirmed by `git merge-base --is-ancestor`
-against that revision — not by the tag, which had lied twice. **The doubling is GONE and measured:**
-`build-dispatch-loop`'s per-lap `_done` keys were 201 kB → 6,247 kB and are now a flat **77 bytes**
-(ratio 1.00; ~2.0 would have disconfirmed it), and multi-lap runs went from 2,575 kB avg / 14 MB max
-to **104 kB avg / 229 kB max**. `a436d898f` (the council's `GetIntField` reuse swap) postdates the
-build, is behaviourally identical, and rides the next one.
+`bugs_closed/289` — a loop sub-workflow's terminal substep is declared `action: loop_complete`,
+which is *also* the action of the loop's own end-step, so expansion injected the whole-loop
+aggregator once **per iteration** and each lap swallowed every earlier lap's aggregate.
+`collected_data` doubled per lap (2^N).
 
-## State, all `[MEASURED 2026-08-17]`
+**Live on `v1.0.1307`** (pods started 17:05Z; image digest `sha256:8339bdbd…`, OCI revision label
+`a6d1c53c0`, built 16:50Z). Verified with `git merge-base --is-ancestor`, **not** by the tag —
+which had reported a "fresh build" twice while shipping nothing.
 
-| item | state |
-|---|---|
-| `bugs_open/289` — loop `collected_data` doubles per lap (2^N) | **OPEN.** Fix `509e01e6a`, inert until the roll. Residual (5) closed by the tripwire; residual (4) still open |
-| `bugs_open/294` — a run stalled in `RUNNING` is unreachable by every recovery path | **OPEN, UNOWNED, NOT APPLIED.** Filed with the exact SQL and a verify that has a negative control |
-| Corpse sweep | **DONE.** 49 rows → `FAILED`; 0 `RUNNING` fleet-wide, 98 Kafka topics released. Ids in the scratchpad `289_corpse_rows_before.txt`; rows were failed, not deleted |
-| `WFA-015` `loop_iteration_terminal` | built + tested, **not live** |
-| `WFA-016` `collected_data` size tripwire (WARN 8 MiB / ERROR 24 MiB) | built + tested, **not live** |
-| Council | **APPROVED**, round 2, corr `7a3c4fb7-e8c1-4b5f-950e-7a826d5bebbe` (~16:50Z) — 4 advisory objections, none high-severity, **all answered with a change or a measurement** (see 289's council section). `Council-Reviewed:` trailer on `a436d898f`. Note `cf970b009` still carries no trailer and forward-only forbids an amend, so `098` cannot auto-credit that one |
+**Proof, two independent consumers:**
 
-**Commits, in order:** `820230756` `a6312cb21` `969cea2ae` `03cfab45a` (diagnosis, 08-16) ·
-`509e01e6a` (the fix + WFA-015) · `ab2b4bdd3` (docs) · `c2f66d9ff` (the quota finding) ·
-`d0e104057` (sweep + bug 294) · `839312eb0` (the 274 correction) · `7d832ebc8` (2 landmines) ·
-`cf970b009` (the tripwire + WFA-016).
+| | before | after |
+|---|---|---|
+| `build-dispatch-loop` per-lap `_done` | 201 kB → 6,247 kB (ratio ~2.1–3.1) | **77 B, flat (1.00)** |
+| `build-dispatch-loop` multi-lap runs | 156 runs, 2,575 kB avg, 14 MB max | 10 runs, **104 kB avg, 229 kB max** |
+| `tool-auditor` per-lap `_done` (10 laps) | 70 kB → 9,076 kB | **82 B each, all ten** |
+| `tool-auditor` outcome | **1 COMPLETED in 63** | **COMPLETED on attempt 0** |
 
-## The blocker that IS real, and the one I got wrong
+The `tool-auditor` run (`be4cf3a5-f3cc-4208-9ec8-0d17d27e421d`) carried **18 findings against a cap
+of 10**, i.e. it hit the exact truncation condition that correlated with every stall, and finished.
+Aggregation still works: the end-step returned `items_created = {count: 10, iterations: 10}`.
 
-**REAL — the build is not reaching the cluster, and this is the live blocker.** `[MEASURED
-2026-08-17 16:30Z]` The pods look new (replicaset `5bd56bdd9b`, started 14:43Z) and carry tag
-`v1.0.1305`, but their image digest is `sha256:f90a7e88…`, whose own OCI revision label is
-**`6a782274b`, built 2026-08-16 21:53Z**. The locally built `v1.0.1305` is a *different image* —
-`sha256:6039e19c…`, revision `89a0cbeb7`, created 2026-08-17 14:30Z — and it DOES contain both of
-this lane's commits. Same tag, different content: the build worked, the delivery did not.
-**252 commits in HEAD are absent from the running binary, 24 of them touching
-`platform/`/`internal/`/`pkg/`** across bugs 275/283/285/287/289/291/292/293/295/299, several
-already council-APPROVED. A same-tag re-release re-serves the node's cache, so restarting pods
-cannot fix it — **only a new tag can**. `makefile` line 17 is now `v1.0.1306` (commit
-`aa9c7b74f`); the owner runs the release. One-command proof, no exec:
-`docker inspect aqls/<svc>@sha256:<imageID from kubectl> --format '{{index .Config.Labels "org.opencontainers.image.revision"}}'`.
+**Fleet health since the roll, with a demand control:** 0 `RUNNING` rows fleet-wide, 0 stuck >4 h,
+0 runs at any `*_loop_complete` step — across a window containing 11 real multi-lap runs, so the
+zeros are not silence.
 
-**NOT REAL — the "Anthropic quota exhausted until 2026-09-01" claim was mine and it was WRONG.**
-The outage lasted **~3 minutes**: 4 failed calls between 11:08:37Z and 11:09:53Z, successes
-resuming 11:13:02Z, and 462 successful calls in the five hours after. I measured inside the window
-and took the duration from the API's 400 body. **The date in that message is not predictive** —
-`bugs_open/243` records the identical text on 08-10 against a 3 h 20 m outage that ended when the
-owner added credit, 21 days early, and says so explicitly. I did not grep for it. Council round 2
-went out normally at 16:38Z. Do not plan around a September date.
+**Council: APPROVED**, corr `7a3c4fb7-e8c1-4b5f-950e-7a826d5bebbe`, 4 advisory objections, all
+answered with a change or a measurement (see the council section in `bugs_closed/289`).
 
-## What is owed, in the order it becomes possible
+## 2. What is still open, in the order I would take it
 
-0. ~~**THE ROLL ITSELF IS BLOCKED ON A TAG.**~~ **DONE — the release landed at `v1.0.1307`.** Kept below because the check is the reusable part: `makefile` line 17 is now
-   `v1.0.1306` (`aa9c7b74f`). Until a release goes out at a NEW tag, items 1 and 2 below cannot be
-   done at all — and a same-tag re-release will look like it worked. Confirm before believing any
-   roll: `docker inspect aqls/agent-chassis@sha256:<imageID from kubectl> --format '{{index .Config.Labels "org.opencontainers.image.revision"}}'`
-   then `git merge-base --is-ancestor 509e01e6a <that revision>`.
-1. ~~After the next roll — verify 289 at the artefact.~~ **DONE on the shared engine, PENDING on the motivating case.** Proven on `build-dispatch-loop` with real demand (see 289's "LIVE AND PROVEN" section). **Still owed: a `tool-auditor` run reaching `COMPLETED`** — none has run since the roll because its queue holds nothing runnable, so that zero is absence of demand, not evidence. One bounded probe is in flight: item `12836a25-8266-46fb-bba1-2e8635ef9cc0`, `max_attempts=1` so it costs at most ONE Sonnet audit. Read its outcome, then 289 can move to `bugs_closed/`. The original instruction, still the right check:
-   ```sql
-   SELECT key, length(value::text) FROM orchestration_states, jsonb_each(collected_data)
-   WHERE orchestration_id='<a new tool-auditor run>' AND key LIKE '%\_done' ORDER BY key;
-   ```
-   **The disconfirming result is a ratio near 2.0 between consecutive laps.** It proves nothing
-   unless a multi-lap loop actually ran, so check `loop_metadata.total_iterations > 1` on the run
-   you read. The durable pass is a `tool-auditor` orchestration reaching `COMPLETED` — the
-   population held exactly 1 in 63 before this.
-2. ~~After the next roll — verify WFA-016 fired.~~ **CHECKED: 0 lines, and that is the expected reading.** Nothing persists an oversized state now, so the instrument has no demand; per its own verify-later note a zero means "no oversized state", not "broken". Exercising it now needs a fixture. Original note kept:
-   `kubectl -n ai-persona-system logs -l app=agent-chassis --tail=100000 | grep -c 'collected_data is unusually large'`.
-   Once 289's fix is ALSO live the expected count falls toward zero, so **a zero means "no
-   oversized state persisted", not "the tripwire is broken"**. To prove the instrument itself,
-   check `build-dispatch-loop`, which was still legitimately reaching 14 MB when this was written.
-3. ~~When the quota returns — submit both code commits to the council.~~ **DONE 2026-08-17
-   16:38Z.** Round 2 dispatched on the **original** correlation
-   `7a3c4fb7-e8c1-4b5f-950e-7a826d5bebbe` (run orch `ec91ab5a-4548-4327-8f3d-9dd012005bbc`), so
-   `509e01e6a`'s existing `Council-Submitted:` trailer resolves and `098` credits it automatically
-   on approval. **Both changes are in that ONE round** — the loop fix and the tripwire — because
-   `bugs_open/244` measures `council-gate` at 87.8% of the fleet's August LLM spend and ~790k input
-   tokens per round, so a second round for four lines of logging is a poor trade. It cleared
-   `review_constitution` (where round 1 died) and was at `review_tooling_provenance` at 16:44Z.
-   **Still owed: READ THE VERDICT** and act on a REVISE/REJECTED — the code is already on the
-   shared branch. `SELECT metadata->>'decision' FROM diagnosis_artifacts WHERE
-   correlation_id='7a3c4fb7-…' AND kind='council_report';`
-   **Never write `Council-Reviewed:` on a verdict you have not read.** Note `cf970b009` carries no
-   trailer at all and forward-only forbids an amend, so `098` cannot auto-credit it whatever the
-   verdict — the correlation is recorded in the bug file, WFA-016 and here instead.
-4. ~~When the quota returns — re-arm four landmine entries.~~ **DONE.** The verifier is running
-   normally and verdicts are arriving. Mine so far: the one-sha binary stamp → **STILL_VALID**; the
-   same-tag rebuild → **NEEDS_HUMAN_REVIEW**, which is the verifier's `.go`-only index refusing a
-   makefile/shell footprint rather than a doubt about the entry — the human half was measured by
-   hand and is recorded in the entry. **Read any `NEEDS_HUMAN_REVIEW` that way: an entry footprinted
-   on shell, SQL, YAML or a makefile can never come back `STILL_VALID`.**
-5. **`bugs_open/294`, whenever the owner rules.** Live config, immediate, no roll to gate it, on a
-   fleet-wide reaper — which is why it was filed rather than applied. (The earlier note that the
-   council gate was down was **wrong** and was never the real reason; the three above are.) **Re-run its age census
-   immediately before applying**: the census (0 `RUNNING` rows under 4 h anywhere) is what
-   licenses the 4 h threshold, and if that has changed the proposed arm is the wrong fix.
-6. **289 residual (6), from the council's architecture seat** — the `loop_iteration`-presence
-   fallback in `isLoopIterationTerminal` is a permanent SECOND discriminator once every persisted
-   plan carries the explicit flag. Delete it once no in-flight plan predates `509e01e6a`. The
-   seat's wider point is the RFC signal and is NOT this fix: the step model overloads `action` to
-   mean both "what to run" and "role in the workflow", which is why a flag was needed at all.
-7. **289 residual (4)** — `LoopCompleteAction` still lets a step lacking its own
-   `total_iterations` inherit the whole loop's. Latent now that the early return is in, and the
-   fallback is deliberate backward-compat for pre-expansion plans, so weigh that before "fixing" it.
+1. **`bugs_open/294` — OWNER CALL. The only thing genuinely waiting on a human.** A run stalled in
+   `RUNNING` is unreachable by every recovery path: the reaper has arms for `AWAITING_RESPONSES`
+   (30 m / 90 m) and `EXECUTING_STEP` (4 h) and **none for `RUNNING`**, while `TimeoutMonitor` keys
+   entirely on `awaited_requests`, which these rows have empty. 289 was the producer; **294 is why
+   the corpses were immortal, and it is untouched.** The file carries the exact SQL, the census that
+   licenses its 4 h threshold, and an induced-repro verify with a negative control.
+   **Why it was filed rather than applied:** live config, effective the instant it is saved, no
+   build step to catch a mistake, on a fleet-wide reaper. **Re-run its age census immediately
+   before applying** — that census is the licence, and if healthy work has since started living in
+   `RUNNING` the proposed arm is the wrong fix.
+2. **`a436d898f` needs a build.** The council's `reuse_agent` objection is applied (my bespoke
+   `loopConfigInt` swapped for the existing `datahelpers.GetIntField`). It **postdates `v1.0.1307`**,
+   is behaviourally identical, and rides the next roll. Nothing depends on it.
+3. **Residual (6)** — the `loop_iteration`-presence fallback in `isLoopIterationTerminal` is a
+   permanent *second* discriminator once every persisted plan carries the explicit flag. Delete it
+   then. (Council architecture seat.) Its wider observation is the RFC signal and is **not** this
+   fix: the step model overloads `action` to mean both "what to run" and "role in the workflow".
+4. **Residual (4)** — `LoopCompleteAction` still lets a step lacking its own `total_iterations`
+   inherit the whole loop's. Latent now, and the fallback is **deliberate** backward-compat for
+   pre-expansion plans, so weigh that before "fixing" it. I recommend leaving it.
+5. **The per-page `audit_review` key** (the 281 lane's item, not mine) — demonstrated live by the
+   verification run: 18 findings → 10 create attempts → **0 rows inserted**, all deduped against one
+   pre-existing row. `items_created.count` counts **step results, not rows written**. Anyone
+   measuring this machinery's yield must read `inserted`, not the count.
 
-## Traps this lane paid for — do not re-walk them
+## 3. Traps this lane paid for — do not re-walk them
 
-- **The `090` diagnosis loop CANNOT diagnose an oversized-state bug.** Two runs (`815322b9`,
-  `12ffad7c`) returned REFUTED on **false absences** — `12ffad7c` asserted "no `_done` key appears
-  at all" about a row holding ten. The bundle truncates a 20 MB `collected_data` and the diagnoser
-  reads truncation as absence. **A REFUTED whose citation is an ABSENCE, on a target with large
-  rows, is bundle starvation** — re-ask it as a `count(*)`, never a dump. In LANDMINES.
-- **Never `SELECT collected_data`, `jsonb_pretty(...)` or an unfiltered `jsonb_each` on these
-  rows** — a single row reaches 29 MB and the query times out at 120 s, which reads as a busy
-  cluster rather than an enormous row. Size first, then filter with `key LIKE`.
-- **Match a loop's terminal substep on its ACTION, never its name.** It is called `done` in only
-  9 of the 15 live loops; the rest are `complete_page` (×4), `complete_dispatch`, `task_complete`.
-- **Grep BOTH bug directories, not just the source.** I re-derived a fault from the code, called
-  it "worth a separate file", and it was `bugs_closed/274` — fixed two days earlier. Grepping the
-  code for the mechanism is not grepping the queue (WRONG_CALLS 2026-08-17).
-- **Date-bound a symptom before calling it current.** `agent_error_log` retains ~30 days, so rows
-  spanning 08-03→08-15 read exactly like a live fault. `GROUP BY occurred_at::date` shows the cliff.
-- **A relayed figure is not a measurement.** The 281 handoff's "a Sonnet audit every ~40 min until
-  `failed`" was one probe item generalised; measured, attempts **cap at 3** at 43–147 min gaps.
-- **Direct-call tests cannot prove a guard is WIRED.** Unwiring the tripwire's single call site
-  left every direct test passing. Drive the real path (sqlmock) and mutate to prove it.
+- **A "fresh build" can ship no new code.** Two of the three reported to me had not. **Check the
+  image's own label, never the tag, the pod age or the deploy event:**
+  `docker inspect aqls/<svc>@sha256:<imageID from kubectl> --format '{{index .Config.Labels "org.opencontainers.image.revision"}}'`
+  then `git merge-base --is-ancestor <your commit> <that revision>`. Different digests under one tag
+  = not live; the remedy is a **tag bump**, never a redeploy.
+- **The `090` diagnosis loop CANNOT diagnose an oversized-state bug.** Both runs returned REFUTED on
+  **false absences** — one asserted "no `_done` key appears at all" about a row holding ten. The
+  bundle truncates a 20 MB `collected_data` and the diagnoser reads truncation as absence. **A
+  REFUTED whose citation is an ABSENCE, on a target with large rows, is bundle starvation.**
+- **Never `SELECT collected_data` / `jsonb_pretty` / unfiltered `jsonb_each`** on these rows — 29 MB
+  singles time out at 120 s, and a timeout reads as a busy cluster.
+- **Match a loop's terminal substep on its ACTION, never its name** — `done` in only 9 of 15 loops.
+- **Grep BOTH bug directories, and grep them for the noun in your error.** I missed this twice in
+  one day: `bugs_closed/274` (a fault I re-derived and called unfiled) and `bugs_open/243` (an API
+  error whose message was literally that file's title). Searching the code is not searching the queue.
+- **A duration cannot be read off a single moment's data**, and a vendor's error text is the worst
+  place to get one. I reported a 15-day outage that lasted 3 minutes. `bugs_open/243` §third
+  occurrence has the histogram query that settles it in one shot.
+- **Direct-call tests cannot prove a guard is WIRED** — unwiring the tripwire's call site left all
+  nine direct tests green. Drive the real path (sqlmock) and mutate.
+- **When you mutate to prove a test, prove the mutant still COMPILES first** — a build-breaking
+  mutant prints the same `FAIL` as a caught one. (Council `debug_historian` caught this in my
+  evidence; the corrected three-step form is in 289's council section.)
+- **No backticks inside `git commit -m`** — they execute. One ate a word out of `fcf436b87`.
+
+## 4. Commits (all on `087_towards_multiple_domains`)
+
+Diagnosis 08-16: `820230756` `a6312cb21` `969cea2ae` `03cfab45a`.
+Fix + register WFA-015: `509e01e6a`. Docs: `ab2b4bdd3`. Quota claim (later corrected): `c2f66d9ff`.
+Sweep + bug 294: `d0e104057`. 274 correction: `839312eb0`. Landmines: `7d832ebc8`.
+Tripwire + WFA-016: `cf970b009`. Tag bump: `aa9c7b74f`. Quota correction: `30d0d421c`.
+Landmine verification: `5aee74d01`. Council APPROVED + reuse swap: `a436d898f`.
+Live proof: `d81969ca2`. **Close: `fcf436b87`.**
+
+## 5. Useful queries
+
+```sql
+-- is the doubling back? a ratio near 2.0 between laps is the disconfirming result
+SELECT key, length(value::text) FROM orchestration_states, jsonb_each(collected_data)
+WHERE orchestration_id='<run>' AND key LIKE '%\_done' ORDER BY key;
+
+-- 294's census: the licence for a RUNNING reaper arm. Re-run before applying it.
+SELECT CASE WHEN last_activity > now()-interval '4 hours' THEN 'live' ELSE 'dead' END,
+       count(*), count(DISTINCT owner_agent_type)
+FROM orchestration_states WHERE status='RUNNING' GROUP BY 1;
+
+-- fleet loop health
+SELECT owner_agent_type, count(*), pg_size_pretty(max(length(collected_data::text))::bigint)
+FROM orchestration_states WHERE created_at > now()-interval '6 hours' GROUP BY 1 ORDER BY 2 DESC;
+```
