@@ -428,3 +428,32 @@ tools first, serial, ab-test second (and ab-test needs `cd60486c…` deactivated
   `error` NULL on a failed build. So: `create_result.page_adopted = true` AND `create_result` must not
   contain `already_exists` AND `collected_data->'__step_error'` must be absent — check all three
   before touching the ported slot.
+
+## 2026-08-17 12:26–12:28Z — rebuild #3 BUILT and graded; ported slot retired; awaiting the rerender
+
+- **The run graded clean on all three signals** (the check #2 taught us — the item alone says nothing):
+  `current_step='complete'` (not `complete_error`), `create_result.page_adopted='true'`,
+  `create_result.already_exists` **NULL**, `__step_error` **absent**, `page_id` = the EXISTING page
+  `284cf0aa…`. Component `1ad489ae-bae6-4683-95af-a4333ce104ed`. Item claimed 12:25:3xZ, complete
+  12:26:00 — the whole build took under a minute again.
+- **Component graded PASS before any retire:** 5,035 chars, `{{\.` fields **0**, `<script` **1**,
+  `<script src=` **0**, visible chars **395** (>300), `component_level='tool'`, active.
+- **And READ, not just counted — it is better than the tool it replaces on both points I specified as
+  intent rather than copying:**
+  - empty input now **clears the output and swaps in a hint** (`hintEmpty`); the ported version's
+    `if(!raw) return;` left stale Markdown on screen after you cleared the box.
+  - it binds `input.addEventListener('input', …)` and `button.addEventListener('click', …)`; the
+    ported version relied on an inline `onclick="convert()"` calling a global.
+  Every conversion rule from the brief is implemented exactly: whole-input trim, delimiter decided
+  from `lines[0]` only (tab else comma), per-cell trim, `| a | b | c |` rows, and a `| --- | --- |`
+  separator emitted after index 0 only. It also carries a `tool-doc` comment block stating its own
+  behaviour — generator convention, useful for the acceptance ladder.
+- **Ported slot retired, guarded, `UPDATE 1`:** `9dd2b167-51aa-4af2-833a-d5820a2115e3` →`removed`,
+  **3,806 chars, md5 `1ef643d265b0d9d2271a28667889c5eb` — byte-identical to the handle recorded
+  before the build was even filed.** Both asserts passed (1 removed ported slot, 1 deployed slot left).
+- **Beat the generator's rerender again** (`9eb455d1-e0fc-43d4-9cd1-f41b1a13cad4`, queued 12:25:58,
+  still `triaged` at 12:27:45 when the retire committed). Baseline of the served page taken at 12:27:
+  `http=200`, 11,078 B, `class="ported-page"` **1**, `{{\.` **0**, `md-input` **0**.
+  **Note the margin: the retire window here was ~2 minutes, not the ~45 the pilot had.** The queue was
+  nearly empty today, so build→rerender-claim can be minutes. Do the retire immediately after the
+  component grades, not after writing it up.
