@@ -432,3 +432,60 @@ Both changes are submitted for advisory review; verdicts will land shortly and a
 credited automatically. That is Phase B complete. Next is the pilot itself — building
 remortgagecalculator.uk end to end, which is the first time all of this machinery gets
 exercised by a real site rather than by us checking it piece by piece.
+
+### Sunday 17 August — the pilot is away, and two bugs turned up on the way to it
+
+All four reviews came back approved, so the review side of Phase B is closed as well as the
+build side. The last one raised something genuinely useful: the checks I write at the end of
+each database change to confirm it worked could not actually have failed. They read a value
+and then did arithmetic on it, and if the value had been missing the arithmetic quietly
+produces "nothing to see" rather than an error — so the check would have reported success
+having looked at nothing. That is fixed in the undo scripts. It is the kind of finding worth
+paying a review round for: nothing was broken, but a safety net had a hole in it that only
+shows up on the day you need it.
+
+Then, before dispatching the pilot, I asked a boring question: what does the system actually
+write down about a finance site when it classifies one? The answer was that the fields I
+expected to be filled in are empty, and the only thing identifying these sites as
+mortgage-related is the domain name itself. Following that turned up a real bug. The code
+that decides "this site should carry a lender directory" reads the domain for keywords, and
+where a domain contains two keywords that point opposite ways it was picking between them at
+random — genuinely at random, differently each time it ran. One of our own domains does
+exactly that: mortgage-refinance.co.uk contains "mortgage", which says yes, and — hidden
+inside "refinance" — "finance", which says no. So that site would have got a lender directory
+or not depending on the toss of a coin, with nothing recorded either way.
+
+Two things about that are worth saying. First, it had done no damage: no site has been
+through this yet, so I caught it before it cost anything rather than after. Second, the file
+already contained a comment explaining this exact hazard, twenty lines below, guarding a
+different part of the same function. Someone (us) fixed one half and left the other, and
+because searching for the problem finds the comment, the search that should have caught it
+would have stopped at the fix. I have written that up as a general lesson, not just this bug.
+It is fixed and tested; it needs the next fleet release to take effect. The pilot site is not
+affected either way — its domain contains only one keyword.
+
+The pilot itself is now seeded and dispatched, and it immediately embarrassed me. Part of
+setting up a new site is a list of banned phrases — things the site must never say, like
+"guaranteed" or a specific saving figure. I wrote six of them, and my own check confirmed all
+six were in place. They were all dead. A punctuation subtlety two layers deep meant every
+pattern was technically valid but matched nothing, for ever, silently. My check had counted
+them rather than tried them, and six broken patterns count exactly the same as six working
+ones. I only found it because I tested them against sentences they were supposed to catch.
+
+Correcting it took three goes, and each failure was a version of the same mistake, which is
+why I have written all three down rather than just the fix. That whole episode is now a
+warning in the shared file so the next person seeding a site tests their guards instead of
+counting them.
+
+One deliberate decision worth flagging: this site starts with no verified facts registered at
+all. A remortgage site is made of numbers, and I could not check a single rate or threshold
+against a live source in this session. Writing plausible numbers with invented sources is
+precisely what this whole verification layer exists to prevent, so the site starts with none
+and is instructed to say "this depends on your lender" rather than guess. The real, cited
+material comes from the lender directory, which is what the pilot is meant to exercise.
+
+The build is now queued. Three things need checking as it moves, in order: that the site gets
+marked as wanting a lender directory when it is classified; that the planner then puts a
+lender directory page into the plan; and only if those failed, that the automatic checks
+catch it. The third is the safety net, so a clean run has to be confirmed by looking at the
+plan directly — a quiet safety net is not the same as a good result.
