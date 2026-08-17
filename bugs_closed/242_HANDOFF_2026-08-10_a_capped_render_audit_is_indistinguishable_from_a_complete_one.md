@@ -253,3 +253,26 @@ migration row-targeting unguarded) — both adopted, measurements in the lane NO
 **APPROVED** on trail `700da63e-6c39-4617-ace8-4e450addd472` (advisories answered in
 NOTES). Fix commits `502b6c194` + `0e4e71674`; migration `392` applied and ledgered.
 **OPEN until the close criterion in the status block above is met on a post-roll run.**
+
+## 2026-08-17 — CLOSED → `/bugs_closed/` (fixed AND live; owner's 08-12 ruling restores the move)
+
+The close criterion was met 2026-08-11 (forced-truncation run, all three artefacts held —
+see the status block above and the lane NOTES for the full evidence). This file stayed in
+`bugs_open/` only under the owner's 08-06 keep-open direction, which the owner
+**superseded on 2026-08-12** ("if it is fixed and live it should be moved" — 239 moved the
+same day, `2aa3014a3`). Re-verified before moving:
+
+- Fleet is on `v1.0.1305` (chassis + render-audit-adapter deployment images read
+  2026-08-17), well past the `v1.0.1288` artefact-level proof; nothing reverted the fix
+  commits (`502b6c194`, `0e4e71674` — both on `087_towards_multiple_domains`).
+- **The proof run's DB rows no longer exist**: `orchestration_states` has no row for
+  `765512d1…` (nor for `0564ce5f…`/`b30943e4…`, the original evidence runs) despite the
+  table holding rows back to 07-13. The lane NOTES' recorded queries and outputs are now
+  the surviving evidence for the 08-11 grading; the grading itself was done against the
+  live rows at the time.
+- The only render-audit orchestration now in the table (2026-08-17 12:10Z,
+  `dc0233ab…`) is a **skipped** run on a page-less site that failed at `write_findings` —
+  a *different, pre-existing* defect this verification uncovered, filed as
+  **`bugs_open/299`** (a skipped render audit is recorded as a failed one). It does not
+  touch this bug's fix: the truncation honesty fields ride the reply path, which a skip
+  never reaches.
