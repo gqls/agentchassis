@@ -69,3 +69,94 @@ run tool-suggester for any site, and confirm the late-alphabet tool appears
 in the `library_tools` input of the `suggest_tools` LLM call
 (`llm_call_log`, rendered prompt — the 2026-08-09 method). Before the fix it
 cannot appear; after, it can.
+
+---
+
+## ✅ FIXED 2026-08-16 — the cap is gone and the class is now detectable (lane: `bugfix_275_silent_row_caps`)
+
+Commit `eb137faed` (Go) + migration **445** (applied, live). Council corr
+`b684a399-bb4d-4b1f-82f0-fe1429ebdceb` (`Council-Submitted:` — read the verdict before treating it as
+reviewed).
+
+### Two refinements to this file's own analysis
+
+1. **Worse than filed, exactly as predicted.** 74 masters now, not 68 — **44 hidden, not 38**. Two days.
+2. **The 406 gate is NOT the cause, and nobody had checked.** Exactly **1 of 74** masters carries
+   `requires-backend`, and **3 of 40** sites have the capability. The gate narrows almost nothing; the
+   cap was doing all of the hiding. Worth knowing, because if the gate HAD been narrowing heavily the
+   right fix would have been a different one.
+
+### The fix is candidate 1, done the way candidate 1 actually specifies
+
+This file says: *"if the real constraint is prompt size, cap by TOKENS at the prompt assembly, not by
+row count in the dark."* The constraint IS prompt size — 74 rows is 37,209 chars — and the measurement
+names the knob:
+
+| column | chars across 74 rows |
+|---|---|
+| **`description`** | **29,832 — 80% of the payload** |
+| `id` 2,664 · `display_name` 2,100 · `function` 1,828 · `category` 785 | |
+
+`description`: median 374, mean 403, max 2,526; 50 of 74 over 200.
+
+So **bound `description`, not coverage**: `left(description, 200)` and drop `LIMIT 30`.
+
+| | rows | chars |
+|---|---|---|
+| before | 30 (41% of library) | 16,421 |
+| **after (measured live)** | **73** | **20,101 — +22.4%** |
+
+73 not 74 on the no-backend path because the gate correctly excludes the one `requires-backend`
+tool — 406's gate preserved byte-for-byte, which this file warns most about losing.
+
+**200 was checked for MEANING, not just size** — the first 200 chars of the longest descriptions still
+say what the tool IS. And the prompt template was read rather than assumed:
+`- {{.display_name}} ({{.function}}, id: {{.id}}): {{.description}}`.
+
+### Verified live
+
+| check | result |
+|---|---|
+| `LIMIT` gone | ✅ |
+| `left(description, 200)` present | ✅ |
+| 406's requires-backend gate intact | ✅ |
+| **tools sorting past position 30, previously unreachable** | **44 now visible** (first: *Early Settlement Estimator*) |
+
+⚠ **Still owed — this file's own end-to-end proof.** The disconfirming pair asks for a late-alphabet
+tool to be absent from `llm_call_log.prompt_rendered` before and present after. That needs a real
+tool-suggester run, which has not happened yet. The config and population checks above are necessary,
+**not sufficient**.
+
+### THE CLASS — the larger half, and it is why this took a Go change too
+
+A row-count `LIMIT` feeding an LLM prompt is **silent by construction**: the model returns plausible
+output whether it saw 30 rows or 74. Census over live `agent_definitions`: **26** literal LIMITs in
+query-shaped step configs; 19 are `LIMIT 1` (fetch-one idiom); **seven are multi-row caps** that can
+bite —
+
+| agent | step | cap |
+|---|---|---|
+| `tool-suggester` | `load_library_tools` | 30 ← fixed here |
+| `internal-linker` | `load_candidate_pages` | 15 |
+| `model-directory-trigger` | `find_directory_sites` | 12 |
+| `tool-recreation-handler` | `load_related_context` | 10 |
+| `content-feed-trigger` | `find_news_sites` | 5 |
+| `visual-design-auditor` | `load_design_context` | 5 |
+| `fix-proposer` | `load_last_bundle` | 2 |
+
+All 26 run through `QueryDatabaseAction`, which now **WARNs when a result set reaches its query's own
+trailing literal `LIMIT`**, naming the step (register **LCO-009**). Observational only — it cannot
+change a query, a result or a row. `LIMIT 1` is excluded, or the channel would be noise.
+
+⚠ **NOBODY HAS CHECKED WHETHER THE OTHER SIX BITE.** Each is one query. The WARN will answer it in
+production once the Go half rolls — **it is NOT live yet** (Go is inert until the next chassis roll;
+the migration half IS live).
+
+### Adjacent, recorded not acted on
+
+- **One library master has an EMPTY `display_name`** (and one an empty `category`). An empty string
+  sorts FIRST, so that row has always occupied a slot in the visible 30 while telling the model
+  nothing — its description is developer-facing notes. Content quality, another lane's call.
+- `category` is selected and never rendered — 785 chars of dead payload, left alone deliberately.
+- **`bugs_open/242` is this same class in another subsystem** (*"a capped render audit is
+  indistinguishable from a complete one"*) and is still open.
