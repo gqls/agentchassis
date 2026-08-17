@@ -171,3 +171,16 @@ configured cap (force with a small step-config `max_pages`; nothing exceeds 60 t
   minute of submission at 12:46Z. Verdict pending — will record here and correct 294's
   row only once the verdict actually lands (a dispatched-and-executing run is not yet a
   completed one).
+
+## 2026-08-17 (later) — 299 council verdict READ: APPROVED round 1
+
+Run completed `complete_approved`; verdict note: "APPROVED — approved with 2 advisory
+objection(s) — none high-severity (round 1)", 12 reviewers, 5 abstained, 0 unreadable,
+not truncation-gated. Correlation `eaa043d7-867f-4d40-a0d9-c41b41e56cf9`; the fix commit
+`89b3e582b` carries `Council-Submitted:` and 098 credits it at report time — no amend.
+**Still owed: the two advisories' TEXT** (first content fetch failed on psql `-t`
+formatting, not on absence) — pull from `diagnosis_artifacts kind=council_report` for
+this correlation and answer them here, per this lane's own round-2 practice.
+**Also decisive for `bugs_open/294`'s §10 claim** ("gate is down until the Anthropic
+quota returns 09-01"): a full round dispatched 12:46Z and APPROVED by 12:53Z today.
+Correct that row with this evidence (pending, next session if not this one).

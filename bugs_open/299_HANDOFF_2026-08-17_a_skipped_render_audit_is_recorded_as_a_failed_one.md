@@ -1,5 +1,14 @@
 # 299 — a skipped render audit is recorded as a FAILED one: the drain has no case for its own upstream's honest no-op
 
+> **STATUS 2026-08-17 — fix COMMITTED (`89b3e582b`) and council APPROVED round 1**
+> (`Council-Reviewed: eaa043d7-867f-4d40-a0d9-c41b41e56cf9` — verdict read: "approved
+> with 2 advisory objection(s) — none high-severity", 12 reviewers, 5 abstained; the two
+> advisories' text not yet pulled from the report artifact — see lane NOTES). Inert until
+> the next chassis roll. OPEN until §7's live criterion is met post-roll: dispatch
+> `render-audit-agent` at a page-less site → COMPLETED via the NORMAL edge,
+> `findings_written` = the skip no-op, no `__step_error`, no new `agent_error_log` row.
+> Lane: `docs/agent_docs/docs024_key_docs_latest/bugfix_242_render_audit_truncation/`.
+
 **Filed** 2026-08-17, found while re-verifying `bugs_closed/242`'s close criterion (this
 file's evidence is what that verification turned up on the live DB). **Severity** low —
 the damage is a false failure record per occurrence, not lost work — but it fires on a
