@@ -292,9 +292,12 @@ func countUnroutableDetected(ctx context.Context, db *sql.DB, siteID uuid.UUID) 
 // claim would have accepted, and nothing downstream would ever promote them —
 // the scheduled `detected-item-promoter` is stricter still. If that posture is
 // wrong it is wrong in both places, and both are this one function.
+// The definition now lives in discovery_checks.HandlerRegisteredSQL — one
+// renderer for all three readers (owner ruling 2026-08-17). This stays as a thin
+// delegation so every call site in this package is unchanged, which is the other
+// half of what the council asked for: the claim path keeps its exact text.
 func workItemHandlerRegisteredSQL(handlerExpr string) string {
-	return "EXISTS (SELECT 1 FROM agent_definitions ad WHERE ad.type = " + handlerExpr +
-		" AND ad.deleted_at IS NULL)"
+	return checks.HandlerRegisteredSQL(handlerExpr)
 }
 
 // workItemRoutableSQL renders the FULL test the claim path applies before it will

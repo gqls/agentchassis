@@ -218,6 +218,34 @@ func CapabilityGapItem(dctx DiscoveryCheckContext, g CapabilityGap) WorkItemSpec
 // cannot fix — bugs_open/077 again, one level down, and invisible to any test
 // that only reads this repository.
 //
+// HandlerRegisteredSQL renders the platform's ONE definition of "this work item
+// names a handler that exists", as a SQL fragment. `handlerExpr` is the SQL
+// expression holding the agent type (a column reference or a bind parameter).
+//
+// It lives in THIS package, not in `actions`, purely for import direction:
+// `actions` imports `discovery_checks`, never the reverse, so a renderer both
+// must share has to sit here. `actions.workItemHandlerRegisteredSQL` is a thin
+// delegation to it, which keeps every existing call site byte-identical.
+//
+// WHY IT IS DELIBERATELY WIDE. It tests `deleted_at IS NULL` and NOTHING ELSE —
+// not `is_active`, not `is_snapshot`. That mirrors what the claim path actually
+// enforces, which is the only posture that keeps the three readers agreeing: a
+// snapshot or deactivated definition still satisfies claim's check and still
+// dispatches. Narrowing it here without narrowing claim would hold back rows
+// claim would have accepted, and nothing downstream would ever promote them.
+// If that posture is wrong it is wrong in every reader, and every reader is now
+// this one function.
+//
+// THREE RENDERINGS BECAME ONE (owner ruling 2026-08-17, on the council round
+// c22998e8 where two seats disagreed): the promoter's, the claim path's, and
+// HandlerStepConfig's inline copy below — which was coupled to the others by a
+// prose comment only, and is exactly the drift the estate has already been bitten
+// by (idx_swi_dedup vs workItemTerminalStatuses).
+func HandlerRegisteredSQL(handlerExpr string) string {
+	return "EXISTS (SELECT 1 FROM agent_definitions ad WHERE ad.type = " + handlerExpr +
+		" AND ad.deleted_at IS NULL)"
+}
+
 // Returns (config, agentExists, error). The existence half deliberately uses the
 // same predicate as claim_work_item_action.go's registration check — if that
 // would mark an item 'blocked', this must call the handler missing, or the two
@@ -227,8 +255,7 @@ func HandlerStepConfig(ctx context.Context, db *sql.DB, agentType, action string
 	var raw []byte
 	err := db.QueryRowContext(ctx, `
 		SELECT
-			EXISTS(SELECT 1 FROM agent_definitions
-			        WHERE type = $1 AND deleted_at IS NULL),
+			`+HandlerRegisteredSQL("$1")+`,
 			(SELECT step.value->'config'
 			   FROM agent_definitions ad,
 			        LATERAL jsonb_each(ad.default_config->'workflow'->'steps') AS step
