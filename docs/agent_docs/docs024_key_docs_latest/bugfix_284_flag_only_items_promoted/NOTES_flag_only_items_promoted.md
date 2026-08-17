@@ -371,7 +371,7 @@ dispatchable so neither this lane's guard nor its proposed CHECK constraint cove
 them (a CHECK cannot subquery `agent_definitions`). Filed with the producer named
 and a `090` as its next step.
 
-## 2026-08-16 (evening) — the repair ran, the guard is proven live, and I wrote a duplicate of this lane's own repair file
+## 2026-08-17 — the repair ran, the guard is proven live, and I wrote a duplicate of this lane's own repair file
 
 **The miss first, because it is the useful part.** I (the 279 lane, picking this
 up after the v1.0.1305 roll) wrote and applied
@@ -407,3 +407,17 @@ lane has already built. Logged in `WRONG_CALLS.md`.
    promote them. Result: `promoted: 0, not_promotable: 36,
    not_promotable_by_type: {"head_essentials_missing": 36}` (corr `a5be3dea`).
    Under the old binary all 36 would have been promoted and then blocked.
+
+> **CORRECTED 2026-08-17 (same session, minutes later):** the entry above was
+> written dated 2026-08-16 — the repair, the constraint and the demand-controlled
+> probe all happened on **2026-08-17**. I anchored to the roll (2026-08-16 22:07
+> UTC) rather than to the clock; the neighbouring lane's commit timestamp is what
+> exposed it. Migrations `442`/`443` keep their 08-16 prose headers because they are
+> recorded and must not drift their checksums; their `applied_at` is correct.
+>
+> **Also superseding the previous entry's headline:** it says the guard is
+> "UNEXERCISED because improvement-sweep is disabled". That was true when written
+> and is not now — a single-step `triage_detected_items` run against
+> `leopardessconsulting.co.uk` (36 flag-only rows, nothing routable) exercised it
+> directly: `promoted: 0, not_promotable: 36`. A disabled sweep does not mean the
+> guard cannot be tested; it means you have to drive the step yourself.

@@ -1,6 +1,6 @@
 # 290 — an agent seeded without a `description` is unspawnable: five readers scan a nullable column into a Go string, and the failure looks exactly like the spawn→call handshake flake
 
-> **RENUMBERED 287 → 290 on 2026-08-16.** A concurrent session filed an unrelated
+> **RENUMBERED 287 → 290 on 2026-08-17.** A concurrent session filed an unrelated
 > `287` (dispatch-loop completes items with the SPAWN record) **89 seconds before**
 > this file — theirs keeps the number, this one moves, same rule as the 278→279
 > collision. **Anything still saying `287` about a NULL `description` means THIS
@@ -129,7 +129,7 @@ constraint now forbids.
 **Remaining to close:** the code half rides the next chassis + core-manager roll;
 verify at the artefact and move to `bugs_closed/`. Nothing else outstanding.
 
-## CLOSED 2026-08-16 — code half LIVE on v1.0.1305 (both services), and the class is now unrepresentable
+## CLOSED 2026-08-17 — code half LIVE on v1.0.1305 (both services), and the class is now unrepresentable
 
 **Verified at the artefact, per service** — this bug's readers span TWO services,
 so a fleet-level check would not have covered it:

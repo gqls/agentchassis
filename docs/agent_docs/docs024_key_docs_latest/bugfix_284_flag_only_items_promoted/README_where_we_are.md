@@ -125,7 +125,7 @@ Either direction is a one-file change whenever you decide.
 
 ---
 
-## 2026-08-16 (evening) — it is done, and one of the rescued items is yours
+## 2026-08-17 — it is done, and one of the rescued items is yours
 
 The release went out, so everything this lane was holding could finally run.
 

@@ -33389,7 +33389,7 @@ Tally for "shell ate part of a commit message": 1 (and the trap was already writ
 the interesting part — a documented landmine did not fire because the danger arrived dressed as
 formatting).
 
-## 2026-08-16 — wrote a duplicate repair migration because I read the bug file but not the bug's LANE DIRECTORY
+## 2026-08-17 — wrote a duplicate repair migration because I read the bug file but not the bug's LANE DIRECTORY
 
 **The claim I acted on:** "284's repair is unwritten — the bug file says the 60
 rows are not repaired, so I need to write the repair." **What was true:** the

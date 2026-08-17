@@ -265,7 +265,7 @@ committed. Either direction is a one-file forward commit whenever you rule.
 
 ---
 
-## CLOSED 2026-08-16 — all three "why this stays open" items discharged, and the guard is PROVEN LIVE with a demand control
+## CLOSED 2026-08-17 — all three "why this stays open" items discharged, and the guard is PROVEN LIVE with a demand control
 
 **1. The roll landed.** v1.0.1305 on **both** chassis and core-manager (per-service,
 not per-fleet): running digests match the local images, OCI label
@@ -329,3 +329,15 @@ The round-2 seat disagreement recorded above is **unresolved by design**:
 `guardian` says touching `claim_work_item_action.go` at all exceeded the bug.
 Nothing was done unilaterally. Either direction is a one-file forward commit
 whenever the owner rules.
+
+> **CORRECTED 2026-08-17:** this closure section, migrations `442`/`443` and their
+> ledger notes were written dated **2026-08-16**; the work was actually done on
+> **2026-08-17**. The section headers are corrected here; **the two migration files
+> are NOT edited** — they are recorded in `schema_migrations` and editing a recorded
+> file makes its checksum drift for every other session's dry run. Their
+> `applied_at` timestamps are authoritative and correct; only the prose dates in
+> their headers read a day early. **What caught it:** the concurrent 284-lane commit
+> `39678e1b5` was stamped 2026-08-17 while my own notes said 08-16. I had anchored
+> every date to the roll (which genuinely was 2026-08-16 22:07 UTC) instead of to
+> the clock. Dates that describe when the ROLL happened, when `7027a2801` landed, or
+> when the rows were filed are unaffected and remain 08-16 or earlier.
