@@ -48,3 +48,30 @@ inside the database migration file itself — which had already been run. The sy
 fingerprint of each migration exactly as it was run, so my tidy-up would have made a correct,
 successfully applied change look tampered with. Reverted, fingerprint matches, and the lesson
 is written down: once a migration has run it is history, not a document to improve.
+
+## 2026-08-17
+
+Another build went out overnight, so the first thing I did was check that yesterday's fix was
+still in it — it was, and that check is worth doing rather than assuming, because a release can
+carry different versions of different services.
+
+Then I went looking for the next bug worth taking. I had left myself a list of bugs that were
+supposedly waiting only for a new build; of about thirty, all but one turned out to belong to
+teams actively working on them, so I left those alone. The one that didn't — a gap in how we
+check invented statistics on pages — turned out to be already fixed. The fix had gone in three
+weeks ago on the very same day someone wrote, at the bottom of the bug file, that the gap was
+unchanged. Both were true when written, hours apart, and nobody read it again. I proved the fix
+is genuinely working — not just present in the code, but actually catching a real figure on a
+real page — and closed it.
+
+That is now three bugs in one day that were fixed but still listed as open. The tempting next
+move is to build something that spots them automatically, and I tried to, but I measured the
+idea before building it and it doesn't work: the signal it would use is loudest on the teams
+doing the most work, so it would nag exactly the people it should leave alone. I have written
+down why, so nobody spends an afternoon rediscovering that.
+
+One small thing I got wrong and caught: when checking whether the new code is really in the
+running program, I use a pair of tests — one thing that must be found, one that must not. I
+picked a string of zeros as the "must not be found" case, and it *was* found, because long runs
+of zeros occur naturally inside any program file. That would have made me distrust a perfectly
+good result. The fake test value has to be believable, not obviously fake.

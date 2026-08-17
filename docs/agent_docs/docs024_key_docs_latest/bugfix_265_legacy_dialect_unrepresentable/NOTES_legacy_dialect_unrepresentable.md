@@ -99,3 +99,53 @@ Nothing is lost and forward-only holds — this is a review/bisect problem, not 
 caught it was reading the `--numstat` instead of trusting the pathspec: **"I followed the rule"
 is not "I checked the result."** `WRONG_CALLS.md` and `LANDMINES.md` take appends from several
 sessions a day, so the same-file case is the normal case there, not the exotic one.
+
+## 2026-08-17 — the roll-blocked sweep, and 093 closed
+
+**Session spanned midnight.** Everything dated 2026-08-16 above was correct at the time; it is
+now 08-17. The "fresh build" is **v1.0.1305**, rolled 2026-08-16 22:07Z.
+
+**265 regression check first:** its literal is present on both v1.0.1305 replicas and the
+pre-fix tripwire sentence is still absent. The fix survived the roll — worth checking, because
+one release tag can ship several source revisions (`bugs_open/249`).
+
+**Build stamp: `6a782274b`** (chassis v1.0.1305, both replicas). The provenance log line had
+scrolled again. Another lane had just published the same stamp for reasoning-agent; I verified
+it on the chassis myself rather than inheriting it, because the stamp is per-SERVICE.
+
+> **⚠ MY NEGATIVE CONTROL WAS WORTHLESS AND SAID SO — 40 zeros are PRESENT in any binary.**
+> I probed `grep -a "0000…0" /proc/1/exe` as the must-be-absent control and it came back
+> PRESENT. The standing landmine warns against a *discovery* grep for "some 40-hex string"
+> (it matches Go's digit table); this is the adjacent trap: **a fabricated needle must be
+> fabricated-but-PLAUSIBLE.** Zero-filled runs occur naturally in a binary's data. Replaced it
+> with two real commit shas that are not the stamp — both absent, so the probe discriminates.
+> Had I used only the zeros control I would have concluded the probe was unreliable and thrown
+> away a sound measurement.
+
+**The sweep.** Regenerated the roll-blocked candidate list and screened it by owning-lane
+activity: of ~30 candidates, **exactly one** (`093`) had a quiet lane; everything else is
+actively owned, so contribute-don't-compete applies and I left them alone.
+
+**093 CLOSED** — and it was not roll-blocked at all. Its fix (`72effdbca`) shipped on
+2026-07-26, the *same day* the file's last section declared the gap unchanged; the two crossed
+and nobody re-read it for three weeks. Proof it runs, not merely ships: an `unregistered_stat`
+finding with pattern `case-studies-grid.card1_stat_value` (component.field ⇒ stored
+`content_data`), and `ItemType: "claims_unverified"` exists in exactly one place fleet-wide so
+the build-time gate cannot have produced it. Full account in `bugs_closed/093`.
+
+**Near-miss on the way:** I first grepped for callers of `scanStoredStatClaims` *within*
+`discovery_checks/` while excluding the stats file, found only test callers, and was one step
+from writing "a helper with no callers". Widening to the repo found two real call sites. The
+narrow grep was my own construction, not a tool defect.
+
+**NEGATIVE RESULT — I did not build the detector this suggested, on purpose.** Three bugs in
+one day were already-fixed-but-open (145, 072, 093), so the obvious move was a check for
+"bug file is stale". I measured the candidate signal first: *commits naming bug N since file N
+was last touched*. It ranks `210` (32), `252` (23), `203` (20) at the top — and those are the
+**most active lanes**, not the stalest files. The signal measures activity and would misfire
+loudest on the work that most needs to be left alone; a guard that refuses good work gets
+switched off, and then it protects nothing (`component_write_guard.go`'s own calibration note).
+So: the duplicate detector I did ship is precise (a filename in two directories is
+unambiguous); a "fix already shipped" detector is not cheaply precise, and 093 was found by
+reading, not by a signal. Recorded so the next session does not rebuild it and reach the same
+wall.

@@ -11535,3 +11535,14 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **source:** 2026-08-16, `bugs_closed/284` repair session, caught before the repair by checking a contradiction rather than accepting it. Related: MEMORY [[a-closed-bugs-scope-out-expires]] (a premise decays) and [[seed-sql-is-history-live-row-is-fact]] (the same asymmetry between code and the state it produced).
 - **relations:** `bugs_closed/284` · `bugs_closed/279` · migration `442` (the repair, whose header carries this warning inline)
 - **added:** 2026-08-16, bugs_closed/284 repair session
+
+### A fabricated needle made of ZEROS is present in every binary — the must-be-absent control that cannot fail
+
+- **footprint:** `kubectl exec … grep -a "<needle>" /proc/1/exe` · any build-provenance or literal probe · `deployed_image_read_audit.go` · the "always run a control in the same breath" rule
+- **fires when:** you do the right thing — pair a must-be-PRESENT probe with a must-be-ABSENT one — and reach for an obviously-fake needle like `0000000000000000000000000000000000000000` or `aaaa…`. **It comes back PRESENT.** Long zero runs occur naturally in a binary's zero-filled data, and a repeated-character string is exactly what a padded region looks like.
+- **why the wrong result looks exactly like the right one:** it does not fail silently — it fails *loudly and misleadingly*. The control reports "this grep matches everything", so the correct reading of a sound measurement gets thrown away as unreliable. Measured 2026-08-17 probing chassis `v1.0.1305`: the zeros control read PRESENT while the stamp probe was in fact perfectly discriminating — two **real** commit shas that were not the stamp both read ABSENT in the same exec.
+- **the check:** make the negative control **fabricated but PLAUSIBLE** — a real commit sha that is not the one you expect, or the pre-fix spelling of the very string your change replaced (which is the strongest form: it proves the binary is post-fix, not merely that a word is in it). Never a constant-character run, never a value whose bytes could occur as padding.
+- **relation:** this sharpens the standing entry against a *discovery* grep for "some 40-hex string" (which matches Go's internal digit table). Same family, opposite direction: that one makes an absent thing look present by searching too loosely; this one makes a sound probe look broken by choosing a needle that was never absent.
+- **source:** 2026-08-17, `bugfix_265_legacy_dialect_unrepresentable` lane, verifying v1.0.1305
+- **added:** 2026-08-17, bugfix_265 lane
+
