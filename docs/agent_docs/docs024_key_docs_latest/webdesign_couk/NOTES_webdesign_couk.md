@@ -1768,3 +1768,50 @@ components — `PROPOSAL_2026-08-15_decompose_webdesign_tools.md`, with the prec
 > improver's delivery step; the `bugfix_285_shared_template_write` lane found it, restored it (seed
 > 431) and restored the wrapper template + 114 flags on 2026-08-15. Nothing is left for this lane
 > to restore; the fence and the producer/loader fixes are live as of `v1.0.1303`.
+
+---
+
+## 2026-08-17 — Nominet registrar page (session: "nominet page")
+
+Owner asked for a page satisfying Nominet's registrar-website requirements, to
+support his application for a second tag. **Tag: DESIGNCONSULT. Classification:
+Channel Partner** (owner-confirmed). Requirements taken from the RRA (20.03.2024
+PDF, scratchpad-extracted): Schedule D.1.1–D.1.7 + Key Terms definition + B.1.8/9/10/13.
+
+**Facts supplied by the owner (do not re-derive, do not invent):**
+- Trading name: webdesign.co.uk. No limited company — no company-number line.
+- Address: Fleetside, West Molesey, East Surrey KT8 2NF (owner declined my
+  "Surrey?" correction offer — published as given).
+- Tel +44 (0) 7934 524 911 · email info@designconsultancy.co.uk (also the abuse
+  contact, subject-line routed).
+- Prices: £10/month registration AND renewal, .uk family. Transfer away FREE —
+  owner asked "can I charge for transfer away?"; RRA Key Terms permit a
+  *disclosed* charge ("what charges, if any"), but he conditionally chose free
+  and gave no figure, so free is what the page states.
+- Service commitments written at the RRA-compliant bounds: ack ≤5 working days
+  (usually 1), resolve target 10 wd, expiry notice ≤30 days before renewal,
+  registrations ≤1 wd, changes/transfers ≤2 wd. These are now COMMITMENTS.
+
+**Built:** `webdesign.co.uk/domains/index.html` in ~/projects/sites (UNTRACKED,
+not committed) — live /about chrome (curl'd 2026-08-17, GTM + beacon + JSON-LD
+swapped for the new URL) + hand-assembled ported-page section from owner-supplied
+facts. Section sha256 `7c7a8284f173dd2e83c3209341f5b9a7920f5adadadaaf9b142d8687f8246963`.
+D15 respected: footer-only placement intended, NOT header. Nominet links:
+nominet.uk/complaints/ (+44 330 236 9470, domainsupport@nominet.uk) and
+nominet.uk/uk-registry/uk-policy/ (T&Cs library) — verified by search; the site
+403s curl, so do not "verify" those with curl and call them dead.
+
+**⚠ sites clone was behind 3,709 with ONE unpushed local commit** (`7c9078f20`,
+mortgagecalculator, owner-directed 08-17, another lane's) — a push ships it too.
+
+**Remaining to ship (in order):** (1) owner reads the draft page — every line is
+a guarantee on a regulatory application; (2) `git pull --rebase` in
+~/projects/sites, `git add webdesign.co.uk/domains/index.html`, commit BY
+PATHSPEC, push (deploys via Action → B2); (3) register in DB per SQL_p20 pattern:
+pages row name `domains`, url `/domains/index.html`, page_type `guide` (NOT
+section-index), rebuild_policy `owned`, in_footer=true in_header=false,
+nav_label "Domain registration", + ported-page component (component_id
+`a7daa5c5-8cfd-4f2c-8e09-de6abcb637ef`) with the sha above; (4) nav_drift work
+item → nav-updater for the footer row (chrome is a stored artefact, 117); (5)
+verify live: curl the URL for 200 + grep DESIGNCONSULT, then footer link on 2–3
+pages after the fan-out.
