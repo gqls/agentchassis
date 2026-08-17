@@ -2210,3 +2210,49 @@ census is the first step, and it is cheap**: 22 live offer-analysis values to re
 **Not filed as a bug.** It is not a defect with a root cause; it is a known deferral with a named
 blocker and a now-identified first mover. It belongs with the v2 batch as **v2(d), gated on that
 census**, and the census result decides whether it is worth doing at all.
+
+### v2(d) CENSUS — read all 22 live B4 acceptance tests. A predicate is available for about a third, and it includes the one that actually failed
+
+The cheap first step I said would decide whether v2(d) is worth doing. All 22 read in full.
+⚠ **`[CLASSIFIED BY ME]`, not measured** — this is my judgement of expressibility, and a second
+reader would move one or two either way. What is not a judgement is the worked case at the bottom.
+
+**Fully or near-fully expressible as a text/DB predicate — 8 of 22.** They assert things the
+database already knows: nav membership, page existence, substring presence/absence over
+`pages.title` / `meta_description`.
+- *"No guide title in the learn index contains an imperative verb aimed at the reader's emotional
+  state (Stop, Tame, Master, Unlock, Discover) or a sensational noun phrase (Beast, Invisible
+  Enemy, Secret)"* — an enumerated word list over titles. **Fully checkable today.**
+- *"the header contains Tools, Learn, and About only, with no News item"* — nav membership.
+- *"reach fleet-fuel-services OR rack-pricing-programs in exactly one click from the header"*.
+- *"meta description contains no instance of 'we' or 'our', no 'bridging the gap' / 'rigorous
+  engineering'"* — substring absence.
+- *"non-empty meta description including 'time-to-kill' or 'TTK'"*; *"exactly one non-redirecting
+  insights/blog index page"*; *"at least two case studies have their OWN pages"*; *"at least one of
+  these page types exists and is linked from tools-index"*.
+
+**Partly — a checkable clause welded to a judgement clause — 6 of 22.** e.g. *"at least one
+specific operational claim … before any abstract brand statement"*: "abstract brand statement" is
+judgement, but the ordering relation is not.
+
+**Judgement only — 8 of 22.** *"non-promotional, single-sentence reference to a forthcoming premium
+capability"*; *"does not read as a generic 'contact us' button"*; *"within the visible output area
+of the tool"* (rendering, not DB); *"framing is consistent with the one-founder model"*.
+
+**The load-bearing finding: the test that FAILED is in the expressible set.** webdesign.co.uk's
+index test reads *"…both mention at least two of the following three properties **before any count
+of tools or articles**"*. The live hero opens *"Sixty-three browser tools…"*. That is an **ordering
+assertion over two positions in one string** — `position(first cardinal) > position(first property
+mention)` — which is ordinary text arithmetic, not judgement. **A predicate would have caught the
+exact failure that shipped**, and this is the one case where I know the answer independently of
+the classification above, because I read the artefact.
+
+**So v2(d) is worth doing, and its shape is settled by this census:** B4 emits a structured
+predicate **only when it can**, alongside the prose, and stays silent otherwise — per-finding
+opt-in, unsafe default OFF, which is both the 2026-08-02 shared-seam ruling's shape and exactly the
+"producer-side contract change" `complete_work_item_no_change.go` says the deferred fleet-wide job
+is waiting on. It does **not** require all 15 fleet values to become assessable first; it requires
+one producer to start.
+⚠ **The trap to avoid: do NOT let the model emit a predicate for a judgement test.** Two-thirds of
+these cannot be expressed, and a plausible-looking predicate over a judgement clause would grade
+confidently and wrongly — worse than the prose it replaced, because it would carry a green tick.
