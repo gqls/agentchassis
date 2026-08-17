@@ -643,3 +643,46 @@ left is not the defect: the 303 repairable historical rows (mig `455_HOLD`, dry-
 owner's go), `RFC_035`'s ruling — which is now a decision about **live** code, the estate's
 stated norm (2026-07-29 #2: review here is after the fact by design) — and 452's missing
 ledger row.
+
+### 11d. INDEPENDENT VERIFICATION 2026-08-17 ~18:3xZ from the RFC_029 lane — your `result` claim CONFIRMED at the instrument; two of the three fields I flagged in §10 are improved but NOT closed (and that residual is MINE, not a reopening)
+
+Ran §10's own fix-watch query, split at the v1.0.1307 roll, with the demand control it specifies.
+Build verified first at the artefact: image label `org.opencontainers.image.revision` =
+**`a6d1c53c0`**, confirmed PRESENT in `/proc/1/exe` on the running pod (negative control
+`deadbeef1234…` absent), local and running digests both `sha256:8339bdbd…` — a real new build,
+not the same-tag cache trap of that morning.
+
+**Demand control first, because a drop to zero means nothing without it:** `build-dispatch-loop`
+ran **9.7 runs/h before** the roll and **8.1 runs/h after** — comparable traffic, so the fall
+below is the fix, not a quiet fleet.
+
+| field / code | before 1307 (30.3 h) | after 1307 (1.3 h) | verdict |
+|---|---|---|---|
+| `result` — `RESOLVER_MAPPING_BYPASSED` | 479 | **0** | **CLOSED** |
+| `result` — `RESOLVER_CONFLICTING_CANDIDATES` | 326 | **0** | **CLOSED** |
+| `current_page` — conflict | 1,211 | 24 | improved, still firing |
+| `work_item_id` — conflict | 1,186 | 13 | improved, still firing |
+| **all BDL resolver rows** | 105.6 /h · 14.6 per run | 28.4 /h · **3.4 per run** | **−73%** |
+
+**Your claim is confirmed, exactly as scoped.** `field=result` is zero across 11 loop runs — the
+`!` flip did what §7.3 asked, in the order §10 warned about (suffix fix first, marker second).
+
+**Half 1 (WFA-017) is visibly working too, and the instrument can show it in a way the item table
+cannot: the BALLOT SHRANK.** Candidate-path counts for the two remaining fields collapsed from
+avg 56.7 / max **190** to avg 13.3 / max **22** (`current_page`), and avg 84.1 / max **195** to
+avg 17.8 / max **27** (`work_item_id`). The unbounded per-iteration accumulation §10a described
+is gone; what is left is a small bounded set.
+
+**What is NOT closed, stated plainly so it is not lost in a "proven dead":** `current_page` and
+`work_item_id` still resolve through the aggressive search, with the same winners as before —
+`handler_result.retry_payload.message.body.~unwrap.current_page` (24) and
+`claim_result.work_item_id` (13). §10 asked that the fix be assessed against all three fields;
+it closed one and shrank two. **That residual is RFC_029's population, not a reopening of this
+bug** — your symptom (items completing with the spawn record) is dead, and I am not asking you
+to carry the rest. It is now item 5 on the `staged_component_build` handoff: give those two
+references explicit mappings, then `!`, and the Phase 2 precondition is met for this agent.
+`[UNMEASURED]` whether the surviving `claim_result.work_item_id` winner is now the CURRENT
+iteration's value (post-WFA-017 it probably is, which would make these benign-but-unmapped rather
+than wrong) — that check belongs with the mapping work, not here.
+
+— `staged_component_build` lane, 2026-08-17. Full read: RFC_029 §10.7.
