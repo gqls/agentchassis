@@ -45,6 +45,7 @@ STAMP=$(date +%s)
 FAKE_HANDLER="zzz-unregistered-probe-291"
 KEY_GUARD="probe291_guard_${STAMP}"
 KEY_CONTROL="probe291_control_${STAMP}"
+KEY_PARKED="probe291_parked_${STAMP}"
 CID=$(cat /proc/sys/kernel/random/uuid)
 OID=$(cat /proc/sys/kernel/random/uuid)
 
@@ -62,9 +63,9 @@ if [ "$CONTROL_OK" = "0" ]; then echo "VOID: control handler 'tool-improver' is 
 echo "fake handler registered: $REGISTERED (must be 0)   control handler: $CONTROL_OK (must be >0)"
 echo ""
 
-PAYLOAD_B64=$(python3 - "$SITE_ID" "$FAKE_HANDLER" "$KEY_GUARD" "$KEY_CONTROL" <<'PY'
+PAYLOAD_B64=$(python3 - "$SITE_ID" "$FAKE_HANDLER" "$KEY_GUARD" "$KEY_CONTROL" "$KEY_PARKED" <<'PY'
 import base64, json, sys
-site_id, fake_handler, key_guard, key_control = sys.argv[1:5]
+site_id, fake_handler, key_guard, key_control, key_parked = sys.argv[1:6]
 def step(name, handler, key, desc, nxt, out):
     return {
         "action": "create_work_item",
@@ -100,11 +101,34 @@ msg = {
                                     "probe_control", "guard_item"),
                 "probe_control": step("probe_control", "tool-improver", key_control,
                                       "THE CONTROL: registered handler, must NOT be demoted",
-                                      "finish", "control_item"),
+                                      "probe_parked", "control_item"),
+                # THIRD ARM (added after migration 457): tool-auditor's EXACT new
+                # shape — no handler_agent key at all, parked status. On the
+                # PRE-457 binary this is REFUSED outright ("handler_agent config is
+                # required"), and under continue_on_error that refusal is swallowed:
+                # every finding lost with no row. This arm is what proves 457 is
+                # safe on the binary that is actually running.
+                "probe_parked": {
+                    "action": "create_work_item",
+                    "description": "THE PARKED IDIOM: no handler + needs_human_review must be ACCEPTED",
+                    "config": {
+                        "site_id": "input_data.site_id",
+                        "item_type": "probe_write_door_291",
+                        "status": "needs_human_review",
+                        "severity": "low",
+                        "priority": 100,
+                        "source": "probe-291",
+                        "summary": "bugs_open/291 parked-idiom probe — safe to cancel",
+                        "item_key_prefix": key_parked,
+                        "spec_literal": {"probe": "291_parked_idiom"},
+                    },
+                    "next_step": "finish",
+                    "output_field": "parked_item",
+                },
                 "finish": {
                     "action": "complete_workflow",
                     "description": "probe complete",
-                    "config": {"multiple_output_fields": ["guard_item", "control_item"]},
+                    "config": {"multiple_output_fields": ["guard_item", "control_item", "parked_item"]},
                 },
             },
         },
@@ -150,8 +174,9 @@ echo ""
 echo "== VERDICT — the two rows the running binary actually wrote =="
 $PSQL -c "
 SELECT
-  CASE WHEN item_key LIKE 'probe291_guard%' THEN 'TEST    (unregistered)'
-       ELSE                                       'CONTROL (registered)' END AS arm,
+  CASE WHEN item_key LIKE 'probe291_guard%'  THEN 'TEST    (unregistered handler)'
+       WHEN item_key LIKE 'probe291_parked%' THEN 'PARKED  (no handler at all)'
+       ELSE                                       'CONTROL (registered handler)' END AS arm,
   handler_agent, status, error, (claimed_at IS NULL) AS never_claimed
 FROM site_work_items
 WHERE item_key IN ('${KEY_GUARD}_', '${KEY_CONTROL}_')
@@ -161,6 +186,10 @@ ORDER BY 1;"
 echo "PASS requires ALL of:"
 echo "  TEST    row: status='blocked', error='Handler agent not registered: $FAKE_HANDLER', never_claimed=t"
 echo "  CONTROL row: status='claimed' (NOT blocked), error NULL"
+echo "  PARKED  row: status='needs_human_review', handler '' — ACCEPTED, not refused."
+echo "             A MISSING parked row means the relaxed validation is not live and"
+echo "             migration 457 must be rolled back at once: tool-auditor's config now"
+echo "             carries the empty handler, so every review item would be lost silently."
 echo "An all-green run with the CONTROL also blocked is NOT a pass — it means the"
 echo "guard blocks everything and the test arm proved nothing."
 echo ""

@@ -214,3 +214,27 @@
   loss (per-FINDING review keys — the 285 lane's follow-on); the ~41 raw-INSERT sites
   that bypass the door (claim remains their backstop); the five `'human-review'`
   pseudo-handler producers (inert; recorded in WDS-018).
+
+### The third arm — and it is the one that could have gone badly
+
+Re-ran the probe with a **PARKED arm** added (corr in the run above's successor,
+`COMPLETED|finish`, 3 rows, all cancelled): a `create_work_item` step with **no
+`handler_agent` key at all** and `status='needs_human_review'` — tool-auditor's EXACT
+shape after migration 457.
+
+| arm | handler_agent | born status | error |
+|---|---|---|---|
+| TEST (unregistered) | `zzz-unregistered-probe-291` | `blocked` | `Handler agent not registered: …` |
+| CONTROL (registered) | `tool-improver` | `claimed` | *(null)* |
+| **PARKED (none)** | *(empty)* | **`needs_human_review`** | *(null)* |
+
+**Why this arm mattered enough to run before finishing.** 457 set tool-auditor's live
+config to the empty handler, which is legal ONLY on the binary carrying the relaxed
+validation. Had that relax not actually shipped, every review-item filing would now
+hard-error inside `continue_on_error` — every finding lost with no row, the precise
+disaster the three-phase staging existed to prevent, and I would have caused it in the
+act of finishing. **I had proven the guard shipped (kill-switch literal) but not the
+RELAX; those are different edits in the same commit and only the first had a marker.**
+The probe closes that gap at the artefact rather than by inference from a shared commit.
+The script now carries the arm and states the rollback trigger in its own output: a
+MISSING parked row means roll 457 back at once.

@@ -242,6 +242,16 @@ trigger set, but NOT dispatchable — so the probe cannot cause real work to run
 |---|---|---|---|---|
 | **TEST** (unregistered) | `zzz-unregistered-probe-291` | **`blocked`** | `Handler agent not registered: zzz-unregistered-probe-291` | yes |
 | **CONTROL** (registered) | `tool-improver` | `claimed` | *(null)* | yes |
+| **PARKED** (no handler key at all) | *(empty)* | **`needs_human_review`** | *(null)* | yes |
+
+The **PARKED** arm is the one that could have gone badly and is worth stating plainly:
+migration 457 set tool-auditor's live config to the empty handler, which is legal ONLY
+on the binary carrying the relaxed validation. The kill-switch literal proved the GUARD
+shipped; it did not prove the RELAX, which is a different edit in the same commit with
+no marker of its own. Had the relax not been live, every review-item filing would now
+hard-error inside `continue_on_error` — every finding lost with no row, the exact
+disaster the three-phase staging existed to prevent, caused in the act of finishing.
+The arm proves it at the artefact instead of inferring it from a shared commit.
 
 The TEST row was blocked **at write, never claimed** — under the pre-guard binary it
 is born `claimed` with a null error, so the observable genuinely discriminates. The
