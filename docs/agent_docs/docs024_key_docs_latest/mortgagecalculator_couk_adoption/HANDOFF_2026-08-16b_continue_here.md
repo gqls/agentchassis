@@ -52,6 +52,45 @@ to work around it.
 
 Reply by appending here, or in the CONTRIB, or just do it — I will pick it up from the fence.
 
+## 0a. OWNER ACTIONS, 2026-08-17 morning — two of §5's parked items are now DONE
+
+The owner read this handoff's §5 and directed three things. **Both actions are executed and
+verified; the third was an explanation, not a change.** §5 below is amended in place.
+
+1. **`site-discovery-rotation-completeness` is ENABLED** (owner: *"run the rotation"*), 11:31Z.
+   It had been `enabled=false` since 08-10 17:40Z, and it owns link integrity —
+   `phantom_internal_links` and `dead_internal_link_live` — which is why six of the eight broken
+   links found on 08-16 had been filed by nothing.
+   **Shape, measured before flipping it** (so a quiet tick could not be mistaken for a clean one —
+   the demand-control trap LANDMINES warns about for exactly this task): the `pre_query` takes
+   **ONE site per hourly tick**, only sites unchecked for >7 days, skipping any site holding a
+   `claimed` build item, stamping `site_discovery_rotation` as it goes. **22 of 23 active sites
+   were due**, so it drains over roughly a day and then goes mostly quiet.
+   **First tick confirmed 11:32:14Z, `sites_due` 22 → 21.**
+   ⚠ **What to watch, and it is not the rotation itself:** findings land at `detected`, and
+   `detected-item-promoter` (live, 15-minute cadence) now promotes them to `triaged`, from where
+   handlers dispatch. One completeness pass on `leopardessconsulting.co.uk` filed ~77 items
+   (`bugs_closed/270`, 08-16). Twenty-two sites' worth of that is real work arriving over the next
+   day. **It is one statement to stop:** `UPDATE scheduled_tasks SET enabled=false WHERE
+   name='site-discovery-rotation-completeness';`
+2. **`images/mortgagecalculatormono.xcf` is REMOVED** (owner: *"please remove the .xcf file"*) —
+   the item this lane had left half-done at §5.2. Gone from `b2://portfolio-sites/` (`b2 rm
+   --versions`, dry-run first, exit 0) **and** from the deploy source
+   `~/projects/sites/mortgagecalculator.co.uk/images/`, committed there as `7c9078f20` so the next
+   sync cannot restore it — the bucket copy had been re-uploaded from that directory as recently
+   as 08-16 20:41:52Z, so deleting only the bucket would have been undone.
+   **Verified gone:** 404 on three cache-busted probes and one plain. **Verified harmless:** 0 of
+   29 live pages referenced it, and 0 rows in `page_components` / `site_components` / `assets`.
+   **Recoverable four ways, all sha256 `78a635bb…`:** the deploy repo's own history
+   (`65d06ef4e`), `~/projects/domains/mortgagecalculator.co.uk/images/`,
+   `~/Downloads/mortgagecalculator/`, and `/home/ant/mortgagecalculator_asset_backup/` with
+   `SHA256SUMS.txt`. It is 1918×1215 RGB, one layer + colour-to-alpha — the wide-format master.
+   ⚠ The bucket copy and a `curl` of the live URL were byte-identical, so **RUNBOOK §2's
+   Cloudflare-injection warning is specific to `robots.txt` and does not touch binaries** — but
+   the bytes were taken from B2 before deleting anyway, which is the habit worth keeping.
+3. **The worker/route fix (§4) was EXPLAINED to the owner, not applied.** Still the owner's call,
+   still 36 zones, still needs the council. Nothing changed in the repo or at Cloudflare.
+
 ## 0. What changed this afternoon, in one paragraph
 
 The morning handoff's §4.5 ("30 stale `<title>`s, mechanical") was **already done** and had been
@@ -133,23 +172,23 @@ route serves both forms correctly (`relojistas.com/noticias/` 200), so this is r
 
 1. **Nothing is blocked on this lane.** The site is in a good state; the two open link defects both
    belong to other owners (260, and the worker/route question in §4).
-2. **`images/mortgagecalculatormono.xcf`** (morning handoff §4.6) — **half done, deliberately.** The
-   file is NOT in the repo, only in the bucket, and it still serves 200 (175,232 B). A byte-identical
-   copy is preserved at **`/home/ant/mortgagecalculator_asset_backup/`** with `SHA256SUMS.txt`
-   (`78a635bb…`). It is 1918×1215 RGB, one layer `mortgagecalculatormono.png` + colour-to-alpha —
-   consistent with the wide wordmark master the morning handoff hoped for. **The bucket deletion was
-   NOT done: it is an irreversible removal of a publicly-served artefact and the owner has not asked
-   for it this session.** One decision, then one command.
+2. ~~**`images/mortgagecalculatormono.xcf`** — half done, deliberately.~~ **DONE 2026-08-17,
+   owner-directed — see §0a.2.** Removed from the bucket AND the deploy source, verified 404,
+   verified unreferenced, four recoverable copies retained.
 3. **Router fleet assignment (IMG-071)** — unchanged from the morning handoff §4.3, including its
    rule (fresh discovery pass FIRST, then route) and its two cosmetic defects.
 4. **Card icons** — unchanged, still 114-class, still parked (morning §4.4).
 5. **Fleet design-rotation re-enable** — still the owner's call, still do not act (morning §4.7).
-   ⚠ **Add `site-discovery-rotation-completeness` to that question.** It is ALSO `enabled=false`
-   (since 08-10 17:40Z) and it owns link integrity — `phantom_internal_links` and
-   `dead_internal_link_live` — so nothing has audited this site's links since **08-09 20:56Z**. Six
-   of the eight broken links found today were filed by nothing because of it. Already-known, already
-   documented state (`bugfix_203`, `vision_finding_revalidator`, `bugs_closed/270`) — **not a new
-   finding, do not file one** — but it is now a costed one.
+   ⚠ ~~Add `site-discovery-rotation-completeness` to that question.~~ **ANSWERED 2026-08-17: the
+   COMPLETENESS half is now ENABLED and running (§0a.1).** The **design** rotation
+   (`site-discovery-rotation-design`) remains `enabled=false` and remains the owner's open call —
+   do not flip it on the strength of the completeness decision, they were paused for different
+   reasons (design for deploys wasted on the placeholder path, which is fixed; completeness for
+   cost).
+6. **Answer the ASK at the top of this file** — the `register_guards_code_phase_b` lane is waiting
+   on a yes/no about adding `"facts": [...]` to `acceptance/criteria/stamp-duty.criteria.json`.
+   It has been unanswered since 08-16 and it is a two-minute decision. Options are theirs, in
+   their block; option 2 (their dry-run canary) costs this lane nothing and leaves no work items.
 
 ## 6. Landmines this session paid for (beyond the morning handoff §5, all still valid)
 

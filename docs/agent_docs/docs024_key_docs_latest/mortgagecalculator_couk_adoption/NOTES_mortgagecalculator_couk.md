@@ -3216,3 +3216,70 @@ framework writes adds another link to the one page it cannot build. That is a st
 `how-banks-decide` did the same during the re-audit and is 200 on three plain probes since. **Probe
 twice, second one cache-busted, before believing a post-deploy 404** — otherwise you will file a
 deploy failure that never happened.
+
+## 2026-08-17 (morning) — owner directed three things: the rotation is ON, the `.xcf` is GONE, and the worker fix was explained rather than applied
+
+Same lane, next session. The owner read `HANDOFF_2026-08-16b` §5 and answered its three open
+decisions. Two were actions and are executed; one was an explanation.
+
+### 1. `site-discovery-rotation-completeness` — ENABLED 11:31Z
+
+**Measured the blast radius BEFORE flipping it, because this exact task carries the
+demand-control trap** (LANDMINES: never `enabled=true` a scheduled task to test it — its
+`pre_query`'s recency predicate can select 0 rows and read exactly like a clean run). Read the
+`pre_query` first:
+
+- `LIMIT 1` — **one site per tick**, `interval_seconds=3600`.
+- Eligible = `status IN ('active','deployed')` AND last selected > 7 days ago.
+- **Skips any site holding a `claimed` build item** (`pipeline='build'`) — so it cannot pile onto
+  a site already working.
+- Stamps `site_discovery_rotation` in the same statement, so it round-robins rather than
+  re-picking the same site.
+
+[MEASURED before enabling] **22 of 23 active sites due**, one never checked at all
+(`remortgagecalculator.uk`), the rest last selected 08-09. So the pre_query could not have
+returned 0 — the demand control was satisfied in advance, not asserted afterwards.
+
+[MEASURED after enabling] **First tick 11:32:14Z, `sites_due` 22 → 21.** It runs.
+
+⚠ **The thing to watch is downstream of the rotation, not the rotation.** Findings insert at
+`detected`; `detected-item-promoter` is live on a 15-minute cadence and moves them to `triaged`,
+where handlers dispatch. One completeness pass on `leopardessconsulting.co.uk` filed ~77 items
+(`bugs_closed/270`, 08-16) at a time when they were inert. They are not inert now. Twenty-two
+sites of that is real work over ~a day. Reversal is one statement and it is in the handoff §0a.1.
+
+### 2. The `.xcf` — removed from BOTH the bucket and the deploy source
+
+Flagged three times since 07-31, never actioned; 175,232 B of GIMP master publicly served.
+
+**The part that mattered and was nearly missed: the bucket copy is downstream of a local
+directory.** `b2 ls` showed it re-uploaded **2026-08-16 20:41:52Z** alongside `full-logo.png` and
+`icon-logo.png` — i.e. after this lane's previous session. Deleting only the bucket would have
+been undone by the next sync. Traced the source to
+`~/projects/sites/mortgagecalculator.co.uk/images/` (the authoritative deploy dir per LANDMINES'
+`sites` vs `sites2` entry), removed it there too, committed in **that** repo as `7c9078f20`.
+
+- `b2 rm --dry-run --versions` first → exactly 1 match, exit 0 (RUNBOOK §1's flag gotcha: `--dry-run`,
+  not `--dryRun`, and check the exit code because a failed run's piped output reads as a clean no-op).
+- Then `b2 rm --versions`, exit 0. Bucket listing after: the two PNGs, no `.xcf`.
+- **Verified gone:** 404 on three cache-busted probes and one plain (probing twice with a buster is
+  the 08-16 CDN negative-cache lesson applied in the opposite direction).
+- **Verified harmless:** 0 of 29 live pages reference it; 0 rows in `page_components`,
+  `site_components` or `assets`. Deleting it broke no link.
+- **Four byte-identical copies retained**, all sha256 `78a635bb…`: the deploy repo's own history
+  (`65d06ef4e`), `~/projects/domains/mortgagecalculator.co.uk/images/`,
+  `~/Downloads/mortgagecalculator/`, and `/home/ant/mortgagecalculator_asset_backup/` +
+  `SHA256SUMS.txt`.
+
+**One RUNBOOK claim narrowed by evidence:** §2 warns that `curl` does not return origin bytes
+because Cloudflare injects into the response. The curl copy taken 08-16 and the B2 copy taken
+today are **sha256-identical**, so that injection is specific to `robots.txt` (as §2's own
+evidence actually said: 28 of 28 non-robots files matched) and does not touch binaries. The habit
+of taking bytes from B2 before an irreversible delete is still right; the reason is
+belt-and-braces, not a live hazard for this file type.
+
+### 3. The worker fix was EXPLAINED, not applied
+
+`scripts/cloudflare/worker.js:9-12` — the three-line directory-index rewrite from
+`HANDOFF_2026-08-16b` §4. Owner asked for the explanation; nothing was changed in the repo or at
+Cloudflare. It remains a 36-zone shared-serving change → owner + council.

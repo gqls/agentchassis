@@ -1287,3 +1287,40 @@ the site's own brief names it as a page that should exist, so the writer keeps r
 links went from eight to seven, not from eight to one. The site is slowly accumulating references to
 one page it cannot build, and that will keep happening until that bug is fixed. Nothing here is
 broken by it; it just means the tidy-up is not finished and cannot be finished from this end.
+
+## 2026-08-17 (Monday morning) — the link checker is back on, and the stray design file is gone
+
+Three things you asked for. Two were changes and they are done; the third was an explanation.
+
+**The link checker is running again.** This is the part of the system that reads every page on a
+site and checks that the links actually go somewhere. It had been switched off since 10 August,
+which is why eight dead links sat on this site unnoticed. Before turning it on I checked what
+turning it on actually costs, because that was the question you paused it over: it takes **one
+site per hour**, and only sites it has not looked at for a week, so it works through the backlog
+of 22 sites over about a day and then goes quiet. It picked up its first site a minute after I
+enabled it.
+
+One honest caveat. The checker only *finds* things; a separate mechanism, which has been switched
+on since you paused this one, now automatically promotes what it finds into actual work. So over
+the next day you should expect a fair amount of repair work to start moving across the estate —
+on one site last week a single pass found about 77 things. That is the system doing what it is
+for, but it is more activity than "just switch the checker back on" sounds like, so I would rather
+you heard it from me now than noticed it tomorrow. Turning it off again is one command and it is
+written down in the handoff.
+
+**The stray GIMP file is gone.** That is the 175 KB design master that has been sitting publicly
+downloadable on the site since we adopted it, flagged three times and never dealt with. It nearly
+got dealt with badly: it turned out the copy on the web server is *copied up from a folder on this
+machine*, and it had been re-uploaded from there as recently as Saturday evening — so deleting it
+from the web server alone would have quietly put it back on the next sync. I removed both. It is
+now a 404, nothing on the site linked to it, and I kept four identical copies in different places
+(including the deploy repository's own history) so it is not lost in any sense.
+
+**The trailing-slash fix I explained rather than made.** Nothing changed at Cloudflare or in the
+code — it is written up for you and for whoever reviews it, and it stays your call.
+
+**Still waiting on a decision that is not mine:** another team has left a question at the top of
+our handoff, about adding one line of configuration to our stamp-duty checker so it gets told when
+the tax thresholds it relies on change. They deliberately did not do it themselves because it
+would add items to our queue. It has been waiting since Saturday and it needs a yes, a no, or a
+"do the harmless trial version".
