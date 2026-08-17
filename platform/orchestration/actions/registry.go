@@ -1958,6 +1958,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Publish a site's built artefact tree to its opted-in hosting backend on tree-hash drift (platform/publish; no-op when sites.publish_target is NULL)",
 		IsLocal:     true,
 	},
+	"zip_deliverable": {
+		Handler:     ZipDeliverableAction,
+		Category:    "storage",
+		Description: "Cut a ZIP of a site's built artefact tree (portfolio-sites/<domain>/) into deliverables/<domain>/ and return a presigned download URL; alerts (never truncates) past a size threshold. Must run in a spawned storage-enabled pod",
+		IsLocal:     true,
+	},
 	"upload_to_s3": {
 		Handler:     UploadToS3Action,
 		Category:    "storage",

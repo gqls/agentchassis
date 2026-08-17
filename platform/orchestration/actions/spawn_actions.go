@@ -3068,6 +3068,10 @@ func isStorageEnabledAgent(agentType string) bool {
 		// the sanctioned per-type grant under the 2026-08-08 ruling that keeps
 		// bucket config OFF the shared chassis deployment.
 		"tool-acceptance-agent",
+		// zip_deliverable lists, reads and writes the portfolio-sites bucket
+		// (site_delivery_and_editor Phase 3) — same grant rationale as
+		// site-publisher.
+		"zip-deliverer",
 	}
 
 	for _, t := range storageAgents {

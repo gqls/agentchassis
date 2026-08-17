@@ -196,6 +196,7 @@ OPTIONAL_KEY_COUNTS = {
     "write_experience_pattern": 4,
     "write_feed_items": 2,
     "write_render_audit_findings": 2,
+    "zip_deliverable": 3,
 }
 
 # Reviewed baselines. Source of truth is the repo's
