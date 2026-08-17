@@ -1,4 +1,4 @@
-# 283 — CONTINUE HERE (2026-08-17). Converter BUILT and approved; execution waits on a ROLL WITH A BUMPED TAG.
+# 283 — CONTINUE HERE (2026-08-17). Converter LIVE on v1.0.1307; CANARY IN FLIGHT (§5). §1–§3 predate the roll — §5 supersedes their "waits on a roll".
 
 **Read the case file first** (`bugs_open/283_HANDOFF_…_element_ids_are_literal.md`) — §11–§12 are
 the current state; §3a of `architecture_review/RFC_034` has the only trustworthy corpus numbers.
