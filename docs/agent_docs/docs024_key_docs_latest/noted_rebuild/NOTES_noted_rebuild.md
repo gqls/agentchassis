@@ -2299,3 +2299,29 @@ A GitHub 503 failed one deploy_page mid-way (transient; retry clean). Full-site
 re-assembly queued (corr `8cfeb9c1…`, ~139 ahead) — verify at the box when it
 lands: zero `hello@noted.co.uk` on every served page, header CTA
 `/tools/write/index.html` everywhere, footer carrying the new address.
+
+### Verified end to end — with one instrument lesson
+
+Re-assembly (12 items) completed; box synced. Final state, measured at all three
+layers:
+
+| layer | old address | new address | header CTA |
+|---|---|---|---|
+| DB components + chrome | 0 | present | `/tools/write/index.html` |
+| box files | 0 | present (index 1, migrate 3, privacy 2, contact 5) | ditto |
+| live | 0 | **edge-obfuscated** | ditto, all 10 pages |
+
+The live grep for the new address returned 0 on most pages while the box files
+carried it — because **Cloudflare email obfuscation rewrites every address into a
+`data-cfemail` span at the edge**. Decoding the span (XOR with its first byte)
+yields exactly `noted@contactforsales.com`, and browsers run the decoder. So: **a
+grep for an email on a Cloudflare-proxied page tests the obfuscator, not the
+page** — measure at the box (pre-edge) or decode the span. My earlier race
+explanation (sitesync tick) was wrong; the obfuscation was the whole story, and
+contact's `new=1` live was the one occurrence sitting where the rewriter does not
+reach (a form attribute).
+
+Everything the owner asked for is live: Get Started → the sign-in page on all ten
+pages; the email changed in every store, page, and the canonical privacy copy
+(22/22 verbatim). The durable CTA override rides the next fleet roll
+(`229e14e74`, Council-Submitted `89f3331e…`).
