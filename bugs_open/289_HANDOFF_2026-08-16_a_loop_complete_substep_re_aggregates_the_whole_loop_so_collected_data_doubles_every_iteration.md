@@ -415,3 +415,73 @@ default 20. Inert today because live config arrives from JSONB as float64 — th
 > forward-only forbids an amend, so `098` cannot auto-credit it — the correlation is recorded here
 > and in the lane docs instead.
 > Residual (4), the `total_iterations` fallback, is still open and still latent.
+
+
+---
+
+## COUNCIL: APPROVED, round 2, corr `7a3c4fb7-e8c1-4b5f-950e-7a826d5bebbe` (2026-08-17 ~16:50Z)
+
+**"approved with 4 advisory objection(s) — none high-severity."** 12 seats ran, 6 abstained.
+Verdict read in full, not just its `decision` field. Every objection is answered below with a
+measurement or a change — none was argued away.
+
+**1. `reuse_agent` (MEDIUM, edit 2) — CORRECT, AND ACTED ON.** It said `loopConfigInt` was a
+bespoke int-coercion helper and that the platform's own discipline prefers
+`datahelpers.GetIntField`. It exists — `datahelpers/data_helpers.go:1586` — and handles exactly
+the `float64`-then-`int` case my helper was written for. **Swapped, and the bespoke helper
+deleted** (tests unchanged and still green). Its second, low objection asked whether an existing
+"injected clone vs the loop's own end-step" signal already existed: none does, and the same seat
+said so in its own notes ("no prior art for distinguishing an injected per-iteration
+`loop_complete` clone from the loop's own end-step").
+
+**2. `prior_art_librarian` (MEDIUM, edit 1) — MEASURED INDEPENDENTLY.** It flagged that
+"no Go reader" was my own grep and that an index cannot prove a negative. Re-checked by
+enumerating every `_iter_%d_` string-building site in `platform/ internal/ pkg/`:
+`loop_error_handler.go:140` (builds an `_error` key), `:164` (next iteration's first substep —
+routing), `loop_expansion_handler.go:101/140/556` (injection — writing), `coordinator.go:4417/4432/4455`
+(next-step resolution — routing), `loop_actions.go:475` (the Strategy-3 prefix scan itself).
+**Every one builds a STEP NAME for routing or an error key; none reads the terminal substep's
+stored result.**
+*But the seat's instinct found a real surface I had not named:* the OUTER end-step falls to
+Strategy 3 when no substep declares `output_field`, and there its per-entry contents change
+(markers instead of nested duplicates; the `{iterations, results[], count}` shape is unchanged).
+**Exactly 1 of the 18 live loops is in that state — `component-quality-auditor.create_regen_items`
+— and it has 0 orchestrations, ever.** Its `output_field` is `items_created`, `next_step` is
+`complete`. So the change is confined to one never-run loop. Recorded rather than left implicit.
+Its low objection — "no threshold existed anywhere" might overlook the sanitise loop —
+checked: `SanitiseJSONBNulEscapes` (`datahelpers/jsonb_nul.go`) does no size work at all; its
+only `len()` uses are buffer allocation and loop bounds.
+
+**3. `debug_historian` (MEDIUM, edit 4) — ANSWERED WITH EVIDENCE, and it was a fair hit.** It
+invoked this estate's own mutation-testing landmine: *a mutant that BREAKS THE BUILD prints the
+same `FAIL` as a mutant that was caught*, and my submission asserted the mutation without saying
+which. Re-run in three explicit steps: **(1) `go build ./platform/...` SUCCEEDS with the mutant**
+— so the failure cannot be a compile error; (2) the test then fails as
+`--- FAIL: TestLoopCompleteIterationTerminalDoesNotAggregate … iteration terminal copied the
+PREVIOUS iteration's aggregate — this is the 2^N blow-up`; (3) restored, green. **That build step
+is the part my original claim was missing.** Its low objection (no pod-verification step in the
+plan) is met by "What is still owed" above and the loop-engine handoff, now cross-referenced —
+the check is the label probe plus `git merge-base --is-ancestor`, not a tag or a deploy event.
+
+**4. `guardian` (MEDIUM, edit 5) — ACCEPTED, and it is right.** Bundling the `state.go` tripwire
+with the loop fix asked one reviewer to bless two blast radii as one. The cost argument
+(`bugs_open/244`: `council-gate` is 87.8% of August LLM spend) is why, and the seat acknowledged
+it, but that does not make the bundle good practice. **Mitigation that already existed: the two
+are SEPARATE COMMITS** (`509e01e6a`, `cf970b009`) even though the review round was one, so
+`git bisect` and revert are unaffected. **Standing lesson for this lane: bundle for cost only when
+the changes share a blast radius — otherwise pay for the second round.** Its second objection
+asked for a precedent check on this core site before treating it as clear; the round returned
+approved, so that check did not find repeated deflection.
+
+**5. `architecture` (LOW) — RECORDED AS A FOLLOW-UP, not done now.** The `loop_iteration`-presence
+fallback in `isLoopIterationTerminal` becomes a permanent *second* discriminator once every
+persisted plan carries the explicit flag. **New residual (6): once no in-flight plan predates
+`509e01e6a`, delete the fallback so the discriminator is one thing again.** The seat's wider
+observation is worth quoting because it is the RFC signal, not this fix: the step model overloads
+`action` to mean both "what to run" and "role in the workflow", which is *why* an explicit flag
+was needed; if more roles need disambiguating from the same action string, that recurring pattern
+is the architecture-scope trigger.
+
+**6. `constitution` (minor) — TIDIED.** It noticed the submission still listed "no size tripwire"
+as an open residual while edit 5 added one — staleness carried from the original filing. Residual
+(5) is marked closed above; residual (4) and the new (6) remain open.

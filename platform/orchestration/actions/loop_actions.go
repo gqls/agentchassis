@@ -321,7 +321,7 @@ func LoopCompleteAction(ctx context.Context, params ActionParams) (interface{}, 
 	// that motivated this, that dump logged a 22 MB key list once per lap.
 	// =====================================================
 	if isLoopIterationTerminal(params.StepConfig.Config) {
-		iteration := loopConfigInt(params.StepConfig.Config, "loop_iteration", -1)
+		iteration := datahelpers.GetIntField(params.StepConfig.Config, "loop_iteration", -1)
 		logger.Info("Loop iteration terminal reached; aggregation deferred to the loop's end-step",
 			zap.Int("iteration", iteration))
 		return map[string]interface{}{
@@ -563,7 +563,10 @@ func LoopCompleteAction(ctx context.Context, params ActionParams) (interface{}, 
 //     correctly (that step is built by handleLoopExpansion, never injected as a
 //     substep, so it does not carry the flag).
 //   - `loop_iteration`, which every injected iteration step carries and the
-//     loop's own end-step never does. This is the fallback for workflow plans
+//     loop's own end-step never does. Read with the shared
+//     datahelpers.GetIntField (it already handles the float64 a JSON round-trip
+//     through the persisted plan produces) rather than a local coercion helper —
+//     council 7a3c4fb7, reuse_agent objection. This is the fallback for workflow plans
 //     that were EXPANDED AND PERSISTED BEFORE this fix shipped: those plans are
 //     already in flight with no flag in them, and without this they would keep
 //     doubling until they died. A hand-authored loop_complete step has no
@@ -577,23 +580,6 @@ func isLoopIterationTerminal(config map[string]interface{}) bool {
 	}
 	_, hasIteration := config["loop_iteration"]
 	return hasIteration
-}
-
-// loopConfigInt reads an int from step config, tolerating the float64 that a
-// JSON round-trip through the persisted workflow plan produces.
-func loopConfigInt(config map[string]interface{}, key string, fallback int) int {
-	if config == nil {
-		return fallback
-	}
-	switch v := config[key].(type) {
-	case int:
-		return v
-	case int64:
-		return int(v)
-	case float64:
-		return int(v)
-	}
-	return fallback
 }
 
 // buildLegacyPatterns returns the hardcoded HTML-specific key patterns.
