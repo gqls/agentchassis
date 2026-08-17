@@ -234,6 +234,11 @@ func FixComponentTemplateAction(ctx context.Context, params ActionParams) (inter
 	switch fixType {
 	case "repair_template_slots":
 		return fixRepairTemplateSlots(ctx, params, logger)
+	case "scope_component_instance", "instance_scope_conversion":
+		// bugs_open/283 / RFC_034: the deterministic half of the per-instance
+		// conversion programme. "instance_scope_conversion" is the item_type
+		// spelling so a work item routes without a spec.fix_type.
+		return fixScopeComponentInstance(ctx, params, logger)
 	case "inject_nav_flex_css", "spacing_fix", "spacing":
 		// "spacing" is a raw category value from SQL-patched items
 		return fixInjectNavFlexCSS(ctx, params, siteID, logger)
@@ -992,6 +997,146 @@ func fixRepairTemplateSlots(ctx context.Context, params ActionParams, logger *za
 		"component_id":     componentIDStr,
 		"artifacts_fixed":  artifactCount,
 		"snapshot_version": maxVersion + 1,
+	}, nil
+}
+
+// ---------------------------------------------------------------------------
+// scope_component_instance: the deterministic half of bugs_open/283's
+// conversion programme (RFC_034, owner ruling 2026-08-17 — hybrid shape,
+// through the framework).
+//
+// Targets content_components.html_template, keyed by spec.component_id — the
+// ROW, never the function: four functions carry forks, and a function-keyed
+// conversion silently skips nine rows (RFC_034 §1).
+//
+// The transform and the acceptance gate live in
+// component_instance_conversion.go; this wrapper is the framework seam: load,
+// convert, GATE, snapshot to component_versions, write. Three exits and each
+// says which pool the component is in:
+//
+//   fixed:true                       — converted, gated clean, WRITTEN. The
+//                                      pages carrying it still serve stored
+//                                      rendered_html, so the result reaches
+//                                      visitors only on the next
+//                                      rerender+deploy — the caller's plan
+//                                      owns that step, and the result names it.
+//   fixed:false action:"needs_script_scoping"
+//                                    — ids convert cleanly but the script
+//                                      genuinely declares into global scope;
+//                                      RFC_034 §2.1 forbids shipping that
+//                                      half-state, so NOTHING was written.
+//                                      Route to the judged (LLM) pipeline.
+//   fixed:false + reason             — refused or nothing to do (already
+//                                      converted, no ids, hex-ambiguous id,
+//                                      unrecognised binding construction).
+//                                      NOTHING was written.
+// ---------------------------------------------------------------------------
+
+func fixScopeComponentInstance(ctx context.Context, params ActionParams, logger *zap.Logger) (interface{}, error) {
+	componentIDStr := datahelpers.ExtractNestedFieldString(params.CollectedData, "input_data.spec.component_id")
+	if componentIDStr == "" {
+		componentIDStr = datahelpers.ExtractNestedFieldString(params.CollectedData, "input_data.component_id")
+	}
+	if componentIDStr == "" {
+		return nil, fmt.Errorf("component_id is required for scope_component_instance (expected in spec.component_id)")
+	}
+	componentID, err := uuid.Parse(componentIDStr)
+	if err != nil {
+		return nil, fmt.Errorf("invalid component_id %q: %w", componentIDStr, err)
+	}
+
+	var function, currentTemplate string
+	err = params.DB.QueryRowContext(ctx, `
+		SELECT function, html_template
+		FROM content_components
+		WHERE id = $1
+	`, componentID).Scan(&function, &currentTemplate)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load component %s: %w", componentIDStr, err)
+	}
+
+	converted, rep, ok := ConvertTemplateToInstanceScope(currentTemplate)
+	if !ok {
+		logger.Info("scope_component_instance: refused/no-op",
+			zap.String("function", function),
+			zap.String("reason", rep.RefusedReason),
+			zap.Bool("already_converted", rep.AlreadyConverted))
+		return map[string]interface{}{
+			"fixed":        false,
+			"fix_type":     "scope_component_instance",
+			"function":     function,
+			"component_id": componentIDStr,
+			"reason":       rep.RefusedReason,
+		}, nil
+	}
+
+	needsJudged, gateErr := GateConvertedTemplate(function, converted, logger)
+	if gateErr != nil {
+		// A gate ERROR is a transform defect on this template, not a judged
+		// case — fail the step loudly so the defect is diagnosed, never
+		// written around.
+		return nil, fmt.Errorf("scope_component_instance gate failed for %q: %w", function, gateErr)
+	}
+	if needsJudged {
+		logger.Info("scope_component_instance: ids convert cleanly but the script declares into global scope — refusing the half-state (RFC_034 §2.1), routing to the judged pool",
+			zap.String("function", function),
+			zap.Strings("ids", rep.IDsDeclared))
+		return map[string]interface{}{
+			"fixed":        false,
+			"fix_type":     "scope_component_instance",
+			"function":     function,
+			"component_id": componentIDStr,
+			"action":       "needs_script_scoping",
+			"reason":       "script declares into global scope; deterministic conversion alone would ship a page that reads clean on ids while every button runs the last instance's logic",
+			"ids_declared": len(rep.IDsDeclared),
+		}, nil
+	}
+
+	// Snapshot before modifying — same reversibility contract as
+	// repair_template_slots. Non-fatal if the snapshot fails; log and continue.
+	var maxVersion int
+	_ = params.DB.QueryRowContext(ctx, `
+		SELECT COALESCE(MAX(version_number), 0) FROM component_versions WHERE component_id = $1
+	`, componentID).Scan(&maxVersion)
+	_, snapErr := params.DB.ExecContext(ctx, `
+		INSERT INTO component_versions (component_id, version_number, html_template, change_source)
+		VALUES ($1, $2, $3, 'scope_component_instance')
+	`, componentID, maxVersion+1, currentTemplate)
+	if snapErr != nil {
+		logger.Warn("scope_component_instance: snapshot failed, continuing",
+			zap.String("function", function), zap.Error(snapErr))
+	}
+
+	if _, err = params.DB.ExecContext(ctx, `
+		UPDATE content_components
+		SET html_template = $1, updated_at = now()
+		WHERE id = $2
+	`, converted, componentID); err != nil {
+		return nil, fmt.Errorf("failed to update template for %s: %w", function, err)
+	}
+
+	logger.Info("scope_component_instance: converted and written",
+		zap.String("function", function),
+		zap.String("component_id", componentIDStr),
+		zap.Int("ids", len(rep.IDsDeclared)),
+		zap.Int("id_attrs", rep.IDAttrsRenamed),
+		zap.Int("get_element_by_id", rep.GetElementByID),
+		zap.Int("id_ref_attrs", rep.IDRefAttrs),
+		zap.Int("hash_refs", rep.HashRefs),
+		zap.Int("snapshot_version", maxVersion+1))
+
+	return map[string]interface{}{
+		"fixed":             true,
+		"fix_type":          "scope_component_instance",
+		"function":          function,
+		"component_id":      componentIDStr,
+		"ids_declared":      len(rep.IDsDeclared),
+		"id_attrs_renamed":  rep.IDAttrsRenamed,
+		"get_element_by_id": rep.GetElementByID,
+		"id_ref_attrs":      rep.IDRefAttrs,
+		"hash_refs":         rep.HashRefs,
+		"snapshot_version":  maxVersion + 1,
+		"note":              "pages carrying this component still serve stored rendered_html; the conversion reaches visitors on their next rerender+deploy",
 	}, nil
 }
 

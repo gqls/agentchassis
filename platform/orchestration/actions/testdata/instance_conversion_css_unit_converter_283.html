@@ -1,0 +1,467 @@
+<style>
+  .tool-container {
+    max-width: 640px;
+    margin: 0 auto;
+    padding: 1.5rem;
+    background: var(--color-background);
+    color: var(--color-text);
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    font-family: inherit;
+  }
+
+  .tool-container h2 {
+    margin-top: 0;
+    color: var(--color-text);
+  }
+
+  .tool-description {
+    color: var(--color-text-muted);
+    margin-bottom: 1.5rem;
+  }
+
+  fieldset {
+    border: 1px solid var(--color-border);
+    border-radius: 6px;
+    padding: 1rem;
+    margin-bottom: 1.5rem;
+  }
+
+  legend {
+    padding: 0 0.5rem;
+    font-weight: 600;
+    color: var(--color-text);
+  }
+
+  .field-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-bottom: 1rem;
+  }
+
+  .field-row:last-child {
+    margin-bottom: 0;
+  }
+
+  .field {
+    flex: 1 1 140px;
+    display: flex;
+    flex-direction: column;
+  }
+
+  label {
+    font-size: 0.85rem;
+    margin-bottom: 0.35rem;
+    color: var(--color-text-muted);
+  }
+
+  input[type="number"],
+  select {
+    min-height: 44px;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    background: var(--color-surface);
+    color: var(--color-text);
+    font-size: 1rem;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  input[type="number"]:focus,
+  select:focus {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 1px;
+  }
+
+  .convert-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .convert-row .field {
+    flex: 1 1 160px;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  caption {
+    text-align: left;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    color: var(--color-text);
+  }
+
+  th, td {
+    text-align: left;
+    padding: 0.6rem 0.75rem;
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  th {
+    color: var(--color-text-muted);
+    font-weight: 600;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+
+  td.value {
+    font-variant-numeric: tabular-nums;
+    color: var(--color-primary);
+    font-weight: 600;
+  }
+
+  .value-cell {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+  }
+
+  .value-text {
+    font-variant-numeric: tabular-nums;
+  }
+
+  .copy-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    min-width: 44px;
+    min-height: 36px;
+    padding: 0.3rem 0.6rem;
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    background: var(--color-surface);
+    color: var(--color-text-muted);
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  }
+
+  .copy-btn:hover {
+    color: var(--color-text);
+    border-color: var(--color-primary);
+  }
+
+  .copy-btn:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 1px;
+  }
+
+  .copy-btn svg {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+  }
+
+  .copy-btn.copied {
+    color: var(--color-primary);
+    border-color: var(--color-primary);
+  }
+
+  .note {
+    font-size: 0.85rem;
+    color: var(--color-text-muted);
+    margin-top: 1rem;
+  }
+
+  @media (max-width: 480px) {
+    .field-row, .convert-row {
+      flex-direction: column;
+    }
+
+    .copy-btn span.copy-label {
+      display: none;
+    }
+  }
+</style>
+
+<div class="tool-container">
+  <h2>CSS Unit Converter</h2>
+  <p class="tool-description">
+    Enter a value and its unit, then set your base font size and viewport dimensions below.
+    The tool converts that value into px, rem, em, vw and vh instantly, client side only.
+  </p>
+
+  <fieldset>
+    <legend>Reference settings</legend>
+    <div class="field-row">
+      <div class="field">
+        <label for="root-font-size">Root font size (px, for rem)</label>
+        <input type="number" id="root-font-size" value="16" min="1" step="0.1">
+      </div>
+      <div class="field">
+        <label for="parent-font-size">Parent font size (px, for em)</label>
+        <input type="number" id="parent-font-size" value="16" min="1" step="0.1">
+      </div>
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label for="viewport-width">Viewport width (px, for vw)</label>
+        <input type="number" id="viewport-width" value="1440" min="1" step="1">
+      </div>
+      <div class="field">
+        <label for="viewport-height">Viewport height (px, for vh)</label>
+        <input type="number" id="viewport-height" value="900" min="1" step="1">
+      </div>
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>Value to convert</legend>
+    <div class="convert-row">
+      <div class="field">
+        <label for="input-value">Value</label>
+        <input type="number" id="input-value" value="16" step="0.01">
+      </div>
+      <div class="field">
+        <label for="input-unit">Unit</label>
+        <select id="input-unit">
+          <option value="px">px</option>
+          <option value="rem">rem</option>
+          <option value="em">em</option>
+          <option value="vw">vw</option>
+          <option value="vh">vh</option>
+        </select>
+      </div>
+    </div>
+  </fieldset>
+
+  <table>
+    <caption>Converted values</caption>
+    <thead>
+      <tr>
+        <th scope="col">Unit</th>
+        <th scope="col">Value</th>
+      </tr>
+    </thead>
+    <tbody id="results-body">
+      <tr>
+        <th scope="row">px</th>
+        <td class="value">
+          <div class="value-cell">
+            <span class="value-text" id="result-px">—</span>
+            <button type="button" class="copy-btn" data-target="result-px" aria-label="Copy px value to clipboard">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+              <span class="copy-label">Copy</span>
+            </button>
+          </div>
+        </td>
+      </tr>
+      <tr>
+        <th scope="row">rem</th>
+        <td class="value">
+          <div class="value-cell">
+            <span class="value-text" id="result-rem">—</span>
+            <button type="button" class="copy-btn" data-target="result-rem" aria-label="Copy rem value to clipboard">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+              <span class="copy-label">Copy</span>
+            </button>
+          </div>
+        </td>
+      </tr>
+      <tr>
+        <th scope="row">em</th>
+        <td class="value">
+          <div class="value-cell">
+            <span class="value-text" id="result-em">—</span>
+            <button type="button" class="copy-btn" data-target="result-em" aria-label="Copy em value to clipboard">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+              <span class="copy-label">Copy</span>
+            </button>
+          </div>
+        </td>
+      </tr>
+      <tr>
+        <th scope="row">vw</th>
+        <td class="value">
+          <div class="value-cell">
+            <span class="value-text" id="result-vw">—</span>
+            <button type="button" class="copy-btn" data-target="result-vw" aria-label="Copy vw value to clipboard">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+              <span class="copy-label">Copy</span>
+            </button>
+          </div>
+        </td>
+      </tr>
+      <tr>
+        <th scope="row">vh</th>
+        <td class="value">
+          <div class="value-cell">
+            <span class="value-text" id="result-vh">—</span>
+            <button type="button" class="copy-btn" data-target="result-vh" aria-label="Copy vh value to clipboard">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+              <span class="copy-label">Copy</span>
+            </button>
+          </div>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p class="note">
+    rem is calculated against root font size. em is calculated against parent font size.
+    vw and vh are calculated against the viewport width and height you enter above, not your actual browser window.
+  </p>
+</div>
+
+<script>
+/* === tool-doc ===
+function: tool-css-unit-converter
+purpose: Converts a value between px, rem, em, vw and vh based on user supplied base font size and viewport dimensions.
+behaviour:
+  - all internal maths is done by first converting the input value to px, then to each target unit
+  - root font size and parent font size are treated as positive px values, defaulting to 16 if invalid or zero
+  - viewport width and height are treated as positive px values, defaulting to 1 if invalid or zero to avoid division by zero
+  - output values are rounded to 4 decimal places for display
+  - each result row has a copy button that copies that row's displayed value (including unit) to the clipboard
+  - copy uses the Clipboard API when available, with a fallback to a temporary hidden textarea and document.execCommand for older browsers
+  - clicking a copy button shows brief "Copied" text/icon feedback on that button, then reverts after 1.5 seconds
+  - no external calls; all computation and copying happen client-side on input events
+inputs: a numeric value with its unit (px, rem, em, vw, vh), plus root font size, parent font size, viewport width and viewport height, all in px
+outputs: a table showing the equivalent value in each of px, rem, em, vw and vh, each with a copy-to-clipboard button
+=== /tool-doc === */
+
+(function () {
+  var inputValue = document.getElementById('input-value');
+  var inputUnit = document.getElementById('input-unit');
+  var rootFontSize = document.getElementById('root-font-size');
+  var parentFontSize = document.getElementById('parent-font-size');
+  var viewportWidth = document.getElementById('viewport-width');
+  var viewportHeight = document.getElementById('viewport-height');
+
+  var outPx = document.getElementById('result-px');
+  var outRem = document.getElementById('result-rem');
+  var outEm = document.getElementById('result-em');
+  var outVw = document.getElementById('result-vw');
+  var outVh = document.getElementById('result-vh');
+
+  function safePositive(el, fallback) {
+    var n = parseFloat(el.value);
+    if (!isFinite(n) || n <= 0) return fallback;
+    return n;
+  }
+
+  function round(n) {
+    return Math.round(n * 10000) / 10000;
+  }
+
+  function convert() {
+    var value = parseFloat(inputValue.value);
+    if (!isFinite(value)) {
+      outPx.textContent = '—';
+      outRem.textContent = '—';
+      outEm.textContent = '—';
+      outVw.textContent = '—';
+      outVh.textContent = '—';
+      return;
+    }
+
+    var unit = inputUnit.value;
+    var root = safePositive(rootFontSize, 16);
+    var parent = safePositive(parentFontSize, 16);
+    var vw = safePositive(viewportWidth, 1);
+    var vh = safePositive(viewportHeight, 1);
+
+    var px;
+    switch (unit) {
+      case 'px':
+        px = value;
+        break;
+      case 'rem':
+        px = value * root;
+        break;
+      case 'em':
+        px = value * parent;
+        break;
+      case 'vw':
+        px = (value / 100) * vw;
+        break;
+      case 'vh':
+        px = (value / 100) * vh;
+        break;
+      default:
+        px = value;
+    }
+
+    var remVal = px / root;
+    var emVal = px / parent;
+    var vwVal = (px / vw) * 100;
+    var vhVal = (px / vh) * 100;
+
+    outPx.textContent = round(px) + 'px';
+    outRem.textContent = round(remVal) + 'rem';
+    outEm.textContent = round(emVal) + 'em';
+    outVw.textContent = round(vwVal) + 'vw';
+    outVh.textContent = round(vhVal) + 'vh';
+  }
+
+  [inputValue, inputUnit, rootFontSize, parentFontSize, viewportWidth, viewportHeight].forEach(function (el) {
+    el.addEventListener('input', convert);
+    el.addEventListener('change', convert);
+  });
+
+  convert();
+
+  function fallbackCopy(text) {
+    var textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.style.position = 'fixed';
+    textarea.style.opacity = '0';
+    textarea.style.left = '-9999px';
+    document.body.appendChild(textarea);
+    textarea.focus();
+    textarea.select();
+    try {
+      document.execCommand('copy');
+    } catch (e) {
+      /* copy failed silently */
+    }
+    document.body.removeChild(textarea);
+  }
+
+  function copyText(text) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).catch(function () {
+        fallbackCopy(text);
+      });
+    } else {
+      fallbackCopy(text);
+    }
+  }
+
+  var copyButtons = document.querySelectorAll('.copy-btn');
+  copyButtons.forEach(function (btn) {
+    var defaultHTML = btn.innerHTML;
+    btn.addEventListener('click', function () {
+      var targetId = btn.getAttribute('data-target');
+      var targetEl = document.getElementById(targetId);
+      if (!targetEl) return;
+      var text = targetEl.textContent;
+      if (!text || text === '—') return;
+
+      copyText(text);
+
+      btn.classList.add('copied');
+      btn.innerHTML = '<span class="copy-label">Copied</span>';
+
+      clearTimeout(btn._copyTimeout);
+      btn._copyTimeout = setTimeout(function () {
+        btn.classList.remove('copied');
+        btn.innerHTML = defaultHTML;
+      }, 1500);
+    });
+  });
+})();
+</script>
