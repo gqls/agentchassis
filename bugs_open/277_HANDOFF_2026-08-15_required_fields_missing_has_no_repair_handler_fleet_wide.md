@@ -113,3 +113,72 @@ born-triaged vs rebuilding the disabled detected-promoter (bugs_open/083) for th
 
 **OPEN** pending the fleet after-state verification (rows drain through the dispatch loop
 over the following hour) + the two owner decisions. The mechanism itself is fixed AND live.
+
+## 2026-08-17 — the churn guard at day 2, and an INDEPENDENT confirmation of the router's central judgement
+
+All measured 2026-08-17 against the live DB; chassis `v1.0.1305` (OCI `revision=6a782274b`,
+verified at the binary with positive and negative controls), which carries the born-`detected`
+producer revert `3c6354059`.
+
+### Churn guard (the +7-day check, 2 of 7 days in) — passing so far
+
+Rows of this type created since the fleet assignment (2026-08-15 14:50Z): **exactly one**
+(2026-08-16 10:02), and it went straight to `needs_human_review` carrying a route. **Zero
+`unresolved`, zero `triaged`, zero unrouted.** Current all-time partition: `complete` 64,
+`needs_human_review` 31, nothing else. Re-check ~08-22 before closing.
+
+### The full chain ran end-to-end on that one new finding
+
+It is worth naming each hop, because this is the first finding to traverse the whole mechanism
+as designed rather than being back-filled by the assignment:
+producer files it born-`detected` (live on the chassis) → `detected-item-promoter` promotes it
+(known-good pair) → `required-fields-missing-handler` routes it (`asset_sourced`) → it parks in
+the review queue carrying its classification.
+
+### An independent mechanism reached the SAME classification on the same rows
+
+`bugs_open/033`'s auto-drain (`revalidate_review_queue_action.go`) has since acquired a
+revalidator for `required_fields_missing` and swept the parked pile at 08:45Z today. It knows
+nothing about this router; it re-evaluates each parked finding against currently-deployed state
+from its own premises. The two agree row-for-row:
+
+| router's route (2026-08-15) | revalidator's verdict (2026-08-17) | rows |
+|---|---|---|
+| `no_content_data` — *"serves from one stored HTML block; regenerating a template section would destroy the page"* | `unknown` — *"component carries no content_data; it renders from another source"* | **29** |
+| `no_plan_owned` — the gas converter, tool pipeline | `unknown` | 1 |
+| `asset_sourced` | `still_holds` — *"at least one reported-missing field is still empty on the deployed component"* | 1 |
+
+**This is the load-bearing measurement of the whole bug, and it could have come out otherwise.**
+277's central design call was that 35 of the 44 findings were not "missing content" at all but
+blob-served pages an automatic repair would have *destroyed* — a judgement made by reading the
+data, and the thing a reviewer would most reasonably doubt. A second mechanism, written by a
+different lane for a different bug, independently declines to judge exactly those rows and gives
+the same reason. It did not have to: a revalidator that disagreed would have returned `resolved`
+on them and auto-closed the lot.
+
+**And the queue is now honest.** Of 31 parked rows, exactly **one** is a live, actionable
+finding — the new one. The other 30 are the two classes a machine must not touch. Before this
+work, all 44 were indistinguishable.
+
+### 56 rows of this type have been auto-closed as `resolved` by that revalidator
+
+`result.revalidation.verdict='resolved'` on 56 rows, reason *"every field this item reports
+missing is populated on the deployed component"* (headline 31, headline+primary_cta 18,
+content+heading 3, features+headline 3). Those closes are safe by construction: every terminal
+status is excluded from `idx_swi_dedup`, so a wrong close releases the dedup key and the
+producer re-raises. Worth stating plainly for anyone reading the counts: **the drop in this
+type's review backlog is mostly 033's work, not this router's.** This router's contribution is
+that the survivors carry their classification.
+
+### Still open before this moves to `bugs_closed/`
+
+1. The churn guard's remaining 5 days (~08-22).
+2. The two cancelled conversions re-raising and parking — no `cancelled` rows of the type remain,
+   so this now depends on discovery rotation re-filing them; if not seen by ~08-22, re-file by
+   hand.
+3. **Watch for the interaction, which nobody designed:** 033's revalidator now writes to rows
+   this router parked. Both write `result`, and the loop's `mark_complete` REPLACES `result` on
+   completed rows (this lane's landmine). Today they compose correctly — `route` and
+   `revalidation` sit side by side in the same object — but that is not guaranteed by anything,
+   and a future writer of either mechanism could clobber the other's evidence. Named so it is a
+   known seam rather than a surprise.
