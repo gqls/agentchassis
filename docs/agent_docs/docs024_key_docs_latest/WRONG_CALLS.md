@@ -33925,3 +33925,23 @@ answer to that question.
   to catch this in seconds. **Tally for "cited a census I ran against a neighbouring symbol": 1.**
   Worth noting what worked: the claim was `grounded_in`, which is what let a reviewer see it was an
   assertion rather than a measurement — the seat could not have caught it from prose.
+- **I filed a 090 diagnosis run and then repaired the state it was about to read — three legs of a
+  TRUE symptom came back "contradicted" because my own fix landed between filing and the
+  diagnoser's queries.** (bugfix-291, 2026-08-17.) Filed at 12:03 asserting "the step config
+  carries no status key … rows flip to blocked"; applied migration 450 (adds the status key) at
+  12:07 and 451 (repairs the 14 blocked rows) at 12:08; the diagnoser read live config and the
+  table from ~12:10. Verdict: core mechanism CONFIRMED (phantom handler, the config route), but
+  the no-status-key leg came back "Contradicted: the config carries an explicit status key" and
+  the blocked-rows leg "a direct query returned zero rows" — both readings CAUSED by my fix, both
+  legs true at filing time, and the run can no longer independently confirm them for anyone who
+  reads it later. The verdict note now looks like it refutes the bug file's central mechanism.
+  **The cheap check:** *a diagnosis run reads state at RUN time, not filing time — either let it
+  complete before you mutate what it will read, or say in the symptom what you have already
+  changed and when.* The fix half-cost nothing to delay by twenty minutes; I sequenced by my own
+  plan's phase order instead of by the instrument's clock. Same family as "pin the clock to
+  BEFORE the failure" (a clone's inherited thresholds) — this is the write-side version: your own
+  repair is a state change like any other, and an instrument you have already armed will read the
+  world after it. **Tally for "mutated the state a filed instrument was about to measure": 1.**
+  What worked: the first-hand pre-fix measurements were already in the bug file and NOTES with
+  timestamps, so the contaminated legs still have dated evidence — which is the only reason the
+  record survives the run's misleading "contradicted" lines.
