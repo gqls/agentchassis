@@ -182,3 +182,72 @@ that the survivors carry their classification.
    `revalidation` sit side by side in the same object — but that is not guaranteed by anything,
    and a future writer of either mechanism could clobber the other's evidence. Named so it is a
    known seam rather than a surprise.
+
+## COUNCIL APPROVED — trail `7b0e2833`, round 5, 2026-08-17 12:42Z
+
+After four REVISE rounds on 2026-08-15, the trail closes **APPROVED**: 9 seats in favour, 5
+abstained, not truncated, 3 advisory objections, none high. The seats that had blocked it are
+among the approvers — **`editquality`**, which gated round 4 at HIGH on "a no-op dressed as an
+edit"; **`improvement_guardian`**, whose HIGH objection to the born-`triaged` producer ran through
+rounds 3 and 4; and **`architecture`** and **`reuse_agent`**, who had objected on the router
+proliferation.
+
+**Why this round worked where a citation round would not have.** It carried exactly **one** edit —
+commit `3c6354059`, `Status: "triaged"` → `"detected"` — committed 2026-08-15 **18:16Z against
+round 4's verdict at 14:41Z**, i.e. 3h35m later, so no round of this trail had ever judged the
+file in its current state. Everything else that shipped since (seed 430, migration 444, the
+register and bug-file records) was cited as evidence and deliberately kept **out** of the edit
+list, because listing already-committed work as pending edits is precisely what gated round 4.
+`improvement_guardian`'s objection was answered by code in production rather than by argument.
+
+### The advisories, and the one that mattered
+
+**`guardian` (MEDIUM) — the objection worth taking seriously, because its failure mode is this
+lane's worst case.** It could not read `scheduled_tasks` from its seat, so it flagged: *"if the
+promoter's scope doesn't cover this item_type, reverting to born-`detected` silently reproduces
+the exact stranding this trail was fixing."* Checked predicate by predicate against the live row:
+
+| the promoter's gate | value for `(required_fields_missing, required-fields-missing-handler)` |
+|---|---|
+| handler is a live active agent definition | **1** |
+| pair has ≥1 lifetime `complete` | **14** |
+| pipeline is in `444`'s allow-list | `content` ∈ `(build, content, design)` — **yes** |
+| pair passes `444`'s 25% success floor | **yes** |
+
+> ⚠ **The third row was the one worth checking on myself, not for the seat.** Migration `444` is
+> this lane's own door-closer, and had this producer filed with `experience` or `maintenance` — both
+> real pipeline values on this table — **my allow-list would have silently stranded the very
+> findings this bug exists to route.** It files `Pipeline: "content"`
+> (`check_required_fields_missing.go:163`), which is inside the list. An action that silences the
+> detector it was written to protect is a documented failure family; this one came out clean, but
+> only because it was measured rather than assumed.
+
+**End-to-end proof, one row, which refutes the feared failure mode directly.** The only finding
+born since the revert went live:
+
+```
+b2f1c7d4  born 2026-08-16 10:02 at status='detected'   (producer, born-detected, live on v1.0.1305)
+          promoted 10:44:44 — 42 minutes, ~3 promoter ticks
+          spec.original_pipeline='content' stamped, pipeline rewritten to 'build'
+          routed by required-fields-missing-handler -> route='asset_sourced'
+          parked at needs_human_review carrying its classification
+```
+
+It did not strand. It moved in 42 minutes, through every hop of the mechanism this trail is about.
+
+**`prior_art_librarian` (MEDIUM)** flagged that it could not verify my claim that *this seat* had
+approved the identical "sole live carrier" premise at corr `05a3d1c8`. The claim was accurate and
+is checkable at the artefact: that report's approver list is `editquality, reuse_agent, guidelines,
+tooling_provenance, diagnosis_guardian, improvement_guardian, render_guardian, debug_historian,
+constitution, mission, **prior_art_librarian**, architecture` — 12 seats, 2026-08-17 11:27Z.
+
+**`bug_historian` (MEDIUM)** re-raised the convert arms, and explicitly credited the plan for
+naming it: *"the plan's own risk 2 names this and defers to the owner rather than gating it —
+which is honest, but it means this round is being asked to approve closing a trail whose central
+unexercised mechanism sits squarely inside a pattern that has burned this platform at least twice
+before … with no fail-loud guard shipped alongside it."* **That is not closed and must not be read
+as closed by this approval.** It is owner decision 1 in `README_where_we_are.md`, and a second
+council seat has now independently said the arms want a guard.
+
+**Trailers:** the work went out with `Council-Submitted: 7b0e2833-…`, which `098` resolves to this
+approval at report time. No amend (forward-only).
