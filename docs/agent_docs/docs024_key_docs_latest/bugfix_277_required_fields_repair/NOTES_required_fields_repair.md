@@ -255,3 +255,77 @@ favourable, recorded in bugs_open/083 (pipeline provenance 97/2/1 all rewritten 
 original promoter did; no diagnose/report ever at detected; reapers key on claimed_at; two
 sibling born-triaged producers named). Not resubmitted this session — token load; round 2 is
 the first item in the HANDOFF.
+
+## 2026-08-17 ~11:00–12:15Z — fresh chassis v1.0.1305 verified; 083 criterion 3 met; two corrections; migration 444 applied
+
+**Chassis, verified at the artefact rather than the tag.** `v1.0.1305`, 2 pods (was 9). The
+`build provenance` startup line had already scrolled — absent from `--tail=100000` on both
+pods — so the log route is dead for this service, as LANDMINES predicts. Read the OCI label
+instead: `docker image inspect … --format '{{index .Config.Labels
+"org.opencontainers.image.revision"}}'` → **`6a782274b`**. Confirmed at the running binary with
+both controls in one exec: the label sha PRESENT in `/proc/1/exe`; live HEAD `896c5aeeb` (a
+real but different commit) ABSENT. `git merge-base --is-ancestor 3c6354059 6a782274b` → 0, so
+the born-`detected` producer revert is live. Nothing in this lane was waiting on the roll —
+the only Go dependency shipped at v1.0.1303 — but it is now checkable rather than assumed.
+
+**§1 re-measured, and one of the numbers meant the opposite of what it looked like.** The
+`detected` pile read **82**, against 4 the day before. Not a regression: 77 of the 82 are
+flag-only rows with NO `handler_agent`, which this promoter's first predicate can never touch,
+and 40 of those were deliberately restored to `detected` by the concurrent `bugs_closed/284`
+lane (migration `442`, ledger-recorded 11:02Z today — i.e. *while I was measuring*). Promotable
+pile = **0**; the 5 handler-bearing rows are two never-completed pairs held for a hand canary.
+**Misstep:** my first reading of the pile assumed the 36 `head_essentials_missing` were "a new
+type held for canary". They are not held — they are ineligible, for a different reason. Reading
+`handler_agent` on the breakdown is what separated the two. This is why 083's criterion 1 has
+been restated in the bug file: the raw `count(*) WHERE status='detected'` conflates two
+populations with opposite meanings and will now climb for ever with normal discovery.
+
+**Council round 1 (`05a3d1c8`) re-read from the artefact, not from yesterday's summary.**
+Gating objection was `prior_art_librarian` HIGH on the "sole live carrier" premise; five more
+seats objected at medium/low. Re-measured every one today (all in the round-2 submission's
+`grounded_in`). One of yesterday's answers was **over-broad and is corrected**: the note said
+*"every enabled reaper pre_query keys on `claimed_at`"* — false fleet-wide, since
+`thunder-reaper` mentions `created_at` and `stale-orchestration-reaper` / `stuck-task-reaper`
+key on neither. The defensible claim, which is the one that answers the objection, is narrower:
+**of the 10 enabled tasks whose pre_query touches `site_work_items`, the three that can reap or
+time out an item (`claimed-item-timeout`, `stale-work-item-reaper`, `report-dispatch`) all key
+on `claimed_at`, and none on `created_at`.**
+
+**Guardian's "confirm the Go diff didn't touch the per-pass cap" answered with the diff
+itself:** `3c6354059` is 1 file, +8/−5, entirely one `WorkItemSpec` field flip
+(`Status: "triaged"` → `"detected"`) plus its comment. Nothing near the early-return logic.
+
+**The counterfactual that could not have come out otherwise (misstep, and the session's real
+finding).** To size the "known-good rule is too weak" risk I computed each pair's record at its
+promotion instant, keyed on `completed_at < triaged_at`. Every one of 17 pairs came back
+**100% success, zero failures** — which I did not believe, because a real fleet of handlers
+does not look like that. Cause: **`failed` rows never get `completed_at`** (0 of 265; control
+run in the same breath). Re-keyed on `updated_at`, the truth appeared:
+`literal_markdown → page-build-handler` was at **1 complete / 28 failed = 3%** when the promoter
+promoted 6 more to it, 5 of which failed. That is 430's own submitted risk 2, fired. Now a
+LANDMINE and a WRONG_CALLS entry.
+
+**Migration `444` applied 2026-08-17, ledger-recorded, with a separate `_ROLLBACK.sql`** (the
+last answering `debug_historian`'s LOW objection directly). Two predicates added to the
+candidates CTE; `430` untouched because it is ledger-recorded. (1) pipeline **allow-list**
+`IN ('build','content','design')` — deliberately not the `NOT IN ('diagnose','report')`
+deny-list the objection implied, because [MEASURED] `report` does not exist on this table (0
+rows) while `experience` (7) and `maintenance` (1) do, so the deny-list names one value that
+cannot fire and misses two that can. (2) a **25% success floor** for pairs with ≥5 terminal
+outcomes; threshold set by the census gap (3%, then 41, 42, 46, 50, 67, …), not chosen. Dry-run
+first, read-only, with both controls in one run: `literal_markdown` fails the floor, `page_rerender`
+(4017/21) passes. At apply both doors held **0 rows** and the verify block's positive control
+(the floor must be *able* to hold something, else "holds 0" is vacuous) passed.
+
+**083 criterion 3 MET — and a fetch artefact nearly made it a false negative.** Four promoted
++completed rows on `mortgagecalculator.co.uk` verified at the served page. First attempt: all
+four **404**. The control — fetching the site root, 200 and 37 KB — showed the instrument and
+the domain were fine, and the rows store `/guides/index.html` while I had requested `/guides/`.
+At the exact stored URLs: 200 on all four, 1,426–2,641 visible characters, real on-topic h1s.
+Second instrument: `page.updated_at` moved **5–42 seconds BEFORE** each item was closed, in all
+four — the causal order real work leaves behind.
+
+**Criterion 2 was already met before the fix existed** (7 completes, all 2026-08-09..11, all via
+the *original* promoter). Yesterday's block and the day before's both said it was still waiting.
+Corrected in the bug file and logged in WRONG_CALLS; it is satisfied on its wording but is not
+evidence about candidate 2.

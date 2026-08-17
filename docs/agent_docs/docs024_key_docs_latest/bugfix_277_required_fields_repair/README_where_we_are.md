@@ -60,3 +60,70 @@ own rules means they are yours to settle, not mine to argue again:
    12th are its siblings). Several reviewers want one shared engine instead of a growing
    family. I filed that as RFC_030 with the case for doing it as a consolidation of all
    three; it needs a decision on whether and when to schedule it.
+
+---
+
+## 2026-08-17, late morning — the promoter was letting one broken handler waste work, and we caught it by not believing a graph
+
+The fresh build you deployed is `v1.0.1305`. I checked it properly rather than trusting the
+version number: the image itself records which commit it was built from, and I confirmed that
+same commit is inside the running program, using a second commit that had to come back *absent*
+as a control. It carries the change this lane was waiting on. Nothing here was blocked on it.
+
+Then I re-measured everything before acting on it, and two of the numbers turned out to mean
+the opposite of what they looked like.
+
+**The queue looked like it had refilled.** The count of unclaimed findings had gone from 4 to
+82 overnight, which reads like the new promoter had stalled. It hadn't. Seventy-seven of those
+82 are a kind of finding that deliberately has no handler attached — they are flags for a human
+to read, and sitting in that queue is where they are *supposed* to live. Forty of them were put
+back there on purpose this morning by another session working a neighbouring bug. Once you
+count only the findings that actually have a handler, the number is five, and all five are the
+promoter correctly refusing to act until a person has run one by hand. So the mechanism is fine
+— but the *measurement* we had written down for judging it was not, because it lumped together
+two groups that mean opposite things. I've rewritten that test in the bug file so the next
+person isn't misled the way I nearly was.
+
+**The promoter was, however, doing something genuinely wrong.** When we built it we wrote down a
+risk: it decides a handler is trustworthy if that handler has ever succeeded at that kind of
+job even once. We flagged that as thin at the time. It has now bitten. One handler had
+succeeded once and failed twenty-eight times, and the promoter — seeing the one success — kept
+handing it more work: six items, five of which failed. That is not a disaster, but it is
+wasted machine time and a queue full of failures that look like new problems.
+
+I've closed that door. A handler now has to be succeeding at least a quarter of the time before
+the promoter will feed it, and only once it has a real track record — so a brand-new handler
+still gets its careful first run, exactly as before. I did not pick the "quarter" out of the
+air: I listed every handler's success rate, and there is a clean gap in the data — one handler
+at 3%, and the next worst at 41%. Anywhere between those two isolates the broken one and
+touches nothing else. As it stands the new rule blocks nothing at all today; it is a door, not
+a repair.
+
+**The part worth telling you about is how nearly we missed it.** My first attempt to measure
+handler reliability said every single handler had a 100% success rate. That is obviously too
+good, which is the only reason I looked again. The cause was a genuine trap in the database:
+failed jobs never record a "finished at" time, only successful ones do — so a query that asks
+"how did this handler do before now?" using that timestamp silently counts *zero failures for
+everybody*. It doesn't error, it doesn't come back empty; it comes back as a clean, uniformly
+excellent table. I've written that up as a warning other sessions will see automatically before
+they touch the same column, because it would flatter any handler-reliability report we ever run.
+
+**The other thing I want to correct on the record.** One of the three tests we set for declaring
+this bug fixed was already passed six days before we built the fix — and both of the last two
+updates said it was still pending, because nobody re-checked it, they just copied it forward. If
+I'd re-measured a day later I would probably have written it up as proof our fix worked. It
+isn't; it was the *old* mechanism, run by hand back in July. The fix is still well-evidenced —
+I verified four repaired pages by actually loading them in a browser and reading them, and in
+every case the page was written seconds *before* the job was marked done, which is the
+fingerprint of real work — but that particular test proves nothing about it and I've said so in
+the bug file rather than quietly banking it.
+
+(Small thing, same theme: my first attempt to load those four pages returned "not found" on all
+four, which looked briefly like the repairs had never reached the live site. It was my own
+mistake in how I typed the addresses. Loading the site's front page first — which worked
+fine — is what told me the problem was my question, not the site.)
+
+**Where that leaves things.** The repair router and the promoter are both live and behaving.
+The promoter now has both door-closers the review round asked for, plus the one it needed and
+nobody asked for. Next: the review round itself, which I'm submitting now with all of this as
+evidence.

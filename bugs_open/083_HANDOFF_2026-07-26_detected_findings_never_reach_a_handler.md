@@ -671,3 +671,125 @@ carries `3c6354059`; `check_required_fields_missing.go` files born-`detected` ag
   the Go action is site-scoped and workflow-embedded (needs an orchestration per site per tick);
   the SQL mirror is the estate's own SCH-006 pattern for exactly this shape. Worth stating in
   round 2, not conceding.
+
+## 2026-08-17 — criterion 3 MET; criteria 1 and 2 CORRECTED; and the promoter's own risk 2 fired
+
+Measured by the `bugfix_277_required_fields_repair` lane against chassis `v1.0.1305`
+(OCI `revision=6a782274b`, positive+negative binary controls both behaved). Everything
+below is a fresh query, not a figure carried forward — two of the three corrections exist
+precisely because the previous block carried figures forward.
+
+### VERIFY CRITERION 3 — MET (4 of 4 verified at the served page)
+
+Sampled four promoted-and-completed rows on `mortgagecalculator.co.uk`, all promoted by
+**this** promoter (they carry `spec.original_pipeline` with `triaged_at` after apply):
+
+| item_type | page | page `updated_at` | item `completed_at` | live |
+|---|---|---|---|---|
+| `tone_shift` | `/guides/missed-payments/index.html` | 10:37:33 | 10:37:38 | 200, 2,009 visible chars, h1 *"A missed payment doesn't rule you out"* |
+| `content_rewrite` | `/investor/index.html` | 10:33:12 | 10:33:54 | 200, 2,641 chars, h1 *"Buy-to-Let Investor Dashboard"* |
+| `needs_content_page` | `/contact/index.html` | 10:27:45 | 10:27:57 | 200, 1,426 chars, h1 *"Something not quite add up…"* |
+| `needs_content_page` | `/guides/index.html` | 10:24:04 | 10:24:14 | 200, 1,981 chars, h1 *"Guides to help you decide"* |
+
+Two independent instruments agree, and each could have come out otherwise. (a) The page was
+written **5–42 seconds BEFORE** the item was closed, in all four cases — the causal order a
+real handler produces; a row marked `complete` without work would leave `page.updated_at` at
+some unrelated earlier time. (b) The pages serve real, on-topic prose. The two
+`needs_content_page` rows are the strongest: those pages exist **at all** only because the
+handler built them.
+
+> ⚠ **Method trap, recorded because it nearly produced a false finding.** The first fetch of
+> all four URLs returned **404**, which reads exactly like "the work never reached the page".
+> It was my own artefact: the rows store `/guides/index.html` and this site does not serve the
+> trailing-slash form. The control that caught it was fetching the site ROOT (200, 37 KB) —
+> proving the instrument worked and the domain was live — after which re-fetching the **exact
+> stored URL** returned 200 on all four. Fetch the URL the row actually names; and when a
+> whole sample 404s, suspect the request before the subject.
+
+### CRITERION 2 — met, but NOT by this fix, and it is not discriminating evidence
+
+Criterion 2 asks that `phantom_internal_link` reach a non-zero `complete` count *for the first
+time*. It has **7** — and every one of them completed **2026-08-09 to 2026-08-11**, before this
+promoter was built on 2026-08-15. All 7 carry `original_pipeline`, so they were promoted by the
+*original* `TriageDetectedItemsAction` path (the hand-run recorded in this file's 2026-07-29
+section), not by candidate 2.
+
+> **CORRECTED 2026-08-17:** the 2026-08-15 block stated *"criterion 2 … waits for the next
+> re-raise"* and the 2026-08-16 block repeated it. Both were false when written — the count had
+> been non-zero for six days. The criterion was authored 2026-07-26 when it was genuinely zero,
+> and carried forward twice without re-measuring. **What caught it:** querying the completion
+> DATES rather than the count. The cheap check that would have: `SELECT status, count(*),
+> max(completed_at) FROM site_work_items WHERE item_type='phantom_internal_link' GROUP BY 1`.
+> Logged in WRONG_CALLS. **Consequence for closing this bug:** criterion 2 is satisfied on its
+> literal wording but proves nothing about candidate 2 — do not cite it as evidence the new
+> promoter works. Criteria 1 and 3 carry that weight.
+
+### CRITERION 1 — the meter is now wrong, and would read "failing" for ever
+
+`SELECT count(*) FROM site_work_items WHERE status='detected'` is **82** today, up from the 4
+recorded yesterday. That is not a regression. Partitioned:
+
+```
+flag-only, NO handler_agent (promoter can never touch these)   77   (image_url_404 41, head_essentials_missing 36)
+has a handler                                                   5   (page_component_status_drift 4, placeholder_contact 1)
+of those, pairs that pass the known-good rule                   0
+```
+
+The 77 are findings whose producers **deliberately file no handler**, and `detected` is where
+they belong permanently — 40 of them were restored to that state on purpose by the concurrent
+`bugs_closed/284` lane's migration `442`, and its migration `443` now enforces the invariant
+with `CHECK swi_no_handlerless_promotable`. The remaining 5 are the promoter correctly holding
+two never-completed pairs for a hand canary. **So the promoter has zero promotable work and is
+behaving exactly as designed, while the criterion-1 meter reads 82 and climbing.**
+
+> **CORRECTED 2026-08-17 — restate criterion 1 as:** *the count of `detected` rows that have a
+> `handler_agent` whose pair passes the known-good rule falls and stays at or near zero.*
+> The raw count conflates two populations with opposite meanings and will now grow with normal
+> flag-only discovery for ever. [MEASURED] promotable pile = **0**.
+> `443`'s CHECK constraint is also a hard backstop *behind* this promoter's handler predicate:
+> a future promoter bug that promoted a handler-less row would abort the tick loudly rather
+> than misroute silently.
+
+### The promoter's OWN risk 2 fired — and is now closed by migration `444`
+
+430's submitted risk 2 read: *"the known-good rule trusts ONE lifetime complete per pair; a pair
+whose only complete was a false success qualifies."* It fired. Of **85** rows promoted since
+apply, **19 ended `failed`**. The counterfactual — each pair's record **as it stood at the
+instant of its promotion**:
+
+| pair | complete / failed at promotion | promoted | ended failed |
+|---|---|---|---|
+| `literal_markdown → page-build-handler` | 1 / 28 = **3%** | 6 | **5** |
+| `audit_tool → tool-auditor` | 18 / 21 = 46% | 12 | 8 |
+| `phantom_internal_link → page-build-handler` | 7 / 8 = 47% | 2 | 2 |
+| every other pair | ≥ 60% | — | 4 |
+
+`literal_markdown` cleared the gate on **one** lifetime success against 28 failures, and the
+promoter then fed it six more. **Migration `444`** (applied and ledger-recorded 2026-08-17,
+with a separate `_ROLLBACK.sql`) adds two predicates to the candidates CTE — `430` is
+ledger-recorded and was not edited:
+
+1. **pipeline allow-list** `wi.pipeline IN ('build','content','design')` — the council's
+   pipeline objection. An allow-list, not the deny-list the objection implied, because
+   [MEASURED] `report` does not exist on this table at all (0 rows) while `experience` (7) and
+   `maintenance` (1) do: a `NOT IN ('diagnose','report')` deny-list names one value that cannot
+   fire and misses two that can. Lifetime promotions across both implementations (n=1562) are
+   build 1055 / design 310 / content 197 — zero diagnose, zero report.
+2. **success floor** — a pair with ≥5 terminal outcomes must still be succeeding at ≥25%.
+   The threshold is set by the census, not chosen: the 28 pairs holding ≥1 complete run
+   3%, then 41, 42, 46, 50, 67, 79, … so any floor in 10–35% isolates the single pathological
+   pair and touches nothing else. The <5-terminal exemption keeps the canary path intact.
+
+Both doors hold **0 rows today** — they are doors, not repairs. The migration's verify block
+carries a **positive control** (`literal_markdown` must fail the floor, else the predicate is
+inert and the "holds 0" assert is vacuous) and a **negative control** (`page_rerender`,
+4017/21, must pass); both came out the required opposite ways at apply.
+
+**The 41–47% pairs are deliberately NOT addressed here.** "Is `page-build-handler` defective for
+`literal_markdown` and `phantom_internal_link`?" is a different bug from "should the promoter
+keep feeding a pair that has stopped working", and bundling them is the shape the guardian seat
+has objected to repeatedly. Named so the silence reads as a decision.
+
+**Status: unchanged — FIX LIVE, bug OPEN.** Criterion 1 holds under its corrected wording,
+criterion 3 is met, criterion 2 is met but non-discriminating. Remaining: let `444`'s doors sit
+long enough to show they hold nothing they should not.
