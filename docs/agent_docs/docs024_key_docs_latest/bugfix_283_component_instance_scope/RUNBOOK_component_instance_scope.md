@@ -255,3 +255,33 @@ grep -o ' id="[^"]*"\| on[a-z]*="[^"]*"\|window\.onload[^;]*\|for="[^"]*"' /tmp/
 `onclick="runCalc()"`, one `window.onload = runCalc`. **58 of the 91 rows also carry
 `<label for=>` and 33 reference an id from CSS — neither throws when the id underneath is
 renamed**, so an id-only sweep breaks labels and styling on live pages with no error anywhere.
+
+## 11. Classify the 91 with the REAL detector, not with regexes
+
+```bash
+kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -t -A -c "
+  SELECT json_agg(json_build_object('id', x.id, 'function', x.function, 'tpl', x.html_template))
+  FROM (SELECT DISTINCT c.id::text AS id, c.function, c.html_template
+        FROM content_components c JOIN page_components pc ON pc.component_id=c.id
+             JOIN pages p ON p.id=pc.page_id JOIN sites s ON s.id=p.site_id
+        WHERE c.is_active AND c.html_template ~ 'getElementById') x;" > /tmp/templates.json
+go run ./cmd/instanceaudit /tmp/templates.json --list
+```
+
+**Baseline 2026-08-17** — 91 templates: **3** already scoped, **88** declaring into global scope,
+**8** assigning `window.onload`, and **91 of 91** producing duplicate ids when doubled (1,345 in
+total). Worst single component: `tool-idea-viability-scorecard`, **79** colliding ids.
+
+⚠ **Do not size this job with regexes.** Three patterns (`window.onload`, inline `on*=`, a
+`function` keyword near the top of a script) flagged **24** and the real classifier says **88** —
+the 64 they missed declare globals in spellings the patterns did not search for. The estimate was
+wrong in the direction that made the job look easy, which is the direction that gets a plan
+approved. Full account: `RFC_034` §3a.
+
+⚠ **`instanceaudit` reads a FILE and touches no database.** That is deliberate: point it at a
+converter's OUTPUT to check the work, not only at its input. It refuses an empty export rather than
+reporting a clean fleet over one (`exit 2`) — induced and verified.
+
+⚠ **Two independent counts agree, which is why the number is trustworthy**: the Go detector reports
+1,345 duplicate ids when each template is doubled; an unrelated SQL regex census counts 1,346
+literal `id=` attributes. Different code paths, agreeing within one.

@@ -92,6 +92,37 @@ not safely mechanical.
 that handles ids and `getElementById` but forgets these ships pages whose labels no longer focus
 their input and whose component-specific styling silently stops applying — on 94 live pages.
 
+### 3a. ⚠ CORRECTION 2026-08-17 — the split above is REGEX TRIAGE, and it was wrong in the direction that made the job look easy
+
+An earlier version of §4 said the script half was *"the ~30 rows whose scripts need judgement"*,
+derived from three regexes (`window.onload`, inline `on*=`, a `function` keyword near the top of a
+script). **That number does not survive contact with the real classifier.**
+
+`DetectInstanceCollisions` — the detector this lane already built, and the one that will gate
+acceptance — was run over all 91 live templates
+(`cmd/instanceaudit`, one-off, reads the templates and calls the production function):
+
+| | rows |
+|---|---|
+| script bodies **already scoped** (0 unscoped inline scripts) | **3** |
+| **declare into global scope** (≥1 unscoped) | **88** |
+| of those, also assign `window.onload` | 8 |
+| **would produce duplicate ids if placed twice** | **91 — every one** |
+| total duplicate ids across all 91, doubled | **1,345** |
+
+So the script work is not a minority tail: **88 of 91 need it.** The regex triage found 24 because
+it searched for three specific old-fashioned spellings; the other 64 declare globals in ways it did
+not look for.
+
+Two notes on trusting this number rather than the regexes:
+
+- **It is the same classifier that will accept or reject each conversion**, so its verdict is the
+  operative one even where a hand-reading might disagree. The detector's own docstring says it errs
+  toward *reporting* — a script wrapped in a form it does not recognise reads as unscoped — which
+  makes 88 a ceiling on "needs work" and, more usefully, a floor on "must satisfy the gate".
+- **It corroborates the independent SQL census**: 1,345 duplicate ids by the Go detector against
+  1,346 literal `id=` attributes counted in SQL — two different code paths, agreeing within one.
+
 ## 4. The decision the owner needs to make
 
 Not *whether* — 283's defect is real and the owner already ruled that reuse should be a genuine
@@ -100,22 +131,30 @@ property of the platform. The question is **shape**, and there are three candida
 **A. Deterministic converter as a new `fix_component_template` fix_type.** Reuses live machinery —
 that action already rewrites `content_components.html_template` (`repair_template_slots`) and
 already routes through the work-item/dispatch loop. Auditable, idempotent, re-runnable, and every
-conversion is a reviewable diff. Cost: the script half (21 + 22 + 8 rows) is not safely regex-able,
-so this converts the mechanical surfaces and **parks the rest for human or LLM handling**, which
-by §2.1 means those components must not be half-converted at all.
+conversion is a reviewable diff. ⚠ **Post-correction, this finishes 3 of 91 components.** The other
+88 declare into global scope, and §2.1 forbids shipping them half-converted — so on its own this
+option converts the names on 88 rows that must then sit unshipped until something does their
+scripts. It is a *component* of the answer, not an answer.
 
 **B. LLM rewrite per component**, through the component-creator/tool-improver path. Handles the
-script half, which A cannot. ⚠ **This is the truncation class**: `bugs_open/012` saw a 10,272-char
-component saved back as 1,253 chars, reported as success. Any LLM rewrite of 91 templates needs a
-byte-level structural check on every result, and `output_tokens == max_tokens` means CUT.
+script half, which A cannot, and post-correction that is 88 of 91 rows rather than a tail. ⚠ **This
+is the truncation class**: `bugs_open/012` saw a 10,272-char component saved back as 1,253 chars,
+reported as success. An LLM rewrite of 91 templates needs a byte-level structural check on every
+result, and `output_tokens == max_tokens` means CUT. It also rewrites 1,207,640 bytes of working
+production markup to fix a scoping problem, which is a wide blast radius for a narrow defect.
 
-**C. Hybrid — A for the mechanical surfaces, B for the ~30 rows whose scripts need judgement**,
-with the detector as the acceptance gate for both and nothing shipped half-converted.
+**C. Hybrid — A for the mechanical surfaces, B for the script half**, one component at a time, with
+`DetectInstanceCollisions` as the accept/reject gate for both halves and nothing shipped
+half-converted.
 
-**My recommendation is C**, sequenced per component rather than per surface, with
-`DetectInstanceCollisions` run against the assembled page as the accept/reject gate. But the
-sequencing question is the owner's, because it decides whether 94 live pages change over days or
-weeks.
+**My recommendation is still C, and the correction strengthens rather than weakens it** — but the
+balance inside C has shifted a long way toward B, and that is the thing to be clear-eyed about.
+Before the measurement, C looked like "a program does most of it, an LLM mops up ~30". It is
+actually "a program does the names on all 91 reliably, and an LLM must touch 88 scripts". If that
+LLM exposure is unacceptable, the honest alternative is **not** option A — it is to narrow the
+*scope*: convert only the components someone actually wants to place twice, and leave the rest
+literal. That is 283's original candidate B, which the owner declined on 2026-08-15 for good
+reasons, but it is the only shape that avoids rewriting 88 working scripts.
 
 ## 5. What must be decided WITH the shape, not after it
 

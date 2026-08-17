@@ -227,3 +227,38 @@ meets it there rather than on a shipped page.
 `RFC_034` filed; nothing converted. The shape question (deterministic fix_type vs LLM rewrite vs
 hybrid) is the owner's, and it decides whether 94 live pages change over days or weeks. Building a
 converter before that decision would be building for a shape that may not be chosen.
+
+### MISSTEP 6 — I sized the job with three regexes and was about to publish "~30 of 91"
+
+Asked to choose a conversion shape, I triaged the 91 templates with three patterns —
+`window.onload`, inline `on*=`, and a `function` keyword within the first 200 characters of a
+`<script>`. That gave **24 need judgement, 67 mechanical**, and I wrote "the ~30 rows whose scripts
+need judgement" into `RFC_034` §4 as the basis of the recommended option.
+
+**The real classifier says 88 of 91.**
+
+What caught it, before the owner acted on it: the triage query's own last line said all 67
+"mechanical" rows still contained an inline `<script>`. A component with inline JavaScript and *no*
+scoping problem is possible but unusual, and 67 of them was not credible. **Two numbers I had put
+side by side did not fit together, and following that rather than picking one was the whole catch.**
+
+The fix was not a better regex. `DetectInstanceCollisions` — the detector this lane built in
+session 1, which parses script bodies and which will gate every conversion — had never been run
+over the live corpus, only against test fixtures. `cmd/instanceaudit` now does exactly that:
+
+| | rows |
+|---|---|
+| already scoped | **3** |
+| declare into global scope | **88** |
+| assign `window.onload` | 8 |
+| duplicate ids if doubled | **91 of 91**, 1,345 ids total |
+
+**The general form, and it is the sharpest version of this lane's recurring lesson:** a
+hand-written triage is a *second implementation* of a judgement the estate already implements. It
+will disagree with the real one, silently, and in whichever direction its author's patterns happen
+to lean — here, the direction that made the plan look cheap and got it as far as a filed RFC.
+**When the acceptance gate already exists, size the work with the gate.**
+
+Corroboration worth noting because it was free: the detector counts 1,345 duplicate ids when each
+template is doubled; the independent SQL census counts 1,346 literal `id=` attributes. Two code
+paths, agreeing within one — neither was written to check the other.
