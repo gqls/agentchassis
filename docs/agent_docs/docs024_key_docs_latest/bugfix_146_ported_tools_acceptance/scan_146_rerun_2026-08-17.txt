@@ -1,0 +1,123 @@
+clause extracted: 6118 chars, cutCount x5
+
+FLAG https://webdesign.co.uk/tools/smooth-shadow/index.html
+     {"over": 293, "clipped": false, "cutCount": 0, "culprit": "section (330px)", "selector": "section", "component": "section", "slot": "", "located": false, "inTool": false, "forcedBy": "", "forcedReason": "flex row does not wrap (flex-wrap:nowrap) \u2014 allow wrapping or set min-width:0 on the items"}
+FLAG https://webdesign.co.uk/tools/recommender-engine/index.html
+     {"over": 196, "clipped": false, "cutCount": 0, "culprit": "h3 (565px)", "selector": "h3", "component": "section", "slot": "", "located": false, "inTool": false, "forcedBy": "", "forcedReason": "fixed width: 565px \u2014 use a relative width (max-width:100%)"}
+FLAG https://webdesign.co.uk/tools/layout-generator/index.html
+     {"over": 119, "clipped": false, "cutCount": 0, "culprit": "div (488px)", "selector": "div", "component": "ported-page", "slot": "", "located": false, "inTool": false, "forcedBy": "input#sideWidth", "forcedReason": "fixed width: 438px \u2014 use a relative width (max-width:100%)"}
+FLAG https://webdesign.co.uk/tools/css-variables/index.html
+     {"over": 95, "clipped": false, "cutCount": 0, "culprit": "div.section-box (464px)", "selector": "div.section-box", "component": "ported-page", "slot": "", "located": false, "inTool": false, "forcedBy": "h3", "forcedReason": "fixed width: 414px \u2014 use a relative width (max-width:100%)"}
+FLAG https://webdesign.co.uk/tools/social-card/index.html
+     {"over": 87, "clipped": false, "cutCount": 0, "culprit": "strong (455px)", "selector": "strong", "component": "ported-page", "slot": "", "located": false, "inTool": false, "forcedBy": "", "forcedReason": "fixed width: 455px \u2014 use a relative width (max-width:100%)"}
+FLAG https://webdesign.co.uk/tools/blob-maker/index.html
+     {"over": 33, "clipped": false, "cutCount": 0, "culprit": "div (402px)", "selector": "div", "component": "ported-page", "slot": "", "located": false, "inTool": false, "forcedBy": "input#complexity", "forcedReason": "fixed width: 352px \u2014 use a relative width (max-width:100%)"}
+FLAG https://webdesign.co.uk/tools/vibe-equalizer/index.html
+     {"over": 361, "clipped": false, "cutCount": 0, "culprit": "div#preview-card.card (380px)", "selector": "div#preview-card.card", "component": "ported-page", "slot": "", "located": false, "inTool": false, "forcedBy": "div.card-img", "forcedReason": "fixed width: 324px \u2014 use a relative width (max-width:100%)"}
+
+=== 0 clean · 7 FLAGGED · 0 errors ===
+
+FLAGGED https://webdesign.co.uk/tools/smooth-shadow/index.html
+{
+  "over": 293,
+  "clipped": false,
+  "cutCount": 0,
+  "culprit": "section (330px)",
+  "selector": "section",
+  "component": "section",
+  "slot": "",
+  "located": false,
+  "inTool": false,
+  "forcedBy": "",
+  "forcedReason": "flex row does not wrap (flex-wrap:nowrap) \u2014 allow wrapping or set min-width:0 on the items"
+}
+
+FLAGGED https://webdesign.co.uk/tools/recommender-engine/index.html
+{
+  "over": 196,
+  "clipped": false,
+  "cutCount": 0,
+  "culprit": "h3 (565px)",
+  "selector": "h3",
+  "component": "section",
+  "slot": "",
+  "located": false,
+  "inTool": false,
+  "forcedBy": "",
+  "forcedReason": "fixed width: 565px \u2014 use a relative width (max-width:100%)"
+}
+
+FLAGGED https://webdesign.co.uk/tools/layout-generator/index.html
+{
+  "over": 119,
+  "clipped": false,
+  "cutCount": 0,
+  "culprit": "div (488px)",
+  "selector": "div",
+  "component": "ported-page",
+  "slot": "",
+  "located": false,
+  "inTool": false,
+  "forcedBy": "input#sideWidth",
+  "forcedReason": "fixed width: 438px \u2014 use a relative width (max-width:100%)"
+}
+
+FLAGGED https://webdesign.co.uk/tools/css-variables/index.html
+{
+  "over": 95,
+  "clipped": false,
+  "cutCount": 0,
+  "culprit": "div.section-box (464px)",
+  "selector": "div.section-box",
+  "component": "ported-page",
+  "slot": "",
+  "located": false,
+  "inTool": false,
+  "forcedBy": "h3",
+  "forcedReason": "fixed width: 414px \u2014 use a relative width (max-width:100%)"
+}
+
+FLAGGED https://webdesign.co.uk/tools/social-card/index.html
+{
+  "over": 87,
+  "clipped": false,
+  "cutCount": 0,
+  "culprit": "strong (455px)",
+  "selector": "strong",
+  "component": "ported-page",
+  "slot": "",
+  "located": false,
+  "inTool": false,
+  "forcedBy": "",
+  "forcedReason": "fixed width: 455px \u2014 use a relative width (max-width:100%)"
+}
+
+FLAGGED https://webdesign.co.uk/tools/blob-maker/index.html
+{
+  "over": 33,
+  "clipped": false,
+  "cutCount": 0,
+  "culprit": "div (402px)",
+  "selector": "div",
+  "component": "ported-page",
+  "slot": "",
+  "located": false,
+  "inTool": false,
+  "forcedBy": "input#complexity",
+  "forcedReason": "fixed width: 352px \u2014 use a relative width (max-width:100%)"
+}
+
+FLAGGED https://webdesign.co.uk/tools/vibe-equalizer/index.html
+{
+  "over": 361,
+  "clipped": false,
+  "cutCount": 0,
+  "culprit": "div#preview-card.card (380px)",
+  "selector": "div#preview-card.card",
+  "component": "ported-page",
+  "slot": "",
+  "located": false,
+  "inTool": false,
+  "forcedBy": "div.card-img",
+  "forcedReason": "fixed width: 324px \u2014 use a relative width (max-width:100%)"
+}

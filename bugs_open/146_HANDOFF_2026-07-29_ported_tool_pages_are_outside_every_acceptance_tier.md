@@ -3,7 +3,9 @@
 **Filed:** 2026-07-29 · **By:** gauntlet_dead_cta (vonc 6), as a byproduct of
 witnessing `bugs_open/131` B · **Severity:** MEDIUM — live user-facing defects on
 a shipped site, plus the structural reason nothing caught them · **Status:** OPEN,
-unowned
+**taken up 2026-08-17** (lane: `docs024_key_docs_latest/bugfix_146_ported_tools_acceptance/`)
+— re-validated VALID the same day; read the dated section at the foot before the body,
+the population numbers above it are stale.
 
 ## The symptom, measured
 
