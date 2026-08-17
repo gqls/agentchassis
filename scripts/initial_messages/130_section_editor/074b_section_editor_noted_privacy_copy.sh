@@ -48,8 +48,8 @@ intro, sections = paras[0], paras[1:]
 
 def para_html(p):
     p = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", p)
-    p = p.replace("hello@noted.co.uk",
-                  '<a href="mailto:hello@noted.co.uk">hello@noted.co.uk</a>', 1)
+    p = p.replace("noted@contactforsales.com",
+                  '<a href="mailto:noted@contactforsales.com">noted@contactforsales.com</a>', 1)
     return "<p>" + p + "</p>"
 
 hero = {"subheadline": intro}

@@ -2244,3 +2244,58 @@ Two small traps on the way, both caught by verifying at the artefact:
 The notice ("being refreshed") now greps **zero** on every public path. Rollback,
 should the owner ever want the old app back at a URL:
 `/root/nginx-backups/noted.co.uk.pre-retire-20260817` restores the alias block.
+
+---
+
+## 2026-08-17 — owner: header CTA → sign-in page; email → noted@contactforsales.com
+
+Two content changes, one platform gap, one shell trap.
+
+### The email (noted@contactforsales.com), everywhere it lives
+
+Inventoried first: `sites.email` + `sites.content_data.email`; the approved privacy
+copy (draft file → `supplied_copy` → `writer_block` inline → rendered page); 6
+other components (migrate ×2, contact ×3, and `tool-storage-risk-explainer-guide`
+— **a page another loop built since the 15th**, swept the same); the chrome
+footer; and the two scripts that carry the address (074b, checker). Order
+mattered: `sites.email` first, because the hallucinated-email validator and the
+chrome renderer both read it.
+
+- draft + scripts: sed; checker re-run **clean, control fires**
+- evidence_base: `update_email_in_evidence_base.py` — derived row, 7 bans intact,
+  old address `f`, body regenerated FROM the draft
+- components: `074c_section_editor_noted_email_sweep.sh` — discovers targets at
+  run time (so the loop-built page was swept without knowing its name), replaces
+  recursively, fires content_edit per slot with only the changed fields
+- privacy: 074b re-run → **22/22 verbatim, new address, old address absent**
+- footer: chrome re-render from the updated sites row
+
+### The sweep's first run did 1 of 6 — the stdin-drain trap
+
+`while IFS= read -r t; do fire_one …` — and `fire_one`'s status poll runs
+`kubectl exec -i`, which **inherits the loop's stdin and drains the remaining
+five targets as its own input**. Exit 0, no error, "swept 1 slot(s)" — and the
+standalone reproduction parsed all six perfectly, which is what pointed at the
+loop rather than the pipeline. Fix: feed the loop on **fd 3**
+(`read -u 3 … done 3<<<`). The general form joins the estate's silent-shell-trap
+family: **a `-i` flag inside a stdin-fed loop is a consumer of the loop.**
+
+### The header CTA — derived, not configured; two-layer fix
+
+`render_site_components_action.go` DERIVES the header CTA (contact nav item,
+else resolver-ranked fallback; text hardcoded "Get Started") — no owner control.
+
+1. **Durable**: opt-in `sites.content_data->>'header_cta_url'` / `header_cta_text`
+   override, applied after the derivation (absence = today's behaviour on every
+   site), gated by the SAME ChromeLinkPolicy so a stale override degrades with a
+   Warn instead of dangling (191's class). Package tests pass. **Inert until an
+   image rolls.** Council-Submitted `89f3331e…`; commit `229e14e74`. Key set for
+   noted (`/tools/write/index.html`) so the first post-roll render locks it in.
+2. **Interim**: header `rendered_html` patched to the same target. **Known gap:**
+   a pre-roll chrome re-render regenerates `/contact.html`; the next post-roll
+   chrome render converges to the override. Recorded, accepted.
+
+A GitHub 503 failed one deploy_page mid-way (transient; retry clean). Full-site
+re-assembly queued (corr `8cfeb9c1…`, ~139 ahead) — verify at the box when it
+lands: zero `hello@noted.co.uk` on every served page, header CTA
+`/tools/write/index.html` everywhere, footer carrying the new address.

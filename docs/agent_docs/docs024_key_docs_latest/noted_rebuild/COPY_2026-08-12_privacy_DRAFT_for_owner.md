@@ -86,7 +86,7 @@ rather none of it were here, you can close your account, and what is in it goes
 with it.
 
 **Getting in touch.** If you want to know what we hold for you, or you want it
-removed, write to hello@noted.co.uk and a person will answer.
+removed, write to noted@contactforsales.com and a person will answer.
 
 **If any of this changes.** We will say what changed, here, and we will spell it
 out. We will not replace this page quietly and hope nobody re-reads it.
