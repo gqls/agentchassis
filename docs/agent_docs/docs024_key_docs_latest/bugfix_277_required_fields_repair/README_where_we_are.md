@@ -188,3 +188,47 @@ code. But on this platform a great deal of real behaviour lives in configuration
 whole mechanism reviewed today. It only got reviewed the first time because it happened to have
 one Go file attached. I overrode the refusal deliberately and said so, but it's a real blind spot
 in the review process rather than a one-off inconvenience.
+
+---
+
+## 2026-08-17, afternoon — you were right to push the review round, and I've logged why I was wrong
+
+You told me to run the fifth review round anyway. **It passed** — approved by every reviewer that
+had previously blocked it, including the two that objected most strongly and the one that killed
+the fourth attempt.
+
+My reasoning was half right and half lazy, and it's worth being precise about which half. The half
+that held up: a round that merely *repeats your rulings* would have been thrown out, because the
+fourth attempt died on exactly that — listing work already done as though it were new. So I
+structured this one around a single genuine change: the code fix that answers the reviewers'
+strongest objection was committed **three and a half hours after** the fourth verdict was written,
+so no round had ever actually looked at it. Your rulings became the *grounding* for that change
+rather than the submission itself.
+
+The half I got wrong is the part worth recording. I concluded there was nothing new to submit
+without checking whether anything had changed since the last verdict — and I'd had that very commit
+open earlier the same day for another reason. "There's nothing new to say" is a claim about the
+world, and I stated it with no evidence behind it while being careful about evidence everywhere
+else that morning. One command would have settled it. It's in the wrong-calls log with the check
+attached, because that particular mistake — reasoning about the argument instead of looking at what
+changed — is the kind that repeats.
+
+**One reviewer earned its fee.** It couldn't see the promoter's configuration from where it sat, so
+it asked: *how do you know the promoter actually handles this type of finding? If it doesn't,
+switching back to the old behaviour silently recreates the exact bug you were fixing.* Fair, and I
+checked it four ways. It does. But checking it surfaced something about **my own** change from
+earlier today: the safety rule I added this morning only lets through findings tagged with one of
+three categories, and if this lane's findings had carried a different tag — two other real ones
+exist — **my own safety rule would have quietly stranded the very findings this project exists to
+handle.** They carry the right tag. It's fine. But it was fine by luck until I measured it, and
+that's the sort of thing that only ever gets caught by someone asking an awkward question.
+
+The clean proof, for the record: one finding has been created since the fix went live. It appeared
+at 10:02, was picked up 42 minutes later, correctly re-tagged, routed, and parked with its
+explanation attached. Every hop worked.
+
+**Still waiting on you:** the two decisions from this morning — whether the router's never-yet-used
+rebuild branches should be switched off until someone has watched one run, and who is responsible
+for the five findings held awaiting a first supervised run. On the first, a **second** reviewer has
+now independently said those branches want a fail-loud guard, so that decision has more weight
+behind it than when I raised it.
