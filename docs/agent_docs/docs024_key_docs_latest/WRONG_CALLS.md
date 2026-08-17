@@ -33758,3 +33758,39 @@ first hour coordinating with another lane about a bug that was already closed, a
 have recorded a route as proven that has never been run.
 
 ---
+
+---
+
+## 2026-08-17 — I sized a conversion programme with three regexes when the acceptance gate that answers it already existed; wrong by 64 of 91, in the direction that made the plan look cheap
+
+**Lane:** `bugfix_283_component_instance_scope`.
+
+**The claim:** deciding how to convert 91 component templates to per-instance scope, I triaged them
+with three patterns — `window.onload`, inline `on*=`, and a `function` keyword within the first 200
+characters of a `<script>`. Result: **24 need script judgement, 67 are mechanical.** I wrote *"the
+~30 rows whose scripts need judgement"* into `architecture_review/RFC_034` §4 as the basis of the
+recommended option, and committed it.
+
+**What is true:** **88 of 91** declare into global scope. Only **3** are already scoped. The 64 the
+patterns missed declare globals in spellings they did not search for. It also changes the options
+materially: the deterministic-converter-only route finishes 3 of 91, not most of them.
+
+**Caught by:** two of my own numbers not fitting together. The triage reported 67 rows as
+"mechanical" *and* that all 67 still contained an inline `<script>`. A component with inline
+JavaScript and no scoping problem is possible; sixty-seven of them is not credible. Following the
+disagreement instead of picking one was the entire catch — and it happened while writing the
+explanation, one step before the owner chose a shape on it.
+
+**The cheap check that would have caught it:** `DetectInstanceCollisions` — the detector this same
+lane built, which parses script bodies, and which will **gate every conversion** — had never been
+run over the live corpus, only against test fixtures. Running it took one export and ninety lines
+(`cmd/instanceaudit`). **When an acceptance gate already exists, size the work with the gate.** A
+hand-written triage is a *second implementation* of a judgement the estate already implements: it
+disagrees silently, and it leans whichever way its author's patterns lean — here, cheap.
+
+**Cost:** none to the estate — nothing was converted and the owner had not chosen. One false figure
+in a filed RFC, corrected in place at §3a with what it does to each option. Tally for "measured with
+a hand-rolled proxy when the real classifier was already built and testable": 1 — and it is the
+third time this lane has published a count taken at the wrong grain or the wrong scope (call sites
+over the wrong directories, blast radius over the wrong unit, and now difficulty over the wrong
+classifier).
