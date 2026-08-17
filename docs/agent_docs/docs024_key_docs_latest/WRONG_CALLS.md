@@ -34615,3 +34615,29 @@ would not have it if the seat had let my assertion stand.
 **Caught by:** the council's `guardian` seat, advisory (medium), on an APPROVED round. **Second
 entry today from the same root** (see the risks-block entry above): both times I let a claim's
 SCOPE outrun the scope of the check behind it, and both times the check was one query.
+- **I carried a predicate over verbatim so as not to change behaviour, and treated "unchanged" as
+  "already validated" — the council had to ask the question I should have asked.** Extracting an
+  inlined guard into a tested function (`bugs_open/293`), I kept its population predicate
+  `page_components.build_status = 'deployed'` **deliberately** unchanged, and said so in the code and
+  the submission, because changing a population is a behavioural change that should not ride an axis
+  correction. That reasoning is right. What I never did was ask whether the predicate matches anything.
+  The council's guardian seat did, at severity **high**, and it was gating: `LANDMINES.md` records the
+  SIBLING table's `site_components.build_status` as `'rendered'` and **never** `'deployed'`, so if
+  `page_components` behaved the same way my extracted floor would return zero rows for every page, its
+  own `existingTotal <= minPageTotalTextChars` short-circuit would fire every time, and it would
+  **never engage** — while a brand-new sqlmock suite certified it, because a mock supplies whatever
+  rows you tell it to. I would have shipped a guard that always no-ops, inside the fix for a guard
+  that measured the wrong thing.
+  **The cheap check is one GROUP BY:** `SELECT build_status, count(*) FROM page_components GROUP BY 1;`
+  → `deployed 1,575 / approved 85 / pending 19 / removed 4`, and 617 of 729 pages carry a deployed row.
+  Refuted, the analogy does not transfer, no code changed. **Ten seconds, and it was the one number my
+  337-of-366 figure silently depended on.**
+  **The transferable rule: an inherited predicate has whatever validity it always had, which may be
+  none — and EXTRACTION is the moment that question becomes yours.** "I did not change it" protects
+  you from introducing a defect and does nothing about inheriting one; worse, moving a line into a
+  function with a name, a doc comment and a test suite **raises** its apparent authority without
+  raising its evidence. Every figure I published about that floor (337 of 366 pages blind) presumed a
+  population I had not counted.
+  Tally for "trusted a value because I had not changed it": 1. Tally for "a measurement whose
+  denominator I never checked": 2 this session (the other was the slot-name join key, above) — and
+  both were one query away.
