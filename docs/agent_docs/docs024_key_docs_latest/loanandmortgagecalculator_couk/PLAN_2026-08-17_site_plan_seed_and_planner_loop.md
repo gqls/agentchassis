@@ -29,7 +29,7 @@ live in the `structure` aspect of `site_specs`, both are read through one helper
 
 | key | reader | what OFF means for LMC | evidence |
 |---|---|---|---|
-| `plan_includes_tools` | `build-site-planner` step `load_components` (migration `407`) | the planner's component menu **excludes this site's own tool components**, so the plan cannot name a single one of the 23 calculator slots | sibling has `true`; LMC has the key absent — measured below |
+| `plan_includes_tools` | `build-site-planner` step `load_components` (migration `407`) | ~~the planner's component menu **excludes this site's own tool components**, so the plan cannot name a single one of the 23 calculator slots~~ **CORRECTED below — for LMC it costs exactly 3 components, not 23** | sibling has `true`; LMC has the key absent — measured below |
 | `honour_realised_identity` | `siteIdentityPolicyFor` (`platform/orchestration/actions/site_identity_policy.go:81`), read by BOTH canonicalisation surfaces | a plan page derived from a realised page gets its name/URL **re-derived** from its role instead of keeping what the site serves ⇒ `mortgages-stamp-duty` comes back as `tool-stamp-duty` and is INSERTed as a second row — "the phantom, re-minted by the very pass that spotted it" (`bugs_open/215`) | file's own comment, lines 112–129 |
 
 `url_shape` is the third key of that family and **LMC must NOT set it** (see §4).
@@ -42,9 +42,75 @@ loancalculator.co.uk              true                  flat
 loanandmortgagecalculator.co.uk   (absent)              (absent)
 ```
 
-So: **firing the planner at LMC today would produce a plan with zero tool slots and a
-name for every calculator page that does not match the page it is meant to be.** That is
-the shrink D6 forbids, and it is a config absence, not a code defect.
+> **⚠ CORRECTED 2026-08-17, same session, before anything was seeded — I had the
+> `plan_includes_tools` half wrong, and the disconfirming evidence was already in my own
+> notes when I wrote it.** I read the flag's absence on LMC, read what it does on the
+> sibling (whose 12 calculators ARE `component_level='tool'` components), and carried that
+> consequence across without checking LMC's own component levels against migration 407's
+> actual SQL. Read the live query:
+>
+> ```sql
+> -- build-site-planner, step load_components (abridged to the level test)
+> AND ( component_level IN ('section','element')          -- UNCONDITIONAL
+>    OR ( component_level = 'tool'
+>         AND EXISTS (… ss.data->>'plan_includes_tools' = 'true')
+>         AND id IN (… this site's page_components …) ) )
+> ```
+>
+> Section- and element-level components are offered **unconditionally**; the flag gates
+> only `component_level='tool'`. **LMC's 23 B2 calculator components are all
+> `component_level='section'`** (measured earlier in this same session — 17 of 19 tool
+> pages carry only section-level rows), so they are in the planner's menu with or without
+> the flag. On LMC the flag decides the fate of exactly **three** components:
+> `loans-consolidation`, `tool-affordability-complaint-checker` and
+> `tool-overpayment-priority` — the only tool-level rows on the site, and two of the three
+> are the improvement loop's brand-new tools. Still worth seeding, for those three and for
+> every tool the generator makes from now on. **Not** the blocker.
+>
+> The cheap check that would have caught it: read the step's own `query` out of
+> `agent_definitions` and compare it against the `component_level` census of THIS site —
+> one query each, and I had already run the census. Logged in `WRONG_CALLS.md`.
+
+So, corrected: **the blocker is `honour_realised_identity`, and it is measured on LMC's own
+data in §2a.** Firing the planner at LMC today would keep the calculators in the menu and
+still re-mint most of the site under names it does not use.
+
+## 2a. The blocker, measured on LMC — 38 of 45 pages are not fixed points of the canonicaliser
+
+`[MEASURED 2026-08-17]` by calling the real `datahelpers.CanonicalisePage` over the live
+page list, through the descriptor the write path actually builds
+(`write_site_plan_action.go:487` — `Role`=stored `page_type`, `Slug`=`firstNonEmpty(slug,
+name)` which for a realised page is the stored NAME, `ParentSection`=
+`parentSectionFromURL(url)`, `FlatURLs`=false because LMC has no `url_shape` key).
+Harness in `identcheck/` (scratch, reproducible from the RUNBOOK), and it **self-tests
+with a positive and a negative control** — a canonical tool page must come back unchanged,
+a legacy one must move — so "nothing moved" cannot be reported by an inert harness.
+
+```
+45 active pages: 7 fixed points, 38 moved (name 17, url 38, type 0)
+```
+
+- **17 pages move by NAME**, every one of them a calculator:
+  `mortgages-stamp-duty` → `tool-mortgages-stamp-duty` at
+  `/mortgages/mortgages-stamp-duty/index.html`. Note the doubled segment — the slug is the
+  stored *name*, which already carries its section, so the derived URL is
+  `/loans/loans-standard-calc/index.html`, `/mortgages/mortgages-repayment/index.html`,
+  and so on. A name that collides with nothing on `(site_id, name)` is INSERTed: 17 new
+  rows, and the real calculators left behind them.
+- **38 move by URL**, including all 13 guides (`/guides/x.html` →
+  `/guides/x/index.html`) and both section hubs (`/loans/index.html` → `/loans.html`).
+- **7 are fixed points**: `index`, `guides-index`, `legal`, and the four pages the
+  improvement loop created on 08-15 (two tools + two guides). Everything the framework
+  itself has made recently is canonical; everything from the 07-31 adoption is not.
+
+`sync_pages` (`sync_pages_to_db`) is step 12 of 14 in the live `build-site-planner`
+workflow, so this is not a plan-table-only concern — the run writes `pages`.
+
+**The sibling did not need this flag** (`honour_realised_identity` is absent there too) and
+that is not evidence it is unnecessary here: its pages were already canonical in name and
+dir-flat in URL, so it had nothing to lose. **LMC would be the flag's first live consumer**,
+which is exactly the "turn it on where the population has been measured" case its own
+author's comment asks for.
 
 ## 3. THE FLOOR — captured before the first reseed, as §1 of the handoff requires
 
@@ -128,18 +194,38 @@ Two follow-ons this drift exposed, neither of them blocking D6:
 **Phase 0 — before anything is dispatched (this session).**
 - [x] floor captured (§3), oracle + control green in one session
 - [x] the two flags' state measured on LMC and on the sibling (§2)
-- [ ] **measure the identity population** `honour_realised_identity` would change: for
-      each of the 45 active pages, is its stored `(name,url,page_type)` a fixed point of
-      `CanonicalisePage`? The file's own comment demands this before the switch is
-      turned on ("an argument is not a measurement"). Do it by calling the real helper
-      from a throwaway Go program over the live page list — not by re-deriving the rule
+- [x] **identity population measured** — §2a: 7 fixed points, 38 moved, 17 by name, with
+      both controls firing. Done by calling the real helper, not by re-deriving the rule
       in SQL, which is the drift this platform has been bitten by twice.
-- [ ] confirm no other session has LMC replan work in flight (`who-owns.py`, and grep
-      the live transcripts — `who-owns` reads commits and is blind to a session mid-fix)
+- [x] confirm no other session has LMC replan work in flight — `who-owns.py 263` shows
+      only this lane's own commits; grepped the live `.jsonl` transcripts too (four
+      sessions mention the domain today, all incidentally: a fleet register census, the
+      `283`/RFC_034 lane, and portfolio-positioning seeding a different domain).
+      Chassis pods are ~14 h old, so the ~300 s post-restart dispatch rule is clear.
+- [ ] **known stale input, not yet resolved:** the structure spec's own `pages` list holds
+      **41** entries (adoption-written 2026-07-31) against 45 active pages. `read_specs`
+      hands that list to the planner prompt. Whether it biases the plan is `[UNMEASURED]`;
+      it is not a blocker for the canary, and the canary's own divergence report is the
+      cheapest way to find out. Do not "fix" it by hand first — that would destroy the
+      evidence of what the planner does with a stale list, which is a thing we want to know
+      about every adopted site, not just this one.
 
-**Phase 1 — seed the two flags** into the `structure` aspect, supersede-then-insert, one
-`SEED_*.sql` naming both keys and stating the measured population from phase 0. DB config
-is live immediately; no roll needed.
+**Phase 1 — seed the two flags** into the `structure` aspect, supersede-then-insert:
+`SEED_2026-08-17_identity_and_tools.sql` (written, **not yet applied** — the dispatch
+decision in phase 2 is the owner's). It carries both keys with their measured
+justifications, and a `DO`/`RAISE` verify block, because a verify block made of plain
+`SELECT`s cannot stop the `COMMIT`. Modelled on the sibling's two seeds
+(`loancalculator_couk/SEED_2026-08-11_url_shape_flat.sql`,
+`SEED_2026-08-14_plan_includes_tools.sql`).
+- `honour_realised_identity: "true"` — the blocker; population measured in §2a.
+- `plan_includes_tools: "true"` — worth 3 components today (§2's correction), and every
+  tool the generator makes from here.
+- **NOT** `url_shape` (§4), **NOT** `twin_identity_snap`/`stem_twin_snap` — the two twin
+  layers are a separate question with their own unmeasured collapse population, and
+  seeding them alongside would make one canary answer four questions at once.
+DB config is live immediately; no roll needed. ⚠ Two standing cautions inherited from the
+sibling's seeds: `write_site_spec` ignores and drops `pinned`, so do not rely on it; and
+check the keys survive after any adoption run.
 
 **Phase 2 — canary the planner ONCE**, reusing the sibling's script rather than writing a
 new one: `loancalculator_couk/canary_replan_407.sh` (adapt the site id/domain; it already

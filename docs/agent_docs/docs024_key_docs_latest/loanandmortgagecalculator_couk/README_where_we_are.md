@@ -1274,3 +1274,49 @@ arithmetic on those pages independently, and they pass — but it is real, and t
 has a sting in the tail that our notes already flag: it would also point an automatic
 code-fixer at the calculators, which is not something to do casually. That decision can wait
 until the planner work is through.
+
+2026-08-17, later. A correction to what I wrote earlier today, and then a much more solid
+finding in its place.
+
+The correction: I said the planner couldn't see this site's calculators without a switch being
+turned on. That was wrong, and I caught it before touching anything. The switch does exist and
+this site doesn't have it, but when I actually read the code behind it rather than trusting how
+it works on the sibling site, it turns out to matter for only three of our calculators, not all
+twenty-three — the other twenty are stored in a form the planner can always see. I've left the
+wrong sentence visible with the correction next to it, rather than quietly editing it away, and
+logged the mistake in the fleet's wrong-calls file, because the shape of it is worth knowing:
+the sibling site is so similar to this one that I carried its answer across without re-checking
+it here, and the evidence that would have stopped me was already sitting in my own notes from
+twenty minutes earlier.
+
+The real problem is the second switch, and this one I measured on our own pages rather than
+inferring. I ran the platform's own page-naming code over all 45 of our live pages, asking a
+simple question: if the planner re-derived each page's name and address from scratch, would it
+get back what the page already is? The answer is no for 38 of the 45. Seventeen of those are
+calculators, and for those it is the *name* that changes — our "mortgages-stamp-duty" page comes
+back as "tool-mortgages-stamp-duty" with a clumsy doubled-up address to match. Because that new
+name matches nothing already in the database, the platform would treat it as a brand-new page
+and add it, leaving the real calculator behind as an orphan. So a rebuild today would not shrink
+the site — it would bloat it with seventeen empty duplicates of our best pages, which is worse
+and harder to spot. The seven pages that survive unchanged are the homepage, the guides index,
+the legal page, and the four pages the site's own improvement loop built on Friday: everything
+the framework has made recently is in the modern shape, and everything from the original
+adoption in July is not.
+
+There is a switch for exactly this, built by another lane a week ago, and it has never been used
+on any site — because the sibling site didn't need it, its pages already being in the modern
+shape. Ours would be the first. The platform's own notes say that switch should only be turned
+on for a site whose pages have actually been counted, which is what I have now done, with two
+deliberate sanity checks built into the measurement so that a broken measuring tool couldn't
+have quietly reported "all fine".
+
+Where that leaves us: the change to the site's specification is written, checked, and one
+command away, and it includes a guard that aborts if it would disturb anything else. What I have
+NOT done is fire the planner, because that step writes to the live pages table of a 45-page site,
+and I would rather you say go. When it does fire, I'll compare what it proposes against today's
+site and expect to go round a few times.
+
+One aside worth your attention: our site's specification still lists 41 pages, from the July
+adoption, while the site now has 45. The planner is handed that list. I have deliberately not
+tidied it up, because what the planner does with a slightly out-of-date list is something we want
+to find out — it will be true of every adopted site, not just this one.

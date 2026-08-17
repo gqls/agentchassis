@@ -3135,3 +3135,81 @@ declaration is unblocked. Reply written into their lane.
 calculators on 18 pages). Whether either computes something the oracle should be proving is
 `[UNVERIFIED]` — it is a read of their templates, and it is the first item after D6's first
 dispatch, not an assumption to carry.
+
+### 2026-08-17 (b) — CORRECTION to (a) above, plus the measurement that replaces it: 38 of 45 pages are not fixed points of the canonicaliser
+
+> **CORRECTED 2026-08-17, before anything was seeded or dispatched.** Entry (a) above says
+> `plan_includes_tools` absent means "the plan **cannot name one of the 23 calculator
+> slots**". **That is wrong on this site.** Migration 407's live query — read it out of
+> `agent_definitions`, do not take it from the sibling's seed comments — gates on
+> `component_level`:
+>
+> ```sql
+> AND ( component_level IN ('section','element')      -- UNCONDITIONAL
+>    OR ( component_level='tool' AND <plan_includes_tools> AND <placed on this site> ) )
+> ```
+>
+> LMC's 23 B2 calculator components are all `component_level='section'` — which this very
+> file measured on 08-15, and which I measured again this session for the eligibility
+> question, twenty minutes before writing the wrong claim. So they are in the planner's menu
+> either way. The key is worth **3** components here: `loans-consolidation`,
+> `tool-affordability-complaint-checker`, `tool-overpayment-priority` — the only tool-level
+> rows on the site — plus every tool the generator makes from now on. Still worth seeding;
+> not the blocker. What caught it: reading the reader's own SQL before writing the seed.
+> Logged in `WRONG_CALLS.md` ("I read a flag's absence on my site, its CONSEQUENCE on a
+> different site"). The claim also went into commit `daf254583`'s message, which cannot be
+> amended — this correction is the record.
+
+**The real blocker, measured on LMC's own data.** `honour_realised_identity` (absent here,
+and absent on the sibling too). Harness: a scratch Go program calling the real
+`datahelpers.CanonicalisePage` over the 45 live active pages, through the descriptor
+`write_site_plan_action.go:487` actually builds for a realised-derived plan page —
+`Role`=stored `page_type`, `Slug`=`firstNonEmpty(v.Slug, v.Name)` which for a realised page
+is the stored NAME, `ParentSection`=`parentSectionFromURL(url)`, `FlatURLs`=false (no
+`url_shape` key). **Controls first, because a harness that canonicalises nothing reports the
+same "nothing moved" as a site that is already canonical**: a positive control (a canonical
+tool page must come back unchanged) and a negative control (a legacy tool page must move),
+both asserted before any site row is read; the run prints `self-test OK` or exits 2.
+
+```
+45 active pages: 7 fixed points, 38 moved (name 17, url 38, type 0)
+```
+
+- **17 NAME moves, every one a calculator.** `mortgages-stamp-duty` →
+  `tool-mortgages-stamp-duty` at `/mortgages/mortgages-stamp-duty/index.html`. The doubled
+  segment is not a typo: `Slug` is the stored *name*, which already carries its section, so
+  the canonicaliser puts `loans-standard-calc` under `/loans/` and gets
+  `/loans/loans-standard-calc/index.html`.
+- **38 URL moves**, incl. all 13 guides (`/guides/x.html` → `/guides/x/index.html`) and both
+  hubs (`/loans/index.html` → `/loans.html`).
+- **7 fixed points**: `index`, `guides-index`, `legal`, and the four pages the improvement
+  loop made on 08-15. Everything the framework itself built recently is canonical;
+  everything from the 07-31 adoption is not.
+
+`sync_pages` (`sync_pages_to_db`) is step 12 of 14 in the live `build-site-planner` workflow
+(all 14 listed in the RUNBOOK), so a replan writes `pages` — this is not plan-table-only.
+Without the key the first replan INSERTs 17 phantom calculator pages (a new name collides
+with nothing on `(site_id, name)`) and strands the real ones: `bugs_open/215`'s "phantom,
+re-minted by the very pass that spotted it", arriving on our site.
+
+**The sibling replanned fine without this key, and that is not evidence.** Its pages were
+already canonical in name and dir-flat in URL — it had nothing to lose. LMC would be the
+flag's **first live consumer**, which is the "turn it on where the population has been
+measured" case `site_identity_policy.go`'s own comment asks for. Measurement above.
+
+**Seed written, NOT applied:** `SEED_2026-08-17_identity_and_tools.sql` — both keys as the
+STRING `"true"` (407 compares `= 'true'`; the identity flag casts `::boolean`), a `DO`/`RAISE`
+verify block (a block of plain `SELECT`s cannot stop the `COMMIT`), carrying the 41-entry
+`pages` list and `source` forward and asserting both. Deliberately NOT seeding `url_shape`
+(mixed site — 39 flat / 6 nested), nor `twin_identity_snap`/`stem_twin_snap` (separate
+question, unmeasured collapse population; one canary should answer one question).
+
+**One stale input left deliberately alone:** the structure spec's `pages` list holds 41
+entries (adoption, 07-31) against 45 live pages, and `read_specs` hands it to the planner
+prompt. `[UNMEASURED]` whether it biases the plan. Not fixing it before the canary is a
+choice: the divergence report is the cheapest way to learn what the planner does with a stale
+list, and that answer generalises to every adopted site.
+
+**Stopped here on purpose.** The dispatch is the step that writes `pages` on a 45-page live
+site, so it is the owner's call, not a session's — everything up to it is done and the seed is
+one `psql -f` away.

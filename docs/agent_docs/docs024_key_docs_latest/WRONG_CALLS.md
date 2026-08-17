@@ -33639,3 +33639,50 @@ sentence the SQL actually asks underneath the sentence you are about to publish,
 side. If they differ by a word like "silent", "configured", "active" or "effective", the census is a
 lower or upper bound and must be labelled one. It cost me one query per row to settle here — which is
 also how long it would have taken to check before publishing.
+
+---
+
+## 2026-08-17 — I read a flag's absence on my site, its CONSEQUENCE on a different site, and published the two as one finding (loanandmortgagecalculator lane, D6 planner loop)
+
+Picking up the LMC lane, I found the site's structure spec was missing `plan_includes_tools`
+where its sibling `loancalculator.co.uk` has it, and wrote — into a plan doc, a NOTES entry, a
+README entry for the owner and a **commit message** — that without the key "the plan cannot name
+one of the 23 calculator slots", calling it the blocker for the whole owner-ruled work item.
+
+**Two of those three components were fine. The consequence clause was wrong.** Migration 407's
+live query gates on `component_level`:
+
+```sql
+AND ( component_level IN ('section','element')          -- UNCONDITIONAL
+   OR ( component_level = 'tool' AND <plan_includes_tools> AND <placed on this site> ) )
+```
+
+LMC's 23 B2 calculator components are all `component_level='section'`, so they are in the
+planner's menu with or without the key. On this site the key is worth **3** components, not 23.
+
+**What makes this one worth writing down is that the disconfirming evidence was already in my
+own session.** I had run the `component_level` census twenty minutes earlier — for a different
+question (the acceptance ladder's eligibility, where the same column is the reason 13 pages fall
+out) — and it was sitting in my scrollback saying `levels: section` for every decomposed page. I
+did not connect it, because the sibling's story was coherent and the sibling's calculators
+genuinely are tool-level components. **A mechanism verified on a peer site is a hypothesis about
+yours**, and the more alike the two sites are (twins on the same platform, same lane family,
+same week) the more confident the transfer feels and the less it is checked.
+
+**The check, and it is two queries:** when a flag's absence is your finding, read the READER's
+own text out of the live config —
+`SELECT default_config->'workflow'->'steps'->'<step>'->'config'->>'query' FROM agent_definitions WHERE type='<agent>' AND is_active` —
+and then run the predicate it actually keys on against YOUR site's rows. Not the sibling's, and
+not the flag's documentation. Caught before anything was seeded or dispatched; corrected in place
+in `PLAN_2026-08-17_site_plan_seed_and_planner_loop.md` §2 with the query quoted, and the
+superseded claim is struck through rather than deleted so the commit message that carries it
+stays readable against a corrected doc.
+
+**The half that went right, and it is the reason the error was cheap.** The *other* flag in the
+same finding — `honour_realised_identity` — I measured on LMC's own data instead of reasoning
+from the sibling: I called the real `datahelpers.CanonicalisePage` over the 45 live pages through
+the descriptor the write path actually builds, with a positive control (a canonical page must not
+move) and a negative control (a legacy page must move) so an inert harness could not report
+"nothing moved". Result: **7 fixed points, 38 moved, 17 by name**, all 17 calculators. That one is
+the real blocker, and it is the one I would have been tempted to assume was already handled
+because the sibling replanned fine without it.

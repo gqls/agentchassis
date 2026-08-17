@@ -726,3 +726,75 @@ disagreement between the axes is a signal to stop, not to average.
   that window only]` — the other two composition loops are unmeasured, and this
   changes nothing about the rule: the guard is what saved the pages, so keep a
   verbatim tool page `owned` until it is decomposed.
+
+## D6 planner loop — the commands (added 2026-08-17)
+
+`SITE='ed633ada-f8af-424b-b4d4-8af79160dbcd'`, sibling
+`SIB='0162cde4-633e-45e9-8ca6-87a6b2fe1d26'`,
+`K="kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db"`.
+
+**The floor, four queries.** Re-run these in the SAME session as any plan you judge — this
+site's page count moved by 4 within ten minutes of a handoff being written (NOTES 08-17).
+
+```bash
+# 1. active vs archived (a bare count(*) reads one too many — archived demo row)
+$K -A -F$'\t' -c "SELECT status, count(*) FROM pages WHERE site_id='$SITE' GROUP BY 1;"
+# 2. pages carrying a tool slot
+$K -A -F$'\t' -c "SELECT count(*) FROM pages WHERE site_id='$SITE' AND status='active' AND sections::text LIKE '%tool-%';"
+# 3. the tool slots BY PAGE — the list, never the count (23 B2 slots as of 08-17)
+$K -A -F$'\t' -c "SELECT p.name, s.slot FROM pages p, jsonb_array_elements_text(CASE WHEN jsonb_typeof(p.sections)='array' THEN p.sections ELSE '[]'::jsonb END) AS s(slot) WHERE p.site_id='$SITE' AND p.status='active' AND s.slot LIKE 'tool-%' ORDER BY 1;"
+# 4. page-type census + URL shape split (39 flat / 6 nested as of 08-17)
+$K -A -F$'\t' -c "SELECT CASE WHEN url LIKE '%/index.html' THEN 'nested' ELSE 'flat' END, page_type, count(*) FROM pages WHERE site_id='$SITE' AND status='active' GROUP BY 1,2 ORDER BY 1,2;"
+```
+
+**The two structure-spec flags, on this site and the sibling.** ⚠ `evidence_base`,
+`structure` etc. are `aspect` values in `site_specs` — there is **no** `evidence_base`
+table, and asking for one gets a bare `relation does not exist` that reads like "the
+feature is missing".
+
+```bash
+$K -A -F$'\t' -c "SELECT s.domain, ss.data->>'plan_includes_tools' AS tools, ss.data->>'honour_realised_identity' AS identity, ss.data->>'url_shape' AS shape, jsonb_array_length(ss.data->'pages') AS n_pages FROM site_specs ss JOIN sites s ON s.id=ss.site_id WHERE ss.is_current AND ss.aspect='structure' AND ss.site_id IN ('$SITE','$SIB');"
+```
+
+**Read the READER, not the flag's documentation.** What `plan_includes_tools` actually
+gates is in the live step config, and it keys on `component_level` — the sibling's
+calculators are tool-level, ours are section-level, so the sibling's rationale does NOT
+transfer (WRONG_CALLS 2026-08-17):
+
+```bash
+$K -A -t -c "SELECT default_config->'workflow'->'steps'->'load_components'->'config'->>'query' FROM agent_definitions WHERE type='build-site-planner' AND is_active AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL;"
+# and the whole workflow, so you know a replan writes `pages` (sync_pages is one of 14 steps):
+$K -A -F$'\t' -c "SELECT s.key, s.value->>'action' FROM agent_definitions ad, jsonb_each(ad.default_config->'workflow'->'steps') s WHERE ad.type='build-site-planner' AND ad.is_active AND COALESCE(ad.is_snapshot,false)=false AND ad.deleted_at IS NULL ORDER BY 1;"
+```
+
+**Is each live page a fixed point of the canonicaliser?** (38 of 45 are not, 08-17.) Call
+the REAL helper — a re-derivation of the rule in SQL is the drift `bugs_open/215` was
+written about. A scratch module keeps the shared tree clean; `identcheck/main.go` is in the
+session scratchpad and reproduces from this recipe:
+
+```bash
+# go.mod:  module identcheck / go 1.24.0 / require github.com/gqls/agentchassis v0.0.0
+#          replace github.com/gqls/agentchassis => /home/ant/projects/agentchassis
+# main.go: datahelpers.CanonicalisePage(datahelpers.PageDescriptor{
+#            Role: page_type, Slug: name, ParentSection: parentSectionFromURL(url), FlatURLs: false})
+#          — the descriptor write_site_plan_action.go:487 builds; Slug is firstNonEmpty(slug,name)
+#            and a realised page carries no slug, so it is the stored NAME.
+$K -A -F$'\t' -t -c "SELECT name, url, page_type FROM pages WHERE site_id='$SITE' AND status='active' ORDER BY page_type, name;" | grep -v '^$' > pages.tsv
+cd identcheck && GOFLAGS=-mod=mod go run . < ../pages.tsv
+```
+
+⚠ **Build the controls INTO the harness, not into your reading of its output.** It asserts
+(a) a canonical tool page comes back unchanged and (b) a legacy one moves, and exits 2 if
+either fails — otherwise "nothing moved" and "the harness canonicalises nothing" print
+identically.
+
+**The seed** (`SEED_2026-08-17_identity_and_tools.sql`): apply with
+`$K -f -` < file — it is a site seed, not a schema migration, so do **not** put it through
+`run-migrations.sh` (an unscoped `--apply` takes every other thread's pending file too).
+
+**The canary dispatch** — reuse the sibling's script rather than writing one:
+`loancalculator_couk/canary_replan_407.sh` (swap SITE_ID/DOMAIN). It fires ONE
+`build-site-planner` orchestration and prints its own judging queries. ⚠ `kcat -P` exits 0
+having sent nothing, so prove dispatch by the orchestration row **by correlation**, never by
+`now()`-interval; and no dispatch within ~300 s of a chassis pod restart
+(`kubectl -n ai-persona-system get pods -l app=agent-chassis` → check `startTime`).
