@@ -415,3 +415,20 @@ with a scanner self-test; mutation-verified (5 failures on a re-inlined copy).
 > commits in HEAD not in it**). Nothing to fix in the change; it needs a tag-bumped
 > release. See LANDMINES "A same-tag rebuild leaves the OLD binary running under new
 > pods".
+
+> **LIVE 2026-08-17 (supersedes the "still INERT" note above).** The tag-bumped
+> release shipped: `v1.0.1307`, running digest `8339bdbd…` **matching** the local
+> image (the check the 14:43 attempt failed), OCI `revision=a6d1c53c…`, and the
+> binary probe discriminates properly — new revision **PRESENT**, the previous
+> revision `6a782274b` **absent** (so it is genuinely a different binary, not a
+> re-served cache), plausible-fake negative absent. `10fc61184` (the unification),
+> `3c8a87101` and `7027a2801` are all ancestors.
+>
+> **Proven through the refactored path, not just by tests:** the same demand
+> control as before — `leopardessconsulting.co.uk`, 36 flag-only `detected` rows and
+> nothing routable — driven again on the new binary (corr
+> `5c2b6d1e-b95d-4ea1-be1e-3149e407976a`): `promoted: 0, not_promotable: 36,
+> not_promotable_by_type: {"head_essentials_missing": 36}`. That exercises
+> `workItemRoutableSQL` → `workItemHandlerRegisteredSQL` → `checks.HandlerRegisteredSQL`
+> end to end, so the delegation renders working SQL in production and not merely in
+> a string comparison. Nothing about the owner's tie-break is outstanding.
