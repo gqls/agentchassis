@@ -4620,3 +4620,21 @@ below ran from `git archive HEAD` + this task's files in scratch.
   moment another session committed. Re-ran it against the PINNED sha `53edef286`
   (MEMORY [[a-baseline-that-reads-head-expires-when-you-commit]] — I had the lesson and used the
   wrong ref anyway). Result stands: every SQL statement byte-identical, one blank line differs.
+
+## 2026-08-17 — the 417 live proof is still owed, and the ZERO now carries its demand control
+
+- Re-checked 17.5 h after the apply: **0 image-build-handler runs**, 0 asset-deployer children
+  of one, 0 strict/asset_id errors. Applied the demand control this estate's own memory rule
+  asks for (`a post-fix ZERO needs a DEMAND control`): image-build-handler ran **3 times in 8
+  days**, all pre-apply on 08-16 — it is rare and bursty, and the surrounding fleet is busy
+  (build-pipeline-trigger 240 / endpoint-health-checker 240 / build-dispatch-loop 13 in 6 h),
+  so nothing is stuck. The zero measures ABSENCE OF OCCASION, not absence of defect.
+- Queued image work is all in non-runnable statuses (40 blocked, 33 needs_human_review, 15
+  deferred, 1 failed, 1 detected) and the last 3 runs had a NULL parent — dispatched, not
+  spawned — so there is no parent pipeline to nudge into producing the proof. Manufacturing
+  production demand to close a verification is not something this lane should do unasked;
+  recorded as demand-bound instead.
+- Safety sweep: `image-build-handler` is the ONLY live definition carrying a `!` key (1 of 1
+  fleet-wide, regex over `default_config`), so a mis-parsed marker cannot reach anything else.
+- The background watch armed yesterday did not survive the session boundary (no output). Its
+  query lives in the handoff §2.2 — re-run it, do not re-derive it.

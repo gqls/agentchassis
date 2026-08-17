@@ -70,8 +70,21 @@ anything resolver-shaped — it supersedes §10.2).
    again — a second `snapshot_agent` row carrying the POST-change config under a `pre-update`
    reason (so "the latest snapshot" is the WRONG pre-image; the true one is 15:58:18Z — new
    LANDMINE + WRONG_CALLS, and 417's header is corrected), and a duplicate `doc_notes` row
-   (deleted under a guard, keeping the first). **STILL OWED: the live proof** — no
-   image-build-handler run has happened since the apply (0 as of 16:1xZ; they come in bursts).
+   (deleted under a guard, keeping the first). **STILL OWED: the live proof — and it is DEMAND-BOUND, not blocked.**
+   `[MEASURED 2026-08-17 09:2xZ, 17.5 h after the apply]` image-build-handler runs since the
+   apply: **0**. That zero is ambiguous on its own, so it carries a demand control:
+   image-build-handler ran **3 times in the last 8 DAYS** — all of them 10:09–10:13Z on 08-16,
+   i.e. BEFORE the apply — while the fleet around it is busy (240 build-pipeline-trigger and
+   240 endpoint-health-checker runs in the last 6 h alone, build-dispatch-loop 13). So the
+   agent is rare and bursty, nothing is stuck, and the proof simply has not had an occasion.
+   Queued image work exists but in non-runnable statuses (`image_url_404` 40 blocked + 1
+   detected, `image_source_unsatisfiable` 33 needs_human_review, `needs_imagery` 15 deferred,
+   `needs_hero_image` 1 failed) — none of those drive a spawn as they stand, and the last 3
+   runs had a NULL parent (dispatched, not spawned by a parent orchestration), so there is no
+   parent pipeline to nudge. **Do not read a continuing 0 as either success or failure.**
+   Safety sweep the same morning: image-build-handler is still the ONLY live definition
+   fleet-wide carrying a `!` key (1 of 1), and zero strict/asset_id errors have appeared in
+   `agent_error_log` since the apply — so the blast radius of a wrong marker stays one agent.
    The first post-apply asset-deployer child of an image-build-handler parent must carry a
    bare `asset_id`:
    ```sql
