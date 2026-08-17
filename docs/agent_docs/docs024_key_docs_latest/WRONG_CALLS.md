@@ -33794,3 +33794,41 @@ a hand-rolled proxy when the real classifier was already built and testable": 1 
 third time this lane has published a count taken at the wrong grain or the wrong scope (call sites
 over the wrong directories, blast radius over the wrong unit, and now difficulty over the wrong
 classifier).
+
+---
+
+## 2026-08-17 — I stated the lesson, then broke it again in the same submission (bugs_open/275)
+
+**The claim.** Council round 1 on `bugs_open/275` returned REVISE with a HIGH objection from
+`debug_historian`: *"the 445 migration ... never calls snapshot_agent() before the fenced UPDATE."* The
+file always did — `agent_definitions_backup` holds the row, timestamped. **My sketch had omitted the
+line.** I wrote the correction up properly, and stated the general lesson in the round-2 rationale:
+*"a sketch must show the SAFETY-CRITICAL lines, not the interesting ones."*
+
+**Then, in that same round-2 submission, I wrote a NEW sketch for migration 446 that omitted a
+DIFFERENT safety line** — its pre-state gate on the prior query text. Round 2's `editquality` seat
+objected, MEDIUM: *"446's DO block gates only on `count(*) ... <> 1` — it never checks that the LIVE
+query text is currently 445's output ... the same 'refuses unless the row still carries the expected
+prior text' discipline applied to 445 and both rollbacks is missing here."*
+
+**The file has it**, at lines 52-56, and has had it since it was written. The seat was reading my
+sketch. Again.
+
+**What caught it.** The council, twice, on two different files, four hours apart.
+
+**The cheap check that would have.** Diff the sketch against the file it claims to describe and ask of
+each *omitted* line "would a reviewer want this?" — `snapshot_agent`, pre-state gates, `RAISE` guards,
+transaction boundaries. Or more simply: **for a migration, sketch the WHOLE file.** They are 40 lines;
+the summarising is not buying anything.
+
+**The transferable rule, and it is not the one I wrote the first time.** I fixed the INSTANCE (added
+`snapshot_agent` to sketches 4 and 5, the two the seat had named) and not the CLASS (every sketch, every
+safety line). Writing down a general lesson and then applying it only to the specific case that
+produced it is a distinct failure from not learning it at all — **the remediation felt complete because
+the objection was answered.** When a review objection generalises, the fix has to be applied to
+everything in the submission, including the parts written *after* the lesson.
+
+**A note on cost, because it is not zero:** each of these cost a review round. Both were "the file is
+fine, the description was not", so nothing unsafe ever reached production — but a reviewer's time spent
+on an artefact of my summarising is time not spent on the code, and round 1's genuinely valuable finding
+(the silent column truncation) had to share a round with a non-issue.
