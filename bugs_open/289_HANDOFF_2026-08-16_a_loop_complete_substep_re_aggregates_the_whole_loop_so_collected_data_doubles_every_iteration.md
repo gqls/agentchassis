@@ -343,3 +343,18 @@ default 20. Inert today because live config arrives from JSONB as float64 — th
 4. **The separate `complete_workflow` defect** noted at the end of the main file
    (`message validation failed`, 6 rows) — `ProduceWithValidation` validates headers, not size.
    Still unfiled.
+
+
+> **COUNCIL ROUND BLOCKED 2026-08-17 11:08Z — read this before re-submitting.** Round
+> `7a3c4fb7-e8c1-4b5f-950e-7a826d5bebbe` died at `complete_invalid`, step `review_constitution`,
+> and **the cause is not the submission**: `"You have reached your specified API usage limits.
+> You will regain access on 2026-09-01 at 00:00 UTC."` The last successful LLM call fleet-wide
+> was 11:08:03Z; failures since span two agent types and two models, so it is account-level.
+> ~99.6% of fleet LLM work is Anthropic (24 h: 478 calls vs 2 on `mistral-small3.1`), so every
+> LLM-driven agent is stopped, not just the gate.
+> **Do not re-submit until the quota returns or is raised** — a resubmit cannot render a verdict
+> and burns nothing but time. An invalid run writes **no artifacts**, so polling
+> `diagnosis_artifacts` on that correlation waits for ever; poll
+> `orchestration_states.current_step` instead. The `Council-Submitted:` trailer on `509e01e6a`
+> asserts nothing and stays honest; `098` credits it automatically if the correlation is ever
+> approved.

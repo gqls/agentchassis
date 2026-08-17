@@ -256,3 +256,35 @@
 - Two pattern-check advisories checked and dismissed with reasons (twin `LoopAction` has no
   aggregation path; the `:334` hit is a bare string literal). Noticed and NOT fixed:
   `LoopAction`'s `max_iterations` read is a bare `.(float64)` — inert today, same class as 193.
+
+
+## 2026-08-17 11:10Z — the council round died on an ACCOUNT-WIDE Anthropic quota, not on my JSON
+
+- Round `7a3c4fb7` reached `complete_invalid` at step `review_constitution`. **This was NOT a
+  submission-schema failure** — the runbook's own warning applies, so I read
+  `__step_error.failed_step` before touching the JSON, and the message is:
+  `API request failed with status 400 … "You have reached your specified API usage limits.
+  You will regain access on 2026-09-01 at 00:00 UTC."`
+- **Measured, fleet-wide, not inferred from one seat:**
+  - Last SUCCESSFUL LLM call anywhere: **11:08:03Z** (`council-gate`, `claude-sonnet-5`).
+    First failure **11:08:37Z**. Every call since has failed.
+  - Failures span **two agent types** (`council-gate`, `landmine-verifier`) and **two models**
+    (`claude-sonnet-5`, `claude-opus-4-6`) → account-level, not model- or agent-scoped.
+  - `agent_error_log` usage-limit rows: 7 in the 11:00Z hour, none between 08-14 16:00Z and
+    today. Earlier spikes (08-14: 78, 08-10: 10) recovered; **this one names a fixed regain
+    date**, which a transient rate-limit does not.
+  - Provider concentration over 24 h: `claude-sonnet-5` 386 ok, `claude-sonnet-4-6` 50,
+    `claude-opus-4-6` 42, `mistral-small3.1` **2**. So ~99.6% of fleet LLM work is Anthropic
+    and there is no meaningful fallback — this is an effective full stop for every LLM-driven
+    agent (auditors, writers, the diagnosis loop, the fix loop, the council gate).
+- **Do NOT read my submission as the cause.** This is a monthly account cap and the fleet had
+  already spent 478 calls in the preceding 24 h; my round contributed a handful. Stating it
+  because the coincidence of timing invites exactly that wrong inference.
+- **Casualties of mine:** the `7a3c4fb7` verdict (never rendered — an invalid run writes no
+  artifacts, so polling `diagnosis_artifacts` by that corr would wait for ever), and both
+  landmine-verifier runs armed yesterday. The `Council-Submitted:` trailer on `509e01e6a`
+  stands and asserts nothing, and `098` will credit it automatically **if** the correlation is
+  ever approved — which now cannot happen before the quota returns or is raised.
+- **Nothing about the 289 fix changes.** It is committed and rides the next roll regardless;
+  the gate is advisory and cannot block a commit. What is owed is unchanged: read a verdict
+  when one is obtainable, and act on a REVISE/REJECTED.
