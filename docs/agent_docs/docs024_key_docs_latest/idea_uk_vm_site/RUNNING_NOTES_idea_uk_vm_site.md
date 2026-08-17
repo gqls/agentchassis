@@ -5266,8 +5266,11 @@ ask whether it holds the state you would be restoring.
 > after-the-change control. Re-checking with `created_at > applied_at` returned 0 rows
 > *total*, which is the honest reading.
 
-Runtime confirmation therefore stays **[PENDING]** until a writer call lands after
-16:19:44 UTC. The check, with the window pinned to the ledger so it cannot drift:
+**Runtime confirmation landed: `[VERIFIED 2026-08-17]` — 3 writer calls after the apply,
+3 of 3 carrying rule 19 in `prompt_rendered`.** The first arrived ~7 minutes after the
+change, which is why the earlier zero was a window problem and not a delivery one. 454 is
+proven end to end: config → rendered prompt. The check, with the window pinned to the
+ledger so it cannot drift:
 
 ```sql
 WITH m AS (SELECT applied_at FROM schema_migrations WHERE filename LIKE '454%' LIMIT 1)
@@ -5290,3 +5293,71 @@ FROM llm_call_log l, m WHERE l.agent_type='page-content-writer' AND l.created_at
 - Rollback is one file: `454_..._ROLLBACK.sql`, which removes the added sentence by exact
   literal rather than restoring the whole snapshot (a whole-config revert would silently
   discard any other session's change to this agent since).
+
+---
+
+## §X.60 — 2026-08-17: back to the lane's own backlog, and the favicon/OG 404s have a CAUSE
+
+With the honesty arc closed by ruling, the standing residuals are the lane's work again.
+Re-verified all three rather than trusting the handoff: `/data/latest-news.json` **404**,
+`content_sources` for idea.uk **0** (fleet 49), and the head assets **404**.
+
+### 1. Read the URL the PAGE asks for, not the one the doc names
+
+The residual list said "favicon/og-card are live 404s" and I first tested `/favicon.ico` —
+which 404s and proves nothing, because nothing references it. The page asks for:
+
+```
+<link rel="icon" href="/assets/images/favicon.png">      404
+<link rel="icon" href="/assets/images/logo.png">         200   <- fallback, and it works
+<meta property="og:image" content=".../og-card.png">     404
+```
+
+**`logo.png` being 200 is the informative part**: the logo is the derivation INPUT, so this
+is "the deriver never ran", not "the source is missing". A 404 sweep that had not fetched
+the head would have had the symptom and none of that.
+
+### 2. THE CAUSE — the item type meant to drive the deriver does not reach it
+
+`asset-deployer`'s entry is a conditional chain ending in `deploy_asset` as the final
+`else_step`; `check_mode` routes to `derive_head_assets` only on
+`input_data.spec.mode == "brand_head"`. **9 of the last 10 `needs_brand_head_assets` items
+carry NO `mode`** — they carry `spec.purpose` (`favicon`/`og_card`). So they fall through
+to `deploy_image_asset`, which **refuses, correctly**, naming the remedy:
+
+> *refused: purpose "favicon" is a brand-head artefact published at
+> /assets/images/favicon.png by derive_brand_head_assets, not by this action; re-derive it
+> (mode=brand_head) instead of deploying over it*
+
+...and the item is then marked **`complete`** with `skipped:true, deployed:false`. idea.uk
+has **four** such complete items and has never had the assets. Also hits webdesign.co.uk,
+webdesign.uk and cookly.uk, so it is not this lane's mistake.
+
+**`complete` here means "a guard refused it and told us what to do instead."** The queue
+shows 21 of these complete fleet-wide, which is exactly why nobody has looked:
+[[a-complete-work-item-is-not-a-repaired-artefact]], with the twist that the system had
+already written down the fix and no one was reading the field it was written in.
+
+The one item carrying `mode: brand_head` was filed **BY HAND** by another lane
+(`source='manual'`, `claude-mcalc-brand-20260814`) — someone hit this, worked around it for
+their site, and the cause never got written down. That is the whole argument for
+contributing into the bug file instead of fixing quietly.
+
+⚠ **A caveat on my own control.** That site serves its assets AND is the one with a
+brand_head item — but that item's `result` holds unrelated new-page content, so **I cannot
+claim the item produced the assets.** Suggestive, not established, and recorded as such in
+the contribution. The finding stands without it, on the config and the refusal text.
+
+### 3. Filed into `bugs_open/131` (og-card slug), NOT as a new bug
+
+`who-owns.py` says OWNED/recently-active with six workstreams citing it, and 131 already
+documents that the `check_mode` branch exists — it just never knew the items miss the mode.
+Contributed there with three fix candidates ordered by what closes the door; the third is
+the real one: **a guard that refuses and names a remedy should not terminate the item as
+`complete`.** That generalises past brand-head — every `deploy_image_asset` refusal today
+reads as done.
+
+**Applied the framework's own prescribed remedy for idea.uk only** (one item,
+`spec={"mode":"brand_head"}`, copying the proven shape exactly). The other three sites are
+other lanes' and are theirs to run — same one-liner, different domain. Verification is at
+the artefact and nowhere else: both files must return 200.

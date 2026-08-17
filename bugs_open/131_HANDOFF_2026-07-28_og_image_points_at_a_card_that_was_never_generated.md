@@ -274,3 +274,73 @@ Workstream: `docs/agent_docs/docs024_key_docs_latest/bugfix_131_og_card/`. Read
 `<domain>/` folder for some VM sites, so publishing to the wrong one succeeds with a green
 workflow and changes nothing.** relojistas + idea.uk are `vm-sites`. It cost this lane an hour
 and a wrong inference; see `WRONG_CALLS.md` 2026-07-29.
+
+## CONTRIBUTION 2026-08-17 (`idea_uk_vm_site` lane) — the `needs_brand_head_assets` items are filed WITHOUT the mode that routes them, so they run the DEPLOY action, get correctly refused, and complete
+
+This is not a new defect in the generator. **The generator is never reached.** The work item
+type created to drive it mis-routes, and the mis-route terminates as `complete`.
+
+**Measured 2026-08-17, all read-only:**
+
+1. `asset-deployer`'s entry is a conditional chain — `check_mode` → `check_sprite_mode` →
+   `check_card_mode` → `check_ingest_mode` → **`deploy_asset`** as the final `else_step`.
+   `check_mode`'s condition is exactly as §"Reachable in production today" above records it:
+   `input_data.spec.mode == "brand_head" OR input_data.mode == "brand_head"`.
+2. **Of the last 10 `needs_brand_head_assets` items, 9 carry NO `mode` at all** — they carry
+   `spec.purpose` (`favicon` / `og_card`) instead. With no mode, every conditional falls
+   through and the item is handled by `deploy_asset`.
+3. `deploy_image_asset` then refuses, correctly and by design, and its refusal names the
+   remedy verbatim:
+   > `refused: purpose "favicon" is a brand-head artefact published at
+   > /assets/images/favicon.png by derive_brand_head_assets, not by this action;
+   > re-derive it (mode=brand_head) instead of deploying over it`
+4. **The item is then marked `complete`** with `{"skipped": true, "deployed": false}` in
+   `result`. Nothing re-derives, and nothing records that the advice went unread.
+   idea.uk has **four** such `complete` items (2026-08-09 ×2, 2026-08-14 ×2) and has never
+   had the assets.
+5. Affected in that sample: **idea.uk, webdesign.co.uk, webdesign.uk, cookly.uk** — so it is
+   not one lane's mistake. The single item carrying `mode: brand_head`
+   (mortgagecalculator.co.uk, 2026-08-14) was filed **BY HAND**, `source='manual'`,
+   `created_by='claude-mcalc-brand-20260814'` — i.e. another lane had already hit this and
+   worked around it one site at a time without the cause being written down.
+
+**This explains "never been noticed" better than the §"Why" section does:** the queue shows
+21 `needs_brand_head_assets` items `complete`. Any dashboard, any coverage count, any human
+skim reads that as the brand-head work being done. `complete` here means *"a guard refused it
+and told us what to do instead"*.
+
+⚠ **A caveat on my own control, because it is weaker than it first looked.**
+mortgagecalculator.co.uk serves both assets (200/200) and is the one site with a
+`mode: brand_head` item — but that item's `result` holds unrelated new-page content, so **I
+cannot claim that item is what produced its assets.** The correlation is suggestive, not
+established. What IS established is items 1–4, which stand on the config, the specs and the
+refusal text alone.
+
+**What this lane did (2026-08-17):** filed one item for idea.uk copying the proven-working
+shape exactly — `spec = {"mode":"brand_head"}`, `handler_agent='asset-deployer'`,
+`status='triaged'`, `created_by='claude-ideauk-brandhead-20260817'`. That is the framework's
+own prescribed remedy, quoted from its own refusal. **Not fixed at source** — see below —
+and **not applied to the other three sites**, which belong to other lanes and are theirs to
+run (the same one-liner, changing only the domain).
+
+**Fix candidates for the real defect, ordered by what closes the door:**
+
+1. **Fix the producer** to emit `spec.mode='brand_head'`. Find it first — these items are
+   `source='discovery'`-shaped but the writer was not identified by this contribution, and
+   naming it without the query would be exactly the objection this estate raises. Closes the
+   door for new items; does nothing for the 20 already sitting `complete`.
+2. **Make `check_mode` fall back on `purpose`** — route to `derive_head_assets` when
+   `spec.purpose IN ('favicon','og_card')` even with no mode. Cheap, and it repairs the
+   existing population on any redrive. Riskier: it silently reinterprets a caller's intent.
+3. **Stop the refusal completing as success.** A guard that refuses and names a remedy should
+   not terminate the item as `complete` — `needs_human_review`, or re-file the corrected
+   item, would both have surfaced this in July. This is the one that makes the failure
+   *visible* rather than merely fixing this instance of it, and it generalises past
+   brand-head: any `deploy_image_asset` refusal today reads as done.
+
+**How to verify a fix (artefact, never the item status):**
+`curl -s -o /dev/null -w '%{http_code}' https://<domain>/assets/images/favicon.png` and the
+same for `og-card.png`. Both must be 200. The page references them at those exact paths
+(`<link rel="icon">`, `<meta property="og:image">`) — confirmed on idea.uk 2026-08-17, where
+`logo.png` (the derivation INPUT) is 200 while both derived files are 404, which is the
+signature of "the deriver never ran" rather than "the logo is missing".
