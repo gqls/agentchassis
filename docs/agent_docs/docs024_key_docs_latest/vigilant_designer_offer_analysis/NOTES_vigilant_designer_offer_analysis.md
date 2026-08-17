@@ -2104,3 +2104,65 @@ Owner took both decisions put to him: fix 295 first (done, committed `2a5798c4b`
 this is enabled by a direct `UPDATE`, **not a migration** — deliberately, because a migration that
 enables it would re-enable the sweep for anyone who later runs the migration set, which is exactly
 the kind of surprise 389's own header worries about. **It must be disabled in this session.**
+
+### RESULTS — sweep 1 (gamesdesign.co.uk): 3 of 5 predictions met, 1 wrong for a good reason, 1 now armed
+
+Window opened 12:14:53. First firing 12:15:14.
+
+**1. WRONG — I predicted dartsonline.com; the sweep took gamesdesign.co.uk.** Not a fault in the
+pre_query: another lane touched dartsonline at **12:14:48**, five seconds before I enabled the
+window, and the selector is `ORDER BY s.updated_at ASC`, so that touch moved it to the BACK of the
+queue. **My census was four minutes old and the estate moved under it** — the same staleness this
+lane keeps recording about other people's figures, applied to my own, in the interval between
+measuring and acting. The mechanism did exactly what it says.
+
+**2. ✅ B4 ran SWEEP-DRIVEN on a site it had never seen** — `spawn_offer_analyser →
+call_offer_analyser`, run 12:21:17→12:22:27, **COMPLETED in 70s**. This is the first time the 409
+splice has taken B4 to a NEW site under its own steam; 08-15's in-loop run was a re-analysis of a
+site already hand-fired.
+
+**3. ✅ `offer_ordering` grew 3 → 4 sites.** The artefact is clean: `degraded=false`,
+`inputs_missing=[]`, `primary_model='saas_tools'` **echoed from the record** (not re-derived),
+6 `lead_with` + 6 `avoid_leading_with`, `source='offer-analyser'`.
+
+**4. ✅ The falsifiable PAIR held: 5 LLM findings → `items_created=5`, `items_skipped=0`,
+`__truncated` false.** Items 17 → 22.
+
+**5. ARMED, NOT YET TESTED — and it now has a named subject.** One of the five is a
+`content_rewrite` on **`tool-ttk-calculator`, `rebuild_policy='owned'`**. When the sweep dispatches
+it, the prediction is: dies `failed`, and **NO** `owned_page_review` row with
+`refused_by='save_page_sections'`, because `2a5798c4b` is committed but not rolled. A row appearing
+would falsify my "inert until a roll" claim and I would need to re-check the deploy state before
+trusting anything else I have said about it.
+
+### A REAL GAP in B4's own honesty machinery, found while predicting the degraded arm
+
+`load_premise` computes `premise_fields_missing` over exactly four fields, all read at the TOP
+level of the strategy record: `satisfaction_condition, trust_threshold, recurring_value,
+value_proposition`. **`primary_model` is not among them** — and it is read from a *different*
+path, `data->'revenue_models'->>'primary_model'`.
+
+`[MEASURED 2026-08-17]` **Exactly one site in the estate has no `primary_model`:
+remortgagecalculator.uk.** All 22 others carry one (direct_business 10, saas_tools 4,
+display_advertising 3, affiliate 3, lead_generation 1, sponsored_listings 1).
+
+So when the sweep reaches remortgagecalculator.uk, B4 will have an **empty** `primary_model` to
+echo and will still report `degraded=false, inputs_missing=[]`, because the four fields it checks
+are all present. **A thinner analysis will pass as a full one — which is the exact failure the
+degraded arm was built to prevent** (NOTES 08-14: "a thinner analysis now announces itself in the
+artefact instead of looking like a full one"). The arm is not wrong; its field list is incomplete,
+and the incompleteness is invisible on 22 of 23 sites.
+
+**This becomes B4 v2(c)**, batching with (a) the head-of-hero excerpt and (b) the attribution line
+— one migration, one re-proof. Cheap: add `primary_model` to the missing-check, reading it at its
+nested path, so an absent commercial model degrades the run instead of silently emptying a field.
+⚠ **Do not "fix" it by having the model infer a `primary_model`** — inventing a commercial
+classification for a site is precisely what the echo-the-recorded-value rule exists to stop.
+
+> **MISSTEP, caught before it became a claim.** I first read `primary_model` as `data->>'primary_model'`
+> (top level), got empty for gamesdesign, and was one step from recording "gamesdesign has no
+> commercial model" — which would have been an instrument error reported as a finding, and would
+> have made the *real* gap above look like a fleet-wide problem rather than a one-site one. Reading
+> `load_premise`'s own SQL is what corrected it. **Same shape as the 08-15 `page_id` misread
+> (`spec->>'page_id'` vs the COLUMN): when a figure comes out empty or zero, check the PATH before
+> believing the value.** That is twice in three days on this lane.
