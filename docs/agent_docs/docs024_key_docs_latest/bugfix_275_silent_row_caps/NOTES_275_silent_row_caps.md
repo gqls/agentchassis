@@ -335,3 +335,34 @@ model sees 10 of 26 — 38%, against 275's 41%. The bug I fixed was not the wors
 **Adjacent finding recorded in 298, not chased:** 15 of 38 completed `internal-linker` items found no
 target page and completed anyway — a run that links nothing is indistinguishable from one that worked,
 by `status` alone.
+
+## 2026-08-17 — a roll happened and LCO-009 is STILL NOT LIVE (verified two ways)
+
+Chassis pods restarted 14:42–14:43Z. **They are serving the same cached image.** Verified twice,
+independently, because "pods look new" is exactly the surface this trap fools:
+
+1. **Binary probe with controls.** `query_database result count EQUALS` (added by `eb137faed`) →
+   **ABSENT**; `load page slot identities` (added by `bugs_open/257`, shipped at v1.0.1305 yesterday) →
+   **present**; a plausible fake (`zzz-fabricated-never-in-any-build`) → **absent**. So the probe
+   discriminates and the binary is yesterday's. ⚠ The fake matters — LANDMINES records a run whose
+   negative control was 40 zeros, which **matches every Go binary**, so that run could not discriminate
+   and its "absent" readings were worthless.
+2. **Image digest**, which is the landmine's own one-command proof: running
+   `sha256:f90a7e88…` vs locally built `sha256:6039e19c…`. **Different digests under the same tag.**
+   Byte-identical to the worked case already recorded there — the situation has not moved.
+
+`IMAGE_TAG ?= v1.0.1305` is unbumped, and with `imagePullPolicy: IfNotPresent` the node keeps serving
+its cached layer for ever.
+
+**Scope, because this is not my lane's problem alone:** `git rev-list 6a782274b..HEAD` = **238
+commits** not in the running binary, **26 of them touching Go**, across at least eight lanes (275, 283,
+285, 289, 291, 292, 293, 295, 299).
+
+**Already a landmine** (`A same-tag rebuild leaves the OLD binary running under new pods`), so nothing
+new to file — grepped first, found it, used its check. The fix is one line and owner-run:
+`make release IMAGE_TAG=v1.0.<next>` (it is `?=`, so no file edit is needed).
+
+**Consequences for this lane, stated so nothing over-reads:** migrations 445 and 446 are config and
+**are live** — the tool-suggester fix is working. LCO-009's detector is **not**, so the live census of
+which caps actually fire (and `bugs_open/298`'s reachability question, which the detector would answer
+by itself) is still owed and cannot be done yet.
