@@ -355,3 +355,69 @@ so no roll and no image is needed for it to bite — it takes effect at the next
 Close condition: an owner ruling on (1), plus (2) fixed — **not** the makefile diff,
 and not a green `make check-release-coverage`, which only says the gate agrees with
 today's tree.
+
+---
+
+## OWNER RULING 2026-08-17 — the runners' separate cadence is **NOT intended**
+
+Residual 1 above asked whether `github-actions-runner` (v1.0.948) and
+`-vmsites` (v1.0.1126) drifting from the fleet was deliberate. **The owner's
+answer: it is not.** Every doc that called it "own image lineage, own concern"
+(this file's census row, `deploy-github-runners`' makefile comment, the
+LANDMINES entry) recorded a *guess about intent* as if it were a design
+decision. It was drift.
+
+### The drift is not cosmetic — the two runners have DIFFERENT CAPABILITIES, live
+
+The runner image contains **no platform Go code at all** (Ubuntu 24.04 + the
+GitHub Actions runner binary + B2 CLI + one entrypoint script), so "80 tags
+behind" sounds harmless. It is not. The only project-owned content in it is the
+dockerfile and `github-actions-runner-entrypoint.sh`, and the dockerfile changed
+on **2026-07-16** (`6880c669e`) to add **`openssh-client` and `rsync`**.
+
+`-vmsites` was built at that commit (v1.0.1126) and has them.
+`github-actions-runner` was built **2026-04-08** (v1.0.948) and does not.
+
+Verified at the running pods, not at the tags [MEASURED 2026-08-17], with
+positive controls so the absences cannot be a broken `exec`:
+
+| pod | image | rsync | ssh | git (control) | jq (control) |
+|---|---|---|---|---|---|
+| `github-actions-runner` | v1.0.948 | **ABSENT** | **ABSENT** | PRESENT | PRESENT |
+| `github-actions-runner-vmsites` | v1.0.1126 | PRESENT | PRESENT | PRESENT | PRESENT |
+
+**Consequence:** any workflow on the `gqls/sites` repo runner that needs `rsync`
+or `ssh` fails today, and fails looking like a workflow bug rather than a
+four-month-old image. The capability was added deliberately in July and has
+never reached the runner it was presumably added for.
+
+### Two DIFFERENT mechanisms freeze them, which is why one fix will not do
+
+- **`github-actions-runner` — has a target nobody runs.** `release-github-runner`
+  (build + push + `deploy-github-runner` singular) would move it. Its overlay was
+  last touched **2026-04-08**; the target has simply not been run in four months.
+- **`-vmsites` — has NO retag target at all.** `release-github-runner` and
+  `deploy-github-runner` name only the singular service. Its overlay was written
+  once, at creation (2026-07-16), and nothing in the makefile can move it. It is
+  current only by the accident of having been created on the day the content last
+  changed. **This is exactly this bug's class** — a second deployment sharing one
+  image, invisible to hand-listed tooling — and `check-release-coverage` does not
+  catch it only because the runner image is not in `RELEASE_IMAGES`.
+
+`deploy-github-runners` (plural) applies both manifests every release but
+deliberately never seds either tag, so it moves pod-spec changes and never image
+changes.
+
+### The real design question this exposes
+
+Rebuilding the runner on every fleet release is not obviously right: the image is
+`apt-get` + a pinned upstream runner tarball, so a rebuild at an unchanged commit
+still produces a *different* image (newer apt packages), and it would add minutes
+to every release for content that changes about twice a year. The honest framing
+is that the runners need **a path that fires when their content changes**, not
+necessarily the fleet's cadence. Options are costed in the chat of 2026-08-17;
+**awaiting the owner's choice** before any code change.
+
+**Do not, in the meantime, "fix" this by running `release-github-runner`**: it
+would move the singular runner to today's `IMAGE_TAG` and leave `-vmsites`
+untouched and un-movable, which is the state that produced this in the first place.
