@@ -8002,6 +8002,19 @@ SELECT type FROM agent_definitions
   `for d in deployments/kustomize/services/*/overlays/production/uk_001/kustomization.yaml; do grep -H newTag "$d"; done`
   — on 2026-08-09 that found `render-audit-adapter` v1.0.1194,
   `github-actions-runner` **v1.0.948**, `github-actions-runner-vmsites` v1.0.1126.
+  **UPDATE 2026-08-17 — the render-audit half is fixed and gated; the RUNNER half is
+  worse than this entry implies.** `render-audit-adapter` now rolls with the fleet and
+  `make check-release-coverage` refuses any release that leaves such an overlay out
+  (register **BLD-022**). The two runners are still frozen, and the owner has ruled the
+  separate cadence **NOT intended** — so do not repeat this file's earlier framing of it
+  as "own image lineage, own concern". It is not cosmetic: the 2026-07-16 dockerfile
+  change added `openssh-client` and `rsync`, so **v1.0.1126 (`-vmsites`) has them and
+  v1.0.948 (`github-actions-runner`) does not** — measured at both pods 2026-08-17 with
+  `git`/`jq` as positive controls, so the absences are real and not a broken `exec`. A
+  workflow needing rsync or ssh on the `gqls/sites` runner fails today and looks like a
+  workflow bug. Note the two are frozen by **different** mechanisms — the singular one
+  has `release-github-runner` and nobody runs it; `-vmsites` has **no retag target at
+  all** — so one fix does not cover both. `bugs_open/237`.
   **And give that census a row whose value you already know**: my first attempt used
   `grep -A1 images:` and printed "no tag" for all 30 services, including one I had
   just read as v1.0.1194 — the `newTag` line is two below `images:`. A census that
