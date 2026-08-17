@@ -33965,3 +33965,22 @@ answer to that question.
   mechanism is expensive, because the mechanism makes it stop looking like a number.**
   Tally for "same instrument error twice in one session": 1. Tally for "asserted a mechanism to the
   owner without re-checking the measurement under it": 1.
+- **I recorded a site that was being BUILT as a fact about the estate, and my own output told me so.**
+  Censusing which sites carry a `primary_model`, I got exactly one absence —
+  `remortgagecalculator.uk` — and wrote *"`[MEASURED 2026-08-17]` exactly one site in the estate has
+  no `primary_model`"* into NOTES, into `features_open/030`, and into a commit message, using it as
+  the live instance that motivated a v2 change. **Seven minutes later it had one.** The site's
+  `created_at` was **today** and it had **0 pages**: another lane was provisioning it while I
+  measured, and I had caught the gap between its `sites` row and its premise being written. My own
+  census output printed `created 2026-08-17` in the column beside the absence and I read straight
+  past it.
+  **This is not the instrument error I logged twice earlier today** — the query was right, the
+  reading was right, and the number was true at the instant it was taken. The system moved. Which
+  makes the check different: not "measure it better" but **"ask whether the thing you measured is
+  finished."** `created_at` within the last day, `0 pages`, `status='active'` rather than
+  `'deployed'` — any one of those says *under construction*, and **nothing about a site under
+  construction is a fact about the estate.** The `[MEASURED]` marker was applied correctly and did
+  not help at all: it certifies that a number was taken, not that its subject had stopped moving.
+  Tally for "recorded a transient as a property": 1. **Session tally for measure-then-assert gaps: 3
+  (two clock, one transient)** — and it is the third that worries me most, because the first two
+  were catchable by a rule and this one was only catchable by looking at what I had already printed.
