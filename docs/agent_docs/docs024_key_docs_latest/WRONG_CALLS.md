@@ -34045,3 +34045,30 @@ same day, before any decision was taken on them; and one real detector defect fo
 would otherwise have refused 62 correct conversions mid-programme — which is the only reason this
 entry has a happy ending. Tally for "published a classifier's output over a corpus it had never
 been sampled on": 1.
+
+## 2026-08-17b — `bugfix_277_required_fields_repair`: I advised against a review round that then passed
+
+**The call.** The router's review trail had failed four rounds. I read the fourth verdict, saw it
+was blocked on *"a no-op dressed as an edit"*, and advised the owner that a fifth round citing his
+rulings would be blocked identically — a trail cannot be closed by narration. I wrote that into the
+lane NOTES and the handoff as a reversal of the previous session's plan. **The owner directed the
+round anyway. It was APPROVED**, by every seat that had previously blocked it.
+
+**What I got right and what I got wrong.** The reasoning about *narration* was sound — a round with
+no real edits would have been blocked. What I got wrong was concluding there was nothing to submit.
+There was: the code change answering the two HIGH objections had been committed **3h35m after the
+fourth verdict was written**, so no round had ever judged the file in its current state. I had that
+commit in front of me — I had read its diff earlier the same session for a different purpose — and
+still classified the round as "narration only", because I was reasoning about the *argument* the
+round would make rather than inventorying what had *changed* since the last verdict.
+
+**The cheap check that would have caught it:** before declaring a trail unresubmittable, diff the
+world against the last verdict's timestamp — `git log --since='<verdict time>' -- <the files the
+trail reviewed>`. One command. It would have returned the commit that made the round approvable.
+
+**The class.** "There is nothing new to say" is a claim about the world, not about the argument, and
+it needs a query like any other claim. My marker discipline was clean everywhere else in the
+session — this claim carried no `[MEASURED]`, no evidence line, and no disconfirming test, and it
+was stated in the same confident register as the measured findings around it. It is also the exact
+shape CLAUDE.md's diagnosis section warns about: *confidence is not a signal, and the failure mode
+is not missing information — it is not looking.*
