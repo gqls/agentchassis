@@ -1671,3 +1671,24 @@ looking, so I have written up all three with the evidence and left the choice.
 Everything is written down in a fresh handoff so a new chat can pick up both jobs cold. One
 caution recorded there: another session is currently mid-build inside the same part of the code,
 so whoever continues needs to stay out of those files until they are finished.
+
+**2026-08-17 — the recorder has paid for itself, and it found somebody else's bug.** A day's
+worth of the new record is in: about 1,570 cases where the "guess between look-alike fields"
+search met disagreeing candidates. The big surprise is that **86% of them are one already-known
+bug** (287, in the dispatch loop) rather than dozens of pipelines quietly living on luck — which
+is much better news than it sounds, because it means the plan's next step is blocked by one fix,
+not by a fleet-wide clean-up. We handed that lane our measurements rather than starting a
+competing investigation; our numbers answered the one question their own diagnosis had left
+open, so their fix is now better evidenced than it was.
+
+We also found *why* the wrong value wins, and it is tidier than expected. When a loop runs, each
+pass leaves a copy of every field behind under a numbered name, and the original un-numbered name
+holds the *previous* pass's value. The search sorts its candidates alphabetically, and the plain
+name always sorts before its numbered copies — so it hands back last pass's data, every time, by
+construction. Making the search predictable (which we did last week) did not cause that; it
+revealed it, turning "randomly wrong" into "reliably wrong", which is the only kind you can catch.
+
+Nothing needs a decision from you today. Two things are simply waiting: the image-pipeline strict
+switch you applied has still not had an occasion to prove itself (that pipeline has run three
+times in nine days, and not once since), and the "stop guessing entirely" step waits on the other
+lane's fix landing first.
