@@ -59,7 +59,12 @@ var mergesLockedRows = regexp.MustCompile(`\b(MergeLockedPageSlots|LoadLockedPag
 // locked rows, each with the reason. A file here is a DECISION, and the reason
 // is the deliverable: "it doesn't need it" is not one. Census measured
 // 2026-08-17 by running this detector over actions/, actions/*/ and
-// datahelpers/ (6 readers: 2 merge, 4 here).
+// datahelpers/: **7 readers — 2 merge, 5 here**. (First written as "6: 2 merge,
+// 4 here", which was the count BEFORE this test's own first run found
+// check_sectionless_pages. Adding the entry without re-deriving the total left a
+// stale figure that reached the register, the RFC and a council submission —
+// council 02cb2134 caught it; WRONG_CALLS 2026-08-17. A census that gains a
+// member has a new total, and the total is the part everything else quotes.)
 var lockBlindPlanReaders = map[string]string{
 	// Fills in a default layout ONLY for a page that has no sections from ANY
 	// source, and no-ops if it has any. That is precisely the one case the

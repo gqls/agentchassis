@@ -34749,3 +34749,39 @@ label: `docker image inspect <image> --format '{{json .Config.Labels}}'` →
 image is the running one first by matching `RepoDigests` against the pod's `imageID`;
 mine matched exactly. I used this on the second roll and it answered in seconds what the
 needle probe had muddled for a day.
+
+## 2026-08-17 — a census GAINED a member and I never re-derived the TOTAL, so a wrong figure reached four documents and a council submission
+
+**The claim:** "6 readers of `site_plan_sections` — 2 merge, 4 declared". Written into the test's
+own header comment, the LOCK-008 register entry, RFC_033, the lane NOTES, a commit message, a
+council submission, and a sentence to the owner.
+
+**The truth: 7 — 2 merge, 5 declared.** The 6 was measured before the new coverage test's own
+first run found a fifth declarable reader (`discovery_checks/check_sectionless_pages.go`, matched
+by `JOIN` where my hand census had grepped only `FROM`). I added the entry to the map. I wrote up
+the discovery — proudly, in three separate places, as evidence the test earned its keep. **And in
+none of them did I re-run the count.** The map said five; the prose said four; both were mine, in
+the same file, minutes apart.
+
+**What caught it:** council `02cb2134` round 1, `editquality`, medium — *"Internal count mismatch:
+the owner-ruling text states … '6 readers, 2 merge, 4 declared,' but the map's rationale names FIVE
+declared files … Since the whole design (scope, anti-vacuity claim, mutation-proof count) rests on
+this population figure being accurate, the mismatch should be resolved before merge."* Exactly
+right, and the seat could see it only because the submission carried both numbers.
+
+**The cheap check:** when a correction ADDS a member to a census, the correction is not finished
+until the TOTAL is re-derived — **by re-running the query, not by adding one in your head**. The
+total is the number every other document quotes; the member list is the thing only the author
+reads. A safer habit for this repo: never hand-write a census figure at all — paste the command
+that produced it next to the number, so the next reader (and the next me) can re-run it in one
+line. The register entry now does that; it did not before.
+
+**Why it is worse than an arithmetic slip:** the figure was load-bearing. The design's central
+argument is *"scope the detector to the plan table, not the cache, because 6 files is a check
+people read and ~18 is a check people route around"*. A reviewer weighing that trade was handed a
+denominator I had not checked. And it survived so long because the SHAPE of what I wrote looked
+like diligence — a measured count, a dated correction, a named file — which is the shape this
+repo's rules ask for, applied to a number that had gone stale in the four minutes since I measured
+it.
+
+Tally for "recorded a correction without re-deriving what the correction changed": 1.

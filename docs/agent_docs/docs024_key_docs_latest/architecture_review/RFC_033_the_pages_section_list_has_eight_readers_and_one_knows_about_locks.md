@@ -6,7 +6,7 @@ lockstep, **not** a single mandatory entrypoint. Live as
 `platform/orchestration/actions/section_list_reader_coverage_test.go` (council `02cb2134`).
 **Two corrections this file owes its own population section**, both found by running the
 detector the ruling asked for rather than re-reading the register: the readers of
-`site_plan_sections` number **six, not the eight this title claims** (the eight came from the
+`site_plan_sections` number **seven, not the eight this title claims** (the eight came from the
 register's named list, which mixes plan readers with cache readers) — and one of the six,
 `discovery_checks/check_sectionless_pages.go`, **was missed by the hand census in §C below**,
 because that census grepped `FROM` and the file uses `JOIN`. The test failed on its first run

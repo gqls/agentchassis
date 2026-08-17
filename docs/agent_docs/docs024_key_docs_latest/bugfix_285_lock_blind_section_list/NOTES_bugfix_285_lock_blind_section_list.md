@@ -299,7 +299,7 @@
   **It found a reader on its FIRST run that my own hand census had missed** —
   `discovery_checks/check_sectionless_pages.go`, because I grepped `FROM site_plan_sections` and
   that file uses `JOIN`. RFC_033 now carries that correction and a second one: the population is
-  **6 plan readers, not the 8 in its own title** (the 8 mixed plan readers with cache readers).
+  **7 plan readers, not the 8 in its own title** (first written as 6 — see the 08-17 correction below) (the 8 mixed plan readers with cache readers).
   Mutation-proven on both arms with mutations that COMPILE — a build failure would have proven
   nothing about the test's own logic, which is the trap the first attempt fell into.
 - **The open review question (carry-stored-row for merged locked sections) is now MEASURED, and
@@ -313,3 +313,32 @@
   locked LLM-field section landing on a frequently-rebuilt page), not on a schedule.
 - Separately for the owner: those **41 `overwrite` rows are stale queue** (newest 2026-08-15,
   none refreshed since) — a one-off hygiene decision, not this fix's doing.
+
+## 2026-08-17 (night) — council REVISE on the lockstep (both objections right), owner ruled "don't build it", fleet caught up
+
+- **Council `02cb2134` round 1: REVISE**, gated by `editquality`; 9 of 10 seats approved
+  (reuse_agent, guardian, improvement_guardian, debug_historian, constitution, mission,
+  prior_art_librarian, architecture, tooling_provenance — the last with a low note that
+  `mustMergeByName` pins by literal filename, accepted as the one filename-dependent seam and the
+  same convention the sibling census test uses). Both objections were about the SUBMISSION:
+  - HIGH: I named "a sibling test refuses a stale exemption" as an anti-vacuity control but listed
+    only one test symbol in the edits. The mechanism was in the committed file all along
+    (`TestLockBlindPlanReadersAreAllStillPlanSectionReaders`); the plan just never showed it. Same
+    failure as 285 round 1 — asserting a symbol's behaviour without putting the symbol in front of
+    the reviewer. Now edit 3, with its body.
+  - MEDIUM, and this one was a FALSE FIGURE: "6 readers — 2 merge, 4 declared" while the map listed
+    five. True population, re-derived by RUNNING the detector: **7 — 2 merge, 5 declared**. The 6
+    predated this test's own first run finding `check_sectionless_pages`; I recorded that discovery
+    in three documents and re-derived the total in none of them. Corrected in the test header, the
+    register, the RFC and these NOTES, each showing its prior value. WRONG_CALLS row written — the
+    lesson is that a census which GAINS a member has a new total, and the total is what everything
+    else quotes.
+- Round 2 published on the same correlation (`RESUBMIT_CORR=02cb2134`, run orch `a955db5d`,
+  envelope `ed7f7b3c`); trigger output tee'd and NOT re-run.
+- **OWNER RULING 2026-08-17: "Don't build it"** — the carry-stored-row shortcut is DECIDED, not
+  open. LOCK-008 updated from "recommendation" to "ruling"; the trigger to revisit stays recorded
+  (a locked LLM-field section landing on a frequently-rebuilt page).
+- **The fleet caught up:** `v1.0.1307` (pods 17:05Z) is a genuine build — yesterday's stranded
+  `DISABLE_UNREGISTERED_HANDLER_DEMOTION` (`f629f4530`) is now PRESENT in `/proc/1/exe` alongside
+  both 285 symbols, control absent. The 08-17 14:43Z same-tag restart that shipped nothing is
+  therefore closed out; the lanes waiting on that code are live.
