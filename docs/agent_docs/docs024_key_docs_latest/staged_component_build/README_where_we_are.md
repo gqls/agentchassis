@@ -1726,3 +1726,18 @@ roll the fleet. Everything for afterwards is staged and written down — the che
 new code is really running, the one settings file to apply, and a ready-made script that
 does the dry run first, then the real deletion only when told, then proves the right file
 died and the right logo survived. Nothing will fire on its own.
+
+**2026-08-17 (evening) — the other lane's fix landed, and our recorder is what marked its
+homework.** The dispatch-loop bug we handed measurements to yesterday was fixed and shipped
+today. Our record shows it worked: the specific failure went from about 800 occurrences to
+**zero**, across eleven runs of real traffic — and we checked the traffic was still flowing, so
+the zero means "fixed", not "quiet". Two details only our record could show: the number of
+look-alike candidates the search had to choose between collapsed from a peak of 190 to 22, and
+the overall rate fell by nearly three-quarters. Their fix also used our new "this exact source or
+fail loudly" marker, in the safe order we warned was essential — put it on before the underlying
+fix and it would have broken every dispatch in the fleet.
+
+What is left is now a short, named list rather than a fog: about six places where the search
+still guesses, most of them only a few times an hour. Working through that list is one session's
+work, and it is the last thing standing between us and the final step (stopping the guessing
+altogether). Nothing needs a decision from you.

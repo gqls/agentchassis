@@ -1,4 +1,4 @@
-# HANDOFF — 2026-08-17 (rolling file, started 08-16), fresh chat starts here: the RFC_029 revision is LIVE (now **v1.0.1305**, stamp `6a782274b`), 417 is APPLIED, and the window's SECOND READ (24 h, 1,571 rows) shows **86% of the conflict population is `bugs_open/287`** — evidence contributed there (§10), Phase 2 still off the calendar but its precondition is now REACHABLE; the ~214-row tail is this lane's own triage
+# HANDOFF — 2026-08-17 (rolling file, started 08-16), fresh chat starts here: the RFC_029 recorder is LIVE (v1.0.1307, stamp `a6d1c53c0`), 417 APPLIED, **`bugs_open/287` FIXED and graded by our instrument (−73%, `result` 805→0)** — Phase 2 is now ONE TRIAGE PASS away, and that pass is the next work
 
 **Supersedes `HANDOFF_2026-08-15c_continue_here.md`** (whose §1 verdict summary and §4 traps
 still hold). Everything 15c §2 asked for is done; this file records what changed, what was
@@ -107,30 +107,35 @@ anything resolver-shaped — it supersedes §10.2).
    `6a782274b`** probed 2026-08-17 with HEAD `896c5aeeb` absent as the control; `53edef286` is
    an ancestor of both). Rows are cumulative in the DB — a roll does not reset the window.
    **SECOND READ at +24 h: 1,571 rows, 7 agents, steady ~65/h — read RFC_029 §10.6.**
-4. **THE FINDING, and the next work: 86% of the population (1,357 rows) is `build-dispatch-loop`
-   and it is `bugs_open/287` (the `spawn_record` slug), already diagnosed and root-caused by
-   that lane.** Our instrument answered the one thing its §9 fact 3 left `[INFERRED]` — which key
-   the search hits first: **`handler_spawned.result`, 176×, always the same.** Evidence is filed
-   as **287 §10** (with the fix-watch query + its demand control). Do NOT reopen it here and do
-   NOT file a `090` for it — 287 has its own verdict read (§6a) and owns the fix.
-   ⚠ **Never arm `!` on `mark_complete`'s `result` before 287's §9a (a) lands** — the key is
-   genuinely absent, so `"result!"` would hard-fail every loop-dispatched completion fleet-wide.
-   `!` is the ratchet AFTER the fix.
-5. **This lane's own triage is now the ~214-row tail**, and it is finishable in a session:
-   `page-content-writer` `current_page` → `~unwrap.current_page` (165/day, the biggest, NOT
-   287's shape — is the unwrap hop finding two copies of one page or two different pages?);
-   `page-build-handler` `sections`/`page_type` → `load_page_record.*` (15/14, winners look
-   plausibly correct — may only need an explicit mapping so they stop being a search); then the
-   ≤3-row stragglers. For each: is the winner the value the step needs? Yes → write the explicit
-   mapping (then `!`). No → the pipeline has been living on the coin flip and needs it more.
-6. **Phase 2 (conflicts resolve NOTHING) stays OFF the calendar** — but its precondition is now
-   REACHABLE, because the population is one known bug plus a small tail rather than the fleet.
-   Sequence: 287's fix → confirm its three pairs go to zero while the loop still runs → finish
-   the tail → then Phase 2 as its own council-gated task.
-   ⚠ One open question worth measuring first, marked `[INFERRED]` in §10.6: the candidate ballot
-   grows **13 → 189** with the loop iteration, so "shallowest wins" may systematically pick the
-   EARLIEST (stalest) iteration. Cheap check: compare `candidate_paths[0]` against the iteration
-   index in a run. If true, Phase 2's design needs to say so out loud.
+4. ~~THE FINDING: 86% of the population is bugs_open/287~~ **287 IS FIXED AND PROVEN, 2026-08-17
+   (v1.0.1307).** That lane shipped WFA-017 (loop expansion stops enumerating) + the `!` flip on
+   three dispatch agents' `mark_complete` (migs 448/452). **We graded it through our own
+   instrument and filed the verification as 287 §11d** — `field=result` **805 → 0** across 11
+   loop runs with the demand control holding (9.7 → 8.1 runs/h); ballots collapsed **190 → 22**
+   max (WFA-017 made visible); all build-dispatch-loop rows **14.6 → 3.4 per run, −73%**.
+   Our §10 warning was followed: the `!` marker went on AFTER the reference resolved, so it
+   closed the field instead of hard-failing the fleet. **Do not reopen 287.**
+5. **THE NEXT WORK — the residual triage, now fully enumerated and one session's job.**
+   Post-fix population (rates from RFC_029 §10.7):
+   - `build-dispatch-loop` `current_page` → `handler_result.retry_payload.message.body.~unwrap.current_page` (~18/h)
+   - `build-dispatch-loop` `work_item_id` → `claim_result.work_item_id` (~10/h)
+   - `page-content-writer` `current_page` → `~unwrap.current_page`
+   - `page-build-handler` `sections` / `page_type` / `current_page` → `load_page_record.*`
+   - `tool-generator` `description`/`function`/`reason`/`related_pages`, `generic` `summary` — ≤3 each
+   Method per pair: **is the winner the value the step needs?** Yes → write the explicit mapping,
+   then `!` (in that order — never `!` first). No → the pipeline was living on the search and
+   needs the mapping more. **First, one cheap `[UNMEASURED]` check that reframes the top two:**
+   post-WFA-017, is `claim_result.work_item_id` now the CURRENT iteration's value? If yes these
+   are benign-but-unmapped (tidy-up); if no they are live wrong-value bugs. Compare the winner
+   against the run's current item.
+6. **Phase 2 (conflicts resolve NOTHING): gated on item 5 reaching zero or fully mapped — NOT on
+   a date.** No longer "off the calendar" (§10.5's reading): the worst case, a fleet living on
+   luck, is now positively excluded. It remains its own council-gated task; flip sites are marked
+   in code and in `unified_extractor_search_test.go`'s header.
+7. **417's live proof is STILL owed and still demand-bound** — `image-build-handler` has not run
+   since the 08-16 apply (3 runs in the 8 days before it); zero strict/`asset_id` errors; it is
+   still the only live `!` carrier besides 287's three. Query in §2.2 above. Do not read the
+   continuing 0 as success or failure.
 
 ## 3. Traps found this session (cheap, easy to lose)
 
