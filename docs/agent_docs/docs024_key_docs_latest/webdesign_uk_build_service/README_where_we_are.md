@@ -1472,3 +1472,50 @@ committed today, by any session, is not running yet.
 I nearly missed that, in a way worth admitting: my first check used a "this must be
 absent" control that was present in every possible case, so it could not have failed.
 Redone properly, with a control that could have come out either way.
+
+## 2026-08-17 (evening) — lock off, and a warning about the order things must change in
+
+**The chat box lock is off, but not the way it looked from outside.** Before touching it I
+checked what would happen on the next rebuild, and the answer was: the chat box gets
+deleted. The lock was the only thing holding it on the page — the site's plan never listed
+it, so every rebuild proposed a page without it and the lock was what said no. Taking the
+lock off on its own would have handed the next rebuild permission to do what it has been
+trying to do since 11 August.
+
+So I did it in the order that leaves you safe: I put the chat box into the site's plan
+first, then removed the lock. It is now part of the page by design rather than by
+exception, which is the state you actually want, and it is the "through the framework"
+route you asked for. Checked afterwards: the box is still on the page and still answering.
+
+**Now the important part, about the payment terms.** I asked the live chat box "Do I get to
+see the site before I pay?" It said: *"Yes. You'll get a private preview link to review the
+finished site. You only pay the £149 once you've approved it."* So the wrong terms are not
+just sitting on pages waiting for a rewrite — the bot is telling them to people right now,
+in the pre-sale conversation.
+
+The good news is that the bot reads its facts from the register, so correcting the register
+corrects the bot within about five minutes, with no rebuild and no deploy. That makes the
+register the first thing to change, not the last.
+
+**And a trap I want to flag before anyone changes it.** Three of your recorded facts depend
+on the old terms, not one. The obvious one is the payment sentence. But the "no refunds"
+fact carries its own reason — "you pay once you have approved the site" — written as an
+instruction to the writers. Change only the payment fact and the site can end up saying
+both things at once, each one traceable to something you approved, with the checker passing
+both because both are approved. They have to move together.
+
+Two things I need from you before any of it: does the customer see the site at all before
+paying, or only after; and what the "no refunds" line should say now that "you approved it
+first" is no longer the reason.
+
+I have also written down the constraint about your second brand: no "cheapest", no "no one
+does less", nothing comparative that a cheaper sibling would make untrue the day it
+launches. Absolute statements about this product are safe; superlatives about the market
+are not. I have proposed those as mechanical bans rather than something to remember.
+
+One last thing, flagged once and then left alone: taking full payment before the customer
+sees anything, with no refund, is a stronger position than you have now and it is yours to
+take. It is worth a deliberate look at whether any buyer counts as a consumer rather than a
+business, because the distance-selling rules give consumers a cancellation right that sits
+awkwardly with pay-upfront-no-refund. Most of your buyers are businesses, so it may be
+nothing. Your call, and I will not raise it again.

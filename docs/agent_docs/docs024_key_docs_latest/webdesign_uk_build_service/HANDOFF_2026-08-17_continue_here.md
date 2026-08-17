@@ -19,6 +19,24 @@ corrected payment terms, a full site rewrite) and said explicitly *"Don't go ahe
 until I've finalised that plan"*, which he is doing in the session
 `webdesign live web builder project` (`d10f1acc-1627-4729-b660-93d6e84911e3`).
 
+## 0b. UPDATE 2026-08-17 (later) — the owner has ruled on three of the open questions
+
+- **The chat-box lock is OFF**, done in the SAFE ORDER: the `is_current` plan held
+  `contact = [hero, contact-info]` only, so the box survived purely as a locked row the
+  285 fix merges in — unlocking alone would have reproduced the 2026-08-11 deletion on
+  the next rebuild. The **plan now carries it** (ordering 2) and only then was
+  `locked_at` cleared, so protection is structural. `SQL_2026-08-17_plan_carries_chat_then_unlock.sql`.
+  Verified after: widget served, one live turn answered. **The owner asked that rewrites
+  be WATCHED to confirm it stays working — that is now a standing check.**
+- **The commercial terms change**: no customer-facing preview step; the customer pays and
+  takes the site as built. **THREE attested facts break, not one** — full analysis, the
+  self-contradiction trap, the two questions only the owner can answer, the superlative
+  bans, and the order of operations: `TERMS_2026-08-17_new_commercial_position_impact.md`.
+  **⚠ The CHAT BOT is already telling customers the OLD terms** (measured live), and it
+  self-corrects within ~5 minutes of the register changing — no deploy. That makes the
+  register supersede the most urgent item, ahead of any page work.
+- **Still held**: the site rewrite, the chat move to `index`, the positioning copy.
+
 ## 1. DO NOT START — the hold, and what it covers
 
 Everything in `REQUIREMENTS_2026-08-17_owner_brief_pending_new_plan.md` is held:
