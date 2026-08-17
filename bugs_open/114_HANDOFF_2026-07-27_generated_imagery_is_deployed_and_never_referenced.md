@@ -397,3 +397,50 @@ rows touched. The owner asked for images to be added; the honest answer is that 
 need a deploy or a repoint instead, 8 belong to `131`, and the 5 that really do need
 generating should wait for the deployer's 404 to be understood. Recorded in
 `docs024_key_docs_latest/bugfix_284_flag_only_items_promoted/` (NOTES + README).
+
+### ADDENDUM 2026-08-17 evening — WHY the 5 "genuinely missing" ones are missing: the generator's surface list does not include their page type
+
+Follow-up to the census above, and it closes the question rather than leaving it as "5
+need generating". I did **not** file them, and this is why.
+
+`check_content_image_missing` is the framework's producer for content heroes — it is the
+check named in `spec.check` on every healthy `needs_imagery` row on these sites. Its
+population is a hardcoded surface list:
+
+```go
+// check_content_image_missing.go
+:131   PageType: "blog-post",
+:137   PageType: "tool",
+```
+
+and its sweep is `... AND p.page_type = $2` (:223). **The case-study pages are
+`page_type = 'content'`** (measured on finetuning.uk + ai-agent-orchestration.com). So
+they are outside the generator's population by construction — no pass of that check can
+ever emit imagery for them, however many times it runs.
+
+That is the actual defect behind those findings: **the page templates reference
+`/assets/images/case-study-*.jpg`, and no producer in the framework generates content
+imagery for the page type those references live on.** `image_url_404` is reporting it
+accurately; the gap is upstream of the report.
+
+**What I deliberately did NOT do, and would ask this lane to weigh:**
+
+- **No hand-filed `needs_imagery` rows.** The healthy rows carry a prompt composed by the
+  framework from the page's own title and description; hand-writing five prompts would be
+  a session writing site content (against the 2026-08-06 ruling), and it would paper over
+  the surface gap so nobody fixes it.
+- **No widening of the surface list by me.** Adding `content` there is a two-line change
+  and a **fleet-wide** one: every `page_type='content'` page on every site enters the
+  generator's population at once, which is real image-generation spend and belongs to
+  whoever owns this lane, with the usual gate. Worth measuring the population first —
+  `SELECT count(*) FROM pages WHERE page_type='content'` across the fleet — because that
+  count is the size of the first sweep.
+
+**Also settled tonight, since it was recorded above as a blocker: the deployer's 404 is
+GONE.** After the v1.0.1307 roll (`revision=a6d1c53c`, digest matched to the pods), the
+re-triaged items resumed: one **completed** end-to-end at 18:33 and the only failure since
+is `call_asset_deployer … timed out after 3 retries` — a transient, not the structural
+`branch "master" 404`. The completion re-used an asset generated pre-roll at 13:35
+(`hero_lenders`, `62ffe42d`), which is why `assets` shows nothing created since the roll
+and why that zero is not a sign of failure. So generation+deploy works again; the five
+above are blocked by the surface list, not by the deployer.
