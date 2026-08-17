@@ -48,7 +48,8 @@ four days.
 | **report hero blessed clause** | **RESTORED and VERIFIED AT THE SERVED PAGE** (owner ruling 08-16). `curl https://idea.uk/report.html` returns **exactly 1** occurrence of the word, and it is the blessed clause; item `complete`, 0 retries |
 | **D-005** | FILED and enforceable — covers `report`/`hero`, guard asserts the served page contains `honest assessment`, tagged both `decision` and `decision-record` |
 | voice gate | armed on 9 sites; **blind to titles and meta descriptions** (see §4) |
-| body copy | **REGROWING — 30 pages, 11 sites.** Un-diagnosed, deliberately |
+| body copy | **REGROWING — 30 pages, 11 sites.** Diagnosis DROPPED by owner ruling 2026-08-17; the 30 stay |
+| **the word, going forward** | **migration `454`** — rule 19 in `page-content-writer`'s `prompt_template`. `[VERIFIED 2026-08-17]` at runtime: 3 writer calls after the apply, **3 of 3** carrying the rule in `llm_call_log.prompt_rendered`. Snapshot holds the pre-change config, ROLLBACK companion exists |
 
 ## 3. OWNER RULINGS 2026-08-16 — two, and the second is easy to miss
 
@@ -135,11 +136,26 @@ it. That is how D-005's clause could be deleted with both edits reporting `compl
   idea, honestly?"* inside the tool's own markup. The rest are code comments; leave them.
 - **Arming the gate on the remaining sites** — remember §4: whatever you set, it will not
   protect the head.
-- **Older residuals** (unchanged, from `HANDOFF_2026-08-11` §5): first organic signed
-  Stripe webhook; tools-page card images and tool-page heroes; `derive_brand_head_assets`
-  (favicon/og-card live 404s); news at `/data/latest-news.json` still 404 with
-  `content_sources` = 0 for idea.uk; the empty-kind → SDXL image-routing hole; ingress
-  landmines (`ufw allow 80,443` FIRST, grey second).
+- **Older residuals** (from `HANDOFF_2026-08-11` §5), re-verified 2026-08-17:
+  - **favicon / og-card 404 — CAUSE FOUND 2026-08-17, contributed into `bugs_open/131`
+    (og-card slug).** Not a generator bug: the generator is never reached. 9 of the last 10
+    `needs_brand_head_assets` items carry **no `spec.mode`**, so they fall through
+    `asset-deployer`'s conditional chain to `deploy_image_asset`, which refuses correctly
+    ("re-derive it (mode=brand_head) instead") — **and the item completes anyway** with
+    `skipped:true`. 21 such items read `complete` fleet-wide. Also hits webdesign.co.uk,
+    webdesign.uk, cookly.uk (**other lanes' — same one-liner, their call to run**). An
+    idea.uk item with the correct mode was filed 2026-08-17
+    (`created_by='claude-ideauk-brandhead-20260817'`); **verify at the artefact, both must
+    be 200:** `/assets/images/favicon.png` and `/assets/images/og-card.png`.
+    ⚠ Read the URL the PAGE references — `/favicon.ico` 404s and proves nothing, nothing
+    links it. `logo.png` (the derivation INPUT) is 200, which is what makes this "the
+    deriver never ran" rather than "no source".
+  - news at `/data/latest-news.json` still **404**, `content_sources` for idea.uk still
+    **0** (fleet 49) — untouched, and the 08-04/05 dispatch mystery (§X.53) is still
+    un-diagnosed.
+  - first organic signed Stripe webhook; tools-page card images and tool-page heroes; the
+    empty-kind → SDXL image-routing hole; ingress landmines (`ufw allow 80,443` FIRST,
+    grey second).
 
 ## 7. Traps this session hit or nearly hit
 
