@@ -1303,6 +1303,12 @@ type workItemWrite struct {
 	// Refreshed: an existing OPEN row's summary/spec were brought up to date.
 	// Only reachable under refreshOnConflict.
 	Refreshed bool
+	// BornBlocked: the row WAS written, but at status 'blocked' instead of the
+	// dispatchable status the caller asked for, because its handler_agent names
+	// no registered agent (bugs_open/291). The finding is durably recorded —
+	// Inserted stays true — and feasibility-recheck promotes the row the moment
+	// an agent of that name is registered.
+	BornBlocked bool
 }
 
 // Recorded reports whether a durable record now describes this finding, however
@@ -1368,6 +1374,49 @@ func writeWorkItem(ctx context.Context, tx *sql.Tx, item workItem, policy confli
 		}
 	}
 
+	// --- Routability at the door (bugs_open/291) ---
+	// A row born in a dispatchable status whose handler_agent names no registered
+	// agent can only ever become claim's handler-not-registered `blocked` — after
+	// a wasted dispatch pick and a misleading interval at 'triaged'. Stamp it
+	// `blocked` at birth instead, with the SAME error text claim writes, so the
+	// outcome is identical but earlier, cheaper, and honest. This runs AFTER the
+	// two-strike block so it sees the final status.
+	//
+	// Demote, never refuse: a refusal here would lose the finding to a pod log —
+	// discovery sweeps log-and-continue on insert error, and config-driven
+	// create_work_item loops run continue_on_error — whereas a blocked row is
+	// durable, visible (idx_work_items_blocked), and self-healing: the
+	// feasibility-recheck task (600s) promotes it to 'triaged' the moment an
+	// agent of that name is registered, which also absorbs the platform's
+	// image-before-seeds ordering. Claim's own branch remains the backstop for
+	// the raw-INSERT writers that bypass this door.
+	//
+	// The probe is claim's own predicate, rendered from the one shared helper —
+	// see workItemHandlerRegisteredSQL for why it deliberately ignores
+	// is_active/is_snapshot. The trigger set is exactly CHECK 443's statuses;
+	// see workItemStatusRequiresRegisteredHandler for why it must not widen.
+	demotedUnroutable := false
+	if item.handlerAgent != "" && workItemStatusRequiresRegisteredHandler(item.status) {
+		var registered bool
+		if probeErr := tx.QueryRowContext(ctx,
+			"SELECT "+workItemHandlerRegisteredSQL("$1"), item.handlerAgent,
+		).Scan(&registered); probeErr != nil {
+			// Mirror claim's posture on a failed handler read: log and fall
+			// through — the claim-time branch remains the backstop.
+			logger.Warn("writeWorkItem: handler registration probe failed, skipping door guard",
+				zap.String("handler_agent", item.handlerAgent),
+				zap.Error(probeErr))
+		} else if !registered {
+			logger.Warn("writeWorkItem: handler not registered — item born blocked",
+				zap.String("handler_agent", item.handlerAgent),
+				zap.String("item_type", item.itemType),
+				zap.String("item_key", item.itemKey),
+				zap.String("requested_status", item.status))
+			item.status = "blocked"
+			demotedUnroutable = true
+		}
+	}
+
 	var itemKeyPtr *string
 	if item.itemKey != "" {
 		itemKeyPtr = &item.itemKey
@@ -1393,18 +1442,27 @@ func writeWorkItem(ctx context.Context, tx *sql.Tx, item workItem, policy confli
 		itemKeyPtr, batchIDPtr, dependsOnStr,
 	}
 
-	// parent_item_id is appended as $17 ONLY when a parent was given, so a caller
-	// that never asked for it sends the identical statement with the identical
-	// sixteen arguments it always sent. That is not tidiness — WIDENING A SHARED
-	// STATEMENT BREAKS CALLERS NOBODY EDITED. Adding the column unconditionally
-	// failed twenty tests across eight files in lanes other sessions are working
-	// right now (sqlmock matches the argument COUNT), none of which had anything
-	// to do with this change. A seam whose cost lands on people who did not opt
-	// into it is the drift this repo's council exists to refuse.
-	parentCols, parentVals := "", ""
+	// parent_item_id — and, since bugs_open/291, error — are appended ONLY when
+	// needed, so a caller that never asked for either sends the identical
+	// statement with the identical sixteen arguments it always sent. That is not
+	// tidiness — WIDENING A SHARED STATEMENT BREAKS CALLERS NOBODY EDITED. Adding
+	// a column unconditionally failed twenty tests across eight files in lanes
+	// other sessions are working right now (sqlmock matches the argument COUNT),
+	// none of which had anything to do with this change. A seam whose cost lands
+	// on people who did not opt into it is the drift this repo's council exists
+	// to refuse.
+	extraCols, extraVals, argN := "", "", 16
 	if item.parentItemID != nil {
-		parentCols, parentVals = ", parent_item_id", ", $17"
+		argN++
+		extraCols += ", parent_item_id"
+		extraVals += fmt.Sprintf(", $%d", argN)
 		args = append(args, *item.parentItemID)
+	}
+	if demotedUnroutable {
+		argN++
+		extraCols += ", error"
+		extraVals += fmt.Sprintf(", $%d", argN)
+		args = append(args, "Handler agent not registered: "+item.handlerAgent)
 	}
 
 	insertSQL := fmt.Sprintf(`
@@ -1421,7 +1479,7 @@ func writeWorkItem(ctx context.Context, tx *sql.Tx, item workItem, policy confli
 			WHERE item_key IS NOT NULL
 			  AND status NOT IN (%s)
 		DO NOTHING
-	`, parentCols, parentVals, sqlInList(workItemTerminalStatuses))
+	`, extraCols, extraVals, sqlInList(workItemTerminalStatuses))
 
 	result, err := tx.ExecContext(ctx, insertSQL, args...)
 
@@ -1437,7 +1495,7 @@ func writeWorkItem(ctx context.Context, tx *sql.Tx, item workItem, policy confli
 			zap.String("status", item.status),
 			zap.Int("priority", item.priority),
 		)
-		return workItemWrite{Inserted: true}, nil
+		return workItemWrite{Inserted: true, BornBlocked: demotedUnroutable}, nil
 	}
 
 	// Nothing was inserted: an OPEN item already holds this key. Under the

@@ -372,12 +372,18 @@ func queueLayoutCandidateReview(
 		scheme = "unknown"
 	}
 
-	// handler "hitl-review" + status "needs_human_review" matches the existing
-	// tool-auditor → HITL pattern. `needs_human_review` is a first-class status:
-	// the dispatch loop skips these items, so the bogus handler doesn't cause the
-	// "handler not registered → blocked" flip in ClaimWorkItemAction. A human
-	// resolves it via admin API (PATCH /work-items/:id): add a layout and retry,
-	// or mark wont_fix.
+	// Parked for a human: status "needs_human_review" + an EMPTY handler — the
+	// canonical HITL idiom (migration 217; fleet census 544 rows '' vs 22 at any
+	// pseudo-handler name, refresh_evidence_fact_drift.go). The dispatch loop
+	// never selects this status, and with no handler named, CHECK
+	// swi_no_handlerless_promotable (migration 443) structurally refuses any
+	// later promotion into the dispatch queue. A human resolves via admin API
+	// (PATCH /work-items/:id): add a layout and retry, or mark wont_fix.
+	//
+	// This used to say `handlerAgent: "hitl-review"` "matches the existing
+	// tool-auditor → HITL pattern" — bugs_open/291: that agent has NEVER existed
+	// (an April 2026 convention whose handler was never built), and tool-auditor
+	// was not even setting this status, so the "existing pattern" was the bug.
 	item := workItem{
 		siteID:       siteID,
 		source:       "side_effect",
@@ -387,7 +393,7 @@ func queueLayoutCandidateReview(
 		summary:      fmt.Sprintf("Layout gap for %s (scheme=%s) — applied %s; review classification or add a layout", domain, scheme, appliedLayout),
 		spec:         string(specJSON),
 		priority:     80,
-		handlerAgent: "hitl-review",
+		handlerAgent: "",
 		status:       "needs_human_review",
 		createdBy:    "site-design-planner",
 		itemKey:      "needs_new_layout_candidate",

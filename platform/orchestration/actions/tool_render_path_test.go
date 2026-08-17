@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql/driver"
 	"encoding/json"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -58,6 +59,10 @@ func runCreateWorkItem(t *testing.T, config, collected map[string]interface{}) (
 	mock.ExpectBegin()
 	mock.ExpectQuery("SELECT COUNT").
 		WillReturnRows(sqlmock.NewRows([]string{"count", "age"}).AddRow(0, 999.0))
+	// The write-door routability probe (bugs_open/291): this helper's default
+	// handler is registered, so the guard passes the item through.
+	mock.ExpectQuery(regexp.QuoteMeta("SELECT " + workItemHandlerRegisteredSQL("$1"))).
+		WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
 	mock.ExpectExec("INSERT INTO site_work_items").
 		WithArgs(
 			sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(),

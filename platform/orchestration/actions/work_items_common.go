@@ -174,6 +174,30 @@ var workItemDispatchableStatuses = []string{
 	"approved",
 }
 
+// workItemStatusRequiresRegisteredHandler reports whether a row at this status
+// is in, or headed into, the dispatch loop's hands — the Go mirror of CHECK
+// swi_no_handlerless_promotable's status list (migration 443). At these statuses
+// a NAMED handler must be a registered agent, or the row can only ever become
+// claim's handler-not-registered `blocked` (bugs_open/291: tool-auditor filed
+// 14 real findings at 'hitl-review', a handler that has never existed).
+//
+// Everywhere else a handler name is decorative-or-future BY DESIGN, and policing
+// it would break deliberate idioms: 'detected' is judged at promotion
+// (workItemRoutableSQL); 'deferred' capability_gap rows name an UNBUILT builder
+// on purpose (load_work_item_actions.go, unavailableBuilders); and parked
+// 'needs_human_review' rows are never claimed, several producers naming the
+// unregistered pseudo-handler 'human-review' there. Widening this set to those
+// statuses would demote every one of them to blocked — recreating
+// bugs_closed/284 inside 291's fix.
+func workItemStatusRequiresRegisteredHandler(status string) bool {
+	for _, s := range workItemDispatchableStatuses {
+		if status == s {
+			return true
+		}
+	}
+	return status == "claimed"
+}
+
 // countDispatchableWorkItems answers a question about the SITE, not about the
 // caller's own result set: how many work items are sitting in a dispatchable
 // status for this pipeline right now, whoever put them there.

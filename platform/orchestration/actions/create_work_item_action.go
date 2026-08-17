@@ -181,9 +181,19 @@ func CreateWorkItemAction(ctx context.Context, params ActionParams) (interface{}
 	if itemType == "" {
 		return nil, fmt.Errorf("item_type config is required")
 	}
+	// An empty handler_agent is required to be an ERROR only when the item is
+	// born dispatchable (an omitted status defaults to 'triaged' below) — a
+	// handler-less dispatchable row could only ever become claim's `blocked`,
+	// and since migration 443 the INSERT itself would be refused by CHECK
+	// swi_no_handlerless_promotable. A PARKED item may omit the handler on
+	// purpose: `status: "needs_human_review"` + no handler is the platform's
+	// HITL idiom (migration 217; bugs_open/291 — tool-auditor's review items
+	// bled to `blocked` for months because this validation forced every config
+	// to name SOME handler, and the name it chose had never existed).
 	handlerAgent, _ := config["handler_agent"].(string)
-	if handlerAgent == "" {
-		return nil, fmt.Errorf("handler_agent config is required")
+	status, _ := config["status"].(string)
+	if handlerAgent == "" && (status == "" || workItemStatusRequiresRegisteredHandler(status)) {
+		return nil, fmt.Errorf("handler_agent config is required when the item is born dispatchable (status %q; an omitted status defaults to \"triaged\") — to park an item for a human, set status \"needs_human_review\" and omit the handler (migration 217 idiom; bugs_open/291)", status)
 	}
 	// Same truth table as the hand-rolled shim this replaces — new name wins,
 	// old name works, "build" when neither is set — now driven by the spec's
@@ -205,7 +215,8 @@ func CreateWorkItemAction(ctx context.Context, params ActionParams) (interface{}
 	if summary == "" {
 		summary = itemType
 	}
-	status, _ := config["status"].(string)
+	// status was read beside handler_agent above; the default is the dispatch
+	// queue's entry status.
 	if status == "" {
 		status = "triaged"
 	}
@@ -335,7 +346,7 @@ func CreateWorkItemAction(ctx context.Context, params ActionParams) (interface{}
 	}
 	defer tx.Rollback()
 
-	inserted, err := insertWorkItem(ctx, tx, workItem{
+	w, err := writeWorkItem(ctx, tx, workItem{
 		siteID:       siteID,
 		source:       source,
 		pipeline:     itemPipeline,
@@ -353,10 +364,11 @@ func CreateWorkItemAction(ctx context.Context, params ActionParams) (interface{}
 		dependsOn:    dependsOn,
 
 		recurrenceExpected: recurrenceExpected,
-	}, logger)
+	}, dropOnConflict, logger)
 	if err != nil {
 		return nil, fmt.Errorf("insert work item: %w", err)
 	}
+	inserted := w.Inserted
 
 	if err := tx.Commit(); err != nil {
 		return nil, fmt.Errorf("commit: %w", err)
@@ -366,6 +378,7 @@ func CreateWorkItemAction(ctx context.Context, params ActionParams) (interface{}
 		zap.String("item_type", itemType),
 		zap.String("handler_agent", handlerAgent),
 		zap.Bool("inserted", inserted),
+		zap.Bool("born_blocked", w.BornBlocked),
 		zap.String("item_key", itemKey),
 	)
 
@@ -376,5 +389,9 @@ func CreateWorkItemAction(ctx context.Context, params ActionParams) (interface{}
 		"site_id":       siteID.String(),
 		"item_key":      itemKey,
 		"deduped":       !inserted,
+		// born_blocked: the row exists but was demoted to 'blocked' at the door
+		// because handler_agent names no registered agent (bugs_open/291).
+		// Additive key — nothing consumed item_created.* before it existed.
+		"born_blocked": w.BornBlocked,
 	}, nil
 }
