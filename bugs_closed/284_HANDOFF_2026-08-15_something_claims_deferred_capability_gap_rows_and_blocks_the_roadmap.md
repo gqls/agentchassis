@@ -341,3 +341,37 @@ whenever the owner rules.
 > every date to the roll (which genuinely was 2026-08-16 22:07 UTC) instead of to
 > the clock. Dates that describe when the ROLL happened, when `7027a2801` landed, or
 > when the rows were filed are unaffected and remain 08-16 or earlier.
+
+### The OTHER promoter, checked — and the honest limit of that check
+
+There are **two** promoters, and only one is this bug's: the Go
+`TriageDetectedItemsAction` (guarded by `7027a2801`, proven above) and the
+**scheduled** `detected-item-promoter` (`scheduled_tasks`, enabled, 900s, the
+`bugs_open/083` lane's, most recently migrations `430`/`444`). The constraint added
+here applies to both, so it was checked against the second before this file closed:
+
+- **Structurally it cannot produce the forbidden shape.** Its live `pre_query`
+  requires `COALESCE(wi.handler_agent,'') <> ''` AND an `EXISTS` on a live
+  `agent_definitions` row, before two further gates of its own.
+- **It ran after the constraint landed and completed cleanly**: last triggered
+  2026-08-17 11:17:43Z (constraint applied 11:03:25Z), `last_completed_at` equal to
+  it, and zero occurrences of `swi_no_handlerless_promotable` in scheduler or
+  chassis logs.
+- ⚠ **But that run promoted NOTHING, so it did not exercise a write through the
+  constraint** — and a zero that is not attributed is not evidence. Attributed: the
+  5 routable `detected` rows waiting fleet-wide are `page_component_status_drift`
+  → `component-template-fixer` (0 complete, 0 failed) and `placeholder_contact` →
+  `page-build-handler` (0 complete, **4 failed**), and BOTH fail the promoter's own
+  `EXISTS (… status='complete')` precedent gate. The zero is that lane's deliberate
+  door-closer, not this constraint.
+- **So the standing claim is the narrow one:** the constraint is proven to refuse
+  only the bad shape (induced, two negative controls) and proven compatible with the
+  scheduled promoter *by construction and by a clean run*, **not** by an observed
+  promotion under it. The first real promotion is what would complete that proof —
+  it needs an item_type+handler pair with a completed precedent to appear in
+  `detected`. Nothing to do but notice it when it happens.
+
+*(Passing observation for the `083` lane, not acted on here: `placeholder_contact`
+→ `page-build-handler` stands at 0 complete / 4 failed, so its findings can never
+pass that gate — a handler that has never once succeeded at an item type it is
+named for.)*
