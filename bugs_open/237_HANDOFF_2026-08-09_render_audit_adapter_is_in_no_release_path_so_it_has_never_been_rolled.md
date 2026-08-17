@@ -225,3 +225,48 @@ live). Fix candidate **1** — enumerate the filesystem rather than a hand-list 
 is what would retire it. Also still unaddressed and found by the same census:
 `github-actions-runner` on **v1.0.948**, `github-actions-runner-vmsites` on
 v1.0.1126.
+
+---
+
+## CLASS FIX IN PROGRESS 2026-08-17 — step 1 committed (`6b3524201`), the door is armed
+
+Fix candidate **1**, taken up as its own task. Verified first: the pod is on
+`browser-runner-adapter:v1.0.1305` with the fleet (individual case stays closed),
+and both mechanisms were still hand-lists at HEAD.
+
+**Live now (`6b3524201`, makefile only):**
+- `RELEASE_IMAGES` / `AGENT_DEPLOY_SERVICES` (`name[:image]`) / `RETAG_EXEMPT`
+  (`auth-service:deploy-auth-service`, `core-manager:deploy-core-manager`) —
+  ONE declaration per set, at the top of the makefile. The image-sharing trio is
+  now declared, not special-cased: this census found **vet-intel** and
+  **business-intel** pin `agent-chassis` — the old fallback's guess was latently
+  wrong for them too; only render-audit-adapter had a `case`.
+- **`check-release-coverage`** — enumerates the FILESYSTEM: any overlay pinning a
+  release-built image that is in neither list refuses the release, naming the
+  service and both remedies. Prereq of `update-kustomization-images` (runs in
+  `deploy-core`, so every `make release`). **Mutation-tested**: a fake
+  chassis-pinning overlay FAILS it; the original 237 state (list minus
+  render-audit-adapter) FAILS it naming render-audit-adapter; current tree PASSES.
+- `update-kustomization-images` loops over the declaration (old list was also
+  missing thunder/analyser/browser-runner — superset now, seds are idempotent).
+
+**Council:** gate refused client-side — makefile-only touches none of
+`platform/`, `internal/`, `pkg/` (owner ruling 2026-07-17; precedent: 249's
+banner). Refusal drawn live, no FORCE, no credits.
+
+**Remaining (mechanical, behaviour-equivalence provable by `make -n` set-diff;
+baselines saved in the session scratchpad `237/baseline_*.txt` — 37 deploy
+actions, 17 restarts, 14 pushes):**
+1. `deploy-agents`: replace the ~15 copy-pasted sed+apply blocks with one loop
+   over `AGENT_DEPLOY_SERVICES` (hoist the browser-runner topic note + the
+   render-audit history comment); keep non-retag applies, DB sync, restarts.
+2. `redeploy-agents` (+ its one extra, ollama-adapter) and `push-backend`
+   become loops over the declarations.
+3. `deploy-%`: preflight the image read FROM the overlay (awk `images:`→`name:`)
+   instead of assuming `$(REGISTRY)/$*`; then delete the explicit
+   `deploy-render-audit-adapter` rule — the command keeps working via the
+   pattern, and the next image-sharing service needs no bespoke rule.
+Then: LANDMINES entry update (the hand-list landmine gains its guard) +
+`landmines-verify-dispatch.sh`, and a concept-register BLD entry for
+`check-release-coverage`. `github-actions-runner*` drift stays a separate
+owner call (own image lineage — the coverage check correctly ignores it).
