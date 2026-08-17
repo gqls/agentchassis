@@ -262,3 +262,70 @@ committed. Either direction is a one-file forward commit whenever you rule.
 3. NOT here: the write-time vocabulary residual (`create_work_item` accepts any
    item_type from workflow config) — recorded in 279's status updates; different
    door.
+
+---
+
+## CLOSED 2026-08-16 — all three "why this stays open" items discharged, and the guard is PROVEN LIVE with a demand control
+
+**1. The roll landed.** v1.0.1305 on **both** chassis and core-manager (per-service,
+not per-fleet): running digests match the local images, OCI label
+`revision=6a782274b`, and `git merge-base --is-ancestor 7027a2801 6a782274b`
+exits 0. The tag alone would not have been evidence.
+
+**2. The 60 rows are repaired** — migration `442` (applied + recorded), with
+counted needles (exact 18/40/2/60 or it refuses) and a `RETURNING` postcondition,
+per the `debug_historian` seat's objection. Each row restored to the state its
+OWN producer files, read from source: `capability_gap`→`deferred`,
+`image_url_404`→`detected`. The stale error text is cleared and each row carries
+`result.repair_284` naming what happened, so none of them looks spontaneously
+fixed. The two hand-inserted rows were judged individually:
+- `needs_experience_plan` (fundamentallyai.com) → **`deferred`, NOT cancelled**.
+  It is **owner-raised** ("raised_by": "owner, reading the live site 2026-08-12")
+  with evidence measured at the served page, and it had been silently unreachable
+  for four days. `[MEASURED]` no handler for this type has ever existed — all 7
+  rows ever filed carry an empty handler (3 cancelled, 3 complete, this one) and
+  no agent config or Go literal names it — so it is a human-read item and
+  `deferred` is where `diagnose_triage`'s roadmap view surfaces it. **Flagged to
+  the owner**, not silently parked.
+- `page_rerender` (`verify_189_…`, 2026-08-06) → `cancelled`: a ten-day-stale
+  one-off verification for another lane's bug. If 189 still needs it, 189 re-files.
+
+**3. The hand-insert path is CLOSED** — migration `443`: CHECK
+`swi_no_handlerless_promotable` forbids `handler_agent='' AND status IN
+('triaged','approved','claimed')`, added `NOT VALID` then `VALIDATE`d so the
+existing rows are proven rather than assumed. **INDUCED, with two negative
+controls**: handler-less+`triaged` REFUSED; handler-less+`detected` ALLOWED (that
+state is legitimate and is where 77 flag-only rows live); handler+`triaged`
+ALLOWED. No probe rows leaked. It could not have landed before the roll — the old
+promoter's blanket UPDATE would have errored fleet-wide.
+
+### The guard is proven LIVE, not merely deployed
+
+A zero needs a demand control, so one was manufactured: `leopardessconsulting.co.uk`
+holds **36 flag-only `detected` rows and nothing routable**, so the promoter could
+only either hold them back or promote them. Single-step `triage_detected_items`
+run (corr `a5be3dea-3f2c-490a-9922-22993662bc95`): **`promoted: 0`,
+`not_promotable: 36`, `not_promotable_by_type: {"head_essentials_missing": 36}`**,
+site rows still `detected`, fleet count of handler-less blocked rows now **0**.
+Under the old binary those 36 would have been promoted and then blocked. (The probe
+was safe in both worlds: had the guard been absent, constraint `443` would have
+refused the write loudly rather than corrupting rows.)
+
+### ⚠ A trap this repair had to walk past, recorded because it looks like a refutation
+
+Reading the two `capability_gap` producers at HEAD shows `Status: "deferred"` —
+which seems to refute the diagnosis, since a `detected`-only promoter cannot
+promote a `deferred` row. It does not: **`deferred` was introduced by 284's own
+fix commit `7027a2801`**, in the same change as the promoter guard. The rows were
+born `detected` under the pre-fix code (all 18 filed 07-28..08-10, all blocked
+08-02..08-11, none since). Check `git log -S` on the status literal before
+believing a producer's present-day shape refutes a past mechanism.
+
+### STILL OPEN AND OWNER-FACING (does not block this closure)
+
+The round-2 seat disagreement recorded above is **unresolved by design**:
+`reuse_agent` says a third rendering of the predicate (`remit.go`
+`HandlerStepConfig`) should have been migrated onto the shared renderer;
+`guardian` says touching `claim_work_item_action.go` at all exceeded the bug.
+Nothing was done unilaterally. Either direction is a one-file forward commit
+whenever the owner rules.

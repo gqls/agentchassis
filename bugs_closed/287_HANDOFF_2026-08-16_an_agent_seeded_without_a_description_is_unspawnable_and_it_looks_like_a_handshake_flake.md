@@ -119,3 +119,27 @@ constraint now forbids.
 
 **Remaining to close:** the code half rides the next chassis + core-manager roll;
 verify at the artefact and move to `bugs_closed/`. Nothing else outstanding.
+
+## CLOSED 2026-08-16 — code half LIVE on v1.0.1305 (both services), and the class is now unrepresentable
+
+**Verified at the artefact, per service** — this bug's readers span TWO services,
+so a fleet-level check would not have covered it:
+- `agent-chassis` v1.0.1305 — running digest `f90a7e88…` matches the local image;
+  OCI `revision=6a782274b`.
+- `core-manager` v1.0.1305 (where the fifth reader, `admin/system_handlers.go`,
+  lives) — running digest `effd7982…` matches; same revision.
+- `git merge-base --is-ancestor 3c8a87101 6a782274b` exits 0 → the COALESCE fix is
+  in both images.
+
+**On proving it at runtime — stated honestly rather than claimed.** The COALESCE
+can no longer be induced in production, because migration `438` made
+`description` `NOT NULL DEFAULT ''` the same day: a NULL is unrepresentable, so
+the branch the code half guards can never be reached again. That is the intended
+end state and the stronger of the two guarantees — the schema closes the door on
+**every** binary, including any older one still running elsewhere; the COALESCE is
+belt-and-braces for a world where the constraint is ever dropped. The
+disconfirmable evidence that exists: `438`'s own induced probe (an INSERT omitting
+the column landed `''`, not NULL) and `TestAgentDefinitionDescriptionIsNeverScannedBare`,
+which fails the build if a sixth bare reader appears.
+
+Both halves fixed AND live; council APPROVED r1 (`ad789fe1`). → `bugs_closed/`.
