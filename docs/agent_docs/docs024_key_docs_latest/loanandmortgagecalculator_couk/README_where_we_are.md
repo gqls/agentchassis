@@ -1217,3 +1217,60 @@ plus one archived". That archived stub is actually useful — it is standing pro
 calculator template can serve two pages with two different sets of words, which was the
 owner's original ask. The one remaining big item on this site is teaching the planner
 what the site looks like, so a future rebuild would recreate it faithfully.
+
+---
+
+2026-08-17. Picked this lane up again from the handoff left on Friday evening, and started
+by re-checking the things that handoff said were true. The important ones still are: every
+one of the 23 calculators still gets the right answer, all 170 independent checks pass, and
+the safety check that deliberately feeds the tests wrong numbers still fails all of them,
+which is how we know the checking itself is alive.
+
+Two numbers had changed, and the reason is a good one. The handoff said the site had 41
+pages. It now has 45. Ten minutes after that handoff was written, the site's own improvement
+loop built two new tools — an overpayment-priority calculator and an affordability-complaint
+checker — and a short guide for each, then re-rendered the whole site. That is the loop doing
+exactly what you said you wanted it to do. The practical consequence is about how we measure
+rather than about the site: this site now changes by itself within hours, so any comparison
+of "what the planner proposes" against "what the site actually is" has to be made against a
+count taken the same day, not one copied out of a handoff. I have written today's counts down
+with the queries that produced them.
+
+Then the main job — teaching the planner what this site is, so a rebuild would recreate it
+faithfully. Here I found something that changes the shape of the work. The handoff described
+the task as writing a plan that names all 23 calculators. That is the right target, but not
+the right mechanism, and it would have failed. The planner is a piece of machinery that reads
+a site's specification and writes the plan itself; whether it can even SEE this site's
+calculators is controlled by a single switch on the site's specification, and this site does
+not have that switch set. Its sibling site, loancalculator.co.uk, does — that lane built the
+switch on the 13th and ran it successfully on the 15th. Without it, firing the planner at
+this site today would produce a plan with no calculators in it at all, which is precisely the
+shrink you ruled out.
+
+There is a second switch of the same kind, and it matters just as much. Left off, the planner
+re-derives every page's name from its type — so the page we call "mortgages-stamp-duty" comes
+back named "tool-stamp-duty", doesn't match anything already on the site, and gets added as a
+brand-new second page. The result would be a site with a full set of duplicate pages and the
+real calculators stranded behind them. That failure is written up in the platform's own code
+comments as a known trap, with a switch to prevent it, and this site needs the switch.
+
+So the next steps are: measure exactly which of the 45 pages have names the planner would
+re-derive (the platform's own rule says measure before flipping that switch, and I intend to
+run the real code over the real page list rather than guess), set both switches on this
+site's specification, then fire the planner once and compare what it proposes against today's
+site. I would expect to go round that loop more than once — the divergences are the useful
+output, not the final plan.
+
+One more thing worth telling you, because it came in from another lane and is protective.
+Another session wrote to us on Saturday to say that the way we split the calculator pages
+apart in Track B2 has had a side effect: the platform's own tool-acceptance ladder can no
+longer see 13 of our 19 calculator pages, because it only looks at pages with exactly one
+component and B2 gave them three. Our stamp-duty page is one of the 13, and it carries a test
+that exists specifically to catch the stamp-duty bug we fixed a fortnight ago — so that test
+has never actually run. I have confirmed their finding with the ladder's own rule, and it
+turns out our own notes already recorded it on the 15th from a third lane, so three separate
+sessions have now measured the same hole. It is not urgent — our 170 checks cover the
+arithmetic on those pages independently, and they pass — but it is real, and the obvious fix
+has a sting in the tail that our notes already flag: it would also point an automatic
+code-fixer at the calculators, which is not something to do casually. That decision can wait
+until the planner work is through.

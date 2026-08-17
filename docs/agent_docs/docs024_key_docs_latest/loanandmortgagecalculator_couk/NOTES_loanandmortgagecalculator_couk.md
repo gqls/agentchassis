@@ -3040,3 +3040,98 @@ files `improve_tool` → tool-improver for a tool-level component and does not r
 three safety properties listed there (own component, `rebuild_policy='owned'`, permanent lock)
 are what make it safe here. Nothing was changed on this site by the 281 lane. Full context:
 `docs024_key_docs_latest/bugfix_281_tool_audit_ported/PROPOSAL_2026-08-15_decompose_webdesign_tools.md` §preconditions 2.
+
+### 2026-08-17 — picking the lane up at `HANDOFF_2026-08-15b`: the floor had already moved, and D6's real blocker is two spec flags nobody in this lane had named
+
+Session task: pick up the latest handoff (`HANDOFF_2026-08-15b_continue_here.md`) and start
+its §1, the planner loop. Ran its §2 re-verification first. Three of its figures are now
+different, one of its framings was incomplete, and one arrival in the lane's inbox turned
+out to rest on a stale premise.
+
+**§2 re-verification, all this session:**
+
+| check | handoff (08-15 19:18) | today | verdict |
+|---|---|---|---|
+| `pages` by status | 41 active + 1 archived | **45 active + 1 archived** | moved — see below |
+| pages with a `tool-*` slot | 23 | **24** | moved |
+| `oracle.py` | PASS 170 / FAIL 0 / CONVENTION 6 / N/A 0 | identical | HOLDS |
+| `oracle.py --mutate expectation` | 0 pass / 161 fail / 15 N/A | identical, `CONTROL OK` | HOLDS |
+| `site_plans` rows for this site | 0 (33 fleet) | 0 (33 fleet) | HOLDS |
+
+**Why the page count moved, and why it is not a fault.** Between **19:28 and 19:35 on
+08-15** — ten minutes after the handoff was cut — the improvement loop created four pages:
+`tool-overpayment-priority` + its guide, and `tool-affordability-complaint-checker` + its
+guide. The whole site was then re-rendered 20:57–21:13. Separately, four `site_specs`
+aspects were rewritten that evening by `domain-research-classifier`, `tool-suggester`,
+`domain-strategist` and `vertical-exemplar-researcher` (18:18–18:45), and the daily
+`evidence-refresher` has re-cut `evidence_base` each morning since. The owner's D6 ruling
+explicitly welcomes this growth. **The lesson for D6 is about measurement, not about the
+loop:** this site's floor has a half-life measured in hours, so "is the plan reasonably
+close to where we are?" can only be judged against a floor captured in the *same session*
+as the plan. Every figure quoted from a handoff must be re-measured before it is used as a
+pass/fail. Floor as of today is in `PLAN_2026-08-17_site_plan_seed_and_planner_loop.md` §3.
+
+**The framing correction (the substantive find).** §1 of the handoff says "a seeded plan
+must name every tool slot". Right criterion, wrong mechanism — and no doc in this lane had
+ever mentioned `build-site-planner` or `plan_includes_tools`. The sibling
+`loancalculator.co.uk` lane built and ran this exact machinery on 08-13/08-15. Two
+site-level switches in the `structure` aspect decide whether an LMC replan is safe, and
+**LMC has neither**:
+
+```
+-- [MEASURED 2026-08-17]
+SELECT s.domain, ss.data->>'plan_includes_tools' AS tools, ss.data->>'url_shape' AS shape
+FROM site_specs ss JOIN sites s ON s.id=ss.site_id
+WHERE ss.is_current AND ss.aspect='structure'
+  AND ss.site_id IN ('ed633ada-f8af-424b-b4d4-8af79160dbcd','0162cde4-633e-45e9-8ca6-87a6b2fe1d26');
+--  loancalculator.co.uk             | true | flat
+--  loanandmortgagecalculator.co.uk  |      |          <-- both absent
+```
+
+- `plan_includes_tools` absent ⇒ migration 407's self-gating SQL leaves this site's own
+  tool components out of the planner's `load_components` menu, so the plan **cannot name
+  one of the 23 calculator slots**. That is precisely the shrink D6 forbids, and it is a
+  config absence, not a code defect.
+- `honour_realised_identity` absent (`platform/orchestration/actions/site_identity_policy.go:81`)
+  ⇒ both canonicalisation surfaces re-derive each realised page's identity from its role.
+  `CanonicalisePage` cannot express a legacy identity, so `mortgages-stamp-duty`
+  (`/mortgages/stamp-duty.html`) comes back as `tool-stamp-duty` at the role's default hub,
+  collides with nothing on `(site_id, name)`, and is INSERTed as a second row — the
+  phantom re-minted by the pass that spotted it (`bugs_open/215`, that file's own words).
+
+**A trap for whoever seeds those flags: do NOT copy the sibling's spec.** `url_shape`
+is `flat` there and must stay **absent** here. `nestedOrFlatURL`
+(`datahelpers/page_canonical.go:272`): flat = `/dir/bare.html`, nested =
+`/dir/bare/index.html`; absent = nested, stated in `siteUsesFlatURLs`' own comment. LMC is
+**mixed** `[MEASURED]` — 39 flat (17 tool, 13 guide, 7 content, 2 blog-post) and 6 nested
+(2 tool, 2 content, landing, section-index), the two nested tool pages being the ones the
+improvement loop just made. No single value is right, and none is needed: with
+`honour_realised_identity` on, existing pages keep their stored URL and the flag governs
+only new pages. Seeding `flat` to match the sibling would be the mirror image of
+`bugs_open/241` (where a replan would have moved 24 of 26 URLs on *that* site).
+
+**A thing I checked because it looked like a clobber and was not.** The current
+`content_direction` row (`d655009c`, `domain-research-classifier`, 08-15 18:27) superseded
+this lane's hand-seeded voice rows. Read it: it carries the lane's own heading rule and
+negativity-reframe rules verbatim inside it, so nothing was lost. It does contain one
+internal contradiction — `heading_style.format` permits "a genuine question" while
+`writing_rules` says headings are "never questions". Recorded, not fixed, not this lane's item.
+
+**Arrival triaged — `CONTRIB_2026-08-16` from the `register_guards_code_phase_b` lane.**
+Their §1 (decomposed tool pages fall outside the acceptance ladder) is **CONFIRMED and is
+the third independent measurement**, after this file's own 08-15 entry from the `bugfix_281`
+lane. Ladder predicate verbatim, today: **6 eligible / 13 not** of 19 `page_type='tool'`
+pages — `loans-consolidation` + the two new tools via branch (a), `mortgages-fee-analyser`
++ `mortgages-rate-forecaster` + `mortgages-simple` via branch (b) (each is a
+single-component page). The 08-15 entry measured 4; **the 4 → 6 delta is not predicate
+drift, it is the two improvement-loop tools, which the generator creates at
+`component_level='tool'`.** Their §2 premise — "no `evidence_base` row at all (checked
+2026-08-16)" — is **stale**: the row was seeded 08-15 22:04 (`7268d235`, copy-quality lane,
+13 GOV.UK SDLT facts) and the daily refresher has re-cut it twice since; current row
+`0c4b648a` (08-17 09:04), same 13 `sdlt-*` ids their Phase B expects. So the facts
+declaration is unblocked. Reply written into their lane.
+
+**Owed, and named as owed:** the two new tools are outside `oracle.py` (it covers the 23 B2
+calculators on 18 pages). Whether either computes something the oracle should be proving is
+`[UNVERIFIED]` — it is a read of their templates, and it is the first item after D6's first
+dispatch, not an assumption to carry.
