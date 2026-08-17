@@ -34432,3 +34432,91 @@ it: does the state this recipe creates actually reach the branch it predicts?** 
 are the same species — I wrote instructions I had not executed, in a directory whose whole
 purpose is telling the next person how to execute them. The RUNBOOK now carries both
 corrections inline, where they will be read, rather than only here.
+
+## 2026-08-17 — bugfix-287 (spawn_record) lane: I asserted a correction, then "refuted" it from a lossy instrument, and both readings were mine within four hours
+
+Two errors on the same fact, in opposite directions, on the question that decided whether a
+migration was safe to apply: **is `handler_result` present in `collected_data` at the moment
+`mark_complete` resolves it?**
+
+### 1. The over-strong correction (written into a bug file and an RFC)
+
+I filed `bugs_open/287` §11 and `RFC_029` §10.6b stating flatly that the base key "holds the
+CURRENT iteration's reply", correcting the filing lane's §9 fact 2. My evidence was real but
+INDIRECT: `setLoopVariable`→`propagateIterationOutputs` runs before every substep
+(`coordinator.go:1355`), plus the existence of `RESOLVER_MAPPING_BYPASSED` rows (which fire
+only when the mapped key exists). What I did NOT do before writing it as a flat statement was
+count those rows **against the completion rate** — the one arithmetic that turns "the key
+sometimes exists" into "the key essentially always exists". I also wrote, on that basis, that
+the earlier lane's warning about arming `!` was "wrong at HEAD", and that the migration's
+ordering gate was "belt-and-braces". Two other sessions' verdicts (the RFC_029 lane's §10
+warning; the council guardian's "does not depend on the Go half") were downstream of my
+sentence being taken at face value.
+
+### 2. Then I read final `collected_data` and announced the opposite
+
+Deciding whether to apply the migration without its gate, I queried the persisted
+`collected_data` of recent runs: base `handler_result` present in only 140/181 runs, carrying
+`response` in 67, and **`retry_payload` in 140/140**. I wrote — in chat, as a finding — that
+this "refutes my own §11 claim" and that strict resolution would store "a third wrong shape".
+
+**Both halves of that were wrong.** (a) Final state is a LOSSY instrument on this agent: only
+11% of this bug's historical rows are still joinable to a surviving reply (measured earlier the
+same day), and `bugs_open/289`'s aggregation blowup rewrites these very keys. (b) The
+population includes iterations that FAILED or are IN FLIGHT and therefore never reach
+`mark_complete` at all — the denominator was answering a different question from the one I
+asked. (c) `retry_payload` is a SIBLING key the coordinator captures for retry, not a
+substitute for the reply; `{retry_payload, response}` still satisfies the bug's own criterion.
+
+**What caught it:** asking the instrument that records the MOMENT instead of the corpse.
+`RESOLVER_MAPPING_BYPASSED` fires only when the mapped key exists and differs from the
+search's answer: **201 of them for `field=result` in the same 6-hour window against 155
+completions**. Presence at resolution time, measured, one query.
+
+**The cheap check I skipped, twice:** the first time, divide by the demand (rows per what?);
+the second time, ask whether the instrument I reached for can even see the moment I am asking
+about, and whether its population is the population that reaches the code path.
+
+**The transferable rule.** **A state table is a corpse; an event row is a witness.** When the
+question is "what did the code see at instant X", a final-state query cannot answer it — it
+can only produce a well-formed number that reads like an answer. And when you correct someone
+else's claim, state the arithmetic that makes your version load-bearing in the same sentence,
+because the next two sessions will build on your flat statement, not on your reasoning.
+Recorded inline where they were made: 287 §11b, the 452 migration header, RFC_035 §addendum.
+
+## 2026-08-17c — `bugfix_277_required_fields_repair`: my own migration 444 measured success with half the definition
+
+**The call.** Migration `444` added a 25% success floor to the promoter, with the threshold set from
+a census of every pair's `complete`-vs-`failed` record. It was council-approved the same day, and
+one seat (`bug_historian`) specifically probed whether `complete` could be trusted as a signal — I
+checked the *honesty* of one completion at the live page and answered that it was real work.
+
+**What was actually wrong was not honesty but COMPLETENESS.** `site_work_items.status` has **two**
+terminal success states: `complete`, and `verified` — the latter written by
+`complete_work_item_verification.go:218` onto a row that completed *and then passed verification*.
+Every check I ran compared `complete` against `failed`; **I never enumerated the column's domain.**
+So the floor treats a verified success as no success at all, and a pair's apparent success rate
+*falls as its work gets verified* — a metric that degrades as the platform improves.
+
+**What caught it, ~4 hours after applying:** re-reading a pair for an unrelated reason and finding
+it had moved. `empty_section → page-build-handler` was **11 complete / 13 failed = 46%** at 11:00Z
+and **3 complete / 12 failed = 20%** at 16:30Z. My first thought was corrupted data. Nothing had
+regressed — a verification sweep had moved 9 completes to `verified` in between. Counting both:
+12/12 = 50%. `444` was holding 2 live rows for no reason. Fixed by `454`, both predicates, with
+controls that flip opposite ways (`empty_section` F→T, `literal_markdown` stays F).
+
+**The cheap check:** `SELECT status, count(*) FROM site_work_items GROUP BY 1;` — one line, before
+using any status as a filter. It would have shown `verified` immediately.
+
+**The class, and it is the second instance the same day.** Earlier I logged that `failed` rows carry
+no `completed_at`, which made a counterfactual return a uniform 100%. Same table, same session, same
+root shape: **a status column whose values I assumed rather than enumerated**, producing a
+well-formed and plausible wrong answer both times. Enumerating a column's domain costs one query and
+I did not do it even after being burned by the adjacent case hours earlier — the marker discipline
+catches unmeasured claims, but neither of these was unmeasured; they were *measured against an
+incomplete definition*, which no marker detects. Both are now LANDMINES.
+
+**Also worth recording: the council did not catch it, and could not have.** Twelve seats approved
+`444`. `bug_historian` came closest by challenging the trustworthiness of `complete`, and my answer
+to it was correct but addressed the wrong axis. A review of the plan cannot enumerate a column the
+plan never mentions — this class needs the query, not the reviewer.
