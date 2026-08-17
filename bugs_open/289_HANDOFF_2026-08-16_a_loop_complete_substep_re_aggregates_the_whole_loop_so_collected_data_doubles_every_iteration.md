@@ -382,3 +382,18 @@ default 20. Inert today because live config arrives from JSONB as float64 — th
 > **The reason they were immortal is a SEPARATE defect and is NOT fixed: `bugs_open/294`** (the
 > reaper has no `RUNNING` arm and `TimeoutMonitor` keys on `awaited_requests`, which were empty).
 > Do not read this sweep, or 289's fix, as closing 294.
+
+
+> **RESIDUAL (5) CLOSED 2026-08-17 — the size tripwire is built** (register **WFA-016**, in the
+> same commit). `UpdateStateWithVersion`, the one path every state update goes through, now logs
+> when the `collected_data` it is about to write is abnormal: **WARN at 8 MiB, ERROR at 24 MiB**,
+> naming the orchestration, agent type, step, total size, key count and **the largest single key**
+> — the last of those because on this bug the total said "something is wrong" and the key name
+> said what was wrong. Measured at the existing marshal, so it costs a length check.
+> **It only logs.** A run headed for 29 MB still dies; you merely find out. Thresholds come from
+> the 2026-08-17 census and a test pins them, so a later edit cannot slide them under real traffic.
+> Wiring proven by mutation: unwiring the single call site leaves every direct-call test passing
+> and fails only the sqlmock-driven wiring test.
+> **Inert until the roll, and NOT council-reviewed** — the gate is unreachable until the Anthropic
+> quota returns (2026-09-01). Submit it then; the code is already on the shared branch.
+> Residual (4), the `total_iterations` fallback, is still open and still latent.

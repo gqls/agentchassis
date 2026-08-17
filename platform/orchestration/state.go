@@ -889,6 +889,74 @@ func (r *StateRepository) UpdateState(ctx context.Context, state *OrchestrationS
 // jsonb writers can reuse it) — see datahelpers.SanitiseJSONBNulEscapes and
 // bugs_open/056. Policy council-approved as its own change (corr d8e844ac).
 
+// Size tripwire for collected_data — bugs_open/289, residual (5).
+//
+// A loop bug grew tool-auditor's collected_data to 22 MB and killed 62 of its 63
+// runs, and it ran that way from 2026-07-29 to 2026-08-17 with NOTHING noticing:
+// there was no threshold anywhere, so an orchestration carrying a thousand times
+// its siblings' payload looked exactly like one carrying a normal one. This is
+// the missing instrument, not a fix for that bug.
+//
+// Thresholds are set from a fleet census taken 2026-08-17, so they sit above real
+// traffic rather than at a round number: internal-linker 22 kB, tool-suggester
+// 447 kB, page-content-writer 886 kB avg / 1.8 MB max, build-dispatch-loop 2.8 MB
+// avg / 14 MB max, tool-auditor 22 MB avg / 29 MB max. 8 MiB is therefore above
+// everything healthy and below both pathological cases.
+//
+// Deliberately fires on EVERY oversized persist rather than once per run. A stuck
+// orchestration updates rarely (it is stuck), a healthy one never crosses the
+// line, and a tripwire that under-reports to stay quiet is the failure mode this
+// exists to end.
+const (
+	collectedDataWarnBytes  = 8 << 20  // 8 MiB — above all healthy traffic
+	collectedDataAlarmBytes = 24 << 20 // 24 MiB — tool-auditor's dead runs sat here
+)
+
+// largestCollectedDataKey names the single biggest entry in collected_data.
+// Reported alongside the total because the total says "something is wrong" and
+// the key says WHERE — on 289 the key name (`create_items_loop_iter_9_done`)
+// identified the mechanism immediately, while the total alone did not.
+//
+// Only called once a run is already over the threshold, so the per-key marshal
+// cost is paid on abnormal states and never on the hot path.
+func largestCollectedDataKey(collected map[string]interface{}) (string, int) {
+	biggestKey, biggestSize := "", 0
+	for k, v := range collected {
+		encoded, err := json.Marshal(v)
+		if err != nil {
+			continue
+		}
+		if len(encoded) > biggestSize {
+			biggestKey, biggestSize = k, len(encoded)
+		}
+	}
+	return biggestKey, biggestSize
+}
+
+// reportOversizedCollectedData is the tripwire itself. It only ever logs — an
+// orchestration is not failed for being large, because the size is a symptom of
+// somebody else's defect and killing the run would destroy the evidence.
+func (r *StateRepository) reportOversizedCollectedData(state *OrchestrationState, totalBytes int) {
+	if totalBytes < collectedDataWarnBytes {
+		return
+	}
+	biggestKey, biggestSize := largestCollectedDataKey(state.CollectedData)
+	fields := []zap.Field{
+		zap.String("orchestration_id", state.OrchestrationID),
+		zap.String("owner_agent_type", state.OwnerAgentType),
+		zap.String("current_step", state.CurrentStep),
+		zap.Int("collected_data_bytes", totalBytes),
+		zap.String("largest_key", biggestKey),
+		zap.Int("largest_key_bytes", biggestSize),
+		zap.Int("collected_data_keys", len(state.CollectedData)),
+	}
+	if totalBytes >= collectedDataAlarmBytes {
+		r.logger.Error("collected_data is past the point where an orchestration can reliably be carried — see bugs_open/289", fields...)
+		return
+	}
+	r.logger.Warn("collected_data is unusually large and growing unchecked — see bugs_open/289", fields...)
+}
+
 // UpdateStateWithVersion updates state with version check for optimistic locking
 func (r *StateRepository) UpdateStateWithVersion(ctx context.Context, state *OrchestrationState, expectedVersion int) error {
 	r.logger.Info("UpdateStateWithVersion in state.go 623")
@@ -929,6 +997,11 @@ func (r *StateRepository) UpdateStateWithVersion(ctx context.Context, state *Orc
 	}
 	initialRequestData, n := datahelpers.SanitiseJSONBNulEscapes(state.InitialRequestData)
 	nulReplaced += n
+
+	// Measured here because the bytes are already in hand — the marshal above is
+	// the one this UPDATE writes, so the tripwire costs a length check and never
+	// a second serialisation.
+	r.reportOversizedCollectedData(state, len(collectedDataJSON))
 
 	// Handle nullable fields
 	var finalResultValue, errorValue, currentlyExecutingValue sql.NullString
