@@ -346,3 +346,60 @@ tools first, serial, ab-test second (and ab-test needs `cd60486c…` deactivated
   items ahead of it, not a backlog. What the wasted queries DID establish, and it is worth keeping:
   build-dispatch-loop is alive (102 COMPLETED / 28 FAILED in 24 h, latest 11:20:33Z) and the entire
   fleet dispatchable backlog was this one item. → `WRONG_CALLS.md`.
+
+## 2026-08-17 12:12Z — rebuild #2 FAILED at `save_tool`. Cause found: a FLEET-WIDE unique index the probe cannot see. 4 of 62 tools are blocked; 58 are not.
+
+- **The item says `complete` with an empty `error`. Nothing was built.** Item `8c921926` claimed
+  12:11:32, `complete` 12:12:14, `error` NULL. No new `page_components` row on `d8875fbf`, no new page.
+  The truth is one level down: orch `14449912-40b0-4cc1-8656-f4667fad4c31` (`tool-generator`) ended at
+  `current_step='complete_error'` with `orchestration_states.error` **NULL** and the real message in
+  `collected_data->'__step_error'` — the documented shape (MEMORY `orchestration-error-column-is-empty`).
+  ```
+  step save_tool failed: failed to execute action create_tool_component:
+  failed to create tool component: ERROR: duplicate key value violates unique
+  constraint "idx_cc_tool_function_unique" (SQLSTATE 23505)
+  ```
+  Confirmed independently in `agent_error_log` at 12:12:12 (`agent_type='tool-generator'`,
+  `step_name='save_tool'`, `action='create_tool_component'`).
+- **The mechanism, and it is NOT the `already_exists` probe:**
+  ```sql
+  CREATE UNIQUE INDEX idx_cc_tool_function_unique ON content_components (function)
+   WHERE component_level = 'tool' AND forked_from IS NULL AND is_active = true;
+  ```
+  **No `site_id` — it is fleet-wide on `function` alone.** So the generator has TWO gates on the same
+  INSERT and they disagree:
+  | gate | scope | sees a fork? | sees the library template? |
+  |---|---|---|---|
+  | the `already_exists` probe | **this site** (joins `page_components`→`pages`) | yes (any `build_status`) | **no** (no placement ⇒ inner join drops it) |
+  | `idx_cc_tool_function_unique` | **fleet-wide** | **no** (`forked_from IS NOT NULL` exempt) | **yes** |
+  They are near-complements. Satisfying one tells you nothing about the other, and deactivating the
+  fork moved the failure from a **silent no-op** to a **hard 23505** — a better failure, still a failure.
+- **The blocker here was the row I deliberately left alone**: `8c9a6e06` `tool-ab-test-calculator_pre_037`,
+  the library template — `forked_from IS NULL`, `is_active`, no placement. It has held the fleet-wide
+  slot for that function since 2026-02-27. `58da6570` (idea.uk) and `cd60486c` (webdesign's fork) are
+  both `forked_from IS NOT NULL`, which is exactly why two forks could coexist under one unique index.
+- **Blast radius MEASURED, and it is small: 4 of the 62 remaining tools, not 62.**
+  | blocked tool | blocking component | |
+  |---|---|---|
+  | `tool-ab-test-calculator` | `8c9a6e06-e2b2-4f21-baf6-651585375f0c` | `…_pre_037` |
+  | `tool-bg-remover` | `bdd2990a-1cc3-47d4-8140-4560204e898c` | `tool-bg-remover` |
+  | `tool-meme-generator` | `6ae53f32-be86-4c29-bc52-983c35d23b18` | `tool-meme-generator` |
+  | `tool-prompt-architect` | `2c941ec2-b59e-4e0f-925d-0b4d05ce8959` | `…_pre_037` |
+  All four blockers are `created_from='manual'` library components. **The other 58 are unaffected** —
+  the pilot passed because no component of any kind claimed `tool-aspect-ratio`.
+- **DECISION NOT TAKEN, deliberately — this needs the owner or architecture, not this lane.** The
+  obvious unblock (deactivate the library template) has **fleet-wide** blast radius: those templates
+  are the source other sites fork from, and idea.uk is already running a fork of the ab-test one. Four
+  options, unpriced: (1) deactivate the library rows — cheap, breaks future forks estate-wide;
+  (2) make the generator set `forked_from` on a rebuild — changes generator semantics for everyone;
+  (3) add `site_id` to the index — a shared-seam change, architecture-scope by the 2026-07-28 ruling;
+  (4) leave the 4 on the ported version. **Batch the 58 that are not blocked and route these 4 out.**
+- **MY WRONG CALL, and the RUNBOOK had already told me not to make it.** The RUNBOOK's filing
+  precondition reads: *"check the fleet-wide unique claim first: `SELECT 1 FROM content_components
+  WHERE function='<f>' AND is_active;` must be empty."* I ran that query, got **3 rows**, and instead
+  of stopping I reasoned about a different mechanism — the `already_exists` probe — decided the two
+  non-fork rows were "safe to leave", and filed. The written precondition was correct, was about the
+  index rather than the probe, and I substituted my own analysis of the wrong gate for it.
+  The one thing that would have caught it: the word **"empty"**. → `WRONG_CALLS.md`.
+  (The RUNBOOK line was directionally right but imprecise — it omits `forked_from IS NULL`, which is
+  why three rows can exist at all. Corrected there now to the index's exact predicate.)

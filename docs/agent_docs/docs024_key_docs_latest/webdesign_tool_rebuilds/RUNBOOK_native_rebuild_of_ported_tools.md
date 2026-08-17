@@ -60,8 +60,22 @@ FROM pages p WHERE p.site_id='6b49db8e-d447-4467-8277-4f3018af9897' AND p.name='
 ON CONFLICT DO NOTHING;
 ```
 Gotchas learned the hard way:
-- `function` = the page name (keeps the `tool-` prefix); check the fleet-wide unique claim
-  first: `SELECT 1 FROM content_components WHERE function='<f>' AND is_active;` must be empty.
+- `function` = the page name (keeps the `tool-` prefix). **CHECK THE FLEET-WIDE UNIQUE INDEX AND
+  STOP IF IT IS NOT EMPTY — CORRECTED 2026-08-17 after this line's imprecise version cost a build.**
+  The gate is `idx_cc_tool_function_unique`, and it is NOT the generator's `already_exists` probe:
+  `CREATE UNIQUE INDEX ... ON content_components (function) WHERE component_level='tool' AND
+  forked_from IS NULL AND is_active` — **fleet-wide, no `site_id`, forks exempt.** So ask it in its
+  own terms, or a library template with no placement on your site sails past every other check and
+  the build dies at `save_tool` with SQLSTATE 23505:
+  ```sql
+  SELECT id, name, created_from FROM content_components
+  WHERE function='<f>' AND component_level='tool' AND forked_from IS NULL AND is_active;
+  ```
+  **Must return 0 rows. A non-empty result is a STOP, not an input to a judgement** — the older
+  wording ("must be empty") was right and was talked past by reasoning about the probe instead.
+  Known blocked on webdesign.co.uk (4 of 62): `tool-ab-test-calculator`, `tool-bg-remover`,
+  `tool-meme-generator`, `tool-prompt-architect`. Do not file these until the library-template
+  question is decided — the unblock has fleet-wide blast radius.
 - The `description` is the GENERATOR'S functional brief — never put process/replacement notes
   in it (they can end up rendered into the page). Process notes go in the item summary.
 - Rich apps (mind-map, meme-generator, micro-cms, pasteboard, logic-architect…): do NOT file —

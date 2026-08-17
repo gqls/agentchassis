@@ -33889,3 +33889,21 @@ context and did not apply it to the thing in front of me. That is what the tally
 the recurring check is not "read the rules", it is **"before you trust an instrument, ask
 what reading it gives when it is broken"** — and every one of these six had a cheap
 answer to that question.
+- **I ran the RUNBOOK's precondition, got a non-empty result, and reasoned past it with the wrong
+  mechanism.** The line said: *"check the fleet-wide unique claim first: `SELECT 1 FROM
+  content_components WHERE function='<f>' AND is_active;` **must be empty**."* I ran it, got **3 rows**,
+  and — because I had just read `create_tool_component_action.go`'s `already_exists` probe and could
+  see it joins through `page_components` to `pages` on `site_id` — concluded that two of the three
+  were invisible to it and safe to leave. They were invisible to the **probe**. The precondition was
+  about `idx_cc_tool_function_unique`, which is **fleet-wide on `function` with no `site_id` and
+  exempts forks**, so the row I most carefully argued was harmless (a library template with no
+  placement) was the exact row holding the unique slot. The build died at `save_tool` with SQLSTATE
+  23505 and the work item still reported `complete` with an empty `error`.
+  **The cheap check:** when a written precondition says a result *must be empty*, a non-empty result
+  is a STOP, not an input to a judgement — and if you are about to explain why the rows do not count,
+  you are answering a question the precondition did not ask. **Ask the constraint in its own terms**
+  (`SELECT indexdef FROM pg_indexes WHERE indexname='<the one in the error you will otherwise get>'`,
+  or `\d <table>` before writing the SQL — the project rule I skipped). Freshly reading the code for
+  mechanism A is what made me confident about gate B; **recent, accurate knowledge of the wrong
+  mechanism is more dangerous than ignorance**, because it supplies the reasoning to override a rule.
+  Tally for "overrode a written precondition using a different mechanism's logic": 1.
