@@ -364,3 +364,45 @@ resolution and this evidence written into its `spec`.
   before) and dropped "we usually reply within a day or two", and both `hero` and
   `contact-info` now open with "Get in touch" — a duplicated heading on one page. Flagged to
   the owner; full backup retained, so either section can be restored surgically.
+
+## ACCEPTANCE COMPLETE — 2026-08-17: the owner's own named page went through the fix
+
+The closure above deliberately did **not** assert webdesign.uk `contact`, because it had not
+rebuilt. **It has now.** `page-build-handler` corr `352f5703-8bd2-4de3-aa2a-83a298e7eb6a`,
+2026-08-17 12:16:15Z, COMPLETED — a natural rebuild, not a driven one. The owner's five criteria,
+on the page the owner named:
+
+1. **the proposed list contains the locked section** — `spec_sections.sections` =
+   `["hero","contact-info","chat-input-box"]`, `locked_sections_merged=["chat-input-box"]`. This
+   is the exact assertion the ruling asked for: *not* "the lock blocked the removal again".
+2. **the cache tells the truth** — `pages.sections` for `contact` now reads the same three,
+   written 12:20:32Z. Before the fix it read `["hero","contact-info"]` for six days while the
+   chat box sat on the page.
+3. **the locked row is untouched** — `chat-input-box` (`7d3489c6…`) still `updated_at
+   2026-08-11 15:03:09`, `lock_type=permanent`, position 3. The rebuild wrote nothing to it.
+4. **unlocked siblings still rebuilt** — `hero` and `contact-info` both re-inserted at
+   12:20:08Z.
+5. **no `lock_blocked_change … remove` filed** — and none anywhere on the fleet since the roll
+   (count 0; the newest in the table is still 2026-08-15 17:58Z, pre-fix).
+
+Sixth, the artefact: `https://preview.webdesign.uk/contact.html` → 200, 24,136 bytes, **4
+occurrences of `chat-input-box-section`** (positive control `contact-info` = 6; absent control 0).
+The literal was taken from the row's own `rendered_html`, per the trap recorded on 08-17.
+⚠ Note for whoever checks next: the apex `https://webdesign.uk/contact.html` **302s to
+webdesign.co.uk** (a different site) — a fetch there returns 143 bytes and every grep reads 0,
+which looks exactly like "the chat box is gone". The positive control is what tells the two apart.
+The DNS/cutover question belongs to the webdesign_uk_build_service lane, not to this case.
+
+**The `a4cd5dc8` `needs_human_review` row is now `status=complete`** (updated 2026-08-17
+12:23:21Z, ~3 minutes after the rebuild). It carries **no `completed_at`, no `claimed_by` and an
+empty `result`**, so it was closed by a direct status write, not by a handler — which is the only
+way it could close, since `lock_blocked_change` items are filed handler-less by design (058's
+dead-control routing). Almost certainly the filing lane closing it on seeing the rebuild; recorded
+as "closed by a human hand" rather than credited to the pipeline, because the row cannot say who.
+Either way the owner's condition — *answered by this fix, not dismissed* — is met: the fix put the
+section back in the list, and the item's stated cause no longer exists.
+
+**Nothing further is owed on this case.** Both the fleet half (loancalculator, 08-16) and the
+owner-named half (webdesign.uk contact, 08-17) are proven, on natural rebuilds, at the artefact.
+The chat-box lock may now come off at the filing lane's discretion — the ruling that held it on
+said "until this is fixed and live", and it is both.

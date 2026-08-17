@@ -201,3 +201,37 @@ What is actually left, in plain terms — none of it urgent, and none of it a fa
    without going through the fixed code. It has not run in a month. If it wakes, it could
    reproduce this on that route — noted in the register and the runbook so it is not a surprise.
 4. **The contact page and its chat box** stay with the webdesign lane, as you ruled.
+
+## 2026-08-17 (later) — the contact page went through it, unprompted
+
+You asked me not to let the chat box get missed. It hasn't been: **the contact page rebuilt on
+its own at 12:16 today, and the chat box came through it intact.** Every one of your five
+conditions is met on the page you actually named — the rebuild's proposed list contained the chat
+box (which is the one you said mattered, as opposed to "the lock blocked the removal again"), the
+page's cached list now says so too, the chat box itself was not written to (its timestamp is still
+11 August), the two sections either side of it were rebuilt normally, and no complaint was filed
+anywhere on the fleet. I also looked at the live page as a visitor: the chat box is there.
+
+The old "needs human review" note about the chat box now reads as complete. For honesty: that was
+closed by hand, not by the system — those notes are deliberately built with no handler, so nothing
+automated can ever close one. Whoever did it did the right thing; the reason it existed is gone.
+
+So both halves of the proof are in, both from rebuilds that happened by themselves rather than
+runs I fired: the loan calculator yesterday, your contact page today. The chat-box lock can come
+off whenever that lane wants it off — your ruling held it on "until this is fixed and live", and
+it is both.
+
+One caution I hit while checking, worth knowing because it looks alarming: fetching
+**webdesign.uk/contact.html sends you to webdesign.co.uk** — a different site — and returns a tiny
+page in which every search comes back empty, exactly as if the chat box had vanished. The served
+copy of your page is at preview.webdesign.uk. What saved me from reporting a false alarm was
+searching for something I *knew* was on the page at the same time: it also came back zero, which
+means "my fetch is wrong", not "the section is gone". The domain question belongs to the webdesign
+lane, not to this fix.
+
+**Separately, and it affects other work, not this:** the chassis restart at 15:43 our time shipped
+no new code. The pods came back on the same version tag as yesterday, so the machine reused the
+image it already had. I checked the running program for a change committed at 14:35 today and it
+is absent, while yesterday's changes are present. Today's fixes from the other lanes are not
+actually live. Nothing to do with this case — ours went out in yesterday's genuine build — but
+somebody is probably waiting on one of them.

@@ -266,3 +266,27 @@
   is the one dormant save path that would re-open the class if it woke — 0 runs in 30 days,
   plans from `current_page.sections` with no loader in its chain. (5) webdesign.uk `contact`
   acceptance + the chat-box lock: the filing lane's, unchanged.
+
+## 2026-08-17 (later) — the owner-named acceptance completed itself; and the "fresh build" shipped nothing
+
+- **webdesign.uk `contact` rebuilt naturally at 12:16:15Z** (corr `352f5703`) and passed all five
+  criteria plus the artefact check — evidence table appended to the (now closed) case file. So
+  both halves are proven on natural rebuilds: loancalculator `index` 08-16, contact 08-17. The
+  `a4cd5dc8` item reads `complete` with no `completed_at`/`claimed_by`/`result` — a direct status
+  write, i.e. a human, which is the only way a handler-less item can close.
+- **Trap met while checking the artefact:** `https://webdesign.uk/contact.html` **302s to
+  webdesign.co.uk** (a different site). The fetch returns 143 bytes and every grep — subject AND
+  positive control — reads 0. It was the POSITIVE CONTROL going to zero that said "your fetch is
+  wrong", not "the section is missing"; without it this reads as the chat box having vanished from
+  a live page. The served copy is `preview.webdesign.uk/contact.html`. Second time in two days that
+  a control caught a false "the section is gone" on this case (08-17's was an invented marker,
+  this one a redirect) — RUNBOOK C10 now covers both.
+- **The 2026-08-17 14:43Z chassis restart shipped NO NEW CODE, and this is not our lane's problem
+  but everyone should know:** pods `agent-chassis-5bd56bdd9b-*` came up on the SAME tag
+  `v1.0.1305` as yesterday's build, so the node served its cached image. Probed:
+  `DISABLE_UNREGISTERED_HANDLER_DEMOTION` (from today's `f629f4530`, 13:35) **absent** from
+  `/proc/1/exe`; yesterday's `locked_sections_merged` and `LOCKED_MERGE_SKIPPED` both present;
+  `zzzabsentcontrolzzz` absent. So today's Go commits (283/RFC_034 conversion, 299's render-audit
+  drain, 291's kill-switch, 287's loop-expansion fix, the 284 predicate unification) are NOT
+  running. Reported to the owner. Our own status is unaffected — the 285 code went live in
+  yesterday's genuine build.
