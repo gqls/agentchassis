@@ -1,10 +1,22 @@
 # RFC_033 — "the page's section list" is re-derived by eight readers and only one of them knows about locks; should it be one entrypoint?
 
-**Status: OPEN — filed 2026-08-16 by the `bugfix_285_lock_blind_section_list` lane, at the
+**Status: RULED 2026-08-17 (owner) — OPTION 2, BUILT.** Owner's words, on being shown the three
+options and this lane's recommendation: *"go with your recommendation"*. So: the source-scan
+lockstep, **not** a single mandatory entrypoint. Live as
+`platform/orchestration/actions/section_list_reader_coverage_test.go` (council `02cb2134`).
+**Two corrections this file owes its own population section**, both found by running the
+detector the ruling asked for rather than re-reading the register: the readers of
+`site_plan_sections` number **six, not the eight this title claims** (the eight came from the
+register's named list, which mixes plan readers with cache readers) — and one of the six,
+`discovery_checks/check_sectionless_pages.go`, **was missed by the hand census in §C below**,
+because that census grepped `FROM` and the file uses `JOIN`. The test failed on its first run
+naming exactly that file, which is the shortest possible argument for building it.
+
+*(Original status, retained: OPEN — filed 2026-08-16 by the `bugfix_285_lock_blind_section_list` lane, at the
 council architecture seat's direction.** The seat raised `ARCHITECTURE_SIGNAL: needs_rfc`
 (medium) on the 285 fix's round-2 submission (corr `79f70435`, APPROVED 15:31Z) and explicitly
 recommended *"proceeding but opening the RFC in parallel rather than gating this round"*. The
-fix shipped; this is the parallel half. **Nothing here asks for the 285 fix to change.**
+fix shipped; this is the parallel half. **Nothing here asks for the 285 fix to change.**)*
 
 ## The seat's objection, verbatim
 
