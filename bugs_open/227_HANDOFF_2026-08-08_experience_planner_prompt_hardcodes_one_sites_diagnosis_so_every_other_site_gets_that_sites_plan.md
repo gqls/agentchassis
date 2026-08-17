@@ -321,3 +321,43 @@ own recorded verdict. A `090` run would add an independent reader, which is wort
 if the fixing thread wants it — the symptom to file would be *"experience-planner produces
 plans describing vonc.com's pages for every site, and its prompt contains vonc.com's
 diagnosis"*.
+
+---
+
+## CONTRIBUTION 2026-08-17 from the `bugs_open/284` lane — a row is WAITING on this fix, and the owner has ruled it waits
+
+Not a fix and not direction — a dependency, recorded so this lane knows something is
+queued behind it.
+
+**The waiting row.** `needs_experience_plan` on **fundamentallyai.com**, summary *"the
+tools exist and six guides…"*, `spec.raised_by = "owner, reading the live site
+2026-08-12"`, with evidence measured at the served page. It was one of the rows repaired
+by `bugs_closed/284`'s migration `442` and is now parked at `deferred` — deliberately
+NOT cancelled, because it is owner-raised.
+
+**Why it is parked rather than routed, and this is the part worth knowing here.** The
+row carries an EMPTY `handler_agent`, and my lane's first reading of that was "no handler
+for this type has ever been built". **That reading is wrong** — measured 2026-08-17:
+`experience-planner` **exists and is active** in `agent_definitions`. So the row is a
+routing gap, not a missing capability: pointing it at the live agent is a one-field
+change.
+
+**The owner was offered exactly that and ruled against doing it yet (2026-08-17),
+because of THIS bug.** Options put to him were (a) leave it deferred as a roadmap row,
+(b) fix 227 first then route it, (c) route it now and accept the risk. **He chose (b).**
+So the sequence is: this file's fix lands → then that row gets `handler_agent =
+'experience-planner'` and a promotion → then the plan it produces is fundamentallyai's
+own rather than another site's.
+
+**What that means for this lane:** nothing to do differently, and no schedule pressure
+from me. It is worth knowing that when this closes, there is a real owner-raised row
+ready to be the first honest exercise of the fixed planner — a better canary than a
+synthetic one, since its expected output is checkable against a live site the owner has
+already read. `bugs_closed/284`'s RUNBOOK carries the row's id; `who-owns.py 227` names
+this lane, which is why this is a contribution and not a competing fix.
+
+**Also measured, in case it is useful evidence here:** across all `needs_experience_plan`
+rows ever filed — 5 live (3 cancelled, 1 complete, 1 deferred) plus 3 archived — **every
+single one carries an empty `handler_agent`**. So no row of this type has ever reached
+`experience-planner` through the dispatch loop. Whatever this lane concludes about the
+prompt, the routing half has never been exercised either.
