@@ -34641,3 +34641,70 @@ SCOPE outrun the scope of the check behind it, and both times the check was one 
   Tally for "trusted a value because I had not changed it": 1. Tally for "a measurement whose
   denominator I never checked": 2 this session (the other was the slot-name join key, above) — and
   both were one query away.
+
+## 2026-08-17 — I probed a binary three ways for "did my fix ship", and all three were incapable of answering; the LANDMINES entry for one of them was already written
+
+**The claim I was about to publish:** "`bugs_open/292`'s fix is NOT in the running binary."
+**What was true:** it was — `git merge-base --is-ancestor <fix> <the tag-bump commit>` returns
+true and the pods run the image built from that commit.
+
+**Three bad probes, in the order I ran them:**
+1. `grep -aq "<my commit sha>" /proc/1/exe`. The binary carries **ONE** stamp — the commit it
+   was built from — **not every ancestor**. So ABSENT means *"not built from exactly this
+   commit"*, which is true of almost every healthy build. I read it as *"does not contain the
+   fix"*. My controls (POS present, NEG absent) were correct and told me nothing about this,
+   because **a well-controlled probe of the wrong question is still the wrong question.**
+2. `grep -aoE "[0-9a-f]{40}"` to *discover* the stamp → **20 strings, none a real commit**
+   (`git cat-file -e` refused all 20). **LANDMINES already says not to do this** — it matches
+   Go's internal digit table. I had read that entry earlier the same day.
+3. (the day before) `grep -aq "bestDomainKey"` — a **local variable name**, which Go strips.
+   It would read ABSENT on a binary that definitely has the fix.
+
+**Why it survived so long:** on 2026-08-16 probe (1) gave the RIGHT answer — nothing had
+shipped, the tag genuinely had not moved. A method that is right once for the wrong reason
+feels validated. The next day it produced the opposite error on the same command.
+
+**The cheap check that would have caught it, and is now the recipe:** ask the service what it
+is running (`kubectl logs -l app=<svc> --tail=300 | grep -m1 'build provenance'`); if that has
+scrolled — it is a STARTUP line and goes out of range within about an hour on a busy service —
+take the tag-bump commit from `git log -p -- makefile` and run
+`git merge-base --is-ancestor <your-commit> <that commit>`. **Never a discovery grep; never a
+symbol that is not a string literal; and before concluding from ANY probe, ask what a passing
+result would have to look like if the fix WERE present.**
+
+**Cost:** none externally — caught before it reached the handoff. Internally: two wrong
+conclusions, one of which I had published in a commit message the previous day and had to
+correct here.
+- **I offered the owner a "fast, safe" fix as one of two options, and it would have broken the site
+  — the disqualifying fact was one query, and I had already read the sentence that names the trap.**
+  Diagnosing 44 firm contrast failures on `ai-agent-orchestration.com` (2026-08-17), I found the
+  palette carries `primary == surface == #0D1117`, so any heading painted with `var(--color-primary)`
+  is invisible at **1.00:1**. I put two routes to the owner: **A1** "give this site's `primary` a
+  visible value — one `site_specs` row, site-scoped, reversible", and **A2** repoint the component
+  templates to the `--color-primary-ink` companion. I framed A1 as the quick safe win and the owner
+  reasonably picked **both**.
+  **A1 would have traded 20 failures for a fresh set.** `--color-primary` is **dual-role** on this
+  site: **37 foreground (`color`) uses and 24 `background` uses** in component CSS. Lightening it so
+  headings read puts a light fill under the white labels sitting on those fills. Foreground uses need
+  a light colour on dark grounds; background uses need a dark colour under white labels; **one token
+  cannot be both**, which is exactly why the ink companion exists. There is no safe single-value
+  palette fix, so A1 was never a route — it was a plausible-looking non-solution I presented with a
+  recommendation attached.
+  **The cheap check is one query, and I ran it only because I paused before editing live config:**
+  `SELECT prop, count(*) FROM (SELECT (regexp_matches(rendered_html,'([a-z-]+)\s*:\s*var\(--color-primary[,)]','g'))[1] AS prop …) GROUP BY 1;`
+  → `color 37 / background 24 / border-color 6 / accent-color 4`. Ten seconds.
+  **The aggravating factor: `scripts/render_audit.py`'s own header names this defect family, and I
+  had read that header earlier in the same session** to justify using the script. Family 2 is *"a
+  token used in two roles (`--color-primary` as both a fill and a foreground) — correct in one place,
+  invisible in the other"*. I quoted the file to establish the instrument's authority and did not
+  apply its taxonomy to my own proposal.
+  **The transferable rule: before proposing that a shared token be RE-VALUED, count its consuming
+  PROPERTIES, not its occurrences.** A token's safety is a property of the roles it plays, and a
+  count of hits cannot see a role. Same family as
+  `a-guarantee-conditional-on-a-classifier-inherits-its-gaps` — the difference between "how often is
+  this used" and "what is it used AS".
+  **Second-order, and the reason this is logged rather than quietly fixed: an option list is an
+  assertion.** Offering A1 alongside A2 asserted that A1 was a coherent route, and the owner's choice
+  of "both" was made on my framing. **A recommendation carries the evidentiary burden of a claim, and
+  I had not measured this one before recommending it.** Caught by: my own pre-edit check, before
+  anything was applied. Cost: nothing live. Tally for "proposed an option I had not costed": 1.
