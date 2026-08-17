@@ -79,6 +79,19 @@ page for Guides and none for Tools. The calculators are still reachable from lin
 in the body of every page, so nothing is stranded, but the navigation is poorer than
 what it replaced.
 
+> **CORRECTED later the same day (~16:40Z) — the paragraph above overstates the loss.**
+> The framework did put all eleven calculators into the site's navigation, in the
+> **footer** (`utility` group), which is exactly what it does with a page it bars from
+> the top menu. Verified at three layers: 11 `utility` rows in `site_nav_items`, all 11
+> hrefs in the regenerated footer component, and a guide page republished at 16:21
+> serving a footer containing every calculator.
+> **What misled me:** I sampled pages published at 13:44:08, and the shared chrome
+> regenerated at 13:47:45. A page carries the chrome it had when it was last rendered,
+> so the change was invisible on anything not yet re-rendered — and the pending
+> re-renders were failing, which made the stale state look settled.
+> So the true change is **header dropdown → footer list**, not lost navigation. Only the
+> header question remains, and it is a preference rather than a repair.
+
 And the **Guides page** is still the site's one missing page. Its menu entry is
 already recorded and it is explicitly not barred from the menu, so building the page
 should restore it.

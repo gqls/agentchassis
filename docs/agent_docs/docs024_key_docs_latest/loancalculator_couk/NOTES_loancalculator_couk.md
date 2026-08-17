@@ -5794,3 +5794,42 @@ they are whole-fleet). Nothing in this lane is blocked by it — 282 is live in
 
 **The tag is not the artefact and neither is a pod restart.** Two readings agreed on
 "v1.0.1305" and disagreed on the binary; the digest is what settled it.
+
+### 11. CORRECTION to §4 — the calculators ARE in the site navigation, in the footer, and the way I missed it generalises
+
+> **CORRECTED 2026-08-17 ~16:40Z. §4 above, and what I told the owner at midday, said
+> the rebuild had dropped the calculators from the navigation and that the framework's
+> parent-listing page was missing. The second half stands; the first half is FALSE.**
+
+[MEASURED 16:40Z] The framework placed all 11 calculators in the `utility` nav group —
+the footer — which is precisely what `classifyPagesForNav` does with a never-primary
+page that carries a nav flag ("Barred from the main menu, kept in the footer"). Three
+readings, each at a different layer:
+
+```
+site_nav_items          11 rows, group_key='utility', one per calculator
+footer site_component   all 11 /tools/ hrefs present, updated_at 13:47:45Z
+served page             /guides/secured-vs-unsecured.html (deployed 16:21:45Z):
+                        footer has 21 links, 16 to /tools/, all 11 calculators
+```
+
+**What fooled me, and it is a reusable trap.** I sampled the served footer on `index`
+and `tool-settlement-calculator`, both deployed **13:44:08Z**. The chrome regenerated
+at **13:47:45Z** — three minutes later. **A page carries the chrome that existed when
+it was last rendered, so a chrome change is invisible on every page that has not
+re-rendered since it.** I read "no /tools/ links in the footer" as a statement about
+the site and it was a statement about one page's render age. Worse, the rerenders that
+would have fixed it are the ones failing on the git deploy path, so the stale state was
+stable enough to look permanent.
+
+**The check, before concluding anything about served chrome:** compare
+`site_components.updated_at` for the slot against the page's `deployed_at`, and sample
+a page whose `deployed_at` is LATER. One query:
+`SELECT name, deployed_at FROM pages WHERE site_id=… AND deployed_at > '<chrome updated_at>' ORDER BY deployed_at DESC LIMIT 3;`
+If none exists, the served chrome is old everywhere and you cannot yet judge it.
+
+**What genuinely remains** is narrower than §4 claimed: the **header** carries only
+`Home`/`About` plus a CTA, because `page_type='tool'` and `/tools/` URLs are barred
+from PRIMARY nav by design and this site has no `tools-index` parent. So the real
+change is header-dropdown → footer-list. That is a UX judgement for the owner, not a
+loss of navigation.

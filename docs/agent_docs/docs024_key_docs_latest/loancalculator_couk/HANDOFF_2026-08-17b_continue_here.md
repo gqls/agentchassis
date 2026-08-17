@@ -101,10 +101,25 @@ An inherited framing reads like a measurement and is not one.
   is `not_built` while its siblings are deployed, and the plan gave it
   `tool-credit-health-check` — another page's calculator, the second copy of that
   function. Content decision, untouched.
-- **D-NAV (carried, owner).** The rebuilt header is `Home` + `About` + a CTA only. The
-  framework bars `page_type='tool'` and any `/tools/` URL from primary nav, expecting a
-  parent listing page; this site has one for Guides and **none for Tools**. Create a
-  `tools-index`? Calculators remain reachable via 8 in-body cross-links per page.
+- **D-NAV — MOSTLY RESOLVED ITSELF, and my morning reading of it was WRONG.**
+  I reported that the rebuild had dropped the calculators from the site's navigation.
+  **It had not.** The framework put all 11 in the `utility` group — the footer — which
+  is exactly what `classifyPagesForNav` does with a never-primary page that carries a
+  nav flag. [MEASURED 16:40Z] `site_nav_items` holds 11 utility rows, the regenerated
+  footer component contains all 11 hrefs, and a page deployed AFTER the chrome
+  regenerated (`/guides/secured-vs-unsecured.html`, 16:21:45) serves a footer with all
+  11 calculator links.
+  **What fooled me:** I sampled the served footer on pages deployed 13:44:08, and the
+  chrome regenerated at **13:47:45** — three minutes later. Pages deployed before that
+  moment carry the old chrome until they re-render, and the rerenders are the ones
+  failing on the git deploy path. **So a chrome change is invisible on any page that
+  has not re-rendered since it — check `site_components.updated_at` against the page's
+  `deployed_at` before concluding anything about served navigation.**
+  What remains genuinely open and is smaller than I said: the **header** still shows
+  only `Home`/`About` (+ a CTA), because tool pages are barred from PRIMARY nav by
+  design and this site has no `tools-index` parent to represent them. So the change is
+  header-dropdown → footer-list, not "gone". Whether that is acceptable is still your
+  call; a `tools-index` page is the framework-shaped answer if not.
 - **D3 / D4 / RE-LOCK judgement** — carried unchanged from `HANDOFF_2026-08-17`.
 
 ## Standing cautions

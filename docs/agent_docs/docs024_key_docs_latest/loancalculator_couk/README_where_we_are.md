@@ -2103,3 +2103,32 @@ depends on it; the calculator fix was already live.
 Where the site stands: forty-three pages active, forty-two serving. The Guides index is
 still the one page that will not build — it has no sections composed for it — and it is
 still the only genuine 404.
+
+### Correction, same day, about an hour later — the calculators ARE in the navigation
+
+I told you above that the rebuilt site had lost the calculators from its navigation and
+that you might need a new "Tools" listing page. **The first part is wrong and I want to
+correct it before you act on it.**
+
+The framework did put all eleven calculators into the site's navigation — in the
+**footer**, not the header. That is what it is designed to do with a page it keeps out
+of the top menu: bar it from the main menu, keep it in the footer. I have now checked
+this at three levels and they agree: the navigation data has eleven footer entries, the
+regenerated footer itself contains all eleven links, and a guide page that republished
+at 16:21 this afternoon serves a footer listing every calculator.
+
+**Why I got it wrong.** I looked at the footer on pages that had been published at
+13:44. The site's shared header and footer were regenerated at 13:47 — three minutes
+afterwards. A page keeps whatever header and footer it had when it was last published,
+so those pages simply had not caught up yet. The re-renders that would have brought
+them up to date are the ones failing on the git error, so the out-of-date version was
+sitting there stable enough to look like the finished state.
+
+So the real change is narrower than I said: the old site had a **Tools dropdown in the
+header**; the new one has **all eleven calculators in the footer**. Nothing is missing
+from the navigation. Whether a footer list is good enough, or whether you want them
+back in the header — which needs that Tools listing page — is a genuine choice, but it
+is a preference now rather than a repair.
+
+The Guides entry is a different matter and still outstanding: it is in the navigation
+data but the Guides page itself still will not build, so there is nothing to link to.
