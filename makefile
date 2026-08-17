@@ -14,7 +14,12 @@ REGION ?= uk001
 REGION_PATH ?= uk_001
 REGISTRY ?= docker.io/aqls
 #IMAGE_TAG ?= latest
-IMAGE_TAG ?= v1.0.1305
+# Bumped 2026-08-17: v1.0.1305 was REUSED. The cluster still serves the cached
+# digest for that tag (running sha256:f90a7e88…, built from 6a782274b on 08-16
+# 21:53Z) while the locally built v1.0.1305 (sha256:6039e19c…, from 89a0cbeb7)
+# carries 252 newer commits, 24 of them touching platform/internal/pkg. A
+# same-tag re-release re-serves the cache, so the ONLY remedy is a new tag.
+IMAGE_TAG ?= v1.0.1306
 
 # Paths
 TERRAFORM_DIR := deployments/terraform/environments/$(ENVIRONMENT)/$(REGION)
