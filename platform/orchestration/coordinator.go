@@ -4492,15 +4492,53 @@ func prefixConfigStepReferences(config map[string]interface{}, loopName string, 
 		}
 	}
 
-	for _, key := range dataRefKeys {
-		if val, ok := config[key].(string); ok && val != "" {
-			prefixedVal := prefixDataReference(val, loopName, iterIdx, substepOutputFields)
-			if prefixedVal != val {
-				config[key] = prefixedVal
-			}
+	// Generic pass (bugs_open/287 §9a: "stop enumerating"). ANY other top-level config
+	// entry whose value is a bare data reference gets the same treatment as the
+	// allow-listed keys above. The allow-list was a promise every future action had to
+	// know to keep, and complete_work_item's "result" did not — that is how the
+	// spawn-record bug shipped: `"result": "handler_result"` was never rewritten to the
+	// iteration-suffixed key, so the reference could only resolve through the resolver's
+	// whole-tree search, which prefers a same-named key anywhere in the tree
+	// (RESOLVER_MAPPING_BYPASSED, RFC_029 §10.6).
+	//
+	// prefixDataReference already rewrites only when the first dotted segment is a
+	// sibling output_field, so the added gate here is the SHAPE of the value: a bare
+	// identifier or dotted path. Expressions and prose — conditional `condition` strings;
+	// one live census row is an OR carrying TWO references, which a whole-string rewrite
+	// would half-edit — are excluded by construction. Step-name keys are excluded because
+	// their values name steps, not data. input_mapping is handled above. A `!`-suffixed
+	// strict key (RFC_029 §9 D3) is covered automatically, since this pass keys on the
+	// value, not the key. NOTE: top-level string values only — `input_fields` ARRAYS hold
+	// Strategy-1 field NAMES, not references, and must never be rewritten (pinned by
+	// loop_config_reference_suffixing_test.go).
+	//
+	// Census before shipping (2026-08-17, live agent_definitions; query in
+	// docs024_key_docs_latest/bugfix_287_spawn_record/RUNBOOK): 22 sites / 7 agents match
+	// the first-segment rule; every one is a read-reference — zero literals, zero
+	// write-destinations.
+	stepRefKeySet := make(map[string]bool, len(stepRefKeys))
+	for _, k := range stepRefKeys {
+		stepRefKeySet[k] = true
+	}
+	for key, raw := range config {
+		if stepRefKeySet[key] || key == "input_mapping" {
+			continue
+		}
+		val, ok := raw.(string)
+		if !ok || val == "" || !referenceShapedConfigValue.MatchString(val) {
+			continue
+		}
+		if prefixedVal := prefixDataReference(val, loopName, iterIdx, substepOutputFields); prefixedVal != val {
+			config[key] = prefixedVal
 		}
 	}
 }
+
+// referenceShapedConfigValue matches a bare data reference: an identifier optionally
+// followed by dotted segments. Deliberately narrow — anything with spaces, operators,
+// brackets or quotes is an expression or prose and is left alone by the generic
+// suffixing pass above.
+var referenceShapedConfigValue = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z0-9_]+)*$`)
 
 // prefixDataReference prefixes a data reference if it starts with a substep output field
 // e.g., "generated_content.result" → "generated_content_0.result" (if generated_content is a substep output)

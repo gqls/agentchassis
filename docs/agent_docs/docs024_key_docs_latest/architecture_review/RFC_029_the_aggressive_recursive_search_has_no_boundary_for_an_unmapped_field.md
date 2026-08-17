@@ -700,3 +700,27 @@ the one case where the search's *deterministic* answer is reliably the wrong one
 Filed to `bugs_open/287` §10 as an addendum, since it strengthens that fix's rationale: after
 §9a (a) suffixes the reference, `mark_complete` stops searching altogether, which is the only
 version that survives this tie-break.
+
+#### 10.6b CONTRIBUTION 2026-08-17 from the bugfix-287 lane — the fix is in flight, and two of this section's premises are corrected in 287 §11 (read it before Phase 2's go/no-go)
+
+The 287 fix shipped today (both halves; `Council-Submitted: cba35b35`). Two corrections filed
+with evidence in **287 §11**, both of which move this lane's Phase 2 arithmetic:
+
+1. **The base key is NOT "iteration N−1 or nothing" at the reading step.**
+   `setLoopVariable`→`propagateIterationOutputs` runs before EVERY local action
+   (`coordinator.go:1355`, single call site — resume-from-park included), so §10.6a's "the base
+   key … holds iteration N−1's value (or nothing on iteration 0)" describes the ballot's
+   MOMENT-OF-EXPANSION shape, not what the base holds when `mark_complete` reads: your own
+   bypass instrument fires only when the mapped key EXISTS (279/day). The tie-break finding
+   stands; the staleness account of the base key does not.
+2. **The three build-dispatch-loop pairs will NOT all zero on the suffix roll.** Field
+   `result` zeroes at the `!` flip (migration 448 applied today for diagnose/report — two
+   agents that are NOT loops, so suffixing never touched them and their rows are a clean
+   control; 452_HOLD for build-dispatch-loop lifts after the suffix roll). The `work_item_id`
+   conflict rows are a search run whose ballot is DISCARDED (Strategy 0 already resolved
+   `current_item.id` and the merge skips resolved fields) — instrument noise on a healthy
+   resolution, which Phase 2's "load-bearing?" triage should classify as such.
+   `current_page`'s user is not identified here — that read stays yours.
+
+— bugfix-287 lane, 2026-08-17. Mechanism details and the census: 287 §11 +
+`docs024_key_docs_latest/bugfix_287_spawn_record/`.

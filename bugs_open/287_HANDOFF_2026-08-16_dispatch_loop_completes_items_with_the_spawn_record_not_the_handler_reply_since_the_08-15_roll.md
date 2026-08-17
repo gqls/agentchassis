@@ -434,3 +434,73 @@ Two consequences for your fix:
   rule is a guess"). The fix is to stop searching, not to search better.
 
 — `staged_component_build` lane, 2026-08-17. Full read: RFC_029 §10.6a.
+
+## 11. FIX SHIPPED 2026-08-17 (the "bugfix 287" session) — two corrections with evidence, both halves built, one migration applied; OPEN until the roll
+
+Taken on after re-verifying validity (spawn-record completions + resolver rows within hours,
+2026-08-17 ~12:30Z) and non-ownership (filing lane handed off; RFC_029 lane disclaimed in §10;
+no live session editing the seam — transcript grep). Lane docs:
+`docs024_key_docs_latest/bugfix_287_spawn_record/`. Council `Council-Submitted:
+cba35b35-53f1-4c7d-86af-faa64839c0ca`.
+
+> **CORRECTED 2026-08-17 (§9 fact 2, and §10's `!` warning):** ~~"`propagateIterationOutputs`
+> … copies `<field>_<iter> → <field>` once, at the START of each iteration … at iteration N's
+> `mark_complete`, `handler_result` is either ABSENT (iteration 0) or holds iteration N-1's
+> value"~~ — **`setLoopVariable` (which calls `propagateIterationOutputs` with the CURRENT
+> step's iteration) runs before EVERY local action**: single call site `coordinator.go:1355`
+> (`executeLocalAction` step 5a, "Must happen before buildActionParams so propagated outputs
+> are included"), and `getActionHandler` has exactly one caller, so the resume-from-park path
+> takes it too. So at `mark_complete`, base `handler_result` holds the CURRENT iteration's
+> reply. The §10 instrument's own bypass rows prove it: `RESOLVER_MAPPING_BYPASSED` fires only
+> when the mapped key EXISTS and differs (279/day). Two consequences: the defect is PURELY
+> search-beats-dotless-mapping (the §6a resolver, exactly); and §10's warning that arming `!`
+> before the suffix fix "would hard-fail every loop-dispatched completion … because the key is
+> genuinely absent" is wrong at HEAD — the key is present. (§10a's tie-break finding is
+> unaffected; what its base key HOLDS at the moment the ballot is read is the part corrected.)
+
+> **CORRECTED 2026-08-17 (§10's success metric):** ~~"When §9a (a) lands, the three
+> build-dispatch-loop pairs should go to zero"~~ — **suffixing alone zeroes NOTHING.** The
+> whole-tree search runs for every non-strict declared field regardless of whether its mapping
+> would resolve; a dotless mapping is outvoted either way. The rows that measure THIS bug —
+> field=`result` conflict + bypass — go to zero at the **`!` flip**, not at the suffix roll.
+> And the `work_item_id` (453/day) / `current_page` (452/day) conflict rows are **not this
+> defect**: `work_item_id` resolves explicitly first (Strategy 0, `current_item.id`) and the
+> search's conflicting ballot is then DISCARDED by the merge — instrument noise for a
+> correctly-resolved field. (`current_page` needs its own read — RFC_029 lane's triage; whether
+> its winner is ever USED is unmeasured here.) Watch `result` only.
+
+**What shipped:**
+
+- **Half 1 (Go, inert until the next chassis roll):** `prefixConfigStepReferences` stops
+  enumerating — a generic pass suffixes ANY top-level reference-shaped string config value
+  through the existing `prefixDataReference` (first-segment rule unchanged); conditions/prose
+  excluded by the shape gate; `input_fields` arrays untouched (pinned by test); duplicated
+  `dataRefKeys` loop deleted. Register **WFA-017** (same commit). Tests + 2 mutation proofs:
+  `loop_config_reference_suffixing_test.go`. Census re-run pre-fix: **22 sites / 7 agents**
+  (§9b's 15 had grown back), all read-references.
+- **Half 2 (config):** `sql_for_agents/448` — diagnose-dispatch-loop + report-dispatch-loop
+  (these two are NOT loops — top-level steps, no sub_workflow, so §9a never applied to them;
+  §6a's own item was the diagnose instance): `result!: handler_result`,
+  `work_item_id!: claimed.work_item_id`, `error_step: mark_failed`. **APPLIED 2026-08-17**
+  (verify DO-block passed; induced negative control raised as designed).
+  `sql_for_agents/452_HOLD` — the same flip on build-dispatch-loop's
+  `process_item…mark_complete` (`result!`, `work_item_id!: current_item.id`,
+  `error_step: mark_failed`), **held until Half 1's image rolls** (gate + watch queries in the
+  file header; ordering is belt-and-braces per the correction above, and matches §10's
+  fix-then-ratchet).
+- `error_step: mark_failed` is new on mark_complete (adversarial-review finding): without it a
+  strict miss fails the WHOLE loop orchestration (`routeToErrorStepOrFail` → `failWorkflow`,
+  `continue_on_error: false`) and strands the item in `claimed`, which the claim predicate
+  (`triaged`/`approved` only) never reclaims. With it: one failed item, loop continues.
+
+**§8 verification stands**, with the §10 queries scoped to `context->>'field'='result'` and
+the demand pair (spawn_record→0 WHILE own_envelope>0). report-dispatch-loop had zero retained
+orchestrations in the window — its proof is demand-bound.
+
+**Still open before this file moves to `bugs_closed/`:** (1) the chassis roll carrying Half 1,
+then lift 452_HOLD and read the §8/§10 queries; (2) the ~hundreds of already-wrong `result`
+rows since 08-15 — the spawn record's `topics` embeds corr-id + iteration, so the true reply
+is joinable from the surviving parent's `process_item_iter_N_call_handler.response`; measure
+the joinable population and put the repair (or the decision not to) to the owner with counts.
+Until 452 is applied, keep reading 090 verdicts from `orchestration_states`, never the item
+(§6a's warning stands for build-dispatch-loop; it is CLOSED for diagnose/report as of 448).
