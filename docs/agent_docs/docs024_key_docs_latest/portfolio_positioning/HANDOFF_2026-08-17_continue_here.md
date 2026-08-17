@@ -1,4 +1,4 @@
-# HANDOFF — Phase B CLOSED (all four verdicts approved); Phase C pilot DISPATCHED and running — 2026-08-17, continue here
+# HANDOFF — Phase B CLOSED (all verdicts approved); Phase C pilot DISPATCHED but BLOCKED behind a fleet-wide dispatch stall — 2026-08-17, continue here
 
 Supersedes `HANDOFF_2026-08-16_continue_here.md`. Owner rulings unchanged: P9 six decisions,
 pilot = remortgagecalculator.uk (M4), build order M→B→I, B8/B9/I10 HOLD, bug 270 hands-off,
