@@ -34919,3 +34919,50 @@ smaller claim, but one where the evidence is a row that either exists or does no
 **Tally for "an instrument written to by the process under test": 2 today** — this, and the
 `completed_at` pair-health query recorded in `2026-08-17c` above. Two in one day on the same table
 is what makes it worth automating a habit rather than remembering a rule.
+
+## 2026-08-17 (evening, second entry) — I called a migration "NOT APPLIED" while the ledger row proving otherwise was in my own scrollback, because I quoted a COMMIT MESSAGE over a query I had already run
+
+**The claim.** Writing a LANDMINES entry about two migrations sharing the number `453`, I wrote that
+`453_tool_recreation_whole_site_context.sql` was *"written, NOT applied, awaiting its council
+round"*, and built a remedy on it: *"the unapplied file is the cheap one to renumber."* I then sent
+that to the owning lane as advice.
+
+**It was false, and had been for six hours.** That migration was applied and ledger-recorded at
+**16:21:53Z**; its council round had returned APPROVED at ~16:35Z. I wrote the entry at ~22:15Z.
+
+**Where the false fact came from: a commit message.** `66f36bd79`'s subject ends *"NOT YET APPLIED,
+council round next"* — true when committed at 12:56Z. I read it, believed it, and never asked
+whether it was still true. A commit message is a claim about **one moment**, permanently phrased in
+the present tense; the ledger is the fact.
+
+**What makes this worse than an ordinary stale read, and is the actual lesson: I had already run the
+disconfirming query.** Twenty minutes earlier, picking a migration number, I ran
+`SELECT filename FROM schema_migrations ORDER BY filename DESC LIMIT 5` and read its output — which
+lists `453_tool_recreation_whole_site_context.sql` **on screen, in my own session**. I was looking
+for "what is the highest number", got my answer, and did not see the row that contradicted a belief
+I would write down twenty minutes later. **The evidence was not missing. It was unread, because I
+had asked a different question of it.**
+
+**The cheap check that would have caught it**, and it is the same one the entry itself prescribes —
+I simply did not run it on my own claim: `SELECT filename, applied_at FROM schema_migrations WHERE
+filename LIKE '453\_%';`. One query, and it must be run **at the moment you assert**, not inherited
+from a commit subject.
+
+**Second-order cost, which is the part worth the entry.** The false premise did not stay in my
+notes: it became a *remedy* ("renumber the unapplied one") in `LANDMINES.md` — a document other
+sessions read **before** they have a symptom, precisely to be told what to do. The owning lane
+caught it and recorded that following it would have orphaned a checksummed ledger row and made
+their applied file read as pending to the next `--apply`. **A wrong fact in a landmine is worse than
+no landmine**, because the format's whole promise is that you can act on it without re-deriving it.
+Both my paragraph and its remedy are now corrected in place.
+
+**What worked.** The correction arrived within the hour, from the lane I had messaged — which is an
+argument for telling the affected lane rather than only writing the entry. And their correction was
+itself checkable: two of their three points confirmed on the spot, and one sub-claim (that
+`applied_at` can be backfilled by a later `--record-only`, making a row predate your check) refuted
+by reading the runner's INSERTs — it never sets `applied_at`, which is `DEFAULT now()`. The simpler
+explanation was their own 102-second race, which needed no extra mechanism.
+
+**Tally for "I quoted a document over a live query I had already run": 1.** Distinct from the
+familiar stale-record entries above, where nobody had looked — here the looking had been done and
+the answer was on screen.
