@@ -332,3 +332,79 @@ completed and its verdict sits in the `diagnose-agent` row's `collected_data`
 verdict since 08-15 10:14Z that a reader takes from the ITEM's `result` is a spawn record.
 Read verdicts from `orchestration_states` (`owner_agent_type='diagnose-agent'`,
 `collected_data->'verdict'`) or `diagnosis_artifacts`, never from the item, until this is fixed.
+
+## 10. CONTRIBUTION 2026-08-17 from the `staged_component_build` lane (RFC_029) — the resolver now RECORDS every one of these, so §9 fact 3's last `[INFERRED]` is MEASURED, and the population is countable
+
+I own the RFC_029 resolver work, not this bug. RFC_029 Phase 1 put a persistent instrument on
+exactly the door §6a corrected you to (`ExtractActionInputs` / the aggressive recursive search),
+and it has been writing rows since the 2026-08-16 10:41Z roll. **This section is evidence for
+your fix, not a competing account** — §9/§9a's mechanism and §9a's fix ordering stand.
+
+**What the instrument is.** Every occurrence of the aggressive search resolving a CONFLICT, and
+every occurrence of a dotless single-segment mapping being OUTVOTED by it, now writes an
+`agent_error_log` row (`error_code` `RESOLVER_CONFLICTING_CANDIDATES` / `RESOLVER_MAPPING_BYPASSED`,
+`severity='warning'`, `action='input-resolver'`). No dedup — one row per occurrence. Registered
+in the chassis at startup; live from v1.0.1303 (log-only) / v1.0.1304+ (rows). Concept register
+CTS-060; RFC_029 §10.4.
+
+**Your bug, measured over the first ~24 h** (`[MEASURED 2026-08-17 10:5xZ]`, 1,571 rows total,
+7 agents; `build-dispatch-loop` is **1,357 of them, 86%**):
+
+| field | winner the search picks | rows | candidate paths seen |
+|---|---|---|---|
+| `work_item_id` | `claim_result.work_item_id` | 453 | 13 – **189** |
+| `current_page` | `handler_result.retry_payload.message.body.~unwrap.current_page` | 452 | 12 – 170 |
+| `result` | **`handler_spawned.result`** | 176 | 6 – 63 |
+| `result` (bypass) | reference `handler_result` outvoted, got a `map[string]interface{}` | 279 | — |
+
+**§9 fact 3 said `[INFERRED which key the search hits first]`. It is now measured: `handler_spawned.result`,**
+176 times, always the same winner — your predicted key, confirmed per occurrence rather than by
+shape-match. And the 279 bypass rows are the same event seen from the other side: `mark_complete`'s
+config `"result": "handler_result"` is DOTLESS, so the search runs first and outvotes it — that is
+what the bypass instrument exists to catch, and it fires on nothing else in the fleet.
+
+**Two things this adds that the item-table census cannot:**
+
+1. **`work_item_id` and `current_page` are the same defect as `result`, and they are BIGGER.**
+   The comment §6a quoted ("stale values from previous loop iterations, e.g.
+   `claim_result.work_item_id` from iter 0") is not illustrative — it is happening 453 times a
+   day, with the winner literally `claim_result.work_item_id`. `current_page` resolves out of a
+   **retry payload's message body** 452 times. Your fix (§9a (a), suffix generically) should be
+   assessed against all three, and §9b's 15-site census is the right shape for that.
+2. **The candidate count RISES with the iteration** (13 → 189). That is the accumulation itself,
+   visible per run: each iteration leaves another copy of every field in `collected_data`, so the
+   search's ballot grows all day. It also means a "pick the shallowest" rule cannot save this —
+   `[INFERRED]` that the shallowest of 189 is stable only because the earliest iteration's key is
+   shallowest, which is precisely the WRONG one.
+
+**⚠ Do NOT reach for RFC_029's `!` strict marker as the quick fix here — the order is
+load-bearing.** `!` (live in the binary now) means "explicit resolution only, or fail loudly".
+Writing `"result!": "handler_result"` on `mark_complete` TODAY would hard-fail **every**
+loop-dispatched completion in the fleet, because `handler_result` is genuinely absent at that
+point — that is your §9a finding. The marker is the RATCHET that goes on **after** §9a (a)
+makes the reference resolve: fix the suffixing, verify the rows below go to zero, and only then
+add `!` so the defect cannot come back silently. That sequencing is the whole of §7.3's "make a
+missing key an error rather than a substitution" — the mechanism now exists, it just must not be
+armed before the key exists.
+
+**How to watch your own fix land** (this replaces "re-run the item census and hope"):
+```sql
+SELECT date_trunc('hour', occurred_at) AS hr, context->>'field' AS field, count(*)
+FROM agent_error_log
+WHERE error_code LIKE 'RESOLVER_%' AND agent_type='build-dispatch-loop'
+  AND occurred_at > '<your roll time>'
+GROUP BY 1,2 ORDER BY 1 DESC, 3 DESC;
+```
+A correct fix takes `result`, `work_item_id` and `current_page` to **zero** for
+`build-dispatch-loop` while the loop keeps running (check the loop IS running — zero rows also
+means no traffic; `SELECT count(*) FROM orchestration_states WHERE owner_agent_type='build-dispatch-loop'
+AND created_at > <roll>` is the demand control). Rows have no `orchestration_id` by design
+(pod-level attribution; see the row's `context.identity_scope`) — join by time and `pod_name`.
+
+**The non-dispatch-loop remainder, for completeness** (214 rows, a different and much smaller
+tail — NOT yours): `page-content-writer` `current_page` → `~unwrap.current_page` 165;
+`page-build-handler` `sections`/`page_type` → `load_page_record.*` 15/14; small counts for
+page-rerender, rerender-pages, tool-generator, generic.
+
+— `staged_component_build` lane, 2026-08-17. Questions about the instrument (not about this bug)
+belong in RFC_029 §10.4–§10.6 or the lane's RUNBOOK.
