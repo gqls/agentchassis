@@ -1,4 +1,4 @@
-# HANDOFF — Phase B CLOSED (all verdicts approved); Phase C pilot DISPATCHED but BLOCKED behind a fleet-wide dispatch stall — 2026-08-17, continue here
+# HANDOFF — Phase B CLOSED; Phase C pilot BUILT and all three proof points PASSED; deploy path is the open problem — 2026-08-17 evening, continue here
 
 Supersedes `HANDOFF_2026-08-16_continue_here.md`. Owner rulings unchanged: P9 six decisions,
 pilot = remortgagecalculator.uk (M4), build order M→B→I, B8/B9/I10 HOLD, bug 270 hands-off,
@@ -6,87 +6,49 @@ copy-voice work lives in session "copy quality two stage".
 
 ## 1. THE ONE THING TO DO FIRST
 
-> ## ⛔ READ THIS BEFORE WATCHING THE PILOT — IT IS BLOCKED, AND NOT BY US
+> ## ✅ THE PILOT BUILT, AND ALL THREE PROOF POINTS PASSED — 2026-08-17 evening
 >
-> **The whole fleet's build pipeline is head-of-line stuck, and every layer reports success.**
-> `build-pipeline-trigger.find_dispatchable_site` selects `ORDER BY wi.created_at ASC …
-> LIMIT 1` across the ESTATE (it does not filter `pipeline='build'` the way the scheduled
-> task's gate does). The head row — `8c921926-…`, `add_tool` on **webdesign.co.uk**, created
-> 11:19Z — is returned by the dispatcher inside a `pending` block, never claimed:
-> `status=triaged`, `attempt_count=0`, while `updated_at` bumps every run. Eight consecutive
-> firings picked that same site. The orchestration COMPLETES each time with no `__step_error`.
-> **The pilot is 5th of 36 eligible items and cannot be reached until the head clears.**
+> The earlier blocker (a fleet-wide head-of-line stall) **cleared on its own at 12:12Z**; the
+> pilot then ran the whole pipeline unattended, 12:20 → 13:13, and produced pages.
+> **The 090 I filed (`5fbb7f4c…`) was overtaken by events** — read it for the structural half
+> (the selector has no skip/backoff), but do NOT read its verdict as a live outage.
 >
-> - **Do not touch that item.** It is the `webdesign_tool_rebuilds` lane's owner-directed
->   rebuild at an existing page = **`bugs_open/286`**, fix built + council-approved, **NOT
->   LIVE — it rides the next chassis roll.** Their item, their bug; never cancel a failing
->   row pre-diagnosis.
-> - **Not `bugs_open/029`** (that is hung spawns stuck in `AWAITING_RESPONSES`; here they
->   complete). Different mechanism, same fleet-wide consequence.
-> - **`090` filed** rather than a guessed root cause — I can show the selector and the stuck
->   row, but not why a returned `pending` item is never claimed:
->   **`RUN_CORRELATION_ID=5fbb7f4c-9968-4b95-9048-caad202cea4a`** (artifacts are keyed under
->   that id, not the intake one). **Read it first.**
-> - **The likely unblock is the fleet roll** (which also ships `292`'s fix and `286`'s) —
->   owner-run. After it, re-check the head row before assuming the pilot moves.
-> - Ordering is `created_at ASC`, so new arrivals queue BEHIND the pilot: its position can
->   only improve. Nothing needs re-dispatching, and re-submitting would just add a second row.
-
-**The pilot is dispatched and queued** (blocked as above — clear that first). Dispatched
-2026-08-17 ~11:4xZ, correlation `fb048d5f-b4b3-49c8-bc02-2810bbe209aa`.
-`domain-submitter` COMPLETED; `needs_domain_research` is triaged to
-`domain-research-classifier`. Everything below is a query, not an inference.
-
-```sql
--- where the build has got to
-SELECT aspect, source_agent, created_at FROM site_specs ss JOIN sites s ON s.id=ss.site_id
-WHERE s.domain='remortgagecalculator.uk' AND ss.is_current ORDER BY ss.created_at;
-
-SELECT wi.item_type, wi.status, wi.handler_agent, LEFT(wi.summary,60)
-FROM site_work_items wi JOIN sites s ON s.id=wi.site_id
-WHERE s.domain='remortgagecalculator.uk' ORDER BY wi.created_at;
-```
-
-**Proof point 1 — 432 (the recommender).** Once `classification` exists, it must carry the
-directory flag, written by `enrich_directory_features` immediately after
-`write_classification_spec`:
-```sql
-SELECT data->'content_features'->'mortgage_lender_directory' AS flag
-FROM site_specs ss JOIN sites s ON s.id=ss.site_id
-WHERE s.domain='remortgagecalculator.uk' AND ss.aspect='classification' AND ss.is_current;
-```
-Expect `{"recommended": true, "kind": "mortgage-lender", "separate_page": true, "reason": …}`.
-**Pre-flight says this WILL fire, and says exactly why**: `industry` comes out NULL and
-`site_type` `"interactive-platform"` on all four comparable finance sites, neither of which
-is in `verticalDirectoryMap` — so the **domain-derived** signal is the only one that can
-fire, and `remortgagecalculator.uk` contains `mortgage`. If the flag is ABSENT, that is the
-finding, not a nuisance: read `bugs_open/292` first, then check what `industry` actually
-came out as.
-
-**Proof point 2 — 433/441 (the planner).** Once `site_plan` exists, the plan must contain a
-`mortgage-lenders` page (name AND page_type exactly that), composed
-`hero → mortgage-lender-directory-listing → call-to-action`, plus a
-`mortgage-lender-directory` section on the homepage:
-```sql
-SELECT p.name, p.page_type, p.sections, p.in_header, p.in_footer
-FROM pages p JOIN sites s ON s.id=p.site_id
-WHERE s.domain='remortgagecalculator.uk' ORDER BY p.nav_order;
-```
-
-**Proof point 3 — the silent-drop check, and DO run it even if the page looks right.**
-`validate_site_plan` drops an unresolvable section name; the drop IS recorded (bugs_open/282's
-fix, another lane), so ask rather than infer:
-```sql
-SELECT occurred_at, agent_type, action, error_message, context
-FROM agent_error_log
-WHERE error_code = 'PLAN_SECTION_NAME_DROPPED'
-  AND site_id = (SELECT id FROM sites WHERE domain='remortgagecalculator.uk')
-ORDER BY occurred_at DESC;
-```
-Table is `agent_error_log` (**not** `agent_errors`); payload column is `context`. Estate-wide
-this returns 0 all-history, and that zero is demand-controlled (door live: 12,158 rows/7d
-across 63 agent types; recorder present in v1.0.1305, probed with controls) — but it has
-**never been positively exercised for `validate_plan`**, so the pilot is its first real test.
+> | proof | result |
+> |---|---|
+> | **432** — the flag | `content_features.mortgage_lender_directory = {recommended:true, kind:"mortgage-lender", separate_page:true}` ✅ exactly as the pre-flight predicted |
+> | **433/441** — the plan | page `mortgage-lenders`, page_type `mortgage-lenders`, sections `[hero, mortgage-lender-directory-listing, call-to-action]`, `in_header=true`; homepage carries `mortgage-lender-directory` ✅ |
+> | **drop check** | zero `PLAN_SECTION_NAME_DROPPED` for this site ✅ — so that composition is what the planner EMITTED, not what survived a cull |
+>
+> **Cost baseline (Phase C deliverable): 43 LLM calls · 389,406 in · 120,822 out · 11 assets**,
+> joined to the pilot's own 83 orchestrations — NOT a time window, which would have swept in
+> other lanes' council/diagnosis spend. **A floor, not a total.** page-content-writer is 29 of
+> the 43 calls and ~71% of input tokens.
+>
+> ### ⚠ THE ROLL SHIPPED NO NEW CODE — CHECKED, NOT ASSUMED
+> Pods restarted 14:42Z but the tag is **unchanged at `v1.0.1305`**, and the binary carries
+> **none** of this session's commits (POS control present, NEG absent). **`bugs_open/292`'s fix
+> is STILL NOT LIVE.** Another lane measured the same thing today: *203 commits unshipped while
+> pods looked new.* **A restart on the same tag is not a release — `IMAGE_TAG` must be bumped.**
+> (Do not reuse my `grep -aq "bestDomainKey"` probe arm: that is a LOCAL VARIABLE, which Go
+> strips, so it reads ABSENT even on a binary that has the fix. The commit-stamp probe is the
+> one that carries the result.)
+>
+> ### What actually failed — the pilot's real yield, and none of it is this lane's work
+> 1. **11 × `failed to get latest commit/base tree`** (10 `needs_imagery`, 1 `needs_page`
+>    deploy), logged under the misleading code `LLM_API_ERROR`. **`sites.github_repo` is EMPTY
+>    and that is NORMAL** — 6 of the 8 most recent sites are empty and serve by the B2 route,
+>    so "the repo was never created" is the WRONG reading. The question is why the deployer
+>    took a git path on a B2 site. **This is the top item: one cause, eleven failures.**
+> 2. **20 × `unrendered_template` `{{end}}` blockers** on 2 pages. **Checked specifically:
+>    NOT the seeded `banned_claims`** — the guard did not over-fire and blocked nothing. A
+>    component is leaking raw Go template syntax into rendered output.
+> 3. `component_validation_rejected` ×6 (`mortgages-repayment`), `needs_new_component` failed
+>    ×2 at `store_generated_component`, `needs_rerender` failed after 3 retries.
+> 4. **10 × `unresolved_cta` + `needs_section_data` + 2 × `needs_page` at
+>    `needs_human_review`** — the HITL queue, expected on a new site. Work it, don't debug it.
+>
+> **"The machinery works" and "the site is finished" are different statements — only the first
+> is true.** Nothing is deployed; the site is built but not live.
 
 **Proof point 4 — B3f (the safety net).** If the planner missed the directory, the checks
 should raise it on the first completeness sweep:

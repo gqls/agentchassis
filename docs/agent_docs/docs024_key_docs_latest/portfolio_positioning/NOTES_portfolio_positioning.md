@@ -1695,3 +1695,73 @@ Artifacts are keyed under THAT id, not the intake one.
 The open structural question the run should settle, and it outlives this incident: the
 selector has **no skip and no backoff** for a head item that is returned but never claimed,
 so one un-claimable row halts every build on the estate while all instrumentation reads green.
+
+### 2026-08-17 (evening) — THE PILOT BUILT, AND ALL THREE PROOF POINTS PASSED
+
+The head-of-line blocker cleared at 12:12Z (webdesign.co.uk's `add_tool` completed — that
+lane's own business), and the pilot then ran the whole pipeline unattended:
+`needs_domain_research` 12:20 → `needs_vertical_research` 12:29 → `needs_strategy` 12:34 →
+`needs_briefing` 12:39 → `needs_site_plan` 12:44 → `needs_composition` 12:46 → `needs_design`
+13:13 → pages. **So the 090 I filed was answered by events, not by the loop** — the stall was
+transient head-of-line blocking, and the diagnosis run (`5fbb7f4c…`) is still worth reading
+for the structural half (no skip, no backoff), but the incident is over. Do not read its
+verdict as describing a live outage.
+
+**PROOF POINT 1 — 432 LIVE AND CORRECT.** The classification spec carries exactly:
+`content_features.mortgage_lender_directory = {recommended: true, kind: "mortgage-lender",
+separate_page: true, reason: "Mortgage sites gain authority from a cited, verified directory
+of UK lenders"}`. The pre-flight predicted this and named the reason (`industry` NULL,
+`site_type` not in the map, so the DOMAIN signal is the only one that can fire) — prediction
+and outcome match.
+
+**PROOF POINT 2 — 433 + 441 LIVE AND CORRECT, on a real build.** The planner produced:
+| page | page_type | sections |
+|---|---|---|
+| `index` | landing | hero, mortgages-repayment, brief-explanation, info-card-grid, **mortgage-lender-directory**, call-to-action |
+| `mortgage-lenders` | **mortgage-lenders** | **hero, mortgage-lender-directory-listing, call-to-action** |
+Name and page_type both exactly the `directoryCheckProfiles` values; composition exactly the
+prescribed order; `in_header=true`. **The homepage section AND the dedicated page, both from
+the rule, on the first real build.** 441's enumeration did its job: the listing component
+name is byte-correct, which is the one the old text asked the model to derive.
+
+**PROOF POINT 3 — zero `PLAN_SECTION_NAME_DROPPED` for this site.** So no section name was
+silently dropped, and proof point 2's composition is what the planner actually emitted rather
+than what survived a cull.
+
+**COST BASELINE (the Phase C deliverable).** Joined to the pilot's own 83 orchestrations, NOT
+a time window — a window would have swept in council, diagnosis and landmine-verifier spend
+from other lanes and inflated it several-fold:
+**43 LLM calls · 389,406 input tokens · 120,822 output tokens · 11 assets.**
+By agent: page-content-writer 29 calls (276,562 in / 51,592 out) — the overwhelming majority;
+component-creator 6; classifier 2; vertical-exemplar-researcher 2; planner, strategist,
+briefing, webdesign-agent 1 each. **[FLOOR, not a total]** — the join catches orchestrations
+whose `collected_data` names the site, so any run that does not is missed. Treat as a lower
+bound. (The payload search costs >120s and timed out once; run it in background.)
+
+**WHAT FAILED — the pilot's real yield.** Nothing here is caused by this lane's work:
+- **11 × `failed to get latest commit/base tree`** (10 `needs_imagery` + 1 `needs_page`
+  deploy) — a deploy-path failure, logged under `LLM_API_ERROR`, which is a misleading code.
+  **`sites.github_repo` is EMPTY — and that is NORMAL, not the bug**: 6 of the 8 most recent
+  sites are empty, including established ones, because they serve by the B2 route. So the
+  obvious reading ("the repo was never created") is wrong, and the real question is why the
+  asset/page deployer took a git path on a B2 site.
+- **20 × `unrendered_template` `{{end}}` blockers** on 2 pages (`CONTENT_VALIDATION_FAILED`).
+  **Checked specifically: NOT my banned_claims** — the guard did not over-fire and blocked
+  nothing. A component is leaking raw Go template syntax into rendered output.
+- **6 × `component_validation_rejected`** for `mortgages-repayment` (a homepage section the
+  planner chose), **2 × `needs_new_component` failed** at `store_generated_component`
+  ("generated template …"), **1 × `needs_rerender` failed** after 3 retries (timeout).
+- **10 × `unresolved_cta` + `needs_section_data` + 2 × `needs_page` at
+  `needs_human_review`** — the HITL queue, expected on a new site, not failures.
+
+**THE ROLL SHIPPED NO NEW CODE, AND I CHECKED RATHER THAN ASSUMED.** Pods restarted 14:42/
+14:43Z but the tag is **unchanged at v1.0.1305**, and the binary carries **none** of this
+session's commits (`e0d662243`, `1268ae2ef`, `07b2ea6d5`, `a1b92f609`, `7aff17b21` all
+absent; POS control present, NEG absent). `286`'s `adopt_existing_page` IS present, so it was
+already in 1305. **`bugs_open/292`'s fix is therefore STILL NOT LIVE.** Corroborated
+independently: another lane filed a MEMORY entry the same day — *"a FRESH BUILD CAN SHIP NO
+NEW CODE — same-tag rebuild serves the CACHED image: 203 commits unshipped 08-17 while pods
+looked new"*. **`IMAGE_TAG` must be bumped; a restart on the same tag is not a release.**
+Note one probe arm was worthless and I should not have written it: `grep -aq "bestDomainKey"`
+tests for a LOCAL VARIABLE name, which Go strips — it would read ABSENT on a binary that has
+the fix. The commit-stamp probe is the one that carries the result.
