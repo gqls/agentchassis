@@ -64,6 +64,42 @@ copy-voice work lives in session "copy quality two stage".
 > **"The machinery works" and "the site is finished" are different statements — only the first
 > is true.** Nothing is deployed; the site is built but not live.
 
+> ## ⬆ SUPERSEDED BY THIS — state at 2026-08-17 LATE (read this, the block above is history)
+>
+> **v1.0.1307 IS a real build** (tag moved 1305→1307 after another lane found the same reuse I
+> reported: *"24 code commits across ~10 lanes are inert"*, `aa9c7b74f`).
+>
+> **`bugs_open/292` → `bugs_closed/292`: FIXED AND LIVE.** Evidence is ANCESTRY, not a binary
+> read: `git merge-base --is-ancestor e0d662243 e24dc0e6c` → true, and the pods run the image
+> built from that commit. **⚠ Never verify a fix by grepping the binary for its commit sha** —
+> it carries ONE stamp (the commit it was built FROM), so ABSENT is the normal reading on a
+> healthy build; a discovery grep for `[0-9a-f]{40}` is worse (20 hits, none a real commit).
+> All three failed probes + the working recipe: `WRONG_CALLS.md`, 2026-08-17.
+>
+> **THE DEPLOY OUTAGE IS OVER.** Since the 17:05Z roll: **0** base-tree 404s against **117**
+> other errors and real demand (89 `page_rerender` triaged, 7 claimed) — demand-controlled, not
+> a quiet pipeline. **The 090 (`75220928…`) was overtaken and has NO verdict, and what it would
+> have answered stays UNESTABLISHED: which component routed a no-repo site to git, and what
+> changed at 13:31.** If it recurs, that is the question — do not retrofit the roll as the cause.
+>
+> **B3f volume MEASURED** (was `[UNMEASURED]`): `head_essentials_missing` **247 / 8 sites**,
+> `dead_internal_link_live` 6, `canonical_mismatch` 4; `structured_data_invalid` +
+> `sitemap_entry_dead_live` at **0, deliberately NOT interpreted** (clean vs never-exercised
+> look identical). All flag-only — a backlog to triage, not an incident.
+>
+> ### ▶ DO THIS FIRST
+> **I re-queued the pilot's 11 outage casualties** (10 `needs_imagery` + 1 `needs_page`). The
+> reaper only touches `triaged` rows 48h+, so nothing would have retried them; the predicate
+> named the site + `status='failed'` + `%base tree%` + remaining budget, and `attempt_count`
+> was left at 1/3 on purpose. **Check whether they now succeed:**
+> - **succeed** → the pilot can publish; Phase C closes on the cost baseline + owner sign-off.
+> - **fail again** → the outage is NOT fixed and the 090's routing question becomes urgent.
+>
+> **The 3 genuine failures were deliberately NOT retried and are the real remaining work:**
+> `needs_new_component` ×2 (`store_generated_component`, 3/3), `needs_rerender` ×1 (timeout,
+> 3/3); plus the 2 pages blocked by 20 × `unrendered_template` `{{end}}` and
+> `component_validation_rejected` ×6. Then the HITL queue.
+
 **Proof point 4 — B3f (the safety net).** If the planner missed the directory, the checks
 should raise it on the first completeness sweep:
 `missing_mortgage_lender_directory_page` / `_section`. A clean pilot must be verified at
