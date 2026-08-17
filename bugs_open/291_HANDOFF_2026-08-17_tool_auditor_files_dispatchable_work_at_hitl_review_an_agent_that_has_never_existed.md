@@ -182,3 +182,28 @@ is live and reachable**, safely parked; the staged Phase 3 migration sweeps it.
 **Stays OPEN until fixed-AND-live**: the roll carrying `c8400e452` is
 provenance-verified, the staged flip applied, and one auditor run files
 `''`+`needs_human_review` review items end-to-end.
+
+### `[MEASURED]` 2026-08-17 17:2x — a chassis build WAS deployed and it shipped none of this code
+
+Checked before touching Phase 3; the staged file's ordering gate held and **Phase 3 was
+NOT applied** (against this binary it would hard-error every review-item filing inside
+`continue_on_error` — every finding silently lost).
+
+- Pods restarted 14:43Z on image **`v1.0.1305` — the same tag as before these commits**;
+  `makefile` `IMAGE_TAG` never bumped; `imagePullPolicy: IfNotPresent`.
+- Binary probe with both controls discriminating: the kill-switch literal
+  `DISABLE_UNREGISTERED_HANDLER_DEMOTION` is **ABSENT** from the running binary
+  (positive control `Handler agent not registered: ` present; negative control absent).
+- **The build was fine — the delivery was not.** The LOCAL `v1.0.1305` image, built
+  14:30Z, **does** contain the literal. Digests: local `sha256:6039e19c…` vs running
+  `sha256:f90a7e88…`. A same-tag rebuild serves the node's cached image.
+- Fleet-wide, not this lane: another lane measured the running chassis still at commit
+  `6a782274b` with **203 commits in HEAD but not in it** — every Go change committed
+  2026-08-17 is inert.
+- **Remedy (owner-run, whole-fleet): `make release IMAGE_TAG=v1.0.1306`** — a tag BUMP;
+  re-applying at the same tag re-serves the same cache. New fleet-wide LANDMINE records
+  the 10-second digest check.
+
+**Config half remains LIVE and unaffected** (migrations 450/451 — DB config is live on
+apply): the bleed is still stopped and the 14 findings are still parked and actionable.
+Only the Go class-fix and Phase 3 wait on a real roll.

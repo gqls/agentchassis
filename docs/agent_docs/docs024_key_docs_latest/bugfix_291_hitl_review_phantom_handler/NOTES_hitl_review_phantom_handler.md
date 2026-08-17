@@ -141,3 +141,38 @@
   --is-ancestor c8400e452 <stamp>`; (2) apply the STAGED phase-3 flip (renumber into
   sql_for_agents/ at the then-free number); (3) one natural tool-auditor run files
   `''`+`needs_human_review` review items; (4) straggler sweep + next-day census.
+
+## 2026-08-17 17:2x — "a fresh chassis build has been deployed" — IT DID NOT SHIP MY CODE
+
+- **Checked before acting, and the ordering gate on the staged Phase 3 file did its
+  job: PHASE 3 NOT APPLIED.** Applying it against this binary would hard-error every
+  review-item filing inside `continue_on_error` — every finding silently lost.
+- Evidence, in order taken:
+  - Pods `agent-chassis-5bd56bdd9b-{6sb8t,jzmns}` restarted 14:43Z, image
+    `v1.0.1305` — **the same tag as before my commits**; `makefile` `IMAGE_TAG` still
+    `v1.0.1305`, never bumped.
+  - `build provenance` startup line had scrolled (busy service — the known trap; an
+    empty grep means "out of range", not "unstamped").
+  - **Binary probe, controls in the same breath and both discriminating:** my
+    kill-switch literal `DISABLE_UNREGISTERED_HANDLER_DEMOTION` **ABSENT** (0);
+    positive control `Handler agent not registered: ` PRESENT (1); negative control
+    `ZZZ_NOT_A_REAL_SYMBOL_291` absent (0).
+  - **The decisive one — the build WORKED, the delivery did not.** The LOCAL image
+    `aqls/agent-chassis:v1.0.1305`, built 14:30Z, **contains** my literal (1, with the
+    same two controls passing). Digests differ: local `sha256:6039e19c…` vs running
+    `sha256:f90a7e88…`. `imagePullPolicy: IfNotPresent` + an unchanged tag = the node
+    serves its cached older image for ever.
+- **Not my lane's problem alone — it is fleet-wide today.** Another lane independently
+  measured the running chassis still at commit `6a782274b` with **203 commits in HEAD
+  but not in it**. So every Go change committed on 2026-08-17 is inert, mine included.
+- **Remedy is owner-run and is a TAG BUMP, not a redeploy** (a re-apply at the same tag
+  re-serves the same cache): `make release IMAGE_TAG=v1.0.1306` (the variable is `?=`,
+  so no makefile edit is needed; releases are whole-fleet by ruling).
+- Fleet-wide LANDMINE appended: the 10-second digest comparison (`docker inspect
+  RepoDigests` vs pod `imageID`) — sharper than a sha probe and needs no exec. ⚠ It
+  went in under another session's commit (`07229196e`) as a **same-file passenger** —
+  their message, my text; content intact, attribution off. Forward-only, left alone.
+- **291's close-out is therefore UNCHANGED and still owed**: (1) a roll that actually
+  ships `c8400e452`+`f629f4530` — verify by DIGEST, then `git merge-base
+  --is-ancestor c8400e452 <stamp>`; (2) staged Phase 3 flip; (3) one natural
+  tool-auditor run filing `''`+`needs_human_review`; (4) straggler sweep + census.
