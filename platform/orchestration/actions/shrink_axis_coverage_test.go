@@ -133,11 +133,12 @@ func TestEveryShrinkDecisionCallerMeasuresVisibleText(t *testing.T) {
 // The whole-page action must call BOTH text floors. This is the assertion the
 // writer-coverage test cannot make, because that test only recognises an UPDATE.
 //
-// The page-total floor needs it more than its sibling: it fails OPEN on a
-// measurement error (as the inline rule it replaced did), so a test whose mock
-// simply does not expect its query sees the guard stand down and passes. "The
-// suite is green" therefore does not establish that this floor runs at all —
-// only this assertion and the wiring test's mocked drive do.
+// The page-total floor needed it more than its sibling while it failed OPEN on a
+// measurement error: a test whose mock simply did not expect its query saw the
+// guard stand down and passed, so "the suite is green" did not establish that the
+// floor ran at all. It fails CLOSED as of council 823679dc round 2, so a missing
+// mock now surfaces as a refusal instead of as silence — but this assertion and the
+// wiring test's mocked drive remain the two things that prove it is reached.
 func TestSavePageSectionsWiresBothTextFloors(t *testing.T) {
 	src, err := os.ReadFile("save_page_sections_action.go")
 	if err != nil {

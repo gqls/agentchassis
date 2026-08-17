@@ -321,3 +321,41 @@ func TestEnforcePageTotalTextFloor_ConfigZeroDisablesIt(t *testing.T) {
 		t.Fatalf("%s=0 must disable the floor entirely: %v", pageTotalTextFloorKey, err)
 	}
 }
+
+// MUT-293-I: make enforcePageTotalTextFloor return nil on a query error again (the
+// fail-open behaviour it shipped with in round 1, inherited from the inline rule).
+// This test must then FAIL.
+//
+// Why it exists at all: while this floor failed open, a test whose mock simply did
+// not expect its query saw the guard stand down and PASSED — so "the suite is
+// green" said nothing about whether the floor ran. That is the shape bug_historian
+// objected to in council 823679dc, and the objection was right twice over: it made
+// the production behaviour indistinguishable from no floor, and it made the test
+// suite unable to notice.
+//
+// It fails closed now because the change turned out to be nearly free: this floor
+// runs FIRST of the three, and the two after it query the same table for the same
+// page and refuse on a query error — so the fail-open window was only ever a
+// blip affecting one statement and not the next two.
+func TestEnforcePageTotalTextFloor_FailsClosedWhenItCannotMeasure(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	mock.ExpectQuery("SELECT rendered_html").WillReturnError(sql.ErrConnDone)
+
+	err = enforcePageTotalTextFloor(context.Background(), shrinkGuardTestParams(db),
+		uuid.Nil, uuid.Nil, "about",
+		[]SectionData{{ComponentName: "block", HTML: "<p>anything</p>", Position: 1}})
+	if err == nil {
+		t.Fatal("the page-total text floor could not measure the page and ALLOWED the save anyway. A content " +
+			"guard that stands down on its own measurement error is indistinguishable from no guard — and its " +
+			"two siblings refuse on exactly this error, so allowing here is the odd one out, not the safe one.")
+	}
+	if !strings.Contains(err.Error(), "could not measure") {
+		t.Errorf("the refusal must say the measurement failed, not imply content shrank — nothing shrank here "+
+			"and 'lower the floor' is the wrong remedy for a query that errored. Got: %v", err)
+	}
+}

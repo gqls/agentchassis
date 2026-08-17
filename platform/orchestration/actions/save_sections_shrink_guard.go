@@ -373,6 +373,29 @@ const shrinkMeasurementErrorFix = "The shrink guard could not measure the page's
 // questions — "is the page about to lose what it is currently SERVING?" versus
 // "may automation rewrite this row?" — and folding them together would silently
 // change one of them.
+//
+// AND THE POPULATION IS LIVE, which is a measurement and not an inheritance
+// (council 823679dc round 1, guardian seat, HIGH and gating — the right question,
+// asked because the landmine on the SIBLING table records
+// site_components.build_status as 'rendered' and NEVER 'deployed'; had this table
+// matched, the extracted floor would have returned zero rows for every page,
+// short-circuited on its own minimum every time, and never engaged, with a fresh
+// sqlmock suite certifying it). `[MEASURED 2026-08-17]`
+// SELECT build_status, count(*) FROM page_components GROUP BY 1 → deployed 1,575
+// rows / 617 pages, approved 85, pending 19, removed 4; and 617 of 729 pages
+// (84.6%) carry at least one deployed row with a non-null rendered_html. The
+// analogy does not transfer. Re-run that GROUP BY before trusting this predicate
+// again — an inherited predicate has whatever validity it always had, and
+// extraction is the moment it becomes yours.
+//
+// CONSUMERS OF THE SHARED SAVE PATH, enumerated rather than asserted (same council
+// round, guardian, medium: the minimum moving 500 → 200 is a behavioural change to
+// a guard every content-mutating workflow inherits, so name them). Live, active,
+// non-snapshot agent_definitions with a `save_page_sections` step: **page-build-handler,
+// page-rerender, tool-recreation-handler** — and `apply_section_edit`, which shares the
+// minimum through enforceSingleSlotFloors: **section-editor**. Four in total, and
+// NONE of them pins `section_shrink_floor` in step config, so all four take the new
+// default. That is the set to tell, per the owner ruling of 2026-07-29 §3.
 func enforcePageTotalTextFloor(ctx context.Context, params ActionParams, siteID, pageID uuid.UUID,
 	pageName string, sections []SectionData) error {
 
@@ -391,28 +414,35 @@ func enforcePageTotalTextFloor(ctx context.Context, params ActionParams, siteID,
 		  AND build_status = 'deployed'
 	`, pageID)
 	if err != nil {
-		// The one place this guard's semantics deliberately DIFFER from its
-		// siblings: it fails OPEN, as the inline rule did (`scanErr == nil &&`).
-		// Changing that here would be an unreviewed behavioural change riding on
-		// an axis correction — the two siblings refuse on a failed measurement and
-		// this one does not, which is worth reconciling on its own evidence.
+		// FAILS CLOSED, like its two siblings — changed in round 2 of council
+		// 823679dc, and the change is the objection rather than a deferral of it.
 		//
-		// BUT IT NO LONGER STANDS DOWN SILENTLY (council 823679dc, bug_historian
-		// seat, medium — and it was right): "a floor that fails open on error is
-		// indistinguishable from no floor at all on the very incident class this
-		// whole bug is about", so a future incident gets diagnosed as "the floor
-		// should have caught this" when in fact it never ran. It files a work item
-		// of its own type — NOT the refusal type its siblings use, because nothing
-		// was refused here and a row saying otherwise would be a false claim.
-		params.Logger.Warn("save_page_sections: page-total text floor could not measure the deployed page — save PROCEEDS, matching the inline rule this replaced",
-			zap.String("page_name", pageName), zap.Error(err))
-		reason := fmt.Sprintf(
-			"save_page_sections: the page-total text floor could not measure page %q's deployed sections (%v), so it STOOD DOWN and the save PROCEEDED. Nothing was refused and nothing was prevented — this row exists so that a later content loss on this page is not mis-diagnosed as a floor that should have caught it. (bugs_open/293)",
-			pageName, err)
-		_ = emitPruneRefusalWorkItem(ctx, params.DB, savePageSectionsUnmeasured(siteID, pageID, pageName, reason,
-			fmt.Sprintf("Page-total text floor did not run on %q — the save went ahead unguarded", pageName),
-			pageTotalUnmeasuredFix), params.Logger)
-		return nil
+		// It fails open in the inline rule this replaced (`scanErr == nil &&`), and
+		// round 1 shipped that behaviour unchanged plus a breadcrumb work item, on
+		// the reasoning that reconciling it was a behavioural change that should not
+		// ride an axis correction. Two seats pushed back and both were right.
+		// bug_historian: a breadcrumb "patches the SYMPTOM (visibility after the
+		// fact) while leaving the mechanism (fail-open on a content-guard) live and
+		// generic", and a record with no consumer is the estate's own
+		// "recorded decision with no enforcement point is decorative". reuse_agent:
+		// a work-item type whose whole point is that nothing acts on it does not
+		// belong in the DISPATCH table at all.
+		//
+		// WHAT MADE IT CHEAP, which is what I had not measured when I deferred it:
+		// this floor runs FIRST of the three (save_page_sections_action.go:593, then
+		// :603, then :614), and both of the others query the SAME table for the SAME
+		// page moments later and REFUSE on a query error. So the fail-open window was
+		// never "an error means the page saves unguarded" — it was only "an error
+		// affecting this one statement and not the next two", i.e. a transient blip
+		// between statements. Fail-closed therefore changes almost nothing in
+		// practice and makes the three consistent, which is worth more than the
+		// asymmetry was.
+		reason := fmt.Sprintf("save_page_sections: REFUSED for page %q — the page-total text floor could not measure the deployed sections (%v), so nothing was deleted or written", pageName, err)
+		params.Logger.Error(reason)
+		_ = emitPruneRefusalWorkItem(ctx, params.DB, savePageSectionsRefusal(siteID, pageID, pageName, reason,
+			fmt.Sprintf("Page save refused: the page-total text floor could not measure %q's deployed sections", pageName),
+			pageTotalMeasurementErrorFix), params.Logger)
+		return fmt.Errorf("%s", reason)
 	}
 	defer rows.Close()
 
@@ -470,47 +500,14 @@ const pageTotalRefusalFix = "The whole page's text fell past the page-total floo
 	"page_total_text_floor on the save_page_sections step is the escape hatch (0 disables) when the " +
 	"page is genuinely meant to shed most of its prose."
 
-// savePageSectionsUnmeasured is the FAIL-OPEN counterpart to
-// savePageSectionsRefusal, and it carries a different item_type on purpose.
-//
-// Its sibling files `save_refused_incomplete`, which asserts that a save was
-// refused. On this path nothing was refused: the guard could not measure and the
-// write went ahead. Filing that under a refusal type would be a false claim in a
-// queue an operator reads, and the estate's own rule is that a refusal sentence
-// must be true of the row it is on (`shrinkMeasurementErrorFix` exists for exactly
-// that reason one floor over).
-//
-// SHARED-VOCABULARY NOTE, per the owner ruling of 2026-08-02 §1 — the producer set
-// and the key shape are stated here and in the concept register rather than left to
-// be inferred. PRODUCERS: `enforcePageTotalTextFloor` only, one call site
-// (`save_page_sections_action.go`). ITEM KEY: `save_guard_unmeasured:<page name>`,
-// so repeats on one page collapse to one row; `recurrenceExpected` is inherited
-// from the emitter, which is correct here — there is no handler, so a repeat is a
-// new event and not a failed fix. NO AUTOMATED CONSUMER: nothing dispatches on this
-// type, by design; it is a record for a human reading the queue after the fact.
-func savePageSectionsUnmeasured(siteID, pageID uuid.UUID, pageName, reason, summary, fix string) pruneRefusal {
-	pID := pageID
-	return pruneRefusal{
-		SiteID:   siteID,
-		PageID:   &pID,
-		Source:   "save_page_sections",
-		Pipeline: "build",
-		ItemType: "save_guard_unmeasured",
-		ItemKey:  fmt.Sprintf("save_guard_unmeasured:%s", pageName),
-		Subject:  pageName,
-		Summary:  summary,
-		Reason:   reason,
-		Fix:      fix,
-	}
-}
-
-// pageTotalUnmeasuredFix — the remedy for a guard that did not run is not a floor
-// setting, and saying "lower the floor" here would send the reader to tune a
-// threshold that was never consulted.
-const pageTotalUnmeasuredFix = "The page-total text floor could not read this page's deployed sections, so it " +
-	"stood down and the save PROCEEDED — this is not a refusal and nothing was blocked. The floor fails open " +
-	"because the inline rule it replaced did (its two sibling floors fail CLOSED; reconciling that is filed, not " +
-	"done). Usually a transient database error, in which case the next save is guarded again and this row is " +
-	"history. If it recurs on one page, read that page's page_components rows — a page with no " +
-	"build_status='deployed' rows is out of this floor's population by design, which is not an error. Do NOT " +
-	"tune page_total_text_floor in response: it was never consulted on this save."
+// pageTotalMeasurementErrorFix — the fail-CLOSED path's own sentence. Nothing
+// shrank here and the floor was never consulted, so "lower the floor" is the wrong
+// advice; that distinction is why its sibling carries shrinkMeasurementErrorFix
+// separately from shrinkRefusalFix.
+const pageTotalMeasurementErrorFix = "The page-total text floor could not read this page's deployed sections, so it " +
+	"failed CLOSED and NOTHING was written; the page still serves what it served before. Usually a transient " +
+	"database error — the save retries with the queue, and its two sibling floors would have refused this save " +
+	"anyway, since they query the same table for the same page immediately afterwards. If it recurs on one page, " +
+	"read that page's page_components rows rather than tuning a floor: a page with no build_status='deployed' rows " +
+	"is out of this floor's POPULATION by design and is not an error, and page_total_text_floor=0 is the deliberate " +
+	"bypass rather than a fix (bugs_open/293)."
