@@ -272,3 +272,35 @@ must not repeat) · `bugs_open/198` (the lane's live blocker) · doc 028
 the `review_mission` seat enforce) · `portfolio_positioning` (owns premise→writer wiring for
 new builds; this feature owns the read-back side of the same spec fields — **do not collide**)
 · owner ruling 2026-08-02 / RFC_010 §1 (the second-producer rule that governs §5.2).
+
+## 10. v2 backlog — three specified changes, to batch into ONE migration and ONE re-proof
+
+Added 2026-08-17. v1 is built, live, enrolled (migration 409) and now proven **sweep-driven onto a
+site it had never seen** (gamesdesign.co.uk, 70s, 5 findings → 5 items, no truncation). These are
+the known, specified gaps. **Batch them:** each on its own would cost a migration plus a live LLM
+re-proof that files ~5 more non-parkable items somewhere for no new information.
+
+- **v2(a) — the offer surface is page METADATA, not page CONTENT, so some findings are hypotheses.**
+  `load_offer_surface` passes name, type, nav membership, title and meta description; not a word of
+  what any page says. On the first run, 2 of 5 findings were inferences about page bodies and the
+  model said so itself inside the finding. Fix: a bounded head-of-hero excerpt per page.
+  ⚠ **This GROWS the surface**, and the truncation baseline (`__truncated` absent at 104 pages,
+  webdesign.co.uk 08-15) is v1's, not v2's — **re-run the truncation check on that same site after
+  (a) before trusting it anywhere.**
+- **v2(b) — attribution in the ordering's `why` clauses.** Two of gaswholesalers' `why` clauses
+  inherited the premise's behavioural register unattributed. Run 3 weakened this: 5 of 6 attributed
+  explicitly, one mild instance left. **Intermittent, not systematic** — does not justify a
+  migration alone, which is why it batches.
+- **v2(c) — `primary_model` is outside the degraded arm's field list, so one site will get a thin
+  analysis that reports itself as full.** `[MEASURED 2026-08-17]` `load_premise` computes
+  `premise_fields_missing` over four TOP-LEVEL fields (`satisfaction_condition`, `trust_threshold`,
+  `recurring_value`, `value_proposition`) and **not** `primary_model`, which it reads from a
+  different path, `data->'revenue_models'->>'primary_model'`. Exactly **one** of 23 sites lacks
+  one — **remortgagecalculator.uk** — so on that site B4 will echo an empty model and still report
+  `degraded=false, inputs_missing=[]`. That is precisely the failure the degraded arm exists to
+  prevent, and it is invisible on the other 22.
+  Fix: add `primary_model` to the missing-check at its nested path.
+  ⚠ **Do NOT fix it by letting the model infer a `primary_model`.** Inventing a commercial
+  classification for a site is what the echo-the-recorded-value rule exists to stop, and this
+  estate already carries one site whose recorded shape is ahead of what the platform supports
+  (dartsonline.com, `affiliate`).
