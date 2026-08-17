@@ -2097,6 +2097,13 @@ bugs-open-staleness-sweep-logs: ## Follow logs from the latest sweep job
 		echo "No sweep pods found"; \
 	fi
 
+.PHONY: deploy-instance-token-adoption-check
+deploy-instance-token-adoption-check: ## Deploy the RFC_022 expiry tripwire for bugs_open/283 (CLC-016). ⚠ a TRIP is an owed review, not a defect — retire the job once it fires
+	@echo "$(YELLOW)Deploying instance-token-adoption-check CronJob...$(NC)"
+	KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k $(KUSTOMIZE_DIR)/services/instance-token-adoption-check/overlays/$(OVERLAY_PATH)
+	@echo "$(GREEN)CronJob deployed. Next run:$(NC)"
+	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl -n $(PROJECT_NAME) get cronjob instance-token-adoption-check
+
 .PHONY: deploy-concept-register-drift-check
 deploy-concept-register-drift-check: ## Deploy the daily concept-register drift CronJob
 	@echo "$(YELLOW)Deploying concept-register-drift-check CronJob...$(NC)"
