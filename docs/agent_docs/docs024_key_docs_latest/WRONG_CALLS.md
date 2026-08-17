@@ -33907,3 +33907,21 @@ answer to that question.
   mechanism A is what made me confident about gate B; **recent, accurate knowledge of the wrong
   mechanism is more dangerous than ignorance**, because it supplies the reasoning to override a rule.
   Tally for "overrode a written precondition using a different mechanism's logic": 1.
+- **I asserted "three call sites, one predicate" in a bug file AND a council submission, and I had
+  only ever grepped the OTHER symbol.** Filing `bugs_open/295` I wrote that three code paths guard
+  an owned page "with the same predicate, `pageIsOwnedForGuard`", and put that in the submission's
+  `grounded_in`. I had genuinely read all three guards — but the grep I actually ran was for
+  `emitOwnedPageReviewItem` (the emitter, because that was the missing thing), and I never ran one
+  for the predicate itself. The council's `bug_historian` seat objected on exactly that: *"no census
+  was actually run to confirm there isn't a fourth caller"*. Running it took one command and showed
+  **two** predicate callers, not three — the third guard (`censusExcludedOwnedPages`) reaches the
+  same ownership policy through the inverse SQL (`ownedPageExclusionSQL`), not through the function.
+  The fix and the conclusion were unaffected; the stated count was wrong, in the one field of a
+  submission that exists to hold checked facts.
+  **The cheap check:** *grep the symbol you are about to NAME, not the symbol you were thinking
+  about.* I was reasoning about the emitter's absence and wrote a claim about the predicate's
+  presence, then evidenced the second with the first's grep. When a sentence names two mechanisms
+  ("three sites share X, two of them call Y"), it needs two greps, and `grep -c` per file is enough
+  to catch this in seconds. **Tally for "cited a census I ran against a neighbouring symbol": 1.**
+  Worth noting what worked: the claim was `grounded_in`, which is what let a reviewer see it was an
+  assertion rather than a measurement — the seat could not have caught it from prose.
