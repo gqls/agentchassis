@@ -3367,3 +3367,59 @@ honestly: tick 1's zero proved nothing, tick 2's 87 proves the checks work. **(b
 not a special case. The week `site-discovery-rotation-completeness` spent disabled was hiding real
 broken links across the estate, and the first real site swept had four. Twenty-one sites remain
 in the backlog at roughly one an hour.
+
+## 2026-08-17 (afternoon) — the induced proof RAN. The fan-out is live; the `value_drift` arm is still unproven, and cannot be proven on a freshly-seeded fence
+
+Owner gave permission for the one write, and told us a fresh chassis build had rolled.
+
+**Re-verified the code on the NEW binary first** — a fresh build is exactly when a null result
+would be misread as "the mechanism is broken". Both replicas (`agent-chassis-5bd56bdd9b-6sb8t`,
+`-jzmns`), same exec, three greps: `fact_drift_review` **2**, positive control
+`stale_attestation` **5**, an impossible string **0**. Pods 91 min old, so past the ~300s
+post-restart dispatch hole.
+
+### The run
+
+Window open **14 seconds** (16:17:36→16:17:50Z). Mutate → dry-run → restore, with the restore in
+a `trap … EXIT` so it fires on any exit path including a failed publish or a hung wait. Restore
+flips `is_current` back onto the ORIGINAL row `2303a6f7…` rather than re-inserting a copy.
+
+[MEASURED] Register after: original row current, `sdlt-ftb-relief-cap` **500000**, `pinned` **t**
+(carried, CLM-001). Induced row exists but `is_current=false` — 0 current. **0
+`fact_drift_review` work items exist fleet-wide**, so the dry run wrote nothing, as designed.
+
+### The result — baseline vs induced, the only comparison that discriminates
+
+| run | `results[0].fact_drift` | kind | route | `new_value` for `sdlt-ftb-relief-cap` |
+|---|---|---|---|---|
+| baseline (register 500000) | **13** | `unreconciled_declaration` | `fact_drift_review` | **500000** |
+| induced (register 550000) | **13** | `unreconciled_declaration` | `fact_drift_review` | **550000** |
+
+**What this PROVES.** The fan-out resolves the declaration on a tool the acceptance ladder cannot
+see (`tool-stamp-duty`, 2 components, 0 tool-level) — the exact worry that made the other lane
+avoid keying on `toolEligibilityWhere`; it resolves the right page (`page_id 3d7d0d72…`,
+`page_name tool-stamp-duty`); it routes every one of the 13 to `fact_drift_review`, correct for a
+`no_auto_fix` fence; and **it reads the register AT CHECK TIME** — the two runs differ in exactly
+the one value I changed, and nothing else.
+
+**What this does NOT prove, and the reason is structural.** Both runs report
+`kind: unreconciled_declaration`, `reason: never_reconciled` — **not** `kind: value_drift`, which
+is what the other lane's RUNBOOK step 3 says to expect. On a freshly-seeded declaration every
+(fact, tool) pair is in the never-reconciled state and that arm takes precedence, so **the
+`value_drift` arm is unreachable by induction until a REAL (non-dry) sweep has recorded the 13
+baselines.** Their step 3 expectation cannot be met on day one of a seeding, and a lane following
+it literally would read a correct result as a failure. Told them.
+
+### ⚠ THE TRAP, and I walked into it and said so out loud before catching it
+
+`fact_drift` is **per-site, nested in `results[]`** — `refresh_result->'results'->0->'fact_drift'`.
+The top-level `refresh_result` has no such key, and its `total_drifted` counts **citation** drift
+(the daily re-fetch), NOT fact drift: both my runs reported `total_drifted: 0` while carrying 13
+fact_drift entries each.
+
+So the obvious query — `SELECT (collected_data->'refresh_result') ? 'fact_drift'` — returns **f**
+on a run that fired thirteen times, and `total_drifted` reads **0** beside it, which corroborates
+the wrong answer. I read exactly that, and reported "the induction did not fire" to the owner
+before dumping the full payload and finding all 13. **Check at
+`results[N].fact_drift`, and never read `total_drifted` as the fact-drift count.**
+Logged in `WRONG_CALLS.md`.

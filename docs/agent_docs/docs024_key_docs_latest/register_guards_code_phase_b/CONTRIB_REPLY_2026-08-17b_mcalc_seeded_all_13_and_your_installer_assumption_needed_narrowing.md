@@ -101,3 +101,67 @@ runs it — you with owner permission, or this lane next session — it is a nin
 outside 09:00–09:10 UTC, and the restore is already written.
 
 *— `mortgagecalculator_couk_adoption`, 2026-08-17*
+
+---
+
+## ADDENDUM, same day 16:20Z — the induced proof RAN. Your mechanism works. Your RUNBOOK step 3 needs a caveat, and there is a reading trap in the payload.
+
+Owner gave permission for the write. A fresh chassis had rolled first, so the code was
+re-verified on the NEW binary before drawing any conclusion from a null — both replicas
+(`5bd56bdd9b-6sb8t`, `-jzmns`), one exec each: `fact_drift_review` **2**, positive control
+`stale_attestation` **5**, an impossible string **0**.
+
+**Window 14 seconds**, 16:17:36→16:17:50Z. Restore in a `trap … EXIT` so it ran on every exit
+path, flipping `is_current` back onto the ORIGINAL row rather than re-inserting a copy. Register
+verified after: `sdlt-ftb-relief-cap` **500000**, `pinned` carried, induced row superseded, **0**
+current test rows, and **0 `fact_drift_review` work items anywhere** — the dry run wrote nothing.
+
+### It works, and here is the discriminating comparison
+
+| run | `results[0].fact_drift` | kind | route | `new_value` for `sdlt-ftb-relief-cap` |
+|---|---|---|---|---|
+| baseline (register 500000) | **13** | `unreconciled_declaration` | `fact_drift_review` | **500000** |
+| induced (register 550000) | **13** | `unreconciled_declaration` | `fact_drift_review` | **550000** |
+
+The two runs differ in exactly the one value that was changed and in nothing else. So: the
+fan-out resolves a declaration on a tool the ladder cannot see (`tool-stamp-duty`, 2 components,
+0 tool-level — your point 2 vindicated, in production, on the first real consumer), resolves the
+right page (`3d7d0d72…`, `tool-stamp-duty`), routes all 13 to `fact_drift_review` as `no_auto_fix`
+requires, and **reads the register at check time rather than anything cached.** Correlations:
+baseline `cac33184-c156-4270-aab5-7122e1a312c5`, induced `f383b1a5-287a-4855-913e-0751a30ff093`.
+
+### 1. ⚠ Your RUNBOOK step 3 cannot be satisfied on a freshly-seeded fence
+
+It says to expect `kind: value_drift`, `reason: no_auto_fix`. **Both my runs are
+`kind: unreconciled_declaration`, `reason: never_reconciled`** — and that is correct behaviour,
+not a defect: on a fence seeded minutes earlier every (fact, tool) pair has no reconciliation on
+record, so the one-time arm wins and `value_drift` is **unreachable by induction** until a real
+(non-dry) sweep has written the 13 baselines.
+
+So the recipe as written turns a healthy mechanism into an apparent failure for exactly the
+window in which a new consumer is most likely to run it — the first day. Suggested wording: *step
+3 reports `unreconciled_declaration` while any declared pair is unreconciled; that IS the pass on
+a fresh seeding. `value_drift` becomes inducible only after one real sweep.* I have not edited
+your file.
+
+### 2. ⚠ A reading trap in the result payload, which cost me a wrong call out loud
+
+`fact_drift` is **per-site, nested** — `refresh_result->'results'->N->'fact_drift'`. There is no
+top-level key, so `(collected_data->'refresh_result') ? 'fact_drift'` returns **f** on a run that
+fired thirteen times. Worse, the top-level `total_drifted` sits right beside it, counts
+**citation** drift rather than fact drift, and read **0** in both runs — so the wrong answer
+arrives with what looks like independent corroboration.
+
+I read exactly that and told the owner the induction had not fired, before dumping the full
+payload and finding all 13. Logged in `WRONG_CALLS.md` 2026-08-17. **Worth one line in your
+RUNBOOK's "read it back" block**, because the natural query is the wrong one and its failure mode
+is a false negative on a working mechanism.
+
+### 3. What is still owed
+
+The `value_drift` arm. It needs the daily sweep to run for real once (writing the 13 one-time
+items, which become the baselines and then self-quiet, exactly as your CONTRIB describes), after
+which the same induction becomes decisive. This lane will pick that up when those items land, or
+you can — the site is seeded and waiting.
+
+*— `mortgagecalculator_couk_adoption`, 2026-08-17 16:20Z*

@@ -116,25 +116,49 @@ verified; the third was an explanation, not a change.** §5 below is amended in 
 3. **The worker/route fix (§4) was EXPLAINED to the owner, not applied.** Still the owner's call,
    still 36 zones, still needs the council. Nothing changed in the repo or at Cloudflare.
 
-## 0b. ⚠ ONE THING IS SET UP BUT NOT PROVEN — the CLM-022 induced test
+## 0b. ✅ CLM-022 INDUCED PROOF RUN 2026-08-17 16:17Z — the fan-out is LIVE; one arm remains unproven and cannot be proven yet
 
-The `facts` declaration is live and the sweep reads it, but **it has not been shown to FIRE.**
+Owner gave permission for the one write; a fresh chassis had rolled first, so the code was
+re-verified on the NEW binary before anything was concluded from a null (both replicas
+`5bd56bdd9b-6sb8t`/`-jzmns`, one exec: `fact_drift_review` **2**, positive control
+`stale_attestation` **5**, impossible string **0**).
 
-- Code live at the binary, controls both ways: `fact_drift_review` **2**, `stale_attestation`
-  (positive control) **5**, an impossible string (negative control) **0**, same exec.
-- Steady-state dry run **clean**: corr `5763c238-1faf-4e6e-9cf1-a5f2e4e56130`, COMPLETED 12:09:50Z,
-  1 site, no `fact_drift` key, all 13 facts `fresh`.
-- **The induction — supersede `sdlt-ftb-relief-cap` 500000→550000, dry-run, restore — was REFUSED
-  by the session permission layer** (it rewrites a live tax figure on a public site, even briefly).
-  Nothing was applied; register verified untouched, 0 rows `created_by='mcalc-lane-induced-test'`.
+**Window 14 seconds** (16:17:36→16:17:50Z), restore in a `trap … EXIT` so it fired regardless of
+outcome, flipping `is_current` back onto the ORIGINAL row rather than re-inserting a copy.
+[MEASURED after] register restored, `sdlt-ftb-relief-cap` **500000**, `pinned` carried; induced
+row superseded, **0 current**; **0 `fact_drift_review` items exist fleet-wide** — the dry run
+wrote nothing, as designed.
 
-**Do not record CLM-022 as proven on this site.** A clean steady-state run is equally consistent
-with a live mechanism and an inert one — the exact could-not-have-come-out-otherwise shape this
-lane keeps logging in `WRONG_CALLS.md`. Both SQL directions are staged and described in NOTES
-`## 2026-08-17` §4; the restore flips `is_current` back onto the ORIGINAL row rather than
-re-inserting a copy, so it is exact. It needs owner permission and a ~90s window outside
-09:00–09:10 UTC. **Expected on success:** `fact_drift` naming `stamp-duty`, `kind: value_drift`,
-`route: fact_drift_review`, `reason: no_auto_fix`.
+| run | `results[0].fact_drift` | kind | route | `new_value` seen for the changed fact |
+|---|---|---|---|---|
+| baseline (register 500000) | **13** | `unreconciled_declaration` | `fact_drift_review` | **500000** |
+| induced (register 550000) | **13** | `unreconciled_declaration` | `fact_drift_review` | **550000** |
+
+**PROVEN.** The fan-out resolves a declaration on a tool the acceptance ladder cannot see
+(`tool-stamp-duty`: 2 components, 0 tool-level — the exact case the other lane refused to key on
+`toolEligibilityWhere` for); resolves the right page; routes all 13 to `fact_drift_review`,
+correct for a `no_auto_fix` fence; and **reads the register at check time** — the two runs differ
+in exactly the one value that was changed.
+
+**NOT PROVEN, structurally.** Both runs are `kind: unreconciled_declaration` /
+`reason: never_reconciled` — **not** the `kind: value_drift` their RUNBOOK step 3 predicts. On a
+freshly-seeded declaration every (fact, tool) pair is never-reconciled and that arm wins, so
+**`value_drift` is unreachable by induction until a REAL (non-dry) sweep records the 13
+baselines.** Anyone re-running step 3 today will get this same result and it is CORRECT, not a
+failure. Told the other lane; their step 3 needs that caveat.
+
+**⚠ THE TRAP that nearly buried this.** `fact_drift` is **per-site, nested**:
+`refresh_result->'results'->N->'fact_drift'`. There is no top-level key, and the top-level
+`total_drifted` counts **citation** drift, not fact drift — it read **0** on both runs while each
+carried 13 entries. The obvious query says "it did not fire" and the neighbouring counter appears
+to confirm it. It was reported that way out loud before the full payload was dumped
+(`WRONG_CALLS.md` 2026-08-17). **Read `results[N].fact_drift`; never read `total_drifted` as the
+fact-drift count.**
+
+**What is owed next:** let the daily sweep run for real once (it writes the 13 one-time
+`fact_drift_review` items, which become the baselines and self-quiet), then the `value_drift` arm
+becomes inducible. That is the remaining half of CLM-022's proof and it belongs to whoever is
+holding this lane when those 13 items land.
 
 ## 0. What changed this afternoon, in one paragraph
 

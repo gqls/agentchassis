@@ -34109,3 +34109,53 @@ and *"re-stamped only by a snap or a union"*, `v3_site_actions.go:6476`; both sn
 off; so the flag I had just seeded could never fire). A `090` that reaches no verdict can still
 be worth its cost if it names where to look, and the owner ruling of 2026-07-31 is satisfied by
 walking that scope in the same session rather than filing the claim unverified.
+
+---
+
+## 2026-08-17 — I told the owner an induced test "did not fire" while its result sat thirteen rows deep in the same JSON, and a sibling counter agreed with me (mortgagecalculator_couk_adoption lane)
+
+**The claim.** Running the CLM-022 induced proof (supersede a fact, dry-run the evidence sweep,
+restore), I queried the run's result and reported: *"No `fact_drift`, `total_drifted: 0`. **The
+induction did not fire** — which by their own runbook is the failure result."* Said to the owner
+in chat, as a headline.
+
+**What was actually true.** It fired **thirteen times**, in both runs. The fan-out had resolved
+the declaration, found the right page, routed all 13 to `fact_drift_review`, and — the thing the
+test existed to show — **read the induced value**: `sdlt-ftb-relief-cap` came back `new_value:
+550000` in the induced run against `500000` in the baseline. A working mechanism, reported as a
+dead one.
+
+**The query that produced the false negative:**
+
+```sql
+SELECT (collected_data->'refresh_result') ? 'fact_drift',      -- f
+       (collected_data->'refresh_result'->>'total_drifted');   -- 0
+```
+
+`fact_drift` is **per-site, nested one level down** — `refresh_result->'results'->N->'fact_drift'`
+— because one sweep can cover many sites. There is no top-level key, so `?` is correctly `false`.
+
+**Why this one was hard to catch, and worth a row rather than a shrug.** The wrong answer came
+with corroboration. `total_drifted: 0` sits at the top level right beside the missing key and
+reads exactly like a confirming second opinion — but it counts **citation** drift (the daily
+re-fetch of each fact's source), a different quantity that was legitimately 0 in both runs. **Two
+fields agreed, from one mistake**, because the second was never independent: I had assumed a
+naming convention rather than reading the writer. And the expected-failure framing made it worse —
+their RUNBOOK says "a dry run that reports nothing after a real change is the failure", so I had a
+ready-made, authoritative story for the null and reached for it instead of for the payload.
+
+**The cheap check that would have caught it, and did:** `jsonb_pretty(collected_data->'refresh_result')`
+— dump the whole object once before drawing any conclusion from a key's absence. It cost one query
+and took under a minute. **An absence is a claim about a SHAPE you have not verified.** Before
+reporting "X is not present", print the container and look; `?` on a guessed path answers a
+question about your guess, not about the data.
+
+**Second rule, from the corroboration:** when a second field appears to confirm a null, ask what
+WRITES it before counting it as evidence. `total_drifted` and `fact_drift` are populated by
+different code paths measuring different things; treating the first as a check on the second made
+one error look like two agreeing observations.
+
+**Cost:** one wrong headline to the owner, corrected within the same turn, before it reached any
+document — the NOTES and handoff entries were written after the payload dump, so they were right
+first time. Had I written the docs first, this would have propagated as "CLM-022 does not work"
+into a bug file and a reply to the lane that built it.
