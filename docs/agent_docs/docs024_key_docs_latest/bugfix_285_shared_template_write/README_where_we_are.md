@@ -102,3 +102,43 @@ excluded from generator rebuilds pending a per-tool decision or the byte-faithfu
 are being replaced — **closed as superseded, nothing built.** No competing lane from here.
 Open for the owner (their PLAN §3): what to do with the rich apps — generator rebuild anyway,
 byte-faithful conversion after 204, or leave imported for now.
+
+## 2026-08-17 — why nothing stopped the page being emptied, and what I changed
+
+I went back to the one thing that still bothered me about last week's incident. The shared template
+was the cause, and that is fixed and proven. But the page that actually went blank went blank
+through a different door — an "edit this section" job — and there ARE safety checks on that door.
+Two of them. Both looked at the write that destroyed the article and said it was fine. I wanted to
+know why.
+
+The answer is almost funny. One check asks "did this edit keep at least half the text?" — and it
+counts the stylesheet as text. The replacement had a much bigger stylesheet and no article at all,
+so by that measure the page grew by 162% and the check waved it through. The other check counts how
+many styled elements survive; the replacement had one more than the original, so that passed too.
+The words a reader would actually see went from 2,754 characters to 68, and nothing was looking at
+that number.
+
+So I made that check count what a reader sees, and I checked the change against every recorded edit
+we have — 117 of them, eight days' worth, which is as far back as the archive goes. Two things came
+out of that, and the second one changed my mind about the design:
+
+- The new measure refuses exactly one of those 117 edits: the one that emptied the page. No false
+  alarms.
+- The OLD measure also refuses exactly one — and it is not the same one. It refuses **my repair**,
+  the write that put the article back. Had I gone through the normal editing route instead of a
+  direct database restore, the safety check would have blocked the fix and allowed the damage.
+
+That is why I replaced the measure rather than adding a second one on top: keeping both would have
+blocked the repair. I also found, and deleted, a threshold I had added myself — the code already had
+one four times larger, so mine could never have done anything. Deleting it broke no test, which is
+how I knew.
+
+Two honest limits. First, I only changed this for the single-section edit path, not the
+whole-page rebuild path, because the archive can't reconstruct before/after pairs for rebuilds, and
+changing a safety rule fleet-wide on evidence that doesn't cover it is how these things start
+refusing good work. That half is written up as its own bug (293) with two ways to get the missing
+evidence. Second, the change does mean 31 of those 117 edits fall outside this particular check
+(they're slots that are mostly stylesheet), though the old measure was blind to prose loss on
+exactly those anyway, and the other check still covers them.
+
+It is committed, it is with the review council now, and it starts working at the next build.
