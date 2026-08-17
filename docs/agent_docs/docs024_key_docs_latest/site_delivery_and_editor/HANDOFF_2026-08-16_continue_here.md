@@ -1,4 +1,4 @@
-# HANDOFF 2026-08-16 — continue here: Phase 2 (publish seam) is COMPLETE AND PROVEN IN PRODUCTION; next is Phase 3 (ZIP deliverable)
+# [SUPERSEDED by HANDOFF_2026-08-17_phase3_zip.md — architecture decided 08-17, Phase 3 is the work] HANDOFF 2026-08-16 — continue here: Phase 2 (publish seam) is COMPLETE AND PROVEN IN PRODUCTION; next is Phase 3 (ZIP deliverable)
 
 **Start here cold.** Read order: this file → `PLAN_2026-08-14_site_delivery_and_editor.md`
 (the owner-approved design, Phases 2–6) → NOTES tail (the 2026-08-15/16 entries,
