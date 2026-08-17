@@ -574,3 +574,25 @@ blocked on the unique-index decision **4** · remaining clear **57** · builds a
   ⇒ **exactly 2 tools fleet-wide on this site, and they are the two being rebuilt.** So the class
   closes itself and needs no separate bug. Bounding it cost one query; asserting "this is probably
   everywhere" would have cost a filing and been wrong.
+
+## 2026-08-17 18:2xZ — `v1.0.1307` IS a real roll (unlike 1305), verified with a working positive control
+
+- **Tag bumped 1305 → 1307, pods 17:05:24/17:05:46Z, both on one digest
+  `sha256:8339bdbd7999…`.** Stamp **`a6d1c53c0`** — **66** commits behind HEAD, **7** changed `.go`
+  files; `88897190e` (adopt) is an ancestor, so this lane is unaffected either way.
+- **The probe discipline that made the reading meaningful, because I nearly published a worthless one.**
+  My first probe returned only two facts — negative control absent, old stamp `6a782274b` absent — and
+  I was about to read "old stamp absent ⇒ code changed". **That inference is unsound on its own:** a
+  probe that can never match anything produces exactly those two readings. `neg:absent` shows the
+  probe does not match junk; it does NOT show the probe can match. Only after `a6d1c53c0` came back
+  **PRESENT** did "old stamp absent" mean anything. **A negative control alone cannot license a
+  negative finding — you need something that MUST match in the same run.**
+- **Cost note for the next session: do not sweep a commit window.** Each `grep -a` over `/proc/1/exe`
+  on this image takes ~20–30 s, so a loop over 202 candidates timed out twice at 2 min, and even
+  4 candidates + 3 controls exceeded 110 s. Budget **~3 greps per exec** and give the Bash call a
+  180 s timeout. Cheaper still: other lanes had already committed the stamp in their messages
+  (`git log --oneline -8 | grep 1307`) — **read the tree before probing the pod.**
+- **Contrast with 1305, four hours earlier: same claim, opposite answer.** "A fresh chassis build has
+  been deployed" was true of 1307 and false of 1305 (same tag ⇒ cached image, 267 commits inert).
+  **The claim is not the evidence, in either direction** — 1305 taught "do not believe it", and 1307
+  is the reminder that disbelief is not the answer either; both times the binary settled it.
