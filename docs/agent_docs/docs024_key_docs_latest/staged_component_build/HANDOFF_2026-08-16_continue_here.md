@@ -124,10 +124,23 @@ anything resolver-shaped — it supersedes §10.2).
    - `tool-generator` `description`/`function`/`reason`/`related_pages`, `generic` `summary` — ≤3 each
    Method per pair: **is the winner the value the step needs?** Yes → write the explicit mapping,
    then `!` (in that order — never `!` first). No → the pipeline was living on the search and
-   needs the mapping more. **First, one cheap `[UNMEASURED]` check that reframes the top two:**
-   post-WFA-017, is `claim_result.work_item_id` now the CURRENT iteration's value? If yes these
-   are benign-but-unmapped (tidy-up); if no they are live wrong-value bugs. Compare the winner
-   against the run's current item.
+   needs the mapping more.
+   **PASS 1 IS DONE (RFC_029 §10.7a) — start pass 2 from its one open question, do not redo it:**
+   - the ballot-collapse claim now has its confound control (iterations/run 6.3 → 5.5, max 10
+     both sides — comparable workload, so the collapse is the fix);
+   - **the dangerous consumer is already safe**: live `mark_complete` is
+     `{"result!": …, "work_item_id!": "current_item.id"}` — BOTH strict, so completing the wrong
+     item is closed, and the residual is not urgent;
+   - **but nothing in the loop's sub-workflow explains the rows**: `claim`, `mark_failed` and
+     `call_handler` all map these fields explicitly (dotted `current_item.id` / `current_item.spec`),
+     which should take the explicit arm — yet ~10–18/h keep arriving.
+   **PASS 2's question, with the two candidate answers ranked:** (i) an action whose
+   `ActionInputSpec` DECLARES `work_item_id`/`current_page` while its step config does not map it,
+   so `ExtractFields` searches — *this is a grep over `RegisterActionInputSpec` and is much the
+   likelier*; or (ii) `current_item` is transiently unresolvable so the explicit arm fails and the
+   chain falls through. Settle (i) first. If it is inconclusive, §10.7a(d) proposes the cheap
+   instrument fix (the action name IS reachable at the bypass site — add it to the row's context;
+   `step_name` still is not, and is not worth threading a ctx for).
 6. **Phase 2 (conflicts resolve NOTHING): gated on item 5 reaching zero or fully mapped — NOT on
    a date.** No longer "off the calendar" (§10.5's reading): the worst case, a fleet living on
    luck, is now positively excluded. It remains its own council-gated task; flip sites are marked

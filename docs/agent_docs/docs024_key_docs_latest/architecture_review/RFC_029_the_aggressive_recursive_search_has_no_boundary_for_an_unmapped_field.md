@@ -775,3 +775,39 @@ these are benign-but-unmapped rather than wrong, which changes the urgency but n
 **Phase 2 stays gated on that list reaching zero (or being fully mapped), not on a date** — but
 it is no longer "off the calendar" in the §10.5 sense: it is one triage pass away, and the
 disconfirmation clause's worst reading (a fleet living on luck) is now positively excluded.
+
+#### 10.7a Triage pass 1 on the residual — the ballot-collapse claim gets its control, the dangerous consumer is already safe, and the instrument hits a limit it should probably fix
+
+**(a) The "ballot collapsed 190 → 22, so WFA-017 works" claim needed a confound ruled out, and
+now has one.** A smaller ballot would follow trivially from shorter runs. Iterations per
+`build-dispatch-loop` run, before vs after the roll: **avg 6.3 → 5.5, min 2 → 2, max 10 → 10**
+(220 runs vs 12). Comparable workload, so the collapse is the fix. `[MEASURED 2026-08-17]` —
+recorded because a ballot count that shrinks with the workload could not have come out otherwise.
+
+**(b) The residual's dangerous consumer is ALREADY protected — checked, not assumed.** The live
+`mark_complete` config is `{"result!": "handler_result", "work_item_id!": "current_item.id"}`:
+**both** inputs strict. So the step that decides *which item gets completed* resolves explicitly
+and fails loudly rather than guessing — the worst case for a stale `work_item_id` (completing the
+wrong item) is closed by 287's own migration, not merely unobserved.
+
+**(c) So what is still searching?** Every `work_item_id`/`current_page` reference in the loop's
+sub-workflow is explicitly mapped: `claim` and `mark_failed` → `current_item.id`; `call_handler`'s
+`input_mapping` → `current_item.id` / `current_item.spec`. A dotted reference goes through the
+explicit arm, so on the face of it none of these should reach the whole-tree search — yet the
+rows keep arriving at ~10–18/h. **`[UNRESOLVED — this is triage pass 2's question]`** The two
+candidate explanations, both cheap to separate: (i) an action whose `ActionInputSpec` DECLARES
+`work_item_id`/`current_page` while the step config does not map it, so `ExtractFields`
+(Strategy 1/2) searches for it — enumerate with a sweep over `RegisterActionInputSpec`
+declarations for these two field names; or (ii) `current_item` is momentarily unresolvable at
+that point, so the explicit arm fails and the chain falls through. (i) is much likelier and is a
+grep.
+
+**(d) A limitation this exposed, and a candidate fix for the instrument.** The rows carry the
+winning PATH but not the winning VALUE, and no `step_name` (RFC_029 §10.4: per-run identity is
+not reachable from the resolver). That is fine for counting a population — it is what the window
+needed — but it cannot answer "which STEP asked?", which is exactly triage pass 2's question, nor
+"was the value actually wrong?". Neither is worth threading a ctx through 115 call sites for.
+**But `ExtractActionInputs` already receives the action's `ActionInputSpec` and its config**, so
+the *action name* is reachable at the bypass site at zero cost, and adding it to the finding's
+context would make the bypass rows self-attributing. Worth doing if pass 2's grep is inconclusive
+— not before, and not as part of Phase 2.
