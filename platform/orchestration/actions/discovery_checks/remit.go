@@ -206,18 +206,6 @@ func CapabilityGapItem(dctx DiscoveryCheckContext, g CapabilityGap) WorkItemSpec
 	}
 }
 
-// HandlerStepConfig reads the LIVE step config a handler agent would run for a
-// given action, so a check can partition against the handler's actual remit
-// rather than a plausible reading of the Go source.
-//
-// This exists because a handler's remit is not always all in Go. nav-link-fixer's
-// find/replace patterns are seeded in agent_definitions and OVERRIDE the action's
-// Go defaults entirely; measured 2026-07-26 the live row carries THREE patterns
-// where the Go default list has four. A check partitioning on the Go defaults
-// would credit the handler with a pattern it does not apply and file an item it
-// cannot fix — bugs_open/077 again, one level down, and invisible to any test
-// that only reads this repository.
-//
 // HandlerRegisteredSQL renders the platform's ONE definition of "this work item
 // names a handler that exists", as a SQL fragment. `handlerExpr` is the SQL
 // expression holding the agent type (a column reference or a bind parameter).
@@ -246,10 +234,25 @@ func HandlerRegisteredSQL(handlerExpr string) string {
 		" AND ad.deleted_at IS NULL)"
 }
 
-// Returns (config, agentExists, error). The existence half deliberately uses the
-// same predicate as claim_work_item_action.go's registration check — if that
-// would mark an item 'blocked', this must call the handler missing, or the two
-// disagree about what "has a handler" means.
+// HandlerStepConfig reads the LIVE step config a handler agent would run for a
+// given action, so a check can partition against the handler's actual remit
+// rather than a plausible reading of the Go source.
+//
+// This exists because a handler's remit is not always all in Go. nav-link-fixer's
+// find/replace patterns are seeded in agent_definitions and OVERRIDE the action's
+// Go defaults entirely; measured 2026-07-26 the live row carries THREE patterns
+// where the Go default list has four. A check partitioning on the Go defaults
+// would credit the handler with a pattern it does not apply and file an item it
+// cannot fix — bugs_open/077 again, one level down, and invisible to any test
+// that only reads this repository.
+//
+// Returns (config, agentExists, error). The existence half is no longer merely
+// "the same predicate as" the claim path's registration check — since the
+// 2026-08-17 unification it is literally the same function, HandlerRegisteredSQL
+// above, which claim and the promoter also render. If that predicate would mark an
+// item 'blocked', this call reports the handler missing, and the three cannot
+// disagree about what "has a handler" means because there is nothing left to
+// disagree with.
 func HandlerStepConfig(ctx context.Context, db *sql.DB, agentType, action string) (map[string]interface{}, bool, error) {
 	var exists bool
 	var raw []byte
