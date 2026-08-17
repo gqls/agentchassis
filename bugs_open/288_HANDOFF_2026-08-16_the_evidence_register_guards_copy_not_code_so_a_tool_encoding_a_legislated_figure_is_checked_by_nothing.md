@@ -103,7 +103,26 @@ whose Piece 1 has been live since migration 366 (CLM-021).
 
 ## §5 — the residual, which is why this file stays OPEN
 
-1. **Not live — MEASURED, not assumed.** `[2026-08-16, both replicas, with a positive
+1. ~~**Not live**~~ → **LIVE 2026-08-17, and the first production sweep ran clean.**
+
+   | check, 2026-08-17 | result |
+   |---|---|
+   | `fact_drift_review` in `/proc/1/exe`, both replicas | **2** (was 0) |
+   | `unreconciled_declaration`, both replicas | **1** |
+   | `stale_attestation` (positive control), both replicas | 5 |
+   | strings unique to the final approved revision (`6b3b0510e`) — `"may have stopped matching"`, `"DISTINCT ON (dp.subject_key"` | **1 each**, so the binary carries the post-council version, not an earlier one |
+   | `evidence-freshness` scheduled task | ran **09:04:14Z** with this code |
+   | register revisions written by that run | 8 |
+   | **errors from that run** | **0** |
+   | `fact_drift` work items fleet-wide | **0** |
+
+   **The 0 items is NOT evidence the mechanism works, and must not be quoted as
+   such.** It has no demand behind it: no fence declares `facts`, so there is
+   nothing for the fan-out to act on. What the run DOES prove is the no-op case —
+   the new query path executed against all 13 register-bearing sites in production
+   and broke nothing. The mechanism firing is still unproven live; see §5.2.
+
+   ~~Pre-roll baseline, kept for the record — MEASURED, not assumed.~~ `[2026-08-16, both replicas, with a positive
    control in the same exec]`:
 
    | replica | `fact_drift_review` | `stale_attestation` (control) |
@@ -115,9 +134,14 @@ whose Piece 1 has been live since migration 366 (CLM-021).
    this binary, so `0` is an absence rather than a broken grep. Re-run exactly this
    pair after the next roll and expect the first column to become non-zero. Do not
    verify at the tag, and never by the absence of errors.
-2. **No live declaration.** The first is mortgagecalculator's `stamp-duty` fence,
-   handed to that lane as a CONTRIB. Until it lands, this mechanism has never fired on
-   real data and its green means nothing (`a-pass-from-a-blind-check-outlives-the-blindness`).
+2. **No live declaration — THE ONE THING STILL OWED, and it is a coordination
+   question, not a technical one.** The first is mortgagecalculator's `stamp-duty`
+   fence, handed to that lane as a CONTRIB. **Until it lands this mechanism has never
+   fired on real data, and today's clean sweep is a pass from a check with nothing to
+   check** (`a-pass-from-a-blind-check-outlives-the-blindness`). Measured 2026-08-17:
+   **0 of 90** current tool PLANs declare anything. The mcalc lane is ACTIVE today but
+   on another front (guides, imagery, dead links) and has not touched the fence since
+   2026-08-10 — so the seed was NOT applied unilaterally while they hold the site.
 3. **The `improve_tool` arm is unproven in production and may be unreachable.** Both
    live SDLT fences carry `no_auto_fix` and neither page is a fork, so on today's
    fleet every route is human. Proven by unit test only — say so, do not report the
