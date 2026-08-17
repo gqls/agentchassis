@@ -245,3 +245,59 @@ carry it, payload 20,738 chars, the signal costing ~3%.
 
 **Trailer discipline:** the code commits carry `Council-Submitted:`; only post-verdict commits carry
 `Council-Reviewed:`, written after reading the verdict body.
+
+## §2026-08-17 — LCO-009 is LIVE at v1.0.1307, and the "BEFORE" half of this file's own proof is now done AT THE ARTEFACT
+
+**The detector shipped.** v1.0.1307 (pods 17:05Z), verified at the binary with controls: the added
+string **present**, a known-present control **present**, a plausible fake **absent**. ⚠ The previous
+"fresh build" (14:42Z) shipped **nothing** — same-tag cached image — so a pod restart is not evidence;
+see the `A same-tag rebuild leaves the OLD binary running` landmine.
+
+### The disconfirming pair, "before" half — PROVEN, from a stored prompt
+
+This file asks for a late-alphabet tool to be **absent** from `suggest_tools`' rendered prompt before
+the fix and **present** after. The before half needs no new run — it is in `llm_call_log`:
+
+Taking the most recent pre-fix prompt (2026-08-15 20:29:52) and ranking the library **as it stood at
+that moment** (71 eligible masters, not today's 74):
+
+| | value |
+|---|---|
+| library tools appearing in the prompt | **29** |
+| eligible at that time | **71** |
+| appearing **and** sorting past rank 30 | **0** |
+| highest rank present | **exactly 30** |
+
+**The model was shown the first 30 alphabetically and nothing beyond it** — 41 tools unreachable in
+that specific, real run. That is the defect proven at the artefact rather than inferred from the SQL.
+
+⚠ **Rank against the library AS IT WAS, not as it is.** Ranking today's 74 against that two-day-old
+prompt reported *"1 tool past rank 30"* — a confound, because tools added since shift the ordering,
+and it would have muddied the claim into "the cut was not strictly alphabetical". Constrain the
+ranking CTE with `created_at <= <the prompt's timestamp>`.
+
+### Still owed: the "after" half
+
+**Zero `suggest_tools` runs since migration 445 went live at 11:22Z** (last was 2026-08-15). The after
+half needs one real run; then re-run the query above against the new prompt and assert a rank > 30 tool
+IS present. Until then this file's verification is **half done, and the half that is done is the half
+that proves the bug — not the fix.**
+
+### The live cap census is NOT yet answerable, and the zero is uninformative
+
+`EQUALS the query's LIMIT` has fired **0 times** since the roll. **That is not evidence the detector is
+silent** — the demand control says so: only **5** `query_database` completions have occurred since
+17:05, all from `agent-landmine-verifier`, whose `load_entry` is `LIMIT 1` and correctly excluded. **No
+capped step has run at all.**
+
+`content-feed-refresh` (`find_news_sites`, cap 5, population 9) is on a 6-hourly schedule and last
+fired 14:31Z, pre-roll — it is the first expected positive. The command:
+
+```bash
+for p in $(kubectl -n ai-persona-system get pods -o jsonpath='{range .items[*]}{.metadata.name}{" "}{.spec.containers[0].image}{"\n"}{end}' \
+           | grep 'agent-chassis:v1.0.130[7-9]' | awk '{print $1}'); do
+  kubectl -n ai-persona-system logs "$p" --since=6h | grep "EQUALS the query's LIMIT"
+done
+```
+**Always report the demand control beside the result** — a zero with no capped step executed says
+nothing at all.

@@ -366,3 +366,39 @@ new to file — grepped first, found it, used its check. The fix is one line and
 **are live** — the tool-suggester fix is working. LCO-009's detector is **not**, so the live census of
 which caps actually fire (and `bugs_open/298`'s reachability question, which the detector would answer
 by itself) is still owed and cannot be done yet.
+
+## 2026-08-17 (evening) — LCO-009 LIVE at v1.0.1307; the "before" proof done; a time-confound caught
+
+**The detector shipped this time.** v1.0.1307, pods 17:05Z, verified at the binary with controls (added
+string present, known-present control present, plausible fake absent). The 14:42Z "fresh build" had
+shipped nothing — same tag, cached image — so this is the second attempt and the first real one.
+
+### The before-half of the bug's own proof, done from stored data
+
+No new run needed: the most recent pre-fix `suggest_tools` prompt is in `llm_call_log`. Ranked against
+the library **as it stood then** (71 masters): **29 tools in the prompt, 0 past rank 30, highest rank
+exactly 30.** The model saw the first 30 alphabetically and nothing else — 41 unreachable in a real,
+specific run. Config-level evidence ("the query says LIMIT 30") became artefact-level evidence.
+
+### MISSTEP 6: I ranked a two-day-old artefact against today's state
+
+The first version of that query ranked **today's 74** tools and reported *"1 tool past rank 30 appeared
+in the prompt"* — which would have undermined the claim (the cut looking not-quite-alphabetical) and
+was purely an artefact of tools added after the prompt rendered. Constraining the CTE with
+`created_at <= <prompt timestamp>` gives the clean 0.
+
+**The check: when you measure a stored artefact, every population you compare it against must be
+constrained to that artefact's timestamp.** This is the same family as today's earlier census errors —
+the query answered a question about *now*, and I was asking one about *then* — and it is the fourth
+time today the shape has appeared. Caught before publishing, again by running the disconfirming version
+rather than the confirming one.
+
+### The live census is not answerable yet, and I am not reporting a zero as a result
+
+`EQUALS the query's LIMIT` → 0 firings. **Demand control: only 5 `query_database` completions since the
+roll, all `agent-landmine-verifier` (`load_entry`, `LIMIT 1`, correctly excluded). No capped step has
+executed.** So the zero is uninformative, and saying "the detector has not fired" without that control
+would be exactly the blind-pass this estate keeps logging.
+
+`content-feed-refresh` (cap 5, population 9) is 6-hourly and last fired 14:31Z pre-roll — the first
+expected positive. Command recorded in the bug file.
