@@ -3,9 +3,9 @@
 > **FIXED AND LIVE 2026-08-17** — migration `453_tool_recreation_whole_site_context.sql`, applied
 > and ledger-recorded, by the `bugfix_297_tool_recreation_context` lane. The cap is **gone, with
 > nothing bounded in its place**, and a second live defect in the same query (join fan-out) is
-> closed with it. Council trail `4b9265c3-f6f4-4ed6-a038-f6aaf10b52d8` (submitted alongside; this
-> file will say so when the verdict lands). **Stays OPEN until the verdict is read** — see
-> "What was done" at the foot.
+> closed with it. **Council APPROVED round 1** (corr `4b9265c3-f6f4-4ed6-a038-f6aaf10b52d8`,
+> 14 reviewers, 3 abstained, *"4 advisory objections, none high-severity"*,
+> `gated_by_truncation: false`) — see "What the council changed" at the foot.
 
 **Filed 2026-08-17** by the `bugfix_275_silent_row_caps` lane, from the census `bugs_open/275`'s fix
 made possible. **Same defect class as 275, different step, and worse in ratio.**
@@ -146,6 +146,45 @@ the silent cap one layer down rather than removing it.
 next real recreation run (most recent call was 2026-08-11). What is asserted here is the
 query-level disconfirming pair — a page past nav position 10 **could not** appear before and
 **does** now.
+
+## What the council changed (round 1, APPROVED with 4 advisory objections)
+
+Three answers below are stronger than what was submitted, and two of the objections are misses of
+mine. Full round in the lane NOTES.
+
+**The prompt-growth question, answered with numbers instead of an OWED note.** `bug_historian`
+(medium) argued the fix trades a row cap for unbounded prompt growth *"with no equivalent guard"*,
+citing this platform's history of silent LLM-output truncation. Measured:
+
+| check | result |
+|---|---|
+| `analyze_tool` calls, all history | **129**, peak output **7,735** of an 8,000 cap, **0 truncations** |
+| `tolerate_truncation` on any step of this agent | **none** → a truncated response **ERRORS** (`bugs_open/076`), it is never silently persisted |
+| `fleet-step-token-pressure` (register **LCO-007**) | **enabled, 6-hourly, last completed 2026-08-17 16:36:39Z** — checked in `scheduled_tasks`, not trusted from the register status line |
+| what that standing monitor already says | `N analyze_tool@8000 — n=102, p95 72.8%, peak 96.7%, truncated 0` — **already flagged as a near-miss** |
+
+So the vector is neither silent nor unguarded, and has not fired. **The residual, stated with a
+number: 265 tokens of headroom at peak (96.7%).** The trip-wire is LCO-007 reclassifying this step
+`N → T`; its runbook holds the response (and says to check prompt SHAPE first — a stuck retry loop
+looks identical to genuine cap drift). ⚠ That monitor writes a note only when its flagged SET
+changes, so "no recent note" is not "not running" — liveness is `last_completed_at`.
+
+**Blast radius: I asserted it, the guardian was right to ask, and it is now enumerated.** Four live
+agents mention `related_pages`; the other three use a *different* field — `input_data.spec.related_pages`,
+the cross-link list `tool-suggester` attaches to a suggestion for `tool-generator`/`tool-deployer`.
+**No other agent has a `load_related_context` step.** The claim survives, but "the ONLY consumer" had
+been a single-agent check stated fleet-wide. ⚠ **Two unrelated fields share one name across four
+agents** — a fleet-wide grep for `related_pages` will find all four and suggest a shared field.
+
+**The fan-out is not a class.** `reuse_agent` (low) asked whether other steps join `research_results`
+unguarded. Fleet-wide, **exactly one step's query references that table at all** — this one.
+
+**A landmine grep I skipped.** `tooling_provenance` (medium) noted no `doc_notes` check for this
+subject before editing. I had grepped the TABLE (`agent_definitions`) and not the SYMBOL
+(`tool-recreation-handler`). Six landmine entries name this agent; **none contradicts the change**
+(they cover `recreate_tool`/evidence register, `load_page_record`, `expects_no_sections_metadata`,
+tool CSS vars, the adoption URL rewrite, and the two instrument traps this file already honoured).
+"Nothing blocking" is only knowable after running it.
 
 Rollback (config is live on apply, so it was written before the apply):
 `453_tool_recreation_whole_site_context_ROLLBACK.sql`, gated to refuse unless the row still carries

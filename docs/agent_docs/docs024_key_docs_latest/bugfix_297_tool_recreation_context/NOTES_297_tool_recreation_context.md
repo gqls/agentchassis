@@ -114,3 +114,96 @@ So the widening is real: more rows in the query means more lines in the prompt t
 sees. Worth having checked rather than assumed — if an input cap HAD existed, this fix would have
 moved a silent row cap one layer down instead of removing it, which is exactly 275's misstep-4
 shape.
+
+## 2026-08-17 — council ROUND 1: **APPROVED**, 14 reviewers, 3 abstained, 4 advisory objections
+
+`decision: approved`, *"approved with 4 advisory objection(s) — none high-severity"*,
+`gated_by_truncation: false`, `unreadable: 0`. Corr `4b9265c3-f6f4-4ed6-a038-f6aaf10b52d8`.
+
+⚠ **A method note on reading the verdict.** At 16:35 the `council_report` already said `approved`
+while `orchestration_states` still read `review_guardian EXECUTING_STEP`. I did **not** claim the
+verdict then — `review_guardian -> council_decide` in the step chain, so a guardian veto is still
+reachable at that point. The run went terminal at `complete_approved` (COMPLETED) a minute later,
+and that is what I read. **An artifact is not a verdict until the run that can override it has
+finished.**
+
+Every objection below was answered with a measurement, not an argument. Three of them changed what
+I know; two are misses of mine.
+
+### bug_historian (MEDIUM) — "you traded a row cap for unbounded prompt growth, with no guard"
+
+The sharpest objection, and the one I had left as an OWED item — which is exactly what it called
+out: *"the author's own 'OWED' framing quietly stands in for a fix."* Fair. It named the check:
+has `analyze_tool` ever truncated?
+
+**Measured, and the objection's premise does not hold — there IS a guard, and it already watches
+this step:**
+
+| check | result |
+|---|---|
+| `analyze_tool` calls (all history) | **129**, max output **7,735** of an 8,000 cap, **0 truncations** |
+| any step of this agent setting `tolerate_truncation` | **none** → a truncated response **ERRORS** the step (`bugs_open/076`'s machinery), it is not silently persisted |
+| `fleet-step-token-pressure` (LCO-007) | **enabled, 6-hourly, last completed 2026-08-17 16:36:39Z** — verified in `scheduled_tasks`, not trusted from the register |
+| what that monitor already says | `N analyze_tool@8000 — n=102, p95 72.8%, peak 96.7%, truncated 0` — **already on its flagged list as a near-miss** |
+
+So the "silent-loss vector with no equivalent guard" is: (a) not silent — truncation errors loudly
+here; (b) not unguarded — a standing 6-hourly fleet check already classifies this exact step and
+would reclassify it `N → T` the moment it truncates; (c) not yet realised — zero truncations in 129
+calls. **The residual is real and now stated with a number instead of a shrug: peak output is 96.7%
+of cap, 265 tokens of headroom.** The trip-wire is LCO-007's own note, and the follow-up if it ever
+flips to `T` is in that note's runbook (raise the cap or shrink the unit — and check the prompt-shape
+query first, because a stuck retry loop looks the same).
+
+⚠ **The monitor's newest note is dated 2026-08-15 and that is BY DESIGN** — it writes only when the
+flagged SET changes (md5 digest, 30-day dedup). "No recent note" is not "not running"; the liveness
+check is `scheduled_tasks.last_completed_at`, which is today.
+
+### guardian (MEDIUM) — "blast radius is ASSERTED, not checked against the fleet" — **MISSTEP 1, mine**
+
+Correct, and it is CLAUDE.md's own rule (*"enumerate the consumers — asserting it without the query
+is itself the objection"*). I verified the consumer **within** this agent's config and wrote "the
+ONLY consumer", which is a fleet-wide claim from a single-agent check.
+
+**Enumerated now:** four live agents mention `related_pages` — and the other three are a **different
+field**: `input_data.spec.related_pages`, the 1-3 page-name cross-link list `tool-suggester` attaches
+to a suggestion and `tool-generator`/`tool-deployer` consume. **No other agent has a
+`load_related_context` step**, and my step's `related_pages` lives only in its own orchestration's
+collected data. The claim survives — but it is now enumerated, and it was luck that it did.
+
+**Worth its own line:** two unrelated fields share one name across four agents. A future session
+grepping `related_pages` fleet-wide will find all four and can easily conclude the field is shared.
+
+### guardian (MEDIUM) — "453 is claimed by filename, not the ledger"
+
+True when submitted (review is after the fact by design); resolved since: `--record-only` recorded
+it with a note. Ledger max was 451, and 452 sits in the dir as a `_HOLD` sidecar.
+
+### tooling_provenance (MEDIUM) — "no check of doc_notes for this subject before editing" — **MISSTEP 2, mine**
+
+Also correct, and it is the standing memory rule *"grep LANDMINES for the SYMBOL you are about to
+trust"* — the SessionStart hook only matches files already dirty, so an agent-type footprint is
+never shown. I grepped `agent_definitions` (the table) and **not `tool-recreation-handler` (the
+symbol)**.
+
+**Grepped now: six landmine entries name this agent. None contradicts the change** — they cover
+`recreate_tool` + the evidence register (untouched), `load_page_record` (untouched),
+`expects_no_sections_metadata` (untouched), tool CSS vars (untouched), the adoption URL rewrite
+(background), and the two instrument traps I had already honoured independently
+(`owner_agent_type` returns a confident 0; `internal-linker` vs `internal-link-resolver`).
+**"Nothing blocking" is only knowable after running it**, and the cost was three seconds.
+
+### reuse_agent (LOW) — "is the unguarded fan-out join a class, patched once?"
+
+The right question, and one query answers it: **fleet-wide, exactly ONE step's query config
+references `research_results` at all** — this one. Not a class; nothing else to sweep.
+
+### editquality / prior_art_librarian (LOW) — "we cannot see `research_results` from the council's schema tier"
+
+Both flagged the duplicate-row and nullable-`created_at` claims as unverifiable *by them* and asked a
+human to confirm. Confirmed here, with the queries in the RUNBOOK: 21 `adoption_page` rows, 0 with
+NULL `created_at`, and page `0747e2fc…` carries exactly 2 — which is the duplicate.
+
+### The one thing I checked that nobody asked for, and would have mattered most if it had failed
+
+Whether anything clips the rendered prompt input (the previous NOTES entry): it does not. Had an
+input cap existed, this fix would have moved the silent cap one layer down.

@@ -47,3 +47,32 @@ committed everything with a marker that says "submitted, verdict not yet read", 
 rule here — nobody holds work waiting for a review, because the review is designed to come after.
 When the verdict lands I will read it and act on it; if the reviewers find something, that is
 cheaper than finding it later, and on the sibling bug two of the rounds found real defects.
+
+## 2026-08-17 (evening) — the council approved it, and their questions made the answer better
+
+Approved on the first round: fourteen reviewers, three abstained, four advisory objections and none
+of them serious enough to block. That is the outcome, but the useful part is what the objections
+made me go and check.
+
+The strongest one was worth its fee. One reviewer said, in effect: you have removed a limit on how
+much text goes into the AI, so that text now grows forever as a site gains pages, and this system
+has a history of AI replies being cut off silently when prompts get big. I had left that as "owed"
+— something to confirm later — and being called out on it was fair. So I measured. In every one of
+the 129 times this step has ever run, the reply has never once been cut off; and if it ever were,
+this agent would fail loudly rather than quietly save half an answer. Better still, there is already
+a standing check that runs every six hours across the whole fleet watching exactly this, and it
+already lists this step by name as one to keep an eye on — peak usage 96.7% of its allowance, zero
+truncations. So the guard the reviewer wanted turned out to exist; I just had not looked for it.
+What is true is that the headroom is thin — about 265 words' worth — and the existing check is what
+will tell us if that changes.
+
+Two of the objections were straightforward misses of mine, both worth recording. I had written that
+this step's output has only one consumer, but I had checked only inside this one agent and stated it
+as if I had checked everywhere. When I did check everywhere, the claim held — but it held by luck,
+and I found that four different agents use the same field name for two unrelated things, which is a
+trap for the next person. And I had not searched our own landmine file for this agent's name before
+editing it; six entries mention it. None of them contradicts what I did, but "nothing is wrong" is
+only worth something once you have actually looked.
+
+Everything is committed and the fix is live. The bug file now carries the verdict and the
+measurements behind it.
