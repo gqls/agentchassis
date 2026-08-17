@@ -342,3 +342,62 @@ Committed with `Council-Reviewed: 823679dc-43d5-4f93-8b2d-746c41250290` (`cd610a
 the defect it finds. Round 1's gating objection cost ~10 minutes and asked the one question my
 337-of-366 figure silently depended on; round 2's advisories cost ~6 and produced a simpler design
 than the one I submitted.
+
+## 2026-08-17, POST-ROLL — the axis is LIVE and has been exercised; two later commits are not in the image
+
+`v1.0.1307`, both `agent-chassis` pods, started 17:05Z. Stamp read from the binary (never the log —
+see the landmine): **`a6d1c53c0`**, identical on both pods, with the probe's own sanity control
+(`gqls/agentchassis` present) passing.
+
+| commit | in the image? | what it is |
+|---|---|---|
+| `6aae23e62` | **YES** | the axis on all three floors, minimum 200, the page-total extraction, the summing keying |
+| `9cd887ddf` | **YES** | the class floor's keying |
+| `4b32f174c` | **YES** | the section editor's axis — the 285 lane's half, live at last |
+| `e42d57adf` | no | council round-1 revisions (the fail-open work item, `incomingBySlot`, two tests) |
+| `cd610a006` | no | council round-2: the page-total floor failing **CLOSED**, and the item type's removal |
+| `c04018a3e` | no | *negative control — committed after the stamp, must be absent, and is* |
+
+**So the substance of 293 is live.** What is not: the page-total floor still fails OPEN *and silently*
+in the running binary (the round-1 breadcrumb is not in it either). That is not a regression — the
+inline block it replaced failed open silently too — and both sit behind the same one-statement-blip
+window described above. They ride the next roll.
+
+### Was it exercised, or merely present? — the demand control, and then the scope control behind it
+
+`[MEASURED]` 11 whole-page rebuild writes across 3 pages since 17:05Z, and **zero** refusals naming
+`VISIBLE text` or `PAGE CONTENT REGRESSION`. A zero refusal count is worth nothing on its own, so:
+
+- **Demand control:** rebuilds are running — the 11 writes, 17:38 to 17:49Z.
+- **Scope control, which is the one that mattered:** ran the committed harness over those 11 pairs.
+  **10 of the 11 are IN SCOPE** on the live axis (≥200 visible chars on the existing side), so the
+  guard genuinely judged ten real writes and allowed all ten — consistent with the calibration's zero
+  false refusals in 1,079 pairs. Without this, "zero refusals" was equally consistent with a guard
+  that judged nothing at all.
+- And on those same ten sections the retired axis would have **allowed a total prose wipe on 10 of
+  11**, where the live one refuses all 10. The protection is real on the pages that rebuilt this hour.
+
+### What is NOT established, stated rather than glossed
+
+**No refusal has fired yet**, so the refusal path — message text, work item, nothing written — is
+proven only by the mutation-backed wiring tests and not at the artefact. The calibration predicts
+about one a week fleet-wide, so waiting is the proportionate way to get it.
+
+**I did not induce one, deliberately.** The recipe exists (the 285 RUNBOOK's), but on this path a save
+that is *not* refused hollows a live page — the exact damage of `bugs_closed/285` — and the marginal
+information over ancestry + nine mutations is small against that. The safe variant (raise
+`section_shrink_floor` in a step's config so the next legitimate rebuild is refused, then revert)
+writes nothing and destroys nothing, but it blocks another lane's build and edits a shared live agent
+definition, which is an outward-facing change to make on request rather than unilaterally. **Flagged
+for the owner as an option, not done.**
+
+### MISSTEP 4 — I tried to prove execution from the pod logs, and the pods were already gone
+
+The diagnostic line I added (`visible_text_total`, logged unconditionally on every save) was meant to
+be the proof that the new code path ran. It returned nothing on either `agent-chassis` pod — because
+`save_page_sections` does not run there. The archive's `application_name` gave the three connections
+(`10.20.39.5/.10/.15`) and **none of them maps to a live pod**: page builds run in ephemeral
+`agent-build-dispatch-loop-*`-style pods (22 pods share the chassis image), which are gone, and their
+logs with them. **A log-based proof of execution has the lifetime of the pod that produced it, and for
+an ephemeral handler that is minutes.** The durable substitutes are what I used instead: the binary
+stamp for "is it in the image", and the archive plus the harness for "was it exercised, in scope".
