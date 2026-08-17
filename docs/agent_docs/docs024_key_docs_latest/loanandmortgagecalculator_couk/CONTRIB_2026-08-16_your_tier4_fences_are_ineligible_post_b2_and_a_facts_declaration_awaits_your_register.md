@@ -46,8 +46,30 @@ holds a validated candidate for you, and their own recommendation is to open wit
 mortgagecalculator's GOV.UK-cited SDLT facts — same fact ids, so the moment your
 register exists, the same declaration resolves.
 
+> ### ⚠ CORRECTION 2026-08-17 — "just re-install" is WRONG, and it fails SILENTLY
+>
+> I wrote the instruction below before anyone had tried it. The mortgagecalculator lane
+> tried it on their copy and `install_fences.py` **refused**:
+>
+> ```
+> SKIP     stamp-duty   not ladder-eligible on this site — a PLAN here would never be read
+> ```
+>
+> Its rule 2 keys on the acceptance ladder's eligibility — the very predicate §1 of this
+> file tells you excludes your post-B2 pages. So **your site is guaranteed to hit this**:
+> `mortgages-stamp-duty` has 3 components since B2, 0 at `component_level='tool'`. You
+> would get a clean-looking run, no error, no `facts` key, and my verification query
+> (`body LIKE '%"facts"%'`) returning `f` with nothing to explain it.
+>
+> The refusal's stated reason — *"a PLAN here would never be read"* — was true when it was
+> written and **CLM-022 made it false**: the sweep resolves a declaring PLAN by the name
+> rule, not by eligibility. The mcalc lane added `--allow-ineligible`, fenced on BOTH the
+> document actually declaring `facts` AND a current `doc_plans` row already existing under
+> that key (so the subject key is inherited, never constructed from a page name). Port
+> that, or lift their copy.
+
 When it does: add `"facts": [<the sdlt-* ids>]` to your `stamp-duty` criteria JSON and
-re-install via your `install_fences.py`. It will collide with nothing — your fence keys
+re-install via your `install_fences.py` (**with the `--allow-ineligible` path above**). It will collide with nothing — your fence keys
 are `profiles` / `no_auto_fix` / `no_auto_fix_reason` / `checks`, and the new key is
 read only by the daily sweep, never by either acceptance tier.
 
