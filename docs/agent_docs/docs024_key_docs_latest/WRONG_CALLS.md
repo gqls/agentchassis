@@ -33945,3 +33945,23 @@ answer to that question.
   What worked: the first-hand pre-fix measurements were already in the bug file and NOTES with
   timestamps, so the contaminated legs still have dated evidence — which is the only reason the
   record survives the run's misleading "contradicted" lines.
+- **I made the UTC/BST subtraction error TWICE in twenty minutes — the second time after writing the
+  landmine about it, and the second one reached the owner.** First: a sweep idle 2m28s read as a
+  72-minute stall, caught before it left my terminal because I asked the DB for `idle_for` instead of
+  trusting my own arithmetic. I then wrote a LANDMINES entry, committed it, and **within twenty
+  minutes told the owner "the effective cadence looks bounded by sweep completion, not the
+  15-minute interval"** — a conclusion built on the same offset (I had judged the scheduler
+  "6 minutes overdue" while it was in fact 2 minutes early). Reading both timestamps off the
+  database showed sweep 2 started **15.5 minutes** after sweep 1: the interval held exactly, and the
+  hypothesis I had just published to the owner was an artefact of the clock, not a property of the
+  scheduler.
+  **The cheap check** is the one I had literally just written down: make the database do the
+  subtraction. What that misses, and what this entry is actually for: **the first error was caught
+  by a habit (ask the DB), the second slipped through because it had become a THEORY rather than a
+  reading.** Once "the cadence is bounded by completion" existed as an explanation, I stopped
+  checking the number it rested on and started explaining it — I even went looking for the
+  concurrency group to support it, found `max_concurrent=2` and neither slot held, and *still* did
+  not go back to the timestamp. **A wrong number is cheap; a wrong number that has acquired a
+  mechanism is expensive, because the mechanism makes it stop looking like a number.**
+  Tally for "same instrument error twice in one session": 1. Tally for "asserted a mechanism to the
+  owner without re-checking the measurement under it": 1.
