@@ -34520,3 +34520,58 @@ incomplete definition*, which no marker detects. Both are now LANDMINES.
 `444`. `bug_historian` came closest by challenging the trustworthiness of `complete`, and my answer
 to it was correct but addressed the wrong axis. A review of the plan cannot enumerate a column the
 plan never mentions — this class needs the query, not the reviewer.
+
+## 2026-08-17 — I reported a 15-DAY fleet-wide LLM outage that lasted THREE MINUTES, by taking the duration off the API's own error message — and the same error was already filed, with the same message, refuted (bugfix_281 / loop-engine lane)
+
+**The claim.** Four LLM calls failed in front of me, across two agent types and two models, each
+with `API request failed with status 400 … "You have reached your specified API usage limits. You
+will regain access on 2026-09-01 at 00:00 UTC."` I reported to the owner that every LLM-driven
+agent on the estate was stopped for fifteen days, that it needed their billing decision, and I
+wrote it into `bugs_open/289`, `bugs_open/294`, the lane NOTES, register `WFA-016`, its index row,
+a commit message (`c2f66d9ff`) and a handoff. I then **declined to submit a finished change to the
+council** on the grounds the gate was unreachable.
+
+**Why it is false.** The outage lasted **about three minutes**. `llm_call_log`: last success
+11:08:03Z, four failures 11:08:37→11:09:53Z, **successes resume 11:13:02Z** — `council-gate`
+itself at 11:13:22Z. The five hours after held **462 successful calls**. Hourly: 11:00 101 ok/4
+failed, 12:00 255/1, 13:00 99/0, 16:00 55/1.
+
+**The reasoning that produced it, because that is the transferable part.** I did not merely
+guess — I argued. I noted that earlier usage-limit spikes on 08-10 and 08-14 had recovered, and
+concluded *"this one names a fixed regain date, which a transient rate-limit does not."* **The
+named date was doing all the work, and it is not evidence.** An error body is the vendor's
+forward-looking assertion about their own systems; it is not a measurement of anything, and it
+cannot be, because it is written before the outage ends.
+
+**It was also already refuted, in our own repo.** `bugs_open/243`
+(`…_anthropic_account_usage_limit_reached_every_llm_step_fleetwide_fails_until_september`, filed
+2026-08-10) records the **identical message** against an outage that ran 3 h 20 m and ended
+because the owner added credit — **21 days before the date the message named**. Its resolution
+banner says: *"It did NOT auto-restore on 2026-09-01; the owner acted."* It even supplies the
+liveness query (`SELECT max(created_at) FROM llm_call_log WHERE success`).
+
+**What caught it.** Nothing I did deliberately. Five hours later I ran a routine "has the quota
+returned?" check before writing a handoff, and the hourly histogram contradicted me on its face.
+Had I not happened to re-measure, the false claim would have shipped in a handoff as established
+fact — twice, since I had already reported it to the owner.
+
+**The two cheap checks I skipped.** (1) `GROUP BY date_trunc('hour', created_at)` on
+`llm_call_log` — one query, and it shows a blip as a blip. **Four failures over 76 seconds is a
+sample that cannot discriminate a 3-minute outage from a 15-day one**, so no amount of care in
+reading those four rows would have helped; the fix is a second observation separated in time, not
+closer reading of the first. (2) `ls bugs_open bugs_closed | grep -i anthropic` — one second.
+
+**The transferable rule, and why it is filed twice today.** *A DURATION is a claim about the
+future, so it cannot be read off a single moment's data — and a vendor's error text is the least
+reliable place to get one.* But the deeper failure is the repeat: **this is the same miss I logged
+in this file THIS MORNING** over `bugs_closed/274` — grepping the code and the DB for a mechanism
+is not grepping the bug queue. I wrote that entry, and then within hours hit an error whose exact
+message was the title of an open bug file. One entry is an anecdote; the same one twice in a day
+says the habit is "search where I am already looking", and the counter-habit has to be mechanical:
+**before reporting any fleet-level condition, `ls bugs_open bugs_closed | grep -i <the noun in the
+error>`.** Not "grep if it feels novel" — it felt novel both times.
+
+**What it cost.** No damage to the estate, but two real costs: the owner was handed a decision
+that did not exist, and a finished, tested change sat un-reviewed for five hours because I had
+declared the reviewer unavailable. Round 2 went out at 16:38Z carrying both changes on the
+original correlation.

@@ -226,3 +226,35 @@ separate bug with the exact one-paragraph fix. **I have not applied that fix.** 
 fleet-wide cleanup job, it takes effect the instant it is saved with no build step to catch a
 mistake, and the review council is down until the API quota comes back. That one is yours to
 call, and it is not urgent now that the wreckage is gone and the thing that created it is fixed.
+
+
+## 2026-08-17 (later) — I have to correct something I told you, and it matters
+
+This morning I told you the fleet's AI access was exhausted until the first of September and that
+you had a billing decision to make. **That was wrong. The outage lasted about three minutes.**
+
+What actually happened: four calls failed in the space of seventy-six seconds, and normal service
+resumed four minutes later. I happened to take my measurement inside that gap. The error message
+from the API said, in so many words, "you will regain access on 2026-09-01", and I believed it —
+I even reasoned that the specific date was what made this different from the brief wobbles we had
+last week. That reasoning was exactly backwards: the date in the message is not a prediction. In
+the five hours since, the fleet has made several hundred successful calls.
+
+Worse, we already knew this. There is a bug file from the tenth of August recording the very same
+error message, on an outage that lasted three hours and twenty minutes and ended when you added
+credit — twenty-one days before the date the message named. It says so in the first paragraph. I
+did not look, and I had written a note to myself only hours earlier about this exact habit: I
+searched the code and the database for the mechanism and never searched our own bug list.
+
+Two things it cost. I gave you a decision to make that did not exist. And I held back a piece of
+work from review on the grounds that review was unavailable, when it had been available all along
+— that has now gone out, and I put both of today's changes into a single review round rather than
+two, because the reviews themselves are the biggest single cost on the whole system.
+
+Separately, and this one is still live: **the fresh build has not reached the cluster.** The pods
+restarted, they look new, but they are running a binary built yesterday evening. The image was
+rebuilt under the same version number, and the cluster keeps serving the copy it already had.
+Two hundred and fifty-two commits are in the code but not in the running system, twenty-four of
+them real code changes from about ten different pieces of work, several already approved. I have
+bumped the version number so your next release will actually land. That one genuinely does need
+you — I cannot run the release.

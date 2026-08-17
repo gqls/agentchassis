@@ -126,9 +126,14 @@ by dead `RUNNING` rows **0**.
 - **The reaper `pre_query` is live config, so a change takes effect immediately with no roll** —
   there is no build to gate it and no window to reconsider. Treat it accordingly.
 - **It is a shared fleet-wide mechanism**, so it is council-scope under CLAUDE.md's
-  platform-seams rule. ~~**The council gate is unavailable until the Anthropic account quota
-  returns (2026-09-01, or sooner if raised)** — which is why this is filed with the measurement
-  and the exact SQL rather than applied. See the quota note in the `bugfix_281` lane NOTES.~~
+  platform-seams rule. ~~~~**The council gate is unavailable until the Anthropic account quota returns (2026-09-01, or
+  sooner if raised)**~~ — **CORRECTED 2026-08-17: false. That outage lasted ~3 minutes** (last
+  failure 11:09:53Z, successes resumed 11:13:02Z); the "regain access 2026-09-01" text in the API's
+  400 body is not predictive, as `bugs_open/243` already recorded for the identical error on
+  08-10. **So the gate is NOT the reason this is unapplied.** The real reasons stand on their own
+  and are the ones to weigh: it is live config that takes effect the instant it is saved, with no
+  build step to catch a mistake, on a fleet-wide reaper — and its 4 h threshold is licensed by a
+  census that must be re-run first.~~
   > **CORRECTED 2026-08-17 (evening), by the `299` skipped-render-audit lane — THE GATE IS UP.**
   > A full round ran today on this branch: submitted **12:46:22Z**, `complete_approved` /
   > `COMPLETED` by **12:52:17Z** — ~6 minutes, 12 reviewers, 5 abstained, 0 unreadable, verdict

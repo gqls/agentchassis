@@ -33,14 +33,28 @@ runs them. Do not report any of this as fixed in production.
 `d0e104057` (sweep + bug 294) · `839312eb0` (the 274 correction) · `7d832ebc8` (2 landmines) ·
 `cf970b009` (the tripwire + WFA-016).
 
-## The blocker that is not ours to clear
+## The blocker that IS real, and the one I got wrong
 
-**The Anthropic account quota is exhausted — 2026-08-17 11:08:03Z was the last successful LLM
-call fleet-wide, and the API says access returns 2026-09-01 00:00 UTC.** Failures span two agent
-types and two models, so it is account-level; over 24 h the fleet ran 478 Anthropic calls against
-2 on `mistral-small3.1`, so there is no meaningful fallback. **Every LLM-driven agent is stopped**
-— auditors, writers, the diagnosis loop, the fix loop, the council gate, the landmine verifier.
-Owner decision: raise it or wait. Nothing in this lane can proceed past it.
+**REAL — the build is not reaching the cluster, and this is the live blocker.** `[MEASURED
+2026-08-17 16:30Z]` The pods look new (replicaset `5bd56bdd9b`, started 14:43Z) and carry tag
+`v1.0.1305`, but their image digest is `sha256:f90a7e88…`, whose own OCI revision label is
+**`6a782274b`, built 2026-08-16 21:53Z**. The locally built `v1.0.1305` is a *different image* —
+`sha256:6039e19c…`, revision `89a0cbeb7`, created 2026-08-17 14:30Z — and it DOES contain both of
+this lane's commits. Same tag, different content: the build worked, the delivery did not.
+**252 commits in HEAD are absent from the running binary, 24 of them touching
+`platform/`/`internal/`/`pkg/`** across bugs 275/283/285/287/289/291/292/293/295/299, several
+already council-APPROVED. A same-tag re-release re-serves the node's cache, so restarting pods
+cannot fix it — **only a new tag can**. `makefile` line 17 is now `v1.0.1306` (commit
+`aa9c7b74f`); the owner runs the release. One-command proof, no exec:
+`docker inspect aqls/<svc>@sha256:<imageID from kubectl> --format '{{index .Config.Labels "org.opencontainers.image.revision"}}'`.
+
+**NOT REAL — the "Anthropic quota exhausted until 2026-09-01" claim was mine and it was WRONG.**
+The outage lasted **~3 minutes**: 4 failed calls between 11:08:37Z and 11:09:53Z, successes
+resuming 11:13:02Z, and 462 successful calls in the five hours after. I measured inside the window
+and took the duration from the API's 400 body. **The date in that message is not predictive** —
+`bugs_open/243` records the identical text on 08-10 against a 3 h 20 m outage that ended when the
+owner added credit, 21 days early, and says so explicitly. I did not grep for it. Council round 2
+went out normally at 16:38Z. Do not plan around a September date.
 
 ## What is owed, in the order it becomes possible
 

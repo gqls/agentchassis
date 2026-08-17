@@ -312,3 +312,36 @@
   roll to gate it) on a shared mechanism, and the council gate is down until the quota returns.
   Filed with the measurement and the exact SQL instead, plus the negative control the verify
   needs. A one-off sweep is not a class fix and this file should not read as though it were.
+
+
+## 2026-08-17 16:40Z — CORRECTION: the "quota exhausted until 2026-09-01" claim was WRONG
+
+I reported a fleet-wide 15-day LLM outage. **It lasted about three minutes.**
+
+- `llm_call_log`, measured now: last success before **11:08:03Z**, then **4 failures in 76
+  seconds** (11:08:37 → 11:09:53), then **successes resume 11:13:02Z** and keep going —
+  `council-gate` itself succeeded at 11:13:22Z and 11:13:32Z. Hourly totals for the day:
+  11:00 **101 ok / 4 failed**, 12:00 **255 / 1**, 13:00 **99 / 0**, 16:00 **55 / 1**.
+- **What I did wrong.** I measured at ~11:10 — *inside* the 3-minute window — saw four
+  consecutive failures across two agent types and two models, and took the duration from the
+  API's own 400 body: *"You will regain access on 2026-09-01 at 00:00 UTC."* Then I reasoned
+  explicitly that the named date distinguished this from the transient spikes on 08-14/08-10.
+  **That reasoning was the error.** Four failures over 76 seconds is a sample that cannot
+  discriminate a 3-minute blip from a 15-day cap, and a duration claim needs a second
+  observation separated in time, which by construction I did not have.
+- **And it was already written down.** `bugs_open/243` (2026-08-10) records the *identical*
+  error text against an outage that lasted 3 h 20 m and ended because the owner added credit —
+  **21 days before the date the message named** — and states: *"It did NOT auto-restore on
+  2026-09-01; the owner acted."* It also gives the liveness query to confirm recovery
+  (`SELECT max(created_at) FROM llm_call_log WHERE success`). **I never grepped for it**, which
+  is the same failure I logged in WRONG_CALLS THIS MORNING over `bugs_closed/274`: grepping the
+  code and the DB for a mechanism is not grepping the bug queue. Logged again, because a lesson
+  repeated within hours is worth more than the first entry.
+- **What it cost.** Nothing irreversible, but two real things: I told the owner they had a
+  billing decision to make when they did not, and I declined to submit the tripwire to the
+  council on the grounds the gate was down — when it had been available for five hours. Round 2
+  went out at 16:38Z on the same correlation `7a3c4fb7-…`, carrying BOTH the loop fix and the
+  tripwile in one round (`bugs_open/244`: council-gate is 87.8% of August LLM spend, so a second
+  round for four lines of logging is a poor trade).
+- Every doc I put the claim in is corrected in place and dated: `bugs_open/289`, `bugs_open/294`,
+  the loop-engine handoff, register `WFA-016` and its index row.

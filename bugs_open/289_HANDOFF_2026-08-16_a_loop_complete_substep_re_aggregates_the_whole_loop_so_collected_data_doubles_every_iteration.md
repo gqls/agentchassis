@@ -372,6 +372,18 @@ default 20. Inert today because live config arrives from JSONB as float64 — th
 > asserts nothing and stays honest; `098` credits it automatically if the correlation is ever
 > approved.
 
+> **CORRECTED 2026-08-17 16:40Z — I WAS WRONG ABOUT THIS, AND IT BLOCKED NOTHING.** The outage
+> lasted **about three minutes**, not fifteen days: `llm_call_log` shows the last failure at
+> **11:09:53Z** (4 failed calls in 76 s, from 11:08:37Z) and successes resuming at **11:13:02Z**,
+> including `council-gate` itself at 11:13:22Z. I measured inside that 3-minute window, read
+> *"You will regain access on 2026-09-01"* off the API's 400 body, and reported a fleet-wide
+> 15-day outage requiring an owner billing decision. **The date in that message is not
+> predictive** — `bugs_open/243` (the same error, 2026-08-10) records the identical text against
+> an outage that lasted 3 h 20 m and ended when the owner added credit, **21 days early**, and it
+> says in terms: *"It did NOT auto-restore on 2026-09-01; the owner acted."* I never grepped for
+> it. Round 2 of the council review was dispatched normally at 16:38Z on the same correlation.
+> WRONG_CALLS 2026-08-17.
+
 
 > **CORPSE SWEEP DONE 2026-08-17** — item 2 of "what is still owed" above is closed.
 > 49 rows (`status='RUNNING' AND last_activity < NOW() - INTERVAL '4 hours'`, every one of them
@@ -394,6 +406,12 @@ default 20. Inert today because live config arrives from JSONB as float64 — th
 > the 2026-08-17 census and a test pins them, so a later edit cannot slide them under real traffic.
 > Wiring proven by mutation: unwiring the single call site leaves every direct-call test passing
 > and fails only the sqlmock-driven wiring test.
-> **Inert until the roll, and NOT council-reviewed** — the gate is unreachable until the Anthropic
-> quota returns (2026-09-01). Submit it then; the code is already on the shared branch.
+> **Inert until the roll.** ~~NOT council-reviewed — the gate is unreachable until the Anthropic
+> quota returns (2026-09-01).~~ **CORRECTED 2026-08-17: that was false — the outage was ~3 minutes
+> (see the corrected block above), and the gate was available all along.** The tripwire was folded
+> into round 2 of the SAME council correlation `7a3c4fb7-…` (dispatched 16:38Z) rather than its own
+> round, because `bugs_open/244` measures `council-gate` at 87.8% of the fleet's August LLM spend.
+> Note the residual honesty problem this leaves: commit `cf970b009` carries NO trailer at all and
+> forward-only forbids an amend, so `098` cannot auto-credit it — the correlation is recorded here
+> and in the lane docs instead.
 > Residual (4), the `total_iterations` fallback, is still open and still latent.

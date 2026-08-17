@@ -428,3 +428,51 @@ probe failures before marking unhealthy) would have prevented this instance outr
 consistent with either — the probe's `claude-haiku-4-5-20251001` succeeded on the retry, but
 `llm_call_log` still holds zero haiku rows in 24h, so the probe's model remains exercised by
 nothing but the probe.
+
+
+---
+
+## Third occurrence, 2026-08-17 — and it lasted THREE MINUTES, with the same message
+
+Contributed by the `bugfix_281`/loop-engine lane, which hit this, **did not read this file**, and
+reported a 15-day fleet outage to the owner off the back of the API's message text
+(`WRONG_CALLS.md` 2026-08-17). Recording it here because it refines what this file already says.
+
+**The measurement `[MEASURED 2026-08-17 16:35Z]`:**
+
+| | time (UTC) | agent |
+|---|---|---|
+| last success before | `11:08:03.753` | council-gate |
+| first failure | `11:08:37.083` | council-gate |
+| last failure | `11:09:53.482` | landmine-verifier |
+| first success after | `11:13:02.200` | landmine-verifier |
+
+**Outage ≈ 3 minutes** (4 failed calls in 76 s), across 2 agent types and 2 models
+(`claude-sonnet-5`, `claude-opus-4-6`) — so *width* looked exactly like the 08-10 event while
+*duration* was two orders of magnitude smaller. Recovery is confirmed by sustained traffic, not one
+call: hourly `ok/failed` for the day — 11:00 **101/4**, 12:00 **255/1**, 13:00 **99/0**, 14:00
+**23/0**, 15:00 **3/0**, 16:00 **55/1**; **462 successes in the five hours after**.
+
+**The refinement this adds to §the-message-is-not-the-calendar.** This file already establishes
+that the "regain access 2026-09-01" text does not predict when access returns. 2026-08-17 shows
+something stronger and more dangerous: **the same message accompanies outages of wildly different
+severity**, so the text carries no information about duration *at all* — not even order of
+magnitude. A 3-minute blip and a 3h20m exhaustion are indistinguishable at the moment of failure.
+**Therefore the only sound reading of a usage-limit 400 is "right now, calls are failing".**
+Anything about *how long* requires a second observation separated in time.
+
+**Practical consequence for the next lane, since this is the third time:** do not announce an
+outage, and above all do not defer work on account of one, until you have re-run this file's own
+liveness query at least a few minutes later:
+```sql
+SELECT date_trunc('hour', created_at) AS hr,
+       count(*) FILTER (WHERE success) AS ok,
+       count(*) FILTER (WHERE NOT success) AS failed
+FROM llm_call_log WHERE created_at > now() - interval '8 hours' GROUP BY 1 ORDER BY 1;
+```
+The histogram distinguishes a blip from an exhaustion on sight; `max(created_at) WHERE success`
+alone does not tell you whether the failures are still arriving.
+
+**Does not reopen or close anything here.** The bug's own point stands unchanged and this is
+evidence for it: adding credit restores service and prevents nothing, and `bugs_open/244` remains
+the actionable prevention.
