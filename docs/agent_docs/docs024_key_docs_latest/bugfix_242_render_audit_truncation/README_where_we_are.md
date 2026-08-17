@@ -40,3 +40,21 @@ the run. Limit put straight back to 60. The review council approved the change, 
 verification run even confirmed the one thing a reviewer had asked us to double-check
 (that the log row names the right agent and step — it does). This bug is done in
 substance; the file stays in bugs_open per the owner's filing rule.
+
+2026-08-17 — The bug file has now actually moved to the closed pile. The owner changed the
+filing rule back on the 12th ("if it is fixed and live it should be moved"), so today's
+session re-checked everything and did the move. The re-check itself turned up two things
+worth saying out loud. First: the database rows from last week's proof run have since been
+cleaned away, so the lane's own notes are now the surviving record of that proof — the
+grading was done against the live rows at the time, and that's written where anyone can
+find it. Second, and more useful: the only render-audit run now in the system was this
+morning's weekly sweep, and it tripped over something new. It picked a brand-new site
+(created an hour earlier, no pages published yet), the audit step correctly said "nothing
+to measure here, skipping" — and then the next step, the one that files defect tickets,
+didn't recognise that answer and recorded the whole run as a FAILURE. So a polite "nothing
+to do" gets written down as "something broke". That's been filed as its own bug (299),
+fixed the same day (the ticket-filing step now understands the skip and says "skipped,
+nothing filed" instead of erroring), tested including deliberately breaking the fix to
+prove the test notices, and sent to the review council. The fix rides the next software
+release. It had actually happened once before — during last week's 242 work, unnoticed,
+in a run we were using to check something else. Both occurrences ever are now explained.

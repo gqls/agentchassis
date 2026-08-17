@@ -132,3 +132,42 @@ configured cap (force with a small step-config `max_pages`; nothing exceeds 60 t
   and the 5-page sweep's zero findings are this test's residue, both honest.
 - `agent_error_log.occurred_at` (NOT `created_at`) — schema-first paid off again; noted
   in RUNBOOK.
+
+## 2026-08-17 — 242 CLOSED (moved per the owner's 08-12 restored bar); close-verification surfaced bugs_open/299
+
+- Re-verified before the move: fleet on `v1.0.1305` (deployment images for
+  `agent-chassis` + `render-audit-adapter` read directly); nothing reverted the fix
+  commits. Moved `bugs_open/242…` → `bugs_closed/242…` (`03640f491`), move verified with
+  `git ls-tree -r --name-only HEAD | grep 242_HANDOFF` (exactly one path, the closed one).
+- **The proof-run rows are GONE from `orchestration_states`**: `765512d1%` (the forced
+  5-of-26 run), `0564ce5f%` and `b30943e4%` (the two original evidence runs) all return
+  0 rows, while the table still holds 3,364 rows back to 2026-07-13. Something reaps or
+  deletes selectively — `[UNMEASURED]` what; noted so nobody reads "0 rows" as "the run
+  never happened". This lane's NOTES (08-11 night entry) are now the surviving record of
+  the close-criterion grading.
+- **The only render-audit orchestration now in the table is this morning's rotation fire**
+  (`dc0233ab…`, 12:10Z, `remortgagecalculator.uk` — a site created 11:14Z the same
+  morning, zero deployed pages). Keys ENUMERATED, not path-read:
+  `render_audit = {domain, reason: no_deployed_pages, skipped: true}`, plus
+  `__step_error` = `write_render_audit_findings: "render_audit" carries neither a result
+  nor a .response…`, plus one `severity=error` `agent_error_log` row. So the upstream's
+  DELIBERATE no-op (its comment: "NOT a failure… Declaring it clean would be the lie")
+  is recorded as a failure by the drain.
+- History check: `agent_error_log` holds exactly **2** occurrences of that error string
+  ever — 2026-08-11 08:02Z and today. The 08-11 one is this lane's own persistence
+  control ("the eighth was a no-await skipped run and keeps its full result") — the
+  persistence reading was right and the run's `write_findings` failure went unremarked
+  here. Correction recorded: the control run was ALSO the first firing of a distinct
+  defect, now filed as `bugs_open/299`.
+- Provenance of 299: guard born `f2a222964` (drain's first commit), skip born `def22cd4d`
+  (requester's first commit) — born incompatible, never exercised until VIZ-015 swept a
+  page-less site. Fixed same day: skip case added to `WriteRenderAuditFindingsAction`
+  (top-level only, so the still-awaited signal keeps hitting the loud guard; returns
+  before any DB work, so retraction cannot fire on a skip). 15/15 tests green; mutation
+  (skip key renamed) fails the new test, revert restores green. Commit `89b3e582b`,
+  `Council-Submitted: eaa043d7-867f-4d40-a0d9-c41b41e56cf9`.
+- Council gate note: `bugs_open/294`'s §10 row (filed this morning) says the gate is down
+  on Anthropic quota until 09-01; my run was EXECUTING (`review_prior_art`) within a
+  minute of submission at 12:46Z. Verdict pending — will record here and correct 294's
+  row only once the verdict actually lands (a dispatched-and-executing run is not yet a
+  completed one).
