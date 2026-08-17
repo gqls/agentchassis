@@ -14,7 +14,7 @@ REGION ?= uk001
 REGION_PATH ?= uk_001
 REGISTRY ?= docker.io/aqls
 #IMAGE_TAG ?= latest
-IMAGE_TAG ?= v1.0.1299
+IMAGE_TAG ?= v1.0.1305
 
 # Paths
 TERRAFORM_DIR := deployments/terraform/environments/$(ENVIRONMENT)/$(REGION)
@@ -35,6 +35,81 @@ ifeq ($(ENVIRONMENT),production)
 else
     OVERLAY_PATH := $(ENVIRONMENT)
 endif
+
+#################################
+# Release enumeration — ONE declaration per set (bugs_open/237)
+#
+# There used to be FOUR separately hand-maintained lists of "the release's
+# services" (deploy-agents' per-service blocks, update-kustomization-images'
+# for-list, redeploy-agents' restarts, push-backend's pushes), plus a fallback
+# that GUESSED a service's image name from its service name. A service present
+# in the filesystem but absent from a list was silently never rolled:
+# render-audit-adapter sat 86 tags behind the fleet (v1.0.1194 vs v1.0.1280)
+# with a live credential leak (bugs_open/233) because of exactly that. Same
+# pattern as bugs_open/066's four unscoped UPDATEs: now there is ONE
+# declaration and the targets loop over it.
+#
+# RELEASE_IMAGES — the images build-backend/push-backend produce at
+# $(IMAGE_TAG). An image NOT in this list is never retagged by a release
+# (check services, github runners, ollama: own lineage, own deploy cadence).
+RELEASE_IMAGES := auth-service core-manager agent-chassis reasoning-agent \
+	web-search-adapter web-scrape-adapter git-adapter image-generator-adapter \
+	thunder-adapter analyser-adapter browser-runner-adapter \
+	content-creator-agent remote-job-spawner kafka-scheduler
+
+# AGENT_DEPLOY_SERVICES — what deploy-agents retags and applies. Entry form is
+# <service>[:<image>]; the image defaults to the service name. A service that
+# runs ANOTHER service's binary declares that image here — visibly, in one
+# place — instead of relying on a buried special case:
+#   render-audit-adapter runs the browser-runner image (different topic and
+#     consumer group; it deliberately has NO build/push of its own, and none
+#     should be added);
+#   vet-intel and business-intel run the agent-chassis image.
+# ORDER is preserved by the loops; render-audit-adapter sits directly after
+# browser-runner-adapter because the two must move together — the tag applied
+# to it has to be one the browser-runner was actually built at.
+AGENT_DEPLOY_SERVICES := agent-chassis reasoning-agent web-search-adapter \
+	web-scrape-adapter git-adapter image-generator-adapter thunder-adapter \
+	analyser-adapter browser-runner-adapter \
+	render-audit-adapter:browser-runner-adapter content-creator-agent \
+	remote-job-spawner kafka-scheduler vet-intel:agent-chassis \
+	business-intel:agent-chassis
+
+# RETAG_EXEMPT — overlays that pin a RELEASE_IMAGES image but are retagged by
+# their OWN deploy path, named here so check-release-coverage can hold them to
+# it. Entry form is <service>:<the make target that retags it>.
+RETAG_EXEMPT := auth-service:deploy-auth-service core-manager:deploy-core-manager
+
+# check-release-coverage (the door-closer for bugs_open/237's class): every
+# overlay on disk that pins a release-built image MUST be in one of the two
+# lists above, or the release refuses to run. This is what makes the next
+# image-sharing service impossible to ship silently un-rolled — the filesystem
+# is enumerated, so forgetting the list is caught at the very next release
+# instead of drifting for months.
+.PHONY: check-release-coverage
+check-release-coverage: ## Fail if an overlay pins a release-built image but is in no release path
+	@fail=0; \
+	for f in $(KUSTOMIZE_DIR)/services/*/overlays/$(OVERLAY_PATH)/kustomization.yaml; do \
+		[ -f "$$f" ] || continue; \
+		svc=$${f#$(KUSTOMIZE_DIR)/services/}; svc=$${svc%%/*}; \
+		img=$$(awk '/^images:/{i=1;next} i&&/name:/{print $$NF;exit}' "$$f"); \
+		[ -n "$$img" ] || continue; \
+		case " $(foreach i,$(RELEASE_IMAGES),$(REGISTRY)/$(i)) " in \
+			*" $$img "*) ;; \
+			*) continue;; \
+		esac; \
+		covered=0; \
+		for entry in $(AGENT_DEPLOY_SERVICES) $(RETAG_EXEMPT); do \
+			[ "$${entry%%:*}" = "$$svc" ] && covered=1; \
+		done; \
+		if [ "$$covered" -eq 0 ]; then \
+			fail=1; \
+			echo "$(RED)RELEASE COVERAGE: $$svc pins $$img (a release-built image) but is in NO release path — it would freeze at its current tag for ever (bugs_open/237).$(NC)"; \
+			echo "$(YELLOW)  fix: add '$$svc' (or '$$svc:<image>') to AGENT_DEPLOY_SERVICES, or exempt it as '$$svc:<its-deploy-target>' in RETAG_EXEMPT.$(NC)"; \
+		fi; \
+	done; \
+	[ "$$fail" -eq 0 ] || exit 1
+	@echo "$(GREEN)Release coverage OK: every overlay pinning a release-built image is in a release path.$(NC)"
 
 #################################
 # Help
@@ -1010,22 +1085,26 @@ destroy-core-manager: ## Destroy core-manager using Terraform
 	@$(MAKE) destroy-service path=$(TERRAFORM_DIR)/services/core-platform/1120-core-manager
 
 
-# Update all agent images
+# Update all agent images. The service list and each service's image are the
+# ONE declaration at the top of this file (AGENT_DEPLOY_SERVICES, bugs_open/237)
+# — the fallback below writes the DECLARED image, never a guess from the
+# service name, which was correct for every image-owning service and silently
+# wrong for the three that run another service's binary.
 .PHONY: update-kustomization-images
-update-kustomization-images: ## Update image tags in kustomization.yaml files
+update-kustomization-images: check-release-coverage ## Update image tags in kustomization.yaml files
 	@echo "$(YELLOW)Updating kustomization.yaml files with image tag $(IMAGE_TAG)...$(NC)"
-	@for agent in agent-chassis reasoning-agent web-search-adapter web-scrape-adapter git-adapter image-generator-adapter content-creator-agent remote-job-spawner kafka-scheduler vet-intel business-intel render-audit-adapter; do \
+	@for entry in $(AGENT_DEPLOY_SERVICES); do \
+		agent=$${entry%%:*}; img=$${entry#*:}; [ "$$img" = "$$entry" ] && img=$$agent; \
 		kust_file="$(KUSTOMIZE_DIR)/services/$$agent/overlays/$(OVERLAY_PATH)/kustomization.yaml"; \
 		if [ -f "$$kust_file" ]; then \
 			echo "Updating $$agent kustomization.yaml..."; \
 			if grep -q "images:" "$$kust_file"; then \
 				sed -i.bak '/images:/,/^[^ ]/{/newTag:/s/newTag:.*/newTag: $(IMAGE_TAG)/}' "$$kust_file"; \
+				rm -f "$$kust_file.bak"; \
 			else \
-				img="docker.io/aqls/$$agent"; \
-				case "$$agent" in render-audit-adapter) img="docker.io/aqls/browser-runner-adapter";; esac; \
 				echo "" >> "$$kust_file"; \
 				echo "images:" >> "$$kust_file"; \
-				echo "  - name: $$img" >> "$$kust_file"; \
+				echo "  - name: $(REGISTRY)/$$img" >> "$$kust_file"; \
 				echo "    newTag: $(IMAGE_TAG)" >> "$$kust_file"; \
 			fi; \
 		fi; \
