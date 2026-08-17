@@ -16,6 +16,27 @@ to N=10 (a bare run enforces the ruling; `--census` keeps the no-budget census).
 clauses updated to the ruled form by migrations `404`/`405` (the "N is not yet ruled"
 sentence 402/403 shipped was falsified by this ruling).
 
+> **UPDATE 2026-08-17 — the cron half SHIPPED, so nothing here is open any more.**
+> `optional-key-budget-check` is live in the cluster (CronJob, `50 6 * * *` UTC,
+> created 2026-08-14) and has written its `doc_notes` row every day since — 08-14,
+> 15, 16, 17 — including on clean results, which is the property that makes a
+> MISSING row mean "the job did not run" rather than "nothing is wrong". The
+> paragraph below (and CLAUDE.md's RFC_022 clause, corrected the same day) still
+> read "whether to build it at all is the remaining choice", which sent a session
+> to build what already existed.
+>
+> **The one live defect found while verifying it, now fixed:** `check.py`'s
+> `OPTIONAL_KEY_COUNTS` literal had drifted from the registry — `retract_asset_files`
+> (4 keys) and `publish_site` (3) had entered the registry counted as **ZERO**, so
+> their optional surface was invisible to the accumulation check. The parity test
+> `TestBudgetCronCountsLiteralMatchesTheRegistry` existed and was FAILING at HEAD;
+> nobody had run it. Regenerated (118 → 120 entries, +2 lines, nothing else
+> touched), committed, and the kustomize overlay re-applied so the CLUSTER carries
+> it (verified at the live ConfigMap, not at the file). **Blast radius, stated
+> honestly: no finding was missed** — both actions are far under N (4 and 3 keys,
+> 0 and 1 carriers). The blindness was latent, not live; it would have mattered to
+> an action that grew while unlisted.
+
 **Still open, operational not architectural:** whether the counter runs on a daily
 CronJob or stays on-demand. The owner ruled the language half (2026-08-14, "we can keep
 the python"): the RFC_006 check's Python mirror STAYS — no Go-native rework — and a
