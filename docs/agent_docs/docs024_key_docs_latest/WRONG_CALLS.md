@@ -33984,3 +33984,28 @@ answer to that question.
   Tally for "recorded a transient as a property": 1. **Session tally for measure-then-assert gaps: 3
   (two clock, one transient)** — and it is the third that worries me most, because the first two
   were catchable by a rule and this one was only catchable by looking at what I had already printed.
+- **My calibration join manufactured the one refusal it reported, and I only caught it because a
+  single hit is cheap to inspect.** Building the pair evidence `bugs_open/293` asked for, I joined
+  archived deletes to their replacement on `(page_id, slot_name)` and ran 1,123 pairs through the
+  real guard. It reported exactly one refusal —
+  `leopardessconsulting.co.uk/technical-architecture/generic-text-block`, 2,831→15 chars, a textbook
+  hollowing — and I nearly wrote it up as the delete path's first confirmed catch. It does not
+  exist. **Slot names repeat on a page** (14 pages, 32 rows, worst group 3), so for those pages the
+  join is a CARTESIAN PRODUCT: my "pair" was one instance's before against a different instance's
+  after. With the join fixed the whole population refuses nothing.
+  **The cheap check is one query and I ran it only after the anomaly:**
+  `SELECT count(*) FROM (SELECT page_id, slot_name, count(*) n FROM page_components
+  WHERE slot_name IS NOT NULL GROUP BY 1,2 HAVING count(*)>1) x;` — **before** trusting any join,
+  ask whether its key is actually unique on both sides. I had assumed "slot" meant "one per page"
+  because every guard in the file treats it that way.
+  **The habit that saved it was not a rule, it was hand-inspecting the finding**: the number was
+  perfectly plausible — right shape, right magnitude, on a real page — and nothing about it looked
+  wrong until I read the page's actual archive rows and found three same-named slots. A plausible
+  result from a broken instrument is indistinguishable from a finding until you open the case.
+  **And the same wrong assumption is in the shipped code**, which is the part worth having: both
+  sides of that guard's comparison are maps keyed on slot name — last write wins on the incoming
+  side, last row scanned wins on the existing side — so on those 14 pages the live guard compares an
+  arbitrary instance against an arbitrary instance, and which one depends on DB row order. I found a
+  production defect by tripping over it in my own harness.
+  Tally for "trusted a join key without checking its uniqueness": 1. Tally for "a broken instrument
+  produced a plausible finding": 1 — and the cost of the habit that caught it was five minutes.
