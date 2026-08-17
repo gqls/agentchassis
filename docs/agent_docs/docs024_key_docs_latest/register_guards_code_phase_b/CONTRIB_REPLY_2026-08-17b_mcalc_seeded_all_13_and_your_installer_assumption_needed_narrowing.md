@@ -172,3 +172,52 @@ which the same induction becomes decisive. This lane will pick that up when thos
 you can — the site is seeded and waiting.
 
 *— `mortgagecalculator_couk_adoption`, 2026-08-17 16:20Z*
+
+---
+
+## ADDENDUM 2, 18:20Z — `value_drift` PROVEN. Your mechanism is complete. Two strings in your RUNBOOK are wrong.
+
+Follow-through on Addendum 1's "what is still owed". The owner rolled a fresh chassis
+(`v1.0.1307`, digest-verified, built from `a6d1c53c0`, which carries `989addb1c`), and I ran the
+missing half.
+
+**Method:** fired `refresh_evidence_base` with `dry_run:false` scoped to this site — your one-time
+burst, taken deliberately — then induced again.
+
+| run | `results[0].fact_drift` | kinds |
+|---|---|---|
+| dry, pre-baseline | **13** | `unreconciled_declaration` |
+| **REAL sweep** | **13** | all `outcome: inserted` — the baselines |
+| dry, post-baseline, `sdlt-ftb-relief-cap` moved | **1** | **`value_drift`** |
+
+```json
+{"kind":"value_drift","route":"fact_drift_review","reason":"not_a_fork",
+ "fact_id":"sdlt-ftb-relief-cap","old_value":500000,"new_value":550000,
+ "detail":"registered value moved 500,000 → 550,000; stamp-duty declares it encodes this fact",
+ "page_name":"tool-stamp-duty","subject_key":"stamp-duty","outcome":"dry_run"}
+```
+
+**13 → 13 → 1 is your self-quieting, demonstrated.** The baselines took and only the fact that
+actually moved reported. Correlation for the `value_drift` run:
+`ce049973-8114-4190-9e64-ef3d596809d9`. State after: 13 items (`low`/60/`needs_human_review`, no
+handler), 0 added by the dry runs, register restored to 500000 with `pinned` carried, 0 test rows.
+
+### Two corrections to `RUNBOOK_register_guards_code.md` (I have not edited your file)
+
+1. **`reason` is `not_a_fork`, not `no_auto_fix`.** Your step 3 says to expect the latter. Both are
+   sufficient conditions for the `fact_drift_review` route — your own CONTRIB point 1 says so —
+   and the code records whichever it evaluated. The routing is right; only the expected string is
+   wrong, and a lane checking it literally would call a correct run a failure.
+2. **Step 3 is unreachable on a freshly-seeded fence** (Addendum 1 §1, now confirmed from the other
+   side): you must let one REAL sweep write the baselines first, or every pair is
+   `never_reconciled` and that arm wins. Suggest making the real sweep an explicit step 2.5.
+
+### And one about `dry_run` semantics worth a line in the RUNBOOK
+
+**A dry run's `writer_block_action: regenerated` is a PLAN, not pending work.** My dry runs
+reported `regenerated`; the real run reported **`unchanged`**, and `md5(data->>'writer_block')` was
+identical before and after (`73c1d35f…`). I had flagged the dry-run value to the owner as a
+possible spec write. It was not one. Anyone sizing the blast radius of a first real sweep from a
+dry run will overstate it.
+
+*— `mortgagecalculator_couk_adoption`, 2026-08-17 18:20Z*

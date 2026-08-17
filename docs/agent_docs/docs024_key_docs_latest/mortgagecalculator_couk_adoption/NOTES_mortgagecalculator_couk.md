@@ -3468,3 +3468,75 @@ positive result is indifferent to provenance. It would have mattered had the res
 then "the code is not in this build" and "the mechanism is broken" would have been
 indistinguishable, and I had no evidence to separate them. **Worth knowing for next time: verify
 provenance BEFORE the run, not after, because it is only cheap while the pod is young.**
+
+## 2026-08-17 (evening) — CLM-022 is PROVEN END TO END: the `value_drift` arm fired with the right old→new values
+
+Owner rolled another chassis and said carry on. Both halves of the proof are now closed.
+
+### 0. The build actually shipped this time — checked at the digest, not at the pod
+
+Today's MEMORY line (*a "fresh build" can ship no new code*) applied directly, and the check is
+cheap, so I did it BEFORE the run rather than after (the lesson from this morning's precision note):
+
+- tag moved **v1.0.1305 → v1.0.1307**, new replicaset `6d6d7b9996`;
+- **digests match** — local `docker inspect aqls/agent-chassis:v1.0.1307` and the running
+  `imageID` are both `sha256:8339bdbd7999…` on both replicas. No exec, no controls to get wrong;
+- built from **`a6d1c53c0`** (image label `org.opencontainers.image.revision`, which survives when
+  the `build provenance` log line has scrolled — it had, on both pods, at `--tail=4000`);
+- `git merge-base --is-ancestor 989addb1c a6d1c53c0` → **YES**, so CLM-022's Go is aboard;
+  16 commits in local HEAD are not in it.
+
+**`org.opencontainers.image.revision` on the image is a better provenance source than the startup
+log line** for anything older than a few minutes — same answer, no shelf life.
+
+### 1. The real sweep — 13 baselines written, and the spec NOT touched
+
+Fired `refresh_evidence_base` with `dry_run:false`, scoped by `site_id` (the site's own daily
+mechanism, on demand). [MEASURED] `fact_drift` 13 entries, every `outcome: inserted` →
+**13 `fact_drift_review` items now exist**, all `low` / priority **60** / `needs_human_review`,
+13 distinct `item_key`s, no handler — exactly the burst the CONTRIB predicted.
+
+⚠ **`writer_block_action` came back `unchanged`, not `regenerated`** — and the md5 of
+`data->>'writer_block'` is **`73c1d35f…` before and after**, so nothing in the spec moved. The
+earlier DRY run had reported `regenerated`, which I had flagged as a possible pending spec write.
+**A dry run's `writer_block_action` is a plan, not a prediction of what a real run will do** — do
+not read it as pending work.
+
+### 2. The `value_drift` arm — induced, and it is right
+
+Second induction (window ~15s, 18:18:0x→18:18:23Z, same trap-guarded restore):
+
+```json
+{"kind": "value_drift", "route": "fact_drift_review", "reason": "not_a_fork",
+ "fact_id": "sdlt-ftb-relief-cap", "old_value": 500000, "new_value": 550000,
+ "detail": "registered value moved 500,000 → 550,000; stamp-duty declares it encodes this fact",
+ "page_name": "tool-stamp-duty", "subject_key": "stamp-duty", "outcome": "dry_run"}
+```
+
+**And the self-quieting is proven in the same three runs**, which is the part no single run shows:
+
+| run | entries | kinds |
+|---|---|---|
+| dry, pre-baseline | **13** | `unreconciled_declaration` |
+| REAL sweep | **13** | `unreconciled_declaration` (all `inserted`) |
+| dry, post-baseline, one fact moved | **1** | **`value_drift`** |
+
+13 → 13 → **1**. The baselines took, and only the fact that actually moved reports.
+[MEASURED after] 13 items total, **0 added by the dry run**; 1 current register row, **0** test
+rows; relief cap back at **500000**, `pinned` carried.
+
+⚠ **`reason` is `not_a_fork`, where the other lane's RUNBOOK predicts `no_auto_fix`.** Both are
+sufficient conditions for this route (their CONTRIB point 1 says so); the code records the one it
+evaluated first. The routing is correct — only their expected string is off. Told them.
+
+### 3. A pinned row id expired mid-session, exactly like a `git show HEAD:` baseline
+
+The first re-run of the induction **failed**: `mutate.sql` pinned `2303a6f7…`, which stopped being
+current the moment my own real sweep superseded it. `UPDATE 0`, then the INSERT hit
+`idx_site_specs_current` → transaction aborted, nothing written (verified: 1 current row, no test
+rows). Same shape as MEMORY's *a baseline that reads HEAD expires when you commit* — **and I
+caused the expiry myself, two commands earlier.**
+
+Both scripts now resolve the current row dynamically and the restore reads its target back out of
+the test row's own `notes` (`"… restores to <uuid>"`), so it stays exact without a hardcoded id,
+and it is idempotent. Kept in `scratchpad/{mutate,restore,induce,dryrun_safe,realrun_safe}.sh`.

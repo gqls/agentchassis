@@ -116,49 +116,46 @@ verified; the third was an explanation, not a change.** §5 below is amended in 
 3. **The worker/route fix (§4) was EXPLAINED to the owner, not applied.** Still the owner's call,
    still 36 zones, still needs the council. Nothing changed in the repo or at Cloudflare.
 
-## 0b. ✅ CLM-022 INDUCED PROOF RUN 2026-08-17 16:17Z — the fan-out is LIVE; one arm remains unproven and cannot be proven yet
+## 0b. ✅ CLM-022 PROVEN END TO END, 2026-08-17 — both arms, plus the self-quieting
 
-Owner gave permission for the one write; a fresh chassis had rolled first, so the code was
-re-verified on the NEW binary before anything was concluded from a null (both replicas
-`5bd56bdd9b-6sb8t`/`-jzmns`, one exec: `fact_drift_review` **2**, positive control
-`stale_attestation` **5**, impossible string **0**).
+Nothing is owed on this any more. Seeded (all 13 ids), baselines written, both arms induced.
 
-**Window 14 seconds** (16:17:36→16:17:50Z), restore in a `trap … EXIT` so it fired regardless of
-outcome, flipping `is_current` back onto the ORIGINAL row rather than re-inserting a copy.
-[MEASURED after] register restored, `sdlt-ftb-relief-cap` **500000**, `pinned` carried; induced
-row superseded, **0 current**; **0 `fact_drift_review` items exist fleet-wide** — the dry run
-wrote nothing, as designed.
+**The build was checked at the DIGEST first** (today's MEMORY line: *a "fresh build" can ship no
+new code*): tag `v1.0.1307`, local and running `imageID` both `sha256:8339bdbd7999…` on both
+replicas, image label `org.opencontainers.image.revision` = **`a6d1c53c0`**, and
+`git merge-base --is-ancestor 989addb1c a6d1c53c0` → YES. **Use the image label, not the
+`build provenance` log line** — the log line had already scrolled at `--tail=4000` on 68-minute-old
+pods; the label never expires.
 
-| run | `results[0].fact_drift` | kind | route | `new_value` seen for the changed fact |
-|---|---|---|---|---|
-| baseline (register 500000) | **13** | `unreconciled_declaration` | `fact_drift_review` | **500000** |
-| induced (register 550000) | **13** | `unreconciled_declaration` | `fact_drift_review` | **550000** |
+**The three runs, which together are the proof:**
 
-**PROVEN.** The fan-out resolves a declaration on a tool the acceptance ladder cannot see
-(`tool-stamp-duty`: 2 components, 0 tool-level — the exact case the other lane refused to key on
-`toolEligibilityWhere` for); resolves the right page; routes all 13 to `fact_drift_review`,
-correct for a `no_auto_fix` fence; and **reads the register at check time** — the two runs differ
-in exactly the one value that was changed.
+| run | `results[0].fact_drift` | kinds | note |
+|---|---|---|---|
+| dry, pre-baseline | **13** | `unreconciled_declaration` | nothing written |
+| **REAL sweep** (`dry_run:false`, site-scoped) | **13** | all `outcome: inserted` | the 13 baselines |
+| dry, post-baseline, one fact moved | **1** | **`value_drift`** | `old_value 500000 → new_value 550000` |
 
-**NOT PROVEN, structurally.** Both runs are `kind: unreconciled_declaration` /
-`reason: never_reconciled` — **not** the `kind: value_drift` their RUNBOOK step 3 predicts. On a
-freshly-seeded declaration every (fact, tool) pair is never-reconciled and that arm wins, so
-**`value_drift` is unreachable by induction until a REAL (non-dry) sweep records the 13
-baselines.** Anyone re-running step 3 today will get this same result and it is CORRECT, not a
-failure. Told the other lane; their step 3 needs that caveat.
+13 → 13 → **1** is the self-quieting, and no single run shows it.
 
-**⚠ THE TRAP that nearly buried this.** `fact_drift` is **per-site, nested**:
-`refresh_result->'results'->N->'fact_drift'`. There is no top-level key, and the top-level
-`total_drifted` counts **citation** drift, not fact drift — it read **0** on both runs while each
-carried 13 entries. The obvious query says "it did not fire" and the neighbouring counter appears
-to confirm it. It was reported that way out loud before the full payload was dumped
-(`WRONG_CALLS.md` 2026-08-17). **Read `results[N].fact_drift`; never read `total_drifted` as the
-fact-drift count.**
+**State now:** 13 `fact_drift_review` items, `low` / priority 60 / `needs_human_review`, no
+handler — the one-time burst, exactly as the other lane documented. Register: 1 current row, relief
+cap **500000**, `pinned` carried, **0** induced-test rows. The dry runs wrote nothing.
 
-**What is owed next:** let the daily sweep run for real once (it writes the 13 one-time
-`fact_drift_review` items, which become the baselines and self-quiet), then the `value_drift` arm
-becomes inducible. That is the remaining half of CLM-022's proof and it belongs to whoever is
-holding this lane when those 13 items land.
+⚠ **Two corrections for anyone re-running this** (both told to `register_guards_code_phase_b`):
+- **`reason` is `not_a_fork`, not the `no_auto_fix` their RUNBOOK predicts.** Both are sufficient
+  conditions for this route; the code records the one it evaluated. Routing is correct.
+- **A dry run's `writer_block_action: regenerated` is a PLAN, not pending work.** The real run
+  reported `unchanged` and the spec's `writer_block` md5 was identical before and after.
+
+⚠ **The reading trap still stands:** `fact_drift` is per-site nested —
+`refresh_result->'results'->N->'fact_drift'`. The top-level key does not exist and `total_drifted`
+counts CITATION drift; together they say "it did not fire" about a run that fired 13 times
+(`WRONG_CALLS.md` 2026-08-17).
+
+⚠ **A pinned row id expires.** The first re-run aborted on `idx_site_specs_current` because
+`mutate.sql` named a row my own real sweep had just superseded. Nothing was written. The scripts
+in `scratchpad/` now resolve the current row dynamically and the restore reads its target from the
+test row's `notes`, so it is exact and idempotent.
 
 ## 0. What changed this afternoon, in one paragraph
 
