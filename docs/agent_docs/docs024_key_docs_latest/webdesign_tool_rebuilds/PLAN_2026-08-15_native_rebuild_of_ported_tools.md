@@ -115,3 +115,23 @@ more weight for a rich app than for a converter:
 > the md5 is what lets a later session prove the bytes it is restoring are the bytes that were served.
 > `page_component_history` remains the right place to look for content-CHANGING writes (a section
 > edit, a rerender that rewrites a slot); it is simply not part of the retire path.
+
+### OWNER RULINGS 2026-08-17 — batch cadence, and the four index-blocked tools
+
+Both put to the owner after rebuild #3 proved the recipe a second time, with the measured options.
+
+1. **Cadence: ONE AT A TIME, and the owner sees each served page before the next is filed.** This is
+   PLAN §4 applied as written rather than as a gate on the pilot only. The alternatives offered were
+   continuous running, or continuous-for-simple-tools with the rich apps stopping for review; the
+   owner chose the strictest. **Consequence for whoever holds this lane: do not queue ahead.** A tool
+   takes ~16 minutes end to end on an empty queue and ~90 on a busy one, essentially all of it
+   dispatcher backlog, so the cadence costs review latency rather than machine time.
+2. **The four index-blocked tools: deactivate ONLY the two blocking templates that are both unplaced
+   and unforked.** `tool-bg-remover` (`bdd2990a…`) and `tool-prompt-architect` (`2c941ec2…`) — 0
+   placements, 0 forks each, verified before the write and asserted inside the transaction. **Applied
+   2026-08-17, `UPDATE 2`.** `tool-ab-test-calculator` and `tool-meme-generator` stay blocked and stay
+   on their ported versions: other sites run live forks of those two templates. The durable question —
+   whether a tool `function` is a fleet-wide or a per-site identifier — went to
+   `architecture_review/RFC_036_…`, with the interim recorded in it.
+
+**Batch state after these rulings: 59 clear, 2 blocked, 2 live and proven.**

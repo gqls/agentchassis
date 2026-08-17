@@ -483,3 +483,20 @@ step we control — which is the argument for filing serially and not batching w
 **Running tally:** live+proven **2** (`tool-aspect-ratio` owner-approved, `tool-markdown-tables`) ·
 blocked on the unique-index decision **4** · remaining clear **57** · builds attempted 3, failed 1
 (#2, the index collision — a filing-time defect, not a generator defect).
+
+## 2026-08-17 12:4xZ — the two owner rulings applied; RFC 036 filed
+
+- **Two templates deactivated, guarded.** `bdd2990a` (`tool-bg-remover`) and `2c941ec2`
+  (`tool-prompt-architect`): pre-asserted **0 `page_components` placements** and **0 rows with
+  `forked_from` pointing at them**, then `UPDATE 2`, then post-asserted that (a) the unique slot for
+  both functions is now free and (b) `8c9a6e06`/`6ae53f32` — the two templates with live forks
+  elsewhere — are **still active**. The placement check was the one that mattered: "unforked" alone
+  would not have told me the template was not itself serving a page somewhere.
+- **RFC 036 filed** (`architecture_review/`): the durable question is that
+  `idx_cc_tool_function_unique` is fleet-wide while gate A and TL-033 both treat a tool's identity as
+  per-site, and the two gates see near-complementary sets. Blast radius measured for it: **76 of 116**
+  live tool components occupy a unique slot, 26 are forks. Interim recorded inside the RFC so it does
+  not read as unaddressed.
+- **Batch state: 59 clear · 2 blocked (`ab-test`, `meme-generator`) · 2 live and proven.**
+- **Cadence is now ONE AT A TIME with owner sight of each served page** (owner ruling, PLAN). Holding
+  before filing #4 until `tool-markdown-tables` has been seen.
