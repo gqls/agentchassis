@@ -70,7 +70,28 @@ resolved — probing candidate-by-candidate costs ~15s each and timed out; if it
 probe from the pods' start time backwards, and see §3's warning about the PREVIOUS build
 which shipped nothing.
 
-## 1. DO NOT START — the hold, and what it covers
+## 0d. UPDATE 2026-08-17 night — HOLD LIFTED by the owner; terms LIVE; one thing blocked
+
+**The owner has ruled and work has resumed.** Terms are live and proven at the bot
+(pay before build; ZIP to keep + ~1 month preview as an added benefit; no refunds justified
+against the deal). `billing_settings.payment_timing` moved to `upfront` in the same
+transaction. The bot no longer assumes a business (two places: box env AND compiled
+`promptConduct`).
+
+**BLOCKED, and this is the one live thread:** the chat is in the index PLAN and in
+`pages.sections`, but the rebuild that would place it failed at `validate_content`
+("1 blockers, 0 errors") and **the blocker cannot be identified from stored data** — the
+failing step's output is not persisted. The home page is UNCHANGED and safe. Next action and
+the two ways to capture the blocker are in the NOTES 2026-08-17 (night) entry. Do not guess.
+
+**Owner still owes:** a decision on the LEAD (proposal F, "show the work, promise nothing",
+in `DECISION_2026-08-17_reasons_for_the_no_refund_position.md`) and the example sites he
+said he would build on his own domains.
+
+**New TODO recorded:** a prompt maker, his preferred route being to make the EXISTING chat
+box do it (same file, §"TODO added at the owner's request").
+
+## 1. SUPERSEDED HOLD (kept for the record) — what it covered
 
 Everything in `REQUIREMENTS_2026-08-17_owner_brief_pending_new_plan.md` is held:
 the chat move, the exclusions/positioning copy, the payment-terms correction, and the

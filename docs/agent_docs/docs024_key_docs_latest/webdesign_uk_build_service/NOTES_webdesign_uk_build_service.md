@@ -3212,3 +3212,52 @@ this session's cold-start falsifier sweep:
   a plausible-fake negative control also absent). Exact commit unresolved — the
   candidate-by-candidate probe costs ~15s per exec and timed out after 7. Nothing of mine
   depends on it: step 6 is config (live on apply), TL-043 was already live.
+
+## 2026-08-17 (night) — terms LIVE and proven at the bot; chat is IN THE PLAN and in pages.sections, but the home-page rebuild is BLOCKED by a claims blocker I could not identify from stored data
+
+- **Terms applied and verified** (`SQL_2026-08-17b_terms_pay_before_build.sql`): three facts
+  changed by jsonb surgery (other twelve carried through, fact count asserted 15),
+  writer_block's payment sentences edited by anchor, and
+  **`billing_settings.payment_timing` flipped `after_approval` → `upfront` in the same
+  transaction** — it is a real setting read by auth-service (`repository.go:247`), and the
+  retired fact's own note said to re-check it. Copy and system would otherwise disagree.
+  - First apply attempt **ABORTED on a syntax error in my own verify block** (mismatched
+    parens in a `bool_and` subquery). Confirmed clean rollback before retrying — 1 current
+    row, switch still `after_approval`, old fact still present. Fixed and re-applied.
+  - **Proven at the artefact**: the live bot now answers *"No. Payment comes first, then you
+    get the finished site as a ZIP file and a preview link… stays live for about a month."*
+    It promised the opposite an hour earlier. Needed a service restart to beat the 5-minute
+    facts cache — worth knowing when verifying a register change against the bot.
+- **Bot no longer assumes a business.** Two separate places, and the second is easy to miss:
+  `SITE_DESCRIPTION` (box env) AND `promptConduct` (compiled Go: *"Ask what business the
+  visitor runs"*). Fixed both; rebuilt and redeployed `sitechat` (md5 `f07fb146…` local ==
+  box). Verified: a running-club enquiry is now asked what the club is called.
+- **The chat on the home page — half done, and the half that works is the interesting half.**
+  Added `chat-input-box` to the CURRENT plan for `index` at ordering 2 (after
+  `brief-explanation`, which is the price block), shifting `call-to-action` down.
+  **That worked**: `plan_sections` marked all four sections `ready` — including the tool —
+  and `pages.sections` for index now reads
+  `["hero","brief-explanation","chat-input-box","call-to-action"]`.
+- **⚠ BUT the rebuild FAILED and nothing was placed.** Item `762f09c0` →
+  `needs_human_review`; `__step_error` = *"step validate_content failed: content validation
+  failed: **1 blockers, 0 errors**"*. `page_components` for index are UNCHANGED (still
+  2026-08-16), so **the page is intact and safe** — the gate refused before any write.
+  - **I could not identify the blocker.** The failing step's `validate_content` output is
+    NOT persisted (`valid`/`issues`/`blockers` all null on the run — the error step runs
+    instead of the output field being populated), and `agent_error_log` carries no row for
+    it. **This is the actionable gap**: a blocker that stops a page and names itself nowhere
+    a later reader can reach.
+  - Known: **banned claims are blockers** (`validate_page_content_claims_test.go`). The two
+    payment-related bans are `\bdeposits?\b` and
+    `\byou only pay if you (like|love|are happy|want)\b|\bbefore any money changes hands\b`.
+    Their PATTERNS remain correct under the new terms (more so). Their stated REASONS now
+    cite the retired `payment_after_approval` fact and should be re-worded on the next
+    supersede — cosmetic, not blocking.
+  - **NEXT ACTION for whoever picks this up:** re-dispatch the index rebuild and capture the
+    issue list at the moment it is produced — either add the issues to the error path, or
+    run `cmd/claimscan` over the writer's output before `validate_content` sees it. Do not
+    guess at the blocker; the previous copy is gone (never saved).
+- **Discovered in passing** (another site's rows, same window): `save_page_sections` refuses a
+  page whose `rebuild_policy='owned'` — *"tool/widget-owned: a generic section save would
+  clobber it"*. Once the chat IS placed on index, index may become owned, and a generic
+  rebuild of it would then be refused. Worth knowing before designing the placement.
