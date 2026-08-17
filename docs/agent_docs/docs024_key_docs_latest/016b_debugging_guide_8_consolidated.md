@@ -12528,3 +12528,44 @@ check's later findings are dropped with no error. Any census of "how many rows a
 in the wrong state" therefore undercounts the harm: the re-detections are gone.
 When you find rows stuck in a non-terminal failure state, always ask what the dedup
 index does with that state.
+
+### An item TYPE named for a state is not the STATE — a config that omits `status` births the row at the dispatchable default, whatever its type says (`bugs_open/291`, 2026-08-17)
+
+**Symptom shape.** Work items whose `item_type` announces a parked, human-facing
+lifecycle (`needs_human_review`) arrive `blocked` with `error='Handler agent not
+registered: <name>'`, growing daily, each pinning its `(site_id, item_key)` dedup
+slot so the producer's later findings for the same key are silently dropped.
+
+**Mechanism.** The generic `create_work_item` action takes `status` from step
+config and **defaults to `'triaged'`** — the dispatch queue's entry status — when
+the key is absent (`create_work_item_action.go`). tool-auditor's `create_review_item`
+step set `item_type: needs_human_review` and `handler_agent: hitl-review` but no
+`status`, so every "needs a human" finding was born dispatchable and addressed to
+an agent that has never existed (an April 2026 *convention* whose handler was a
+roadmap row nobody built). Claim's handler-not-registered branch then stamped each
+one `blocked`, where `feasibility-recheck` can never promote it. The word
+`needs_human_review` appearing in the row was doing NO work — it is a status
+string used as a type string, and only the STATUS column parks anything.
+
+**The diagnostic moves.**
+1. When a "parked-looking" item is in the wrong state, diff it against a row of
+   the shape that works: `SELECT k, a.j->>k, b.j->>k FROM ... jsonb_object_keys`
+   (the LANDMINES work-item diff). Here it names `status` in one query.
+2. Ask where the value CAME from before asking why it is wrong: the producer's
+   config had no `status` key at all — the birth status was the CODE's default,
+   which no grep for `'triaged'` in config will ever find.
+3. A sibling producer that looks identical and does NOT bleed is the control:
+   `resolve_composition_layout` paired the same phantom handler with an explicit
+   `status: "needs_human_review"` and never took the flip — proving the handler
+   name was inert and the missing status was the whole defect.
+
+**The class fix** (WDS-018, commit `c8400e452`): the shared write door now demotes
+a dispatchable-born item at an unregistered NAMED handler to born-`blocked` using
+claim's own predicate — moved EARLIER, same shared renderer, per this guide's
+"where the guard belongs" entry directly above. The empty-handler half is CHECK
+443's (284); the named-but-unregistered half cannot be a CHECK (no subqueries),
+so it lives at the door. And `create_work_item` now accepts the parking idiom
+(`status: needs_human_review`, no handler) from config — the old unconditional
+"handler_agent is required" validation is what forced the phantom name into
+config in the first place. A validation that refuses the correct shape does not
+prevent the wrong one; it SELECTS for it.

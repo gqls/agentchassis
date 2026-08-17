@@ -44,3 +44,46 @@
   2026-08-17 06:15→10:27 on webdesign.co.uk); the bleed is live, hence config-first phasing.
 - 090 filed 12:03Z: `RUN_CORRELATION_ID=3555b514-ca8f-4f31-9f55-e105ce73e961` (dispatch-loop
   correlation, the artifact key). Verdict pending at time of writing.
+
+## 2026-08-17 (later) — Phase 1 LIVE, Phase 2 committed, 090 verdict in (with a self-inflicted caveat)
+
+- Migration numbers moved TWICE under us on the shared tree (446 taken at plan time;
+  447 and 449 taken by other sessions by write time) → ours are **450** (config,
+  status-only) + **451** (repair). Both applied by hand + `--record-only` 12:07-12:08Z.
+- Phase 1 verified at the artefact: config path carries `status: needs_human_review`
+  (handler untouched, deliberately); snapshot proven PRE-update in
+  `agent_definitions_backup` (no status key in backup, key in live); **0 rows** at the
+  blocked predicate; all **14** repaired rows at `needs_human_review`/`''` with
+  `result.repair_291`.
+- Phase 2 committed **`c8400e452`** (guard + relaxed validation + resolve_composition
+  flip + 6 tests + WDS-018 + index row). Full actions suite green.
+  **Mutation proofs, 3, all bit**: (1) guard block disabled → born-blocked test fails
+  on INSERT arg $12; (2) trigger set widened → `TestStatusRequiresRegisteredHandler_
+  ExactlyCheck443sList` fails by name; (3) function call bypassed (probe
+  unconditional) → the scripted-probe tripwire fails the parked shapes on a demoted
+  INSERT.
+- **MISSTEP (logged fleet-wide in WRONG_CALLS.md): the first version of the
+  parked-shapes test PASSED under mutation (2).** A bare no-probe-expectation cannot
+  catch a widened trigger set, because the guard's own probe-failure fall-through
+  swallows sqlmock's unexpected-query error and inserts normally — my graceful-degrade
+  design defeated my own negative test ("a mutation that passes usually hit a guard in
+  series"). Fix: script the probe to answer "not registered" as a TRIPWIRE (wrongly
+  probing build demotes → INSERT arg mismatch) + a function-level exact-set pin.
+- **MISSTEP #2 (WRONG_CALLS.md): I repaired the state the 090 run was about to read.**
+  Filed 12:03; migrations applied 12:07-08; diagnoser queried ~12:10+. Verdict
+  **CONFIRMED** on the core (phantom handler, config route) but three legs read
+  "contradicted" — all three caused by 450/451 landing first, all three true at filing
+  time (dated first-hand evidence above). The verdict artifact will mislead a cold
+  reader; the bug file now carries the timeline caveat.
+- 090 bonus: one parked `hitl-review` row from 2026-08-12
+  (`needs_new_layout_candidate`, site-design-planner) — resolve_composition_layout IS
+  live and reachable, contra the repo-side "no workflow wires it" uncertainty. Staged
+  Phase 3 file extended to sweep parked rows' handler to `''` (scoped to
+  `status='needs_human_review'`, refuses if any NON-parked row still carries the name).
+- Council submitted 12:20Z: `SUBMISSION_CORR=4d1ed8a5-20c4-420f-b619-6197ab9af1b2`,
+  committed with `Council-Submitted:` trailer per the 2026-07-30 rule. Verdict pending
+  (~30 min budget); READ IT and act on REVISE/REJECTED — the code is on the shared
+  branch.
+- Docs done: 027/020/016 hitl-review retirement (docs024 + docs014 twins, 6 files);
+  016b §9 entry ("an item TYPE named for a state is not the STATE"); LANDMINES entry
+  (create_work_item status default) + `landmines-verify-dispatch.sh` run (dispatched 1).

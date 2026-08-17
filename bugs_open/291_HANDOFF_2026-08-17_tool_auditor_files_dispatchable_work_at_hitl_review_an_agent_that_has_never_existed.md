@@ -99,3 +99,81 @@ subquery `agent_definitions`, so "this handler exists" is not expressible there.
 `default_config`, `claim_work_item_action.go`'s handler-not-registered branch,
 `resolve_composition_layout_action.go:375-390`, and the `needs_human_review`
 population split by `handler_agent`. Check the queue first.
+
+---
+
+## 2026-08-17 (session bugfix-291) — taken on; root cause pinned; fix live in part
+
+Owning workstream: `docs024_key_docs_latest/bugfix_291_hitl_review_phantom_handler/`.
+`090` run filed: `3555b514-ca8f-4f31-9f55-e105ce73e961`.
+
+> **CORRECTED 2026-08-17 (two claims above, both `[MEASURED]` against the live table):**
+> 1. Fix candidate 1 says `needs_human_review`'s other rows "carry an empty handler,
+>    so the idiom already exists in the data". **False as written**: all 7 non-291 rows
+>    carry `handler_agent='human-review'` (checkpoint producers: `tool-recreation-handler`,
+>    `image-url-404-handler`, `generic`) — measured
+>    `SELECT handler_agent, status, count(*) ... WHERE item_type='needs_human_review' GROUP BY 1,2`.
+>    The EMPTY-handler idiom is real but lives in the Go discovery checks
+>    (`check_unverified_claims.go`, `check_voice_tells.go`) and fleet-wide
+>    (544 `''` vs 22 `'human-review'`, `refresh_evidence_fact_drift.go:698-703`) —
+>    not in this item_type's rows. What caught it: re-running the file's own query.
+> 2. The producers section calls `resolve_composition_layout_action.go:390` "the same
+>    mistake waiting to fire". **Half-right**: it names the same phantom handler, but
+>    :391 sets `status: "needs_human_review"` explicitly, so its items are never claimed
+>    and can never take the blocked flip. The wrong HANDLER spread by copying; the safe
+>    STATUS did not. The bleeding difference is that tool-auditor's config has NO status
+>    key, so `create_work_item_action.go:208-211` births its rows at the dispatchable
+>    default `'triaged'`.
+
+**Root cause**: the missing `status` key + the never-built handler. `hitl-review` was
+documented 2026-04-19 as *"a convention, not a registered agent"* with "build the
+hitl-review handler agent proper" as a roadmap row that was never done
+(`old_design_and_styling/HANDOFF_2026-04-19_…update4(3).md:136`); 016 has carried
+"Known missing handlers: `internal-linker`, `hitl-review`" for months. The intended
+consumer of these items already exists and is NOT a dispatch agent: the admin confirm
+endpoint (`confirm_work_item_handler.go:77,95-117`) turns a confirmed
+`spec.check='tool_auditor'` review item into an `improve_tool` follow-up.
+
+**Fix, decided and (in part) live** — candidates 1+2 of this file, candidate 3
+discharged rather than built (the write-door probe against `agent_definitions` IS the
+write-time registry check `bugs_closed/279`'s ratchet header said did not exist):
+
+- **LIVE 2026-08-17**: migration `450` adds `status: "needs_human_review"` to
+  `create_review_item.config` (status ONLY — the live binary hard-errors on an empty
+  config handler at `create_work_item_action.go:184-187`, so flipping the handler now
+  would silently lose every finding under `continue_on_error`); migration `451`
+  re-parked all 14 rows at `needs_human_review`/`''`, error cleared, stamped
+  `result.repair_291`. Verified: 0 rows at the blocked predicate; snapshot proven
+  pre-update in `agent_definitions_backup`.
+- **COMMITTED `c8400e452`, inert until the next chassis roll**: the class fix —
+  `writeWorkItem` demotes a dispatchable-born item at an unregistered NAMED handler to
+  born-`blocked` (claim's own predicate via `workItemHandlerRegisteredSQL`; demote not
+  refuse; feasibility-recheck self-heals on registration); `create_work_item` accepts
+  the parked idiom from config; `resolve_composition_layout` drops the phantom for
+  `''`. Register **WDS-018**. Council `4d1ed8a5-20c4-420f-b619-6197ab9af1b2`
+  (submitted; verdict pending at time of writing).
+- **STAGED** (`bugfix_291_.../STAGED_tool_auditor_review_handler_to_empty.sql`):
+  the flip of tool-auditor's inert parked handler to `''` — MUST NOT apply before the
+  roll (ordering gate in the file header).
+
+**`090` verdict (run `3555b514-…`, completed 12:22): outcome CONFIRMED — with a
+timeline caveat a later reader MUST have.** The run independently confirmed the core:
+`hitl-review` has never existed (0 rows, direct query), the config route files at it,
+and it cited the exact config path. **But its `symptom_check` marks three legs
+"contradicted"/"unexplained" — the no-status-key leg, the blocked-rows leg, and the
+claim leg — and every one of those readings was caused by THIS lane's own fix landing
+between filing (12:03) and the diagnoser's queries (~12:10+):** migration `450` added
+the status key at 12:07, `451` zeroed the blocked population at 12:08. The legs were
+true at filing time — first-hand, timestamped measurements are in this file and the
+workstream NOTES (14 rows at the exact error, measured 12:27Z and again 12:04Z;
+the config walk showing NO status key, measured pre-450). Do not read the run's
+"contradicted" lines as a refutation of the mechanism; they are unintended proof the
+fix works. Sequencing misstep logged in `WRONG_CALLS.md` ("mutated the state a filed
+instrument was about to measure"). Bonus finding from the run: one parked
+`hitl-review` row from 2026-08-12 (`needs_new_layout_candidate`,
+`created_by='site-design-planner'`) — **proof `resolve_composition_layout_action.go`
+is live and reachable**, safely parked; the staged Phase 3 migration sweeps it.
+
+**Stays OPEN until fixed-AND-live**: the roll carrying `c8400e452` is
+provenance-verified, the staged flip applied, and one auditor run files
+`''`+`needs_human_review` review items end-to-end.

@@ -262,7 +262,7 @@ Improvement sweep (scheduler, every 10 minutes)
 │  └─ audit_tool (LLM review)      handler: tool-auditor
 │     ├─ improve_tool (fixable)     handler: tool-improver
 │     │  └─ needs_rerender          handler: rerender-pages
-│     └─ needs_human_review         handler: hitl-review
+│     └─ needs_human_review         parked, no handler (hitl-review retired — bugs_open/291)
 │
 └─ admin dashboard
    ├─ deploy tool (library)         handler: tool-deployer
@@ -281,7 +281,7 @@ Improvement sweep (scheduler, every 10 minutes)
 | `add_tool` | `tool-deployer` or `tool-generator` | `tool_component_id` (null for novel), `name`, `function`, `description`, `library_source`, `target_page`, `complexity` | tool-suggester |
 | `improve_tool` | `tool-improver` | `component_id`, `issue`, `check` (optional), `fix_suggestion` (optional) | tool_health check, tool-auditor, or manual |
 | `audit_tool` | `tool-auditor` | `component_id`, `check`, `page_id`, `page_name` | tool_health check |
-| `needs_human_review` | hitl-review | `component_id`, `tool_function`, `issue`, `fix_suggestion`, `confidence`, `category` | tool-auditor (low-confidence findings) |
+| `needs_human_review` | *(none — parked; `hitl-review` retired 2026-08-17, bugs_open/291)* | `component_id`, `tool_function`, `issue`, `fix_suggestion`, `confidence`, `category` | tool-auditor (low-confidence findings) |
 | `content_rewrite` | `page-build-handler` | `page_name`, `page_id`, `suggestion`, `tool_function`, `tool_display_name`, `source` | tool-suggester (cross-linking) |
 
 ---

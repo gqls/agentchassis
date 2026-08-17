@@ -739,7 +739,7 @@ GROUP BY wi.handler_agent, wi.status
 ORDER BY item_count DESC;
 ```
 
-Known missing handlers as of this writing: `internal-linker`, `hitl-review`.
+Known missing handlers as of this writing: `internal-linker`. (`hitl-review` was retired 2026-08-17 — never built, and the config that named it bled 14 review items to `blocked`; `bugs_open/291`. Since that fix, a dispatchable item born at an unregistered handler is demoted to `blocked` at the write door itself.)
 
 **Resolution:** Either create the agent definition or reclassify the items to an existing handler.
 
