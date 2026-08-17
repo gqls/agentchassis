@@ -194,6 +194,24 @@ func RenderSiteComponentsAction(ctx context.Context, params ActionParams) (inter
 		}
 	}
 
+	// Owner-set override (opt-in, sites.content_data->>'header_cta_url').
+	// Applied AFTER the derivation so absence changes nothing anywhere, and
+	// validated against the SAME ChromeLinkPolicy as the derived CTA — an
+	// owner-set target can go stale, and a stale override must degrade to the
+	// derived behaviour rather than ship a dead button (bugs_open/191's class).
+	ctaText := "Get Started"
+	if v := strings.TrimSpace(siteData.HeaderCTAURL); v != "" {
+		if chromeLinks.Allows(v) {
+			ctaURL = v
+		} else {
+			params.Logger.Warn("RenderSiteComponentsAction: header_cta_url override rejected by chrome link policy; using derived CTA",
+				zap.String("override", v), zap.String("derived", ctaURL))
+		}
+	}
+	if v := strings.TrimSpace(siteData.HeaderCTAText); v != "" {
+		ctaText = v
+	}
+
 	// Build legal links from real pages classified into the legal nav group.
 	// Was a hardcoded {/privacy.html, /terms.html} slice — those pages do not
 	// necessarily exist, so it produced phantom links. Now: only pages that
@@ -264,7 +282,7 @@ func RenderSiteComponentsAction(ctx context.Context, params ActionParams) (inter
 			// CTA defaults — cta_url resolved from the real contact page above
 			// (empty when there is no contact page; the gated header template
 			// then renders no CTA button rather than a phantom).
-			"cta_text":       "Get Started",
+			"cta_text":       ctaText,
 			"cta_url":        ctaURL,
 			"subscribe_text": "Subscribe",
 			"show_subscribe": false,
@@ -331,6 +349,12 @@ type SiteDataFull struct {
 	Tagline     string
 	Email       string
 	Phone       string
+	// Owner-set header CTA override, read from sites.content_data
+	// (header_cta_url / header_cta_text). Opt-in: empty = the derived
+	// behaviour (contact nav item, then the resolver-ranked fallback)
+	// that every existing site gets today.
+	HeaderCTAURL  string
+	HeaderCTAText string
 	LogoText    string
 	LogoURL     string
 
@@ -363,6 +387,8 @@ func loadSiteDataFull(ctx context.Context, db *sql.DB, siteID uuid.UUID, logger 
 			COALESCE(si.phone, ''),
 			COALESCE(si.logo_text, si.company_name, si.name, si.domain),
 			COALESCE(si.logo_url, ''),
+			COALESCE(si.content_data->>'header_cta_url', ''),
+			COALESCE(si.content_data->>'header_cta_text', ''),
 			sc.color_palette::text,
 			ct.css_content
 		FROM sites si
@@ -372,6 +398,7 @@ func loadSiteDataFull(ctx context.Context, db *sql.DB, siteID uuid.UUID, logger 
 	`, siteID).Scan(
 		&s.Domain, &s.Name, &s.CompanyName, &s.Tagline,
 		&s.Email, &s.Phone, &s.LogoText, &s.LogoURL,
+		&s.HeaderCTAURL, &s.HeaderCTAText,
 		&colorPaletteJSON, &themeCSSContent,
 	)
 	if err != nil {
