@@ -5361,3 +5361,30 @@ reads as done.
 `spec={"mode":"brand_head"}`, copying the proven shape exactly). The other three sites are
 other lanes' and are theirs to run — same one-liner, different domain. Verification is at
 the artefact and nowhere else: both files must return 200.
+
+### 4. NOT VERIFIED YET — and the queue arithmetic, because I got it wrong twice
+
+Still `triaged`, `attempt_count = 0`, assets still 404, ~35 minutes after filing.
+
+I twice read a slow queue as a broken one, so here is the arithmetic rather than another
+guess. The dispatcher **serialises per site** — its selector carries
+`NOT EXISTS (SELECT 1 … active.status='claimed' AND active.site_id = wi.site_id)` — and
+orders `created_at ASC`, so a freshly filed item is at the BACK of its site's queue.
+`[MEASURED 2026-08-17 17:0x]` idea.uk holds **36 eligible items and mine is last**; the
+site completed **1** item in the preceding 3 hours.
+
+**The 34 ahead are legitimate, and worth knowing about:** another session fired a
+whole-site reassemble at **15:41** (29 pages, assemble mode, no `spec.reason`) plus a
+five-page `cta_links_stale` batch at 15:34. Not a runaway — the same operation this lane
+ran yesterday — but it means idea.uk's queue is a couple of hours deep and everything
+filed after it waits.
+
+> **Two corrections to my own readings today, same shape both times.**
+> (a) I read the blocking `claimed` row as *stuck since 15:34* — 15:34 was its **created**
+> time; `claimed_at` was 16:54, seven minutes old. Actively processing, not jammed.
+> (b) Yesterday six rerenders landed in ~45 minutes, so I expected the same today. The
+> difference is not the mechanism, it is 34 items that were not there yesterday.
+> **A queue's speed is a property of its CONTENTS, not of the queue** — and
+> `attempt_count = 0` is the discriminator that settles it every time: it means never
+> tried, so nothing is failing and nothing is malformed. A non-zero count would be the
+> real signal.

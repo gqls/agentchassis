@@ -147,6 +147,14 @@ it. That is how D-005's clause could be deleted with both edits reporting `compl
     idea.uk item with the correct mode was filed 2026-08-17
     (`created_by='claude-ideauk-brandhead-20260817'`); **verify at the artefact, both must
     be 200:** `/assets/images/favicon.png` and `/assets/images/og-card.png`.
+    ⚠ **Still `triaged` at handoff, and that is QUEUE POSITION, not failure.** The
+    dispatcher serialises per site (`NOT EXISTS (… status='claimed' … same site)`) and
+    orders `created_at ASC`, so a newly filed item goes to the BACK. Another session
+    started a whole-site reassemble at 15:41 on 2026-08-17 — **35 items ahead of this
+    one**, and idea.uk completed 1 item in the 3 hours after. Give it hours, not minutes.
+    If it is still `triaged` a day later, check for a stuck `claimed` row on the site
+    (that one blocks every other item) rather than assuming the item is malformed —
+    `attempt_count` stays 0 while it waits, which is the tell that it has never been tried.
     ⚠ Read the URL the PAGE references — `/favicon.ico` 404s and proves nothing, nothing
     links it. `logo.png` (the derivation INPUT) is 200, which is what makes this "the
     deriver never ran" rather than "no source".
