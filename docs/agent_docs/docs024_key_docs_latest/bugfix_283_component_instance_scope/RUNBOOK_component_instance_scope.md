@@ -205,3 +205,53 @@ echo '{"adopters":2,"control":5,"active_total":243,"adopter_names":["x","y"]}' |
 ⚠ **If it ever reports `REFUSING TO RUN: the {{.ComponentID}} control matched 0 templates`, do not
 "fix" it by removing the control.** That message means the pattern matching itself stopped working,
 and every zero this job has reported since is worthless. Find out why the control stopped firing.
+
+## 10. Scope the conversion — and the unit is the ROW, never the function
+
+⚠ **`content_components.id` is the conversion unit.** Four functions carry more than one active
+row (`tool-llm-cost-calculator` ×4, `tool-automation-savings-estimator` ×3,
+`tool-affordability-complaint-checker` ×3, `tool-model-approach-selector` ×2), so a
+function-keyed conversion silently skips 9 rows — and a blast-radius measured by function merges
+several single-domain rows into one apparently-shared function. That mistake was made and caught
+here on 2026-08-17: "4 components across up to 5 domains" was really **1 row across 2 domains**.
+
+```sql
+-- THE UNIT + every surface, one denominator (91 rows as of 2026-08-17)
+WITH unit AS (
+  SELECT DISTINCT c.id, c.html_template
+  FROM content_components c JOIN page_components pc ON pc.component_id=c.id
+       JOIN pages p ON p.id=pc.page_id JOIN sites s ON s.id=p.site_id
+  WHERE c.is_active AND c.html_template ~ 'getElementById')
+SELECT 'rows to convert', count(*)::text FROM unit
+UNION ALL SELECT 'literal id= attributes', COALESCE(sum((SELECT count(*) FROM regexp_matches(html_template,' id="[^"{}]+"','g'))),0)::text FROM unit
+UNION ALL SELECT 'getElementById calls',   COALESCE(sum((SELECT count(*) FROM regexp_matches(html_template,'getElementById','g'))),0)::text FROM unit
+UNION ALL SELECT 'rows: window.onload',    count(*) FILTER (WHERE html_template ~ 'window\.onload\s*=')::text FROM unit
+UNION ALL SELECT 'rows: inline on*',       count(*) FILTER (WHERE html_template ~ '\son(click|input|change|submit)=')::text FROM unit
+UNION ALL SELECT 'rows: top-level func',   count(*) FILTER (WHERE html_template ~ '<script[^>]*>[^<]{0,200}function\s+\w+\s*\(')::text FROM unit
+UNION ALL SELECT 'rows: querySelector',    count(*) FILTER (WHERE html_template ~ 'querySelector')::text FROM unit
+UNION ALL SELECT 'rows: id in <style>',    count(*) FILTER (WHERE html_template ~ '<style[^>]*>[^<]*#[A-Za-z]')::text FROM unit
+UNION ALL SELECT 'rows: <label for=>',     count(*) FILTER (WHERE html_template ~ '<label[^>]+for=')::text FROM unit;
+
+-- BLAST RADIUS, per ROW (the number that matters). 1 row on >1 domain, 3 on >1 page.
+WITH place AS (
+  SELECT c.id AS comp_row, c.function, s.domain, p.id AS page_id
+  FROM content_components c JOIN page_components pc ON pc.component_id=c.id
+       JOIN pages p ON p.id=pc.page_id JOIN sites s ON s.id=p.site_id
+  WHERE c.is_active AND c.html_template ~ 'getElementById')
+SELECT function, count(DISTINCT domain) d, count(DISTINCT page_id) pg
+FROM place GROUP BY comp_row, function HAVING count(DISTINCT page_id) > 1 OR count(DISTINCT domain) > 1;
+```
+
+⚠ **Read one real template before designing any transform** — the surfaces are wider than the two
+obvious ones:
+
+```bash
+kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -t -A \
+  -c "SELECT html_template FROM content_components WHERE is_active AND function='mortgages-repayment' LIMIT 1;" > /tmp/t.html
+grep -o ' id="[^"]*"\| on[a-z]*="[^"]*"\|window\.onload[^;]*\|for="[^"]*"' /tmp/t.html
+```
+
+`mortgages-repayment` (read live 2026-08-17): 9 ids, 7 `getElementById`, one
+`onclick="runCalc()"`, one `window.onload = runCalc`. **58 of the 91 rows also carry
+`<label for=>` and 33 reference an id from CSS — neither throws when the id underneath is
+renamed**, so an id-only sweep breaks labels and styling on live pages with no error anywhere.

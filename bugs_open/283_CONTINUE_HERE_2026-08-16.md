@@ -81,12 +81,24 @@ cd $SC && go build ./... && go test ./platform/orchestration/actions/
 
 1. ~~Read the round-2 verdict~~ **DONE — approved; §10 of the case file has every objection and
    what it turned into.**
-2. **Convert the 22 calculator templates.** ⚠ **This is architecture-scope, and the council said
-   so in the same breath as approving.** The `architecture` seat approved round 2 under RFC_022's
-   narrow exception, whose third condition is *zero live consumers* — and its note is explicit:
-   *"the moment the 22 templates start consuming `InstanceID` … that conversion PR, not this one,
-   is where an RFC or at minimum a fresh architecture pass belongs."* So: **`RFC_032` first, or a
-   fresh architecture round.** Then namespace ids with `{{.InstanceID}}-`, scope
+2. **Convert the components — and it is 91 rows, not 22 templates.** ⚠ **SCOPED 2026-08-17; the
+   owner now owes a decision on SHAPE. See `architecture_review/RFC_034` and case file §11.**
+   Measured live: **91 component rows on 94 live pages across 22 domains**, 1,346 literal ids,
+   886 `getElementById` calls. Convert by `content_components.id`, **never by `function`** —
+   4 functions carry forks and a function-keyed sweep skips 9 rows.
+   ⚠ **Two findings that decide the sequencing, both proven in tests, not argued:**
+   **(a) converting the ids ALONE makes the page read clean and leaves it broken** — 0 duplicate
+   ids, but both scripts still declare `runCalc` globally, so every button runs the last
+   instance's logic (`TestIDOnlyConversion_readsCleanOnIDsAndIsStillBroken`). So ids and scripts
+   convert in ONE step per component; a phased "ids now, scripts later" is worse than nothing.
+   **(b) the IIFE route is FORCED** — `{{.InstanceID}}` renders as `c-mortgages-repayment`, which
+   is not a valid JS identifier, so `function runCalc_{{.InstanceID}}()` is a syntax error
+   (`TestInstanceToken_isNotAValidJSIdentifier`). That forces the 22 inline `on*=` handlers to be
+   rewired, which is the part that is not safely mechanical.
+   ⚠ Also 58 rows carry `<label for=>` and 33 reference an id from CSS — **neither throws** when
+   the id underneath is renamed.
+   ~~This is architecture-scope, and the council said so~~ — still true, and `RFC_034` is now that
+   round. When it is decided: namespace ids with `{{.InstanceID}}-`, scope
    lookups to the instance root instead of `document.getElementById`, wrap each script in an
    IIFE (**16 declare at top level**), replace `window.onload` (**8 assign it**). DB writes
    need the owner — this session's permission classifier refuses them.

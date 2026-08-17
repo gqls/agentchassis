@@ -304,6 +304,74 @@ func TestDetect_todaysShapeCollidesOnAllThreeClasses(t *testing.T) {
 	}
 }
 
+// THE CONVERSION TRAP, and the reason bugs_open/283 §11 sequences ids and
+// scripts as ONE step rather than two phases.
+//
+// Namespacing the element ids is the mechanical, obvious, regex-able half of
+// converting a component — and doing ONLY that produces a page which reads clean
+// on the id check, looks converted in the template, and still cross-talks. The
+// global function name is the reason: both instances' scripts declare
+// `runCalc` at top level, the second declaration replaces the first, and every
+// button on the page then runs the last instance's logic against the last
+// instance's (correctly namespaced, correctly unique) fields.
+//
+// The fixture's shape is the real one, not one composed to make the point:
+// content_components `mortgages-repayment`, read live 2026-08-17, carries 9
+// literal ids, 7 getElementById calls, one `onclick="runCalc()"` and
+// `window.onload = runCalc`.
+func TestIDOnlyConversion_readsCleanOnIDsAndIsStillBroken(t *testing.T) {
+	// Today's shape with ONLY the ids namespaced — scripts untouched.
+	idOnly := func(token string) string {
+		s := oneCalculatorOldShape()
+		for _, id := range []string{"loanAmount", "interestRate", "displayMonthly", "btn-calculate"} {
+			s = strings.ReplaceAll(s, `id="`+id+`"`, `id="`+token+`-`+id+`"`)
+			s = strings.ReplaceAll(s, `getElementById('`+id+`')`, `getElementById('`+token+`-`+id+`')`)
+		}
+		return s
+	}
+
+	toks := InstanceTokensForPage([]string{"mortgages-repayment", "mortgages-repayment"})
+	page := idOnly(toks[0]) + idOnly(toks[1])
+	got := DetectInstanceCollisions(page)
+
+	// The half that DID work — and this is exactly what makes the trap dangerous.
+	if len(got.DuplicateElementIDs) != 0 {
+		t.Fatalf("id namespacing should have removed every duplicate id, got %v",
+			got.DuplicateElementIDs)
+	}
+
+	// The half that did not. Both must still fire, or this test is asserting
+	// nothing and the "ids alone are not enough" claim in 283 §11 is unevidenced.
+	if got.WindowOnloadAssignments != 2 {
+		t.Fatalf("want 2 surviving window.onload assignments, got %d — only the LAST "+
+			"one runs, so every earlier instance never initialises",
+			got.WindowOnloadAssignments)
+	}
+	if got.UnscopedInlineScripts != 2 {
+		t.Fatalf("want 2 surviving global-scope scripts, got %d — the second "+
+			"`function runCalc` replaces the first, so both buttons run the last "+
+			"instance's logic", got.UnscopedInlineScripts)
+	}
+	if got.Clean() {
+		t.Fatal("CONTROL FAILED: an id-only conversion must NOT read clean — that is " +
+			"the whole finding")
+	}
+}
+
+// The token is not a valid JavaScript identifier, which removes one of the two
+// obvious ways to de-collide the global function name and forces the IIFE route.
+// Asserted rather than described, because a converter author will reach for
+// `function runCalc_{{.InstanceID}}()` and get a syntax error at render time on
+// a page that has already shipped.
+func TestInstanceToken_isNotAValidJSIdentifier(t *testing.T) {
+	tok := InstanceToken("mortgages-repayment", 0)
+	if !strings.Contains(tok, "-") {
+		t.Fatalf("token %q no longer contains a hyphen — if the token shape changed to "+
+			"something JS-identifier-safe, 283 §11's 'the IIFE route is forced' reasoning "+
+			"needs revisiting, not just this test", tok)
+	}
+}
+
 // The owner's actual use case: different calculators listed on one page. These
 // do not repeat a component at all, so an id-uniqueness check scoped to "the
 // same component twice" would miss it entirely.

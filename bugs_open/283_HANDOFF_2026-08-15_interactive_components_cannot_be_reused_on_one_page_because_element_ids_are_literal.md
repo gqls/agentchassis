@@ -516,3 +516,84 @@ was approved under holds **only while zero live templates reference `{{.Instance
   answer. Its warning is worth carrying verbatim: *"if `enforce_instance_scope` is ever flipped on
   before the 13 known-colliding pages are fixed, that would be a high-severity fail-loud
   violation."*
+
+---
+
+## 11. UPDATE 2026-08-17 — the conversion is SCOPED, and this file's own premise was stale
+
+The owner gave the go-ahead for the conversion. Before writing any of it, the scope was measured —
+and **"the 22 calculator templates" understates the work by a factor of four.** Full proposal and
+the decision the owner now owes: **`architecture_review/RFC_034`**. Summary here so the bug file
+does not send the next reader to a stale number.
+
+### 11.1 The measured scope (live, 2026-08-17)
+
+Every figure shares one denominator — **component ROWS that bind by `getElementById` and are placed
+on a live page**, which is the unit that actually gets converted:
+
+| measure | value |
+|---|---|
+| **component rows to convert** | **91** |
+| distinct `function`s among them | 83 |
+| functions with MORE THAN ONE active row (forks) | 4 — `tool-llm-cost-calculator` ×4, `tool-automation-savings-estimator` ×3, `tool-affordability-complaint-checker` ×3, `tool-model-approach-selector` ×2 |
+| live pages affected | 94 |
+| domains affected | 22 |
+| literal `id=` attributes | 1,346 |
+| `getElementById` calls | 886 |
+
+**Blast radius per unit is small:** measured per ROW, **1** row is placed on more than one domain
+(max 2) and **3** on more than one page (max 2). Converting one row changes one page.
+
+> ⚠ **I first measured that sharing by `function` and got "4 components across up to 5 domains".**
+> Wrong, and wrong in the flattering direction — the four widest-spread functions are exactly the
+> four carrying forks, so grouping merged several single-domain rows into one apparently-shared
+> function. **Convert by `content_components.id`, never by `function`:** a function-keyed
+> conversion would also silently skip 9 forked rows. Caught by re-measuring at the row level
+> before publishing.
+
+### 11.2 ⚠ CONVERTING THE IDS ALONE MAKES THE PAGE READ CLEAN AND LEAVES IT BROKEN
+
+This is the finding that decides how the work is sequenced, and it is **proven, not argued** —
+`TestIDOnlyConversion_readsCleanOnIDsAndIsStillBroken` in `component_instance_scope_test.go`.
+
+Namespace the ids on today's real shape, render two instances, and the detector reports:
+
+- **0 duplicate element ids** — the mechanical half genuinely worked, and
+- **2 surviving `window.onload` assignments** and **2 surviving global-scope scripts**.
+
+Both instances still declare `function runCalc()` at top level; the second replaces the first; every
+instance's `onclick="runCalc()"` resolves to that one surviving function. So every button runs the
+**last** instance's logic — against correctly namespaced, correctly unique fields. The page now
+passes an id check while producing exactly the wrong answer this bug was filed about.
+
+Mutation-checked: making the fixture script-scoped fails the test, so it is sensitive to what it
+claims. **Consequence: ids and scripts convert in ONE step per component. A phased "ids now,
+scripts later" plan is worse than doing nothing**, because it removes the only signal that anything
+is wrong.
+
+### 11.3 ⚠ The IIFE route is FORCED — `{{.InstanceID}}` is not a valid JS identifier
+
+It renders as `c-mortgages-repayment`. The obvious de-collision — `function runCalc_{{.InstanceID}}()`
+— is a **syntax error**, because the token contains hyphens. Asserted by
+`TestInstanceToken_isNotAValidJSIdentifier` so a converter author meets it in a test rather than on
+a shipped page. Each script must therefore be IIFE-wrapped, **which forces the 22 inline `on*=`
+handlers to be rewired** to `addEventListener` — the step that is not safely mechanical.
+
+### 11.4 The two quiet surfaces that break with no error at all
+
+Of the 91 rows: **58 carry `<label for="…">`** and **33 reference an id from CSS inside a `<style>`
+block**. Neither throws when the id underneath it is renamed. A conversion that handles `id=` and
+`getElementById` but forgets these ships pages whose labels no longer focus their input and whose
+component styling silently stops applying — across 94 live pages. Also present: 34 rows use
+`querySelector`, where the selector may be built by concatenation rather than written literally.
+
+### 11.5 What is NOT decided, and is the owner's
+
+`RFC_034` §4 puts three shapes with their costs: a deterministic converter as a new
+`fix_component_template` fix_type (reuses live machinery, cannot do the script half); an LLM rewrite
+(can, and is the `bugs_open/012` truncation class); or a hybrid gated on the detector. It also names
+what must be settled **with** the shape rather than after it: rebaselining `b2_verify`'s
+byte-identical check, moving `oracle.py`'s 170 selectors in lockstep, the ordering against
+`RFC_032`, and when `enforce_instance_scope` is armed.
+
+**Nothing has been converted. 283 stays OPEN and the defect is still live.**
