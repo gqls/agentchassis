@@ -102,12 +102,15 @@ mechanisms is unresolved.
   `bugfix_122_contrast_ink_slots` costed that fork (`b2fca2f8f`), found the exemption is on
   the record at `verifier_coverage_test.go:156` justified by an argument RFC_017 refuted, and
   chose **discovery-path retraction** instead.
-  ⚠ **That lane's bug is now CLOSED (2026-08-15), so the 225 parked rows have no owner.**
-  This is a real gap, not a tidy ending: the park was always conditional on someone doing
-  the retraction work, and closure did not do it. **Do not read "122 closed" as "the parked
-  backlog is resolved"** — it is still 225 rows of detected, unrepaired contrast failures
-  sitting in `deferred`. If you want them, start from `b2fca2f8f`'s costing, not from
-  scratch, and expect to need `pages_audited` identities in the adapter summary first.
+  ⚠ **That lane's bug closed on 2026-08-15 and the 225 parked rows were left ownerless.**
+  **Now filed as `bugs_open/296` (2026-08-17) — start a new thread there, not here.**
+  It turned out the retraction the 122 lane recommended **already exists, is shared, is
+  wired for `contrast_failure`, deliberately covers `deferred` rows, and its precondition
+  (`pages_audited`, `bugs_open/242`) shipped** — yet the rows have not moved since 08-11.
+  296 ranks three candidates for that with a cheap check each, and says plainly that the
+  likeliest ("the rotation has not reached them yet") means there is no bug at all.
+  **Do not read "122 closed" as "contrast is fixed"** — 122 fixed article-body ink across 97
+  placements, which is a subset of what these 225 describe.
 - **Do not enable `improvement-sweep` casually.** Its pre-query is `LIMIT 1` — **one site per
   900s tick** — and it *discovers* as well as triages, so `detected` can rise after a run.
   That is correct behaviour, not a failure. It is off; leave it off unless you want the spend.
