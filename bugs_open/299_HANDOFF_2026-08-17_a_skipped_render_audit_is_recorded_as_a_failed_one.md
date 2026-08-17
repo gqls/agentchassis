@@ -229,3 +229,45 @@ Three seats objected at medium, two at low. Answers:
 - **debug_historian (low) — "no step verifies the fix reaches the running pod; same-tag
   rebuilds ship stale binaries."** The seat called it before it happened. Done in §7b —
   and it is exactly what the probe caught. This advisory is now the close-out step.
+
+## 9. CLOSED 2026-08-17 — LIVE on `v1.0.1307` and PROVEN by a forced run
+
+**Deploy proven at the artefact, per service, both replicas, with controls.** Tag bumped to
+`v1.0.1307` (makefile and every deployment agree); pods started ~17:05Z. Binary probe of
+`/proc/1/exe` on `agent-chassis-6d6d7b9996-9z8rp` **and** `-z7rj2`:
+
+| probe | expectation | 9z8rp | z7rj2 |
+|---|---|---|---|
+| this fix's literal (`audit was skipped upstream`) | present if shipped | **1** | **1** |
+| positive control (the old guard literal) | must be present | 1 | 1 |
+| negative control (nonsense string) | must be absent | 0 | 0 |
+
+**The forced run** (the organic trigger was gone — no site had zero deployed pages any
+more, `remortgagecalculator.uk` having deployed in the interim). Forced **without creating
+or mutating anything**: `pool-web-tech.internal` (`8f02310c…`) is an existing internal pool
+row with zero pages, so `request_render_audit` takes its no-deployed-pages branch exactly as
+the rotation did this morning. Manual dispatch on `system.agent.scheduled.requests`
+mirroring the known-good 17:12 rotation payload shape (`PUBLISH_OK` seen; corr
+`c920fffe…`, orch `132b38b9-254e-49d0-86a3-a21d295eb0ac`, COMPLETED in ~90s).
+
+All four criteria from §7 held:
+
+1. **`current_step = complete`** — the NORMAL edge, not `complete_error`.
+2. **`findings_written = {"skipped": true, "reason": "no_deployed_pages", "inserted": 0,
+   "deduped": 0}`** — the honest no-op, carrying the upstream's reason verbatim.
+3. **No `__step_error` and no `complete_error`** (`collected_data ? …` → both false).
+4. **Zero new `agent_error_log` rows** for the run; the fleet-wide count of the guard error
+   is still **2** — the same two pre-fix occurrences, unmoved.
+
+**Why this grades the fix rather than the site:** the disconfirming result was available and
+is on record. The *same* input shape against the *pre-fix* binary produced the opposite
+outcome nine hours earlier — orchestration `dc0233ab…` (§1): `__step_error`, an error-log
+row, and the `complete_error` edge. Same case, different binary, opposite result.
+
+**Also confirmed post-roll, for `bugs_closed/242`:** the 17:12 organic rotation run on
+`cookly.uk` (`2bb6873a…`) shows `pages_total: 5` alongside `pages: 5` in its summary and a
+full `findings_written` — 242's honesty fields are live in an unforced production run, not
+only in the forced 08-11 test.
+
+**Residue:** one COMPLETED orchestration row against an internal pool site, no work items,
+no retraction (the skip returns before any DB work), no rotation stamp touched.
