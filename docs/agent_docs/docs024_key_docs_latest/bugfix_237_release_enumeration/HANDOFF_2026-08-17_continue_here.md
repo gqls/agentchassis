@@ -49,7 +49,16 @@ from this release. Do not upgrade "exercised" to "proven".
 
 ## 3. THE TWO OPEN OWNER DECISIONS
 
-### Decision A — the four shadowing rules (no research outstanding; just needs a yes)
+### ~~Decision A — the four shadowing rules~~ → **DONE 2026-08-17 (`4da4c6324`)**
+
+> Implemented as recommended. All four rules and the duplicate `deploy-admin-dashboard`
+> are deleted; the pattern rule serves them, now with the pre-flight. Verified: all four
+> hit the pre-flight, `vet-intel`/`business-intel` correctly resolve **agent-chassis**
+> (not the never-existent `docker.io/aqls/vet-intel`), positive control confirms a valid
+> deploy still proceeds, and `quick-scheduler-update` / `admin-dashboard` still resolve.
+> **Only Decision B is open.**
+
+#### (original statement of the problem, kept for the record)
 
 The makefile has one generic deploy rule, `deploy-%`, whose valuable part is a
 **registry pre-flight**: before touching the cluster it asks whether the image
@@ -158,5 +167,6 @@ kubectl -n ai-persona-system logs -l app=<svc> --tail=3000 | grep -m1 'build pro
 ## 6. Close condition for `bugs_open/237`
 
 Not the makefile diff, and **not** a green `check-release-coverage` — that only
-says the gate agrees with today's tree. It closes on: Decision A implemented, and
-Decision B ruled and implemented for all six services.
+says the gate agrees with today's tree. It closes on: ~~Decision A implemented~~ (**done**, `4da4c6324`), and
+Decision B ruled and implemented for all six services. **Decision B is the only
+thing between this bug and closure.**
