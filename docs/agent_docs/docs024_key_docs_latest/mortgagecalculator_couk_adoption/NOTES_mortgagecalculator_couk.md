@@ -3292,3 +3292,60 @@ belt-and-braces, not a live hazard for this file type.
 `scripts/cloudflare/worker.js:9-12` — the three-line directory-index rewrite from
 `HANDOFF_2026-08-16b` §4. Owner asked for the explanation; nothing was changed in the repo or at
 Cloudflare. It remains a 36-zone shared-serving change → owner + council.
+
+### 4. The `facts` declaration seeded — all 13 ids — and the "one config step" was not one step
+
+Owner: *"seed it for real"*, answering the `register_guards_code_phase_b` ask at the top of
+`HANDOFF_2026-08-16b`.
+
+**All 13, not the 225 pair.** Their CONTRIB offered the smaller option. [READ] The honest
+declaration is 13: `verify_criteria.py:load_register_bands()` hard-requires every one of the 13
+(`need` list, lines 139-145) and `banded()` consumes each in the model (lines 159-187), so the
+fence encodes 13 facts. Declaring 2 would understate the tool's dependencies to buy a smaller
+burst. [MEASURED] all 13 present with values in this site's current `evidence_base` — the
+declaration is live, not inert.
+
+**⚠ `install_fences.py --only stamp-duty --apply` REFUSED, and quietly.**
+```
+SKIP     stamp-duty         not ladder-eligible on this site — a PLAN here would never be read
+```
+[MEASURED] `tool-stamp-duty` is **2 components, 0 at `component_level='tool'`** → fails the
+sole-component clause of the ladder's eligibility predicate. Following the CONTRIB literally would
+have produced a clean-looking run, no error, and no `facts` key.
+
+**The guard's premise is what CLM-022 made stale, so I narrowed the guard rather than the rule.**
+Its refusal is justified in its own docstring as *"a PLAN here would never be read"* — false since
+Piece 3, which resolves declaring PLANs by the name rule Tier 4 uses, deliberately NOT by the
+eligibility predicate (their CONTRIB point 2 says why: that predicate misses exactly these tools).
+New `--allow-ineligible` requires **both** a `facts` declaration in the criteria doc **and** an
+existing current `doc_plans` row, so the subject key is **inherited** rather than constructed from
+a page name — rule 1's silent-permanent-failure mode. Verified it still refuses without the flag.
+
+**Verified at the artefact, not the exit code.** New body `400657e0…` vs superseded `c3eaf877…`:
+`diff` is **the 15-line facts block and nothing else** — 4 checks, 4 assertions, whole prose body
+byte-identical. Fence re-parsed out of the stored body: 13 unique non-empty strings,
+`no_auto_fix` still true.
+
+**⚠ Their `dryrun_fact_drift.sh` uses the `kubectl run -i … kcat -P <<JSON` stdin-race form**
+(LANDMINES: ~4 publishes lost in 5, exit 0, no receipt either way). Used the safe base64-into-
+`--command` form with a `PUBLISH_OK` receipt instead; both dry runs landed first time. Told them.
+
+#### 4a. The induced proof is STAGED, NOT RUN — and the clean run proves nothing on its own
+
+- **Code live at the binary**, both controls in one exec on `agent-chassis-5657f446c7-q7b82`:
+  `fact_drift_review` **2**, `stale_attestation` (positive) **5**, an impossible string
+  (negative) **0**.
+- **Steady-state dry run clean**: corr `5763c238-1faf-4e6e-9cf1-a5f2e4e56130`, COMPLETED
+  12:09:50Z, `dry_run:true`, 1 site, **no `fact_drift` key**, 13 facts all `outcome: fresh`.
+- **Step 2 (supersede `sdlt-ftb-relief-cap` 500000→550000, dry-run, restore) was REFUSED by the
+  session permission layer** — it rewrites a live tax figure on a public site. Reasonable refusal;
+  not worked around. Both directions were staged first (`scratchpad/mutate.sql`, `restore.sql`);
+  the restore flips `is_current` back onto the ORIGINAL row `2303a6f7…` rather than re-inserting a
+  copy, so it restores exactly rather than approximately.
+- [MEASURED after the refusal] register untouched: `2303a6f7…` still current at **500000**, and
+  `count(*) WHERE created_by='mcalc-lane-induced-test'` = **0**.
+
+**So CLM-022 on this site is DECLARED and READ, not PROVEN TO FIRE, and nothing in our docs says
+otherwise.** A clean steady-state dry run is equally consistent with a live mechanism and an inert
+one — the could-not-have-come-out-otherwise shape `WRONG_CALLS.md` exists to catch. The one result
+that would discriminate is the one still owed.

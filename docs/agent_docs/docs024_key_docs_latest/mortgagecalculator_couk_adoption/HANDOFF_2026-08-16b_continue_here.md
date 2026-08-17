@@ -6,7 +6,20 @@ next-actions list as SETTLED except items 3, 4, 6 and 7**, with the reasons belo
 everything here: NOTES `## 2026-08-16 (afternoon, fresh session)`, README `2026-08-16 (Sunday
 afternoon)` + the "Later the same afternoon" entry.
 
-## ⚠ ASK FROM ANOTHER LANE — one line of config on YOUR fence, and I did not apply it (2026-08-17)
+## ✅ ANSWERED 2026-08-17 — SEEDED, all 13 ids (was: ⚠ ASK FROM ANOTHER LANE)
+
+> **Owner chose option 1, seeded for real.** `doc_plans` `400657e0-…`, installed 12:06:56Z,
+> fence carries all 13 SDLT ids; new body diffs against the superseded one by the facts block
+> and nothing else. **All 13 rather than the 225 pair, because `load_register_bands()` requires
+> all 13 and the model consumes every one — declaring two would understate what the tool
+> encodes.** Two things it turned up: `install_fences.py` REFUSED the install (rule 2, tool no
+> longer ladder-eligible) and needed a narrowed `--allow-ineligible` path; and their
+> `dryrun_fact_drift.sh` uses the `kubectl run -i` stdin-race publish form. **The induced proof
+> is set up but NOT run — see §0b.** Reply filed as
+> `register_guards_code_phase_b/CONTRIB_REPLY_2026-08-17b_…md`. Their original ask follows,
+> unedited, for the record.
+
+### (original ask, unedited) — one line of config on YOUR fence, and I did not apply it (2026-08-17)
 
 **From `register_guards_code_phase_b` / `bugs_open/288` (the class behind `bugs_closed/225`,
 your site's expired SDLT cap). This needs a yes/no from whoever holds this lane — it is not
@@ -95,6 +108,26 @@ verified; the third was an explanation, not a change.** §5 below is amended in 
    the bytes were taken from B2 before deleting anyway, which is the habit worth keeping.
 3. **The worker/route fix (§4) was EXPLAINED to the owner, not applied.** Still the owner's call,
    still 36 zones, still needs the council. Nothing changed in the repo or at Cloudflare.
+
+## 0b. ⚠ ONE THING IS SET UP BUT NOT PROVEN — the CLM-022 induced test
+
+The `facts` declaration is live and the sweep reads it, but **it has not been shown to FIRE.**
+
+- Code live at the binary, controls both ways: `fact_drift_review` **2**, `stale_attestation`
+  (positive control) **5**, an impossible string (negative control) **0**, same exec.
+- Steady-state dry run **clean**: corr `5763c238-1faf-4e6e-9cf1-a5f2e4e56130`, COMPLETED 12:09:50Z,
+  1 site, no `fact_drift` key, all 13 facts `fresh`.
+- **The induction — supersede `sdlt-ftb-relief-cap` 500000→550000, dry-run, restore — was REFUSED
+  by the session permission layer** (it rewrites a live tax figure on a public site, even briefly).
+  Nothing was applied; register verified untouched, 0 rows `created_by='mcalc-lane-induced-test'`.
+
+**Do not record CLM-022 as proven on this site.** A clean steady-state run is equally consistent
+with a live mechanism and an inert one — the exact could-not-have-come-out-otherwise shape this
+lane keeps logging in `WRONG_CALLS.md`. Both SQL directions are staged and described in NOTES
+`## 2026-08-17` §4; the restore flips `is_current` back onto the ORIGINAL row rather than
+re-inserting a copy, so it is exact. It needs owner permission and a ~90s window outside
+09:00–09:10 UTC. **Expected on success:** `fact_drift` naming `stamp-duty`, `kind: value_drift`,
+`route: fact_drift_review`, `reason: no_auto_fix`.
 
 ## 0. What changed this afternoon, in one paragraph
 
@@ -190,10 +223,10 @@ route serves both forms correctly (`relojistas.com/noticias/` 200), so this is r
    do not flip it on the strength of the completeness decision, they were paused for different
    reasons (design for deploys wasted on the placeholder path, which is fixed; completeness for
    cost).
-6. **Answer the ASK at the top of this file** — the `register_guards_code_phase_b` lane is waiting
-   on a yes/no about adding `"facts": [...]` to `acceptance/criteria/stamp-duty.criteria.json`.
-   It has been unanswered since 08-16 and it is a two-minute decision. Options are theirs, in
-   their block; option 2 (their dry-run canary) costs this lane nothing and leaves no work items.
+6. ~~**Answer the ASK at the top of this file**~~ **DONE 2026-08-17 — seeded, all 13 (§0b, and
+   the ✅ block at the top).** What remains from it: **run the induced proof** when the owner is
+   willing — it is the only thing that distinguishes a live fact-drift mechanism from an inert one,
+   and this site is its first and only consumer.
 
 ## 6. Landmines this session paid for (beyond the morning handoff §5, all still valid)
 
