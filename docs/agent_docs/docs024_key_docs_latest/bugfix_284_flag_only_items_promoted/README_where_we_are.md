@@ -345,3 +345,42 @@ whole census and that blocker into bug 114, which is the existing bug this belon
 and it is a repoint/republish, not new art), let 131 finish the favicon and social cards,
 and hold the five case-study images until someone understands the deployer's 404. None of
 that needs a decision from you today unless you want it prioritised.
+
+---
+
+**2026-08-17, evening — this build is real, and it carries what you approved.**
+
+Unlike the one before it, this deploy genuinely shipped. The tag moved (1305 → **1307**)
+and the image is a different one, and I checked it the cheap way this time: the image
+itself records which commit it was built from, and I confirmed the copy I inspected is
+byte-identical to the one the pods are running before trusting a word of it. It was built
+from `a6d1c53c`, and that build contains the routability fix, **the unification you
+approved**, and my documentation repair. The backlog of unshipped work is down from 215
+commits to 42.
+
+So **decision 1 is done and live**: there is now exactly one definition, fleet-wide, of
+"does this work item name an agent that exists". I confirmed it in the running binary
+rather than by reading git — the old duplicated form is gone from it and the shared one
+is there, and no source file still contains the old spelling.
+
+**A correction I owe you about yesterday.** I told you the previous build had shipped no
+new code, and cited a probe of the running binary as evidence. The conclusion was right,
+but that probe was worthless: the text I searched for was inside a code comment, and
+comments are stripped out when the code is compiled, so it could never have been found in
+any build. What actually proved the point was the simpler thing sitting next to it — the
+version tag was unchanged and the image was byte-identical to what was already running.
+I have logged it, because presenting a test that cannot fail alongside one that can, as
+if they were one piece of evidence, is exactly the habit these logs exist to catch.
+
+**On the images, I have not fired anything yet, and here is why.** The imagery pipeline
+is mid-retry: another lane's ten failed items were reset and one is being worked right
+now. Since the new build went out there have been no failures — but also no images
+produced, so that is not good news yet, it is simply no news. Filing my five into a path
+whose health is unknown would most likely just produce five more failures. The moment
+that in-flight item either produces an image or fails, I will know, and I will either
+file the five or tell you the blocker stands.
+
+Two of the three groups are not mine to act on in any case: the eleven "already have the
+image, never published" and six "pointed at the wrong name" belong with the imagery lane
+(I have given them the full census), and the eight favicon/social-card gaps belong to bug
+131.
