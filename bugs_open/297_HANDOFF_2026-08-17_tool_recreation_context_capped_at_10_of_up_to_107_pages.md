@@ -134,6 +134,14 @@ reasoning, and it keeps the row shape byte-compatible.
 | snapshot | `agent_definitions_backup`, 2026-08-17 16:21:26Z |
 | ledger | `453_…` recorded via `--record-only` (never a hand-written INSERT) |
 
+**The widening is real, checked at the code not assumed.** The analogue of 275's *"does a
+downstream filter drop what you gained"* objection is input-side here: nothing clips the rendered
+prompt. In `ExecuteLLMPromptAction` (`platform/orchestration/actions/ai_actions.go:329`) the
+rendered template is passed on whole; every `TruncateString` there is a log preview, and the whole
+truncation apparatus (`tolerate_truncation`, `__truncated`, `bugs_open/076`) governs the
+**response's output tokens**, not the input. Had an input cap existed, this fix would have moved
+the silent cap one layer down rather than removing it.
+
 ⚠ **Still owed, not claimed:** end-to-end confirmation in `llm_call_log.prompt_rendered` needs the
 next real recreation run (most recent call was 2026-08-11). What is asserted here is the
 query-level disconfirming pair — a page past nav position 10 **could not** appear before and

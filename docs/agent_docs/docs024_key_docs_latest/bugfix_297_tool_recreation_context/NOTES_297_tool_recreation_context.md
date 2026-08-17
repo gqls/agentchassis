@@ -96,3 +96,21 @@ warned about; this fix leaves no constant.
 
 **Owed, not claimed:** `llm_call_log.prompt_rendered` confirmation needs the next real recreation
 run (most recent call 2026-08-11). The query-level disconfirming pair is what is asserted today.
+
+## 2026-08-17 — checked the objection 275 drew, before a seat could ask it
+
+275's `editquality` seat asked whether a downstream filter silently drops what a widened prompt
+gains (the *"widening a planner's MENU changes nothing"* landmine). The analogue here is
+input-side: **does anything clip the rendered prompt, so the extra rows never reach the model?**
+
+**Read the code, not the config: no.** In `ExecuteLLMPromptAction`
+(`platform/orchestration/actions/ai_actions.go:329`) the template is rendered and the result is
+passed on whole. Every `TruncateString` call in that file is a **log preview** (350/300/400 chars);
+the entire truncation apparatus — `tolerate_truncation`, `__truncated`, `bugs_open/076`'s refusal —
+is about the **response's output tokens**, not the input. There is no input-side character or token
+cap anywhere on the path.
+
+So the widening is real: more rows in the query means more lines in the prompt the model actually
+sees. Worth having checked rather than assumed — if an input cap HAD existed, this fix would have
+moved a silent row cap one layer down instead of removing it, which is exactly 275's misstep-4
+shape.
