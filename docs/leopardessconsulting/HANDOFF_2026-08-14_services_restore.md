@@ -391,14 +391,52 @@ provenance line scrolled). Full narrative: `RUNNING_NOTES.md` 2026-08-14.
 >    Cloudflare-managed here (the tool detects the merge; ClaudeBot/GPTBot/CCBot et al. are
 >    disallowed at the edge), so shipping ours changes nothing until a dashboard setting is off
 >    — an owner's call, not a session's.
-> 2. **§3 item 6 — `tool-process-automation-scorer` acceptance** (7 pass / 2 fail
->    `submit-shows-error`, `fix_cycles_spent: 0`): reproduce with `scripts/tool_acceptance_run.sh`
->    (read its header first — three things must line up, two fail quietly).
-> 3. **§3 item 5 — voice work**: 33 `voice_tells` items + ~12 pages with the banned "honest";
->    method in `fleet_copy_quality/CONTRIB_2026-08-12_the_honest_ban…md`; assert on SHAPE after
->    replacement. ⚠ For any hand-edit, read each field's `input_schema` source first — see
->    LANDMINES "A `site_specs.<aspect>.<path>`-sourced field…" (added today; verifier run
->    `05d0454c` pending — check its verdict in `doc_notes` categories ? 'landmine-verification').
+> 2. ~~**§3 item 6 — `tool-process-automation-scorer` acceptance**~~ **DEFECT ALREADY FIXED —
+>    PROVEN BY HAND 2026-08-17.** The premise was stale: the failing check was Tier 2's STATIC
+>    arm (`check_tool_acceptance.go` only confirms an `interaction`'s anchors exist in the
+>    served HTML), the `improve_tool` item closed 2026-08-11, and `#pas-error` /`.pas-submit`
+>    are both on the deployed page today. Driven live in headless Chromium: empty form + click
+>    → the error shows; all nine answered + click → it hides and a score appears (opposite
+>    result on the opposite branch = the probe discriminates). Probe: `scripts/cdp.py` +
+>    `scripts/probe_pas.py`, a stdlib CDP client — there is no node/puppeteer/websocket module on this
+>    box. The platform's own Tier-4 run is RAISED AND QUEUED as work item
+>    `fcfbdfd5-a1f5-427d-962f-8caaf82ea145`; **leave it, it claims itself when the endpoint
+>    below recovers.** All three `tool_acceptance_run.sh` preflights were checked, including
+>    the pod-grep (browser-runner `v1.0.1305` carries the arms, negative control absent).
+> 3. **§3 item 5 — voice work: MEASURED, and STOPPED AT AN OWNER QUESTION — do not just
+>    grind the queue.** Re-measure before acting; the handoff's "33 items / ~12 pages with
+>    'honest'" is stale. Today `[2026-08-17]`: **34 open items / 210 findings**, of which
+>    **banned_phrase is 104**; and running the site's own 14 regexes over all 36 served pages
+>    gives **138 of 145 hits on the single pattern `\btrust(ed|worthy|s)?\b`** — which now
+>    flags the site's OWN product name ("The AI Vendor Trust Checklist"), quoted research
+>    titles and other people's statistics, because the trust content pillar was built AFTER
+>    the 2026-07-18 rule. Much of the queue is unsatisfiable by construction. **That is the
+>    owner's rule to narrow, not a session's.** Census: `scripts/voice_census.py`, method
+>    in `fleet_copy_quality/CONTRIB_2026-08-12_the_honest_ban…md` (§4: a mechanical ban-list
+>    is a smell, not a crime), full working in RUNNING_NOTES 2026-08-17.
+>    The part needing no ruling is **written and NOT applied**:
+>    `scripts/VOICE_2026-08-17_banned_phrases_ready.sql` (2 × "earns its keep", 1 ×
+>    self-labelling "honestly"), with backups, a `DO`/`RAISE` verify block, the three
+>    rerenders and the served-page assertions + control. ⚠ Its whole reason for existing:
+>    `use-cases-list.use_cases` is `source: site_specs.portfolio.use_cases`, so that edit
+>    must go to the ASPECT — a `content_data` edit reads back fine and is reverted by the
+>    rerender you fire to publish it (LANDMINES "A `site_specs.<aspect>.<path>`-sourced
+>    field…"; that entry's verifier run `05d0454c` — check `doc_notes` categories ?
+>    'landmine-verification').
+>
+> **⚠ BLOCKING EVERYTHING FLEET-WIDE, 2026-08-17 11:08Z — the Anthropic endpoint hit its
+> ACCOUNT SPEND CAP:** `ai_endpoint_health` says `healthy=f`, *"You have reached your
+> specified API usage limits. You will regain access on 2026-09-01 at 00:00 UTC"*, confirmed
+> independently in `llm_call_log` (4 real failures, `council-gate` + `landmine-verifier`).
+> `claim_work_item` then releases every claim whose handler uses that endpoint, so items sit
+> at `triaged` with `attempt_count 0`, the dispatch loop COMPLETES every ~90s, and there is
+> **no error anywhere** — the reason is only in `collected_data->'claim_result'`. 26 items
+> blocked within the hour. **Owner action (provider console); nothing here retries into it.**
+> New LANDMINES entry covers it, plus the second-order effect that
+> `find_dispatchable_site` is `ORDER BY created_at ASC … LIMIT 1`, one site per tick, so one
+> unclaimable item starves the whole fleet (webdesign.co.uk took 18 of 18 runs in an hour).
+> **Do not fire rerenders or dispatches until `ai_endpoint_health.healthy` is true again:**
+> `SELECT endpoint_url, healthy, error FROM ai_endpoint_health;`
 >
 > **New in this directory:** `scripts/commit_site_file.sh` — commit any file into a site's
 > directory in the deploy repo via the git-adapter, with a `PUBLISH_OK` receipt and the repo

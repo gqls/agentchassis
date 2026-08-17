@@ -2585,3 +2585,185 @@ handoff's "no generator exists" at face value — see WRONG_CALLS.
 > that never wrote it. This is the documented same-file case (MEMORY
 > [[a-pathspec-commit-still-takes-a-same-file-passenger]]) seen from the other side: a
 > pathspec protects you from sweeping up others' work, never from being swept into theirs.
+
+---
+
+## 2026-08-17 — item 6 (scorer acceptance) proved by hand, item 5 (voice) measured and STOPPED at an owner question, and the fleet's LLM endpoint hit its spend cap mid-session
+
+Continuing the 08-14 handoff: §3 items 6 and 5.
+
+### The finding that outranks both: the Anthropic endpoint is capped until 2026-09-01
+
+`[MEASURED 2026-08-17 11:47Z]`, and it is why the acceptance run below never ran.
+
+```
+SELECT endpoint_url, healthy, last_healthy, error FROM ai_endpoint_health;
+ https://api.anthropic.com/v1/messages | claude | f | 2026-08-17 11:07:15Z |
+   API request failed with status 400: {"type":"error","error":{"type":
+   "invalid_request_error","message":"You have reached your specified API usage
+   limits. You will regain access on 2026-09-01 at 00:00 UTC."}}
+```
+
+Independent confirmation (not the same instrument): `llm_call_log` holds four real
+failures carrying that same message between 11:08:37Z and 11:09:53Z, from
+`council-gate` and `landmine-verifier`. So the health row is reporting a real
+account limit, not a transport blip — this is the case the MEMORY lesson
+*"a believable OUTAGE explaining a NULL is when to doubt the INSTRUMENT"* warns
+about, and the second source is what settles it.
+
+**Blast radius**: `claim_work_item` refuses to claim any item whose handler agent
+uses that endpoint — it releases the claim and puts the item back to `triaged`.
+**26 items** (25 `build`, 1 `content`) were sitting at `triaged` an hour later,
+across the fleet. Nothing is lost; nothing proceeds either. **Owner action**: this
+is a limit set in the provider console, so no amount of retrying or waiting moves
+it before 2026-09-01.
+
+**How it presents, which is the reason for the new LANDMINES entry.** Every
+published symptom says healthy: `build-pipeline-trigger` fires on its 30s tick,
+`build-dispatch-loop` runs and reaches `COMPLETED`, `pending.item_count` is 1 with
+`rows_dropped: 0`, and there is **no `__step_error` anywhere**. The item just never
+leaves `triaged` and `attempt_count` stays 0. The reason is one key down:
+`collected_data->'claim_result'` → `{"claimed": false, "reason":
+"ai_endpoint_unavailable", "endpoint": "https://api.anthropic.com/v1/messages"}`.
+
+**And a second-order effect worth knowing on its own.**
+`build-pipeline-trigger`'s `find_dispatchable_site` is
+`ORDER BY wi.created_at ASC, wi.priority ASC, wi.id ASC LIMIT 1` — **one site per
+tick, oldest item first, no rotation**. An item that can be selected but never
+claimed is re-selected for ever and starves every other site. Measured today:
+`webdesign.co.uk` took **18 of 18** dispatch-loop runs in the 11:00 hour while two
+other sites' items sat untouched (95 runs over the preceding day). So "my site
+never gets a turn" is not a rotation bug — read the oldest triaged item in the
+fleet. Both facts are now in `LANDMINES.md`.
+
+### §3 item 6 — `tool-process-automation-scorer` acceptance: the defect is FIXED, proven by hand
+
+The handoff's premise ("7 pass / 2 fail, untouched") is **stale**. The failing check
+was Tier 2's static arm, not a behaviour test: `check_tool_acceptance.go`'s
+`interaction` case only confirms that the anchors the interaction touches exist in
+the served HTML, and it reported *"interaction anchor #pas-error absent from
+deployed page"*. The `improve_tool` item (`fa625736`) was closed 2026-08-11 19:24Z
+— with `result: {}`, so on its own that is the "a `complete` work item is not a
+repaired artefact" shape and proves nothing.
+
+The artefact does. `[MEASURED 2026-08-17]` the deployed page carries
+`id="pas-error"` (default `display:none` via `.validation-note`) and
+`class="submit-btn pas-submit"`, and the inline JS sets `display:block` on an
+incomplete submit. So Tier 2 would now pass.
+
+**Then I drove it, because reading the code is not the behaviour.** No node,
+no puppeteer and no `websocket` module on this box, so the probe is a ~70-line
+stdlib CDP client over a hand-rolled WebSocket (`scripts/cdp.py`,
+`scripts/probe_pas.py`; headless Chromium with `--force-prefers-reduced-motion`, the
+07-31 lesson). Live page, real clicks:
+
+```
+before                 #pas-error display=none  visible=false  answered=0
+click .pas-submit      #pas-error display=block visible=TRUE   results=false
+answer all 9, click    #pas-error display=none  visible=false  results=TRUE
+                       score "Automation suitability score: 94 / 100"
+```
+
+**The discrimination control is the second branch, not a synthetic mutant**: the
+same probe, same selectors, same gesture, reports the opposite on the opposite
+code path. A probe that said "visible" on both would be measuring nothing.
+
+The platform's own Tier-4 run is **raised and queued** — work item
+`fcfbdfd5-a1f5-427d-962f-8caaf82ea145`, via `tool_acceptance_run.sh`, all three
+preflights checked (a current `doc_plans` row exists; the page resolves by
+placement; and the running `browser-runner-adapter` **v1.0.1305** carries the
+`interaction` and overflow arms — `grep -a` on `/proc/1/exe` for
+`"interaction produced the expected result ("` and
+`"page overflows horizontally (scrollWidth > clientWidth) on "` both PRESENT,
+with a random-hex negative control ABSENT, so the probe discriminates). It stayed
+`triaged` because of the endpoint cap above, which is correct behaviour — **leave
+it there; it claims itself when the endpoint recovers.**
+
+### §3 item 5 — the voice backlog is one mis-scoped pattern, and that is an owner question
+
+Re-measured, because every figure in the handoff had decayed. **The queue today
+is 34 open `voice_tells` items / 210 findings**, per the platform's own revalidator
+at 2026-08-17 08:45:52Z (`result->'revalidation'->'evidence'->'by_check'`):
+
+| check | findings | pages |
+|---|---|---|
+| **banned_phrase** | **104** | 22 |
+| em_dash_density | 41 | 22 |
+| long_sentences | 27 | 14 |
+| no_contractions | 14 | 10 |
+| triad_density | 12 | 11 |
+| strawman | 11 | 8 |
+| flourish_ending | 1 | 1 |
+
+Then I ran the site's own 14 `voice_gate.banned_phrases` regexes over the served
+text of all 36 live pages (`scripts/voice_census.py`; tags stripped first, so
+hrefs and class names cannot score):
+
+```
+138 hits / 19 pages   \btrust(ed|worthy|s)?\b
+  3 hits /  3 pages   \bactually (ships|works)\b
+  2 hits /  2 pages   \bearns its keep\b
+  2 hits /  2 pages   \bhonest(ly)?\b
+  0 hits              the other 10 patterns
+```
+
+**138 of 145 — 95% — are the single pattern `\btrust(ed|worthy|s)?\b`.** Its stated
+reason is *"owner 2026-07-18: overused; say what is checked/verified instead"*,
+i.e. it was written to stop the site labelling itself trustworthy. What it
+actually catches now, at the gate's own level and not just in my census:
+
+```
+matched "Trust"  slot tool-cta   "The AI Vendor Trust Checklist turns one vague question into twelve concrete ones"
+matched "Trust"  slot tool-cta   "Check What a Vendor Publishes Before You Trust Them With Data"
+matched "trust"  slot ai-vendor-trust-checklist  "Undisclosed use is what erodes trust fastest…"
+```
+
+**The pattern is flagging the site's own product name.** Between 2026-07-18, when
+the rule was written, and 2026-08-08 the fleet built an entire trust-themed content
+pillar here — four "AI data trust in…" articles, a guide, and a tool with *Trust*
+in its title — and the rule and the content strategy collided. Much of the queue is
+**unsatisfiable by construction**: actioning it means renaming the tool, or deleting
+quoted research titles (*Deloitte's "Banking on trust"*) and other people's
+statistics (*"Patient trust in medical AI dropped 8 points"*).
+
+**So I stopped rather than rewrite 19 pages against the owner's own rule.** This is
+the owner's ruling of 2026-07-18 and it is his to narrow. Recommendation, if he
+wants one: keep the intent, drop the bare noun — target the self-labelling
+constructions (`\btrustworthy\b`, `\bdeserves trust\b`, `\b(you can|customers?|
+clients?) (can )?trust\b`, `\btrusted (partner|advisor|provider)\b`) and let the
+site write *about* trust. Whatever is decided, the fleet-wide lesson from
+`fleet_copy_quality`'s own CONTRIB §4 holds: **a mechanical ban-list is a smell,
+not a crime.**
+
+**What did NOT need a ruling is prepared and NOT applied**:
+`scripts/VOICE_2026-08-17_banned_phrases_ready.sql` — the two `earns its keep`
+hits and the one self-labelling `honestly`. It is unapplied because the edits only
+reach the page through a rerender, and a rerender that escalates to the LLM writer
+during the cap fails mid-page. **The landmine check paid for itself before a single
+write:** `use-cases-list.use_cases` is `source: site_specs.portfolio.use_cases`, so
+the `earns its keep` sentence is **not** editable in `page_components.content_data`
+— that edit would have read back correctly, passed the gate, and been reverted by
+the very rerender fired to publish it. One edit to the `portfolio` aspect fixes
+both `/how-it-works.html` and `/use-cases.html`, which is also why the identical
+sentence appears on two pages. `generic-text-block.content` is `llm`-sourced, so
+that one is a `content_data` edit. Two "honest"s in that aspect's `client`/`status`
+fields are invisible to BOTH a served-HTML sweep and a `page_components` census —
+they are in the authority and render nowhere today.
+
+Left alone deliberately: `/tools/process-automation-scorer/index.html`'s *"Answer
+honestly rather than optimistically"* — an instruction to the **user** about their
+own answers, not the site labelling itself; the same judgement the CONTRIB applied
+to "dishonest" meaning "unfair".
+
+### Owed when the endpoint recovers
+
+1. Apply `VOICE_2026-08-17_banned_phrases_ready.sql`, then its three rerenders and
+   its served-page assertions (both in the file).
+2. `fcfbdfd5-a1f5-427d-962f-8caaf82ea145` should claim itself — read the verdict
+   honestly, skips are not passes, and the vision result is `collected_data->'look'`.
+3. Verify the two new LANDMINES entries. `landmines-sync.py --apply` has run (the
+   `doc_notes` rows exist) but the verifier is an LLM agent and could not run, so
+   **the arm was consumed** — re-trigger by hand rather than expecting the sweep:
+   `./scripts/trigger-landmine-verifier.sh 'LANDMINES.md#the-whole-build-pipeline-stops-dispatching-and-nothing-says-so-items-stay-triage'`
+   (two other lanes' entries are in the same state — the sync reported 3 needing
+   verification).

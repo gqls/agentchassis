@@ -1063,3 +1063,60 @@ tested by checking the tool now leaves that page out.
 
 Remaining from the services-restore list: the automated test failure on the process
 automation scorer tool, and the voice work (a banned word still on about a dozen pages).
+
+**2026-08-17, midday — the API bill hit its ceiling, the scorer tool turned out to be already fixed, and the voice backlog is one rule fighting the site's own content.**
+
+Start with the thing that needs you, because it stops everything else. Our Anthropic
+account hit the spend limit you set, at about 11:08 this morning. The error says access
+returns on 1 September. I checked it two ways — the platform's own health record and the
+raw log of failed calls — and they agree, so this is a real account limit rather than a
+glitch. The effect is that the build pipeline politely refuses to start any job that needs
+the model: the jobs stay queued rather than failing, so nothing is lost, but nothing moves
+either. Twenty-six jobs were waiting an hour later. Raising the limit in the Anthropic
+console is the only thing that changes it.
+
+Worth knowing how invisible that is from the inside. Everything you would normally look at
+says "working": the scheduler ticks, the dispatcher runs every ninety seconds and reports
+success, no errors anywhere. The refusal is buried one level down in the record of the
+attempt. I have written that up as a trap so the next person does not spend an hour
+looking for a fault in their own job, as I nearly did.
+
+There is a second thing I found while digging, and it is ours rather than the provider's.
+The dispatcher only ever looks at one site per cycle, and it picks whichever site owns the
+single oldest waiting job. So one job that can be picked but never started blocks every
+other site indefinitely. Today one site took eighteen of eighteen cycles in an hour while
+two others got none. Also written up.
+
+Now the two jobs I was actually working on.
+
+**The process-automation scorer tool.** The handoff said it had a failing test nobody had
+looked at. It had, but it was fixed a week ago and nobody closed the loop. I confirmed it
+properly rather than taking the record's word for it: I drove the live page in a real
+browser, clicked the button with the form empty, and watched the error message appear;
+then answered all nine questions, clicked again, and watched the error go away and a score
+appear. Same probe, opposite result on the opposite path — which is the only way to know
+the test itself is measuring something. The platform's own test is queued and will run
+itself when the model access comes back.
+
+**The voice work — this one needs a decision from you.** In July you banned the word
+"honest" and a handful of other phrases across the sites. The site now has 34 outstanding
+voice items covering 210 findings, and I measured where they actually come from: 138 of
+the 145 flagged phrases on the whole site are the single rule that bans the word "trust".
+
+Here is the problem. Since that rule was written, the system built this site a whole
+content pillar about trust: four articles called "AI data trust in healthcare",
+"...financial services", "...hiring", a guide, and a tool literally called **the AI Vendor
+Trust Checklist**. The rule is now flagging our own product name, the titles of research
+reports we quote, and other people's statistics. A person working through that queue would
+be asked to rename the tool.
+
+The rule was right about what it was aimed at — us calling ourselves trustworthy instead
+of showing it. It just also catches the word used as a subject we write about. My
+suggestion is to narrow it to the self-congratulatory forms ("trustworthy", "a trusted
+partner", "you can trust us") and leave the plain noun alone. But it is your rule, and I
+did not want to rewrite nineteen pages against it on my own judgement, so I have stopped
+there.
+
+The parts that need no decision — the two remaining "honest"s and a phrase you flagged as
+not your voice ("earns its keep") — are written up and ready to run, but not run, because
+publishing them needs the model access that is currently off.
