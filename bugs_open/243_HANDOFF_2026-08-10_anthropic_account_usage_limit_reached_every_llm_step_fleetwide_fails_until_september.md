@@ -404,3 +404,27 @@ letting the claim through costs one failed step, while blocking it costs the who
 minutes, the "up to an hour" figure is confirmed as the *upper* bound of one cycle, not a
 permanent stall. If it fails again and dispatch stays stopped, the cap is biting the probe's
 model specifically and this is the more serious per-model case.
+
+### Falsifier resolved, 2026-08-17 12:10:18Z — the FIRST branch: one re-check cycle, not a permanent stall
+
+The addendum above named two outcomes. The measured one is the first: the
+**12:09:53Z-due probe ran at 12:10:18Z and returned `healthy=true`**, so the cap is
+intermittent and its bite on the probe was a lost coin-flip, not a per-model block.
+
+**What that confirms:** the "up to an hour" figure is the **upper bound of ONE re-check
+cycle**, and this instance ran nearly the whole of it — `healthy=false` from **11:09:53Z**
+to **12:10:18Z**, i.e. **60 minutes 25 seconds of fleet-wide dispatch stop from a single
+sampled 400**, during which Anthropic traffic kept succeeding throughout.
+
+**What it does NOT close.** The severity is unchanged and arguably worse for being
+self-healing: nothing alerted, nothing failed, no item was marked failed, and the only
+durable trace is `claim_result.reason` inside orchestration `collected_data`. An hour of
+whole-fleet dispatch loss that leaves no error row is precisely the shape that goes
+unnoticed until someone happens to be watching a specific item — which is how this was
+found. The three fix shapes in the addendum stand, and the cheapest (require N consecutive
+probe failures before marking unhealthy) would have prevented this instance outright.
+
+**Still [UNMEASURED]:** whether the cap is account-wide or per-model. This round is
+consistent with either — the probe's `claude-haiku-4-5-20251001` succeeded on the retry, but
+`llm_call_log` still holds zero haiku rows in 24h, so the probe's model remains exercised by
+nothing but the probe.
