@@ -3540,3 +3540,39 @@ caused the expiry myself, two commands earlier.**
 Both scripts now resolve the current row dynamically and the restore reads its target back out of
 the test row's own `notes` (`"… restores to <uuid>"`), so it stays exact without a hardcoded id,
 and it is idempotent. Kept in `scratchpad/{mutate,restore,induce,dryrun_safe,realrun_safe}.sh`.
+
+### 4. The 13 items' question ANSWERED with evidence — green plus an induced red
+
+Each of the 13 says *"stamp-duty declares it encodes this fact … Confirm the tool computes from
+that figure."* This lane owns the tool that answers exactly that, so I ran it rather than
+eyeballing:
+
+```
+python3 verify_criteria.py stamp-duty
+  register: 13 SDLT facts loaded live from site_specs
+  4 pinned value(s) recomputed: 4 agree, 0 MISMATCH
+     of the agreements: 0 DEFINITION, 4 REGISTER, 0 CONVENTION
+```
+
+**And the red, because 4 agreements prove nothing on their own** (the script's own docstring says
+so — a run that read the wrong column or fell back to hard-coded bands would print the same 4):
+
+```
+python3 verify_criteria.py --mutate sdlt-ftb-relief-cap=625000 stamp-duty
+  MUTATED sdlt-ftb-relief-cap: 500000 -> 625000  (this run MUST report a mismatch)
+  MISMATCH  stamp-duty  computes-asym  #sdltResult  pinned £19,750  REGISTER 14750.0000  delta +5000.0000
+  4 pinned value(s) recomputed: 3 agree, 1 MISMATCH
+```
+
+Exactly one assertion moves, by exactly the perturbation. **So the tool demonstrably computes from
+the register**, and the 13 items' question is answered in both directions. `#breakdown` remains
+NOT re-derived and is reported as such, unchanged.
+
+**I did NOT close the 13 items, and here is the reasoning rather than an omission.** Closing is
+SAFE — `factDriftLastItemQuery` (`refresh_evidence_fact_drift.go:275-278`) selects on
+`site_id` + `spec->>'check'='fact_drift'` with **no status filter**, so a resolved item still
+serves as the baseline and the mechanism keeps working. What stopped me is that
+`fact_drift_review` is handler-less with no documented resolution path, so I would be inventing
+closure semantics for a new type; and `bugs_open/033` says that review queue has no working
+surface, which makes closing them tidiness rather than function. **The evidence above is the
+answer whether or not the rows are marked** — it is here, dated, with its red. Owner's call.
