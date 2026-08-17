@@ -340,3 +340,60 @@ the page and the page still points at the fallback. `[INFERRED, not read]`: the 
 Left in place: assets active, files served, nothing cancelled — they are the fix's test
 fixture when someone wires the link. Query to find them:
 `SELECT asset_key FROM assets WHERE site_id='62b5978e-4271-4589-8e00-4baebfc0447c' AND asset_key LIKE 'content_hero_tool_%';`
+
+---
+
+## CONTRIBUTION 2026-08-17 from the `bugs_open/284` lane — the fleet census, and it splits three ways
+
+Not a competing fix — a measurement, offered because the owner asked my lane to "add
+the missing images" for the 31 open `image_url_404` findings and the census says most of
+them are **not missing images at all**. This file's subject (imagery deployed and never
+referenced) is the mirror of what I found, so the numbers belong here.
+
+**How the 30 `unbacked_path` findings actually split** (live table, 2026-08-17; the
+join asks, per finding, whether the site has an ACTIVE asset under the exact
+`asset_key` the page references, and separately whether it has one of that `purpose`):
+
+| referenced basename | findings | asset under that EXACT `asset_key` | any asset of that purpose |
+|---|---|---|---|
+| `hero` | 10 | **4** | 10 |
+| `case-study-*` | 10 | **5** | 0 |
+| `favicon` | 4 | 0 | 0 |
+| `og-card` | 4 | 0 | 0 |
+| `logo` | 2 | **2** | 2 |
+
+So, by what the fix actually is:
+
+- **11 findings — the asset EXISTS under the exact referenced key** (4 `hero`, 2 `logo`,
+  5 `case-study-*`). Nothing needs generating; the deploy to the canonical web path
+  either never ran or failed. `deploy_image_asset_action.go:383` documents the mapping
+  (`asset_key=hero, purpose=hero → assets/images/hero.jpg`), so the page is referencing
+  exactly the right path and the artefact is simply not there. **This is this file's
+  class, from the other end.**
+- **6 findings — `hero`, where the site's heroes are all PAGE-SCOPED.** e.g.
+  lendzy.co.uk has 9 active heroes, keyed `hero_home`, `hero_about`, `hero_price_cap`,
+  `hero_your_rights`, … and **none** keyed plain `hero`, so nothing deploys to the base
+  `assets/images/hero.jpg` that a page still references. The fix is a repoint (or giving
+  that page an asset keyed `hero`), not a tenth hero. `bugs_open/168` is adjacent
+  (`DeployedWebPath` and underscore keys).
+- **5 findings — `case-study-*` with no asset at all** (ai-agent-orchestration.com,
+  finetuning.uk). Genuinely missing; generation is the right action.
+- **8 findings — `favicon` (4) and `og-card` (4), nothing exists.** Genuinely missing,
+  and **owned by `bugs_open/131`** — left alone here deliberately.
+
+**⚠ And a live blocker for anyone about to generate any of them.** The imagery path is
+failing today: `needs_imagery` shows **12 failed against 4 complete on 2026-08-17**
+(`remortgagecalculator.uk` 10, `loancalculator.co.uk` 2), all with
+`step call_asset_deployer failed: … failed to get latest commit/base tree for branch
+"master": github API request failed with status: 404`. **The obvious cause is not the
+cause:** all four sites involved have an EMPTY `sites.github_repo`, but so do the sites
+whose items COMPLETED in the same window — the same two domains appear on both sides of
+the same day, so an empty repo config does not discriminate. Not diagnosed further; it
+is those lanes' site work, but it means filing fresh imagery items today buys a 3-in-4
+chance of another failure row.
+
+**What I have deliberately NOT done:** no imagery items filed, no deploys dispatched, no
+rows touched. The owner asked for images to be added; the honest answer is that 17 of 30
+need a deploy or a repoint instead, 8 belong to `131`, and the 5 that really do need
+generating should wait for the deployer's 404 to be understood. Recorded in
+`docs024_key_docs_latest/bugfix_284_flag_only_items_promoted/` (NOTES + README).
