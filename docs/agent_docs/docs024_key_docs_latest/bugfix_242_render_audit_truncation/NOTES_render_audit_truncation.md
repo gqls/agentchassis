@@ -184,3 +184,49 @@ this correlation and answer them here, per this lane's own round-2 practice.
 **Also decisive for `bugs_open/294`'s §10 claim** ("gate is down until the Anthropic
 quota returns 09-01"): a full round dispatched 12:46Z and APPROVED by 12:53Z today.
 Correct that row with this evidence (pending, next session if not this one).
+
+## 2026-08-17 (evening) — the roll shipped nothing; six advisories read and answered; two corrections
+
+**1. The 08-17 chassis roll does NOT carry 299's fix — measured on both replicas.**
+Pods restarted ~14:43Z (after the 12:53Z commit) and the deployed tag is still
+`v1.0.1305`, equal to the makefile's `IMAGE_TAG` — a same-tag rebuild serves the node's
+cached image. The startup `build provenance` line had already rotated (log reaches only
+16:08Z), so the binary is the authority. Probe with BOTH controls, per replica:
+new literal **0**, positive control (the old guard string) **1**, negative control **0**.
+The `295` lane proved the identical thing about a different fix within the hour
+(`dcf3dc7d6`, `b9942d449`). **Two lanes' fixes are now waiting on one tag bump.**
+⚠ **Do not run 299's live close criterion against this binary** — it would fail and read
+as "the fix does not work". Logged in `WRONG_CALLS.md` (I had written "rides the next
+chassis build", which phrases a dependency as a schedule).
+
+**2. The council advisories: my earlier NOTES diagnosis of the failed fetch was WRONG.**
+I wrote that the report fetch "failed on psql `-t` formatting, not on absence". It failed
+because **`diagnosis_artifacts` has no `content` column — the body column is `body`**.
+`\d diagnosis_artifacts` (CLAUDE.md's own schema-first rule, which I had followed for
+`agent_error_log` earlier the same session) settled it and the next query returned 14KB.
+Logged in `WRONG_CALLS.md`. All six advisories are now answered **with measurements** in
+the bug file's §8: single-consumer query (`render-audit-agent`, 1 step); no shared skip
+helper in `datahelpers`; the strict "neither a result nor a `.response`" shape exists in
+**exactly one file fleet-wide**; the named sibling `write_audit_findings_action.go` is the
+**opposite** design (permissive, three fallback paths, `{items_created: 0}` on a miss) so
+the exposure does not replicate; and guardian's vacuous-assertion objection is answered by
+a **stray-query mutation** — `params.DB.QueryContext(ctx, "SELECT 1")` before the skip
+return fails the test via the `err` check, not via `ExpectationsWereMet()`. `0c65dc131`
+writes that into the test comment.
+
+**3. Two corrections filed outside this lane.** `bugs_open/294` said the council gate is
+unavailable until 2026-09-01 (quota); **refuted** — my round ran 12:46→12:52Z today,
+APPROVED, 12 reviewers. Corrected in place with the timings, leaving "does the quota block
+some other path" explicitly `[UNMEASURED]`. And `299` **collides** with a concurrent
+lane's unrelated `299` (webdesign CTA/tel, filed 17:19 vs this one ~13:00) — neither
+renumbered, per CLAUDE.md; both the bug file and the 016b §10 row now say resolve by SLUG.
+
+**4. The guidelines seat caught a real procedural miss of mine:** the register update
+(VIZ-013 naming the new `skipped` key) went in `4fe7cc519`, ~15 min AFTER the code commit
+`89b3e582b`, where the 2026-08-11 ruling asks for the same commit. Logged in
+`WRONG_CALLS.md`; the register text itself is correct and in place.
+
+**Next, and it is not this lane's to do:** `IMAGE_TAG` bump + rebuild + fleet roll is the
+owner's action (`make release` is whole-fleet). Once a tag-bumped build is live, run 299's
+§7 criterion via the manual dispatch recipe — page-less site, expect COMPLETED on the
+NORMAL edge, `findings_written` = the skip no-op, no `__step_error`, no error-log row.
