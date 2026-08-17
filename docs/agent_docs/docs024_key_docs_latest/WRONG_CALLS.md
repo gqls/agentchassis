@@ -33832,3 +33832,60 @@ everything in the submission, including the parts written *after* the lesson.
 fine, the description was not", so nothing unsafe ever reached production — but a reviewer's time spent
 on an artefact of my summarising is time not spent on the code, and round 1's genuinely valuable finding
 (the silent column truncation) had to share a round with a non-issue.
+
+---
+
+## 2026-08-17 (second entry) — three process missteps from the same lane: a guard I never induced, a repair filed where nobody looks, and a shared file committed without a numstat check (bugs_closed/284)
+
+The earlier entry today logs three false *claims*. These are three false *practices* from
+the same session, and each one had a written rule I already knew.
+
+**1. I wrote a gate and never induced its PASSING side, so it was inert.** My repair
+script opened with `\set guard_commit ''` — a **psql client** variable — while its `DO`
+block read `current_setting('myvars.guard_commit')`, a **server** GUC. They never meet,
+so the gate raised unconditionally: the script could not run *even when it should have*.
+It failed **closed**, which is why nothing was damaged and why I did not notice — I
+tested that it refused, saw the refusal, and filed that as the gate working. The file
+even asserted *"the gate below refuses to run in that case; it is not advice"*, which was
+a false claim sitting in a committed file for a day. **The check:** induce both arms.
+A guard tested only on the side that blocks is indistinguishable from one that always
+blocks, and "it refused when I expected a refusal" is not evidence it can ever pass.
+This estate's own rule is *"MUTATE to prove a guard"*; the mutation here is trivially
+`SET myvars.guard_commit = '<sha>'` and I never ran it.
+
+**2. I wrote the repair into my LANE directory, not the migrations ledger, and another
+session duplicated the work.** `docs024_key_docs_latest/bugfix_284_.../REPAIR_*.sql` is
+where I put it; `docs/agent_docs/sql_for_agents/` is where repairs live, where the runner
+looks, and where anyone checking "has this been done?" looks. A second lane, verifying
+the same bug, quite reasonably found nothing in the ledger and wrote
+`442_repair_flag_only_rows_blocked_by_the_old_promoter.sql` from scratch. Two files, one
+end state, and theirs is the one of record. Their session logged the mirror-image miss
+(not reading the lane directory), which is the honest reading — **both halves are the
+same failure: a shared-tree artefact that lives only in a lane is invisible to the
+estate.** *The check:* a SQL artefact intended to be **executed** goes in the ledger with
+its number, even if a lane doc explains it; a lane directory is for the account, not the
+instrument.
+
+**3. I committed a fleet-wide append-only file without checking `--numstat` first, and
+took another lane's entry as a same-file passenger.** `git commit <path>` protects you
+from another session's *staged* files; it does nothing about their *edits to the file you
+are also committing*. My commit `a11bb5c50` says it carries a one-paragraph addendum and
+in fact also carried the `bugfix_277`/`bugs_open/083` lane's whole entry, appended in the
+gap between my two commits. I only noticed because **51 insertions** was implausible for
+fifteen lines. Nothing is lost, and I have left a provenance note above naming their
+work — but `git log` on this file now attributes their entry to a 284 commit. *The
+check, and it is two seconds:* `git diff --numstat <file>` **before** you append, then
+again before you commit; the count is the thing no content can fool, and this file's own
+LANDMINE entry (`git diff | grep '^-[^-]'` cannot see a deleted bullet) says to gate on
+the count for exactly this reason. I applied it to the entry *after* this one, not this
+one.
+
+**The pattern across all six of today's entries.** Yesterday's failures were about
+*evidence* (a key read as proof, a grep stopped at the first hit). Today's are about
+*instruments*: a gate that cannot pass, a file nobody will find, a commit that sweeps a
+neighbour, and three absences read as answers. In every case the rule already existed in
+`CLAUDE.md`, `LANDMINES.md` or `MEMORY.md`, and in every case I knew it in a different
+context and did not apply it to the thing in front of me. That is what the tally is for:
+the recurring check is not "read the rules", it is **"before you trust an instrument, ask
+what reading it gives when it is broken"** — and every one of these six had a cheap
+answer to that question.
