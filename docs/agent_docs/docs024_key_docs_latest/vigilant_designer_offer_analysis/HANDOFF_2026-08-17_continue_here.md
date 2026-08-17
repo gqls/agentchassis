@@ -10,7 +10,23 @@ has been on every handoff in this lane and it earned itself again today: this se
 site as lacking a premise field, and seven minutes later it had one — the site was being built
 while I measured. See the WRONG_CALLS entries dated 2026-08-17; there are three.
 
-## ⚠ UPDATE 16:15 UTC — A CHASSIS ROLLED AND DID NOT CARRY THE FIX; PREDICTION 5 IS CONFIRMED
+## ✅ UPDATE 18:15 UTC — **THE FIX IS LIVE on `v1.0.1307`.** Still OPEN: the guard has not been asked
+
+**This supersedes the 16:15 banner below, which is kept because its measurement was correct at the
+time and is now the pre-fix baseline.** The tag moved `v1.0.1305 → v1.0.1307` (makefile matches),
+new ReplicaSet `6d6d7b9996`, pods ~17:06 UTC. Binary probe, both controls in one exec: the
+semicolon marker unique to this fix reads **1**, `OWNED_PAGE_GUARD` reads **3**, and the negative
+control — a **plausible fake sha**, not 40 zeros — reads **0**, so it can discriminate.
+
+**Do NOT close `bugs_open/295` on this.** `owned_page_review` rows with
+`refused_by='save_page_sections'` = **0** at 70 minutes post-roll, which means *no owned page has
+been through a generic save yet*, not *the fix does not work*. **The test is already queued and
+needs no help:** two `content_rewrite` items sit `triaged` on **owned** webdesign.co.uk pages
+(`learn-algorithms-bayesian-theory`, `learn-algorithms-p-values-explained`), created **17:48 —
+after the roll**. Grade with the negative control too (generic-page items over the same window must
+produce no such row), or "the fix works" cannot be told from "the emit fires unconditionally".
+
+## ⚠ SUPERSEDED 16:15 UTC — the EARLIER roll did not carry the fix; prediction 5 confirmed
 
 **Read this before the rest of the file.** Pods restarted 14:42–14:43 UTC (`5bd56bdd9b`).
 **`bugs_open/295`'s fix is NOT in the binary** — binary probe with two positive controls and a
