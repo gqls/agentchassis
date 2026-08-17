@@ -84,3 +84,39 @@ done — the list is from before the duplicates were removed; regenerate it.*
   lines where my row was ~30 — two other lanes' entries rode along. Named in
   `NOTES_legacy_dialect_unrepresentable.md` so they can find them. Read `--numstat` after
   committing a contended ledger; "I followed the rule" is not "I checked the result".
+
+---
+
+## APPENDED 2026-08-17 — the sweep in §2 was RUN. Here is what it found and what is left.
+
+**Build now is `v1.0.1305`, stamp `6a782274b`** (chassis pods `agent-chassis-5657f446c7-q7b82`
+/ `-r6sf2`, started 2026-08-16 22:07Z, both probed). Reuse that stamp while those pods live;
+re-derive it after the next roll. 265's fix was re-checked and survived the roll.
+
+**Result of the sweep: it is DONE, and it yielded one closure.** Of ~30 roll-blocked
+candidates, screening by owning-lane activity left exactly **one** with a quiet lane — `093`,
+now closed (`bugs_closed/093`). Every other candidate is actively owned; contribute-don't-
+compete applies, so **do not work through that list again expecting more wins.** If you want to
+help those bugs, contribute a measurement into the file, do not close it under its lane.
+
+**`093` was not roll-blocked at all** — its fix shipped 2026-07-26, the same day its own file
+declared the gap unchanged. That is the third already-fixed-but-open bug found in 24 hours
+(after the `145`/`072` duplicates).
+
+**Do NOT build a "bug file is stale" detector without reading this first.** I tried. The
+candidate signal — *commits naming bug N since file N was last touched* — ranks the **most
+active lanes** at the top (`210`:32, `252`:23, `203`:20), because it measures activity, not
+staleness. It would nag loudest at the work that most needs leaving alone, and a guard that
+refuses good work gets switched off. The precise detector (a filename in **both** bug
+directories) is already shipped as `check_bug_file_duplicated`. The 093 class was found by
+reading, and I have no cheap signal for it.
+
+**Where to go next, in preference order:**
+1. **Nothing from this lane is outstanding.** 265 and 093 are closed; the three items owed to
+   other lanes in §3 above still stand and are still theirs.
+2. Pick a fresh unowned bug the ordinary way — the screen that worked is:
+   `ls bugs_open/NNN_* bugs_closed/NNN_*` (duplicate?) → `who-owns.py NNN` (quiet or unowned?)
+   → read the header for whether the stated blocker is still true. The third step is the one
+   that pays: **two of the three bugs I closed in 24 hours were closed by reading, not fixing.**
+3. If you want a build-verification task, the recipe in §2 above is current; only the stamp
+   changes.
