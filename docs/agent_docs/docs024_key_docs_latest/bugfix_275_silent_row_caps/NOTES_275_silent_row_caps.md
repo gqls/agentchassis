@@ -179,3 +179,88 @@ of the seven were not whole-result caps at all and two more were harmless queues
 the question I encoded ("does this query text contain a multi-row LIMIT?") and I reported it as the one
 I meant ("how many silent caps are there?")** — the same shape as the `bugs_open/257` census error
 earlier today, on a different object, four hours apart.
+
+## 2026-08-16/17 — council ROUND 1: REVISE, gated by debug_historian, and it found real things
+
+Five seats abstained; `llm_reliability` approved as out-of-scope. `gated_by_truncation: false`.
+
+### MISSTEP 3: my sketch omitted the safety-critical line, so the gating objection was fair
+
+`debug_historian` (HIGH): *"never calls snapshot_agent() before the fenced UPDATE"*. **The file always
+did** — it is the second statement, the apply printed `NOTICE: Snapshot captured`, and
+`agent_definitions_backup` holds the row at 11:22:23Z. **But my SKETCH showed the DO blocks and left
+the snapshot out**, and a seat can only review what it is shown. That is my error, not a misread.
+
+**The lesson, and it generalises past the council: a sketch must show the SAFETY-CRITICAL lines, not
+the interesting ones.** I had chosen what to include by what was novel about the migration, which is
+exactly backwards — the reviewer's question is "is this safe", not "what is new".
+
+### The duplicate-active-row objection: I was right and my gate was still wrong
+
+Raised independently by `debug_historian` (HIGH) and `architecture` (MEDIUM): four agent types have
+TWO active rows, only the higher version loads, and an id-scoped UPDATE on the shadowed one silently
+no-ops while the verify blocks pass.
+
+Measured: **tool-suggester has exactly ONE row** (id `c0756913…`, version 1). Not one of the four.
+**But the seats were right about the GATE**: 445 counts rows matching the pinned *id*, which is 1 by
+definition and structurally blind to a sibling. Being correct by luck is not the same as being
+guarded. Migration 446 gates on `count(*) WHERE type='tool-suggester' <> 1` instead.
+
+### The ledger hole was real, and not the one the seat guessed
+
+`architecture` (LOW) asked me to confirm 445 was free. It was — 442/443/444 were applied, 444 at
+11:11:48 the same morning. **But because I applied by hand via psql rather than through the runner, it
+was recorded NOWHERE**, which is precisely how two sessions collide on a number. Both 445 and 446 are
+now `INSERT`ed into `schema_migrations` with notes. A low-severity objection that found a live process
+hole.
+
+### The regex objection, answered by language semantics
+
+`architecture` (MEDIUM): confirm the regex cannot pathologically backtrack, since it now runs on every
+`query_database` call fleet-wide. **It cannot, by construction — Go's `regexp` is RE2, linear-time with
+no backtracking at all.** The failure mode is not available. Input is agent-authored SQL from config,
+never user input; the pattern is end-anchored with no nested quantifier.
+
+### MISSTEP 4: I nearly published a compelling, false, second-order damage claim
+
+`editquality` (MEDIUM) asked whether a downstream filter silently drops suggestions — the *"widening a
+planner's MENU changes nothing"* landmine. **Checked: there is none.** The loop routes on
+`current_suggestion.tool_component_id != null` — library id → deployer, otherwise → `tool-generator`
+**builds it from scratch**. Nothing is dropped, so widening the menu changes the outcome and not just
+the prompt. Good news for the fix.
+
+**Then I over-reached.** If an invisible tool can only be suggested as "novel", the cap should have
+been causing the fleet to REBUILD tools it already had — the same shape as `bugs_open/204`'s junk work
+items. I measured: **18 of 19 novel build-requests name a tool the library already holds.** A striking
+number, and I was one paragraph from writing it into the bug file.
+
+**The disconfirming check refuted it.** Comparing timestamps: **all 18 library masters were created AT
+OR AFTER their work item** — so they were created *by* those novel builds, not duplicated by them. The
+match is the pipeline working normally, not waste. **There is no evidence the cap caused duplicate
+builds and I am not claiming it.**
+
+That is three times today my inference has outrun my measurement (257's census, 275's census, this).
+The difference here is only that I ran the check *before* publishing — which is the entire process
+working, and worth noting as such rather than as a near-miss.
+
+### bug_historian was right: I replaced a silent ROW cap with a silent COLUMN cap
+
+*"`left(description, 200)` with no truncation marker — 50 of 74 cut with nothing telling the LLM or a
+future reader. Same failure mode as the bug being fixed."* **Entirely correct**, and the sharpest
+objection of the round: the estate already marks truncation explicitly (`TruncateString`'s tested
+ellipsis contract; webscrape's literal banner) and 445 followed neither.
+
+**Migration 446, applied and verified**: `CASE WHEN length(description) > 200 THEN left(description,200)
+|| ' […truncated]' ELSE description END`. **49 of 73 rows now carry the marker**; payload 20,738 chars
+against 445's 20,101 — **the signal costs ~3%**.
+
+**The marker rather than a bigger cap is the deliberate choice**: 300 chars would cost +53% against
++26% and *still* cut 24 descriptions silently. Loss without a signal is a defect; loss with one is a
+budget.
+
+Its sibling objection — the row-cap detector cannot see column truncation — is true and now a stated
+scope limit in LCO-009 rather than something for the next reader to discover. A generic
+column-truncation detector is not attempted: `left(...)` in agent SQL is indistinguishable from a
+legitimate projection without knowing the consumer.
+
+**Round 2 resubmitted on the same trail** (`b684a399`, run orch `517928d9`).
