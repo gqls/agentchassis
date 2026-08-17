@@ -1,6 +1,6 @@
 # RFC 035 — loop expansion rewrites ANY reference-shaped sibling-output config value (WFA-017): ratify, narrow, or revert
 
-## STATUS: OPEN — filed 2026-08-17 by the bugfix-287 lane, at the council's direction (guardian VETO + architecture seat `needs_rfc`, round 1, corr `cba35b35`). The code is COMMITTED (`0ed96c7eb`) and will ride the next chassis roll unless the owner directs a forward revert first.
+## STATUS: OPEN — filed 2026-08-17 by the bugfix-287 lane, at the council's direction (guardian VETO + architecture seat `needs_rfc`, round 1, corr `cba35b35`). The code is COMMITTED (`0ed96c7eb`) and will ride the next chassis roll unless the owner directs a forward revert first. **Read §7 first: the 14:42Z "fresh build" shipped no new code (same-tag rebuild), so the Go half is still INERT, and the config half went live without it — which changes the cost of option (3).**
 
 ## 1. What happened, plainly
 
@@ -47,6 +47,9 @@ for every future workflow author.
   substep (coordinator.go:1355), so the base key a dotted reference resolves today holds the
   same value as the suffixed key the generic pass makes it resolve. (This same fact is why
   the strict markers alone close 287 — the veto is right about that, and 287 §11 says so.)
+  **⚠ §7.3: this bullet was asserted before the arithmetic that makes it load-bearing; it now
+  rests on 201 measured `MAPPING_BYPASSED` events vs 155 completions, not on the code path
+  alone. Read it with §7.**
 
 ## 4. The seats' substantive concerns, kept whole
 
@@ -95,8 +98,9 @@ the owner's to make.
 
 ## 6. Interactions
 
-- **Migration `452_HOLD` does NOT depend on this ruling** (guardian's own note): strict-on-base
-  works on the current binary. Its gate text now says both readings.
+- **Migration `452` did NOT depend on this ruling and is now APPLIED** (16:28:57Z, gate converted
+  on measured evidence — guardian's own note plus §7): strict-on-base resolves on the current
+  binary. So this RFC no longer blocks 287's closure; it decides the convention only.
 - If (3) is chosen, revert forward (`git revert` of the coordinator.go hunk + test file),
   keep WFA-017's register entry with status REVERTED (the register records what existed).
 - RFC_029 Phase 2's triage reads these same resolver rows; its lane was notified via
@@ -108,3 +112,35 @@ the owner's to make.
 `diagnosis_artifacts` kind=`council_report`) · `0ed96c7eb` (the committed change + tests) ·
 WFA-017 (`register/workflow-authoring.md`) · CTS-059/CTS-060 · the 2026-07-28 scope-veto
 ruling and `bugs_closed/124` / BLD-019 precedents (code-stays-pending-human, "Live ≠ approved").
+
+## 7. ADDENDUM 2026-08-17 ~16:30Z — one option got cheaper and one premise got measured
+
+Two facts arrived after this RFC was filed; both bear on the owner's choice.
+
+1. **The config half is now LIVE WITHOUT the Go half** (migration `452` applied 16:28:57Z after
+   its ordering gate was converted — `bugs_open/287` §11b). It had to be: the "fresh chassis
+   build" of 14:42Z shipped **no new code** (same `IMAGE_TAG v1.0.1305`, cached image; old stamp
+   `6a782274b` probed present on both pods, Half 1's `0ed96c7eb` absent), so waiting for the roll
+   meant leaving ~25 wrong records/hour running indefinitely. **This makes option (3) —
+   forward-revert the Go half — genuinely viable rather than merely arguable:** 287 can be
+   closed by config alone, if the live verification holds.
+2. **What the Go half still buys, stated precisely.** Strict-on-base resolves today only because
+   `propagateIterationOutputs` refreshes the un-suffixed key before every substep
+   (`coordinator.go:1355`), measured at the resolution moment (**201 `MAPPING_BYPASSED` rows for
+   `field=result` vs 155 completions in 6 h**). That is a side-channel: `setLoopVariable` has
+   silent early-returns (missing `loop_metadata` / item key), and under `!` those become failed
+   items rather than wrong records. The generic suffixing removes the dependency — strict then
+   names the reply's own `handler_result_N` directly. So the choice is **"correct via a
+   side-channel we can measure" (revert) vs "correct by construction, at the cost of a new
+   fleet-wide convention" (ratify)**.
+3. **Correction to this file's §3, in the interest of not over-selling (`WRONG_CALLS.md`
+   2026-08-17):** the filing lane (me) asserted the base-key presence flatly in `bugs_open/287`
+   §11 before doing the rows-per-demand arithmetic, and then briefly mis-refuted it from final
+   `collected_data` (a lossy instrument on this agent). The presence claim now rests on the
+   event rows above, not on the code path alone. Nothing in §5's option costing changes; the
+   evidence under it is firmer and its provenance is now visible.
+
+Also worth the owner's attention when ruling: the same `retry_payload` sibling sits on BOTH the
+base and the suffixed keys (140/140 and 548/548 respectively), so the item's stored `result`
+will be `{retry_payload, response}` under either option — fatter than the reply alone, and a
+separate (small) cleanliness question that neither this RFC nor 287 proposes to solve.

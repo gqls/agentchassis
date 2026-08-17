@@ -71,3 +71,34 @@ with the missing entries added; undo the code half and rely on the strict marker
 with our recommendation to keep it, honestly costed. The code sits committed either way;
 nothing rolls back silently. The panel also caught three worthwhile hardening points on the
 held migration, all now folded in.
+
+## 2026-08-17 (late afternoon) — it works, proven on real traffic; and the "fresh build" needs redoing
+
+Two things to report, one good and one that needs you.
+
+**The good one: the bug is fixed on the main dispatcher and I watched it work.** A job that
+started after the change went in processed four pieces of work, and all four recorded the
+worker's actual answer — I opened one and it holds the real reply (which page it linked, its
+id, a sample of the content), not the hiring note. Wrong records that appeared alongside were
+all from jobs that had *started* before the change: a job carries a copy of its instructions
+from the moment it begins, so anything already running keeps the old behaviour until it ends.
+That is expected and it drains by itself.
+
+**The one that needs you: the fresh build didn't ship any code.** The version number wasn't
+changed, so the machines re-served the image they already had. I checked the running programme
+itself on both machines: it is still the same build as this morning, and none of today's code
+is in it — another lane measured 203 unshipped commits from the same event. Nothing is broken
+by this; it just means the code half of my fix (and everyone else's work today) is sitting
+committed and inert. To ship it, the version number needs bumping and the build redone.
+
+Because that couldn't be waited for while ~25 wrong records an hour kept accruing, I applied
+the settings change without waiting — but not blindly: I first measured, from the system's own
+event log, that the value the change relies on was actually present at the moment it is read
+(201 confirmations against 155 completions in six hours), and the change is written to fail one
+item rather than a whole batch if it ever isn't. That reasoning is recorded in the migration
+file itself, and I logged two mistakes I made reaching it in our wrong-calls log.
+
+Still yours to decide: the 244 repairable historical records, and the architecture question in
+RFC_035. One small admin thing: the migration ledger wouldn't accept my "record this as
+applied" command (a permissions block in my session), so that one bookkeeping row is missing —
+the change is live regardless, and the file says so loudly.

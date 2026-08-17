@@ -102,3 +102,48 @@ zero-row LATERAL walk").
   the spawn record — NEITHER is evidence against the fix. Zero post-apply orchestrations
   exist yet; verification is demand-bound (RUNBOOK has the created_at filter). Zero
   RESOLVER_% rows for the two agents since apply.
+
+## 2026-08-17 — session 1 (after the owner's "fresh build")
+
+- **The roll shipped NO NEW CODE.** New replicaset at 14:42Z, both pods restarted, but
+  `IMAGE_TAG` still `v1.0.1305` → cached image. Probe (both pods, controls in the same
+  breath): OLD stamp `6a782274b` PRESENT, `0ed96c7eb` (Half 1) ABSENT. A concurrent lane
+  measured the same event: 203 commits in HEAD, none of them in the binary. **Half 1 is inert
+  until the owner bumps IMAGE_TAG and rebuilds** (releases are the owner's, whole-fleet).
+- **452 APPLIED anyway, gate CONVERTED on evidence** (16:28:57Z; dry-run txn first, UPDATE 1,
+  DO verify passed): 201 `RESOLVER_MAPPING_BYPASSED` rows for `field=result` vs 155 completions
+  in the same 6 h proves the mapped key resolves on the RUNNING binary — the gate's real
+  question — and `error_step: mark_failed` contains a miss to one item. Reasoning is written
+  into the migration header, not just here.
+- **⚠ 452's ledger row is MISSING**: `--record-only` refused twice by the harness permission
+  classifier (runner script + `_HOLD` filename). The change IS live; the file header says so
+  and carries the command. Re-run when permitted.
+- **Two wrong calls of mine, logged in `WRONG_CALLS.md`** and corrected inline (287 §11b,
+  RFC_035 §7, 452 header): the §11 presence claim was asserted without the rows-per-demand
+  arithmetic; then I mis-refuted it from final `collected_data` (lossy on this agent; its
+  population includes failed/in-flight iterations that never reach mark_complete;
+  `retry_payload` is a captured sibling, not a substitute for the reply). **A state table is a
+  corpse; an event row is a witness.**
+- **Verification is demand-bound and NOT yet done**: zero `build-dispatch-loop` orchestrations
+  created since the apply instant (plans persist at creation, so only later runs carry the
+  strict config). The loop is bursty — 80 completions in the 13:00Z hour, 1 in the 15:00Z hour.
+- **LIVE PROOF of 452, 16:35Z — the headline defect is closed for build-dispatch-loop.** Two
+  runs created after the apply instant both carry the strict config in their persisted
+  `workflow_plan`. Run `3557578e` (16:30:55Z) completed **4 items, 4/4 ENVELOPE, 0 spawn
+  records**; attribution is exact (item ids pulled from the run's own `process_item_item_N`
+  keys, not a timestamp filter). Demand control satisfied: the loop was running, items
+  flowing. **At the artefact:** one item's `result->response` holds the internal-linker's real
+  payload (`target_page.url=/product-detail.html`, page_id, content sample) with
+  `response_status=complete` — the handler's reply, not a status word.
+  ⚠ The 5 spawn-record completions in the same window all trace to correlations `990d7b20` /
+  `81b8867c` — PRE-452 runs still executing their old persisted plans, exactly as the
+  plan-persists-at-creation note predicts. Do not read them as failures.
+  ⚠ **Shape to expect, so nobody re-files it:** the stored result is `call_agent`'s whole step
+  record (12 keys: `response`, `agent_called`, `request_id`, `retry_payload`,
+  `child_orchestration`, …) with the reply merged at `.response`. That is what `handler_result`
+  legitimately holds and what the config asks for — richer than a bare `{response:…}`, and it
+  satisfies §8's criterion.
+- **448 half-proof:** the first post-448 diagnose run (`c2b656b8`, 16:28:07Z) carries
+  `result!`/`work_item_id!`/`error_step` in its persisted plan and is AWAITING_RESPONSES at
+  call_handler; its item is still `diagnosing`, so the completion shape is not yet observed.
+  report-dispatch-loop has had no run at all since 448 — demand-bound, not a failure.

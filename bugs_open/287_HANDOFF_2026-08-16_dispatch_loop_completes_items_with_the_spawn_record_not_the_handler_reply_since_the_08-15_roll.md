@@ -528,3 +528,54 @@ objections were against the submission SKETCH, not the files: the `error_step` p
 was already avoided), `is_snapshot` is spelled correctly, and 448's parser-liveness was
 binary-probed with positive AND negative controls before applying (NOTES). 448 itself is
 ledger-recorded and NOT edited post-record (checksum).
+
+### 11b. 2026-08-17 ~16:30Z — the "fresh build" shipped NO NEW CODE, so the HOLD gate was CONVERTED on measured evidence and 452 is APPLIED; Half 1 is still not live
+
+**The roll did not ship the code.** The owner deployed a fresh chassis build at 14:42Z (new
+replicaset, both pods restarted) and **`IMAGE_TAG` was still `v1.0.1305`** — a same-tag rebuild
+serves the node's cached image. Probed on BOTH pods with controls in the same breath: the OLD
+stamp `6a782274b` is **PRESENT**, Half 1's commit `0ed96c7eb` is **ABSENT** (a real sha that
+could have matched — the negative control is capable of being absent). A concurrent lane
+measured the same event independently: **203 commits in HEAD but not in the running binary.**
+So `prefixConfigStepReferences`' generic pass is still inert, and stays inert until the owner
+bumps `IMAGE_TAG` and rebuilds — **which is the one thing this bug now needs from the owner.**
+
+**Because the gate could not be met while the defect ran at ~25 wrong records/hour** (155
+spawn-record completions in the 6 h before the apply), the HOLD was converted on a measurement
+that answers the gate's actual question — does the strict mapping resolve on the RUNNING
+binary?
+
+> **`RESOLVER_MAPPING_BYPASSED` fires ONLY when the mapped key EXISTS and differs from the
+> search's answer: 201 rows for `field=result` in the same 6-hour window, against 155
+> completions.** That is direct evidence, at the resolution moment, that
+> `result!: handler_result` resolves today via per-substep propagation
+> (`coordinator.go:1355`). A miss is contained by the new `error_step: mark_failed` — one
+> failed item, loop continues, no stranded `claimed` row.
+
+**Migration 452 APPLIED 2026-08-17 16:28:57Z** (UPDATE 1, DO verify passed, dry-run in a
+rolled-back txn first; live config now `{"result!": "handler_result", "work_item_id!":
+"current_item.id", "error_step": "mark_failed"}`). **⚠ Its `schema_migrations` row is MISSING** —
+`--record-only` was refused twice by the session harness's permission classifier; the file
+header carries the command to re-run and the reason a missing row must not read as "unapplied".
+
+> **CORRECTED 2026-08-17 (§11's own claim, twice — see `WRONG_CALLS.md`):** §11 stated flatly
+> that the base key "holds the CURRENT iteration's reply" and that the ordering gate was
+> "belt-and-braces". The *conclusion* survives, but it was asserted from indirect evidence
+> without the arithmetic that makes it load-bearing (rows ÷ demand), and two other sessions'
+> judgements were downstream of that sentence. Then, deciding whether to apply 452 blind, I
+> read final `collected_data`, found `retry_payload` on 140/140 base keys and `response` on
+> only 67, and announced §11 REFUTED — also wrong: final state is lossy on this agent (289's
+> aggregation; 11% joinability) and its population includes failed/in-flight iterations that
+> never reach `mark_complete`. `retry_payload` is a coordinator-captured SIBLING, not a
+> substitute for the reply. **A state table is a corpse; an event row is a witness.**
+
+**Verification status (demand-bound, honest):** zero `build-dispatch-loop` orchestrations have
+been created since 16:28:57Z, so **nothing is proven live yet** — a plan is persisted at
+orchestration creation, so only runs created after that instant carry the strict config. The
+first post-apply dispatch is the test; queries and the `created_at` filter are in the lane
+RUNBOOK. Expect `result` resolver rows → 0 while the loop has traffic, and the item census's
+spawn-record column → 0 while own-envelope is non-zero.
+
+**Still open:** (1) the `IMAGE_TAG` bump + rebuild so Half 1 rolls (owner's — releases are
+whole-fleet); (2) RFC_035's ruling on Half 1 — and note that 452 landing WITHOUT Half 1 is
+itself evidence for the owner to weigh there; (3) the 244 repairable historical rows.

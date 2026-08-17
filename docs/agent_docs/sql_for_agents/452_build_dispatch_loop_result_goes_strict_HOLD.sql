@@ -22,10 +22,37 @@
 -- COUNCIL (round 1, corr cba35b35): the gate REJECTED the submission on the Go
 -- half's SCOPE (→ RFC_035, owner to rule); the guardian seat explicitly endorsed
 -- THIS migration ("a contained, agent-scoped fix … should proceed") and noted it
--- does NOT depend on the Go half — on the current binary the strict mapping
--- resolves the base handler_result maintained by per-substep propagation
--- (bugs_open/287 §11). The HOLD stays because suffixed-direct is the more robust
--- resolution and the roll is imminent either way.
+-- does NOT depend on the Go half.
+--
+-- ⚠⚠ HOLD CONVERTED AND THIS FILE APPLIED 2026-08-17 ~17:0xZ WITHOUT THE HALF-1
+-- ROLL — read why, because the header above still describes the original plan.
+-- The owner rolled a "fresh chassis build" at 14:42Z and it shipped NO NEW CODE:
+-- IMAGE_TAG was still v1.0.1305, so a same-tag rebuild served the node's cached
+-- image. PROBED on BOTH pods: the OLD stamp 6a782274b is PRESENT and 0ed96c7eb
+-- (Half 1) is ABSENT — positive and negative controls in the same breath, and
+-- the negative is a real sha that could have matched. So the stated gate cannot
+-- be met until the owner bumps IMAGE_TAG and rebuilds, and the defect runs at
+-- ~25 wrong records/hour meanwhile (155 spawn-record completions in the 6 h
+-- before this apply).
+--
+-- WHAT REPLACED THE GATE — the base key's presence is now MEASURED at the
+-- resolution moment, not inferred: RESOLVER_MAPPING_BYPASSED fires ONLY when the
+-- mapped key EXISTS and differs from the search's answer, and there were **201**
+-- of them for field=result in the same 6 h window against **155** completions.
+-- That is direct evidence the strict mapping resolves TODAY on the running
+-- binary; per-substep propagation (coordinator.go:1355) is what keeps it current.
+-- A miss is contained by error_step below (one failed item, loop continues).
+-- ⚠ NOT proven by that instrument: what the key CONTAINS. Persisted state says
+-- base `handler_result` always carries a `retry_payload` sibling and carries
+-- `response` when the reply arrived — so the stored result becomes
+-- {retry_payload, response}, which satisfies 287 §8's criterion and contains the
+-- handler's reply, but is fatter than the reply alone. Same shape under Half 1.
+-- ⚠ A LOSSY-INSTRUMENT TRAP I WALKED INTO FIRST (WRONG_CALLS 2026-08-17): I read
+-- final `collected_data` shapes and concluded strict would store a retry payload
+-- with no reply. Final state is lossy on this agent (289's aggregation; only 11%
+-- of historical rows are still joinable), and it mixes in failed/in-flight
+-- iterations that never reach mark_complete. Ask the resolver instrument, which
+-- records the moment; do not ask the corpse.
 --
 -- ⚠ error_step: mark_failed widens error catchment beyond strict misses: ALL
 -- mark_complete action errors (DB failure, bad uuid) now fail the ITEM via
@@ -71,6 +98,18 @@
 -- RESOLVER_% rows with context->>'field'='result' for build-dispatch-loop -> 0
 -- WHILE the loop has traffic; item census spawn_record -> 0 while own_envelope
 -- rises. work_item_id/current_page conflict rows are NOT this bug's metric.
+--
+-- ⚠ LEDGER ROW MISSING — APPLIED BUT NOT RECORDED. `--record-only` for this file
+-- was refused twice by the session harness's permission classifier (the runner
+-- script + a `_HOLD` filename), so `schema_migrations` has NO row for it even
+-- though the change IS live (verified: UPDATE 1, DO verify passed, live config
+-- reads result!/work_item_id!/error_step at 16:28:57Z). Do NOT read the missing
+-- row as "unapplied". Re-run when permitted:
+--   ./scripts/migration/run-migrations.sh --record-only \
+--     docs/agent_docs/sql_for_agents/452_build_dispatch_loop_result_goes_strict_HOLD.sql \
+--     --note "hand-applied 2026-08-17 16:28:57Z, HOLD gate converted"
+-- Low risk of a double-apply meanwhile: SIDECAR_RE excludes `_HOLD.sql` from
+-- `--apply`, and the UPDATE is fenced on the un-marked `result` key (replay = UPDATE 0).
 --
 -- Idempotent: UPDATE fenced on the un-marked `result` key; doc_notes fenced.
 -- snapshot_agent is the TWO-ARG overload (writes agent_definitions_backup).
