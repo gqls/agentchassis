@@ -88,3 +88,33 @@ SELECT body FROM doc_notes WHERE categories ? 'council-gate' ORDER BY created_at
 S=<scratch>/headtree; rm -rf $S; mkdir -p $S; git archive HEAD | tar -x -C $S
 (cd $S && go test ./platform/orchestration/actions/ -run 'TestEveryHTMLTemplateRewriter|TestFanOutIntended' -count=1)
 ```
+
+## Post-roll verification for the VISIBLE-TEXT AXIS (council 3279156b, debug_historian seat)
+The axis change is a live behavioural change — which writes get refused — so "the tests passed"
+and "the commit is in" are not proof it is running. Per CLAUDE.md: ask the service, then induce.
+
+```bash
+# 1. Which commit is the chassis running? (STAMP first, then ancestry — never grep your own sha)
+POD=$(kubectl -n ai-persona-system get pods -l app=agent-chassis -o jsonpath='{.items[0].metadata.name}')
+kubectl -n ai-persona-system logs "$POD" --tail=3000 | grep -m1 'build provenance'
+# then, with the sha it prints:
+git merge-base --is-ancestor <the-285b-commit> <that-sha> && echo "visible-text axis is in the image"
+# binary probe if the startup line has scrolled — a KNOWN value plus a real-but-different control:
+kubectl -n ai-persona-system exec "$POD" -- grep -aq "<that-sha>" /proc/1/exe && echo present
+kubectl -n ai-persona-system exec "$POD" -- grep -aq "$(git rev-parse HEAD~50)" /proc/1/exe && echo "CONTROL FAILED (should be absent)"
+```
+```sql
+-- 2. The refusal, when one happens: the message names the axis, so it is greppable in the row
+SELECT created_at, spec->>'reason' FROM site_work_items
+ WHERE item_type='needs_human_review' AND spec->>'reason' ILIKE '%VISIBLE text%'
+ ORDER BY created_at DESC LIMIT 5;
+-- 3. DEMAND CONTROL — a zero above is only evidence if section edits are actually running:
+SELECT count(*) FILTER (WHERE status='complete') AS edits_completed, max(completed_at)
+  FROM site_work_items WHERE item_type='section_edit' AND created_at > now() - interval '7 days';
+```
+To INDUCE one rather than wait (the RFC_006 discipline): file a `section_edit` `content_edit` with
+`field_updates {}` against a ported instance whose `content_data` lacks the template's required
+field — the 198-row population, e.g. any `ported-page` row with no `body` key — and expect the step
+to fail naming "VISIBLE text", the row to be untouched, and a `prune_refusal`-shaped review item.
+Pick a page you are willing to leave un-edited, and check the row's `rendered_html` is unchanged
+afterwards (that is the assertion, not the item status).

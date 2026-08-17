@@ -21,14 +21,24 @@ Consequences, both measured on the real pair that `bugs_closed/285` produced
 
 | axis | existing | incoming | kept | verdict at floor 0.5 |
 |---|---|---|---|---|
-| tag-stripped (this guard) | 3,245 | 8,492 | **262%** | ALLOWS — a stylesheet replaced the article |
-| visible text (style/script/comments excluded) | 2,754 | 68 | **2%** | refuses |
+| tag-stripped (this guard) | 3,236 | 8,491 | **262%** | ALLOWS — a stylesheet replaced the article |
+| visible text (`datahelpers.VisibleTextFromHTML`) | 2,143 | 16 | **0.7%** | refuses |
 
 And the mirror, which is the part that makes this urgent rather than academic — across all 117
-archived overwrite pairs the tag-stripped axis refuses **exactly one** write, and it is the
-**REPAIR** (2026-08-15 18:18Z, seed 431, putting the article back): 38% kept on that axis, 4,050%
-on the visible one. A guard whose only firing in eight days of history would have blocked a
-repair is a guard that gets switched off.
+archived overwrite pairs, run through the real implementation, the tag-stripped axis refuses
+**exactly one** write and it is the **REPAIR** (2026-08-15 18:18Z, seed 431, putting the article
+back): 38% kept on that axis, 16 → 2,143 on the visible one. The visible axis refuses **three**,
+all real hollowings — `idea.uk/tool-ab-test-calculator` 684 → 0 visible (2026-08-11, while
+tag-stripped GREW 10,399 → 12,929), this bug's article 2,143 → 16, and
+`webdesign.co.uk/tool-ab-test-calculator` 684 → 0 (2026-08-15, `bugs_open/286`'s hollow fork).
+The two axes agree on **zero** pairs. A guard whose only firing in eight days of history would
+have blocked a repair is a guard that gets switched off.
+
+**PRIORITY — this is the HIGHER-VOLUME path, not a lower-priority follow-up** (council
+`3279156b`, bug_historian seat, medium: this plan is an instance of 016b §9's "one call site of a
+shared judgement gets the rigorous fix; the sibling stays heuristic"). The delete-arm count below
+is the volume argument: 3,603 rebuild writes against 281 edit writes in the same 8 days. The
+sibling is fixed because it could be CALIBRATED, not because it mattered more.
 
 ## Why this was not fixed with its sibling
 

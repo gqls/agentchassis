@@ -15,9 +15,12 @@ import (
 
 // The axis these tests pin is the one that let a live article body be replaced
 // by a stylesheet (bugs_closed/285). They are written against the SHAPE of the
-// real pair, with the real measured numbers in the assertions, so a future
+// real pair — measured through this implementation as 2,143 → 16 visible chars
+// (0.7%) while the tag-stripped axis GREW 3,236 → 8,491 (262%) — so a future
 // "simplification" of visibleTextLength that stops excluding <style>/<script>
-// content fails here rather than on a served page.
+// content fails here rather than on a served page. Mutation-checked both ways
+// on 2026-08-17: unwiring the axis at the call site, and replacing the measure
+// with a tag strip, each fail assertions here.
 
 // portedArticleFixture reproduces the shape of the row that was overwritten:
 // a small inline stylesheet plus a real article body.
@@ -51,7 +54,7 @@ func TestVisibleTextLengthExcludesStylesheetScriptAndComments(t *testing.T) {
 		{"stylesheet content is not text", `<style>.a{color:#fff;background:#000;padding:2rem}</style><p>hi</p>`, 2},
 		{"script content is not text", `<script>var x = "a long javascript string literal";</script><p>hi</p>`, 2},
 		{"comment content is not text", `<!-- a long explanatory comment about seeding --><p>hi</p>`, 2},
-		{"entities are dropped, both of them (&amp; is an entity too)", `<p>a&nbsp;&amp;b</p>`, 2},
+		{"entities are DECODED by the parser, so &amp; counts as the one character a reader sees", `<p>a&nbsp;&amp;b</p>`, 3},
 		{"case and attributes on the style tag", `<STYLE type="text/css">.a{color:red}</STYLE><p>hi</p>`, 2},
 		{"an empty article is empty", `<article class="ported-page-content"></article>`, 0},
 	}
@@ -76,7 +79,7 @@ func TestTagStrippedAxisGrowsWhileVisibleTextCollapses(t *testing.T) {
 		t.Fatalf("fixture does not reproduce the trap: the tag-stripped axis must GROW (%d → %d)", oldExisting, oldIncoming)
 	}
 	if ratio := float64(oldIncoming) / float64(oldExisting); ratio < defaultSectionShrinkFloor {
-		t.Fatalf("tag-stripped axis would have refused (%.2f < %.2f) — fixture wrong, the real pair read 2.62", ratio, defaultSectionShrinkFloor)
+		t.Fatalf("tag-stripped axis would have refused (%.2f < %.2f) — fixture wrong, the real pair read 2.62 (3,236 → 8,491)", ratio, defaultSectionShrinkFloor)
 	}
 
 	newExisting := visibleTextLength(existing)
@@ -93,9 +96,10 @@ func TestTagStrippedAxisGrowsWhileVisibleTextCollapses(t *testing.T) {
 }
 
 // The other direction, and the reason this is a correction rather than a second
-// floor: putting the article BACK reads 38% on the tag-stripped axis (a refusal
-// of a repair) and passes on the visible axis. Measured on the real pair,
-// 2026-08-15 18:18Z, seed 431.
+// floor: putting the article BACK reads 38% on the tag-stripped axis (8,491 →
+// 3,236 — a refusal of a repair) and 16 → 2,143 on the visible axis. Measured on
+// the real pair, 2026-08-15 18:18Z, seed 431. Across all 117 archived pairs that
+// repair is the ONLY thing the old axis refuses.
 func TestRepairingAHollowedSlotIsRefusedByTheOldAxisAndAllowedByThisOne(t *testing.T) {
 	hollow := poisonFixture(7000)          // what the slot held
 	repaired := portedArticleFixture(2750) // what the restore put back

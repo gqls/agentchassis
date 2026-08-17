@@ -106,11 +106,22 @@ func enforceSingleSlotFloors(ctx context.Context, params ActionParams, siteID, p
 		return nil
 	}
 
+	// CALLER CENSUS (council 3279156b, guardian seat: "if any other write path
+	// calls this function it inherits the loosened axis with zero calibration
+	// coverage"). Measured 2026-08-17 over platform/ internal/ pkg/ cmd/, non-test:
+	// enforceSingleSlotFloors has exactly ONE caller, section_editor_actions.go:436
+	// (the content_edit branch) — the path the 117 archived pairs came from. The
+	// shared pure decision evaluateSectionShrink has two callers, this one and
+	// save_sections_shrink_guard.go:165, and that one still passes tag-stripped
+	// lengths: the axis lives in the CALLER, so the whole-page path is unaffected
+	// by construction, not by convention. A second caller of THIS function inherits
+	// the visible axis with no calibration of its own — re-run the harness first.
+	//
 	// The text axis is VISIBLE text — style/script/comment blocks removed with
 	// their content — not the tag-stripped length the whole-page path uses.
 	// bugs_closed/285: on the write that emptied a live article body the
 	// tag-stripped axis read 262% retained (a wrapper stylesheet replaced the
-	// prose) while visible text fell 2,754 → 68 chars. Calibrated against all
+	// prose) while visible text fell 2,143 → 16 chars. Calibrated against all
 	// 117 archived overwrite pairs, including what the change LOOSENS — the
 	// table, the disagreement in both directions, and the scope limit are in
 	// section_visible_text.go's header. RE-RUN THAT CALIBRATION before changing it.
