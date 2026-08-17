@@ -41,6 +41,53 @@ filed.
 `section_edit`, which demonstrably works on them — 18 completes). This fix makes the refusal
 visible; it does not make the page get fixed.
 
+## STATE 2026-08-17 (16:15 UTC) — **A FRESH CHASSIS ROLLED AND DOES NOT CARRY THE FIX.** Still OPEN. The defect reproduced on demand and is now quoted a THIRD time
+
+**The roll happened: pods restarted 14:42–14:43 UTC on a new ReplicaSet (`5bd56bdd9b`). The fix is
+NOT in the binary.** Proven, not inferred — the startup `build provenance` line had already
+scrolled out of range on both pods (which per LANDMINES means "out of range", never "unstamped"),
+so this is the binary probe **with both controls in the same exec**:
+
+| probe | reads | meaning |
+|---|---|---|
+| `(tool/widget-owned); a generic section save` — **semicolon**, introduced ONLY by this fix | **0** | the fix is absent |
+| `(tool/widget-owned): a generic section save` — **colon**, the pre-existing error text | **1** | positive control: the grep works and this is the right binary |
+| `a generic recomposition` — the sibling guard | **1** | second positive control |
+| a fabricated string | **0** | negative control: a 0 here is a real absence |
+
+**Why it did not ship — and this is the actionable part.** The fix has been at HEAD since
+**12:12:01 UTC** (`2a5798c4b`, verified `git merge-base --is-ancestor` and by reading the file at
+HEAD). But **the deployed tag is `v1.0.1305` and the makefile's `IMAGE_TAG` is ALSO `v1.0.1305`** —
+the whole backend fleet is on that one tag, and the pods restarted onto it. CLAUDE.md's build
+section states the consequence directly: *"Bump `IMAGE_TAG` (makefile ~line 16) for every build — a
+same-tag rebuild ships the node's stale cached binary."*
+⚠ **I cannot tell from here WHICH of the two happened** — the image was rebuilt and pushed at the
+same tag and the node served its cached layer, or it was never rebuilt. Both are consistent with
+everything I can see (pod digest `sha256:f90a7e88…`; I have no earlier digest to compare). **The
+mechanism is undetermined; the outcome is not.** Either way the remedy is the same and it is the
+owner's: **bump `IMAGE_TAG`, then rebuild and roll.** Re-rolling at `v1.0.1305` cannot help.
+
+### The defect reproduced ON DEMAND, exactly as predicted, on a binary now PROVEN unfixed
+
+Recorded as a falsifiable prediction *before* the item dispatched (NOTES 2026-08-17, prediction 5),
+on a named subject, and collected after:
+
+- **Subject:** gamesdesign.co.uk `content_rewrite` on **`tool-ttk-calculator`**
+  (`rebuild_policy='owned'`), filed by the sweep-driven B4 run at 12:24.
+- **Outcome:** `failed` at **13:02:18**, orchestration `763b227b-4585-4dfb-b3bc-d744214ad7c1`
+  (`page-build-handler`, `complete_error`).
+- **Cause, quoted:** `step save_sections failed: failed to execute action save_page_sections: page
+  tool-ttk-calculator is rebuild_policy=owned (tool/widget-owned): a generic section save would
+  clobber it. … Refusing to overwrite.`
+- **`owned_page_review` rows with `refused_by='save_page_sections'`: 0.**
+
+**This is the third quoted instance and the first one predicted in advance.** It matters more than
+the two from 08-15 for two reasons: the item was filed by the sweep and died without a session
+touching it, and the "unfixed binary" premise is now **measured with controls** rather than assumed
+from a commit date. **It is also the clean pre-fix baseline** — when the fix does roll, the same
+site, same page and same item type is the natural re-test, and the bar is a row appearing where
+there are now provably zero.
+
 ## COUNCIL VERDICT 2026-08-17 — **APPROVED at round 1**, all 13 reviewers, 4 abstained (corr `d4f49ea5`)
 
 `decided_by: "all reviewers approve"`. The commit's `Council-Submitted:` trailer resolves to this
