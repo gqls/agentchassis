@@ -75,22 +75,17 @@ Enabled: the three FINANCE directory pairs + `dead_internal_link_live`,
 
 ## 3. Next actions, in order
 
-1. **Read the 433 ROUND-2 verdict — it is the only one outstanding.** Corr
-   `53ae1501-abe0-4bce-8376-bf20e220faf7`, resubmitted 16:28Z on 08-16.
-   ```sql
-   SELECT created_at, metadata->>'decision' FROM diagnosis_artifacts
-   WHERE correlation_id='53ae1501-abe0-4bce-8376-bf20e220faf7' AND kind='council_report' ORDER BY created_at;
-   ```
-   Body: same table, column `body` (NOT `content`). REVISE → fix and resubmit with
-   `RESUBMIT_CORR=<corr>`. Disposition advisories in NOTES with the check RUN, not asserted.
-   > **Verdicts already in (do not re-read these):** **434 APPROVED** round 1, 16:21Z,
-   > *"approved with 3 advisory objection(s) — none high-severity"*; all three dispositioned
-   > in NOTES (the shared snapshot-decoy concern was MEASURED and clears; the structural
-   > checks' empty `handler_agent` is the deliberate flag-only idiom, not a gap).
-   > **433 round 1 REVISE**, 16:20Z — gating objection answered at the artefact, and one
-   > medium objection earned a real change: **migration 441** (applied, live) enumerates the
-   > six listing component names instead of asking the planner to derive one by suffixing.
-   > **432 APPROVED** at round 2. **429 APPROVED** at round 1.
+1. ~~Read the 433 round-2 verdict~~ **DONE 2026-08-17 — APPROVED (16:38:18Z on 08-16).
+   PHASE B'S COUNCIL TRAIL IS COMPLETE: 429 · 432 (r2) · 433 (r2) · 434, all approved.**
+   Nothing outstanding; go straight to the pilot. All advisories dispositioned in NOTES —
+   the one real defect (verify blocks doing arithmetic on a possibly-NULL `p`, so the check
+   **cannot fail**) is fixed in both un-run ROLLBACKs; the applied forward files are left as
+   the record of what ran.
+   > **Also verified on the fresh v1.0.1305 roll** (both replicas, 08-16 22:07Z): Phase B is
+   > config-only so a roll cannot undo it, but B3f depends on the BINARY carrying the check
+   > names and a fresh build is not automatically a newer commit. Re-probed with controls —
+   > finance check PRESENT, structural check PRESENT, `evaluate_directory_features` PRESENT,
+   > POS PRESENT, NEG ABSENT. **Preconditions hold on 1305.**
 2. **Phase C pilot — remortgagecalculator.uk (M4), end to end.** Mission-file from the
    register entry, pre-seeded specs, marker sentence, dispatch via
    `scripts/initial_messages/020_build_pipeline/082_submit_domain_unified.sh`, cost baseline

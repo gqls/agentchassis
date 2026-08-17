@@ -87,6 +87,13 @@ BEGIN
     WHERE type = 'build-site-planner' AND is_active
       AND COALESCE(is_snapshot, false) = false AND deleted_at IS NULL;
 
+    -- NULL-before-arithmetic guard (council advisory, debug_historian, corr
+    -- 53ae1501 round 2): a NULL p makes every comparison below NULL, so no IF
+    -- fires and the verify passes having checked nothing. Refuse instead.
+    IF p IS NULL THEN
+        RAISE EXCEPTION '441 ROLLBACK verify: no active build-site-planner prompt_template found after the update - cannot verify, refusing to commit';
+    END IF;
+
     IF position('model_directory uses model-directory-listing' in p) > 0 THEN
         RAISE EXCEPTION '441 ROLLBACK verify: the listing enumeration is still present - the inverse replace found a drifted block; ROLLBACK the transaction and inspect';
     END IF;

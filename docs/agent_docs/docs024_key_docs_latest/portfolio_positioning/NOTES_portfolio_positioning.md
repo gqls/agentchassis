@@ -1489,3 +1489,95 @@ instant `git commit` runs. **Read the commit's OWN output**: it prints the scope
 naming every file it actually took, and mine said two files while my message described
 three. The check that would have caught it costs nothing — compare the scope block against
 what the message claims, before moving on.
+
+### 2026-08-17 — 433 round 2 APPROVED: Phase B's council trail is COMPLETE (429/432/433/434 all approved)
+
+**433 round 2 APPROVED** 2026-08-16 16:38:18Z — *"approved with 3 advisory objection(s) —
+none high-severity"*, 4 abstained, not truncated. **All four Phase B rounds are now
+approved: 429 · 432 (r2) · 433 (r2) · 434.** 098 credits the `Council-Submitted:` commits
+automatically at report time.
+
+**Fresh chassis v1.0.1305 rolled** (both replicas, 2026-08-16 22:07/22:08Z). Phase B is
+config-only so a roll cannot undo it, but B3f's checks DO depend on the binary carrying
+their names, and a fresh build is not automatically a newer commit — so re-probed with
+controls on the new pod (`agent-chassis-5657f446c7-q7b82`):
+`missing_mortgage_lender_directory_section` PRESENT · `sitemap_entry_dead_live` PRESENT ·
+`evaluate_directory_features` PRESENT · POS control PRESENT · NEG control ABSENT.
+**Preconditions hold on 1305.** (The `build provenance` startup line had already scrolled
+after ~13h — absence there means "not in range", not "unstamped".)
+
+**Advisory dispositions:**
+
+- **debug_historian [MEDIUM] — the post-UPDATE verify blocks never re-check `p IS NULL`
+  before doing arithmetic. REAL, and it is the "a check that cannot fail" class**: if the
+  SELECT returns no row, `p` is NULL, every `length()`/`position()` is NULL, `NULL <> 1` is
+  NULL, no IF fires and **the verify PASSES having inspected nothing** — while the
+  pre-flight in the same file refuses on exactly that condition. Asymmetric in the direction
+  that matters. **FIXED in both un-run ROLLBACKs (433 + 441)**, each with the reason inline.
+  The applied FORWARD files are deliberately NOT edited — they are the record of what ran
+  (432's precedent) — so the gap is recorded here instead: in-transaction the row cannot
+  vanish, which is why this is a latent-not-live defect, and the next planner migration
+  should carry the guard from the start.
+- **editquality [MEDIUM ×2] — "the 433 rollback sketch is not a runnable script" and "441's
+  rollback UPDATE contains a literal `...` elision that will never byte-match".** Both are
+  **sketch-visibility artefacts: measured `grep -c '\.\.\.'` on the 441 ROLLBACK file = 0**,
+  and the 433 ROLLBACK file is a complete `BEGIN`/`DO`/`UPDATE`/verify/`COMMIT` script. But
+  this is the **FIFTH round this lane has lost to showing reviewers less than the file
+  contains**, and the second where my own abbreviation *looked exactly like a bug a
+  reviewer should catch*. **New hard rule, not a lesson: NEVER elide inside a sketch's
+  string literals, and never sketch a rollback as fragments — paste the whole file if it is
+  under the size cap.** A reviewer cannot distinguish brevity from breakage, and objecting
+  is the correct thing for them to do with an elided literal.
+- **bug_historian [MEDIUM] — "441 patches the SYMPTOM; validate_site_plan drops an
+  unresolvable section with no error, no work item, no log."** **The class is right, the
+  current-state premise is OUT OF DATE and the correction matters for the pilot.** Read at
+  source: `validate_site_plan` calls `recordDroppedSectionNames`
+  (`component_name_resolver_menu.go:208-221`), which files a DURABLE finding via
+  `LogActionFindings` under provenance `validate_plan`; there is a per-drop `Logger.Warn`;
+  and `warnUnrecordedDrops` (lines 244-252) makes even a FAILED record loud, explicitly so
+  the report cannot reproduce the silence it removes. That is bugs_open/282's fix, another
+  lane, already shipped. So a dropped directory section **is observable today** — which
+  turns the seat's objection into a concrete PILOT CHECK (below) rather than an open risk.
+  The seat's LOW rider is fair and stands: the resolver's drop behaviour is generic across
+  the whole rule, not just the listing field 441 narrowed.
+- **reuse_agent [LOW] dual-path** (reactive check vs proactive planner) — answered in round
+  2's grounded_in: both checks return empty once the page/section exists, so the older path
+  becomes a no-op, not a second creator. **guardian [LOW]**: 433 and 441 are not
+  independently reversible (441 first) — correct, by design, stated in both headers and the
+  handoff. **prior_art [LOW]**: `llm_call_log` is outside its queryable schema, so the
+  5-of-66 evidence is credible-but-unverified from that seat; it is reproducible by anyone
+  with DB access and the query is in round 2's grounded_in.
+
+**PILOT CHECK earned by the bug_historian round** — after the Phase C plan is written, ask
+whether validate_plan dropped any section name for that site, instead of inferring from a
+missing page:
+```sql
+-- table is agent_error_log (NOT agent_errors); key on the error_code, which is
+-- unambiguous — `action` carries values like 'validate_plan' / 'apply_gap_plan:new_page'
+SELECT occurred_at, agent_type, action, error_message, context
+FROM agent_error_log
+WHERE error_code = 'PLAN_SECTION_NAME_DROPPED'
+  AND site_id = '<pilot-site-id>'
+ORDER BY occurred_at DESC;
+```
+A row naming a directory component = the planner emitted a name that did not resolve, which
+is precisely the failure 441 exists to prevent and the one a silent-looking success hides.
+
+> **CORRECTED 2026-08-17, before anyone ran it:** the first version of this block queried
+> `agent_errors` with a `details` column. **No such table** — it is `agent_error_log`, and
+> the payload column is `context`. Caught by doing the thing this file keeps telling people
+> to do: `\d` the table before writing SQL into a doc. An unrun query in a handoff is a
+> claim like any other, and this one would have failed in the next session's hands at
+> exactly the moment they needed it.
+>
+> **And the zero it returns today is DEMAND-CONTROLLED, so it can be trusted** (checked
+> 2026-08-17, because "0 drops" and "the recorder never runs" look identical):
+> `PLAN_SECTION_NAME_DROPPED` = **0 rows, all history** — but the findings door is
+> demonstrably live (**12,158 rows in 7 days across 63 agent types**, newest 12 minutes
+> before the check), and the recorder is in the RUNNING binary (`grep -aq
+> "PLAN_SECTION_NAME_DROPPED" /proc/1/exe` on v1.0.1305 → PRESENT, POS control PRESENT,
+> NEG control ABSENT). So the zero means *no section name has been dropped*, not *nothing
+> is watching*. **Residual, stated:** the door is proven for other call sites, not
+> positively demonstrated for `validate_plan` specifically — no drop has ever occurred to
+> prove it end to end. The pilot is its first real exercise, which is another reason to run
+> the query there rather than assume the silence.

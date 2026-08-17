@@ -98,6 +98,17 @@ BEGIN
     WHERE type = 'build-site-planner' AND is_active
       AND COALESCE(is_snapshot, false) = false AND deleted_at IS NULL;
 
+    -- NULL-before-arithmetic guard (council advisory, debug_historian, corr
+    -- 53ae1501 round 2). Without it this whole block is a check that CANNOT
+    -- FAIL: if the SELECT returns no row, p is NULL, every length()/position()
+    -- below is NULL, and `NULL <> 1` is NULL - so no IF fires and the verify
+    -- PASSES while having inspected nothing. The pre-flight already refuses on
+    -- a NULL prompt; the post-check has to as well, or the pair is asymmetric
+    -- in exactly the direction that matters.
+    IF p IS NULL THEN
+        RAISE EXCEPTION '433 ROLLBACK verify: no active build-site-planner prompt_template found after the update - cannot verify, refusing to commit';
+    END IF;
+
     IF position('Directory rule:' in p) > 0 THEN
         RAISE EXCEPTION '433 ROLLBACK verify: Directory rule still present - the inverse replace found a drifted block; ROLLBACK the transaction and inspect';
     END IF;
