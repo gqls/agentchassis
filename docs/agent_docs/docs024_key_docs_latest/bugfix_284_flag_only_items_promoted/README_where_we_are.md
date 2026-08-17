@@ -156,3 +156,52 @@ difference between "no complaints" and "checked".
 unilaterally): two reviewers disagreed about the same edit — one says a third copy of
 a shared check should have been unified too, the other says touching that file at all
 went beyond the bug. Either way is a small, single-file change whenever you decide.
+
+---
+
+**2026-08-17.**
+
+The build went out and the fix is live and working. It is worth saying how that was
+established, because "we deployed it" is not the same claim: another session checked
+that the *running* services carry the exact commit (the image's own label, plus a
+proof that my commit is an ancestor of it), and I separately asked both running
+processes whether my code is inside them, with a deliberate nonsense check alongside
+to prove the question could come back "no". Then they proved it *works* rather than
+merely exists — they picked a site holding thirty-six of these flag-only findings and
+nothing else routable, ran the promoting step at it on purpose, and it held back all
+thirty-six and promoted none. Under the old build those thirty-six would have been
+queued and then marked as failures.
+
+All sixty damaged rows are repaired, and the last hole is closed: there is now a
+database-level rule making the bad combination impossible to write, added in the
+correct order (after the build), and tested by trying to break it in three different
+ways.
+
+**Two things I got wrong today, both worth you knowing about.** First, another
+session had already written the repair by the time I got to mine, because I wrote
+mine into our lane's own folder rather than the shared migrations ledger where they
+looked — so there are two files that do the same thing, and theirs is the one of
+record. Second, and more embarrassing: I checked whether the fix had actually been
+exercised, saw that the scheduled job which normally drives it is switched off, and
+concluded the code "cannot currently run at all". That was wrong — you can fire the
+step directly at one site, which is exactly what they did, and it's a technique
+already written down in our own notes. I have corrected that claim where I made it
+and logged all of today's misreadings; there were three, and every one of them was me
+treating "I found nothing" as "there is nothing".
+
+**One new problem found while checking this one, and it is live.** The same safety
+check has two arms: one for a finding with nobody named to fix it, one for a finding
+pointed at an agent that doesn't exist. I fixed the first. The second is happening
+right now: our tool auditor is filing genuinely useful findings about live tools —
+missing input labels, a tool depending on a script that isn't there — and addressing
+them to something called "hitl-review", which has never existed. Fourteen of them,
+across two sites, and it's growing: five yesterday, fourteen today. Each one is
+recorded as a routing failure and, worse, silently blocks the auditor from reporting
+that same finding again. I have filed it as bug 291 with the producer identified.
+Note that neither my fix nor the new database rule catches it, because the handler is
+named rather than blank — so it needs its own decision about what "hitl-review" was
+ever meant to be.
+
+**And the judgement call from yesterday is still yours**, untouched: whether to
+unify the third copy of that shared test, or to back my change out of the shared
+dispatch code. Two reviewers wanted opposite things and I have not picked for you.
