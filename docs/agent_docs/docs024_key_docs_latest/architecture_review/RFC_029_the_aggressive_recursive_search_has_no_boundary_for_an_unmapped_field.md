@@ -601,3 +601,56 @@ mapping (or `!`) so it stops being a search; if no, the pipeline has been living
 flip and needs the mapping even more. Then, and only then, D2's flip. Owner note: this is
 precisely the measurement the ruling asked for instead of a guess, and it says the guess would
 have been wrong.
+
+### 10.6 SECOND READ, +24 h (2026-08-17 ~10:5xZ) — the conflict population is ONE KNOWN BUG plus a small tail, and that changes what Phase 2 is waiting for
+
+Chassis rolled again overnight: **v1.0.1305**, binary stamped `6a782274b` (probed; HEAD
+`896c5aeeb` absent as the control), `53edef286` an ancestor — the recorder is live and
+unchanged. Rows are cumulative in the DB, so the roll did not reset the window.
+
+**Window at ~24 h: 1,571 rows, 7 agents** (was 672 at 4.5 h — a steady ~65/h, not a burst).
+
+| producer | rows | field → winner the search picks | ballot size |
+|---|---|---|---|
+| **build-dispatch-loop** | **1,357 (86%)** | `work_item_id` → `claim_result.work_item_id` (453) · `current_page` → `handler_result.retry_payload.message.body.~unwrap.current_page` (452) · `result` → `handler_spawned.result` (176) · `result` BYPASSED on the dotless `handler_result` (279) | 13 → **189**, rising with the iteration |
+| page-content-writer | 165 | `current_page` → `~unwrap.current_page` | — |
+| page-build-handler | 38 | `sections` / `page_type` → `load_page_record.*` | — |
+| page-rerender, rerender-pages, tool-generator, generic | 11 | assorted, ≤3 each | — |
+
+**THE FINDING: 86% of the population is `bugs_open/287` (the `spawn_record` slug), already
+diagnosed, already root-caused, with a fix candidate written.** That bug's §6a corrected its own
+090 verdict to name *this* resolver (`ExtractActionInputs`' aggressive search) as the door, and
+its §9 fact 3 left `[INFERRED which key the search hits first]`. **Our instrument answers it:
+`handler_spawned.result`, 176 times, always the same key.** The contribution is filed as 287 §10
+— including the warning that arming `!` on `mark_complete`'s `result` BEFORE 287's §9a (a)
+lands would hard-fail every loop-dispatched completion in the fleet, because the key is
+genuinely absent. `!` is the ratchet after the fix, never the fix.
+
+**What this does to the Phase 2 go/no-go, and it is good news read correctly.** §10.5 said the
+disconfirmation clause was firing and Phase 2 was off the calendar. That still holds, but the
+shape is now known: this is **not** "a substantial population of independent pipelines each
+living on a lucky coin flip" — it is ONE structural defect (a loop-expansion suffixing gap)
+generating ~86% of the events, plus a tail of ~214 rows across five agents. So:
+
+- **Phase 2's precondition is reachable, and 287's fix is the main lever.** When §9a (a) lands,
+  the three build-dispatch-loop pairs should go to zero *while the loop keeps running* (the
+  demand control matters — see 287 §10's query). If they do, the remaining population is ~214
+  rows/day across five known pairs, which is a triage list a session can actually finish.
+- **The tail is the RFC_029 lane's own work.** `page-content-writer`'s `current_page` →
+  `~unwrap.current_page` (165/day) is the biggest of them and is NOT 287's shape; it needs its
+  own read (is the unwrap hop finding two copies of one page, or two different pages?).
+  `page-build-handler`'s `load_page_record.*` winners look plausibly correct and may only need
+  an explicit mapping to stop being a search.
+- **The ballot-size growth (13 → 189) is the sharpest single fact in the window** and it
+  generalises beyond 287: in any loop sub-workflow, `collected_data` accumulates a copy of every
+  field per iteration, so the search's candidate list grows monotonically all run. `[INFERRED]`
+  that "shallowest wins" therefore systematically favours the EARLIEST iteration's value — the
+  stale one. If that is right, determinism (D1, shipped) did not make the whole-tree search
+  safer for loops; it made it *reliably wrong* where it used to be randomly wrong, which is
+  still the ruling's stated preference (visible and stable beats silent and random) but is worth
+  saying out loud in Phase 2's design. **Not asserted — it is the next thing to measure**, and
+  the measurement is cheap: compare `candidate_paths[0]` against the iteration index in the run.
+
+**Owed, unchanged:** the per-pair triage (now much better scoped), and 417's live proof, which is
+still demand-bound — `image-build-handler` has not run since the apply (0 in 19 h; it ran 3
+times in the 8 days before), and zero strict/`asset_id` errors have appeared.

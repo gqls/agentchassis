@@ -4638,3 +4638,30 @@ below ran from `git archive HEAD` + this task's files in scratch.
   fleet-wide, regex over `default_config`), so a mis-parsed marker cannot reach anything else.
 - The background watch armed yesterday did not survive the session boundary (no output). Its
   query lives in the handoff §2.2 — re-run it, do not re-derive it.
+
+## 2026-08-17 (later) — second window read, and grep-before-you-file paid for itself
+
+- New roll verified: **v1.0.1305, stamp `6a782274b`** (probed, HEAD `896c5aeeb` absent as the
+  control; `53edef286` an ancestor). Recorder unchanged and live. Rows are cumulative — a roll
+  does not reset the window.
+- **+24 h: 1,571 rows / 7 agents / ~65 per hour.** build-dispatch-loop 1,357 (86%);
+  page-content-writer 165; page-build-handler 38; the rest ≤3 each.
+- **I was one command away from filing a duplicate `090`.** The CLAUDE.md dedup step
+  (`grep /bugs_open/ /bugs_closed/` before filing) hit `bugs_open/287` — the `spawn_record` slug
+  — which had ALREADY diagnosed this exact mechanism, ALREADY run its own 090 (verdict §6a:
+  REFUTED on the resolver's *name*, corrected to `ExtractActionInputs`' aggressive search — i.e.
+  precisely our instrument's door), and ALREADY written fix candidates. Filing would have cost a
+  run and competed with an owner. Contributed into 287 §10 instead, per "contribute into the bug
+  file, do not compete".
+- What our rows added that 287 could not get from the item table: its §9 fact 3's last
+  `[INFERRED]` ("which key the search hits first") is now **MEASURED** — `handler_spawned.result`,
+  176×, invariant; `work_item_id` (453, winner `claim_result.work_item_id` — the literal example
+  in the code comment its 090 quoted) and `current_page` (452, resolving out of a *retry
+  payload's* message body) are the SAME defect and bigger; and the ballot grows **13 → 189** with
+  the iteration, which is the accumulation made visible.
+- Recorded the `!`-ordering trap in the contribution: arming `"result!"` before 287's suffix fix
+  would hard-fail every loop-dispatched completion, because the key really is absent. The marker
+  is the ratchet after the fix — this is the first time RFC_029's D3 and another lane's fix have
+  had to be sequenced against each other, and it is easy to get backwards.
+- 417 live proof still demand-bound: 0 image-build-handler runs in 19 h (3 in the prior 8 days),
+  0 strict/`asset_id` errors.
