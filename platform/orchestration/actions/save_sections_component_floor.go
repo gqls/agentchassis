@@ -129,11 +129,27 @@ func evaluateComponentLoss(floor float64, existing map[string]int, incoming map[
 }
 
 // componentClassesIncomingBySlot maps incoming sections to class-attribute counts
-// by slot, last write wins — matching strippedIncomingBySlot and the insert loop.
+// by slot, SUMMING same-named sections.
+//
+// It used to take the last write, "matching strippedIncomingBySlot and the insert
+// loop" — and that comment was half right in a way that hid the defect
+// (bugs_open/293). It did match its sibling, because both had the same bug; it did
+// NOT match the insert loop, which writes EVERY instance it is given (position =
+// i+1 for each), so a page with a repeated slot name had its floor decided by one
+// arbitrary instance while all of them were written. Which instance won depended
+// on slice order here and on DB row order on the existing side, so the verdict was
+// not even stable across runs.
+//
+// A repeated slot name is NORMAL and cannot be made unique: 14 pages carry one, and
+// LANDMINES.md records that 11 of 17 such groups are legitimate — `generic-text-block`
+// used 2–3× on a page with differing content, `info-card-grid` ×2 — with only 6 ever
+// being true duplication. So the unit of judgement is the slot-name GROUP's total
+// class count: bit-identical for the ~97% of groups with one instance, deterministic
+// for the rest, and needing no assumption that position survives a rebuild.
 func componentClassesIncomingBySlot(sections []SectionData) map[string]int {
 	m := make(map[string]int, len(sections))
 	for _, s := range sections {
-		m[s.ComponentName] = countComponentClasses(s.HTML)
+		m[s.ComponentName] += countComponentClasses(s.HTML)
 	}
 	return m
 }
@@ -177,7 +193,10 @@ func enforceSectionComponentFloor(ctx context.Context, params ActionParams, site
 		if scanErr := rows.Scan(&slot, &html); scanErr != nil {
 			continue
 		}
-		existing[slot] = countComponentClasses(html)
+		// += for the same reason as componentClassesIncomingBySlot above: slot
+		// names repeat, and last-row-scanned-wins made this comparison depend on
+		// the order the database happened to return rows in.
+		existing[slot] += countComponentClasses(html)
 	}
 
 	violations := evaluateComponentLoss(floor, existing, componentClassesIncomingBySlot(sections))

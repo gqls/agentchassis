@@ -97,3 +97,48 @@ func TestComponentFloorCatchesWhatTheTextFloorAllows(t *testing.T) {
 		t.Fatal("the component floor must refuse the save the text floor allowed")
 	}
 }
+
+// MUT-293-G: revert either `+=` in this file to `=`. This test must then FAIL for
+// ONE of the two row orderings — and which one depends on the mutation, which is
+// the finding: under last-wins the verdict was decided by the order the database
+// happened to return rows in, not by the content.
+//
+// The class floor had the identical keying defect as its text sibling
+// (bugs_open/293) and for the identical reason: a comment claiming last-write-wins
+// "matches the insert loop" when the insert loop writes EVERY instance. A repeated
+// slot name is normal and cannot be made unique — LANDMINES.md records 11 of 17
+// such groups as legitimate — so the group's total is the only stable unit.
+func TestComponentFloorJudgesARepeatedSlotNameAsAGroup(t *testing.T) {
+	rich := buildSlotHTML(30, 40)  // 30 class attributes
+	plain := buildSlotHTML(2, 40)  // 2
+	flat := buildSlotHTML(0, 40)   // 0
+
+	for _, order := range [][2]string{{rich, plain}, {plain, rich}} {
+		existing := map[string]int{}
+		for _, h := range order {
+			existing["generic-text-block"] += countComponentClasses(h)
+		}
+		incoming := componentClassesIncomingBySlot([]SectionData{
+			{ComponentName: "generic-text-block", HTML: flat, Position: 1},
+			{ComponentName: "generic-text-block", HTML: flat, Position: 2},
+		})
+		if v := evaluateComponentLoss(defaultSectionComponentFloor, existing, incoming); len(v) != 1 {
+			t.Fatalf("two instances of one slot name carrying %d class attributes between them were replaced "+
+				"by %d and the component floor allowed it (row order starting %.24s…): the comparison must be "+
+				"over the slot-name GROUP, not whichever instance was scanned last",
+				existing["generic-text-block"], incoming["generic-text-block"], order[0])
+		}
+	}
+
+	// The allow arm, so this is not a floor that refuses every repeated slot: the
+	// group keeping most of its layout must pass.
+	existing := map[string]int{"generic-text-block": countComponentClasses(rich) + countComponentClasses(rich)}
+	incoming := componentClassesIncomingBySlot([]SectionData{
+		{ComponentName: "generic-text-block", HTML: rich, Position: 1},
+		{ComponentName: "generic-text-block", HTML: buildSlotHTML(25, 40), Position: 2},
+	})
+	if v := evaluateComponentLoss(defaultSectionComponentFloor, existing, incoming); len(v) != 0 {
+		t.Fatalf("a repeated slot keeping %d of %d class attributes must PASS, got %+v",
+			incoming["generic-text-block"], existing["generic-text-block"], v)
+	}
+}
