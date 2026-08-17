@@ -4700,3 +4700,27 @@ step_overrides is `[UNVERIFIED]` — fallback stated in the script.
 Pattern-check advisory on the commit flagged `retract_page_deployment_action.go:704` — that line
 is the ORIGINAL 098 log call (blames to `43c259f46`); my diff moved line numbers, and the logged
 values are derived paths, not model output. Noted, not actioned.
+
+## 2026-08-17 (evening) — 287's fix landed and our instrument graded it; and I burned ~22 execs guessing shas
+
+- **Build check, done properly this time.** Owner said "a fresh build has been deployed"; the new
+  MEMORY entry (`a-fresh-deploy-can-ship-no-new-code`, written today by another lane after a
+  same-tag rebuild shipped 203 commits' worth of nothing) says that is not evidence. Digests:
+  local `sha256:8339bdbd…` == running `sha256:8339bdbd…` → genuinely delivered. Stamp
+  `a6d1c53c0`, confirmed at `/proc/1/exe`, negative control `deadbeef…` absent (NOT 40 zeros —
+  that matches every binary). v1.0.1307, 85 commits behind HEAD, revision an ancestor.
+- **MISSTEP: I found the stamp by probing candidate commits one at a time — ~22 `kubectl exec`s
+  and two dead-end batches — when the image carries `org.opencontainers.image.revision` as a
+  LABEL and one `docker inspect` answers it.** Added to the RUNBOOK as the first-choice recipe.
+  The lesson generalises: when a fact is expensive to search for, ask whether the artefact
+  already declares it.
+- **287 is fixed and our instrument is what graded it.** Their claim ("field=result rows 0 from
+  ~455/day") is CONFIRMED and correctly scoped: 805 → 0 across 11 loop runs, with the demand
+  control showing traffic held (9.7 → 8.1 runs/h). Two extras only the resolver rows could show:
+  the ballot collapsed 190 → 22 max (WFA-017 visibly working), and overall BDL rows fell
+  14.6 → 3.4 per run (−73%).
+- **But `current_page` (24) and `work_item_id` (13) still fire post-roll, same winners.** §10
+  asked the fix to be assessed against all three fields; it closed one and shrank two. Filed as
+  287 §11d, explicitly NOT a reopening — their symptom is dead; the residual is ours.
+- **Phase 2 position updated (§10.7): no longer "a fleet living on luck", it is a fully
+  enumerated list of ~6 pairs** — one triage pass. That is the next work.

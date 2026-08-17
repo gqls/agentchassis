@@ -724,3 +724,54 @@ with evidence in **287 §11**, both of which move this lane's Phase 2 arithmetic
 
 — bugfix-287 lane, 2026-08-17. Mechanism details and the census: 287 §11 +
 `docs024_key_docs_latest/bugfix_287_spawn_record/`.
+
+### 10.7 THIRD READ 2026-08-17 ~18:3xZ — 287's fix landed, and Phase 2's precondition is now within one session's work
+
+**Build verified at the artefact, and the cheap recipe changed.** Chassis `v1.0.1307`. The
+image carries `org.opencontainers.image.revision` = **`a6d1c53c0`** as a LABEL — one
+`docker inspect`, no sha-guessing — and it is confirmed PRESENT in `/proc/1/exe` on the running
+pod, with `deadbeef1234…` absent as a negative control that can actually be absent. Local and
+running digests both `sha256:8339bdbd…`. `53edef286` is an ancestor, so the recorder is live and
+unchanged; the binary is 85 commits behind HEAD, which is normal here.
+
+> **USE THE LABEL FIRST.** `docker inspect aqls/<svc>:<tag> --format '{{json .Config.Labels}}'`
+> gives the exact build commit in one call. Probing candidate shas against `/proc/1/exe` cost
+> ~22 kubectl execs this session before I thought to ask the image. Confirm the label at the
+> binary (a label is a claim; the binary is the fact), but read it first. Added to the RUNBOOK.
+
+**`bugs_open/287` shipped its fix and it works.** Half 1 (WFA-017, loop expansion stops
+enumerating) plus the `!` flip on three dispatch agents' `mark_complete` (migrations 448/452).
+Measured through our own instrument, split at the roll, with the demand control:
+
+| | before 1307 (30.3 h) | after 1307 (1.3 h) |
+|---|---|---|
+| `build-dispatch-loop` traffic | 9.7 runs/h | 8.1 runs/h *(control — comparable)* |
+| `result` rows (both codes) | 805 | **0** |
+| `current_page` / `work_item_id` conflicts | 1,211 / 1,186 | 24 / 13 |
+| all BDL resolver rows | 105.6/h · 14.6 per run | 28.4/h · **3.4 per run** (−73%) |
+| candidate ballot, max | **190** / 195 | **22** / 27 |
+
+Two things worth keeping. **The ballot collapse (190 → 22) is WFA-017 made visible** — the
+unbounded accumulation of §10a is gone, which no item-table census could have shown. And **the
+`!` marker did its job in the right order**: §10's warning (never arm `!` before the reference
+resolves) was followed, and the flip closed `result` completely rather than hard-failing the
+fleet. That is RFC_029 D3's first real adopter beyond 417, and its first measured win.
+
+**Where Phase 2 stands now.** The population that §10.5 called disconfirming has gone from
+~1,570 rows/day dominated by one bug to a small, bounded, fully-enumerated list:
+
+- `build-dispatch-loop` `current_page` → `handler_result.retry_payload.message.body.~unwrap.current_page` (~18/h)
+- `build-dispatch-loop` `work_item_id` → `claim_result.work_item_id` (~10/h)
+- `page-content-writer` `current_page` → `~unwrap.current_page`
+- `page-build-handler` `sections` / `page_type` / `current_page` → `load_page_record.*`
+- `tool-generator` `description` / `function` / `reason` / `related_pages`; `generic` `summary` — ≤3 each
+
+**That is the whole triage list, and it is one session's work.** For each: read whether the
+winner is the value the step needs; if yes, write the explicit mapping and then `!`; if no, the
+pipeline has been living on the search and needs it more. `[UNMEASURED]` whether the surviving
+`claim_result.work_item_id` winner is now the CURRENT iteration's value post-WFA-017 — if it is,
+these are benign-but-unmapped rather than wrong, which changes the urgency but not the work.
+
+**Phase 2 stays gated on that list reaching zero (or being fully mapped), not on a date** — but
+it is no longer "off the calendar" in the §10.5 sense: it is one triage pass away, and the
+disconfirmation clause's worst reading (a fleet living on luck) is now positively excluded.

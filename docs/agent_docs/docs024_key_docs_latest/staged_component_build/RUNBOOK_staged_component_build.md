@@ -608,3 +608,29 @@ Gotchas, all measured:
 - The verdict/prior-art rows for this lane are in `doc_notes` (`decision`/`RFC_029`,
   `decision`/`council-submission-75091072`); re-applying
   `SQL_2026-08-16_doc_notes_rfc029_phase1_and_council_evidence.sql` is a no-op (fenced).
+
+## Which commit is a running service built from? ASK THE IMAGE LABEL FIRST (2026-08-17)
+
+Cheapest first, and only escalate if it disagrees:
+
+```bash
+TAG=$(kubectl -n ai-persona-system get deploy <svc> -o jsonpath='{.spec.template.spec.containers[0].image}' | sed 's/.*://')
+docker inspect aqls/<svc>:$TAG --format '{{json .Config.Labels}}'   # org.opencontainers.image.revision = the build commit
+```
+Then confirm it at the artefact, because a label is a claim and the binary is the fact:
+```bash
+POD=$(kubectl -n ai-persona-system get pods -l app=<svc> --field-selector=status.phase=Running -o jsonpath='{.items[0].metadata.name}')
+kubectl -n ai-persona-system exec $POD -- grep -aq "<the 40-char revision>" /proc/1/exe && echo PRESENT
+kubectl -n ai-persona-system exec $POD -- grep -aq "deadbeef1234567890abcdef1234567890abcdef" /proc/1/exe && echo "CONTROL FAILED"
+git merge-base --is-ancestor <your-commit> <the revision> && echo "your commit is in it"
+```
+- **Never guess candidate shas against `/proc/1/exe`** — it cost ~22 kubectl execs this session
+  before I asked the image. The label answers it in one call.
+- **The negative control must be capable of being absent.** 40 zeros MATCH every binary
+  (MEMORY `a-fresh-deploy-can-ship-no-new-code`); use a plausible fake sha.
+- **"A fresh build was deployed" is not evidence.** Compare digests — local
+  `docker inspect … '{{json .RepoDigests}}'` vs running
+  `kubectl get pods … -o jsonpath='{…containerStatuses[0].imageID}'`. Equal = delivered;
+  different under the same tag = the node served its cache and the remedy is a tag BUMP.
+- The `build provenance` startup log line still exists but scrolls within minutes on a busy
+  service — absence there means "not in range", never "unstamped".
