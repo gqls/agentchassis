@@ -30,6 +30,27 @@ DEPLOY    ⛔ NOTHING CAN PUBLISH. 0 pages deployed since the 17:05 roll. Fleet-
           router and what resolveGitRepoNameDB returns for an empty github_repo.
           NOT this lane's to fix; it blocks chrome propagation (10/43 pages), the 29
           queued rerenders, AND any retraction of the duplicates.
+          ⚠ **CORRECTED 18:25Z — the "no-repo sites 404" framing is REFUTED, do not act
+          on it.** `resolveGitRepoNameDB` (helpers.go:232-253) never passes an empty repo
+          name; it falls back to the literal `sites`, so every no-repo site shares ONE
+          repo — and that repo EXISTS and is committing: "Successfully committed to repo
+          repo=sites url=https://github.com/gqls/sites" at 17:17:39Z and 18:10:01Z. What
+          is failing now is GitHub in its own words (503 "No server is currently
+          available to service your request" at create-tree/updateRef; zero 404s in the
+          current window). The clean split is most likely VOLUME — 51 `sites` requests to
+          3 `vm-sites` in my sample. **[INFERRED]: the per-repo failure RATE is the
+          measurement that settles it and nobody has taken it.**
+          **DO NOT repoint any site's `github_repo` to route around this** — large, hard
+          to reverse, and premised on a refuted claim. Written up as
+          `portfolio_positioning/CONTRIB_2026-08-17_from_loancalculator_the_fallback_repo_EXISTS.md`.
+failed 8  ⚠ **Eight items are at `attempt_count = 3/3` and will NEVER retry on their own**
+          — they need hand re-triage once the outage clears (set `triaged`, never
+          `detected`): 4 × `misdirected_cta:{guide-loan-faqs,index,legal,
+          tool-application-tracker}`, 3 × `page_rerender_guide-{can-i-overpay,
+          car-finance-explained,loan-eligibility-uk}_…_assemble`, and
+          `reconcile_rerender:9463e31d…`. A further 4 sit at 1/3 and 29 at 0/3.
+          **Intermittent infrastructure failure converts to permanent item failure** —
+          count them before assuming a queue self-heals.
 plan      9463e31d-ee50-482e-94a9-7e186ef25543  is_current — CORRECT for the 11
           calculators, WRONG for the guides (see THE DAMAGE)
 locks     12/12 held throughout
