@@ -59,3 +59,35 @@ nobody is misled later.
 Still to come (waiting on the next release rolling out): flip the now-harmless
 leftover reviewer name to the standard empty value, then close the bug. The staged
 script for that carries loud guards so nobody can run it early by accident.
+
+## 2026-08-17, evening — the new build went out, and it contains none of the new code
+
+I checked the deployed chassis before doing the last step, and it is a good job I did:
+the release that went out does not contain this fix, or anybody else's code from today.
+
+The pods really did restart, and they really are running a freshly deployed image —
+but the image is labelled with the same version number as the previous one
+(v1.0.1305), and when the label does not change, the machine keeps serving the copy it
+already had. So: new pods, same old programme inside. I proved it two ways — the fix's
+own distinctive marker is missing from the running programme, and it IS present in the
+image that was built on this machine this afternoon. The two copies have different
+fingerprints (6039e19c… built here, f90a7e88… actually running).
+
+This is not just us: another lane measured the same thing this afternoon and found the
+running chassis is missing **203 commits** of work from today. Anything anyone changed
+in the code today is sitting inert. Anything changed in the database configuration —
+including our fix that stopped the bleed and recovered the fourteen findings — is live
+and unaffected, which is exactly why the situation is confusing to look at.
+
+The remedy is one thing, and it belongs to you because releases go out fleet-wide:
+**bump the version number when you release** — `make release IMAGE_TAG=v1.0.1306`.
+Re-deploying at the same number will just serve the same cached copy again. I have
+written the ten-second check into the fleet-wide traps file so nobody has to discover
+this the slow way: compare the fingerprint of the image you built against the
+fingerprint of the image that is running; if they differ under the same version
+number, your code is not live no matter what anything else says.
+
+I deliberately did NOT do the last step of our fix. It only becomes safe once the new
+code is actually running — done today it would make the tool auditor fail to file any
+review item at all, silently. The staged script refused to run for exactly that
+reason, which is what those guards are for.
