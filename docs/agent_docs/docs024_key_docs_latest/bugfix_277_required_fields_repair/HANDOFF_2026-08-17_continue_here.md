@@ -13,7 +13,7 @@ is done or reassessed). Everything below measured 2026-08-17 ~11:00–12:45Z aga
 | `detected-item-promoter` (seed 430 + **444**, SCH-026) | live, 900s, **hardened 2026-08-17**, council **APPROVED** | `SELECT enabled, last_triggered_at FROM scheduled_tasks WHERE name='detected-item-promoter'` |
 | migration `444` door-closers | applied + ledger-recorded, `_ROLLBACK.sql` alongside; both doors hold **0 rows** | `SELECT pre_query FROM scheduled_tasks WHERE name='detected-item-promoter'` — must contain `wi.pipeline IN ('build', 'content', 'design')` and `0.25 * (c + f)` |
 | council `05a3d1c8` | **APPROVED round 2**, 12 seats, 3 abstained, 2 advisories (both answered) | `SELECT metadata->>'decision' FROM diagnosis_artifacts WHERE correlation_id='05a3d1c8-39c1-484d-85a8-11a47f4b07f3' AND kind='council_report' ORDER BY created_at` |
-| council `7b0e2833` (the router) | REVISE ×4, **deliberately not resubmitted** — see §4 | — |
+| council `7b0e2833` (the router) | **APPROVED round 5, 2026-08-17 12:42Z** — 9 seats, 5 abstained, 3 advisories none high | `SELECT created_at, metadata->>'decision' FROM diagnosis_artifacts WHERE correlation_id='7b0e2833-715f-4a9a-897b-efd913073582' AND kind='council_report' ORDER BY created_at` → 4×revise then approved |
 | RFC_030 (router engine) | RULED + SCHEDULED, lane at `docs024_key_docs_latest/router_engine/`, **nothing built** | its own `HANDOFF_2026-08-15_continue_here.md` |
 
 ## 2. TWO OWNER DECISIONS ARE PENDING — read `README_where_we_are.md` (2026-08-17 entry) first
@@ -55,17 +55,34 @@ no_content_data -> unknown (29) · no_plan_owned -> unknown (1) · asset_sourced
 -- not this router's; the router's contribution is that the survivors carry a classification.
 ```
 
-## 4. Why trail `7b0e2833` gets NO round 5 (this reverses the last handoff's item 2)
+## 4. Trail `7b0e2833` is CLOSED — APPROVED at round 5 (owner directed it; my "don't bother" call was wrong)
 
-Round 4 was gated by **`editquality` HIGH: "a no-op dressed as an edit"** — four edits were
-already-committed work re-listed as pending. The suggested "short round 5 citing the owner
-rulings" has *no real edits at all* and would be gated identically. **A trail cannot be closed by
-narration.** Meanwhile most of round 4's objections are answered by shipped code rather than
-argument (the promoter exists; the producer is born-`detected` and live; `prior_art_librarian`
-approved the sole-carrier premise itself on 2026-08-17). The surviving residuals are decision 1
-above and the RFC_030 seats' real ask — *"acceptable only if RFC_030 is genuinely a hard gate on
-a 4th router, not aspirational"* — which belongs to the `router_engine` lane, not to another
-round here. Record and leave, as the last handoff itself permitted.
+I had recorded that a round 5 would be gated exactly as round 4 was. **The owner directed the
+round, and it was approved** — so record the correction rather than the prediction.
+
+**What made it work was not narration.** Round 4 was gated by `editquality` HIGH on *"a no-op
+dressed as an edit"* (four edits were already-committed work re-listed as pending). Round 5
+carried exactly **one** edit — `3c6354059`, `Status: "triaged"` → `"detected"` — committed
+2026-08-15 **18:16Z against round 4's verdict at 14:41Z**, so no round had judged the file in its
+current state. Everything else that had shipped since was cited as *evidence* and kept out of the
+edit list. `editquality`, `improvement_guardian`, `architecture` and `reuse_agent` — every seat
+that had blocked the trail — approved.
+
+**So the general lesson is narrower than "a citation round fails":** a trail with a standing
+REVISE closes when you give it the *change* that answers the objection, even if that change
+shipped weeks ago, provided it genuinely post-dates the verdict and you say so with timestamps.
+Owner rulings are the grounding, not the edit.
+
+**Three advisories, none high. Two are answered in `bugs_open/277`; one is NOT closed:**
+`bug_historian` re-raised the convert arms and a second seat has now independently said they want
+a fail-loud guard — that sharpens **owner decision 1 in §2** and must not be read as settled by
+this approval.
+
+> ⚠ **`guardian`'s advisory caught something worth repeating: check whether YOUR OWN guard strands
+> YOUR OWN lane.** Migration `444`'s pipeline allow-list is `('build','content','design')`. Had
+> `check_required_fields_missing.go` filed with `experience` or `maintenance` (both real values on
+> this table), 444 would have silently stranded the findings this lane exists to route. It files
+> `Pipeline: "content"` (`:163`) — inside the list. Clean, but only because it was measured.
 
 ## 5. Owed work, in priority order
 
@@ -82,7 +99,7 @@ round here. Record and leave, as the last handoff itself permitted.
    point that a new pipeline value silently stops being promotable, whose cheap control is to have
    the pre_query return a count of rows a door held so the scheduler log shows it.
 4. **Start the `router_engine` lane** (RFC_030) — its own cold-start handoff exists. This is now
-   the largest real piece of work in the area, and §4's residual is waiting on it.
+   the largest real piece of work in the area, and the RFC_030 seats' residual (a hard gate on a 4th router, not merely a lane) is waiting on it.
 5. **Two sibling born-triaged producers** (`check_integrity.go` ×2 sites,
    `check_tool_acceptance_due.go` ×1) — their lanes' call; both pairs are known-good so the
    promoter would carry them. Mention, don't do.
