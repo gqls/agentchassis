@@ -205,6 +205,13 @@ Both feed an LLM a truncated corpus, which is precisely this bug's mechanism:
    picks internal links from — so a page's link targets are chosen from at most 15 of 68, ordered
    `p.name`, i.e. alphabetically. Same accident, same invisibility.
 
+**✅ 297 IS NOW FIXED AND LIVE (2026-08-17, `bugfix_297_tool_recreation_context` lane).** Migration
+453 drops its cap entirely — and the remedy **inverted this lane's shape**: nothing needed bounding
+there (one short line per row; whole population at the worst site = 8,810 chars vs 735), so there is
+no truncation and no marker. It also closed a defect the census had not looked for — the step's plain
+`LEFT JOIN research_results` has no one-row guarantee and was already duplicating a page. Worth
+carrying into 298: **measure the payload before assuming 445's column-bounding remedy transfers.**
+
 **✅ NOW FILED (owner directed, 2026-08-17): `bugs_open/297` and `bugs_open/298`.** Re-measured from scratch before filing, and the numbers moved: 297's cap bites at **19 of 24 sites** (median site sees 10 of 26, worst 10 of 107 — **worse than 275 itself**), and 298's at **8 of 24** (median 12, under its own cap, so most sites are unaffected). ⚠ **298 is filed with a deliberately WEAKER claim**: `llm_call_log` has **zero** rows for `internal-linker` in all history, so whether its cap has ever shaped a link decision is **UNMEASURED** and that file says so rather than guessing. ⚠ My earlier count for 298 omitted the query's own `HAVING COUNT(pc.id) > 0` and over-counted — corrected in the ticket.
 
 ### ✅ COUNCIL APPROVED — round 2, corr `b684a399-bb4d-4b1f-82f0-fe1429ebdceb` (2026-08-17)
