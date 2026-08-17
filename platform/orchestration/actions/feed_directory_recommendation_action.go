@@ -268,11 +268,39 @@ func matchVerticalDirectory(industry, siteType, category, domain string, logger 
 		strings.ToLower(category),
 	}
 
+	// Domain-derived signal. Append AT MOST ONE, chosen by the same rule the
+	// partial matcher below uses — longest key wins, lexicographic tie-break.
+	//
+	// It cannot append every match: `for k := range map` is randomised, this
+	// map deliberately mixes recommending and NOT-recommending entries, and the
+	// dispatch loop below returns on the FIRST exact match — so a domain
+	// containing two opposite keywords resolved differently run to run. That is
+	// the identical defect the partial-match arm already guards against; it
+	// lived one level up, in the loop that BUILDS the signal list.
+	//
+	// Reachable, not hypothetical: `mortgage-refinance.co.uk` (portfolio
+	// register M4, the Phase C pilot's own family) contains "mortgage"
+	// (recommended) AND — inside "refinance" — "finance" (deliberately not
+	// recommended). Reproduced on iteration 1 of
+	// TestMatchVerticalDirectory_DomainSignalIsDeterministic before this fix.
+	//
+	// Longest-wins is also the RIGHT answer here, not merely a stable one: the
+	// specific provider class ("mortgage") is what a remortgage/refinance site
+	// needs, and "finance" is not-recommended precisely because it is too
+	// generic to choose one.
 	domainLower := strings.ToLower(domain)
+	bestDomainKey := ""
 	for keyword := range verticalDirectoryMap {
-		if strings.Contains(domainLower, strings.ReplaceAll(keyword, " ", "")) {
-			signals = append(signals, keyword)
+		if !strings.Contains(domainLower, strings.ReplaceAll(keyword, " ", "")) {
+			continue
 		}
+		if len(keyword) > len(bestDomainKey) ||
+			(len(keyword) == len(bestDomainKey) && keyword < bestDomainKey) {
+			bestDomainKey = keyword
+		}
+	}
+	if bestDomainKey != "" {
+		signals = append(signals, bestDomainKey)
 	}
 
 	for _, signal := range signals {

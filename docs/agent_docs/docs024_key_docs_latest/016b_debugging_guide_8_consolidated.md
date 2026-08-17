@@ -296,6 +296,42 @@ case as of 2026-08-14: `plan_sections_action.go:1004-1027`, `append_doc_note_act
 Cross-refs: `bugs_closed/272`, `bugs_closed/150`, `bugs_closed/264` (the same step's
 other silent default, one field over).
 
+### A guard written for the INNER case leaves the OUTER one — and the file's own comment explaining the hazard reads as proof it was handled
+
+**Shape.** A function defends against a known hazard at one level and reproduces it at
+another, in the same file, within twenty lines. The comment on the defended arm states the
+hazard clearly and correctly. A reader — including the author, later — sees the comment and
+concludes the class is closed here. It is not: only that arm is.
+
+**Worked case (`bugs_open/292`, 2026-08-17).** `matchVerticalDirectory` matches a site's
+vertical against a map that DELIBERATELY MIXES recommending and not-recommending entries.
+Its partial-match arm carries a comment saying, correctly, that `for k := range map` is
+randomised and that with a mixed map "a signal containing two keys would flip between
+opposite outcomes run to run" — and picks the longest key to prevent it. Twenty lines
+above, the loop that BUILDS the signal list ranges the same map and appends EVERY match,
+while the dispatch loop returns on the first. A domain containing two opposite keywords
+therefore flipped per run. `mortgage-refinance.co.uk` — "refinance" contains "finance" —
+resolved to *not recommended* on iteration 1 of a test that expected *recommended*.
+
+**Why it survives review.** Every local reading is correct. The comment is true. The guard
+it describes works. Nothing in the defended arm hints that its sibling is undefended, and a
+grep for the hazard (`map iteration`, `randomis`) LANDS ON THE COMMENT — so the search that
+should find the bug returns the fix and stops.
+
+**The check.** When you find a guard against an order/nondeterminism/collision hazard, do
+not read it as the file's disposition of that hazard. **Enumerate every site in that
+function where the same primitive appears** — every `range` over the same map, every
+first-match-wins loop, every unordered read — and ask of each: *could two entries reach here
+with opposite consequences?* Then prove it rather than reasoning: iterate the call.
+Randomised order is per-range-statement, so a single run passes by luck about half the time;
+`-count=3` over a 200-iteration loop makes a coin-flip effectively impossible to hide.
+
+**Generalises to:** any mixed-verdict lookup (allow/deny in one table, recommend/refuse in
+one map), first-match-wins dispatch over an unordered source, and "we already handled that"
+as a reason not to look. Second instance of this exact primitive on the estate —
+`bugs_open/209` (`unified_extractor.go:494`) resolves a deploy source by ranging a map. A
+third would argue for a lint rule rather than a third bug file.
+
 ### A symptom census CONFLATES CAUSES — ask history whether each damaged row EVER held the value before sizing a repair or predicting a trend
 
 **Symptom.** A fleet count of "rows missing X" is treated as one population: a fix
