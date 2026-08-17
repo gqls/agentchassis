@@ -406,3 +406,12 @@ ask a different question (admin CRUD existence, not routability) — binding the
 would let a routability narrowing silently change what the admin API 404s. A source
 guard licenses exactly one hand-written occurrence in `platform/orchestration`,
 with a scanner self-test; mutation-verified (5 failures on a re-inlined copy).
+
+> **VERDICT 2026-08-17: APPROVED** (`Council-Reviewed: 79505ac5-32ca-4429-bfb3-e3955a4b245c`)
+> — the tie-break's implementation passed. **Still INERT**: the unification is Go, and
+> the 14:43 "fresh build" did NOT ship (same tag `v1.0.1305`, node served its cached
+> image — running digest `f90a7e88…` vs the newly built local `6039e19c…`; binary probe
+> with both controls confirms the running commit is still `6a782274b`, with **237
+> commits in HEAD not in it**). Nothing to fix in the change; it needs a tag-bumped
+> release. See LANDMINES "A same-tag rebuild leaves the OLD binary running under new
+> pods".
