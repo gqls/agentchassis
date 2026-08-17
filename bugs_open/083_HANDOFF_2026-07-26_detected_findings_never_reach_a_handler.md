@@ -1,5 +1,38 @@
 # 083 — discovery findings written as `status='detected'` never reach a handler: the promoter runs only inside a task disabled since May
 
+> **CONTRIB 2026-08-17 (`bugs_open/296` lane) — a SECOND stranding cause, measured: a type that
+> HAS a live, correct machine closer, whose 225 rows will still never move.**
+> Relevant to the "named owner per type" half of today's owner decision, because this type would
+> pass an is-there-an-owner test and strand anyway.
+> **The population:** `contrast_failure`, **225 rows, all `deferred`** — inside the *"467 rows
+> across 6 statuses"* ceiling already noted in the 08-09 notice below, and the largest single
+> block of it.
+> **What is different from this file's thesis.** 083's model of stranding is *absence*: no handler
+> owns the type, so nothing ever closes it. `contrast_failure` is not that shape. It has an
+> audit-path retraction (`work_item_retraction.go` + `retractResolvedContrastFindings`) that is
+> **built, shared, wired to this exact type, deliberately reaches `deferred` rows** (WII-016 —
+> `deferred` is not in `workItemClosedStatuses`), and **confirmed live in the running chassis**
+> (binary probe, v1.0.1305, with controls). It has closed **zero** — and that zero is honest twice
+> over:
+> 1. It has never had one *opportunity*. Committed 2026-08-12 20:03; the last render audit of any
+>    site holding these rows was 2026-08-11 12:04. The re-audit rotation is hourly, **`LIMIT 1`
+>    site**, 7-day eligibility, and all 23 eligible sites were swept 08-10/11 — so **no site was
+>    due between 08-11 12:04 and 08-17 14:54**.
+> 2. When it does arrive it will correctly close **almost none of them, for ever**, because the
+>    findings are **TRUE**. Four parked pairings on four sites, re-measured 2026-08-17 in a live
+>    headless browser, **all reproduce at exactly their parked ratio** (1.06:1, 1.00:1, 3.35:1,
+>    1.76:1), and live failure counts now *exceed* parked counts on each of those pages.
+>
+> **So the check "does this type have an owner/closer?" returns YES here and the rows strand
+> regardless.** The stranding cause is not a missing closer but a **correct decline** — and a
+> correct decline and a silent no-op are indistinguishable from outside, which is this file's own
+> shape one level up. A time limit keyed on "held too long" would fire on all 225 of these and be
+> *right to*, but what they need is a **fixer or an explicit accept**, not a promotion:
+> `css-patch-agent` has still never processed a single work item, and migration `389` parked them
+> precisely to stop 225 ungraded completions being minted.
+> **Full working, every query re-runnable:** `bugs_open/296` §8. Defect population itself:
+> `features_open/026` (primary-as-ink), not `bugs_closed/122`'s article-body ink.
+
 > **CONSUMER NOTICE 2026-08-09 — `claims_unverified` is no longer parked-for-ever either, and this
 > is a FACTUAL-claims surface, so read this one even if you skimmed the last.**
 > The review-queue sweep gained a `claims_unverified` revalidator (`4030cadb9`, CQ-021, council
