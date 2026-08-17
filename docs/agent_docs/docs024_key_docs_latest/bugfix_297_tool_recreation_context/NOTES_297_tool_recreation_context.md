@@ -207,3 +207,31 @@ NULL `created_at`, and page `0747e2fc…` carries exactly 2 — which is the dup
 
 Whether anything clips the rendered prompt input (the previous NOTES entry): it does not. Had an
 input cap existed, this fix would have moved the silent cap one layer down.
+
+## 2026-08-17 — asked to force an end-to-end run; looked first, and got the BEFORE half free
+
+The owed item was `llm_call_log.prompt_rendered`. Before dispatching anything I read the prompts
+this agent has **already** rendered — and they carry the half of the pair nobody had checked:
+**all 8 historical `analyze_tool` prompts contain exactly 10 related-page lines**, on a 32-page
+site. The cap was demonstrably biting in the artefact, not just in the SQL.
+
+Real numbers off the production prompt, which also settle the council's growth objection better
+than my arithmetic did: block **979 chars** of a **29,037-char** prompt; that site's whole
+population would be **2,029 chars** — **+3.6%** for 3× the coverage.
+
+### Why I did NOT fire a run, having checked rather than assumed I could
+
+| candidate | adoption source (what it rebuilds FROM) | `rebuild_policy` | verdict |
+|---|---|---|---|
+| `gamesdesign.co.uk` — 6 adopted tool pages | **present**, 3.4k–8.8k chars | **`owned`** (all 6) | run reaches `analyze_tool`, then **dies at `save_sections`** on the owned guard = `bugs_open/295`'s open defect (hard error, item `failed`, no review row). **And another lane is verifying 295 on that exact site/page right now.** |
+| `mortgagecalculator.co.uk` — 14 tool pages, all 4 historical runs | **GONE** — 0 of 14 still has an `adoption_page` row | `generic` (would complete) | would let an LLM rewrite a **live, public, legislated-figure calculator with no original to copy** |
+
+So the only completable target is the one where the rebuild would be source-less on regulated
+financial content, and the only faithful target is blocked by an open bug on another lane's site.
+**That is a decision to spend a live page, not a verification** — escalated rather than taken.
+
+⚠ **Two measurement traps caught in this pass, both mine, both "the query answered what I encoded":**
+`p.status='deployed'` returned 0 for every site and I nearly read it as "nothing is live" — the
+column is `build_status` (631 deployed). And `data ? 'rawHtml'` returned false for every adopted
+page — the key is `data->'existing_content'->>'raw_html'`, one level down and spelt differently.
+Both would have been confident, wrong inputs to the go/no-go call.

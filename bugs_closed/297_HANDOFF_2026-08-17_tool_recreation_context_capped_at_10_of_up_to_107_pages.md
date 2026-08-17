@@ -142,10 +142,54 @@ truncation apparatus (`tolerate_truncation`, `__truncated`, `bugs_open/076`) gov
 **response's output tokens**, not the input. Had an input cap existed, this fix would have moved
 the silent cap one layer down rather than removing it.
 
-⚠ **Still owed, not claimed:** end-to-end confirmation in `llm_call_log.prompt_rendered` needs the
-next real recreation run (most recent call was 2026-08-11). What is asserted here is the
-query-level disconfirming pair — a page past nav position 10 **could not** appear before and
-**does** now.
+### The disconfirming pair — BEFORE half now proven at the artefact (2026-08-17, later)
+
+Asked to force an end-to-end run, I looked at the historical prompts first, and they supply the
+half nobody had checked. **Every `analyze_tool` prompt this agent has ever rendered contains
+EXACTLY 10 related-page lines** (8 most recent runs, 2026-08-08 → 08-11), on
+`mortgagecalculator.co.uk`, a **32-page** site. So the cap was biting *in the prompt the model
+actually saw* — not merely in the SQL. That is the "before" side, at the artefact, from history and
+at zero cost.
+
+It also answers the prompt-growth objection on the production artefact rather than by arithmetic on
+a hypothetical:
+
+| measured on the real prompt | value |
+|---|---|
+| rendered related block, as capped | **979 chars** (10 pages) |
+| whole prompt | **29,037 chars** |
+| same site's FULL population (31 pages) would render as | **2,029 chars** |
+| net effect of this fix on that prompt | **+1,050 chars, +3.6%**, for 3× the coverage |
+
+⚠ **The AFTER half cannot be forced today, and the reason is worth recording** (checked, not
+assumed):
+
+- The only pages with a surviving adoption source — the original crawled HTML this handler rebuilds
+  from — are **six tool pages, all on `gamesdesign.co.uk`** (3.4k–8.8k chars each). **All six carry
+  `rebuild_policy = 'owned'`**, so a run would reach `analyze_tool` (yielding the evidence) and then
+  **die at `save_sections` on the owned-page guard — which is `bugs_open/295`'s open defect**: hard
+  error, work item `failed`, no review row, no trace after ~24h. And another lane is **actively
+  verifying 295 on that very site and page** (`tool-ttk-calculator`), so firing there would
+  manufacture a failure inside someone else's experiment.
+- `mortgagecalculator.co.uk` — where all four historical recreations ran, and whose pages are
+  `generic`, so a run *would* complete — has **lost its adoption source**: 0 of its 14 tool pages
+  still has an `adoption_page` row (reaped/expired). A run there would let an LLM rewrite a **live,
+  public, legislated-figure financial calculator with no original to copy from**. That is the
+  highest-risk shape in the estate and not something to spend on a log line.
+
+**So the after half waits for a natural run** (or an owner decision to spend one). It is one query
+when it comes:
+
+```sql
+SELECT created_at, length(substring(prompt_rendered from
+  '## Other Pages on This Site \(for context\)(.*?)## Original Page Content')) AS block_chars
+FROM llm_call_log WHERE agent_type='tool-recreation-handler' AND step_name='analyze_tool'
+ORDER BY created_at DESC LIMIT 1;   -- expect > 10 lines / > 979 chars on a >10-page site
+```
+
+What remains asserted rather than observed is only that the Go template renders every row the query
+returns — a `{{range .related_pages}}` over the array, with the block's own size now bounded by the
+measurements above.
 
 ## What the council changed (round 1, APPROVED with 4 advisory objections)
 
