@@ -19,7 +19,7 @@ REGISTRY ?= docker.io/aqls
 # 21:53Z) while the locally built v1.0.1305 (sha256:6039e19c…, from 89a0cbeb7)
 # carries 252 newer commits, 24 of them touching platform/internal/pkg. A
 # same-tag re-release re-serves the cache, so the ONLY remedy is a new tag.
-IMAGE_TAG ?= v1.0.1306
+IMAGE_TAG ?= v1.0.1307
 
 # Paths
 TERRAFORM_DIR := deployments/terraform/environments/$(ENVIRONMENT)/$(REGION)
@@ -2554,9 +2554,20 @@ release-github-runner: build-github-runner push-github-runner deploy-github-runn
 # the runners do NOT share the platform's image lineage. `build-backend` and
 # `push-backend` never build or push `github-actions-runner` (it has its own
 # build-/push-/release-github-runner targets), and the two overlays are pinned
-# to DIFFERENT tags on purpose — measured 2026-08-13, live: github-actions-runner
+# to DIFFERENT tags — measured 2026-08-13, live: github-actions-runner
 # on v1.0.948 and github-actions-runner-vmsites on v1.0.1126, against a platform
-# IMAGE_TAG of v1.0.1295. Retagging them to IMAGE_TAG on release would point both
+# IMAGE_TAG of v1.0.1295.
+#
+# ⚠ CORRECTED 2026-08-17 (OWNER RULING): this comment used to say those two tags
+# differed "on purpose". They do NOT — the owner has ruled the separate cadence
+# is NOT intended, and the divergence is FUNCTIONAL, not cosmetic: the 2026-07-16
+# dockerfile change added openssh-client and rsync, so v1.0.1126 (-vmsites) HAS
+# them and v1.0.948 (github-actions-runner) does NOT — verified at both pods with
+# git/jq as controls. The freeze has two different causes: `github-actions-runner`
+# has `release-github-runner` and nobody has run it since April; `-vmsites` has NO
+# retag target in this file at all, so nothing can move it. The fix is pending an
+# owner decision — see bugs_open/237. Do NOT "tidy" this by seding both tags to
+# IMAGE_TAG: retagging them to IMAGE_TAG on release would point both
 # at an image that was never built and never pushed, and they would
 # ImagePullBackOff together — the same all-or-nothing trap documented under
 # "Single-service deploy" below deploy-agents, which is why this mirrors the
