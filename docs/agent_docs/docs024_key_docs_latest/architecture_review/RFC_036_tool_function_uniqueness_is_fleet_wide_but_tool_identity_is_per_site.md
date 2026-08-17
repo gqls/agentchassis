@@ -110,3 +110,29 @@ pending this RFC.
 - `docs024_key_docs_latest/webdesign_tool_rebuilds/` NOTES 2026-08-17 12:12Z (the failed build, in full)
   and `WRONG_CALLS.md` 2026-08-17 (the filing lane ran the precondition and reasoned past it with
   gate A's logic — evidence that a human reader does not reliably keep the two gates apart)
+
+## 8. OWNER DIRECTION 2026-08-17 (recorded verbatim; resolution still needs one clarification)
+
+> "RFC_036 I'd like other sites to be able to use tools but they can fork the tool for their own use
+> which is probably the best route for them."
+
+**What this settles:** the estate keeps the library-and-fork model. A tool is offered once and each
+consuming site takes its **own fork** rather than sharing a canonical row. So **option 1 (add
+`site_id` to the index) is NOT the direction** — that would make identity per-site at the schema
+level, which is the opposite of "one offering, forked per site". Option 5 (leave it) is also out; the
+owner has engaged with the question rather than deferring it.
+
+**What it points at:** **option 2** — a native rebuild of a tool that a library entry already names
+should be recorded as a **fork of that entry** (`forked_from` set), which is both true to the model
+and exempt from `idx_cc_tool_function_unique` by construction. Option 3 (a typed early refusal in
+`create_tool_component` instead of a 23505 after the LLM has run) still composes with it and is worth
+doing regardless.
+
+**The clarification still owed, and why it is not safe to assume:** the direction says other sites
+*can fork*. Deactivating a library template — the interim applied in §6, and the obvious next step for
+the two still-blocked tools — is precisely what makes a tool **un-forkable in future**. Those two
+(`tool-ab-test-calculator` `8c9a6e06…`, `tool-meme-generator` `6ae53f32…`) each already have a live
+fork on another site. Existing forks are separate rows and would keep working; what is lost is any
+*future* site's ability to fork them. So the direction reads as an argument for **keeping** those
+templates active, which leaves the two tools blocked until option 2 is built.
+**Do not deactivate `8c9a6e06` or `6ae53f32` on the strength of §8 alone.**

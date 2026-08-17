@@ -500,3 +500,34 @@ blocked on the unique-index decision **4** · remaining clear **57** · builds a
 - **Batch state: 59 clear · 2 blocked (`ab-test`, `meme-generator`) · 2 live and proven.**
 - **Cadence is now ONE AT A TIME with owner sight of each served page** (owner ruling, PLAN). Holding
   before filing #4 until `tool-markdown-tables` has been seen.
+
+## 2026-08-17 16:3xZ — the "fresh chassis build" ships NO new code; rebuild #4 filed
+
+- **`v1.0.1305`, pods restarted 14:43Z — and the binary is still `6a782274b`, yesterday 18:43 BST.**
+  **267 commits in HEAD are not in it, across 51 changed `.go` files.** Same tag ⇒ the node re-served
+  its cached image. Probed with BOTH controls working in the same breath: `runtime.main` PRESENT
+  (probe functional), `deadbeef1234cafe` absent (probe can discriminate), `6a782274b` PRESENT.
+  A second lane hit this independently today — MEMORY `a-fresh-deploy-can-ship-no-new-code`.
+  **This lane is unaffected**: `git merge-base --is-ancestor 88897190e 6a782274b` ⇒ true, so the
+  adopt path is live, which is independently corroborated by rebuilds #1 and #3 having worked.
+  Remedy is a tag BUMP (`make release IMAGE_TAG=v1.0.1306`), not a redeploy. Owner told.
+  - **Method note:** probing 202 candidate commits one exec at a time TIMED OUT twice (2 min each).
+    The cheap path is to probe ONE specific sha you have a reason to expect — here, the one another
+    lane had already measured — plus the two controls. Three greps, seconds. Don't sweep a window.
+- **Rebuild #4 FILED: `tool-html-minifier`** (page `5777d02b…`, 4,929-char ported body). Item
+  **`f101efd4-fbdc-4866-a3ea-b9adf17b7807`**, both gates pre-asserted.
+  Revert handle: ported slot **`7ce029a7-db5f-41ec-b9a8-aa2ab7d48ac5`, 4,929 chars,
+  md5 `4f122ea0cefe0cb6a63b3247c01541d1`**.
+- **The ported minifier is BROKEN in production and nobody had noticed.** Its "remove comments"
+  checkbox does nothing — the implementation is inside its own comment:
+  ```js
+  if (rmComments.checked) {
+      // FIXED: Use regex for HTML comments code = code.replace(//g, "");
+  }
+  ```
+  An edit labelled "FIXED" commented the fix out. Second defect: `code.replace(/\s+/g,' ')` collapses
+  whitespace **inside `<pre>`, `<textarea>`, `<script>` and `<style>`**, so minifying a page that
+  contains code changes what it renders and can break scripts. Both are written into the brief as
+  requirements, along with real listeners and inline copy feedback instead of `alert()`.
+  **This is the third ported tool in four whose live behaviour was worse than its page suggested** —
+  reading the script before writing the brief is earning its place every time.
