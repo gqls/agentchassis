@@ -100,11 +100,20 @@ it and nothing notices:
 Each overlay was written **once, on the day the service was created, and never
 again** — that is the proof the targets are not run, not an inference.
 
-**The four checks are the serious half and were the quiet one.** They build from
-the platform Go source and import the estate's most-churned package
-(`platform/orchestration/actions`). So the estate's own daily immune system is
-running August-6th logic against a platform 2,865 commits further on. A fix to a
-check's logic does not reach the check.
+**The four checks are the quiet half.** They build from the platform Go source and
+import the estate's most-churned packages (`platform/orchestration/actions`,
+`.../discovery_checks`).
+
+> **Sized correctly, after a sharper measurement.** ~~the immune system is running
+> August-6th logic~~ — that overstates it. **None of the four has an unshipped
+> commit to its own `cmd/` directory**: each was deployed at or after its own last
+> code change. They run the logic they were written with. What is stale is the
+> **shared code they link** — so a shared predicate or constant corrected since
+> their build has not reached them, and the check would go on testing the old rule
+> while reporting cleanly. Real failure mode, narrower than it first looked, and
+> the surface to measure is "the symbols these four packages import", not 2,865
+> commits. A large diff between a build and HEAD says nothing about whether the
+> diff touches the built thing.
 
 The runners are different in kind: that image is Ubuntu + a pinned upstream
 tarball, project content changing about twice a year, so rebuilding it every
