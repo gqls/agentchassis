@@ -34,11 +34,25 @@ copy-voice work lives in session "copy quality two stage".
 > one that carries the result.)
 >
 > ### What actually failed — the pilot's real yield, and none of it is this lane's work
-> 1. **11 × `failed to get latest commit/base tree`** (10 `needs_imagery`, 1 `needs_page`
->    deploy), logged under the misleading code `LLM_API_ERROR`. **`sites.github_repo` is EMPTY
->    and that is NORMAL** — 6 of the 8 most recent sites are empty and serve by the B2 route,
->    so "the repo was never created" is the WRONG reading. The question is why the deployer
->    took a git path on a B2 site. **This is the top item: one cause, eleven failures.**
+> 1. **NOT 11 FAILURES — A LIVE FLEET-WIDE OUTAGE. ~832 `base tree` 404s since 13:31Z,
+>    still firing at 16:14Z**, across `page-rerender` (488), `build-dispatch-loop` (254),
+>    `asset-deployer` (40), `image-build-handler`, `rerender-pages`, `page-build-handler`.
+>    The pilot's 11 are the local edge of it.
+>    - **Clean split, and it is NOT credentials:** every 404 site has `github_repo` EMPTY
+>      (remortgage 11, robot-hands 9, loancalculator 4); both `vm-sites` sites have ZERO, and
+>      the adapter is **demonstrably healthy** — its own log shows `deploy_page` succeeding
+>      for noted.co.uk at 16:25:37Z, `repo_name: vm-sites`, `success:true`. "Token expired" and
+>      "GitHub down" are refuted, not merely doubted. *(Caveat: oufe.com is no-repo with 0
+>      404s — that is absence of ACTIVITY, not evidence it would succeed.)*
+>    - **Two things hide it:** logged under `error_code='LLM_API_ERROR'` (a deploy fault under
+>      an LLM code — grep for a deploy problem and you miss it), and **808 rows carry a NULL
+>      `site_id`**, so per-site triage under-reports by ~70×. Drop the site filter.
+>    - **`090` filed: `RUN_CORRELATION_ID=75220928-935a-4e5d-8982-802992b0af34`.** What I could
+>      NOT establish and did not assert: which component picks the git route over the bucket
+>      route, and what changed at 13:31. `deploy_config` is `{}` on the affected sites AND on
+>      long-established ones that deploy fine, so the route is decided elsewhere.
+>    - **Not this lane's to fix** (shared deploy infra) — but it is why the pilot is built and
+>      unpublished, so it is the blocking item. **Read the 090 verdict first.**
 > 2. **20 × `unrendered_template` `{{end}}` blockers** on 2 pages. **Checked specifically:
 >    NOT the seeded `banned_claims`** — the guard did not over-fire and blocked nothing. A
 >    component is leaking raw Go template syntax into rendered output.
