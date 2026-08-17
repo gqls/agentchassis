@@ -91,3 +91,13 @@ go test ./platform/orchestration/ -run TestLoopConfigReferenceSuffixing -count=1
 # shared-tree rule: prove HEAD compiles from an archive, not the dirty tree
 T=$(mktemp -d) && git archive HEAD | tar -x -C "$T" && (cd "$T" && go build ./... ) && rm -rf "$T"
 ```
+
+## ⚠ Verifying 448/452: the plan is persisted at ORCHESTRATION CREATION
+
+A config migration is live immediately for NEW orchestrations only — an in-flight run's
+`workflow_plan` was copied at creation and still carries the OLD `result` mapping, so an item
+it completes AFTER the apply still shows the spawn record. That is not a fix failure.
+448 applied at **2026-08-17 12:19:59Z** (the snapshot timestamp is the clock). Filter every
+verification on `orchestration_states.created_at > '2026-08-17 12:19:59'` (and, for 452,
+on its own apply time). First post-448 diagnose/report dispatch after that instant is the
+first true test — demand-bound; a 090 filing drives one.

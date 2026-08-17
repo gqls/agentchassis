@@ -96,3 +96,9 @@ zero-row LATERAL walk").
   the applied UPDATE hit the loaded rows. Seat objections that were sketch-vs-file
   misreadings (error_step nesting, is_snapshot spelling, unverified parser liveness) are
   answered in 287 §11a with pointers to the files/NOTES.
+- **Post-448 live check (12:40Z):** 448's true apply instant = 12:19:59Z (snapshot row). The
+  only diagnose run since (abf475f6, created 12:19:15 — 44s BEFORE) carries the OLD plan
+  (workflow_plan persists at creation), and a pre-448 run completed its item at 12:24 with
+  the spawn record — NEITHER is evidence against the fix. Zero post-apply orchestrations
+  exist yet; verification is demand-bound (RUNBOOK has the created_at filter). Zero
+  RESOLVER_% rows for the two agents since apply.
