@@ -2289,3 +2289,43 @@ census, the UTC/BST subtraction twice, now this). The other two were instrument 
 not: the reading was correct and the *system moved*. The check that would have caught it is not a
 better query — it is noticing that **`created_at` = today, on a site with 0 pages, means "under
 construction", and nothing about a site under construction is a fact about the estate.**
+
+### WINDOW CLOSED 12:39:04 UTC — 24 minutes, 2 sweeps, 2 B4 runs, ordering 3 → 5
+
+Open 12:14:53 → closed 12:39:04, by direct `UPDATE` with a `DO`/`RAISE` guard asserting zero
+enabled rows afterwards (a bare `UPDATE` would have reported success on a no-op).
+
+| | run 1 — gamesdesign.co.uk | run 2 — robot-hands.com |
+|---|---|---|
+| sweep start | 12:15:14 | 12:30:45 (**+15m31s — the 900s interval held exactly**) |
+| B4 run | 12:21:17→12:22:27, COMPLETED, 70s | 12:37:40→~12:38:45, COMPLETED |
+| the PAIR | 5 findings → 5 created, 0 skipped | 5 findings → **4 created + 1 skipped** |
+| `__truncated` | absent | absent |
+| ordering artefact | `degraded=false`, `inputs_missing=[]`, `primary_model='saas_tools'` echoed | as predicted |
+
+**Read the PAIR as created + skipped == findings, not created == findings.** Run 2's skip is dedup
+against an already-open item, which is the mechanism working; a reader checking only `items_created`
+against the LLM count would have recorded run 2 as a 4/5 shortfall.
+
+**Estate after:** `offer_ordering` on **5 of 23** sites; **26** offer-analysis items total (from 17)
+— 13 complete, 4 detected, 3 triaged, 3 failed, 2 needs_human_review, 1 claimed.
+
+⚠ **Closing the scheduler does NOT stop an in-flight sweep.** robot-hands' sweep was still at
+`call_brief_fidelity` at close and will run to completion, dispatching its items. "Window closed"
+and "no more work starting" are different moments, and the second one lags.
+
+**Prediction 5 remains UNRESOLVED and is the session's outstanding falsifiable claim.**
+`owned_page_review` rows with `refused_by='save_page_sections'` = **0** at close, which is
+consistent with the fix being inert — but the test has not actually run, because gamesdesign's
+`tool-ttk-calculator` item was still `triaged`/unclaimed. **A zero here currently proves nothing:
+the guard has not been asked.** Queries are in the handoff.
+
+**Session scoreboard on my own claims: 4 corrections, 3 of them to things I wrote today.**
+(1) the sweep-order census, stale in 4 minutes; (2) the UTC/BST subtraction, made **twice**, the
+second time after writing the landmine and after it had hardened into a theory; (3)
+remortgagecalculator.uk's missing `primary_model`, which was a site mid-provisioning; (4) yesterday's
+"nothing reads the acceptance test", which is documented and costed in
+`complete_work_item_no_change.go`. **Three of the four were about the gap between measuring and
+asserting, not about the measurement** — the queries were right and the world moved, or the clock
+did. That is the pattern to carry forward: on this estate the expensive error is not a bad reading,
+it is a good reading asserted a few minutes later as though nothing had changed.
