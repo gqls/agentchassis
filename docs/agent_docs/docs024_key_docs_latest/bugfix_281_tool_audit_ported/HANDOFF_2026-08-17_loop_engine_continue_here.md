@@ -13,9 +13,14 @@ newest at bottom) → `README_where_we_are.md` (the owner's plain-prose log) →
 
 ## The one thing to know first
 
-**Everything below is COMMITTED and NONE of it is LIVE.** All three code changes are Go, so they
-are inert until the chassis image is rebuilt and rolled. Releases are whole-fleet and the owner
-runs them. Do not report any of this as fixed in production.
+~~**Everything below is COMMITTED and NONE of it is LIVE.**~~ **SUPERSEDED 2026-08-17 18:2xZ — IT
+SHIPPED.** Build `v1.0.1307` (pods started 17:05Z, digest `sha256:8339bdbd…`, OCI revision label
+`a6d1c53c0`) carries **`509e01e6a` and `cf970b009`**, confirmed by `git merge-base --is-ancestor`
+against that revision — not by the tag, which had lied twice. **The doubling is GONE and measured:**
+`build-dispatch-loop`'s per-lap `_done` keys were 201 kB → 6,247 kB and are now a flat **77 bytes**
+(ratio 1.00; ~2.0 would have disconfirmed it), and multi-lap runs went from 2,575 kB avg / 14 MB max
+to **104 kB avg / 229 kB max**. `a436d898f` (the council's `GetIntField` reuse swap) postdates the
+build, is behaviourally identical, and rides the next one.
 
 ## State, all `[MEASURED 2026-08-17]`
 
@@ -58,12 +63,12 @@ went out normally at 16:38Z. Do not plan around a September date.
 
 ## What is owed, in the order it becomes possible
 
-0. **THE ROLL ITSELF IS BLOCKED ON A TAG, and the owner runs it.** `makefile` line 17 is now
+0. ~~**THE ROLL ITSELF IS BLOCKED ON A TAG.**~~ **DONE — the release landed at `v1.0.1307`.** Kept below because the check is the reusable part: `makefile` line 17 is now
    `v1.0.1306` (`aa9c7b74f`). Until a release goes out at a NEW tag, items 1 and 2 below cannot be
    done at all — and a same-tag re-release will look like it worked. Confirm before believing any
    roll: `docker inspect aqls/agent-chassis@sha256:<imageID from kubectl> --format '{{index .Config.Labels "org.opencontainers.image.revision"}}'`
    then `git merge-base --is-ancestor 509e01e6a <that revision>`.
-1. **After the next roll — verify 289 at the artefact, WITH the demand control.**
+1. ~~After the next roll — verify 289 at the artefact.~~ **DONE on the shared engine, PENDING on the motivating case.** Proven on `build-dispatch-loop` with real demand (see 289's "LIVE AND PROVEN" section). **Still owed: a `tool-auditor` run reaching `COMPLETED`** — none has run since the roll because its queue holds nothing runnable, so that zero is absence of demand, not evidence. One bounded probe is in flight: item `12836a25-8266-46fb-bba1-2e8635ef9cc0`, `max_attempts=1` so it costs at most ONE Sonnet audit. Read its outcome, then 289 can move to `bugs_closed/`. The original instruction, still the right check:
    ```sql
    SELECT key, length(value::text) FROM orchestration_states, jsonb_each(collected_data)
    WHERE orchestration_id='<a new tool-auditor run>' AND key LIKE '%\_done' ORDER BY key;
@@ -72,7 +77,7 @@ went out normally at 16:38Z. Do not plan around a September date.
    unless a multi-lap loop actually ran, so check `loop_metadata.total_iterations > 1` on the run
    you read. The durable pass is a `tool-auditor` orchestration reaching `COMPLETED` — the
    population held exactly 1 in 63 before this.
-2. **After the next roll — verify WFA-016 fired, and mind which way the zero cuts.**
+2. ~~After the next roll — verify WFA-016 fired.~~ **CHECKED: 0 lines, and that is the expected reading.** Nothing persists an oversized state now, so the instrument has no demand; per its own verify-later note a zero means "no oversized state", not "broken". Exercising it now needs a fixture. Original note kept:
    `kubectl -n ai-persona-system logs -l app=agent-chassis --tail=100000 | grep -c 'collected_data is unusually large'`.
    Once 289's fix is ALSO live the expected count falls toward zero, so **a zero means "no
    oversized state persisted", not "the tripwire is broken"**. To prove the instrument itself,
