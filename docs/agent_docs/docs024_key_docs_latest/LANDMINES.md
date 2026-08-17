@@ -11632,3 +11632,33 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **source:** 2026-08-17, leopardess lane, while following a hand-raised `acceptance_run` that never got claimed; the endpoint cap was found four queries later and explained three sites' stalled items at once
 - **relations:** MEMORY [[detection-works-schedule-and-dispatch-do-not]] · [[a-plausible-external-cause-is-when-to-doubt-your-instrument]] · [[a-complete-work-item-is-not-a-repaired-artefact]] · LANDMINES "Enabling a `scheduled_tasks` row proves nothing" (the sibling shape: the task fires and dispatches nothing)
 - **added:** 2026-08-17, leopardess voice/acceptance lane
+
+> **⚠ CORRECTED 2026-08-17 12:55 BST (11:55Z) by the loanandmortgagecalculator lane, ~50 minutes
+> after the entry above was written.** The entry is right that the 400 is an account limit rather
+> than an outage, and right that `ai_endpoint_health` must be read for its `error` column. **Its
+> practical conclusion — "no amount of waiting, retrying or re-dispatching helps" until
+> 2026-09-01 — did not hold, and a session that believes it will not dispatch anything for two
+> weeks.** Measured just now, `[MEASURED 2026-08-17 11:55Z]`:
+>
+> ```sql
+> SELECT provider, success, count(*), max(created_at) FROM llm_call_log
+>  WHERE created_at > now() - interval '90 minutes' GROUP BY 1,2;
+> --  anthropic | f |  4 | 2026-08-17 11:09:53Z
+> --  anthropic | t | 97 | 2026-08-17 11:54:39Z   <-- 23 seconds before the query
+> SELECT count(*), count(*) FILTER (WHERE NOT success) FROM llm_call_log
+>  WHERE created_at > now() - interval '20 minutes';   -- 28 calls, 0 failures
+> ```
+>
+> So live `provider='anthropic'` traffic recovered within minutes and is healthy now, while
+> `ai_endpoint_health` **still reads `healthy=f` with `last_healthy = 11:07:15Z`** and the
+> September message in `error`. The limit was window-scoped in practice; the row is not tracking
+> the recovery, because nothing has re-probed it successfully since.
+>
+> **So the check inverts: `ai_endpoint_health` is the instrument and `llm_call_log` is the
+> traffic.** Read the health row for *why* something failed at a moment in the past; read the
+> call log to answer "can I dispatch now?". A red health row with a fresh successful call log
+> means the row is stale, not that the fleet is down — which is the same lesson the entry itself
+> draws one line earlier about believable outage stories, applied to its own conclusion.
+> `[UNMEASURED]` whether the 4 failures and the 97 successes share one key/limit bucket; the
+> dispatchable-now answer does not depend on it.
+> - **added:** 2026-08-17, loanandmortgagecalculator D6 planner lane
