@@ -421,3 +421,73 @@ lane has already built. Logged in `WRONG_CALLS.md`.
 > `leopardessconsulting.co.uk` (36 flag-only rows, nothing routable) exercised it
 > directly: `promoted: 0, not_promotable: 36`. A disabled sweep does not mean the
 > guard cannot be tested; it means you have to drive the step yourself.
+
+## 2026-08-17 (later) — the owner's three rulings, and the same-tag deploy that shipped nothing
+
+**Rulings taken: (1a) unify the third rendering · (2b) fix `227` before routing the
+parked row · (3) "add the images".**
+
+### The deploy shipped no new code — probed, not assumed
+
+Pods restarted 14:42Z as `agent-chassis-5bd56bdd9b-*`, image **`v1.0.1305` unchanged**,
+digest `sha256:f90a7e88…`. Single-exec probe with controls on the running binary:
+
+| needle | expected | got |
+|---|---|---|
+| `"patch the three call sites the council saw"` (from `5b30a831b`, POST-stamp) | present if new code shipped | **absent** |
+| `"No handler_agent set — item cannot be routed to any agent"` (long-lived) | present | present |
+| `"held back detected items nothing can route"` (my 284 guard) | present | present |
+| `ZZZ_never_present_ZZZ` | absent | absent |
+
+So the binary is still the `6a782274b` build and `git rev-list --count 6a782274b..HEAD`
+= **215 commits unshipped**. `IMAGE_TAG` was not bumped, so the rebuild served the node's
+cached image — the trap CLAUDE.md's build section names. Another lane measured the same
+thing independently (commit `4c77496e9`) and MEMORY now carries it as a banner. **Every
+Go change from today, including the approved unification, is committed and inert.**
+
+### (1a) was already done by another lane — I verified and repaired one defect
+
+`10fc61184` implements it correctly: `discovery_checks.HandlerRegisteredSQL` is now the
+single definition (that package, not `actions`, because `actions` imports it and never the
+reverse — the cycle decides the home), with `actions.workItemHandlerRegisteredSQL`
+delegating and `HandlerStepConfig` rendering from it. Builds and passes at HEAD.
+
+**What it got wrong, now fixed (`cab28cfbe`):** the new function was inserted INTO
+`HandlerStepConfig`'s doc comment, so the nav-link-fixer/`077` rationale became
+`HandlerRegisteredSQL`'s documentation and `HandlerStepConfig` was left with an orphaned
+`Returns (config, agentExists, error)` tail. Comment-only, but comments are load-bearing
+here and godoc showed the wrong prose on the wrong function.
+
+### (3) "add the images" — measured, and it does not fit most of the findings
+
+Census of the 30 open `unbacked_path` findings, joined per finding against the site's own
+active assets by **exact `asset_key`** and separately by `purpose`:
+
+| basename | findings | exact `asset_key` exists | any asset of that purpose |
+|---|---|---|---|
+| `hero` | 10 | 4 | 10 |
+| `case-study-*` | 10 | 5 | 0 |
+| `favicon` | 4 | 0 | 0 |
+| `og-card` | 4 | 0 | 0 |
+| `logo` | 2 | 2 | 2 |
+
+**11 need a DEPLOY, not a generation** (asset present under the exact referenced key —
+`deploy_image_asset_action.go:383` documents `asset_key=hero → assets/images/hero.jpg`, so
+the page's path is right and the artefact is absent). **6 need a REPOINT**: e.g.
+lendzy.co.uk holds 9 active heroes keyed `hero_home`/`hero_about`/`hero_price_cap`… and
+none keyed plain `hero`, so nothing deploys to the base path a page still asks for.
+**5 genuinely need generating** (`case-study-*`, 2 sites). **8 are favicon/og-card and
+belong to `bugs_open/131`** (owned — left alone).
+
+**Live blocker on the 5, and the obvious cause is REFUTED.** `needs_imagery` today: **12
+failed / 4 complete**, every failure `step call_asset_deployer failed: … failed to get
+latest commit/base tree for branch "master": … 404`. All four sites involved have an empty
+`sites.github_repo` — **but so do the sites whose items COMPLETED in the same window**;
+the same two domains sit on both sides of the same day, so the config cannot be the
+discriminator. Not diagnosed further: it is those lanes' site work.
+
+**Nothing generated, nothing dispatched, no rows touched.** The census and the blocker
+went into `bugs_open/114` (its subject is this class from the other end) and the
+dependency into `bugs_open/227`; both are owned lanes, so both are contributions, not
+competing fixes. `who-owns.py` was run on 114, 131 and 227 before writing a word into any
+of them.
