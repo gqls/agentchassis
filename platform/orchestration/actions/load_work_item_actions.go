@@ -17,6 +17,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/google/uuid"
@@ -1395,8 +1396,15 @@ func writeWorkItem(ctx context.Context, tx *sql.Tx, item workItem, policy confli
 	// see workItemHandlerRegisteredSQL for why it deliberately ignores
 	// is_active/is_snapshot. The trigger set is exactly CHECK 443's statuses;
 	// see workItemStatusRequiresRegisteredHandler for why it must not widen.
+	// Kill-switch (council round 1, guardian seat): a rollback lever for the
+	// guard itself, independent of any binary roll. Ships ARMED — this is not an
+	// opt-in (the owner has ruled against default-OFF switches that rot
+	// unexercised); it exists so an operator can disarm the door probe fleet-wide
+	// with a redeploy-free env change if it ever misbehaves, falling back to the
+	// claim-time backstop, which is the exact pre-guard behaviour.
 	demotedUnroutable := false
-	if item.handlerAgent != "" && workItemStatusRequiresRegisteredHandler(item.status) {
+	if item.handlerAgent != "" && workItemStatusRequiresRegisteredHandler(item.status) &&
+		os.Getenv("DISABLE_UNREGISTERED_HANDLER_DEMOTION") == "" {
 		var registered bool
 		if probeErr := tx.QueryRowContext(ctx,
 			"SELECT "+workItemHandlerRegisteredSQL("$1"), item.handlerAgent,

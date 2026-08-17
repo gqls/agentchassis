@@ -210,6 +210,37 @@ func TestStatusRequiresRegisteredHandler_ExactlyCheck443sList(t *testing.T) {
 	}
 }
 
+// The kill-switch disarms the guard without a roll (council round 1, guardian):
+// with the env var set, the probe never runs and the item passes through at its
+// requested status — the claim-time backstop takes over, which is the exact
+// pre-guard behaviour. Same tripwire mechanics as the parked-shapes test.
+func TestWriteWorkItem_KillSwitch_DisarmsTheDoorGuard(t *testing.T) {
+	t.Setenv("DISABLE_UNREGISTERED_HANDLER_DEMOTION", "1")
+
+	db, mock := newInsertMock(t)
+	defer db.Close()
+
+	mock.MatchExpectationsInOrder(false)
+	mock.ExpectBegin()
+	expectHandlerRegisteredProbe(mock, "hitl-review", false)
+	expectInsertWithSummaryAndStatus(mock,
+		"None of the four number inputs have associated labels", "triaged")
+
+	tx, err := db.Begin()
+	if err != nil {
+		t.Fatalf("begin: %v", err)
+	}
+
+	w, err := writeWorkItem(context.Background(), tx,
+		guardItem("triaged", "hitl-review"), dropOnConflict, zap.NewNop())
+	if err != nil {
+		t.Fatalf("writeWorkItem: %v", err)
+	}
+	if !w.Inserted || w.BornBlocked {
+		t.Fatalf("disarmed guard must insert untouched, got %+v", w)
+	}
+}
+
 // A failed probe must not take the write down with it: log, skip the guard,
 // write the item as asked — claim's branch remains the backstop. (Same posture
 // claim itself takes on a failed handler read.)
