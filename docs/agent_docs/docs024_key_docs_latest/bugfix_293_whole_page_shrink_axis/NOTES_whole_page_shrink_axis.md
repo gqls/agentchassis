@@ -283,3 +283,62 @@ real rows rather than in my head.
 
 **Round 2 resubmitted on the same correlation** (`RESUBMIT_CORR`), so the trail accumulates.
 Eight mutations now run: A–H.
+
+## 2026-08-17, council round 2 — APPROVED, and acting on the advisories changed the design
+
+`823679dc`, run `d8974ec3`, `complete_approved` at 17:03Z (~6 minutes; round 1 was ~10). Twelve seats
+reported, four abstained. **3 advisory objections, none high — and two of them were the same objection
+from opposite directions, which is what made me look again.**
+
+- **bug_historian (medium):** filing a breadcrumb for the fail-open path *"patches the SYMPTOM
+  (visibility after the fact) while leaving the mechanism (fail-open on a content-guard) live and
+  generic"*, and it named the estate's own rule back at me — *"a recorded decision with no enforcement
+  point is decorative"*.
+- **reuse_agent (medium), independently:** a work-item type whose whole point is that nothing acts on
+  it **does not belong in the dispatch table**. `site_work_items` has `handler_agent`, `claimed_by`,
+  `attempt_count`; `agent_error_log` is the table built for a record with no consumer.
+
+**Both were right, and the thing I had not measured is what made the fix cheap.** I deferred
+fail-closed in round 1 on the reasoning that it was a behavioural change and must not ride an axis
+correction. That reasoning is fine; the estimate under it was wrong. This floor runs **FIRST** of the
+three (`save_page_sections_action.go:593`, then `:603`, then `:614`) and **both of the others query the
+same table for the same page moments later and REFUSE on a query error**. So the fail-open window was
+never "an error means the page saves unguarded" — it was only "an error hitting this one statement and
+not the next two", a blip between statements. Failing closed costs almost nothing and makes the three
+consistent. `save_guard_unmeasured`, `savePageSectionsUnmeasured` and `pageTotalUnmeasuredFix` are
+**deleted**: the change adds no shared vocabulary at all now, which also retires the architecture
+seat's note about a new `item_type` and the constitution seat's low flag about *"the one place a
+workaround-shaped deferral persists across two rounds"*. **MUT-293-I** proves the new path bites.
+
+> **CORRECTED:** the PLAN's decision **D7** ("the page-total floor keeps failing OPEN") and the
+> submission's risks paragraph are both now wrong. Left in place with this correction rather than
+> edited away — the reason it changed is the useful part: *I scoped a deferral without measuring how
+> big the thing I was deferring actually was.*
+
+- **guardian (medium):** enumerate the OTHER consumers that inherit the 500 → 200 minimum, since this
+  is a guard every content-mutating workflow shares. `[MEASURED]` four, and **none pins
+  `section_shrink_floor`**, so all four take the new default: `page-build-handler`, `page-rerender`,
+  `tool-recreation-handler` (via `save_page_sections`) and `section-editor` (via `apply_section_edit`).
+  Recorded in the code, per the owner ruling of 2026-07-29 §3 — the consumers must be TOLD.
+- **guardian (low):** the coverage test is a source scan and "not a structural guarantee against a
+  fourth axis; fine as an interim guard, not as the permanent enforcement mechanism". Accepted as
+  stated — it is the same weakness `page_component_writer_coverage_test.go` documents about itself, and
+  it is disclosed in the file header rather than claimed away.
+- **tooling_provenance (advisory):** no `doc_notes` row recording the round-2 dispositions for the next
+  fixer. Written: `subject_key='save_page_sections-text-floors-axis-293'`, 5,124 chars, categories
+  `decision`/`decision-record`/`council-gate`/`provenance` — all six decisions with their evidence,
+  the enumerated consumers, the residuals, and how to re-run any of it.
+- **prior_art_librarian (missing):** whether the 263-pair overwrite population was re-verified for
+  this round or only cited from round 1. **Re-run this session**, not cited: the sweep over
+  `pairs_overwrite.jsonl` through the real `evaluateSectionShrink` is where "the same 4 refusals at
+  every minimum from 500 to 50, scope 153 → 261" comes from.
+- **editquality → approve**, explicitly noting the round-1 correction was proportionate and that the
+  remaining gap is "now honestly disclosed in the risks section rather than overclaimed". The
+  architecture seat: `ARCHITECTURE_SIGNAL: point_fix | DEFLECTIONS: 0`.
+
+Committed with `Council-Reviewed: 823679dc-43d5-4f93-8b2d-746c41250290` (`cd610a006`).
+
+**Nine mutations run in total (A–I).** The estate's own line holds up: a REVISE round is cheaper than
+the defect it finds. Round 1's gating objection cost ~10 minutes and asked the one question my
+337-of-366 figure silently depended on; round 2's advisories cost ~6 and produced a simpler design
+than the one I submitted.
