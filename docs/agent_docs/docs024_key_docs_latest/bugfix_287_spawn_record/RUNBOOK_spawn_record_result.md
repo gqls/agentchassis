@@ -65,7 +65,7 @@ WHERE split_part(kv.value,'.',1) = ANY(so.outs)
 ORDER BY 1,2,3,5;
 ```
 
-## Prove the roll before lifting migration 450 (_HOLD)
+## Prove the roll before lifting migration 452 (_HOLD)
 
 ```bash
 kubectl -n ai-persona-system logs -l app=agent-chassis --tail=300 | grep -m1 'build provenance'
