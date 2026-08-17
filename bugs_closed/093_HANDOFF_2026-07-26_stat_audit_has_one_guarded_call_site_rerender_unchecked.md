@@ -8,8 +8,10 @@ tracked follow-up"* (submission `569241fb`, severity **high**). It was right, an
 pattern it matched is a real one in `016b`: a mechanism made generic, then guarded at one
 call site while the others stay open.
 
-**Status:** OPEN, not started. Cause is structural and fully known — this is a scope gap,
-not a mystery, so there is nothing to diagnose.
+> ## STATUS 2026-08-17 — **CLOSED. The fix shipped on the DAY THIS FILE WAS LAST UPDATED and nobody came back to say so.** Candidate (1) was built and wired in `72effdbca` (2026-07-26), is in the running binary, and **its stat arm has fired on real production data**. See §CLOSED at the foot. Candidate (3) is unnecessary: re-measured today, no junk suffix exists fleet-wide.
+
+~~**Status:** OPEN, not started. Cause is structural and fully known — this is a scope gap,
+not a mystery, so there is nothing to diagnose.~~ *(superseded — see the STATUS block above)*
 
 > **THE COUNCIL ESCALATED THIS, TWICE, AND WILL NOT APPROVE THE PARENT CHANGE WHILE IT IS
 > DEFERRED.** Submission `569241fb` ran five rounds. Round 1 raised this at **high**; by
@@ -389,3 +391,96 @@ vonc.com index-vs-about self-contradiction) should be raised by the first rotati
 over those sites, as `claims_unverified` items. Note they will land `needs_human_review`
 per that check's design — readable, not auto-fixed; the drain question is still
 `bugs_open/083`'s pending owner call.
+
+---
+
+# CLOSED 2026-08-17 — candidate (1) is built, live, and has FIRED on real data; candidate (3) is unnecessary
+
+Verified and closed by the `bugfix_265_legacy_dialect_unrepresentable` lane while sweeping
+`bugs_open/` for bugs blocked only on a roll. **Not my lane** — the
+`fabricated_stats_043` workstream has been quiet 14 days and this file said "whoever picks it
+up". None of the fix is mine; the evidence below is, and it is here to be contradicted.
+
+## Why this sat open for three weeks
+
+**The fix landed the same day as this file's last update, and the two crossed.** Commit
+`72effdbca` (2026-07-26) — *"give the stat audit its second call site, and two exclusions the
+live sweep found"* — added `discovery_checks/check_unverified_claims_stats.go`. This file's
+final section, also dated 2026-07-26, says *"the re-render path still renders stored
+`content_data` with no stat audit at all"*. That was true when written and false by the end of
+the day. Nothing since has been wrong; nobody re-read it.
+
+## 1. Built and wired — not a helper with no callers
+
+`scanStoredStatClaims` is called from `check_unverified_claims.go:512` (page components) and
+`:554` (site components). ⚠ **A grep scoped to the `discovery_checks/` directory while excluding
+the stats file finds only the test callers and reads as "never wired"** — I made exactly that
+mistake before widening it. Grep the repo, not a subdirectory.
+
+## 2. In the running binary
+
+`git merge-base --is-ancestor 72effdbca 6a782274b` → **true**, where `6a782274b` is the commit
+stamp of chassis `v1.0.1305` (pods `agent-chassis-5657f446c7-q7b82` / `-r6sf2`, started
+2026-08-16 22:07Z), verified on **both** replicas by binary probe with two discriminating
+negative controls (two other real commit shas, both absent).
+
+## 3. It has FIRED — on stored `content_data`, on a real page [MEASURED 2026-08-17]
+
+`site_work_items` carries **32** `claims_unverified` items, `2026-07-29` → **today**, every one
+`source='discovery'`. One of them settles this bug:
+
+```
+2026-08-09  needs_human_review
+"Unverified claims on about: 5 unregistered number(s), 1 unregistered stat field(s)"
+  findings[]: { "check": "unregistered_stat",
+                "pattern": "case-studies-grid.card1_stat_value",
+                "snippet": "orchestration state records in production 90,790+",
+                "reason": "a figure published in a stat field matches no evidence_base fact value" }
+```
+
+**`pattern` is `component.field`** — which this file's own §"Fix candidates" notes is what
+`ExtractStatClaims` writes — so the figure was read out of a component's **stored
+`content_data`**, not out of freshly generated prose. And the producer is unambiguous:
+`ItemType: "claims_unverified"` appears in exactly one place fleet-wide,
+`check_unverified_claims.go:153,179`. **The build-time gate never files one**, so this item
+cannot have come from the path that already worked. That is the "second call site" this bug
+was opened to get, doing its job on production data.
+
+## 4. Candidate (3) is unnecessary — but the reason has CHANGED, and that matters
+
+This file's verification sweep, re-run verbatim today:
+
+| domain | page | key | value |
+|---|---|---|---|
+| loancalculator.co.uk | tool-consolidation | `verdict_worse_suffix` | " MORE in total interest." |
+| loancalculator.co.uk | tool-consolidation | `verdict_better_suffix` | " in total interest." |
+| loancalculator.co.uk | tool-interest-rate-stress-test | `delta_suffix` | " per month" |
+| loancalculator.co.uk | tool-overpayment-calculator | `months_suffix` | " months earlier." |
+| loancalculator.co.uk | tool-settlement-calculator | `breakdown_suffix` | " in \"58-day\" interest charges." |
+
+**Five rows, none a junk magnitude placeholder — so no fleet sweep is owed.** ⚠ But do not read
+that as "unchanged since 2026-07-26". The file recorded five rows on *leopardess* and
+*robot-hands*; **today's five are all on loancalculator and are different rows entirely.** The
+population turned over completely and the count coincided. A figure that matches its old value
+is not evidence that nothing moved — re-run the query, do not quote the number.
+
+## What does NOT close with it, stated plainly
+
+1. **The re-render path still has no gate of its own**, and that was the deliberate choice —
+   candidate (2) was rejected in this file for giving a deliberately-LLM-free path a new way to
+   fail (`bugs_closed/073`'s trap: a page made unbuildable for telling the truth). What closed
+   is the *coverage* gap, by detection after deploy. **A re-render still republishes a stored
+   figure immediately; the finding arrives on the next discovery sweep, not before.** Anyone who
+   needs prevention rather than detection is looking at candidate (2), which is still not done
+   and still carries the objection that stopped it.
+2. **This file's own "how to verify" cannot be run as written** — it asks for a page carrying a
+   persisted junk suffix, re-rendered without a writer pass. No such page exists any more (see
+   §4), so the fix has outlived its test case, and what is offered instead is the arm firing on
+   a real page's stored `content_data`. Weaker than the designed test; stronger than a unit test.
+3. **The council trail on the parent (`569241fb`, round 5 / REVISE) is not resubmitted here.**
+   This file said closing the gap "is what unblocks an APPROVED verdict on the parent". The gap
+   is closed; whether to re-run that submission is the `fabricated_stats_043` lane's call.
+
+**Closing bar met: fixed AND live AND proven on real traffic.** Moved `bugs_open/` →
+`bugs_closed/` with both paths named on the commit; verified at HEAD.
+
