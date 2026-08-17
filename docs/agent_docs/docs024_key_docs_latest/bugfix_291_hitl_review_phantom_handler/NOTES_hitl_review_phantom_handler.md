@@ -238,3 +238,33 @@ RELAX; those are different edits in the same commit and only the first had a mar
 The probe closes that gap at the artefact rather than by inference from a shared commit.
 The script now carries the arm and states the rollback trigger in its own output: a
 MISSING parked row means roll 457 back at once.
+
+> **CORRECTED 2026-08-17, minutes after writing it — I overstated the gap the PARKED arm
+> closed, in the commit message and in three docs.** I wrote that the kill-switch literal
+> "proved the guard shipped but not the RELAX, a different edit in the same commit with no
+> marker". Two things wrong with that. (1) They are **different COMMITS**, not one: the
+> relax is in `c8400e452`, the kill-switch in `f629f4530`. (2) **I had already proven both**
+> — the ancestry check ran `git merge-base --is-ancestor` against the image's OCI revision
+> for BOTH commits, with a control, before any of this. So the relax was never unverified,
+> and the "disaster I nearly caused in the act of finishing" was not live.
+>
+> **What the PARKED arm genuinely adds, which is still worth its run:** ancestry proves the
+> CODE IS IN THE BINARY; it cannot prove the BEHAVIOUR. A parked config could still have
+> been refused downstream of the relaxed check — by `StrictConfig`/`ConfigKeys` validation,
+> or by any interaction the unit tests mock away — and the failure mode would have been
+> swallowed by `continue_on_error`. The arm converts an inference about presence into an
+> observation of behaviour at the artefact. That is the honest claim; "otherwise it was
+> unproven" was not.
+>
+> What caught it: asking `git log -S` which commit actually carried each edit, which I
+> should have done before writing the justification rather than after. Logged in
+> `WRONG_CALLS.md`.
+
+- **Same-file passenger, the other way round this time** (noting it because the practice
+  says to): my `WRONG_CALLS.md` commit `ade7c9371` carries another lane's entry too — a
+  bug-146 lesson about re-running a bug file's own recorded SQL after the predicate had
+  moved on. Their text, my message. Nothing lost, forward-only; flagged here so the
+  record shows it. Earlier today the mirror image happened — my LANDMINES entry went in
+  under `07229196e`. Two in one session is a fair measure of how busy this tree is.
+- **Milestone summary written**: `SUMMARY_2026-08-17_hitl_review_phantom_handler.md`
+  (new file, per the never-overwrite rule).

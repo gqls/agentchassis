@@ -244,14 +244,16 @@ trigger set, but NOT dispatchable — so the probe cannot cause real work to run
 | **CONTROL** (registered) | `tool-improver` | `claimed` | *(null)* | yes |
 | **PARKED** (no handler key at all) | *(empty)* | **`needs_human_review`** | *(null)* | yes |
 
-The **PARKED** arm is the one that could have gone badly and is worth stating plainly:
-migration 457 set tool-auditor's live config to the empty handler, which is legal ONLY
-on the binary carrying the relaxed validation. The kill-switch literal proved the GUARD
-shipped; it did not prove the RELAX, which is a different edit in the same commit with
-no marker of its own. Had the relax not been live, every review-item filing would now
-hard-error inside `continue_on_error` — every finding lost with no row, the exact
-disaster the three-phase staging existed to prevent, caused in the act of finishing.
-The arm proves it at the artefact instead of inferring it from a shared commit.
+The **PARKED** arm matters because migration 457 set tool-auditor's live config to the
+empty handler, which is legal only on the binary carrying the relaxed validation
+(`c8400e452`). That commit's presence was already established by the ancestry check
+above — but **presence is not behaviour**: a parked config could still have been refused
+downstream of the relaxed check (by `StrictConfig`/`ConfigKeys`, or any interaction the
+unit tests mock away), and `continue_on_error` would have swallowed the refusal, losing
+every finding with no row. The arm converts an inference about what is in the binary
+into an observation of what the binary does.
+*(An earlier version of this paragraph claimed the relax was unproven until this arm ran.
+It was not — the ancestry check had covered it. Corrected same day; see `WRONG_CALLS.md`.)*
 
 The TEST row was blocked **at write, never claimed** — under the pre-guard binary it
 is born `claimed` with a null error, so the observable genuinely discriminates. The
