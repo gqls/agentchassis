@@ -249,3 +249,41 @@ same path. Options: (a) accept a permanent list a human prunes; (b) have a lane 
 self-clear arm the three sibling checks already have. **Recommendation: (b), low
 priority** — it is a small, well-precedented piece of work, and without it the forty
 rows will quietly stop being trustworthy as a list.
+
+---
+
+## 2026-08-17 (later) — your fundamentallyai.com note: I checked before filing, and it is already done
+
+You asked me to re-file this as work the machinery can do, and to watch it. I went to
+file it and checked the live site first. **All three things you asked for on 12 August
+are now true.** I measured the served pages, not the database:
+
+- **The Tools entry is in the top nav.** It reads Home / About / Tools / Contact /
+  Platform Log / News / Capabilities.
+- **Every guide links to the tool it describes** — all eight of them, between one and
+  six links each, in the body text rather than the footer.
+- **The tools are linked from the writing.** The homepage points at the tools page and
+  at four individual tools; the Platform Log index carries six tool links.
+
+None of that was this item — it was blocked for most of those five days by the bug we
+just closed. Other rebuilds did it. **So I have not re-filed anything**: filing work
+that is already done wastes a pipeline run and leaves a false record. The item is
+closed as satisfied, with the measurements written into it so the next reader can see
+what "satisfied" meant and when.
+
+**One honest note about how I nearly got this wrong.** My first measurement said the
+guides had no tool links at all — because I guessed their addresses and got six 404
+pages, which look exactly like empty pages if you only count links. What caught it was
+checking that the pages I was measuring had any content at all. The real addresses are
+under /blog/ and /guides/.
+
+**Two things I noticed while measuring, which are NOT your original ask and which I
+have not acted on** — say if you want either chased:
+
+1. **Three of the tools appear to have two guides each**, at two different address
+   patterns (/blog/…-guide and /guides/tool-…-guide). That may be duplicate content
+   competing with itself.
+2. **The Platform Log index no longer links to any guide at all.** It links straight to
+   the tools instead. That is the mirror image of your original complaint: the tools are
+   reachable now, but the writing about them may have been orphaned from its own
+   section index.
