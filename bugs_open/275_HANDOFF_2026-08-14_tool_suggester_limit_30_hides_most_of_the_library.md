@@ -160,3 +160,51 @@ the migration half IS live).
 - `category` is selected and never rendered — 785 chars of dead payload, left alone deliberately.
 - **`bugs_open/242` is this same class in another subsystem** (*"a capped render audit is
   indistinguishable from a complete one"*) and is still open.
+
+### ⚠ THE OTHER CAPS: CHECKED — and TWO ARE THE SAME DEFECT, one worse than this one
+
+The section above said *"nobody has checked whether the other six bite"*. Checked, 2026-08-16, same
+session. **The naive census was itself wrong in two ways, and the corrected picture is:**
+
+| step | cap | uncapped population | bites? | kind |
+|---|---|---|---|---|
+| `tool-suggester.load_library_tools` | 30 | **74** | ✅ fixed here | **CORPUS** |
+| **`tool-recreation-handler.load_related_context`** | 10 | **107** (worst site) | **YES** | **CORPUS** |
+| **`internal-linker.load_candidate_pages`** | 15 | **68** (worst site) | **YES** | **CORPUS** |
+| `content-feed-trigger.find_news_sites` | 5 | 9 | yes, but | work queue |
+| `model-directory-trigger.find_directory_sites` | 12 | 3 | **no** | work queue |
+| `fix-proposer.load_last_bundle` | 2 | — | **n/a** | LIMIT is INSIDE a subquery |
+| `visual-design-auditor.load_design_context` | 5 | — | **n/a** | LIMIT is INSIDE a subquery |
+
+**Correction 1 — only FIVE of the "seven" are whole-result caps.** `fix-proposer.load_last_bundle`
+wraps its `LIMIT 2` in a subquery and `string_agg`s the result into **one** row; `visual-design-auditor`
+does the same inside a correlated subquery. The detector's end-anchored regex correctly ignores both,
+and flagging them would have been **wrong** — their outer result is not bounded by that number. A real
+case vindicating the anchor, found by checking rather than by argument.
+
+**Correction 2 — and this is the part that matters for reading the new WARN: NOT EVERY MULTI-ROW CAP
+IS A DEFECT.** The distinguishing question is not the size of the cap, it is what the rows ARE:
+
+- **A WORK QUEUE** takes N per run and the rest arrive next run. `find_news_sites` (5 of 9) and
+  `find_directory_sites` (12 of 3, `ORDER BY random()`) are this. Coverage is *eventual*, and the cap
+  is a batch size. **Not a defect.**
+- **A CORPUS shown to a model** takes N and the rest are **never seen on that run**, and the model
+  answers confidently either way. That is this bug.
+
+**The SQL cannot tell you which**, which is exactly why LCO-009's warning is deliberately dumb and the
+reader makes the call. Expect it to fire on the work-queue steps; that is not a false positive in the
+mechanical sense, it is the check asking a question only a human can answer.
+
+### The two new instances — NOT fixed here, and needing an owner call
+
+Both feed an LLM a truncated corpus, which is precisely this bug's mechanism:
+
+1. **`tool-recreation-handler.load_related_context`, `LIMIT 10` against up to 107 pages.** The context a
+   tool recreation is given. **Worse in ratio than 275 itself** (9% vs 41%).
+2. **`internal-linker.load_candidate_pages`, `LIMIT 15` against up to 68.** The candidate set an LLM
+   picks internal links from — so a page's link targets are chosen from at most 15 of 68, ordered
+   `p.name`, i.e. alphabetically. Same accident, same invisibility.
+
+**Grepped before recording** (`bugs_open/` + `bugs_closed/`): neither is filed anywhere, under any
+spelling. They are recorded here rather than as two new bug files because that is the owner's call, not
+mine — but they are measured, they are real, and the measurement should not have to be redone.

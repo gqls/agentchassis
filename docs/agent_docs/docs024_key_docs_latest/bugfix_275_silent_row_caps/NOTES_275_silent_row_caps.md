@@ -136,3 +136,46 @@ the gate still working, which is the thing the bug warned most about losing. Pre
 - `category` selected but never rendered (above).
 - **`bugs_open/242` is the same class in another subsystem** — *"a capped render audit is
   indistinguishable from a complete one"* — and is still open. Cross-referenced in LCO-009.
+
+## 2026-08-16 — I checked the other six, and the census was wrong twice
+
+Having written *"nobody has checked whether the other six bite"* into the bug file, I checked. Each was
+one query. **Both corrections came from checking rather than reasoning.**
+
+**Correction 1 — only FIVE of the "seven" are whole-result caps.** `fix-proposer.load_last_bundle` puts
+its `LIMIT 2` inside a subquery and `string_agg`s the result into ONE row; `visual-design-auditor` does
+the same in a correlated subquery. My end-anchored regex ignores both — **correctly**, and flagging
+them would have been a false positive on a real config. That is the anchoring decision vindicated by a
+live case rather than by my own reasoning about it, which is the only kind of vindication worth much.
+
+**Correction 2 — NOT EVERY MULTI-ROW CAP IS A DEFECT, and I had implicitly assumed they were.** The
+distinguishing question is not the cap's size but what the rows ARE:
+
+| step | cap | population | bites | kind |
+|---|---|---|---|---|
+| `tool-suggester.load_library_tools` | 30 | 74 | fixed | **corpus** |
+| `tool-recreation-handler.load_related_context` | 10 | **107** | YES | **corpus** |
+| `internal-linker.load_candidate_pages` | 15 | **68** | YES | **corpus** |
+| `content-feed-trigger.find_news_sites` | 5 | 9 | yes, but | work queue |
+| `model-directory-trigger.find_directory_sites` | 12 | 3 | no | work queue |
+
+A **work queue** takes N per run and the rest arrive next run — coverage is eventual and the cap is a
+batch size. A **corpus shown to a model** takes N and the rest are never seen on that run. Only the
+second is this bug's defect.
+
+**The SQL cannot distinguish them**, so LCO-009's warning has to stay dumb and the reader makes the
+call. I have written that into the register entry, because a detector whose false-positive class is
+undocumented gets switched off by the third person who meets it.
+
+**Two new confirmed instances, filed nowhere** (grepped both bug dirs first): `load_related_context`
+sees 10 of up to 107 — **worse in ratio than 275 itself** — and `load_candidate_pages` picks internal
+link targets from at most 15 of 68, alphabetically. Recorded in 275's file and the register rather than
+filed as two new bugs: that is the owner's call, but the measurement should not have to be redone.
+
+**What this says about the original framing.** I wrote "seven multi-row caps that can bite" into the
+commit message, the submission and the register on the strength of a `substring` census — without
+checking either whether the LIMIT bounded the whole result or whether the population exceeded it. Two
+of the seven were not whole-result caps at all and two more were harmless queues. **The census answered
+the question I encoded ("does this query text contain a multi-row LIMIT?") and I reported it as the one
+I meant ("how many silent caps are there?")** — the same shape as the `bugs_open/257` census error
+earlier today, on a different object, four hours apart.
