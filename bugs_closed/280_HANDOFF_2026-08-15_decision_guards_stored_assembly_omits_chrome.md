@@ -224,3 +224,46 @@ this correlation shows approved.
 **Still NOT SHIPPED.** Image build + fleet roll remain the owner's call, per
 270's precedent. This bug stays open until build+roll+artefact-verification
 are all actually true, not merely committed and approved.
+
+## UPDATE 2026-08-17 — SHIPPED, VERIFIED LIVE (both replicas). CLOSED.
+
+Owner reported a fresh chassis build deployed. Before trusting that, checked
+the actual state of the shared tree first: real time had passed since the
+approval above (HEAD had advanced 135 commits since `2c75bb526`, all from
+other concurrent sessions — confirmed via `git merge-base --is-ancestor` and
+commit dates, nothing anomalous; `check_decision_guards.go` itself had zero
+further commits in that window).
+
+**Verified at the artefact, not by inference.** `agent-chassis`'s startup
+`"build provenance"` line is rotated away within minutes on this busy
+service (documented landmine) — confirmed absent from `--tail=3000` and even
+`--since=13h` on both replicas (pods 12h old, ~3,100 log lines each, zero
+`build provenance` hits: genuinely rotated, not unstamped). Fell back to the
+sanctioned binary probe, done the safe way (per the "grep -aq <ancestor-sha>
+reads absent even when it shipped" landmine — **never** grep for your own
+commit directly; obtain the actual stamp first, THEN check ancestry):
+
+1. Extracted every 40-hex substring from `/proc/1/exe` on `q7b82`
+   (79 candidates — Go's internal digit tables produce plenty of noise, as
+   documented) and filtered to only those that are real commit objects in
+   this repo (`git cat-file -t`): **exactly one** —
+   `6a782274b626c9f4977c9246d905deebb097cb1f` ("readme(257): the
+   owner-facing account of the approval…"), dated 2026-08-16T18:43:53+01:00
+   — ~2.5h after this fix.
+2. `git merge-base --is-ancestor 2c75bb526 6a782274b…` → **YES**. Fix is an
+   ancestor of the actual build point.
+3. **Negative control**: current HEAD (896c5aeeb, 135 commits ahead of the
+   stamp, definitely never built) is correctly **absent** from the binary —
+   proves the extraction+filter methodology discriminates, not just matches
+   everything.
+4. Repeated the stamp-presence and HEAD-absence checks directly (`grep -aq`)
+   on the second replica (`r6sf2`): both confirmed identical to replica 1.
+
+No behavioural fleet check performed or expected — per this file's own
+earlier note, all enforceable decision-record guards today are body-scoped,
+so no check output changes. Artefact verification is the whole of "shipped"
+here, and it is now positive on both replicas.
+
+**Closed.** Moved to `bugs_closed/`. Full workstream docs (final SUMMARY,
+NOTES, README) at
+`docs/agent_docs/docs024_key_docs_latest/bugfix_280_decision_guards_chrome/`.

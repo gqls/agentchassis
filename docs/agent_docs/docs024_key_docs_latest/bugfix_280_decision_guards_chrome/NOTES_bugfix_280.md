@@ -165,3 +165,51 @@ Updated `bugs_open/280` with the full round-1/round-2 trail. Shipping
 (image build + fleet roll) remains the owner's call, unchanged from the
 PLAN's original sequencing decision — this session is not building or
 rolling unless explicitly asked.
+
+## 2026-08-17 — owner shipped it; verified live; closed
+
+Owner: "A fresh chassis build has been deployed." Before acting on that,
+re-checked the tree state rather than assuming continuity — real time had
+passed (HEAD had advanced 135 commits since the fix, all normal concurrent
+traffic; confirmed via `git merge-base --is-ancestor` + commit dates that
+nothing regressed, and that nobody else had touched
+`check_decision_guards.go` in the interim).
+
+**Verification, not assumption.** `agent-chassis`'s startup `"build
+provenance"` line is a known-rotated-away signal on this busy service —
+confirmed absent (`--tail=3000`, `--since=13h`, ~3,100 lines/replica, zero
+hits: genuinely rotated, not unstamped). Used the sanctioned binary-probe
+fallback correctly — the landmine here is subtle and easy to get backwards:
+**do not `grep -aq` your own commit's sha directly** (a binary is stamped
+with the ONE commit it was built from, never its ancestors — testing an
+ancestor sha reads "absent" even on a binary that genuinely contains your
+change). Instead: extract every 40-hex candidate from `/proc/1/exe` (79 of
+them — Go's internal digit tables are noisy, as documented), filter to only
+ones that are real commit objects in this repo (`git cat-file -t`), and
+trust the ONE survivor as the actual stamp:
+`6a782274b626c9f4977c9246d905deebb097cb1f`, dated 2026-08-16T18:43, ~2.5h
+after the fix. `git merge-base --is-ancestor 2c75bb526 <that stamp>` →
+**YES**. Negative control: current HEAD (135 commits ahead, definitely not
+built) correctly comes back absent from the same binary — proves the
+extract-and-filter method discriminates rather than matching everything.
+Repeated stamp-present / HEAD-absent on the second replica: identical.
+
+No behavioural fleet check was expected or needed (all live decision-record
+guards are body-scoped, so no check output was ever going to move) —
+artefact verification alone is what "shipped" means for this bug, and it is
+now positive on both replicas.
+
+Closed: `git mv bugs_open/280_… bugs_closed/280_…`, with the closing
+evidence appended to the bug file itself before the move (so the file's own
+history shows the reasoning, not just the destination). Updated
+`README_where_we_are.md`. This is a real milestone per the standing-five
+convention (fixed AND live, not just approved) — writing a fresh
+`SUMMARY_2026-08-17_shipped_and_verified_live.md` rather than editing the
+2026-08-16 one.
+
+**One thing worth carrying forward, not specific to this bug**: the "ask the
+service what it is running" recipe genuinely fails on `agent-chassis`
+specifically (documented landmine, confirmed again here) — every future
+verification on this service should go straight to the binary probe with
+the extract-and-filter method, not waste a round on the log line first
+unless the pod is known to be under ~10 minutes old.

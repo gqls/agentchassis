@@ -58,3 +58,19 @@ nothing that changes the fix.
 So: fixed, tested, committed, and now reviewed and approved. Same as before,
 whether and when to actually roll this out to the live system is your call,
 not mine to make unprompted.
+
+## 2026-08-17
+
+You said a fresh build had gone out. Rather than just take that as read, I
+checked it against the actual running service — asked the two live pods
+directly what code they're built from, using a proper positive AND negative
+comparison so I wasn't just trusting a hopeful-looking result. Both pods
+came back carrying the fix, cleanly, with a control that confirmed the check
+itself was actually discriminating between "shipped" and "not shipped"
+rather than just agreeing with whatever I asked it.
+
+So this one's done: fixed, tested, reviewed, shipped, and now confirmed
+running on both live copies of the service. Closed out the bug file and
+moved it to the closed list. Nothing further needed on this one — it was a
+quiet, no-symptom-yet fix, so there's nothing visible that will change; it
+simply can't happen anymore.
