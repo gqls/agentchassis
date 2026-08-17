@@ -11794,3 +11794,39 @@ code change owed at the next roll, tracked in RFC_015 §5.
   **Different digests under the same tag = your code is not live**, whatever anything else says. Worked case 2026-08-17: local `sha256:6039e19c…` vs running `sha256:f90a7e88…`.
   If you probe the binary instead, **the negative control must be capable of being absent** — a control of 40 zeros MATCHES every Go binary, so that run cannot discriminate and its "absent" readings are worthless; use a plausible fake (`ZZZ_NOT_A_REAL_SYMBOL_<bug>`, `deadbeef1234…`) and run a positive control in the same breath
 - **the fix:** bump `IMAGE_TAG` for EVERY build (it is `?=`, so `make release IMAGE_TAG=v1.0.<next>` works without editing the file). Releases are whole-fleet and owner-run — do not paper over it with a one-service apply at the same tag, which re-serves the same cache
+
+### The council gate REFUSES a config-only migration, and the refusal reads as "this is out of scope" when the ruling meant docs
+
+- **footprint:** `097_TRIGGER_council_review_v1.sh` (`SCOPE_RE='^(platform|internal|pkg)/'`),
+  any submission whose edits are all `docs/agent_docs/sql_for_agents/NNN_*.sql`,
+  any bug fixed by an `agent_definitions` migration alone
+- **fires when:** your fix is config-only — you rewrite a live agent's step in
+  `agent_definitions` and change no Go — which is a large share of this estate's bug
+  fixes, since DB config is live on apply and needs no roll.
+- **the tell:** none you would distrust. The script `exit 2`s with
+  `REFUSED: no edit touches the review scope (platform/, internal/, pkg/ — owner ruling
+  2026-07-17)` / `Docs and site content do not spend council credits.` It is a stated
+  owner ruling, quoted accurately, and your paths really are under `docs/`. So the
+  natural reading is "the council does not cover this change" — and you skip the round,
+  correctly following a rule that was never aimed at you. **A refusal that cites a real
+  ruling is far more convincing than a bug, and there is no second signal to contradict
+  it.**
+- **why the reading is wrong:** the filter is a PATH filter standing in for an INTENT —
+  keep docs and site content from spending credits. A migration under
+  `sql_for_agents/` is neither: it rewrites what a live agent DOES, with no image
+  rollback and no roll to gate it, so it reaches production faster than any Go change.
+  And it is empirically the shape this gate catches things in: in `bugs_open/275`'s
+  round the sharpest objection of the whole round (`bug_historian` — an unmarked column
+  truncation, a silent cap one level down) was against the MIGRATION half, not the Go
+  half, and it changed the fix.
+- **the check:** decide by what the edit CHANGES, not by where the file sits. If the
+  submission rewrites live agent behaviour, submit it with `FORCE=1` **and say so in the
+  first paragraph of the rationale** — the script prints
+  `WARN: FORCE=1 — submitting despite no in-scope files`, which no reviewer sees, so an
+  unexplained force looks like someone dodging the filter. Reviewers judge the plan
+  against the rationale; the scope note belongs there. Conversely `FORCE=1` is NOT a
+  licence for docs: if what you changed is prose, the refusal is right and the credits
+  are better spent elsewhere.
+- **added:** 2026-08-17, `bugfix_297_tool_recreation_context` lane (migration 453, corr
+  `4b9265c3`), after reading the enforcement block rather than the header comment —
+  the header says "is refused", line 146-153 is where it `exit 2`s.
