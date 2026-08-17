@@ -76,3 +76,37 @@ only worth something once you have actually looked.
 
 Everything is committed and the fix is live. The bug file now carries the verdict and the
 measurements behind it.
+
+## 2026-08-17 (late) — asked whether to force a live run, and decided not to
+
+The one loose end was the final end-to-end proof: seeing the longer page list inside a real
+rebuild's prompt. That needs an actual tool rebuild, so I went looking for somewhere safe to run
+one, and the looking turned out to be worth more than the run would have been.
+
+First, the free finding. Instead of firing something, I read the prompts this system has already
+sent in the past. Every single one of them — eight rebuilds, back to 8 August — listed exactly ten
+other pages, on a site that has thirty-two. So we now have proof from the real thing, not from
+reasoning, that the limit was genuinely cutting what the AI saw. The same prompts also answer the
+reviewer's worry about size in real numbers: that list was 979 characters inside a 29,000-character
+prompt, and showing the whole site would make it about 2,000. Three times the coverage for about
+three and a half percent more prompt.
+
+Then the awkward part. There are only six pages in the whole estate where we still hold the
+original crawled code that a faithful rebuild copies from, and all six are on one site — which
+another session is working on right now, on the very page I would have chosen. Worse, all six are
+marked "owned", which means a rebuild would do all the expensive AI work and then be refused at the
+last step by a safety guard, leaving a failed job behind and muddling that session's experiment.
+The one site where a rebuild would actually complete has lost its original source entirely, so the
+AI would be rewriting a live, public mortgage and stamp-duty calculator from a summary, with nothing
+to copy. This estate has already once shipped a calculator using a tax threshold that had been
+withdrawn, so that is not a risk to take for a log entry.
+
+So I put the choice to you rather than picking, and you said don't force it. That is now written
+into the bug file so nobody later reads the missing proof as an oversight and decides to spend a
+live page closing it. The check takes one query whenever a rebuild happens naturally, and the query
+is saved in the file.
+
+One useful thing fell out of the search: the guard that blocks those rebuilds tells whoever reads
+its refusal to "use the tool pipeline for rebuilds" — but the tool pipeline uses the very step being
+refused, so for the twelve pages in that state the advice points at a door that is locked. That has
+gone into the relevant bug for the session that owns it.

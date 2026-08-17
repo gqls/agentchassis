@@ -177,8 +177,12 @@ assumed):
   public, legislated-figure financial calculator with no original to copy from**. That is the
   highest-risk shape in the estate and not something to spend on a log line.
 
-**So the after half waits for a natural run** (or an owner decision to spend one). It is one query
-when it comes:
+**So the after half waits for a natural run — and that is now a DECISION, not a gap.** Asked on
+2026-08-17 whether to force one, the owner chose not to, on the options as costed above: the only
+faithful target cannot complete (owned guard) and sits inside another lane's live experiment, and
+the only completable target would rebuild a public legislated-figure calculator with no original to
+copy. **Nobody should read the missing after-half as an oversight, or spend a live page to close
+it.** It is one query when a natural recreation comes:
 
 ```sql
 SELECT created_at, length(substring(prompt_rendered from
