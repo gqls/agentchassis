@@ -248,3 +248,40 @@ scope rises 153 → 261. So lowering that path's minimum costs nothing measurabl
 4. Then move to `bugs_closed/` and add the pattern to 016b §9.
 
 Commands for all of it: `docs024_key_docs_latest/bugfix_293_whole_page_shrink_axis/RUNBOOK`.
+
+---
+
+## CLOSED 2026-08-17 — fixed AND live on `v1.0.1307`, and exercised in scope the same hour
+
+Verified at the binary, not at git or the tag: both `agent-chassis` pods report stamp
+**`a6d1c53c0`** (`grep -oa 'buildinfo.GitCommit=[0-9a-f-]*' /proc/1/exe`, with the probe's own sanity
+control passing), and `6aae23e62` — the axis on all three floors, the 200-char minimum, the page-total
+extraction and the summing keying — is an ancestor of it. `9cd887ddf` (class-floor keying) and
+`4b32f174c` (the section editor's half, the 285 lane's) are in it too. Negative control: `c04018a3e`,
+committed after the stamp, is absent.
+
+**Exercised, not merely present.** 11 whole-page rebuild writes across 3 pages in the first 45 minutes,
+zero refusals — and the number that makes that meaningful: **10 of the 11 were IN SCOPE** on the live
+axis, so the guard judged ten real writes and allowed all ten, which is what the calibration predicted
+(zero false refusals in 1,079 pairs). On those same ten sections the retired axis would have allowed a
+total prose wipe on 10 of 11.
+
+### What is still owed, and why it does not keep this open
+
+- **The page-total floor fails OPEN and silently in the running image.** `e42d57adf` and `cd610a006`
+  (the council rounds — the breadcrumb, then failing CLOSED and deleting the item type) are NOT in
+  `v1.0.1307`; they ride the next roll. This is not a regression: the inline block this replaced failed
+  open silently too, and the window is only an error hitting this one statement and not the next two,
+  which both refuse.
+- **No refusal has fired yet**, so the refusal path is proven by nine mutations and the mocked wiring
+  tests rather than at the artefact. Expect ~1/week fleet-wide. **Not induced deliberately**: on this
+  path an unrefused save hollows a live page, and the safe variant (raise `section_shrink_floor` in a
+  step's config, then revert) edits a shared live agent definition and blocks another lane's build — an
+  owner's call, flagged in the lane NOTES.
+- **120 of 1,079 pairs (11%)** remain below the 200-char minimum, covered only by the class-attribute
+  floor. **`page_component_writer_coverage_test.go` is still blind to this path** (it matches
+  `UPDATE … SET rendered_html`; the rebuild is DELETE+INSERT).
+
+Watch query and its demand control: `docs024_key_docs_latest/bugfix_293_whole_page_shrink_axis/RUNBOOK`.
+Council `823679dc-43d5-4f93-8b2d-746c41250290`, APPROVED round 2. Disposition record for the next
+fixer: `doc_notes`, `subject_key='save_page_sections-text-floors-axis-293'`.
