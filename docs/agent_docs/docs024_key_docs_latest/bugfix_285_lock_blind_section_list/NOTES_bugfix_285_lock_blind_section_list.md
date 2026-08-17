@@ -290,3 +290,26 @@
   drain, 291's kill-switch, 287's loop-expansion fix, the 284 predicate unification) are NOT
   running. Reported to the owner. Our own status is unaffected — the 285 code went live in
   yesterday's genuine build.
+
+## 2026-08-17 (evening) — RFC_033 ruled and built; the open review question MEASURED and answered "don't"
+
+- **RFC_033 ruled by the owner: option 2** ("go with your recommendation") — the source-scan
+  lockstep, not one mandatory entrypoint. Built as
+  `actions/section_list_reader_coverage_test.go`, council `02cb2134` (submitted; verdict owed).
+  **It found a reader on its FIRST run that my own hand census had missed** —
+  `discovery_checks/check_sectionless_pages.go`, because I grepped `FROM site_plan_sections` and
+  that file uses `JOIN`. RFC_033 now carries that correction and a second one: the population is
+  **6 plan readers, not the 8 in its own title** (the 8 mixed plan readers with cache readers).
+  Mutation-proven on both arms with mutations that COMPILE — a build failure would have proven
+  nothing about the test's own logic, which is the trap the first attempt fell into.
+- **The open review question (carry-stored-row for merged locked sections) is now MEASURED, and
+  the answer is DON'T.** The merge means the pipeline regenerates a locked section and the guard
+  discards the copy. Cost: 14 tool-level locks have zero non-static fields (free); 12
+  section-level locks carry 49 non-static fields, so those pay a discarded LLM call — but their
+  pages rebuilt **4 times in 30 days across all 8 of them**. And the `overwrite` item is deduped
+  by `item_key` and NOT refreshed: 41 rows in `needs_human_review`, **0 touched since the roll**,
+  including on both proven rebuilds — so the "one item per pass" I wrote earlier was wrong; it is
+  one per slot, once. Recommendation recorded in LOCK-008: leave it, revisit on a trigger (a
+  locked LLM-field section landing on a frequently-rebuilt page), not on a schedule.
+- Separately for the owner: those **41 `overwrite` rows are stale queue** (newest 2026-08-15,
+  none refreshed since) — a one-off hygiene decision, not this fix's doing.
