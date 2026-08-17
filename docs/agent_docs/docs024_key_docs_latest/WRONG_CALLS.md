@@ -33362,3 +33362,29 @@ one you asked" — but the encoded question was in the *search string*, which is
 looks too small to be worth checking.
 
 Tally for "grepped an artefact for an identifier the artefact never contained": 1.
+
+## 2026-08-17 (same session, minutes later) — I wrote the marker lesson into a commit message IN BACKTICKS, and the shell ate the markers
+
+**What happened:** the commit above records "grepped an artefact for an identifier the artefact
+never contained". Writing it up, I put both offending markers in backticks inside `git commit -m`.
+Backticks are command substitution: bash ran them, printed
+`tool-3: command not found` to stderr, and substituted **empty strings**. The committed message
+now reads *"I first grepped the live page for  and  — 0 and 0"*. The commit is fine, the meaning
+survives in the next sentence, and forward-only means it stays that way.
+
+**Why it is worth a row rather than a shrug:** this is a KNOWN trap, already in the memory index
+(*"backticks in `-m` execute"*) and in LANDMINES. I read that file at session start. It still
+happened, because the backticks were not there as shell syntax — they were there as **markdown**,
+in a message that was *about* being careful with markers. The habit that produced it (write the
+identifier in code-quotes) is the same habit this repo's prose style rewards everywhere else.
+
+**The cheap check:** for any commit message longer than a line, write it with a **quoted
+heredoc** — `git commit <paths> -F - <<'MSG'` — which passes the text through verbatim, backticks,
+`$`, `!` and all. Reserve `-m` for one-liners with no punctuation. Cheaper still, and the reason
+this row exists: after any commit whose message you cared about, run `git log -1 --format=%B` and
+read it. That is the only step that shows you what actually landed; `git commit`'s own output does
+not.
+
+Tally for "shell ate part of a commit message": 1 (and the trap was already written down, which is
+the interesting part — a documented landmine did not fire because the danger arrived dressed as
+formatting).
