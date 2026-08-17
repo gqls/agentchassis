@@ -270,3 +270,88 @@ Then: LANDMINES entry update (the hand-list landmine gains its guard) +
 `landmines-verify-dispatch.sh`, and a concept-register BLD entry for
 `check-release-coverage`. `github-actions-runner*` drift stays a separate
 owner call (own image lineage — the coverage check correctly ignores it).
+
+### Steps 2–3 DONE 2026-08-17 (`f0657b466`) — the class fix is complete in the makefile
+
+> **CORRECTION to the step-1 block above.** It told the next reader that behaviour
+> equivalence was "provable by `make -n` set-diff" and recorded baselines as
+> "37 deploy actions, 17 restarts, 14 pushes". **That instrument cannot work, and
+> those figures must not be compared across this change.** `make -n` prints a recipe
+> without executing it, and the whole point of the refactor is to replace fifteen
+> make lines with a **shell `for` loop** — which is *one* recipe line however many
+> services it iterates. The same command now reads **9**, against 37, with the sets
+> **identical**. Trusting my own recipe would have read a 76% drop and concluded the
+> refactor dropped 28 services from the release. `WRONG_CALLS.md` 2026-08-17.
+>
+> **The same defect is in this file's own 2026-08-10 verification table**, which
+> records "`make -n release` reaches the render-audit overlay → 3 actions". True the
+> day it was written; `bugs_open/249` landed the next day, turned `release` into
+> `$(call pinned_sweep,…)` — one shell block that loops `make $$goal` internally —
+> and `make -n` stopped descending into it at all. **That row now returns 0 on a tree
+> where render-audit-adapter is fully wired and rolling correctly.** Do not use it.
+> (BLD-020's register entry did flag the general behaviour at the time; what nobody
+> updated was the recipe written down *here*, which is where a reader looks.)
+> **Measure at a goal the sweep CALLS:** `make -n deploy-agents | grep -c render-audit-adapter`,
+> `make -n deploy-core | grep -c "Release coverage OK"`. Now in `LANDMINES.md`.
+
+**What shipped.** `deploy-agents`' fifteen copy-pasted sed+apply blocks, plus
+`redeploy-agents` and `push-backend`, are now loops over the declarations. A declared
+service with no overlay is **skipped with a named warning** instead of disappearing
+into `2>/dev/null || true` — absence looking like success is the same shape as this
+bug. `deploy-%`'s registry pre-flight reads the image **from the overlay**, so the
+bespoke `deploy-render-audit-adapter` rule is **deleted**: a hand-written duplicate of
+a pattern rule is one more pair of things that must stay identical, which is the
+defect. The two per-service facts worth keeping (browser-runner's Strimzi topic lives
+outside its overlay; render-audit has no image of its own and must move with
+browser-runner) are hoisted into the loop header.
+
+**Proven by SETS, with controls** [MEASURED 2026-08-17]:
+
+| check | result |
+|---|---|
+| `deploy-agents` overlay set, old vs new | 15 vs 15, **identical**; order preserved (render-audit still directly after browser-runner) |
+| negative control in that comparison | `auth-service` absent from both |
+| `push-backend` / `redeploy-agents` sets | 14/14 and 16/16, identical |
+| the loop **executed** under `kubectl`/`sed` stubs | 15 applies, 0 skips (production) |
+| positive control for the new warning | development overlay path: **8 SKIPPED named, 7 applied** — the old code said nothing at all |
+| `deploy-render-audit-adapter` via the pattern rule | names `browser-runner-adapter:v1.0.1305` + "runs the browser-runner-adapter image"; was: an image that never existed |
+| control | `deploy-git-adapter` still names its own image |
+| coverage gate, discriminating control | `AGENT_DEPLOY_SERVICES="agent-chassis"` → names `render-audit-adapter`, i.e. **reproduces this bug's original state** |
+| negative control | `make -n build-backend` mentions render-audit **0** times |
+
+Registered as **BLD-022** (`register/build-pipeline.md` + the index row).
+
+### ADJACENT DEFECT found while proving this — filed here, NOT fixed
+
+Four explicit rules **shadow** the `deploy-%` pattern rule and carry **no registry
+pre-flight at all**: `deploy-vet-intel`, `deploy-business-intel`,
+`deploy-remote-job-spawner`, `deploy-kafka-scheduler`. Found because
+`make deploy-vet-intel` under a stubbed-failing `docker` proceeded to `kubectl apply`
+instead of refusing — an explicit target beats a pattern rule, so the pre-flight the
+pattern rule exists to provide is simply absent for those four. A single-service
+deploy of any of them can still point the cluster at a never-pushed tag and
+ImagePullBackOff, which is exactly what the pre-flight was added to prevent.
+
+Same "two hand-maintained things that must stay identical" family, **different path** —
+single-service deploy, not the release sweep — so it is recorded rather than swept
+into this change. Fix shape: delete the four rules (the pattern rule now serves them
+correctly, image-resolution included), or give each the pre-flight. Whoever takes it
+should check the duplicate `deploy-admin-dashboard` definition (two identical alias
+rules, `makefile:348` and `:1272`) in the same pass.
+
+### Closing position
+
+The **class is closed in the makefile and the gate is armed**, but it has not yet been
+exercised by a real release (releases are whole-fleet and owner-run). It is make-level,
+so no roll and no image is needed for it to bite — it takes effect at the next
+`deploy-core`. **This file stays open** for two residuals that are genuinely still live:
+
+1. `github-actions-runner` **v1.0.948** and `-vmsites` **v1.0.1126** are still adrift.
+   The gate correctly ignores them — they pin an image the release does not build, so
+   their lineage is a deliberate separate cadence — but nobody has ruled on whether
+   that drift is intended. **An owner call, not a coding task.**
+2. The four shadowing rules above.
+
+Close condition: an owner ruling on (1), plus (2) fixed — **not** the makefile diff,
+and not a green `make check-release-coverage`, which only says the gate agrees with
+today's tree.
