@@ -296,6 +296,22 @@ of this class is needed.
 
 ### ⚠ THE GUARD IS LIVE AND UNEXERCISED, and a zero here is not proof it works
 
+> **CORRECTED 2026-08-17, ~1h after writing it — THIS SECTION'S CENTRAL CLAIM IS FALSE.**
+> The guard **has** been exercised, and the section below says it "cannot currently run
+> at all". What caught it: the lane that closed this bug ran a **single-step
+> `triage_detected_items` dispatch** on `leopardessconsulting.co.uk` (36 flag-only
+> `detected` rows and nothing routable — a manufactured demand control), correlation
+> `a5be3dea-3f2c-490a-9922-22993662bc95`, result **`promoted: 0`,
+> `not_promotable: 36`, `not_promotable_by_type: {"head_essentials_missing": 36}`**,
+> rows left `detected`. That is the guard working, in production, on the real binary.
+> **My reasoning error:** I read "the only SCHEDULED driver is disabled" as "the code
+> path cannot run", forgetting that a step can be dispatched directly — which is
+> routine here and is in my own memory index as *"single-page deploy bypasses stalled
+> queue"*. A disabled cron bounds what runs BY ITSELF; it says nothing about what can
+> be run ON PURPOSE. Everything below about `improvement-sweep` being `enabled=false`
+> and about the `detected-item-promoter` being the live promoter is still true and
+> still worth knowing — it is the conclusion drawn from it that was wrong.
+
 ```sql
 SELECT name, enabled, last_triggered_at FROM scheduled_tasks
 WHERE name IN ('improvement-sweep','detected-item-promoter');
