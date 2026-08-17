@@ -41,6 +41,54 @@ filed.
 `section_edit`, which demonstrably works on them — 18 completes). This fix makes the refusal
 visible; it does not make the page get fixed.
 
+## STATE 2026-08-17 (18:15 UTC) — **THE FIX IS NOW LIVE IN THE BINARY** on `v1.0.1307`. Still OPEN: live ≠ proven, and the guard has not been asked yet
+
+**The tag moved and the build is real this time.** Deployed image `v1.0.1307` (was `v1.0.1305`),
+makefile `IMAGE_TAG` matches at `v1.0.1307`, new ReplicaSet `6d6d7b9996`, pods started ~17:06 UTC.
+
+**Verified at the binary, with both controls in the same exec** (the startup provenance line had
+already scrolled, which means out of range, not unstamped):
+
+| probe | reads | meaning |
+|---|---|---|
+| `(tool/widget-owned); a generic section save` — **semicolon**, introduced ONLY by this fix | **1** | **the fix is present** |
+| `OWNED_PAGE_GUARD` — long-standing symbol | **3** | positive control: grep works, right binary |
+| `deadbeef1234cafe…` — a *plausible fake* sha | **0** | negative control **capable of being absent** — so a 0 elsewhere is a real absence |
+
+⚠ **The negative control is the load-bearing one and it is why this reading can be trusted where
+the 16:15 one could not have been.** A control of 40 zeros matches every binary ever built, so a run
+using it cannot discriminate and its absences are worthless (auto-memory
+`a-fresh-deploy-can-ship-no-new-code`, found by another lane the same day).
+
+### ⚠ STILL OPEN, and the reason is not bureaucratic: **the guard has not been asked**
+
+`owned_page_review` rows with `refused_by='save_page_sections'`: **0**, at 18:16 UTC, 70 minutes
+after the roll. That zero currently means *"no owned page has been through a generic save since the
+fix landed"*, **not** *"the fix does not work"* — exactly the silent-gate trap 016b §9 names, and
+the same shape as `bugs_open/208`'s own "fix live + baseline clean proves presence and absence of
+harm; it does not prove bite".
+
+**The test is already queued and will run on its own — do not fabricate one.** Two
+`content_rewrite` items sit `triaged` on **owned** webdesign.co.uk pages
+(`learn-algorithms-bayesian-theory`, `learn-algorithms-p-values-explained`), both created
+**17:48:17 — after the roll**. When the dispatch loop claims them they will reach
+`save_page_sections` on an owned page, which is precisely the path this fix changed.
+
+**What closes this file:**
+1. **Positive:** a new `owned_page_review` row carrying `refused_by='save_page_sections'` — there
+   are provably **zero** now, and there have been zero for all history, so the first one is
+   unambiguous.
+2. **Negative control:** content items completing on **generic** pages over the same period must
+   produce **no** such row. Without this, "the fix works" cannot be told apart from "the emit fires
+   unconditionally".
+3. The item itself should still be `failed` — the save genuinely did not happen, and a `complete`
+   here would be a worse bug than the one this fixed.
+
+**The pre-fix baseline to compare against** is in the 16:15 block below: gamesdesign
+`tool-ttk-calculator`, `failed` 13:02:18 on the unfixed binary, guard message quoted, zero rows.
+Same path, same item type, measured hours earlier — that is the control this fix gets graded
+against, and it is why the 16:15 reproduction was worth recording rather than shrugging at.
+
 ## STATE 2026-08-17 (16:15 UTC) — **A FRESH CHASSIS ROLLED AND DOES NOT CARRY THE FIX.** Still OPEN. The defect reproduced on demand and is now quoted a THIRD time
 
 **The roll happened: pods restarted 14:42–14:43 UTC on a new ReplicaSet (`5bd56bdd9b`). The fix is
