@@ -3127,3 +3127,53 @@ this session's cold-start falsifier sweep:
     page. Not a claims defect; a copy-quality regression the framework introduced.
     Flagged to the owner; the full JSON backup is retained, so either section can
     be restored surgically (`content_data` AND `rendered_html`, the lane pattern).
+
+## 2026-08-17 (late) — owner brief received, lane ON HOLD; two copy defects pinned with evidence; and the "fresh chassis build" is NOT new code
+
+- **Owner brief captured verbatim** in
+  `REQUIREMENTS_2026-08-17_owner_brief_pending_new_plan.md`, with each item
+  translated into this system's terms. **HOLD** on all of it until he finalises
+  the plan in session `webdesign live web builder project`
+  (`d10f1acc-1627-4729-b660-93d6e84911e3`). The binding constraint on HOW:
+  **through the spec and planner, the way a client edit arrives — not surgical
+  SQL** (his words, and it matches the 2026-08-04 standing ruling).
+- **His "links nowhere" is worse than that, measured.** The home page CTA is
+  `<a href="tel:+44 (0) 7934 524 911">Or answer a couple of quick questions first
+  with the Website Brief Starter…</a>` — the copy names a TOOL and the link DIALS
+  THE PHONE, and the `tel:` URI is malformed (spaces/parens). Filed
+  **`bugs_open/299`**. The section's `updated_at` is **2026-08-16 16:12:45**,
+  AFTER the 268 fleet fix shipped, so a chassis carrying that fix produced it —
+  the producer question comes before any copy fix. ⚠ **The false-pass control is
+  stated in the bug**: nav AND footer link `/tools/website-brief-starter/index.html`
+  correctly on both pages, so a page-wide grep for the right URL PASSES today
+  while the broken button is untouched. Assert on the anchor whose TEXT names the
+  tool, never on the URL's presence in the page.
+- **His "this text is still wrong" is a REGISTER problem, not a page problem.**
+  The live `evidence_base` says `payment_after_approval` = "The customer sees the
+  finished site on a private preview link and pays after they have approved…" and
+  `no_refund` = "…The customer approves the site before paying, so there is
+  nothing to return." **The page is a faithful rendering of the register**, so
+  correcting the page alone is undone by the next rebuild — 161's mechanism
+  exactly (the register causes the claim, then vouches for it). Sequence recorded:
+  owner rules the terms → SUPERSEDE the fact (never in place, inherit `pinned`,
+  claimscan against the live corpus first) → then rewrite pages. **Why it is wrong
+  is NOT inferable** — two candidate readings, both plausible; the requirements
+  file says ask.
+- **⚠ The "fresh chassis build" carries NO new code.** Pods are new (~92m, new
+  replicaset) but the tag is still `v1.0.1305` and the running binary is still
+  commit **`6a782274b`** — the same binary as this morning. **203 commits are in
+  HEAD but not in it**, including much `platform/` code from several lanes. That
+  is the documented same-tag trap (a rebuild without an `IMAGE_TAG` bump serves
+  the node's cached image). Consequence for everyone: **Go changes committed today
+  are inert**; config/migrations are live regardless (which is why step 6 works
+  now). Recorded in the handoff §3 because it changes what "deployed" means for
+  every lane, not just this one.
+- ⚠ **MISSTEP — I used a DEGENERATE NEGATIVE CONTROL and it lied.** My first probe
+  of the new build used a 40-zero string as the "must be absent" control; it
+  **MATCHED** (any binary contains 40 zeros), which means that run could not
+  discriminate and its five "absent" readings were worthless. Re-ran with a
+  *plausible fake* sha (`deadbeef…`) as the negative and the previously-confirmed
+  commit as the POSITIVE control: fake absent, `6a782274b` MATCH, HEAD absent —
+  only then is "the binary is 6a782274b" evidence. **A control has to be capable of
+  being absent; a control that is present in every possible world is decoration.**
+  This is the sibling of the filed "discovery grep matches Go's digit table" trap.

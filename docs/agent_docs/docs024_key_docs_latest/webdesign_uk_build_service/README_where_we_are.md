@@ -1434,3 +1434,41 @@ lost, and the contact details are untouched. Two things you should look at:
 
 I have the exact previous version of both sections saved and can put either back
 precisely, or leave it. That is a taste question, so it is yours.
+
+## 2026-08-17 (late) — your brief is recorded, everything is on hold, and two of the three things you spotted are worse than they looked
+
+I have written your five points down word for word, with a note under each on what
+it means in the machinery, and I have not started any of them — you said wait for
+the plan, so the lane is parked.
+
+**The Brief Starter link.** It does not link nowhere. It is wired to your phone
+number: clicking that sentence opens a dialler. The phone link is malformed too. The
+tool page itself exists and is linked correctly from the menu and the footer, so this
+is one wrong button, not a missing page. Worth knowing: that section was written
+yesterday afternoon, *after* the fleet-wide fix for exactly this class of fault. So
+something in the generator still produces it, and fixing the words alone would let it
+come back. Filed as bug 299 with the evidence.
+
+**The payment sentence.** This one is not a page problem. The register — the list of
+facts the writers are allowed to state, and the same list the checker judges pages
+against — currently says the customer sees a preview link and pays after approving.
+The page is faithfully repeating what the register tells it. So changing the page
+would be undone by the next rebuild; the register has to change first, and only you
+can say what the true terms are. I have not guessed: I can see two different reasons
+that sentence might be wrong and they lead to different wording.
+
+**The chat on the home page and the prouder positioning** are recorded and waiting
+for your plan. When they start, they go through the spec and the planner, as you
+asked — not by me editing the page directly.
+
+**One thing that affects everything, not just us.** You mentioned a fresh build was
+deployed. The chassis pods did restart, but the program inside them is the same one
+that was running this morning — 203 commits' worth of everyone's work has not
+actually shipped. That happens when a build reuses the same version tag: the machines
+serve the copy they already had. Database and configuration changes are live either
+way, which is why the work I did today through configuration is working. But any code
+committed today, by any session, is not running yet.
+
+I nearly missed that, in a way worth admitting: my first check used a "this must be
+absent" control that was present in every possible case, so it could not have failed.
+Redone properly, with a control that could have come out either way.
