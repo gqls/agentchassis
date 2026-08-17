@@ -546,3 +546,54 @@ orchestration reaching `COMPLETED`" (the population held **1 in 63**). One bound
 filed to settle it: item `12836a25-8266-46fb-bba1-2e8635ef9cc0`, page-pinned to the Mind Map,
 `created_by='bugfix-289-postroll-verification'`, **`max_attempts=1` so it costs at most ONE Sonnet
 audit** rather than the three the old exhausted probe paid. Read its outcome, then close.
+
+
+---
+
+# CLOSED 2026-08-17 — fixed, live on `v1.0.1307`, and proven on the motivating case
+
+The bug's own pass criterion was **"a `tool-auditor` orchestration reaching `COMPLETED`"**. The
+population held **1 in 63**. It now does.
+
+**Run `be4cf3a5-f3cc-4208-9ec8-0d17d27e421d`, 2026-08-17 18:52Z → COMPLETED at step `complete`.**
+
+| | before | this run |
+|---|---|---|
+| laps | 10 | **10** |
+| findings vs cap | 14–20 vs 10 (truncated) | **18 vs 10 (truncated)** |
+| `_iter_0..9_done` sizes | 70 kB → **9,076 kB**, ratio ~2.00 | **82 bytes each, all ten, ratio 1.00** |
+| `collected_data` | 22 MB avg / 29 MB max | **~500 kB** |
+| outcome | 1 COMPLETED in 63 | **COMPLETED, on attempt 0** |
+
+**The truncation condition is the point.** 18 findings against `max_iterations` 10 means this run
+hit the exact cap that correlated with every stall — and finished. That correlation was never the
+mechanism; it just bought the maximum number of doublings, and there are no doublings now.
+
+**Aggregation still works, which is what the fix most had to avoid breaking:** the outer end-step
+returned `items_created = {count: 10, iterations: 10}`.
+
+**One thing that did NOT happen, stated because `items_created: 10` invites the wrong reading:**
+**zero work items were inserted.** All ten attempts returned `"inserted": false, "deduped": true`
+against key `audit_review_webdesign.co.uk_5693091c-…`, whose row (`734fa16b`) was created by the
+281 lane's probe on 2026-08-16 10:13Z before that run stalled. **This is the per-page review-key
+residual already recorded in the 281 handoff — 18 findings collapse to at most one review row per
+page — not a regression and not part of this bug.** `items_created.count` counts step results, not
+rows written. Anyone measuring this machinery's yield must read `inserted`, not the count.
+
+**Fleet health since the roll, with the demand control:** 0 `RUNNING` rows fleet-wide, 0 stuck
+>4 h, 0 runs sitting at any `*_loop_complete` step — and that window contained real demand
+(10 multi-lap `build-dispatch-loop` runs plus this one), so the zeros are not silence.
+
+## What remains open, and where it now lives
+
+- **`bugs_open/294`** — a run stalled in `RUNNING` is unreachable by every recovery path. **This
+  bug is why those corpses existed; 294 is why they were immortal.** Untouched by this fix.
+- **Residual (4)** — `LoopCompleteAction` still lets a step lacking its own `total_iterations`
+  inherit the whole loop's. Latent, and the fallback is deliberate backward-compat for
+  pre-expansion plans, so weigh that before "fixing" it.
+- **Residual (6)** — the `loop_iteration` fallback in `isLoopIterationTerminal` becomes a permanent
+  second discriminator once every persisted plan carries the explicit flag. Delete it then.
+  (Council `architecture` seat, corr `7a3c4fb7`.)
+- **`a436d898f`** — the council's `GetIntField` reuse swap postdates `v1.0.1307`, is behaviourally
+  identical, and rides the next build.
+- **The per-page `audit_review` key** — the 281 lane's item, demonstrated live above.
