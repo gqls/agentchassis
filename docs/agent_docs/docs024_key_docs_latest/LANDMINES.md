@@ -12080,10 +12080,22 @@ code change owed at the next roll, tracked in RFC_015 §5.
      between checking the number and committing the file**, and on this tree that window is
      minutes. So run the check — it catches the *already-landed* case, which is real — but do not
      read a clean result as protection. **The load-bearing remedy is the slug rule, not the
-     check.** (Corollary for the ledger query specifically: `applied_at` is the time the
-     migration was APPLIED, not the time the ROW appeared, so a later `--record-only` can backfill
-     a row whose timestamp predates your check and make it look, in hindsight, as though you
-     should have seen it.)
+     check.**
+     > ~~Corollary for the ledger query specifically: `applied_at` is the time the migration was
+     > APPLIED, not the time the ROW appeared, so a later `--record-only` can backfill a row whose
+     > timestamp predates your check and make it look, in hindsight, as though you should have
+     > seen it.~~
+     > **RETRACTED 2026-08-17 by its own author (297 lane), refuted by bugfix-083 and then
+     > verified first-hand — I invented a mechanism that does not exist.** Both of the runner's
+     > INSERTs (`run-migrations.sh:265-267` `--record-only`, and `:453-455` the normal path) name
+     > `(filename, checksum, applied_by, notes)` and **never `applied_at`**, which is
+     > `DEFAULT now()` — so the column IS the moment the row appeared and cannot be backfilled.
+     > **`applied_at` is the one reliable timestamp in this story; do not learn to distrust it.**
+     > The observation I built the corollary on was my own misremembered clock: I stated I had
+     > queried the ledger at "~15:2xZ" when my session transcript puts that query at
+     > **12:50:34.254Z** — 7m35s BEFORE 083's row existed (12:58:09Z), and 6 minutes before my own
+     > commit. Nothing needed explaining. **The race in point 1 is the whole story, and it is
+     > tighter than stated: check 12:50:34Z → my commit 12:56:29Z → their commit 12:58:11Z.**
   2. **"Renumber the unapplied one" did not apply to this pair, and following it would have done
      damage.** `453_tool_recreation_whole_site_context` was **applied and ledger-recorded at
      16:21:53Z** (the entry above describes it as unapplied — true when written, stale by the

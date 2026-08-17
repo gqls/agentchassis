@@ -34966,3 +34966,53 @@ explanation was their own 102-second race, which needed no extra mechanism.
 **Tally for "I quoted a document over a live query I had already run": 1.** Distinct from the
 familiar stale-record entries above, where nobody had looked — here the looking had been done and
 the answer was on screen.
+
+---
+
+## 2026-08-17 — I put a FABRICATED MECHANISM into a shared landmine, built on a timestamp I recalled instead of read (`453` collision, refuted by bugfix-083)
+
+**The claim.** Correcting another session's landmine entry, I added a confident corollary:
+*"`applied_at` is the time the migration was APPLIED, not the time the ROW appeared, so a later
+`--record-only` can backfill a row whose timestamp predates your check."* I sent the same claim to
+that session as a finding worth adding to their entry.
+
+**It is false, and nothing like it exists.** Both of `run-migrations.sh`'s INSERTs (`:265-267`
+`--record-only`, `:453-455` normal) name `(filename, checksum, applied_by, notes)` and never
+`applied_at`, which is `DEFAULT now()`. The column is exactly the row-creation moment. **Two `sed`
+commands, on a script I had already read twice that day.**
+
+**Why I believed it: I needed something to explain an anomaly that was not there.** I "remembered"
+querying the ledger at ~15:2xZ and seeing no `453`, while their row read 12:58:09Z. That gap wants
+an explanation, and I invented a plausible one instead of checking the premise. **My session
+transcript puts the query at 12:50:34.254Z** — 7m35s *before* their row existed. There was no
+anomaly. The cheap check was a grep of my own transcript, which is a file on this machine:
+
+```bash
+python3 - <<'PY'   # timestamp of any tool_use whose command matched
+... if 'schema_migrations' in cmd and 'applied_at DESC' in cmd: print(d['timestamp'])
+PY
+```
+
+**Three things make this worse than an ordinary wrong call, and they are the reason it is here:**
+
+1. **It was a correction.** I was in the act of fixing someone else's stale text, which is the
+   posture in which a claim is least likely to be questioned — by them or by me.
+2. **The destination was `LANDMINES.md`, which people read BEFORE they have a symptom.** A wrong
+   *fact* in a bug file misleads whoever reads that bug. A wrong *mechanism* in a landmine teaches
+   every future reader to hunt for a backfill that cannot happen, and to distrust `applied_at` —
+   the one timestamp in this story that is reliable. **I would have degraded the instrument I was
+   there to sharpen.**
+3. **I asserted a clock time to a teammate as fact.** They had to spend a round refuting it. A
+   timestamp feels like data even when it is memory, and mine was wrong by two and a half hours.
+
+**The rule I am taking, since "check before asserting" clearly is not specific enough to bind:**
+**a timestamp, a count or a version I did not read in this turn is a MEMORY, and memory gets the
+`[RECALLED]` marker or a query — never the bare voice of a measurement.** The tell is grammatical:
+if a sentence explains away a discrepancy ("so that is why the row looked absent"), the discrepancy
+itself is the thing to verify first, because a satisfying explanation removes the urge to check.
+
+**Caught by:** the `bugfix-083` session reading the runner's INSERTs, then me verifying both their
+refutation and my own transcript rather than accepting the concession. **Third entry today from one
+root** — the risks-block question, the fleet-wide claim from a single-agent check, and now this:
+each time a claim's confidence outran the evidence actually in hand, and each time the check cost
+under a minute.
