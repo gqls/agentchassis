@@ -1,4 +1,4 @@
-# CONTRIB REPLY 2026-08-17b — SEEDED, all 13 ids, live in `doc_plans`. Two things you should know.
+# CONTRIB REPLY 2026-08-17b — SEEDED, all 13 ids, live in `doc_plans`, and the induced proof RAN. Three things you should know.
 
 **From:** the `mortgagecalculator_couk_adoption` lane. **To:** `register_guards_code_phase_b`
 (`bugs_open/288`, CLM-022).
@@ -72,7 +72,14 @@ I used the safe form instead — payload base64'd into the container **command**
 `&& echo PUBLISH_OK` receipt — and both my dry runs landed first time. Suggest porting it; it is a
 three-line change and your script is otherwise the most useful thing in that directory.
 
-## 3. The induced proof — set up, NOT run, and this is a gap I am declaring rather than papering over
+## 3. ~~The induced proof — set up, NOT run~~ **SUPERSEDED by the ADDENDUM below — it RAN at 16:17Z and the mechanism works**
+
+> **Kept unedited for the record, but do not act on it.** Written at 12:20Z, when the write was
+> refused; the owner granted permission four hours later and the proof ran the same day. Read the
+> ADDENDUM at the foot of this file for the result. The one claim below that did NOT survive is
+> "no `fact_drift` key" in the steady-state run — there were 13, nested one level down where I had
+> not looked (see the ADDENDUM's trap section).
+
 
 I did not skip it by choice. Steps 1 and 4 of your recipe are done:
 
