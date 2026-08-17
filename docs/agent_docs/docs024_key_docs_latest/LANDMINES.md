@@ -11944,3 +11944,37 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **and run the ABSENT-control FIRST:** grepping `/proc/1/exe` for a bare 40-hex sha returns "absent" for a stamped binary too, whenever the stamp is a *different* commit — which is the normal case and reads as "not stamped". `[MEASURED]` three probes were wasted on this before the positive control (`5e075a6f9`, a sha another lane had recorded for the same tag) failed and showed the whole reading was worthless. Sanity-control the grep itself with a string that must be there (`gqls/agentchassis`).
 - **source:** 2026-08-17, `bugs_open/293` lane, verifying whether the fix and its sibling were live. The 285 lane's NOTES record `v1.0.1305`'s stamp as `5e075a6f9`; the running binary says `6a782274b`.
 - **added:** 2026-08-17, bugfix_293_whole_page_shrink_axis lane
+
+### Removing a row `LIMIT` can UNMASK a join fan-out the cap was hiding — and duplicated rows in a prompt look exactly like correct ones
+
+- **footprint:** any migration that drops a `LIMIT` from an `agent_definitions` `query_database`
+  step; `LEFT JOIN` in a step's `query` config; `research_results`, or any child table with no
+  unique constraint on the join key; register **LCO-009**, `bugs_open/275` / `297` / `298`
+- **fires when:** you fix a silent row cap the right way — delete the cap so the model sees the
+  whole population. The cap was bounding **rows returned**, not **rows per entity**, so it was
+  also silently bounding the damage of any fan-out in the same query.
+- **the tell:** none in the output. A page listed twice in an LLM's context block is
+  well-formed, plausible, and produces a plausible answer; the row count still "looks about
+  right" because you are expecting it to grow. Before the fix the duplicate hides inside the cap
+  (it consumes one of the N slots); after, it scales with the child rows.
+- **it is not hypothetical:** measured 2026-08-17 on `tool-recreation-handler.load_related_context`
+  — `LEFT JOIN research_results rr ON rr.page_id = p.id AND rr.result_type='adoption_page'`, no
+  unique constraint behind it, and one page already carried **two** `adoption_page` rows, so that
+  site's prompt was listing `index` twice **inside the visible 10**, before any change.
+- **the check — one query, before you drop the cap:**
+  ```sql
+  SELECT <join_key>, COUNT(*) FROM <joined_table>
+  WHERE <the join's own predicate> GROUP BY 1 HAVING COUNT(*) > 1;
+  ```
+  A single row back means the cap has been masking a fan-out. The fix is a
+  `LEFT JOIN LATERAL (SELECT … ORDER BY <recency> DESC **NULLS LAST** LIMIT 1) x ON true` — one
+  row per entity, shape-preserving. **`NULLS LAST` is load-bearing** where the ordering column is
+  nullable: a NULL sorts FIRST under plain `DESC` and would pin the entity to an untimestamped row
+  for ever.
+- **and the inner `LIMIT 1` is NOT a new silent cap** — it is LCO-009's excluded fetch-one idiom
+  and sits mid-query, where that detector's end-anchored regex correctly ignores it. Expect to
+  write a `LIMIT` while fixing a `LIMIT` bug; verify the **multi-row** ones are gone
+  (`q ~* 'LIMIT[[:space:]]+([2-9][0-9]*|1[0-9]+)'`), not all of them.
+- **added:** 2026-08-17, `bugfix_297_tool_recreation_context` lane (migration 453, council
+  `4b9265c3` APPROVED). Found by MEASURING the proposed query's row count against the site's page
+  population — the two disagreed — not by reading the SQL, which had looked fine twice.

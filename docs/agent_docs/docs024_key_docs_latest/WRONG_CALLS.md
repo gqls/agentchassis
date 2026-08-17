@@ -34575,3 +34575,43 @@ error>`.** Not "grep if it feels novel" — it felt novel both times.
 that did not exist, and a finished, tested change sat un-reviewed for five hours because I had
 declared the reviewer unavailable. Round 2 went out at 16:38Z carrying both changes on the
 original correlation.
+
+---
+
+## 2026-08-17 — I stated a FLEET-WIDE blast radius from a SINGLE-AGENT check, and it held by luck (`bugs_open/297`, caught by the council's guardian seat)
+
+**The claim.** In the council submission: *"The output_field is `related_pages`, and the ONLY
+consumer is the `analyze_tool` step of this same workflow (verified in the live config…)"* — written
+under a heading that said **"SHAPE COMPATIBILITY, CHECKED NOT ASSUMED"**.
+
+**What I actually checked.** That agent's own config: its `input_fields` list and its own prompt
+template. That is a within-agent check. **"The only consumer" is a claim about the fleet**, and I
+never queried the fleet. The guardian seat said so: *"no query confirms `related_pages` or
+`load_related_context` isn't referenced by another agent type's workflow"* — and cited that
+`bugs_open/275`, the very lane I was extending, *"turned on exactly this kind of unverified consumer
+assumption"*.
+
+**The cheap check, one query:**
+```sql
+SELECT type FROM agent_definitions WHERE is_active AND COALESCE(is_snapshot,false)=false
+  AND deleted_at IS NULL AND default_config::text LIKE '%related_pages%';
+```
+→ **four agents, not one.** The claim survived — the other three use a *different* field,
+`input_data.spec.related_pages` (the cross-link list `tool-suggester` attaches to a suggestion for
+`tool-generator`/`tool-deployer`), and no other agent has a `load_related_context` step. **But it
+survived by luck, and luck is not a check.** Had one of those three been reading the same field, a
+"shape-compatible" change would have been checked against one consumer out of two.
+
+**The heading is the aggravating factor, not a detail.** Writing "CHECKED NOT ASSUMED" over an
+assumption is worse than leaving it unmarked: the marker rule exists so a reader can tell the two
+apart, and a false marker inverts it. This is the same failure the `[UNMEASURED]` convention is for,
+committed at the level of a section heading.
+
+**The finding the query gave away for free, which is the argument for running it even when you are
+confident:** two unrelated fields share one name across four agents. Any future fleet-wide grep for
+`related_pages` finds all four and reads as a shared field. That is now in the bug file — and I
+would not have it if the seat had let my assertion stand.
+
+**Caught by:** the council's `guardian` seat, advisory (medium), on an APPROVED round. **Second
+entry today from the same root** (see the risks-block entry above): both times I let a claim's
+SCOPE outrun the scope of the check behind it, and both times the check was one query.
