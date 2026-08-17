@@ -370,20 +370,10 @@ push-all: push-backend push-frontends ## Push all images to registry
 .PHONY: push-backend
 push-backend: ## Push all backend images
 	@echo "$(YELLOW)Pushing backend images...$(NC)"
-	docker push $(REGISTRY)/auth-service:$(IMAGE_TAG)
-	docker push $(REGISTRY)/core-manager:$(IMAGE_TAG)
-	docker push $(REGISTRY)/agent-chassis:$(IMAGE_TAG)
-	docker push $(REGISTRY)/reasoning-agent:$(IMAGE_TAG)
-	docker push $(REGISTRY)/web-search-adapter:$(IMAGE_TAG)
-	docker push $(REGISTRY)/web-scrape-adapter:$(IMAGE_TAG)
-	docker push $(REGISTRY)/git-adapter:$(IMAGE_TAG)
-	docker push $(REGISTRY)/image-generator-adapter:$(IMAGE_TAG)
-	docker push $(REGISTRY)/thunder-adapter:$(IMAGE_TAG)
-	docker push $(REGISTRY)/analyser-adapter:$(IMAGE_TAG)
-	docker push $(REGISTRY)/browser-runner-adapter:$(IMAGE_TAG)
-	docker push $(REGISTRY)/content-creator-agent:$(IMAGE_TAG)
-	docker push $(REGISTRY)/remote-job-spawner:$(IMAGE_TAG)
-	docker push $(REGISTRY)/kafka-scheduler:$(IMAGE_TAG)
+	@for img in $(RELEASE_IMAGES); do \
+		echo "$(CYAN)→ docker push $(REGISTRY)/$$img:$(IMAGE_TAG)$(NC)"; \
+		docker push $(REGISTRY)/$$img:$(IMAGE_TAG) || exit 1; \
+	done
 
 .PHONY: push-frontends
 push-frontends: ## Push all frontend images
@@ -1125,127 +1115,50 @@ update-agent-image-tag: ## Update the agent image tag in ConfigMap
 deploy-agents: ## Deploy all agent services with dynamic image tag
 	@echo "$(YELLOW)Deploying agent services with image tag $(IMAGE_TAG)...$(NC)"
 
-	# Update agent-chassis kustomization.yaml
-	@echo "Updating agent-chassis to $(IMAGE_TAG)..."
-	@sed -i.bak 's/newTag:.*/newTag: $(IMAGE_TAG)/' $(KUSTOMIZE_DIR)/services/agent-chassis/overlays/$(OVERLAY_PATH)/kustomization.yaml
-	KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k $(KUSTOMIZE_DIR)/services/agent-chassis/overlays/$(OVERLAY_PATH)
-
-	# Update reasoning-agent kustomization.yaml
-	@echo "Updating reasoning-agent to $(IMAGE_TAG)..."
-	@sed -i.bak 's/newTag:.*/newTag: $(IMAGE_TAG)/' $(KUSTOMIZE_DIR)/services/reasoning-agent/overlays/$(OVERLAY_PATH)/kustomization.yaml 2>/dev/null || true
-	@if [ -d "$(KUSTOMIZE_DIR)/services/reasoning-agent/overlays/$(OVERLAY_PATH)" ]; then \
-		KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k $(KUSTOMIZE_DIR)/services/reasoning-agent/overlays/$(OVERLAY_PATH); \
-	fi
-
-	# Update web-search-adapter kustomization.yaml
-	@echo "Updating web-search-adapter to $(IMAGE_TAG)..."
-	@sed -i.bak 's/newTag:.*/newTag: $(IMAGE_TAG)/' $(KUSTOMIZE_DIR)/services/web-search-adapter/overlays/$(OVERLAY_PATH)/kustomization.yaml 2>/dev/null || true
-	@if [ -d "$(KUSTOMIZE_DIR)/services/web-search-adapter/overlays/$(OVERLAY_PATH)" ]; then \
-		KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k $(KUSTOMIZE_DIR)/services/web-search-adapter/overlays/$(OVERLAY_PATH); \
-	fi
-
-	# Update web-scrape-adapter kustomization.yaml
-	@echo "Updating web-scrape-adapter to $(IMAGE_TAG)..."
-	@sed -i.bak 's/newTag:.*/newTag: $(IMAGE_TAG)/' $(KUSTOMIZE_DIR)/services/web-scrape-adapter/overlays/$(OVERLAY_PATH)/kustomization.yaml 2>/dev/null || true
-	@if [ -d "$(KUSTOMIZE_DIR)/services/web-scrape-adapter/overlays/$(OVERLAY_PATH)" ]; then \
-		KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k $(KUSTOMIZE_DIR)/services/web-scrape-adapter/overlays/$(OVERLAY_PATH); \
-	fi
-
-	# Update git-adapter kustomization.yaml
-	@echo "Updating git-adapter to $(IMAGE_TAG)..."
-	@sed -i.bak 's/newTag:.*/newTag: $(IMAGE_TAG)/' $(KUSTOMIZE_DIR)/services/git-adapter/overlays/$(OVERLAY_PATH)/kustomization.yaml 2>/dev/null || true
-	@if [ -d "$(KUSTOMIZE_DIR)/services/git-adapter/overlays/$(OVERLAY_PATH)" ]; then \
-		KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k $(KUSTOMIZE_DIR)/services/git-adapter/overlays/$(OVERLAY_PATH); \
-	fi
-
-	# Update image-generator-adapter kustomization.yaml
-	@echo "Updating image-generator-adapter to $(IMAGE_TAG)..."
-	@sed -i.bak 's/newTag:.*/newTag: $(IMAGE_TAG)/' $(KUSTOMIZE_DIR)/services/image-generator-adapter/overlays/$(OVERLAY_PATH)/kustomization.yaml 2>/dev/null || true
-	@if [ -d "$(KUSTOMIZE_DIR)/services/image-generator-adapter/overlays/$(OVERLAY_PATH)" ]; then \
-		KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k $(KUSTOMIZE_DIR)/services/image-generator-adapter/overlays/$(OVERLAY_PATH); \
-	fi
-
-	# Update thunder-adapter kustomization.yaml
-	@echo "Updating thunder-adapter to $(IMAGE_TAG)..."
-	@sed -i.bak 's/newTag:.*/newTag: $(IMAGE_TAG)/' $(KUSTOMIZE_DIR)/services/thunder-adapter/overlays/$(OVERLAY_PATH)/kustomization.yaml 2>/dev/null || true
-	@if [ -d "$(KUSTOMIZE_DIR)/services/thunder-adapter/overlays/$(OVERLAY_PATH)" ]; then \
-		KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k $(KUSTOMIZE_DIR)/services/thunder-adapter/overlays/$(OVERLAY_PATH); \
-	fi
-
-	# Update analyser-adapter kustomization.yaml
-	@echo "Updating analyser-adapter to $(IMAGE_TAG)..."
-	@sed -i.bak 's/newTag:.*/newTag: $(IMAGE_TAG)/' $(KUSTOMIZE_DIR)/services/analyser-adapter/overlays/$(OVERLAY_PATH)/kustomization.yaml 2>/dev/null || true
-	@if [ -d "$(KUSTOMIZE_DIR)/services/analyser-adapter/overlays/$(OVERLAY_PATH)" ]; then \
-		KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k $(KUSTOMIZE_DIR)/services/analyser-adapter/overlays/$(OVERLAY_PATH); \
-	fi
-
-	# Update browser-runner-adapter kustomization.yaml (Tier-4 headless runner).
-	# NOTE: its requests topic is a Strimzi KafkaTopic in the `kafka` namespace
-	# and is NOT part of the overlay (the overlay forces ai-persona-system).
-	# Apply it ONCE before the first deploy:
-	#   kubectl apply -f $(KUSTOMIZE_DIR)/services/browser-runner-adapter/overlays/$(OVERLAY_PATH)/browser-runner-requests-topic.yaml
-	@echo "Updating browser-runner-adapter to $(IMAGE_TAG)..."
-	@sed -i.bak 's/newTag:.*/newTag: $(IMAGE_TAG)/' $(KUSTOMIZE_DIR)/services/browser-runner-adapter/overlays/$(OVERLAY_PATH)/kustomization.yaml 2>/dev/null || true
-	@if [ -d "$(KUSTOMIZE_DIR)/services/browser-runner-adapter/overlays/$(OVERLAY_PATH)" ]; then \
-		KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k $(KUSTOMIZE_DIR)/services/browser-runner-adapter/overlays/$(OVERLAY_PATH); \
-	fi
-
-	# Update render-audit-adapter kustomization.yaml.
+	# Retag and apply every service in AGENT_DEPLOY_SERVICES (declared ONCE at
+	# the top of this file — bugs_open/237). This used to be fifteen
+	# copy-pasted six-line blocks, and the copy-paste is precisely how
+	# render-audit-adapter came to be in NEITHER tag mechanism: it sat on
+	# v1.0.1194 while the fleet ran v1.0.1274 — 80 tags, frozen since the pod
+	# was created, invisible to the normal proof because pod-grepping the image
+	# OWNER (browser-runner-adapter) read live. check-release-coverage now
+	# refuses a release that leaves an overlay out; this loop is what makes the
+	# list the only thing to keep right.
 	#
-	# It has NO IMAGE OF ITS OWN: it runs the BROWSER-RUNNER binary under a
-	# different topic and consumer group, so its overlay pins the image name
-	# docker.io/aqls/browser-runner-adapter. That is why there is no build-* and
-	# no push-* step for it, and why none should be added — but it DOES need its
-	# tag bumped and its overlay applied, exactly like a service that owns an
-	# image. Kept next to browser-runner-adapter because the two must move
-	# together: the tag applied here must be one browser-runner was built at.
+	# Two per-service facts that used to live in the deleted comments, kept here
+	# because they are still true:
 	#
-	# It was in NEITHER tag-update mechanism until 2026-08-10, so nothing ever
-	# bumped it and it sat on v1.0.1194 while the fleet ran v1.0.1274 — 80 tags,
-	# frozen since the pod was created. Every browser-runner fix in between
-	# reached the browser-runner pod and not this one, which is invisible to the
-	# normal proof (pod-grep the browser-runner pod and it reads live).
-	# bugs_open/237.
-	@echo "Updating render-audit-adapter to $(IMAGE_TAG)..."
-	@sed -i.bak 's/newTag:.*/newTag: $(IMAGE_TAG)/' $(KUSTOMIZE_DIR)/services/render-audit-adapter/overlays/$(OVERLAY_PATH)/kustomization.yaml 2>/dev/null || true
-	@if [ -d "$(KUSTOMIZE_DIR)/services/render-audit-adapter/overlays/$(OVERLAY_PATH)" ]; then \
-		KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k $(KUSTOMIZE_DIR)/services/render-audit-adapter/overlays/$(OVERLAY_PATH); \
-	fi
+	#  - browser-runner-adapter's REQUESTS TOPIC is a Strimzi KafkaTopic in the
+	#    `kafka` namespace and is NOT part of its overlay (the overlay forces
+	#    ai-persona-system). Apply it ONCE before the first deploy:
+	#      kubectl apply -f $(KUSTOMIZE_DIR)/services/browser-runner-adapter/overlays/$(OVERLAY_PATH)/browser-runner-requests-topic.yaml
+	#
+	#  - render-audit-adapter has NO IMAGE OF ITS OWN: it runs the browser-runner
+	#    binary under a different topic and consumer group, which is why it has no
+	#    build-* and no push-* step and why none should be added. It is ordered
+	#    directly after browser-runner-adapter because the two must move together:
+	#    the tag applied here has to be one the browser-runner was actually built
+	#    at.
+	#
+	# A declared service with no overlay at $(OVERLAY_PATH) is SKIPPED WITH A
+	# WARNING, not silently: the old blocks hid that case behind
+	# `2>/dev/null || true`, which is the same "absence looks like success"
+	# shape as the bug. It is a warning rather than an error because only 9
+	# services have a development overlay and 1 a staging one, so a hard failure
+	# would break every non-production deploy.
+	@for entry in $(AGENT_DEPLOY_SERVICES); do \
+		svc=$${entry%%:*}; \
+		overlay="$(KUSTOMIZE_DIR)/services/$$svc/overlays/$(OVERLAY_PATH)"; \
+		if [ ! -f "$$overlay/kustomization.yaml" ]; then \
+			echo "$(YELLOW)  SKIPPED $$svc — declared in AGENT_DEPLOY_SERVICES but no overlay at $$overlay$(NC)"; \
+			continue; \
+		fi; \
+		echo "Updating $$svc to $(IMAGE_TAG)..."; \
+		sed -i.bak 's/newTag:.*/newTag: $(IMAGE_TAG)/' "$$overlay/kustomization.yaml"; \
+		rm -f "$$overlay/kustomization.yaml.bak"; \
+		KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k "$$overlay"; \
+	done
 
-	# Update content-creator-agent kustomization.yaml
-	@echo "Updating content-creator-agent to $(IMAGE_TAG)..."
-	@sed -i.bak 's/newTag:.*/newTag: $(IMAGE_TAG)/' $(KUSTOMIZE_DIR)/services/content-creator-agent/overlays/$(OVERLAY_PATH)/kustomization.yaml 2>/dev/null || true
-	@if [ -d "$(KUSTOMIZE_DIR)/services/content-creator-agent/overlays/$(OVERLAY_PATH)" ]; then \
-		KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k $(KUSTOMIZE_DIR)/services/content-creator-agent/overlays/$(OVERLAY_PATH); \
-	fi
-
-	# Update remote-job-spawner kustomization.yaml
-	@echo "Updating remote-job-spawner to $(IMAGE_TAG)..."
-	@sed -i.bak 's/newTag:.*/newTag: $(IMAGE_TAG)/' $(KUSTOMIZE_DIR)/services/remote-job-spawner/overlays/$(OVERLAY_PATH)/kustomization.yaml 2>/dev/null || true
-	@if [ -d "$(KUSTOMIZE_DIR)/services/remote-job-spawner/overlays/$(OVERLAY_PATH)" ]; then \
-		KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k $(KUSTOMIZE_DIR)/services/remote-job-spawner/overlays/$(OVERLAY_PATH); \
-	fi
-
-	# Update kafka-scheduler kustomization.yaml
-	@echo "Updating kafka-scheduler to $(IMAGE_TAG)..."
-	@sed -i.bak 's/newTag:.*/newTag: $(IMAGE_TAG)/' $(KUSTOMIZE_DIR)/services/kafka-scheduler/overlays/$(OVERLAY_PATH)/kustomization.yaml 2>/dev/null || true
-	@if [ -d "$(KUSTOMIZE_DIR)/services/kafka-scheduler/overlays/$(OVERLAY_PATH)" ]; then \
-		KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k $(KUSTOMIZE_DIR)/services/kafka-scheduler/overlays/$(OVERLAY_PATH); \
-	fi
-
-	# Update vet-intel kustomization.yaml
-	@echo "Updating vet-intel to $(IMAGE_TAG)..."
-	@sed -i.bak 's/newTag:.*/newTag: $(IMAGE_TAG)/' $(KUSTOMIZE_DIR)/services/vet-intel/overlays/$(OVERLAY_PATH)/kustomization.yaml 2>/dev/null || true
-	@if [ -d "$(KUSTOMIZE_DIR)/services/vet-intel/overlays/$(OVERLAY_PATH)" ]; then \
-		KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k $(KUSTOMIZE_DIR)/services/vet-intel/overlays/$(OVERLAY_PATH); \
-	fi
-
-	# Update business-intel kustomization.yaml
-	@echo "Updating business-intel to $(IMAGE_TAG)..."
-	@sed -i.bak 's/newTag:.*/newTag: $(IMAGE_TAG)/' $(KUSTOMIZE_DIR)/services/business-intel/overlays/$(OVERLAY_PATH)/kustomization.yaml 2>/dev/null || true
-	@if [ -d "$(KUSTOMIZE_DIR)/services/business-intel/overlays/$(OVERLAY_PATH)" ]; then \
-		KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k $(KUSTOMIZE_DIR)/services/business-intel/overlays/$(OVERLAY_PATH); \
-	fi
 
 	# Deploy ollama-adapter AND ollama-eval (both use the upstream ollama/ollama
 	# image — NOT updated by IMAGE_TAG). ollama-eval added 2026-08-14: it was
@@ -1310,10 +1223,16 @@ deploy-%: ## Deploy ONE service at $(IMAGE_TAG): make deploy-browser-runner-adap
 		echo "$(RED)No overlay at $$OVERLAY — is '$*' a service name?$(NC)"; exit 1; }; \
 	test -f "$$OVERLAY/kustomization.yaml" || { \
 		echo "$(RED)No kustomization.yaml in $$OVERLAY$(NC)"; exit 1; }; \
-	if ! docker manifest inspect $(REGISTRY)/$*:$(IMAGE_TAG) >/dev/null 2>&1; then \
-		echo "$(RED)$(REGISTRY)/$*:$(IMAGE_TAG) is not in the registry.$(NC)"; \
+	IMG=$$(awk '/^images:/{i=1;next} i&&/name:/{print $$NF;exit}' "$$OVERLAY/kustomization.yaml"); \
+	[ -n "$$IMG" ] || IMG="$(REGISTRY)/$*"; \
+	BUILD=$${IMG##*/}; \
+	if ! docker manifest inspect $$IMG:$(IMAGE_TAG) >/dev/null 2>&1; then \
+		echo "$(RED)$$IMG:$(IMAGE_TAG) is not in the registry.$(NC)"; \
 		echo "$(YELLOW)  Deploying it would ImagePullBackOff. Build and push first:$(NC)"; \
-		echo "    make build-$* && docker push $(REGISTRY)/$*:$(IMAGE_TAG)"; \
+		echo "    make build-$$BUILD && docker push $$IMG:$(IMAGE_TAG)"; \
+		if [ "$$BUILD" != "$*" ]; then \
+			echo "$(YELLOW)  (note: $* runs the $$BUILD image — it has no image of its own.)$(NC)"; \
+		fi; \
 		exit 1; \
 	fi; \
 	echo "$(GREEN)Deploying $* at $(IMAGE_TAG) — this service only.$(NC)"; \
@@ -1323,49 +1242,24 @@ deploy-%: ## Deploy ONE service at $(IMAGE_TAG): make deploy-browser-runner-adap
 	@echo "$(YELLOW)Verify against the running POD, not the tag — a retag is not a rebuild:$(NC)"
 	@echo "  kubectl -n ai-persona-system get pods -l app=$* -o custom-columns=NAME:.metadata.name,START:.status.startTime,IMAGE:.spec.containers[0].image"
 
-# render-audit-adapter needs its own rule, and an EXPLICIT target beats the
-# pattern rule above. The pattern rule's registry pre-flight asks for
-# $(REGISTRY)/<service>:$(IMAGE_TAG) — correct for every service that owns an
-# image, and wrong here: this one runs the BROWSER-RUNNER image, so
-# docker.io/aqls/render-audit-adapter has never existed and the pre-flight would
-# refuse a perfectly valid deploy. Check the image it actually pulls instead.
-.PHONY: deploy-render-audit-adapter
-deploy-render-audit-adapter: ## Deploy render-audit-adapter (runs the browser-runner image) at $(IMAGE_TAG)
-	@OVERLAY="$(KUSTOMIZE_DIR)/services/render-audit-adapter/overlays/$(OVERLAY_PATH)"; \
-	test -f "$$OVERLAY/kustomization.yaml" || { \
-		echo "$(RED)No kustomization.yaml in $$OVERLAY$(NC)"; exit 1; }; \
-	if ! docker manifest inspect $(REGISTRY)/browser-runner-adapter:$(IMAGE_TAG) >/dev/null 2>&1; then \
-		echo "$(RED)$(REGISTRY)/browser-runner-adapter:$(IMAGE_TAG) is not in the registry.$(NC)"; \
-		echo "$(YELLOW)  render-audit-adapter runs that image — build and push it first:$(NC)"; \
-		echo "    make build-browser-runner-adapter && docker push $(REGISTRY)/browser-runner-adapter:$(IMAGE_TAG)"; \
-		exit 1; \
-	fi; \
-	echo "$(GREEN)Deploying render-audit-adapter at $(IMAGE_TAG) (browser-runner image).$(NC)"; \
-	sed -i.bak 's|newTag:.*|newTag: $(IMAGE_TAG)|' "$$OVERLAY/kustomization.yaml"; \
-	rm -f "$$OVERLAY/kustomization.yaml.bak"; \
-	KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k "$$OVERLAY"
-	@echo "$(YELLOW)Verify against the running POD — and note this pod is NOT browser-runner-adapter:$(NC)"
-	@echo "  kubectl -n ai-persona-system get pods -l app=render-audit-adapter -o custom-columns=NAME:.metadata.name,START:.status.startTime,IMAGE:.spec.containers[0].image"
+# There is deliberately NO explicit deploy-render-audit-adapter rule any more
+# (deleted 2026-08-17, bugs_open/237). It existed because the pattern rule's
+# pre-flight asked for $(REGISTRY)/<service>:$(IMAGE_TAG), which for a service
+# running ANOTHER service's binary names an image that has never existed — so
+# the deploy was refused as "not in the registry". The pattern rule now reads
+# the image out of the overlay, which is right for every such service without
+# anybody writing a bespoke rule; keeping a hand-written duplicate alongside it
+# would have been one more pair of things that must stay identical, which is
+# the defect this bug is about.
 
 .PHONY: redeploy-agents
 redeploy-agents:  ## Forces a rolling restart of all agent deployments
 	@echo "$(YELLOW)Forcing rollout restart of agent deployments...$(NC)"
-	kubectl rollout restart deployment agent-chassis -n ai-persona-system
-	kubectl rollout restart deployment reasoning-agent -n ai-persona-system
-	kubectl rollout restart deployment web-search-adapter -n ai-persona-system
-	kubectl rollout restart deployment web-scrape-adapter -n ai-persona-system
-	kubectl rollout restart deployment git-adapter -n ai-persona-system
-	kubectl rollout restart deployment image-generator-adapter -n ai-persona-system
-	kubectl rollout restart deployment content-creator-agent -n ai-persona-system
-	kubectl rollout restart deployment remote-job-spawner -n ai-persona-system
-	kubectl rollout restart deployment kafka-scheduler -n ai-persona-system
-	kubectl rollout restart deployment vet-intel -n ai-persona-system 2>/dev/null || true
-	kubectl rollout restart deployment business-intel -n ai-persona-system 2>/dev/null || true
-	kubectl rollout restart deployment ollama-adapter -n ai-persona-system 2>/dev/null || true
-	kubectl rollout restart deployment thunder-adapter -n ai-persona-system 2>/dev/null || true
-	kubectl rollout restart deployment analyser-adapter -n ai-persona-system 2>/dev/null || true
-	kubectl rollout restart deployment browser-runner-adapter -n ai-persona-system 2>/dev/null || true
-	kubectl rollout restart deployment render-audit-adapter -n ai-persona-system 2>/dev/null || true
+	@for entry in $(AGENT_DEPLOY_SERVICES) ollama-adapter; do \
+		svc=$${entry%%:*}; \
+		KUBECONFIG=$(KUBECONFIG_PATH) kubectl rollout restart deployment $$svc -n ai-persona-system 2>/dev/null \
+			|| echo "$(YELLOW)  no deployment/$$svc to restart$(NC)"; \
+	done
 
 .PHONY: deploy-frontends
 deploy-frontends: ## Deploy all frontend applications
