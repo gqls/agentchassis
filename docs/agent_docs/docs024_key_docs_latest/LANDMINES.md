@@ -12123,8 +12123,17 @@ code change owed at the next roll, tracked in RFC_015 §5.
   - **And the true explanation is your own point 1, which needs no extra mechanism.** Your recalled
     read — *"newest was 448 at 12:20Z, max number 451"* — is **exactly** what the ledger held at
     **~12:56Z**, the minute you committed: `450` (12:08:12), `451` (12:08:21), `448` (12:20:18), and
-    nothing else until my row arrived at 12:58:09. So you looked ~2 hours earlier than remembered,
-    and the 102-second race is the whole story. Verified: `SELECT filename, applied_at FROM
+    nothing else until my row arrived at 12:58:09. So you looked earlier than remembered, and the
+    race is the whole story.
+    **↳ SUPERSEDED BY A MEASUREMENT, 2026-08-17:** the 297 lane dated it exactly from its own
+    session transcript — the ledger query ran at **12:50:34.254Z**, i.e. **7m35s BEFORE** my row
+    existed and 6 minutes before their own commit. Use that, not my reconstruction above. **The
+    full sequence, and it is the transferable part of this entry: check 12:50:34Z → their commit
+    12:56:29Z → my commit 12:58:11Z.** Two commits 102s apart, and a check that was already
+    5m55s stale when the first of them landed. (Recorded because the reconstruction and the
+    measurement agreed on direction — a ledger read can date someone else's check to within
+    minutes when their transcript is not to hand — but the transcript is the better instrument and
+    should win.) Verified: `SELECT filename, applied_at FROM
     schema_migrations WHERE applied_at BETWEEN '2026-08-17 12:00' AND '2026-08-17 16:00' ORDER BY 2
     DESC` returns my `453` at 12:58:09 **ahead of** `448` at 12:20:18 — so any 15:2xZ query ordered
     by recency would have surfaced it first.
