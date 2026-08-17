@@ -384,3 +384,30 @@ Two of the three groups are not mine to act on in any case: the eleven "already 
 image, never published" and six "pointed at the wrong name" belong with the imagery lane
 (I have given them the full census), and the eight favicon/social-card gaps belong to bug
 131.
+
+**Later the same evening — the images: I found out why five of them don't exist, and it
+isn't something I should fix by hand.**
+
+The blocker I mentioned has cleared: after this build went out, the imagery pipeline's
+retry produced a finished image end to end, and the only failure since is an ordinary
+timeout rather than the repeated 404. So the machinery works again.
+
+But when I went to add the five that genuinely need creating, I found they were never
+going to be created. The framework's image generator only looks at two kinds of page —
+blog posts and tools. The case-study pages are a third kind, and they are simply not in
+the list it sweeps. So no amount of running it would ever produce those images, while the
+pages themselves carry a reference expecting one. That is the real defect behind those
+five findings, and it sits upstream of the report that flagged them.
+
+**I have not fixed it, on purpose, and I'd rather you agreed than assumed.** Two reasons.
+Adding the missing page type is a two-line change, but it is fleet-wide: every page of
+that kind on every site enters the generator's queue at once, which is real image-
+generation spend, so it should be that lane's call with the usual review, and somebody
+should count those pages first. And hand-writing the five images myself would mean
+composing the prompts by hand — writing site content, which is the framework's job, not
+mine — and it would hide the gap so nobody widens the list.
+
+So the position on your third decision is: eleven need publishing, six need repointing,
+eight belong to bug 131, and the last five need a small decision from the imagery lane
+before anything can generate them. All of it is written up in bug 114 with the file and
+line numbers.
