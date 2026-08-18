@@ -10,6 +10,13 @@
 > a fleet-wide deploy outage. See NOTES §12. The `/blog/` decision below is unchanged
 > and still owed, but note it can no longer be ACTED on until the outage clears —
 > retracting a page needs a working deploy too.**
+>
+> **UPDATE 2026-08-18 ~18:20Z — THE OWNER HAS DECIDED and the code fix is APPLIED.**
+> Guides keep `/guides/`. The framework's own control for this hazard
+> (`bugs_open/241`) was off on this site and is now seeded and verified live —
+> see **§ THE FIX, APPLIED** at the foot of this file. NOTES `## 2026-08-18` has the
+> mechanism, why Pass C2 could not fire, and a correction withdrawing my
+> "0 recompose tells" reading.
 
 ```
 site      loancalculator.co.uk   0162cde4-633e-45e9-8ca6-87a6b2fe1d26
@@ -181,3 +188,69 @@ An inherited framing reads like a measurement and is not one.
   shut, in which case your items sit `triaged` and every other signal reads green;
   and it can re-open mid-investigation, which is what turned a containable mistake
   into 14 live pages today.
+
+## § THE FIX, APPLIED — 2026-08-18 (owner decided: keep `/guides/`)
+
+Owner: *"I would prefer /guides/ but I am happy to accept the most natural fix for the
+code."* The natural fix turned out to be a control the framework already had, written for
+this very site, and switched off here.
+
+**Applied and verified live** (`SEED_2026-08-18_identity_flags.sql`, in this dir):
+
+```
+honour_realised_identity = true
+twin_identity_snap       = true
+stem_twin_snap           = true
+url_shape                = flat     (preserved — the 08-11 seed)
+pages list               = 27       (preserved)
+exactly 1 current structure spec row
+```
+
+**What it does.** `normaliseRealisedToPlanPage` stamps a realised-derived plan page
+`identity_authority: "realised"` and carries `parent_section`, so `CanonicalisePage` keeps
+a page where it is SERVING instead of re-deriving its role's default hub. That is the
+`bugs_open/241` URL-move hazard, and the code comment names our incident exactly.
+**All three flags** because `honour_realised_identity` is inert unless a snap layer
+re-stamped the page — a precondition the loanandmortgagecalculator lane established on
+08-17 (`96c83ebff`) after enabling the flag alone and getting twins anyway.
+
+**Why the planner chose `blog-post` in the first place**, which is worth knowing before
+anyone calls it a bad LLM decision: `CanonicalisePage` maps `role=guide` to
+`/guides/<slug>/index.html`, and **no input produces the flat `/guides/<slug>.html` this
+site actually serves.** Only `blog-post` and `entity-page` emit a flat `/<dir>/<slug>.html`.
+This site's real URL shape was unrepresentable as a guide, and `blog-post` was the nearest
+expressible thing — it just puts the dir at `blog`.
+
+**Also found, unfixed, and worth a bug of its own:** `Pass C2` drops a plan entry that
+re-proposes an adopted item under a different prefix/role — its own example is
+*"'economy-basics' beside the adopted 'guide-economy-basics'"*, i.e. ours — and it is
+**structurally unreachable on a re-plan**, because `itemStemSets` is built from
+`noCurrentPlanPages`, which the code says is "empty whenever the site has a current plan".
+A guard that matches your case by name and can never fire for an established site.
+
+### What the fix does NOT do — the remaining work, in order
+
+1. **It changes nothing until the next planner run.** Do not fire one to test it while the
+   deploy outage is live, and when you do, **run `checkpoint_postplan.sh` the minute the
+   plan lands** — steps 1 and 6 (invention check, page-identity md5) are what caught this
+   35 minutes too late. That timing is the whole lesson of 08-17.
+2. **The 14 duplicate `/blog/` pages are still deployed.** Retraction still needs a working
+   deploy, so it is blocked on the outage, not on the decision. Exposure is low: zero
+   `/blog/` URLs in the sitemap (26 entries: 13 guides, 11 tools), no nav entry, no blog
+   listing page — reachable only by direct URL.
+3. **Plan `9463e31d` still has no `guide` pages.** With the flags on, the next plan should
+   snap them back to their realised identities rather than re-mint twins. Until then the 14
+   live guides are absent from the plan of record.
+4. **8 items remain permanently failed** (3/3 attempts) and need hand re-triage — listed in
+   the state block above.
+5. `guides-index` is still the only genuine 404 ("no sections ready to build").
+
+### Not verified, and honest about it
+
+Which pass handled the 14 pages on 08-17, and therefore whether
+`honour_realised_identity` alone would have sufficed. Zero `PLAN_PAGE_STEM_TWIN_OBSERVED`
+rows exist fleet-wide all-history, so the stem layer did not observe a pairing for them —
+consistent with the entries matching a realised page by EXACT NAME at validate time and the
+identity being re-derived at the WRITE (which is 241's mechanism). The run's own
+`collected_data` would have settled it and **purged within ~2 hours**. So the three-flag
+seeding is the LMC lane's measured recommendation, not a claim about which layer fires here.
