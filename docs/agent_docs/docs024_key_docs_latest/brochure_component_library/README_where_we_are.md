@@ -3211,3 +3211,55 @@ last update **is** the moment it started — so a job running right through the 
 about looked, to my query, like it was never there at all. I only spotted it by watching
 live records and noticing two columns were identical. I've written both up properly, because
 a test that can only ever come back "all clear" is worse than no test.
+
+---
+
+## 2026-08-18 — the backlog started clearing itself overnight, and I was wrong about that
+
+Yesterday I told you the 225 parked contrast tickets would not clear, because I had
+re-measured four of them in a real browser and all four were still broken.
+
+**Overnight the machine cleared 40 of them, and it was right to.** I re-checked the first
+page it closed — dartsonline's About page — and it had genuinely been repaired: six
+unreadable items yesterday, one today. So the clearing was honest, not a false tick.
+
+**I want to be straight about how I got that wrong**, because the evidence was already in
+front of me. I had counted the page re-renders running on those sites — hundreds of them —
+and I read that traffic purely as something getting in the way of the checking machine. It
+never occurred to me that the same traffic was *repairing the pages*. Measuring that four
+things were broken at 4pm told me nothing about whether something was busy fixing them
+overnight, and I treated it as if it did.
+
+**The second surprise is better news.** The tool that fixes these — the one we deliberately
+kept away from this backlog in August because it used to report work it had not done — is
+now working. It has fixed 58 of them since yesterday, failed none, and I checked two of its
+pages myself: one lost both problems, the other came back completely clean.
+
+**So the August decision has expired.** We parked these because there was no safe way to fix
+them. There now is, and there are two independent machines involved: one proposes the fix,
+and a different one re-measures the page and only closes the ticket if the problem has
+actually gone. A fix that doesn't work leaves its ticket open. That is exactly the safeguard
+we were waiting for.
+
+**What's left needs a decision from you, and I've written it up properly.** 185 findings on
+14 sites. These are not "not looked at yet" — the machine re-measured every one of them this
+week and deliberately left them open, so they are still real. And re-rendering won't save
+them: these sites have been re-rendered dozens to hundreds of times already, and a re-render
+rebuilds the same colours.
+
+**Sixty of the 185 are text you simply cannot see** — the same colour as its background, on
+seven live sites. That's the part I'd want your eyes on.
+
+The write-up is `DECISION_INPUT_2026-08-18_the_186_durable_contrast_failures.md`. It gives
+you four options with costs. **My recommendation is the middle one:** release the 85 that are
+just "colour a bit too close" to the fixer now, and hold the 60 invisible ones back — because
+when text is invisible due to a *missing background*, darkening the *text* makes the ticket
+pass while leaving the button still wrong. A green tick and a broken page is the one outcome
+worth avoiding here.
+
+**One thing I've already done on your instruction:** the checking machine used to re-visit
+each site once a week, so a repair could wait seven days to be confirmed. That's now three
+days. I went with three rather than two because the checker has to compete with build work
+for its slot — I measured it being turned away on 9 of 14 attempts during a busy spell — and
+at two days it would quietly start missing turns. The next check moves from the 24th to the
+20th.

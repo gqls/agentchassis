@@ -24,6 +24,16 @@ this file closes with a measurement and no fix at all.
 > The retraction mechanism itself is confirmed live and correct; it has simply never yet
 > had a single opportunity to run.
 
+> **CORRECTED 2026-08-18 — the prediction above was WRONG, and §9 is now the current state.**
+> The rotation swept all 14 remaining sites overnight and the retraction closed **40** of the
+> parked rows, not "approximately none". The park **is** draining — just not all of it. What
+> survives (185) has now been re-measured by the machine and correctly declined, so the
+> "needs an owner" half stands and is if anything better evidenced. **Two claims in this file
+> are now false and are struck through where they appear: §8.3's "approximately none", and
+> §5's "css-patch-agent has never processed a single work item" (it has now processed 58,
+> completed all 58, and I verified two at the live page).** Owner decision doc:
+> `brochure_component_library/DECISION_INPUT_2026-08-18_the_186_durable_contrast_failures.md`.
+
 ---
 
 ## 1. What is actually true, measured 2026-08-17
@@ -126,10 +136,22 @@ a parked row as retractable even though the loader returns it.
 ## 5. What NOT to do
 
 - **Do not promote the 225 to `triaged`.** That is precisely what migration `389` prevented.
-  `css-patch-agent` **has still never processed a single work item** (measured 2026-08-12:
+  ~~`css-patch-agent` **has still never processed a single work item** (measured 2026-08-12:
   0 complete, 0 failed, `attempt_count = 0` across its entire history), so promotion sends
-  225 items to a handler with no track record at all. If they should be *fixed* rather than
-  *retracted*, that is a separate decision needing its own evidence.
+  225 items to a handler with no track record at all.~~
+  > **CORRECTED 2026-08-18 — this is the load-bearing sentence of the whole park, and it is
+  > now FALSE.** `css-patch-agent` has processed **58** `contrast_failure` items since
+  > 2026-08-17 17:13, **completed all 58, failed none**, writing real CSS
+  > (`p.p { color: #4a4a40; }`). I verified two at the artefact, not at the status:
+  > `noted.co.uk/index.html` lost both patched pairings and `noted.co.uk/contact.html`
+  > measures **0 failures**. Combined with `bugs_open/213` being closed, **both halves of the
+  > park's premise have expired.** Promotion is now a graded loop — the fixer proposes, the
+  > render audit independently re-measures and only withdraws what actually got fixed. That
+  > does NOT make bulk promotion automatically right (see the class-A caveat in the decision
+  > doc), but it is no longer "a handler with no track record".
+  If they should be *fixed* rather than *retracted*, that is a separate decision needing its
+  own evidence — **and it is now live as an owner decision**:
+  `brochure_component_library/DECISION_INPUT_2026-08-18_the_186_durable_contrast_failures.md`.
 - **Do not write a second retraction.** One exists and is shared, and the council already
   told a lane not to copy-paste a third hand-rolled version.
 - **Do not read "122 closed" as "contrast is fixed".** 122 fixed article-body ink across 97
@@ -241,7 +263,8 @@ skip both drop measured-and-failing findings, which is exactly what
 `retractResolvedContrastFindings`' point (2) is built to respect.)
 
 **So: when the rotation reaches these sites over the coming week, the retraction will
-correctly decline on approximately all 225 rows.** The park is honest. **It will not drain,
+~~correctly decline on approximately all 225 rows.~~ **CORRECTED 2026-08-18: it declined on
+185 and RETRACTED 40** — see §9.** The park is honest. **It will not drain FULLY,
 and nothing is wrong with the machinery that would drain it.** `bugs_closed/122` fixed
 article-body ink across 97 placements and that repair is real — it is simply a different
 population from these, most of which look like the primary-as-ink family
@@ -308,3 +331,88 @@ turn**):
 ```bash
 { echo "BEGIN;"; psql -t -A -c "SELECT pre_query FROM scheduled_tasks WHERE name='site-render-audit-rotation';"; echo ";"; echo "ROLLBACK;"; } | psql
 ```
+
+## 9. CURRENT STATE — measured 2026-08-18 18:12 UTC. The park is draining; 185 are durable
+
+The rotation swept **all 14** remaining affected sites between 2026-08-17 17:12 and
+2026-08-18 15:22. This section supersedes §8's forward-looking claims.
+
+```sql
+SELECT status,
+       count(*) FILTER (WHERE created_at <  '2026-08-12') AS original_park,
+       count(*) FILTER (WHERE created_at >= '2026-08-12') AS filed_since,
+       count(*) FILTER (WHERE result ? 'resolved_by')     AS by_retraction
+FROM site_work_items WHERE item_type='contrast_failure' GROUP BY 1;
+--  deferred  | 185 |  0 |  0
+--  complete  |  40 | 58 | 40
+--  cancelled |   1 |  0 |  0
+```
+
+**Of the original 226: 40 retracted, 185 still failing, 1 cancelled.**
+
+### 9.1 The retraction behaved exactly as specified
+
+Every audit run shows `retracted == retracted_parked`, i.e. **every closure drained a parked
+row** — read from `collected_data->'findings_written'` on the runs still in
+`orchestration_states`. Per-site: dartsonline 14/17, lendzy 13/18, cookly 7/7, idea.uk 4/27,
+vonc 1/38. Worked verification: `dartsonline.com/about.html` measured **6 contrast failures
+on 08-17 and 1 on 08-18**, with the 1.06:1 heading family gone — so the closure was correct
+and the page was genuinely repaired.
+
+### 9.2 Why my §8.3 prediction was wrong, and what would have caught it
+
+I predicted "approximately none". **The mechanism I missed was sitting in my own evidence.**
+I measured the `page_rerender` churn on these very sites — and used it *only* to explain why
+the rotation's `NOT EXISTS (claimed build item)` guard kept skipping ticks. It never occurred
+to me that the same traffic was **repairing the pages the audit was about to re-measure**.
+The cheap check: **before predicting a queue will not drain, ask what is currently writing to
+the artefact its closure depends on.** Logged in `WRONG_CALLS.md`.
+
+### 9.3 What survives is durable, and this is now well evidenced
+
+**All 185 remaining rows sit on sites the audit re-measured in this pass and deliberately did
+NOT retract.** They are not unobserved; they were re-observed and still fail. Nor can a
+re-render save them — every affected site has been re-rendered heavily since 08-15 (vonc 44,
+robot-hands 93, ai-agent-orchestration 150, webdesign 956), and a re-render reproduces the
+same hard-coded pairing by construction.
+
+| severity | rows | sites | colour families |
+|---|---|---|---|
+| A. **invisible** (≤1.2:1) | 60 | 7 | 18 |
+| B. severely unreadable (1.2–3.0) | 40 | 6 | 19 |
+| C. fails AA, readable (3.0–4.0) | 59 | 8 | 18 |
+| D. marginal (4.0–4.5) | 26 | 5 | 9 |
+
+65 colour families across 14 sites. Dominant shapes: `robot-hands` white-on-white `A.cta-btn`
+(1.00:1, `bugs_open/113`'s family); `vonc` `rgba(255,255,255,0.7)` on brand purple (19 rows,
+`features_open/026`); `idea.uk` `rgb(131,124,114)` on cream (21 rows).
+
+### 9.4 The decision this file exists to force is now WITH THE OWNER
+
+`brochure_component_library/DECISION_INPUT_2026-08-18_the_186_durable_contrast_failures.md`
+— four costed options, recommending release of classes C+D (85 rows) to the now-working
+fixer while holding class A, on the ground that patching *text* colour where the *background*
+failed to render yields a passing ticket and a still-wrong button.
+
+**This file stays OPEN** until that decision lands: the mechanism question is answered, the
+ownership question — which was always the point — is not.
+
+### 9.5 Two audit blind spots, recorded and NOT fixed
+
+- **`pool` / `system` sites are never audited.** The selector takes `active`/`deployed` only:
+  today 23 deployed + 2 active vs **17 `pool` + 1 `system`**, which hold 2 deployed pages
+  between them. Live blind spot is 2 pages; the gap is unguarded and silent.
+  **`building` is a non-issue** — a valid enum value (`v3_site_actions.go:360-363`) that no
+  live workflow writes, so no site is ever in it (all three `update_site_status` steps set
+  `deployed`).
+- **`[UNMEASURED]` page coverage on large sites.** Observed `retraction_scope_pages` was 5–24
+  while `webdesign.co.uk` has 108 deployed pages. The run I needed was already pruned from
+  `orchestration_states`, so I could **not** read its `truncated`/`pages_total` and assert
+  nothing either way. Verify on the next `webdesign.co.uk` audit.
+
+### 9.6 Latency reduced
+
+The 7-day re-audit window was the confirmation bottleneck (a repair waits up to a week to be
+graded). Cut to **3 days** by migration `469` on the owner's instruction. Three not two: the
+selector competes with build work and was measured turned away on **9 of 14** samples during
+a burst, so a 2-day window would sit at real throughput and start slipping turns silently.

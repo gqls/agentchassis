@@ -33,6 +33,25 @@
 > **Full working, every query re-runnable:** `bugs_open/296` §8. Defect population itself:
 > `features_open/026` (primary-as-ink), not `bugs_closed/122`'s article-body ink.
 
+> **CORRECTED 2026-08-18 by the same lane — the contribution above overstated its case, and
+> the correction sharpens it rather than withdrawing it.** I wrote that this type would
+> "strand regardless". Overnight the rotation swept all 14 sites and the retraction closed
+> **40** of the parked rows, so the closer is not merely correct-in-principle, it **drains**.
+> Two consequences for this file's model:
+> 1. **A working closer IS worth having** — 40 rows cleared with no human. My framing risked
+>    reading as "closers don't help", which the data refutes.
+> 2. **The stranding claim survives, better evidenced, for the remaining 185**: every one has
+>    now been re-measured in this pass and deliberately not withdrawn, on sites re-rendered
+>    dozens-to-hundreds of times since 08-15. So the "correct decline" shape is real — it is
+>    just a *residue* after the closer runs, not the whole population.
+> **Also false in the block above, and it matters here:** I repeated 296 §5's
+> "`css-patch-agent` has never processed a single work item". It has now processed **58,
+> completed all 58, failed none**, verified by me at two live pages. So this type now has a
+> working *fixer* as well as a working *closer*, which is exactly the condition
+> `bugs_open/083` wants for a type — and the reason the 185 are now an **owner decision**
+> (`brochure_component_library/DECISION_INPUT_2026-08-18_the_186_durable_contrast_failures.md`)
+> rather than a platform gap. Current state and every query: `bugs_open/296` §9.
+
 > **CONSUMER NOTICE 2026-08-09 — `claims_unverified` is no longer parked-for-ever either, and this
 > is a FACTUAL-claims surface, so read this one even if you skimmed the last.**
 > The review-queue sweep gained a `claims_unverified` revalidator (`4030cadb9`, CQ-021, council

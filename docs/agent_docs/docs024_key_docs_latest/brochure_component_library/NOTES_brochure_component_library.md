@@ -7590,3 +7590,72 @@ NOT a steady-state rate — I did not measure one.]**
 ⚠ **To run that selector by hand, wrap it in `BEGIN … ROLLBACK`.** The `pre_query` contains
 a data-modifying CTE that stamps `site_discovery_rotation`; a bare run **advances the
 rotation and costs a real site its turn**.
+
+---
+
+## 2026-08-18 — 296 revisited: the park IS draining, my prediction was wrong, and the fixer is alive
+
+Re-measured 18:12 UTC. **§8's forward-looking claims are superseded by `bugs_open/296` §9.**
+
+| | 08-17 | 08-18 |
+|---|---|---|
+| `deferred` | 225 | **185** |
+| retracted (all from the original park) | 0 | **40** |
+| affected sites swept | 0 of 15 | **14 of 14** |
+| `css-patch-agent` contrast items | 0 ever | **58, all complete, 0 failed** |
+
+**The retraction behaved exactly as specified.** `retracted == retracted_parked` on every
+run, so every closure drained a parked row. Per-site: dartsonline 14/17, lendzy 13/18,
+cookly 7/7, idea.uk 4/27, vonc 1/38. Verified at the artefact: `dartsonline.com/about.html`
+went 6 failures → 1, the 1.06:1 heading family gone.
+
+**[WRONG — mine, logged in `WRONG_CALLS.md`] I predicted "approximately none".** The refuting
+evidence was in my own scrollback: I counted the `page_rerender` traffic on these very sites
+and used it *only* to explain why the rotation's claimed-build guard kept skipping ticks.
+Hundreds of repair jobs, read as an obstacle to observation and never as repair. **The check:
+before predicting a queue will not drain, ask what is currently WRITING to the artefact its
+closure depends on.** A still-failing measurement is a fact about *now*; "it will still be
+failing next week" is a claim about the repair pipeline and needs separate evidence.
+
+**[WRONG — mine, same shape] I repeated 296 §5's "`css-patch-agent` has never processed a
+single work item" as a live premise** without re-running it. That figure was six days old and
+is the load-bearing sentence of the entire park. It has now processed 58/58 successfully,
+writing real CSS (`p.p { color: #4a4a40; }`). **Verified at the artefact, not the status**
+(the `a.a { … }` shape looked like it might match nothing — it does not):
+`noted.co.uk/index.html` lost both patched pairings; `noted.co.uk/contact.html` measures
+**0 failures**. Both halves of the park's premise (213 broken + no track record) are gone.
+
+**What survives is durable and well evidenced.** All 185 sit on sites re-measured in this
+pass and deliberately not retracted, each re-rendered heavily since 08-15 (vonc 44,
+robot-hands 93, ai-agent-orchestration 150, webdesign 956) — a re-render reproduces the same
+hard-coded pairing by construction. 65 colour families; severity A(≤1.2:1) 60 / B 40 / C 59 /
+D 26. Now an owner decision: `DECISION_INPUT_2026-08-18_the_186_durable_contrast_failures.md`.
+
+### Two things I nearly got wrong by not looking
+
+- **`bugs_open/299` was already closed by another lane** (`c67d63671`) before I got there,
+  with better evidence than I had planned (forced run on a page-less pool site, `v1.0.1307`).
+  I had drafted a close block and started applying it. **Also: `299` is now an AMBIGUOUS
+  NUMBER** — a concurrent lane filed a webdesign CTA/`tel:` bug as 299 and it sits in
+  `bugs_open` while the render-audit 299 is in `bugs_closed`. Resolve by SLUG.
+- **I read that closed file's early "NOT LIVE" status block and thought I had caught a stale
+  claim**, since I had a run at 08-17 18:23 showing fixed behaviour. I had not: §9 of the
+  same file records the close on `v1.0.1307` with pods up at ~17:05Z, which is exactly why
+  18:23 was clean. **The block I was about to "correct" had already been superseded further
+  down the same file.** Read the whole file before contradicting its top.
+
+### Migration `469` — audit window 7 days → 3 (owner instruction)
+
+Applied by hand and `--record-only`-registered, **not** via `--apply`: ~12 other threads'
+files were pending and `--apply` takes every one. Verified live (`interval '3 days'`, no
+`'7 days'`); next audit moves 08-24 → 08-20. Three not two because the selector competes with
+build work and was measured turned away on **9 of 14** samples during a burst, so a 2-day
+window sits at real throughput and would slip turns silently. **Number collisions, twice in one hour:**
+another session took `465` at 17:20 while I was writing mine, so I renumbered to `469` — and
+by the time I committed, a *third* session had taken `469` too
+(`469_departments_grid_and_leadership_team_consume_site_tokens.sql`). I did **not** renumber
+again: mine was already applied and registered in `schema_migrations` under its exact
+filename, and the ledger keys on filename, not on the numeric prefix. The directory already
+carries duplicate `462`s and `465`s, so this is the house norm rather than a new problem — but
+**the number is not an identifier on this tree.** Check the directory at the moment you name
+the file, and if you must cite a migration, cite the FILENAME.
