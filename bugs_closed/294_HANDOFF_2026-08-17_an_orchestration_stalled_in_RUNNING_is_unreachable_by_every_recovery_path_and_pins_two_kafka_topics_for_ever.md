@@ -465,3 +465,42 @@ rows older than 4 h fleet-wide: **0**.
 ⚠ **The CLASS is still open.** Two instances are now closed; the reaper's coverage is still an
 *enumeration*, so the next status nobody lists is immortal by construction. Candidate 2 remains
 the real fix. `Council-Submitted: e973d2aa-a1fc-4b0d-bf2f-b90ef7f39c1f`.
+
+## Council — both follow-on rounds APPROVED
+
+| round | correlation | verdict |
+|---|---|---|
+| `464` INITIALIZED arm | `e973d2aa-a1fc-4b0d-bf2f-b90ef7f39c1f` | **APPROVED**, all reviewers approve, 4 low-severity advisories |
+| delete `WorkflowMonitor` | `25fa8173-91d5-4b1a-ad05-d35b0f7af96a` | **APPROVED**, all reviewers approve, **zero objections** |
+
+### The four advisories on 464, answered by measurement rather than assertion
+
+1. **`reuse_agent`** — *"doesn't demonstrate it searched for whether an invariant-based reaper
+   already exists elsewhere."* Fair; done now. Only three enabled `scheduled_tasks` touch
+   `orchestration_states` — `stale-orchestration-reaper`, `database-cleanup`,
+   `claimed-item-timeout` — and **only the reaper mentions `awaited_requests` at all**. So there
+   is no existing invariant sweep to reuse, and candidate 2 would be genuinely new rather than a
+   second copy of something.
+
+2. **`debug_historian`** — *"`$PQ$` full-text swap risks a dollar-quote collision if the captured
+   text ever contains the literal tag."* Real hazard, and cheap to close permanently:
+   `SELECT position('$PQ$' in pre_query), position('$do$' in pre_query)` returns **0, 0** — neither
+   tag occurs in the payload, so there is no collision today. **Run that check before embedding
+   any future capture**; it is one query and it fails loudly.
+
+3. **`guardian`** — *"reaping INITIALIZED removes rows from `idx_orch_site_active`, so a consumer
+   asking 'is work still in flight here' stops seeing genuinely-stuck rows."* Sound in principle,
+   **inapplicable to this population**: that index is partial on `site_id IS NOT NULL`, and both
+   reaped rows had **`site_id` NULL**, so neither was ever in it. No Go query pairs
+   `orchestration_states.site_id` with a non-terminal status filter either.
+
+4. **`guardian`** — *"no re-check immediately before the real COMMIT; another lane could edit
+   between dry-run and apply."* Already handled, and worth saying how: the md5 gate is **in the
+   `UPDATE`'s own `WHERE` clause**, evaluated inside the transaction, not only in the advisory
+   pre-flight `DO`. A concurrent edit makes the `UPDATE` match 0 rows, and the post-verify block
+   then fails on the resulting md5. The pre-flight exists for the *message*, not the safety.
+
+5. **`editquality`** — *"the CTE's placement in the `WITH`-chain isn't shown in full, only a diff
+   snippet."* True of the submission. The file itself was built by inserting into the live text
+   programmatically and then diffed against it (11 added, 0 removed) and parse-checked, so
+   placement is verified even though the sketch elided it.
