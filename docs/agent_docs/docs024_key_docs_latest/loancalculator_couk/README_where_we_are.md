@@ -2132,3 +2132,51 @@ is a preference now rather than a repair.
 
 The Guides entry is a different matter and still outstanding: it is in the navigation
 data but the Guides page itself still will not build, so there is nothing to link to.
+
+---
+
+## 2026-08-18 — you chose /guides/, and it turns out the framework already knew how
+
+You said you'd prefer /guides/ but would take whatever the most natural fix for the code
+was. Those turned out to be the same thing, which is the best possible answer.
+
+**What I found.** The framework already has a switch for precisely this problem: keep a
+page where it is actually being served rather than re-deriving its address from what kind
+of page the planner decided it was. It was written back on 10 August — while planning this
+very site's rebuild — by someone who spotted the risk before it happened. The code comment
+describing the danger reads, almost word for word, like a description of what went wrong
+yesterday: it warns that the planner will re-derive a blog post's address under /blog/ and
+so move a live page that is serving from /guides/.
+
+It is deliberately off by default, because switching it on changes real addresses on a live
+site, so each site has to opt in. **This site had never opted in.** I have now switched it
+on and checked it took: three flags set, and the two things that had to survive the change —
+the site's flat-URL setting and its 27-page adoption record — both intact.
+
+**And there's a reason the planner picked "blog post" that isn't its fault.** The framework
+can only express a guide's address as /guides/something/index.html. It has no way at all to
+say /guides/something.html, which is the shape this site actually uses. The only page kinds
+that produce the flat shape are blog posts and entity pages. So when the planner tried to
+describe our guides, the closest thing it could say was "blog post" — and that puts them
+under /blog/. It reached for the only expressible option.
+
+**What this does and does not do.** It stops the *next* plan moving these pages. It does not
+undo yesterday: the fourteen duplicate pages are still published. Removing them still needs
+the publishing path to work, and that is still broken across the whole estate, so it is
+waiting on infrastructure rather than on you. The good news, which I checked, is that they
+are almost invisible: not in the sitemap, not in any menu, and there is no blog index page
+linking them, so the only way to reach one is to type its address.
+
+**One more thing I found and have not fixed**, because it needs a decision beyond this site.
+There is a guard in the planner written for exactly our situation — it spots when the
+planner re-proposes a page that already exists under a different name and throws the
+duplicate away. Its own example in the code is the same shape as ours. It cannot ever fire
+on a site that already has a plan, because of how its list is built. So for every
+established site, a guard that looks like protection is switched off by construction. I've
+written that up; it deserves its own bug.
+
+**Also corrected today, my own error.** Yesterday I told you the recompose had produced "no
+no-op pages" as a good sign. I checked how that signal is recorded and it has never recorded
+anything, anywhere, in the system's whole history — so my reassurance was worth nothing. The
+sign wasn't wrong, it just couldn't have been anything else. I'd applied exactly that kind of
+scepticism to another number the same morning and then failed to apply it to my own.
