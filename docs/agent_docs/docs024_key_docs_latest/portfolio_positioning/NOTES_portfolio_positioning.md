@@ -2024,3 +2024,60 @@ rate that has expired.
 **The fix is the plan the owner already has**: run the next domains one at a time and measure
 each from a quiet start to a quiet finish. Three clean runs beat one contaminated one, and
 this pilot cannot be re-run clean.
+
+### 2026-08-18 — OWNER RULINGS: Phase C SIGNED OFF; nmsvr.uk parked; DNS via Cloudflare; copy handed to its lane
+
+**1. PHASE C IS SIGNED OFF (owner, 2026-08-18).** The gate the plan put before Phase E is
+passed. What was signed off: the machinery proven end to end at the rendered artefact, and the
+cost baseline below. Phase D's decisions are now the only thing between here and Phase E waves.
+
+**2. nmsvr.uk is PARKED (owner).** *"we can leave nmsvr.uk for now."* Own-nameservers is not
+being built. The reason it was raised and then parked is worth keeping: sites are served by a
+Cloudflare Worker (`portfolio-sites-router`) reading `<hostname><path>` from the
+`portfolio-sites` B2 bucket, so authoritative DNS elsewhere would take the worker OUT of the
+request path. Revisit only alongside a decision to change how sites serve.
+
+**3. DNS: point domains at Cloudflare, in bulk groups (owner).** Confirmed mechanism, measured
+2026-08-18: `ai-agent-orchestration.com` → `alexis/leah.ns.cloudflare.com` and serves;
+`remortgagecalculator.uk` → `ns1/ns2.dan.com` (Dan.com parking) and serves a lander on EVERY
+path. See the runbook file for the exact steps and what I could and could not do.
+
+**4. The directory-page copy voice is the `copy_quality_two_stage` lane's (owner).** Handed
+over with evidence in
+`copy_quality_two_stage/CONTRIB_2026-08-18_the_negative_default_survives_a_POSITIVE_identity_spec_on_directory_pages.md`.
+SendMessage failed — that session is not currently running — so it is a document, not a
+message. **The finding that makes it worth their time: that lane's 2026-08-12 root cause
+(negativity inherited from `identity.key_differentiators`) does NOT fit this case** — I read
+the site's differentiators and they are entirely positive ("Fast deployments", "Solid
+enterprise-level security"…) while the CTA copy is still negative, five days after their fix.
+Positive input, negative output: a second path, or a site-scoped fix that did not generalise.
+**I did not rerender and did not touch the writer** — the affected pages are another lane's
+site, and the obvious fix may be the wrong one.
+
+### 2026-08-18 — COST BASELINE INCLUDING IMAGERY (owner asked for images, over-estimated)
+
+**Text is measured. Images are NOT, and cannot be from here** — checked: no cost/price column
+exists anywhere in the schema for assets or LLM calls, and the images come from a **Google**
+model (`banana/gemini-3-pro-image-preview` generated all 11 pilot assets; fleet-wide the split
+is 350 banana / 79 SDXL / 88 derived). So the per-image rate below is an **[ASSUMED]** figure
+with the arithmetic exposed, not a measurement — substitute the real rate from the provider's
+billing console and the table still works.
+
+**Text (measured, 3 agreeing runs): $3.81/domain today · $4.83 from 2026-09-01** when Sonnet
+5's introductory rate ends.
+
+**Per-domain TOTAL at today's text rate:**
+| images/site | @$0.04 | @$0.08 | @$0.15 | @$0.25 |
+|---|---|---|---|---|
+| 11 (pilot actual) | $4.25 | $4.69 | $5.46 | $6.56 |
+| 30 | $5.01 | $6.21 | $8.31 | $11.31 |
+| 50 | $5.81 | $7.81 | $11.31 | $16.31 |
+
+**Fleet of 140, today:** 11 img → $595–$918 · 30 img → $701–$1,583 · 50 img → $813–$2,283.
+**From 2026-09-01:** 11 img → $738–$1,061 · 30 img → $844–$1,726 · 50 img → $956–$2,426.
+
+**The owner has said he wants "loads of imagery on each site", so read the 30–50 rows.** The
+headline: **imagery overtakes text as the dominant cost somewhere between 30 and 50 images per
+site at any rate above ~$0.08.** That is the number worth pinning down before Phase E, and one
+provider invoice after the next few builds settles it — the *count* per site is ours to
+choose, the *rate* is theirs to publish.
