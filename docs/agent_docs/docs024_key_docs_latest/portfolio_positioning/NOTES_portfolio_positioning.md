@@ -2110,3 +2110,41 @@ directory data — eleven mortgage sites built today would each carry the pilot'
 lender directory. **Recommendation: force-trigger the finance researcher on `mortgage-lender`
 before Wave 2** (the B4 procedure, already proven). It does not block Wave 1, and it is the
 difference between a 2-row and a 15-row directory across the whole M family.
+
+### 2026-08-18 — WAVE 1 STARTED: build #1 dispatched, researcher armed, one conflict raised not resolved
+
+**Owner approved the first-50 order** ("do as you direct") and ruled on B8/B9/I10 (recorded in
+the register with shapes, not just yes/no).
+
+**Mortgage-lender researcher force-triggered** (`last_triggered_at=NULL` on
+`mortgage-lender-directory-discovery`, the B4 procedure, guarded to exactly one armed task). It
+is weekly and last fired 08-15, so it would not otherwise run until 08-22. This is the
+2-lenders-vs-13 gap; it does not block Wave 1.
+
+**BUILD #1 DISPATCHED: `adversecreditmortgage.co.uk` (M5)**, corr
+`4a128539-8a51-4e4c-a410-15dffa3f6946`. Seeded first (site row + email, evidence_base,
+imagery_style_guide); `needs_domain_research` triaged; mission stored at 3,185 chars with its
+marker intact.
+
+**The seed carries the pilot's escaping lesson as a mechanical check.** Single backslash in the
+file this time, and the verify block **probes rather than counts**: it refuses on any pattern
+containing a double backslash (the signature of the inert-guard bug) and requires ≥6 patterns
+to carry a real word boundary. Then proved in **Go** semantics, matching production's
+`regexp.Compile`: **6 of 6 must-catch strings caught** ("Guaranteed acceptance…", "No credit
+checks required", "Fixed at 6.49% APR"…) and **4 of 4 must-allow strings allowed**. The pilot's
+six patterns were inert and its verify passed; these are not, and it was proved the same way it
+would have been disproved.
+
+**Why M5 first, not M3 as originally listed — and this is a reorder, not a substitution.**
+`mortgage-rates.co.uk` is a rate-table proposition, and (1) the owner's own non-price ruling
+forbids per-lender rates, (2) we have no verified-facts pipeline for rates, so it would have
+shipped as **a rate site with no rates** — exactly what the pilot's empty roster produced, but
+on a site whose entire premise is the numbers. **Held at the end of Wave 1 with three options
+put to the owner** (market-level dated sourcing / reshape away from live rates / wait for a
+rates pipeline). M5 is a better build #1 anyway: it stress-tests the claims guard on the
+audience where a false promise does actual harm.
+
+**Watch on this build:** it should get `content_features.mortgage_lender_directory` at
+classification (domain contains "mortgage"), then a `mortgage-lenders` page — and its directory
+will show **2 lenders** until the researcher run lands. Also expect the negative-CTA copy
+defect handed to `copy_quality_two_stage`; it is unfixed, so build #1 will exhibit it.

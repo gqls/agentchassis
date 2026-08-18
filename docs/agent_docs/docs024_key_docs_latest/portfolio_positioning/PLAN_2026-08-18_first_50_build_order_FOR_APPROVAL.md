@@ -1,4 +1,9 @@
-# First 50 — proposed build order, FOR OWNER APPROVAL — 2026-08-18
+# First 50 — build order — **APPROVED by the owner 2026-08-18** ("I approve your order of the first 50, do as you direct")
+
+> **ONE CHANGE MADE UNDER THAT AUTHORITY, and it is a reorder not a substitution.**
+> Wave 1 now leads with **M5 `adversecreditmortgage.co.uk`** (dispatched 2026-08-18,
+> corr `4a128539-8a51-4e4c-a410-15dffa3f6946`); **M3 `mortgage-rates.co.uk` moves to the
+> end of Wave 1, pending an owner decision** — see the box below. Nothing was dropped.
 
 Requested by the owner 2026-08-18. Ordering follows his standing **M → B → I** ruling.
 **Nothing here is dispatched until he approves this list.**
@@ -29,6 +34,28 @@ on the scheduled task; supervised, HITL queue worked per run). It is the differe
 | **B8** savingsapp, **B9** bankingequipment, **I10** insurance brandables | **HOLD** — see the decisions below |
 | **L9** loan brandables | **reassigned 2026-08-18: `loanzy.uk` is now an EXAMPLE SITE** — no register entry, built from the webdesign.uk prompt, separate thread |
 
+## ⚠ M3 `mortgage-rates.co.uk` — a conflict I should not resolve alone
+
+M3's whole proposition is **showing mortgage rates** ("the market, today", stance: data
+journalist). Two things in force collide with that:
+
+1. **The finance-kinds compliance ruling (owner, 2026-08-12/13): NON-PRICE facts only** for
+   named regulated firms — never APR/rates/premiums, because a stale price under a lender's
+   name is a financial-promotion exposure.
+2. **We have no verified-facts pipeline for rates.** The pilot shipped with an EMPTY facts
+   roster precisely because no rate could be verified against a live source. M3 seeded the
+   same way would be **a rate site with no rates**.
+
+There is a defensible reading — the *directory* stays non-price while the site's own editorial
+carries **dated, sourced, market-level** figures (base rate, published averages) rather than
+per-lender live prices. That is ordinary data journalism and not a promotion. But it needs a
+source of truth we do not currently have, and choosing to publish rates at all is the owner's
+call, not mine. **So M3 is held at the end of Wave 1 rather than built empty.**
+
+**The decision needed:** (a) M3 becomes market-level/dated with a named data source we commit
+to maintaining; (b) M3 is reshaped away from live rates (e.g. "how mortgage pricing works");
+or (c) M3 waits until a rates-facts pipeline exists.
+
 ## Wave 1 — supervised, ONE AT A TIME (5 domains)
 
 The owner asked to see each site built directly through the framework. These five stress
@@ -37,8 +64,8 @@ age-gated calculator, a B2B-ish audience, and a deadline/urgency site.
 
 | # | domain | prop | why this one, this early |
 |---|---|---|---|
-| 1 | `mortgage-rates.co.uk` | M3 | rate tables — the mode furthest from the pilot's calculator |
-| 2 | `adversecreditmortgage.co.uk` | M5 | eligibility decision-trees + a hard compliance rule ("no guaranteed acceptance, ever") |
+| 1 | `adversecreditmortgage.co.uk` | M5 | **DISPATCHED 2026-08-18.** Eligibility decision-trees + the register's own hard compliance rule ("no guaranteed acceptance, ever") — so build #1 stress-tests the claims guard on the audience where getting it wrong does real harm |
+| 5b | `mortgage-rates.co.uk` | M3 | **HELD** — see the conflict box above |
 | 3 | `equityreleasecalculator.co.uk` | M6 | age-gated (55+) audience; long-form + calculator |
 | 4 | `buytoletcalculator.uk` | M9 | landlord//investor audience — different register entirely |
 | 5 | `mortgageextension.co.uk` | M7 | payment-pressure/urgency; nearest to the pilot, so it is the comparison case |
