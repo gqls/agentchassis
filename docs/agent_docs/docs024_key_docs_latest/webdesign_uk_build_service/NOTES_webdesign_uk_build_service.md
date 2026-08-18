@@ -4002,3 +4002,108 @@ files triage items which is better but slower and makes delivery times harder to
 promise. Under the new one-shot commercial terms, "usually ready the next day" is an
 attested fact and a triage-driven build cannot honour it reliably. That is the
 tension to decide, not the builder's age.
+
+## 2026-08-18 (~16:0xZ) — the chat prompt-maker is LIVE; box deploys are in the makefile; and "usually ready the next day" is REFUTED by measurement
+
+### The prompt-maker is live and verified at the running service
+
+`make box-release` → chassis-independent roll of the VM binary. Journal:
+
+```
+build provenance: git_commit=434d2b64b26d91c1861d42cd474139318441ecc8
+facts: fetched 22 facts from relay
+facts: live mode, site=webdesign.uk
+sitechat on 127.0.0.1:8081 (max_turns=20, daily_ceiling=$10.00)
+```
+
+**Functionally smoke-tested, not just "it started".** POST to
+`preview.webdesign.uk/api/chat` with *"I run a small darts league and want a
+website for it"* returned:
+
+> *"That's a good starting point. Let me ask you something concrete: what would
+> you want the site to actually do for people in the league?"*
+
+No "what business are you in?", one question at a time, straight to the third of
+the five things. That is the new conduct behaving as designed on a non-business
+enquiry.
+
+**⚠ Found in passing: the apex `webdesign.uk` 302s to `webdesign.co.uk`** (a
+different site in the estate). The chat API answers on `preview.webdesign.uk`
+only. Whether that redirect is intended is an owner question; it means a customer
+typing the apex lands on another brand.
+
+### Box deploys are now makefile targets (owner asked), deliberately NOT under `release`
+
+`box-release / box-build / box-build-tree / box-push / box-deploy / box-verify /
+box-status / box-test`. Kept out of `release` on purpose: different machine,
+different credential, different blast radius, and a customer-facing bot must not
+roll as a side effect of a fleet deploy. What was wrong was that the path was
+**invisible**, not that it was separate — `sitechat` appeared nowhere in the
+makefile, which is why the prompt-maker was committed in the belief the next
+release would carry it.
+
+`box-build` builds from **committed HEAD via git archive**, like the backend, so
+it cannot bundle another session's WIP. The runbook recipe it replaces built from
+the working tree and could.
+
+### ⚠ md5 CANNOT tell you what source the box is running — measured
+
+Proving the rollback path before overwriting the live binary: rebuilding the
+**exact commit** behind the running binary (`84202f061`) gave md5 `65da9971` and
+**9381552** bytes, against the box's `f07fb146` and **9381544**. Same source,
+different digest, eight bytes apart. **These builds are not byte-reproducible
+across build environments**, so the RUNBOOK's standing "md5sum on the box must
+equal the local build" only proves the box holds the file you just pushed. It
+cannot answer "which commit is live", and it looks like it can.
+
+Fixed the way the backend fleet already learned: the binary now says what it was
+built from. `main.go` gains a linker-stamped `buildCommit` and logs the same
+`build provenance` line shape, so `journalctl | grep 'build provenance'` works
+like `kubectl logs | grep` does everywhere else. `box-verify` keeps md5 for "did
+the file arrive" and adds the provenance check for "is the running service this
+commit". Stamp proven in the binary with a positive control (the real sha,
+present) and a negative one (40 zeros, absent) — 40 zeros is the control that
+matches every binary if you get this wrong, so it had to come back absent.
+
+### "Usually ready the next day" is REFUTED — the triage flow does not finish in a day
+
+The owner ruled that a better product beats a faster promise. Here is what the
+current triage-based flow actually costs, measured on the only two sites built
+under it in the last 27 hours.
+
+**First, a metric that lied.** Elapsed "first page created → last page deployed"
+made older sites look slower and slower (relojistas 795h). That is an artefact:
+`pages.deployed_at` is **overwritten by every later rerender**, so it measures
+"the last time anything was deployed", not time-to-build. Discarded.
+
+**Page creation is fast.** Span from first to last page *created* (rerenders
+cannot move `created_at`): loanzy.uk 20 pages in **0.0h**, adversecreditmortgage
+19 pages in **0.0h**, remortgagecalculator 6 pages in **0.0h**. All pages are
+made in one batch.
+
+**The triage tail is what takes the time, and it runs past a day:**
+
+| site | built | work items | closed | STILL OPEN | elapsed |
+|---|---|---|---|---|---|
+| remortgagecalculator.uk | 08-17 11:44 | 48 | 26 | **22** | 25.3h |
+| loanzy.uk | 08-18 12:53 | 77 | 62 | **15** | 3.1h |
+| adversecreditmortgage.co.uk | 08-18 12:35 | 47 | 5 | 42 | 1.2h (too young to judge) |
+
+And the open items are **not cosmetic**. remortgagecalculator at **25 hours**
+still has `needs_page` ×4, `needs_new_component` ×3, `needs_imagery` (one high),
+plus 10 `unresolved_cta`. A site missing four pages is not deliverable. loanzy at
+3.1h has 9 HIGH-severity items open including `site_unreachable` and
+`unbuilt_internal_link` ×3.
+
+**So the live bot is currently promising customers something the evidence
+refutes.** `build_duration` attests `value: 1`, "usually ready the next day", and
+the bot renders that claim verbatim.
+
+**What I have NOT done, deliberately: chosen the replacement figure.** n=2, and
+neither site has reached "done", so the data refutes 1 day without establishing
+what the right number is. It is also a live customer promise, which by this lane's
+own rules the owner attests. **Recommendation: attest a deliberately safe figure
+now** (under-promise, tighten later once "done" is instrumented) rather than leave
+a refuted promise live while a better measurement is built. When it changes,
+`value`, `claim`, `writer_line` and `context_terms` all move together, and the
+pages need a rebuild to pick it up.
