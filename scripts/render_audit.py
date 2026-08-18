@@ -275,12 +275,18 @@ def main():
     chrome = find_chrome()
     urls = discover(args.urls[0]) if args.sitemap else args.urls
 
-    results, total_c, total_i = [], 0, 0
-    with tempfile.TemporaryDirectory() as workdir:
+    results, total_c, total_i, total_e = [], 0, 0, 0
+    # RENDER_AUDIT_TMP exists because a SNAP-CONFINED Chromium cannot read
+    # /tmp: it silently renders its own error page instead of the injected
+    # file, the AUDIT_RESULT block is absent, and every page comes back
+    # "probe produced no result". Point this at a path the browser can read
+    # (anywhere under $HOME for a snap) — or use a non-snap binary via CHROME.
+    with tempfile.TemporaryDirectory(dir=os.environ.get("RENDER_AUDIT_TMP")) as workdir:
         for u in urls:
             res = audit(u, chrome, args.width, args.height, workdir)
             results.append(res)
             if res.get("error"):
+                total_e += 1
                 print("  %-58s ERROR %s" % (u[-58:], res["error"]))
                 continue
             c, i = len(res["contrast"]), len(res["images"])
@@ -304,13 +310,21 @@ def main():
                 print("       BROKEN IMAGE  %s  -> HTTP %s   (alt: %s)" % (
                     im["src"], im.get("http_status"), im["alt"][:50]))
 
-    print("\n%d page(s): %d contrast failure(s), %d broken image(s)" % (
-        len(results), total_c, total_i))
+    # Errored pages are reported in the SUMMARY and in the exit status, not just
+    # in the per-page lines. Before 2026-08-18 a run where every page failed to
+    # probe printed "0 contrast failure(s), 0 broken image(s)" and returned 0 —
+    # a gate that PASSES while blind, which is worse than one that fails. Hit
+    # live that day: a snap Chromium could not read the /tmp workdir, so the
+    # audit reported a clean home page it had never actually measured.
+    print("\n%d page(s): %d contrast failure(s), %d broken image(s), %d not measured" % (
+        len(results), total_c, total_i, total_e))
+    if total_e:
+        print("  %d page(s) NOT MEASURED — the zeros above are silence, not a pass." % total_e)
     if args.json:
         with open(args.json, "w") as f:
             json.dump(results, f, indent=2)
         print("full findings: %s" % args.json)
-    return 1 if (total_c or total_i) else 0
+    return 1 if (total_c or total_i or total_e) else 0
 
 
 if __name__ == "__main__":

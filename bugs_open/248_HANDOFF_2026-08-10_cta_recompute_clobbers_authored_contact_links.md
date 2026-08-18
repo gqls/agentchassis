@@ -479,3 +479,77 @@ re-derived — without it, a fix that froze every CTA would pass everything else
   the demoted arm rather than silently.
 - The LANDMINE entry (footprint `applyCTARecompute` / `areasExcludedFromCTA`) needs its dated
   correction **after** the roll, via `landmines-verify-dispatch.sh`.
+
+---
+
+## CONTRIB 2026-08-18 (leopardess lane) — the fix is ROLLED, and an authored `/contact.html` now SURVIVES a section resolve, with a demand control
+
+Not a fix, not a competing diagnosis — this is the "prove at the artefact" half of
+*Still to do*, done on a second site by a lane that hit the symptom independently.
+The owner reported it in his own words: *"the button links through to the password
+tool — it should link to the contact details page."* Same shape as this file's
+finetuning.uk case, different site.
+
+**The roll happened.** `agent-chassis` v1.0.1310, both replicas, provenance line
+`git_commit 0b185bad2a49c6e032352fa9e7d0b429f0a95104` — read from the service's own
+startup log and re-confirmed with `grep -a` on `/proc/1/exe`, with a random-hex
+negative control ABSENT in the same exec so the probe is known to discriminate.
+`git merge-base --is-ancestor 53a8d3c1d 0b185bad2` → **YES**, so this file's fix is
+in the running binary. `[MEASURED 2026-08-18]`
+
+**The damage, before:** `leopardessconsulting.co.uk/index.html` carried FOUR
+misdirected CTAs, all four pointing into `/tools/`:
+
+| slot | label | stored destination |
+|---|---|---|
+| hero primary | "See the systems we have built" | `/tools/password-entropy.html` |
+| hero secondary | "See how we work, from first conversation to production" | `/tools/ai-agent-roi-estimator.html` |
+| call-to-action primary | "Book an architecture conversation" | `/tools/tool-agent-complexity-estimator.html` |
+| call-to-action secondary | "Or call +44 (0) 7934 524 911 to talk through…" | `/tools/ai-agent-roi-estimator.html` |
+
+The password-entropy one is this file's exact finetuning.uk signature — a
+conversation-shaped label on a calculator — reproduced on a different site, and the
+phone-number label pointing at an ROI estimator is `bugs_open/299`'s "the copy names
+X, the href does Y" in a fourth variant.
+
+**The test, and what it establishes.** Authored `/contact.html` into
+`hero.cta_url`, `call-to-action.primary_cta_url` and `.secondary_cta_url`, then ran
+**two** `section_data_resolved` rerenders (correlations `66fcaa42`, `1254d942`).
+After both, stored AND served:
+
+```
+hero            cta_url            /contact.html
+call-to-action  primary_cta_url    /contact.html
+call-to-action  secondary_cta_url  /contact.html
+served: href="/contact.html" class="cta-btn cta-btn-primary"   (and secondary, and the hero)
+        grep -c 'password-entropy'  ->  0
+```
+
+**The demand control, which is the part this file explicitly asked for.** "Unchanged"
+is worthless unless the handler provably ran. In the *same* second rerender an
+unrelated field WAS changed and did ship: the home page's new `evidence-chart` bar
+tone went `muted` → `accent`, and the served page moved from
+`evidence-chart__bar--muted` ×2 to `evidence-chart__bar--accent` ×2. So the renderer
+executed and rewrote the page in the run that left the CTA destinations alone.
+
+**What this does NOT establish, stated so nobody banks it as more than it is:**
+- It is a **section resolve**, not a `cta_links_stale` discovery item and not a full
+  regeneration, so the `setCTAField` build-path half of the fix is still unproven.
+- `hero.secondary_cta_url = /how-it-works.html` also survived — and that is a
+  **non-utility** destination, so `storedCTADestinationIsAuthored` should not have
+  protected it. Either this path never re-derived any CTA field in these runs (which
+  would weaken the `/contact.html` result to "nothing was recomputed at all"), or the
+  keep-branch is broader than the commit message describes. **That is a real
+  ambiguity in my own evidence and the fixing lane should resolve it** — the cheap
+  discriminator is a run on a page whose stored CTA is a KNOWN-recomputable
+  non-utility destination, asserting it DOES change while the utility one does not.
+- The 103 standing `cta_names_unknown_destination` rows are untouched here.
+
+**Also worth one line for whoever disposes of those 103:** on this site the three
+labels are now honest against their targets, but a 130-character sentence is still
+being used as a button label ("Or call +44 (0) 7934 524 911 to talk through what a
+defined job looks like for your business"). `bugs_open/299` names the same thing on
+webdesign.uk as its "fourth, milder problem". It is the same producer writing prose
+into a field the template renders as a button, on two sites.
+
+Full working: `docs/leopardessconsulting/RUNNING_NOTES.md` 2026-08-18.

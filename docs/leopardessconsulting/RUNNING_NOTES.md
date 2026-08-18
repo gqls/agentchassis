@@ -2767,3 +2767,157 @@ to "dishonest" meaning "unfair".
    `./scripts/trigger-landmine-verifier.sh 'LANDMINES.md#the-whole-build-pipeline-stops-dispatching-and-nothing-says-so-items-stay-triage'`
    (two other lanes' entries are in the same state — the sync reported 3 needing
    verification).
+
+---
+
+## 2026-08-18 — the home page: four misdirected CTAs fixed, and two new ways of showing the evidence
+
+Owner ask, verbatim in effect: *"create two new better ways of presenting the data on
+the home page … use the framework's tools like visual editor and experience loop to
+improve how the customer sees these blocks visually. The copy is ok. The 'Tell us what
+you want to automate' button links through to the password tool — it should link to the
+contact details page."*
+
+### First, three corrections to the brief, because two of them changed what I built
+
+1. **There is no visual editor in this framework.** The only mention anywhere in the
+   tree is an unticked `- [ ] Phase 7: Visual editor` in `docs006_workflow_builder`.
+   Nothing to use, so nothing was used; the work below is DB-authored and verified at
+   the rendered artefact instead. `[VERIFIED 2026-08-18: grep -rniE "visual.?editor"
+   over *.go/*.md/*.ts/*.tsx/*.js → one hit, that checkbox]`
+2. **The button no longer says "Tell us what you want to automate."** A loop had
+   rewritten the label to *"See the systems we have built"* while leaving the href on
+   the password tool. I restored the owner's label AND pointed it at `/contact.html`,
+   which is what he asked for; had I only fixed the href, the page would have read
+   "see the systems we have built" and gone to a contact form.
+3. **It was not one broken button, it was four.** All four home-page CTA destinations
+   pointed into `/tools/`.
+
+### The chassis roll, checked rather than assumed
+
+`v1.0.1310`, both replicas. Provenance line from the service's own startup log:
+`git_commit 0b185bad2a49c6e032352fa9e7d0b429f0a95104`, which is **HEAD** —
+`git rev-list --count <stamp>..HEAD` = **0**, so this build genuinely ships current
+code and is not the cached-image case (MEMORY [[a-fresh-deploy-can-ship-no-new-code]]).
+Re-confirmed with `grep -a` on `/proc/1/exe`, with a random-hex control ABSENT in the
+same exec so the probe is known to discriminate.
+
+That matters because `bugs_open/248`'s fix (`53a8d3c1d`) is an ancestor of that stamp —
+**live** — which is what made the CTA repair worth doing rather than a repair that the
+next resolve would undo.
+
+### The four CTAs
+
+| slot | label | was | now |
+|---|---|---|---|
+| hero primary | "Tell us what you want to automate" (restored) | `/tools/password-entropy.html` | `/contact.html` |
+| hero secondary | "See how we work, from first conversation to production" | `/tools/ai-agent-roi-estimator.html` | `/how-it-works.html` |
+| cta primary | "Book an architecture conversation" | `/tools/tool-agent-complexity-estimator.html` | `/contact.html` |
+| cta secondary | "Or call +44 (0) 7934 524 911 to talk through…" | `/tools/ai-agent-roi-estimator.html` | `/contact.html` |
+
+**A misstep worth the line: my first UPDATE matched 0 rows and the verify block caught
+it.** I had captured `page_components.id` values four queries earlier and addressed the
+UPDATE by id. Those ids are **not stable across rerenders** — it is written in this
+directory's own quick-reference table and I used the ids anyway. The transaction printed
+`UPDATE 0` twice and then raised, so nothing shipped; addressing by `(page_id,
+slot_name)` worked first time. **A `DO`/`RAISE` block is not paperwork — it is the only
+reason a no-op did not read as a success.**
+
+Survival is measured, not assumed, and it is contributed to `bugs_open/248` as that
+lane's owed artefact proof: the three authored `/contact.html` destinations survived
+**two** `section_data_resolved` rerenders, stored and served, with a **demand control**
+in the same run (the chart tone change below did ship, so the renderer provably ran).
+The honest caveat is in the bug file: `hero.secondary_cta_url = /how-it-works.html`
+survived too, and that is a NON-utility destination the keep-branch should not protect,
+so my evidence cannot yet separate "the fix held" from "nothing was recomputed".
+
+### Two new presentations — both are EXISTING framework components, not new code
+
+The diagnosis first, because it decided the design. The home page carried two blocks
+that say **the same five things twice**: `features` (6 icon cards) and
+`differentiators-section` (5 bordered cards) both assert record-keeping, stage-by-stage
+approval, the Companies House check, the Kubernetes/Kafka/Postgres stack and "we run it
+ourselves". Two undifferentiated text grids in a row. And the site's most persuasive
+content — every measured figure — was buried mid-paragraph in centred 12px grey body
+text: *"More than 2,000 of the records… 937 of them enriched… 5,798 veterinary
+companies… more than 150 agent definitions, 77 of them active"*.
+
+So: lift the numbers out, and break the two grids apart. Both were already built:
+
+- **`stat-band`** (`62859c4c`) — four figures with label and caption, placed between the
+  hero and `features`. Every value traces to a fact in this site's `evidence_base`
+  register, and the two whose tolerance is `gte` are stated as **floors** because their
+  own `writer_line` demands it (`C1-records-verified` carries the 2026-07-20
+  overclaiming incident in its `notes`). 22 sites · 2,000+ records · 78 agent
+  definitions · 10,000+ news items.
+- **`evidence-chart`** (`f8c2393c`, register VIZ-001) — placed after `features`, whose
+  third card is the Companies House claim. Two bars: records verified (2,338) and, as a
+  subset, those enriched with filed accounts (937). **No figure is typed into the page**
+  — each point names a `fact_id` and the renderer resolves the value and stamps
+  `verified 2026-08-18` under each bar.
+
+Reuse, not build: `fundamentallyai.com/index.html` already runs exactly this pair in
+exactly this order (hero → stat-band → evidence-chart), so the shape is proven live.
+The charts are declared in the **aspect** (`site_specs.evidence_base.charts`), never in
+`content_data` — both fields are aspect-sourced and a `content_data` edit is re-derived
+away (the landmine this lane wrote two days ago).
+
+New section order: `hero, stat-band, features, evidence-chart, generic-text-block,
+differentiators-section, call-to-action` — which also puts a gold band and a chart
+between the two near-identical grids.
+
+### The visual check, and the two defects it produced
+
+**The render audit lied to me first.** `scripts/render_audit.py` on the new page printed
+`ERROR probe produced no result` and then **`1 page(s): 0 contrast failure(s), 0 broken
+image(s)`, exit 0.** A gate that passes while blind. Cause: the probe renders its
+injected copy from a `/tmp` workdir and **a snap-confined Chromium cannot read `/tmp`**
+— it renders its own error page. Reproduced in one line, both directions (`/tmp` →
+Chrome's boilerplate; the identical file under `$HOME` → real content).
+Fixed both halves in `scripts/render_audit.py`: errored pages are counted, printed as
+*"the zeros above are silence, not a pass"*, and included in the exit status; and the
+workdir is overridable via `RENDER_AUDIT_TMP`. **The workdir override did not make it
+work under snap** — something beyond `file://` is confined — so the route that does work
+is running the audit's own `AUDIT_JS` against the LIVE url over CDP
+(`scripts/audit_live.py`), which is also more faithful than re-injecting fetched HTML.
+
+Result, both widths `[MEASURED 2026-08-18]`: **0 broken images, no horizontal overflow,
+1 contrast finding** — the hero's secondary button at 3.95:1 against 4.5:1, and it
+carries `overImage: true`, so the ratio is the tool's approximation over a photographic
+hero, not a measured background. Pre-existing, untouched by this work, and a real fix
+means changing a hero component shared across nine sites — architecture scope, not a
+site session's call. Recorded, not fixed.
+
+**Then the defect no check could have caught, found by looking.** The chart's second bar
+used `tone: "muted"`, which resolves to `var(--color-secondary, …)`; on this site's
+light card that renders as a near-white cream on a near-white track, so a bar at 40% of
+the axis **read as an empty track** — i.e. as zero, the opposite of what it said. The
+number beside it was correct, the length was correct, and every automated check passed:
+the render audit measures TEXT contrast and a bar is not text, and the claims gate
+cannot see inside graphical furniture at all (VIZ-009). The only prior live example
+(fundamentallyai) has that bar at 0%, so its colour had never mattered.
+Switched to `tone: "accent"` (`--color-accent: #d97706`) in the aspect, rerendered,
+re-clipped the same element — now unmistakable. Both landmines are filed and their
+verifiers armed (`700e8d8f`, `c5116f4b`).
+
+### Verified at the served page
+
+```
+bytes 28,585 -> 38,894           two new sections present
+stat-band                35 matches      evidence-chart         42 matches
+'Tell us what you want to automate'  1   'password-entropy'      0
+href="/contact.html" class="cta-btn cta-btn-primary"      present
+evidence-chart__bar--accent  2           needs_page escalations  0
+render audit @1280 and @390: 0 broken images, no overflow, 1 approximate finding
+```
+
+Backups: `bak_leo_home_pc_20260818`, `bak_leo_home_pc_20260818b`,
+`bak_leo_evidencebase_20260818`, `bak_leo_home_page_20260818`.
+
+### Missteps this session
+
+1. Addressed an UPDATE by a captured `page_components.id` — not stable across rerenders;
+   caught by the verify block, cost nothing but one round.
+2. Read a render-audit "0 failures" as a pass for about a minute before noticing the
+   ERROR line above it. That is the exact shape this estate keeps writing down, and I
+   still nearly banked it — hence the tool fix rather than just a note.

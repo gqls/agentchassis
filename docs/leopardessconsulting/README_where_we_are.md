@@ -1120,3 +1120,58 @@ there.
 The parts that need no decision — the two remaining "honest"s and a phrase you flagged as
 not your voice ("earns its keep") — are written up and ready to run, but not run, because
 publishing them needs the model access that is currently off.
+
+**2026-08-18, evening — the home page now shows its evidence instead of burying it, and four buttons that went to the wrong place have been fixed.**
+
+You spotted one button. There were four. Every call-to-action on the home page pointed
+into the tools section: the one you found went to the password calculator, "Book an
+architecture conversation" went to a complexity estimator, and the line inviting people
+to call the office phone number went to an ROI calculator. All four now go where their
+words say they go, and the button you asked about is back to reading "Tell us what you
+want to automate" and goes to the contact page. Worth knowing why the label had
+changed: an automated pass had rewritten it to "See the systems we have built" and left
+the wrong link underneath, so fixing only the link would have produced a button saying
+one thing and doing another.
+
+This is a known platform bug, and the fix for it went live yesterday. I have added our
+evidence to that bug file, including a check that our repaired links actually survive
+the page being rebuilt — they did, twice.
+
+On the presentation. Two things were wrong with how the home page showed what it knows.
+First, it said the same five things twice: there were two lists of cards, one after the
+other, making the same points in slightly different words. Second — and this was the
+real waste — every hard number we have was buried in the middle of a paragraph of small
+grey centred text. "More than 2,000 records verified", "5,798 veterinary companies",
+"78 agent definitions" — the most convincing material on the site, effectively invisible.
+
+So there are two new blocks, and neither is new code: both already existed in the
+platform and are already running on fundamentallyai.com, so this is our own framework
+being used properly rather than anything hand-built.
+
+**A band of figures**, directly under the headline: 22 sites, 2,000+ records checked,
+78 agent definitions, 10,000+ news items — each with a line saying what it means. Where
+a number moves over time we state a floor rather than an exact count, which is the rule
+we adopted in July after the site was caught overclaiming.
+
+**A chart of the Companies House work**, further down: one bar for records verified
+against the register, a second for the subset that also carry filed accounts. The
+important part is that neither number is typed onto the page. Each bar names a fact in
+the site's own register and the figure is read from the database when the page is
+built, with the date it was last checked printed underneath it. It cannot go stale
+without saying so.
+
+Two things I should flag.
+
+The framework has no visual editor. There is a line in an old planning document
+proposing one, and nothing else — so this was done by editing the site's data and then
+looking hard at the result, rather than by dragging things around.
+
+And the tool we do have for checking how a page looks told me the page was perfect
+before it had looked at it. It printed an error, and then a summary saying "0 failures",
+and exited successfully. I have fixed it so that a page it could not measure is counted
+and reported instead of silently passing. That matters beyond this page: as it stood,
+anyone using it as a safety check was getting a green light from a tool with its eyes
+shut. Good thing too — when I looked at the new chart by eye, one of its two bars was
+drawn in a colour so close to its background that it read as empty. The number beside it
+was right, the bar was the right length, and every automatic check was happy. It is now
+gold and unmistakable, and I have written the trap down so the next site does not repeat it.
