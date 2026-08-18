@@ -122,8 +122,15 @@ already non-zero at t=0 evidences nothing at t+n — take the baseline, or watch
    at a registrar parking page. Phase E meets this on ~140 domains. Either the build pipeline
    acquires a domain-pointing step, or it is deliberately manual and the fleet plan budgets
    for it. **Do not fix this quietly** — it changes what "the pipeline builds a site" means.
-3. **Phase D decisions**, unchanged and still outstanding: `loanzy.uk` (L9) conflict with the
-   webdesign lane, the B8/B9/I10 holds, and build order across the remaining domains.
+3. ~~**Phase D decisions**, unchanged and still outstanding: `loanzy.uk` (L9) conflict with the
+   webdesign lane, the B8/B9/I10 holds, and build order across the remaining domains.~~
+   > **CORRECTED 2026-08-18 (loanzy.uk lane, reading this handoff cold):** this bullet is a
+   > stale carry-forward from `PLAN_2026-08-12` §Phase D — **the owner answered all three at
+   > P9 on 2026-08-15** and this lane's own `HANDOFF_2026-08-15` §7 records them: `loanzy.uk`
+   > **stays with the webdesign lane** (register L9, P9 note); **B8/B9/I10 = HOLD**, excluded
+   > from the first waves; **build order = family-by-family, M → B → I**. Nothing in Phase D
+   > is blocked on the owner. Caught because a session was sent to pick `loanzy.uk` up and
+   > found it listed here as an open question the owner had already closed three days before.
 
 **This lane can do without waiting:**
 4. **Work the pilot\'s HITL queue** — 10 × `unresolved_cta`, 4 × `needs_page`, 1 ×
