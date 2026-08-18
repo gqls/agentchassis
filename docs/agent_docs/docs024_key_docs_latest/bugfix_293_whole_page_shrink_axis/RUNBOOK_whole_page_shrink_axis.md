@@ -103,3 +103,97 @@ SELECT created_at, spec->>'reason' FROM site_work_items
 SELECT count(*) AS rebuild_writes, max(created_at) FROM page_component_history
  WHERE op='delete' AND created_at > now() - interval '24 hours';
 ```
+
+## INDUCED REFUSAL — proven at the artefact 2026-08-18 on `v1.0.1309`, and safe in BOTH branches
+
+The point of this recipe is that it cannot damage a page. **The payload is the page's own sections,
+byte-for-byte**, so a refusal writes nothing and a *failure* to refuse writes back identical content.
+Nothing else about it needs trusting.
+
+⚠ **Do NOT induce by shrinking a real page's content on this path.** `save_page_sections` is
+DELETE-then-INSERT: if the guard does not fire, the page is left holding whatever you sent. That is the
+damage of `bugs_closed/285`, which is what this guard exists to prevent.
+
+⚠ **Do NOT induce by raising a floor on a live `agent_definitions` row and waiting.** A refusal fails
+the step, and none of the three build loops sets `continue_on_error`, so it can strand every page after
+it in that loop. It also edits shared config other lanes depend on.
+
+```bash
+S=<scratch>; PAGE=<page uuid>; SITE=<site uuid>
+# 1. SNAPSHOT first — this is both the payload and the before/after evidence.
+kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -At -c "
+SELECT json_agg(row_to_json(t) ORDER BY t.position)::text FROM (
+  SELECT id::text, slot_name, position, COALESCE(component_id::text,'') AS component_id,
+         rendered_html, COALESCE(content_data,'{}'::jsonb) AS content_data, build_status
+  FROM page_components WHERE page_id='$PAGE' ORDER BY position) t;" > $S/before.json
+```
+Build a ONE-LINE JSON body (python; `separators=(",",":")`) — the step config is the whole trick:
+
+```
+config.workflow = {start_step:"induce_save", steps:{
+  induce_save:{action:"save_page_sections", next_step:"complete", config:{
+     page_name_field:"input_data.page_name",         # override the default current_page.name
+     site_id_field:"input_data.site_id",              # override site_record.site_id
+     sections_metadata_field:"input_data.sections",   # naming this avoids the ambiguous-caller path
+     page_total_text_floor:0.95 }},                   # see the NOTE below
+  complete:{action:"complete_workflow"}}}
+input_data = {page_name, site_id, sections:[{stored_slot_name, rendered_html, component_id, content_data}, …]}
+```
+`stored_slot_name` is taken VERBATIM (`bugs_open/189`) — use it, or the save renames the slot and the
+lock/decision matching misses the row it protects.
+
+> **NOTE, changed 2026-08-18.** The original run used `page_total_text_floor: 1.5`, which refuses even
+> identical content (100% kept < 150%) — perfectly safe, and it is how the refusal was first proven.
+> That also exposed a missing clamp, now fixed: the floor is capped at 0.95 like its siblings, so
+> **identical content is no longer refusable**. Repeatable recipe: keep the payload identical except
+> drop ~10% of ONE slot's prose (e.g. delete a sentence), which puts the page total under 0.95. The
+> worst case if the guard is broken is that the page loses one sentence, and you are holding the
+> original in `before.json`.
+
+```bash
+CORR=$(uuidgen); ORCH=$(uuidgen)
+kubectl -n kafka run -i --rm kcat-293-induce-$(date +%s) --image=edenhill/kcat:1.7.1 --restart=Never -- \
+  kcat -P -b personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092 -t system.agent.generic.requests \
+  -H correlation_id=$CORR -H orchestration_id=$ORCH -H message_type=request -H client_id=demo_client \
+  -H action=process -H sender_agent_type=cli -H sender_agent_id=cli-user \
+  -H responses_topic=system.agent.generic.responses < $S/induce293.json
+```
+⚠ **`kcat -P` exits 0 having sent nothing** — the orchestration row is the only proof of publication.
+
+### The four checks, in the order that makes them meaningful
+
+```sql
+-- (a) it fired, in the shipped binary
+SELECT status, current_step, error FROM orchestration_states WHERE orchestration_id='<ORCH>';
+--    FAILED | induce_save | ...PAGE CONTENT REGRESSION REFUSED... 581 chars of VISIBLE text against 581
+--    deployed across 3 sections (100% kept, floor 150%)...
+```
+**Read the numbers, not just the refusal.** 581 visible chars on a page holding 7,343 BYTES of HTML is
+the whole finding: the retired axis would have counted the markup and seen no problem.
+
+```sql
+-- (c) the queue surface, with its OWN remedy sentence and not a sibling's
+SELECT status, severity, summary, spec->>'fix' FROM site_work_items
+ WHERE item_type='save_refused_incomplete' ORDER BY created_at DESC LIMIT 1;
+```
+**(b) THE ARTEFACT, which is the assertion** — re-run the snapshot query into `after.json` and compare
+**the row ids as well as the bytes**: identical ids prove the DELETE never ran, where identical bytes
+alone would also be consistent with a delete-and-reinsert of the same content.
+
+**(d) THE ALLOW ARM, or a refusal-only test certifies a guard that refuses everything.** Do NOT
+manufacture a successful whole-page save for this — it rewrites real rows. Take it from live traffic
+instead: export the window's pairs and confirm the guard judged real writes and allowed them
+(2026-08-18, `v1.0.1309`: 6 rebuild writes, 4 in scope on the live axis, 0 refused, and the only
+refusal on the whole image was the induced one).
+
+### Afterwards — CANCEL the synthetic row
+
+It lands as `needs_human_review`, severity high, and it describes an event that did not happen. Leaving
+it is a false alarm in an operator's queue.
+```sql
+UPDATE site_work_items SET status='cancelled',
+  result = COALESCE(result,'{}'::jsonb) || jsonb_build_object('reason','SYNTHETIC - induced to prove …')
+WHERE id='<the row>';
+```
+`cancelled` is in `workItemTerminalStatuses` (migration 157), so it releases the dedup slot — which is
+what lets the induction be repeated.
