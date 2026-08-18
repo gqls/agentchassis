@@ -79,9 +79,20 @@
 
 BEGIN;
 
-SELECT snapshot_agent('asset-deployer', '467_asset_deployer_brand_head_purpose_fallback.sql: pre-update');
-
--- Before-assertions: the chain is the one this file was written against.
+-- Before-assertions FIRST, snapshot second (reordered 2026-08-18, council round-1
+-- objection from debug_historian on this very file, corr 85afbafc): a snapshot
+-- taken before the gate means a re-run of an already-applied file still writes a
+-- fresh row labelled 'pre-update' when nothing pre-update is happening — and any
+-- rollback recipe reading ORDER BY snapshot_taken_at DESC LIMIT 1 then restores
+-- the POST-change state believing it the before-image. The first application
+-- (2026-08-18, pre-reorder) took its snapshot correctly because the gate passed;
+-- this ordering exists for every run after it.
+--
+-- Two-active-rows landmine, settled by query 2026-08-18 rather than assumed:
+-- the four types carrying two active rows are chief-strategist, content-creator,
+-- content-creator-contact, site-component-architect — asset-deployer is NOT one,
+-- and the $pre$ block's count(*)=1 assertion makes that a hard guard, not a hope
+-- (at first application it read exactly 1, and the UPDATE reported UPDATE 1).
 DO $pre$
 DECLARE v_else text; v_rows int; v_new_step jsonb;
 BEGIN
@@ -110,6 +121,9 @@ BEGIN
         RAISE EXCEPTION 'check_brand_head_purpose already exists — this migration has already been applied, or another session shipped it';
     END IF;
 END $pre$;
+
+-- Snapshot only once the gate has passed — see the reordering note above.
+SELECT snapshot_agent('asset-deployer', '467_asset_deployer_brand_head_purpose_fallback.sql: pre-update');
 
 UPDATE agent_definitions
    SET default_config = jsonb_set(

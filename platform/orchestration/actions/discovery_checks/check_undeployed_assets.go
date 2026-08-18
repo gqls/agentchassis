@@ -488,6 +488,18 @@ func gradesBrandHeadAssets(target VerifyTarget) (bool, string) {
 //     there). Verification cannot decide either, so it returns an error —
 //     fail-closed under RFC_017, routed to the attempt machinery with
 //     _verification.status='error' saying why, never a false pass.
+//
+// ON assets.url BEING COMPARED AT ALL (council round-1 HIGH objection, corr
+// 85afbafc): the fleet landmine that assets.url can hold a presigned S3 URL
+// (7-day expiry, never a stable path) is about OTHER writers. For brand-head
+// rows the writer is recordDerivedAsset, which stores the literal published
+// path ("/assets/images/…" — the webPath argument, not a presigned URL), and
+// this was measured on live rows, not inferred: all four rows for the two
+// sites redriven on 2026-08-18 read exactly the published path. If some other
+// writer ever puts a presigned URL on a brand-head row, the mismatch lands in
+// the cannot-tell branch above → attempt machinery → re-derive →
+// recordDerivedAsset's upsert REWRITES url to the published path — so the
+// failure mode is one extra derivation, not unresolved-forever.
 func VerifyBrandHeadAssetsResolved(ctx context.Context, db *sql.DB, target VerifyTarget, logger *zap.Logger) (VerifyResult, error) {
 	var purposes []string
 	if purpose, _ := target.Spec["purpose"].(string); purpose != "" {
