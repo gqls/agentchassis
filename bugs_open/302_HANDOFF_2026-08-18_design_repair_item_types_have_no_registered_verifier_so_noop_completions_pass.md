@@ -267,6 +267,20 @@ Mutation-proven M1–M6, exit-status gated, unmutated control, both files restor
 (matrix in the lane NOTES; M4 is the instructive one — deleting the fifth reason arm does not
 error, it falls through to `verification_failed`, a finding no gate made).
 
+> ### ✅ ROLLED 2026-08-18 18:00Z on `agent-chassis` `v1.0.1310` — PRESENT on both replicas, BEHAVIOURALLY UNPROVEN
+> Proven at the artefact, not inferred from the roll: image label revision `0b185bad2`, two-sided
+> ancestry (`743bc1945` **in**, HEAD `01770302d` **not in**, so the check discriminates), running
+> `imageID` digest `sha256:9ca35bac…` identical on both pods and matching the tag inspected, and a
+> per-replica binary probe returning `handler_result_unreadable` **present**, long-live control
+> `NO_CHANGE_GATE_UNREADABLE_RESULT` **present**, two nonsense needles **absent**. The
+> `build provenance` log line had already scrolled on 38-minute-old pods — "could not look", not
+> "unstamped".
+> ⚠ **[MEASURED 18:38Z] 0 rows of this type touched since the roll, 0 carrying the new status, and 0
+> fresh abstain records — but that last zero is VACUOUS**: this file's own plan nominated it as the
+> "the refusal is not wired" control, and with no demand it could not have come out otherwise. Fleet
+> completions in the window: 18. **Status: deployed, not behaviourally proven**, carried by the
+> wiring test rather than a live row.
+
 ⚠ **NOT proven live, and it cannot be without manufactured demand.** Zero `dark_section_audit`
 rows touched since the `v1.0.1307` roll (1,862 fleet completions in the same window) and both
 carriers that dispatch the type are `enabled=false`. After a roll the honest status is **"deployed,
