@@ -5,7 +5,26 @@ export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     const hostname = url.hostname;
-    
+
+    // www -> apex, permanent (owner ruling 2026-08-18: one site, one address).
+    //
+    // Until this, NO zone carried a `www` record at all, so `www.<domain>` was
+    // an outright DNS failure on all 39 zones rather than a redirect. The
+    // proxied `www` DNS record and the matching `www.<domain>/*` worker route
+    // are added per zone alongside this change — so this branch is UNREACHABLE
+    // until a zone has both, and deploying it on its own changes nothing that
+    // serves today.
+    //
+    // It must stay ABOVE the object-key construction: the key is
+    // `<hostname><path>`, and every object in the bucket is stored under the
+    // bare domain, so a www request that reached that line would look up
+    // `www.<domain>/index.html`, miss, and 404 — which is why a `www` CNAME
+    // without this redirect is worse than no record at all.
+    if (hostname.startsWith('www.')) {
+      url.hostname = hostname.slice(4);
+      return Response.redirect(url.toString(), 301);
+    }
+
     let path = url.pathname;
     if (path === '/' || path === '') {
       path = '/index.html';
