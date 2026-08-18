@@ -1519,3 +1519,70 @@ take. It is worth a deliberate look at whether any buyer counts as a consumer ra
 business, because the distance-selling rules give consumers a cancellation right that sits
 awkwardly with pay-upfront-no-refund. Most of your buyers are businesses, so it may be
 nothing. Your call, and I will not raise it again.
+
+---
+
+## 2026-08-18 (afternoon) — the old £1,200 offer is out of the machinery, and the briefing questions now work for any kind of site
+
+Two jobs you asked for, both done and both bigger than they looked.
+
+**Removing the £1,200 and everything that went with it.** You asked me to sweep the
+briefing aspect. The briefing aspect turned out to be one of *nine* places. The
+evidence base had been corrected twice and the live pages rewritten, but nine other
+internal documents had never been touched, and every one of them is something a
+writer or a planner reads before it writes your pages. Thirty-six separate bits of
+old copy.
+
+Two of them mattered much more than the rest. The **strategy** document said, in so
+many words, that the thing that makes webdesign.uk hard to compete with is the
+"refund until you accept" guarantee. That guarantee no longer exists. Anything
+planning a page off that document was building the argument on a promise we retired.
+It now says what is actually true: the site is built by software in one pass, so the
+price and the turnaround are what a competitor working by the hour cannot match.
+
+The other was the **content direction** document, which contained a live instruction
+telling writers to state "the number of revision rounds included in the price and the
+length of the review window". Those are now *banned claims* on this site. So one
+document was ordering writers to write the very sentences another mechanism blocks.
+That is very likely why the FAQ rewrite failed this morning on "rounds of changes",
+though I want to be straight with you that I have not proved that link, only shown
+it is plausible.
+
+I left the £1,200 in three places on purpose: the price fact and the turnaround fact
+each record *why* they changed ("supersedes the £1,200 price attested 2026-08-03").
+That is the audit trail of what replaced what, it is not customer-facing, and
+deleting it would destroy the only record of the change.
+
+**The briefing questions.** These are what the system asks itself about a site before
+it plans the pages. They were a corporate brochure form: company name, about us,
+services, leadership team, case studies. All required, or nearly.
+
+Two things were wrong with that. You have ruled that we build any sort of site, not
+just business sites, and the very first question demanded a company. And, checking
+across everything we have built: only six of twenty-three sites are brochures. Twelve
+are interactive platforms. So for most sites we were asking for a leadership team
+that does not exist.
+
+It now asks five things instead: what the site is for, who it is for, what it has to
+do for that person, how it should sound, and what to avoid. Those are the same five
+things the chat box now draws out of a visitor, which is the join you were after —
+what the chat collects finally has somewhere to go.
+
+**On your question about pageflow-builder.** I would keep it and improve it, and the
+numbers are why: it is not an old side route, it is the route. It is the chosen
+builder on twenty of the twenty-one sites we have briefing records for, and it owns
+the only set of briefing questions in the whole fleet. Replacing it is not swapping a
+component, it is replacing the road.
+
+But the real thing you put your finger on is not the builder's age. It is that
+pageflow does it in one pass, while the normal cycle raises triage items — better
+work, slower, and much harder to promise a delivery date for. That matters
+commercially now in a way it did not before: "usually ready the next day" is an
+attested fact we sell on, and a triage-driven build cannot honour it reliably. So the
+choice is really between the better site and the promise we have already made. That
+one is yours, and I have not touched it.
+
+You also said you would take my suggestion on the third item, so the human-in-the-loop
+step stays where I put it in the order: after the questions are right, and routed
+through the work-item queue that already has a working screen rather than the
+orchestration one that has never once been used.
