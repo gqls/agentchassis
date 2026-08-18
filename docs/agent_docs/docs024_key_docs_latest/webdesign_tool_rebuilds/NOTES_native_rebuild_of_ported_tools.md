@@ -1157,3 +1157,18 @@ machinery (TL-044 + seed 435). Also: the Tier-4 judge fix went LIVE on v1.0.1310
 fenced ported tool that fails its browser run now files `ported_tool_fix` — you may see
 those appear for subjects you haven't reached yet; they are queue-ordering signal, not new
 work types.
+
+## 2026-08-18 18:45Z — #8 LIVE and PASS at the served bytes
+
+Rerender `07e6c627` complete 18:45:25Z. Cache-busted grade of
+`https://webdesign.co.uk/tools/json-cleaner/index.html`: `http=200`, 13,770 B ·
+`class="ported-page"` **0** · `{{\.` **0** · new ids `json-input` / `error-area` / `limit-message` /
+`process-btn` **1 each** · **old id `jsonInput` 0** (the decisive negative — it rules out a stale
+render, which no positive check can) · **`onclick=` 0 across the whole page** · controls 0 / 7.
+
+**8 live and proven. Five of the eight ported tools examined were measurably broken in production:**
+html-minifier (comment removal inert + corrupted pre/script content), svg-optimizer (comment removal
+inert), json-cleaner (NaN limit silently disabled truncation; parse error destroyed the output),
+ab-test (hollow 13 KB shell serving 47 raw tags — found before this batch). **None of it was visible
+from the page.** Reading the live script before writing each brief is the single step that found all
+of them, and it costs about two minutes per tool.
