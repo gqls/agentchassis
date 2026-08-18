@@ -54,3 +54,26 @@
 - Council: `Council-Submitted: 70cf0da5-e91a-42f0-8dd6-0cb5710b51dc`. Register: CLC-019.
 - **Still owed:** read the council verdict and act on REVISE/REJECTED; after the next chassis roll,
   verify per the fix record (add_tool with angle-bracket description; the two items resolving).
+
+## 2026-08-18 (council round 1) — REVISE, and two of the objections were worth having
+
+Verdict at 18:57: **REVISE**, gating objection from editquality — edit 6 (store_generated) was
+contingent on the 309 lane's commit at submission time. It landed (`e21b172f0`) eight minutes after
+the round went in, so three seats' objections (editquality/guardian/debug_historian, all on the
+contingency) were moot by facts, not argument. The round's real products:
+
+- **prior_art_librarian asked whether the repo already imports an HTML tokenizer — it DOES**
+  (`golang.org/x/net/html`, used by claims.go and section_visible_text.go). I had not checked; the
+  seat was right to ask. The checked answer (those callers parse assumed-WHOLE documents; a spec
+  tokenizer's EOF-recovery normalises exactly the malformedness a truncation guard detects — e.g. a
+  tag cut mid-open emits NO StartTag, losing a true positive the old counter caught) is now in
+  `markup_balance.go`'s header (`0e21e3cf1`) so it is not re-litigated.
+- **debug_historian asked for the pod-verification recipe** — added to the bug file's fix record
+  with must-hit and must-miss controls.
+- editquality's edit-8 point (a test file bundled inside another file's sketch) was declaration
+  hygiene, fixed in the r2 plan; the feared build-break window never existed (mirror var and mirror
+  test retired in the same commit).
+
+Round 2 resubmitted under the same correlation (`RESUBMIT_CORR`), run `d353d5de`. Lesson upheld:
+a REVISE round is cheaper than the defect it finds — two of five objecting threads produced real
+improvements, and none required defending the design.
