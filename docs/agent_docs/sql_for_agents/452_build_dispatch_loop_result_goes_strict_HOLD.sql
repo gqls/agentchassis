@@ -1,12 +1,12 @@
 -- 452 — build-dispatch-loop: process_item's mark_complete `result` and
 -- `work_item_id` go STRICT (`!`), and mark_complete gains an error route
 --
--- bugs_open/287 (spawn_record slug), Half 2 / Migration B — THE closer for the
+-- bugs_closed/287 (spawn_record slug), Half 2 / Migration B — THE closer for the
 -- bug's headline symptom (~75% of loop-dispatched completions storing the SPAWN
 -- RECORD since the 08-15 roll).
 --
 -- ⚠⚠ HOLD: ORDERING-PREFERRED — APPLY BY HAND ONLY AFTER THE CHASSIS IMAGE
--- CARRYING bugs_open/287's Half 1 (commit 0ed96c7eb, the generic suffixing pass
+-- CARRYING bugs_closed/287's Half 1 (commit 0ed96c7eb, the generic suffixing pass
 -- in prefixConfigStepReferences) HAS ROLLED on agent-chassis. THE GATE IS A
 -- POD-LEVEL BINARY CHECK, NOT A GIT-ONLY ONE (debug_historian objection, council
 -- corr cba35b35: merge-base ancestry alone is the documented trap — per-service
@@ -99,17 +99,23 @@
 -- WHILE the loop has traffic; item census spawn_record -> 0 while own_envelope
 -- rises. work_item_id/current_page conflict rows are NOT this bug's metric.
 --
--- ⚠ LEDGER ROW MISSING — APPLIED BUT NOT RECORDED. `--record-only` for this file
--- was refused twice by the session harness's permission classifier (the runner
--- script + a `_HOLD` filename), so `schema_migrations` has NO row for it even
--- though the change IS live (verified: UPDATE 1, DO verify passed, live config
--- reads result!/work_item_id!/error_step at 16:28:57Z). Do NOT read the missing
--- row as "unapplied". Re-run when permitted:
---   ./scripts/migration/run-migrations.sh --record-only \
---     docs/agent_docs/sql_for_agents/452_build_dispatch_loop_result_goes_strict_HOLD.sql \
---     --note "hand-applied 2026-08-17 16:28:57Z, HOLD gate converted"
--- Low risk of a double-apply meanwhile: SIDECAR_RE excludes `_HOLD.sql` from
--- `--apply`, and the UPDATE is fenced on the un-marked `result` key (replay = UPDATE 0).
+-- ⚠ NO LEDGER ROW, AND THERE NEVER CAN BE — this is STRUCTURAL, not a permissions
+-- problem. `> **CORRECTED 2026-08-18:**` this header previously blamed the session
+-- harness's permission classifier (which did refuse the call on 2026-08-17). The
+-- classifier was only the first cause; the runner ITSELF refuses:
+--   ERROR: '<file>' is an UPPERCASE-suffixed sidecar (rollback/verify), not a migration.
+--          Sidecars are never applied by the runner, so recording one is meaningless.
+-- Reproduced deliberately on the sibling `455_..._HOLD.sql` on 2026-08-18. So every
+-- `_HOLD` migration is unrecordable under its own name, and `schema_migrations` will
+-- read "pending" for a change that is applied, live and verified — a FALSE NEGATIVE
+-- pointing at "apply it again". Landmine filed (LANDMINES.md, footprint
+-- `--record-only` / `_HOLD.sql`), including the two ways to close the gap in the tool.
+-- **Do NOT read the missing row as "unapplied", do NOT hand-write the INSERT.**
+-- THE RECORD OF APPLICATION IS THE `doc_notes` ROW this file inserts below:
+--   SELECT created_at, left(body,80) FROM doc_notes WHERE body LIKE '## 452:%';
+-- plus the live config itself (`agent_definitions`, read it — result!/work_item_id!/
+-- error_step, verified at 16:28:57Z). Replay is safe regardless: the UPDATE is fenced
+-- on the un-marked `result` key, so a second run is `UPDATE 0`.
 --
 -- Idempotent: UPDATE fenced on the un-marked `result` key; doc_notes fenced.
 -- snapshot_agent is the TWO-ARG overload (writes agent_definitions_backup).
@@ -179,7 +185,7 @@ END $$;
 
 INSERT INTO doc_notes (subject_type, subject_key, body, categories, source, created_by)
 SELECT 'pipeline', 'build',
-$note$## 452: build-dispatch-loop mark_complete goes STRICT — bugs_open/287 (spawn_record), Migration B
+$note$## 452: build-dispatch-loop mark_complete goes STRICT — bugs_closed/287 (spawn_record), Migration B
 `result!: handler_result` + `work_item_id!: current_item.id` + `error_step: mark_failed` on process_item's mark_complete. With Half 1 (generic loop-expansion suffixing) live, the strict mapping expands to the iteration-suffixed reply key and resolves it directly; the whole-tree search — whose deterministic winner was the SPAWN RECORD (`handler_spawned.result`, 176x/day) — never runs for these fields. A genuinely absent reply now fails THAT item loudly (error route: mark_failed) instead of storing a foreign payload. Watch it land: RESOLVER_% rows field='result' for build-dispatch-loop -> 0 while the loop has traffic; site_work_items spawn-record census -> 0.
 Categories: migration$note$,
 '["migration"]'::jsonb, 'agent', 'bugfix-287-spawn-record-lane'

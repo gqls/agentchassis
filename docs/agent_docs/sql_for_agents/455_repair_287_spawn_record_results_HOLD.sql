@@ -1,4 +1,4 @@
--- 455 — bugs_open/287 (spawn_record): repair the historical work-item results whose
+-- 455 — bugs_closed/287 (spawn_record): repair the historical work-item results whose
 -- true reply is STILL RECOVERABLE, and mark what was replaced
 --
 -- ⚠⚠ HOLD: NEEDS THE OWNER'S GO. This is a bulk UPDATE of historical rows in a live
@@ -152,7 +152,7 @@ END $$;
 
 INSERT INTO doc_notes (subject_type, subject_key, body, categories, source, created_by)
 SELECT 'pipeline', 'build',
-$note$## 455: repaired the recoverable spawn-record work-item results — bugs_open/287
+$note$## 455: repaired the recoverable spawn-record work-item results — bugs_closed/287
 Between the 2026-08-15 roll and migration 452, dispatch-loop completions stored spawn_agent's ack as site_work_items.result instead of the handler's reply. This repaired the subset whose reply is still recoverable from the parent orchestration, joined EXACTLY (the parent must name this item as the one it processed in that iteration), writing the recovered reply plus `_replaced_spawn_record` (reversible from the row) and `_repaired_by`. The larger remainder is NOT recoverable — their parents' collected_data no longer holds the reply — and stays annotated: never read an item's result as evidence of what the work did; verify at the artefact.
 Categories: migration$note$,
 '["migration"]'::jsonb, 'agent', 'bugfix-287-spawn-record-lane'

@@ -1,6 +1,16 @@
 # RFC 035 — loop expansion rewrites ANY reference-shaped sibling-output config value (WFA-017): ratify, narrow, or revert
 
-## STATUS: OPEN — filed 2026-08-17 by the bugfix-287 lane, at the council's direction (guardian VETO + architecture seat `needs_rfc`, round 1, corr `cba35b35`). **The code is now LIVE (chassis v1.0.1307, 2026-08-17 17:05Z) and PROVEN** — see §8. So this is a ruling about live code, which is this estate's stated norm (2026-07-29 #2: "review here is after the fact, by design"), not a lapse. Options are unchanged; option (3) means a forward revert of live behaviour.
+## STATUS: **RULED 2026-08-18 — OPTION (1), RATIFIED BY THE OWNER. Shape-based rewriting is now the estate's convention for loop-substep config references; the allow-list is retired.** The code is LIVE (chassis v1.0.1307, 2026-08-17 17:05Z) and PROVEN (§8). Council round 1 was REJECTED on SCOPE (guardian veto, corr `cba35b35`) and the owner has overridden that veto on the merits — the same disposition as `bugs_closed/124` / BLD-019: **the code stands, and "live ≠ approved" still holds, so no `Council-Reviewed:` trailer may ever be written against that correlation.**
+
+### What the ruling settles, in one sentence each
+
+- **A loop-substep config value that is reference-SHAPED and whose first dotted segment names a sibling `output_field` IS a reference**, and loop expansion will iteration-suffix it — for every action, present and future, without anyone having to add a key to a list.
+- **The 8-key `dataRefKeys` allow-list is retired as a contract.** It survives in the code only as an ordering detail (it runs first); nothing may be added to it as a way of opting a new key in, because opting in is no longer a thing an author does.
+- **`condition` expressions stay out of scope** (the shape gate excludes anything with spaces or operators). Conditional resolution remains its own seam; a partial rewrite of an `OR` carrying two references would be worse than today.
+- **What an author now owes:** if you write a literal into a loop-substep config, it must not collide with a sibling `output_field` name. That is the LANDMINE line on WFA-017, and the census query in `bugfix_287_spawn_record/RUNBOOK` is how you check a config you did not write.
+- **The guardian's objection is not dismissed, it is answered by monitoring rather than by argument:** a snapshot census cannot bound future configs, so the standing check is the resolver instrument (`RESOLVER_%` rows) plus that census query — a mis-suffixed literal surfaces as a resolution failure in whichever agent's loop runs.
+
+Filed by the bugfix-287 lane at the council's direction; ruled by the owner one day later.
 
 ## 1. What happened, plainly
 

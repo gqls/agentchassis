@@ -198,3 +198,33 @@ zero-row LATERAL walk").
   per-row proof is not available from the row — do not assert it. RFC_029's triage, not ours.
 - Register WFA-017 → **LIVE + PROVEN**; index row likewise; RFC_035 §8 records that the owner's
   ruling is now about live code (the estate's stated norm, 2026-07-29 #2).
+
+## 2026-08-18 — owner ruled both residuals; bug CLOSED
+
+- **RFC_035 → RATIFIED (option 1).** Shape-based rewriting is the estate's convention; the
+  `dataRefKeys` allow-list is retired as a contract. Council r1's REJECTED (guardian SCOPE veto)
+  is **owner-overridden on the merits** — the `bugs_closed/124`/BLD-019 disposition. Recorded in
+  RFC_035's STATUS (clause by clause), WFA-017 and the index row. **No `Council-Reviewed:` trailer
+  may ever be written on corr `cba35b35`** — the verdict was REJECTED and that is permanent.
+- **Migration 455 APPLIED: `UPDATE 35`**, verify passed, doc_notes written. 35/35 carry the reply,
+  35/35 reversible, 35/35 keep their true completion time, 0 still spawn-shaped. Spot-read at the
+  artefact: a page-rerender item now holds `deploy_result.success: true` with the deployed file
+  list.
+- **Two figure corrections, one mine, one decay** (`WRONG_CALLS.md`, bug §11d):
+  the "3,330 spawn-shaped items" I reported was a `count(*)` over a **LEFT JOINed** set — (item ×
+  matching parent) pairs, not items. True population ~950–975 (974 measured; 1,186 joined rows =
+  1.22× inflation today, ~3.5× yesterday when more parents existed). And 303 → 35 is REAL decay:
+  of the 939 unrepaired items left, **ZERO** have any surviving parent orchestration, so the
+  reply is gone for good. **~88% of the repair window expired in 21 hours.**
+- **⚠ CAUGHT MID-EDIT: I nearly broke migration 448's ledger checksum.** Repointing
+  `bugs_open/287` → `bugs_closed/287` across cross-references, I edited `448`, which is **applied
+  and recorded**. The ledger stores an **md5** of the file (`schema_migrations.checksum`), so any
+  text edit — even a doc path in a comment — drifts it. Restored with `git checkout` and verified
+  byte-exact: file md5 `75426e00…` == ledger `75426e00…`. **So 448 keeps its stale `bugs_open/287`
+  pointer deliberately**, exactly as migrations `420`/`438` keep theirs (CLAUDE.md's own note).
+  `452`/`455` were safe to edit: `_HOLD` files are unrecordable, so they carry no checksum.
+- **Tooling gap filed as a LANDMINE** (footprint `--record-only` / `_HOLD.sql`): a `_HOLD`
+  migration can never be ledger-recorded — the runner refuses sidecars, so `schema_migrations`
+  reads "pending" for an applied, live, verified change. Its `doc_notes` row is the audit trail.
+  Yesterday I misdiagnosed this as a harness permissions block; corrected in the 452 header.
+  Verifier armed via `landmines-verify-dispatch.sh` (dispatched 1, 0 failed).

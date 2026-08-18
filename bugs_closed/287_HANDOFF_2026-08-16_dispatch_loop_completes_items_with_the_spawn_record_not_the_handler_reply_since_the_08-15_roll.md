@@ -1,22 +1,16 @@
 # 287 — build-dispatch-loop marks work items `complete` with the SPAWN RECORD as their result, not the handler's reply — appears at the 2026-08-15 10:14Z roll, ~75% of completions since
 
-## STATUS 2026-08-17 18:2xZ — **FIXED, LIVE AND PROVEN ON BOTH HALVES** (§11c). Kept here only until two OWNER decisions land; the defect itself is dead for new traffic.
+## STATUS: **CLOSED 2026-08-18 — fixed, live, PROVEN on both halves, both owner decisions landed, history repaired as far as the evidence survived.** (§11c the live proof · §11d the rulings and two corrections)
 
 | | state |
 |---|---|
-| **build-dispatch-loop** (86% of the defect) | **FIXED + LIVE + PROVEN** — mig `452` applied 16:28:57Z; a post-apply run completed **4/4 items carrying the handler's reply**, content checked at the artefact |
-| **diagnose-dispatch-loop** | **FIXED + LIVE + PROVEN** — mig `448` 12:19:59Z; its first post-apply run COMPLETED 17:0xZ and the item's `result` holds the real verdict (`status: UNVERIFIABLE`, summary, conclusion) where it used to hold the spawn record. So §6a's "read verdicts from `orchestration_states`, never the item" is now RETIRED for this agent |
-| **report-dispatch-loop** | config **LIVE** (same migration, identical shape) — **unproven for want of traffic**: zero runs since the apply. Demand-bound, not a failure |
-| **Half 1 (Go, WFA-017)** | **LIVE + PROVEN v1.0.1307, 17:05Z** — expanded plans read `result!: handler_result_0`; `field=result` resolver rows **0** (from ~455/day) with 10 runs of demand; 11/11 loop completions carry the reply; 0 spawn records (§11c). The earlier 14:42Z "fresh build" had shipped nothing (same tag, cached image) |
-| **Historical rows** | 3,330 wrong; **303 repairable**; mig `455_HOLD` written + dry-run proven, **awaiting the owner's go** |
-| **Convention question** | `RFC_035` open (guardian scope veto on Half 1 — ratify / narrow / revert; owner's) |
-| **Admin** | `452`'s `schema_migrations` row is **MISSING** (harness refused `--record-only`); it IS applied — command in the file header |
-
-**Why this file is still in `bugs_open/`:** by CLAUDE.md's bar (fixed AND live) it has earned
-`bugs_closed/`, and nothing is biting new traffic. It is held here for one reason only —
-**303 historical rows are still wrong and a reader of them is still misled today**, and the two
-owner decisions that settle this lane (`455_HOLD` go/no-go, `RFC_035`) are staged from here.
-Move it the moment `455` is decided; the fix needs no further work.
+| **build-dispatch-loop** (86% of the defect) | **FIXED + LIVE + PROVEN** — mig `452` (16:28:57Z 08-17) + Half 1 on chassis **v1.0.1307**; `field=result` resolver rows **0** (from ~455/day) with 10 runs of demand, **11/11** loop completions carrying the handler's reply, **0** spawn records |
+| **diagnose-dispatch-loop** | **FIXED + LIVE + PROVEN** — mig `448`; first post-apply run completed with the real verdict on the item, so §6a's "read verdicts from `orchestration_states`, never the item" is **RETIRED** for runs created after 12:19:59Z 08-17 |
+| **report-dispatch-loop** | config **LIVE**, identical shape — **unproven for want of traffic** (zero runs since). Demand gap, not a defect |
+| **Half 1 (Go, WFA-017)** | **LIVE + PROVEN + RATIFIED** — owner ruled `RFC_035` option (1) on 2026-08-18: shape-based rewriting is the convention, the allow-list is retired as a contract. Council r1 REJECTED on SCOPE, **owner-overridden on the merits** (cf. `bugs_closed/124`/BLD-019) — **live ≠ approved: never write `Council-Reviewed:` on corr `cba35b35`** |
+| **Historical rows** | mig `455` applied 08-18: **35 repaired** and verified (reply restored, reversible, true completion time kept). **~939 are permanently unrepairable** — their parent orchestrations have been deleted, so the reply no longer exists anywhere; they stay annotated by §6a |
+| **Corrections owed and paid** | the "3,330" population in §11b/§11c was a joined-row count, not an item count (true: ~950–975) and the repairable set decayed 303 → 35 in 21 hours as parents were reaped. Both in `WRONG_CALLS.md` and §11d |
+| **Tooling gap found on the way** | a `_HOLD` migration can NEVER be ledger-recorded (the runner refuses sidecars) — filed as a LANDMINE with two ways to fix the tool; `452`/`455` are audited by their `doc_notes` rows instead |
 
 **Reading an item's `result` now:** for a run created after its agent's migration it is
 `call_agent`'s step record with the reply at `.response` (12 keys, incl. `retry_payload`) — not
@@ -705,3 +699,44 @@ once. Your fix has now held over ~17× the demand §11d tested it on. The `!` ma
 The residual remains ours (RFC_029): `current_page` (1,124 in 12 h) and `work_item_id` (503) still
 resolve through the search from other call sites — see RFC_029 §10.7a/§10.9 for where that triage
 has got to. Not a reopening of this bug.
+
+### 11d. 2026-08-18 — OWNER RULED both residuals: RFC_035 RATIFIED (option 1) and the repair RUN (35 rows, not 303 — one figure was mine, one was decay)
+
+**RFC_035: option (1), ratified.** Shape-based rewriting is now the estate's convention for
+loop-substep config references and the `dataRefKeys` allow-list is retired as a contract. The
+council's round-1 REJECTED (guardian SCOPE veto, corr `cba35b35`) is **owner-overridden on the
+merits** — the `bugs_closed/124` / BLD-019 disposition: the code stands, and **live ≠ approved,
+so no `Council-Reviewed:` trailer may ever be written against that correlation.** Recorded in
+`RFC_035` STATUS (with what the ruling settles, clause by clause), WFA-017 and the index row.
+
+**Migration `455` applied 2026-08-18: `UPDATE 35`, verify passed, doc_notes row written.**
+All 35 verified: 35 carry the handler's reply, 35 reversible via `_replaced_spawn_record`, 35
+keep their true completion time at `_completed_at_before_repair`, 0 still spawn-shaped. Spot-read
+at the artefact: a `page-rerender` item now holds `deploy_result.success: true` with the actual
+deployed file list, where it held `{role,topics,agent_id,agent_type}` before.
+
+> **CORRECTED 2026-08-18 — this file's own population figures (§11b, §11c) were wrong, and the
+> error was mine (`WRONG_CALLS.md`).** ~~"3,330 items carry the spawn-record shape"~~ — that was a
+> `count(*)` over a **LEFT JOINed** set, i.e. (item × matching parent) pairs, not items. The true
+> figure was **~950–975 all along** (974 measured today, 1,186 joined rows on the same predicate =
+> 1.22× inflation now, ~3.5× yesterday when more parents existed to collide with). Count
+> `DISTINCT`, or do not join at all when the join adds nothing to the question.
+
+**And the honest reason 303 became 35 — a closing window this file failed to flag as perishable.**
+The repairable set was measured with the exact per-row join, so 303 were genuinely repairable on
+2026-08-17. Today: 35. Measured cause: of the 939 unrepaired spawn-shaped items remaining,
+**ZERO** have any orchestration row matching their correlation — **the parents are being deleted**
+(retention/reaping; mig `463` extended the stale-orchestration reaper that morning), and the reply
+only ever existed in the parent's `collected_data`. So this repair class decays with orchestration
+retention: **~88% of it expired in 21 hours.** The remaining ~939 items are now permanently
+unrepairable, and they stay annotated by §6a's rule — never read an item's `result` as evidence of
+what the work did; verify at the artefact. **Rule for the next repair: state the decay rate in the
+same sentence as the count.** A count with no expiry date reads as durable; this one had a
+half-life of hours.
+
+**Nothing is now outstanding on this bug.** Both halves live and proven (§11c), both owner
+decisions landed, the historical set repaired as far as the evidence survived. Moving to
+`bugs_closed/`. One tooling gap discovered on the way is filed as a LANDMINE, not as a residual
+here: a `_HOLD` migration can never be ledger-recorded (the runner refuses sidecars), so `452`'s
+and `455`'s `doc_notes` rows are their audit trail — `SELECT … FROM doc_notes WHERE body LIKE
+'## 452:%'`.

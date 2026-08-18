@@ -160,3 +160,38 @@ other completions in the window came from a different route entirely, not the di
 
 I've kept the bug file in the open folder purely because those 303 records are still wrong for
 anyone reading them. Nothing else is outstanding on it.
+
+## 2026-08-18 — both decisions done, bug closed, and one number I owe you a correction on
+
+**Your ratification is recorded** as the estate's convention: a value in a loop step's settings
+that looks like a reference and names a neighbouring output *is* a reference, and the machinery
+will handle it — nobody has to add keys to a list any more. The reviewers' veto was on process,
+you overruled it on the merits, and both facts are written down together so nobody later reads the
+approval as something the review panel gave. What an author owes now is one line: don't write a
+literal into a loop step that happens to share a name with a neighbouring output.
+
+**The repair ran — but it repaired 35 records, not 303, and half of that gap is my error.**
+Two separate things:
+
+1. **My number was wrong.** The "3,330 wrong records" I reported came from a query that counted
+   record-and-job *pairs* rather than records. The real figure was always about 950–975. I've
+   logged it in the wrong-calls log; it is the third time in two days I've reported a count
+   without checking what the rows actually were, which is the pattern worth fixing rather than
+   the individual slip.
+2. **The rest is genuine decay, and it is the more useful finding.** The repairable set really
+   was 303 on Sunday and really was 35 today: the only copy of a worker's answer lives inside the
+   job that ran it, and finished jobs are deleted on a rolling basis. Of the 939 records left,
+   **none** has a surviving job — so their answers are gone permanently, not merely hard to find.
+   About 88% of the repairable window closed in 21 hours. Had I said "303 today, falling fast"
+   instead of "303", we'd have caught several hundred more. That lesson is written down.
+
+The 35 that survived are repaired and verified: each holds the real answer (one I opened shows a
+successful deployment with the file list), each keeps its original completion time, and each can
+be put back exactly as it was if you ever want that. The remaining records stay marked with the
+standing warning not to trust them.
+
+**The bug file is now closed** and moved to the closed folder. Nothing on this lane is
+outstanding. One small thing I found and filed while tidying: a migration held back for ordering
+can never be recorded in our migration ledger — the tool refuses that class of file — so the
+ledger will always read "not applied" for those. Both of mine record themselves in the notes
+table instead, and I've written up the trap plus two ways to fix the tool properly.
