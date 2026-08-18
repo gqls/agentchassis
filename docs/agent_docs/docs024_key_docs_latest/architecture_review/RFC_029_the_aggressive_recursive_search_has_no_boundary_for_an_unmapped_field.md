@@ -865,6 +865,17 @@ piece of work.
 
 ### 10.10 TRIAGE PASS 2 — ANSWERED, at the code: an explicitly-resolved field is STILL searched, and only `!` stops it. This de-risks Phase 2 and hands us a clean fix.
 
+> **⚠ CORRECTED 2026-08-18 (same day, by the next session, before any code was written) — the
+> crux claim below is WRONG on its own citation, and the fix it proposes would NOT remove the
+> largest row class. Read §10.11 before building anything from this section.** In one line:
+> `ExtractFields` ends with an **unconditional** `ensureCoreFields` call that searches
+> `current_page`, `current_section` and `render_context` **as well as** `domain`/`objective`/
+> `model` — so pruning the field list cannot stop the `current_page` search, and `current_page`
+> is **72% of the rows**. The cited `unified_extractor.go:387` is `syncCoreFieldsToInputData`,
+> a different function that only copies already-recovered values; the recovery is at line **709**.
+> §10.10's *behaviour-equivalence* argument survives; its *payoff* and its Phase-2 de-risking do not.
+
+
 §10.7a(c) asked: every `work_item_id`/`current_page` reference in the loop's sub-workflow is
 explicitly mapped, so why do ~7 rows per run still reach the whole-tree search? Neither candidate
 explanation was right. **The answer is in `ExtractActionInputs` itself** (`action_inputs.go`
@@ -917,3 +928,87 @@ live, re-read the window; whatever survives is Phase 2's true precondition list.
 `[UNMEASURED]` how much of the current population is inert-vs-live. The fix makes the question
 moot for the inert half, which is why it comes first — measuring the split would cost an
 instrument change that the fix then makes pointless.
+
+### 10.11 CORRECTION to §10.10 — 2026-08-18: the search that produces 72% of the rows is NOT reached through the field list at all, so the proposed prune cannot remove it
+
+§10.10 proposed pruning `allFields` by what Strategy 0 resolved, and justified it with:
+
+> "`ExtractFields`' only side effect on a non-requested field is core-field recovery, which
+> covers `domain`/`objective`/`model` **only** (`unified_extractor.go:387`)"
+
+**Both halves of that parenthesis are wrong**, and the error is a mis-citation that a reader
+would not catch without opening the file.
+
+**1. The cited line is the wrong function.** `unified_extractor.go:387` is
+`syncCoreFieldsToInputData` — it *copies* `domain`/`objective`/`model` from the result root into
+`input_data` if they are already there. It recovers nothing and searches nothing. The recovery
+function is **`ensureCoreFields`, line 709**, called **unconditionally** from `ExtractFields`
+at **line 346** (`// Always ensure domain and objective exist at root level`).
+
+**2. `ensureCoreFields` recovers SIX fields, not three** — read 2026-08-18 at
+`unified_extractor.go:709-800`. When the field is absent from the result map it calls
+`findFieldRecursive` (the instrumented whole-tree search) for:
+
+| field | line | reached via the field list? |
+|---|---|---|
+| `domain` | 724 (via `FindDomainAggressive`, then `site_record`) | no — unconditional |
+| `objective` | 735 | no — unconditional |
+| `model` | 756 | no — unconditional |
+| **`current_page`** | **766** | **no — unconditional** |
+| **`current_section`** | **781** | **no — unconditional** |
+| **`render_context`** | **789** | **no — unconditional** |
+
+**3. Therefore the prune is a no-op for `current_page`, which is the top row class.**
+Pruning changes only which of the two doors the search comes through, never whether it runs:
+
+- `current_page` IS in the field list today → the gated special case (line 281) searches, sets
+  `result["current_page"]`, and `ensureCoreFields` then sees it present and skips. **One row.**
+- `current_page` pruned out of the field list → the special case is skipped, the result map has
+  no `current_page`, and `ensureCoreFields` searches it. **One row.**
+
+**4. Measured, and it is the majority of the population** (`agent_error_log`, 12 h to
+2026-08-18 13:4xZ, `RESOLVER_CONFLICTING_CANDIDATES`, n = 1,821 rows):
+
+| agent_type | field | rows | removed by §10.10's prune? |
+|---|---|---|---|
+| build-dispatch-loop | `current_page` | 1,147 | **NO** — `ensureCoreFields` |
+| build-dispatch-loop | `work_item_id` | 510 | yes — Strategy 0 resolves `current_item.id` |
+| page-content-writer | `current_page` | 112 | **NO** |
+| page-rerender | `current_page` | 39 | **NO** |
+| page-build-handler | `current_page` | 10 | **NO** |
+| page-build-handler | `page_type` | 3 | yes |
+| | **`current_page` total** | **1,308 (72%)** | **NO** |
+
+**5. The `build-dispatch-loop` half is proof on its own.** No step in `build-dispatch-loop`'s
+workflow declares `current_page` anywhere — its sub-workflow's only mention is `call_handler`'s
+`input_mapping`, and `call_agent` with an `input_mapping` resolves through
+`input_contracts.ResolveInputMapping` (`call_agent.go:989`), which never touches `ExtractFields`.
+`claim_work_item`'s spec is `Required: ["work_item_id"], Optional: []`
+(`claim_work_item_action.go:38`). So those 1,147 rows/12 h are being emitted by a search for a
+field **nobody in that workflow ever asked for** — which is precisely what a field-list prune
+cannot reach. It also explains the shape 287's fix left behind: `mark_complete` carries
+`work_item_id!` + `result!`, so `withoutStrict` hands `ExtractFields` an EMPTY list — and the
+step still emits a `current_page` row, because `ensureCoreFields` runs regardless of the list.
+
+**6. This INVERTS §10.10's consequence 2 for 72% of the rows.** §10.10 argued the rows overcount
+the Phase 2 exposure, because for a Strategy-0-resolved field the search's answer is discarded at
+merge. That is true for `work_item_id`. It is **false for `current_page`**: nothing resolved it,
+so it is not in `result.Values`, so the merge does **not** skip it —
+`result.Values["current_page"] = v` and the conflicting, guessed value is handed to the action.
+For this class the rows are **live exposure, not inert**, and Phase 2 (conflicts resolve to
+NOTHING) would leave those steps with no `current_page` at all.
+
+**7. What survives from §10.10.** The behaviour-equivalence argument still holds — for a field
+Strategy 0 resolved, both doors end in a value the merge discards, so pruning changes no output.
+The prune is still worth doing on its own terms (it removes ~28% of the rows and stops a
+whole-tree walk per resolved field per step). What does **not** survive is the claim that it
+removes "the bulk" of the rows, and the claim that Phase 2 is de-risked by it.
+
+`[MEASURED]` rows and their attribution: the two queries above, run 2026-08-18 against
+`agent_error_log`. `[MEASURED]` code claims: `unified_extractor.go` 281/346/709-800,
+`action_inputs.go` 693-780, `call_agent.go` 989, `claim_work_item_action.go` 38, and the live
+`build-dispatch-loop` row in `agent_definitions` — all read this session, none inferred.
+`[OPEN]` whether any of the `current_page` conflicts are materially different pages rather than
+differently-shaped copies of the same page: `findFieldRecursive` flags any non-`DeepEqual`
+candidate set, so a shape difference and a wrong-page difference look identical in the row. That
+check is one query against `candidate_paths` values and is **not** done.

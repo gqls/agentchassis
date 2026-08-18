@@ -35370,3 +35370,63 @@ measurement errors" would lose the only part that is new.
 
 **Cost:** none published beyond the lane's own NOTES, corrected in place the same hour
 (`a33783252`).
+
+---
+
+## 2026-08-18 — a `file:line` citation that pointed at the wrong function, and it was carrying the entire payoff of the next task (staged_component_build / RFC_029)
+
+**The claim.** RFC_029 §10.10 proposed one buildable change — prune the resolver's field list by
+what Strategy 0 already resolved — and justified it in a single parenthesis:
+
+> "`ExtractFields`' only side effect on a non-requested field is core-field recovery, which covers
+> `domain`/`objective`/`model` **only** (`unified_extractor.go:387`)"
+
+The handoff then promoted it to "the next work … already specified", telling the next session to
+build it, council-gate it, and re-read the observation window afterwards.
+
+**What is actually true.** Line 387 is `syncCoreFieldsToInputData`, which *copies* three
+already-present fields into `input_data` and searches for nothing. The function that recovers is
+`ensureCoreFields` at line **709**, called **unconditionally** from `ExtractFields` at line 346,
+and it searches **six** fields — the three named plus `current_page`, `current_section`,
+`render_context`. Since `current_page` is **72% of the observation window's rows** (1,308 of 1,821
+in 12 h) and is reached without ever consulting the field list, **the proposed fix cannot remove
+it**. The change is still behaviour-equivalent — that half of the argument is sound — but it buys
+~28%, not "the bulk", and §10.10's other conclusion (that the rows *overcount* Phase 2's exposure)
+is **inverted** for that 72%: nothing resolved `current_page`, so the merge does not discard the
+guessed value, it uses it.
+
+**What caught it.** Opening the citation before building against it. Nothing subtler.
+
+**The check, and why it is a different one from the five instruments and the irrelevant fact.**
+Those were all failures of *measurement design* — a number that could not come out otherwise, or a
+true fact doing no work. This one is a failure of *transcription*: a real function was read, a real
+conclusion drawn about it, and the wrong line number written down beside it. Every existing rule in
+CLAUDE.md was obeyed. The claim was `[MEASURED]`, it was disconfirmable, it named its evidence
+inline, and the evidence pointer was simply wrong by 322 lines.
+
+> **A `file:line` in someone else's evidence is a claim until you open it — and a citation is
+> the one form of evidence that looks strongest exactly when it is least checkable.**
+
+Ten-second version: `sed -n '387p;709p' <file>` — the two lines are visibly different functions.
+Do it for any citation you are about to *build* from, as opposed to merely repeat.
+
+**Aggravating factor worth naming:** the surrounding section was unusually good — §10.9 in the
+same file had just corrected a per-unit figure of its own and added "write the denominator inline".
+A document that is visibly self-correcting reads as checked, and I nearly extended that credit to
+a line I had not opened.
+
+**Whose call it was:** the previous session of this lane wrote it (`af645893a`); this session
+caught it before any code existed. **Cost: none** — but only because the citation happened to be
+the first thing opened. Had it been opened after the build, the cost would have been a council
+round, a fleet roll, and a window re-read that came back 72% unchanged with no explanation.
+
+**Corrected at:** RFC_029 §10.11, with a banner at the head of §10.10; NOTES `## 2026-08-18
+(later)`. **Tally now reads: five instruments that could not fail, one fact that could not be
+relevant, and one citation that pointed at the wrong function.**
+
+**Second, smaller, same day and same class of denominator error:** the handoff's §5 orphan reported
+"14 of the 26 asset-deployer children FAILED … a 54% failure rate on asset deploys with no visible
+owner". Read fleet-wide it is neither a rate nor asset-deployer's: it is a **2 h 43 m burst**
+(2026-08-17 13:31Z→16:14Z), ~815 failed steps across 10+ agent types and 9+ domains, GitHub 404 on
+branch `"master"`, and **zero occurrences since**. A window sampled inside an outage reported as a
+standing rate — which is exactly what §10.9 had corrected on a different figure in the same file.

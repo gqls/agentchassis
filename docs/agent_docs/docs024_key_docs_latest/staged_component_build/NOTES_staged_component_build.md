@@ -4760,3 +4760,64 @@ values are derived paths, not model output. Noted, not actioned.
   domain/objective/model only) and is now the lane's next task, council-gated.
 - New handoff cut: `HANDOFF_2026-08-18_continue_here.md`; the 08-16 file is marked superseded with
   its two now-wrong claims named at the head.
+
+## 2026-08-18 (later) — picking up the handoff: §10.10's crux is mis-cited, and the proposed fix misses 72% of the rows
+
+Session started from `HANDOFF_2026-08-18_continue_here.md` §6. Checklist run before touching
+anything, and the first two steps passed cleanly:
+
+- `git log --oneline -10`: two commits since the handoff cut (`a81c398b1`, `df39881a2`), both the
+  283 / component-tokenisation lane, neither this one. Resolver files clean in the tree.
+- Live build confirmed **by label first**, per §4: deployed tag `v1.0.1308`,
+  `org.opencontainers.image.revision` = `e7e5e4d53d1e10ce5f060474b3359bb23ff4e26b`. Matches §1.
+- Window re-read (RUNBOOK query): 7,626 rows since 2026-08-16 10:42Z. `field=result` last seen
+  **2026-08-17 16:29Z** — 21 h silent, so **287's fix is still holding** and that half of §1
+  re-verifies today rather than being carried forward on trust.
+
+**Then the misstep, which was in the handoff I inherited, not in the measurements.** §10.10's
+one-line justification for the proposed prune reads "core-field recovery … covers
+`domain`/`objective`/`model` only (`unified_extractor.go:387`)". I opened the citation before
+building against it. **Line 387 is `syncCoreFieldsToInputData`** — it copies three fields that are
+already present and searches for nothing. The function that actually recovers is
+**`ensureCoreFields` at line 709**, called **unconditionally** by `ExtractFields` at line 346, and
+it searches **six** fields: the three named plus `current_page`, `current_section`,
+`render_context`.
+
+That single mis-citation carries the whole payoff claim, because **`current_page` is 72% of the
+rows** (1,308 of 1,821 in 12 h). Pruning the field list cannot stop a search that never consulted
+the field list. The two doors produce exactly one row either way:
+
+    in the list   -> gated special case (line 281) searches, sets result, ensureCoreFields skips
+    pruned out    -> special case skipped, result empty, ensureCoreFields searches
+
+The `build-dispatch-loop` half proves it without needing the argument: **no step in that workflow
+declares `current_page` at all** (its only mention is `call_handler`'s `input_mapping`, and
+`call_agent` resolves those through `ResolveInputMapping`, which never reaches `ExtractFields`),
+and it is still emitting 1,147 `current_page` rows per 12 h. It also explains the residue 287's
+fix left: `mark_complete` is `work_item_id!` + `result!`, so `withoutStrict` hands `ExtractFields`
+an **empty list** — and the step still emits a `current_page` row.
+
+**And it inverts the reassuring half of §10.10.** "The rows overcount the exposure" is true for
+`work_item_id` (Strategy 0 resolved it, so the merge discards the search's answer). It is **false
+for `current_page`**: nothing resolved it, so the merge does not skip it, and the guessed value
+goes into the action's inputs. For 72% of the population the rows are live exposure — which is
+the opposite of what the handoff hands the next session.
+
+Full write-up with the table, the line numbers and the two queries: **RFC_029 §10.11**, with a
+correction banner at the head of §10.10 so nobody builds from it by reading only that section.
+
+**What this cost, and the check that caught it:** nothing, because the citation was opened before
+any code was written — but only just. The handoff presents the prune as "one buildable change,
+already specified", and the behaviour-equivalence argument is *correct*, so a session that trusted
+the spec would have built it, council-gated it, shipped it, re-read the window, and found ~72% of
+the rows still there with no explanation. **The check is the one this lane keeps re-learning: a
+file:line in someone else's evidence is a claim until you open it.** Cheap version, ten seconds:
+`sed -n '387p;709p' unified_extractor.go` — the two lines are visibly different functions.
+
+Adjacent, and NOT ours: the §5 orphan ("14 of 26 asset-deployer children failed", GitHub 404 on
+branch `"master"`). Read across the fleet it is **not** an asset-deployer condition and **not**
+ongoing — it is a **2 h 43 m fleet-wide burst**, 2026-08-17 13:31Z → 16:14Z, ~815 failed steps
+across 10+ agent types (`page-rerender` 487, `build-dispatch-loop` 253, `asset-deployer` 40, …)
+and 9+ domains, **zero occurrences since 16:15Z on 08-17**. So the "54% failure rate with no
+visible owner" line in the handoff is a snapshot of an outage window mistaken for a rate — the
+same denominator error §10.9 corrected two paragraphs earlier, made again on a different figure.
