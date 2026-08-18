@@ -1,10 +1,23 @@
 -- SQL_2026-08-18d — narrow the refund ban from the BARE TOKEN to PROMISE SHAPES.
 --
--- ⚠ HELD, NOT APPLIED. Four page rewrites (index, what-you-get, faq, how-it-works)
--- were in flight against this register at 11:50Z, driven by the session that now
--- runs both lanes. Editing banned_claims under a running rewrite is the in-place
--- collision the joint handoff warns about. Apply this only when those four are
--- settled, and re-read the register first: another lane edits this row IN PLACE.
+-- ⚠ APPLIED 2026-08-18 12:02:13Z. The filename still says HELD because two
+-- committed documents reference it by that name (this lane's NOTES and
+-- site_delivery_and_editor/NOTE_2026-08-18b_...); the FILE is the record, and it
+-- is spent. Do not run it again — the exact-match replace will find no
+-- bare-token ban and abort, which is the guard working, not a problem to fix.
+--
+-- Post-state verified: 33 bans (unchanged), 22 facts (unchanged), bare-token ban
+-- gone, promise-shape ban present. Verified at the LIVE pattern pulled back out
+-- of the register, not at this file: the two sentences that actually stopped a
+-- rebuild today ("There's no refund once payment's made", "The FAQ page sets out
+-- the refund position") are now ALLOWED, and the retired £1,200 promise ("You
+-- get a full refund right up to the moment you accept") is STILL BLOCKED.
+--
+-- It was written HELD, for the record: four rewrites were in flight against this
+-- register at 11:50Z, driven by the session that now runs both lanes, and
+-- editing banned_claims under a running rewrite is the in-place collision the
+-- joint handoff warns about. Applied on an explicit steer once two of those four
+-- had died on this very ban.
 --
 -- WHY. The live ban is `\brefunds?\b|\brefundable\b|\bmoney.back\b` — the bare word.
 -- The joint handoff calls the resulting failures "known coin-flip failures the gate
