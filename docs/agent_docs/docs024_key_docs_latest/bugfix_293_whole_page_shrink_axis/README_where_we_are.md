@@ -178,3 +178,53 @@ guards that run immediately after it would refuse anyway.
 The bug is closed. What's left over is written down rather than forgotten: about a tenth of sections
 are still too small for the text guards to judge, and the platform's older coverage test still can't
 see this write path at all.
+
+## 2026-08-18 — we made it refuse something, on purpose, and watched it hold
+
+You asked for the safe version of the test, so here it is and it worked.
+
+**First, the new image carries everything.** The latest chassis build has all three of our code changes
+in it, including the refinement the council asked for after the last roll. I checked by asking the
+running program what it was built from, not by trusting the version label.
+
+**The test, and why it couldn't have gone wrong.** I sent the pipeline a request to save one page — and
+the content I sent was *that page's own content, copied exactly*, with the threshold turned up so high
+that even an identical copy counts as a loss. That makes both possible outcomes harmless: if the guard
+works it refuses and writes nothing, and if the guard were broken it would write the page's own content
+straight back, which changes nothing. I picked a small contact page on an internal site, and I took a
+copy of everything first.
+
+It refused, in 12 seconds:
+
+> *PAGE CONTENT REGRESSION REFUSED for page "contact" — the incoming sections carry **581 chars of
+> visible text** against 581 deployed across 3 sections (100% kept, floor 150%), with stylesheet and
+> script content excluded from both sides. Nothing was written.*
+
+**The number in there is the whole point of this project.** That page is 7,343 characters of HTML and
+only **581** of them are words a reader sees. The old measure counted all 7,343. That gap — nearly
+thirteen to one — is the room in which an article can be replaced by a stylesheet and the guard
+congratulates it on growing.
+
+And the page is genuinely untouched. I checked not just that the text is identical but that the
+database rows are the *same rows* — so the delete step never even ran.
+
+**I also checked the opposite, because a guard that refuses everything would pass the test above.** Six
+real page rebuilds happened on this image while I was working; four were large enough for the guard to
+judge, and it let all four through. The only refusal on the entire image was the one I caused.
+
+**And the test found a bug in my own work.** To make the test safe I had to set that threshold above
+100%, and it let me — because unlike the two guards either side of it, the one I extracted didn't limit
+how high the setting could go. Harmless as I used it, but a typo in a config file could have set it to
+150% permanently and quietly refused every page save on that step, which on this path can also stall the
+rest of a build. It's now capped like its siblings, with a test that fails if anyone removes the cap.
+
+Worth saying plainly: that gap survived a council review, ten deliberate sabotage tests and a green test
+suite — because every one of them exercised the *default* value. **A setting nobody has ever set is
+untested by definition, and I only found out by using it.** Written up in the wrong-calls log.
+
+I also fixed something misleading in our own runbook: it told the next person to read the build version
+out of the service's log, which on this service returns *another team's text*, because the pipeline logs
+whole messages and those quote the same phrase. It now reads the version out of the program itself.
+
+That's the thread. The bug is closed, the fix is live and has been seen doing its job in both
+directions, and the cap rides the next roll.
