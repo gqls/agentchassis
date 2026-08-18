@@ -3718,3 +3718,12 @@ item belongs to the session driving both lanes. Handed to them in their director
   automatic (status cycled needs_human_review→triaged without me at 12:04)
   — attempt/retry machinery exists on this path; do not assume a re-triage
   you see was a human.
+- **~12:50Z — ALL FOUR PAGES SERVED-VERIFIED.** faq and how-it-works passed
+  first try after 18d (zero new validation failures). Every owner directive
+  from both rounds is live at the served pages: no approval promises
+  anywhere, one-shot stated bluntly ("built once, in one pass"), the
+  sanctioned denial phrasings in use verbatim ("Nothing is shown until you
+  have paid"), starter-site framing, £10/mo rent + £200 buy on
+  what-you-get/faq/how-it-works, post-payment link is "already live at a web
+  address we provide" (never a preview), no example-domain leaks, no
+  email-us-your-questions encouragement. The joint handoff's §1 is struck.

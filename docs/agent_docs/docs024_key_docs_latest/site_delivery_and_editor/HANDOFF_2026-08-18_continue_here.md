@@ -26,7 +26,7 @@ options recommended; the ZIP's instructions walk through set-up); no
 pre-sales service. Four page rewrites are queued/running against that
 register: index, what-you-get, faq, how-it-works.
 
-## 1. FIRST: verify the four webdesign.uk rewrites landed
+## 1. ~~FIRST: verify the four webdesign.uk rewrites landed~~ DONE 2026-08-18 ~12:50Z — all four pages complete AND served-verified (zero approval promises, zero post-payment "preview" naming, zero pay-after copy, £10/£200 present, no example leaks, no contact encouragement; record in webdesign lane NOTES). Go straight to §2.
 
 Items (needs_content_page, owner-brief-2026-08-18): what-you-get `cf83a513`,
 faq `f853f532`, how-it-works `8d969047`, index `5c6f73ac`.
