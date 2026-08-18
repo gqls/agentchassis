@@ -3576,3 +3576,31 @@ serves as the baseline and the mechanism keeps working. What stopped me is that
 closure semantics for a new type; and `bugs_open/033` says that review queue has no working
 surface, which makes closing them tidiness rather than function. **The evidence above is the
 answer whether or not the rows are marked** — it is here, dated, with its red. Owner's call.
+
+## 2026-08-18 — the rotation finished the whole backlog overnight, and the fleet picture it produced
+
+[MEASURED 2026-08-18 ~12:35Z] `site-discovery-rotation-completeness`: **0 sites still due, all 23
+swept**, last tick 10:42Z. It drained in ~23 hours, which is what the `LIMIT 1` + hourly interval
+predicted before it was enabled — the one forecast this lane made that needed no correction.
+
+**1,258 items filed, 639 already promoted past `detected`, across 23 sites.** By type:
+`head_essentials_missing` 570, `page_rerender` 336, `page_component_status_drift` 62,
+`unbuilt_internal_link` 41, `required_fields_missing` 30, `undeployed_asset` 26,
+`needs_internal_links` 19, `orphan_blog_posts` 18, `canonical_mismatch` 18,
+**`dead_internal_link_live` 16 across 11 sites**, `literal_markdown` 14, `content_rewrite` 14.
+
+**The link-integrity total is 80 findings across the estate** — 41 unbuilt, 18 canonical
+mismatches, 16 live-probed dead links on **11 different sites**, 5 phantoms. This site's eight
+were not a local mess; they were a sample of a fleet-wide blind spot that had been unwatched since
+2026-08-10.
+
+⚠ **`head_essentials_missing` at 570 is 45% of everything filed and wants a human eye before
+anyone acts on it.** A check that fires on nearly half the estate is either finding something
+systemic or is mis-calibrated, and this lane has no basis to say which — flagged, not diagnosed.
+It is the shape 016b §9 warns about ("a check that is always red is a check nobody reads"), so
+whoever picks it up should ask that question first rather than draining the queue.
+
+⚠ **The SUMMARY written this morning is already stale in its last section** — it says the checker
+"will work through the estate over the next day", and it had already finished. Left unedited (the
+series is the record and each entry is what we believed at that milestone); recorded here instead.
+**A forecast written about a mechanism you switched on yesterday can expire before the ink dries.**
