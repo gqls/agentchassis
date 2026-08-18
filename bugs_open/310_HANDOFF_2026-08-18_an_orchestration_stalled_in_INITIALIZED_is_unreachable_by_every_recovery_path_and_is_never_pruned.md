@@ -275,6 +275,47 @@ both halves are recorded and why the control shares the tick.
 3. **Re-read the live `pre_query` immediately before applying.** Guard 1 will refuse rather than
    clobber if another lane has edited it since, but knowing that in advance beats an aborted apply.
 
+## Council — APPROVED at round 1, corr `473553c0-009d-4279-b4db-70b23f32fe16`
+
+Nine seats recorded, **all approve**, decided 2026-08-18 18:32Z. **Read the signal honestly: the
+report's own counter says `abstained: 8`**, i.e. most seats declared the change outside their
+footprint (`render_guardian`: "Out of scope for this seat"). The substantive reviews are
+`editquality`, `reuse_agent`, `guardian` and `debug_historian`. A path-scoped roster largely
+abstaining on a `docs/`-path SQL file is a weaker endorsement than `463`'s 12-reviewer round, and
+it should be weighed as such rather than quoted as unanimity.
+
+`debug_historian` — the seat that gated `463` at HIGH — approved, citing the byte-exact md5 capture
+"not retyped", the content-hash concurrency guard "correctly avoiding the `updated_at` is not a
+content-change signal trap", the `EXECUTE`+sentinel parse check, the sibling-survival negative
+control, and that the induced test ran inside a rolled-back transaction, "correctly avoiding the
+'running a `pre_query` by hand advances the rotation' trap".
+
+**Guardian's objection 1 (low) — ANSWERED, and it was worth checking rather than arguing.** It
+asked whether adding a fifth projection column (`initialized_failed`) changes the result shape in a
+way that breaks a consumer expecting a fixed column list, and correctly said it could not verify
+that from SQL. **It does not.** `cmd/scheduler/main.go:444` `runPreQuery` is fully generic: it calls
+`rows.Columns()` at runtime, sizes both slices from `len(cols)`, and builds a
+`map[string]interface{}` keyed by column **name** before marshalling to JSON. There is no fixed
+column list anywhere in the path. Corroborating: `463` already added a fourth column
+(`running_failed`) and the reaper has ticked normally since.
+
+**Guardian's objection 2 (low) — accepted, and this is where it is recorded.** It asked that the
+`FORCE=1` scope override be explicit and reviewable rather than merely asserted. It was stated in
+the submission's rationale, and it is stated here: the client-side gate refuses submissions whose
+edits touch none of `platform/`, `internal/`, `pkg/`, and it keys on **path**. This change lives
+under `docs/agent_docs/sql_for_agents/` but is not documentation — it rewrites the live `pre_query`
+of a fleet-wide scheduled task, effective on save, with no build step in between. `463` is the
+precedent for this class going through the gate. **If that reasoning is wrong, the override is the
+thing to challenge, not the migration.**
+
+**Guardian's `missing` note — folded into the apply checklist, not waved away.** It observed that
+none of the guard, concurrency or parse-check claims are verifiable from its side, because neither
+`scheduled_tasks` nor `orchestration_states` is in the schema it can reach, so they "rest entirely
+on the author's own induced tests, which a human should re-run independently before apply". That is
+the correct posture and it converges with the `090` limitation recorded below: **three separate
+automated reviewers today could not reach live `scheduled_tasks` content.** Re-run the tests at
+apply time; do not take them from this file.
+
 ## The `090` diagnosis loop: UNVERIFIABLE, not confirmed — and it found a real gap in my evidence
 
 Run per CLAUDE.md's 2026-07-31 ruling (a `bugs_open/` file asserting a cross-cutting or structural
