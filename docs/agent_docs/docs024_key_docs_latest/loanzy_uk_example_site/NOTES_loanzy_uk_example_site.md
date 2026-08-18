@@ -242,3 +242,50 @@ two survivors). The `pages` DELETE and the `.keep` push were also refused by the
   superseded, **only the amended prompt differs**. Two measured brakes mean it cannot cascade:
   every downstream item key already exists as `complete` (so `create_next_item` dedups), and
   the strategist's deployed-pages gate returns true on the archived `about` row.
+
+## 2026-08-18 15:56–20:16Z — the guard PROVED, then a genuine from-scratch build triggered
+
+**The A/B, and it is a real one:** same domain, same site row, no mission either time, run-1 specs
+superseded first so the classifier could not read its own answer back; only the prompt differed
+(corr `fe2e99fd-c81e-4b62-84fc-36e6a6500c24`, COMPLETED).
+
+| | run 1 (no guard) | run 2 (guard live) |
+|---|---|---|
+| services | Personal Loan Matching · Loan Comparison Tool · Eligibility Checker · **Lender Lead Facilitation** | Loan Explainers · Loan Cost Calculator (*"purely illustrative, no application journey"*) · Borrowing Guides · Glossary & Terminology Hub · Rights and Regulations Overview |
+| the foreign same-named brands | *"positions the Loanzy brand as a lead aggregation and facilitation platform"* — adopted as ours | *"neither represents this UK domain, which is a blank slate"* — explicitly refused |
+| self-description | a credit broker | *"without acting as a broker, lender, or regulated introducer"* |
+
+`classification.detected_signals` includes *"Regulated business model explicitly excluded by
+platform rules"* — the rule is visibly OPERATING, not merely obeyed. **It did not go thin to
+comply**: 5 concrete services, 8-page estimate, confidence 0.72 (honestly lower than run 1's
+certainty about a business that did not exist). Grep of both new specs for regulated terms
+returns only NEGATIONS. Evidence: `EVIDENCE_run2_guarded_*.json`.
+
+⚠ **Not proven, and recorded as owed:** that a brief which DOES ask for a regulated model still
+gets one. On this evidence a rule that merely made the classifier timid looks identical.
+⚠ **Residual:** the new reasoning floats *"contextual display advertising or affiliate"* — an
+affiliate link introducing a reader to a LENDER is credit broking in the UK, and `domain-strategist`
+(which designs revenue) had not been re-run against the guard at that point.
+
+### The from-scratch trigger (owner: "make loanzy.uk live … trigger it from scratch with no prompt")
+
+Nothing was waiting (0 triaged/claimed/in_progress). Reset, all **non-destructive UPDATEs**
+because `DELETE FROM pages` is refused by the session harness:
+- `about` row: `build_status='deployed', deployed_at=<ts>` was **stale** — the file had been
+  retracted from the repo AND deleted from the bucket. Set to `planned`/NULL, which is both true
+  and what unblocks the strategist's deployed-pages gate. **Retraction leaves `build_status`
+  saying `deployed`; that is part of `bugs_open/304`'s family and worth fixing there.**
+- `tool-eligibility-checker` row was still **`active` + `needs_rebuild`** — i.e. the next sweep
+  would have rebuilt the eligibility checker. Archived.
+- all 18 remaining run-1 page rows (`lenders-index`, `lender-profile`, `debt-consolidation-loans`,
+  `tool-compare-loans` …) archived. Active pages now **0**.
+- **item keys renamed with a `_run1` suffix (78 rows)** — this is what makes a re-run possible at
+  all, since `create_work_item` dedups on `item_key` in ANY status. History kept, keys freed.
+- all remaining current specs superseded, so "from scratch" means the domain string alone.
+
+**⚠ THE FIRST DISPATCH SILENTLY VANISHED.** `082` printed its correlation and exited 0; **no
+orchestration row, no work item, ever** — while 29 orchestrations were created fleet-wide in the
+same 10 minutes, so the chassis was consuming normally. That is the documented `kcat -P` publish
+trap, hit for real. The second dispatch (corr `f7e4dec3-58aa-4509-b15a-8f9e83861888`) landed and
+filed `needs_domain_research` / `research_loanzy.uk` / `triaged`. **Always verify the ITEM, never
+the exit code — and note the first attempt cost nothing precisely because it was checked.**
