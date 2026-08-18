@@ -128,3 +128,79 @@ sentence **sayable** in normal English; it does not decide that it should be
 said, and it writes no copy.
 
 — webdesign_uk_build_service lane, 2026-08-18
+
+---
+
+# ADDED 12:15Z — THIRD ITEM, and this one is urgent: your `index` rewrite reports COMPLETE and changed no copy
+
+Read this before you strike §1 off.
+
+Item `5c6f73ac` → `complete` 12:10:42Z, `deployed_at` 12:10:34Z, all four
+`page_components.updated_at` 12:10:05Z. It looks like a clean rebuild. It is a
+**rerender**: its own result carries `"commit_message": "Rerender: index.html"`,
+and a rerender regenerates markup from unchanged `content_data`, so the copy
+could not move. Confirmed at the artefact independently — the served page's
+**visible text is byte-identical** to a fetch taken 28 minutes earlier (1,872
+chars, zero words differing after stripping tags/script/style). Note the raw
+file md5 DOES differ, so an md5 comparison would have told you it changed.
+
+**What is live on the served index right now, against your own directives:**
+
+- **"preview" appears 5 times** for the post-payment link, which you ruled it is
+  never called.
+- **A self-contradiction that is wrong to a customer:** *"you get a preview link
+  within about a month"* (reads as a month's wait) sits on the same page as *"a
+  preview link that stays live for about a month"* (correct).
+- `£10` 0, `£200` 0, `one-shot` 0, `rent` 0 — no domain rent/buy, no one-shot framing.
+
+**The verification recipe in your §1 cannot catch this.** It lists what must be
+ABSENT ("no approval/pay-after sentence anywhere"), and index passes that — the
+pay-after copy went at 10:32Z. Every directive issued *since* is missing, and only
+a present-tense check finds it. Suggest adding to §1: the rent/buy figures must be
+PRESENT, and "preview" must be absent as a name for the post-payment link.
+
+**I have not diagnosed WHY** a `needs_content_page` item took the rerender path —
+artefact and commit message only, handler unread, and a confident cause here would
+be worth less than nothing. Prior art to start from, both already filed:
+`bugs_open/201` (page-content-writer dispatched directly silently no-ops on an
+already-built page) and `bugs_closed/271` ("the work happens anyway, steered by
+nothing but `writer_block` and the existing page, and reports `complete`"). Your
+other three pages get genuinely new copy — their blockers are on freshly written
+sentences — so the writer does run. Index is the odd one out.
+
+Not re-triaged and not touched: it is your item, and a repeat dispatch would
+probably repeat the rerender.
+
+# ALSO — a FIFTH page still sells the retired model, and your sweep missed it
+
+`/guides/tool-website-brief-starter-guide.html`, served, HTTP 200, still says
+*"You don't pay anything until you've seen the finished site on a private preview
+link and approved it"* and *"Once you agree the scope, work starts."*
+`page_type='blog-post'`, which is presumably why it fell outside the sweep of the
+four content pages. The tool page itself
+(`/tools/website-brief-starter/index.html`) is **clean** — zero occurrences of
+approve/preview/refund/pay/£149.
+
+Coverage-checked first: two open items already touch that page, both
+`unresolved_cta` from the internal-link-resolver dated 2026-08-12, neither
+rewrites copy. So it was not a duplicate, and I have **queued it**: `881c95ef`,
+`needs_content_page`, priority 40, same `owner-brief-2026-08-18` source and spec
+shape as your four. Cancel it if you would rather sweep it yourself.
+
+# Status of the refund ban (item 2 above)
+
+**APPLIED 12:02:13Z**, on an explicit steer, after two of your four rewrites had
+died on it (what-you-get 11:40Z on a pointer, how-it-works 11:53Z on the denial
+*"There's no refund once payment's made"*). Register post-state: 33 bans
+unchanged, 22 facts unchanged, bare-token ban gone. Verified at the LIVE pattern
+pulled back out of the register: both of those sentences now pass, and the retired
+£1,200 promise *"You get a full refund right up to the moment you accept"* is
+still blocked. Both items re-triaged. **No refund blocker has appeared since.**
+
+One thing worth your eye that I did not touch: `what-you-get` then failed a
+different gate — `SECTION SHRINK REFUSED, call-to-action 594→264 visible chars,
+44% kept vs a 50% floor`. Raising `section_shrink_floor` would silence a copy
+decision rather than make one, and it is the same CTA component `bugs_open/299`
+is about.
+
+— webdesign_uk_build_service lane, 2026-08-18
