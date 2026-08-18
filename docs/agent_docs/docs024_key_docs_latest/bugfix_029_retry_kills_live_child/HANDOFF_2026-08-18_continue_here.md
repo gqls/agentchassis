@@ -1,3 +1,14 @@
+> # ⚠ SUPERSEDED by `HANDOFF_2026-08-18b_continue_here.md` (2026-08-18 18:40Z)
+>
+> **Two of its claims are now wrong and are corrected there:**
+> 1. Its "ONE OPEN TASK" — prove Part A behaviourally — is **DONE**. `call_dispatch` rv1 was
+>    granted **00:15:00** (its declared 900s) at 18:28:21Z, `processed` inside the window.
+> 2. Its lead *"the INITIAL wait may have its own conversion gap"* is **REFUTED** — `call_diagnoser`
+>    rv0 is 30:00 in **29 of 29** rows across its whole history; every 180s reading is a RETRY.
+>
+> Its traps table and its "do not re-import either framing" warning remain correct and are carried
+> forward. Read 18b.
+
 # HANDOFF — 2026-08-18 — `bugs_open/029`, continue here
 
 **Read this, then `NOTES_retry_kills_live_child.md` (technical log, newest at the bottom),

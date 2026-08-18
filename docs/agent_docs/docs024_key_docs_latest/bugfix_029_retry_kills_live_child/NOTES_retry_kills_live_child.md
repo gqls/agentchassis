@@ -1102,3 +1102,57 @@ carry:
 
 **Status: 090 authored, seeded, coverage-read, and NOT dispatched.** The symptom text is in
 this lane's scratch and reproduced above; it needs only the tree question settled.
+
+---
+
+## 2026-08-18 18:30Z — **PART A IS BEHAVIOURALLY PROVEN.** One row settled it, exactly as designed
+
+The discriminating event arrived at **18:28:21Z**, 2h43m after the roll, on the 35th poll.
+
+```
+step_name     | rv | sent_at             | timeout_at          | window   | status
+call_dispatch |  1 | 2026-08-18 18:28:21 | 2026-08-18 18:43:21 | 00:15:00 | processed
+```
+
+`call_dispatch` declares **900s**. The retry was granted **15:00 — its declaration, exactly.**
+
+**Why one row is enough here, which is not usually true.** The disconfirming value was named in
+advance and the old code's distribution has **zero variance**: every `call_dispatch` retry sent
+before the roll, all history, is 05:00 —
+
+| rv | window | n |
+|---|---|---|
+| 1 | 00:05:00 | 56 |
+| 2 | 00:05:00 (+1 at 00:04:59) | 30 |
+| 3 | 00:05:00 | 133 |
+
+**219 pre-roll retries, not one above 05:00.** A single post-roll row at 15:00 is therefore not
+a sample of a noisy distribution — it is an outcome the old code could not produce.
+
+**Three controls, all passing:**
+
+1. **Positive control — rv0 windows UNCHANGED**, on a much larger post-roll sample than the
+   16:26Z check had: `call_dispatch` 15:00 (n=87), `process_item_iter_0_call_handler` 20:00
+   (n=89), `call_diagnoser` 30:00 (n=4). Nothing else moved, so this is the retry path and not
+   a global timeout change.
+2. **`status = processed`.** The child answered *inside* the new window. This matters more than
+   the number: a longer interval written to a column proves the arithmetic; a `processed` at
+   rv1 proves the window was **used** — under the old code this request expires at 18:33:21 and
+   becomes rv2. It is the first observation in this lane of a retry that **succeeded** where the
+   old code would have escalated.
+3. **Two independent watchers, same row.** The previous session's watch was still alive and
+   fired on the same event with the same reading. ⚠ Instrument-independence, **not**
+   evidence-independence — both read the same DB row, so this rules out a broken script, not a
+   misread table.
+
+### Status changes
+
+**RSH-010: `SHIPPED, BEHAVIOURALLY UNPROVEN` → `SHIPPED AND BEHAVIOURALLY PROVEN`** (register
+entry and index row updated; `verify-later` satisfied on its own stated terms).
+
+**And what it does NOT change, which is the whole point of how this was written up:** `bugs_open/029`
+stays **OPEN**. Part A was always one contributing defect. The wedge signature measured earlier
+today — 18/18 on the error path, the final spawn registered twice, the parent's last write 9–16s
+after it — is untouched by this and remains unexplained. **A proven fix to a contributing defect
+is not a closed bug**, and the artefacts have said "part A only" in those words since the first
+commit precisely so that this moment could not be misread as the bug closing.

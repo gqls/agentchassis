@@ -1382,3 +1382,54 @@ declaring **nothing** (the correct system default). Same number, opposite meanin
 **What settles it:** one retry on a step declaring >300s — `call_dispatch` (expect 15:00),
 `process_item_iter_N_call_handler` (20:00), `call_diagnoser` (30:00). Under the old code these
 were 05:00, or 03:00 for the 1800s case.
+
+### Part A **BEHAVIOURALLY PROVEN**, 2026-08-18 18:28:21Z — and 029 stays OPEN
+
+The row the section above asked for arrived 2h43m after the roll:
+
+```
+step_name     | rv | sent_at             | timeout_at          | window   | status
+call_dispatch |  1 | 2026-08-18 18:28:21 | 2026-08-18 18:43:21 | 00:15:00 | processed
+```
+
+`call_dispatch` declares **900s** and the retry was granted **15:00 — its declaration exactly**.
+`status = processed` is the load-bearing half: the child answered **inside** the new window,
+where the old code expires it at 18:33:21 and escalates to rv2. First retry in this lane's
+record that **succeeded** instead of cascading.
+
+**One row settles it because the old distribution has no variance.** Every `call_dispatch`
+retry sent before the roll, all history: rv1 n=56, rv2 n=30, rv3 n=133 — **219 retries, not one
+above 05:00**. 15:00 is not a lucky draw from a noisy distribution; it is an outcome the
+replaced block could not produce.
+
+**Positive control still passes on a bigger sample:** rv0 windows unchanged — `call_dispatch`
+15:00 (n=87), `process_item_iter_0_call_handler` 20:00 (n=89), `call_diagnoser` 30:00. The retry
+path moved; nothing else did.
+
+> **This does NOT close 029, and the distance is not rhetorical.** Part A fixed how long a
+> replayed request waits. The wedge this file is named for — measured in full on 2026-08-18,
+> see the lane's NOTES — is a `build-dispatch-loop` freezing at `process_item_iter_N_spawn_handler`
+> with **18 of 18 instances entered from the ERROR path** (the preceding iteration's
+> `call_handler` terminal in `error`), the final spawn step registered **twice**, and the
+> parent's last state write landing **9–16 seconds** after that final send. Part A plausibly
+> makes the entry condition rarer — a `call_handler` declaring 1200s no longer has its retry cut
+> to 300s — but **nothing about what kills the continuation afterwards has been explained or
+> touched.** `[INFERRED]` on the rarity, `[UNEXPLAINED]` on the mechanism.
+
+**Diagnosis run on the wedge: authored, seeded, NOT dispatched.** `090`'s coverage check refuses
+on four rows that are all one **`failed`** item from 2026-08-12 (`failed` is not in the clause's
+exclusion list, so a terminal item reads as live coverage — `FORCE=1` is the documented override
+and applies). The real blocker is different: **the diagnosis reads `origin`, and `origin` does
+not have this fix.** `retryWindow` is absent from every remote branch, `f0117fb8b` (the commit
+the live binary was built from) is on none of them, and local HEAD is 233 commits ahead — all of
+them dated 2026-08-18, origin's tip being 12:39 BST that day. A run filed against that tree reads
+the OLD capping block in `handleRecoverableError` and has every reason to name the truncation as
+the cause: a correct answer about the wrong tree, arriving with citations. **Routed to the owner
+as a push decision rather than forced**, because publishing 233 commits belonging to a dozen
+concurrent lanes is not one session's call.
+
+⚠ **The wedge evidence expires.** `orchestration_states` retains ~26 hours (only 08-17 and 08-18
+are present; the oldest retained row IS the first wedge row, which is why "the wedges began at
+14:35 on 08-17" is the retention boundary talking and not a fact about the fleet). **All 18
+instances age out during 2026-08-19.** A diagnosis run filed after that reads a table with no
+instances left in it.

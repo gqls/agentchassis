@@ -217,3 +217,61 @@ trigger. When it does, there's a check written down that can tell whether it wor
 designed so that "no change" and "the test didn't run" can't be confused with each other —
 which, after the day I've had with measurements that couldn't come out any other way, felt
 like the least I could do.
+
+---
+
+## 2026-08-18, evening — the fix is proven working, and the real bug finally has a shape
+
+**The check we designed came out positive.** At 18:28 a build dispatch step retried, and it was
+given the full fifteen minutes it asks for instead of the five it used to get — and the job it
+was waiting on answered inside that window rather than being given up on. That is the fix
+working in production, on a real job, not in a test.
+
+I want to be clear about why one single case is enough here, because normally it wouldn't be.
+Before the fix, every retry of this kind in the entire recorded history — two hundred and
+nineteen of them — got five minutes. Not most of them. All of them. So fifteen minutes isn't a
+lucky roll of the dice; it is a result the old code was incapable of producing. We also checked
+that nothing *else* moved: first attempts still get exactly what they always got. If those had
+changed too, it would have meant we'd broken something broader.
+
+It took two hours and forty-three minutes after the fleet updated for a suitable case to come
+along. During that wait there was plenty of traffic — hundreds of jobs — just none of the
+particular kind that could tell the two versions of the code apart. It would have been very easy
+to point at all that traffic and call the fix verified. Every number in that claim would have
+been true and the conclusion would have been unearned, so we sat on our hands instead.
+
+**The bug itself is still open, and this is the part worth reading.** I went looking at every
+frozen build job we still have records of — eighteen of them. They are not eighteen different
+problems. They are one problem, repeated with a consistency I did not expect:
+
+- Every single one froze after a *previous* step had already failed. Never during normal running.
+- Every single one had successfully started its next job — the handshake worked — and then simply
+  stopped, about twelve seconds later, without ever recording that it was waiting for anything.
+- Seventeen of the eighteen had asked for that next job **twice**.
+- And they all died at almost exactly twenty-five minutes old, within a few seconds of each other.
+
+Things that die at the same age are killed by a clock, not by bad luck. That is a much better
+question to ask than the one we had this morning, which was essentially "why do jobs sometimes
+freeze".
+
+**Two things I got wrong today and corrected before they went anywhere.** I wrote a query
+comparing what each step asks for against what it gets, and it reported two steps being
+short-changed. They weren't. The same step name is used by two different agents that ask for
+different amounts, and my query had mashed them together. Second, I noticed all eighteen frozen
+jobs were from yesterday and started to conclude the problem had stopped — until I checked how
+far back our records actually go, and found the answer is about a day, with the oldest record we
+have being the first frozen job itself. "It started yesterday" was the filing cabinet talking,
+not the system.
+
+**One thing I need a decision on.** To investigate the frozen jobs properly I'd hand the problem
+to our automated diagnosis system. It reads the code from the shared server rather than from this
+machine — and the fix we just proved working isn't on that server. Nor is the exact version
+currently running in production. There are 233 commits sitting here unpublished, all from today,
+belonging to a dozen different pieces of work going on in parallel. If I send the diagnosis off
+now it will read the old code and very likely tell us, with confident citations, that the cause
+is the thing we already fixed this afternoon.
+
+Publishing all 233 isn't something I think one session should decide on its own, so I've stopped
+and left it with you. **There is a clock on it:** we only keep about a day of these records, so
+the eighteen frozen jobs disappear tomorrow, and after that the investigation would be looking at
+an empty table.
