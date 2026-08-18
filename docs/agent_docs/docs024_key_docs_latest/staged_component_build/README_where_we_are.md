@@ -1807,3 +1807,48 @@ did leave **a hundred pieces of work marked failed, eighty-one of them page re-r
 are still sitting there twenty-one hours later** with nothing having picked them up. That is the
 part worth a decision, not the outage itself. I made the same mistake this morning that I spent
 the morning correcting — a number taken from too narrow a window and reported as a rate.
+
+**2026-08-18, later still — I ran the check, and the answer is "not broken today, and held up by
+something nobody wrote down".**
+
+The question was whether those thousands of disagreements are the system confusing two different
+pages, or just the same page written down two different ways. It turned out I could not answer it
+from the recorder at all: when it notes a disagreement it writes down *where* it looked, but never
+*what it found*. So I went to the stored run data and resolved every one of those locations by
+hand, across a hundred and thirty-nine runs of each kind.
+
+There are four separate things happening, not one, and lumping them together is what made the
+earlier accounts confusing.
+
+**Ninety-one per cent of it is the system searching for something nobody asked for, finding the
+wrong answer, and then not using it.** The dispatch loop — the part that hands out jobs — never
+asks for a page at all. A safety net deep in the code tops up a handful of values on every single
+lookup, whether the caller wanted them or not, and it is that net doing the searching. It finds
+leftovers from earlier rounds of the same loop, so its answer really is wrong; it just goes into a
+slot that the job-handout code never reads. Pure waste, no harm.
+
+**The other nine per cent is read, and there the answer is currently right.** For the page writer
+it is genuinely the same page in two shapes — full record versus just its name — a hundred and
+thirty-nine out of a hundred and thirty-nine. For the page builder it is sharper than that:
+**thirteen runs out of a hundred and thirty-nine had a genuinely different page among the
+candidates** — `disclaimer` sitting next to `contact-index`, `index` next to
+`fuel-pricing-framework`. In every one of them the system picked the right page.
+
+But it picks the right one for a reason nobody chose deliberately: when two candidates are equally
+close, it keeps whichever it happened to add to the list first. That is a real rule in the code, it
+is stable, and it is currently correct — and nothing declares it, no test protects it, and the next
+person to reorder that code would have no idea they had broken anything. **So: not a bug, but we
+are one innocent-looking edit away from one, in the one place where the value is actually used.**
+
+I also chased a scare and it came to nothing, which I am recording because it changes the plan if
+it ever changes. One step in that lookup picks an item out of an unordered collection — the exact
+coin-toss we spent a fortnight removing, still present one level down. I measured whether it can
+fire in the runs we have: zero out of a hundred and thirty-nine. So it is not a defect and I have
+not filed one. It is a place where the randomness could come back.
+
+**The consequence for the plan is the awkward part.** The next planned step ("when the system finds
+two answers that disagree, refuse to answer") is harmless for the ninety-one per cent nobody reads,
+and harmful for the nine per cent that is read — because in those runs the candidates disagree
+*every single time*, so refusing means the page writer and page builder get no page at all, in one
+hundred per cent of their runs. **As it stands, that step would only bite the parts that currently
+work.** It needs reordering, not cancelling, and I have set out how in the chat.
