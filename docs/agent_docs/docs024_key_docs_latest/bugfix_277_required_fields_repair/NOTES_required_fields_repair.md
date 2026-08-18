@@ -601,3 +601,103 @@ so it crosses on **2026-08-19**. Those 3 rows then move to `needs_human_review`,
 never selects and nothing returns from. Yesterday this interaction had 5 rows behind it; now it has
 16, first 3 due within a day. Not patched here — the door was deliberate and reclaiming escalated
 rows after a successful canary is `453`'s author's call or the owner's.
+
+### 2026-08-18, later — the two remaining canary candidates were assessed and NEITHER was run; both reasons are findings
+
+Post-465 the held set is **15 rows in 4 pairs** (`literal_markdown` 10, `placeholder_contact` 3,
+`dead_fragment_link` 1, `missing_conversion_path` 1). Of those, two pairs read 0 complete / 0 failed
+— never dispatched at all — and looked like the obvious canaries. Both were refused, and not for
+the same reason.
+
+**`missing_conversion_path → content-gap-planner` — DO NOT CANARY. `bugs_open/255` already owns it.**
+Filed 2026-08-11 by the `vigilant_designer_offer_analysis` lane (whose check it is), diagnosis loop
+**CONFIRMED first iteration**: the type *"is routed at a handler that cannot read its spec, so it is
+refused and released back to the detector"*. A canary would fail for that documented routing defect,
+move the pair from 0/0 to 0/1, and record a route problem as handler incompetence. **A pair with no
+history is not a pair with no known problems** — and the queue cannot tell you, because the absence
+of rows is the whole point. New sub-bullet in `LANDMINES.md`: grep `/bugs_open/` for the item type
+AND its handler before promoting. This is the same trap as the stale subject, arriving by a second
+route.
+
+**`dead_fragment_link → page-build-handler` — VALID but needs the owner, because the risk class
+differs from yesterday's canary.** The finding is verified still true at the served page:
+`vetcomparison.uk/tools/pet-treatment-cost-estimator/index.html` returns 200 and carries
+`href="#directory"` with **no** `id="directory"` anywhere (the page holds three ids, all
+tool-internal; negative control `id="zzyzx"` correctly absent). So a visitor clicking that control
+gets nothing.
+
+But yesterday's canary flipped a status column — reversible, `rendered_html` untouched. This handler
+**regenerates the page**, and the page is a live tool, where `bugs_open/263` (decomposition dissolves
+the tool's wrapper), `286` (the generator cannot rebuild a tool at an existing page) and
+`208`/`226`/`238` (regeneration drops fields) all apply. Yesterday's approval was for a canary of a
+different kind, so it does not obviously extend. Also worth the owner's attention: the spec's own fix
+text says the site-surface remedy is *"re-render site components"* because *"the chrome link resolves
+on NO page of this site"* — which suggests rebuilding this one page may not fix the class at all.
+Second `LANDMINES` sub-bullet: read the handler's branch for *this* `fix_type`; "the last canary was
+fine" does not carry across.
+
+## 2026-08-18 ~15:45–17:00Z — the archiver found; 465 and 466 applied; four defects of my own closed
+
+**Chassis `v1.0.1309` verified shipped** (label `f0117fb8b`, present in the binary, superseded
+`a6d1c53c0` absent, 28 behind HEAD — ordinary churn). A real tag bump this time, so no repeat of
+the 08-17 cached-layer no-op.
+
+### The UNDIAGNOSED risk had a one-query answer, and I had run three searches that could not find it
+
+`work-item-archiver` — enabled, daily, description *"Archives terminal work items older than 7 days
+to `site_work_items_archive`"*. The archive holds **20,184 rows against 8,702 live**. So both of the
+promoter's success tests, reading only `site_work_items`, meant **"in the last 7 days"**.
+
+What found it was the archiver's name in an unrelated list of `maintenance` concurrency-group
+members inside migration `458`'s header — peripheral vision, not a search. Why the searches failed
+(all three logged in WRONG_CALLS + LANDMINES): it **moves** rows so there is no `DELETE`; its
+`pre_query` is **NULL** because it is `fire_message=true`, so its SQL is in an agent definition and
+not the column I was grepping; and its description says *"Archives"*, not *"retention"*. And my
+reassuring control — *"the oldest surviving row is 2026-03-15"* — was blind by construction: that
+row is **non-terminal** and the archiver only takes terminal ones.
+
+**It was already causing damage, not latent.** `empty_internal_href → page-build-handler` read 0/1 =
+0% live and **9/5 = 64%** true — held by the known-good rule as "never completed" while holding nine
+lifetime successes. `empty_section → page-build-handler`, a **316**-success workhorse, read as
+marginal at 43% against a true 91%.
+
+**Migration `465`**: both tests now read live UNION archive. Three controls; the two negatives carry
+the weight (`literal_markdown` must stay held — if the archive had rescued the pair `444` exists
+for, the change would be dissolving the floor rather than fixing its scope; `placeholder_contact`
+must stay unknown). Cost 78 ms → 134.6 ms per 900 s tick. A shared VIEW is the tidier answer and was
+deliberately not taken — a new shared object is a shared-seam change (2026-07-28 ruling).
+
+### Migration `466` — three corrections to my own `453`, and the third was a live contradiction
+
+(a) the non-suppressing `WHERE` → `HAVING` (found by `458`'s author, left to me); (b) floor-held
+pairs now escalate, with **opposite** remedy text — a canary on a floor-held pair adds a failure and
+pushes it further under, which `bugs_open/300` is the live case of; (c) **the one I had not spotted**:
+`453`'s held test asked `NOT EXISTS(status='complete')` over the live table alone, so after `454` and
+`465` it disagreed with the promoter — for `empty_internal_href` it saw **0** successes where the
+promoter saw **9**, and would have asked a human to canary a pair the promoter promotes unattended.
+Both tests are now one test. Live after apply: watching 15 rows, 5 canary-held, 10 floor-held.
+
+Shape is ONE `classified` CTE evaluated once, not a second negated copy of the promoter's
+predicates — (c) is precisely that drift already realised, over three days and three migrations.
+
+> **CORRECTION to commit `a62809d29`'s successor (the 466 commit): two phrases were eaten by
+> unquoted backticks in `git commit -m`** — the documented shell trap, which I hit anyway. The
+> message reads *"Shape is one  CTE evaluated once"* (lost the word `classified`) and *"the negative
+> control first read , always zero"* (lost the formula). **The lost formula is the substance**: it
+> was `promotable AND NOT promotable = 0`. Restated here because forward-only forbids an amend.
+> Use single quotes in `-m`, or write the message to a file and use `-F`.
+
+### THIRD tautological control caught in this lane — the count for one is now the habit
+
+`466`'s negative control first read `promotable AND NOT promotable = 0`: always zero whatever the
+code does. Replaced with a named discriminating case — `empty_internal_href` must be ABSENT from the
+watched set, which under `453` it would not have been. Previous two: `453`'s draft
+(`EXISTS(X) AND NOT EXISTS(X)`) and — per its own header — `430`'s, caught by its author before
+applying. **The test is not "is this control true?" but "could it ever have come out non-zero?"**
+
+### The family is now FIVE, and the shape never varied
+
+`failed` rows carry no `completed_at` · `verified` is a second success status · the row set is not
+stable · the row set is only a 7-day window · and a control that cannot come out otherwise. Every
+one is **a population or a domain assumed rather than enumerated**, and none was caught by review —
+twelve council seats approved `444`.
