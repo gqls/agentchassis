@@ -3322,3 +3322,13 @@ this session's cold-start falsifier sweep:
   writers away from the sentence. (2) `rebuild_policy` on index after the
   chat placement — the handoff's own warning about widget-owned pages
   refusing generic rebuilds is now live to check.
+- > **CORRECTED 2026-08-18 (~11:10Z), same contributing session:** my entry
+  > above called the watcher's 3-section reading "transient or a misread" —
+  > imprecise. The lane's `rebuild2.log` shows its watcher was reading the
+  > COMPONENT list, which genuinely held 3 until 10:32:01 when the run placed
+  > `chat-input-box`; `pages.sections` held all four throughout. Both
+  > readings were correct about different columns; nothing was ever lost.
+  > (That log also shows the lane's own watcher re-triaged the item at
+  > 10:23:38Z and confirmed the clean pass via agent_error_log — so the
+  > requeue credit is that session's, and it independently found the
+  > persisted-detail route.)
