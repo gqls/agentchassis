@@ -88,6 +88,54 @@ Re-run the scanner over the same URL list: the seven must go clean at 390px.
 For the structural half, the eligible-population query above must return the
 webdesign.co.uk tools (candidate 1 or 2), not just the current 17.
 
+---
+
+# RE-VALIDATED 2026-08-17 and FIXED IN CODE 2026-08-18 — OPEN until the roll + live induction
+
+Taken up by the `bugfix_146_ported_tools_acceptance` lane (full trail in
+`docs024_key_docs_latest/bugfix_146_ported_tools_acceptance/`). Two corrections to this
+file's own mechanism section, then what shipped:
+
+> **CORRECTED 2026-08-18 — the structural half above was fixed THREE HOURS after this
+> file was filed, and the file never said so.** `ac9f75a0c` (2026-07-29 17:19, TL-033)
+> replaced the `component_level='tool'` gate with the shared `toolEligibilityWhere`
+> (tool_eligibility.go), which admits ported sole-component `page_type='tool'` pages,
+> keyed by page-name stem. Fix-candidate 2 above therefore shipped the day of filing.
+> Re-running this file's own SQL today measures a predicate 19 days dead — one session
+> did exactly that and recorded it (WRONG_CALLS 2026-08-17) before the code read caught it.
+
+**What actually kept the symptom alive** (all 7 pages re-scanned live 2026-08-17 with the
+extracted adapter clause: **0 clean · 7 FLAGGED · 0 errors**, same culprits):
+
+1. **No fence → no run.** Tier 4 is criteria-gated; 6 of the 7 have no current
+   ```criteria``` PLAN. 48 of 67 ported pages fleet-wide are unfenced (webdesign 45,
+   loancash 3). Fencing policy is an OWNER DECISION, costed in the lane PLAN §"Door 1" —
+   deliberately not taken unilaterally.
+2. **Fenced + FAILED → silent sink.** The Tier-4 judge re-derived its component by
+   `cc.function = <subject key>`, which no ported instance satisfies, so a failing ported
+   verdict wrote "route this manually" and filed nothing — `pasteboard` and
+   `vibe-equalizer` (fence present) each FAILED twice, 2026-08-05 and 08-14, zero items.
+   This is `bugs_closed/281` Finding B, which that lane left open and unowned.
+
+**FIXED IN CODE (door 2): `1549dc58b`, 2026-08-18** — `JudgeAcceptanceResultsAction` is
+now the THIRD producer of `ported_tool_fix` (after tool_health and Tier-2 acceptance),
+firing only when the run item's own `spec.component_id` resolves to an active non-tool
+component; key `ported_tool_fix:tool_acceptance_tier4:<subjectKey>:<siteID>`, handler-less
+`needs_human_review`, refresh-and-merge dedup. Register TL-042 updated in the same commit.
+Council corr `d2edf61d-87af-4195-bcce-c5717afc2d9e` (submitted alongside; read the verdict
+before citing this as reviewed). **Go is inert until the next chassis roll** (fleet is on
+v1.0.1309 = `f0117fb8`, which predates this).
+
+**To close this file** (the fixed-AND-live bar):
+1. After a roll carrying `1549dc58b`: `git merge-base --is-ancestor 1549dc58b <the
+   pod's stamp>`, per service.
+2. The standing failing case IS the induction: vibe-equalizer's next 7-day acceptance run
+   on its real fence should file `ported_tool_fix:tool_acceptance_tier4:vibe-equalizer:…`
+   carrying the overflow attribution (or pasteboard, if the rebuild lane replaces
+   vibe-equalizer first).
+3. The seven pages themselves are the **webdesign_tool_rebuilds** lane's (owner-directed
+   native replacement; 4 of 63 done as of 2026-08-17) — this file does not gate on them.
+
 ## Related, not duplicated
 
 - `bugs_open/131` B — the clipped-overflow blind spot in the check itself (now

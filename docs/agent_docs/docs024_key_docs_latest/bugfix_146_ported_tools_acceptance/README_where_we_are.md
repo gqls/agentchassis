@@ -26,3 +26,21 @@ needs an answer that isn't "someone remembers to rebuild them".
 
 Next: I'm mapping who runs which check and on what population, then I'll write a fix plan
 biased toward the framework answer, and put it through the council before committing.
+
+## 2026-08-18 — the fix is written, tested, and waiting on two things
+
+The code change went in today: when one of our automatic quality runs fails a ported tool,
+the verdict now lands in the human review queue with everything needed to act on it —
+before, it was written to a log-style note that nothing and nobody read. It is committed
+and under council review, but it only takes effect when the next fleet build ships (today's
+fresh build predates it).
+
+Worth telling: the first version of my safety test had exactly the blind spot our own
+handbook warns about — it "proved" the guard by asking the test database, which cannot see
+a write it wasn't told to expect. I broke the guard deliberately to check, watched the test
+wrongly pass, and rebuilt the proof on a channel that does see it (the code's own logging).
+The broken-guard version now fails the test, which is the point.
+
+Two things wait on you — set out under "Decisions" in my summary to you, and in the plan
+file: whether ported tools should get an automatic baseline mobile-fit check (it costs
+browser runs), and nothing else — the rest is machinery that rides the next release.

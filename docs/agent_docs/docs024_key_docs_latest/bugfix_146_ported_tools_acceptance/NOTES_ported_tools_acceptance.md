@@ -165,3 +165,30 @@ exploratory line was added and reverted in the same minute — the tree compiles
    before the verdict. Commit Go+test+register by pathspec.
 6. Owner decision (PLAN § Door 1, fences) + dated pointer in webdesign_tool_rebuilds NOTES
    re the seven pages — outstanding, not started.
+
+## 2026-08-18 — door 2 BUILT, committed `1549dc58b`, council corr `d2edf61d`; fresh build verified first
+
+- **Fleet baseline re-verified at the binary before anything else**: pods on v1.0.1309
+  (started 15:45Z), full sha `f0117fb8b93ea3e1f32298daeb9751bcff4b90c7` present 3× in
+  /proc/1/exe, invented-sha control 0. A real fresh build (not the same-tag cache trap).
+  My fix postdates it → inert until the NEXT roll.
+- **Implementation** exactly per PLAN: `routePortedAcceptanceFailure` helper +
+  else-arm call + fixLine case + `ported_tool_fix_filed` result key (key-presence).
+  No new step-config keys (fixed input paths) → RFC_022 surface unchanged.
+- **The working tree's actions package would not compile the tests** — another session's
+  in-flight edit (`component_write_guard.go` referencing undefined `balancedPairs`).
+  Tested against `git archive HEAD` + only my two files in a scratch overlay: full
+  `actions` package ok (1.9s), `discovery_checks` ok.
+- **Mutation checks, both directions:** guard inverted → firing test FAILS. Guard
+  deleted → **first attempt SURVIVED the fork control** — sqlmock's recorder never sees
+  an unexpected statement, so "no insert recorded" was vacuously true (the
+  mock-bookkeeping-cannot-assert-a-negative landmine, met live). Fixed by observing the
+  judge's OWN log stream (zap observer; every ported-route utterance contains "ported",
+  no pre-existing judge log does — grepped). Re-induced: guard deleted now fails the fork
+  control via the logs and nowhere else.
+- **Council**: corr `d2edf61d-87af-4195-bcce-c5717afc2d9e`, submitted 2026-08-18 (three
+  schema bounces first: plan must be an OBJECT; 'create'→'add'; a sketch starting `###`
+  reads as comment-only). Committed pre-verdict with `Council-Submitted:` per the norm.
+  Verdict owed: budget ~30 min from submission; find the run by payload
+  (`collected_data->'input_data'->>'fix_correlation_id'`), never retry on a missing row.
+- Bug file updated with the dated FIXED-IN-CODE section + close conditions.

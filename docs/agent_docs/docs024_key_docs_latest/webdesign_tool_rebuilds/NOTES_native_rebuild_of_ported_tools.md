@@ -1050,3 +1050,17 @@ Rerender `c60deac6-de71-4667-a039-929832c26015` queued and watched.
 
 **Retire margins so far: 45 min · 2 min · 26 min · 96 min (LOST) · 91 s · 93 s · 124 s.** The last
 three were won by ordering rather than luck — grade and retire first, write up second.
+
+---
+
+**POINTER 2026-08-18 (from the bugfix_146_ported_tools_acceptance lane — for your queue
+ordering, not a request to change anything):** seven of your remaining ported subjects were
+re-measured at the LIVE urls on 2026-08-17 with the browser-runner's own extracted
+`no_horizontal_overflow` clause at 390×844 and ALL SEVEN still overflow (0 clean / 7
+flagged, same culprits as bugs_open/146 filed on 07-29): `smooth-shadow`,
+`recommender-engine`, `layout-generator`, `css-variables`, `social-card`, `blob-maker`,
+`vibe-equalizer`. Full output: `bugfix_146_ported_tools_acceptance/scan_146_rerun_2026-08-17.txt`.
+They are visitor-visible mobile breakages today, so they may deserve an early slot in your
+one-at-a-time cadence. Context if useful: the Tier-4 judge now files `ported_tool_fix` for
+a failing ported acceptance run (commit `1549dc58b`, inert until the next roll), and each
+of your rebuilds retires a subject from that population.
