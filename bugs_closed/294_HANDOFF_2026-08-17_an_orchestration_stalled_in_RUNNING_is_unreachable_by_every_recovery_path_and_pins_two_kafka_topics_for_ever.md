@@ -392,3 +392,27 @@ Guard 2 separately proven both ways: the live text passed; a corrupted copy
   arm has reaped **0** real rows since apply, so nothing is being killed today.
 - **`prior_art_librarian` (low): the `TimeoutMonitor`-is-dormant claim rests on greps.**
   Correct, and scoped in Correction 3 above to "no caller in this repository".
+
+## Post-close observation — the first fleet roll after the fix
+
+A chassis roll is the *exact* failure mode this bug is about: `RUNNING` is entered only in
+the stuck-orchestration takeover, and a pod dying between `ClearExecutingStep` and
+`SetExecutingStep` is what strands a row there. So the first roll after the fix is a free
+natural experiment.
+
+`v1.0.1309`, pods started **2026-08-18 15:45:31Z / 15:45:53Z** (binary carries commit
+`f0117fb8b`, probed with a control). Measured ~40 min later: **`RUNNING` = 0 rows
+fleet-wide**, and the new arm has reaped **0** real rows all-time.
+
+**Read this as weak corroboration, not proof.** It is consistent with "rolls do not
+routinely strand rows", and equally consistent with "no orchestration happened to be inside
+the millisecond takeover window during this roll" — which, given the window's size, is the
+likelier reading. The arm's correctness is established by the induced test above, not by
+this. What the observation *does* rule out is a roll being a high-rate producer.
+
+⚠ **`INITIALIZED` is ACCUMULATING, not a historical straggler** — re-measured the same day:
+two rows, `generic`/`check_health` idle **36.2 days** and `endpoint-health-checker`/`check_health`
+idle **0.4 days and rising**. Both from a `check_health` step. Unlike `RUNNING` they pin no
+Kafka topics (`INITIALIZED` is absent from `getActiveOrchestrationTopics`'s protected set),
+so the harm is bounded — but the gap is live and growing, and it is the standing argument for
+fix candidate 2.
