@@ -346,3 +346,31 @@ SAME tag `v1.0.1305` — and the restart served the node's cached image. Another
 same trap the same day (203 commits unshipped; it is now a MEMORY banner). Nothing to do but say
 it: **the fix rides the next roll under a bumped tag.** Digest equality is the only check that
 sees this; the tag, the restart time, and even the local label all read "fresh".
+
+---
+
+## 2026-08-18 (session 4) — the canary's product was a fleet-wide finding, not a converted page
+
+Full narrative in case file §13; the technical residue worth keeping:
+
+**The finding.** A perfect conversion + a green rerender + a successful deploy still served the OLD
+bytes. `check_rerender_mode` routes to the sections path only for three reasons; "template changed"
+was not a reason. Every template fix on this estate has been assemble-only. The precise prediction
+is what made it visible — nobody had checked a served page against expected bytes this exactly.
+
+**The fix (460+461, live, round 4 submitted with FORCE=1 — the path filter cannot see that a config
+migration is a platform change).** `template_changed` in the vocabulary; the fixer files PAGE-SCOPED
+reason-carrying rerenders (site_id from the PAGE, covering the cross-domain row).
+
+**MISSTEP 8 — I shipped a nonexistent column inside a query string, and my probe run could not see
+it.** 460's embedded query referenced `p.filename`; `pages` has no such column (Go derives it).
+The probe run proved the OUTER update; the inner query is DATA until the step executes. Caught
+minutes later running the same shape directly. 461 corrects it and adds the check class 460
+lacked: **PREPARE-compile the embedded query in the verify block.** Landmine written (footprint:
+every `query_database` config, every `scheduled_tasks.pre_query`).
+
+**Canary end-state, measured at the served artefact:** 34 instance-scoped ids, 0 old, 0 unrendered
+tokens, 5/5 `data-target` chains paired. Tripwire tripped 07:40 as designed (adopters 1).
+
+**Batch released:** 70 items (eligible count 66→69→70 over two days — derive, never paste).
+Monitor `budmv5g2d` on the drain.
