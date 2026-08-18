@@ -94,3 +94,59 @@ not the whole thing; the copy stays as it is until they decide the gallery is li
 3. **Does the pair need the cross_site_domain allow-list?** Only when webdesign.uk copy
    links to `loanzy.uk`. `loadAllowedReferenceDomains` is opt-in per site and in production
    use on `fundamentallyai.com` — so it is a config change, not a build.
+
+---
+
+## REVISION 2026-08-18 (afternoon) — Phase 1 was struck, then reinstated by evidence
+
+**Phase 1 ("the prompt", owner input, blocking) was struck** when the owner asked for the
+framework to determine the direction itself with no prompt at all. That run happened, and
+its result **reinstates Phase 1 on evidence rather than preference**: given only the string
+`loanzy.uk`, the classifier produced a UK credit-broking business — lender panel, eligibility
+checker, per-referral revenue — and one page of it deployed to the live domain before the
+build was stopped. Full account: `SUMMARY_2026-08-18_the_no_prompt_build_put_a_credit_broker_live.md`.
+
+**The owner has chosen to re-run with one short prompt** naming a business that is not in a
+regulated trade. Still one customer input, still no positioning entry, still the framework
+doing everything else.
+
+### The phases now
+
+**Phase 0 — containment BEFORE dispatch (new, and non-negotiable).** The next build does not
+start until publication is something we control rather than something we race. Concretely:
+either the domain has no worker route while the build runs, or the build targets a domain
+that does not resolve, and either way the hold is verified at the URL before dispatch. Today's
+sequence — dispatch, discover, then try to stop a queue that had already handed work out —
+is what put a page on the internet. **Also: `page-build-handler` deploys each page itself
+(`deploy_page`); there is no single publication step to hold, and cancelling queued items does
+nothing to an item already CLAIMED.**
+
+**Phase 1 — one short prompt (owner).** Non-regulated subject. It is published beside the
+site, so it is written as a customer would write it.
+
+**Phase 2 — build, unchanged in principle**: seed from the prompt alone, dispatch, no
+steering, deviations logged.
+
+**Phase 3 — clean up today's run.** `bugs_open/304`: the retracted page is still in the
+bucket because `Deploy to B2` skips a domain whose directory no longer exists. Needs the
+owner or a permission grant — see NOTES for the two commands.
+
+**Phase 4 — hand the pair to the webdesign lane** (unchanged).
+
+### Shipped since the original plan
+
+- **CGV-032 / migration `464`** — the classifier may not propose a regulated business model
+  unless a mission explicitly asks for one (owner instruction). Applied and verified live in
+  config; **unexercised** until a finance-shaped domain is submitted.
+- **`bugs_open/304`** — retracting a site's last page cannot unpublish it.
+- **A LANDMINE correction** (the b2 remedy is available on this box, and an agent may still be
+  blocked from running it) and a new LANDMINE (cancelled ≠ stopped; deploy lives in the page
+  builder; retraction refuses a live page).
+
+### Recorded, not acted on
+
+**The council gate structurally cannot review this change.** `097_TRIGGER`'s client-side
+scope is `^(platform|internal|pkg)/`, so a seam that ships as DB config — which is where a
+large share of fleet behaviour actually lives — is refused before it costs anything. CGV-032
+is therefore registered but unreviewed, which is the honest state, not an oversight. Whether
+config-only seams should be reachable by the gate is a question for the architecture lane.

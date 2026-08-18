@@ -26,3 +26,34 @@ next to the site. One caution worth a sentence: the domain sounds like a lender,
 convincing fake lender on a live UK domain is a compliance problem rather than a demo. Either
 the demo is not a financial firm — which also shows off the new "any sort of site" line — or
 the page says plainly that it is an example.
+
+## 2026-08-18, later
+
+We tried it your way — the framework given nothing but the domain name — and it answered
+confidently and dangerously. It decided loanzy.uk should be a loan comparison and matching
+platform: a panel of FCA-regulated lenders, an eligibility checker, and money coming from
+lenders paying us for each borrower we refer. That is credit broking, which is a regulated
+trade. It even found two unrelated companies trading as "Loanzy" elsewhere in the world and
+treated their business as evidence for what ours should be.
+
+I stopped the build, but not cleanly, and one page got out before I did. It sat on the live
+domain saying we search a panel of FCA-authorised lenders. The account of exactly how that
+happened, including the three separate mistakes I made trying to stop it, is in the summary
+document written this afternoon — you asked for it in full and it is in full.
+
+Two things came out of it that are worth more than the site would have been. The first is
+that the system already knew: two steps before any page was written, the briefing agent had
+noted that an FCA authorisation number "must be obtained before launch" and that the lender
+panel was not confirmed. It wrote that down and carried on, because nothing gates on a note.
+The second is that our unpublish path cannot unpublish the last page of a site — the deletion
+empties the folder, the deploy skips folders that do not exist, and both halves report
+success. That is filed as a bug.
+
+The classifier now carries the rule you asked for: a regulated business model is not an
+available answer unless the brief explicitly asks for one, and a domain name tells it the
+subject, never that it may broker or advise. That is live in configuration, though nothing has
+been built through it yet, so it is not yet proven.
+
+The page from this morning is still up. Both ways of removing it were blocked by my own
+sandbox — one deletes production data, the other writes to the deploy repository — so that
+one needs you.
