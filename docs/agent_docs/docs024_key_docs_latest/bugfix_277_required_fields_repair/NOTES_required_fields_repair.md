@@ -1132,3 +1132,72 @@ line and concludes the refusal is **correct**. It is — *for prose*, which is w
 about (72 DESIGN/PLAN/SPEC docs in a month). Finding prior art that endorses the rule felt like
 confirmation that there was no bug. **It was not: the question is whether the prior art was arguing
 about your case.** That went into 016b §9 as the transferable half.
+
+---
+
+## 2026-08-18, end of session — APPROVED at round 3, and the approval's advisories corrected me twice more
+
+**Verdict: `approved`, corr `725b1f01-f4b5-42fc-92b5-6de8fc0daa85`, 1 advisory none high, 4
+abstained, `gated_by_truncation: false`.** Three rounds; **both REVISEs found real defects**, which
+is now this lane's second data point that a revise round is cheaper than what it catches.
+
+### The advisories that were checkable, and what checking them cost me
+
+**`prior_art_librarian`, medium — "the numbers sizing Tier 2 are on your own `[MEASURED]` tag, not
+quoted as query results."** Re-ran them. **Two were wrong.**
+
+```sql
+SELECT owner_agent_type, count(*), min(created_at)::date, max(created_at)::date
+FROM orchestration_states WHERE owner_agent_type IN ('copy-editor','section-editor') GROUP BY 1;
+--  section-editor | 18 | 2026-08-17 | 2026-08-18
+--  copy-editor    |  2 | 2026-08-18 | 2026-08-18
+```
+
+1. **I compared orchestrations to work items** — "2 runs vs section-editor's 227". Like for like it
+   is 2 vs 18 orchestrations (a ~24h retention window, not a lifetime) and **0 vs 227 work items**.
+   The honest headline is not "barely used", it is **"nothing dispatches it at all"**.
+2. **`copy-editor` is ONE DAY OLD, not dormant.** Seeded `2026-08-17 11:49`, updated
+   `2026-08-18 17:59`, both runs today, **owned by the `loanandmortgagecalculator_couk` lane**
+   (migrations `447`/`462`; `b04493b7b` — *"stage 2 BUILT and PROVEN on its proof case"*).
+
+**That changes the Tier 2 advice, not just the record.** "Aim an existing producer at a finding"
+still holds, but the producer has an owner iterating on it *right now*, so the next step is to talk
+to that lane — not to draft an RFC around a `field_updates` contract that has changed twice in two
+days.
+
+> ⚠ **The lesson, and I made this error class twice tonight.** I found a mechanism I had wrongly
+> declared nonexistent — and then characterised it ("2 runs, barely exercised") from figures I had
+> not lined up. **Finding the thing you missed is not the end of the correction: the first
+> description of it is written in the same hurry that produced the original claim.** The seat that
+> caught the absence caught the description too, one round later.
+
+**`prior_art_librarian`, low — "'no scheduled_task mentions `wont_fix`' is an absence claim, check
+it."** Fair, and my original had no control. Re-run with one:
+
+```sql
+SELECT count(*) FROM scheduled_tasks WHERE COALESCE(pre_query,'') ILIKE '%wont_fix%'
+   OR COALESCE(input_data::text,'') ILIKE '%wont_fix%';   -- 0
+SELECT count(*) FROM scheduled_tasks WHERE COALESCE(pre_query,'') ILIKE '%failed%';  -- 5
+```
+The 5 is what makes the 0 mean something — the query can come out non-zero.
+
+### Two residuals recorded rather than closed
+
+- **`bug_historian`, low, and it is a genuinely new observation:** a `wont_fix` row is excluded from
+  retraction **and** released by the dedup index, so it is never re-validated. **If a page's
+  `rebuild_policy` later flips `owned → generic`, nothing revisits the closed refusal.** Harmless
+  today — the finding re-raises and dispatches normally — but recorded, because a queue with no
+  re-validation is exactly what `bugs_open/083` exists about.
+- **`architecture`, low — do not spread the marker trick.** Deciding a terminal status by scanning
+  error text is accepted here because the seam offers no other channel. **A second call site makes
+  it a shared, stringly-typed contract nobody declared** — at that point the right move is
+  structured error metadata on the coordinator, not a third `strings.Contains`. Written into WII-019
+  so the next author meets it before writing the second one.
+
+### `bug_historian` medium and `guardian` low both landed on the same thing, and agreed with the call
+
+Both flagged `FailWorkItemAction`'s missing guard — `bug_historian` as *"one call site of a shared
+judgement gets the rigorous fix; the sibling stays heuristic"* (a named 016b §9 shape), `guardian` as
+*"correctly NOT fixed inline; a shared action getting a guard change belongs in its own reviewed
+patch per the 2026-07-28 ruling"*. **Two seats, opposite emphases, same conclusion: right defect,
+right containment.** It is in `bugs_open/307` with the split it probably wants.

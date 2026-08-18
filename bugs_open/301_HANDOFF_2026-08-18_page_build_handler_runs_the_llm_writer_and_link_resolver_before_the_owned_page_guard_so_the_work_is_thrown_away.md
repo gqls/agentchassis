@@ -289,3 +289,42 @@ That is a smaller RFC, with a live precedent to point at — and the precedent's
 the shape this estate keeps mistaking for a missing one.
 
 **Nothing above changes your ordering finding or the 0-of-39 table**, both of which stand.
+
+#### Correction to the correction, same day — my own figures were loose, and the re-check changes the advice
+
+The council's `prior_art_librarian` seat (round 3, medium) objected that the numbers sizing Tier 2
+were carried on my own `[MEASURED]` tag rather than quoted as query results. Re-run independently,
+and **two of them were wrong in a way that matters**:
+
+```sql
+SELECT owner_agent_type, count(*) AS orchestrations, min(created_at)::date, max(created_at)::date
+FROM orchestration_states WHERE owner_agent_type IN ('copy-editor','section-editor') GROUP BY 1;
+--  section-editor | 18 | 2026-08-17 | 2026-08-18
+--  copy-editor    |  2 | 2026-08-18 | 2026-08-18
+SELECT handler_agent, count(*) FROM (SELECT handler_agent FROM site_work_items
+  UNION ALL SELECT handler_agent FROM site_work_items_archive) x
+WHERE handler_agent IN ('copy-editor','section-editor') GROUP BY 1;
+--  section-editor | 227      (copy-editor: no row)
+```
+
+1. **I compared two different measures.** "2 runs against section-editor's 227" set orchestrations
+   beside work items. Like for like: **orchestrations 2 vs 18** (that table is retention-limited to
+   ~24h, so it is a window, not a lifetime), **work items 2 vs 227**... and copy-editor has **no work
+   items at all**, which is the real point — nothing dispatches it.
+2. **`copy-editor` is not old. Both its runs are 2026-08-18 — today.** The definition was seeded
+   `2026-08-17 11:49` and last updated `2026-08-18 17:59`. So the shape I described as a dormant
+   mechanism is **one day old and under active development**, by the `loanandmortgagecalculator_couk`
+   lane (migrations `447`, `462`; commit `b04493b7b` — *"stage 2 BUILT and PROVEN on its proof
+   case"*).
+
+**Why that changes the advice rather than just the record.** I wrote that Tier 2 should "aim an
+existing producer at a finding". That still holds, but the producer has an **owner who is iterating
+on it right now**. So the next step is not to write an RFC that designs around it — it is to talk to
+that lane first, per the estate's own rule against competing with an owned mechanism. A Tier 2 design
+drafted tonight against a `field_updates` contract that changed twice in two days would be obsolete
+before it was read.
+
+⚠ **And the general lesson, because I made the same class of error twice in one evening:** I found a
+mechanism I had declared nonexistent, then immediately characterised it ("2 runs, barely exercised")
+from numbers I had not lined up. **Finding the thing you missed is not the end of the correction —
+the first description of it is written in the same hurry that produced the original claim.**

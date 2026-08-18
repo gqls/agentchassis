@@ -18,7 +18,7 @@ bottom.** All figures measured 2026-08-18 evening unless dated otherwise.
 | thing | state | re-verify with |
 |---|---|---|
 | decision 2 — reclaim arm | **DONE** (mig `479`, `f95504674`). Never yet exercised on a real reclaim | scheduler log, `reclaimed` column |
-| decision 1 Tier 1 — refusal status | **BUILT + COMMITTED `6aee22b00`; config LIVE (mig `480`); Go INERT until a roll.** Council corr `725b1f01`: **REVISE ×2, round 3 submitted** — both objections were REAL, see §1 | §1 |
+| decision 1 Tier 1 — refusal status | **BUILT + COMMITTED `6aee22b00`; config LIVE (mig `480`); Go INERT until a roll.** Council **APPROVED at round 3, verdict READ** (`725b1f01`) — **both REVISEs found real defects**, see §1 | §1 |
 | decision 4 — `bugs_open/300` | **BUILT + COMMITTED `42a4bf441`; INERT until a roll.** Council **APPROVED r1** (`203d858b`), **verdict READ**, 4 mediums answered; registered **WII-020** | §2 |
 | decision 6 — gate cannot review config | **FILED, `bugs_open/314`** + 016b §9 pattern (`6826d2385`) | §3 |
 | decision 3 — both canaries | left alone, as ruled. Unchanged | `08-18c` §4 |
@@ -109,9 +109,20 @@ leave the configured status untouched and must not error.
 handler must still land `failed` without the stamp. A zero on the control means no genuine failures
 happened in the window, **not** that the split works — widen the window.
 
-**Read the round-2 verdict** (`725b1f01`) and act on it. The commit carries `Council-Submitted:`;
-`098` credits it automatically if it turns approved. Do **not** write `Council-Reviewed:` on an
-unread verdict.
+~~**Read the round-2 verdict** (`725b1f01`) and act on it.~~ **DONE — approved at round 3, verdict
+read, advisories acted on.** The earlier commits carry `Council-Submitted:` and `098` credits the
+correlation automatically; no amend, forward-only.
+
+**Two residuals recorded rather than closed**, both from the round-3 advisories:
+- **A `wont_fix` refusal is never re-validated.** It is excluded from retraction AND released by the
+  dedup index, so if a page's `rebuild_policy` later flips `owned → generic`, nothing revisits the
+  closed refusal. Harmless today (the finding re-raises and dispatches normally), recorded because a
+  queue with no re-validation is a shape this estate has been bitten by.
+- **⚠ Do not spread the marker trick.** This decides a terminal status by scanning error text for a
+  prefix, accepted here because the seam offers no other channel. **If a second action wants the
+  same thing, that is the point to give the coordinator structured error metadata instead** — two
+  call sites make it a shared contract nobody declared. The `architecture` seat flagged it for
+  exactly the next instance.
 
 ---
 
@@ -196,6 +207,18 @@ evidence about your case.
    > `section-editor`'s 227. A mechanism nothing drives is the shape this estate keeps mistaking for
    > a missing one, and it is also the shape that turns out to be broken on first real use. Full
    > account in `bugs_open/301`'s correction section.
+   > ####
+   > ⚠ **CORRECTED AGAIN the same evening, and this changes what to DO.** The council's
+   > `prior_art_librarian` seat (round 3, medium) asked for those numbers as quoted query results
+   > rather than my own `[MEASURED]` tag. Re-run, **two were wrong**: I compared orchestrations to
+   > work items (like for like it is 2 vs 18 orchestrations, and 0 vs 227 work items — *no work
+   > items at all* is the real point, nothing dispatches it); and **`copy-editor` is not dormant,
+   > it is ONE DAY OLD** — seeded `2026-08-17 11:49`, updated `2026-08-18 17:59`, both runs today,
+   > **owned by the `loanandmortgagecalculator_couk` lane** (migrations `447`/`462`, commit
+   > `b04493b7b` *"stage 2 BUILT and PROVEN on its proof case"*).
+   > **So do NOT open Tier 2 by drafting an RFC around it.** Talk to that lane first — the estate's
+   > rule against competing with an owned mechanism applies, and a design written against a
+   > `field_updates` contract that changed twice in two days would be stale before it was read.
 5. **Two loose ends nobody owns**, both `[UNMEASURED]`, neither chased:
    - **`page-rerender` saves to owned pages 3,754 times without refusal** while `page-build-handler`
      is refused every time. Both go through the same guard. One of those facts needs explaining, and
