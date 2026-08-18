@@ -35804,3 +35804,67 @@ Tally for "read the owning lane's own correction and failed to apply it to my ow
 later": 1 (caught, pre-submission).
 Tally for the family "a built mechanism reported as an operating one": this estate's Nth — the
 memory entry `thunder-reaper-fires-but-has-never-reaped` is the same error with different code.
+
+## 2026-08-18 — "verified against git archive HEAD … green, THEN committed" — but I had run ONE package's tests and claimed the tree
+
+**The claim (NOTES_og_card.md (11), and implicitly the commit itself):** `c121d5a73` was
+verified green against archive HEAD before committing.
+**What I actually ran:** `go build ./platform/...` (whole tree) but `go test` on
+`discovery_checks` ONLY — the package I had edited. My change REGISTERS something in a
+shared registry, and a guard in a package I never ran
+(`actions/write_audit_findings_verifier_join_test.go`, the bugs_open/213 one-scope-test
+allowlist) enumerates that registry. HEAD was red for ~40 minutes until the bugs_open/302
+lane caught it at clean archive HEAD and messaged me; fixed in `7d6f187db`.
+**What caught it:** another session's routine full-suite run — not me.
+**The cheap check that would have:** `go test ./platform/orchestration/...` in the archive
+overlay — one command, ~2 min. The rule that generalises: **a change whose effect is a
+REGISTRATION (init(), registry map, allowlist) is never package-local — its guards live
+with the registry's CONSUMERS, so test at least the whole subsystem, and grep the tree for
+the registry accessor** (`RegisteredVerifierItemTypes` had a consumer in `actions/` my
+package-scoped run never compiled… no — it compiled, it was a TEST in another package; a
+grep for the accessor name would have listed it in one second).
+
+---
+
+## 2026-08-18 — I handed another lane a landmine's DISCRIMINATOR as if it were universal, and it was its family's
+
+**Lane:** `bugfix_302_design_repair_verification`. **Second entry from this session** (the first is
+above: calling WII-018's retraction "live" from the code being merged).
+
+**The claim.** Telling the bug-131 lane that their new `Grades` scope test owed a producer
+measurement, I prescribed the query — `count(DISTINCT COALESCE(spec->>'audit_source','<none>'))` —
+quoting the LANDMINE whose title is *"`spec->>'audit_source'` is the ONLY thing that names a work
+item's producer"*.
+
+**What was actually true.** For `needs_brand_head_assets` it names nothing. That lane went and
+measured the right thing — the **spec's own shape** — and found 53 lifetime rows in exactly two
+shapes (35 purpose-only from the discovery producer, 18 mode-only hand redrives), then **reworded the
+guard's error text** to say "the spec's own shape", which is the better fix precisely because the
+guard's message is what the next session will follow. Mine would have sent them at a column that does
+not discriminate for that type, and — worse — a `count(DISTINCT …)` over a column of all-NULLs
+returns **1**, which reads as "one producer, you're fine".
+
+**What caught it.** The other lane, by measuring instead of doing as it was told. Nothing in my own
+process would have.
+
+**The cheap check that would have.** Run the query before prescribing it. One command, and a
+`<none>` monopoly in the output is the tell that the column is not the discriminator for that type.
+
+**The generalising rule, which is the reason this is worth a row.** A landmine's title says *"the
+ONLY thing that names a producer"*, and within its own footprint that is true — the entry was written
+from the design-audit family, where `audit_source` genuinely is the answer. **Take the METHOD from a
+landmine (split by producer, archive-inclusive, never `created_by`) and re-derive the DISCRIMINATOR
+for the type in front of you.** A landmine generalises its *failure mode*; its *field names* are
+scoped to the population it was written from, and nothing in the entry marks where that scope ends.
+
+**The symmetric finding, from the same day.** That lane's live-only read was 6 rows against 53
+lifetime; mine was `hardcoded_section_colors` reading 1 producer live against 2 archive-inclusive,
+with WII-013's `Grades` licensed on "of the 21 rows ever filed" against a lifetime population of 564.
+**Two independent lanes, one blindness** (`site_work_items` is a ~7-day window), each catching it in
+the other's evidence. Already a LANDMINE as of this morning from the migration-465 lane, so cited
+rather than duplicated.
+
+Tally for "quoted a landmine's field name outside the population it was written from": 1 (caught, by
+someone else).
+Tally for this session's own wrong calls: 2, both caught before they changed a decision — but the
+second one had already been SENT to another lane, which is the more expensive kind.
