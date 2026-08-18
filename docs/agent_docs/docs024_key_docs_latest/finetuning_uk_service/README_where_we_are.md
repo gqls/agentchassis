@@ -753,3 +753,24 @@ report "done" while changing nothing — has been formally handed to the diagnos
 loop, which reads the real code and evidence and comes back with a cited verdict.
 And your invoice confirmed our cost estimates to the cent, so the £99 starting
 price sits on measured ground: roughly £1 of GPU per customer job.
+
+---
+
+## 18 August 2026, later — position like the expensive agencies, price like an invitation
+
+Your rulings today, recorded: the positioning stands — we present like the
+serious, expensive agencies but keep the £99 price; the cheapness must never
+read as a disadvantage, and the way we earn that is by **describing the process
+in detail** so the buyer can see we are what we say we are. If the messaging
+can't carry it we could raise the price later, but we try the price we like
+first. And my sample copy was rightly rejected — too obviously machine-written.
+The page's words will come through the framework, not from a session's keyboard.
+
+Two consultations are now formally lodged with the specialist threads, exactly
+as you asked: the **copy quality** thread has been asked how to encode the
+friendly-expansive, glossary-backed register into the site's own specification
+(so the tone is a property of the site, not of one draft), and the **offer
+analysis** thread has been asked to rank the benefits — which one leads, which
+true claim would be the wrong opener, and whether process-transparency really
+answers "£99? what's the catch". Their trades, their call; our facts are
+attached. The page won't be seeded until both answer.
