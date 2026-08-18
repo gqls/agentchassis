@@ -50,7 +50,16 @@ func TestRetryWindowHonoursTheDeclaredTimeout(t *testing.T) {
 		{"600s — the commonest declaration above the cap", 600, 10 * time.Minute, 5 * time.Minute},
 		{"900s — call_dispatch, the measured case", 900, 15 * time.Minute, 5 * time.Minute},
 		{"1200s — process_item_iter_N_call_handler, measured", 1200, 20 * time.Minute, 5 * time.Minute},
-		{"1800s — exactly the inversion boundary", 1800, 30 * time.Minute, 5 * time.Minute},
+		// 1800s is the sharpest case and the oldGave here is 3m, not 5m. In
+		// PRODUCTION the boundary is unreachable as an equality: SentAt and
+		// TimeoutAt come from two separate time.Now() calls
+		// (SentAt: time.Now(), TimeoutAt: time.Now().Add(getTimeout(step))),
+		// so the stored duration is always marginally MORE than declared and a
+		// step declaring exactly 30 minutes tripped `> 30*time.Minute` and
+		// collapsed to 180s — a 10x shortfall, not 6x. Confirmed live
+		// 2026-08-18 on diagnose-orchestrator.call_diagnoser, which declares
+		// 1800 and whose rv3 window was 00:03:00.
+		{"1800s — the boundary, which production overshoots into the 3m arm", 1800, 30 * time.Minute, 3 * time.Minute},
 		{"2100s — first step PAST the boundary, so the old code gave 3m not 5m", 2100, 35 * time.Minute, 3 * time.Minute},
 		{"86400s — the human-approval step", 86400, 24 * time.Hour, 3 * time.Minute},
 	}

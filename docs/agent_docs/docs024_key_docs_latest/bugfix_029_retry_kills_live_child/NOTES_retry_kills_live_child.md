@@ -543,3 +543,92 @@ runs under a shared **60-second** context (`cleanupExpiredAwaitedRequests`,
 `coordinator.go:4264`), so a continuation that spawns agents cannot finish inside it and
 every error-path write dies with the deadline — is plausible and **[UNVERIFIED]**; the
 fast-path timer uses `context.Background()`, so it cannot be the whole story.
+
+---
+
+## 2026-08-18 — the 090 run was KILLED BY THE BUG IT WAS FILED ON, and it is the sharpest evidence in this file
+
+The diagnosis run finished terminal with **no diagnosis**: 5 `bundle` artifacts, no verdict.
+The reason is this bug.
+
+```
+diagnose-dispatch-loop | COMPLETED | last_activity 12:54:30
+diagnose-orchestrator  | FAILED    | 12:54:27   error: "Request cdf1a95b… timed out after 3 retries"
+diagnose-agent         | COMPLETED | 12:56:58
+```
+
+**The child COMPLETED at 12:56:58. The parent gave up at 12:54:27 — 2 minutes 31 seconds
+before its child finished successfully.** A 42-minute diagnosis run was done, and the answer
+was thrown away because the parent stopped listening.
+
+`call_diagnoser` **declares `timeout_seconds: 1800`**, and the stored `workflow_plan` carries
+it. Its `awaited_requests` row at `retry_version 3` had a window of **00:03:00**. A **tenfold**
+shortfall.
+
+### Why 180s and not the 300s I predicted — the boundary is unreachable as an equality
+
+I expected 1800s to be capped to 300s (`> 30*time.Minute` is false for exactly 1800). The row
+says 180s, so I read the construction again:
+
+```go
+SentAt:    time.Now(),
+TimeoutAt: time.Now().Add(getTimeout(step)),
+```
+
+**Two separate clock reads.** So the stored `TimeoutAt - SentAt` is always *marginally more*
+than the declared value — and a step declaring **exactly** 30 minutes therefore trips
+`newTimeout > 30*time.Minute` and falls into the **3-minute** arm. **Six live steps declare
+exactly 1800.** My round-1 test annotation said the old code gave them 5 minutes; it gave 3.
+Corrected in the test with the live case cited beside it.
+
+This is a nice instance of the estate's own rule: the live row disagreed with my arithmetic,
+and the row was right. I had reasoned about the constant and not about how the two operands
+are produced.
+
+### Does the fix I committed actually repair this case? Yes, and here is why it is not circular
+
+`retryWindow` calls `datahelpers.ConvertStepTimeout` itself and then `GetStepTimeout` on the
+step **read from the stored plan** — which I verified carries `config.timeout_seconds: 1800`
+for this very step. So on the next roll this request's retries get **1800s**, not 180s, and a
+parent whose child finishes at +42 min is still listening. `[INFERRED]` — this is the code
+path read against a verified plan row, **not** an observation of the fixed binary, which
+cannot exist until the roll. The disconfirming result is named in RSH-010's `verify-later`:
+if `rv>=1` windows stay at 05:00/03:00 on a binary the provenance stamp says carries the fix,
+the plan lookup is failing and the fallback is being taken.
+
+---
+
+## 2026-08-18 — COUNCIL ROUND 1: **REVISE**, and the gating objection found a real defect in my own submission
+
+Corr `7c92389a-617f-4abc-b03b-0ef84ca2239f`, gated by **`editquality`**, 5 seats abstained.
+
+**The objection, and it is correct:** my rationale ranked a lease/CAS guard as *"(1) the fix"*
+and stated *"shipping only (2) [the retry-window fix] would be the classic mistake here and
+the plan does not do that"* — **and then the plan contained only the retry-window edit.**
+
+That is a straight self-contradiction and I put it there. **The cause is a FOSSIL:** the
+ranking paragraph was drafted *before* the afternoon's correction, when I still believed the
+replay destroyed live work and a lease was therefore the thing that would have prevented the
+outage. When the mechanism was withdrawn I updated `grounded_in` — round 1's evidence array
+already carried the withdrawal — **and did not update the ranking sitting above it.** A
+document can carry its own refutation and its stale conclusion in the same breath, and the
+seat read both.
+
+**How I answered it: by withdrawing the claim, NOT by widening the plan.** The lease cannot be
+"the fix" any more, because the mechanism that ranked it is gone — there is no live worker for
+it to protect. It is still worth building for a narrower reason (it stops the replay
+re-executing a corpse, duplicating a spawn and resetting the reaper clock), but that is a
+bounded waste-and-dwell argument. **Bundling it in now, to make the plan look proportionate to
+a ranking I no longer believe, would be shipping a change on a justification I know to be
+stale — which is the same error one level up, and exactly what the seat had just caught.**
+
+Round 2 resubmitted on the same correlation (`RESUBMIT_CORR`) so the trail accumulates: the
+ranking is replaced by an explicit statement that **nothing here closes 029**, the live
+specimen above is added as grounding, the 1800s arithmetic is sharpened, and a scope risk is
+declared naming the counter-argument (33 steps are being silently under-waited today
+regardless of what 029 turns out to be).
+
+**Worth recording plainly: this is the second time today an outside reviewer caught something
+I had the evidence to catch myself.** Fable caught the mechanism; the council caught the
+fossil. Both were cheap. The common factor is that each was asked to disagree — and in both
+cases the disconfirming material was already sitting in my own document.
