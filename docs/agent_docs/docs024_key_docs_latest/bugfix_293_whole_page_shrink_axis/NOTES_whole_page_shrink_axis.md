@@ -502,3 +502,43 @@ Nothing else is owed on `bugs_closed/293`: the filed defect is fixed, live, and 
 in both directions. The clamp is a hardening found while verifying, it is committed with its mutation
 test, and it will ride whichever build is cut next — no action needed from this lane, since a release is
 whole-fleet and the owner runs it.
+
+## 2026-08-18, final — the clamp is LIVE and PROVEN, on `v1.0.1310`
+
+This build is real, and the reversed check settled it in one line: the stamp is **not** an ancestor of
+the clamp, so the build is at or past it. New pods (`agent-chassis-85b844f547-*`, 18:00Z), new tag
+`v1.0.1310`, `IMAGE_TAG` bumped, stamp `0b185bad2`, and `d5b40c4eb` **IS** in the image. (No BST/UTC
+trap here: the stamp's commit is 18:43 +0100 = 17:43 UTC, seventeen minutes before the pods started.)
+
+**Proven behaviourally, not just by ancestry.** Repeated the induction using the recipe the RUNBOOK now
+carries — payload identical except ~70 visible chars removed from one slot's prose — with
+`page_total_text_floor: 1.5`:
+
+```
+PAGE CONTENT REGRESSION REFUSED for page "contact" — the incoming sections carry 522 chars of
+VISIBLE text against 581 deployed across 3 sections (90% kept, FLOOR 95%)
+```
+
+**`floor 95%` is the whole result.** I sent 1.5 and the guard applied 0.95, so the clamp is not merely
+present but effective. Chosen so that clamped and unclamped BOTH refuse (90% < 95% and 90% < 150%),
+which is what made it impossible for the test to write anything whatever the answer turned out to be —
+the stated floor is the discriminator, not the verdict. Page verified untouched afterwards: same
+fingerprint **and** same row ids. Synthetic queue row cancelled.
+
+### MISSTEP 6 — my first payload changed 76 characters and moved the visible total by ZERO
+
+Building it, I truncated "the longest text run" in the slot. The page total did not budge, and the
+script's own printout contradicted itself (`ALLOW` on one line, "both refuse" on the next) — which is
+what stopped me dispatching it. **The longest text run in that HTML is inside a `<style>` block.** I had
+written a payload builder that was blind in exactly the way the guard used to be, on the lane whose
+entire subject is that blindness. The fix was to exclude style/script spans before choosing a run, and
+the second attempt removed real prose (*"…k through your architecture together — no sales deck, no
+gen…"*) and moved the total 593 → 534.
+
+Two things worth keeping. **The refusal-arithmetic assertion is what saved it**: the builder recomputes
+both verdicts and `raise SystemExit` unless BOTH are REFUSE, so a payload that could have been ALLOWED —
+and therefore WRITTEN — cannot be dispatched. Had the clamp been live and that first payload gone out,
+it would have been allowed and would have rewritten the page's rows. **And the estate's own tell held:
+"the longest text on the page is CSS" is not a quirk of that page, it is the base rate** — 728 of 1,062
+sections carry over half their tag-stripped "text" inside style/script, which this lane measured in
+week one and then walked into anyway.

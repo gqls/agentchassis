@@ -247,3 +247,27 @@ code, and that's how the fix and its council refinements got live. This one didn
 Nothing is stuck. The bug is closed, the fix is live and has been watched working in both directions,
 and the cap is committed with a test that fails if it's removed. It'll come into effect on whichever
 build gets cut next — no action needed from me, since a release goes out fleet-wide and you run that.
+
+## 2026-08-18, finished — the cap is live and I watched it work
+
+This build was a real one, and the check took a second: the code it was built from is newer than my
+change, so the change is in it. New version, new pods, and the version number had been bumped — all
+three agreeing, unlike last time.
+
+I proved it behaves rather than just being present. I sent the pipeline a save with the threshold set to
+150% again, and this time the refusal came back saying **"floor 95%"** — it had capped my absurd setting
+down to the sane limit, which is exactly what the fix does. I designed the test so both possible answers
+were a refusal, which is what made it impossible for the test to write anything at all; the *number in
+the message* is what told me the cap was working, not the refusal itself. The page is untouched — same
+content, same database rows.
+
+**One thing I got wrong, and it is a nice joke on this whole project.** My first attempt at the test
+payload deleted 76 characters from the page and changed the amount of readable text by *nothing* — because
+the longest run of text in that page is inside a stylesheet. I had written a test that was blind in
+precisely the way the bug was. A safety assertion in my own script caught it before anything was sent: it
+refuses to dispatch unless both possible answers are a refusal, and that first payload could have been
+allowed, which would have rewritten the page. That's the whole lane in miniature — on a page like this,
+most of the "text" isn't text, and I measured that in week one and still walked into it.
+
+That's everything. The bug is fixed, live, watched working in both directions, and the hardening it threw
+up is live and proven too. Nothing is outstanding.
