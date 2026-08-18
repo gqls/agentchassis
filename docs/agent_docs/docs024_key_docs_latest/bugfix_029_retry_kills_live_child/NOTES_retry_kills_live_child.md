@@ -769,3 +769,89 @@ a two-hour API wobble. If it recurs, the query above is the check.
 > sat next to. I did not test it against my own window before writing the closure. A claim
 > being true is not the same as a claim being *load-bearing*, and an untested true one reads
 > exactly like a tested one.
+
+---
+
+## 2026-08-18 16:26Z — POST-ROLL VERIFICATION on v1.0.1309: **the fix SHIPPED. The behavioural claim is NOT yet proven, and here is exactly why.**
+
+The fleet rolled to **v1.0.1309** (both replicas started `15:45:31Z` / `15:45:53Z`). Running
+RSH-010's `verify-later`, in the order it specifies.
+
+### 1. Did it ship? YES — proven at the artefact, with controls in both directions
+
+**The provenance log line was NOT in range**, exactly as CLAUDE.md warns: `--tail=3000`
+returned no `build provenance` on either pod, because it is a STARTUP line and retention here
+is ~4 minutes. **That is "not in range", not "unstamped"** — so I used the binary probe, which
+has no shelf life, and probed for **known** values rather than discovering one.
+
+| probe | result |
+|---|---|
+| `f0117fb8b93ea3e1f32298daeb9751bcff4b90c7` | **PRESENT** on replica 1 |
+| same sha, replica 2 (`…-wpk5w`) | **PRESENT** — both replicas carry one build |
+| `9fa90ea38…`, `3f1426a8d…`, `06a1ccfcb…`, `5ce70ed38…` (near-neighbour commits) | absent |
+| `deadbeefdeadbeef…` (negative control) | **absent — control OK** |
+
+So the build point is `f0117fb8b` (committed 16:26:18 BST, pod up 16:45:31 BST — consistent).
+
+**"Did my fix ship?" is then a git question, not an inference:**
+
+```
+git merge-base --is-ancestor bf7646a29 f0117fb8b   -> SHIPPED
+git merge-base --is-ancestor 2a3d30ec3 f0117fb8b   -> SHIPPED
+git merge-base --is-ancestor 6e23dabb7 f0117fb8b   -> correctly NOT an ancestor (control)
+```
+
+⚠ **Note for the next reader: probing the binary for MY OWN commit sha returned absent, and
+that is correct.** The binary carries the sha it was **built from**, not its ancestors. A
+probe for your own commit is the wrong test and will tell you your fix did not ship when it
+did. The ancestor test is the right one.
+
+### 2. Does it work? **UNPROVEN — the discriminating population has not occurred.**
+
+Post-roll `awaited_requests`: **237 rows, 234 at rv0, 3 retried.** So there is demand, and the
+demand control passes — this is not a dead path.
+
+**The positive control passes exactly as designed** — rv0 windows are UNTOUCHED:
+
+| step | rv0 window | declared |
+|---|---|---|
+| `call_dispatch` | **15:00** | 900s ✓ |
+| `process_item_iter_{0..4}_call_handler` | **20:00** | 1200s ✓ |
+| `spawn_dispatch`, `…_spawn_handler` | 02:00 | — |
+| `deploy_page` | 03:00 | — |
+
+**But all three retries are on steps that declare NO timeout at all**, verified in the stored
+plan (`step_in_plan = t`, `cfg_tmo` and `step_tmo` both EMPTY):
+
+| step | rv1 window | what it means |
+|---|---|---|
+| `spawn_rerender_agent` | 03:00 | `retryWindow` correctly returned the 180s system default |
+| `process_item_iter_0_spawn_handler` | 03:00 | same |
+| `spawn_dispatch` | 02:00 | 120s — set by the spawn path's own `preRegisterAwaitedRequest`, not by `retryWindow` `[INFERRED]` |
+
+**A step declaring nothing yields 180s under BOTH the old code and the new one.** The old
+truncation only bit declarations *above* 300s. **So these three retries cannot distinguish the
+fix from its absence, and I am not counting them as evidence.** No step declaring >300s has
+retried since the roll.
+
+> **This is "a zero with no traffic is a dead path" wearing a new costume, and it is the reason
+> the check was built with a rv0 control.** I *have* traffic — 237 rows — just not on the path
+> under test. Traffic on the agent is not demand on the mechanism. Had I reported "verified,
+> windows correct" off these three rows, every number in the report would have been true and
+> the conclusion unearned.
+
+**The 03:00 readings are the fix behaving correctly, not a defect** — but they are also the
+corner `editquality` flagged at LOW in the approval round ("the fallback branch still derives
+from the poisoned source"). Here the plan lookup *succeeded* and the step simply declares
+nothing, so the default is the right answer. Recorded so nobody reads 03:00 as the old
+3-minute inversion: **the inversion produced 03:00 for steps declaring 1800s+; this is 03:00
+for a step declaring nothing.** Same number, opposite meaning — check the declaration before
+concluding.
+
+### 3. What would settle it, and it is now armed
+
+A retry on any step declaring >300s: `call_dispatch` (900s), `process_item_iter_N_call_handler`
+(1200s), `call_diagnoser` (1800s). **Expected: the declared value (15:00 / 20:00 / 30:00).
+Under the old code: 05:00, or 03:00 for the 1800s case.** A background watch is running on
+exactly that predicate. Until it fires, RSH-010's status is **SHIPPED, BEHAVIOURALLY
+UNPROVEN** and says so.

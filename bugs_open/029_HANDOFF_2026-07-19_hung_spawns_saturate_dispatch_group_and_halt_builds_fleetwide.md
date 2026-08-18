@@ -1353,3 +1353,32 @@ still unexplained, and no part of this touches it.
 `call_diagnoser` declares 1800s and its **rv0** window was 180s, while `call_dispatch` got
 its declared 900s on the same path shape — so the **initial**-window path may have its own
 conversion gap, separate from the retry truncation now fixed. `[UNVERIFIED]`; not folded in.
+
+### Part A on v1.0.1309, verified 2026-08-18 16:26Z: **SHIPPED, and behaviourally UNPROVEN — stated separately on purpose**
+
+**Shipped, proven at the artefact.** Build point `f0117fb8b93ea3e1f32298daeb9751bcff4b90c7`
+PRESENT on both replicas, negative control absent, four near-neighbour commits absent; both
+`bf7646a29` and `2a3d30ec3` are ancestors of it by `git merge-base --is-ancestor`.
+
+⚠ **Two traps met while verifying, both worth carrying:**
+1. The `build provenance` log line was **not in range** on either pod (`--tail=3000` empty) —
+   it is a STARTUP line and retention here is ~4 minutes. **Absent ≠ unstamped.** Use the
+   binary probe.
+2. **Probing the binary for your OWN commit sha returns ABSENT on a binary that carries your
+   fix.** The binary holds the sha it was BUILT from, not its ancestors. The ancestor test is
+   the question; the probe only finds the build point.
+
+**Behaviourally unproven, and the reason is instructive.** Post-roll: 237 awaited rows, 234 at
+rv0, **3 retries — all on steps that declare NO timeout** (confirmed in the stored plan). Such
+a step yields the 180s default under the old code *and* the new, so those rows **cannot
+discriminate**. The rv0 positive control does pass (`call_dispatch` 15:00, iter handlers
+20:00, unchanged). **Traffic on the agent is not demand on the mechanism** — 237 rows of it
+would have made a "verified" claim look thoroughly evidenced and been unearned.
+
+⚠ **`03:00` now means two opposite things — check the declaration before concluding.** The old
+inversion produced 03:00 for steps declaring **1800s+**. The new code produces 03:00 for a step
+declaring **nothing** (the correct system default). Same number, opposite meaning.
+
+**What settles it:** one retry on a step declaring >300s — `call_dispatch` (expect 15:00),
+`process_item_iter_N_call_handler` (20:00), `call_diagnoser` (30:00). Under the old code these
+were 05:00, or 03:00 for the 1800s case.
