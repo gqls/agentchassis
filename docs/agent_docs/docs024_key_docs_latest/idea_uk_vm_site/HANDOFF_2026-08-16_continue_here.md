@@ -1,5 +1,10 @@
 # HANDOFF 2026-08-16 — the head surfaces are clean, the BODY is regrowing. Read this, then §X.57–§X.58.
 
+> ## ⛔ SUPERSEDED as the cold-start file — read `HANDOFF_2026-08-18_continue_here.md` first (2026-08-18)
+> Still the reference for the honesty-arc history, §4 (the gate's head blind spot — still
+> true) and the §7 traps. The §5 work list is done or ruled dead; the §6 residuals are
+> re-verified in the 08-18 file (favicon/og-card now LIVE at the served page).
+
 > # ⛔ SUPERSEDED IN PART — OWNER RULING 2026-08-17 CLOSED THE HONESTY ARC
 > **§1 and §5 below are HISTORY, not instructions.** The owner ruled: *"we have dealt
 > with the honesty problem enough. It doesn't need any more sweeps. just stop the overuse

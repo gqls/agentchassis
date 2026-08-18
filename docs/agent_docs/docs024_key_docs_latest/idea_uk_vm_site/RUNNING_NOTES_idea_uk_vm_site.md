@@ -5421,3 +5421,22 @@ lane, in short:
 > site each produce exactly the same number. The measurement only discriminates at
 > **1-minute** granularity, where it reads 1 in nearly every populated minute. The bucket
 > width, not the query, was the whole result.
+
+## 2026-08-18 (later) — brand-head VERIFIED at the artefact; handoff rolled to 08-18; drain rate gets its own workstream
+
+- The `needs_brand_head_assets` item filed 08-17 (`claude-ideauk-brandhead-20260817`)
+  went `complete` at 19:40 the same evening, `attempt_count` 0 → done on first try —
+  exactly the "queue position, not failure" call the 08-16 handoff made. `[VERIFIED
+  2026-08-18]` at the served page: `/assets/images/favicon.png` 200,
+  `/assets/images/og-card.png` 200. That residual is CLOSED for idea.uk; the mode-less
+  defect class stays with `bugs_open/131` for the other three sites.
+- Re-checked the other §6 residuals: news `/data/latest-news.json` still 404,
+  `content_sources` for idea.uk still 0 (fleet 49). No `decision_regression` filed
+  since D-005 went live (the only row is the 08-09 pre-live misfire, `cancelled`).
+- The drain-rate question is now a separate workstream: `dispatch_throughput/`
+  (STARTER = evidence, PLAN = phased fix, owner decisions D1–D3 marked). This lane
+  stays off dispatch machinery.
+- Handoff rolled: `HANDOFF_2026-08-18_continue_here.md` is the cold-start file;
+  banner added to the 08-16 file. Class C formally retired there (owner ruling 08-17
+  keeps funding-fit as-is); class B's "filed" claim flagged again — still no
+  `bugs_open/` case exists.

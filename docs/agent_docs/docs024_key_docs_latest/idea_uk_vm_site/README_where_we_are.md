@@ -2323,3 +2323,29 @@ minutes after I made the change, and I am not going to call it proven until I ha
 the instruction in an actual job. I nearly recorded it as broken on that basis: my check
 came back empty, which looks exactly like failure, and the honest reading was that
 nothing had run yet at all. Also, it is one file to undo if you dislike the effect.
+
+## 2026-08-18 — the "slow queue" turned out to be a fleet-wide waiting room, and the site icons are live
+
+You asked why idea.uk was draining at about one item every three hours. Short answer:
+it wasn't. On the very day that figure was taken, idea.uk got through 42 items — it
+just did nothing for three and a half hours first, then took its turn and cleared 38
+items in three. Each item takes about half a minute once it starts. The problem is the
+turns, not the work: the whole fleet is served one site at a time, in strict
+oldest-first order, so a site that files new work goes to the back of everyone's queue.
+There is a setting that looks like it allows eight things at once; it turns out to be
+wired to something it can never actually count, so it does nothing.
+
+Fixing that is bigger than this site, so I've written it up as its own project with a
+step-by-step plan another thread can pick up (`dispatch_throughput/` — an evidence file
+and a plan). The plan needs one decision from you before it goes past the first careful
+step: how many sites should be served at once, bearing in mind that serving more sites
+at once also means spending money faster while there's a backlog. It's marked D1 in the
+plan.
+
+Meanwhile, on idea.uk itself: the browser-tab icon and the social-sharing card are now
+live — I checked the real pages, both load properly. The item we filed for that on
+Sunday went through on its first try once its turn came, which rather proves the point
+above. The news feed is still the oldest gap on the site (the page asks for a news file
+that isn't there, and nothing is set up to supply one). The queue is otherwise empty of
+anything waiting to run — the 31 findings sitting there are the kind that name no
+handler, which a different thread already owns fixing fleet-wide.
