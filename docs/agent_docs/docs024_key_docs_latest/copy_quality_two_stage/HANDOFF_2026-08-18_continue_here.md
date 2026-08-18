@@ -18,7 +18,7 @@
 - **The lane now has TWO owner-directed inbound asks** (below). They outrank anything I
   would have picked myself.
 
-## ⚠ START HERE — the two inbound asks, both owner-directed
+## ⚠ START HERE — read the `57b2dcd2` diagnosis verdict (above), then the two asks below (now ANSWERED, kept for context)
 
 ### 1. `portfolio_positioning`'s CONTRIB — the owner says framework copy "looks like it didn't go through the framework"
 
@@ -58,6 +58,60 @@ glossary). Their three questions: what our machinery needs from them in `site_sp
 fields; whether Stage 2 should run on offer pages; and how the edit budget behaves at page
 BIRTH rather than on an existing page. **That last one is a real gap** — everything measured
 so far is stage 2 editing a page that already exists.
+
+
+## ⚠ UPDATED 2026-08-18 (evening) — BOTH inbound asks are ANSWERED, and one produced a bug + a landmine
+
+**Neither ask is outstanding any more.** What replaced them:
+
+### `bugs_open/305` — the v2 house voice did NOT reduce define-by-negation
+
+Filed from `portfolio_positioning`'s report. **Two comfortable readings refuted, one on each
+side:**
+
+- **Theirs:** the offending copy was written **2026-08-08**, before BOTH the identity-spec fix
+  (08-12) and the v2 carrier (08-13). `page_components.updated_at` (08-17) dates the
+  RE-RENDER. Neither fix failed on this case. **Any live sentence can be dated:**
+  `SELECT id, agent_type, created_at FROM llm_call_log WHERE response_text ILIKE '%<sentence>%'`
+  — a component timestamp dates the render; only the call log dates the words.
+- **Mine:** it is not a fossil. Same `agent_type`, split at the v2 flip, normalised per 1,000
+  words with mean response length identical (222 vs 223): **2.72 → 2.85.** The carrier did not
+  reduce the construction. Uncomfortable, because CQ-022 is this lane's own delivery.
+
+**Root cause is NOT asserted** — `090` run **`57b2dcd2-2ded-473c-9f2e-617176f39c15`**, filed
+per the 2026-07-31 ruling. **The next session should read that verdict first** (it was still
+at its `verdict` step when this was written):
+```sql
+SELECT status, result FROM site_work_items WHERE item_type='needs_diagnosis'
+  AND spec->>'dispatch_correlation_id'='57b2dcd2-2ded-473c-9f2e-617176f39c15';
+SELECT body FROM doc_notes WHERE body ILIKE '%57b2dcd2%' ORDER BY created_at DESC LIMIT 1;
+```
+⚠ **Do NOT edit the voice block on the strength of the hypothesis in `305 §4`** (that naming
+the construction licenses it). It is labelled a hypothesis. Editing on that guess is this
+lane learning "exemplars beat rules" a third time by doing it wrong again.
+
+### The landmine that came out of answering `finetuning_uk_service`
+
+**A site's `voice` spec never reaches the writer — it feeds the DETECTOR.** `[MEASURED]`
+`tone_guardrails` appears in **0 of 1,338** post-v2 `page-content-writer` prompts, while
+`key_differentiators` appears in **214 of the same 1,338** (the positive control that makes
+the zero mean something). In code: written by `write_site_plan_action.go:161`, read by
+`check_voice_tells.go:238`, no generation-time read. **So register written there changes what
+gets FLAGGED, not what gets WRITTEN.** Where it actually lands, in measured order of force:
+`identity.key_differentiators` (the lead) → `content_direction.example_phrases.characteristic`
+(exemplars beat rules; and the writer reads `.formatted`, not the array) → `strategy`.
+⚠ `tone_of_voice` and `voice_and_tone` have **zero code references anywhere** and sites carry
+them as current rows.
+
+### Replies filed (both lanes are waiting on nothing from us)
+
+- `portfolio_positioning/CONTRIB_2026-08-18b_reply_your_urgency_holds_but_the_timeline_does_not.md`
+  — their urgency stands, their timeline does not; we accepted their offer to rerun the pilot
+  pages AFTER a fix is live, with two conditions (date the copy first; bank the before-image).
+- `finetuning_uk_service/CONTRIB_2026-08-18_answers_from_copy_quality_two_stage.md` — all
+  three questions answered. Notable for us: stage 2's no-invented-figure gate is a real
+  guarantee for a priced page, and **the required-links arm is VACUOUS on a page that declares
+  none** ("all 0 declared links present" is a pass that checked nothing).
 
 ## What happened 2026-08-17/18 (the short version; NOTES has the evidence)
 
@@ -103,8 +157,12 @@ check becomes decorative.
 
 ## Next work, in the order that closes doors
 
-1. **The two inbound asks above.** (1) is owner-directed with both halves named; (2) is
-   blocking another lane's launch page.
+1. ~~**The two inbound asks**~~ **ANSWERED 2026-08-18 evening.** What replaced them:
+   **(a) read the `57b2dcd2` verdict and act on it** — it is the writer-side half of an
+   owner directive, and `bugs_open/305` is open until it lands; **(b) the three directory
+   pages are still uncleaned** (`ai-agent-orchestration.com`, another lane's site — coordinate;
+   we already edited its index today), and per the owner's instruction the writer fix comes
+   first or ~140 planned directory pages inherit it.
 2. **A fourth run on `ai-agent-orchestration.com/index`** — the 3-edit budget is a known
    UNDER-fix on a page with five-fold restatement. Does a second pass find the two remaining
    restatements and the negation density, or re-propose what it already did? Cheap, and it
