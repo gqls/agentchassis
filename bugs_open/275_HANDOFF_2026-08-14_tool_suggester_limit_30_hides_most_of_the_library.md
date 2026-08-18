@@ -301,3 +301,57 @@ done
 ```
 **Always report the demand control beside the result** — a zero with no capped step executed says
 nothing at all.
+
+## §2026-08-18 — the live cap census RAN, and the answer is "no capped step has executed"
+
+Detector re-verified in the running binary at **v1.0.1309** (pods 15:45Z, tag bumped, new digest;
+added string present, known-present control present, plausible fake absent).
+
+**Swept all 41 pods running the chassis image, 24h window:**
+
+| | |
+|---|---|
+| cap WARNs | **0** |
+| `query_database` completions (**DEMAND CONTROL**) | **21** |
+
+**And every one of the 21 attributed, because the log line carries `step_name`:**
+
+| step | runs | rows returned | capped? |
+|---|---|---|---|
+| `find_dispatchable_site` | 9 | 0,0,1,1,1,1,0,1,1 | `LIMIT 1` — excluded by design |
+| `notify_scheduler` | 6 | all 0 | no cap |
+| `load_entry` | 3 | 1,1,1 | `LIMIT 1` — excluded |
+| `notify_scheduler_idle` | 3 | all 0 | no cap |
+
+**NONE of the five whole-result caps ran.** So the zero WARN is still **uninformative** — it is not
+evidence the detector is silent, it is evidence nothing it watches has executed. Reporting the 0
+without the attribution table above would be a blind pass.
+
+### ✅ The `LIMIT 1` exclusion is now EMPIRICALLY vindicated, not just argued
+
+`find_dispatchable_site` returned **exactly 1 row on 5 of its 9 runs** — i.e. it sat on its own
+`LIMIT 1` five times in 24 hours, on an unusually quiet fleet. **Without the `n >= 2` exclusion the
+detector would have emitted 5 false warnings from that single step alone**, and it is a
+dispatch-loop step that runs continuously. The signal-to-noise decision was made on reasoning
+(`query_row_cap.go`); this is the measurement that confirms it, and it is a bigger margin than expected.
+
+### ⚠ A REAL LIMITATION, found by running the census rather than by design review
+
+**The WARN is a log line, so its history dies with the pod.** Observable window = time since the last
+pod restart. Measured today: pods restarted **15:45Z**; `content-feed-refresh` (cap 5, population 9)
+last fired **14:32Z** and `model-directory-publish` **12:15Z** — *both before the restart*. Their next
+runs are ~20:32Z and ~18:15Z.
+
+So with rolls landing roughly daily and the capped steps on **6-hourly** schedules, **a capped step that
+fires shortly before a roll is invisible for ever.** The detector is correct and live; whether it will
+actually *catch* the caps in practice depends on a race between roll frequency and schedule period that
+nobody has characterised.
+
+**This strengthens the case for the recorded follow-up** (the `LIMIT n+1` probe): a definitive result
+written somewhere durable — a `doc_notes` row or an `llm_call_log`-style column — survives a roll,
+where a log line does not. Noted as LCO-009's `verify-later`, not smuggled in here.
+
+### Still owed, unchanged
+
+**275's "after" half: 0 `suggest_tools` runs since migration 445 went live** (11:22Z on 08-17). The
+before half is proven at the artefact (§2026-08-17); the after half needs one real run.
