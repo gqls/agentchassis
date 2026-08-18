@@ -1090,3 +1090,52 @@ n=139 per population, queries in the RUNBOOK. The disconfirming result was avail
 (a non-zero `DIFFERENT_page`, a non-zero `pattern1_would_fire`) and two of them **came back
 non-zero** — 13/139 different pages, and class 1's differing specs — so these counts are not the
 kind that could only come out one way.
+
+### 10.13 OWNER RULING 2026-08-18 — Phase 2 proceeds by SEQUENCE, not by a single flip. This revises §9 D2's precondition on the evidence of §10.11–§10.12.
+
+Presented with the four-mechanism split of the conflict population (§10.12), the gating
+blast-radius measurement (NOTES 2026-08-18 evening), and three options — (A) sequence the
+removals, then flip on the residue; (B) flip now, scoped to config-declared fields; (C) retire
+Phase 2 — **the owner chose A, including the closing recommendation: the flip at the end is
+still worth doing even on a near-empty population, because it converts the instrument from a
+log into a guarantee for every future pipeline.**
+
+**The ruled path — five steps, gated on STATES, never dates** (consistent with §9 D2's own
+framing). Each step names its precondition and what the window must show before the next:
+
+1. **The prune ships and the window is re-read.** Already built and committed (`131e6430e`,
+   corr `ae0dfb93`); rides the next chassis build+roll. Expected window: the `work_item_id`
+   class (~28%) gone; the `current_page` class INTACT — that is success, not a failed fix
+   (the code comment in `action_inputs.go` says why). *Gate to step 2: none — step 2 is
+   independent and may be built immediately.*
+2. **`bugs_open/306` candidates 1+2**: declare the tie-break (sort by depth, then
+   source-class, pinning today's winner) and sort `tryUnwrapMapPatterns` pattern 1's keys.
+   Behaviour-identical today (0/139 can fire; the tie-break preference is today's de-facto
+   winner), which is exactly why now is the cheap moment. Council-gated. *Gate to step 3:
+   none — independent.*
+3. **Gate the three page-ish fields in `ensureCoreFields`** — `current_page`,
+   `current_section`, `render_context` searched only when requested;
+   `domain`/`objective`/`model` stay UNCONDITIONAL (39/10/6 undeclared consumers — never
+   gate). **Order inside this step is load-bearing:** the config edit adding `current_page`
+   to `html-developer-chunked`'s three `input_fields` lists lands FIRST (config is live
+   immediately; the sole injection-dependent consumer, soft failure). The Go gate follows as
+   an **RFC_029 amendment** — a guarantee change on a shared mechanism, so per the 2026-07-29
+   ruling its consumers are NAMED AND TOLD, and the enumeration in NOTES is the evidence.
+   Expected window after roll: the class-1 63% gone. *Gate to step 4: that window read.*
+4. **Fix the surviving shape conflicts AT SOURCE.** The residue is declared-field searches
+   whose candidates disagree every run (worked example: `save_page_sections` sees the page
+   OBJECT at `input_data.current_page` and its NAME STRING at
+   `build_render_context.current_page` / `render_context.current_page` — same page, two
+   shapes, a conflict row per run). These **cannot be fixed with `!`** — the request lists
+   are Go-side, and the strict marker is config-side. Fix the producer (one name for the
+   object, another for the string), one small change per conflict. *Gate to step 5: the
+   window reads zero, or every surviving pair carries a written safe-by-inspection note.*
+5. **Flip conflicts → refusal** at the marked flip sites (`unified_extractor_search_test.go`
+   header names them). Council-gated. This is §9's "never guess" made mechanical for every
+   pipeline that comes later — the reason A beats C even when step 4 leaves nothing to refuse.
+
+Steps 2 and 3 are this lane's next builds; step 1's roll is the owner's (releases are
+whole-fleet). §9 D2's original precondition ("zero conflict WARNs over the window, or every
+observed field/caller pair given an explicit mapping") is **superseded by this sequence** —
+it was written before §10.12 showed the population is four mechanisms, only one of which an
+explicit mapping can reach.
