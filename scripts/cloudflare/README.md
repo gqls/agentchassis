@@ -23,6 +23,26 @@ curl -s -X PUT \
   -F 'worker.js=@scripts/cloudflare/worker.js;type=application/javascript+module'
 ```
 
+⚠ **BUILD THE METADATA FROM THE LIVE SETTINGS, do not hand-type it** (added 2026-08-18,
+DGH-012). The recipe above is minimal and therefore lossy: this worker also carries
+`observability` (enabled, with logs persisted) and a `compatibility_date`, and a PUT whose
+metadata omits them resets them silently. Generate the block from
+`~/.cloudflare/portfolio-sites-router.settings.json` — bindings, `compatibility_date`,
+`compatibility_flags`, `observability` — and assert BOTH B2 bindings are present and
+non-empty before the PUT. Worked implementation used for the DGH-012 deploy:
+`deploy_worker.sh` in that lane's scratchpad; copy it here if you need it twice.
+
+⚠ **The PUT response's `result.bindings` is `[]` even on a fully successful deploy.** It is
+the API not echoing them, and it looks EXACTLY like the credential-stripping outage this
+file warns about. Confirm from `…/workers/scripts/portfolio-sites-router/settings` and from
+a live page fetch — never from the PUT response.
+
+⚠ **`node --check` PASSES a syntactically broken `worker.js`.** ESM syntax in a `.js` file
+makes the check a no-op: a copy with one `)` removed exited 0. Check it as `.mjs`
+(`docker run --rm -v "$PWD:/w:ro" node:20-alpine node --check /w/worker.mjs`) **and prove the
+checker fails on a deliberately broken copy in the same session** — a syntax error here is a
+36-zone outage.
+
 ⚠ **The metadata MUST carry the two B2 bindings** (`B2_KEY_ID`, `B2_APP_KEY`,
 type `plain_text`) — an update without them strips the worker's credentials
 and takes every site down. Their values are NOT in this repo: read them from

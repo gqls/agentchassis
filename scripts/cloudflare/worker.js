@@ -9,8 +9,23 @@ export default {
     let path = url.pathname;
     if (path === '/' || path === '') {
       path = '/index.html';
+    } else if (path.endsWith('/')) {
+      // Directory-form URLs (/guides/, /tools/x/) — an object store has no
+      // directory index, so without this the key is literally "guides/" and
+      // every such address is a live 404, while /guides/index.html serves 200.
+      // The git-hosted route (sites with sites.github_repo set) has always
+      // served both forms; this is what makes the two routes agree.
+      //
+      // It can only turn a 404 into a 200: verified 2026-08-18 that ZERO keys
+      // in the bucket end in "/", so no object that serves today stops serving.
+      //
+      // Deliberately NOT extended to the slashless form (/guides -> /guides/index.html):
+      // that would mask genuine 404s for missing .html files, which is a
+      // different decision and was not the one taken. See the concept register
+      // (delivery.md, DGH-0xx) and LANDMINES.md's "/section/ URL 404s" entry.
+      path += 'index.html';
     }
-    
+
     // Health check
     if (url.pathname === '/worker-health') {
       return new Response('Worker is running!', { status: 200 });

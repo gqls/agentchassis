@@ -2262,7 +2262,19 @@ before a customer-facing domain is the one printing it.
   `diff <(curl -s https://<domain>/<path>) ~/projects/sites/<domain>/<path>` — or md5
   both — **before** reading a single file as source of truth.
 
-### A `/section/` URL 404s on every B2-hosted site, and a local server hides it
+### ~~A `/section/` URL 404s on every B2-hosted site~~ **FIXED 2026-08-18 — but the LOCAL-SERVER half still stands**
+
+> **CORRECTED 2026-08-18: the root property is GONE.** `worker.js:9-27` now rewrites any path
+> ending in `/` to `…/index.html`, live in production 12:23Z and verified across three B2 sites
+> (`mortgagecalculator.co.uk/guides/`, `gaswholesalers.com/tools/…/`,
+> `leopardessconsulting.co.uk/tools/…/` all 404→200) with a git-route control unchanged.
+> Register **DGH-012**. **The entry stays because two of its lessons outlive the fix:**
+> (a) `python3 -m http.server` is still a MORE FORGIVING server than production and still must
+> not be used to verify a link graph — it also resolves the SLASHLESS form (`/guides`), which
+> production still 404s, deliberately; (b) "if a checker disagrees with production, change the
+> checker" is still the rule. **What is no longer true:** the four confirmations below, and any
+> conclusion that a trailing-slash href is broken. Re-probe before acting on them.
+
 - **footprint:** `~/projects/sites`, `scripts/cloudflare/worker.js`, `python3 -m http.server`
 - **the check:** the worker maps `{hostname}{path}` straight to a B2 object key and
   rewrites **only** `/` → `/index.html` (`worker.js:8-11,27`). An object store has no
@@ -11407,7 +11419,18 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **added:** 2026-08-16, bugfix_265 lane
 
 
-### ADDENDUM to "A `/section/` URL 404s on every B2-hosted site" — the platform's OWN code does the normalisation that entry tells checkers never to do, in five places at once
+### ~~ADDENDUM: the platform's OWN code does the normalisation that entry tells checkers never to do~~ **RESOLVED 2026-08-18 — the five mechanisms are now CORRECT, not merely consistent**
+
+> **CORRECTED 2026-08-18.** The five DB-derived mechanisms below collapse `/x/` and
+> `/x/index.html` via `NormalizePagePath`. That made them WRONG on the B2 route and right on
+> the git route. With `worker.js` now serving both forms everywhere (**DGH-012**), the
+> collapsing is accurate on both routes and **`NormalizePagePath` was deliberately left
+> untouched** — fixing the route was the cheaper, more complete fix, and four of its five
+> consumers are build-time where the route is not in hand. **What still stands:** the
+> footprint list, and the general lesson that five mechanisms sharing one definition agree
+> with each other whether or not they are right about the world. **What is dead:** the
+> census, the "one link of live damage", and the fix suggestion — it is done.
+
 
 - **footprint:** `datahelpers.NormalizePagePath` · `datahelpers.PageURLSet` / `NewPageURLSet` / `Contains` (`platform/orchestration/datahelpers/links.go:215-227`, `399-411`) · `loadResolverPageSet` (`resolve_internal_links_action.go`) · `validate_page_content.go` · `datahelpers.RepairPageLinks` (`link_repair.go`) · `check_phantom_internal_links.go` · `nav_tables.go:loadFetchablePageSet` · `sites.github_repo`
 - **read the earlier entry first** — search this file for *"A `/section/` URL 404s on every B2-hosted site, and a local server hides it"*. It owns the root property, the worker lines and the fleet confirmation (`mortgagecalculator.co.uk/guides/` is already in its list). **This is not a second bug.** It is the half that bites when you are reading the platform's own verdicts instead of probing URLs — and it was found independently on 2026-08-16 by a lane that grepped this file for *"trailing slash"* and *"directory-form"* and missed the existing entry, which is phrased *"a `/section/` URL"*. **Grep this file by FOOTPRINT SYMBOL (`worker.js`, `NormalizePagePath`), not by the words you would use for the symptom** — the same lesson MEMORY records as [[grep-landmines-for-your-symbols]].
