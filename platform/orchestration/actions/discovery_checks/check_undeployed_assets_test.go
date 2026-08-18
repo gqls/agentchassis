@@ -16,6 +16,7 @@ package discovery_checks
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"regexp"
 	"strings"
@@ -374,5 +375,200 @@ func TestBrandHeadAssetPathsMatchTheDeriver(t *testing.T) {
 		t.Errorf("the deriver records %d brand-head assets but the map carries %d.\n"+
 			"A map entry with no producer means this check will file a permanent, unfixable finding.",
 			len(matches), len(storage.BrandHeadAssetPaths))
+	}
+}
+
+// TestBrandHeadItemSpecCarriesTheRoutingMode pins the one spec key the whole
+// dispatch depends on. asset-deployer's entry chain keys every conditional on
+// spec.mode; an item without it falls through to deploy_image_asset, whose
+// brand-head guard refuses it, and the refusal-as-result stamps the item
+// 'complete' with nothing derived (bugs_open/131, 2026-08-17 contribution: 21
+// items complete, four sites' artefacts 404 on the wire). The key looks
+// redundant next to spec.purpose — it is not; it is the address.
+func TestBrandHeadItemSpecCarriesTheRoutingMode(t *testing.T) {
+	dctx, mock := newUndeployedCtx(t)
+	expectPageAssetQuery(mock)
+	expectPopulationQuery(mock, 61, true)
+	expectPurposeQuery(mock, false, true)
+	expectPurposeQuery(mock, false, true)
+
+	res, err := (&UndeployedAssetsCheck{}).Run(dctx)
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if len(res.WorkItems) != 2 {
+		t.Fatalf("want 2 work items, got %d", len(res.WorkItems))
+	}
+	for _, wi := range res.WorkItems {
+		var spec map[string]interface{}
+		if err := json.Unmarshal([]byte(wi.SpecJSON), &spec); err != nil {
+			t.Fatalf("spec is not JSON: %v", err)
+		}
+		if mode, _ := spec["mode"].(string); mode != "brand_head" {
+			t.Errorf("spec.mode = %q, want brand_head — without it asset-deployer's chain "+
+				"routes this item to a branch that can only refuse it, and the refusal completes "+
+				"as success (bugs_open/131)", mode)
+		}
+		if purpose, _ := spec["purpose"].(string); purpose == "" {
+			t.Errorf("spec.purpose is empty — the verifier and any reader of the item need it")
+		}
+	}
+}
+
+// TestBrandHeadVerifierIsRegisteredWithRemit pins the registration itself: the
+// verifier must exist (so completion is gated at all) and must declare Grades
+// (bugs_open/213 — two spec shapes already file under this item_type: the
+// discovery producer's purpose shape and the hand-filed mode='brand_head'
+// redrive shape).
+func TestBrandHeadVerifierIsRegisteredWithRemit(t *testing.T) {
+	v, _ := GetVerifier("needs_brand_head_assets")
+	if v == nil {
+		t.Fatal("no verifier registered for needs_brand_head_assets — completion is ungated " +
+			"and a deploy-guard refusal will stamp items complete again (bugs_open/131)")
+	}
+	if !VerifierDeclaresRemit("needs_brand_head_assets") {
+		t.Error("verifier declares no Grades remit — the next producer converging on this " +
+			"item_type reproduces bugs_open/213")
+	}
+}
+
+func brandHeadVerifyTarget(spec map[string]interface{}) VerifyTarget {
+	return VerifyTarget{
+		ItemID:   uuid.New(),
+		SiteID:   uuid.MustParse("00ff3af5-dad8-4770-9f70-3edc267a3c92"),
+		ItemType: "needs_brand_head_assets",
+		Spec:     spec,
+	}
+}
+
+// expectVerifyQuery stubs the verifier's two-EXISTS probe.
+// Columns: a row AT THE PUBLISHED PATH · any active row.
+func expectVerifyQuery(mock sqlmock.Sqlmock, atPath, anyRow bool) {
+	mock.ExpectQuery("EXISTS[\\s\\S]*FROM assets a").
+		WillReturnRows(sqlmock.NewRows([]string{"at_path", "any_row"}).AddRow(atPath, anyRow))
+}
+
+// TestVerifyBrandHeadBlocksCompletionWhenNothingWasDerived is the mis-route
+// this verifier exists to catch: the handler run being completed was a
+// deploy_image_asset refusal, nothing was derived, no row exists. Resolved
+// must be false — before this verifier, that exact state stamped 'complete'
+// 21 times.
+func TestVerifyBrandHeadBlocksCompletionWhenNothingWasDerived(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock.New: %v", err)
+	}
+	defer db.Close()
+	expectVerifyQuery(mock, false, false)
+
+	res, err := VerifyBrandHeadAssetsResolved(context.Background(), db,
+		brandHeadVerifyTarget(map[string]interface{}{"purpose": "og_card"}), zap.NewNop())
+	if err != nil {
+		t.Fatalf("verifier errored where it should have returned Resolved:false: %v", err)
+	}
+	if res.Resolved {
+		t.Fatal("Resolved=true with no active row at the published path — this is the exact " +
+			"false completion bugs_open/131 measured 21 times")
+	}
+	if !strings.Contains(res.Detail, "og_card") {
+		t.Errorf("detail should name the purpose, got %q", res.Detail)
+	}
+}
+
+// TestVerifyBrandHeadPassesOnTheDeriversOwnRecord: an active row recording the
+// published path is the deriver's post-commit write — the same deploy evidence
+// the producing check accepts (see the file header's "why the row is the
+// evidence").
+func TestVerifyBrandHeadPassesOnTheDeriversOwnRecord(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock.New: %v", err)
+	}
+	defer db.Close()
+	expectVerifyQuery(mock, true, true)
+
+	res, err := VerifyBrandHeadAssetsResolved(context.Background(), db,
+		brandHeadVerifyTarget(map[string]interface{}{"purpose": "favicon"}), zap.NewNop())
+	if err != nil {
+		t.Fatalf("verifier errored on the resolved case: %v", err)
+	}
+	if !res.Resolved {
+		t.Fatalf("Resolved=false with the deriver's own record present: %s", res.Detail)
+	}
+}
+
+// TestVerifyBrandHeadCannotTellOnProvenanceMismatch: an active row at a
+// DIFFERENT url is evidence of neither deployment nor absence (the
+// bugs_open/152 shape; the producing check observes-and-declines there). The
+// verifier must return an ERROR — fail-closed under RFC_017 — never a verdict
+// in either direction.
+func TestVerifyBrandHeadCannotTellOnProvenanceMismatch(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock.New: %v", err)
+	}
+	defer db.Close()
+	expectVerifyQuery(mock, false, true)
+
+	_, err = VerifyBrandHeadAssetsResolved(context.Background(), db,
+		brandHeadVerifyTarget(map[string]interface{}{"purpose": "favicon"}), zap.NewNop())
+	if err == nil {
+		t.Fatal("expected a cannot-verify error on the provenance-mismatch shape; a verdict " +
+			"either way would be a claim the row cannot support")
+	}
+	if !strings.Contains(err.Error(), "cannot verify") {
+		t.Errorf("error should say verification could not decide, got: %v", err)
+	}
+}
+
+// TestVerifyBrandHeadModeShapeChecksEveryPurpose: the hand-filed redrive shape
+// (spec.mode='brand_head', no purpose) means "derive the lot" — the deriver
+// regenerates every brand-head artefact in one run — so completion must be
+// evidenced for every purpose, in the stable sorted order.
+func TestVerifyBrandHeadModeShapeChecksEveryPurpose(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock.New: %v", err)
+	}
+	defer db.Close()
+	for range brandHeadPurposes() {
+		expectVerifyQuery(mock, true, true)
+	}
+
+	res, err := VerifyBrandHeadAssetsResolved(context.Background(), db,
+		brandHeadVerifyTarget(map[string]interface{}{"mode": "brand_head"}), zap.NewNop())
+	if err != nil {
+		t.Fatalf("verifier errored: %v", err)
+	}
+	if !res.Resolved {
+		t.Fatalf("Resolved=false with every purpose evidenced: %s", res.Detail)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("the mode shape must probe every brand-head purpose, not the first: %v", err)
+	}
+}
+
+// TestGradesBrandHeadAssets pins the remit: both live spec shapes are graded,
+// anything else is disclaimed with a reason an operator can act on.
+func TestGradesBrandHeadAssets(t *testing.T) {
+	cases := []struct {
+		name   string
+		spec   map[string]interface{}
+		speaks bool
+	}{
+		{"discovery shape (purpose)", map[string]interface{}{"purpose": "og_card", "check": "undeployed_assets"}, true},
+		{"redrive shape (mode only)", map[string]interface{}{"mode": "brand_head"}, true},
+		{"foreign purpose", map[string]interface{}{"purpose": "hero"}, false},
+		{"empty spec", map[string]interface{}{}, false},
+	}
+	for _, c := range cases {
+		speaks, why := gradesBrandHeadAssets(brandHeadVerifyTarget(c.spec))
+		if speaks != c.speaks {
+			t.Errorf("%s: speaks=%v, want %v (%s)", c.name, speaks, c.speaks, why)
+		}
+		if !speaks && why == "" {
+			t.Errorf("%s: a disclaimer must say why — the reason is shown to the operator "+
+				"on the blocked item", c.name)
+		}
 	}
 }

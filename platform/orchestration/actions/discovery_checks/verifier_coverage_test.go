@@ -478,12 +478,21 @@ var itemTypesWithoutVerifiers = map[string]verificationGap{
 	"needs_content_image": {catCreation, "image asset existence"},
 	"needs_hero_image":    {catCreation, "image asset existence"},
 	"needs_logo":          {catCreation, "asset existence"},
-	// Produced by check_undeployed_assets since bugs_open/142 (2026-07-31); the
-	// 12 pre-existing rows were hand-filed by the og-card lane. "Exists" is a
-	// genuinely weak proof here — the artefact can be committed and still be
-	// wrong (illegible favicon source, bugs_open/131) — so this stays catCreation
-	// rather than becoming a verifier.
-	"needs_brand_head_assets":    {catCreation, "asset existence; producer is check_undeployed_assets' brand-head half"},
+	// needs_brand_head_assets: VERIFIER REGISTERED 2026-08-18 (bugs_open/131) —
+	// the entry that stood here is CORRECTED, not just deleted. It read:
+	// "'Exists' is a genuinely weak proof here — the artefact can be committed
+	// and still be wrong (illegible favicon source) — so this stays catCreation
+	// rather than becoming a verifier." That guarded against over-trusting
+	// existence as a proof of QUALITY, and that half still stands (the eyeball
+	// on the produced PNG stays; a verifier cannot see an illegible favicon).
+	// What it missed is the other direction, and the other direction was the
+	// live failure: items routed to deploy_image_asset (spec had no mode),
+	// refused by its brand-head guard, and the refusal-as-result stamped 21
+	// items 'complete' with zero artefacts derived — ABSENCE completing as
+	// success, which an existence verifier blocks and nothing else did.
+	// Resolved:false can only ever BLOCK a completion; weak proof is only a
+	// hazard on the Resolved:true side, where it merely reproduces the
+	// no-verifier behaviour this type had anyway.
 	"needs_new_component":        {catCreation, "component existence"},
 	"needs_composition":          {catCreation, "composition existence"},
 	"needs_tool_recreation":      {catCreation, "tool existence"},

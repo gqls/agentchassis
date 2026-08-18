@@ -79,6 +79,7 @@
 package discovery_checks
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -89,7 +90,21 @@ import (
 	"github.com/gqls/agentchassis/platform/storage"
 )
 
-func init() { Register(&UndeployedAssetsCheck{}) }
+func init() {
+	Register(&UndeployedAssetsCheck{})
+
+	// Completion verifier for the brand-head half's items (bugs_open/131,
+	// 2026-08-18). This REVERSES the recorded "stays catCreation rather than
+	// becoming a verifier" decision in verifier_coverage_test.go, and the
+	// reversal is argued there where the decision was recorded. In one line:
+	// that decision guarded against over-trusting EXISTENCE as a proof of
+	// quality; the live failure was ABSENCE stamped complete — 21 items
+	// closed 'complete' off a deploy-guard refusal that changed nothing,
+	// which an existence verifier blocks and nothing else did.
+	RegisterVerifierWithPolicy("needs_brand_head_assets",
+		VerifyBrandHeadAssetsResolved,
+		VerifierPolicy{Grades: gradesBrandHeadAssets})
+}
 
 type UndeployedAssetsCheck struct{}
 
@@ -179,8 +194,17 @@ func (c *UndeployedAssetsCheck) Run(dctx DiscoveryCheckContext) (*CheckResult, e
 		})
 	}
 	for _, gap := range gaps {
+		// "mode" is the ROUTING key, and omitting it was bugs_open/131's last
+		// live defect (2026-08-17 contribution): asset-deployer's entry chain
+		// keys every conditional on spec.mode, so a mode-less item falls
+		// through to deploy_image_asset, which refuses brand-head purposes by
+		// design — and the refusal-as-result completed the item. 21 items
+		// stamped complete, 4 sites' artefacts 404 on the wire. The one item
+		// carrying mode='brand_head' (idea.uk, hand-filed) routed to the
+		// deriver and both artefacts serve 200.
 		specJSON, _ := json.Marshal(map[string]interface{}{
 			"check":           "undeployed_assets",
+			"mode":            "brand_head",
 			"purpose":         gap.Purpose,
 			"expected_path":   gap.ExpectedPath,
 			"head_references": gap.HeadReferences,
@@ -415,6 +439,106 @@ func brandHeadPurposes() []string {
 	}
 	sort.Strings(out)
 	return out
+}
+
+// gradesBrandHeadAssets declares which needs_brand_head_assets items the
+// verifier below speaks for (bugs_open/213: a positive shape match on the
+// spec, never a producer list). Two shapes exist in the live queue and both
+// are graded: the discovery producer's (spec.purpose names one brand-head
+// purpose) and the hand-filed redrive shape (spec.mode='brand_head', no
+// purpose — the deriver derives every purpose in one run, so the predicate
+// covers it by checking them all).
+func gradesBrandHeadAssets(target VerifyTarget) (bool, string) {
+	if purpose, _ := target.Spec["purpose"].(string); purpose != "" {
+		if _, known := storage.BrandHeadAssetPaths[purpose]; known {
+			return true, ""
+		}
+		return false, "this verifier re-runs the brand-head deploy-evidence predicate (an active " +
+			"assets row recording the published path) and spec.purpose '" + purpose + "' is not a " +
+			"brand-head purpose; an item for a different artefact class needs a verifier for its own " +
+			"pass condition"
+	}
+	if mode, _ := target.Spec["mode"].(string); mode == "brand_head" {
+		return true, ""
+	}
+	return false, "spec names neither a brand-head purpose nor mode='brand_head', so this is not " +
+		"the item the brand-head deploy-evidence predicate grades"
+}
+
+// VerifyBrandHeadAssetsResolved is the completion verifier for
+// needs_brand_head_assets. It re-runs the SAME deploy-evidence predicate the
+// producer's gap detector uses (findBrandHeadAssetGaps' rowAtPublishedPath
+// arm): an active assets row whose url IS the published path. That row is
+// also exactly what the handler's transform writes on success
+// (recordDerivedAsset upserts url = the published path after the git commit
+// succeeds), so the detector's predicate and the handler's remit COINCIDE
+// here — the 016b §9 "verify the handler's remit, not the detector's
+// predicate" trap does not apply, and the deriver produces every purpose in
+// one run, so per-purpose items are inside its remit by construction.
+//
+// Two deliberate asymmetries, both inherited from the producer's own
+// reasoning (see the file header):
+//
+//   - recordDerivedAsset is BEST-EFFORT, so a committed, serving artefact can
+//     lack the row. Resolved:false then triggers a re-derive, which
+//     re-commits the file and rewrites the row — the remedy converges and
+//     costs one derivation, exactly as the header argues for the detector.
+//   - an active row at a DIFFERENT url is evidence of neither deployment nor
+//     absence (the bugs_open/152 shape; the detector observes-and-declines
+//     there). Verification cannot decide either, so it returns an error —
+//     fail-closed under RFC_017, routed to the attempt machinery with
+//     _verification.status='error' saying why, never a false pass.
+func VerifyBrandHeadAssetsResolved(ctx context.Context, db *sql.DB, target VerifyTarget, logger *zap.Logger) (VerifyResult, error) {
+	var purposes []string
+	if purpose, _ := target.Spec["purpose"].(string); purpose != "" {
+		purposes = []string{purpose}
+	} else {
+		// The mode='brand_head' redrive shape: the deriver regenerates every
+		// brand-head artefact in one run, so completion means all of them.
+		purposes = brandHeadPurposes()
+	}
+
+	for _, purpose := range purposes {
+		expected, known := storage.BrandHeadAssetPaths[purpose]
+		if !known {
+			return VerifyResult{}, fmt.Errorf("spec purpose %q is not a brand-head purpose", purpose)
+		}
+		var rowAtPublishedPath, anyRow bool
+		err := db.QueryRowContext(ctx, `
+			SELECT
+			    EXISTS (SELECT 1 FROM assets a
+			             WHERE a.site_id = $1 AND a.purpose = $2 AND a.status = 'active'
+			               AND a.url = $3),
+			    EXISTS (SELECT 1 FROM assets a
+			             WHERE a.site_id = $1 AND a.purpose = $2 AND a.status = 'active')
+		`, target.SiteID, purpose, expected).Scan(&rowAtPublishedPath, &anyRow)
+		if err != nil {
+			return VerifyResult{}, fmt.Errorf("brand-head verification query for %q: %w", purpose, err)
+		}
+		if rowAtPublishedPath {
+			continue
+		}
+		if anyRow {
+			return VerifyResult{}, fmt.Errorf(
+				"cannot verify %q: an active assets row exists but does not record the published path %s "+
+					"(evidence of neither deployment nor absence — the bugs_open/152 provenance-url shape); "+
+					"a re-derive re-commits the file and rewrites the row", purpose, expected)
+		}
+		return VerifyResult{
+			Resolved: false,
+			Detail: fmt.Sprintf("no active assets row records brand-head %q at its published path %s — "+
+				"the artefact this item asked for is not evidenced as deployed; the handler run that is "+
+				"completing this item did not derive it (a deploy_image_asset refusal completes the "+
+				"workflow without touching the defect — the mis-route this verifier exists to catch)",
+				purpose, expected),
+		}, nil
+	}
+
+	return VerifyResult{
+		Resolved: true,
+		Detail: fmt.Sprintf("active assets row(s) record the published path for %v — the deriver's "+
+			"post-commit provenance write, the same deploy evidence the producing check accepts", purposes),
+	}, nil
 }
 
 // pqTextArray renders a Go string slice as a Postgres text[] literal for use as
