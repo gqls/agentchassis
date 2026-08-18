@@ -1120,3 +1120,42 @@ on tool-owned pages over the past week, from **six different parts of the system
 checkers, the design auditor, the cross-linker, the offer analyser and two others. I can only prove
 three of those were this exact fault; the rest are past the point where the evidence expires. But
 that is the scale of what has been disappearing quietly, and from tonight it is all visible.
+
+---
+
+## 2026-08-18 — the fix's first day turned up something more expensive than the thing it fixed
+
+Yesterday's fix has been live for a day. It is working: **fifty-nine** refusals recorded across five
+sites, each one a tool-owned page the system tried to rewrite generically and correctly declined.
+Every one of those would previously have vanished without trace.
+
+But the shape of them is the story. Forty-nine are on the web design site — **half of all its
+tool-owned pages** — and they arrived in a burst between three and four in the morning. So I
+followed the burst, and found this:
+
+**In two and a half hours the platform wrote content for thirty-nine pages using the AI writer,
+resolved all their internal links, and then threw the lot away** — because the check for "is this
+page owned by a tool?" happens at the *last* step of the process, not the first. The information
+needed to skip the whole thing is available at step two. It is consulted at step twelve.
+
+So every night we have been paying for AI writing that could never be saved, and until yesterday
+there was no record of it happening at all. I have filed it (bug 301) with the fix, which is small:
+move the check to the front, keep the one at the back as a safety net.
+
+**The wider point, and I think it is the useful one.** The fix I shipped yesterday was deliberately
+unambitious — it did not repair anything, it just made a silent refusal leave a note. It looked
+like the boring option. Within a day that note-leaving surfaced a cost problem considerably larger
+than the missing notes were. I would not have found this by looking for it; I found it because the
+system finally said what it was doing.
+
+**One honest caution about my own number.** The "thirty-nine" comes from three separate counts over
+the same period that all agree — thirty-nine writer runs, thirty-nine link resolutions, thirty-nine
+failed builds. That is strong, but I have not traced one individual build end to end to prove they
+are the same thirty-nine, and the records expire within a day so it has to be done on a fresh night.
+I have written that limitation into the bug rather than let the number stand as firmer than it is.
+
+**Where that leaves things.** The analyser is on five of twenty-three sites and will not reach the
+rest without you opening the sweep again — about four and a half hours of running to finish the
+estate, and it stays shut until you say. The next piece of building work is making the analyser's
+own "what would fixed look like" tests machine-checkable, which is where we found it quietly
+reintroducing the very fault it had flagged.
