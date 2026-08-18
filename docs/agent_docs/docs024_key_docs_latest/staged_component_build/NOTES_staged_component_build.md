@@ -4724,3 +4724,26 @@ values are derived paths, not model output. Noted, not actioned.
   287 §11d, explicitly NOT a reopening — their symptom is dead; the residual is ours.
 - **Phase 2 position updated (§10.7): no longer "a fleet living on luck", it is a fully
   enumerated list of ~6 pairs** — one triage pass. That is the next work.
+
+## 2026-08-18 — 417 proven, and a rate I published into another lane was half again too good
+
+- **Build check practised the way I wrote it up:** label first
+  (`org.opencontainers.image.revision` = `e7e5e4d53` on v1.0.1308), confirmed at `/proc/1/exe`,
+  negative control absent, digests matched. One `docker inspect` instead of yesterday's ~22 execs.
+- **417 PROVEN.** 26 image-build-handler runs since the apply (0 for the previous 19 h — the
+  demand-bound reading was right). 26/26 children carry a bare `asset_id`, 0 carry `asset_id!`,
+  0 strict errors. Refusal branch still un-exercised. **But 14 of the 26 children FAILED** on a
+  git-adapter "base tree for branch master" error, after resolution — not ours; recorded as a
+  caveat everywhere I wrote 26/26, because that headline would otherwise bury a 54% deploy
+  failure rate that nobody seems to own.
+- **WRONG CALL: I published "−73%, 3.4 rows per run" from an 11-run, 1.3-hour sample — into
+  `bugs_open/287`, another lane's file.** With 193 runs it is 8.4/run, −53%. Corrected in place
+  (287 §11e, RFC_029 §10.9), WRONG_CALLS entry written. What makes it worth the entry: every
+  other part of the discipline was followed (demand control, verified roll boundary, independent
+  corroboration from the ballot collapse) — none of which turns 11 runs into a rate. The check I
+  now owe every per-unit figure: **write the denominator inline, and ask whether it survives
+  doubling.**
+- **287's own claim survives and is stronger:** `field=result` still zero, now over 193 runs.
+  The `!` markers on `mark_complete` are holding.
+- Phase 1 is complete: both promises (the instrument readable after the fact; the marker proven
+  on a real adopter) are discharged. Pass 2 of the triage is the only open thread.

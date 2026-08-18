@@ -1,4 +1,4 @@
-# HANDOFF — 2026-08-17 (rolling file, started 08-16), fresh chat starts here: the RFC_029 recorder is LIVE (v1.0.1307, stamp `a6d1c53c0`), 417 APPLIED, **`bugs_open/287` FIXED and graded by our instrument (−73%, `result` 805→0)** — Phase 2 is now ONE TRIAGE PASS away, and that pass is the next work
+# HANDOFF — 2026-08-18 (rolling file, started 08-16), fresh chat starts here: **RFC_029 Phase 1 is COMPLETE and both its promises are discharged** — 417 PROVEN (26/26) and the window produced a real result (287 fixed, `field=result` → 0 across 193 runs). ONE thing is open: triage pass 2, and its question is written below. A rate I published was corrected today (−53%, not −73%)
 
 **Supersedes `HANDOFF_2026-08-15c_continue_here.md`** (whose §1 verdict summary and §4 traps
 still hold). Everything 15c §2 asked for is done; this file records what changed, what was
@@ -145,10 +145,24 @@ anything resolver-shaped — it supersedes §10.2).
    a date.** No longer "off the calendar" (§10.5's reading): the worst case, a fleet living on
    luck, is now positively excluded. It remains its own council-gated task; flip sites are marked
    in code and in `unified_extractor_search_test.go`'s header.
-7. **417's live proof is STILL owed and still demand-bound** — `image-build-handler` has not run
-   since the 08-16 apply (3 runs in the 8 days before it); zero strict/`asset_id` errors; it is
-   still the only live `!` carrier besides 287's three. Query in §2.2 above. Do not read the
-   continuing 0 as success or failure.
+7. ~~417's live proof is STILL owed~~ **DONE 2026-08-18: PROVEN.** Demand arrived (26
+   `image-build-handler` runs, all COMPLETED). **26/26** asset-deployer children carry a bare
+   `asset_id`; **0** carry a literal `asset_id!` (the control that would mean the binary did not
+   parse the marker); **0** strict errors fleet-wide. Recorded in 417's header, RFC_029 §10.8,
+   and CTS-060's verify-later (now discharged). ⚠ **Do not quote "26/26" without the statuses:**
+   14 of those 26 children later FAILED on `failed to get latest commit/base tree for branch
+   "master"` — a git-adapter error well after input resolution, so not ours, but a **54% failure
+   rate on asset deploys is somebody's bug** and nobody appears to be looking at it. Worth a
+   pointer to whoever owns the deploy path.
+8. ⚠ **A FIGURE I PUBLISHED WAS WRONG AND IS NOW CORRECTED — do not re-quote the old one.**
+   §10.7 and `bugs_open/287` §11d said the fix gave "−73%, 3.4 rows per run". That was an
+   11-run, 1.3-hour sample. Matched-window on 193 runs: **17.7 → 8.4 rows per run, −53%.**
+   Corrected at RFC_029 §10.9, 287 §11e, and logged in WRONG_CALLS. **287's own claim
+   (`field=result` → 0) is untouched and is now confirmed on 17× the demand.**
+   Consequence for item 5: the pair COUNT is right, the VOLUME is not — over 12 h,
+   `current_page` 1,124 and `work_item_id` 503 from build-dispatch-loop, plus
+   `page-content-writer` `current_page` 111 and small change. It is a louder list than
+   yesterday's text implies, which makes pass 2 more clearly the next work, not less.
 
 ## 3. Traps found this session (cheap, easy to lose)
 
