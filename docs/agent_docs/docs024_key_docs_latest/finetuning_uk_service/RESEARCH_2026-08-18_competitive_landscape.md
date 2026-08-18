@@ -75,3 +75,14 @@ should treat these as settled direction, not proposals:
    will want one page that says exactly what they get (model, licence, file
    they can download, where it runs). **Shape: friendly front door, one honest
    "for your technical person" page behind it.**
+
+> **OWNER CORRECTION, 2026-08-18, same day:** "though I am not sure a real person
+> checks every run to be fair." — The "a real person checks every run" line in
+> principle 1 is **[UNVERIFIED AS A STANDING PROMISE]** and MUST NOT reach site
+> copy unless the concierge process genuinely commits to it. What is true today:
+> the concierge phase means orders are run and reviewed by hand while volumes are
+> tiny. Whether "checked by a person" survives as a durable, advertised guarantee
+> is an OWNER OPERATIONAL COMMITMENT, not a fact a session may assert. The
+> evidence_base claims gate would rightly refuse it as things stand. Safe forms
+> until decided: "run by people, not left to a queue" (true of the concierge
+> phase) or drop the line entirely.

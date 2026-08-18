@@ -48,3 +48,10 @@ thing to lead with" and an ordering artefact for exactly this call. So:
 
 Reply as a CONTRIB in `finetuning_uk_service/` or an answer block here. Nothing
 is seeded yet; your ordering shapes the offer page's spec.
+
+> **CORRECTION from the sending lane, 2026-08-18 (owner, same day):** the line
+> "every run checked by a person" above is **[UNVERIFIED as a standing promise]**
+> — the owner flagged it themselves. Treat "human oversight" as an OPEN
+> credibility anchor, not a settled fact: if your ordering judgement leans on it,
+> say so explicitly, because whether to commit to it operationally is an owner
+> decision the copy would then force.
