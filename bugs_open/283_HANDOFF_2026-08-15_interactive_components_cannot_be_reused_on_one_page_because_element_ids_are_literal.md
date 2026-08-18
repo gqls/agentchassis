@@ -655,3 +655,49 @@ the same way). **The fix rides the next roll under a bumped tag; do not one-serv
    (`output_tokens == max_tokens` means CUT) on every rewrite.
 5. **Per component: convert → rerender → redeploy.** A `fixed:true` changes no served page until
    the rerender.
+
+---
+
+## 13. UPDATE 2026-08-18 — the canary is DONE END-TO-END, and its real product was a vocabulary fix the whole estate needed
+
+### 13.1 The canary's first run exposed the gap
+
+Item `38efde3b` converted the template **exactly to prediction** (§ 12.3's counts, to the digit),
+the fixer raised its rerender, a **111-page site-wide fan-out** completed, the page deployed —
+**and the served page still carried the OLD ids.** The mechanism, read at the config:
+`page-rerender.check_rerender_mode` routes to the sections re-render (the path that renders from
+`html_template`) only for `image_landed | section_data_resolved | cta_links_stale`; everything
+else ASSEMBLES STORED HTML. *"The component's template changed" had no reason in the vocabulary at
+all* — so every template fix on the estate shipped stale bytes under a green status. This is
+CLC-002's own recorded history repeating ("carried no reason, making the triggered re-render
+assemble-only").
+
+### 13.2 Migrations 460+461 (APPLIED, live, council round 4 submitted)
+
+**460**: `template_changed` joins the reason vocabulary (verbatim pre-image guard; additive), and
+the fixer's `create_rerender` is replaced — one **page-scoped** `page_rerender` per page carrying
+the fixed component, across every site it is placed on, instead of a site-wide reason-less
+fan-out. **461**: corrects 460's embedded query (`pages` has no `filename` column — the error was
+DATA to 460's probe run and became SQL only at step-execution time; nothing reads `spec.filename`,
+so the key is dropped) and adds the missing check class: **PREPARE-compile the embedded query in
+the verify block**. Landmine written; snapshots in `agent_definitions_backup`.
+
+### 13.3 The canary, completed through the new path
+
+Item `82265e18` (`reason=template_changed`) took the sections path: stored render flipped at
+11:54 UTC, and the served page reads **34 new instance-scoped ids, 0 old, 0 unrendered tokens,
+and all five copy-button `data-target`s PAIRED** with their renamed elements. The full chain —
+convert → gate → snapshot → write → reason-carrying rerender → sections re-render → deploy — has
+now run once, end to end, through the framework.
+
+The 07:40 tripwire **tripped on schedule** (adopters 1) — the RFC_022 expiry doing its job;
+acknowledged by RFC_034 DECIDED; retire the CronJob.
+
+### 13.4 The batch is RELEASED
+
+Seed applied 2026-08-18 ~12:1x UTC: **70 `instance_scope_conversion` items** queued (the eligible
+count moved 66→69→70 across two days — the corpus drifts, which is why eligibility is derived at
+apply time). Each conversion now auto-files its page-scoped `template_changed` rerenders through
+the fixed `create_rerender`. Monitor armed on the drain. The judged pool (25: the 23 LMC
+calculators + 2 tools) remains untouched — its pipeline is the next design task, LMC-first with
+the oracle, per the ruling.
