@@ -1012,3 +1012,74 @@ removes "the bulk" of the rows, and the claim that Phase 2 is de-risked by it.
 differently-shaped copies of the same page: `findFieldRecursive` flags any non-`DeepEqual`
 candidate set, so a shape difference and a wrong-page difference look identical in the row. That
 check is one query against `candidate_paths` values and is **not** done.
+
+### 10.12 DECISION-1 MEASUREMENT — 2026-08-18: the conflicts are REAL disagreements, the winner is the right value in every population checked, and the wrong candidates are never read. Phase 2 is the thing that would break it.
+
+§10.11 left one question open and flagged it `[OPEN]`: are the conflicting `current_page`
+candidates materially different pages, or the same page in different shapes?
+`findFieldRecursive` flags any non-`DeepEqual` set, so the row cannot tell them apart.
+
+**The instrument cannot answer this** — `recordResolverFinding` stores `candidate_paths` and
+`winner_path`, never the candidate VALUES. So it was answered at `orchestration_states.collected_data`
+instead, resolving each recorded path by hand. Population: every `page-content-writer` /
+`page-build-handler` orchestration of the last 24 h carrying the relevant subtrees (n = 139 each),
+plus a worked `build-dispatch-loop` run. **The answer differs by population, and "shape difference"
+was the wrong guess for two of the four.**
+
+| # | population | rows/12 h | candidates genuinely differ? | is the resolved value READ? | verdict |
+|---|---|---|---|---|---|
+| 1 | `build-dispatch-loop` `current_page` | 1,147 (63%) | **YES** — work-item specs from different loop iterations | **NO** — `claim`/`fail`/`complete_work_item` read only their named keys | wrong value, never read |
+| 2 | `build-dispatch-loop` `work_item_id` | 510 (28%) | **YES** — winner is `claim_result.work_item_id`, a PREVIOUS iteration's id | **NO** — Strategy 0 resolved `current_item.id`; merge discards | inert; this is the class the §10.10 prune removes |
+| 3 | `page-content-writer` `current_page` | 112 (6%) | **no** — 139/139 the same page: full object vs its own `name` string | **YES** | benign today |
+| 4 | `page-build-handler` `current_page` | 10 | **YES — 13 of 139 (9.4%) are DIFFERENT PAGES** | **YES** | right answer, by ordering |
+
+**Class 1, worked** (`845e1bda-…`, one run): `handler_result.…current_page` =
+`{"reason":"build_pipeline_initial_composition"}` while `handler_result_1.…current_page` =
+`{"reason":"not_built","plan_id":"ed3d150d-…","page_name":"about","page_role":"content"}`. Two
+different work items from two iterations of the same loop. The dispatch loop maps
+`"current_page": "current_item.spec"` into `call_handler`'s `input_mapping`, so every iteration
+leaves another one behind. Nothing in `build-dispatch-loop` declares `current_page`
+(`ClaimWorkItemInputSpec` = `Required:["work_item_id"], Optional:[]`), so this value exists only
+because `ensureCoreFields` went looking for it, and `ClaimWorkItemAction` reads
+`inputs.Get("work_item_id")` and nothing else. **63% of the whole population is a wrong answer to
+a question nobody asked.**
+
+**Class 4, worked** — the 13 mismatches name plainly different pages:
+`disclaimer` vs `contact-index`, `index` vs `fuel-pricing-framework`,
+`guide-mortgage-scorecard` vs `scorecard-simulator`,
+`case-study-data-pipeline-companies-house` vs `case-study-automated-intelligence-pipeline`.
+The loser is a stale page retained in a `page_content.retry_payload` subtree. **The winner is
+`~unwrap.current_page`, and that is the CORRECT page for the run** — verified rather than assumed:
+`~unwrap` is `tryUnwrapMapPatterns`, whose pattern 1 (`{X}_result.result`) requires a root key
+ending `_result` whose value is an object containing `result`. Measured over the same 139: **0**
+satisfy it (both `deploy_result` and `validation_result` carry no `result` child), and **0** have a
+root `result` key, so it always falls through to pattern 3 and `~unwrap` **is** `input_data`.
+`input_data.current_page` is the work item spec — the page this run was dispatched to build.
+
+**So: no live wrong-page bug today, and that is a weaker statement than it sounds.** What keeps
+class 4 correct is the tie-break: both candidates sit at depth 1, `sort.SliceStable` orders by
+depth ONLY, and the unwrap hop is appended to `out` before the sorted-key recursion. Correctness
+rests on *insertion order in a stable sort*, in a population where **9.4% of candidate sets contain
+a genuinely wrong page**. Nothing declares that dependency and no test pins it.
+
+**This inverts the Phase 2 recommendation for the populations that matter.** Phase 2 (conflicts
+resolve to NOTHING) is harmless for classes 1 and 2 — 91% of the rows — because nothing reads the
+result. For classes 3 and 4 the value **is** read, and *every* run in those populations conflicts.
+Phase 2 would therefore remove `current_page` from `page-content-writer` and `page-build-handler`
+**in 100% of their runs** — trading a guess that is currently right for a guaranteed absence.
+`resolveCurrentPageName` already warns that an absent page means "every section component will see
+an empty current_page and cannot vary per page" (`v3_site_actions.go:1286`, `bugs_open/085`).
+
+**Residual found, and DISCONFIRMED for today — do not carry it forward as a defect.**
+`tryUnwrapMapPatterns` pattern 1 does `for key, val := range m` over a Go map and returns the FIRST
+`*_result` it meets — unsorted, i.e. the exact coin flip RFC_029's collect-all rewrite removed from
+`collectFieldCandidates`. It sits one call INSIDE the search that was made deterministic. It cannot
+fire in the population above (0/139), so it is **not** a live defect and must not be filed as one;
+it is an uncovered surface, and it is where determinism would leak back if a step ever emits a
+`*_result` object with a `result` child. `[MEASURED]` 0/139, 2026-08-18. `[UNMEASURED]` fleet-wide.
+
+`[MEASURED]` everything in this section: `orchestration_states` 24 h to 2026-08-18 ~14:0xZ,
+n=139 per population, queries in the RUNBOOK. The disconfirming result was available in each case
+(a non-zero `DIFFERENT_page`, a non-zero `pattern1_would_fire`) and two of them **came back
+non-zero** — 13/139 different pages, and class 1's differing specs — so these counts are not the
+kind that could only come out one way.

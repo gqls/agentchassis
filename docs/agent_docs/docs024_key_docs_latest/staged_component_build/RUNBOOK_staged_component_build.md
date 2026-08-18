@@ -634,3 +634,55 @@ git merge-base --is-ancestor <your-commit> <the revision> && echo "your commit i
   different under the same tag = the node served its cache and the remedy is a tag BUMP.
 - The `build provenance` startup log line still exists but scrolls within minutes on a busy
   service — absence there means "not in range", never "unstamped".
+
+## Are the recorded conflicts DIFFERENT VALUES or the same value in two shapes? (2026-08-18)
+
+**The instrument cannot tell you.** `recordResolverFinding` persists `candidate_paths` and
+`winner_path` and **never the candidate values**, so no query over `agent_error_log` can answer it.
+Resolve the recorded paths against `orchestration_states.collected_data` instead.
+
+Step 1 — what does each candidate path actually hold? (types first: a bare string vs an object is
+the commonest "conflict")
+```sql
+SELECT jsonb_typeof(collected_data#>'{input_data,current_page}')           AS t_input,
+       jsonb_typeof(collected_data#>'{build_render_context,current_page}') AS t_brc,
+       jsonb_typeof(collected_data#>'{render_context,current_page}')       AS t_rc, count(*)
+FROM orchestration_states
+WHERE owner_agent_type='page-content-writer' AND updated_at > now() - interval '24 hours'
+  AND collected_data ? 'render_context' GROUP BY 1,2,3;
+```
+
+Step 2 — the check that can come out either way. Compare a stable IDENTITY (page name), never the
+whole object, and **count the disagreements explicitly** so a zero is a result and not a silence:
+```sql
+SELECT count(*) AS n,
+  count(*) FILTER (WHERE <path_a> =  <path_b>) AS same_page,
+  count(*) FILTER (WHERE <path_a> <> <path_b>) AS different_page
+FROM orchestration_states WHERE …;
+```
+⚠ `same + different` must equal `n`. SQL `<>` yields NULL when either side is NULL, so a row with a
+missing path lands in NEITHER bucket and silently shrinks the sample. If they do not add up, add a
+third `IS NULL` counter before believing anything.
+
+Step 3 — **resolve `~unwrap` before crediting a winner; it is not a key.** `~unwrap` marks a hop
+through `tryUnwrapMapPatterns`, which tries three patterns IN ORDER: (1) any root key ending
+`_result` whose value is an object containing `result` — **selected by unsorted Go map iteration**,
+(2) a root `result` key, (3) `input_data`. Only pattern 3 is stable. Test which one fires before
+claiming the winner is the right value:
+```sql
+SELECT count(*) AS n,
+  count(DISTINCT o.orchestration_id) FILTER (WHERE k LIKE '%\_result'
+      AND jsonb_typeof(o.collected_data->k)='object' AND o.collected_data->k ? 'result') AS pattern1_fires,
+  count(*) FILTER (WHERE o.collected_data ? 'result') AS pattern2_fires
+FROM orchestration_states o, LATERAL jsonb_object_keys(o.collected_data) k WHERE …;
+```
+If `pattern1_fires > 0`, `~unwrap` is whichever `*_result` the map iterator met first and the
+winner is **not reproducible** — treat any conclusion built on it as unsound. Measured 0/139 on
+`page-build-handler`, 2026-08-18, so `~unwrap` = `input_data` there.
+
+Step 4 — does anything READ the resolved value? A conflict on a field the action never consumes is
+noise; the same conflict on a consumed field is exposure. Read the action's spec
+(`grep -A6 "InputSpec = datahelpers.ActionInputSpec" <action>.go`) and then the handler's
+`inputs.Get(` calls. `ensureCoreFields` injects `current_page`/`current_section`/`render_context`
+into EVERY `ExtractFields` result whether or not the spec declares them — so "the field is in the
+inputs" does not mean anyone asked for it, and the spec is the place that says who did.
