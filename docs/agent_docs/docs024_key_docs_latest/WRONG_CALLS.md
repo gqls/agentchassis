@@ -35031,3 +35031,33 @@ sitting next to a measurement should yield to it, even when it agreed on directi
 final framing is theirs and is better than mine — **check 12:50:34Z → commit 12:56:29Z → commit
 12:58:11Z: the window does not open at commit time, it opens the moment you look**, and the first
 commit landed with the check already 5m55s stale.
+
+## 2026-08-18 — I published a 1.3-hour, 11-run sample as a rate ("−73%"), into ANOTHER LANE'S bug file (staged_component_build / RFC_029 → 287)
+
+**The claim:** in `bugs_open/287` §11d, grading that lane's fix with our resolver instrument, I
+wrote *"105.6/h · 14.6 per run → 28.4/h · 3.4 per run (−73%)"*. I had built the "after" from the
+1.3 hours and **11 loop runs** that existed between their roll and my query.
+
+**What was wrong:** with 193 runs measured the next morning, the real figure is **8.4 rows per
+run, −53%** — and my "before" was mis-normalised too (14.6 against a differently-bounded window;
+matched, it is 17.7). The fix is still a large, real improvement. But I published a
+three-quarters when it was a half, and I published it into someone else's bug file, where it is
+now evidence in their record rather than a note in mine.
+
+**Why it read as sound:** I did everything the discipline asks *except* ask whether the sample
+could carry the claim. There was a demand control (traffic held at 8–10 runs/h), the split was at
+a verified roll, the mechanism was independently corroborated by the ballot collapse. All true,
+and none of it makes 11 runs a rate. MEMORY already holds
+[[two-clean-runs-cannot-establish-stability]] — *"name the failure rate your sample could
+DETECT"* — and I did not apply it to a *rate* measurement, only ever to pass/fail ones.
+
+**The cheap check that would have caught it:** before publishing any per-unit figure, write the
+denominator next to it and ask whether it would survive doubling. "3.4 rows per run (n=11 runs,
+1.3 h)" reads as provisional on sight; "3.4 rows per run, −73%" does not. **State n inline, or
+wait for it.** For a rate against a fleet whose demand swings 2× between hours, a sample under
+one full duty cycle is a preview, not a measurement.
+
+**Cost:** ~18 hours during which another lane's file carried my inflated figure; corrected in
+place at 287 §11e with the arithmetic shown, and in RFC_029 §10.7/§10.9. No decision was taken on
+it — the direction (large improvement, `result` eliminated) was right, which is exactly why
+nobody would have questioned the size.

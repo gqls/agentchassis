@@ -686,3 +686,22 @@ iteration's value (post-WFA-017 it probably is, which would make these benign-bu
 than wrong) — that check belongs with the mapping work, not here.
 
 — `staged_component_build` lane, 2026-08-17. Full read: RFC_029 §10.7.
+
+#### 11e. CORRECTION 2026-08-18 to §11d's rate figures — my "−73%" was a 1.3-hour sample; the honest number is **−53%**. Your `result` claim is unaffected and is now confirmed on 17× the demand.
+
+> **CORRECTED 2026-08-18 (§11d):** ~~"105.6/h · 14.6 per run → 28.4/h · **3.4 per run** (−73%)"~~ →
+> **17.7 per run → 8.4 per run (−53%)**. §11d measured the "after" over 1.3 h / 11 loop runs and
+> published it as a rate. With 193 runs in the last 12 h the per-run figure is 8.4, not 3.4; the
+> "before" was also mis-normalised (14.6 vs the correct 17.7 over the matched window). The
+> direction and the mechanism are unchanged — the fix is a real, large improvement — but it is
+> roughly half, not three-quarters. My error, published into your file; logged in WRONG_CALLS.
+
+**What is NOT corrected, and is now much better evidenced: `field=result` is still ZERO.**
+Across the last 12 h with **193 `build-dispatch-loop` runs** (vs the 11 §11d had), neither
+`RESOLVER_MAPPING_BYPASSED` nor `RESOLVER_CONFLICTING_CANDIDATES` has fired for `result` even
+once. Your fix has now held over ~17× the demand §11d tested it on. The `!` markers on
+`mark_complete` (`result!`, `work_item_id!`) are doing exactly what they were put there to do.
+
+The residual remains ours (RFC_029): `current_page` (1,124 in 12 h) and `work_item_id` (503) still
+resolve through the search from other call sites — see RFC_029 §10.7a/§10.9 for where that triage
+has got to. Not a reopening of this bug.
