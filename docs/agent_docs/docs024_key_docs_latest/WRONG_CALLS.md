@@ -36048,3 +36048,62 @@ bar for a reference by where it will be READ, not by how sure you are.
 
 Fixed by migration `472` (text-only, same session). Tally for "repeated a reference from another doc
 without resolving it against the live tree": 1.
+
+---
+
+## 2026-08-18 — I reported eight zones as "already configured" from a check that had CRASHED, because an empty string is not zero
+
+**The claim:** running my own new `add_www_redirect.sh` dry run, I read its output — "already
+configured" against 8 of 39 Cloudflare zones — and was one step from telling the owner that a
+third of the fleet already had a working `www`. It did not.
+
+**What was actually happening:** the route check was `python3 -c "…os.environ['D']…" D="$D"`,
+which passes `D=…` as **argv**, not env. Every invocation died with `KeyError: 'D'` and printed
+nothing. The comparison downstream was `[ "$have_dns" != 0 ] && [ "$have_route" != 0 ]` — and
+`[ "" != 0 ]` is **TRUE**, so an empty reading satisfied the "route exists" half of the test on
+every zone. The tracebacks were right there in the output, interleaved with the per-zone lines,
+and the summary line at the bottom read `failed=0`.
+
+**What caught it:** the traceback volume, and only because the loop printed one per zone. A
+single zone's run would have shown one traceback and one plausible answer.
+
+**The cheap check, and it is a rule not a one-off:** *a reading that is not a number must be
+refused, not compared.* Shell comparisons silently coerce, so a crashed producer and a real zero
+are indistinguishable at the comparison site — and the failure direction is the flattering one
+("already done"), which is the direction you do not question. The script now gates on
+`case "$have_dns$have_route" in ''|*[!0-9]*) … skip and count as failed ;; esac` before any
+comparison. Same family as the LANDMINES entry on `[ "" != 0 ]`-shaped tests and the standing
+rule that an empty result must never read as a clean result.
+
+Tally for "compared a value I had not established was a value": 1.
+
+---
+
+## 2026-08-18 — I was about to widen the directory search on a theory my own data refuted
+
+**The claim I had formed:** that the finance directory registers facts from **a firm's own
+page**, and that the trade-body/aggregator pages in its scrape set (ukfinance.org.uk,
+bsa.org.uk) were burning slots because they name firms without stating quotable facts. The
+remedy that followed was to add those domains to `exclude_domains` so all ten widened slots
+would go to firm pages. It was a tidy story and it fitted the one run I had looked at.
+
+**What it actually was:** the opposite. Yield per source domain across the register's whole
+history — `savings-provider` got **12 of its 13 firms from ONE gov.uk list page**;
+`health-insurer` got all 10 from **two** third-party broker round-ups; every firm's-own-page
+source in the table yielded exactly **one** firm. Multi-firm enumerations are the highest-yield
+shape by a wide margin, and excluding them would have made the mortgage kind worse while
+looking like a fix.
+
+**What caught it:** running the per-source query *before* acting, on all-history data rather
+than on the single run that prompted the theory —
+`SELECT kind, source_domain, count(*), count(DISTINCT slug) … GROUP BY 1,2`. It could easily
+have come out the other way; that is what made it worth running.
+
+**The cheap check:** when a remedy is "exclude the sources that look unproductive", **ask the
+record which sources have actually produced**, not which ones look authoritative. One run is a
+sample of one, and the run that motivates a theory is the worst possible sample to test it on.
+The same query then showed the agent's own prompt was carrying the error too ("third-party
+listicles are weak — prefer the register or the firm"), which no amount of tuning around the
+edges would have surfaced.
+
+Tally for "formed a remedy from the motivating case instead of the record": 1.
