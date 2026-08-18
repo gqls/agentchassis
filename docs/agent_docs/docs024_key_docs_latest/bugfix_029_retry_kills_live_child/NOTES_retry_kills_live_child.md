@@ -734,3 +734,38 @@ suspicion, and nobody should re-open it on the row count alone.
 **Not filed as a bug.** A dated, finished incident with an external cause is not a
 `bugs_open/` entry, and filing one would put a permanent-looking record against six sites for
 a two-hour API wobble. If it recurs, the query above is the check.
+
+> **ADDENDUM, same day — the closure above holds and my ACCOUNT of it was incomplete.**
+> Caught by the `site_ai_agent_orchestration` lane, whose "webdesign.co.uk is still failing
+> today" I had quietly treated as covered. It was not: my incident window closes at
+> **2026-08-17 16:12Z**, and there are failed `page_rerender` rows created on **08-18** at
+> 00:38, 11:58, 11:59 and 12:29Z. **The one-incident explanation does not reach them**, and I
+> framed the whole population as though it did.
+>
+> Re-measured here rather than taken on their word — the population created after my window
+> closed:
+>
+> ```sql
+> SELECT count(*) AS total_after_window,
+>        count(*) FILTER (WHERE error ILIKE '%timed out after%') AS the_029_signature,
+>        count(*) FILTER (WHERE error ILIKE '%commit%' OR error ILIKE '%github%') AS git_api,
+>        count(*) FILTER (WHERE error ILIKE '%save_page_sections%' OR error ILIKE '%rebuild_policy%'
+>                           OR error ILIKE '%claims floor%' OR error ILIKE '%REFUSED%'
+>                           OR error ILIKE '%rerender_page_sections%') AS content_gating
+>   FROM site_work_items WHERE item_type='page_rerender' AND status='failed'
+>    AND created_at > '2026-08-17 16:12:34+00';
+> --  15 | 0 | 0 | 15
+> ```
+>
+> **15 rows, 0 with this bug's signature, 0 git, all 15 content gating** — `overwrite:
+> REFUSED`, `rebuild_policy=owned`, `claims floor blocked: 19 banned claim(s)`. So there are
+> **three** populations here, not two: the 08-17 git incident, older content gating, and a
+> live content-gating population that is still producing rows. **The negative for 029 is
+> stronger than I stated (0 of 15 in the freshest slice), and my "one incident" framing was
+> doing work it could not support for part of the range.**
+>
+> **The transferable bit is theirs and it is good:** their "still failing today" was a **true
+> fact doing no work** — accurate, offered in good faith, and unconnected to the conclusion it
+> sat next to. I did not test it against my own window before writing the closure. A claim
+> being true is not the same as a claim being *load-bearing*, and an untested true one reads
+> exactly like a tested one.
