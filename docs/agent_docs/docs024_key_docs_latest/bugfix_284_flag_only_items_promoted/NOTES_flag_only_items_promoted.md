@@ -530,3 +530,39 @@ at HEAD no chassis-compiled source still contains the old form (grep over `platf
 returns nothing). So decision (1a) is live: **one definition of "does this work item name
 an agent that exists", rendered from one function, used by the promoter, the claim path
 and `HandlerStepConfig`.**
+
+## 2026-08-18 — third roll (v1.0.1309), and the demand control has doubled
+
+Verified by the label, not by a needle — the method that cost a day to learn:
+
+```
+docker image inspect aqls/agent-chassis:v1.0.1309 --format '{{json .RepoDigests}}'
+  sha256:d45a76fa…  ==  the pods' imageID          ← the local image IS the running one
+docker image inspect aqls/agent-chassis:v1.0.1309 --format '{{json .Config.Labels}}'
+  org.opencontainers.image.revision = f0117fb8b93ea3e1f32298daeb9751bcff4b90c7
+  org.opencontainers.image.created  = 2026-08-18T15:32:00Z
+```
+
+`git merge-base --is-ancestor` against `f0117fb8`: **284 guard IN · unification IN ·
+comment repair IN**. Unshipped backlog **28 commits** (215 → 42 → 28 across the three
+rolls). Tag moved 1307 → 1309, digest changed, so this is a real roll.
+
+**284's guarantees, re-measured post-roll:**
+
+| check | reading |
+|---|---|
+| handler-less rows in `blocked` | **0** |
+| flag-only rows held safely at `detected`/`deferred` | **723** (350 yesterday, 336 the day before) |
+| `swi_no_handlerless_promotable` | present, `convalidated = true` |
+| `hitl-review` blocked (`bugs_open/291`'s arm) | **0** |
+
+The 723 is the part that makes the zero mean something, and it is now doing so at scale:
+the population that WOULD have been promoted-and-blocked under the old promoter has
+roughly doubled in a day (discovery is filing `head_essentials_missing` hard), and not one
+of them has been blocked across three rolls. That is the demand control the estate asks
+for, and it keeps getting stronger on its own.
+
+**Imagery, for context, not action:** 20 `needs_imagery` rows sit `triaged` with no
+completion since 2026-08-17 19:00, 2 `failed` (both the transient deployer timeout, not
+the 404), 4 assets created in 24h, and `image_url_404` still shows **41** open findings —
+the census population is unchanged. That lane's queue, not this one's.
