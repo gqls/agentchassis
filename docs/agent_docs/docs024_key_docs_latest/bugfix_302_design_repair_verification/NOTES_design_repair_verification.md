@@ -334,3 +334,77 @@ detector's own re-scan found the defect gone and **retracted** it to `complete`.
 > is sound; the gap is **operational**, in a different subsystem, and plausibly
 > `bugs_open/230`'s rotation work rather than this lane's. Both statements are now measured: the
 > pattern works, and it is not switched on for this producer.
+
+---
+
+## 2026-08-18 (cont.) — the registry is BIGGER than 302 says, and the archive re-dates two recorded figures
+
+### 302's "eleven item types" is wrong: there are THIRTEEN
+
+The filing (and my own first grep) counted `RegisterVerifier(` and missed
+**`RegisterVerifierWithPolicy(`**, which is how the two most interesting ones are registered:
+
+```bash
+grep -rn "RegisterVerifier(\|RegisterVerifierWithPolicy(" platform/ --include=*.go \
+  | grep -v _test.go | grep -v 'func Register'
+```
+
+The 11 named in 302, **plus `hardcoded_section_colors`** (with a `Grades` remit test) **and
+`needs_brand_head_assets`**. ⚠ This matters beyond arithmetic: `hardcoded_section_colors` is a
+*design* item type WITH a verifier, which weakens 302's framing that "no design-repair item type is
+registered". The accurate statement is that the design-AUDIT family (`dark_section_audit`,
+`needs_design_review`, `spacing_fix`, `responsive_fix`) has none, while the design-DISCOVERY
+aggregate does.
+
+### I nearly filed a duplicate landmine — the archive trap is already recorded, TODAY, by another lane
+
+`site_work_items` is a **~7-day window**, not a history: `work-item-archiver` (enabled, daily)
+moves terminal rows older than 7 days to `site_work_items_archive`. **[MEASURED 2026-08-18] 10,689
+live vs 20,184 archived** — two thirds of the history is in the other table. Already in
+`LANDMINES.md` (`site_work_items` is a ~7-DAY WINDOW…, added today by the migration-465 lane,
+measured at 8,702 live in the morning). **Grepped before filing; cited instead of duplicating.**
+
+**My demand control survives this**, and I checked rather than assuming: the archive's newest row is
+**2026-08-11**, well before the 08-17 roll, and **zero `dark_section_audit` rows are archived** — so
+the 30-row population and the post-roll zero both stand as complete.
+
+### Applying it: two recorded figures about WII-013's remit test are 7-day figures
+
+`gradesHardcodedColourAggregate`'s own note says *"of the 21 rows ever filed under this item_type,
+all 10 from this check carry spec.check and all 11 from the design audit do not"*. Archive-inclusive
+the population is **564**, 27× that. Re-run over all of it:
+
+| source | producer | carries `spec.check` | rows |
+|---|---|---|---|
+| archive | `design-audit` | no | 519 |
+| archive | `<none>` (the check) | yes | 36 |
+| live | `<none>` (the check) | yes | 9 |
+
+**The partition is CLEAN at 27× the sample its licence was measured on** — 519 correctly disclaimed,
+45 correctly graded, no crossover in either direction. That is a *confirmation*, and a stronger one
+than the mechanism claims for itself. WII-013 is in better shape than its own comment says.
+
+### And the exposure figure, split by era — I was about to overstate this by 30×
+
+My first instinct was "468 rows closed under a verifier that did not describe them, not 11". That
+would have been wrong, because most of them closed before the verifier existed at all. Split at the
+two real boundaries (verifier registered 2026-07-24, `Grades` added 2026-08-10):
+
+| era | complete | failed | wont_fix |
+|---|---|---|---|
+| before the verifier existed (→ 07-20) | 453 | 47 | 4 |
+| **verifier live, NO `Grades` — the actual exposure window (07-24 → 08-09)** | **15** | 0 | 0 |
+| `Grades` live (08-10 →) | 0 | 0 | 0 |
+
+- **The recorded "11 of 11" is really 15 of 15** — same shape, understated by four. A modest,
+  in-direction correction; the mechanism's story does not change.
+- **"not one has ever failed to close" needs its scope stated.** Within the exposure window it is
+  exactly true (0 of 15 failed). Read as written — *ever* — it is false: **47 design-audit rows
+  failed, all on 2026-07-18**, before the verifier existed, so those failures say nothing about the
+  verifier. The word "ever" over-reaches; the argument it supports does not.
+- Zero design-audit rows have closed under this type since `Grades` landed, consistent with
+  `bugs_closed/213` having re-routed that producer to `dark_section_audit`.
+
+**The lesson I am taking into the fix:** every figure I quote in the submission must say which
+table(s) it came from and which era it covers, because on this schema "ever" and "the last seven
+days" are different questions that look identical in SQL.
