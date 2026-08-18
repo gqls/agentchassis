@@ -35430,3 +35430,40 @@ owner". Read fleet-wide it is neither a rate nor asset-deployer's: it is a **2 h
 (2026-08-17 13:31Z→16:14Z), ~815 failed steps across 10+ agent types and 9+ domains, GitHub 404 on
 branch `"master"`, and **zero occurrences since**. A window sampled inside an outage reported as a
 standing rate — which is exactly what §10.9 had corrected on a different figure in the same file.
+
+## 2026-08-18 — loanzy.uk: I wrote the risk down, then fired with no brake, and a page went live
+
+**The claim that was wrong:** that cancelling the queued build items would stop the build
+before anything reached the public. **What caught it:** the page itself, serving 200 at
+`https://loanzy.uk/about.html` four minutes AFTER the cancellation.
+
+Three distinct errors, all cheap to have avoided:
+
+1. **I dispatched a no-prompt build on a live, publicly-resolving domain having already
+   written down, in the same session, that a lender-shaped result would have to be retracted
+   rather than published.** Writing the risk down is not containment. The cheap check:
+   arrange the hold BEFORE dispatch — build on a domain with no route to the edge, or pull
+   the worker route first — so that "we must not publish this" is a property of the setup and
+   not a decision I have to win a race to make.
+2. **I assumed `needs_rerender` was the publication gate.** It is not: `page-build-handler`
+   has its OWN `deploy_page` step, so every page ships itself as it completes. The cheap
+   check, which I did do before acting and which is the only reason the damage was one page
+   and not twenty: read the agent's step list (`jsonb_object_keys(default_config->'workflow'
+   ->'steps')`) instead of reasoning from what the pipeline diagram implies.
+3. **I treated `status='cancelled'` as if it stopped work.** It stops an item being CLAIMED;
+   an agent already holding one runs to completion. 33 items cancelled 13:57:24Z, one page
+   already claimed, deployed 14:01:55Z. The cheap check: `SELECT status … WHERE status IN
+   ('claimed','in_progress')` before believing a queue is stopped, and treat anything claimed
+   as already out of your hands.
+
+**And a fourth, which hid the whole thing for an hour:** the watcher I armed on the build
+reported nothing for a full hour while the build produced 40+ items, because its query was
+wrapped in `2>/dev/null` and `|| true` — a failing query and a quiet queue look identical.
+That trap is already in `LANDMINES.md` ("foreground-test a watcher before arming it") and I
+armed it anyway. The replacement emits `WATCH-QUERY-FAILED rc=…` explicitly.
+
+**Retraction has its own order and it is not obvious:** `page-retraction` REFUSES a live page
+(*"retracting a live page is not what archiving means"*) — archive the row first
+(`pages.status='archived'`, a hand-run UPDATE, there is no writer), then retract. And the
+success flag is not the edge: the file is deleted from `gqls/sites`, then a bucket sync and a
+cache purge have to land, so verify at the URL.
