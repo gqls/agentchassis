@@ -49,3 +49,40 @@ grep -c literal_markdown ~/.claude/projects/-home-ant-projects-agentchassis/*.js
 ```
 Gotcha: who-owns reads COMMITS only; the transcript grep is what sees an uncommitted session.
 A hit can be loaded context (MEMORY/LANDMINES), so read the hit lines before concluding.
+
+## Rollout (order is load-bearing)
+
+1. Part 2 at HEAD (check re-route + rerender hook — after the 299 lane's commit).
+2. Build + push + deploy agent-chassis at a FRESH tag (same-tag rebuild ships the cached
+   image — the 08-17 landmine). Verify by provenance stamp, not the roll:
+   ```bash
+   kubectl -n ai-persona-system logs -l app=agent-chassis --tail=300 | grep -m1 'build provenance'
+   git merge-base --is-ancestor <part2-commit> <the stamp && echo SHIPPED
+   ```
+   If the startup line has scrolled: binary probe with BOTH controls (expected sha
+   present, absent sha absent).
+3. Apply 473 then 474 (`kubectl exec -i postgres-clients-0 -- psql ... -f` shape; both
+   print `OK` NOTICEs; a RAISE means an anchor moved — read the live row, re-anchor).
+4. Canary TWO pages (different sites — they must be able to disagree):
+   ```sql
+   -- pick two open items on different sites, then per item:
+   UPDATE site_work_items
+      SET status='triaged', handler_agent='page-rerender', attempt_count=0,
+          spec = spec || '{"reason":"literal_markdown"}'::jsonb
+    WHERE id = '<item-id>';
+   ```
+   Dispatch rides build-dispatch-loop's normal cadence (or fire it for the site).
+5. Verify at the ARTEFACT, not the item: curl the page, scan visible text for all four
+   patterns (the bug file's §Scope query for the DB side). `result` may be the spawn
+   record (bugs_open/287). Check the strip actually logged:
+   `kubectl logs -l app=agent-chassis --tail=2000 | grep 'stripped literal markdown'`
+   — a repair with ZERO strip lines and a clean page means the page was already clean
+   (retraction should have caught it), so ask why it was open.
+6. If both canaries clean: batch-promote the remaining open population (same UPDATE,
+   widened WHERE — statuses detected/failed/unresolved; leave needs_human_review for a
+   deliberate decision). The new pair earns its ratio; the 444 floor never engages
+   (fresh pair). Next discovery pass retracts leftovers via Resolved.
+7. Gotcha for step 6: items whose defect lives in rendered_html ONLY with clean
+   content_data heal too (rerender regenerates rendered_html) UNLESS the markdown is in
+   the component's html_template (1 template fleet-wide matches) — those will verify
+   FAILED honestly; file the template case separately, do not weaken the verifier.

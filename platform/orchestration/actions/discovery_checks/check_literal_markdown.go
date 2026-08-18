@@ -1,6 +1,26 @@
 // FILE: platform/orchestration/actions/discovery_checks/check_literal_markdown.go
 //
 // CHANGES:
+//   - HandlerAgent: "page-rerender" (was "page-build-handler"), 2026-08-18,
+//     bugs_open/184 fix-2. The page-build-handler pair was 1 complete / 28 failed
+//     lifetime — the worst in the fleet, held by the migration-444 promoter floor —
+//     because repair-by-LLM-regeneration was tried and the regenerating writer has
+//     the same habit: proven at the artefact 2026-08-07, a full regeneration wrote
+//     18 markdown findings back into the very field it was dispatched to clean,
+//     three days AFTER the prompt-rule hardening (304) was verified live. The
+//     repair is now mechanical: the item spec carries reason:"literal_markdown",
+//     page-rerender's check_rerender_mode accepts it (migration 473, the
+//     cta_links_stale precedent), and the rerender strips markdown from stored
+//     content_data (datahelpers.StripLiteralMarkdown) before re-rendering — no
+//     LLM in the loop, so the repair cannot reintroduce the defect. The verifier
+//     below is keyed on item_type and survives the re-route; its whole-page remit
+//     still matches (rerender_sections rewrites every unlocked section). The old
+//     pair stays held — no 444 rollback; it simply stops receiving items.
+//   - md_link pattern added, 2026-08-18, same fix. The live symptom widened past
+//     the filing: 9 md-link components fleet-wide and "## [title](url)" composites
+//     in open items. Patterns are now single-sourced in
+//     datahelpers/literal_markdown.go so this check, the verifier and the stripper
+//     cannot drift (property test: scan(strip(x)) == nothing).
 //   - HandlerAgent: "page-build-handler" (was "page-content-writer"), 2026-08-05,
 //     bugs_open/201. page-content-writer must not be dispatched DIRECTLY: it plans
 //     its own sections from `input_data.current_page.sections` (bugs_closed/087's
@@ -81,7 +101,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"regexp"
 	"strings"
 
 	"github.com/google/uuid"
@@ -104,14 +123,13 @@ type LiteralMarkdownCheck struct{}
 
 func (c *LiteralMarkdownCheck) Name() string { return "literal_markdown" }
 
-var (
-	mdBoldRe     = regexp.MustCompile(`\*\*[A-Za-z][^*\n]{0,80}\*\*`)
-	mdCodeSpanRe = regexp.MustCompile("`[A-Za-z0-9][^`\n]{0,80}`")
-	mdHeadingRe  = regexp.MustCompile(`(?m)^#{1,6} \S`)
-	// A value carrying markup or script is not a text-typed field — the
-	// code-span pattern is suppressed there (backticks are code, not prose).
-	htmlMarkupRe = regexp.MustCompile(`<[A-Za-z/!]`)
-)
+// Patterns are single-sourced in datahelpers/literal_markdown.go (bug 184
+// fix-2, 2026-08-18) so this check, its completion verifier and the write-seam
+// stripper (StripLiteralMarkdown) cannot drift: the repair contract is
+// scan(strip(x)) == nothing, enforced by datahelpers' property test. The
+// markup-suppression heuristic (a value carrying markup is not a text-typed
+// field) moved with them: datahelpers.HTMLMarkupRe.
+var htmlMarkupRe = datahelpers.HTMLMarkupRe
 
 type literalMarkdownFinding struct {
 	SlotName string `json:"slot_name"`
@@ -123,28 +141,20 @@ type literalMarkdownFinding struct {
 
 // scanPlainTextMarkdown applies the guarded patterns to one plain-text
 // string. One finding per pattern per value — the repair is a page rewrite,
-// so occurrence counts change nothing about what to do.
+// so occurrence counts change nothing about what to do. The pattern set is
+// datahelpers.LiteralMarkdownPatterns (includeCodeSpan gates code_span AND
+// md_link, the two patterns suppressed on markup-bearing values).
 func scanPlainTextMarkdown(text, slot, field, source string, includeCodeSpan bool) []literalMarkdownFinding {
 	var out []literalMarkdownFinding
-	add := func(pattern, matched string) {
+	for _, pm := range datahelpers.LiteralMarkdownPatterns(text, includeCodeSpan) {
+		matched := pm[1]
 		if len(matched) > 120 {
 			matched = matched[:120]
 		}
 		out = append(out, literalMarkdownFinding{
-			SlotName: slot, Field: field, Pattern: pattern,
+			SlotName: slot, Field: field, Pattern: pm[0],
 			Matched: matched, Source: source,
 		})
-	}
-	if m := mdBoldRe.FindString(text); m != "" {
-		add("bold", m)
-	}
-	if includeCodeSpan {
-		if m := mdCodeSpanRe.FindString(text); m != "" {
-			add("code_span", m)
-		}
-	}
-	if m := mdHeadingRe.FindString(text); m != "" {
-		add("heading", m)
 	}
 	return out
 }
@@ -363,16 +373,17 @@ func (c *LiteralMarkdownCheck) Run(dctx DiscoveryCheckContext) (*CheckResult, er
 		pf := byPage[id]
 		specJSON, _ := json.Marshal(map[string]interface{}{
 			"check":     "literal_markdown",
+			"reason":    "literal_markdown", // page-rerender gates its sections branch on this (migration 473)
 			"page_id":   pf.PageID,
 			"page_name": pf.PageName,
 			"page_url":  pf.PageURL,
 			"findings":  pf.Findings,
-			"fix": "Rewrite the affected fields WITHOUT markdown syntax: text-typed " +
-				"fields are rendered verbatim (STRICT RULE 9), so **bold**, `code spans` " +
-				"and # headings reach the visitor as literal characters. Do not merely " +
-				"delete the markers — if the writer wanted emphasis, re-word so the words " +
-				"carry it. Fix page_components.content_data (the durable copy), not only " +
-				"the rendered HTML: a rerender reprints content_data.",
+			"fix": "A literal_markdown rerender strips markdown markers from plain-text " +
+				"content_data fields deterministically (datahelpers.StripLiteralMarkdown, " +
+				"gated by strip_literal_markdown on page-rerender's rerender_sections step) " +
+				"and re-renders the page from the cleaned values — no LLM in the loop. " +
+				"Both surfaces heal in one pass: content_data is stripped before it feeds " +
+				"the render, and rendered_html is regenerated from it.",
 		})
 		var pageIDPtr *uuid.UUID
 		if parsed, perr := uuid.Parse(pf.PageID); perr == nil {
@@ -388,7 +399,7 @@ func (c *LiteralMarkdownCheck) Run(dctx DiscoveryCheckContext) (*CheckResult, er
 			Summary:      fmt.Sprintf("Literal markdown syntax on page %s (%d finding(s))", pf.PageName, len(pf.Findings)),
 			SpecJSON:     string(specJSON),
 			Priority:     40,
-			HandlerAgent: "page-build-handler", // NOT page-content-writer — see header, bugs_open/201
+			HandlerAgent: "page-rerender", // mechanical strip-on-rerender — see header CHANGES, 2026-08-18
 			Status:       "detected",
 			CreatedBy:    dctx.AgentType,
 			ItemKey:      fmt.Sprintf("literal_markdown:%s", pf.PageID),

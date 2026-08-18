@@ -32,6 +32,21 @@ func TestScanPlainTextMarkdown_Positives(t *testing.T) {
 			text: "Intro\n## Why choose us\nBody",
 			want: []string{"heading"},
 		},
+		{
+			name: "md link — the widened live symptom (2026-08-17 measurement)",
+			text: "Research by [James Kettle](https://portswigger.net/research/james-kettle) shows request smuggling.",
+			want: []string{"md_link"},
+		},
+		{
+			name: "heading containing an md link — the '## [' composite in open items",
+			text: "## [OpenAI safety update](https://openai.com/news/safety-alignment/)",
+			want: []string{"heading", "md_link"},
+		},
+		{
+			name: "root-relative md link",
+			text: "See [the guide](/guides/first-time-buyer/index.html) for details.",
+			want: []string{"md_link"},
+		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -64,6 +79,9 @@ func TestScanPlainTextMarkdown_GuardNegatives(t *testing.T) {
 		"issue #12 closed",
 		"`${url}` interpolation",
 		"`/api` path",
+		"[1](https://example.com) numeric citation",
+		"array[0](call) is indexing, not a link",
+		"see [the docs](ftp://example.com/x) non-http scheme",
 	}
 	for _, text := range cases {
 		t.Run(text, func(t *testing.T) {
