@@ -35993,3 +35993,58 @@ still has not varied.
   — it is the normal case, measured in week one of this lane, and I walked into it anyway.
   Tally for "reproduced the bug inside the tool built to verify its fix": 1. Tally for "a safety
   assertion caught what reading did not": 1 — and it is the only reason this cost nothing.
+- **I handed the next session a diagnosis correlation for a run that had never been dispatched, and
+  told them to read its verdict first.** `bugs_open/309`'s filing and the lane handoff both cite
+  `090` correlation `df8ca3a1-9cca-474a-88fb-19577e088080` with the instruction *"a verdict should be
+  waiting for the next session — read it first"*. There is no run under that id. All three tables it
+  would have to appear in are empty for it (`diagnosis_artifacts`, `orchestration_states`, and
+  `site_work_items` on `spec::text LIKE '%df8ca3a1%'`), and **no work item of any type was created
+  anywhere in that hour**, so it is not the well-known wrong-correlation lookup either — there was
+  nothing to look up. It also cannot be a printed-then-refused id: `090` mints its correlation at
+  line 333 and the coverage refusal `exit 1`s at line 320, so a refused invocation prints none at all.
+  **What caught it:** querying the id before acting on the instruction. Ten seconds, three counts.
+  **The cheap check is the one the script already prints and nobody runs:** after firing `090`, read
+  the intake row back — `SELECT status, spec->>'dispatch_correlation_id' FROM site_work_items WHERE
+  item_key='needs_diagnosis:<slug>'`. A dispatched run has a row; that is the whole test. A printed
+  correlation is a *string the script generated*, not evidence that anything was recorded, and it is
+  printed before the write it would attest to.
+  **Why it is worse than an ordinary stale claim:** it does not read as an unverified assertion, it
+  reads as a *pointer to evidence*, which is the one shape a careful reader is least likely to
+  re-check — the next session's job on that line is to read a verdict, not to audit whether the run
+  exists. And the standing `LANDMINES` entry about the two correlations makes the empty result
+  *expected*: query the wrong key and you get 0 rows, which is indistinguishable from "still running",
+  so the natural response is to wait rather than to doubt. **A pointer to evidence must be verified by
+  the session that writes it, because it is the one claim the reader will not verify.**
+  Tally for "asserted a dispatch on the strength of a printed id rather than a recorded row": 1.
+
+## 2026-08-18 (second from the 277/083 lane) — I put `bugs_open/295` into a LIVE payload, 30 minutes after the file moved out of `bugs_open/`
+
+**The claim (migration `471`, applied to `held-pair-canary-escalation`.pre_query):** the floor-held
+escalation now tells the human *"the real defect is `bugs_open/295` (producer families dying on owned
+pages) — fix THAT, not the handler."* **Reality:** 295 was **CLOSED on 2026-08-17 21:35 UTC** and
+lives in `bugs_closed/`. A reader following that instruction greps `bugs_open/` and finds nothing —
+inside a payload that only ever fires when someone is *already* stuck.
+
+**And the substance was wrong too, not just the path.** 295 fixed the refusal's *invisibility* (the
+guard now files an `owned_page_review` row where there had been zero for all history); it
+deliberately did **not** stop the item failing and did not make the page get repaired. The live
+residual is 295's own **fix candidate 3 — route content findings on owned pages to `section_edit`,
+which demonstrably works on them (18 completes)** — which is what a stuck human actually needs.
+
+**Where it came from:** my own `HANDOFF_2026-08-18b` says the finding *"touches `bugs_open/295`"*. I
+carried that string into a live config change without once resolving it. The handoff was written
+2026-08-18 and 295 closed 2026-08-17, so **the reference was already stale when the handoff was
+written** — I inherited the error and then promoted it from prose into a mechanism.
+
+**What caught it:** running `scripts/who-owns.py 295` before contributing a measurement to the bug —
+i.e. a check I ran for an unrelated reason, not one aimed at this. Nothing in the migration's own
+controls could have caught it: `EXPLAIN` proves the SQL parses, not that a path in a string exists.
+
+**The cheap check:** `git ls-tree -r --name-only HEAD -- bugs_open/ bugs_closed/ | grep <number>`
+before writing a bug reference into anything durable — it returns the **directory**, which is the
+half that goes stale, and CLAUDE.md already warns a bare number is ambiguous across the two dirs.
+**Prose can carry a stale pointer for days; a payload hands it to someone mid-incident.** Raise the
+bar for a reference by where it will be READ, not by how sure you are.
+
+Fixed by migration `472` (text-only, same session). Tally for "repeated a reference from another doc
+without resolving it against the live tree": 1.
