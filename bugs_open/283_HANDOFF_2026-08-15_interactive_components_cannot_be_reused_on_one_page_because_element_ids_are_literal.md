@@ -727,3 +727,23 @@ become noise — the full life cycle the design asked for.
 the two refused rows get their small repairs; then the JUDGED pool — 25 components, 23 of them
 the LMC calculators, LMC-first with the oracle, pipeline not yet designed. The mechanical
 three-quarters of RFC_034 is done.
+
+### 13.6 The rerender drain found the OWNED-page seam — 17 items, one more guard proving itself, migration 462
+
+Of the 72 auto-filed rerenders, **17 target `rebuild_policy='owned'` pages** (the tool pipeline's
+native pages, mostly webdesign.co.uk tools — including the three components that joined the corpus
+mid-programme). `save_page_sections` **correctly refused** the generic save on each ("a generic
+section save would clobber it"): 2 failed before the pattern was diagnosed, and the remaining 15 —
+a deterministic, fully-diagnosed refusal — were **cancelled** rather than left to feed the fleet's
+failure sweeps (doc_notes records it; the never-cancel-pre-diagnosis rule is about undiagnosed
+rows, and these are the opposite).
+
+**What this means for those 17 components:** their TEMPLATES are converted (snapshot-reversible);
+their served pages keep pre-conversion ids until the **owning pipeline** next renders them, or a
+targeted `apply_section_edit` (which binds `InstanceID`) is used. Their owning lane
+(webdesign tool rebuilds) renders outside `RenderTemplate`, so no empty-token hazard arises from
+this seam — but that pipeline's next render of a converted template is worth one deliberate look.
+
+**Migration 462 (applied, PREPARE-checked):** the fixer's `create_rerender` now excludes owned
+pages, so it stops filing items that exist only to be refused. The remaining ~55 generic-page
+rerenders continue draining.
