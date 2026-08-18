@@ -1,5 +1,13 @@
 # HANDOFF — ⛔ BUILDS ARE HALTED pending two coupled owner decisions — 2026-08-18 evening, continue here
 
+> **⚠ SUPERSEDED 2026-08-18 late evening by `HANDOFF_2026-08-18c_continue_here.md`.**
+> Accurate on its own history and §1–§2 (the halt, the two decisions) still hold — but read
+> 18c first: the missing-tools cause is found and CONFIRMED (`bugs_open/311`), the directory
+> is 25 lenders not 2 (migration 471), the flow decision was narrowed by owner ruling P11,
+> and §4's "www resolves NOWHERE across all 36 zones" is **corrected** there — 8 of 39 zones
+> carry a www record, in four different states.
+
+
 Supersedes `HANDOFF_2026-08-18_continue_here.md` (accurate on its own history; this file carries
 everything a fresh chat needs). **Phase C is SIGNED OFF.** Read §1 before touching anything.
 
