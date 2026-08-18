@@ -192,18 +192,33 @@ the "tool that OUTPUTS a script tag" test. No concatenation obfuscation needed o
 (gating objection: edit 6 was contingent on the 309 lane's commit at submission time — it landed at
 `e21b172f0` eight minutes later; the round's real products were the pod-verification recipe below
 and the prior-art answer now in `markup_balance.go`'s header on why this is not `x/net/html`).
-Round 2 resubmitted under the same correlation; verdict recorded here when read.
-**Register:** CLC-019.
+**Round 2: APPROVED** ("approved with 4 advisory objections — none high-severity", 20:17Z).
+The advisories, each acted on the same evening: load-time drop's Warn now carries the measured
+signals (bug_historian); first test coverage for `check_tool_completeness` (editquality); the
+`<no value>` sixth-census-hit dismissal verified by reading the deciding arms at
+`fix_component_template_action.go:916/926/950/971` — it counts an exact render-artifact literal,
+not markup balance (guardian); the pod recipe below reordered for agent-chassis's scrolling stamp
+line (debug_historian — and see WRONG_CALLS 2026-08-18 for the false-miss probe that reorder
+caught). **Register:** CLC-019.
 
-**Verify the roll actually carries it (per the debug_historian seat — a roll is not evidence):**
+**Verify the roll actually carries it (per the debug_historian seat — a roll is not evidence).**
+⚠ On agent-chassis — the service all five edited files run on — the provenance stamp is a STARTUP
+log line and scrolls out of reach within hours (measured absent from `--tail=3000`, LANDMINES); an
+empty grep there means "not in range", never "unstamped". So on this service, **lead with the
+binary probe**, and treat the log line as the shortcut that sometimes works:
 ```bash
-# the service's own statement of its commit (startup line — scrolls; see LANDMINES):
+# 1. get the STAMP (the binary's own build commit — it carries only THAT sha, not every ancestor):
 kubectl -n ai-persona-system logs -l app=agent-chassis --tail=300 | grep -m1 'build provenance'
-git merge-base --is-ancestor 6d962bcf8 <the stamp>   # exit 0 = the fix is in the binary
-# fallback binary probe with BOTH controls (never a discovery grep):
-kubectl -n ai-persona-system exec <pod> -- grep -aq "<stamp sha>" /proc/1/exe        # must hit
-kubectl -n ai-persona-system exec <pod> -- grep -aq "0000000000000000000000000000000000000000" /proc/1/exe && echo BAD-CONTROL  # must miss
+#    log out of range? restart-fresh pod, or the release record, gives the stamp instead.
+# 2. confirm the stamp is really in THIS binary — known-value probe with BOTH controls:
+kubectl -n ai-persona-system exec <chassis-pod> -- grep -aq "<stamp sha>" /proc/1/exe && echo stamp-confirmed   # must hit
+kubectl -n ai-persona-system exec <chassis-pod> -- grep -aq "0000000000000000000000000000000000000000" /proc/1/exe && echo BAD-CONTROL  # must miss
+# 3. ancestry — the question you actually care about:
+git merge-base --is-ancestor 6d962bcf8 "<stamp sha>" && echo carries-303-scanner
+git merge-base --is-ancestor e21b172f0 "<stamp sha>" && echo carries-store-generated-half
 ```
+(Never grep the binary for 6d962bcf8 itself — it only hits if that commit IS the build commit, so
+a miss on a later build that contains the fix reads as "not shipped" and is wrong.)
 **Then verify behaviour:** re-run an `add_tool` whose description names tags with angle brackets —
 birth succeeds; confirm the two false-alarm items (`91007600`, `6e2c9ebf`) resolve via their
 verifier on completion, and that a deliberately truncated fixture still refuses (negative control).

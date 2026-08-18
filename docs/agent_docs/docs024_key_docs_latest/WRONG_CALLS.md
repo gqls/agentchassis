@@ -36340,3 +36340,23 @@ seconds each. A sketch is a claim; reviewers verify sketches, and a wrong source
 sketch reads as a wrong source in the plan. Corollary already in the file's tally:
 flagging an unverified claim in a risks section does not discharge it — either verify it
 or write the sketch without asserting it.
+
+## 2026-08-18 — a verification recipe whose MISS reads as "not shipped" when the fix DID ship (bugfix 303 lane)
+
+**The wrong call:** answering a council advisory (add a pod-verification recipe), I wrote into
+`bugs_open/303`'s fix record: `grep -aq "6d962bcf8" /proc/1/exe && echo carries-303` — probe the
+binary for MY COMMIT's sha. The binary carries only its BUILD commit; any later build that
+contains my fix as an ancestor misses that grep, and the miss reads as "fix not shipped" with
+complete confidence. The recipe would have been consumed post-roll by whoever verifies the bug —
+precisely when the build commit is almost guaranteed NOT to be mine.
+
+**What caught it:** self-review one edit later, because the parenthetical I was writing to excuse
+the edge case ("the binary carries its OWN commit sha, not every ancestor's") described the
+false-miss out loud. Corrected in place: get the STAMP, known-value-probe THE STAMP with both
+controls, then `git merge-base --is-ancestor <my-commit> <stamp>` for ancestry.
+
+**The cheap check that would have:** before publishing any verification recipe, run its FALSE-MISS
+case in your head — "what does this check say when the thing I'm verifying is true, but not in the
+exact form I probed for?" One sentence of simulation. Same family as the standing memory "your
+fix's SUCCESSOR passes your marker check" (prove-a-deploy-at-the-artefact): a marker keyed to one
+commit expires at the very first build after it, which is the first moment anyone runs the recipe.

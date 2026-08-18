@@ -77,3 +77,21 @@ contingency) were moot by facts, not argument. The round's real products:
 Round 2 resubmitted under the same correlation (`RESUBMIT_CORR`), run `d353d5de`. Lesson upheld:
 a REVISE round is cheaper than the defect it finds — two of five objecting threads produced real
 improvements, and none required defending the design.
+
+## 2026-08-18 (council round 2) — APPROVED, four advisories, all four acted on tonight
+
+**APPROVED 20:17Z** ("4 advisory objections — none high-severity"). Actions taken:
+- bug_historian (load-time drop still quiet): the `componentInfoFromRaw` Warn now carries
+  `unbalanced_markup_context` + `ends_cleanly`; noted in the log line itself that the
+  truncated_component SWEEP owns the durable finding (the work item the seat asked about exists —
+  it is the sweep's, by design).
+- editquality (check_tool_completeness change had no stated coverage): true — the action had NO
+  test file at all. `check_tool_completeness_test.go` added: mention-tool passes, cut flags
+  advisorily without failing the step, uppercase cut caught (the pre-303 case-sensitivity pinned).
+- guardian ('<no value>' dismissal asserted not verified): read the deciding arms
+  (fix_component_template_action.go:916/926/950/971) — exact-literal artifact counting for slot
+  repairability, not markup balance. Dismissal stands, now on a read.
+- debug_historian (provenance recipe inoperative on agent-chassis): recipe reordered — stamp
+  first (with the scrolls-out-of-range caveat), known-value binary probe with both controls,
+  THEN merge-base ancestry. **Caught my own false-miss probe while doing it** (grep the binary for
+  my commit sha — misses on every later build that carries the fix): WRONG_CALLS 2026-08-18.
