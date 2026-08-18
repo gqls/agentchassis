@@ -102,7 +102,53 @@ but that figure is the less defensible of the two; the normalised rate is the on
 **So the v2 house voice did not reduce this construction.** It is unchanged to slightly
 worse. That is the finding; it is not yet an explanation.
 
-## 4. HYPOTHESIS ONLY — the instruction names the construction
+## 4. ⚠ REFUTED 2026-08-18 by the diagnosis loop AND by a direct check — the licensing hypothesis is DEAD
+
+**`090` verdict (`57b2dcd2`): `UNVERIFIABLE` — "stopped: scope-not-narrowing", no fix
+proposed, "hand to a human with the full trail; do NOT auto-conclude."** A refuted
+hypothesis at the cost of one run is the cheapest place to be wrong, and this one refuted §4
+below from a path I had not taken.
+
+**What the loop established (its own evidence, independent of mine):** the exact rhetorical
+shape was already being produced for the **model-directory page on 2026-08-06** — a week
+before the v2 flip — in the wording *"actually running in our production deployments, not a
+catalogue of what's theoretically possible"* and *"deployed and doing work, not sitting in a
+demo repo"*. It reached that by finding a different generation than the 08-08 one I found.
+**So v2's wording cannot be the mechanism that introduced the construction.**
+
+**The gap it named, and I have now closed it.** It asked: *"it would also help to know what
+`voice_style_block` text (if any) was actually active on 2026-08-06 — the current
+data_request only returns the present (post-flip) config text, not a version history"*. There
+IS a version history, in a backup **this lane created when it shipped v2** (CQ-022's rollback
+list): `agent_default_configs_bak_20260813_voicecarrier`. `[MEASURED 2026-08-18]`
+
+| voice block | contains "contrasting pair" | chars |
+|---|---|---|
+| pre-v2 (backup taken 2026-08-13, pre-update) | **NO** | 2,499 |
+| current v2 | yes | 6,032 |
+
+**The construction was being produced under a block that never mentions it.** Naming it
+cannot be what licensed it. §4's hypothesis is dead, and dead by two independent routes.
+
+⚠ *Provenance of the pre-v2 text:* the live row was created 2026-07-27 and carries exactly
+one recorded update (2026-08-13, the flip), and the backup was taken immediately before that
+update — so absent an **unrecorded** intermediate edit (`updated_at` shows only the last one)
+that text was live on 08-06. Corroborated by CQ-022's own history: built 07-27, one consumer,
+untouched until the flip.
+
+**What is still open** — the loop was explicit that it could not close the original symptom:
+the same before/after comparison for **`adoption-tracker` and `protocol-tracker`** (this
+bundle had no generation history for either; symbol bodies came back "unavailable" as a
+tooling failure, and its own data request died with `canceling statement due to statement
+timeout`).
+
+⚠ **Possible confound I caused:** I was running an expensive correlated query over
+`llm_call_log` × `orchestration_states` on the same database during that window (cancelled
+after ~7 minutes). I cannot show it caused the loop's statement timeout, and the message is a
+`statement_timeout` rather than my cancellation — but **do not run heavy exploratory queries
+while a diagnosis run is in flight**, which is a lesson regardless of whether it bit here.
+
+## 4b. The original hypothesis, kept as the record of what was refuted
 
 v2's own text discusses when *a matched contrasting pair is earned*, i.e. the shape is named
 inside the instruction meant to discourage it, and this estate has a measured precedent for
