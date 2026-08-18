@@ -2175,3 +2175,36 @@ one zone would diverge it from 35 others; it is an owner decision, recorded in t
 **Still blocked on Nominet** — until the nameservers change, the domain keeps answering from
 Dan.com's parking lander. **Remember the trap: a parked domain returns 200 on every path**, so
 verify by reading the body, never the status code.
+
+### 2026-08-18 — OWNER: BUILDS HALTED; classifier gets the register (option 2, filed as RFC_037)
+
+**HALT IS IN FORCE.** Owner: *"Stop the builds until we sort out the classifier and which
+builder flow we are using."* Implemented with the platform's **own** pause switch rather than
+by mangling work-item statuses: `sites.locked_at` is exactly what
+`build-pipeline-trigger.find_dispatchable_site` excludes on (`WHERE s.locked_at IS NULL`).
+
+- Locked: `adversecreditmortgage.co.uk` (build #1, mid-flight) and `remortgagecalculator.uk`
+  (pilot — it still has failed/HITL items that could be retried).
+- `locked_by` states who and why, so another session finds a reason and not a mystery.
+- **Verified against the dispatcher's own predicate**: both now read
+  `dispatcher_would_select = false`. Build #1's `needs_strategy` stays `triaged` — **queued work
+  is preserved, not cancelled**; clearing `locked_at` resumes it exactly where it stopped.
+- Checked before using it: nothing auto-clears `sites.locked_at` (the `locked_at` hits in Go are
+  all `site_components`/`pages`), so the pause is durable rather than a lease that expires.
+- **Build #1 got as far as `needs_strategy` and its classifier had already run — proof point 1
+  passed a second time**: `mortgage_lender_directory`, recommended, `separate_page: true`.
+
+**Option 2 chosen for the classifier → `architecture_review/RFC_037_…md`.** Filed rather than
+built: it adds an input to `domain-research-classifier`, a shared seam every site in the fleet
+passes through. The RFC carries the measurement (7 finance sites → 2 distinct classifications,
+`industry` null on all 7), the prior art it must NOT duplicate (`vertical_landscape` already
+does this outward, at competitors, and never at our own portfolio), and four design questions
+I deliberately did not answer alone — chiefly where the register data lives, and whether the
+input is advisory or a binding collision check.
+
+**The two paused decisions are COUPLED, and that is the thing to decide first.** If each site
+keeps a hand-written mission carrying its register positioning, the classifier change is
+belt-and-braces. If sites are to be built from a short prompt — the `loanzy.uk` model, *"built
+just from the webdesign.uk prompt"*, no register entry — then the classifier reading the
+register is **the only remaining place differentiation could come from**, and RFC_037 becomes a
+precondition for the fleet rather than an improvement to it.
