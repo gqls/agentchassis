@@ -274,3 +274,46 @@ both halves are recorded and why the control shares the tick.
 2. Council verdict — submitted, correlation recorded in the commit trailer.
 3. **Re-read the live `pre_query` immediately before applying.** Guard 1 will refuse rather than
    clobber if another lane has edited it since, but knowing that in advance beats an aborted apply.
+
+## The `090` diagnosis loop: UNVERIFIABLE, not confirmed — and it found a real gap in my evidence
+
+Run per CLAUDE.md's 2026-07-31 ruling (a `bugs_open/` file asserting a cross-cutting or structural
+root cause is not "filed" until it has been through the loop, or the session says plainly why it
+substituted equivalent first-hand verification). Intake `2747e87b`, run `22bd0dd6`, item
+`4504d16f`. **Verdict: `UNVERIFIABLE`, `stopped_by: scope-not-narrowing`. It did NOT refute
+anything.** Stating that plainly because an UNVERIFIABLE is not a confirmation and must not be
+cited as one — **the claims in this file rest on the first-hand verification above, not on this run.**
+
+**What it did corroborate**, with a Tier-0 citation: the `case StatusInitialized` arm exists in
+`handleOrchestrationStatus`; and, from live state, that two rows have sat in `INITIALIZED` with
+`updated_at == created_at == last_activity` for over a month — which it correctly characterised as
+"state evidence of the SYMPTOM (staleness) but not yet of the CAUSE".
+
+**Why it could not finish, and it is a limitation rather than a failure:** the decisive evidence is
+the verbatim `pre_query` text of two `scheduled_tasks` rows, and **the loop could not fetch it** —
+its own trail records that it queried columns belonging to `agent_definitions`
+(`type`, `display_name`, `task_workflow`) and got back an unrelated `thunder-reaper` row. So it
+never saw the reaper or the cleanup task at all. **This is the second independent instance today of
+the same limitation on this same area:** the landmine-verifier returned `NEEDS_HUMAN_REVIEW` on a
+neighbouring entry with the explicit reason that the central claim "lives in database content and
+migration files outside the .go-only index scope and cannot be verified or contradicted".
+**Generalise it: a claim whose evidence is live `scheduled_tasks` config is outside what these
+verifiers can reach, so their silence on it carries no information either way.**
+
+**The gap it found in my evidence, which was fair and is now closed.** It objected that my premise
+"the only consumer is message-driven" rested on function signatures rather than on a cited call
+path — `ExecuteWorkflow`/`ProcessResponse` were outside its bundle. Correct objection. Verified
+directly and now cited rather than inferred:
+
+- `handleOrchestrationStatus` has **exactly one caller** — `coordinator.go:165`, inside
+  `ExecuteWorkflow`. (`grep -rn "handleOrchestrationStatus(" --include="*.go" .` returns the
+  definition at `:700` and that one call. `ProcessResponse` does **not** call it, contrary to the
+  loop's guess.)
+- `ExecuteWorkflow` has exactly **two** callers: `platform/messaging/processor.go:1864`, inside
+  `MessageProcessor.executeWorkflow(ctx, msgCtx *MessageContext, …)` — the inbound-message path —
+  and `cmd/test-spawning/main.go:141`, a test binary that is not in the production path.
+
+So the chain is now established end to end: **the only production route into the `INITIALIZED`
+arm is an inbound message, and a stranded row is one for which no further message will ever
+arrive.** That is the premise the whole filing turns on, and it is now a citation rather than an
+inference.
