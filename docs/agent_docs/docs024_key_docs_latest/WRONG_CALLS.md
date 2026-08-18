@@ -35132,3 +35132,46 @@ the finding completely. `RUNBOOK_retry_kills_live_child.md` now carries the corr
   **Caught by:** the `bugs_open/029` lane, unprompted, plus my own follow-up queries. Cost: nothing
   live; one correction in `NOTES`, one in the handoff. Tally for "wrote a cause I had not
   measured": 1. Tally for "an inference from a filtered count": 3 (see the two entries above).
+
+## 2026-08-18 — the same day, the SAME error in the opposite direction: a log grep whose control was also zero (bugs_open/029)
+
+**The claim I was about to make:** *"the takeover path never fires in production."* I had
+grepped both `agent-chassis` pods (`--since=24h`) and 13 live `agent-build-dispatch-loop`
+pods — 4,640 log lines — for the takeover's own `Warn` line. Zero.
+
+**What was wrong:** the **control was zero too.** `Orchestration is actively executing` is
+the other arm of the same `switch`; any pod that evaluated that branch at all must emit one
+line or the other. Both zero means those pods never reached the code in the window I could
+see. Chassis log retention here is **~4 minutes** — a `--since=24h` query returned lines
+from `12:20Z` on a pod started at `07:57Z` — and today's fleet had 2 timeouts total, so the
+population I needed was not occurring anyway. The grep could not have returned non-zero.
+
+**Why this one is worth a row next to the entry above it:** it is *the same error as my
+`updated_at` mistake this morning, inverted*. That one produced a **false positive** (a
+number that could only ever have been ~4h26m, because the reaper's threshold set it); this
+one produced a **false negative** (a zero that could only ever have been zero). Two
+opposite-looking mistakes, one cause: **the query's answer was determined by the
+instrument, not by the world.** Getting the first one right did not inoculate me against the
+second four hours later, which is the argument for a check rather than for care.
+
+**The check, and it is not the one we already have.** The standing practice — mark
+`[MEASURED]`, and ask what the disconfirming result would have looked like — catches an
+*unmarked* claim. It does not catch a claim that is marked, dated, honestly measured **and
+structurally incapable of coming out otherwise**. Both of mine today were all four. The
+marker certifies **provenance**, not **discriminating power**. So:
+
+> **Name the value the query would have returned if the thing you are testing were FALSE.
+> If you cannot name one, you have an instrument reading, not a measurement.**
+
+Ten seconds, and it catches both directions. For the freeze time: "if these jobs had *not*
+died at 4h26m, what would `updated_at - created_at` have shown?" — *the same thing, because
+the reaper writes that column on exactly the rows I selected.* For the grep: "if the
+takeover fired constantly, what would this return?" — *zero, because the logs don't go back
+that far.* Neither question needs the answer to be known first.
+
+**Cost:** none published; both caught inside the session. Recorded because the tally is the
+point — this makes **four** instances in one day across two lanes (the
+`site_ai_agent_orchestration` lane hit an aggregate that improved 44 → 33 while hiding a
+regression it had introduced, and a count filtered by `item_type` on a mutex that has no
+`item_type` clause). Four in a day, all passing the existing marker rule, is the argument
+for adding the disconfirming-value question to it rather than for anyone trying harder.
