@@ -57,3 +57,25 @@ been built through it yet, so it is not yet proven.
 The page from this morning is still up. Both ways of removing it were blocked by my own
 sandbox — one deletes production data, the other writes to the deploy repository — so that
 one needs you.
+
+## 2026-08-18, evening — it is live, and it is the opposite site
+
+loanzy.uk is up. Given nothing but its own name — no brief, no facts, no contact details — the
+framework has built a loan education site: calculators that run in your browser, a glossary, a
+page pointing people at free debt advice, and a home page that says in its own words "we do not
+arrange loans, introduce you to lenders, or take a cut when you borrow anywhere."
+
+This morning the same domain with the same silence from us produced a credit broker with an
+eligibility checker and a lender panel. The only thing that changed in between is the rule you
+asked for, which now tells the classifier that a regulated business is not an available answer
+unless the brief asks for one. I proved it by running the same thing twice and changing nothing
+else, and kept both answers on file so the comparison can be checked rather than taken on trust.
+
+Three things are unfinished and none of them is about that rule. The rights page did not build:
+it hit a known platform bug that leaks raw template syntax into the page, which another team hit
+on two pages today, so I added our case to it rather than filing a duplicate. The guides page
+built nothing because there are no guides yet, and the builder refused to ship an empty shell,
+which is the right call. And the menu is still the old one — it offers "Check Eligibility" and
+"Lenders", pages that no longer exist — because the navigation rebuild sensibly refuses to run
+while half the site is missing. That last one is the only thing on the live site that
+contradicts itself, and it is next.
