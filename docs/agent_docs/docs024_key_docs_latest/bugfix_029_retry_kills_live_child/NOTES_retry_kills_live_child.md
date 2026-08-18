@@ -855,3 +855,250 @@ A retry on any step declaring >300s: `call_dispatch` (900s), `process_item_iter_
 Under the old code: 05:00, or 03:00 for the 1800s case.** A background watch is running on
 exactly that predicate. Until it fires, RSH-010's status is **SHIPPED, BEHAVIOURALLY
 UNPROVEN** and says so.
+
+---
+
+## 2026-08-18 16:55Z — LEAD 1 (the "initial wait has its own conversion gap") is **REFUTED**, and the instrument that nearly sold me a false positive
+
+The handoff carried this forward `[UNVERIFIED]`: *"`call_diagnoser` declares 1800s and its
+**rv0** window was 180s, while `call_dispatch` got its declared 900s on the same path shape."*
+It came out of the approval round, not from NOTES — there is no measurement behind it in this
+file. There is now, and it does not reproduce.
+
+### The measurement
+
+`call_diagnoser`, **entire table history, no time filter**:
+
+| retry_version | window | n | span |
+|---|---|---|---|
+| **0** | **00:30:00** | **29** | 2026-08-11 18:21 → 2026-08-18 15:59 |
+| 1 | 00:03:00 | 1 | |
+| 2 | 00:03:00 | 1 | |
+| 3 | 00:03:00 | 4 | |
+
+**29 of 29 rv0 rows carry the declared 1800s.** Every 180s reading sits at rv1/rv2/rv3 — i.e.
+on the *retry* path, which is the inversion this lane already fixed. The lead almost certainly
+read a retry row as an initial one; `retry_version` is the column that separates them and it is
+easy to drop from a `SELECT`.
+
+Generalised beyond the one step — every rv0 window joined to **its own owning agent's**
+declaration (3 days): **18 agent/step pairs, 18 OK, zero mismatches**, from `call_dispatch`
+(900, n=511) through `call_handler` (2100), `call_scraper`/`call_indexer`/`call_diagnoser`
+(1800) down to `dispatch_list` (60). Query in the RUNBOOK.
+
+**The disconfirming result was available and named in advance:** any row where observed <
+declared. None exists.
+
+### The misstep: I manufactured two MISMATCHes with my own join, then had to un-manufacture them
+
+My first pass aggregated the declaration with `max((s.value->'config'->>'timeout_seconds')::int)`
+across **all agents** declaring a step of that name. It reported two mismatches, both false:
+
+- `process_item_iter_N_call_handler`: observed 1200, "declared" 2100. **Two agents declare
+  `call_handler`** — `diagnose-dispatch-loop` at 2100 and `report-dispatch-loop` at 1200. The
+  ~3,500 iter-expanded rows belong to the latter and observe exactly its 1200. My `max()` chose
+  the other agent's number.
+- `trigger_deploy`: observed 120, "declared" 180. Same shape — `rerender-site` 180,
+  `section-editor` 120; the rows are section-editor's.
+
+**A step name is not a key.** The declaration lives at (agent, step), and an aggregate across
+agents fabricates a disagreement between two things that were never compared. Had I written
+this up one query earlier it would have gone in as "two steps are silently truncated at
+registration" — a fresh false mechanism, in the file whose whole history is false mechanisms.
+`[MEASURED]`, both the wrong version and the right one.
+
+A second artefact from the same pass, worth stating so nobody re-runs it: steps my CTE labelled
+"no declaration" (`call_verifier` 240s, `call_ingester` 300s, `call_section_editor` 600s,
+`call_planner` 1100s) are **absent from `agent_definitions` altogether** — they come from
+per-run plans in `orchestration_states.workflow_plan`, which is what `retryWindow` actually
+reads. `agent_definitions` is not the whole universe of declarations, and treating it as one
+turns "I did not look there" into "it is not declared".
+
+### The bias this census HAS, which I cannot fully remove
+
+**`awaited_requests` is keyed `PRIMARY KEY (request_id)` — one row per request, rewritten in
+place on each retry.** `retry_version` is bumped and `sent_at`/`timeout_at` are *overwritten*.
+So a retried request's earlier windows are **destroyed, not archived**, and:
+
+> **Selecting `retry_version=0` silently selects requests that never retried.** It is a
+> survivorship filter wearing the costume of a neutral one.
+
+That matters here because it biases *towards* my conclusion: a step truncated to 180s at
+registration would time out sooner, retry, and **leave the rv0 pool** — exactly the rows that
+would refute me. So the census cannot be left to stand on its own count.
+
+**Why the conclusion survives it anyway:** a truncated registration only becomes invisible if
+its short window *always* expires. Where the callee answers inside 180s the row stays at rv0
+and the 180 is visible. `call_dispatch` has ~1,000 rv0 rows with `min = max = 900` exactly —
+no mixture, no tail. For the defect to hide there, every one of a thousand truncated requests
+would have had to also time out, on a step whose normal completion is well inside three
+minutes.
+
+**Residual, stated rather than hidden:** this does not exclude a step whose truncated window
+*always* expires. `[UNMEASURED]` — and unmeasurable from this table, because the evidence is
+overwritten by the retry that would prove it. If that case is ever suspected, the instrument
+has to be the emitted log line at registration, not this table.
+
+### Status change
+
+Lead 1 moves from `[UNVERIFIED]` **carried forward** to **CLOSED — refuted**. It is not a
+suspicion to re-open on the strength of one 180s row; check `retry_version` first, and if the
+row is rv≥1 it is Part A's territory and already fixed.
+
+---
+
+## 2026-08-18 16:55Z — the behavioural proof: still unproven, now WATCHED rather than polled
+
+Post-roll (v1.0.1309, 15:45:31Z) at 16:43Z, **58 minutes in**: 237 → ~350 awaited rows, and
+**still exactly the same three rv≥1 rows** recorded at 16:26Z (`spawn_rerender_agent`,
+`process_item_iter_0_spawn_handler`, `spawn_dispatch`) — all on steps declaring nothing, all
+non-discriminating for the reasons already in this file.
+
+**The rv0 positive control continues to hold**, now on a bigger sample: `call_dispatch` 15:00
+(n=30 post-roll), `process_item_iter_{0..4}_call_handler` 20:00, `call_diagnoser` 30:00.
+
+**How long a wait is reasonable — measured, not guessed.** Arrival rate of the discriminating
+event (a retry on a step declaring >300s), by hour over 5 days: typically **1–3/hour**, with
+bursts (23 in the 08-17 15:00 hour). Zero in the first hour post-roll is ~a 20% outcome at that
+rate — unremarkable, **not** yet evidence of anything, in either direction.
+
+> ⚠ Note for whoever reads a *drop* in retries as proof the fix worked: **it is not.** The fix
+> changes how long a retry waits, not whether one is sent. It does plausibly suppress
+> *downstream* retries (rv2/rv3 were 117 of the 157 pre-roll `call_dispatch` retries — cascades
+> off a 5-minute rv1), so the rate may genuinely fall. But a falling rate is also what a quiet
+> fleet looks like, and the two are not separable by counting. **The window on a single rv≥1
+> row is the test; the rate is not.**
+
+**Armed, replacing the previous session's dead watch:** `scratchpad/watch_rsh010.sh` polls the
+discriminating predicate every 3 min for 4 h and exits **0 = fired / 2 = query error / 3 =
+window elapsed** — three distinct exits, so a broken kubeconfig can never be read as "no
+retries". Foreground-tested before arming, against a pre-roll window where it **must** fire: it
+returned 8 rows, every one truncated (05:00 on 900s declarations, 03:00 on 1800s). That control
+doubles as the pre-roll baseline — **157 `call_dispatch` retries across 5 days, not one
+untruncated.** The old code's distribution has zero variance, which is why a *single* post-roll
+row at 15:00 will settle this.
+
+---
+
+## 2026-08-18 17:05Z — the WEDGE has a signature, and it is much sharper than "the continuation dies"
+
+Went to file the 090 the handoff asks for, and censused the population first. The 18 wedged
+rows are not a scatter — they are one shape, repeated.
+
+```sql
+SELECT owner_agent_type, current_step, count(*), min(last_activity), max(last_activity)
+  FROM orchestration_states
+ WHERE status='FAILED' AND error LIKE 'reaper: stale EXECUTING_STEP%' GROUP BY 1,2;
+```
+
+**All 18 are `build-dispatch-loop`, all at a `process_item_iter_N_spawn_handler` step.** Three
+properties hold across the whole population, and each is tighter than I expected:
+
+1. **`last_activity - created_at` is 25:14–25:22 in 17 of 18** (the 18th is 21:10). A uniform
+   lifetime to within eight seconds is a **timer**, not a hang.
+2. **Every single one has the PRECEDING iteration's `call_handler` in status `error`** — froze
+   at `iter_1_spawn` ⇒ `iter_0_call_handler:error`; at `iter_2_spawn` ⇒ `iter_1_call_handler:error`;
+   at `iter_3_spawn` ⇒ `iter_2_call_handler:error`; at `iter_4_spawn` ⇒ `iter_3_call_handler:error`.
+   **18 of 18, no exceptions.** The freeze is on the ERROR path, never the happy path.
+3. **The final spawn step is registered TWICE in 17 of 18** (gap up to 9m37s), and **the
+   parent's last state write lands 9–16 seconds after that final send — in all 18.**
+
+Sequence, read off `awaited_requests` ordered by `sent_at`: iteration N-1's `call_handler`
+exhausts its retries and goes `error` → the loop advances → `iter_N_spawn_handler` is
+registered and **processed** (the handshake SUCCEEDS) → the same spawn step is registered
+again minutes later and is **also processed** → the parent writes state once more, ~12s later,
+and never again. **`iter_N_call_handler` is never registered at all**, which is why the row
+holds no `waiting` awaited request and is invisible to everything except the 4-hour reaper.
+
+Worked example, `23eb0107` — iterations 0 and 1 complete normally (`call_handler` rv0, 20:00,
+`processed`), iteration 2's `call_handler` ends **rv3 / 05:00 / error**, `iter_3_spawn_handler`
+is sent 7s later, sent AGAIN 8m43s after that, and the row freezes 12s later.
+
+**Where the 25 minutes comes from `[INFERRED]`, not measured:** `call_handler` declares 1200s
+and the old retry cap was 300s — 20:00 + 5:00 = 25:00, against an observed 25:14–25:22. It fits
+to within handshake overhead, but I **cannot** confirm it from this table: the row is rewritten
+in place, so rv0/rv1/rv2's sends are destroyed (see the survivorship note above). The stored
+rv3 window of 05:00 on a step declaring 1200s is the old inversion, and that much IS measured.
+
+**This does not mean Part A fixes the wedge.** It means the wedge's ENTRY CONDITION — a
+`call_handler` reaching terminal `error` — was being reached faster than the step's declaration
+allowed. Whatever kills the continuation afterwards is untouched by Part A and still unexplained.
+Do not let the arithmetic fitting become a claim that the wedge is closed.
+
+### ⚠ CORRECTION to what I wrote 20 minutes ago in this same session
+
+I read "all 18 wedges are on 08-17, none since" as evidence the wedge had **stopped**. Then I
+checked the instrument:
+
+```sql
+SELECT min(created_at) FROM orchestration_states WHERE created_at > now() - interval '10 days';
+--  2026-08-17 14:35:29
+```
+
+**The oldest retained row in the table IS the first wedge row.** `orchestration_states` holds
+only ~26 hours (08-17 and 08-18 only; 3,534 rows for 08-18, 2,099 for 08-17, and just 25 rows
+older than 7 days in the entire table). So "the wedges begin at 14:35 on 08-17" is **the
+retention boundary talking, not the fleet** — anything earlier was pruned, and the population
+is bounded below by the instrument. A first occurrence sitting exactly on the edge of the
+window is the classic shape of a phenomenon the window is CUTTING THROUGH, not one that started
+there. `[MEASURED]` boundary, `[UNMEASURABLE]` prior extent.
+
+**The half that survives is the other half:** 08-18 is fully retained, carries ~3,534
+orchestrations, and contains **zero** wedges. That is a real absence over a full day of traffic
+— and it predates the roll, so it is not evidence for the fix either. The 08-17 window also
+overlaps the GitHub API incident already recorded in this file (13:49–16:12Z), and the retained
+FAILED vocabulary shows `github API request failed` rows clustered 16:31–18:35 inside the same
+window. **Correlation recorded, mechanism NOT claimed.**
+
+### The wedge evidence has a shelf life — hours, not days
+
+At ~26 hours of retention, **the entire 18-row population ages out during 2026-08-19.** Anyone
+who wants a diagnosis run to read these rows must run it against them **now**; after that the
+only copy is the dump in this lane's scratch and the tables above. This is not a reason to rush
+a bad run — it is a reason not to assume the evidence will wait.
+
+---
+
+## 2026-08-18 17:05Z — the 090 is BLOCKED, and the blocker is bigger than the 090
+
+`090` refused on its coverage check (four rows, all one **`failed`** item from 2026-08-12 about
+`persistAwaitingStateWithRetry`, sharing only the file `coordinator.go`). `failed` is not in
+the clause's exclusion list — `NOT IN ('complete','cancelled','rejected')` — so a terminal item
+from six days ago reads as live coverage. `FORCE=1` is the documented override and this is what
+it is for.
+
+**But the script's other message is the one that matters, and it is not advisory in effect:**
+
+```
+local HEAD is 233 commit(s) ahead of origin/087_towards_multiple_domains —
+the diagnosis reads origin/087_towards_multiple_domains
+```
+
+Verified rather than taken on trust:
+
+| check | result |
+|---|---|
+| `f0117fb8b` (the commit the LIVE binary was built from) on any remote branch | **NO — none** |
+| `retryWindow` present in `coordinator.go` on any remote branch | **NO — absent everywhere** |
+| `bf7646a29` / `2a3d30ec3` (the Part A fix) on origin | **NO** |
+| origin tip | `d3db49975`, **2026-08-18 12:39:51 BST** |
+| the 233 unpushed commits | **all dated 2026-08-18**, 12:51 → 17:55 BST |
+
+So this is a **same-day, ~5-hour push gap**, not chronic rot — origin was advanced at 12:39 and
+the fix was committed at 13:46/14:19, after it. Two consequences, and the second is the one to
+carry:
+
+1. **A 090 filed now reads a tree with the OLD capping block in `handleRecoverableError`.** My
+   symptom text says the wedge follows a `call_handler` that "exhausts its retries" — a
+   diagnoser reading the unfixed tree has every reason to land on the truncation as the cause,
+   which is Part A, already fixed and live. It would be a correct answer about the wrong tree,
+   arriving with citations. **That is the exact failure the script's REF note warns about, and
+   it is why I have not forced it.**
+2. **The binary serving production was built from a commit that exists in no remote.** The
+   estate's build path (`git archive HEAD`) makes an unpushed commit shippable, and nothing
+   downstream requires it to be pushed. Not a defect of this lane, and not mine to fix silently
+   — **routed to the owner as a decision**, because pushing 233 commits belonging to a dozen
+   concurrent lanes is not a call one session should make on its own initiative.
+
+**Status: 090 authored, seeded, coverage-read, and NOT dispatched.** The symptom text is in
+this lane's scratch and reproduced above; it needs only the tree question settled.

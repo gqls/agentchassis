@@ -201,3 +201,63 @@ the claim does.
 > bumps `updated_at` on every write, so a periodically-touched row looks perpetually fresh
 > — the same trigger behind the unreapable-work-item landmine. This is the `site_work_items`
 > twin of the `last_activity` vs `updated_at` trap above; two tables, one mistake.
+
+---
+
+## Does the INITIAL wait honour the declaration? (join per AGENT, never per step name)
+
+Added 2026-08-18 when this query, written the lazy way, invented two defects that did not exist.
+
+**A step name is not a key.** `call_handler` is declared **2100** by `diagnose-dispatch-loop`
+and **1200** by `report-dispatch-loop`; `trigger_deploy` is 180 by `rerender-site` and 120 by
+`section-editor`. Aggregate the declaration across agents (`max(...)`, `min(...)`, or a join on
+`s.key` alone) and you will report a truncation that is only your own aggregate disagreeing
+with a different agent's config. Join on **(agent, step)**, via the owning orchestration:
+
+```sql
+WITH obs AS (
+  SELECT os.owner_agent_type AS agent,
+         regexp_replace(ar.step_name,'^process_(item|sites)_iter_[0-9]+_','') AS base_step,
+         count(*) AS n,
+         min(extract(epoch from (ar.timeout_at-ar.sent_at)))::int AS min_win,
+         max(extract(epoch from (ar.timeout_at-ar.sent_at)))::int AS max_win
+    FROM awaited_requests ar
+    JOIN orchestration_states os ON os.orchestration_id = ar.orchestration_id
+   WHERE ar.retry_version=0 AND ar.sent_at > now() - interval '3 days'
+   GROUP BY 1,2),
+decl AS (
+  SELECT ad.type AS agent, s.key AS base_step, (s.value->'config'->>'timeout_seconds')::int AS declared
+    FROM agent_definitions ad, LATERAL jsonb_each(ad.default_config->'workflow'->'steps') s
+   WHERE ad.is_active AND COALESCE(ad.is_snapshot,false)=false AND ad.deleted_at IS NULL
+     AND s.value->'config' ? 'timeout_seconds')
+SELECT o.agent, o.base_step, o.n, o.min_win, o.max_win, d.declared,
+       CASE WHEN o.min_win BETWEEN d.declared AND d.declared+2 THEN 'OK' ELSE '*** MISMATCH ***' END
+  FROM obs o JOIN decl d USING (agent, base_step) ORDER BY 7, o.n DESC;
+```
+
+Result 2026-08-18: **18 pairs, 18 OK.** The `+2` slack is not cosmetic — `SentAt` and
+`TimeoutAt` are **two separate `time.Now()` reads**, so the stored difference is always
+marginally over the declaration (the same arithmetic that puts a step declaring exactly 1800
+into the old `> 30*time.Minute` arm).
+
+> ⚠ **`agent_definitions` is not the whole universe of declarations.** `call_verifier`,
+> `call_ingester`, `call_section_editor` and `call_planner` appear in `awaited_requests` with
+> distinct non-default windows and exist in **no** active agent definition — they come from
+> per-run plans in `orchestration_states.workflow_plan`, which is also what `retryWindow`
+> reads. A step missing from the `decl` side means *"not declared here"*, never *"not declared"*.
+
+### ⚠ `retry_version=0` is a SURVIVORSHIP filter, not a neutral one
+
+`awaited_requests` is `PRIMARY KEY (request_id)` — **one row per request, rewritten in place on
+retry.** `retry_version` is bumped and `sent_at`/`timeout_at` are overwritten, so a retried
+request's earlier windows are **destroyed, not archived**.
+
+So `WHERE retry_version=0` quietly means *"requests that never retried"*. Any defect that
+shortens a window makes its own rows retry and **leave the population you are counting**. The
+census is still usable — a short window that the callee answers inside still shows up at rv0 —
+but state the residual: a truncation whose window **always** expires is invisible here, and the
+only instrument that would see it is the log line at registration.
+
+The same applies in reverse to reading a retried row: a 180s window at rv≥1 tells you nothing
+about what that request was granted at rv0. Read `retry_version` before drawing any conclusion
+about which code path set the number.
