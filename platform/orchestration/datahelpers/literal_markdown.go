@@ -70,10 +70,10 @@ var (
 // only the marker characters. These MUST stay derivable from the detection
 // patterns above — literal_markdown_test.go's fixpoint property is the guard.
 var (
-	mdBoldStripRe    = regexp.MustCompile(`\*\*([A-Za-z][^*\n]{0,80})\*\*`)
+	mdBoldStripRe     = regexp.MustCompile(`\*\*([A-Za-z][^*\n]{0,80})\*\*`)
 	mdCodeSpanStripRe = regexp.MustCompile("`([A-Za-z0-9][^`\n]{0,80})`")
-	mdHeadingStripRe = regexp.MustCompile(`(?m)^#{1,6} `)
-	mdLinkStripRe    = regexp.MustCompile(`\[([A-Za-z][^\]\n]{0,80})\]\((?:https?://|/)[^)\s]{0,200}\)`)
+	mdHeadingStripRe  = regexp.MustCompile(`(?m)^#{1,6} `)
+	mdLinkStripRe     = regexp.MustCompile(`\[([A-Za-z][^\]\n]{0,80})\]\((?:https?://|/)[^)\s]{0,200}\)`)
 )
 
 // LiteralMarkdownPatterns returns the (pattern name, matched text) pairs the

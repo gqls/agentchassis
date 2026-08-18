@@ -106,7 +106,7 @@ func TestMarkupBearingValueSuppression(t *testing.T) {
 
 func TestStripFromContentDataWalks(t *testing.T) {
 	cd := map[string]interface{}{
-		"headline": "**Decision Engine** explained",
+		"headline":  "**Decision Engine** explained",
 		"_built_at": "2026-08-18T00:00:00Z **not touched**",
 		"items": []interface{}{
 			map[string]interface{}{"summary": "## [Title](https://example.com/x)"},
