@@ -15,6 +15,12 @@
 #                           declared co-change pairs). Measured at a 2% fire
 #                           rate over 150 commits before being wired in here.
 #                           Same rule: it must NEVER block, so it is wrapped.
+#   4. check-optional-key-parity.sh — ADVISORY ONLY, and SCOPED: it runs RFC_022's
+#                           parity guard only when the staged diff touches the
+#                           budget cron's literal, the acks file, or a Go file
+#                           declaring an ActionInputSpec. Wired in 2026-08-18 after
+#                           that guard was found failing at HEAD for days, because
+#                           it lives in a package no ordinary change touches.
 # This file runs for every session on every commit — a stray non-zero exit here
 # stops the whole fleet committing. Keep it boring.
 ROOT="$(git rev-parse --show-toplevel)"
@@ -27,6 +33,10 @@ fi
 
 if [ -x "$ROOT/scripts/pattern-check.py" ]; then
   "$ROOT/scripts/pattern-check.py" || true
+fi
+
+if [ -x "$ROOT/scripts/check-optional-key-parity.sh" ]; then
+  "$ROOT/scripts/check-optional-key-parity.sh" || true
 fi
 
 exit 0
