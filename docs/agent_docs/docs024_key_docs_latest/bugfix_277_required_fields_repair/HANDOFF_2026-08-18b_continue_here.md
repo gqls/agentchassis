@@ -28,9 +28,36 @@ days"**, and `bugs_open/083`'s disease was being reintroduced by the mechanism b
 | `placeholder_contact → page-build-handler` | 0/4 | 0/6 (genuinely never succeeded) |
 
 **`465` (applied, ledger-recorded, `_ROLLBACK.sql`)** makes both tests read
-`site_work_items UNION ALL site_work_items_archive`. **PROVEN end to end**: the stranded
-`empty_internal_href` row was promoted on the first tick after apply (16:28:23) and claimed 24s
-later. Cost 78 ms → 134.6 ms per 900 s tick.
+`site_work_items UNION ALL site_work_items_archive`. Cost 78 ms → 134.6 ms per 900 s tick.
+
+**PROVEN for what it claims, and NO MORE — stated precisely because the two are easy to conflate.**
+The stranded `empty_internal_href` row was promoted on the first tick after apply (16:28:23) and
+claimed 24s later, so *the promoter no longer holds a pair with nine lifetime successes*: that is
+`465`'s whole claim and it is demonstrated. **The dispatch then FAILED** (attempt 1 of 3). An earlier
+draft of this handoff said "proven end to end", which overstated it.
+
+**The failure is a GUARD WORKING, not a defect** — and it exposes something about my floor.
+`vonc.com/tools/archetype-taster-quiz/index.html`:
+`step save_sections failed: page … is rebuild_policy=owned (tool/widget-owned): a generic section save
+would clobber it … Refusing to overwrite.` The handler correctly declined to overwrite a tool-owned
+page. That is `bugs_open/295`'s family (*"SIX producer families die on owned pages"*).
+
+> ### ⚠ NEW FINDING — the success floor counts PROTECTIVE REFUSALS as handler failure
+>
+> `444`/`454`/`465`'s floor counts `status='failed'` regardless of *why*. A handler that correctly
+> refuses to clobber an owned page, and a handler that tried and produced nothing, score identically.
+> [MEASURED 2026-08-18] on the floor-held pair `literal_markdown → page-build-handler`, of **24** live
+> failures: **8 are owned-page refusals** (`rebuild_policy=owned`), **2 are transient delivery
+> failures** (`failed_transient`, message validation), and the rest are genuine non-repairs
+> (`completion blocked: post-fix verification found the defect still present` — `201`'s verifier
+> doing its job).
+>
+> **The verdict on this pair SURVIVES the correction** — excluding refusals and transients it is
+> still roughly 3/(3+14) ≈ 18%, under the 25% floor — so nothing is currently mis-held and this is
+> not urgent. But the design is wrong in general: for a pair whose failures are mostly protective,
+> the floor would hold a handler that is behaving correctly. The floor should distinguish
+> *"refused on purpose"* and *"transient"* from *"tried and failed"*. Not fixed here; it wants its
+> own measurement of how the error strings partition fleet-wide, and it touches `bugs_open/295`.
 
 > A shared VIEW over both tables is the tidier estate-wide answer and is **deliberately not taken** —
 > a new shared object other pipelines may adopt is a shared-seam change (owner ruling 2026-07-28).
@@ -59,18 +86,23 @@ Live after apply: **watching 15 rows — 5 canary-held, 10 floor-held.**
    3-day limit ~**08-20**; `placeholder_contact` (3 rows, canary-held, oldest 08-16) ~**08-19**. The
    `pre_query_result` line in `kafka-scheduler` logs is the instrument — it should now carry
    `watching` and `watching_detail` even on an idle tick, which is `466`(a) working.
-2. **`277` → `bugs_closed/`** ~**2026-08-22**: churn guard + the two cancelled conversions
+2. **The floor counts protective refusals as failure** (§1's new finding). Measure how
+   `site_work_items.error` partitions fleet-wide — `rebuild_policy=owned` refusals, `failed_transient`
+   delivery errors, and genuine non-repairs — then decide whether the floor should exclude the first
+   two. Not urgent (no pair is mis-held today) but it is a soundness hole in a live gate, and it
+   overlaps `bugs_open/295`.
+3. **`277` → `bugs_closed/`** ~**2026-08-22**: churn guard + the two cancelled conversions
    re-raising. **Both paths on the commit** — LANDMINE.
-3. **`083` → `bugs_closed/`** — its arc is demonstrated (the 08-17 canary, and now `465` proven);
+4. **`083` → `bugs_closed/`** — its arc is demonstrated (the 08-17 canary, and now `465` proven);
    the risk that blocked it is solved. Check nothing else is outstanding, then move it.
-4. **`router_engine` (RFC_030)** — phase 1 measurement DONE and in that lane's NOTES; phase 2 is a
+5. **`router_engine` (RFC_030)** — phase 1 measurement DONE and in that lane's NOTES; phase 2 is a
    council design round on shape A vs B, **before building**. ⚠ its PLAN's guarantee 8 is STALE
    (RFC_022 is CLOSED; counter live since 08-13, owner-ruled N=10, daily CronJob) and that bears
    directly on the A-vs-B choice — fix the PLAN before submitting. **Now the largest real work here.**
-5. **Council gate's config blind spot** — `097` scopes on `platform/`/`internal/`/`pkg/`, so a
+6. **Council gate's config blind spot** — `097` scopes on `platform/`/`internal/`/`pkg/`, so a
    config-only mechanism cannot be submitted; another lane filed `landmine(297)`. Every migration in
    this lane since `444` has been unreviewable for that reason.
-6. **Consider submitting `465`+`466` to the council** — they are config-only, so §3.5 applies and it
+7. **Consider submitting `465`+`466` to the council** — they are config-only, so §3.5 applies and it
    needs `FORCE=1` or a Go anchor. Worth it: `465` changes what "lifetime" means for a shared gate.
 
 ## 4. Landmines this lane hit — the family is now FIVE and the shape never varied
