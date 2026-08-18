@@ -1,0 +1,107 @@
+{
+    "voice": {
+        "person": "Second person (you/your) throughout for reader-facing content. First person plural (we) used sparingly only in About and trust-building contexts.",
+        "register": "Knowledgeable friend who happens to understand loans — clear, direct, never condescending. Explains things as if the reader is intelligent but hasn't had reason to learn this before.",
+        "formality": "Conversational but precise. Uses contractions freely. Avoids both stuffy financial jargon and overly casual slang. Reads like a well-edited financial magazine aimed at general adults.",
+        "emotional_tone": "Calm and reassuring without minimising real financial stress. Acknowledges that borrowing decisions matter and can feel daunting, without amplifying anxiety.",
+        "authority_level": "Authority comes from clarity and accuracy, not credentials. The site does not claim to be regulated or to give advice. It states facts, explains how things work, and lets the reader draw conclusions."
+    },
+    "cta_style": {
+        "approach": "CTAs should invite exploration or understanding, not urgency or commitment. The action is always further learning or using a tool — never an application or referral. Place CTAs after a section has delivered value, not before.",
+        "verb_choices": "Use: 'See how much it could cost', 'Explore the glossary', 'Read the full guide', 'Try the calculator', 'Understand your rights'. Avoid: 'Apply', 'Get your loan', 'Check your rate', 'Find a lender'."
+    },
+    "formatted": "Voice:\nAuthority level: Authority comes from clarity and accuracy, not credentials. The site does not claim to be regulated or to give advice. It states facts, explains how things work, and lets the reader draw conclusions.\nPerson: Second person (you/your) throughout for reader-facing content. First person plural (we) used sparingly only in About and trust-building contexts.\nRegister: Knowledgeable friend who happens to understand loans — clear, direct, never condescending. Explains things as if the reader is intelligent but hasn't had reason to learn this before.\nFormality: Conversational but precise. Uses contractions freely. Avoids both stuffy financial jargon and overly casual slang. Reads like a well-edited financial magazine aimed at general adults.\nEmotional tone: Calm and reassuring without minimising real financial stress. Acknowledges that borrowing decisions matter and can feel daunting, without amplifying anxiety.\n\nCta style:\nApproach: CTAs should invite exploration or understanding, not urgency or commitment. The action is always further learning or using a tool — never an application or referral. Place CTAs after a section has delivered value, not before.\nVerb choices: Use: 'See how much it could cost', 'Explore the glossary', 'Read the full guide', 'Try the calculator', 'Understand your rights'. Avoid: 'Apply', 'Get your loan', 'Check your rate', 'Find a lender'.\n\nContent depth:\nThoroughness: Cover each topic completely enough that a first-time borrower finishes the page with a clear mental model. Do not truncate for brevity if it leaves a knowledge gap. Use expandable sections or linked deep-dives for advanced detail.\nAssumed knowledge: Reader knows roughly what a loan is but may not know the difference between APR and EAR, what a representative rate means, or how credit scores affect offers. Do not assume any prior reading of financial content.\nExplanation pattern: Concept → plain-English definition → why it matters to you → a worked example → what to do with this information. This pattern repeats across explainer pages.\n\nHeading style:\nFormat: Question-led or benefit-led headings. Prefer 'What does APR actually mean?' over 'APR Explained'. H1 should answer the visitor's primary intent. H2s should each advance the story. Avoid heading strings that are just noun phrases.\nHierarchy: H1: page topic framed as the reader's question or need. H2: major sections that stand alone as useful units. H3: sub-points within a section. Never skip levels. No more than one H1 per page.\n\nWriting rules:\n- Never describe this site as offering financial advice, guidance, or recommendations — it provides information only. State this clearly on any page containing calculations or cost comparisons.\n- Always express APR examples with the words 'representative' or 'illustrative' and note that your actual rate will depend on your circumstances and the lender's assessment.\n- When citing statistics or regulatory rules, attribute them to their source (FCA, ONS, Bank of England) rather than presenting them as the site's own claims.\n- Do not name specific lenders in comparative or evaluative contexts — describe lender types (high-street banks, credit unions, online lenders) to stay clear of implicit endorsement or lead-generation.\n- Every piece of jargon must be defined at first use on a page, with a link to the glossary entry for readers who want more detail.\n- Use worked examples with real numbers whenever explaining a cost or calculation — abstract explanations alone are insufficient for financial literacy content.\n- Do not use urgency language of any kind — no 'apply now before rates rise', no 'limited time', no countdown timers. Borrowing decisions should feel considered, not rushed.\n- Write calculator output labels and explainer copy so they cannot be read as a loan offer — always include a note that figures are estimates and actual costs depend on the lender.\n- Use plain alternatives to legal/financial Latin: 'unsecured' not 'in personam', 'cooling-off period' explained as 'the 14 days you have to cancel after signing'.\n- Structure every guide so it can be skimmed with headings alone — the heading sequence should tell the full story without needing the body copy.\n\nParagraph style:\nTypical length: 3–5 sentences. Financial content that runs longer should be broken with a subheading or a callout box rather than extended paragraph length.\nStructure: One idea per paragraph. Open with the point, support with one or two sentences of context or evidence, close with the practical implication for the reader. No padding.\n\nCompliance rules:\n- This site provides information only and does not constitute regulated financial advice under the Financial Services and Markets Act 2000. State this on every calculator and comparison page.\n- Do not present calculations as a loan offer, quotation, or eligibility result — label all figures as 'illustrative estimates' and explain they do not represent any lender's actual terms.\n- Do not introduce, refer, or link users to specific lenders in a way that constitutes credit broking under the Consumer Credit Act 1974 and FCA CONC rules — this includes 'apply here' links to lender sites.\n- Do not display or imply an FCA authorisation number, permission, or regulatory status the site does not hold.\n- Content describing debt consolidation must include a factual caution that consolidating debts into a longer-term loan may increase total interest paid even if monthly payments fall.\n- Where content touches on credit referencing, note that checking eligibility with individual lenders may leave a footprint and recommend soft-search tools as the reader's own research step — without directing them to a specific provider.\n- All consumer rights information must reflect current UK law (Consumer Credit Act 1974 as amended, FCA CONC sourcebook) and be reviewed when regulations change.\n\nThings to emulate:\n- MoneyHelper's plain-language approach: every concept explained as if for an intelligent first-timer, no assumed knowledge\n- MoneySavingExpert's worked examples: specific numbers, realistic scenarios, honest acknowledgement of variability\n- Which?'s structural clarity: a reader can scan headings alone and understand the full topic\n- The Guardian Money section's editorial trust: no hard sell, authority comes from accuracy and transparency\n- Gov.uk's progressive disclosure: surface the most common need first, deeper detail available but not forced\n- Citizens Advice's rights-first framing: always tell the reader what they are entitled to know and do\n\nTerminology:\nKey terms:\n- APR (Annual Percentage Rate)\n- Representative APR\n- EAR (Effective Annual Rate)\n- Total amount repayable\n- Unsecured personal loan\n- Secured loan\n- Credit utilisation\n- Affordability assessment\n- Cooling-off period\n- CCJ (County Court Judgement)\nApproach: Introduce technical terms in plain language first, then give the formal term in parentheses. Link each term to the glossary on first use. Build the reader's vocabulary progressively across the site.\n\nSentence style:\nRhythm: Alternating rhythm: one medium sentence establishing a concept, one shorter sentence sharpening it, one example sentence grounding it. Avoids monotonous same-length strings.\nAverage length: Short to medium. Target 15–20 words per sentence on average. Vary rhythm by following a longer explanatory sentence with a short punchy one.\nStructure patterns: Lead with the most useful information, then add context. Avoid burying the key point in a subordinate clause. Use 'If you…then…' constructions to make scenarios relatable. Prefer active voice.\n\nExample phrases:\nCharacteristic:\n- The representative APR you see advertised only applies to 51% of successful applicants — your actual rate could be higher.\n- Before you borrow, it helps to know exactly what you'll pay back in total, not just what leaves your account each month.\n- A personal loan can be a sensible tool. Understanding how the costs stack up puts you in a much stronger position.\n- Your credit score doesn't determine whether you can borrow — it shapes what terms lenders are likely to offer you.\n- There's a 14-day cooling-off period after you sign a loan agreement. You can withdraw without giving a reason.\nWould never say:\n- Apply for your loan today and get cash in your account by tomorrow.\n- We compare hundreds of lenders to find you the best deal.\n- Bad credit? No problem — we can still help you get approved.\n- Rates are rising — lock in a low rate now before it's too late.\n- Our panel of trusted lenders is ready to help you.\n\nThings to avoid:\n- Any language that implies the site can get you a loan, find you a lender, or improve your chances of approval\n- Urgency and scarcity tactics — 'rates are rising', 'act now', 'limited availability'\n- Unverifiable superlatives — 'the best loans', 'the cheapest rates', 'guaranteed approval'\n- Testimonials or case studies that cannot be verified and risk implying a brokerage relationship\n- Cluttered calculator interfaces that confuse outputs with loan offers\n- Stock photography of people holding cash, cheques, or signing contracts — visually implies a transactional service\n- Burying the 'this is not financial advice' disclaimer in small print — it should be plain and prominent\n- Implying that any worked example rate is available to any reader regardless of their credit profile\n\nPersuasion approach:\nTrust building: Explicit transparency about what the site is and is not ('This is information, not advice. We don't earn commission on any product.'). Accurate representation of UK rules and rights. No hyperbole. Acknowledge complexity where it exists.\nSocial proof style: Use aggregated factual data ('X% of UK adults who took out a personal loan in 2023 used it for home improvements') rather than testimonials, which cannot be verified for this type of site. Cite MoneyHelper or FCA statistics by reference.\nMethod: Demonstrate usefulness by answering the real question the visitor has, not the one that serves a commercial goal. Show depth of understanding; readers trust sites that clearly know the subject.",
+    "terminology": {
+        "approach": "Introduce technical terms in plain language first, then give the formal term in parentheses. Link each term to the glossary on first use. Build the reader's vocabulary progressively across the site.",
+        "key_terms": [
+            "APR (Annual Percentage Rate)",
+            "Representative APR",
+            "EAR (Effective Annual Rate)",
+            "Total amount repayable",
+            "Unsecured personal loan",
+            "Secured loan",
+            "Credit utilisation",
+            "Affordability assessment",
+            "Cooling-off period",
+            "CCJ (County Court Judgement)"
+        ]
+    },
+    "content_depth": {
+        "thoroughness": "Cover each topic completely enough that a first-time borrower finishes the page with a clear mental model. Do not truncate for brevity if it leaves a knowledge gap. Use expandable sections or linked deep-dives for advanced detail.",
+        "assumed_knowledge": "Reader knows roughly what a loan is but may not know the difference between APR and EAR, what a representative rate means, or how credit scores affect offers. Do not assume any prior reading of financial content.",
+        "explanation_pattern": "Concept → plain-English definition → why it matters to you → a worked example → what to do with this information. This pattern repeats across explainer pages."
+    },
+    "heading_style": {
+        "format": "Question-led or benefit-led headings. Prefer 'What does APR actually mean?' over 'APR Explained'. H1 should answer the visitor's primary intent. H2s should each advance the story. Avoid heading strings that are just noun phrases.",
+        "hierarchy": "H1: page topic framed as the reader's question or need. H2: major sections that stand alone as useful units. H3: sub-points within a section. Never skip levels. No more than one H1 per page."
+    },
+    "writing_rules": [
+        "Never describe this site as offering financial advice, guidance, or recommendations — it provides information only. State this clearly on any page containing calculations or cost comparisons.",
+        "Always express APR examples with the words 'representative' or 'illustrative' and note that your actual rate will depend on your circumstances and the lender's assessment.",
+        "When citing statistics or regulatory rules, attribute them to their source (FCA, ONS, Bank of England) rather than presenting them as the site's own claims.",
+        "Do not name specific lenders in comparative or evaluative contexts — describe lender types (high-street banks, credit unions, online lenders) to stay clear of implicit endorsement or lead-generation.",
+        "Every piece of jargon must be defined at first use on a page, with a link to the glossary entry for readers who want more detail.",
+        "Use worked examples with real numbers whenever explaining a cost or calculation — abstract explanations alone are insufficient for financial literacy content.",
+        "Do not use urgency language of any kind — no 'apply now before rates rise', no 'limited time', no countdown timers. Borrowing decisions should feel considered, not rushed.",
+        "Write calculator output labels and explainer copy so they cannot be read as a loan offer — always include a note that figures are estimates and actual costs depend on the lender.",
+        "Use plain alternatives to legal/financial Latin: 'unsecured' not 'in personam', 'cooling-off period' explained as 'the 14 days you have to cancel after signing'.",
+        "Structure every guide so it can be skimmed with headings alone — the heading sequence should tell the full story without needing the body copy."
+    ],
+    "sentence_style": {
+        "rhythm": "Alternating rhythm: one medium sentence establishing a concept, one shorter sentence sharpening it, one example sentence grounding it. Avoids monotonous same-length strings.",
+        "average_length": "Short to medium. Target 15–20 words per sentence on average. Vary rhythm by following a longer explanatory sentence with a short punchy one.",
+        "structure_patterns": "Lead with the most useful information, then add context. Avoid burying the key point in a subordinate clause. Use 'If you…then…' constructions to make scenarios relatable. Prefer active voice."
+    },
+    "example_phrases": {
+        "characteristic": [
+            "The representative APR you see advertised only applies to 51% of successful applicants — your actual rate could be higher.",
+            "Before you borrow, it helps to know exactly what you'll pay back in total, not just what leaves your account each month.",
+            "A personal loan can be a sensible tool. Understanding how the costs stack up puts you in a much stronger position.",
+            "Your credit score doesn't determine whether you can borrow — it shapes what terms lenders are likely to offer you.",
+            "There's a 14-day cooling-off period after you sign a loan agreement. You can withdraw without giving a reason."
+        ],
+        "would_never_say": [
+            "Apply for your loan today and get cash in your account by tomorrow.",
+            "We compare hundreds of lenders to find you the best deal.",
+            "Bad credit? No problem — we can still help you get approved.",
+            "Rates are rising — lock in a low rate now before it's too late.",
+            "Our panel of trusted lenders is ready to help you."
+        ]
+    },
+    "paragraph_style": {
+        "structure": "One idea per paragraph. Open with the point, support with one or two sentences of context or evidence, close with the practical implication for the reader. No padding.",
+        "typical_length": "3–5 sentences. Financial content that runs longer should be broken with a subheading or a callout box rather than extended paragraph length."
+    },
+    "things_to_avoid": [
+        "Any language that implies the site can get you a loan, find you a lender, or improve your chances of approval",
+        "Urgency and scarcity tactics — 'rates are rising', 'act now', 'limited availability'",
+        "Unverifiable superlatives — 'the best loans', 'the cheapest rates', 'guaranteed approval'",
+        "Testimonials or case studies that cannot be verified and risk implying a brokerage relationship",
+        "Cluttered calculator interfaces that confuse outputs with loan offers",
+        "Stock photography of people holding cash, cheques, or signing contracts — visually implies a transactional service",
+        "Burying the 'this is not financial advice' disclaimer in small print — it should be plain and prominent",
+        "Implying that any worked example rate is available to any reader regardless of their credit profile"
+    ],
+    "compliance_rules": [
+        "This site provides information only and does not constitute regulated financial advice under the Financial Services and Markets Act 2000. State this on every calculator and comparison page.",
+        "Do not present calculations as a loan offer, quotation, or eligibility result — label all figures as 'illustrative estimates' and explain they do not represent any lender's actual terms.",
+        "Do not introduce, refer, or link users to specific lenders in a way that constitutes credit broking under the Consumer Credit Act 1974 and FCA CONC rules — this includes 'apply here' links to lender sites.",
+        "Do not display or imply an FCA authorisation number, permission, or regulatory status the site does not hold.",
+        "Content describing debt consolidation must include a factual caution that consolidating debts into a longer-term loan may increase total interest paid even if monthly payments fall.",
+        "Where content touches on credit referencing, note that checking eligibility with individual lenders may leave a footprint and recommend soft-search tools as the reader's own research step — without directing them to a specific provider.",
+        "All consumer rights information must reflect current UK law (Consumer Credit Act 1974 as amended, FCA CONC sourcebook) and be reviewed when regulations change."
+    ],
+    "things_to_emulate": [
+        "MoneyHelper's plain-language approach: every concept explained as if for an intelligent first-timer, no assumed knowledge",
+        "MoneySavingExpert's worked examples: specific numbers, realistic scenarios, honest acknowledgement of variability",
+        "Which?'s structural clarity: a reader can scan headings alone and understand the full topic",
+        "The Guardian Money section's editorial trust: no hard sell, authority comes from accuracy and transparency",
+        "Gov.uk's progressive disclosure: surface the most common need first, deeper detail available but not forced",
+        "Citizens Advice's rights-first framing: always tell the reader what they are entitled to know and do"
+    ],
+    "persuasion_approach": {
+        "method": "Demonstrate usefulness by answering the real question the visitor has, not the one that serves a commercial goal. Show depth of understanding; readers trust sites that clearly know the subject.",
+        "trust_building": "Explicit transparency about what the site is and is not ('This is information, not advice. We don't earn commission on any product.'). Accurate representation of UK rules and rights. No hyperbole. Acknowledge complexity where it exists.",
+        "social_proof_style": "Use aggregated factual data ('X% of UK adults who took out a personal loan in 2023 used it for home improvements') rather than testimonials, which cannot be verified for this type of site. Cite MoneyHelper or FCA statistics by reference."
+    }
+}

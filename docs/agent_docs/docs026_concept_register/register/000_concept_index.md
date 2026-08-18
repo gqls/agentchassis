@@ -1813,7 +1813,7 @@ an ID prefix, or a status word.
 | DBG-066 | Snapshot-shadowing defect (version+1000 outranks active row) | superseded | snapshot_agent() rows sorted ahead of active in naive ORDER BY version loaders | debugging.md |
 | CGV-009 | Snapshot-before-change backup conventions | deployed | snapshot_agent, manual component_versions inserts, CTAS bak tables before every mutation | content-governance.md |
 | CGV-031 | Decision records (RFC_015): steer / guard / citation gate | partial | Change what you can name, never what you did not know existed; steer live, gate awaits roll | content-governance.md |
-| CGV-032 | Regulated business models need an explicit brief (domain-research-classifier) | live in config, UNEXERCISED | A bare finance-shaped domain made the classifier invent a credit broker, and one page of it went live | content-governance.md |
+| CGV-032 | Regulated business models need an explicit brief (domain-research-classifier) | live, PROVEN on the motivating case (one control owed) | Same domain, same inputs, prompt the only change: broker+lead-gen identity became explainers, a calculator and a rights hub | content-governance.md |
 | DBI-001 | Snapshot-before-mutate discipline | deployed | snapshot_agent/take_site_snapshot + backup naming convention before any mutation | database-and-infrastructure.md |
 | CTS-056 | Static-source schema fields force fleet-generic labels/suffixes | partial | source:static label fields re-apply generic fallback text on every render; fix is static→llm | contracts-and-standards.md |
 | ASG-001 | Agent spawning (agents as DB records claimed by generic pods) | deployed | spawn_agent creates agent_instances row; generic chassis pod loads config | agent-spawning-and-groups.md |

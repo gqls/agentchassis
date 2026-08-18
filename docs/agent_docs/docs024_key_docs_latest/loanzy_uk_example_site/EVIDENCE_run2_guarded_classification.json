@@ -1,0 +1,30 @@
+{
+    "category": "interactive",
+    "reasoning": "The domain name signals personal finance / loans clearly. The site is unbuilt with no existing content. Regulated activities (brokering, introducing, lead generation) are ruled out by policy. The strongest unregulated position on this domain is an educational and tool-based platform: interactive loan calculators plus structured guides. This is the model used by MoneyHelper and MSE's loans section — high trust, high return-visit utility, monetisable via contextual display advertising or affiliate disclosure-free editorial content about loan types. An interactive-platform classification is the right fit over a simple brochure because the calculator and glossary tools are the primary value proposition, not a services pitch. Confidence is 0.72 because the domain is entirely blank and the brand has no established identity; the direction is inferred from domain, market gap, and platform rules.",
+    "site_type": "interactive-platform",
+    "confidence": 0.72,
+    "industry_tags": [
+        "fintech",
+        "personal-finance",
+        "loan-education",
+        "interactive-calculator",
+        "tool-portal",
+        "consumer-finance",
+        "financial-literacy",
+        "uk-finance",
+        "content-hub",
+        "money-guides"
+    ],
+    "suggested_style": "modern-light",
+    "tone_suggestion": "friendly",
+    "detected_signals": [
+        "Domain contains 'loan' — strong personal finance vertical signal",
+        "UK TLD (.uk) — audience and regulatory context is UK/FCA",
+        "Site returns 404 — no existing content, blank slate",
+        "Same-named entities in India and a lead-aggregation T&C page found — neither applicable to this UK domain",
+        "Search landscape dominated by FCA-regulated brokers and MoneyHelper — educational gap exists",
+        "Regulated business model explicitly excluded by platform rules"
+    ],
+    "page_count_estimate": 8,
+    "recommended_builder": "pageflow-builder"
+}

@@ -1,0 +1,56 @@
+{
+    "contact": {
+        "email": null,
+        "phone": null,
+        "address": null,
+        "location": "United Kingdom"
+    },
+    "tagline": null,
+    "industry": "Personal Finance",
+    "services": [
+        {
+            "name": "Loan Explainers",
+            "description": "Plain-English guides covering personal loans, secured vs unsecured, APR, representative rates, and how lenders assess affordability"
+        },
+        {
+            "name": "Loan Cost Calculator",
+            "description": "An interactive calculator that lets users input loan amount, term, and interest rate to see estimated monthly repayments and total cost — purely illustrative, no application journey"
+        },
+        {
+            "name": "Borrowing Guides",
+            "description": "Topic-level guides on specific loan scenarios: debt consolidation considerations, home improvement funding, car finance vs personal loan, short-term vs instalment loans"
+        },
+        {
+            "name": "Glossary & Terminology Hub",
+            "description": "A comprehensive, searchable glossary of UK lending terms — APR, EAR, CCJ, credit utilisation, guarantor loans — explained in accessible language"
+        },
+        {
+            "name": "Rights and Regulations Overview",
+            "description": "Factual content explaining consumer rights under UK Consumer Credit Act, FCA rules, cooling-off periods, and what to do if things go wrong"
+        }
+    ],
+    "key_people": [
+    ],
+    "company_name": "Loanzy UK",
+    "sub_industry": "Loan Education and Comparison Information",
+    "about_summary": "Loanzy.uk is an unbuilt UK domain in the personal finance space, positioned to provide clear, unbiased educational content and informational tools about personal loans for UK consumers. The site will help people understand loan types, terminology, costs, and how to make smarter borrowing decisions — without acting as a broker, lender, or regulated introducer. A same-named platform exists in India (loanzy.asia) and a lead-aggregation entity at loanzytech.com, but neither represents this UK domain, which is a blank slate.",
+    "social_profiles": {
+    },
+    "target_audience": "UK adults aged 25–55 who are considering a personal loan for the first time or returning to the market after a gap — including people consolidating debts, funding home improvements, or covering a large one-off cost — who want to understand their options before approaching any lender",
+    "competitors_found": [
+        "moneysavingexpert.com",
+        "moneyhelper.org.uk",
+        "which.co.uk",
+        "loantube.com",
+        "confused.com"
+    ],
+    "has_existing_site": false,
+    "existing_site_quality": "none",
+    "unique_selling_points": [
+        "No applications, no referrals — purely informational, so readers trust the content is in their interest",
+        "UK-specific focus: all content references FCA rules, UK lenders by type (not by name for endorsement), and UK consumer rights",
+        "Interactive cost calculator that shows true total repayment cost, not just monthly figures",
+        "Plain English across all content — no jargon without immediate explanation",
+        "Structured learning path from 'what is a personal loan' to 'how to compare and decide'"
+    ]
+}
