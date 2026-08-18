@@ -1,14 +1,14 @@
 # HANDOFF 2026-08-17 — start here for Phase 3: the ZIP deliverable — SUPERSEDES HANDOFF_2026-08-16
 
-> **⚠ PHASE 3 CODE IS BUILT + COMMITTED (2026-08-17 late session, commit
-> `e1a7f1935`, register DGH-011, council corr `4cc887b9`) — do NOT re-implement.**
-> `archive/zip` is now present in the repo BECAUSE of that commit (§6's falsifier
-> fired as designed). What remains is post-roll only: verify the running chassis
-> carries `e1a7f1935` (ancestry + controls), apply seed
-> `sql_for_agents/459_zip_deliverer_agent_HOLD.sql` (recipes in its header),
-> then the §3 acceptance on the noted.co.uk canary incl. the size-alert demand
-> control. Session record: NOTES 2026-08-17 (later session). The council verdict
-> must be READ and acted on if REVISE.
+> **⚠ PHASE 3 IS COMPLETE — code committed (`e1a7f1935`), council APPROVED
+> round 1 (`4cc887b9`), seed 459 APPLIED, and the FULL §3 acceptance PASSED in
+> production 2026-08-18 on v1.0.1308 (NOTES 2026-08-18 entry; register DGH-011
+> holds the evidence). Do NOT re-implement and do NOT re-run acceptance.**
+> One acceptance nuance for future phases: B2 refuses expired presigns with
+> 401 `UnauthorizedAccess` (+ expiry message), not AWS's 403. NEXT PHASE = 4
+> (handover + delivery email, `PLAN_2026-08-14` Phase 4 + the email-links list
+> in `PLAN_2026-08-17` decision 3); dispatch the ZIP via
+> `zip-deliverable-dispatch` with `{domain}` — recipes in 459's header.
 
 **Start here cold.** Read order: this file →
 `PLAN_2026-08-17_delivery_architecture_decisions.md` (the owner's decided

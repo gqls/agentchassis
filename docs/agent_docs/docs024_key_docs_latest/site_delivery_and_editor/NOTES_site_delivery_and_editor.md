@@ -509,3 +509,32 @@
   corr `c9ee1ca8-a7bc-4168-bb29-527fd3c5e49a`, input `{domain: noted.co.uk}`.
   Watcher armed; a missing row is latency (budget 30 min), and a FAILED
   spawn→call handshake is re-dispatched, never cancelled pre-diagnosis.
+- **ACCEPTANCE COMPLETE ~09:55Z — every check at the artefact, and PHASE 3 IS
+  DONE.** Cut 1 (corr `c9ee1ca8`, input `{domain}` ONLY — which live-proves
+  the `?`-marker fix, since the pre-fix mapping would have errored this exact
+  dispatch): COMPLETED first try, result
+  `{files: 8, zip_size_bytes: 18996, total_source_bytes: 60466, tree_hash:
+  th1:05a06351…}` — the tree hash EQUALS the canary's stored published_hash.
+  Verified independently of the action's self-checks: presigned GET → 200,
+  18,996 bytes (== result); `unzip -l` → **8 files, 60,466 bytes** (== the 8
+  B2 objects, == result); extracted `index.html` sha256 `b4416c32…` ==
+  served `noted.ugg2.com/index.html` fetched cache-busted in the same minute
+  == the origin value recorded in NOTES on 08-16 BEFORE any publish existed
+  (three independent sources). Cut 2 (corr `8e3ad6e7`, input
+  `{expiry_minutes: 1, size_alert_bytes: 1}` — both optional mappings
+  exercised RESOLVING this time): COMPLETED in ~48s, `size_alert=true` AND
+  `zipped=true` — the demand control: induced 1-byte threshold vs 60,466
+  source bytes alerted and still completed, never truncated. Same zip_key as
+  cut 1 (same tree ⇒ same key: overwrite-not-accumulate proven live).
+- **Expiry proven BOTH directions, with one provider nuance**: in-expiry =
+  200 (cut 1's 7-day URL, fetched twice). After expiry: **B2's S3 gateway
+  returns 401 `UnauthorizedAccess`, NOT AWS's 403** — body says `Request has
+  expired given timestamp: 20260818T095232Z and expiration: 60`, and the
+  7-day URL 200'd in the SAME BREATH (the control that separates a real
+  expiry refusal from a mangled URL). The PLAN's "403 after expiry" is
+  satisfied in substance; any future check that asserts the literal 403
+  against B2 will fail wrongly — assert "non-200 with the expiry message",
+  and DGH-011 now says so.
+- Nothing was written on any box: all verification via presigned HTTP + the
+  served site + local scratch. Spawned pods: 2 zip-deliverer pods total, one
+  per cut, on-demand only — no schedule exists (asserted by the seed verify).
