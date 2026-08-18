@@ -1,5 +1,14 @@
 # HANDOFF 2026-08-18 — the new commercial terms are LIVE and proven at the bot; the ONE open thread is placing the chat box on the home page — SUPERSEDES HANDOFF_2026-08-17
 
+> **⛔ SUPERSEDED 2026-08-18 afternoon by `HANDOFF_2026-08-18b_continue_here.md`.
+> START THERE.** Since this file was written: the refund ban was narrowed and
+> applied, the retired £1,200 offer was swept out of NINE specs, the briefing
+> questionnaire was reshaped for any site type, the prompt-maker (§4) was written
+> and committed, and the owner RULED that a better product beats a faster delivery
+> promise. This file's §2 and §4 are both closed; its §3 owner decisions survive and
+> are carried forward. **The one thing 18b leads with and this file cannot tell you:
+> `make release` does NOT carry the chat box binary.**
+
 > **⚠ §2's OPEN THREAD IS CLOSED (2026-08-18 ~10:37Z, recorded by the
 > site_delivery_and_editor session at the owner's direction — full record in
 > NOTES, two dated 2026-08-18 entries).** The chat box IS on the served index
